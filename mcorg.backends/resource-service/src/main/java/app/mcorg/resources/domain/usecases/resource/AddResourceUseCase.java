@@ -1,6 +1,7 @@
 package app.mcorg.resources.domain.usecases.resource;
 
 import app.mcorg.resources.domain.model.resource.Resource;
+import app.mcorg.resources.domain.model.resource.ResourcePack;
 import app.mcorg.resources.domain.usecases.UseCase;
 import lombok.RequiredArgsConstructor;
 
@@ -12,29 +13,34 @@ public class AddResourceUseCase extends UseCase<AddResourceUseCase.InputValues, 
 
     @Override
     public OutputValues execute(InputValues input) {
-        final String name = input.name;
-        final Resource.Type type = input.type;
-        final String version = input.version;
-        final String url = input.url;
+        final String resourcePackId = input.resourcePackId();
+        final String name = input.name();
+        final Resource.Type type = input.type();
+        final String url = input.url();
 
-        Resource resource = getResource(name, type);
-        resource.addVersionUrl(version, url);
+        ResourcePack resourcePack = getResource(resourcePackId);
 
-        return storeAndReturn(resource);
+        resourcePack.addResource(name, type, url);
+
+        return storeAndReturn(resourcePack);
     }
 
-    public Resource getResource(String name, Resource.Type type) {
+    public ResourcePack getResource(String name) {
         return getResourceUseCase.execute(new GetResourceUseCase.InputValues(name))
-                .resource()
-                .orElse(Resource.newInstance(name, type));
+                .resourcePack();
     }
 
-    public OutputValues storeAndReturn(Resource resource) {
-        Resource stored = storeResourceUseCase.execute(new StoreResourceUseCase.InputValues(resource)).resource();
+    public OutputValues storeAndReturn(ResourcePack resource) {
+        ResourcePack stored = storeResourceUseCase
+                .execute(new StoreResourceUseCase.InputValues(resource))
+                .resourcePack();
         return new OutputValues(stored);
     }
 
-    public record InputValues(String name, Resource.Type type, String version, String url) implements UseCase.InputValues {}
+    public record InputValues(String resourcePackId, String name, Resource.Type type,
+                              String url) implements UseCase.InputValues {
+    }
 
-    public record OutputValues(Resource mod) implements UseCase.OutputValues {}
+    public record OutputValues(ResourcePack mod) implements UseCase.OutputValues {
+    }
 }
