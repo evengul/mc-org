@@ -1,0 +1,10 @@
+{
+  "extends": [
+    "next/core-web-vitals",
+    "eslint-config-prettier",
+    "plugin:prettier/recommended"
+  ],
+  "rules": {
+    "@next/next/no-page-custom-font": 0
+  }
+}
