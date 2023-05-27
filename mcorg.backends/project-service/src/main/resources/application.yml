@@ -1,0 +1,33 @@
+springdoc:
+  swagger-ui:
+    disable-swagger-default-url: true
+    path: /
+  api-docs:
+    path: /api-docs
+management:
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: always
+  endpoints:
+    web:
+      exposure:
+        include: "*"
+  health:
+    readinessstate:
+      enabled: true
+    livenessstate:
+      enabled: true
+spring:
+  data:
+    mongodb:
+      uri: mongodb+srv://java_client:${MONGODB_PASSWORD}@mc-org-db.edc7h.mongodb.net/mc-org-db
+      database: mc-org-db
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: "847927117056-ggmi21d6p2omj0vi4c5t27i1983cfpf3.apps.googleusercontent.com"
+            client-secret: "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"
