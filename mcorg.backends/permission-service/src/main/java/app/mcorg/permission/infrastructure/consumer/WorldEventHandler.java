@@ -24,9 +24,9 @@ public class WorldEventHandler {
     private final MongoPermissionLevelRepository repository;
 
     @Bean
-    public Consumer<WorldCreated> handleTeamCreated(AddAuthorityUseCase authorityUseCase) {
+    public Consumer<WorldCreated> handleWorldCreated(AddAuthorityUseCase authorityUseCase) {
         return event -> {
-            PermissionLevel level = PermissionLevel.team(event.id(), event.id());
+            PermissionLevel level = PermissionLevel.world(event.id());
             repository.save(PermissionLevelMapper.toEntity(level));
             authorityUseCase.execute(
                     new AddAuthorityUseCase.InputValues(event.creator().username(), AuthorityLevel.WORLD, event.id(),
@@ -35,8 +35,8 @@ public class WorldEventHandler {
     }
 
     @Bean
-    public Consumer<WorldDeleted> handleTeamDeleted(UnitOfWork<UserPermissions> unitOfWork,
-                                                    MongoUserPermissionsRepository userRepository) {
+    public Consumer<WorldDeleted> handleWorldDeleted(UnitOfWork<UserPermissions> unitOfWork,
+                                                     MongoUserPermissionsRepository userRepository) {
         return event -> {
             repository.deleteById(event.id());
             userRepository.findAllByPermissions_LevelAndPermissions_Id(AuthorityLevel.WORLD, event.id())
