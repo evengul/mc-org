@@ -13,17 +13,17 @@ public class DeleteUserUseCase extends UseCase<DeleteUserUseCase.InputValues, De
 
     @Override
     public OutputValues execute(InputValues input) {
-        String permissionsId = get().getId();
+        String permissionsId = get(input.username).getId();
         unitOfWork.remove(permissionsId);
         return new OutputValues();
     }
 
-    private UserPermissions get() {
-        return useCase.execute(new GetUserPermissionsUseCase.InputValues())
+    private UserPermissions get(String username) {
+        return useCase.execute(new GetUserPermissionsUseCase.InputValues(username))
                       .permissions();
     }
 
-    public record InputValues() implements UseCase.InputValues {
+    public record InputValues(String username) implements UseCase.InputValues {
     }
 
     public record OutputValues() implements UseCase.OutputValues {
