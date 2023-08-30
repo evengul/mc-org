@@ -1,4 +1,4 @@
-package app.mcorg.project.domain.model.project;
+package app.mcorg.common.domain.model;
 
 public enum Priority {
     HIGH,

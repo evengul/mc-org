@@ -1,3 +1,4 @@
 package app.mcorg.common.event;
 
-public interface DomainEvent { }
+public interface DomainEvent {
+}
