@@ -13,4 +13,8 @@ public enum Authority {
     public boolean equalsOrHigher(Authority other) {
         return rank >= other.rank;
     }
+
+    public boolean equalsOrLower(Authority other) {
+        return rank <= other.rank;
+    }
 }
