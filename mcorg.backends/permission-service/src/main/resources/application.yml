@@ -30,3 +30,31 @@ spring:
         jwt:
           issuer-uri: https://kind-gull-82.clerk.accounts.dev
           jwk-set-uri: https://kind-gull-82.clerk.accounts.dev/.well-known/jwks.json
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: 5672
+    username: ${RABBITMQ_CLIENT_USERNAME:guest}
+    password: ${RABBITMQ_CLIENT_PASSWORD:guest}
+  cloud:
+    function:
+      definition: handleProjectCreated;handleProjectDeleted;handleTeamCreated;handleTeamDeleted;handleWorldCreated;handleWorldDeleted;
+    stream:
+      bindings:
+        handleProjectCreated-in-0:
+          destination: project-created-events
+          group: permission
+        handleProjectDeleted-in-0:
+          destination: project-deleted-events
+          group: permission
+        handleTeamCreated-in-0:
+          destination: team-created-events
+          group: permission
+        handleTeamDeleted-in-0:
+          destination: team-deleted-events
+          group: permission
+        handleWorldCreated-in-0:
+          destination: world-created-events
+          group: permission
+        handleWorldDeleted-in-0:
+          destination: world-deleted-events
+          group: permission
