@@ -3,7 +3,10 @@ package app.mcorg.permission.presentation.configuration.usecase;
 import app.mcorg.common.domain.UnitOfWork;
 import app.mcorg.permission.domain.api.Permissions;
 import app.mcorg.permission.domain.model.permission.UserPermissions;
-import app.mcorg.permission.domain.usecase.permission.*;
+import app.mcorg.permission.domain.usecase.permission.AddAuthorityUseCase;
+import app.mcorg.permission.domain.usecase.permission.ChangeAuthorityUseCase;
+import app.mcorg.permission.domain.usecase.permission.GetUserPermissionsUseCase;
+import app.mcorg.permission.domain.usecase.permission.RemoveAuthorityUseCase;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -32,11 +35,5 @@ public class UseCaseConfiguration {
                                                          UnitOfWork<UserPermissions> unit) {
         return new RemoveAuthorityUseCase(useCase, unit);
     }
-
-    @Bean
-    public DeleteUserUseCase deleteUserUseCase(GetUserPermissionsUseCase useCase, UnitOfWork<UserPermissions> unit) {
-        return new DeleteUserUseCase(useCase, unit);
-    }
-
 
 }

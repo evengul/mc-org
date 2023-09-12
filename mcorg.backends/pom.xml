@@ -1,20 +1,22 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd;">
-  <modelVersion>4.0.0</modelVersion>
+    <modelVersion>4.0.0</modelVersion>
 
-  <groupId>app.mcorg</groupId>
-  <artifactId>mcorg-parent</artifactId>
-  <version>0.0.1-SNAPSHOT</version>
-  <packaging>pom</packaging>
+    <groupId>app.mcorg</groupId>
+    <artifactId>mcorg-parent</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
+    <packaging>pom</packaging>
 
-  <properties>
-    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-  </properties>
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    </properties>
 
-  <modules>
-      <module>server-service</module>
-      <module>project-service</module>
-      <module>resource-service</module>
-  </modules>
+    <modules>
+        <module>common</module>
+        <module>server-service</module>
+        <module>project-service</module>
+        <module>resource-service</module>
+        <module>permission-service</module>
+    </modules>
 </project>
