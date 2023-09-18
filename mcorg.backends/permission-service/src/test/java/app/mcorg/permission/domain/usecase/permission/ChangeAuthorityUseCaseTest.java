@@ -2,11 +2,11 @@ package app.mcorg.permission.domain.usecase.permission;
 
 import app.mcorg.common.domain.model.Authority;
 import app.mcorg.common.domain.model.AuthorityLevel;
+import app.mcorg.permission.MongoContainerTest;
 import app.mcorg.permission.PermissionService;
 import app.mcorg.permission.domain.api.Permissions;
 import app.mcorg.permission.domain.model.permission.PermissionLevel;
 import app.mcorg.permission.domain.model.permission.UserPermissions;
-import app.mcorg.permission.infrastructure.MongoContainerTest;
 import org.bson.types.ObjectId;
 import org.junit.Test;
 import org.junit.runner.RunWith;

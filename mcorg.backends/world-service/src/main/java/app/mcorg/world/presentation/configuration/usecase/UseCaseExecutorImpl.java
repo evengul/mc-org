@@ -1,7 +1,7 @@
 package app.mcorg.world.presentation.configuration.usecase;
 
-import app.mcorg.world.domain.usecase.UseCase;
-import app.mcorg.world.domain.usecase.UseCaseExecutor;
+import app.mcorg.common.domain.usecase.UseCase;
+import app.mcorg.common.domain.usecase.UseCaseExecutor;
 import lombok.RequiredArgsConstructor;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Service;
