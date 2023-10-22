@@ -1,4 +1,4 @@
-package app.mcorg.permission.domain.api;
+package app.mcorg.common.domain.api;
 
 import app.mcorg.common.domain.model.SlimUser;
 

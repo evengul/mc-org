@@ -1,4 +1,4 @@
-package app.mcorg.permission.infrastructure;
+package app.mcorg.world;
 
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;

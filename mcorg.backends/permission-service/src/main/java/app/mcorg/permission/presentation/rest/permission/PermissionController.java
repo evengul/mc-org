@@ -1,6 +1,6 @@
 package app.mcorg.permission.presentation.rest.permission;
 
-import app.mcorg.permission.domain.api.UserProvider;
+import app.mcorg.common.domain.api.UserProvider;
 import app.mcorg.permission.domain.usecase.UseCaseExecutor;
 import app.mcorg.permission.domain.usecase.permission.AddAuthorityUseCase;
 import app.mcorg.permission.domain.usecase.permission.ChangeAuthorityUseCase;
@@ -41,21 +41,21 @@ public class PermissionController implements PermissionResource {
     @Override
     public CompletableFuture<ResponseEntity<Void>> removePermission(String username, RemovePermissionRequest request) {
         return executor.execute(removeAuthorityUseCase,
-                                RemovePermissionMapper.mapIn(username, request),
-                                outputValues -> ResponseEntity.ok(null));
+                RemovePermissionMapper.mapIn(username, request),
+                outputValues -> ResponseEntity.ok(null));
     }
 
     @Override
     public CompletableFuture<ResponseEntity<Void>> changeAuthority(String username, ChangeAuthorityRequest request) {
         return executor.execute(changeAuthorityUseCase,
-                                ChangeAuthorityMapper.mapIn(username, request),
-                                outputValues -> ResponseEntity.ok(null));
+                ChangeAuthorityMapper.mapIn(username, request),
+                outputValues -> ResponseEntity.ok(null));
     }
 
     @Override
     public CompletableFuture<ResponseEntity<UserPermissionsResponse>> getUserPermissions() {
         return executor.execute(getUserPermissionsUseCase,
-                                new GetUserPermissionsUseCase.InputValues(userProvider.get().username()),
-                                GetPermissionsMapper::mapOut);
+                new GetUserPermissionsUseCase.InputValues(userProvider.get().username()),
+                GetPermissionsMapper::mapOut);
     }
 }

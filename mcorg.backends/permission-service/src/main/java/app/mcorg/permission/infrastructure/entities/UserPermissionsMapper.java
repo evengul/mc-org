@@ -17,13 +17,14 @@ public class UserPermissionsMapper {
         return new UserPermissionsEntity(
                 permissions.getId(),
                 permissions.getUsername(),
+                permissions.getName(),
                 permissions.getPermissions()
-                           .entrySet()
-                           .stream()
-                           .flatMap(entry -> entry.getValue().stream()
-                                                  .map(value -> new PermissionEntity(entry.getKey(), value.id(),
-                                                                                     value.authority())))
-                           .collect(Collectors.toList())
+                        .entrySet()
+                        .stream()
+                        .flatMap(entry -> entry.getValue().stream()
+                                .map(value -> new PermissionEntity(entry.getKey(), value.id(),
+                                        value.authority())))
+                        .collect(Collectors.toList())
         );
     }
 
@@ -33,11 +34,12 @@ public class UserPermissionsMapper {
             permissionsMap.put(value, new ArrayList<>());
         }
         permissions.getPermissions()
-                   .forEach(permission -> permissionsMap.get(permission.level())
-                                                        .add(new Permission(permission.id(), permission.authority())));
+                .forEach(permission -> permissionsMap.get(permission.level())
+                        .add(new Permission(permission.id(), permission.authority())));
         return new UserPermissions(
                 permissions.getId(),
                 permissions.getUsername(),
+                permissions.getName(),
                 permissionsMap
         );
     }

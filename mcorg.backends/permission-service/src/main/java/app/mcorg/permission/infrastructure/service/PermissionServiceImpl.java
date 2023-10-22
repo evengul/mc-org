@@ -1,9 +1,9 @@
 package app.mcorg.permission.infrastructure.service;
 
+import app.mcorg.common.domain.api.UserProvider;
 import app.mcorg.common.domain.model.Authority;
 import app.mcorg.common.domain.model.AuthorityLevel;
 import app.mcorg.permission.domain.api.PermissionService;
-import app.mcorg.permission.domain.api.UserProvider;
 import app.mcorg.permission.domain.model.permission.UserPermissions;
 import app.mcorg.permission.domain.usecase.permission.GetUserPermissionsUseCase;
 import app.mcorg.permission.infrastructure.entities.PermissionLevelMapper;
@@ -21,15 +21,15 @@ public class PermissionServiceImpl implements PermissionService {
     @Override
     public boolean hasAuthority(AuthorityLevel level, String id, Authority authority) {
         return levelRepository.findById(id)
-                              .filter(foundLevel -> foundLevel.getLevel().equals(level))
-                              .map(PermissionLevelMapper::toDomain)
-                              .map(foundLevel -> getPermissions().hasAuthority(foundLevel, id, authority))
-                              .orElse(false);
+                .filter(foundLevel -> foundLevel.getLevel().equals(level))
+                .map(PermissionLevelMapper::toDomain)
+                .map(foundLevel -> getPermissions().hasAuthority(foundLevel, id, authority))
+                .orElse(false);
     }
 
     private UserPermissions getPermissions() {
         return useCase.execute(new GetUserPermissionsUseCase.InputValues(userProvider.get().username()))
-                      .permissions();
+                .permissions();
     }
 
 }

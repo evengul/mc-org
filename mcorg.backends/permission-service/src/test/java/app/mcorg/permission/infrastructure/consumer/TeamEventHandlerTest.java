@@ -5,11 +5,11 @@ import app.mcorg.common.domain.model.AuthorityLevel;
 import app.mcorg.common.domain.model.SlimUser;
 import app.mcorg.common.event.team.TeamCreated;
 import app.mcorg.common.event.team.TeamDeleted;
+import app.mcorg.permission.MongoContainerTest;
 import app.mcorg.permission.PermissionService;
 import app.mcorg.permission.domain.api.Permissions;
 import app.mcorg.permission.domain.model.permission.PermissionLevel;
 import app.mcorg.permission.domain.model.permission.UserPermissions;
-import app.mcorg.permission.infrastructure.MongoContainerTest;
 import app.mcorg.permission.infrastructure.entities.PermissionLevelEntity;
 import app.mcorg.permission.infrastructure.entities.PermissionLevelMapper;
 import app.mcorg.permission.infrastructure.repository.MongoPermissionLevelRepository;
@@ -74,7 +74,7 @@ public class TeamEventHandlerTest extends MongoContainerTest {
     public void handleDeleteTeam() {
         // Given
         TeamCreated initEvent = new TeamCreated(ObjectId.get().toHexString(), ObjectId.get().toHexString(), "TeamName", new SlimUser(username, "Even"));
-        TeamDeleted event = new TeamDeleted(initEvent.id());
+        TeamDeleted event = new TeamDeleted(initEvent.id(), initEvent.worldId());
 
         // When
         handleTeamCreated.accept(initEvent);

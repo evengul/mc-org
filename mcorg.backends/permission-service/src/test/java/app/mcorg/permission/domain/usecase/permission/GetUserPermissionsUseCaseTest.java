@@ -1,8 +1,8 @@
 package app.mcorg.permission.domain.usecase.permission;
 
+import app.mcorg.permission.MongoContainerTest;
 import app.mcorg.permission.PermissionService;
 import app.mcorg.permission.domain.model.permission.UserPermissions;
-import app.mcorg.permission.infrastructure.MongoContainerTest;
 import app.mcorg.permission.infrastructure.entities.UserPermissionsMapper;
 import app.mcorg.permission.infrastructure.repository.MongoUserPermissionsRepository;
 import org.junit.Test;
