@@ -1,4 +1,4 @@
-package app.mcorg.world.infrastructure;
+package app.mcorg.world.infrastructure.consumer;
 
 import app.mcorg.common.domain.UnitOfWork;
 import app.mcorg.common.domain.model.Authority;
