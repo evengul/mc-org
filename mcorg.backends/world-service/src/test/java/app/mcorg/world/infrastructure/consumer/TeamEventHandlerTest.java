@@ -1,7 +1,6 @@
 package app.mcorg.world.infrastructure.consumer;
 
 import app.mcorg.common.domain.UnitOfWork;
-import app.mcorg.common.domain.model.SlimUser;
 import app.mcorg.common.event.team.TeamCreated;
 import app.mcorg.common.event.team.TeamDeleted;
 import app.mcorg.common.event.team.TeamNameChanged;
@@ -45,7 +44,7 @@ public class TeamEventHandlerTest extends MongoContainerTest {
     public void handleCreateTeam() {
         // Given
         String worldId = createWorld();
-        TeamCreated event = new TeamCreated(ObjectId.get().toHexString(), worldId, "TeamName", new SlimUser("EVEGUL", "Even"));
+        TeamCreated event = new TeamCreated(ObjectId.get().toHexString(), worldId, "TeamName", "EVEGUL");
 
         // When
         handleTeamCreated.accept(event);
@@ -100,7 +99,7 @@ public class TeamEventHandlerTest extends MongoContainerTest {
         return unitOfWork.add(new World(
                 ObjectId.get().toHexString(),
                 "WorldName",
-                List.of(new SlimUser("EVEGUL", "Even")),
+                List.of("EVEGUL"),
                 teams
         )).getId();
     }

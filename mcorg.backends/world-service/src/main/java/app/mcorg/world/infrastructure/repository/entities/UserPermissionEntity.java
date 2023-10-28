@@ -19,6 +19,5 @@ public class UserPermissionEntity {
     @Id
     String id;
     String username;
-    String name;
     List<Permission> worldAuthorities;
 }

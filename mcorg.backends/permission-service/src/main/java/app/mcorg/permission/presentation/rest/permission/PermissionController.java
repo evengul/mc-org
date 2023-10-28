@@ -1,6 +1,6 @@
 package app.mcorg.permission.presentation.rest.permission;
 
-import app.mcorg.common.domain.api.UserProvider;
+import app.mcorg.common.domain.api.UsernameProvider;
 import app.mcorg.permission.domain.usecase.UseCaseExecutor;
 import app.mcorg.permission.domain.usecase.permission.AddAuthorityUseCase;
 import app.mcorg.permission.domain.usecase.permission.ChangeAuthorityUseCase;
@@ -24,7 +24,7 @@ import java.util.concurrent.CompletableFuture;
 @RequiredArgsConstructor
 public class PermissionController implements PermissionResource {
     private final UseCaseExecutor executor;
-    private final UserProvider userProvider;
+    private final UsernameProvider usernameProvider;
     private final AddAuthorityUseCase addAuthorityUseCase;
     private final RemoveAuthorityUseCase removeAuthorityUseCase;
     private final ChangeAuthorityUseCase changeAuthorityUseCase;
@@ -55,7 +55,7 @@ public class PermissionController implements PermissionResource {
     @Override
     public CompletableFuture<ResponseEntity<UserPermissionsResponse>> getUserPermissions() {
         return executor.execute(getUserPermissionsUseCase,
-                new GetUserPermissionsUseCase.InputValues(userProvider.get().username()),
+                new GetUserPermissionsUseCase.InputValues(usernameProvider.get()),
                 GetPermissionsMapper::mapOut);
     }
 }

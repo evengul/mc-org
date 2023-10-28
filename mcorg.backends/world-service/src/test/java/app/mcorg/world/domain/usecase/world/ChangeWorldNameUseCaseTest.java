@@ -1,7 +1,6 @@
 package app.mcorg.world.domain.usecase.world;
 
 import app.mcorg.common.domain.UnitOfWork;
-import app.mcorg.common.domain.model.SlimUser;
 import app.mcorg.world.domain.model.world.World;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -28,7 +27,7 @@ public class ChangeWorldNameUseCaseTest {
     @Test
     public void changeName() {
         // Given
-        World old = World.create("OLD_NAME", new SlimUser("EVEGUL", "EVEGUL"));
+        World old = World.create("OLD_NAME", "EVEGUL");
 
         doReturn(new GetWorldUseCase.OutputValues(old))
                 .when(getWorldUseCase)

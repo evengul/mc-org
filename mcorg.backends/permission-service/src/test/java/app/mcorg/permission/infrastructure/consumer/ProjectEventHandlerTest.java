@@ -2,7 +2,6 @@ package app.mcorg.permission.infrastructure.consumer;
 
 import app.mcorg.common.domain.model.Authority;
 import app.mcorg.common.domain.model.AuthorityLevel;
-import app.mcorg.common.domain.model.SlimUser;
 import app.mcorg.common.event.project.ProjectCreated;
 import app.mcorg.common.event.project.ProjectDeleted;
 import app.mcorg.permission.MongoContainerTest;
@@ -45,7 +44,7 @@ public class ProjectEventHandlerTest extends MongoContainerTest {
     @Test
     public void handleCreateProject() {
         // Given
-        ProjectCreated event = new ProjectCreated(ObjectId.get().toHexString(), ObjectId.get().toHexString(), ObjectId.get().toHexString(), "ProjectName", new SlimUser(username, "Even"));
+        ProjectCreated event = new ProjectCreated(ObjectId.get().toHexString(), ObjectId.get().toHexString(), ObjectId.get().toHexString(), "ProjectName", username);
 
         // When
         handleProjectCreated.accept(event);
@@ -77,7 +76,7 @@ public class ProjectEventHandlerTest extends MongoContainerTest {
     @Test
     public void handleDeleteProject() {
         // Given
-        ProjectCreated initEvent = new ProjectCreated(ObjectId.get().toHexString(), ObjectId.get().toHexString(), ObjectId.get().toHexString(), "ProjectName", new SlimUser(username, "Even"));
+        ProjectCreated initEvent = new ProjectCreated(ObjectId.get().toHexString(), ObjectId.get().toHexString(), ObjectId.get().toHexString(), "ProjectName", username);
         ProjectDeleted event = new ProjectDeleted(initEvent.id());
 
         // When

@@ -1,6 +1,6 @@
 package app.mcorg.permission.infrastructure.service;
 
-import app.mcorg.common.domain.api.UserProvider;
+import app.mcorg.common.domain.api.UsernameProvider;
 import app.mcorg.common.domain.model.Authority;
 import app.mcorg.common.domain.model.AuthorityLevel;
 import app.mcorg.permission.domain.api.PermissionService;
@@ -14,7 +14,7 @@ import org.springframework.stereotype.Service;
 @Service
 @RequiredArgsConstructor
 public class PermissionServiceImpl implements PermissionService {
-    private final UserProvider userProvider;
+    private final UsernameProvider usernameProvider;
     private final GetUserPermissionsUseCase useCase;
     private final MongoPermissionLevelRepository levelRepository;
 
@@ -28,7 +28,7 @@ public class PermissionServiceImpl implements PermissionService {
     }
 
     private UserPermissions getPermissions() {
-        return useCase.execute(new GetUserPermissionsUseCase.InputValues(userProvider.get().username()))
+        return useCase.execute(new GetUserPermissionsUseCase.InputValues(usernameProvider.get()))
                 .permissions();
     }
 

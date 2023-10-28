@@ -31,10 +31,10 @@ public class PermissionEventHandler {
         return event -> {
             if (!event.level().equals(AuthorityLevel.WORLD)) return;
 
-            editPermissions(event.username(), event.name(), event.authorizedId(),
+            editPermissions(event.username(), event.authorizedId(),
                     (user, world) -> {
                         user.addWorldAuthority(event.authorizedId(), event.authority());
-                        world.addUser(user.toSlim());
+                        world.addUser(user.username());
                     });
         };
     }
@@ -44,7 +44,7 @@ public class PermissionEventHandler {
         return event -> {
             if (!event.level().equals(AuthorityLevel.WORLD)) return;
 
-            editPermissions(event.username(), event.name(), event.authorizedId(),
+            editPermissions(event.username(), event.authorizedId(),
                     (user, world) -> {
                         user.changeWorldAuthority(event.authorizedId(), event.authority());
                         world.removeUser(user.username());
@@ -57,7 +57,7 @@ public class PermissionEventHandler {
         return event -> {
             if (!event.level().equals(AuthorityLevel.WORLD)) return;
 
-            editPermissions(event.username(), event.name(), event.authorizedId(), (user, world) -> {
+            editPermissions(event.username(), event.authorizedId(), (user, world) -> {
                 user.removeWorldAuthority(event.authorizedId());
                 world.removeUser(user.username());
             });
@@ -76,10 +76,10 @@ public class PermissionEventHandler {
         };
     }
 
-    private void editPermissions(String username, String name, String worldId, BiConsumer<UserPermissions, World> edit) {
+    private void editPermissions(String username, String worldId, BiConsumer<UserPermissions, World> edit) {
         World world = getWorldUseCase.execute(new GetWorldUseCase.InputValues(worldId)).world();
         UserPermissions userPermissions = permissions.get(username)
-                .orElse(UserPermissions.create(username, name));
+                .orElse(UserPermissions.create(username));
 
         edit.accept(userPermissions, world);
         unitOfWork.add(world);
