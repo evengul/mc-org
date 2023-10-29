@@ -12,11 +12,9 @@ import app.mcorg.world.WorldService;
 import app.mcorg.world.domain.api.Permissions;
 import app.mcorg.world.domain.model.permission.UserPermissions;
 import app.mcorg.world.domain.model.world.World;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.junit4.SpringRunner;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.util.Optional;
@@ -25,7 +23,6 @@ import java.util.function.Consumer;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @Testcontainers
-@RunWith(SpringRunner.class)
 @SpringBootTest(classes = WorldService.class)
 public class PermissionEventHandlerTest extends MongoContainerTest {
     @Autowired

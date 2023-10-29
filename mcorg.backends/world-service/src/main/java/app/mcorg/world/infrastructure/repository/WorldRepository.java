@@ -23,7 +23,7 @@ public class WorldRepository implements Worlds {
 
     @Override
     public List<World> getWorldsWithUser(String username) {
-        return repository.findAllByUsers_UsernameEqualsIgnoreCase(username)
+        return repository.findAllByUsersContainingIgnoreCase(username)
                 .stream()
                 .map(WorldMapper::toDomain)
                 .toList();

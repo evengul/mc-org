@@ -13,7 +13,7 @@ import app.mcorg.permission.infrastructure.entities.PermissionLevelEntity;
 import app.mcorg.permission.infrastructure.entities.PermissionLevelMapper;
 import app.mcorg.permission.infrastructure.repository.MongoPermissionLevelRepository;
 import org.bson.types.ObjectId;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;

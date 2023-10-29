@@ -6,6 +6,8 @@ import app.mcorg.permission.domain.model.permission.UserPermissions;
 import app.mcorg.permission.domain.usecase.UseCase;
 import lombok.RequiredArgsConstructor;
 
+import java.util.function.Supplier;
+
 @RequiredArgsConstructor
 public class GetUserPermissionsUseCase
         extends UseCase<GetUserPermissionsUseCase.InputValues, GetUserPermissionsUseCase.OutputValues> {
@@ -16,9 +18,12 @@ public class GetUserPermissionsUseCase
     @Override
     public OutputValues execute(InputValues input) {
         UserPermissions userPermissions = permissions.get(input.username)
-                                                     .orElseGet(() -> unitOfWork.add(
-                                                             UserPermissions.create(input.username)));
+                .orElseGet(create(input.username));
         return new OutputValues(userPermissions);
+    }
+
+    private Supplier<UserPermissions> create(String username) {
+        return () -> unitOfWork.add(UserPermissions.create(username));
     }
 
     public record InputValues(String username) implements UseCase.InputValues {

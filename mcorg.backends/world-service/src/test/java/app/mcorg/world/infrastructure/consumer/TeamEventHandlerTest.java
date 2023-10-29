@@ -10,11 +10,9 @@ import app.mcorg.world.domain.api.Worlds;
 import app.mcorg.world.domain.model.team.SlimTeam;
 import app.mcorg.world.domain.model.world.World;
 import org.bson.types.ObjectId;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.junit4.SpringRunner;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.util.Collections;
@@ -24,7 +22,6 @@ import java.util.function.Consumer;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @Testcontainers
-@RunWith(SpringRunner.class)
 @SpringBootTest(classes = WorldService.class)
 public class TeamEventHandlerTest extends MongoContainerTest {
 

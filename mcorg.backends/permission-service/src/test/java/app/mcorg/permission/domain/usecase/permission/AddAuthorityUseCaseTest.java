@@ -8,17 +8,14 @@ import app.mcorg.permission.domain.api.Permissions;
 import app.mcorg.permission.domain.model.permission.PermissionLevel;
 import app.mcorg.permission.domain.model.permission.UserPermissions;
 import org.bson.types.ObjectId;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.junit4.SpringRunner;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 @Testcontainers
-@RunWith(SpringRunner.class)
 @SpringBootTest(classes = PermissionService.class)
 public class AddAuthorityUseCaseTest extends MongoContainerTest {
 
