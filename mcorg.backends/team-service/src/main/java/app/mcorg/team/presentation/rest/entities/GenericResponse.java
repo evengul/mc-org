@@ -1,4 +1,4 @@
-package app.mcorg.permission.presentation.rest.entities;
+package app.mcorg.team.presentation.rest.entities;
 
 import org.springframework.http.ResponseEntity;
 
