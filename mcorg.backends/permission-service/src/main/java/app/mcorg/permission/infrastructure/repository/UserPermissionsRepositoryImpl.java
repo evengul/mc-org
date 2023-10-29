@@ -15,7 +15,7 @@ public class UserPermissionsRepositoryImpl implements Permissions {
 
     @Override
     public Optional<UserPermissions> get(String username) {
-        return repository.findByUsernameIgnoreCase(username)
-                         .map(UserPermissionsMapper::toDomain);
+        return repository.findFirstByUsernameIgnoreCase(username)
+                .map(UserPermissionsMapper::toDomain);
     }
 }

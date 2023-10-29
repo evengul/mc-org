@@ -2,7 +2,6 @@ package app.mcorg.permission.infrastructure.consumer;
 
 import app.mcorg.common.domain.model.Authority;
 import app.mcorg.common.domain.model.AuthorityLevel;
-import app.mcorg.common.domain.model.SlimUser;
 import app.mcorg.common.event.world.WorldCreated;
 import app.mcorg.common.event.world.WorldDeleted;
 import app.mcorg.permission.MongoContainerTest;
@@ -14,7 +13,7 @@ import app.mcorg.permission.infrastructure.entities.PermissionLevelEntity;
 import app.mcorg.permission.infrastructure.entities.PermissionLevelMapper;
 import app.mcorg.permission.infrastructure.repository.MongoPermissionLevelRepository;
 import org.bson.types.ObjectId;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -44,7 +43,7 @@ public class WorldEventHandlerTest extends MongoContainerTest {
     @Test
     public void handleCreateProject() {
         // Given
-        WorldCreated event = new WorldCreated(ObjectId.get().toHexString(), "WorldName", new SlimUser(username, "Even"));
+        WorldCreated event = new WorldCreated(ObjectId.get().toHexString(), "WorldName", username);
 
         // When
         handleWorldCreated.accept(event);
@@ -66,7 +65,7 @@ public class WorldEventHandlerTest extends MongoContainerTest {
     @Test
     public void handleDeleteProject() {
         // Given
-        WorldCreated initEvent = new WorldCreated(ObjectId.get().toHexString(), "WorldName", new SlimUser(username, "Even"));
+        WorldCreated initEvent = new WorldCreated(ObjectId.get().toHexString(), "WorldName", username);
         WorldDeleted event = new WorldDeleted(initEvent.id());
 
         // When

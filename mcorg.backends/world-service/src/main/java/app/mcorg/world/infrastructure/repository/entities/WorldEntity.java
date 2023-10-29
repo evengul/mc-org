@@ -1,6 +1,5 @@
 package app.mcorg.world.infrastructure.repository.entities;
 
-import app.mcorg.common.domain.model.SlimUser;
 import app.mcorg.world.domain.model.team.SlimTeam;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -20,6 +19,6 @@ public class WorldEntity {
     @Id
     private String id;
     private String name;
-    private List<SlimUser> users;
+    private List<String> users;
     private List<SlimTeam> teams;
 }

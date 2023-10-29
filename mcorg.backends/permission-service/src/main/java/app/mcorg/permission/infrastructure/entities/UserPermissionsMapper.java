@@ -17,7 +17,6 @@ public class UserPermissionsMapper {
         return new UserPermissionsEntity(
                 permissions.getId(),
                 permissions.getUsername(),
-                permissions.getName(),
                 permissions.getPermissions()
                         .entrySet()
                         .stream()
@@ -39,7 +38,6 @@ public class UserPermissionsMapper {
         return new UserPermissions(
                 permissions.getId(),
                 permissions.getUsername(),
-                permissions.getName(),
                 permissionsMap
         );
     }

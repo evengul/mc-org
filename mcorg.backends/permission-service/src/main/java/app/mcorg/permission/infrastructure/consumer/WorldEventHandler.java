@@ -29,8 +29,8 @@ public class WorldEventHandler {
             PermissionLevel level = PermissionLevel.world(event.id());
             repository.save(PermissionLevelMapper.toEntity(level));
             authorityUseCase.execute(
-                    new AddAuthorityUseCase.InputValues(event.creator().username(), AuthorityLevel.WORLD, event.id(),
-                                                        Authority.OWNER));
+                    new AddAuthorityUseCase.InputValues(event.creator(), AuthorityLevel.WORLD, event.id(),
+                            Authority.OWNER));
         };
     }
 
@@ -40,12 +40,12 @@ public class WorldEventHandler {
         return event -> {
             repository.deleteById(event.id());
             userRepository.findAllByPermissions_LevelAndPermissions_Id(AuthorityLevel.WORLD, event.id())
-                          .stream()
-                          .map(UserPermissionsMapper::toDomain)
-                          .forEach(permissions -> {
-                              permissions.removeAuthority(AuthorityLevel.WORLD, event.id());
-                              unitOfWork.add(permissions);
-                          });
+                    .stream()
+                    .map(UserPermissionsMapper::toDomain)
+                    .forEach(permissions -> {
+                        permissions.removeAuthority(AuthorityLevel.WORLD, event.id());
+                        unitOfWork.add(permissions);
+                    });
         };
     }
 }

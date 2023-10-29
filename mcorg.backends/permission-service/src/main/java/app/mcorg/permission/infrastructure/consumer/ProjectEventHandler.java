@@ -29,8 +29,8 @@ public class ProjectEventHandler {
             PermissionLevel level = PermissionLevel.project(event.id(), event.teamId(), event.worldId());
             repository.save(PermissionLevelMapper.toEntity(level));
             useCase.execute(
-                    new AddAuthorityUseCase.InputValues(event.creator().username(), AuthorityLevel.PROJECT, event.id(),
-                                                        Authority.OWNER));
+                    new AddAuthorityUseCase.InputValues(event.creator(), AuthorityLevel.PROJECT, event.id(),
+                            Authority.OWNER));
         };
     }
 
@@ -40,12 +40,12 @@ public class ProjectEventHandler {
         return event -> {
             repository.deleteById(event.id());
             userRepository.findAllByPermissions_LevelAndPermissions_Id(AuthorityLevel.PROJECT, event.id())
-                          .stream()
-                          .map(UserPermissionsMapper::toDomain)
-                          .forEach(permission -> {
-                              permission.removeAuthority(AuthorityLevel.PROJECT, event.id());
-                              unitOfWork.add(permission);
-                          });
+                    .stream()
+                    .map(UserPermissionsMapper::toDomain)
+                    .forEach(permission -> {
+                        permission.removeAuthority(AuthorityLevel.PROJECT, event.id());
+                        unitOfWork.add(permission);
+                    });
         };
     }
 }

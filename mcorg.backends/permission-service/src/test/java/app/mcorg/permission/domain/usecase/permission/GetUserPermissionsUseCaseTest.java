@@ -5,7 +5,7 @@ import app.mcorg.permission.PermissionService;
 import app.mcorg.permission.domain.model.permission.UserPermissions;
 import app.mcorg.permission.infrastructure.entities.UserPermissionsMapper;
 import app.mcorg.permission.infrastructure.repository.MongoUserPermissionsRepository;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;

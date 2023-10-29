@@ -1,8 +1,7 @@
 package app.mcorg.world.domain.usecase.world;
 
 import app.mcorg.common.domain.UnitOfWork;
-import app.mcorg.common.domain.api.UserProvider;
-import app.mcorg.common.domain.model.SlimUser;
+import app.mcorg.common.domain.api.UsernameProvider;
 import app.mcorg.world.domain.model.world.World;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -18,7 +17,7 @@ import static org.mockito.Mockito.doReturn;
 @ExtendWith(MockitoExtension.class)
 public class CreateWorldUseCaseTest {
     @Mock
-    private UserProvider userProvider;
+    private UsernameProvider usernameProvider;
     @Mock
     private UnitOfWork<World> unitOfWork;
 
@@ -31,8 +30,8 @@ public class CreateWorldUseCaseTest {
         // Given
         var input = new CreateWorldUseCase.InputValues("NAME");
 
-        doReturn(new SlimUser("EVEGUL", "EVEGUL"))
-                .when(userProvider)
+        doReturn("EVEGUL")
+                .when(usernameProvider)
                 .get();
 
         doAnswer(inv -> inv.getArguments()[0])
@@ -45,6 +44,6 @@ public class CreateWorldUseCaseTest {
         // Then
         assertThat(created.getName()).isEqualTo("NAME");
         assertThat(created.getUsers()).singleElement().isNotNull();
-        assertThat(created.getUsers().get(0).username()).isEqualTo("EVEGUL");
+        assertThat(created.getUsers().get(0)).isEqualTo("EVEGUL");
     }
 }

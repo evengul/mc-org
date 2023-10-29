@@ -1,7 +1,6 @@
 package app.mcorg.world.infrastructure.consumer;
 
 import app.mcorg.common.domain.UnitOfWork;
-import app.mcorg.common.domain.model.SlimUser;
 import app.mcorg.common.event.team.TeamCreated;
 import app.mcorg.common.event.team.TeamDeleted;
 import app.mcorg.common.event.team.TeamNameChanged;
@@ -11,11 +10,9 @@ import app.mcorg.world.domain.api.Worlds;
 import app.mcorg.world.domain.model.team.SlimTeam;
 import app.mcorg.world.domain.model.world.World;
 import org.bson.types.ObjectId;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.junit4.SpringRunner;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.util.Collections;
@@ -25,7 +22,6 @@ import java.util.function.Consumer;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @Testcontainers
-@RunWith(SpringRunner.class)
 @SpringBootTest(classes = WorldService.class)
 public class TeamEventHandlerTest extends MongoContainerTest {
 
@@ -45,7 +41,7 @@ public class TeamEventHandlerTest extends MongoContainerTest {
     public void handleCreateTeam() {
         // Given
         String worldId = createWorld();
-        TeamCreated event = new TeamCreated(ObjectId.get().toHexString(), worldId, "TeamName", new SlimUser("EVEGUL", "Even"));
+        TeamCreated event = new TeamCreated(ObjectId.get().toHexString(), worldId, "TeamName", "EVEGUL");
 
         // When
         handleTeamCreated.accept(event);
@@ -100,7 +96,7 @@ public class TeamEventHandlerTest extends MongoContainerTest {
         return unitOfWork.add(new World(
                 ObjectId.get().toHexString(),
                 "WorldName",
-                List.of(new SlimUser("EVEGUL", "Even")),
+                List.of("EVEGUL"),
                 teams
         )).getId();
     }

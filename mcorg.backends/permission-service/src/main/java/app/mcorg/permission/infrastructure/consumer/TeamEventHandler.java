@@ -29,7 +29,7 @@ public class TeamEventHandler {
             PermissionLevel level = PermissionLevel.team(event.id(), event.worldId());
             repository.save(PermissionLevelMapper.toEntity(level));
             authorityUseCase.execute(
-                    new AddAuthorityUseCase.InputValues(event.creator().username(), AuthorityLevel.TEAM, event.id(),
+                    new AddAuthorityUseCase.InputValues(event.creator(), AuthorityLevel.TEAM, event.id(),
                             Authority.OWNER));
         };
     }

@@ -18,6 +18,5 @@ public class UserPermissionsEntity {
     @Id
     private String id;
     private String username;
-    private String name;
     private List<PermissionEntity> permissions;
 }

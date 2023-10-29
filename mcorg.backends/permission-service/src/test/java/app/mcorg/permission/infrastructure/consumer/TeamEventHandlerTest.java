@@ -2,7 +2,6 @@ package app.mcorg.permission.infrastructure.consumer;
 
 import app.mcorg.common.domain.model.Authority;
 import app.mcorg.common.domain.model.AuthorityLevel;
-import app.mcorg.common.domain.model.SlimUser;
 import app.mcorg.common.event.team.TeamCreated;
 import app.mcorg.common.event.team.TeamDeleted;
 import app.mcorg.permission.MongoContainerTest;
@@ -14,7 +13,7 @@ import app.mcorg.permission.infrastructure.entities.PermissionLevelEntity;
 import app.mcorg.permission.infrastructure.entities.PermissionLevelMapper;
 import app.mcorg.permission.infrastructure.repository.MongoPermissionLevelRepository;
 import org.bson.types.ObjectId;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -44,7 +43,7 @@ public class TeamEventHandlerTest extends MongoContainerTest {
     @Test
     public void handleCreateTeam() {
         // Given
-        TeamCreated event = new TeamCreated(ObjectId.get().toHexString(), ObjectId.get().toHexString(), "TeamName", new SlimUser(username, "Even"));
+        TeamCreated event = new TeamCreated(ObjectId.get().toHexString(), ObjectId.get().toHexString(), "TeamName", username);
 
         // When
         handleTeamCreated.accept(event);
@@ -73,7 +72,7 @@ public class TeamEventHandlerTest extends MongoContainerTest {
     @Test
     public void handleDeleteTeam() {
         // Given
-        TeamCreated initEvent = new TeamCreated(ObjectId.get().toHexString(), ObjectId.get().toHexString(), "TeamName", new SlimUser(username, "Even"));
+        TeamCreated initEvent = new TeamCreated(ObjectId.get().toHexString(), ObjectId.get().toHexString(), "TeamName", username);
         TeamDeleted event = new TeamDeleted(initEvent.id(), initEvent.worldId());
 
         // When

@@ -1,6 +1,5 @@
 package app.mcorg.world.domain.usecase.world;
 
-import app.mcorg.common.domain.model.SlimUser;
 import app.mcorg.world.domain.api.Worlds;
 import app.mcorg.world.domain.model.world.World;
 import org.junit.jupiter.api.Test;
@@ -25,7 +24,7 @@ public class GetWorldUseCaseTest {
 
     @Test
     public void getsWorld() {
-        World world = World.create("NAME", new SlimUser("EVEGUL", "EVEGUL"));
+        World world = World.create("NAME", "EVEGUL");
 
         doReturn(Optional.of(world))
                 .when(worlds)

@@ -1,20 +1,15 @@
 package app.mcorg.world.domain.model.permission;
 
 import app.mcorg.common.domain.model.Authority;
-import app.mcorg.common.domain.model.SlimUser;
 import org.bson.types.ObjectId;
 
 import java.util.ArrayList;
 import java.util.List;
 
-public record UserPermissions(String id, String username, String name, List<Permission> worldAuthorities) {
+public record UserPermissions(String id, String username, List<Permission> worldAuthorities) {
 
-    public static UserPermissions create(String username, String name) {
-        return new UserPermissions(ObjectId.get().toHexString(), username, name, new ArrayList<>());
-    }
-
-    public SlimUser toSlim() {
-        return new SlimUser(this.username, name);
+    public static UserPermissions create(String username) {
+        return new UserPermissions(ObjectId.get().toHexString(), username, new ArrayList<>());
     }
 
     public void addWorldAuthority(String id, Authority authority) {

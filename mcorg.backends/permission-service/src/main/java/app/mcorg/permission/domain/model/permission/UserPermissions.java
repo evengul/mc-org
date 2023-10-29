@@ -20,29 +20,28 @@ import static java.util.Objects.nonNull;
 public class UserPermissions extends AggregateRoot<PermissionEvent> {
     private final String id;
     private final String username;
-    private final String name;
     private final Map<AuthorityLevel, List<Permission>> permissions;
 
     public static UserPermissions create(String username) {
         Map<AuthorityLevel, List<Permission>> emptyPermissions = new HashMap<>();
         Arrays.stream(AuthorityLevel.values()).forEach(level -> emptyPermissions.put(level, new ArrayList<>()));
-        return new UserPermissions(ObjectId.get().toHexString(), username, username, emptyPermissions);
+        return new UserPermissions(ObjectId.get().toHexString(), username, emptyPermissions);
     }
 
     public void addAuthority(AuthorityLevel level, String id, Authority authority) {
         this.permissions.get(level).add(new Permission(id, authority));
-        this.raiseEvent(new AuthorityAdded(id, username, name, authority, level));
+        this.raiseEvent(new AuthorityAdded(id, username, authority, level));
     }
 
     public void removeAuthority(AuthorityLevel level, String id) {
         this.permissions.get(level).removeIf(permission -> permission.id().equals(id));
-        this.raiseEvent(new AuthorityRemoved(id, username, name, level));
+        this.raiseEvent(new AuthorityRemoved(id, username, level));
     }
 
     public void changeAuthority(AuthorityLevel level, String id, Authority authority) {
         this.permissions.get(level).removeIf(permission -> permission.id().equals(id));
         this.permissions.get(level).add(new Permission(id, authority));
-        this.raiseEvent(new AuthorityChanged(id, username, name, authority, level));
+        this.raiseEvent(new AuthorityChanged(id, username, authority, level));
     }
 
     public boolean hasAuthority(PermissionLevel level, String id, Authority authority) {

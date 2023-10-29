@@ -8,7 +8,7 @@ import java.util.List;
 import java.util.Optional;
 
 public interface MongoUserPermissionsRepository extends MongoRepository<UserPermissionsEntity, String> {
-    Optional<UserPermissionsEntity> findByUsernameIgnoreCase(String username);
+    Optional<UserPermissionsEntity> findFirstByUsernameIgnoreCase(String username);
 
     List<UserPermissionsEntity> findAllByPermissions_LevelAndPermissions_Id(AuthorityLevel level, String id);
 }

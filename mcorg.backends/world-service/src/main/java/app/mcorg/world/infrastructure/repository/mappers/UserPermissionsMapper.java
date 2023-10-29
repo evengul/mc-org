@@ -7,10 +7,10 @@ import lombok.experimental.UtilityClass;
 @UtilityClass
 public class UserPermissionsMapper {
     public static UserPermissionEntity toEntity(UserPermissions permissions) {
-        return new UserPermissionEntity(permissions.id(), permissions.username(), permissions.name(), permissions.worldAuthorities());
+        return new UserPermissionEntity(permissions.id(), permissions.username(), permissions.worldAuthorities());
     }
 
     public static UserPermissions toDomain(UserPermissionEntity entity) {
-        return new UserPermissions(entity.getId(), entity.getUsername(), entity.getName(), entity.getWorldAuthorities());
+        return new UserPermissions(entity.getId(), entity.getUsername(), entity.getWorldAuthorities());
     }
 }

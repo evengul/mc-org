@@ -1,7 +1,7 @@
 package app.mcorg.world.presentation.configuration.usecase;
 
 import app.mcorg.common.domain.UnitOfWork;
-import app.mcorg.common.domain.api.UserProvider;
+import app.mcorg.common.domain.api.UsernameProvider;
 import app.mcorg.world.domain.api.Worlds;
 import app.mcorg.world.domain.model.world.World;
 import app.mcorg.world.domain.usecase.world.ChangeWorldNameUseCase;
@@ -29,7 +29,7 @@ public class WorldConfiguration {
     }
 
     @Bean
-    public CreateWorldUseCase createWorldUseCase(UserProvider userProvider, UnitOfWork<World> unitOfWork) {
-        return new CreateWorldUseCase(userProvider, unitOfWork);
+    public CreateWorldUseCase createWorldUseCase(UsernameProvider usernameProvider, UnitOfWork<World> unitOfWork) {
+        return new CreateWorldUseCase(usernameProvider, unitOfWork);
     }
 }

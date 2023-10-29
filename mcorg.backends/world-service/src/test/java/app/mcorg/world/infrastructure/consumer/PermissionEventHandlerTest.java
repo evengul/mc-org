@@ -3,7 +3,6 @@ package app.mcorg.world.infrastructure.consumer;
 import app.mcorg.common.domain.UnitOfWork;
 import app.mcorg.common.domain.model.Authority;
 import app.mcorg.common.domain.model.AuthorityLevel;
-import app.mcorg.common.domain.model.SlimUser;
 import app.mcorg.common.event.permission.AuthorityAdded;
 import app.mcorg.common.event.permission.AuthorityChanged;
 import app.mcorg.common.event.permission.AuthorityRemoved;
@@ -13,11 +12,9 @@ import app.mcorg.world.WorldService;
 import app.mcorg.world.domain.api.Permissions;
 import app.mcorg.world.domain.model.permission.UserPermissions;
 import app.mcorg.world.domain.model.world.World;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.junit4.SpringRunner;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.util.Optional;
@@ -26,7 +23,6 @@ import java.util.function.Consumer;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @Testcontainers
-@RunWith(SpringRunner.class)
 @SpringBootTest(classes = WorldService.class)
 public class PermissionEventHandlerTest extends MongoContainerTest {
     @Autowired
@@ -51,7 +47,7 @@ public class PermissionEventHandlerTest extends MongoContainerTest {
     @Test
     public void handleAddAuthority() {
         // Given
-        AuthorityAdded event = new AuthorityAdded(createWorldAndGetId(), username, username, Authority.OWNER, AuthorityLevel.WORLD);
+        AuthorityAdded event = new AuthorityAdded(createWorldAndGetId(), username, Authority.OWNER, AuthorityLevel.WORLD);
 
         // When
         authorityAddedConsumer.accept(event);
@@ -65,7 +61,7 @@ public class PermissionEventHandlerTest extends MongoContainerTest {
     @Test
     public void ignoresAddTeamAuthority() {
         // Given
-        AuthorityAdded event = new AuthorityAdded(createWorldAndGetId(), username, username, Authority.OWNER, AuthorityLevel.TEAM);
+        AuthorityAdded event = new AuthorityAdded(createWorldAndGetId(), username, Authority.OWNER, AuthorityLevel.TEAM);
 
         // When
         authorityAddedConsumer.accept(event);
@@ -78,8 +74,8 @@ public class PermissionEventHandlerTest extends MongoContainerTest {
     @Test
     public void handleChangeAuthority() {
         // Given
-        AuthorityAdded createEvent = new AuthorityAdded(createWorldAndGetId(), username, username, Authority.OWNER, AuthorityLevel.WORLD);
-        AuthorityChanged event = new AuthorityChanged(createEvent.authorizedId(), username, username, Authority.ADMIN, AuthorityLevel.WORLD);
+        AuthorityAdded createEvent = new AuthorityAdded(createWorldAndGetId(), username, Authority.OWNER, AuthorityLevel.WORLD);
+        AuthorityChanged event = new AuthorityChanged(createEvent.authorizedId(), username, Authority.ADMIN, AuthorityLevel.WORLD);
 
         // When
         authorityAddedConsumer.accept(createEvent);
@@ -94,8 +90,8 @@ public class PermissionEventHandlerTest extends MongoContainerTest {
     @Test
     public void handleRemoveAuthority() {
         // Given
-        AuthorityAdded createEvent = new AuthorityAdded(createWorldAndGetId(), username, username, Authority.OWNER, AuthorityLevel.WORLD);
-        AuthorityRemoved event = new AuthorityRemoved(createEvent.authorizedId(), username, username, AuthorityLevel.WORLD);
+        AuthorityAdded createEvent = new AuthorityAdded(createWorldAndGetId(), username, Authority.OWNER, AuthorityLevel.WORLD);
+        AuthorityRemoved event = new AuthorityRemoved(createEvent.authorizedId(), username, AuthorityLevel.WORLD);
 
         // When
         authorityAddedConsumer.accept(createEvent);
@@ -110,7 +106,7 @@ public class PermissionEventHandlerTest extends MongoContainerTest {
     @Test
     public void handleDeleteUser() {
         // Given
-        AuthorityAdded createEvent = new AuthorityAdded(createWorldAndGetId(), username, username, Authority.OWNER, AuthorityLevel.WORLD);
+        AuthorityAdded createEvent = new AuthorityAdded(createWorldAndGetId(), username, Authority.OWNER, AuthorityLevel.WORLD);
         UserDeleted event = new UserDeleted(username);
 
         // When
@@ -123,7 +119,7 @@ public class PermissionEventHandlerTest extends MongoContainerTest {
     }
 
     private String createWorldAndGetId() {
-        return unitOfWork.add(World.create("WORLD", new SlimUser(username, username)))
+        return unitOfWork.add(World.create("WORLD", username))
                 .getId();
     }
 }
