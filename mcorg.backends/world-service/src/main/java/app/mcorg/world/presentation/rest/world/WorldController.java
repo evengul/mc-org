@@ -28,7 +28,7 @@ public class WorldController implements WorldResource {
         return executor.execute(
                 createWorldUseCase,
                 new CreateWorldUseCase.InputValues(request.name()),
-                outputValues -> ResponseEntity.ok(null)
+                _ -> ResponseEntity.ok(null)
         );
     }
 
@@ -37,7 +37,7 @@ public class WorldController implements WorldResource {
         return executor.execute(
                 deleteWorldUseCase,
                 new DeleteWorldUseCase.InputValues(id),
-                outputValues -> ResponseEntity.ok(null)
+                _ -> ResponseEntity.ok(null)
         );
     }
 
@@ -46,7 +46,7 @@ public class WorldController implements WorldResource {
         return executor.execute(
                 changeWorldNameUseCase,
                 new ChangeWorldNameUseCase.InputValues(id, request.name()),
-                outputValues -> ResponseEntity.ok(null)
+                _ -> ResponseEntity.ok(null)
         );
     }
 
