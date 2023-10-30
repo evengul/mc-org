@@ -22,13 +22,9 @@ public class World extends AggregateRoot<WorldEvent> {
     private final List<SlimTeam> teams;
 
     public static World create(@NonNull String name, @NonNull String creator) {
-        return new World(ObjectId.get().toHexString(), name, List.of(creator), Collections.emptyList())
-                .markCreated();
-    }
-
-    private World markCreated() {
-        this.raiseEvent(new WorldCreated(this.id, this.name, this.users.get(0)));
-        return this;
+        World world = new World(ObjectId.get().toHexString(), name, List.of(creator), Collections.emptyList());
+        world.raiseEvent(new WorldCreated(world.id, world.name, world.users.get(0)));
+        return world;
     }
 
     public void setName(@NonNull String name) {
