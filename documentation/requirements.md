@@ -1,5 +1,8 @@
 # MC-Org requirements
 
+## Authentication and authorization
+ - A user should be able to sign in using Microsoft. The user ID should be the UUID from the MC account. The username should also be from the MC account.
+
 ## Start and stop an actual server
 
 ### Usecases
