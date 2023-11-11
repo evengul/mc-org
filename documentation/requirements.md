@@ -1,7 +1,7 @@
 # MC-Org requirements
 
 ## Authentication and authorization
- - A user should be able to sign in using Microsoft. The user ID should be the UUID from the MC account. The username should also be from the MC account.
+ - A user should be able to sign in using Microsoft. The user ID should be the UUID from the MC account. The username should also be from the MC account. https://wiki.vg/Microsoft_Authentication_Scheme#Authenticate_with_Minecraft
 
 ## Start and stop an actual server
 
