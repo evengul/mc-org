@@ -18,5 +18,7 @@
         <module>project-service</module>
         <module>resource-service</module>
         <module>permission-service</module>
+        <module>team-service</module>
+        <module>world-service</module>
     </modules>
 </project>

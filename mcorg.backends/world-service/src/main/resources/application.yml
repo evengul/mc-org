@@ -38,4 +38,26 @@ spring:
   cloud:
     function:
       definition: authorityAddedConsumer;authorityChangedConsumer;authorityRemovedConsumer;userDeletedConsumer;teamCreatedConsumer;teamNameChangedConsumer;teamDeletedConsumer;
-
+    stream:
+      bindings:
+        authorityAddedConsumer-in-0:
+          destination: authority-added-events
+          group: world
+        authorityChangedConsumer-in-0:
+          destination: authority-changed-events
+          group: world
+        authorityRemovedConsumer-in-0:
+          destination: authority-removed-events
+          group: world
+        userDeletedConsumer-in-0:
+          destination: user-deleted-events
+          group: world
+        teamCreatedConsumer-in-0:
+          destination: team-created-events
+          group: world
+        teamNameChangedConsumer-in-0:
+          destination: team-name-changed-events
+          group: world
+        teamDeletedConsumer-in-0:
+          destination: team-deleted-events
+          group: world
