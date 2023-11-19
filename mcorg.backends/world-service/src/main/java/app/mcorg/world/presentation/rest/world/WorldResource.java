@@ -14,7 +14,7 @@ import java.util.concurrent.CompletableFuture;
 @RequestMapping("/api/v1/world")
 public interface WorldResource extends WorldDocumentation {
     @PostMapping
-    @ResponseStatus(HttpStatus.OK)
+    @ResponseStatus(HttpStatus.CREATED)
     CompletableFuture<ResponseEntity<Void>> createWorld(@RequestBody @Valid WorldRequest request);
 
     @DeleteMapping("/{id}")

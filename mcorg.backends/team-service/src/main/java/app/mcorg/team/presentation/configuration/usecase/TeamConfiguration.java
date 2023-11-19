@@ -1,6 +1,7 @@
 package app.mcorg.team.presentation.configuration.usecase;
 
 import app.mcorg.common.domain.UnitOfWork;
+import app.mcorg.common.domain.api.UsernameProvider;
 import app.mcorg.team.domain.api.Teams;
 import app.mcorg.team.domain.model.team.Team;
 import app.mcorg.team.domain.usecase.team.ChangeTeamNameUseCase;
@@ -24,8 +25,8 @@ public class TeamConfiguration {
     }
 
     @Bean
-    public CreateTeamUseCase createTeamUseCase(UnitOfWork<Team> unit) {
-        return new CreateTeamUseCase(unit);
+    public CreateTeamUseCase createTeamUseCase(UnitOfWork<Team> unit, UsernameProvider usernameProvider) {
+        return new CreateTeamUseCase(unit, usernameProvider);
     }
 
     @Bean

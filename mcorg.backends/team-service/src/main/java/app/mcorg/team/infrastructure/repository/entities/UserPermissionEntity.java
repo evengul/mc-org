@@ -19,5 +19,6 @@ public class UserPermissionEntity {
     @Id
     String id;
     String username;
-    List<Permission> worldAuthorities;
+    List<Permission> worldPermissions;
+    List<Permission> teamPermissions;
 }

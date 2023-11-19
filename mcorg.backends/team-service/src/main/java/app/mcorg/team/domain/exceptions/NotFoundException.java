@@ -8,4 +8,8 @@ public class NotFoundException extends DomainException {
     public static NotFoundException team(String id) {
         return new NotFoundException("api.error.team.not-found", id);
     }
+
+    public static NotFoundException user(String username) {
+        return new NotFoundException("api.error.user.not-found", username);
+    }
 }

@@ -15,6 +15,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import java.util.List;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
@@ -26,14 +27,16 @@ public class PermissionEventHandler {
     private final Teams teams;
     private final UnitOfWork<Team> unitOfWork;
 
+    private final static List<AuthorityLevel> acceptedLevels = List.of(AuthorityLevel.WORLD, AuthorityLevel.TEAM);
+
     @Bean
     public Consumer<AuthorityAdded> authorityAddedConsumer() {
         return event -> {
-            if (!event.level().equals(AuthorityLevel.TEAM)) return;
+            if (!acceptedLevels.contains(event.level())) return;
 
             editPermissions(event.username(), event.authorizedId(),
                     (user, team) -> {
-                        user.addTeamAuthority(event.authorizedId(), event.authority());
+                        user.addAuthority(event.level(), event.authorizedId(), event.authority());
                         team.addUser(user.username());
                     });
         };
@@ -42,21 +45,21 @@ public class PermissionEventHandler {
     @Bean
     public Consumer<AuthorityChanged> authorityChangedConsumer() {
         return event -> {
-            if (!event.level().equals(AuthorityLevel.TEAM)) return;
+            if (!acceptedLevels.contains(event.level())) return;
 
             editPermissions(event.username(), event.authorizedId(),
-                    (user, _) -> user.changeTeamAuthority(event.authorizedId(), event.authority()));
+                    (user, _) -> user.changeAuthority(event.level(), event.authorizedId(), event.authority()));
         };
     }
 
     @Bean
     public Consumer<AuthorityRemoved> authorityRemovedConsumer() {
         return event -> {
-            if (!event.level().equals(AuthorityLevel.TEAM)) return;
+            if (!acceptedLevels.contains(event.level())) return;
 
             editPermissions(event.username(), event.authorizedId(),
                     (user, team) -> {
-                        user.removeWorldAuthority(event.authorizedId());
+                        user.removeAuthority(event.level(), event.authorizedId());
                         team.removeUser(user.username());
                     });
         };
