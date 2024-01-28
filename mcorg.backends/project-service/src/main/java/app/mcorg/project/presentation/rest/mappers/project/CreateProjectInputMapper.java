@@ -8,7 +8,9 @@ import lombok.experimental.UtilityClass;
 public class CreateProjectInputMapper {
     public static CreateProjectUseCase.InputValues map(CreateProjectRequest request) {
         return new CreateProjectUseCase.InputValues(
-                request.name()
+                request.name(),
+                request.teamId(),
+                request.worldId()
         );
     }
 }

@@ -14,7 +14,7 @@ import java.util.List;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-@Document("world")
+@Document("permission")
 public class UserPermissionEntity {
     @Id
     String id;

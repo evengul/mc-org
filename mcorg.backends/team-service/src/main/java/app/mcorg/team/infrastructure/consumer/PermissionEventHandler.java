@@ -48,7 +48,7 @@ public class PermissionEventHandler {
             if (!acceptedLevels.contains(event.level())) return;
 
             editPermissions(event.username(), event.authorizedId(),
-                    (user, _) -> user.changeAuthority(event.level(), event.authorizedId(), event.authority()));
+                    (user, team) -> user.changeAuthority(event.level(), event.authorizedId(), event.authority()));
         };
     }
 

@@ -13,7 +13,7 @@ import java.util.List;
 
 @Getter
 @Setter
-@Document("ResourcePack")
+@Document("resource_pack")
 @AllArgsConstructor
 @RequiredArgsConstructor
 public class ResourcePackEntity {

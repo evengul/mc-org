@@ -35,6 +35,30 @@ public class ProjectRepositoryImpl implements Projects {
     }
 
     @Override
+    public List<Project> getProjectsInTeam(String teamId) {
+        return repository.findAllByTeamId(teamId)
+                .stream()
+                .map(ProjectMapper::mapOut)
+                .toList();
+    }
+
+    @Override
+    public List<Project> getProjectsInWorld(String worldId) {
+        return repository.findAllByWorldId(worldId)
+                .stream()
+                .map(ProjectMapper::mapOut)
+                .toList();
+    }
+
+    @Override
+    public List<Project> getProjectsWithUser(String username) {
+        return repository.findAllByUsersContainingIgnoreCase(username)
+                .stream()
+                .map(ProjectMapper::mapOut)
+                .toList();
+    }
+
+    @Override
     public void deleteAll() {
         repository.deleteAll();
     }

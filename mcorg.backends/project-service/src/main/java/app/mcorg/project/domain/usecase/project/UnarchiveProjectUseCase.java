@@ -13,7 +13,7 @@ public class UnarchiveProjectUseCase extends UseCase<UnarchiveProjectUseCase.Inp
     public OutputValues execute(InputValues input) {
         final String id = input.id();
 
-        Project project = get(id).unarchive();
+        Project project = get(id).open();
 
         return store(project);
     }

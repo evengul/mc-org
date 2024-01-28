@@ -30,7 +30,7 @@ public class WorldController implements WorldResource {
         return executor.execute(
                 createWorldUseCase,
                 new CreateWorldUseCase.InputValues(request.name()),
-                _ -> ResponseEntity.ok(null)
+                output -> ResponseEntity.ok(null)
         );
     }
 
@@ -40,7 +40,7 @@ public class WorldController implements WorldResource {
         return executor.execute(
                 deleteWorldUseCase,
                 new DeleteWorldUseCase.InputValues(id),
-                _ -> ResponseEntity.ok(null)
+                output -> ResponseEntity.ok(null)
         );
     }
 
@@ -50,7 +50,7 @@ public class WorldController implements WorldResource {
         return executor.execute(
                 changeWorldNameUseCase,
                 new ChangeWorldNameUseCase.InputValues(id, request.name()),
-                _ -> ResponseEntity.ok(null)
+                output -> ResponseEntity.ok(null)
         );
     }
 

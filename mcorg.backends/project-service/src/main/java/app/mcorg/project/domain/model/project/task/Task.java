@@ -18,7 +18,7 @@ public abstract class Task {
     public Task(UUID id, String name, Priority priority, List<ProjectDependency> dependencies) {
         this.id = id;
         this.name = name;
-        this.priority = priority;
+        this.priority = Optional.ofNullable(priority).orElse(Priority.NONE);
         this.projectDependencies = dependencies;
     }
 

@@ -1,5 +1,6 @@
 package app.mcorg.project.domain.model.project.task;
 
+import app.mcorg.project.domain.model.exceptions.NotFoundException;
 import app.mcorg.project.domain.model.project.Priority;
 import app.mcorg.project.domain.model.project.Project;
 
@@ -7,7 +8,6 @@ import java.util.List;
 import java.util.UUID;
 import java.util.stream.Stream;
 
-import static app.mcorg.project.domain.model.exceptions.I18AbleExceptions.notFound;
 import static java.util.Collections.emptyList;
 
 public record Tasks(List<Task> tasks) {
@@ -45,7 +45,7 @@ public record Tasks(List<Task> tasks) {
                 .map(tClass::cast)
                 .filter(task -> task.getId().equals(id))
                 .findFirst()
-                .orElseThrow(notFound(id.toString()));
+                .orElseThrow(() -> NotFoundException.task(id.toString()));
     }
 
     public Task get(UUID id) {
@@ -68,12 +68,12 @@ public record Tasks(List<Task> tasks) {
         get(taskId, DoableTask.class).undone();
     }
 
-    public Project doableToProject(UUID taskId) {
+    public Project doableToProject(UUID taskId, Project parent) {
         return doables()
                 .filter(task -> task.getId().equals(taskId))
                 .findFirst()
-                .orElseThrow(notFound(taskId.toString()))
-                .convertToProject();
+                .orElseThrow(() -> NotFoundException.task(taskId.toString()))
+                .convertToProject(parent.getUsers(), parent.getTeamId(), parent.getWorldId());
     }
 
     public void countableDoneMore(UUID taskId, int done) {

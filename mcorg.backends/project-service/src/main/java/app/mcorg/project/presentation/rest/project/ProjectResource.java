@@ -40,7 +40,7 @@ public interface ProjectResource extends ProjectDocumentation {
     @PostMapping(value = "/schematic/text", consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseStatus(HttpStatus.CREATED)
     CompletableFuture<ResponseEntity<GenericResponse>> createFromMaterialList(
-            @RequestParam(value = "projectName", required = false) String name,
+            @RequestParam(value = "projectName", required = false) CreateProjectRequest request,
             @RequestPart("file") MultipartFile file
     ) throws IOException;
 

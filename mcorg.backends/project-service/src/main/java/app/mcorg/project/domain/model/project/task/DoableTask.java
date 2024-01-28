@@ -22,11 +22,11 @@ public class DoableTask extends Task {
     }
 
     public static DoableTask newInstance(String name, Priority priority) {
-        return new DoableTask(null, name, priority, false, Collections.emptyList());
+        return new DoableTask(UUID.randomUUID(), name, priority, false, Collections.emptyList());
     }
 
-    public Project convertToProject() {
-        return Project.newInstance(this.getName());
+    public Project convertToProject(List<String> users, String teamId, String worldId) {
+        return Project.newInstance(users, this.getName(), teamId, worldId);
     }
 
     public void undone() {

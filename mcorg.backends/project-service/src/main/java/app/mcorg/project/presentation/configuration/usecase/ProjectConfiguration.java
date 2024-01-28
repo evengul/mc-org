@@ -1,5 +1,6 @@
 package app.mcorg.project.presentation.configuration.usecase;
 
+import app.mcorg.common.domain.api.UsernameProvider;
 import app.mcorg.project.domain.api.Projects;
 import app.mcorg.project.domain.usecase.project.*;
 import app.mcorg.project.domain.usecase.schematic.CreateProjectFromMaterialListUseCase;
@@ -39,13 +40,13 @@ public class ProjectConfiguration {
     }
 
     @Bean
-    public CreateProjectUseCase createProjectUseCase(StoreProjectUseCase storeProjectUseCase) {
-        return new CreateProjectUseCase(storeProjectUseCase);
+    public CreateProjectUseCase createProjectUseCase(UsernameProvider usernameProvider, StoreProjectUseCase storeProjectUseCase) {
+        return new CreateProjectUseCase(storeProjectUseCase, usernameProvider);
     }
 
     @Bean
-    public CreateProjectFromMaterialListUseCase createProjectFromMaterialListUseCase(StoreProjectUseCase storeProjectUseCase) {
-        return new CreateProjectFromMaterialListUseCase(storeProjectUseCase);
+    public CreateProjectFromMaterialListUseCase createProjectFromMaterialListUseCase(UsernameProvider usernameProvider, StoreProjectUseCase storeProjectUseCase) {
+        return new CreateProjectFromMaterialListUseCase(storeProjectUseCase, usernameProvider);
     }
 
     @Bean

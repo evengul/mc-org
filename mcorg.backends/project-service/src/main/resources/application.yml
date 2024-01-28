@@ -22,8 +22,8 @@ management:
 spring:
   data:
     mongodb:
-      uri: mongodb+srv://java_client:${MONGODB_PASSWORD}@mc-org-db.edc7h.mongodb.net/mc-org-db
-      database: mc-org-db
+      uri: mongodb+srv://local_user:${MONGODB_PASSWORD}@mc-org-db.edc7h.mongodb.net/mc-org-db
+      database: mc-org-project
   security:
     oauth2:
       client:
@@ -31,3 +31,31 @@ spring:
           google:
             client-id: "847927117056-ggmi21d6p2omj0vi4c5t27i1983cfpf3.apps.googleusercontent.com"
             client-secret: "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"
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: 5672
+    username: ${RABBITMQ_CLIENT_USERNAME:guest}
+    password: ${RABBITMQ_CLIENT_PASSWORD:guest}
+  cloud:
+    function:
+      definition: authorityAddedConsumer;authorityChangedConsumer;authorityRemovedConsumer;userDeletedConsumer;teamCreatedConsumer;teamNameChangedConsumer;projectDeletedConsumer;teamDeletedConsumer;worldDeletedConsumer;
+    stream:
+      bindings:
+        authorityAddedConsumer-in-0:
+          destination: authority-added-events
+          group: project
+        authorityChangedConsumer-in-0:
+          destination: authority-changed-events
+          group: project
+        authorityRemovedConsumer-in-0:
+          destination: authority-removed-events
+          group: project
+        userDeletedConsumer-in-0:
+          destination: user-deleted-events
+          group: project
+        teamDeletedConsumer-in-0:
+          destination: team-deleted-events
+          group: project
+        worldDeletedConsumer-in-0:
+          destination: world-deleted-events
+          group: project

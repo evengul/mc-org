@@ -15,7 +15,7 @@ public class DeleteAllProjectsUseCase extends UseCase<DeleteAllProjectsUseCase.I
     public OutputValues execute(InputValues input) {
         boolean confirmed = Optional.ofNullable(input.confirm).orElse(false);
 
-        if(confirmed) {
+        if (confirmed) {
             repository.deleteAll();
         } else {
             throw new UnconfirmedException("Projects");

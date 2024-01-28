@@ -24,7 +24,7 @@ public class Team extends AggregateRoot<TeamEvent> {
 
     public static Team create(@NonNull String name, @NonNull String creator, @NonNull String worldId) {
         Team team = new Team(ObjectId.get().toHexString(), worldId, name, List.of(creator), Collections.emptyList());
-        team.raiseEvent(new TeamCreated(team.id, team.worldId, team.name, team.users.get(0)));
+        team.raiseEvent(new TeamCreated(team.id, team.worldId, team.name, team.users.getFirst()));
         return team;
     }
 

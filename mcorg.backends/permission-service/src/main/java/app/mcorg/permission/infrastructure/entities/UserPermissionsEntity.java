@@ -13,7 +13,7 @@ import java.util.List;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-@Document("user_permission")
+@Document("permission")
 public class UserPermissionsEntity {
     @Id
     private String id;

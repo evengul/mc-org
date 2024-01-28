@@ -78,10 +78,10 @@ public class ProjectController implements ProjectResource {
     }
 
     @Override
-    public CompletableFuture<ResponseEntity<GenericResponse>> createFromMaterialList(String name, MultipartFile file) throws IOException {
+    public CompletableFuture<ResponseEntity<GenericResponse>> createFromMaterialList(CreateProjectRequest request, MultipartFile file) throws IOException {
         return executor.execute(
                 createProjectFromMaterialListUseCase,
-                new CreateProjectFromMaterialListUseCase.InputValues(name, file.getInputStream()),
+                new CreateProjectFromMaterialListUseCase.InputValues(request.teamId(), request.worldId(), request.name(), file.getInputStream()),
                 outputValues -> ResponseEntity.ok(new GenericResponse(true, "Project created successfully"))
         );
     }

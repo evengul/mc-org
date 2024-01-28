@@ -12,6 +12,12 @@ public interface Projects {
 
     Optional<Project> get(String id);
 
+    List<Project> getProjectsInTeam(String teamId);
+
+    List<Project> getProjectsInWorld(String worldId);
+
+    List<Project> getProjectsWithUser(String username);
+
     void deleteAll();
 
     void delete(String id);

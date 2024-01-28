@@ -44,7 +44,7 @@ public class TeamController implements TeamResource {
         return executor.execute(
                 deleteTeamUseCase,
                 new DeleteTeamUseCase.InputValues(id),
-                _ -> ResponseEntity.ok().build()
+                outputValues -> ResponseEntity.ok().build()
         );
     }
 
@@ -54,7 +54,7 @@ public class TeamController implements TeamResource {
         return executor.execute(
                 changeTeamNameUseCase,
                 new ChangeTeamNameUseCase.InputValues(id, request.name()),
-                _ -> ResponseEntity.ok().build()
+                outputValues -> ResponseEntity.ok().build()
         );
     }
 

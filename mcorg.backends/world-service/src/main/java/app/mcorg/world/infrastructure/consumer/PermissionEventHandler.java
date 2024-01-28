@@ -45,7 +45,7 @@ public class PermissionEventHandler {
             if (!event.level().equals(AuthorityLevel.WORLD)) return;
 
             editPermissions(event.username(), event.authorizedId(),
-                    (user, _) -> user.changeWorldAuthority(event.authorizedId(), event.authority()));
+                    (user, world) -> user.changeWorldAuthority(event.authorizedId(), event.authority()));
         };
     }
 

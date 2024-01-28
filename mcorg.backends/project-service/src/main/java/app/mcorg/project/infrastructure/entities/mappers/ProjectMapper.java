@@ -15,11 +15,14 @@ public class ProjectMapper {
     public static ProjectEntity mapIn(Project project) {
         return new ProjectEntity(
                 project.getId(),
+                project.getTeamId(),
+                project.getWorldId(),
                 project.getName(),
                 project.isArchived(),
                 project.doableTasks().map(TaskMapper::mapIn).toList(),
                 project.countedTasks().map(CountedTaskMapper::mapIn).toList(),
-                project.getProjectDependencies()
+                project.getProjectDependencies(),
+                project.getUsers()
         );
     }
 
@@ -29,10 +32,13 @@ public class ProjectMapper {
         tasks.addAll(entity.countedTasks().map(CountedTaskMapper::mapOut).toList());
         return new Project(
                 entity.getId(),
+                entity.getTeamId(),
+                entity.getWorldId(),
                 entity.getName(),
                 entity.getIsArchived(),
                 Optional.ofNullable(entity.getDependencies()).orElse(new ArrayList<>()),
-                Tasks.create(tasks)
+                Tasks.create(tasks),
+                entity.getUsers()
         );
     }
 }

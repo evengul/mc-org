@@ -19,11 +19,14 @@ import java.util.stream.Stream;
 public class ProjectEntity {
     @Id
     private String id;
+    private String teamId;
+    private String worldId;
     private String name;
     private Boolean isArchived;
     private List<DoableTaskEntity> tasks;
     private List<CountedTaskEntity> countedTasks;
     private List<ProjectDependency> dependencies;
+    private List<String> users;
 
     public Stream<DoableTaskEntity> tasks() {
         return this.tasks.stream();

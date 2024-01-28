@@ -1,7 +1,7 @@
 package app.mcorg.project.presentation.rest.common.advice;
 
 import app.mcorg.project.domain.model.exceptions.ArchivedException;
-import app.mcorg.project.domain.model.exceptions.I18AbleException;
+import app.mcorg.project.domain.model.exceptions.DomainException;
 import app.mcorg.project.domain.model.exceptions.NotFoundException;
 import app.mcorg.project.domain.model.exceptions.UnconfirmedException;
 import app.mcorg.project.presentation.rest.entities.errors.ErrorMessageResponse;
@@ -36,13 +36,13 @@ public class CustomExceptionHandlingControllerAdvice {
         return ErrorMessageResponse.invalidArgument(getMessage(e));
     }
 
-    @ExceptionHandler(I18AbleException.class)
+    @ExceptionHandler(DomainException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public ErrorMessageResponse<String> unknownGeneralException(I18AbleException e) {
+    public ErrorMessageResponse<String> unknownGeneralException(DomainException e) {
         return ErrorMessageResponse.unknown(getMessage(e));
     }
 
-    private String getMessage(I18AbleException e) {
+    private String getMessage(DomainException e) {
         return messageSource.getMessage(e.getMessage(), e.getParams(), LocaleContextHolder.getLocale());
     }
 }

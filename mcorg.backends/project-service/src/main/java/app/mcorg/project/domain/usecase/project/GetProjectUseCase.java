@@ -1,11 +1,10 @@
 package app.mcorg.project.domain.usecase.project;
 
 import app.mcorg.project.domain.api.Projects;
+import app.mcorg.project.domain.model.exceptions.NotFoundException;
 import app.mcorg.project.domain.model.project.Project;
 import app.mcorg.project.domain.usecase.UseCase;
 import lombok.RequiredArgsConstructor;
-
-import static app.mcorg.project.domain.model.exceptions.I18AbleExceptions.notFound;
 
 @RequiredArgsConstructor
 public class GetProjectUseCase extends UseCase<GetProjectUseCase.InputValues, GetProjectUseCase.OutputValues> {
@@ -16,7 +15,7 @@ public class GetProjectUseCase extends UseCase<GetProjectUseCase.InputValues, Ge
         final String id = input.id();
 
         Project project = repository.get(id)
-                .orElseThrow(notFound(String.format("Project %s", id)));
+                .orElseThrow(() -> NotFoundException.project(id));
 
         return new OutputValues(project);
     }

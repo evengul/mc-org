@@ -22,8 +22,8 @@ management:
 spring:
   data:
     mongodb:
-      uri: mongodb+srv://java_client:${MONGODB_PASSWORD}@mc-org-db.edc7h.mongodb.net/mc-org-db
-      database: mc-org-db
+      uri: mongodb+srv://local_user:${MONGODB_PASSWORD}@mc-org-db.edc7h.mongodb.net/mc-org-db
+      database: mc-org-permission
   security:
     oauth2:
       resourceserver:

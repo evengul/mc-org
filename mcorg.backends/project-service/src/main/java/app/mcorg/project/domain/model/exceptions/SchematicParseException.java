@@ -1,6 +1,6 @@
 package app.mcorg.project.domain.model.exceptions;
 
-public class SchematicParseException extends I18AbleException {
+public class SchematicParseException extends DomainException {
     public SchematicParseException(Object... args) {
         super("file.parse", args);
     }

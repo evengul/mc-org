@@ -20,7 +20,7 @@ public class ConvertTaskToProjectUseCase extends UseCase<ConvertTaskToProjectUse
 
         Project originalProject = get(projectId);
         Project taskProject = originalProject.getTasks()
-                .doableToProject(taskId);
+                .doableToProject(taskId, originalProject);
         originalProject.getTasks().remove(taskId);
 
         Project created = store(taskProject);
