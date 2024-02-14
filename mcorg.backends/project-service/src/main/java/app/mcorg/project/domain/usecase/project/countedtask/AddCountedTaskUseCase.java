@@ -1,6 +1,6 @@
 package app.mcorg.project.domain.usecase.project.countedtask;
 
-import app.mcorg.project.domain.model.project.Priority;
+import app.mcorg.common.domain.model.Priority;
 import app.mcorg.project.domain.model.project.Project;
 import app.mcorg.project.domain.model.project.task.CountedTask;
 import app.mcorg.project.domain.usecase.UseCase;
@@ -9,7 +9,8 @@ import app.mcorg.project.domain.usecase.project.StoreProjectUseCase;
 import lombok.RequiredArgsConstructor;
 
 @RequiredArgsConstructor
-public class AddCountedTaskUseCase extends UseCase<AddCountedTaskUseCase.InputValues, AddCountedTaskUseCase.OutputValues> {
+public class AddCountedTaskUseCase
+        extends UseCase<AddCountedTaskUseCase.InputValues, AddCountedTaskUseCase.OutputValues> {
 
     final GetProjectUseCase getProjectUseCase;
     final StoreProjectUseCase storeProjectUseCase;
@@ -40,7 +41,9 @@ public class AddCountedTaskUseCase extends UseCase<AddCountedTaskUseCase.InputVa
         return new OutputValues(stored);
     }
 
-    public record InputValues(String projectId, String name, Priority priority,
+    public record InputValues(String projectId,
+                              String name,
+                              Priority priority,
                               int needed) implements UseCase.InputValues {
     }
 

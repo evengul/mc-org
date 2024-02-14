@@ -1,6 +1,6 @@
 package app.mcorg.project.domain.usecase.project.task;
 
-import app.mcorg.project.domain.model.project.Priority;
+import app.mcorg.common.domain.model.Priority;
 import app.mcorg.project.domain.model.project.Project;
 import app.mcorg.project.domain.model.project.task.DoableTask;
 import app.mcorg.project.domain.usecase.UseCase;
@@ -39,7 +39,9 @@ public class AddTaskUseCase extends UseCase<AddTaskUseCase.InputValues, AddTaskU
         return new OutputValues(stored);
     }
 
-    public record InputValues(String projectId, String name, Priority priority) implements UseCase.InputValues {
+    public record InputValues(String projectId,
+                              String name,
+                              Priority priority) implements UseCase.InputValues {
     }
 
     public record OutputValues(Project project) implements UseCase.OutputValues {

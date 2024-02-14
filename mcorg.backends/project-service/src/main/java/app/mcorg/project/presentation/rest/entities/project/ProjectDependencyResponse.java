@@ -1,6 +1,6 @@
 package app.mcorg.project.presentation.rest.entities.project;
 
-import app.mcorg.project.domain.model.project.Priority;
+import app.mcorg.common.domain.model.Priority;
 import app.mcorg.project.domain.model.project.ProjectDependency;
 import org.springframework.lang.NonNull;
 

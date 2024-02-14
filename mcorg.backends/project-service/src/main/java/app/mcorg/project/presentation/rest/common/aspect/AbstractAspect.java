@@ -11,15 +11,15 @@ public abstract class AbstractAspect<A extends Annotation> {
         MethodSignature signature = (MethodSignature) joinPoint.getSignature();
         String[] parameters = signature.getParameterNames();
         return IntStream.range(0, parameters.length)
-                .filter(i -> parameters[i].equals(key))
-                .mapToObj(i -> joinPoint.getArgs()[i])
-                .filter(tClass::isInstance)
-                .map(tClass::cast)
-                .findFirst()
-                .orElseThrow(() -> new IllegalArgumentException(
-                        String.format("Misconfigured annotation. Could not find %s in %s",
-                                key,
-                                String.join(", ", parameters))));
+                        .filter(i -> parameters[i].equals(key))
+                        .mapToObj(i -> joinPoint.getArgs()[i])
+                        .filter(tClass::isInstance)
+                        .map(tClass::cast)
+                        .findFirst()
+                        .orElseThrow(() -> new IllegalArgumentException(
+                                String.format("Misconfigured annotation. Could not find %s in %s",
+                                              key,
+                                              String.join(", ", parameters))));
     }
 
     protected A getAnnotation(JoinPoint joinPoint, Class<A> aClass) {

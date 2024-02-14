@@ -10,7 +10,7 @@ import java.util.UUID;
 
 @UtilityClass
 public class CountedTaskMapper {
-    public static CountedTaskEntity mapIn(CountedTask task) {
+    public static CountedTaskEntity toEntity(CountedTask task) {
         return new CountedTaskEntity(
                 Optional.ofNullable(task.getId()).orElse(UUID.randomUUID()),
                 task.getName(),
@@ -22,7 +22,7 @@ public class CountedTaskMapper {
         );
     }
 
-    public static CountedTask mapOut(CountedTaskEntity entity) {
+    public static CountedTask toDomain(CountedTaskEntity entity) {
         return new CountedTask(
                 entity.id(),
                 entity.name(),

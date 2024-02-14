@@ -14,8 +14,11 @@ import java.util.List;
 
 @Slf4j
 @RequiredArgsConstructor
-public class CreateProjectFromMaterialListUseCase extends UseCase<CreateProjectFromMaterialListUseCase.InputValues, CreateProjectFromMaterialListUseCase.OutputValues> {
+public class CreateProjectFromMaterialListUseCase extends
+                                                  UseCase<CreateProjectFromMaterialListUseCase.InputValues, CreateProjectFromMaterialListUseCase.OutputValues> {
 
+    private final UserProvider userProvider;
+    private final GetTeamUseCase getTeamUseCase;
     private final StoreProjectUseCase storeProjectUseCase;
     private final UsernameProvider usernameProvider;
 

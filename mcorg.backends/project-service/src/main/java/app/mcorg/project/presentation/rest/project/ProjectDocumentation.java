@@ -44,7 +44,7 @@ public interface ProjectDocumentation {
 
     @SecurityRequirement(name = "bearerAuth")
     @Operation(summary = "Undoes an archive operation on a project")
-    CompletableFuture<ResponseEntity<GenericResponse>> unarchiveProject(String id);
+    CompletableFuture<ResponseEntity<GenericResponse>> openProject(String id);
 
     @Operation(summary = "Check if project is archived")
     CompletableFuture<ResponseEntity<Boolean>> isArchived(String id);

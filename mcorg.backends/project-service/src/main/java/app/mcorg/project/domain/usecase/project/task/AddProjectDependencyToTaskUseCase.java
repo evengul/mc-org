@@ -1,6 +1,6 @@
 package app.mcorg.project.domain.usecase.project.task;
 
-import app.mcorg.project.domain.model.project.Priority;
+import app.mcorg.common.domain.model.Priority;
 import app.mcorg.project.domain.model.project.Project;
 import app.mcorg.project.domain.usecase.UseCase;
 import app.mcorg.project.domain.usecase.project.ChangeProjectUseCase;
@@ -9,9 +9,11 @@ import app.mcorg.project.domain.usecase.project.StoreProjectUseCase;
 
 import java.util.UUID;
 
-public class AddProjectDependencyToTaskUseCase extends ChangeProjectUseCase<AddProjectDependencyToTaskUseCase.InputValues, AddProjectDependencyToTaskUseCase.OutputValues> {
+public class AddProjectDependencyToTaskUseCase extends
+                                               ChangeProjectUseCase<AddProjectDependencyToTaskUseCase.InputValues, AddProjectDependencyToTaskUseCase.OutputValues> {
 
-    public AddProjectDependencyToTaskUseCase(GetProjectUseCase getProjectUseCase, StoreProjectUseCase storeProjectUseCase) {
+    public AddProjectDependencyToTaskUseCase(GetProjectUseCase getProjectUseCase,
+                                             StoreProjectUseCase storeProjectUseCase) {
         super(getProjectUseCase, storeProjectUseCase);
     }
 
@@ -23,8 +25,7 @@ public class AddProjectDependencyToTaskUseCase extends ChangeProjectUseCase<AddP
 
         Project projectWithTask = get(projectIdOfTask);
         Project dependency = get(dependencyProjectId);
-        projectWithTask.getTasks().dependsOn(taskId, dependencyProjectId, priority);
-        dependency.isDependedOnBy(projectIdOfTask, priority);
+        projectWithTask.taskDependsOn(taskId, dependencyProjectId, priority);
 
         store(projectWithTask);
         store(dependency);
@@ -32,7 +33,9 @@ public class AddProjectDependencyToTaskUseCase extends ChangeProjectUseCase<AddP
         return new OutputValues();
     }
 
-    public record InputValues(String projectIdOfTask, UUID taskId, String dependencyProjectId,
+    public record InputValues(String projectIdOfTask,
+                              UUID taskId,
+                              String dependencyProjectId,
                               Priority priority) implements UseCase.InputValues {
     }
 

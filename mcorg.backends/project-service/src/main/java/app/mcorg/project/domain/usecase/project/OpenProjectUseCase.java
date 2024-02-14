@@ -5,7 +5,7 @@ import app.mcorg.project.domain.usecase.UseCase;
 import lombok.RequiredArgsConstructor;
 
 @RequiredArgsConstructor
-public class UnarchiveProjectUseCase extends UseCase<UnarchiveProjectUseCase.InputValues, UnarchiveProjectUseCase.OutputValues> {
+public class OpenProjectUseCase extends UseCase<OpenProjectUseCase.InputValues, OpenProjectUseCase.OutputValues> {
 
     final GetProjectUseCase getProjectUseCase;
     final StoreProjectUseCase storeProjectUseCase;

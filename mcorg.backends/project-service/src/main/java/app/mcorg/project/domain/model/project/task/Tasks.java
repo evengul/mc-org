@@ -4,11 +4,13 @@ import app.mcorg.project.domain.model.exceptions.NotFoundException;
 import app.mcorg.project.domain.model.project.Priority;
 import app.mcorg.project.domain.model.project.Project;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Stream;
 
 import static java.util.Collections.emptyList;
+import static app.mcorg.project.domain.exceptions.DomainExceptions.notFound;
 
 public record Tasks(List<Task> tasks) {
 
@@ -21,7 +23,7 @@ public record Tasks(List<Task> tasks) {
     }
 
     public static Tasks create() {
-        return create(emptyList());
+        return create(new ArrayList<>());
     }
 
     public Tasks add(Task task) {

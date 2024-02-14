@@ -1,6 +1,6 @@
 package app.mcorg.project.presentation.rest.entities.project.task;
 
-import app.mcorg.project.domain.model.project.Priority;
+import app.mcorg.common.domain.model.Priority;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.annotation.Nullable;
 import jakarta.validation.constraints.NotEmpty;

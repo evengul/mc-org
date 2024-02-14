@@ -2,6 +2,7 @@ package app.mcorg.project.infrastructure;
 
 import app.mcorg.common.domain.UnitOfWork;
 import app.mcorg.common.event.EventDispatcher;
+import app.mcorg.common.event.project.ProjectDeleted;
 import app.mcorg.common.event.project.ProjectEvent;
 import app.mcorg.project.domain.model.project.Project;
 import app.mcorg.project.infrastructure.entities.mappers.ProjectMapper;
@@ -18,8 +19,8 @@ public class ProjectUnitOfWork implements UnitOfWork<Project> {
 
     @Override
     public Project add(Project aggregateRoot) {
-        Project stored = ProjectMapper.mapOut(
-                repository.save(ProjectMapper.mapIn(aggregateRoot))
+        Project stored = ProjectMapper.toDomain(
+                repository.save(ProjectMapper.toEntity(aggregateRoot))
         );
 
         dispatch.dispatch(aggregateRoot.getDomainEvents());
@@ -30,5 +31,6 @@ public class ProjectUnitOfWork implements UnitOfWork<Project> {
     @Override
     public void remove(String id) {
         repository.deleteById(id);
+        dispatch.dispatch(new ProjectDeleted(id));
     }
 }

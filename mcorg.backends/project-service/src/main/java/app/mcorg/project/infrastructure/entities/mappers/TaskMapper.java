@@ -10,7 +10,7 @@ import java.util.UUID;
 
 @UtilityClass
 public class TaskMapper {
-    public static DoableTaskEntity mapIn(DoableTask doableTask) {
+    public static DoableTaskEntity toEntity(DoableTask doableTask) {
         return new DoableTaskEntity(
                 Optional.ofNullable(doableTask.getId()).orElse(UUID.randomUUID()),
                 doableTask.getName(),
@@ -20,7 +20,7 @@ public class TaskMapper {
         );
     }
 
-    public static DoableTask mapOut(DoableTaskEntity entity) {
+    public static DoableTask toDomain(DoableTaskEntity entity) {
         return new DoableTask(
                 entity.id(),
                 entity.name(),

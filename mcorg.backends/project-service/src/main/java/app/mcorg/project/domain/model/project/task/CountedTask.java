@@ -1,7 +1,7 @@
 package app.mcorg.project.domain.model.project.task;
 
+import app.mcorg.common.domain.model.Priority;
 import app.mcorg.project.domain.model.minecraft.Item;
-import app.mcorg.project.domain.model.project.Priority;
 import app.mcorg.project.domain.model.project.ProjectDependency;
 import lombok.Getter;
 import org.jetbrains.annotations.NotNull;
@@ -16,14 +16,16 @@ public class CountedTask extends Task implements Comparable<CountedTask> {
     private int needed;
     private int done;
 
-    public CountedTask(UUID id, String name, Priority priority, int needed, int done, Item item, List<ProjectDependency> dependencies) {
+    public CountedTask(UUID id, String name, Priority priority, int needed, int done, Item item,
+                       List<ProjectDependency> dependencies) {
         super(id, name, priority, dependencies);
         this.needed = needed;
         this.done = done;
         this.item = item;
     }
 
-    public static CountedTask create(UUID id, String name, Priority priority, int needed, int done, List<ProjectDependency> dependencies) {
+    public static CountedTask create(UUID id, String name, Priority priority, int needed, int done,
+                                     List<ProjectDependency> dependencies) {
         return new CountedTask(id, name, priority, needed, done, Item.fromName(name).orElse(null), dependencies);
     }
 

@@ -12,7 +12,7 @@ import java.util.Optional;
 
 @UtilityClass
 public class ProjectMapper {
-    public static ProjectEntity mapIn(Project project) {
+    public static ProjectEntity toEntity(Project project) {
         return new ProjectEntity(
                 project.getId(),
                 project.getTeamId(),
@@ -26,10 +26,10 @@ public class ProjectMapper {
         );
     }
 
-    public static Project mapOut(ProjectEntity entity) {
+    public static Project toDomain(ProjectEntity entity) {
         List<Task> tasks = new ArrayList<>();
-        tasks.addAll(entity.tasks().map(TaskMapper::mapOut).toList());
-        tasks.addAll(entity.countedTasks().map(CountedTaskMapper::mapOut).toList());
+        tasks.addAll(entity.tasks().map(TaskMapper::toDomain).toList());
+        tasks.addAll(entity.countedTasks().map(CountedTaskMapper::toDomain).toList());
         return new Project(
                 entity.getId(),
                 entity.getTeamId(),

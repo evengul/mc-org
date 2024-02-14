@@ -1,9 +1,9 @@
 package app.mcorg.project.presentation.rest.common.advice;
 
-import app.mcorg.project.domain.model.exceptions.ArchivedException;
-import app.mcorg.project.domain.model.exceptions.DomainException;
-import app.mcorg.project.domain.model.exceptions.NotFoundException;
-import app.mcorg.project.domain.model.exceptions.UnconfirmedException;
+import app.mcorg.project.domain.exceptions.ArchivedException;
+import app.mcorg.project.domain.exceptions.DomainException;
+import app.mcorg.project.domain.exceptions.NotFoundException;
+import app.mcorg.project.domain.exceptions.UnconfirmedException;
 import app.mcorg.project.presentation.rest.entities.errors.ErrorMessageResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.MessageSource;

@@ -1,6 +1,6 @@
 package app.mcorg.project.domain.usecase.project.task;
 
-import app.mcorg.project.domain.model.project.Priority;
+import app.mcorg.common.domain.model.Priority;
 import app.mcorg.project.domain.model.project.Project;
 import app.mcorg.project.domain.usecase.UseCase;
 import app.mcorg.project.domain.usecase.project.GetProjectUseCase;
@@ -10,7 +10,8 @@ import lombok.RequiredArgsConstructor;
 import java.util.UUID;
 
 @RequiredArgsConstructor
-public class ReprioritizeTaskUseCase extends UseCase<ReprioritizeTaskUseCase.InputValues, ReprioritizeTaskUseCase.OutputValues> {
+public class ReprioritizeTaskUseCase
+        extends UseCase<ReprioritizeTaskUseCase.InputValues, ReprioritizeTaskUseCase.OutputValues> {
 
     final GetProjectUseCase getProjectUseCase;
     final StoreProjectUseCase storeProjectUseCase;
@@ -39,7 +40,9 @@ public class ReprioritizeTaskUseCase extends UseCase<ReprioritizeTaskUseCase.Inp
         return new OutputValues(stored);
     }
 
-    public record InputValues(String projectId, UUID taskId, Priority priority) implements UseCase.InputValues {
+    public record InputValues(String projectId,
+                              UUID taskId,
+                              Priority priority) implements UseCase.InputValues {
     }
 
     public record OutputValues(Project project) implements UseCase.OutputValues {

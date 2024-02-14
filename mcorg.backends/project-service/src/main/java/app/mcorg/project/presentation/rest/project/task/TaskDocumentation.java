@@ -1,6 +1,6 @@
 package app.mcorg.project.presentation.rest.project.task;
 
-import app.mcorg.project.domain.model.project.Priority;
+import app.mcorg.common.domain.model.Priority;
 import app.mcorg.project.presentation.rest.entities.GenericResponse;
 import app.mcorg.project.presentation.rest.entities.project.SimpleProjectResponse;
 import app.mcorg.project.presentation.rest.entities.project.task.AddCountedTaskRequest;
@@ -49,5 +49,6 @@ public interface TaskDocumentation {
     CompletableFuture<ResponseEntity<GenericResponse>> doneMore(String projectId, UUID taskId, int done);
 
     @Operation(summary = "Add dependency to project")
-    CompletableFuture<ResponseEntity<GenericResponse>> dependsOn(String projectIdOfTask, UUID taskId, String dependencyProjectId, Priority priority);
+    CompletableFuture<ResponseEntity<GenericResponse>> dependsOn(String projectIdOfTask, UUID taskId,
+                                                                 String dependencyProjectId, Priority priority);
 }

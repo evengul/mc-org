@@ -23,36 +23,45 @@ public interface ProjectResource extends ProjectDocumentation {
 
     @DeleteMapping(value = "/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseStatus(HttpStatus.OK)
-    CompletableFuture<ResponseEntity<GenericResponse>> delete(@PathVariable String id);
+    CompletableFuture<ResponseEntity<GenericResponse>> delete(
+            @PathVariable String id);
 
     @DeleteMapping(produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseStatus(HttpStatus.OK)
-    CompletableFuture<ResponseEntity<GenericResponse>> deleteAll(@RequestParam("confirm") Boolean confirm);
+    CompletableFuture<ResponseEntity<GenericResponse>> deleteAll(
+            @RequestParam("confirm") Boolean confirm);
 
     @GetMapping(value = "/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseStatus(HttpStatus.OK)
-    CompletableFuture<ResponseEntity<ProjectResponse>> getProject(@PathVariable String id);
+    CompletableFuture<ResponseEntity<ProjectResponse>> getProject(
+            @PathVariable String id);
 
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseStatus(HttpStatus.CREATED)
-    CompletableFuture<ResponseEntity<GenericResponse>> createProject(@RequestBody @Valid CreateProjectRequest request);
+    CompletableFuture<ResponseEntity<GenericResponse>> createProject(
+            @RequestBody
+            @Valid CreateProjectRequest request);
 
-    @PostMapping(value = "/schematic/text", consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+    @PostMapping(value = "/schematic/text", consumes = MediaType.MULTIPART_FORM_DATA_VALUE,
+                 produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseStatus(HttpStatus.CREATED)
     CompletableFuture<ResponseEntity<GenericResponse>> createFromMaterialList(
             @RequestParam(value = "projectName", required = false) CreateProjectRequest request,
             @RequestPart("file") MultipartFile file
-    ) throws IOException;
+                                                                             ) throws IOException;
 
     @PatchMapping(value = "/{id}/archive", produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseStatus(HttpStatus.OK)
-    CompletableFuture<ResponseEntity<GenericResponse>> archiveProject(@PathVariable String id);
+    CompletableFuture<ResponseEntity<GenericResponse>> archiveProject(
+            @PathVariable String id);
 
     @PatchMapping(value = "/{id}/unarchive", produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseStatus(HttpStatus.OK)
-    CompletableFuture<ResponseEntity<GenericResponse>> unarchiveProject(@PathVariable String id);
+    CompletableFuture<ResponseEntity<GenericResponse>> openProject(
+            @PathVariable String id);
 
     @GetMapping(value = "/{id}/archived", produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseStatus(HttpStatus.OK)
-    CompletableFuture<ResponseEntity<Boolean>> isArchived(@PathVariable String id);
+    CompletableFuture<ResponseEntity<Boolean>> isArchived(
+            @PathVariable String id);
 }

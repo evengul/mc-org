@@ -1,14 +1,15 @@
 package app.mcorg.project.domain.usecase.project;
 
 import app.mcorg.project.domain.api.Projects;
-import app.mcorg.project.domain.model.exceptions.UnconfirmedException;
+import app.mcorg.project.domain.exceptions.UnconfirmedException;
 import app.mcorg.project.domain.usecase.UseCase;
 import lombok.RequiredArgsConstructor;
 
 import java.util.Optional;
 
 @RequiredArgsConstructor
-public class DeleteAllProjectsUseCase extends UseCase<DeleteAllProjectsUseCase.InputValues, DeleteAllProjectsUseCase.OutputValues> {
+public class DeleteAllProjectsUseCase
+        extends UseCase<DeleteAllProjectsUseCase.InputValues, DeleteAllProjectsUseCase.OutputValues> {
 
     private final Projects repository;
 

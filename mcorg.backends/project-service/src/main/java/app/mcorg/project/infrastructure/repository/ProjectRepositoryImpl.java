@@ -1,6 +1,7 @@
 package app.mcorg.project.infrastructure.repository;
 
 import app.mcorg.project.domain.api.Projects;
+import app.mcorg.project.domain.exceptions.NotFoundException;
 import app.mcorg.project.domain.model.project.Project;
 import app.mcorg.project.infrastructure.entities.mappers.ProjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -18,20 +19,21 @@ public class ProjectRepositoryImpl implements Projects {
     @Override
     public List<Project> get() {
         return repository.findAll()
-                .stream()
-                .map(ProjectMapper::mapOut)
-                .toList();
-    }
-
-    @Override
-    public Project persist(Project project) {
-        return ProjectMapper.mapOut(repository.save(ProjectMapper.mapIn(project)));
+                         .stream()
+                         .map(ProjectMapper::toDomain)
+                         .toList();
     }
 
     @Override
     public Optional<Project> get(String id) {
         return repository.findById(id)
-                .map(ProjectMapper::mapOut);
+                         .map(ProjectMapper::toDomain);
+    }
+
+    @Override
+    public Project getOrThrow(String id) {
+        return get(id)
+                .orElseThrow(() -> new NotFoundException(id));
     }
 
     @Override

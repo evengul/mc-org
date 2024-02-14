@@ -9,11 +9,15 @@ import app.mcorg.project.domain.model.project.task.DoableTask;
 import app.mcorg.project.domain.model.project.task.Task;
 import app.mcorg.project.domain.model.project.task.Tasks;
 import app.mcorg.project.domain.model.schematic.Schematic;
+import app.mcorg.project.domain.model.team.SlimTeam;
+import app.mcorg.project.domain.model.world.SlimWorld;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import org.bson.types.ObjectId;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Stream;
 
 import static java.util.Collections.emptyList;
@@ -70,8 +74,14 @@ public class Project extends AggregateRoot<ProjectEvent> {
         return this;
     }
 
+    public void taskDependsOn(UUID taskId, String projectId, Priority priority) {
+        this.tasks.dependsOn(taskId, projectId, priority);
+        this.raiseEvent(new ProjectDependencyAddedToTask(projectId, taskId, priority));
+    }
+
     public void isDependedOnBy(String projectId, Priority priority) {
-        this.projectDependencies.add(new ProjectDependency(projectId, priority, ProjectDependency.Direction.IS_DEPENDED_ON_BY));
+        this.projectDependencies.add(
+                new ProjectDependency(projectId, priority, ProjectDependency.Direction.IS_DEPENDED_ON_BY));
     }
 
     public Stream<DoableTask> doableTasks() {

@@ -1,7 +1,7 @@
 package app.mcorg.project.domain.service;
 
 import app.mcorg.project.domain.api.SchematicParser;
-import app.mcorg.project.domain.model.exceptions.SchematicParseException;
+import app.mcorg.project.domain.exceptions.SchematicParseException;
 import app.mcorg.project.domain.model.schematic.Schematic;
 import lombok.extern.slf4j.Slf4j;
 
@@ -37,13 +37,14 @@ public class MaterialListSchematicParser extends SchematicParser {
         String content = validateFile(name, file);
 
         return Arrays.stream(content.split("\\n"))
-                .skip(5)
-                .filter(line -> !line.contains("+"))
-                .filter(line -> !line.contains("Item"))
-                .map(line -> Arrays.stream(line.split("\\|"))
-                        .map(String::strip)
-                        .toList())
-                .collect(Collectors.toMap(lineCells -> lineCells.get(1), lineCells -> Integer.parseInt(lineCells.get(2))));
+                     .skip(5)
+                     .filter(line -> !line.contains("+"))
+                     .filter(line -> !line.contains("Item"))
+                     .map(line -> Arrays.stream(line.split("\\|"))
+                                        .map(String::strip)
+                                        .toList())
+                     .collect(Collectors.toMap(lineCells -> lineCells.get(1),
+                                               lineCells -> Integer.parseInt(lineCells.get(2))));
     }
 
     private String validateFile(String name, InputStream file) {
@@ -53,8 +54,8 @@ public class MaterialListSchematicParser extends SchematicParser {
                 throw new SchematicParseException("File cannot be blank");
             }
             final Matcher matcher = contentPattern.matcher(content);
-            if(matcher.find()) {
-                if(!matcher.group(0).equals(content)) {
+            if (matcher.find()) {
+                if (!matcher.group(0).equals(content)) {
                     throw new SchematicParseException("Invalid content");
                 }
             }

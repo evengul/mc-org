@@ -50,12 +50,14 @@ public class ProjectConfiguration {
     }
 
     @Bean
-    public ArchiveProjectUseCase archiveProjectUseCase(GetProjectUseCase getProjectUseCase, StoreProjectUseCase storeProjectUseCase) {
+    public ArchiveProjectUseCase archiveProjectUseCase(GetProjectUseCase getProjectUseCase,
+                                                       StoreProjectUseCase storeProjectUseCase) {
         return new ArchiveProjectUseCase(getProjectUseCase, storeProjectUseCase);
     }
 
     @Bean
-    public UnarchiveProjectUseCase unarchiveProjectUseCase(GetProjectUseCase getProjectUseCase, StoreProjectUseCase storeProjectUseCase) {
-        return new UnarchiveProjectUseCase(getProjectUseCase, storeProjectUseCase);
+    public OpenProjectUseCase unarchiveProjectUseCase(GetProjectUseCase getProjectUseCase,
+                                                      StoreProjectUseCase storeProjectUseCase) {
+        return new OpenProjectUseCase(getProjectUseCase, storeProjectUseCase);
     }
 }

@@ -1,4 +1,4 @@
-package app.mcorg.project.domain.model.exceptions;
+package app.mcorg.project.domain.exceptions;
 
 public class SchematicParseException extends DomainException {
     public SchematicParseException(Object... args) {

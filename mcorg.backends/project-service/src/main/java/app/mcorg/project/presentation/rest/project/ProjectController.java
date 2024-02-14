@@ -1,8 +1,10 @@
 package app.mcorg.project.presentation.rest.project;
 
+import app.mcorg.common.domain.model.Authority;
 import app.mcorg.project.domain.usecase.UseCaseExecutor;
 import app.mcorg.project.domain.usecase.project.*;
 import app.mcorg.project.domain.usecase.schematic.CreateProjectFromMaterialListUseCase;
+import app.mcorg.project.presentation.rest.common.aspect.CheckAccess;
 import app.mcorg.project.presentation.rest.common.aspect.CheckArchived;
 import app.mcorg.project.presentation.rest.entities.GenericResponse;
 import app.mcorg.project.presentation.rest.entities.project.CreateProjectRequest;
@@ -29,7 +31,7 @@ public class ProjectController implements ProjectResource {
     private final DeleteAllProjectsUseCase deleteAllProjectsUseCase;
     private final DeleteProjectUseCase deleteProjectUseCase;
     private final ArchiveProjectUseCase archiveProjectUseCase;
-    private final UnarchiveProjectUseCase unarchiveProjectUseCase;
+    private final OpenProjectUseCase openProjectUseCase;
     private final IsProjectArchivedUseCase isProjectArchivedUseCase;
 
     @Override
@@ -37,11 +39,11 @@ public class ProjectController implements ProjectResource {
         return executor.execute(
                 getAllProjectsUseCase,
                 new GetAllProjectsUseCase.InputValues(),
-                GetAllProjectsOutputMapper::map
-        );
+                GetAllProjectsOutputMapper::map);
     }
 
     @Override
+    @CheckAccess(authority = Authority.ADMIN)
     public CompletableFuture<ResponseEntity<GenericResponse>> delete(String id) {
         return executor.execute(
                 deleteProjectUseCase,
@@ -60,6 +62,7 @@ public class ProjectController implements ProjectResource {
     }
 
     @Override
+    @CheckAccess(authority = Authority.PARTICIPANT)
     public CompletableFuture<ResponseEntity<ProjectResponse>> getProject(String id) {
         return executor.execute(
                 getProjectUseCase,
@@ -88,6 +91,7 @@ public class ProjectController implements ProjectResource {
 
     @Override
     @CheckArchived("id")
+    @CheckAccess(authority = Authority.ADMIN)
     public CompletableFuture<ResponseEntity<GenericResponse>> archiveProject(String id) {
         return executor.execute(
                 archiveProjectUseCase,
@@ -97,15 +101,17 @@ public class ProjectController implements ProjectResource {
     }
 
     @Override
-    public CompletableFuture<ResponseEntity<GenericResponse>> unarchiveProject(String id) {
+    @CheckAccess(authority = Authority.ADMIN)
+    public CompletableFuture<ResponseEntity<GenericResponse>> openProject(String id) {
         return executor.execute(
-                unarchiveProjectUseCase,
-                new UnarchiveProjectUseCase.InputValues(id),
+                openProjectUseCase,
+                new OpenProjectUseCase.InputValues(id),
                 outputValues -> ResponseEntity.ok(new GenericResponse(true, "Project unarchived successfully"))
         );
     }
 
     @Override
+    @CheckAccess(authority = Authority.PARTICIPANT)
     public CompletableFuture<ResponseEntity<Boolean>> isArchived(String id) {
         return executor.execute(
                 isProjectArchivedUseCase,

@@ -1,6 +1,6 @@
 package app.mcorg.project.presentation.rest.entities.project.task;
 
-import app.mcorg.project.domain.model.project.Priority;
+import app.mcorg.common.domain.model.Priority;
 import app.mcorg.project.domain.model.project.task.DoableTask;
 import app.mcorg.project.presentation.rest.entities.project.ProjectDependencyResponse;
 import org.springframework.lang.NonNull;
@@ -20,9 +20,9 @@ public record TaskResponse(@NonNull UUID id,
                 doableTask.getPriority(),
                 doableTask.isDone(),
                 doableTask.getProjectDependencies()
-                        .stream()
-                        .map(ProjectDependencyResponse::from)
-                        .toList()
+                          .stream()
+                          .map(ProjectDependencyResponse::from)
+                          .toList()
         );
     }
 }

@@ -1,5 +1,6 @@
 package app.mcorg.project.domain.usecase.project.task;
 
+import app.mcorg.project.domain.api.UserProvider;
 import app.mcorg.project.domain.model.project.Project;
 import app.mcorg.project.domain.usecase.UseCase;
 import app.mcorg.project.domain.usecase.project.GetProjectUseCase;
@@ -9,8 +10,10 @@ import lombok.RequiredArgsConstructor;
 import java.util.UUID;
 
 @RequiredArgsConstructor
-public class ConvertTaskToProjectUseCase extends UseCase<ConvertTaskToProjectUseCase.InputValues, ConvertTaskToProjectUseCase.OutputValues> {
+public class ConvertTaskToProjectUseCase
+        extends UseCase<ConvertTaskToProjectUseCase.InputValues, ConvertTaskToProjectUseCase.OutputValues> {
 
+    private final UserProvider userProvider;
     private final GetProjectUseCase getProjectUseCase;
     private final StoreProjectUseCase storeProjectUseCase;
 
@@ -20,7 +23,10 @@ public class ConvertTaskToProjectUseCase extends UseCase<ConvertTaskToProjectUse
 
         Project originalProject = get(projectId);
         Project taskProject = originalProject.getTasks()
-                .doableToProject(taskId, originalProject);
+                                             .doableToProject(taskId,
+                                                              userProvider.get(),
+                                                              originalProject.getWorld(),
+                                                              originalProject.getTeam());
         originalProject.getTasks().remove(taskId);
 
         Project created = store(taskProject);
@@ -31,16 +37,18 @@ public class ConvertTaskToProjectUseCase extends UseCase<ConvertTaskToProjectUse
 
     private Project get(String projectId) {
         return getProjectUseCase.execute(new GetProjectUseCase.InputValues(projectId))
-                .project();
+                                .project();
     }
 
     private Project store(Project project) {
         return storeProjectUseCase.execute(new StoreProjectUseCase.InputValues(project)).project();
     }
 
-    public record InputValues(String projectId, UUID taskId) implements UseCase.InputValues {
+    public record InputValues(String projectId,
+                              UUID taskId) implements UseCase.InputValues {
     }
 
-    public record OutputValues(Project initial, Project created) implements UseCase.OutputValues {
+    public record OutputValues(Project initial,
+                               Project created) implements UseCase.OutputValues {
     }
 }

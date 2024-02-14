@@ -1,6 +1,6 @@
 package app.mcorg.project.domain.model.project.task;
 
-import app.mcorg.project.domain.model.project.Priority;
+import app.mcorg.common.domain.model.Priority;
 import app.mcorg.project.domain.model.project.ProjectDependency;
 import lombok.Getter;
 
@@ -31,7 +31,9 @@ public abstract class Task {
     }
 
     public void dependsOn(String projectId, Priority priority) {
-        this.projectDependencies.add(new ProjectDependency(projectId, Optional.ofNullable(priority).orElse(Priority.LOW), ProjectDependency.Direction.DEPENDS_ON));
+        this.projectDependencies.add(
+                new ProjectDependency(projectId, Optional.ofNullable(priority).orElse(Priority.LOW),
+                                      ProjectDependency.Direction.DEPENDS_ON));
     }
 
     public abstract boolean isDone();
