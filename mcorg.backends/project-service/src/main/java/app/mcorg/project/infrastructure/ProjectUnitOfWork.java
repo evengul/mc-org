@@ -21,7 +21,7 @@ public class ProjectUnitOfWork implements UnitOfWork<Project> {
     public Project add(Project aggregateRoot) {
         Project stored = ProjectMapper.toDomain(
                 repository.save(ProjectMapper.toEntity(aggregateRoot))
-        );
+                                               );
 
         dispatch.dispatch(aggregateRoot.getDomainEvents());
 
@@ -30,7 +30,9 @@ public class ProjectUnitOfWork implements UnitOfWork<Project> {
 
     @Override
     public void remove(String id) {
-        repository.deleteById(id);
-        dispatch.dispatch(new ProjectDeleted(id));
+        repository.findById(id).ifPresent(projectEntity -> {
+            repository.delete(projectEntity);
+            dispatch.dispatch(new ProjectDeleted(id, projectEntity.getTeamId()));
+        });
     }
 }

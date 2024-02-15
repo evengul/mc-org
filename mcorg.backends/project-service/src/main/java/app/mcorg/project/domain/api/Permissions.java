@@ -7,7 +7,7 @@ import java.util.Optional;
 public interface Permissions {
     Optional<UserPermissions> get(String username);
 
-    void store(UserPermissions permissions);
+    void persist(UserPermissions permissions);
 
     void delete(String username);
 }

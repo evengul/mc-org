@@ -7,9 +7,7 @@ import java.util.Optional;
 
 public interface Projects {
     List<Project> get();
-
-    Project persist(Project project);
-
+    
     Optional<Project> get(String id);
 
     List<Project> getProjectsInTeam(String teamId);

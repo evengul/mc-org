@@ -2,7 +2,7 @@ package app.mcorg.project.presentation.rest.common.aspect;
 
 import app.mcorg.common.domain.model.Authority;
 import app.mcorg.project.domain.api.PermissionService;
-import app.mcorg.project.domain.model.exceptions.AccessDeniedException;
+import app.mcorg.project.domain.exceptions.AccessDeniedException;
 import lombok.RequiredArgsConstructor;
 import org.aspectj.lang.JoinPoint;
 import org.aspectj.lang.annotation.Aspect;

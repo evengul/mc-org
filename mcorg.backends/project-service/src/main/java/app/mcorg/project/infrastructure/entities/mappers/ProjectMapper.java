@@ -19,8 +19,8 @@ public class ProjectMapper {
                 project.getWorldId(),
                 project.getName(),
                 project.isArchived(),
-                project.doableTasks().map(TaskMapper::mapIn).toList(),
-                project.countedTasks().map(CountedTaskMapper::mapIn).toList(),
+                project.doableTasks().map(TaskMapper::toEntity).toList(),
+                project.countedTasks().map(CountedTaskMapper::toEntity).toList(),
                 project.getProjectDependencies(),
                 project.getUsers()
         );

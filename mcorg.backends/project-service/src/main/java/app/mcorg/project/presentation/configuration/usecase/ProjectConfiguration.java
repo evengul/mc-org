@@ -1,7 +1,9 @@
 package app.mcorg.project.presentation.configuration.usecase;
 
+import app.mcorg.common.domain.UnitOfWork;
 import app.mcorg.common.domain.api.UsernameProvider;
 import app.mcorg.project.domain.api.Projects;
+import app.mcorg.project.domain.model.project.Project;
 import app.mcorg.project.domain.usecase.project.*;
 import app.mcorg.project.domain.usecase.schematic.CreateProjectFromMaterialListUseCase;
 import org.springframework.context.annotation.Bean;
@@ -25,8 +27,8 @@ public class ProjectConfiguration {
     }
 
     @Bean
-    public StoreProjectUseCase storeProjectUseCase(Projects repository) {
-        return new StoreProjectUseCase(repository);
+    public StoreProjectUseCase storeProjectUseCase(UnitOfWork<Project> unit) {
+        return new StoreProjectUseCase(unit);
     }
 
     @Bean
@@ -40,12 +42,14 @@ public class ProjectConfiguration {
     }
 
     @Bean
-    public CreateProjectUseCase createProjectUseCase(UsernameProvider usernameProvider, StoreProjectUseCase storeProjectUseCase) {
+    public CreateProjectUseCase createProjectUseCase(UsernameProvider usernameProvider,
+                                                     StoreProjectUseCase storeProjectUseCase) {
         return new CreateProjectUseCase(storeProjectUseCase, usernameProvider);
     }
 
     @Bean
-    public CreateProjectFromMaterialListUseCase createProjectFromMaterialListUseCase(UsernameProvider usernameProvider, StoreProjectUseCase storeProjectUseCase) {
+    public CreateProjectFromMaterialListUseCase createProjectFromMaterialListUseCase(UsernameProvider usernameProvider,
+                                                                                     StoreProjectUseCase storeProjectUseCase) {
         return new CreateProjectFromMaterialListUseCase(storeProjectUseCase, usernameProvider);
     }
 

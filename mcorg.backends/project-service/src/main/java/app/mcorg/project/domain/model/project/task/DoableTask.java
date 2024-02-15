@@ -1,6 +1,6 @@
 package app.mcorg.project.domain.model.project.task;
 
-import app.mcorg.project.domain.model.project.Priority;
+import app.mcorg.common.domain.model.Priority;
 import app.mcorg.project.domain.model.project.Project;
 import app.mcorg.project.domain.model.project.ProjectDependency;
 
@@ -11,7 +11,8 @@ import java.util.UUID;
 public class DoableTask extends Task {
     private boolean isDone;
 
-    public DoableTask(UUID id, String name, Priority priority, boolean isDone, List<ProjectDependency> projectDependencies) {
+    public DoableTask(UUID id, String name, Priority priority, boolean isDone,
+                      List<ProjectDependency> projectDependencies) {
         super(id, name, priority, projectDependencies);
         this.isDone = isDone;
     }

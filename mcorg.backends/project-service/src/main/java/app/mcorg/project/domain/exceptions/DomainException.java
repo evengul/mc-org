@@ -1,7 +1,4 @@
-package app.mcorg.project.domain.model.exceptions;
-
-import lombok.Data;
-import lombok.EqualsAndHashCode;
+package app.mcorg.project.domain.exceptions;
 
 import lombok.Getter;
 

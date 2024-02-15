@@ -1,6 +1,5 @@
 package app.mcorg.project.domain.usecase.project.task;
 
-import app.mcorg.project.domain.api.UserProvider;
 import app.mcorg.project.domain.model.project.Project;
 import app.mcorg.project.domain.usecase.UseCase;
 import app.mcorg.project.domain.usecase.project.GetProjectUseCase;
@@ -13,7 +12,6 @@ import java.util.UUID;
 public class ConvertTaskToProjectUseCase
         extends UseCase<ConvertTaskToProjectUseCase.InputValues, ConvertTaskToProjectUseCase.OutputValues> {
 
-    private final UserProvider userProvider;
     private final GetProjectUseCase getProjectUseCase;
     private final StoreProjectUseCase storeProjectUseCase;
 
@@ -24,9 +22,7 @@ public class ConvertTaskToProjectUseCase
         Project originalProject = get(projectId);
         Project taskProject = originalProject.getTasks()
                                              .doableToProject(taskId,
-                                                              userProvider.get(),
-                                                              originalProject.getWorld(),
-                                                              originalProject.getTeam());
+                                                              originalProject);
         originalProject.getTasks().remove(taskId);
 
         Project created = store(taskProject);

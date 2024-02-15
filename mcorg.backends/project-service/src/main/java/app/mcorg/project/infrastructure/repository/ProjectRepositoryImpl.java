@@ -31,33 +31,27 @@ public class ProjectRepositoryImpl implements Projects {
     }
 
     @Override
-    public Project getOrThrow(String id) {
-        return get(id)
-                .orElseThrow(() -> new NotFoundException(id));
-    }
-
-    @Override
     public List<Project> getProjectsInTeam(String teamId) {
         return repository.findAllByTeamId(teamId)
-                .stream()
-                .map(ProjectMapper::mapOut)
-                .toList();
+                         .stream()
+                         .map(ProjectMapper::toDomain)
+                         .toList();
     }
 
     @Override
     public List<Project> getProjectsInWorld(String worldId) {
         return repository.findAllByWorldId(worldId)
-                .stream()
-                .map(ProjectMapper::mapOut)
-                .toList();
+                         .stream()
+                         .map(ProjectMapper::toDomain)
+                         .toList();
     }
 
     @Override
     public List<Project> getProjectsWithUser(String username) {
         return repository.findAllByUsersContainingIgnoreCase(username)
-                .stream()
-                .map(ProjectMapper::mapOut)
-                .toList();
+                         .stream()
+                         .map(ProjectMapper::toDomain)
+                         .toList();
     }
 
     @Override
@@ -72,6 +66,7 @@ public class ProjectRepositoryImpl implements Projects {
 
     @Override
     public boolean isArchived(String id) {
-        return get(id).map(Project::isArchived).orElse(false);
+        return get(id).map(Project::isArchived)
+                      .orElseThrow(() -> NotFoundException.project(id));
     }
 }

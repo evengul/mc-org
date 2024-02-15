@@ -20,11 +20,7 @@ public class CheckAccessAspect extends AbstractAspect<CheckAccess> {
         AuthorityLevel level = annotation.level();
         Authority authority = annotation.authority();
 
-        boolean hasAccess = switch (level) {
-            case WORLD -> permissionService.hasWorldAuthority(id, authority);
-            case TEAM -> permissionService.hasTeamAuthority(id, authority);
-            case PROJECT, TASK -> permissionService.hasProjectAuthority(id, authority);
-        };
+        boolean hasAccess = permissionService.hasAuthority(id, authority);
 
         if (!hasAccess) {
             throw new AccessDeniedException(

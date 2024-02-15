@@ -1,16 +1,13 @@
 package app.mcorg.project.domain.model.project.task;
 
-import app.mcorg.project.domain.model.exceptions.NotFoundException;
-import app.mcorg.project.domain.model.project.Priority;
+import app.mcorg.common.domain.model.Priority;
+import app.mcorg.project.domain.exceptions.NotFoundException;
 import app.mcorg.project.domain.model.project.Project;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Stream;
-
-import static java.util.Collections.emptyList;
-import static app.mcorg.project.domain.exceptions.DomainExceptions.notFound;
 
 public record Tasks(List<Task> tasks) {
 
@@ -43,11 +40,11 @@ public record Tasks(List<Task> tasks) {
 
     public <T extends Task> T get(UUID id, Class<T> tClass) {
         return this.tasks.stream()
-                .filter(tClass::isInstance)
-                .map(tClass::cast)
-                .filter(task -> task.getId().equals(id))
-                .findFirst()
-                .orElseThrow(() -> NotFoundException.task(id.toString()));
+                         .filter(tClass::isInstance)
+                         .map(tClass::cast)
+                         .filter(task -> task.getId().equals(id))
+                         .findFirst()
+                         .orElseThrow(() -> NotFoundException.task(id.toString()));
     }
 
     public Task get(UUID id) {
@@ -88,8 +85,8 @@ public record Tasks(List<Task> tasks) {
 
     public int incomplete() {
         return (int) tasks.stream()
-                .filter(task -> !task.isDone())
-                .count();
+                          .filter(task -> !task.isDone())
+                          .count();
     }
 
     public void dependsOn(UUID taskId, String projectId, Priority priority) {
@@ -99,13 +96,13 @@ public record Tasks(List<Task> tasks) {
 
     public Stream<DoableTask> doables() {
         return tasks.stream()
-                .filter(DoableTask.class::isInstance)
-                .map(DoableTask.class::cast);
+                    .filter(DoableTask.class::isInstance)
+                    .map(DoableTask.class::cast);
     }
 
     public Stream<CountedTask> countables() {
         return tasks.stream()
-                .filter(CountedTask.class::isInstance)
-                .map(CountedTask.class::cast);
+                    .filter(CountedTask.class::isInstance)
+                    .map(CountedTask.class::cast);
     }
 }

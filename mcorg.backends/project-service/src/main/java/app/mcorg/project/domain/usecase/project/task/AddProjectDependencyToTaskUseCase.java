@@ -25,7 +25,7 @@ public class AddProjectDependencyToTaskUseCase extends
 
         Project projectWithTask = get(projectIdOfTask);
         Project dependency = get(dependencyProjectId);
-        projectWithTask.taskDependsOn(taskId, dependencyProjectId, priority);
+        projectWithTask.taskDependsOn(taskId, projectWithTask.getTeamId(), dependencyProjectId, priority);
 
         store(projectWithTask);
         store(dependency);

@@ -1,6 +1,7 @@
 package app.mcorg.project.presentation.rest.project.task;
 
 import app.mcorg.common.domain.model.Authority;
+import app.mcorg.common.domain.model.AuthorityLevel;
 import app.mcorg.common.domain.model.Priority;
 import app.mcorg.project.domain.usecase.UseCaseExecutor;
 import app.mcorg.project.domain.usecase.project.countedtask.AddCountedTaskUseCase;
@@ -40,7 +41,7 @@ public class TaskController implements TaskResource {
 
     @Override
     @CheckArchived
-    @CheckAccess(authority = Authority.PARTICIPANT, level = CheckAccess.AccessType.TASK)
+    @CheckAccess(authority = Authority.PARTICIPANT, level = AuthorityLevel.TASK)
     public CompletableFuture<ResponseEntity<SimpleProjectResponse>> convert(String projectId, UUID taskId) {
         return executor.execute(
                 convertTaskToProjectUseCase,
@@ -51,7 +52,7 @@ public class TaskController implements TaskResource {
 
     @Override
     @CheckArchived
-    @CheckAccess(authority = Authority.PARTICIPANT, level = CheckAccess.AccessType.TASK)
+    @CheckAccess(authority = Authority.PARTICIPANT, level = AuthorityLevel.TASK)
     public CompletableFuture<ResponseEntity<GenericResponse>> addDoable(String projectId, AddTaskRequest request) {
         return executor.execute(
                 addTaskUseCase,
@@ -62,7 +63,7 @@ public class TaskController implements TaskResource {
 
     @Override
     @CheckArchived
-    @CheckAccess(authority = Authority.PARTICIPANT, level = CheckAccess.AccessType.TASK)
+    @CheckAccess(authority = Authority.PARTICIPANT, level = AuthorityLevel.TASK)
     public CompletableFuture<ResponseEntity<GenericResponse>> remove(String projectId, UUID taskId) {
         return executor.execute(
                 removeTaskUseCase,
@@ -73,7 +74,7 @@ public class TaskController implements TaskResource {
 
     @Override
     @CheckArchived
-    @CheckAccess(authority = Authority.PARTICIPANT, level = CheckAccess.AccessType.TASK)
+    @CheckAccess(authority = Authority.PARTICIPANT, level = AuthorityLevel.TASK)
     public CompletableFuture<ResponseEntity<GenericResponse>> rename(String projectId, UUID taskId, String name) {
         return executor.execute(
                 renameTaskUseCase,
@@ -84,7 +85,7 @@ public class TaskController implements TaskResource {
 
     @Override
     @CheckArchived
-    @CheckAccess(authority = Authority.PARTICIPANT, level = CheckAccess.AccessType.TASK)
+    @CheckAccess(authority = Authority.PARTICIPANT, level = AuthorityLevel.TASK)
     public CompletableFuture<ResponseEntity<GenericResponse>> reprioritize(String projectId, UUID taskId,
                                                                            Priority priority) {
         return executor.execute(
@@ -96,7 +97,7 @@ public class TaskController implements TaskResource {
 
     @Override
     @CheckArchived
-    @CheckAccess(authority = Authority.PARTICIPANT, level = CheckAccess.AccessType.TASK)
+    @CheckAccess(authority = Authority.PARTICIPANT, level = AuthorityLevel.TASK)
     public CompletableFuture<ResponseEntity<GenericResponse>> complete(String projectId, UUID taskId) {
         return executor.execute(
                 doTaskUseCase,
@@ -107,7 +108,7 @@ public class TaskController implements TaskResource {
 
     @Override
     @CheckArchived
-    @CheckAccess(authority = Authority.PARTICIPANT, level = CheckAccess.AccessType.TASK)
+    @CheckAccess(authority = Authority.PARTICIPANT, level = AuthorityLevel.TASK)
     public CompletableFuture<ResponseEntity<GenericResponse>> uncomplete(String projectId, UUID taskId) {
         return executor.execute(
                 undoTaskUseCase,
@@ -118,7 +119,7 @@ public class TaskController implements TaskResource {
 
     @Override
     @CheckArchived
-    @CheckAccess(authority = Authority.PARTICIPANT, level = CheckAccess.AccessType.TASK)
+    @CheckAccess(authority = Authority.PARTICIPANT, level = AuthorityLevel.TASK)
     public CompletableFuture<ResponseEntity<GenericResponse>> addCountable(String projectId,
                                                                            AddCountedTaskRequest request) {
         return executor.execute(
@@ -130,7 +131,7 @@ public class TaskController implements TaskResource {
 
     @Override
     @CheckArchived
-    @CheckAccess(authority = Authority.PARTICIPANT, level = CheckAccess.AccessType.TASK)
+    @CheckAccess(authority = Authority.PARTICIPANT, level = AuthorityLevel.TASK)
     public CompletableFuture<ResponseEntity<GenericResponse>> needsMore(String projectId, UUID taskId, int needed) {
         return executor.execute(
                 needsMoreUseCase,
@@ -141,7 +142,7 @@ public class TaskController implements TaskResource {
 
     @Override
     @CheckArchived
-    @CheckAccess(authority = Authority.PARTICIPANT, level = CheckAccess.AccessType.TASK)
+    @CheckAccess(authority = Authority.PARTICIPANT, level = AuthorityLevel.TASK)
     public CompletableFuture<ResponseEntity<GenericResponse>> doneMore(String projectId, UUID taskId, int done) {
         return executor.execute(
                 doneMoreUseCase,
@@ -152,7 +153,7 @@ public class TaskController implements TaskResource {
 
     @Override
     @CheckArchived("projectIdOfTask")
-    @CheckAccess(value = "projectIdOfTask", authority = Authority.PARTICIPANT, level = CheckAccess.AccessType.TASK)
+    @CheckAccess(value = "projectIdOfTask", authority = Authority.PARTICIPANT, level = AuthorityLevel.TASK)
     public CompletableFuture<ResponseEntity<GenericResponse>> dependsOn(String projectIdOfTask,
                                                                         UUID taskId,
                                                                         String dependencyProjectId,

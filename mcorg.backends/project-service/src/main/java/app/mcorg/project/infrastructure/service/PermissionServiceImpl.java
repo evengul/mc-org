@@ -6,7 +6,7 @@ import app.mcorg.common.domain.model.AuthorityLevel;
 import app.mcorg.project.domain.api.PermissionService;
 import app.mcorg.project.domain.api.Permissions;
 import app.mcorg.project.domain.api.Projects;
-import app.mcorg.project.domain.model.exceptions.NotFoundException;
+import app.mcorg.project.domain.exceptions.NotFoundException;
 import app.mcorg.project.domain.model.permission.UserPermissions;
 import app.mcorg.project.domain.model.project.Project;
 import lombok.RequiredArgsConstructor;
@@ -37,11 +37,11 @@ public class PermissionServiceImpl implements PermissionService {
 
     private UserPermissions getPermissions(String username) {
         return permissions.get(username)
-                .orElseThrow(() -> NotFoundException.user(username));
+                          .orElseThrow(() -> NotFoundException.user(username));
     }
 
     private Project getProject(String id) {
         return projects.get(id)
-                .orElseThrow(() -> NotFoundException.project(id));
+                       .orElseThrow(() -> NotFoundException.project(id));
     }
 }

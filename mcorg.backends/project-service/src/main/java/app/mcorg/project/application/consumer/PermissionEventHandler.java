@@ -27,41 +27,49 @@ public class PermissionEventHandler {
     private final Projects projects;
     private final UnitOfWork<Project> unitOfWork;
 
-    private final static List<AuthorityLevel> acceptedLevels = List.of(AuthorityLevel.WORLD, AuthorityLevel.TEAM, AuthorityLevel.PROJECT);
+    private final static List<AuthorityLevel> acceptedLevels = List.of(AuthorityLevel.WORLD, AuthorityLevel.TEAM,
+                                                                       AuthorityLevel.PROJECT);
 
     @Bean
     public Consumer<AuthorityAdded> authorityAddedConsumer() {
         return event -> {
-            if (!acceptedLevels.contains(event.level())) return;
+            if (!acceptedLevels.contains(event.level())) {
+                return;
+            }
 
             editPermissions(event.username(), event.authorizedId(),
-                    (user, project) -> {
-                        user.addAuthority(event.level(), event.authorizedId(), event.authority());
-                        project.addUser(user.username());
-                    });
+                            (user, project) -> {
+                                user.addAuthority(event.level(), event.authorizedId(), event.authority());
+                                project.addUser(user.username());
+                            });
         };
     }
 
     @Bean
     public Consumer<AuthorityChanged> authorityChangedConsumer() {
         return event -> {
-            if (!acceptedLevels.contains(event.level())) return;
+            if (!acceptedLevels.contains(event.level())) {
+                return;
+            }
 
             editPermissions(event.username(), event.authorizedId(),
-                    (user, project) -> user.changeAuthority(event.level(), event.authorizedId(), event.authority()));
+                            (user, project) -> user.changeAuthority(event.level(), event.authorizedId(),
+                                                                    event.authority()));
         };
     }
 
     @Bean
     public Consumer<AuthorityRemoved> authorityRemovedConsumer() {
         return event -> {
-            if (!acceptedLevels.contains(event.level())) return;
+            if (!acceptedLevels.contains(event.level())) {
+                return;
+            }
 
             editPermissions(event.username(), event.authorizedId(),
-                    (user, project) -> {
-                        user.removeAuthority(event.level(), event.authorizedId());
-                        project.removeUser(user.username());
-                    });
+                            (user, project) -> {
+                                user.removeAuthority(event.level(), event.authorizedId());
+                                project.removeUser(user.username());
+                            });
         };
     }
 
@@ -80,11 +88,11 @@ public class PermissionEventHandler {
     private void editPermissions(String username, String projectId, BiConsumer<UserPermissions, Project> edit) {
         Project project = getProjectUseCase.execute(new GetProjectUseCase.InputValues(projectId)).project();
         UserPermissions userPermissions = permissions.get(username)
-                .orElse(UserPermissions.create(username));
+                                                     .orElse(UserPermissions.create(username));
 
         edit.accept(userPermissions, project);
 
         unitOfWork.add(project);
-        permissions.store(userPermissions);
+        permissions.persist(userPermissions);
     }
 }

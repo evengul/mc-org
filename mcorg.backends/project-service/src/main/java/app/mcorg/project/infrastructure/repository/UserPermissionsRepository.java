@@ -17,11 +17,11 @@ public class UserPermissionsRepository implements Permissions {
     @Override
     public Optional<UserPermissions> get(String username) {
         return repository.findByUsernameIgnoreCase(username)
-                .map(UserPermissionsMapper::toDomain);
+                         .map(UserPermissionsMapper::toDomain);
     }
 
     @Override
-    public void store(UserPermissions permissions) {
+    public void persist(UserPermissions permissions) {
         repository.save(UserPermissionsMapper.toEntity(permissions));
     }
 

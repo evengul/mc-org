@@ -1,7 +1,9 @@
 package app.mcorg.project.domain.model.project;
 
 import app.mcorg.common.domain.AggregateRoot;
+import app.mcorg.common.domain.model.Priority;
 import app.mcorg.common.event.project.ProjectCreated;
+import app.mcorg.common.event.project.ProjectDependencyAddedToTask;
 import app.mcorg.common.event.project.ProjectEvent;
 import app.mcorg.common.event.project.ProjectNameChanged;
 import app.mcorg.project.domain.model.project.task.CountedTask;
@@ -9,13 +11,10 @@ import app.mcorg.project.domain.model.project.task.DoableTask;
 import app.mcorg.project.domain.model.project.task.Task;
 import app.mcorg.project.domain.model.project.task.Tasks;
 import app.mcorg.project.domain.model.schematic.Schematic;
-import app.mcorg.project.domain.model.team.SlimTeam;
-import app.mcorg.project.domain.model.world.SlimWorld;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import org.bson.types.ObjectId;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Stream;
@@ -35,19 +34,24 @@ public class Project extends AggregateRoot<ProjectEvent> {
     private final List<String> users;
 
     public static Project newInstance(List<String> users, String name, String teamId, String worldId) {
-        Project project = new Project(ObjectId.get().toHexString(), teamId, worldId, name, false, emptyList(), Tasks.create(), users);
-        project.raiseEvent(new ProjectCreated(project.id, project.teamId, project.worldId, project.name, project.users.getFirst()));
+        Project project = new Project(ObjectId.get().toHexString(), teamId, worldId, name, false, emptyList(),
+                                      Tasks.create(), users);
+        project.raiseEvent(new ProjectCreated(project.id, project.teamId, project.worldId, project.name,
+                                              project.users.getFirst()));
         return project;
     }
 
     public static Project from(List<String> users, String teamId, String worldId, Schematic schematic) {
         List<Task> countedTasks = schematic.amounts().entrySet().stream()
-                .map(entry -> CountedTask.create(entry.getKey(), Priority.LOW, entry.getValue()))
-                .map(Task.class::cast)
-                .toList();
+                                           .map(entry -> CountedTask.create(entry.getKey(), Priority.LOW,
+                                                                            entry.getValue()))
+                                           .map(Task.class::cast)
+                                           .toList();
 
-        Project project = new Project(ObjectId.get().toHexString(), teamId, worldId, schematic.name(), false, emptyList(), Tasks.create(countedTasks), users);
-        project.raiseEvent(new ProjectCreated(project.id, project.teamId, project.worldId, project.name, project.users.getFirst()));
+        Project project = new Project(ObjectId.get().toHexString(), teamId, worldId, schematic.name(), false,
+                                      emptyList(), Tasks.create(countedTasks), users);
+        project.raiseEvent(new ProjectCreated(project.id, project.teamId, project.worldId, project.name,
+                                              project.users.getFirst()));
         return project;
     }
 
@@ -74,9 +78,9 @@ public class Project extends AggregateRoot<ProjectEvent> {
         return this;
     }
 
-    public void taskDependsOn(UUID taskId, String projectId, Priority priority) {
+    public void taskDependsOn(UUID taskId, String teamId, String projectId, Priority priority) {
         this.tasks.dependsOn(taskId, projectId, priority);
-        this.raiseEvent(new ProjectDependencyAddedToTask(projectId, taskId, priority));
+        this.raiseEvent(new ProjectDependencyAddedToTask(projectId, teamId, taskId, priority));
     }
 
     public void isDependedOnBy(String projectId, Priority priority) {

@@ -17,8 +17,6 @@ import java.util.List;
 public class CreateProjectFromMaterialListUseCase extends
                                                   UseCase<CreateProjectFromMaterialListUseCase.InputValues, CreateProjectFromMaterialListUseCase.OutputValues> {
 
-    private final UserProvider userProvider;
-    private final GetTeamUseCase getTeamUseCase;
     private final StoreProjectUseCase storeProjectUseCase;
     private final UsernameProvider usernameProvider;
 
@@ -44,7 +42,9 @@ public class CreateProjectFromMaterialListUseCase extends
         return new OutputValues(storeProjectUseCase.execute(new StoreProjectUseCase.InputValues(project)).project());
     }
 
-    public record InputValues(String teamId, String worldId, String name,
+    public record InputValues(String teamId,
+                              String worldId,
+                              String name,
                               InputStream file) implements UseCase.InputValues {
     }
 
