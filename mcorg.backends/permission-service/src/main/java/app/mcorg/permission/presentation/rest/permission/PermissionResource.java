@@ -1,9 +1,6 @@
 package app.mcorg.permission.presentation.rest.permission;
 
-import app.mcorg.permission.presentation.rest.entities.AddPermissionRequest;
-import app.mcorg.permission.presentation.rest.entities.ChangeAuthorityRequest;
-import app.mcorg.permission.presentation.rest.entities.RemovePermissionRequest;
-import app.mcorg.permission.presentation.rest.entities.UserPermissionsResponse;
+import app.mcorg.permission.presentation.rest.entities.*;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -41,4 +38,8 @@ public interface PermissionResource extends PermissionDocumentation {
     @GetMapping("/mine")
     @ResponseStatus(HttpStatus.OK)
     CompletableFuture<ResponseEntity<UserPermissionsResponse>> getUserPermissions();
+
+    @GetMapping("/profile")
+    @ResponseStatus(HttpStatus.OK)
+    CompletableFuture<ResponseEntity<MyProfileResponse>> getProfile();
 }

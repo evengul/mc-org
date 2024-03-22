@@ -1,9 +1,6 @@
 package app.mcorg.permission.presentation.rest.permission;
 
-import app.mcorg.permission.presentation.rest.entities.AddPermissionRequest;
-import app.mcorg.permission.presentation.rest.entities.ChangeAuthorityRequest;
-import app.mcorg.permission.presentation.rest.entities.RemovePermissionRequest;
-import app.mcorg.permission.presentation.rest.entities.UserPermissionsResponse;
+import app.mcorg.permission.presentation.rest.entities.*;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
@@ -24,4 +21,7 @@ public interface PermissionDocumentation {
 
     @Operation(summary = "Retrieve all permissions of the signed in user")
     CompletableFuture<ResponseEntity<UserPermissionsResponse>> getUserPermissions();
+
+    @Operation(summary = "Retrieve profile of the signed in user")
+    CompletableFuture<ResponseEntity<MyProfileResponse>> getProfile();
 }

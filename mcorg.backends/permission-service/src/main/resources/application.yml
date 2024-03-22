@@ -24,17 +24,18 @@ spring:
     mongodb:
       uri: mongodb+srv://local_user:${MONGODB_PASSWORD}@mc-org-db.edc7h.mongodb.net/mc-org-db
       database: mc-org-permission
-  security:
-    oauth2:
-      resourceserver:
-        jwt:
-          issuer-uri: https://kind-gull-82.clerk.accounts.dev
-          jwk-set-uri: https://kind-gull-82.clerk.accounts.dev/.well-known/jwks.json
   rabbitmq:
     host: ${RABBITMQ_HOST:localhost}
     port: 5672
     username: ${RABBITMQ_CLIENT_USERNAME:guest}
     password: ${RABBITMQ_CLIENT_PASSWORD:guest}
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: https://login.microsoftonline.com/consumers/oauth2/v2.0
+          audiences:
+            - 49447253-46f6-4dee-8d48-46415073729f
   cloud:
     function:
       definition: handleProjectCreated;handleProjectDeleted;handleTeamCreated;handleTeamDeleted;handleWorldCreated;handleWorldDeleted;

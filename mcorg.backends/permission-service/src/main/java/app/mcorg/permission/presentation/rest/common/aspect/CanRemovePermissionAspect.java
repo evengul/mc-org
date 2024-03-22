@@ -25,13 +25,13 @@ public class CanRemovePermissionAspect extends AbstractAspect<CanRemovePermissio
         CanRemovePermission annotation = getAnnotation(joinPoint, CanRemovePermission.class);
         String username = getArg(joinPoint, annotation.usernameParameter(), String.class);
         RemovePermissionRequest request = getArg(joinPoint,
-                                                 annotation.requestParameter(),
-                                                 RemovePermissionRequest.class);
+                annotation.requestParameter(),
+                RemovePermissionRequest.class);
         Authority authority = getAuthority(username, request.level().getDomainValue(), request.id());
 
         boolean authorizedToRemove = permissionService.hasAuthority(request.level().getDomainValue(),
-                                                                    request.id(),
-                                                                    authority);
+                request.id(),
+                authority);
 
         boolean enoughToRemove = authority.equalsOrLower(Authority.PARTICIPANT) || otherAdminsAndOwners(
                 username,
@@ -45,23 +45,23 @@ public class CanRemovePermissionAspect extends AbstractAspect<CanRemovePermissio
 
     private long otherAdminsAndOwners(String username, AuthorityLevel level, String id) {
         return repository.findAllByPermissions_LevelAndPermissions_Id(level, id)
-                         .stream()
-                         .filter(permission -> !permission.getUsername().equals(username))
-                         .filter(permission -> permission.getPermissions().stream().anyMatch(
-                                 entity -> entity.id().equals(id) && entity.authority()
-                                                                           .equalsOrHigher(Authority.ADMIN)))
-                         .count();
+                .stream()
+                .filter(permission -> !permission.getUsername().equals(username))
+                .filter(permission -> permission.getPermissions().stream().anyMatch(
+                        entity -> entity.id().equals(id) && entity.authority()
+                                .equalsOrHigher(Authority.ADMIN)))
+                .count();
     }
 
     private Authority getAuthority(String username, AuthorityLevel level, String id) {
         return getUserPermissionsUseCase.execute(new GetUserPermissionsUseCase.InputValues(username))
-                                        .permissions()
-                                        .getPermissions()
-                                        .get(level)
-                                        .stream()
-                                        .filter(permission -> permission.id().equals(id))
-                                        .findFirst()
-                                        .map(Permission::authority)
-                                        .orElseThrow(() -> new NotFoundException(id));
+                .permissions()
+                .getPermissions()
+                .get(level)
+                .stream()
+                .filter(permission -> permission.id().equals(id))
+                .findFirst()
+                .map(Permission::authority)
+                .orElseThrow(() -> NotFoundException.user(id));
     }
 }

@@ -5,8 +5,8 @@ import app.mcorg.common.event.EventDispatcher;
 import app.mcorg.common.event.permission.PermissionEvent;
 import app.mcorg.common.event.permission.UserDeleted;
 import app.mcorg.permission.domain.model.permission.UserPermissions;
-import app.mcorg.permission.infrastructure.entities.UserPermissionsMapper;
 import app.mcorg.permission.infrastructure.repository.MongoUserPermissionsRepository;
+import app.mcorg.permission.infrastructure.repository.entities.UserPermissionsMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -27,9 +27,9 @@ public class UserPermissionsUnitOfWork implements UnitOfWork<UserPermissions> {
     @Override
     public void remove(String id) {
         repository.findById(id)
-                  .ifPresent(permissions -> {
-                      repository.deleteById(permissions.getId());
-                      dispatcher.dispatch(new UserDeleted(permissions.getUsername()));
-                  });
+                .ifPresent(permissions -> {
+                    repository.deleteById(permissions.getId());
+                    dispatcher.dispatch(new UserDeleted(permissions.getUsername()));
+                });
     }
 }

@@ -1,4 +1,4 @@
-package app.mcorg.permission.infrastructure.entities;
+package app.mcorg.permission.infrastructure.repository.entities;
 
 import app.mcorg.permission.domain.model.permission.PermissionLevel;
 import lombok.experimental.UtilityClass;

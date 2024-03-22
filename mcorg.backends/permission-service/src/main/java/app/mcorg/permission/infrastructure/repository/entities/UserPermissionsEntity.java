@@ -1,4 +1,4 @@
-package app.mcorg.permission.infrastructure.entities;
+package app.mcorg.permission.infrastructure.repository.entities;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;

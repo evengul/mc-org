@@ -2,7 +2,7 @@ package app.mcorg.permission.infrastructure.repository;
 
 import app.mcorg.permission.domain.api.Permissions;
 import app.mcorg.permission.domain.model.permission.UserPermissions;
-import app.mcorg.permission.infrastructure.entities.UserPermissionsMapper;
+import app.mcorg.permission.infrastructure.repository.entities.UserPermissionsMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 

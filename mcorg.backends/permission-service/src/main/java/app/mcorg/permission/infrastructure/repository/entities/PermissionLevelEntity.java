@@ -1,4 +1,4 @@
-package app.mcorg.permission.infrastructure.entities;
+package app.mcorg.permission.infrastructure.repository.entities;
 
 import app.mcorg.common.domain.model.AuthorityLevel;
 import lombok.AllArgsConstructor;

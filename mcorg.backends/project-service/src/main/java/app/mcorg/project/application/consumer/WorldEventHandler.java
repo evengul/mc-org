@@ -17,7 +17,7 @@ public class WorldEventHandler {
     private final Projects projects;
 
     @Bean
-    public Consumer<WorldDeleted> teamDeletedProject() {
+    public Consumer<WorldDeleted> worldDeletedConsumer() {
         return event -> projects.getProjectsInWorld(event.id())
                 .forEach(project -> unitOfWork.remove(project.getId()));
     }

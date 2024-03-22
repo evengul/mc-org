@@ -1,16 +1,14 @@
 package app.mcorg.permission.infrastructure.configuration;
 
 import app.mcorg.common.domain.api.UsernameProvider;
+import app.mcorg.permission.domain.api.MyProfile;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.security.core.context.SecurityContextHolder;
 
 @Configuration
 public class UserProviderConfiguration {
     @Bean
-    public UsernameProvider username() {
-        return () -> SecurityContextHolder.getContext()
-                .getAuthentication()
-                .getName();
+    public UsernameProvider username(MyProfile myProfile) {
+        return () -> myProfile.get().minecraftId();
     }
 }

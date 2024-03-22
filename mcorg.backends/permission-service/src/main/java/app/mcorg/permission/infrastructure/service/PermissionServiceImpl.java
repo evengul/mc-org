@@ -6,8 +6,8 @@ import app.mcorg.common.domain.model.AuthorityLevel;
 import app.mcorg.permission.domain.api.PermissionService;
 import app.mcorg.permission.domain.model.permission.UserPermissions;
 import app.mcorg.permission.domain.usecase.permission.GetUserPermissionsUseCase;
-import app.mcorg.permission.infrastructure.entities.PermissionLevelMapper;
 import app.mcorg.permission.infrastructure.repository.MongoPermissionLevelRepository;
+import app.mcorg.permission.infrastructure.repository.entities.PermissionLevelMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
