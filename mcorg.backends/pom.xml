@@ -20,5 +20,6 @@
         <module>permission-service</module>
         <module>team-service</module>
         <module>world-service</module>
+        <module>kotlin-htmx-webapp</module>
     </modules>
 </project>

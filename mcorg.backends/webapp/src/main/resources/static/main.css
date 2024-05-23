@@ -1,0 +1,74 @@
+nav {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+}
+
+nav > h1 {
+    width: 25%;
+}
+
+nav > ul {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+
+    width: 75%;
+    padding-right: 1em;
+
+    list-style: none;
+}
+
+nav > ul > li {
+    flex-grow: 1;
+}
+
+main {
+    padding-top: 1em;
+    padding-inline: 3em;
+}
+
+p.intro {
+    font-size: 1.2em;
+    margin-bottom: 2em;
+}
+
+form#landingpage-create-world {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin: 0 auto;
+    gap: 2em;
+
+    width: 35%;
+}
+
+span.create-world-input-pair {
+    width: 100%;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 3em;
+}
+
+span.create-world-input-pair > label {
+    text-align: end;
+}
+
+span.create-world-input-pair > input {
+    width: 80%
+}
+
+footer {
+    position: fixed;
+    left: 0;
+    bottom: 0;
+    width: 100%;
+    height: 1.5em;
+    text-align: center;
+
+    border-top: 1px solid black;
+}
+
