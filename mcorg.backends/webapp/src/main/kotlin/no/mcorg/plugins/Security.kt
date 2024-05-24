@@ -1,4 +1,4 @@
-package no.skyteruta.plugins
+package no.mcorg.plugins
 
 import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm

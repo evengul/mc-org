@@ -1,11 +1,11 @@
-package no.skyteruta
+package no.mcorg
 
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.http.*
 import io.ktor.server.testing.*
 import kotlin.test.*
-import no.skyteruta.plugins.*
+import no.mcorg.plugins.*
 
 class ApplicationTest {
     @Test

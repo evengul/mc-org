@@ -1,17 +1,21 @@
-package no.skyteruta.plugins
+package no.mcorg.plugins
 
 import io.ktor.server.application.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
-import no.skyteruta.templates.pages.firstWorldCreated
-import no.skyteruta.templates.pages.firstWorldTeam
-import no.skyteruta.templates.pages.landingPage
+import no.mcorg.clients.getWorlds
+import no.mcorg.templates.pages.firstWorldCreated
+import no.mcorg.templates.pages.firstWorldTeam
+import no.mcorg.templates.pages.landingPage
 
 fun Application.configureTemplating() {
     routing {
         get("/") {
             call.response.header("Content-Type", "text/html")
-            call.respond(landingPage())
+
+            val worlds = getWorlds()
+
+            call.respond(landingPage(worlds))
         }
         post("/") {
             call.response.header("Content-Type", "text/html")

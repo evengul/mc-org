@@ -1,12 +1,12 @@
-package no.skyteruta.templates.pages
+package no.mcorg.templates.pages
 
 import kotlinx.html.*
 import kotlinx.html.stream.createHTML
-import no.skyteruta.templates.hxGet
-import no.skyteruta.templates.hxSwap
-import no.skyteruta.templates.hxTarget
+import no.mcorg.templates.hxGet
+import no.mcorg.templates.hxSwap
+import no.mcorg.templates.hxTarget
 
-fun landingPage(): String {
+fun firstContact(): String {
     return page {
         p(classes = "intro") {
             + "MC-ORG consists of worlds, just like your Minecraft worlds. To get started, create your first world."

@@ -1,4 +1,4 @@
-package no.skyteruta.templates
+package no.mcorg.templates
 
 import kotlinx.html.*
 import kotlinx.html.stream.createHTML

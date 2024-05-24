@@ -1,4 +1,4 @@
-package no.skyteruta.plugins
+package no.mcorg.plugins
 
 import io.ktor.http.*
 import io.ktor.http.content.*

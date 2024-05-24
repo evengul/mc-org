@@ -1,7 +1,7 @@
-package no.skyteruta.templates.pages
+package no.mcorg.templates.pages
 
 import kotlinx.html.*
-import no.skyteruta.templates.baseTemplate
+import no.mcorg.templates.baseTemplate
 import java.time.LocalDate
 
 fun page(siteTitle: String = "MC-ORG", title: String = "MC-ORG", content: MAIN.() -> Unit): String {
