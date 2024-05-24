@@ -1,7 +1,7 @@
-package no.mcorg.templates.pages
+package no.mcorg.presentation.templates.pages
 
 import kotlinx.html.h2
-import no.mcorg.clients.Project
+import no.mcorg.presentation.clients.Project
 
 fun projectPage(project: Project): String {
     return page(title = project.name) {

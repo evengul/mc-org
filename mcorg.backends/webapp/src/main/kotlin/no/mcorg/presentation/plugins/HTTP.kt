@@ -1,4 +1,4 @@
-package no.mcorg.plugins
+package no.mcorg.presentation.plugins
 
 import io.ktor.http.*
 import io.ktor.http.content.*

@@ -1,7 +1,7 @@
-package no.mcorg.templates.pages
+package no.mcorg.presentation.templates.pages
 
 import kotlinx.html.*
-import no.mcorg.templates.baseTemplate
+import no.mcorg.presentation.templates.baseTemplate
 import java.time.LocalDate
 
 fun page(siteTitle: String = "MC-ORG", title: String = "MC-ORG", content: MAIN.() -> Unit): String {

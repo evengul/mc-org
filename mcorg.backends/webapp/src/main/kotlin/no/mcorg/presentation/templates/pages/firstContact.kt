@@ -1,10 +1,10 @@
-package no.mcorg.templates.pages
+package no.mcorg.presentation.templates.pages
 
 import kotlinx.html.*
 import kotlinx.html.stream.createHTML
-import no.mcorg.templates.hxGet
-import no.mcorg.templates.hxSwap
-import no.mcorg.templates.hxTarget
+import no.mcorg.presentation.templates.hxGet
+import no.mcorg.presentation.templates.hxSwap
+import no.mcorg.presentation.templates.hxTarget
 
 fun firstContact(): String {
     return page {

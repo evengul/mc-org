@@ -1,10 +1,10 @@
-package no.mcorg.templates.pages
+package no.mcorg.presentation.templates.pages
 
 import kotlinx.html.ButtonType
 import kotlinx.html.button
 import kotlinx.html.form
-import no.mcorg.clients.Team
-import no.mcorg.clients.World
+import no.mcorg.presentation.clients.Team
+import no.mcorg.presentation.clients.World
 
 fun createProject(world: World, team: Team): String {
     return page {

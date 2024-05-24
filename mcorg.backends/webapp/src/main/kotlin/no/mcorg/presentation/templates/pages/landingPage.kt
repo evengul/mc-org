@@ -1,7 +1,10 @@
-package no.mcorg.templates.pages
+package no.mcorg.presentation.templates.pages
 
 import kotlinx.html.*
-import no.mcorg.clients.*
+import no.mcorg.presentation.clients.Team
+import no.mcorg.presentation.clients.World
+import no.mcorg.presentation.clients.getProjectsInTeam
+import no.mcorg.presentation.clients.getTeams
 
 fun landingPage(worlds: List<World>): String {
 

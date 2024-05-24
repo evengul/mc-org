@@ -6,6 +6,7 @@ import io.ktor.http.*
 import io.ktor.server.testing.*
 import kotlin.test.*
 import no.mcorg.plugins.*
+import no.mcorg.presentation.plugins.configureRouting
 
 class ApplicationTest {
     @Test

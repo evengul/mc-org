@@ -1,4 +1,4 @@
-package no.mcorg.templates
+package no.mcorg.presentation.templates
 
 import kotlinx.html.*
 import kotlinx.html.stream.createHTML

@@ -1,4 +1,4 @@
-package no.mcorg.plugins
+package no.mcorg.presentation.plugins
 
 import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
