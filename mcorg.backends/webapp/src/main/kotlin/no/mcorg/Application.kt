@@ -3,6 +3,7 @@ package no.mcorg
 import io.ktor.server.application.*
 import io.ktor.server.engine.*
 import io.ktor.server.netty.*
+import no.mcorg.presentation.htmx.configureHtmx
 import no.mcorg.presentation.plugins.*
 
 fun main() {
@@ -14,6 +15,6 @@ fun Application.module() {
     configureSecurity()
     configureHTTP()
     configureMonitoring()
-    configureTemplating()
+    configureHtmx()
     configureRouting()
 }

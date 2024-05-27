@@ -1,4 +1,4 @@
-package no.mcorg.presentation.templates
+package no.mcorg.presentation.htmx.templates
 
 import kotlinx.html.HTMLTag
 

@@ -1,4 +1,4 @@
-package no.mcorg.presentation.templates.pages
+package no.mcorg.presentation.htmx.templates.pages
 
 import kotlinx.html.h2
 import no.mcorg.presentation.clients.Project
