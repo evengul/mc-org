@@ -1,9 +1,9 @@
 package no.mcorg.domain
 
 interface AppConfiguration {
-    fun dbUrl(): String
-    fun dbUser(): String
-    fun dbPassword(): String
+    val dbUrl: String
+    val dbUser: String
+    val dbPassword: String
 }
 
 fun usersApi(): Users {
