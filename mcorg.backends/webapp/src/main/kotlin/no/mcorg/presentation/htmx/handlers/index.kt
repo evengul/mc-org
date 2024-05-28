@@ -8,8 +8,6 @@ suspend fun ApplicationCall.handleIndex() {
     val userId = request.cookies["MCORG-USER-ID"]?.toIntOrNull() ?:
         return respondRedirect("/signin")
 
-    response.headers.append("Content-Type", "text/html")
-
     if (!permissionsApi().hasWorldPermission(userId)) {
         respondRedirect("/first-contact")
     }
