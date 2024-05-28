@@ -44,7 +44,7 @@ interface Teams {
 }
 
 interface Projects {
-    fun getProject(id: Int): Project?
+    fun getProject(id: Int, includeTasks: Boolean = false, includeDependencies: Boolean = false): Project?
     fun createProject(worldId: Int, teamId: Int, name: String): Int
     fun getUserProjects(username: String): List<Project>
 
@@ -53,8 +53,8 @@ interface Projects {
     fun archiveProject(id: Int)
     fun openProject(id: Int)
 
-    fun addCountableTask(name: String, priority: Priority, needed: Int): Int
-    fun addDoableTask(name: String, priority: Priority): Int
+    fun addCountableTask(projectId: Int, name: String, priority: Priority, needed: Int): Int
+    fun addDoableTask(projectId: Int, name: String, priority: Priority): Int
     fun removeTask(id: Int)
     fun completeTask(id: Int)
     fun taskRequiresMore(id: Int, needed: Int)
