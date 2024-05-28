@@ -3,6 +3,10 @@ package no.mcorg.infrastructure.repository
 import no.mcorg.domain.AppConfiguration
 import no.mcorg.domain.User
 import no.mcorg.domain.Users
+import java.security.SecureRandom
+import java.util.HexFormat
+import javax.crypto.SecretKeyFactory
+import javax.crypto.spec.PBEKeySpec
 
 class UsersImpl(config: AppConfiguration) : Users, Repository(config) {
     override fun getUser(id: Int): User? {
@@ -59,6 +63,23 @@ class UsersImpl(config: AppConfiguration) : Users, Repository(config) {
     }
 
     private fun hashPassword(password: String): String {
-        TODO()
+        val combined = "${getSalt()}cleverPassw0rd_r!gHT".toByteArray()
+
+        val factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA512")
+        val spec = PBEKeySpec(password.toCharArray(), combined, 120_000, 256)
+        val key = factory.generateSecret(spec)
+        return key.encoded.toHexString()
+
     }
+
+    private fun getSalt(): String {
+        val random = SecureRandom()
+        val salt = ByteArray(32)
+        random.nextBytes(salt)
+
+        return salt.toHexString()
+    }
+
+    private fun ByteArray.toHexString(): String =
+        HexFormat.of().formatHex(this)
 }

@@ -23,7 +23,7 @@ class TeamsImpl(config: AppConfiguration) : Teams, Repository(config) {
 
     override fun createTeam(worldId: Int, name: String): Int {
         val statement = getConnection()
-            .prepareStatement("insert into team(world_id,name) values (?,?)")
+            .prepareStatement("insert into team(world_id,name) values (?,?) returning id")
             .apply { setInt(1, worldId); setString(2, name) }
 
         if (statement.execute()) {

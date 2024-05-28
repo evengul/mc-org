@@ -45,6 +45,7 @@ interface Teams {
 
 interface Projects {
     fun getProject(id: Int, includeTasks: Boolean = false, includeDependencies: Boolean = false): Project?
+    fun getTeamProjects(id: Int): List<SlimProject>
     fun createProject(worldId: Int, teamId: Int, name: String): Int
     fun getUserProjects(username: String): List<Project>
 

@@ -1,21 +1,11 @@
 package no.mcorg.presentation.htmx.templates.pages
 
 import kotlinx.html.*
-import no.mcorg.presentation.clients.Team
-import no.mcorg.presentation.clients.World
-import no.mcorg.presentation.clients.getProjectsInTeam
-import no.mcorg.presentation.clients.getTeams
+import no.mcorg.domain.SlimProject
+import no.mcorg.domain.Team
+import no.mcorg.domain.World
 
-fun landingPage(worlds: List<World>): String {
-
-    if(worlds.isEmpty()) {
-        return firstContact()
-    }
-
-    if (worlds.size == 1) {
-        return teamsPage(worlds.first())
-    }
-
+fun worldsPage(worlds: List<World>): String {
     return page(title = "Your worlds") {
         ul {
             for(world in worlds) {
@@ -27,28 +17,22 @@ fun landingPage(worlds: List<World>): String {
     }
 }
 
-fun teamsPage(world: World): String {
-    val teams = getTeams()
-
-    if(teams.isEmpty()) {
-        return page {
-            h2 {
-                + "Your world has no teams. This should never happen, but will you please create a team for us?"
-            }
-            form {
-                firstWorldTeam()
-                button {
-                    type = ButtonType.submit
-                    + "Create team"
-                }
+fun noTeamsPage(): String {
+    return page {
+        h2 {
+            + "Your world has no teams. This should never happen, but will you please create a team for us?"
+        }
+        form {
+            firstWorldTeam()
+            button {
+                type = ButtonType.submit
+                + "Create team"
             }
         }
     }
+}
 
-    if (teams.size == 1) {
-        return projectsPage(world, teams.first())
-    }
-
+fun teamsPage(world: World, teams: List<Team>): String {
     return page (title = world.name + ": Teams") {
         ul {
             for (team in teams) {
@@ -60,20 +44,10 @@ fun teamsPage(world: World): String {
     }
 }
 
-fun projectsPage(world: World, team: Team): String {
-    val projects = getProjectsInTeam(team.id)
-
-    if(projects.isEmpty()) {
-        return createProject(world, team)
-    }
-
-    if (projects.size == 1) {
-        return projectPage(projects.first())
-    }
-
+fun projectsPage(world: World, team: Team, projectsInTeam: List<SlimProject>): String {
     return page (title = "${world.name}/${team.name}: Projects") {
         ul {
-            for (project in projects) {
+            for (project in projectsInTeam) {
                 li {
                     + project.name
                 }

@@ -17,6 +17,8 @@ data class World(override val id: Int, override var name: String) : Authorized {
 
 data class Team(val worldId: Int, override val id: Int, override var name: String) : Authorized {}
 
+data class SlimProject(val worldId: Int, val teamId: Int, val id: Int, val name: String)
+
 data class Project(val worldId: Int,
                    val teamId: Int,
                    override val id: Int,

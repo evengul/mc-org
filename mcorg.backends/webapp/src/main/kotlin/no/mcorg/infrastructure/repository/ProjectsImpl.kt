@@ -67,6 +67,27 @@ class ProjectsImpl(private val config: AppConfiguration) : Projects, Repository(
         return project
     }
 
+    override fun getTeamProjects(id: Int): List<SlimProject> {
+        getConnection()
+            .prepareStatement("select p.world_id, p.team_id, p.id, p.name from project p join team t on p.team_id = t.id where t.id = ? and archived = false")
+            .apply { setInt(1, id) }
+            .executeQuery()
+            .apply {
+                val projects = mutableListOf<SlimProject>()
+                while (next()) {
+                    projects.add(
+                        SlimProject(
+                            worldId = getInt("world_id"),
+                            teamId = getInt("team_id"),
+                            id = getInt("id"),
+                            name = getString("name"),
+                        )
+                    )
+                }
+                return projects
+            }
+    }
+
     override fun createProject(worldId: Int, teamId: Int, name: String): Int {
         val statement = getConnection()
             .prepareStatement("insert into project (world_id, team_id, name, archived) values (?, ?, ?, false) returning id")
