@@ -9,7 +9,6 @@ import no.mcorg.presentation.htmx.handlers.createWorld
 import no.mcorg.presentation.htmx.handlers.handleFirstContact
 import no.mcorg.presentation.htmx.handlers.handleIndex
 import no.mcorg.presentation.htmx.handlers.handleSignin
-import no.mcorg.presentation.htmx.templates.pages.firstContact
 import no.mcorg.presentation.htmx.templates.pages.worldsPage
 
 fun Application.mainRouting() {
