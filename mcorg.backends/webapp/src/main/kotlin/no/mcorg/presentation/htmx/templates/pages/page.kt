@@ -13,13 +13,13 @@ fun page(siteTitle: String = "MC-ORG", title: String = "MC-ORG", content: MAIN.(
             ul {
                 li {
                     a {
-                        href = "#"
+                        href = "/"
                         + "Home"
                     }
                 }
                 li {
                     a {
-                        href = "#"
+                        href = "/worlds"
                         + "Worlds"
                     }
                 }

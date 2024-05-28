@@ -87,6 +87,16 @@ class PermissionsImpl(private val config: AppConfiguration) : Permissions, Repos
         TODO()
     }
 
+    override fun hasWorldPermission(userId: Int): Boolean {
+        getConnection()
+            .prepareStatement("select 1 from permission where user_id = ? and world_id is not null")
+            .apply { setInt(1, userId) }
+            .executeQuery()
+            .apply {
+                return next()
+            }
+    }
+
     override fun addWorldPermission(userId: Int, worldId: Int, authority: Authority): Int {
         val statement = getConnection()
             .prepareStatement("insert into permission (user_id, authority, world_id, team_id, pack_id) values (?, ?, ?, null, null) returning id")

@@ -8,6 +8,9 @@ import no.mcorg.presentation.configuration.teamsApi
 import no.mcorg.presentation.configuration.worldsApi
 
 suspend fun ApplicationCall.createWorld() {
+
+
+
     val id = worldsApi()
         .createWorld("Testworld")
     val teamId = teamsApi()
