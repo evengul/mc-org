@@ -4,7 +4,7 @@ import no.mcorg.domain.AppConfiguration
 import no.mcorg.domain.Team
 import no.mcorg.domain.Teams
 
-class TeamsImpl(private val config: AppConfiguration) : Teams, Repository(config) {
+class TeamsImpl(config: AppConfiguration) : Teams, Repository(config) {
     override fun getTeam(id: Int): Team? {
         getConnection()
             .prepareStatement("select id,world_id,name from team where id = ?")
@@ -21,11 +21,20 @@ class TeamsImpl(private val config: AppConfiguration) : Teams, Repository(config
         return null
     }
 
-    override fun createTeam(worldId: Int, name: String) {
-        getConnection()
+    override fun createTeam(worldId: Int, name: String): Int {
+        val statement = getConnection()
             .prepareStatement("insert into team(world_id,name) values (?,?)")
             .apply { setInt(1, worldId); setString(2, name) }
-            .executeUpdate()
+
+        if (statement.execute()) {
+            with(statement.resultSet) {
+                if (next()) {
+                    return getInt(1)
+                }
+            }
+        }
+
+        throw IllegalStateException("Failed to create team")
     }
 
     override fun getUserTeams(username: String): List<Team> {

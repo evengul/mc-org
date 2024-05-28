@@ -35,11 +35,20 @@ class PacksImpl(private val config: AppConfiguration) : Packs, Repository(config
         return pack
     }
 
-    override fun createPack(name: String, version: String, serverType: ServerType) {
-        getConnection()
-            .prepareStatement("insert into resource_pack (name, version, server_type) values (?, ?, ?)")
+    override fun createPack(name: String, version: String, serverType: ServerType): Int {
+        val statement = getConnection()
+            .prepareStatement("insert into resource_pack (name, version, server_type) values (?, ?, ?) returning id")
             .apply { setString(1, name); setString(2, version); setString(3, serverType.name) }
-            .executeUpdate()
+
+        if (statement.execute()) {
+            with(statement.resultSet) {
+                if (next()) {
+                    return getInt(1)
+                }
+            }
+        }
+
+        throw IllegalStateException("Failed to create pack")
     }
 
     override fun getUserPacks(username: String): List<ResourcePack> {
@@ -53,15 +62,25 @@ class PacksImpl(private val config: AppConfiguration) : Packs, Repository(config
             .executeUpdate()
     }
 
-    override fun addResource(packId: Int, name: String, type: ResourceType, downloadUrl: String) {
-        getConnection()
-            .prepareStatement("insert into resource (pack_id, name, type, download_url) values (?, ?, ?, ?)")
+    override fun addResource(packId: Int, name: String, type: ResourceType, downloadUrl: String): Int {
+        val statement = getConnection()
+            .prepareStatement("insert into resource (pack_id, name, type, download_url) values (?, ?, ?, ?) returning id")
             .apply {
                 setInt(1, packId)
                 setString(2, name)
                 setString(3, type.name)
                 setString(4, downloadUrl)
-            }.executeUpdate()
+            }
+
+        if (statement.execute()) {
+            with(statement.resultSet) {
+                if (next()) {
+                    return getInt(1)
+                }
+            }
+        }
+
+        throw IllegalStateException("Failed to add resource")
     }
 
     override fun removeResource(id: Int) {

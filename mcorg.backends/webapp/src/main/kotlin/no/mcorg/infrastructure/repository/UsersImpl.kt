@@ -4,7 +4,7 @@ import no.mcorg.domain.AppConfiguration
 import no.mcorg.domain.User
 import no.mcorg.domain.Users
 
-class UsersImpl(private val config: AppConfiguration) : Users, Repository(config) {
+class UsersImpl(config: AppConfiguration) : Users, Repository(config) {
     override fun getUser(id: Int): User? {
         getConnection()
             .prepareStatement("select id,username from users where id = ?")
@@ -28,11 +28,20 @@ class UsersImpl(private val config: AppConfiguration) : Users, Repository(config
             }
     }
 
-    override fun createUser(username: String, password: String) {
-        getConnection()
-            .prepareStatement("insert into users (username, password_hash) values (?, ?)")
+    override fun createUser(username: String, password: String): Int {
+        val statement = getConnection()
+            .prepareStatement("insert into users (username, password_hash) values (?, ?) returning id")
             .apply { setString(1, username); setString(2, hashPassword(password)) }
-            .executeUpdate()
+
+        if (statement.execute()) {
+            with(statement.resultSet) {
+                if (next()) {
+                    return getInt(1)
+                }
+            }
+        }
+
+        throw IllegalStateException("Failed to create user")
     }
 
     override fun searchUsers(searchTerm: String): List<User> {

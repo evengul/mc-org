@@ -87,25 +87,52 @@ class PermissionsImpl(private val config: AppConfiguration) : Permissions, Repos
         TODO()
     }
 
-    override fun addWorldPermission(userId: Int, worldId: Int, authority: Authority) {
-        getConnection()
-            .prepareStatement("insert into permission (user_id, authority, world_id, team_id, pack_id) values (?, ?, ?, null, null)")
+    override fun addWorldPermission(userId: Int, worldId: Int, authority: Authority): Int {
+        val statement = getConnection()
+            .prepareStatement("insert into permission (user_id, authority, world_id, team_id, pack_id) values (?, ?, ?, null, null) returning id")
             .apply { setInt(1, userId); setString(2, authority.name); setInt(3, worldId) }
-            .executeUpdate()
+
+        if (statement.execute()) {
+            with(statement.resultSet) {
+                if (next()) {
+                    return getInt(1)
+                }
+            }
+        }
+
+        throw IllegalStateException("Failed to add world permission")
     }
 
-    override fun addTeamPermission(userId: Int, teamId: Int, authority: Authority) {
-        getConnection()
-            .prepareStatement("insert into permission (user_id, authority, world_id, team_id, pack_id) values (?, ?, null, ?, null)")
+    override fun addTeamPermission(userId: Int, teamId: Int, authority: Authority): Int {
+        val statement = getConnection()
+            .prepareStatement("insert into permission (user_id, authority, world_id, team_id, pack_id) values (?, ?, null, ?, null) returning id")
             .apply { setInt(1, userId); setString(2, authority.name); setInt(3, teamId) }
-            .executeUpdate()
+
+        if (statement.execute()) {
+            with(statement.resultSet) {
+                if (next()) {
+                    return getInt(1)
+                }
+            }
+        }
+
+        throw IllegalStateException("Failed to add team permission")
     }
 
-    override fun addPackPermission(userId: Int, packId: Int, authority: Authority) {
-        getConnection()
-            .prepareStatement("insert into permission (user_id, authority, world_id, team_id, pack_id) values (?, ?, null, null, ?)")
+    override fun addPackPermission(userId: Int, packId: Int, authority: Authority): Int {
+        val statement = getConnection()
+            .prepareStatement("insert into permission (user_id, authority, world_id, team_id, pack_id) values (?, ?, null, null, ?) returning id")
             .apply { setInt(1, userId); setString(2, authority.name); setInt(3, packId) }
-            .executeUpdate()
+
+        if (statement.execute()) {
+            with(statement.resultSet) {
+                if (next()) {
+                    return getInt(1)
+                }
+            }
+        }
+
+        throw IllegalStateException("Failed to add pack permission")
     }
 
     override fun changeWorldPermission(userId: Int, worldId: Int, authority: Authority) {

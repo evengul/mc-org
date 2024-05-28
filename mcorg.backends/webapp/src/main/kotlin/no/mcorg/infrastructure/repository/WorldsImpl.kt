@@ -20,11 +20,20 @@ class WorldsImpl(private val config: AppConfiguration) : Worlds, Repository(conf
         return null
     }
 
-    override fun createWorld(name: String) {
-        getConnection()
-            .prepareStatement("insert into world(name) values (?);")
+    override fun createWorld(name: String): Int {
+        val statement = getConnection()
+            .prepareStatement("insert into world(name) values (?) returning id;")
             .apply { setString(1, name) }
-            .executeUpdate()
+
+        if (statement.execute()) {
+            with(statement.resultSet) {
+                if (next()) {
+                    return getInt(1)
+                }
+            }
+        }
+
+        throw IllegalStateException("Failed to create world")
     }
 
     override fun getUserWorlds(username: String): List<World> {
