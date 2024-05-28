@@ -29,6 +29,7 @@ fun Application.mainRouting() {
 
             if (permissionsApi().hasWorldPermission(userId)) {
                 call.respondRedirect("/")
+                return@get
             }
 
             call.respond(firstContact())
