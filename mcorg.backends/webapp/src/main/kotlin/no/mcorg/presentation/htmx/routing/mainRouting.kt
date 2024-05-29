@@ -27,7 +27,19 @@ fun Application.mainRouting() {
             }
         }
         get("/signin") {
-            call.handleSignin()
+            call.handleGetSignin()
+        }
+        get("/register") {
+            call.handleGetRegister()
+        }
+        post("/signin") {
+            call.handlePostSignin()
+        }
+        post("/register") {
+            call.handlePostRegister()
+        }
+        get("/signout") {
+            call.handleGetSignout()
         }
         post("/first-contact") {
             call.createWorld()

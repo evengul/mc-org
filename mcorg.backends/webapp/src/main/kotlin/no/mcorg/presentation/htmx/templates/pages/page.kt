@@ -35,6 +35,12 @@ fun page(siteTitle: String = "MC-ORG", title: String = "MC-ORG", content: MAIN.(
                         + "Profile"
                     }
                 }
+                li {
+                    a {
+                        href = "/signout"
+                        + "Sign out"
+                    }
+                }
             }
         }
         main {

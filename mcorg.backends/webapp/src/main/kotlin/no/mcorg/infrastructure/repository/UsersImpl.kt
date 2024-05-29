@@ -1,12 +1,9 @@
 package no.mcorg.infrastructure.repository
 
+import at.favre.lib.crypto.bcrypt.BCrypt
 import no.mcorg.domain.AppConfiguration
 import no.mcorg.domain.User
 import no.mcorg.domain.Users
-import java.security.SecureRandom
-import java.util.HexFormat
-import javax.crypto.SecretKeyFactory
-import javax.crypto.spec.PBEKeySpec
 
 class UsersImpl(config: AppConfiguration) : Users, Repository(config) {
     override fun userExists(id: Int): Boolean {
@@ -30,14 +27,17 @@ class UsersImpl(config: AppConfiguration) : Users, Repository(config) {
         return null
     }
 
-    override fun checkUserPassword(username: String, password: String): Boolean {
+    override fun getUserByUsernameIfPasswordMatches(username: String, password: String): User? {
         getConnection()
-            .prepareStatement("select 1 from users where password_hash = ?")
-            .apply { setString(1, hashPassword(password)) }
+            .prepareStatement("select id, username, password_hash from users where username = ?")
+            .apply { setString(1, username) }
             .executeQuery()
             .apply {
-                return next()
+                if (next() && BCrypt.verifyer().verify(password.toCharArray(), getString("password_hash")).verified) {
+                    return User(getInt("id"), getString("username"))
+                }
             }
+        return null
     }
 
     override fun createUser(username: String, password: String): Int {
@@ -71,23 +71,6 @@ class UsersImpl(config: AppConfiguration) : Users, Repository(config) {
     }
 
     private fun hashPassword(password: String): String {
-        val combined = "${getSalt()}cleverPassw0rd_r!gHT".toByteArray()
-
-        val factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA512")
-        val spec = PBEKeySpec(password.toCharArray(), combined, 120_000, 256)
-        val key = factory.generateSecret(spec)
-        return key.encoded.toHexString()
-
+        return BCrypt.withDefaults().hashToString(12, password.toCharArray())
     }
-
-    private fun getSalt(): String {
-        val random = SecureRandom()
-        val salt = ByteArray(32)
-        random.nextBytes(salt)
-
-        return salt.toHexString()
-    }
-
-    private fun ByteArray.toHexString(): String =
-        HexFormat.of().formatHex(this)
 }
