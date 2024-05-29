@@ -1,9 +1,6 @@
 package no.mcorg.presentation.htmx.templates.pages
 
-import kotlinx.html.a
-import kotlinx.html.h2
-import kotlinx.html.li
-import kotlinx.html.ul
+import kotlinx.html.*
 import no.mcorg.domain.ResourcePack
 import no.mcorg.domain.Team
 import no.mcorg.domain.World
@@ -13,6 +10,10 @@ fun worldPage(world: World, teams: List<Team>, packs: List<ResourcePack>): Strin
         h2 {
             + "Teams"
         }
+        button {
+            type = ButtonType.button
+            + "Create new team in ${world.name}"
+        }
         ul {
             for(team in teams) {
                 li {
@@ -20,11 +21,19 @@ fun worldPage(world: World, teams: List<Team>, packs: List<ResourcePack>): Strin
                         href = "/worlds/${world.id}/teams/${team.id}"
                         + team.name
                     }
+                    button {
+                        type = ButtonType.button
+                        + "Delete"
+                    }
                 }
             }
         }
         h2 {
             + "Resource Packs"
+        }
+        button {
+            type = ButtonType.button
+            + "Add resource pack to world"
         }
         ul {
             for(pack in packs) {
@@ -32,6 +41,10 @@ fun worldPage(world: World, teams: List<Team>, packs: List<ResourcePack>): Strin
                     a {
                         href = "/resourcepacks/${pack.id}"
                         + pack.name
+                    }
+                    button {
+                        type = ButtonType.button
+                        + "Remove resourcepack from world"
                     }
                 }
             }

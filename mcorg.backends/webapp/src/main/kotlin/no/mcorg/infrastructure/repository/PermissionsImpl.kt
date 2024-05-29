@@ -103,7 +103,28 @@ class PermissionsImpl(config: AppConfiguration) : Permissions, Repository(config
     }
 
     override fun getPackPermissions(userId: Int): UserPermissions<ResourcePack> {
-        TODO()
+        getConnection()
+            .prepareStatement("""
+                select rp.id as resource_pack_id, rp.name as resource_pack_name, rp.server_type, rp.version, p.authority from resource_pack rp
+                    left join permission p on rp.id = p.pack_id
+                    where p.user_id = ?
+            """.trimIndent())
+            .apply { setInt(1, userId) }
+            .executeQuery()
+            .apply {
+                val permissions = mutableMapOf<PermissionLevel, MutableList<Pair<ResourcePack, Authority>>>()
+                permissions[PermissionLevel.PACK] = mutableListOf()
+                while (next()) {
+                    val id = getInt("resource_pack_id")
+                    val name = getString("resource_pack_name")
+                    val serverType = getString("server_type").toServerType()
+                    val version = getString("version")
+                    val authority = getString("authority").toAuthority()
+
+                    permissions[PermissionLevel.PACK]?.add(Pair(ResourcePack(id, name, version, serverType, mutableListOf()), authority))
+                }
+                return UserPermissions(userId, permissions)
+            }
     }
 
     override fun hasWorldPermission(userId: Int): Boolean {
@@ -204,6 +225,16 @@ class PermissionsImpl(config: AppConfiguration) : Permissions, Repository(config
             .prepareStatement("delete from permission where user_id = ? and pack_id = ?")
             .apply { setInt(1, userId); setInt(2, packId) }
             .executeUpdate()
+    }
+
+    private fun String.toServerType(): ServerType {
+        when {
+            this == "VANILLA" -> return ServerType.VANILLA
+            this == "FABRIC" -> return ServerType.FABRIC
+            this == "FORGE" -> return ServerType.FORGE
+        }
+
+        throw IllegalArgumentException("Unknown server type: $this")
     }
 
     private fun String.toAuthority(): Authority {

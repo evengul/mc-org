@@ -8,6 +8,10 @@ fun teamPage(world: World, team: Team, projects: List<SlimProject>, packs: List<
         h2 {
             + "Projects"
         }
+        button {
+            type = ButtonType.button
+            + "Create new project in team"
+        }
         ul {
             for (project in projects) {
                 li {
@@ -15,11 +19,19 @@ fun teamPage(world: World, team: Team, projects: List<SlimProject>, packs: List<
                         href = "/worlds/${world.name}/teams/${team.id}/project/${project.id}"
                         + project.name
                     }
+                    button {
+                        type = ButtonType.button
+                        + "Delete project"
+                    }
                 }
             }
         }
         h2 {
             + "Resource Packs"
+        }
+        button {
+            type = ButtonType.button
+            + "Add resourcepack to team"
         }
         ul {
             for (pack in packs) {
@@ -27,6 +39,10 @@ fun teamPage(world: World, team: Team, projects: List<SlimProject>, packs: List<
                     a {
                         href = "/resourcepacks/${pack.id}"
                         + pack.name
+                    }
+                    button {
+                        type = ButtonType.button
+                        + "Remove resourcepack from team"
                     }
                 }
             }
