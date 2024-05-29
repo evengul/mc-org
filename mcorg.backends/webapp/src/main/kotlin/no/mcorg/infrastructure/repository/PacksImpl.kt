@@ -1,7 +1,6 @@
 package no.mcorg.infrastructure.repository
 
 import no.mcorg.domain.*
-import org.postgresql.shaded.com.ongres.scram.common.bouncycastle.pbkdf2.Pack
 
 class PacksImpl(private val config: AppConfiguration) : Packs, Repository(config) {
     override fun getPack(id: Int): ResourcePack? {
@@ -51,8 +50,72 @@ class PacksImpl(private val config: AppConfiguration) : Packs, Repository(config
         throw IllegalStateException("Failed to create pack")
     }
 
-    override fun getUserPacks(username: String): List<ResourcePack> {
-        TODO("Not yet implemented")
+    override fun getWorldPacks(id: Int): List<ResourcePack> {
+        getConnection()
+            .prepareStatement("select id,name,version,server_type from resource_pack p join world_packs wp on p.id = wp.pack_id where wp.world_id = ?")
+            .apply { setInt(1, id) }
+            .executeQuery()
+            .apply {
+                val list = mutableListOf<ResourcePack>()
+                while (next()) {
+                    list.add(
+                        ResourcePack(
+                            getInt("id"),
+                            getString("name"),
+                            getString("version"),
+                            getString("server_type").toServerType(),
+                            mutableListOf()
+                        )
+                    )
+                }
+                return list
+            }
+    }
+
+    override fun getTeamPacks(id: Int): List<ResourcePack> {
+        getConnection()
+            .prepareStatement("select id,name,version,server_type from resource_pack p join team_packs tp on p.id = tp.pack_id where tp.team_id = ?")
+            .apply { setInt(1, id) }
+            .executeQuery()
+            .apply {
+                val list = mutableListOf<ResourcePack>()
+                while (next()) {
+                    list.add(
+                        ResourcePack(
+                            getInt("id"),
+                            getString("name"),
+                            getString("version"),
+                            getString("server_type").toServerType(),
+                            mutableListOf()
+                        )
+                    )
+                }
+                return list
+            }
+    }
+
+    override fun getUserPacks(userId: Int): List<ResourcePack> {
+        getConnection()
+            .prepareStatement("select * from resource_pack rp join permission p on p.pack_id = rp.id and p.user_id = ?")
+            .apply { setInt(1, userId) }
+            .executeQuery()
+            .apply {
+                val list = mutableListOf<ResourcePack>()
+
+                while (next()) {
+                    list.add(
+                        ResourcePack(
+                            getInt("id"),
+                            getString("name"),
+                            getString("version"),
+                            getString("server_type").toServerType(),
+                            mutableListOf()
+                        )
+                    )
+                }
+
+                return list
+            }
     }
 
     override fun changePackName(id: Int, name: String) {

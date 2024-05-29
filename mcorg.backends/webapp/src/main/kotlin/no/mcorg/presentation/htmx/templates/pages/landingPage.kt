@@ -10,7 +10,10 @@ fun worldsPage(worlds: List<World>): String {
         ul {
             for(world in worlds) {
                 li {
-                    + world.name
+                    a {
+                        href = "/worlds/${world.id}"
+                        + world.name
+                    }
                 }
             }
         }

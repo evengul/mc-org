@@ -7,17 +7,14 @@ interface Authorized {
     var name: String
 }
 
-data class SimplyAuthorized(override val id: Int) : Authorized {
-    override var name: String
-        get() = throw IllegalCallerException("Should never be called")
-        set(_) {}
-}
+data class World(override val id: Int, override var name: String) : Authorized
 
-data class World(override val id: Int, override var name: String) : Authorized {}
+data class Team(val worldId: Int, override val id: Int, override var name: String) : Authorized
 
-data class Team(val worldId: Int, override val id: Int, override var name: String) : Authorized {}
-
-data class SlimProject(val worldId: Int, val teamId: Int, val id: Int, val name: String)
+data class SlimProject(val worldId: Int,
+                       val teamId: Int,
+                       override val id: Int,
+                       override var name: String) : Authorized
 
 data class Project(val worldId: Int,
                    val teamId: Int,
@@ -29,6 +26,9 @@ data class Project(val worldId: Int,
 data class ProjectDependency(val projectId: Int, val priority: Priority)
 
 data class Task(val id: Int, var name: String, val priority: Priority, val dependencies: MutableList<ProjectDependency>, var needed: Int, var done: Int)
+
+data class SlimResourcePack(override val id: Int,
+                            override var name: String): Authorized
 
 data class ResourcePack(override val id: Int,
                         override var name: String,

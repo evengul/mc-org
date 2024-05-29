@@ -1,6 +1,7 @@
 package no.mcorg.domain
 
 interface Users {
+    fun userExists(id: Int): Boolean
     fun getUser(id: Int): User?
     fun checkUserPassword(username: String, password: String): Boolean
     fun createUser(username: String, password: String): Int
@@ -8,7 +9,7 @@ interface Users {
 }
 
 interface Permissions {
-    fun getPermission(userId: Int): UserPermissions<SimplyAuthorized>
+    fun getPermissions(userId: Int): UserPermissions<Authorized>
     fun getWorldPermissions(userId: Int): UserPermissions<World>
     fun getTeamPermissions(userId: Int): UserPermissions<Team>
     fun getPackPermissions(userId: Int): UserPermissions<ResourcePack>
@@ -33,13 +34,12 @@ interface Worlds {
     fun getUserWorlds(username: String): List<World>
 
     fun changeWorldName(id: Int, name: String)
-
 }
 
 interface Teams {
     fun getTeam(id: Int): Team?
     fun createTeam(worldId: Int, name: String): Int
-    fun getUserTeams(username: String): List<Team>
+    fun getWorldTeams(worldId: Int): List<Team>
 
     fun changeTeamName(id: Int, name: String)
 }
@@ -69,7 +69,9 @@ interface Projects {
 interface Packs {
     fun getPack(id: Int): ResourcePack?
     fun createPack(name: String, version: String, serverType: ServerType): Int
-    fun getUserPacks(username: String): List<ResourcePack>
+    fun getWorldPacks(id: Int): List<ResourcePack>
+    fun getTeamPacks(id: Int): List<ResourcePack>
+    fun getUserPacks(userId: Int): List<ResourcePack>
 
     fun changePackName(id: Int, name: String)
 

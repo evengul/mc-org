@@ -37,19 +37,19 @@ class TeamsImpl(config: AppConfiguration) : Teams, Repository(config) {
         throw IllegalStateException("Failed to create team")
     }
 
-    override fun getUserTeams(username: String): List<Team> {
+    override fun getWorldTeams(worldId: Int): List<Team> {
         getConnection()
-            .prepareStatement("select id,world_id,name from team")
+            .prepareStatement("select id,name from team where world_id = ?")
+            .apply { setInt(1, worldId) }
             .executeQuery()
             .apply {
-                val teamList = mutableListOf<Team>()
+                val teams = mutableListOf<Team>()
+
                 while (next()) {
-                    val teamId = getInt(1)
-                    val worldId = getInt(2)
-                    val name = getString(3)
-                    teamList.add(Team(worldId, teamId, name))
+                    teams.add(Team(worldId, getInt("id"), getString("name")))
                 }
-                return teamList
+
+                return teams
             }
     }
 

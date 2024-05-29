@@ -9,6 +9,14 @@ import javax.crypto.SecretKeyFactory
 import javax.crypto.spec.PBEKeySpec
 
 class UsersImpl(config: AppConfiguration) : Users, Repository(config) {
+    override fun userExists(id: Int): Boolean {
+        getConnection()
+            .prepareStatement("select 1 from users where id = ?")
+            .apply { setInt(1, id) }
+            .executeQuery()
+            .apply { return next() }
+    }
+
     override fun getUser(id: Int): User? {
         getConnection()
             .prepareStatement("select id,username from users where id = ?")

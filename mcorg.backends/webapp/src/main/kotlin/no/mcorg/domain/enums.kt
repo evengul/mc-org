@@ -23,6 +23,7 @@ enum class Priority {
 enum class PermissionLevel {
     WORLD,
     TEAM,
+    PROJECT,
     PACK
 }
 

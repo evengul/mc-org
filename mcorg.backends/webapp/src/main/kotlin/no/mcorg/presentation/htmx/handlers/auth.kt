@@ -7,6 +7,6 @@ import no.mcorg.presentation.configuration.usersApi
 suspend fun ApplicationCall.handleSignin() {
     val api = usersApi()
     val id = api.getUser(1)?.id ?: api.createUser("evegul", "password")
-    response.cookies.append("MCORG-USER-ID", id.toString())
+    response.cookies.append("MCORG-USER-ID", id.toString(), httpOnly = true)
     respondRedirect("/")
 }

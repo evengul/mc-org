@@ -25,6 +25,7 @@ fun firstContact(): String {
                 }
                 input {
                     id = "create-world-name-input"
+                    name = "world-name"
                     required = true
                     minLength = "3"
                 }
@@ -71,6 +72,7 @@ fun firstWorldTeam(): String {
             }
             input {
                 id = "create-world-team-name-input"
+                name  = "team-name"
                 type = InputType.text
                 required = true
                 minLength = "3"

@@ -2,35 +2,54 @@ package no.mcorg.infrastructure.repository
 
 import no.mcorg.domain.*
 
-class PermissionsImpl(private val config: AppConfiguration) : Permissions, Repository(config) {
-    override fun getPermission(userId: Int): UserPermissions<SimplyAuthorized> {
+class PermissionsImpl(config: AppConfiguration) : Permissions, Repository(config) {
+    override fun getPermissions(userId: Int): UserPermissions<Authorized> {
         getConnection()
-            .prepareStatement("select * from permission where user_id = ?")
+            .prepareStatement("select permission.world_id, world.name as world_name, " +
+                    "permission.team_id, team.world_id as team_world_id, team.name as team_name, " +
+                    "permission.pack_id, resource_pack.name as pack_name, " +
+                    "authority from permission " +
+                    "left join world on permission.world_id = world.id " +
+                    "left join team on permission.team_id = team.id " +
+                    "left join resource_pack on permission.pack_id = resource_pack.id " +
+                    "where user_id = ?")
             .apply { setInt(1, userId) }
             .executeQuery()
             .apply {
-                val permissions = mutableMapOf<PermissionLevel, MutableList<Pair<SimplyAuthorized, Authority>>>()
+                val permissions = mutableMapOf<PermissionLevel, MutableList<Pair<Authorized, Authority>>>()
                 permissions[PermissionLevel.TEAM] = mutableListOf()
                 permissions[PermissionLevel.WORLD] = mutableListOf()
                 permissions[PermissionLevel.PACK] = mutableListOf()
 
                 while (next()) {
-                    val authority = getString(2).toAuthority()
+                    val worldId = getInt("world_id").takeIf { it > 0 }
+                    val teamId = getInt("team_id").takeIf { it > 0 }
+                    val projectId = getInt("project_id").takeIf { it > 0 }
+                    val packId = getInt("pack_id").takeIf { it > 0 }
 
-                    val worldId = getInt(3).takeIf { it > 0 }
-                    val teamId = getInt(4).takeIf { it > 0 }
-                    val packId = getInt(5).takeIf { it > 0 }
+                    val authority = getString("authority").toAuthority()
 
                     if (worldId != null) {
-                        permissions[PermissionLevel.WORLD]!!.add(Pair(SimplyAuthorized(worldId), authority))
+                        val worldName = getString("world_name")
+                        permissions[PermissionLevel.WORLD]?.add(Pair(World(worldId, worldName), authority))
                     }
 
                     if (teamId != null) {
-                        permissions[PermissionLevel.TEAM]!!.add(Pair(SimplyAuthorized(teamId), authority))
+                        val teamWorldId = getInt("team_world_id")
+                        val teamName = getString("team_name")
+                        permissions[PermissionLevel.TEAM]?.add(Pair(Team(teamWorldId, teamId, teamName), authority))
+                    }
+
+                    if (projectId != null) {
+                        val projectWorldId = getInt("project_world_id")
+                        val projectTeamId = getInt("project_team_id")
+                        val projectName = getString("project_name")
+                        permissions[PermissionLevel.PROJECT]?.add(Pair(SlimProject(projectWorldId, projectTeamId, projectId, projectName), authority))
                     }
 
                     if (packId != null) {
-                        permissions[PermissionLevel.PACK]!!.add(Pair(SimplyAuthorized(packId), authority))
+                        val packName = getString("pack_name")
+                        permissions[PermissionLevel.PACK]?.add(Pair(SlimResourcePack(packId, packName), authority))
                     }
                 }
 

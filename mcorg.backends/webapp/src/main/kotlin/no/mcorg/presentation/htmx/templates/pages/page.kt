@@ -25,20 +25,8 @@ fun page(siteTitle: String = "MC-ORG", title: String = "MC-ORG", content: MAIN.(
                 }
                 li {
                     a {
-                        href = "#"
-                        + "Teams"
-                    }
-                }
-                li {
-                    a {
-                        href = "#"
-                        + "Projects"
-                    }
-                }
-                li {
-                    a {
-                        href = "#"
-                        + "Packs"
+                        href = "/resourcepacks"
+                        + "Resource Packs"
                     }
                 }
                 li {
