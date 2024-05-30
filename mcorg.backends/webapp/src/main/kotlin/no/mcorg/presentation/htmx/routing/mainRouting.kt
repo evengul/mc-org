@@ -7,9 +7,7 @@ import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import kotlinx.html.button
-import kotlinx.html.del
 import kotlinx.html.li
-import kotlinx.html.p
 import kotlinx.html.stream.createHTML
 import no.mcorg.domain.PermissionLevel
 import no.mcorg.presentation.configuration.permissionsApi

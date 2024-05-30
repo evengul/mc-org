@@ -83,25 +83,3 @@ fun firstWorldTeam(): String {
         }
     }
 }
-
-fun firstWorldCreated(): String {
-    return page {
-        p {
-            + "Congratulations! You just created your first world. What do you want to do with it?"
-        }
-        ul {
-            li {
-                a {
-                    href = "#"
-                    + "Create a collection pack possibly containing resource packs, mods/mod packs and data packs?"
-                }
-            }
-            li {
-                a {
-                    href = "#"
-                    + "Create a project where you gather resources and build cool stuff?"
-                }
-            }
-        }
-    }
-}
