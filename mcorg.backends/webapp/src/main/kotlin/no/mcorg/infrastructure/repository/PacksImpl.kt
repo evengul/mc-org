@@ -2,7 +2,7 @@ package no.mcorg.infrastructure.repository
 
 import no.mcorg.domain.*
 
-class PacksImpl(private val config: AppConfiguration) : Packs, Repository(config) {
+class PacksImpl(config: AppConfiguration) : Packs, Repository(config) {
     override fun getPack(id: Int): ResourcePack? {
         val pack = getConnection()
             .prepareStatement("select name,version,server_type from resource_pack where id = ?")

@@ -4,7 +4,7 @@ import no.mcorg.domain.AppConfiguration
 import no.mcorg.domain.World
 import no.mcorg.domain.Worlds
 
-class WorldsImpl(private val config: AppConfiguration) : Worlds, Repository(config) {
+class WorldsImpl(config: AppConfiguration) : Worlds, Repository(config) {
     override fun getWorld(id: Int): World? {
         getConnection()
             .prepareStatement("select * from world where id = ?")

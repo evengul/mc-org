@@ -3,7 +3,6 @@ package no.mcorg.infrastructure.repository
 import no.mcorg.domain.AppConfiguration
 import no.mcorg.domain.Team
 import no.mcorg.domain.Teams
-import no.mcorg.presentation.configuration.projectsApi
 
 class TeamsImpl(config: AppConfiguration) : Teams, Repository(config) {
     override fun getTeam(id: Int): Team? {
