@@ -3,6 +3,7 @@ package no.mcorg.infrastructure.repository
 import no.mcorg.domain.AppConfiguration
 import no.mcorg.domain.Team
 import no.mcorg.domain.Teams
+import no.mcorg.presentation.configuration.projectsApi
 
 class TeamsImpl(config: AppConfiguration) : Teams, Repository(config) {
     override fun getTeam(id: Int): Team? {
@@ -19,6 +20,13 @@ class TeamsImpl(config: AppConfiguration) : Teams, Repository(config) {
                 }
             }
         return null
+    }
+
+    override fun deleteTeam(id: Int) {
+        getConnection()
+            .prepareStatement("delete from team where id = ?")
+            .apply { setInt(1, id) }
+            .executeUpdate()
     }
 
     override fun createTeam(worldId: Int, name: String): Int {

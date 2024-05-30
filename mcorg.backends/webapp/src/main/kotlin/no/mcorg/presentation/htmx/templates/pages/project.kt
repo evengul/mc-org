@@ -11,7 +11,14 @@ fun projectPage(project: Project): String {
         }
         button {
             type = ButtonType.button
-            + "Add task to project"
+            + "Add countable/gathering task to project"
+        }
+        button {
+            type = ButtonType.button
+            + "Add doable task to project"
+        }
+        div {
+            id = "add-task-container"
         }
         ul {
             for (task in project.tasks.sortedByDescending { it.isDone() }) {

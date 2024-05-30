@@ -19,3 +19,8 @@ suspend fun ApplicationCall.handleWorld(id: Int) {
 
     respond(worldPage(world, teams, packs))
 }
+
+suspend fun ApplicationCall.handleDeleteWorld(id: Int) {
+    worldsApi().deleteWorld(id)
+    respond("")
+}

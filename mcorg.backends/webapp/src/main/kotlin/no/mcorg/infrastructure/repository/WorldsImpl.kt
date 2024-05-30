@@ -20,6 +20,13 @@ class WorldsImpl(private val config: AppConfiguration) : Worlds, Repository(conf
         return null
     }
 
+    override fun deleteWorld(id: Int) {
+        getConnection()
+            .prepareStatement("delete from world where id = ?")
+            .apply { setInt(1, id) }
+            .executeUpdate()
+    }
+
     override fun createWorld(name: String): Int {
         val statement = getConnection()
             .prepareStatement("insert into world(name) values (?) returning id;")

@@ -34,6 +34,14 @@ class PacksImpl(private val config: AppConfiguration) : Packs, Repository(config
         return pack
     }
 
+    override fun deletePack(id: Int) {
+        getConnection()
+            .prepareStatement("delete from resource_pack where id = ?")
+            .apply { setInt(1, id) }
+            .executeUpdate()
+
+    }
+
     override fun createPack(name: String, version: String, serverType: ServerType): Int {
         val statement = getConnection()
             .prepareStatement("insert into resource_pack (name, version, server_type) values (?, ?, ?) returning id")

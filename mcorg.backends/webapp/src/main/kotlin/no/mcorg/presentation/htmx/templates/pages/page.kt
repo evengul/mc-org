@@ -6,39 +6,41 @@ import java.time.LocalDate
 
 fun page(siteTitle: String = "MC-ORG", title: String = "MC-ORG", content: MAIN.() -> Unit): String {
     return baseTemplate(siteTitle = siteTitle) {
-        nav {
+        header {
             h1 {
                 + title
             }
-            ul {
-                li {
-                    a {
-                        href = "/"
-                        + "Home"
+            nav {
+                ul {
+                    li {
+                        a {
+                            href = "/"
+                            + "Home"
+                        }
                     }
-                }
-                li {
-                    a {
-                        href = "/worlds"
-                        + "Worlds"
+                    li {
+                        a {
+                            href = "/worlds"
+                            + "Worlds"
+                        }
                     }
-                }
-                li {
-                    a {
-                        href = "/resourcepacks"
-                        + "Resource Packs"
+                    li {
+                        a {
+                            href = "/resourcepacks"
+                            + "Resource Packs"
+                        }
                     }
-                }
-                li {
-                    a {
-                        href = "#"
-                        + "Profile"
+                    li {
+                        a {
+                            href = "#"
+                            + "Profile"
+                        }
                     }
-                }
-                li {
-                    a {
-                        href = "/signout"
-                        + "Sign out"
+                    li {
+                        a {
+                            href = "/signout"
+                            + "Sign out"
+                        }
                     }
                 }
             }

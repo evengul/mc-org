@@ -30,6 +30,7 @@ interface Permissions {
 
 interface Worlds {
     fun getWorld(id: Int): World?
+    fun deleteWorld(id: Int)
     fun createWorld(name: String): Int
     fun getUserWorlds(username: String): List<World>
 
@@ -38,6 +39,7 @@ interface Worlds {
 
 interface Teams {
     fun getTeam(id: Int): Team?
+    fun deleteTeam(id: Int)
     fun createTeam(worldId: Int, name: String): Int
     fun getWorldTeams(worldId: Int): List<Team>
 
@@ -46,6 +48,7 @@ interface Teams {
 
 interface Projects {
     fun getProject(id: Int, includeTasks: Boolean = false, includeDependencies: Boolean = false): Project?
+    fun deleteProject(id: Int)
     fun getTeamProjects(id: Int): List<SlimProject>
     fun createProject(worldId: Int, teamId: Int, name: String): Int
     fun getUserProjects(username: String): List<Project>
@@ -68,6 +71,7 @@ interface Projects {
 
 interface Packs {
     fun getPack(id: Int): ResourcePack?
+    fun deletePack(id: Int)
     fun createPack(name: String, version: String, serverType: ServerType): Int
     fun getWorldPacks(id: Int): List<ResourcePack>
     fun getTeamPacks(id: Int): List<ResourcePack>

@@ -1,17 +1,16 @@
 package no.mcorg.infrastructure.repository
 
 import no.mcorg.domain.*
-import kotlin.random.Random.Default.nextInt
 
-class ProjectsImpl(private val config: AppConfiguration) : Projects, Repository(config) {
+class ProjectsImpl(config: AppConfiguration) : Projects, Repository(config) {
     override fun getProject(id: Int, includeTasks: Boolean, includeDependencies: Boolean): Project? {
         val project = getConnection()
             .prepareStatement("SELECT world_id, team_id, id, name, archived FROM project WHERE id = ?")
             .apply { setInt(1, id) }
             .executeQuery()
             .let {
-                if (!it.next()) null
-                else Project(
+                if (!it.next()) return@let null
+                else return@let Project(
                     worldId = it.getInt("world_id"),
                     teamId = it.getInt("team_id"),
                     id = it.getInt("id"),
@@ -67,6 +66,13 @@ class ProjectsImpl(private val config: AppConfiguration) : Projects, Repository(
         return project
     }
 
+    override fun deleteProject(id: Int) {
+        getConnection()
+            .prepareStatement("delete from project where id = ?")
+            .apply { setInt(1, id) }
+            .executeUpdate()
+    }
+
     override fun getTeamProjects(id: Int): List<SlimProject> {
         getConnection()
             .prepareStatement("select p.world_id, p.team_id, p.id, p.name from project p join team t on p.team_id = t.id where t.id = ? and archived = false")
@@ -90,12 +96,12 @@ class ProjectsImpl(private val config: AppConfiguration) : Projects, Repository(
 
     override fun createProject(worldId: Int, teamId: Int, name: String): Int {
         val statement = getConnection()
-            .prepareStatement("insert into project (world_id, team_id, name, archived) values (?, ?, ?, false) returning id")
+            .prepareStatement("insert into project(world_id, team_id, name, archived) values (?, ?, ?, false) returning id")
             .apply { setInt(1, worldId); setInt(2, teamId); setString(3, name) }
 
         if (statement.execute()) {
             with(statement.resultSet) {
-                if (next()) getInt(1)
+                if (next()) return getInt(1)
             }
         }
 
