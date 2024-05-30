@@ -10,7 +10,7 @@ import no.mcorg.presentation.htmx.templates.hxGet
 import no.mcorg.presentation.htmx.templates.hxSwap
 import no.mcorg.presentation.htmx.templates.hxTarget
 
-fun worldPage(world: World, teams: List<Team>, packs: List<ResourcePack>): String {
+fun worldPage(world: World, teams: List<Team>, packs: List<ResourcePack>, ownedPacks: List<ResourcePack>): String {
     return page(title = world.name) {
         h2 {
             + "Teams"
@@ -44,9 +44,35 @@ fun worldPage(world: World, teams: List<Team>, packs: List<ResourcePack>): Strin
         h2 {
             + "Resource Packs"
         }
-        button {
-            type = ButtonType.button
-            + "Add resource pack to world"
+        val ownedNotAdded = ownedPacks.filter { owned -> packs.none {shared -> shared.id == owned.id } }
+        if (ownedNotAdded.isNotEmpty()) {
+            form {
+                encType = FormEncType.multipartFormData
+                method = FormMethod.post
+                action = "/worlds/${world.id}/resourcepacks"
+                label {
+                    htmlFor = "add-world-pack-select"
+                    + "Select pack to share with this world"
+                }
+                select {
+                    id = "add-world-pack-select"
+                    name = "world-resource-pack-id"
+                    option {
+                        value = ""
+                        + ""
+                    }
+                    for (pack in ownedNotAdded) {
+                        option {
+                            value = pack.id.toString()
+                            + pack.name
+                        }
+                    }
+                }
+                button {
+                    type = ButtonType.submit
+                    + "Add pack to world"
+                }
+            }
         }
         ul {
             for(pack in packs) {
@@ -57,6 +83,9 @@ fun worldPage(world: World, teams: List<Team>, packs: List<ResourcePack>): Strin
                     }
                     button {
                         type = ButtonType.button
+                        hxDelete("/worlds/${world.id}/resourcepacks/${pack.id}")
+                        hxTarget("closest li")
+                        hxSwap("outerHTML")
                         + "Remove resourcepack from world"
                     }
                 }

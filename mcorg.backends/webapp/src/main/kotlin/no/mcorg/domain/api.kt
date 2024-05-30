@@ -82,6 +82,11 @@ interface Packs {
 
     fun changePackName(id: Int, name: String)
 
+    fun sharePackWithWorld(id: Int, worldId: Int)
+    fun sharePackWithTeam(id: Int, teamId: Int)
+    fun unSharePackWithWorld(id: Int, worldId: Int)
+    fun unSharePackWithTeam(id: Int, teamId: Int)
+
     fun addResource(packId: Int, name: String, type: ResourceType, downloadUrl: String): Int
     fun removeResource(id: Int)
 

@@ -6,11 +6,15 @@ import io.ktor.server.application.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import no.mcorg.domain.Authority
+import no.mcorg.domain.PermissionLevel
 import no.mcorg.presentation.configuration.*
 import no.mcorg.presentation.htmx.routing.isHtml
 import no.mcorg.presentation.htmx.templates.pages.teamPage
 
 suspend fun ApplicationCall.handleTeam(worldId: Int, teamId: Int) {
+    val userId = request.cookies["MCORG-USER-ID"]?.toIntOrNull()
+        ?: return respondRedirect("/signin")
+
     val world = worldsApi().getWorld(worldId)
         ?: return respondRedirect("/")
     val team = teamsApi().getTeam(teamId)
@@ -21,8 +25,13 @@ suspend fun ApplicationCall.handleTeam(worldId: Int, teamId: Int) {
     val packs = packsApi()
         .getTeamPacks(teamId)
 
+    val ownedPacks = permissionsApi().getPackPermissions(userId)
+        .permissions[PermissionLevel.PACK]!!
+        .filter { it.second == Authority.OWNER }
+        .map { it.first }
+
     isHtml()
-    respond(teamPage(world, team, projects, packs))
+    respond(teamPage(world, team, projects, packs, ownedPacks))
 }
 
 suspend fun ApplicationCall.handleCreateTeam() {

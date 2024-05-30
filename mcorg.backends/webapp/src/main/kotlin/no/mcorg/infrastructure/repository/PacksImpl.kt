@@ -138,6 +138,38 @@ class PacksImpl : Packs, Repository() {
         }
     }
 
+    override fun sharePackWithWorld(id: Int, worldId: Int) {
+        getConnection().use {
+            it.prepareStatement("insert into world_packs values (?, ?)")
+                .apply { setInt(1, id); setInt(2, worldId) }
+                .executeUpdate()
+        }
+    }
+
+    override fun sharePackWithTeam(id: Int, teamId: Int) {
+        getConnection().use {
+            it.prepareStatement("insert into team_packs values (?, ?)")
+                .apply { setInt(1, id); setInt(2, teamId) }
+                .executeUpdate()
+        }
+    }
+
+    override fun unSharePackWithWorld(id: Int, worldId: Int) {
+        getConnection().use {
+            it.prepareStatement("delete from world_packs where pack_id = ? and world_id = ?")
+                .apply { setInt(1, id); setInt(2, worldId) }
+                .executeUpdate()
+        }
+    }
+
+    override fun unSharePackWithTeam(id: Int, teamId: Int) {
+        getConnection().use {
+            it.prepareStatement("delete from team_packs where pack_id = ? and team_id = ?")
+                .apply { setInt(1, id); setInt(2, teamId) }
+                .executeUpdate()
+        }
+    }
+
     override fun addResource(packId: Int, name: String, type: ResourceType, downloadUrl: String): Int {
         getConnection().use {
             val statement = it

@@ -8,7 +8,7 @@ import no.mcorg.presentation.htmx.templates.hxGet
 import no.mcorg.presentation.htmx.templates.hxSwap
 import no.mcorg.presentation.htmx.templates.hxTarget
 
-fun teamPage(world: World, team: Team, projects: List<SlimProject>, packs: List<ResourcePack>): String {
+fun teamPage(world: World, team: Team, projects: List<SlimProject>, packs: List<ResourcePack>, ownedPacks: List<ResourcePack>): String {
     return page(title = "${world.name} - ${team.name}") {
         h2 {
             + "Projects"
@@ -42,9 +42,35 @@ fun teamPage(world: World, team: Team, projects: List<SlimProject>, packs: List<
         h2 {
             + "Resource Packs"
         }
-        button {
-            type = ButtonType.button
-            + "Add resourcepack to team"
+        val ownedNotAdded = ownedPacks.filter { owned -> packs.none {shared -> shared.id == owned.id } }
+        if (ownedNotAdded.isNotEmpty()) {
+            form {
+                encType = FormEncType.multipartFormData
+                method = FormMethod.post
+                action = "/worlds/${team.worldId}/teams/${team.id}/resourcepacks"
+                label {
+                    htmlFor = "add-team-pack-select"
+                    + "Select pack to share with this team"
+                }
+                select {
+                    id = "add-team-pack-select"
+                    name = "team-resource-pack-id"
+                    option {
+                        value = ""
+                        + ""
+                    }
+                    for (pack in ownedNotAdded) {
+                        option {
+                            value = pack.id.toString()
+                            + pack.name
+                        }
+                    }
+                }
+                button {
+                    type = ButtonType.submit
+                    + "Add pack to team"
+                }
+            }
         }
         ul {
             for (pack in packs) {
@@ -55,6 +81,9 @@ fun teamPage(world: World, team: Team, projects: List<SlimProject>, packs: List<
                     }
                     button {
                         type = ButtonType.button
+                        hxDelete("/worlds/${team.worldId}/teams/${team.id}/resourcepacks/${pack.id}")
+                        hxTarget("closest li")
+                        hxSwap("outerHTML")
                         + "Remove resourcepack from team"
                     }
                 }

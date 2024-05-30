@@ -55,6 +55,62 @@ suspend fun ApplicationCall.handleAddResourceToPack() {
     }
 }
 
+suspend fun ApplicationCall.handleSharePackWithWorld() {
+    val worldId = parameters["worldId"]?.toIntOrNull()
+
+    val parts = receiveMultipart().readAllParts()
+    val id = (parts.find { it.name == "world-resource-pack-id" } as PartData.FormItem?)?.value?.toIntOrNull()
+
+    if (id == null || worldId == null) {
+        respond(HttpStatusCode.BadRequest)
+    } else {
+        packsApi().sharePackWithWorld(id, worldId)
+        respondRedirect("/worlds/$worldId")
+    }
+}
+
+suspend fun ApplicationCall.handleSharePackWithTeam() {
+    val worldId = parameters["worldId"]?.toIntOrNull()
+    val teamId = parameters["teamId"]?.toIntOrNull()
+
+    val parts = receiveMultipart().readAllParts()
+    val id = (parts.find { it.name == "team-resource-pack-id" } as PartData.FormItem?)?.value?.toIntOrNull()
+
+    if (id == null || teamId == null || worldId == null) {
+        respond(HttpStatusCode.BadRequest)
+    } else {
+        packsApi().sharePackWithTeam(id, teamId)
+        respondRedirect("/worlds/$worldId/teams/$teamId")
+    }
+}
+
+suspend fun ApplicationCall.handleUnSharePackWithWorld() {
+    val worldId = parameters["worldId"]?.toIntOrNull()
+    val packId = parameters["packId"]?.toIntOrNull()
+
+    if (worldId == null || packId == null) {
+        respond(HttpStatusCode.BadRequest)
+    } else {
+        packsApi().unSharePackWithWorld(packId, worldId)
+        isHtml()
+        respond("")
+    }
+}
+
+suspend fun ApplicationCall.handleUnSharePackWithTeam() {
+    val worldId = parameters["worldId"]?.toIntOrNull()
+    val teamId = parameters["teamId"]?.toIntOrNull()
+    val packId = parameters["packId"]?.toIntOrNull()
+
+    if (worldId == null || teamId == null || packId == null) {
+        respond(HttpStatusCode.BadRequest)
+    } else {
+        packsApi().unSharePackWithWorld(packId, worldId)
+        isHtml()
+        respond("")
+    }
+}
+
 private fun String.toServerType(): ServerType {
     when(this) {
         "FABRIC" -> return ServerType.FABRIC

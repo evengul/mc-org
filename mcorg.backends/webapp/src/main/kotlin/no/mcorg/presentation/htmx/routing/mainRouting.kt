@@ -10,10 +10,7 @@ import kotlinx.html.button
 import kotlinx.html.li
 import kotlinx.html.stream.createHTML
 import no.mcorg.domain.PermissionLevel
-import no.mcorg.presentation.configuration.packsApi
-import no.mcorg.presentation.configuration.permissionsApi
-import no.mcorg.presentation.configuration.projectsApi
-import no.mcorg.presentation.configuration.teamsApi
+import no.mcorg.presentation.configuration.*
 import no.mcorg.presentation.htmx.handlers.*
 import no.mcorg.presentation.htmx.templates.hxPut
 import no.mcorg.presentation.htmx.templates.hxSwap
@@ -270,6 +267,22 @@ fun Application.mainRouting() {
             packsApi().removeResource(resourceId)
             call.isHtml()
             call.respond("")
+        }
+
+        post("/worlds/{worldId}/resourcepacks") {
+            call.handleSharePackWithWorld()
+        }
+
+        delete("/worlds/{worldId}/resourcepacks/{packId}") {
+            call.handleUnSharePackWithWorld()
+        }
+
+        post("/worlds/{worldId}/teams/{teamId}/resourcepacks") {
+            call.handleSharePackWithTeam()
+        }
+
+        delete("/worlds/{worldId}/teams/{teamId}/resourcepacks/{packId}") {
+            call.handleUnSharePackWithTeam()
         }
     }
 }
