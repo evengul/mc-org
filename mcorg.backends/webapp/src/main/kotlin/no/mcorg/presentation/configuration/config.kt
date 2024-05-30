@@ -4,33 +4,26 @@ import no.mcorg.domain.*
 import no.mcorg.infrastructure.repository.*
 
 fun usersApi(): Users {
-    return UsersImpl(getConfig())
+    return UsersImpl()
 }
 
 fun permissionsApi(): Permissions {
-    return PermissionsImpl(getConfig())
+    return PermissionsImpl()
 }
 
 fun worldsApi(): Worlds {
-    return WorldsImpl(getConfig())
+    return WorldsImpl()
 }
 
 fun teamsApi(): Teams {
-    return TeamsImpl(getConfig())
+    return TeamsImpl()
 }
 
 fun projectsApi(): Projects {
-    return ProjectsImpl(getConfig())
+    return ProjectsImpl()
 }
 
 fun packsApi(): Packs {
-    return PacksImpl(getConfig())
+    return PacksImpl()
 }
 
-fun getConfig(): AppConfiguration {
-    return AppConfiguration(
-        System.getenv("DB_URL"),
-        System.getenv("DB_USER"),
-        System.getenv("DB_PASSWORD"),
-    )
-}

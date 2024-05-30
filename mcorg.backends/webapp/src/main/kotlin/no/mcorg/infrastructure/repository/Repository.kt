@@ -1,11 +1,18 @@
 package no.mcorg.infrastructure.repository
 
-import no.mcorg.domain.AppConfiguration
+import com.zaxxer.hikari.HikariConfig
+import com.zaxxer.hikari.HikariDataSource
 import java.sql.Connection
-import java.sql.DriverManager
 
-open class Repository(private val config: AppConfiguration) {
+private val dataSource = HikariDataSource(HikariConfig().apply {
+    jdbcUrl = System.getenv("DB_URL")
+    username = System.getenv("DB_USER")
+    password = System.getenv("DB_PASSWORD")
+    driverClassName = "org.postgresql.Driver"
+})
+
+open class Repository {
     fun getConnection(): Connection {
-        return DriverManager.getConnection(config.dbUrl, config.dbUser, config.dbPassword)
+        return dataSource.connection
     }
 }
