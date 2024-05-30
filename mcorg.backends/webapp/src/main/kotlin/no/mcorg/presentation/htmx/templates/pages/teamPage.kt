@@ -72,10 +72,11 @@ fun addProject(): String {
             + "Name"
         }
         input {
+            id = "project-name-input"
             name = "project-name"
             required = true
             minLength = "3"
-            id = "project-name-input"
+            maxLength = "120"
         }
         button {
             type = ButtonType.submit

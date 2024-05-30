@@ -6,6 +6,10 @@ fun HTMLTag.hxGet(value: String) {
     attributes += "hx-get" to value
 }
 
+fun HTMLTag.hxPut(value: String) {
+    attributes += "hx-put" to value
+}
+
 fun HTMLTag.hxDelete(value: String) {
     attributes += "hx-delete" to value
 }

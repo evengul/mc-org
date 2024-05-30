@@ -58,10 +58,13 @@ interface Projects {
     fun archiveProject(id: Int)
     fun openProject(id: Int)
 
+    fun getTask(projectId: Int, taskId: Int): Task?
     fun addCountableTask(projectId: Int, name: String, priority: Priority, needed: Int): Int
     fun addDoableTask(projectId: Int, name: String, priority: Priority): Int
     fun removeTask(id: Int)
     fun completeTask(id: Int)
+    fun undoCompleteTask(id: Int)
+    fun updateCountableTask(id: Int, needed: Int, done: Int)
     fun taskRequiresMore(id: Int, needed: Int)
     fun taskDoneMore(id: Int, done: Int)
 

@@ -77,6 +77,7 @@ fun addTeam(): String {
             name = "team-name"
             required = true
             minLength = "3"
+            maxLength = "120"
             id = "team-name-input"
         }
         button {

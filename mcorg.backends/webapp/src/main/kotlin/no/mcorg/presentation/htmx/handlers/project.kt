@@ -11,7 +11,7 @@ import no.mcorg.presentation.htmx.templates.pages.projectPage
 
 suspend fun ApplicationCall.handleProject(projectId: Int) {
 
-    val project = projectsApi().getProject(projectId)
+    val project = projectsApi().getProject(projectId, includeTasks = true)
         ?: return respondRedirect("/")
 
     isHtml()

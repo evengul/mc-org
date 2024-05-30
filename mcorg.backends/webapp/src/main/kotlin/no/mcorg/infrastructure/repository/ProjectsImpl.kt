@@ -25,7 +25,7 @@ class ProjectsImpl(config: AppConfiguration) : Projects, Repository(config) {
         if (includeTasks) {
 
             getConnection()
-                .prepareStatement("select id,name,needed,done from task where project_id = ?")
+                .prepareStatement("select id,name,priority,needed,done from task where project_id = ?")
                 .apply { setInt(1, project.id) }
                 .executeQuery()
                 .apply {
@@ -133,6 +133,22 @@ class ProjectsImpl(config: AppConfiguration) : Projects, Repository(config) {
             .executeUpdate()
     }
 
+    override fun getTask(projectId: Int, taskId: Int): Task? {
+        getConnection()
+            .prepareStatement("select name,needed,done,priority from task where project_id = ? and id = ?")
+            .apply { setInt(1, projectId); setInt(2, taskId) }
+            .executeQuery()
+            .apply {
+                if (next()) return Task(taskId,
+                    getString("name"),
+                    getString("priority").toPriority(),
+                    mutableListOf(),
+                    getInt("needed"),
+                    getInt("done"))
+            }
+        return null
+    }
+
     override fun addCountableTask(projectId: Int, name: String, priority: Priority, needed: Int): Int {
         val statement = getConnection()
             .prepareStatement("insert into task (project_id, name, needed, done) values (?, ?, ?, 0) returning id")
@@ -172,6 +188,20 @@ class ProjectsImpl(config: AppConfiguration) : Projects, Repository(config) {
         getConnection()
             .prepareStatement("update task set done = needed where id = ?")
             .apply { setInt(1, id) }
+            .executeUpdate()
+    }
+
+    override fun undoCompleteTask(id: Int) {
+        getConnection()
+            .prepareStatement("update task set done = 0 where id = ?")
+            .apply { setInt(1, id) }
+            .executeUpdate()
+    }
+
+    override fun updateCountableTask(id: Int, needed: Int, done: Int) {
+        getConnection()
+            .prepareStatement("update task set done = ?, needed = ? where id = ?")
+            .apply { setInt(1, done); setInt(2, needed); setInt(3, id) }
             .executeUpdate()
     }
 

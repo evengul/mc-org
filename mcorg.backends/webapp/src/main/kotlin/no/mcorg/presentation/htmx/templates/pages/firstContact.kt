@@ -28,6 +28,7 @@ fun firstContact(): String {
                     name = "world-name"
                     required = true
                     minLength = "3"
+                    maxLength = "120"
                 }
             }
             span(classes = "create-world-input-pair") {
@@ -76,6 +77,7 @@ fun firstWorldTeam(): String {
                 type = InputType.text
                 required = true
                 minLength = "3"
+                maxLength = "120"
                 value = "The cool team"
             }
         }

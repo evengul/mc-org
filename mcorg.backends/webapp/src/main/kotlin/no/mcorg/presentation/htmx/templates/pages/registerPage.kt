@@ -21,6 +21,7 @@ fun registerPage(): String {
                     name = "username"
                     required = true
                     minLength = "3"
+                    maxLength = "120"
                 }
                 label {
                     htmlFor = "register-password-input"
@@ -31,6 +32,7 @@ fun registerPage(): String {
                     name = "password"
                     required = true
                     minLength = "5"
+                    maxLength = "120"
                     type = InputType.password
                 }
                 button {

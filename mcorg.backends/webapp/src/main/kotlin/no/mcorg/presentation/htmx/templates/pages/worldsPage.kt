@@ -50,6 +50,9 @@ fun addWorld(): String {
         input {
             name = "world-name"
             id = "world-name-input"
+            required = true
+            minLength = "3"
+            maxLength = "120"
         }
         button {
             + "Create world"
