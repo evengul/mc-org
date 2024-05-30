@@ -10,6 +10,7 @@ import kotlinx.html.button
 import kotlinx.html.li
 import kotlinx.html.stream.createHTML
 import no.mcorg.domain.PermissionLevel
+import no.mcorg.presentation.configuration.packsApi
 import no.mcorg.presentation.configuration.permissionsApi
 import no.mcorg.presentation.configuration.projectsApi
 import no.mcorg.presentation.configuration.teamsApi
@@ -229,9 +230,46 @@ fun Application.mainRouting() {
             call.handleResourcePacks(userId)
         }
 
+        get("/htmx/create-resource-pack") {
+            call.isHtml()
+            call.respond(addResourcePack())
+        }
+
+        post("/resourcepacks") {
+            call.handleCreateResourcePack()
+        }
+
+        delete("/resourcepacks/{resourcePackId}") {
+            val resourcePackId = call.parameters["resourcePackId"]?.toIntOrNull()
+
+            if (resourcePackId == null) {
+                call.respond(HttpStatusCode.BadRequest)
+            } else {
+                packsApi().deletePack(resourcePackId)
+                call.isHtml()
+                call.respond("")
+            }
+        }
+
         get("/resourcepacks/{id}") {
             val id = call.parameters["id"]?.toInt() ?: return@get call.respondRedirect("/")
             call.handleResourcePack(id)
+        }
+
+        get("/htmx/add-resource-to-pack") {
+            call.isHtml()
+            call.respond(addResourceToPack())
+        }
+
+        post("/resourcepacks/{id}") {
+            call.handleAddResourceToPack()
+        }
+
+        delete("/resourcepacks/{id}/resource/{resourceId}") {
+            val resourceId = call.parameters["resourceId"]?.toInt() ?: return@delete call.respondRedirect("/")
+            packsApi().removeResource(resourceId)
+            call.isHtml()
+            call.respond("")
         }
     }
 }
