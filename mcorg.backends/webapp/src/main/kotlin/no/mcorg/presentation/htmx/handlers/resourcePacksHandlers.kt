@@ -105,7 +105,7 @@ suspend fun ApplicationCall.handleUnSharePackWithTeam() {
     if (worldId == null || teamId == null || packId == null) {
         respond(HttpStatusCode.BadRequest)
     } else {
-        packsApi().unSharePackWithWorld(packId, worldId)
+        packsApi().unSharePackWithTeam(packId, teamId)
         isHtml()
         respond("")
     }
