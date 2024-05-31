@@ -3,14 +3,15 @@ package no.mcorg.presentation.htmx.routing
 import io.ktor.server.application.*
 import io.ktor.server.routing.*
 import no.mcorg.presentation.htmx.handlers.*
+import no.mcorg.presentation.htmx.templates.pages.registerPage
 
 fun Application.authRouting() {
     routing {
         get("/signin") {
-            call.handleGetSignin()
+            call.respondSignIn()
         }
         get("/register") {
-            call.handleGetRegister()
+            call.respondHtml(registerPage())
         }
         post("/signin") {
             call.handlePostSignin()
@@ -19,7 +20,7 @@ fun Application.authRouting() {
             call.handlePostRegister()
         }
         get("/signout") {
-            call.handleGetSignout()
+            call.respondSignOut()
         }
     }
 }

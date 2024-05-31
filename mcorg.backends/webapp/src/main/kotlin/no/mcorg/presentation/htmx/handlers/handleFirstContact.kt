@@ -3,10 +3,12 @@ package no.mcorg.presentation.htmx.handlers
 import io.ktor.server.application.*
 import io.ktor.server.response.*
 import no.mcorg.presentation.configuration.permissionsApi
-import no.mcorg.presentation.htmx.routing.isHtml
+import no.mcorg.presentation.configuration.usersApi
+import no.mcorg.presentation.htmx.routing.getUserId
+import no.mcorg.presentation.htmx.routing.respondHtml
 import no.mcorg.presentation.htmx.templates.pages.firstContact
 
-suspend fun ApplicationCall.handleFirstContact() {
+suspend fun ApplicationCall.respondFirstContact() {
     val userId = request.cookies["MCORG-USER-ID"]?.toIntOrNull();
 
     if (userId == null) {
@@ -15,8 +17,18 @@ suspend fun ApplicationCall.handleFirstContact() {
         if (permissionsApi().hasWorldPermission(userId)) {
             respondRedirect("/")
         } else {
-            isHtml()
-            respond(firstContact())
+            respondHtml(firstContact())
         }
     }
+}
+
+suspend fun ApplicationCall.respondIndex() {
+    val userId = getUserId()
+
+    if (userId == null || !usersApi().userExists(userId)) {
+        signOut()
+        respondRedirect("/signin")
+    } else if (!permissionsApi().hasWorldPermission(userId)) {
+        respondRedirect("/first-contact")
+    } else respondRedirect("/worlds")
 }

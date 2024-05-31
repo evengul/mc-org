@@ -11,20 +11,30 @@ import no.mcorg.domain.ResourceType
 import no.mcorg.domain.ServerType
 import no.mcorg.presentation.configuration.packsApi
 import no.mcorg.presentation.configuration.permissionsApi
-import no.mcorg.presentation.htmx.routing.isHtml
+import no.mcorg.presentation.htmx.routing.getUserIdOrRedirect
+import no.mcorg.presentation.htmx.routing.respondEmpty
+import no.mcorg.presentation.htmx.routing.respondHtml
+import no.mcorg.presentation.htmx.templates.pages.resourcePackPage
 import no.mcorg.presentation.htmx.templates.pages.resourcePacksPage
 
-suspend fun ApplicationCall.handleResourcePacks(userId: Int) {
+suspend fun ApplicationCall.respondResourcePacks() {
+    val userId = getUserIdOrRedirect() ?: return
+
     val packs = permissionsApi().getPackPermissions(userId)
         .permissions[PermissionLevel.PACK]!!
         .map { it.first }
 
-    isHtml()
-    respond(resourcePacksPage(packs))
+    respondHtml(resourcePacksPage(packs))
+}
+
+suspend fun ApplicationCall.respondResourcePack(packId: Int) {
+    val pack = packsApi().getPack(packId) ?: return respondRedirect("/resourcepacks")
+
+    respondHtml(resourcePackPage(pack))
 }
 
 suspend fun ApplicationCall.handleCreateResourcePack() {
-    val userId = request.cookies["MCORG-USER-ID"]?.toIntOrNull() ?: return respondRedirect("/signin")
+    val userId = getUserIdOrRedirect() ?: return
 
     val parts = receiveMultipart().readAllParts()
     val name = (parts.find { it.name == "resource-pack-name" } as PartData.FormItem?)?.value
@@ -40,14 +50,13 @@ suspend fun ApplicationCall.handleCreateResourcePack() {
     }
 }
 
-suspend fun ApplicationCall.handleAddResourceToPack() {
-    val packId = parameters["id"]?.toIntOrNull()
+suspend fun ApplicationCall.handleAddResourceToPack(packId: Int) {
 
     val parts = receiveMultipart().readAllParts()
     val type = (parts.find { it.name == "resource-type" } as PartData.FormItem?)?.value?.toResourceType()
     val name = (parts.find { it.name == "resource-name" } as PartData.FormItem?)?.value
 
-    if (packId == null || type == null || name == null) {
+    if (type == null || name == null) {
         respond(HttpStatusCode.BadRequest)
     } else {
         packsApi().addResource(packId, name, type, "")
@@ -55,13 +64,11 @@ suspend fun ApplicationCall.handleAddResourceToPack() {
     }
 }
 
-suspend fun ApplicationCall.handleSharePackWithWorld() {
-    val worldId = parameters["worldId"]?.toIntOrNull()
-
+suspend fun ApplicationCall.handleSharePackWithWorld(worldId: Int) {
     val parts = receiveMultipart().readAllParts()
     val id = (parts.find { it.name == "world-resource-pack-id" } as PartData.FormItem?)?.value?.toIntOrNull()
 
-    if (id == null || worldId == null) {
+    if (id == null) {
         respond(HttpStatusCode.BadRequest)
     } else {
         packsApi().sharePackWithWorld(id, worldId)
@@ -69,14 +76,11 @@ suspend fun ApplicationCall.handleSharePackWithWorld() {
     }
 }
 
-suspend fun ApplicationCall.handleSharePackWithTeam() {
-    val worldId = parameters["worldId"]?.toIntOrNull()
-    val teamId = parameters["teamId"]?.toIntOrNull()
-
+suspend fun ApplicationCall.handleSharePackWithTeam(worldId: Int, teamId: Int) {
     val parts = receiveMultipart().readAllParts()
     val id = (parts.find { it.name == "team-resource-pack-id" } as PartData.FormItem?)?.value?.toIntOrNull()
 
-    if (id == null || teamId == null || worldId == null) {
+    if (id == null) {
         respond(HttpStatusCode.BadRequest)
     } else {
         packsApi().sharePackWithTeam(id, teamId)
@@ -84,31 +88,14 @@ suspend fun ApplicationCall.handleSharePackWithTeam() {
     }
 }
 
-suspend fun ApplicationCall.handleUnSharePackWithWorld() {
-    val worldId = parameters["worldId"]?.toIntOrNull()
-    val packId = parameters["packId"]?.toIntOrNull()
-
-    if (worldId == null || packId == null) {
-        respond(HttpStatusCode.BadRequest)
-    } else {
-        packsApi().unSharePackWithWorld(packId, worldId)
-        isHtml()
-        respond("")
-    }
+suspend fun ApplicationCall.handleUnSharePackWithWorld(packId: Int, worldId: Int) {
+    packsApi().unSharePackWithWorld(packId, worldId)
+    respondEmpty()
 }
 
-suspend fun ApplicationCall.handleUnSharePackWithTeam() {
-    val worldId = parameters["worldId"]?.toIntOrNull()
-    val teamId = parameters["teamId"]?.toIntOrNull()
-    val packId = parameters["packId"]?.toIntOrNull()
-
-    if (worldId == null || teamId == null || packId == null) {
-        respond(HttpStatusCode.BadRequest)
-    } else {
-        packsApi().unSharePackWithTeam(packId, teamId)
-        isHtml()
-        respond("")
-    }
+suspend fun ApplicationCall.handleUnSharePackWithTeam(teamId: Int, packId: Int) {
+    packsApi().unSharePackWithTeam(packId, teamId)
+    respondEmpty()
 }
 
 private fun String.toServerType(): ServerType {

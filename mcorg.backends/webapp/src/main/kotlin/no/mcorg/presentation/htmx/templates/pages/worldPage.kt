@@ -17,7 +17,7 @@ fun worldPage(world: World, teams: List<Team>, packs: List<ResourcePack>, ownedP
         }
         button {
             type = ButtonType.button
-            hxGet("/htmx/world/${world.id}/add-team")
+            hxGet("/htmx/worlds/${world.id}/teams/add")
             hxTarget("#add-team-container")
             + "Create new team in world"
         }

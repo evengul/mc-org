@@ -12,68 +12,66 @@ import no.mcorg.presentation.htmx.templates.pages.addResourceToPack
 fun Application.resourcePackRouting() {
     routing {
         get("/resourcepacks") {
-            val userId = call.request.cookies["MCORG-USER-ID"]?.toIntOrNull() ?: return@get call.respondRedirect("/signin")
-
-            call.handleResourcePacks(userId)
+            call.respondResourcePacks()
         }
 
         post("/resourcepacks") {
             call.handleCreateResourcePack()
         }
 
-        delete("/resourcepacks/{resourcePackId}") {
-            val resourcePackId = call.parameters["resourcePackId"]?.toIntOrNull()
+        delete("/resourcepacks/{packId}") {
+            val packId = call.getResourcePackParam(failOnMissingValue = true) ?: return@delete
 
-            if (resourcePackId == null) {
-                call.respond(HttpStatusCode.BadRequest)
-            } else {
-                packsApi().deletePack(resourcePackId)
-                call.isHtml()
-                call.respond("")
-            }
+            packsApi().deletePack(packId)
+            call.respondEmpty()
         }
 
-        get("/resourcepacks/{id}") {
-            val id = call.parameters["id"]?.toInt() ?: return@get call.respondRedirect("/")
-            call.handleResourcePack(id)
+        get("/resourcepacks/{packid}") {
+            val packId = call.getResourcePackParam() ?: return@get
+            call.respondResourcePack(packId)
         }
 
-        post("/resourcepacks/{id}") {
-            call.handleAddResourceToPack()
+        post("/resourcepacks/{packId}") {
+            val packId = call.getResourcePackParam(failOnMissingValue = true) ?: return@post
+
+            call.handleAddResourceToPack(packId)
         }
 
-        delete("/resourcepacks/{id}/resources/{resourceId}") {
-            val resourceId = call.parameters["resourceId"]?.toInt() ?: return@delete call.respondRedirect("/")
+        delete("/resourcepacks/{packId}/resources/{resourceId}") {
+            val (_, resourceId) = call.getResourcePackResourceParams(failOnMissingValue = true) ?: return@delete
             packsApi().removeResource(resourceId)
-            call.isHtml()
-            call.respond("")
+            call.respondEmpty()
         }
 
         post("/worlds/{worldId}/resourcepacks") {
-            call.handleSharePackWithWorld()
+            val worldId = call.getWorldParam(failOnMissingValue = true) ?: return@post
+            call.handleSharePackWithWorld(worldId)
         }
 
         delete("/worlds/{worldId}/resourcepacks/{packId}") {
-            call.handleUnSharePackWithWorld()
+            val worldId = call.getWorldParam(failOnMissingValue = true) ?: return@delete
+            val packId = call.getResourcePackParam(failOnMissingValue = true) ?: return@delete
+            call.handleUnSharePackWithWorld(packId, worldId)
         }
 
         post("/worlds/{worldId}/teams/{teamId}/resourcepacks") {
-            call.handleSharePackWithTeam()
+            val (worldId, teamId) = call.getWorldTeamParams(failOnMissingValue = true) ?: return@post
+            call.handleSharePackWithTeam(worldId, teamId)
         }
 
         delete("/worlds/{worldId}/teams/{teamId}/resourcepacks/{packId}") {
-            call.handleUnSharePackWithTeam()
+            val (_, teamId) = call.getWorldTeamParams(failOnMissingValue = true) ?: return@delete
+            val packId = call.getResourcePackParam(failOnMissingValue = true) ?: return@delete
+            call.handleUnSharePackWithTeam(teamId, packId)
         }
 
         get("/htmx/resourcepacks/add") {
-            call.isHtml()
-            call.respond(addResourcePack())
+            call.respondHtml(addResourcePack())
         }
 
-        get("/htmx/resourcepacks/{id}/resources/add") {
-            val resourcePackId = call.parameters["id"]?.toIntOrNull() ?: return@get call.respondRedirect("/resourcepacks")
-            call.isHtml()
-            call.respond(addResourceToPack(resourcePackId))
+        get("/htmx/resourcepacks/{packId}/resources/add") {
+            val resourcePackId = call.getResourcePackParam() ?: return@get
+            call.respondHtml(addResourceToPack(resourcePackId))
         }
     }
 }

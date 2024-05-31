@@ -43,7 +43,7 @@ fun firstContact(): String {
                     id = "create-world-is-multiplayer-input"
                     type = InputType.checkBox
                     name = "is-multiplayer"
-                    hxGet("/first-world-team")
+                    hxGet("/htmx/first-world-team")
                     hxSwap("innerHTML")
                     hxTarget("#create-world-team-creator-container")
                 }
