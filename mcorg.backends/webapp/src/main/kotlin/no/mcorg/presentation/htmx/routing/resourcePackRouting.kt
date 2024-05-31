@@ -1,9 +1,9 @@
 package no.mcorg.presentation.htmx.routing
 
-import io.ktor.http.*
 import io.ktor.server.application.*
-import io.ktor.server.response.*
 import io.ktor.server.routing.*
+import no.mcorg.domain.Authority
+import no.mcorg.domain.PermissionLevel
 import no.mcorg.presentation.configuration.packsApi
 import no.mcorg.presentation.htmx.handlers.*
 import no.mcorg.presentation.htmx.templates.pages.addResourcePack
@@ -11,66 +11,66 @@ import no.mcorg.presentation.htmx.templates.pages.addResourceToPack
 
 fun Application.resourcePackRouting() {
     routing {
-        get("/resourcepacks") {
+        getAuthed("/resourcepacks", permissionLevel = PermissionLevel.AUTHENTICATED, authority = Authority.PARTICIPANT) {
             call.respondResourcePacks()
         }
 
-        post("/resourcepacks") {
+        postAuthed("/resourcepacks", permissionLevel = PermissionLevel.AUTHENTICATED, authority = Authority.PARTICIPANT) {
             call.handleCreateResourcePack()
         }
 
-        delete("/resourcepacks/{packId}") {
-            val packId = call.getResourcePackParam(failOnMissingValue = true) ?: return@delete
+        deleteAuthed("/resourcepacks/{packId}", permissionLevel = PermissionLevel.PACK, authority = Authority.OWNER) {
+            val packId = call.getResourcePackParam(failOnMissingValue = true) ?: return@deleteAuthed
 
             packsApi().deletePack(packId)
             call.respondEmpty()
         }
 
-        get("/resourcepacks/{packid}") {
-            val packId = call.getResourcePackParam() ?: return@get
+        getAuthed("/resourcepacks/{packid}", permissionLevel = PermissionLevel.PACK, authority = Authority.PARTICIPANT) {
+            val packId = call.getResourcePackParam() ?: return@getAuthed
             call.respondResourcePack(packId)
         }
 
-        post("/resourcepacks/{packId}") {
-            val packId = call.getResourcePackParam(failOnMissingValue = true) ?: return@post
+        postAuthed("/resourcepacks/{packId}", permissionLevel = PermissionLevel.PACK, authority = Authority.ADMIN) {
+            val packId = call.getResourcePackParam(failOnMissingValue = true) ?: return@postAuthed
 
             call.handleAddResourceToPack(packId)
         }
 
-        delete("/resourcepacks/{packId}/resources/{resourceId}") {
-            val (_, resourceId) = call.getResourcePackResourceParams(failOnMissingValue = true) ?: return@delete
+        deleteAuthed("/resourcepacks/{packId}/resources/{resourceId}", permissionLevel = PermissionLevel.PACK, authority = Authority.ADMIN) {
+            val (_, resourceId) = call.getResourcePackResourceParams(failOnMissingValue = true) ?: return@deleteAuthed
             packsApi().removeResource(resourceId)
             call.respondEmpty()
         }
 
-        post("/worlds/{worldId}/resourcepacks") {
-            val worldId = call.getWorldParam(failOnMissingValue = true) ?: return@post
+        postAuthed("/worlds/{worldId}/resourcepacks", permissionLevel = PermissionLevel.WORLD, authority = Authority.ADMIN) {
+            val worldId = call.getWorldParam(failOnMissingValue = true) ?: return@postAuthed
             call.handleSharePackWithWorld(worldId)
         }
 
-        delete("/worlds/{worldId}/resourcepacks/{packId}") {
-            val worldId = call.getWorldParam(failOnMissingValue = true) ?: return@delete
-            val packId = call.getResourcePackParam(failOnMissingValue = true) ?: return@delete
+        deleteAuthed("/worlds/{worldId}/resourcepacks/{packId}", permissionLevel = PermissionLevel.WORLD, authority = Authority.ADMIN) {
+            val worldId = call.getWorldParam(failOnMissingValue = true) ?: return@deleteAuthed
+            val packId = call.getResourcePackParam(failOnMissingValue = true) ?: return@deleteAuthed
             call.handleUnSharePackWithWorld(packId, worldId)
         }
 
-        post("/worlds/{worldId}/teams/{teamId}/resourcepacks") {
-            val (worldId, teamId) = call.getWorldTeamParams(failOnMissingValue = true) ?: return@post
+        postAuthed("/worlds/{worldId}/teams/{teamId}/resourcepacks", permissionLevel = PermissionLevel.TEAM, authority = Authority.ADMIN) {
+            val (worldId, teamId) = call.getWorldTeamParams(failOnMissingValue = true) ?: return@postAuthed
             call.handleSharePackWithTeam(worldId, teamId)
         }
 
-        delete("/worlds/{worldId}/teams/{teamId}/resourcepacks/{packId}") {
-            val (_, teamId) = call.getWorldTeamParams(failOnMissingValue = true) ?: return@delete
-            val packId = call.getResourcePackParam(failOnMissingValue = true) ?: return@delete
+        deleteAuthed("/worlds/{worldId}/teams/{teamId}/resourcepacks/{packId}", permissionLevel = PermissionLevel.TEAM, authority = Authority.ADMIN) {
+            val (_, teamId) = call.getWorldTeamParams(failOnMissingValue = true) ?: return@deleteAuthed
+            val packId = call.getResourcePackParam(failOnMissingValue = true) ?: return@deleteAuthed
             call.handleUnSharePackWithTeam(teamId, packId)
         }
 
-        get("/htmx/resourcepacks/add") {
+        getAuthed("/htmx/resourcepacks/add", permissionLevel = PermissionLevel.AUTHENTICATED, authority = Authority.PARTICIPANT) {
             call.respondHtml(addResourcePack())
         }
 
-        get("/htmx/resourcepacks/{packId}/resources/add") {
-            val resourcePackId = call.getResourcePackParam() ?: return@get
+        getAuthed("/htmx/resourcepacks/{packId}/resources/add", permissionLevel = PermissionLevel.PACK, authority = Authority.ADMIN) {
+            val resourcePackId = call.getResourcePackParam() ?: return@getAuthed
             call.respondHtml(addResourceToPack(resourcePackId))
         }
     }

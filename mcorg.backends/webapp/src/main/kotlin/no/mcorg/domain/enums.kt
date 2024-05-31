@@ -21,6 +21,7 @@ enum class Priority {
 }
 
 enum class PermissionLevel {
+    AUTHENTICATED,
     WORLD,
     TEAM,
     PROJECT,
@@ -28,7 +29,7 @@ enum class PermissionLevel {
 }
 
 enum class Authority(val level: Int) {
-    OWNER(1),
-    ADMIN(2),
-    PARTICIPANT(3)
+    OWNER(0),
+    ADMIN(10),
+    PARTICIPANT(20)
 }

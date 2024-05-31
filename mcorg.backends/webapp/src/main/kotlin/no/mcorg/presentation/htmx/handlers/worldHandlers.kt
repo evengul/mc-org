@@ -66,7 +66,7 @@ suspend fun ApplicationCall.handleCreateWorld() {
         permissionsApi()
             .addWorldPermission(userId, id, Authority.OWNER)
         permissionsApi()
-            .addTeamPermission(userId, teamId, Authority.PARTICIPANT)
+            .addTeamPermission(userId, teamId, Authority.OWNER)
 
         respondRedirect("/")
     }

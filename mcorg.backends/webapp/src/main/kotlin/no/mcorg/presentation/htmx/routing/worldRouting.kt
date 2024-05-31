@@ -2,32 +2,34 @@ package no.mcorg.presentation.htmx.routing
 
 import io.ktor.server.application.*
 import io.ktor.server.routing.*
+import no.mcorg.domain.Authority
+import no.mcorg.domain.PermissionLevel
 import no.mcorg.presentation.htmx.handlers.*
 import no.mcorg.presentation.htmx.templates.pages.addWorld
 
 fun Application.worldRouting() {
     routing {
-        post("/worlds") {
+        postAuthed("/worlds", permissionLevel = PermissionLevel.AUTHENTICATED, authority = Authority.PARTICIPANT) {
             call.handleCreateWorld()
         }
 
-        get("/worlds") {
+        getAuthed("/worlds", permissionLevel = PermissionLevel.AUTHENTICATED, authority = Authority.PARTICIPANT) {
             call.handleGetWorlds()
         }
 
-        delete("/worlds/{worldId}") {
-            val worldId = call.getWorldParam(failOnMissingValue = true) ?: return@delete
+        deleteAuthed("/worlds/{worldId}", permissionLevel = PermissionLevel.WORLD, authority = Authority.OWNER) {
+            val worldId = call.getWorldParam(failOnMissingValue = true) ?: return@deleteAuthed
 
             call.handleDeleteWorld(worldId)
         }
 
-        get("/worlds/{worldId}") {
-            val worldId = call.getWorldParam() ?: return@get
+        getAuthed("/worlds/{worldId}", permissionLevel = PermissionLevel.WORLD, authority = Authority.PARTICIPANT) {
+            val worldId = call.getWorldParam() ?: return@getAuthed
 
             call.respondWorld(worldId)
         }
 
-        get("/htmx/worlds/add") {
+        getAuthed("/htmx/worlds/add", permissionLevel = PermissionLevel.AUTHENTICATED, authority = Authority.PARTICIPANT) {
             call.respondHtml(addWorld())
         }
     }

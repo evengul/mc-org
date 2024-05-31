@@ -14,7 +14,7 @@ suspend fun ApplicationCall.respondFirstContact() {
     if (userId == null) {
         respondRedirect("/signin")
     } else {
-        if (permissionsApi().hasWorldPermission(userId)) {
+        if (permissionsApi().hasAnyWorldPermission(userId)) {
             respondRedirect("/")
         } else {
             respondHtml(firstContact())
@@ -28,7 +28,7 @@ suspend fun ApplicationCall.respondIndex() {
     if (userId == null || !usersApi().userExists(userId)) {
         signOut()
         respondRedirect("/signin")
-    } else if (!permissionsApi().hasWorldPermission(userId)) {
+    } else if (!permissionsApi().hasAnyWorldPermission(userId)) {
         respondRedirect("/first-contact")
     } else respondRedirect("/worlds")
 }

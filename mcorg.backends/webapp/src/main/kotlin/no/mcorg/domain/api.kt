@@ -13,7 +13,11 @@ interface Permissions {
     fun getWorldPermissions(userId: Int): UserPermissions<World>
     fun getTeamPermissions(userId: Int): UserPermissions<Team>
     fun getPackPermissions(userId: Int): UserPermissions<ResourcePack>
-    fun hasWorldPermission(userId: Int): Boolean
+    fun hasAnyWorldPermission(userId: Int): Boolean
+
+    fun hasWorldPermission(userId: Int, authority: Authority, worldId: Int): Boolean
+    fun hasTeamPermission(userId: Int, authority: Authority, teamId: Int): Boolean
+    fun hasPackPermission(userId: Int, authority: Authority, packId: Int): Boolean
 
     fun addWorldPermission(userId: Int, worldId: Int, authority: Authority): Int
     fun addTeamPermission(userId: Int, teamId: Int, authority: Authority): Int

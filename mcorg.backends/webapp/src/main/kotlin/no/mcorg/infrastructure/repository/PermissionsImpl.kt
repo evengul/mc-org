@@ -3,6 +3,36 @@ package no.mcorg.infrastructure.repository
 import no.mcorg.domain.*
 
 class PermissionsImpl : Permissions, Repository() {
+    override fun hasWorldPermission(userId: Int, authority: Authority, worldId: Int): Boolean {
+        return getConnection()
+            .use {
+                it.prepareStatement("select 1 from permission where user_id = ? and authority <= ? and world_id = ?")
+                    .apply { setInt(1, userId); setInt(2, authority.level); setInt(3, worldId) }
+                    .executeQuery()
+                    .next()
+            }
+    }
+
+    override fun hasTeamPermission(userId: Int, authority: Authority, teamId: Int): Boolean {
+        return getConnection()
+            .use {
+                it.prepareStatement("select 1 from permission where user_id = ? and authority <= ? and team_id = ?")
+                    .apply { setInt(1, userId); setInt(2, authority.level); setInt(3, teamId) }
+                    .executeQuery()
+                    .next()
+            }
+    }
+
+    override fun hasPackPermission(userId: Int, authority: Authority, packId: Int): Boolean {
+        return getConnection()
+            .use {
+                it.prepareStatement("select 1 from permission where user_id = ? and authority <= ? and pack_id = ?")
+                    .apply { setInt(1, userId); setInt(2, authority.level); setInt(3, packId) }
+                    .executeQuery()
+                    .next()
+            }
+    }
+
     override fun getPermissions(userId: Int): UserPermissions<Authorized> {
         getConnection().use {
             it.prepareStatement("select permission.world_id, world.name as world_name, " +
@@ -27,7 +57,7 @@ class PermissionsImpl : Permissions, Repository() {
                         val projectId = getInt("project_id").takeIf { it > 0 }
                         val packId = getInt("pack_id").takeIf { it > 0 }
 
-                        val authority = getString("authority").toAuthority()
+                        val authority = getInt("authority").toAuthority()
 
                         if (worldId != null) {
                             val worldName = getString("world_name")
@@ -68,7 +98,7 @@ class PermissionsImpl : Permissions, Repository() {
                     permissions[PermissionLevel.WORLD] = mutableListOf()
 
                     while (next()) {
-                        val authority = getString(1).toAuthority()
+                        val authority = getInt(1).toAuthority()
 
                         val worldId = getInt(2)
                         val worldName = getString(3)
@@ -91,7 +121,7 @@ class PermissionsImpl : Permissions, Repository() {
                     permissions[PermissionLevel.TEAM] = mutableListOf()
 
                     while (next()) {
-                        val authority = getString(1).toAuthority()
+                        val authority = getInt(1).toAuthority()
 
                         val worldId = getInt(2)
                         val teamId = getInt(3)
@@ -122,7 +152,7 @@ class PermissionsImpl : Permissions, Repository() {
                         val name = getString("resource_pack_name")
                         val serverType = getString("server_type").toServerType()
                         val version = getString("version")
-                        val authority = getString("authority").toAuthority()
+                        val authority = getInt("authority").toAuthority()
 
                         permissions[PermissionLevel.PACK]?.add(Pair(ResourcePack(id, name, version, serverType, mutableListOf()), authority))
                     }
@@ -131,7 +161,7 @@ class PermissionsImpl : Permissions, Repository() {
         }
     }
 
-    override fun hasWorldPermission(userId: Int): Boolean {
+    override fun hasAnyWorldPermission(userId: Int): Boolean {
         getConnection().use {
             it.prepareStatement("select 1 from permission where user_id = ? and world_id is not null")
                 .apply { setInt(1, userId) }
@@ -146,7 +176,7 @@ class PermissionsImpl : Permissions, Repository() {
         getConnection().use {
             val statement = it
                 .prepareStatement("insert into permission (user_id, authority, world_id, team_id, pack_id) values (?, ?, ?, null, null) returning id")
-                .apply { setInt(1, userId); setString(2, authority.name); setInt(3, worldId) }
+                .apply { setInt(1, userId); setInt(2, authority.level); setInt(3, worldId) }
 
             if (statement.execute()) {
                 with(statement.resultSet) {
@@ -164,7 +194,7 @@ class PermissionsImpl : Permissions, Repository() {
         getConnection().use {
             val statement = it
                 .prepareStatement("insert into permission (user_id, authority, world_id, team_id, pack_id) values (?, ?, null, ?, null) returning id")
-                .apply { setInt(1, userId); setString(2, authority.name); setInt(3, teamId) }
+                .apply { setInt(1, userId); setInt(2, authority.level); setInt(3, teamId) }
 
             if (statement.execute()) {
                 with(statement.resultSet) {
@@ -182,7 +212,7 @@ class PermissionsImpl : Permissions, Repository() {
         getConnection().use {
             val statement = it
                 .prepareStatement("insert into permission (user_id, authority, world_id, team_id, pack_id) values (?, ?, null, null, ?) returning id")
-                .apply { setInt(1, userId); setString(2, authority.name); setInt(3, packId) }
+                .apply { setInt(1, userId); setInt(2, authority.level); setInt(3, packId) }
 
             if (statement.execute()) {
                 with(statement.resultSet) {
@@ -199,7 +229,7 @@ class PermissionsImpl : Permissions, Repository() {
     override fun changeWorldPermission(userId: Int, worldId: Int, authority: Authority) {
         getConnection().use {
             it.prepareStatement("update permission set authority = ? where user_id = ? and world_id = ?")
-                .apply { setString(1, authority.name); setInt(2, userId); setInt(3, worldId) }
+                .apply { setInt(1, authority.level); setInt(2, userId); setInt(3, worldId) }
                 .executeUpdate()
         }
     }
@@ -207,7 +237,7 @@ class PermissionsImpl : Permissions, Repository() {
     override fun changeTeamPermission(userId: Int, teamId: Int, authority: Authority) {
         getConnection().use {
             it.prepareStatement("update permission set authority = ? where user_id = ? and team_id = ?")
-                .apply { setString(1, authority.name); setInt(2, userId); setInt(3, teamId) }
+                .apply { setInt(1, authority.level); setInt(2, userId); setInt(3, teamId) }
                 .executeUpdate()
         }
     }
@@ -215,7 +245,7 @@ class PermissionsImpl : Permissions, Repository() {
     override fun changePackPermission(userId: Int, packId: Int, authority: Authority) {
         getConnection().use {
             it.prepareStatement("update permission set authority = ? where user_id = ? and pack_id = ?")
-                .apply { setString(1, authority.name); setInt(2, userId); setInt(3, packId) }
+                .apply { setInt(1, authority.level); setInt(2, userId); setInt(3, packId) }
                 .executeUpdate()
         }
     }
@@ -254,11 +284,11 @@ class PermissionsImpl : Permissions, Repository() {
         throw IllegalArgumentException("Unknown server type: $this")
     }
 
-    private fun String.toAuthority(): Authority {
+    private fun Int.toAuthority(): Authority {
         when {
-            this == "OWNER" -> return Authority.OWNER
-            this == "ADMIN" -> return Authority.ADMIN
-            this == "PARTICIPANT" -> return Authority.PARTICIPANT
+            this == Authority.OWNER.level -> return Authority.OWNER
+            this == Authority.ADMIN.level -> return Authority.ADMIN
+            this == Authority.PARTICIPANT.level -> return Authority.PARTICIPANT
         }
         throw IllegalArgumentException("Unknown authority: $this")
     }
