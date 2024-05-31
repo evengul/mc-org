@@ -12,7 +12,7 @@ fun worldsPage(worlds: List<World>): String {
     return page(title = "Your worlds") {
         button {
             type = ButtonType.button
-            hxGet("/htmx/create-world")
+            hxGet("/htmx/world/add")
             hxTarget("#add-world-container")
             + "Create new world"
         }

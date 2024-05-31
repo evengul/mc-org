@@ -12,7 +12,7 @@ fun resourcePacksPage(packs: List<ResourcePack>): String {
     return page("Resource Packs", "Resource Packs") {
         button {
             type = ButtonType.button
-            hxGet("/htmx/create-resource-pack")
+            hxGet("/htmx/resourcepacks/add")
             hxTarget("#create-resource-pack-container")
             + "Create new resource pack"
         }

@@ -15,6 +15,7 @@ fun firstContact(): String {
             id = "landingpage-create-world"
             encType = FormEncType.multipartFormData
             method = FormMethod.post
+            action = "/worlds"
 
             span(classes = "create-world-input-pair") {
                 id = "create-world-name-container"

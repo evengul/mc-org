@@ -15,13 +15,13 @@ fun projectPage(project: Project): String {
         }
         button {
             type = ButtonType.button
-            hxGet("/htmx/add-countable-task")
+            hxGet("/htmx/worlds/${project.worldId}/teams/${project.teamId}/projects/${project.id}/tasks/add-countable")
             hxTarget("#add-task-container")
             + "Add countable/gathering task to project"
         }
         button {
             type = ButtonType.button
-            hxGet("/htmx/add-doable-task")
+            hxGet("/htmx/worlds/${project.worldId}/teams/${project.teamId}/projects/${project.id}/tasks/add-doable")
             hxTarget("#add-task-container")
             + "Add doable task to project"
         }
@@ -103,11 +103,12 @@ fun LI.deleteTask(worldId: Int, teamId: Int, projectId: Int, taskId: Int) {
     }
 }
 
-fun addDoableTask(): String {
+fun addDoableTask(worldId: Int, teamId: Int, projectId: Int): String {
     return createHTML()
         .form {
             encType = FormEncType.multipartFormData
             method = FormMethod.post
+            action = "/worlds/$worldId/teams/$teamId/projects/$projectId/tasks"
             label {
                 htmlFor = "create-doable-task-name-input"
                 + "What are you doing?"
@@ -131,11 +132,12 @@ fun addDoableTask(): String {
         }
 }
 
-fun addCountableTask(): String {
+fun addCountableTask(worldId: Int, teamId: Int, projectId: Int): String {
     return createHTML()
         .form {
             encType = FormEncType.multipartFormData
             method = FormMethod.post
+            action = "/worlds/$worldId/teams/$teamId/projects/$projectId/tasks"
             label {
                 htmlFor = "create-countable-task-name-input"
                 + "What are you gathering?"

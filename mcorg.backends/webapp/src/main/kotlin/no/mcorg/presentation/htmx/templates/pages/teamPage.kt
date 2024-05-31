@@ -15,7 +15,7 @@ fun teamPage(world: World, team: Team, projects: List<SlimProject>, packs: List<
         }
         button {
             type = ButtonType.button
-            hxGet("/htmx/create-project")
+            hxGet("/htmx/world/${world.id}/teams/${team.id}/projects/add")
             hxTarget("#add-project-container")
             + "Create new project in team"
         }
@@ -92,10 +92,11 @@ fun teamPage(world: World, team: Team, projects: List<SlimProject>, packs: List<
     }
 }
 
-fun addProject(): String {
+fun addProject(worldId: Int, teamId: Int): String {
     return createHTML().form {
         encType = FormEncType.multipartFormData
         method = FormMethod.post
+        action = "/worlds/$worldId/teams/$teamId/projects"
         label {
             htmlFor = "project-name-input"
             + "Name"

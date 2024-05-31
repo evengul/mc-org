@@ -15,7 +15,7 @@ fun resourcePackPage(pack: ResourcePack): String {
         }
         button {
             type = ButtonType.button
-            hxGet("/htmx/add-resource-to-pack")
+            hxGet("/htmx/resourcepacks/${pack.id}/resources/add")
             hxTarget("#add-resource-container")
             hxSwap("outerHTML")
             + "Add resource to resource pack"
@@ -29,7 +29,7 @@ fun resourcePackPage(pack: ResourcePack): String {
                     + "[${resource.type}] ${resource.name}"
                     button {
                         type = ButtonType.button
-                        hxDelete("/resourcepacks/${pack.id}/resource/${resource.id}")
+                        hxDelete("/resourcepacks/${pack.id}/resources/${resource.id}")
                         hxTarget("closest li")
                         hxSwap("outerHTML")
                         + "Delete"
@@ -40,10 +40,11 @@ fun resourcePackPage(pack: ResourcePack): String {
     }
 }
 
-fun addResourceToPack(): String {
+fun addResourceToPack(resourcePackId: Int): String {
     return createHTML().form {
         encType = FormEncType.multipartFormData
         method = FormMethod.post
+        action = "/resourcepacks/$resourcePackId"
         label {
             htmlFor = "add-resource-type-input"
             + "Resource type"
