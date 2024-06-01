@@ -4,13 +4,17 @@ import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.response.*
 import io.ktor.util.date.*
+import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.ZoneOffset
+import java.util.Date
 
 fun ApplicationCall.signOut() {
-    response.cookies.append("MCORG-USER-ID", "", expires = GMTDate(-1))
+    response.cookies.append("MCORG-USER-TOKEN", "", expires = GMTDate(-1), httpOnly = true)
 }
 
-fun ApplicationCall.signIn(userId: Int) {
-    response.cookies.append("MCORG-USER-ID", userId.toString())
+fun ApplicationCall.signIn(token: String) {
+    response.cookies.append("MCORG-USER-TOKEN", token, httpOnly = true)
 }
 
 suspend fun ApplicationCall.getResourcePackParam(failOnMissingValue: Boolean = false): Int? {

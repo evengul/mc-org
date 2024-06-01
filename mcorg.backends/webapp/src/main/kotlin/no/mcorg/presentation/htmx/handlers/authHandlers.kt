@@ -10,13 +10,16 @@ import no.mcorg.presentation.htmx.routing.getUserId
 import no.mcorg.presentation.htmx.routing.getUserIdOrRedirect
 import no.mcorg.presentation.htmx.routing.respondHtml
 import no.mcorg.presentation.htmx.templates.pages.signinPage
+import no.mcorg.presentation.security.createSignedJwtToken
 
 suspend fun ApplicationCall.handlePostRegister() {
     val (username, password) = getAuthFormItems() ?: return
 
     val userId = usersApi()
         .createUser(username, password)
-    signIn(userId)
+
+    signIn(createSignedJwtToken(usersApi().getUser(userId)!!))
+
     respondRedirect("/signin")
 }
 
@@ -38,7 +41,7 @@ suspend fun ApplicationCall.handlePostSignin() {
     if (user == null) {
         respond(HttpStatusCode.Unauthorized)
     } else {
-        signIn(user.id)
+        signIn(createSignedJwtToken(user))
         respondRedirect("/")
     }
 }

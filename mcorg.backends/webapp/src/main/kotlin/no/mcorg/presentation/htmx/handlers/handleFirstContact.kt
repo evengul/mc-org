@@ -9,7 +9,7 @@ import no.mcorg.presentation.htmx.routing.respondHtml
 import no.mcorg.presentation.htmx.templates.pages.firstContact
 
 suspend fun ApplicationCall.respondFirstContact() {
-    val userId = request.cookies["MCORG-USER-ID"]?.toIntOrNull();
+    val userId = getUserId()
 
     if (userId == null) {
         respondRedirect("/signin")
