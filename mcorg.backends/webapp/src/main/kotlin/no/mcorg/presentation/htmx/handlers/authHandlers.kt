@@ -7,9 +7,8 @@ import io.ktor.server.request.*
 import io.ktor.server.response.*
 import no.mcorg.presentation.configuration.usersApi
 import no.mcorg.presentation.htmx.routing.getUserId
-import no.mcorg.presentation.htmx.routing.getUserIdOrRedirect
 import no.mcorg.presentation.htmx.routing.respondHtml
-import no.mcorg.presentation.htmx.templates.pages.signinPage
+import no.mcorg.presentation.htmx.templates.pages.auth.signinPage
 import no.mcorg.presentation.security.createSignedJwtToken
 
 suspend fun ApplicationCall.handlePostRegister() {

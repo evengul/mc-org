@@ -1,34 +1,34 @@
-package no.mcorg.presentation.htmx.templates.pages
+package no.mcorg.presentation.htmx.templates.pages.auth
 
 import kotlinx.html.*
 import kotlinx.html.stream.createHTML
 
-fun registerPage(): String {
+fun signinPage(): String {
     return createHTML()
         .main {
             h1 {
-                + "Register an account in MC-ORG"
+                +"Sign in to MC-ORG"
             }
             form {
                 encType = FormEncType.multipartFormData
                 method = FormMethod.post
                 label {
-                    htmlFor = "register-username-input"
+                    htmlFor = "signin-username-input"
                     + "Username"
                 }
                 input {
-                    id = "register-username-input"
+                    id = "signin-username-input"
                     name = "username"
                     required = true
                     minLength = "3"
                     maxLength = "120"
                 }
                 label {
-                    htmlFor = "register-password-input"
+                    htmlFor = "signin-password-input"
                     + "Password"
                 }
                 input {
-                    id = "register-password-input"
+                    id = "signin-password-input"
                     name = "password"
                     required = true
                     minLength = "5"
@@ -37,12 +37,12 @@ fun registerPage(): String {
                 }
                 button {
                     type = ButtonType.submit
-                    + "Create your account"
+                    + "Sign in"
                 }
             }
             a {
-                href = "/signin"
-                + "Do you already have an account? Sign in here."
+                href = "/register"
+                + "Create a new account"
             }
         }
 }

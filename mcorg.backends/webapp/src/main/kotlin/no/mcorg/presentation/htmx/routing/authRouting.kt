@@ -3,7 +3,7 @@ package no.mcorg.presentation.htmx.routing
 import io.ktor.server.application.*
 import io.ktor.server.routing.*
 import no.mcorg.presentation.htmx.handlers.*
-import no.mcorg.presentation.htmx.templates.pages.registerPage
+import no.mcorg.presentation.htmx.templates.pages.auth.registerPage
 
 fun Application.authRouting() {
     routing {

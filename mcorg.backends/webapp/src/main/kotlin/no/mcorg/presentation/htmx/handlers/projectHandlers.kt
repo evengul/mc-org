@@ -8,7 +8,7 @@ import io.ktor.server.response.*
 import no.mcorg.presentation.configuration.projectsApi
 import no.mcorg.presentation.htmx.routing.getUserIdOrRedirect
 import no.mcorg.presentation.htmx.routing.respondHtml
-import no.mcorg.presentation.htmx.templates.pages.projectPage
+import no.mcorg.presentation.htmx.templates.pages.project.projectPage
 
 suspend fun ApplicationCall.respondProject(projectId: Int) {
 

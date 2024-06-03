@@ -1,4 +1,4 @@
-package no.mcorg.presentation.htmx.templates.pages
+package no.mcorg.presentation.htmx.templates.pages.resourcepack
 
 import kotlinx.html.*
 import kotlinx.html.stream.createHTML
@@ -7,6 +7,7 @@ import no.mcorg.presentation.htmx.templates.hxDelete
 import no.mcorg.presentation.htmx.templates.hxGet
 import no.mcorg.presentation.htmx.templates.hxSwap
 import no.mcorg.presentation.htmx.templates.hxTarget
+import no.mcorg.presentation.htmx.templates.pages.page
 
 fun resourcePackPage(pack: ResourcePack): String {
     return page(title = pack.name) {

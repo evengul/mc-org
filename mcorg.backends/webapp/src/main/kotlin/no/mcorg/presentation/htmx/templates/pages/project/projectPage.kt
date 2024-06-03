@@ -1,4 +1,4 @@
-package no.mcorg.presentation.htmx.templates.pages
+package no.mcorg.presentation.htmx.templates.pages.project
 
 import kotlinx.html.*
 import kotlinx.html.stream.createHTML
@@ -7,6 +7,7 @@ import no.mcorg.domain.Task
 import no.mcorg.domain.isCountable
 import no.mcorg.domain.isDone
 import no.mcorg.presentation.htmx.templates.*
+import no.mcorg.presentation.htmx.templates.pages.page
 
 fun projectPage(project: Project): String {
     return page(title = project.name) {

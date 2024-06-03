@@ -5,16 +5,12 @@ import io.ktor.http.content.*
 import io.ktor.server.application.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
-import kotlinx.html.button
-import kotlinx.html.li
-import kotlinx.html.stream.createHTML
 import no.mcorg.domain.Priority
 import no.mcorg.presentation.configuration.projectsApi
 import no.mcorg.presentation.htmx.routing.respondHtml
-import no.mcorg.presentation.htmx.templates.hxPut
-import no.mcorg.presentation.htmx.templates.hxSwap
-import no.mcorg.presentation.htmx.templates.pages.deleteTask
-import no.mcorg.presentation.htmx.templates.pages.updateCountableForm
+import no.mcorg.presentation.htmx.templates.pages.project.completeTaskButton
+import no.mcorg.presentation.htmx.templates.pages.project.countableTaskListElement
+import no.mcorg.presentation.htmx.templates.pages.project.incompleteTaskButton
 
 suspend fun ApplicationCall.handleCreateTask(worldId: Int, teamId: Int, projectId: Int) {
 
@@ -39,21 +35,13 @@ suspend fun ApplicationCall.handleCreateTask(worldId: Int, teamId: Int, projectI
 suspend fun ApplicationCall.handleCompleteTask(worldId: Int, teamId: Int, projectId: Int, taskId: Int) {
     projectsApi().completeTask(taskId)
 
-    respondHtml(createHTML().button {
-        hxPut("/worlds/$worldId/teams/$teamId/projects/$projectId/tasks/$taskId/incomplete")
-        hxSwap("outerHTML")
-        + "Not complete"
-    })
+    respondHtml(incompleteTaskButton(worldId, teamId, projectId, taskId))
 }
 
 suspend fun ApplicationCall.handleIncompleteTask(worldId: Int, teamId: Int, projectId: Int, taskId: Int) {
     projectsApi().undoCompleteTask(taskId)
 
-    respondHtml(createHTML().button {
-        hxPut("/worlds/$worldId/teams/$teamId/projects/$projectId/tasks/$taskId/complete")
-        hxSwap("outerHTML")
-        + "Complete!"
-    })
+    respondHtml(completeTaskButton(worldId, teamId, projectId, taskId))
 }
 
 suspend fun ApplicationCall.handleUpdateCountableTask(worldId: Int, teamId: Int, projectId: Int, taskId: Int) {
@@ -71,11 +59,7 @@ suspend fun ApplicationCall.handleUpdateCountableTask(worldId: Int, teamId: Int,
         if (task == null) {
             respond(HttpStatusCode.NotFound)
         } else {
-            respondHtml(createHTML().li {
-                + task.name
-                updateCountableForm(worldId, teamId, projectId, task)
-                deleteTask(worldId, teamId, projectId, taskId)
-            })
+            respondHtml(countableTaskListElement(worldId, teamId, projectId, task))
         }
     }
 }

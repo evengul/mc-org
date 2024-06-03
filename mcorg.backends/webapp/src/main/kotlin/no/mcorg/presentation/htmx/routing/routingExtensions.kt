@@ -4,8 +4,6 @@ import io.ktor.server.application.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.ktor.util.pipeline.*
-import kotlinx.html.a
-import kotlinx.html.p
 import no.mcorg.domain.Authority
 import no.mcorg.domain.PermissionLevel
 import no.mcorg.presentation.configuration.permissionsApi
@@ -13,7 +11,7 @@ import no.mcorg.presentation.configuration.usersApi
 import no.mcorg.presentation.htmx.handlers.getResourcePackParam
 import no.mcorg.presentation.htmx.handlers.getWorldParam
 import no.mcorg.presentation.htmx.handlers.getWorldTeamParams
-import no.mcorg.presentation.htmx.templates.pages.page
+import no.mcorg.presentation.htmx.templates.pages.statusPages.forbiddenPage
 
 fun Routing.getAuthed(path: String, permissionLevel: PermissionLevel, authority: Authority,
                       ifAuthed: suspend PipelineContext<Unit, ApplicationCall>.(Unit) -> Unit) {
@@ -52,20 +50,7 @@ private suspend fun ApplicationCall.handleRequest(permissionLevel: PermissionLev
     } else if (hasPermission(userId, permissionLevel, authority)) {
         ifAuthed(parent, Unit)
     } else {
-        respondHtml(page {
-            p {
-                + "You are not allowed to see this content. You can either "
-                a {
-                    href = "/"
-                    + "go home"
-                }
-                + " or "
-                a {
-                    href = "/signout"
-                    + "sign out."
-                }
-            }
-        })
+        respondHtml(forbiddenPage())
     }
 }
 

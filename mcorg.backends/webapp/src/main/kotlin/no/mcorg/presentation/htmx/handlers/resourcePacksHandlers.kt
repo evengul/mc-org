@@ -14,8 +14,8 @@ import no.mcorg.presentation.configuration.permissionsApi
 import no.mcorg.presentation.htmx.routing.getUserIdOrRedirect
 import no.mcorg.presentation.htmx.routing.respondEmpty
 import no.mcorg.presentation.htmx.routing.respondHtml
-import no.mcorg.presentation.htmx.templates.pages.resourcePackPage
-import no.mcorg.presentation.htmx.templates.pages.resourcePacksPage
+import no.mcorg.presentation.htmx.templates.pages.resourcepack.resourcePackPage
+import no.mcorg.presentation.htmx.templates.pages.resourcepack.resourcePacksPage
 
 suspend fun ApplicationCall.respondResourcePacks() {
     val userId = getUserIdOrRedirect() ?: return

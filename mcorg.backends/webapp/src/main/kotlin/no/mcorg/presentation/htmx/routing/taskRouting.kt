@@ -1,14 +1,13 @@
 package no.mcorg.presentation.htmx.routing
 
 import io.ktor.server.application.*
-import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import no.mcorg.domain.Authority
 import no.mcorg.domain.PermissionLevel
 import no.mcorg.presentation.configuration.projectsApi
 import no.mcorg.presentation.htmx.handlers.*
-import no.mcorg.presentation.htmx.templates.pages.addCountableTask
-import no.mcorg.presentation.htmx.templates.pages.addDoableTask
+import no.mcorg.presentation.htmx.templates.pages.project.addCountableTask
+import no.mcorg.presentation.htmx.templates.pages.project.addDoableTask
 
 fun Application.taskRouting() {
     routing {

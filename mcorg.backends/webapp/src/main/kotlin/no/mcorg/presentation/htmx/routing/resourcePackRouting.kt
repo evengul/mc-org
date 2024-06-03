@@ -6,8 +6,8 @@ import no.mcorg.domain.Authority
 import no.mcorg.domain.PermissionLevel
 import no.mcorg.presentation.configuration.packsApi
 import no.mcorg.presentation.htmx.handlers.*
-import no.mcorg.presentation.htmx.templates.pages.addResourcePack
-import no.mcorg.presentation.htmx.templates.pages.addResourceToPack
+import no.mcorg.presentation.htmx.templates.pages.resourcepack.addResourcePack
+import no.mcorg.presentation.htmx.templates.pages.resourcepack.addResourceToPack
 
 fun Application.resourcePackRouting() {
     routing {
