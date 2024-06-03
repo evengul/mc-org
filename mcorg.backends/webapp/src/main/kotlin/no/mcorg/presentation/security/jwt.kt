@@ -15,7 +15,9 @@ import java.security.spec.PKCS8EncodedKeySpec
 import java.security.spec.X509EncodedKeySpec
 import java.util.*
 
-const val EIGHT_HOURS = 8 * 60 * 60 * 1000;
+const val EIGHT_HOURS = 8 * 60 * 60 * 1000
+
+private fun getIssuer() = System.getenv("JWT_ISSUER") ?: "http://localhost:8080"
 
 fun getUserFromJwtToken(token: String): User {
     val jwt = validateSignature(token)
@@ -26,7 +28,7 @@ fun getUserFromJwtToken(token: String): User {
 private fun validateSignature(token: String): DecodedJWT {
     val (publicKey, privateKey) = getKeys()
     return JWT.require(Algorithm.RSA256(publicKey, privateKey))
-        .withIssuer("http://localhost:8080")
+        .withIssuer(getIssuer())
         .withAudience("mcorg-webapp")
         .acceptLeeway(3L)
         .build()
@@ -39,7 +41,7 @@ fun createSignedJwtToken(user: User): String {
 
     return JWT.create()
         .withAudience("mcorg-webapp")
-        .withIssuer("http://localhost:8080")
+        .withIssuer(getIssuer())
         .withClaim("sub", user.id)
         .withClaim("username", user.username)
         .withExpiresAt(Date(System.currentTimeMillis() + EIGHT_HOURS))
@@ -51,7 +53,9 @@ private fun getKeys(): Pair<RSAPublicKey, RSAPrivateKey> {
         .replace("\n", "")
         .replace("\r", "")
         .replace("-----BEGIN PRIVATE KEY-----", "")
+        .replace("-----BEGIN RSA PRIVATE KEY-----", "")
         .replace("-----END PRIVATE KEY-----", "")
+        .replace("-----END RSA PRIVATE KEY-----", "")
     val publicKeyStr = readKey("public_key.pem")
         .replace("\n", "")
         .replace("\r", "")
