@@ -1,11 +1,11 @@
-package no.mcorg
+package app.mcorg
 
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.http.*
 import io.ktor.server.testing.*
 import kotlin.test.*
-import no.mcorg.presentation.plugins.configureRouting
+import app.mcorg.presentation.plugins.configureRouting
 
 class ApplicationTest {
     @Test

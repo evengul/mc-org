@@ -2,7 +2,7 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
-    <groupId>no.mcorg</groupId>
+    <groupId>app.mcorg</groupId>
     <artifactId>webapp</artifactId>
     <version>0.0.1</version>
     <name>webapp</name>
@@ -15,7 +15,7 @@
         <slf4j_version>2.0.9</slf4j_version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <kotlin.compiler.incremental>true</kotlin.compiler.incremental>
-        <main.class>no.mcorg.ApplicationKt</main.class>
+        <main.class>app.mcorg.ApplicationKt</main.class>
     </properties>
     <repositories>
     </repositories>
