@@ -17,6 +17,8 @@ import java.util.*
 
 const val EIGHT_HOURS = 8 * 60 * 60 * 1000
 
+private const val audience = "mcorg-webapp"
+
 private fun getIssuer() = System.getenv("JWT_ISSUER") ?: "http://localhost:8080"
 
 fun getUserFromJwtToken(token: String): User {
@@ -29,7 +31,7 @@ private fun validateSignature(token: String): DecodedJWT {
     val (publicKey, privateKey) = getKeys()
     return JWT.require(Algorithm.RSA256(publicKey, privateKey))
         .withIssuer(getIssuer())
-        .withAudience("mcorg-webapp")
+        .withAudience(audience)
         .acceptLeeway(3L)
         .build()
         .verify(token)
@@ -40,7 +42,7 @@ fun createSignedJwtToken(user: User): String {
     val (publicKey, privateKey) = getKeys()
 
     return JWT.create()
-        .withAudience("mcorg-webapp")
+        .withAudience(audience)
         .withIssuer(getIssuer())
         .withClaim("sub", user.id)
         .withClaim("username", user.username)
