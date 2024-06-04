@@ -12,7 +12,7 @@ fun firstContact(): String {
             + "MC-ORG consists of worlds, just like your Minecraft worlds. To get started, create your first world."
         }
         form {
-            id = "landingpage-create-world"
+            id = "landingpage-create-world-form"
             encType = FormEncType.multipartFormData
             method = FormMethod.post
             action = "/worlds"

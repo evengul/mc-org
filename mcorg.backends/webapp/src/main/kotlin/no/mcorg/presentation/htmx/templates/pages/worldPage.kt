@@ -16,6 +16,7 @@ fun worldPage(world: World, teams: List<Team>, packs: List<ResourcePack>, ownedP
             + "Teams"
         }
         button {
+            id = "world-add-team-show-form-button"
             type = ButtonType.button
             hxGet("/htmx/worlds/${world.id}/teams/add")
             hxTarget("#add-team-container")
@@ -25,13 +26,17 @@ fun worldPage(world: World, teams: List<Team>, packs: List<ResourcePack>, ownedP
             id = "add-team-container"
         }
         ul {
+            id = "teams-list"
             for(team in teams) {
                 li {
+                    id = "team-${team.id}"
                     a {
+                        id = "team-${team.id}-link"
                         href = "/worlds/${team.worldId}/teams/${team.id}"
                         + team.name
                     }
                     button {
+                        id = "team-${team.id}-delete-button"
                         type = ButtonType.button
                         hxDelete("/worlds/${team.worldId}/teams/${team.id}")
                         hxTarget("closest li")
@@ -47,6 +52,7 @@ fun worldPage(world: World, teams: List<Team>, packs: List<ResourcePack>, ownedP
         val ownedNotAdded = ownedPacks.filter { owned -> packs.none {shared -> shared.id == owned.id } }
         if (ownedNotAdded.isNotEmpty()) {
             form {
+                id = "add-world-pack-form"
                 encType = FormEncType.multipartFormData
                 method = FormMethod.post
                 action = "/worlds/${world.id}/resourcepacks"
@@ -58,30 +64,37 @@ fun worldPage(world: World, teams: List<Team>, packs: List<ResourcePack>, ownedP
                     id = "add-world-pack-select"
                     name = "world-resource-pack-id"
                     option {
+                        id = "add-world-pack-option-NONE"
                         value = ""
                         + ""
                     }
                     for (pack in ownedNotAdded) {
                         option {
+                            id = "add-world-pack-option-${pack.id}"
                             value = pack.id.toString()
                             + pack.name
                         }
                     }
                 }
                 button {
+                    id = "add-world-pack-button"
                     type = ButtonType.submit
                     + "Add pack to world"
                 }
             }
         }
         ul {
+            id = "world-packs"
             for(pack in packs) {
                 li {
+                    id = "world-pack-${pack.id}"
                     a {
+                        id = "world-pack-${pack.id}-link"
                         href = "/resourcepacks/${pack.id}"
                         + pack.name
                     }
                     button {
+                        id = "world-pack-${pack.id}-delete-button"
                         type = ButtonType.button
                         hxDelete("/worlds/${world.id}/resourcepacks/${pack.id}")
                         hxTarget("closest li")
@@ -96,6 +109,7 @@ fun worldPage(world: World, teams: List<Team>, packs: List<ResourcePack>, ownedP
 
 fun addTeam(worldId: Int): String {
     return createHTML().form {
+        id = "world-add-team-form"
         encType = FormEncType.multipartFormData
         method = FormMethod.post
         action = "/worlds/$worldId/teams"
@@ -104,13 +118,14 @@ fun addTeam(worldId: Int): String {
             + "Name"
         }
         input {
+            id = "team-name-input"
             name = "team-name"
             required = true
             minLength = "3"
             maxLength = "120"
-            id = "team-name-input"
         }
         button {
+            id = "world-add-team-submit"
             type = ButtonType.submit
             + "Create Team"
         }

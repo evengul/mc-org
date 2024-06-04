@@ -12,6 +12,7 @@ import no.mcorg.presentation.htmx.templates.pages.page
 fun resourcePacksPage(packs: List<ResourcePack>): String {
     return page("Resource Packs", "Resource Packs") {
         button {
+            id = "packs-add-pack-show-form-button"
             type = ButtonType.button
             hxGet("/htmx/resourcepacks/add")
             hxTarget("#create-resource-pack-container")
@@ -21,13 +22,17 @@ fun resourcePacksPage(packs: List<ResourcePack>): String {
             id = "create-resource-pack-container"
         }
         ul {
+            id = "pack-list"
             for (pack in packs) {
                 li {
+                    id = "pack-${pack.id}"
                     a {
+                        id = "pack-${pack.id}-link"
                         href = "/resourcepacks/${pack.id}"
                         + pack.name
                     }
                     button {
+                        id = "pack-${pack.id}-delete-button"
                         type = ButtonType.button
                         hxDelete("/resourcepacks/${pack.id}")
                         hxTarget("closest li")
@@ -42,6 +47,7 @@ fun resourcePacksPage(packs: List<ResourcePack>): String {
 
 fun addResourcePack(): String {
     return createHTML().form {
+        id = "create-resource-pack-form"
         encType = FormEncType.multipartFormData
         method = FormMethod.post
         label {
@@ -87,6 +93,7 @@ fun addResourcePack(): String {
             }
         }
         button {
+            id = "create-resource-pack-submit"
             type = ButtonType.submit
             + "Create resource pack"
         }

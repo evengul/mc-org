@@ -2,14 +2,17 @@ package no.mcorg.presentation.htmx.templates.pages.auth
 
 import kotlinx.html.*
 import kotlinx.html.stream.createHTML
+import no.mcorg.presentation.htmx.templates.AUTH_FORM
+import no.mcorg.presentation.htmx.templates.SITE_TITLE
 
 fun registerPage(): String {
     return createHTML()
         .main {
-            h1 {
+            h1(classes = SITE_TITLE) {
                 + "Register an account in MC-ORG"
             }
-            form {
+            form(classes = AUTH_FORM) {
+                id = "register-form"
                 encType = FormEncType.multipartFormData
                 method = FormMethod.post
                 label {
@@ -36,11 +39,13 @@ fun registerPage(): String {
                     type = InputType.password
                 }
                 button {
+                    id = "register-submit-button"
                     type = ButtonType.submit
                     + "Create your account"
                 }
             }
             a {
+                id = "signin-link"
                 href = "/signin"
                 + "Do you already have an account? Sign in here."
             }

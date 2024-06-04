@@ -11,6 +11,7 @@ import no.mcorg.presentation.htmx.templates.hxTarget
 fun worldsPage(worlds: List<World>): String {
     return page(title = "Your worlds") {
         button {
+            id = "worlds-add-world-show-form-button"
             type = ButtonType.button
             hxGet("/htmx/worlds/add")
             hxTarget("#add-world-container")
@@ -20,13 +21,17 @@ fun worldsPage(worlds: List<World>): String {
             id = "add-world-container"
         }
         ul {
+            id = "worlds-list"
             for(world in worlds.sortedBy { it.name }) {
                 li {
+                    id = "worlds-world-${world.id}"
                     a {
+                        id = "worlds-world-${world.id}-link"
                         href = "/worlds/${world.id}"
                         + world.name
                     }
                     button {
+                        id = "worlds-world-${world.id}-delete-button"
                         type = ButtonType.button
                         hxDelete("/worlds/${world.id}")
                         hxTarget("closest li")
