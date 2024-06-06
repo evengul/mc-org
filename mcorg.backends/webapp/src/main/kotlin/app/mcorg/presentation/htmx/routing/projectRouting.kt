@@ -7,7 +7,6 @@ import app.mcorg.domain.Authority
 import app.mcorg.domain.PermissionLevel
 import app.mcorg.presentation.configuration.projectsApi
 import app.mcorg.presentation.htmx.handlers.*
-import app.mcorg.presentation.htmx.templates.pages.addProject
 
 fun Application.projectRouting() {
     routing {
@@ -27,12 +26,6 @@ fun Application.projectRouting() {
 
             projectsApi().deleteProject(projectId)
             call.respondEmpty()
-        }
-
-        getAuthed("/htmx/world/{worldId}/teams/{teamId}/projects/add", permissionLevel = PermissionLevel.TEAM, authority = Authority.ADMIN) {
-            val (worldId, teamId) = call.getWorldTeamParams(failOnMissingValue = true) ?: return@getAuthed
-
-            call.respondHtml(addProject(worldId, teamId))
         }
     }
 }

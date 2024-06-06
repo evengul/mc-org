@@ -7,3 +7,6 @@ fun Task.isDone(): Boolean {
 fun Task.isCountable(): Boolean {
     return needed > 1
 }
+
+fun Project.doable() = tasks.filter { !it.isCountable() }
+fun Project.countable() = tasks.filter { it.isCountable() }

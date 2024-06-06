@@ -3,15 +3,15 @@ package app.mcorg.presentation.htmx.templates.pages.resourcepack
 import kotlinx.html.*
 import kotlinx.html.stream.createHTML
 import app.mcorg.domain.ResourcePack
-import app.mcorg.presentation.htmx.templates.hxDelete
-import app.mcorg.presentation.htmx.templates.hxGet
-import app.mcorg.presentation.htmx.templates.hxSwap
-import app.mcorg.presentation.htmx.templates.hxTarget
+import app.mcorg.presentation.htmx.hxDelete
+import app.mcorg.presentation.htmx.hxGet
+import app.mcorg.presentation.htmx.hxSwap
+import app.mcorg.presentation.htmx.hxTarget
 import app.mcorg.presentation.htmx.templates.pages.page
 
 fun resourcePacksPage(packs: List<ResourcePack>): String {
-    return page("Resource Packs", "Resource Packs") {
-        button {
+    return page("Resource Packs", "Resource Packs", id = "resource-packs-page") {
+        button(classes = "show-create-form-button") {
             id = "packs-add-pack-show-form-button"
             type = ButtonType.button
             hxGet("/htmx/resourcepacks/add")
@@ -21,17 +21,17 @@ fun resourcePacksPage(packs: List<ResourcePack>): String {
         div {
             id = "create-resource-pack-container"
         }
-        ul {
+        ul(classes = "resource-list") {
             id = "pack-list"
             for (pack in packs) {
-                li {
+                li(classes = "resource-list-item") {
                     id = "pack-${pack.id}"
-                    a {
+                    a(classes = "resource-list-item-link") {
                         id = "pack-${pack.id}-link"
                         href = "/resourcepacks/${pack.id}"
                         + pack.name
                     }
-                    button {
+                    button(classes = "resource-list-item-delete-button") {
                         id = "pack-${pack.id}-delete-button"
                         type = ButtonType.button
                         hxDelete("/resourcepacks/${pack.id}")
@@ -46,7 +46,7 @@ fun resourcePacksPage(packs: List<ResourcePack>): String {
 }
 
 fun addResourcePack(): String {
-    return createHTML().form {
+    return createHTML().form(classes = "create-form") {
         id = "create-resource-pack-form"
         encType = FormEncType.multipartFormData
         method = FormMethod.post

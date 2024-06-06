@@ -5,8 +5,8 @@ import kotlinx.html.id
 import kotlinx.html.li
 import kotlinx.html.stream.createHTML
 import app.mcorg.domain.Task
-import app.mcorg.presentation.htmx.templates.hxPut
-import app.mcorg.presentation.htmx.templates.hxSwap
+import app.mcorg.presentation.htmx.hxPut
+import app.mcorg.presentation.htmx.hxSwap
 
 fun incompleteTaskButton(worldId: Int, teamId: Int, projectId: Int, taskId: Int): String {
     return createHTML().button {

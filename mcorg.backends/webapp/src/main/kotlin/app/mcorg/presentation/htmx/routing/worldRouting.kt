@@ -5,7 +5,6 @@ import io.ktor.server.routing.*
 import app.mcorg.domain.Authority
 import app.mcorg.domain.PermissionLevel
 import app.mcorg.presentation.htmx.handlers.*
-import app.mcorg.presentation.htmx.templates.pages.addWorld
 
 fun Application.worldRouting() {
     routing {
@@ -27,10 +26,6 @@ fun Application.worldRouting() {
             val worldId = call.getWorldParam() ?: return@getAuthed
 
             call.respondWorld(worldId)
-        }
-
-        getAuthed("/htmx/worlds/add", permissionLevel = PermissionLevel.AUTHENTICATED, authority = Authority.PARTICIPANT) {
-            call.respondHtml(addWorld())
         }
     }
 }

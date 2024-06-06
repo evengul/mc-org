@@ -5,14 +5,17 @@ import app.mcorg.presentation.htmx.templates.SITE_TITLE
 import app.mcorg.presentation.htmx.templates.baseTemplate
 import java.time.LocalDate
 
-fun page(siteTitle: String = "MC-ORG", title: String = "MC-ORG", content: MAIN.() -> Unit): String {
+fun page(siteTitle: String = "MC-ORG",
+         title: String = "MC-ORG",
+         id: String = "main",
+         content: MAIN.() -> Unit): String {
     return baseTemplate(siteTitle = siteTitle) {
         header {
             h1(classes = SITE_TITLE) {
                 + title
             }
             nav {
-                id = "main-navigation"
+                this.id = "main-navigation"
                 ul {
                     li {
                         classes = setOf("nav-item")
@@ -46,6 +49,7 @@ fun page(siteTitle: String = "MC-ORG", title: String = "MC-ORG", content: MAIN.(
             }
         }
         main {
+            this.id = id
             content()
         }
         footer {

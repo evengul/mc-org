@@ -9,7 +9,6 @@ import app.mcorg.presentation.htmx.handlers.getWorldParam
 import app.mcorg.presentation.htmx.handlers.getWorldTeamParams
 import app.mcorg.presentation.htmx.handlers.handleCreateTeam
 import app.mcorg.presentation.htmx.handlers.respondTeam
-import app.mcorg.presentation.htmx.templates.pages.addTeam
 
 fun Application.teamRouting() {
     routing {
@@ -29,12 +28,6 @@ fun Application.teamRouting() {
 
             teamsApi().deleteTeam(teamId)
             call.respondEmpty()
-        }
-
-        getAuthed("/htmx/worlds/{worldId}/teams/add", permissionLevel = PermissionLevel.WORLD, authority = Authority.ADMIN) {
-            val worldId = call.getWorldParam() ?: return@getAuthed
-
-            call.respondHtml(addTeam(worldId))
         }
     }
 }

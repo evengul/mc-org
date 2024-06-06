@@ -3,15 +3,15 @@ package app.mcorg.presentation.htmx.templates.pages.resourcepack
 import kotlinx.html.*
 import kotlinx.html.stream.createHTML
 import app.mcorg.domain.ResourcePack
-import app.mcorg.presentation.htmx.templates.hxDelete
-import app.mcorg.presentation.htmx.templates.hxGet
-import app.mcorg.presentation.htmx.templates.hxSwap
-import app.mcorg.presentation.htmx.templates.hxTarget
+import app.mcorg.presentation.htmx.hxDelete
+import app.mcorg.presentation.htmx.hxGet
+import app.mcorg.presentation.htmx.hxSwap
+import app.mcorg.presentation.htmx.hxTarget
 import app.mcorg.presentation.htmx.templates.pages.page
 
 fun resourcePackPage(pack: ResourcePack): String {
-    return page(title = pack.name) {
-        button {
+    return page(title = pack.name, id = "resource-pack-page") {
+        button(classes = "show-create-form-button") {
             id = "resource-pack-add-resource-show-form-button"
             type = ButtonType.button
             hxGet("/htmx/resourcepacks/${pack.id}/resources/add")
@@ -22,13 +22,13 @@ fun resourcePackPage(pack: ResourcePack): String {
         div {
             id = "add-resource-container"
         }
-        ul {
+        ul(classes = "resource-list") {
             id = "resource-list"
             for (resource in pack.resources.sortedBy { it.type }) {
-                li {
+                li(classes = "resource-list-item") {
                     id = "resource-pack-resource-${resource.id}"
                     + "[${resource.type}] ${resource.name}"
-                    button {
+                    button(classes = "resource-list-item-delete-button") {
                         id = "resource-pack-resource-${resource.id}-delete-button"
                         type = ButtonType.button
                         hxDelete("/resourcepacks/${pack.id}/resources/${resource.id}")
@@ -43,7 +43,7 @@ fun resourcePackPage(pack: ResourcePack): String {
 }
 
 fun addResourceToPack(resourcePackId: Int): String {
-    return createHTML().form {
+    return createHTML().form(classes = "create-form") {
         id = "resource-pack-add-resource-form"
         encType = FormEncType.multipartFormData
         method = FormMethod.post

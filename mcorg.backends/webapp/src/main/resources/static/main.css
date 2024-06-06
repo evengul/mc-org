@@ -47,13 +47,24 @@ p.intro {
     margin-bottom: 2em;
 }
 
+.danger {
+    background-color: var(--clr-danger);
+    color: var(--clr-bg-light);
+}
+
+/* ----- AUTH -----*/
+
+body:has(main.auth-container) {
+    display: flex;
+    align-items: center;
+}
+
 main.auth-container {
-    width: 33%;
-    margin: 20% auto;
+    width: clamp(300px, 100%, 800px);
+    margin: 0 auto;
     padding: var(--spacing-sm);
 
-    border-radius: var(--spacing-xs);
-    box-shadow: var(--spacing-xxs) var(--spacing-xxs) rgba(120, 120, 120, 0.1);
+    border-radius: var(--spacing-xxs);
 }
 
 form.auth-form {
@@ -71,33 +82,141 @@ form.auth-form > button[type = submit] {
     cursor: pointer;
 }
 
+/* ----- LANDING PAGE -----*/
+
+main:has(form#landingpage-create-world-form) {
+    width: 65%;
+    margin: var(--spacing-xl) auto;
+}
+
+form#landingpage-create-world-form,
+#create-world-team-creator-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    column-gap: var(--spacing-lg);
+}
+
 form#landingpage-create-world-form {
+    row-gap: var(--spacing-md);
+}
+
+form#landingpage-create-world-form > label,
+span#create-world-team-creator-container > label{
+    text-align: end;
+}
+
+p.intro,
+form#landingpage-create-world-form > button[type = submit],
+span#create-world-team-creator-container,
+span#create-world-team-creator-container > p {
+    grid-column: 1 / span 2;
+}
+
+form#landingpage-create-world-form > input[type = checkbox] {
+    justify-self: start;
+    transform: scale(2);
+    margin-left: var(--spacing-xs);
+}
+
+form#landingpage-create-world-form > button[type = submit] {
+    justify-self: center;
+}
+
+/* ----- WORLDS/WORLD/TEAM/RESOURCE_PACK PAGE -----*/
+
+main#worlds-page,
+main#world-page,
+main#team-page,
+main#resource-packs-page,
+main#resource-pack-page {
     display: flex;
     flex-direction: column;
-    align-items: center;
-    margin: 0 auto;
-    gap: 2em;
+    gap: var(--spacing-lg);
+}
 
+form.create-form {
+    width: 65%;
+    align-self: center;
+
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    grid-column-gap: var(--spacing-lg);
+}
+
+ul.resource-list {
+    list-style: none;
+    width: 65%;
+    margin: 0 auto;
+}
+
+li.resource-list-item {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+
+    margin-bottom: var(--spacing-md);
+    grid-column-gap: var(--spacing-lg);
+}
+
+a.resource-list-item-link {
+    font-size: var(--text-md);
+
+    grid-column: 2 / span 1;
+}
+
+button.resource-list-item-delete-button {
+    background-color: var(--clr-danger);
+    color: var(--clr-bg-light);
+
+    grid-column: 3 / span 1;
+}
+
+/* ----- PROJECT PAGE -----*/
+
+main#project-page {
+    display: flex;
+    flex-direction: row;
+}
+
+section.project-task-section {
     width: 50%;
 }
 
-span.create-world-input-pair {
+section.project-task-section > form.add-task-form {
     width: 100%;
     display: flex;
     flex-direction: row;
     align-items: center;
-    justify-content: space-between;
-    gap: 3em;
+    gap: var(--spacing-sm);
+
+    padding-bottom: var(--spacing-md);
+    margin-bottom: var(--spacing-sm);
+    border-bottom: 1px solid var(--clr-primary);
 }
 
-span.create-world-input-pair > label {
-    text-align: end;
+ul.task-list {
+    list-style: none;
 }
 
-span.create-world-input-pair > input {
-    width: 65%
+ul.task-list > li {
+    display: grid;
+    grid-template-columns: 20% 60% 20%;
+    column-gap: var(--spacing-sm);
+
+    margin-bottom: var(--spacing-sm);
 }
 
+form#updatable-task-update-form {
+    display: grid;
+    gap: var(--spacing-sm);
+    grid-template-columns: 2fr 1fr 2fr 1fr 1fr;
+}
+
+form#updatable-task-update-form > * {
+    width: 100%;
+}
+
+
+/* ----- FOOTER -----*/
 footer {
     position: fixed;
     left: 0;

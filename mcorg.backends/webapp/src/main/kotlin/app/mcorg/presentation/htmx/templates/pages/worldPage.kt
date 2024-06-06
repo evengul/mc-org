@@ -5,37 +5,49 @@ import kotlinx.html.stream.createHTML
 import app.mcorg.domain.ResourcePack
 import app.mcorg.domain.Team
 import app.mcorg.domain.World
-import app.mcorg.presentation.htmx.templates.hxDelete
-import app.mcorg.presentation.htmx.templates.hxGet
-import app.mcorg.presentation.htmx.templates.hxSwap
-import app.mcorg.presentation.htmx.templates.hxTarget
+import app.mcorg.presentation.htmx.hxDelete
+import app.mcorg.presentation.htmx.hxGet
+import app.mcorg.presentation.htmx.hxSwap
+import app.mcorg.presentation.htmx.hxTarget
 
 fun worldPage(world: World, teams: List<Team>, packs: List<ResourcePack>, ownedPacks: List<ResourcePack>): String {
-    return page(title = world.name) {
+    return page(title = world.name, id = "world-page") {
         h2 {
             + "Teams"
         }
-        button {
-            id = "world-add-team-show-form-button"
-            type = ButtonType.button
-            hxGet("/htmx/worlds/${world.id}/teams/add")
-            hxTarget("#add-team-container")
-            + "Create new team in world"
+        form(classes = "create-form") {
+            id = "world-add-team-form"
+            encType = FormEncType.multipartFormData
+            method = FormMethod.post
+            action = "/worlds/${world.id}/teams"
+            label {
+                htmlFor = "team-name-input"
+                + "Name"
+            }
+            input {
+                id = "team-name-input"
+                name = "team-name"
+                required = true
+                minLength = "3"
+                maxLength = "120"
+            }
+            button {
+                id = "world-add-team-submit"
+                type = ButtonType.submit
+                + "Create Team"
+            }
         }
-        div {
-            id = "add-team-container"
-        }
-        ul {
+        ul(classes = "resource-list") {
             id = "teams-list"
             for(team in teams) {
-                li {
+                li(classes = "resource-list-item") {
                     id = "team-${team.id}"
-                    a {
+                    a(classes = "resource-list-item-link") {
                         id = "team-${team.id}-link"
                         href = "/worlds/${team.worldId}/teams/${team.id}"
                         + team.name
                     }
-                    button {
+                    button(classes = "resource-list-item-delete-button") {
                         id = "team-${team.id}-delete-button"
                         type = ButtonType.button
                         hxDelete("/worlds/${team.worldId}/teams/${team.id}")
@@ -50,16 +62,17 @@ fun worldPage(world: World, teams: List<Team>, packs: List<ResourcePack>, ownedP
             + "Resource Packs"
         }
         val ownedNotAdded = ownedPacks.filter { owned -> packs.none {shared -> shared.id == owned.id } }
-        if (ownedNotAdded.isNotEmpty()) {
-            form {
-                id = "add-world-pack-form"
-                encType = FormEncType.multipartFormData
-                method = FormMethod.post
-                action = "/worlds/${world.id}/resourcepacks"
-                label {
-                    htmlFor = "add-world-pack-select"
-                    + "Select pack to share with this world"
-                }
+        val canAdd = ownedNotAdded.isNotEmpty();
+        form(classes = "create-form") {
+            id = "add-world-pack-form"
+            encType = FormEncType.multipartFormData
+            method = FormMethod.post
+            action = "/worlds/${world.id}/resourcepacks"
+            label {
+                htmlFor = "add-world-pack-select"
+                + "Select pack to share with this world"
+            }
+            if (canAdd) {
                 select {
                     id = "add-world-pack-select"
                     name = "world-resource-pack-id"
@@ -76,24 +89,30 @@ fun worldPage(world: World, teams: List<Team>, packs: List<ResourcePack>, ownedP
                         }
                     }
                 }
-                button {
-                    id = "add-world-pack-button"
-                    type = ButtonType.submit
-                    + "Add pack to world"
+            } else {
+                a {
+                    href = "/resourcepacks"
+                    + "Make a resource pack to share it with a world"
                 }
             }
+            button {
+                id = "add-world-pack-button"
+                type = ButtonType.submit
+                disabled = !canAdd
+                + "Add pack to world"
+            }
         }
-        ul {
+        ul(classes = "resource-list") {
             id = "world-packs"
             for(pack in packs) {
-                li {
+                li(classes = "resource-list-item") {
                     id = "world-pack-${pack.id}"
-                    a {
+                    a(classes = "resource-list-item-link") {
                         id = "world-pack-${pack.id}-link"
                         href = "/resourcepacks/${pack.id}"
                         + pack.name
                     }
-                    button {
+                    button(classes = "resource-list-item-delete-button") {
                         id = "world-pack-${pack.id}-delete-button"
                         type = ButtonType.button
                         hxDelete("/worlds/${world.id}/resourcepacks/${pack.id}")
@@ -103,31 +122,6 @@ fun worldPage(world: World, teams: List<Team>, packs: List<ResourcePack>, ownedP
                     }
                 }
             }
-        }
-    }
-}
-
-fun addTeam(worldId: Int): String {
-    return createHTML().form {
-        id = "world-add-team-form"
-        encType = FormEncType.multipartFormData
-        method = FormMethod.post
-        action = "/worlds/$worldId/teams"
-        label {
-            htmlFor = "team-name-input"
-            + "Name"
-        }
-        input {
-            id = "team-name-input"
-            name = "team-name"
-            required = true
-            minLength = "3"
-            maxLength = "120"
-        }
-        button {
-            id = "world-add-team-submit"
-            type = ButtonType.submit
-            + "Create Team"
         }
     }
 }

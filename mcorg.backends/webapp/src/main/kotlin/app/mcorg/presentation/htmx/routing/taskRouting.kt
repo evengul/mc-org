@@ -6,8 +6,6 @@ import app.mcorg.domain.Authority
 import app.mcorg.domain.PermissionLevel
 import app.mcorg.presentation.configuration.projectsApi
 import app.mcorg.presentation.htmx.handlers.*
-import app.mcorg.presentation.htmx.templates.pages.project.addCountableTask
-import app.mcorg.presentation.htmx.templates.pages.project.addDoableTask
 
 fun Application.taskRouting() {
     routing {
@@ -41,17 +39,6 @@ fun Application.taskRouting() {
             projectsApi().removeTask(taskId)
 
             call.respondEmpty()
-        }
-
-        getAuthed("/htmx/worlds/{worldId}/teams/{teamId}/projects/{projectId}/tasks/add-countable", permissionLevel = PermissionLevel.PROJECT, authority = Authority.PARTICIPANT) {
-            val (worldId, teamId, projectId) = call.getWorldTeamProjectParams() ?: return@getAuthed
-
-            call.respondHtml(addCountableTask(worldId, teamId, projectId))
-        }
-
-        getAuthed("/htmx/worlds/{worldId}/teams/{teamId}/projects/{projectId}/tasks/add-doable", permissionLevel = PermissionLevel.PROJECT, authority = Authority.PARTICIPANT) {
-            val (worldId, teamId, projectId) = call.getWorldTeamProjectParams() ?: return@getAuthed
-            call.respondHtml(addDoableTask(worldId, teamId, projectId))
         }
     }
 }

@@ -19,6 +19,11 @@
     --clr-primary: #38473e;
     --clr-secondary: #797553;
 
+    --clr-danger: #da1e28;
+    --clr-danger-warning: #ff832b;
+    --clr-warning: #f1c21b;
+    --clr-success: #198038;
+
     --clr-bg-dark: #EFEFEF;
     --clr-bg-light: #F7F7F7;
 
