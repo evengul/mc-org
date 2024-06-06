@@ -6,10 +6,18 @@ import io.ktor.server.application.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import app.mcorg.presentation.configuration.usersApi
+import app.mcorg.presentation.htmx.routing.getUser
 import app.mcorg.presentation.htmx.routing.getUserId
 import app.mcorg.presentation.htmx.routing.respondHtml
 import app.mcorg.presentation.htmx.templates.pages.auth.signinPage
+import app.mcorg.presentation.htmx.templates.pages.profilePage
 import app.mcorg.presentation.security.createSignedJwtToken
+
+suspend fun ApplicationCall.respondProfile() {
+    val (id, username) = getUser()!!
+
+    respondHtml(profilePage(username, id))
+}
 
 suspend fun ApplicationCall.handlePostRegister() {
     val (username, password) = getAuthFormItems() ?: return

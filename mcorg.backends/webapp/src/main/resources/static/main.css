@@ -1,3 +1,21 @@
+body {
+    background-color: var(--clr-bg-light);
+    color: var(--clr-text);
+
+    height: 100vh;
+}
+
+body * {
+    color: inherit;
+}
+
+main {
+    background-color: var(--clr-bg-dark);
+
+    padding-block: 1em;
+    padding-inline: 3em;
+}
+
 nav {
     display: flex;
     flex-direction: row;
@@ -24,24 +42,43 @@ nav > ul > li {
     flex-grow: 1;
 }
 
-main {
-    padding-top: 1em;
-    padding-inline: 3em;
-}
-
 p.intro {
     font-size: 1.2em;
     margin-bottom: 2em;
 }
 
-form#landingpage-create-world {
+main.auth-container {
+    width: 33%;
+    margin: 20% auto;
+    padding: var(--spacing-sm);
+
+    border-radius: var(--spacing-xs);
+    box-shadow: var(--spacing-xxs) var(--spacing-xxs) rgba(120, 120, 120, 0.1);
+}
+
+form.auth-form {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    row-gap: 8px;
+
+    margin-inline: auto;
+
+    width: 100%;
+}
+
+form.auth-form > button[type = submit] {
+    grid-column: 1 / span 2;
+    cursor: pointer;
+}
+
+form#landingpage-create-world-form {
     display: flex;
     flex-direction: column;
     align-items: center;
     margin: 0 auto;
     gap: 2em;
 
-    width: 35%;
+    width: 50%;
 }
 
 span.create-world-input-pair {
@@ -58,7 +95,7 @@ span.create-world-input-pair > label {
 }
 
 span.create-world-input-pair > input {
-    width: 80%
+    width: 65%
 }
 
 footer {
@@ -69,6 +106,7 @@ footer {
     height: 1.5em;
     text-align: center;
 
-    border-top: 1px solid black;
+    background-color: var(--clr-primary);
+    color: var(--clr-bg-dark);
 }
 

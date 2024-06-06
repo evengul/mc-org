@@ -11,6 +11,10 @@ fun baseTemplate(siteTitle: String = "MC-ORG", body: BODY.() -> Unit): String {
                 src = "/static/htmx.min.js"
             }
             link {
+                href = "/static/root.css"
+                rel = "stylesheet"
+            }
+            link {
                 href = "/static/main.css"
                 rel = "stylesheet"
             }

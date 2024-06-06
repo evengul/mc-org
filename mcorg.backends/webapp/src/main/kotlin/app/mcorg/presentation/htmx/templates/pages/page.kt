@@ -38,15 +38,8 @@ fun page(siteTitle: String = "MC-ORG", title: String = "MC-ORG", content: MAIN.(
                     li {
                         classes = setOf("nav-item")
                         a {
-                            href = "#"
+                            href = "/profile"
                             + "Profile"
-                        }
-                    }
-                    li {
-                        classes = setOf("nav-item")
-                        a {
-                            href = "/signout"
-                            + "Sign out"
                         }
                     }
                 }

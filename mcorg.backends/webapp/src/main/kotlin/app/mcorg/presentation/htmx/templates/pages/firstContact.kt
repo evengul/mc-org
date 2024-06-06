@@ -37,7 +37,7 @@ fun firstContact(): String {
                 label {
                     id = "create-world-is-multiplayer-label"
                     htmlFor = "create-world-is-multiplayer-input"
-                    + "Multiplayer world"
+                    + "Is the world multiplayer?"
                 }
                 input {
                     id = "create-world-is-multiplayer-input"

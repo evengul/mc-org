@@ -1,0 +1,78 @@
+/*https://coolors.co/797553-0a2e36-f7f7f7-14cc60-efefef*/
+
+:root {
+    --font-primary: sans-serif;
+    --font-secondary: serif;
+
+    --text-base-size: 1em;
+    --text-scale-ratio: 1.2;
+
+    /* type scale */
+    --text-xs: calc(1em / (var(--text-scale-ratio) * var(--text-scale-ratio)));
+    --text-sm: calc(1em / var(--text-scale-ratio));
+    --text-md: calc(1em * var(--text-scale-ratio));
+    --text-lg: calc(1em * var(--text-scale-ratio) * var(--text-scale-ratio));
+    --text-xl: calc(1em * var(--text-scale-ratio) * var(--text-scale-ratio) * var(--text-scale-ratio));
+    --text-xxl: calc(1em * var(--text-scale-ratio) * var(--text-scale-ratio) * var(--text-scale-ratio) * var(--text-scale-ratio));
+    --text-xxxl: calc(1em * var(--text-scale-ratio) * var(--text-scale-ratio) * var(--text-scale-ratio) * var(--text-scale-ratio) * var(--text-scale-ratio));
+
+    --clr-primary: #38473e;
+    --clr-secondary: #797553;
+
+    --clr-bg-dark: #EFEFEF;
+    --clr-bg-light: #F7F7F7;
+
+    --clr-text: #0A2E36;
+
+    --spacing-baseline: 24px;
+
+    /* spacing values */
+    --spacing-xxs:   calc(var(--spacing-baseline) / 4);
+    --spacing-xs:   calc(var(--spacing-baseline) / 3);
+    --spacing-sm:   calc(var(--spacing-baseline) / 2);
+    --spacing-md:   var(--spacing-baseline);
+    --spacing-lg:   calc(var(--spacing-baseline) * 2);
+    --spacing-xl:   calc(var(--spacing-baseline) * 3);
+}
+
+html {
+    font-family: var(--font-primary), sans-serif;
+    font-size: var(--text-base-size);
+
+    color: var(--clr-text);
+}
+
+.text--xxxl {
+    font-size: var(--text-xxxl);
+    margin-bottom: var(--spacing-lg);
+}
+
+h1, .text--xxl {
+    font-size: var(--text-xxl);
+    margin-bottom: var(--spacing-lg);
+}
+
+h2, .text--xl {
+    font-size: var(--text-xl);
+    margin-bottom: var(--spacing-md);
+}
+
+h3, .text--lg {
+    font-size: var(--text-lg);
+}
+
+h4, .text--md {
+    font-size: var(--text-md);
+}
+
+.text--sm, small {
+    font-size: var(--text-sm);
+}
+
+.text--xs {
+    font-size: var(--text-xs);
+}
+
+p {
+    margin-bottom: var(--spacing-sm);
+}

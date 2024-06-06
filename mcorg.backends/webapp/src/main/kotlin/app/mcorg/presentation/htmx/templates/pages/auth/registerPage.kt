@@ -4,10 +4,11 @@ import kotlinx.html.*
 import kotlinx.html.stream.createHTML
 import app.mcorg.presentation.htmx.templates.AUTH_FORM
 import app.mcorg.presentation.htmx.templates.SITE_TITLE
+import app.mcorg.presentation.htmx.templates.baseTemplate
 
 fun registerPage(): String {
-    return createHTML()
-        .main {
+    return baseTemplate {
+        main(classes = "auth-container") {
             h1(classes = SITE_TITLE) {
                 + "Register an account in MC-ORG"
             }
@@ -50,4 +51,5 @@ fun registerPage(): String {
                 + "Do you already have an account? Sign in here."
             }
         }
+    }
 }

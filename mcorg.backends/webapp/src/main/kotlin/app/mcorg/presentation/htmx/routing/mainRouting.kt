@@ -1,5 +1,6 @@
 package app.mcorg.presentation.htmx.routing
 
+import app.mcorg.domain.User
 import io.ktor.server.application.*
 import io.ktor.server.response.*
 import app.mcorg.presentation.security.getUserFromJwtToken
@@ -40,9 +41,13 @@ suspend fun ApplicationCall.getUserIdOrRedirect(): Int? {
     return null
 }
 
-fun ApplicationCall.getUserId(): Int? {
+fun ApplicationCall.getUser(): User? {
     val token = request.cookies["MCORG-USER-TOKEN"] ?: return null
 
-    return getUserFromJwtToken(token).id
+    return getUserFromJwtToken(token)
+}
+
+fun ApplicationCall.getUserId(): Int? {
+    return getUser()?.id
 }
 

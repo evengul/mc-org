@@ -1,13 +1,13 @@
 package app.mcorg.presentation.htmx.templates.pages.auth
 
 import kotlinx.html.*
-import kotlinx.html.stream.createHTML
 import app.mcorg.presentation.htmx.templates.AUTH_FORM
 import app.mcorg.presentation.htmx.templates.SITE_TITLE
+import app.mcorg.presentation.htmx.templates.baseTemplate
 
 fun signinPage(): String {
-    return createHTML()
-        .main {
+    return baseTemplate {
+        main(classes = "auth-container") {
             h1(classes = SITE_TITLE) {
                 id = "signin-site-title"
                 +"Sign in to MC-ORG"
@@ -51,4 +51,5 @@ fun signinPage(): String {
                 + "Create a new account"
             }
         }
+    }
 }
