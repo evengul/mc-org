@@ -40,5 +40,11 @@ fun Application.taskRouting() {
 
             call.respondEmpty()
         }
+
+        postAuthed("/worlds/{worldId}/teams/{teamId}/projects/{projectId}/tasks/material-list", permissionLevel = PermissionLevel.PROJECT, authority = Authority.PARTICIPANT) {
+            val (worldId, teamId, projectId) = call.getWorldTeamProjectParams(failOnMissingValue = true) ?: return@postAuthed
+
+            call.handleUploadMaterialList(worldId, teamId, projectId)
+        }
     }
 }

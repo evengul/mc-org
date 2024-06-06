@@ -42,7 +42,7 @@ fun projectPage(project: Project): String {
                 }
             }
             ul(classes = "task-list") {
-                for (task in project.doable().sortedByDescending { it.isDone() }) {
+                for (task in project.doable().sortedBy { it.isDone() }) {
                     li {
                         id = "task-${task.id}"
                         + task.name
@@ -51,7 +51,7 @@ fun projectPage(project: Project): String {
                                 id = "complete-task-${task.id}-button"
                                 hxPut("/worlds/${project.worldId}/teams/${project.teamId}/projects/${project.id}/tasks/${task.id}/incomplete")
                                 hxSwap("outerHTML")
-                                + "Undo completion"
+                                + "Not complete"
                             }
                         } else {
                             button {
@@ -68,8 +68,23 @@ fun projectPage(project: Project): String {
         }
         section(classes = "project-task-section") {
             id = "project-countable-tasks"
-            h2 {
-                + "Gathering/countable tasks"
+            span {
+                id = "countable-tasks-header"
+                h2 {
+                    + "Gathering/countable tasks"
+                }
+                form {
+                    encType = FormEncType.multipartFormData
+                    method = FormMethod.post
+                    action = "/worlds/${project.worldId}/teams/${project.teamId}/projects/${project.id}/tasks/material-list"
+                    input {
+                        name = "file"
+                        type = InputType.file
+                    }
+                    button {
+                        + "Upload litematica material list"
+                    }
+                }
             }
             form(classes = "add-task-form") {
                 id = "add-countable-task-form"
@@ -111,7 +126,7 @@ fun projectPage(project: Project): String {
                 }
             }
             ul(classes = "task-list") {
-                for (task in project.countable().sortedByDescending { it.isDone() }) {
+                for (task in project.countable().sortedByDescending { it.needed }) {
                     li {
                         id = "task-${task.id}"
                         + task.name

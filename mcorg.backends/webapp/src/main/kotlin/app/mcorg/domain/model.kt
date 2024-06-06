@@ -25,6 +25,8 @@ data class Project(val worldId: Int,
 
 data class ProjectDependency(val projectId: Int, val priority: Priority)
 
+data class PremadeTask(val name: String, val needed: Int)
+
 data class Task(val id: Int, var name: String, val priority: Priority, val dependencies: MutableList<ProjectDependency>, var needed: Int, var done: Int)
 
 data class SlimResourcePack(override val id: Int,

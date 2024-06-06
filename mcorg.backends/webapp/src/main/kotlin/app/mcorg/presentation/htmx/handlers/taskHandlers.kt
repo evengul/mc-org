@@ -6,6 +6,7 @@ import io.ktor.server.application.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import app.mcorg.domain.Priority
+import app.mcorg.domain.tasksFromMaterialList
 import app.mcorg.presentation.configuration.projectsApi
 import app.mcorg.presentation.htmx.routing.respondHtml
 import app.mcorg.presentation.htmx.templates.pages.project.completeTaskButton
@@ -62,6 +63,27 @@ suspend fun ApplicationCall.handleUpdateCountableTask(worldId: Int, teamId: Int,
             respondHtml(countableTaskListElement(worldId, teamId, projectId, task))
         }
     }
+}
+
+suspend fun ApplicationCall.handleUploadMaterialList(worldId: Int, teamId: Int, projectId: Int) {
+    val parts = receiveMultipart().readAllParts()
+    val file = parts.find { it.name == "file" } as PartData.FileItem?
+    val tasks = file?.streamProvider?.let {
+        it().tasksFromMaterialList()
+    }
+
+    if (!tasks.isNullOrEmpty()) {
+        tasks.forEach {
+            projectsApi().addCountableTask(
+                projectId = projectId,
+                name = it.name,
+                priority = Priority.NONE,
+                needed = it.needed
+            )
+        }
+    }
+
+    respondRedirect("/worlds/$worldId/teams/$teamId/projects/$projectId")
 }
 
 private fun String.toPriority(): Priority {

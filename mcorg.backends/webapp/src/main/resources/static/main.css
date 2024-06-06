@@ -177,6 +177,18 @@ main#project-page {
     flex-direction: row;
 }
 
+span#countable-tasks-header {
+    display: flex;
+    gap: var(--spacing-sm);
+    align-items: center;
+}
+
+span#countable-tasks-header > form {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+}
+
 section.project-task-section {
     width: 50%;
 }
