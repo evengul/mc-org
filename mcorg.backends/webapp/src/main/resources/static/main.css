@@ -227,6 +227,20 @@ form#updatable-task-update-form > * {
     width: 100%;
 }
 
+/* ----- RESOURCE PACKS PAGE -----*/
+
+form#create-resource-pack-form,
+form#resource-pack-add-resource-form {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    grid-column-gap: var(--spacing-sm);
+    align-self: center;
+}
+
+ul#pack-list > li {
+    grid-template-columns: 5fr 2fr;
+}
+
 
 /* ----- FOOTER -----*/
 footer {

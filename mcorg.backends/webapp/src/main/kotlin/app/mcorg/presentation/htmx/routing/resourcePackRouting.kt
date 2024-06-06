@@ -6,8 +6,6 @@ import app.mcorg.domain.Authority
 import app.mcorg.domain.PermissionLevel
 import app.mcorg.presentation.configuration.packsApi
 import app.mcorg.presentation.htmx.handlers.*
-import app.mcorg.presentation.htmx.templates.pages.resourcepack.addResourcePack
-import app.mcorg.presentation.htmx.templates.pages.resourcepack.addResourceToPack
 
 fun Application.resourcePackRouting() {
     routing {
@@ -63,15 +61,6 @@ fun Application.resourcePackRouting() {
             val (_, teamId) = call.getWorldTeamParams(failOnMissingValue = true) ?: return@deleteAuthed
             val packId = call.getResourcePackParam(failOnMissingValue = true) ?: return@deleteAuthed
             call.handleUnSharePackWithTeam(teamId, packId)
-        }
-
-        getAuthed("/htmx/resourcepacks/add", permissionLevel = PermissionLevel.AUTHENTICATED, authority = Authority.PARTICIPANT) {
-            call.respondHtml(addResourcePack())
-        }
-
-        getAuthed("/htmx/resourcepacks/{packId}/resources/add", permissionLevel = PermissionLevel.PACK, authority = Authority.ADMIN) {
-            val resourcePackId = call.getResourcePackParam() ?: return@getAuthed
-            call.respondHtml(addResourceToPack(resourcePackId))
         }
     }
 }
