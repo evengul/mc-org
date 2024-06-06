@@ -5,10 +5,7 @@ import kotlinx.html.stream.createHTML
 import app.mcorg.domain.ResourcePack
 import app.mcorg.domain.Team
 import app.mcorg.domain.World
-import app.mcorg.presentation.htmx.hxDelete
-import app.mcorg.presentation.htmx.hxGet
-import app.mcorg.presentation.htmx.hxSwap
-import app.mcorg.presentation.htmx.hxTarget
+import app.mcorg.presentation.htmx.*
 
 fun worldPage(world: World, teams: List<Team>, packs: List<ResourcePack>, ownedPacks: List<ResourcePack>): String {
     return page(title = world.name, id = "world-page") {
@@ -53,6 +50,7 @@ fun worldPage(world: World, teams: List<Team>, packs: List<ResourcePack>, ownedP
                         hxDelete("/worlds/${team.worldId}/teams/${team.id}")
                         hxTarget("closest li")
                         hxSwap("outerHTML")
+                        hxConfirm("Are you sure you want to delete this team? All projects inside it will also be deleted.")
                         + "Delete"
                     }
                 }
@@ -118,6 +116,7 @@ fun worldPage(world: World, teams: List<Team>, packs: List<ResourcePack>, ownedP
                         hxDelete("/worlds/${world.id}/resourcepacks/${pack.id}")
                         hxTarget("closest li")
                         hxSwap("outerHTML")
+                        hxConfirm("Are you sure you want to remove this resource pack from this world?")
                         + "Remove resourcepack from world"
                     }
                 }

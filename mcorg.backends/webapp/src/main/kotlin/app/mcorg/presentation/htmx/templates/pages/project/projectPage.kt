@@ -190,6 +190,7 @@ fun LI.deleteTask(worldId: Int, teamId: Int, projectId: Int, taskId: Int) {
         hxDelete("/worlds/$worldId/teams/$teamId/projects/$projectId/tasks/$taskId")
         hxTarget("closest li")
         hxSwap("outerHTML")
+        hxConfirm("Are you sure you want to remove this task from this project?")
         + "Delete"
     }
 }

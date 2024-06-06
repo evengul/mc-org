@@ -3,10 +3,7 @@ package app.mcorg.presentation.htmx.templates.pages.resourcepack
 import kotlinx.html.*
 import kotlinx.html.stream.createHTML
 import app.mcorg.domain.ResourcePack
-import app.mcorg.presentation.htmx.hxDelete
-import app.mcorg.presentation.htmx.hxGet
-import app.mcorg.presentation.htmx.hxSwap
-import app.mcorg.presentation.htmx.hxTarget
+import app.mcorg.presentation.htmx.*
 import app.mcorg.presentation.htmx.templates.pages.page
 
 fun resourcePacksPage(packs: List<ResourcePack>): String {
@@ -79,6 +76,7 @@ fun resourcePacksPage(packs: List<ResourcePack>): String {
                         hxDelete("/resourcepacks/${pack.id}")
                         hxTarget("closest li")
                         hxSwap("outerHTML")
+                        hxConfirm("Are you sure you want to delete this resource pack?")
                         + "Delete resource pack"
                     }
                 }

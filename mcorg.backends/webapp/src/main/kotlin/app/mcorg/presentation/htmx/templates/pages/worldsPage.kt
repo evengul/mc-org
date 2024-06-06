@@ -3,10 +3,7 @@ package app.mcorg.presentation.htmx.templates.pages
 import kotlinx.html.*
 import kotlinx.html.stream.createHTML
 import app.mcorg.domain.World
-import app.mcorg.presentation.htmx.hxDelete
-import app.mcorg.presentation.htmx.hxGet
-import app.mcorg.presentation.htmx.hxSwap
-import app.mcorg.presentation.htmx.hxTarget
+import app.mcorg.presentation.htmx.*
 
 fun worldsPage(worlds: List<World>): String {
     return page(title = "Your worlds", id = "worlds-page") {
@@ -45,6 +42,7 @@ fun worldsPage(worlds: List<World>): String {
                         hxDelete("/worlds/${world.id}")
                         hxTarget("closest li")
                         hxSwap("outerHTML")
+                        hxConfirm("Are you sure you want to delete this world? All teams and projects inside it will also be deleted.")
                         + "Delete world"
                     }
                 }

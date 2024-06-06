@@ -21,3 +21,7 @@ fun HTMLTag.hxSwap(value: String) {
 fun HTMLTag.hxTarget(value: String) {
     attributes += "hx-target" to value
 }
+
+fun HTMLTag.hxConfirm(value: String) {
+    attributes += "hx-confirm" to value
+}
