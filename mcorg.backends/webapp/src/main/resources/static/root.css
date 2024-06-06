@@ -54,12 +54,10 @@ html {
 
 h1, .text--xxl {
     font-size: var(--text-xxl);
-    margin-bottom: var(--spacing-lg);
 }
 
 h2, .text--xl {
     font-size: var(--text-xl);
-    margin-bottom: var(--spacing-md);
 }
 
 h3, .text--lg {
@@ -76,8 +74,4 @@ h4, .text--md {
 
 .text--xs {
     font-size: var(--text-xs);
-}
-
-p {
-    margin-bottom: var(--spacing-sm);
 }

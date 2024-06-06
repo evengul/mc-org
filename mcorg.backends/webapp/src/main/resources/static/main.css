@@ -16,15 +16,22 @@ main {
     padding-inline: 3em;
 }
 
-nav {
+header {
     display: flex;
     flex-direction: row;
     align-items: center;
     justify-content: space-between;
+
+    padding-top: var(--spacing-sm);
+    padding-left: var(--spacing-sm);
 }
 
-nav > h1 {
+h1 {
     width: 25%;
+}
+
+nav {
+    width: 75%;
 }
 
 nav > ul {
@@ -32,14 +39,13 @@ nav > ul {
     flex-direction: row;
     align-items: center;
 
-    width: 75%;
-    padding-right: 1em;
+    justify-content: end;
 
+    gap: var(--spacing-md);
+    padding-right: var(--spacing-xl);
+
+    font-size: var(--text-md);
     list-style: none;
-}
-
-nav > ul > li {
-    flex-grow: 1;
 }
 
 p.intro {
