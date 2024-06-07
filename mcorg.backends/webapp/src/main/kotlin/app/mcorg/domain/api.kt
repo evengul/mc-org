@@ -2,9 +2,11 @@ package app.mcorg.domain
 
 interface Users {
     fun userExists(id: Int): Boolean
+    fun usernameExists(username: String): Boolean
+    fun emailExists(email: String): Boolean
     fun getUser(id: Int): User?
     fun getUserByUsernameIfPasswordMatches(username: String, password: String): User?
-    fun createUser(username: String, password: String): Int
+    fun createUser(username: String, email: String, password: String): Int
     fun searchUsers(searchTerm: String): List<User>
 }
 

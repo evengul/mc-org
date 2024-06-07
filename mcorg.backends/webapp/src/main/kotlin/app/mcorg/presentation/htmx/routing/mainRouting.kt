@@ -4,6 +4,7 @@ import app.mcorg.domain.User
 import io.ktor.server.application.*
 import io.ktor.server.response.*
 import app.mcorg.presentation.security.getUserFromJwtToken
+import io.ktor.http.*
 
 fun Application.router() {
     authRouting()
@@ -27,6 +28,21 @@ suspend fun ApplicationCall.respondHtml(html: String) {
 
 private fun ApplicationCall.isHtml() {
     response.headers.append("Content-Type", "text/html")
+}
+
+suspend fun ApplicationCall.clientRedirect(path: String) {
+    response.headers.append("HX-Redirect", path)
+    respond(HttpStatusCode.OK)
+}
+
+suspend fun ApplicationCall.htmlBadRequest(html: String) {
+    isHtml()
+    respond(HttpStatusCode.BadRequest, html)
+}
+
+suspend fun ApplicationCall.htmlUnauthorized(html: String) {
+    isHtml()
+    respond(HttpStatusCode.Unauthorized, html)
 }
 
 suspend fun ApplicationCall.getUserIdOrRedirect(): Int? {

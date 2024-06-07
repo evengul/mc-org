@@ -1,5 +1,9 @@
 package app.mcorg.presentation.htmx.templates.pages.auth
 
+import app.mcorg.presentation.htmx.hxExtension
+import app.mcorg.presentation.htmx.hxPost
+import app.mcorg.presentation.htmx.hxTarget
+import app.mcorg.presentation.htmx.hxTargetError
 import kotlinx.html.*
 import app.mcorg.presentation.htmx.templates.AUTH_FORM
 import app.mcorg.presentation.htmx.templates.SITE_TITLE
@@ -8,6 +12,10 @@ import app.mcorg.presentation.htmx.templates.baseTemplate
 fun signinPage(): String {
     return baseTemplate {
         main(classes = "auth-container") {
+            script {
+                src = "/static/response-targets.js"
+                defer = true
+            }
             h1(classes = SITE_TITLE) {
                 id = "signin-site-title"
                 +"Sign in to MC-ORG"
@@ -16,6 +24,9 @@ fun signinPage(): String {
                 id = "signin-form"
                 encType = FormEncType.multipartFormData
                 method = FormMethod.post
+                hxExtension("response-targets")
+                hxPost("/signin")
+                hxTargetError("#signin-error")
                 label {
                     htmlFor = "signin-username-input"
                     + "Username"
@@ -24,8 +35,6 @@ fun signinPage(): String {
                     id = "signin-username-input"
                     name = "username"
                     required = true
-                    minLength = "3"
-                    maxLength = "120"
                 }
                 label {
                     htmlFor = "signin-password-input"
@@ -35,9 +44,10 @@ fun signinPage(): String {
                     id = "signin-password-input"
                     name = "password"
                     required = true
-                    minLength = "5"
-                    maxLength = "120"
                     type = InputType.password
+                }
+                p(classes = "text-error") {
+                    id = "signin-error"
                 }
                 button {
                     id = "signin-submit-button"

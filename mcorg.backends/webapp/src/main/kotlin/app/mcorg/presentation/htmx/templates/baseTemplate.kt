@@ -8,7 +8,7 @@ fun baseTemplate(siteTitle: String = "MC-ORG", body: BODY.() -> Unit): String {
         lang = "en"
         head {
             script {
-                src = "/static/htmx.min.js"
+                src = "/static/htmx.js"
             }
             link {
                 href = "/static/root.css"

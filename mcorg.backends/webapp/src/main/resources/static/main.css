@@ -26,10 +26,6 @@ header {
     padding-left: var(--spacing-sm);
 }
 
-h1 {
-    width: 25%;
-}
-
 nav {
     width: 75%;
 }
@@ -58,6 +54,11 @@ p.intro {
     color: var(--clr-bg-light);
 }
 
+.text-error {
+    font-style: italic;
+    color: var(--clr-danger)
+}
+
 /* ----- AUTH -----*/
 
 body:has(main.auth-container) {
@@ -75,16 +76,20 @@ main.auth-container {
 
 form.auth-form {
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    row-gap: 8px;
+    grid-template-columns: 1fr 3fr;
+    row-gap: var(--spacing-xxs);
 
     margin-inline: auto;
 
     width: 100%;
 }
 
-form.auth-form > button[type = submit] {
+form.auth-form > button[type = submit],
+form.auth-form > p.text-error {
     grid-column: 1 / span 2;
+}
+
+form.auth-form > button[type = submit] {
     cursor: pointer;
 }
 

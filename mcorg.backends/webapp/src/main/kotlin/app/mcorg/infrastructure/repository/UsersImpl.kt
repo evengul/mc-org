@@ -6,11 +6,29 @@ import app.mcorg.domain.Users
 
 class UsersImpl : Users, Repository() {
     override fun userExists(id: Int): Boolean {
-        getConnection().use {
+        return getConnection().use {
             it.prepareStatement("select 1 from users where id = ?")
                 .apply { setInt(1, id) }
                 .executeQuery()
-                .apply { return next() }
+                .next()
+        }
+    }
+
+    override fun usernameExists(username: String): Boolean {
+        return getConnection().use {
+            it.prepareStatement("select 1 from users where username = ?")
+                .apply { setString(1, username) }
+                .executeQuery()
+                .next()
+        }
+    }
+
+    override fun emailExists(email: String): Boolean {
+        return getConnection().use {
+            it.prepareStatement("select 1 from users where email = ?")
+                .apply { setString(1, email) }
+                .executeQuery()
+                .next()
         }
     }
 
@@ -42,11 +60,15 @@ class UsersImpl : Users, Repository() {
         return null
     }
 
-    override fun createUser(username: String, password: String): Int {
+    override fun createUser(username: String, email: String, password: String): Int {
         getConnection().use {
             val statement = it
-                .prepareStatement("insert into users (username, password_hash) values (?, ?) returning id")
-                .apply { setString(1, username); setString(2, hashPassword(password)) }
+                .prepareStatement("insert into users (username, email, password_hash) values (?, ?, ?) returning id")
+                .apply {
+                    setString(1, username)
+                    setString(2, email)
+                    setString(3, hashPassword(password))
+                }
 
             if (statement.execute()) {
                 with(statement.resultSet) {
