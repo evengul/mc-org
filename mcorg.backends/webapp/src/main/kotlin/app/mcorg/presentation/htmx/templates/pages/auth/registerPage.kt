@@ -2,7 +2,6 @@ package app.mcorg.presentation.htmx.templates.pages.auth
 
 import app.mcorg.presentation.htmx.*
 import kotlinx.html.*
-import kotlinx.html.stream.createHTML
 import app.mcorg.presentation.htmx.templates.AUTH_FORM
 import app.mcorg.presentation.htmx.templates.SITE_TITLE
 import app.mcorg.presentation.htmx.templates.baseTemplate

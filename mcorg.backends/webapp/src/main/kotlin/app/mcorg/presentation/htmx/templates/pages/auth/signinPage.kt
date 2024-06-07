@@ -2,7 +2,6 @@ package app.mcorg.presentation.htmx.templates.pages.auth
 
 import app.mcorg.presentation.htmx.hxExtension
 import app.mcorg.presentation.htmx.hxPost
-import app.mcorg.presentation.htmx.hxTarget
 import app.mcorg.presentation.htmx.hxTargetError
 import kotlinx.html.*
 import app.mcorg.presentation.htmx.templates.AUTH_FORM

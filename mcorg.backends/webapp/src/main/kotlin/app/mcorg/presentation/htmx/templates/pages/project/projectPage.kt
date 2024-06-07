@@ -2,9 +2,7 @@ package app.mcorg.presentation.htmx.templates.pages.project
 
 import app.mcorg.domain.*
 import kotlinx.html.*
-import kotlinx.html.stream.createHTML
 import app.mcorg.presentation.htmx.*
-import app.mcorg.presentation.htmx.templates.*
 import app.mcorg.presentation.htmx.templates.pages.page
 
 fun projectPage(project: Project, tab: String): String {
