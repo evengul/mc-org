@@ -26,11 +26,11 @@ header {
     padding-left: var(--spacing-sm);
 }
 
-nav {
+nav#main-navigation {
     width: 75%;
 }
 
-nav > ul {
+nav#main-navigation > ul {
     display: flex;
     flex-direction: row;
     align-items: center;
@@ -183,11 +183,6 @@ button.resource-list-item-delete-button {
 
 /* ----- PROJECT PAGE -----*/
 
-main#project-page {
-    display: flex;
-    flex-direction: row;
-}
-
 span#countable-tasks-header {
     display: flex;
     gap: var(--spacing-sm);
@@ -200,11 +195,36 @@ span#countable-tasks-header > form {
     align-items: center;
 }
 
-section.project-task-section {
-    width: 50%;
+nav#project-tabs {
+    width: 100%;
 }
 
-section.project-task-section > form.add-task-form {
+nav#project-tabs > ul {
+    list-style: none;
+    width: 100vw;
+
+    display: flex;
+}
+
+nav#project-tabs > ul > li {
+    width: 50%;
+
+    background-color: var(--clr-secondary);
+    color: var(--clr-bg-dark);
+
+    text-align: center;
+}
+
+nav#project-tabs > ul > li a {
+    text-decoration: none;
+}
+
+nav#project-tabs > ul > li.selected {
+    background-color: var(--clr-primary);
+    text-decoration: underline;
+}
+
+form.add-task-form {
     width: 100%;
     display: flex;
     flex-direction: row;
@@ -214,6 +234,10 @@ section.project-task-section > form.add-task-form {
     padding-bottom: var(--spacing-md);
     margin-bottom: var(--spacing-sm);
     border-bottom: 1px solid var(--clr-primary);
+}
+
+form.add-task-form > label {
+    text-wrap: nowrap;
 }
 
 ul.task-list {

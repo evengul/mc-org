@@ -7,13 +7,43 @@ import app.mcorg.presentation.htmx.*
 import app.mcorg.presentation.htmx.templates.*
 import app.mcorg.presentation.htmx.templates.pages.page
 
-fun projectPage(project: Project): String {
-    return page(title = project.name, id = "project-page") {
-        section(classes = "project-task-section") {
-            id = "project-doable-tasks"
-            h2 {
-                + "Doable tasks"
+fun projectPage(project: Project, tab: String): String {
+    return page(title = project.name, id = "project-page", beforeMain = {
+        nav {
+            id = "project-tabs"
+            ul {
+                li(classes = if (tab == "doable-tasks") "selected" else "") {
+                    h2 {
+                        if (tab == "doable-tasks") {
+                            + "Doable tasks"
+                        } else {
+                            a {
+                                href = "?tab=doable-tasks"
+                                + "Doable tasks"
+                            }
+                        }
+                    }
+                }
+                li(classes = if (tab == "countable-tasks") "selected" else "") {
+                    h2 {
+                        if (tab == "countable-tasks") {
+                            + "Countable tasks"
+                        } else {
+                            a {
+                                href = "?tab=countable-tasks"
+                                + "Countable tasks"
+                            }
+                        }
+                    }
+                }
             }
+        }
+    }) {
+        script {
+            src = "/static/response-targets.js"
+            defer = true
+        }
+        if (tab == "doable-tasks") {
             form(classes = "add-task-form") {
                 id = "add-doable-task-form"
                 encType = FormEncType.multipartFormData
@@ -65,27 +95,7 @@ fun projectPage(project: Project): String {
                     }
                 }
             }
-        }
-        section(classes = "project-task-section") {
-            id = "project-countable-tasks"
-            span {
-                id = "countable-tasks-header"
-                h2 {
-                    + "Gathering/countable tasks"
-                }
-                form {
-                    encType = FormEncType.multipartFormData
-                    method = FormMethod.post
-                    action = "/worlds/${project.worldId}/teams/${project.teamId}/projects/${project.id}/tasks/material-list"
-                    input {
-                        name = "file"
-                        type = InputType.file
-                    }
-                    button {
-                        + "Upload litematica material list"
-                    }
-                }
-            }
+        } else if (tab == "countable-tasks") {
             form(classes = "add-task-form") {
                 id = "add-countable-task-form"
                 encType = FormEncType.multipartFormData
@@ -125,6 +135,28 @@ fun projectPage(project: Project): String {
                     + "Add task"
                 }
             }
+            form(classes = "add-task-form") {
+                encType = FormEncType.multipartFormData
+                method = FormMethod.post
+                hxExtension("response-targets")
+                hxPost("/worlds/${project.worldId}/teams/${project.teamId}/projects/${project.id}/tasks/material-list")
+                hxTargetError("#litematica-upload-error")
+                label {
+                    htmlFor = "litematica-file-selector"
+                    + "Select litematica material list"
+                }
+                input {
+                    id = "litematica-file-selector"
+                    name = "file"
+                    type = InputType.file
+                }
+                button {
+                    + "Upload litematica material list"
+                }
+                p(classes = "text-error") {
+                    id = "litematica-upload-error"
+                }
+            }
             ul(classes = "task-list") {
                 for (task in project.countable().sortedByDescending { it.needed }) {
                     li {
@@ -136,9 +168,6 @@ fun projectPage(project: Project): String {
                 }
             }
         }
-
-
-
     }
 }
 
@@ -150,11 +179,11 @@ fun LI.updateCountableForm(worldId: Int, teamId: Int, projectId: Int, task: Task
         hxTarget("closest li")
         hxSwap("outerHTML")
         label {
-            htmlFor = "update-countable-task-done-input"
+            htmlFor = "update-countable-task-${task.id}-done-input"
             + "How much is done?"
         }
         input {
-            id = "update-countable-task-done-input"
+            id = "update-countable-task-${task.id}-done-input"
             name = "done"
             type = InputType.number
             required = true
@@ -163,11 +192,11 @@ fun LI.updateCountableForm(worldId: Int, teamId: Int, projectId: Int, task: Task
             value = task.done.toString()
         }
         label {
-            htmlFor = "update-countable-task-needed-input"
+            htmlFor = "update-countable-task-${task.id}-needed-input"
             + "How much is needed?"
         }
         input {
-            id = "update-countable-task-needed-input"
+            id = "update-countable-task-${task.id}-needed-input"
             name = "needed"
             type = InputType.number
             required = true
@@ -176,7 +205,7 @@ fun LI.updateCountableForm(worldId: Int, teamId: Int, projectId: Int, task: Task
             value = task.needed.toString()
         }
         button {
-            id = "update-countable-task-submit"
+            id = "update-countable-task-${task.id}-submit"
             type = ButtonType.submit
             + "Update"
         }

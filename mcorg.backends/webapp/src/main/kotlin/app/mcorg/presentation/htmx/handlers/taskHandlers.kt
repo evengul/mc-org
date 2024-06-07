@@ -8,6 +8,7 @@ import io.ktor.server.response.*
 import app.mcorg.domain.Priority
 import app.mcorg.domain.tasksFromMaterialList
 import app.mcorg.presentation.configuration.projectsApi
+import app.mcorg.presentation.htmx.routing.clientRedirect
 import app.mcorg.presentation.htmx.routing.respondHtml
 import app.mcorg.presentation.htmx.templates.pages.project.completeTaskButton
 import app.mcorg.presentation.htmx.templates.pages.project.countableTaskListElement
@@ -26,10 +27,11 @@ suspend fun ApplicationCall.handleCreateTask(worldId: Int, teamId: Int, projectI
     } else {
         if (needed == null) {
             projectsApi().addDoableTask(projectId, taskName, priority)
+            respondRedirect("/worlds/$worldId/teams/$teamId/projects/$projectId?tab=doable-tasks")
         } else {
             projectsApi().addCountableTask(projectId, taskName, priority, needed)
+            respondRedirect("/worlds/$worldId/teams/$teamId/projects/$projectId?tab=countable-tasks")
         }
-        respondRedirect("/worlds/$worldId/teams/$teamId/projects/$projectId")
     }
 }
 
@@ -83,7 +85,7 @@ suspend fun ApplicationCall.handleUploadMaterialList(worldId: Int, teamId: Int, 
         }
     }
 
-    respondRedirect("/worlds/$worldId/teams/$teamId/projects/$projectId")
+    clientRedirect("/worlds/$worldId/teams/$teamId/projects/$projectId?tab=countable-tasks")
 }
 
 private fun String.toPriority(): Priority {

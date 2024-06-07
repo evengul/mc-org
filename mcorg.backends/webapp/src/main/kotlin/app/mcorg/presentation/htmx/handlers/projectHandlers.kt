@@ -10,12 +10,12 @@ import app.mcorg.presentation.htmx.routing.getUserIdOrRedirect
 import app.mcorg.presentation.htmx.routing.respondHtml
 import app.mcorg.presentation.htmx.templates.pages.project.projectPage
 
-suspend fun ApplicationCall.respondProject(projectId: Int) {
+suspend fun ApplicationCall.respondProject(projectId: Int, tab: String) {
 
     val project = projectsApi().getProject(projectId, includeTasks = true)
         ?: return respondRedirect("/")
 
-    respondHtml(projectPage(project))
+    respondHtml(projectPage(project, tab))
 }
 
 suspend fun ApplicationCall.handleCreateProject(worldId: Int, teamId: Int) {

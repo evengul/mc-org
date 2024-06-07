@@ -8,6 +8,7 @@ import java.time.LocalDate
 fun page(siteTitle: String = "MC-ORG",
          title: String = "MC-ORG",
          id: String = "main",
+         beforeMain: (BODY.() -> Unit)? = null,
          content: MAIN.() -> Unit): String {
     return baseTemplate(siteTitle = siteTitle) {
         header {
@@ -47,6 +48,9 @@ fun page(siteTitle: String = "MC-ORG",
                     }
                 }
             }
+        }
+        if (beforeMain != null) {
+            beforeMain()
         }
         main {
             this.id = id
