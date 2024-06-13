@@ -26,8 +26,15 @@ class PermissionsImpl : Permissions, Repository() {
     override fun hasPackPermission(userId: Int, authority: Authority, packId: Int): Boolean {
         return getConnection()
             .use {
-                it.prepareStatement("select 1 from permission where user_id = ? and authority <= ? and pack_id = ?")
-                    .apply { setInt(1, userId); setInt(2, authority.level); setInt(3, packId) }
+                it.prepareStatement("select 1 from permission p left join team_packs tp on p.team_id = tp.team_id left join world_packs wp on p.world_id = wp.world_id\n" +
+                        " where (p.pack_id = ? or tp.pack_id = ? or wp.pack_id = ?) and p.user_id = ? and authority <= ? limit 1")
+                    .apply {
+                        setInt(1, packId)
+                        setInt(2, packId)
+                        setInt(3, packId)
+                        setInt(4, userId)
+                        setInt(5, authority.level)
+                    }
                     .executeQuery()
                     .next()
             }
@@ -271,6 +278,32 @@ class PermissionsImpl : Permissions, Repository() {
             it.prepareStatement("delete from permission where user_id = ? and pack_id = ?")
                 .apply { setInt(1, userId); setInt(2, packId) }
                 .executeUpdate()
+        }
+    }
+
+    override fun getUsersInTeam(teamId: Int): List<User> {
+        getConnection().use {
+            it.prepareStatement("select u.id,u.username from users u join permission p on p.user_id = u.id where p.team_id = ?")
+                .apply { setInt(1, teamId) }
+                .executeQuery()
+                .apply {
+                    val users = mutableListOf<User>()
+
+                    while (next()) {
+                        users.add(User(getInt(1), getString(2)))
+                    }
+
+                    return users
+                }
+        }
+    }
+
+    override fun hasTeamPermissionInWorld(userId: Int, worldId: Int): Boolean {
+        return getConnection().use {
+            it.prepareStatement("select 1 from permission p join team t on t.id = p.team_id where p.user_id = ? and t.world_id = ? limit 1")
+                .apply { setInt(1, userId); setInt(2, worldId) }
+                .executeQuery()
+                .next()
         }
     }
 

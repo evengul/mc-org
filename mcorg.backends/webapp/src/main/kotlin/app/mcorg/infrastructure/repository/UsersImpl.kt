@@ -46,6 +46,20 @@ class UsersImpl : Users, Repository() {
         return null
     }
 
+    override fun getUser(username: String): User? {
+        getConnection().use {
+            it.prepareStatement("select id,username from users where username = ?")
+                .apply { setString(1, username) }
+                .executeQuery()
+                .apply {
+                    if (next()) {
+                        return User(getInt(1), getString(2))
+                    }
+                }
+        }
+        return null
+    }
+
     override fun getUserByUsernameIfPasswordMatches(username: String, password: String): User? {
         getConnection().use {
             it.prepareStatement("select id, username, password_hash from users where username = ?")

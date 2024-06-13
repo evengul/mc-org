@@ -30,7 +30,12 @@ suspend fun ApplicationCall.respondTeam(worldId: Int, teamId: Int) {
         .filter { it.second == Authority.OWNER }
         .map { it.first }
 
-    respondHtml(teamPage(world, team, projects, packs, ownedPacks))
+    val teamUsers = permissionsApi().getUsersInTeam(teamId)
+
+    val isTeamAdmin = permissionsApi()
+        .hasTeamPermission(getUserIdOrRedirect()!!, Authority.ADMIN, teamId)
+
+    respondHtml(teamPage(world, team, projects, packs, ownedPacks, teamUsers, isTeamAdmin))
 }
 
 suspend fun ApplicationCall.handleCreateTeam(worldId: Int) {

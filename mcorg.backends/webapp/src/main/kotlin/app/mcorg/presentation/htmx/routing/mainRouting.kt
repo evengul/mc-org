@@ -35,6 +35,11 @@ suspend fun ApplicationCall.clientRedirect(path: String) {
     respond(HttpStatusCode.OK)
 }
 
+suspend fun ApplicationCall.clientRefresh() {
+    response.headers.append("HX-Refresh", "true")
+    respond(HttpStatusCode.OK)
+}
+
 suspend fun ApplicationCall.htmlBadRequest(html: String) {
     isHtml()
     respond(HttpStatusCode.BadRequest, html)

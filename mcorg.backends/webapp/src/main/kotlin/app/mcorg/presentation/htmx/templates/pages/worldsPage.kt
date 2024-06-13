@@ -5,7 +5,7 @@ import kotlinx.html.stream.createHTML
 import app.mcorg.domain.World
 import app.mcorg.presentation.htmx.*
 
-fun worldsPage(worlds: List<World>): String {
+fun worldsPage(worlds: List<World>, isAdmin: List<Int> = emptyList()): String {
     return page(title = "Your worlds", id = "worlds-page") {
         form(classes = "create-form") {
             id = "add-world-container"
@@ -36,14 +36,16 @@ fun worldsPage(worlds: List<World>): String {
                         href = "/worlds/${world.id}"
                         + world.name
                     }
-                    button(classes = "resource-list-item-delete-button") {
-                        id = "worlds-world-${world.id}-delete-button"
-                        type = ButtonType.button
-                        hxDelete("/worlds/${world.id}")
-                        hxTarget("closest li")
-                        hxSwap("outerHTML")
-                        hxConfirm("Are you sure you want to delete this world? All teams and projects inside it will also be deleted.")
-                        + "Delete world"
+                    if (isAdmin.contains(world.id)) {
+                        button(classes = "resource-list-item-delete-button") {
+                            id = "worlds-world-${world.id}-delete-button"
+                            type = ButtonType.button
+                            hxDelete("/worlds/${world.id}")
+                            hxTarget("closest li")
+                            hxSwap("outerHTML")
+                            hxConfirm("Are you sure you want to delete this world? All teams and projects inside it will also be deleted.")
+                            + "Delete world"
+                        }
                     }
                 }
             }

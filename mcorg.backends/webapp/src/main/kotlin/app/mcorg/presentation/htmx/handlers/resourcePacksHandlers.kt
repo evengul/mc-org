@@ -30,7 +30,9 @@ suspend fun ApplicationCall.respondResourcePacks() {
 suspend fun ApplicationCall.respondResourcePack(packId: Int) {
     val pack = packsApi().getPack(packId) ?: return respondRedirect("/resourcepacks")
 
-    respondHtml(resourcePackPage(pack))
+    val isAdmin = permissionsApi().hasPackPermission(getUserIdOrRedirect()!!, Authority.ADMIN, packId)
+
+    respondHtml(resourcePackPage(pack, isAdmin))
 }
 
 suspend fun ApplicationCall.handleCreateResourcePack() {

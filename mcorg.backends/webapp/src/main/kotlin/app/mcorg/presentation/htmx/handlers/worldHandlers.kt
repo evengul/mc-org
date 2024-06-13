@@ -23,9 +23,12 @@ suspend fun ApplicationCall.handleGetWorlds() {
     val permissions = permissionsApi()
         .getWorldPermissions(userId)
         .permissions[PermissionLevel.WORLD]!!
-        .map { it.first }
 
-    respondHtml(worldsPage(permissions))
+    val worlds = permissions.map { it.first }
+
+    val isAdmin = permissions.filter { it.second == Authority.ADMIN }.map { it.first.id }
+
+    respondHtml(worldsPage(worlds, isAdmin))
 }
 
 suspend fun ApplicationCall.respondWorld(id: Int) {
@@ -42,7 +45,10 @@ suspend fun ApplicationCall.respondWorld(id: Int) {
         .filter { it.second == Authority.OWNER }
         .map { it.first }
 
-    respondHtml(worldPage(world, teams, packs, ownedPacks))
+    val isWorldAdmin = permissionsApi()
+        .hasWorldPermission(getUserIdOrRedirect()!!, Authority.ADMIN, id)
+
+    respondHtml(worldPage(world, teams, packs, ownedPacks, isWorldAdmin))
 }
 
 suspend fun ApplicationCall.handleCreateWorld() {

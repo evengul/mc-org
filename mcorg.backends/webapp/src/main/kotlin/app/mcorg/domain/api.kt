@@ -5,6 +5,7 @@ interface Users {
     fun usernameExists(username: String): Boolean
     fun emailExists(email: String): Boolean
     fun getUser(id: Int): User?
+    fun getUser(username: String): User?
     fun getUserByUsernameIfPasswordMatches(username: String, password: String): User?
     fun createUser(username: String, email: String, password: String): Int
     fun searchUsers(searchTerm: String): List<User>
@@ -32,6 +33,9 @@ interface Permissions {
     fun removeWorldPermission(userId: Int, worldId: Int)
     fun removeTeamPermission(userId: Int, teamId: Int)
     fun removePackPermission(userId: Int, packId: Int)
+
+    fun getUsersInTeam(teamId: Int): List<User>
+    fun hasTeamPermissionInWorld(userId: Int, worldId: Int): Boolean
 }
 
 interface Worlds {
