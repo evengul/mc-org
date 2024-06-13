@@ -51,15 +51,19 @@ fun createSignedJwtToken(user: User): String {
 }
 
 private fun getKeys(): Pair<RSAPublicKey, RSAPrivateKey> {
-    val privateKeyStr = readKey("private_key.pem")
+    val privateKeyStr = readPrivateKey()
+        .replace("\\n", "")
         .replace("\n", "")
+        .replace("\\r", "")
         .replace("\r", "")
         .replace("-----BEGIN PRIVATE KEY-----", "")
         .replace("-----BEGIN RSA PRIVATE KEY-----", "")
         .replace("-----END PRIVATE KEY-----", "")
         .replace("-----END RSA PRIVATE KEY-----", "")
-    val publicKeyStr = readKey("public_key.pem")
+    val publicKeyStr = readPublicKey()
+        .replace("\\n", "")
         .replace("\n", "")
+        .replace("\\r", "")
         .replace("\r", "")
         .replace("-----BEGIN PUBLIC KEY-----", "")
         .replace("-----END PUBLIC KEY-----", "")
@@ -73,6 +77,14 @@ private fun getKeys(): Pair<RSAPublicKey, RSAPrivateKey> {
     val publicKey = keyFactory.generatePublic(x509EncodedKeySpec) as RSAPublicKey
 
     return publicKey to privateKey
+}
+
+private fun readPrivateKey(): String {
+    return System.getenv("RSA_PRIVATE_KEY") ?: readKey("private_key.pem")
+}
+
+private fun readPublicKey(): String {
+    return System.getenv("RSA_PUBLIC_KEY") ?: readKey("public_key.pem")
 }
 
 private fun readKey(filename: String): String {

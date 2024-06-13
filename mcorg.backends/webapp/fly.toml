@@ -1,0 +1,28 @@
+# fly.toml app configuration file generated for mcorg on 2024-06-13T10:46:47+02:00
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = 'mcorg'
+primary_region = 'ams'
+
+[build]
+
+[env]
+  DB_URL = 'jdbc:postgresql://ep-icy-wood-a2vogqwy.eu-central-1.aws.neon.tech/mcorg?sslmode=require'
+  DB_USER = 'mcorg_owner'
+  JWT_ISSUER = 'mcorg.fly.dev'
+  RSA_PUBLIC_KEY='-----BEGIN PUBLIC KEY-----\nMFwwDQYJKoZIhvcNAQEBBQADSwAwSAJBAORNqSs3v7QFIRWsHg2pJ+nWzLgNxxpb\nq3zaCblxV/RhXAJt8+RqB89WlwwmTjc3ezQasO0LGNAR8wzBJDCZcrECAwEAAQ==\n-----END PUBLIC KEY-----'
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = true
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ['app']
+
+[[vm]]
+  memory = '1gb'
+  cpu_kind = 'shared'
+  cpus = 1
