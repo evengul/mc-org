@@ -1,8 +1,7 @@
 /*https://coolors.co/797553-0a2e36-f7f7f7-14cc60-efefef*/
 
 :root {
-    --font-primary: sans-serif;
-    --font-secondary: serif;
+    --font-primary: "Roboto Mono", sans-serif;
 
     --text-base-size: 1em;
     --text-scale-ratio: 1.2;
@@ -16,8 +15,8 @@
     --text-xxl: calc(1em * var(--text-scale-ratio) * var(--text-scale-ratio) * var(--text-scale-ratio) * var(--text-scale-ratio));
     --text-xxxl: calc(1em * var(--text-scale-ratio) * var(--text-scale-ratio) * var(--text-scale-ratio) * var(--text-scale-ratio) * var(--text-scale-ratio));
 
-    --clr-primary: #38473e;
-    --clr-secondary: #797553;
+    --clr-primary: #15E543;
+    --clr-secondary: #CFCFCF;
 
     --clr-danger: #da1e28;
     --clr-danger-warning: #ff832b;
@@ -27,7 +26,7 @@
     --clr-bg-dark: #EFEFEF;
     --clr-bg-light: #F7F7F7;
 
-    --clr-text: #0A2E36;
+    --clr-text: #272727;
 
     --spacing-baseline: 24px;
 
