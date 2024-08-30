@@ -1,8 +1,8 @@
 package app.mcorg.presentation.plugins
 
-import app.mcorg.presentation.router.utils.getUserFromCookie
-import app.mcorg.presentation.router.utils.removeTokenAndSignOut
-import app.mcorg.presentation.router.utils.storeUser
+import app.mcorg.presentation.utils.getUserFromCookie
+import app.mcorg.presentation.utils.removeTokenAndSignOut
+import app.mcorg.presentation.utils.storeUser
 import com.auth0.jwt.exceptions.TokenExpiredException
 import io.ktor.server.application.*
 

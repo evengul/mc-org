@@ -8,6 +8,7 @@ import app.mcorg.presentation.templates.project.addProject
 import app.mcorg.presentation.templates.project.assignUser
 import app.mcorg.presentation.templates.project.project
 import app.mcorg.presentation.templates.project.projects
+import app.mcorg.presentation.utils.getUserId
 import app.mcorg.presentation.utils.receiveAddUserRequest
 import app.mcorg.presentation.utils.receiveCreateProjectRequest
 import io.ktor.server.application.*

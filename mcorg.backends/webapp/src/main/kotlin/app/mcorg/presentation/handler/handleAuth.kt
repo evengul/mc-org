@@ -5,6 +5,9 @@ import app.mcorg.presentation.configuration.minecraftApi
 import app.mcorg.presentation.configuration.usersApi
 import app.mcorg.presentation.router.utils.*
 import app.mcorg.presentation.templates.auth.signInTemplate
+import app.mcorg.presentation.utils.addToken
+import app.mcorg.presentation.utils.getUserFromCookie
+import app.mcorg.presentation.utils.removeTokenAndSignOut
 import io.ktor.server.application.*
 import io.ktor.server.response.*
 

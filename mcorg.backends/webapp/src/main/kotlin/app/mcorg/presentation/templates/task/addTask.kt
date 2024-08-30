@@ -1,10 +1,9 @@
 package app.mcorg.presentation.templates.task
 
-import app.mcorg.domain.Project
 import app.mcorg.presentation.templates.baseTemplate
 import kotlinx.html.*
 
-fun addTask(worldId: String, projectId: String) = baseTemplate {
+fun addTask(worldId: Int, projectId: Int) = baseTemplate {
     nav {
         button {
             + "Back"

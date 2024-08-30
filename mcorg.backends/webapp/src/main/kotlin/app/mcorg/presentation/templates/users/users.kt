@@ -4,7 +4,7 @@ import app.mcorg.domain.User
 import app.mcorg.presentation.templates.baseTemplate
 import kotlinx.html.*
 
-fun users(worldId: String, currentUser: User, users: List<User>): String = baseTemplate {
+fun users(worldId: Int, currentUser: User, users: List<User>): String = baseTemplate {
     nav {
         button {
             + "Menu"

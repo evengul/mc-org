@@ -1,4 +1,4 @@
-package app.mcorg.presentation.router.utils
+package app.mcorg.presentation.utils
 
 import app.mcorg.domain.User
 import app.mcorg.presentation.security.getUserFromJwtToken
@@ -20,6 +20,6 @@ fun ApplicationCall.addToken(token: String) = response.cookies.append(tokenName,
 suspend fun ApplicationCall.removeTokenAndSignOut() {
     response.cookies.append(tokenName, "", expires = GMTDate(-1), httpOnly = true)
 
-    respondRedirect("/auth/signin")
+    respondRedirect("/auth/sign-in")
 }
 

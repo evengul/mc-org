@@ -1,7 +1,7 @@
 package app.mcorg.presentation.handler
 
 import app.mcorg.presentation.configuration.usersApi
-import app.mcorg.presentation.router.utils.getUserId
+import app.mcorg.presentation.utils.getUserId
 import app.mcorg.presentation.router.utils.respondHtml
 import app.mcorg.presentation.templates.profile.profile
 import io.ktor.server.application.*

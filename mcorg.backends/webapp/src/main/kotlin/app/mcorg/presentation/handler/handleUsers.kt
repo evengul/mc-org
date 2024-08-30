@@ -3,7 +3,7 @@ package app.mcorg.presentation.handler
 import app.mcorg.domain.Authority
 import app.mcorg.presentation.configuration.permissionsApi
 import app.mcorg.presentation.configuration.usersApi
-import app.mcorg.presentation.router.utils.getUser
+import app.mcorg.presentation.utils.getUser
 import app.mcorg.presentation.router.utils.getWorldId
 import app.mcorg.presentation.router.utils.respondHtml
 import app.mcorg.presentation.templates.users.addUser

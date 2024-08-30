@@ -5,7 +5,6 @@ import app.mcorg.domain.countable
 import app.mcorg.domain.doable
 import app.mcorg.domain.isDone
 import app.mcorg.presentation.templates.baseTemplate
-import app.mcorg.presentation.utils.Paths
 import kotlinx.html.*
 
 fun project(project: Project): String = baseTemplate {

@@ -1,8 +1,8 @@
 package app.mcorg.presentation.handler
 
 import app.mcorg.presentation.configuration.usersApi
-import app.mcorg.presentation.router.utils.getUserFromCookie
-import app.mcorg.presentation.router.utils.removeTokenAndSignOut
+import app.mcorg.presentation.utils.getUserFromCookie
+import app.mcorg.presentation.utils.removeTokenAndSignOut
 import com.auth0.jwt.exceptions.TokenExpiredException
 import io.ktor.server.application.*
 import io.ktor.server.response.*
@@ -16,7 +16,7 @@ suspend fun ApplicationCall.handleGetLanding() {
     }
 
     if (user == null) {
-        respondRedirect("/auth/signin")
+        respondRedirect("/auth/sign-in")
     } else {
         val profile = usersApi.getProfile(user.id) ?: return removeTokenAndSignOut()
         if (profile.selectedWorld != null) {
