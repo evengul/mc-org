@@ -1,8 +1,9 @@
 package app.mcorg.presentation.plugins
 
-import app.mcorg.presentation.utils.getUserFromCookie
-import app.mcorg.presentation.utils.removeTokenAndSignOut
-import app.mcorg.presentation.utils.storeUser
+import app.mcorg.domain.Authority
+import app.mcorg.presentation.configuration.permissionsApi
+import app.mcorg.presentation.router.utils.getWorldId
+import app.mcorg.presentation.utils.*
 import com.auth0.jwt.exceptions.TokenExpiredException
 import io.ktor.server.application.*
 
@@ -17,6 +18,28 @@ val AuthPlugin = createRouteScopedPlugin("AuthPlugin") {
             }
         } catch (e: TokenExpiredException) {
             it.removeTokenAndSignOut()
+        }
+    }
+}
+
+val WorldParticipantPlugin = createRouteScopedPlugin("WorldAccessPlugin") {
+    onCall {
+        val userId = it.getUserId()
+        val worldId = it.getWorldId()
+        val hasAccess = permissionsApi.hasWorldPermission(userId, Authority.PARTICIPANT, worldId)
+        if (!hasAccess) {
+            throw IllegalCallerException("User does not have access to world")
+        }
+    }
+}
+
+val WorldAdminPlugin = createRouteScopedPlugin("WorldAdminPlugin") {
+    onCall {
+        val userId = it.getUserId()
+        val worldId = it.getWorldId()
+        val hasAccess = permissionsApi.hasWorldPermission(userId, Authority.ADMIN, worldId)
+        if (!hasAccess) {
+            throw IllegalCallerException("User does not have admin access to world")
         }
     }
 }

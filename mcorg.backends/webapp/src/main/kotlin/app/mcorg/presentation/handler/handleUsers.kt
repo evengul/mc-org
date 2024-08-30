@@ -16,7 +16,8 @@ suspend fun ApplicationCall.handleGetUsers() {
     val worldId = getWorldId()
     val currentUser = getUser()
     val worldUsers = permissionsApi.getUsersInWorld(worldId)
-    respondHtml(users(worldId, currentUser, worldUsers))
+    val isAdmin = permissionsApi.hasWorldPermission(currentUser.id, Authority.ADMIN, worldId)
+    respondHtml(users(worldId, currentUser, worldUsers, isAdmin))
 }
 
 suspend fun ApplicationCall.handleGetAddUser() {

@@ -53,6 +53,7 @@ fun Application.configureAppRouter() {
                 }
                 route("/{worldId}") {
                     install(WorldParamPlugin)
+                    install(WorldParticipantPlugin)
                     get {
                         call.handleGetWorld()
                     }
@@ -60,11 +61,14 @@ fun Application.configureAppRouter() {
                         get {
                             call.handleGetUsers()
                         }
-                        get("/add") {
-                            call.handleGetAddUser()
-                        }
-                        post("/add") {
-                            call.handlePostUser()
+                        route("/add") {
+                            install(WorldAdminPlugin)
+                            get {
+                                call.handleGetAddUser()
+                            }
+                            post {
+                                call.handlePostUser()
+                            }
                         }
                     }
                     route("/projects") {
