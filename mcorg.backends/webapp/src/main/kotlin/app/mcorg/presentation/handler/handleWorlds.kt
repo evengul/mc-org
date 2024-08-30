@@ -1,0 +1,39 @@
+package app.mcorg.presentation.handler
+
+import app.mcorg.domain.Authority
+import app.mcorg.presentation.configuration.permissionsApi
+import app.mcorg.presentation.configuration.usersApi
+import app.mcorg.presentation.configuration.worldsApi
+import app.mcorg.presentation.router.utils.getUserId
+import app.mcorg.presentation.router.utils.getWorldId
+import app.mcorg.presentation.router.utils.receiveCreateWorldRequest
+import app.mcorg.presentation.router.utils.respondHtml
+import app.mcorg.presentation.templates.world.addWorld
+import app.mcorg.presentation.templates.world.worlds
+import io.ktor.server.application.*
+import io.ktor.server.response.*
+
+suspend fun ApplicationCall.handleGetWorlds() {
+
+    respondHtml(worlds(usersApi.getProfile(getUserId())?.selectedWorld), )
+}
+
+suspend fun ApplicationCall.handleGetAddWorld() {
+    respondHtml(addWorld())
+}
+
+suspend fun ApplicationCall.handlePostWorld() {
+    val userId = getUserId()
+    val (worldName) = receiveCreateWorldRequest()
+
+    val id = worldsApi.createWorld(worldName)
+    permissionsApi.addWorldPermission(userId, id, Authority.OWNER)
+    usersApi.selectWorld(userId, id)
+
+    respondRedirect("/")
+}
+
+suspend fun ApplicationCall.handleShowWorld() {
+    val worldId = getWorldId()
+    respondRedirect("/worlds/$worldId/projects")
+}
