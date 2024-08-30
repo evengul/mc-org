@@ -23,6 +23,7 @@ interface Permissions {
     fun addWorldPermission(userId: Int, worldId: Int, authority: Authority): Int
     fun changeWorldPermission(userId: Int, worldId: Int, authority: Authority)
     fun removeWorldPermission(userId: Int, worldId: Int)
+    fun getUsersInWorld(worldId: Int): List<User>
 }
 
 interface Worlds {
@@ -43,6 +44,9 @@ interface Projects {
 
     fun archiveProject(id: Int)
     fun openProject(id: Int)
+
+    fun assignProject(id: Int, userId: Int)
+    fun removeProjectAssignment(id: Int)
 
     fun getTask(projectId: Int, taskId: Int): Task?
     fun addCountableTask(projectId: Int, name: String, priority: Priority, needed: Int): Int

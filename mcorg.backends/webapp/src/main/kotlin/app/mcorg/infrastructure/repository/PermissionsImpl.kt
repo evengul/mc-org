@@ -86,6 +86,21 @@ class PermissionsImpl : Permissions, Repository() {
         }
     }
 
+    override fun getUsersInWorld(worldId: Int): List<User> {
+        getConnection().use {
+            it.prepareStatement("select u.id as user_id, u.username as username from permission p join users u on p.user_id = u.id where world_id = ?")
+                .apply { setInt(1, worldId) }
+                .executeQuery()
+                .apply {
+                    val list = mutableListOf<User>()
+                    while (next()) {
+                        list.add(User(getInt("user_id"), getString("username")))
+                    }
+                    return list
+                }
+        }
+    }
+
     private fun Int.toAuthority(): Authority {
         when {
             this == Authority.OWNER.level -> return Authority.OWNER

@@ -3,7 +3,6 @@ package app.mcorg.presentation
 import app.mcorg.presentation.handler.*
 import app.mcorg.presentation.plugins.*
 import io.ktor.server.application.*
-import io.ktor.server.response.*
 import io.ktor.server.routing.*
 
 fun Application.configureAppRouter() {
@@ -55,7 +54,7 @@ fun Application.configureAppRouter() {
                 route("/{worldId}") {
                     install(WorldParamPlugin)
                     get {
-                        call.respondRedirect("/worlds/${call.parameters["worldId"]}/projects")
+                        call.handleGetWorld()
                     }
                     route("/users") {
                         get {

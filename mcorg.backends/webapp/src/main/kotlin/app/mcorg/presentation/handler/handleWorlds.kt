@@ -6,7 +6,7 @@ import app.mcorg.presentation.configuration.usersApi
 import app.mcorg.presentation.configuration.worldsApi
 import app.mcorg.presentation.router.utils.getUserId
 import app.mcorg.presentation.router.utils.getWorldId
-import app.mcorg.presentation.router.utils.receiveCreateWorldRequest
+import app.mcorg.presentation.utils.receiveCreateWorldRequest
 import app.mcorg.presentation.router.utils.respondHtml
 import app.mcorg.presentation.templates.world.addWorld
 import app.mcorg.presentation.templates.world.worlds
@@ -14,8 +14,11 @@ import io.ktor.server.application.*
 import io.ktor.server.response.*
 
 suspend fun ApplicationCall.handleGetWorlds() {
-
-    respondHtml(worlds(usersApi.getProfile(getUserId())?.selectedWorld), )
+    val userId = getUserId()
+    val selectedWorld = usersApi.getProfile(userId)?.selectedWorld
+    val permissions = permissionsApi.getPermissions(userId)
+    val worlds = permissions.ownedWorlds + permissions.participantWorlds
+    respondHtml(worlds(selectedWorld, worlds))
 }
 
 suspend fun ApplicationCall.handleGetAddWorld() {
@@ -33,7 +36,7 @@ suspend fun ApplicationCall.handlePostWorld() {
     respondRedirect("/")
 }
 
-suspend fun ApplicationCall.handleShowWorld() {
+suspend fun ApplicationCall.handleGetWorld() {
     val worldId = getWorldId()
-    respondRedirect("/worlds/$worldId/projects")
+    respondRedirect("/app/worlds/$worldId/projects")
 }

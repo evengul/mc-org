@@ -159,6 +159,22 @@ class ProjectsImpl : Projects, Repository() {
         }
     }
 
+    override fun assignProject(id: Int, userId: Int) {
+        getConnection().use {
+            it.prepareStatement("update project set assignee = ? where id = ?")
+                .apply { setInt(1, userId); setInt(2, id) }
+                .executeUpdate()
+        }
+    }
+
+    override fun removeProjectAssignment(id: Int) {
+        getConnection().use {
+            it.prepareStatement("update project set assignee = null where id = ?")
+                .apply { setInt(1, id) }
+                .executeUpdate()
+        }
+    }
+
     override fun getTask(projectId: Int, taskId: Int): Task? {
         getConnection().use {
             it.prepareStatement("select name,needed,done,priority from task where project_id = ? and id = ?")

@@ -1,27 +1,28 @@
 package app.mcorg.presentation.handler
 
 import app.mcorg.presentation.configuration.usersApi
-import app.mcorg.presentation.router.utils.clientRefresh
 import app.mcorg.presentation.router.utils.getUserId
 import app.mcorg.presentation.router.utils.respondHtml
+import app.mcorg.presentation.templates.profile.profile
 import io.ktor.server.application.*
+import io.ktor.server.response.*
 
 suspend fun ApplicationCall.handleGetProfile() {
-    // TODO: Add profile page HTML
-    respondHtml("Profile page")
+    val userId = getUserId()
+    val profile = usersApi.getProfile(userId) ?: throw IllegalArgumentException("User does not exist")
+    respondHtml(profile(profile))
 }
 
 suspend fun ApplicationCall.handleUploadProfilePhoto() {
-    // TODO: Validate image, resize if needed, upload, and return new image html.
-    clientRefresh()
+    respondRedirect("/app/profile")
 }
 
 suspend fun ApplicationCall.handleIsTechnical() {
     usersApi.isTechnical(getUserId())
-    clientRefresh()
+    respondRedirect("/app/profile")
 }
 
 suspend fun ApplicationCall.handleIsNotTechnical() {
     usersApi.isNotTechnical(getUserId())
-    clientRefresh()
+    respondRedirect("/app/profile")
 }
