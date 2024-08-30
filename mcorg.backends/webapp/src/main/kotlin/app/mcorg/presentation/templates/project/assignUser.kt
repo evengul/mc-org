@@ -15,9 +15,17 @@ fun assignUser(users: List<User>, selected: Int?): String = baseTemplate {
     }
     main {
         ul {
-            for (user in users) {
+            val selectedUser = users.find { it.id == selected }
+            if (selectedUser != null) {
                 li {
-                    + user.username
+                    + selectedUser.username
+                }
+            }
+            for (user in users) {
+                if (user.id != selected) {
+                    li {
+                        + user.username
+                    }
                 }
             }
         }

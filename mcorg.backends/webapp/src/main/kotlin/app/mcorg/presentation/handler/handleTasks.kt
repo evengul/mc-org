@@ -15,7 +15,7 @@ import io.ktor.server.application.*
 import io.ktor.server.response.*
 
 suspend fun ApplicationCall.handleGetAddTask() {
-    respondHtml(addTask())
+    respondHtml(addTask(getWorldId(), getProjectId()))
 }
 
 suspend fun ApplicationCall.handleGetAddDoableTask() {

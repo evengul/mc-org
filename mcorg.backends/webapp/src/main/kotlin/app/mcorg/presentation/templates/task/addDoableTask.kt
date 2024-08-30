@@ -14,6 +14,8 @@ fun addDoableTask() = baseTemplate {
     }
     main {
         form {
+            encType = FormEncType.applicationXWwwFormUrlEncoded
+            method = FormMethod.post
             label {
                 + "What needs to be done?"
                 input {

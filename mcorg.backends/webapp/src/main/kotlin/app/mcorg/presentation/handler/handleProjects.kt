@@ -14,7 +14,10 @@ import io.ktor.server.application.*
 import io.ktor.server.response.*
 
 suspend fun ApplicationCall.handleGetProjects() {
-    respondHtml(projects(projectsApi.getWorldProjects(getUserId())))
+    val worldId = getWorldId()
+    val userId = getUserId()
+    val projects = projectsApi.getWorldProjects(userId)
+    respondHtml(projects(worldId, projects))
 }
 
 suspend fun ApplicationCall.handleGetAddProject() {

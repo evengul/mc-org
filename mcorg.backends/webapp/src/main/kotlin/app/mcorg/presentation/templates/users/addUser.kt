@@ -14,6 +14,8 @@ fun addUser(): String = baseTemplate {
     }
     main {
         form {
+            encType = FormEncType.applicationXWwwFormUrlEncoded
+            method = FormMethod.post
             label {
                 input {
                     type = InputType.text

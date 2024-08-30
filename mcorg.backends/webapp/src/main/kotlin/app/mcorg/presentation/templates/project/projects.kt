@@ -4,7 +4,7 @@ import app.mcorg.domain.SlimProject
 import app.mcorg.presentation.templates.baseTemplate
 import kotlinx.html.*
 
-fun projects(projects: List<SlimProject>): String = baseTemplate("MC-ORG - Projects") {
+fun projects(worldId: Int, projects: List<SlimProject>): String = baseTemplate("MC-ORG - Projects") {
     nav {
         button {
             + "Menu"
@@ -12,30 +12,43 @@ fun projects(projects: List<SlimProject>): String = baseTemplate("MC-ORG - Proje
         h1 {
             + "Projects"
         }
-        button {
-            + "Add"
+        a {
+            href = "/app/worlds/$worldId/projects/add"
+            button {
+                + "Add"
+            }
         }
     }
     main {
         if (projects.isEmpty()) {
-            + "No projects? Add one with the button above."
+            + "No projects? "
+            a {
+                href = "/app/worlds/$worldId/projects/add"
+                + "Add one now."
+            }
         }
         ul {
             for (project in projects) {
                 li {
-                    div {
-                        + (project.priority.name + " | " + project.dimension.name + " | " + project.name)
-                    }
-                    div {
-                        if (project.assignee == null) {
-                            + "Assign user"
-                        } else {
-                            + project.assignee.username
+                    a {
+                        href = "/app/worlds/${project.worldId}/projects/${project.id}"
+                        div {
+                            + (project.priority.name + " | " + project.dimension.name + " | " + project.name)
                         }
-                    }
-                    progress {
-                        max = "100"
-                        value = project.progress.toString()
+                        div {
+                            a {
+                                href = "/app/worlds/${project.worldId}/projects/${project.id}/assign"
+                                if (project.assignee == null) {
+                                    + "Assign user"
+                                } else {
+                                    + project.assignee.username
+                                }
+                            }
+                        }
+                        progress {
+                            max = "100"
+                            value = project.progress.toString()
+                        }
                     }
                 }
             }

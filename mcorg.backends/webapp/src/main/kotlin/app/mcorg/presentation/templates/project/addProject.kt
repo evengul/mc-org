@@ -14,6 +14,8 @@ fun addProject(isTechnical: Boolean): String = baseTemplate {
     }
     main {
         form {
+            method = FormMethod.post
+            encType = FormEncType.applicationXWwwFormUrlEncoded
             label {
                 + "Name of project"
                 input {

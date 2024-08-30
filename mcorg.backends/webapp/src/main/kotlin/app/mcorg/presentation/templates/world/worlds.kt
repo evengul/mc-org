@@ -12,8 +12,11 @@ fun worlds(selectedWorldId: Int?, worlds: List<World>): String = baseTemplate {
         h1 {
             + "WORLDS"
         }
-        button {
-            + "Add"
+        a {
+            href = "/app/worlds/add"
+            button {
+                + "Add"
+            }
         }
     }
     main {

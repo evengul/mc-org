@@ -12,10 +12,10 @@ fun Application.configureAppRouter() {
             call.handleGetLanding()
         }
         route("/auth") {
-            get("/signin") {
+            get("/sign-in") {
                 call.handleGetSignIn()
             }
-            get("/signout") {
+            get("/sign-out") {
                 call.handleGetSignOut()
             }
             delete("/user") {
@@ -105,21 +105,19 @@ fun Application.configureAppRouter() {
                                     call.handlePostCountableTask()
                                 }
                             }
-                            route("/tasks") {
+                            route("/tasks/{taskId}") {
+                                install(TaskParamPlugin)
                                 get("/assign") {
                                     call.handleGetAssignTask()
                                 }
                                 patch("/assign") {
                                     call.handlePatchTaskAssignee()
                                 }
-                                route("/{taskId}") {
-                                    install(TaskParamPlugin)
-                                    patch("/complete") {
-                                        call.handleCompleteTask()
-                                    }
-                                    patch("/incomplete") {
-                                        call.handleIncompleteTask()
-                                    }
+                                patch("/complete") {
+                                    call.handleCompleteTask()
+                                }
+                                patch("/incomplete") {
+                                    call.handleIncompleteTask()
                                 }
                             }
                         }

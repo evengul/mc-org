@@ -5,6 +5,7 @@ import app.mcorg.domain.countable
 import app.mcorg.domain.doable
 import app.mcorg.domain.isDone
 import app.mcorg.presentation.templates.baseTemplate
+import app.mcorg.presentation.utils.Paths
 import kotlinx.html.*
 
 fun project(project: Project): String = baseTemplate {
@@ -16,11 +17,17 @@ fun project(project: Project): String = baseTemplate {
             project.name
         }
         span {
-            button {
-                + "Assign project"
+            a {
+                href = "/app/worlds/${project.worldId}/projects/${project.id}/assign"
+                button {
+                    + "Assign user"
+                }
             }
-            button {
-                + "Add task"
+            a {
+                href = "/app/worlds/${project.worldId}/projects/${project.id}/add-task"
+                button {
+                    + "Add task"
+                }
             }
         }
     }

@@ -1,12 +1,10 @@
 package app.mcorg.presentation.templates.task
 
+import app.mcorg.domain.Project
 import app.mcorg.presentation.templates.baseTemplate
-import kotlinx.html.button
-import kotlinx.html.h1
-import kotlinx.html.main
-import kotlinx.html.nav
+import kotlinx.html.*
 
-fun addTask() = baseTemplate {
+fun addTask(worldId: String, projectId: String) = baseTemplate {
     nav {
         button {
             + "Back"
@@ -16,11 +14,17 @@ fun addTask() = baseTemplate {
         }
     }
     main {
-        button {
-            + "Add doable"
+        a {
+            href = "/app/worlds/$worldId/projects/$projectId/add-task/doable"
+            button {
+                + "Add doable"
+            }
         }
-        button {
-            + "Add countable"
+        a {
+            href = "/app/worlds/$worldId/projects/$projectId/add-task/countable"
+            button {
+                + "Add countable"
+            }
         }
     }
 }

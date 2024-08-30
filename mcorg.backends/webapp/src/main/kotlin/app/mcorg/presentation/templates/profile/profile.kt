@@ -39,8 +39,11 @@ fun profile(profile: Profile): String = baseTemplate {
             }
         }
         section {
-            button {
-                + "Sign out"
+            a {
+                href = "/auth/sign-out"
+                button {
+                    + "Sign out"
+                }
             }
             button {
                 + "Delete user"
