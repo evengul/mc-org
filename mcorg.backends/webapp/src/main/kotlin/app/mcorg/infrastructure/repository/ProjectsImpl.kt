@@ -4,27 +4,36 @@ import app.mcorg.domain.*
 
 class ProjectsImpl : Projects, Repository() {
     override fun getProject(id: Int, includeTasks: Boolean, includeDependencies: Boolean): Project? {
-        getConnection().use {
-            val project = it
-                .prepareStatement("SELECT world_id, team_id, id, name, archived FROM project WHERE id = ?")
+        getConnection().use { conn ->
+            val project = conn
+                .prepareStatement("SELECT world_id, p.id as project_id, name, archived, priority, dimension, assignee, u.username as username, progress, requires_perimeter FROM project p join users u on p.assignee = u.id WHERE p.id = ?")
                 .apply { setInt(1, id) }
                 .executeQuery()
                 .let {
                     if (!it.next()) return@let null
-                    else return@let Project(
-                        worldId = it.getInt("world_id"),
-                        teamId = it.getInt("team_id"),
-                        id = it.getInt("id"),
-                        name = it.getString("name"),
-                        archived = it.getBoolean("archived"),
-                        tasks = mutableListOf()
-                    )
+                    else {
+                        val userId = it.getInt("assignee").takeIf { id -> id > 0 }
+                        val username = it.getString("username")
+                        val user = if(userId != null && username != null) User(userId, username) else null
+                        return@let Project(
+                            worldId = it.getInt("world_id"),
+                            id = it.getInt("project_id"),
+                            name = it.getString("name"),
+                            archived = it.getBoolean("archived"),
+                            priority = it.getString("priority").toPriority(),
+                            dimension = it.getString("dimension").toDimension(),
+                            assignee = user,
+                            progress = it.getDouble("progress"),
+                            requiresPerimeter = it.getBoolean("requires_perimeter"),
+                            tasks = mutableListOf()
+                        )
+                    }
                 }
 
             if (project == null) return null
 
             if (includeTasks) {
-                it.prepareStatement("select id,name,priority,needed,done from task where project_id = ?")
+                conn.prepareStatement("select id,name,priority,needed,done from task where project_id = ?")
                     .apply { setInt(1, project.id) }
                     .executeQuery()
                     .apply {
@@ -43,7 +52,7 @@ class ProjectsImpl : Projects, Repository() {
                     }
 
                 if (includeDependencies) {
-                    it.prepareStatement("select d.id, dependant_task_id, project_dependency_id, d.priority as priority from project_dependency d join task t on t.id = d.dependant_task_id where t.project_id = ?")
+                    conn.prepareStatement("select d.id, dependant_task_id, project_dependency_id, d.priority as priority from project_dependency d join task t on t.id = d.dependant_task_id where t.project_id = ?")
                         .apply { setInt(1, id) }
                         .executeQuery()
                         .apply {
@@ -73,33 +82,47 @@ class ProjectsImpl : Projects, Repository() {
         }
     }
 
-    override fun getTeamProjects(id: Int): List<SlimProject> {
-        getConnection().use {
-            it.prepareStatement("select p.world_id, p.team_id, p.id, p.name from project p join team t on p.team_id = t.id where t.id = ? and archived = false")
+    override fun getWorldProjects(id: Int): List<SlimProject> {
+        getConnection().use { conn ->
+            conn.prepareStatement("select world_id,project.id as project_id,name,priority,dimension,assignee as user_id, u.username as username,progress from project left join users u on project.assignee = u.id where world_id = ?")
                 .apply { setInt(1, id) }
                 .executeQuery()
                 .apply {
-                    val projects = mutableListOf<SlimProject>()
+                    val list = mutableListOf<SlimProject>()
                     while (next()) {
-                        projects.add(
-                            SlimProject(
-                                worldId = getInt("world_id"),
-                                teamId = getInt("team_id"),
-                                id = getInt("id"),
-                                name = getString("name"),
-                            )
-                        )
+                        val projectId = getInt("project_id")
+                        val projectName = getString("name")
+                        val worldId = getInt("world_id")
+                        val priority = getString("priority").toPriority()
+                        val dimension = getString("dimension").toDimension()
+                        val assigneeId = getInt("user_id").takeIf { it > 0 }
+                        val assigneeName = getString("username")
+                        val assignee = if(assigneeId != null && assigneeName != null) User(assigneeId, assigneeName) else null
+                        val progress = getDouble("progress")
+                        list.add(SlimProject(worldId, projectId, projectName, priority, dimension, assignee, progress))
                     }
-                    return projects
+                    return list
                 }
         }
     }
 
-    override fun createProject(worldId: Int, teamId: Int, name: String): Int {
+    override fun createProject(
+        worldId: Int,
+        name: String,
+        dimension: Dimension,
+        priority: Priority,
+        requiresPerimeter: Boolean
+    ): Int {
         getConnection().use {
             val statement = it
-                .prepareStatement("insert into project(world_id, team_id, name, archived) values (?, ?, ?, false) returning id")
-                .apply { setInt(1, worldId); setInt(2, teamId); setString(3, name) }
+                .prepareStatement("insert into project(world_id, name, archived, priority, requires_perimeter, dimension, assignee, progress) values (?, ?, false, ?, ?, ?, null, 0.0) returning id")
+                .apply {
+                    setInt(1, worldId)
+                    setString(2, name)
+                    setString(3, priority.name)
+                    setString(4, dimension.name)
+                    setBoolean(5, requiresPerimeter)
+                }
 
             if (statement.execute()) {
                 with(statement.resultSet) {
@@ -109,10 +132,6 @@ class ProjectsImpl : Projects, Repository() {
 
             throw IllegalStateException("Could not create project")
         }
-    }
-
-    override fun getUserProjects(username: String): List<Project> {
-        TODO("Not yet implemented")
     }
 
     override fun changeProjectName(id: Int, name: String) {
@@ -270,5 +289,14 @@ class ProjectsImpl : Projects, Repository() {
             "HIGH" -> return Priority.HIGH
         }
         return Priority.NONE
+    }
+
+    private fun String.toDimension(): Dimension {
+        when(this) {
+            "OVERWORLD" -> return Dimension.OVERWORLD
+            "NETHER" -> return Dimension.NETHER
+            "THE_END" -> return Dimension.THE_END
+        }
+        return Dimension.OVERWORLD
     }
 }

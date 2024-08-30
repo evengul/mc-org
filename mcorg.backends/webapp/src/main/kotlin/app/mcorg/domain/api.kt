@@ -7,61 +7,37 @@ interface Users {
     fun getUser(id: Int): User?
     fun getUser(username: String): User?
     fun getUserByUsernameIfPasswordMatches(username: String, password: String): User?
-    fun createUser(username: String, email: String, password: String): Int
+    fun createUser(username: String, email: String): Int
+    fun deleteUser(id: Int)
     fun searchUsers(searchTerm: String): List<User>
+    fun getProfile(id: Int): Profile?
+    fun selectWorld(userId: Int, worldId: Int)
+    fun isTechnical(id: Int)
+    fun isNotTechnical(id: Int)
 }
 
 interface Permissions {
-    fun getPermissions(userId: Int): UserPermissions<Authorized>
-    fun getWorldPermissions(userId: Int): UserPermissions<World>
-    fun getTeamPermissions(userId: Int): UserPermissions<Team>
-    fun getPackPermissions(userId: Int): UserPermissions<ResourcePack>
+    fun getPermissions(userId: Int): UserPermissions
     fun hasAnyWorldPermission(userId: Int): Boolean
-
     fun hasWorldPermission(userId: Int, authority: Authority, worldId: Int): Boolean
-    fun hasTeamPermission(userId: Int, authority: Authority, teamId: Int): Boolean
-    fun hasPackPermission(userId: Int, authority: Authority, packId: Int): Boolean
-
     fun addWorldPermission(userId: Int, worldId: Int, authority: Authority): Int
-    fun addTeamPermission(userId: Int, teamId: Int, authority: Authority): Int
-    fun addPackPermission(userId: Int, packId: Int, authority: Authority): Int
-
     fun changeWorldPermission(userId: Int, worldId: Int, authority: Authority)
-    fun changeTeamPermission(userId: Int, teamId: Int, authority: Authority)
-    fun changePackPermission(userId: Int, packId: Int, authority: Authority)
-
     fun removeWorldPermission(userId: Int, worldId: Int)
-    fun removeTeamPermission(userId: Int, teamId: Int)
-    fun removePackPermission(userId: Int, packId: Int)
-
-    fun getUsersInTeam(teamId: Int): List<User>
-    fun hasTeamPermissionInWorld(userId: Int, worldId: Int): Boolean
 }
 
 interface Worlds {
     fun getWorld(id: Int): World?
     fun deleteWorld(id: Int)
     fun createWorld(name: String): Int
-    fun getUserWorlds(username: String): List<World>
 
     fun changeWorldName(id: Int, name: String)
-}
-
-interface Teams {
-    fun getTeam(id: Int): Team?
-    fun deleteTeam(id: Int)
-    fun createTeam(worldId: Int, name: String): Int
-    fun getWorldTeams(worldId: Int): List<Team>
-
-    fun changeTeamName(id: Int, name: String)
 }
 
 interface Projects {
     fun getProject(id: Int, includeTasks: Boolean = false, includeDependencies: Boolean = false): Project?
     fun deleteProject(id: Int)
-    fun getTeamProjects(id: Int): List<SlimProject>
-    fun createProject(worldId: Int, teamId: Int, name: String): Int
-    fun getUserProjects(username: String): List<Project>
+    fun getWorldProjects(id: Int): List<SlimProject>
+    fun createProject(worldId: Int, name: String, dimension: Dimension, priority: Priority, requiresPerimeter: Boolean): Int
 
     fun changeProjectName(id: Int, name: String)
 
@@ -82,23 +58,6 @@ interface Projects {
     fun removeProjectDependencyToTask(dependencyId: Int)
 }
 
-interface Packs {
-    fun getPack(id: Int): ResourcePack?
-    fun deletePack(id: Int)
-    fun createPack(name: String, version: String, serverType: ServerType): Int
-    fun getWorldPacks(id: Int): List<ResourcePack>
-    fun getTeamPacks(id: Int): List<ResourcePack>
-    fun getUserPacks(userId: Int): List<ResourcePack>
-
-    fun changePackName(id: Int, name: String)
-
-    fun sharePackWithWorld(id: Int, worldId: Int)
-    fun sharePackWithTeam(id: Int, teamId: Int)
-    fun unSharePackWithWorld(id: Int, worldId: Int)
-    fun unSharePackWithTeam(id: Int, teamId: Int)
-
-    fun addResource(packId: Int, name: String, type: ResourceType, downloadUrl: String): Int
-    fun removeResource(id: Int)
-
-    fun upgradePack(id: Int, newVersion: String): ResourcePack
+interface Minecraft {
+    suspend fun getProfile(authorizationCode: String, clientId: String, clientSecret: String): MinecraftProfile
 }

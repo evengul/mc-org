@@ -3,8 +3,8 @@ package app.mcorg
 import io.ktor.server.application.*
 import io.ktor.server.engine.*
 import io.ktor.server.netty.*
-import app.mcorg.presentation.htmx.configureHtmx
 import app.mcorg.presentation.plugins.*
+import app.mcorg.presentation.v2.router.configureAppRouter
 
 fun main() {
     embeddedServer(Netty, port = 8080, host = "0.0.0.0", module = Application::module)
@@ -14,6 +14,6 @@ fun main() {
 fun Application.module() {
     configureHTTP()
     configureMonitoring()
-    configureHtmx()
-    configureRouting()
+    configureAppRouter()
+    configureStatusStaticRouter()
 }

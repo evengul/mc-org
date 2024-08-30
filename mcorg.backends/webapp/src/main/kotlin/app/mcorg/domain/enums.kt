@@ -1,16 +1,9 @@
 package app.mcorg.domain
 
-enum class ServerType {
-    VANILLA,
-    FABRIC,
-    FORGE
-}
-
-enum class ResourceType {
-    MOD,
-    MOD_PACK,
-    TEXTURE_PACK,
-    DATA_PACK
+enum class Dimension {
+    OVERWORLD,
+    NETHER,
+    THE_END
 }
 
 enum class Priority {
@@ -18,14 +11,6 @@ enum class Priority {
     MEDIUM,
     LOW,
     NONE
-}
-
-enum class PermissionLevel {
-    AUTHENTICATED,
-    WORLD,
-    TEAM,
-    PROJECT,
-    PACK
 }
 
 enum class Authority(val level: Int) {
