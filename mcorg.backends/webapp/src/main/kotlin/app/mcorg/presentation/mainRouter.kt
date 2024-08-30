@@ -78,7 +78,7 @@ fun Application.configureAppRouter() {
                         get("/add") {
                             call.handleGetAddProject()
                         }
-                        post {
+                        post("/add") {
                             call.handlePostProject()
                         }
                         route("/{projectId}") {

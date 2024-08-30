@@ -16,7 +16,7 @@ open class Repository {
                 dataSource = HikariDataSource(HikariConfig().apply {
                     val config = Config.get()
                     jdbcUrl = config.url
-                    username = config.password
+                    username = config.user
                     password = config.password
                     driverClassName = "org.postgresql.Driver"
                 })

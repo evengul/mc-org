@@ -18,5 +18,8 @@ fun ApplicationCall.getMicrosoftClientId() = getAttribute<String>("MICROSOFT_CLI
 fun ApplicationCall.setMicrosoftClientSecret(secret: String) = setAttribute("MICROSOFT_CLIENT_SECRET", secret)
 fun ApplicationCall.getMicrosoftClientSecret() = getAttribute<String>("MICROSOFT_CLIENT_SECRET")
 
+fun ApplicationCall.setEnvironment(environment: String) = setAttribute("ENVIRONMENT", environment)
+fun ApplicationCall.getEnvironment() = getAttribute<String>("ENVIRONMENT")
+
 private fun <T : Any> ApplicationCall.getAttribute(key: String): T = attributes[AttributeKey(key)]
 private fun <T : Any> ApplicationCall.setAttribute(key: String, value: T) = attributes.put(AttributeKey(key), value)

@@ -29,5 +29,5 @@ suspend fun ApplicationCall.handlePostUser() {
     val (username) = receiveAddUserRequest()
     val user = usersApi.getUser(username) ?: throw IllegalArgumentException("user does not exist")
     permissionsApi.addWorldPermission(user.id, worldId, Authority.PARTICIPANT)
-    respondRedirect("/app/world/$worldId/users")
+    respondRedirect("/app/worlds/$worldId/users")
 }

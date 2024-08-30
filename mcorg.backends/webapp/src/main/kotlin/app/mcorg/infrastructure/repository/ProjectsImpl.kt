@@ -6,7 +6,7 @@ class ProjectsImpl : Projects, Repository() {
     override fun getProject(id: Int, includeTasks: Boolean, includeDependencies: Boolean): Project? {
         getConnection().use { conn ->
             val project = conn
-                .prepareStatement("SELECT world_id, p.id as project_id, name, archived, priority, dimension, assignee, u.username as username, progress, requires_perimeter FROM project p join users u on p.assignee = u.id WHERE p.id = ?")
+                .prepareStatement("SELECT world_id, p.id as project_id, name, archived, priority, dimension, assignee, u.username as username, progress, requires_perimeter FROM project p left join users u on p.assignee = u.id WHERE p.id = ?")
                 .apply { setInt(1, id) }
                 .executeQuery()
                 .let {
@@ -120,8 +120,8 @@ class ProjectsImpl : Projects, Repository() {
                     setInt(1, worldId)
                     setString(2, name)
                     setString(3, priority.name)
-                    setString(4, dimension.name)
-                    setBoolean(5, requiresPerimeter)
+                    setBoolean(4, requiresPerimeter)
+                    setString(5, dimension.name)
                 }
 
             if (statement.execute()) {

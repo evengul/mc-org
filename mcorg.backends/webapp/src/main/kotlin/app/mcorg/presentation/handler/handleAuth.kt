@@ -1,5 +1,6 @@
 package app.mcorg.presentation.handler
 
+import app.mcorg.domain.User
 import app.mcorg.presentation.security.createSignedJwtToken
 import app.mcorg.presentation.configuration.minecraftApi
 import app.mcorg.presentation.configuration.usersApi
@@ -15,7 +16,12 @@ suspend fun ApplicationCall.handleGetSignIn() {
     val user = getUserFromCookie()
 
     if (user == null) {
-        respondHtml(signInTemplate(getMicrosoftSignInUrl()))
+        if (getEnvironment() == "LOCAL") {
+            addToken(createSignedJwtToken(getLocalUser()))
+            respondHtml("Hello")
+        } else {
+            respondHtml(signInTemplate(getMicrosoftSignInUrl()))
+        }
     } else {
         val profile = usersApi.getProfile(user.id) ?: return removeTokenAndSignOut()
         if (profile.selectedWorld != null) {
@@ -24,6 +30,15 @@ suspend fun ApplicationCall.handleGetSignIn() {
         }
         respondRedirect("/app/worlds/add")
     }
+}
+
+private fun getLocalUser(): User {
+    val user = usersApi.getUser("evegul")
+    if (user == null) {
+        val userId = usersApi.createUser("evegul", "even.gultvedt@gmail.com")
+        return usersApi.getUser(userId)!!
+    }
+    return user
 }
 
 suspend fun ApplicationCall.handleSignIn() {

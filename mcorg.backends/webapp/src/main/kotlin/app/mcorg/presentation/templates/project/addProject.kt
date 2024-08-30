@@ -20,26 +20,34 @@ fun addProject(isTechnical: Boolean): String = baseTemplate {
                 + "Name of project"
                 input {
                     type = InputType.text
-                    required
+                    required = true
+                    name = "projectName"
                 }
             }
-            select {
-                option {
-                    value = "OVERWORLD"
-                    + "Overworld"
-                }
-                option {
-                    value = "NETHER"
-                    + "Nether"
-                }
-                option {
-                    value = "THE_END"
-                    + "The End"
+            label {
+                + "Dimension"
+                select {
+                    required = true
+                    name = "dimension"
+                    option {
+                        value = "OVERWORLD"
+                        + "Overworld"
+                    }
+                    option {
+                        value = "NETHER"
+                        + "Nether"
+                    }
+                    option {
+                        value = "THE_END"
+                        + "The End"
+                    }
                 }
             }
             label {
                 + "Priority"
                 select {
+                    required = true
+                    name = "priority"
                     option {
                         value = "LOW"
                         + "Low"
@@ -59,6 +67,7 @@ fun addProject(isTechnical: Boolean): String = baseTemplate {
                     + "Requires perimeter"
                     input {
                         type = InputType.checkBox
+                        name = "requiresPerimeter"
                     }
                 }
             }

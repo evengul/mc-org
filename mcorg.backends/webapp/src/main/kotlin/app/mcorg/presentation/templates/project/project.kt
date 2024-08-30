@@ -13,7 +13,7 @@ fun project(project: Project): String = baseTemplate {
             + "Back"
         }
         h1 {
-            project.name
+            + project.name
         }
         span {
             a {

@@ -16,8 +16,7 @@ import io.ktor.server.response.*
 
 suspend fun ApplicationCall.handleGetProjects() {
     val worldId = getWorldId()
-    val userId = getUserId()
-    val projects = projectsApi.getWorldProjects(userId)
+    val projects = projectsApi.getWorldProjects(worldId)
     respondHtml(projects(worldId, projects))
 }
 
@@ -31,7 +30,7 @@ suspend fun ApplicationCall.handlePostProject() {
     val (name, priority, dimension, requiresPerimeter) = receiveCreateProjectRequest()
     val worldId = getWorldId()
     val projectId = projectsApi.createProject(worldId, name, dimension, priority, requiresPerimeter)
-    respondRedirect("/app/world/$worldId/project/$projectId")
+    respondRedirect("/app/worlds/$worldId/projects/$projectId")
 }
 
 suspend fun ApplicationCall.handleGetProject() {
@@ -53,7 +52,7 @@ suspend fun ApplicationCall.handlePostProjectAssignee() {
     val user = users.find { it.username == username }
     if (user != null) {
         projectsApi.assignProject(projectId, user.id)
-        respondRedirect("/app/world/$worldId/project/$projectId")
+        respondRedirect("/app/worlds/$worldId/projects/$projectId")
     } else {
         throw IllegalArgumentException("User is not in project")
     }

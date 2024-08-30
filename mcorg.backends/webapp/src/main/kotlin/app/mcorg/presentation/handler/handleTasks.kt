@@ -30,14 +30,14 @@ suspend fun ApplicationCall.handlePostDoableTask() {
     val (name) = receiveDoableTaskRequest()
     val projectId = getProjectId()
     projectsApi.addDoableTask(projectId, name, Priority.LOW)
-    respondRedirect("/app/world/${getWorldId()}/project/$projectId")
+    respondRedirect("/app/worlds/${getWorldId()}/projects/$projectId")
 }
 
 suspend fun ApplicationCall.handlePostCountableTask() {
     val (name, amount) = receiveCountableTaskRequest()
     val projectId = getProjectId()
     projectsApi.addCountableTask(projectId, name, Priority.LOW, needed = amount)
-    respondRedirect("/app/world/${getWorldId()}/project/$projectId")
+    respondRedirect("/app/worlds/${getWorldId()}/projects/$projectId")
 }
 
 suspend fun ApplicationCall.handleGetAssignTask() {
@@ -52,7 +52,7 @@ suspend fun ApplicationCall.handlePatchTaskAssignee() {
     val users = permissionsApi.getUsersInWorld(worldId)
     val user = users.find { it.username == username }
     if (user != null) {
-        respondRedirect("/app/world/$worldId/project/$projectId")
+        respondRedirect("/app/worlds/$worldId/projects/$projectId")
         // TODO: Assign user to task
     } else {
         throw IllegalArgumentException("User does not exist in project")
@@ -62,11 +62,11 @@ suspend fun ApplicationCall.handlePatchTaskAssignee() {
 suspend fun ApplicationCall.handleCompleteTask() {
     val taskId = getTaskId()
     projectsApi.completeTask(taskId)
-    respondRedirect("/app/world/${getWorldId()}/project/${getProjectId()}")
+    respondRedirect("/app/worlds/${getWorldId()}/projects/${getProjectId()}")
 }
 
 suspend fun ApplicationCall.handleIncompleteTask() {
     val taskId = getTaskId()
     projectsApi.undoCompleteTask(taskId)
-    respondRedirect("/app/world/${getWorldId()}/project/${getProjectId()}")
+    respondRedirect("/app/worlds/${getWorldId()}/projects/${getProjectId()}")
 }
