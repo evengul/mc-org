@@ -13,6 +13,11 @@ enum class Priority {
     NONE
 }
 
+enum class TaskType {
+    COUNTABLE,
+    DOABLE
+}
+
 enum class Authority(val level: Int) {
     OWNER(0),
     ADMIN(10),

@@ -1,6 +1,6 @@
 package app.mcorg.presentation.plugins
 
-import app.mcorg.presentation.router.utils.*
+import app.mcorg.presentation.utils.*
 import io.ktor.server.application.*
 import io.ktor.server.response.*
 

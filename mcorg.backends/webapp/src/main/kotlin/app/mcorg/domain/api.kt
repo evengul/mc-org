@@ -48,7 +48,6 @@ interface Projects {
     fun assignProject(id: Int, userId: Int)
     fun removeProjectAssignment(id: Int)
 
-    fun getTask(projectId: Int, taskId: Int): Task?
     fun addCountableTask(projectId: Int, name: String, priority: Priority, needed: Int): Int
     fun addDoableTask(projectId: Int, name: String, priority: Priority): Int
     fun removeTask(id: Int)
@@ -57,6 +56,8 @@ interface Projects {
     fun updateCountableTask(id: Int, needed: Int, done: Int)
     fun taskRequiresMore(id: Int, needed: Int)
     fun taskDoneMore(id: Int, done: Int)
+    fun assignTask(id: Int, userId: Int)
+    fun removeTaskAssignment(id: Int)
 
     fun addProjectDependencyToTask(taskId: Int, projectId: Int, priority: Priority): Int
     fun removeProjectDependencyToTask(dependencyId: Int)

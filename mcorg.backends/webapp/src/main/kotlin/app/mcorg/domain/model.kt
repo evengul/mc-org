@@ -37,7 +37,15 @@ data class ProjectDependency(val projectId: Int, val priority: Priority)
 
 data class PremadeTask(val name: String, val needed: Int)
 
-data class Task(val id: Int, var name: String, val priority: Priority, val dependencies: MutableList<ProjectDependency>, var needed: Int, var done: Int)
+data class Task(val id: Int,
+                var name: String,
+                val priority: Priority,
+                val dependencies: MutableList<ProjectDependency>,
+                var needed: Int,
+                var done: Int,
+                val assignee: User?,
+                val taskType: TaskType,
+)
 
 data class UserPermissions(val userId: Int, val ownedWorlds: List<World>, val participantWorlds: List<World>)
 

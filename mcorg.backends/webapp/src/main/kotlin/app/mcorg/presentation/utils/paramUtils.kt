@@ -1,4 +1,4 @@
-package app.mcorg.presentation.router.utils
+package app.mcorg.presentation.utils
 
 import io.ktor.server.application.*
 import io.ktor.util.*

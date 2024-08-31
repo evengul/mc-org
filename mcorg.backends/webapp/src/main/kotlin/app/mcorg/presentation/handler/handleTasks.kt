@@ -8,9 +8,7 @@ import app.mcorg.presentation.templates.project.assignUser
 import app.mcorg.presentation.templates.task.addCountableTask
 import app.mcorg.presentation.templates.task.addDoableTask
 import app.mcorg.presentation.templates.task.addTask
-import app.mcorg.presentation.utils.receiveAddUserRequest
-import app.mcorg.presentation.utils.receiveCountableTaskRequest
-import app.mcorg.presentation.utils.receiveDoableTaskRequest
+import app.mcorg.presentation.utils.*
 import io.ktor.server.application.*
 import io.ktor.server.response.*
 
@@ -49,14 +47,23 @@ suspend fun ApplicationCall.handlePatchTaskAssignee() {
     val (username) = receiveAddUserRequest()
     val worldId = getWorldId()
     val projectId = getProjectId()
+    val taskId = getTaskId()
     val users = permissionsApi.getUsersInWorld(worldId)
     val user = users.find { it.username == username }
     if (user != null) {
+        projectsApi.assignTask(taskId, user.id)
         respondRedirect("/app/worlds/$worldId/projects/$projectId")
-        // TODO: Assign user to task
     } else {
         throw IllegalArgumentException("User does not exist in project")
     }
+}
+
+suspend fun ApplicationCall.handleDeleteTaskAssignee() {
+    val worldId = getWorldId()
+    val projectId = getProjectId()
+    val taskId = getTaskId()
+    projectsApi.removeTaskAssignment(taskId)
+    respondRedirect("/app/worlds/$worldId/projects/$projectId")
 }
 
 suspend fun ApplicationCall.handleCompleteTask() {

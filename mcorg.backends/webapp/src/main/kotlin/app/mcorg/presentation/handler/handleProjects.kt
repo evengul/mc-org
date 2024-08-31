@@ -8,9 +8,7 @@ import app.mcorg.presentation.templates.project.addProject
 import app.mcorg.presentation.templates.project.assignUser
 import app.mcorg.presentation.templates.project.project
 import app.mcorg.presentation.templates.project.projects
-import app.mcorg.presentation.utils.getUserId
-import app.mcorg.presentation.utils.receiveAddUserRequest
-import app.mcorg.presentation.utils.receiveCreateProjectRequest
+import app.mcorg.presentation.utils.*
 import io.ktor.server.application.*
 import io.ktor.server.response.*
 
@@ -56,4 +54,11 @@ suspend fun ApplicationCall.handlePostProjectAssignee() {
     } else {
         throw IllegalArgumentException("User is not in project")
     }
+}
+
+suspend fun ApplicationCall.handleDeleteProjectAssignee() {
+    val worldId = getWorldId()
+    val projectId = getProjectId()
+    projectsApi.removeProjectAssignment(projectId)
+    respondRedirect("/app/worlds/$worldId/projects/$projectId")
 }

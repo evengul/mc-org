@@ -33,11 +33,14 @@ class ProjectsImpl : Projects, Repository() {
             if (project == null) return null
 
             if (includeTasks) {
-                conn.prepareStatement("select id,name,priority,needed,done from task where project_id = ?")
+                conn.prepareStatement("select task.id,name,priority,needed,done,type,u.id as user_id,u.username as username from task left join users u on task.assignee = u.id where project_id = ?")
                     .apply { setInt(1, project.id) }
                     .executeQuery()
                     .apply {
                         while (next()) {
+                            val userId = getInt("user_id")
+                            val username = getString("username")
+                            val user = if (userId > 0 && username != null) User(userId, username) else null
                             project.tasks.add(
                                 Task(
                                     id = getInt("id"),
@@ -45,7 +48,9 @@ class ProjectsImpl : Projects, Repository() {
                                     needed = getInt("needed"),
                                     done = getInt("done"),
                                     priority = getString("priority").toPriority(),
-                                    dependencies = mutableListOf()
+                                    dependencies = mutableListOf(),
+                                    assignee = user,
+                                    taskType = getString("type").toTaskType()
                                 )
                             )
                         }
@@ -175,27 +180,10 @@ class ProjectsImpl : Projects, Repository() {
         }
     }
 
-    override fun getTask(projectId: Int, taskId: Int): Task? {
-        getConnection().use {
-            it.prepareStatement("select name,needed,done,priority from task where project_id = ? and id = ?")
-                .apply { setInt(1, projectId); setInt(2, taskId) }
-                .executeQuery()
-                .apply {
-                    if (next()) return Task(taskId,
-                        getString("name"),
-                        getString("priority").toPriority(),
-                        mutableListOf(),
-                        getInt("needed"),
-                        getInt("done"))
-                }
-        }
-        return null
-    }
-
     override fun addCountableTask(projectId: Int, name: String, priority: Priority, needed: Int): Int {
         getConnection().use {
             val statement = it
-                .prepareStatement("insert into task (project_id, name, needed, done) values (?, ?, ?, 0) returning id")
+                .prepareStatement("insert into task (project_id, name, needed, done, type) values (?, ?, ?, 0, 'COUNTABLE') returning id")
                 .apply { setInt(1, projectId); setString(2, name); setInt(3, needed) }
 
             if (statement.execute()) {
@@ -211,7 +199,7 @@ class ProjectsImpl : Projects, Repository() {
     override fun addDoableTask(projectId: Int, name: String, priority: Priority): Int {
         getConnection().use {
             val statement = it
-                .prepareStatement("insert into task (project_id, name, needed, done) values (?, ?, 1, 0) returning id")
+                .prepareStatement("insert into task (project_id, name, needed, done, type) values (?, ?, 1, 0, 'DOABLE') returning id")
                 .apply { setInt(1, projectId); setString(2, name); }
 
             if (statement.execute()) {
@@ -273,6 +261,22 @@ class ProjectsImpl : Projects, Repository() {
         }
     }
 
+    override fun assignTask(id: Int, userId: Int) {
+        getConnection().use {
+            it.prepareStatement("update task set assignee = ? where id = ?")
+                .apply { setInt(1, userId); setInt(2, id); }
+                .executeUpdate()
+        }
+    }
+
+    override fun removeTaskAssignment(id: Int) {
+        getConnection().use {
+            it.prepareStatement("update task set assignee = null where id = ?")
+                .apply { setInt(1, id); }
+                .executeUpdate()
+        }
+    }
+
     override fun addProjectDependencyToTask(taskId: Int, projectId: Int, priority: Priority): Int {
         getConnection().use {
             val statement = getConnection()
@@ -314,5 +318,13 @@ class ProjectsImpl : Projects, Repository() {
             "THE_END" -> return Dimension.THE_END
         }
         return Dimension.OVERWORLD
+    }
+
+    private fun String.toTaskType(): TaskType {
+        when(this) {
+            "COUNTABLE" -> return TaskType.COUNTABLE
+            "DOABLE" -> return TaskType.DOABLE
+        }
+        return TaskType.COUNTABLE
     }
 }

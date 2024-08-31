@@ -5,7 +5,7 @@ import app.mcorg.presentation.configuration.permissionsApi
 import app.mcorg.presentation.configuration.usersApi
 import app.mcorg.presentation.configuration.worldsApi
 import app.mcorg.presentation.utils.getUserId
-import app.mcorg.presentation.router.utils.getWorldId
+import app.mcorg.presentation.utils.getWorldId
 import app.mcorg.presentation.utils.receiveCreateWorldRequest
 import app.mcorg.presentation.router.utils.respondHtml
 import app.mcorg.presentation.templates.world.addWorld

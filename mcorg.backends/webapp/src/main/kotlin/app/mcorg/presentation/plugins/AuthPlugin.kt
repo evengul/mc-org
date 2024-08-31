@@ -2,7 +2,7 @@ package app.mcorg.presentation.plugins
 
 import app.mcorg.domain.Authority
 import app.mcorg.presentation.configuration.permissionsApi
-import app.mcorg.presentation.router.utils.getWorldId
+import app.mcorg.presentation.utils.getWorldId
 import app.mcorg.presentation.utils.*
 import com.auth0.jwt.exceptions.TokenExpiredException
 import io.ktor.server.application.*
