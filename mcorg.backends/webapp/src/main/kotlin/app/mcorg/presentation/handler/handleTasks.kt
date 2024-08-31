@@ -13,15 +13,15 @@ import io.ktor.server.application.*
 import io.ktor.server.response.*
 
 suspend fun ApplicationCall.handleGetAddTask() {
-    respondHtml(addTask(getWorldId(), getProjectId()))
+    respondHtml(addTask("/app/worlds/${getWorldId()}/projects/${getProjectId()}", getWorldId(), getProjectId()))
 }
 
 suspend fun ApplicationCall.handleGetAddDoableTask() {
-    respondHtml(addDoableTask())
+    respondHtml(addDoableTask("/app/worlds/${getWorldId()}/projects/${getProjectId()}/add-task"))
 }
 
 suspend fun ApplicationCall.handleGetAddCountableTask() {
-    respondHtml(addCountableTask())
+    respondHtml(addCountableTask("/app/worlds/${getWorldId()}/projects/${getProjectId()}/add-task"))
 }
 
 suspend fun ApplicationCall.handlePostDoableTask() {
@@ -40,7 +40,7 @@ suspend fun ApplicationCall.handlePostCountableTask() {
 
 suspend fun ApplicationCall.handleGetAssignTask() {
     val users = permissionsApi.getUsersInWorld(getWorldId())
-    respondHtml(assignUser(users, null))
+    respondHtml(assignUser("/app/worlds/${getWorldId()}/projects/${getProjectId()}", users, null))
 }
 
 suspend fun ApplicationCall.handlePatchTaskAssignee() {

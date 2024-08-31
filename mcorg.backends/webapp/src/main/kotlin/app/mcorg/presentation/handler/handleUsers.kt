@@ -21,7 +21,7 @@ suspend fun ApplicationCall.handleGetUsers() {
 }
 
 suspend fun ApplicationCall.handleGetAddUser() {
-    respondHtml(addUser())
+    respondHtml(addUser("/app/worlds/${getWorldId()}/users"))
 }
 
 suspend fun ApplicationCall.handlePostUser() {

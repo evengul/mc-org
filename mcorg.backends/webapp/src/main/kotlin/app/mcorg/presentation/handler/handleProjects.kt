@@ -21,7 +21,7 @@ suspend fun ApplicationCall.handleGetProjects() {
 suspend fun ApplicationCall.handleGetAddProject() {
     val userId = getUserId()
     val profile = usersApi.getProfile(userId) ?: throw IllegalArgumentException("No user found")
-    respondHtml(addProject(profile.technicalPlayer))
+    respondHtml(addProject(backLink = "/app/worlds/${getWorldId()}/projects", profile.technicalPlayer))
 }
 
 suspend fun ApplicationCall.handlePostProject() {
@@ -34,12 +34,12 @@ suspend fun ApplicationCall.handlePostProject() {
 suspend fun ApplicationCall.handleGetProject() {
     val projectId = getProjectId()
     val project = projectsApi.getProject(projectId, includeTasks = true, includeDependencies = false) ?: throw IllegalArgumentException("Project not found")
-    respondHtml(project(project))
+    respondHtml(project("/app/worlds/${getWorldId()}/projects", project))
 }
 
 suspend fun ApplicationCall.handleGetAssignProject() {
     val users = permissionsApi.getUsersInWorld(getWorldId())
-    respondHtml(assignUser(users, null))
+    respondHtml(assignUser("/app/worlds/${getWorldId()}/projects/${getProjectId()}", users, null))
 }
 
 suspend fun ApplicationCall.handlePostProjectAssignee() {

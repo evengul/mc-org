@@ -22,7 +22,7 @@ suspend fun ApplicationCall.handleGetWorlds() {
 }
 
 suspend fun ApplicationCall.handleGetAddWorld() {
-    respondHtml(addWorld())
+    respondHtml(addWorld("/app/worlds"))
 }
 
 suspend fun ApplicationCall.handlePostWorld() {

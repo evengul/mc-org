@@ -1,35 +1,25 @@
 package app.mcorg.presentation.templates.world
 
-import app.mcorg.presentation.templates.baseTemplate
+import app.mcorg.presentation.templates.subPageTemplate
 import kotlinx.html.*
 
-fun addWorld(): String = baseTemplate("MC-ORG - Create World") {
-    nav {
+fun addWorld(backLink: String): String = subPageTemplate("Create world", backLink = backLink) {
+    form {
+        method = FormMethod.post
+        encType = FormEncType.applicationXWwwFormUrlEncoded
+        label {
+            input {
+                name = "worldName"
+                type = InputType.text
+                required = true
+                minLength = "3"
+                maxLength = "100"
+            }
+            + "Name of your world"
+        }
         button {
-            + "Back"
-        }
-        h1 {
-            + "Create World"
-        }
-    }
-    main {
-        form {
-            method = FormMethod.post
-            encType = FormEncType.applicationXWwwFormUrlEncoded
-            label {
-                input {
-                    name = "worldName"
-                    type = InputType.text
-                    required = true
-                    minLength = "3"
-                    maxLength = "100"
-                }
-                + "Name of your world"
-            }
-            button {
-                type = ButtonType.submit
-                + "Create"
-            }
+            type = ButtonType.submit
+            + "Create"
         }
     }
 }

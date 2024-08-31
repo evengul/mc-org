@@ -1,41 +1,31 @@
 package app.mcorg.presentation.templates.task
 
-import app.mcorg.presentation.templates.baseTemplate
+import app.mcorg.presentation.templates.subPageTemplate
 import kotlinx.html.*
 
-fun addCountableTask() = baseTemplate {
-    nav {
+fun addCountableTask(backLink: String) = subPageTemplate("Add countable task", backLink = backLink) {
+    form {
+        encType = FormEncType.applicationXWwwFormUrlEncoded
+        method = FormMethod.post
+        label {
+            + "What needs to be counted?"
+            input {
+                type = InputType.text
+                name = "taskName"
+            }
+        }
+        label {
+            + "How much do you need?"
+            input {
+                type = InputType.number
+                name = "amount"
+                min = "0"
+                max = "100000000"
+            }
+        }
         button {
-            + "Back"
-        }
-        h1 {
-            + "Add countable task"
-        }
-    }
-    main {
-        form {
-            encType = FormEncType.applicationXWwwFormUrlEncoded
-            method = FormMethod.post
-            label {
-                + "What needs to be counted?"
-                input {
-                    type = InputType.text
-                    name = "taskName"
-                }
-            }
-            label {
-                + "How much do you need?"
-                input {
-                    type = InputType.number
-                    name = "amount"
-                    min = "0"
-                    max = "100000000"
-                }
-            }
-            button {
-                type = ButtonType.submit
-                + "Add task"
-            }
+            type = ButtonType.submit
+            + "Add task"
         }
     }
 }

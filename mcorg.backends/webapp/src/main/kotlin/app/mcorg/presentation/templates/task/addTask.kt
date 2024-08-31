@@ -1,29 +1,19 @@
 package app.mcorg.presentation.templates.task
 
-import app.mcorg.presentation.templates.baseTemplate
+import app.mcorg.presentation.templates.subPageTemplate
 import kotlinx.html.*
 
-fun addTask(worldId: Int, projectId: Int) = baseTemplate {
-    nav {
+fun addTask(backLink: String, worldId: Int, projectId: Int) = subPageTemplate("Add task", backLink = backLink) {
+    a {
+        href = "/app/worlds/$worldId/projects/$projectId/add-task/doable"
         button {
-            + "Back"
-        }
-        h1 {
-            + "Add task"
+            + "Add doable"
         }
     }
-    main {
-        a {
-            href = "/app/worlds/$worldId/projects/$projectId/add-task/doable"
-            button {
-                + "Add doable"
-            }
-        }
-        a {
-            href = "/app/worlds/$worldId/projects/$projectId/add-task/countable"
-            button {
-                + "Add countable"
-            }
+    a {
+        href = "/app/worlds/$worldId/projects/$projectId/add-task/countable"
+        button {
+            + "Add countable"
         }
     }
 }

@@ -7,6 +7,7 @@ fun baseTemplate(siteTitle: String = "MC-ORG", body: BODY.() -> Unit): String {
     return "<!DOCTYPE html>\n" + createHTML().html {
         lang = "en"
         head {
+            title = siteTitle
             script {
                 src = "/static/htmx.js"
             }
