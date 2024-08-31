@@ -1,6 +1,8 @@
 package app.mcorg.infrastructure.repository
 
 import app.mcorg.domain.*
+import java.sql.Connection
+import java.sql.PreparedStatement
 
 class ProjectsImpl : Projects, Repository() {
     override fun getProject(id: Int, includeTasks: Boolean, includeDependencies: Boolean): Project? {
@@ -187,6 +189,7 @@ class ProjectsImpl : Projects, Repository() {
                 .apply { setInt(1, projectId); setString(2, name); setInt(3, needed) }
 
             if (statement.execute()) {
+                updateProjectProgress(it, projectId, getProjectProgress(it, projectId))
                 with(statement.resultSet) {
                     if (next()) return getInt(1)
                 }
@@ -203,6 +206,7 @@ class ProjectsImpl : Projects, Repository() {
                 .apply { setInt(1, projectId); setString(2, name); }
 
             if (statement.execute()) {
+                updateProjectProgress(it, projectId, getProjectProgress(it, projectId))
                 with(statement.resultSet) {
                     if (next()) return getInt(1)
                 }
@@ -214,50 +218,54 @@ class ProjectsImpl : Projects, Repository() {
 
     override fun removeTask(id: Int) {
         getConnection().use {
-            it.prepareStatement("delete from task where id = ?")
+            val statement = it.prepareStatement("delete from task where id = ?")
                 .apply { setInt(1, id) }
-                .executeUpdate()
+            updateProjectProgress(it, statement)
         }
     }
 
     override fun completeTask(id: Int) {
         getConnection().use {
-            it.prepareStatement("update task set done = needed where id = ?")
+            val statement = it.prepareStatement("update task set done = needed where id = ?")
                 .apply { setInt(1, id) }
-                .executeUpdate()
+
+            updateProjectProgress(it, statement)
         }
     }
 
     override fun undoCompleteTask(id: Int) {
         getConnection().use {
-            it.prepareStatement("update task set done = 0 where id = ?")
+            val statement = it.prepareStatement("update task set done = 0 where id = ?")
                 .apply { setInt(1, id) }
-                .executeUpdate()
+
+            updateProjectProgress(it, statement)
         }
     }
 
     override fun updateCountableTask(id: Int, needed: Int, done: Int) {
         getConnection().use {
-            it.prepareStatement("update task set done = ?, needed = ? where id = ?")
+            val statement = it.prepareStatement("update task set done = ?, needed = ? where id = ?")
                 .apply { setInt(1, done); setInt(2, needed); setInt(3, id) }
-                .executeUpdate()
+
+            updateProjectProgress(it, statement)
         }
     }
 
     override fun taskRequiresMore(id: Int, needed: Int) {
         getConnection().use {
-            it
-                .prepareStatement("update task set needed = ? where id = ?")
+            val statement = it.prepareStatement("update task set needed = ? where id = ?")
                 .apply { setInt(1, needed); setInt(2, id) }
-                .executeUpdate()
+
+            updateProjectProgress(it, statement)
         }
     }
 
     override fun taskDoneMore(id: Int, done: Int) {
         getConnection().use {
-            it.prepareStatement("update task set done = ? where id = ?")
+            val statement = it.prepareStatement("update task set done = ? where id = ? returning project_id")
                 .apply { setInt(1, done); setInt(2, id) }
-                .executeUpdate()
+
+            updateProjectProgress(it, statement)
         }
     }
 
@@ -299,6 +307,45 @@ class ProjectsImpl : Projects, Repository() {
                 .apply { setInt(1, dependencyId) }
                 .executeUpdate()
         }
+    }
+    data class TaskProgress(val needed: Int, val done: Int)
+
+    private fun updateProjectProgress(connection: Connection, statement: PreparedStatement) {
+        if (statement.execute()) {
+            with(statement.resultSet) {
+                if (next()) {
+                    val projectId = getInt(1)
+                    val progress = getProjectProgress(connection, projectId)
+                    updateProjectProgress(connection, projectId, progress)
+                }
+            }
+        }
+
+    }
+
+    private fun updateProjectProgress(connection: Connection, projectId: Int, progress: Double) {
+        connection.prepareStatement("update project set progress = ? where id = ?")
+            .apply { setDouble(1, progress); setInt(2, projectId) }
+            .executeUpdate()
+    }
+
+    private fun getProjectProgress(connection: Connection, projectId: Int): Double {
+        connection.prepareStatement("select needed, done from task where project_id = ?")
+            .apply { setInt(1, projectId) }
+            .executeQuery()
+            .use { rs ->
+                val list = mutableListOf<TaskProgress>()
+                while (rs.next()) {
+                    list.add(TaskProgress(rs.getInt(1), rs.getInt(2)))
+                }
+
+                var progress = 0.0
+                val totalNeeded = list.sumOf { it.needed }
+                for((needed, done) in list) {
+                    progress += (needed - done)
+                }
+                return progress / totalNeeded.toDouble()
+            }
     }
 
     private fun String.toPriority(): Priority {

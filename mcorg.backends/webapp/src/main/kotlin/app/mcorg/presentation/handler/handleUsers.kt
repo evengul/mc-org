@@ -15,7 +15,7 @@ import io.ktor.server.response.*
 suspend fun ApplicationCall.handleGetUsers() {
     val worldId = getWorldId()
     val currentUser = getUser()
-    val worldUsers = permissionsApi.getUsersInWorld(worldId)
+    val worldUsers = permissionsApi.getUsersInWorld(worldId).filter { it.id != currentUser.id }
     val isAdmin = permissionsApi.hasWorldPermission(currentUser.id, Authority.ADMIN, worldId)
     respondHtml(users(worldId, currentUser, worldUsers, isAdmin))
 }

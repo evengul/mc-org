@@ -12,13 +12,23 @@ fun profile(profile: Profile): String = mainPageTemplate(worldId = profile.selec
         + "Connected to Microsoft"
         input {
             checked = true
+            disabled = true
             type = InputType.checkBox
         }
     }
     label {
-        + "Connected to Discord"
+        + "Connected to Discord (Not yet available)"
         input {
             checked = false
+            disabled = true
+            type = InputType.checkBox
+        }
+    }
+    label {
+        + "Connected to MC-ORG Mod (Not yet available)"
+        input {
+            checked = false
+            disabled = true
             type = InputType.checkBox
         }
     }

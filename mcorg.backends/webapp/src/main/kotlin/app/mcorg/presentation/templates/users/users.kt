@@ -11,10 +11,8 @@ fun users(worldId: Int, currentUser: User, users: List<User>, isAdmin: Boolean):
             + currentUser.username
         }
         for (user in users) {
-            if (user.id != currentUser.id) {
-                li {
-                    + currentUser.username
-                }
+            li {
+                + user.username
             }
         }
     }
