@@ -13,6 +13,29 @@ body * {
     color: inherit;
 }
 
+/******** BUTTON ********/
+
+button {
+    background-color: var(--clr-primary);
+    cursor: pointer;
+}
+
+button.button-secondary {
+    background-color: transparent;
+    border: 1px solid var(--clr-primary);
+}
+
+button.button-danger {
+    background-color: var(--clr-danger);
+    color: var(--clr-bg-light);
+}
+
+/******** Input -> Checkbox ********/
+
+input[type="checkbox"] {
+    transform: scale(3);
+}
+
 /******** NAVBAR ********/
 
 nav {
@@ -56,4 +79,45 @@ nav {
     border-top: 3px solid black;
 }
 
+/******** MAIN ********/
+
+main {
+    display: flex;
+    flex-direction: column;
+}
+
+/******** PROFILE ********/
+
+.profile-section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xl);
+    margin: var(--spacing-lg);
+}
+
+#profile-section-user {
+    flex-direction: row;
+    gap: var(--spacing-lg);
+}
+
+#profile-section-user > input {
+    display: block;
+}
+
+#profile-section-connections {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+}
+
+.profile-section > button,
+.profile-section > a,
+.profile-section > a > button {
+    width: 100%
+}
+
 /******** **** ********/
+
+
+
+
