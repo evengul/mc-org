@@ -8,3 +8,11 @@ body {
 body * {
     color: inherit;
 }
+
+.invisible {
+    display: none;
+}
+
+.visible {
+    display: block;
+}

@@ -3,6 +3,9 @@ package app.mcorg.presentation.templates
 import kotlinx.html.*
 
 fun mainPageTemplate(worldId: Int?, title: String, rightIcons: List<NavBarRightIcon> = emptyList(), main: MAIN.() -> Unit) = pageTemplate(title, rightIcons, main) {
+    script {
+        src = "/static/menu.js"
+    }
     button {
         id = "menu-button"
         + "Menu"

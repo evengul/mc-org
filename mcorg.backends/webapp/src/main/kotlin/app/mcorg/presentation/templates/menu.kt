@@ -36,6 +36,8 @@ fun BODY.navBar(title: String, rightIcons: List<NavBarRightIcon>, leftIcon: NAV.
 }
 
 fun NAV.menu(worldId: Int?) = ul {
+    id = "menu-links"
+    classes = setOf("invisible")
     if (worldId != null) {
         li {
             classes = setOf("menu-link")
