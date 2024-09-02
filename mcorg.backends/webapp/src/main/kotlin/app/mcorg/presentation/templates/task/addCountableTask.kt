@@ -8,22 +8,24 @@ fun addCountableTask(backLink: String) = subPageTemplate("Add countable task", b
         encType = FormEncType.applicationXWwwFormUrlEncoded
         method = FormMethod.post
         label {
+            htmlFor = "add-countable-task-name-input"
             + "What needs to be counted?"
-            input {
-                id = "add-countable-task-name-input"
-                type = InputType.text
-                name = "taskName"
-            }
+        }
+        input {
+            id = "add-countable-task-name-input"
+            type = InputType.text
+            name = "taskName"
         }
         label {
+            htmlFor = "add-countable-task-amount-input"
             + "How much do you need?"
-            input {
-                id = "add-countable-task-amount-input"
-                type = InputType.number
-                name = "amount"
-                min = "0"
-                max = "100000000"
-            }
+        }
+        input {
+            id = "add-countable-task-amount-input"
+            type = InputType.number
+            name = "amount"
+            min = "0"
+            max = "100000000"
         }
         button {
             id = "add-countable-task-submit-button"

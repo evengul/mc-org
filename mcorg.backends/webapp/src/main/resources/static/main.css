@@ -13,11 +13,21 @@ body * {
     color: inherit;
 }
 
+/******** MAIN ********/
+
+main {
+    display: flex;
+    flex-direction: column;
+    width: 100vw;
+}
+
 /******** BUTTON ********/
 
 button {
+    border: none;
     background-color: var(--clr-primary);
     cursor: pointer;
+    padding-block: var(--spacing-sm);
 }
 
 button.button-secondary {
@@ -34,6 +44,39 @@ button.button-danger {
 
 input[type="checkbox"] {
     transform: scale(3);
+}
+
+/******** FORM ********/
+
+main:has(form),
+main:has(a#add-task-doable-link) {
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
+    gap: var(--spacing-xl)
+}
+
+form {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr 1fr;
+
+    grid-row-gap: var(--spacing-lg);
+
+    width: min(95%, 600px);
+}
+
+form > label {
+    grid-column: 1 / span 3;
+}
+
+form > input {
+    grid-column: 4 / span 3;
+}
+
+form > button[type="submit"] {
+    grid-column: 2 / span 3;
 }
 
 /******** NAVBAR ********/
@@ -79,13 +122,6 @@ nav {
     border-top: 3px solid black;
 }
 
-/******** MAIN ********/
-
-main {
-    display: flex;
-    flex-direction: column;
-}
-
 /******** PROFILE ********/
 
 .profile-section {
@@ -116,7 +152,19 @@ main {
     width: 100%
 }
 
+/******** TASK BUTTONS ********/
+
+a#add-task-doable-link,
+a#add-task-countable-link {
+    width: min(25%, 250px);
+}
+
+main:has(a#add-task-doable-link) button {
+    width: 100%;
+}
+
 /******** **** ********/
+
 
 
 
