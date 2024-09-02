@@ -7,28 +7,15 @@ fun BODY.navBar(title: String, rightIcons: List<NavBarRightIcon>, leftIcon: NAV.
     h1 {
         + title
     }
-    if (rightIcons.isNotEmpty()) {
-        if (rightIcons.size == 1) {
+    span {
+        classes = setOf("navbar-links")
+        for (icon in rightIcons) {
             a {
                 classes = setOf("navbar-link")
-                id = rightIcons[0].icon + "-link"
-                href = rightIcons[0].link
+                id = icon.icon + "-link"
+                href = icon.link
                 button {
-                    + rightIcons[0].title
-                }
-            }
-        } else {
-            span {
-                classes = setOf("navbar-links")
-                for (icon in rightIcons) {
-                    a {
-                        classes = setOf("navbar-link")
-                        id = icon.icon + "-link"
-                        href = icon.link
-                        button {
-                            + icon.title
-                        }
-                    }
+                    + icon.title
                 }
             }
         }
@@ -37,10 +24,14 @@ fun BODY.navBar(title: String, rightIcons: List<NavBarRightIcon>, leftIcon: NAV.
 
 fun NAV.menu(worldId: Int?) = ul {
     id = "menu-links"
-    classes = setOf("invisible")
+    classes = setOf("menu-invisible")
+    button {
+        id = "menu-close-button"
+        + "Close"
+    }
     if (worldId != null) {
         li {
-            classes = setOf("menu-link")
+            classes = setOf("menu-link", "menu-top-link")
             a {
                 id = "menu-project-link"
                 href = "/app/worlds/$worldId/projects"
@@ -48,17 +39,16 @@ fun NAV.menu(worldId: Int?) = ul {
             }
         }
         li {
-            classes = setOf("menu-link-element")
+            classes = setOf("menu-link", "menu-top-link")
             a {
                 id = "menu-users-link"
                 href = "/app/worlds/$worldId/users"
                 + "Users"
             }
         }
-        hr {  }
     }
     li {
-        classes = setOf("menu-link")
+        classes = setOf("menu-link", "menu-bottom-link")
         a {
             id = "menu-worlds-link"
             href = "/app/worlds"
@@ -66,7 +56,7 @@ fun NAV.menu(worldId: Int?) = ul {
         }
     }
     li {
-        classes = setOf("menu-link")
+        classes = setOf("menu-link", "menu-bottom-link")
         a {
             id = "menu-profile-link"
             href = "/app/profile"

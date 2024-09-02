@@ -1,3 +1,7 @@
+:root {
+    --navbar-height: calc(var(--text-xxl) + 25px);
+}
+
 body {
     background-color: var(--clr-bg-light);
     color: var(--clr-text);
@@ -9,10 +13,47 @@ body * {
     color: inherit;
 }
 
-.invisible {
+/******** NAVBAR ********/
+
+nav {
+    height: var(--navbar-height);
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+
+    background-color: var(--clr-secondary);
+}
+
+/******** MENU ********/
+
+.menu-invisible {
     display: none;
 }
 
-.visible {
-    display: block;
+.menu-visible {
+    position: absolute;
+    top: 0;
+    left: 0;
+
+    width: clamp(300px, 33vw, 800px);
+    height: 100vh;
+
+    background: var(--clr-secondary);
+
+    display: flex;
+    flex-direction: column;
 }
+
+.menu-visible > li {
+    list-style: none;
+}
+
+.menu-visible > li > a {
+    text-decoration: none;
+}
+
+.menu-visible:nth-last-child(2) {
+    border-top: 3px solid black;
+}
+
+/******** **** ********/
