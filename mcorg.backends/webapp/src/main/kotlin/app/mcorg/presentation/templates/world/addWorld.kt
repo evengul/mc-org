@@ -9,6 +9,7 @@ fun addWorld(backLink: String): String = subPageTemplate("Create world", backLin
         encType = FormEncType.applicationXWwwFormUrlEncoded
         label {
             input {
+                id = "add-world-name-input"
                 name = "worldName"
                 type = InputType.text
                 required = true
@@ -18,6 +19,7 @@ fun addWorld(backLink: String): String = subPageTemplate("Create world", backLin
             + "Name of your world"
         }
         button {
+            id = "add-world-submit-button"
             type = ButtonType.submit
             + "Create"
         }

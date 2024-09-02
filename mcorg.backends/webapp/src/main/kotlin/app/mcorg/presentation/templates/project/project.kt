@@ -1,9 +1,6 @@
 package app.mcorg.presentation.templates.project
 
-import app.mcorg.domain.Project
-import app.mcorg.domain.countable
-import app.mcorg.domain.doable
-import app.mcorg.domain.isDone
+import app.mcorg.domain.*
 import app.mcorg.presentation.templates.NavBarRightIcon
 import app.mcorg.presentation.templates.subPageTemplate
 import kotlinx.html.*
@@ -17,14 +14,10 @@ fun project(backLink: String, project: Project): String = subPageTemplate(projec
             li {
                 div {
                     + it.name
-                    a {
-                        href = "/app/worlds/${project.worldId}/projects/${project.id}/tasks/${it.id}/assign"
-                        button {
-                            + "Assign user"
-                        }
-                    }
+                    assignTask(project, it)
                 }
                 progress {
+                    id = "project-task-${it.id}-progress"
                     max = it.needed.toString()
                     value = it.done.toString()
                 }
@@ -34,17 +27,29 @@ fun project(backLink: String, project: Project): String = subPageTemplate(projec
             li {
                 div {
                     + it.name
-                }
-                a {
-                    href = "/app/worlds/${project.worldId}/projects/${project.id}/tasks/${it.id}/assign"
-                    button {
-                        + "Assign user"
-                    }
+                    assignTask(project, it)
                 }
                 input {
+                    id = "project-doable-task-${it.id}-change-input"
                     type = InputType.checkBox
                     checked = it.isDone()
                 }
+            }
+        }
+    }
+}
+
+private fun DIV.assignTask(project: Project, task: Task) {
+    a {
+        id = "project-task-${task.id}-assign-link"
+        href = "/app/worlds/${project.worldId}/projects/${project.id}/tasks/${task.id}/assign"
+        button {
+            id = "project-task-${task.id}-assign-button"
+            if (task.assignee == null) {
+                + "Assign user"
+            } else {
+                classes = setOf("selected")
+                + task.assignee.username
             }
         }
     }

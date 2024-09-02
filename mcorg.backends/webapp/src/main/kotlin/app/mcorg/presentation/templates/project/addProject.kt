@@ -10,6 +10,7 @@ fun addProject(backLink: String, isTechnical: Boolean): String = subPageTemplate
         label {
             + "Name of project"
             input {
+                id = "project-add-name-input"
                 type = InputType.text
                 required = true
                 name = "projectName"
@@ -18,6 +19,7 @@ fun addProject(backLink: String, isTechnical: Boolean): String = subPageTemplate
         label {
             + "Dimension"
             select {
+                id = "project-add-dimension-input"
                 required = true
                 name = "dimension"
                 option {
@@ -37,6 +39,7 @@ fun addProject(backLink: String, isTechnical: Boolean): String = subPageTemplate
         label {
             + "Priority"
             select {
+                id = "project-add-priority-input"
                 required = true
                 name = "priority"
                 option {
@@ -57,12 +60,14 @@ fun addProject(backLink: String, isTechnical: Boolean): String = subPageTemplate
             label {
                 + "Requires perimeter"
                 input {
+                    id = "project-add-requires-perimeter-input"
                     type = InputType.checkBox
                     name = "requiresPerimeter"
                 }
             }
         }
         button {
+            id = "project-add-submit-button"
             type = ButtonType.submit
             + "Create"
         }

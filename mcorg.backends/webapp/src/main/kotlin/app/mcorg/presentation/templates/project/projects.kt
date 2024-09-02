@@ -11,6 +11,7 @@ fun projects(worldId: Int, projects: List<SlimProject>): String = mainPageTempla
     if (projects.isEmpty()) {
         + "No projects? "
         a {
+            id = "projects-no-project-link"
             href = "/app/worlds/$worldId/projects/add"
             + "Add one now."
         }
@@ -19,12 +20,14 @@ fun projects(worldId: Int, projects: List<SlimProject>): String = mainPageTempla
         for (project in projects) {
             li {
                 a {
+                    id = "projects-project-${project.id}-link"
                     href = "/app/worlds/${project.worldId}/projects/${project.id}"
                     div {
                         + (project.priority.name + " | " + project.dimension.name + " | " + project.name)
                     }
                     div {
                         a {
+                            id = "projects-project-${project.id}-assign-link"
                             href = "/app/worlds/${project.worldId}/projects/${project.id}/assign"
                             if (project.assignee == null) {
                                 + "Assign user"
@@ -34,6 +37,7 @@ fun projects(worldId: Int, projects: List<SlimProject>): String = mainPageTempla
                         }
                     }
                     progress {
+                        id = "projects-project-${project.id}-progress"
                         max = "100"
                         value = project.progress.toString()
                     }

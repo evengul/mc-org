@@ -8,6 +8,7 @@ import kotlinx.html.*
 fun users(worldId: Int, currentUser: User, users: List<User>, isAdmin: Boolean): String = mainPageTemplate(worldId, "Users", getRightIcons(isAdmin, worldId)) {
     ul {
         li {
+            classes = setOf("selected")
             + currentUser.username
         }
         for (user in users) {

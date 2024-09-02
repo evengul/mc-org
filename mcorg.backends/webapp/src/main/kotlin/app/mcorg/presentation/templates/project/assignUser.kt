@@ -9,6 +9,7 @@ fun assignUser(backLink: String, users: List<User>, selected: Int?): String = su
         val selectedUser = users.find { it.id == selected }
         if (selectedUser != null) {
             li {
+                classes = setOf("selected")
                 + selectedUser.username
             }
         }

@@ -4,6 +4,7 @@ import kotlinx.html.*
 
 fun mainPageTemplate(worldId: Int?, title: String, rightIcons: List<NavBarRightIcon> = emptyList(), main: MAIN.() -> Unit) = pageTemplate(title, rightIcons, main) {
     button {
+        id = "menu-button"
         + "Menu"
     }
     menu(worldId)
@@ -13,6 +14,7 @@ fun subPageTemplate(title: String, backLink: String, rightIcons: List<NavBarRigh
     a {
         href = backLink
         button {
+            id = "back-button"
             + "Back"
         }
     }

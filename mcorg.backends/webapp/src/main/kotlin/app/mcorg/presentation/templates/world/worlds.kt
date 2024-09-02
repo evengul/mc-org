@@ -13,7 +13,8 @@ fun worlds(selectedWorldId: Int?, worlds: List<World>): String = mainPageTemplat
             val selectedWorld = worlds.find { it.id == selectedWorldId }
             if (selectedWorld != null) {
                 li {
-                    + ("Selected: " + selectedWorld.name)
+                    classes = setOf("selected")
+                    + selectedWorld.name
                 }
             }
         }

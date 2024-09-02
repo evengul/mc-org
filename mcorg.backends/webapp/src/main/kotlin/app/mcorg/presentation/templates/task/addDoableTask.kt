@@ -10,11 +10,13 @@ fun addDoableTask(backLink: String) = subPageTemplate("Add doable task", backLin
         label {
             + "What needs to be done?"
             input {
+                id = "add-doable-task-name-input"
                 type = InputType.text
                 name = "taskName"
             }
         }
         button {
+            id = "add-doable-task-submit-button"
             type = ButtonType.submit
             + "Add task"
         }

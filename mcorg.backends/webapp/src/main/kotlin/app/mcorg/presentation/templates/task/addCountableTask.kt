@@ -10,6 +10,7 @@ fun addCountableTask(backLink: String) = subPageTemplate("Add countable task", b
         label {
             + "What needs to be counted?"
             input {
+                id = "add-countable-task-name-input"
                 type = InputType.text
                 name = "taskName"
             }
@@ -17,6 +18,7 @@ fun addCountableTask(backLink: String) = subPageTemplate("Add countable task", b
         label {
             + "How much do you need?"
             input {
+                id = "add-countable-task-amount-input"
                 type = InputType.number
                 name = "amount"
                 min = "0"
@@ -24,6 +26,7 @@ fun addCountableTask(backLink: String) = subPageTemplate("Add countable task", b
             }
         }
         button {
+            id = "add-countable-task-submit-button"
             type = ButtonType.submit
             + "Add task"
         }

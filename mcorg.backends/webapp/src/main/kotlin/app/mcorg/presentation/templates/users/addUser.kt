@@ -9,6 +9,7 @@ fun addUser(backLink: String): String = subPageTemplate("Add user", backLink = b
         method = FormMethod.post
         label {
             input {
+                id = "add-user-username-input"
                 type = InputType.text
                 name = "username"
                 autoComplete = false
@@ -16,6 +17,8 @@ fun addUser(backLink: String): String = subPageTemplate("Add user", backLink = b
             + "Username: Must be an exact match, and must have signed in to MC-ORG before"
         }
         button {
+            id = "add-user-submit-button"
+            type = ButtonType.submit
             + "Add user"
         }
     }
