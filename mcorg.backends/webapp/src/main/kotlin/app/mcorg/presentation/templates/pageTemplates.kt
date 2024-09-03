@@ -14,8 +14,8 @@ fun mainPageTemplate(selectedPage: MainPage, worldId: Int?, title: String, right
         src = "/static/menu.js"
     }
     button {
+        classes = setOf("button-icon icon-menu")
         id = "menu-button"
-        + "Menu"
     }
     menu(selectedPage, worldId)
 }
@@ -24,8 +24,8 @@ fun subPageTemplate(title: String, backLink: String, rightIcons: List<NavBarRigh
     a {
         href = backLink
         button {
+            classes = setOf("button-icon icon-back")
             id = "back-button"
-            + "Back"
         }
     }
 }

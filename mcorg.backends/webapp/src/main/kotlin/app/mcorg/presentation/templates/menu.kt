@@ -15,7 +15,7 @@ fun BODY.navBar(title: String, rightIcons: List<NavBarRightIcon>, leftIcon: NAV.
                 id = icon.icon + "-link"
                 href = icon.link
                 button {
-                    + icon.title
+                    classes = setOf("button-icon", "icon-${icon.icon}")
                 }
             }
         }
@@ -27,7 +27,7 @@ fun NAV.menu(selectedPage: MainPage, worldId: Int?) = ul {
     classes = setOf("menu-invisible")
     button {
         id = "menu-close-button"
-        + "Close"
+        classes = setOf("button-icon", "icon-back")
     }
     if (worldId != null) {
         li {
@@ -35,6 +35,9 @@ fun NAV.menu(selectedPage: MainPage, worldId: Int?) = ul {
             a {
                 id = "menu-project-link"
                 href = "/app/worlds/$worldId/projects"
+                span {
+                    classes = setOf("icon", "icon-menu-projects")
+                }
                 + "Projects"
             }
         }
@@ -43,6 +46,9 @@ fun NAV.menu(selectedPage: MainPage, worldId: Int?) = ul {
             a {
                 id = "menu-users-link"
                 href = "/app/worlds/$worldId/users"
+                span {
+                    classes = setOf("icon", "icon-menu-users")
+                }
                 + "Users"
             }
         }
@@ -53,6 +59,9 @@ fun NAV.menu(selectedPage: MainPage, worldId: Int?) = ul {
         a {
             id = "menu-worlds-link"
             href = "/app/worlds"
+            span {
+                classes = setOf("icon", "icon-menu-worlds")
+            }
             + "Worlds"
         }
     }
@@ -61,6 +70,9 @@ fun NAV.menu(selectedPage: MainPage, worldId: Int?) = ul {
         a {
             id = "menu-profile-link"
             href = "/app/profile"
+            span {
+                classes = setOf("icon", "icon-menu-profile")
+            }
             + "Profile"
         }
     }

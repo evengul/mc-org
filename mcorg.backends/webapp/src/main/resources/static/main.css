@@ -64,6 +64,81 @@ button.button-danger {
     color: var(--clr-bg-light);
 }
 
+button.button-icon {
+    background-color: transparent;
+    height: 48px;
+    width: 48px;
+    background-repeat: no-repeat;
+}
+
+/******** Icons ********/
+
+.icon {
+    width: 0;
+    height: 0;
+    padding: 24px;
+    background-repeat: no-repeat;
+}
+
+.icon-back {
+    background-image: url("/static/icons/Back.svg");
+}
+
+.icon-menu {
+    background-image: url("/static/icons/Menu.svg");
+}
+
+.icon-menu-add {
+    background-image: url("/static/icons/Menu_Add.svg");
+}
+
+.icon-menu-worlds,
+.icon-dimension-overworld {
+    background-image: url("/static/icons/dimensions/Overworld.svg");
+}
+
+.icon-dimension-nether {
+    background-image: url("/static/icons/dimensions/Nether.svg");
+}
+
+.icon-dimension-the-end {
+    background-image: url("/static/icons/dimensions/End.svg");
+}
+
+.icon-priority-low {
+    background-image: url("/static/icons/priority/Low.svg");
+}
+
+.icon-priority-medium {
+    background-image: url("/static/icons/priority/Medium.svg");
+}
+
+.icon-priority-high {
+    background-image: url("/static/icons/priority/High.svg");
+}
+
+.icon-menu-profile,
+.icon-user {
+    background-image: url("/static/icons/users/Profile.svg");
+}
+
+.icon-menu-users,
+.icon-users {
+    background-image: url("/static/icons/users/Group.svg");
+}
+
+.icon-user-add {
+    background-image: url("/static/icons/users/Add.svg");
+}
+
+.icon-world-add {
+    background-image: url("/static/icons/Add_World.svg");
+}
+
+.icon-menu-projects {
+    background-image: url("/static/icons/menu/Projects.svg");
+}
+
 /******** Input -> Checkbox ********/
 
 input[type="checkbox"] {

@@ -9,7 +9,7 @@ import kotlinx.html.*
 fun worlds(selectedWorldId: Int?, worlds: List<World>): String = mainPageTemplate(
     selectedPage = MainPage.WORLDS,
     selectedWorldId, "Worlds", listOf(
-    NavBarRightIcon("Add world", "Add world", "/app/worlds/add")
+    NavBarRightIcon("world-add", "Add world", "/app/worlds/add")
 )) {
     ul {
         if (selectedWorldId != null) {
@@ -17,6 +17,9 @@ fun worlds(selectedWorldId: Int?, worlds: List<World>): String = mainPageTemplat
             if (selectedWorld != null) {
                 li {
                     classes = setOf("selected")
+                    span {
+                        classes = setOf("icon", "icon-dimension-overworld")
+                    }
                     + selectedWorld.name
                 }
             }
@@ -24,6 +27,9 @@ fun worlds(selectedWorldId: Int?, worlds: List<World>): String = mainPageTemplat
         for (world in worlds) {
             if (world.id != selectedWorldId) {
                 li {
+                    span {
+                        classes = setOf("icon", "icon-dimension-overworld")
+                    }
                     + world.name
                 }
             }

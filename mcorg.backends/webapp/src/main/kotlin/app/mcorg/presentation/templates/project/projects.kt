@@ -10,7 +10,7 @@ fun projects(worldId: Int, projects: List<SlimProject>): String = mainPageTempla
     selectedPage = MainPage.PROJECTS,
     worldId = worldId,
     title = "Projects",
-    listOf(NavBarRightIcon("Add project", "Add project", "/app/worlds/$worldId/projects/add"))
+    listOf(NavBarRightIcon("menu-add", "Add project", "/app/worlds/$worldId/projects/add"))
 ) {
     if (projects.isEmpty()) {
         + "No projects? "
@@ -27,7 +27,15 @@ fun projects(worldId: Int, projects: List<SlimProject>): String = mainPageTempla
                     id = "projects-project-${project.id}-link"
                     href = "/app/worlds/${project.worldId}/projects/${project.id}"
                     div {
-                        + (project.priority.name + " | " + project.dimension.name + " | " + project.name)
+                        span {
+                            classes = setOf("icon", "icon-dimension-${project.dimension.name.lowercase().replace("_", "-")}")
+                        }
+                        span {
+                            classes = setOf("icon", "icon-priority-${project.priority.name.lowercase()}")
+                        }
+                        span {
+                            + project.name
+                        }
                     }
                     div {
                         a {

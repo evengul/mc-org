@@ -14,10 +14,16 @@ fun users(worldId: Int, currentUser: User, users: List<User>, isAdmin: Boolean):
     ul {
         li {
             classes = setOf("selected")
+            span {
+                classes = setOf("icon", "icon-user")
+            }
             + currentUser.username
         }
         for (user in users) {
             li {
+                span {
+                    classes = setOf("icon", "icon-user")
+                }
                 + user.username
             }
         }
@@ -25,5 +31,5 @@ fun users(worldId: Int, currentUser: User, users: List<User>, isAdmin: Boolean):
 }
 
 private fun getRightIcons(isAdmin: Boolean, worldId: Int) =
-    if (isAdmin) listOf(NavBarRightIcon("Add user", "Add user", "/app/worlds/$worldId/users/add"))
+    if (isAdmin) listOf(NavBarRightIcon("user-add", "Add user", "/app/worlds/$worldId/users/add"))
     else emptyList()
