@@ -1,6 +1,7 @@
 package app.mcorg.presentation.templates.world
 
 import app.mcorg.domain.World
+import app.mcorg.presentation.hxPatch
 import app.mcorg.presentation.templates.MainPage
 import app.mcorg.presentation.templates.NavBarRightIcon
 import app.mcorg.presentation.templates.mainPageTemplate
@@ -28,6 +29,7 @@ fun worlds(selectedWorldId: Int?, worlds: List<World>): String = mainPageTemplat
         for (world in worlds) {
             if (world.id != selectedWorldId) {
                 li {
+                    hxPatch("/app/worlds/select?worldId=${world.id}")
                     span {
                         classes = setOf("icon", "icon-dimension-overworld")
                     }

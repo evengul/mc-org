@@ -10,6 +10,7 @@ import app.mcorg.presentation.utils.receiveCreateWorldRequest
 import app.mcorg.presentation.router.utils.respondHtml
 import app.mcorg.presentation.templates.world.addWorld
 import app.mcorg.presentation.templates.world.worlds
+import app.mcorg.presentation.utils.clientRedirect
 import io.ktor.server.application.*
 import io.ktor.server.response.*
 
@@ -34,6 +35,17 @@ suspend fun ApplicationCall.handlePostWorld() {
     usersApi.selectWorld(userId, id)
 
     respondRedirect("/")
+}
+
+suspend fun ApplicationCall.handleSelectWorld() {
+    val userId = getUserId()
+    val worldId = parameters["worldId"]?.toIntOrNull()
+    if (worldId != null) {
+        worldsApi.getWorld(worldId)?.let {
+            usersApi.selectWorld(userId, worldId)
+            clientRedirect("/app/worlds/$worldId")
+        }
+    }
 }
 
 suspend fun ApplicationCall.handleGetWorld() {

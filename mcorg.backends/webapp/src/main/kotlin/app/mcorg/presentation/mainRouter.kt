@@ -48,6 +48,9 @@ fun Application.configureAppRouter() {
                 post("/add") {
                     call.handlePostWorld()
                 }
+                patch("/select") {
+                    call.handleSelectWorld()
+                }
                 route("/{worldId}") {
                     install(WorldParamPlugin)
                     install(WorldParticipantPlugin)

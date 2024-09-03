@@ -392,6 +392,11 @@ li.task > input[type="checkbox"] {
     gap: var(--spacing-sm)
 }
 
+#worlds-list > li:hover {
+    cursor: pointer;
+    text-decoration: underline;
+}
+
 /******** ADD USER ********/
 
 form#user-add {
