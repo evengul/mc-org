@@ -21,38 +21,39 @@ fun projects(worldId: Int, projects: List<SlimProject>): String = mainPageTempla
         }
     }
     ul {
+        id = "project-list"
         for (project in projects) {
             li {
-                a {
-                    id = "projects-project-${project.id}-link"
-                    href = "/app/worlds/${project.worldId}/projects/${project.id}"
-                    div {
-                        span {
-                            classes = setOf("icon", "icon-dimension-${project.dimension.name.lowercase().replace("_", "-")}")
-                        }
-                        span {
-                            classes = setOf("icon", "icon-priority-${project.priority.name.lowercase()}")
-                        }
-                        span {
-                            + project.name
+                div {
+                    classes = setOf("project-info")
+                    span {
+                        classes = setOf("icon", "icon-dimension-${project.dimension.name.lowercase().replace("_", "-")}")
+                    }
+                    span {
+                        classes = setOf("icon", "icon-priority-${project.priority.name.lowercase()}")
+                    }
+                    a {
+                        href = "/app/worlds/$worldId/projects/${project.id}"
+                        + project.name
+                    }
+                }
+                div {
+                    classes = setOf("project-assignment")
+                    a {
+                        id = "projects-project-${project.id}-assign-link"
+                        href = "/app/worlds/${project.worldId}/projects/${project.id}/assign"
+                        if (project.assignee == null) {
+                            + "Assign user"
+                        } else {
+                            + project.assignee.username
                         }
                     }
-                    div {
-                        a {
-                            id = "projects-project-${project.id}-assign-link"
-                            href = "/app/worlds/${project.worldId}/projects/${project.id}/assign"
-                            if (project.assignee == null) {
-                                + "Assign user"
-                            } else {
-                                + project.assignee.username
-                            }
-                        }
-                    }
-                    progress {
-                        id = "projects-project-${project.id}-progress"
-                        max = "100"
-                        value = project.progress.toString()
-                    }
+                }
+                progress {
+                    classes = setOf("project-progress")
+                    id = "projects-project-${project.id}-progress"
+                    max = "100"
+                    value = project.progress.toString()
                 }
             }
         }

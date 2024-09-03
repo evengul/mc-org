@@ -262,6 +262,44 @@ nav {
     width: 100%
 }
 
+/******** PROJECT LIST ********/
+
+main:has(#project-list) {
+    padding: var(--spacing-md);
+    width: 100%;
+}
+
+ul#project-list {
+    list-style: none;
+    width: 100%;
+}
+
+ul#project-list > li {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 2fr 3fr 1fr;
+    grid-template-rows: 1fr 1fr;
+
+    margin-bottom: var(--spacing-md);
+}
+
+.project-info {
+    grid-column: 1 / span 1;
+    grid-row: 1 / span 1;
+}
+
+.project-assignment {
+    grid-column: 3 / span 1;
+    grid-row: 1 / span 1;
+}
+
+.project-progress {
+    width: 100%;
+    grid-column: 1 / span 3;
+    grid-row: 2 / span 1;
+}
+
+
 /******** TASK BUTTONS ********/
 
 a#add-task-doable-link,
