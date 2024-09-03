@@ -39,12 +39,17 @@ suspend fun ApplicationCall.handlePostCountableTask() {
 }
 
 suspend fun ApplicationCall.handleGetAssignTask() {
-    val users = permissionsApi.getUsersInWorld(getWorldId())
-    respondHtml(assignUser("/app/worlds/${getWorldId()}/projects/${getProjectId()}", users, null))
+    val worldId = getWorldId()
+    val projectId = getProjectId()
+    val taskId = getTaskId()
+    val users = permissionsApi.getUsersInWorld(worldId)
+    val selectedUser = projectsApi.getTaskAssignee(taskId)
+    val projectLink = "/app/worlds/${worldId}/projects/${projectId}"
+    respondHtml(assignUser(projectLink, "$projectLink/tasks/${taskId}/assign", users, selectedUser?.id))
 }
 
 suspend fun ApplicationCall.handlePatchTaskAssignee() {
-    val (username) = receiveAddUserRequest()
+    val (username) = receiveAssignUserRequest()
     val worldId = getWorldId()
     val projectId = getProjectId()
     val taskId = getTaskId()
@@ -52,7 +57,7 @@ suspend fun ApplicationCall.handlePatchTaskAssignee() {
     val user = users.find { it.username == username }
     if (user != null) {
         projectsApi.assignTask(taskId, user.id)
-        respondRedirect("/app/worlds/$worldId/projects/$projectId")
+        clientRedirect("/app/worlds/$worldId/projects/$projectId")
     } else {
         throw IllegalArgumentException("User does not exist in project")
     }

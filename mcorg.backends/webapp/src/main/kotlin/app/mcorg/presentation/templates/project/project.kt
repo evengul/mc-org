@@ -10,9 +10,12 @@ fun project(backLink: String, project: Project): String = subPageTemplate(projec
     NavBarRightIcon("", "Add task", "/app/worlds/${project.worldId}/projects/${project.id}/add-task")
 )) {
     ul {
+        id = "task-list"
         project.countable().forEach {
             li {
+                classes = setOf("task")
                 div {
+                    classes = setOf("task-name-assign")
                     + it.name
                     assignTask(project, it)
                 }
@@ -25,7 +28,9 @@ fun project(backLink: String, project: Project): String = subPageTemplate(projec
         }
         project.doable().forEach {
             li {
+                classes = setOf("task")
                 div {
+                    classes = setOf("task-name-assign")
                     + it.name
                     assignTask(project, it)
                 }
@@ -46,9 +51,10 @@ private fun DIV.assignTask(project: Project, task: Task) {
         button {
             id = "project-task-${task.id}-assign-button"
             if (task.assignee == null) {
+                classes = setOf("button-secondary")
                 + "Assign user"
             } else {
-                classes = setOf("selected")
+                classes = setOf("selected", "button-secondary")
                 + task.assignee.username
             }
         }

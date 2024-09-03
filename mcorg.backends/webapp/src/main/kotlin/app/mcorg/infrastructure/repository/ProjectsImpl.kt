@@ -166,6 +166,24 @@ class ProjectsImpl : Projects, Repository() {
         }
     }
 
+    override fun getProjectAssignee(id: Int): User? {
+        getConnection().use {
+            it.prepareStatement("select u.id as user_id, u.username as username from project p join users u on p.assignee = u.id where p.id = ?")
+                .apply { setInt(1, id) }
+                .executeQuery()
+                .apply {
+                    if (next()) {
+                        val userId = getInt("user_id")
+                        val username = getString("username")
+                        if (userId > 0) {
+                            return User(userId, username)
+                        }
+                    }
+                }
+        }
+        return null
+    }
+
     override fun assignProject(id: Int, userId: Int) {
         getConnection().use {
             it.prepareStatement("update project set assignee = ? where id = ?")
@@ -283,6 +301,24 @@ class ProjectsImpl : Projects, Repository() {
                 .apply { setInt(1, id); }
                 .executeUpdate()
         }
+    }
+
+    override fun getTaskAssignee(id: Int): User? {
+        getConnection().use {
+            it.prepareStatement("select u.id as user_id, u.username as username from task t join users u on t.assignee = u.id where t.id = ?")
+                .apply { setInt(1, id) }
+                .executeQuery()
+                .apply {
+                    if (next()) {
+                        val userId = getInt("user_id")
+                        val username = getString("username")
+                        if (userId > 0) {
+                            return User(userId, username)
+                        }
+                    }
+                }
+        }
+        return null
     }
 
     override fun addProjectDependencyToTask(taskId: Int, projectId: Int, priority: Priority): Int {

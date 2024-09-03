@@ -13,6 +13,30 @@ body * {
     color: inherit;
 }
 
+/******** SELECTED ********/
+
+.selected {
+    color: var(--clr-primary);
+    text-decoration: underline;
+}
+
+.selectable {
+    cursor: pointer;
+}
+
+.selectable:hover {
+    text-decoration: underline;
+}
+
+.selectable-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    padding: var(--spacing-lg);
+
+    list-style: none;
+}
+
 /******** MAIN ********/
 
 main {
@@ -43,7 +67,7 @@ button.button-danger {
 /******** Input -> Checkbox ********/
 
 input[type="checkbox"] {
-    transform: scale(3);
+    /*transform: scale(3);*/
 }
 
 /******** FORM ********/
@@ -161,6 +185,37 @@ a#add-task-countable-link {
 
 main:has(a#add-task-doable-link) button {
     width: 100%;
+}
+
+/******** TASK OVERVIEW ********/
+
+main:has(#task-list) {
+    height: 100%;
+}
+
+ul#task-list {
+    height: 100%;
+}
+
+li.task {
+    width: 100%;
+    display: flex;
+    flex-direction: row;
+
+    justify-content: space-between;
+    padding: var(--spacing-sm);
+    margin-bottom: var(--spacing-md);
+}
+
+li.task > .task-name-assign {
+    display: flex;
+    flex-direction: column;
+    width: 25%;
+}
+
+li.task > progress,
+li.task > input[type="checkbox"] {
+    width: 50%;
 }
 
 /******** **** ********/

@@ -38,19 +38,23 @@ suspend fun ApplicationCall.handleGetProject() {
 }
 
 suspend fun ApplicationCall.handleGetAssignProject() {
-    val users = permissionsApi.getUsersInWorld(getWorldId())
-    respondHtml(assignUser("/app/worlds/${getWorldId()}/projects/${getProjectId()}", users, null))
+    val worldId = getWorldId()
+    val projectId = getProjectId()
+    val users = permissionsApi.getUsersInWorld(worldId)
+    val selectedUser = projectsApi.getProjectAssignee(projectId)
+    val projectLink = "/app/worlds/$worldId/projects/$projectId"
+    respondHtml(assignUser(projectLink, "$projectLink/assign", users, selectedUser?.id))
 }
 
 suspend fun ApplicationCall.handlePostProjectAssignee() {
-    val (username) = receiveAddUserRequest()
+    val (username) = receiveAssignUserRequest()
     val projectId = getProjectId()
     val worldId = getWorldId()
     val users = permissionsApi.getUsersInWorld(worldId)
     val user = users.find { it.username == username }
     if (user != null) {
         projectsApi.assignProject(projectId, user.id)
-        respondRedirect("/app/worlds/$worldId/projects/$projectId")
+        clientRefresh()
     } else {
         throw IllegalArgumentException("User is not in project")
     }

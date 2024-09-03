@@ -45,6 +45,7 @@ interface Projects {
     fun archiveProject(id: Int)
     fun openProject(id: Int)
 
+    fun getProjectAssignee(id: Int): User?
     fun assignProject(id: Int, userId: Int)
     fun removeProjectAssignment(id: Int)
 
@@ -56,6 +57,7 @@ interface Projects {
     fun updateCountableTask(id: Int, needed: Int, done: Int)
     fun taskRequiresMore(id: Int, needed: Int)
     fun taskDoneMore(id: Int, done: Int)
+    fun getTaskAssignee(id: Int): User?
     fun assignTask(id: Int, userId: Int)
     fun removeTaskAssignment(id: Int)
 

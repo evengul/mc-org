@@ -9,16 +9,21 @@ import app.mcorg.presentation.templates.auth.signInTemplate
 import app.mcorg.presentation.utils.addToken
 import app.mcorg.presentation.utils.getUserFromCookie
 import app.mcorg.presentation.utils.removeTokenAndSignOut
+import com.auth0.jwt.exceptions.TokenExpiredException
 import io.ktor.server.application.*
 import io.ktor.server.response.*
 
 suspend fun ApplicationCall.handleGetSignIn() {
-    val user = getUserFromCookie()
+    val user = try {
+        getUserFromCookie()
+    } catch (e: TokenExpiredException) {
+        null
+    }
 
     if (user == null) {
         if (getEnvironment() == "LOCAL") {
             addToken(createSignedJwtToken(getLocalUser()))
-            respondHtml("Hello")
+            respondRedirect("/")
         } else {
             respondHtml(signInTemplate(getMicrosoftSignInUrl()))
         }

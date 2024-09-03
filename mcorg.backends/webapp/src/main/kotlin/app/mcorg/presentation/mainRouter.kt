@@ -89,7 +89,7 @@ fun Application.configureAppRouter() {
                             get("/assign") {
                                 call.handleGetAssignProject()
                             }
-                            post("/assign") {
+                            patch("/assign") {
                                 call.handlePostProjectAssignee()
                             }
                             delete("/assign") {

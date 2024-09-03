@@ -14,6 +14,10 @@ fun HTMLTag.hxPut(value: String) {
     attributes += "hx-put" to value
 }
 
+fun HTMLTag.hxPatch(value: String) {
+    attributes += "hx-patch" to value
+}
+
 fun HTMLTag.hxDelete(value: String) {
     attributes += "hx-delete" to value
 }
