@@ -15,6 +15,9 @@ fun addDoableTask(backLink: String) = subPageTemplate("Add doable task", backLin
             id = "add-doable-task-name-input"
             type = InputType.text
             name = "taskName"
+            required = true
+            minLength = "2"
+            maxLength = "200"
         }
         button {
             id = "add-doable-task-submit-button"

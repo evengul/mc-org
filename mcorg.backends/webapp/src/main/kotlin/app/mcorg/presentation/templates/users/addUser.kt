@@ -13,6 +13,7 @@ fun addUser(backLink: String): String = subPageTemplate("Add user", backLink = b
                 type = InputType.text
                 name = "username"
                 autoComplete = false
+                required = true
             }
             + "Username: Must be an exact match, and must have signed in to MC-ORG before"
         }

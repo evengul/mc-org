@@ -15,6 +15,9 @@ fun addCountableTask(backLink: String) = subPageTemplate("Add countable task", b
             id = "add-countable-task-name-input"
             type = InputType.text
             name = "taskName"
+            required = true
+            minLength = "2"
+            maxLength = "200"
         }
         label {
             htmlFor = "add-countable-task-amount-input"
@@ -24,6 +27,7 @@ fun addCountableTask(backLink: String) = subPageTemplate("Add countable task", b
             id = "add-countable-task-amount-input"
             type = InputType.number
             name = "amount"
+            required = true
             min = "0"
             max = "100000000"
         }

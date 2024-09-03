@@ -15,6 +15,8 @@ fun addProject(backLink: String, isTechnical: Boolean): String = subPageTemplate
             id = "project-add-name-input"
             type = InputType.text
             required = true
+            minLength = "2"
+            maxLength = "200"
             name = "projectName"
         }
         label {
