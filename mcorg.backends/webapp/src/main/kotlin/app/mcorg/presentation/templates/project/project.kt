@@ -51,10 +51,16 @@ private fun DIV.assignTask(project: Project, task: Task) {
         button {
             id = "project-task-${task.id}-assign-button"
             if (task.assignee == null) {
-                classes = setOf("button-secondary")
+                classes = setOf("project-task-assign-button", "button-secondary")
+                span {
+                    classes = setOf("icon-small", "icon-user-small")
+                }
                 + "Assign user"
             } else {
-                classes = setOf("selected", "button-secondary")
+                classes = setOf("project-task-assign-button", "selected", "button-secondary")
+                span {
+                    classes = setOf("icon-small", "icon-user-small")
+                }
                 + task.assignee.username
             }
         }

@@ -41,6 +41,9 @@ fun projects(worldId: Int, projects: List<SlimProject>): String = mainPageTempla
                 }
                 div {
                     classes = setOf("project-assignment")
+                    span {
+                        classes = setOf("icon icon-small icon-user-small")
+                    }
                     a {
                         id = "projects-project-${project.id}-assign-link"
                         href = "/app/worlds/${project.worldId}/projects/${project.id}/assign"

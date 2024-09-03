@@ -80,63 +80,72 @@ button.button-icon {
     background-repeat: no-repeat;
 }
 
+.icon-small {
+    width: 24px;
+    height: 24px;
+}
+
 .icon-back {
-    background-image: url("/static/icons/Back.svg");
+    background-image: url("/static/icons/medium/Back.svg");
 }
 
 .icon-menu {
-    background-image: url("/static/icons/Menu.svg");
+    background-image: url("/static/icons/medium/Menu.svg");
 }
 
 .icon-menu-add {
-    background-image: url("/static/icons/Menu_Add.svg");
+    background-image: url("/static/icons/medium/Menu_Add.svg");
 }
 
 .icon-menu-worlds,
 .icon-dimension-overworld {
-    background-image: url("/static/icons/dimensions/Overworld.svg");
+    background-image: url("/static/icons/medium/dimensions/Overworld.svg");
 }
 
 .icon-dimension-nether {
-    background-image: url("/static/icons/dimensions/Nether.svg");
+    background-image: url("/static/icons/medium/dimensions/Nether.svg");
 }
 
 .icon-dimension-the-end {
-    background-image: url("/static/icons/dimensions/End.svg");
+    background-image: url("/static/icons/medium/dimensions/End.svg");
 }
 
 .icon-priority-low {
-    background-image: url("/static/icons/priority/Low.svg");
+    background-image: url("/static/icons/medium/priority/Low.svg");
 }
 
 .icon-priority-medium {
-    background-image: url("/static/icons/priority/Medium.svg");
+    background-image: url("/static/icons/medium/priority/Medium.svg");
 }
 
 .icon-priority-high {
-    background-image: url("/static/icons/priority/High.svg");
+    background-image: url("/static/icons/medium/priority/High.svg");
 }
 
 .icon-menu-profile,
 .icon-user {
-    background-image: url("/static/icons/users/Profile.svg");
+    background-image: url("/static/icons/medium/users/Profile.svg");
+}
+
+.icon-user-small {
+    background-image: url("/static/icons/small/users/Profile.svg");
 }
 
 .icon-menu-users,
 .icon-users {
-    background-image: url("/static/icons/users/Group.svg");
+    background-image: url("/static/icons/medium/users/Group.svg");
 }
 
 .icon-user-add {
-    background-image: url("/static/icons/users/Add.svg");
+    background-image: url("/static/icons/medium/users/Add.svg");
 }
 
 .icon-world-add {
-    background-image: url("/static/icons/Add_World.svg");
+    background-image: url("/static/icons/medium/Add_World.svg");
 }
 
 .icon-menu-projects {
-    background-image: url("/static/icons/menu/Projects.svg");
+    background-image: url("/static/icons/medium/menu/Projects.svg");
 }
 
 /******** Input -> Checkbox ********/
@@ -379,6 +388,16 @@ li.task > .task-name-assign {
 li.task > progress,
 li.task > input[type="checkbox"] {
     width: 50%;
+}
+
+.project-task-assign-button {
+    min-width: 125px;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: start;
+
+    border: none !important;
 }
 
 /******** USERS AND WORLD LIST ********/
