@@ -74,9 +74,9 @@ button.button-icon {
 /******** Icons ********/
 
 .icon {
-    width: 0;
-    height: 0;
-    padding: 24px;
+    display: inline-block;
+    width: 48px;
+    height: 48px;
     background-repeat: no-repeat;
 }
 
@@ -222,6 +222,10 @@ nav {
 
 .menu-visible > li > a {
     text-decoration: none;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: var(--spacing-sm);
 }
 
 .menu-visible > :has(#menu-profile-link) {
@@ -286,6 +290,10 @@ ul#project-list > li {
 .project-info {
     grid-column: 1 / span 1;
     grid-row: 1 / span 1;
+
+    display: flex;
+    flex-direction: row;
+    align-items: center;
 }
 
 .project-assignment {
@@ -340,6 +348,25 @@ li.task > .task-name-assign {
 li.task > progress,
 li.task > input[type="checkbox"] {
     width: 50%;
+}
+
+/******** USERS AND WORLD LIST ********/
+
+#users-list > li,
+#worlds-list > li {
+    margin-block: var(--spacing-md);
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: var(--spacing-sm)
+}
+
+/******** ADD USER ********/
+
+form#user-add {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
 }
 
 /******** **** ********/

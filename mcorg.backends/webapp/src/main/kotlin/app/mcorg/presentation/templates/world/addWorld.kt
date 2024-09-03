@@ -8,15 +8,16 @@ fun addWorld(backLink: String): String = subPageTemplate("Create world", backLin
         method = FormMethod.post
         encType = FormEncType.applicationXWwwFormUrlEncoded
         label {
-            input {
-                id = "add-world-name-input"
-                name = "worldName"
-                type = InputType.text
-                required = true
-                minLength = "3"
-                maxLength = "100"
-            }
+            htmlFor = "add-world-name-input"
             + "Name of your world"
+        }
+        input {
+            id = "add-world-name-input"
+            name = "worldName"
+            type = InputType.text
+            required = true
+            minLength = "3"
+            maxLength = "100"
         }
         button {
             id = "add-world-submit-button"

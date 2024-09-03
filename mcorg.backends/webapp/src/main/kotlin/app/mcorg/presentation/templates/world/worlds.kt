@@ -12,6 +12,7 @@ fun worlds(selectedWorldId: Int?, worlds: List<World>): String = mainPageTemplat
     NavBarRightIcon("world-add", "Add world", "/app/worlds/add")
 )) {
     ul {
+        id = "worlds-list"
         if (selectedWorldId != null) {
             val selectedWorld = worlds.find { it.id == selectedWorldId }
             if (selectedWorld != null) {

@@ -12,6 +12,7 @@ fun users(worldId: Int, currentUser: User, users: List<User>, isAdmin: Boolean):
     title = "Users",
     rightIcons = getRightIcons(isAdmin, worldId)) {
     ul {
+        id = "users-list"
         li {
             classes = setOf("selected")
             span {
