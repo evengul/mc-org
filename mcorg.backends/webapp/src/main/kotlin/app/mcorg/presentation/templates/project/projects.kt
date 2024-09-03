@@ -27,10 +27,12 @@ fun projects(worldId: Int, projects: List<SlimProject>): String = mainPageTempla
                 div {
                     classes = setOf("project-info")
                     span {
-                        classes = setOf("icon", "icon-dimension-${project.dimension.name.lowercase().replace("_", "-")}")
+                        title = "Priority: ${project.priority.name}"
+                        classes = setOf("icon", "icon-priority-${project.priority.name.lowercase()}")
                     }
                     span {
-                        classes = setOf("icon", "icon-priority-${project.priority.name.lowercase()}")
+                        title = "Dimension: ${project.dimension.name}"
+                        classes = setOf("icon", "icon-dimension-${project.dimension.name.lowercase().replace("_", "-")}")
                     }
                     a {
                         href = "/app/worlds/$worldId/projects/${project.id}"
@@ -53,7 +55,8 @@ fun projects(worldId: Int, projects: List<SlimProject>): String = mainPageTempla
                     classes = setOf("project-progress")
                     id = "projects-project-${project.id}-progress"
                     max = "100"
-                    value = project.progress.toString()
+                    value = "65"
+                    + "65%"
                 }
             }
         }

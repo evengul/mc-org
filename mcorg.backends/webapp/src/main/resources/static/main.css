@@ -178,6 +178,31 @@ form > button[type="submit"] {
     grid-column: 2 / span 3;
 }
 
+/******** PROGRESS ********/
+
+progress {
+    content: attr(value);
+    -webkit-appearance: none;
+    height: 30px;
+}
+
+progress[value]::-webkit-progress-bar {
+    background-color: var(--clr-bg-light);
+    outline: 1px solid var(--clr-primary);
+}
+
+progress[value]::-webkit-progress-value {
+    background-color: var(--clr-primary);
+}
+
+progress[value]::-webkit-progress-value::before {
+    content: attr(value);
+    color: var(--clr-text);
+    position: absolute;
+    right: 0;
+    top: -125%;
+}
+
 /******** NAVBAR ********/
 
 nav {
@@ -284,6 +309,8 @@ ul#project-list > li {
     grid-template-columns: 2fr 3fr 1fr;
     grid-template-rows: 1fr 1fr;
 
+    grid-row-gap: var(--spacing-sm);
+
     margin-bottom: var(--spacing-md);
 }
 
@@ -299,6 +326,10 @@ ul#project-list > li {
 .project-assignment {
     grid-column: 3 / span 1;
     grid-row: 1 / span 1;
+
+    display: flex;
+    flex-direction: row;
+    align-items: center;
 }
 
 .project-progress {

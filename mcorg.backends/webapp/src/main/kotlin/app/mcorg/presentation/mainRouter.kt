@@ -34,11 +34,8 @@ fun Application.configureAppRouter() {
                 patch("/photo") {
                     call.handleUploadProfilePhoto()
                 }
-                patch("/is-technical") {
+                patch("/is-technical-player") {
                     call.handleIsTechnical()
-                }
-                patch("/is-not-technical") {
-                    call.handleIsNotTechnical()
                 }
             }
             route("/worlds") {

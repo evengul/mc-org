@@ -5,6 +5,7 @@ import app.mcorg.presentation.utils.getUserId
 import app.mcorg.presentation.router.utils.respondHtml
 import app.mcorg.presentation.templates.profile.profile
 import io.ktor.server.application.*
+import io.ktor.server.request.*
 import io.ktor.server.response.*
 
 suspend fun ApplicationCall.handleGetProfile() {
@@ -18,11 +19,11 @@ suspend fun ApplicationCall.handleUploadProfilePhoto() {
 }
 
 suspend fun ApplicationCall.handleIsTechnical() {
-    usersApi.isTechnical(getUserId())
-    respondRedirect("/app/profile")
-}
-
-suspend fun ApplicationCall.handleIsNotTechnical() {
-    usersApi.isNotTechnical(getUserId())
+    val isTechnical = receiveText() == "technicalPlayer=on"
+    if (isTechnical) {
+        usersApi.isTechnical(getUserId())
+    } else {
+        usersApi.isNotTechnical(getUserId())
+    }
     respondRedirect("/app/profile")
 }

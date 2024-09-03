@@ -1,6 +1,7 @@
 package app.mcorg.presentation.templates.profile
 
 import app.mcorg.domain.Profile
+import app.mcorg.presentation.hxPatch
 import app.mcorg.presentation.templates.MainPage
 import app.mcorg.presentation.templates.mainPageTemplate
 import kotlinx.html.*
@@ -64,6 +65,8 @@ fun profile(profile: Profile): String = mainPageTemplate(
         input {
             id = "profile-technical-player-input-check"
             checked = profile.technicalPlayer
+            hxPatch("/app/profile/is-technical-player")
+            name = "technicalPlayer"
             type = InputType.checkBox
         }
     }
