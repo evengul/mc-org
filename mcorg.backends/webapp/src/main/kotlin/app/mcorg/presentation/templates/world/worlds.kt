@@ -1,11 +1,14 @@
 package app.mcorg.presentation.templates.world
 
 import app.mcorg.domain.World
+import app.mcorg.presentation.templates.MainPage
 import app.mcorg.presentation.templates.NavBarRightIcon
 import app.mcorg.presentation.templates.mainPageTemplate
 import kotlinx.html.*
 
-fun worlds(selectedWorldId: Int?, worlds: List<World>): String = mainPageTemplate(selectedWorldId, "Worlds", listOf(
+fun worlds(selectedWorldId: Int?, worlds: List<World>): String = mainPageTemplate(
+    selectedPage = MainPage.WORLDS,
+    selectedWorldId, "Worlds", listOf(
     NavBarRightIcon("Add world", "Add world", "/app/worlds/add")
 )) {
     ul {

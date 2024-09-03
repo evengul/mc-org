@@ -1,13 +1,17 @@
 package app.mcorg.presentation.templates.project
 
 import app.mcorg.domain.SlimProject
+import app.mcorg.presentation.templates.MainPage
 import app.mcorg.presentation.templates.NavBarRightIcon
 import app.mcorg.presentation.templates.mainPageTemplate
 import kotlinx.html.*
 
-fun projects(worldId: Int, projects: List<SlimProject>): String = mainPageTemplate(worldId, "Projects", listOf(
-    NavBarRightIcon("Add project", "Add project", "/app/worlds/$worldId/projects/add")
-)) {
+fun projects(worldId: Int, projects: List<SlimProject>): String = mainPageTemplate(
+    selectedPage = MainPage.PROJECTS,
+    worldId = worldId,
+    title = "Projects",
+    listOf(NavBarRightIcon("Add project", "Add project", "/app/worlds/$worldId/projects/add"))
+) {
     if (projects.isEmpty()) {
         + "No projects? "
         a {

@@ -1,10 +1,16 @@
 package app.mcorg.presentation.templates.profile
 
 import app.mcorg.domain.Profile
+import app.mcorg.presentation.templates.MainPage
 import app.mcorg.presentation.templates.mainPageTemplate
 import kotlinx.html.*
 
-fun profile(profile: Profile): String = mainPageTemplate(worldId = profile.selectedWorld, title = "Profile", rightIcons = emptyList()) {
+fun profile(profile: Profile): String = mainPageTemplate(
+    selectedPage = MainPage.PROFILE,
+    worldId = profile.selectedWorld,
+    title = "Profile",
+    rightIcons = emptyList()
+) {
     section {
         id = "profile-section-user"
         classes = setOf("profile-section")

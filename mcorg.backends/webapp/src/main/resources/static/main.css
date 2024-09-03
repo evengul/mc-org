@@ -132,18 +132,29 @@ nav {
 
     display: flex;
     flex-direction: column;
+    gap: var(--spacing-md)
 }
 
 .menu-visible > li {
     list-style: none;
+    padding-left: var(--spacing-md);
+}
+
+.menu-selected,
+.menu-visible > li:hover {
+    text-decoration: underline;
 }
 
 .menu-visible > li > a {
     text-decoration: none;
 }
 
-.menu-visible:nth-last-child(2) {
-    border-top: 3px solid black;
+.menu-visible > :has(#menu-profile-link) {
+    margin-bottom: var(--spacing-md);
+}
+
+.menu-visible > hr {
+    margin-top: auto;
 }
 
 /******** PROFILE ********/

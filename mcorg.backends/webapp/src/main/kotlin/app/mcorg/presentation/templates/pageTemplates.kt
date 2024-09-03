@@ -2,7 +2,14 @@ package app.mcorg.presentation.templates
 
 import kotlinx.html.*
 
-fun mainPageTemplate(worldId: Int?, title: String, rightIcons: List<NavBarRightIcon> = emptyList(), main: MAIN.() -> Unit) = pageTemplate(title, rightIcons, main) {
+enum class MainPage {
+    PROJECTS,
+    USERS,
+    WORLDS,
+    PROFILE
+}
+
+fun mainPageTemplate(selectedPage: MainPage, worldId: Int?, title: String, rightIcons: List<NavBarRightIcon> = emptyList(), main: MAIN.() -> Unit) = pageTemplate(title, rightIcons, main) {
     script {
         src = "/static/menu.js"
     }
@@ -10,7 +17,7 @@ fun mainPageTemplate(worldId: Int?, title: String, rightIcons: List<NavBarRightI
         id = "menu-button"
         + "Menu"
     }
-    menu(worldId)
+    menu(selectedPage, worldId)
 }
 
 fun subPageTemplate(title: String, backLink: String, rightIcons: List<NavBarRightIcon> = emptyList(), main: MAIN.() -> Unit) = pageTemplate(title, rightIcons, main) {

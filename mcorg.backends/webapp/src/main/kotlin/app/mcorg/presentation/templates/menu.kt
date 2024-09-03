@@ -22,7 +22,7 @@ fun BODY.navBar(title: String, rightIcons: List<NavBarRightIcon>, leftIcon: NAV.
     }
 }
 
-fun NAV.menu(worldId: Int?) = ul {
+fun NAV.menu(selectedPage: MainPage, worldId: Int?) = ul {
     id = "menu-links"
     classes = setOf("menu-invisible")
     button {
@@ -31,7 +31,7 @@ fun NAV.menu(worldId: Int?) = ul {
     }
     if (worldId != null) {
         li {
-            classes = setOf("menu-link", "menu-top-link")
+            classes = getListItemClasses(MainPage.PROJECTS, selectedPage)
             a {
                 id = "menu-project-link"
                 href = "/app/worlds/$worldId/projects"
@@ -39,7 +39,7 @@ fun NAV.menu(worldId: Int?) = ul {
             }
         }
         li {
-            classes = setOf("menu-link", "menu-top-link")
+            classes = getListItemClasses(MainPage.USERS, selectedPage)
             a {
                 id = "menu-users-link"
                 href = "/app/worlds/$worldId/users"
@@ -47,8 +47,9 @@ fun NAV.menu(worldId: Int?) = ul {
             }
         }
     }
+    hr {  }
     li {
-        classes = setOf("menu-link", "menu-bottom-link")
+        classes = getListItemClasses(MainPage.WORLDS, selectedPage)
         a {
             id = "menu-worlds-link"
             href = "/app/worlds"
@@ -56,11 +57,25 @@ fun NAV.menu(worldId: Int?) = ul {
         }
     }
     li {
-        classes = setOf("menu-link", "menu-bottom-link")
+        classes = getListItemClasses(MainPage.PROFILE, selectedPage)
         a {
             id = "menu-profile-link"
             href = "/app/profile"
             + "Profile"
         }
     }
+}
+
+fun getListItemClasses(link: MainPage, page: MainPage): Set<String> {
+    val classes = mutableSetOf("menu-link")
+    classes += if (link == MainPage.PROJECTS || link == MainPage.USERS) {
+        setOf("top-link")
+    } else {
+        setOf("bottom-link")
+    }
+
+    if (link == page) {
+        classes += setOf("menu-selected")
+    }
+    return classes
 }
