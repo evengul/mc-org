@@ -1,5 +1,10 @@
 /*https://coolors.co/797553-0a2e36-f7f7f7-14cc60-efefef*/
 
+@font-face {
+    font-family: Roboto Mono;
+    src: url("/static/fonts/Roboto_Mono/static/RobotoMono-Medium.ttf");
+}
+
 :root {
     --font-primary: "Roboto Mono", sans-serif;
 
