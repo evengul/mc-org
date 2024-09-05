@@ -22,7 +22,9 @@ fun worlds(selectedWorldId: Int?, worlds: List<World>): String = mainPageTemplat
                     span {
                         classes = setOf("icon", "icon-dimension-overworld")
                     }
-                    + selectedWorld.name
+                    h2 {
+                        + selectedWorld.name
+                    }
                 }
             }
         }
@@ -34,7 +36,9 @@ fun worlds(selectedWorldId: Int?, worlds: List<World>): String = mainPageTemplat
                     span {
                         classes = setOf("icon", "icon-dimension-overworld")
                     }
-                    + world.name
+                    h2 {
+                        + world.name
+                    }
                 }
             }
         }

@@ -16,7 +16,9 @@ fun project(backLink: String, project: Project): String = subPageTemplate(projec
                 classes = setOf("task")
                 div {
                     classes = setOf("task-name-assign")
-                    + it.name
+                    h2 {
+                        + it.name
+                    }
                     assignTask(project, it)
                 }
                 progress {
@@ -31,7 +33,9 @@ fun project(backLink: String, project: Project): String = subPageTemplate(projec
                 classes = setOf("task")
                 div {
                     classes = setOf("task-name-assign")
-                    + it.name
+                    h2 {
+                        + it.name
+                    }
                     assignTask(project, it)
                 }
                 input {
@@ -55,13 +59,17 @@ private fun DIV.assignTask(project: Project, task: Task) {
                 span {
                     classes = setOf("icon-small", "icon-user-small")
                 }
-                + "Assign user"
+                p {
+                    + "Assign user"
+                }
             } else {
                 classes = setOf("project-task-assign-button", "selected", "button-secondary", "icon-row")
                 span {
                     classes = setOf("icon-small", "icon-user-small")
                 }
-                + task.assignee.username
+                p {
+                    + task.assignee.username
+                }
             }
         }
     }

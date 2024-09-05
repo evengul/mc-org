@@ -74,12 +74,12 @@ h2 {
     font-family: "Roboto Mono Medium", sans-serif;
 }
 
-h3 {
+h3, button {
     font-size: var(--text-lg);
     font-family: "Roboto Mono Regular", sans-serif;
 }
 
-p {
+p, label {
     font-size: var(--text-md);
     font-family: "Roboto Mono Light", sans-serif;
 }

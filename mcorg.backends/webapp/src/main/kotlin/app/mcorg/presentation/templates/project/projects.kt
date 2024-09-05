@@ -13,11 +13,13 @@ fun projects(worldId: Int, projects: List<SlimProject>): String = mainPageTempla
     listOf(NavBarRightIcon("menu-add", "Add project", "/app/worlds/$worldId/projects/add"))
 ) {
     if (projects.isEmpty()) {
-        + "No projects? "
-        a {
-            id = "projects-no-project-link"
-            href = "/app/worlds/$worldId/projects/add"
-            + "Add one now."
+        p {
+            + "No projects? "
+            a {
+                id = "projects-no-project-link"
+                href = "/app/worlds/$worldId/projects/add"
+                + "Add one now."
+            }
         }
     }
     ul {

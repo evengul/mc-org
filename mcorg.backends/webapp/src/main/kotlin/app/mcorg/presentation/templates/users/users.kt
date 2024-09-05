@@ -18,7 +18,9 @@ fun users(worldId: Int, currentUser: User, users: List<User>, isAdmin: Boolean):
             span {
                 classes = setOf("icon", "icon-user")
             }
-            + currentUser.username
+            h2 {
+                + currentUser.username
+            }
         }
         for (user in users) {
             li {
@@ -26,7 +28,9 @@ fun users(worldId: Int, currentUser: User, users: List<User>, isAdmin: Boolean):
                 span {
                     classes = setOf("icon", "icon-user")
                 }
-                + user.username
+                h2 {
+                    + user.username
+                }
             }
         }
     }

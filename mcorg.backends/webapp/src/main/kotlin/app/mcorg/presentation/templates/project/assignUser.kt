@@ -18,7 +18,9 @@ fun assignUser(backLink: String, assignLink: String, users: List<User>, selected
                 span {
                     classes = setOf("icon", "icon-user")
                 }
-                + selectedUser.username
+                h2 {
+                    + selectedUser.username
+                }
             }
         }
         for (user in users) {
@@ -31,7 +33,9 @@ fun assignUser(backLink: String, assignLink: String, users: List<User>, selected
                     span {
                         classes = setOf("icon", "icon-user")
                     }
-                    + user.username
+                    h2 {
+                        + user.username
+                    }
                 }
             }
         }
