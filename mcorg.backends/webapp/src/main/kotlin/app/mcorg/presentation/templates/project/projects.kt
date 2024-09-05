@@ -50,7 +50,7 @@ fun projects(worldId: Int, projects: List<SlimProject>): String = mainPageTempla
                     }
                     a {
                         id = "projects-project-${project.id}-assign-link"
-                        href = "/app/worlds/${project.worldId}/projects/${project.id}/assign"
+                        href = "/app/worlds/${project.worldId}/projects/${project.id}/assign?from=list"
                         p {
                             if (project.assignee == null) {
                                 + "Assign user"

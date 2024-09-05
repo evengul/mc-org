@@ -6,7 +6,7 @@ import app.mcorg.presentation.templates.subPageTemplate
 import kotlinx.html.*
 
 fun project(backLink: String, project: Project): String = subPageTemplate(project.name, backLink = backLink, listOf(
-    NavBarRightIcon("user", "Assign user", "/app/worlds/${project.worldId}/projects/${project.id}/assign"),
+    NavBarRightIcon("user", "Assign user", "/app/worlds/${project.worldId}/projects/${project.id}/assign?from=single"),
     NavBarRightIcon("menu-add", "Add task", "/app/worlds/${project.worldId}/projects/${project.id}/add-task")
 )) {
     ul {

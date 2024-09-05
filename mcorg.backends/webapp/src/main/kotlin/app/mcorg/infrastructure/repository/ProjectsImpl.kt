@@ -35,7 +35,7 @@ class ProjectsImpl : Projects, Repository() {
             if (project == null) return null
 
             if (includeTasks) {
-                conn.prepareStatement("select task.id,name,priority,needed,done,type,u.id as user_id,u.username as username from task left join users u on task.assignee = u.id where project_id = ?")
+                conn.prepareStatement("select task.id,name,priority,needed,done,type,u.id as user_id,u.username as username from task left join users u on task.assignee = u.id where project_id = ? order by task.needed,task.name")
                     .apply { setInt(1, project.id) }
                     .executeQuery()
                     .apply {

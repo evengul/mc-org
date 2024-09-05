@@ -1,5 +1,5 @@
 :root {
-    --navbar-height: calc(var(--text-xxl) + 25px);
+    --navbar-height: calc(48px + var(--spacing-sm));
 }
 
 body {
@@ -226,6 +226,7 @@ nav {
     display: flex;
     flex-direction: row;
     justify-content: space-between;
+    align-items: center;
 
     background-color: var(--clr-secondary);
 }
@@ -243,6 +244,8 @@ nav {
 
     width: clamp(300px, 33vw, 800px);
     height: 100vh;
+
+    padding-top: var(--spacing-sm);
 
     background: var(--clr-secondary);
 
@@ -392,6 +395,19 @@ li.task > input[type="checkbox"] {
     gap: var(--spacing-xs);
 
     border: none !important;
+}
+
+/******** USER ASSIGNMENT ********/
+
+.assigned-user:hover {
+    color: var(--clr-danger);
+}
+
+.assigned-user:hover::after {
+    content: "❌";
+    display: inline-block;
+    margin-left: var(--spacing-xs);
+    text-decoration: none;
 }
 
 /******** USERS AND WORLD LIST ********/

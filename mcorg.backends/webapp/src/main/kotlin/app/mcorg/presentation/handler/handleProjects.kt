@@ -41,20 +41,30 @@ suspend fun ApplicationCall.handleGetAssignProject() {
     val worldId = getWorldId()
     val projectId = getProjectId()
     val users = permissionsApi.getUsersInWorld(worldId)
+    val from = parameters["from"] ?: "single"
     val selectedUser = projectsApi.getProjectAssignee(projectId)
     val projectLink = "/app/worlds/$worldId/projects/$projectId"
-    respondHtml(assignUser(projectLink, "$projectLink/assign", users, selectedUser?.id))
+    val backLink = when(from) {
+        "list" -> "/app/worlds/$worldId/projects"
+        else -> projectLink
+    }
+    respondHtml(assignUser(backLink, "$projectLink/assign", from, users, selectedUser?.id))
 }
 
-suspend fun ApplicationCall.handlePostProjectAssignee() {
+suspend fun ApplicationCall.handlePatchProjectAssignee() {
     val (username) = receiveAssignUserRequest()
+    val from = parameters["from"] ?: "single"
     val projectId = getProjectId()
     val worldId = getWorldId()
     val users = permissionsApi.getUsersInWorld(worldId)
     val user = users.find { it.username == username }
     if (user != null) {
         projectsApi.assignProject(projectId, user.id)
-        clientRefresh()
+        if (from == "list") {
+            clientRedirect("/app/worlds/$worldId/projects")
+        } else {
+            clientRedirect("/app/worlds/$worldId/projects/$projectId")
+        }
     } else {
         throw IllegalArgumentException("User is not in project")
     }
@@ -63,6 +73,11 @@ suspend fun ApplicationCall.handlePostProjectAssignee() {
 suspend fun ApplicationCall.handleDeleteProjectAssignee() {
     val worldId = getWorldId()
     val projectId = getProjectId()
+    val from = parameters["from"] ?: "single"
     projectsApi.removeProjectAssignment(projectId)
-    respondRedirect("/app/worlds/$worldId/projects/$projectId")
+    if (from == "list") {
+        clientRedirect("/app/worlds/$worldId/projects")
+    } else {
+        clientRedirect("/app/worlds/$worldId/projects/$projectId")
+    }
 }

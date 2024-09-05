@@ -90,7 +90,7 @@ fun Application.configureAppRouter() {
                                 call.handleGetAssignProject()
                             }
                             patch("/assign") {
-                                call.handlePostProjectAssignee()
+                                call.handlePatchProjectAssignee()
                             }
                             delete("/assign") {
                                 call.handleDeleteProjectAssignee()
