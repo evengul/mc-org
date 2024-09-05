@@ -1,24 +1,37 @@
 /*https://coolors.co/797553-0a2e36-f7f7f7-14cc60-efefef*/
 
 @font-face {
-    font-family: Roboto Mono;
+    font-family: Roboto Mono Light;
+    src: url("/static/fonts/Roboto_Mono/static/RobotoMono-Light.ttf");
+}
+
+@font-face {
+    font-family: Roboto Mono Regular;
+    src: url("/static/fonts/Roboto_Mono/static/RobotoMono-Regular.ttf");
+}
+
+@font-face {
+    font-family: Roboto Mono Medium;
     src: url("/static/fonts/Roboto_Mono/static/RobotoMono-Medium.ttf");
 }
 
+@font-face {
+    font-family: Roboto Mono Bold;
+    src: url("/static/fonts/Roboto_Mono/static/RobotoMono-Bold.ttf");
+}
+
 :root {
-    --font-primary: "Roboto Mono", sans-serif;
+    --font-primary: "Roboto Mono Regular", sans-serif;
 
     --text-base-size: 1em;
     --text-scale-ratio: 1.2;
 
     /* type scale */
-    --text-xs: calc(1em / (var(--text-scale-ratio) * var(--text-scale-ratio)));
-    --text-sm: calc(1em / var(--text-scale-ratio));
-    --text-md: calc(1em * var(--text-scale-ratio));
-    --text-lg: calc(1em * var(--text-scale-ratio) * var(--text-scale-ratio));
-    --text-xl: calc(1em * var(--text-scale-ratio) * var(--text-scale-ratio) * var(--text-scale-ratio));
-    --text-xxl: calc(1em * var(--text-scale-ratio) * var(--text-scale-ratio) * var(--text-scale-ratio) * var(--text-scale-ratio));
-    --text-xxxl: calc(1em * var(--text-scale-ratio) * var(--text-scale-ratio) * var(--text-scale-ratio) * var(--text-scale-ratio) * var(--text-scale-ratio));
+    --text-sm: 10px;
+    --text-md: 12px;
+    --text-lg: 16px;
+    --text-xl: 18px;
+    --text-xxl: 20px;
 
     --clr-primary: #15E543;
     --clr-secondary: #CFCFCF;
@@ -51,31 +64,27 @@ html {
     color: var(--clr-text);
 }
 
-.text--xxxl {
-    font-size: var(--text-xxxl);
-    margin-bottom: var(--spacing-lg);
-}
-
-h1, .text--xxl {
+h1 {
     font-size: var(--text-xxl);
+    font-family: "Roboto Mono Bold", sans-serif;
 }
 
-h2, .text--xl {
+h2 {
     font-size: var(--text-xl);
+    font-family: "Roboto Mono Medium", sans-serif;
 }
 
-h3, .text--lg {
+h3 {
     font-size: var(--text-lg);
+    font-family: "Roboto Mono Regular", sans-serif;
 }
 
-h4, .text--md {
+p {
     font-size: var(--text-md);
+    font-family: "Roboto Mono Light", sans-serif;
 }
 
-.text--sm, small {
+caption {
     font-size: var(--text-sm);
-}
-
-.text--xs {
-    font-size: var(--text-xs);
+    font-family: "Roboto Mono Light", sans-serif;
 }

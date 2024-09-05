@@ -8,14 +8,14 @@ fun BODY.navBar(title: String, rightIcons: List<NavBarRightIcon>, leftIcon: NAV.
         + title
     }
     span {
-        classes = setOf("navbar-links")
+        classes = setOf("navbar-links", "icon-row")
         for (icon in rightIcons) {
             a {
                 classes = setOf("navbar-link")
                 id = icon.icon + "-link"
                 href = icon.link
                 button {
-                    classes = setOf("button-icon", "icon-${icon.icon}")
+                    classes = setOf("icon-row", "button-icon", "icon-${icon.icon}")
                 }
             }
         }
@@ -33,6 +33,7 @@ fun NAV.menu(selectedPage: MainPage, worldId: Int?) = ul {
         li {
             classes = getListItemClasses(MainPage.PROJECTS, selectedPage)
             a {
+                classes = setOf("icon-row")
                 id = "menu-project-link"
                 href = "/app/worlds/$worldId/projects"
                 span {
@@ -44,6 +45,7 @@ fun NAV.menu(selectedPage: MainPage, worldId: Int?) = ul {
         li {
             classes = getListItemClasses(MainPage.USERS, selectedPage)
             a {
+                classes = setOf("icon-row")
                 id = "menu-users-link"
                 href = "/app/worlds/$worldId/users"
                 span {
@@ -57,6 +59,7 @@ fun NAV.menu(selectedPage: MainPage, worldId: Int?) = ul {
     li {
         classes = getListItemClasses(MainPage.WORLDS, selectedPage)
         a {
+            classes = setOf("icon-row")
             id = "menu-worlds-link"
             href = "/app/worlds"
             span {
@@ -68,6 +71,7 @@ fun NAV.menu(selectedPage: MainPage, worldId: Int?) = ul {
     li {
         classes = getListItemClasses(MainPage.PROFILE, selectedPage)
         a {
+            classes = setOf("icon-row")
             id = "menu-profile-link"
             href = "/app/profile"
             span {

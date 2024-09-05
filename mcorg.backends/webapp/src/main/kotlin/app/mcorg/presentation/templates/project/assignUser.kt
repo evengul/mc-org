@@ -14,7 +14,10 @@ fun assignUser(backLink: String, assignLink: String, users: List<User>, selected
         val selectedUser = users.find { it.id == selected }
         if (selectedUser != null) {
             li {
-                classes = setOf("selected")
+                classes = setOf("selected", "icon-row")
+                span {
+                    classes = setOf("icon", "icon-user")
+                }
                 + selectedUser.username
             }
         }
@@ -24,7 +27,10 @@ fun assignUser(backLink: String, assignLink: String, users: List<User>, selected
                     hxPatch("$assignLink?username=${user.username}")
                     hxTarget("html")
                     hxSwap("outerHTML")
-                    classes = setOf("selectable")
+                    classes = setOf("selectable", "icon-row")
+                    span {
+                        classes = setOf("icon", "icon-user")
+                    }
                     + user.username
                 }
             }

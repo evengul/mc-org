@@ -6,8 +6,8 @@ import app.mcorg.presentation.templates.subPageTemplate
 import kotlinx.html.*
 
 fun project(backLink: String, project: Project): String = subPageTemplate(project.name, backLink = backLink, listOf(
-    NavBarRightIcon("", "Assign user", "/app/worlds/${project.worldId}/projects/${project.id}/assign"),
-    NavBarRightIcon("", "Add task", "/app/worlds/${project.worldId}/projects/${project.id}/add-task")
+    NavBarRightIcon("user", "Assign user", "/app/worlds/${project.worldId}/projects/${project.id}/assign"),
+    NavBarRightIcon("menu-add", "Add task", "/app/worlds/${project.worldId}/projects/${project.id}/add-task")
 )) {
     ul {
         id = "task-list"
@@ -51,13 +51,13 @@ private fun DIV.assignTask(project: Project, task: Task) {
         button {
             id = "project-task-${task.id}-assign-button"
             if (task.assignee == null) {
-                classes = setOf("project-task-assign-button", "button-secondary")
+                classes = setOf("project-task-assign-button", "button-secondary", "icon-row")
                 span {
                     classes = setOf("icon-small", "icon-user-small")
                 }
                 + "Assign user"
             } else {
-                classes = setOf("project-task-assign-button", "selected", "button-secondary")
+                classes = setOf("project-task-assign-button", "selected", "button-secondary", "icon-row")
                 span {
                     classes = setOf("icon-small", "icon-user-small")
                 }

@@ -18,7 +18,7 @@ fun worlds(selectedWorldId: Int?, worlds: List<World>): String = mainPageTemplat
             val selectedWorld = worlds.find { it.id == selectedWorldId }
             if (selectedWorld != null) {
                 li {
-                    classes = setOf("selected")
+                    classes = setOf("icon-row", "selected")
                     span {
                         classes = setOf("icon", "icon-dimension-overworld")
                     }
@@ -29,6 +29,7 @@ fun worlds(selectedWorldId: Int?, worlds: List<World>): String = mainPageTemplat
         for (world in worlds) {
             if (world.id != selectedWorldId) {
                 li {
+                    classes = setOf("icon-row")
                     hxPatch("/app/worlds/select?worldId=${world.id}")
                     span {
                         classes = setOf("icon", "icon-dimension-overworld")

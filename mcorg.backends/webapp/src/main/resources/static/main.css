@@ -85,6 +85,13 @@ button.button-icon {
     height: 24px;
 }
 
+.icon-row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
 .icon-back {
     background-image: url("/static/icons/medium/Back.svg");
 }
@@ -256,10 +263,6 @@ nav {
 
 .menu-visible > li > a {
     text-decoration: none;
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    gap: var(--spacing-sm);
 }
 
 .menu-visible > :has(#menu-profile-link) {
@@ -326,19 +329,11 @@ ul#project-list > li {
 .project-info {
     grid-column: 1 / span 1;
     grid-row: 1 / span 1;
-
-    display: flex;
-    flex-direction: row;
-    align-items: center;
 }
 
 .project-assignment {
     grid-column: 3 / span 1;
     grid-row: 1 / span 1;
-
-    display: flex;
-    flex-direction: row;
-    align-items: center;
 }
 
 .project-progress {
@@ -392,10 +387,9 @@ li.task > input[type="checkbox"] {
 
 .project-task-assign-button {
     min-width: 125px;
-    display: flex;
-    flex-direction: row;
-    align-items: center;
     justify-content: start;
+
+    gap: var(--spacing-xs);
 
     border: none !important;
 }
@@ -405,10 +399,6 @@ li.task > input[type="checkbox"] {
 #users-list > li,
 #worlds-list > li {
     margin-block: var(--spacing-md);
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    gap: var(--spacing-sm)
 }
 
 #worlds-list > li:hover {

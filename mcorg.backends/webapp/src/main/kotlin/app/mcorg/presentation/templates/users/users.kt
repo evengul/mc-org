@@ -14,7 +14,7 @@ fun users(worldId: Int, currentUser: User, users: List<User>, isAdmin: Boolean):
     ul {
         id = "users-list"
         li {
-            classes = setOf("selected")
+            classes = setOf("selected", "icon-row")
             span {
                 classes = setOf("icon", "icon-user")
             }
@@ -22,6 +22,7 @@ fun users(worldId: Int, currentUser: User, users: List<User>, isAdmin: Boolean):
         }
         for (user in users) {
             li {
+                classes = setOf("icon-row")
                 span {
                     classes = setOf("icon", "icon-user")
                 }

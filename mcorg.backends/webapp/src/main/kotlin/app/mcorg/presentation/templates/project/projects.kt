@@ -25,7 +25,7 @@ fun projects(worldId: Int, projects: List<SlimProject>): String = mainPageTempla
         for (project in projects) {
             li {
                 div {
-                    classes = setOf("project-info")
+                    classes = setOf("icon-row", "project-info")
                     span {
                         title = "Priority: ${project.priority.name}"
                         classes = setOf("icon", "icon-priority-${project.priority.name.lowercase()}")
@@ -36,21 +36,25 @@ fun projects(worldId: Int, projects: List<SlimProject>): String = mainPageTempla
                     }
                     a {
                         href = "/app/worlds/$worldId/projects/${project.id}"
-                        + project.name
+                        h2 {
+                            + project.name
+                        }
                     }
                 }
                 div {
-                    classes = setOf("project-assignment")
+                    classes = setOf("icon-row", "project-assignment")
                     span {
                         classes = setOf("icon icon-small icon-user-small")
                     }
                     a {
                         id = "projects-project-${project.id}-assign-link"
                         href = "/app/worlds/${project.worldId}/projects/${project.id}/assign"
-                        if (project.assignee == null) {
-                            + "Assign user"
-                        } else {
-                            + project.assignee.username
+                        p {
+                            if (project.assignee == null) {
+                                + "Assign user"
+                            } else {
+                                + project.assignee.username
+                            }
                         }
                     }
                 }
