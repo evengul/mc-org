@@ -228,6 +228,8 @@ nav {
     justify-content: space-between;
     align-items: center;
 
+    padding-inline: var(--spacing-sm);
+
     background-color: var(--clr-secondary);
 }
 
@@ -252,6 +254,10 @@ nav {
     display: flex;
     flex-direction: column;
     gap: var(--spacing-md)
+}
+
+#menu-close-button {
+    padding-left: var(--spacing-sm);
 }
 
 .menu-visible > li {

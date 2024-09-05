@@ -4,6 +4,7 @@ import app.mcorg.presentation.configuration.usersApi
 import app.mcorg.presentation.utils.getUserId
 import app.mcorg.presentation.router.utils.respondHtml
 import app.mcorg.presentation.templates.profile.profile
+import app.mcorg.presentation.utils.clientRedirect
 import io.ktor.server.application.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
@@ -25,5 +26,5 @@ suspend fun ApplicationCall.handleIsTechnical() {
     } else {
         usersApi.isNotTechnical(getUserId())
     }
-    respondRedirect("/app/profile")
+    clientRedirect("/app/profile")
 }
