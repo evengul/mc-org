@@ -9,18 +9,18 @@ fun baseTemplate(siteTitle: String = "MC-ORG", body: BODY.() -> Unit): String {
         head {
             title = siteTitle
             script {
-                src = "/static/htmx.js"
+                src = "/static/scripts/htmx.js"
             }
             link {
-                href = "/static/root.css"
+                href = "/static/styles/root.css"
                 rel = "stylesheet"
             }
             link {
-                href = "/static/main.css"
+                href = "/static/styles/main.css"
                 rel = "stylesheet"
             }
             link {
-                href = "/static/reset.css"
+                href = "/static/styles/reset.css"
                 rel = "stylesheet"
             }
         }
