@@ -1,4 +1,4 @@
-package app.mcorg.presentation.router.utils
+package app.mcorg.presentation.utils
 
 import io.ktor.server.application.*
 import io.ktor.util.*
@@ -20,6 +20,12 @@ fun ApplicationCall.getMicrosoftClientSecret() = getAttribute<String>("MICROSOFT
 
 fun ApplicationCall.setEnvironment(environment: String) = setAttribute("ENVIRONMENT", environment)
 fun ApplicationCall.getEnvironment() = getAttribute<String>("ENVIRONMENT")
+
+fun ApplicationCall.setCookieHost(cookieHost: String) = setAttribute("COOKIE_HOST", cookieHost)
+fun ApplicationCall.getCookieHost() = getAttribute<String>("COOKIE_HOST")
+
+fun ApplicationCall.setSkipMicrosoftSignIn(cookieHost: String) = setAttribute("SKIP_MICROSOFT_SIGN_IN", cookieHost)
+fun ApplicationCall.getSkipMicrosoftSignIn() = getAttribute<String>("SKIP_MICROSOFT_SIGN_IN")
 
 private fun <T : Any> ApplicationCall.getAttribute(key: String): T = attributes[AttributeKey(key)]
 private fun <T : Any> ApplicationCall.setAttribute(key: String, value: T) = attributes.put(AttributeKey(key), value)

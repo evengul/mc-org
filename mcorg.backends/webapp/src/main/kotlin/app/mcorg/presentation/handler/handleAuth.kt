@@ -6,9 +6,7 @@ import app.mcorg.presentation.configuration.minecraftApi
 import app.mcorg.presentation.configuration.usersApi
 import app.mcorg.presentation.router.utils.*
 import app.mcorg.presentation.templates.auth.signInTemplate
-import app.mcorg.presentation.utils.addToken
-import app.mcorg.presentation.utils.getUserFromCookie
-import app.mcorg.presentation.utils.removeTokenAndSignOut
+import app.mcorg.presentation.utils.*
 import com.auth0.jwt.exceptions.TokenExpiredException
 import io.ktor.http.*
 import io.ktor.server.application.*
@@ -22,7 +20,7 @@ suspend fun ApplicationCall.handleGetSignIn() {
     }
 
     if (user == null) {
-        if (getEnvironment() == "LOCAL") {
+        if (getSkipMicrosoftSignIn() == "true") {
             respondHtml(signInTemplate("/auth/oidc/local-redirect"))
         } else {
             respondHtml(signInTemplate(getMicrosoftSignInUrl()))

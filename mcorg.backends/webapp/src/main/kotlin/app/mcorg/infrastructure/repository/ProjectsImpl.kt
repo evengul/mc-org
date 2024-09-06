@@ -7,7 +7,7 @@ class ProjectsImpl : Projects, Repository() {
     override fun getProject(id: Int, includeTasks: Boolean, includeDependencies: Boolean): Project? {
         getConnection().use { conn ->
             val project = conn
-                .prepareStatement("SELECT world_id, p.id as project_id, name, archived, priority, dimension, assignee, u.username as username, progress, requires_perimeter FROM project p left join users u on p.assignee = u.id WHERE p.id = ?")
+                .prepareStatement("SELECT world_id, p.id as project_id, name, archived, priority, dimension, assignee, u.username as username, requires_perimeter FROM project p left join users u on p.assignee = u.id WHERE p.id = ?")
                 .apply { setInt(1, id) }
                 .executeQuery()
                 .let {
@@ -91,7 +91,7 @@ class ProjectsImpl : Projects, Repository() {
 
     override fun getWorldProjects(id: Int): List<SlimProject> {
         getConnection().use { conn ->
-            conn.prepareStatement("select world_id,project.id as project_id,name,priority,dimension,assignee as user_id, u.username as username,progress from project left join users u on project.assignee = u.id where world_id = ?")
+            conn.prepareStatement("select world_id,project.id as project_id,name,priority,dimension,assignee as user_id, u.username as username from project left join users u on project.assignee = u.id where world_id = ?")
                 .apply { setInt(1, id) }
                 .executeQuery()
                 .apply {

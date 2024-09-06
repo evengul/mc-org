@@ -15,10 +15,10 @@ fun ApplicationCall.getUserId() = getUser().id
 
 fun ApplicationCall.getUserFromCookie(): User? = request.cookies[tokenName]?.let { getUserFromJwtToken(it) }
 
-fun ApplicationCall.addToken(token: String) = response.cookies.append(tokenName, token, httpOnly = true, domain = "localhost", path = "/")
+fun ApplicationCall.addToken(token: String) = response.cookies.append(tokenName, token, httpOnly = true, domain = getCookieHost(), path = "/")
 
 suspend fun ApplicationCall.removeTokenAndSignOut() {
-    response.cookies.append(tokenName, "", expires = GMTDate(-1), httpOnly = true, domain = "localhost", path = "/")
+    response.cookies.append(tokenName, "", expires = GMTDate(-1), httpOnly = true, domain = getCookieHost(), path = "/")
 
     respondRedirect("/auth/sign-in")
 }
