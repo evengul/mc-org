@@ -1,5 +1,6 @@
 package app.mcorg.presentation.templates
 
+import io.ktor.util.*
 import kotlinx.html.*
 import kotlinx.html.stream.createHTML
 
@@ -10,6 +11,7 @@ fun baseTemplate(siteTitle: String = "MC-ORG", body: BODY.() -> Unit): String {
             title = siteTitle
             script {
                 src = "/static/scripts/htmx.js"
+                nonce = generateNonce()
             }
             link {
                 href = "/static/styles/root.css"

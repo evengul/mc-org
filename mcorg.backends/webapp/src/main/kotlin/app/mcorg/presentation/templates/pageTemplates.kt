@@ -1,5 +1,6 @@
 package app.mcorg.presentation.templates
 
+import io.ktor.util.*
 import kotlinx.html.*
 
 enum class MainPage {
@@ -12,6 +13,7 @@ enum class MainPage {
 fun mainPageTemplate(selectedPage: MainPage, worldId: Int?, title: String, rightIcons: List<NavBarRightIcon> = emptyList(), main: MAIN.() -> Unit) = pageTemplate(title, rightIcons, main) {
     script {
         src = "/static/scripts/menu.js"
+        nonce = generateNonce()
     }
     button {
         classes = setOf("button-icon icon-menu")

@@ -4,14 +4,49 @@ import app.mcorg.domain.*
 import app.mcorg.presentation.hxPatch
 import app.mcorg.presentation.templates.NavBarRightIcon
 import app.mcorg.presentation.templates.subPageTemplate
+import io.ktor.util.*
 import kotlinx.html.*
 
 fun project(backLink: String, project: Project): String = subPageTemplate(project.name, backLink = backLink, listOf(
     NavBarRightIcon("user", "Assign user", "/app/worlds/${project.worldId}/projects/${project.id}/assign?from=single"),
     NavBarRightIcon("menu-add", "Add task", "/app/worlds/${project.worldId}/projects/${project.id}/add-task")
 )) {
+    dialog {
+        id = "edit-task-dialog"
+        h1 {
+            + "Edit task"
+        }
+        form {
+            label {
+                + "Done"
+            }
+            input {
+                type = InputType.number
+            }
+            label {
+                + "Needed"
+            }
+            input {
+                type = InputType.number
+            }
+            button {
+                onClick = "cancelDialog()"
+                classes = setOf("button-secondary")
+                type = ButtonType.button
+                + "Cancel"
+            }
+            button {
+                type = ButtonType.submit
+                + "Save"
+            }
+        }
+    }
     ul {
         id = "task-list"
+        script {
+            src = "/static/scripts/progress-edit-dialog.js"
+            nonce = generateNonce()
+        }
         project.countable().forEach {
             li {
                 classes = setOf("task")
@@ -56,7 +91,9 @@ fun project(backLink: String, project: Project): String = subPageTemplate(projec
                         + "Done"
                     }
                     button {
+                        id = "edit-task-${it.id}"
                         classes = setOf("button-secondary")
+                        onClick = "editClick()"
                         + "Edit"
                     }
                 }
