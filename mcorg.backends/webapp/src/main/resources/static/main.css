@@ -54,6 +54,14 @@ button {
     padding-block: var(--spacing-sm);
 }
 
+button:hover {
+    box-shadow: var(--clr-primary) 1px 1px;
+}
+
+button:active {
+    box-shadow: var(--clr-primary) -1px -1px;
+}
+
 button.button-secondary {
     background-color: transparent;
     border: 1px solid var(--clr-primary);
@@ -392,6 +400,35 @@ li.task > .task-name-assign {
 li.task > progress,
 li.task > input[type="checkbox"] {
     width: 50%;
+}
+
+.doable-task-progress {
+    display: grid;
+    grid-template-rows: 1fr 1fr 1fr;
+    grid-template-columns: 1fr 1fr 1fr 1fr;
+
+    column-gap: var(--spacing-sm);
+}
+
+.doable-task-progress > progress {
+    grid-column: 1 / span 4;
+    grid-row: 1 / span 1;
+
+    width: 100%;
+}
+
+.doable-task-progress > p:first-of-type {
+    grid-column: 1 / span 2;
+    grid-row: 2 / span 1;
+
+    width: 100%;
+}
+
+.doable-task-progress > p:last-of-type {
+    grid-column: 3 / span 2;
+    grid-row: 2 / span 1;
+
+    width: 100%;
 }
 
 .project-task-assign-button {

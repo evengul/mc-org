@@ -21,10 +21,32 @@ fun project(backLink: String, project: Project): String = subPageTemplate(projec
                     }
                     assignTask(project, it)
                 }
-                progress {
-                    id = "project-task-${it.id}-progress"
-                    max = it.needed.toString()
-                    value = it.done.toString()
+                div {
+                    classes = setOf("doable-task-progress")
+                    progress {
+                        id = "project-task-${it.id}-progress"
+                        max = it.needed.toString()
+                        value = it.done.toString()
+                    }
+                    p {
+                        + "Required: ${it.needed}"
+                    }
+                    p {
+                        + "Done: ${it.done}"
+                    }
+                    button {
+                        + "+1"
+                    }
+                    button {
+                        + "+1 stack"
+                    }
+                    button {
+                        + "+1 Shulker box"
+                    }
+                    button {
+                        classes = setOf("button-secondary")
+                        + "Edit"
+                    }
                 }
             }
         }
