@@ -18,7 +18,7 @@ fun ApplicationCall.getUserFromCookie(): User? = request.cookies[tokenName]?.let
 fun ApplicationCall.addToken(token: String) = response.cookies.append(tokenName, token, httpOnly = true, domain = "localhost", path = "/")
 
 suspend fun ApplicationCall.removeTokenAndSignOut() {
-    response.cookies.append(tokenName, "", expires = GMTDate(-1), httpOnly = true)
+    response.cookies.append(tokenName, "", expires = GMTDate(-1), httpOnly = true, domain = "localhost", path = "/")
 
     respondRedirect("/auth/sign-in")
 }

@@ -24,6 +24,9 @@ fun Application.configureAppRouter() {
             get("/oidc/microsoft-redirect") {
                 call.handleSignIn()
             }
+            get("/oidc/local-redirect") {
+                call.handleLocalSignIn()
+            }
         }
         route("/app") {
             install(AuthPlugin)

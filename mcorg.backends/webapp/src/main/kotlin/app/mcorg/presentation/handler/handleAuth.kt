@@ -10,6 +10,7 @@ import app.mcorg.presentation.utils.addToken
 import app.mcorg.presentation.utils.getUserFromCookie
 import app.mcorg.presentation.utils.removeTokenAndSignOut
 import com.auth0.jwt.exceptions.TokenExpiredException
+import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.response.*
 
@@ -22,8 +23,7 @@ suspend fun ApplicationCall.handleGetSignIn() {
 
     if (user == null) {
         if (getEnvironment() == "LOCAL") {
-            addToken(createSignedJwtToken(getLocalUser()))
-            respondRedirect("/")
+            respondHtml(signInTemplate("/auth/oidc/local-redirect"))
         } else {
             respondHtml(signInTemplate(getMicrosoftSignInUrl()))
         }
@@ -34,6 +34,15 @@ suspend fun ApplicationCall.handleGetSignIn() {
             return
         }
         respondRedirect("/app/worlds/add")
+    }
+}
+
+suspend fun ApplicationCall.handleLocalSignIn() {
+    if(getEnvironment() == "LOCAL") {
+        addToken(createSignedJwtToken(getLocalUser()))
+        respondRedirect("/")
+    } else {
+        respond(HttpStatusCode.Forbidden)
     }
 }
 
