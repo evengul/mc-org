@@ -36,7 +36,7 @@ suspend fun ApplicationCall.handleGetSignIn() {
 }
 
 suspend fun ApplicationCall.handleLocalSignIn() {
-    if(getEnvironment() == "LOCAL") {
+    if(getEnvironment() == "LOCAL" || getSkipMicrosoftSignIn() == "true") {
         addToken(createSignedJwtToken(getLocalUser()))
         respondRedirect("/")
     } else {
