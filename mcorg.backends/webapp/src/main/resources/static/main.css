@@ -169,6 +169,10 @@ button.button-icon {
     background-image: url("/static/icons/medium/menu/Projects.svg");
 }
 
+.icon-microsoft {
+    background-image: url("/static/icons/medium/Microsoft_Logo.svg");
+}
+
 /******** Input -> Checkbox ********/
 
 input[type="checkbox"] {
@@ -294,6 +298,43 @@ nav {
 
 .menu-visible > hr {
     margin-top: auto;
+}
+
+/******** SIGN IN ********/
+
+main#sign-in {
+    background: linear-gradient(180deg, #15E543 0%, #219D3D 100%);
+
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+
+    gap: var(--spacing-xl);
+
+    height: 100%;
+}
+
+main#sign-in a {
+    text-decoration: none;
+}
+
+main#sign-in button {
+    background-color: #FFFFFF;
+    color: #5E5E5E;
+    border: 1px solid #8C8C8C;
+
+    font-family: 'Segoe UI Regular', sans-serif;
+    font-size: 15px;
+    font-weight: 600;
+
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding-inline: 12px;
+    padding-block: 10px;
 }
 
 /******** PROFILE ********/

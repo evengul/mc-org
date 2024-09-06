@@ -14,12 +14,15 @@ fun signInTemplate(microsoftUrl: String): String = baseTemplate("MC-ORG | Sign I
             + "This app aims to solve all your project planning issues in Minecraft, along with much else."
         }
         p {
-            + "To start, connect with the Microsoft account you have connected to Minecraft, and we will pull up your username to start your planning journey."
+            + "To start, sign in with the personal Microsoft account you have connected to Minecraft, and we will pull up your username to start your planning journey."
         }
         a {
             id = "sign-in-link"
             href = microsoftUrl
             button {
+                span {
+                    classes = setOf("icon", "icon-microsoft")
+                }
                 + "Sign in with Microsoft"
             }
         }

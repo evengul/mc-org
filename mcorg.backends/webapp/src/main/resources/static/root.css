@@ -20,6 +20,13 @@
     src: url("/static/fonts/Roboto_Mono/static/RobotoMono-Bold.ttf");
 }
 
+@font-face {
+    font-family: 'Segoe UI Regular';
+    font-style: normal;
+    font-weight: normal;
+    src: url('/static/fonts/microsoft/Segoe UI.woff') format('woff');
+}
+
 :root {
     --font-primary: "Roboto Mono Regular", sans-serif;
 
