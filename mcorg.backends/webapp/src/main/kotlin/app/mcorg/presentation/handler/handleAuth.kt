@@ -1,0 +1,86 @@
+package app.mcorg.presentation.handler
+
+import app.mcorg.domain.User
+import app.mcorg.presentation.security.createSignedJwtToken
+import app.mcorg.presentation.configuration.minecraftApi
+import app.mcorg.presentation.configuration.usersApi
+import app.mcorg.presentation.router.utils.*
+import app.mcorg.presentation.templates.auth.signInTemplate
+import app.mcorg.presentation.utils.addToken
+import app.mcorg.presentation.utils.getUserFromCookie
+import app.mcorg.presentation.utils.removeTokenAndSignOut
+import com.auth0.jwt.exceptions.TokenExpiredException
+import io.ktor.http.*
+import io.ktor.server.application.*
+import io.ktor.server.response.*
+
+suspend fun ApplicationCall.handleGetSignIn() {
+    val user = try {
+        getUserFromCookie()
+    } catch (e: TokenExpiredException) {
+        null
+    }
+
+    if (user == null) {
+        if (getEnvironment() == "LOCAL") {
+            respondHtml(signInTemplate("/auth/oidc/local-redirect"))
+        } else {
+            respondHtml(signInTemplate(getMicrosoftSignInUrl()))
+        }
+    } else {
+        val profile = usersApi.getProfile(user.id) ?: return removeTokenAndSignOut()
+        if (profile.selectedWorld != null) {
+            respondRedirect("/app/worlds/${profile.selectedWorld}/projects")
+            return
+        }
+        respondRedirect("/app/worlds/add")
+    }
+}
+
+suspend fun ApplicationCall.handleLocalSignIn() {
+    if(getEnvironment() == "LOCAL") {
+        addToken(createSignedJwtToken(getLocalUser()))
+        respondRedirect("/")
+    } else {
+        respond(HttpStatusCode.Forbidden)
+    }
+}
+
+private fun getLocalUser(): User {
+    val user = usersApi.getUser("evegul")
+    if (user == null) {
+        val userId = usersApi.createUser("evegul", "even.gultvedt@gmail.com")
+        return usersApi.getUser(userId)!!
+    }
+    return user
+}
+
+suspend fun ApplicationCall.handleSignIn() {
+    val code = parameters["code"] ?: return respondHtml("Some error occurred")
+    val clientId = getMicrosoftClientId()
+    val clientSecret = getMicrosoftClientSecret()
+
+    val profile = minecraftApi.getProfile(code, clientId, clientSecret)
+
+    val user = usersApi.getUser(profile.username) ?: usersApi.getUser(usersApi.createUser(profile.username, profile.email)) ?: return respondHtml("Some error occurred")
+
+    val token = createSignedJwtToken(user)
+    addToken(token)
+
+    respondRedirect("/")
+}
+
+suspend fun ApplicationCall.handleGetSignOut() = removeTokenAndSignOut()
+
+suspend fun ApplicationCall.handleDeleteUser() {
+    val userId = getUserFromCookie()?.id ?: return removeTokenAndSignOut()
+
+    usersApi.deleteUser(userId)
+
+    removeTokenAndSignOut()
+}
+
+private fun ApplicationCall.getMicrosoftSignInUrl(): String {
+    val clientId = getMicrosoftClientId()
+    return "https://login.microsoftonline.com/consumers/oauth2/v2.0/authorize?response_type=code&scope=openid,XboxLive.signin&client_id=$clientId"
+}

@@ -1,0 +1,1 @@
+alter table task add column type varchar(127) not null default 'COUNTABLE';

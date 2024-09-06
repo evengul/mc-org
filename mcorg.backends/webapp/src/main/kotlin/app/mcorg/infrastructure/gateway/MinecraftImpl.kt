@@ -1,0 +1,56 @@
+package app.mcorg.infrastructure.gateway
+
+import app.mcorg.domain.Minecraft
+import app.mcorg.domain.MinecraftProfile
+import io.ktor.client.call.*
+import io.ktor.client.request.*
+import io.ktor.client.request.forms.*
+import io.ktor.http.*
+
+class MinecraftImpl : Minecraft, Gateway() {
+    override suspend fun getProfile(authorizationCode: String, clientId: String, clientSecret: String): MinecraftProfile {
+        return MinecraftProfile("evegul", "not-in-use@mcorg.app")
+    }
+
+    private suspend fun getMinecraftProfile(accessToken: String): MinecraftProfileResponse = getJsonClient().use {
+        return it.get("https://api.minecraftservices.com/minecraft/profile") {
+            bearerAuth(accessToken)
+        }.body<MinecraftProfileResponse>()
+    }
+
+    private suspend fun getMinecraftToken(xstsToken: String, userHash: String): MinecraftTokenResponse = getJsonClient().use {
+        return it.post("https://api.minecraftservices.com/authentication/login_with_xbox") {
+            contentType(ContentType.Application.Json)
+            accept(ContentType.Application.Json)
+            setBody(createMinecraftRequest(userHash = userHash, xstsToken = xstsToken))
+        }.body<MinecraftTokenResponse>()
+    }
+
+    private suspend fun getXstsToken(xboxToken: String): XboxTokenResponse = getJsonClient().use {
+        return it.post("https://user.auth.xboxlive.com/xsts/authorize") {
+            contentType(ContentType.Application.Json)
+            accept(ContentType.Application.Json)
+            setBody(XstsRequest(XstsProperties("RETAIL", listOf(xboxToken)), "rp://api.minecraftservices.com/", "JWT"))
+        }.body()
+    }
+
+    private suspend fun getXboxProfile(microsoftAccessToken: String): XboxTokenResponse = getJsonClient().use {
+        return it.post("https://user.auth.xboxlive.com/user/authenticate") {
+            contentType(ContentType.Application.Json)
+            accept(ContentType.Application.Json)
+            setBody(XboxProfileRequest(XboxProperties("RPS", "user.auth.xboxlive.com", "d=$microsoftAccessToken"), "http://auth.xboxlive.com", "JWT"))
+        }.body()
+    }
+
+    private suspend fun getTokenFromCode(authorizationCode: String, clientId: String, clientSecret: String): String = getJsonClient().use {
+        return it.get(url = Url("https://login.microsoftonline.com/consumers/oauth2/v2.0/token")) {
+            contentType(ContentType.Application.FormUrlEncoded)
+            setBody(FormDataContent(Parameters.build {
+                append("code", authorizationCode)
+                append("client_id", clientId)
+                append("client_secret", clientSecret)
+                append("grant_type", "authorization_code")
+            }))
+        }.body<MicrosoftAccessTokenResponse>().accessToken
+    }
+}

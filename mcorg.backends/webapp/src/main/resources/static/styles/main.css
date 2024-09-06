@@ -1,0 +1,579 @@
+:root {
+    --navbar-height: calc(48px + var(--spacing-sm));
+}
+
+body {
+    background-color: var(--clr-bg-light);
+    color: var(--clr-text);
+
+    height: 100vh;
+}
+
+body * {
+    color: inherit;
+}
+
+/******** SELECTED ********/
+
+.selected {
+    color: var(--clr-primary);
+    text-decoration: underline;
+}
+
+.selectable {
+    cursor: pointer;
+}
+
+.selectable:hover {
+    text-decoration: underline;
+}
+
+.selectable-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    padding: var(--spacing-lg);
+
+    list-style: none;
+}
+
+/******** DIALOG ********/
+
+dialog {
+    align-self: center;
+    justify-self: center;
+}
+
+/******** MAIN ********/
+
+main {
+    display: flex;
+    flex-direction: column;
+}
+
+/******** BUTTON ********/
+
+button {
+    border: 1px solid var(--clr-primary);
+    background-color: var(--clr-primary);
+    cursor: pointer;
+    padding-block: var(--spacing-sm);
+}
+
+button:hover {
+    box-shadow: var(--clr-primary) 1px 1px;
+}
+
+button:active {
+    box-shadow: var(--clr-primary) -1px -1px;
+}
+
+button:disabled {
+    border: none;
+    background-color: var(--clr-secondary);
+    cursor: auto;
+    box-shadow: none;
+}
+
+button.button-secondary {
+    background-color: transparent;
+}
+
+button.button-danger {
+    border: 1px solid var(--clr-danger);
+    background-color: var(--clr-danger);
+    color: var(--clr-bg-light);
+}
+
+button.button-icon {
+    border: none;
+    background-color: transparent;
+    height: 48px;
+    width: 48px;
+    background-repeat: no-repeat;
+}
+
+.button-row {
+    width: 100%;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+}
+
+/******** Icons ********/
+
+.icon {
+    display: inline-block;
+    width: 48px;
+    height: 48px;
+    background-repeat: no-repeat;
+}
+
+.icon-small {
+    width: 24px;
+    height: 24px;
+}
+
+.icon-row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.icon-back {
+    background-image: url("/static/icons/medium/Back.svg");
+}
+
+.icon-menu {
+    background-image: url("/static/icons/medium/Menu.svg");
+}
+
+.icon-menu-add {
+    background-image: url("/static/icons/medium/Menu_Add.svg");
+}
+
+.icon-menu-worlds,
+.icon-dimension-overworld {
+    background-image: url("/static/icons/medium/dimensions/Overworld.svg");
+}
+
+.icon-dimension-nether {
+    background-image: url("/static/icons/medium/dimensions/Nether.svg");
+}
+
+.icon-dimension-the-end {
+    background-image: url("/static/icons/medium/dimensions/End.svg");
+}
+
+.icon-priority-low {
+    background-image: url("/static/icons/medium/priority/Low.svg");
+}
+
+.icon-priority-medium {
+    background-image: url("/static/icons/medium/priority/Medium.svg");
+}
+
+.icon-priority-high {
+    background-image: url("/static/icons/medium/priority/High.svg");
+}
+
+.icon-menu-profile,
+.icon-user {
+    background-image: url("/static/icons/medium/users/Profile.svg");
+}
+
+.icon-user-small {
+    background-image: url("/static/icons/small/users/Profile.svg");
+}
+
+.icon-menu-users,
+.icon-users {
+    background-image: url("/static/icons/medium/users/Group.svg");
+}
+
+.icon-user-add {
+    background-image: url("/static/icons/medium/users/Add.svg");
+}
+
+.icon-world-add {
+    background-image: url("/static/icons/medium/Add_World.svg");
+}
+
+.icon-menu-projects {
+    background-image: url("/static/icons/medium/menu/Projects.svg");
+}
+
+.icon-microsoft {
+    background-image: url("/static/icons/medium/Microsoft_Logo.svg");
+}
+
+/******** Input -> Checkbox ********/
+
+input[type="checkbox"] {
+    -webkit-appearance: none;
+    appearance: none;
+
+    background-color: var(--clr-bg-light);
+    margin: 0;
+
+    font: inherit;
+    color: currentColor;
+    width: 3em;
+    height: 3em;
+    border: 0.15em solid var(--clr-text);
+    border-radius: 0;
+    transform: translateY(-0.075em);
+
+    display: grid;
+    place-content: center;
+}
+
+input[type="checkbox"]::before {
+    content: url("/static/icons/medium/Check.svg");
+    transform: scale(0) translateY(0.125em);
+    transition: 120ms transform ease-in-out;
+}
+
+input[type="checkbox"]:checked::before {
+    transform: scale(1) translateY(0.125em);
+}
+
+input[type="checkbox"]:focus-visible {
+    outline: max(2px, 0.15em) solid currentColor;
+    outline-offset: max(2px, 0.15em);
+}
+
+/******** FORM ********/
+
+main:has(> form),
+main:has(a#add-task-doable-link) {
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
+    gap: var(--spacing-xl)
+}
+
+form {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr 1fr;
+
+    grid-row-gap: var(--spacing-lg);
+
+    width: min(95%, 600px);
+}
+
+form > label {
+    grid-column: 1 / span 3;
+}
+
+form > input {
+    grid-column: 4 / span 3;
+}
+
+input[name = "id"] {
+    display: none;
+}
+
+form > button[type="submit"] {
+    grid-column: 2 / span 3;
+}
+
+form > .button-row {
+    grid-column: 1 / span 5;
+}
+
+form > .button-row > button {
+    min-width: 100px;
+}
+
+/******** PROGRESS ********/
+
+progress {
+    content: attr(value);
+    -webkit-appearance: none;
+    height: 30px;
+}
+
+progress[value]::-webkit-progress-bar {
+    background-color: var(--clr-bg-light);
+    outline: 1px solid var(--clr-primary);
+}
+
+progress[value]::-webkit-progress-value {
+    background-color: var(--clr-primary);
+}
+
+progress[value]::-webkit-progress-value::before {
+    content: attr(value);
+    color: var(--clr-text);
+    position: absolute;
+    right: 0;
+    top: -125%;
+}
+
+/******** NAVBAR ********/
+
+nav {
+    height: var(--navbar-height);
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+
+    padding-inline: var(--spacing-sm);
+
+    background-color: var(--clr-secondary);
+}
+
+/******** MENU ********/
+
+.menu-invisible {
+    display: none;
+}
+
+.menu-visible {
+    position: absolute;
+    top: 0;
+    left: 0;
+
+    width: clamp(300px, 33vw, 800px);
+    height: 100vh;
+
+    padding-top: var(--spacing-sm);
+
+    background: var(--clr-secondary);
+
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md)
+}
+
+#menu-close-button {
+    padding-left: var(--spacing-sm);
+}
+
+.menu-visible > li {
+    list-style: none;
+    padding-left: var(--spacing-md);
+}
+
+.menu-selected,
+.menu-visible > li:hover {
+    text-decoration: underline;
+}
+
+.menu-visible > li > a {
+    text-decoration: none;
+}
+
+.menu-visible > :has(#menu-profile-link) {
+    margin-bottom: var(--spacing-md);
+}
+
+.menu-visible > hr {
+    margin-top: auto;
+}
+
+/******** SIGN IN ********/
+
+main#sign-in {
+    background: linear-gradient(180deg, #15E543 0%, #219D3D 100%);
+
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+
+    gap: var(--spacing-xl);
+
+    height: 100%;
+}
+
+main#sign-in a {
+    text-decoration: none;
+}
+
+main#sign-in button {
+    background-color: #FFFFFF;
+    color: #5E5E5E;
+    border: 1px solid #8C8C8C;
+
+    font-family: 'Segoe UI Regular', sans-serif;
+    font-size: 15px;
+    font-weight: 600;
+
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding-inline: 12px;
+    padding-block: 10px;
+}
+
+/******** PROFILE ********/
+
+.profile-section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xl);
+    margin: var(--spacing-lg);
+}
+
+#profile-section-user {
+    flex-direction: row;
+    gap: var(--spacing-lg);
+}
+
+#profile-section-user > input {
+    display: block;
+}
+
+#profile-section-connections {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+}
+
+.profile-section > button,
+.profile-section > a,
+.profile-section > a > button {
+    width: 100%
+}
+
+/******** PROJECT LIST ********/
+
+main:has(#project-list) {
+    padding: var(--spacing-md);
+    width: 100%;
+}
+
+ul#project-list {
+    list-style: none;
+    width: 100%;
+
+    overflow-y: auto;
+}
+
+ul#project-list > li {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 2fr 3fr 1fr;
+    grid-template-rows: 1fr 1fr;
+
+    grid-row-gap: var(--spacing-sm);
+
+    margin-bottom: var(--spacing-md);
+}
+
+.project-info {
+    grid-column: 1 / span 1;
+    grid-row: 1 / span 1;
+}
+
+.project-assignment {
+    grid-column: 3 / span 1;
+    grid-row: 1 / span 1;
+}
+
+.project-progress {
+    width: 100%;
+    grid-column: 1 / span 3;
+    grid-row: 2 / span 1;
+}
+
+
+/******** TASK BUTTONS ********/
+
+a#add-task-doable-link,
+a#add-task-countable-link {
+    width: min(25%, 250px);
+}
+
+main:has(a#add-task-doable-link) button {
+    width: 100%;
+}
+
+/******** TASK OVERVIEW ********/
+
+li.task {
+    width: 100%;
+    display: flex;
+    flex-direction: row;
+
+    justify-content: space-between;
+    padding: var(--spacing-sm);
+    margin-bottom: var(--spacing-md);
+}
+
+li.task > .task-name-assign {
+    display: flex;
+    flex-direction: column;
+    width: 25%;
+}
+
+li.task > progress {
+    width: 50%;
+}
+
+.doable-task-progress {
+    display: grid;
+    grid-template-rows: 1fr 1fr 1fr;
+    grid-template-columns: 1fr 1fr 1fr 1fr 1fr;
+
+    column-gap: var(--spacing-sm);
+}
+
+.doable-task-progress > progress {
+    grid-column: 1 / span 5;
+    grid-row: 1 / span 1;
+
+    width: 100%;
+}
+
+.doable-task-progress > p:first-of-type {
+    grid-column: 1 / span 3;
+    grid-row: 2 / span 1;
+
+    width: 100%;
+}
+
+.doable-task-progress > p:last-of-type {
+    grid-column: 4 / span 2;
+    grid-row: 2 / span 1;
+
+    width: 100%;
+}
+
+.project-task-assign-button {
+    min-width: 125px;
+    justify-content: start;
+
+    gap: var(--spacing-xs);
+
+    border: none !important;
+}
+
+/******** USER ASSIGNMENT ********/
+
+.assigned-user:hover {
+    color: var(--clr-danger);
+}
+
+.assigned-user:hover::after {
+    content: "❌";
+    display: inline-block;
+    margin-left: var(--spacing-xs);
+    text-decoration: none;
+}
+
+/******** USERS AND WORLD LIST ********/
+
+#users-list > li,
+#worlds-list > li {
+    margin-block: var(--spacing-md);
+}
+
+#worlds-list > li:hover {
+    cursor: pointer;
+    text-decoration: underline;
+}
+
+/******** ADD USER ********/
+
+form#user-add {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+/******** **** ********/
+
+
+
+
+

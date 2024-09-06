@@ -1,0 +1,1 @@
+alter table project add column requires_perimeter boolean;

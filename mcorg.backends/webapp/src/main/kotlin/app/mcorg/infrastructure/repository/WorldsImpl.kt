@@ -46,22 +46,6 @@ class WorldsImpl : Worlds, Repository() {
         throw IllegalStateException("Failed to create world")
     }
 
-    override fun getUserWorlds(username: String): List<World> {
-        getConnection().use {
-            it.prepareStatement("select * from world")
-                .executeQuery()
-                .apply {
-                    val worldList = mutableListOf<World>()
-                    while (next()) {
-                        val retrievedId = getInt(1)
-                        val name = getString(2)
-                        worldList.add(World(retrievedId, name))
-                    }
-                    return worldList
-                }
-        }
-    }
-
     override fun changeWorldName(id: Int, name: String) {
         getConnection().use {
             it.prepareStatement("update world set name = ? where id = ?;")

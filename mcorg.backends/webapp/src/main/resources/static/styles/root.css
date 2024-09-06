@@ -1,0 +1,97 @@
+/*https://coolors.co/797553-0a2e36-f7f7f7-14cc60-efefef*/
+
+@font-face {
+    font-family: Roboto Mono Light;
+    src: url("/static/fonts/Roboto_Mono/static/RobotoMono-Light.ttf");
+}
+
+@font-face {
+    font-family: Roboto Mono Regular;
+    src: url("/static/fonts/Roboto_Mono/static/RobotoMono-Regular.ttf");
+}
+
+@font-face {
+    font-family: Roboto Mono Medium;
+    src: url("/static/fonts/Roboto_Mono/static/RobotoMono-Medium.ttf");
+}
+
+@font-face {
+    font-family: Roboto Mono Bold;
+    src: url("/static/fonts/Roboto_Mono/static/RobotoMono-Bold.ttf");
+}
+
+@font-face {
+    font-family: 'Segoe UI Regular';
+    font-style: normal;
+    font-weight: normal;
+    src: url('/static/fonts/microsoft/Segoe UI.woff') format('woff');
+}
+
+:root {
+    --font-primary: "Roboto Mono Regular", sans-serif;
+
+    --text-base-size: 1em;
+    --text-scale-ratio: 1.2;
+
+    /* type scale */
+    --text-sm: 10px;
+    --text-md: 12px;
+    --text-lg: 16px;
+    --text-xl: 18px;
+    --text-xxl: 20px;
+
+    --clr-primary: #15E543;
+    --clr-secondary: #CFCFCF;
+
+    --clr-danger: #da1e28;
+    --clr-danger-warning: #ff832b;
+    --clr-warning: #f1c21b;
+    --clr-success: #198038;
+
+    --clr-bg-dark: #E0E0E0;
+    --clr-bg-light: #F4F4F4;
+
+    --clr-text: #272727;
+
+    --spacing-baseline: 24px;
+
+    /* spacing values */
+    --spacing-xxs:   calc(var(--spacing-baseline) / 4);
+    --spacing-xs:   calc(var(--spacing-baseline) / 3);
+    --spacing-sm:   calc(var(--spacing-baseline) / 2);
+    --spacing-md:   var(--spacing-baseline);
+    --spacing-lg:   calc(var(--spacing-baseline) * 2);
+    --spacing-xl:   calc(var(--spacing-baseline) * 3);
+}
+
+html {
+    font-family: var(--font-primary), sans-serif;
+    font-size: var(--text-base-size);
+
+    color: var(--clr-text);
+}
+
+h1 {
+    font-size: var(--text-xxl);
+    font-family: "Roboto Mono Bold", sans-serif;
+}
+
+h2 {
+    font-size: var(--text-xl);
+    font-family: "Roboto Mono Medium", sans-serif;
+}
+
+h3, button {
+    font-size: var(--text-lg);
+    font-family: "Roboto Mono Regular", sans-serif;
+}
+
+p, label {
+    font-size: var(--text-md);
+    font-family: "Roboto Mono Light", sans-serif;
+}
+
+caption {
+    font-size: var(--text-sm);
+    font-family: "Roboto Mono Light", sans-serif;
+}

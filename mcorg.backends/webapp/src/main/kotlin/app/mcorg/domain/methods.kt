@@ -1,6 +1,5 @@
 package app.mcorg.domain
 
-import io.ktor.server.plugins.*
 import java.io.InputStream
 
 fun Task.isDone(): Boolean {
@@ -8,7 +7,7 @@ fun Task.isDone(): Boolean {
 }
 
 fun Task.isCountable(): Boolean {
-    return needed > 1
+    return taskType == TaskType.COUNTABLE
 }
 
 fun Project.doable() = tasks.filter { !it.isCountable() }
