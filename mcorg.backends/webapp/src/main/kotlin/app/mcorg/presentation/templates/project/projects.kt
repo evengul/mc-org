@@ -64,8 +64,7 @@ fun projects(worldId: Int, projects: List<SlimProject>): String = mainPageTempla
                     classes = setOf("project-progress")
                     id = "projects-project-${project.id}-progress"
                     max = "100"
-                    value = "65"
-                    + "65%"
+                    value = project.progress.toString()
                 }
             }
         }
