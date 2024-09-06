@@ -63,7 +63,7 @@ fun projects(worldId: Int, projects: List<SlimProject>): String = mainPageTempla
                 progress {
                     classes = setOf("project-progress")
                     id = "projects-project-${project.id}-progress"
-                    max = "100"
+                    max = "1"
                     value = project.progress.toString()
                 }
             }

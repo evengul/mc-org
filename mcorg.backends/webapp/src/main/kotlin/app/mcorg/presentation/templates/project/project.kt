@@ -67,7 +67,7 @@ fun project(backLink: String, project: Project): String = subPageTemplate(projec
             src = "/static/scripts/progress-edit-dialog.js"
             nonce = generateNonce()
         }
-        project.countable().forEach {
+        project.countable().sortedBy { it.id }.forEach {
             li {
                 classes = setOf("task")
                 div {
@@ -122,7 +122,7 @@ fun project(backLink: String, project: Project): String = subPageTemplate(projec
                 }
             }
         }
-        project.doable().forEach {
+        project.doable().sortedBy { it.id }.forEach {
             li {
                 classes = setOf("task")
                 div {
@@ -134,6 +134,11 @@ fun project(backLink: String, project: Project): String = subPageTemplate(projec
                 }
                 input {
                     id = "project-doable-task-${it.id}-change-input"
+                    if (it.isDone()) {
+                        hxPatch("/app/worlds/${project.worldId}/projects/${project.id}/tasks/${it.id}/incomplete")
+                    } else {
+                        hxPatch("/app/worlds/${project.worldId}/projects/${project.id}/tasks/${it.id}/complete")
+                    }
                     type = InputType.checkBox
                     checked = it.isDone()
                 }
