@@ -46,6 +46,17 @@ suspend fun ApplicationCall.receiveCountableTaskRequest(): AddCountableRequest {
     return AddCountableRequest(name, amount)
 }
 
+suspend fun ApplicationCall.getEditCountableTaskRequirements(): EditCountableRequest {
+    val data = receiveParameters()
+    val id = data["id"]?.toIntOrNull() ?: throw IllegalArgumentException("id is required")
+    val done = data["done"]?.toIntOrNull() ?: throw IllegalArgumentException("done is required")
+    val needed = data["needed"]?.toIntOrNull() ?: throw IllegalArgumentException("needed is required")
+
+    if (done > needed) throw IllegalArgumentException("You cannot do more than you need")
+
+    return EditCountableRequest(id = id, needed = needed, done = done)
+}
+
 private fun String?.toDimension(): Dimension = when(this) {
     "OVERWORLD" -> Dimension.OVERWORLD
     "NETHER" -> Dimension.NETHER

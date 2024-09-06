@@ -115,6 +115,9 @@ fun Application.configureAppRouter() {
                                     call.handlePostCountableTask()
                                 }
                             }
+                            patch("/tasks/requirements") {
+                                call.handleEditTaskRequirements()
+                            }
                             route("/tasks/{taskId}") {
                                 install(TaskParamPlugin)
                                 get("/assign") {

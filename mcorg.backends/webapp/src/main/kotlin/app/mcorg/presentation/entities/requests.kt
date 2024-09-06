@@ -13,3 +13,4 @@ data class CreateProjectRequest(
 )
 data class AddDoableRequest(val taskName: String)
 data class AddCountableRequest(val taskName: String, val needed: Int)
+data class EditCountableRequest(val id: Int, val needed: Int, val done: Int)

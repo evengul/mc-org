@@ -17,27 +17,47 @@ fun project(backLink: String, project: Project): String = subPageTemplate(projec
             + "Edit task"
         }
         form {
+            hxPatch("/app/worlds/${project.worldId}/projects/${project.id}/tasks/requirements")
+            input {
+                id = "edit-task-id-input"
+                name = "id"
+                type = InputType.text
+            }
             label {
+                htmlFor = "edit-task-done-input"
                 + "Done"
             }
             input {
+                name = "done"
+                id = "edit-task-done-input"
                 type = InputType.number
+                required = true
+                min = "0"
             }
             label {
+                htmlFor = "edit-task-needed-input"
                 + "Needed"
             }
             input {
+                name = "needed"
+                id = "edit-task-needed-input"
                 type = InputType.number
+                required = true
+                min = "0"
+                max = "200000000"
             }
-            button {
-                onClick = "cancelDialog()"
-                classes = setOf("button-secondary")
-                type = ButtonType.button
-                + "Cancel"
-            }
-            button {
-                type = ButtonType.submit
-                + "Save"
+            span {
+                classes = setOf("button-row")
+                button {
+                    onClick = "cancelDialog()"
+                    classes = setOf("button-secondary")
+                    type = ButtonType.button
+                    + "Cancel"
+                }
+                button {
+                    type = ButtonType.submit
+                    + "Save"
+                }
             }
         }
     }
@@ -93,7 +113,10 @@ fun project(backLink: String, project: Project): String = subPageTemplate(projec
                     button {
                         id = "edit-task-${it.id}"
                         classes = setOf("button-secondary")
-                        onClick = "editClick()"
+                        onClick = "editTask(this)"
+                        attributes["id"] = it.id.toString()
+                        attributes["needed"] = it.needed.toString()
+                        attributes["done"] = it.done.toString()
                         + "Edit"
                     }
                 }

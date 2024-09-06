@@ -289,6 +289,15 @@ class ProjectsImpl : Projects, Repository() {
         }
     }
 
+    override fun editTaskRequirements(id: Int, needed: Int, done: Int) {
+        getConnection().use {
+            val statement = it.prepareStatement("update task set needed  = ?, done = ? where id = ? returning project_id")
+                .apply { setInt(1, needed); setInt(2, done); setInt(3, id) }
+
+            updateProjectProgress(it, statement)
+        }
+    }
+
     override fun assignTask(id: Int, userId: Int) {
         getConnection().use {
             it.prepareStatement("update task set assignee = ? where id = ?")

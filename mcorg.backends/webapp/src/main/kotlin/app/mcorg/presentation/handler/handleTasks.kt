@@ -81,11 +81,17 @@ suspend fun ApplicationCall.handleDeleteTaskAssignee() {
 suspend fun ApplicationCall.handleCompleteTask() {
     val taskId = getTaskId()
     projectsApi.completeTask(taskId)
-    respondRedirect("/app/worlds/${getWorldId()}/projects/${getProjectId()}")
+    clientRedirect("/app/worlds/${getWorldId()}/projects/${getProjectId()}")
 }
 
 suspend fun ApplicationCall.handleIncompleteTask() {
     val taskId = getTaskId()
     projectsApi.undoCompleteTask(taskId)
-    respondRedirect("/app/worlds/${getWorldId()}/projects/${getProjectId()}")
+    clientRedirect("/app/worlds/${getWorldId()}/projects/${getProjectId()}")
+}
+
+suspend fun ApplicationCall.handleEditTaskRequirements() {
+    val (id, needed, done) = getEditCountableTaskRequirements()
+    projectsApi.editTaskRequirements(id, needed, done)
+    clientRedirect("/app/worlds/${getWorldId()}/projects/${getProjectId()}")
 }

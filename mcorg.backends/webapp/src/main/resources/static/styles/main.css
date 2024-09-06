@@ -37,18 +37,24 @@ body * {
     list-style: none;
 }
 
+/******** DIALOG ********/
+
+dialog {
+    align-self: center;
+    justify-self: center;
+}
+
 /******** MAIN ********/
 
 main {
     display: flex;
     flex-direction: column;
-    width: 100vw;
 }
 
 /******** BUTTON ********/
 
 button {
-    border: none;
+    border: 1px solid var(--clr-primary);
     background-color: var(--clr-primary);
     cursor: pointer;
     padding-block: var(--spacing-sm);
@@ -63,6 +69,7 @@ button:active {
 }
 
 button:disabled {
+    border: none;
     background-color: var(--clr-secondary);
     cursor: auto;
     box-shadow: none;
@@ -70,19 +77,28 @@ button:disabled {
 
 button.button-secondary {
     background-color: transparent;
-    border: 1px solid var(--clr-primary);
 }
 
 button.button-danger {
+    border: 1px solid var(--clr-danger);
     background-color: var(--clr-danger);
     color: var(--clr-bg-light);
 }
 
 button.button-icon {
+    border: none;
     background-color: transparent;
     height: 48px;
     width: 48px;
     background-repeat: no-repeat;
+}
+
+.button-row {
+    width: 100%;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
 }
 
 /******** Icons ********/
@@ -181,7 +197,7 @@ input[type="checkbox"] {
 
 /******** FORM ********/
 
-main:has(form),
+main:has(> form),
 main:has(a#add-task-doable-link) {
     height: 100%;
     display: flex;
@@ -208,8 +224,20 @@ form > input {
     grid-column: 4 / span 3;
 }
 
+input[name = "id"] {
+    display: none;
+}
+
 form > button[type="submit"] {
     grid-column: 2 / span 3;
+}
+
+form > .button-row {
+    grid-column: 1 / span 5;
+}
+
+form > .button-row > button {
+    min-width: 100px;
 }
 
 /******** PROGRESS ********/
@@ -377,6 +405,8 @@ main:has(#project-list) {
 ul#project-list {
     list-style: none;
     width: 100%;
+
+    overflow-y: auto;
 }
 
 ul#project-list > li {
@@ -419,14 +449,6 @@ main:has(a#add-task-doable-link) button {
 }
 
 /******** TASK OVERVIEW ********/
-
-main:has(#task-list) {
-    height: 100%;
-}
-
-ul#task-list {
-    height: 100%;
-}
 
 li.task {
     width: 100%;
