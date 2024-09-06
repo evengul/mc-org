@@ -56,7 +56,7 @@ interface Projects {
     fun undoCompleteTask(id: Int)
     fun updateCountableTask(id: Int, needed: Int, done: Int)
     fun taskRequiresMore(id: Int, needed: Int)
-    fun taskDoneMore(id: Int, done: Int)
+    fun taskDoneMore(id: Int, doneMore: Int)
     fun getTaskAssignee(id: Int): User?
     fun assignTask(id: Int, userId: Int)
     fun removeTaskAssignment(id: Int)

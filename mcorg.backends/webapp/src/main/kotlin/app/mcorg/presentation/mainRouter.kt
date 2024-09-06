@@ -129,6 +129,9 @@ fun Application.configureAppRouter() {
                                 patch("/incomplete") {
                                     call.handleIncompleteTask()
                                 }
+                                patch("/do-more") {
+                                    call.handlePatchCountableTaskDoneMore()
+                                }
                             }
                         }
                     }

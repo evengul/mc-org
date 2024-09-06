@@ -62,6 +62,12 @@ button:active {
     box-shadow: var(--clr-primary) -1px -1px;
 }
 
+button:disabled {
+    background-color: var(--clr-secondary);
+    cursor: auto;
+    box-shadow: none;
+}
+
 button.button-secondary {
     background-color: transparent;
     border: 1px solid var(--clr-primary);
@@ -405,27 +411,27 @@ li.task > input[type="checkbox"] {
 .doable-task-progress {
     display: grid;
     grid-template-rows: 1fr 1fr 1fr;
-    grid-template-columns: 1fr 1fr 1fr 1fr;
+    grid-template-columns: 1fr 1fr 1fr 1fr 1fr;
 
     column-gap: var(--spacing-sm);
 }
 
 .doable-task-progress > progress {
-    grid-column: 1 / span 4;
+    grid-column: 1 / span 5;
     grid-row: 1 / span 1;
 
     width: 100%;
 }
 
 .doable-task-progress > p:first-of-type {
-    grid-column: 1 / span 2;
+    grid-column: 1 / span 3;
     grid-row: 2 / span 1;
 
     width: 100%;
 }
 
 .doable-task-progress > p:last-of-type {
-    grid-column: 3 / span 2;
+    grid-column: 4 / span 2;
     grid-row: 2 / span 1;
 
     width: 100%;

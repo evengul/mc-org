@@ -278,10 +278,12 @@ class ProjectsImpl : Projects, Repository() {
         }
     }
 
-    override fun taskDoneMore(id: Int, done: Int) {
+    override fun taskDoneMore(id: Int, doneMore: Int) {
         getConnection().use {
+            val (needed, done) = getTaskProgress(it, id)
+            val value = needed.coerceAtMost(done + doneMore)
             val statement = it.prepareStatement("update task set done = ? where id = ? returning project_id")
-                .apply { setInt(1, done); setInt(2, id) }
+                .apply { setInt(1, value); setInt(2, id) }
 
             updateProjectProgress(it, statement)
         }
@@ -344,7 +346,20 @@ class ProjectsImpl : Projects, Repository() {
                 .executeUpdate()
         }
     }
+
     data class TaskProgress(val needed: Int, val done: Int)
+
+    private fun getTaskProgress(connection: Connection, id: Int): TaskProgress {
+        connection.prepareStatement("select needed, done from task where id = ?")
+            .apply { setInt(1, id) }
+            .executeQuery()
+            .apply {
+                if (next()) {
+                    return TaskProgress(getInt("needed"), getInt("done"))
+                }
+            }
+        throw IllegalStateException("Could not find task progress with id $id")
+    }
 
     private fun updateProjectProgress(connection: Connection, statement: PreparedStatement) {
         if (statement.execute()) {

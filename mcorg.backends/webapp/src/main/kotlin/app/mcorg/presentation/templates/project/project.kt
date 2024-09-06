@@ -1,6 +1,7 @@
 package app.mcorg.presentation.templates.project
 
 import app.mcorg.domain.*
+import app.mcorg.presentation.hxPatch
 import app.mcorg.presentation.templates.NavBarRightIcon
 import app.mcorg.presentation.templates.subPageTemplate
 import kotlinx.html.*
@@ -35,13 +36,24 @@ fun project(backLink: String, project: Project): String = subPageTemplate(projec
                         + "Done: ${it.done}"
                     }
                     button {
+                        disabled = it.done + 1 > it.needed
+                        hxPatch("/app/worlds/${project.worldId}/projects/${project.id}/tasks/${it.id}/do-more?done=1")
                         + "+1"
                     }
                     button {
+                        disabled = it.done + 64 > it.needed
+                        hxPatch("/app/worlds/${project.worldId}/projects/${project.id}/tasks/${it.id}/do-more?done=64")
                         + "+1 stack"
                     }
                     button {
+                        disabled = it.done + 1728 > it.needed
+                        hxPatch("/app/worlds/${project.worldId}/projects/${project.id}/tasks/${it.id}/do-more?done=1728")
                         + "+1 Shulker box"
+                    }
+                    button {
+                        disabled = it.done >= it.needed
+                        hxPatch("/app/worlds/${project.worldId}/projects/${project.id}/tasks/${it.id}/do-more?done=${it.needed - it.done}")
+                        + "Done"
                     }
                     button {
                         classes = setOf("button-secondary")

@@ -38,6 +38,13 @@ suspend fun ApplicationCall.handlePostCountableTask() {
     respondRedirect("/app/worlds/${getWorldId()}/projects/$projectId")
 }
 
+suspend fun ApplicationCall.handlePatchCountableTaskDoneMore() {
+    val done = parameters["done"]?.toIntOrNull() ?: 0
+    val taskId = getTaskId()
+    projectsApi.taskDoneMore(taskId, done)
+    clientRedirect("/app/worlds/${getWorldId()}/projects/${getProjectId()}")
+}
+
 suspend fun ApplicationCall.handleGetAssignTask() {
     val worldId = getWorldId()
     val projectId = getProjectId()
