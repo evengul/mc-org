@@ -122,7 +122,7 @@ class ProjectsImpl : Projects, Repository() {
     ): Int {
         getConnection().use {
             val statement = it
-                .prepareStatement("insert into project(world_id, name, archived, priority, requires_perimeter, dimension, assignee, progress) values (?, ?, false, ?, ?, ?, null, 0.0) returning id")
+                .prepareStatement("insert into project(world_id, name, archived, priority, requires_perimeter, dimension, assignee) values (?, ?, false, ?, ?, ?, null) returning id")
                 .apply {
                     setInt(1, worldId)
                     setString(2, name)
