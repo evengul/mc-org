@@ -24,6 +24,24 @@ input, button, textarea, select {
     font: inherit;
 }
 
+h1, h2, h3, h4, h5, h6 {
+    text-wrap: balance;
+}
+
+p, li, figcaption, label {
+    text-wrap: pretty;
+    max-width: 65ch;
+}
+
+header,
+footer,
+nav,
+main,
+section,
+article {
+    container-type: inline-size;
+}
+
 p, h1, h2, h3, h4, h5, h6 {
     overflow-wrap: break-word;
 }
