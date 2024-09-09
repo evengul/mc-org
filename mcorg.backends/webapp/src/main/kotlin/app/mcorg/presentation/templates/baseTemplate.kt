@@ -8,7 +8,9 @@ fun baseTemplate(siteTitle: String = "MC-ORG", body: BODY.() -> Unit): String {
     return "<!DOCTYPE html>\n" + createHTML().html {
         lang = "en"
         head {
-            title = siteTitle
+            title {
+                + siteTitle
+            }
             script {
                 src = "/static/scripts/htmx.js"
                 nonce = generateNonce()
