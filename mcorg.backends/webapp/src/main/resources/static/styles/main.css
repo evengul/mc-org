@@ -42,6 +42,7 @@ body * {
 dialog {
     align-self: center;
     justify-self: center;
+    margin: auto;
 }
 
 /******** MAIN ********/
