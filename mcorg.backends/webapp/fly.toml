@@ -11,7 +11,7 @@ primary_region = 'ams'
 [env]
   DB_URL = 'jdbc:postgresql://ep-icy-wood-a2vogqwy.eu-central-1.aws.neon.tech/mcorg?sslmode=require'
   DB_USER = 'mcorg_owner'
-  JWT_ISSUER = 'mcorg.fly.dev'
+  JWT_ISSUER = 'mcorg.app'
   ENV = 'FLY'
   SKIP_MICROSOFT_SIGN_IN = 'false'
   COOKIE_HOST = 'mcorg.app'

@@ -84,5 +84,9 @@ suspend fun ApplicationCall.handleDeleteUser() {
 
 private fun ApplicationCall.getMicrosoftSignInUrl(): String {
     val clientId = getMicrosoftClientId()
-    return "https://login.microsoftonline.com/consumers/oauth2/v2.0/authorize?response_type=code&scope=openid,XboxLive.signin&client_id=$clientId"
+    val host = getCookieHost()
+    val redirectUrl =
+        if (host == "localhost") "http://localhost:8080/auth/oidc/microsoft-redirect"
+        else "https://mcorg.app/auth/oidc/microsoft-redirect"
+    return "https://login.microsoftonline.com/consumers/oauth2/v2.0/authorize?response_type=code&scope=openid,XboxLive.signin&client_id=$clientId&redirect_uri=$redirectUrl"
 }
