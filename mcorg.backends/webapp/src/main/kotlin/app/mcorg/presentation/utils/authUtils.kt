@@ -3,7 +3,6 @@ package app.mcorg.presentation.utils
 import app.mcorg.domain.User
 import app.mcorg.presentation.security.getUserFromJwtToken
 import io.ktor.server.application.*
-import io.ktor.server.response.*
 import io.ktor.util.*
 import io.ktor.util.date.*
 

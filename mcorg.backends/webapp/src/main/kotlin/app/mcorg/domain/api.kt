@@ -6,7 +6,6 @@ interface Users {
     fun emailExists(email: String): Boolean
     fun getUser(id: Int): User?
     fun getUser(username: String): User?
-    fun getUserByUsernameIfPasswordMatches(username: String, password: String): User?
     fun createUser(username: String, email: String): Int
     fun deleteUser(id: Int)
     fun searchUsers(searchTerm: String): List<User>

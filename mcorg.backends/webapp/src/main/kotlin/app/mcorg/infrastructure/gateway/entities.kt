@@ -11,14 +11,6 @@ data class MicrosoftAccessTokenResponse(@SerialName("token_type") val tokenType:
                                         @SerialName("access_token") val accessToken: String,
                                         @SerialName("id_token") val idToken: String)
 
-data class MinecraftProfileNotFoundResponse(
-    val path: String,
-    val errorType: String,
-    val error: String,
-    val errorMessage: String,
-    val developerMessage: String
-)
-
 @Serializable
 data class MinecraftProfileResponse(
     val id: String,

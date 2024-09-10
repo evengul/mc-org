@@ -36,7 +36,7 @@ suspend fun ApplicationCall.receiveCreateProjectRequest(): CreateProjectRequest 
     return CreateProjectRequest(name, priority, dimension, requiresPerimeter)
 }
 
-suspend fun ApplicationCall.receiveTaskFilters() = TaskFiltersRequest(
+fun ApplicationCall.receiveTaskFilters() = TaskFiltersRequest(
     parameters["search"],
     parameters["sortBy"],
     parameters["assigneeFilter"],

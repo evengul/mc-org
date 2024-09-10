@@ -1,7 +1,6 @@
 package app.mcorg.infrastructure.repository
 
 import app.mcorg.domain.Profile
-import at.favre.lib.crypto.bcrypt.BCrypt
 import app.mcorg.domain.User
 import app.mcorg.domain.Users
 
@@ -55,20 +54,6 @@ class UsersImpl : Users, Repository() {
                 .apply {
                     if (next()) {
                         return User(getInt(1), getString(2))
-                    }
-                }
-        }
-        return null
-    }
-
-    override fun getUserByUsernameIfPasswordMatches(username: String, password: String): User? {
-        getConnection().use {
-            it.prepareStatement("select id, username, password_hash from users where username = ?")
-                .apply { setString(1, username) }
-                .executeQuery()
-                .apply {
-                    if (next() && BCrypt.verifyer().verify(password.toCharArray(), getString("password_hash")).verified) {
-                        return User(getInt("id"), getString("username"))
                     }
                 }
         }
@@ -172,7 +157,4 @@ class UsersImpl : Users, Repository() {
         }
     }
 
-    private fun hashPassword(password: String): String {
-        return BCrypt.withDefaults().hashToString(12, password.toCharArray())
-    }
 }

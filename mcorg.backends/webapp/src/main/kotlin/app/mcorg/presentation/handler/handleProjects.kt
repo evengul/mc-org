@@ -1,7 +1,6 @@
 package app.mcorg.presentation.handler
 
 import app.mcorg.domain.Task
-import app.mcorg.domain.TaskType
 import app.mcorg.domain.isCountable
 import app.mcorg.domain.isDone
 import app.mcorg.presentation.configuration.permissionsApi
@@ -15,7 +14,6 @@ import app.mcorg.presentation.templates.project.projects
 import app.mcorg.presentation.utils.*
 import io.ktor.server.application.*
 import io.ktor.server.response.*
-import java.util.*
 
 suspend fun ApplicationCall.handleGetProjects() {
     val worldId = getWorldId()
