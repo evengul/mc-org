@@ -22,9 +22,19 @@ data class MinecraftProfileNotFoundResponse(
 @Serializable
 data class MinecraftProfileResponse(
     val id: String,
-    val name: String
+    val name: String,
+    val skins: List<Skin>,
+    val capes: List<Cape>,
+    val profileActions: EmptyClass
 )
 
+@Serializable
+data class Skin(val id: String, val state: String, val url: String, val textureKey: String, val variant: String)
+
+@Serializable
+data class Cape(val id: String, val state: String, val url: String, val alias: String)
+
+@Serializable
 data class MinecraftRequest(
     val identityToken: String
 )
@@ -34,8 +44,15 @@ fun createMinecraftRequest(userHash: String, xstsToken: String) = "XBL3.0 x=$use
 @Serializable
 data class MinecraftTokenResponse(
     val username: String,
-    @SerialName("access_token") val accessToken: String
+    val roles: List<String>,
+    val metadata: EmptyClass,
+    @SerialName("access_token") val accessToken: String,
+    @SerialName("expires_in") val expiresIn: Int,
+    @SerialName("token_type") val tokenType: String
 )
+
+@Serializable
+class EmptyClass
 
 @Serializable
 data class XboxTokenResponse(

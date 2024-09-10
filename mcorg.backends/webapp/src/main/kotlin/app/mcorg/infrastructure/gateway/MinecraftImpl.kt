@@ -9,7 +9,21 @@ import io.ktor.http.*
 
 class MinecraftImpl : Minecraft, Gateway() {
     override suspend fun getProfile(authorizationCode: String, clientId: String, clientSecret: String): MinecraftProfile {
-        return MinecraftProfile("evegul", "not-in-use@mcorg.app")
+        try {
+            val microsoftAccessToken = getTokenFromCode(authorizationCode, clientId, clientSecret)
+            val xboxProfile = getXboxProfile(microsoftAccessToken)
+            val xboxToken = xboxProfile.token
+            val userHash = xboxProfile.userHash()
+            val xstsToken = getXstsToken(xboxToken).token
+            val minecraftToken = getMinecraftToken(xstsToken, userHash).accessToken
+
+            val minecraftProfile = getMinecraftProfile(minecraftToken)
+
+            return MinecraftProfile(minecraftProfile.name, "unknown")
+        } catch (e: Exception) {
+            e.printStackTrace()
+            throw e
+        }
     }
 
     private suspend fun getMinecraftProfile(accessToken: String): MinecraftProfileResponse = getJsonClient().use {
@@ -22,12 +36,12 @@ class MinecraftImpl : Minecraft, Gateway() {
         return it.post("https://api.minecraftservices.com/authentication/login_with_xbox") {
             contentType(ContentType.Application.Json)
             accept(ContentType.Application.Json)
-            setBody(createMinecraftRequest(userHash = userHash, xstsToken = xstsToken))
+            setBody(MinecraftRequest(createMinecraftRequest(userHash = userHash, xstsToken = xstsToken)))
         }.body<MinecraftTokenResponse>()
     }
 
     private suspend fun getXstsToken(xboxToken: String): XboxTokenResponse = getJsonClient().use {
-        return it.post("https://user.auth.xboxlive.com/xsts/authorize") {
+        return it.post("https://xsts.auth.xboxlive.com/xsts/authorize") {
             contentType(ContentType.Application.Json)
             accept(ContentType.Application.Json)
             setBody(XstsRequest(XstsProperties("RETAIL", listOf(xboxToken)), "rp://api.minecraftservices.com/", "JWT"))
