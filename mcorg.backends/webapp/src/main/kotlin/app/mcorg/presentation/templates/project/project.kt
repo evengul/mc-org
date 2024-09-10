@@ -1,6 +1,7 @@
 package app.mcorg.presentation.templates.project
 
 import app.mcorg.domain.*
+import app.mcorg.presentation.components.appProgress
 import app.mcorg.presentation.hxPatch
 import app.mcorg.presentation.templates.NavBarRightIcon
 import app.mcorg.presentation.templates.subPageTemplate
@@ -79,17 +80,7 @@ fun project(backLink: String, project: Project): String = subPageTemplate(projec
                 }
                 div {
                     classes = setOf("doable-task-progress")
-                    progress {
-                        id = "project-task-${it.id}-progress"
-                        max = it.needed.toString()
-                        value = it.done.toString()
-                    }
-                    p {
-                        + "Required: ${it.needed}"
-                    }
-                    p {
-                        + "Done: ${it.done}"
-                    }
+                    appProgress(max = it.needed.toDouble(), value = it.done.toDouble(), isItemAmount = true)
                     button {
                         disabled = it.done + 1 > it.needed
                         hxPatch("/app/worlds/${project.worldId}/projects/${project.id}/tasks/${it.id}/do-more?done=1")

@@ -273,27 +273,31 @@ form > .button-row > button {
 
 /******** PROGRESS ********/
 
-progress {
-    content: attr(value);
-    -webkit-appearance: none;
+.app-progress {
+    position: relative;
     height: 30px;
-}
-
-progress[value]::-webkit-progress-bar {
-    background-color: var(--clr-bg-light);
     outline: 1px solid var(--clr-primary);
 }
 
-progress[value]::-webkit-progress-value {
-    background-color: var(--clr-primary);
+.app-progress > .app-progress-value {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 6px;
+
+    text-align: center;
+
+    z-index: 100;
 }
 
-progress[value]::-webkit-progress-value::before {
-    content: attr(value);
-    color: var(--clr-text);
+.app-progress > .app-progress-value-bar {
+    background-color: var(--clr-primary);
     position: absolute;
-    right: 0;
-    top: -125%;
+    left: 0;
+    top: 0;
+    bottom: 0;
+
+    z-index: 10;
 }
 
 /******** NAVBAR ********/
@@ -497,35 +501,21 @@ li.task > .task-name-assign {
     width: 25%;
 }
 
-li.task > progress {
+li.task > .app-progress {
     width: 50%;
 }
 
 .doable-task-progress {
     display: grid;
-    grid-template-rows: 1fr 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
     grid-template-columns: 1fr 1fr 1fr 1fr 1fr;
 
     column-gap: var(--spacing-sm);
 }
 
-.doable-task-progress > progress {
+.doable-task-progress > .app-progress {
     grid-column: 1 / span 5;
     grid-row: 1 / span 1;
-
-    width: 100%;
-}
-
-.doable-task-progress > p:first-of-type {
-    grid-column: 1 / span 3;
-    grid-row: 2 / span 1;
-
-    width: 100%;
-}
-
-.doable-task-progress > p:last-of-type {
-    grid-column: 4 / span 2;
-    grid-row: 2 / span 1;
 
     width: 100%;
 }

@@ -1,6 +1,7 @@
 package app.mcorg.presentation.templates.project
 
 import app.mcorg.domain.SlimProject
+import app.mcorg.presentation.components.appProgress
 import app.mcorg.presentation.templates.MainPage
 import app.mcorg.presentation.templates.NavBarRightIcon
 import app.mcorg.presentation.templates.mainPageTemplate
@@ -60,12 +61,7 @@ fun projects(worldId: Int, projects: List<SlimProject>): String = mainPageTempla
                         }
                     }
                 }
-                progress {
-                    classes = setOf("project-progress")
-                    id = "projects-project-${project.id}-progress"
-                    max = "1"
-                    value = project.progress.toString()
-                }
+                appProgress(progressClasses = setOf("project-progress"), max = 1.0, value = project.progress)
             }
         }
     }
