@@ -2,6 +2,7 @@ package app.mcorg.presentation.templates.project
 
 import app.mcorg.domain.SlimProject
 import app.mcorg.presentation.components.appProgress
+import app.mcorg.presentation.hxConfirm
 import app.mcorg.presentation.hxDelete
 import app.mcorg.presentation.templates.MainPage
 import app.mcorg.presentation.templates.NavBarRightIcon
@@ -65,6 +66,7 @@ fun projects(worldId: Int, projects: List<SlimProject>): String = mainPageTempla
                 button {
                     id = "projects-project-${project.id}-delete-button"
                     classes = setOf("button-danger project-delete")
+                    hxConfirm("Are you sure you want to delete this project? This can not be reverted, and all your tasks and progress will vanish.")
                     hxDelete("/app/worlds/$worldId/projects/${project.id}")
                     + "Delete project"
                 }

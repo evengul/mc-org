@@ -2,6 +2,7 @@ package app.mcorg.presentation.handler
 
 import app.mcorg.domain.Authority
 import app.mcorg.presentation.configuration.permissionsApi
+import app.mcorg.presentation.configuration.projectsApi
 import app.mcorg.presentation.configuration.usersApi
 import app.mcorg.presentation.router.utils.respondHtml
 import app.mcorg.presentation.templates.users.addUser
@@ -42,6 +43,7 @@ suspend fun ApplicationCall.handleDeleteWorldUser() {
     if (!isAdmin) {
         respond(HttpStatusCode.Forbidden)
     } else {
+        projectsApi.removeUserAssignments(userId)
         permissionsApi.removeWorldPermission(userId, worldId)
         clientRedirect("/app/worlds/$worldId/users")
     }

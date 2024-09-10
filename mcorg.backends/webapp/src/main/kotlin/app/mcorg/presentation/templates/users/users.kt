@@ -1,6 +1,7 @@
 package app.mcorg.presentation.templates.users
 
 import app.mcorg.domain.User
+import app.mcorg.presentation.hxConfirm
 import app.mcorg.presentation.hxDelete
 import app.mcorg.presentation.templates.MainPage
 import app.mcorg.presentation.templates.NavBarRightIcon

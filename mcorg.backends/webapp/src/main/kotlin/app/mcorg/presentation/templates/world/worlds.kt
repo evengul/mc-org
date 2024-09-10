@@ -1,6 +1,7 @@
 package app.mcorg.presentation.templates.world
 
 import app.mcorg.domain.World
+import app.mcorg.presentation.hxConfirm
 import app.mcorg.presentation.hxDelete
 import app.mcorg.presentation.hxPatch
 import app.mcorg.presentation.templates.MainPage
@@ -32,6 +33,7 @@ fun worlds(selectedWorldId: Int?, worlds: List<World>): String = mainPageTemplat
                 }
                 button {
                     classes = setOf("button-danger")
+                    hxConfirm("Are you sure you want to delete this world? This can not be reverted, and all your projects, tasks and progress will vanish.")
                     hxDelete("/app/worlds/${it.id}")
                     + "Delete"
                 }

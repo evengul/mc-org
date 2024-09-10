@@ -28,7 +28,7 @@ suspend fun ApplicationCall.handlePostProject() {
     val (name, priority, dimension, requiresPerimeter) = receiveCreateProjectRequest()
     val worldId = getWorldId()
     val projectId = projectsApi.createProject(worldId, name, dimension, priority, requiresPerimeter)
-    respondRedirect("/app/worlds/$worldId/projects/$projectId")
+    respondRedirect("/app/worlds/$worldId/projects/$projectId/add-task")
 }
 
 suspend fun ApplicationCall.handleDeleteProject() {
