@@ -306,6 +306,17 @@ class ProjectsImpl : Projects, Repository() {
         }
     }
 
+    override fun removeUserAssignments(id: Int) {
+        getConnection().use {
+            it.prepareStatement("update task set assignee = null where assignee = ?")
+                .apply { setInt(1, id) }
+                .executeUpdate()
+            it.prepareStatement("update project set assignee = null where assignee = ?")
+                .apply { setInt(1, id); }
+                .executeUpdate()
+        }
+    }
+
     override fun getTaskAssignee(id: Int): User? {
         getConnection().use {
             it.prepareStatement("select u.id as user_id, u.username as username from task t join users u on t.assignee = u.id where t.id = ?")

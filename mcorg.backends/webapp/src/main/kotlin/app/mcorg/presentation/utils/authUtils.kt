@@ -20,6 +20,6 @@ fun ApplicationCall.addToken(token: String) = response.cookies.append(tokenName,
 suspend fun ApplicationCall.removeTokenAndSignOut() {
     response.cookies.append(tokenName, "", expires = GMTDate(-1), httpOnly = true, domain = getCookieHost(), path = "/")
 
-    respondRedirect("/auth/sign-in")
+    clientRedirect("/auth/sign-in")
 }
 

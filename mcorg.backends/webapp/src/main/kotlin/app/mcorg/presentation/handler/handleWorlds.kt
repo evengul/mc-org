@@ -37,6 +37,14 @@ suspend fun ApplicationCall.handlePostWorld() {
     respondRedirect("/")
 }
 
+suspend fun ApplicationCall.handleDeleteWorld() {
+    val worldId = getWorldId()
+    usersApi.unSelectWorldForAll(worldId)
+    permissionsApi.removeWorldPermissionForAll(worldId)
+    worldsApi.deleteWorld(worldId)
+    clientRedirect("/app/worlds")
+}
+
 suspend fun ApplicationCall.handleSelectWorld() {
     val userId = getUserId()
     val worldId = parameters["worldId"]?.toIntOrNull()

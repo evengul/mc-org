@@ -31,6 +31,13 @@ suspend fun ApplicationCall.handlePostProject() {
     respondRedirect("/app/worlds/$worldId/projects/$projectId")
 }
 
+suspend fun ApplicationCall.handleDeleteProject() {
+    val worldId = getWorldId()
+    val projectId = getProjectId()
+    projectsApi.deleteProject(projectId)
+    clientRedirect("/app/worlds/$worldId")
+}
+
 suspend fun ApplicationCall.handleGetProject() {
     val projectId = getProjectId()
     val project = projectsApi.getProject(projectId, includeTasks = true, includeDependencies = false) ?: throw IllegalArgumentException("Project not found")

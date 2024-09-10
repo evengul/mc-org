@@ -1,6 +1,7 @@
 package app.mcorg.presentation.templates.users
 
 import app.mcorg.domain.User
+import app.mcorg.presentation.hxDelete
 import app.mcorg.presentation.templates.MainPage
 import app.mcorg.presentation.templates.NavBarRightIcon
 import app.mcorg.presentation.templates.mainPageTemplate
@@ -14,22 +15,33 @@ fun users(worldId: Int, currentUser: User, users: List<User>, isAdmin: Boolean):
     ul {
         id = "users-list"
         li {
-            classes = setOf("selected", "icon-row")
             span {
-                classes = setOf("icon", "icon-user")
-            }
-            h2 {
-                + currentUser.username
-            }
-        }
-        for (user in users) {
-            li {
-                classes = setOf("icon-row")
+                classes = setOf("selected", "icon-row")
                 span {
                     classes = setOf("icon", "icon-user")
                 }
                 h2 {
-                    + user.username
+                    + currentUser.username
+                }
+            }
+        }
+        for (user in users) {
+            li {
+                span {
+                    classes = setOf("icon-row")
+                    span {
+                        classes = setOf("icon", "icon-user")
+                    }
+                    h2 {
+                        + user.username
+                    }
+                }
+                if (isAdmin) {
+                    button {
+                        classes = setOf("button-danger")
+                        hxDelete("/app/worlds/${worldId}/users/${user.id}")
+                        + "Remove"
+                    }
                 }
             }
         }

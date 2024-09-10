@@ -60,9 +60,15 @@ fun Application.configureAppRouter() {
                     get {
                         call.handleGetWorld()
                     }
+                    delete {
+                        call.handleDeleteWorld()
+                    }
                     route("/users") {
                         get {
                             call.handleGetUsers()
+                        }
+                        delete("/{userId}") {
+                            call.handleDeleteWorldUser()
                         }
                         route("/add") {
                             install(WorldAdminPlugin)
@@ -88,6 +94,9 @@ fun Application.configureAppRouter() {
                             install(ProjectParamPlugin)
                             get {
                                 call.handleGetProject()
+                            }
+                            delete {
+                                call.handleDeleteProject()
                             }
                             get("/assign") {
                                 call.handleGetAssignProject()
@@ -126,6 +135,9 @@ fun Application.configureAppRouter() {
                             }
                             route("/tasks/{taskId}") {
                                 install(TaskParamPlugin)
+                                delete {
+                                    call.handleDeleteTask()
+                                }
                                 get("/assign") {
                                     call.handleGetAssignTask()
                                 }

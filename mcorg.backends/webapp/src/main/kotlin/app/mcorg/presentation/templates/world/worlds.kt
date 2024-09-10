@@ -1,6 +1,7 @@
 package app.mcorg.presentation.templates.world
 
 import app.mcorg.domain.World
+import app.mcorg.presentation.hxDelete
 import app.mcorg.presentation.hxPatch
 import app.mcorg.presentation.templates.MainPage
 import app.mcorg.presentation.templates.NavBarRightIcon
@@ -14,31 +15,25 @@ fun worlds(selectedWorldId: Int?, worlds: List<World>): String = mainPageTemplat
 )) {
     ul {
         id = "worlds-list"
-        if (selectedWorldId != null) {
-            val selectedWorld = worlds.find { it.id == selectedWorldId }
-            if (selectedWorld != null) {
-                li {
-                    classes = setOf("icon-row", "selected")
+        worlds.sortedByDescending { it.id == selectedWorldId }.forEach {
+            li {
+                span {
+                    classes = setOf("icon-row")
+                    hxPatch("/app/worlds/select?worldId=${it.id}")
+                    if (it.id == selectedWorldId) {
+                        classes += "selected"
+                    }
                     span {
                         classes = setOf("icon", "icon-dimension-overworld")
                     }
                     h2 {
-                        + selectedWorld.name
+                        + it.name
                     }
                 }
-            }
-        }
-        for (world in worlds) {
-            if (world.id != selectedWorldId) {
-                li {
-                    classes = setOf("icon-row")
-                    hxPatch("/app/worlds/select?worldId=${world.id}")
-                    span {
-                        classes = setOf("icon", "icon-dimension-overworld")
-                    }
-                    h2 {
-                        + world.name
-                    }
+                button {
+                    classes = setOf("button-danger")
+                    hxDelete("/app/worlds/${it.id}")
+                    + "Delete"
                 }
             }
         }

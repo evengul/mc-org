@@ -57,6 +57,14 @@ suspend fun ApplicationCall.handlePostLitematicaTasks() {
     respondRedirect("/app/worlds/${getWorldId()}/projects/$projectId")
 }
 
+suspend fun ApplicationCall.handleDeleteTask() {
+    val worldId = getWorldId()
+    val projectId = getProjectId()
+    val taskId = getTaskId()
+    projectsApi.removeTask(taskId)
+    clientRedirect("/app/worlds/$worldId/projects/$projectId")
+}
+
 suspend fun ApplicationCall.handlePatchCountableTaskDoneMore() {
     val done = parameters["done"]?.toIntOrNull() ?: 0
     val taskId = getTaskId()

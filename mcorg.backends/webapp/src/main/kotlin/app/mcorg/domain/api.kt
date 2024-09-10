@@ -12,6 +12,7 @@ interface Users {
     fun searchUsers(searchTerm: String): List<User>
     fun getProfile(id: Int): Profile?
     fun selectWorld(userId: Int, worldId: Int)
+    fun unSelectWorldForAll(worldId: Int)
     fun isTechnical(id: Int)
     fun isNotTechnical(id: Int)
 }
@@ -23,7 +24,9 @@ interface Permissions {
     fun addWorldPermission(userId: Int, worldId: Int, authority: Authority): Int
     fun changeWorldPermission(userId: Int, worldId: Int, authority: Authority)
     fun removeWorldPermission(userId: Int, worldId: Int)
+    fun removeWorldPermissionForAll(worldId: Int)
     fun getUsersInWorld(worldId: Int): List<User>
+    fun removeUserPermissions(userId: Int)
 }
 
 interface Worlds {
@@ -61,6 +64,7 @@ interface Projects {
     fun getTaskAssignee(id: Int): User?
     fun assignTask(id: Int, userId: Int)
     fun removeTaskAssignment(id: Int)
+    fun removeUserAssignments(id: Int)
 
     fun addProjectDependencyToTask(taskId: Int, projectId: Int, priority: Priority): Int
     fun removeProjectDependencyToTask(dependencyId: Int)

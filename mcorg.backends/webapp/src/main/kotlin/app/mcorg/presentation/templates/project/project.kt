@@ -2,6 +2,7 @@ package app.mcorg.presentation.templates.project
 
 import app.mcorg.domain.*
 import app.mcorg.presentation.components.appProgress
+import app.mcorg.presentation.hxDelete
 import app.mcorg.presentation.hxPatch
 import app.mcorg.presentation.templates.NavBarRightIcon
 import app.mcorg.presentation.templates.subPageTemplate
@@ -82,24 +83,26 @@ fun project(backLink: String, project: Project): String = subPageTemplate(projec
                     classes = setOf("doable-task-progress")
                     appProgress(max = it.needed.toDouble(), value = it.done.toDouble(), isItemAmount = true)
                     button {
-                        disabled = it.done + 1 > it.needed
-                        hxPatch("/app/worlds/${project.worldId}/projects/${project.id}/tasks/${it.id}/do-more?done=1")
-                        + "+1"
-                    }
-                    button {
-                        disabled = it.done + 64 > it.needed
-                        hxPatch("/app/worlds/${project.worldId}/projects/${project.id}/tasks/${it.id}/do-more?done=64")
+                        disabled = it.done >= it.needed
+                        val toAdd = (it.needed - it.done + 64).coerceAtMost(64)
+                        hxPatch("/app/worlds/${project.worldId}/projects/${project.id}/tasks/${it.id}/do-more?done=$toAdd")
                         + "+1 stack"
                     }
                     button {
-                        disabled = it.done + 1728 > it.needed
-                        hxPatch("/app/worlds/${project.worldId}/projects/${project.id}/tasks/${it.id}/do-more?done=1728")
+                        disabled = it.done >= it.needed
+                        val toAdd = (it.needed - it.done + 64).coerceAtMost(1728)
+                        hxPatch("/app/worlds/${project.worldId}/projects/${project.id}/tasks/${it.id}/do-more?done=$toAdd")
                         + "+1 Shulker box"
                     }
                     button {
                         disabled = it.done >= it.needed
                         hxPatch("/app/worlds/${project.worldId}/projects/${project.id}/tasks/${it.id}/do-more?done=${it.needed - it.done}")
                         + "Done"
+                    }
+                    button {
+                        classes = setOf("button-danger")
+                        hxDelete("/app/worlds/${project.worldId}/projects/${project.id}/tasks/${it.id}")
+                        + "Delete"
                     }
                     button {
                         id = "edit-task-${it.id}"

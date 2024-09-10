@@ -148,6 +148,14 @@ class UsersImpl : Users, Repository() {
         }
     }
 
+    override fun unSelectWorldForAll(worldId: Int) {
+        getConnection().use {
+            it.prepareStatement("update users set selected_world = null where selected_world = ?")
+                .apply { setInt(1, worldId) }
+                .executeUpdate()
+        }
+    }
+
     override fun isTechnical(id: Int) {
         getConnection().use {
             it.prepareStatement("update users set technical_player = true where id = ?")

@@ -3,6 +3,8 @@ package app.mcorg.presentation.handler
 import app.mcorg.domain.User
 import app.mcorg.presentation.security.createSignedJwtToken
 import app.mcorg.presentation.configuration.minecraftApi
+import app.mcorg.presentation.configuration.permissionsApi
+import app.mcorg.presentation.configuration.projectsApi
 import app.mcorg.presentation.configuration.usersApi
 import app.mcorg.presentation.router.utils.*
 import app.mcorg.presentation.templates.auth.signInTemplate
@@ -73,6 +75,8 @@ suspend fun ApplicationCall.handleGetSignOut() = removeTokenAndSignOut()
 suspend fun ApplicationCall.handleDeleteUser() {
     val userId = getUserFromCookie()?.id ?: return removeTokenAndSignOut()
 
+    projectsApi.removeUserAssignments(userId)
+    permissionsApi.removeUserPermissions(userId)
     usersApi.deleteUser(userId)
 
     removeTokenAndSignOut()

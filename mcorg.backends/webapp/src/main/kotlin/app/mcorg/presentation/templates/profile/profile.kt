@@ -1,6 +1,7 @@
 package app.mcorg.presentation.templates.profile
 
 import app.mcorg.domain.Profile
+import app.mcorg.presentation.hxDelete
 import app.mcorg.presentation.hxPatch
 import app.mcorg.presentation.templates.MainPage
 import app.mcorg.presentation.templates.mainPageTemplate
@@ -83,6 +84,7 @@ fun profile(profile: Profile): String = mainPageTemplate(
         button {
             id = "profile-delete-user-button"
             classes = setOf("button-danger")
+            hxDelete("/auth/user")
             + "Delete user"
         }
     }

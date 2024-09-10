@@ -86,6 +86,14 @@ class PermissionsImpl : Permissions, Repository() {
         }
     }
 
+    override fun removeWorldPermissionForAll(worldId: Int) {
+        getConnection().use {
+            it.prepareStatement("delete from permission where world_id = ?")
+                .apply { setInt(1, worldId) }
+                .executeUpdate()
+        }
+    }
+
     override fun getUsersInWorld(worldId: Int): List<User> {
         getConnection().use {
             it.prepareStatement("select u.id as user_id, u.username as username from permission p join users u on p.user_id = u.id where world_id = ?")
@@ -98,6 +106,14 @@ class PermissionsImpl : Permissions, Repository() {
                     }
                     return list
                 }
+        }
+    }
+
+    override fun removeUserPermissions(userId: Int) {
+        getConnection().use {
+            it.prepareStatement("delete from permission where user_id = ?")
+                .apply { setInt(1, userId) }
+                .executeUpdate()
         }
     }
 

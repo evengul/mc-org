@@ -2,6 +2,7 @@ package app.mcorg.presentation.templates.project
 
 import app.mcorg.domain.SlimProject
 import app.mcorg.presentation.components.appProgress
+import app.mcorg.presentation.hxDelete
 import app.mcorg.presentation.templates.MainPage
 import app.mcorg.presentation.templates.NavBarRightIcon
 import app.mcorg.presentation.templates.mainPageTemplate
@@ -60,6 +61,12 @@ fun projects(worldId: Int, projects: List<SlimProject>): String = mainPageTempla
                             }
                         }
                     }
+                }
+                button {
+                    id = "projects-project-${project.id}-delete-button"
+                    classes = setOf("button-danger project-delete")
+                    hxDelete("/app/worlds/$worldId/projects/${project.id}")
+                    + "Delete project"
                 }
                 appProgress(progressClasses = setOf("project-progress"), max = 1.0, value = project.progress)
             }

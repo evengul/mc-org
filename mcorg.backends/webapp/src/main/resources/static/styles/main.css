@@ -190,6 +190,18 @@ button.button-icon {
     background-image: url("/static/icons/medium/Microsoft_Logo.svg");
 }
 
+.icon-error {
+    background-image: url("/static/icons/medium/notification/Error.svg");
+}
+
+.icon-warning {
+    background-image: url("/static/icons/medium/notification/Warning.svg");
+}
+
+.icon-info {
+    background-image: url("/static/icons/medium/notification/Info.svg");
+}
+
 /******** Input -> Checkbox ********/
 
 input[type="checkbox"] {
@@ -447,16 +459,22 @@ ul#project-list {
 ul#project-list > li {
     width: 100%;
     display: grid;
-    grid-template-columns: 2fr 3fr 1fr;
+    grid-template-columns: 2fr 2fr 1fr 1fr;
     grid-template-rows: 1fr 1fr;
 
     grid-row-gap: var(--spacing-sm);
+    grid-column-gap: var(--spacing-sm);
 
     margin-bottom: var(--spacing-md);
 }
 
 .project-info {
     grid-column: 1 / span 1;
+    grid-row: 1 / span 1;
+}
+
+.project-delete {
+    grid-column: 4 / span 1;
     grid-row: 1 / span 1;
 }
 
@@ -467,7 +485,7 @@ ul#project-list > li {
 
 .project-progress {
     width: 100%;
-    grid-column: 1 / span 3;
+    grid-column: 1 / span 4;
     grid-row: 2 / span 1;
 }
 
@@ -531,25 +549,21 @@ li.task > .app-progress {
 
 /******** USER ASSIGNMENT ********/
 
-.assigned-user:hover {
-    color: var(--clr-danger);
-}
-
-.assigned-user:hover::after {
-    content: "❌";
-    display: inline-block;
-    margin-left: var(--spacing-xs);
-    text-decoration: none;
-}
-
 /******** USERS AND WORLD LIST ********/
 
 #users-list > li,
-#worlds-list > li {
+#worlds-list > li,
+.selectable-list > li {
     margin-block: var(--spacing-md);
+
+    display: flex;
+    align-content: center;
+    justify-content: space-between;
+
+    width: max(300px, 33%);
 }
 
-#worlds-list > li:hover {
+#worlds-list > li > span:hover {
     cursor: pointer;
     text-decoration: underline;
 }
