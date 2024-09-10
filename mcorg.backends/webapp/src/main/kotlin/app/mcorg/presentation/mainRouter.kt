@@ -114,6 +114,12 @@ fun Application.configureAppRouter() {
                                 post("/countable") {
                                     call.handlePostCountableTask()
                                 }
+                                get("/litematica") {
+                                    call.handleGetUploadLitematicaTasks()
+                                }
+                                post("/litematica") {
+                                    call.handlePostLitematicaTasks()
+                                }
                             }
                             patch("/tasks/requirements") {
                                 call.handleEditTaskRequirements()

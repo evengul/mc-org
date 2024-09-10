@@ -20,4 +20,12 @@ fun addTask(backLink: String, worldId: Int, projectId: Int) = subPageTemplate("A
             + "Add countable"
         }
     }
+    a {
+        id = "add-task-litematica-link"
+        href = "/app/worlds/$worldId/projects/$projectId/add-task/litematica"
+        button {
+            id = "add-task-litematica-button"
+            + "Upload countable tasks from litematica requirements file"
+        }
+    }
 }

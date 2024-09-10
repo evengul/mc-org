@@ -1,8 +1,11 @@
 package app.mcorg.presentation.utils
 
 import app.mcorg.domain.Dimension
+import app.mcorg.domain.PremadeTask
 import app.mcorg.domain.Priority
+import app.mcorg.domain.tasksFromMaterialList
 import app.mcorg.presentation.entities.*
+import io.ktor.http.content.*
 import io.ktor.server.application.*
 import io.ktor.server.request.*
 
@@ -55,6 +58,14 @@ suspend fun ApplicationCall.getEditCountableTaskRequirements(): EditCountableReq
     if (done > needed) throw IllegalArgumentException("You cannot do more than you need")
 
     return EditCountableRequest(id = id, needed = needed, done = done)
+}
+
+suspend fun ApplicationCall.receiveMaterialListTasks(): List<PremadeTask> {
+    val data = receiveMultipart()
+    val file = data.readAllParts().find { it.name == "file" } as PartData.FileItem?
+    return file?.streamProvider?.let {
+        it().tasksFromMaterialList()
+    } ?: emptyList()
 }
 
 private fun String?.toDimension(): Dimension = when(this) {

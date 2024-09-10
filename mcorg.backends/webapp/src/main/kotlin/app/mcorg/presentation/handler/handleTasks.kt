@@ -7,6 +7,7 @@ import app.mcorg.presentation.router.utils.*
 import app.mcorg.presentation.templates.project.assignUser
 import app.mcorg.presentation.templates.task.addCountableTask
 import app.mcorg.presentation.templates.task.addDoableTask
+import app.mcorg.presentation.templates.task.addLitematicaTasks
 import app.mcorg.presentation.templates.task.addTask
 import app.mcorg.presentation.utils.*
 import io.ktor.server.application.*
@@ -24,6 +25,10 @@ suspend fun ApplicationCall.handleGetAddCountableTask() {
     respondHtml(addCountableTask("/app/worlds/${getWorldId()}/projects/${getProjectId()}/add-task"))
 }
 
+suspend fun ApplicationCall.handleGetUploadLitematicaTasks() {
+    respondHtml(addLitematicaTasks(worldId = getWorldId(), projectId = getProjectId()))
+}
+
 suspend fun ApplicationCall.handlePostDoableTask() {
     val (name) = receiveDoableTaskRequest()
     val projectId = getProjectId()
@@ -35,6 +40,20 @@ suspend fun ApplicationCall.handlePostCountableTask() {
     val (name, amount) = receiveCountableTaskRequest()
     val projectId = getProjectId()
     projectsApi.addCountableTask(projectId, name, Priority.LOW, needed = amount)
+    respondRedirect("/app/worlds/${getWorldId()}/projects/$projectId")
+}
+
+suspend fun ApplicationCall.handlePostLitematicaTasks() {
+    val projectId = getProjectId()
+    val tasks = receiveMaterialListTasks()
+    tasks.forEach {
+        projectsApi.addCountableTask(
+            projectId = projectId,
+            name = it.name,
+            priority = Priority.LOW,
+            needed = it.needed
+        )
+    }
     respondRedirect("/app/worlds/${getWorldId()}/projects/$projectId")
 }
 
