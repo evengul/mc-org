@@ -36,6 +36,14 @@ suspend fun ApplicationCall.receiveCreateProjectRequest(): CreateProjectRequest 
     return CreateProjectRequest(name, priority, dimension, requiresPerimeter)
 }
 
+suspend fun ApplicationCall.receiveTaskFilters() = TaskFiltersRequest(
+    parameters["search"],
+    parameters["sortBy"],
+    parameters["assigneeFilter"],
+    parameters["completionFilter"],
+    parameters["taskTypeFilter"]
+)
+
 suspend fun ApplicationCall.receiveDoableTaskRequest(): AddDoableRequest {
     val data = receiveParameters()
     val name = data["taskName"] ?: throw IllegalArgumentException("taskName is required")

@@ -501,6 +501,10 @@ main:has(a#add-task-doable-link) button {
     width: 100%;
 }
 
+#project-tasks-filter-details {
+    padding: var(--spacing-sm);
+}
+
 /******** TASK OVERVIEW ********/
 
 li.task {

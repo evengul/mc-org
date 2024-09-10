@@ -1,5 +1,8 @@
 package app.mcorg.presentation.handler
 
+import app.mcorg.domain.TaskType
+import app.mcorg.domain.isCountable
+import app.mcorg.domain.isDone
 import app.mcorg.presentation.configuration.permissionsApi
 import app.mcorg.presentation.configuration.projectsApi
 import app.mcorg.presentation.configuration.usersApi
@@ -11,6 +14,7 @@ import app.mcorg.presentation.templates.project.projects
 import app.mcorg.presentation.utils.*
 import io.ktor.server.application.*
 import io.ktor.server.response.*
+import java.util.*
 
 suspend fun ApplicationCall.handleGetProjects() {
     val worldId = getWorldId()
@@ -39,9 +43,60 @@ suspend fun ApplicationCall.handleDeleteProject() {
 }
 
 suspend fun ApplicationCall.handleGetProject() {
+    val userId = getUserId()
     val projectId = getProjectId()
     val project = projectsApi.getProject(projectId, includeTasks = true, includeDependencies = false) ?: throw IllegalArgumentException("Project not found")
-    respondHtml(project("/app/worlds/${getWorldId()}/projects", project))
+
+    val filters = receiveTaskFilters()
+
+    val tasks = project.tasks.filter {
+        val search = filters.search
+        if (!search.isNullOrBlank()) {
+            if (it.assignee != null && !it.assignee.username.lowercase().contains(search.lowercase())) {
+                return@filter false
+            }
+            if (!it.name.lowercase().contains(search.lowercase())) {
+                return@filter false
+            }
+        }
+
+        val assigneeFilter = filters.assigneeFilter
+        if (!assigneeFilter.isNullOrBlank()) {
+            if ((assigneeFilter == "UNASSIGNED" && it.assignee != null)
+                || (assigneeFilter == "MINE" && (it.assignee == null || it.assignee.id != userId))) {
+                return@filter false
+            }
+        }
+
+        val completionFilter = filters.completionFilter
+        if (!completionFilter.isNullOrBlank()) {
+            if ((completionFilter == "NOT_STARTED" && it.done > 0) ||
+                (completionFilter == "IN_PROGRESS" && (it.done == 0 || it.isDone())) ||
+                (completionFilter == "COMPLETE" && !it.isDone())) {
+                return@filter false
+            }
+        }
+
+        val typeFilter = filters.taskTypeFilter
+        if (!typeFilter.isNullOrBlank()) {
+            if ((typeFilter == "DOABLE" && it.isCountable()) ||
+                (typeFilter == "COUNTABLE") && !it.isCountable()) {
+                return@filter false
+            }
+        }
+
+        return@filter true
+    }
+
+    val sortBy = filters.sortBy
+
+    val sortedTasks = when(sortBy) {
+        "DONE" -> tasks.sortedBy { it.isDone() }
+        "ASSIGNEE" -> tasks.sortedByDescending { it.assignee?.username }
+        else -> tasks.sortedBy { it.name }
+    }
+
+    respondHtml(project("/app/worlds/${getWorldId()}/projects", project.copy(tasks = sortedTasks.toMutableList()), filters))
 }
 
 suspend fun ApplicationCall.handleGetAssignProject() {

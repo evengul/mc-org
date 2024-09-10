@@ -2,6 +2,7 @@ package app.mcorg.presentation.templates.project
 
 import app.mcorg.domain.*
 import app.mcorg.presentation.components.appProgress
+import app.mcorg.presentation.entities.TaskFiltersRequest
 import app.mcorg.presentation.hxDelete
 import app.mcorg.presentation.hxPatch
 import app.mcorg.presentation.templates.NavBarRightIcon
@@ -9,7 +10,7 @@ import app.mcorg.presentation.templates.subPageTemplate
 import io.ktor.util.*
 import kotlinx.html.*
 
-fun project(backLink: String, project: Project): String = subPageTemplate(project.name, backLink = backLink, listOf(
+fun project(backLink: String, project: Project, filtersRequest: TaskFiltersRequest): String = subPageTemplate(project.name, backLink = backLink, listOf(
     NavBarRightIcon("user", "Assign user", "/app/worlds/${project.worldId}/projects/${project.id}/assign?from=single"),
     NavBarRightIcon("menu-add", "Add task", "/app/worlds/${project.worldId}/projects/${project.id}/add-task")
 )) {
@@ -63,13 +64,134 @@ fun project(backLink: String, project: Project): String = subPageTemplate(projec
             }
         }
     }
+    details {
+        id = "project-tasks-filter-details"
+        summary {
+            + "Filter"
+        }
+        form {
+            label {
+                htmlFor = "project-tasks-filter-search-input"
+                + "Search by assignee or task name"
+            }
+            input {
+                id = "project-tasks-filter-search-input"
+                name = "search"
+                filtersRequest.search?.let { value = it }
+                type = InputType.text
+            }
+            label {
+                htmlFor = "project-tasks-filter-sort-by-select"
+                + "Sort by"
+            }
+            select {
+                id = "project-tasks-filter-sort-by-select"
+                name = "sortBy"
+                option {
+                    + ""
+                }
+                option {
+                    value = "DONE"
+                    + "Done (completed at the bottom)"
+                }
+                option {
+                    value = "ASSIGNEE"
+                    + "Assignee"
+                }
+            }
+            label {
+                htmlFor = "assigneeFilter"
+                + "Filter by assignee"
+            }
+            select {
+                id = "project-tasks-filter-assigned-select"
+                name = "assigneeFilter"
+                option {
+                    + ""
+                }
+                option {
+                    selected = filtersRequest.assigneeFilter == "UNASSIGNED"
+                    value = "UNASSIGNED"
+                    + "Unassigned"
+                }
+                option {
+                    selected = filtersRequest.assigneeFilter == "MINE"
+                    value = "MINE"
+                    + "Yours"
+                }
+                // TODO: All the other users
+            }
+            label {
+                htmlFor = "project-tasks-filter-completion-select"
+                + "Filter by completion state"
+            }
+            select {
+                id = "project-tasks-filter-completion-select"
+                name = "completionFilter"
+                option {
+                    + ""
+                }
+                option {
+                    selected = filtersRequest.completionFilter == "NOT_STARTED"
+                    value = "NOT_STARTED"
+                    + "Not started"
+                }
+                option {
+                    selected = filtersRequest.completionFilter == "IN_PROGRESS"
+                    value = "IN_PROGRESS"
+                    + "In progress"
+                }
+                option {
+                    selected = filtersRequest.completionFilter == "COMPLETE"
+                    value = "COMPLETE"
+                    + "Completed"
+                }
+            }
+            label {
+                htmlFor = "project-tasks-filter-type-select"
+                + "Filter by task type"
+            }
+            select {
+                id = "project-tasks-filter-type-select"
+                name = "taskTypeFilter"
+                option {
+                    + ""
+                }
+                option {
+                    selected = filtersRequest.taskTypeFilter == "DOABLE"
+                    value = "DOABLE"
+                    + "Doable"
+                }
+                option {
+                    selected = filtersRequest.taskTypeFilter == "COUNTABLE"
+                    value = "COUNTABLE"
+                    + "Countable"
+                }
+            }
+            span {
+                classes = setOf("button-row")
+                a {
+                    href = "/app/worlds/${project.worldId}/projects/${project.id}"
+                    button {
+                        classes = setOf("button-secondary")
+                        type = ButtonType.button
+                        + "Clear filters"
+                    }
+                }
+                button {
+                    type = ButtonType.submit
+                    + "Apply"
+                }
+            }
+        }
+    }
     ul {
         id = "task-list"
         script {
             src = "/static/scripts/progress-edit-dialog.js"
             nonce = generateNonce()
         }
-        project.countable().sortedBy { it.id }.forEach {
+        project.countable().forEach {
             li {
                 classes = setOf("task")
                 div {
@@ -116,7 +238,7 @@ fun project(backLink: String, project: Project): String = subPageTemplate(projec
                 }
             }
         }
-        project.doable().sortedBy { it.id }.forEach {
+        project.doable().forEach {
             li {
                 classes = setOf("task")
                 div {
