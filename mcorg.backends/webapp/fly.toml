@@ -13,7 +13,7 @@ primary_region = 'ams'
   DB_USER = 'mcorg_owner'
   JWT_ISSUER = 'mcorg.fly.dev'
   ENV = 'FLY'
-  SKIP_MICROSOFT_SIGN_IN = 'true'
+  SKIP_MICROSOFT_SIGN_IN = 'false'
   COOKIE_HOST = 'mcorg.app'
   RSA_PUBLIC_KEY='-----BEGIN PUBLIC KEY-----\nMFwwDQYJKoZIhvcNAQEBBQADSwAwSAJBAORNqSs3v7QFIRWsHg2pJ+nWzLgNxxpb\nq3zaCblxV/RhXAJt8+RqB89WlwwmTjc3ezQasO0LGNAR8wzBJDCZcrECAwEAAQ==\n-----END PUBLIC KEY-----'
 
