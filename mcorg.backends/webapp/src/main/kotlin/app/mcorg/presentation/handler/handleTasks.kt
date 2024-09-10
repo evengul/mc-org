@@ -58,18 +58,16 @@ suspend fun ApplicationCall.handlePostLitematicaTasks() {
 }
 
 suspend fun ApplicationCall.handleDeleteTask() {
-    val worldId = getWorldId()
-    val projectId = getProjectId()
     val taskId = getTaskId()
     projectsApi.removeTask(taskId)
-    clientRedirect("/app/worlds/$worldId/projects/$projectId")
+    clientRefresh()
 }
 
 suspend fun ApplicationCall.handlePatchCountableTaskDoneMore() {
     val done = parameters["done"]?.toIntOrNull() ?: 0
     val taskId = getTaskId()
     projectsApi.taskDoneMore(taskId, done)
-    clientRedirect("/app/worlds/${getWorldId()}/projects/${getProjectId()}")
+    clientRefresh()
 }
 
 suspend fun ApplicationCall.handleGetAssignTask() {
@@ -108,17 +106,17 @@ suspend fun ApplicationCall.handleDeleteTaskAssignee() {
 suspend fun ApplicationCall.handleCompleteTask() {
     val taskId = getTaskId()
     projectsApi.completeTask(taskId)
-    clientRedirect("/app/worlds/${getWorldId()}/projects/${getProjectId()}")
+    clientRefresh()
 }
 
 suspend fun ApplicationCall.handleIncompleteTask() {
     val taskId = getTaskId()
     projectsApi.undoCompleteTask(taskId)
-    clientRedirect("/app/worlds/${getWorldId()}/projects/${getProjectId()}")
+    clientRefresh()
 }
 
 suspend fun ApplicationCall.handleEditTaskRequirements() {
     val (id, needed, done) = getEditCountableTaskRequirements()
     projectsApi.editTaskRequirements(id, needed, done)
-    clientRedirect("/app/worlds/${getWorldId()}/projects/${getProjectId()}")
+    clientRefresh()
 }

@@ -92,9 +92,11 @@ fun project(backLink: String, project: Project, filtersRequest: TaskFiltersReque
                 }
                 option {
                     value = "DONE"
+                    selected = filtersRequest.sortBy == "DONE"
                     + "Done (completed at the bottom)"
                 }
                 option {
+                    selected = filtersRequest.sortBy == "ASSIGNEE"
                     value = "ASSIGNEE"
                     + "Assignee"
                 }
@@ -191,72 +193,73 @@ fun project(backLink: String, project: Project, filtersRequest: TaskFiltersReque
             src = "/static/scripts/progress-edit-dialog.js"
             nonce = generateNonce()
         }
-        project.countable().forEach {
-            li {
-                classes = setOf("task")
-                div {
-                    classes = setOf("task-name-assign")
-                    h2 {
-                        + it.name
+        project.tasks.forEach {
+            if (it.isCountable()) {
+                li {
+                    classes = setOf("task")
+                    div {
+                        classes = setOf("task-name-assign")
+                        h2 {
+                            + it.name
+                        }
+                        assignTask(project, it)
                     }
-                    assignTask(project, it)
+                    div {
+                        classes = setOf("doable-task-progress")
+                        appProgress(max = it.needed.toDouble(), value = it.done.toDouble(), isItemAmount = true)
+                        button {
+                            disabled = it.done >= it.needed
+                            val toAdd = (it.needed - it.done + 64).coerceAtMost(64)
+                            hxPatch("/app/worlds/${project.worldId}/projects/${project.id}/tasks/${it.id}/do-more?done=$toAdd")
+                            + "+1 stack"
+                        }
+                        button {
+                            disabled = it.done >= it.needed
+                            val toAdd = (it.needed - it.done + 64).coerceAtMost(1728)
+                            hxPatch("/app/worlds/${project.worldId}/projects/${project.id}/tasks/${it.id}/do-more?done=$toAdd")
+                            + "+1 Shulker box"
+                        }
+                        button {
+                            disabled = it.done >= it.needed
+                            hxPatch("/app/worlds/${project.worldId}/projects/${project.id}/tasks/${it.id}/do-more?done=${it.needed - it.done}")
+                            + "Done"
+                        }
+                        button {
+                            classes = setOf("button-danger")
+                            hxDelete("/app/worlds/${project.worldId}/projects/${project.id}/tasks/${it.id}")
+                            + "Delete"
+                        }
+                        button {
+                            id = "edit-task-${it.id}"
+                            classes = setOf("button-secondary")
+                            onClick = "editTask(this)"
+                            attributes["id"] = it.id.toString()
+                            attributes["needed"] = it.needed.toString()
+                            attributes["done"] = it.done.toString()
+                            + "Edit"
+                        }
+                    }
                 }
-                div {
-                    classes = setOf("doable-task-progress")
-                    appProgress(max = it.needed.toDouble(), value = it.done.toDouble(), isItemAmount = true)
-                    button {
-                        disabled = it.done >= it.needed
-                        val toAdd = (it.needed - it.done + 64).coerceAtMost(64)
-                        hxPatch("/app/worlds/${project.worldId}/projects/${project.id}/tasks/${it.id}/do-more?done=$toAdd")
-                        + "+1 stack"
+            } else {
+                li {
+                    classes = setOf("task")
+                    div {
+                        classes = setOf("task-name-assign")
+                        h2 {
+                            + it.name
+                        }
+                        assignTask(project, it)
                     }
-                    button {
-                        disabled = it.done >= it.needed
-                        val toAdd = (it.needed - it.done + 64).coerceAtMost(1728)
-                        hxPatch("/app/worlds/${project.worldId}/projects/${project.id}/tasks/${it.id}/do-more?done=$toAdd")
-                        + "+1 Shulker box"
+                    input {
+                        id = "project-doable-task-${it.id}-change-input"
+                        if (it.isDone()) {
+                            hxPatch("/app/worlds/${project.worldId}/projects/${project.id}/tasks/${it.id}/incomplete")
+                        } else {
+                            hxPatch("/app/worlds/${project.worldId}/projects/${project.id}/tasks/${it.id}/complete")
+                        }
+                        type = InputType.checkBox
+                        checked = it.isDone()
                     }
-                    button {
-                        disabled = it.done >= it.needed
-                        hxPatch("/app/worlds/${project.worldId}/projects/${project.id}/tasks/${it.id}/do-more?done=${it.needed - it.done}")
-                        + "Done"
-                    }
-                    button {
-                        classes = setOf("button-danger")
-                        hxDelete("/app/worlds/${project.worldId}/projects/${project.id}/tasks/${it.id}")
-                        + "Delete"
-                    }
-                    button {
-                        id = "edit-task-${it.id}"
-                        classes = setOf("button-secondary")
-                        onClick = "editTask(this)"
-                        attributes["id"] = it.id.toString()
-                        attributes["needed"] = it.needed.toString()
-                        attributes["done"] = it.done.toString()
-                        + "Edit"
-                    }
-                }
-            }
-        }
-        project.doable().forEach {
-            li {
-                classes = setOf("task")
-                div {
-                    classes = setOf("task-name-assign")
-                    h2 {
-                        + it.name
-                    }
-                    assignTask(project, it)
-                }
-                input {
-                    id = "project-doable-task-${it.id}-change-input"
-                    if (it.isDone()) {
-                        hxPatch("/app/worlds/${project.worldId}/projects/${project.id}/tasks/${it.id}/incomplete")
-                    } else {
-                        hxPatch("/app/worlds/${project.worldId}/projects/${project.id}/tasks/${it.id}/complete")
-                    }
-                    type = InputType.checkBox
-                    checked = it.isDone()
                 }
             }
         }

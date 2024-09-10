@@ -1,5 +1,6 @@
 package app.mcorg.presentation.handler
 
+import app.mcorg.domain.Task
 import app.mcorg.domain.TaskType
 import app.mcorg.domain.isCountable
 import app.mcorg.domain.isDone
@@ -91,12 +92,25 @@ suspend fun ApplicationCall.handleGetProject() {
     val sortBy = filters.sortBy
 
     val sortedTasks = when(sortBy) {
-        "DONE" -> tasks.sortedBy { it.isDone() }
+        "DONE" -> tasks.sortedWith(::sortProjectsByCompletion)
         "ASSIGNEE" -> tasks.sortedByDescending { it.assignee?.username }
         else -> tasks.sortedBy { it.name }
     }
 
     respondHtml(project("/app/worlds/${getWorldId()}/projects", project.copy(tasks = sortedTasks.toMutableList()), filters))
+}
+
+private fun sortProjectsByCompletion(a: Task, b: Task): Int {
+    if (a.isDone()) {
+        if (b.isDone()) {
+            return a.name.compareTo(b.name)
+        }
+        return 1
+    } else if(b.isDone()) {
+        return -1
+    }
+    if (a.done == b.done) return a.name.compareTo(b.name)
+    return b.done - a.done
 }
 
 suspend fun ApplicationCall.handleGetAssignProject() {
