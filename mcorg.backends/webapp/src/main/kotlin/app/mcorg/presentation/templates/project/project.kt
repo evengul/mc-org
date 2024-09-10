@@ -250,15 +250,23 @@ fun project(backLink: String, project: Project, filtersRequest: TaskFiltersReque
                         }
                         assignTask(project, it)
                     }
-                    input {
-                        id = "project-doable-task-${it.id}-change-input"
-                        if (it.isDone()) {
-                            hxPatch("/app/worlds/${project.worldId}/projects/${project.id}/tasks/${it.id}/incomplete")
-                        } else {
-                            hxPatch("/app/worlds/${project.worldId}/projects/${project.id}/tasks/${it.id}/complete")
+                    span {
+                        classes = setOf("doable-task-actions")
+                        input {
+                            id = "project-doable-task-${it.id}-change-input"
+                            if (it.isDone()) {
+                                hxPatch("/app/worlds/${project.worldId}/projects/${project.id}/tasks/${it.id}/incomplete")
+                            } else {
+                                hxPatch("/app/worlds/${project.worldId}/projects/${project.id}/tasks/${it.id}/complete")
+                            }
+                            type = InputType.checkBox
+                            checked = it.isDone()
                         }
-                        type = InputType.checkBox
-                        checked = it.isDone()
+                        button {
+                            classes = setOf("button-danger")
+                            hxDelete("/app/worlds/${project.worldId}/projects/${project.id}/tasks/${it.id}")
+                            + "Delete"
+                        }
                     }
                 }
             }

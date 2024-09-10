@@ -553,6 +553,15 @@ li.task > .app-progress {
     border: none !important;
 }
 
+.doable-task-actions {
+    width: fit-content;
+    display: flex;
+    flex-direction: row;
+    justify-content: flex-end;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
 /******** USER ASSIGNMENT ********/
 
 /******** USERS AND WORLD LIST ********/
