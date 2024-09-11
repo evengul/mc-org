@@ -240,16 +240,6 @@ input[type="checkbox"]:focus-visible {
 
 /******** FORM ********/
 
-main:has(> form),
-main:has(a#add-task-doable-link) {
-    height: 100%;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-
-    gap: var(--spacing-xl)
-}
-
 form {
     display: grid;
     grid-template-columns: 1fr 1fr 1fr 1fr 1fr;

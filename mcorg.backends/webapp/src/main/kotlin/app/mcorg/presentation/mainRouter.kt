@@ -70,14 +70,8 @@ fun Application.configureAppRouter() {
                         delete("/{userId}") {
                             call.handleDeleteWorldUser()
                         }
-                        route("/add") {
-                            install(WorldAdminPlugin)
-                            get {
-                                call.handleGetAddUser()
-                            }
-                            post {
-                                call.handlePostUser()
-                            }
+                        post {
+                            call.handlePostUser()
                         }
                     }
                     route("/projects") {

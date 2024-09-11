@@ -4,8 +4,10 @@ import app.mcorg.domain.Authority
 import app.mcorg.presentation.configuration.permissionsApi
 import app.mcorg.presentation.configuration.projectsApi
 import app.mcorg.presentation.configuration.usersApi
+import app.mcorg.presentation.router.utils.respondEmptyHtml
 import app.mcorg.presentation.router.utils.respondHtml
-import app.mcorg.presentation.templates.users.addUser
+import app.mcorg.presentation.templates.users.createUserListElement
+import app.mcorg.presentation.templates.users.user
 import app.mcorg.presentation.templates.users.users
 import app.mcorg.presentation.utils.*
 import io.ktor.http.*
@@ -20,16 +22,13 @@ suspend fun ApplicationCall.handleGetUsers() {
     respondHtml(users(worldId, currentUser, worldUsers, isAdmin))
 }
 
-suspend fun ApplicationCall.handleGetAddUser() {
-    respondHtml(addUser("/app/worlds/${getWorldId()}/users"))
-}
-
 suspend fun ApplicationCall.handlePostUser() {
     val worldId = getWorldId()
     val (username) = receiveAddUserRequest()
     val user = usersApi.getUser(username) ?: throw IllegalArgumentException("user does not exist")
     permissionsApi.addWorldPermission(user.id, worldId, Authority.PARTICIPANT)
-    respondRedirect("/app/worlds/$worldId/users")
+    val currentUserIsAdmin = permissionsApi.hasWorldPermission(getUserId(), authority = Authority.ADMIN, worldId)
+    respondHtml(createUserListElement(worldId, user, currentUserIsAdmin))
 }
 
 suspend fun ApplicationCall.handleDeleteWorldUser() {
@@ -45,6 +44,6 @@ suspend fun ApplicationCall.handleDeleteWorldUser() {
     } else {
         projectsApi.removeUserAssignments(userId)
         permissionsApi.removeWorldPermission(userId, worldId)
-        clientRedirect("/app/worlds/$worldId/users")
+        respondEmptyHtml()
     }
 }

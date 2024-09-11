@@ -2,19 +2,55 @@ package app.mcorg.presentation.templates.users
 
 import app.mcorg.domain.User
 import app.mcorg.presentation.hxDelete
+import app.mcorg.presentation.hxPost
+import app.mcorg.presentation.hxSwap
+import app.mcorg.presentation.hxTarget
 import app.mcorg.presentation.templates.MainPage
 import app.mcorg.presentation.templates.NavBarRightIcon
 import app.mcorg.presentation.templates.mainPageTemplate
 import kotlinx.html.*
+import kotlinx.html.stream.createHTML
 
 fun users(worldId: Int, currentUser: User, users: List<User>, isAdmin: Boolean): String = mainPageTemplate(
     selectedPage = MainPage.USERS,
     worldId = worldId,
     title = "Users",
-    rightIcons = getRightIcons(isAdmin, worldId)) {
+    rightIcons = emptyList()
+) {
+    if (isAdmin) {
+        form {
+            id = "user-add"
+            encType = FormEncType.applicationXWwwFormUrlEncoded
+            method = FormMethod.post
+            autoComplete = false
+            hxPost("/app/worlds/$worldId/users")
+            hxTarget("#users-list-current-user")
+            hxSwap("afterend")
+            label {
+                htmlFor = "add-user-username-input"
+                + "Username"
+            }
+            input {
+                id = "add-user-username-input"
+                type = InputType.text
+                name = "username"
+                autoComplete = false
+                required = true
+            }
+            p {
+                + "Must be an exact match, and must have signed in to MC-ORG before"
+            }
+            button {
+                id = "add-user-submit-button"
+                type = ButtonType.submit
+                + "Add user"
+            }
+        }
+    }
     ul {
         id = "users-list"
         li {
+            id = "users-list-current-user"
             span {
                 classes = setOf("selected", "icon-row")
                 span {
@@ -27,27 +63,8 @@ fun users(worldId: Int, currentUser: User, users: List<User>, isAdmin: Boolean):
         }
         for (user in users) {
             li {
-                span {
-                    classes = setOf("icon-row")
-                    span {
-                        classes = setOf("icon", "icon-user")
-                    }
-                    h2 {
-                        + user.username
-                    }
-                }
-                if (isAdmin) {
-                    button {
-                        classes = setOf("button-danger")
-                        hxDelete("/app/worlds/${worldId}/users/${user.id}")
-                        + "Remove"
-                    }
-                }
+                user(worldId, user, isAdmin)
             }
         }
     }
 }
-
-private fun getRightIcons(isAdmin: Boolean, worldId: Int) =
-    if (isAdmin) listOf(NavBarRightIcon("user-add", "Add user", "/app/worlds/$worldId/users/add"))
-    else emptyList()
