@@ -45,10 +45,7 @@ fun Application.configureAppRouter() {
                 get {
                     call.handleGetWorlds()
                 }
-                get("/add") {
-                    call.handleGetAddWorld()
-                }
-                post("/add") {
+                post {
                     call.handlePostWorld()
                 }
                 patch("/select") {

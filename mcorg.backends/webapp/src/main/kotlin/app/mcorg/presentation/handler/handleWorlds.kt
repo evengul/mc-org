@@ -4,11 +4,11 @@ import app.mcorg.domain.Authority
 import app.mcorg.presentation.configuration.permissionsApi
 import app.mcorg.presentation.configuration.usersApi
 import app.mcorg.presentation.configuration.worldsApi
+import app.mcorg.presentation.router.utils.respondEmptyHtml
 import app.mcorg.presentation.utils.getUserId
 import app.mcorg.presentation.utils.getWorldId
 import app.mcorg.presentation.utils.receiveCreateWorldRequest
 import app.mcorg.presentation.router.utils.respondHtml
-import app.mcorg.presentation.templates.world.addWorld
 import app.mcorg.presentation.templates.world.worlds
 import app.mcorg.presentation.utils.clientRedirect
 import io.ktor.server.application.*
@@ -20,10 +20,6 @@ suspend fun ApplicationCall.handleGetWorlds() {
     val permissions = permissionsApi.getPermissions(userId)
     val worlds = permissions.ownedWorlds + permissions.participantWorlds
     respondHtml(worlds(selectedWorld, worlds))
-}
-
-suspend fun ApplicationCall.handleGetAddWorld() {
-    respondHtml(addWorld("/app/worlds"))
 }
 
 suspend fun ApplicationCall.handlePostWorld() {
@@ -42,7 +38,7 @@ suspend fun ApplicationCall.handleDeleteWorld() {
     usersApi.unSelectWorldForAll(worldId)
     permissionsApi.removeWorldPermissionForAll(worldId)
     worldsApi.deleteWorld(worldId)
-    clientRedirect("/app/worlds")
+    respondEmptyHtml()
 }
 
 suspend fun ApplicationCall.handleSelectWorld() {
