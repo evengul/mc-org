@@ -13,6 +13,16 @@ fun Task.isCountable(): Boolean {
 fun Project.doable() = tasks.filter { !it.isCountable() }
 fun Project.countable() = tasks.filter { it.isCountable() }
 
+fun Project.toSlim() = SlimProject(
+    worldId = worldId,
+    id = id,
+    name = name,
+    priority = priority,
+    dimension = dimension,
+    assignee = assignee,
+    progress = progress
+)
+
 fun InputStream.tasksFromMaterialList(): List<PremadeTask> {
     return validateMaterialList()
         .getMaterialLines()

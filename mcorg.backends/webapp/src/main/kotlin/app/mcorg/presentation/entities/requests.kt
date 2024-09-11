@@ -5,6 +5,9 @@ import app.mcorg.domain.Priority
 
 data class CreateWorldRequest(val worldName: String)
 data class AddUserRequest(val username: String)
+sealed interface AssignUserOrDeleteAssignmentRequest
+data class AssignUserRequest(val userId: Int) : AssignUserOrDeleteAssignmentRequest
+data object DeleteAssignmentRequest : AssignUserOrDeleteAssignmentRequest
 data class CreateProjectRequest(
     val name: String,
     val priority: Priority,

@@ -22,9 +22,12 @@ suspend fun ApplicationCall.receiveAddUserRequest(): AddUserRequest {
     return AddUserRequest(username)
 }
 
-fun ApplicationCall.receiveAssignUserRequest(): AddUserRequest {
-    val username = parameters["username"] ?: throw IllegalArgumentException("username is required")
-    return AddUserRequest(username)
+suspend fun ApplicationCall.receiveAssignUserRequest(): AssignUserOrDeleteAssignmentRequest {
+    val data = receiveParameters()
+    val unsafeUserId = data["userId"]
+    if (unsafeUserId == "NONE") return DeleteAssignmentRequest
+    val userId = unsafeUserId?.toIntOrNull() ?: throw IllegalArgumentException("userId is required")
+    return AssignUserRequest(userId)
 }
 
 suspend fun ApplicationCall.receiveCreateProjectRequest(): CreateProjectRequest {

@@ -89,14 +89,8 @@ fun Application.configureAppRouter() {
                             delete {
                                 call.handleDeleteProject()
                             }
-                            get("/assign") {
-                                call.handleGetAssignProject()
-                            }
                             patch("/assign") {
                                 call.handlePatchProjectAssignee()
-                            }
-                            delete("/assign") {
-                                call.handleDeleteProjectAssignee()
                             }
                             route("/add-task") {
                                 get {
@@ -129,14 +123,8 @@ fun Application.configureAppRouter() {
                                 delete {
                                     call.handleDeleteTask()
                                 }
-                                get("/assign") {
-                                    call.handleGetAssignTask()
-                                }
                                 patch("/assign") {
                                     call.handlePatchTaskAssignee()
-                                }
-                                delete("/assign") {
-                                    call.handleDeleteTaskAssignee()
                                 }
                                 patch("/complete") {
                                     call.handleCompleteTask()

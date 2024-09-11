@@ -3,14 +3,14 @@ package app.mcorg.presentation.handler
 import app.mcorg.domain.Task
 import app.mcorg.domain.isCountable
 import app.mcorg.domain.isDone
+import app.mcorg.domain.toSlim
 import app.mcorg.presentation.configuration.permissionsApi
 import app.mcorg.presentation.configuration.projectsApi
 import app.mcorg.presentation.configuration.usersApi
+import app.mcorg.presentation.entities.AssignUserRequest
+import app.mcorg.presentation.entities.DeleteAssignmentRequest
 import app.mcorg.presentation.router.utils.*
-import app.mcorg.presentation.templates.project.addProject
-import app.mcorg.presentation.templates.project.assignUser
-import app.mcorg.presentation.templates.project.project
-import app.mcorg.presentation.templates.project.projects
+import app.mcorg.presentation.templates.project.*
 import app.mcorg.presentation.utils.*
 import io.ktor.server.application.*
 import io.ktor.server.response.*
@@ -18,7 +18,9 @@ import io.ktor.server.response.*
 suspend fun ApplicationCall.handleGetProjects() {
     val worldId = getWorldId()
     val projects = projectsApi.getWorldProjects(worldId)
-    respondHtml(projects(worldId, projects))
+    val users = permissionsApi.getUsersInWorld(worldId)
+    val currentUser = getUser()
+    respondHtml(projects(worldId, projects, users, currentUser))
 }
 
 suspend fun ApplicationCall.handleGetAddProject() {
@@ -35,15 +37,17 @@ suspend fun ApplicationCall.handlePostProject() {
 }
 
 suspend fun ApplicationCall.handleDeleteProject() {
-    val worldId = getWorldId()
     val projectId = getProjectId()
     projectsApi.deleteProject(projectId)
-    clientRedirect("/app/worlds/$worldId")
+    respondEmptyHtml()
 }
 
 suspend fun ApplicationCall.handleGetProject() {
     val userId = getUserId()
+    val worldId = getWorldId()
     val projectId = getProjectId()
+    val currentUser = getUser()
+    val users = permissionsApi.getUsersInWorld(worldId)
     val project = projectsApi.getProject(projectId, includeTasks = true, includeDependencies = false) ?: throw IllegalArgumentException("Project not found")
 
     val filters = receiveTaskFilters()
@@ -62,7 +66,8 @@ suspend fun ApplicationCall.handleGetProject() {
         val assigneeFilter = filters.assigneeFilter
         if (!assigneeFilter.isNullOrBlank()) {
             if ((assigneeFilter == "UNASSIGNED" && it.assignee != null)
-                || (assigneeFilter == "MINE" && (it.assignee == null || it.assignee.id != userId))) {
+                || (assigneeFilter == "MINE" && (it.assignee == null || it.assignee.id != userId))
+                || (assigneeFilter.toIntOrNull() != null && (it.assignee == null || it.assignee.id.toString() != assigneeFilter))) {
                 return@filter false
             }
         }
@@ -95,7 +100,15 @@ suspend fun ApplicationCall.handleGetProject() {
         else -> tasks.sortedBy { it.name }
     }
 
-    respondHtml(project("/app/worlds/${getWorldId()}/projects", project.copy(tasks = sortedTasks.toMutableList()), filters))
+    respondHtml(
+        project(
+            "/app/worlds/${getWorldId()}/projects",
+            project.copy(tasks = sortedTasks.toMutableList()),
+            users,
+            currentUser,
+            filters
+        )
+    )
 }
 
 private fun sortProjectsByCompletion(a: Task, b: Task): Int {
@@ -111,34 +124,19 @@ private fun sortProjectsByCompletion(a: Task, b: Task): Int {
     return b.done - a.done
 }
 
-suspend fun ApplicationCall.handleGetAssignProject() {
-    val worldId = getWorldId()
-    val projectId = getProjectId()
-    val users = permissionsApi.getUsersInWorld(worldId)
-    val from = parameters["from"] ?: "single"
-    val selectedUser = projectsApi.getProjectAssignee(projectId)
-    val projectLink = "/app/worlds/$worldId/projects/$projectId"
-    val backLink = when(from) {
-        "list" -> "/app/worlds/$worldId/projects"
-        else -> projectLink
-    }
-    respondHtml(assignUser(backLink, "$projectLink/assign", from, users, selectedUser?.id))
-}
-
 suspend fun ApplicationCall.handlePatchProjectAssignee() {
-    val (username) = receiveAssignUserRequest()
-    val from = parameters["from"] ?: "single"
+    val request = receiveAssignUserRequest()
+    if (request is DeleteAssignmentRequest) return handleDeleteProjectAssignee()
+    val (userId) = request as AssignUserRequest
     val projectId = getProjectId()
     val worldId = getWorldId()
     val users = permissionsApi.getUsersInWorld(worldId)
-    val user = users.find { it.username == username }
+    val user = users.find { it.id == userId }
     if (user != null) {
         projectsApi.assignProject(projectId, user.id)
-        if (from == "list") {
-            clientRedirect("/app/worlds/$worldId/projects")
-        } else {
-            clientRedirect("/app/worlds/$worldId/projects/$projectId")
-        }
+        val currentUser = getUser()
+        val project = projectsApi.getProject(projectId)?.toSlim() ?: throw IllegalArgumentException("Project does not exist")
+        respondHtml(createAssignProject(project, users, currentUser))
     } else {
         throw IllegalArgumentException("User is not in project")
     }
@@ -147,11 +145,9 @@ suspend fun ApplicationCall.handlePatchProjectAssignee() {
 suspend fun ApplicationCall.handleDeleteProjectAssignee() {
     val worldId = getWorldId()
     val projectId = getProjectId()
-    val from = parameters["from"] ?: "single"
     projectsApi.removeProjectAssignment(projectId)
-    if (from == "list") {
-        clientRedirect("/app/worlds/$worldId/projects")
-    } else {
-        clientRedirect("/app/worlds/$worldId/projects/$projectId")
-    }
+    val worldUsers = permissionsApi.getUsersInWorld(worldId)
+    val currentUser = getUser()
+    val project = projectsApi.getProject(projectId)?.toSlim() ?: throw IllegalArgumentException("Project does not exist")
+    respondHtml(createAssignProject(project, worldUsers, currentUser))
 }

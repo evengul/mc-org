@@ -4,6 +4,7 @@ import app.mcorg.presentation.templates.subPageTemplate
 import kotlinx.html.*
 
 fun addCountableTask(backLink: String) = subPageTemplate("Add countable task", backLink = backLink) {
+    classes = setOf("page-centered")
     form {
         encType = FormEncType.applicationXWwwFormUrlEncoded
         method = FormMethod.post

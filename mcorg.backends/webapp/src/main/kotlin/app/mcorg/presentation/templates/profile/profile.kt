@@ -65,11 +65,7 @@ fun profile(profile: Profile): String = mainPageTemplate(
             + "Technical player"
         }
         input {
-            id = "profile-technical-player-input-check"
-            checked = profile.technicalPlayer
-            hxPatch("/app/profile/is-technical-player")
-            name = "technicalPlayer"
-            type = InputType.checkBox
+            isTechnicalCheckBox(profile.technicalPlayer)
         }
     }
     section {

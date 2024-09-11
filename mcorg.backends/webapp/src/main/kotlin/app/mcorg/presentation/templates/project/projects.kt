@@ -1,15 +1,17 @@
 package app.mcorg.presentation.templates.project
 
 import app.mcorg.domain.SlimProject
+import app.mcorg.domain.User
+import app.mcorg.domain.sortUsersBySelectedOrName
+import app.mcorg.presentation.*
 import app.mcorg.presentation.components.appProgress
-import app.mcorg.presentation.hxConfirm
-import app.mcorg.presentation.hxDelete
 import app.mcorg.presentation.templates.MainPage
 import app.mcorg.presentation.templates.NavBarRightIcon
 import app.mcorg.presentation.templates.mainPageTemplate
+import io.ktor.util.*
 import kotlinx.html.*
 
-fun projects(worldId: Int, projects: List<SlimProject>): String = mainPageTemplate(
+fun projects(worldId: Int, projects: List<SlimProject>, worldUsers: List<User>, currentUser: User): String = mainPageTemplate(
     selectedPage = MainPage.PROJECTS,
     worldId = worldId,
     title = "Projects",
@@ -29,6 +31,7 @@ fun projects(worldId: Int, projects: List<SlimProject>): String = mainPageTempla
         id = "project-list"
         for (project in projects) {
             li {
+                id = "project-${project.id}"
                 div {
                     classes = setOf("icon-row", "project-info")
                     span {
@@ -46,28 +49,16 @@ fun projects(worldId: Int, projects: List<SlimProject>): String = mainPageTempla
                         }
                     }
                 }
-                div {
-                    classes = setOf("icon-row", "project-assignment")
-                    span {
-                        classes = setOf("icon icon-small icon-user-small")
-                    }
-                    a {
-                        id = "projects-project-${project.id}-assign-link"
-                        href = "/app/worlds/${project.worldId}/projects/${project.id}/assign?from=list"
-                        p {
-                            if (project.assignee == null) {
-                                + "Assign user"
-                            } else {
-                                + project.assignee.username
-                            }
-                        }
-                    }
+                select {
+                    assignProject(project, worldUsers, currentUser)
                 }
                 button {
                     id = "projects-project-${project.id}-delete-button"
                     classes = setOf("button-danger project-delete")
                     hxConfirm("Are you sure you want to delete this project? This can not be reverted, and all your tasks and progress will vanish.")
                     hxDelete("/app/worlds/$worldId/projects/${project.id}")
+                    hxTarget("#project-${project.id}")
+                    hxSwap("delete")
                     + "Delete project"
                 }
                 appProgress(progressClasses = setOf("project-progress"), max = 1.0, value = project.progress)

@@ -12,6 +12,7 @@ fun worlds(selectedWorldId: Int?, worlds: List<World>): String = mainPageTemplat
     selectedWorldId, "Worlds",
     emptyList()
 ) {
+    classes = setOf("page-list-with-add-form")
     form {
         method = FormMethod.post
         encType = FormEncType.applicationXWwwFormUrlEncoded

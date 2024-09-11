@@ -10,13 +10,28 @@ fun BODY.navBar(title: String, rightIcons: List<NavBarRightIcon>, leftIcon: NAV.
     span {
         classes = setOf("navbar-links", "icon-row")
         for (icon in rightIcons) {
-            a {
-                classes = setOf("navbar-link")
-                id = icon.icon + "-link"
-                href = icon.link
+            if (icon.link != null) {
+                a {
+                    classes = setOf("navbar-link")
+                    id = icon.icon + "-link"
+                    href = icon.link
+                    button {
+                        classes = setOf("icon-row", "button-icon", "icon-${icon.icon}")
+                    }
+                }
+            } else if (icon.id != null) {
                 button {
+                    id = icon.id
+                    if (icon.onClick != null) {
+                        onClick = icon.onClick
+                    }
+                    for ((name, value) in icon.data) {
+                        attributes[name] = value
+                    }
                     classes = setOf("icon-row", "button-icon", "icon-${icon.icon}")
                 }
+            } else {
+                throw IllegalArgumentException("Icon must have either link or id")
             }
         }
     }

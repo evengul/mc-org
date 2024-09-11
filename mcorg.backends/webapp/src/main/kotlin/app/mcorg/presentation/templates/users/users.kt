@@ -14,9 +14,9 @@ import kotlinx.html.stream.createHTML
 fun users(worldId: Int, currentUser: User, users: List<User>, isAdmin: Boolean): String = mainPageTemplate(
     selectedPage = MainPage.USERS,
     worldId = worldId,
-    title = "Users",
-    rightIcons = emptyList()
+    title = "Users"
 ) {
+    classes = setOf("page-list-with-add-form")
     if (isAdmin) {
         form {
             id = "user-add"

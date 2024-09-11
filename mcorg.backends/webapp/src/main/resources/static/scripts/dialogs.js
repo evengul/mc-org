@@ -1,8 +1,27 @@
+function showDialog(id) {
+    const dialog = document.getElementById(id)
+    dialog.showModal()
+}
+
+function hideDialog(id) {
+    const dialog = document.getElementById(id)
+    dialog.close()
+}
+
+function addCloseListener(id, pathRequirement) {
+    document.addEventListener("htmx:afterOnLoad", (e) => {
+        if (pathRequirement(e.detail.pathInfo.responsePath)) {
+            hideDialog(id)
+        }
+    })
+}
+
 function editTask(target) {
     const id = target.attributes.getNamedItem("id").value
     const needed = target.attributes.getNamedItem("needed").value
     const done = target.attributes.getNamedItem("done").value
 
+    const form = document.getElementById("edit-countable-task-form")
     const doneInput = document.getElementById("edit-task-done-input");
     const neededInput = document.getElementById("edit-task-needed-input");
     const idInput = document.getElementById("edit-task-id-input");
@@ -10,6 +29,8 @@ function editTask(target) {
     doneInput.value = done;
     neededInput.value = needed;
     idInput.value = id;
+
+    form.setAttribute("hx-target", `#task-${id}`)
 
     doneInput.max = needed;
 
@@ -20,13 +41,10 @@ function editTask(target) {
         }
     }
 
-    const dialog = document.getElementById("edit-task-dialog")
-
-    dialog.showModal()
+    showDialog("edit-task-dialog")
 }
 
-function cancelDialog() {
-    const dialog = document.getElementById("edit-task-dialog")
-
-    dialog.close()
+window.onload = () => {
+    addCloseListener("edit-task-dialog", path => path.includes("/requirements"))
 }
+

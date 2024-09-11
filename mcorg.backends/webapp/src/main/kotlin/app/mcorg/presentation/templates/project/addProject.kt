@@ -4,6 +4,7 @@ import app.mcorg.presentation.templates.subPageTemplate
 import kotlinx.html.*
 
 fun addProject(backLink: String, isTechnical: Boolean): String = subPageTemplate("Add project", backLink = backLink) {
+    classes = setOf("page-centered")
     form {
         method = FormMethod.post
         encType = FormEncType.applicationXWwwFormUrlEncoded

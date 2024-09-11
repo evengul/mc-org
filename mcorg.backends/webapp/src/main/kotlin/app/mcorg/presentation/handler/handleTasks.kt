@@ -1,15 +1,15 @@
 package app.mcorg.presentation.handler
 
 import app.mcorg.domain.Priority
+import app.mcorg.domain.isCountable
 import app.mcorg.presentation.configuration.permissionsApi
 import app.mcorg.presentation.configuration.projectsApi
+import app.mcorg.presentation.entities.AssignUserRequest
+import app.mcorg.presentation.entities.DeleteAssignmentRequest
 import app.mcorg.presentation.router.utils.*
-import app.mcorg.presentation.templates.project.assignUser
-import app.mcorg.presentation.templates.task.addCountableTask
-import app.mcorg.presentation.templates.task.addDoableTask
-import app.mcorg.presentation.templates.task.addLitematicaTasks
-import app.mcorg.presentation.templates.task.addTask
+import app.mcorg.presentation.templates.task.*
 import app.mcorg.presentation.utils.*
+import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.response.*
 
@@ -60,63 +60,79 @@ suspend fun ApplicationCall.handlePostLitematicaTasks() {
 suspend fun ApplicationCall.handleDeleteTask() {
     val taskId = getTaskId()
     projectsApi.removeTask(taskId)
-    clientRefresh()
+    respondEmptyHtml()
 }
 
 suspend fun ApplicationCall.handlePatchCountableTaskDoneMore() {
+    val projectId = getProjectId()
     val done = parameters["done"]?.toIntOrNull() ?: 0
     val taskId = getTaskId()
     projectsApi.taskDoneMore(taskId, done)
-    clientRefresh()
-}
-
-suspend fun ApplicationCall.handleGetAssignTask() {
-    val worldId = getWorldId()
-    val projectId = getProjectId()
-    val taskId = getTaskId()
-    val users = permissionsApi.getUsersInWorld(worldId)
-    val selectedUser = projectsApi.getTaskAssignee(taskId)
-    val projectLink = "/app/worlds/${worldId}/projects/${projectId}"
-    respondHtml(assignUser(projectLink, "$projectLink/tasks/${taskId}/assign", "single", users, selectedUser?.id))
+    respondTask(projectId, taskId)
 }
 
 suspend fun ApplicationCall.handlePatchTaskAssignee() {
-    val (username) = receiveAssignUserRequest()
+    val request = receiveAssignUserRequest()
+    if (request is DeleteAssignmentRequest) return handleDeleteTaskAssignee()
+    val (userId) = request as AssignUserRequest
     val worldId = getWorldId()
     val projectId = getProjectId()
     val taskId = getTaskId()
     val users = permissionsApi.getUsersInWorld(worldId)
-    val user = users.find { it.username == username }
+    val user = users.find { it.id == userId }
     if (user != null) {
         projectsApi.assignTask(taskId, user.id)
-        clientRedirect("/app/worlds/$worldId/projects/$projectId")
+        respondTask(projectId, taskId)
     } else {
         throw IllegalArgumentException("User does not exist in project")
     }
 }
 
 suspend fun ApplicationCall.handleDeleteTaskAssignee() {
-    val worldId = getWorldId()
     val projectId = getProjectId()
     val taskId = getTaskId()
     projectsApi.removeTaskAssignment(taskId)
-    clientRedirect("/app/worlds/$worldId/projects/$projectId")
+    respondTask(projectId, taskId)
 }
 
 suspend fun ApplicationCall.handleCompleteTask() {
-    val taskId = getTaskId()
-    projectsApi.completeTask(taskId)
-    clientRefresh()
+    handleTaskCompletion(true)
 }
 
 suspend fun ApplicationCall.handleIncompleteTask() {
+    handleTaskCompletion(false)
+}
+
+private suspend fun ApplicationCall.handleTaskCompletion(complete: Boolean) {
+    val projectId = getProjectId()
     val taskId = getTaskId()
-    projectsApi.undoCompleteTask(taskId)
-    clientRefresh()
+    if(complete) {
+        projectsApi.completeTask(taskId)
+    } else {
+        projectsApi.undoCompleteTask(taskId)
+    }
+    respondTask(projectId, taskId)
 }
 
 suspend fun ApplicationCall.handleEditTaskRequirements() {
+    val projectId = getProjectId()
     val (id, needed, done) = getEditCountableTaskRequirements()
     projectsApi.editTaskRequirements(id, needed, done)
-    clientRefresh()
+    respondTask(projectId, id)
+}
+
+private suspend fun ApplicationCall.respondTask(projectId: Int, taskId: Int) {
+    val project = projectsApi.getProject(projectId, includeTasks = true)
+    val task = project?.tasks?.find { it.id == taskId }
+    if (project != null && task != null) {
+        val users = permissionsApi.getUsersInWorld(project.worldId)
+        val currentUser = getUser()
+        if (task.isCountable()) {
+            respondHtml(createCountableTask(project, task, users, currentUser))
+        } else {
+            respondHtml(createDoableTask(project, task, users, currentUser))
+        }
+    } else {
+        respond(HttpStatusCode.BadRequest)
+    }
 }

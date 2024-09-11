@@ -30,6 +30,10 @@ fun HTMLTag.hxTarget(value: String) {
     attributes += "hx-target" to value
 }
 
+fun HTMLTag.hxTrigger(value: String) {
+    attributes += "hx-trigger" to value
+}
+
 fun HTMLTag.hxTargetError(value: String) {
     attributes += "hx-target-error" to value
 }

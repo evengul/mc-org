@@ -15,6 +15,10 @@ fun baseTemplate(siteTitle: String = "MC-ORG", body: BODY.() -> Unit): String {
                 src = "/static/scripts/htmx.js"
                 nonce = generateNonce()
             }
+            script {
+                src = "/static/scripts/dialogs.js"
+                nonce = generateNonce()
+            }
             link {
                 href = "/static/styles/root.css"
                 rel = "stylesheet"
@@ -27,6 +31,7 @@ fun baseTemplate(siteTitle: String = "MC-ORG", body: BODY.() -> Unit): String {
                 href = "/static/styles/reset.css"
                 rel = "stylesheet"
             }
+
         }
         body {
             body()

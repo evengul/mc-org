@@ -3,6 +3,7 @@ package app.mcorg.presentation.handler
 import app.mcorg.presentation.configuration.usersApi
 import app.mcorg.presentation.utils.getUserId
 import app.mcorg.presentation.router.utils.respondHtml
+import app.mcorg.presentation.templates.profile.createIsTechnicalCheckBox
 import app.mcorg.presentation.templates.profile.profile
 import app.mcorg.presentation.utils.clientRedirect
 import io.ktor.server.application.*
@@ -26,5 +27,5 @@ suspend fun ApplicationCall.handleIsTechnical() {
     } else {
         usersApi.isNotTechnical(getUserId())
     }
-    clientRedirect("/app/profile")
+    respondHtml(createIsTechnicalCheckBox(isTechnical))
 }

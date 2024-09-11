@@ -43,6 +43,8 @@ dialog {
     align-self: center;
     justify-self: center;
     margin: auto;
+
+    min-width: clamp(400px, 80%, 1200px);
 }
 
 /******** MAIN ********/
@@ -367,6 +369,34 @@ nav {
     margin-top: auto;
 }
 
+/******** MAIN ********/
+
+main.page-centered {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+
+    gap: var(--spacing-lg);
+}
+
+main.page-list-with-add-form {
+    padding: var(--spacing-lg);
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+
+    gap: var(--spacing-lg);
+}
+
+main.page-list-with-add-form > form {
+    justify-self: center;
+    align-self: center;
+}
+
 /******** SIGN IN ********/
 
 main#sign-in {
@@ -451,6 +481,8 @@ ul#project-list {
 ul#project-list > li {
     width: 100%;
     display: grid;
+    align-items: center;
+
     grid-template-columns: 2fr 2fr 1fr 1fr;
     grid-template-rows: 1fr 1fr;
 
@@ -465,13 +497,13 @@ ul#project-list > li {
     grid-row: 1 / span 1;
 }
 
-.project-delete {
-    grid-column: 4 / span 1;
+.project-assignment {
+    grid-column: 3 / span 1;
     grid-row: 1 / span 1;
 }
 
-.project-assignment {
-    grid-column: 3 / span 1;
+.project-delete {
+    grid-column: 4 / span 1;
     grid-row: 1 / span 1;
 }
 
@@ -509,10 +541,14 @@ li.task {
     margin-bottom: var(--spacing-md);
 }
 
-li.task > .task-name-assign {
+li.task > .task-name-assignment {
     display: flex;
     flex-direction: column;
     width: 25%;
+    height: 100%;
+
+    justify-content: space-between;
+    padding: var(--spacing-sm);
 }
 
 li.task > .app-progress {
@@ -557,8 +593,7 @@ li.task > .app-progress {
 /******** USERS AND WORLD LIST ********/
 
 #users-list > li,
-#worlds-list > li,
-.selectable-list > li {
+#worlds-list > li {
     margin-block: var(--spacing-md);
 
     display: flex;
