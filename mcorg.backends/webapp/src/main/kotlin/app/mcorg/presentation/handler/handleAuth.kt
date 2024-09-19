@@ -59,8 +59,9 @@ suspend fun ApplicationCall.handleSignIn() {
     val code = parameters["code"] ?: return respondHtml("Some error occurred")
     val clientId = getMicrosoftClientId()
     val clientSecret = getMicrosoftClientSecret()
+    val host = getCookieHost()
 
-    val profile = minecraftApi.getProfile(code, clientId, clientSecret)
+    val profile = minecraftApi.getProfile(code, clientId, clientSecret, host)
 
     val user = usersApi.getUser(profile.username) ?: usersApi.getUser(usersApi.createUser(profile.username, profile.email)) ?: return respondHtml("Some error occurred")
 

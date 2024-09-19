@@ -12,6 +12,15 @@ data class MicrosoftAccessTokenResponse(@SerialName("token_type") val tokenType:
                                         @SerialName("id_token") val idToken: String)
 
 @Serializable
+data class MicrosoftAccessTokenErrorResponse(@SerialName("error") val error: String,
+                                             @SerialName("error_description") val description: String,
+                                             @SerialName("error_codes") val errorCodes: List<Int>,
+                                             @SerialName("timestamp") val timestamp: String,
+                                             @SerialName("trace_id") val traceId: String,
+                                             @SerialName("correlation_id") val correlationId: String,
+                                             @SerialName("error_uri") val errorUri: String)
+
+@Serializable
 data class MinecraftProfileResponse(
     val id: String,
     val name: String,

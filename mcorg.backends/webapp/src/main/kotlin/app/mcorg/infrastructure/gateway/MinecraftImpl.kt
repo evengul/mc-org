@@ -8,18 +8,24 @@ import io.ktor.client.request.forms.*
 import io.ktor.http.*
 
 class MinecraftImpl : Minecraft, Gateway() {
-    override suspend fun getProfile(authorizationCode: String, clientId: String, clientSecret: String): MinecraftProfile {
+    override suspend fun getProfile(authorizationCode: String, clientId: String, clientSecret: String, host: String): MinecraftProfile {
         try {
-            val microsoftAccessToken = getTokenFromCode(authorizationCode, clientId, clientSecret)
-            val xboxProfile = getXboxProfile(microsoftAccessToken)
-            val xboxToken = xboxProfile.token
-            val userHash = xboxProfile.userHash()
-            val xstsToken = getXstsToken(xboxToken).token
-            val minecraftToken = getMinecraftToken(xstsToken, userHash).accessToken
+            val (error, microsoftAccessToken) = getTokenFromCode(authorizationCode, clientId, clientSecret, host)
+            if (microsoftAccessToken != null) {
+                val xboxProfile = getXboxProfile(microsoftAccessToken)
+                val xboxToken = xboxProfile.token
+                val userHash = xboxProfile.userHash()
+                val xstsToken = getXstsToken(xboxToken).token
+                val minecraftToken = getMinecraftToken(xstsToken, userHash).accessToken
 
-            val minecraftProfile = getMinecraftProfile(minecraftToken)
+                val minecraftProfile = getMinecraftProfile(minecraftToken)
 
-            return MinecraftProfile(minecraftProfile.name, "unknown")
+                return MinecraftProfile(minecraftProfile.name, "unknown")
+            }
+            else if(error != null) {
+                throw RuntimeException("Error [${error.error}] occurred while getting token: ${error.description}")
+            }
+            throw RuntimeException("Could not retrieve token")
         } catch (e: Exception) {
             e.printStackTrace()
             throw e
@@ -56,15 +62,25 @@ class MinecraftImpl : Minecraft, Gateway() {
         }.body()
     }
 
-    private suspend fun getTokenFromCode(authorizationCode: String, clientId: String, clientSecret: String): String = getJsonClient().use {
-        return it.get(url = Url("https://login.microsoftonline.com/consumers/oauth2/v2.0/token")) {
+    private suspend fun getTokenFromCode(authorizationCode: String, clientId: String, clientSecret: String, host: String): Pair<MicrosoftAccessTokenErrorResponse?, String?> = getJsonClient().use {
+        val redirectUrl =
+            if (host == "localhost") "http://localhost:8080/auth/oidc/microsoft-redirect"
+            else "https://mcorg.app/auth/oidc/microsoft-redirect"
+
+        val response = it.get(url = Url("https://login.microsoftonline.com/consumers/oauth2/v2.0/token")) {
             contentType(ContentType.Application.FormUrlEncoded)
             setBody(FormDataContent(Parameters.build {
                 append("code", authorizationCode)
                 append("client_id", clientId)
                 append("client_secret", clientSecret)
                 append("grant_type", "authorization_code")
+                append("redirect_uri", redirectUrl)
             }))
-        }.body<MicrosoftAccessTokenResponse>().accessToken
+        }
+        if (response.status == HttpStatusCode.BadRequest) {
+            val error = response.body<MicrosoftAccessTokenErrorResponse>()
+            return error to null
+        }
+        return null to response.body<MicrosoftAccessTokenResponse>().accessToken
     }
 }

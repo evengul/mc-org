@@ -70,5 +70,5 @@ interface Projects {
 }
 
 interface Minecraft {
-    suspend fun getProfile(authorizationCode: String, clientId: String, clientSecret: String): MinecraftProfile
+    suspend fun getProfile(authorizationCode: String, clientId: String, clientSecret: String, host: String): MinecraftProfile
 }
