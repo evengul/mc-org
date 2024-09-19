@@ -7,6 +7,7 @@ fun addLitematicaTasks(worldId: Int, projectId: Int): String = subPageTemplate(
     title = "Litematica Upload",
     backLink = "/app/worlds/$worldId/projects/$projectId",
 ) {
+    classes = setOf("page-centered")
     form {
         encType = FormEncType.multipartFormData
         method = FormMethod.post

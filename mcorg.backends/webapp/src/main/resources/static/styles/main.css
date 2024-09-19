@@ -525,6 +525,8 @@ main:has(a#add-task-doable-link) button {
     width: 100%;
 }
 
+/******** TASK FILTER ********/
+
 #project-tasks-filter-details {
     padding: var(--spacing-sm);
 }
