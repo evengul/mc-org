@@ -120,8 +120,9 @@ private fun sortProjectsByCompletion(a: Task, b: Task): Int {
     } else if(b.isDone()) {
         return -1
     }
-    if (a.done == b.done) return a.name.compareTo(b.name)
-    return b.done - a.done
+    if (a.done == b.done && a.needed == b.needed) return a.name.compareTo(b.name)
+    if (a.needed == b.needed) return b.done - a.done
+    return b.needed - a.needed
 }
 
 suspend fun ApplicationCall.handlePatchProjectAssignee() {

@@ -30,11 +30,8 @@ fun MAIN.taskFilter(project: Project, worldUsers: List<User>, currentUser: User,
                 id = "project-tasks-filter-sort-by-select"
                 name = "sortBy"
                 option {
-                    + ""
-                }
-                option {
                     value = "DONE"
-                    selected = filtersRequest.sortBy == "DONE"
+                    selected = filtersRequest.sortBy == "DONE" || filtersRequest.sortBy == null
                     + "Done (completed at the bottom)"
                 }
                 option {
