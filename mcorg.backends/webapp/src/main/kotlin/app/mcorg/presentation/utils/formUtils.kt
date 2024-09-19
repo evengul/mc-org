@@ -44,7 +44,8 @@ fun ApplicationCall.receiveTaskFilters() = TaskFiltersRequest(
     parameters["sortBy"],
     parameters["assigneeFilter"],
     parameters["completionFilter"],
-    parameters["taskTypeFilter"]
+    parameters["taskTypeFilter"],
+    parameters["amountFilter"]?.toIntOrNull()
 )
 
 suspend fun ApplicationCall.receiveDoableTaskRequest(): AddDoableRequest {

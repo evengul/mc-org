@@ -89,10 +89,17 @@ suspend fun ApplicationCall.handleGetProject() {
             }
         }
 
+        val amountFilter = filters.amountFilter
+        if (amountFilter != null) {
+            if ((it.isCountable() && it.done < amountFilter) || (!it.isCountable() && amountFilter > 1)) {
+                return@filter false
+            }
+        }
+
         return@filter true
     }
 
-    val sortBy = filters.sortBy
+    val sortBy = filters.sortBy ?: "DONE"
 
     val sortedTasks = when(sortBy) {
         "DONE" -> tasks.sortedWith(::sortProjectsByCompletion)

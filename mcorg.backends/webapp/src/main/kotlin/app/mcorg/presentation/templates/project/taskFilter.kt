@@ -118,6 +118,17 @@ fun MAIN.taskFilter(project: Project, worldUsers: List<User>, currentUser: User,
                     + "Countable"
                 }
             }
+            label {
+                htmlFor = "project-tasks-filter-amount-input"
+                + "Filter by amount done"
+            }
+            input {
+                name = "amountFilter"
+                id = "project-tasks-filter-amount-input"
+                type = InputType.number
+                min = "0"
+                max = Int.MAX_VALUE.toString()
+            }
             span {
                 classes = setOf("button-row")
                 a {
