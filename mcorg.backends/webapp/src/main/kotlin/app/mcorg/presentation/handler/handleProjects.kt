@@ -55,10 +55,7 @@ suspend fun ApplicationCall.handleGetProject() {
     val tasks = project.tasks.filter {
         val search = filters.search
         if (!search.isNullOrBlank()) {
-            if (it.assignee != null && !it.assignee.username.lowercase().contains(search.lowercase())) {
-                return@filter false
-            }
-            if (!it.name.lowercase().contains(search.lowercase())) {
+            if ((it.assignee != null && it.assignee.username.lowercase().contains(search.lowercase())) || (!it.name.lowercase().contains(search.lowercase()))) {
                 return@filter false
             }
         }
