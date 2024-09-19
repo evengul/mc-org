@@ -77,7 +77,7 @@ class MinecraftImpl : Minecraft, Gateway() {
                 append("redirect_uri", redirectUrl)
             }))
         }
-        if (response.status == HttpStatusCode.BadRequest) {
+        if (response.status != HttpStatusCode.OK) {
             val error = response.body<MicrosoftAccessTokenErrorResponse>()
             return error to null
         }

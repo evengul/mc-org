@@ -10,7 +10,7 @@ val WorldParamPlugin = createRouteScopedPlugin("WorldParamPlugin") {
         if (worldParam != null) {
             it.setWorldId(worldParam)
         } else {
-            it.respondRedirect("/worlds")
+            it.respondRedirect("/app/worlds")
         }
     }
 }
@@ -22,7 +22,7 @@ val ProjectParamPlugin = createRouteScopedPlugin("ProjectParamPlugin") {
             it.setProjectId(projectParam)
         } else {
             val worldId = it.getWorldId()
-            it.respondRedirect("/worlds/$worldId/projects")
+            it.respondRedirect("/app/worlds/$worldId/projects")
         }
     }
 }
@@ -35,7 +35,7 @@ val TaskParamPlugin = createRouteScopedPlugin("TaskParamPlugin") {
         } else {
             val worldId = it.getWorldId()
             val projectId = it.getProjectId()
-            it.respondRedirect("/worlds/$worldId/projects/$projectId/tasks")
+            it.respondRedirect("/app/worlds/$worldId/projects/$projectId/tasks")
         }
     }
 }
