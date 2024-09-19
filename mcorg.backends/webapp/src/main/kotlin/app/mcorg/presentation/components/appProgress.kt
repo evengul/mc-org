@@ -1,6 +1,7 @@
 package app.mcorg.presentation.components
 
 import kotlinx.html.*
+import kotlin.math.floor
 import kotlin.math.roundToInt
 
 @HtmlTagMarker
@@ -32,9 +33,9 @@ fun FlowOrPhrasingContent.appProgress(progressClasses: Set<String> = emptySet(),
 }
 
 fun getItemProgress(amount: Double): String {
-    val shulkers = (amount / 1728.0).roundToInt()
-    val stacks = ((amount - shulkers * 1728.0) / 64.0).roundToInt()
-    val items = (amount - shulkers * 1728 - stacks * 64.0).roundToInt()
+    val shulkers = floor(amount / 1728.0).roundToInt()
+    val stacks = floor((amount - shulkers * 1728.0) / 64.0).roundToInt()
+    val items = floor(amount - shulkers * 1728 - stacks * 64.0).roundToInt()
 
     var content = ""
     if (shulkers > 0) {
