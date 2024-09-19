@@ -240,6 +240,10 @@ input[type="checkbox"]:focus-visible {
     outline-offset: max(2px, 0.15em);
 }
 
+input[type="checkbox"]:disabled {
+    opacity: 40%;
+}
+
 /******** FORM ********/
 
 form {
