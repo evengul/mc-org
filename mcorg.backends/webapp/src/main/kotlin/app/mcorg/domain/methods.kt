@@ -23,6 +23,8 @@ fun Project.toSlim() = SlimProject(
     progress = progress
 )
 
+fun Profile.toUser() = User(id, username)
+
 fun InputStream.tasksFromMaterialList(): List<PremadeTask> {
     return validateMaterialList()
         .getMaterialLines()

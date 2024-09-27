@@ -2,10 +2,9 @@ package app.mcorg.presentation.handler
 
 import app.mcorg.presentation.configuration.usersApi
 import app.mcorg.presentation.utils.getUserId
-import app.mcorg.presentation.router.utils.respondHtml
+import app.mcorg.presentation.utils.respondHtml
 import app.mcorg.presentation.templates.profile.createIsTechnicalCheckBox
 import app.mcorg.presentation.templates.profile.profile
-import app.mcorg.presentation.utils.clientRedirect
 import io.ktor.server.application.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*

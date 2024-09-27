@@ -3,7 +3,6 @@ package app.mcorg.presentation.templates.profile
 import app.mcorg.domain.Profile
 import app.mcorg.presentation.hxConfirm
 import app.mcorg.presentation.hxDelete
-import app.mcorg.presentation.hxPatch
 import app.mcorg.presentation.templates.MainPage
 import app.mcorg.presentation.templates.mainPageTemplate
 import kotlinx.html.*
@@ -12,7 +11,6 @@ fun profile(profile: Profile): String = mainPageTemplate(
     selectedPage = MainPage.PROFILE,
     worldId = profile.selectedWorld,
     title = "Profile",
-    rightIcons = emptyList()
 ) {
     section {
         id = "profile-section-user"
@@ -24,7 +22,7 @@ fun profile(profile: Profile): String = mainPageTemplate(
             + "Upload profile picture"
         }
         p {
-            + profile.username
+            + "Username: ${profile.username}"
         }
     }
     section {

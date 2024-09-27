@@ -30,15 +30,15 @@
 :root {
     --font-primary: "Roboto Mono Regular", sans-serif;
 
-    --text-base-size: 1em;
-    --text-scale-ratio: 1.2;
+    --text-base-size: 16px;
+    --text-scale-ratio: 1.1;
 
     /* type scale */
-    --text-sm: 10px;
-    --text-md: 12px;
-    --text-lg: 16px;
-    --text-xl: 18px;
-    --text-xxl: 20px;
+    --text-sm: calc(var(--text-base-size) / var(--text-scale-ratio));
+    --text-md: calc(var(--text-base-size) * var(--text-scale-ratio));
+    --text-lg: calc(var(--text-base-size) * var(--text-scale-ratio) * var(--text-scale-ratio));
+    --text-xl: calc(var(--text-base-size) * var(--text-scale-ratio) * var(--text-scale-ratio) * var(--text-scale-ratio));
+    --text-xxl: calc(var(--text-base-size) * var(--text-scale-ratio) * var(--text-scale-ratio) * var(--text-scale-ratio) * var(--text-scale-ratio));
 
     --clr-primary: #15E543;
     --clr-secondary: #CFCFCF;
@@ -53,7 +53,7 @@
 
     --clr-text: #272727;
 
-    --spacing-baseline: 24px;
+    --spacing-baseline: 2em;
 
     /* spacing values */
     --spacing-xxs:   calc(var(--spacing-baseline) / 4);
@@ -62,6 +62,9 @@
     --spacing-md:   var(--spacing-baseline);
     --spacing-lg:   calc(var(--spacing-baseline) * 2);
     --spacing-xl:   calc(var(--spacing-baseline) * 3);
+
+    /* Media query values */
+    --media-lg: 1024px;
 }
 
 html {

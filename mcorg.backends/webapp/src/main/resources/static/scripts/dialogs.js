@@ -8,10 +8,11 @@ function hideDialog(id) {
     dialog.close()
 }
 
-function addCloseListener(id, pathRequirement) {
+function addCloseListener(id, pathRequirement, onClose)  {
     document.addEventListener("htmx:afterOnLoad", (e) => {
         if (pathRequirement(e.detail.pathInfo.responsePath)) {
             hideDialog(id)
+            if (onClose) onClose()
         }
     })
 }
@@ -44,7 +45,24 @@ function editTask(target) {
     showDialog("edit-task-dialog")
 }
 
-window.onload = () => {
-    addCloseListener("edit-task-dialog", path => path.includes("/requirements"))
+function clearTaskDialogs() {
+    const doableNameInput = document.getElementById("add-doable-task-name-input")
+    doableNameInput.value = ""
+
+    const countableNameInput = document.getElementById("add-countable-task-name-input")
+    const countableAmountInput = document.getElementById("add-countable-task-amount-input")
+    countableNameInput.value = ""
+    countableAmountInput.value = ""
+
+    const litematicaFileInput = document.getElementById("tasks-add-litematica-file-input")
+    litematicaFileInput.value = ""
 }
+
+window.addEventListener('load', () => {
+    addCloseListener("edit-task-dialog", path => path.includes("/requirements"))
+    addCloseListener("add-project-dialog", path => path.includes("/projects"))
+    addCloseListener("add-task-doable-dialog", path => path.includes("/tasks/doable"), clearTaskDialogs)
+    addCloseListener("add-task-countable-dialog", path => path.includes("/tasks/countable"), clearTaskDialogs)
+    addCloseListener("add-task-litematica-dialog", path => path.includes("/tasks/litematica"), clearTaskDialogs)
+})
 

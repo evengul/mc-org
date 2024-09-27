@@ -12,6 +12,7 @@ fun MAIN.taskFilter(project: Project, worldUsers: List<User>, currentUser: User,
             + "Filter, sort and search"
         }
         form {
+            id = "project-tasks-filter-form"
             label {
                 htmlFor = "project-tasks-filter-search-input"
                 + "Search by assignee or task name"
@@ -129,20 +130,17 @@ fun MAIN.taskFilter(project: Project, worldUsers: List<User>, currentUser: User,
                 min = "0"
                 max = Int.MAX_VALUE.toString()
             }
-            span {
-                classes = setOf("button-row")
-                a {
-                    href = "/app/worlds/${project.worldId}/projects/${project.id}"
-                    button {
-                        classes = setOf("button-secondary")
-                        type = ButtonType.button
-                        + "Clear filters"
-                    }
-                }
+            a {
+                href = "/app/worlds/${project.worldId}/projects/${project.id}"
                 button {
-                    type = ButtonType.submit
-                    + "Apply"
+                    classes = setOf("button-secondary")
+                    type = ButtonType.button
+                    + "Clear filters"
                 }
+            }
+            button {
+                type = ButtonType.submit
+                + "Apply"
             }
         }
     }

@@ -6,47 +6,31 @@ import app.mcorg.presentation.configuration.permissionsApi
 import app.mcorg.presentation.configuration.projectsApi
 import app.mcorg.presentation.entities.AssignUserRequest
 import app.mcorg.presentation.entities.DeleteAssignmentRequest
-import app.mcorg.presentation.router.utils.*
 import app.mcorg.presentation.templates.task.*
 import app.mcorg.presentation.utils.*
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.response.*
 
-suspend fun ApplicationCall.handleGetAddTask() {
-    respondHtml(addTask("/app/worlds/${getWorldId()}/projects/${getProjectId()}", getWorldId(), getProjectId()))
-}
-
-suspend fun ApplicationCall.handleGetAddDoableTask() {
-    respondHtml(addDoableTask("/app/worlds/${getWorldId()}/projects/${getProjectId()}/add-task"))
-}
-
-suspend fun ApplicationCall.handleGetAddCountableTask() {
-    respondHtml(addCountableTask("/app/worlds/${getWorldId()}/projects/${getProjectId()}/add-task"))
-}
-
-suspend fun ApplicationCall.handleGetUploadLitematicaTasks() {
-    respondHtml(addLitematicaTasks(worldId = getWorldId(), projectId = getProjectId()))
-}
-
 suspend fun ApplicationCall.handlePostDoableTask() {
     val (name) = receiveDoableTaskRequest()
     val projectId = getProjectId()
-    projectsApi.addDoableTask(projectId, name, Priority.LOW)
-    respondRedirect("/app/worlds/${getWorldId()}/projects/$projectId")
+    val id = projectsApi.addDoableTask(projectId, name, Priority.LOW)
+
+    respondTask(projectId, id)
 }
 
 suspend fun ApplicationCall.handlePostCountableTask() {
     val (name, amount) = receiveCountableTaskRequest()
     val projectId = getProjectId()
-    projectsApi.addCountableTask(projectId, name, Priority.LOW, needed = amount)
-    respondRedirect("/app/worlds/${getWorldId()}/projects/$projectId")
+    val id = projectsApi.addCountableTask(projectId, name, Priority.LOW, needed = amount)
+    respondTask(projectId, id)
 }
 
 suspend fun ApplicationCall.handlePostLitematicaTasks() {
     val projectId = getProjectId()
     val tasks = receiveMaterialListTasks()
-    tasks.forEach {
+    val ids = tasks.map {
         projectsApi.addCountableTask(
             projectId = projectId,
             name = it.name,
@@ -54,7 +38,7 @@ suspend fun ApplicationCall.handlePostLitematicaTasks() {
             needed = it.needed
         )
     }
-    respondRedirect("/app/worlds/${getWorldId()}/projects/$projectId")
+    respondTasks(projectId, ids)
 }
 
 suspend fun ApplicationCall.handleDeleteTask() {
@@ -68,6 +52,8 @@ suspend fun ApplicationCall.handlePatchCountableTaskDoneMore() {
     val done = parameters["done"]?.toIntOrNull() ?: 0
     val taskId = getTaskId()
     projectsApi.taskDoneMore(taskId, done)
+    hxTarget("#task-${taskId}")
+    hxSwap("outerHTML")
     respondTask(projectId, taskId)
 }
 
@@ -118,6 +104,8 @@ suspend fun ApplicationCall.handleEditTaskRequirements() {
     val projectId = getProjectId()
     val (id, needed, done) = getEditCountableTaskRequirements()
     projectsApi.editTaskRequirements(id, needed, done)
+    hxTarget("#task-${id}")
+    hxSwap("outerHTML")
     respondTask(projectId, id)
 }
 
@@ -134,5 +122,21 @@ private suspend fun ApplicationCall.respondTask(projectId: Int, taskId: Int) {
         }
     } else {
         respond(HttpStatusCode.BadRequest)
+    }
+}
+
+private suspend fun ApplicationCall.respondTasks(projectId: Int, taskIds: List<Int>) {
+    val project = projectsApi.getProject(projectId, includeTasks = true)
+    if (project != null) {
+        val users = permissionsApi.getUsersInWorld(project.worldId)
+        val currentUser = getUser()
+        respondHtml(
+            project.tasks.filter { taskIds.contains(it.id) }.map {
+                if(it.isCountable()) {
+                    return@map createCountableTask(project, it, users, currentUser)
+                }
+                return@map createDoableTask(project, it, users, currentUser)
+            }.joinToString("\n")
+        )
     }
 }

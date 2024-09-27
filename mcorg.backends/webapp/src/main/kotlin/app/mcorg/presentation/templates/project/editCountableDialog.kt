@@ -41,18 +41,15 @@ fun MAIN.editCountableDialog(project: Project) {
                 min = "0"
                 max = "200000000"
             }
-            span {
-                classes = setOf("button-row")
-                button {
-                    onClick = "hideDialog('edit-task-dialog')"
-                    classes = setOf("button-secondary")
-                    type = ButtonType.button
-                    + "Cancel"
-                }
-                button {
-                    type = ButtonType.submit
-                    + "Save"
-                }
+            button {
+                onClick = "hideDialog('edit-task-dialog')"
+                classes = setOf("button-secondary")
+                type = ButtonType.button
+                + "Cancel"
+            }
+            button {
+                type = ButtonType.submit
+                + "Save"
             }
         }
     }

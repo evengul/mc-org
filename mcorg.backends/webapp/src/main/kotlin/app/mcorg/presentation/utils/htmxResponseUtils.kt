@@ -9,7 +9,16 @@ suspend fun ApplicationCall.clientRedirect(path: String) {
     respond(HttpStatusCode.OK)
 }
 
+@Suppress("unused")
 suspend fun ApplicationCall.clientRefresh() {
     response.headers.append("HX-Refresh", "true")
     respond(HttpStatusCode.OK)
+}
+
+fun ApplicationCall.hxTarget(value: String) {
+    response.headers.append("HX-Retarget", value)
+}
+
+fun ApplicationCall.hxSwap(value: String) {
+    response.headers.append("HX-Reswap", value)
 }

@@ -39,7 +39,7 @@ fun BODY.navBar(title: String, rightIcons: List<NavBarRightIcon>, leftIcon: NAV.
 
 fun NAV.menu(selectedPage: MainPage, worldId: Int?) = ul {
     id = "menu-links"
-    classes = setOf("menu-invisible")
+    classes = setOf("menu", "menu-invisible")
     button {
         id = "menu-close-button"
         classes = setOf("button-icon", "icon-back")
@@ -54,7 +54,9 @@ fun NAV.menu(selectedPage: MainPage, worldId: Int?) = ul {
                 span {
                     classes = setOf("icon", "icon-menu-projects")
                 }
-                + "Projects"
+                h2 {
+                    + "Projects"
+                }
             }
         }
         li {
@@ -66,7 +68,9 @@ fun NAV.menu(selectedPage: MainPage, worldId: Int?) = ul {
                 span {
                     classes = setOf("icon", "icon-menu-users")
                 }
-                + "Users"
+                h2 {
+                    + "Users"
+                }
             }
         }
     }
@@ -80,7 +84,9 @@ fun NAV.menu(selectedPage: MainPage, worldId: Int?) = ul {
             span {
                 classes = setOf("icon", "icon-menu-worlds")
             }
-            + "Worlds"
+            h2 {
+                + "Worlds"
+            }
         }
     }
     li {
@@ -92,7 +98,9 @@ fun NAV.menu(selectedPage: MainPage, worldId: Int?) = ul {
             span {
                 classes = setOf("icon", "icon-menu-profile")
             }
-            + "Profile"
+            h2 {
+                + "Profile"
+            }
         }
     }
 }

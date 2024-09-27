@@ -20,7 +20,11 @@ fun FlowOrPhrasingContent.appProgress(progressClasses: Set<String> = emptySet(),
         p {
             classes = setOf("app-progress-value")
             if (isItemAmount) {
-                + (getItemProgress(value) + " of " + getItemProgress(max) + " = " + percentage + "%")
+                span {
+                    classes = setOf("app-progress-value-long")
+                    + (getItemProgress(value) + " of " + getItemProgress(max) + " = ")
+                }
+                + ("$percentage%")
             } else {
                 + "$percentage%"
             }
