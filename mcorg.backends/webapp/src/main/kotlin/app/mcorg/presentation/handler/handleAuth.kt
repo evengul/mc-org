@@ -6,7 +6,6 @@ import app.mcorg.presentation.configuration.minecraftApi
 import app.mcorg.presentation.configuration.permissionsApi
 import app.mcorg.presentation.configuration.projectsApi
 import app.mcorg.presentation.configuration.usersApi
-import app.mcorg.presentation.router.utils.*
 import app.mcorg.presentation.templates.auth.signInTemplate
 import app.mcorg.presentation.utils.*
 import com.auth0.jwt.exceptions.TokenExpiredException

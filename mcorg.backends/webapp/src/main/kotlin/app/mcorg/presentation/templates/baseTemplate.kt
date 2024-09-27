@@ -31,7 +31,10 @@ fun baseTemplate(siteTitle: String = "MC-ORG", body: BODY.() -> Unit): String {
                 href = "/static/styles/reset.css"
                 rel = "stylesheet"
             }
-
+            meta {
+                content = "width=device-width, initial-scale=1"
+                name = "viewport"
+            }
         }
         body {
             body()

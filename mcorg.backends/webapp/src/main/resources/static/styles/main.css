@@ -44,7 +44,7 @@ dialog {
     justify-self: center;
     margin: auto;
 
-    min-width: clamp(400px, 80%, 1200px);
+    min-width: clamp(300px, 80%, 1200px);
 }
 
 /******** MAIN ********/
@@ -61,6 +61,7 @@ button {
     background-color: var(--clr-primary);
     cursor: pointer;
     padding-block: var(--spacing-sm);
+    word-break: keep-all;
 }
 
 button:hover {
@@ -90,10 +91,33 @@ button.button-danger {
 
 button.button-icon {
     border: none;
+    padding: 0;
     background-color: transparent;
     height: 48px;
     width: 48px;
     background-repeat: no-repeat;
+}
+
+button.button-icon.icon-small {
+    height: 24px;
+    width: 24px;
+}
+
+button.button-fab {
+    z-index: 999;
+    position: fixed;
+    right: var(--spacing-md);
+    bottom: var(--spacing-md);
+    height: calc(48px + var(--spacing-xs));
+    width: calc(48px + var(--spacing-xs));
+    outline: 5px solid var(--clr-text);
+    border-radius: 50%;
+    background-color: var(--clr-primary);
+
+    background-position-x: calc(var(--spacing-xs) / 2);
+    background-position-y: calc(var(--spacing-xs) / 2);
+
+    transition: bottom 0.3s ease-in-out;
 }
 
 .button-row {
@@ -204,6 +228,14 @@ button.button-icon {
     background-image: url("/static/icons/medium/notification/Info.svg");
 }
 
+.icon-delete {
+    background-image: url("/static/icons/medium/Delete.svg");
+}
+
+.icon-delete-small {
+    background-image: url("/static/icons/small/Delete.svg");
+}
+
 /******** Input -> Checkbox ********/
 
 input[type="checkbox"] {
@@ -244,54 +276,19 @@ input[type="checkbox"]:disabled {
     opacity: 40%;
 }
 
-/******** FORM ********/
-
-form {
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr 1fr 1fr;
-
-    grid-row-gap: var(--spacing-lg);
-
-    width: min(95%, 600px);
-}
-
-form > label {
-    grid-column: 1 / span 3;
-}
-
-form > input {
-    grid-column: 4 / span 3;
-}
-
-input[name = "id"] {
-    display: none;
-}
-
-form > button[type="submit"] {
-    grid-column: 2 / span 3;
-}
-
-form > .button-row {
-    grid-column: 1 / span 5;
-}
-
-form > .button-row > button {
-    min-width: 100px;
-}
-
 /******** PROGRESS ********/
 
 .app-progress {
     position: relative;
     height: 30px;
-    outline: 1px solid var(--clr-primary);
+    border: 3px solid var(--clr-primary);
 }
 
 .app-progress > .app-progress-value {
     position: absolute;
     left: 0;
     right: 0;
-    top: 6px;
+    top: -2px;
 
     text-align: center;
 
@@ -306,6 +303,16 @@ form > .button-row > button {
     bottom: 0;
 
     z-index: 10;
+}
+
+.app-progress-value-long {
+    display: none;
+}
+
+@media screen and (min-width: 1000px) {
+    .app-progress-value-long {
+        display: inline;
+    }
 }
 
 /******** NAVBAR ********/
@@ -334,8 +341,7 @@ nav {
     left: 0;
 
     z-index: 1000;
-
-    width: clamp(300px, 33vw, 800px);
+    width: clamp(300px, 80vw, 800px);
     height: 100vh;
 
     padding-top: var(--spacing-sm);
@@ -371,6 +377,9 @@ nav {
 
 .menu-visible > hr {
     margin-top: auto;
+    height: var(--spacing-xs);
+    border: none;
+    background-color: #00000044;
 }
 
 /******** MAIN ********/
@@ -383,28 +392,37 @@ main.page-centered {
     justify-content: center;
     align-items: center;
 
-    gap: var(--spacing-lg);
+    gap: var(--spacing-md);
 }
 
 main.page-list-with-add-form {
-    padding: var(--spacing-lg);
+    padding: var(--spacing-md);
     width: 100%;
     height: 100%;
     display: flex;
     flex-direction: column;
 
-    gap: var(--spacing-lg);
+    gap: var(--spacing-md);
 }
 
 main.page-list-with-add-form > form {
     justify-self: center;
     align-self: center;
+
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+main.page-list-with-add-form > form > * {
+    flex: 1;
 }
 
 /******** SIGN IN ********/
 
 main#sign-in {
     background: linear-gradient(180deg, #15E543 0%, #219D3D 100%);
+    color: #000;
 
     display: flex;
     flex-direction: column;
@@ -414,6 +432,17 @@ main#sign-in {
     gap: var(--spacing-xl);
 
     height: 100%;
+}
+
+main#sign-in > h1 {
+    font-size: calc(var(--text-xxl) * 2);
+}
+
+main#sign-in > p {
+    font-size: calc(var(--text-md) * 2);
+    padding-inline: var(--spacing-md);
+
+    max-width: 65ch;
 }
 
 main#sign-in a {
@@ -443,13 +472,13 @@ main#sign-in button {
 .profile-section {
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-xl);
-    margin: var(--spacing-lg);
+    gap: var(--spacing-lg);
+    margin: var(--spacing-md);
 }
 
 #profile-section-user {
-    flex-direction: row;
-    gap: var(--spacing-lg);
+    flex-direction: column;
+    gap: var(--spacing-md);
 }
 
 #profile-section-user > input {
@@ -457,15 +486,111 @@ main#sign-in button {
 }
 
 #profile-section-connections {
-    width: 100%;
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 3fr 1fr;
 }
 
 .profile-section > button,
 .profile-section > a,
 .profile-section > a > button {
     width: 100%
+}
+
+/******** PROJECT FILTER ********/
+form#projects-filter {
+    width: 100%;
+    display: grid;
+
+    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-rows: 1fr 1fr 1fr;
+
+    align-items: center;
+
+    grid-column-gap: var(--spacing-sm);
+    grid-row-gap: var(--spacing-sm);
+
+    padding-bottom: var(--spacing-sm);
+    margin-bottom: var(--spacing-sm);
+    border-bottom: 3px solid var(--clr-text);
+}
+
+form#projects-filter > label[for = "project-search-input"] {
+    grid-column: 1 / span 1;
+    grid-row: 1 / span 1;
+}
+
+form#projects-filter > #projects-search-input {
+    grid-column: 2 / span 2;
+    grid-row: 1 / span 1;
+}
+
+form#projects-filter > label[for = "project-hide-completed-checkbox"] {
+    grid-column: 1 / span 1;
+    grid-row: 2 / span 1;
+}
+
+form#projects-filter > #project-hide-completed-checkbox {
+    justify-self: end;
+
+    grid-column: 3 / span 1;
+    grid-row: 2 / span 1;
+}
+
+form#projects-filter > a {
+    grid-column: 1 / span 1;
+    grid-row: 3 / span 1;
+}
+
+form#projects-filter > button:not(.button-secondary) {
+    grid-column: 2 / span 2;
+    grid-row: 3 / span 1;
+}
+
+form#projects-filter button.button-secondary {
+    width: 100%;
+}
+
+@media screen and (min-width: 660px) {
+    form#projects-filter {
+        grid-template-columns: 1fr 1fr 1fr 1fr 1fr;
+        grid-template-rows: 1fr 1fr;
+    }
+
+    form#projects-filter > label[for = "project-search-input"] {
+        grid-column: 1 / span 1;
+        grid-row: 1 / span 1;
+    }
+
+    form#projects-filter > #projects-search-input {
+        grid-column: 2 / span 2;
+        grid-row: 1 / span 1;
+    }
+
+    form#projects-filter > label[for = "project-hide-completed-checkbox"] {
+        grid-column: 4 / span 1;
+        grid-row: 1 / span 1;
+    }
+
+    form#projects-filter > #project-hide-completed-checkbox {
+        grid-column: 5 / span 1;
+        grid-row: 1 / span 1;
+    }
+
+    form#projects-filter > a {
+        grid-column: 1 / span 2;
+        grid-row: 2 / span 1;
+    }
+
+    form#projects-filter > button:not(.button-secondary) {
+        grid-column: 3 / span 3;
+        grid-row: 2 / span 1;
+    }
+}
+
+/******** ASSIGNMENT ********/
+
+.assign-select {
+    max-width: 65ch;
 }
 
 /******** PROJECT LIST ********/
@@ -479,54 +604,128 @@ ul#project-list {
     list-style: none;
     width: 100%;
 
-    overflow-y: auto;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
 }
 
 ul#project-list > li {
-    width: 100%;
-    display: grid;
+    display: flex;
+    flex-direction: column;
+
+    gap: var(--spacing-sm);
+    margin: var(--spacing-sm);
+    padding: var(--spacing-sm);
+
+    box-shadow: rgba(0, 0, 0, 0.25) 0 14px 28px,
+                rgba(0, 0, 0, 0.22) 0 10px 10px;
+}
+
+.project-title-delete {
+    display: flex;
+    flex-direction: row;
     align-items: center;
-
-    grid-template-columns: 2fr 2fr 1fr 1fr;
-    grid-template-rows: 1fr 1fr;
-
-    grid-row-gap: var(--spacing-sm);
-    grid-column-gap: var(--spacing-sm);
-
-    margin-bottom: var(--spacing-md);
+    justify-content: space-between;
 }
 
-.project-info {
-    grid-column: 1 / span 1;
-    grid-row: 1 / span 1;
+.project-title-delete > a {
+    flex: 1;
 }
 
-.project-assignment {
-    grid-column: 3 / span 1;
-    grid-row: 1 / span 1;
-}
-
-.project-delete {
-    grid-column: 4 / span 1;
-    grid-row: 1 / span 1;
+.project-info-assignment {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
 }
 
 .project-progress {
     width: 100%;
-    grid-column: 1 / span 4;
-    grid-row: 2 / span 1;
+}
+
+#add-project-form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    margin: var(--spacing-sm);
+}
+
+@media screen and (max-width: 800px) {
+    ul#project-list {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media screen and (min-width: 1300px) {
+    ul#project-list {
+        grid-template-columns: 1fr 1fr 1fr;
+    }
+}
+
+@media screen and (min-width: 1600px) {
+    ul#project-list {
+        grid-template-columns: 1fr 1fr 1fr 1fr;
+    }
 }
 
 
 /******** TASK BUTTONS ********/
 
-a#add-task-doable-link,
-a#add-task-countable-link {
-    width: min(25%, 250px);
+#project-add-task-buttons {
+    position: relative;
 }
 
-main:has(a#add-task-doable-link) button {
+#hidden-task-buttons {
+    position: fixed;
+    right: var(--spacing-sm);
+    z-index: 999;
+
+    padding: var(--spacing-xs);
+
+    border: 2px solid var(--clr-primary);
+    background-color: var(--clr-bg-dark);
+}
+
+#hidden-task-buttons > button {
+    z-index: 999;
     width: 100%;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+
+    margin-block: var(--spacing-xs);
+    padding-right: var(--spacing-xs);
+}
+
+#hidden-task-buttons.hidden {
+    bottom: -500px;
+}
+
+#hidden-task-buttons.active {
+    bottom: calc(var(--spacing-md) + calc(48px + var(--spacing-xs)) + var(--spacing-sm));
+}
+
+#add-task-doable-form,
+#add-task-countable-form,
+#add-task-litematica-form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    margin-block: var(--spacing-lg);
+    margin-inline: var(--spacing-md);
+}
+
+#edit-countable-task-form {
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    grid-row-gap: var(--spacing-md);
+    grid-column-gap: var(--spacing-sm);
+    padding-block-start: var(--spacing-md);
+}
+
+#edit-task-id-input {
+    display: none;
 }
 
 /******** TASK FILTER ********/
@@ -535,66 +734,80 @@ main:has(a#add-task-doable-link) button {
     padding: var(--spacing-sm);
 }
 
+#project-tasks-filter-form {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+
+    grid-column-gap: var(--spacing-sm);
+    grid-row-gap: var(--spacing-sm);
+}
+
+#project-tasks-filter-form > label,
+#project-tasks-filter-form > input,
+#project-tasks-filter-form > select {
+    grid-column: span 2;
+}
+
+#project-tasks-filter-form > a,
+#project-tasks-filter-form > a > button {
+    width: 100%;
+}
+
+@media screen and (min-width: 800px) {
+    #project-tasks-filter-form > label,
+    #project-tasks-filter-form > input,
+    #project-tasks-filter-form > select {
+        grid-column: span 1;
+    }
+}
+
 /******** TASK OVERVIEW ********/
 
 li.task {
-    width: 100%;
-    display: flex;
-    flex-direction: row;
-
-    justify-content: space-between;
-    padding: var(--spacing-sm);
-    margin-bottom: var(--spacing-md);
-}
-
-li.task > .task-name-assignment {
     display: flex;
     flex-direction: column;
-    width: 25%;
-    height: 100%;
 
     justify-content: space-between;
     padding: var(--spacing-sm);
+    margin: var(--spacing-md);
+    gap: var(--spacing-sm);
+
+    box-shadow: rgba(0, 0, 0, 0.25) 0 14px 24px,
+                rgba(0, 0, 0, 0.22) 0 10px 10px;
 }
 
-li.task > .app-progress {
-    width: 50%;
-}
-
-.doable-task-progress {
-    display: grid;
-    grid-template-rows: 1fr 1fr;
-    grid-template-columns: 1fr 1fr 1fr 1fr 1fr;
-
-    column-gap: var(--spacing-sm);
-}
-
-.doable-task-progress > .app-progress {
-    grid-column: 1 / span 5;
-    grid-row: 1 / span 1;
-
-    width: 100%;
-}
-
-.project-task-assign-button {
-    min-width: 125px;
-    justify-content: start;
-
-    gap: var(--spacing-xs);
-
-    border: none !important;
-}
-
-.doable-task-actions {
-    width: fit-content;
+.task-name-delete {
     display: flex;
     flex-direction: row;
-    justify-content: flex-end;
     align-items: center;
+    justify-content: space-between;
+}
+
+.countable-task-actions {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+
     gap: var(--spacing-sm);
 }
 
-/******** USER ASSIGNMENT ********/
+.countable-task-actions > button {
+    min-width: 75px;
+    flex: 1;
+}
+
+.task > .app-progress {
+    width: 100%;
+}
+
+.task-doable-input {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+
+    max-width: 65ch;
+}
 
 /******** USERS AND WORLD LIST ********/
 

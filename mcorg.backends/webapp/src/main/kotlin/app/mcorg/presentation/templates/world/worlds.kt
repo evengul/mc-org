@@ -3,14 +3,13 @@ package app.mcorg.presentation.templates.world
 import app.mcorg.domain.World
 import app.mcorg.presentation.*
 import app.mcorg.presentation.templates.MainPage
-import app.mcorg.presentation.templates.NavBarRightIcon
 import app.mcorg.presentation.templates.mainPageTemplate
 import kotlinx.html.*
 
 fun worlds(selectedWorldId: Int?, worlds: List<World>): String = mainPageTemplate(
     selectedPage = MainPage.WORLDS,
-    selectedWorldId, "Worlds",
-    emptyList()
+    worldId = selectedWorldId,
+    title = "Worlds",
 ) {
     classes = setOf("page-list-with-add-form")
     form {
@@ -31,7 +30,7 @@ fun worlds(selectedWorldId: Int?, worlds: List<World>): String = mainPageTemplat
         button {
             id = "add-world-submit-button"
             type = ButtonType.submit
-            + "Create"
+            + "Create new world"
         }
     }
     ul {

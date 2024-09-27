@@ -25,7 +25,7 @@ suspend fun ApplicationCall.receiveAddUserRequest(): AddUserRequest {
 suspend fun ApplicationCall.receiveAssignUserRequest(): AssignUserOrDeleteAssignmentRequest {
     val data = receiveParameters()
     val unsafeUserId = data["userId"]
-    if (unsafeUserId == "NONE") return DeleteAssignmentRequest
+    if (unsafeUserId == "-1") return DeleteAssignmentRequest
     val userId = unsafeUserId?.toIntOrNull() ?: throw IllegalArgumentException("userId is required")
     return AssignUserRequest(userId)
 }
@@ -46,6 +46,11 @@ fun ApplicationCall.receiveTaskFilters() = TaskFiltersRequest(
     parameters["completionFilter"],
     parameters["taskTypeFilter"],
     parameters["amountFilter"]?.toIntOrNull()
+)
+
+fun ApplicationCall.receiveProjectFilters() = ProjectFiltersRequest(
+    parameters["search"],
+    parameters["hideCompleted"] == "on"
 )
 
 suspend fun ApplicationCall.receiveDoableTaskRequest(): AddDoableRequest {

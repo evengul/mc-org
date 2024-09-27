@@ -4,11 +4,11 @@ import app.mcorg.domain.Authority
 import app.mcorg.presentation.configuration.permissionsApi
 import app.mcorg.presentation.configuration.usersApi
 import app.mcorg.presentation.configuration.worldsApi
-import app.mcorg.presentation.router.utils.respondEmptyHtml
+import app.mcorg.presentation.utils.respondEmptyHtml
 import app.mcorg.presentation.utils.getUserId
 import app.mcorg.presentation.utils.getWorldId
 import app.mcorg.presentation.utils.receiveCreateWorldRequest
-import app.mcorg.presentation.router.utils.respondHtml
+import app.mcorg.presentation.utils.respondHtml
 import app.mcorg.presentation.templates.world.worlds
 import app.mcorg.presentation.utils.clientRedirect
 import io.ktor.server.application.*

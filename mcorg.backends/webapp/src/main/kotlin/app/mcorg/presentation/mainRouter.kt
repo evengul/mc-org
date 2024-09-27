@@ -75,10 +75,7 @@ fun Application.configureAppRouter() {
                         get {
                             call.handleGetProjects()
                         }
-                        get("/add") {
-                            call.handleGetAddProject()
-                        }
-                        post("/add") {
+                        post {
                             call.handlePostProject()
                         }
                         route("/{projectId}") {
@@ -92,31 +89,19 @@ fun Application.configureAppRouter() {
                             patch("/assign") {
                                 call.handlePatchProjectAssignee()
                             }
-                            route("/add-task") {
-                                get {
-                                    call.handleGetAddTask()
-                                }
-                                get("/doable") {
-                                    call.handleGetAddDoableTask()
-                                }
+                            route("/tasks") {
                                 post("/doable") {
                                     call.handlePostDoableTask()
-                                }
-                                get("/countable") {
-                                    call.handleGetAddCountableTask()
                                 }
                                 post("/countable") {
                                     call.handlePostCountableTask()
                                 }
-                                get("/litematica") {
-                                    call.handleGetUploadLitematicaTasks()
-                                }
                                 post("/litematica") {
                                     call.handlePostLitematicaTasks()
                                 }
-                            }
-                            patch("/tasks/requirements") {
-                                call.handleEditTaskRequirements()
+                                patch("/requirements") {
+                                    call.handleEditTaskRequirements()
+                                }
                             }
                             route("/tasks/{taskId}") {
                                 install(TaskParamPlugin)

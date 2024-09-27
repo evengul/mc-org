@@ -23,3 +23,5 @@ data class TaskFiltersRequest(val search: String?,
                                 val completionFilter: String?,
                                 val taskTypeFilter: String?,
                                 val amountFilter: Int?)
+
+data class ProjectFiltersRequest(val search: String?, val hideCompleted: Boolean)

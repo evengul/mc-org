@@ -9,31 +9,28 @@ import app.mcorg.presentation.configuration.projectsApi
 import app.mcorg.presentation.configuration.usersApi
 import app.mcorg.presentation.entities.AssignUserRequest
 import app.mcorg.presentation.entities.DeleteAssignmentRequest
-import app.mcorg.presentation.router.utils.*
 import app.mcorg.presentation.templates.project.*
 import app.mcorg.presentation.utils.*
 import io.ktor.server.application.*
-import io.ktor.server.response.*
+import io.ktor.server.plugins.*
 
 suspend fun ApplicationCall.handleGetProjects() {
     val worldId = getWorldId()
     val projects = projectsApi.getWorldProjects(worldId)
     val users = permissionsApi.getUsersInWorld(worldId)
-    val currentUser = getUser()
-    respondHtml(projects(worldId, projects, users, currentUser))
-}
-
-suspend fun ApplicationCall.handleGetAddProject() {
-    val userId = getUserId()
-    val profile = usersApi.getProfile(userId) ?: throw IllegalArgumentException("No user found")
-    respondHtml(addProject(backLink = "/app/worlds/${getWorldId()}/projects", profile.technicalPlayer))
+    val currentUser = usersApi.getProfile(getUserId()) ?: throw NotFoundException()
+    val filters = receiveProjectFilters()
+    respondHtml(projects(worldId, projects, users, currentUser, filters))
 }
 
 suspend fun ApplicationCall.handlePostProject() {
     val (name, priority, dimension, requiresPerimeter) = receiveCreateProjectRequest()
     val worldId = getWorldId()
     val projectId = projectsApi.createProject(worldId, name, dimension, priority, requiresPerimeter)
-    respondRedirect("/app/worlds/$worldId/projects/$projectId/add-task")
+    val project = projectsApi.getProject(projectId)?.toSlim() ?: throw NotFoundException()
+    val users = permissionsApi.getUsersInWorld(worldId)
+    val currentUser = getUser()
+    respondHtml(createProjectListElement(worldId, project, users, currentUser))
 }
 
 suspend fun ApplicationCall.handleDeleteProject() {
