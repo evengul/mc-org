@@ -435,11 +435,10 @@ main#sign-in {
 }
 
 main#sign-in > h1 {
-    font-size: calc(var(--text-xxl) * 2);
+    font-size: calc(var(--text-xxl) * 1.3);
 }
 
 main#sign-in > p {
-    font-size: calc(var(--text-md) * 2);
     padding-inline: var(--spacing-md);
 
     max-width: 65ch;
