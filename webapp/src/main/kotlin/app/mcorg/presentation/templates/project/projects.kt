@@ -17,6 +17,7 @@ fun projects(worldId: Int, projects: List<SlimProject>, worldUsers: List<User>, 
 ) {
     addProjectDialog(worldId, currentUser.technicalPlayer)
     button {
+        id = "show-create-project-dialog-button"
         onClick = "showDialog('add-project-dialog')"
         classes = setOf("button", "button-icon", "button-fab", "icon-menu-add")
     }
@@ -59,6 +60,7 @@ fun projects(worldId: Int, projects: List<SlimProject>, worldUsers: List<User>, 
             }
             button {
                 type = ButtonType.submit
+                id = ""
                 + "Search"
             }
         }
