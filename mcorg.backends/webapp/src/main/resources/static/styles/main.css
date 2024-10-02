@@ -429,7 +429,7 @@ main#sign-in {
     justify-content: center;
     align-items: center;
 
-    gap: var(--spacing-xl);
+    gap: var(--spacing-lg);
 
     height: 100%;
 }
