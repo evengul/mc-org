@@ -21,7 +21,7 @@ suspend fun ApplicationCall.handleGetSignIn() {
     }
 
     if (user == null) {
-        if (getSkipMicrosoftSignIn() == "true") {
+        if (getSkipMicrosoftSignIn().lowercase() == "true") {
             respondHtml(signInTemplate("/auth/oidc/local-redirect"))
         } else {
             respondHtml(signInTemplate(getMicrosoftSignInUrl()))
@@ -37,7 +37,7 @@ suspend fun ApplicationCall.handleGetSignIn() {
 }
 
 suspend fun ApplicationCall.handleLocalSignIn() {
-    if(getEnvironment() == "LOCAL" || getSkipMicrosoftSignIn() == "true") {
+    if(getEnvironment() == "LOCAL" || getSkipMicrosoftSignIn().lowercase() == "true") {
         addToken(createSignedJwtToken(getLocalUser()))
         respondRedirect("/")
     } else {
