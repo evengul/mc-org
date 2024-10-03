@@ -16,6 +16,7 @@ fun projects(worldId: Int, projects: List<SlimProject>, worldUsers: List<User>, 
 ) {
     addProjectDialog(worldId, currentUser.technicalPlayer)
     button {
+        id = "show-create-project-dialog-button"
         onClick = "showDialog('add-project-dialog')"
         classes = setOf("button", "button-icon", "button-fab", "icon-menu-add")
     }
@@ -48,12 +49,14 @@ fun projects(worldId: Int, projects: List<SlimProject>, worldUsers: List<User>, 
                 a {
                     href = "/app/worlds/$worldId/projects"
                     button {
+                        id = "projects-filter-clear-button"
                         classes = setOf("button-secondary")
                         type = ButtonType.button
                         + "Clear"
                     }
                 }
                 button {
+                    id = "projects-filter-submit-button"
                     type = ButtonType.submit
                     + "Search"
                 }

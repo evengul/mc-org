@@ -27,6 +27,9 @@ fun Application.configureAppRouter() {
             get("/oidc/local-redirect") {
                 call.handleLocalSignIn()
             }
+            get("/oidc/test-redirect") {
+                call.handleTestSignIn()
+            }
         }
         route("/app") {
             install(AuthPlugin)
