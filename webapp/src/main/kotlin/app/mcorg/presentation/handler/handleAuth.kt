@@ -13,6 +13,8 @@ import com.auth0.jwt.exceptions.TokenExpiredException
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.response.*
+import java.time.LocalDateTime
+import java.time.ZoneOffset
 
 suspend fun ApplicationCall.handleGetSignIn() {
     val user = try {
@@ -22,11 +24,12 @@ suspend fun ApplicationCall.handleGetSignIn() {
     }
 
     if (user == null) {
-        if (getSkipMicrosoftSignIn().lowercase() == "true") {
-            respondHtml(signInTemplate("/auth/oidc/local-redirect"))
-        } else {
-            respondHtml(signInTemplate(getMicrosoftSignInUrl()))
+        val url = when {
+            getSkipMicrosoftSignIn().lowercase() != "true" -> getMicrosoftSignInUrl()
+            parameters["test"] == "true" -> "/auth/oidc/test-redirect"
+            else -> "/auth/oidc/local-redirect"
         }
+        respondHtml(signInTemplate(url))
     } else {
         val profile = usersApi.getProfile(user.id) ?: return removeTokenAndSignOut()
         if (profile.selectedWorld != null) {
@@ -44,6 +47,21 @@ suspend fun ApplicationCall.handleLocalSignIn() {
     } else {
         respond(HttpStatusCode.Forbidden)
     }
+}
+
+suspend fun ApplicationCall.handleTestSignIn() {
+    if (getEnvironment() == "TEST") {
+        addToken(createSignedJwtToken(getTestUser()))
+        respondRedirect("/")
+    } else {
+        respond(HttpStatusCode.Forbidden)
+    }
+}
+
+private fun getTestUser(): User {
+    val username = "TestUser_${LocalDateTime.now().toEpochSecond(ZoneOffset.UTC)}"
+    val userId = usersApi.createUser(username, "test-$username@mcorg.app")
+    return usersApi.getUser(userId)!!
 }
 
 private fun getLocalUser(): User {

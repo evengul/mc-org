@@ -1,5 +1,6 @@
 import {expect, test} from "@playwright/test";
-import {getUrl} from "./utils";
+import {getUrl, signInAndGoTo} from "./utils";
+import {locators} from "./locators";
 
 test.describe("Sign in", () => {
   test("Has content", async ({page}) => {
@@ -7,23 +8,17 @@ test.describe("Sign in", () => {
 
     await expect(page).toHaveTitle(/MC-ORG.*/g)
 
-    const h1 = page.getByText("Welcome to MCORG!")
-    await expect(h1).toBeVisible()
+    const {title, button} = locators(page).SIGN_IN
 
-    const button = page.getByText("Sign in with Microsoft")
+    await expect(title).toBeVisible()
     await expect(button).toBeVisible()
   })
 
   test("Sign in adds token", async ({page, browser}) => {
     const [context] = browser.contexts()
-    await page.goto(getUrl("MAIN"));
+    await context.clearCookies()
+    await signInAndGoTo(page, "MAIN")
 
-    const button = page.getByText("Sign in with Microsoft")
-    await button.click()
-
-    await expect(page).toHaveTitle("MC-ORG | Projects")
-    const h1 = page.getByRole("heading", {name: "Projects"})
-    await expect(h1).toBeVisible()
     const cookies = await context.cookies()
 
     const cookie = cookies.find(cookie => cookie.name === "MCORG-USER-TOKEN")

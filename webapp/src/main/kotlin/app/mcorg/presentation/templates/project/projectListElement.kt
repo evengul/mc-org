@@ -1,5 +1,7 @@
 package app.mcorg.presentation.templates.project
 
+import app.mcorg.domain.Dimension
+import app.mcorg.domain.Priority
 import app.mcorg.domain.SlimProject
 import app.mcorg.domain.User
 import app.mcorg.presentation.components.appProgress
@@ -15,6 +17,7 @@ fun createProjectListElement(worldId: Int, project: SlimProject, worldUsers: Lis
 }
 
 fun LI.projectListElement(worldId: Int, project: SlimProject, worldUsers: List<User>, currentUser: User) {
+    classes = setOf("project")
     id = "project-${project.id}"
     div {
         classes = setOf("project-header")
@@ -25,7 +28,7 @@ fun LI.projectListElement(worldId: Int, project: SlimProject, worldUsers: List<U
             }
         }
         button {
-            classes = setOf("icon-row button button-icon icon-small icon-delete-small")
+            classes = setOf("icon-row button button-icon icon-small icon-delete-small delete-project-button")
             hxDelete("/app/worlds/${project.worldId}/projects/${project.id}")
             hxTarget("#project-${project.id}")
             hxSwap("outerHTML")
@@ -38,12 +41,12 @@ fun LI.projectListElement(worldId: Int, project: SlimProject, worldUsers: List<U
         p {
             classes = setOf("icon-row")
             span { classes = setOf("icon", "icon-priority-${project.priority.name.lowercase()}") }
-            + ("Priority: " + project.priority.name)
+            + ("Priority: " + project.priority.presentable())
         }
         p {
             classes = setOf("icon-row")
             span { classes = setOf("icon", "icon-dimension-${project.dimension.name.lowercase()}") }
-            + ("Dimension: " + project.dimension.name)
+            + ("Dimension: " + project.dimension.presentable())
         }
     }
 
@@ -54,4 +57,17 @@ fun LI.projectListElement(worldId: Int, project: SlimProject, worldUsers: List<U
         }
     }
     appProgress(progressClasses = setOf("project-progress"), max = 1.0, value = project.progress)
+}
+
+fun Priority.presentable() = when (this) {
+    Priority.HIGH -> "High"
+    Priority.MEDIUM -> "Medium"
+    Priority.LOW -> "Low"
+    Priority.NONE -> "None"
+}
+
+fun Dimension.presentable() = when (this) {
+    Dimension.OVERWORLD -> "Overworld"
+    Dimension.NETHER -> "Nether"
+    Dimension.THE_END -> "The End"
 }
