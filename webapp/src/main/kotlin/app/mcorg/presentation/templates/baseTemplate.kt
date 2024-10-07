@@ -1,5 +1,6 @@
 package app.mcorg.presentation.templates
 
+import app.mcorg.presentation.hxExtension
 import io.ktor.util.*
 import kotlinx.html.*
 import kotlinx.html.stream.createHTML
@@ -14,6 +15,9 @@ fun baseTemplate(siteTitle: String = "MC-ORG", body: BODY.() -> Unit): String {
             script {
                 src = "/static/scripts/htmx.js"
                 nonce = generateNonce()
+            }
+            script {
+                src = "/static/scripts/response-targets.js"
             }
             script {
                 src = "/static/scripts/dialogs.js"
@@ -37,6 +41,7 @@ fun baseTemplate(siteTitle: String = "MC-ORG", body: BODY.() -> Unit): String {
             }
         }
         body {
+            hxExtension("response-targets")
             body()
         }
     }

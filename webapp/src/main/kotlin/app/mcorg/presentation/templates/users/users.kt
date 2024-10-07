@@ -1,10 +1,7 @@
 package app.mcorg.presentation.templates.users
 
 import app.mcorg.domain.User
-import app.mcorg.presentation.hxDelete
-import app.mcorg.presentation.hxPost
-import app.mcorg.presentation.hxSwap
-import app.mcorg.presentation.hxTarget
+import app.mcorg.presentation.*
 import app.mcorg.presentation.templates.MainPage
 import app.mcorg.presentation.templates.NavBarRightIcon
 import app.mcorg.presentation.templates.mainPageTemplate
@@ -25,6 +22,7 @@ fun users(worldId: Int, currentUser: User, users: List<User>, isAdmin: Boolean):
             autoComplete = false
             hxPost("/app/worlds/$worldId/users")
             hxTarget("#users-list-current-user")
+            hxErrorTarget("#error-message", "400")
             hxSwap("afterend")
             label {
                 htmlFor = "add-user-username-input"
@@ -36,6 +34,10 @@ fun users(worldId: Int, currentUser: User, users: List<User>, isAdmin: Boolean):
                 name = "username"
                 autoComplete = false
                 required = true
+            }
+            p {
+                classes = setOf("error")
+                id = "error-message"
             }
             p {
                 + "Must be an exact match, and must have signed in to MC-ORG before"
