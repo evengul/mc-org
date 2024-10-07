@@ -8,8 +8,7 @@ suspend fun ApplicationCall.respondEmptyHtml() = respondHtml("")
 
 suspend fun ApplicationCall.respondHtml(html: String, statusCode: HttpStatusCode = HttpStatusCode.OK) {
     isHtml()
-    response.status(statusCode)
-    respond(html)
+    respond(status = statusCode, message = html)
 }
 
 private fun ApplicationCall.isHtml() {
