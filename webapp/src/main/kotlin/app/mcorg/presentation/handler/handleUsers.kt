@@ -24,7 +24,7 @@ suspend fun ApplicationCall.handleGetUsers() {
 suspend fun ApplicationCall.handlePostUser() {
     val worldId = getWorldId()
     val (username) = receiveAddUserRequest()
-    val user = usersApi.getUser(username) ?: throw IllegalArgumentException("user does not exist")
+    val user = usersApi.getUser(username) ?: return badRequest("User does not exist")
     permissionsApi.addWorldPermission(user.id, worldId, Authority.PARTICIPANT)
     val currentUserIsAdmin = permissionsApi.hasWorldPermission(getUserId(), authority = Authority.ADMIN, worldId)
     respondHtml(createUserListElement(worldId, user, currentUserIsAdmin))

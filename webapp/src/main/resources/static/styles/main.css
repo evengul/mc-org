@@ -315,6 +315,12 @@ input[type="checkbox"]:disabled {
     }
 }
 
+/******** Notification Text ********/
+.error {
+    color: var(--clr-danger);
+    font-weight: bold;
+}
+
 /******** NAVBAR ********/
 
 nav {
