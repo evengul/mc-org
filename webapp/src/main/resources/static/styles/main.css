@@ -166,6 +166,10 @@ button.button-fab {
     background-image: url("/static/icons/medium/dimensions/Overworld.svg");
 }
 
+.icon-menu-contraptions {
+    background-image: url("/static/icons/medium/menu/Contraptions.svg");
+}
+
 .icon-dimension-nether {
     background-image: url("/static/icons/medium/dimensions/Nether.svg");
 }
@@ -806,6 +810,40 @@ li.task {
     justify-content: space-between;
 
     max-width: 65ch;
+}
+
+/******** CONTRAPTIONS FORM ********/
+
+#create-contraption-form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+/******** CONTRAPTIONS LIST ********/
+
+.contraptions-title-delete {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+}
+
+#contraptions-list {
+    list-style: none;
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+
+    gap: var(--spacing-sm);
+}
+
+#contraptions-list > li {
+    width: 100%;
+    margin: var(--spacing-sm);
+    padding: var(--spacing-sm);
+    box-shadow: rgba(0, 0, 0, 0.25) 0 14px 24px,
+                rgba(0, 0, 0, 0.22) 0 10px 10px;
 }
 
 /******** WORLD LIST ********/

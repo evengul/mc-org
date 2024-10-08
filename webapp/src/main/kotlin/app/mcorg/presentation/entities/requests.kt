@@ -1,9 +1,6 @@
 package app.mcorg.presentation.entities
 
-import app.mcorg.domain.Dimension
-import app.mcorg.domain.GameType
-import app.mcorg.domain.Priority
-import app.mcorg.domain.WorldVersion
+import app.mcorg.domain.*
 
 data class CreateWorldRequest(val worldName: String, val gameType: GameType, val version: WorldVersion, val isTechnical: Boolean)
 data class AddUserRequest(val username: String)
@@ -27,3 +24,13 @@ data class TaskFiltersRequest(val search: String?,
                                 val amountFilter: Int?)
 
 data class ProjectFiltersRequest(val search: String?, val hideCompleted: Boolean)
+
+data class ContraptionRequest(
+    val name: String,
+    val description: String?,
+    val authors: List<String>,
+    val gameType: GameType,
+    val version: ContraptionVersion,
+    val schematicUrl: String?,
+    val worldDownloadUrl: String?
+)

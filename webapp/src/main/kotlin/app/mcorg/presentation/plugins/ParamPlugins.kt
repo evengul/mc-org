@@ -39,3 +39,14 @@ val TaskParamPlugin = createRouteScopedPlugin("TaskParamPlugin") {
         }
     }
 }
+
+val ContraptionParamPlugin = createRouteScopedPlugin("ContraptionParamPlugin") {
+    onCall {
+        val contraptionParam = it.parameters["contraptionId"]?.toIntOrNull()
+        if (contraptionParam != null) {
+            it.setContraption(contraptionParam)
+        } else {
+            it.respondRedirect("/app/contraptions")
+        }
+    }
+}

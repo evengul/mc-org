@@ -7,7 +7,8 @@ enum class MainPage {
     PROJECTS,
     USERS,
     WORLDS,
-    PROFILE
+    PROFILE,
+    CONTRAPTIONS
 }
 
 fun mainPageTemplate(selectedPage: MainPage, worldId: Int?, title: String, rightIcons: List<NavBarRightIcon> = emptyList(), main: MAIN.() -> Unit) = pageTemplate(title, rightIcons, main) {

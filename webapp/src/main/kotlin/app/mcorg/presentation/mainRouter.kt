@@ -46,7 +46,19 @@ fun Application.configureAppRouter() {
             }
             route("/contraptions") {
                 get {
-
+                    call.handleGetContraptions()
+                }
+                post {
+                    call.handlePostContraption()
+                }
+                route("/{contraptionId}") {
+                    install(ContraptionParamPlugin)
+                    get {
+                        call.handleGetContraption()
+                    }
+                    delete {
+                        call.handleDeleteContraption()
+                    }
                 }
             }
             route("/worlds") {

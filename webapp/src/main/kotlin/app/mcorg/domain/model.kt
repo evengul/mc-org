@@ -65,8 +65,8 @@ data class Contraption(
     val worldDownloadUrl: String?,
 )
 
-data class WorldVersion(val main: Int, val secondary: Int)
-data class ContraptionVersion(val main: Int, val secondary: Int?, val allAbove: Boolean)
+data class WorldVersion(val major: Int, val minor: Int)
+data class ContraptionVersion(val lowerBound: WorldVersion, val upperBound: WorldVersion?)
 
 data class UserPermissions(val userId: Int, val ownedWorlds: List<World>, val participantWorlds: List<World>)
 

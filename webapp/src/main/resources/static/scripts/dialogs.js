@@ -58,11 +58,27 @@ function clearTaskDialogs() {
     litematicaFileInput.value = ""
 }
 
+function clearContraptionDialog() {
+    [
+      "create-contraption-name-input",
+      "create-contraption-description-input",
+      "create-contraption-author-input",
+      "create-contraption-game-type-input",
+      "create-contraption-version-input",
+      "create-contraption-schematic-url",
+      "create-contraption-world-download-url"
+    ].map(document.getElementById)
+      .forEach(element => {
+          element.value = ""
+      })
+}
+
 window.addEventListener('load', () => {
     addCloseListener("edit-task-dialog", path => path.includes("/requirements"))
     addCloseListener("add-project-dialog", path => path.includes("/projects"))
     addCloseListener("add-task-doable-dialog", path => path.includes("/tasks/doable"), clearTaskDialogs)
     addCloseListener("add-task-countable-dialog", path => path.includes("/tasks/countable"), clearTaskDialogs)
     addCloseListener("add-task-litematica-dialog", path => path.includes("/tasks/litematica"), clearTaskDialogs)
+    addCloseListener("create-contraption-dialog", path => path.includes("/app/contraptions"), clearContraptionDialog)
 })
 

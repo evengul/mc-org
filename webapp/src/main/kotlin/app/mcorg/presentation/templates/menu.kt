@@ -73,6 +73,20 @@ fun NAV.menu(selectedPage: MainPage, worldId: Int?) = ul {
                 }
             }
         }
+        li {
+            classes = getListItemClasses(MainPage.CONTRAPTIONS, selectedPage)
+            a {
+                classes = setOf("icon-row")
+                id = "menu-contraptions-link"
+                href = "/app/contraptions"
+                span {
+                    classes = setOf("icon", "icon-menu-contraptions")
+                }
+                h2 {
+                    + "Contraptions"
+                }
+            }
+        }
     }
     hr {  }
     li {

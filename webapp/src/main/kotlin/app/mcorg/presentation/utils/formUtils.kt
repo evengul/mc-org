@@ -85,6 +85,19 @@ suspend fun ApplicationCall.receiveMaterialListTasks(): List<PremadeTask> {
     } ?: emptyList()
 }
 
+suspend fun ApplicationCall.receiveContraption(): ContraptionRequest {
+    val data = receiveParameters()
+    return ContraptionRequest(
+        data["name"] ?: throw IllegalArgumentException("name is required"),
+        data["description"],
+        data["authors"]?.split(";") ?: throw IllegalArgumentException("authors is required"),
+        data["game-type"]?.toGameType() ?: GameType.JAVA,
+        data["version"]?.toContraptionVersion() ?: throw IllegalArgumentException("version is required"),
+        data["schematicUrl"],
+        data["worldDownloadUrl"]
+    )
+}
+
 private fun String?.toDimension(): Dimension = when(this) {
     "OVERWORLD" -> Dimension.OVERWORLD
     "NETHER" -> Dimension.NETHER
@@ -102,6 +115,20 @@ private fun String?.toPriority(): Priority = when(this) {
 private fun String?.toGameType(): GameType = when(this) {
     "BEDROCK" -> GameType.BEDROCK
     else -> GameType.JAVA
+}
+
+private fun String.toContraptionVersion(): ContraptionVersion {
+    return if (this.contains("-")) {
+        ContraptionVersion(
+            lowerBound = this.split("-")[0].toWorldVersion(),
+            upperBound = this.split("-")[1].toWorldVersion()
+        )
+    } else {
+        ContraptionVersion(
+            lowerBound = this.toWorldVersion(),
+            upperBound = null
+        )
+    }
 }
 
 private fun String?.toWorldVersion(): WorldVersion {

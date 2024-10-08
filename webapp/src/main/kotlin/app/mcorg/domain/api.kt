@@ -74,6 +74,13 @@ interface Projects {
     fun removeProjectDependencyToTask(dependencyId: Int)
 }
 
+interface Contraptions {
+    suspend fun getContraption(id: Int): Contraption?
+    suspend fun getContraptions(): List<Contraption>
+    suspend fun createContraption(name: String, description: String? = null, archived: Boolean = false, authors: List<String>, gameType: GameType, version: ContraptionVersion, schematicUrl: String?, worldDownloadUrl: String?): Int
+    suspend fun deleteContraption(id: Int)
+}
+
 interface Minecraft {
     suspend fun getProfile(authorizationCode: String, clientId: String, clientSecret: String, host: String): MinecraftProfile
 }

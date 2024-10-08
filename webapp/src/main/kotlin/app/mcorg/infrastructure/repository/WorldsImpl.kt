@@ -43,8 +43,8 @@ class WorldsImpl : Worlds, Repository() {
                 .apply {
                     setString(1, name)
                     setString(2, gameType.name)
-                    setInt(3, version.main)
-                    setInt(4, version.secondary)
+                    setInt(3, version.major)
+                    setInt(4, version.minor)
                     setBoolean(5, isTechnical)
                 }
 
