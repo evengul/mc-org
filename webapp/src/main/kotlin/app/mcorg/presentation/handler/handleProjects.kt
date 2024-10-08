@@ -7,6 +7,7 @@ import app.mcorg.domain.toSlim
 import app.mcorg.presentation.configuration.permissionsApi
 import app.mcorg.presentation.configuration.projectsApi
 import app.mcorg.presentation.configuration.usersApi
+import app.mcorg.presentation.configuration.worldsApi
 import app.mcorg.presentation.entities.AssignUserRequest
 import app.mcorg.presentation.entities.DeleteAssignmentRequest
 import app.mcorg.presentation.templates.project.*
@@ -16,11 +17,12 @@ import io.ktor.server.plugins.*
 
 suspend fun ApplicationCall.handleGetProjects() {
     val worldId = getWorldId()
+    val world = worldsApi.getWorld(worldId) ?: throw NotFoundException("world $worldId not found")
     val projects = projectsApi.getWorldProjects(worldId)
     val users = permissionsApi.getUsersInWorld(worldId)
     val currentUser = usersApi.getProfile(getUserId()) ?: throw NotFoundException()
     val filters = receiveProjectFilters()
-    respondHtml(projects(worldId, projects, users, currentUser, filters))
+    respondHtml(projects(world, projects, users, currentUser, filters))
 }
 
 suspend fun ApplicationCall.handlePostProject() {

@@ -1,9 +1,6 @@
 package app.mcorg.presentation.utils
 
-import app.mcorg.domain.Dimension
-import app.mcorg.domain.PremadeTask
-import app.mcorg.domain.Priority
-import app.mcorg.domain.tasksFromMaterialList
+import app.mcorg.domain.*
 import app.mcorg.presentation.entities.*
 import io.ktor.http.content.*
 import io.ktor.server.application.*
@@ -12,8 +9,11 @@ import io.ktor.server.request.*
 suspend fun ApplicationCall.receiveCreateWorldRequest(): CreateWorldRequest {
     val data = receiveParameters()
     val worldName = data["worldName"] ?: throw IllegalArgumentException("worldName is required")
+    val gameType = data["gameType"]?.toGameType() ?: GameType.JAVA
+    val version = data["version"]?.toWorldVersion() ?: WorldVersion(21, 0)
+    val isTechnical = data["isTechnical"] == "on"
     if (worldName.length < 3) throw IllegalArgumentException("worldName must be longer than 3 characters")
-    return CreateWorldRequest(worldName)
+    return CreateWorldRequest(worldName, gameType, version, isTechnical)
 }
 
 suspend fun ApplicationCall.receiveAddUserRequest(): AddUserRequest {
@@ -97,4 +97,16 @@ private fun String?.toPriority(): Priority = when(this) {
     "MEDIUM" -> Priority.MEDIUM
     "HIGH" -> Priority.HIGH
     else -> Priority.NONE
+}
+
+private fun String?.toGameType(): GameType = when(this) {
+    "BEDROCK" -> GameType.BEDROCK
+    else -> GameType.JAVA
+}
+
+private fun String?.toWorldVersion(): WorldVersion {
+    if (this == null) return WorldVersion(21, 0)
+    if (!this.contains("""1\.[0-9]+\.[0-9]+""".toRegex())) throw IllegalArgumentException("Version not correctly formatted")
+    val split = this.split(".")
+    return WorldVersion(split[1].toInt(), split[2].toInt())
 }

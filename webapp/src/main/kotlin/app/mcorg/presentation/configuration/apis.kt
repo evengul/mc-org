@@ -1,6 +1,7 @@
 package app.mcorg.presentation.configuration
 
 import app.mcorg.infrastructure.gateway.MinecraftImpl
+import app.mcorg.infrastructure.gateway.ModrinthGatewayImpl
 import app.mcorg.infrastructure.repository.PermissionsImpl
 import app.mcorg.infrastructure.repository.ProjectsImpl
 import app.mcorg.infrastructure.repository.UsersImpl
@@ -12,3 +13,7 @@ val worldsApi = WorldsImpl()
 val projectsApi = ProjectsImpl()
 
 val minecraftApi = MinecraftImpl()
+
+val modrinthApi = ModrinthGatewayImpl(
+    System.getenv("MODRINTH_URI")
+)

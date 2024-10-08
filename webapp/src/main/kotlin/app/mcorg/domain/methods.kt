@@ -2,6 +2,8 @@ package app.mcorg.domain
 
 import java.io.InputStream
 
+fun WorldVersion.toVersionString(): String = "1.${main}.${secondary}"
+
 fun Task.isDone(): Boolean {
     return done >= needed
 }
@@ -29,6 +31,13 @@ fun InputStream.tasksFromMaterialList(): List<PremadeTask> {
     return validateMaterialList()
         .getMaterialLines()
         .map { it.materialLineToTask() }
+}
+
+fun ContraptionVersion.matches(version: ContraptionVersion): Boolean {
+    if (this.allAbove) {
+        return this.main <= version.main && (this.secondary == null || this.secondary <= (version.secondary ?: 0))
+    }
+    return this.main == version.main && (this.secondary == null || this.secondary == version.secondary)
 }
 
 private fun String.materialLineToTask(): PremadeTask {

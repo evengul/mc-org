@@ -1,20 +1,17 @@
 package app.mcorg.presentation.templates.project
 
-import app.mcorg.domain.Profile
-import app.mcorg.domain.SlimProject
-import app.mcorg.domain.User
-import app.mcorg.domain.toUser
+import app.mcorg.domain.*
 import app.mcorg.presentation.entities.ProjectFiltersRequest
 import app.mcorg.presentation.templates.MainPage
 import app.mcorg.presentation.templates.mainPageTemplate
 import kotlinx.html.*
 
-fun projects(worldId: Int, projects: List<SlimProject>, worldUsers: List<User>, currentUser: Profile, filtersRequest: ProjectFiltersRequest): String = mainPageTemplate(
+fun projects(world: World, projects: List<SlimProject>, worldUsers: List<User>, currentUser: Profile, filtersRequest: ProjectFiltersRequest): String = mainPageTemplate(
     selectedPage = MainPage.PROJECTS,
-    worldId = worldId,
+    worldId = world.id,
     title = "Projects",
 ) {
-    addProjectDialog(worldId, currentUser.technicalPlayer)
+    addProjectDialog(worldId = world.id, world.isTechnical)
     button {
         id = "show-create-project-dialog-button"
         onClick = "showDialog('add-project-dialog')"
@@ -47,7 +44,7 @@ fun projects(worldId: Int, projects: List<SlimProject>, worldUsers: List<User>, 
                     checked = filtersRequest.hideCompleted
                 }
                 a {
-                    href = "/app/worlds/$worldId/projects"
+                    href = "/app/worlds/${world.id}/projects"
                     button {
                         id = "projects-filter-clear-button"
                         classes = setOf("button-secondary")
@@ -74,7 +71,7 @@ fun projects(worldId: Int, projects: List<SlimProject>, worldUsers: List<User>, 
         id = "project-list"
         for (project in filteredProjects) {
             li {
-                projectListElement(worldId, project, worldUsers, currentUser.toUser())
+                projectListElement(worldId = world.id, project, worldUsers, currentUser.toUser())
             }
         }
     }

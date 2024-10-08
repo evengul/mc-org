@@ -808,10 +808,63 @@ li.task {
     max-width: 65ch;
 }
 
-/******** USERS AND WORLD LIST ********/
+/******** WORLD LIST ********/
 
-#users-list > li,
-#worlds-list > li {
+p#worlds-info {
+    max-width: 65ch;
+    padding: var(--spacing-sm);
+    align-self: center;
+}
+
+ul#worlds-list {
+    list-style: none;
+    width: 100%;
+
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+}
+
+ul#worlds-list > li {
+    flex-grow: 0.5;
+    display: flex;
+    flex-direction: column;
+
+    gap: var(--spacing-sm);
+    margin: var(--spacing-sm);
+    padding: var(--spacing-sm);
+
+    box-shadow: rgba(0, 0, 0, 0.25) 0 14px 28px,
+    rgba(0, 0, 0, 0.22) 0 10px 10px;
+}
+
+.world-title-delete {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.world-title-delete > .icon-row {
+    cursor: pointer;
+    text-decoration: underline;
+}
+
+/******** CREATE WORLD FORM ********/
+
+#create-world-form {
+    align-self: center;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    margin: var(--spacing-sm);
+
+    width: clamp(300px, 75%, 1200px);
+}
+
+/******** USERS LIST ********/
+
+#users-list > li {
     margin-block: var(--spacing-md);
 
     display: flex;
@@ -819,11 +872,6 @@ li.task {
     justify-content: space-between;
 
     width: max(300px, 33%);
-}
-
-#worlds-list > li > span:hover {
-    cursor: pointer;
-    text-decoration: underline;
 }
 
 /******** ADD USER ********/

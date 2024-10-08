@@ -44,6 +44,11 @@ fun Application.configureAppRouter() {
                     call.handleIsTechnical()
                 }
             }
+            route("/contraptions") {
+                get {
+
+                }
+            }
             route("/worlds") {
                 get {
                     call.handleGetWorlds()

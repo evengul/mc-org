@@ -12,7 +12,13 @@ data class Profile(val id: Int,
 
 data class MinecraftProfile(val username: String, val email: String)
 
-data class World(val id: Int, val name: String)
+data class World(
+    val id: Int,
+    val name: String,
+    val gameType: GameType,
+    val version: WorldVersion,
+    val isTechnical: Boolean,
+)
 
 data class SlimProject(val worldId: Int,
                        val id: Int,
@@ -46,6 +52,21 @@ data class Task(val id: Int,
                 val assignee: User?,
                 val taskType: TaskType,
 )
+
+data class Contraption(
+    val id: Int,
+    val name: String,
+    val description: String,
+    val archived: Boolean,
+    val authors: List<String>,
+    val worksInGame: GameType,
+    val worksInVersion: ContraptionVersion,
+    val schematicUrl: String?,
+    val worldDownloadUrl: String?,
+)
+
+data class WorldVersion(val main: Int, val secondary: Int)
+data class ContraptionVersion(val main: Int, val secondary: Int?, val allAbove: Boolean)
 
 data class UserPermissions(val userId: Int, val ownedWorlds: List<World>, val participantWorlds: List<World>)
 

@@ -31,7 +31,12 @@ interface Permissions {
 interface Worlds {
     fun getWorld(id: Int): World?
     fun deleteWorld(id: Int)
-    fun createWorld(name: String): Int
+    fun createWorld(
+        name: String,
+        gameType: GameType = GameType.JAVA,
+        version: WorldVersion = WorldVersion(21, 0),
+        isTechnical: Boolean = false
+    ): Int
 
     fun changeWorldName(id: Int, name: String)
 }
@@ -71,4 +76,11 @@ interface Projects {
 
 interface Minecraft {
     suspend fun getProfile(authorizationCode: String, clientId: String, clientSecret: String, host: String): MinecraftProfile
+}
+
+interface Modrinth {
+    suspend fun getVersions(includeSnapshots: Boolean = false,
+                            includeAlpha: Boolean = false,
+                            includeBeta: Boolean = false,
+                            onlyMajor: Boolean = true): List<String>
 }

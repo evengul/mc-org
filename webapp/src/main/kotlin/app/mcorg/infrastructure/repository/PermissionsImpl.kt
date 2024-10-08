@@ -15,7 +15,7 @@ class PermissionsImpl : Permissions, Repository() {
 
     override fun getPermissions(userId: Int): UserPermissions {
         getConnection().use { conn ->
-            conn.prepareStatement("select permission.world_id, world.name as world_name, " +
+            conn.prepareStatement("select permission.world_id, world.name as world_name, world.game_type, world.version_main, world.version_secondary, world.is_technical, " +
                     "authority from permission " +
                     "left join world on permission.world_id = world.id " +
                     "where user_id = ?")
@@ -29,10 +29,16 @@ class PermissionsImpl : Permissions, Repository() {
                         val worldId = getInt("world_id").takeIf { it > 0 }
                         val worldName = getString("world_name")
                         val authority = getInt("authority").toAuthority()
+                        val gameType = GameType.valueOf(getString("game_type"))
+                        val version = WorldVersion(
+                            getInt("version_main"),
+                            getInt("version_secondary"),
+                        )
+                        val isTechnical = getBoolean("is_technical")
 
                         if (worldId != null && worldName != null) {
-                            if (authority == Authority.OWNER) ownedWorlds.add(World(worldId, worldName))
-                            if (authority === Authority.PARTICIPANT) ownedWorlds.add(World(worldId, worldName))
+                            if (authority == Authority.OWNER) ownedWorlds.add(World(worldId, worldName, gameType, version, isTechnical))
+                            if (authority === Authority.PARTICIPANT) ownedWorlds.add(World(worldId, worldName, gameType, version, isTechnical))
                         }
                     }
 

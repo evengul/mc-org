@@ -1,6 +1,7 @@
 package app.mcorg.presentation.handler
 
 import app.mcorg.domain.Authority
+import app.mcorg.presentation.configuration.modrinthApi
 import app.mcorg.presentation.configuration.permissionsApi
 import app.mcorg.presentation.configuration.usersApi
 import app.mcorg.presentation.configuration.worldsApi
@@ -19,14 +20,16 @@ suspend fun ApplicationCall.handleGetWorlds() {
     val selectedWorld = usersApi.getProfile(userId)?.selectedWorld
     val permissions = permissionsApi.getPermissions(userId)
     val worlds = permissions.ownedWorlds + permissions.participantWorlds
-    respondHtml(worlds(selectedWorld, worlds))
+    val versions = modrinthApi.getVersions(onlyMajor = false)
+    val playerIsTechnical = usersApi.getProfile(userId)?.technicalPlayer ?: false
+    respondHtml(worlds(selectedWorld, worlds, versions, playerIsTechnical = playerIsTechnical))
 }
 
 suspend fun ApplicationCall.handlePostWorld() {
     val userId = getUserId()
-    val (worldName) = receiveCreateWorldRequest()
+    val (worldName, gameType, version, isTechnical) = receiveCreateWorldRequest()
 
-    val id = worldsApi.createWorld(worldName)
+    val id = worldsApi.createWorld(worldName, gameType, version, isTechnical)
     permissionsApi.addWorldPermission(userId, id, Authority.OWNER)
     usersApi.selectWorld(userId, id)
 

@@ -23,3 +23,13 @@ enum class Authority(val level: Int) {
     ADMIN(10),
     PARTICIPANT(20)
 }
+
+enum class GameType {
+    JAVA,
+    BEDROCK
+}
+
+enum class ContraptionType {
+    FARM,
+    STORAGE
+}
