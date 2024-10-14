@@ -7,14 +7,12 @@ import app.mcorg.presentation.templates.task.countableTask
 import app.mcorg.presentation.templates.task.doableTask
 import kotlinx.html.*
 
-fun MAIN.taskList(users: List<User>, currentUser: User, project: Project) {
-    ul {
-        id = "task-list"
-        project.tasks.forEach {
-            li {
-                if (it.isCountable()) countableTask(project, it, users, currentUser)
-                else doableTask(it, users, currentUser, project)
-            }
+fun UL.taskList(users: List<User>, currentUser: User, project: Project) {
+    id = "task-list"
+    project.tasks.forEach {
+        li {
+            if (it.isCountable()) countableTask(project, it, users, currentUser)
+            else doableTask(it, users, currentUser, project)
         }
     }
 }

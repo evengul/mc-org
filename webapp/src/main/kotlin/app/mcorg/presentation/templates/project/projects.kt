@@ -7,6 +7,7 @@ import app.mcorg.domain.toUser
 import app.mcorg.presentation.entities.ProjectFiltersRequest
 import app.mcorg.presentation.templates.MainPage
 import app.mcorg.presentation.templates.mainPageTemplate
+import app.mcorg.presentation.utils.allowedByFilter
 import kotlinx.html.*
 
 fun projects(worldId: Int, projects: List<SlimProject>, worldUsers: List<User>, currentUser: Profile, filtersRequest: ProjectFiltersRequest): String = mainPageTemplate(
@@ -59,11 +60,11 @@ fun projects(worldId: Int, projects: List<SlimProject>, worldUsers: List<User>, 
                 }
             }
         }
-
     }
-    val filteredProjects = projects.filter { keepProject(it, filtersRequest) }.sortedBy { it.name }
-    if (filteredProjects.size != projects.size) {
-        p {
+    val filteredProjects = projects.filter { it.allowedByFilter(filtersRequest) }.sortedBy { it.name }
+    p {
+        id = "project-filter-amount"
+        if (filteredProjects.size != projects.size) {
             + "Showing ${filteredProjects.size} of ${projects.size} projects"
         }
     }
@@ -75,27 +76,4 @@ fun projects(worldId: Int, projects: List<SlimProject>, worldUsers: List<User>, 
             }
         }
     }
-}
-
-fun keepProject(project: SlimProject, filtersRequest: ProjectFiltersRequest): Boolean {
-    if (filtersRequest.hideCompleted && project.progress >= 1.0) {
-        return false
-    }
-
-    if (!filtersRequest.search.isNullOrBlank()) {
-        val search = filtersRequest.search.lowercase()
-        val username = project.assignee?.username?.lowercase()
-        val name = project.name.lowercase()
-        if (username == null) {
-            if (!name.contains(search)) {
-                return false
-            }
-        } else {
-            if (!username.contains(search) && !name.contains(search)) {
-                return false
-            }
-        }
-    }
-
-    return true
 }
