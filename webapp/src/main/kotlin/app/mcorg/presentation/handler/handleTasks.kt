@@ -1,36 +1,36 @@
 package app.mcorg.presentation.handler
 
 import app.mcorg.domain.Priority
-import app.mcorg.domain.isCountable
 import app.mcorg.presentation.configuration.permissionsApi
 import app.mcorg.presentation.configuration.projectsApi
 import app.mcorg.presentation.entities.AssignUserRequest
 import app.mcorg.presentation.entities.DeleteAssignmentRequest
-import app.mcorg.presentation.templates.task.*
+import app.mcorg.presentation.templates.project.taskList
 import app.mcorg.presentation.utils.*
-import io.ktor.http.*
 import io.ktor.server.application.*
-import io.ktor.server.response.*
+import io.ktor.server.plugins.*
+import kotlinx.html.stream.createHTML
+import kotlinx.html.ul
 
 suspend fun ApplicationCall.handlePostDoableTask() {
     val (name) = receiveDoableTaskRequest()
     val projectId = getProjectId()
-    val id = projectsApi.addDoableTask(projectId, name, Priority.LOW)
+    projectsApi.addDoableTask(projectId, name, Priority.LOW)
 
-    respondTask(projectId, id)
+    respondUpdatedTaskList(projectId)
 }
 
 suspend fun ApplicationCall.handlePostCountableTask() {
     val (name, amount) = receiveCountableTaskRequest()
     val projectId = getProjectId()
-    val id = projectsApi.addCountableTask(projectId, name, Priority.LOW, needed = amount)
-    respondTask(projectId, id)
+    projectsApi.addCountableTask(projectId, name, Priority.LOW, needed = amount)
+    respondUpdatedTaskList(projectId)
 }
 
 suspend fun ApplicationCall.handlePostLitematicaTasks() {
     val projectId = getProjectId()
     val tasks = receiveMaterialListTasks()
-    val ids = tasks.map {
+    tasks.forEach {
         projectsApi.addCountableTask(
             projectId = projectId,
             name = it.name,
@@ -38,13 +38,15 @@ suspend fun ApplicationCall.handlePostLitematicaTasks() {
             needed = it.needed
         )
     }
-    respondTasks(projectId, ids)
+    respondUpdatedTaskList(projectId)
 }
 
 suspend fun ApplicationCall.handleDeleteTask() {
+    val projectId = getProjectId()
     val taskId = getTaskId()
     projectsApi.removeTask(taskId)
-    respondEmptyHtml()
+
+    respondUpdatedTaskList(projectId)
 }
 
 suspend fun ApplicationCall.handlePatchCountableTaskDoneMore() {
@@ -52,9 +54,8 @@ suspend fun ApplicationCall.handlePatchCountableTaskDoneMore() {
     val done = parameters["done"]?.toIntOrNull() ?: 0
     val taskId = getTaskId()
     projectsApi.taskDoneMore(taskId, done)
-    hxTarget("#task-${taskId}")
-    hxSwap("outerHTML")
-    respondTask(projectId, taskId)
+
+    respondUpdatedTaskList(projectId)
 }
 
 suspend fun ApplicationCall.handlePatchTaskAssignee() {
@@ -68,7 +69,8 @@ suspend fun ApplicationCall.handlePatchTaskAssignee() {
     val user = users.find { it.id == userId }
     if (user != null) {
         projectsApi.assignTask(taskId, user.id)
-        respondTask(projectId, taskId)
+
+        respondUpdatedTaskList(projectId)
     } else {
         throw IllegalArgumentException("User does not exist in project")
     }
@@ -78,7 +80,8 @@ suspend fun ApplicationCall.handleDeleteTaskAssignee() {
     val projectId = getProjectId()
     val taskId = getTaskId()
     projectsApi.removeTaskAssignment(taskId)
-    respondTask(projectId, taskId)
+
+    respondUpdatedTaskList(projectId)
 }
 
 suspend fun ApplicationCall.handleCompleteTask() {
@@ -97,46 +100,32 @@ private suspend fun ApplicationCall.handleTaskCompletion(complete: Boolean) {
     } else {
         projectsApi.undoCompleteTask(taskId)
     }
-    respondTask(projectId, taskId)
+
+    respondUpdatedTaskList(projectId)
 }
 
 suspend fun ApplicationCall.handleEditTaskRequirements() {
     val projectId = getProjectId()
     val (id, needed, done) = getEditCountableTaskRequirements()
     projectsApi.editTaskRequirements(id, needed, done)
-    hxTarget("#task-${id}")
+
+    respondUpdatedTaskList(projectId)
+}
+
+private suspend fun ApplicationCall.respondUpdatedTaskList(projectId: Int) {
+    hxTarget("#task-list")
     hxSwap("outerHTML")
-    respondTask(projectId, id)
-}
 
-private suspend fun ApplicationCall.respondTask(projectId: Int, taskId: Int) {
-    val project = projectsApi.getProject(projectId, includeTasks = true)
-    val task = project?.tasks?.find { it.id == taskId }
-    if (project != null && task != null) {
-        val users = permissionsApi.getUsersInWorld(project.worldId)
-        val currentUser = getUser()
-        if (task.isCountable()) {
-            respondHtml(createCountableTask(project, task, users, currentUser))
-        } else {
-            respondHtml(createDoableTask(project, task, users, currentUser))
-        }
-    } else {
-        respond(HttpStatusCode.BadRequest)
-    }
-}
+    val worldId = getWorldId()
+    val filters = createTaskFilters(getCurrentUrl())
 
-private suspend fun ApplicationCall.respondTasks(projectId: Int, taskIds: List<Int>) {
-    val project = projectsApi.getProject(projectId, includeTasks = true)
-    if (project != null) {
-        val users = permissionsApi.getUsersInWorld(project.worldId)
-        val currentUser = getUser()
-        respondHtml(
-            project.tasks.filter { taskIds.contains(it.id) }.map {
-                if(it.isCountable()) {
-                    return@map createCountableTask(project, it, users, currentUser)
-                }
-                return@map createDoableTask(project, it, users, currentUser)
-            }.joinToString("\n")
-        )
-    }
+    val project = projectsApi.getProject(projectId, includeTasks = true) ?: throw NotFoundException("Could not find project $projectId")
+    val users = permissionsApi.getUsersInWorld(worldId)
+    val currentUser = getUser()
+
+    val sortedFilteredProject = filterAndSortProject(currentUser.id, project, filters)
+
+    respondHtml(createHTML().ul {
+        taskList(users, currentUser, sortedFilteredProject)
+    })
 }
