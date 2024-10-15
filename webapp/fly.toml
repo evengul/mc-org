@@ -29,3 +29,8 @@ primary_region = 'ams'
   memory = '1gb'
   cpu_kind = 'shared'
   cpus = 1
+
+[[restart]]
+  policy = "on-failure"
+  retries = 3
+  processes = ["app"]
