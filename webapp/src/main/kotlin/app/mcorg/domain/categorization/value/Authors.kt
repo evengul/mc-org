@@ -11,8 +11,9 @@ data class Credits(
     override val name: String
         get() = "Credits"
 
-    override fun validate(value: MutableMap<String, String>?): Boolean {
-        return !value.isNullOrEmpty() && value.all { it.key.isNotBlank() && it.value.isNotBlank() }
+    override fun validate(): Boolean {
+        val copy = value ?: return super.validate()
+        return copy.isNotEmpty() && copy.all { it.key.isNotBlank() && it.value.isNotBlank() }
     }
 }
 
@@ -23,8 +24,9 @@ data class Authors(override var value: MutableList<String>? = null) : CategoryFi
     override val name: String
         get() = "Authors"
 
-    override fun validate(value: MutableList<String>?): Boolean {
-        return !value.isNullOrEmpty() && value.all { it.isNotBlank() }
+    override fun validate(): Boolean {
+        val copy = value ?: return super.validate()
+        return copy.isNotEmpty() && copy.all { it.isNotBlank() }
     }
 }
 

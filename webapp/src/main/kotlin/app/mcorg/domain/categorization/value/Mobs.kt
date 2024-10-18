@@ -9,5 +9,11 @@ data class Mobs(override var value: MutableList<Value>? = null) : CategoryFilter
     override val name: String
         get() = "Required mobs"
 
+    override fun validate(): Boolean {
+        val copy = value ?: return super.validate()
+
+        return copy.isEmpty() || copy.all { it.name.isNotBlank() && it.amount > 0 }
+    }
+
     data class Value(val name: String, val amount: Int)
 }

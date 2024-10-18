@@ -6,7 +6,7 @@ interface CategoryFilter<T> {
 
     var value: T?
 
-    fun validate(value: T?): Boolean {
+    fun validate(): Boolean {
         return true
     }
 }
