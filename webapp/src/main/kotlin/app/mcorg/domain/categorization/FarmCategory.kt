@@ -2,28 +2,29 @@ package app.mcorg.domain.categorization
 
 import app.mcorg.domain.categorization.value.*
 
+@CategoryMarker
 class FarmCategory : Category(CategoryType.FARM, subCategories = mutableListOf())
 
 fun FarmCategory.rates(init: RateModes.() -> Unit = {}) {
     val rateModes = RateModes("farm.rates", "Rates")
     rateModes.init()
-    values.add(rateModes)
+    filter(rateModes)
 }
 
 fun FarmCategory.consumption(init: RateModes.() -> Unit = {}) {
     val rateModes = RateModes("farm.consumption", "Consumption")
     rateModes.init()
-    values.add(rateModes)
+    filter(rateModes)
 }
 
-fun FarmCategory.size(init: FarmSizeValue.() -> Unit = {}) {
-    val farmSize = FarmSizeValue()
+fun FarmCategory.size(init: FarmSize.() -> Unit = {}) {
+    val farmSize = FarmSize()
     farmSize.init()
-    values.add(farmSize)
+    filter(farmSize)
 }
 
-fun FarmCategory.mobs(init: MobsValue.() -> Unit = {}) {
-    val mobs = MobsValue()
+fun FarmCategory.mobs(init: Mobs.() -> Unit = {}) {
+    val mobs = Mobs()
     mobs.init()
-    values.add(mobs)
+    filter(mobs)
 }

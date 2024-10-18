@@ -2,34 +2,29 @@ package app.mcorg.domain.categorization
 
 import app.mcorg.domain.categorization.value.*
 
-data class Common(val commonValues: MutableList<CategoryValue> = mutableListOf())
+@CategoryMarker
+class Common : FilterContainer()
 
-fun Common.boolean(id: String, name: String, init: BooleanValue.() -> Unit = {}) {
-    val value = BooleanValue(id, name)
+fun Common.authors(init: Authors.() -> Unit = {}) {
+    val value = Authors()
     value.init()
-    commonValues.add(value)
+    filter(value)
 }
 
-fun <T : Enum<T>> Common.enum(id: String, name: String, init: EnumValue<T>.() -> Unit = {}) {
-    val value = EnumValue<T>(id, name)
+fun Common.credits(init: Credits.() -> Unit = {}) {
+    val value = Credits()
     value.init()
-    commonValues.add(value)
+    filter(value)
 }
 
-fun Common.authors(init: AuthorValue.() -> Unit = {}) {
-    val value = AuthorValue()
+fun Common.versions(init: BoundedVersion.() -> Unit = {}) {
+    val value = BoundedVersion()
     value.init()
-    commonValues.add(value)
+    filter(value)
 }
 
-fun Common.versions(init: VersionValue.() -> Unit = {}) {
-    val value = VersionValue()
+fun Common.testResults(init: TestResult.() -> Unit = {}) {
+    val value = TestResult()
     value.init()
-    commonValues.add(value)
-}
-
-fun Common.testResults(init: TestResultValue.() -> Unit = {}) {
-    val value = TestResultValue()
-    value.init()
-    commonValues.add(value)
+    filter(value)
 }

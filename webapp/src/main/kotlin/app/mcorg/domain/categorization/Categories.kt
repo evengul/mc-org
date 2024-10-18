@@ -1,5 +1,6 @@
 package app.mcorg.domain.categorization
 
+@CategoryMarker
 data class Categories(
     val common: Common,
     val categories: MutableList<Category>

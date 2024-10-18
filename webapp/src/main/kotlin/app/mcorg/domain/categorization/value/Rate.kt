@@ -1,6 +1,8 @@
 package app.mcorg.domain.categorization.value
 
-data class RateModes(override val id: String, override val name: String, val rates: MutableList<RateMode> = mutableListOf()) : CategoryValue
+import app.mcorg.domain.categorization.CategoryMarker
+
+@CategoryMarker
+data class RateModes(override val id: String, override val name: String, override var value: MutableList<RateMode>? = null) : CategoryFilter<MutableList<RateMode>>
 data class RateMode(val name: String, val rates: Rates)
-data class Rates(val rates: MutableList<Rate> = mutableListOf())
-data class Rate(override val id: String, override val name: String, val amount: Int) : CategoryValue
+data class Rates(val rates: MutableList<NumberFilter> = mutableListOf())

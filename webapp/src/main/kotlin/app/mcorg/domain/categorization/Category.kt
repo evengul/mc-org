@@ -26,13 +26,13 @@ import app.mcorg.domain.categorization.value.*
  *
  *  The system uses a DSL to create the relevant categories and subcategories
  */
+@CategoryMarker
 open class Category(
     val type: CategoryType,
-    val values: MutableList<CategoryValue> = mutableListOf(),
     val subCategories: MutableList<SubCategory> = mutableListOf(),
-) {
+) : FilterContainer() {
     override fun toString(): String {
-        return "Category(type=$type, values=$values, subCategories=$subCategories)"
+        return "Category(type=$type, filters=$filters, subCategories=$subCategories)"
     }
 }
 
@@ -40,36 +40,4 @@ fun Category.subCategory(subCategoryType: SubCategoryType, init: SubCategory.() 
     val subCategory = SubCategory(subCategoryType)
     subCategory.init()
     subCategories.add(subCategory)
-}
-
-fun Category.value(value: CategoryValue) = values.add(value)
-
-fun Category.boolean(id: String, name: String, init: BooleanValue.() -> Unit = {}) {
-    val value = BooleanValue(id, name)
-    value.init()
-    values.add(value)
-}
-
-fun Category.number(id: String, name: String, init: NumberValue.() -> Unit = {}) {
-    val value = NumberValue(id, name)
-    value.init()
-    values.add(value)
-}
-
-fun Category.text(id: String, name: String, init: TextValue.() -> Unit = {}) {
-    val value = TextValue(id, name)
-    value.init()
-    values.add(value)
-}
-
-fun Category.textList(id: String, name: String, init: AllowedListValue<String>.() -> Unit = {}) {
-    val value = AllowedListValue<String>(id, name)
-    value.init()
-    values.add(value)
-}
-
-fun <T : Enum<T>> Category.enumList(id: String, name: String, init: AllowedListValue<T>.() -> Unit = {}) {
-    val value = AllowedListValue<T>(id, name)
-    value.init()
-    values.add(value)
 }

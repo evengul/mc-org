@@ -2,14 +2,15 @@ package app.mcorg.domain.categorization
 
 import app.mcorg.domain.*
 import app.mcorg.domain.categorization.subtypes.*
-import app.mcorg.domain.categorization.value.AllowedListValue
-import app.mcorg.domain.categorization.value.BooleanValue
+import app.mcorg.domain.categorization.value.AllowedList
+import app.mcorg.domain.categorization.value.BooleanFilter
 
 fun createCategories() = categories {
     common {
         boolean("common.locational", "Locational")
         boolean("common.directional", "Directional")
         authors()
+        credits()
         versions()
         testResults()
         enum<DifficultyLevel>("common.difficulty-level", "Difficulty level")
@@ -34,11 +35,11 @@ fun createCategories() = categories {
         enumList<YLevel>("farm.y-level", "Y level")
         FarmSubcategoryType.values().forEach { when(it) {
             FarmSubcategoryType.TREE_FARM -> subCategory(FarmSubcategoryType.TREE_FARM) {
-                value(AllowedListValue<TreeFarmType>("farm.tree.type", "Type"))
-                value(AllowedListValue<TreeFarmSize>("farm.tree.type", "Tree size"))
+                filter(AllowedList<TreeFarmType>("farm.tree.type", "Type"))
+                filter(AllowedList<TreeFarmSize>("farm.tree.type", "Tree size"))
             }
             FarmSubcategoryType.SHULKER_FARM -> subCategory(FarmSubcategoryType.SHULKER_FARM) {
-                value(BooleanValue("farm.shulker.requires-portal", "Requires portal"))
+                filter(BooleanFilter("farm.shulker.requires-portal", "Requires portal"))
             }
             else -> subCategory(it)
         } }
