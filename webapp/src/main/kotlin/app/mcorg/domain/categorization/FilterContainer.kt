@@ -49,7 +49,7 @@ fun FilterContainer.percentage(id: String, name: String, init: DoubleFilter.() -
 }
 
 fun FilterContainer.text(id: String, name: String, canBeFiltered: Boolean = true, longText: Boolean = false, init: TextFilter.() -> Unit = {}) {
-    val value = TextFilter(id, name, canBeFiltered, longText)
+    val value = TextFilter(id, name, canBeFiltered = canBeFiltered, longText = longText)
     value.init()
     filter(value)
 }

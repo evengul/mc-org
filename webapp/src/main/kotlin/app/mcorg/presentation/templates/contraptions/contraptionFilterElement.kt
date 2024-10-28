@@ -22,6 +22,7 @@ val usesDefaultLabel = listOf(
 )
 
 fun FORM.contraptionFilterElement(filter: CategoryFilter<*>, items: List<Item>) {
+    if (!filter.canBeFiltered) return
     if (usesDefaultLabel.contains(filter.javaClass)) {
         defaultLabel(filter)
     }
