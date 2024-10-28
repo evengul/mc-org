@@ -81,7 +81,7 @@ interface Contraptions {
     suspend fun deleteContraption(id: Int)
 }
 
-interface Minecraft {
+interface Microsoft {
     suspend fun getProfile(authorizationCode: String, clientId: String, clientSecret: String, host: String): MinecraftProfile
 }
 

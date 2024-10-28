@@ -1,5 +1,7 @@
 package app.mcorg.domain.categorization.subtypes
 
+import app.mcorg.domain.categorization.CategoryType
+
 enum class StorageSubCategoryType(override val displayName: String) : SubCategoryType {
     COMPLETE_SYSTEM("Complete system"),
     BOX_LOADER("Box loader"),
@@ -18,5 +20,8 @@ enum class StorageSubCategoryType(override val displayName: String) : SubCategor
     BULK_STORAGE("Bulk storage"),
     TEMPORARY_STORAGE("Temporary storage"),
     INTERFACES("Interfaces"),
-    PERIPHERALS("Peripherals"),
+    PERIPHERALS("Peripherals");
+
+    override val categoryType: CategoryType
+        get() = CategoryType.STORAGE
 }

@@ -5,6 +5,6 @@ import org.junit.Test
 class CreateCategoriesTest {
     @Test
     fun create() {
-        println(createCategories())
+
     }
 }

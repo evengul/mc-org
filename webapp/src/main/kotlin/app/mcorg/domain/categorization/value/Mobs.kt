@@ -3,7 +3,7 @@ package app.mcorg.domain.categorization.value
 import app.mcorg.domain.categorization.CategoryMarker
 
 @CategoryMarker
-data class Mobs(override var value: MutableList<Value>? = null) : CategoryFilter<MutableList<Mobs.Value>> {
+data class Mobs(val allowedValues: List<String>, override var value: MutableMap<String, Int>? = null) : CategoryFilter<MutableMap<String, Int>> {
     override val id: String
         get() = "farm.required-mobs"
     override val name: String
@@ -12,8 +12,6 @@ data class Mobs(override var value: MutableList<Value>? = null) : CategoryFilter
     override fun validate(): Boolean {
         val copy = value ?: return super.validate()
 
-        return copy.isEmpty() || copy.all { it.name.isNotBlank() && it.amount > 0 }
+        return copy.isEmpty() || copy.all { it.key.isNotBlank() && it.value > 0 && allowedValues.contains(it.key) }
     }
-
-    data class Value(val name: String, val amount: Int)
 }

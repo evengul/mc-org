@@ -1,6 +1,9 @@
 package app.mcorg.presentation.utils
 
 import app.mcorg.domain.*
+import app.mcorg.domain.categorization.CategoryType
+import app.mcorg.domain.categorization.SubCategory
+import app.mcorg.domain.categorization.subtypes.*
 import app.mcorg.presentation.entities.*
 import io.ktor.http.content.*
 import io.ktor.server.application.*
@@ -96,6 +99,31 @@ suspend fun ApplicationCall.receiveContraption(): ContraptionRequest {
         data["schematicUrl"],
         data["worldDownloadUrl"]
     )
+}
+
+fun ApplicationCall.receiveContraptionFilterCategory(subCategoryType: SubCategoryType?): CategoryType? {
+    return when(parameters["filterCategory"]) {
+        "FARM" -> CategoryType.FARM
+        "STORAGE" -> CategoryType.STORAGE
+        "CART_TECH" -> CategoryType.CART_TECH
+        "TNT_TECH" -> CategoryType.TNT_TECH
+        "SLIMESTONE" -> CategoryType.SLIMESTONE
+        "OTHER" -> CategoryType.OTHER
+        else -> subCategoryType?.categoryType
+    }
+}
+
+fun ApplicationCall.receiveContraptionFilterSubCategory(): SubCategoryType? {
+    val textContent = parameters["filterSubCategory"] ?: return null
+    return when {
+        FarmSubcategoryType.values().map { it.name }.contains(textContent) -> FarmSubcategoryType.valueOf(textContent)
+        CartTechSubCategoryType.values().map { it.name }.contains(textContent) -> CartTechSubCategoryType.valueOf(textContent)
+        OtherSubCategoryType.values().map { it.name }.contains(textContent) -> OtherSubCategoryType.valueOf(textContent)
+        SlimestoneSubCategoryType.values().map { it.name }.contains(textContent) -> SlimestoneSubCategoryType.valueOf(textContent)
+        StorageSubCategoryType.values().map { it.name }.contains(textContent) -> StorageSubCategoryType.valueOf(textContent)
+        TntTechSubCategoryType.values().map { it.name }.contains(textContent) -> TntTechSubCategoryType.valueOf(textContent)
+        else -> null
+    }
 }
 
 private fun String?.toDimension(): Dimension = when(this) {

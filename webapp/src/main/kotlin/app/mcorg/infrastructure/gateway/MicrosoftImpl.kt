@@ -1,13 +1,13 @@
 package app.mcorg.infrastructure.gateway
 
-import app.mcorg.domain.Minecraft
+import app.mcorg.domain.Microsoft
 import app.mcorg.domain.MinecraftProfile
 import io.ktor.client.call.*
 import io.ktor.client.request.*
 import io.ktor.client.request.forms.*
 import io.ktor.http.*
 
-class MinecraftImpl : Minecraft, Gateway() {
+class MicrosoftImpl : Microsoft, Gateway() {
     override suspend fun getProfile(authorizationCode: String, clientId: String, clientSecret: String, host: String): MinecraftProfile {
         try {
             val (error, microsoftAccessToken) = getTokenFromCode(authorizationCode, clientId, clientSecret, host)

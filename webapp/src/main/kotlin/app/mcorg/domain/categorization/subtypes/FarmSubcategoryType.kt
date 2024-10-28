@@ -1,5 +1,7 @@
 package app.mcorg.domain.categorization.subtypes
 
+import app.mcorg.domain.categorization.CategoryType
+
 enum class FarmSubcategoryType(override val displayName: String) : SubCategoryType {
     TREE_FARM("Tree Farm"),
     SLIME_FARM("Slime farm"),
@@ -11,5 +13,8 @@ enum class FarmSubcategoryType(override val displayName: String) : SubCategoryTy
     ENDERMAN_FARM("Enderman farm"),
     WITCH_HUT_FARM("Witch hut farm"),
     GUARDIAN_FARM("Guardian farm"),
-    SPAWNER_FARM("Spawner farm"),
+    SPAWNER_FARM("Spawner farm");
+
+    override val categoryType: CategoryType
+        get() = CategoryType.FARM
 }

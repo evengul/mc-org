@@ -48,6 +48,9 @@ fun Application.configureAppRouter() {
                 get {
                     call.handleGetContraptions()
                 }
+                get("/filter") {
+                    call.handleGetContraptionsFilter()
+                }
                 post {
                     call.handlePostContraption()
                 }

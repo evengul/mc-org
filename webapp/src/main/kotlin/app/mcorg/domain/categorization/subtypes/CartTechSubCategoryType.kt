@@ -1,6 +1,10 @@
 package app.mcorg.domain.categorization.subtypes
 
-enum class CartTechSubCategoryType(override val displayName: String) : SubCategoryType {
+import app.mcorg.domain.categorization.CategoryType
+
+enum class CartTechSubCategoryType(
+    override val displayName: String
+) : SubCategoryType {
     STORAGE("Storage"),
     TRANSPORT("Transport"),
     COMPUTATIONAL("Computational"),
@@ -12,5 +16,8 @@ enum class CartTechSubCategoryType(override val displayName: String) : SubCatego
     STATIONARY("Stationary"),
     VILLAGERS_ETC("Villagers etc"),
     ENTITY_TRANSPORT("Entity transport"),
-    OTHER("Other")
+    OTHER("Other");
+
+    override val categoryType: CategoryType
+        get() = CategoryType.CART_TECH
 }

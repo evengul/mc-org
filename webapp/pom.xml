@@ -18,6 +18,10 @@
         <main.class>app.mcorg.ApplicationKt</main.class>
     </properties>
     <repositories>
+        <repository>
+            <id>minevolt</id>
+            <url>https://minevolt.net/repo</url>
+        </repository>
     </repositories>
     <dependencies>
         <dependency>
@@ -159,6 +163,11 @@
             <artifactId>bcrypt</artifactId>
             <version>0.10.2</version>
         </dependency>
+        <dependency>
+            <groupId>io.github.classgraph</groupId>
+            <artifactId>classgraph</artifactId>
+            <version>4.8.149</version>
+        </dependency>
 
         <dependency>
             <groupId>org.postgresql</groupId>
@@ -177,6 +186,7 @@
             <scope>compile</scope>
         </dependency>
     </dependencies>
+
     <build>
         <sourceDirectory>${project.basedir}/src/main/kotlin</sourceDirectory>
         <testSourceDirectory>${project.basedir}/src/test/kotlin</testSourceDirectory>

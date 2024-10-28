@@ -4,6 +4,9 @@ interface CategoryFilter<T> {
     val id: String
     val name: String
 
+    val canBeFiltered: Boolean
+        get() = true
+
     var value: T?
 
     fun validate(): Boolean {

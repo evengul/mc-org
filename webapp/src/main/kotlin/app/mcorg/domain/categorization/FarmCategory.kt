@@ -23,8 +23,8 @@ fun FarmCategory.size(init: FarmSize.() -> Unit = {}) {
     filter(farmSize)
 }
 
-fun FarmCategory.mobs(init: Mobs.() -> Unit = {}) {
-    val mobs = Mobs()
+fun FarmCategory.mobs(allowedValues: List<String>, init: Mobs.() -> Unit = {}) {
+    val mobs = Mobs(allowedValues)
     mobs.init()
     filter(mobs)
 }

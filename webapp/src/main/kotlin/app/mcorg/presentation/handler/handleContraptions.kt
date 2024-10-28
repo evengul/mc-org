@@ -1,8 +1,9 @@
 package app.mcorg.presentation.handler
 
-import app.mcorg.presentation.configuration.contraptionsApi
-import app.mcorg.presentation.configuration.usersApi
+import app.mcorg.domain.categorization.createCategories
+import app.mcorg.presentation.configuration.*
 import app.mcorg.presentation.templates.contraptions.contraptions
+import app.mcorg.presentation.templates.contraptions.createContraptionFilter
 import app.mcorg.presentation.templates.contraptions.createContraptionListElement
 import app.mcorg.presentation.utils.*
 import io.ktor.server.application.*
@@ -11,7 +12,17 @@ suspend fun ApplicationCall.handleGetContraptions() {
     val userId = getUserId()
     val selectedWorldId = usersApi.getProfile(userId)?.selectedWorld
     val contraptions = contraptionsApi.getContraptions()
-    respondHtml(contraptions(selectedWorldId, contraptions))
+    val categories = createCategories(biomeApi, mobApi)
+    val items = itemApi.getItems()
+    respondHtml(contraptions(selectedWorldId, contraptions, categories, items))
+}
+
+suspend fun ApplicationCall.handleGetContraptionsFilter() {
+    val categories = createCategories(biomeApi, mobApi)
+    val items = itemApi.getItems()
+    val selectedSubCategory = receiveContraptionFilterSubCategory()
+    val selectedCategory = receiveContraptionFilterCategory(selectedSubCategory)
+    respondHtml(createContraptionFilter(categories, items, selectedCategory, selectedSubCategory))
 }
 
 suspend fun ApplicationCall.handlePostContraption() {

@@ -7,7 +7,11 @@ data class RateModes(override val id: String, override val name: String, overrid
     override fun validate(): Boolean {
         val copy = value ?: return super.validate()
 
-        return copy.isEmpty() || copy.all { it.name.isNotBlank() && it.rates.isNotEmpty() && it.rates.all { rate -> (rate.value?.toInt() ?: -1) > -1 } }
+        return copy.isEmpty() || copy.all {
+            it.name.isNotBlank() &&
+                    it.rates.isNotEmpty() &&
+                    it.rates.all { rate -> rate.second > -1 } }
     }
 }
-data class RateMode(val name: String, val rates: MutableList<NumberFilter> = mutableListOf())
+
+data class RateMode(val name: String, val rates: MutableList<Pair<String, Int>> = mutableListOf())
