@@ -920,6 +920,16 @@ form#user-add {
     gap: var(--spacing-sm);
 }
 
+/******** Contraptions ********/
+
+#contraptions-filter-form {
+    margin: var(--spacing-xl);
+    max-width: 65ch;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
 /******** **** ********/
 
 
