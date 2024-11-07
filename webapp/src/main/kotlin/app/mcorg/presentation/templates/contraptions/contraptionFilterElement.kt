@@ -5,7 +5,7 @@ import app.mcorg.domain.categorization.value.*
 import app.mcorg.domain.minecraft.Item
 import kotlinx.html.*
 
-private fun FORM.defaultLabel(filter: CategoryFilter<*>) {
+private fun HtmlBlockTag.defaultLabel(filter: CategoryFilter<*>) {
     label {
         htmlFor = filter.id
         + filter.name
@@ -21,7 +21,7 @@ val usesDefaultLabel = listOf(
     AllowedList::class.java
 )
 
-fun FORM.contraptionFilterElement(filter: CategoryFilter<*>, items: List<Item>) {
+fun HtmlBlockTag.contraptionFilterElement(filter: CategoryFilter<*>, items: List<Item>) {
     if (!filter.canBeFiltered) return
     if (usesDefaultLabel.contains(filter.javaClass)) {
         defaultLabel(filter)
@@ -85,6 +85,18 @@ fun FORM.contraptionFilterElement(filter: CategoryFilter<*>, items: List<Item>) 
                             Enum -> (it as Enum<*>).name
                             else -> it.toString()
                         }
+                    }
+                }
+            }
+        }
+        is ValueGroup -> {
+            val copy = filter.value?.filters
+            if (copy != null) {
+                details {
+                    this.open = false
+                    summary { + filter.name }
+                    copy.forEach {
+                        contraptionFilterElement(it, items)
                     }
                 }
             }

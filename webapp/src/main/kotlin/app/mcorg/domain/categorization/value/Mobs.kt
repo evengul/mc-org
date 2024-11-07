@@ -9,6 +9,9 @@ data class Mobs(val allowedValues: List<String>, override var value: MutableMap<
     override val name: String
         get() = "Required mobs"
 
+    override val canBeFiltered: Boolean
+        get() = false
+
     override fun validate(): Boolean {
         val copy = value ?: return super.validate()
 

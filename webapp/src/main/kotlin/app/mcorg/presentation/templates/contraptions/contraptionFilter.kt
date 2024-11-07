@@ -50,6 +50,7 @@ fun FORM.contraptionFilter(
         }
         CategoryType.values().forEach {
             option {
+                selected = it == selectedCategory
                 value = it.name
                 +it.displayName
             }
@@ -89,7 +90,7 @@ fun FORM.contraptionFilter(
                     CategoryType.OTHER -> OtherSubCategoryType.values().map { it.name to it.displayName }
                 }.forEach {
                     option {
-                        selected = selectedSubCategory?.displayName == it.second
+                        selected = selectedSubCategory?.name == it.first
                         value = it.first
                         + it.second
                     }
