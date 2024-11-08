@@ -4,7 +4,7 @@ import app.mcorg.domain.minecraft.MobApi
 
 class MobReader : MobApi, NameReader("entity.minecraft.") {
     override fun getMobs(): List<String> {
-        return getValues()
+        return getNames()
             .map { it.second }
     }
 }

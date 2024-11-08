@@ -3,10 +3,10 @@ package app.mcorg.infrastructure.reader
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 
-abstract class NameReader(private val startsWith: String) {
-    fun getValues(): List<Pair<String, String>> {
+abstract class NameReader(private val startsWith: String) : Reader() {
+    fun getNames(): List<Pair<String, String>> {
         val list = mutableListOf<Pair<String, String>>()
-        getContextClassLoader().getResourceAsStream("minecraft/named.json")
+        contextClassLoader.getResourceAsStream("minecraft/named.json")
             .use { stream ->
                 val bytes = (stream?.readAllBytes() ?: byteArrayOf()).toString(Charsets.UTF_8)
                 val decoded = Json.decodeFromString<JsonObject>(bytes)
@@ -18,7 +18,5 @@ abstract class NameReader(private val startsWith: String) {
             }
         return list
     }
-
-    private fun getContextClassLoader() = Thread.currentThread().contextClassLoader
 
 }

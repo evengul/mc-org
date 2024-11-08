@@ -1,0 +1,26 @@
+package app.mcorg.infrastructure.reader.entities.recipe
+
+import app.mcorg.domain.AnyOf
+import app.mcorg.domain.minecraft.model.Item
+import kotlinx.serialization.Serializable
+
+@Serializable
+data class SmithingTrimRecipeEntity(
+    val type: String,
+    val addition: String,
+    val base: String,
+    val template: String
+) : RecipeEntity {
+    override fun getInput(): List<Pair<AnyOf<Item>, Int>> {
+        return listOf(
+            AnyOf.single(Item(addition)) to 1,
+            AnyOf.single(Item(base)) to 1
+        )
+    }
+
+    override fun getOutput(): Pair<Item, Int> {
+        return Item(template) to 1
+    }
+}
+
+

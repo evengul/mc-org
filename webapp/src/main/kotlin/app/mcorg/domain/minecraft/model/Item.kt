@@ -1,4 +1,4 @@
-package app.mcorg.domain.minecraft
+package app.mcorg.domain.minecraft.model
 
 import java.util.*
 

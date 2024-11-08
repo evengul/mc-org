@@ -2,7 +2,7 @@ package app.mcorg.presentation.templates.contraptions
 
 import app.mcorg.domain.DifficultyLevel
 import app.mcorg.domain.categorization.value.*
-import app.mcorg.domain.minecraft.Item
+import app.mcorg.domain.minecraft.model.Item
 import kotlinx.html.*
 
 private fun HtmlBlockTag.defaultLabel(filter: CategoryFilter<*>) {

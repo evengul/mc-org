@@ -2,7 +2,7 @@ package app.mcorg.presentation.templates.contraptions
 
 import app.mcorg.domain.Contraption
 import app.mcorg.domain.categorization.Categories
-import app.mcorg.domain.minecraft.Item
+import app.mcorg.domain.minecraft.model.Item
 import app.mcorg.presentation.templates.MainPage
 import app.mcorg.presentation.templates.mainPageTemplate
 import kotlinx.html.*

@@ -3,7 +3,7 @@ package app.mcorg.presentation.templates.contraptions
 import app.mcorg.domain.categorization.Categories
 import app.mcorg.domain.categorization.CategoryType
 import app.mcorg.domain.categorization.subtypes.*
-import app.mcorg.domain.minecraft.Item
+import app.mcorg.domain.minecraft.model.Item
 import app.mcorg.presentation.hxGet
 import app.mcorg.presentation.hxSwap
 import app.mcorg.presentation.hxTarget
