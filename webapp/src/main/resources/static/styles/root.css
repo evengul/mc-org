@@ -41,6 +41,7 @@
     --text-xxl: calc(var(--text-base-size) * var(--text-scale-ratio) * var(--text-scale-ratio) * var(--text-scale-ratio) * var(--text-scale-ratio));
 
     --clr-primary: #3498db;
+    --clr-primary-light: #85c1e9;
     --clr-secondary: #2ecc71;
 
     --clr-danger: #e74c3c;
@@ -51,7 +52,8 @@
     --clr-bg-dark: #34495e;
     --clr-bg-light: #ecf0f1;
 
-    --clr-text: #2c3e50;
+    --clr-text: #333333;
+    --clr-text-secondary: #555555;
 
     --spacing-baseline: 2em;
 
@@ -74,6 +76,7 @@ html {
     font-family: var(--font-primary), sans-serif;
     font-size: var(--text-base-size);
 
+    background-color: var(--clr-bg-light);
     color: var(--clr-text);
 }
 

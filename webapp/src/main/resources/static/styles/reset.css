@@ -17,6 +17,12 @@ body {
 
 a {
     text-decoration: none;
+    color: var(--clr-text);
+
+    &:hover {
+        color: var(--clr-secondary);
+        text-decoration: underline;
+    }
 }
 
 img, picture, video, canvas, svg {

@@ -7,11 +7,12 @@ button {
 }
 
 button:hover {
-    box-shadow: var(--clr-primary) 1px 1px;
+    background-color: var(--clr-primary-light);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
 }
 
 button:active {
-    box-shadow: var(--clr-primary) -1px -1px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
 button:disabled {
@@ -59,7 +60,12 @@ button.button-fab {
     background-position-x: calc(var(--spacing-xs) / 2);
     background-position-y: calc(var(--spacing-xs) / 2);
 
-    transition: bottom 0.3s ease-in-out;
+    transition: bottom 0.3s ease-in-out, background-color 0.3s ease, box-shadow 0.3s ease;
+
+    &:hover {
+        background-color: var(--clr-primary-light);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    }
 }
 
 .button-row {

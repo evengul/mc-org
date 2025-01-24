@@ -8,7 +8,7 @@
     left: 0;
 
     z-index: 1000;
-    width: clamp(300px, 80vw, 800px);
+    width: clamp(300px, 50vw, 400px);
     height: 100vh;
 
     padding-top: var(--spacing-sm);
@@ -21,12 +21,13 @@
 }
 
 #menu-close-button {
-    padding-left: var(--spacing-sm);
+    margin-left: var(--spacing-sm);
+    margin-top: var(--spacing-sm);
 }
 
 .menu-visible > li {
     list-style: none;
-    padding-left: var(--spacing-md);
+    padding-left: var(--spacing-sm);
 }
 
 .menu-selected,
