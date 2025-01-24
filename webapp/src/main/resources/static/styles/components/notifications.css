@@ -1,0 +1,4 @@
+.error {
+    color: var(--clr-danger);
+    font-weight: bold;
+}

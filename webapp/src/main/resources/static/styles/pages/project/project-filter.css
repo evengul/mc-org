@@ -1,0 +1,89 @@
+form#projects-filter {
+    width: 100%;
+    display: grid;
+
+    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-rows: 1fr 1fr 1fr;
+
+    align-items: center;
+
+    grid-column-gap: var(--spacing-sm);
+    grid-row-gap: var(--spacing-sm);
+
+    padding-bottom: var(--spacing-sm);
+    margin-bottom: var(--spacing-sm);
+    border-bottom: 3px solid var(--clr-text);
+}
+
+form#projects-filter > label[for = "project-search-input"] {
+    grid-column: 1 / span 1;
+    grid-row: 1 / span 1;
+}
+
+form#projects-filter > #projects-search-input {
+    grid-column: 2 / span 2;
+    grid-row: 1 / span 1;
+}
+
+form#projects-filter > label[for = "project-hide-completed-checkbox"] {
+    grid-column: 1 / span 1;
+    grid-row: 2 / span 1;
+}
+
+form#projects-filter > #project-hide-completed-checkbox {
+    justify-self: end;
+
+    grid-column: 3 / span 1;
+    grid-row: 2 / span 1;
+}
+
+form#projects-filter > a {
+    grid-column: 1 / span 1;
+    grid-row: 3 / span 1;
+}
+
+form#projects-filter > button:not(.button-secondary) {
+    grid-column: 2 / span 2;
+    grid-row: 3 / span 1;
+}
+
+form#projects-filter button.button-secondary {
+    width: 100%;
+}
+
+@media screen and (min-width: 660px) {
+    form#projects-filter {
+        grid-template-columns: 1fr 1fr 1fr 1fr 1fr;
+        grid-template-rows: 1fr 1fr;
+    }
+
+    form#projects-filter > label[for = "project-search-input"] {
+        grid-column: 1 / span 1;
+        grid-row: 1 / span 1;
+    }
+
+    form#projects-filter > #projects-search-input {
+        grid-column: 2 / span 2;
+        grid-row: 1 / span 1;
+    }
+
+    form#projects-filter > label[for = "project-hide-completed-checkbox"] {
+        grid-column: 4 / span 1;
+        grid-row: 1 / span 1;
+    }
+
+    form#projects-filter > #project-hide-completed-checkbox {
+        grid-column: 5 / span 1;
+        grid-row: 1 / span 1;
+    }
+
+    form#projects-filter > a {
+        grid-column: 1 / span 2;
+        grid-row: 2 / span 1;
+    }
+
+    form#projects-filter > button:not(.button-secondary) {
+        grid-column: 3 / span 3;
+        grid-row: 2 / span 1;
+    }
+}

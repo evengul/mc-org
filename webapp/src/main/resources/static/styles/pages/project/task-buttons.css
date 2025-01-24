@@ -1,0 +1,56 @@
+#project-add-task-buttons {
+    position: relative;
+}
+
+#hidden-task-buttons {
+    position: fixed;
+    right: var(--spacing-sm);
+    z-index: 999;
+
+    padding: var(--spacing-xs);
+
+    border: 2px solid var(--clr-primary);
+    background-color: var(--clr-bg-dark);
+}
+
+#hidden-task-buttons > button {
+    z-index: 999;
+    width: 100%;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+
+    margin-block: var(--spacing-xs);
+    padding-right: var(--spacing-xs);
+}
+
+#hidden-task-buttons.hidden {
+    bottom: -500px;
+}
+
+#hidden-task-buttons.active {
+    bottom: calc(var(--spacing-md) + calc(48px + var(--spacing-xs)) + var(--spacing-sm));
+}
+
+#add-task-doable-form,
+#add-task-countable-form,
+#add-task-litematica-form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    margin-block: var(--spacing-lg);
+    margin-inline: var(--spacing-md);
+}
+
+#edit-countable-task-form {
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    grid-row-gap: var(--spacing-md);
+    grid-column-gap: var(--spacing-sm);
+    padding-block-start: var(--spacing-md);
+}
+
+#edit-task-id-input {
+    display: none;
+}

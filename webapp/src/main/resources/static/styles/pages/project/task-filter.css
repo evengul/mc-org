@@ -1,0 +1,30 @@
+#project-tasks-filter-details {
+    padding: var(--spacing-sm);
+}
+
+#project-tasks-filter-form {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+
+    grid-column-gap: var(--spacing-sm);
+    grid-row-gap: var(--spacing-sm);
+}
+
+#project-tasks-filter-form > label,
+#project-tasks-filter-form > input,
+#project-tasks-filter-form > select {
+    grid-column: span 2;
+}
+
+#project-tasks-filter-form > a,
+#project-tasks-filter-form > a > button {
+    width: 100%;
+}
+
+@media screen and (min-width: 800px) {
+    #project-tasks-filter-form > label,
+    #project-tasks-filter-form > input,
+    #project-tasks-filter-form > select {
+        grid-column: span 1;
+    }
+}

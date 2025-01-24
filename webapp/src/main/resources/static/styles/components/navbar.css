@@ -1,0 +1,19 @@
+nav {
+    background-color: var(--clr-primary);
+    padding: var(--spacing-md);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+
+    a {
+        color: var(--clr-bg-light);
+        text-decoration: none;
+        font-size: var(--text-md);
+        margin: 0 var(--spacing-sm);
+
+        &:hover {
+            color: var(--clr-secondary);
+        }
+    }
+}

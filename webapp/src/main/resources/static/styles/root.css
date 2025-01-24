@@ -40,18 +40,18 @@
     --text-xl: calc(var(--text-base-size) * var(--text-scale-ratio) * var(--text-scale-ratio) * var(--text-scale-ratio));
     --text-xxl: calc(var(--text-base-size) * var(--text-scale-ratio) * var(--text-scale-ratio) * var(--text-scale-ratio) * var(--text-scale-ratio));
 
-    --clr-primary: #15E543;
-    --clr-secondary: #CFCFCF;
+    --clr-primary: #3498db;
+    --clr-secondary: #2ecc71;
 
-    --clr-danger: #da1e28;
-    --clr-danger-warning: #ff832b;
-    --clr-warning: #f1c21b;
-    --clr-success: #198038;
+    --clr-danger: #e74c3c;
+    --clr-danger-warning: #e67e22;
+    --clr-warning: #f1c40f;
+    --clr-success: #27ae60;
 
-    --clr-bg-dark: #E0E0E0;
-    --clr-bg-light: #F4F4F4;
+    --clr-bg-dark: #34495e;
+    --clr-bg-light: #ecf0f1;
 
-    --clr-text: #272727;
+    --clr-text: #2c3e50;
 
     --spacing-baseline: 2em;
 
@@ -65,6 +65,9 @@
 
     /* Media query values */
     --media-lg: 1024px;
+
+    /* Other values */
+    --navbar-height: calc(48px + var(--spacing-sm));
 }
 
 html {

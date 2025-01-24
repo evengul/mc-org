@@ -1,0 +1,15 @@
+#users-list > li {
+    margin-block: var(--spacing-md);
+
+    display: flex;
+    align-content: center;
+    justify-content: space-between;
+
+    width: max(300px, 33%);
+}
+
+form#user-add {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}

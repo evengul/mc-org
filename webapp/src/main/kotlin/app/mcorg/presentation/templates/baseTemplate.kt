@@ -24,15 +24,15 @@ fun baseTemplate(siteTitle: String = "MC-ORG", body: BODY.() -> Unit): String {
                 nonce = generateNonce()
             }
             link {
+                href = "/static/styles/reset.css"
+                rel = "stylesheet"
+            }
+            link {
                 href = "/static/styles/root.css"
                 rel = "stylesheet"
             }
             link {
-                href = "/static/styles/main.css"
-                rel = "stylesheet"
-            }
-            link {
-                href = "/static/styles/reset.css"
+                href = "/static/styles/styles.css"
                 rel = "stylesheet"
             }
             meta {

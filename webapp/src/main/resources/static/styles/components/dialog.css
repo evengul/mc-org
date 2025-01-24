@@ -1,0 +1,7 @@
+dialog {
+    align-self: center;
+    justify-self: center;
+    margin: auto;
+
+    min-width: clamp(300px, 80%, 1200px);
+}
