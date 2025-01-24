@@ -2,8 +2,10 @@ button {
     border: 1px solid var(--clr-primary);
     background-color: var(--clr-primary);
     cursor: pointer;
-    padding-block: var(--spacing-sm);
+    padding-block: var(--spacing-xs);
     word-break: keep-all;
+
+    border-radius: 4px;
 }
 
 button:hover {
