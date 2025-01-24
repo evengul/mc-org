@@ -61,6 +61,7 @@ function clearTaskDialogs() {
 window.addEventListener('load', () => {
     addCloseListener("edit-task-dialog", path => path.includes("/requirements"))
     addCloseListener("add-project-dialog", path => path.includes("/projects"))
+    addCloseListener("task-filters-dialog", path => path.includes("/projects/"))
     addCloseListener("add-task-doable-dialog", path => path.includes("/tasks/doable"), clearTaskDialogs)
     addCloseListener("add-task-countable-dialog", path => path.includes("/tasks/countable"), clearTaskDialogs)
     addCloseListener("add-task-litematica-dialog", path => path.includes("/tasks/litematica"), clearTaskDialogs)

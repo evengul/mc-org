@@ -29,6 +29,10 @@
     background-image: url("/static/icons/medium/Menu_Add.svg");
 }
 
+.icon-filter {
+    background-image: url("/static/icons/medium/filter_list.svg");
+}
+
 .icon-menu-worlds,
 .icon-dimension-overworld {
     background-image: url("/static/icons/medium/dimensions/Overworld.svg");

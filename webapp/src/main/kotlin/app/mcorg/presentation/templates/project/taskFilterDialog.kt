@@ -5,27 +5,20 @@ import app.mcorg.domain.User
 import app.mcorg.presentation.entities.TaskFiltersRequest
 import kotlinx.html.*
 
-fun MAIN.taskFilter(project: Project, worldUsers: List<User>, currentUser: User, filtersRequest: TaskFiltersRequest) {
-    details {
-        id = "project-tasks-filter-details"
-        summary {
-            + "Filter, sort and search"
+fun MAIN.taskFilterDialog(project: Project, worldUsers: List<User>, currentUser: User, filtersRequest: TaskFiltersRequest) {
+    dialog {
+        id = "task-filters-dialog"
+        h1 {
+            + "Filter tasks"
         }
         form {
             id = "project-tasks-filter-form"
-            label {
-                htmlFor = "project-tasks-filter-search-input"
-                + "Search by assignee or task name"
-            }
             input {
                 id = "project-tasks-filter-search-input"
                 name = "search"
+                placeholder = "Search by assignee or task name"
                 filtersRequest.search?.let { value = it }
                 type = InputType.text
-            }
-            label {
-                htmlFor = "project-tasks-filter-sort-by-select"
-                + "Sort by"
             }
             select {
                 id = "project-tasks-filter-sort-by-select"
@@ -33,33 +26,30 @@ fun MAIN.taskFilter(project: Project, worldUsers: List<User>, currentUser: User,
                 option {
                     value = "DONE"
                     selected = filtersRequest.sortBy == "DONE" || filtersRequest.sortBy == null
-                    + "Done (completed at the bottom)"
+                    + "Sort by: Done (completed at the bottom)"
                 }
                 option {
                     selected = filtersRequest.sortBy == "ASSIGNEE"
                     value = "ASSIGNEE"
-                    + "Assignee"
+                    + "Sort by: Assignee"
                 }
-            }
-            label {
-                htmlFor = "assigneeFilter"
-                + "Filter by assignee"
             }
             select {
                 id = "project-tasks-filter-assigned-select"
                 name = "assigneeFilter"
                 option {
-                    + ""
+                    value = ""
+                    + "Assigned to: Anyone or no one"
                 }
                 option {
                     selected = filtersRequest.assigneeFilter == "UNASSIGNED"
                     value = "UNASSIGNED"
-                    + "Unassigned"
+                    + "Assigned to: Unassigned"
                 }
                 option {
                     selected = filtersRequest.assigneeFilter == "MINE"
                     value = "MINE"
-                    + "Yours"
+                    + "Assigned to: Yours"
                 }
                 worldUsers
                     .filter { it.id != currentUser.id }
@@ -72,60 +62,49 @@ fun MAIN.taskFilter(project: Project, worldUsers: List<User>, currentUser: User,
                         }
                     }
             }
-            label {
-                htmlFor = "project-tasks-filter-completion-select"
-                + "Filter by completion state"
-            }
             select {
                 id = "project-tasks-filter-completion-select"
                 name = "completionFilter"
                 option {
-                    + ""
+                    + "Completed state: Any"
                 }
                 option {
                     selected = filtersRequest.completionFilter == "NOT_STARTED"
                     value = "NOT_STARTED"
-                    + "Not started"
+                    + "Completed state: Not started"
                 }
                 option {
                     selected = filtersRequest.completionFilter == "IN_PROGRESS"
                     value = "IN_PROGRESS"
-                    + "In progress"
+                    + "Completed state: In progress"
                 }
                 option {
                     selected = filtersRequest.completionFilter == "COMPLETE"
                     value = "COMPLETE"
-                    + "Completed"
+                    + "Completed state: Completed"
                 }
-            }
-            label {
-                htmlFor = "project-tasks-filter-type-select"
-                + "Filter by task type"
             }
             select {
                 id = "project-tasks-filter-type-select"
                 name = "taskTypeFilter"
                 option {
-                    + ""
+                    + "Task type: Any"
                 }
                 option {
                     selected = filtersRequest.taskTypeFilter == "DOABLE"
                     value = "DOABLE"
-                    + "Doable"
+                    + "Task type: Doable"
                 }
                 option {
                     selected = filtersRequest.taskTypeFilter == "COUNTABLE"
                     value = "COUNTABLE"
-                    + "Countable"
+                    + "Task type: Countable"
                 }
-            }
-            label {
-                htmlFor = "project-tasks-filter-amount-input"
-                + "Filter by amount done"
             }
             input {
                 name = "amountFilter"
                 id = "project-tasks-filter-amount-input"
+                placeholder = "Amount done"
                 type = InputType.number
                 min = "0"
                 max = Int.MAX_VALUE.toString()
@@ -137,6 +116,12 @@ fun MAIN.taskFilter(project: Project, worldUsers: List<User>, currentUser: User,
                     type = ButtonType.button
                     + "Clear filters"
                 }
+            }
+            button {
+                type = ButtonType.button
+                onClick = "hideDialog('task-filters-dialog')"
+                classes = setOf("button-secondary")
+                + "Cancel"
             }
             button {
                 type = ButtonType.submit
