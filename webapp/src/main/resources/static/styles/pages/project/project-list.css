@@ -101,15 +101,26 @@ ul#project-list > li:hover {
     }
 }
 
-#add-project-form {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-sm);
-    margin: var(--spacing-sm);
-}
-
 @media screen and (max-width: 800px) {
     ul#project-list {
         grid-template-columns: 1fr;
     }
+}
+
+#add-project-form {
+    display: flex;
+    flex-direction: column;
+}
+
+#add-project-form label {
+    font-weight: bold;
+    margin-bottom: var(--spacing-xxs);
+}
+
+#add-project-form input,
+#add-project-form select {
+    margin-bottom: var(--spacing-sm);
+    border: 1px solid var(--clr-border);
+    border-radius: 4px;
+    font-size: var(--text-md);
 }
