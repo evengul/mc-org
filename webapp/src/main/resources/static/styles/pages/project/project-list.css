@@ -74,44 +74,31 @@ ul#project-list > li:hover {
     box-shadow: rgba(0, 0, 0, 0.2) 0 10px 15px, rgba(0, 0, 0, 0.1) 0 4px 6px;
 }
 
-.project-title-delete {
+.project-header {
     display: flex;
-    flex-direction: row;
-    align-items: center;
     justify-content: space-between;
+    align-items: center;
     margin-bottom: var(--spacing-sm);
+
+    > h2 {
+        font-weight: bold;
+        color: var(--clr-primary);
+    }
 }
 
-.project-title-delete > a {
-    flex: 1;
-    font-size: var(--text-lg);
-    font-weight: bold;
-    color: var(--clr-primary);
-    text-decoration: none;
-}
-
-.project-title-delete > a:hover {
-    text-decoration: underline;
-}
-
-.project-info-assignment {
+.project-info {
     display: flex;
-    flex-direction: row;
-    align-items: center;
-    justify-content: space-between;
-    width: 100%;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.project-assignment {
     margin-bottom: var(--spacing-sm);
-}
 
-.project-progress {
-    width: 100%;
-}
-
-.project-progress > div {
-    height: 100%;
-    background-color: var(--clr-primary);
-    width: 0;
-    transition: width 0.3s;
+    > select {
+        width: 100%;
+        padding: var(--spacing-xs);
+    }
 }
 
 #add-project-form {

@@ -1,0 +1,29 @@
+select {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+
+    border: 1px solid var(--clr-border);
+    border-radius: 4px;
+    color: var(--clr-text);
+    font-size: var(--text-md);
+    cursor: pointer;
+
+    background-color: var(--clr-bg-light);
+    background-image: url('data:image/svg+xml;charset=US-ASCII,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="%23${encodeURIComponent(var(--clr-text-primary).substring(1))}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-chevron-down"><path d="M6 9l6 6 6-6"/></svg>');
+    background-repeat: no-repeat;
+    background-position: right var(--spacing-xs) center;
+    background-size: 16px;
+
+    &:focus {
+        outline: none;
+        border-color: var(--clr-primary);
+    }
+}
+
+option {
+    background-color: var(--clr-bg-light);
+    color: var(--clr-text);
+    padding: var(--spacing-xs);
+    font-size: var(--text-md);
+}
