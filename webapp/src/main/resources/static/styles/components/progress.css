@@ -1,36 +1,39 @@
-.app-progress {
+@keyframes progress-animation {
+    from {
+        width: 0;
+    }
+    to {
+        width: var(--progress-value);
+    }
+}
+
+.app-progress-container {
     position: relative;
     height: 30px;
-    border: 3px solid var(--clr-primary);
+    background-color: var(--clr-bg-light);
+    border-radius: 15px;
+    overflow: hidden;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1), 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
-.app-progress > .app-progress-value {
-    position: absolute;
-    left: 0;
-    right: 0;
-    top: -2px;
+.app-progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--clr-primary) 0%, var(--clr-secondary) 100%);
+    transition: width 0.4s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--clr-text-light);
+    font-weight: bold;
+    border-radius: 15px 0 0 15px;
+    animation: progress-animation 2s ease-out;
+}
 
+.app-progress-value {
+    position: absolute;
+    width: 100%;
     text-align: center;
-
-    z-index: 100;
-}
-
-.app-progress > .app-progress-value-bar {
-    background-color: var(--clr-primary);
-    position: absolute;
-    left: 0;
-    top: 0;
-    bottom: 0;
-
-    z-index: 10;
-}
-
-.app-progress-value-long {
-    display: none;
-}
-
-@media screen and (min-width: 1000px) {
-    .app-progress-value-long {
-        display: inline;
-    }
+    z-index: 1;
+    color: var(--clr-text-light);
+    font-weight: bold;
 }

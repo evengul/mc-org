@@ -16,17 +16,15 @@ fun projects(worldId: Int, projects: List<SlimProject>, worldUsers: List<User>, 
     title = "Projects",
 ) {
     addProjectDialog(worldId, currentUser.technicalPlayer)
-    button {
-        onClick = "showDialog('add-project-dialog')"
-        classes = setOf("button", "button-icon", "button-fab", "icon-menu-add")
-    }
     if (projects.isNotEmpty())  {
-        details {
-            summary {
-                + "Search"
-            }
-            form {
-                id = "projects-filter"
+        button {
+            onClick = "showDialog('add-project-dialog')"
+            classes = setOf("button", "button-icon", "button-fab", "icon-menu-add")
+        }
+        form {
+            id = "projects-filter"
+            div {
+                id = "project-filter-inputs"
                 label {
                     htmlFor = "project-search-input"
                     + "Search"
@@ -46,6 +44,9 @@ fun projects(worldId: Int, projects: List<SlimProject>, worldUsers: List<User>, 
                     type = InputType.checkBox
                     checked = filtersRequest.hideCompleted
                 }
+            }
+            div {
+                id = "project-filter-buttons"
                 a {
                     href = "/app/worlds/$worldId/projects"
                     button {
@@ -58,6 +59,18 @@ fun projects(worldId: Int, projects: List<SlimProject>, worldUsers: List<User>, 
                     type = ButtonType.submit
                     + "Search"
                 }
+            }
+        }
+    } else {
+        div {
+            classes = setOf("empty-state")
+            p {
+                + "Welcome to your new world! Start by creating your first project."
+            }
+            button {
+                onClick = "showDialog('add-project-dialog')"
+                classes = setOf("button", "button-primary")
+                + "Create Project"
             }
         }
     }
