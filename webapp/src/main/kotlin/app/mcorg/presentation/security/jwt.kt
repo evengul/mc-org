@@ -4,10 +4,6 @@ import app.mcorg.domain.User
 import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
 import com.auth0.jwt.interfaces.DecodedJWT
-import java.nio.charset.Charset
-import java.nio.file.Files.readAllBytes
-import java.nio.file.Path
-import java.nio.file.Paths
 import java.security.KeyFactory
 import java.security.interfaces.RSAPrivateKey
 import java.security.interfaces.RSAPublicKey
@@ -21,23 +17,17 @@ private const val audience = "mcorg-webapp"
 
 private fun getIssuer() = System.getenv("JWT_ISSUER") ?: "http://localhost:8080"
 
-fun getUserFromJwtToken(token: String): User {
+class JwtHelper {
+    companion object
+}
+
+fun JwtHelper.Companion.getUserFromJwtToken(token: String): User {
     val jwt = validateSignature(token)
 
     return User(jwt.getClaim("sub").asInt(), jwt.getClaim("username").asString())
 }
 
-private fun validateSignature(token: String): DecodedJWT {
-    val (publicKey, privateKey) = getKeys()
-    return JWT.require(Algorithm.RSA256(publicKey, privateKey))
-        .withIssuer(getIssuer())
-        .withAudience(audience)
-        .acceptLeeway(3L)
-        .build()
-        .verify(token)
-}
-
-fun createSignedJwtToken(user: User): String {
+fun JwtHelper.Companion.createSignedJwtToken(user: User): String {
 
     val (publicKey, privateKey) = getKeys()
 
@@ -50,7 +40,17 @@ fun createSignedJwtToken(user: User): String {
         .sign(Algorithm.RSA256(publicKey, privateKey)) as String
 }
 
-private fun getKeys(): Pair<RSAPublicKey, RSAPrivateKey> {
+private fun JwtHelper.Companion.validateSignature(token: String): DecodedJWT {
+    val (publicKey, privateKey) = getKeys()
+    return JWT.require(Algorithm.RSA256(publicKey, privateKey))
+        .withIssuer(getIssuer())
+        .withAudience(audience)
+        .acceptLeeway(3L)
+        .build()
+        .verify(token)
+}
+
+private fun JwtHelper.Companion.getKeys(): Pair<RSAPublicKey, RSAPrivateKey> {
     val privateKeyStr = readPrivateKey()
         .replace("\\n", "")
         .replace("\n", "")
@@ -79,18 +79,17 @@ private fun getKeys(): Pair<RSAPublicKey, RSAPrivateKey> {
     return publicKey to privateKey
 }
 
-private fun readPrivateKey(): String {
+private fun JwtHelper.Companion.readPrivateKey(): String {
     return System.getenv("RSA_PRIVATE_KEY") ?: readKey("private_key.pem")
 }
 
-private fun readPublicKey(): String {
+private fun JwtHelper.Companion.readPublicKey(): String {
     return System.getenv("RSA_PUBLIC_KEY") ?: readKey("public_key.pem")
 }
 
-private fun readKey(filename: String): String {
-    return readAllBytes(filename.toKeysPath()).toString(Charset.defaultCharset())
-}
-
-private fun String.toKeysPath(): Path {
-    return Paths.get("src", "main", "resources", "keys", this)
-}
+private fun JwtHelper.Companion.readKey(filename: String) =
+    object {}.javaClass.getResourceAsStream("/keys/$filename")
+        ?.bufferedReader()
+        ?.readLines()
+        ?.joinToString(System.lineSeparator())
+    ?: throw IllegalStateException("Could not read key file $filename")
