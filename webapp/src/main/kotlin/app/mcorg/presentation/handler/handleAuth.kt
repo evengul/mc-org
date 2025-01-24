@@ -6,6 +6,7 @@ import app.mcorg.presentation.configuration.minecraftApi
 import app.mcorg.presentation.configuration.permissionsApi
 import app.mcorg.presentation.configuration.projectsApi
 import app.mcorg.presentation.configuration.usersApi
+import app.mcorg.presentation.security.JwtHelper
 import app.mcorg.presentation.templates.auth.signInTemplate
 import app.mcorg.presentation.utils.*
 import com.auth0.jwt.exceptions.TokenExpiredException
@@ -38,7 +39,7 @@ suspend fun ApplicationCall.handleGetSignIn() {
 
 suspend fun ApplicationCall.handleLocalSignIn() {
     if(getEnvironment() == "LOCAL" || getSkipMicrosoftSignIn() == "true") {
-        addToken(createSignedJwtToken(getLocalUser()))
+        addToken(JwtHelper.createSignedJwtToken(getLocalUser()))
         respondRedirect("/")
     } else {
         respond(HttpStatusCode.Forbidden)
@@ -64,7 +65,7 @@ suspend fun ApplicationCall.handleSignIn() {
 
     val user = usersApi.getUser(profile.username) ?: usersApi.getUser(usersApi.createUser(profile.username, profile.email)) ?: return respondHtml("Some error occurred")
 
-    val token = createSignedJwtToken(user)
+    val token = JwtHelper.createSignedJwtToken(user)
     addToken(token)
 
     respondRedirect("/")
