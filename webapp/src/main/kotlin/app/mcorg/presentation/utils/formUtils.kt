@@ -18,7 +18,7 @@ suspend fun ApplicationCall.receiveCreateWorldRequest(): CreateWorldRequest {
 
 suspend fun ApplicationCall.receiveAddUserRequest(): AddUserRequest {
     val data = receiveParameters()
-    val username = data["username"] ?: throw IllegalArgumentException("username is required")
+    val username = data["newUser"] ?: throw IllegalArgumentException("newUser is required")
     return AddUserRequest(username)
 }
 

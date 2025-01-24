@@ -22,7 +22,6 @@
 
 #menu-close-button {
     margin-left: var(--spacing-sm);
-    margin-top: var(--spacing-sm);
 }
 
 .menu-visible > li {

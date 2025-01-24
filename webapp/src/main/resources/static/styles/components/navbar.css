@@ -1,6 +1,6 @@
 nav {
     background-color: var(--clr-primary);
-    padding: var(--spacing-md);
+    padding: var(--spacing-sm);
     display: flex;
     justify-content: space-between;
     align-items: center;

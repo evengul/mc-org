@@ -31,8 +31,8 @@ fun users(worldId: Int, currentUser: User, users: List<User>, isAdmin: Boolean):
             input {
                 id = "add-user-username-input"
                 type = InputType.text
-                name = "username"
-                autoComplete = false
+                name = "newUser"
+                attributes["autocomplete"] = "off"
                 required = true
             }
             p {

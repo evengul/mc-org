@@ -1,6 +1,7 @@
 package app.mcorg.presentation.templates.users
 
 import app.mcorg.domain.User
+import app.mcorg.presentation.hxConfirm
 import app.mcorg.presentation.hxDelete
 import app.mcorg.presentation.hxSwap
 import app.mcorg.presentation.hxTarget
@@ -25,6 +26,7 @@ fun LI.user(worldId: Int, user: User, currentUserIsAdmin: Boolean) {
     if (currentUserIsAdmin) {
         button {
             classes = setOf("button-danger")
+            hxConfirm("Are you sure you want to remove this user from the world?")
             hxDelete("/app/worlds/${worldId}/users/${user.id}")
             hxTarget("#user-list-user-${user.id}")
             hxSwap("outerHTML")
