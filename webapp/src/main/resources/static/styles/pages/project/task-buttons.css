@@ -1,3 +1,11 @@
+#add-task-button {
+    transition: transform 0.2s ease-in-out;
+}
+
+#add-task-button:hover {
+    transform: scale(1.05);
+}
+
 #project-add-task-buttons {
     position: relative;
 }
@@ -7,9 +15,10 @@
     right: var(--spacing-sm);
     z-index: 999;
 
-    padding: var(--spacing-xs);
+    padding: var(--spacing-sm);
 
     border: 2px solid var(--clr-primary);
+    border-radius: 8px;
     background-color: var(--clr-bg-dark);
 }
 
@@ -21,8 +30,23 @@
     align-items: center;
     justify-content: space-between;
 
-    margin-block: var(--spacing-xs);
-    padding-right: var(--spacing-xs);
+    margin-block: var(--spacing-sm);
+    padding: var(--spacing-md);
+
+    border-radius: 8px;
+    background-color: var(--clr-primary);
+    color: var(--clr-text-light);
+
+    transition: transform 0.2s ease-in-out;
+
+    &:hover {
+        background-color: var(--clr-primary-light);
+        transform: scale(1.05);
+    }
+
+    span {
+        margin-right: var(--spacing-xs);
+    }
 }
 
 #hidden-task-buttons.hidden {
