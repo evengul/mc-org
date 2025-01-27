@@ -1,0 +1,34 @@
+form#projects-filter {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-md);
+    padding: var(--spacing-md);
+    background-color: var(--clr-bg-light);
+    border-radius: 8px;
+    box-shadow: rgba(0, 0, 0, 0.1) 0 4px 6px, rgba(0, 0, 0, 0.1) 0 1px 3px;
+
+    #project-filter-inputs,
+    #project-filter-buttons {
+        display: flex;
+        align-items: center;
+        gap: var(--spacing-sm);
+    }
+}
+
+form#projects-filter label {
+    font-size: var(--text-md);
+    color: var(--clr-text-secondary);
+    margin-right: var(--spacing-sm);
+}
+
+form#projects-filter input[type="text"],
+form#projects-filter input[type="checkbox"] {
+    margin-right: var(--spacing-sm);
+}
+
+form#projects-filter button {
+    min-width: 100px;
+}

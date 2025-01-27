@@ -1,0 +1,80 @@
+#add-task-button {
+    transition: transform 0.2s ease-in-out;
+}
+
+#add-task-button:hover {
+    transform: scale(1.05);
+}
+
+#project-add-task-buttons {
+    position: relative;
+}
+
+#hidden-task-buttons {
+    position: fixed;
+    right: var(--spacing-sm);
+    z-index: 999;
+
+    padding: var(--spacing-sm);
+
+    border: 2px solid var(--clr-primary);
+    border-radius: 8px;
+    background-color: var(--clr-bg-dark);
+}
+
+#hidden-task-buttons > button {
+    z-index: 999;
+    width: 100%;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+
+    margin-block: var(--spacing-sm);
+    padding: var(--spacing-md);
+
+    border-radius: 8px;
+    background-color: var(--clr-primary);
+    color: var(--clr-text-light);
+
+    transition: transform 0.2s ease-in-out;
+
+    &:hover {
+        background-color: var(--clr-primary-light);
+        transform: scale(1.05);
+    }
+
+    span {
+        margin-right: var(--spacing-xs);
+    }
+}
+
+#hidden-task-buttons.hidden {
+    bottom: -500px;
+}
+
+#hidden-task-buttons.active {
+    bottom: calc(var(--spacing-md) + calc(48px + var(--spacing-xs)) + var(--spacing-sm));
+}
+
+#add-task-doable-form,
+#add-task-countable-form,
+#add-task-litematica-form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    margin-block: var(--spacing-lg);
+    margin-inline: var(--spacing-md);
+}
+
+#edit-countable-task-form {
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    grid-row-gap: var(--spacing-md);
+    grid-column-gap: var(--spacing-sm);
+    padding-block-start: var(--spacing-md);
+}
+
+#edit-task-id-input {
+    display: none;
+}

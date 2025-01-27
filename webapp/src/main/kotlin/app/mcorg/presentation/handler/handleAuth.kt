@@ -16,7 +16,7 @@ import io.ktor.server.response.*
 
 suspend fun ApplicationCall.handleGetSignIn() {
     val user = try {
-        getUserFromCookie()
+        getUserFromCookie().takeUnless { it == null || usersApi.getUser(it.id) == null }
     } catch (e: TokenExpiredException) {
         null
     }

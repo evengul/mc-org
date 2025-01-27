@@ -1,0 +1,30 @@
+select {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+
+    padding: var(--spacing-xxs);
+    border: 1px solid var(--clr-border);
+    border-radius: 4px;
+    color: var(--clr-text);
+    font-size: var(--text-md);
+    cursor: pointer;
+
+    background-color: var(--clr-input);
+    background-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'><path stroke='grey' fill='grey' d='M6 8l-1 1l5 5l5-5l-1-1l-4 4l-4-4z'/></svg>");
+    background-repeat: no-repeat;
+    background-position: right var(--spacing-xs) center;
+    background-size: 16px;
+
+    &:focus {
+        outline: none;
+        border-color: var(--clr-primary);
+    }
+}
+
+option {
+    background-color: var(--clr-bg-light);
+    color: var(--clr-text);
+    padding: var(--spacing-xs);
+    font-size: var(--text-md);
+}

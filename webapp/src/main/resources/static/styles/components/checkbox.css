@@ -1,0 +1,37 @@
+input[type="checkbox"] {
+    -webkit-appearance: none;
+    appearance: none;
+
+    background-color: var(--clr-bg-light);
+    margin: 0;
+
+    font: inherit;
+    color: currentColor;
+    width: 3em;
+    height: 3em;
+    border: 0.15em solid var(--clr-text);
+    border-radius: 0;
+    transform: translateY(-0.075em);
+
+    display: grid;
+    place-content: center;
+}
+
+input[type="checkbox"]::before {
+    content: url("/static/icons/medium/Check.svg");
+    transform: scale(0) translateY(0.125em);
+    transition: 120ms transform ease-in-out;
+}
+
+input[type="checkbox"]:checked::before {
+    transform: scale(1) translateY(0.125em);
+}
+
+input[type="checkbox"]:focus-visible {
+    outline: max(2px, 0.15em) solid currentColor;
+    outline-offset: max(2px, 0.15em);
+}
+
+input[type="checkbox"]:disabled {
+    opacity: 40%;
+}

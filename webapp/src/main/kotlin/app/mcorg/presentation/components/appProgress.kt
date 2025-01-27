@@ -5,33 +5,27 @@ import kotlin.math.floor
 import kotlin.math.roundToInt
 
 @HtmlTagMarker
-fun FlowOrPhrasingContent.appProgress(progressClasses: Set<String> = emptySet(),
+fun FlowContent.appProgress(progressClasses: Set<String> = emptySet(),
                                       max: Double = 1.0,
                                       value: Double = 0.0,
                                       isItemAmount: Boolean = false
 ) {
     val percentage = ((value / max) * 100).roundToInt()
 
-    span {
+    val animationDuration = 1.5 * (percentage / 100.0)
+
+    div {
         attributes["data-max"] = max.toString()
         attributes["data-value"] = value.toString()
-        classes = setOf("app-progress") + progressClasses
+        classes = setOf("app-progress-container") + progressClasses
         title = if (isItemAmount) value.roundToInt().toString() + " of " + max.roundToInt().toString() else ""
-        p {
-            classes = setOf("app-progress-value")
-            if (isItemAmount) {
-                span {
-                    classes = setOf("app-progress-value-long")
-                    + (getItemProgress(value) + " of " + getItemProgress(max) + " = ")
-                }
-                + ("$percentage%")
-            } else {
+        div {
+            classes = setOf("app-progress-bar")
+            style = "width: $percentage%; --progress-value: $percentage%; animation: progress-animation ${animationDuration}s ease-out;"
+            div {
+                classes = setOf("app-progress-value")
                 + "$percentage%"
             }
-        }
-        span {
-            style = "right: ${100 - percentage}%"
-            classes = setOf("app-progress-value-bar")
         }
     }
 }

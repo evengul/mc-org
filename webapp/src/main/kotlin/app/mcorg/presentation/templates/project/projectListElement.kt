@@ -16,8 +16,8 @@ fun createProjectListElement(worldId: Int, project: SlimProject, worldUsers: Lis
 
 fun LI.projectListElement(worldId: Int, project: SlimProject, worldUsers: List<User>, currentUser: User) {
     id = "project-${project.id}"
-    span {
-        classes = setOf("project-title-delete")
+    div {
+        classes = setOf("project-header")
         a {
             href = "/app/worlds/$worldId/projects/${project.id}"
             h2 {
@@ -33,18 +33,25 @@ fun LI.projectListElement(worldId: Int, project: SlimProject, worldUsers: List<U
         }
     }
 
-    p {
-        classes = setOf("icon-row")
-        span { classes = setOf("icon", "icon-priority-${project.priority.name.lowercase()}") }
-        + ("Priority: " + project.priority.name)
+    div {
+        classes = setOf("project-info")
+        p {
+            classes = setOf("icon-row")
+            span { classes = setOf("icon", "icon-priority-${project.priority.name.lowercase()}") }
+            + ("Priority: " + project.priority.name)
+        }
+        p {
+            classes = setOf("icon-row")
+            span { classes = setOf("icon", "icon-dimension-${project.dimension.name.lowercase()}") }
+            + ("Dimension: " + project.dimension.name)
+        }
     }
-    p {
-        classes = setOf("icon-row")
-        span { classes = setOf("icon", "icon-dimension-${project.dimension.name.lowercase()}") }
-        + ("Dimension: " + project.dimension.name)
-    }
-    select {
-        assignProject(project, worldUsers, User(currentUser.id, currentUser.username))
+
+    div {
+        classes = setOf("project-assignment")
+        select {
+            assignProject(project, worldUsers, User(currentUser.id, currentUser.username))
+        }
     }
     appProgress(progressClasses = setOf("project-progress"), max = 1.0, value = project.progress)
 }

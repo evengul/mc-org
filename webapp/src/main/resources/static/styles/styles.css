@@ -1,0 +1,24 @@
+@import "components/body.css";
+@import "components/main.css";
+@import "components/navbar.css";
+@import "components/menu.css";
+@import "components/button.css";
+@import "components/notifications.css";
+@import "components/selected.css";
+@import "components/dialog.css";
+@import "components/icon.css";
+@import "components/checkbox.css";
+@import "components/select.css";
+@import "components/input.css";
+@import "components/progress.css";
+
+@import "pages/signin.css";
+@import "pages/profile.css";
+@import "pages/users.css";
+@import "pages/worlds.css";
+@import "pages/project/project-filter.css";
+@import "pages/project/project-list.css";
+@import "pages/project/task-buttons.css";
+@import "pages/project/task-filter.css";
+@import "pages/project/task-list.css";
+@import "pages/project/assignment.css";

@@ -1,6 +1,7 @@
 package app.mcorg.presentation.templates.world
 
 import app.mcorg.domain.World
+import app.mcorg.domain.Worlds
 import app.mcorg.presentation.*
 import app.mcorg.presentation.templates.MainPage
 import app.mcorg.presentation.templates.mainPageTemplate
@@ -12,7 +13,13 @@ fun worlds(selectedWorldId: Int?, worlds: List<World>): String = mainPageTemplat
     title = "Worlds",
 ) {
     classes = setOf("page-list-with-add-form")
+    addWorldForm()
+    worldsList(selectedWorldId, worlds)
+}
+
+private fun FlowContent.addWorldForm() {
     form {
+        classes = setOf("world-form")
         method = FormMethod.post
         encType = FormEncType.applicationXWwwFormUrlEncoded
         label {
@@ -33,11 +40,15 @@ fun worlds(selectedWorldId: Int?, worlds: List<World>): String = mainPageTemplat
             + "Create new world"
         }
     }
+}
+
+private fun FlowContent.worldsList(selectedWorldId: Int?, worlds: List<World>) {
     ul {
         id = "worlds-list"
         worlds.sortedByDescending { it.id == selectedWorldId }.forEach {
             li {
                 id = "world-${it.id}"
+                classes = setOf("world-item")
                 span {
                     classes = setOf("icon-row")
                     hxPatch("/app/worlds/select?worldId=${it.id}")

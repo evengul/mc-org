@@ -1,0 +1,109 @@
+.icon {
+    display: inline-block;
+    width: 48px;
+    height: 48px;
+    background-repeat: no-repeat;
+}
+
+.icon-small {
+    width: 24px;
+    height: 24px;
+}
+
+.icon-row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.icon-back {
+    background-image: url("/static/icons/medium/Back.svg");
+}
+
+.icon-menu {
+    background-image: url("/static/icons/medium/Menu.svg");
+}
+
+.icon-menu-add {
+    background-image: url("/static/icons/medium/Menu_Add.svg");
+}
+
+.icon-filter {
+    background-image: url("/static/icons/medium/filter_list.svg");
+}
+
+.icon-menu-worlds,
+.icon-dimension-overworld {
+    background-image: url("/static/icons/medium/dimensions/Overworld.svg");
+}
+
+.icon-dimension-nether {
+    background-image: url("/static/icons/medium/dimensions/Nether.svg");
+}
+
+.icon-dimension-the-end {
+    background-image: url("/static/icons/medium/dimensions/End.svg");
+}
+
+.icon-priority-low {
+    background-image: url("/static/icons/medium/priority/Low.svg");
+}
+
+.icon-priority-medium {
+    background-image: url("/static/icons/medium/priority/Medium.svg");
+}
+
+.icon-priority-high {
+    background-image: url("/static/icons/medium/priority/High.svg");
+}
+
+.icon-menu-profile,
+.icon-user {
+    background-image: url("/static/icons/medium/users/Profile.svg");
+}
+
+.icon-user-small {
+    background-image: url("/static/icons/small/users/Profile.svg");
+}
+
+.icon-menu-users,
+.icon-users {
+    background-image: url("/static/icons/medium/users/Group.svg");
+}
+
+.icon-user-add {
+    background-image: url("/static/icons/medium/users/Add.svg");
+}
+
+.icon-world-add {
+    background-image: url("/static/icons/medium/Add_World.svg");
+}
+
+.icon-menu-projects {
+    background-image: url("/static/icons/medium/menu/Projects.svg");
+}
+
+.icon-microsoft {
+    background-image: url("/static/icons/medium/Microsoft_Logo.svg");
+}
+
+.icon-error {
+    background-image: url("/static/icons/medium/notification/Error.svg");
+}
+
+.icon-warning {
+    background-image: url("/static/icons/medium/notification/Warning.svg");
+}
+
+.icon-info {
+    background-image: url("/static/icons/medium/notification/Info.svg");
+}
+
+.icon-delete {
+    background-image: url("/static/icons/medium/Delete.svg");
+}
+
+.icon-delete-small {
+    background-image: url("/static/icons/small/Delete.svg");
+}
