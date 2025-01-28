@@ -11,7 +11,7 @@ import org.slf4j.LoggerFactory
 fun main() {
     val logger = LoggerFactory.getLogger(Application::class.java)
 
-    migrateDb(logger)
+    // migrateDb(logger)
 
     logger.info("Starting server")
     embeddedServer(Netty, port = 8080, host = "0.0.0.0", module = Application::module, watchPaths = getWatchPaths())
