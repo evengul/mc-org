@@ -1,7 +1,7 @@
 FROM maven:3-eclipse-temurin-21 AS build
 COPY . /home/maven/src
 WORKDIR /home/maven/src
-RUN mvn package
+RUN mvn clean install
 
 FROM eclipse-temurin:21 AS mcorg_app
 EXPOSE "8080:8080"
