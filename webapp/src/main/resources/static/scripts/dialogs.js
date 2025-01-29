@@ -10,7 +10,7 @@ function hideDialog(id) {
 
 function addCloseListener(id, pathRequirement, onClose)  {
     document.addEventListener("htmx:afterOnLoad", (e) => {
-        if (pathRequirement(e.detail.pathInfo.responsePath)) {
+        if (pathRequirement(e.detail)) {
             hideDialog(id)
             if (onClose) onClose()
         }
@@ -45,6 +45,14 @@ function editTask(target) {
     showDialog("edit-task-dialog")
 }
 
+function clearProjectDialog() {
+    document.getElementById("project-add-name-input").value = ""
+    document.getElementById("project-add-dimension-input").value = "OVERWORLD"
+    document.getElementById("project-add-priority-input").value = "LOW"
+    const perimeter = document.getElementById("project-add-requires-perimeter-input")
+    if (perimeter) perimeter.checked = false
+}
+
 function clearTaskDialogs() {
     const doableNameInput = document.getElementById("add-doable-task-name-input")
     doableNameInput.value = ""
@@ -59,11 +67,11 @@ function clearTaskDialogs() {
 }
 
 window.addEventListener('load', () => {
-    addCloseListener("edit-task-dialog", path => path.includes("/requirements"))
-    addCloseListener("add-project-dialog", path => path.includes("/projects"))
-    addCloseListener("task-filters-dialog", path => path.includes("/projects/"))
-    addCloseListener("add-task-doable-dialog", path => path.includes("/tasks/doable"), clearTaskDialogs)
-    addCloseListener("add-task-countable-dialog", path => path.includes("/tasks/countable"), clearTaskDialogs)
-    addCloseListener("add-task-litematica-dialog", path => path.includes("/tasks/litematica"), clearTaskDialogs)
+    addCloseListener("edit-task-dialog", detail => detail.xhr.responseURL.includes("/requirements") && detail.requestConfig.verb === "patch")
+    addCloseListener("add-project-dialog", detail => detail.xhr.responseURL.includes("/projects") && detail.requestConfig.verb === "post", clearProjectDialog)
+    addCloseListener("task-filters-dialog", detail => detail.xhr.responseURL.includes("/projects/") && detail.requestConfig.verb === "post")
+    addCloseListener("add-task-doable-dialog", detail => detail.xhr.responseURL.includes("/tasks/doable") && detail.requestConfig.verb === "post", clearTaskDialogs)
+    addCloseListener("add-task-countable-dialog", detail => detail.xhr.responseURL.includes("/tasks/countable") && detail.requestConfig.verb === "post", clearTaskDialogs)
+    addCloseListener("add-task-litematica-dialog", detail => detail.xhr.responseURL.includes("/tasks/litematica") && detail.requestConfig.verb === "post", clearTaskDialogs)
 })
 

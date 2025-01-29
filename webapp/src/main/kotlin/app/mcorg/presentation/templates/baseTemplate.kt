@@ -23,6 +23,10 @@ fun baseTemplate(siteTitle: String = "MC-ORG", body: BODY.() -> Unit): String {
                 src = "/static/scripts/dialogs.js"
                 nonce = generateNonce()
             }
+            script {
+                src = "/static/scripts/remove-first-project-dialog-on-create.js"
+                nonce = generateNonce()
+            }
             link {
                 href = "/static/styles/reset.css"
                 rel = "stylesheet"
