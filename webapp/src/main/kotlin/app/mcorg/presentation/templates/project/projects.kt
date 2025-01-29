@@ -16,53 +16,56 @@ fun projects(worldId: Int, projects: List<SlimProject>, worldUsers: List<User>, 
     title = "Projects",
 ) {
     addProjectDialog(worldId, currentUser.technicalPlayer)
-    if (projects.isNotEmpty())  {
-        button {
-            onClick = "showDialog('add-project-dialog')"
-            classes = setOf("button", "button-icon", "button-fab", "icon-menu-add")
+    button {
+        onClick = "showDialog('add-project-dialog')"
+        classes = setOf("button", "button-icon", "button-fab", "icon-menu-add")
+    }
+    form {
+        id = "projects-filter"
+        if (projects.isEmpty()) {
+            style = "display: none;"
         }
-        form {
-            id = "projects-filter"
-            div {
-                id = "project-filter-inputs"
-                label {
-                    htmlFor = "project-search-input"
-                    + "Search"
-                }
-                input {
-                    value = filtersRequest.search ?: ""
-                    id = "projects-search-input"
-                    name = "search"
-                }
-                label {
-                    htmlFor = "project-hide-completed-checkbox"
-                    + "Hide done"
-                }
-                input {
-                    id = "project-hide-completed-checkbox"
-                    name = "hideCompleted"
-                    type = InputType.checkBox
-                    checked = filtersRequest.hideCompleted
-                }
-            }
-            div {
-                id = "project-filter-buttons"
-                a {
-                    href = "/app/worlds/$worldId/projects"
-                    button {
-                        classes = setOf("button-secondary")
-                        type = ButtonType.button
-                        + "Clear"
-                    }
-                }
-                button {
-                    type = ButtonType.submit
-                    + "Search"
-                }
-            }
-        }
-    } else {
         div {
+            id = "project-filter-inputs"
+            label {
+                htmlFor = "project-search-input"
+                + "Search"
+            }
+            input {
+                value = filtersRequest.search ?: ""
+                id = "projects-search-input"
+                name = "search"
+            }
+            label {
+                htmlFor = "project-hide-completed-checkbox"
+                + "Hide done"
+            }
+            input {
+                id = "project-hide-completed-checkbox"
+                name = "hideCompleted"
+                type = InputType.checkBox
+                checked = filtersRequest.hideCompleted
+            }
+        }
+        div {
+            id = "project-filter-buttons"
+            a {
+                href = "/app/worlds/$worldId/projects"
+                button {
+                    classes = setOf("button-secondary")
+                    type = ButtonType.button
+                    + "Clear"
+                }
+            }
+            button {
+                type = ButtonType.submit
+                + "Search"
+            }
+        }
+    }
+    if (projects.isEmpty()) {
+        div {
+            id = "empty-project-state"
             classes = setOf("empty-state")
             p {
                 + "Welcome to your new world! Start by creating your first project."
