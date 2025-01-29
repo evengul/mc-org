@@ -5,26 +5,26 @@ import io.ktor.server.engine.*
 import io.ktor.server.netty.*
 import app.mcorg.presentation.plugins.*
 import app.mcorg.presentation.configureAppRouter
-import org.slf4j.LoggerFactory
 
 fun main() {
-    val logger = LoggerFactory.getLogger(Application::class.java)
-
-    logger.info("Starting server")
-    embeddedServer(Netty, port = 8080, host = "0.0.0.0", module = Application::module, watchPaths = getWatchPaths())
-            .start(wait = true)
+    defaultServer { module() }.start(wait = true)
 }
 
-fun Application.module() {
+private fun defaultServer(module: Application.() -> Unit) =
+    embeddedServer(
+        Netty,
+        environment = applicationEnvironment { },
+        configure = {
+            connector {
+                port = 8080
+            }
+        },
+        module
+    )
+
+private fun Application.module() {
     configureHTTP()
     configureMonitoring()
     configureAppRouter()
     configureStatusStaticRouter()
-}
-
-private fun getWatchPaths(): List<String> {
-    if (System.getenv("ENV") == "LOCAL") {
-        return listOf("classes", "resources")
-    }
-    return emptyList()
 }

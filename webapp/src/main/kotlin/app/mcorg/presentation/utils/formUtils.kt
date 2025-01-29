@@ -8,6 +8,7 @@ import app.mcorg.presentation.entities.*
 import io.ktor.http.content.*
 import io.ktor.server.application.*
 import io.ktor.server.request.*
+import io.ktor.utils.io.jvm.javaio.*
 
 suspend fun ApplicationCall.receiveCreateWorldRequest(): CreateWorldRequest {
     val data = receiveParameters()
@@ -79,10 +80,13 @@ suspend fun ApplicationCall.getEditCountableTaskRequirements(): EditCountableReq
 
 suspend fun ApplicationCall.receiveMaterialListTasks(): List<PremadeTask> {
     val data = receiveMultipart()
-    val file = data.readAllParts().find { it.name == "file" } as PartData.FileItem?
-    return file?.streamProvider?.let {
-        it().tasksFromMaterialList()
-    } ?: emptyList()
+    var materialList = emptyList<PremadeTask>()
+    data.forEachPart {
+        if (it is PartData.FileItem) {
+            materialList = it.provider().toInputStream().tasksFromMaterialList()
+        }
+    }
+    return materialList
 }
 
 private fun String?.toDimension(): Dimension = when(this) {
