@@ -15,9 +15,9 @@ jobs:
           branch_name: ${{ github.head_ref || github.ref_name }}
           username: mcorg_owner
           api_key: ${{ secrets.NEON_API_KEY }}
-      - run: echo db_url ${{ steps.create-branch.outputs.db_url }}
-      - run: echo host ${{ steps.create-branch.outputs.host }}
-      - run: echo branch_id ${{ steps.create-branch.outputs.branch_id }}
+      - run: echo db_url ${{ steps.create-neon-branch.outputs.db_url }}
+      - run: echo host ${{ steps.create-neon-branch.outputs.host }}
+      - run: echo branch_id ${{ steps.create-neon-branch.outputs.branch_id }}
   push-to-fly:
     name: "Push app to fly dev environment"
     runs-on: ubuntu-latest
