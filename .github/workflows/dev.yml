@@ -39,7 +39,7 @@ jobs:
         env:
           DB_URL: ${{ jobs.create-neon-branch.outputs.db_url }}
           DB_USER: mcorg_owner
-          DB_PASSWORD: ${{ jobs.create-neon-branch.outputs.db_url }}
+          DB_PASSWORD: ${{ jobs.create-neon-branch.outputs.password }}
       - uses: superfly/flyctl-actions/setup-flyctl@master
       - run: flyctl deploy --remote-only -c dev.fly.toml
         env:
