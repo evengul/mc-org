@@ -15,7 +15,6 @@ jobs:
           branch_name: ${{ github.head_ref || github.ref_name }}
           username: mcorg_owner
           api_key: ${{ secrets.NEON_API_KEY }}
-          suspend_timeout: 500
   push-to-fly:
     name: "Push app to fly dev environment"
     runs-on: ubuntu-latest
