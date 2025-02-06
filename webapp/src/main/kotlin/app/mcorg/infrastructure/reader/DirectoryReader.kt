@@ -6,7 +6,7 @@ import java.nio.file.Path
 import kotlin.io.path.Path
 
 abstract class DirectoryReader<T>(private val path: String) : Reader() {
-    fun getValues(): List<T> {
+    open fun getValues(): List<T> {
         return with(resourceToFile()) {
             walk().filter { it.isFile }.map { parseFile(Path(it.path)) }.toList()
         }

@@ -3,10 +3,7 @@
   "category": "misc",
   "key": {
     "#": "minecraft:diamond",
-    "C": [
-      "minecraft:copper_block",
-      "minecraft:waxed_copper_block"
-    ],
+    "C": "minecraft:copper_block",
     "S": "minecraft:bolt_armor_trim_smithing_template"
   },
   "pattern": [

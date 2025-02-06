@@ -2,7 +2,7 @@ package app.mcorg.infrastructure.reader.entities.recipe
 
 import app.mcorg.domain.AnyOf
 import app.mcorg.domain.minecraft.model.Item
-import app.mcorg.infrastructure.reader.entities.serializer.ListOrStringSerializer
+import app.mcorg.infrastructure.reader.serializer.ListOrStringSerializer
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
