@@ -15,9 +15,9 @@ jobs:
           branch_name: ${{ github.head_ref || github.ref_name }}
           username: mcorg_owner
           api_key: ${{ secrets.NEON_API_KEY }}
-      - run: echo db_url ${{ steps.create-neon-branch.outputs.db_url }}
-      - run: echo host ${{ steps.create-neon-branch.outputs.host }}
-      - run: echo branch_id ${{ steps.create-neon-branch.outputs.branch_id }}
+    outputs:
+      db_url: ${{ steps.create-neon-branch.outputs.db_url_with_pooler }}
+      db_password: ${{ steps.create-neon-branch.outputs.password }}
   push-to-fly:
     name: "Push app to fly dev environment"
     runs-on: ubuntu-latest
@@ -37,9 +37,9 @@ jobs:
       - name: Run flyway migrations
         run: mvn flyway:migrate
         env:
-          DB_URL: ${{ steps.create-neon-branch.outputs.db_url_with_pooler }}
+          DB_URL: ${{ jobs.create-neon-branch.outputs.db_url }}
           DB_USER: mcorg_owner
-          DB_PASSWORD: ${{ steps.create-neon-branch.outputs.password }}
+          DB_PASSWORD: ${{ jobs.create-neon-branch.outputs.db_url }}
       - uses: superfly/flyctl-actions/setup-flyctl@master
       - run: flyctl deploy --remote-only -c dev.fly.toml
         env:
