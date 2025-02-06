@@ -34,12 +34,14 @@ jobs:
         with:
           distribution: 'adopt'
           java-version: '21'
+      - run: echo url ${{needs.create-neon-branch.outputs.db_url}}
+      - run: echo url ${{needs.create-neon-branch.outputs.db_password}}
       - name: Run flyway migrations
         run: mvn flyway:migrate
         env:
           DB_URL: ${{ needs.create-neon-branch.outputs.db_url }}
           DB_USER: mcorg_owner
-          DB_PASSWORD: ${{ needs.create-neon-branch.outputs.password }}
+          DB_PASSWORD: ${{ needs.create-neon-branch.outputs.db_password }}
       - uses: superfly/flyctl-actions/setup-flyctl@master
       - run: flyctl deploy --remote-only -c dev.fly.toml
         env:
