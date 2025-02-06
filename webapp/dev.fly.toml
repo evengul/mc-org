@@ -1,0 +1,28 @@
+# fly.toml app configuration file generated for mcorg-dev on 2025-02-06T20:10:07+01:00
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = 'mcorg-dev'
+primary_region = 'arn'
+
+[build]
+
+[env]
+COOKIE_HOST = 'mcorg-dev.fly.dev'
+ENV = 'TEST'
+JWT_ISSUER = 'mcorg-dev.fly.dev'
+SKIP_MICROSOFT_SIGN_IN = 'true'
+MICROSOFT_CLIENT_ID=''
+MICROSOFT_CLIENT_SECRET=''
+
+[http_service]
+internal_port = 8080
+force_https = true
+auto_stop_machines = 'stop'
+auto_start_machines = true
+min_machines_running = 0
+processes = ['app']
+
+[[vm]]
+size = 'shared-cpu-1x'
