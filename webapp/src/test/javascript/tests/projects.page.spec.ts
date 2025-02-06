@@ -1,5 +1,5 @@
 import {expect, test} from "@playwright/test";
-import {signInCreateWorldAndGoTo} from "./utils";
+import {createProject, signInCreateWorldAndGoTo} from "./utils";
 import {locators} from "./locators";
 
 test.describe("Projects page", () => {
@@ -49,5 +49,75 @@ test.describe("Projects page", () => {
 
     const [progressContent] = await progress.allTextContents()
     expect(progressContent).toContain("0%")
+  })
+
+  test("Filter projects by search", async ({page}) => {
+    await signInCreateWorldAndGoTo(page, "MAIN")
+
+    const project1 = await createProject(page, "Project 1")
+    const project2 = await createProject(page, "Project 2")
+
+    const {
+      FILTER: {
+        search,
+        submitButton
+      },
+      amountShowed,
+      project
+    } = locators(page).PROJECTS
+
+    await search.fill("Project 1")
+    await submitButton.click()
+
+    await expect(amountShowed).toContainText("Showing 1 of 2 projects")
+    await expect(project(project1).self).toBeVisible()
+    await expect(project(project2).self).not.toBeVisible()
+  })
+
+  test("Delete project", async ({page}) => {
+    await signInCreateWorldAndGoTo(page, "MAIN")
+
+    const projectId = await createProject(page)
+
+    const {
+      project,
+      FILTER: {
+        self: filter
+      },
+      EMPTY_STATE: {
+        self: emptyState
+      }
+    } = locators(page).PROJECTS
+
+    const {
+      deleteButton,
+      self: projectElement
+    } = project(projectId)
+
+    page.on("dialog", dialog => dialog.accept())
+
+    await deleteButton.click({
+      force: true
+    })
+
+    await expect(projectElement).not.toBeVisible()
+    await expect(emptyState).toBeVisible()
+    await expect(filter).not.toBeVisible()
+  })
+
+  test("Assign self to project", async ({page}) => {
+    await signInCreateWorldAndGoTo(page, "MAIN")
+
+    const projectId = await createProject(page)
+
+    const {
+      assignment
+    } = locators(page).PROJECTS.project(projectId)
+
+    await assignment.selectOption({
+      index: 1
+    })
+
+    await expect(assignment.locator("[selected=\"selected\"]")).toContainText(/Assigned: TestUser_[0-9]+/)
   })
 })

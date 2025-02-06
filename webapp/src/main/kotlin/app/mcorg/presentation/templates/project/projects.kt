@@ -60,6 +60,7 @@ fun projects(worldId: Int, projects: List<SlimProject>, worldUsers: List<User>, 
             }
             button {
                 type = ButtonType.submit
+                id = ""
                 + "Search"
             }
         }

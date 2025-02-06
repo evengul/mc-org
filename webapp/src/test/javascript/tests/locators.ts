@@ -16,6 +16,7 @@ export const locators = (page: Page) => ({
   PROJECTS: {
     title: page.getByRole("heading", {name: "Projects"}),
     showCreateProjectDialogButton: page.locator("#show-create-project-dialog-button"),
+    amountShowed: page.locator("#project-filter-amount"),
     EMPTY_STATE: {
       self: page.locator("#empty-project-state"),
       text: page.getByText("Welcome to your new world! Start by creating your first project."),
@@ -26,7 +27,7 @@ export const locators = (page: Page) => ({
       search: page.locator("#projects-search-input"),
       hideCompleted: page.locator("#projects-hide-completed-checkbox"),
       clearButton: page.locator("#projects-filter-clear-button"),
-      submitButton: page.locator("#projects-filter-submit-button"),
+      submitButton: page.getByRole("button").getByText("Search"),
     },
     CREATE_DIALOG: {
       self: page.locator("#add-project-dialog"),
@@ -41,10 +42,10 @@ export const locators = (page: Page) => ({
       const project = page.locator(".project", {has: page.getByRole("heading", {level: 2, name: name})})
       return {
         self: project,
-        deleteButton: project.locator(".delete-project"),
+        deleteButton: project.locator(".delete-project-button"),
         priority: project.locator("p:nth-of-type(1)"),
         dimension: project.locator("p:nth-of-type(2)"),
-        assignment: project.locator(".project-assignment"),
+        assignment: project.locator(".project-assignment").locator("select"),
         progress: project.locator(".project-progress")
       }
     }

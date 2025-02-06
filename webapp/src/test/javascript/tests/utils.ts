@@ -45,7 +45,7 @@ export const signInCreateWorldAndGoTo = async (page: Page, route: keyof typeof p
 }
 
 export const signInCreateWorldAndProject = async (page: Page, projectName = "Project") => {
-  await signInCreateWorldAndGoTo(page, "WORLDS")
+  await signInCreateWorldAndGoTo(page, "MAIN")
 
   const {
     EMPTY_STATE: {createButton}
@@ -53,7 +53,24 @@ export const signInCreateWorldAndProject = async (page: Page, projectName = "Pro
 
   await createButton.click()
 
+  await createProjectInForm(page, projectName)
+}
+
+export const createProject = async (page: Page, projectName = "Project") => {
   const {
+    showCreateProjectDialogButton
+  } = locators(page).PROJECTS
+
+  await showCreateProjectDialogButton.click()
+
+  await createProjectInForm(page, projectName)
+
+  return projectName
+}
+
+const createProjectInForm = async (page: Page, projectName = "Project") => {
+  const {
+    project,
     CREATE_DIALOG: {
       name,
       dimension,
@@ -63,11 +80,15 @@ export const signInCreateWorldAndProject = async (page: Page, projectName = "Pro
   } = locators(page).PROJECTS
 
   await name.fill(projectName)
-  await dimension.fill("OVERWORLD")
-  await priority.fill("HIGH")
+  await dimension.selectOption("OVERWORLD")
+  await priority.selectOption("HIGH")
   await submitButton.click()
 
   await page.waitForLoadState("domcontentloaded")
+
+  await expect(project(projectName).self).toBeVisible()
+
+  return projectName
 }
 
 

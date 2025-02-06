@@ -70,8 +70,8 @@ test.describe("When user has no worlds on sign in", () => {
     await expect(assignment).toBeVisible()
     await expect(progress).toBeVisible()
 
-    await expect(priority).toHaveText("Priority: HIGH")
-    await expect(dimension).toHaveText("Dimension: OVERWORLD")
-    await expect(assignment).toHaveText("Unassigned")
+    await expect(priority).toContainText("High")
+    await expect(dimension).toContainText("Overworld")
+    await expect(assignment).toContainText("Unassigned")
   })
 })
