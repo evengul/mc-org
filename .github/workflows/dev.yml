@@ -31,6 +31,7 @@ jobs:
         with:
           distribution: 'adopt'
           java-version: '21'
+      - run: echo ${{ steps.create-neon-branch.outputs.db_url_with_pooler }}
       - name: Run flyway migrations
         run: mvn flyway:migrate
         env:
