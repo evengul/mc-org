@@ -7,7 +7,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: neondatabase/create-branch-action@v5
-        id: create-branch
+        id: create-neon-branch
         with:
           project_id: morning-fog-11467472
           parent: master
