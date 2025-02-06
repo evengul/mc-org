@@ -20,6 +20,10 @@
 
         <!--suppress UnresolvedMavenProperty -->
         <flyway.url>${env.DB_URL}</flyway.url>
+        <!--suppress UnresolvedMavenProperty -->
+        <flyway.user>${env.DB_USER}</flyway.user>
+        <!--suppress UnresolvedMavenProperty -->
+        <flyway.password>${env.DB_PASSWORD}</flyway.password>
     </properties>
     <repositories>
     </repositories>
