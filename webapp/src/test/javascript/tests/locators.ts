@@ -16,6 +16,11 @@ export const locators = (page: Page) => ({
   PROJECTS: {
     title: page.getByRole("heading", {name: "Projects"}),
     showCreateProjectDialogButton: page.locator("#show-create-project-dialog-button"),
+    EMPTY_STATE: {
+      self: page.locator("#empty-project-state"),
+      text: page.getByText("Welcome to your new world! Start by creating your first project."),
+      createButton: page.getByText("Create Project")
+    },
     FILTER: {
       self: page.locator("#projects-filter"),
       search: page.locator("#projects-search-input"),

@@ -13,8 +13,7 @@ import com.auth0.jwt.exceptions.TokenExpiredException
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.response.*
-import java.time.LocalDateTime
-import java.time.ZoneOffset
+import kotlin.random.Random
 
 suspend fun ApplicationCall.handleGetSignIn() {
     val user = try {
@@ -26,7 +25,7 @@ suspend fun ApplicationCall.handleGetSignIn() {
     if (user == null) {
         val url = when {
             getSkipMicrosoftSignIn().lowercase() != "true" -> getMicrosoftSignInUrl()
-            parameters["test"] == "true" -> "/auth/oidc/test-redirect"
+            getEnvironment() == "TEST" -> "/auth/oidc/test-redirect"
             else -> "/auth/oidc/local-redirect"
         }
         respondHtml(signInTemplate(url))
@@ -51,7 +50,7 @@ suspend fun ApplicationCall.handleLocalSignIn() {
 
 suspend fun ApplicationCall.handleTestSignIn() {
     if (getEnvironment() == "TEST") {
-        addToken(createSignedJwtToken(getTestUser()))
+        addToken(JwtHelper.createSignedJwtToken(getTestUser()))
         respondRedirect("/")
     } else {
         respond(HttpStatusCode.Forbidden)
@@ -59,7 +58,7 @@ suspend fun ApplicationCall.handleTestSignIn() {
 }
 
 private fun getTestUser(): User {
-    val username = "TestUser_${LocalDateTime.now().toEpochSecond(ZoneOffset.UTC)}"
+    val username = "TestUser_${Random.nextInt(100_000)}"
     val userId = usersApi.createUser(username, "test-$username@mcorg.app")
     return usersApi.getUser(userId)!!
 }

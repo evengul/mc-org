@@ -12,7 +12,8 @@ const urls: Record<ENVIRONMENT, string> = {
 
 const pages = {
   MAIN: "/",
-  SIGN_IN: "/auth/sign-in?test=true"
+  SIGN_IN: "/auth/sign-in",
+  WORLDS: "/app/worlds",
 }
 
 export const getUrl = (page: keyof typeof pages) => urls[getCurrentEnvironment()] + pages[page]
@@ -27,7 +28,7 @@ export const signInAndGoTo = async (page: Page, route: keyof typeof pages) => {
 }
 
 export const signInCreateWorldAndGoTo = async (page: Page, route: keyof typeof pages) => {
-  await signInAndGoTo(page, "MAIN")
+  await signInAndGoTo(page, "WORLDS")
 
   const {
     CREATE_WORLD: {name, submitButton}
@@ -39,6 +40,34 @@ export const signInCreateWorldAndGoTo = async (page: Page, route: keyof typeof p
   await page.waitForLoadState("domcontentloaded")
 
   await expect(page).toHaveTitle("MC-ORG | Projects")
+
+  await page.goto(getUrl(route))
+}
+
+export const signInCreateWorldAndProject = async (page: Page, projectName = "Project") => {
+  await signInCreateWorldAndGoTo(page, "WORLDS")
+
+  const {
+    EMPTY_STATE: {createButton}
+  } = locators(page).PROJECTS
+
+  await createButton.click()
+
+  const {
+    CREATE_DIALOG: {
+      name,
+      dimension,
+      priority,
+      submitButton
+    }
+  } = locators(page).PROJECTS
+
+  await name.fill(projectName)
+  await dimension.fill("OVERWORLD")
+  await priority.fill("HIGH")
+  await submitButton.click()
+
+  await page.waitForLoadState("domcontentloaded")
 }
 
 

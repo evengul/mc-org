@@ -19,10 +19,11 @@ fun ApplicationCall.getUserFromCookie(): User? = request.cookies[tokenName]?.let
 
 fun ApplicationCall.addToken(token: String) {
     val cookieHost = getCookieHost()
+    val expires = GMTDate(timestamp = Instant.now().plusSeconds(8 * 60 * 60).toEpochMilli())
     if (cookieHost == "false") {
-        response.cookies.append(tokenName, token, httpOnly = true, expires = GMTDate(timestamp = Instant.now().plusSeconds(8 * 60 * 60).toEpochMilli()), path = "/")
+        response.cookies.append(tokenName, token, httpOnly = true, expires = expires, path = "/")
     } else {
-        response.cookies.append(tokenName, token, httpOnly = true, domain = cookieHost, expires = GMTDate(timestamp = Instant.now().plusSeconds(8 * 60 * 60).toEpochMilli()), path = "/")
+        response.cookies.append(tokenName, token, httpOnly = true, expires = expires, path = "/", domain = cookieHost)
     }
 }
 
