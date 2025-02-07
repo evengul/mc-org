@@ -3,11 +3,12 @@ on:
   pull_request:
     branches: [ master ]
 jobs:
-  create-neon-branch:
+  deploy:
+    environment: dev
     runs-on: ubuntu-latest
-    outputs:
-      db_url: ${{ steps.create-neon-branch.outputs.db_url_with_pooler }}
-      db_password: ${{ steps.create-neon-branch.outputs.password }}
+    defaults:
+      run:
+        working-directory: ./webapp
     steps:
       - uses: neondatabase/create-branch-action@v5
         id: create-neon-branch
@@ -18,35 +19,20 @@ jobs:
           branch_name: ${{ github.head_ref || github.ref_name }}
           username: mcorg_owner
           api_key: ${{ secrets.NEON_API_KEY }}
-  push-to-fly:
-    name: "Push app to fly dev environment"
-    runs-on: ubuntu-latest
-    needs: create-neon-branch
-    defaults:
-      run:
-        working-directory: ./webapp
-    environment: dev
-    env:
-      DB_URL: ${{ needs.create-neon-branch.outputs.db_url }}
-      DB_USERNAME: mcorg_owner
-      DB_PASSWORD: ${{ needs.create-neon-branch.outputs.db_password }}
-    steps:
       - uses: actions/checkout@v4
       - name: Set up JDK 21
         uses: actions/setup-java@v3
         with:
           distribution: 'adopt'
           java-version: '21'
-      - run: echo "url=$DB_URL"
-      - run: echo "password ${{needs.create-neon-branch.outputs.db_password}}"
       - name: Run flyway migrations
         run: mvn flyway:migrate
         env:
-          DB_URL: ${{ needs.create-neon-branch.outputs.db_url }}
+          DB_URL: ${{ steps.create-neon-branch.outputs.db_url }}
           DB_USER: mcorg_owner
           DB_PASSWORD: ${{ needs.create-neon-branch.outputs.db_password }}
       - uses: superfly/flyctl-actions/setup-flyctl@master
-      - run: flyctl deploy --remote-only -c dev.fly.toml
+      - run: flyctl deploy --remote-only -c dev.fly.toml -e 'DB_URL=${{ steps.create-neon-branch.outputs.db_url_with_pooler }}' -e 'DB_PASSWORD=${{ needs.create-neon-branch.outputs.db_password }}' -e 'DB_USERNAME='mcorg_owner'
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
   playwright-tests:
