@@ -32,7 +32,7 @@ jobs:
           DB_USER: mcorg_owner
           DB_PASSWORD: ${{ needs.create-neon-branch.outputs.db_password }}
       - uses: superfly/flyctl-actions/setup-flyctl@master
-      - run: flyctl deploy --remote-only -c dev.fly.toml -e 'DB_URL=${{ steps.create-neon-branch.outputs.db_url_with_pooler }}' -e 'DB_PASSWORD=${{ needs.create-neon-branch.outputs.db_password }}' -e 'DB_USERNAME='mcorg_owner'
+      - run: flyctl deploy --remote-only -c dev.fly.toml -e 'DB_URL=jdbc:${{ steps.create-neon-branch.outputs.db_url_with_pooler }}' -e 'DB_PASSWORD=${{ needs.create-neon-branch.outputs.db_password }}' -e 'DB_USERNAME='mcorg_owner'
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
   playwright-tests:
