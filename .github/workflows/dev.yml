@@ -28,12 +28,6 @@ jobs:
           branch_name: dev/${{ github.head_ref || github.ref_name }}
           username: ${{ env.DB_USERNAME }}
           api_key: ${{ secrets.NEON_API_KEY }}
-      - run: |
-          echo "DB_URL_POOLED=${{ steps.create-neon-branch.outputs.db_url_with_pooler }}" >> "$GITHUB_ENV"
-      - run: |
-          echo "DB_URL=${{ steps.create-neon-branch.outputs.db_url }}" >> "$GITHUB_ENV"
-      - run: |
-          echo "DB_PASSWORD=${{ steps.create-neon-branch.outputs.password }}" >> "$GITHUB_ENV"
       - name: Set up JDK 21
         uses: actions/setup-java@v3
         with:
@@ -42,14 +36,14 @@ jobs:
       - name: Run flyway migrations
         run: mvn flyway:migrate
         env:
-          DB_URL: "jdbc:${{ env.DB_URL }}"
+          DB_URL: "jdbc:${{ steps.create-neon-branch.outputs.db_url }}"
           DB_USER: ${{ env.DB_USERNAME }}
-          DB_PASSWORD: ${{ env.DB_PASSWORD }}
+          DB_PASSWORD: ${{ steps.create-neon-branch.outputs.password }}
       - uses: superfly/fly-pr-review-apps@1.2.1
         id: deploy
         with:
           config: dev.fly.toml
-          secrets: DB_PASSWORD=$DB_PASSWORD DB_URL=jdbc:$DB_URL_POOLED DB_USERNAME=${{ env.DB_USERNAME }}
+          secrets: DB_PASSWORD=${{ steps.create-neon-branch.outputs.password }} DB_URL=jdbc:${{ steps.create-neon-branch.outputs.db_url_with_pooler }} DB_USERNAME=${{ env.DB_USERNAME }}
       - name: Comment on Pull Request
         uses: thollander/actions-comment-pull-request@v2
         with:
