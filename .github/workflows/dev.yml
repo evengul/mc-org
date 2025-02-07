@@ -36,14 +36,14 @@ jobs:
       - name: Run flyway migrations
         run: mvn flyway:migrate
         env:
-          DB_URL: "jdbc:${{ steps.create-neon-branch.outputs.db_url }}"
+          DB_URL: "jdbc:postgresql:${{ steps.create-neon-branch.outputs.db_host }}/mcorg?sslmode=require"
           DB_USER: ${{ env.DB_USERNAME }}
           DB_PASSWORD: ${{ steps.create-neon-branch.outputs.password }}
       - uses: superfly/fly-pr-review-apps@1.2.1
         id: deploy
         with:
           config: dev.fly.toml
-          secrets: DB_PASSWORD=${{ steps.create-neon-branch.outputs.password }} DB_URL=jdbc:${{ steps.create-neon-branch.outputs.db_url_with_pooler }} DB_USERNAME=${{ env.DB_USERNAME }}
+          secrets: DB_PASSWORD=${{ steps.create-neon-branch.outputs.password }} DB_URL=jdbc:postgresql${{ steps.create-neon-branch.outputs.db_host_with_pooler }}/mcorg?sslmode=require DB_USERNAME=${{ env.DB_USERNAME }}
       - name: Comment on Pull Request
         uses: thollander/actions-comment-pull-request@v2
         with:
