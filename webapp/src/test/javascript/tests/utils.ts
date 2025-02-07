@@ -1,12 +1,13 @@
 import {expect, Page} from "@playwright/test";
 import {locators} from "./locators";
 
-type ENVIRONMENT = "LOCAL" | "PRODUCTION"
+type ENVIRONMENT = "LOCAL" | "TEST" | "PRODUCTION"
 
-const getCurrentEnvironment = (): ENVIRONMENT => "LOCAL"
+const getCurrentEnvironment = (): ENVIRONMENT => process.env.ENV as ENVIRONMENT ?? "TEST"
 
 const urls: Record<ENVIRONMENT, string> = {
   LOCAL: "http://localhost:8080",
+  TEST: process.env.FLY_DEV_URL ?? "http://localhost:8080",
   PRODUCTION: "https://mcorg.app"
 }
 
