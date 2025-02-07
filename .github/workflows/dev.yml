@@ -41,9 +41,9 @@ jobs:
       - name: Run flyway migrations
         run: mvn flyway:migrate
         env:
-          DB_URL: $DB_URL
+          DB_URL: "$DB_URL"
           DB_USER: mcorg_owner
-          DB_PASSWORD: $DB_PASSWORD
+          DB_PASSWORD: "$DB_PASSWORD"
       - uses: superfly/fly-pr-review-apps@1.2.1
         id: deploy
         with:
