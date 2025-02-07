@@ -42,7 +42,8 @@ jobs:
       - uses: superfly/fly-pr-review-apps@1.2.1
         id: deploy
         with:
-          config: dev.fly.toml
+          name: mcorg-dev
+          config: ./dev.fly.toml
           secrets: DB_PASSWORD=${{ steps.create-neon-branch.outputs.password }} DB_URL=jdbc:postgresql://${{ steps.create-neon-branch.outputs.host_with_pooler }}/mcorg?sslmode=require DB_USERNAME=${{ env.DB_USERNAME }}
       - name: Comment on Pull Request
         uses: thollander/actions-comment-pull-request@v2
