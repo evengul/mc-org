@@ -43,7 +43,8 @@ jobs:
         id: deploy
         with:
           name: mcorg-dev-${{ github.event.number }}
-          config: ./webapp/dev.fly.toml
+          path: ./webapp
+          config: ./dev.fly.toml
           secrets: DB_PASSWORD=${{ steps.create-neon-branch.outputs.password }} DB_URL=jdbc:postgresql://${{ steps.create-neon-branch.outputs.host_with_pooler }}/mcorg?sslmode=require DB_USERNAME=${{ env.DB_USERNAME }}
       - name: Comment on Pull Request
         uses: thollander/actions-comment-pull-request@v2
