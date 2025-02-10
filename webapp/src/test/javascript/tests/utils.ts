@@ -36,8 +36,6 @@ export const signInCreateWorldAndGoTo = async (page: Page, route: keyof typeof p
   await name.fill("World")
   await submitButton.click()
 
-  await page.waitForLoadState("domcontentloaded")
-
   await expect(page).toHaveTitle("MC-ORG | Projects")
 
   await page.goto(getUrl(route))
@@ -82,8 +80,6 @@ const createProjectInForm = async (page: Page, projectName = "Project") => {
   await dimension.selectOption("OVERWORLD")
   await priority.selectOption("HIGH")
   await submitButton.click()
-
-  await page.waitForLoadState("domcontentloaded")
 
   await expect(project(projectName).self).toBeVisible()
 
