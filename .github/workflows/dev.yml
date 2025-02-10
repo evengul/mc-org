@@ -47,7 +47,7 @@ jobs:
           name: mcorg-dev-${{ github.event.number }}
           path: ./webapp
           config: ./dev.fly.toml
-          secrets: COOKIE_HOST=mcorg-dev-${{ github.event.number }}.fly.dev JWT_ISSUER=mcorg-dev-${{ github.event.number }}.fly.dev DB_PASSWORD=${{ steps.create-neon-branch.outputs.password }} DB_URL=jdbc:postgresql://${{ steps.create-neon-branch.outputs.host_with_pooler }}/mcorg?sslmode=require DB_USERNAME=${{ env.DB_USERNAME }} 'RSA_PUBLIC_KEY=-----BEGIN PUBLIC KEY-----\n${{ secrets.RSA_PUBLIC_KEY }}\n-----END PUBLIC KEY-----' 'RSA_PRIVATE_KEY=-----BEGIN PRIVATE KEY-----\n${{ secrets.RSA_PRIVATE_KEY }}\n-----END PRIVATE KEY-----\n'
+          secrets: COOKIE_HOST=mcorg-dev-${{ github.event.number }}.fly.dev JWT_ISSUER=mcorg-dev-${{ github.event.number }}.fly.dev DB_PASSWORD=${{ steps.create-neon-branch.outputs.password }} DB_URL=jdbc:postgresql://${{ steps.create-neon-branch.outputs.host_with_pooler }}/mcorg?sslmode=require DB_USERNAME=${{ env.DB_USERNAME }} RSA_PUBLIC_KEY="${{ secrets.RSA_PUBLIC_KEY }}" RSA_PRIVATE_KEY="${{ secrets.RSA_PRIVATE_KEY }}"
       - name: Comment on Pull Request
         uses: thollander/actions-comment-pull-request@v3.0.1
         with:
