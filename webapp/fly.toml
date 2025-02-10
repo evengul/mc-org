@@ -1,10 +1,5 @@
-# fly.toml app configuration file generated for mcorg on 2024-06-13T10:46:47+02:00
-#
-# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
-#
-
 app = 'mcorg'
-primary_region = 'ams'
+primary_region = 'arn'
 
 [build]
 

@@ -86,6 +86,7 @@ fun MAIN.addProjectDialog(worldId: Int, isTechnical: Boolean) {
             span {
                 classes = setOf("button-row")
                 button {
+                    id = "project-add-cancel-button"
                     type = ButtonType.button
                     classes = setOf("button-secondary")
                     onClick = "hideDialog('add-project-dialog')"

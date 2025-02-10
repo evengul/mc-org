@@ -33,11 +33,11 @@ fun SlimProject.allowedByFilter(filters: ProjectFiltersRequest): Boolean {
         val username = assignee?.username?.lowercase()
         val name = name.lowercase()
         if (username == null) {
-            if (!name.contains(search)) {
+            if (!name.lowercase().contains(search.lowercase())) {
                 return false
             }
         } else {
-            if (!username.contains(search) && !name.contains(search)) {
+            if (!username.lowercase().contains(search.lowercase()) && !name.lowercase().contains(search.lowercase())) {
                 return false
             }
         }
