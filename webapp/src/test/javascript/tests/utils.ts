@@ -23,9 +23,7 @@ export const signInAndGoTo = async (page: Page, route: keyof typeof pages) => {
   await page.goto(getUrl("SIGN_IN"))
   const button = locators(page).SIGN_IN.button
   await button.click()
-  await page.waitForLoadState("domcontentloaded")
   await page.goto(getUrl(route))
-  await page.waitForLoadState("domcontentloaded")
 }
 
 export const signInCreateWorldAndGoTo = async (page: Page, route: keyof typeof pages) => {

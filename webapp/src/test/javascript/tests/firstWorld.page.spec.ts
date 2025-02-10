@@ -32,8 +32,6 @@ test.describe("When user has no worlds on sign in", () => {
     await name.fill("World")
     await submitButton.click()
 
-    await page.waitForLoadState("domcontentloaded")
-
     await expect(page).toHaveTitle("MC-ORG | Projects")
     await expect(showCreateProjectDialogButton).toBeVisible()
     await expect(emptyState).toBeVisible()
