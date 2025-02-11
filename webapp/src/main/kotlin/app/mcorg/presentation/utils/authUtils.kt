@@ -1,6 +1,6 @@
 package app.mcorg.presentation.utils
 
-import app.mcorg.domain.User
+import app.mcorg.domain.users.User
 import app.mcorg.presentation.security.JwtHelper
 import app.mcorg.presentation.security.getUserFromJwtToken
 import io.ktor.server.application.*

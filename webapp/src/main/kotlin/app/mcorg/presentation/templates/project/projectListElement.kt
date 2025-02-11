@@ -1,9 +1,7 @@
 package app.mcorg.presentation.templates.project
 
-import app.mcorg.domain.Dimension
-import app.mcorg.domain.Priority
-import app.mcorg.domain.SlimProject
-import app.mcorg.domain.User
+import app.mcorg.domain.projects.SlimProject
+import app.mcorg.domain.users.User
 import app.mcorg.presentation.components.appProgress
 import app.mcorg.presentation.hxConfirm
 import app.mcorg.presentation.hxDelete

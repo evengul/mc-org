@@ -1,7 +1,7 @@
 package app.mcorg.presentation.templates.project
 
-import app.mcorg.domain.Project
-import app.mcorg.domain.User
+import app.mcorg.domain.projects.Project
+import app.mcorg.domain.users.User
 import app.mcorg.presentation.entities.TaskFiltersRequest
 import kotlinx.html.*
 

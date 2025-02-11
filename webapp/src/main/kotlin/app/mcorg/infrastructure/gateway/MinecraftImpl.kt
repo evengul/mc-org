@@ -1,7 +1,7 @@
 package app.mcorg.infrastructure.gateway
 
-import app.mcorg.domain.Minecraft
-import app.mcorg.domain.MinecraftProfile
+import app.mcorg.domain.minecraft.Minecraft
+import app.mcorg.domain.minecraft.MinecraftProfile
 import io.ktor.client.call.*
 import io.ktor.client.request.*
 import io.ktor.client.request.forms.*

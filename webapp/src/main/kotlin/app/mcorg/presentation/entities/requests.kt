@@ -1,7 +1,7 @@
 package app.mcorg.presentation.entities
 
-import app.mcorg.domain.Dimension
-import app.mcorg.domain.Priority
+import app.mcorg.domain.minecraft.Dimension
+import app.mcorg.domain.projects.Priority
 
 data class CreateWorldRequest(val worldName: String)
 data class AddUserRequest(val username: String)

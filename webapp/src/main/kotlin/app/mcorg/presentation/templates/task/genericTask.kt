@@ -1,8 +1,8 @@
 package app.mcorg.presentation.templates.task
 
-import app.mcorg.domain.Project
-import app.mcorg.domain.Task
-import app.mcorg.domain.User
+import app.mcorg.domain.projects.Project
+import app.mcorg.domain.projects.Task
+import app.mcorg.domain.users.User
 import app.mcorg.presentation.hxConfirm
 import app.mcorg.presentation.hxDelete
 import app.mcorg.presentation.hxSwap

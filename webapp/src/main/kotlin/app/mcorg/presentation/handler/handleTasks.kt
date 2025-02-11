@@ -1,6 +1,6 @@
 package app.mcorg.presentation.handler
 
-import app.mcorg.domain.Priority
+import app.mcorg.domain.projects.Priority
 import app.mcorg.presentation.configuration.permissionsApi
 import app.mcorg.presentation.configuration.projectsApi
 import app.mcorg.presentation.entities.AssignUserRequest

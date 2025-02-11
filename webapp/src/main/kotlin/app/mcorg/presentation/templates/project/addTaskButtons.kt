@@ -1,6 +1,6 @@
 package app.mcorg.presentation.templates.project
 
-import app.mcorg.domain.Project
+import app.mcorg.domain.projects.Project
 import app.mcorg.presentation.templates.task.addCountableDialog
 import app.mcorg.presentation.templates.task.addDoableTaskDialog
 import app.mcorg.presentation.templates.task.addLitematicaTasksDialog
