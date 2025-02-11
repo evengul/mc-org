@@ -1,28 +1,28 @@
-# fly.toml app configuration file generated for mcorg on 2024-06-13T10:46:47+02:00
+# fly.toml app configuration file generated for mcorg on 2025-02-11T09:13:02+01:00
 #
 # See https://fly.io/docs/reference/configuration/ for information about how to use this file.
 #
 
 app = 'mcorg'
-primary_region = 'ams'
+primary_region = 'arn'
 
 [build]
 
 [env]
+  COOKIE_HOST = 'mcorg.app'
   DB_URL = 'jdbc:postgresql://ep-icy-wood-a2vogqwy-pooler.eu-central-1.aws.neon.tech/mcorg?sslmode=require'
   DB_USER = 'mcorg_owner'
+  ENV = 'TEST'
   JWT_ISSUER = 'mcorg.app'
-  ENV = 'FLY'
-  SKIP_MICROSOFT_SIGN_IN = 'false'
-  COOKIE_HOST = 'mcorg.app'
-  RSA_PUBLIC_KEY='-----BEGIN PUBLIC KEY-----\nMFwwDQYJKoZIhvcNAQEBBQADSwAwSAJBAORNqSs3v7QFIRWsHg2pJ+nWzLgNxxpb\nq3zaCblxV/RhXAJt8+RqB89WlwwmTjc3ezQasO0LGNAR8wzBJDCZcrECAwEAAQ==\n-----END PUBLIC KEY-----'
+  RSA_PUBLIC_KEY = '-----BEGIN PUBLIC KEY-----\nMFwwDQYJKoZIhvcNAQEBBQADSwAwSAJBAORNqSs3v7QFIRWsHg2pJ+nWzLgNxxpb\nq3zaCblxV/RhXAJt8+RqB89WlwwmTjc3ezQasO0LGNAR8wzBJDCZcrECAwEAAQ==\n-----END PUBLIC KEY-----'
+  SKIP_MICROSOFT_SIGN_IN = 'true'
 
 [http_service]
   internal_port = 8080
   force_https = true
-  auto_stop_machines = true
+  auto_stop_machines = 'stop'
   auto_start_machines = true
-  min_machines_running = 0
+  min_machines_running = 1
   processes = ['app']
 
 [[vm]]
