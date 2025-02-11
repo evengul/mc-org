@@ -1,14 +1,22 @@
 package app.mcorg.presentation.handler
 
 import app.mcorg.domain.projects.Priority
+import app.mcorg.domain.projects.TaskStages
 import app.mcorg.presentation.configuration.permissionsApi
 import app.mcorg.presentation.configuration.projectsApi
 import app.mcorg.presentation.entities.AssignUserRequest
 import app.mcorg.presentation.entities.DeleteAssignmentRequest
+import app.mcorg.presentation.entities.UpdateStageRequest
 import app.mcorg.presentation.templates.project.taskList
+import app.mcorg.presentation.templates.task.board.createTaskBoard
+import app.mcorg.presentation.templates.task.board.taskBoard
 import app.mcorg.presentation.utils.*
+import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.plugins.*
+import io.ktor.server.request.*
+import io.ktor.server.response.*
+import kotlinx.html.main
 import kotlinx.html.stream.createHTML
 import kotlinx.html.ul
 
@@ -76,6 +84,19 @@ suspend fun ApplicationCall.handlePatchTaskAssignee() {
     }
 }
 
+suspend fun ApplicationCall.handleUpdateTaskStage() {
+    val stage = when(parameters["stage"]) {
+        "TODO" -> TaskStages.TODO
+        "IN_PROGRESS" -> TaskStages.IN_PROGRESS
+        "DONE" -> TaskStages.DONE
+        else -> throw BadRequestException("Invalid stage")
+    }
+
+    val taskId = getTaskId()
+    projectsApi.updateTaskStage(taskId, stage)
+    respond(HttpStatusCode.NoContent)
+}
+
 suspend fun ApplicationCall.handleDeleteTaskAssignee() {
     val projectId = getProjectId()
     val taskId = getTaskId()
@@ -113,7 +134,7 @@ suspend fun ApplicationCall.handleEditTaskRequirements() {
 }
 
 private suspend fun ApplicationCall.respondUpdatedTaskList(projectId: Int) {
-    hxTarget("#task-list")
+    hxTarget("#task-board")
     hxSwap("outerHTML")
 
     val worldId = getWorldId()
@@ -125,7 +146,5 @@ private suspend fun ApplicationCall.respondUpdatedTaskList(projectId: Int) {
 
     val sortedFilteredProject = filterAndSortProject(currentUser.id, project, filters)
 
-    respondHtml(createHTML().ul {
-        taskList(users, currentUser, sortedFilteredProject)
-    })
+    respondHtml(createTaskBoard(sortedFilteredProject))
 }

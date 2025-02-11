@@ -14,7 +14,7 @@ fun MAIN.addDoableTaskDialog(project: Project) {
             encType = FormEncType.applicationXWwwFormUrlEncoded
             method = FormMethod.post
             hxPost("/app/worlds/${project.worldId}/projects/${project.id}/tasks/doable")
-            hxTarget("#task-list")
+            hxTarget("#task-list-doable-todo")
             hxSwap("afterbegin")
             label {
                 htmlFor = "add-doable-task-name-input"

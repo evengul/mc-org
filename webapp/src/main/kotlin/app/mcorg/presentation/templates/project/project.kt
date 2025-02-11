@@ -5,6 +5,7 @@ import app.mcorg.domain.users.User
 import app.mcorg.presentation.entities.TaskFiltersRequest
 import app.mcorg.presentation.templates.NavBarRightIcon
 import app.mcorg.presentation.templates.subPageTemplate
+import app.mcorg.presentation.templates.task.board.taskBoard
 import kotlinx.html.ul
 
 fun project(backLink: String, project: Project, worldUsers: List<User>, currentUser: User, filtersRequest: TaskFiltersRequest): String = subPageTemplate(
@@ -21,8 +22,6 @@ fun project(backLink: String, project: Project, worldUsers: List<User>, currentU
 ) {
     editCountableDialog(project)
     taskFilterDialog(project, worldUsers, currentUser, filtersRequest)
-    ul {
-        taskList(users = worldUsers, project = project, currentUser = currentUser)
-    }
+    taskBoard(project)
     addTaskButtons(project)
 }

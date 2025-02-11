@@ -37,7 +37,7 @@ class ProjectsImpl : Projects, Repository() {
             if (project == null) return null
 
             if (includeTasks) {
-                conn.prepareStatement("select task.id,name,priority,needed,done,type,u.id as user_id,u.username as username from task left join users u on task.assignee = u.id where project_id = ? order by task.name")
+                conn.prepareStatement("select task.id,name,priority,needed,done,type,stage,u.id as user_id,u.username as username from task left join users u on task.assignee = u.id where project_id = ? order by task.name")
                     .apply { setInt(1, project.id) }
                     .executeQuery()
                     .apply {
@@ -54,7 +54,8 @@ class ProjectsImpl : Projects, Repository() {
                                     priority = getString("priority").toPriority(),
                                     dependencies = mutableListOf(),
                                     assignee = user,
-                                    taskType = getString("type").toTaskType()
+                                    taskType = getString("type").toTaskType(),
+                                    stage = getString("stage").toTaskStage()
                                 )
                             )
                         }
@@ -258,6 +259,14 @@ class ProjectsImpl : Projects, Repository() {
         }
     }
 
+    override fun updateTaskStage(id: Int, stage: TaskStage) {
+        getConnection().use {
+            it.prepareStatement("update task set stage = ? where id = ?")
+                .apply { setString(1, stage.id); setInt(2, id) }
+                .executeUpdate()
+        }
+    }
+
     override fun updateCountableTask(id: Int, needed: Int, done: Int) {
         getConnection().use {
             it.prepareStatement("update task set done = ?, needed = ? where id = ?")
@@ -415,5 +424,14 @@ class ProjectsImpl : Projects, Repository() {
             "DOABLE" -> return TaskType.DOABLE
         }
         return TaskType.COUNTABLE
+    }
+
+    private fun String.toTaskStage(): TaskStage {
+        when(this) {
+            TaskStages.TODO.id -> return TaskStages.TODO
+            TaskStages.IN_PROGRESS.id-> return TaskStages.IN_PROGRESS
+            TaskStages.DONE.id -> return TaskStages.DONE
+        }
+        return TaskStages.TODO
     }
 }

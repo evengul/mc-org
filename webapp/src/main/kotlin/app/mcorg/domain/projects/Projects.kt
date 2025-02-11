@@ -23,6 +23,7 @@ interface Projects {
     fun removeTask(id: Int)
     fun completeTask(id: Int)
     fun undoCompleteTask(id: Int)
+    fun updateTaskStage(id: Int, stage: TaskStage)
     fun updateCountableTask(id: Int, needed: Int, done: Int)
     fun taskRequiresMore(id: Int, needed: Int)
     fun taskDoneMore(id: Int, doneMore: Int)

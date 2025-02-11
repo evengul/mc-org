@@ -24,6 +24,10 @@ fun baseTemplate(siteTitle: String = "MC-ORG", body: BODY.() -> Unit): String {
                 nonce = generateNonce()
             }
             script {
+                src = "/static/scripts/draggable.js"
+                nonce = generateNonce()
+            }
+            script {
                 src = "/static/scripts/remove-first-project-dialog-on-create.js"
                 nonce = generateNonce()
             }

@@ -10,6 +10,7 @@ data class Task(val id: Int,
                 var done: Int,
                 val assignee: User?,
                 val taskType: TaskType,
+                val stage: TaskStage,
 ) {
     fun isDone(): Boolean {
         return done >= needed
