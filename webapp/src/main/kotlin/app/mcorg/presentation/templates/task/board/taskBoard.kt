@@ -38,7 +38,7 @@ fun MAIN.taskBoard(project: Project, users: List<User>, currentUser: User) {
                 internalColumn("task-list-doable-todo", project.doable().filter { it.stage == TaskStages.TODO }, TaskStages.TODO) {
                     id = "add-doable-task-button"
                     onClick = "showDialog('add-task-doable-dialog')"
-                    classes = setOf("button", "button-icon", "button-fab", "icon-menu-add")
+                    classes = setOf("button", "button-icon", "icon-menu-add")
                 }
                 internalColumn("task-list-doable-in-progress", project.doable().filter { it.stage == TaskStages.IN_PROGRESS }, TaskStages.IN_PROGRESS)
                 internalColumn("task-list-doable-done", project.doable().filter { it.stage == TaskStages.DONE }, TaskStages.DONE)
@@ -53,7 +53,7 @@ fun MAIN.taskBoard(project: Project, users: List<User>, currentUser: User) {
                 classes = setOf("task-columns")
                 internalColumn("task-list-countable-todo", project.countable().filter { it.stage == TaskStages.TODO }, TaskStages.TODO) {
                     id = "add-countable-task-button"
-                    classes = setOf("button", "button-icon", "button-fab", "icon-menu-add")
+                    classes = setOf("button", "button-icon", "icon-menu-add")
                     onClick = "showDialog('add-task-countable-dialog')"
                 }
                 internalColumn("task-list-countable-in-progress", project.countable().filter { it.stage == TaskStages.IN_PROGRESS }, TaskStages.IN_PROGRESS)

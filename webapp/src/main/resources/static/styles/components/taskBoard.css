@@ -8,10 +8,15 @@
     flex: 1;
     background-color: var(--clr-bg-secondary);
     border-radius: 5px;
-    padding: var(--spacing-md);
+    padding: var(--spacing-sm);
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 
     position: relative;
+}
+
+.task-column.drag-over {
+    background-color: var(--clr-bg-highlight);
+    border: 2px dashed var(--clr-primary);
 }
 
 #add-doable-task-button,

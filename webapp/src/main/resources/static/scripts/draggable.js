@@ -9,6 +9,7 @@ document.addEventListener('DOMContentLoaded', () => {
     columns.forEach(column => {
         column.addEventListener('dragover', onDragOver);
         column.addEventListener('drop', onDrop);
+        column.addEventListener('dragleave', onDragLeave);
     });
 });
 
@@ -20,6 +21,7 @@ function onDragStart(event) {
 function onDragOver(event) {
     event.preventDefault();
     event.dataTransfer.dropEffect = 'move';
+    event.target.closest('.task-column').classList.add('drag-over');
 }
 
 function onDrop(event) {
@@ -47,6 +49,11 @@ function onDrop(event) {
         updateTaskStage(worldId, projectId, taskId, stage);
     }
     event.dataTransfer.clearData();
+    event.target.closest('.task-column').classList.remove('drag-over');
+}
+
+function onDragLeave(event) {
+    event.target.closest('.task-column').classList.remove('drag-over');
 }
 
 function updateTaskStage(worldId, projectId, taskId, stage) {
