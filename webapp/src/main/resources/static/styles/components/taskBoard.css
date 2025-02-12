@@ -1,3 +1,11 @@
+#task-board {
+    padding-inline: var(--spacing-xs);
+
+    section {
+        margin-block: var(--spacing-sm);
+    }
+}
+
 .task-columns {
     display: flex;
     justify-content: space-between;
