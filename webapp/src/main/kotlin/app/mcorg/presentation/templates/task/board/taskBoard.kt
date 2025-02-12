@@ -57,6 +57,11 @@ fun MAIN.taskBoard(project: Project, users: List<User>, currentUser: User) {
             h2 {
                 + "Countable Tasks"
                 button {
+                    id = "add-litematica-tasks-button"
+                    classes = setOf("button", "button-icon", "icon-menu-add")
+                    onClick = "showDialog('add-task-litematica-dialog')"
+                }
+                button {
                     classes = setOf("toggle-button")
                     onClick = "toggleVisibility('countable-tasks-columns', this)"
                     i {
