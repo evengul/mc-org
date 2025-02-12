@@ -32,12 +32,20 @@ fun MAIN.taskBoard(project: Project, users: List<User>, currentUser: User) {
             id = "doable-tasks"
             h2 {
                 + "Doable Tasks"
+                button {
+                    classes = setOf("toggle-button")
+                    onClick = "toggleVisibility('doable-tasks-columns', this)"
+                    i {
+                        classes = setOf("caret")
+                    }
+                }
             }
             div {
+                id = "doable-tasks-columns"
                 classes = setOf("task-columns")
                 internalColumn("task-list-doable-todo", project.doable().filter { it.stage == TaskStages.TODO }, TaskStages.TODO) {
                     id = "add-doable-task-button"
-                    onClick = "showDialog('add-task-doable-dialog')"
+                    onClick = "showDialog('add-task-doable-dialog', this)"
                     classes = setOf("button", "button-icon", "icon-menu-add")
                 }
                 internalColumn("task-list-doable-in-progress", project.doable().filter { it.stage == TaskStages.IN_PROGRESS }, TaskStages.IN_PROGRESS)
@@ -48,8 +56,16 @@ fun MAIN.taskBoard(project: Project, users: List<User>, currentUser: User) {
             id = "countable-tasks"
             h2 {
                 + "Countable Tasks"
+                button {
+                    classes = setOf("toggle-button")
+                    onClick = "toggleVisibility('countable-tasks-columns', this)"
+                    i {
+                        classes = setOf("caret")
+                    }
+                }
             }
             div {
+                id = "countable-tasks-columns"
                 classes = setOf("task-columns")
                 internalColumn("task-list-countable-todo", project.countable().filter { it.stage == TaskStages.TODO }, TaskStages.TODO) {
                     id = "add-countable-task-button"
