@@ -29,27 +29,3 @@ fun FlowContent.appProgress(progressClasses: Set<String> = emptySet(),
         }
     }
 }
-
-fun getItemProgress(amount: Double): String {
-    val shulkers = floor(amount / 1728.0).roundToInt()
-    val stacks = floor((amount - shulkers * 1728.0) / 64.0).roundToInt()
-    val items = floor(amount - shulkers * 1728 - stacks * 64.0).roundToInt()
-
-    var content = ""
-    if (shulkers > 0) {
-        content += "$shulkers shulker boxes"
-        if (stacks > 0 || amount > 0) {
-            content += ", "
-        }
-    }
-    if (stacks > 0) {
-        content += "$stacks stacks"
-        if (amount > 0) {
-            content += ", "
-        }
-    }
-    if (items > 0) {
-        content += "$items items"
-    }
-    return content.takeIf { it.isNotEmpty() } ?: "0"
-}

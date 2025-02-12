@@ -167,6 +167,10 @@ h2:has(.toggle-button) {
     background-color: var(--clr-bg-secondary);
 }
 
+.task-column#TODO .task-add-buttons {
+    display: none;
+}
+
 .task-done {
     background-color: #d3ffd3;
     color: #006400;

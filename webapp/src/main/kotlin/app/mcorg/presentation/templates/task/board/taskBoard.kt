@@ -2,7 +2,6 @@ package app.mcorg.presentation.templates.task.board
 
 import app.mcorg.domain.projects.*
 import app.mcorg.domain.users.User
-import app.mcorg.presentation.components.appProgress
 import app.mcorg.presentation.hxConfirm
 import app.mcorg.presentation.hxDelete
 import app.mcorg.presentation.hxPatch
@@ -10,6 +9,8 @@ import app.mcorg.presentation.hxTarget
 import app.mcorg.presentation.templates.task.assignTask
 import kotlinx.html.*
 import kotlinx.html.stream.createHTML
+import kotlin.math.floor
+import kotlin.math.roundToInt
 
 fun createTaskBoard(project: Project, users: List<User>, currentUser: User) = createHTML().main {
     taskBoard(project, users, currentUser)
@@ -180,16 +181,38 @@ private fun DIV.taskColumn(columnId: String,
                                     + "Update"
                                 }
                             }
-                            appProgress(
-                                progressClasses = setOf("task-progress"),
-                                value = it.done.toDouble(),
-                                max = it.needed.toDouble(),
-                                isItemAmount = true
-                            )
+                            p {
+                                classes = setOf("task-progress")
+                                + ("${getItemProgress(it.done.toDouble())} of ${getItemProgress(it.needed.toDouble())}")
+                            }
                         }
                     }
                 }
             }
         }
     }
+}
+
+fun getItemProgress(amount: Double): String {
+    val shulkers = floor(amount / 1728.0).roundToInt()
+    val stacks = floor((amount - shulkers * 1728.0) / 64.0).roundToInt()
+    val items = floor(amount - shulkers * 1728 - stacks * 64.0).roundToInt()
+
+    var content = ""
+    if (shulkers > 0) {
+        content += "$shulkers shulker boxes"
+        if (stacks > 0 || amount > 0) {
+            content += ", "
+        }
+    }
+    if (stacks > 0) {
+        content += "$stacks stacks"
+        if (amount > 0) {
+            content += ", "
+        }
+    }
+    if (items > 0) {
+        content += "$items items"
+    }
+    return content.takeIf { it.isNotEmpty() } ?: "0 items"
 }
