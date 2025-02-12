@@ -1,4 +1,4 @@
-document.addEventListener('DOMContentLoaded', (event) => {
+document.addEventListener('DOMContentLoaded', () => {
     const tasks = document.querySelectorAll('.task');
     const columns = document.querySelectorAll('.task-column');
 
@@ -37,7 +37,14 @@ function onDrop(event) {
         const projectId = pathSegments[5];
         const taskId = draggableElement.id.split('-')[1];
         const stage = dropzone.closest('.task-column').id;
-        updateTaskStage(worldId, projectId, taskId, stage)
+
+        if (stage === "DONE") {
+            draggableElement.classList.add('task-done');
+        } else if (draggableElement.classList.contains('task-done')) {
+            draggableElement.classList.remove('task-done');
+        }
+
+        updateTaskStage(worldId, projectId, taskId, stage);
     }
     event.dataTransfer.clearData();
 }

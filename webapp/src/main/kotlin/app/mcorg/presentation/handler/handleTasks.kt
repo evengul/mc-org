@@ -6,19 +6,12 @@ import app.mcorg.presentation.configuration.permissionsApi
 import app.mcorg.presentation.configuration.projectsApi
 import app.mcorg.presentation.entities.AssignUserRequest
 import app.mcorg.presentation.entities.DeleteAssignmentRequest
-import app.mcorg.presentation.entities.UpdateStageRequest
-import app.mcorg.presentation.templates.project.taskList
 import app.mcorg.presentation.templates.task.board.createTaskBoard
-import app.mcorg.presentation.templates.task.board.taskBoard
 import app.mcorg.presentation.utils.*
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.plugins.*
-import io.ktor.server.request.*
 import io.ktor.server.response.*
-import kotlinx.html.main
-import kotlinx.html.stream.createHTML
-import kotlinx.html.ul
 
 suspend fun ApplicationCall.handlePostDoableTask() {
     val (name) = receiveDoableTaskRequest()
@@ -146,5 +139,5 @@ private suspend fun ApplicationCall.respondUpdatedTaskList(projectId: Int) {
 
     val sortedFilteredProject = filterAndSortProject(currentUser.id, project, filters)
 
-    respondHtml(createTaskBoard(sortedFilteredProject))
+    respondHtml(createTaskBoard(sortedFilteredProject, users, currentUser))
 }

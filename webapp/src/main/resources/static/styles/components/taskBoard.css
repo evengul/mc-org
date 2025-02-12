@@ -25,6 +25,7 @@
 }
 
 .task {
+    position: relative;
     background-color: var(--clr-bg-light);
     border: 1px solid var(--clr-border);
     border-radius: 3px;
@@ -34,10 +35,67 @@
     cursor: grab;
 }
 
+.task h3 {
+    text-align: start;
+}
+
+.task-priority {
+    position: absolute;
+    top: var(--spacing-xs);
+    right: var(--spacing-xs);
+    font-weight: bold;
+    color: var(--clr-primary-dark);
+
+    scale: 75%;
+}
+
+.task-content {
+    margin-top: var(--spacing-sm);
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+}
+
+.task-assignee {
+    font-style: italic;
+    color: var(--clr-text-secondary);
+    display: flex;
+
+    select {
+        width: 100%;
+    }
+}
+
+.task-add-buttons {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--spacing-xxs);
+}
+
+.task-add-button {
+    flex-grow: 1;
+    padding: var(--spacing-xxs);
+    font-size: var(--text-sm);
+}
+
 .task:active {
     cursor: grabbing;
 }
 
 .task:hover {
     background-color: var(--clr-bg-secondary);
+}
+
+.task-done {
+    background-color: #d3ffd3;
+    color: #006400;
+}
+
+.task-done h3 {
+    text-decoration: line-through;
+}
+
+.task-done .task-add-buttons {
+    display: none;
 }
