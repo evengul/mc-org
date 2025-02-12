@@ -10,13 +10,35 @@
     border-radius: 5px;
     padding: var(--spacing-md);
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+
+    position: relative;
 }
 
-.task-column h3 {
+#add-doable-task-button,
+#add-countable-task-button{
+    position: absolute;
+    top: 0;
+    right: 0;
+
+    scale: 50%;
+}
+
+.delete-task-button {
+    position: absolute;
+    top: 0;
+    right: 0;
+    scale: 50%;
+
+    background-color: var(--clr-bg-secondary) !important;
+}
+
+.task-column h2 {
     margin-top: 0;
     text-align: center;
     font-size: var(--text-lg);
     color: var(--clr-text);
+
+    position: relative;
 }
 
 .task-column ul {
@@ -37,12 +59,14 @@
 
 .task h3 {
     text-align: start;
+    position: relative;
 }
 
 .task-priority {
     position: absolute;
-    top: var(--spacing-xs);
-    right: var(--spacing-xs);
+    top: 0;
+    right: 0;
+    bottom: 0;
     font-weight: bold;
     color: var(--clr-primary-dark);
 

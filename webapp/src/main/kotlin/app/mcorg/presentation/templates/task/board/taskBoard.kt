@@ -3,6 +3,8 @@ package app.mcorg.presentation.templates.task.board
 import app.mcorg.domain.projects.*
 import app.mcorg.domain.users.User
 import app.mcorg.presentation.components.appProgress
+import app.mcorg.presentation.hxConfirm
+import app.mcorg.presentation.hxDelete
 import app.mcorg.presentation.hxPatch
 import app.mcorg.presentation.hxTarget
 import app.mcorg.presentation.templates.task.assignTask
@@ -14,13 +16,15 @@ fun createTaskBoard(project: Project, users: List<User>, currentUser: User) = cr
 }
 
 fun MAIN.taskBoard(project: Project, users: List<User>, currentUser: User) {
-    fun DIV.internalColumn(tasks: List<Task>, stage: TaskStage) = taskColumn(
+    fun DIV.internalColumn(columnId: String, tasks: List<Task>, stage: TaskStage, actionButton: (BUTTON.() -> Unit)? = null) = taskColumn(
+        columnId,
         project.worldId,
         project.id,
         tasks,
         stage,
         users,
-        currentUser
+        currentUser,
+        actionButton
     )
     div {
         id = "task-board"
@@ -31,9 +35,13 @@ fun MAIN.taskBoard(project: Project, users: List<User>, currentUser: User) {
             }
             div {
                 classes = setOf("task-columns")
-                internalColumn(project.doable().filter { it.stage == TaskStages.TODO }, TaskStages.TODO)
-                internalColumn(project.doable().filter { it.stage == TaskStages.IN_PROGRESS }, TaskStages.IN_PROGRESS)
-                internalColumn(project.doable().filter { it.stage == TaskStages.DONE }, TaskStages.DONE)
+                internalColumn("task-list-doable-todo", project.doable().filter { it.stage == TaskStages.TODO }, TaskStages.TODO) {
+                    id = "add-doable-task-button"
+                    onClick = "showDialog('add-task-doable-dialog')"
+                    classes = setOf("button", "button-icon", "button-fab", "icon-menu-add")
+                }
+                internalColumn("task-list-doable-in-progress", project.doable().filter { it.stage == TaskStages.IN_PROGRESS }, TaskStages.IN_PROGRESS)
+                internalColumn("task-list-doable-done", project.doable().filter { it.stage == TaskStages.DONE }, TaskStages.DONE)
             }
         }
         section {
@@ -43,22 +51,39 @@ fun MAIN.taskBoard(project: Project, users: List<User>, currentUser: User) {
             }
             div {
                 classes = setOf("task-columns")
-                internalColumn(project.countable().filter { it.stage == TaskStages.TODO }, TaskStages.TODO)
-                internalColumn(project.countable().filter { it.stage == TaskStages.IN_PROGRESS }, TaskStages.IN_PROGRESS)
-                internalColumn(project.countable().filter { it.stage == TaskStages.DONE }, TaskStages.DONE)
+                internalColumn("task-list-countable-todo", project.countable().filter { it.stage == TaskStages.TODO }, TaskStages.TODO) {
+                    id = "add-countable-task-button"
+                    classes = setOf("button", "button-icon", "button-fab", "icon-menu-add")
+                    onClick = "showDialog('add-task-countable-dialog')"
+                }
+                internalColumn("task-list-countable-in-progress", project.countable().filter { it.stage == TaskStages.IN_PROGRESS }, TaskStages.IN_PROGRESS)
+                internalColumn("task-list-countable-done", project.countable().filter { it.stage == TaskStages.DONE }, TaskStages.DONE)
             }
         }
     }
 }
 
-private fun DIV.taskColumn(worldId: Int, projectId: Int, tasks: List<Task>, stage: TaskStage, users: List<User>, currentUser: User) {
+private fun DIV.taskColumn(columnId: String,
+                           worldId: Int,
+                           projectId: Int,
+                           tasks: List<Task>,
+                           stage: TaskStage,
+                           users: List<User>,
+                           currentUser: User,
+                           actionButton: (BUTTON.() -> Unit)? = null) {
     div {
         id = stage.id
         classes = setOf("task-column")
         h3 {
             + stage.name
         }
+        if (actionButton != null) {
+            button {
+                actionButton()
+            }
+        }
         ul {
+            id = columnId
             tasks.forEach {
                 li {
                     id = "task-${it.id}"
@@ -69,18 +94,27 @@ private fun DIV.taskColumn(worldId: Int, projectId: Int, tasks: List<Task>, stag
                     attributes["ondragstart"] = "onDragStart(event)"
                     attributes["ondragover"] = "onDragOver(event)"
                     attributes["ondrop"] = "onDrop(event)"
-                    i {
-                        classes = setOf("task-priority", "icon", when (it.priority) {
-                            Priority.NONE -> "icon icon-priority-low"
-                            Priority.LOW -> "icon icon-priority-low"
-                            Priority.MEDIUM -> "icon icon-priority-medium"
-                            Priority.HIGH -> "icon icon-priority-high"
-                        })
+                    button {
+                        classes = setOf("button", "button-icon", "icon-delete", "delete-task-button")
+                        hxDelete("/app/worlds/${worldId}/projects/${projectId}/tasks/${it.id}")
+                        hxConfirm("Are you sure you want to delete this task?")
+                        hxTarget("#task-${it.id}")
                     }
                     div {
                         classes = setOf("task-content")
                         h3 {
                             + it.name
+                            if (it.priority != Priority.NONE) {
+                                i {
+                                    classes = setOf("task-priority", "icon", when (it.priority) {
+                                        Priority.LOW -> "icon icon-priority-low"
+                                        Priority.MEDIUM -> "icon icon-priority-medium"
+                                        Priority.HIGH -> "icon icon-priority-high"
+                                        else -> ""
+                                    })
+                                }
+                            }
+
                         }
                         span {
                             classes = setOf("task-assignee")
