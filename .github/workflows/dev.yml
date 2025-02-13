@@ -67,6 +67,7 @@ jobs:
     name: "E2E Playwright Tests"
     timeout-minutes: 60
     runs-on: ubuntu-latest
+    needs: deploy-dev
     defaults:
       run:
         working-directory: ./webapp/src/test/javascript
@@ -84,7 +85,7 @@ jobs:
         env:
           ENV: TEST
           CI: true
-          FLY_DEV_URL: https://mcorg-dev-51.fly.dev/
+          FLY_DEV_URL: ${{ needs.deploy-dev.outputs.dev_url }}
       - uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
         with:

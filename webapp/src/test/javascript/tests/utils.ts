@@ -10,8 +10,12 @@ const testUrl = "https://mcorg-dev-51.fly.dev"
 
 const urls: Record<ENVIRONMENT, string> = {
   LOCAL: "http://localhost:8080",
-  TEST: process.env.FLY_DEV_URL ?? testUrl,
+  TEST: stripEndingSlash(process.env.FLY_DEV_URL ?? testUrl),
   PRODUCTION: "https://mcorg.app"
+}
+
+function stripEndingSlash(str: string) {
+  return str.replace(/\/$/, "")
 }
 
 const pages = {
