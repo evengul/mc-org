@@ -40,7 +40,6 @@ fun JwtHelper.Companion.createSignedJwtToken(user: User, issuer: String): String
 
 private fun JwtHelper.Companion.validateSignature(token: String, issuer: String): DecodedJWT {
     val (publicKey, privateKey) = getKeys()
-    println("Verifying token $token with issuer $issuer")
     return JWT.require(Algorithm.RSA256(publicKey, privateKey))
         .withIssuer(issuer)
         .withAudience(audience)
