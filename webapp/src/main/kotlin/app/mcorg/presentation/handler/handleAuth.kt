@@ -17,7 +17,7 @@ import io.ktor.server.response.*
 suspend fun ApplicationCall.handleGetSignIn() {
     val user = try {
         getUserFromCookie().takeUnless { it == null || usersApi.getUser(it.id) == null }
-    } catch (e: TokenExpiredException) {
+    } catch (_: TokenExpiredException) {
         null
     }
 
@@ -39,7 +39,7 @@ suspend fun ApplicationCall.handleGetSignIn() {
 
 suspend fun ApplicationCall.handleLocalSignIn() {
     if(getEnvironment() == "LOCAL" || getSkipMicrosoftSignIn() == "true") {
-        addToken(JwtHelper.createSignedJwtToken(getLocalUser()))
+        addToken(JwtHelper.createSignedJwtToken(getLocalUser(), getJwtIssuer()))
         respondRedirect("/")
     } else {
         respond(HttpStatusCode.Forbidden)
@@ -59,13 +59,13 @@ suspend fun ApplicationCall.handleSignIn() {
     val code = parameters["code"] ?: return respondHtml("Some error occurred")
     val clientId = getMicrosoftClientId()
     val clientSecret = getMicrosoftClientSecret()
-    val host = getCookieHost()
+    val env = getEnvironment()
 
-    val profile = minecraftApi.getProfile(code, clientId, clientSecret, host)
+    val profile = minecraftApi.getProfile(code, clientId, clientSecret, env)
 
     val user = usersApi.getUser(profile.username) ?: usersApi.getUser(usersApi.createUser(profile.username, profile.email)) ?: return respondHtml("Some error occurred")
 
-    val token = JwtHelper.createSignedJwtToken(user)
+    val token = JwtHelper.createSignedJwtToken(user, getJwtIssuer())
     addToken(token)
 
     respondRedirect("/")
@@ -85,9 +85,9 @@ suspend fun ApplicationCall.handleDeleteUser() {
 
 private fun ApplicationCall.getMicrosoftSignInUrl(): String {
     val clientId = getMicrosoftClientId()
-    val host = getCookieHost()
+    val env = getEnvironment()
     val redirectUrl =
-        if (host == "localhost") "http://localhost:8080/auth/oidc/microsoft-redirect"
+        if (env == "LOCAL") "http://localhost:8080/auth/oidc/microsoft-redirect"
         else "https://mcorg.app/auth/oidc/microsoft-redirect"
     return "https://login.microsoftonline.com/consumers/oauth2/v2.0/authorize?response_type=code&scope=openid,XboxLive.signin&client_id=$clientId&redirect_uri=$redirectUrl"
 }

@@ -9,12 +9,10 @@ primary_region = 'arn'
 [build]
 
 [env]
-  COOKIE_HOST = 'mcorg.app'
   DB_URL = 'jdbc:postgresql://ep-icy-wood-a2vogqwy-pooler.eu-central-1.aws.neon.tech/mcorg?sslmode=require'
   DB_USER = 'mcorg_owner'
   ENV = 'PRODUCTION'
-  JWT_ISSUER = 'mcorg.app'
-  SKIP_MICROSOFT_SIGN_IN = 'true'
+  SKIP_MICROSOFT_SIGN_IN = 'false'
 
 [http_service]
   internal_port = 8080

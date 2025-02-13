@@ -15,35 +15,33 @@ const val EIGHT_HOURS = 8 * 60 * 60 * 1000
 
 private const val audience = "mcorg-webapp"
 
-private fun getIssuer() = System.getenv("JWT_ISSUER") ?: "http://localhost:8080"
-
 class JwtHelper {
     companion object
 }
 
-fun JwtHelper.Companion.getUserFromJwtToken(token: String): User {
-    val jwt = validateSignature(token)
+fun JwtHelper.Companion.getUserFromJwtToken(token: String, issuer: String): User {
+    val jwt = validateSignature(token, issuer)
 
     return User(jwt.getClaim("sub").asInt(), jwt.getClaim("username").asString())
 }
 
-fun JwtHelper.Companion.createSignedJwtToken(user: User): String {
+fun JwtHelper.Companion.createSignedJwtToken(user: User, issuer: String): String {
 
     val (publicKey, privateKey) = getKeys()
 
     return JWT.create()
         .withAudience(audience)
-        .withIssuer(getIssuer())
+        .withIssuer(issuer)
         .withClaim("sub", user.id)
         .withClaim("username", user.username)
         .withExpiresAt(Date(System.currentTimeMillis() + EIGHT_HOURS))
         .sign(Algorithm.RSA256(publicKey, privateKey)) as String
 }
 
-private fun JwtHelper.Companion.validateSignature(token: String): DecodedJWT {
+private fun JwtHelper.Companion.validateSignature(token: String, issuer: String): DecodedJWT {
     val (publicKey, privateKey) = getKeys()
     return JWT.require(Algorithm.RSA256(publicKey, privateKey))
-        .withIssuer(getIssuer())
+        .withIssuer(issuer)
         .withAudience(audience)
         .acceptLeeway(3L)
         .build()
