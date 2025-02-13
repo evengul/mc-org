@@ -1,0 +1,94 @@
+# Reference: https://github.com/neondatabase-labs/preview-branches-with-fly/blob/main/.github/workflows/deploy-preview.yml
+
+name: Deploy to dev and test E2E
+env:
+  NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID }}
+  FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }} # You can generate a Fly API token in your account settings
+  GH_TOKEN: ${{ secrets.GH_TOKEN }} # Required for commenting on pull requests for private repos
+  DB_USERNAME: mcorg_owner
+on:
+  pull_request:
+    branches: [ master ]
+    paths:
+      - webapp/**
+jobs:
+  deploy-dev:
+    environment: dev
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    concurrency:
+      group: pr-${{ github.event.number }}
+    defaults:
+      run:
+        working-directory: ./webapp
+    steps:
+      - uses: actions/checkout@v4
+      - uses: neondatabase/create-branch-action@v5
+        id: create-neon-branch
+        with:
+          project_id: morning-fog-11467472
+          database: mcorg
+          branch_name: dev/pr-${{ github.event.number }}
+          username: ${{ env.DB_USERNAME }}
+          api_key: ${{ secrets.NEON_API_KEY }}
+      - name: Set up JDK 21
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'adopt'
+          java-version: '21'
+      - name: Run flyway migrations
+        run: mvn flyway:migrate
+        env:
+          DB_URL: "jdbc:postgresql://${{ steps.create-neon-branch.outputs.host }}/mcorg?sslmode=require"
+          DB_USER: ${{ env.DB_USERNAME }}
+          DB_PASSWORD: ${{ steps.create-neon-branch.outputs.password }}
+      - uses: superfly/fly-pr-review-apps@1.3.0
+        id: deploy
+        with:
+          name: mcorg-dev-${{ github.event.number }}
+          path: ./webapp
+          config: ./dev.fly.toml
+          org: mc-org
+          secrets: TEST_HOST=mcorg-dev-${{ github.event.number }}.fly.dev DB_PASSWORD=${{ steps.create-neon-branch.outputs.password }} DB_URL=jdbc:postgresql://${{ steps.create-neon-branch.outputs.host_with_pooler }}/mcorg?sslmode=require DB_USER=${{ env.DB_USERNAME }} RSA_PUBLIC_KEY=${{ secrets.RSA_PUBLIC_KEY }} RSA_PRIVATE_KEY=${{ secrets.RSA_PRIVATE_KEY }}
+      - uses: actions/github-script@v7
+        with:
+          github-token: ${{secrets.GH_TOKEN_PR_COMMENTS}}
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: 'Fly Preview URL :balloon: : ${{ steps.deploy.outputs.url }}\n Neon branch :elephant: : https://console.neon.tech/app/projects/${{ env.NEON_PROJECT_ID }}/branches/${{ steps.create-branch.outputs.branch_id }}'
+            })
+    outputs:
+      dev_url: ${{ steps.deploy.outputs.url }}
+  playwright-tests:
+    name: "E2E Playwright Tests"
+    timeout-minutes: 60
+    runs-on: ubuntu-latest
+    needs: deploy-dev
+    defaults:
+      run:
+        working-directory: ./webapp/src/test/javascript
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+      - name: Install dependencies
+        run: npm ci
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps
+      - name: Run Playwright tests
+        run: npx playwright test
+        env:
+          ENV: TEST
+          CI: true
+          FLY_DEV_URL: ${{ needs.deploy-dev.outputs.dev_url }}
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 30

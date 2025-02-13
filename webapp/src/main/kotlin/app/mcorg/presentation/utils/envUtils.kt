@@ -1,7 +1,6 @@
 package app.mcorg.presentation.utils
 
 import io.ktor.http.HttpHeaders
-import io.ktor.http.Url
 import io.ktor.server.application.*
 import io.ktor.server.request.host
 import io.ktor.util.*
@@ -24,7 +23,7 @@ fun ApplicationCall.getHost(): String? {
         }
         return "mcorg.app"
     } else if (env == "TEST") {
-        return referrer.let { Url(it).host }
+        return System.getenv("TEST_HOST") ?: "http://localhost"
     } else if (env == "LOCAL") {
         return null
     }

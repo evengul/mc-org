@@ -7,6 +7,7 @@ import io.ktor.server.application.*
 import io.ktor.server.response.*
 import io.ktor.util.*
 import io.ktor.util.date.*
+import java.time.Instant
 
 const val tokenName = "MCORG-USER-TOKEN"
 
@@ -20,10 +21,11 @@ fun ApplicationCall.getUserFromCookie(): User? = request.cookies[tokenName]?.let
 
 fun ApplicationCall.addToken(token: String) {
     val cookieHost = getHost()
+    val expires = GMTDate(timestamp = Instant.now().plusSeconds(8 * 60 * 60).toEpochMilli())
     if (cookieHost == "false") {
-        response.cookies.append(tokenName, token, httpOnly = true, path = "/")
+        response.cookies.append(tokenName, token, httpOnly = true, expires = expires, path = "/")
     } else {
-        response.cookies.append(tokenName, token, httpOnly = true, domain = cookieHost, path = "/")
+        response.cookies.append(tokenName, token, httpOnly = true, expires = expires, path = "/", domain = cookieHost)
     }
 }
 

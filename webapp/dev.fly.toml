@@ -1,0 +1,21 @@
+primary_region = 'arn'
+
+[build]
+
+[env]
+    ENV = 'TEST'
+    SKIP_MICROSOFT_SIGN_IN = 'true'
+    MICROSOFT_CLIENT_ID=''
+    MICROSOFT_CLIENT_SECRET=''
+
+[http_service]
+    internal_port = 8080
+    force_https = true
+    auto_stop_machines = 'stop'
+    auto_start_machines = true
+    min_machines_running = 1
+    processes = ['app']
+
+[[vm]]
+    size = 'shared-cpu-1x'
+    memory = '512mb'
