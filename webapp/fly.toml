@@ -12,9 +12,8 @@ primary_region = 'arn'
   COOKIE_HOST = 'mcorg.app'
   DB_URL = 'jdbc:postgresql://ep-icy-wood-a2vogqwy-pooler.eu-central-1.aws.neon.tech/mcorg?sslmode=require'
   DB_USER = 'mcorg_owner'
-  ENV = 'TEST'
+  ENV = 'PRODUCTION'
   JWT_ISSUER = 'mcorg.app'
-  RSA_PUBLIC_KEY = '-----BEGIN PUBLIC KEY-----\nMFwwDQYJKoZIhvcNAQEBBQADSwAwSAJBAORNqSs3v7QFIRWsHg2pJ+nWzLgNxxpb\nq3zaCblxV/RhXAJt8+RqB89WlwwmTjc3ezQasO0LGNAR8wzBJDCZcrECAwEAAQ==\n-----END PUBLIC KEY-----'
   SKIP_MICROSOFT_SIGN_IN = 'true'
 
 [http_service]
