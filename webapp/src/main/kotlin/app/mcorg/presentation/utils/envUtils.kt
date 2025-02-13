@@ -16,14 +16,14 @@ fun ApplicationCall.getEnvironment() = getAttribute<String>("ENVIRONMENT")
 
 fun ApplicationCall.getHost(): String? {
     val env = getEnvironment()
-    val referrer = request.headers[HttpHeaders.Referrer] ?: request.headers[":authority:"] ?: request.host()
+    val referrer = request.headers[HttpHeaders.Referrer] ?: request.host()
     if (env == "PRODUCTION") {
         if (referrer.contains("mcorg.fly.dev") == true) {
             return "mcorg.fly.dev"
         }
         return "mcorg.app"
     } else if (env == "TEST") {
-        return System.getenv("TEST_HOST") ?: "http://localhost"
+        return System.getenv("TEST_HOST") ?: "http://localhost:8080"
     } else if (env == "LOCAL") {
         return null
     }
