@@ -8,9 +8,9 @@ import io.ktor.client.request.forms.*
 import io.ktor.http.*
 
 class MinecraftImpl : Minecraft, Gateway() {
-    override suspend fun getProfile(authorizationCode: String, clientId: String, clientSecret: String, env: String): MinecraftProfile {
+    override suspend fun getProfile(authorizationCode: String, clientId: String, clientSecret: String, env: String, host: String?): MinecraftProfile {
         try {
-            val (error, microsoftAccessToken) = getTokenFromCode(authorizationCode, clientId, clientSecret, env)
+            val (error, microsoftAccessToken) = getTokenFromCode(authorizationCode, clientId, clientSecret, env, host)
             if (microsoftAccessToken != null) {
                 val xboxProfile = getXboxProfile(microsoftAccessToken)
                 val xboxToken = xboxProfile.token
@@ -62,10 +62,11 @@ class MinecraftImpl : Minecraft, Gateway() {
         }.body()
     }
 
-    private suspend fun getTokenFromCode(authorizationCode: String, clientId: String, clientSecret: String, env: String): Pair<MicrosoftAccessTokenErrorResponse?, String?> = getJsonClient().use {
+    private suspend fun getTokenFromCode(authorizationCode: String, clientId: String, clientSecret: String, env: String, host: String?): Pair<MicrosoftAccessTokenErrorResponse?, String?> = getJsonClient().use {
         val redirectUrl =
             if (env == "LOCAL") "http://localhost:8080/auth/oidc/microsoft-redirect"
-            else "https://mcorg.app/auth/oidc/microsoft-redirect"
+            else if (host != null) "https://$host/auth/oidc/microsoft-redirect"
+            else throw IllegalArgumentException("Host cannot be null for a non-local environment")
 
         val response = it.get(url = Url("https://login.microsoftonline.com/consumers/oauth2/v2.0/token")) {
             contentType(ContentType.Application.FormUrlEncoded)

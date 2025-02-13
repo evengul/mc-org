@@ -60,8 +60,9 @@ suspend fun ApplicationCall.handleSignIn() {
     val clientId = getMicrosoftClientId()
     val clientSecret = getMicrosoftClientSecret()
     val env = getEnvironment()
+    val host = getHost()
 
-    val profile = minecraftApi.getProfile(code, clientId, clientSecret, env)
+    val profile = minecraftApi.getProfile(code, clientId, clientSecret, env, host)
 
     val user = usersApi.getUser(profile.username) ?: usersApi.getUser(usersApi.createUser(profile.username, profile.email)) ?: return respondHtml("Some error occurred")
 
@@ -86,8 +87,9 @@ suspend fun ApplicationCall.handleDeleteUser() {
 private fun ApplicationCall.getMicrosoftSignInUrl(): String {
     val clientId = getMicrosoftClientId()
     val env = getEnvironment()
+    val host = getHost()
     val redirectUrl =
         if (env == "LOCAL") "http://localhost:8080/auth/oidc/microsoft-redirect"
-        else "https://mcorg.app/auth/oidc/microsoft-redirect"
+        else "https://$host/auth/oidc/microsoft-redirect"
     return "https://login.microsoftonline.com/consumers/oauth2/v2.0/authorize?response_type=code&scope=openid,XboxLive.signin&client_id=$clientId&redirect_uri=$redirectUrl"
 }
