@@ -1,5 +1,7 @@
 package app.mcorg.presentation.templates.project
 
+import app.mcorg.domain.minecraft.Dimension
+import app.mcorg.domain.projects.Priority
 import app.mcorg.domain.projects.SlimProject
 import app.mcorg.domain.users.User
 import app.mcorg.presentation.components.appProgress
