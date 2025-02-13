@@ -9,6 +9,7 @@ import app.mcorg.presentation.templates.task.addCountableDialog
 import app.mcorg.presentation.templates.task.addDoableTaskDialog
 import app.mcorg.presentation.templates.task.addLitematicaTasksDialog
 import app.mcorg.presentation.templates.task.board.taskBoard
+import kotlinx.html.MAIN
 
 fun project(backLink: String, project: Project, worldUsers: List<User>, currentUser: User, filtersRequest: TaskFiltersRequest): String = subPageTemplate(
     title = project.name,
@@ -22,11 +23,14 @@ fun project(backLink: String, project: Project, worldUsers: List<User>, currentU
         )
     )
 ) {
+    projectDialogs(project)
+    taskFilterDialog(project, worldUsers, currentUser, filtersRequest)
+    taskBoard(project, worldUsers, currentUser)
+}
+
+fun MAIN.projectDialogs(project: Project) {
     editCountableDialog(project)
     addCountableDialog(project)
     addDoableTaskDialog(project)
     addLitematicaTasksDialog(project)
-
-    taskFilterDialog(project, worldUsers, currentUser, filtersRequest)
-    taskBoard(project, worldUsers, currentUser)
 }

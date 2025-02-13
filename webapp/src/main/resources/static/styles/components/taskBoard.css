@@ -12,16 +12,10 @@
     gap: var(--spacing-md);
 
     padding: var(--spacing-sm) var(--spacing-xs);
-
-    transition: max-height 0.3s ease-out, opacity 0.3s ease-out;
-    overflow: hidden;
-    max-height: 1000px;
-    opacity: 1;
 }
 
 .task-columns.collapsed {
-    max-height: 0;
-    opacity: 0;
+    display: none;
 }
 
 h2:has(.toggle-button) {
