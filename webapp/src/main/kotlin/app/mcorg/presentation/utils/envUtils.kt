@@ -1,5 +1,7 @@
 package app.mcorg.presentation.utils
 
+import io.ktor.http.HttpHeaders
+import io.ktor.http.Url
 import io.ktor.server.application.*
 import io.ktor.util.*
 
@@ -12,8 +14,21 @@ fun ApplicationCall.getMicrosoftClientSecret() = getAttribute<String>("MICROSOFT
 fun ApplicationCall.setEnvironment(environment: String) = setAttribute("ENVIRONMENT", environment)
 fun ApplicationCall.getEnvironment() = getAttribute<String>("ENVIRONMENT")
 
-fun ApplicationCall.setCookieHost(cookieHost: String) = setAttribute("COOKIE_HOST", cookieHost)
-fun ApplicationCall.getCookieHost() = getAttribute<String>("COOKIE_HOST")
+fun ApplicationCall.getHost(): String? {
+    val env = getEnvironment()
+    val referrer = request.headers[HttpHeaders.Referrer]
+    if (env == "PRODUCTION") {
+        if (referrer?.contains("mcorg.fly.dev") == true) {
+            return "mcorg.fly.dev"
+        }
+        return "mcorg.app"
+    } else if (env == "TEST") {
+        return referrer?.let { Url(it).host } ?: "http://localhost"
+    } else if (env == "LOCAL") {
+        return null
+    }
+    throw IllegalStateException("Invalid ENV=[$env]")
+}
 
 fun ApplicationCall.setSkipMicrosoftSignIn(cookieHost: String) = setAttribute("SKIP_MICROSOFT_SIGN_IN", cookieHost)
 fun ApplicationCall.getSkipMicrosoftSignIn() = getAttribute<String>("SKIP_MICROSOFT_SIGN_IN")

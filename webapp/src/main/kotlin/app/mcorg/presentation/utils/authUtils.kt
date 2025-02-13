@@ -14,10 +14,12 @@ fun ApplicationCall.storeUser(user: User) = attributes.put(AttributeKey("user"),
 fun ApplicationCall.getUser() = attributes[AttributeKey<User>("user")]
 fun ApplicationCall.getUserId() = getUser().id
 
-fun ApplicationCall.getUserFromCookie(): User? = request.cookies[tokenName]?.let { JwtHelper.getUserFromJwtToken(it) }
+fun ApplicationCall.getJwtIssuer() = getHost()?.removePrefix("http://")?.removePrefix("https://")?.removeSuffix("/") ?: "mcorg"
+
+fun ApplicationCall.getUserFromCookie(): User? = request.cookies[tokenName]?.let { JwtHelper.getUserFromJwtToken(it, getJwtIssuer()) }
 
 fun ApplicationCall.addToken(token: String) {
-    val cookieHost = getCookieHost()
+    val cookieHost = getHost()
     if (cookieHost == "false") {
         response.cookies.append(tokenName, token, httpOnly = true, path = "/")
     } else {
@@ -26,7 +28,7 @@ fun ApplicationCall.addToken(token: String) {
 }
 
 suspend fun ApplicationCall.removeTokenAndSignOut() {
-    response.cookies.append(tokenName, "", expires = GMTDate(-1), httpOnly = true, domain = getCookieHost(), path = "/")
+    response.cookies.append(tokenName, "", expires = GMTDate(-1), httpOnly = true, domain = getHost(), path = "/")
 
     respondRedirect("/auth/sign-in", permanent = false)
 }
