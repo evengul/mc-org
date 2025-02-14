@@ -165,6 +165,10 @@ h2:has(.toggle-button) {
     display: none;
 }
 
+.task-column#TODO .task-progress-prefix {
+    display: none;
+}
+
 .task-done {
     background-color: #d3ffd3;
     color: #006400;

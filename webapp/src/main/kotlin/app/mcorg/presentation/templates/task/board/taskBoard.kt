@@ -183,7 +183,11 @@ private fun DIV.taskColumn(columnId: String,
                             }
                             p {
                                 classes = setOf("task-progress")
-                                + ("${getItemProgress(it.done.toDouble())} of ${getItemProgress(it.needed.toDouble())}")
+                                span {
+                                    classes = setOf("task-progress-prefix")
+                                    + ("${getItemProgress(it.done.toDouble())} of ")
+                                }
+                                + getItemProgress(it.needed.toDouble())
                             }
                         }
                     }

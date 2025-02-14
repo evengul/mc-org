@@ -3,7 +3,7 @@ import {locators} from "./locators";
 
 type ENVIRONMENT = "LOCAL" | "TEST" | "PRODUCTION"
 
-const getCurrentEnvironment = (): ENVIRONMENT => process.env.ENV as ENVIRONMENT ?? "TEST"
+const getCurrentEnvironment = (): ENVIRONMENT => process.env.ENV as ENVIRONMENT ?? "LOCAL"
 
 const testUrl = "https://mcorg-dev-51.fly.dev"
 // const testUrl = "http://localhost:8080"
@@ -22,6 +22,7 @@ const pages = {
   MAIN: "/",
   SIGN_IN: "/auth/sign-in",
   WORLDS: "/app/worlds",
+  PROFILE: "/app/profile"
 }
 
 export const getUrl = (page: keyof typeof pages) => urls[getCurrentEnvironment()] + pages[page]
@@ -57,7 +58,7 @@ export const signInCreateWorldAndProject = async (page: Page, projectName = "Pro
 
   await createButton.click()
 
-  await createProjectInForm(page, projectName)
+  return await createProjectInForm(page, projectName)
 }
 
 export const createProject = async (page: Page, projectName = "Project") => {
@@ -91,6 +92,42 @@ const createProjectInForm = async (page: Page, projectName = "Project") => {
   await expect(project(projectName).self).toBeVisible()
 
   return projectName
+}
+
+export const createDoableTask = async (page: Page, taskName: string) => {
+  const {
+    createDoableButton,
+    ADD_DOABLE: {
+      nameField,
+      submitButton
+    }
+  } = locators(page).PROJECT.DOABLE
+
+  await createDoableButton.click()
+
+  await nameField.fill(taskName)
+  await submitButton.click()
+
+  return taskName
+}
+
+export const createCountableTask = async (page: Page, taskName: string, amount: number) => {
+  const {
+    createCountableButton,
+    ADD_COUNTABLE: {
+      nameField,
+      amountField,
+      submitButton
+    }
+  } = locators(page).PROJECT.COUNTABLE
+
+  await createCountableButton.click()
+
+  await nameField.fill(taskName)
+  await amountField.fill(amount.toString())
+  await submitButton.click()
+
+  return [taskName, amount] as const
 }
 
 

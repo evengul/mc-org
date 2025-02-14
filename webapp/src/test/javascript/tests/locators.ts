@@ -42,11 +42,67 @@ export const locators = (page: Page) => ({
       const project = page.locator(".project", {has: page.getByRole("heading", {level: 2, name: name})})
       return {
         self: project,
+        header: project.getByText(name),
         deleteButton: project.locator(".delete-project-button"),
         priority: project.locator("p:nth-of-type(1)"),
         dimension: project.locator("p:nth-of-type(2)"),
         assignment: project.locator(".project-assignment").locator("select"),
         progress: project.locator(".project-progress")
+      }
+    }
+  },
+  PROJECT: {
+    taskBoard: page.locator("#task-board"),
+    DOABLE: {
+      board: page.locator("#doable-tasks"),
+      header: page.getByText("Doable Tasks"),
+      columns: page.locator("#doable-tasks-columns"),
+      hideDoableTasksButton: page.locator("#doable-tasks").locator(".toggle-button"),
+      createDoableButton: page.locator("#add-doable-task-button"),
+      todoColumn: page.locator("#task-list-doable-todo"),
+      inProgressColumn: page.locator("#task-list-doable-in-progress"),
+      doneColumn: page.locator("#task-list-doable-done"),
+      ADD_DOABLE: {
+        nameField: page.locator("#add-doable-task-name-input"),
+        submitButton: page.locator("#add-doable-task-submit-button"),
+      },
+      task: (name: string) => {
+        const task = page.locator(".task", {
+          hasText: name
+        })
+
+        return {
+          self: task,
+          deleteButton: task.locator(".delete-task-button"),
+          assign: task.locator(".assign-select")
+        }
+      }
+    },
+    COUNTABLE: {
+      board: page.locator("#countable-tasks"),
+      header: page.getByText("Countable Tasks"),
+      hideCountableTasksButton: page.locator("#countable-tasks").locator(".toggle-button"),
+      createCountableButton: page.locator("#add-countable-task-button"),
+      columns: page.locator("#countable-tasks-columns"),
+      todoColumn: page.locator("#task-list-countable-todo"),
+      inProgressColumn: page.locator("#task-list-countable-in-progress"),
+      doneColumn: page.locator("#task-list-countable-done"),
+      ADD_COUNTABLE: {
+        nameField: page.locator("#add-countable-task-name-input"),
+        amountField: page.locator("#add-countable-task-amount-input"),
+        submitButton: page.locator("#add-countable-task-submit-button"),
+      },
+      task: (name: string) => {
+        const task = page.locator(".task", {
+          hasText: name
+        })
+
+        return {
+          self: task,
+          deleteButton: task.locator(".delete-task-button"),
+          amount: task.locator("p.task-progress"),
+          assign: task.locator(".assign-select")
+        }
       }
     }
   }
