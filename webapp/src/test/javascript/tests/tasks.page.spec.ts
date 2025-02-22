@@ -44,6 +44,34 @@ test.describe("General project page", () => {
     await expect(countableColumns).not.toBeVisible()
     await expect(countableHeader).toBeVisible()
   })
+
+  test.skip("Can move recently created task to In Progress", async () => {
+
+  })
+
+  test.skip("Can move finished task to Done", async () => {
+
+  })
+
+  test.skip("Can move non-finished task back to in progress", async () => {
+
+  })
+
+  test.skip("Can move no longer in-progress task back to To Do", async () => {
+
+  })
+
+  test.skip("Can move finished task back to To Do", async () => {
+
+  })
+
+  test.skip("Can move recently created tasks straight to Done", () => {
+
+  })
+
+  test.skip("Completed tasks are styled differently", ({page}) => {
+
+  })
 })
 
 test.describe("Doable tasks", () => {
@@ -90,6 +118,10 @@ test.describe("Doable tasks", () => {
     await assign.selectOption(username)
 
     await expect(assign.locator("[selected=\"selected\"]")).toContainText(/Assigned: TestUser_[0-9]+/)
+  })
+
+  test("Can not move a doable task to a countable column", async () => {
+
   })
 })
 
@@ -142,5 +174,29 @@ test.describe("Countable tasks", () => {
     await assign.selectOption(username)
 
     await expect(assign.locator("[selected=\"selected\"]")).toContainText(/Assigned: TestUser_[0-9]+/)
+  })
+
+  test.skip("Larger countable tasks have a correct visualisation", async ({page}) => {
+
+  })
+
+  test.skip("Can add a stack to a countable task", async ({page}) => {
+
+  })
+
+  test.skip("Can add a shulker box to a countable task", async ({page}) => {
+
+  })
+
+  test.skip("Can edit a countable task", async ({page}) => {
+
+  })
+
+  test.skip("Tasks with all items gathered have disabled add buttons", async ({page}) => {
+
+  })
+
+  test.skip("Can not move a countable task to a doable column", async ({page}) => {
+
   })
 })
