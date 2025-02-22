@@ -1,6 +1,8 @@
 package app.mcorg.presentation.utils
 
-import app.mcorg.domain.*
+import app.mcorg.domain.projects.Project
+import app.mcorg.domain.projects.SlimProject
+import app.mcorg.domain.projects.Task
 import app.mcorg.presentation.entities.ProjectFiltersRequest
 import app.mcorg.presentation.entities.TaskFiltersRequest
 import io.ktor.http.*

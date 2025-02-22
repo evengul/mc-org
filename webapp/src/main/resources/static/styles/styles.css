@@ -11,14 +11,13 @@
 @import "components/select.css";
 @import "components/input.css";
 @import "components/progress.css";
+@import "components/taskBoard.css";
 
 @import "pages/signin.css";
 @import "pages/profile.css";
 @import "pages/users.css";
 @import "pages/worlds.css";
-@import "pages/project/project-filter.css";
 @import "pages/project/project-list.css";
+@import "pages/project/project-filter.css";
 @import "pages/project/task-buttons.css";
-@import "pages/project/task-filter.css";
-@import "pages/project/task-list.css";
 @import "pages/project/assignment.css";

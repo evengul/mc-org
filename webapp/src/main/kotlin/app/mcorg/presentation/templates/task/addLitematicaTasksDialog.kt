@@ -1,6 +1,6 @@
 package app.mcorg.presentation.templates.task
 
-import app.mcorg.domain.Project
+import app.mcorg.domain.projects.Project
 import app.mcorg.presentation.hxPost
 import app.mcorg.presentation.hxSwap
 import app.mcorg.presentation.hxTarget
@@ -14,7 +14,7 @@ fun MAIN.addLitematicaTasksDialog(project: Project) {
             encType = FormEncType.multipartFormData
             method = FormMethod.post
             hxPost("/app/worlds/${project.worldId}/projects/${project.id}/tasks/litematica")
-            hxTarget("#task-list")
+            hxTarget("#task-list-countable-todo")
             hxSwap("afterbegin")
             label {
                 htmlFor = "tasks-add-litematica-file-input"

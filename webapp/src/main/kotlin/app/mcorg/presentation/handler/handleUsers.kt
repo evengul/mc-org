@@ -1,6 +1,6 @@
 package app.mcorg.presentation.handler
 
-import app.mcorg.domain.Authority
+import app.mcorg.domain.permissions.Authority
 import app.mcorg.presentation.configuration.permissionsApi
 import app.mcorg.presentation.configuration.projectsApi
 import app.mcorg.presentation.configuration.usersApi

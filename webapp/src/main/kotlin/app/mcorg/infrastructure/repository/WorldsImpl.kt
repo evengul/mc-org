@@ -1,7 +1,7 @@
 package app.mcorg.infrastructure.repository
 
-import app.mcorg.domain.World
-import app.mcorg.domain.Worlds
+import app.mcorg.domain.worlds.World
+import app.mcorg.domain.worlds.Worlds
 
 class WorldsImpl : Worlds, Repository() {
     override fun getWorld(id: Int): World? {

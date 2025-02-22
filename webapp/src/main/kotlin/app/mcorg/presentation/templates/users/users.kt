@@ -1,12 +1,10 @@
 package app.mcorg.presentation.templates.users
 
-import app.mcorg.domain.User
+import app.mcorg.domain.users.User
 import app.mcorg.presentation.*
 import app.mcorg.presentation.templates.MainPage
-import app.mcorg.presentation.templates.NavBarRightIcon
 import app.mcorg.presentation.templates.mainPageTemplate
 import kotlinx.html.*
-import kotlinx.html.stream.createHTML
 
 fun users(worldId: Int, currentUser: User, users: List<User>, isAdmin: Boolean): String = mainPageTemplate(
     selectedPage = MainPage.USERS,

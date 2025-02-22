@@ -114,6 +114,9 @@ fun Application.configureAppRouter() {
                                 patch("/assign") {
                                     call.handlePatchTaskAssignee()
                                 }
+                                patch("/stage") {
+                                    call.handleUpdateTaskStage()
+                                }
                                 patch("/complete") {
                                     call.handleCompleteTask()
                                 }

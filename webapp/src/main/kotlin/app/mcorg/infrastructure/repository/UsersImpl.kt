@@ -1,8 +1,8 @@
 package app.mcorg.infrastructure.repository
 
-import app.mcorg.domain.Profile
-import app.mcorg.domain.User
-import app.mcorg.domain.Users
+import app.mcorg.domain.users.Profile
+import app.mcorg.domain.users.User
+import app.mcorg.domain.users.Users
 
 class UsersImpl : Users, Repository() {
     override fun userExists(id: Int): Boolean {

@@ -49,8 +49,8 @@ button.button-icon.icon-small {
 }
 
 button.button-fab {
-    z-index: 999;
     position: fixed;
+    z-index: 999;
     right: var(--spacing-md);
     bottom: var(--spacing-md);
     height: calc(48px + var(--spacing-xs));

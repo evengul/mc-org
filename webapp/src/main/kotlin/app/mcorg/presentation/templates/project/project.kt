@@ -1,10 +1,15 @@
 package app.mcorg.presentation.templates.project
 
-import app.mcorg.domain.*
+import app.mcorg.domain.projects.Project
+import app.mcorg.domain.users.User
 import app.mcorg.presentation.entities.TaskFiltersRequest
 import app.mcorg.presentation.templates.NavBarRightIcon
 import app.mcorg.presentation.templates.subPageTemplate
-import kotlinx.html.ul
+import app.mcorg.presentation.templates.task.addCountableDialog
+import app.mcorg.presentation.templates.task.addDoableTaskDialog
+import app.mcorg.presentation.templates.task.addLitematicaTasksDialog
+import app.mcorg.presentation.templates.task.board.taskBoard
+import kotlinx.html.MAIN
 
 fun project(backLink: String, project: Project, worldUsers: List<User>, currentUser: User, filtersRequest: TaskFiltersRequest): String = subPageTemplate(
     title = project.name,
@@ -18,10 +23,14 @@ fun project(backLink: String, project: Project, worldUsers: List<User>, currentU
         )
     )
 ) {
-    editCountableDialog(project)
+    projectDialogs(project)
     taskFilterDialog(project, worldUsers, currentUser, filtersRequest)
-    ul {
-        taskList(users = worldUsers, project = project, currentUser = currentUser)
-    }
-    addTaskButtons(project)
+    taskBoard(project, worldUsers, currentUser)
+}
+
+fun MAIN.projectDialogs(project: Project) {
+    editCountableDialog(project)
+    addCountableDialog(project)
+    addDoableTaskDialog(project)
+    addLitematicaTasksDialog(project)
 }

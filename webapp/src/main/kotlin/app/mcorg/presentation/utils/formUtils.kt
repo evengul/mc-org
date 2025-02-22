@@ -1,9 +1,8 @@
 package app.mcorg.presentation.utils
 
-import app.mcorg.domain.Dimension
-import app.mcorg.domain.PremadeTask
-import app.mcorg.domain.Priority
-import app.mcorg.domain.tasksFromMaterialList
+import app.mcorg.domain.minecraft.Dimension
+import app.mcorg.domain.projects.PremadeTask
+import app.mcorg.domain.projects.Priority
 import app.mcorg.presentation.entities.*
 import io.ktor.http.content.*
 import io.ktor.server.application.*
@@ -83,7 +82,7 @@ suspend fun ApplicationCall.receiveMaterialListTasks(): List<PremadeTask> {
     var materialList = emptyList<PremadeTask>()
     data.forEachPart {
         if (it is PartData.FileItem) {
-            materialList = it.provider().toInputStream().tasksFromMaterialList()
+            materialList = PremadeTask.from(it.provider().toInputStream())
         }
     }
     return materialList

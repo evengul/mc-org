@@ -1,4 +1,4 @@
-package app.mcorg.domain
+package app.mcorg.domain.users
 
 fun sortUsersBySelectedOrName(users: List<User>, currentUser: User, selectedUser: User?): List<User> {
     fun sorter(a: User, b: User): Int {

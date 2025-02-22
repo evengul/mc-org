@@ -1,9 +1,8 @@
 package app.mcorg.presentation.templates.project
 
-import app.mcorg.domain.Profile
-import app.mcorg.domain.SlimProject
-import app.mcorg.domain.User
-import app.mcorg.domain.toUser
+import app.mcorg.domain.users.Profile
+import app.mcorg.domain.projects.SlimProject
+import app.mcorg.domain.users.User
 import app.mcorg.presentation.entities.ProjectFiltersRequest
 import app.mcorg.presentation.templates.MainPage
 import app.mcorg.presentation.templates.mainPageTemplate

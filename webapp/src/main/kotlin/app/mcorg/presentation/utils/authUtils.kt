@@ -1,6 +1,6 @@
 package app.mcorg.presentation.utils
 
-import app.mcorg.domain.User
+import app.mcorg.domain.users.User
 import app.mcorg.presentation.security.JwtHelper
 import app.mcorg.presentation.security.getUserFromJwtToken
 import io.ktor.server.application.*
@@ -15,7 +15,16 @@ fun ApplicationCall.storeUser(user: User) = attributes.put(AttributeKey("user"),
 fun ApplicationCall.getUser() = attributes[AttributeKey<User>("user")]
 fun ApplicationCall.getUserId() = getUser().id
 
-fun ApplicationCall.getJwtIssuer() = getHost()?.removePrefix("http://")?.removePrefix("https://")?.removeSuffix("/") ?: "mcorg"
+fun ApplicationCall.getJwtIssuer() = getHost()
+    ?.let {
+        if (it == "false") return@let "localhost"
+        else return@let it
+    }
+    ?.removePrefix("http://")
+    ?.removePrefix("https://")
+    ?.removeSuffix("/")
+    ?.removeSuffix(":8080")
+    ?: "mcorg"
 
 fun ApplicationCall.getUserFromCookie(): User? = request.cookies[tokenName]?.let { JwtHelper.getUserFromJwtToken(it, getJwtIssuer()) }
 
