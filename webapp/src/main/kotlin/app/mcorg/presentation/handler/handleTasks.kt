@@ -4,8 +4,8 @@ import app.mcorg.domain.projects.Priority
 import app.mcorg.domain.projects.TaskStages
 import app.mcorg.presentation.configuration.permissionsApi
 import app.mcorg.presentation.configuration.projectsApi
-import app.mcorg.presentation.entities.AssignUserRequest
-import app.mcorg.presentation.entities.DeleteAssignmentRequest
+import app.mcorg.presentation.entities.user.AssignUserRequest
+import app.mcorg.presentation.entities.user.DeleteAssignmentRequest
 import app.mcorg.presentation.templates.task.board.createTaskBoard
 import app.mcorg.presentation.utils.*
 import io.ktor.http.*

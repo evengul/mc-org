@@ -4,8 +4,8 @@ import app.mcorg.domain.users.User
 import app.mcorg.presentation.configuration.permissionsApi
 import app.mcorg.presentation.configuration.projectsApi
 import app.mcorg.presentation.configuration.usersApi
-import app.mcorg.presentation.entities.AssignUserRequest
-import app.mcorg.presentation.entities.DeleteAssignmentRequest
+import app.mcorg.presentation.entities.user.AssignUserRequest
+import app.mcorg.presentation.entities.user.DeleteAssignmentRequest
 import app.mcorg.presentation.hxOutOfBands
 import app.mcorg.presentation.templates.project.*
 import app.mcorg.presentation.utils.*

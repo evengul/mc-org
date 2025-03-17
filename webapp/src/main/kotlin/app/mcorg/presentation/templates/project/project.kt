@@ -2,7 +2,7 @@ package app.mcorg.presentation.templates.project
 
 import app.mcorg.domain.projects.Project
 import app.mcorg.domain.users.User
-import app.mcorg.presentation.entities.TaskFiltersRequest
+import app.mcorg.presentation.entities.task.TaskFiltersRequest
 import app.mcorg.presentation.templates.NavBarRightIcon
 import app.mcorg.presentation.templates.subPageTemplate
 import app.mcorg.presentation.templates.task.addCountableDialog
