@@ -7,6 +7,11 @@ import app.mcorg.presentation.configuration.usersApi
 import app.mcorg.presentation.entities.user.AssignUserRequest
 import app.mcorg.presentation.entities.user.DeleteAssignmentRequest
 import app.mcorg.presentation.hxOutOfBands
+import app.mcorg.presentation.mappers.InputMappers
+import app.mcorg.presentation.mappers.project.createProjectInputMapper
+import app.mcorg.presentation.mappers.project.projectFilterInputMapper
+import app.mcorg.presentation.mappers.task.taskFilterInputMapper
+import app.mcorg.presentation.mappers.user.assignUserInputMapper
 import app.mcorg.presentation.templates.project.*
 import app.mcorg.presentation.utils.*
 import io.ktor.server.application.*
@@ -22,12 +27,12 @@ suspend fun ApplicationCall.handleGetProjects() {
     val projects = projectsApi.getWorldProjects(worldId)
     val users = permissionsApi.getUsersInWorld(worldId)
     val currentUser = usersApi.getProfile(getUserId()) ?: throw NotFoundException()
-    val filters = receiveProjectFilters()
+    val filters = InputMappers.projectFilterInputMapper(parameters)
     respondHtml(projects(worldId, projects, users, currentUser, filters))
 }
 
 suspend fun ApplicationCall.handlePostProject() {
-    val (name, priority, dimension, requiresPerimeter) = receiveCreateProjectRequest()
+    val (name, priority, dimension, requiresPerimeter) = InputMappers.createProjectInputMapper(receiveParameters())
     val worldId = getWorldId()
     val projectId = projectsApi.createProject(worldId, name, dimension, priority, requiresPerimeter)
     val project = projectsApi.getProject(projectId)?.toSlim() ?: throw NotFoundException()
@@ -58,7 +63,7 @@ suspend fun ApplicationCall.handleGetProject() {
     val users = permissionsApi.getUsersInWorld(worldId)
     val project = projectsApi.getProject(projectId, includeTasks = true, includeDependencies = false) ?: throw IllegalArgumentException("Project not found")
 
-    val filters = receiveTaskFilters()
+    val filters = InputMappers.taskFilterInputMapper(parameters)
 
     respondHtml(
         project(
@@ -72,7 +77,8 @@ suspend fun ApplicationCall.handleGetProject() {
 }
 
 suspend fun ApplicationCall.handlePatchProjectAssignee() {
-    val request = receiveAssignUserRequest()
+    val request = InputMappers.assignUserInputMapper(receiveParameters())
+
     if (request is DeleteAssignmentRequest) return handleDeleteProjectAssignee()
     val (userId) = request as AssignUserRequest
     val projectId = getProjectId()

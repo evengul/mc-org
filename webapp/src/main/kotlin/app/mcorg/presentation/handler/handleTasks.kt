@@ -6,15 +6,22 @@ import app.mcorg.presentation.configuration.permissionsApi
 import app.mcorg.presentation.configuration.projectsApi
 import app.mcorg.presentation.entities.user.AssignUserRequest
 import app.mcorg.presentation.entities.user.DeleteAssignmentRequest
+import app.mcorg.presentation.mappers.InputMappers
+import app.mcorg.presentation.mappers.task.editCountableTaskRequirementsInputMapper
+import app.mcorg.presentation.mappers.task.createCountableTaskInputMapper
+import app.mcorg.presentation.mappers.task.createDoableTaskInputMapper
+import app.mcorg.presentation.mappers.task.createTasksFromMaterialListInputMapper
+import app.mcorg.presentation.mappers.user.assignUserInputMapper
 import app.mcorg.presentation.templates.task.board.createTaskBoard
 import app.mcorg.presentation.utils.*
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.plugins.*
+import io.ktor.server.request.*
 import io.ktor.server.response.*
 
 suspend fun ApplicationCall.handlePostDoableTask() {
-    val (name) = receiveDoableTaskRequest()
+    val (name) = InputMappers.createDoableTaskInputMapper(receiveParameters())
     val projectId = getProjectId()
     projectsApi.addDoableTask(projectId, name, Priority.LOW)
 
@@ -22,7 +29,7 @@ suspend fun ApplicationCall.handlePostDoableTask() {
 }
 
 suspend fun ApplicationCall.handlePostCountableTask() {
-    val (name, amount) = receiveCountableTaskRequest()
+    val (name, amount) = InputMappers.createCountableTaskInputMapper(receiveParameters())
     val projectId = getProjectId()
     projectsApi.addCountableTask(projectId, name, Priority.LOW, needed = amount)
     respondUpdatedTaskList(projectId)
@@ -30,7 +37,7 @@ suspend fun ApplicationCall.handlePostCountableTask() {
 
 suspend fun ApplicationCall.handlePostLitematicaTasks() {
     val projectId = getProjectId()
-    val tasks = receiveMaterialListTasks()
+    val tasks = InputMappers.createTasksFromMaterialListInputMapper(receiveMultipart())
     tasks.forEach {
         projectsApi.addCountableTask(
             projectId = projectId,
@@ -60,7 +67,8 @@ suspend fun ApplicationCall.handlePatchCountableTaskDoneMore() {
 }
 
 suspend fun ApplicationCall.handlePatchTaskAssignee() {
-    val request = receiveAssignUserRequest()
+    val request = InputMappers.assignUserInputMapper(receiveParameters())
+
     if (request is DeleteAssignmentRequest) return handleDeleteTaskAssignee()
     val (userId) = request as AssignUserRequest
     val worldId = getWorldId()
@@ -120,7 +128,7 @@ private suspend fun ApplicationCall.handleTaskCompletion(complete: Boolean) {
 
 suspend fun ApplicationCall.handleEditTaskRequirements() {
     val projectId = getProjectId()
-    val (id, needed, done) = getEditCountableTaskRequirements()
+    val (id, needed, done) = InputMappers.editCountableTaskRequirementsInputMapper(receiveParameters())
     projectsApi.editTaskRequirements(id, needed, done)
 
     respondUpdatedTaskList(projectId)

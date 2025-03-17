@@ -4,14 +4,16 @@ import app.mcorg.domain.permissions.Authority
 import app.mcorg.presentation.configuration.permissionsApi
 import app.mcorg.presentation.configuration.usersApi
 import app.mcorg.presentation.configuration.worldsApi
+import app.mcorg.presentation.mappers.InputMappers
+import app.mcorg.presentation.mappers.world.createWorldInputMapper
 import app.mcorg.presentation.utils.respondEmptyHtml
 import app.mcorg.presentation.utils.getUserId
 import app.mcorg.presentation.utils.getWorldId
-import app.mcorg.presentation.utils.receiveCreateWorldRequest
 import app.mcorg.presentation.utils.respondHtml
 import app.mcorg.presentation.templates.world.worlds
 import app.mcorg.presentation.utils.clientRedirect
 import io.ktor.server.application.*
+import io.ktor.server.request.*
 import io.ktor.server.response.*
 
 suspend fun ApplicationCall.handleGetWorlds() {
@@ -24,7 +26,7 @@ suspend fun ApplicationCall.handleGetWorlds() {
 
 suspend fun ApplicationCall.handlePostWorld() {
     val userId = getUserId()
-    val (worldName) = receiveCreateWorldRequest()
+    val (worldName) = InputMappers.createWorldInputMapper(receiveParameters())
 
     val id = worldsApi.createWorld(worldName)
     permissionsApi.addWorldPermission(userId, id, Authority.OWNER)

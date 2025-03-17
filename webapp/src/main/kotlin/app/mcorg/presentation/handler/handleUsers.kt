@@ -4,6 +4,8 @@ import app.mcorg.domain.permissions.Authority
 import app.mcorg.presentation.configuration.permissionsApi
 import app.mcorg.presentation.configuration.projectsApi
 import app.mcorg.presentation.configuration.usersApi
+import app.mcorg.presentation.mappers.InputMappers
+import app.mcorg.presentation.mappers.user.addUserInputMapper
 import app.mcorg.presentation.utils.respondEmptyHtml
 import app.mcorg.presentation.utils.respondHtml
 import app.mcorg.presentation.templates.users.createUserListElement
@@ -11,6 +13,7 @@ import app.mcorg.presentation.templates.users.users
 import app.mcorg.presentation.utils.*
 import io.ktor.http.*
 import io.ktor.server.application.*
+import io.ktor.server.request.*
 import io.ktor.server.response.*
 
 suspend fun ApplicationCall.handleGetUsers() {
@@ -23,7 +26,7 @@ suspend fun ApplicationCall.handleGetUsers() {
 
 suspend fun ApplicationCall.handlePostUser() {
     val worldId = getWorldId()
-    val (username) = receiveAddUserRequest()
+    val (username) = InputMappers.addUserInputMapper(receiveParameters())
     val user = usersApi.getUser(username) ?: return badRequest("User does not exist")
     if (permissionsApi.hasWorldPermission(user.id, Authority.PARTICIPANT, worldId)) {
         return badRequest("User is already in the world")
