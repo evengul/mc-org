@@ -4,7 +4,7 @@ import io.ktor.server.application.*
 import io.ktor.server.engine.*
 import io.ktor.server.netty.*
 import app.mcorg.presentation.plugins.*
-import app.mcorg.presentation.configureAppRouter
+import app.mcorg.presentation.router.configureAppRouter
 
 fun main() {
     defaultServer { module() }.start(wait = true)
