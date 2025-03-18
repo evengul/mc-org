@@ -1,17 +1,16 @@
 package app.mcorg.presentation.handler
 
-import app.mcorg.domain.model.permissions.Authority
+import app.mcorg.domain.cqrs.commands.world.CreateWorldCommand
+import app.mcorg.domain.cqrs.commands.world.DeleteWorldCommand
+import app.mcorg.domain.cqrs.commands.world.SelectWorldCommand
+import app.mcorg.presentation.configuration.WorldCommands
 import app.mcorg.presentation.configuration.permissionsApi
 import app.mcorg.presentation.configuration.usersApi
-import app.mcorg.presentation.configuration.worldsApi
 import app.mcorg.presentation.mappers.InputMappers
+import app.mcorg.presentation.mappers.requiredInt
 import app.mcorg.presentation.mappers.world.createWorldInputMapper
-import app.mcorg.presentation.utils.respondEmptyHtml
-import app.mcorg.presentation.utils.getUserId
-import app.mcorg.presentation.utils.getWorldId
-import app.mcorg.presentation.utils.respondHtml
 import app.mcorg.presentation.templates.world.worlds
-import app.mcorg.presentation.utils.clientRedirect
+import app.mcorg.presentation.utils.*
 import io.ktor.server.application.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
@@ -28,30 +27,40 @@ suspend fun ApplicationCall.handlePostWorld() {
     val userId = getUserId()
     val (worldName) = InputMappers.createWorldInputMapper(receiveParameters())
 
-    val id = worldsApi.createWorld(worldName)
-    permissionsApi.addWorldPermission(userId, id, Authority.OWNER)
-    usersApi.selectWorld(userId, id)
-
-    respondRedirect("/")
+    WorldCommands.createWorld(userId, worldName).fold(
+        {
+            when (it) {
+                is CreateWorldCommand.WorldNameAlreadyExistsFailure -> respondBadRequest("World with this name already exists")
+            }
+        },
+        { respondRedirect("/app/worlds/${it.worldId}") }
+    )
 }
 
 suspend fun ApplicationCall.handleDeleteWorld() {
     val worldId = getWorldId()
-    usersApi.unSelectWorldForAll(worldId)
-    permissionsApi.removeWorldPermissionForAll(worldId)
-    worldsApi.deleteWorld(worldId)
-    respondEmptyHtml()
+
+    WorldCommands.deleteWorld(worldId).fold(
+        {
+            when (it) {
+                is DeleteWorldCommand.WorldDoesNotExistFailure -> respondBadRequest("World does not exist")
+            }
+        },
+        { respondEmptyHtml() }
+    )
 }
 
 suspend fun ApplicationCall.handleSelectWorld() {
     val userId = getUserId()
-    val worldId = parameters["worldId"]?.toIntOrNull()
-    if (worldId != null) {
-        worldsApi.getWorld(worldId)?.let {
-            usersApi.selectWorld(userId, worldId)
-            clientRedirect("/app/worlds/$worldId")
-        }
-    }
+    val worldId = parameters.requiredInt("worldId")
+    WorldCommands.selectWorld(userId, worldId).fold(
+        {
+            when (it) {
+                is SelectWorldCommand.WorldDoesNotExistFailure -> respondBadRequest("World does not exist")
+            }
+        },
+        { clientRedirect("/app/worlds/$worldId/projects") }
+    )
 }
 
 suspend fun ApplicationCall.handleGetWorld() {

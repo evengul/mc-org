@@ -20,6 +20,28 @@ class WorldsImpl : Worlds, Repository() {
         return null
     }
 
+    override fun worldExists(id: Int): Boolean {
+        getConnection().use {
+            it.prepareStatement("select 1 from world where id = ? limit 1")
+                .apply { setInt(1, id) }
+                .executeQuery()
+                .apply {
+                    return next()
+                }
+        }
+    }
+
+    override fun worldExistsByName(name: String): Boolean {
+        getConnection().use {
+            it.prepareStatement("select 1 from world where name = ? limit 1")
+                .apply { setString(1, name) }
+                .executeQuery()
+                .apply {
+                    return next()
+                }
+        }
+    }
+
     override fun deleteWorld(id: Int) {
         getConnection().use {
             it.prepareStatement("delete from world where id = ?")
