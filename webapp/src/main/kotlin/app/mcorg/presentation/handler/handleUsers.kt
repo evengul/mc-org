@@ -1,20 +1,19 @@
 package app.mcorg.presentation.handler
 
-import app.mcorg.domain.permissions.Authority
+import app.mcorg.domain.cqrs.commands.user.AddUserCommand
+import app.mcorg.domain.cqrs.commands.user.RemoveUserCommand
+import app.mcorg.domain.model.permissions.Authority
+import app.mcorg.presentation.configuration.UserCommands
 import app.mcorg.presentation.configuration.permissionsApi
-import app.mcorg.presentation.configuration.projectsApi
 import app.mcorg.presentation.configuration.usersApi
 import app.mcorg.presentation.mappers.InputMappers
+import app.mcorg.presentation.mappers.requiredInt
 import app.mcorg.presentation.mappers.user.addUserInputMapper
-import app.mcorg.presentation.utils.respondEmptyHtml
-import app.mcorg.presentation.utils.respondHtml
 import app.mcorg.presentation.templates.users.createUserListElement
 import app.mcorg.presentation.templates.users.users
 import app.mcorg.presentation.utils.*
-import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.request.*
-import io.ktor.server.response.*
 
 suspend fun ApplicationCall.handleGetUsers() {
     val worldId = getWorldId()
@@ -27,28 +26,32 @@ suspend fun ApplicationCall.handleGetUsers() {
 suspend fun ApplicationCall.handlePostUser() {
     val worldId = getWorldId()
     val (username) = InputMappers.addUserInputMapper(receiveParameters())
-    val user = usersApi.getUser(username) ?: return badRequest("User does not exist")
-    if (permissionsApi.hasWorldPermission(user.id, Authority.PARTICIPANT, worldId)) {
-        return badRequest("User is already in the world")
-    }
-    permissionsApi.addWorldPermission(user.id, worldId, Authority.PARTICIPANT)
-    val currentUserIsAdmin = permissionsApi.hasWorldPermission(getUserId(), authority = Authority.ADMIN, worldId)
-    respondHtml(createUserListElement(worldId, user, currentUserIsAdmin))
+
+    UserCommands.addToWorld(worldId, username).fold(
+        {
+            when (it) {
+                is AddUserCommand.UserDoesNotExistFailure -> respondBadRequest("User does not exist")
+                is AddUserCommand.UserAlreadyExistFailure -> respondBadRequest("User already exists")
+            }
+        },
+        {
+            val user = usersApi.getUser(username)!!
+            val currentUserIsAdmin =
+                permissionsApi.hasWorldPermission(getUserId(), authority = Authority.ADMIN, worldId)
+            respondHtml(createUserListElement(worldId, user, currentUserIsAdmin))
+        }
+    )
 }
 
 suspend fun ApplicationCall.handleDeleteWorldUser() {
     val worldId = getWorldId()
-    val userId = parameters["userId"]?.toIntOrNull()
-    val currentUser = getUser()
-    val isAdmin = permissionsApi.hasWorldPermission(currentUser.id, Authority.ADMIN, worldId)
-    if (userId == null) {
-        throw IllegalArgumentException("User id must be supplied")
-    }
-    if (!isAdmin) {
-        respond(HttpStatusCode.Forbidden)
-    } else {
-        projectsApi.removeUserAssignments(userId)
-        permissionsApi.removeWorldPermission(userId, worldId)
+    val userId = parameters.requiredInt("userId")
+    UserCommands.removeFromWorld(worldId, userId).fold({
+        when (it) {
+            is RemoveUserCommand.UserDoesNotExistFailure -> respondBadRequest("User does not exist")
+            is RemoveUserCommand.UserDoesNotBelongToWorldFailure -> respondBadRequest("User is not in world")
+        }
+    }, {
         respondEmptyHtml()
-    }
+    })
 }

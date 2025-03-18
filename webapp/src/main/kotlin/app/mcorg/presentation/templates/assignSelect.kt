@@ -1,7 +1,7 @@
 package app.mcorg.presentation.templates
 
-import app.mcorg.domain.users.User
-import app.mcorg.domain.users.sortUsersBySelectedOrName
+import app.mcorg.domain.model.users.User
+import app.mcorg.domain.model.users.sortUsersBySelectedOrName
 import app.mcorg.presentation.hxSwap
 import app.mcorg.presentation.hxTrigger
 import kotlinx.html.SELECT

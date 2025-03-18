@@ -1,6 +1,6 @@
 package app.mcorg.presentation.templates.profile
 
-import app.mcorg.domain.users.Profile
+import app.mcorg.domain.model.users.Profile
 import app.mcorg.presentation.hxConfirm
 import app.mcorg.presentation.hxDelete
 import app.mcorg.presentation.templates.MainPage

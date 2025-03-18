@@ -1,16 +1,14 @@
 package app.mcorg.presentation.handler
 
-import app.mcorg.domain.projects.Priority
-import app.mcorg.domain.projects.TaskStages
+import app.mcorg.domain.model.projects.Priority
+import app.mcorg.domain.model.task.TaskStages
 import app.mcorg.presentation.configuration.permissionsApi
 import app.mcorg.presentation.configuration.projectsApi
 import app.mcorg.presentation.entities.user.AssignUserRequest
 import app.mcorg.presentation.entities.user.DeleteAssignmentRequest
 import app.mcorg.presentation.mappers.InputMappers
-import app.mcorg.presentation.mappers.task.editCountableTaskRequirementsInputMapper
-import app.mcorg.presentation.mappers.task.createCountableTaskInputMapper
-import app.mcorg.presentation.mappers.task.createDoableTaskInputMapper
-import app.mcorg.presentation.mappers.task.createTasksFromMaterialListInputMapper
+import app.mcorg.presentation.mappers.URLMappers
+import app.mcorg.presentation.mappers.task.*
 import app.mcorg.presentation.mappers.user.assignUserInputMapper
 import app.mcorg.presentation.templates.task.board.createTaskBoard
 import app.mcorg.presentation.utils.*
@@ -139,7 +137,7 @@ private suspend fun ApplicationCall.respondUpdatedTaskList(projectId: Int) {
     hxSwap("outerHTML")
 
     val worldId = getWorldId()
-    val filters = createTaskFilters(getCurrentUrl())
+    val filters = URLMappers.taskFilterURLMapper(getCurrentUrl())
 
     val project = projectsApi.getProject(projectId, includeTasks = true) ?: throw NotFoundException("Could not find project $projectId")
     val users = permissionsApi.getUsersInWorld(worldId)

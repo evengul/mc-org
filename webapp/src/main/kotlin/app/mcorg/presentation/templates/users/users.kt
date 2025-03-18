@@ -1,6 +1,6 @@
 package app.mcorg.presentation.templates.users
 
-import app.mcorg.domain.users.User
+import app.mcorg.domain.model.users.User
 import app.mcorg.presentation.*
 import app.mcorg.presentation.templates.MainPage
 import app.mcorg.presentation.templates.mainPageTemplate

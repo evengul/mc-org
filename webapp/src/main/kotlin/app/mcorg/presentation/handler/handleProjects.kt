@@ -1,6 +1,8 @@
 package app.mcorg.presentation.handler
 
-import app.mcorg.domain.users.User
+import app.mcorg.domain.model.projects.filterSortTasks
+import app.mcorg.domain.model.projects.matches
+import app.mcorg.domain.model.users.User
 import app.mcorg.presentation.configuration.permissionsApi
 import app.mcorg.presentation.configuration.projectsApi
 import app.mcorg.presentation.configuration.usersApi
@@ -8,8 +10,10 @@ import app.mcorg.presentation.entities.user.AssignUserRequest
 import app.mcorg.presentation.entities.user.DeleteAssignmentRequest
 import app.mcorg.presentation.hxOutOfBands
 import app.mcorg.presentation.mappers.InputMappers
+import app.mcorg.presentation.mappers.URLMappers
 import app.mcorg.presentation.mappers.project.createProjectInputMapper
 import app.mcorg.presentation.mappers.project.projectFilterInputMapper
+import app.mcorg.presentation.mappers.project.projectFilterURLMapper
 import app.mcorg.presentation.mappers.task.taskFilterInputMapper
 import app.mcorg.presentation.mappers.user.assignUserInputMapper
 import app.mcorg.presentation.templates.project.*
@@ -27,8 +31,9 @@ suspend fun ApplicationCall.handleGetProjects() {
     val projects = projectsApi.getWorldProjects(worldId)
     val users = permissionsApi.getUsersInWorld(worldId)
     val currentUser = usersApi.getProfile(getUserId()) ?: throw NotFoundException()
-    val filters = InputMappers.projectFilterInputMapper(parameters)
-    respondHtml(projects(worldId, projects, users, currentUser, filters))
+    val specification = InputMappers.projectFilterInputMapper(parameters)
+    val displayedProjects = projects.filter { it.matches(specification) }.sortedBy { it.name }
+    respondHtml(projects(worldId, displayedProjects, users, currentUser, specification, projects.size))
 }
 
 suspend fun ApplicationCall.handlePostProject() {
@@ -38,10 +43,15 @@ suspend fun ApplicationCall.handlePostProject() {
     val project = projectsApi.getProject(projectId)?.toSlim() ?: throw NotFoundException()
     val users = permissionsApi.getUsersInWorld(worldId)
     val currentUser = getUser()
-    val filter = createProjectFilters(request.headers["HX-Current-URL"])
-    if (project.allowedByFilter(filter)) {
+    val filter = URLMappers.projectFilterURLMapper(request.headers["HX-Current-URL"])
+    if (project.matches(filter)) {
         respondHtml(
-            getFilteredAndTotalProjectBasedOnFilter(worldId, request) + "\n" + createProjectListElement(worldId, project, users, currentUser)
+            getFilteredAndTotalProjectBasedOnFilter(worldId, request) + "\n" + createProjectListElement(
+                worldId,
+                project,
+                users,
+                currentUser
+            )
         )
     } else {
         respondHtml(getFilteredAndTotalProjectBasedOnFilter(worldId, request))
@@ -61,17 +71,18 @@ suspend fun ApplicationCall.handleGetProject() {
     val projectId = getProjectId()
     val currentUser = getUser()
     val users = permissionsApi.getUsersInWorld(worldId)
-    val project = projectsApi.getProject(projectId, includeTasks = true, includeDependencies = false) ?: throw IllegalArgumentException("Project not found")
+    val project = projectsApi.getProject(projectId, includeTasks = true, includeDependencies = false)
+        ?: throw IllegalArgumentException("Project not found")
 
-    val filters = InputMappers.taskFilterInputMapper(parameters)
+    val taskSpecification = InputMappers.taskFilterInputMapper(parameters)
 
     respondHtml(
         project(
             "/app/worlds/${getWorldId()}/projects",
-            filterAndSortProject(userId, project, filters),
+            project.filterSortTasks(taskSpecification, userId),
             users,
             currentUser,
-            filters
+            taskSpecification
         )
     )
 }
@@ -94,9 +105,9 @@ suspend fun ApplicationCall.handlePatchProjectAssignee() {
 }
 
 private fun getFilteredAndTotalProjectBasedOnFilter(worldId: Int, request: ApplicationRequest): String {
-    val filter = createProjectFilters(request.headers["HX-Current-URL"])
+    val specification = URLMappers.projectFilterURLMapper(request.headers["HX-Current-URL"])
     val allProjects = projectsApi.getWorldProjects(worldId)
-    val filteredProjects = allProjects.filter { it.allowedByFilter(filter) }.size
+    val filteredProjects = allProjects.filter { it.matches(specification) }.size
     if (filteredProjects != allProjects.size) {
         return createHTML().p {
             oobFilteredProjectsDisplay(filteredProjects, allProjects.size)
@@ -116,10 +127,17 @@ suspend fun ApplicationCall.handleDeleteProjectAssignee() {
 private suspend fun ApplicationCall.handleEditProjectAssignee(projectId: Int, worldUsers: List<User>) {
     val worldId = getWorldId()
     val currentUser = getUser()
-    val project = projectsApi.getProject(projectId)?.toSlim() ?: throw IllegalArgumentException("Project does not exist")
-    val filter = createProjectFilters(this.request.headers["HX-Current-URL"])
-    if (project.allowedByFilter(filter)) {
-        respondHtml(getFilteredAndTotalProjectBasedOnFilter(worldId, this.request) + "\n" + createAssignProject(project, worldUsers, currentUser))
+    val project =
+        projectsApi.getProject(projectId)?.toSlim() ?: throw IllegalArgumentException("Project does not exist")
+    val filter = URLMappers.projectFilterURLMapper(request.headers["HX-Current-URL"])
+    if (project.matches(filter)) {
+        respondHtml(
+            getFilteredAndTotalProjectBasedOnFilter(worldId, this.request) + "\n" + createAssignProject(
+                project,
+                worldUsers,
+                currentUser
+            )
+        )
     } else {
         hxTarget("#project-${project.id}")
         hxSwap("outerHTML")

@@ -17,17 +17,13 @@ fun ApplicationCall.getEnvironment() = getAttribute<String>("ENVIRONMENT")
 fun ApplicationCall.getHost(): String? {
     val env = getEnvironment()
     val referrer = request.headers[HttpHeaders.Referrer] ?: request.host()
-    if (env == "PRODUCTION") {
-        if (referrer.contains("mcorg.fly.dev") == true) {
-            return "mcorg.fly.dev"
-        }
-        return "mcorg.app"
-    } else if (env == "TEST") {
-        return System.getenv("TEST_HOST") ?: "http://localhost:8080"
-    } else if (env == "LOCAL") {
-        return null
+    return when (env) {
+        "PRODUCTION" -> return if (referrer.contains("mcorg.fly.dev")) "mcorg.fly.dev"
+                        else "mcorg.app"
+        "TEST" -> System.getenv("TEST_HOST") ?: "http://localhost:8080"
+        "LOCAL" -> null
+        else -> throw IllegalStateException("Invalid ENV=[$env]")
     }
-    throw IllegalStateException("Invalid ENV=[$env]")
 }
 
 fun ApplicationCall.setSkipMicrosoftSignIn(cookieHost: String) = setAttribute("SKIP_MICROSOFT_SIGN_IN", cookieHost)

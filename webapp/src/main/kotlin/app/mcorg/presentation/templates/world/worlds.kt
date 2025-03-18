@@ -1,6 +1,6 @@
 package app.mcorg.presentation.templates.world
 
-import app.mcorg.domain.worlds.World
+import app.mcorg.domain.model.worlds.World
 import app.mcorg.presentation.*
 import app.mcorg.presentation.templates.MainPage
 import app.mcorg.presentation.templates.mainPageTemplate

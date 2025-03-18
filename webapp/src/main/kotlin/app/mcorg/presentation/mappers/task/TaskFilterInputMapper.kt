@@ -1,10 +1,10 @@
 package app.mcorg.presentation.mappers.task
 
-import app.mcorg.presentation.entities.task.TaskFiltersRequest
+import app.mcorg.domain.model.task.TaskSpecification
 import app.mcorg.presentation.mappers.InputMappers
 import io.ktor.http.*
 
-fun InputMappers.Companion.taskFilterInputMapper(parameters: Parameters) = TaskFiltersRequest(
+fun InputMappers.Companion.taskFilterInputMapper(parameters: Parameters) = TaskSpecification(
     parameters["search"],
     parameters["sortBy"],
     parameters["assigneeFilter"],

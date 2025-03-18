@@ -1,8 +1,13 @@
 package app.mcorg.infrastructure.repository
 
-import app.mcorg.domain.minecraft.Dimension
-import app.mcorg.domain.projects.*
-import app.mcorg.domain.users.User
+import app.mcorg.domain.api.Projects
+import app.mcorg.domain.model.minecraft.Dimension
+import app.mcorg.domain.model.projects.*
+import app.mcorg.domain.model.task.Task
+import app.mcorg.domain.model.task.TaskStage
+import app.mcorg.domain.model.task.TaskStages
+import app.mcorg.domain.model.task.TaskType
+import app.mcorg.domain.model.users.User
 import java.sql.Connection
 
 class ProjectsImpl : Projects, Repository() {

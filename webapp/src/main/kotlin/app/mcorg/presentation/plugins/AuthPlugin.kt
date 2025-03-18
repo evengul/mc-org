@@ -1,6 +1,6 @@
 package app.mcorg.presentation.plugins
 
-import app.mcorg.domain.permissions.Authority
+import app.mcorg.domain.model.permissions.Authority
 import app.mcorg.presentation.configuration.permissionsApi
 import app.mcorg.presentation.utils.getWorldId
 import app.mcorg.presentation.utils.*

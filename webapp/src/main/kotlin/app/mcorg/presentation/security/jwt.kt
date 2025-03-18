@@ -1,6 +1,6 @@
 package app.mcorg.presentation.security
 
-import app.mcorg.domain.users.User
+import app.mcorg.domain.model.users.User
 import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
 import com.auth0.jwt.interfaces.DecodedJWT

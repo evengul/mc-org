@@ -1,10 +1,10 @@
 package app.mcorg.presentation.configuration
 
-import app.mcorg.domain.minecraft.Minecraft
-import app.mcorg.domain.permissions.Permissions
-import app.mcorg.domain.projects.Projects
-import app.mcorg.domain.users.Users
-import app.mcorg.domain.worlds.Worlds
+import app.mcorg.domain.api.Minecraft
+import app.mcorg.domain.api.Permissions
+import app.mcorg.domain.api.Projects
+import app.mcorg.domain.api.Users
+import app.mcorg.domain.api.Worlds
 import app.mcorg.infrastructure.gateway.MinecraftImpl
 import app.mcorg.infrastructure.repository.PermissionsImpl
 import app.mcorg.infrastructure.repository.ProjectsImpl

@@ -1,7 +1,7 @@
 package app.mcorg.presentation.entities.project
 
-import app.mcorg.domain.minecraft.Dimension
-import app.mcorg.domain.projects.Priority
+import app.mcorg.domain.model.minecraft.Dimension
+import app.mcorg.domain.model.projects.Priority
 
 data class CreateProjectRequest(
     val name: String,

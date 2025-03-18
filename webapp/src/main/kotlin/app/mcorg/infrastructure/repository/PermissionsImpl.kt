@@ -1,10 +1,10 @@
 package app.mcorg.infrastructure.repository
 
-import app.mcorg.domain.permissions.Authority
-import app.mcorg.domain.permissions.Permissions
-import app.mcorg.domain.permissions.UserPermissions
-import app.mcorg.domain.users.User
-import app.mcorg.domain.worlds.World
+import app.mcorg.domain.model.permissions.Authority
+import app.mcorg.domain.api.Permissions
+import app.mcorg.domain.model.permissions.UserPermissions
+import app.mcorg.domain.model.users.User
+import app.mcorg.domain.model.worlds.World
 
 class PermissionsImpl : Permissions, Repository() {
     override fun hasWorldPermission(userId: Int, authority: Authority, worldId: Int): Boolean {

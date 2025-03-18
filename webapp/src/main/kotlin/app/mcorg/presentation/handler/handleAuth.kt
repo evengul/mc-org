@@ -1,6 +1,6 @@
 package app.mcorg.presentation.handler
 
-import app.mcorg.domain.users.User
+import app.mcorg.domain.model.users.User
 import app.mcorg.presentation.security.createSignedJwtToken
 import app.mcorg.presentation.configuration.minecraftApi
 import app.mcorg.presentation.configuration.permissionsApi
