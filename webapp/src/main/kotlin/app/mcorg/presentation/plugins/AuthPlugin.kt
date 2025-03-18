@@ -32,14 +32,3 @@ val WorldParticipantPlugin = createRouteScopedPlugin("WorldAccessPlugin") {
         }
     }
 }
-
-val WorldAdminPlugin = createRouteScopedPlugin("WorldAdminPlugin") {
-    onCall {
-        val userId = it.getUserId()
-        val worldId = it.getWorldId()
-        val hasAccess = permissionsApi.hasWorldPermission(userId, Authority.ADMIN, worldId)
-        if (!hasAccess) {
-            throw IllegalCallerException("User does not have admin access to world")
-        }
-    }
-}
