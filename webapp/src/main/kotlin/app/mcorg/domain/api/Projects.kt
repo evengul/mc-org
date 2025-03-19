@@ -9,6 +9,8 @@ import app.mcorg.domain.model.users.User
 
 interface Projects {
     fun getProject(id: Int, includeTasks: Boolean = false, includeDependencies: Boolean = false): Project?
+    fun projectExists(id: Int): Boolean
+    fun projectExistsByWorldAndName(worldId: Int, name: String): Boolean
     fun deleteProject(id: Int)
     fun getWorldProjects(id: Int): List<SlimProject>
     fun createProject(worldId: Int, name: String, dimension: Dimension, priority: Priority, requiresPerimeter: Boolean): Int

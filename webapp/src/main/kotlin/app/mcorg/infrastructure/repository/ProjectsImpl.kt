@@ -89,6 +89,28 @@ class ProjectsImpl : Projects, Repository() {
         }
     }
 
+    override fun projectExists(id: Int): Boolean {
+        getConnection().use {
+            it.prepareStatement("select 1 from project where id = ? limit 1")
+                .apply { setInt(1, id) }
+                .executeQuery()
+                .apply {
+                    return next()
+                }
+        }
+    }
+
+    override fun projectExistsByWorldAndName(worldId: Int, name: String): Boolean {
+        getConnection().use {
+            it.prepareStatement("select 1 from project where world_id = ? and name = ? limit 1")
+                .apply { setInt(1, worldId); setString(2, name) }
+                .executeQuery()
+                .apply {
+                    return next()
+                }
+        }
+    }
+
     override fun deleteProject(id: Int) {
         getConnection().use {
             it.prepareStatement("delete from project where id = ?")

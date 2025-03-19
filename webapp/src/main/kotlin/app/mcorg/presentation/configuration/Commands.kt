@@ -2,11 +2,16 @@ package app.mcorg.presentation.configuration
 
 import app.mcorg.domain.cqrs.commands.profile.DeleteProfileCommand
 import app.mcorg.domain.cqrs.commands.profile.ToggleTechnicalPlayerCommand
+import app.mcorg.domain.cqrs.commands.project.AddProjectAssignmentCommand
+import app.mcorg.domain.cqrs.commands.project.CreateProjectCommand
+import app.mcorg.domain.cqrs.commands.project.DeleteProjectCommand
+import app.mcorg.domain.cqrs.commands.project.RemoveProjectAssignmentCommand
 import app.mcorg.domain.cqrs.commands.user.AddUserCommand
 import app.mcorg.domain.cqrs.commands.user.RemoveUserCommand
 import app.mcorg.domain.cqrs.commands.world.CreateWorldCommand
 import app.mcorg.domain.cqrs.commands.world.DeleteWorldCommand
 import app.mcorg.domain.cqrs.commands.world.SelectWorldCommand
+import app.mcorg.presentation.entities.project.CreateProjectRequest
 
 object ProfileCommands {
     fun isTechnicalUser(userId: Int, isTechnical: Boolean) = ToggleTechnicalPlayerCommand(usersApi).execute(ToggleTechnicalPlayerCommand.CommandInput(userId, isTechnical))
@@ -22,4 +27,13 @@ object WorldCommands {
     fun createWorld(userId: Int, name: String) = CreateWorldCommand(worldsApi, permissionsApi, usersApi).execute(CreateWorldCommand.CommandInput(userId, name))
     fun deleteWorld(id: Int) = DeleteWorldCommand(worldsApi, permissionsApi, usersApi).execute(DeleteWorldCommand.CommandInput(id))
     fun selectWorld(userId: Int, worldId: Int) = SelectWorldCommand(worldsApi, usersApi).execute(SelectWorldCommand.CommandInput(userId, worldId))
+}
+
+object ProjectCommands {
+    fun createProject(worldId: Int, request: CreateProjectRequest) = CreateProjectCommand(projectsApi).execute(
+        CreateProjectCommand.CommandInput(worldId, request.name, request.priority, request.dimension, request.requiresPerimeter))
+    fun deleteProject(projectId: Int) = DeleteProjectCommand(projectsApi).execute(DeleteProjectCommand.CommandInput(projectId))
+
+    fun assign(worldId: Int, projectId: Int, userId: Int) = AddProjectAssignmentCommand(permissionsApi, projectsApi).execute(AddProjectAssignmentCommand.CommandInput(worldId, projectId, userId))
+    fun removeAssignment(projectId: Int) = RemoveProjectAssignmentCommand(projectsApi).execute(RemoveProjectAssignmentCommand.CommandInput(projectId))
 }

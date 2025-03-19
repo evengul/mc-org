@@ -13,8 +13,12 @@ data class Output<E : Failure, S : Success>(val value: Either<E, S>) {
     companion object {
         fun <E : Failure, S : Success> success(value: S): Output<E, S> = Output(Either.right(value))
         fun <E : Failure, S : Success> failure(value: E): Output<E, S> = Output(Either.left(value))
+
+        fun <F : Failure> success() = success<F, Success>(DefaultSuccess())
     }
 }
 
 interface Failure
 interface Success
+
+class DefaultSuccess : Success

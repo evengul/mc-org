@@ -17,6 +17,14 @@ suspend fun ApplicationCall.respondBadRequest(errorHtml: String = "An error occu
     respondHtml(errorHtml, HttpStatusCode.BadRequest)
 }
 
+suspend fun ApplicationCall.respondNotFound(errorHtml: String = "Something could not be found",
+                                            target: String = "#error-message",
+                                            swap: String = "innerHTML") {
+    response.headers.append("HX-ReTarget", target)
+    response.headers.append("HX-ReSwap", swap)
+    respondHtml(errorHtml, HttpStatusCode.NotFound)
+}
+
 fun ApplicationCall.hxTarget(value: String) {
     response.headers.append("HX-Retarget", value)
 }
