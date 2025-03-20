@@ -1,0 +1,1 @@
+wsl -e sh ./extract-sources.sh
