@@ -18,7 +18,9 @@ export default function extractRecipes() {
       ...extractRecipe(content)
     }
 
-    recipes.push(recipe);
+    if (recipe.ignored !== true) {
+      recipes.push(recipe);
+    }
   })
   return recipes
 }
@@ -56,12 +58,21 @@ function extractRecipe(content) {
 
 function extractCraftingShaped(content) {
   return {
-    requirements: Object.entries(content.key).map(([key, item]) => {
+    requirements: Object.entries(content.key).flatMap(([key, item]) => {
       const count = content.pattern.map(pattern => pattern.split("").filter(patternKey => patternKey === key).length).reduce((prev, curr) => prev + curr, 0);
-      return {
+
+      if (typeof item === "object") {
+        return item.map(subItem => {
+          return {
+            item: subItem,
+            count
+          }
+        })
+      }
+      return [{
         item,
         count
-      }
+      }]
     }),
     result: {
       count: content.result.count,

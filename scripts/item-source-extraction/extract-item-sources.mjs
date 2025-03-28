@@ -11,8 +11,8 @@ function toPath(subPath) {
 const {
   id,
   pack_version: {
-    resource,
-    data
+    resource: resourcePackVersion,
+    data: dataPackVersion
   }
 } = JSON.parse(String(await fs.readFileSync(toPath("version.json"))))
 
@@ -21,8 +21,8 @@ const lootTable = extractLootTable()
 
 const exportedData = {
   version: id,
-  resource_pack_version: resource,
-  data_pack_version: data,
+  resourcePackVersion,
+  dataPackVersion,
   lootTable,
   recipes
 }
