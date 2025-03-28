@@ -1,6 +1,6 @@
 package app.mcorg.domain.util
 
-interface Either<out L, out R> {
+sealed interface Either<out L, out R> {
     fun <T> fold(ifLeft: (L) -> T, ifRight: (R) -> T): T
 
     companion object {
