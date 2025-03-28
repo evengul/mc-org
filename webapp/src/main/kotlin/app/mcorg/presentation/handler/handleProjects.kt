@@ -2,7 +2,6 @@ package app.mcorg.presentation.handler
 
 import app.mcorg.domain.cqrs.commands.project.AddProjectAssignmentCommand
 import app.mcorg.domain.cqrs.commands.project.CreateProjectCommand
-import app.mcorg.domain.cqrs.commands.project.DeleteProjectCommand
 import app.mcorg.domain.cqrs.commands.project.RemoveProjectAssignmentCommand
 import app.mcorg.domain.model.projects.filterSortTasks
 import app.mcorg.domain.model.projects.matches
@@ -78,11 +77,7 @@ suspend fun ApplicationCall.handleDeleteProject() {
     val projectId = getProjectId()
 
     ProjectCommands.deleteProject(projectId).fold(
-        {
-            when(it) {
-                is DeleteProjectCommand.ProjectNotFound -> respondNotFound("Project not found")
-            }
-        },
+        { respondBadRequest("Project with this id could not be deleted") },
         { respondHtml(getFilteredAndTotalProjectBasedOnFilter(worldId, request)) }
     )
 
@@ -123,7 +118,6 @@ suspend fun ApplicationCall.handleDeleteProjectAssignee() {
     ProjectCommands.removeAssignment(projectId).fold(
         {
             when(it) {
-                is RemoveProjectAssignmentCommand.ProjectNotFound -> respondNotFound("Project not found")
                 is RemoveProjectAssignmentCommand.ProjectDoesNotHaveAssignedUser -> respondBadRequest("Project does not have assigned user")
             }
         },
@@ -142,7 +136,6 @@ suspend fun ApplicationCall.handleAssignProjectAssignee(userId: Int) {
     ProjectCommands.assign(worldId, projectId, userId).fold(
         {
             when(it) {
-                is AddProjectAssignmentCommand.ProjectNotFoundFailure -> respondNotFound("Project not found")
                 is AddProjectAssignmentCommand.UserDoesNotExistInWorldFailure -> respondNotFound("User does not exist in world and cannot be assigned to project")
             }
         },

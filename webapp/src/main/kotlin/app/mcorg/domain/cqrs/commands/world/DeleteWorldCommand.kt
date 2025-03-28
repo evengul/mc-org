@@ -18,10 +18,6 @@ class DeleteWorldCommand(
     override fun execute(input: CommandInput): Output<CommandFailure, CommandSuccess> {
         val (id) = input
 
-        if (!worlds.worldExists(id)) {
-            return Output.failure(WorldDoesNotExistFailure(id))
-        }
-
         users.unSelectWorldForAll(id)
         permissions.removeWorldPermissionForAll(id)
         worlds.deleteWorld(id)
@@ -35,5 +31,4 @@ class DeleteWorldCommand(
 
     class CommandSuccess : Success
     sealed interface CommandFailure : Failure
-    data class WorldDoesNotExistFailure(val id: Int) : CommandFailure
 }

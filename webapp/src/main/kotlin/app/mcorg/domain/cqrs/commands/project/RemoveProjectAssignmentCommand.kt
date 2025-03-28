@@ -14,7 +14,7 @@ class RemoveProjectAssignmentCommand(
     override fun execute(input: CommandInput): Output<CommandFailure, Success> {
         val (projectId) = input
 
-        val project = projects.getProject(projectId) ?: return Output.failure(ProjectNotFound(projectId))
+        val project = projects.getProject(projectId)!!
 
         if (project.assignee == null) {
             return Output.failure(ProjectDoesNotHaveAssignedUser(projectId))
@@ -28,6 +28,5 @@ class RemoveProjectAssignmentCommand(
     data class CommandInput(val projectId: Int) : Input
 
     sealed interface CommandFailure : Failure
-    data class ProjectNotFound(val projectId: Int) : CommandFailure
     data class ProjectDoesNotHaveAssignedUser(val projectId: Int) : CommandFailure
 }

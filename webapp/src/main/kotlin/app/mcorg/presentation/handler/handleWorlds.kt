@@ -1,8 +1,6 @@
 package app.mcorg.presentation.handler
 
 import app.mcorg.domain.cqrs.commands.world.CreateWorldCommand
-import app.mcorg.domain.cqrs.commands.world.DeleteWorldCommand
-import app.mcorg.domain.cqrs.commands.world.SelectWorldCommand
 import app.mcorg.presentation.configuration.WorldCommands
 import app.mcorg.presentation.configuration.permissionsApi
 import app.mcorg.presentation.configuration.usersApi
@@ -41,11 +39,7 @@ suspend fun ApplicationCall.handleDeleteWorld() {
     val worldId = getWorldId()
 
     WorldCommands.deleteWorld(worldId).fold(
-        {
-            when (it) {
-                is DeleteWorldCommand.WorldDoesNotExistFailure -> respondBadRequest("World does not exist")
-            }
-        },
+        { respondBadRequest("World could not be deleted") },
         { respondEmptyHtml() }
     )
 }
@@ -54,11 +48,7 @@ suspend fun ApplicationCall.handleSelectWorld() {
     val userId = getUserId()
     val worldId = parameters.requiredInt("worldId")
     WorldCommands.selectWorld(userId, worldId).fold(
-        {
-            when (it) {
-                is SelectWorldCommand.WorldDoesNotExistFailure -> respondBadRequest("World does not exist")
-            }
-        },
+        { respondBadRequest("World could not be selected") },
         { clientRedirect("/app/worlds/$worldId/projects") }
     )
 }

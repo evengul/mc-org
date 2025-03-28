@@ -26,7 +26,7 @@ object UserCommands {
 object WorldCommands {
     fun createWorld(userId: Int, name: String) = CreateWorldCommand(worldsApi, permissionsApi, usersApi).execute(CreateWorldCommand.CommandInput(userId, name))
     fun deleteWorld(id: Int) = DeleteWorldCommand(worldsApi, permissionsApi, usersApi).execute(DeleteWorldCommand.CommandInput(id))
-    fun selectWorld(userId: Int, worldId: Int) = SelectWorldCommand(worldsApi, usersApi).execute(SelectWorldCommand.CommandInput(userId, worldId))
+    fun selectWorld(userId: Int, worldId: Int) = SelectWorldCommand(usersApi).execute(SelectWorldCommand.CommandInput(userId, worldId))
 }
 
 object ProjectCommands {

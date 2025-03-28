@@ -16,10 +16,6 @@ class AddProjectAssignmentCommand(
     override fun execute(input: CommandInput): Output<CommandFailure, Success> {
         val (worldId, projectId, userId) = input
 
-        if (!projects.projectExists(projectId)) {
-            return Output.failure(ProjectNotFoundFailure(projectId))
-        }
-
         if (permissions.getUsersInWorld(worldId).none { it.id == userId }) {
             return Output.failure(UserDoesNotExistInWorldFailure(worldId, userId))
         }
@@ -31,6 +27,5 @@ class AddProjectAssignmentCommand(
 
     data class CommandInput(val worldId: Int, val projectId: Int, val userId: Int) : Input
     sealed interface CommandFailure : Failure
-    data class ProjectNotFoundFailure(val projectId: Int) : CommandFailure
     data class UserDoesNotExistInWorldFailure(val worldId: Int, val userId: Int) : CommandFailure
 }
