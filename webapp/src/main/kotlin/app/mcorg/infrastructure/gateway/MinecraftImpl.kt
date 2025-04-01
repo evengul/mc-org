@@ -2,13 +2,15 @@ package app.mcorg.infrastructure.gateway
 
 import app.mcorg.domain.api.Minecraft
 import app.mcorg.domain.model.minecraft.MinecraftProfile
+import app.mcorg.model.Env
+import app.mcorg.model.Local
 import io.ktor.client.call.*
 import io.ktor.client.request.*
 import io.ktor.client.request.forms.*
 import io.ktor.http.*
 
 class MinecraftImpl : Minecraft, Gateway() {
-    override suspend fun getProfile(authorizationCode: String, clientId: String, clientSecret: String, env: String, host: String?): MinecraftProfile {
+    override suspend fun getProfile(authorizationCode: String, clientId: String, clientSecret: String, env: Env, host: String?): MinecraftProfile {
         try {
             val (error, microsoftAccessToken) = getTokenFromCode(authorizationCode, clientId, clientSecret, env, host)
             if (microsoftAccessToken != null) {
@@ -62,9 +64,9 @@ class MinecraftImpl : Minecraft, Gateway() {
         }.body()
     }
 
-    private suspend fun getTokenFromCode(authorizationCode: String, clientId: String, clientSecret: String, env: String, host: String?): Pair<MicrosoftAccessTokenErrorResponse?, String?> = getJsonClient().use {
+    private suspend fun getTokenFromCode(authorizationCode: String, clientId: String, clientSecret: String, env: Env, host: String?): Pair<MicrosoftAccessTokenErrorResponse?, String?> = getJsonClient().use {
         val redirectUrl =
-            if (env == "LOCAL") "http://localhost:8080/auth/oidc/microsoft-redirect"
+            if (env == Local) "http://localhost:8080/auth/oidc/microsoft-redirect"
             else if (host != null) "https://$host/auth/oidc/microsoft-redirect"
             else throw IllegalArgumentException("Host cannot be null for a non-local environment")
 

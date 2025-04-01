@@ -1,53 +1,44 @@
 package app.mcorg.domain.pipeline
 
-import app.mcorg.domain.util.Either
-import app.mcorg.domain.util.Left
-import app.mcorg.domain.util.Right
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.runBlocking
+sealed interface Result<out E, out S> {
+    data class Success<out S>(val value: S) : Result<Nothing, S>
+    data class Failure<out E>(val error: E) : Result<E, Nothing>
 
-data class Result<E : Failure, S>(val value: Either<E, S>) {
-
-    fun <T> fold(failure: (E) -> T, success: (S) -> T): T {
-        return value.fold({ failure(it) }, { success(it) })
+    fun <R> map(transform: (S) -> R): Result<E, R> = when (this) {
+        is Success -> Success(transform(value))
+        is Failure -> this
     }
 
-    val isSuccess: Boolean
-        get() = value is Right<E, S>
+    fun <R> flatMap(transform: (S) -> Result<@UnsafeVariance E, R>): Result<E, R> = when (this) {
+        is Success -> transform(value)
+        is Failure -> this
+    }
 
-    val isFailure: Boolean
-        get() = value is Left<E, S>
+    fun <F> mapError(transform: (E) -> F): Result<F, S> = when (this) {
+        is Success -> this
+        is Failure -> Failure(transform(error))
+    }
 
-    fun getOrNull(): S? {
-        return when (value) {
-            is Right<E, S> -> value.value
-            is Left<E, S> -> null
+    fun getOrNull(): S? = when (this) {
+        is Success -> value
+        is Failure -> null
+    }
+
+    fun errorOrNull(): E? = when (this) {
+        is Success -> null
+        is Failure -> error
+    }
+
+    fun fold(onSuccess: (S) -> Unit, onFailure: (E) -> Unit) {
+        when (this) {
+            is Success -> onSuccess(value)
+            is Failure -> onFailure(error)
         }
     }
 
-    fun <E2 : Failure> mapFailure(f: (E) -> E2): Result<E2, S> {
-        return fold(
-            { failure(f(it)) },
-            { success(it) }
-        )
-    }
-
-    fun <S2> andThen(f: (S) -> Result<E, S2>): Result<E, S2> {
-        return fold(
-            { failure(it) },
-            {
-                f(it).fold(
-                    { failure(it) },
-                    { success(it) }
-                )
-            }
-        )
-    }
-
     companion object {
-        fun <E : Failure, S> success(value: S): Result<E, S> = Result(Either.right(value))
-        fun <E : Failure, S> failure(value: E): Result<E, S> = Result(Either.left(value))
+        fun <E, S> success(value: S): Result<E, S> = Success(value)
+        fun <E> failure(error: E): Result<E, Nothing> = Failure(error)
     }
-}
 
-interface Failure
+}
