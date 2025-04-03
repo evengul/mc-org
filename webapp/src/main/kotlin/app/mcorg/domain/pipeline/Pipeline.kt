@@ -2,6 +2,29 @@ package app.mcorg.domain.pipeline
 
 interface Step<in I, out E, out S> {
     fun process(input: I): Result<E, S>
+
+    companion object {
+        fun <E, V> value(value: V) = object : Step<Any, E, V> {
+            override fun process(input: Any): Result<E, V> {
+                return Result.success(value)
+            }
+        }
+
+        fun <E> validate(
+            predicate: (Unit) -> Boolean,
+            error: E
+        ): Step<Unit, E, Unit> {
+            return object : Step<Unit, E, Unit> {
+                override fun process(input: Unit): Result<E, Unit> {
+                    return if (predicate(input)) {
+                        Result.success(input)
+                    } else {
+                        Result.failure(error)
+                    }
+                }
+            }
+        }
+    }
 }
 
 class Pipeline<in I, out E, out S>(

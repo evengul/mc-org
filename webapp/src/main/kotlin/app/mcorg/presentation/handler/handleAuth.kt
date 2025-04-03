@@ -1,28 +1,46 @@
 package app.mcorg.presentation.handler
 
-import app.mcorg.domain.model.users.User
+import app.mcorg.domain.pipeline.Pipeline
 import app.mcorg.domain.pipeline.Result
+import app.mcorg.domain.pipeline.Step
 import app.mcorg.model.Local
 import app.mcorg.model.Test
-import app.mcorg.pipeline.auth.AuthPipelines
+import app.mcorg.pipeline.RedirectStep
+import app.mcorg.pipeline.auth.AddCookieStep
+import app.mcorg.pipeline.auth.ConvertTokenStep
+import app.mcorg.pipeline.auth.CreateTokenStep
+import app.mcorg.pipeline.auth.CreateUserIfNotExistsInput
+import app.mcorg.pipeline.auth.CreateUserIfNotExistsStep
+import app.mcorg.pipeline.auth.GetProfileStep
+import app.mcorg.pipeline.auth.GetSelectedWorldIdStep
+import app.mcorg.pipeline.auth.GetSignInPageFailure
+import app.mcorg.pipeline.auth.GetTokenStep
+import app.mcorg.pipeline.auth.SignInLocallyFailure
+import app.mcorg.pipeline.auth.ValidateEnvStep
+import app.mcorg.pipeline.auth.toRedirect
 import app.mcorg.presentation.configuration.*
+import app.mcorg.presentation.consts.AUTH_COOKIE
+import app.mcorg.presentation.consts.ISSUER
 import app.mcorg.presentation.security.createSignedJwtToken
 import app.mcorg.presentation.security.JwtHelper
 import app.mcorg.presentation.templates.auth.signInTemplate
 import app.mcorg.presentation.utils.*
-import com.auth0.jwt.exceptions.TokenExpiredException
 import io.ktor.http.*
 import io.ktor.server.application.*
+import io.ktor.server.request.RequestCookies
 import io.ktor.server.response.*
-import kotlinx.coroutines.runBlocking
 import kotlin.random.Random
 
 suspend fun ApplicationCall.handleGetSignIn() {
-    val result = AuthPipelines.getSignInPagePipeline(
-        getSignInUrl(),
-        "/auth/sign-out",
-        usersApi
-    ).execute(request.cookies)
+    val result = Pipeline.create<GetSignInPageFailure, RequestCookies>()
+        .pipe(GetTokenStep(AUTH_COOKIE))
+        .pipe(ConvertTokenStep(ISSUER))
+        .pipe(GetProfileStep(usersApi))
+        .pipe(GetSelectedWorldIdStep)
+        .pipe(RedirectStep {
+            "/app/worlds/$it/projects"
+        })
+        .mapFailure { it.toRedirect(getSignInUrl(), "/auth/sign-out") }.execute(request.cookies)
     when(result) {
         is Result.Success -> respondHtml(signInTemplate(result.value))
         is Result.Failure -> respondRedirect(result.error.url)
@@ -30,36 +48,41 @@ suspend fun ApplicationCall.handleGetSignIn() {
 }
 
 suspend fun ApplicationCall.handleLocalSignIn() {
-    if(getEnvironment() == Local || getSkipMicrosoftSignIn().lowercase() == "true") {
-        addToken(JwtHelper.createSignedJwtToken(getLocalUser(), getJwtIssuer()))
-        respondRedirect("/")
-    } else {
-        respond(HttpStatusCode.Forbidden)
+    val result = Pipeline.create<SignInLocallyFailure, Unit>()
+        .pipe(Step.value(getEnvironment()))
+        .pipe(ValidateEnvStep(Local))
+        .pipe(Step.value(CreateUserIfNotExistsInput("evegul", "test@example.com")))
+        .pipe(CreateUserIfNotExistsStep(usersApi))
+        .pipe(CreateTokenStep)
+        .pipe(AddCookieStep(response.cookies, getHost() ?: "false"))
+        .execute(Unit)
+    when(result) {
+        is Result.Success -> respondRedirect("/")
+        is Result.Failure -> respond(HttpStatusCode.Forbidden)
     }
 }
 
 suspend fun ApplicationCall.handleTestSignIn() {
-    if (getEnvironment() == Test) {
-        addToken(JwtHelper.createSignedJwtToken(getTestUser(), getJwtIssuer()))
-        respondRedirect("/")
-    } else {
-        respond(HttpStatusCode.Forbidden)
+    val result = Pipeline.create<SignInLocallyFailure, Unit>()
+        .pipe(Step.value(getEnvironment()))
+        .pipe(ValidateEnvStep(Test))
+        .pipe(Step.value(getTestUser()))
+        .pipe(CreateUserIfNotExistsStep(usersApi))
+        .pipe(CreateTokenStep)
+        .pipe(AddCookieStep(response.cookies, getHost() ?: "false"))
+        .execute(Unit)
+    when(result) {
+        is Result.Success -> respondRedirect("/")
+        is Result.Failure -> respond(HttpStatusCode.Forbidden)
     }
 }
 
-private fun getTestUser(): User {
+private fun getTestUser(): CreateUserIfNotExistsInput {
     val username = "TestUser_${Random.nextInt(100_000)}"
-    val userId = usersApi.createUser(username, "test-$username@mcorg.app")
-    return usersApi.getUser(userId)!!
-}
-
-private fun getLocalUser(): User {
-    val user = usersApi.getUser("evegul")
-    if (user == null) {
-        val userId = usersApi.createUser("evegul", "even.gultvedt@gmail.com")
-        return usersApi.getUser(userId)!!
-    }
-    return user
+    return CreateUserIfNotExistsInput(
+        username,
+        "test-$username@mcorg.app"
+    )
 }
 
 suspend fun ApplicationCall.handleSignIn() {

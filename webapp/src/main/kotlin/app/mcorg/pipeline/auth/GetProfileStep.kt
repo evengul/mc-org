@@ -6,6 +6,10 @@ import app.mcorg.domain.model.users.User
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.domain.pipeline.Result
 
+sealed interface GetProfileFailure : GetSignInPageFailure {
+    data object ProfileNotFound : GetProfileFailure
+}
+
 data class GetProfileStep(val api: Users): Step<User, GetProfileFailure, Profile> {
 
     override fun process(input: User): Result<GetProfileFailure, Profile> {
@@ -14,15 +18,6 @@ data class GetProfileStep(val api: Users): Step<User, GetProfileFailure, Profile
             Result.success(profile)
         } else {
             Result.failure(GetProfileFailure.ProfileNotFound)
-        }
-    }
-}
-
-object GetSelectedWorldIdStep : Step<Profile, AuthFailure, Int> {
-    override fun process(input: Profile): Result<AuthFailure, Int> {
-        return when(val selectedWorld = input.selectedWorld) {
-            null -> Result.failure(GetSelectedWorldStepFailure.NoSelectedWorld)
-            else -> Result.success(selectedWorld)
         }
     }
 }

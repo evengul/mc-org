@@ -1,26 +1,35 @@
 package app.mcorg.pipeline.auth
 
-sealed interface AuthFailure
+sealed interface SignInLocallyFailure
 
-sealed interface GetTokenStepFailure : AuthFailure {
-    object TokenNotFound : GetTokenStepFailure
+sealed interface AuthPluginFailure
+
+sealed interface GetSignInPageFailure
+
+data class Redirect(val url: String) : AuthPluginFailure, GetSignInPageFailure
+
+fun AuthPluginFailure.toRedirect(signInUrl: String = "/auth/sign-in", signOutUrl: String = "/auth/sign-out"): Redirect {
+    return when (this) {
+        is Redirect -> this
+        is GetCookieFailure.MissingCookie -> Redirect(url = signInUrl)
+        is ConvertTokenStepFailure.ConversionError -> Redirect("$signOutUrl?error=conversion")
+        is ConvertTokenStepFailure.ExpiredToken -> Redirect("$signOutUrl?error=expired")
+        is ConvertTokenStepFailure.InvalidToken -> Redirect("$signOutUrl?error=invalid")
+        is ConvertTokenStepFailure.MissingClaim -> Redirect("$signOutUrl?error=missing_claim&claim=${this.claimName}")
+        is ConvertTokenStepFailure.IncorrectClaim -> Redirect("$signOutUrl?error=incorrect_claim&claim=${this.claimName}&value=${this.claimValue}")
+    }
 }
 
-sealed interface ConvertCookieStepFailure : AuthFailure {
-    object InvalidToken : ConvertCookieStepFailure
-    object ExpiredToken : ConvertCookieStepFailure
-    data class MissingClaim(val claim: String) : ConvertCookieStepFailure
-    data class ConversionError(val cause: Throwable) : ConvertCookieStepFailure
+fun GetSignInPageFailure.toRedirect(signInUrl: String = "/auth/sign-in", signOutUrl: String = "/auth/sign-out"): Redirect {
+    return when (this) {
+        is Redirect -> this
+        is GetCookieFailure.MissingCookie -> Redirect(url = signInUrl)
+        is ConvertTokenStepFailure.ConversionError -> Redirect("$signOutUrl?error=conversion")
+        is ConvertTokenStepFailure.ExpiredToken -> Redirect("$signOutUrl?error=expired")
+        is ConvertTokenStepFailure.InvalidToken -> Redirect("$signOutUrl?error=invalid")
+        is ConvertTokenStepFailure.MissingClaim -> Redirect("$signOutUrl?error=missing_claim&claim=${this.claimName}")
+        is ConvertTokenStepFailure.IncorrectClaim -> Redirect("$signOutUrl?error=incorrect_claim&claim=${this.claimName}&value=${this.claimValue}")
+        is GetProfileFailure.ProfileNotFound -> Redirect("$signOutUrl?error=profile_not_found")
+        is GetSelectedWorldStepFailure.NoSelectedWorld -> Redirect("/app/worlds/add")
+    }
 }
-
-sealed interface GetProfileFailure : AuthFailure {
-    object ProfileNotFound : GetProfileFailure
-}
-
-sealed interface GetSelectedWorldStepFailure : AuthFailure {
-    object NoSelectedWorld : GetSelectedWorldStepFailure
-}
-
-data class AuthFailureWithRedirect(val url: String): AuthFailure
-
-object Unauthorized : AuthFailure

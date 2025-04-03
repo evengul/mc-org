@@ -15,16 +15,7 @@ fun ApplicationCall.storeUser(user: User) = attributes.put(AttributeKey("user"),
 fun ApplicationCall.getUser() = attributes[AttributeKey<User>("user")]
 fun ApplicationCall.getUserId() = getUser().id
 
-fun ApplicationCall.getJwtIssuer() = getHost()
-    ?.let {
-        if (it == "false") return@let "localhost"
-        else return@let it
-    }
-    ?.removePrefix("http://")
-    ?.removePrefix("https://")
-    ?.removeSuffix("/")
-    ?.removeSuffix(":8080")
-    ?: "mcorg"
+fun ApplicationCall.getJwtIssuer() = "mcorg"
 
 fun ApplicationCall.getUserFromCookie(): User? = request.cookies[tokenName]?.let { JwtHelper.getUserFromJwtToken(it, getJwtIssuer()) }
 
@@ -42,5 +33,9 @@ suspend fun ApplicationCall.removeTokenAndSignOut() {
     response.cookies.append(tokenName, "", expires = GMTDate(-1), httpOnly = true, domain = getHost(), path = "/")
 
     respondRedirect("/auth/sign-in", permanent = false)
+}
+
+fun ResponseCookies.removeToken(host: String) {
+    append(tokenName, "", expires = GMTDate(-1), httpOnly = true, domain = host, path = "/")
 }
 
