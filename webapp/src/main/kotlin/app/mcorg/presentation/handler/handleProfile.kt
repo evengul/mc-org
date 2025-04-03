@@ -1,5 +1,11 @@
 package app.mcorg.presentation.handler
 
+import app.mcorg.domain.pipeline.Pipeline
+import app.mcorg.domain.pipeline.extractValue
+import app.mcorg.domain.pipeline.pipeWithContext
+import app.mcorg.domain.pipeline.withContext
+import app.mcorg.pipeline.DatabaseFailure
+import app.mcorg.pipeline.profile.IsTechnicalPlayerStep
 import app.mcorg.presentation.configuration.ProfileCommands
 import app.mcorg.presentation.configuration.usersApi
 import app.mcorg.presentation.utils.getUserId
@@ -27,9 +33,18 @@ suspend fun ApplicationCall.handleIsTechnical() {
     val userId = getUserId()
     val isTechnical = receiveText() == "technicalPlayer=on"
 
-    ProfileCommands.isTechnicalUser(userId, isTechnical)
+    val result = Pipeline.create<DatabaseFailure, Boolean>()
+        .withContext(userId)
+        .pipeWithContext(IsTechnicalPlayerStep)
+        .extractValue()
+        .execute(isTechnical)
 
-    respondHtml(createIsTechnicalCheckBox(isTechnical))
+    if (result.isFailure) {
+        respond(HttpStatusCode.InternalServerError)
+    } else {
+        respondHtml(createIsTechnicalCheckBox(isTechnical))
+
+    }
 }
 
 suspend fun ApplicationCall.handleDeleteUser() {

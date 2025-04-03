@@ -1,14 +1,36 @@
 package app.mcorg.pipeline
 
 import app.mcorg.domain.pipeline.Result
-import app.mcorg.domain.pipeline.Step
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
+import org.slf4j.LoggerFactory
 import java.sql.Connection
 import java.sql.DriverManager
+import java.sql.SQLIntegrityConstraintViolationException
+import java.sql.SQLSyntaxErrorException
+import java.sql.SQLTimeoutException
 
-fun <I, E, S> Step<I, E, S>.useConnection(handler: Connection.() -> Result<E, S>): Result<E, S> {
-    return getConnection().use { it.handler() }
+sealed interface DatabaseFailure {
+    data object ConnectionError : DatabaseFailure
+    data object StatementError : DatabaseFailure
+    data object IntegrityConstraintError : DatabaseFailure
+    data object UnknownError : DatabaseFailure
+}
+
+fun <S> useConnection(handler: Connection.() -> Result<DatabaseFailure, S>): Result<DatabaseFailure, S> {
+    val logger = LoggerFactory.getLogger("DatabaseStep")
+
+    return try {
+        getConnection().use { it.handler() }
+    } catch (e: Exception) {
+        logger.error("Could not execute statement", e)
+        when (e) {
+            is SQLTimeoutException -> Result.failure(DatabaseFailure.ConnectionError)
+            is SQLSyntaxErrorException -> Result.failure(DatabaseFailure.StatementError)
+            is SQLIntegrityConstraintViolationException -> Result.failure(DatabaseFailure.IntegrityConstraintError)
+            else -> Result.failure(DatabaseFailure.UnknownError)
+        }
+    }
 }
 
 private var dataSource: HikariDataSource? = null
