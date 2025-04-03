@@ -1,28 +1,43 @@
 package app.mcorg.presentation.handler
 
 import app.mcorg.domain.pipeline.Pipeline
+import app.mcorg.domain.pipeline.Result.Success
 import app.mcorg.domain.pipeline.extractValue
 import app.mcorg.domain.pipeline.pipeWithContext
 import app.mcorg.domain.pipeline.withContext
 import app.mcorg.pipeline.DatabaseFailure
+import app.mcorg.pipeline.permission.RemoveUserPermissionsStep
+import app.mcorg.pipeline.profile.GetProfileStep
 import app.mcorg.pipeline.profile.IsTechnicalPlayerStep
-import app.mcorg.presentation.configuration.ProfileCommands
-import app.mcorg.presentation.configuration.usersApi
+import app.mcorg.pipeline.project.RemoveUserAssignmentsStep
+import app.mcorg.pipeline.user.DeleteUserStep
 import app.mcorg.presentation.utils.getUserId
 import app.mcorg.presentation.utils.respondHtml
 import app.mcorg.presentation.templates.profile.createIsTechnicalCheckBox
 import app.mcorg.presentation.templates.profile.profile
-import app.mcorg.presentation.utils.getUserFromCookie
-import app.mcorg.presentation.utils.removeTokenAndSignOut
+import app.mcorg.presentation.utils.clientRedirect
+import app.mcorg.presentation.utils.getHost
+import app.mcorg.presentation.utils.removeToken
+import app.mcorg.presentation.utils.respondNotFound
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 
 suspend fun ApplicationCall.handleGetProfile() {
-    val userId = getUserId()
-    val profile = usersApi.getProfile(userId) ?: throw IllegalArgumentException("User does not exist")
-    respondHtml(profile(profile))
+    val result = Pipeline.create<DatabaseFailure, Int>()
+        .pipe(GetProfileStep)
+        .map { profile(it) }
+        .execute(getUserId())
+
+    if (result is Success) {
+        respondHtml(result.value)
+    } else {
+        when (result.errorOrNull()!!) {
+            is DatabaseFailure.NotFound -> respondNotFound()
+            else -> respond(HttpStatusCode.InternalServerError)
+        }
+    }
 }
 
 suspend fun ApplicationCall.handleUploadProfilePhoto() {
@@ -43,14 +58,23 @@ suspend fun ApplicationCall.handleIsTechnical() {
         respond(HttpStatusCode.InternalServerError)
     } else {
         respondHtml(createIsTechnicalCheckBox(isTechnical))
-
     }
 }
 
 suspend fun ApplicationCall.handleDeleteUser() {
-    val userId = getUserFromCookie()?.id ?: return removeTokenAndSignOut()
+    val userId = getUserId()
 
-    ProfileCommands.deleteProfile(userId)
+    val result = Pipeline.create<DatabaseFailure, Unit>()
+        .withContext(userId)
+        .pipeWithContext(RemoveUserAssignmentsStep)
+        .pipeWithContext(RemoveUserPermissionsStep)
+        .pipeWithContext(DeleteUserStep)
+        .execute(Unit)
 
-    removeTokenAndSignOut()
+    if (result.isFailure) {
+        respond(HttpStatusCode.InternalServerError)
+    } else {
+        response.cookies.removeToken(getHost() ?: "localhost")
+        clientRedirect("/auth/sign-in")
+    }
 }

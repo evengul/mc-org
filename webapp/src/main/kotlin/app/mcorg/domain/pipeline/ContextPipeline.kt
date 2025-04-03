@@ -17,6 +17,10 @@ fun <I, E, S, C> Pipeline<I, E, S>.withContext(context: C): Pipeline<I, E, WithC
     return this.map { WithContext(it, context) }
 }
 
+fun <I, E, S> Pipeline<I, E, S>.withValueAsContext(): Pipeline<I, E, WithContext<S, S>> {
+    return this.map { value -> WithContext(value, value) }
+}
+
 fun <I, E, S, C, R> Pipeline<I, E, WithContext<S, C>>.pipeWithContext(
     nextStep: ContextAwareStep<S, C, E, R>
 ): Pipeline<I, E, WithContext<R, C>> {

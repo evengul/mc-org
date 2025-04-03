@@ -15,6 +15,7 @@ sealed interface DatabaseFailure {
     data object StatementError : DatabaseFailure
     data object IntegrityConstraintError : DatabaseFailure
     data object UnknownError : DatabaseFailure
+    data object NotFound : DatabaseFailure
 }
 
 fun <S> useConnection(handler: Connection.() -> Result<DatabaseFailure, S>): Result<DatabaseFailure, S> {

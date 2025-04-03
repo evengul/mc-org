@@ -44,6 +44,7 @@ sealed interface Result<out E, out S> {
 
     companion object {
         fun <E, S> success(value: S): Result<E, S> = Success(value)
+        fun <E> success(): Result<E, Unit> = Success(Unit)
         fun <E> failure(error: E): Result<E, Nothing> = Failure(error)
     }
 

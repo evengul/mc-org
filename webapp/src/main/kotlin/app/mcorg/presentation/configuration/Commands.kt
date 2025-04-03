@@ -1,6 +1,5 @@
 package app.mcorg.presentation.configuration
 
-import app.mcorg.domain.cqrs.commands.profile.DeleteProfileCommand
 import app.mcorg.domain.cqrs.commands.project.AddProjectAssignmentCommand
 import app.mcorg.domain.cqrs.commands.project.CreateProjectCommand
 import app.mcorg.domain.cqrs.commands.project.DeleteProjectCommand
@@ -11,10 +10,6 @@ import app.mcorg.domain.cqrs.commands.world.CreateWorldCommand
 import app.mcorg.domain.cqrs.commands.world.DeleteWorldCommand
 import app.mcorg.domain.cqrs.commands.world.SelectWorldCommand
 import app.mcorg.presentation.entities.project.CreateProjectRequest
-
-object ProfileCommands {
-    fun deleteProfile(userId: Int) = DeleteProfileCommand(usersApi, projectsApi, permissionsApi).execute(DeleteProfileCommand.CommandInput(userId))
-}
 
 object UserCommands {
     fun addToWorld(worldId: Int, username: String) = AddUserCommand(usersApi, permissionsApi).execute(AddUserCommand.CommandInput(worldId, username))

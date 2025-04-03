@@ -16,7 +16,7 @@ import app.mcorg.pipeline.auth.GetMicrosoftTokenInput
 import app.mcorg.pipeline.auth.GetMicrosoftTokenStep
 import app.mcorg.pipeline.auth.GetMinecraftProfileStep
 import app.mcorg.pipeline.auth.GetMinecraftToken
-import app.mcorg.pipeline.auth.GetProfileStep
+import app.mcorg.pipeline.auth.GetProfileStepForAuth
 import app.mcorg.pipeline.auth.GetSelectedWorldIdStep
 import app.mcorg.pipeline.auth.GetSignInPageFailure
 import app.mcorg.pipeline.auth.GetTokenStep
@@ -41,7 +41,7 @@ suspend fun ApplicationCall.handleGetSignIn() {
     val result = Pipeline.create<GetSignInPageFailure, RequestCookies>()
         .pipe(GetTokenStep(AUTH_COOKIE))
         .pipe(ConvertTokenStep(ISSUER))
-        .pipe(GetProfileStep(usersApi))
+        .pipe(GetProfileStepForAuth)
         .pipe(GetSelectedWorldIdStep)
         .pipe(RedirectStep {
             "/app/worlds/$it/projects"
