@@ -11,10 +11,10 @@ data class Redirect(val url: String) : AuthPluginFailure, GetSignInPageFailure, 
     companion object
 }
 
-fun AuthPluginFailure.toRedirect(): Redirect {
+fun AuthPluginFailure.toRedirect(signInUrl: String): Redirect {
     return when (this) {
         is Redirect -> this
-        is GetCookieFailure.MissingCookie -> Redirect.signIn()
+        is GetCookieFailure.MissingCookie -> Redirect.other(signInUrl)
         is ConvertTokenStepFailure.ConversionError -> Redirect.signOut("conversion")
         is ConvertTokenStepFailure.ExpiredToken -> Redirect.signOut("expired")
         is ConvertTokenStepFailure.InvalidToken -> Redirect.signOut("invalid")
@@ -23,10 +23,10 @@ fun AuthPluginFailure.toRedirect(): Redirect {
     }
 }
 
-fun GetSignInPageFailure.toRedirect(): Redirect {
+fun GetSignInPageFailure.toRedirect(signInUrl: String): Redirect {
     return when (this) {
         is Redirect -> this
-        is GetCookieFailure.MissingCookie -> Redirect.signIn()
+        is GetCookieFailure.MissingCookie -> Redirect.other(signInUrl)
         is ConvertTokenStepFailure.ConversionError -> Redirect.signOut("conversion")
         is ConvertTokenStepFailure.ExpiredToken -> Redirect.signOut("expired")
         is ConvertTokenStepFailure.InvalidToken -> Redirect.signOut("invalid")
@@ -53,6 +53,5 @@ fun SignInWithMinecraftFailure.toRedirect(): Redirect {
 }
 
 fun Redirect.Companion.other(url: String): Redirect = Redirect(url)
-fun Redirect.Companion.signIn(): Redirect = Redirect("/auth/sign-in")
 fun Redirect.Companion.signOut(error: String, vararg args: Pair<String, String>): Redirect =
     Redirect("/auth/sign-out?error=$error&args=${args.joinToString("&") { "${it.first}=${it.second}" }}")

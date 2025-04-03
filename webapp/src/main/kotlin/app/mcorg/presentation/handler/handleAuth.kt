@@ -46,7 +46,7 @@ suspend fun ApplicationCall.handleGetSignIn() {
         .pipe(RedirectStep {
             "/app/worlds/$it/projects"
         })
-        .mapFailure { it.toRedirect() }.execute(request.cookies)
+        .mapFailure { it.toRedirect(getSignInUrl()) }.execute(request.cookies)
     when(result) {
         is Result.Success -> respondHtml(signInTemplate(result.value))
         is Result.Failure -> respondRedirect(result.error.url)

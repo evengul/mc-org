@@ -7,7 +7,6 @@ import io.ktor.server.application.*
 import io.ktor.server.response.*
 import io.ktor.util.*
 import io.ktor.util.date.*
-import java.time.Instant
 
 const val tokenName = "MCORG-USER-TOKEN"
 
