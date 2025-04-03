@@ -1,5 +1,6 @@
 package app.mcorg.presentation.handler
 
+import app.mcorg.domain.model.minecraft.MinecraftProfile
 import app.mcorg.domain.pipeline.Pipeline
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
@@ -9,20 +10,24 @@ import app.mcorg.pipeline.RedirectStep
 import app.mcorg.pipeline.auth.AddCookieStep
 import app.mcorg.pipeline.auth.ConvertTokenStep
 import app.mcorg.pipeline.auth.CreateTokenStep
-import app.mcorg.pipeline.auth.CreateUserIfNotExistsInput
 import app.mcorg.pipeline.auth.CreateUserIfNotExistsStep
+import app.mcorg.pipeline.auth.GetMicrosoftCodeStep
+import app.mcorg.pipeline.auth.GetMicrosoftTokenInput
+import app.mcorg.pipeline.auth.GetMicrosoftTokenStep
+import app.mcorg.pipeline.auth.GetMinecraftProfileStep
+import app.mcorg.pipeline.auth.GetMinecraftToken
 import app.mcorg.pipeline.auth.GetProfileStep
 import app.mcorg.pipeline.auth.GetSelectedWorldIdStep
 import app.mcorg.pipeline.auth.GetSignInPageFailure
 import app.mcorg.pipeline.auth.GetTokenStep
+import app.mcorg.pipeline.auth.GetXboxProfileStep
+import app.mcorg.pipeline.auth.GetXstsToken
 import app.mcorg.pipeline.auth.SignInLocallyFailure
 import app.mcorg.pipeline.auth.ValidateEnvStep
 import app.mcorg.pipeline.auth.toRedirect
 import app.mcorg.presentation.configuration.*
 import app.mcorg.presentation.consts.AUTH_COOKIE
 import app.mcorg.presentation.consts.ISSUER
-import app.mcorg.presentation.security.createSignedJwtToken
-import app.mcorg.presentation.security.JwtHelper
 import app.mcorg.presentation.templates.auth.signInTemplate
 import app.mcorg.presentation.utils.*
 import io.ktor.http.*
@@ -51,7 +56,7 @@ suspend fun ApplicationCall.handleLocalSignIn() {
     val result = Pipeline.create<SignInLocallyFailure, Unit>()
         .pipe(Step.value(getEnvironment()))
         .pipe(ValidateEnvStep(Local))
-        .pipe(Step.value(CreateUserIfNotExistsInput("evegul", "test@example.com")))
+        .pipe(Step.value(MinecraftProfile("evegul", "test@example.com")))
         .pipe(CreateUserIfNotExistsStep(usersApi))
         .pipe(CreateTokenStep)
         .pipe(AddCookieStep(response.cookies, getHost() ?: "false"))
@@ -77,29 +82,43 @@ suspend fun ApplicationCall.handleTestSignIn() {
     }
 }
 
-private fun getTestUser(): CreateUserIfNotExistsInput {
+private fun getTestUser(): MinecraftProfile {
     val username = "TestUser_${Random.nextInt(100_000)}"
-    return CreateUserIfNotExistsInput(
+    return MinecraftProfile(
         username,
         "test-$username@mcorg.app"
     )
 }
 
 suspend fun ApplicationCall.handleSignIn() {
-    val code = parameters["code"] ?: return respondHtml("Some error occurred")
-    val clientId = getMicrosoftClientId()
-    val clientSecret = getMicrosoftClientSecret()
-    val env = getEnvironment()
-    val host = getHost()
+    val result = Pipeline.create<Any, Unit>()
+        .pipe(Step.value(parameters))
+        .pipe(GetMicrosoftCodeStep)
+        .pipe(object : Step<String, Any, GetMicrosoftTokenInput> {
+            override fun process(input: String): Result<GetSignInPageFailure, GetMicrosoftTokenInput> {
+                return Result.success(GetMicrosoftTokenInput(
+                    code = input,
+                    clientId = getMicrosoftClientId(),
+                    clientSecret = getMicrosoftClientSecret(),
+                    env = getEnvironment(),
+                    host = getHost()
+                ))
+            }
+        })
+        .pipe(GetMicrosoftTokenStep)
+        .pipe(GetXboxProfileStep)
+        .pipe(GetXstsToken)
+        .pipe(GetMinecraftToken)
+        .pipe(GetMinecraftProfileStep)
+        .pipe(CreateUserIfNotExistsStep(usersApi))
+        .pipe(CreateTokenStep)
+        .pipe(AddCookieStep(response.cookies, getHost() ?: "false"))
+        .execute(Unit)
 
-    val profile = minecraftApi.getProfile(code, clientId, clientSecret, env, host)
-
-    val user = usersApi.getUser(profile.username) ?: usersApi.getUser(usersApi.createUser(profile.username, profile.email)) ?: return respondHtml("Some error occurred")
-
-    val token = JwtHelper.createSignedJwtToken(user, getJwtIssuer())
-    addToken(token)
-
-    respondRedirect("/")
+    when(result) {
+        is Result.Success -> respondRedirect("/")
+        is Result.Failure -> respondRedirect("/auth/sign-in?error=some-error")
+    }
 }
 
 suspend fun ApplicationCall.handleGetSignOut() = removeTokenAndSignOut()
