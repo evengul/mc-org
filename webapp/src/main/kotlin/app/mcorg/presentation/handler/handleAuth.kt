@@ -23,6 +23,7 @@ import app.mcorg.pipeline.auth.GetTokenStep
 import app.mcorg.pipeline.auth.GetXboxProfileStep
 import app.mcorg.pipeline.auth.GetXstsToken
 import app.mcorg.pipeline.auth.SignInLocallyFailure
+import app.mcorg.pipeline.auth.SignInWithMinecraftFailure
 import app.mcorg.pipeline.auth.ValidateEnvStep
 import app.mcorg.pipeline.auth.toRedirect
 import app.mcorg.presentation.configuration.*
@@ -45,7 +46,7 @@ suspend fun ApplicationCall.handleGetSignIn() {
         .pipe(RedirectStep {
             "/app/worlds/$it/projects"
         })
-        .mapFailure { it.toRedirect(getSignInUrl(), "/auth/sign-out") }.execute(request.cookies)
+        .mapFailure { it.toRedirect() }.execute(request.cookies)
     when(result) {
         is Result.Success -> respondHtml(signInTemplate(result.value))
         is Result.Failure -> respondRedirect(result.error.url)
@@ -91,11 +92,11 @@ private fun getTestUser(): MinecraftProfile {
 }
 
 suspend fun ApplicationCall.handleSignIn() {
-    val result = Pipeline.create<Any, Unit>()
+    val result = Pipeline.create<SignInWithMinecraftFailure, Unit>()
         .pipe(Step.value(parameters))
         .pipe(GetMicrosoftCodeStep)
-        .pipe(object : Step<String, Any, GetMicrosoftTokenInput> {
-            override fun process(input: String): Result<GetSignInPageFailure, GetMicrosoftTokenInput> {
+        .pipe(object : Step<String, SignInWithMinecraftFailure, GetMicrosoftTokenInput> {
+            override fun process(input: String): Result<SignInWithMinecraftFailure, GetMicrosoftTokenInput> {
                 return Result.success(GetMicrosoftTokenInput(
                     code = input,
                     clientId = getMicrosoftClientId(),
@@ -117,28 +118,13 @@ suspend fun ApplicationCall.handleSignIn() {
 
     when(result) {
         is Result.Success -> respondRedirect("/")
-        is Result.Failure -> respondRedirect("/auth/sign-in?error=some-error")
+        is Result.Failure -> respondRedirect(result.error.toRedirect().url)
     }
 }
 
-suspend fun ApplicationCall.handleGetSignOut() = removeTokenAndSignOut()
-
-suspend fun ApplicationCall.handleDeleteUser() {
-    val userId = getUserFromCookie()?.id ?: return removeTokenAndSignOut()
-
-    ProfileCommands.deleteProfile(userId)
-
-    removeTokenAndSignOut()
-}
-
-private fun ApplicationCall.getMicrosoftSignInUrl(): String {
-    val clientId = getMicrosoftClientId()
-    val env = getEnvironment()
-    val host = getHost()
-    val redirectUrl =
-        if (env == Local) "http://localhost:8080/auth/oidc/microsoft-redirect"
-        else "https://$host/auth/oidc/microsoft-redirect"
-    return "https://login.microsoftonline.com/consumers/oauth2/v2.0/authorize?response_type=code&scope=openid,XboxLive.signin&client_id=$clientId&redirect_uri=$redirectUrl"
+suspend fun ApplicationCall.handleGetSignOut() {
+    response.cookies.removeToken(getHost() ?: "localhost")
+    respondRedirect("/", permanent = false)
 }
 
 private fun ApplicationCall.getSignInUrl(): String {
@@ -149,4 +135,14 @@ private fun ApplicationCall.getSignInUrl(): String {
     } else {
         "/auth/oidc/local-redirect"
     }
+}
+
+private fun ApplicationCall.getMicrosoftSignInUrl(): String {
+    val clientId = getMicrosoftClientId()
+    val env = getEnvironment()
+    val host = getHost()
+    val redirectUrl =
+        if (env == Local) "http://localhost:8080/auth/oidc/microsoft-redirect"
+        else "https://$host/auth/oidc/microsoft-redirect"
+    return "https://login.microsoftonline.com/consumers/oauth2/v2.0/authorize?response_type=code&scope=openid,XboxLive.signin&client_id=$clientId&redirect_uri=$redirectUrl"
 }

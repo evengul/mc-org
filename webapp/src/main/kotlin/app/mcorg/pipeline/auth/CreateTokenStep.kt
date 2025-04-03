@@ -10,7 +10,7 @@ import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
 import java.util.Date
 
-sealed interface CreateTokenFailure : SignInLocallyFailure {
+sealed interface CreateTokenFailure : SignInLocallyFailure, SignInWithMinecraftFailure {
     data class CouldNotCreateToken(val cause: Throwable) : CreateTokenFailure
 }
 

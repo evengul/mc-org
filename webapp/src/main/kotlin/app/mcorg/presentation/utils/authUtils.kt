@@ -19,16 +19,6 @@ fun ApplicationCall.getJwtIssuer() = "mcorg"
 
 fun ApplicationCall.getUserFromCookie(): User? = request.cookies[tokenName]?.let { JwtHelper.getUserFromJwtToken(it, getJwtIssuer()) }
 
-fun ApplicationCall.addToken(token: String) {
-    val cookieHost = getHost()
-    val expires = GMTDate(timestamp = Instant.now().plusSeconds(8 * 60 * 60).toEpochMilli())
-    if (cookieHost == "false") {
-        response.cookies.append(tokenName, token, httpOnly = true, expires = expires, path = "/")
-    } else {
-        response.cookies.append(tokenName, token, httpOnly = true, expires = expires, path = "/", domain = cookieHost)
-    }
-}
-
 suspend fun ApplicationCall.removeTokenAndSignOut() {
     response.cookies.append(tokenName, "", expires = GMTDate(-1), httpOnly = true, domain = getHost(), path = "/")
 

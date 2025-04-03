@@ -6,6 +6,8 @@ import app.mcorg.presentation.utils.getUserId
 import app.mcorg.presentation.utils.respondHtml
 import app.mcorg.presentation.templates.profile.createIsTechnicalCheckBox
 import app.mcorg.presentation.templates.profile.profile
+import app.mcorg.presentation.utils.getUserFromCookie
+import app.mcorg.presentation.utils.removeTokenAndSignOut
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.request.*
@@ -28,4 +30,12 @@ suspend fun ApplicationCall.handleIsTechnical() {
     ProfileCommands.isTechnicalUser(userId, isTechnical)
 
     respondHtml(createIsTechnicalCheckBox(isTechnical))
+}
+
+suspend fun ApplicationCall.handleDeleteUser() {
+    val userId = getUserFromCookie()?.id ?: return removeTokenAndSignOut()
+
+    ProfileCommands.deleteProfile(userId)
+
+    removeTokenAndSignOut()
 }

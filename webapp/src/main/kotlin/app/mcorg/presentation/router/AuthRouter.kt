@@ -10,9 +10,6 @@ fun Route.authRouter() {
     get("/sign-out") {
         call.handleGetSignOut()
     }
-    delete("/user") {
-        call.handleDeleteUser()
-    }
     get("/oidc/microsoft-redirect") {
         call.handleSignIn()
     }

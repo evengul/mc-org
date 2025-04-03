@@ -6,7 +6,7 @@ import app.mcorg.domain.model.users.User
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
 
-sealed interface CreateUserIfNotExistsFailure : SignInLocallyFailure
+sealed interface CreateUserIfNotExistsFailure : SignInLocallyFailure, SignInWithMinecraftFailure
 
 data class CreateUserIfNotExistsStep(private val users: Users) : Step<MinecraftProfile, CreateUserIfNotExistsFailure, User> {
     override fun process(input: MinecraftProfile): Result<CreateUserIfNotExistsFailure, User> {

@@ -11,7 +11,7 @@ import io.ktor.client.call.body
 import io.ktor.http.isSuccess
 import kotlinx.coroutines.runBlocking
 
-sealed interface GetMicrosoftTokenFailure {
+sealed interface GetMicrosoftTokenFailure : SignInWithMinecraftFailure {
     data object NoHostForNonLocalEnv : GetMicrosoftTokenFailure
     data class CouldNotGetToken(val error: String, val description: String) : GetMicrosoftTokenFailure
 }

@@ -12,7 +12,7 @@ import io.ktor.http.isSuccess
 import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
 
-sealed interface GetXboxProfileFailure {
+sealed interface GetXboxProfileFailure : SignInWithMinecraftFailure {
     object CouldNotGetXboxProfile : GetXboxProfileFailure
 }
 

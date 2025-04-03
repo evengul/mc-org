@@ -9,7 +9,7 @@ import io.ktor.client.call.body
 import io.ktor.http.isSuccess
 import kotlinx.coroutines.runBlocking
 
-sealed interface GetMinecraftProfileFailure : GetSignInPageFailure, AuthPluginFailure {
+sealed interface GetMinecraftProfileFailure : SignInWithMinecraftFailure {
     data object CouldNotGetProfile : GetMinecraftProfileFailure
 }
 

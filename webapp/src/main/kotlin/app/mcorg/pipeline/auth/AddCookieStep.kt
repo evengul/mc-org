@@ -7,7 +7,7 @@ import io.ktor.server.response.ResponseCookies
 import io.ktor.util.date.GMTDate
 import java.time.Instant
 
-sealed interface AddCookieFailure : SignInLocallyFailure
+sealed interface AddCookieFailure : SignInLocallyFailure, SignInWithMinecraftFailure
 
 data class AddCookieStep(val cookies: ResponseCookies, val host: String) : Step<String, AddCookieFailure, Unit> {
     override fun process(input: String): Result<AddCookieFailure, Unit> {

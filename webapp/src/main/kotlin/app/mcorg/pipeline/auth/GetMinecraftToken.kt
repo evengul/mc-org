@@ -11,7 +11,7 @@ import io.ktor.client.call.body
 import io.ktor.http.isSuccess
 import kotlinx.coroutines.runBlocking
 
-interface GetMinecraftTokenFailure : GetSignInPageFailure, AuthPluginFailure {
+sealed interface GetMinecraftTokenFailure : SignInWithMinecraftFailure {
     data object CouldNotGetMinecraftToken : GetMinecraftTokenFailure
 }
 

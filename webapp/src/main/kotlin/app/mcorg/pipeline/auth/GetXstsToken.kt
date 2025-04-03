@@ -10,7 +10,7 @@ import io.ktor.client.call.body
 import io.ktor.http.isSuccess
 import kotlinx.coroutines.runBlocking
 
-sealed interface GetXstsTokenFailure : AuthPluginFailure {
+sealed interface GetXstsTokenFailure : SignInWithMinecraftFailure {
     data object CouldNotGetXstsToken : GetXstsTokenFailure
 }
 

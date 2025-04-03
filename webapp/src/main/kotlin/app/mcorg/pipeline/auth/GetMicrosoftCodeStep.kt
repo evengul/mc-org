@@ -4,7 +4,7 @@ import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
 import io.ktor.http.Parameters
 
-interface GetMicrosoftCodeFailure : SignInLocallyFailure {
+sealed interface GetMicrosoftCodeFailure : SignInWithMinecraftFailure {
     data class Error(val error: String, val description: String) : GetMicrosoftCodeFailure
     data object MissingCode : GetMicrosoftCodeFailure
 }
