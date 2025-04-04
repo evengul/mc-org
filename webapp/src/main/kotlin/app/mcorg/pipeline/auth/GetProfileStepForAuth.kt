@@ -6,7 +6,7 @@ import app.mcorg.domain.pipeline.Step
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.pipeline.profile.GetProfileStep
 
-sealed interface GetProfileFailure : GetSignInPageFailure {
+sealed interface GetProfileFailure : GetSignInPageFailure, AuthPluginFailure {
     data object ProfileNotFound : GetProfileFailure
 }
 

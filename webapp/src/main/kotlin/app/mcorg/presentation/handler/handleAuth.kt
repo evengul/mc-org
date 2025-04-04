@@ -22,6 +22,8 @@ import app.mcorg.pipeline.auth.GetSignInPageFailure
 import app.mcorg.pipeline.auth.GetTokenStep
 import app.mcorg.pipeline.auth.GetXboxProfileStep
 import app.mcorg.pipeline.auth.GetXstsToken
+import app.mcorg.pipeline.auth.MissingToken
+import app.mcorg.pipeline.auth.Redirect
 import app.mcorg.pipeline.auth.SignInLocallyFailure
 import app.mcorg.pipeline.auth.SignInWithMinecraftFailure
 import app.mcorg.pipeline.auth.ValidateEnvStep
@@ -45,11 +47,13 @@ suspend fun ApplicationCall.handleGetSignIn() {
         .pipe(GetSelectedWorldIdStep)
         .pipe(RedirectStep {
             "/app/worlds/$it/projects"
-        })
-        .mapFailure { it.toRedirect(getSignInUrl()) }.execute(request.cookies)
+        }).mapFailure { it.toRedirect() }.execute(request.cookies)
     when(result) {
         is Result.Success -> respondHtml(signInTemplate(result.value))
-        is Result.Failure -> respondRedirect(result.error.url)
+        is Result.Failure -> when(result.error) {
+            is MissingToken -> respondHtml(signInTemplate(getSignInUrl()))
+            is Redirect -> respondRedirect(result.error.url)
+        }
     }
 }
 

@@ -6,10 +6,13 @@ sealed interface SignInWithMinecraftFailure
 sealed interface AuthPluginFailure
 
 sealed interface GetSignInPageFailure
+sealed interface GetSignInPageFailureResult
 
-data class Redirect(val url: String) : AuthPluginFailure, GetSignInPageFailure, SignInWithMinecraftFailure {
+data class Redirect(val url: String) : AuthPluginFailure, GetSignInPageFailure, SignInWithMinecraftFailure, GetSignInPageFailureResult {
     companion object
 }
+
+data object MissingToken : GetSignInPageFailureResult
 
 fun AuthPluginFailure.toRedirect(signInUrl: String): Redirect {
     return when (this) {
@@ -20,13 +23,14 @@ fun AuthPluginFailure.toRedirect(signInUrl: String): Redirect {
         is ConvertTokenStepFailure.InvalidToken -> Redirect.signOut("invalid")
         is ConvertTokenStepFailure.MissingClaim -> Redirect.signOut("missing_claim", "claim" to this.claimName)
         is ConvertTokenStepFailure.IncorrectClaim -> Redirect.signOut("incorrect_claim", "claim" to this.claimName, "value" to this.claimValue)
+        is GetProfileFailure.ProfileNotFound -> Redirect.signOut("profile_not_found")
     }
 }
 
-fun GetSignInPageFailure.toRedirect(signInUrl: String): Redirect {
+fun GetSignInPageFailure.toRedirect(): GetSignInPageFailureResult {
     return when (this) {
         is Redirect -> this
-        is GetCookieFailure.MissingCookie -> Redirect.other(signInUrl)
+        is GetCookieFailure.MissingCookie -> MissingToken
         is ConvertTokenStepFailure.ConversionError -> Redirect.signOut("conversion")
         is ConvertTokenStepFailure.ExpiredToken -> Redirect.signOut("expired")
         is ConvertTokenStepFailure.InvalidToken -> Redirect.signOut("invalid")

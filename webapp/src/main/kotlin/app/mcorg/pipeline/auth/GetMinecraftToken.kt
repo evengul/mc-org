@@ -6,7 +6,6 @@ import app.mcorg.infrastructure.gateway.MinecraftRequest
 import app.mcorg.infrastructure.gateway.MinecraftTokenResponse
 import app.mcorg.infrastructure.gateway.createMinecraftRequest
 import app.mcorg.pipeline.apiPostJson
-import app.mcorg.pipeline.auth.GetMinecraftTokenFailure.CouldNotGetMinecraftToken
 import io.ktor.client.call.body
 import io.ktor.http.isSuccess
 import kotlinx.coroutines.runBlocking
@@ -25,7 +24,7 @@ object GetMinecraftToken : Step<TokenData, GetMinecraftTokenFailure, String> {
                 val token = response.body<MinecraftTokenResponse>().accessToken
                 return@runBlocking Result.success(token)
             }
-            return@runBlocking Result.failure(CouldNotGetMinecraftToken)
+            return@runBlocking Result.failure(GetMinecraftTokenFailure.CouldNotGetMinecraftToken)
         }
     }
 }

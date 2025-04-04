@@ -3,6 +3,7 @@ package app.mcorg.pipeline.auth
 import app.mcorg.domain.model.users.User
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
+import app.mcorg.presentation.consts.ISSUER
 import app.mcorg.presentation.security.JwtHelper
 import app.mcorg.presentation.security.getKeys
 import com.auth0.jwt.JWT
@@ -21,7 +22,7 @@ sealed interface ConvertTokenStepFailure : GetSignInPageFailure, AuthPluginFailu
     data class ConversionError(val error: Exception) : ConvertTokenStepFailure
 }
 
-data class ConvertTokenStep(val issuer: String) : Step<String, ConvertTokenStepFailure, User> {
+data class ConvertTokenStep(val issuer: String = ISSUER) : Step<String, ConvertTokenStepFailure, User> {
     override fun process(input: String): Result<ConvertTokenStepFailure, User> {
         val (publicKey, privateKey) = JwtHelper.getKeys()
 

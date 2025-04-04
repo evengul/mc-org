@@ -8,6 +8,7 @@ import io.ktor.server.routing.*
 fun Application.configureAppRouter() {
     routing {
         install(EnvPlugin)
+        install(AuthPlugin)
         get {
             call.handleGetLanding()
         }

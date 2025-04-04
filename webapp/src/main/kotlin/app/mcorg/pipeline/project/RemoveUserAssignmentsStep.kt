@@ -2,7 +2,6 @@ package app.mcorg.pipeline.project
 
 import app.mcorg.domain.pipeline.ContextAwareStep
 import app.mcorg.domain.pipeline.Result
-import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.DatabaseFailure
 import app.mcorg.pipeline.useConnection
 
