@@ -21,6 +21,9 @@ private fun FlowContent.addWorldForm() {
         classes = setOf("world-form")
         method = FormMethod.post
         encType = FormEncType.applicationXWwwFormUrlEncoded
+        hxPost("/app/worlds")
+        hxErrorTarget("#error-message", "4xx")
+        hxSwap("innerHTML")
         label {
             htmlFor = "add-world-name-input"
             + "Name of your world"
@@ -32,6 +35,10 @@ private fun FlowContent.addWorldForm() {
             required = true
             minLength = "3"
             maxLength = "100"
+        }
+        p {
+            classes = setOf("error")
+            id = "error-message"
         }
         button {
             id = "add-world-submit-button"

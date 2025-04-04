@@ -10,12 +10,12 @@ interface Step<in I, out E, out S> {
             }
         }
 
-        fun <E> validate(
-            predicate: (Unit) -> Boolean,
-            error: E
-        ): Step<Unit, E, Unit> {
-            return object : Step<Unit, E, Unit> {
-                override fun process(input: Unit): Result<E, Unit> {
+        fun <I, E> validate(
+            error: E,
+            predicate: (I) -> Boolean,
+        ): Step<I, E, I> {
+            return object : Step<I, E, I> {
+                override fun process(input: I): Result<E, I> {
                     return if (predicate(input)) {
                         Result.success(input)
                     } else {
