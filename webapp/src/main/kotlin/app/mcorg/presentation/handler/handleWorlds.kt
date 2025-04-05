@@ -4,6 +4,7 @@ import app.mcorg.domain.model.permissions.Authority
 import app.mcorg.domain.pipeline.Pipeline
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.mapValue
+import app.mcorg.domain.pipeline.pipeWithContext
 import app.mcorg.domain.pipeline.withContext
 import app.mcorg.pipeline.world.CreateWorldFailure
 import app.mcorg.pipeline.world.CreateWorldPermissionFailure
@@ -11,8 +12,15 @@ import app.mcorg.pipeline.world.CreateWorldPermissionStep
 import app.mcorg.pipeline.world.CreateWorldPermissionStepInput
 import app.mcorg.pipeline.world.CreateWorldStep
 import app.mcorg.pipeline.world.CreateWorldStepFailure
+import app.mcorg.pipeline.world.DeleteWorldFailure
+import app.mcorg.pipeline.world.DeleteWorldStep
+import app.mcorg.pipeline.world.DeleteWorldStepFailure
 import app.mcorg.pipeline.world.GetWorldNameFailure
 import app.mcorg.pipeline.world.GetWorldNameStep
+import app.mcorg.pipeline.world.RemoveWorldPermissionsForAllUsersStep
+import app.mcorg.pipeline.world.RemoveWorldPermissionsForAllUsersStepFailure
+import app.mcorg.pipeline.world.UnSelectWorldForAllUsersStep
+import app.mcorg.pipeline.world.UnSelectWorldForAllUsersStepFailure
 import app.mcorg.pipeline.world.ValidateAvailableWorldName
 import app.mcorg.pipeline.world.ValidateAvailableWorldNameFailure
 import app.mcorg.pipeline.world.ValidateWorldNameLengthStep
@@ -69,10 +77,17 @@ suspend fun ApplicationCall.handlePostWorld() {
 suspend fun ApplicationCall.handleDeleteWorld() {
     val worldId = getWorldId()
 
-    WorldCommands.deleteWorld(worldId).fold(
-        { respondBadRequest("World could not be deleted") },
-        { respondEmptyHtml() }
-    )
+    val result = Pipeline.create<DeleteWorldFailure, Unit>()
+        .withContext(worldId)
+        .pipeWithContext(UnSelectWorldForAllUsersStep)
+        .pipeWithContext(RemoveWorldPermissionsForAllUsersStep)
+        .pipeWithContext(DeleteWorldStep)
+        .execute(Unit)
+
+    when (result) {
+        is Result.Success -> respondEmptyHtml()
+        is Result.Failure -> respondBadRequest("World could not be deleted")
+    }
 }
 
 suspend fun ApplicationCall.handleSelectWorld() {
