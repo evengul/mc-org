@@ -15,7 +15,7 @@ data class CreateWorldPermissionStepInput(
     val authority: Authority,
 )
 
-object CreateWorldPermissionStep : ContextAwareStep<CreateWorldPermissionStepInput, Int, CreateWorldPermissionFailure, Int> ({ input, context ->
+object CreateWorldPermissionStep : ContextAwareStep<CreateWorldPermissionStepInput, Int, CreateWorldFailure, Int> ({ input, context ->
     useConnection({ CreateWorldPermissionFailure.Other(it) }) {
         prepareStatement("insert into permission (world_id, authority, user_id) values (?, ?, ?)")
             .apply {

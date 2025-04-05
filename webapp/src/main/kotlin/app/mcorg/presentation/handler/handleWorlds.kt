@@ -14,22 +14,23 @@ import app.mcorg.pipeline.world.CreateWorldStep
 import app.mcorg.pipeline.world.CreateWorldStepFailure
 import app.mcorg.pipeline.world.DeleteWorldFailure
 import app.mcorg.pipeline.world.DeleteWorldStep
-import app.mcorg.pipeline.world.DeleteWorldStepFailure
 import app.mcorg.pipeline.world.GetWorldNameFailure
 import app.mcorg.pipeline.world.GetWorldNameStep
+import app.mcorg.pipeline.world.GetWorldSelectionValue
+import app.mcorg.pipeline.world.GetWorldSelectionValueFailure
 import app.mcorg.pipeline.world.RemoveWorldPermissionsForAllUsersStep
-import app.mcorg.pipeline.world.RemoveWorldPermissionsForAllUsersStepFailure
+import app.mcorg.pipeline.world.SelectWorldAfterCreation
+import app.mcorg.pipeline.world.SelectWorldFailure
+import app.mcorg.pipeline.world.SelectWorldStep
+import app.mcorg.pipeline.world.SelectWorldStepFailure
 import app.mcorg.pipeline.world.UnSelectWorldForAllUsersStep
-import app.mcorg.pipeline.world.UnSelectWorldForAllUsersStepFailure
 import app.mcorg.pipeline.world.ValidateAvailableWorldName
 import app.mcorg.pipeline.world.ValidateAvailableWorldNameFailure
 import app.mcorg.pipeline.world.ValidateWorldNameLengthStep
 import app.mcorg.pipeline.world.ValidateWorldNonEmptyStep
 import app.mcorg.pipeline.world.WorldValidationFailure
-import app.mcorg.presentation.configuration.WorldCommands
 import app.mcorg.presentation.configuration.permissionsApi
 import app.mcorg.presentation.configuration.usersApi
-import app.mcorg.presentation.mappers.requiredInt
 import app.mcorg.presentation.templates.world.worlds
 import app.mcorg.presentation.utils.*
 import io.ktor.http.HttpStatusCode.Companion.InternalServerError
@@ -57,7 +58,8 @@ suspend fun ApplicationCall.handlePostWorld() {
         .pipe(CreateWorldStep)
         .withContext(userId)
         .mapValue { CreateWorldPermissionStepInput(it, Authority.OWNER) }
-        .pipe(CreateWorldPermissionStep)
+        .pipeWithContext(CreateWorldPermissionStep)
+        .pipeWithContext(SelectWorldAfterCreation)
         .execute(receiveParameters())
 
     when (result) {
@@ -69,7 +71,10 @@ suspend fun ApplicationCall.handlePostWorld() {
             is ValidateAvailableWorldNameFailure.AlreadyExists -> respondBadRequest("World with this name already exists")
             is ValidateAvailableWorldNameFailure.Other -> respond(InternalServerError, "World name validation failed")
             is CreateWorldStepFailure.Other -> respond(InternalServerError, "World creation failed")
+            is SelectWorldStepFailure.Other -> respond(InternalServerError, "Could not select world after creation")
             is CreateWorldPermissionFailure.Other -> respond(InternalServerError, "World permission creation failed")
+            is GetWorldSelectionValueFailure.NotFound -> throw IllegalStateException("This step should never be called")
+            is GetWorldSelectionValueFailure.NotInteger -> throw IllegalStateException("This step should never be called")
         }
     }
 }
@@ -92,11 +97,21 @@ suspend fun ApplicationCall.handleDeleteWorld() {
 
 suspend fun ApplicationCall.handleSelectWorld() {
     val userId = getUserId()
-    val worldId = parameters.requiredInt("worldId")
-    WorldCommands.selectWorld(userId, worldId).fold(
-        { respondBadRequest("World could not be selected") },
-        { clientRedirect("/app/worlds/$worldId/projects") }
-    )
+
+    val result = Pipeline.create<SelectWorldFailure, Parameters>()
+        .pipe(GetWorldSelectionValue)
+        .withContext(userId)
+        .pipe(SelectWorldStep)
+        .execute(parameters)
+
+    when (result) {
+        is Result.Success -> clientRedirect("/app/worlds/${result.value}/projects")
+        is Result.Failure -> when (result.error) {
+            is GetWorldSelectionValueFailure.NotFound -> respondBadRequest("Parameter worldId is required")
+            is GetWorldSelectionValueFailure.NotInteger -> respondBadRequest("Parameter worldId must be an integer")
+            is SelectWorldStepFailure.Other -> respond(InternalServerError, "World selection failed")
+        }
+    }
 }
 
 suspend fun ApplicationCall.handleGetWorld() {
