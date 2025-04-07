@@ -20,7 +20,7 @@ fun users(worldId: Int, currentUser: User, users: List<User>, isAdmin: Boolean):
             autoComplete = false
             hxPost("/app/worlds/$worldId/users")
             hxTarget("#users-list-current-user")
-            hxErrorTarget("#error-message", "400")
+            hxErrorTarget("#error-message", "4xx")
             hxSwap("afterend")
             label {
                 htmlFor = "add-user-username-input"

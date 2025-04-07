@@ -4,12 +4,10 @@ import app.mcorg.domain.cqrs.commands.project.AddProjectAssignmentCommand
 import app.mcorg.domain.cqrs.commands.project.CreateProjectCommand
 import app.mcorg.domain.cqrs.commands.project.DeleteProjectCommand
 import app.mcorg.domain.cqrs.commands.project.RemoveProjectAssignmentCommand
-import app.mcorg.domain.cqrs.commands.user.AddUserCommand
 import app.mcorg.domain.cqrs.commands.user.RemoveUserCommand
 import app.mcorg.presentation.entities.project.CreateProjectRequest
 
 object UserCommands {
-    fun addToWorld(worldId: Int, username: String) = AddUserCommand(usersApi, permissionsApi).execute(AddUserCommand.CommandInput(worldId, username))
     fun removeFromWorld(worldId: Int, userId: Int) = RemoveUserCommand(usersApi, permissionsApi, projectsApi).execute(RemoveUserCommand.CommandInput(worldId, userId))
 }
 
