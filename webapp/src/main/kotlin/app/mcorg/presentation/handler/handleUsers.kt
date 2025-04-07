@@ -1,14 +1,14 @@
 package app.mcorg.presentation.handler
 
-import app.mcorg.domain.cqrs.commands.user.RemoveUserCommand
 import app.mcorg.domain.model.permissions.Authority
 import app.mcorg.domain.pipeline.Pipeline
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.permission.*
-import app.mcorg.presentation.configuration.UserCommands
+import app.mcorg.pipeline.permission.RemoveUserAssignmentsInWorldInput
+import app.mcorg.pipeline.permission.RemoveUserProjectAssignmentsInWorld
+import app.mcorg.pipeline.permission.RemoveUserTaskAssignmentsInWorld
 import app.mcorg.presentation.configuration.permissionsApi
-import app.mcorg.presentation.mappers.requiredInt
 import app.mcorg.presentation.templates.users.createUserListElement
 import app.mcorg.presentation.templates.users.users
 import app.mcorg.presentation.utils.*
@@ -30,7 +30,7 @@ suspend fun ApplicationCall.handlePostUser() {
     val worldId = getWorldId()
 
     val result = Pipeline.create<AddWorldParticipantFailure, Unit>()
-        .pipe(Step.value(VerifyParticipantAdderIsAdminInput(worldId, userId)))
+        .pipe(Step.value(VerifyUserIsAdminInWorldStep(worldId, userId)))
         .pipe(VerifyParticipantAdderIsAdmin)
         .pipe(Step.value(receiveParameters()))
         .pipe(GetUsernameInputStep)
@@ -64,13 +64,32 @@ suspend fun ApplicationCall.handlePostUser() {
 
 suspend fun ApplicationCall.handleDeleteWorldUser() {
     val worldId = getWorldId()
-    val userId = parameters.requiredInt("userId")
-    UserCommands.removeFromWorld(worldId, userId).fold({
-        when (it) {
-            is RemoveUserCommand.UserDoesNotExistFailure -> respondBadRequest("User does not exist")
-            is RemoveUserCommand.UserDoesNotBelongToWorldFailure -> respondBadRequest("User is not in world")
+    val adminId = getUserId()
+
+    val result = Pipeline.create<RemoveWorldParticipantFailure, Unit>()
+        .pipe(Step.value(VerifyUserIsAdminInWorldStep(worldId, adminId)))
+        .pipe(VerifyParticipantAdderIsAdmin)
+        .pipe(Step.value(parameters))
+        .pipe(GetUserIdInputStep)
+        .map { VerifyUserInWorldInput(worldId = worldId, userId = it) }
+        .pipe(VerifyUserInWorld)
+        .map { RemoveUserAssignmentsInWorldInput(worldId = it.worldId, userId = it.userId) }
+        .pipe(RemoveUserTaskAssignmentsInWorld)
+        .pipe(RemoveUserProjectAssignmentsInWorld)
+        .map { RemoveUserFromWorldInput(userId = it.userId, worldId = it.worldId) }
+        .pipe(RemoveUserFromWorldStep)
+        .execute(Unit)
+
+    when (result) {
+        is Result.Success -> respondEmptyHtml()
+        is Result.Failure -> when(result.error) {
+            is VerifyParticipantAdderIsAdminFailure.NotAdmin -> respond(HttpStatusCode.Forbidden, "You are not an admin of this world")
+            is VerifyParticipantAdderIsAdminFailure.Other -> respond(HttpStatusCode.InternalServerError, "An unknown error occurred")
+            is VerifyUserInWorldFailure.Other -> respond(HttpStatusCode.InternalServerError, "An unknown error occurred")
+            is GetUserIdInputFailure.NotPresent -> respondBadRequest("Parameter 'userId' is required")
+            is RemoveUserAssignmentsInWorldFailure.Other -> respond(HttpStatusCode.InternalServerError, "An unknown error occurred")
+            is RemoveUserFromWorldFailure.Other -> respond(HttpStatusCode.InternalServerError, "An unknown error occurred")
+            is VerifyUserInWorldFailure.NotPresent -> respondNotFound("User doesn't exist in world")
         }
-    }, {
-        respondEmptyHtml()
-    })
+    }
 }
