@@ -1,6 +1,5 @@
 package app.mcorg.pipeline
 
-import app.mcorg.domain.pipeline.Step
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
@@ -19,7 +18,7 @@ import io.ktor.http.contentType
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.serialization.json.Json
 
-suspend inline fun <I, E, S> Step<I, E, S>.apiGetForm(path: String, builder: ParametersBuilder.() -> Unit): HttpResponse {
+suspend inline fun apiGetForm(path: String, builder: ParametersBuilder.() -> Unit): HttpResponse {
     return useJsonClient {
         get(url = Url(path)) {
             contentType(ContentType.Application.FormUrlEncoded)
@@ -30,7 +29,7 @@ suspend inline fun <I, E, S> Step<I, E, S>.apiGetForm(path: String, builder: Par
     }
 }
 
-suspend inline fun <I, E, S> Step<I, E, S>.apiGetJson(path: String, accessToken: String? = null): HttpResponse {
+suspend inline fun apiGetJson(path: String, accessToken: String? = null): HttpResponse {
     return useJsonClient {
         get(url = Url(path)) {
             contentType(ContentType.Application.Json)
@@ -42,7 +41,7 @@ suspend inline fun <I, E, S> Step<I, E, S>.apiGetJson(path: String, accessToken:
     }
 }
 
-suspend inline fun <reified B, I, E, S> Step<I, E, S>.apiPostJson(path: String, body: B): HttpResponse {
+suspend inline fun <reified B> apiPostJson(path: String, body: B): HttpResponse {
     return useJsonClient {
         post(url = Url(path)) {
             contentType(ContentType.Application.Json)
@@ -52,7 +51,7 @@ suspend inline fun <reified B, I, E, S> Step<I, E, S>.apiPostJson(path: String, 
     }
 }
 
-suspend inline fun <I, E, S> Step<I, E, S>.useJsonClient(handler: suspend HttpClient.() -> HttpResponse) = HttpClient(CIO) {
+inline fun useJsonClient(handler: HttpClient.() -> HttpResponse) = HttpClient(CIO) {
     install(ContentNegotiation) {
         json()
         Json {
