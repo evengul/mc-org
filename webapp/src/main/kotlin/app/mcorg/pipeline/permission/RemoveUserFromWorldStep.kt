@@ -15,7 +15,7 @@ data class RemoveUserFromWorldInput(
 )
 
 object RemoveUserFromWorldStep : Step<RemoveUserFromWorldInput, RemoveUserFromWorldFailure, Unit> {
-    override fun process(input: RemoveUserFromWorldInput): Result<RemoveUserFromWorldFailure, Unit> {
+    override suspend fun process(input: RemoveUserFromWorldInput): Result<RemoveUserFromWorldFailure, Unit> {
         return useConnection({ RemoveUserFromWorldFailure.Other(it) }) {
             prepareStatement("delete from permission where user_id = ? and world_id = ?")
                 .apply {

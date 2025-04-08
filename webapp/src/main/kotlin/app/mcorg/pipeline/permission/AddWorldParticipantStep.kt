@@ -11,7 +11,7 @@ sealed interface AddWorldParticipantStepFailure : AddWorldParticipantFailure {
 }
 
 object AddWorldParticipantStep : Step<AddUserInput, AddWorldParticipantStepFailure, AddUserInput> {
-    override fun process(input: AddUserInput): Result<AddWorldParticipantStepFailure, AddUserInput> {
+    override suspend fun process(input: AddUserInput): Result<AddWorldParticipantStepFailure, AddUserInput> {
         return useConnection({ AddWorldParticipantStepFailure.Other(it) }) {
             prepareStatement("insert into permission (world_id, user_id, authority) values (?, ?, ?)")
                 .apply {

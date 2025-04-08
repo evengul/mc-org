@@ -25,7 +25,7 @@ data class GetMicrosoftTokenInput(
 )
 
 object GetMicrosoftTokenStep : Step<GetMicrosoftTokenInput, GetMicrosoftTokenFailure, String> {
-    override fun process(input: GetMicrosoftTokenInput): Result<GetMicrosoftTokenFailure, String> {
+    override suspend fun process(input: GetMicrosoftTokenInput): Result<GetMicrosoftTokenFailure, String> {
         val (code, clientId, clientSecret, env, host) = input
         val redirectUrl =
             if (env == Local) "http://localhost:8080/auth/oidc/microsoft-redirect"

@@ -9,7 +9,7 @@ sealed interface GetUsernameInputFailure : AddWorldParticipantFailure {
 }
 
 object GetUsernameInputStep : Step<Parameters, GetUsernameInputFailure, String> {
-    override fun process(input: Parameters): Result<GetUsernameInputFailure, String> {
+    override suspend fun process(input: Parameters): Result<GetUsernameInputFailure, String> {
         return input["newUser"]?.let { Result.success(it) } ?: Result.failure(GetUsernameInputFailure.NotPresent)
     }
 }

@@ -9,7 +9,7 @@ sealed interface ValidateEnvFailure : SignInLocallyFailure {
 }
 
 data class ValidateEnvStep(val wantedEnv: Env): Step<Env, ValidateEnvFailure, Env> {
-    override fun process(input: Env): Result<ValidateEnvFailure, Env> {
+    override suspend fun process(input: Env): Result<ValidateEnvFailure, Env> {
         return if (input == wantedEnv) {
             Result.success(input)
         } else {

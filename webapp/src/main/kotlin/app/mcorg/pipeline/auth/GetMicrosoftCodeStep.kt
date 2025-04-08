@@ -10,7 +10,7 @@ sealed interface GetMicrosoftCodeFailure : SignInWithMinecraftFailure {
 }
 
 object GetMicrosoftCodeStep : Step<Parameters, GetMicrosoftCodeFailure, String> {
-    override fun process(input: Parameters): Result<GetMicrosoftCodeFailure, String> {
+    override suspend fun process(input: Parameters): Result<GetMicrosoftCodeFailure, String> {
         val code = input["code"]
         if (code != null) {
             return Result.success(code)

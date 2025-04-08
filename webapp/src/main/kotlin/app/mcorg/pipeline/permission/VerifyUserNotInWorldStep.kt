@@ -11,7 +11,7 @@ sealed interface VerifyUserNotInWorldStepFailure : AddWorldParticipantFailure {
 }
 
 object VerifyUserNotInWorldStep : Step<AddUserInput, VerifyUserNotInWorldStepFailure, AddUserInput> {
-    override fun process(input: AddUserInput): Result<VerifyUserNotInWorldStepFailure, AddUserInput> {
+    override suspend fun process(input: AddUserInput): Result<VerifyUserNotInWorldStepFailure, AddUserInput> {
         return useConnection({ if (it == DatabaseFailure.NotFound) VerifyUserNotInWorldStepFailure.UserAlreadyExists else VerifyUserNotInWorldStepFailure.Other(it) }) {
             prepareStatement("select 1 from permission where world_id = ? and user_id = ? limit 1")
                 .apply {

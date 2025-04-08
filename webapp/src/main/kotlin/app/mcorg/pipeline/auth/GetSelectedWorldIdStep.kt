@@ -9,7 +9,7 @@ sealed interface GetSelectedWorldStepFailure : GetSignInPageFailure {
 }
 
 object GetSelectedWorldIdStep : Step<Profile, GetSelectedWorldStepFailure, Int> {
-    override fun process(input: Profile): Result<GetSelectedWorldStepFailure, Int> {
+    override suspend fun process(input: Profile): Result<GetSelectedWorldStepFailure, Int> {
         return when(val selectedWorld = input.selectedWorld) {
             null -> Result.failure(GetSelectedWorldStepFailure.NoSelectedWorld)
             else -> Result.success(selectedWorld)

@@ -7,7 +7,7 @@ import app.mcorg.pipeline.DatabaseFailure
 import app.mcorg.pipeline.useConnection
 
 object GetProfileStep : Step<Int, DatabaseFailure, Profile> {
-    override fun process(input: Int): Result<DatabaseFailure, Profile> {
+    override suspend fun process(input: Int): Result<DatabaseFailure, Profile> {
         return useConnection {
             val resultSet =
                 prepareStatement("select id,username,email,profile_photo,selected_world,technical_player from users where id=?")

@@ -12,7 +12,7 @@ sealed interface GetNewParticipantStepFailure : AddWorldParticipantFailure {
 }
 
 object GetNewParticipantStep : Step<Int, GetNewParticipantStepFailure, User> {
-    override fun process(input: Int): Result<GetNewParticipantStepFailure, User> {
+    override suspend fun process(input: Int): Result<GetNewParticipantStepFailure, User> {
         return useConnection({ GetNewParticipantStepFailure.Other(it) }) {
             prepareStatement("select id, username from users where id = ?")
                 .apply {

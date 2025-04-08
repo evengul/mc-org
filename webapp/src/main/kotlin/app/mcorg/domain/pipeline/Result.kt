@@ -10,22 +10,22 @@ sealed interface Result<out E, out S> {
     val isFailure: Boolean
         get() = this is Failure
 
-    fun <R> map(transform: (S) -> R): Result<E, R> = when (this) {
+    suspend fun <R> map(transform: suspend (S) -> R): Result<E, R> = when (this) {
         is Success -> Success(transform(value))
         is Failure -> this
     }
 
-    fun <R> flatMap(transform: (S) -> Result<@UnsafeVariance E, R>): Result<E, R> = when (this) {
+    suspend fun <R> flatMap(transform: suspend (S) -> Result<@UnsafeVariance E, R>): Result<E, R> = when (this) {
         is Success -> transform(value)
         is Failure -> this
     }
 
-    fun <F> mapError(transform: (E) -> F): Result<F, S> = when (this) {
+    suspend fun <F> mapError(transform: suspend (E) -> F): Result<F, S> = when (this) {
         is Success -> this
         is Failure -> Failure(transform(error))
     }
 
-    fun recover(transform: (E) -> Result<@UnsafeVariance E, @UnsafeVariance S>): Result<E, S> = when (this) {
+    suspend fun recover(transform: suspend (E) -> Result<@UnsafeVariance E, @UnsafeVariance S>): Result<E, S> = when (this) {
         is Success -> this
         is Failure -> transform(error)
     }
@@ -38,13 +38,6 @@ sealed interface Result<out E, out S> {
     fun errorOrNull(): E? = when (this) {
         is Success -> null
         is Failure -> error
-    }
-
-    fun fold(onSuccess: (S) -> Unit, onFailure: (E) -> Unit) {
-        when (this) {
-            is Success -> onSuccess(value)
-            is Failure -> onFailure(error)
-        }
     }
 
     companion object {

@@ -15,7 +15,7 @@ data class RemoveUserAssignmentsInWorldInput(
 )
 
 object RemoveUserProjectAssignmentsInWorld : Step<RemoveUserAssignmentsInWorldInput, RemoveUserAssignmentsInWorldFailure, RemoveUserAssignmentsInWorldInput> {
-    override fun process(input: RemoveUserAssignmentsInWorldInput): Result<RemoveUserAssignmentsInWorldFailure, RemoveUserAssignmentsInWorldInput> {
+    override suspend fun process(input: RemoveUserAssignmentsInWorldInput): Result<RemoveUserAssignmentsInWorldFailure, RemoveUserAssignmentsInWorldInput> {
         return useConnection({ RemoveUserAssignmentsInWorldFailure.Other(it) }) {
             prepareStatement("update project set assignee = null where assignee = ? and world_id = ?")
                 .apply {
@@ -29,7 +29,7 @@ object RemoveUserProjectAssignmentsInWorld : Step<RemoveUserAssignmentsInWorldIn
 }
 
 object RemoveUserTaskAssignmentsInWorld : Step<RemoveUserAssignmentsInWorldInput, RemoveUserAssignmentsInWorldFailure, RemoveUserAssignmentsInWorldInput> {
-    override fun process(input: RemoveUserAssignmentsInWorldInput): Result<RemoveUserAssignmentsInWorldFailure, RemoveUserAssignmentsInWorldInput> {
+    override suspend fun process(input: RemoveUserAssignmentsInWorldInput): Result<RemoveUserAssignmentsInWorldFailure, RemoveUserAssignmentsInWorldInput> {
         return useConnection({ RemoveUserAssignmentsInWorldFailure.Other(it) }) {
             prepareStatement("update task set assignee = null where assignee = ? and project_id in (select id from project where world_id = ?)")
                 .apply {

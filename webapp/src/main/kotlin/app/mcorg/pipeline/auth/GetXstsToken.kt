@@ -15,7 +15,7 @@ sealed interface GetXstsTokenFailure : SignInWithMinecraftFailure {
 }
 
 object GetXstsToken : Step<TokenData, GetXstsTokenFailure, TokenData> {
-    override fun process(input: TokenData): Result<GetXstsTokenFailure, TokenData> {
+    override suspend fun process(input: TokenData): Result<GetXstsTokenFailure, TokenData> {
         return runBlocking {
             val body = XstsRequest(XstsProperties("RETAIL", listOf(input.token)), "rp://api.minecraftservices.com/", "JWT")
             val result = apiPostJson("https://xsts.auth.xboxlive.com/xsts/authorize", body)

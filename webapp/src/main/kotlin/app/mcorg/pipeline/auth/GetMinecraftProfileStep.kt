@@ -14,7 +14,7 @@ sealed interface GetMinecraftProfileFailure : SignInWithMinecraftFailure {
 }
 
 object GetMinecraftProfileStep : Step<String, GetMinecraftProfileFailure, MinecraftProfile> {
-    override fun process(input: String): Result<GetMinecraftProfileFailure, MinecraftProfile> {
+    override suspend fun process(input: String): Result<GetMinecraftProfileFailure, MinecraftProfile> {
         return runBlocking {
             val url = "https://api.minecraftservices.com/minecraft/profile"
             val response = apiGetJson(url, accessToken = input)

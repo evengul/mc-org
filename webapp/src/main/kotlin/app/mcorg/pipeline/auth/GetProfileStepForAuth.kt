@@ -11,8 +11,7 @@ sealed interface GetProfileFailure : GetSignInPageFailure, AuthPluginFailure {
 }
 
 object GetProfileStepForAuth: Step<User, GetProfileFailure, Profile> {
-
-    override fun process(input: User): Result<GetProfileFailure, Profile> {
+    override suspend fun process(input: User): Result<GetProfileFailure, Profile> {
         val profile = GetProfileStep.process(input.id)
         if (profile is Result.Failure) {
             return Result.failure(GetProfileFailure.ProfileNotFound)

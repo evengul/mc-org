@@ -15,7 +15,7 @@ sealed interface CreateTokenFailure : SignInLocallyFailure, SignInWithMinecraftF
 }
 
 data object CreateTokenStep : Step<User, CreateTokenFailure, String> {
-    override fun process(input: User): Result<CreateTokenFailure, String> {
+    override suspend fun process(input: User): Result<CreateTokenFailure, String> {
         val (publicKey, privateKey) = JwtHelper.getKeys()
 
         try {

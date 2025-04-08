@@ -2,7 +2,6 @@ package app.mcorg.presentation.handler
 
 import app.mcorg.domain.pipeline.Pipeline
 import app.mcorg.domain.pipeline.Result
-import app.mcorg.pipeline.RedirectStep
 import app.mcorg.pipeline.auth.ConvertTokenStep
 import app.mcorg.pipeline.auth.GetProfileStepForAuth
 import app.mcorg.pipeline.auth.GetSelectedWorldIdStep
@@ -23,9 +22,7 @@ suspend fun ApplicationCall.handleGetLanding() {
         .pipe(ConvertTokenStep(ISSUER))
         .pipe(GetProfileStepForAuth)
         .pipe(GetSelectedWorldIdStep)
-        .pipe(RedirectStep {
-            "/app/worlds/$it/projects"
-        })
+        .map { "/app/worlds/$it/projects" }
         .mapFailure { it.toRedirect() }
         .execute(request.cookies)
 

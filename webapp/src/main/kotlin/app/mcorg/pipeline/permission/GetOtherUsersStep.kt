@@ -12,7 +12,7 @@ sealed interface GetOtherUsersFailure : GetWorldParticipantsFailure {
 }
 
 object GetOtherUsersStep : Step<GetUsersData, GetOtherUsersFailure, GetUsersData> {
-    override fun process(input: GetUsersData): Result<GetOtherUsersFailure, GetUsersData> {
+    override suspend fun process(input: GetUsersData): Result<GetOtherUsersFailure, GetUsersData> {
         return useConnection({ GetOtherUsersFailure.Other(it) }) {
             prepareStatement("select id, username from users where id != ? and id in (select user_id from permission where world_id = ?)")
                 .apply {

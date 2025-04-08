@@ -12,7 +12,7 @@ sealed interface VerifyParticipantAdderIsAdminFailure : AddWorldParticipantFailu
 }
 
 object VerifyParticipantAdderIsAdmin : Step<WorldUser, VerifyParticipantAdderIsAdminFailure, Unit> {
-    override fun process(input: WorldUser): Result<VerifyParticipantAdderIsAdminFailure, Unit> {
+    override suspend fun process(input: WorldUser): Result<VerifyParticipantAdderIsAdminFailure, Unit> {
         return useConnection({ VerifyParticipantAdderIsAdminFailure.Other(it) }) {
             prepareStatement("select 1 from permission where world_id = ? and user_id = ? and authority <= ? limit 1")
                 .apply {

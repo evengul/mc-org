@@ -23,7 +23,7 @@ sealed interface ConvertTokenStepFailure : GetSignInPageFailure, AuthPluginFailu
 }
 
 data class ConvertTokenStep(val issuer: String = ISSUER) : Step<String, ConvertTokenStepFailure, User> {
-    override fun process(input: String): Result<ConvertTokenStepFailure, User> {
+    override suspend fun process(input: String): Result<ConvertTokenStepFailure, User> {
         val (publicKey, privateKey) = JwtHelper.getKeys()
 
         val jwt = try {

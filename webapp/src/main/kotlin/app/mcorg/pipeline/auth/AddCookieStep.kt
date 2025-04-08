@@ -10,7 +10,7 @@ import java.time.Instant
 sealed interface AddCookieFailure : SignInLocallyFailure, SignInWithMinecraftFailure
 
 data class AddCookieStep(val cookies: ResponseCookies, val host: String) : Step<String, AddCookieFailure, Unit> {
-    override fun process(input: String): Result<AddCookieFailure, Unit> {
+    override suspend fun process(input: String): Result<AddCookieFailure, Unit> {
         val expires = GMTDate(timestamp = Instant.now().plusSeconds(8 * 60 * 60).toEpochMilli())
         if (host == "false") {
             cookies.append(tokenName, input, httpOnly = true, expires = expires, path = "/")

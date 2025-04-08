@@ -15,7 +15,7 @@ sealed interface GetMinecraftTokenFailure : SignInWithMinecraftFailure {
 }
 
 object GetMinecraftToken : Step<TokenData, GetMinecraftTokenFailure, String> {
-    override fun process(input: TokenData): Result<GetMinecraftTokenFailure, String> {
+    override suspend fun process(input: TokenData): Result<GetMinecraftTokenFailure, String> {
         return runBlocking {
             val url = "https://api.minecraftservices.com/authentication/login_with_xbox"
             val body = MinecraftRequest(createMinecraftRequest(userHash = input.hash, xstsToken = input.token))

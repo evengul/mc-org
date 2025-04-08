@@ -9,7 +9,7 @@ sealed interface GetWorldNameFailure : CreateWorldFailure {
 }
 
 object GetWorldNameStep : Step<Parameters, GetWorldNameFailure, String> {
-    override fun process(input: Parameters): Result<GetWorldNameFailure, String> {
+    override suspend fun process(input: Parameters): Result<GetWorldNameFailure, String> {
         return when (val worldName = input["worldName"]) {
             null -> Result.failure(GetWorldNameFailure.NotPresent)
             else -> Result.success(worldName)

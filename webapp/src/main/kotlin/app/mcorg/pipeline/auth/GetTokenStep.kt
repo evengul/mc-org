@@ -10,7 +10,7 @@ sealed interface GetCookieFailure : GetSignInPageFailure, AuthPluginFailure {
 }
 
 data class GetTokenStep(val cookieName: String = AUTH_COOKIE): Step<RequestCookies, GetCookieFailure, String> {
-    override fun process(input: RequestCookies): Result<GetCookieFailure, String> {
+    override suspend fun process(input: RequestCookies): Result<GetCookieFailure, String> {
         return when(val cookie = input[cookieName]) {
             null -> Result.failure(GetCookieFailure.MissingCookie)
             else -> Result.success(cookie)

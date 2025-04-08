@@ -10,7 +10,7 @@ sealed interface GetWorldSelectionValueFailure : SelectWorldFailure {
 }
 
 object GetWorldSelectionValue : Step<Parameters, SelectWorldFailure, Int> {
-    override fun process(input: Parameters): Result<SelectWorldFailure, Int> {
+    override suspend fun process(input: Parameters): Result<SelectWorldFailure, Int> {
         return input["worldId"]?.let { str ->
             str.toIntOrNull()?.let { Result.success(it) } ?: Result.failure(GetWorldSelectionValueFailure.NotInteger)
         } ?: Result.failure(

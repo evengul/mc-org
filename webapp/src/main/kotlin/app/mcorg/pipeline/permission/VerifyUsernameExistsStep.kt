@@ -11,7 +11,7 @@ sealed interface VerifyUserExistsStepFailure : AddWorldParticipantFailure {
 }
 
 object VerifyUsernameExistsStep : Step<String, VerifyUserExistsStepFailure, Int> {
-    override fun process(input: String): Result<VerifyUserExistsStepFailure, Int> {
+    override suspend fun process(input: String): Result<VerifyUserExistsStepFailure, Int> {
         return useConnection({ if (it == DatabaseFailure.NotFound) VerifyUserExistsStepFailure.UserDoesNotExist else VerifyUserExistsStepFailure.Other(it) }) {
             prepareStatement("select id from users where username = ? limit 1")
                 .apply { setString(1, input) }

@@ -11,7 +11,7 @@ sealed interface ValidateAvailableWorldNameFailure : CreateWorldFailure {
 }
 
 object ValidateAvailableWorldName : Step<String, ValidateAvailableWorldNameFailure, String> {
-    override fun process(input: String): Result<ValidateAvailableWorldNameFailure, String> {
+    override suspend fun process(input: String): Result<ValidateAvailableWorldNameFailure, String> {
         return useConnection(::mapDatabaseFailure) {
             prepareStatement("select id from world where name = ? limit 1")
                 .apply { setString(1, input) }

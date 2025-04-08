@@ -20,7 +20,7 @@ object GetXboxProfileStep : Step<String, GetXboxProfileFailure, TokenData> {
 
     private val logger = LoggerFactory.getLogger(GetXboxProfileStep::class.java)
 
-    override fun process(input: String): Result<GetXboxProfileFailure, TokenData> {
+    override suspend fun process(input: String): Result<GetXboxProfileFailure, TokenData> {
         return runBlocking {
             val body = XboxProfileRequest(XboxProperties("RPS", "user.auth.xboxlive.com", "d=$input"), "http://auth.xboxlive.com", "JWT")
             val result = apiPostJson("https://user.auth.xboxlive.com/user/authenticate", body)

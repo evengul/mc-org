@@ -11,7 +11,7 @@ sealed interface CreateWorldStepFailure : CreateWorldFailure {
 }
 
 object CreateWorldStep : Step<String, CreateWorldStepFailure, Int> {
-    override fun process(input: String): Result<CreateWorldStepFailure, Int> {
+    override suspend fun process(input: String): Result<CreateWorldStepFailure, Int> {
         return useConnection({ CreateWorldStepFailure.Other(it) }) {
             prepareStatement("insert into world (name) values (?) returning id")
                 .apply { setString(1, input) }

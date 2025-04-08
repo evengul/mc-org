@@ -16,7 +16,7 @@ data class VerifyUserInWorldInput(
 )
 
 object VerifyUserInWorld : Step<VerifyUserInWorldInput, VerifyUserInWorldFailure, VerifyUserInWorldInput> {
-    override fun process(input: VerifyUserInWorldInput): Result<VerifyUserInWorldFailure, VerifyUserInWorldInput> {
+    override suspend fun process(input: VerifyUserInWorldInput): Result<VerifyUserInWorldFailure, VerifyUserInWorldInput> {
         return useConnection({ VerifyUserInWorldFailure.Other(it) }) {
             prepareStatement("select 1 from permission where user_id = ? and world_id = ? limit 1")
                 .apply { setInt(1, input.userId); setInt(2, input.worldId) }

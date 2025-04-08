@@ -1,9 +1,9 @@
 package app.mcorg.domain.pipeline
 
 open class ContextAwareStep<I, C, E, S>(
-    private val contextProcessor: (I, C) -> Result<E, S>
+    private val contextProcessor: suspend (I, C) -> Result<E, S>
 ) : Step<WithContext<I, C>, E, S> {
-    override fun process(input: WithContext<I, C>): Result<E, S> {
+    override suspend fun process(input: WithContext<I, C>): Result<E, S> {
         return contextProcessor(input.value, input.context)
     }
 }
@@ -35,19 +35,19 @@ fun <I, E, S, C, R> Pipeline<I, E, WithContext<S, C>>.pipeWithContext(
 }
 
 fun <I, E, S, C, R> Pipeline<I, E, WithContext<S, C>>.mapValue(
-    transform: (S) -> R
+    transform: suspend (S) -> R
 ): Pipeline<I, E, WithContext<R, C>> {
     return this.map { ctx -> WithContext(transform(ctx.value), ctx.context) }
 }
 
 fun <I, E, S, C, NC> Pipeline<I, E, WithContext<S, C>>.mapContext(
-    transform: (C) -> NC
+    transform: suspend (C) -> NC
 ): Pipeline<I, E, WithContext<S, NC>> {
     return this.map { ctx -> WithContext(ctx.value, transform(ctx.context)) }
 }
 
 fun <I, E, S, C, R, NC> Pipeline<I, E, WithContext<S, C>>.mapBoth(
-    transform: (S, C) -> Pair<R, NC>
+    transform: suspend (S, C) -> Pair<R, NC>
 ): Pipeline<I, E, WithContext<R, NC>> {
     return this.map { ctx ->
         val (newValue, newContext) = transform(ctx.value, ctx.context)

@@ -6,7 +6,6 @@ import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.model.Local
 import app.mcorg.model.Test
-import app.mcorg.pipeline.RedirectStep
 import app.mcorg.pipeline.auth.AddCookieStep
 import app.mcorg.pipeline.auth.ConvertTokenStep
 import app.mcorg.pipeline.auth.CreateTokenStep
@@ -45,9 +44,8 @@ suspend fun ApplicationCall.handleGetSignIn() {
         .pipe(ConvertTokenStep(ISSUER))
         .pipe(GetProfileStepForAuth)
         .pipe(GetSelectedWorldIdStep)
-        .pipe(RedirectStep {
-            "/app/worlds/$it/projects"
-        }).mapFailure { it.toRedirect() }.execute(request.cookies)
+        .map { "/app/worlds/$it/projects" }
+        .mapFailure { it.toRedirect() }.execute(request.cookies)
     when(result) {
         is Result.Success -> respondHtml(signInTemplate(result.value))
         is Result.Failure -> when(result.error) {
@@ -100,7 +98,7 @@ suspend fun ApplicationCall.handleSignIn() {
         .pipe(Step.value(parameters))
         .pipe(GetMicrosoftCodeStep)
         .pipe(object : Step<String, SignInWithMinecraftFailure, GetMicrosoftTokenInput> {
-            override fun process(input: String): Result<SignInWithMinecraftFailure, GetMicrosoftTokenInput> {
+            override suspend fun process(input: String): Result<SignInWithMinecraftFailure, GetMicrosoftTokenInput> {
                 return Result.success(GetMicrosoftTokenInput(
                     code = input,
                     clientId = getMicrosoftClientId(),
