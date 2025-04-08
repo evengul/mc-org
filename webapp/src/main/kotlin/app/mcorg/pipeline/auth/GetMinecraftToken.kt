@@ -8,7 +8,6 @@ import app.mcorg.infrastructure.gateway.createMinecraftRequest
 import app.mcorg.pipeline.apiPostJson
 import io.ktor.client.call.body
 import io.ktor.http.isSuccess
-import kotlinx.coroutines.runBlocking
 
 sealed interface GetMinecraftTokenFailure : SignInWithMinecraftFailure {
     data object CouldNotGetMinecraftToken : GetMinecraftTokenFailure
@@ -16,15 +15,13 @@ sealed interface GetMinecraftTokenFailure : SignInWithMinecraftFailure {
 
 object GetMinecraftToken : Step<TokenData, GetMinecraftTokenFailure, String> {
     override suspend fun process(input: TokenData): Result<GetMinecraftTokenFailure, String> {
-        return runBlocking {
-            val url = "https://api.minecraftservices.com/authentication/login_with_xbox"
-            val body = MinecraftRequest(createMinecraftRequest(userHash = input.hash, xstsToken = input.token))
-            val response = apiPostJson(url, body)
-            if (response.status.isSuccess()) {
-                val token = response.body<MinecraftTokenResponse>().accessToken
-                return@runBlocking Result.success(token)
-            }
-            return@runBlocking Result.failure(GetMinecraftTokenFailure.CouldNotGetMinecraftToken)
+        val url = "https://api.minecraftservices.com/authentication/login_with_xbox"
+        val body = MinecraftRequest(createMinecraftRequest(userHash = input.hash, xstsToken = input.token))
+        val response = apiPostJson(url, body)
+        if (response.status.isSuccess()) {
+            val token = response.body<MinecraftTokenResponse>().accessToken
+            return Result.success(token)
         }
+        return Result.failure(GetMinecraftTokenFailure.CouldNotGetMinecraftToken)
     }
 }

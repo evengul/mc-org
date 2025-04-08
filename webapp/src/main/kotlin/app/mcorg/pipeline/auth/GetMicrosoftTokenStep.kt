@@ -9,7 +9,6 @@ import app.mcorg.model.Local
 import app.mcorg.pipeline.apiGetForm
 import io.ktor.client.call.body
 import io.ktor.http.isSuccess
-import kotlinx.coroutines.runBlocking
 
 sealed interface GetMicrosoftTokenFailure : SignInWithMinecraftFailure {
     data object NoHostForNonLocalEnv : GetMicrosoftTokenFailure
@@ -34,20 +33,18 @@ object GetMicrosoftTokenStep : Step<GetMicrosoftTokenInput, GetMicrosoftTokenFai
 
         val apiUrl = "https://login.microsoftonline.com/consumers/oauth2/v2.0/token"
 
-        return runBlocking {
-            val response = apiGetForm(apiUrl) {
-                append("code", code)
-                append("client_id", clientId)
-                append("client_secret", clientSecret)
-                append("grant_type", "authorization_code")
-                append("redirect_uri", redirectUrl)
-            }
-            if (response.status.isSuccess()) {
-                val token = response.body<MicrosoftAccessTokenResponse>()
-                return@runBlocking Result.success(token.accessToken)
-            }
-            val error = response.body<MicrosoftAccessTokenErrorResponse>()
-            return@runBlocking Result.failure(GetMicrosoftTokenFailure.CouldNotGetToken(error.error, error.description))
+        val response = apiGetForm(apiUrl) {
+            append("code", code)
+            append("client_id", clientId)
+            append("client_secret", clientSecret)
+            append("grant_type", "authorization_code")
+            append("redirect_uri", redirectUrl)
         }
+        if (response.status.isSuccess()) {
+            val token = response.body<MicrosoftAccessTokenResponse>()
+            return Result.success(token.accessToken)
+        }
+        val error = response.body<MicrosoftAccessTokenErrorResponse>()
+        return Result.failure(GetMicrosoftTokenFailure.CouldNotGetToken(error.error, error.description))
     }
 }
