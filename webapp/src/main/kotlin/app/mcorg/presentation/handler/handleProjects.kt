@@ -3,41 +3,60 @@ package app.mcorg.presentation.handler
 import app.mcorg.domain.cqrs.commands.project.AddProjectAssignmentCommand
 import app.mcorg.domain.cqrs.commands.project.CreateProjectCommand
 import app.mcorg.domain.cqrs.commands.project.RemoveProjectAssignmentCommand
-import app.mcorg.domain.model.projects.filterSortTasks
-import app.mcorg.domain.model.projects.matches
+import app.mcorg.domain.model.projects.*
+import app.mcorg.domain.model.users.Profile
 import app.mcorg.domain.model.users.User
+import app.mcorg.domain.pipeline.Pipeline
+import app.mcorg.pipeline.project.*
 import app.mcorg.presentation.configuration.ProjectCommands
 import app.mcorg.presentation.configuration.permissionsApi
 import app.mcorg.presentation.configuration.projectsApi
-import app.mcorg.presentation.configuration.usersApi
 import app.mcorg.presentation.entities.user.AssignUserRequest
 import app.mcorg.presentation.entities.user.DeleteAssignmentRequest
 import app.mcorg.presentation.hxOutOfBands
 import app.mcorg.presentation.mappers.InputMappers
 import app.mcorg.presentation.mappers.URLMappers
 import app.mcorg.presentation.mappers.project.createProjectInputMapper
-import app.mcorg.presentation.mappers.project.projectFilterInputMapper
 import app.mcorg.presentation.mappers.project.projectFilterURLMapper
 import app.mcorg.presentation.mappers.task.taskFilterInputMapper
 import app.mcorg.presentation.mappers.user.assignUserInputMapper
 import app.mcorg.presentation.templates.project.*
 import app.mcorg.presentation.utils.*
+import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.plugins.*
 import io.ktor.server.request.*
+import io.ktor.server.response.*
 import kotlinx.html.div
 import kotlinx.html.id
 import kotlinx.html.p
 import kotlinx.html.stream.createHTML
 
+data class GetProjectsData(
+    val worldId: Int,
+    val specification: ProjectSpecification = ProjectSpecification.default(),
+    val totalProjectCount: Int = 0,
+    val projects: List<SlimProject> = emptyList(),
+    val users: List<User> = emptyList(),
+    val currentUserProfile: Profile = Profile.default(),
+)
+
 suspend fun ApplicationCall.handleGetProjects() {
     val worldId = getWorldId()
-    val projects = projectsApi.getWorldProjects(worldId)
-    val users = permissionsApi.getUsersInWorld(worldId)
-    val currentUser = usersApi.getProfile(getUserId()) ?: throw NotFoundException()
-    val specification = InputMappers.projectFilterInputMapper(parameters)
-    val displayedProjects = projects.filter { it.matches(specification) }.sortedBy { it.name }
-    respondHtml(projects(worldId, displayedProjects, users, currentUser, specification, projects.size))
+    val userId = getUserId()
+
+    Pipeline.create<GetProjectsFailure, Parameters>()
+        .pipe(GetProjectSpecificationFromFormStep)
+        .map { GetProjectsData(worldId = worldId, specification = it) }
+        .pipe(GetSpecifiedProjectsStep)
+        .pipe(GetProfileForProjects(userId))
+        .pipe(GetWorldUsersForProjects)
+        .map { projects(it.worldId, it.projects, it.users, it.currentUserProfile, it.specification, it.totalProjectCount) }
+        .fold(
+            input = parameters,
+            onFailure = { respond(HttpStatusCode.InternalServerError, "Unknown error occurred") },
+            onSuccess = { respondHtml(it) }
+        )
 }
 
 suspend fun ApplicationCall.handlePostProject() {

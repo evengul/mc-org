@@ -40,6 +40,13 @@ sealed interface Result<out E, out S> {
         is Failure -> error
     }
 
+    suspend fun fold(onSuccess: suspend (S) -> Unit, onFailure: suspend (E) -> Unit) {
+        when (this) {
+            is Success -> onSuccess(value)
+            is Failure -> onFailure(error)
+        }
+    }
+
     companion object {
         fun <E, S> success(value: S): Result<E, S> = Success(value)
         fun <E> success(): Result<E, Unit> = Success(Unit)

@@ -62,6 +62,14 @@ class Pipeline<in I, out E, out S>(
         }
     }
 
+    suspend fun fold(
+        input: I,
+        onSuccess: suspend (S) -> Unit,
+        onFailure: suspend (E) -> Unit
+    ) {
+        execute(input).fold(onSuccess, onFailure)
+    }
+
     companion object {
         fun <E, I> create(): Pipeline<I, E, I> = Pipeline { Result.success(it) }
     }
