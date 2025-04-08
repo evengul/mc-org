@@ -25,6 +25,11 @@ sealed interface Result<out E, out S> {
         is Failure -> Failure(transform(error))
     }
 
+    fun recover(transform: (E) -> Result<@UnsafeVariance E, @UnsafeVariance S>): Result<E, S> = when (this) {
+        is Success -> this
+        is Failure -> transform(error)
+    }
+
     fun getOrNull(): S? = when (this) {
         is Success -> value
         is Failure -> null

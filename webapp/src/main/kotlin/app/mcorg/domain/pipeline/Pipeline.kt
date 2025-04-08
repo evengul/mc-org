@@ -55,6 +55,13 @@ class Pipeline<in I, out E, out S>(
         }
     }
 
+    fun recover(transform: (E) -> Result<@UnsafeVariance E, @UnsafeVariance S>): Pipeline<I, E, S> {
+        return Pipeline {
+            val intermediate = execute(it)
+            intermediate.recover(transform)
+        }
+    }
+
     companion object {
         fun <E, I> create(): Pipeline<I, E, I> = Pipeline { Result.success(it) }
     }
