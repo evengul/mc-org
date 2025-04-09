@@ -7,6 +7,8 @@ import app.mcorg.domain.model.projects.*
 import app.mcorg.domain.model.users.Profile
 import app.mcorg.domain.model.users.User
 import app.mcorg.domain.pipeline.Pipeline
+import app.mcorg.domain.pipeline.Step
+import app.mcorg.domain.pipeline.withValueAsContext
 import app.mcorg.pipeline.project.*
 import app.mcorg.presentation.configuration.ProjectCommands
 import app.mcorg.presentation.configuration.permissionsApi
@@ -62,6 +64,13 @@ suspend fun ApplicationCall.handleGetProjects() {
 suspend fun ApplicationCall.handlePostProject() {
     val createProjectRequest = InputMappers.createProjectInputMapper(receiveParameters())
     val worldId = getWorldId()
+
+    Pipeline.create<CreateProjectFailure, Parameters>()
+        .pipe(GetCreateProjectInputStep)
+        .pipe(ValidateCreateProjectInputStep(worldId))
+        .pipe(CreateProjectStep(worldId))
+        .pipe(GetProjectStep(GetProjectStep.Include.none()))
+        .map { it.toSlim().matches(URLMappers.projectFilterURLMapper(request.headers["HX-Current-URL"])) }
 
     ProjectCommands.createProject(worldId, createProjectRequest).fold(
         {

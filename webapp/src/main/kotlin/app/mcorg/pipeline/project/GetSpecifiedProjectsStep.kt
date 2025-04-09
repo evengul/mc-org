@@ -8,9 +8,10 @@ import app.mcorg.domain.model.users.User
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.DatabaseFailure
+import app.mcorg.pipeline.project.ProjectEnumMappers.toDimension
+import app.mcorg.pipeline.project.ProjectEnumMappers.toPriority
 import app.mcorg.pipeline.useConnection
 import app.mcorg.presentation.handler.GetProjectsData
-import java.sql.Connection
 
 sealed interface GetSpecifiedProjectsStepFailure : GetProjectsFailure {
     data class Other(val failure: DatabaseFailure) : GetSpecifiedProjectsStepFailure
@@ -49,39 +50,5 @@ object GetSpecifiedProjectsStep : Step<GetProjectsData, GetSpecifiedProjectsStep
                 ))
             }
         }
-    }
-
-    private fun getProjectProgress(connection: Connection, projectId: Int): Double {
-        connection.prepareStatement("""
-            select round((SUM(t.completed)::float / (select count(id) from task t where project_id = ?)::float)::numeric, 3)
-    from (select done::float / needed::float as completed from task where project_id = ?) t;
-        """.trimIndent())
-            .apply { setInt(1, projectId); setInt(2, projectId) }
-            .executeQuery()
-            .use { rs ->
-                if (rs.next()) {
-                    return rs.getDouble(1)
-                }
-            }
-        return 0.0
-    }
-
-    private fun String.toPriority(): Priority {
-        when(this) {
-            "NONE" -> return Priority.NONE
-            "LOW" -> return Priority.LOW
-            "MEDIUM" -> return Priority.MEDIUM
-            "HIGH" -> return Priority.HIGH
-        }
-        return Priority.NONE
-    }
-
-    private fun String.toDimension(): Dimension {
-        when(this) {
-            "OVERWORLD" -> return Dimension.OVERWORLD
-            "NETHER" -> return Dimension.NETHER
-            "THE_END" -> return Dimension.THE_END
-        }
-        return Dimension.OVERWORLD
     }
 }
