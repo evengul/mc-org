@@ -6,6 +6,7 @@ import app.mcorg.domain.model.projects.*
 import app.mcorg.domain.model.users.Profile
 import app.mcorg.domain.model.users.User
 import app.mcorg.domain.pipeline.Pipeline
+import app.mcorg.pipeline.DatabaseFailure
 import app.mcorg.pipeline.project.*
 import app.mcorg.presentation.configuration.ProjectCommands
 import app.mcorg.presentation.configuration.permissionsApi
@@ -122,11 +123,22 @@ suspend fun ApplicationCall.handleDeleteProject() {
     val worldId = getWorldId()
     val projectId = getProjectId()
 
-    ProjectCommands.deleteProject(projectId).fold(
-        { respondBadRequest("Project with this id could not be deleted") },
-        { respondHtml(getFilteredAndTotalProjectBasedOnFilter(worldId, request)) }
-    )
-
+    Pipeline.create<Any, Int>()
+        .pipe(DeleteProjectStep)
+        .map { URLMappers.projectFilterURLMapper(request.headers["HX-Current-URL"]) }
+        .pipe(GetProjectCountWithFilteredCount(worldId))
+        .map {
+            if (it.first != it.second) {
+                createHTML().p {
+                    oobFilteredProjectsDisplay(it.second, it.first)
+                }
+            } else ""
+        }
+        .fold(
+            input = projectId,
+            onSuccess = { respondHtml(it) },
+            onFailure = { respond(HttpStatusCode.InternalServerError, "Unknown error occurred") }
+        )
 }
 
 suspend fun ApplicationCall.handleGetProject() {
