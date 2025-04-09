@@ -3,10 +3,11 @@ package app.mcorg.presentation.handler
 import app.mcorg.domain.cqrs.commands.project.AddProjectAssignmentCommand
 import app.mcorg.domain.cqrs.commands.project.RemoveProjectAssignmentCommand
 import app.mcorg.domain.model.projects.*
+import app.mcorg.domain.model.task.TaskSpecification
 import app.mcorg.domain.model.users.Profile
 import app.mcorg.domain.model.users.User
 import app.mcorg.domain.pipeline.Pipeline
-import app.mcorg.pipeline.DatabaseFailure
+import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.project.*
 import app.mcorg.presentation.configuration.ProjectCommands
 import app.mcorg.presentation.configuration.permissionsApi
@@ -146,21 +147,36 @@ suspend fun ApplicationCall.handleGetProject() {
     val worldId = getWorldId()
     val projectId = getProjectId()
     val currentUser = getUser()
-    val users = permissionsApi.getUsersInWorld(worldId)
-    val project = projectsApi.getProject(projectId, includeTasks = true, includeDependencies = false)
-        ?: throw IllegalArgumentException("Project not found")
 
-    val taskSpecification = InputMappers.taskFilterInputMapper(parameters)
-
-    respondHtml(
-        project(
-            "/app/worlds/${getWorldId()}/projects",
-            project.filterSortTasks(taskSpecification, userId),
-            users,
-            currentUser,
-            taskSpecification
-        )
+    var stepData = Pair<TaskSpecification, Project?>(
+        TaskSpecification.default(),
+        null,
     )
+
+    Pipeline.create<Any, Int>()
+        .pipe(GetProjectStep(GetProjectStep.Include.onlyTasks()))
+        .map {
+            val taskSpecification = InputMappers.taskFilterInputMapper(parameters)
+            stepData = stepData.copy(first = taskSpecification)
+            it.filterSortTasks(taskSpecification, userId)
+        }
+        .peek { stepData = stepData.copy(second = it) }
+        .pipe(Step.value(currentUser))
+        .pipe(GetWorldUsersForProjects(worldId))
+        .map {
+            project(
+                "/app/worlds/${worldId}/projects",
+                stepData.second!!,
+                it,
+                currentUser,
+                stepData.first
+            )
+        }
+        .fold(
+            input = projectId,
+            onSuccess = { respondHtml(it) },
+            onFailure = { respond(HttpStatusCode.InternalServerError, "Unknown error occurred") }
+        )
 }
 
 suspend fun ApplicationCall.handlePatchProjectAssignee() {

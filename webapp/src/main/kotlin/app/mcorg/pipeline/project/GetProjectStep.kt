@@ -109,7 +109,7 @@ data class GetProjectStep(val include: Set<Include> = Include.none()) : Step<Int
         companion object {
             fun all() = setOf(Tasks, Dependencies)
             fun none() = emptySet<Include>()
-            fun some(vararg includes: Include) = setOf(includes.asList())
+            fun onlyTasks() = setOf(Tasks)
         }
     }
 }
