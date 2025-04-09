@@ -2,7 +2,6 @@ package app.mcorg.presentation.handler
 
 import app.mcorg.domain.model.minecraft.MinecraftProfile
 import app.mcorg.domain.pipeline.Pipeline
-import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.model.Local
 import app.mcorg.model.Test
@@ -39,50 +38,53 @@ import io.ktor.server.response.*
 import kotlin.random.Random
 
 suspend fun ApplicationCall.handleGetSignIn() {
-    val result = Pipeline.create<GetSignInPageFailure, RequestCookies>()
+    Pipeline.create<GetSignInPageFailure, RequestCookies>()
         .pipe(GetTokenStep(AUTH_COOKIE))
         .pipe(ConvertTokenStep(ISSUER))
         .pipe(GetProfileStepForAuth)
         .pipe(GetSelectedWorldIdStep)
         .map { "/app/worlds/$it/projects" }
-        .mapFailure { it.toRedirect() }.execute(request.cookies)
-    when(result) {
-        is Result.Success -> respondHtml(signInTemplate(result.value))
-        is Result.Failure -> when(result.error) {
-            is MissingToken -> respondHtml(signInTemplate(getSignInUrl()))
-            is Redirect -> respondRedirect(result.error.url)
-        }
-    }
+        .mapFailure { it.toRedirect() }
+        .fold(
+            input = request.cookies,
+            onSuccess = { respondHtml(signInTemplate(it)) },
+            onFailure = { when(it) {
+                is MissingToken -> respondHtml(signInTemplate(getSignInUrl()))
+                is Redirect -> respondRedirect(it.url)
+            } }
+        )
 }
 
 suspend fun ApplicationCall.handleLocalSignIn() {
-    val result = Pipeline.create<SignInLocallyFailure, Unit>()
+    Pipeline.create<SignInLocallyFailure, Unit>()
         .pipe(Step.value(getEnvironment()))
         .pipe(ValidateEnvStep(Local))
         .pipe(Step.value(MinecraftProfile("evegul", "test@example.com")))
         .pipe(CreateUserIfNotExistsStep(usersApi))
         .pipe(CreateTokenStep)
         .pipe(AddCookieStep(response.cookies, getHost() ?: "false"))
-        .execute(Unit)
-    when(result) {
-        is Result.Success -> respondRedirect("/")
-        is Result.Failure -> respond(HttpStatusCode.Forbidden)
-    }
+        .fold(
+            input = Unit,
+            onFailure = { respond(HttpStatusCode.Forbidden) },
+            onSuccess = {
+                respondRedirect("/")
+            }
+        )
 }
 
 suspend fun ApplicationCall.handleTestSignIn() {
-    val result = Pipeline.create<SignInLocallyFailure, Unit>()
+    Pipeline.create<SignInLocallyFailure, Unit>()
         .pipe(Step.value(getEnvironment()))
         .pipe(ValidateEnvStep(Test))
         .pipe(Step.value(getTestUser()))
         .pipe(CreateUserIfNotExistsStep(usersApi))
         .pipe(CreateTokenStep)
         .pipe(AddCookieStep(response.cookies, getHost() ?: "false"))
-        .execute(Unit)
-    when(result) {
-        is Result.Success -> respondRedirect("/")
-        is Result.Failure -> respond(HttpStatusCode.Forbidden)
-    }
+        .fold(
+            input = Unit,
+            onFailure = { respond(HttpStatusCode.Forbidden) },
+            onSuccess = { respondRedirect("/") }
+        )
 }
 
 private fun getTestUser(): MinecraftProfile {
@@ -94,20 +96,18 @@ private fun getTestUser(): MinecraftProfile {
 }
 
 suspend fun ApplicationCall.handleSignIn() {
-    val result = Pipeline.create<SignInWithMinecraftFailure, Unit>()
+    Pipeline.create<SignInWithMinecraftFailure, Unit>()
         .pipe(Step.value(parameters))
         .pipe(GetMicrosoftCodeStep)
-        .pipe(object : Step<String, SignInWithMinecraftFailure, GetMicrosoftTokenInput> {
-            override suspend fun process(input: String): Result<SignInWithMinecraftFailure, GetMicrosoftTokenInput> {
-                return Result.success(GetMicrosoftTokenInput(
-                    code = input,
-                    clientId = getMicrosoftClientId(),
-                    clientSecret = getMicrosoftClientSecret(),
-                    env = getEnvironment(),
-                    host = getHost()
-                ))
-            }
-        })
+        .map {
+            GetMicrosoftTokenInput(
+                code = it,
+                clientId = getMicrosoftClientId(),
+                clientSecret = getMicrosoftClientSecret(),
+                env = getEnvironment(),
+                host = getHost()
+            )
+        }
         .pipe(GetMicrosoftTokenStep)
         .pipe(GetXboxProfileStep)
         .pipe(GetXstsToken)
@@ -116,12 +116,11 @@ suspend fun ApplicationCall.handleSignIn() {
         .pipe(CreateUserIfNotExistsStep(usersApi))
         .pipe(CreateTokenStep)
         .pipe(AddCookieStep(response.cookies, getHost() ?: "false"))
-        .execute(Unit)
-
-    when(result) {
-        is Result.Success -> respondRedirect("/")
-        is Result.Failure -> respondRedirect(result.error.toRedirect().url)
-    }
+        .fold(
+            input = Unit,
+            onFailure = { respondRedirect(it.toRedirect().url) },
+            onSuccess = { respondRedirect("/") }
+        )
 }
 
 suspend fun ApplicationCall.handleGetSignOut() {

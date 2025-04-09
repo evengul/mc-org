@@ -2,7 +2,6 @@ package app.mcorg.presentation.handler
 
 import app.mcorg.domain.model.permissions.Authority
 import app.mcorg.domain.pipeline.Pipeline
-import app.mcorg.domain.pipeline.Result
 import app.mcorg.pipeline.world.CreateWorldFailure
 import app.mcorg.pipeline.world.CreateWorldPermissionFailure
 import app.mcorg.pipeline.world.CreateWorldPermissionStep
@@ -45,7 +44,7 @@ suspend fun ApplicationCall.handleGetWorlds() {
 suspend fun ApplicationCall.handlePostWorld() {
     val userId = getUserId()
 
-    val result = Pipeline.create<CreateWorldFailure, Parameters>()
+    Pipeline.create<CreateWorldFailure, Parameters>()
         .pipe(GetWorldNameStep)
         .pipe(ValidateWorldNonEmptyStep)
         .pipe(ValidateWorldNameLengthStep)
@@ -53,56 +52,57 @@ suspend fun ApplicationCall.handlePostWorld() {
         .pipe(CreateWorldStep)
         .pipe(CreateWorldPermissionStep(userId, Authority.OWNER))
         .pipe(SelectWorldStep(userId))
-        .execute(receiveParameters())
-
-    when (result) {
-        is Result.Success -> clientRedirect("/app/worlds/${result.value}")
-        is Result.Failure -> when(result.error) {
-            is GetWorldNameFailure.NotPresent -> respondBadRequest("Parameter worldName is required")
-            is WorldValidationFailure.WorldNameEmpty -> respondBadRequest("Parameter worldName is empty")
-            is WorldValidationFailure.WorldNameTooLong -> respondBadRequest("Parameter worldName is too long")
-            is ValidateAvailableWorldNameFailure.AlreadyExists -> respondBadRequest("World with this name already exists")
-            is ValidateAvailableWorldNameFailure.Other -> respond(InternalServerError, "World name validation failed")
-            is CreateWorldStepFailure.Other -> respond(InternalServerError, "World creation failed")
-            is SelectWorldStepFailure.Other -> respond(InternalServerError, "Could not select world after creation")
-            is CreateWorldPermissionFailure.Other -> respond(InternalServerError, "World permission creation failed")
-            is GetWorldSelectionValueFailure.NotFound -> throw IllegalStateException("This step should never be called")
-            is GetWorldSelectionValueFailure.NotInteger -> throw IllegalStateException("This step should never be called")
-        }
-    }
+        .fold(
+            input = receiveParameters(),
+            onSuccess = { clientRedirect("/app/worlds/$it") },
+            onFailure = {
+                when(it) {
+                    is GetWorldNameFailure.NotPresent -> respondBadRequest("Parameter worldName is required")
+                    is WorldValidationFailure.WorldNameEmpty -> respondBadRequest("Parameter worldName is empty")
+                    is WorldValidationFailure.WorldNameTooLong -> respondBadRequest("Parameter worldName is too long")
+                    is ValidateAvailableWorldNameFailure.AlreadyExists -> respondBadRequest("World with this name already exists")
+                    is ValidateAvailableWorldNameFailure.Other -> respond(InternalServerError, "World name validation failed")
+                    is CreateWorldStepFailure.Other -> respond(InternalServerError, "World creation failed")
+                    is SelectWorldStepFailure.Other -> respond(InternalServerError, "Could not select world after creation")
+                    is CreateWorldPermissionFailure.Other -> respond(InternalServerError, "World permission creation failed")
+                    is GetWorldSelectionValueFailure.NotFound -> throw IllegalStateException("This step should never be called")
+                    is GetWorldSelectionValueFailure.NotInteger -> throw IllegalStateException("This step should never be called")
+                }
+            }
+        )
 }
 
 suspend fun ApplicationCall.handleDeleteWorld() {
     val worldId = getWorldId()
 
-    val result = Pipeline.create<DeleteWorldFailure, Unit>()
+    Pipeline.create<DeleteWorldFailure, Unit>()
         .pipe(UnSelectWorldForAllUsersStep(worldId))
         .pipe(RemoveWorldPermissionsForAllUsersStep(worldId))
         .pipe(DeleteWorldStep(worldId))
-        .execute(Unit)
-
-    when (result) {
-        is Result.Success -> respondEmptyHtml()
-        is Result.Failure -> respondBadRequest("World could not be deleted")
-    }
+        .fold(
+            input = Unit,
+            onSuccess = { respondEmptyHtml() },
+            onFailure = { respondBadRequest("World could not be deleted") }
+        )
 }
 
 suspend fun ApplicationCall.handleSelectWorld() {
     val userId = getUserId()
 
-    val result = Pipeline.create<SelectWorldFailure, Parameters>()
+    Pipeline.create<SelectWorldFailure, Parameters>()
         .pipe(GetWorldSelectionValue)
         .pipe(SelectWorldStep(userId))
-        .execute(parameters)
-
-    when (result) {
-        is Result.Success -> clientRedirect("/app/worlds/${result.value}/projects")
-        is Result.Failure -> when (result.error) {
-            is GetWorldSelectionValueFailure.NotFound -> respondBadRequest("Parameter worldId is required")
-            is GetWorldSelectionValueFailure.NotInteger -> respondBadRequest("Parameter worldId must be an integer")
-            is SelectWorldStepFailure.Other -> respond(InternalServerError, "World selection failed")
-        }
-    }
+        .fold(
+            input = parameters,
+            onSuccess = { clientRedirect("/app/worlds/${it}/projects") },
+            onFailure = {
+                when(it) {
+                    is GetWorldSelectionValueFailure.NotFound -> respondBadRequest("Parameter worldId is required")
+                    is GetWorldSelectionValueFailure.NotInteger -> respondBadRequest("Parameter worldId must be an integer")
+                    is SelectWorldStepFailure.Other -> respond(InternalServerError, "World selection failed")
+                }
+            }
+        )
 }
 
 suspend fun ApplicationCall.handleGetWorld() {

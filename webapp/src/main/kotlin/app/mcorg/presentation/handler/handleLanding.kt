@@ -1,7 +1,6 @@
 package app.mcorg.presentation.handler
 
 import app.mcorg.domain.pipeline.Pipeline
-import app.mcorg.domain.pipeline.Result
 import app.mcorg.pipeline.auth.ConvertTokenStep
 import app.mcorg.pipeline.auth.GetProfileStepForAuth
 import app.mcorg.pipeline.auth.GetSelectedWorldIdStep
@@ -17,20 +16,19 @@ import io.ktor.server.request.RequestCookies
 import io.ktor.server.response.*
 
 suspend fun ApplicationCall.handleGetLanding() {
-    val result = Pipeline.create<GetSignInPageFailure, RequestCookies>()
+    Pipeline.create<GetSignInPageFailure, RequestCookies>()
         .pipe(GetTokenStep(AUTH_COOKIE))
         .pipe(ConvertTokenStep(ISSUER))
         .pipe(GetProfileStepForAuth)
         .pipe(GetSelectedWorldIdStep)
         .map { "/app/worlds/$it/projects" }
         .mapFailure { it.toRedirect() }
-        .execute(request.cookies)
-
-    when(result) {
-        is Result.Failure -> when(result.error) {
-            is MissingToken -> respondRedirect("/auth/sign-in")
-            is Redirect -> respondRedirect(result.error.url)
-        }
-        is Result.Success -> respondRedirect(result.value)
-    }
+        .fold(
+            input = request.cookies,
+            onSuccess = { respondRedirect(it) },
+            onFailure = { when(it) {
+                is MissingToken -> respondRedirect("/auth/sign-in")
+                is Redirect -> respondRedirect(it.url)
+            } }
+        )
 }

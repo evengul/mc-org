@@ -1,7 +1,6 @@
 package app.mcorg.presentation.handler
 
 import app.mcorg.domain.pipeline.Pipeline
-import app.mcorg.domain.pipeline.Result.Success
 import app.mcorg.pipeline.DatabaseFailure
 import app.mcorg.pipeline.permission.RemoveUserPermissionsStep
 import app.mcorg.pipeline.profile.GetProfileStep
@@ -22,19 +21,19 @@ import io.ktor.server.request.*
 import io.ktor.server.response.*
 
 suspend fun ApplicationCall.handleGetProfile() {
-    val result = Pipeline.create<DatabaseFailure, Int>()
+    Pipeline.create<DatabaseFailure, Int>()
         .pipe(GetProfileStep)
         .map { profile(it) }
-        .execute(getUserId())
-
-    if (result is Success) {
-        respondHtml(result.value)
-    } else {
-        when (result.errorOrNull()!!) {
-            is DatabaseFailure.NotFound -> respondNotFound()
-            else -> respond(HttpStatusCode.InternalServerError)
-        }
-    }
+        .fold(
+            input = getUserId(),
+            onSuccess = { respondHtml(it) },
+            onFailure = { failure ->
+                when (failure) {
+                    is DatabaseFailure.NotFound -> respondNotFound()
+                    else -> respond(HttpStatusCode.InternalServerError)
+                }
+            }
+        )
 }
 
 suspend fun ApplicationCall.handleUploadProfilePhoto() {
