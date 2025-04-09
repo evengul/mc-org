@@ -3,13 +3,9 @@ package app.mcorg.presentation.handler
 import app.mcorg.domain.model.permissions.Authority
 import app.mcorg.domain.pipeline.Pipeline
 import app.mcorg.domain.pipeline.Result
-import app.mcorg.domain.pipeline.mapValue
-import app.mcorg.domain.pipeline.pipeWithContext
-import app.mcorg.domain.pipeline.withContext
 import app.mcorg.pipeline.world.CreateWorldFailure
 import app.mcorg.pipeline.world.CreateWorldPermissionFailure
 import app.mcorg.pipeline.world.CreateWorldPermissionStep
-import app.mcorg.pipeline.world.CreateWorldPermissionStepInput
 import app.mcorg.pipeline.world.CreateWorldStep
 import app.mcorg.pipeline.world.CreateWorldStepFailure
 import app.mcorg.pipeline.world.DeleteWorldFailure
@@ -19,7 +15,6 @@ import app.mcorg.pipeline.world.GetWorldNameStep
 import app.mcorg.pipeline.world.GetWorldSelectionValue
 import app.mcorg.pipeline.world.GetWorldSelectionValueFailure
 import app.mcorg.pipeline.world.RemoveWorldPermissionsForAllUsersStep
-import app.mcorg.pipeline.world.SelectWorldAfterCreation
 import app.mcorg.pipeline.world.SelectWorldFailure
 import app.mcorg.pipeline.world.SelectWorldStep
 import app.mcorg.pipeline.world.SelectWorldStepFailure
@@ -56,10 +51,8 @@ suspend fun ApplicationCall.handlePostWorld() {
         .pipe(ValidateWorldNameLengthStep)
         .pipe(ValidateAvailableWorldName)
         .pipe(CreateWorldStep)
-        .withContext(userId)
-        .mapValue { CreateWorldPermissionStepInput(it, Authority.OWNER) }
-        .pipeWithContext(CreateWorldPermissionStep)
-        .pipeWithContext(SelectWorldAfterCreation)
+        .pipe(CreateWorldPermissionStep(userId, Authority.OWNER))
+        .pipe(SelectWorldStep(userId))
         .execute(receiveParameters())
 
     when (result) {
@@ -83,10 +76,9 @@ suspend fun ApplicationCall.handleDeleteWorld() {
     val worldId = getWorldId()
 
     val result = Pipeline.create<DeleteWorldFailure, Unit>()
-        .withContext(worldId)
-        .pipeWithContext(UnSelectWorldForAllUsersStep)
-        .pipeWithContext(RemoveWorldPermissionsForAllUsersStep)
-        .pipeWithContext(DeleteWorldStep)
+        .pipe(UnSelectWorldForAllUsersStep(worldId))
+        .pipe(RemoveWorldPermissionsForAllUsersStep(worldId))
+        .pipe(DeleteWorldStep(worldId))
         .execute(Unit)
 
     when (result) {
@@ -100,8 +92,7 @@ suspend fun ApplicationCall.handleSelectWorld() {
 
     val result = Pipeline.create<SelectWorldFailure, Parameters>()
         .pipe(GetWorldSelectionValue)
-        .withContext(userId)
-        .pipe(SelectWorldStep)
+        .pipe(SelectWorldStep(userId))
         .execute(parameters)
 
     when (result) {

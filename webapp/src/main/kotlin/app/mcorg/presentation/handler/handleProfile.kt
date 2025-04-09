@@ -2,9 +2,6 @@ package app.mcorg.presentation.handler
 
 import app.mcorg.domain.pipeline.Pipeline
 import app.mcorg.domain.pipeline.Result.Success
-import app.mcorg.domain.pipeline.extractValue
-import app.mcorg.domain.pipeline.pipeWithContext
-import app.mcorg.domain.pipeline.withContext
 import app.mcorg.pipeline.DatabaseFailure
 import app.mcorg.pipeline.permission.RemoveUserPermissionsStep
 import app.mcorg.pipeline.profile.GetProfileStep
@@ -49,9 +46,7 @@ suspend fun ApplicationCall.handleIsTechnical() {
     val isTechnical = receiveText() == "technicalPlayer=on"
 
     val result = Pipeline.create<DatabaseFailure, Boolean>()
-        .withContext(userId)
-        .pipeWithContext(IsTechnicalPlayerStep)
-        .extractValue()
+        .pipe(IsTechnicalPlayerStep(userId))
         .execute(isTechnical)
 
     if (result.isFailure) {
@@ -65,10 +60,9 @@ suspend fun ApplicationCall.handleDeleteUser() {
     val userId = getUserId()
 
     val result = Pipeline.create<DatabaseFailure, Unit>()
-        .withContext(userId)
-        .pipeWithContext(RemoveUserAssignmentsStep)
-        .pipeWithContext(RemoveUserPermissionsStep)
-        .pipeWithContext(DeleteUserStep)
+        .pipe(RemoveUserAssignmentsStep(userId))
+        .pipe(RemoveUserPermissionsStep(userId))
+        .pipe(DeleteUserStep(userId))
         .execute(Unit)
 
     if (result.isFailure) {

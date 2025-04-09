@@ -1,15 +1,17 @@
 package app.mcorg.pipeline.user
 
-import app.mcorg.domain.pipeline.ContextAwareStep
 import app.mcorg.domain.pipeline.Result
+import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.DatabaseFailure
 import app.mcorg.pipeline.useConnection
 
-object DeleteUserStep : ContextAwareStep<Unit, Int, DatabaseFailure, Unit>({ _, context ->
-    useConnection {
-        prepareStatement("delete from users where id = ?")
-            .apply { setInt(1, context) }
-            .executeUpdate()
-        return@useConnection Result.success()
+data class DeleteUserStep(val userId: Int) : Step<Unit, DatabaseFailure, Unit> {
+    override suspend fun process(input: Unit): Result<DatabaseFailure, Unit> {
+        return useConnection {
+            prepareStatement("delete from users where id = ?")
+                .apply { setInt(1, userId) }
+                .executeUpdate()
+            return@useConnection Result.success()
+        }
     }
-})
+}
