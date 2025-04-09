@@ -4,12 +4,6 @@ sealed interface Result<out E, out S> {
     data class Success<out S>(val value: S) : Result<Nothing, S>
     data class Failure<out E>(val error: E) : Result<E, Nothing>
 
-    val isSuccess: Boolean
-        get() = this is Success
-
-    val isFailure: Boolean
-        get() = this is Failure
-
     suspend fun <R> map(transform: suspend (S) -> R): Result<E, R> = when (this) {
         is Success -> Success(transform(value))
         is Failure -> this

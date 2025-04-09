@@ -45,30 +45,28 @@ suspend fun ApplicationCall.handleIsTechnical() {
     val userId = getUserId()
     val isTechnical = receiveText() == "technicalPlayer=on"
 
-    val result = Pipeline.create<DatabaseFailure, Boolean>()
+    Pipeline.create<DatabaseFailure, Boolean>()
         .pipe(IsTechnicalPlayerStep(userId))
-        .execute(isTechnical)
-
-    if (result.isFailure) {
-        respond(HttpStatusCode.InternalServerError)
-    } else {
-        respondHtml(createIsTechnicalCheckBox(isTechnical))
-    }
+        .fold(
+            input = isTechnical,
+            onFailure = { respond(HttpStatusCode.InternalServerError) },
+            onSuccess = { respondHtml(createIsTechnicalCheckBox(isTechnical)) }
+        )
 }
 
 suspend fun ApplicationCall.handleDeleteUser() {
     val userId = getUserId()
 
-    val result = Pipeline.create<DatabaseFailure, Unit>()
+    Pipeline.create<DatabaseFailure, Unit>()
         .pipe(RemoveUserAssignmentsStep(userId))
         .pipe(RemoveUserPermissionsStep(userId))
         .pipe(DeleteUserStep(userId))
-        .execute(Unit)
-
-    if (result.isFailure) {
-        respond(HttpStatusCode.InternalServerError)
-    } else {
-        response.cookies.removeToken(getHost() ?: "localhost")
-        clientRedirect("/auth/sign-in")
-    }
+        .fold(
+            input = Unit,
+            onFailure = { respond(HttpStatusCode.InternalServerError) },
+            onSuccess = {
+                response.cookies.removeToken(getHost() ?: "localhost")
+                clientRedirect("/auth/sign-in")
+            }
+        )
 }
