@@ -41,6 +41,14 @@ class Pipeline<in I, out E, out S>(
         }
     }
 
+    fun <R> pipe(nextStep: Step<S, @UnsafeVariance E, R>, peekFunk: suspend (R) -> Unit): Pipeline<I, E, R> {
+        return Pipeline {
+            val result = execute(it).flatMap(nextStep::process)
+            result.peek(peekFunk)
+            result
+        }
+    }
+
     fun <R> map(transform: suspend (S) -> R): Pipeline<I, E, R> {
         return Pipeline {
             val intermediate = execute(it)

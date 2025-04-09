@@ -47,16 +47,12 @@ suspend fun ApplicationCall.handleGetProjects() {
     var stepState = GetProjectsData(worldId = worldId)
 
     Pipeline.create<GetProjectsFailure, Parameters>()
-        .pipe(GetProjectSpecificationFromFormStep)
-        .peek { stepState = stepState.copy(specification = it) }
-        .pipe(GetSpecifiedProjectsStep(worldId))
-        .peek { stepState = stepState.copy(totalProjectCount = it.first, projects = it.second) }
-        .map { }
-        .pipe(GetProfileForProjects(userId))
-        .peek { stepState = stepState.copy(currentUserProfile = it) }
+        .pipe(GetProjectSpecificationFromFormStep) { stepState = stepState.copy(specification = it) }
+        .pipe(GetSpecifiedProjectsStep(worldId)) { stepState = stepState.copy(totalProjectCount = it.first, projects = it.second) }
+        .pipe(Step.value(Unit))
+        .pipe(GetProfileForProjects(userId)) { stepState = stepState.copy(currentUserProfile = it) }
         .map { it.toUser() }
-        .pipe(GetWorldUsersForProjects(worldId))
-        .peek { stepState = stepState.copy(users = it) }
+        .pipe(GetWorldUsersForProjects(worldId)) { stepState = stepState.copy(users = it) }
         .map { projects(stepState.worldId, stepState.projects, stepState.users, stepState.currentUserProfile, stepState.specification, stepState.totalProjectCount) }
         .fold(
             input = parameters,
@@ -82,12 +78,10 @@ suspend fun ApplicationCall.handlePostProject() {
         .pipe(GetCreateProjectInputStep)
         .pipe(ValidateCreateProjectInputStep(worldId))
         .pipe(CreateProjectStep(worldId))
-        .pipe(GetProjectStep(GetProjectStep.Include.none()))
-        .peek { stepState = stepState.copy(createdProject = it.toSlim()) }
+        .pipe(GetProjectStep(GetProjectStep.Include.none())) { stepState = stepState.copy(createdProject = it.toSlim()) }
         .map { URLMappers.projectFilterURLMapper(request.headers["HX-Current-URL"]) }
         .peek { stepState = stepState.copy(specification = it) }
-        .pipe(GetProjectCountWithFilteredCount(worldId))
-        .peek { stepState = stepState.copy(totalProjectCount = it.first, filteredProjectCount = it.second) }
+        .pipe(GetProjectCountWithFilteredCount(worldId)) { stepState = stepState.copy(totalProjectCount = it.first, filteredProjectCount = it.second) }
         .map { user }
         .pipe(GetWorldUsersForProjects(worldId))
         .map {

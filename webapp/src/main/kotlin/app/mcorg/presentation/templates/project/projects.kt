@@ -28,7 +28,7 @@ fun projects(
     }
     form {
         id = "projects-filter"
-        if (projects.isEmpty()) {
+        if (totalProjects == 0) {
             style = "display: none;"
         }
         div {
@@ -70,7 +70,7 @@ fun projects(
             }
         }
     }
-    if (projects.isEmpty()) {
+    if (totalProjects == 0) {
         div {
             id = "empty-project-state"
             classes = setOf("empty-state")
