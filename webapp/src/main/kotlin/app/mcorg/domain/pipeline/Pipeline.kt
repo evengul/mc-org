@@ -48,6 +48,13 @@ class Pipeline<in I, out E, out S>(
         }
     }
 
+    fun peek(peekFunc: suspend (S) -> Unit): Pipeline<I, E, S> {
+        return Pipeline {
+            val intermediate = execute(it)
+            intermediate.peek(peekFunc)
+        }
+    }
+
     fun <F> mapFailure(transform: suspend (E) -> F): Pipeline<I, F, S> {
         return Pipeline {
             val intermediate = execute(it)

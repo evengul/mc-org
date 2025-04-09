@@ -15,6 +15,14 @@ sealed interface Result<out E, out S> {
         is Failure -> this
     }
 
+    suspend fun peek(peekFunc: suspend (S) -> Unit): Result<E, S> = when (this) {
+        is Success -> {
+            peekFunc(value)
+            this
+        }
+        is Failure -> this
+    }
+
     suspend fun <R> flatMap(transform: suspend (S) -> Result<@UnsafeVariance E, R>): Result<E, R> = when (this) {
         is Success -> transform(value)
         is Failure -> this

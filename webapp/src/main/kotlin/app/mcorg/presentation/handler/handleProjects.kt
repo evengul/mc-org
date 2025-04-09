@@ -1,14 +1,11 @@
 package app.mcorg.presentation.handler
 
 import app.mcorg.domain.cqrs.commands.project.AddProjectAssignmentCommand
-import app.mcorg.domain.cqrs.commands.project.CreateProjectCommand
 import app.mcorg.domain.cqrs.commands.project.RemoveProjectAssignmentCommand
 import app.mcorg.domain.model.projects.*
 import app.mcorg.domain.model.users.Profile
 import app.mcorg.domain.model.users.User
 import app.mcorg.domain.pipeline.Pipeline
-import app.mcorg.domain.pipeline.Step
-import app.mcorg.domain.pipeline.withValueAsContext
 import app.mcorg.pipeline.project.*
 import app.mcorg.presentation.configuration.ProjectCommands
 import app.mcorg.presentation.configuration.permissionsApi
@@ -18,7 +15,6 @@ import app.mcorg.presentation.entities.user.DeleteAssignmentRequest
 import app.mcorg.presentation.hxOutOfBands
 import app.mcorg.presentation.mappers.InputMappers
 import app.mcorg.presentation.mappers.URLMappers
-import app.mcorg.presentation.mappers.project.createProjectInputMapper
 import app.mcorg.presentation.mappers.project.projectFilterURLMapper
 import app.mcorg.presentation.mappers.task.taskFilterInputMapper
 import app.mcorg.presentation.mappers.user.assignUserInputMapper
@@ -26,7 +22,6 @@ import app.mcorg.presentation.templates.project.*
 import app.mcorg.presentation.utils.*
 import io.ktor.http.*
 import io.ktor.server.application.*
-import io.ktor.server.plugins.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import kotlinx.html.div
@@ -47,13 +42,20 @@ suspend fun ApplicationCall.handleGetProjects() {
     val worldId = getWorldId()
     val userId = getUserId()
 
+    var stepState = GetProjectsData(worldId = worldId)
+
     Pipeline.create<GetProjectsFailure, Parameters>()
         .pipe(GetProjectSpecificationFromFormStep)
-        .map { GetProjectsData(worldId = worldId, specification = it) }
-        .pipe(GetSpecifiedProjectsStep)
+        .peek { stepState = stepState.copy(specification = it) }
+        .pipe(GetSpecifiedProjectsStep(worldId))
+        .peek { stepState = stepState.copy(totalProjectCount = it.first, projects = it.second) }
+        .map { }
         .pipe(GetProfileForProjects(userId))
-        .pipe(GetWorldUsersForProjects)
-        .map { projects(it.worldId, it.projects, it.users, it.currentUserProfile, it.specification, it.totalProjectCount) }
+        .peek { stepState = stepState.copy(currentUserProfile = it) }
+        .map { it.toUser() }
+        .pipe(GetWorldUsersForProjects(worldId))
+        .peek { stepState = stepState.copy(users = it) }
+        .map { projects(stepState.worldId, stepState.projects, stepState.users, stepState.currentUserProfile, stepState.specification, stepState.totalProjectCount) }
         .fold(
             input = parameters,
             onFailure = { respond(HttpStatusCode.InternalServerError, "Unknown error occurred") },
@@ -61,43 +63,59 @@ suspend fun ApplicationCall.handleGetProjects() {
         )
 }
 
+data class PostProjectData(
+    val specification: ProjectSpecification = ProjectSpecification.default(),
+    val createdProject: SlimProject? = null,
+    val totalProjectCount: Int = 0,
+    val filteredProjectCount: Int = 0,
+)
+
 suspend fun ApplicationCall.handlePostProject() {
-    val createProjectRequest = InputMappers.createProjectInputMapper(receiveParameters())
     val worldId = getWorldId()
+    val user = getUser()
+
+    var stepState = PostProjectData()
 
     Pipeline.create<CreateProjectFailure, Parameters>()
         .pipe(GetCreateProjectInputStep)
         .pipe(ValidateCreateProjectInputStep(worldId))
         .pipe(CreateProjectStep(worldId))
         .pipe(GetProjectStep(GetProjectStep.Include.none()))
-        .map { it.toSlim().matches(URLMappers.projectFilterURLMapper(request.headers["HX-Current-URL"])) }
-
-    ProjectCommands.createProject(worldId, createProjectRequest).fold(
-        {
-            when (it) {
-                is CreateProjectCommand.ProjectNameAlreadyExistsFailure -> respondBadRequest("Project with this name already exists in the world")
-            }
-        },
-        {
-            val projectId = it.projectId
-            val project = projectsApi.getProject(projectId)?.toSlim() ?: throw NotFoundException()
-            val users = permissionsApi.getUsersInWorld(worldId)
-            val currentUser = getUser()
-            val filter = URLMappers.projectFilterURLMapper(request.headers["HX-Current-URL"])
-            if (project.matches(filter)) {
-                respondHtml(
-                    getFilteredAndTotalProjectBasedOnFilter(worldId, request) + "\n" + createProjectListElement(
-                        worldId,
-                        project,
-                        users,
-                        currentUser
-                    )
+        .peek { stepState = stepState.copy(createdProject = it.toSlim()) }
+        .map { URLMappers.projectFilterURLMapper(request.headers["HX-Current-URL"]) }
+        .peek { stepState = stepState.copy(specification = it) }
+        .pipe(GetProjectCountWithFilteredCount(worldId))
+        .peek { stepState = stepState.copy(totalProjectCount = it.first, filteredProjectCount = it.second) }
+        .map { user }
+        .pipe(GetWorldUsersForProjects(worldId))
+        .map {
+            val project = stepState.createdProject
+            if (project != null) {
+                val projectListElement = createProjectListElement(
+                    worldId,
+                    project,
+                    it,
+                    user
                 )
-            } else {
-                respondHtml(getFilteredAndTotalProjectBasedOnFilter(worldId, request))
+                if (project.matches(stepState.specification)) {
+                    if (stepState.filteredProjectCount != stepState.totalProjectCount) {
+                        return@map createHTML().p {
+                            oobFilteredProjectsDisplay(stepState.filteredProjectCount, stepState.totalProjectCount)
+                        } + "\n" + projectListElement
+                    }
+                    return@map projectListElement
+                }
+                return@map createHTML().p {
+                    oobFilteredProjectsDisplay(stepState.filteredProjectCount, stepState.totalProjectCount)
+                }
             }
+            return@map ""
         }
-    )
+        .fold(
+            input = receiveParameters(),
+            onSuccess = { respondHtml(it) },
+            onFailure = { respond(HttpStatusCode.InternalServerError, "Unknown error occurred") }
+        )
 }
 
 suspend fun ApplicationCall.handleDeleteProject() {
