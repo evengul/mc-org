@@ -7,13 +7,13 @@ import app.mcorg.pipeline.DatabaseFailure
 import app.mcorg.pipeline.useConnection
 import app.mcorg.presentation.handler.GetUsersData
 
-sealed interface GetOtherUsersFailure : GetWorldParticipantsFailure {
-    data class Other(val failure: DatabaseFailure) : GetOtherUsersFailure
+sealed interface GetOtherUsersStepFailure : GetWorldParticipantsFailure {
+    data class Other(val failure: DatabaseFailure) : GetOtherUsersStepFailure
 }
 
-object GetOtherUsersStep : Step<GetUsersData, GetOtherUsersFailure, GetUsersData> {
-    override suspend fun process(input: GetUsersData): Result<GetOtherUsersFailure, GetUsersData> {
-        return useConnection({ GetOtherUsersFailure.Other(it) }) {
+object GetOtherUsersStep : Step<GetUsersData, GetOtherUsersStepFailure, GetUsersData> {
+    override suspend fun process(input: GetUsersData): Result<GetOtherUsersStepFailure, GetUsersData> {
+        return useConnection({ GetOtherUsersStepFailure.Other(it) }) {
             prepareStatement("select id, username from users where id != ? and id in (select user_id from permission where world_id = ?)")
                 .apply {
                     setInt(1, input.currentUserId)

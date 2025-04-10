@@ -28,12 +28,6 @@ fun Route.taskRouter() {
         patch("/stage") {
             call.handleUpdateTaskStage()
         }
-        patch("/complete") {
-            call.handleCompleteTask()
-        }
-        patch("/incomplete") {
-            call.handleIncompleteTask()
-        }
         patch("/do-more") {
             call.handlePatchCountableTaskDoneMore()
         }

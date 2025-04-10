@@ -15,7 +15,7 @@ data class Task(val id: Int,
                 val stage: TaskStage,
 ) {
     fun isDone(): Boolean {
-        return done >= needed
+        return done >= needed || stage == TaskStages.DONE
     }
 
     fun isCountable() = taskType == TaskType.COUNTABLE

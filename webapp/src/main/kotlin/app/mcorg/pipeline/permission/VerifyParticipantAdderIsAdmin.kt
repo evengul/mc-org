@@ -6,7 +6,7 @@ import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.DatabaseFailure
 import app.mcorg.pipeline.useConnection
 
-sealed interface VerifyParticipantAdderIsAdminFailure : AddWorldParticipantFailure, RemoveWorldParticipantFailure, GetOtherUsersFailure {
+sealed interface VerifyParticipantAdderIsAdminFailure : AddWorldParticipantFailure, RemoveWorldParticipantFailure, GetWorldParticipantsFailure {
     data object NotAdmin : VerifyParticipantAdderIsAdminFailure
     data class Other(val failure: DatabaseFailure) : VerifyParticipantAdderIsAdminFailure
 }

@@ -22,8 +22,8 @@ fun Route.projectRouter() {
         patch("/assign") {
             call.handlePatchProjectAssignee()
         }
-    }
-    route("/tasks") {
-        taskRouter()
+        route("/tasks") {
+            taskRouter()
+        }
     }
 }

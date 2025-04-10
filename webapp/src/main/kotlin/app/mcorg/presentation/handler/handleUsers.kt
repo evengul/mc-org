@@ -27,7 +27,7 @@ suspend fun ApplicationCall.handleGetUsers() {
     val worldId = getWorldId()
     val currentUser = getUser()
 
-    Pipeline.create<GetOtherUsersFailure, Unit>()
+    Pipeline.create<GetWorldParticipantsFailure, Unit>()
         .pipe(Step.value(WorldUser(worldId = worldId, userId = currentUser.id)))
         .pipe(VerifyParticipantAdderIsAdmin)
         .map { true }.recover { if (it is VerifyParticipantAdderIsAdminFailure.NotAdmin) Result.success(false) else Result.failure(it) }
@@ -41,7 +41,7 @@ suspend fun ApplicationCall.handleGetUsers() {
                 when (failure) {
                     is VerifyParticipantAdderIsAdminFailure.NotAdmin -> respond(HttpStatusCode.Forbidden, "You are not an admin of this world")
                     is VerifyParticipantAdderIsAdminFailure.Other -> respond(HttpStatusCode.InternalServerError, "An unknown error occurred")
-                    is GetOtherUsersFailure.Other -> respond(HttpStatusCode.InternalServerError, "An unknown error occurred")
+                    is GetOtherUsersStepFailure.Other -> respond(HttpStatusCode.InternalServerError, "An unknown error occurred")
                 }
             }
         )

@@ -1,5 +1,7 @@
 package app.mcorg.domain.pipeline
 
+import org.slf4j.LoggerFactory
+
 interface Step<in I, out E, out S> {
     suspend fun process(input: I): Result<E, S>
 
@@ -16,10 +18,9 @@ interface Step<in I, out E, out S> {
         ): Step<I, E, I> {
             return object : Step<I, E, I> {
                 override suspend fun process(input: I): Result<E, I> {
-                    return if (predicate(input)) {
-                        Result.success(input)
-                    } else {
-                        Result.failure(error)
+                    return when(predicate(input)) {
+                        true -> Result.success(input)
+                        false -> Result.failure(error)
                     }
                 }
             }
@@ -46,6 +47,31 @@ class Pipeline<in I, out E, out S>(
             val result = execute(it).flatMap(nextStep::process)
             result.peek(peekFunk)
             result
+        }
+    }
+
+    fun <E0, S0, R> wrapPipe(
+        nextStep: Step<S, E0, S0>,
+        wrapFunc: suspend (Result<E0, S0>) -> Result<@UnsafeVariance E, @UnsafeVariance R>
+    ): Pipeline<I, E, R> {
+        return Pipeline {
+            val wrapStep = object : Step<@UnsafeVariance S, E, R> {
+                override suspend fun process(input: @UnsafeVariance S): Result<E, R> {
+                    return wrapFunc(nextStep.process(input))
+                }
+            }
+            val intermediate = execute(it)
+            intermediate.flatMap(wrapStep::process)
+        }
+    }
+
+    fun <R> andThen(nextPipeline: Pipeline<S, @UnsafeVariance E, R>): Pipeline<I, E, R> {
+        return Pipeline { input ->
+            val result = execute(input)
+            when (result) {
+                is Result.Success -> nextPipeline.execute(result.value)
+                is Result.Failure -> Result.failure(result.error)
+            }
         }
     }
 
@@ -82,7 +108,11 @@ class Pipeline<in I, out E, out S>(
         onSuccess: suspend (S) -> Unit,
         onFailure: suspend (E) -> Unit
     ) {
-        execute(input).fold(onSuccess, onFailure)
+        val logger = LoggerFactory.getLogger(Pipeline::class.java)
+        execute(input).fold(onSuccess) {
+            logger.error("Pipeline failed with error: $it")
+            onFailure(it)
+        }
     }
 
     companion object {

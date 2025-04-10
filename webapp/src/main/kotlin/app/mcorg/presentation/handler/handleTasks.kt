@@ -1,50 +1,102 @@
 package app.mcorg.presentation.handler
 
-import app.mcorg.domain.model.projects.Priority
-import app.mcorg.domain.model.task.TaskStages
-import app.mcorg.presentation.configuration.permissionsApi
+import app.mcorg.domain.model.projects.Project
+import app.mcorg.domain.model.task.TaskSpecification
+import app.mcorg.domain.model.users.User
+import app.mcorg.domain.pipeline.Pipeline
+import app.mcorg.domain.pipeline.Result
+import app.mcorg.pipeline.project.GetProjectAssignmentInputStep
+import app.mcorg.pipeline.project.GetProjectAssignmentInputStepFailure
+import app.mcorg.pipeline.project.GetProjectStep
+import app.mcorg.pipeline.project.GetProjectStepFailure
+import app.mcorg.pipeline.project.GetWorldUsersForProjects
+import app.mcorg.pipeline.project.GetWorldUsersForProjectsFailure
+import app.mcorg.pipeline.task.AssignTaskFailure
+import app.mcorg.pipeline.task.AssignTaskOrRemoveTaskAssignmentStep
+import app.mcorg.pipeline.task.ConvertMaterialListStep
+import app.mcorg.pipeline.task.CountableTaskValidator
+import app.mcorg.pipeline.task.CreateCountableTaskFailure
+import app.mcorg.pipeline.task.CreateCountableTaskStep
+import app.mcorg.pipeline.task.CreateDoableTaskFailure
+import app.mcorg.pipeline.task.CreateDoableTaskStep
+import app.mcorg.pipeline.task.CreateLitematicaTasksFailure
+import app.mcorg.pipeline.task.CreateLitematicaTasksStep
+import app.mcorg.pipeline.task.DeleteTaskFailure
+import app.mcorg.pipeline.task.DeleteTaskStep
+import app.mcorg.pipeline.task.EditDoneMoreTaskFailure
+import app.mcorg.pipeline.task.GetCountableTaskDoneMoreInputStep
+import app.mcorg.pipeline.task.GetCountableTaskInputStep
+import app.mcorg.pipeline.task.GetCountableTasksEditInputStep
+import app.mcorg.pipeline.task.GetDoableTaskInputStep
+import app.mcorg.pipeline.task.GetLitematicaTasksInputStep
+import app.mcorg.pipeline.task.GetTaskStageInputStep
+import app.mcorg.pipeline.task.GetTasksFailure
+import app.mcorg.pipeline.task.LitematicaTasksValidator
+import app.mcorg.pipeline.task.UpdateCountableTaskDoneStep
+import app.mcorg.pipeline.task.UpdateCountableTaskRequirementsStep
+import app.mcorg.pipeline.task.UpdateTaskRequirementsFailure
+import app.mcorg.pipeline.task.UpdateTaskStageFailure
+import app.mcorg.pipeline.task.UpdateTaskStageStep
+import app.mcorg.pipeline.task.ValidateCountableTaskRequirementsStep
+import app.mcorg.pipeline.task.ValidateMaterialListStep
+import app.mcorg.pipeline.task.ValidateTaskNameStep
 import app.mcorg.presentation.configuration.projectsApi
-import app.mcorg.presentation.entities.user.AssignUserRequest
-import app.mcorg.presentation.entities.user.DeleteAssignmentRequest
-import app.mcorg.presentation.mappers.InputMappers
 import app.mcorg.presentation.mappers.URLMappers
 import app.mcorg.presentation.mappers.task.*
-import app.mcorg.presentation.mappers.user.assignUserInputMapper
 import app.mcorg.presentation.templates.task.board.createTaskBoard
 import app.mcorg.presentation.utils.*
 import io.ktor.http.*
+import io.ktor.http.content.MultiPartData
 import io.ktor.server.application.*
-import io.ktor.server.plugins.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 
 suspend fun ApplicationCall.handlePostDoableTask() {
-    val (name) = InputMappers.createDoableTaskInputMapper(receiveParameters())
     val projectId = getProjectId()
-    projectsApi.addDoableTask(projectId, name, Priority.LOW)
-
-    respondUpdatedTaskList(projectId)
+    Pipeline.create<CreateDoableTaskFailure, Parameters>()
+        .pipe(GetDoableTaskInputStep)
+        .pipe(ValidateTaskNameStep)
+        .pipe(CreateDoableTaskStep(projectId))
+        .map { projectId }
+        .andThen(getRefreshTasksPipeline())
+        .fold(
+            input = receiveParameters(),
+            onSuccess = { respondHtml(it) },
+            onFailure = { respond(HttpStatusCode.InternalServerError, "An unknown error occurred") }
+        )
 }
 
 suspend fun ApplicationCall.handlePostCountableTask() {
-    val (name, amount) = InputMappers.createCountableTaskInputMapper(receiveParameters())
     val projectId = getProjectId()
-    projectsApi.addCountableTask(projectId, name, Priority.LOW, needed = amount)
-    respondUpdatedTaskList(projectId)
+    Pipeline.create<CreateCountableTaskFailure, Parameters>()
+        .pipe(GetCountableTaskInputStep)
+        .pipe(CountableTaskValidator)
+        .pipe(CreateCountableTaskStep(projectId))
+        .map { projectId }
+        .andThen(getRefreshTasksPipeline())
+        .fold(
+            input = receiveParameters(),
+            onSuccess = { respondHtml(it) },
+            onFailure = { respond(HttpStatusCode.InternalServerError, "An unknown error occurred") }
+        )
 }
 
 suspend fun ApplicationCall.handlePostLitematicaTasks() {
     val projectId = getProjectId()
-    val tasks = InputMappers.createTasksFromMaterialListInputMapper(receiveMultipart())
-    tasks.forEach {
-        projectsApi.addCountableTask(
-            projectId = projectId,
-            name = it.name,
-            priority = Priority.LOW,
-            needed = it.needed
+
+    Pipeline.create<CreateLitematicaTasksFailure, MultiPartData>()
+        .pipe(GetLitematicaTasksInputStep)
+        .pipe(ValidateMaterialListStep)
+        .pipe(ConvertMaterialListStep)
+        .pipe(LitematicaTasksValidator)
+        .pipe(CreateLitematicaTasksStep(projectId))
+        .map { projectId }
+        .andThen(getRefreshTasksPipeline())
+        .fold(
+            input = receiveMultipart(),
+            onSuccess = { respondHtml(it) },
+            onFailure = { respond(HttpStatusCode.InternalServerError, "An unknown error occurred") }
         )
-    }
-    respondUpdatedTaskList(projectId)
 }
 
 suspend fun ApplicationCall.handleDeleteTask() {
@@ -52,98 +104,125 @@ suspend fun ApplicationCall.handleDeleteTask() {
     val taskId = getTaskId()
     projectsApi.removeTask(taskId)
 
-    respondUpdatedTaskList(projectId)
+    Pipeline.create<DeleteTaskFailure, Int>()
+        .pipe(DeleteTaskStep)
+        .map { projectId }
+        .andThen(getRefreshTasksPipeline())
+        .fold(
+            input = taskId,
+            onSuccess = { respondHtml(it) },
+            onFailure = { respond(HttpStatusCode.InternalServerError, "An unknown error occurred") }
+        )
 }
 
 suspend fun ApplicationCall.handlePatchCountableTaskDoneMore() {
     val projectId = getProjectId()
-    val done = parameters["done"]?.toIntOrNull() ?: 0
     val taskId = getTaskId()
-    projectsApi.taskDoneMore(taskId, done)
 
-    respondUpdatedTaskList(projectId)
-}
-
-suspend fun ApplicationCall.handlePatchTaskAssignee() {
-    val request = InputMappers.assignUserInputMapper(receiveParameters())
-
-    if (request is DeleteAssignmentRequest) return handleDeleteTaskAssignee()
-    val (userId) = request as AssignUserRequest
-    val worldId = getWorldId()
-    val projectId = getProjectId()
-    val taskId = getTaskId()
-    val users = permissionsApi.getUsersInWorld(worldId)
-    val user = users.find { it.id == userId }
-    if (user != null) {
-        projectsApi.assignTask(taskId, user.id)
-
-        respondUpdatedTaskList(projectId)
-    } else {
-        throw IllegalArgumentException("User does not exist in project")
-    }
-}
-
-suspend fun ApplicationCall.handleUpdateTaskStage() {
-    val stage = when(parameters["stage"]) {
-        "TODO" -> TaskStages.TODO
-        "IN_PROGRESS" -> TaskStages.IN_PROGRESS
-        "DONE" -> TaskStages.DONE
-        else -> throw BadRequestException("Invalid stage")
-    }
-
-    val taskId = getTaskId()
-    projectsApi.updateTaskStage(taskId, stage)
-    respond(HttpStatusCode.NoContent)
-}
-
-suspend fun ApplicationCall.handleDeleteTaskAssignee() {
-    val projectId = getProjectId()
-    val taskId = getTaskId()
-    projectsApi.removeTaskAssignment(taskId)
-
-    respondUpdatedTaskList(projectId)
-}
-
-suspend fun ApplicationCall.handleCompleteTask() {
-    handleTaskCompletion(true)
-}
-
-suspend fun ApplicationCall.handleIncompleteTask() {
-    handleTaskCompletion(false)
-}
-
-private suspend fun ApplicationCall.handleTaskCompletion(complete: Boolean) {
-    val projectId = getProjectId()
-    val taskId = getTaskId()
-    if(complete) {
-        projectsApi.completeTask(taskId)
-    } else {
-        projectsApi.undoCompleteTask(taskId)
-    }
-
-    respondUpdatedTaskList(projectId)
+    Pipeline.create<EditDoneMoreTaskFailure, Parameters>()
+        .pipe(GetCountableTaskDoneMoreInputStep)
+        .pipe(ValidateCountableTaskRequirementsStep)
+        .pipe(UpdateCountableTaskDoneStep(taskId))
+        .map { projectId }
+        .andThen(getRefreshTasksPipeline())
+        .fold(
+            input = parameters,
+            onSuccess = { respondHtml(it) },
+            onFailure = { respond(HttpStatusCode.InternalServerError, "An unknown error occurred") }
+        )
 }
 
 suspend fun ApplicationCall.handleEditTaskRequirements() {
     val projectId = getProjectId()
-    val (id, needed, done) = InputMappers.editCountableTaskRequirementsInputMapper(receiveParameters())
-    projectsApi.editTaskRequirements(id, needed, done)
-
-    respondUpdatedTaskList(projectId)
+    Pipeline.create<UpdateTaskRequirementsFailure, Parameters>()
+        .pipe(GetCountableTasksEditInputStep)
+        .pipe(UpdateCountableTaskRequirementsStep)
+        .map { projectId }
+        .andThen(getRefreshTasksPipeline())
+        .fold(
+            input = receiveParameters(),
+            onSuccess = { respondHtml(it) },
+            onFailure = { respond(HttpStatusCode.InternalServerError, "An unknown error occurred") }
+        )
 }
 
-private suspend fun ApplicationCall.respondUpdatedTaskList(projectId: Int) {
-    hxTarget("#task-board")
-    hxSwap("outerHTML")
-
+suspend fun ApplicationCall.handlePatchTaskAssignee() {
     val worldId = getWorldId()
-    val filters = URLMappers.taskFilterURLMapper(getCurrentUrl())
+    val projectId = getProjectId()
+    val taskId = getTaskId()
 
-    val project = projectsApi.getProject(projectId, includeTasks = true) ?: throw NotFoundException("Could not find project $projectId")
-    val users = permissionsApi.getUsersInWorld(worldId)
+    Pipeline.create<AssignTaskFailure, Parameters>()
+        .wrapPipe(GetProjectAssignmentInputStep) {
+            when(it) {
+                is Result.Failure -> when (it.error) {
+                    is GetProjectAssignmentInputStepFailure.UserIdNotPresent -> Result.failure(AssignTaskFailure.UserIdNotPresent)
+                }
+                is Result.Success -> Result.success(it.value)
+            }
+        }
+        .pipe(AssignTaskOrRemoveTaskAssignmentStep(worldId, taskId))
+        .map { projectId }
+        .andThen(getRefreshTasksPipeline())
+        .fold(
+            input = receiveParameters(),
+            onSuccess = { respondHtml(it) },
+            onFailure = { respond(HttpStatusCode.InternalServerError, "An unknown error occurred") }
+        )
+}
+
+suspend fun ApplicationCall.handleUpdateTaskStage() {
+    val taskId = getTaskId()
+
+    Pipeline.create<UpdateTaskStageFailure, Parameters>()
+        .pipe(GetTaskStageInputStep)
+        .pipe(UpdateTaskStageStep(taskId))
+        .fold(
+            input = parameters,
+            onSuccess = { respond(HttpStatusCode.NoContent) },
+            onFailure = { respond(HttpStatusCode.InternalServerError, "An unknown error occurred") }
+        )
+}
+
+data class GetTasksData(
+    var project: Project? = null,
+    var specification: TaskSpecification = TaskSpecification.default(),
+    var users: List<User> = emptyList<User>()
+)
+
+private fun ApplicationCall.getRefreshTasksPipeline(): Pipeline<Int, GetTasksFailure, String> {
+    val stepData = GetTasksData()
+    val worldId = getWorldId()
     val currentUser = getUser()
 
-    val sortedFilteredProject = filterAndSortProject(currentUser.id, project, filters)
+    return Pipeline.create<GetTasksFailure, Int>()
+        .wrapPipe(GetProjectStep(GetProjectStep.Include.onlyTasks())) {
+            when (it) {
+                is Result.Failure -> when (it.error) {
+                    is GetProjectStepFailure.NotFound -> Result.failure(GetTasksFailure.ProjectNotFound)
+                    is GetProjectStepFailure.Other -> Result.failure(GetTasksFailure.Other(it.error.failure))
+                }
 
-    respondHtml(createTaskBoard(sortedFilteredProject, users, currentUser))
+                is Result.Success -> Result.success(it.value)
+            }
+        }
+        .peek { stepData.project = it }
+        .map { URLMappers.taskFilterURLMapper(getCurrentUrl()) }
+        .peek { stepData.specification = it }
+        .map { currentUser }
+        .wrapPipe(GetWorldUsersForProjects(worldId)) {
+            when (it) {
+                is Result.Failure -> when (it.error) {
+                    is GetWorldUsersForProjectsFailure.Other -> Result.failure(GetTasksFailure.Other(it.error.failure))
+                }
+
+                is Result.Success -> Result.success(it.value)
+            }
+        }
+        .peek { stepData.users = it }
+        .map {
+            hxTarget("#task-board")
+            hxSwap("outerHTML")
+            val filteredProject = filterAndSortProject(currentUser.id, stepData.project!!, stepData.specification)
+            createTaskBoard(filteredProject, stepData.users, currentUser)
+        }
 }
