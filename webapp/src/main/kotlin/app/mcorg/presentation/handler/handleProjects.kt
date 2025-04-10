@@ -118,7 +118,7 @@ suspend fun ApplicationCall.handleDeleteProject() {
     val worldId = getWorldId()
     val projectId = getProjectId()
 
-    Pipeline.create<Any, Int>()
+    Pipeline.create<DeleteProjectFailure, Int>()
         .pipe(DeleteProjectStep)
         .map { URLMappers.projectFilterURLMapper(request.headers["HX-Current-URL"]) }
         .pipe(GetProjectCountWithFilteredCount(worldId))
@@ -147,7 +147,7 @@ suspend fun ApplicationCall.handleGetProject() {
         null,
     )
 
-    Pipeline.create<Any, Int>()
+    Pipeline.create<GetProjectFailure, Int>()
         .pipe(GetProjectStep(GetProjectStep.Include.onlyTasks()))
         .map {
             val taskSpecification = InputMappers.taskFilterInputMapper(parameters)

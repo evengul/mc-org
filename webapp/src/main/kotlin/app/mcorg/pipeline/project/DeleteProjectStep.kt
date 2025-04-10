@@ -5,9 +5,13 @@ import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.DatabaseFailure
 import app.mcorg.pipeline.useConnection
 
-object DeleteProjectStep : Step<Int, DatabaseFailure, Unit> {
-    override suspend fun process(input: Int): Result<DatabaseFailure, Unit> {
-        return useConnection {
+sealed interface DeleteProjectStepFailure : DeleteProjectFailure {
+    data class Other(val failure: DatabaseFailure) : DeleteProjectStepFailure
+}
+
+object DeleteProjectStep : Step<Int, DeleteProjectStepFailure, Unit> {
+    override suspend fun process(input: Int): Result<DeleteProjectStepFailure, Unit> {
+        return useConnection({ DeleteProjectStepFailure.Other(it) }) {
             prepareStatement("delete from project where id = ?")
                 .apply { setInt(1, input) }
                 .executeUpdate()

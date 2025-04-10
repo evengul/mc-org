@@ -9,7 +9,7 @@ import app.mcorg.pipeline.permission.GetOtherUsersStep
 import app.mcorg.pipeline.permission.VerifyParticipantAdderIsAdminFailure
 import app.mcorg.presentation.handler.GetUsersData
 
-sealed interface GetWorldUsersForProjectsFailure : GetProjectsFailure, CreateProjectFailure {
+sealed interface GetWorldUsersForProjectsFailure : GetProjectsFailure, CreateProjectFailure, GetProjectFailure {
     data class Other(val failure: DatabaseFailure) : GetWorldUsersForProjectsFailure
     data object NotAdmin : GetWorldUsersForProjectsFailure
 }
