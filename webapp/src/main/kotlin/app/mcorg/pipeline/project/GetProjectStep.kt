@@ -15,7 +15,7 @@ import app.mcorg.pipeline.useConnection
 import java.sql.Connection
 import java.sql.ResultSet
 
-sealed interface GetProjectStepFailure : GetProjectFailure, CreateProjectFailure {
+sealed interface GetProjectStepFailure : GetProjectFailure, CreateProjectFailure, AssignProjectFailure {
     data object NotFound : GetProjectStepFailure
     data class Other(val failure: DatabaseFailure) : GetProjectStepFailure
 }

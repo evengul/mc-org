@@ -6,7 +6,7 @@ import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.DatabaseFailure
 import app.mcorg.pipeline.useConnection
 
-sealed interface GetProjectCountWithFilteredCountFailure : CreateProjectFailure, DeleteProjectFailure {
+sealed interface GetProjectCountWithFilteredCountFailure : CreateProjectFailure, DeleteProjectFailure, AssignProjectFailure {
     data class Other(val failure: DatabaseFailure) : GetProjectCountWithFilteredCountFailure
 }
 

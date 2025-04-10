@@ -5,4 +5,3 @@ sealed interface GetProjectFailure
 sealed interface CreateProjectFailure
 sealed interface DeleteProjectFailure
 sealed interface AssignProjectFailure
-sealed interface UnAssignProjectFailure

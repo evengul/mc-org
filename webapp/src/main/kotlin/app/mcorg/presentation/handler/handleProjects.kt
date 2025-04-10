@@ -1,7 +1,5 @@
 package app.mcorg.presentation.handler
 
-import app.mcorg.domain.cqrs.commands.project.AddProjectAssignmentCommand
-import app.mcorg.domain.cqrs.commands.project.RemoveProjectAssignmentCommand
 import app.mcorg.domain.model.projects.*
 import app.mcorg.domain.model.task.TaskSpecification
 import app.mcorg.domain.model.users.Profile
@@ -9,17 +7,11 @@ import app.mcorg.domain.model.users.User
 import app.mcorg.domain.pipeline.Pipeline
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.project.*
-import app.mcorg.presentation.configuration.ProjectCommands
-import app.mcorg.presentation.configuration.permissionsApi
-import app.mcorg.presentation.configuration.projectsApi
-import app.mcorg.presentation.entities.user.AssignUserRequest
-import app.mcorg.presentation.entities.user.DeleteAssignmentRequest
 import app.mcorg.presentation.hxOutOfBands
 import app.mcorg.presentation.mappers.InputMappers
 import app.mcorg.presentation.mappers.URLMappers
 import app.mcorg.presentation.mappers.project.projectFilterURLMapper
 import app.mcorg.presentation.mappers.task.taskFilterInputMapper
-import app.mcorg.presentation.mappers.user.assignUserInputMapper
 import app.mcorg.presentation.templates.project.*
 import app.mcorg.presentation.utils.*
 import io.ktor.http.*
@@ -173,79 +165,57 @@ suspend fun ApplicationCall.handleGetProject() {
         )
 }
 
+data class EditProjectAssigneeData(
+    var project: SlimProject? = null,
+    var matches: Boolean = false,
+    var counts: Pair<Int, Int> = 0 to 0,
+    var users: List<User> = emptyList(),
+)
+
 suspend fun ApplicationCall.handlePatchProjectAssignee() {
-    when (val request = InputMappers.assignUserInputMapper(receiveParameters())) {
-        is DeleteAssignmentRequest -> handleDeleteProjectAssignee()
-        is AssignUserRequest -> handleAssignProjectAssignee(request.userId)
-    }
-}
-
-suspend fun ApplicationCall.handleDeleteProjectAssignee() {
-    val projectId = getProjectId()
-
-    ProjectCommands.removeAssignment(projectId).fold(
-        {
-            when(it) {
-                is RemoveProjectAssignmentCommand.ProjectDoesNotHaveAssignedUser -> respondBadRequest("Project does not have assigned user")
-            }
-        },
-        {
-            val worldId = getWorldId()
-            val worldUsers = permissionsApi.getUsersInWorld(worldId)
-            handleEditProjectAssignee(projectId, worldUsers)
-        }
-    )
-}
-
-suspend fun ApplicationCall.handleAssignProjectAssignee(userId: Int) {
     val worldId = getWorldId()
     val projectId = getProjectId()
-
-    ProjectCommands.assign(worldId, projectId, userId).fold(
-        {
-            when(it) {
-                is AddProjectAssignmentCommand.UserDoesNotExistInWorldFailure -> respondNotFound("User does not exist in world and cannot be assigned to project")
-            }
-        },
-        {
-            val worldUsers = permissionsApi.getUsersInWorld(worldId)
-            handleEditProjectAssignee(projectId, worldUsers)
-        }
-    )
-}
-
-private suspend fun ApplicationCall.handleEditProjectAssignee(projectId: Int, worldUsers: List<User>) {
-    val worldId = getWorldId()
     val currentUser = getUser()
-    val project =
-        projectsApi.getProject(projectId)?.toSlim() ?: throw IllegalArgumentException("Project does not exist")
-    val filter = URLMappers.projectFilterURLMapper(request.headers["HX-Current-URL"])
-    if (project.matches(filter)) {
-        respondHtml(
-            getFilteredAndTotalProjectBasedOnFilter(worldId, this.request) + "\n" + createAssignProject(
-                project,
-                worldUsers,
-                currentUser
-            )
-        )
-    } else {
-        hxTarget("#project-${project.id}")
-        hxSwap("outerHTML")
-        respondHtml(createHTML().div {
-            id = "project-${project.id}"
-            hxOutOfBands("delete")
-        } + "\n" + getFilteredAndTotalProjectBasedOnFilter(worldId, this.request))
-    }
-}
 
-private fun getFilteredAndTotalProjectBasedOnFilter(worldId: Int, request: ApplicationRequest): String {
-    val specification = URLMappers.projectFilterURLMapper(request.headers["HX-Current-URL"])
-    val allProjects = projectsApi.getWorldProjects(worldId)
-    val filteredProjects = allProjects.filter { it.matches(specification) }.size
-    if (filteredProjects != allProjects.size) {
-        return createHTML().p {
-            oobFilteredProjectsDisplay(filteredProjects, allProjects.size)
+    val stepData = EditProjectAssigneeData()
+
+    Pipeline.create<AssignProjectFailure, Parameters>()
+        .pipe(GetProjectAssignmentInputStep)
+        .pipe(AssignProjectOrRemoveProjectAssignmentStep(worldId, projectId))
+        .map { projectId }
+        .pipe(GetProjectStep(GetProjectStep.Include.none())) { stepData.project = it.toSlim() }
+        .map { URLMappers.projectFilterURLMapper(request.headers["HX-Current-URL"]) }
+        .peek { stepData.matches = stepData.project!!.matches(it) }
+        .pipe(GetProjectCountWithFilteredCount(worldId)) { stepData.counts = it }
+        .map { currentUser }
+        .pipe(GetWorldUsersForProjects(worldId)) { stepData.users = it }
+        .map {
+            val countsElement = stepData.counts.takeIf { it.first != it.second }?.let { counts ->
+                createHTML().p {
+                    oobFilteredProjectsDisplay(counts.second, counts.first)
+                }
+            } ?: ""
+
+            if (stepData.matches) {
+                val projectListElement = stepData.project?.let { project -> createAssignProject(
+                    project,
+                    stepData.users,
+                    currentUser
+                ) } ?: ""
+
+                return@map listOf(projectListElement, countsElement).joinToString("\n")
+            }
+
+            hxTarget("#project-${stepData.project!!.id}")
+            hxSwap("outerHTML")
+            createHTML().div {
+                id = "project-${stepData.project!!.id}"
+                hxOutOfBands("delete")
+            } + "\n" + countsElement
         }
-    }
-    return ""
+        .fold(
+            input = receiveParameters(),
+            onSuccess = { respondHtml(it) },
+            onFailure = { respond(HttpStatusCode.InternalServerError, "Unknown error occurred") }
+        )
 }
