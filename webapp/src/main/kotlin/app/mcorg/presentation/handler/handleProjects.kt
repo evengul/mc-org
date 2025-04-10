@@ -71,7 +71,7 @@ suspend fun ApplicationCall.handlePostProject() {
         .pipe(ValidateCreateProjectInputStep(worldId))
         .pipe(CreateProjectStep(worldId))
         .pipe(GetProjectStep(GetProjectStep.Include.none())) { stepState = stepState.copy(createdProject = it.toSlim()) }
-        .map { URLMappers.projectFilterURLMapper(request.headers["HX-Current-URL"]) }
+        .map { URLMappers.projectFilterURLMapper(getCurrentUrl()) }
         .peek { stepState = stepState.copy(specification = it) }
         .pipe(GetProjectCountWithFilteredCount(worldId)) { stepState = stepState.copy(totalProjectCount = it.first, filteredProjectCount = it.second) }
         .map { user }
@@ -112,7 +112,7 @@ suspend fun ApplicationCall.handleDeleteProject() {
 
     Pipeline.create<DeleteProjectFailure, Int>()
         .pipe(DeleteProjectStep)
-        .map { URLMappers.projectFilterURLMapper(request.headers["HX-Current-URL"]) }
+        .map { URLMappers.projectFilterURLMapper(getCurrentUrl()) }
         .pipe(GetProjectCountWithFilteredCount(worldId))
         .map {
             if (it.first != it.second) {
@@ -184,7 +184,7 @@ suspend fun ApplicationCall.handlePatchProjectAssignee() {
         .pipe(AssignProjectOrRemoveProjectAssignmentStep(worldId, projectId))
         .map { projectId }
         .pipe(GetProjectStep(GetProjectStep.Include.none())) { stepData.project = it.toSlim() }
-        .map { URLMappers.projectFilterURLMapper(request.headers["HX-Current-URL"]) }
+        .map { URLMappers.projectFilterURLMapper(getCurrentUrl()) }
         .peek { stepData.matches = stepData.project!!.matches(it) }
         .pipe(GetProjectCountWithFilteredCount(worldId)) { stepData.counts = it }
         .map { currentUser }
