@@ -40,7 +40,6 @@ import app.mcorg.pipeline.task.UpdateTaskStageStep
 import app.mcorg.pipeline.task.ValidateCountableTaskRequirementsStep
 import app.mcorg.pipeline.task.ValidateMaterialListStep
 import app.mcorg.pipeline.task.ValidateTaskNameStep
-import app.mcorg.presentation.configuration.projectsApi
 import app.mcorg.presentation.mappers.URLMappers
 import app.mcorg.presentation.mappers.task.*
 import app.mcorg.presentation.templates.task.board.createTaskBoard
@@ -102,7 +101,6 @@ suspend fun ApplicationCall.handlePostLitematicaTasks() {
 suspend fun ApplicationCall.handleDeleteTask() {
     val projectId = getProjectId()
     val taskId = getTaskId()
-    projectsApi.removeTask(taskId)
 
     Pipeline.create<DeleteTaskFailure, Int>()
         .pipe(DeleteTaskStep)

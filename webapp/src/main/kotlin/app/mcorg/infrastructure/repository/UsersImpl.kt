@@ -5,32 +5,6 @@ import app.mcorg.domain.model.users.User
 import app.mcorg.domain.api.Users
 
 class UsersImpl : Users, Repository() {
-    override fun userExists(id: Int): Boolean {
-        return getConnection().use {
-            it.prepareStatement("select 1 from users where id = ?")
-                .apply { setInt(1, id) }
-                .executeQuery()
-                .next()
-        }
-    }
-
-    override fun usernameExists(username: String): Boolean {
-        return getConnection().use {
-            it.prepareStatement("select 1 from users where username = ?")
-                .apply { setString(1, username) }
-                .executeQuery()
-                .next()
-        }
-    }
-
-    override fun emailExists(email: String): Boolean {
-        return getConnection().use {
-            it.prepareStatement("select 1 from users where email = ?")
-                .apply { setString(1, email) }
-                .executeQuery()
-                .next()
-        }
-    }
 
     override fun getUser(id: Int): User? {
         getConnection().use {
@@ -81,29 +55,6 @@ class UsersImpl : Users, Repository() {
         throw IllegalStateException("Failed to create user")
     }
 
-    override fun deleteUser(id: Int) {
-        getConnection().use {
-            it.prepareStatement("delete from users where id = ?")
-                .apply { setInt(1, id) }
-                .executeUpdate()
-        }
-    }
-
-    override fun searchUsers(searchTerm: String): List<User> {
-        getConnection().use {
-            it.prepareStatement("select id,username from users where username like '%?%' limit 20")
-                .apply { setString(1, searchTerm) }
-                .executeQuery()
-                .apply {
-                    val users = mutableListOf<User>()
-                    while (next()) {
-                        users.add(User(getInt(1), getString(2)))
-                    }
-                    return users
-                }
-        }
-    }
-
     override fun getProfile(id: Int): Profile? {
         getConnection().use { connection ->
             connection.prepareStatement("select id,username,email,profile_photo,selected_world,technical_player from users where id=?")
@@ -123,38 +74,6 @@ class UsersImpl : Users, Repository() {
                 }
         }
         return null
-    }
-
-    override fun selectWorld(userId: Int, worldId: Int) {
-        getConnection().use {
-            it.prepareStatement("update users set selected_world = ? where id = ?")
-                .apply { setInt(1, worldId); setInt(2, userId) }
-                .executeUpdate()
-        }
-    }
-
-    override fun unSelectWorldForAll(worldId: Int) {
-        getConnection().use {
-            it.prepareStatement("update users set selected_world = null where selected_world = ?")
-                .apply { setInt(1, worldId) }
-                .executeUpdate()
-        }
-    }
-
-    override fun isTechnical(id: Int) {
-        getConnection().use {
-            it.prepareStatement("update users set technical_player = true where id = ?")
-                .apply { setInt(1, id) }
-                .executeUpdate()
-        }
-    }
-
-    override fun isNotTechnical(id: Int) {
-        getConnection().use {
-            it.prepareStatement("update users set technical_player = false where id = ?")
-                .apply { setInt(1, id) }
-                .executeUpdate()
-        }
     }
 
 }
