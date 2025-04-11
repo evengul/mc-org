@@ -1,6 +1,7 @@
 import {expect, test} from "@playwright/test";
 import {signInAndGoTo, signInCreateWorldAndProject} from "./utils";
 import {locators} from "./locators";
+import {randomUUID} from "node:crypto";
 
 test.describe("When user has no worlds on sign in", () => {
   test("They create a new world", async ({page}) => {
@@ -29,7 +30,7 @@ test.describe("When user has no worlds on sign in", () => {
     await expect(name).toBeVisible()
     await expect(submitButton).toBeVisible()
 
-    await name.fill("World")
+    await name.fill(`World ${randomUUID()}`)
     await submitButton.click()
 
     await expect(page).toHaveTitle("MC-ORG | Projects")

@@ -1,12 +1,12 @@
 import {expect, Page} from "@playwright/test";
 import {locators} from "./locators";
+import {randomUUID} from "node:crypto";
 
 type ENVIRONMENT = "LOCAL" | "TEST" | "PRODUCTION"
 
 const getCurrentEnvironment = (): ENVIRONMENT => process.env.ENV as ENVIRONMENT ?? "LOCAL"
 
-const testUrl = "https://mcorg-dev-51.fly.dev"
-// const testUrl = "http://localhost:8080"
+const testUrl = "http://localhost:8080"
 
 const urls: Record<ENVIRONMENT, string> = {
   LOCAL: "http://localhost:8080",
@@ -41,7 +41,7 @@ export const signInCreateWorldAndGoTo = async (page: Page, route: keyof typeof p
     CREATE_WORLD: {name, submitButton}
   } = locators(page).WORLDS
 
-  await name.fill("World")
+  await name.fill(`World ${randomUUID()}`)
   await submitButton.click()
 
   await expect(page).toHaveTitle("MC-ORG | Projects")
