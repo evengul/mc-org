@@ -1,6 +1,6 @@
 package app.mcorg.presentation.templates.profile
 
-import app.mcorg.domain.users.Profile
+import app.mcorg.domain.model.users.Profile
 import app.mcorg.presentation.hxConfirm
 import app.mcorg.presentation.hxDelete
 import app.mcorg.presentation.templates.MainPage
@@ -79,7 +79,7 @@ fun profile(profile: Profile): String = mainPageTemplate(
         button {
             id = "profile-delete-user-button"
             classes = setOf("button-danger")
-            hxDelete("/auth/user")
+            hxDelete("/app/profile/user")
             hxConfirm("Are you sure you want to delete your user? This can not be reverted, and all your worlds and projects will vanish.")
             + "Delete user"
         }

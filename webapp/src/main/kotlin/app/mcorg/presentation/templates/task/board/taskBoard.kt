@@ -1,7 +1,11 @@
 package app.mcorg.presentation.templates.task.board
 
-import app.mcorg.domain.projects.*
-import app.mcorg.domain.users.User
+import app.mcorg.domain.model.projects.*
+import app.mcorg.domain.model.task.Task
+import app.mcorg.domain.model.task.TaskStage
+import app.mcorg.domain.model.task.TaskStages
+import app.mcorg.domain.model.users.User
+import app.mcorg.domain.model.projects.Priority
 import app.mcorg.presentation.hxConfirm
 import app.mcorg.presentation.hxDelete
 import app.mcorg.presentation.hxPatch

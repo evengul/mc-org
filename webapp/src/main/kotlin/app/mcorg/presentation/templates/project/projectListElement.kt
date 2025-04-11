@@ -1,9 +1,9 @@
 package app.mcorg.presentation.templates.project
 
-import app.mcorg.domain.minecraft.Dimension
-import app.mcorg.domain.projects.Priority
-import app.mcorg.domain.projects.SlimProject
-import app.mcorg.domain.users.User
+import app.mcorg.domain.model.minecraft.Dimension
+import app.mcorg.domain.model.projects.Priority
+import app.mcorg.domain.model.projects.SlimProject
+import app.mcorg.domain.model.users.User
 import app.mcorg.presentation.components.appProgress
 import app.mcorg.presentation.hxConfirm
 import app.mcorg.presentation.hxDelete

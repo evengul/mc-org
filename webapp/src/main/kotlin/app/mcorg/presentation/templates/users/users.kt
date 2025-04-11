@@ -1,6 +1,6 @@
 package app.mcorg.presentation.templates.users
 
-import app.mcorg.domain.users.User
+import app.mcorg.domain.model.users.User
 import app.mcorg.presentation.*
 import app.mcorg.presentation.templates.MainPage
 import app.mcorg.presentation.templates.mainPageTemplate
@@ -20,7 +20,7 @@ fun users(worldId: Int, currentUser: User, users: List<User>, isAdmin: Boolean):
             autoComplete = false
             hxPost("/app/worlds/$worldId/users")
             hxTarget("#users-list-current-user")
-            hxErrorTarget("#error-message", "400")
+            hxErrorTarget("#error-message", "4xx")
             hxSwap("afterend")
             label {
                 htmlFor = "add-user-username-input"

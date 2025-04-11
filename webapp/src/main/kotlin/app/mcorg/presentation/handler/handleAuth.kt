@@ -1,104 +1,140 @@
 package app.mcorg.presentation.handler
 
-import app.mcorg.domain.users.User
-import app.mcorg.presentation.security.createSignedJwtToken
-import app.mcorg.presentation.configuration.minecraftApi
-import app.mcorg.presentation.configuration.permissionsApi
-import app.mcorg.presentation.configuration.projectsApi
-import app.mcorg.presentation.configuration.usersApi
-import app.mcorg.presentation.security.JwtHelper
+import app.mcorg.domain.model.minecraft.MinecraftProfile
+import app.mcorg.domain.pipeline.Pipeline
+import app.mcorg.domain.pipeline.Step
+import app.mcorg.domain.Local
+import app.mcorg.domain.Test
+import app.mcorg.pipeline.auth.AddCookieStep
+import app.mcorg.pipeline.auth.ConvertTokenStep
+import app.mcorg.pipeline.auth.CreateTokenStep
+import app.mcorg.pipeline.auth.CreateUserIfNotExistsStep
+import app.mcorg.pipeline.auth.GetMicrosoftCodeStep
+import app.mcorg.pipeline.auth.GetMicrosoftTokenInput
+import app.mcorg.pipeline.auth.GetMicrosoftTokenStep
+import app.mcorg.pipeline.auth.GetMinecraftProfileStep
+import app.mcorg.pipeline.auth.GetMinecraftToken
+import app.mcorg.pipeline.auth.GetProfileStepForAuth
+import app.mcorg.pipeline.auth.GetSelectedWorldIdStep
+import app.mcorg.pipeline.auth.GetSignInPageFailure
+import app.mcorg.pipeline.auth.GetTokenStep
+import app.mcorg.pipeline.auth.GetXboxProfileStep
+import app.mcorg.pipeline.auth.GetXstsToken
+import app.mcorg.pipeline.auth.MissingToken
+import app.mcorg.pipeline.auth.Redirect
+import app.mcorg.pipeline.auth.SignInLocallyFailure
+import app.mcorg.pipeline.auth.SignInWithMinecraftFailure
+import app.mcorg.pipeline.auth.ValidateEnvStep
+import app.mcorg.pipeline.auth.toRedirect
+import app.mcorg.presentation.consts.AUTH_COOKIE
+import app.mcorg.presentation.consts.ISSUER
 import app.mcorg.presentation.templates.auth.signInTemplate
 import app.mcorg.presentation.utils.*
-import com.auth0.jwt.exceptions.TokenExpiredException
 import io.ktor.http.*
 import io.ktor.server.application.*
+import io.ktor.server.request.RequestCookies
 import io.ktor.server.response.*
 import kotlin.random.Random
 
 suspend fun ApplicationCall.handleGetSignIn() {
-    val user = try {
-        getUserFromCookie().takeUnless { it == null || usersApi.getUser(it.id) == null }
-    } catch (_: TokenExpiredException) {
-        null
-    }
-
-    if (user == null) {
-        val url = when {
-            getSkipMicrosoftSignIn().lowercase() != "true" -> getMicrosoftSignInUrl()
-            getEnvironment() == "TEST" -> "/auth/oidc/test-redirect"
-            else -> "/auth/oidc/local-redirect"
-        }
-        respondHtml(signInTemplate(url))
-    } else {
-        val profile = usersApi.getProfile(user.id) ?: return removeTokenAndSignOut()
-        if (profile.selectedWorld != null) {
-            respondRedirect("/app/worlds/${profile.selectedWorld}/projects")
-            return
-        }
-        respondRedirect("/app/worlds/add")
-    }
+    Pipeline.create<GetSignInPageFailure, RequestCookies>()
+        .pipe(GetTokenStep(AUTH_COOKIE))
+        .pipe(ConvertTokenStep(ISSUER))
+        .pipe(GetProfileStepForAuth)
+        .pipe(GetSelectedWorldIdStep)
+        .map { "/app/worlds/$it/projects" }
+        .mapFailure { it.toRedirect() }
+        .fold(
+            input = request.cookies,
+            onSuccess = { respondHtml(signInTemplate(it)) },
+            onFailure = { when(it) {
+                is MissingToken -> respondHtml(signInTemplate(getSignInUrl()))
+                is Redirect -> respondRedirect(it.url)
+            } }
+        )
 }
 
 suspend fun ApplicationCall.handleLocalSignIn() {
-    if(getEnvironment() == "LOCAL" || getSkipMicrosoftSignIn().lowercase() == "true") {
-        addToken(JwtHelper.createSignedJwtToken(getLocalUser(), getJwtIssuer()))
-        respondRedirect("/")
-    } else {
-        respond(HttpStatusCode.Forbidden)
-    }
+    Pipeline.create<SignInLocallyFailure, Unit>()
+        .pipe(Step.value(getEnvironment()))
+        .pipe(ValidateEnvStep(Local))
+        .pipe(Step.value(MinecraftProfile("evegul", "test@example.com")))
+        .pipe(CreateUserIfNotExistsStep)
+        .pipe(CreateTokenStep)
+        .pipe(AddCookieStep(response.cookies, getHost() ?: "false"))
+        .fold(
+            input = Unit,
+            onFailure = { respond(HttpStatusCode.Forbidden) },
+            onSuccess = {
+                respondRedirect("/")
+            }
+        )
 }
 
 suspend fun ApplicationCall.handleTestSignIn() {
-    if (getEnvironment() == "TEST") {
-        addToken(JwtHelper.createSignedJwtToken(getTestUser(), getJwtIssuer()))
-        respondRedirect("/")
-    } else {
-        respond(HttpStatusCode.Forbidden)
-    }
+    Pipeline.create<SignInLocallyFailure, Unit>()
+        .pipe(Step.value(getEnvironment()))
+        .pipe(ValidateEnvStep(Test))
+        .pipe(Step.value(getTestUser()))
+        .pipe(CreateUserIfNotExistsStep)
+        .pipe(CreateTokenStep)
+        .pipe(AddCookieStep(response.cookies, getHost() ?: "false"))
+        .fold(
+            input = Unit,
+            onFailure = { respond(HttpStatusCode.Forbidden) },
+            onSuccess = { respondRedirect("/") }
+        )
 }
 
-private fun getTestUser(): User {
+private fun getTestUser(): MinecraftProfile {
     val username = "TestUser_${Random.nextInt(100_000)}"
-    val userId = usersApi.createUser(username, "test-$username@mcorg.app")
-    return usersApi.getUser(userId)!!
-}
-
-private fun getLocalUser(): User {
-    val user = usersApi.getUser("evegul")
-    if (user == null) {
-        val userId = usersApi.createUser("evegul", "even.gultvedt@gmail.com")
-        return usersApi.getUser(userId)!!
-    }
-    return user
+    return MinecraftProfile(
+        username,
+        "test-$username@mcorg.app"
+    )
 }
 
 suspend fun ApplicationCall.handleSignIn() {
-    val code = parameters["code"] ?: return respondHtml("Some error occurred")
-    val clientId = getMicrosoftClientId()
-    val clientSecret = getMicrosoftClientSecret()
-    val env = getEnvironment()
-    val host = getHost()
-
-    val profile = minecraftApi.getProfile(code, clientId, clientSecret, env, host)
-
-    val user = usersApi.getUser(profile.username) ?: usersApi.getUser(usersApi.createUser(profile.username, profile.email)) ?: return respondHtml("Some error occurred")
-
-    val token = JwtHelper.createSignedJwtToken(user, getJwtIssuer())
-    addToken(token)
-
-    respondRedirect("/")
+    Pipeline.create<SignInWithMinecraftFailure, Unit>()
+        .pipe(Step.value(parameters))
+        .pipe(GetMicrosoftCodeStep)
+        .map {
+            GetMicrosoftTokenInput(
+                code = it,
+                clientId = getMicrosoftClientId(),
+                clientSecret = getMicrosoftClientSecret(),
+                env = getEnvironment(),
+                host = getHost()
+            )
+        }
+        .pipe(GetMicrosoftTokenStep)
+        .pipe(GetXboxProfileStep)
+        .pipe(GetXstsToken)
+        .pipe(GetMinecraftToken)
+        .pipe(GetMinecraftProfileStep)
+        .pipe(CreateUserIfNotExistsStep)
+        .pipe(CreateTokenStep)
+        .pipe(AddCookieStep(response.cookies, getHost() ?: "false"))
+        .fold(
+            input = Unit,
+            onFailure = { respondRedirect(it.toRedirect().url) },
+            onSuccess = { respondRedirect("/") }
+        )
 }
 
-suspend fun ApplicationCall.handleGetSignOut() = removeTokenAndSignOut()
+suspend fun ApplicationCall.handleGetSignOut() {
+    response.cookies.removeToken(getHost() ?: "localhost")
+    respondRedirect("/", permanent = false)
+}
 
-suspend fun ApplicationCall.handleDeleteUser() {
-    val userId = getUserFromCookie()?.id ?: return removeTokenAndSignOut()
-
-    projectsApi.removeUserAssignments(userId)
-    permissionsApi.removeUserPermissions(userId)
-    usersApi.deleteUser(userId)
-
-    removeTokenAndSignOut()
+private fun ApplicationCall.getSignInUrl(): String {
+    return if (getEnvironment() == Test) {
+        "/auth/oidc/test-redirect"
+    } else if (getSkipMicrosoftSignIn().lowercase() != "true") {
+        getMicrosoftSignInUrl()
+    } else {
+        "/auth/oidc/local-redirect"
+    }
 }
 
 private fun ApplicationCall.getMicrosoftSignInUrl(): String {
@@ -106,7 +142,7 @@ private fun ApplicationCall.getMicrosoftSignInUrl(): String {
     val env = getEnvironment()
     val host = getHost()
     val redirectUrl =
-        if (env == "LOCAL") "http://localhost:8080/auth/oidc/microsoft-redirect"
+        if (env == Local) "http://localhost:8080/auth/oidc/microsoft-redirect"
         else "https://$host/auth/oidc/microsoft-redirect"
     return "https://login.microsoftonline.com/consumers/oauth2/v2.0/authorize?response_type=code&scope=openid,XboxLive.signin&client_id=$clientId&redirect_uri=$redirectUrl"
 }

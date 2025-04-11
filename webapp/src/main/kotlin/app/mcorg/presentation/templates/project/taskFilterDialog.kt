@@ -1,11 +1,11 @@
 package app.mcorg.presentation.templates.project
 
-import app.mcorg.domain.projects.Project
-import app.mcorg.domain.users.User
-import app.mcorg.presentation.entities.TaskFiltersRequest
+import app.mcorg.domain.model.projects.Project
+import app.mcorg.domain.model.users.User
+import app.mcorg.domain.model.task.TaskSpecification
 import kotlinx.html.*
 
-fun MAIN.taskFilterDialog(project: Project, worldUsers: List<User>, currentUser: User, filtersRequest: TaskFiltersRequest) {
+fun MAIN.taskFilterDialog(project: Project, worldUsers: List<User>, currentUser: User, filtersRequest: TaskSpecification) {
     dialog {
         id = "task-filters-dialog"
         h1 {

@@ -9,12 +9,20 @@ suspend fun ApplicationCall.clientRedirect(path: String) {
     respond(HttpStatusCode.OK)
 }
 
-suspend fun ApplicationCall.badRequest(errorHtml: String = "An error occurred",
-                                       target: String = "#error-message",
-                                       swap: String = "innerHTML") {
+suspend fun ApplicationCall.respondBadRequest(errorHtml: String = "An error occurred",
+                                              target: String = "#error-message",
+                                              swap: String = "innerHTML") {
     response.headers.append("HX-ReTarget", target)
     response.headers.append("HX-ReSwap", swap)
     respondHtml(errorHtml, HttpStatusCode.BadRequest)
+}
+
+suspend fun ApplicationCall.respondNotFound(errorHtml: String = "Something could not be found",
+                                            target: String = "#error-message",
+                                            swap: String = "innerHTML") {
+    response.headers.append("HX-ReTarget", target)
+    response.headers.append("HX-ReSwap", swap)
+    respondHtml(errorHtml, HttpStatusCode.NotFound)
 }
 
 fun ApplicationCall.hxTarget(value: String) {

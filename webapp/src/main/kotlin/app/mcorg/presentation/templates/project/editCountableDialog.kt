@@ -1,6 +1,6 @@
 package app.mcorg.presentation.templates.project
 
-import app.mcorg.domain.projects.Project
+import app.mcorg.domain.model.projects.Project
 import app.mcorg.presentation.hxPatch
 import kotlinx.html.*
 

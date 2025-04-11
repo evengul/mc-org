@@ -1,7 +1,7 @@
 package app.mcorg.presentation.templates.project
 
-import app.mcorg.domain.projects.SlimProject
-import app.mcorg.domain.users.User
+import app.mcorg.domain.model.projects.SlimProject
+import app.mcorg.domain.model.users.User
 import app.mcorg.presentation.hxPatch
 import app.mcorg.presentation.hxTarget
 import app.mcorg.presentation.templates.assign
