@@ -2,6 +2,7 @@ package app.mcorg.pipeline.task
 
 import app.mcorg.pipeline.DatabaseFailure
 
+sealed interface TaskParamFailure
 sealed interface CreateDoableTaskFailure
 sealed interface CreateCountableTaskFailure
 sealed interface CreateLitematicaTasksFailure

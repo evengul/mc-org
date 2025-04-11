@@ -2,9 +2,9 @@ package app.mcorg.pipeline.auth
 
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.domain.pipeline.Result
-import app.mcorg.infrastructure.gateway.XboxTokenResponse
-import app.mcorg.infrastructure.gateway.XstsProperties
-import app.mcorg.infrastructure.gateway.XstsRequest
+import app.mcorg.pipeline.auth.minecraft.XboxTokenResponse
+import app.mcorg.pipeline.auth.minecraft.XstsProperties
+import app.mcorg.pipeline.auth.minecraft.XstsRequest
 import app.mcorg.pipeline.apiPostJson
 import io.ktor.client.call.body
 import io.ktor.http.isSuccess

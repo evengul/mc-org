@@ -2,10 +2,10 @@ package app.mcorg.pipeline.auth
 
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
-import app.mcorg.infrastructure.gateway.MicrosoftAccessTokenErrorResponse
-import app.mcorg.infrastructure.gateway.MicrosoftAccessTokenResponse
-import app.mcorg.model.Env
-import app.mcorg.model.Local
+import app.mcorg.pipeline.auth.minecraft.MicrosoftAccessTokenErrorResponse
+import app.mcorg.pipeline.auth.minecraft.MicrosoftAccessTokenResponse
+import app.mcorg.domain.Env
+import app.mcorg.domain.Local
 import app.mcorg.pipeline.apiGetForm
 import io.ktor.client.call.body
 import io.ktor.http.isSuccess

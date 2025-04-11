@@ -1,20 +1,42 @@
 package app.mcorg.pipeline.auth
 
-import app.mcorg.domain.api.Users
 import app.mcorg.domain.model.minecraft.MinecraftProfile
 import app.mcorg.domain.model.users.User
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
+import app.mcorg.pipeline.DatabaseFailure
+import app.mcorg.pipeline.getReturnedId
+import app.mcorg.pipeline.useConnection
+import kotlinx.coroutines.runBlocking
 
-sealed interface CreateUserIfNotExistsFailure : SignInLocallyFailure, SignInWithMinecraftFailure
+sealed interface CreateUserIfNotExistsFailure : SignInLocallyFailure, SignInWithMinecraftFailure {
+    data class Other(val failure: DatabaseFailure) : CreateUserIfNotExistsFailure
+}
 
-data class CreateUserIfNotExistsStep(private val users: Users) : Step<MinecraftProfile, CreateUserIfNotExistsFailure, User> {
+data object CreateUserIfNotExistsStep : Step<MinecraftProfile, CreateUserIfNotExistsFailure, User> {
     override suspend fun process(input: MinecraftProfile): Result<CreateUserIfNotExistsFailure, User> {
-        users.getUser(input.username)?.let {
-            return Result.success(it)
-        }
+        return useConnection({ CreateUserIfNotExistsFailure.Other(it) }) {
+            prepareStatement("select id, username from users where username = ?")
+                .apply { setString(1, input.username) }
+                .executeQuery()
+                .apply {
+                    if (next()) {
+                        return@useConnection Result.success(
+                            User(
+                                id = getInt("id"),
+                                username = getString("username"),
+                            )
+                        )
+                    }
+                }
 
-        val userId = users.createUser(input.username, input.email)
-        return Result.success(users.getUser(userId)!!)
+            val id = prepareStatement("insert into users(username, email) values (?, 'TODO@mcorg.app') returning id")
+                .apply { setString(1, input.username) }
+                .getReturnedId(CreateUserIfNotExistsFailure.Other(DatabaseFailure.NoIdReturned))
+
+            return@useConnection runBlocking {
+                id.map { User(it, input.username) }
+            }
+        }
     }
 }

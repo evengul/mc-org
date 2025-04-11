@@ -2,9 +2,9 @@ package app.mcorg.pipeline.auth
 
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.domain.pipeline.Result
-import app.mcorg.infrastructure.gateway.MinecraftRequest
-import app.mcorg.infrastructure.gateway.MinecraftTokenResponse
-import app.mcorg.infrastructure.gateway.createMinecraftRequest
+import app.mcorg.pipeline.auth.minecraft.MinecraftRequest
+import app.mcorg.pipeline.auth.minecraft.MinecraftTokenResponse
+import app.mcorg.pipeline.auth.minecraft.createMinecraftRequest
 import app.mcorg.pipeline.apiPostJson
 import io.ktor.client.call.body
 import io.ktor.http.isSuccess

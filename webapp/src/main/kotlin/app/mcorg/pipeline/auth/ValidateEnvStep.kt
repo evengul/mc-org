@@ -2,7 +2,7 @@ package app.mcorg.pipeline.auth
 
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.domain.pipeline.Result
-import app.mcorg.model.Env
+import app.mcorg.domain.Env
 
 sealed interface ValidateEnvFailure : SignInLocallyFailure {
     data object InvalidEnv : ValidateEnvFailure

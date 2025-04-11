@@ -1,8 +1,8 @@
 package app.mcorg.presentation.utils
 
-import app.mcorg.model.Local
-import app.mcorg.model.Prod
-import app.mcorg.model.Test
+import app.mcorg.domain.Local
+import app.mcorg.domain.Prod
+import app.mcorg.domain.Test
 import io.ktor.http.HttpHeaders
 import io.ktor.server.application.*
 import io.ktor.server.request.host

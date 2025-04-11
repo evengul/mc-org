@@ -2,6 +2,7 @@ package app.mcorg.presentation.handler
 
 import app.mcorg.domain.model.permissions.Authority
 import app.mcorg.domain.pipeline.Pipeline
+import app.mcorg.domain.pipeline.Result
 import app.mcorg.pipeline.world.CreateWorldFailure
 import app.mcorg.pipeline.world.CreateWorldPermissionFailure
 import app.mcorg.pipeline.world.CreateWorldPermissionStep
@@ -9,6 +10,10 @@ import app.mcorg.pipeline.world.CreateWorldStep
 import app.mcorg.pipeline.world.CreateWorldStepFailure
 import app.mcorg.pipeline.world.DeleteWorldFailure
 import app.mcorg.pipeline.world.DeleteWorldStep
+import app.mcorg.pipeline.world.GetAllPermittedWorldsForUserStep
+import app.mcorg.pipeline.world.GetAllWorldsFailure
+import app.mcorg.pipeline.world.GetSelectedWorldIdFailure
+import app.mcorg.pipeline.world.GetSelectedWorldIdStep
 import app.mcorg.pipeline.world.GetWorldNameFailure
 import app.mcorg.pipeline.world.GetWorldNameStep
 import app.mcorg.pipeline.world.GetWorldSelectionValue
@@ -23,8 +28,6 @@ import app.mcorg.pipeline.world.ValidateAvailableWorldNameFailure
 import app.mcorg.pipeline.world.ValidateWorldNameLengthStep
 import app.mcorg.pipeline.world.ValidateWorldNonEmptyStep
 import app.mcorg.pipeline.world.WorldValidationFailure
-import app.mcorg.presentation.configuration.permissionsApi
-import app.mcorg.presentation.configuration.usersApi
 import app.mcorg.presentation.templates.world.worlds
 import app.mcorg.presentation.utils.*
 import io.ktor.http.HttpStatusCode.Companion.InternalServerError
@@ -35,10 +38,20 @@ import io.ktor.server.response.*
 
 suspend fun ApplicationCall.handleGetWorlds() {
     val userId = getUserId()
-    val selectedWorld = usersApi.getProfile(userId)?.selectedWorld
-    val permissions = permissionsApi.getPermissions(userId)
-    val worlds = permissions.ownedWorlds + permissions.participantWorlds
-    respondHtml(worlds(selectedWorld, worlds))
+    var selectedWorldId: Int? = null
+
+    Pipeline.create<GetAllWorldsFailure, Int>()
+        .pipe(GetSelectedWorldIdStep) { selectedWorldId = it }
+        .recover { if (it is GetSelectedWorldIdFailure.NoWorldSelected) Result.success(userId) else Result.failure(it) }
+        .map { userId }
+        .pipe(GetAllPermittedWorldsForUserStep)
+        .map { it.ownedWorlds + it.participantWorlds }
+        .map { worlds(selectedWorldId, it) }
+        .fold(
+            input = userId,
+            onSuccess = { respondHtml(it) },
+            onFailure = { respond(InternalServerError, "An unknown error occurred") }
+        )
 }
 
 suspend fun ApplicationCall.handlePostWorld() {

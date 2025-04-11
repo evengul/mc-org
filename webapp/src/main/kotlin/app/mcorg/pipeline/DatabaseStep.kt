@@ -75,7 +75,7 @@ private fun getConnection(): Connection {
     if (env == "LOCAL") {
         if (dataSource == null) {
             dataSource = HikariDataSource(HikariConfig().apply {
-                val config = app.mcorg.infrastructure.repository.Config.get()
+                val config = Config.get()
                 jdbcUrl = config.url
                 username = config.user
                 password = config.password
@@ -85,7 +85,7 @@ private fun getConnection(): Connection {
         return dataSource!!.connection
     }
 
-    val (url, username, password) = app.mcorg.infrastructure.repository.Config.get()
+    val (url, username, password) = Config.get()
     return DriverManager.getConnection(url, username, password)
 }
 

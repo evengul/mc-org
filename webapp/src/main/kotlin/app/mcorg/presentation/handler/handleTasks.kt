@@ -40,10 +40,10 @@ import app.mcorg.pipeline.task.UpdateTaskStageStep
 import app.mcorg.pipeline.task.ValidateCountableTaskRequirementsStep
 import app.mcorg.pipeline.task.ValidateMaterialListStep
 import app.mcorg.pipeline.task.ValidateTaskNameStep
-import app.mcorg.presentation.mappers.URLMappers
-import app.mcorg.presentation.mappers.task.*
+import app.mcorg.presentation.utils.url.URLMappers
 import app.mcorg.presentation.templates.task.board.createTaskBoard
 import app.mcorg.presentation.utils.*
+import app.mcorg.presentation.utils.url.taskFilterURLMapper
 import io.ktor.http.*
 import io.ktor.http.content.MultiPartData
 import io.ktor.server.application.*

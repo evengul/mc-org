@@ -8,10 +8,8 @@ import app.mcorg.domain.pipeline.Pipeline
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.project.*
 import app.mcorg.presentation.hxOutOfBands
-import app.mcorg.presentation.mappers.InputMappers
-import app.mcorg.presentation.mappers.URLMappers
-import app.mcorg.presentation.mappers.project.projectFilterURLMapper
-import app.mcorg.presentation.mappers.task.taskFilterInputMapper
+import app.mcorg.presentation.utils.url.URLMappers
+import app.mcorg.presentation.utils.url.projectFilterURLMapper
 import app.mcorg.presentation.templates.project.*
 import app.mcorg.presentation.utils.*
 import io.ktor.http.*
@@ -140,11 +138,12 @@ suspend fun ApplicationCall.handleGetProject() {
     )
 
     Pipeline.create<GetProjectFailure, Int>()
-        .pipe(GetProjectStep(GetProjectStep.Include.onlyTasks()))
+        .pipe(GetProjectStep(GetProjectStep.Include.onlyTasks())) { stepData = stepData.copy(second = it) }
+        .pipe(Step.value(parameters))
+        .pipe(GetTaskSpecificationFromFormStep)
         .map {
-            val taskSpecification = InputMappers.taskFilterInputMapper(parameters)
-            stepData = stepData.copy(first = taskSpecification)
-            it.filterSortTasks(taskSpecification, userId)
+            stepData = stepData.copy(first = it)
+            stepData.second!!.filterSortTasks(it, userId)
         }
         .peek { stepData = stepData.copy(second = it) }
         .pipe(Step.value(currentUser))

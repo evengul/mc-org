@@ -3,8 +3,8 @@ package app.mcorg.presentation.handler
 import app.mcorg.domain.model.minecraft.MinecraftProfile
 import app.mcorg.domain.pipeline.Pipeline
 import app.mcorg.domain.pipeline.Step
-import app.mcorg.model.Local
-import app.mcorg.model.Test
+import app.mcorg.domain.Local
+import app.mcorg.domain.Test
 import app.mcorg.pipeline.auth.AddCookieStep
 import app.mcorg.pipeline.auth.ConvertTokenStep
 import app.mcorg.pipeline.auth.CreateTokenStep
@@ -26,7 +26,6 @@ import app.mcorg.pipeline.auth.SignInLocallyFailure
 import app.mcorg.pipeline.auth.SignInWithMinecraftFailure
 import app.mcorg.pipeline.auth.ValidateEnvStep
 import app.mcorg.pipeline.auth.toRedirect
-import app.mcorg.presentation.configuration.*
 import app.mcorg.presentation.consts.AUTH_COOKIE
 import app.mcorg.presentation.consts.ISSUER
 import app.mcorg.presentation.templates.auth.signInTemplate
@@ -60,7 +59,7 @@ suspend fun ApplicationCall.handleLocalSignIn() {
         .pipe(Step.value(getEnvironment()))
         .pipe(ValidateEnvStep(Local))
         .pipe(Step.value(MinecraftProfile("evegul", "test@example.com")))
-        .pipe(CreateUserIfNotExistsStep(usersApi))
+        .pipe(CreateUserIfNotExistsStep)
         .pipe(CreateTokenStep)
         .pipe(AddCookieStep(response.cookies, getHost() ?: "false"))
         .fold(
@@ -77,7 +76,7 @@ suspend fun ApplicationCall.handleTestSignIn() {
         .pipe(Step.value(getEnvironment()))
         .pipe(ValidateEnvStep(Test))
         .pipe(Step.value(getTestUser()))
-        .pipe(CreateUserIfNotExistsStep(usersApi))
+        .pipe(CreateUserIfNotExistsStep)
         .pipe(CreateTokenStep)
         .pipe(AddCookieStep(response.cookies, getHost() ?: "false"))
         .fold(
@@ -113,7 +112,7 @@ suspend fun ApplicationCall.handleSignIn() {
         .pipe(GetXstsToken)
         .pipe(GetMinecraftToken)
         .pipe(GetMinecraftProfileStep)
-        .pipe(CreateUserIfNotExistsStep(usersApi))
+        .pipe(CreateUserIfNotExistsStep)
         .pipe(CreateTokenStep)
         .pipe(AddCookieStep(response.cookies, getHost() ?: "false"))
         .fold(
