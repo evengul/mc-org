@@ -48,7 +48,7 @@ suspend fun ApplicationCall.handleGetSignIn() {
         .map {
             customRedirectPath ?: "/app/worlds/$it/projects"
         }
-        .mapFailure { it.toRedirect() }
+        .mapFailure { it.toRedirect(customRedirectPath) }
         .fold(
             input = request.cookies,
             onSuccess = { respondRedirect(it) },
