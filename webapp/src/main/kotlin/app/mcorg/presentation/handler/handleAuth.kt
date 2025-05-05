@@ -34,27 +34,33 @@ import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.request.RequestCookies
 import io.ktor.server.response.*
+import java.net.URLDecoder
+import java.net.URLEncoder
 import kotlin.random.Random
 
 suspend fun ApplicationCall.handleGetSignIn() {
+    val customRedirectPath = parameters["redirect_to"]
     Pipeline.create<GetSignInPageFailure, RequestCookies>()
         .pipe(GetTokenStep(AUTH_COOKIE))
         .pipe(ConvertTokenStep(ISSUER))
         .pipe(GetProfileStepForAuth)
         .pipe(GetSelectedWorldIdStep)
-        .map { "/app/worlds/$it/projects" }
-        .mapFailure { it.toRedirect() }
+        .map {
+            customRedirectPath ?: "/app/worlds/$it/projects"
+        }
+        .mapFailure { it.toRedirect(customRedirectPath) }
         .fold(
             input = request.cookies,
-            onSuccess = { respondHtml(signInTemplate(it)) },
+            onSuccess = { respondRedirect(it) },
             onFailure = { when(it) {
-                is MissingToken -> respondHtml(signInTemplate(getSignInUrl()))
+                is MissingToken -> respondHtml(signInTemplate(getSignInUrl(customRedirectPath ?: "/")))
                 is Redirect -> respondRedirect(it.url)
             } }
         )
 }
 
 suspend fun ApplicationCall.handleLocalSignIn() {
+    val redirectPath = parameters["redirect_to"] ?: "/"
     Pipeline.create<SignInLocallyFailure, Unit>()
         .pipe(Step.value(getEnvironment()))
         .pipe(ValidateEnvStep(Local))
@@ -66,12 +72,13 @@ suspend fun ApplicationCall.handleLocalSignIn() {
             input = Unit,
             onFailure = { respond(HttpStatusCode.Forbidden) },
             onSuccess = {
-                respondRedirect("/")
+                respondRedirect(redirectPath)
             }
         )
 }
 
 suspend fun ApplicationCall.handleTestSignIn() {
+    val redirectPath = parameters["redirect_to"] ?: "/"
     Pipeline.create<SignInLocallyFailure, Unit>()
         .pipe(Step.value(getEnvironment()))
         .pipe(ValidateEnvStep(Test))
@@ -82,7 +89,7 @@ suspend fun ApplicationCall.handleTestSignIn() {
         .fold(
             input = Unit,
             onFailure = { respond(HttpStatusCode.Forbidden) },
-            onSuccess = { respondRedirect("/") }
+            onSuccess = { respondRedirect(redirectPath) }
         )
 }
 
@@ -95,6 +102,7 @@ private fun getTestUser(): MinecraftProfile {
 }
 
 suspend fun ApplicationCall.handleSignIn() {
+    val redirectPath = parameters["state"]?.let { URLDecoder.decode(it, Charsets.UTF_8) } ?: "/"
     Pipeline.create<SignInWithMinecraftFailure, Unit>()
         .pipe(Step.value(parameters))
         .pipe(GetMicrosoftCodeStep)
@@ -118,7 +126,7 @@ suspend fun ApplicationCall.handleSignIn() {
         .fold(
             input = Unit,
             onFailure = { respondRedirect(it.toRedirect().url) },
-            onSuccess = { respondRedirect("/") }
+            onSuccess = { respondRedirect(redirectPath) }
         )
 }
 
@@ -127,22 +135,22 @@ suspend fun ApplicationCall.handleGetSignOut() {
     respondRedirect("/", permanent = false)
 }
 
-private fun ApplicationCall.getSignInUrl(): String {
+private fun ApplicationCall.getSignInUrl(redirectPath: String = "/"): String {
     return if (getEnvironment() == Test) {
-        "/auth/oidc/test-redirect"
+        "/auth/oidc/test-redirect?redirect_to=$redirectPath"
     } else if (getSkipMicrosoftSignIn().lowercase() != "true") {
-        getMicrosoftSignInUrl()
+        getMicrosoftSignInUrl(redirectPath)
     } else {
-        "/auth/oidc/local-redirect"
+        "/auth/oidc/local-redirect?redirect_to=$redirectPath"
     }
 }
 
-private fun ApplicationCall.getMicrosoftSignInUrl(): String {
+private fun ApplicationCall.getMicrosoftSignInUrl(redirectPath: String): String {
     val clientId = getMicrosoftClientId()
     val env = getEnvironment()
     val host = getHost()
     val redirectUrl =
         if (env == Local) "http://localhost:8080/auth/oidc/microsoft-redirect"
         else "https://$host/auth/oidc/microsoft-redirect"
-    return "https://login.microsoftonline.com/consumers/oauth2/v2.0/authorize?response_type=code&scope=openid,XboxLive.signin&client_id=$clientId&redirect_uri=$redirectUrl"
+    return "https://login.microsoftonline.com/consumers/oauth2/v2.0/authorize?response_type=code&scope=openid,XboxLive.signin&client_id=$clientId&redirect_uri=$redirectUrl&state=${URLEncoder.encode(redirectPath, "UTF-8")}"
 }
