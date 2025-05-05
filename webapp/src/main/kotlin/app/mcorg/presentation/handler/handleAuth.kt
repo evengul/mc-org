@@ -42,7 +42,9 @@ suspend fun ApplicationCall.handleGetSignIn() {
         .pipe(ConvertTokenStep(ISSUER))
         .pipe(GetProfileStepForAuth)
         .pipe(GetSelectedWorldIdStep)
-        .map { "/app/worlds/$it/projects" }
+        .map {
+            parameters["redirect_to"] ?: "/app/worlds/$it/projects"
+        }
         .mapFailure { it.toRedirect() }
         .fold(
             input = request.cookies,
