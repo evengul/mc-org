@@ -1,7 +1,13 @@
 FROM maven:3-eclipse-temurin-21 AS build
-COPY . /home/maven/src
+
+# Cache maven dependencies
 WORKDIR /home/maven/src
-RUN mvn clean install
+COPY pom.xml .
+ # Download dependencies for better layer caching
+RUN mvn dependency:go-offline
+
+COPY src ./src/
+RUN mvn clean install -DskipTests
 
 FROM eclipse-temurin:21 AS mcorg_app
 EXPOSE "8080:8080"
