@@ -53,7 +53,7 @@ jobs:
       - name: Run flyway migrations
         run: mvn flyway:migrate
         env:
-          DB_URL: "jdbc:postgresql://${{ steps.create-neon-branch.outputs.host }}/mcorg?sslmode=require"
+          DB_URL: "jdbc:postgresql://${{ steps.create-neon-branch.outputs.db_host }}/mcorg?sslmode=require"
           DB_USER: ${{ env.DB_USERNAME }}
           DB_PASSWORD: ${{ steps.create-neon-branch.outputs.password }}
       - name: Deploy dev app to Fly
