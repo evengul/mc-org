@@ -3,7 +3,6 @@ FROM maven:3-eclipse-temurin-21 AS build
 # Cache maven dependencies
 WORKDIR /home/maven/src
 COPY pom.xml .
-COPY .mvn/ .mvn/
  # Download dependencies for better layer caching
 RUN mvn dependency:go-offline
 
