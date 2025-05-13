@@ -37,13 +37,13 @@ jobs:
           key: flyway-${{ runner.os }}-${{ hashFiles('./webapp/src/main/resources/db/migration/**') }}
           restore-keys: ${{ runner.os }}-flyway
       - name: Create Neon branch
-        uses: neondatabase/create-branch-action@v5
+        uses: neondatabase/create-branch-action@v6.0.1
         id: create-neon-branch
         with:
           project_id: morning-fog-11467472
           database: mcorg
           branch_name: dev/pr-${{ github.event.number }}
-          username: ${{ env.DB_USERNAME }}
+          role: ${{ env.DB_USERNAME }}
           api_key: ${{ secrets.NEON_API_KEY }}
       - name: Set up JDK 21
         uses: actions/setup-java@v3
@@ -64,7 +64,7 @@ jobs:
           path: ./webapp
           config: ./dev.fly.toml
           org: mc-org
-          secrets: TEST_HOST=mcorg-dev-${{ github.event.number }}.fly.dev DB_PASSWORD=${{ steps.create-neon-branch.outputs.password }} DB_URL=jdbc:postgresql://${{ steps.create-neon-branch.outputs.host_with_pooler }}/mcorg?sslmode=require DB_USER=${{ env.DB_USERNAME }} RSA_PUBLIC_KEY=${{ secrets.RSA_PUBLIC_KEY }} RSA_PRIVATE_KEY=${{ secrets.RSA_PRIVATE_KEY }}
+          secrets: TEST_HOST=mcorg-dev-${{ github.event.number }}.fly.dev DB_PASSWORD=${{ steps.create-neon-branch.outputs.password }} DB_URL=jdbc:postgresql://${{ steps.create-neon-branch.outputs.db_host_pooled }}/mcorg?sslmode=require DB_USER=${{ env.DB_USERNAME }} RSA_PUBLIC_KEY=${{ secrets.RSA_PUBLIC_KEY }} RSA_PRIVATE_KEY=${{ secrets.RSA_PRIVATE_KEY }}
       - uses: actions/github-script@v7
         with:
           github-token: ${{secrets.GH_TOKEN_PR_COMMENTS}}
