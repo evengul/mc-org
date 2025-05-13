@@ -24,23 +24,12 @@ jobs:
         working-directory: ./webapp
     steps:
       - uses: actions/checkout@v4
-      - name: Set up Docker buildx
-        uses: docker/setup-buildx-action@v3
       - name: Cache Maven packages
         uses: actions/cache@v4
         with:
           path: ~/.m2
           key: maven-${{ runner.os }}-${{ hashFiles('**/pom.xml', '**/dependencies.xml') }}
           restore-keys: ${{ runner.os }}-m2
-      - name: Build and cache Docker image
-        uses: docker/build-push-action@v5
-        with:
-          context: ./webapp
-          push: false
-          load: true
-          tags: mcorg-dev:${{ github.event.number }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
       - name: Cache global npm packages
         uses: actions/cache@v4
         id: global-npm-cache
