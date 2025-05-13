@@ -1,0 +1,1 @@
+# MC-ORG: A web-based tool for managing and organizing Minecraft projects
