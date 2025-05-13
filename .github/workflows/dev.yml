@@ -41,6 +41,24 @@ jobs:
           tags: mcorg-dev:${{ github.event.number }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+      - name: Cache global npm packages
+        uses: actions/cache@v4
+        id: global-npm-cache
+        with:
+          path: ~/.npm-global
+          key: ${{ runner.os }}-npm-global-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-npm-global-
+
+      - name: Configure npm global directory
+        if: steps.global-npm-cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ~/.npm-global
+          npm config set prefix '~/.npm-global'
+      - name: Install neonctl globally
+        run: |
+          export PATH=~/.npm-global/bin:$PATH
+          npm i -g neonctl@2
       - uses: neondatabase/create-branch-action@v5
         id: create-neon-branch
         with:
