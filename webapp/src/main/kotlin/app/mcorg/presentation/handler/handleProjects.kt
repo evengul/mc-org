@@ -67,7 +67,7 @@ suspend fun ApplicationCall.handlePostProject() {
     Pipeline.create<CreateProjectFailure, Parameters>()
         .pipe(GetCreateProjectInputStep)
         .pipe(ValidateCreateProjectInputStep(worldId))
-        .pipe(CreateProjectStep(worldId))
+        .pipe(CreateProjectStep(worldId, user.username))
         .pipe(GetProjectStep(GetProjectStep.Include.none())) { stepState = stepState.copy(createdProject = it.toSlim()) }
         .map { URLMappers.projectFilterURLMapper(getCurrentUrl()) }
         .peek { stepState = stepState.copy(specification = it) }
@@ -181,6 +181,7 @@ suspend fun ApplicationCall.handlePatchProjectAssignee() {
     Pipeline.create<AssignProjectFailure, Parameters>()
         .pipe(GetProjectAssignmentInputStep)
         .pipe(AssignProjectOrRemoveProjectAssignmentStep(worldId, projectId))
+        .pipe(UpdateProjectAuditInfoStep(currentUser.username, projectId))
         .map { projectId }
         .pipe(GetProjectStep(GetProjectStep.Include.none())) { stepData.project = it.toSlim() }
         .map { URLMappers.projectFilterURLMapper(getCurrentUrl()) }
