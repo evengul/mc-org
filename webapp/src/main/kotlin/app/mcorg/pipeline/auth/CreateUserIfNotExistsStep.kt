@@ -30,7 +30,7 @@ data object CreateUserIfNotExistsStep : Step<MinecraftProfile, CreateUserIfNotEx
                     }
                 }
 
-            val id = prepareStatement("insert into users(username, email, created_by, updated_by) values (?, ?, ?. ?) returning id")
+            val id = prepareStatement("insert into users(username, email, created_by, updated_by) values (?, ?, ?, ?) returning id")
                 .apply {
                     setString(1, input.username)
                     setString(2, input.email)

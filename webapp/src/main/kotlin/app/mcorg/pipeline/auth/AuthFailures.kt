@@ -54,6 +54,7 @@ fun SignInWithMinecraftFailure.toRedirect(): Redirect {
         is GetMinecraftProfileFailure.CouldNotGetProfile -> Redirect.signOut("minecraft_profile")
         is CreateTokenFailure.CouldNotCreateToken -> Redirect.signOut("token_creation", "description" to (this.cause.message ?: "unknown"))
         is CreateUserIfNotExistsFailure.Other -> Redirect.signOut("user_creation", "description" to "Could not create user after signing in")
+        is UpdateLastSignInFailure.Other -> Redirect.signOut("sign_in_error", "description" to "Error occurred while signing in")
     }
 }
 

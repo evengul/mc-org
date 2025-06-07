@@ -101,7 +101,7 @@ suspend fun ApplicationCall.handleTestSignIn() {
 }
 
 private fun getTestUser(): MinecraftProfile {
-    val username = "TestUser_${Random.nextInt(100_000)}"
+    val username = "TestUser_${Random.nextInt(89_999) + 10_000}"
     return MinecraftProfile(
         username,
         "test-$username@mcorg.app"
