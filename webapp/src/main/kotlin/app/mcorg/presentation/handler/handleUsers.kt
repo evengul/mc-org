@@ -48,19 +48,24 @@ suspend fun ApplicationCall.handleGetUsers() {
 }
 
 suspend fun ApplicationCall.handlePostUser() {
-    val userId = getUserId()
+    val user = getUser()
     val worldId = getWorldId()
 
+    var newUser = -1
+
     Pipeline.create<AddWorldParticipantFailure, Unit>()
-        .pipe(Step.value(WorldUser(worldId = worldId, userId = userId)))
+        .pipe(Step.value(WorldUser(worldId = worldId, userId = user.id)))
         .pipe(VerifyParticipantAdderIsAdmin)
         .pipe(Step.value(receiveParameters()))
         .pipe(GetUsernameInputStep)
         .pipe(VerifyUsernameExistsStep)
         .map { AddUserInput(worldId, it) }
         .pipe(VerifyUserNotInWorldStep)
-        .pipe(AddWorldParticipantStep)
-        .map { it.userId }
+        .pipe(AddWorldParticipantStep(user.username))
+        .peek { newUser = it.userId }
+        .map {  }
+        .pipe(UpdateWorldPermissionAuditInfoStep(worldId, user.username))
+        .map { newUser }
         .pipe(GetNewParticipantStep)
         .fold(
             input = Unit,
@@ -78,6 +83,7 @@ suspend fun ApplicationCall.handlePostUser() {
                     is VerifyUserNotInWorldStepFailure.UserAlreadyExists -> respond(HttpStatusCode.Conflict, "User is already added to this world.")
                     is GetNewParticipantStepFailure.NotFound -> respond(HttpStatusCode.NotFound, "User was not found after adding them to the world.")
                     is GetNewParticipantStepFailure.Other -> respond(HttpStatusCode.InternalServerError, "An unknown error occurred")
+                    is UpdateWorldPermissionAuditInfoFailure.Other -> respond(HttpStatusCode.InternalServerError, "An unknown error occurred")
                 }
             }
         )
@@ -85,10 +91,10 @@ suspend fun ApplicationCall.handlePostUser() {
 
 suspend fun ApplicationCall.handleDeleteWorldUser() {
     val worldId = getWorldId()
-    val adminId = getUserId()
+    val admin = getUser()
 
     Pipeline.create<RemoveWorldParticipantFailure, Unit>()
-        .pipe(Step.value(WorldUser(worldId = worldId, userId = adminId)))
+        .pipe(Step.value(WorldUser(worldId = worldId, userId = admin.id)))
         .pipe(VerifyParticipantAdderIsAdmin)
         .pipe(Step.value(parameters))
         .pipe(GetUserIdInputStep)
@@ -99,6 +105,7 @@ suspend fun ApplicationCall.handleDeleteWorldUser() {
         .pipe(RemoveUserProjectAssignmentsInWorld)
         .map { RemoveUserFromWorldInput(userId = it.userId, worldId = it.worldId) }
         .pipe(RemoveUserFromWorldStep)
+        .pipe(UpdateWorldPermissionAuditInfoStep(worldId, admin.username))
         .fold(
             input = Unit,
             onSuccess = { respondEmptyHtml() },
@@ -111,6 +118,7 @@ suspend fun ApplicationCall.handleDeleteWorldUser() {
                     is RemoveUserAssignmentsInWorldFailure.Other -> respond(HttpStatusCode.InternalServerError, "An unknown error occurred")
                     is RemoveUserFromWorldFailure.Other -> respond(HttpStatusCode.InternalServerError, "An unknown error occurred")
                     is VerifyUserInWorldFailure.NotPresent -> respondNotFound("User doesn't exist in world")
+                    is UpdateWorldPermissionAuditInfoFailure.Other -> respond(HttpStatusCode.InternalServerError, "An unknown error occurred")
                 }
             }
         )
