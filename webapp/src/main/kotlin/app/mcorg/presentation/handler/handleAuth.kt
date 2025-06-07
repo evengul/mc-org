@@ -24,6 +24,7 @@ import app.mcorg.pipeline.auth.MissingToken
 import app.mcorg.pipeline.auth.Redirect
 import app.mcorg.pipeline.auth.SignInLocallyFailure
 import app.mcorg.pipeline.auth.SignInWithMinecraftFailure
+import app.mcorg.pipeline.auth.UpdateLastSignInStep
 import app.mcorg.pipeline.auth.ValidateEnvStep
 import app.mcorg.pipeline.auth.toRedirect
 import app.mcorg.presentation.consts.AUTH_COOKIE
@@ -60,14 +61,17 @@ suspend fun ApplicationCall.handleGetSignIn() {
 }
 
 suspend fun ApplicationCall.handleLocalSignIn() {
+    val localUsername = "evegul"
     val redirectPath = parameters["redirect_to"] ?: "/"
     Pipeline.create<SignInLocallyFailure, Unit>()
         .pipe(Step.value(getEnvironment()))
         .pipe(ValidateEnvStep(Local))
-        .pipe(Step.value(MinecraftProfile("evegul", "test@example.com")))
+        .pipe(Step.value(MinecraftProfile(localUsername, "test@example.com")))
         .pipe(CreateUserIfNotExistsStep)
         .pipe(CreateTokenStep)
         .pipe(AddCookieStep(response.cookies, getHost() ?: "false"))
+        .map { localUsername }
+        .pipe(UpdateLastSignInStep)
         .fold(
             input = Unit,
             onFailure = { respond(HttpStatusCode.Forbidden) },
@@ -79,13 +83,16 @@ suspend fun ApplicationCall.handleLocalSignIn() {
 
 suspend fun ApplicationCall.handleTestSignIn() {
     val redirectPath = parameters["redirect_to"] ?: "/"
+    val testUser = getTestUser()
     Pipeline.create<SignInLocallyFailure, Unit>()
         .pipe(Step.value(getEnvironment()))
         .pipe(ValidateEnvStep(Test))
-        .pipe(Step.value(getTestUser()))
+        .pipe(Step.value(testUser))
         .pipe(CreateUserIfNotExistsStep)
         .pipe(CreateTokenStep)
         .pipe(AddCookieStep(response.cookies, getHost() ?: "false"))
+        .map { testUser.username }
+        .pipe(UpdateLastSignInStep)
         .fold(
             input = Unit,
             onFailure = { respond(HttpStatusCode.Forbidden) },
@@ -94,7 +101,7 @@ suspend fun ApplicationCall.handleTestSignIn() {
 }
 
 private fun getTestUser(): MinecraftProfile {
-    val username = "TestUser_${Random.nextInt(100_000)}"
+    val username = "TestUser_${Random.nextInt(89_999) + 10_000}"
     return MinecraftProfile(
         username,
         "test-$username@mcorg.app"
@@ -103,6 +110,7 @@ private fun getTestUser(): MinecraftProfile {
 
 suspend fun ApplicationCall.handleSignIn() {
     val redirectPath = parameters["state"]?.let { URLDecoder.decode(it, Charsets.UTF_8) } ?: "/"
+    var username = "system" // Default in case of failure
     Pipeline.create<SignInWithMinecraftFailure, Unit>()
         .pipe(Step.value(parameters))
         .pipe(GetMicrosoftCodeStep)
@@ -121,8 +129,11 @@ suspend fun ApplicationCall.handleSignIn() {
         .pipe(GetMinecraftToken)
         .pipe(GetMinecraftProfileStep)
         .pipe(CreateUserIfNotExistsStep)
+        .peek { username = it.username }
         .pipe(CreateTokenStep)
         .pipe(AddCookieStep(response.cookies, getHost() ?: "false"))
+        .map { username }
+        .pipe(UpdateLastSignInStep)
         .fold(
             input = Unit,
             onFailure = { respondRedirect(it.toRedirect().url) },

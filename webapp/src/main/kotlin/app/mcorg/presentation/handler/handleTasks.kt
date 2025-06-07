@@ -34,6 +34,8 @@ import app.mcorg.pipeline.task.GetTasksFailure
 import app.mcorg.pipeline.task.LitematicaTasksValidator
 import app.mcorg.pipeline.task.UpdateCountableTaskDoneStep
 import app.mcorg.pipeline.task.UpdateCountableTaskRequirementsStep
+import app.mcorg.pipeline.task.UpdateTaskAuditInfoStep
+import app.mcorg.pipeline.task.UpdateTaskProjectAuditInfoStep
 import app.mcorg.pipeline.task.UpdateTaskRequirementsFailure
 import app.mcorg.pipeline.task.UpdateTaskStageFailure
 import app.mcorg.pipeline.task.UpdateTaskStageStep
@@ -52,10 +54,13 @@ import io.ktor.server.response.*
 
 suspend fun ApplicationCall.handlePostDoableTask() {
     val projectId = getProjectId()
+    val user = getUser()
     Pipeline.create<CreateDoableTaskFailure, Parameters>()
         .pipe(GetDoableTaskInputStep)
         .pipe(ValidateTaskNameStep)
-        .pipe(CreateDoableTaskStep(projectId))
+        .pipe(CreateDoableTaskStep(projectId, user.username))
+        .map {  }
+        .pipe(UpdateTaskProjectAuditInfoStep(user.username, projectId))
         .map { projectId }
         .andThen(getRefreshTasksPipeline())
         .fold(
@@ -67,10 +72,13 @@ suspend fun ApplicationCall.handlePostDoableTask() {
 
 suspend fun ApplicationCall.handlePostCountableTask() {
     val projectId = getProjectId()
+    val user = getUser()
     Pipeline.create<CreateCountableTaskFailure, Parameters>()
         .pipe(GetCountableTaskInputStep)
         .pipe(CountableTaskValidator)
-        .pipe(CreateCountableTaskStep(projectId))
+        .pipe(CreateCountableTaskStep(projectId, user.username))
+        .map {  }
+        .pipe(UpdateTaskProjectAuditInfoStep(user.username, projectId))
         .map { projectId }
         .andThen(getRefreshTasksPipeline())
         .fold(
@@ -82,13 +90,15 @@ suspend fun ApplicationCall.handlePostCountableTask() {
 
 suspend fun ApplicationCall.handlePostLitematicaTasks() {
     val projectId = getProjectId()
+    val user = getUser()
 
     Pipeline.create<CreateLitematicaTasksFailure, MultiPartData>()
         .pipe(GetLitematicaTasksInputStep)
         .pipe(ValidateMaterialListStep)
         .pipe(ConvertMaterialListStep)
         .pipe(LitematicaTasksValidator)
-        .pipe(CreateLitematicaTasksStep(projectId))
+        .pipe(CreateLitematicaTasksStep(projectId, user.username))
+        .pipe(UpdateTaskProjectAuditInfoStep(user.username, projectId))
         .map { projectId }
         .andThen(getRefreshTasksPipeline())
         .fold(
@@ -101,9 +111,11 @@ suspend fun ApplicationCall.handlePostLitematicaTasks() {
 suspend fun ApplicationCall.handleDeleteTask() {
     val projectId = getProjectId()
     val taskId = getTaskId()
+    val user = getUser()
 
     Pipeline.create<DeleteTaskFailure, Int>()
         .pipe(DeleteTaskStep)
+        .pipe(UpdateTaskProjectAuditInfoStep(user.username, projectId))
         .map { projectId }
         .andThen(getRefreshTasksPipeline())
         .fold(
@@ -116,11 +128,13 @@ suspend fun ApplicationCall.handleDeleteTask() {
 suspend fun ApplicationCall.handlePatchCountableTaskDoneMore() {
     val projectId = getProjectId()
     val taskId = getTaskId()
+    val user = getUser()
 
     Pipeline.create<EditDoneMoreTaskFailure, Parameters>()
         .pipe(GetCountableTaskDoneMoreInputStep)
         .pipe(ValidateCountableTaskRequirementsStep)
         .pipe(UpdateCountableTaskDoneStep(taskId))
+        .pipe(UpdateTaskAuditInfoStep(user.username, taskId))
         .map { projectId }
         .andThen(getRefreshTasksPipeline())
         .fold(
@@ -132,9 +146,13 @@ suspend fun ApplicationCall.handlePatchCountableTaskDoneMore() {
 
 suspend fun ApplicationCall.handleEditTaskRequirements() {
     val projectId = getProjectId()
+    var taskId = -1
+    val user = getUser()
     Pipeline.create<UpdateTaskRequirementsFailure, Parameters>()
         .pipe(GetCountableTasksEditInputStep)
+        .peek { taskId = it.taskId }
         .pipe(UpdateCountableTaskRequirementsStep)
+        .pipe(UpdateTaskAuditInfoStep(user.username, taskId))
         .map { projectId }
         .andThen(getRefreshTasksPipeline())
         .fold(
@@ -148,6 +166,7 @@ suspend fun ApplicationCall.handlePatchTaskAssignee() {
     val worldId = getWorldId()
     val projectId = getProjectId()
     val taskId = getTaskId()
+    val user = getUser()
 
     Pipeline.create<AssignTaskFailure, Parameters>()
         .wrapPipe(GetProjectAssignmentInputStep) {
@@ -159,6 +178,7 @@ suspend fun ApplicationCall.handlePatchTaskAssignee() {
             }
         }
         .pipe(AssignTaskOrRemoveTaskAssignmentStep(worldId, taskId))
+        .pipe(UpdateTaskAuditInfoStep(user.username, taskId))
         .map { projectId }
         .andThen(getRefreshTasksPipeline())
         .fold(
@@ -170,10 +190,12 @@ suspend fun ApplicationCall.handlePatchTaskAssignee() {
 
 suspend fun ApplicationCall.handleUpdateTaskStage() {
     val taskId = getTaskId()
+    val user = getUser()
 
     Pipeline.create<UpdateTaskStageFailure, Parameters>()
         .pipe(GetTaskStageInputStep)
         .pipe(UpdateTaskStageStep(taskId))
+        .pipe(UpdateTaskAuditInfoStep(user.username, taskId))
         .fold(
             input = parameters,
             onSuccess = { respond(HttpStatusCode.NoContent) },

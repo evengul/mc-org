@@ -10,14 +10,16 @@ sealed interface AddWorldParticipantStepFailure : AddWorldParticipantFailure {
     data class Other(val failure: DatabaseFailure) : AddWorldParticipantStepFailure
 }
 
-object AddWorldParticipantStep : Step<AddUserInput, AddWorldParticipantStepFailure, AddUserInput> {
+data class AddWorldParticipantStep(val currentUsername: String) : Step<AddUserInput, AddWorldParticipantStepFailure, AddUserInput> {
     override suspend fun process(input: AddUserInput): Result<AddWorldParticipantStepFailure, AddUserInput> {
         return useConnection({ AddWorldParticipantStepFailure.Other(it) }) {
-            prepareStatement("insert into permission (world_id, user_id, authority) values (?, ?, ?)")
+            prepareStatement("insert into permission (world_id, user_id, authority, created_by, updated_by) values (?, ?, ?, ?, ?)")
                 .apply {
                     setInt(1, input.worldId)
                     setInt(2, input.userId)
                     setInt(3, Authority.PARTICIPANT.level)
+                    setString(4, currentUsername)
+                    setString(5, currentUsername)
                 }
                 .executeUpdate()
             Result.success(input)

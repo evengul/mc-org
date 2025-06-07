@@ -55,16 +55,16 @@ suspend fun ApplicationCall.handleGetWorlds() {
 }
 
 suspend fun ApplicationCall.handlePostWorld() {
-    val userId = getUserId()
+    val user = getUser()
 
     Pipeline.create<CreateWorldFailure, Parameters>()
         .pipe(GetWorldNameStep)
         .pipe(ValidateWorldNonEmptyStep)
         .pipe(ValidateWorldNameLengthStep)
         .pipe(ValidateAvailableWorldName)
-        .pipe(CreateWorldStep)
-        .pipe(CreateWorldPermissionStep(userId, Authority.OWNER))
-        .pipe(SelectWorldStep(userId))
+        .pipe(CreateWorldStep(user.username))
+        .pipe(CreateWorldPermissionStep(user.id, Authority.OWNER))
+        .pipe(SelectWorldStep(user.id))
         .fold(
             input = receiveParameters(),
             onSuccess = { clientRedirect("/app/worlds/$it") },

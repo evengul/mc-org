@@ -13,6 +13,10 @@ fun ApplicationCall.getUser() = attributes[AttributeKey<User>("user")]
 fun ApplicationCall.getUserId() = getUser().id
 
 fun ResponseCookies.removeToken(host: String) {
-    append(tokenName, "", expires = GMTDate(-1), httpOnly = true, domain = host, path = "/")
+    if (host == "false") {
+        append(tokenName, "", expires = GMTDate(-1), httpOnly = true, path = "/")
+    } else {
+        append(tokenName, "", expires = GMTDate(-1), httpOnly = true, domain = host, path = "/")
+    }
 }
 

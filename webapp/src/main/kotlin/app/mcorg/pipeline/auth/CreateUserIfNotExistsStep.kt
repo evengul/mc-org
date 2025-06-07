@@ -30,8 +30,13 @@ data object CreateUserIfNotExistsStep : Step<MinecraftProfile, CreateUserIfNotEx
                     }
                 }
 
-            val id = prepareStatement("insert into users(username, email) values (?, ?) returning id")
-                .apply { setString(1, input.username); setString(2, input.email) }
+            val id = prepareStatement("insert into users(username, email, created_by, updated_by) values (?, ?, ?, ?) returning id")
+                .apply {
+                    setString(1, input.username)
+                    setString(2, input.email)
+                    setString(3, input.username)
+                    setString(4, input.username)
+                }
                 .getReturnedId(CreateUserIfNotExistsFailure.Other(DatabaseFailure.NoIdReturned))
 
             return@useConnection runBlocking {

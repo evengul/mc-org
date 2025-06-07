@@ -5,6 +5,7 @@ import app.mcorg.pipeline.DatabaseFailure
 import app.mcorg.pipeline.permission.RemoveUserPermissionsStep
 import app.mcorg.pipeline.profile.GetProfileStep
 import app.mcorg.pipeline.profile.IsTechnicalPlayerStep
+import app.mcorg.pipeline.profile.UpdatePlayerAuditingInfoStep
 import app.mcorg.pipeline.project.RemoveUserAssignmentsStep
 import app.mcorg.pipeline.user.DeleteUserStep
 import app.mcorg.presentation.utils.getUserId
@@ -13,6 +14,7 @@ import app.mcorg.presentation.templates.profile.createIsTechnicalCheckBox
 import app.mcorg.presentation.templates.profile.profile
 import app.mcorg.presentation.utils.clientRedirect
 import app.mcorg.presentation.utils.getHost
+import app.mcorg.presentation.utils.getUser
 import app.mcorg.presentation.utils.removeToken
 import app.mcorg.presentation.utils.respondNotFound
 import io.ktor.http.*
@@ -41,11 +43,13 @@ suspend fun ApplicationCall.handleUploadProfilePhoto() {
 }
 
 suspend fun ApplicationCall.handleIsTechnical() {
-    val userId = getUserId()
+    val currentUser = getUser()
     val isTechnical = receiveText() == "technicalPlayer=on"
 
     Pipeline.create<DatabaseFailure, Boolean>()
-        .pipe(IsTechnicalPlayerStep(userId))
+        .pipe(IsTechnicalPlayerStep(currentUser.id))
+        .map { currentUser.id }
+        .pipe(UpdatePlayerAuditingInfoStep(currentUser.username))
         .fold(
             input = isTechnical,
             onFailure = { respond(HttpStatusCode.InternalServerError) },
