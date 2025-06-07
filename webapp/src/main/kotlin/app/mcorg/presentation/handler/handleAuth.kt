@@ -37,6 +37,7 @@ import io.ktor.server.request.RequestCookies
 import io.ktor.server.response.*
 import java.net.URLDecoder
 import java.net.URLEncoder
+import java.util.UUID
 import kotlin.random.Random
 
 suspend fun ApplicationCall.handleGetSignIn() {
@@ -66,7 +67,7 @@ suspend fun ApplicationCall.handleLocalSignIn() {
     Pipeline.create<SignInLocallyFailure, Unit>()
         .pipe(Step.value(getEnvironment()))
         .pipe(ValidateEnvStep(Local))
-        .pipe(Step.value(MinecraftProfile(localUsername, "test@example.com")))
+        .pipe(Step.value(MinecraftProfile(localUsername, "test@example.com", UUID.randomUUID().toString())))
         .pipe(CreateUserIfNotExistsStep)
         .pipe(CreateTokenStep)
         .pipe(AddCookieStep(response.cookies, getHost() ?: "false"))
@@ -104,7 +105,8 @@ private fun getTestUser(): MinecraftProfile {
     val username = "TestUser_${Random.nextInt(89_999) + 10_000}"
     return MinecraftProfile(
         username,
-        "test-$username@mcorg.app"
+        "test-$username@mcorg.app",
+        uuid = UUID.randomUUID().toString()
     )
 }
 

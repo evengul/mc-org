@@ -21,7 +21,8 @@ object GetMinecraftProfileStep : Step<String, GetMinecraftProfileFailure, Minecr
             return Result.success(
                 MinecraftProfile(
                     username = data.name,
-                    email = "unknown"
+                    email = "unknown",
+                    uuid = data.id
                 )
             )
         }
