@@ -10,11 +10,15 @@ sealed interface CreateWorldStepFailure : CreateWorldFailure {
     data class Other(val failure: DatabaseFailure) : CreateWorldStepFailure
 }
 
-object CreateWorldStep : Step<String, CreateWorldStepFailure, Int> {
+data class CreateWorldStep(val username: String) : Step<String, CreateWorldStepFailure, Int> {
     override suspend fun process(input: String): Result<CreateWorldStepFailure, Int> {
         return useConnection({ CreateWorldStepFailure.Other(it) }) {
-            prepareStatement("insert into world (name) values (?) returning id")
-                .apply { setString(1, input) }
+            prepareStatement("insert into world (name, created_by, updated_by) values (?, ?, ?) returning id")
+                .apply {
+                    setString(1, input)
+                    setString(2, username)
+                    setString(3, username)
+                }
                 .getReturnedId(CreateWorldStepFailure.Other(DatabaseFailure.NoIdReturned))
         }
     }
