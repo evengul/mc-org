@@ -63,11 +63,12 @@ suspend fun ApplicationCall.handleGetSignIn() {
 
 suspend fun ApplicationCall.handleLocalSignIn() {
     val localUsername = "evegul"
+    val localUuid = "evegul-uuid"
     val redirectPath = parameters["redirect_to"] ?: "/"
     Pipeline.create<SignInLocallyFailure, Unit>()
         .pipe(Step.value(getEnvironment()))
         .pipe(ValidateEnvStep(Local))
-        .pipe(Step.value(MinecraftProfile(localUsername, "test@example.com", UUID.randomUUID().toString())))
+        .pipe(Step.value(MinecraftProfile(localUsername, "test@example.com", localUuid)))
         .pipe(CreateUserIfNotExistsStep)
         .pipe(CreateTokenStep)
         .pipe(AddCookieStep(response.cookies, getHost() ?: "false"))
