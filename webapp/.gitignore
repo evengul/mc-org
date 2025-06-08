@@ -38,3 +38,4 @@ out/
 target
 
 src/main/resources/keys
+local_microsoft.env
