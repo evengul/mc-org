@@ -257,6 +257,17 @@
     --clr-border-alt-2: var(--clr-stone-700);
     --clr-border-alt-3: var(--clr-water-500);
 
+    /* Shadows */
+
+    --shadow-xs: 0 0 1px 0 rgba(0, 0, 0, 0.20), 0 1px 3px 0 rgba(0, 0, 0, 0.15);
+    --shadow-sm: 0 0 1px 0 rgba(0, 0, 0, 0.18), 0 1px 3px 0 rgba(0, 0, 0, 0.15), 0 3px 8px 0 rgba(0, 0, 0, 0.10);
+    --shadow-md: 0 0 1px 0 rgba(0, 0, 0, 0.15), 0 1px 3px 0 rgba(0, 0, 0, 0.10), 0 5px 12px 0 rgba(0, 0, 0, 0.13);
+    --shadow-lg: 0 0 1px 0 rgba(0, 0, 0, 0.12), 0 10px 16px 0 rgba(0, 0, 0, 0.12), 0 2px 5px 0 rgba(0, 0, 0, 0.15);
+    --shadow-xl: 0 0 1px 0 rgba(0, 0, 0, 0.08), 0 10px 24px 0 rgba(0, 0, 0, 0.18), 0 2px 5px 0 rgba(0, 0, 0, 0.15);
+
+    --shadow-focus: 0 0 0 3px var(--clr-border-action);
+    --shadow-inverted-focus: 0 0 0 3px var(--clr-on-inverted-border-focus);
+
     /* Deprecated colors */
 
     --clr-primary: #3498db;
