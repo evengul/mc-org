@@ -18,7 +18,7 @@ input[type="checkbox"] {
 }
 
 input[type="checkbox"]::before {
-    content: url("/static/icons/medium/Check.svg");
+    content: url("/static/icons/Check_48x48.svg");
     transform: scale(0) translateY(0.125em);
     transition: 120ms transform ease-in-out;
 }
