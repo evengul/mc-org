@@ -1,0 +1,100 @@
+package app.mcorg.presentation.icons
+
+import app.mcorg.presentation.templated.common.component.LeafComponent
+import app.mcorg.presentation.templated.common.component.addComponent
+import kotlinx.html.Tag
+import kotlinx.html.TagConsumer
+
+enum class IconSize(val width: Int, val height: Int) {
+    SMALL(24, 24),
+    MEDIUM(48, 48)
+}
+
+fun <T : Tag> T.iconComponent(icon: Icon, size: IconSize = IconSize.MEDIUM) {
+    when (size) {
+        IconSize.SMALL -> addComponent(icon.small())
+        IconSize.MEDIUM -> addComponent(icon.medium())
+    }
+}
+
+class IconComponent(
+    private val icon: Icon,
+    private val size: IconSize = IconSize.MEDIUM,
+) : LeafComponent() {
+    override fun render(container: TagConsumer<*>) {
+        container.onTagContentUnsafe {
+            + icon.readContent(size)
+        }
+    }
+}
+
+class Icon(
+    val name: String,
+    val subPath: String = "",
+) {
+
+    fun small() = IconComponent(this, IconSize.SMALL)
+
+    fun medium() = IconComponent(this, IconSize.MEDIUM)
+
+    fun readContent(size: IconSize): String {
+        return this::class.java.getResourceAsStream(path(size))?.bufferedReader()?.use { it.readText() }
+            ?: UNKNOWN_ICON_SVG
+    }
+
+    fun path(size: IconSize): String {
+        return "/static/icons/${sanitizedSubPath()}${if (sanitizedSubPath().isEmpty()) "" else "/"}${name}_${size.width}x${size.height}.svg"
+    }
+
+    private fun sanitizedSubPath(): String {
+        return subPath.removePrefix("/").removeSuffix("/")
+    }
+}
+
+object Icons {
+    object Dimensions {
+        val END = Icon("End", "dimensions")
+        val NETHER = Icon("Nether", "dimensions")
+        val OVERWORLD = Icon("Overworld", "dimensions")
+    }
+    object Menu {
+        val CONTRAPTIONS = Icon("Contraptions", "menu")
+        val PROJECTS = Icon("Projects", "menu")
+        val ROAD_MAP = Icon("Roadmap", "menu")
+        val UTILITIES = Icon("Utilities", "menu")
+    }
+    object Notification {
+        val ERROR = Icon("Error", "notification")
+        val WARNING = Icon("Warning", "notification")
+        val INFO = Icon("Info", "notification")
+    }
+    object Priority {
+        val HIGH = Icon("High", "priority")
+        val MEDIUM = Icon("Medium", "priority")
+        val LOW = Icon("Low", "priority")
+    }
+    object Users {
+        val ADD = Icon("Add", "users")
+        val GROUP = Icon("Group", "users")
+        val PROFILE = Icon("Profile", "users")
+    }
+    val ADD_WORLD = Icon("Add_World")
+    val BACK = Icon("Back")
+    val CHECK = Icon("Check")
+    val DELETE = Icon("Delete")
+    val FILTER_LIST = Icon("Filter_List")
+    val MENU = Icon("Menu")
+    val MENU_ADD = Icon("Menu_Add")
+    val MICROSOFT_LOGO = Icon("Microsoft_Logo")
+}
+
+private val UNKNOWN_ICON_SVG = """
+    <svg 
+        xmlns="http://www.w3.org/2000/svg" 
+        height="24px" 
+        viewBox="0 -960 960 960" 
+        width="24px" 
+        fill="#272727">
+            <path d="M424-320q0-81 14.5-116.5T500-514q41-36 62.5-62.5T584-637q0-41-27.5-68T480-732q-51 0-77.5 31T365-638l-103-44q21-64 77-111t141-47q105 0 161.5 58.5T698-641q0 50-21.5 85.5T609-475q-49 47-59.5 71.5T539-320H424Zm56 240q-33 0-56.5-23.5T400-160q0-33 23.5-56.5T480-240q33 0 56.5 23.5T560-160q0 33-23.5 56.5T480-80Z"/>
+    </svg>
+""".trimIndent()
