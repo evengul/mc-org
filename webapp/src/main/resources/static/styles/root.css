@@ -268,6 +268,22 @@
     --shadow-focus: 0 0 0 3px var(--clr-border-action);
     --shadow-inverted-focus: 0 0 0 3px var(--clr-on-inverted-border-focus);
 
+    /* Spacing values */
+    --spacing-baseline: 2em;
+
+    --spacing-xxs:   calc(var(--spacing-baseline) / 4);
+    --spacing-xs:   calc(var(--spacing-baseline) / 3);
+    --spacing-sm:   calc(var(--spacing-baseline) / 2);
+    --spacing-md:   var(--spacing-baseline);
+    --spacing-lg:   calc(var(--spacing-baseline) * 2);
+    --spacing-xl:   calc(var(--spacing-baseline) * 3);
+
+    /* Border radius */
+    --border-radius-sm: 2px;
+    --border-radius-md: 4px;
+    --border-radius-lg: 8px;
+    --border-radius-full: 100%;
+
     /* Deprecated colors */
 
     --clr-primary: #3498db;
@@ -287,16 +303,6 @@
     --clr-text-secondary: #555555;
 
     --clr-input: #f7f9fa;
-
-    --spacing-baseline: 2em;
-
-    /* spacing values */
-    --spacing-xxs:   calc(var(--spacing-baseline) / 4);
-    --spacing-xs:   calc(var(--spacing-baseline) / 3);
-    --spacing-sm:   calc(var(--spacing-baseline) / 2);
-    --spacing-md:   var(--spacing-baseline);
-    --spacing-lg:   calc(var(--spacing-baseline) * 2);
-    --spacing-xl:   calc(var(--spacing-baseline) * 3);
 
     /* Media query values */
     --media-lg: 1024px;
