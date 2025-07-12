@@ -1,4 +1,4 @@
-package app.mcorg.presentation.icons
+package app.mcorg.presentation.templated.common.icon
 
 import app.mcorg.presentation.templated.common.component.LeafComponent
 import app.mcorg.presentation.templated.common.component.addComponent
@@ -10,21 +10,40 @@ enum class IconSize(val width: Int, val height: Int) {
     MEDIUM(48, 48)
 }
 
-fun <T : Tag> T.iconComponent(icon: Icon, size: IconSize = IconSize.MEDIUM) {
+
+/**
+ * Icon colors picked from root CSS variables.
+ */
+enum class IconColor(val hex: String) {
+    ON_PRIMARY("#ffffff"),
+    ON_SECONDARY("#ffffff"),
+    ON_DANGER("#ffffff"),
+    ON_SUCCESS("#ffffff"),
+    ON_WARNING("#23262A"),
+    ON_INFO("#23262A"),
+}
+
+fun <T : Tag> T.iconComponent(icon: Icon, size: IconSize = IconSize.MEDIUM, color: IconColor = IconColor.ON_PRIMARY) {
     when (size) {
-        IconSize.SMALL -> addComponent(icon.small())
-        IconSize.MEDIUM -> addComponent(icon.medium())
+        IconSize.SMALL -> addComponent(icon.small(color))
+        IconSize.MEDIUM -> addComponent(icon.medium(color))
     }
 }
 
 class IconComponent(
     private val icon: Icon,
     private val size: IconSize = IconSize.MEDIUM,
+    private val color: IconColor = IconColor.ON_PRIMARY,
 ) : LeafComponent() {
     override fun render(container: TagConsumer<*>) {
         container.onTagContentUnsafe {
-            + icon.readContent(size)
+            + icon.readContent(size).replaceColor()
         }
+    }
+
+    private fun String.replaceColor(): String {
+        return this.replace("fill=\"#ffffff\"", "fill=\"${color.hex}\"")
+            .replace("stroke=\"#ffffff\"", "stroke=\"${color.hex}\"")
     }
 }
 
@@ -33,9 +52,9 @@ class Icon(
     val subPath: String = "",
 ) {
 
-    fun small() = IconComponent(this, IconSize.SMALL)
+    fun small(color: IconColor) = IconComponent(this, IconSize.SMALL, color)
 
-    fun medium() = IconComponent(this, IconSize.MEDIUM)
+    fun medium(color: IconColor) = IconComponent(this, IconSize.MEDIUM, color)
 
     fun readContent(size: IconSize): String {
         return this::class.java.getResourceAsStream(path(size))?.bufferedReader()?.use { it.readText() }
@@ -94,7 +113,7 @@ private val UNKNOWN_ICON_SVG = """
         height="24px" 
         viewBox="0 -960 960 960" 
         width="24px" 
-        fill="#272727">
+        fill="#ffffff">
             <path d="M424-320q0-81 14.5-116.5T500-514q41-36 62.5-62.5T584-637q0-41-27.5-68T480-732q-51 0-77.5 31T365-638l-103-44q21-64 77-111t141-47q105 0 161.5 58.5T698-641q0 50-21.5 85.5T609-475q-49 47-59.5 71.5T539-320H424Zm56 240q-33 0-56.5-23.5T400-160q0-33 23.5-56.5T480-240q33 0 56.5 23.5T560-160q0 33-23.5 56.5T480-80Z"/>
     </svg>
 """.trimIndent()
