@@ -6,10 +6,11 @@
 @import "components/notifications.css";
 @import "components/selected.css";
 @import "components/dialog.css";
-@import "components/icon.css";
 @import "components/checkbox.css";
 @import "components/select.css";
 @import "components/input.css";
+@import "components/radio.css";
+@import "components/textarea.css";
 @import "components/progress.css";
 @import "components/taskBoard.css";
 

@@ -1,4 +1,4 @@
-input[type="checkbox"] {
+input[type="radio"] {
     -webkit-appearance: none;
     appearance: none;
 
@@ -11,7 +11,7 @@ input[type="checkbox"] {
     background-color: var(--clr-surface-default);
 
     border: 2px solid var(--clr-border-subtle);
-    border-radius: var(--border-radius-sm);
+    border-radius: var(--border-radius-full);
 
     transition: all 0.2s ease;
 
@@ -19,40 +19,39 @@ input[type="checkbox"] {
     cursor: pointer;
 }
 
-input[type="checkbox"]:hover {
+input[type="radio"]:hover {
     border-color: var(--clr-border-subtle-hover);
 }
 
-input[type="checkbox"]:focus {
+input[type="radio"]:focus {
     outline: none;
     border-color: var(--clr-border-action);
     box-shadow: var(--shadow-focus);
 }
 
-input[type="checkbox"]:checked {
+input[type="radio"]:checked {
     background-color: var(--clr-action);
     border-color: var(--clr-action);
 }
 
-input[type="checkbox"]:checked::after {
+input[type="radio"]:checked::after {
     content: "";
     position: absolute;
-    left: 0.520em;
-    top: 0.25em;
-    width: 0.35em;
+    top: 0.33em;
+    left: 0.33em;
+    width: 0.7em;
     height: 0.7em;
-    border: solid var(--clr-text-on-action);
-    border-width: 0 2px 2px 0;
-    transform: rotate(45deg);
+    background-color: var(--clr-text-on-action);
+    border-radius: var(--border-radius-full);
 }
 
-input[type="checkbox"]:disabled {
+input[type="radio"]:disabled {
     background-color: var(--clr-neutral-subtle);
     border-color: var(--clr-border-subtle);
     cursor: not-allowed;
     opacity: 0.7;
 }
 
-input[type="checkbox"]:disabled::after {
-    border-color: var(--clr-text-subtle);
+input[type="radio"]:checked:disabled::after {
+    background-color: var(--clr-text-subtle);
 }

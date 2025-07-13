@@ -3,28 +3,46 @@ select {
     -webkit-appearance: none;
     -moz-appearance: none;
 
-    padding: var(--spacing-xxs);
-    border: 1px solid var(--clr-border);
-    border-radius: 4px;
-    color: var(--clr-text);
-    font-size: var(--text-md);
-    cursor: pointer;
+    display: block;
+    width: 100%;
+    padding: var(--spacing-xs);
 
-    background-color: var(--clr-input);
-    background-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'><path stroke='grey' fill='grey' d='M6 8l-1 1l5 5l5-5l-1-1l-4 4l-4-4z'/></svg>");
+    background-color: var(--clr-surface-default);
+    color: var(--clr-text-default);
+
+    border: 1px solid var(--clr-border-subtle);
+    border-radius: var(--spacing-md);
+
+    background-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'><path stroke='%23525962' fill='%23525962' d='M6 8l-1 1l5 5l5-5l-1-1l-4 4l-4-4z'/></svg>");
     background-repeat: no-repeat;
     background-position: right var(--spacing-xs) center;
     background-size: 16px;
 
-    &:focus {
-        outline: none;
-        border-color: var(--clr-primary);
-    }
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+select:hover {
+    border-color: var(--clr-border-subtle-hover);
+}
+
+select:focus {
+    outline: none;
+    border-color: var(--clr-border-action);
+    box-shadow: var(--shadow-focus);
+    background-color: var(--clr-surface-default);
+}
+
+select:disabled {
+    background-color: var(--clr-neutral-subtle);
+    border-color: var(--clr-border-subtle);
+    color: var(--clr-text-subtle);
+    cursor: not-allowed;
+    opacity: 0.7;
 }
 
 option {
-    background-color: var(--clr-bg-light);
-    color: var(--clr-text);
+    background-color: var(--clr-surface-default);
+    color: var(--clr-text-default);
     padding: var(--spacing-xs);
-    font-size: var(--text-md);
 }
