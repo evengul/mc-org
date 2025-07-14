@@ -1,11 +1,79 @@
 dialog {
-    align-self: center;
+    position: relative;
     justify-self: center;
+    align-self: center;
+    background-color: var(--clr-surface-default);
+    border: 1px solid var(--clr-border-subtle);
+    border-radius: var(--border-radius-md);
+    box-shadow: var(--shadow-lg);
+    color: var(--clr-text-default);
+    max-width: 500px;
+    padding: var(--spacing-md);
+}
 
-    padding: var(--spacing-lg);
-    background-color: var(--clr-bg-light);
-    border-radius: 8px;
-    box-shadow: rgba(0, 0, 0, 0.1) 0 4px 6px, rgba(0, 0, 0, 0.1) 0 1px 3px;
-    width: clamp(300px, 50%, 600px);
-    margin: auto;
+dialog::backdrop {
+    background-color: var(--clr-surface-backdrop);
+    opacity: 0.5;
+}
+
+dialog h1 {
+    color: var(--clr-text-default);
+    margin-top: 0;
+    margin-bottom: var(--spacing-sm);
+}
+
+dialog p.modal-description {
+    color: var(--clr-text-subtle);
+    margin-bottom: var(--spacing-md);
+}
+
+dialog button {
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-radius: var(--border-radius-md);
+    border: 1px solid var(--clr-border-subtle);
+    cursor: pointer;
+    margin-right: var(--spacing-xs);
+    transition: background-color 0.2s, border-color 0.2s;
+}
+
+dialog button.modal-close-button {
+    position: absolute;
+    top: var(--spacing-xs);
+    right: var(--spacing-xs);
+}
+
+dialog button.modal-close-button:hover {
+    background-color: var(--clr-neutral-hover);
+    border-color: var(--clr-border-subtle-hover);
+}
+
+dialog button.modal-save-button {
+    background-color: var(--clr-action);
+    color: var(--clr-text-on-action);
+    border-color: var(--clr-border-action);
+}
+
+dialog button.modal-save-button:hover {
+    background-color: var(--clr-action-hover);
+    border-color: var(--clr-border-action-hover);
+}
+
+dialog:focus {
+    outline: none;
+    box-shadow: var(--shadow-focus);
+}
+
+dialog[open] {
+    animation: dialog-show 0.3s ease-out;
+}
+
+@keyframes dialog-show {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }

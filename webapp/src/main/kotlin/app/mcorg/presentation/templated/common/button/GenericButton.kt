@@ -10,11 +10,11 @@ import kotlinx.html.button
 import kotlinx.html.classes
 
 class GenericButton(
-    private val text: String = "",
+    private var text: String = "",
     var iconLeft: Icon? = null,
     var iconRight: Icon? = null,
     var iconSize: IconSize? = null,
-    val onClick: String? = null,
+    var onClick: String? = null,
     var classes: Set<String> = setOf("btn"),
 ) : LeafComponent() {
 
@@ -43,8 +43,8 @@ class GenericButton(
 
         container.button {
             this@button.classes = getAllClasses()
-            if (onClick != null) {
-                attributes["onclick"] = onClick
+            onClick?.let {
+                attributes["onclick"] = it
             }
             iconLeft?.let {
                 iconComponent(it, iconSize ?: IconSize.MEDIUM, iconColor)
@@ -56,6 +56,10 @@ class GenericButton(
                 iconComponent(it, iconSize ?: IconSize.MEDIUM, iconColor)
             }
         }
+    }
+
+    operator fun String.unaryPlus() {
+        text = this
     }
 
     fun getAllClasses(): Set<String> {

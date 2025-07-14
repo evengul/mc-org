@@ -1,0 +1,58 @@
+.chip {
+    display: inline-flex;
+    flex-direction: row;
+    gap: var(--spacing-xs);
+
+    padding: calc(var(--spacing-xxs) / 2) var(--spacing-xs);
+    width: fit-content;
+
+    border-width: 1px;
+    border-style: solid;
+    border-radius: var(--border-radius-full);
+}
+
+.chip.clickable {
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.chip.clickable:hover {
+    opacity: 0.8;
+    box-shadow: var(--shadow-focus);
+}
+
+.chip-primary {
+    border-color: var(--clr-text-on-action);
+    background-color: var(--clr-action);
+    color: var(--clr-text-on-action);
+}
+
+.chip-secondary {
+    border-color: var(--clr-text-on-neutral);
+    background-color: var(--clr-neutral);
+    color: var(--clr-text-on-neutral);
+}
+
+.chip-danger {
+    border-color: var(--clr-text-on-danger);
+    background-color: var(--clr-danger);
+    color: var(--clr-text-on-danger);
+}
+
+.chip-success {
+    border-color: var(--clr-text-on-success);
+    background-color: var(--clr-success);
+    color: var(--clr-text-on-success);
+}
+
+.chip-warning {
+    border-color: var(--clr-text-on-warning);
+    background-color: var(--clr-warning);
+    color: var(--clr-text-on-warning);
+}
+
+.chip-info {
+    border-color: var(--clr-text-on-info);
+    background-color: var(--clr-info);
+    color: var(--clr-text-on-info);
+}

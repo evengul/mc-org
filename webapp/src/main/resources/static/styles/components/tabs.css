@@ -1,0 +1,24 @@
+.tabs {
+    display: flex;
+    flex-direction: row;
+    gap: var(--spacing-md);
+    padding: var(--spacing-xs);
+
+    width: fit-content;
+
+    background-color: var(--clr-neutral-subtle);
+
+    border: 1px solid var(--clr-neutral-subtle);
+
+    transition: all 0.2s ease;
+}
+
+.tab {
+    background-color: var(--clr-neutral-subtle);
+}
+
+.tab.active {
+    font-weight: bold;
+    color: var(--clr-text-on-neutral);
+    background-color: var(--clr-neutral);
+}

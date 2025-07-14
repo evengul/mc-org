@@ -31,12 +31,14 @@ enum class IconButtonColor {
 
 fun <T : Tag> T.iconButton(icon: Icon,
                            iconSize: IconSize = IconSize.MEDIUM,
-                           color: IconButtonColor = IconButtonColor.SECONDARY) {
+                           color: IconButtonColor = IconButtonColor.SECONDARY,
+                           buttonHandler: (GenericButton.() -> Unit)? = null) {
     val button = GenericButton(iconLeft = icon, iconSize = iconSize)
     button.addClass("btn-icon")
     when(color) {
         IconButtonColor.SECONDARY -> button.addClass("btn-secondary")
         IconButtonColor.DANGER -> button.addClass("btn-danger")
     }
+    buttonHandler?.let { it(button) }
     button.render(consumer)
 }

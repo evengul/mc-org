@@ -10,22 +10,22 @@
 .app-progress-container {
     position: relative;
     height: 30px;
-    background-color: var(--clr-bg-light);
-    border-radius: 15px;
+    background-color: var(--clr-bg-default);
+    border-radius: var(--border-radius-full);
     overflow: hidden;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1), 0 1px 3px rgba(0, 0, 0, 0.1);
+    box-shadow: var(--shadow-md);
 }
 
 .app-progress-bar {
     height: 100%;
-    background: linear-gradient(90deg, var(--clr-primary) 0%, var(--clr-secondary) 100%);
+    background: linear-gradient(90deg, var(--clr-neutral) 0%, var(--clr-action) 100%);
     transition: width 0.4s ease;
     display: flex;
     align-items: center;
     justify-content: center;
-    color: var(--clr-text-light);
+    color: var(--clr-text-default);
     font-weight: bold;
-    border-radius: 15px 0 0 15px;
+    border-radius: var(--border-radius-full) 0 0 var(--border-radius-full);
     animation: progress-animation 2s ease-out;
 }
 
@@ -34,6 +34,6 @@
     width: 100%;
     text-align: center;
     z-index: 1;
-    color: var(--clr-text-light);
+    color: var(--clr-text-default);
     font-weight: bold;
 }

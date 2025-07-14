@@ -99,6 +99,7 @@ object Icons {
     }
     val ADD_WORLD = Icon("Add_World")
     val BACK = Icon("Back")
+    val CLOSE = Icon("Close")
     val CHECK = Icon("Check")
     val DELETE = Icon("Delete")
     val FILTER_LIST = Icon("Filter_List")
