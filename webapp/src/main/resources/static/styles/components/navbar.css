@@ -1,18 +1,100 @@
-nav {
-    background-color: var(--clr-primary);
-    padding: var(--spacing-sm);
+.top-bar {
+    background-color: var(--clr-surface-default);
+    color: var(--clr-text-default);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--spacing-sm) var(--spacing-md);
+    box-shadow: var(--shadow-sm);
+    height: var(--navbar-height);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
+
+.top-bar h1 {
+    color: var(--clr-text-action);
+    margin-block: 0;
+    margin-inline-start: 0;
+    margin-inline-end: var(--spacing-lg);
+    font-size: var(--text-xl);
+}
+
+.top-bar-nav {
+    flex: 1;
     display: flex;
     justify-content: space-between;
+}
+
+.top-bar-links {
+    display: flex;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    gap: var(--spacing-md);
+}
+
+.top-bar-link {
+    position: relative;
+}
+
+.top-bar-link a {
+    color: var(--clr-text-default);
+    text-decoration: none;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-radius: var(--border-radius-md);
+    transition: background-color 0.2s ease, color 0.2s ease;
+    display: block;
+}
+
+.top-bar-link a:hover {
+    background-color: var(--clr-surface-hover);
+    color: var(--clr-text-action-hover);
+}
+
+.top-bar-link a:active {
+    background-color: var(--clr-surface-active);
+}
+
+.top-bar-link a.active {
+    color: var(--clr-text-action-selected);
+    font-family: "Roboto Mono Medium", sans-serif;
+}
+
+.top-bar-link a.active::after {
+    content: '';
+    position: absolute;
+    bottom: -5px;
+    left: 0;
+    width: 100%;
+    height: 2px;
+    background-color: var(--clr-border-action);
+    border-radius: var(--border-radius-full);
+}
+
+.top-bar-right {
+    display: flex;
+    flex-direction: row;
+    justify-content: flex-end;
     align-items: center;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    gap: var(--spacing-md);
+}
 
-    a {
-        text-decoration: none;
-        font-size: var(--text-md);
-        margin: 0 var(--spacing-sm);
+/* Responsive adjustments */
+@media screen and (max-width: var(--media-lg)) {
+    .top-bar {
+        flex-direction: column;
+        height: auto;
+        padding: var(--spacing-xs);
+    }
 
-        &:hover {
-            color: var(--clr-text-secondary);
-        }
+    .top-bar-nav {
+        width: 100%;
+        margin-top: var(--spacing-xs);
+    }
+
+    .top-bar-links {
+        width: 100%;
+        justify-content: center;
     }
 }
