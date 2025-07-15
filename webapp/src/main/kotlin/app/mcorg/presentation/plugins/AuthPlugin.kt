@@ -22,6 +22,11 @@ import io.ktor.server.response.respondRedirect
 
 val AuthPlugin = createRouteScopedPlugin("AuthPlugin") {
     onCall {
+        if (it.request.path().startsWith("/static/")
+            || it.request.path().startsWith("/assets/")
+            || it.request.path().startsWith("/favicon.ico")) {
+            return@onCall
+        }
         val result = Pipeline.create<AuthPluginFailure, RequestCookies>()
             .pipe(GetTokenStep(AUTH_COOKIE))
             .pipe(ConvertTokenStep(ISSUER))
