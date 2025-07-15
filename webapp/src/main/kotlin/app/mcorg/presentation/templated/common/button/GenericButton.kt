@@ -5,12 +5,15 @@ import app.mcorg.presentation.templated.common.icon.IconSize
 import app.mcorg.presentation.templated.common.icon.iconComponent
 import app.mcorg.presentation.templated.common.component.LeafComponent
 import app.mcorg.presentation.templated.common.icon.IconColor
+import kotlinx.html.BUTTON
 import kotlinx.html.TagConsumer
+import kotlinx.html.a
 import kotlinx.html.button
 import kotlinx.html.classes
 
 class GenericButton(
     private var text: String = "",
+    var href: String? = null,
     var iconLeft: Icon? = null,
     var iconRight: Icon? = null,
     var iconSize: IconSize? = null,
@@ -19,16 +22,52 @@ class GenericButton(
 ) : LeafComponent() {
 
     override fun render(container: TagConsumer<*>) {
-        val iconColor = if (classes.contains("btn-primary")) {
-            IconColor.ON_PRIMARY
+        href?.let {
+            container.a {
+                this@a.href = it
+                button {
+                    buttonInternals()
+                }
+            }
+        }
+
+        if (href == null) {
+            container.button {
+                buttonInternals()
+            }
+        }
+
+
+    }
+
+    private fun BUTTON.buttonInternals() {
+        val color = getColor()
+        this.classes = getAllClasses()
+        onClick?.let {
+            attributes["onclick"] = it
+        }
+        iconLeft?.let {
+            iconComponent(it, iconSize ?: IconSize.MEDIUM, color)
+        }
+        if (text.isNotEmpty()) {
+            + text
+        }
+        iconRight?.let {
+            iconComponent(it, iconSize ?: IconSize.MEDIUM, color)
+        }
+    }
+
+    private fun getColor(): IconColor {
+        return if (classes.contains("btn-primary")) {
+            IconColor.ON_ACTIVE
         } else if (classes.contains("btn-secondary")) {
-            IconColor.ON_SECONDARY
+            IconColor.ON_NEUTRAL
         } else if (classes.contains("btn-danger")) {
             IconColor.ON_DANGER
         } else if (classes.contains("icon-primary")) {
-            IconColor.ON_PRIMARY
+            IconColor.ON_ACTIVE
         } else if (classes.contains("icon-secondary")) {
-            IconColor.ON_SECONDARY
+            IconColor.ON_NEUTRAL
         } else if (classes.contains("icon-danger")) {
             IconColor.ON_DANGER
         } else if (classes.contains("icon-success")) {
@@ -38,23 +77,7 @@ class GenericButton(
         } else if (classes.contains("icon-info")) {
             IconColor.ON_INFO
         } else {
-            IconColor.ON_PRIMARY // Default color
-        }
-
-        container.button {
-            this@button.classes = getAllClasses()
-            onClick?.let {
-                attributes["onclick"] = it
-            }
-            iconLeft?.let {
-                iconComponent(it, iconSize ?: IconSize.MEDIUM, iconColor)
-            }
-            if (text.isNotEmpty()) {
-                + text
-            }
-            iconRight?.let {
-                iconComponent(it, iconSize ?: IconSize.MEDIUM, iconColor)
-            }
+            IconColor.ON_ACTIVE // Default color
         }
     }
 
