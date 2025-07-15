@@ -1,0 +1,120 @@
+details summary h2 {
+    display: inline;
+}
+
+details {
+    margin-inline: var(--spacing-md);
+}
+
+.icon-set {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+
+    padding: 20px;
+
+    .icon-subset {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+
+        .named-icon {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+
+            background-color: #ababab;
+            padding: 10px;
+            border-radius: 5px;
+            height: 60px;
+
+            .icon {
+                background-color: #f0f0f0;
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+
+            .icon-name {
+                font-size: 14px;
+                color: #333;
+            }
+        }
+    }
+}
+
+#test-sizes {
+    .row {
+        display: flex;
+        flex-direction: row;
+        width: 100%;
+        gap: var(--spacing-xl);
+
+        .size-column#test-sizes-borders > div {
+            width: var(--spacing-xl);
+            text-align: center;
+            border: 1px solid var(--clr-neutral);
+        }
+
+        .size-column {
+            display: flex;
+            flex-direction: column;
+
+            gap: var(--spacing-md);
+            width: 200px;
+
+            div::after {
+                content: "";
+                height: 20px;
+                float: right;
+                display: inline-block;
+                background-color: var(--clr-neutral);
+            }
+
+            #test-size-xxs::after {
+                width: var(--spacing-xxs);
+            }
+            #test-size-xs::after {
+                width: var(--spacing-xs);
+            }
+            #test-size-sm::after {
+                width: var(--spacing-sm);
+            }
+            #test-size-md::after {
+                width: var(--spacing-md);
+            }
+            #test-size-lg::after {
+                width: var(--spacing-lg);
+            }
+            #test-size-xl::after {
+                width: var(--spacing-xl);
+            }
+
+            #test-size-border-sm {
+                border-radius: var(--border-radius-sm);
+            }
+            #test-size-border-md {
+                border-radius: var(--border-radius-md);
+            }
+            #test-size-border-lg {
+                border-radius: var(--border-radius-lg);
+            }
+            #test-size-border-full {
+                border-radius: var(--border-radius-full);
+                height: var(--spacing-xl);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+        }
+    }
+}
+
+.input-row {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    gap: var(--spacing-md);
+    margin-bottom: var(--spacing-md);
+}
