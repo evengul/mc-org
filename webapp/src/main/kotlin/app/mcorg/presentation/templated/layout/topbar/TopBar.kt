@@ -1,5 +1,6 @@
 package app.mcorg.presentation.templated.layout.topbar
 
+import app.mcorg.domain.model.users.Profile
 import app.mcorg.presentation.templated.common.button.iconButton
 import app.mcorg.presentation.templated.common.component.LeafComponent
 import app.mcorg.presentation.templated.common.component.addComponent
@@ -17,9 +18,11 @@ import kotlinx.html.li
 import kotlinx.html.nav
 import kotlinx.html.ul
 
-fun BODY.topBar() = addComponent(TopBar())
+fun BODY.topBar(user: Profile? = null) = addComponent(TopBar(user))
 
-class TopBar : LeafComponent() {
+data class TopBar(
+    val user: Profile? = null
+) : LeafComponent() {
     override fun render(container: TagConsumer<*>) {
         container.header {
             classes += "top-bar"
@@ -50,8 +53,10 @@ class TopBar : LeafComponent() {
                 div {
                     classes += "top-bar-right"
                     iconButton(Icons.Dimensions.OVERWORLD, iconSize = IconSize.SMALL)
-                    iconButton(Icons.Notification.INFO, iconSize = IconSize.SMALL)
-                    iconButton(Icons.Users.PROFILE, iconSize = IconSize.SMALL)
+                    if (user != null) {
+                        iconButton(Icons.Notification.INFO, iconSize = IconSize.SMALL)
+                        iconButton(Icons.Users.PROFILE, iconSize = IconSize.SMALL)
+                    }
                 }
             }
         }

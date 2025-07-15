@@ -316,8 +316,8 @@ html {
     font-family: var(--font-primary), sans-serif;
     font-size: var(--text-base-size);
 
-    background-color: var(--clr-bg-light);
-    color: var(--clr-text);
+    background-color: var(--clr-bg-default);
+    color: var(--clr-text-default);
 }
 
 h1 {

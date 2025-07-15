@@ -29,7 +29,7 @@ import app.mcorg.pipeline.auth.ValidateEnvStep
 import app.mcorg.pipeline.auth.toRedirect
 import app.mcorg.presentation.consts.AUTH_COOKIE
 import app.mcorg.presentation.consts.ISSUER
-import app.mcorg.presentation.templates.auth.signInTemplate
+import app.mcorg.presentation.templated.landing.landingPage
 import app.mcorg.presentation.utils.*
 import io.ktor.http.*
 import io.ktor.server.application.*
@@ -55,7 +55,7 @@ suspend fun ApplicationCall.handleGetSignIn() {
             input = request.cookies,
             onSuccess = { respondRedirect(it) },
             onFailure = { when(it) {
-                is MissingToken -> respondHtml(signInTemplate(getSignInUrl(customRedirectPath ?: "/")))
+                is MissingToken -> respondHtml(landingPage(getSignInUrl(customRedirectPath ?: "/")))
                 is Redirect -> respondRedirect(it.url)
             } }
         )
