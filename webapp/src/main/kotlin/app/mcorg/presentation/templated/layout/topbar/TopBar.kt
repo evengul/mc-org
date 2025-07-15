@@ -1,11 +1,8 @@
 package app.mcorg.presentation.templated.layout.topbar
 
-import app.mcorg.presentation.templated.common.avatar.avatar
 import app.mcorg.presentation.templated.common.button.iconButton
-import app.mcorg.presentation.templated.common.button.secondaryButton
 import app.mcorg.presentation.templated.common.component.LeafComponent
 import app.mcorg.presentation.templated.common.component.addComponent
-import app.mcorg.presentation.templated.common.icon.Icon
 import app.mcorg.presentation.templated.common.icon.IconSize
 import app.mcorg.presentation.templated.common.icon.Icons
 import app.mcorg.presentation.templated.common.link.Link
