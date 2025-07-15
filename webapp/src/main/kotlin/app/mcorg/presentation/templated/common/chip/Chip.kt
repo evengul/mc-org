@@ -20,8 +20,8 @@ fun <T : Tag> T.chipComponent(
 }
 
 enum class ChipColor(val iconColor: IconColor) {
-    PRIMARY(IconColor.ON_PRIMARY),
-    SECONDARY(IconColor.ON_SECONDARY),
+    PRIMARY(IconColor.ON_ACTIVE),
+    SECONDARY(IconColor.ON_NEUTRAL),
     DANGER(IconColor.ON_DANGER),
     SUCCESS(IconColor.ON_SUCCESS),
     WARNING(IconColor.ON_WARNING),

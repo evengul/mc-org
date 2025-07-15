@@ -15,15 +15,16 @@ enum class IconSize(val width: Int, val height: Int) {
  * Icon colors picked from root CSS variables.
  */
 enum class IconColor(val hex: String) {
-    ON_PRIMARY("#ffffff"),
-    ON_SECONDARY("#ffffff"),
+    ON_ACTIVE("#ffffff"),
+    ON_NEUTRAL("#ffffff"),
     ON_DANGER("#ffffff"),
     ON_SUCCESS("#ffffff"),
     ON_WARNING("#23262A"),
     ON_INFO("#23262A"),
+    ON_BACKGROUND("#23262A")
 }
 
-fun <T : Tag> T.iconComponent(icon: Icon, size: IconSize = IconSize.MEDIUM, color: IconColor = IconColor.ON_PRIMARY) {
+fun <T : Tag> T.iconComponent(icon: Icon, size: IconSize = IconSize.MEDIUM, color: IconColor = IconColor.ON_ACTIVE) {
     when (size) {
         IconSize.SMALL -> addComponent(icon.small(color))
         IconSize.MEDIUM -> addComponent(icon.medium(color))
@@ -33,7 +34,7 @@ fun <T : Tag> T.iconComponent(icon: Icon, size: IconSize = IconSize.MEDIUM, colo
 class IconComponent(
     private val icon: Icon,
     private val size: IconSize = IconSize.MEDIUM,
-    private val color: IconColor = IconColor.ON_PRIMARY,
+    private val color: IconColor = IconColor.ON_ACTIVE,
 ) : LeafComponent() {
     override fun render(container: TagConsumer<*>) {
         container.onTagContentUnsafe {
