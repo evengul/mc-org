@@ -2,12 +2,8 @@ package app.mcorg.pipeline.auth
 
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
-import app.mcorg.pipeline.DatabaseFailure
+import app.mcorg.pipeline.failure.UpdateLastSignInFailure
 import app.mcorg.pipeline.useConnection
-
-sealed interface UpdateLastSignInFailure : SignInLocallyFailure, SignInWithMinecraftFailure {
-    data class Other(val failure: DatabaseFailure) : UpdateLastSignInFailure
-}
 
 object UpdateLastSignInStep : Step<String, UpdateLastSignInFailure, Unit> {
     override suspend fun process(input: String): Result<UpdateLastSignInFailure, Unit> {

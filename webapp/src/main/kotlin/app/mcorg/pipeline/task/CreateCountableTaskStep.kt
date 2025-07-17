@@ -3,12 +3,9 @@ package app.mcorg.pipeline.task
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.DatabaseFailure
+import app.mcorg.pipeline.failure.CreateCountableStepFailure
 import app.mcorg.pipeline.getReturnedId
 import app.mcorg.pipeline.useConnection
-
-sealed interface CreateCountableStepFailure : CreateCountableTaskFailure {
-    data class Other(val failure: DatabaseFailure) : CreateCountableStepFailure
-}
 
 data class CreateCountableTaskStep(val projectId: Int, val currentUsername: String) : Step<Pair<String, Int>, CreateCountableStepFailure, Int> {
     override suspend fun process(input: Pair<String, Int>): Result<CreateCountableStepFailure, Int> {

@@ -2,14 +2,8 @@ package app.mcorg.pipeline.task
 
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
+import app.mcorg.pipeline.failure.GetCountableTasksEditInputFailure
 import io.ktor.http.Parameters
-
-sealed interface GetCountableTasksEditInputFailure : UpdateTaskRequirementsFailure {
-    data object TaskIdNotPresent : GetCountableTasksEditInputFailure
-    data object RequirementsNotPresent : GetCountableTasksEditInputFailure
-    data object DoneNotPresent : GetCountableTasksEditInputFailure
-    data class MultipleMissing(val missing: Set<GetCountableTasksEditInputFailure>) : GetCountableTasksEditInputFailure
-}
 
 data class GetCountableTasksEditValues(
     val taskId: Int,

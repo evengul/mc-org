@@ -6,14 +6,11 @@ import app.mcorg.pipeline.auth.minecraft.XboxProfileRequest
 import app.mcorg.pipeline.auth.minecraft.XboxProperties
 import app.mcorg.pipeline.auth.minecraft.XboxTokenResponse
 import app.mcorg.pipeline.apiPostJson
+import app.mcorg.pipeline.failure.GetXboxProfileFailure
 import io.ktor.client.call.body
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.isSuccess
 import org.slf4j.LoggerFactory
-
-sealed interface GetXboxProfileFailure : SignInWithMinecraftFailure {
-    data object CouldNotGetXboxProfile : GetXboxProfileFailure
-}
 
 object GetXboxProfileStep : Step<String, GetXboxProfileFailure, TokenData> {
 

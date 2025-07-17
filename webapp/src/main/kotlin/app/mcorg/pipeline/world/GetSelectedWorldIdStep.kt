@@ -2,13 +2,8 @@ package app.mcorg.pipeline.world
 
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
-import app.mcorg.pipeline.DatabaseFailure
+import app.mcorg.pipeline.failure.GetSelectedWorldIdFailure
 import app.mcorg.pipeline.useConnection
-
-sealed interface GetSelectedWorldIdFailure : GetAllWorldsFailure {
-    data object NoWorldSelected : GetSelectedWorldIdFailure
-    data class Other(val failure: DatabaseFailure) : GetSelectedWorldIdFailure
-}
 
 object GetSelectedWorldIdStep : Step<Int, GetSelectedWorldIdFailure, Int> {
     override suspend fun process(input: Int): Result<GetSelectedWorldIdFailure, Int> {

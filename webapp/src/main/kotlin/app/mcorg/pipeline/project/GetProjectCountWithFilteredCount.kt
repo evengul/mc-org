@@ -3,12 +3,8 @@ package app.mcorg.pipeline.project
 import app.mcorg.domain.model.projects.ProjectSpecification
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
-import app.mcorg.pipeline.DatabaseFailure
+import app.mcorg.pipeline.failure.GetProjectCountWithFilteredCountFailure
 import app.mcorg.pipeline.useConnection
-
-sealed interface GetProjectCountWithFilteredCountFailure : CreateProjectFailure, DeleteProjectFailure, AssignProjectFailure {
-    data class Other(val failure: DatabaseFailure) : GetProjectCountWithFilteredCountFailure
-}
 
 data class GetProjectCountWithFilteredCount(val worldId: Int) : Step<ProjectSpecification, GetProjectCountWithFilteredCountFailure, Pair<Int, Int>> {
     override suspend fun process(input: ProjectSpecification): Result<GetProjectCountWithFilteredCountFailure, Pair<Int, Int>> {

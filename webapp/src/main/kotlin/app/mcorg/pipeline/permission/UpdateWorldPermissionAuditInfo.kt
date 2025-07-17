@@ -2,12 +2,8 @@ package app.mcorg.pipeline.permission
 
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.domain.pipeline.Result
-import app.mcorg.pipeline.DatabaseFailure
+import app.mcorg.pipeline.failure.UpdateWorldPermissionAuditInfoFailure
 import app.mcorg.pipeline.useConnection
-
-sealed interface UpdateWorldPermissionAuditInfoFailure : AddWorldParticipantStepFailure, RemoveUserAssignmentsInWorldFailure, RemoveUserFromWorldFailure {
-    data class Other(val failure: DatabaseFailure) : UpdateWorldPermissionAuditInfoFailure
-}
 
 data class UpdateWorldPermissionAuditInfoStep(val worldId: Int, val currentUsername: String) : Step<Unit, UpdateWorldPermissionAuditInfoFailure, Unit> {
     override suspend fun process(input: Unit): Result<UpdateWorldPermissionAuditInfoFailure, Unit> {

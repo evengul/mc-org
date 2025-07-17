@@ -2,13 +2,9 @@ package app.mcorg.pipeline.world
 
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
-import app.mcorg.pipeline.DatabaseFailure
+import app.mcorg.pipeline.failure.EnsureWorldExistsFailure
 import app.mcorg.pipeline.useConnection
 
-sealed interface EnsureWorldExistsFailure : WorldParamFailure {
-    data object WorldNotFound : EnsureWorldExistsFailure
-    data class Other(val failure: DatabaseFailure) : EnsureWorldExistsFailure
-}
 
 object EnsureWorldExistsStep : Step<Int, EnsureWorldExistsFailure, Int> {
     override suspend fun process(input: Int): Result<EnsureWorldExistsFailure, Int> {

@@ -2,12 +2,8 @@ package app.mcorg.pipeline.project
 
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
-import app.mcorg.pipeline.DatabaseFailure
+import app.mcorg.pipeline.failure.RemoveProjectAssignmentStepFailure
 import app.mcorg.pipeline.useConnection
-
-sealed interface RemoveProjectAssignmentStepFailure : AssignProjectFailure {
-    data class Other(val failure: DatabaseFailure) : RemoveProjectAssignmentStepFailure
-}
 
 data class RemoveProjectAssignmentStep(val projectId: Int) : Step<Unit, RemoveProjectAssignmentStepFailure, Unit> {
     override suspend fun process(input: Unit): Result<RemoveProjectAssignmentStepFailure, Unit> {

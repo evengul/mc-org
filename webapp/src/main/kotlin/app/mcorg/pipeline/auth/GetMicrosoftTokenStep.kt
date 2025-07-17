@@ -7,13 +7,9 @@ import app.mcorg.pipeline.auth.minecraft.MicrosoftAccessTokenResponse
 import app.mcorg.domain.Env
 import app.mcorg.domain.Local
 import app.mcorg.pipeline.apiGetForm
+import app.mcorg.pipeline.failure.GetMicrosoftTokenFailure
 import io.ktor.client.call.body
 import io.ktor.http.isSuccess
-
-sealed interface GetMicrosoftTokenFailure : SignInWithMinecraftFailure {
-    data object NoHostForNonLocalEnv : GetMicrosoftTokenFailure
-    data class CouldNotGetToken(val error: String, val description: String) : GetMicrosoftTokenFailure
-}
 
 data class GetMicrosoftTokenInput(
     val code: String,

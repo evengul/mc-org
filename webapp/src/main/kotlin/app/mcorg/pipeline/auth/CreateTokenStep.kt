@@ -3,16 +3,13 @@ package app.mcorg.pipeline.auth
 import app.mcorg.domain.model.users.User
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.domain.pipeline.Result
+import app.mcorg.pipeline.failure.CreateTokenFailure
 import app.mcorg.presentation.security.EIGHT_HOURS
 import app.mcorg.presentation.security.JwtHelper
 import app.mcorg.presentation.security.getKeys
 import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
 import java.util.Date
-
-sealed interface CreateTokenFailure : SignInLocallyFailure, SignInWithMinecraftFailure {
-    data class CouldNotCreateToken(val cause: Throwable) : CreateTokenFailure
-}
 
 data object CreateTokenStep : Step<User, CreateTokenFailure, String> {
     override suspend fun process(input: User): Result<CreateTokenFailure, String> {

@@ -3,12 +3,7 @@ package app.mcorg.pipeline.task
 import app.mcorg.domain.model.task.PremadeTask
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
-
-sealed interface TaskValidationFailure : CreateDoableTaskFailure, CreateCountableTaskFailure, CreateLitematicaTasksFailure, EditDoneMoreTaskFailure {
-    data object TooShortName : TaskValidationFailure
-    data object ShouldBePositive : TaskValidationFailure
-    data class Multiple(val failures: List<Pair<PremadeTask, TaskValidationFailure>>) : TaskValidationFailure
-}
+import app.mcorg.pipeline.failure.TaskValidationFailure
 
 private const val MIN_TASK_NAME_LENGTH = 3
 

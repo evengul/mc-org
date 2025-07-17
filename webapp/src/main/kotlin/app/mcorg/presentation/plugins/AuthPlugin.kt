@@ -2,13 +2,13 @@ package app.mcorg.presentation.plugins
 
 import app.mcorg.domain.pipeline.Pipeline
 import app.mcorg.domain.pipeline.Result
-import app.mcorg.pipeline.auth.AuthPluginFailure
+import app.mcorg.pipeline.failure.AuthPluginFailure
 import app.mcorg.pipeline.auth.ConvertTokenStep
-import app.mcorg.pipeline.auth.GetCookieFailure
 import app.mcorg.pipeline.auth.GetTokenStep
-import app.mcorg.pipeline.auth.toRedirect
+import app.mcorg.pipeline.failure.EnsureUserExistsInProjectFailure
+import app.mcorg.pipeline.failure.GetCookieFailure
+import app.mcorg.pipeline.failure.toRedirect
 import app.mcorg.pipeline.project.EnsureUserExistsInProject
-import app.mcorg.pipeline.project.EnsureUserExistsInProjectFailure
 import app.mcorg.presentation.consts.AUTH_COOKIE
 import app.mcorg.presentation.consts.ISSUER
 import app.mcorg.presentation.utils.getWorldId

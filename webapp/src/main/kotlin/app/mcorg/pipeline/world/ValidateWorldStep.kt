@@ -1,11 +1,7 @@
 package app.mcorg.pipeline.world
 
 import app.mcorg.domain.pipeline.Step
-
-sealed interface WorldValidationFailure : CreateWorldFailure {
-    data object WorldNameEmpty : WorldValidationFailure
-    data object WorldNameTooLong : WorldValidationFailure
-}
+import app.mcorg.pipeline.failure.WorldValidationFailure
 
 const val WORLD_NAME_MAX_LENGTH = 50
 

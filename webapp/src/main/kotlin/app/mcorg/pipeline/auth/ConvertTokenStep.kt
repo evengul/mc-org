@@ -3,6 +3,7 @@ package app.mcorg.pipeline.auth
 import app.mcorg.domain.model.users.User
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
+import app.mcorg.pipeline.failure.ConvertTokenStepFailure
 import app.mcorg.presentation.consts.ISSUER
 import app.mcorg.presentation.security.JwtHelper
 import app.mcorg.presentation.security.getKeys
@@ -13,14 +14,6 @@ import com.auth0.jwt.exceptions.IncorrectClaimException
 import com.auth0.jwt.exceptions.MissingClaimException
 import com.auth0.jwt.exceptions.SignatureVerificationException
 import com.auth0.jwt.exceptions.TokenExpiredException
-
-sealed interface ConvertTokenStepFailure : GetSignInPageFailure, AuthPluginFailure {
-    data object InvalidToken : ConvertTokenStepFailure
-    data object ExpiredToken : ConvertTokenStepFailure
-    data class MissingClaim(val claimName: String) : ConvertTokenStepFailure
-    data class IncorrectClaim(val claimName: String, val claimValue: String) : ConvertTokenStepFailure
-    data class ConversionError(val error: Exception) : ConvertTokenStepFailure
-}
 
 data class ConvertTokenStep(val issuer: String = ISSUER) : Step<String, ConvertTokenStepFailure, User> {
     override suspend fun process(input: String): Result<ConvertTokenStepFailure, User> {

@@ -3,13 +3,10 @@ package app.mcorg.pipeline.project
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.DatabaseFailure
+import app.mcorg.pipeline.failure.CreateProjectStepFailure
 import app.mcorg.pipeline.getReturnedId
 import app.mcorg.pipeline.useConnection
 import app.mcorg.presentation.entities.project.CreateProjectRequest
-
-sealed interface CreateProjectStepFailure : CreateProjectFailure {
-    data class Other(val failure: DatabaseFailure) : CreateProjectStepFailure
-}
 
 data class CreateProjectStep(val worldId: Int, val currentUsername: String) : Step<CreateProjectRequest, CreateProjectStepFailure, Int> {
     override suspend fun process(input: CreateProjectRequest): Result<CreateProjectStepFailure, Int> {

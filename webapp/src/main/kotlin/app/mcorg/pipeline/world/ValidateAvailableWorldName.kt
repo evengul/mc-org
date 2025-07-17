@@ -3,12 +3,8 @@ package app.mcorg.pipeline.world
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.DatabaseFailure
+import app.mcorg.pipeline.failure.ValidateAvailableWorldNameFailure
 import app.mcorg.pipeline.useConnection
-
-sealed interface ValidateAvailableWorldNameFailure : CreateWorldFailure {
-    data object AlreadyExists : ValidateAvailableWorldNameFailure
-    data class Other(val failure: DatabaseFailure) : ValidateAvailableWorldNameFailure
-}
 
 object ValidateAvailableWorldName : Step<String, ValidateAvailableWorldNameFailure, String> {
     override suspend fun process(input: String): Result<ValidateAvailableWorldNameFailure, String> {

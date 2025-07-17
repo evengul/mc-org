@@ -1,4 +1,6 @@
-package app.mcorg.pipeline.auth
+package app.mcorg.pipeline.failure
+
+import app.mcorg.pipeline.DatabaseFailure
 
 sealed interface SignInLocallyFailure
 sealed interface SignInWithMinecraftFailure
@@ -61,3 +63,67 @@ fun SignInWithMinecraftFailure.toRedirect(): Redirect {
 fun Redirect.Companion.other(url: String): Redirect = Redirect(url)
 fun Redirect.Companion.signOut(error: String, vararg args: Pair<String, String>): Redirect =
     Redirect("/auth/sign-out?error=$error&args=${args.joinToString("&") { "${it.first}=${it.second}" }}")
+
+sealed interface AddCookieFailure : SignInLocallyFailure, SignInWithMinecraftFailure
+
+sealed interface ConvertTokenStepFailure : GetSignInPageFailure, AuthPluginFailure {
+    data object InvalidToken : ConvertTokenStepFailure
+    data object ExpiredToken : ConvertTokenStepFailure
+    data class MissingClaim(val claimName: String) : ConvertTokenStepFailure
+    data class IncorrectClaim(val claimName: String, val claimValue: String) : ConvertTokenStepFailure
+    data class ConversionError(val error: Exception) : ConvertTokenStepFailure
+}
+
+sealed interface CreateTokenFailure : SignInLocallyFailure, SignInWithMinecraftFailure {
+    data class CouldNotCreateToken(val cause: Throwable) : CreateTokenFailure
+}
+
+sealed interface CreateUserIfNotExistsFailure : SignInLocallyFailure, SignInWithMinecraftFailure {
+    data class Other(val failure: DatabaseFailure) : CreateUserIfNotExistsFailure
+}
+
+sealed interface GetMicrosoftCodeFailure : SignInWithMinecraftFailure {
+    data class Error(val error: String, val description: String) : GetMicrosoftCodeFailure
+    data object MissingCode : GetMicrosoftCodeFailure
+}
+
+sealed interface GetMicrosoftTokenFailure : SignInWithMinecraftFailure {
+    data object NoHostForNonLocalEnv : GetMicrosoftTokenFailure
+    data class CouldNotGetToken(val error: String, val description: String) : GetMicrosoftTokenFailure
+}
+
+sealed interface GetMinecraftProfileFailure : SignInWithMinecraftFailure {
+    data object CouldNotGetProfile : GetMinecraftProfileFailure
+}
+
+sealed interface GetMinecraftTokenFailure : SignInWithMinecraftFailure {
+    data object CouldNotGetMinecraftToken : GetMinecraftTokenFailure
+}
+
+sealed interface GetProfileFailure : GetSignInPageFailure, AuthPluginFailure {
+    data object ProfileNotFound : GetProfileFailure
+}
+
+sealed interface GetSelectedWorldStepFailure : GetSignInPageFailure {
+    data object NoSelectedWorld : GetSelectedWorldStepFailure
+}
+
+sealed interface GetCookieFailure : GetSignInPageFailure, AuthPluginFailure {
+    data object MissingCookie : GetCookieFailure
+}
+
+sealed interface GetXboxProfileFailure : SignInWithMinecraftFailure {
+    data object CouldNotGetXboxProfile : GetXboxProfileFailure
+}
+
+sealed interface GetXstsTokenFailure : SignInWithMinecraftFailure {
+    data object CouldNotGetXstsToken : GetXstsTokenFailure
+}
+
+sealed interface UpdateLastSignInFailure : SignInLocallyFailure, SignInWithMinecraftFailure {
+    data class Other(val failure: DatabaseFailure) : UpdateLastSignInFailure
+}
+
+sealed interface ValidateEnvFailure : SignInLocallyFailure {
+    data object InvalidEnv : ValidateEnvFailure
+}

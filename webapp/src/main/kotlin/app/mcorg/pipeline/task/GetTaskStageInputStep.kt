@@ -4,12 +4,8 @@ import app.mcorg.domain.model.task.TaskStage
 import app.mcorg.domain.model.task.TaskStages
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
+import app.mcorg.pipeline.failure.GetTaskStageInputFailure
 import io.ktor.http.Parameters
-
-sealed interface GetTaskStageInputFailure : UpdateTaskStageFailure {
-    data object MissingStage : GetTaskStageInputFailure
-    data object InvalidStage : GetTaskStageInputFailure
-}
 
 object GetTaskStageInputStep : Step<Parameters, GetTaskStageInputFailure, TaskStage> {
     override suspend fun process(input: Parameters): Result<GetTaskStageInputFailure, TaskStage> {

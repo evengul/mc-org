@@ -5,13 +5,8 @@ import app.mcorg.domain.model.permissions.UserPermissions
 import app.mcorg.domain.model.worlds.World
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
-import app.mcorg.pipeline.DatabaseFailure
+import app.mcorg.pipeline.failure.GetAllPermittedWorldsForUserFailure
 import app.mcorg.pipeline.useConnection
-
-sealed interface GetAllPermittedWorldsForUserFailure : GetAllWorldsFailure {
-    data object InvalidAuthority : GetAllPermittedWorldsForUserFailure
-    data class Other(val failure: DatabaseFailure) : GetAllPermittedWorldsForUserFailure
-}
 
 object GetAllPermittedWorldsForUserStep : Step<Int, GetAllPermittedWorldsForUserFailure, UserPermissions> {
     override suspend fun process(input: Int): Result<GetAllPermittedWorldsForUserFailure, UserPermissions> {

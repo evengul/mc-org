@@ -3,8 +3,7 @@ package app.mcorg.pipeline.task
 import app.mcorg.domain.model.task.PremadeTask
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
-
-sealed interface ConvertMaterialListStepFailure : CreateLitematicaTasksFailure
+import app.mcorg.pipeline.failure.ConvertMaterialListStepFailure
 
 object ConvertMaterialListStep : Step<String, ConvertMaterialListStepFailure, List<PremadeTask>> {
 

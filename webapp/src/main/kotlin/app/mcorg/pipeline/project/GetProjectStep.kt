@@ -6,7 +6,7 @@ import app.mcorg.domain.model.task.Task
 import app.mcorg.domain.model.users.User
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
-import app.mcorg.pipeline.DatabaseFailure
+import app.mcorg.pipeline.failure.GetProjectStepFailure
 import app.mcorg.pipeline.project.ProjectEnumMappers.toDimension
 import app.mcorg.pipeline.project.ProjectEnumMappers.toPriority
 import app.mcorg.pipeline.project.ProjectEnumMappers.toTaskStage
@@ -14,11 +14,6 @@ import app.mcorg.pipeline.project.ProjectEnumMappers.toTaskType
 import app.mcorg.pipeline.useConnection
 import java.sql.Connection
 import java.sql.ResultSet
-
-sealed interface GetProjectStepFailure : GetProjectFailure, CreateProjectFailure, AssignProjectFailure {
-    data object NotFound : GetProjectStepFailure
-    data class Other(val failure: DatabaseFailure) : GetProjectStepFailure
-}
 
 data class GetProjectStep(val include: Set<Include> = Include.none()) : Step<Int, GetProjectStepFailure, Project> {
 

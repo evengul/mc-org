@@ -2,11 +2,8 @@ package app.mcorg.pipeline.world
 
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.domain.pipeline.Result
+import app.mcorg.pipeline.failure.GetWorldIdParameterFailure
 import io.ktor.http.Parameters
-
-sealed interface GetWorldIdParameterFailure : WorldParamFailure {
-    data object WorldIdNotPresent : GetWorldIdParameterFailure
-}
 
 object GetWorldIdParameterStep : Step<Parameters, GetWorldIdParameterFailure, Int> {
     override suspend fun process(input: Parameters): Result<GetWorldIdParameterFailure, Int> {

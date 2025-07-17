@@ -1,5 +1,0 @@
-package app.mcorg.pipeline.permission
-
-sealed interface AddWorldParticipantFailure
-sealed interface RemoveWorldParticipantFailure
-sealed interface GetWorldParticipantsFailure

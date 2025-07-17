@@ -6,14 +6,10 @@ import app.mcorg.domain.model.projects.matches
 import app.mcorg.domain.model.users.User
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
-import app.mcorg.pipeline.DatabaseFailure
+import app.mcorg.pipeline.failure.GetSpecifiedProjectsStepFailure
 import app.mcorg.pipeline.project.ProjectEnumMappers.toDimension
 import app.mcorg.pipeline.project.ProjectEnumMappers.toPriority
 import app.mcorg.pipeline.useConnection
-
-sealed interface GetSpecifiedProjectsStepFailure : GetProjectsFailure {
-    data class Other(val failure: DatabaseFailure) : GetSpecifiedProjectsStepFailure
-}
 
 data class GetSpecifiedProjectsStep(val worldId: Int) : Step<ProjectSpecification, GetSpecifiedProjectsStepFailure, Pair<Int, List<SlimProject>>> {
     override suspend fun process(input: ProjectSpecification): Result<GetSpecifiedProjectsStepFailure, Pair<Int, List<SlimProject>>> {

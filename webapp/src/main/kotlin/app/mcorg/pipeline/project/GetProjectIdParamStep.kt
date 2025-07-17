@@ -2,11 +2,8 @@ package app.mcorg.pipeline.project
 
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
+import app.mcorg.pipeline.failure.GetProjectIdParamFailure
 import io.ktor.http.Parameters
-
-sealed interface GetProjectIdParamFailure : ProjectParamFailure {
-    data object ProjectIdNotPresent : GetProjectIdParamFailure
-}
 
 data object GetProjectIdParamStep : Step<Parameters, GetProjectIdParamFailure, Int> {
     override suspend fun process(input: Parameters): Result<GetProjectIdParamFailure, Int> {

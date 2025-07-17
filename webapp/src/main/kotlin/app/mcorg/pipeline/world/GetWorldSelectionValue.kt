@@ -2,12 +2,9 @@ package app.mcorg.pipeline.world
 
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
+import app.mcorg.pipeline.failure.GetWorldSelectionValueFailure
+import app.mcorg.pipeline.failure.SelectWorldFailure
 import io.ktor.http.Parameters
-
-sealed interface GetWorldSelectionValueFailure : SelectWorldFailure {
-    data object NotFound : GetWorldSelectionValueFailure
-    data object NotInteger : GetWorldSelectionValueFailure
-}
 
 object GetWorldSelectionValue : Step<Parameters, SelectWorldFailure, Int> {
     override suspend fun process(input: Parameters): Result<SelectWorldFailure, Int> {

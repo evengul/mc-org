@@ -2,13 +2,8 @@ package app.mcorg.pipeline.project
 
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.domain.pipeline.Result
-import app.mcorg.pipeline.DatabaseFailure
+import app.mcorg.pipeline.failure.EnsureUserExistsInProjectFailure
 import app.mcorg.pipeline.useConnection
-
-sealed interface EnsureUserExistsInProjectFailure : AssignProjectFailure {
-    data object UserNotFound : EnsureUserExistsInProjectFailure
-    data class Other(val failure: DatabaseFailure) : EnsureUserExistsInProjectFailure
-}
 
 data class EnsureUserExistsInProject(val worldId: Int) : Step<Int, EnsureUserExistsInProjectFailure, Int> {
     override suspend fun process(input: Int): Result<EnsureUserExistsInProjectFailure, Int> {

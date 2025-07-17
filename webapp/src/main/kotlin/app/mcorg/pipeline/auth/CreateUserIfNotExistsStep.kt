@@ -5,15 +5,12 @@ import app.mcorg.domain.model.users.User
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.DatabaseFailure
+import app.mcorg.pipeline.failure.CreateUserIfNotExistsFailure
 import app.mcorg.pipeline.getReturnedId
 import app.mcorg.pipeline.useConnection
 import kotlinx.coroutines.runBlocking
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
-
-sealed interface CreateUserIfNotExistsFailure : SignInLocallyFailure, SignInWithMinecraftFailure {
-    data class Other(val failure: DatabaseFailure) : CreateUserIfNotExistsFailure
-}
 
 data object CreateUserIfNotExistsStep : Step<MinecraftProfile, CreateUserIfNotExistsFailure, User> {
 

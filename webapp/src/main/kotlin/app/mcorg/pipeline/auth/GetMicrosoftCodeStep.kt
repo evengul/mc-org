@@ -2,12 +2,8 @@ package app.mcorg.pipeline.auth
 
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
+import app.mcorg.pipeline.failure.GetMicrosoftCodeFailure
 import io.ktor.http.Parameters
-
-sealed interface GetMicrosoftCodeFailure : SignInWithMinecraftFailure {
-    data class Error(val error: String, val description: String) : GetMicrosoftCodeFailure
-    data object MissingCode : GetMicrosoftCodeFailure
-}
 
 object GetMicrosoftCodeStep : Step<Parameters, GetMicrosoftCodeFailure, String> {
     override suspend fun process(input: Parameters): Result<GetMicrosoftCodeFailure, String> {

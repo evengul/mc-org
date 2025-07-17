@@ -3,8 +3,9 @@ package app.mcorg.pipeline.task
 import app.mcorg.domain.pipeline.Pipeline
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
+import app.mcorg.pipeline.failure.AssignTaskFailure
+import app.mcorg.pipeline.failure.EnsureUserExistsInProjectFailure
 import app.mcorg.pipeline.project.EnsureUserExistsInProject
-import app.mcorg.pipeline.project.EnsureUserExistsInProjectFailure
 import app.mcorg.pipeline.project.GetProjectAssignmentOutput
 
 data class AssignTaskOrRemoveTaskAssignmentStep(val worldId: Int, val taskId: Int) : Step<GetProjectAssignmentOutput, AssignTaskFailure, Unit> {

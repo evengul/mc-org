@@ -2,12 +2,8 @@ package app.mcorg.pipeline.task
 
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
-import app.mcorg.pipeline.DatabaseFailure
+import app.mcorg.pipeline.failure.DeleteTaskStepFailure
 import app.mcorg.pipeline.useConnection
-
-sealed interface DeleteTaskStepFailure : DeleteTaskFailure {
-    data class Other(val failure: DatabaseFailure) : DeleteTaskStepFailure
-}
 
 object DeleteTaskStep : Step<Int, DeleteTaskStepFailure, Unit> {
     override suspend fun process(input: Int): Result<DeleteTaskStepFailure, Unit> {

@@ -3,13 +3,9 @@ package app.mcorg.pipeline.permission
 import app.mcorg.domain.model.users.User
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.domain.pipeline.Result
-import app.mcorg.pipeline.DatabaseFailure
+import app.mcorg.pipeline.failure.GetOtherUsersStepFailure
 import app.mcorg.pipeline.useConnection
 import app.mcorg.presentation.handler.GetUsersData
-
-sealed interface GetOtherUsersStepFailure : GetWorldParticipantsFailure {
-    data class Other(val failure: DatabaseFailure) : GetOtherUsersStepFailure
-}
 
 object GetOtherUsersStep : Step<GetUsersData, GetOtherUsersStepFailure, GetUsersData> {
     override suspend fun process(input: GetUsersData): Result<GetOtherUsersStepFailure, GetUsersData> {

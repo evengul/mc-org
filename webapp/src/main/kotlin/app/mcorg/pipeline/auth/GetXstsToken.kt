@@ -6,12 +6,9 @@ import app.mcorg.pipeline.auth.minecraft.XboxTokenResponse
 import app.mcorg.pipeline.auth.minecraft.XstsProperties
 import app.mcorg.pipeline.auth.minecraft.XstsRequest
 import app.mcorg.pipeline.apiPostJson
+import app.mcorg.pipeline.failure.GetXstsTokenFailure
 import io.ktor.client.call.body
 import io.ktor.http.isSuccess
-
-sealed interface GetXstsTokenFailure : SignInWithMinecraftFailure {
-    data object CouldNotGetXstsToken : GetXstsTokenFailure
-}
 
 object GetXstsToken : Step<TokenData, GetXstsTokenFailure, TokenData> {
     override suspend fun process(input: TokenData): Result<GetXstsTokenFailure, TokenData> {

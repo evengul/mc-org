@@ -6,12 +6,9 @@ import app.mcorg.pipeline.auth.minecraft.MinecraftRequest
 import app.mcorg.pipeline.auth.minecraft.MinecraftTokenResponse
 import app.mcorg.pipeline.auth.minecraft.createMinecraftRequest
 import app.mcorg.pipeline.apiPostJson
+import app.mcorg.pipeline.failure.GetMinecraftTokenFailure
 import io.ktor.client.call.body
 import io.ktor.http.isSuccess
-
-sealed interface GetMinecraftTokenFailure : SignInWithMinecraftFailure {
-    data object CouldNotGetMinecraftToken : GetMinecraftTokenFailure
-}
 
 object GetMinecraftToken : Step<TokenData, GetMinecraftTokenFailure, String> {
     override suspend fun process(input: TokenData): Result<GetMinecraftTokenFailure, String> {

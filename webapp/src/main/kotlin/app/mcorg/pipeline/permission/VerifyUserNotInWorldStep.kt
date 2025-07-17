@@ -3,12 +3,8 @@ package app.mcorg.pipeline.permission
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.DatabaseFailure
+import app.mcorg.pipeline.failure.VerifyUserNotInWorldStepFailure
 import app.mcorg.pipeline.useConnection
-
-sealed interface VerifyUserNotInWorldStepFailure : AddWorldParticipantFailure {
-    data object UserAlreadyExists : VerifyUserNotInWorldStepFailure
-    data class Other(val failure: DatabaseFailure) : VerifyUserNotInWorldStepFailure
-}
 
 object VerifyUserNotInWorldStep : Step<AddUserInput, VerifyUserNotInWorldStepFailure, AddUserInput> {
     override suspend fun process(input: AddUserInput): Result<VerifyUserNotInWorldStepFailure, AddUserInput> {

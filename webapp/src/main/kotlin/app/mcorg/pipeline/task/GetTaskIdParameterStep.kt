@@ -2,11 +2,8 @@ package app.mcorg.pipeline.task
 
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.domain.pipeline.Result
+import app.mcorg.pipeline.failure.GetTaskIdParameterFailure
 import io.ktor.http.Parameters
-
-sealed interface GetTaskIdParameterFailure : TaskParamFailure {
-    data object TaskIdNotPresent : GetTaskIdParameterFailure
-}
 
 object GetTaskIdParameterStep : Step<Parameters, GetTaskIdParameterFailure, Int> {
     override suspend fun process(input: Parameters): Result<GetTaskIdParameterFailure, Int> {

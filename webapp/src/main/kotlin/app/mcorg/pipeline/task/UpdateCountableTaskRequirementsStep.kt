@@ -2,12 +2,8 @@ package app.mcorg.pipeline.task
 
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
-import app.mcorg.pipeline.DatabaseFailure
+import app.mcorg.pipeline.failure.UpdateCountableTaskRequirementsStepFailure
 import app.mcorg.pipeline.useConnection
-
-sealed interface UpdateCountableTaskRequirementsStepFailure : UpdateTaskRequirementsFailure {
-    data class Other(val failure: DatabaseFailure) : UpdateCountableTaskRequirementsStepFailure
-}
 
 object UpdateCountableTaskRequirementsStep : Step<GetCountableTasksEditValues, UpdateCountableTaskRequirementsStepFailure, Unit> {
     override suspend fun process(input: GetCountableTasksEditValues): Result<UpdateCountableTaskRequirementsStepFailure, Unit> {

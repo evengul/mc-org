@@ -3,6 +3,7 @@ package app.mcorg.pipeline.project
 import app.mcorg.domain.pipeline.Pipeline
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
+import app.mcorg.pipeline.failure.AssignProjectFailure
 
 data class AssignProjectOrRemoveProjectAssignmentStep(val worldId: Int, val projectId: Int) : Step<GetProjectAssignmentOutput, AssignProjectFailure, Unit> {
     override suspend fun process(input: GetProjectAssignmentOutput): Result<AssignProjectFailure, Unit> {

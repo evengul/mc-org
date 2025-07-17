@@ -4,12 +4,9 @@ import app.mcorg.domain.model.minecraft.Dimension
 import app.mcorg.domain.model.projects.Priority
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
+import app.mcorg.pipeline.failure.GetCreateProjectInputFailure
 import app.mcorg.presentation.entities.project.CreateProjectRequest
 import io.ktor.http.*
-
-sealed interface GetCreateProjectInputFailure : CreateProjectFailure {
-    data object NameMissing : GetCreateProjectInputFailure
-}
 
 object GetCreateProjectInputStep : Step<Parameters, GetCreateProjectInputFailure, CreateProjectRequest> {
     override suspend fun process(input: Parameters): Result<GetCreateProjectInputFailure, CreateProjectRequest> {

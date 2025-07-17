@@ -6,6 +6,11 @@ import app.mcorg.domain.model.users.Profile
 import app.mcorg.domain.model.users.User
 import app.mcorg.domain.pipeline.Pipeline
 import app.mcorg.domain.pipeline.Step
+import app.mcorg.pipeline.failure.AssignProjectFailure
+import app.mcorg.pipeline.failure.CreateProjectFailure
+import app.mcorg.pipeline.failure.DeleteProjectFailure
+import app.mcorg.pipeline.failure.GetProjectFailure
+import app.mcorg.pipeline.failure.GetProjectsFailure
 import app.mcorg.pipeline.project.*
 import app.mcorg.presentation.hxOutOfBands
 import app.mcorg.presentation.utils.url.URLMappers

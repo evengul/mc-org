@@ -3,12 +3,9 @@ package app.mcorg.pipeline.task
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.pipeline.DatabaseFailure
+import app.mcorg.pipeline.failure.CreateDoableTaskStepFailure
 import app.mcorg.pipeline.getReturnedId
 import app.mcorg.pipeline.useConnection
-
-sealed interface CreateDoableTaskStepFailure : CreateDoableTaskFailure {
-    data class Other(val failure: DatabaseFailure) : CreateDoableTaskStepFailure
-}
 
 data class CreateDoableTaskStep(val projectId: Int, val currentUsername: String) : Step<String, CreateDoableTaskStepFailure, Int> {
     override suspend fun process(input: String): Result<CreateDoableTaskStepFailure, Int> {

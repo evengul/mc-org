@@ -2,11 +2,8 @@ package app.mcorg.pipeline.permission
 
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.domain.pipeline.Result
+import app.mcorg.pipeline.failure.GetUsernameInputFailure
 import io.ktor.http.*
-
-sealed interface GetUsernameInputFailure : AddWorldParticipantFailure {
-    data object NotPresent : GetUsernameInputFailure
-}
 
 object GetUsernameInputStep : Step<Parameters, GetUsernameInputFailure, String> {
     override suspend fun process(input: Parameters): Result<GetUsernameInputFailure, String> {

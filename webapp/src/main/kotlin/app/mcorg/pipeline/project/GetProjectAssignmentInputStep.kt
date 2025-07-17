@@ -2,11 +2,8 @@ package app.mcorg.pipeline.project
 
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
+import app.mcorg.pipeline.failure.GetProjectAssignmentInputStepFailure
 import io.ktor.http.Parameters
-
-sealed interface GetProjectAssignmentInputStepFailure : AssignProjectFailure {
-    data object UserIdNotPresent : GetProjectAssignmentInputStepFailure
-}
 
 sealed interface GetProjectAssignmentOutput {
     data object RemoveAssignment : GetProjectAssignmentOutput

@@ -2,12 +2,8 @@ package app.mcorg.pipeline.permission
 
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
-import app.mcorg.pipeline.DatabaseFailure
+import app.mcorg.pipeline.failure.RemoveUserFromWorldFailure
 import app.mcorg.pipeline.useConnection
-
-sealed interface RemoveUserFromWorldFailure : RemoveWorldParticipantFailure {
-    data class Other(val failure: DatabaseFailure) : RemoveUserFromWorldFailure
-}
 
 data class RemoveUserFromWorldInput(
     val userId: Int,

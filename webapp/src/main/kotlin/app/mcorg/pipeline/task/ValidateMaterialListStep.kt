@@ -2,12 +2,8 @@ package app.mcorg.pipeline.task
 
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
+import app.mcorg.pipeline.failure.ValidateMaterialListStepFailure
 import java.io.InputStream
-
-sealed interface ValidateMaterialListStepFailure : CreateLitematicaTasksFailure {
-    data object InvalidFile : ValidateMaterialListStepFailure
-    data object BlankFile : ValidateMaterialListStepFailure
-}
 
 object ValidateMaterialListStep : Step<InputStream, ValidateMaterialListStepFailure, String> {
     override suspend fun process(input: InputStream): Result<ValidateMaterialListStepFailure, String> {
