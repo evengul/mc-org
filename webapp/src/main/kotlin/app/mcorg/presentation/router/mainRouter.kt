@@ -32,7 +32,7 @@ fun Application.configureAppRouter() {
             authRouter()
         }
         route("/app") {
-            appRouter()
+            appRouterV2()
         }
     }
 }
