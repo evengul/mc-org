@@ -7,6 +7,7 @@ primary_region = 'arn'
     SKIP_MICROSOFT_SIGN_IN = 'true'
     MICROSOFT_CLIENT_ID=''
     MICROSOFT_CLIENT_SECRET=''
+    MODRINTH_URL='https://staging-api.modrinth.com'
 
 [http_service]
     internal_port = 8080

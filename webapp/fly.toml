@@ -8,6 +8,7 @@ primary_region = 'arn'
   DB_USER = 'mcorg_owner'
   ENV = 'PRODUCTION'
   SKIP_MICROSOFT_SIGN_IN = 'false'
+  MODRINTH_URL='https://api.modrinth.com'
 
 [http_service]
   internal_port = 8080
