@@ -11,4 +11,5 @@ data class World(
     val completedProjects: Int,
     val totalProjects: Int,
     val createdAt: ZonedDateTime,
+    val updatedAt: ZonedDateTime
 )

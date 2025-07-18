@@ -5,6 +5,7 @@ import java.time.ZonedDateTime
 
 data class Project(
     val id: Int,
+    val worldId: Int,
     val name: String,
     val description: String,
     val type: ProjectType,
