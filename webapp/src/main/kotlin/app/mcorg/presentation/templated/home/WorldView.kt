@@ -1,10 +1,11 @@
 package app.mcorg.presentation.templated.home
 
-import app.mcorg.presentation.entities.world.SlimWorld
+import app.mcorg.domain.model.v2.world.World
 import app.mcorg.presentation.templated.common.button.primaryButton
 import app.mcorg.presentation.templated.common.chip.ChipColor
 import app.mcorg.presentation.templated.common.chip.chipComponent
 import app.mcorg.presentation.templated.common.component.LeafComponent
+import app.mcorg.presentation.templated.common.icon.Icons
 import app.mcorg.presentation.templated.common.progress.progressComponent
 import app.mcorg.presentation.templated.utils.SimpleDateFormat
 import kotlinx.html.TagConsumer
@@ -12,8 +13,8 @@ import kotlinx.html.div
 import kotlinx.html.h2
 import kotlinx.html.p
 
-class SlimWorldView(
-    val world: SlimWorld
+class WorldView(
+    val world: World
 ) : LeafComponent() {
     override fun render(container: TagConsumer<*>) {
         container.div {
@@ -24,6 +25,7 @@ class SlimWorldView(
                 + world.description
             }
             chipComponent {
+                icon = Icons.Dimensions.OVERWORLD
                 color = ChipColor.PRIMARY
                 + "MC ${world.version}"
             }

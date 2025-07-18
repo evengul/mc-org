@@ -30,7 +30,6 @@ class HomeHandler {
             onSuccess = { respondHtml(it) },
             onFailure = { respond(InternalServerError, "An unknown error occurred") }
         ) {
-            // Pipeline to get selected world ID that returns null when no world is selected
             val selectedWorldPipeline = Pipeline<Int, GetAllWorldsFailure, Int?> { input ->
                 when (val result = GetSelectedWorldIdStep.process(input)) {
                     is Result.Success -> Result.success(result.value)
@@ -41,7 +40,6 @@ class HomeHandler {
                 }
             }
 
-            // Pipeline to get all permitted worlds
             val worldsPipeline = Pipeline.create<GetAllWorldsFailure, Int>()
                 .pipe(GetAllPermittedWorldsForUserStep)
                 .map { it.ownedWorlds + it.participantWorlds }

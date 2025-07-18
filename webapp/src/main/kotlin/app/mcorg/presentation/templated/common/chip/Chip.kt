@@ -50,4 +50,8 @@ class Chip(
             }
         }
     }
+
+    operator fun String.unaryPlus() {
+        text = this
+    }
 }

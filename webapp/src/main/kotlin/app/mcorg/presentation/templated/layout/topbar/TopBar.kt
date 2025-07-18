@@ -1,6 +1,6 @@
 package app.mcorg.presentation.templated.layout.topbar
 
-import app.mcorg.domain.model.users.Profile
+import app.mcorg.domain.model.users.User
 import app.mcorg.presentation.templated.common.button.iconButton
 import app.mcorg.presentation.templated.common.component.LeafComponent
 import app.mcorg.presentation.templated.common.component.addComponent
@@ -18,10 +18,10 @@ import kotlinx.html.li
 import kotlinx.html.nav
 import kotlinx.html.ul
 
-fun BODY.topBar(user: Profile? = null) = addComponent(TopBar(user))
+fun BODY.topBar(user: User? = null) = addComponent(TopBar(user))
 
 data class TopBar(
-    val user: Profile? = null
+    val user: User? = null
 ) : LeafComponent() {
     override fun render(container: TagConsumer<*>) {
         container.header {
@@ -47,6 +47,15 @@ data class TopBar(
                         classes += "top-bar-link"
                         linkComponent(Link.Servers) {
                             + "Servers"
+                        }
+                    }
+                    // TODO: Dynamically add this link based on user permissions
+                    if (user?.username == "lilpebblez" || user?.username == "evegul") {
+                        li {
+                            classes += "top-bar-link"
+                            linkComponent(Link.AdminDashboard) {
+                                + "Admin"
+                            }
                         }
                     }
                 }

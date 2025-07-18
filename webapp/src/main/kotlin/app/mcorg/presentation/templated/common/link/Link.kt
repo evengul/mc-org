@@ -106,7 +106,6 @@ sealed interface Link {
         override val to: String = "/profile"
     }
 
-    @Suppress("unused")
     object AdminDashboard : Link {
         override val to: String = "/admin"
     }
