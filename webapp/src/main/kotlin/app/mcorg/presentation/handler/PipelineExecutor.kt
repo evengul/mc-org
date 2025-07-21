@@ -25,37 +25,6 @@ suspend fun <E, O> ApplicationCall.executePipeline(
     )
 }
 
-suspend fun <E> ApplicationCall.executeParallelPipelines(
-    pipelines: Map<String, Pair<Pipeline<*, E, *>, Any>>,
-    onSuccess: suspend (Map<String, Any>) -> Unit = { },
-    onFailure: suspend (E) -> Unit = { }
-) {
-    coroutineScope {
-        val deferredResults = pipelines.map { (key, pipelinePair) ->
-            val (pipeline, input) = pipelinePair
-            key to async {
-                @Suppress("UNCHECKED_CAST")
-                val typedPipeline = pipeline as Pipeline<Any, E, Any>
-                typedPipeline.execute(input)
-            }
-        }
-
-        val results = mutableMapOf<String, Any>()
-
-        for ((key, deferred) in deferredResults) {
-            when (val result = deferred.await()) {
-                is Result.Success -> results[key] = result.value
-                is Result.Failure -> {
-                    onFailure(result.error)
-                    return@coroutineScope
-                }
-            }
-        }
-
-        onSuccess(results)
-    }
-}
-
 suspend fun <E, O> ApplicationCall.executeParallelPipelineDSL(
     onSuccess: suspend (O) -> Unit = { },
     onFailure: suspend (E) -> Unit = { },
