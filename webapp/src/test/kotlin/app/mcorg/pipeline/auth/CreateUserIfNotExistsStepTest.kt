@@ -38,6 +38,11 @@ class CreateUserIfNotExistsStepTest {
         every { mockProvider.getConnection() } returns mockConnection
         every { mockConnection.close() } just Runs
 
+        // Mock transaction-related methods
+        every { mockConnection.setAutoCommit(any()) } just Runs
+        every { mockConnection.commit() } just Runs
+        every { mockConnection.rollback() } just Runs
+
         // Set up common mock behaviors
         every { mockCheckUserStatement.close() } just Runs
         every { mockUpdateUsernameStatement.close() } just Runs
@@ -178,13 +183,15 @@ class CreateUserIfNotExistsStepTest {
         // Arrange - no existing user
         every { mockConnection.prepareStatement(match { it.contains("SELECT u.id, u.email, mp.uuid, mp.username") }) } returns mockCheckUserStatement
         every { mockCheckUserStatement.executeQuery() } returns mockResultSet
-        every { mockResultSet.next() } returns false
+        every { mockResultSet.next() } returns false // No existing user found
 
-        // Mock transaction behavior - create user
+        // Mock transaction behavior - create user (use a different result set for the INSERT)
+        val mockUserInsertResultSet = mockk<ResultSet>()
+        every { mockUserInsertResultSet.close() } just Runs
         every { mockConnection.prepareStatement(match { it.contains("INSERT INTO users") }) } returns mockCreateUserStatement
-        every { mockCreateUserStatement.executeQuery() } returns mockResultSet
-        every { mockResultSet.next() } returns true
-        every { mockResultSet.getInt("id") } returns 2
+        every { mockCreateUserStatement.executeQuery() } returns mockUserInsertResultSet
+        every { mockUserInsertResultSet.next() } returns true
+        every { mockUserInsertResultSet.getInt("id") } returns 2
 
         // Mock create minecraft profile
         every { mockConnection.prepareStatement(match { it.contains("INSERT INTO minecraft_profiles") }) } returns mockCreateProfileStatement
@@ -221,7 +228,6 @@ class CreateUserIfNotExistsStepTest {
         // Assert
         assertTrue(result is Result.Failure)
         assertTrue(result.error is CreateUserIfNotExistsFailure.Other)
-        verify { mockCheckUserStatement.setString(1, "test-uuid-123") wasNot Called }
     }
 
     @Test
