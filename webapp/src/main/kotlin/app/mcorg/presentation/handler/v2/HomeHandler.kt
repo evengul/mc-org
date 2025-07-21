@@ -1,14 +1,10 @@
 package app.mcorg.presentation.handler.v2
 
-import app.mcorg.domain.pipeline.MergeSteps
 import app.mcorg.domain.pipeline.Pipeline
-import app.mcorg.domain.pipeline.Result
-import app.mcorg.pipeline.failure.GetAllWorldsFailure
-import app.mcorg.pipeline.failure.GetSelectedWorldIdFailure
-import app.mcorg.pipeline.world.GetAllPermittedWorldsForUserStep
-import app.mcorg.pipeline.world.GetSelectedWorldIdStep
-import app.mcorg.presentation.templates.world.worlds
-import app.mcorg.presentation.utils.getUserId
+import app.mcorg.pipeline.v2.world.GetPermittedWorldsStep
+import app.mcorg.pipeline.v2.world.GetPermittedWorldsError
+import app.mcorg.presentation.templated.home.homePage
+import app.mcorg.presentation.utils.getUser
 import app.mcorg.presentation.utils.respondHtml
 import io.ktor.http.HttpStatusCode.Companion.InternalServerError
 import io.ktor.server.application.ApplicationCall
@@ -24,36 +20,24 @@ class HomeHandler {
     }
 
     private suspend fun ApplicationCall.handleGetHome() {
-        val userId = getUserId()
+        val user = getUser()
 
         executeParallelPipelineDSL(
-            onSuccess = { respondHtml(it) },
-            onFailure = { respond(InternalServerError, "An unknown error occurred") }
-        ) {
-            val selectedWorldPipeline = Pipeline<Int, GetAllWorldsFailure, Int?> { input ->
-                when (val result = GetSelectedWorldIdStep.process(input)) {
-                    is Result.Success -> Result.success(result.value)
-                    is Result.Failure -> when (result.error) {
-                        is GetSelectedWorldIdFailure.NoWorldSelected -> Result.success(null)
-                        is GetSelectedWorldIdFailure.Other -> result
+            onSuccess = {
+                respondHtml(homePage(user, it))
+            },
+            onFailure = {
+                when (it) {
+                    is GetPermittedWorldsError.DatabaseError -> {
+                        respond(InternalServerError, "Unable to load worlds due to database error")
                     }
                 }
             }
-
-            val worldsPipeline = Pipeline.create<GetAllWorldsFailure, Int>()
-                .pipe(GetAllPermittedWorldsForUserStep)
-                .map { it.ownedWorlds + it.participantWorlds }
-
-            val selectedWorldRef = pipeline("selectedWorld", userId, selectedWorldPipeline)
-            val worldsRef = pipeline("worlds", userId, worldsPipeline)
-
-            merge(
-                "result",
-                selectedWorldRef,
-                worldsRef,
-                MergeSteps.transform { selectedWorldId, worldsList ->
-                    worlds(selectedWorldId, worldsList)
-                }
+        ) {
+            pipeline(
+                id = "worlds",
+                input = user.id,
+                pipeline = Pipeline { input -> GetPermittedWorldsStep().process(input) }
             )
         }
     }
