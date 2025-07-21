@@ -1,7 +1,5 @@
 package app.mcorg.pipeline.failure
 
-import app.mcorg.pipeline.DatabaseFailure
-
 sealed interface WorldParamFailure {
     data object UserNotInWorld : WorldParamFailure
     data class Other(val failure: DatabaseFailure) : WorldParamFailure

@@ -3,7 +3,7 @@ package app.mcorg.pipeline.task
 import app.mcorg.domain.model.task.PremadeTask
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
-import app.mcorg.pipeline.DatabaseFailure
+import app.mcorg.pipeline.failure.DatabaseFailure
 import app.mcorg.pipeline.failure.CreateCountableStepFailure
 import app.mcorg.pipeline.failure.CreateLitematicaTasksStepFailure
 

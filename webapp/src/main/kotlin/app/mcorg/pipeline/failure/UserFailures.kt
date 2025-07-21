@@ -1,7 +1,5 @@
 package app.mcorg.pipeline.failure
 
-import app.mcorg.pipeline.DatabaseFailure
-
 sealed interface AddWorldParticipantFailure
 sealed interface RemoveWorldParticipantFailure
 sealed interface GetWorldParticipantsFailure

@@ -1,7 +1,7 @@
 package app.mcorg.presentation.handler
 
 import app.mcorg.domain.pipeline.Pipeline
-import app.mcorg.pipeline.DatabaseFailure
+import app.mcorg.pipeline.failure.DatabaseFailure
 import app.mcorg.pipeline.permission.RemoveUserPermissionsStep
 import app.mcorg.pipeline.profile.GetProfileStep
 import app.mcorg.pipeline.profile.IsTechnicalPlayerStep

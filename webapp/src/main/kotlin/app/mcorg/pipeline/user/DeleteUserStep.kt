@@ -2,7 +2,7 @@ package app.mcorg.pipeline.user
 
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
-import app.mcorg.pipeline.DatabaseFailure
+import app.mcorg.pipeline.failure.DatabaseFailure
 import app.mcorg.pipeline.useConnection
 
 data class DeleteUserStep(val userId: Int) : Step<Unit, DatabaseFailure, Unit> {

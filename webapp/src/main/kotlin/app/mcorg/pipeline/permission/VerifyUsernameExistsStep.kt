@@ -2,7 +2,7 @@ package app.mcorg.pipeline.permission
 
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
-import app.mcorg.pipeline.DatabaseFailure
+import app.mcorg.pipeline.failure.DatabaseFailure
 import app.mcorg.pipeline.failure.VerifyUserExistsStepFailure
 import app.mcorg.pipeline.useConnection
 

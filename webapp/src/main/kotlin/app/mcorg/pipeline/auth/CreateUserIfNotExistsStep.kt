@@ -4,7 +4,7 @@ import app.mcorg.domain.model.minecraft.MinecraftProfile
 import app.mcorg.domain.model.users.User
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
-import app.mcorg.pipeline.DatabaseFailure
+import app.mcorg.pipeline.failure.DatabaseFailure
 import app.mcorg.pipeline.failure.CreateUserIfNotExistsFailure
 import app.mcorg.pipeline.getReturnedId
 import app.mcorg.pipeline.useConnection

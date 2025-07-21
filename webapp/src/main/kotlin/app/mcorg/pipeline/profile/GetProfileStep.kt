@@ -3,7 +3,7 @@ package app.mcorg.pipeline.profile
 import app.mcorg.domain.model.users.Profile
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.domain.pipeline.Result
-import app.mcorg.pipeline.DatabaseFailure
+import app.mcorg.pipeline.failure.DatabaseFailure
 import app.mcorg.pipeline.useConnection
 
 object GetProfileStep : Step<Int, DatabaseFailure, Profile> {

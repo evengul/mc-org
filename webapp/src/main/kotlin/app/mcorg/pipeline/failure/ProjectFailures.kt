@@ -1,7 +1,5 @@
 package app.mcorg.pipeline.failure
 
-import app.mcorg.pipeline.DatabaseFailure
-
 sealed interface ProjectParamFailure
 sealed interface GetProjectsFailure
 sealed interface GetProjectFailure

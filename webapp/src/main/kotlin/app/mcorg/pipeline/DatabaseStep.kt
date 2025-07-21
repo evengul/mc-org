@@ -2,21 +2,13 @@ package app.mcorg.pipeline
 
 import app.mcorg.config.Database
 import app.mcorg.domain.pipeline.Result
+import app.mcorg.pipeline.failure.DatabaseFailure
 import org.slf4j.LoggerFactory
 import java.sql.Connection
 import java.sql.PreparedStatement
 import java.sql.SQLIntegrityConstraintViolationException
 import java.sql.SQLSyntaxErrorException
 import java.sql.SQLTimeoutException
-
-sealed interface DatabaseFailure {
-    data object ConnectionError : DatabaseFailure
-    data object StatementError : DatabaseFailure
-    data object IntegrityConstraintError : DatabaseFailure
-    data object UnknownError : DatabaseFailure
-    data object NoIdReturned : DatabaseFailure
-    data object NotFound : DatabaseFailure
-}
 
 private val logger = LoggerFactory.getLogger("DatabaseStep")
 
