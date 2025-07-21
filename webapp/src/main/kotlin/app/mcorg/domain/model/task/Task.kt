@@ -1,7 +1,7 @@
 package app.mcorg.domain.model.task
 
-import app.mcorg.domain.model.v2.project.ProjectStage
-import app.mcorg.domain.model.v2.task.TaskRequirement
+import app.mcorg.domain.model.project.ProjectStage
+import app.mcorg.domain.model.task.TaskRequirement
 
 data class Task(
     val id: Int,

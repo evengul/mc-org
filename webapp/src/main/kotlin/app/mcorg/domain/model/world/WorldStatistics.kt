@@ -1,4 +1,4 @@
-package app.mcorg.domain.model.v2.world
+package app.mcorg.domain.model.world
 
 import java.time.ZonedDateTime
 

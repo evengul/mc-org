@@ -1,6 +1,6 @@
 package app.mcorg.presentation.templated.common.page
 
-import app.mcorg.domain.model.v2.user.TokenProfile
+import app.mcorg.domain.model.user.TokenProfile
 import app.mcorg.presentation.templated.layout.topbar.topBar
 import kotlinx.html.MAIN
 import kotlinx.html.body

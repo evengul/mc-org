@@ -1,6 +1,5 @@
 package app.mcorg.pipeline
 
-import app.mcorg.pipeline.v2.SafeSQL
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import kotlin.test.assertEquals

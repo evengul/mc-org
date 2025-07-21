@@ -1,4 +1,4 @@
-package app.mcorg.domain.model.v2.project
+package app.mcorg.domain.model.project
 
 data class ProjectProduction(
     val id: Int,

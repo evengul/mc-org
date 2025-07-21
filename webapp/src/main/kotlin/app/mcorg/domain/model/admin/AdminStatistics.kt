@@ -1,4 +1,4 @@
-package app.mcorg.domain.model.v2.admin
+package app.mcorg.domain.model.admin
 
 import java.time.ZonedDateTime
 

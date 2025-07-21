@@ -2,8 +2,8 @@ package app.mcorg.pipeline.auth
 
 import app.mcorg.config.Database
 import app.mcorg.config.DatabaseConnectionProvider
-import app.mcorg.domain.model.v2.user.MinecraftProfile
-import app.mcorg.domain.model.v2.user.TokenProfile
+import app.mcorg.domain.model.user.MinecraftProfile
+import app.mcorg.domain.model.user.TokenProfile
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.pipeline.failure.CreateUserIfNotExistsFailure
 import io.mockk.*

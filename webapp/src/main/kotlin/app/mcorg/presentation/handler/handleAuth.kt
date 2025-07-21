@@ -4,7 +4,7 @@ import app.mcorg.domain.pipeline.Pipeline
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.domain.Local
 import app.mcorg.domain.Test
-import app.mcorg.domain.model.v2.user.MinecraftProfile
+import app.mcorg.domain.model.user.MinecraftProfile
 import app.mcorg.pipeline.auth.AddCookieStep
 import app.mcorg.pipeline.auth.ConvertTokenStep
 import app.mcorg.pipeline.auth.CreateTokenStep

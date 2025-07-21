@@ -1,6 +1,6 @@
 package app.mcorg.presentation.templated.layout.topbar
 
-import app.mcorg.domain.model.v2.user.TokenProfile
+import app.mcorg.domain.model.user.TokenProfile
 import app.mcorg.presentation.templated.common.button.iconButton
 import app.mcorg.presentation.templated.common.component.LeafComponent
 import app.mcorg.presentation.templated.common.component.addComponent

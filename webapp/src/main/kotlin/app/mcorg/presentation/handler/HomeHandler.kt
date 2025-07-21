@@ -1,8 +1,8 @@
-package app.mcorg.presentation.handler.v2
+package app.mcorg.presentation.handler
 
 import app.mcorg.domain.pipeline.Pipeline
-import app.mcorg.pipeline.v2.world.GetPermittedWorldsStep
-import app.mcorg.pipeline.v2.world.GetPermittedWorldsError
+import app.mcorg.pipeline.world.GetPermittedWorldsStep
+import app.mcorg.pipeline.world.GetPermittedWorldsError
 import app.mcorg.presentation.templated.home.homePage
 import app.mcorg.presentation.utils.getUser
 import app.mcorg.presentation.utils.respondHtml

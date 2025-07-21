@@ -1,4 +1,4 @@
-package app.mcorg.domain.model.v2.task
+package app.mcorg.domain.model.task
 
 sealed interface TaskRequirement {
     fun isCompleted(): Boolean

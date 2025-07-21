@@ -1,12 +1,12 @@
 package app.mcorg.pipeline.auth
 
-import app.mcorg.domain.model.v2.user.MinecraftProfile
-import app.mcorg.domain.model.v2.user.TokenProfile
+import app.mcorg.domain.model.user.MinecraftProfile
+import app.mcorg.domain.model.user.TokenProfile
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.failure.CreateUserIfNotExistsFailure
-import app.mcorg.pipeline.v2.DatabaseSteps
-import app.mcorg.pipeline.v2.SafeSQL
+import app.mcorg.pipeline.DatabaseSteps
+import app.mcorg.pipeline.SafeSQL
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import java.sql.ResultSet

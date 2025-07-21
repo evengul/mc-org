@@ -1,10 +1,10 @@
-package app.mcorg.pipeline.v2.world
+package app.mcorg.pipeline.world
 
 import app.mcorg.domain.pipeline.Step
-import app.mcorg.domain.model.v2.world.World
-import app.mcorg.domain.model.v2.minecraft.MinecraftVersion
-import app.mcorg.pipeline.v2.DatabaseSteps
-import app.mcorg.pipeline.v2.SafeSQL
+import app.mcorg.domain.model.world.World
+import app.mcorg.domain.model.minecraft.MinecraftVersion
+import app.mcorg.pipeline.DatabaseSteps
+import app.mcorg.pipeline.SafeSQL
 import java.sql.ResultSet
 
 sealed interface GetPermittedWorldsError {

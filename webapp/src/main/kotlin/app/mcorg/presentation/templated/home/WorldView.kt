@@ -1,6 +1,6 @@
 package app.mcorg.presentation.templated.home
 
-import app.mcorg.domain.model.v2.world.World
+import app.mcorg.domain.model.world.World
 import app.mcorg.presentation.templated.common.button.primaryButton
 import app.mcorg.presentation.templated.common.chip.ChipColor
 import app.mcorg.presentation.templated.common.chip.chipComponent

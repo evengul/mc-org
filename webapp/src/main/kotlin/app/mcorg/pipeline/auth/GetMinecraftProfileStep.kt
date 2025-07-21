@@ -1,12 +1,12 @@
 package app.mcorg.pipeline.auth
 
-import app.mcorg.domain.model.v2.user.MinecraftProfile
+import app.mcorg.domain.model.user.MinecraftProfile
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.auth.minecraft.MinecraftProfileResponse
 import app.mcorg.pipeline.failure.GetMinecraftProfileFailure
 import app.mcorg.pipeline.failure.ApiFailure
-import app.mcorg.pipeline.v2.ApiSteps
+import app.mcorg.pipeline.ApiSteps
 import app.mcorg.config.MinecraftApiProvider
 import io.ktor.client.request.header
 import io.ktor.http.*

@@ -7,7 +7,7 @@ import app.mcorg.domain.Env
 import app.mcorg.domain.Local
 import app.mcorg.pipeline.failure.GetMicrosoftTokenFailure
 import app.mcorg.pipeline.failure.ApiFailure
-import app.mcorg.pipeline.v2.ApiSteps
+import app.mcorg.pipeline.ApiSteps
 import app.mcorg.config.MicrosoftLoginApiProvider
 import io.ktor.client.request.forms.*
 import io.ktor.client.request.setBody

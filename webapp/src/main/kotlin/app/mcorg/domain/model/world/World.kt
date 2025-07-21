@@ -1,6 +1,6 @@
-package app.mcorg.domain.model.v2.world
+package app.mcorg.domain.model.world
 
-import app.mcorg.domain.model.v2.minecraft.MinecraftVersion
+import app.mcorg.domain.model.minecraft.MinecraftVersion
 import java.time.ZonedDateTime
 
 data class World(

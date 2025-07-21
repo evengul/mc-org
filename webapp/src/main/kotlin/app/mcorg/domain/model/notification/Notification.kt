@@ -1,4 +1,4 @@
-package app.mcorg.domain.model.v2.notification
+package app.mcorg.domain.model.notification
 
 import java.time.ZonedDateTime
 

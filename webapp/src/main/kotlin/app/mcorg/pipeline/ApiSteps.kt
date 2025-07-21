@@ -1,4 +1,4 @@
-package app.mcorg.pipeline.v2
+package app.mcorg.pipeline
 
 import app.mcorg.config.ApiProvider
 import app.mcorg.domain.pipeline.Step

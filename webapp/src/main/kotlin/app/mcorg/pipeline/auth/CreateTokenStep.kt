@@ -1,6 +1,6 @@
 package app.mcorg.pipeline.auth
 
-import app.mcorg.domain.model.v2.user.TokenProfile
+import app.mcorg.domain.model.user.TokenProfile
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.pipeline.failure.CreateTokenFailure

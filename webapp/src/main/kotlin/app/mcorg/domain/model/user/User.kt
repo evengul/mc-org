@@ -1,4 +1,4 @@
-package app.mcorg.domain.model.v2.user
+package app.mcorg.domain.model.user
 
 sealed interface User {
     val id: Int

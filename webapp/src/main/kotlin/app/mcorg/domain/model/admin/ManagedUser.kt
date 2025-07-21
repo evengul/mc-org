@@ -1,6 +1,6 @@
-package app.mcorg.domain.model.v2.admin
+package app.mcorg.domain.model.admin
 
-import app.mcorg.domain.model.v2.user.Role
+import app.mcorg.domain.model.user.Role
 import java.time.ZonedDateTime
 
 data class ManagedUser(

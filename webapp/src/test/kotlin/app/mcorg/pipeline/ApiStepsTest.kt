@@ -2,7 +2,7 @@ package app.mcorg.pipeline
 
 import app.mcorg.config.ApiProvider
 import app.mcorg.pipeline.failure.ApiFailure
-import app.mcorg.pipeline.v2.ApiSteps
+import app.mcorg.pipeline.ApiSteps
 import io.ktor.http.*
 import io.mockk.*
 import kotlinx.coroutines.runBlocking

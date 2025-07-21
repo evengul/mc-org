@@ -3,8 +3,8 @@ package app.mcorg.pipeline.auth
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.failure.UpdateLastSignInFailure
-import app.mcorg.pipeline.v2.DatabaseSteps
-import app.mcorg.pipeline.v2.SafeSQL
+import app.mcorg.pipeline.DatabaseSteps
+import app.mcorg.pipeline.SafeSQL
 
 object UpdateLastSignInStep : Step<String, UpdateLastSignInFailure, Unit> {
     override suspend fun process(input: String): Result<UpdateLastSignInFailure, Unit> {

@@ -1,7 +1,7 @@
 package app.mcorg.domain.model.minecraft
 
-import app.mcorg.domain.model.v2.minecraft.MinecraftVersion
-import app.mcorg.domain.model.v2.minecraft.MinecraftVersionRange
+import app.mcorg.domain.model.minecraft.MinecraftVersion
+import app.mcorg.domain.model.minecraft.MinecraftVersionRange
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Nested

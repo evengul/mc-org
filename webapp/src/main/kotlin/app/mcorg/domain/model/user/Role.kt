@@ -1,4 +1,4 @@
-package app.mcorg.domain.model.v2.user
+package app.mcorg.domain.model.user
 
 enum class Role(private val level: Int) {
     OWNER(0),

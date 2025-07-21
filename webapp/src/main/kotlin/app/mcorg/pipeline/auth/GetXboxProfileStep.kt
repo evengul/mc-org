@@ -7,7 +7,7 @@ import app.mcorg.pipeline.auth.minecraft.XboxProperties
 import app.mcorg.pipeline.auth.minecraft.XboxTokenResponse
 import app.mcorg.pipeline.failure.GetXboxProfileFailure
 import app.mcorg.pipeline.failure.ApiFailure
-import app.mcorg.pipeline.v2.ApiSteps
+import app.mcorg.pipeline.ApiSteps
 import app.mcorg.config.XboxAuthApiProvider
 import io.ktor.client.request.setBody
 import org.slf4j.LoggerFactory

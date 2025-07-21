@@ -7,7 +7,7 @@ import app.mcorg.pipeline.auth.minecraft.MinecraftTokenResponse
 import app.mcorg.pipeline.auth.minecraft.createMinecraftRequest
 import app.mcorg.pipeline.failure.GetMinecraftTokenFailure
 import app.mcorg.pipeline.failure.ApiFailure
-import app.mcorg.pipeline.v2.ApiSteps
+import app.mcorg.pipeline.ApiSteps
 import app.mcorg.config.MinecraftApiProvider
 import io.ktor.client.request.setBody
 

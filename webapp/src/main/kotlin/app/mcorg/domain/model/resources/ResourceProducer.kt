@@ -1,6 +1,6 @@
-package app.mcorg.domain.model.v2.resources
+package app.mcorg.domain.model.resources
 
-import app.mcorg.domain.model.v2.minecraft.MinecraftLocation
+import app.mcorg.domain.model.minecraft.MinecraftLocation
 
 data class ResourceProducer(
     val id: Int,

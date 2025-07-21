@@ -1,6 +1,6 @@
 package app.mcorg.presentation.utils
 
-import app.mcorg.domain.model.v2.user.TokenProfile
+import app.mcorg.domain.model.user.TokenProfile
 import app.mcorg.presentation.consts.AUTH_COOKIE
 import io.ktor.server.application.*
 import io.ktor.server.response.*

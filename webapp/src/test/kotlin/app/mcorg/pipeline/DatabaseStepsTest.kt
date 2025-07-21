@@ -4,8 +4,6 @@ import app.mcorg.config.Database
 import app.mcorg.config.DatabaseConnectionProvider
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.pipeline.failure.DatabaseFailure
-import app.mcorg.pipeline.v2.DatabaseSteps
-import app.mcorg.pipeline.v2.SafeSQL
 import io.mockk.*
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.AfterEach

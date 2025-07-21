@@ -1,4 +1,4 @@
-package app.mcorg.presentation.handler.v2
+package app.mcorg.presentation.handler
 
 import app.mcorg.domain.pipeline.PipelineBuilder
 import app.mcorg.domain.pipeline.pipeline

@@ -1,4 +1,4 @@
-package app.mcorg.pipeline.v2
+package app.mcorg.pipeline
 
 import org.intellij.lang.annotations.Language
 

@@ -1,4 +1,4 @@
-package app.mcorg.presentation.handler.v2
+package app.mcorg.presentation.handler
 
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.patch

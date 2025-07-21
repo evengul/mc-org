@@ -1,12 +1,12 @@
 package app.mcorg.presentation.router
 
-import app.mcorg.presentation.handler.v2.AdminHandler
-import app.mcorg.presentation.handler.v2.HomeHandler
-import app.mcorg.presentation.handler.v2.IdeaHandler
-import app.mcorg.presentation.handler.v2.InviteHandler
-import app.mcorg.presentation.handler.v2.NotificationHandler
-import app.mcorg.presentation.handler.v2.ProfileHandler
-import app.mcorg.presentation.handler.v2.WorldHandler
+import app.mcorg.presentation.handler.AdminHandler
+import app.mcorg.presentation.handler.HomeHandler
+import app.mcorg.presentation.handler.IdeaHandler
+import app.mcorg.presentation.handler.InviteHandler
+import app.mcorg.presentation.handler.NotificationHandler
+import app.mcorg.presentation.handler.ProfileHandler
+import app.mcorg.presentation.handler.WorldHandler
 import io.ktor.server.routing.Route
 
 fun Route.appRouterV2() {

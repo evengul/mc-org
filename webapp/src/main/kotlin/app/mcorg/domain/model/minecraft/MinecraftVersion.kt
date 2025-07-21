@@ -1,4 +1,4 @@
-package app.mcorg.domain.model.v2.minecraft
+package app.mcorg.domain.model.minecraft
 
 sealed interface MinecraftVersion {
     data class Snapshot(

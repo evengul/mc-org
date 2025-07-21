@@ -7,7 +7,7 @@ import app.mcorg.pipeline.auth.minecraft.XstsProperties
 import app.mcorg.pipeline.auth.minecraft.XstsRequest
 import app.mcorg.pipeline.failure.GetXstsTokenFailure
 import app.mcorg.pipeline.failure.ApiFailure
-import app.mcorg.pipeline.v2.ApiSteps
+import app.mcorg.pipeline.ApiSteps
 import app.mcorg.config.XstsAuthorizationApiProvider
 import io.ktor.client.request.setBody
 
