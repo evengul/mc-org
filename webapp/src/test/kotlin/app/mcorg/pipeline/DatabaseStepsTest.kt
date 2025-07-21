@@ -4,6 +4,8 @@ import app.mcorg.config.Database
 import app.mcorg.config.DatabaseConnectionProvider
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.pipeline.failure.DatabaseFailure
+import app.mcorg.pipeline.v2.DatabaseSteps
+import app.mcorg.pipeline.v2.SafeSQL
 import io.mockk.*
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.AfterEach
@@ -11,7 +13,6 @@ import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import java.sql.*
-import kotlin.io.use
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
