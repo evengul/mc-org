@@ -21,7 +21,7 @@ function stripEndingSlash(str: string) {
 const pages = {
   MAIN: "/",
   SIGN_IN: "/auth/sign-in",
-  WORLDS: "/app/worlds",
+  WORLDS: "/app",
   PROFILE: "/app/profile"
 }
 

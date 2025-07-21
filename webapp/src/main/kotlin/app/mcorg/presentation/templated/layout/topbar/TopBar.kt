@@ -1,6 +1,6 @@
 package app.mcorg.presentation.templated.layout.topbar
 
-import app.mcorg.domain.model.users.User
+import app.mcorg.domain.model.v2.user.TokenProfile
 import app.mcorg.presentation.templated.common.button.iconButton
 import app.mcorg.presentation.templated.common.component.LeafComponent
 import app.mcorg.presentation.templated.common.component.addComponent
@@ -18,10 +18,10 @@ import kotlinx.html.li
 import kotlinx.html.nav
 import kotlinx.html.ul
 
-fun BODY.topBar(user: User? = null) = addComponent(TopBar(user))
+fun BODY.topBar(user: TokenProfile? = null) = addComponent(TopBar(user))
 
 data class TopBar(
-    val user: User? = null
+    val user: TokenProfile? = null
 ) : LeafComponent() {
     override fun render(container: TagConsumer<*>) {
         container.header {
@@ -50,7 +50,7 @@ data class TopBar(
                         }
                     }
                     // TODO: Dynamically add this link based on user permissions
-                    if (user?.username == "lilpebblez" || user?.username == "evegul") {
+                    if (user?.minecraftUsername == "lilpebblez" || user?.minecraftUsername == "evegul") {
                         li {
                             classes += "top-bar-link"
                             linkComponent(Link.AdminDashboard) {

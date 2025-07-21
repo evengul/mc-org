@@ -2,8 +2,6 @@ package app.mcorg.presentation.handler
 
 import app.mcorg.domain.pipeline.Pipeline
 import app.mcorg.pipeline.auth.ConvertTokenStep
-import app.mcorg.pipeline.auth.GetProfileStepForAuth
-import app.mcorg.pipeline.auth.GetSelectedWorldIdStep
 import app.mcorg.pipeline.failure.GetSignInPageFailure
 import app.mcorg.pipeline.auth.GetTokenStep
 import app.mcorg.pipeline.failure.MissingToken
@@ -19,13 +17,10 @@ suspend fun ApplicationCall.handleGetLanding() {
     Pipeline.create<GetSignInPageFailure, RequestCookies>()
         .pipe(GetTokenStep(AUTH_COOKIE))
         .pipe(ConvertTokenStep(ISSUER))
-        .pipe(GetProfileStepForAuth)
-        .pipe(GetSelectedWorldIdStep)
-        .map { "/app/worlds/$it/projects" }
         .mapFailure { it.toRedirect() }
         .fold(
             input = request.cookies,
-            onSuccess = { respondRedirect(it) },
+            onSuccess = { respondRedirect("/app") },
             onFailure = { when(it) {
                 is MissingToken -> respondRedirect("/auth/sign-in")
                 is Redirect -> respondRedirect(it.url)

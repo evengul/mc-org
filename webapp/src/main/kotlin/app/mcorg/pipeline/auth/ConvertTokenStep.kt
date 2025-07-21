@@ -1,6 +1,6 @@
 package app.mcorg.pipeline.auth
 
-import app.mcorg.domain.model.users.User
+import app.mcorg.domain.model.v2.user.TokenProfile
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.failure.ConvertTokenStepFailure
@@ -15,8 +15,8 @@ import com.auth0.jwt.exceptions.MissingClaimException
 import com.auth0.jwt.exceptions.SignatureVerificationException
 import com.auth0.jwt.exceptions.TokenExpiredException
 
-data class ConvertTokenStep(val issuer: String = ISSUER) : Step<String, ConvertTokenStepFailure, User> {
-    override suspend fun process(input: String): Result<ConvertTokenStepFailure, User> {
+data class ConvertTokenStep(val issuer: String = ISSUER) : Step<String, ConvertTokenStepFailure, TokenProfile> {
+    override suspend fun process(input: String): Result<ConvertTokenStepFailure, TokenProfile> {
         val (publicKey, privateKey) = JwtHelper.getKeys()
 
         val jwt = try {
@@ -24,7 +24,9 @@ data class ConvertTokenStep(val issuer: String = ISSUER) : Step<String, ConvertT
                 .withIssuer(issuer)
                 .withAudience(JwtHelper.AUDIENCE)
                 .withClaimPresence("sub")
-                .withClaimPresence("username")
+                .withClaimPresence("minecraft_username")
+                .withClaimPresence("minecraft_uuid")
+                .withClaimPresence("display_name")
                 .acceptLeeway(3L)
                 .build()
                 .verify(input)
@@ -39,9 +41,11 @@ data class ConvertTokenStep(val issuer: String = ISSUER) : Step<String, ConvertT
             }
         }
 
-        return Result.success(User(
+        return Result.success(TokenProfile(
             jwt.getClaim("sub").asInt(),
-            jwt.getClaim("username").asString()
+            jwt.getClaim("minecraft_uuid").asString(),
+            jwt.getClaim("minecraft_username").asString(),
+            jwt.getClaim("display_name").asString()
         ))
     }
 }

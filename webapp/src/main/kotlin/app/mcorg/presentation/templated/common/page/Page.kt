@@ -1,6 +1,6 @@
 package app.mcorg.presentation.templated.common.page
 
-import app.mcorg.domain.model.users.User
+import app.mcorg.domain.model.v2.user.TokenProfile
 import app.mcorg.presentation.templated.layout.topbar.topBar
 import kotlinx.html.MAIN
 import kotlinx.html.body
@@ -17,7 +17,7 @@ fun createPage(
     pageTitle: String = "MC-ORG",
     pageScripts: Set<PageScript> = emptySet(),
     pageStyles: Set<PageStyle> = PageStyle.entries.toSet(),
-    user: User? = null,
+    user: TokenProfile? = null,
     body: MAIN.() -> Unit
 ): String {
     return "<!DOCTYPE html>\n" + createHTML().html {

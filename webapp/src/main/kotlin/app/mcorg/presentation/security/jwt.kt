@@ -1,9 +1,5 @@
 package app.mcorg.presentation.security
 
-import app.mcorg.domain.model.users.User
-import com.auth0.jwt.JWT
-import com.auth0.jwt.algorithms.Algorithm
-import com.auth0.jwt.interfaces.DecodedJWT
 import java.security.KeyFactory
 import java.security.interfaces.RSAPrivateKey
 import java.security.interfaces.RSAPublicKey
@@ -17,37 +13,6 @@ class JwtHelper {
     companion object {
         const val AUDIENCE = "mcorg-webapp"
     }
-}
-
-fun JwtHelper.Companion.getUserFromJwtToken(token: String, issuer: String): User {
-    val jwt = validateSignature(token, issuer)
-
-    return User(jwt.getClaim("sub").asInt(), jwt.getClaim("username").asString())
-}
-
-fun JwtHelper.Companion.createSignedJwtToken(user: User, issuer: String): String {
-
-    val (publicKey, privateKey) = getKeys()
-
-    return JWT.create()
-        .withAudience(AUDIENCE)
-        .withIssuer(issuer)
-        .withClaim("sub", user.id)
-        .withClaim("username", user.username)
-        .withExpiresAt(Date(System.currentTimeMillis() + EIGHT_HOURS))
-        .sign(Algorithm.RSA256(publicKey, privateKey)) as String
-}
-
-private fun JwtHelper.Companion.validateSignature(token: String, issuer: String): DecodedJWT {
-    val (publicKey, privateKey) = getKeys()
-    return JWT.require(Algorithm.RSA256(publicKey, privateKey))
-        .withIssuer(issuer)
-        .withAudience(AUDIENCE)
-        .withClaimPresence("sub")
-        .withClaimPresence("username")
-        .acceptLeeway(3L)
-        .build()
-        .verify(token)
 }
 
 fun JwtHelper.Companion.getKeys(): Pair<RSAPublicKey, RSAPrivateKey> {

@@ -8,7 +8,7 @@ import app.mcorg.pipeline.useConnection
 object UpdateLastSignInStep : Step<String, UpdateLastSignInFailure, Unit> {
     override suspend fun process(input: String): Result<UpdateLastSignInFailure, Unit> {
         return useConnection({ UpdateLastSignInFailure.Other(it) }) {
-            prepareStatement("update users set last_login = now() where username = ?")
+            prepareStatement("update minecraft_profiles set last_login = now() where username = ?")
                 .apply { setString(1, input) }
                 .executeUpdate()
             return@useConnection Result.success()

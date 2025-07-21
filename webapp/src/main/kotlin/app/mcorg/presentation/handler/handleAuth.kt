@@ -1,10 +1,10 @@
 package app.mcorg.presentation.handler
 
-import app.mcorg.domain.model.minecraft.MinecraftProfile
 import app.mcorg.domain.pipeline.Pipeline
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.domain.Local
 import app.mcorg.domain.Test
+import app.mcorg.domain.model.v2.user.MinecraftProfile
 import app.mcorg.pipeline.auth.AddCookieStep
 import app.mcorg.pipeline.auth.ConvertTokenStep
 import app.mcorg.pipeline.auth.CreateTokenStep
@@ -14,8 +14,6 @@ import app.mcorg.pipeline.auth.GetMicrosoftTokenInput
 import app.mcorg.pipeline.auth.GetMicrosoftTokenStep
 import app.mcorg.pipeline.auth.GetMinecraftProfileStep
 import app.mcorg.pipeline.auth.GetMinecraftToken
-import app.mcorg.pipeline.auth.GetProfileStepForAuth
-import app.mcorg.pipeline.auth.GetSelectedWorldIdStep
 import app.mcorg.pipeline.failure.GetSignInPageFailure
 import app.mcorg.pipeline.auth.GetTokenStep
 import app.mcorg.pipeline.auth.GetXboxProfileStep
@@ -45,10 +43,8 @@ suspend fun ApplicationCall.handleGetSignIn() {
     Pipeline.create<GetSignInPageFailure, RequestCookies>()
         .pipe(GetTokenStep(AUTH_COOKIE))
         .pipe(ConvertTokenStep(ISSUER))
-        .pipe(GetProfileStepForAuth)
-        .pipe(GetSelectedWorldIdStep)
         .map {
-            customRedirectPath ?: "/app/worlds/$it/projects"
+            customRedirectPath ?: "/app"
         }
         .mapFailure { it.toRedirect(customRedirectPath) }
         .fold(
@@ -68,7 +64,7 @@ suspend fun ApplicationCall.handleLocalSignIn() {
     Pipeline.create<SignInLocallyFailure, Unit>()
         .pipe(Step.value(getEnvironment()))
         .pipe(ValidateEnvStep(Local))
-        .pipe(Step.value(MinecraftProfile(localUsername, "test@example.com", localUuid)))
+        .pipe(Step.value(MinecraftProfile(uuid = localUuid, username = localUsername)))
         .pipe(CreateUserIfNotExistsStep)
         .pipe(CreateTokenStep)
         .pipe(AddCookieStep(response.cookies, getHost() ?: "false"))
@@ -105,8 +101,7 @@ suspend fun ApplicationCall.handleTestSignIn() {
 private fun getTestUser(): MinecraftProfile {
     val username = "TestUser_${Random.nextInt(89_999) + 10_000}"
     return MinecraftProfile(
-        username,
-        "test-$username@mcorg.app",
+        username = username,
         uuid = UUID.randomUUID().toString()
     )
 }
@@ -131,8 +126,7 @@ suspend fun ApplicationCall.handleSignIn() {
         .pipe(GetXstsToken)
         .pipe(GetMinecraftToken)
         .pipe(GetMinecraftProfileStep)
-        .pipe(CreateUserIfNotExistsStep)
-        .peek { username = it.username }
+        .pipe(CreateUserIfNotExistsStep) { username = it.minecraftUsername }
         .pipe(CreateTokenStep)
         .pipe(AddCookieStep(response.cookies, getHost() ?: "false"))
         .map { username }

@@ -1,6 +1,6 @@
 package app.mcorg.pipeline.auth
 
-import app.mcorg.domain.model.minecraft.MinecraftProfile
+import app.mcorg.domain.model.v2.user.MinecraftProfile
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.auth.minecraft.MinecraftProfileResponse
@@ -18,7 +18,6 @@ object GetMinecraftProfileStep : Step<String, GetMinecraftProfileFailure, Minecr
             return Result.success(
                 MinecraftProfile(
                     username = data.name,
-                    email = "unknown",
                     uuid = data.id
                 )
             )

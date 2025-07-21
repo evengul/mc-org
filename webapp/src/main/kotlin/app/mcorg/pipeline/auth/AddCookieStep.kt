@@ -3,7 +3,7 @@ package app.mcorg.pipeline.auth
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.pipeline.failure.AddCookieFailure
-import app.mcorg.presentation.utils.tokenName
+import app.mcorg.presentation.consts.AUTH_COOKIE
 import io.ktor.server.response.ResponseCookies
 import io.ktor.util.date.GMTDate
 import java.time.Instant
@@ -12,9 +12,9 @@ data class AddCookieStep(val cookies: ResponseCookies, val host: String) : Step<
     override suspend fun process(input: String): Result<AddCookieFailure, Unit> {
         val expires = GMTDate(timestamp = Instant.now().plusSeconds(8 * 60 * 60).toEpochMilli())
         if (host == "false") {
-            cookies.append(tokenName, input, httpOnly = true, expires = expires, path = "/")
+            cookies.append(AUTH_COOKIE, input, httpOnly = true, expires = expires, path = "/")
         } else {
-            cookies.append(tokenName, input, httpOnly = true, expires = expires, path = "/", domain = host)
+            cookies.append(AUTH_COOKIE, input, httpOnly = true, expires = expires, path = "/", domain = host)
         }
         return Result.success(Unit)
     }
