@@ -1,6 +1,6 @@
 package app.mcorg.presentation.router
 
-import app.mcorg.domain.Prod
+import app.mcorg.domain.Production
 import app.mcorg.presentation.handler.handleGetLanding
 import app.mcorg.presentation.plugins.EnvPlugin
 import app.mcorg.presentation.plugins.AuthPlugin
@@ -24,7 +24,7 @@ fun Application.configureAppRouter() {
                 call.respond(HttpStatusCode.OK, "OK")
             }
             get("/page") {
-                if (call.getEnvironment() == Prod) call.respond(HttpStatusCode.Forbidden)
+                if (call.getEnvironment() == Production) call.respond(HttpStatusCode.Forbidden)
                 else call.respondHtml(createTestPage())
             }
         }

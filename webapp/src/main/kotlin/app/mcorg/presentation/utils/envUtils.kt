@@ -1,7 +1,7 @@
 package app.mcorg.presentation.utils
 
 import app.mcorg.domain.Local
-import app.mcorg.domain.Prod
+import app.mcorg.domain.Production
 import app.mcorg.domain.Test
 import io.ktor.http.HttpHeaders
 import io.ktor.server.application.*
@@ -16,7 +16,7 @@ fun ApplicationCall.getMicrosoftClientSecret() = getAttribute<String>("MICROSOFT
 
 fun ApplicationCall.setEnvironment(environment: String) = setAttribute("ENVIRONMENT", environment)
 fun ApplicationCall.getEnvironment() = when(getAttribute<String>("ENVIRONMENT")) {
-    "PRODUCTION" -> Prod
+    "PRODUCTION" -> Production
     "TEST" -> Test
     "LOCAL" -> Local
     else -> throw IllegalStateException("Invalid ENV=[$this]")
@@ -26,7 +26,7 @@ fun ApplicationCall.getHost(): String? {
     val env = getEnvironment()
     val referrer = request.headers[HttpHeaders.Referrer] ?: request.host()
     return when (env) {
-        Prod -> return if (referrer.contains("mcorg.fly.dev")) "mcorg.fly.dev"
+        Production -> return if (referrer.contains("mcorg.fly.dev")) "mcorg.fly.dev"
                         else "mcorg.app"
         Test -> System.getenv("TEST_HOST") ?: "http://localhost:8080"
         Local -> null

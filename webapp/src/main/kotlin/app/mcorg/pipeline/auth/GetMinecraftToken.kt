@@ -5,20 +5,29 @@ import app.mcorg.domain.pipeline.Result
 import app.mcorg.pipeline.auth.minecraft.MinecraftRequest
 import app.mcorg.pipeline.auth.minecraft.MinecraftTokenResponse
 import app.mcorg.pipeline.auth.minecraft.createMinecraftRequest
-import app.mcorg.pipeline.apiPostJson
 import app.mcorg.pipeline.failure.GetMinecraftTokenFailure
-import io.ktor.client.call.body
-import io.ktor.http.isSuccess
+import app.mcorg.pipeline.failure.ApiFailure
+import app.mcorg.pipeline.v2.ApiSteps
+import app.mcorg.config.MinecraftApiProvider
+import io.ktor.client.request.setBody
 
 object GetMinecraftToken : Step<TokenData, GetMinecraftTokenFailure, String> {
     override suspend fun process(input: TokenData): Result<GetMinecraftTokenFailure, String> {
-        val url = "https://api.minecraftservices.com/authentication/login_with_xbox"
-        val body = MinecraftRequest(createMinecraftRequest(userHash = input.hash, xstsToken = input.token))
-        val response = apiPostJson(url, body)
-        if (response.status.isSuccess()) {
-            val token = response.body<MinecraftTokenResponse>().accessToken
-            return Result.success(token)
-        }
-        return Result.failure(GetMinecraftTokenFailure.CouldNotGetMinecraftToken)
+        val step = ApiSteps.postJson<TokenData, GetMinecraftTokenFailure, MinecraftTokenResponse>(
+            apiProvider = MinecraftApiProvider,
+            url = MinecraftApiProvider.getAuthenticateUrl(),
+            bodyBuilder = { requestBuilder, tokenData ->
+                val body = MinecraftRequest(createMinecraftRequest(userHash = tokenData.hash, xstsToken = tokenData.token))
+                requestBuilder.setBody(body)
+            },
+            errorMapper = { apiFailure ->
+                when (apiFailure) {
+                    is ApiFailure.HttpError -> GetMinecraftTokenFailure.CouldNotGetMinecraftToken
+                    else -> GetMinecraftTokenFailure.CouldNotGetMinecraftToken
+                }
+            }
+        )
+
+        return step.process(input).map { response -> response.accessToken }
     }
 }
