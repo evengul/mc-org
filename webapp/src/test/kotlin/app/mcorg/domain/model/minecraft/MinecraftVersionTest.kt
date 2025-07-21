@@ -102,6 +102,105 @@ class MinecraftVersionTest {
     }
 
     @Nested
+    inner class FromStringTests {
+        @Test
+        fun `test parse release version`() {
+            val version = MinecraftVersion.fromString("1.20.4")
+            assertTrue(version is MinecraftVersion.Release)
+            val release = version as MinecraftVersion.Release
+            assertEquals(1, release.major)
+            assertEquals(20, release.minor)
+            assertEquals(4, release.patch)
+            assertEquals("1.20.4", release.toString())
+        }
+
+        @Test
+        fun `test parse snapshot version`() {
+            val version = MinecraftVersion.fromString("2023w45a")
+            assertTrue(version is MinecraftVersion.Snapshot)
+            val snapshot = version as MinecraftVersion.Snapshot
+            assertEquals(2023, snapshot.year)
+            assertEquals(45, snapshot.week)
+            assertEquals('a', snapshot.patch)
+            assertEquals("2023w45a", snapshot.toString())
+        }
+
+        @Test
+        fun `test parse snapshot with uppercase patch`() {
+            val version = MinecraftVersion.fromString("2023w45A")
+            assertTrue(version is MinecraftVersion.Snapshot)
+            val snapshot = version as MinecraftVersion.Snapshot
+            assertEquals('a', snapshot.patch) // Should be normalized to lowercase
+        }
+
+        @Test
+        fun `test parse various release versions`() {
+            val versions = listOf("1.19.2", "1.20.0", "2.0.1")
+            versions.forEach { versionString ->
+                val version = MinecraftVersion.fromString(versionString)
+                assertTrue(version is MinecraftVersion.Release)
+                assertEquals(versionString, version.toString())
+            }
+        }
+
+        @Test
+        fun `test parse various snapshot versions`() {
+            val versions = mapOf(
+                "2022w40a" to Triple(2022, 40, 'a'),
+                "2023w01b" to Triple(2023, 1, 'b'),
+                "2024w52z" to Triple(2024, 52, 'z')
+            )
+
+            versions.forEach { (versionString, expected) ->
+                val version = MinecraftVersion.fromString(versionString)
+                assertTrue(version is MinecraftVersion.Snapshot)
+                val snapshot = version as MinecraftVersion.Snapshot
+                assertEquals(expected.first, snapshot.year)
+                assertEquals(expected.second, snapshot.week)
+                assertEquals(expected.third, snapshot.patch)
+            }
+        }
+
+        @Test
+        fun `test parse invalid version formats throws exception`() {
+            val invalidVersions = listOf(
+                "1.20", // Missing patch
+                "1.20.4.1", // Too many parts
+                "2023w45", // Missing patch letter
+                "w45a", // Missing year
+                "2023w", // Missing week and patch
+                "invalid", // Completely invalid
+                "", // Empty string
+                "1.20.a", // Non-numeric patch
+                "2023wa5a" // Non-numeric week
+            )
+
+            invalidVersions.forEach { invalidVersion ->
+                assertThrows(IllegalArgumentException::class.java) {
+                    MinecraftVersion.fromString(invalidVersion)
+                }
+            }
+        }
+
+        @Test
+        fun `test roundtrip parsing`() {
+            val originalVersions = listOf(
+                MinecraftVersion.release(20, 4),
+                MinecraftVersion.snapshot(2023, 45, 'a'),
+                MinecraftVersion.release(19, 2),
+                MinecraftVersion.snapshot(2022, 1, 'z')
+            )
+
+            originalVersions.forEach { original ->
+                val versionString = original.toString()
+                val parsed = MinecraftVersion.fromString(versionString)
+                assertEquals(0, (original as MinecraftVersion).compareTo(parsed))
+                assertEquals(original.toString(), parsed.toString())
+            }
+        }
+    }
+
+    @Nested
     inner class RangeTests {
         @Test
         fun `test unbounded range`() {

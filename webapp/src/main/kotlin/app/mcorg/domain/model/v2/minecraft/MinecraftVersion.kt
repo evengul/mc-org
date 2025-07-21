@@ -59,6 +59,40 @@ sealed interface MinecraftVersion {
     }
 
     companion object {
+        fun fromString(version: String): MinecraftVersion {
+            return when {
+                version.matches(Regex("""\d+w\d+[a-zA-Z]""")) -> parseSnapshot(version)
+                version.matches(Regex("""\d+\.\d+\.\d+""")) -> parseRelease(version)
+                else -> throw IllegalArgumentException("Invalid version format: $version")
+            }
+        }
+
+        private fun parseSnapshot(version: String): Snapshot {
+            val regex = Regex("""(\d+)w(\d+)([a-zA-Z])""")
+            val matchResult = regex.matchEntire(version)
+                ?: throw IllegalArgumentException("Invalid snapshot format: $version")
+
+            val (year, week, patch) = matchResult.destructured
+            return Snapshot(
+                year = year.toInt(),
+                week = week.toInt(),
+                patch = patch.first().lowercaseChar()
+            )
+        }
+
+        private fun parseRelease(version: String): Release {
+            val parts = version.split(".")
+            if (parts.size != 3) {
+                throw IllegalArgumentException("Invalid release format: $version")
+            }
+
+            return Release(
+                major = parts[0].toInt(),
+                minor = parts[1].toInt(),
+                patch = parts[2].toInt()
+            )
+        }
+
         fun snapshot(year: Int, week: Int, patch: Char, forRelease: Release? = null): Snapshot {
             return Snapshot(year, week, patch, forRelease)
         }
