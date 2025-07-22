@@ -3,6 +3,8 @@ button {
     border-radius: var(--border-radius-md);
     padding-inline: var(--spacing-sm);
     padding-block: var(--spacing-xs);
+
+    text-wrap: nowrap;
 }
 
 button:has(svg) {

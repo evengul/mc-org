@@ -7,7 +7,12 @@ sealed class InviteStatus(
 ) {
     class Pending(
         createdAt: ZonedDateTime
-    ) : InviteStatus(createdAt)
+    ) : InviteStatus(createdAt) {
+        fun accept() = Accepted(ZonedDateTime.now())
+        fun decline() = Declined(ZonedDateTime.now())
+        fun expire() = Expired(ZonedDateTime.now())
+        fun cancel() = Cancelled(ZonedDateTime.now())
+    }
 
     class Accepted(
         acceptedAt: ZonedDateTime
@@ -19,9 +24,13 @@ sealed class InviteStatus(
 
     class Expired(
         expiredAt: ZonedDateTime
-    ) : InviteStatus(expiredAt)
+    ) : InviteStatus(expiredAt) {
+        fun reactivate() = Pending(ZonedDateTime.now())
+    }
 
     class Cancelled(
         cancelledAt: ZonedDateTime
-    ) : InviteStatus(cancelledAt)
+    ) : InviteStatus(cancelledAt) {
+        fun reactivate() = Pending(ZonedDateTime.now())
+    }
 }

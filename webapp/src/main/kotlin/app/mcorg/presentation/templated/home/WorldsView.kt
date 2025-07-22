@@ -1,32 +1,37 @@
 package app.mcorg.presentation.templated.home
 
+import app.mcorg.domain.model.minecraft.MinecraftVersion
 import app.mcorg.domain.model.world.World
-import app.mcorg.presentation.templated.common.button.primaryButton
 import app.mcorg.presentation.templated.common.component.LeafComponent
 import app.mcorg.presentation.templated.common.component.addComponent
-import app.mcorg.presentation.templated.common.icon.Icons
 import kotlinx.html.TagConsumer
+import kotlinx.html.UL
 import kotlinx.html.div
+import kotlinx.html.id
 import kotlinx.html.input
 import kotlinx.html.ul
+
+fun UL.worldsListView(worlds: List<World>) {
+    id = "home-worlds-list"
+    worlds.forEach {
+        addComponent(WorldView(world = it))
+    }
+}
 
 class WorldsView(
     val worlds: List<World>
 ) : LeafComponent() {
     override fun render(container: TagConsumer<*>) {
         container.div {
-            container.div {
+            id = "home-worlds"
+            div("home-worlds-search-create") {
                 input {
                     placeholder = "Search worlds..."
                 }
-                primaryButton("Create world") {
-                    iconLeft = Icons.ADD_WORLD
-                }
+                createWorldModal(MinecraftVersion.supportedVersions.filterIsInstance<MinecraftVersion.Release>())
             }
-            container.ul {
-                worlds.forEach {
-                    addComponent(WorldView(world = it))
-                }
+            ul {
+                worldsListView(worlds)
             }
         }
     }

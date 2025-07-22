@@ -284,26 +284,6 @@
     --border-radius-lg: 8px;
     --border-radius-full: 9999px;
 
-    /* Deprecated colors */
-
-    --clr-primary: #3498db;
-    --clr-primary-light: #85c1e9;
-    --clr-primary-dark: #0056b3;
-    --clr-secondary: #2ecc71;
-
-    --clr-danger-warning: #e67e22;
-
-    --clr-bg-dark: #34495e;
-    --clr-bg-light: #ecf0f1;
-    --clr-bg-secondary: #f0f0f0;
-    --clr-bg-highlight: #85c1e9;
-
-    --clr-text: #333333;
-    --clr-text-light: #ffffff;
-    --clr-text-secondary: #555555;
-
-    --clr-input: #f7f9fa;
-
     /* Media query values */
     --media-lg: 1024px;
 

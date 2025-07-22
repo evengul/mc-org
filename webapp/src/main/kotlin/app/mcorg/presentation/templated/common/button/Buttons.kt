@@ -4,14 +4,14 @@ import app.mcorg.presentation.templated.common.icon.Icon
 import app.mcorg.presentation.templated.common.icon.IconSize
 import kotlinx.html.Tag
 
-fun <T : Tag> T.primaryButton(text: String, buttonHandler: (GenericButton.() -> Unit)? = null) {
+fun <T : Tag> T.actionButton(text: String, buttonHandler: (GenericButton.() -> Unit)? = null) {
     val button = GenericButton(text = text)
     buttonHandler?.let { it(button) }
     button.addClass("btn-primary")
     button.render(consumer)
 }
 
-fun <T : Tag> T.secondaryButton(text: String, buttonHandler: (GenericButton.() -> Unit)? = null) {
+fun <T : Tag> T.neutralButton(text: String, buttonHandler: (GenericButton.() -> Unit)? = null) {
     val button = GenericButton(text = text)
     buttonHandler?.let { it(button) }
     button.addClass("btn-secondary")

@@ -2,6 +2,16 @@ package app.mcorg.domain.model.task
 
 sealed interface TaskRequirement {
     fun isCompleted(): Boolean
+
+    companion object {
+        fun item(item: String, requiredAmount: Int): ItemRequirement {
+            return ItemRequirement.create(item, requiredAmount)
+        }
+
+        fun action(action: String): ActionRequirement {
+            return ActionRequirement.create(action)
+        }
+    }
 }
 
 data class ItemRequirement(

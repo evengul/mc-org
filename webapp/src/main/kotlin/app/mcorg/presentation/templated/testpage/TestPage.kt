@@ -20,15 +20,5 @@ fun createTestPage() = createPage(
     testTabs()
     testProgress()
     testLinks()
-    modal("test-modal", "Some title", openButtonHandler = {
-        + "Open Modal"
-    }) {
-        saveText = "Shut up :)"
-        description = "This is a test modal dialog to demonstrate the modal component functionality."
-        addChildren = {
-            p {
-                + "This is a modal dialog. You can add any content you like here."
-            }
-        }
-    }
+    testModal()
 }

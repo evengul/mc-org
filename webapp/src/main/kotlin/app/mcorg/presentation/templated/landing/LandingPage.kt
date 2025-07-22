@@ -1,6 +1,6 @@
 package app.mcorg.presentation.templated.landing
 
-import app.mcorg.presentation.templated.common.button.primaryButton
+import app.mcorg.presentation.templated.common.button.actionButton
 import app.mcorg.presentation.templated.common.icon.IconColor
 import app.mcorg.presentation.templated.common.icon.Icons
 import app.mcorg.presentation.templated.common.icon.iconComponent
@@ -22,7 +22,7 @@ fun landingPage(microsoftUrl: String) = createPage {
     }
     div {
         classes += "sign-in-container"
-        primaryButton("Sign in with Microsoft") {
+        actionButton("Sign in with Microsoft") {
             iconLeft = Icons.MICROSOFT_LOGO
             href = microsoftUrl
         }

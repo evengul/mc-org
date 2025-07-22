@@ -57,8 +57,20 @@ object DatabaseSteps {
                     Database.getConnection().use { connection ->
                         connection.prepareStatement(sql.query).use { statement ->
                             parameterSetter(statement, input)
-                            val affectedRows = statement.executeUpdate()
-                            Result.success(affectedRows)
+                            if (sql.query.contains("RETURNING", ignoreCase = false)) {
+                                statement.executeQuery().use { resultSet ->
+                                    if (resultSet.next()) {
+                                        val id = resultSet.getInt(1)
+                                        Result.success(id)
+                                    } else {
+                                        Result.failure(errorMapper(DatabaseFailure.UnknownError))
+                                    }
+                                }
+                            } else {
+                                // For non-RETURNING queries, we just return the number of affected rows
+                                val affectedRows = statement.executeUpdate()
+                                Result.success(affectedRows)
+                            }
                         }
                     }
                 } catch (e: Exception) {

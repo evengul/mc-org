@@ -5,8 +5,8 @@ import app.mcorg.presentation.templated.common.icon.Icons
 import app.mcorg.presentation.templated.common.button.IconButtonColor
 import app.mcorg.presentation.templated.common.button.dangerButton
 import app.mcorg.presentation.templated.common.button.iconButton
-import app.mcorg.presentation.templated.common.button.primaryButton
-import app.mcorg.presentation.templated.common.button.secondaryButton
+import app.mcorg.presentation.templated.common.button.actionButton
+import app.mcorg.presentation.templated.common.button.neutralButton
 import kotlinx.html.MAIN
 import kotlinx.html.details
 import kotlinx.html.div
@@ -16,18 +16,18 @@ fun MAIN.testButtons() {
     details {
         summary { + "Buttons" }
         div("button-row") {
-            primaryButton("Primary Button")
-            primaryButton("Primary Button with Icons") {
+            actionButton("Primary Button")
+            actionButton("Primary Button with Icons") {
                 iconLeft = Icons.Dimensions.OVERWORLD
                 iconRight = Icons.Dimensions.NETHER
                 iconSize = IconSize.SMALL
             }
-            secondaryButton("Secondary Button")
-            secondaryButton("Secondary Button with left icon") {
+            neutralButton("Secondary Button")
+            neutralButton("Secondary Button with left icon") {
                 iconLeft = Icons.Dimensions.END
                 iconSize = IconSize.SMALL
             }
-            secondaryButton("Secondary Button with right icon") {
+            neutralButton("Secondary Button with right icon") {
                 iconRight = Icons.Dimensions.OVERWORLD
                 iconSize = IconSize.SMALL
             }

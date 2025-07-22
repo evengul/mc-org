@@ -1,6 +1,7 @@
 .chip {
     display: inline-flex;
     flex-direction: row;
+    align-items: center;
     gap: var(--spacing-xs);
 
     padding: calc(var(--spacing-xxs) / 2) var(--spacing-xs);
@@ -9,6 +10,8 @@
     border-width: 1px;
     border-style: solid;
     border-radius: var(--border-radius-full);
+
+    text-wrap: nowrap;
 }
 
 .chip.clickable {
@@ -21,13 +24,13 @@
     box-shadow: var(--shadow-focus);
 }
 
-.chip-primary {
+.chip-active {
     border-color: var(--clr-text-on-action);
     background-color: var(--clr-action);
     color: var(--clr-text-on-action);
 }
 
-.chip-secondary {
+.chip-neutral {
     border-color: var(--clr-text-on-neutral);
     background-color: var(--clr-neutral);
     color: var(--clr-text-on-neutral);

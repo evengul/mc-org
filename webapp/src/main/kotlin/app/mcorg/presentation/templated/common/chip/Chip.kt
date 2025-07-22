@@ -20,8 +20,8 @@ fun <T : Tag> T.chipComponent(
 }
 
 enum class ChipColor(val iconColor: IconColor) {
-    PRIMARY(IconColor.ON_ACTIVE),
-    SECONDARY(IconColor.ON_NEUTRAL),
+    ACTIVE(IconColor.ON_ACTIVE),
+    NEUTRAL(IconColor.ON_NEUTRAL),
     DANGER(IconColor.ON_DANGER),
     SUCCESS(IconColor.ON_SUCCESS),
     WARNING(IconColor.ON_WARNING),
@@ -31,7 +31,7 @@ enum class ChipColor(val iconColor: IconColor) {
 class Chip(
     var text: String = "",
     var icon: Icon? = null,
-    var color: ChipColor = ChipColor.PRIMARY,
+    var color: ChipColor = ChipColor.ACTIVE,
     var onClick: String? = null,
     var classes: MutableSet<String> = mutableSetOf(),
 ) : LeafComponent() {

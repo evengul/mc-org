@@ -15,7 +15,7 @@ import kotlinx.html.title
 
 fun createPage(
     pageTitle: String = "MC-ORG",
-    pageScripts: Set<PageScript> = emptySet(),
+    pageScripts: Set<PageScript> = setOf(PageScript.HTMX),
     pageStyles: Set<PageStyle> = PageStyle.entries.toSet(),
     user: TokenProfile? = null,
     body: MAIN.() -> Unit

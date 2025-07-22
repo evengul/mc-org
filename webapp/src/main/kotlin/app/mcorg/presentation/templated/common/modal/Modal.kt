@@ -6,60 +6,72 @@ import app.mcorg.presentation.templated.common.component.NodeComponent
 import app.mcorg.presentation.templated.common.component.addComponent
 import app.mcorg.presentation.templated.common.icon.IconSize
 import app.mcorg.presentation.templated.common.icon.Icons
-import kotlinx.html.ButtonType
 import kotlinx.html.DIALOG
 import kotlinx.html.Tag
 import kotlinx.html.TagConsumer
-import kotlinx.html.button
 import kotlinx.html.classes
 import kotlinx.html.dialog
 import kotlinx.html.h1
 import kotlinx.html.p
 
 fun <T : Tag> T.modal(
-    id: String,
+    modalId: String,
     title: String,
-    openButtonHandler: GenericButton.() -> Unit = {},
-    handler: (Modal.() -> Unit)? = null,
+    description: String = "",
+    openButtonBlock: GenericButton.() -> Unit = {},
+    block: (Modal.() -> Unit)? = null,
 ) {
-    val openButton = GenericButton(title).apply(openButtonHandler)
-    openButton.onClick = "document.getElementById('$id')?.showModal()"
-    val component = Modal(title, id, openButton = openButton)
-    handler?.invoke(component)
-    addComponent(component)
+    val openButton = GenericButton(title).apply(openButtonBlock)
+    val modal = Modal(title, modalId, description, openButton)
+
+    block?.invoke(modal)
+    addComponent(modal)
 }
 
-data class Modal(
+open class Modal(
     val title: String,
-    val id: String,
+    val modalId: String,
     var description: String = "",
-    var saveText: String = "Save and close",
     var openButton: GenericButton,
-    var addChildren: DIALOG.() -> Unit = {},
 ) : NodeComponent() {
+
+    init {
+        openButton.onClick = "document.getElementById('$modalId')?.showModal()"
+    }
+
     override fun render(container: TagConsumer<*>) {
         openButton.render(container)
         container.dialog {
-            attributes["id"] = id
-            h1 {
-                + title
+            attributes["id"] = modalId
+            attributes["class"] = "modal"
+
+            renderHeader()
+            renderContent()
+            renderCloseButton()
+        }
+    }
+
+    protected open fun DIALOG.renderHeader() {
+        h1 {
+            classes = setOf("modal-title")
+            +title
+        }
+        if (description.isNotBlank()) {
+            p("subtle") {
+                classes = setOf("modal-description")
+                +description
             }
-            if (description.isNotBlank()) {
-                p {
-                    classes = setOf("modal-description")
-                    + description
-                }
-            }
-            iconButton(Icons.CLOSE, iconSize = IconSize.SMALL) {
-                onClick = "document.getElementById('$id')?.close()"
-                addClass("modal-close-button")
-            }
-            addChildren()
-            button {
-                classes = setOf("modal-save-button")
-                type = ButtonType.submit
-                + saveText
-            }
+        }
+    }
+
+    protected open fun DIALOG.renderContent() {
+        renderChildren(this.consumer)
+    }
+
+    protected open fun DIALOG.renderCloseButton() {
+        iconButton(Icons.CLOSE, iconSize = IconSize.SMALL) {
+            onClick = "document.getElementById('$modalId')?.close()"
+            addClass("modal-close-button")
         }
     }
 }

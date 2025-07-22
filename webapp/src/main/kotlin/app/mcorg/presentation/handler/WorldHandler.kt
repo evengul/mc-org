@@ -1,5 +1,6 @@
 package app.mcorg.presentation.handler
 
+import app.mcorg.pipeline.world.handleCreateWorld
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.delete
 import io.ktor.server.routing.get
@@ -10,9 +11,9 @@ import io.ktor.server.routing.route
 
 class WorldHandler {
     fun Route.worldRoutes() {
-        route("/world") {
+        route("/worlds") {
             post {
-                // Accept, validate, and process world creation
+                call.handleCreateWorld()
             }
             route("/{worldId}") {
                 get {

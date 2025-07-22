@@ -15,6 +15,7 @@ enum class IconSize(val width: Int, val height: Int) {
  * Icon colors picked from root CSS variables.
  */
 enum class IconColor(val hex: String) {
+    ACTIVE("#0EA8BD"),
     ON_ACTIVE("#ffffff"),
     ON_NEUTRAL("#ffffff"),
     ON_DANGER("#ffffff"),

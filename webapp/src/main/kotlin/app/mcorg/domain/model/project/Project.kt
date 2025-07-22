@@ -10,11 +10,9 @@ data class Project(
     val description: String,
     val type: ProjectType,
     val stage: ProjectStage,
-    val location: MinecraftLocation,
+    val location: MinecraftLocation?,
     val tasksTotal: Int,
     val tasksCompleted: Int,
     val createdAt: ZonedDateTime,
-    val updatedAt: ZonedDateTime,
-    val stageChanges: Map<ProjectStage, ZonedDateTime>,
-    val dependencies: List<ProjectDependency>
+    val updatedAt: ZonedDateTime
 )

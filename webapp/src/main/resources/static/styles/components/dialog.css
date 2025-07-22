@@ -7,7 +7,7 @@ dialog {
     border-radius: var(--border-radius-md);
     box-shadow: var(--shadow-lg);
     color: var(--clr-text-default);
-    max-width: 500px;
+    width: clamp(300px, 50vw, 600px);
     padding: var(--spacing-md);
 }
 
@@ -51,6 +51,8 @@ dialog button.modal-save-button {
     background-color: var(--clr-action);
     color: var(--clr-text-on-action);
     border-color: var(--clr-border-action);
+
+    margin-left: auto;
 }
 
 dialog button.modal-save-button:hover {

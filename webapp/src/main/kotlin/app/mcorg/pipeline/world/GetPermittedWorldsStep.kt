@@ -3,17 +3,15 @@ package app.mcorg.pipeline.world
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.domain.model.world.World
 import app.mcorg.domain.model.minecraft.MinecraftVersion
+import app.mcorg.domain.pipeline.Result
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
+import app.mcorg.pipeline.failure.DatabaseFailure
 import java.sql.ResultSet
 
-sealed interface GetPermittedWorldsError {
-    data object DatabaseError : GetPermittedWorldsError
-}
-
-object GetPermittedWorldsStep {
-    operator fun invoke(): Step<Int, GetPermittedWorldsError, List<World>> {
-        return DatabaseSteps.query(
+class GetPermittedWorldsStep : Step<Int, DatabaseFailure, List<World>> {
+    override suspend fun process(input: Int): Result<DatabaseFailure, List<World>> {
+        return DatabaseSteps.query<Int, DatabaseFailure, List<World>>(
             sql = SafeSQL.select("""
                 SELECT 
                     w.id, 
@@ -34,7 +32,7 @@ object GetPermittedWorldsStep {
             parameterSetter = { statement, userId ->
                 statement.setInt(1, userId)
             },
-            errorMapper = { _ -> GetPermittedWorldsError.DatabaseError },
+            errorMapper = { it },
             resultMapper = { resultSet ->
                 buildList {
                     while (resultSet.next()) {
@@ -42,7 +40,7 @@ object GetPermittedWorldsStep {
                     }
                 }
             }
-        )
+        ).process(input)
     }
 
     private fun ResultSet.toWorld(): World {
