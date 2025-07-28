@@ -1,6 +1,5 @@
 package app.mcorg.presentation.templated.testpage
 
-import app.mcorg.presentation.templated.common.form.radiogroup.radioGroup
 import kotlinx.html.InputType
 import kotlinx.html.MAIN
 import kotlinx.html.details
@@ -51,9 +50,6 @@ fun MAIN.testInput() {
             input(type = InputType.radio, name = "radioInput")
             input(type = InputType.radio, name = "radioInput") {
                 disabled = true
-            }
-            radioGroup("some-radio-group", listOf("Option 1", "Option 2", "Option 3")) {
-                selectedOption = "Option 2"
             }
         }
         div("input-row") {

@@ -1,6 +1,10 @@
 package app.mcorg.domain.model.project
 
 data class ProjectDependency(
-    val dependsOnProjectId: Int,
-    val dependsOnTaskIds: Set<Int> = emptySet()
+    val dependentId: Int,
+    val dependentName: String,
+    val dependentStage: ProjectStage,
+    val dependencyId: Int,
+    val dependencyName: String,
+    val dependencyStage: ProjectStage
 )

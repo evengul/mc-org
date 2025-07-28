@@ -10,6 +10,7 @@ data class Invite(
     val from: Int,
     val fromUsername: String,
     val to: Int,
+    val toUsername: String,
     val role: Role,
     val createdAt: ZonedDateTime,
     val expiresAt: ZonedDateTime,

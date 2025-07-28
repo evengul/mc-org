@@ -5,6 +5,7 @@ button {
     padding-block: var(--spacing-xs);
 
     text-wrap: nowrap;
+    font-size: var(--text-sm);
 }
 
 button:has(svg) {

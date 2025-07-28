@@ -55,6 +55,8 @@ object MockWorlds {
         hardcoreWorld
     )
 
+    fun getCompleteList() = worlds.toList() + listOf(fantasyRealm)
+
     fun getList() = worlds.toList()
 
     fun getById(id: Int) = worlds.find { it.id == id }

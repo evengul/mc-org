@@ -1,20 +1,29 @@
 package app.mcorg.domain.model.task
 
 sealed interface TaskRequirement {
+    val id: Int
     fun isCompleted(): Boolean
 
+    fun title(): String {
+        return when (this) {
+            is ItemRequirement -> item
+            is ActionRequirement -> action
+        }
+    }
+
     companion object {
-        fun item(item: String, requiredAmount: Int): ItemRequirement {
-            return ItemRequirement.create(item, requiredAmount)
+        fun item(id: Int, item: String, requiredAmount: Int): ItemRequirement {
+            return ItemRequirement.create(id, item, requiredAmount)
         }
 
-        fun action(action: String): ActionRequirement {
-            return ActionRequirement.create(action)
+        fun action(id: Int, action: String): ActionRequirement {
+            return ActionRequirement.create(id, action)
         }
     }
 }
 
 data class ItemRequirement(
+    override val id: Int,
     val item: String,
     val requiredAmount: Int,
     val collected: Int
@@ -24,13 +33,14 @@ data class ItemRequirement(
     }
 
     companion object {
-        fun create(item: String, requiredAmount: Int): ItemRequirement {
-            return ItemRequirement(item, requiredAmount, 0)
+        fun create(id: Int, item: String, requiredAmount: Int): ItemRequirement {
+            return ItemRequirement(id, item, requiredAmount, 0)
         }
     }
 }
 
 data class ActionRequirement(
+    override val id: Int,
     val action: String,
     val completed: Boolean
 ) : TaskRequirement {
@@ -39,8 +49,8 @@ data class ActionRequirement(
     }
 
     companion object {
-        fun create(action: String): ActionRequirement {
-            return ActionRequirement(action, false)
+        fun create(id: Int, action: String): ActionRequirement {
+            return ActionRequirement(id, action, false)
         }
     }
 }

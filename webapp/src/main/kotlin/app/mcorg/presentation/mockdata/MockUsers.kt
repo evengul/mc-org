@@ -5,6 +5,7 @@ import app.mcorg.domain.model.user.Profile
 import app.mcorg.domain.model.user.Role
 import app.mcorg.domain.model.user.TokenProfile
 import app.mcorg.domain.model.user.WorldMember
+import java.time.ZonedDateTime
 
 object MockUsers {
     object Evegul {
@@ -14,7 +15,9 @@ object MockUsers {
             return WorldMember(
                 id = ID,
                 displayName = displayName,
-                worldRole = worldRole
+                worldRole = worldRole,
+                createdAt = ZonedDateTime.now(),
+                updatedAt = ZonedDateTime.now(),
             )
         }
 
@@ -50,7 +53,9 @@ object MockUsers {
             return WorldMember(
                 id = ID,
                 displayName = displayName,
-                worldRole = worldRole
+                worldRole = worldRole,
+                createdAt = ZonedDateTime.now(),
+                updatedAt = ZonedDateTime.now(),
             )
         }
 
@@ -78,4 +83,9 @@ object MockUsers {
             )
         }
     }
+
+    fun getWorldMembers() = listOf(
+        Evegul.worldMember(),
+        Alex.worldMember()
+    )
 }

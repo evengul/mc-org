@@ -58,12 +58,12 @@ sealed interface Link {
     }
 
     object Worlds : Link {
-        override val to: String = "/worlds"
+        override val to: String = "/app/worlds"
 
         fun world(id: Int) = World(id)
 
         data class World(val id: Int) : Link {
-            override val to: String = "/worlds/$id"
+            override val to: String = "${Worlds.to}/$id"
 
             fun project(projectId: Int): Project {
                 return Project(id, projectId)
@@ -74,44 +74,43 @@ sealed interface Link {
                 return ResourceMaps(id)
             }
 
-            @Suppress("unused")
             fun settings(): Settings {
                 return Settings(id)
             }
 
             data class Project(val worldId: Int, val projectId: Int) : Link {
-                override val to: String = "/worlds/$worldId/projects/$projectId"
+                override val to: String = "/app/worlds/$worldId/projects/$projectId"
             }
 
             data class ResourceMaps(val worldId: Int): Link {
-                override val to: String = "/worlds/$worldId/resources"
+                override val to: String = "/app/worlds/$worldId/resources"
             }
 
             data class Settings(val worldId: Int) : Link {
-                override val to: String = "/worlds/$worldId/settings"
+                override val to: String = "/app/worlds/$worldId/settings"
             }
         }
     }
 
     object Ideas : Link {
-        override val to: String = "/ideas"
+        override val to: String = "/app/ideas"
 
         @Suppress("unused")
         fun single(id: Int): String {
-            return "/ideas/$id"
+            return "/app/ideas/$id"
         }
     }
 
     object Profile : Link {
-        override val to: String = "/profile"
+        override val to: String = "/app/profile"
     }
 
     object AdminDashboard : Link {
-        override val to: String = "/admin"
+        override val to: String = "/app/admin"
     }
 
     @Suppress("unused")
     object Servers : Link {
-        override val to: String = "/servers"
+        override val to: String = "/app/servers"
     }
 }

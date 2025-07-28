@@ -13,6 +13,12 @@
 @import "components/textarea.css";
 @import "components/progress.css";
 @import "components/chip.css";
+@import "components/table.css";
 
 @import "pages/landing-page.css";
 @import "pages/homepage.css";
+@import "pages/world-page.css";
+@import "pages/project-page.css";
+@import "pages/settings-page.css";
+@import "pages/profile-page.css";
+@import "pages/admin-page.css";

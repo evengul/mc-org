@@ -1,0 +1,53 @@
+table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    background-color: var(--clr-surface-default);
+    border: 1px solid var(--clr-border-subtle);
+    border-radius: var(--border-radius-md);
+    overflow: hidden;
+    box-shadow: var(--shadow-xs);
+}
+
+thead {
+    background-color: var(--clr-surface-subtle);
+}
+
+th {
+    padding: var(--spacing-sm) var(--spacing-md);
+    text-align: left;
+    border-bottom: 1px solid var(--clr-border-divider);
+}
+
+th:first-child {
+    border-top-left-radius: var(--border-radius-lg);
+}
+
+th:last-child {
+    border-top-right-radius: var(--border-radius-lg);
+}
+
+td {
+    padding: var(--spacing-sm) var(--spacing-md);
+    border-bottom: 1px solid var(--clr-border-subtle);
+}
+
+tbody tr:last-child td {
+    border-bottom: none;
+}
+
+tbody tr:last-child td:first-child {
+    border-bottom-left-radius: var(--border-radius-lg);
+}
+
+tbody tr:last-child td:last-child {
+    border-bottom-right-radius: var(--border-radius-lg);
+}
+
+tbody tr:hover {
+    background-color: var(--clr-surface-hover);
+}
+
+tbody tr:hover td {
+    color: var(--clr-text-default);
+}

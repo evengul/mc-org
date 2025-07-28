@@ -7,9 +7,7 @@ import app.mcorg.presentation.mockdata.MockWorlds
 import app.mcorg.presentation.templated.home.homePage
 import app.mcorg.presentation.utils.getUser
 import app.mcorg.presentation.utils.respondHtml
-import io.ktor.http.HttpStatusCode.Companion.InternalServerError
 import io.ktor.server.application.ApplicationCall
-import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
 import org.slf4j.LoggerFactory
@@ -26,7 +24,7 @@ class HomeHandler {
     private suspend fun ApplicationCall.handleGetHome() {
         val user = getUser()
 
-        respondHtml(homePage(user, MockInvitations.getPending(), MockWorlds.getList()))
+        respondHtml(homePage(user, MockInvitations.getPendingByToId(user.id), MockWorlds.getList()))
 
         executeParallelPipelineDSL(
             onSuccess = {

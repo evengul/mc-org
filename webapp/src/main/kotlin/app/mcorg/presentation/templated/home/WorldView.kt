@@ -6,6 +6,7 @@ import app.mcorg.presentation.templated.common.chip.ChipColor
 import app.mcorg.presentation.templated.common.chip.chipComponent
 import app.mcorg.presentation.templated.common.component.LeafComponent
 import app.mcorg.presentation.templated.common.icon.Icons
+import app.mcorg.presentation.templated.common.link.Link
 import app.mcorg.presentation.templated.common.progress.progressComponent
 import app.mcorg.presentation.templated.utils.SimpleDateFormat
 import kotlinx.html.TagConsumer
@@ -13,7 +14,6 @@ import kotlinx.html.div
 import kotlinx.html.h2
 import kotlinx.html.li
 import kotlinx.html.p
-import kotlinx.html.span
 
 class WorldView(
     val world: World
@@ -46,7 +46,9 @@ class WorldView(
                 value = world.completedProjects.toDouble()
                 max = world.totalProjects.toDouble()
             }
-            actionButton("View World")
+            actionButton("View World") {
+                href = Link.Worlds.world(world.id).to
+            }
         }
     }
 }

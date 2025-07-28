@@ -1,0 +1,128 @@
+package app.mcorg.presentation.templated.project
+
+import app.mcorg.domain.model.project.Project
+import app.mcorg.domain.model.project.ProjectDependency
+import app.mcorg.domain.model.project.ProjectProduction
+import app.mcorg.domain.model.project.ProjectResourceGathering
+import app.mcorg.domain.model.project.ProjectStage
+import app.mcorg.domain.model.project.ProjectStageChange
+import app.mcorg.domain.model.task.Task
+import app.mcorg.domain.model.user.TokenProfile
+import app.mcorg.presentation.templated.common.chip.ChipColor
+import app.mcorg.presentation.templated.common.chip.chipComponent
+import app.mcorg.presentation.templated.common.page.createPage
+import app.mcorg.presentation.templated.common.tabs.TabData
+import app.mcorg.presentation.templated.common.tabs.tabsComponent
+import app.mcorg.presentation.templated.utils.toPrettyEnumName
+import kotlinx.html.classes
+import kotlinx.html.div
+import kotlinx.html.h1
+import kotlinx.html.option
+import kotlinx.html.p
+import kotlinx.html.select
+
+sealed interface ProjectTab {
+    val id: String
+    val project: Project
+
+    data class Tasks(override val project: Project, val tasks: List<Task>) : ProjectTab {
+        override val id: String = "tasks"
+    }
+
+    data class Resources(
+        override val project: Project,
+        val resourceGathering: ProjectResourceGathering,
+        val resourceProduction: List<ProjectProduction>
+    ) : ProjectTab {
+        override val id: String = "resources"
+    }
+
+    data class Location(override val project: Project) : ProjectTab {
+        override val id: String = "location"
+    }
+
+    data class Stages(override val project: Project, val stageChanges: List<ProjectStageChange>) : ProjectTab {
+        override val id: String = "stages"
+    }
+
+    data class Dependencies(override val project: Project, val dependencies: List<ProjectDependency>, val dependents: List<ProjectDependency>) : ProjectTab {
+        override val id: String = "dependencies"
+    }
+}
+
+fun projectPage(
+    user: TokenProfile,
+    data: ProjectTab
+) = createPage(
+    user = user,
+    pageTitle = data.project.name
+) {
+    val project = data.project
+    classes += "project"
+    div("project-header") {
+        h1 {
+            +project.name
+        }
+        div("project-header-content") {
+            div("project-header-start") {
+                chipComponent {
+                    color = ChipColor.ACTIVE
+                    +project.stage.toPrettyEnumName()
+                }
+                p("subtle") {
+                    +"•"
+                }
+                p("subtle") {
+                    +"${project.type.toPrettyEnumName()} Project"
+                }
+                project.location?.let {
+                    p("subtle") {
+                        +"•"
+                    }
+                    chipComponent {
+                        color = ChipColor.NEUTRAL
+                        text = "${it.x}, ${it.y}, ${it.z}"
+                    }
+                }
+            }
+            div("project-header-end") {
+                select {
+                    ProjectStage.entries.forEach {
+                        option {
+                            value = it.name
+                            if (it == project.stage) {
+                                selected = true
+                            }
+                            +it.toPrettyEnumName()
+                        }
+                    }
+                }
+                createTaskModal(project)
+            }
+        }
+        p("subtle") {
+            +project.description
+        }
+    }
+    div("project-content") {
+        tabsComponent(
+            hxTarget = ".project-tabs-content",
+            TabData.create("Tasks"),
+            TabData.create("Resources"),
+            TabData.create("Location"),
+            TabData.create("Stages"),
+            TabData.create("Dependencies")
+        ) {
+            activeTab = data.id
+        }
+        div("project-tabs-content") {
+            when (data) {
+                is ProjectTab.Tasks -> tasksTab(project, data.tasks)
+                is ProjectTab.Resources -> resourcesTab(project, data.resourceProduction, data.resourceGathering)
+                is ProjectTab.Location -> locationTab(project)
+                is ProjectTab.Stages -> stagesTab(data.stageChanges)
+                is ProjectTab.Dependencies -> dependenciesTab(data.dependencies, data.dependents)
+            }
+        }
+    }
+}

@@ -1,7 +1,6 @@
 package app.mcorg.domain.model.task
 
 import app.mcorg.domain.model.project.ProjectStage
-import app.mcorg.domain.model.task.TaskRequirement
 
 data class Task(
     val id: Int,
@@ -11,4 +10,10 @@ data class Task(
     val stage: ProjectStage,
     val priority: Priority,
     val requirements: List<TaskRequirement>
-)
+) {
+    fun progress(): Double {
+        if (requirements.isEmpty()) return 0.0
+        val completed = requirements.count { it.isCompleted() }
+        return (completed.toDouble() / requirements.size) * 100.0
+    }
+}

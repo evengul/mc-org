@@ -20,8 +20,22 @@ import kotlinx.html.ul
 
 fun BODY.topBar(user: TokenProfile? = null) = addComponent(TopBar(user))
 
+enum class ActiveLinks {
+    HOME,
+    IDEAS,
+    SERVERS,
+    ADMIN_DASHBOARD,
+    THEME_TOGGLE,
+    NOTIFICATIONS,
+    PROFILE
+}
+
 data class TopBar(
-    val user: TokenProfile? = null
+    val user: TokenProfile? = null,
+    val activeLinks: Set<ActiveLinks> = setOf(
+        ActiveLinks.HOME,
+        ActiveLinks.PROFILE
+    ),
 ) : LeafComponent() {
     override fun render(container: TagConsumer<*>) {
         container.header {
@@ -31,26 +45,32 @@ data class TopBar(
                 classes += "top-bar-nav"
                 ul {
                     classes += "top-bar-links"
-                    li {
-                        classes += "top-bar-link"
-                        linkComponent(Link.Home) {
-                            +"Home"
+                    if (activeLinks.contains(ActiveLinks.HOME)) {
+                        li {
+                            classes += "top-bar-link"
+                            linkComponent(Link.Home) {
+                                +"Home"
+                            }
                         }
                     }
-                    li {
-                        classes += "top-bar-link"
-                        linkComponent(Link.Ideas) {
-                            + "Idea Bank"
+                    if (activeLinks.contains(ActiveLinks.IDEAS)) {
+                        li {
+                            classes += "top-bar-link"
+                            linkComponent(Link.Ideas) {
+                                + "Idea Bank"
+                            }
                         }
                     }
-                    li {
-                        classes += "top-bar-link"
-                        linkComponent(Link.Servers) {
-                            + "Servers"
+                    if (activeLinks.contains(ActiveLinks.SERVERS)) {
+                        li {
+                            classes += "top-bar-link"
+                            linkComponent(Link.Servers) {
+                                + "Servers"
+                            }
                         }
                     }
                     // TODO: Dynamically add this link based on user permissions
-                    if (user?.minecraftUsername == "lilpebblez" || user?.minecraftUsername == "evegul") {
+                    if (activeLinks.contains(ActiveLinks.ADMIN_DASHBOARD) && user?.minecraftUsername == "lilpebblez" || user?.minecraftUsername == "evegul") {
                         li {
                             classes += "top-bar-link"
                             linkComponent(Link.AdminDashboard) {
@@ -61,10 +81,18 @@ data class TopBar(
                 }
                 div {
                     classes += "top-bar-right"
-                    iconButton(Icons.Dimensions.OVERWORLD, iconSize = IconSize.SMALL)
+                    if (activeLinks.contains(ActiveLinks.THEME_TOGGLE)) {
+                        iconButton(Icons.Dimensions.OVERWORLD, iconSize = IconSize.SMALL)
+                    }
                     if (user != null) {
-                        iconButton(Icons.Notification.INFO, iconSize = IconSize.SMALL)
-                        iconButton(Icons.Users.PROFILE, iconSize = IconSize.SMALL)
+                        if (activeLinks.contains(ActiveLinks.NOTIFICATIONS)) {
+                            iconButton(Icons.Notification.INFO, iconSize = IconSize.SMALL)
+                        }
+                        if (activeLinks.contains(ActiveLinks.PROFILE)) {
+                            iconButton(Icons.Users.PROFILE, iconSize = IconSize.SMALL) {
+                                href = Link.Profile.to
+                            }
+                        }
                     }
                 }
             }

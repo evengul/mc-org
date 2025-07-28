@@ -1,6 +1,9 @@
 package app.mcorg.presentation.handler
 
 import app.mcorg.pipeline.world.handleCreateWorld
+import app.mcorg.pipeline.world.handleGetProject
+import app.mcorg.pipeline.world.handleGetWorld
+import app.mcorg.pipeline.world.handleGetWorldSettings
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.delete
 import io.ktor.server.routing.get
@@ -17,7 +20,7 @@ class WorldHandler {
             }
             route("/{worldId}") {
                 get {
-
+                    call.handleGetWorld()
                 }
                 route("/projects") {
                     post {
@@ -25,7 +28,7 @@ class WorldHandler {
                     }
                     route("/{projectId}") {
                         get {
-
+                            call.handleGetProject()
                         }
                         patch("/stage") {
                             // Update project stage
@@ -85,56 +88,56 @@ class WorldHandler {
                             }
                         }
                     }
-                    route("/resources") {
-                        get {
+                }
+                route("/resources") {
+                    get {
 
-                        }
-                        route("/map") {
-                            post {
-
-                            }
-                            delete {
-
-                            }
-                            post("/{mapId}") {
-                                // Create map resource
-                            }
-                            delete("/{mapId}/{resourceId}") {
-                                // Delete map resource
-                            }
-                        }
                     }
-                    route("/settings") {
-                        get {
+                    route("/map") {
+                        post {
 
-                        }
-                        patch("/name") {
-                            // Update world name
-                        }
-                        patch("/description") {
-                            // Update world description
-                        }
-                        patch("/version") {
-                            // Update world version
                         }
                         delete {
 
                         }
-                        route("/members") {
-                            route("/invitations") {
-                                post {
-                                    // Create a new world invitation
-                                }
-                                delete("/{inviteId}") {
+                        post("/{mapId}") {
+                            // Create map resource
+                        }
+                        delete("/{mapId}/{resourceId}") {
+                            // Delete map resource
+                        }
+                    }
+                }
+                route("/settings") {
+                    get {
+                        call.handleGetWorldSettings()
+                    }
+                    patch("/name") {
+                        // Update world name
+                    }
+                    patch("/description") {
+                        // Update world description
+                    }
+                    patch("/version") {
+                        // Update world version
+                    }
+                    delete {
 
-                                }
+                    }
+                    route("/members") {
+                        route("/invitations") {
+                            post {
+                                // Create a new world invitation
                             }
-                            patch("/role") {
-                                // Update member role
+                            delete("/{inviteId}") {
+
                             }
-                            delete {
-                                // Remove member from world
-                            }
+                        }
+                        patch("/role") {
+                            // Update member role
+                        }
+                        delete {
+                            // Remove member from world
                         }
                     }
                 }
