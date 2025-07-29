@@ -35,7 +35,7 @@ fun <T : Tag> T.createTaskModal(project: Project) = formModal(
     ),
     openButtonBlock = {
         addClass("create-world-button")
-        addClass("btn-primary")
+        addClass("btn--action")
         iconLeft = Icons.MENU_ADD
         iconSize = IconSize.SMALL
         + "New Task"

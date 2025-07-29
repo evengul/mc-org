@@ -1,15 +1,47 @@
+/* Base icon component styling - updated for new CSS architecture */
 .icon {
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--clr-text-default);
+
+    /* Default size - medium (48px) */
     width: 48px;
     height: 48px;
-    background-repeat: no-repeat;
+
+    /* Ensure SVG content fills the container */
+    line-height: 1;
 }
 
-.icon-small {
+.icon svg {
+    width: 100%;
+    height: 100%;
+    fill: currentColor;
+    stroke: transparent;
+}
+
+/* Size modifier classes following new CSS architecture */
+.icon--sm {
     width: 24px;
     height: 24px;
 }
 
+.icon--md {
+    width: 48px;
+    height: 48px;
+}
+
+.icon--lg {
+    width: 64px;
+    height: 64px;
+}
+
+/* Color modifier for non-default colors */
+.icon--colored {
+    /* Color is applied via inline style with CSS custom properties */
+}
+
+/* Icon row layout utility */
 .icon-row {
     display: flex;
     flex-direction: row;
@@ -17,93 +49,99 @@
     gap: var(--spacing-sm);
 }
 
-.icon-back {
-    background-image: url("/static/icons/Back_48x48.svg");
+/* Enhanced icon states */
+.icon:hover {
+    opacity: 0.8;
+    transition: opacity 0.2s ease;
 }
 
-.icon-menu {
-    background-image: url("/static/icons/Menu_48x48.svg");
+.icon--interactive {
+    cursor: pointer;
+    border-radius: var(--border-radius-sm);
+    padding: var(--spacing-xxs);
+    transition: all 0.2s ease;
 }
 
-.icon-menu-add {
-    background-image: url("/static/icons/Menu_Add_48x48.svg");
+.icon--interactive:hover {
+    background-color: var(--clr-surface-hover);
+    opacity: 1;
 }
 
-.icon-filter {
-    background-image: url("/static/icons/Filter_List_48x48.svg");
+.icon--interactive:focus {
+    outline: none;
+    box-shadow: var(--shadow-focus);
 }
 
-.icon-menu-worlds,
-.icon-dimension-overworld {
-    background-image: url("/static/icons/dimensions/Overworld_48x48.svg");
+/* Icon with text combinations */
+.icon--with-text {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
 }
 
-.icon-dimension-nether {
-    background-image: url("/static/icons/dimensions/Nether_48x48.svg");
+/* Specific icon color variants using semantic colors */
+.icon--success {
+    color: var(--clr-success);
 }
 
-.icon-dimension-the-end {
-    background-image: url("/static/icons/dimensions/End_48x48.svg");
+.icon--warning {
+    color: var(--clr-warning);
 }
 
-.icon-priority-low {
-    background-image: url("/static/icons/priority/Low_48x48.svg");
+.icon--danger {
+    color: var(--clr-danger);
 }
 
-.icon-priority-medium {
-    background-image: url("/static/icons/priority/Medium_48x48.svg");
+.icon--info {
+    color: var(--clr-info);
 }
 
-.icon-priority-high {
-    background-image: url("/static/icons/priority/High_48x48.svg");
+.icon--action {
+    color: var(--clr-action);
 }
 
-.icon-menu-profile,
-.icon-user {
-    background-image: url("/static/icons/users/Profile_48x48.svg");
+.icon--neutral {
+    color: var(--clr-neutral);
 }
 
-.icon-user-small {
-    background-image: url("/static/icons/users/Profile_24x24.svg");
+.icon--subtle {
+    color: var(--clr-text-subtle);
 }
 
-.icon-menu-users,
-.icon-users {
-    background-image: url("/static/icons/users/Group_48x48.svg");
+/* Loading state for icons */
+.icon--loading {
+    opacity: 0.6;
+    animation: icon-pulse 1.5s ease-in-out infinite;
 }
 
-.icon-user-add {
-    background-image: url("/static/icons/users/Add_48x48.svg");
+@keyframes icon-pulse {
+    0%, 100% {
+        opacity: 0.6;
+    }
+    50% {
+        opacity: 1;
+    }
 }
 
-.icon-world-add {
-    background-image: url("/static/icons/Add_World_48x48.svg");
+/* Disabled state */
+.icon--disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
 }
 
-.icon-menu-projects {
-    background-image: url("/static/icons/menu/Projects_48x48.svg");
+/* Badge/notification dot for icons */
+.icon--with-badge {
+    position: relative;
 }
 
-.icon-microsoft {
-    background-image: url("/static/icons/Microsoft_Logo_48x48.svg");
-}
-
-.icon-error {
-    background-image: url("/static/icons/notification/Error_48x48.svg");
-}
-
-.icon-warning {
-    background-image: url("/static/icons/notification/Warning_48x48.svg");
-}
-
-.icon-info {
-    background-image: url("/static/icons/notification/Info_48x48.svg");
-}
-
-.icon-delete {
-    background-image: url("/static/icons/Delete_48x48.svg");
-}
-
-.icon-delete-small {
-    background-image: url("/static/icons/Delete_24x24.svg");
+.icon--with-badge::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 8px;
+    height: 8px;
+    background-color: var(--clr-danger);
+    border-radius: var(--border-radius-full);
+    border: 1px solid var(--clr-surface-default);
 }

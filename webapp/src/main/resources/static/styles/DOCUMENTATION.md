@@ -147,20 +147,20 @@ styles/
 **Before (Legacy):**
 ```html
 <button style="background: blue; padding: 10px 20px;">Save</button>
-<button class="custom-btn-primary">Submit</button>
+<button class="custom-btn-action">Submit</button>
 ```
 
 **After (New System):**
 ```html
-<button class="btn btn--primary">Save</button>
-<button class="btn btn--primary">Submit</button>
+<button class="btn btn--action">Save</button>
+<button class="btn btn--action">Submit</button>
 ```
 
 **Available Button Classes:**
 ```css
 .btn                    /* Base button (required) */
-.btn--primary          /* Action color button */
-.btn--secondary        /* Neutral color button */
+.btn--action          /* Action color button */
+.btn--neutral        /* Neutral color button */
 .btn--danger           /* Red destructive button */
 .btn--ghost            /* Transparent button */
 .btn--icon-only        /* Square button for icons */
@@ -405,7 +405,7 @@ input[type="radio"].radio--lg        /* Large radio */
 
 ### 3. Standardize Buttons
 - [ ] Add `.btn` base class to all buttons
-- [ ] Add appropriate variant (`.btn--primary`, `.btn--secondary`, etc.)
+- [ ] Add appropriate variant (`.btn--action`, `.btn--neutral`, etc.)
 - [ ] Add size modifier if needed (`.btn--sm`, `.btn--lg`)
 
 ### 4. Convert Layout Containers
@@ -420,9 +420,9 @@ input[type="radio"].radio--lg        /* Large radio */
 
 ### 6. Use Semantic Colors
 - [ ] Replace hex colors with CSS custom properties
-- [ ] Use `var(--clr-action)` for primary actions
+- [ ] Use `var(--clr-action)` for action actions
 - [ ] Use `var(--clr-danger)` for destructive actions
-- [ ] Use `var(--clr-text-subtle)` for secondary text
+- [ ] Use `var(--clr-text-subtle)` for neutral text
 - [ ] Use `var(--clr-surface-subtle)` for subtle backgrounds
 
 ### 7. Implement Responsive Design
@@ -444,8 +444,8 @@ input[type="radio"].radio--lg        /* Large radio */
 **After:**
 ```html
 <div class="cluster cluster--sm">
-  <button class="btn btn--primary">Save</button>
-  <button class="btn btn--secondary">Cancel</button>
+  <button class="btn btn--action">Save</button>
+  <button class="btn btn--neutral">Cancel</button>
 </div>
 ```
 

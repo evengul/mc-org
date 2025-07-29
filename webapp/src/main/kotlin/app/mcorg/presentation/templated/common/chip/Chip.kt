@@ -19,8 +19,8 @@ fun <T : Tag> T.chipComponent(
     addComponent(chip)
 }
 
-enum class ChipColor(val iconColor: IconColor) {
-    ACTIVE(IconColor.ON_ACTIVE),
+enum class ChipVariant(val iconColor: IconColor) {
+    ACTION(IconColor.ON_ACTION),
     NEUTRAL(IconColor.ON_NEUTRAL),
     DANGER(IconColor.ON_DANGER),
     SUCCESS(IconColor.ON_SUCCESS),
@@ -28,23 +28,59 @@ enum class ChipColor(val iconColor: IconColor) {
     INFO(IconColor.ON_INFO),
 }
 
+enum class ChipSize {
+    SMALL, MEDIUM, LARGE
+}
+
 class Chip(
     var text: String = "",
     var icon: Icon? = null,
-    var color: ChipColor = ChipColor.ACTIVE,
+    var variant: ChipVariant = ChipVariant.ACTION,
+    var size: ChipSize = ChipSize.MEDIUM,
     var onClick: String? = null,
     var classes: MutableSet<String> = mutableSetOf(),
 ) : LeafComponent() {
+
     override fun render(container: TagConsumer<*>) {
         container.div {
-            this@div.classes = this@Chip.classes + setOf("chip", "chip-${color.name.lowercase()}")
+            // Apply base chip class and variant modifiers
+            this@div.classes = this@Chip.classes + mutableSetOf("chip").apply {
+                // Add variant modifier classes following new CSS architecture
+                when (this@Chip.variant) {
+                    ChipVariant.ACTION -> add("chip--action")
+                    ChipVariant.NEUTRAL -> add("chip--neutral")
+                    ChipVariant.DANGER -> add("chip--danger")
+                    ChipVariant.SUCCESS -> add("chip--success")
+                    ChipVariant.WARNING -> add("chip--warning")
+                    ChipVariant.INFO -> add("chip--info")
+                }
+
+                // Add size modifier classes
+                when (this@Chip.size) {
+                    ChipSize.SMALL -> add("chip--sm")
+                    ChipSize.MEDIUM -> { /* Default size */ }
+                    ChipSize.LARGE -> add("chip--lg")
+                }
+
+                // Add interactive modifier if clickable
+                onClick?.let {
+                    add("chip--interactive")
+                    add("u-cursor-pointer")
+                }
+            }
+
             onClick?.let {
-                attributes["onClick"] = it
-                this@div.classes += "clickable"
+                attributes["onclick"] = it
             }
+
             icon?.let {
-                iconComponent(it, size = IconSize.SMALL, color = color.iconColor)
+                iconComponent(it, size = when (this@Chip.size) {
+                    ChipSize.SMALL -> IconSize.SMALL
+                    ChipSize.MEDIUM -> IconSize.SMALL
+                    ChipSize.LARGE -> IconSize.MEDIUM
+                }, color = variant.iconColor)
             }
+
             if (text.isNotEmpty()) {
                 + text
             }
@@ -52,6 +88,58 @@ class Chip(
     }
 
     operator fun String.unaryPlus() {
-        text = this
+        this@Chip.text = this
+    }
+}
+
+// Convenience functions for common chip variants
+fun <T : Tag> T.actionChip(
+    text: String,
+    icon: Icon? = null,
+    size: ChipSize = ChipSize.MEDIUM,
+    onClick: String? = null,
+    handler: (Chip.() -> Unit)? = null
+) {
+    chipComponent {
+        this.text = text
+        this.icon = icon
+        this.variant = ChipVariant.ACTION
+        this.size = size
+        this.onClick = onClick
+        handler?.invoke(this)
+    }
+}
+
+fun <T : Tag> T.neutralChip(
+    text: String,
+    icon: Icon? = null,
+    size: ChipSize = ChipSize.MEDIUM,
+    onClick: String? = null,
+    handler: (Chip.() -> Unit)? = null
+) {
+    chipComponent {
+        this.text = text
+        this.icon = icon
+        this.variant = ChipVariant.NEUTRAL
+        this.size = size
+        this.onClick = onClick
+        handler?.invoke(this)
+    }
+}
+
+fun <T : Tag> T.infoChip(
+    text: String,
+    icon: Icon? = null,
+    size: ChipSize = ChipSize.MEDIUM,
+    onClick: String? = null,
+    handler: (Chip.() -> Unit)? = null
+) {
+    chipComponent {
+        this.text = text
+        this.icon = icon
+        this.variant = ChipVariant.INFO
+        this.size = size
+        this.onClick = onClick
+        handler?.invoke(this)
     }
 }

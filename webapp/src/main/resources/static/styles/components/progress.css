@@ -1,12 +1,180 @@
-@keyframes progress-animation {
+/* Base progress component styling */
+.progress {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    width: 100%;
+}
+
+/* Progress label styling */
+.progress__label {
+    font-size: var(--text-sm);
+    font-weight: 500;
+    color: var(--clr-text-default);
+    margin-bottom: var(--spacing-xxs);
+}
+
+/* Progress container - the background track */
+.progress__container {
+    position: relative;
+    height: 12px;
+    background-color: var(--clr-surface-subtle);
+    border-radius: var(--border-radius-full);
+    overflow: hidden;
+    border: 1px solid var(--clr-border-subtle);
+}
+
+/* Progress bar - the filled portion */
+.progress__bar {
+    height: 100%;
+    background-color: var(--clr-action);
+    transition: width 0.4s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--border-radius-full);
+    position: relative;
+    min-width: 0;
+}
+
+/* Progress value display inside the bar */
+.progress__value {
+    position: absolute;
+    width: 100%;
+    text-align: center;
+    font-size: var(--text-sm);
+    font-weight: 500;
+    color: var(--clr-text-on-action);
+    z-index: 1;
+    white-space: nowrap;
+}
+
+/* Progress details container for detailed display */
+.progress__details {
+    font-size: var(--text-sm);
+    color: var(--clr-text-subtle);
+    margin-top: var(--spacing-xxs);
+}
+
+.progress__current,
+.progress__percentage {
+    font-weight: 500;
+}
+
+/* Variant modifier classes following new CSS architecture */
+.progress--success .progress__bar {
+    background-color: var(--clr-success);
+}
+
+.progress--success .progress__value {
+    color: var(--clr-text-on-success);
+}
+
+.progress--warning .progress__bar {
+    background-color: var(--clr-warning);
+}
+
+.progress--warning .progress__value {
+    color: var(--clr-text-on-warning);
+}
+
+.progress--danger .progress__bar {
+    background-color: var(--clr-danger);
+}
+
+.progress--danger .progress__value {
+    color: var(--clr-text-on-danger);
+}
+
+.progress--info .progress__bar {
+    background-color: var(--clr-info);
+}
+
+.progress--info .progress__value {
+    color: var(--clr-text-on-info);
+}
+
+/* Size modifier classes */
+.progress--sm .progress__container {
+    height: 8px;
+}
+
+.progress--sm .progress__value {
+    font-size: calc(var(--text-sm) * 0.85);
+}
+
+.progress--sm .progress__label {
+    font-size: calc(var(--text-sm) * 0.9);
+}
+
+.progress--lg .progress__container {
+    height: 20px;
+}
+
+.progress--lg .progress__value {
+    font-size: var(--text-md);
+}
+
+.progress--lg .progress__label {
+    font-size: var(--text-md);
+}
+
+/* Display modifier classes */
+.progress--compact .progress__label {
+    display: none;
+}
+
+.progress--compact .progress__details {
+    display: none;
+}
+
+.progress--detailed .progress__container {
+    margin-bottom: var(--spacing-xxs);
+}
+
+/* Enhanced styling for different variants with subtle backgrounds */
+.progress--success .progress__container {
+    background-color: var(--clr-green-300);
+    border-color: var(--clr-border-success);
+}
+
+.progress--warning .progress__container {
+    background-color: var(--clr-warning-subtle);
+    border-color: var(--clr-border-warning);
+}
+
+.progress--danger .progress__container {
+    background-color: var(--clr-danger-subtle);
+    border-color: var(--clr-border-danger);
+}
+
+.progress--info .progress__container {
+    background-color: var(--clr-info-subtle);
+    border-color: var(--clr-border-info);
+}
+
+/* Animation for progress bar fill */
+@keyframes progress-fill {
     from {
         width: 0;
     }
-    to {
-        width: var(--progress-value);
-    }
 }
 
+.progress__bar {
+    animation: progress-fill 0.8s ease-out;
+}
+
+/* Hover effects for interactive progress bars */
+.progress:hover .progress__bar {
+    opacity: 0.9;
+}
+
+/* Focus styles for accessibility */
+.progress:focus-within .progress__container {
+    box-shadow: var(--shadow-focus);
+}
+
+/* Legacy classes for backward compatibility - deprecated */
 .app-progress-container {
     position: relative;
     height: 20px;
@@ -26,7 +194,7 @@
     color: var(--clr-text-default);
     font-weight: bold;
     border-radius: var(--border-radius-full) 0 0 var(--border-radius-full);
-    animation: progress-animation 2s ease-out;
+    animation: progress-fill 2s ease-out;
 }
 
 .app-progress-value {

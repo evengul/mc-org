@@ -3,7 +3,6 @@
    Element-specific styles for <button> elements and legacy class support
    ========================================================================== */
 
-/* Base button element styles - inherits from .btn in button-states.css */
 button {
     border: none;
     border-radius: var(--border-radius-md);
@@ -15,6 +14,7 @@ button {
     transition: all 0.2s ease;
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: var(--spacing-xxs);
     text-decoration: none;
 }
@@ -43,72 +43,4 @@ button:has(svg) {
     :last-of-type(svg) {
         justify-self: end;
     }
-}
-
-/* Legacy class mappings - for backward compatibility */
-.btn-primary {
-    color: var(--clr-text-on-action);
-    background-color: var(--clr-action);
-    border: 1px solid var(--clr-border-action);
-}
-
-.btn-primary:hover:not(:disabled) {
-    background-color: var(--clr-action-hover);
-    border-color: var(--clr-border-action-hover);
-}
-
-.btn-primary:active:not(:disabled),
-.btn-primary:focus-visible:not(:disabled) {
-    background-color: var(--clr-action-active);
-    border-color: var(--clr-border-action-selected);
-}
-
-.btn-secondary {
-    color: var(--clr-text-on-neutral);
-    background-color: var(--clr-neutral);
-    border: 1px solid var(--clr-neutral);
-}
-
-.btn-secondary:hover:not(:disabled) {
-    background-color: var(--clr-neutral-hover);
-    border-color: var(--clr-neutral-hover);
-}
-
-.btn-secondary:active:not(:disabled),
-.btn-secondary:focus-visible:not(:disabled) {
-    background-color: var(--clr-neutral-active);
-    border-color: var(--clr-neutral-active);
-}
-
-.btn-danger {
-    color: var(--clr-text-on-danger);
-    background-color: var(--clr-danger);
-    border: 1px solid var(--clr-border-danger);
-}
-
-.btn-danger:hover:not(:disabled) {
-    background-color: var(--clr-danger-hover);
-    border-color: var(--clr-danger-hover);
-}
-
-.btn-danger:active:not(:disabled),
-.btn-danger:focus-visible:not(:disabled) {
-    background-color: var(--clr-danger-active);
-    border-color: var(--clr-danger-active);
-}
-
-.btn-icon {
-    aspect-ratio: 1 / 1;
-    padding: var(--spacing-xxs);
-    justify-content: center;
-}
-
-
-/* Layout utilities for buttons */
-.button-row {
-    width: 100%;
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    justify-content: space-between;
 }

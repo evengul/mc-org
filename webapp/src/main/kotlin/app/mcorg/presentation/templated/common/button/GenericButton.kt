@@ -58,26 +58,28 @@ class GenericButton(
     }
 
     private fun getColor(): IconColor {
-        return if (classes.contains("btn-primary")) {
-            IconColor.ON_ACTIVE
-        } else if (classes.contains("btn-secondary")) {
+        return if (classes.contains("btn--action")) {
+            IconColor.ON_ACTION
+        } else if (classes.contains("btn--neutral")) {
             IconColor.ON_NEUTRAL
-        } else if (classes.contains("btn-danger")) {
+        } else if (classes.contains("btn--danger")) {
             IconColor.ON_DANGER
-        } else if (classes.contains("icon-primary")) {
-            IconColor.ON_ACTIVE
-        } else if (classes.contains("icon-secondary")) {
+        } else if (classes.contains("btn--ghost")) {
+            IconColor.ON_BACKGROUND
+        } else if (classes.contains("icon--action")) {
+            IconColor.ON_ACTION
+        }  else if (classes.contains("icon--neutral")) {
             IconColor.ON_NEUTRAL
-        } else if (classes.contains("icon-danger")) {
+        } else if (classes.contains("icon--danger")) {
             IconColor.ON_DANGER
-        } else if (classes.contains("icon-success")) {
+        } else if (classes.contains("icon--success")) {
             IconColor.ON_SUCCESS
-        } else if (classes.contains("icon-warning")) {
+        } else if (classes.contains("icon--warning")) {
             IconColor.ON_WARNING
-        } else if (classes.contains("icon-info")) {
+        } else if (classes.contains("icon--info")) {
             IconColor.ON_INFO
-        } else {
-            IconColor.ON_ACTIVE // Default color
+        } else  {
+            IconColor.ON_ACTION // Default color
         }
     }
 
@@ -90,9 +92,9 @@ class GenericButton(
             classes = classes + "btn"
         }
         if (text.isEmpty() && iconLeft != null) {
-            classes = classes + "btn-icon-only"
+            classes = classes + "btn--icon-only"
         } else if (text.isEmpty() && iconRight != null) {
-            classes = classes + "btn-icon-only"
+            classes = classes + "btn--icon-only"
         }
         return if (classes.contains("btn")) {
             classes

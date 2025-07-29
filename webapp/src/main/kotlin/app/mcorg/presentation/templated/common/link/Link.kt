@@ -17,28 +17,59 @@ fun <T : Tag> T.linkComponent(
     addComponent(component)
 }
 
-enum class LinkType {
-    SUBTLE,
-    NORMAL,
-    DISABLED,
+enum class LinkVariant {
+    NORMAL, SUBTLE, DANGER, ACTION
+}
+
+enum class LinkSize {
+    SMALL, MEDIUM, LARGE
+}
+
+enum class LinkState {
+    DEFAULT, DISABLED
 }
 
 class LinkComponent(
     val link: Link,
     var text: String = link.to,
-    var linkType: LinkType = LinkType.NORMAL,
+    var variant: LinkVariant = LinkVariant.NORMAL,
+    var size: LinkSize = LinkSize.MEDIUM,
+    var state: LinkState = LinkState.DEFAULT,
+    var classes: MutableSet<String> = mutableSetOf(),
 ) : LeafComponent() {
+
     override fun render(container: TagConsumer<*>) {
-        if (linkType == LinkType.DISABLED) {
-            container.span("link-disabled") {
+        if (state == LinkState.DISABLED) {
+            container.span {
+                classes = this@LinkComponent.classes + mutableSetOf("link", "link--disabled").apply {
+                    // Add size variants
+                    when (this@LinkComponent.size) {
+                        LinkSize.SMALL -> add("link--sm")
+                        LinkSize.MEDIUM -> { /* Default size */ }
+                        LinkSize.LARGE -> add("link--lg")
+                    }
+                }
                 attributes["aria-disabled"] = "true"
                 + text
             }
         } else {
             container.a {
                 href = link.to
-                if (linkType == LinkType.SUBTLE) {
-                    classes += setOf("link-subtle")
+                classes = this@LinkComponent.classes + mutableSetOf("link").apply {
+                    // Add variant modifier classes
+                    when (this@LinkComponent.variant) {
+                        LinkVariant.NORMAL -> { /* Default variant */ }
+                        LinkVariant.SUBTLE -> add("link--subtle")
+                        LinkVariant.DANGER -> add("link--danger")
+                        LinkVariant.ACTION -> add("link--action")
+                    }
+
+                    // Add size variants
+                    when (this@LinkComponent.size) {
+                        LinkSize.SMALL -> add("link--sm")
+                        LinkSize.MEDIUM -> { /* Default size */ }
+                        LinkSize.LARGE -> add("link--lg")
+                    }
                 }
                 + text
             }
@@ -47,6 +78,49 @@ class LinkComponent(
 
     operator fun String.unaryPlus() {
         text = this
+    }
+}
+
+// Convenience functions for common link variants
+fun <T : Tag> T.actionLink(
+    link: Link,
+    text: String = link.to,
+    size: LinkSize = LinkSize.MEDIUM,
+    handler: (LinkComponent.() -> Unit)? = null
+) {
+    linkComponent(link) {
+        this.text = text
+        this.variant = LinkVariant.ACTION
+        this.size = size
+        handler?.invoke(this)
+    }
+}
+
+fun <T : Tag> T.subtleLink(
+    link: Link,
+    text: String = link.to,
+    size: LinkSize = LinkSize.MEDIUM,
+    handler: (LinkComponent.() -> Unit)? = null
+) {
+    linkComponent(link) {
+        this.text = text
+        this.variant = LinkVariant.SUBTLE
+        this.size = size
+        handler?.invoke(this)
+    }
+}
+
+fun <T : Tag> T.dangerLink(
+    link: Link,
+    text: String = link.to,
+    size: LinkSize = LinkSize.MEDIUM,
+    handler: (LinkComponent.() -> Unit)? = null
+) {
+    linkComponent(link) {
+        this.text = text
+        this.variant = LinkVariant.DANGER
+        this.size = size
+        handler?.invoke(this)
     }
 }
 

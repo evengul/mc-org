@@ -1,7 +1,8 @@
 package app.mcorg.presentation.templated.testpage
 
 import app.mcorg.presentation.templated.common.link.Link
-import app.mcorg.presentation.templated.common.link.LinkType
+import app.mcorg.presentation.templated.common.link.LinkState
+import app.mcorg.presentation.templated.common.link.LinkVariant
 import app.mcorg.presentation.templated.common.link.linkComponent
 import kotlinx.html.MAIN
 import kotlinx.html.details
@@ -17,11 +18,11 @@ fun MAIN.testLinks() {
                 + "Home"
             }
             linkComponent(Link.Ideas) {
-                linkType = LinkType.DISABLED
+                state = LinkState.DISABLED
                 + "Ideas"
             }
             linkComponent(Link.Worlds.world(2)) {
-                linkType = LinkType.SUBTLE
+                variant = LinkVariant.SUBTLE
                 + "World 2"
             }
         }

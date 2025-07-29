@@ -2,8 +2,10 @@ package app.mcorg.presentation.templated.world
 
 import app.mcorg.domain.model.project.Project
 import app.mcorg.presentation.templated.common.button.actionButton
-import app.mcorg.presentation.templated.common.chip.ChipColor
+import app.mcorg.presentation.templated.common.chip.ChipVariant
 import app.mcorg.presentation.templated.common.chip.chipComponent
+import app.mcorg.presentation.templated.common.chip.infoChip
+import app.mcorg.presentation.templated.common.chip.neutralChip
 import app.mcorg.presentation.templated.common.icon.Icons
 import app.mcorg.presentation.templated.common.link.Link
 import app.mcorg.presentation.templated.common.progress.progressComponent
@@ -26,20 +28,15 @@ fun UL.projectList(projects: List<Project>) {
                 h2 {
                     + project.name
                 }
-                chipComponent {
-                    color = ChipColor.NEUTRAL
-                    val completeStatus = if (project.tasksCompleted == 0) 0.0 else (project.tasksCompleted.toDouble() / project.tasksTotal.toDouble()) * 100
-                    + "${completeStatus.toInt()}% Complete"
-                }
+                val completeStatus = if (project.tasksCompleted == 0) 0.0 else (project.tasksCompleted.toDouble() / project.tasksTotal.toDouble()) * 100
+                neutralChip(
+                    text = "${completeStatus.toInt()}% Complete"
+                )
             }
-            chipComponent {
-                // TODO: ChipColor based on project stage
-                color = ChipColor.INFO
-                // TODO(ICON): Proper stage icon
-                icon = Icons.Menu.UTILITIES
-                // TODO: Proper stage name
-                + project.stage.toPrettyEnumName()
-            }
+            infoChip(
+                icon = Icons.Menu.UTILITIES,
+                text = project.stage.toPrettyEnumName()
+            )
             p("subtle") {
                 + project.description
             }

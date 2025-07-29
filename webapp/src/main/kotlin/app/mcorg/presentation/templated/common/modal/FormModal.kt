@@ -87,8 +87,8 @@ class FormModal(
             // render submit button
             button {
                 type = ButtonType.submit
-                classes = setOf("btn-primary", "modal-submit-button")
-                +saveText
+                classes = setOf("btn--action", "modal-submit-button")
+                + saveText
             }
         }
     }

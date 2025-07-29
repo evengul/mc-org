@@ -4,14 +4,6 @@ main#home {
     gap: var(--spacing-md);
 }
 
-p.subtle,
-.chip.subtle {
-    opacity: 0.75;
-    font-weight: lighter;
-    font-size: var(--text-sm);
-    color: var(--clr-text-subtle);
-}
-
 #home-pending-invites {
     border-color: var(--clr-border-action);
     border-style: dashed;
@@ -58,13 +50,6 @@ p.subtle,
                     display: flex;
                     flex-direction: column;
                     gap: var(--spacing-xs);
-
-
-                    p, .chip {
-                        opacity: 0.75;
-                        font-weight: lighter;
-                        font-size: var(--text-sm);
-                    }
 
                     .home-pending-invite-details-info-expires {
                         display: flex;

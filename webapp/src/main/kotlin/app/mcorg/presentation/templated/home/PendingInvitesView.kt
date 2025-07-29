@@ -3,8 +3,7 @@ package app.mcorg.presentation.templated.home
 import app.mcorg.domain.model.invite.Invite
 import app.mcorg.presentation.templated.common.button.actionButton
 import app.mcorg.presentation.templated.common.button.neutralButton
-import app.mcorg.presentation.templated.common.chip.Chip
-import app.mcorg.presentation.templated.common.chip.ChipColor
+import app.mcorg.presentation.templated.common.chip.ChipVariant
 import app.mcorg.presentation.templated.common.chip.chipComponent
 import app.mcorg.presentation.templated.common.component.LeafComponent
 import app.mcorg.presentation.templated.common.icon.IconColor
@@ -34,13 +33,15 @@ fun UL.pendingInvitesListView(invites: List<Invite>) {
                 div("home-pending-invite-details-info") {
                     chipComponent {
                         classes += "subtle"
-                        color = ChipColor.INFO
+                        variant = ChipVariant.INFO
                         text = "Role: ${invite.role.name.lowercase().replaceFirstChar { it.uppercase() }}"
                     }
-                    p("home-pending-invite-details-info-expires subtle") {
+                    div("home-pending-invite-details-info-expires") {
                         // TODO: Clock icon
                         iconComponent(Icons.ADD_WORLD, color = IconColor.ON_BACKGROUND, size = IconSize.SMALL)
-                        + "Expires ${invite.expiresAt.format(DateTimeFormatter.ISO_LOCAL_DATE)}"
+                        p("subtle") {
+                            + "Expires ${invite.expiresAt.format(DateTimeFormatter.ISO_LOCAL_DATE)}"
+                        }
                     }
                     p("home-pending-invite-details-info-from subtle") {
                         + "Invited by: ${invite.fromUsername}"
@@ -70,7 +71,7 @@ data class PendingInvitesView(private val invites: List<Invite>) : LeafComponent
                 id = "home-pending-invites-header"
                 h2 {
                     // TODO: Bell icon
-                    iconComponent(Icons.Notification.INFO, color = IconColor.ACTIVE)
+                    iconComponent(Icons.Notification.INFO, color = IconColor.ACTION)
                     + "Pending Invitations"
                 }
                 p("subtle") {

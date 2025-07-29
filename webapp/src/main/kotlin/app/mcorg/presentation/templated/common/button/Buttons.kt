@@ -7,38 +7,81 @@ import kotlinx.html.Tag
 fun <T : Tag> T.actionButton(text: String, buttonHandler: (GenericButton.() -> Unit)? = null) {
     val button = GenericButton(text = text)
     buttonHandler?.let { it(button) }
-    button.addClass("btn-primary")
+    button.addClass("btn--action")
     button.render(consumer)
 }
 
 fun <T : Tag> T.neutralButton(text: String, buttonHandler: (GenericButton.() -> Unit)? = null) {
     val button = GenericButton(text = text)
     buttonHandler?.let { it(button) }
-    button.addClass("btn-secondary")
+    button.addClass("btn--neutral")
     button.render(consumer)
 }
 
 fun <T : Tag> T.dangerButton(text: String, buttonHandler: (GenericButton.() -> Unit)? = null) {
     val button = GenericButton(text = text)
     buttonHandler?.let { it(button) }
-    button.addClass("btn-danger")
+    button.addClass("btn--danger")
+    button.render(consumer)
+}
+
+fun <T : Tag> T.ghostButton(text: String, buttonHandler: (GenericButton.() -> Unit)? = null) {
+    val button = GenericButton(text = text)
+    buttonHandler?.let { it(button) }
+    button.addClass("btn--ghost")
     button.render(consumer)
 }
 
 enum class IconButtonColor {
-    SECONDARY, DANGER
+    NEUTRAL, DANGER, GHOST
 }
 
-fun <T : Tag> T.iconButton(icon: Icon,
-                           iconSize: IconSize = IconSize.MEDIUM,
-                           color: IconButtonColor = IconButtonColor.SECONDARY,
-                           buttonHandler: (GenericButton.() -> Unit)? = null) {
+enum class ButtonSize {
+    SMALL, MEDIUM, LARGE
+}
+
+fun <T : Tag> T.iconButton(
+    icon: Icon,
+    iconSize: IconSize = IconSize.MEDIUM,
+    color: IconButtonColor = IconButtonColor.NEUTRAL,
+    size: ButtonSize = ButtonSize.MEDIUM,
+    buttonHandler: (GenericButton.() -> Unit)? = null
+) {
     val button = GenericButton(iconLeft = icon, iconSize = iconSize)
-    button.addClass("btn-icon")
+    // Updated to use new CSS methodology
+    button.addClass("btn--icon-only")
+
+    // Apply color variant
     when(color) {
-        IconButtonColor.SECONDARY -> button.addClass("btn-secondary")
-        IconButtonColor.DANGER -> button.addClass("btn-danger")
+        IconButtonColor.NEUTRAL -> button.addClass("btn--neutral")
+        IconButtonColor.DANGER -> button.addClass("btn--danger")
+        IconButtonColor.GHOST -> button.addClass("btn--ghost")
     }
+
+    // Apply size variant
+    when(size) {
+        ButtonSize.SMALL -> button.addClass("btn--sm")
+        ButtonSize.MEDIUM -> { /* Default size, no additional class needed */ }
+        ButtonSize.LARGE -> button.addClass("btn--lg")
+    }
+
     buttonHandler?.let { it(button) }
+    button.render(consumer)
+}
+
+// Enhanced button functions with size variants
+fun <T : Tag> T.actionButtonSmall(text: String, buttonHandler: (GenericButton.() -> Unit)? = null) {
+    val button = GenericButton(text = text)
+    buttonHandler?.let { it(button) }
+    button.addClass("btn--action")
+    button.addClass("btn--sm")
+    button.render(consumer)
+}
+
+fun <T : Tag> T.actionButtonLarge(text: String, buttonHandler: (GenericButton.() -> Unit)? = null) {
+    val button = GenericButton(text = text)
+    buttonHandler?.let { it(button) }
+    button.addClass("btn--action")
+    button.addClass("btn--lg")
     button.render(consumer)
 }

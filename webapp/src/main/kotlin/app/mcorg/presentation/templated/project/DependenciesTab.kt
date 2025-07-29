@@ -4,7 +4,7 @@ import app.mcorg.domain.model.project.ProjectDependency
 import app.mcorg.domain.model.project.ProjectStage
 import app.mcorg.presentation.templated.common.button.actionButton
 import app.mcorg.presentation.templated.common.button.iconButton
-import app.mcorg.presentation.templated.common.chip.ChipColor
+import app.mcorg.presentation.templated.common.chip.ChipVariant
 import app.mcorg.presentation.templated.common.chip.chipComponent
 import app.mcorg.presentation.templated.common.icon.IconSize
 import app.mcorg.presentation.templated.common.icon.Icons
@@ -58,10 +58,10 @@ fun DIV.dependenciesTab(dependencies: List<ProjectDependency>, dependents: List<
                 }
                 chipComponent {
                     if (dependencies.all { it.dependencyStage == ProjectStage.COMPLETED }) {
-                        color = ChipColor.SUCCESS
+                        variant = ChipVariant.SUCCESS
                         + "All dependencies completed"
                     } else {
-                        color = ChipColor.NEUTRAL
+                        variant = ChipVariant.NEUTRAL
                         + "Some dependencies not completed"
                     }
                 }

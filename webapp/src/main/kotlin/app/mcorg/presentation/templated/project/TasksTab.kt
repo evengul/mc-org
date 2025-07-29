@@ -7,7 +7,7 @@ import app.mcorg.domain.model.task.Priority
 import app.mcorg.domain.model.task.Task
 import app.mcorg.presentation.templated.common.button.iconButton
 import app.mcorg.presentation.templated.common.button.neutralButton
-import app.mcorg.presentation.templated.common.chip.ChipColor
+import app.mcorg.presentation.templated.common.chip.ChipVariant
 import app.mcorg.presentation.templated.common.chip.chipComponent
 import app.mcorg.presentation.templated.common.icon.IconSize
 import app.mcorg.presentation.templated.common.icon.Icons
@@ -146,10 +146,10 @@ private fun LI.taskHeader(task: Task) {
                     Priority.MEDIUM -> Icons.Priority.MEDIUM
                     Priority.LOW -> Icons.Priority.LOW
                 }
-                color = when(task.priority) {
-                    Priority.HIGH, Priority.CRITICAL -> ChipColor.DANGER
-                    Priority.MEDIUM -> ChipColor.WARNING
-                    Priority.LOW -> ChipColor.SUCCESS
+                variant = when(task.priority) {
+                    Priority.HIGH, Priority.CRITICAL -> ChipVariant.DANGER
+                    Priority.MEDIUM -> ChipVariant.WARNING
+                    Priority.LOW -> ChipVariant.INFO
                 }
             }
         }

@@ -8,7 +8,7 @@ import app.mcorg.domain.model.project.ProjectStage
 import app.mcorg.domain.model.project.ProjectStageChange
 import app.mcorg.domain.model.task.Task
 import app.mcorg.domain.model.user.TokenProfile
-import app.mcorg.presentation.templated.common.chip.ChipColor
+import app.mcorg.presentation.templated.common.chip.ChipVariant
 import app.mcorg.presentation.templated.common.chip.chipComponent
 import app.mcorg.presentation.templated.common.page.createPage
 import app.mcorg.presentation.templated.common.tabs.TabData
@@ -66,7 +66,7 @@ fun projectPage(
         div("project-header-content") {
             div("project-header-start") {
                 chipComponent {
-                    color = ChipColor.ACTIVE
+                    variant = ChipVariant.ACTION
                     +project.stage.toPrettyEnumName()
                 }
                 p("subtle") {
@@ -80,7 +80,7 @@ fun projectPage(
                         +"•"
                     }
                     chipComponent {
-                        color = ChipColor.NEUTRAL
+                        variant = ChipVariant.NEUTRAL
                         text = "${it.x}, ${it.y}, ${it.z}"
                     }
                 }

@@ -1,14 +1,19 @@
 package app.mcorg.presentation.templated.testpage
 
+import app.mcorg.presentation.templated.common.icon.IconColor
 import app.mcorg.presentation.templated.common.icon.IconSize
 import app.mcorg.presentation.templated.common.icon.Icons
 import app.mcorg.presentation.templated.common.icon.iconComponent
+import app.mcorg.presentation.templated.utils.toPrettyEnumName
 import kotlinx.html.MAIN
 import kotlinx.html.b
 import kotlinx.html.details
 import kotlinx.html.div
 import kotlinx.html.h3
+import kotlinx.html.h4
+import kotlinx.html.h5
 import kotlinx.html.p
+import kotlinx.html.style
 import kotlinx.html.summary
 
 fun MAIN.testIcons() {
@@ -21,34 +26,50 @@ fun MAIN.testIcons() {
                 h3 {
                     + category
                 }
-                b {
-                    + "Small Icons"
-                }
-                div("icon-subset") {
-                    iconSet.forEach {
-                        div("named-icon") {
-                            iconComponent(it, IconSize.SMALL)
-                            p("icon-name") {
-                                + " ${it.name}[SMALL] (${it.path(IconSize.SMALL)})"
-                            }
+                IconSize.entries.forEach { size ->
+                    div("icon-size") {
+                        h4 {
+                            + "${size.toPrettyEnumName()} Icons"
                         }
-                    }
-                }
-                b {
-                    + "Medium Icons"
-                }
-                div("icon-subset") {
-                    iconSet.forEach {
-                        div("named-icon") {
-                            iconComponent(it, IconSize.MEDIUM)
-                            p("icon-name") {
-                                + " ${it.name}[MEDIUM] (${it.path(IconSize.MEDIUM)})"
+                        IconColor.entries.forEach { color ->
+                            div("icon-color") {
+                                h5 {
+                                    + "${color.toPrettyEnumName()} Icons"
+                                }
+                                iconSet.forEach { icon ->
+                                    div {
+                                        style = "background-color: ${color.toBackgroundColor()}"
+                                        iconComponent(
+                                            icon = icon,
+                                            size = size,
+                                            color = color
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
                 }
             }
         }
+    }
+}
+
+private fun IconColor.toBackgroundColor(): String {
+    return when (this) {
+        IconColor.ACTION -> "var(--clr-bg-default)"
+        IconColor.ON_ACTION -> "var(--clr-action)"
+        IconColor.ON_NEUTRAL -> "var(--clr-neutral)"
+        IconColor.ON_DANGER -> "var(--clr-danger)"
+        IconColor.ON_SUCCESS -> "var(--clr-success)"
+        IconColor.ON_WARNING -> "var(--clr-warning)"
+        IconColor.ON_INFO -> "var(--clr-info)"
+        IconColor.DEFAULT -> "var(--clr-bg-default)"
+        IconColor.SUBTLE -> "var(--clr-bg-default)"
+        IconColor.ACTION_TEXT -> "var(--clr-bg-default)"
+        IconColor.DANGER_TEXT -> "var(--clr-bg-default)"
+        IconColor.ON_BACKGROUND -> "var(--clr-bg-default)"
+        IconColor.ON_SURFACE -> "var(--clr-bg-subtle)"
     }
 }
 

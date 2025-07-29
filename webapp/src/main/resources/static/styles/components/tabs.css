@@ -1,24 +1,163 @@
+/* Base tabs component styling */
 .tabs {
     display: flex;
     flex-direction: row;
-    gap: var(--spacing-md);
+    gap: var(--spacing-xs);
     padding: var(--spacing-xs);
-
     width: fit-content;
-
-    background-color: var(--clr-neutral-subtle);
-
-    border: 1px solid var(--clr-neutral-subtle);
-
+    background-color: var(--clr-surface-subtle);
+    border: 1px solid var(--clr-border-subtle);
+    border-radius: var(--border-radius-md);
     transition: all 0.2s ease;
 }
 
-.tab {
-    background-color: var(--clr-neutral-subtle);
+/* Individual tab button styling using BEM methodology */
+.tabs__tab {
+    position: relative;
+    font-weight: 400;
+    color: var(--clr-text-default);
+    background-color: var(--clr-surface-default);
+    border: 1px solid var(--clr-border-subtle);
+    border-radius: var(--border-radius-sm);
+    transition: all 0.2s ease;
+    cursor: pointer;
 }
 
-.tab.active {
-    font-weight: bold;
-    color: var(--clr-text-on-neutral);
-    background-color: var(--clr-neutral);
+.tabs__tab:hover {
+    background-color: var(--clr-surface-hover);
+    border-color: var(--clr-border-subtle-hover);
+}
+
+.tabs__tab:focus {
+    outline: none;
+    box-shadow: var(--shadow-focus);
+}
+
+/* Active tab state */
+.tabs__tab--active {
+    font-weight: 500;
+    color: var(--clr-text-on-action);
+    background-color: var(--clr-action);
+    border-color: var(--clr-border-action);
+}
+
+.tabs__tab--active:hover {
+    background-color: var(--clr-action-hover);
+    border-color: var(--clr-border-action-hover);
+}
+
+/* Variant modifier classes following new CSS architecture */
+
+/* Pills variant - rounded tabs */
+.tabs--pills {
+    background-color: var(--clr-surface-default);
+    border: none;
+    gap: var(--spacing-xxs);
+    padding: var(--spacing-xxs);
+}
+
+.tabs--pills .tabs__tab {
+    border-radius: var(--border-radius-full);
+    border: none;
+    background-color: var(--clr-neutral-subtle);
+    color: var(--clr-text-default);
+}
+
+.tabs--pills .tabs__tab:hover {
+    background-color: var(--clr-neutral-subtle-hover);
+}
+
+.tabs--pills .tabs__tab--active {
+    background-color: var(--clr-action);
+    color: var(--clr-text-on-action);
+}
+
+.tabs--pills .tabs__tab--active:hover {
+    background-color: var(--clr-action-hover);
+}
+
+/* Underlined variant - minimal with bottom border */
+.tabs--underlined {
+    background-color: var(--clr-surface-default);
+    border: none;
+    border-bottom: 1px solid var(--clr-border-divider);
+    border-radius: 0;
+    gap: var(--spacing-sm);
+    padding: 0;
+}
+
+.tabs--underlined .tabs__tab {
+    background-color: var(--clr-surface-default);
+    border: none;
+    border-bottom: 2px solid var(--clr-global-transparent);
+    border-radius: 0;
+    padding-bottom: var(--spacing-xs);
+    margin-bottom: -1px;
+    color: var(--clr-text-subtle);
+}
+
+.tabs--underlined .tabs__tab:hover {
+    background-color: var(--clr-surface-default);
+    color: var(--clr-text-default);
+    border-bottom-color: var(--clr-border-subtle);
+}
+
+.tabs--underlined .tabs__tab--active {
+    background-color: var(--clr-surface-default);
+    color: var(--clr-text-action);
+    border-bottom-color: var(--clr-border-action);
+    font-weight: 500;
+}
+
+.tabs--underlined .tabs__tab--active:hover {
+    background-color: var(--clr-surface-default);
+    border-bottom-color: var(--clr-border-action-hover);
+}
+
+/* Size modifier classes */
+.tabs--sm {
+    gap: calc(var(--spacing-xs) / 1.5);
+    padding: calc(var(--spacing-xs) / 1.5);
+}
+
+.tabs--sm .tabs__tab {
+    font-size: var(--text-sm);
+    padding: calc(var(--spacing-xxs) / 1.5) calc(var(--spacing-xs) / 1.5);
+}
+
+.tabs--lg {
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm);
+}
+
+.tabs--lg .tabs__tab {
+    font-size: var(--text-lg);
+    padding: var(--spacing-xs) var(--spacing-md);
+    font-weight: 500;
+}
+
+/* Size adjustments for underlined variant */
+.tabs--underlined.tabs--sm {
+    padding: 0;
+    gap: var(--spacing-xs);
+}
+
+.tabs--underlined.tabs--lg {
+    padding: 0;
+    gap: var(--spacing-md);
+}
+
+/* Accessibility improvements */
+.tabs[role="tablist"] {
+    outline: none;
+}
+
+.tabs__tab[role="tab"]:focus {
+    outline: none;
+    box-shadow: var(--shadow-focus);
+    z-index: 1;
+}
+
+.tabs__tab[aria-selected="true"] {
+    /* Active state is already handled by .tabs__tab--active */
 }

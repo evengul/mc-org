@@ -30,7 +30,7 @@ fun <T : Tag> T.createProjectModal(worldId: Int) = formModal(
     ),
     openButtonBlock = {
         addClass("create-project-button")
-        addClass("btn-primary")
+        addClass("btn-action")
         iconLeft = Icons.MENU_ADD
         + "New Project"
     }

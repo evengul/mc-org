@@ -4,7 +4,7 @@ import app.mcorg.domain.model.project.Project
 import app.mcorg.domain.model.user.TokenProfile
 import app.mcorg.domain.model.world.World
 import app.mcorg.presentation.templated.common.button.neutralButton
-import app.mcorg.presentation.templated.common.chip.ChipColor
+import app.mcorg.presentation.templated.common.chip.ChipVariant
 import app.mcorg.presentation.templated.common.chip.chipComponent
 import app.mcorg.presentation.templated.common.icon.IconSize
 import app.mcorg.presentation.templated.common.icon.Icons
@@ -60,7 +60,7 @@ private fun FlowContent.worldHeaderInfo(world: World) {
             }
             chipComponent {
                 icon = Icons.Dimensions.OVERWORLD
-                color = ChipColor.NEUTRAL
+                variant = ChipVariant.NEUTRAL
                 + "MC ${world.version}"
             }
         }

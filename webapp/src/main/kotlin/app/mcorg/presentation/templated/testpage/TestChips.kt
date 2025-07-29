@@ -1,6 +1,6 @@
 package app.mcorg.presentation.templated.testpage
 
-import app.mcorg.presentation.templated.common.chip.ChipColor
+import app.mcorg.presentation.templated.common.chip.ChipVariant
 import app.mcorg.presentation.templated.common.chip.chipComponent
 import app.mcorg.presentation.templated.common.icon.Icons
 import kotlinx.html.MAIN
@@ -12,9 +12,9 @@ fun MAIN.testChips() {
     details {
         summary { + "Chips" }
         div("chip-row") {
-            ChipColor.entries.forEachIndexed { i, it ->
+            ChipVariant.entries.forEachIndexed { i, it ->
                 chipComponent {
-                    color = it
+                    variant = it
                     text = "Chip - ${it.name}"
                     icon = Icons.Dimensions.OVERWORLD
                     onClick = if (i == 0) {
