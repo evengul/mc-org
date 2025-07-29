@@ -13,197 +13,235 @@ import app.mcorg.presentation.templated.common.icon.IconSize
 import app.mcorg.presentation.templated.common.icon.Icons
 import app.mcorg.presentation.templated.common.progress.progressComponent
 import app.mcorg.presentation.templated.utils.toPrettyEnumName
-import kotlinx.html.DIV
-import kotlinx.html.InputType
-import kotlinx.html.aside
-import kotlinx.html.classes
-import kotlinx.html.div
-import kotlinx.html.h2
-import kotlinx.html.h3
-import kotlinx.html.id
-import kotlinx.html.input
-import kotlinx.html.label
-import kotlinx.html.li
-import kotlinx.html.option
-import kotlinx.html.p
-import kotlinx.html.select
-import kotlinx.html.span
-import kotlinx.html.ul
+import kotlinx.html.*
 import java.time.format.DateTimeFormatter
 
 fun DIV.tasksTab(project: Project, tasks: List<Task>) {
     classes += "project-tasks-tab"
     div("project-tasks-content") {
-        div("project-tasks-progress") {
-            h2 {
-                + "Project Progress"
+        projectProgressSection(project)
+        taskManagementSection(project, tasks)
+    }
+    projectDetailsSidebar(project)
+}
+
+private fun DIV.projectProgressSection(project: Project) {
+    div("project-tasks-progress") {
+        h2 {
+            + "Project Progress"
+        }
+        p("subtle") {
+            + "${project.tasksCompleted} of ${project.tasksTotal} tasks completed"
+        }
+        progressComponent {
+            value = project.tasksCompleted.toDouble()
+            max = project.tasksTotal.toDouble()
+        }
+        p("subtle") {
+            + "Current stage progress"
+        }
+        progressComponent {
+            value = project.stageProgress
+            max = 100.0
+        }
+    }
+}
+
+private fun DIV.taskManagementSection(project: Project, tasks: List<Task>) {
+    div("project-tasks") {
+        taskManagementHeader()
+        if (tasks.isEmpty()) {
+            emptyTasksDisplay(project)
+        } else {
+            tasksList(tasks)
+        }
+    }
+}
+
+private fun DIV.taskManagementHeader() {
+    h2 {
+        + "Tasks"
+    }
+    taskSearchAndFilters()
+}
+
+private fun DIV.taskSearchAndFilters() {
+    div("project-tasks-search-filter") {
+        input {
+            placeholder = "Search tasks..."
+        }
+        select {
+            name = "completionStatus"
+            option {
+                value = "all"
+                + "All Tasks"
             }
-            p("subtle") {
-                + "${project.tasksCompleted} of ${project.tasksTotal} tasks completed"
+            option {
+                value = "in-progress"
+                + "Active Tasks"
             }
-            progressComponent {
-                value = project.tasksCompleted.toDouble()
-                max = project.tasksTotal.toDouble()
-            }
-            p("subtle") {
-                + "Current stage progress"
-            }
-            progressComponent {
-                value = project.stageProgress
-                max = 100.0
+            option {
+                value = "completed"
+                + "Completed Tasks"
             }
         }
-        div("project-tasks") {
-            h2 {
-                + "Tasks"
-            }
-            div("project-tasks-search-filter") {
-                input {
-                    placeholder = "Search tasks..."
-                }
-                select {
-                    name = "completionStatus"
-                    option {
-                        value = "all"
-                        + "All Tasks"
-                    }
-                    option {
-                        value = "in-progress"
-                        + "Active Tasks"
-                    }
-                    option {
-                        value = "completed"
-                        + "Completed Tasks"
-                    }
-                }
-                select {
-                    Priority.entries.forEach {
-                        option {
-                            value = it.name
-                            + it.toPrettyEnumName()
-                        }
-                    }
+        select {
+            Priority.entries.forEach {
+                option {
+                    value = it.name
+                    + it.toPrettyEnumName()
                 }
             }
-            if (tasks.isEmpty()) {
-                div("project-tasks-empty") {
-                    h2 {
-                        + "No Tasks Yet"
-                    }
-                    p("subtle") {
-                        + "Create your first task to get started."
-                    }
-                    createTaskModal(project)
+        }
+    }
+}
+
+private fun DIV.emptyTasksDisplay(project: Project) {
+    div("project-tasks-empty") {
+        h2 {
+            + "No Tasks Yet"
+        }
+        p("subtle") {
+            + "Create your first task to get started."
+        }
+        createTaskModal(project)
+    }
+}
+
+private fun DIV.tasksList(tasks: List<Task>) {
+    ul {
+        tasks.forEach { task ->
+            taskItem(task)
+        }
+    }
+}
+
+private fun UL.taskItem(task: Task) {
+    li {
+        taskHeader(task)
+        if (task.description.isNotBlank()) {
+            p("subtle") {
+                + task.description
+            }
+        }
+        taskProgressDisplay(task)
+        taskRequirements(task)
+    }
+}
+
+private fun LI.taskHeader(task: Task) {
+    div("task-header") {
+        div("task-header-start") {
+            input {
+                type = InputType.checkBox
+            }
+            h3 {
+                + task.name
+            }
+        }
+        div("task-header-end") {
+            chipComponent {
+                icon = when(task.priority) {
+                    Priority.HIGH, Priority.CRITICAL -> Icons.Priority.HIGH
+                    Priority.MEDIUM -> Icons.Priority.MEDIUM
+                    Priority.LOW -> Icons.Priority.LOW
+                }
+                color = when(task.priority) {
+                    Priority.HIGH, Priority.CRITICAL -> ChipColor.DANGER
+                    Priority.MEDIUM -> ChipColor.WARNING
+                    Priority.LOW -> ChipColor.SUCCESS
                 }
             }
-            ul {
-                tasks.forEach { task ->
-                    li {
-                        div("task-header") {
-                            div("task-header-start") {
-                                input {
-                                    type = InputType.checkBox
-                                }
-                                h3 {
-                                    + task.name
-                                }
-                            }
-                            div("task-header-end") {
-                                chipComponent {
-                                    icon = when(task.priority) {
-                                        Priority.HIGH, Priority.CRITICAL -> Icons.Priority.HIGH
-                                        Priority.MEDIUM -> Icons.Priority.MEDIUM
-                                        Priority.LOW -> Icons.Priority.LOW
-                                    }
-                                    color = when(task.priority) {
-                                        Priority.HIGH, Priority.CRITICAL -> ChipColor.DANGER
-                                        Priority.MEDIUM -> ChipColor.WARNING
-                                        Priority.LOW -> ChipColor.SUCCESS
-                                    }
-                                }
-                            }
-                        }
-                        if (task.description.isNotBlank()) {
-                            p("subtle") {
-                                + task.description
-                            }
-                        }
-                        div("task-progress-description") {
-                            p("subtle") {
-                                +"Progress"
-                            }
-                            p("subtle") {
-                                +"${task.progress().toInt()}% completed"
-                            }
-                        }
-                        progressComponent {
-                            value = task.progress()
-                            max = 100.0
-                        }
-                        neutralButton("Show details") {
-                            classes += "task-requirements-toggle"
-                            onClick = "document.getElementById('task-requirements-${task.id}')?.classList.toggle('visible'); this.textContent = this.textContent === 'Show details' ? 'Hide details' : 'Show details';"
-                        }
-                        div("task-requirements") {
-                            id = "task-requirements-${task.id}"
-                            p {
-                                + "Requirements:"
-                            }
-                            ul {
-                                task.requirements.forEach { requirement ->
-                                    li {
-                                        if (requirement.isCompleted()) {
-                                            classes += "completed"
-                                        }
-                                        when(requirement) {
-                                            is ActionRequirement -> {
-                                                classes += "action-requirement"
-                                                input {
-                                                    id = "requirement-${requirement.id}"
-                                                    checked = requirement.isCompleted()
-                                                    type = InputType.checkBox
-                                                }
-                                                label {
-                                                    htmlFor = "requirement-${requirement.id}"
-                                                    + requirement.action
-                                                }
-                                            }
-                                            is ItemRequirement -> {
-                                                classes += "item-requirement"
-                                                div("item-requirement-counts") {
-                                                    p {
-                                                        + requirement.item
-                                                    }
-                                                    span {
-                                                        p {
-                                                            + "${requirement.collected} / ${requirement.requiredAmount}"
-                                                        }
-                                                        // TODO(ICON): Edit icon for item requirement
-                                                        iconButton(Icons.MENU_ADD, iconSize = IconSize.SMALL)
-                                                    }
-                                                }
-                                                progressComponent {
-                                                    value = requirement.collected.toDouble()
-                                                    max = requirement.requiredAmount.toDouble()
-                                                }
-                                                div("item-requirement-actions") {
-                                                    neutralButton("+1")
-                                                    neutralButton("+64")
-                                                    neutralButton("+1728")
-                                                    neutralButton("+3456")
-                                                    neutralButton("+ Custom")
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
+        }
+    }
+}
+
+private fun LI.taskProgressDisplay(task: Task) {
+    div("task-progress-description") {
+        p("subtle") {
+            +"Progress"
+        }
+        p("subtle") {
+            +"${task.progress().toInt()}% completed"
+        }
+    }
+    progressComponent {
+        value = task.progress()
+        max = 100.0
+    }
+}
+
+private fun LI.taskRequirements(task: Task) {
+    neutralButton("Show details") {
+        classes += "task-requirements-toggle"
+        onClick = "document.getElementById('task-requirements-${task.id}')?.classList.toggle('visible'); this.textContent = this.textContent === 'Show details' ? 'Hide details' : 'Show details';"
+    }
+    div("task-requirements") {
+        id = "task-requirements-${task.id}"
+        p {
+            + "Requirements:"
+        }
+        ul {
+            task.requirements.forEach { requirement ->
+                li {
+                    if (requirement.isCompleted()) {
+                        classes += "completed"
+                    }
+                    when(requirement) {
+                        is ActionRequirement -> actionRequirement(requirement)
+                        is ItemRequirement -> itemRequirement(requirement)
                     }
                 }
             }
         }
     }
+}
+
+private fun LI.actionRequirement(requirement: ActionRequirement) {
+    classes += "action-requirement"
+    input {
+        id = "requirement-${requirement.id}"
+        checked = requirement.isCompleted()
+        type = InputType.checkBox
+    }
+    label {
+        htmlFor = "requirement-${requirement.id}"
+        + requirement.action
+    }
+}
+
+private fun LI.itemRequirement(requirement: ItemRequirement) {
+    classes += "item-requirement"
+    div("item-requirement-counts") {
+        p {
+            + requirement.item
+        }
+        span {
+            p {
+                + "${requirement.collected} / ${requirement.requiredAmount}"
+            }
+            // TODO(ICON): Edit icon for item requirement
+            iconButton(Icons.MENU_ADD, iconSize = IconSize.SMALL)
+        }
+    }
+    progressComponent {
+        value = requirement.collected.toDouble()
+        max = requirement.requiredAmount.toDouble()
+    }
+    itemRequirementActions()
+}
+
+private fun LI.itemRequirementActions() {
+    div("item-requirement-actions") {
+        neutralButton("+1")
+        neutralButton("+64")
+        neutralButton("+1728")
+        neutralButton("+3456")
+        neutralButton("+ Custom")
+    }
+}
+
+private fun DIV.projectDetailsSidebar(project: Project) {
     aside {
         h2 {
             + "Project Details"

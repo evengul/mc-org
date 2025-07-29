@@ -1,7 +1,9 @@
 package app.mcorg.presentation.templated.settings
 
+import app.mcorg.domain.model.invite.Invite
 import app.mcorg.domain.model.invite.InviteStatus
 import app.mcorg.domain.model.user.Role
+import app.mcorg.domain.model.user.WorldMember
 import app.mcorg.presentation.templated.common.avatar.avatar
 import app.mcorg.presentation.templated.common.button.actionButton
 import app.mcorg.presentation.templated.common.button.dangerButton
@@ -28,9 +30,7 @@ import kotlinx.html.select
 import kotlinx.html.ul
 import java.time.format.DateTimeFormatter
 
-fun DIV.membersTab(tabData: SettingsTab.Members) {
-    val (_, invitations, members) = tabData
-    classes += "settings-members-tab"
+fun DIV.sendInvitationForm() {
     section(classes = "send-invitation") {
         h2 {
             +"Send invitation"
@@ -68,6 +68,9 @@ fun DIV.membersTab(tabData: SettingsTab.Members) {
             actionButton("Send Invitation")
         }
     }
+}
+
+fun DIV.invitationsListWithFilter(invitations: List<Invite>) {
     section("member-invitations") {
         h2 {
             +"World invitations"
@@ -116,7 +119,7 @@ fun DIV.membersTab(tabData: SettingsTab.Members) {
                                     +invite.role.toPrettyEnumName()
                                 }
                                 chipComponent {
-                                    +invite.status.javaClass.simpleName
+                                    +invite.status::class.simpleName!!
                                 }
                             }
                             div("row") {
@@ -148,6 +151,9 @@ fun DIV.membersTab(tabData: SettingsTab.Members) {
             }
         }
     }
+}
+
+fun DIV.membersListSection(members: List<WorldMember>) {
     section("member-list") {
         h2 {
             +"World Members"
@@ -181,4 +187,13 @@ fun DIV.membersTab(tabData: SettingsTab.Members) {
             }
         }
     }
+}
+
+fun DIV.membersTab(tabData: SettingsTab.Members) {
+    val (_, invitations, members) = tabData
+    classes += "settings-members-tab"
+
+    sendInvitationForm()
+    invitationsListWithFilter(invitations)
+    membersListSection(members)
 }

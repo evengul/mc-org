@@ -12,16 +12,7 @@ import app.mcorg.presentation.templated.common.link.Link
 import app.mcorg.presentation.templated.common.page.createPage
 import app.mcorg.presentation.templated.common.tabs.TabData
 import app.mcorg.presentation.templated.common.tabs.tabsComponent
-import kotlinx.html.InputType
-import kotlinx.html.classes
-import kotlinx.html.div
-import kotlinx.html.h1
-import kotlinx.html.h2
-import kotlinx.html.id
-import kotlinx.html.input
-import kotlinx.html.label
-import kotlinx.html.p
-import kotlinx.html.ul
+import kotlinx.html.*
 
 enum class WorldPageToggles {
     PROJECTS,
@@ -48,43 +39,61 @@ fun worldPage(
     pageTitle = world.name
 ) {
     classes += "world"
+
+    worldHeader(world, toggles)
+    worldSearchSection(toggles)
+    worldProjectsSection(projects, tab, toggles)
+}
+
+private fun MAIN.worldHeader(world: World, toggles: Set<WorldPageToggles>) {
     div("world-header") {
-        div("world-header-start") {
-            div("world-header-title") {
-                h1 {
-                    + world.name
-                }
-                chipComponent {
-                    icon = Icons.Dimensions.OVERWORLD
-                    color = ChipColor.NEUTRAL
-                    + "MC ${world.version}"
-                }
+        worldHeaderInfo(world)
+        worldHeaderActions(world, toggles)
+    }
+}
+
+private fun FlowContent.worldHeaderInfo(world: World) {
+    div("world-header-start") {
+        div("world-header-title") {
+            h1 {
+                + world.name
             }
-            p("subtle") {
-                + world.description
+            chipComponent {
+                icon = Icons.Dimensions.OVERWORLD
+                color = ChipColor.NEUTRAL
+                + "MC ${world.version}"
             }
         }
-        div("world-header-end") {
-            if (WorldPageToggles.NEW_PROJECT in toggles) {
-                createProjectModal(world.id)
+        p("subtle") {
+            + world.description
+        }
+    }
+}
+
+private fun FlowContent.worldHeaderActions(world: World, toggles: Set<WorldPageToggles>) {
+    div("world-header-end") {
+        if (WorldPageToggles.NEW_PROJECT in toggles) {
+            createProjectModal(world.id)
+        }
+        if (WorldPageToggles.RESOURCE_MAP in toggles) {
+            neutralButton("Resource Map") {
+                // TODO: Resource map ICON
+                iconLeft = Icons.Menu.ROAD_MAP
+                iconSize = IconSize.SMALL
             }
-            if (WorldPageToggles.RESOURCE_MAP in toggles) {
-                neutralButton("Resource Map") {
-                    // TODO: Resource map ICON
-                    iconLeft = Icons.Menu.ROAD_MAP
-                    iconSize = IconSize.SMALL
-                }
-            }
-            if (WorldPageToggles.SETTINGS in toggles) {
-                neutralButton("Settings") {
-                    // TODO(ICON): Settings icon
-                    iconLeft = Icons.Menu.UTILITIES
-                    iconSize = IconSize.SMALL
-                    href = Link.Worlds.world(world.id).settings().to
-                }
+        }
+        if (WorldPageToggles.SETTINGS in toggles) {
+            neutralButton("Settings") {
+                // TODO(ICON): Settings icon
+                iconLeft = Icons.Menu.UTILITIES
+                iconSize = IconSize.SMALL
+                href = Link.Worlds.world(world.id).settings().to
             }
         }
     }
+}
+
+private fun MAIN.worldSearchSection(toggles: Set<WorldPageToggles>) {
     if (WorldPageToggles.SEARCH in toggles) {
         div("world-projects-search") {
             input {
@@ -100,28 +109,47 @@ fun worldPage(
             }
         }
     }
+}
+
+private fun MAIN.worldProjectsSection(
+    projects: List<Project>,
+    tab: String?,
+    toggles: Set<WorldPageToggles>
+) {
     if (projects.isEmpty()) {
-        div("world-projects-empty") {
-            h2 {
-                + "No Active Projects"
-            }
-            p("subtle") {
-                + "All your projects are completed or you haven't created any yet."
-            }
-        }
+        worldProjectsEmpty()
     } else {
-        if (toggles.filter { it == WorldPageToggles.PROJECTS || it == WorldPageToggles.KANBAN || it == WorldPageToggles.ROADMAP }.size > 1) {
-            tabsComponent(".world-project-content", TabData.create("Projects"), TabData.create("Kanban"), TabData.create("Roadmap")) {
-                activeTab = tab ?: "projects"
-            }
+        worldProjectsContent(projects, tab, toggles)
+    }
+}
+
+private fun MAIN.worldProjectsEmpty() {
+    div("world-projects-empty") {
+        h2 {
+            + "No Active Projects"
         }
-        div("world-project-content") {
-            when(tab) {
-                "kanban" -> kanbanView()
-                "roadmap" -> roadmapView()
-                else -> ul {
-                    projectList(projects)
-                }
+        p("subtle") {
+            + "All your projects are completed or you haven't created any yet."
+        }
+    }
+}
+
+private fun MAIN.worldProjectsContent(
+    projects: List<Project>,
+    tab: String?,
+    toggles: Set<WorldPageToggles>
+) {
+    if (toggles.filter { it == WorldPageToggles.PROJECTS || it == WorldPageToggles.KANBAN || it == WorldPageToggles.ROADMAP }.size > 1) {
+        tabsComponent(".world-project-content", TabData.create("Projects"), TabData.create("Kanban"), TabData.create("Roadmap")) {
+            activeTab = tab ?: "projects"
+        }
+    }
+    div("world-project-content") {
+        when(tab) {
+            "kanban" -> kanbanView()
+            "roadmap" -> roadmapView()
+            else -> ul {
+                projectList(projects)
             }
         }
     }
