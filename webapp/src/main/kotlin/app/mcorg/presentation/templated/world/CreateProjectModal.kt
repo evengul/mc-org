@@ -3,6 +3,7 @@ package app.mcorg.presentation.templated.world
 import app.mcorg.domain.model.project.ProjectType
 import app.mcorg.presentation.templated.common.form.radiogroup.RadioGroupOption
 import app.mcorg.presentation.templated.common.form.radiogroup.radioGroup
+import app.mcorg.presentation.templated.common.icon.IconSize
 import app.mcorg.presentation.templated.common.icon.Icons
 import app.mcorg.presentation.templated.common.link.Link
 import app.mcorg.presentation.templated.common.modal.FormModalHttpMethod
@@ -30,8 +31,9 @@ fun <T : Tag> T.createProjectModal(worldId: Int) = formModal(
     ),
     openButtonBlock = {
         addClass("create-project-button")
-        addClass("btn-action")
+        addClass("btn--action")
         iconLeft = Icons.MENU_ADD
+        iconSize = IconSize.SMALL
         + "New Project"
     }
 ) {

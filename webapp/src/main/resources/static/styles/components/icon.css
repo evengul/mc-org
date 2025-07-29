@@ -47,12 +47,6 @@
     gap: var(--spacing-sm);
 }
 
-/* Enhanced icon states */
-.icon:hover {
-    opacity: 0.8;
-    transition: opacity 0.2s ease;
-}
-
 .icon--interactive {
     cursor: pointer;
     border-radius: var(--border-radius-sm);

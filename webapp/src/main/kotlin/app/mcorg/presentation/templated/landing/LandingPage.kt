@@ -23,6 +23,7 @@ fun landingPage(microsoftUrl: String) = createPage {
     div {
         classes += "sign-in-container"
         actionButton("Sign in with Microsoft") {
+            classes += "microsoft-sign-in"
             iconLeft = Icons.MICROSOFT_LOGO
             href = microsoftUrl
         }

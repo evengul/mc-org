@@ -29,7 +29,7 @@
                 color: #5E5E5E;
             }
 
-            button {
+            button.microsoft-sign-in {
                 all: unset;
 
                 display: flex;
@@ -46,6 +46,14 @@
                 height: 41px;
                 padding: 12px;
                 gap: 12px;
+
+                :hover,
+                :focus-visible,
+                :active {
+                    all: unset;
+
+                    cursor: pointer;
+                }
             }
         }
 

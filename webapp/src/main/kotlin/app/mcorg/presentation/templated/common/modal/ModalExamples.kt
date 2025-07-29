@@ -20,7 +20,7 @@ fun <T : Tag> T.exampleBasicModal() {
         title = "Basic Modal Example",
         description = "This demonstrates a basic modal with custom content",
         openButtonBlock = {
-            addClass("btn-action")
+            addClass("btn--action")
             + "Open Basic Modal"
         }
     ) {

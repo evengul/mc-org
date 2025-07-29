@@ -38,7 +38,7 @@ fun UL.pendingInvitesListView(invites: List<Invite>) {
                     }
                     div("home-pending-invite-details-info-expires") {
                         // TODO: Clock icon
-                        iconComponent(Icons.ADD_WORLD, color = IconColor.ON_BACKGROUND, size = IconSize.SMALL)
+                        iconComponent(Icons.ADD_WORLD, color = IconColor.SUBTLE, size = IconSize.SMALL)
                         p("subtle") {
                             + "Expires ${invite.expiresAt.format(DateTimeFormatter.ISO_LOCAL_DATE)}"
                         }

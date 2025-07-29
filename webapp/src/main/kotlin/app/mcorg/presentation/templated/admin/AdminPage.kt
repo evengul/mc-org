@@ -68,7 +68,7 @@ private fun FlowContent.userManagementTable(users: List<ManagedUser>) {
                     + "Status"
                 }
                 th {
-                    "Joined"
+                    + "Joined"
                 }
                 th {
                     + "Last Active"

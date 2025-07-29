@@ -27,7 +27,7 @@ fun <T : Tag> T.createWorldModal(versions: List<MinecraftVersion.Release>) = for
     ),
     openButtonBlock = {
         addClass("create-world-button")
-        addClass("btn-action")
+        addClass("btn--action")
         iconLeft = Icons.ADD_WORLD
         iconSize = IconSize.SMALL
         + "Create World"

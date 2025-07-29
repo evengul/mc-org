@@ -97,7 +97,7 @@ class InfoModal(
             classes = setOf("modal-actions")
 
             button {
-                classes = setOf("btn-action", "modal-ok-button")
+                classes = setOf("btn--action", "modal-ok-button")
                 attributes["onclick"] = "document.getElementById('$modalId')?.close()"
                 +okText
             }
