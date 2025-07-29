@@ -6,13 +6,11 @@ import app.mcorg.presentation.templated.common.icon.Icons
 import app.mcorg.presentation.templated.common.icon.iconComponent
 import app.mcorg.presentation.templated.utils.toPrettyEnumName
 import kotlinx.html.MAIN
-import kotlinx.html.b
 import kotlinx.html.details
 import kotlinx.html.div
 import kotlinx.html.h3
 import kotlinx.html.h4
 import kotlinx.html.h5
-import kotlinx.html.p
 import kotlinx.html.style
 import kotlinx.html.summary
 

@@ -81,16 +81,9 @@ class IconComponent(
 
             // Render the SVG content with color replacement
             unsafe {
-                + icon.readContent(this@IconComponent.size).replaceColor()
+                + icon.readContent(this@IconComponent.size)
             }
         }
-    }
-
-    private fun String.replaceColor(): String {
-        return this.replace("fill=\"#ffffff\"", "fill=\"currentColor\"")
-            .replace("stroke=\"#ffffff\"", "stroke=\"currentColor\"")
-            .replace("fill=\"#000000\"", "fill=\"currentColor\"")
-            .replace("stroke=\"#000000\"", "stroke=\"currentColor\"")
     }
 }
 
@@ -106,12 +99,35 @@ class Icon(
     fun large(color: IconColor = IconColor.DEFAULT) = IconComponent(this, IconSize.LARGE, color)
 
     fun readContent(size: IconSize): String {
-        return this::class.java.getResourceAsStream(path(size))?.bufferedReader()?.use { it.readText() }
+        // Read the base SVG file (without size suffix) and dynamically set dimensions
+        val baseSvg = this::class.java.getResourceAsStream(basePath())?.bufferedReader()?.use { it.readText() }
             ?: UNKNOWN_ICON_SVG
+
+        return baseSvg.setDimensions(size)
+    }
+
+    private fun String.setDimensions(size: IconSize): String {
+        // Update width and height attributes to match the IconSize enum values
+        return this.replace(Regex(""" width="[^"]*""""), """ width="${size.width}px"""")
+            .replace(Regex(""" height="[^"]*""""), """ height="${size.height}px"""")
+            .let { svg ->
+                // Ensure viewBox is properly set if missing
+                if (!svg.contains("viewBox")) {
+                    svg.replace("<svg", """<svg viewBox="0 0 ${size.width} ${size.height}"""")
+                } else {
+                    svg
+                }
+            }
     }
 
     fun path(size: IconSize): String {
+        // Legacy method - kept for backward compatibility
         return "/static/icons/${sanitizedSubPath()}${if (sanitizedSubPath().isEmpty()) "" else "/"}${name}_${size.width}x${size.height}.svg"
+    }
+
+    private fun basePath(): String {
+        // New method - reads the base SVG file without size suffix
+        return "/static/icons/${sanitizedSubPath()}${if (sanitizedSubPath().isEmpty()) "" else "/"}${name}_48x48.svg"
     }
 
     private fun sanitizedSubPath(): String {
