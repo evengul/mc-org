@@ -1,0 +1,118 @@
+/* ==========================================================================
+   FORM CONTROLS BASE
+   Shared styles for form inputs, checkboxes, selects, etc.
+   ========================================================================== */
+
+/* Base form control styles */
+.form-control {
+    display: block;
+    width: 100%;
+    padding: var(--spacing-xs);
+    font-size: var(--text-md);
+    background-color: var(--clr-surface-default);
+    color: var(--clr-text-default);
+    border: 2px solid var(--clr-border-subtle);
+    border-radius: var(--border-radius-md);
+    transition: all 0.2s ease;
+}
+
+.form-control:hover {
+    border-color: var(--clr-border-subtle-hover);
+}
+
+.form-control:focus {
+    outline: none;
+    border-color: var(--clr-border-action);
+    box-shadow: var(--shadow-focus);
+    background-color: var(--clr-surface-default);
+}
+
+.form-control:disabled {
+    background-color: var(--clr-neutral-subtle);
+    border-color: var(--clr-border-subtle);
+    color: var(--clr-text-subtle);
+    cursor: not-allowed;
+}
+
+.form-control::placeholder {
+    color: var(--clr-text-subtle);
+}
+
+/* Form control sizes */
+.form-control--sm {
+    padding: calc(var(--spacing-xs) * 0.75);
+    font-size: var(--text-sm);
+}
+
+.form-control--lg {
+    padding: var(--spacing-sm);
+    font-size: var(--text-lg);
+}
+
+/* Checkbox and radio base styles */
+.form-check {
+    -webkit-appearance: none;
+    appearance: none;
+    display: inline-block;
+    width: 1.5em;
+    height: 1.5em;
+    margin: 0;
+    vertical-align: middle;
+    background-color: var(--clr-surface-default);
+    border: 2px solid var(--clr-border-subtle);
+    border-radius: var(--border-radius-sm);
+    transition: all 0.2s ease;
+    position: relative;
+    cursor: pointer;
+}
+
+.form-check:hover {
+    border-color: var(--clr-border-subtle-hover);
+}
+
+.form-check:focus {
+    outline: none;
+    border-color: var(--clr-border-action);
+    box-shadow: var(--shadow-focus);
+}
+
+.form-check:checked {
+    background-color: var(--clr-action);
+    border-color: var(--clr-action);
+}
+
+.form-check:disabled {
+    background-color: var(--clr-neutral-subtle);
+    border-color: var(--clr-border-subtle);
+    cursor: not-allowed;
+}
+
+/* Checkbox specific styles */
+.form-check--checkbox:checked::after {
+    content: "";
+    position: absolute;
+    left: 0.520em;
+    top: 0.25em;
+    width: 0.35em;
+    height: 0.7em;
+    border: solid var(--clr-text-on-action);
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+}
+
+/* Radio specific styles */
+.form-check--radio {
+    border-radius: var(--border-radius-full);
+}
+
+.form-check--radio:checked::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0.5em;
+    height: 0.5em;
+    background-color: var(--clr-text-on-action);
+    border-radius: var(--border-radius-full);
+    transform: translate(-50%, -50%);
+}

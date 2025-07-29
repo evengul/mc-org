@@ -1,3 +1,8 @@
+/* ==========================================================================
+   SELECT COMPONENT
+   ========================================================================== */
+
+/* Base select styles - inherits from form-control base */
 select {
     appearance: none;
     -webkit-appearance: none;
@@ -6,20 +11,23 @@ select {
     display: block;
     width: 100%;
     padding: var(--spacing-xs);
+    font-size: var(--text-md);
 
     background-color: var(--clr-surface-default);
     color: var(--clr-text-default);
 
-    border: 1px solid var(--clr-border-subtle);
-    border-radius: var(--spacing-md);
+    border: 2px solid var(--clr-border-subtle);
+    border-radius: var(--border-radius-md);
 
+    transition: all 0.2s ease;
+    cursor: pointer;
+
+    /* Custom dropdown arrow */
     background-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'><path stroke='%23525962' fill='%23525962' d='M6 8l-1 1l5 5l5-5l-1-1l-4 4l-4-4z'/></svg>");
     background-repeat: no-repeat;
     background-position: right var(--spacing-xs) center;
     background-size: 16px;
-
-    transition: all 0.2s ease;
-    cursor: pointer;
+    padding-right: calc(var(--spacing-md) + 16px); /* Account for arrow space */
 }
 
 select:hover {
@@ -41,6 +49,41 @@ select:disabled {
     opacity: 0.7;
 }
 
+/* Select size variants */
+select.select--sm {
+    padding: calc(var(--spacing-xs) * 0.75);
+    padding-right: calc(var(--spacing-sm) + 14px);
+    font-size: var(--text-sm);
+    background-size: 14px;
+}
+
+select.select--lg {
+    padding: var(--spacing-sm);
+    padding-right: calc(var(--spacing-lg) + 18px);
+    font-size: var(--text-lg);
+    background-size: 18px;
+}
+
+/* Select state variants */
+select.select--error {
+    border-color: var(--clr-border-danger);
+}
+
+select.select--error:focus {
+    border-color: var(--clr-border-danger);
+    box-shadow: 0 0 0 3px var(--clr-danger-subtle);
+}
+
+select.select--success {
+    border-color: var(--clr-border-success);
+}
+
+select.select--success:focus {
+    border-color: var(--clr-border-success);
+    box-shadow: 0 0 0 3px var(--clr-green-100);
+}
+
+/* Option styling */
 option {
     background-color: var(--clr-surface-default);
     color: var(--clr-text-default);

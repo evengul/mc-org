@@ -1,20 +1,20 @@
+/* ==========================================================================
+   CHECKBOX COMPONENT
+   ========================================================================== */
+
+/* Base checkbox styles - inherits from form-check base */
 input[type="checkbox"] {
     -webkit-appearance: none;
     appearance: none;
-
     display: inline-block;
     width: 1.5em;
     height: 1.5em;
     margin: 0;
     vertical-align: middle;
-
     background-color: var(--clr-surface-default);
-
     border: 2px solid var(--clr-border-subtle);
     border-radius: var(--border-radius-sm);
-
     transition: all 0.2s ease;
-
     position: relative;
     cursor: pointer;
 }
@@ -50,9 +50,38 @@ input[type="checkbox"]:disabled {
     background-color: var(--clr-neutral-subtle);
     border-color: var(--clr-border-subtle);
     cursor: not-allowed;
-    opacity: 0.7;
 }
 
-input[type="checkbox"]:disabled::after {
+input[type="checkbox"]:disabled:checked {
+    background-color: var(--clr-neutral-moderate);
+    border-color: var(--clr-border-subtle);
+}
+
+input[type="checkbox"]:disabled:checked::after {
     border-color: var(--clr-text-subtle);
+}
+
+/* Checkbox size variants */
+input[type="checkbox"].checkbox--sm {
+    width: 1.25em;
+    height: 1.25em;
+}
+
+input[type="checkbox"].checkbox--sm:checked::after {
+    left: 0.42em;
+    top: 0.2em;
+    width: 0.3em;
+    height: 0.6em;
+}
+
+input[type="checkbox"].checkbox--lg {
+    width: 1.75em;
+    height: 1.75em;
+}
+
+input[type="checkbox"].checkbox--lg:checked::after {
+    left: 0.62em;
+    top: 0.3em;
+    width: 0.4em;
+    height: 0.8em;
 }

@@ -1,10 +1,10 @@
 /* ==========================================================================
-   BUTTON COMPONENT
-   Element-specific styles for <button> elements and legacy class support
+   BUTTON STATES & VARIANTS
+   Shared button classes and state management for reusable components
    ========================================================================== */
 
-/* Base button element styles - inherits from .btn in button-states.css */
-button {
+/* Base button class - can be applied to any element */
+.btn {
     border: none;
     border-radius: var(--border-radius-md);
     padding-inline: var(--spacing-sm);
@@ -19,96 +19,101 @@ button {
     text-decoration: none;
 }
 
-button:disabled {
+.btn:disabled {
     opacity: 0.6;
     cursor: not-allowed;
 }
 
-button:focus-visible {
+.btn:focus-visible {
     outline: none;
     box-shadow: var(--shadow-focus);
 }
 
-/* Button with SVG icons - element-specific behavior */
-button:has(svg) {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    gap: var(--spacing-xxs);
-
-    :first-of-type(svg) {
-        justify-self: start;
-    }
-
-    :last-of-type(svg) {
-        justify-self: end;
-    }
-}
-
-/* Legacy class mappings - for backward compatibility */
-.btn-primary {
+/* Button variants */
+.btn--primary {
     color: var(--clr-text-on-action);
     background-color: var(--clr-action);
     border: 1px solid var(--clr-border-action);
 }
 
-.btn-primary:hover:not(:disabled) {
+.btn--primary:hover:not(:disabled) {
     background-color: var(--clr-action-hover);
     border-color: var(--clr-border-action-hover);
 }
 
-.btn-primary:active:not(:disabled),
-.btn-primary:focus-visible:not(:disabled) {
+.btn--primary:active:not(:disabled),
+.btn--primary:focus-visible:not(:disabled) {
     background-color: var(--clr-action-active);
     border-color: var(--clr-border-action-selected);
 }
 
-.btn-secondary {
+.btn--secondary {
     color: var(--clr-text-on-neutral);
     background-color: var(--clr-neutral);
     border: 1px solid var(--clr-neutral);
 }
 
-.btn-secondary:hover:not(:disabled) {
+.btn--secondary:hover:not(:disabled) {
     background-color: var(--clr-neutral-hover);
     border-color: var(--clr-neutral-hover);
 }
 
-.btn-secondary:active:not(:disabled),
-.btn-secondary:focus-visible:not(:disabled) {
+.btn--secondary:active:not(:disabled),
+.btn--secondary:focus-visible:not(:disabled) {
     background-color: var(--clr-neutral-active);
     border-color: var(--clr-neutral-active);
 }
 
-.btn-danger {
+.btn--danger {
     color: var(--clr-text-on-danger);
     background-color: var(--clr-danger);
     border: 1px solid var(--clr-border-danger);
 }
 
-.btn-danger:hover:not(:disabled) {
+.btn--danger:hover:not(:disabled) {
     background-color: var(--clr-danger-hover);
     border-color: var(--clr-danger-hover);
 }
 
-.btn-danger:active:not(:disabled),
-.btn-danger:focus-visible:not(:disabled) {
+.btn--danger:active:not(:disabled),
+.btn--danger:focus-visible:not(:disabled) {
     background-color: var(--clr-danger-active);
     border-color: var(--clr-danger-active);
 }
 
-.btn-icon {
+.btn--ghost {
+    color: var(--clr-text-default);
+    background-color: transparent;
+    border: 1px solid var(--clr-border-subtle);
+}
+
+.btn--ghost:hover:not(:disabled) {
+    background-color: var(--clr-surface-hover);
+    border-color: var(--clr-border-subtle-hover);
+}
+
+.btn--ghost:active:not(:disabled),
+.btn--ghost:focus-visible:not(:disabled) {
+    background-color: var(--clr-surface-active);
+    border-color: var(--clr-border);
+}
+
+/* Button sizes */
+.btn--sm {
+    padding-inline: var(--spacing-xs);
+    padding-block: calc(var(--spacing-xxs) * 0.75);
+    font-size: calc(var(--text-sm) * 0.875);
+}
+
+.btn--lg {
+    padding-inline: var(--spacing-md);
+    padding-block: var(--spacing-sm);
+    font-size: var(--text-md);
+}
+
+/* Button modifiers */
+.btn--icon-only {
     aspect-ratio: 1 / 1;
     padding: var(--spacing-xxs);
     justify-content: center;
-}
-
-
-/* Layout utilities for buttons */
-.button-row {
-    width: 100%;
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    justify-content: space-between;
 }

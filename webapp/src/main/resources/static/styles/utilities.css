@@ -1,0 +1,141 @@
+/* ==========================================================================
+   UTILITY CLASSES
+   ========================================================================== */
+
+/* Layout Utilities */
+.u-flex {
+    display: flex;
+}
+
+.u-flex-row {
+    flex-direction: row;
+}
+
+.u-flex-column {
+    flex-direction: column;
+}
+
+.u-flex-center {
+    align-items: center;
+    justify-content: center;
+}
+
+.u-flex-between {
+    justify-content: space-between;
+}
+
+.u-flex-align-center {
+    align-items: center;
+}
+
+.u-flex-justify-center {
+    justify-content: center;
+}
+
+.u-flex-gap-xs {
+    gap: var(--spacing-xs);
+}
+
+.u-flex-gap-sm {
+    gap: var(--spacing-sm);
+}
+
+.u-flex-gap-md {
+    gap: var(--spacing-md);
+}
+
+/* Spacing Utilities */
+.u-margin-0 {
+    margin: 0;
+}
+
+.u-margin-top-0 {
+    margin-top: 0;
+}
+
+.u-margin-bottom-sm {
+    margin-bottom: var(--spacing-sm);
+}
+
+.u-margin-bottom-md {
+    margin-bottom: var(--spacing-md);
+}
+
+.u-margin-left-auto {
+    margin-left: auto;
+}
+
+.u-margin-right-xs {
+    margin-right: var(--spacing-xs);
+}
+
+.u-padding-xs {
+    padding: var(--spacing-xs);
+}
+
+.u-padding-sm {
+    padding: var(--spacing-sm);
+}
+
+.u-padding-md {
+    padding: var(--spacing-md);
+}
+
+/* Width Utilities */
+.u-width-full {
+    width: 100%;
+}
+
+.u-width-auto {
+    width: auto;
+}
+
+/* Position Utilities */
+.u-position-relative {
+    position: relative;
+}
+
+.u-position-absolute {
+    position: absolute;
+}
+
+/* Text Utilities */
+.u-text-nowrap {
+    text-wrap: nowrap;
+}
+
+.u-text-center {
+    text-align: center;
+}
+
+/* Display Utilities */
+.u-block {
+    display: block;
+}
+
+.u-inline-block {
+    display: inline-block;
+}
+
+/* Cursor Utilities */
+.u-cursor-pointer {
+    cursor: pointer;
+}
+
+.u-cursor-not-allowed {
+    cursor: not-allowed;
+}
+
+/* Visual Utilities */
+.u-outline-none {
+    outline: none;
+}
+
+.u-transition-all {
+    transition: all 0.2s ease;
+}
+
+/* Aspect Ratio Utilities */
+.u-aspect-square {
+    aspect-ratio: 1 / 1;
+}

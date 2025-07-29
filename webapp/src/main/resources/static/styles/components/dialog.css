@@ -1,3 +1,7 @@
+/* ==========================================================================
+   DIALOG COMPONENT
+   ========================================================================== */
+
 dialog {
     position: relative;
     justify-self: center;
@@ -27,13 +31,10 @@ dialog p.modal-description {
     margin-bottom: var(--spacing-md);
 }
 
+/* Dialog buttons use shared button styles instead of duplicating */
 dialog button {
-    padding: var(--spacing-xs) var(--spacing-sm);
-    border-radius: var(--border-radius-md);
-    border: 1px solid var(--clr-border-subtle);
-    cursor: pointer;
+    /* Inherits base button styles from button.css */
     margin-right: var(--spacing-xs);
-    transition: background-color 0.2s, border-color 0.2s;
 }
 
 dialog button.modal-close-button {
@@ -43,15 +44,15 @@ dialog button.modal-close-button {
 }
 
 dialog button.modal-close-button:hover {
-    background-color: var(--clr-neutral-hover);
+    background-color: var(--clr-surface-hover);
     border-color: var(--clr-border-subtle-hover);
 }
 
 dialog button.modal-save-button {
-    background-color: var(--clr-action);
+    /* Apply primary button styling for save button */
     color: var(--clr-text-on-action);
-    border-color: var(--clr-border-action);
-
+    background-color: var(--clr-action);
+    border: 1px solid var(--clr-border-action);
     margin-left: auto;
 }
 

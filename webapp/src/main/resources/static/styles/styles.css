@@ -1,3 +1,16 @@
+/* ==========================================================================
+   MAIN STYLESHEET
+   Imports all component and page styles in logical order
+   ========================================================================== */
+
+/* Base styles - foundational CSS */
+@import "utilities.css";
+@import "layout.css";
+@import "components/form-controls.css";
+@import "components/button-states.css";
+@import "components/common.css";
+
+/* Component styles */
 @import "components/body.css";
 @import "components/main.css";
 @import "components/navbar.css";
@@ -15,6 +28,7 @@
 @import "components/chip.css";
 @import "components/table.css";
 
+/* Page styles */
 @import "pages/landing-page.css";
 @import "pages/homepage.css";
 @import "pages/world-page.css";

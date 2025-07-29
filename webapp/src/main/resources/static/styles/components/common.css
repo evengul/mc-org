@@ -1,0 +1,224 @@
+/* ==========================================================================
+   COMMON COMPONENTS
+   Reusable UI patterns extracted from page-specific styles
+   ========================================================================== */
+
+/* Subtle Text Component */
+.text-subtle,
+p.subtle,
+.chip.subtle {
+    opacity: 0.75;
+    font-weight: lighter;
+    font-size: var(--text-sm);
+    color: var(--clr-text-subtle);
+}
+
+/* Notice/Alert Box Component */
+.notice {
+    border: 2px solid var(--clr-border-subtle);
+    border-radius: var(--border-radius-lg);
+    overflow: hidden;
+}
+
+.notice--dashed {
+    border-style: dashed;
+}
+
+.notice--info {
+    border-color: var(--clr-border-action);
+}
+
+.notice--warning {
+    border-color: var(--clr-border-warning);
+}
+
+.notice--success {
+    border-color: var(--clr-border-success);
+}
+
+.notice--danger {
+    border-color: var(--clr-border-danger);
+}
+
+.notice__header {
+    padding: var(--spacing-md);
+    background-color: var(--clr-surface-subtle);
+}
+
+.notice__header--info {
+    background-color: var(--clr-action-subtle);
+}
+
+.notice__header--warning {
+    background-color: var(--clr-warning-subtle);
+}
+
+.notice__header--success {
+    background-color: var(--clr-green-100);
+}
+
+.notice__header--danger {
+    background-color: var(--clr-danger-subtle);
+}
+
+.notice__body {
+    padding: var(--spacing-md);
+    background-color: var(--clr-bg-subtle);
+}
+
+.notice__title {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: var(--spacing-xs);
+    margin: 0;
+}
+
+/* List Component */
+.list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.list__item {
+    background-color: var(--clr-surface-default);
+    padding: var(--spacing-sm);
+    border-bottom: 1px solid var(--clr-border-divider);
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.list__item:last-child {
+    border-bottom: none;
+}
+
+.list__item--padded {
+    padding: var(--spacing-md);
+}
+
+.list__item-content {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    flex: 1;
+}
+
+.list__item-title {
+    font-weight: bold;
+    margin: 0;
+}
+
+.list__item-meta {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+}
+
+.list__item-actions {
+    display: flex;
+    flex-direction: row;
+    gap: var(--spacing-xs);
+    align-items: center;
+}
+
+/* Search Bar Component */
+.search-bar {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--spacing-md);
+}
+
+.search-bar__input {
+    flex: 1;
+}
+
+.search-bar__actions {
+    display: flex;
+    gap: var(--spacing-xs);
+}
+
+/* Info Display Component */
+.info-row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.info-row--vertical {
+    flex-direction: column;
+    align-items: flex-start;
+}
+
+/* Page Layout Components */
+.page-main {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+}
+
+.page-section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+}
+
+.page-header {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--spacing-lg);
+}
+
+.page-header__title {
+    margin: 0;
+}
+
+.page-header__actions {
+    display: flex;
+    gap: var(--spacing-sm);
+}
+
+/* Action Button Groups */
+.button-group {
+    display: flex;
+    gap: var(--spacing-xs);
+}
+
+.button-group--vertical {
+    flex-direction: column;
+}
+
+.button-group button {
+    padding-block: var(--spacing-xxs);
+}
+
+/* Responsive Utilities */
+@media (max-width: 768px) {
+    .search-bar {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .page-header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: var(--spacing-sm);
+    }
+
+    .list__item {
+        flex-direction: column;
+        align-items: stretch;
+        gap: var(--spacing-sm);
+    }
+
+    .list__item-actions {
+        justify-content: flex-end;
+    }
+}
