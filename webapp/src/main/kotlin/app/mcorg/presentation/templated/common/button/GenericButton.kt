@@ -24,6 +24,7 @@ class GenericButton(
     override fun render(container: TagConsumer<*>) {
         href?.let {
             container.a {
+                this@a.classes += "link--button"
                 this@a.href = it
                 button {
                     buttonInternals()

@@ -84,6 +84,12 @@ main.world {
             flex-direction: row;
             align-items: center;
             justify-content: space-between;
+
+            gap: var(--spacing-xs);
+
+            h2 {
+                text-wrap: nowrap;
+            }
         }
 
         .project-item-meta {

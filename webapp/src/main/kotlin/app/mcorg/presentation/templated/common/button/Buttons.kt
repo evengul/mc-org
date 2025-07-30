@@ -2,6 +2,8 @@ package app.mcorg.presentation.templated.common.button
 
 import app.mcorg.presentation.templated.common.icon.Icon
 import app.mcorg.presentation.templated.common.icon.IconSize
+import app.mcorg.presentation.templated.common.icon.Icons
+import app.mcorg.presentation.templated.common.link.Link
 import kotlinx.html.Tag
 
 fun <T : Tag> T.actionButton(text: String, buttonHandler: (GenericButton.() -> Unit)? = null) {
@@ -30,6 +32,14 @@ fun <T : Tag> T.ghostButton(text: String, buttonHandler: (GenericButton.() -> Un
     buttonHandler?.let { it(button) }
     button.addClass("btn--ghost")
     button.render(consumer)
+}
+
+fun <T : Tag> T.backButton(text: String, link: Link) = ghostButton(text) {
+    href = link.to
+    iconLeft = Icons.BACK
+    iconSize = IconSize.SMALL
+    addClass("btn--back")
+    addClass("btn--sm")
 }
 
 enum class IconButtonColor {

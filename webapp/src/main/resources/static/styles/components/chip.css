@@ -6,6 +6,7 @@
 
     padding: calc(var(--spacing-xxs) / 2) var(--spacing-xs);
     width: fit-content;
+    height: fit-content;
 
     border-width: 1px;
     border-style: solid;

@@ -260,17 +260,17 @@ main.project {
 
         .stage-item {
             position: relative;
-            padding-inline-start: var(--spacing-lg);
+            padding-inline-start: var(--spacing-xl);
 
-            margin-block-end: var(--spacing-md);
+            margin-block-end: var(--spacing-lg);
 
             .stage-icon {
                 position: absolute;
                 left: 0;
                 top: 0;
 
-                width: 50px;
-                height: 50px;
+                width: calc(48px + var(--spacing-xs));
+                height: calc(48px + var(--spacing-xs));
                 border-radius: var(--border-radius-full);
 
                 display: flex;

@@ -103,6 +103,10 @@ a:focus {
     border-bottom: 1px solid var(--clr-global-transparent);
 }
 
+.link--button:has(.btn--back) {
+    width: fit-content;
+}
+
 /* Link size modifier classes */
 .link--sm {
     font-size: var(--text-sm);

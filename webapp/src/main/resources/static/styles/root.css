@@ -30,7 +30,7 @@
 :root {
     --font-primary: "Roboto Mono Regular", sans-serif;
 
-    --text-base-size: 16px;
+    --text-base-size: 14px;
     --text-scale-ratio: 1.1;
 
     /* type scale */
@@ -269,7 +269,7 @@
     --shadow-inverted-focus: 0 0 0 3px var(--clr-on-inverted-border-focus);
 
     /* Spacing values */
-    --spacing-baseline: 2em;
+    --spacing-baseline: 1.75em;
 
     --spacing-xxs:   calc(var(--spacing-baseline) / 4);
     --spacing-xs:   calc(var(--spacing-baseline) / 3);

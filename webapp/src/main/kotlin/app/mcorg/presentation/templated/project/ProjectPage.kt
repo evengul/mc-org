@@ -8,8 +8,10 @@ import app.mcorg.domain.model.project.ProjectStage
 import app.mcorg.domain.model.project.ProjectStageChange
 import app.mcorg.domain.model.task.Task
 import app.mcorg.domain.model.user.TokenProfile
+import app.mcorg.presentation.templated.common.button.backButton
 import app.mcorg.presentation.templated.common.chip.ChipVariant
 import app.mcorg.presentation.templated.common.chip.chipComponent
+import app.mcorg.presentation.templated.common.link.Link
 import app.mcorg.presentation.templated.common.page.createPage
 import app.mcorg.presentation.templated.common.tabs.TabData
 import app.mcorg.presentation.templated.common.tabs.tabsComponent
@@ -59,6 +61,7 @@ fun projectPage(
 ) {
     val project = data.project
     classes += "project"
+    backButton("Back to world", Link.Worlds.world(project.worldId))
     div("project-header") {
         h1 {
             +project.name
