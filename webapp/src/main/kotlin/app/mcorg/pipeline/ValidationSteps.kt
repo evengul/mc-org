@@ -252,6 +252,21 @@ object ValidationSteps {
         }
     }
 
+    fun <E, T> validateNonNull(
+        errorMapper: (ValidationFailure) -> E,
+    ) : Step<T?, E, T> {
+        return object : Step<T?, E, T> {
+            override suspend fun process(input: T?): Result<E, T> {
+                return if (input != null) {
+                    Result.success(input)
+                } else {
+                    logger.debug("Parameter is null")
+                    Result.failure(errorMapper(ValidationFailure.MissingParameter("Parameter is null")))
+                }
+            }
+        }
+    }
+
     /**
      * Validates an email format using a simple regex
      */

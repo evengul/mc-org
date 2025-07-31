@@ -2,14 +2,10 @@ package app.mcorg.presentation.handler
 
 import app.mcorg.domain.pipeline.PipelineBuilder
 import app.mcorg.domain.pipeline.pipeline
-import app.mcorg.domain.pipeline.Pipeline
-import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.parallelPipeline
 import app.mcorg.domain.pipeline.ParallelPipelineBuilder
 import app.mcorg.domain.pipeline.PipelineRef
 import io.ktor.server.application.ApplicationCall
-import kotlinx.coroutines.async
-import kotlinx.coroutines.coroutineScope
 
 suspend fun <E, O> ApplicationCall.executePipeline(
     onSuccess: suspend (O) -> Unit = { },
@@ -25,7 +21,7 @@ suspend fun <E, O> ApplicationCall.executePipeline(
     )
 }
 
-suspend fun <E, O> ApplicationCall.executeParallelPipelineDSL(
+suspend fun <E, O> ApplicationCall.executeParallelPipeline(
     onSuccess: suspend (O) -> Unit = { },
     onFailure: suspend (E) -> Unit = { },
     block: ParallelPipelineBuilder<E>.() -> PipelineRef<O>

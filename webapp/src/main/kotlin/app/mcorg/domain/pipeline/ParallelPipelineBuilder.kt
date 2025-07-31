@@ -63,6 +63,16 @@ class ParallelPipelineBuilder<E> {
         return PipelineRef(id)
     }
 
+    fun <I, O> pipe(
+        id: String,
+        dependency: PipelineRef<I>,
+        pipeline: Pipeline<I, E, O>
+    ): PipelineRef<O> {
+        nodes[id] = PipelineNode.Pipe(dependency.id, pipeline)
+        dependencies[id] = setOf(dependency.id)
+        return PipelineRef(id)
+    }
+
     internal fun build(): PipelineGraph<E> {
         return PipelineGraph(nodes.toMap(), dependencies.toMap())
     }
@@ -78,6 +88,11 @@ sealed class PipelineNode<E, out O> {
 
     data class Merge<E, O>(
         val merger: suspend (Map<String, Any>) -> Result<E, O>
+    ) : PipelineNode<E, O>()
+
+    data class Pipe<E, I, O>(
+        val dependencyId: String,
+        val pipeline: Pipeline<I, E, O>
     ) : PipelineNode<E, O>()
 }
 
@@ -114,6 +129,12 @@ class PipelineGraph<E>(
                     val typedNode = node as PipelineNode.Merge<E, Any>
                     val depResults = deps.associateWith { results[it]!! }
                     typedNode.merger(depResults)
+                }
+                is PipelineNode.Pipe<*, *, *> -> {
+                    @Suppress("UNCHECKED_CAST")
+                    val typedNode = node as PipelineNode.Pipe<E, Any, Any>
+                    val depResult = results[typedNode.dependencyId]!!
+                    typedNode.pipeline.execute(depResult)
                 }
             }
 

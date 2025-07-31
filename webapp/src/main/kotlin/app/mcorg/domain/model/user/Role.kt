@@ -1,6 +1,6 @@
 package app.mcorg.domain.model.user
 
-enum class Role(private val level: Int) {
+enum class Role(val level: Int) {
     OWNER(0),
     ADMIN(10),
     MEMBER(100),

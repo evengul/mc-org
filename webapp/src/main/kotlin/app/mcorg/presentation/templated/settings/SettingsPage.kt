@@ -31,7 +31,7 @@ sealed interface SettingsTab {
     }
 }
 
-fun settingsPage(user: TokenProfile, tab: SettingsTab) = createPage("Settings", user = user) {
+fun worldSettingsPage(user: TokenProfile, tab: SettingsTab) = createPage("Settings", user = user) {
     classes += "world-settings-page"
     backButton("Back to ${tab.world.name}", Link.Worlds.world(tab.world.id))
     div {

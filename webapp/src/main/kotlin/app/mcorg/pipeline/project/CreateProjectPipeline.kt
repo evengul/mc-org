@@ -1,0 +1,43 @@
+package app.mcorg.pipeline.project
+
+import app.mcorg.domain.model.project.Project
+import app.mcorg.domain.pipeline.Step
+import app.mcorg.pipeline.failure.CreateProjectFailures
+import app.mcorg.presentation.handler.executePipeline
+import app.mcorg.presentation.templated.world.worldProjectContent
+import app.mcorg.presentation.utils.getUser
+import app.mcorg.presentation.utils.respondBadRequest
+import app.mcorg.presentation.utils.respondHtml
+import io.ktor.server.application.ApplicationCall
+import io.ktor.server.request.receiveParameters
+import kotlinx.html.div
+import kotlinx.html.stream.createHTML
+
+suspend fun ApplicationCall.handleCreateProject(worldId: Int) {
+    val parameters = this.receiveParameters()
+    val user = this.getUser()
+
+    executePipeline(
+        onSuccess = { projects: List<Project> ->
+            respondHtml(createHTML().div {
+                worldProjectContent("projects", projects)
+            })
+        },
+        onFailure = { failure ->
+            val errorMessage = when (failure) {
+                is CreateProjectFailures.ValidationError -> "Invalid project data: ${failure.errors.joinToString(", ")}"
+                is CreateProjectFailures.DatabaseError -> "Unable to create project: Database error"
+                is CreateProjectFailures.WorldNotFound -> "World not found"
+                is CreateProjectFailures.InsufficientPermissions -> "You don't have permission to create projects in this world"
+            }
+            respondBadRequest(errorMessage)
+        }
+    ) {
+        step(Step.value(parameters))
+            .step(ValidateProjectInputStep)
+            .step(ValidateWorldAdminStep(user, worldId))
+            .step(CreateProjectStep(worldId))
+            .step(Step.value(worldId))
+            .step(GetProjectsForWorldStep)
+    }
+}

@@ -1,6 +1,7 @@
 package app.mcorg.pipeline.world
 
 import app.mcorg.domain.model.minecraft.MinecraftVersion
+import app.mcorg.domain.model.user.Role
 import app.mcorg.domain.model.user.TokenProfile
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
@@ -29,11 +30,12 @@ data class CreateWorldStep(val user: TokenProfile) : Step<CreateWorldInput, Crea
                         errorMapper = { CreateWorldFailures.DatabaseError }
                     ).process(input).flatMap {
                         DatabaseSteps.update<Int, CreateWorldFailures.DatabaseError>(
-                            SafeSQL.insert("INSERT INTO world_members (user_id, world_id, display_name, world_role) VALUES (?, ?, ?, 'OWNER')"),
+                            SafeSQL.insert("INSERT INTO world_members (user_id, world_id, display_name, world_role) VALUES (?, ?, ?, ?)"),
                             parameterSetter = { parameters, worldId ->
                                 parameters.setInt(1, user.id)
                                 parameters.setInt(2, it)
                                 parameters.setString(3, user.minecraftUsername)
+                                parameters.setInt(4, Role.OWNER.level)
                             },
                             errorMapper = { CreateWorldFailures.DatabaseError }
                         ).process(it).map {  }

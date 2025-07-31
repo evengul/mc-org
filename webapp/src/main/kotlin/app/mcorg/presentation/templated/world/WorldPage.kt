@@ -13,6 +13,7 @@ import app.mcorg.presentation.templated.common.page.createPage
 import app.mcorg.presentation.templated.common.tabs.TabData
 import app.mcorg.presentation.templated.common.tabs.tabsComponent
 import kotlinx.html.*
+import kotlinx.html.ul
 
 enum class WorldPageToggles {
     PROJECTS,
@@ -116,14 +117,10 @@ private fun MAIN.worldProjectsSection(
     tab: String?,
     toggles: Set<WorldPageToggles>
 ) {
-    if (projects.isEmpty()) {
-        worldProjectsEmpty()
-    } else {
-        worldProjectsContent(projects, tab, toggles)
-    }
+    worldProjectsContent(projects, tab, toggles)
 }
 
-private fun MAIN.worldProjectsEmpty() {
+private fun DIV.worldProjectsEmpty() {
     div("world-projects-empty") {
         h2 {
             + "No Active Projects"
@@ -145,10 +142,18 @@ private fun MAIN.worldProjectsContent(
         }
     }
     div("world-project-content") {
-        when(tab) {
-            "kanban" -> kanbanView()
-            "roadmap" -> roadmapView()
-            else -> ul {
+        worldProjectContent(tab, projects)
+    }
+}
+
+fun DIV.worldProjectContent(tab: String?, projects: List<Project>) {
+    when(tab) {
+        "kanban" -> kanbanView()
+        "roadmap" -> roadmapView()
+        else -> if (projects.isEmpty()) {
+            worldProjectsEmpty()
+        } else {
+            ul("world-projects-list") {
                 projectList(projects)
             }
         }

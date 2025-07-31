@@ -9,6 +9,12 @@ interface Step<in I, out E, out S> {
                 return Result.success(value)
             }
         }
+        
+        fun <I, E, V> value(value: (i: I) -> V) = object : Step<I, E, V> {
+            override suspend fun process(input: I): Result<E, V> {
+                return Result.success(value(input))
+            }
+        }
 
         fun <I, E> validate(
             error: E,

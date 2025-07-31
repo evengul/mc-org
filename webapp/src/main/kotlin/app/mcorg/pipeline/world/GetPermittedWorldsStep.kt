@@ -2,12 +2,10 @@ package app.mcorg.pipeline.world
 
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.domain.model.world.World
-import app.mcorg.domain.model.minecraft.MinecraftVersion
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.failure.DatabaseFailure
-import java.sql.ResultSet
 
 class GetPermittedWorldsStep : Step<Int, DatabaseFailure, List<World>> {
     override suspend fun process(input: Int): Result<DatabaseFailure, List<World>> {
@@ -41,18 +39,5 @@ class GetPermittedWorldsStep : Step<Int, DatabaseFailure, List<World>> {
                 }
             }
         ).process(input)
-    }
-
-    private fun ResultSet.toWorld(): World {
-        return World(
-            id = getInt("id"),
-            name = getString("name"),
-            description = getString("description") ?: "",
-            version = MinecraftVersion.fromString(getString("version")),
-            completedProjects = getInt("completed_projects"),
-            totalProjects = getInt("total_projects"),
-            createdAt = getTimestamp("created_at").toInstant().atZone(java.time.ZoneOffset.UTC),
-            updatedAt = getTimestamp("updated_at").toInstant().atZone(java.time.ZoneOffset.UTC)
-        )
     }
 }

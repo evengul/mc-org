@@ -3,7 +3,6 @@ package app.mcorg.presentation.handler
 import app.mcorg.domain.pipeline.Pipeline
 import app.mcorg.pipeline.world.GetPermittedWorldsStep
 import app.mcorg.presentation.mockdata.MockInvitations
-import app.mcorg.presentation.mockdata.MockWorlds
 import app.mcorg.presentation.templated.home.homePage
 import app.mcorg.presentation.utils.getUser
 import app.mcorg.presentation.utils.respondHtml
@@ -24,14 +23,12 @@ class HomeHandler {
     private suspend fun ApplicationCall.handleGetHome() {
         val user = getUser()
 
-        respondHtml(homePage(user, MockInvitations.getPendingByToId(user.id), MockWorlds.getList()))
-
-        executeParallelPipelineDSL(
+        executeParallelPipeline(
             onSuccess = {
-                logger.info("Successfully loaded worlds for user: ${user.id}. Ignoring and using mocks for now.")
+                respondHtml(homePage(user, MockInvitations.getPendingByToId(user.id), it))
             },
             onFailure = {
-                logger.warn("Failed to load worlds for user: ${user.id}. Using mock data instead. Error: $it")
+                logger.warn("Failed to load worlds for user: ${user.id}. Error: $it")
             }
         ) {
             pipeline(

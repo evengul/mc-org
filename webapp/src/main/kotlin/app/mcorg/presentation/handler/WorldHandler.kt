@@ -4,6 +4,9 @@ import app.mcorg.pipeline.world.handleCreateWorld
 import app.mcorg.pipeline.world.handleGetProject
 import app.mcorg.pipeline.world.handleGetWorld
 import app.mcorg.pipeline.world.handleGetWorldSettings
+import app.mcorg.pipeline.project.handleCreateProject
+import app.mcorg.pipeline.world.handleDeleteWorld
+import app.mcorg.pipeline.world.handleUpdateWorld
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.delete
 import io.ktor.server.routing.get
@@ -22,9 +25,17 @@ class WorldHandler {
                 get {
                     call.handleGetWorld()
                 }
+                delete {
+                    call.handleDeleteWorld()
+                }
+                put {
+                    call.handleUpdateWorld()
+                }
                 route("/projects") {
                     post {
-                        // Accept, validate, and process project creation
+                        val worldId = call.parameters["worldId"]?.toIntOrNull()
+                            ?: throw IllegalArgumentException("Invalid world ID")
+                        call.handleCreateProject(worldId)
                     }
                     route("/{projectId}") {
                         get {

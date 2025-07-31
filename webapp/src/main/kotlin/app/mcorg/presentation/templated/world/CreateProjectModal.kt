@@ -1,5 +1,6 @@
 package app.mcorg.presentation.templated.world
 
+import app.mcorg.domain.model.minecraft.MinecraftVersion
 import app.mcorg.domain.model.project.ProjectType
 import app.mcorg.presentation.templated.common.form.radiogroup.RadioGroupOption
 import app.mcorg.presentation.templated.common.form.radiogroup.radioGroup
@@ -16,6 +17,8 @@ import kotlinx.html.classes
 import kotlinx.html.div
 import kotlinx.html.input
 import kotlinx.html.label
+import kotlinx.html.option
+import kotlinx.html.select
 import kotlinx.html.span
 import kotlinx.html.textArea
 
@@ -25,7 +28,7 @@ fun <T : Tag> T.createProjectModal(worldId: Int) = formModal(
     description = "Create a new project for your Minecraft world.",
     saveText = "Create Project",
     hxValues = FormModalHxValues(
-        hxTarget = "#world-project-list",
+        hxTarget = ".world-project-content",
         method = FormModalHttpMethod.POST,
         href = "${Link.Worlds.world(worldId).to}/projects"
     ),
@@ -45,6 +48,8 @@ fun <T : Tag> T.createProjectModal(worldId: Int) = formModal(
             }
             input {
                 type = InputType.text
+                name = "name"
+                required = true
             }
         }
         span("input-group") {
@@ -52,7 +57,7 @@ fun <T : Tag> T.createProjectModal(worldId: Int) = formModal(
                 + "Description"
             }
             textArea {
-
+                name = "description"
             }
         }
         span("input-group") {
@@ -60,12 +65,27 @@ fun <T : Tag> T.createProjectModal(worldId: Int) = formModal(
                 + "Project Type"
             }
             div("project-type-select") {
-                radioGroup("project-type", options = ProjectType.entries.map {
+                radioGroup("type", options = ProjectType.entries.map {
                     RadioGroupOption(
                         value = it.name,
                         label = it.toPrettyEnumName()
                     )
-                }, selectedOption = "building")
+                }, selectedOption = "BUILDING")
+            }
+        }
+        span("input-group") {
+            label {
+                + "Minecraft Version"
+            }
+            select {
+                name = "version"
+                required = true
+                MinecraftVersion.supportedVersions.forEach {
+                    option {
+                        value = it.toString()
+                        + it.toString()
+                    }
+                }
             }
         }
         // TODO: Dependency selection

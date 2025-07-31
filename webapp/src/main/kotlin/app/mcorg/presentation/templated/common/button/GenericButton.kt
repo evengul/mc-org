@@ -19,6 +19,7 @@ class GenericButton(
     var iconSize: IconSize? = null,
     var onClick: String? = null,
     var classes: Set<String> = setOf("btn"),
+    var buttonBlock: (BUTTON.() -> Unit)? = null
 ) : LeafComponent() {
 
     override fun render(container: TagConsumer<*>) {
@@ -27,6 +28,9 @@ class GenericButton(
                 this@a.classes += "link--button"
                 this@a.href = it
                 button {
+                    buttonBlock?.let { block ->
+                        block(this)
+                    }
                     buttonInternals()
                 }
             }
@@ -34,6 +38,9 @@ class GenericButton(
 
         if (href == null) {
             container.button {
+                buttonBlock?.let { block ->
+                    block(this)
+                }
                 buttonInternals()
             }
         }

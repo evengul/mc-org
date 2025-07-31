@@ -2,15 +2,14 @@ package app.mcorg.pipeline.world
 
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
-import app.mcorg.pipeline.failure.CreateWorldFailures
 import io.ktor.http.Parameters
 
-object ValidateWorldInputStep : Step<Parameters, CreateWorldFailures, CreateWorldInput> {
-    override suspend fun process(input: Parameters): Result<CreateWorldFailures, CreateWorldInput> {
+object ValidateUpdateWorldInputStep : Step<Parameters, UpdateWorldFailures, UpdateWorldInput> {
+    override suspend fun process(input: Parameters): Result<UpdateWorldFailures, UpdateWorldInput> {
         return WorldInputValidator.validateWorldInput(input)
-            .mapError { CreateWorldFailures.ValidationError(it) }
+            .mapError { UpdateWorldFailures.ValidationError(it) }
             .map { validationResult ->
-                CreateWorldInput(
+                UpdateWorldInput(
                     name = validationResult.name,
                     description = validationResult.description,
                     version = validationResult.version

@@ -21,7 +21,7 @@ fun <T : Tag> T.createWorldModal(versions: List<MinecraftVersion.Release>) = for
     description = "Create a new Minecraft world to organize your projects.",
     saveText = "Create World",
     hxValues = FormModalHxValues(
-        hxTarget = "#home-worlds-list",
+        hxTarget = "#home-worlds",
         method = FormModalHttpMethod.POST,
         href = "/app/worlds"
     ),
