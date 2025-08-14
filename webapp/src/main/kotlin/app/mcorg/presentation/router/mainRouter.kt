@@ -4,6 +4,7 @@ import app.mcorg.domain.Production
 import app.mcorg.presentation.handler.handleGetLanding
 import app.mcorg.presentation.plugins.EnvPlugin
 import app.mcorg.presentation.plugins.AuthPlugin
+import app.mcorg.presentation.plugins.BannedPlugin
 import app.mcorg.presentation.templated.testpage.createTestPage
 import app.mcorg.presentation.utils.getEnvironment
 import app.mcorg.presentation.utils.respondHtml
@@ -32,6 +33,7 @@ fun Application.configureAppRouter() {
             authRouter()
         }
         route("/app") {
+            install(BannedPlugin)
             appRouterV2()
         }
     }

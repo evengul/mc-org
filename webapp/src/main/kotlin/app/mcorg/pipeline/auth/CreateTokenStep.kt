@@ -23,6 +23,7 @@ data object CreateTokenStep : Step<TokenProfile, CreateTokenFailure, String> {
                 .withClaim("minecraft_username", input.minecraftUsername)
                 .withClaim("minecraft_uuid", input.uuid)
                 .withClaim("display_name", input.displayName)
+                .withClaim("roles", input.roles)
                 .withExpiresAt(Date(System.currentTimeMillis() + EIGHT_HOURS))
                 .sign(Algorithm.RSA256(publicKey, privateKey)) as String
             return Result.success(jwt)

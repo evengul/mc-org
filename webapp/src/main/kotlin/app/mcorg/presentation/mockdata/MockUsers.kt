@@ -35,6 +35,7 @@ object MockUsers {
                 uuid = uuid,
                 minecraftUsername = username,
                 displayName = displayName,
+                roles = listOf("superadmin")
             )
         }
 
@@ -73,6 +74,7 @@ object MockUsers {
                 uuid = uuid,
                 minecraftUsername = username,
                 displayName = displayName,
+                roles = listOf()
             )
         }
 

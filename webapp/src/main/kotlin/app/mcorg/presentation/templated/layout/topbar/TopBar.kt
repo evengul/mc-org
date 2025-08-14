@@ -34,6 +34,7 @@ data class TopBar(
     val user: TokenProfile? = null,
     val activeLinks: Set<ActiveLinks> = setOf(
         ActiveLinks.HOME,
+        ActiveLinks.ADMIN_DASHBOARD,
         ActiveLinks.PROFILE
     ),
 ) : LeafComponent() {
@@ -69,8 +70,7 @@ data class TopBar(
                             }
                         }
                     }
-                    // TODO: Dynamically add this link based on user permissions
-                    if (activeLinks.contains(ActiveLinks.ADMIN_DASHBOARD) && user?.minecraftUsername == "lilpebblez" || user?.minecraftUsername == "evegul") {
+                    if (activeLinks.contains(ActiveLinks.ADMIN_DASHBOARD) && user?.isSuperAdmin == true) {
                         li {
                             classes += "top-bar-link"
                             linkComponent(Link.AdminDashboard) {

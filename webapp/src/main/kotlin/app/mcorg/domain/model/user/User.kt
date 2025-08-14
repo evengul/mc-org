@@ -30,8 +30,18 @@ data class TokenProfile(
     override val id: Int,
     val uuid: String,
     val minecraftUsername: String,
-    val displayName: String
-) : User
+    val displayName: String,
+    val roles: List<String>,
+) : User {
+    val isSuperAdmin: Boolean
+        get() = roles.contains("superadmin")
+    val isModerator: Boolean
+        get() = roles.contains("moderator")
+    val isIdeaCreator: Boolean
+        get() = roles.contains("idea_creator")
+    val isBanned: Boolean
+        get() = roles.contains("banned")
+}
 
 data class MinecraftProfile(
     val uuid: String,

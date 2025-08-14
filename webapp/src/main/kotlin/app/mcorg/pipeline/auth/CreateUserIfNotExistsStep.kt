@@ -54,13 +54,17 @@ data object CreateUserIfNotExistsStep : Step<MinecraftProfile, CreateUserIfNotEx
                         logger.info("Updating username for UUID ${input.uuid} from '${existingUser.currentUsername}' to '${input.username}'")
                         updateUsernameAndReturnProfile(existingUser, input.username)
                     } else {
-                        // User exists and username matches, return existing profile
-                        Result.success(TokenProfile(
-                            id = existingUser.id,
-                            uuid = existingUser.uuid,
-                            minecraftUsername = existingUser.currentUsername,
-                            displayName = existingUser.currentUsername
-                        ))
+                        // User exists and username matches, fetch roles and return existing profile
+                        when (val rolesResult = fetchUserRoles(existingUser.id)) {
+                            is Result.Failure -> rolesResult
+                            is Result.Success -> Result.success(TokenProfile(
+                                id = existingUser.id,
+                                uuid = existingUser.uuid,
+                                minecraftUsername = existingUser.currentUsername,
+                                displayName = existingUser.currentUsername,
+                                roles = rolesResult.value
+                            ))
+                        }
                     }
                 } else {
                     // User doesn't exist, create new user
@@ -69,6 +73,30 @@ data object CreateUserIfNotExistsStep : Step<MinecraftProfile, CreateUserIfNotEx
                 }
             }
         }
+    }
+
+    private suspend fun fetchUserRoles(userId: Int): Result<CreateUserIfNotExistsFailure, List<String>> {
+        val fetchRolesStep = DatabaseSteps.query(
+            sql = SafeSQL.select("""
+                SELECT role
+                FROM global_user_roles
+                WHERE user_id = ? AND is_active = TRUE
+                AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
+            """.trimIndent()),
+            parameterSetter = { statement, _: Int ->
+                statement.setInt(1, userId)
+            },
+            errorMapper = { failure -> CreateUserIfNotExistsFailure.Other(failure) },
+            resultMapper = { resultSet: ResultSet ->
+                val roles = mutableListOf<String>()
+                while (resultSet.next()) {
+                    roles.add(resultSet.getString("role"))
+                }
+                roles.toList()
+            }
+        )
+
+        return fetchRolesStep.process(userId)
     }
 
     private suspend fun updateUsernameAndReturnProfile(
@@ -96,12 +124,17 @@ data object CreateUserIfNotExistsStep : Step<MinecraftProfile, CreateUserIfNotEx
                     // Also update world_members where display_name matches the old username
                     updateWorldMemberDisplayNames(existingUser.id, existingUser.currentUsername, newUsername)
 
-                    Result.success(TokenProfile(
-                        id = existingUser.id,
-                        uuid = existingUser.uuid,
-                        minecraftUsername = newUsername,
-                        displayName = newUsername
-                    ))
+                    // Fetch roles for the updated profile
+                    when (val rolesResult = fetchUserRoles(existingUser.id)) {
+                        is Result.Failure -> rolesResult
+                        is Result.Success -> Result.success(TokenProfile(
+                            id = existingUser.id,
+                            uuid = existingUser.uuid,
+                            minecraftUsername = newUsername,
+                            displayName = newUsername,
+                            roles = rolesResult.value
+                        ))
+                    }
                 } else {
                     logger.error("Failed to update username for UUID: ${existingUser.uuid}")
                     Result.failure(CreateUserIfNotExistsFailure.Other(app.mcorg.pipeline.failure.DatabaseFailure.UnknownError))
@@ -211,7 +244,8 @@ data object CreateUserIfNotExistsStep : Step<MinecraftProfile, CreateUserIfNotEx
                                     id = userId,
                                     uuid = input.uuid,
                                     minecraftUsername = input.username,
-                                    displayName = input.username
+                                    displayName = input.username,
+                                    roles = emptyList() // New users have no roles initially
                                 ))
                             } else {
                                 Result.failure(CreateUserIfNotExistsFailure.Other(app.mcorg.pipeline.failure.DatabaseFailure.UnknownError))

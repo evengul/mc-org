@@ -27,6 +27,7 @@ data class ConvertTokenStep(val issuer: String = ISSUER) : Step<String, ConvertT
                 .withClaimPresence("minecraft_username")
                 .withClaimPresence("minecraft_uuid")
                 .withClaimPresence("display_name")
+                .withClaimPresence("roles")
                 .acceptLeeway(3L)
                 .build()
                 .verify(input)
@@ -45,7 +46,8 @@ data class ConvertTokenStep(val issuer: String = ISSUER) : Step<String, ConvertT
             jwt.getClaim("sub").asInt(),
             jwt.getClaim("minecraft_uuid").asString(),
             jwt.getClaim("minecraft_username").asString(),
-            jwt.getClaim("display_name").asString()
+            jwt.getClaim("display_name").asString(),
+            jwt.getClaim("roles").asList(String::class.java) ?: emptyList()
         ))
     }
 }
