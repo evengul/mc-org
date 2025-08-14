@@ -1,8 +1,10 @@
 package app.mcorg.presentation.handler
 
 import app.mcorg.domain.pipeline.Pipeline
+import app.mcorg.domain.pipeline.Result
+import app.mcorg.pipeline.failure.DatabaseFailure
+import app.mcorg.pipeline.invitation.GetUserInvitationsStep
 import app.mcorg.pipeline.world.GetPermittedWorldsStep
-import app.mcorg.presentation.mockdata.MockInvitations
 import app.mcorg.presentation.templated.home.homePage
 import app.mcorg.presentation.utils.getUser
 import app.mcorg.presentation.utils.respondHtml
@@ -23,19 +25,25 @@ class HomeHandler {
     private suspend fun ApplicationCall.handleGetHome() {
         val user = getUser()
 
+        val invitationsPipeline = Pipeline.create<DatabaseFailure, Int>()
+            .pipe(GetUserInvitationsStep)
+
+        val worldsPipeline = Pipeline.create<DatabaseFailure, Int>()
+            .pipe(GetPermittedWorldsStep)
+
         executeParallelPipeline(
             onSuccess = {
-                respondHtml(homePage(user, MockInvitations.getPendingByToId(user.id), it))
+                respondHtml(homePage(user, it.first, it.second))
             },
             onFailure = {
                 logger.warn("Failed to load worlds for user: ${user.id}. Error: $it")
             }
         ) {
-            pipeline(
-                id = "worlds",
-                input = user.id,
-                pipeline = Pipeline { input -> GetPermittedWorldsStep().process(input) }
-            )
+            val invitationsRef = pipeline("invitations", user.id, invitationsPipeline)
+            val worldsRef = pipeline("worlds", user.id, worldsPipeline)
+            merge("invitationsAndWorlds", invitationsRef, worldsRef) { invitations, worlds ->
+                Result.success(invitations to worlds)
+            }
         }
     }
 }

@@ -7,7 +7,7 @@ import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.failure.DatabaseFailure
 
-class GetPermittedWorldsStep : Step<Int, DatabaseFailure, List<World>> {
+object GetPermittedWorldsStep : Step<Int, DatabaseFailure, List<World>> {
     override suspend fun process(input: Int): Result<DatabaseFailure, List<World>> {
         return DatabaseSteps.query<Int, DatabaseFailure, List<World>>(
             sql = SafeSQL.select("""

@@ -5,7 +5,6 @@ import app.mcorg.domain.model.user.TokenProfile
 import app.mcorg.domain.model.world.World
 import app.mcorg.presentation.templated.common.component.addComponent
 import app.mcorg.presentation.templated.common.page.createPage
-import kotlinx.html.classes
 import kotlinx.html.id
 
 fun homePage(
@@ -14,6 +13,8 @@ fun homePage(
     worlds: List<World>
 ) = createPage(user = user) {
     id = "home"
-    addComponent(PendingInvitesView(pendingInvites))
+    pendingInvites.takeIf { it.isNotEmpty() }?.let {
+        addComponent(PendingInvitesView(it))
+    }
     addComponent(WorldsView(worlds))
 }
