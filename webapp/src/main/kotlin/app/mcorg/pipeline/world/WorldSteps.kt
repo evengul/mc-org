@@ -2,7 +2,6 @@ package app.mcorg.pipeline.world
 
 import app.mcorg.domain.model.world.World
 import app.mcorg.pipeline.DatabaseSteps
-import app.mcorg.pipeline.ValidationSteps
 import app.mcorg.pipeline.failure.DatabaseFailure
 import app.mcorg.pipeline.failure.HandleGetWorldFailure
 
