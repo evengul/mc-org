@@ -4,6 +4,8 @@ import app.mcorg.domain.model.invite.Invite
 import app.mcorg.domain.model.invite.InviteStatus
 import app.mcorg.domain.model.user.Role
 import app.mcorg.domain.model.user.WorldMember
+import app.mcorg.presentation.hxPost
+import app.mcorg.presentation.hxTarget
 import app.mcorg.presentation.templated.common.avatar.avatar
 import app.mcorg.presentation.templated.common.button.actionButton
 import app.mcorg.presentation.templated.common.button.dangerButton
@@ -11,8 +13,10 @@ import app.mcorg.presentation.templated.common.button.neutralButton
 import app.mcorg.presentation.templated.common.chip.chipComponent
 import app.mcorg.presentation.templated.common.icon.IconColor
 import app.mcorg.presentation.templated.common.icon.IconSize
+import app.mcorg.presentation.templated.common.link.Link
 import app.mcorg.presentation.templated.utils.toPrettyEnumName
 import kotlinx.html.DIV
+import kotlinx.html.FormEncType
 import kotlinx.html.InputType
 import kotlinx.html.button
 import kotlinx.html.classes
@@ -30,7 +34,12 @@ import kotlinx.html.select
 import kotlinx.html.ul
 import java.time.format.DateTimeFormatter
 
-fun DIV.sendInvitationForm() {
+val validInitialRoles = listOf(
+    Role.MEMBER,
+    Role.ADMIN
+)
+
+fun DIV.sendInvitationForm(worldId: Int) {
     section(classes = "send-invitation") {
         h2 {
             +"Send invitation"
@@ -39,10 +48,13 @@ fun DIV.sendInvitationForm() {
             +"Invite new members to collaborate on this world"
         }
         form {
+            encType = FormEncType.applicationXWwwFormUrlEncoded
+            hxTarget(".member-invitations")
+            hxPost("${Link.Worlds.world(worldId).to}/settings/members/invitations")
             div("inputs") {
                 div("input-group") {
                     label {
-                        +"Minecraft Username"
+                        + "Minecraft Username"
                     }
                     input(type = InputType.text, name = "username") {
                         placeholder = "Alex"
@@ -51,15 +63,15 @@ fun DIV.sendInvitationForm() {
                 }
                 div("input-group") {
                     label {
-                        +"Role"
+                        + "Role"
                     }
                     select {
                         name = "role"
-                        Role.entries.filter { it != Role.BANNED }.forEach {
+                        validInitialRoles.forEach {
                             option {
                                 value = it.name
                                 selected = it == Role.MEMBER
-                                +it.toPrettyEnumName()
+                                + it.toPrettyEnumName()
                             }
                         }
                     }
@@ -190,10 +202,10 @@ fun DIV.membersListSection(members: List<WorldMember>) {
 }
 
 fun DIV.membersTab(tabData: SettingsTab.Members) {
-    val (_, invitations, members) = tabData
+    val (world, invitations, members) = tabData
     classes += "settings-members-tab"
 
-    sendInvitationForm()
+    sendInvitationForm(world.id)
     invitationsListWithFilter(invitations)
     membersListSection(members)
 }

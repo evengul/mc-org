@@ -7,6 +7,10 @@ import app.mcorg.pipeline.world.handleGetWorldSettings
 import app.mcorg.pipeline.project.handleCreateProject
 import app.mcorg.pipeline.world.handleDeleteWorld
 import app.mcorg.pipeline.world.handleUpdateWorld
+import app.mcorg.pipeline.world.settings.handleCreateInvitation
+import app.mcorg.presentation.plugins.ProjectParamPlugin
+import app.mcorg.presentation.plugins.TaskParamPlugin
+import app.mcorg.presentation.plugins.WorldParamPlugin
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.delete
 import io.ktor.server.routing.get
@@ -22,6 +26,7 @@ class WorldHandler {
                 call.handleCreateWorld()
             }
             route("/{worldId}") {
+                install(WorldParamPlugin)
                 get {
                     call.handleGetWorld()
                 }
@@ -33,11 +38,10 @@ class WorldHandler {
                 }
                 route("/projects") {
                     post {
-                        val worldId = call.parameters["worldId"]?.toIntOrNull()
-                            ?: throw IllegalArgumentException("Invalid world ID")
-                        call.handleCreateProject(worldId)
+                        call.handleCreateProject()
                     }
                     route("/{projectId}") {
+                        install(ProjectParamPlugin)
                         get {
                             call.handleGetProject()
                         }
@@ -82,6 +86,7 @@ class WorldHandler {
                                 // Create a new task
                             }
                             route("/{taskId}") {
+                                install(TaskParamPlugin)
                                 patch("/complete") {
                                     // Mark task as complete
                                 }
@@ -138,7 +143,7 @@ class WorldHandler {
                     route("/members") {
                         route("/invitations") {
                             post {
-                                // Create a new world invitation
+                                call.handleCreateInvitation()
                             }
                             delete("/{inviteId}") {
 

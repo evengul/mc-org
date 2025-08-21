@@ -6,6 +6,7 @@ import app.mcorg.pipeline.failure.CreateProjectFailures
 import app.mcorg.presentation.handler.executePipeline
 import app.mcorg.presentation.templated.world.worldProjectContent
 import app.mcorg.presentation.utils.getUser
+import app.mcorg.presentation.utils.getWorldId
 import app.mcorg.presentation.utils.respondBadRequest
 import app.mcorg.presentation.utils.respondHtml
 import io.ktor.server.application.ApplicationCall
@@ -13,9 +14,10 @@ import io.ktor.server.request.receiveParameters
 import kotlinx.html.div
 import kotlinx.html.stream.createHTML
 
-suspend fun ApplicationCall.handleCreateProject(worldId: Int) {
+suspend fun ApplicationCall.handleCreateProject() {
     val parameters = this.receiveParameters()
     val user = this.getUser()
+    val worldId = this.getWorldId()
 
     executePipeline(
         onSuccess = { projects: List<Project> ->

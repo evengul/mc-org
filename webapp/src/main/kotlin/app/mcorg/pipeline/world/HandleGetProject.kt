@@ -15,6 +15,7 @@ import app.mcorg.presentation.templated.project.projectPage
 import app.mcorg.presentation.templated.project.resourcesTab
 import app.mcorg.presentation.templated.project.stagesTab
 import app.mcorg.presentation.templated.project.tasksTab
+import app.mcorg.presentation.utils.getProjectId
 import app.mcorg.presentation.utils.respondHtml
 import app.mcorg.presentation.utils.respondNotFound
 import io.ktor.server.application.ApplicationCall
@@ -30,8 +31,10 @@ suspend fun ApplicationCall.handleGetProject() {
         }
     }
 
-    val project = parameters["projectId"]?.toIntOrNull()?.let { MockProjects.getById(it) }
-        ?: return respondNotFound("Project ID is required")
+    val project = MockProjects.getById(this.getProjectId()) ?: run {
+        respondNotFound("Project not found")
+        return
+    }
 
     val tasks = lazy {
         MockTasks.getTasksByProjectId(project.id)

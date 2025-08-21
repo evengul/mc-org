@@ -18,7 +18,7 @@ val getWorldIdStep = ValidationSteps.requiredInt("worldId") {
     }
 }
 
-val worldQueryStep = DatabaseSteps.query<Int, HandleGetWorldFailure, World?>(
+val worldQueryStep = DatabaseSteps.query<Int, HandleGetWorldFailure, World>(
     getWorldQuery,
     parameterSetter = { statement, input ->
         statement.setInt(1, input)
@@ -29,7 +29,7 @@ val worldQueryStep = DatabaseSteps.query<Int, HandleGetWorldFailure, World?>(
             else -> HandleGetWorldFailure.SystemError("A system error occurred while fetching the world.")
         }
     },
-    resultMapper = { if(it.next()) it.toWorld() else null }
+    resultMapper = { if(it.next()) it.toWorld() else throw IllegalStateException("World should exist at this point") }
 )
 
 val validateWorldExistsStep = ValidationSteps.validateNonNull<HandleGetWorldFailure.WorldNotFound, World>({ HandleGetWorldFailure.WorldNotFound })

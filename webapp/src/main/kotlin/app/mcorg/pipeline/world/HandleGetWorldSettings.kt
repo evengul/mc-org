@@ -1,6 +1,7 @@
 package app.mcorg.pipeline.world
 
 import app.mcorg.domain.pipeline.Pipeline
+import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.failure.HandleGetWorldFailure
 import app.mcorg.presentation.handler.executeParallelPipeline
 import app.mcorg.presentation.mockdata.MockInvitations
@@ -10,6 +11,8 @@ import app.mcorg.presentation.templated.settings.generalTab
 import app.mcorg.presentation.templated.settings.membersTab
 import app.mcorg.presentation.templated.settings.worldSettingsPage
 import app.mcorg.presentation.templated.settings.statisticsTab
+import app.mcorg.presentation.utils.getUser
+import app.mcorg.presentation.utils.getWorldId
 import app.mcorg.presentation.utils.respondHtml
 import io.ktor.http.Parameters
 import io.ktor.server.application.ApplicationCall
@@ -17,7 +20,8 @@ import kotlinx.html.div
 import kotlinx.html.stream.createHTML
 
 suspend fun ApplicationCall.handleGetWorldSettings() {
-    val user = MockUsers.Evegul.tokenProfile()
+    val user = this.getUser()
+    val worldId = this.getWorldId()
 
     val tab = request.queryParameters["tab"]?.let {
         when(it) {
@@ -45,9 +49,8 @@ suspend fun ApplicationCall.handleGetWorldSettings() {
             id = "world-settings",
             input = parameters,
             pipeline = Pipeline.create<HandleGetWorldFailure, Parameters>()
-                .pipe(getWorldIdStep)
+                .pipe(Step.value(worldId))
                 .pipe(worldQueryStep)
-                .pipe(validateWorldExistsStep)
         )
     }
 }
