@@ -25,6 +25,7 @@ fun UL.pendingInvitesListView(invites: List<Invite>) {
     id = "home-pending-invites-list"
     invites.forEach { invite ->
         li {
+            id = "invite-${invite.id}"
             div("home-pending-invite-details") {
                 p {
                     classes += "home-pending-invite-title"
@@ -52,11 +53,21 @@ fun UL.pendingInvitesListView(invites: List<Invite>) {
                 neutralButton("Decline") {
                     iconLeft = Icons.CLOSE
                     iconSize = IconSize.SMALL
+                    buttonBlock = {
+                        attributes["hx-patch"] = "/app/invites/${invite.id}/decline"
+                        attributes["hx-target"] = "#invite-${invite.id}"
+                        attributes["hx-confirm"] = "Are you sure you want to decline this invitation?"
+                    }
                 }
                 actionButton("Accept") {
                     // TODO: Icon for accept
                     iconLeft = Icons.ADD_WORLD
                     iconSize = IconSize.SMALL
+                    buttonBlock = {
+                        attributes["hx-patch"] = "/app/invites/${invite.id}/accept"
+                        attributes["hx-target"] = "#invite-${invite.id}"
+                        attributes["hx-confirm"] = "Accept invitation to join ${invite.worldName}?"
+                    }
                 }
             }
         }

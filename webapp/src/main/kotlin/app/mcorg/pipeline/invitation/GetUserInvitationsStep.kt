@@ -33,7 +33,7 @@ object GetUserInvitationsStep : Step<Int, DatabaseFailure, List<Invite>> {
                 INNER JOIN users u_to ON i.to_user_id = u_to.id
                 LEFT JOIN minecraft_profiles mp_from ON i.from_user_id = mp_from.user_id
                 LEFT JOIN minecraft_profiles mp_to ON i.to_user_id = mp_to.user_id
-                WHERE i.to_user_id = ?
+                WHERE i.to_user_id = ? AND i.status = 'PENDING'
                 ORDER BY i.created_at DESC
             """.trimIndent()),
             parameterSetter = { statement, userId ->

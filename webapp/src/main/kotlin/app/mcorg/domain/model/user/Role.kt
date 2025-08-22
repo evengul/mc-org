@@ -14,5 +14,9 @@ enum class Role(val level: Int) {
         fun fromString(role: String): Role {
             return entries.find { it.name.equals(role, ignoreCase = true) } ?: throw IllegalArgumentException("Unknown role: $role")
         }
+
+        fun fromLevel(level: Int): Role {
+            return entries.find { it.level == level } ?: throw IllegalArgumentException("Unknown role level: $level")
+        }
     }
 }

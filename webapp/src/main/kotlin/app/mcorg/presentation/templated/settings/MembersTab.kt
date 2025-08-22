@@ -56,7 +56,7 @@ fun DIV.sendInvitationForm(worldId: Int) {
                     label {
                         + "Minecraft Username"
                     }
-                    input(type = InputType.text, name = "username") {
+                    input(type = InputType.text, name = "toUsername") {
                         placeholder = "Alex"
                         required = true
                     }

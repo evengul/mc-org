@@ -75,7 +75,8 @@ class CreateUserIfNotExistsStepTest {
             id = 1,
             uuid = "test-uuid-123",
             minecraftUsername = "TestPlayer",
-            displayName = "TestPlayer"
+            displayName = "TestPlayer",
+            roles = emptyList()
         )
 
         every { mockConnection.prepareStatement(match { it.contains("SELECT u.id, u.email, mp.uuid, mp.username") }) } returns mockCheckUserStatement
