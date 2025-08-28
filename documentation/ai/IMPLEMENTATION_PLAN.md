@@ -43,6 +43,66 @@
 
 ### 🚧 HIGH PRIORITY - Core User Flows (Sprint 1)
 
+#### 🔥 Project Data Pipeline Replacement (Critical Path) - CURRENT TOP PRIORITY
+**Status**: Essential foundation work for all project-related features  
+**Priority**: Must complete before any project management features can work properly
+
+- [x] **Replace MockProjects with Database Operations** - Project retrieval from database
+  - Pipeline: ValidateProjectAccessStep → GetProjectByIdStep → FormatProjectDataStep
+  - Database: SELECT from projects table with proper joins for location data
+  - Authorization: Ensure user has world access before showing project
+  - Side Effects: Real project data displayed instead of hardcoded mock data
+  - Template: Same projectPage template but with actual database content
+  - **Estimated Effort**: 4-5 hours
+
+- [x] **Replace MockTasks with Database Operations** - Task retrieval from database  
+  - Pipeline: GetTasksByProjectIdStep → FormatTaskDataStep
+  - Database: SELECT from tasks table with requirements and assignments
+  - Data: Task requirements (ItemRequirement, ActionRequirement), progress tracking
+  - Side Effects: Real task lists displayed with actual completion status
+  - Template: tasksTab template with actual task data
+  - **Estimated Effort**: 5-6 hours
+
+- [x] **Replace MockDependencies with Database Operations** - Dependency retrieval from database
+  - Pipeline: GetProjectDependenciesStep → GetProjectDependentsStep → FormatDependencyGraphStep
+  - Database: SELECT from project_dependencies table with recursive queries for dependency chains
+  - Data: Both dependencies (what this project depends on) and dependents (what depends on this project)
+  - Side Effects: Real dependency relationships displayed
+  - Template: dependenciesTab template with actual dependency graph
+  - **Estimated Effort**: 6-7 hours (complex due to dependency graph logic)
+
+- [x] **Replace MockResourceProduction with Database Operations** - Resource data from database
+  - Pipeline: GetResourceProductionByProjectIdStep → FormatResourceDataStep
+  - Database: SELECT from resource_production table (if exists) or design new schema
+  - Data: Resource generation rates, current stock levels, efficiency metrics
+  - Side Effects: Real resource tracking instead of mock calculations
+  - Template: resourcesTab template with actual resource production data
+  - **Estimated Effort**: 5-6 hours
+
+- [x] **Replace MockStages with Database Operations** - Stage history from database
+  - Pipeline: GetProjectStageHistoryStep → FormatStageChangesStep
+  - Database: SELECT from project_stage_changes or audit log table
+  - Data: Historical stage transitions with timestamps and user who made changes
+  - Side Effects: Real stage progression history displayed
+  - Template: stagesTab template with actual stage change timeline
+  - **Estimated Effort**: 4-5 hours
+
+- [x] **Create Database Steps for Project Data Retrieval** - Implement supporting Step classes
+  - Steps: GetProjectByIdStep, GetTasksByProjectIdStep, GetProjectDependenciesStep, etc.
+  - Pattern: Follow existing Step interface with Result<E, S> return types
+  - Error Handling: Project not found, access denied, database errors
+  - Database: Use SafeSQL and DatabaseSteps.query patterns
+  - **Estimated Effort**: 6-8 hours
+
+**Total Sprint Effort**: 30-37 hours  
+**Completion Criteria**: HandleGetProject uses only real database data, no Mock classes imported
+
+**Critical Dependencies**: 
+- Must complete before any task management features
+- Required for proper project tab functionality  
+- Foundation for dependency management system
+- Enables real resource tracking and planning
+
 #### ✅ Invitation System (Critical Path) - COMPLETED 🎉
 - [x] **POST /app/worlds/{worldId}/settings/invitations** - Create world invitation
   - ✅ Pipeline: ValidateInvitationInputStep → ValidateInviterPermissionsStep → CreateInvitationStep
@@ -81,19 +141,6 @@
   - Side Effects: Updates all unread notifications for user
   - Template: HTML fragment replacing notification list with all items marked as read
   - **Estimated Effort**: 2-3 hours
-
-#### Profile Management (User Settings)
-- [ ] **PATCH /app/profile/display-name** - Update user display name
-  - Pipeline: ValidateDisplayNameStep → UpdateProfileStep
-  - Validation: Non-empty, max 50 characters, unique check
-  - Template: HTML fragment replacing profile form with updated name and success state
-  - **Estimated Effort**: 3-4 hours
-
-- [ ] **PATCH /app/profile/avatar** - Update user avatar
-  - Pipeline: ValidateAvatarStep → UpdateAvatarStep
-  - Validation: File size, format (future: image upload)
-  - Template: HTML fragment replacing avatar section with updated image
-  - **Estimated Effort**: 4-5 hours (complex due to file handling)
 
 ### 🔧 MEDIUM PRIORITY - Project Management (Sprint 2)
 
@@ -205,6 +252,19 @@
   - **Estimated Effort**: 3-4 hours
 
 ### 📍 LOW PRIORITY - Resource Management (Sprint 5)
+
+#### Profile Management (User Settings)
+- [ ] **PATCH /app/profile/display-name** - Update user display name
+    - Pipeline: ValidateDisplayNameStep → UpdateProfileStep
+    - Validation: Non-empty, max 50 characters, unique check
+    - Template: HTML fragment replacing profile form with updated name and success state
+    - **Estimated Effort**: 3-4 hours
+
+- [ ] **PATCH /app/profile/avatar** - Update user avatar
+    - Pipeline: ValidateAvatarStep → UpdateAvatarStep
+    - Validation: File size, format (future: image upload)
+    - Template: HTML fragment replacing avatar section with updated image
+    - **Estimated Effort**: 4-5 hours (complex due to file handling)
 
 #### Project Location & Resources
 - [ ] **PATCH /app/worlds/{worldId}/projects/{projectId}/location** - Update project location
