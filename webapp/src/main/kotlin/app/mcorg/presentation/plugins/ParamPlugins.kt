@@ -5,8 +5,10 @@ import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.failure.DatabaseFailure
 import app.mcorg.presentation.utils.getProjectId
+import app.mcorg.presentation.utils.getUser
 import app.mcorg.presentation.utils.getWorldId
 import app.mcorg.presentation.utils.respondBadRequest
+import app.mcorg.presentation.utils.setNotificationId
 import app.mcorg.presentation.utils.setProjectId
 import app.mcorg.presentation.utils.setTaskId
 import app.mcorg.presentation.utils.setWorldId
@@ -70,6 +72,25 @@ val TaskParamPlugin = createRouteScopedPlugin("TaskParamPlugin") {
     }
 }
 
+val NotificationParamPlugin = createRouteScopedPlugin("NotificationParamPlugin") {
+    onCall { call ->
+        val notificationId = call.parameters["notificationId"]?.toIntOrNull()
+        if (notificationId == null) {
+            call.respondBadRequest("Invalid or missing notification ID")
+        } else {
+            val userId = call.getUser().id
+            val checkResult = ensureNotificationExists(userId, notificationId)
+            if (checkResult is Result.Success && checkResult.value) {
+                call.setNotificationId(notificationId)
+            } else if ((checkResult is Result.Success && !checkResult.value) || (checkResult is Result.Failure && checkResult.error is DatabaseFailure.NotFound)) {
+                call.respond(HttpStatusCode.NotFound, "Notification with ID $notificationId does not exist")
+            } else {
+                call.respond(HttpStatusCode.InternalServerError, "Database error occurred")
+            }
+        }
+    }
+}
+
 private suspend fun ensureWorldExists(worldId: Int) = ensureParamEntityExists(
     SafeSQL.select("SELECT EXISTS(SELECT 1 FROM world WHERE id = ?)"),
     worldId
@@ -83,6 +104,11 @@ private suspend fun ensureProjectExists(worldId: Int, projectId: Int) = ensurePa
 private suspend fun ensureTaskExists(projectId: Int, taskId: Int) = ensureParamEntityExists(
     SafeSQL.select("SELECT EXISTS(SELECT 1 FROM tasks WHERE id = ? AND project_id = ?)"),
     taskId, projectId
+)
+
+private suspend fun ensureNotificationExists(userId: Int, notificationId: Int) = ensureParamEntityExists(
+    SafeSQL.select("SELECT EXISTS(SELECT 1 FROM notifications WHERE id = ? AND user_id = ?)"),
+    notificationId, userId
 )
 
 private suspend fun ensureParamEntityExists(

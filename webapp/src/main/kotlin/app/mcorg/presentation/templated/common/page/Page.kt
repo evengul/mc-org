@@ -18,6 +18,7 @@ fun createPage(
     pageScripts: Set<PageScript> = setOf(PageScript.HTMX),
     pageStyles: Set<PageStyle> = PageStyle.entries.toSet(),
     user: TokenProfile? = null,
+    unreadNotificationCount: Int = 0,
     body: MAIN.() -> Unit
 ): String {
     return "<!DOCTYPE html>\n" + createHTML().html {
@@ -37,7 +38,7 @@ fun createPage(
             }
         }
         body {
-            topBar(user)
+            topBar(user, unreadNotificationCount)
             main {
                 body()
             }

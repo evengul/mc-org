@@ -11,7 +11,12 @@ import app.mcorg.presentation.templated.utils.toPrettyEnumName
 import kotlinx.html.*
 import java.time.format.DateTimeFormatter
 
-fun adminPage(currentUser: TokenProfile, users: List<ManagedUser>, worlds: List<ManagedWorld>) = createPage("Admin", user = currentUser) {
+fun adminPage(
+    currentUser: TokenProfile,
+    users: List<ManagedUser>,
+    worlds: List<ManagedWorld>,
+    unreadNotificationCount: Int = 0
+) = createPage("Admin", user = currentUser, unreadNotificationCount = unreadNotificationCount) {
     classes += "admin-page"
 
     adminPageHeader()
@@ -22,10 +27,10 @@ fun adminPage(currentUser: TokenProfile, users: List<ManagedUser>, worlds: List<
 private fun MAIN.adminPageHeader() {
     div("admin-header") {
         h1 {
-            + "Admin Dashboard"
+            +"Admin Dashboard"
         }
         p("subtle") {
-            + "Manage users, worlds, and system settings."
+            +"Manage users, worlds, and system settings."
         }
     }
 }
@@ -43,10 +48,10 @@ private fun MAIN.userManagementSection(users: List<ManagedUser>) {
 private fun FlowContent.userManagementHeader() {
     div("user-management-header") {
         h2 {
-            + "User Management"
+            +"User Management"
         }
         p("subtle") {
-            + "View and manage all users in the system. You can make users admins, ban users, or view their details."
+            +"View and manage all users in the system. You can make users admins, ban users, or view their details."
         }
     }
 }
@@ -56,25 +61,25 @@ private fun FlowContent.userManagementTable(users: List<ManagedUser>) {
         thead {
             tr {
                 th {
-                    + "User"
+                    +"User"
                 }
                 th {
-                    + "Username"
+                    +"Username"
                 }
                 th {
-                    + "Email"
+                    +"Email"
                 }
                 th {
-                    + "Status"
+                    +"Status"
                 }
                 th {
-                    + "Joined"
+                    +"Joined"
                 }
                 th {
-                    + "Last Active"
+                    +"Last Active"
                 }
                 th {
-                    + "Actions"
+                    +"Actions"
                 }
             }
         }
@@ -82,22 +87,22 @@ private fun FlowContent.userManagementTable(users: List<ManagedUser>) {
             users.forEach { user ->
                 tr {
                     td {
-                        + user.displayName
+                        +user.displayName
                     }
                     td {
-                        + user.minecraftUsername
+                        +user.minecraftUsername
                     }
                     td {
-                        + user.email
+                        +user.email
                     }
                     td {
-                        + user.globalRole.toPrettyEnumName()
+                        +user.globalRole.toPrettyEnumName()
                     }
                     td {
-                        + user.joinedAt.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))
+                        +user.joinedAt.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))
                     }
                     td {
-                        + (user.lastSeen?.format(DateTimeFormatter.ofPattern("dd/MM/yyyy 'at' HH:mm")) ?: "Never")
+                        +(user.lastSeen?.format(DateTimeFormatter.ofPattern("dd/MM/yyyy 'at' HH:mm")) ?: "Never")
                     }
                     td("actions") {
                         userActionButtons(user)
@@ -134,10 +139,10 @@ private fun MAIN.worldManagementSection(worlds: List<ManagedWorld>) {
 private fun FlowContent.worldManagementHeader() {
     div("world-management-header") {
         h2 {
-            + "World Management"
+            +"World Management"
         }
         p("subtle") {
-            + "View and manage all worlds in the system. You can view details, edit, or delete worlds."
+            +"View and manage all worlds in the system. You can view details, edit, or delete worlds."
         }
     }
 }
@@ -147,22 +152,22 @@ private fun FlowContent.worldManagementTable(worlds: List<ManagedWorld>) {
         thead {
             tr {
                 th {
-                    + "Name"
+                    +"Name"
                 }
                 th {
-                    + "Version"
+                    +"Version"
                 }
                 th {
-                    + "Projects"
+                    +"Projects"
                 }
                 th {
-                    + "Members"
+                    +"Members"
                 }
                 th {
-                    + "Created On"
+                    +"Created On"
                 }
                 th {
-                    + "Actions"
+                    +"Actions"
                 }
             }
         }
@@ -170,19 +175,19 @@ private fun FlowContent.worldManagementTable(worlds: List<ManagedWorld>) {
             worlds.forEach { world ->
                 tr {
                     td {
-                        + world.name
+                        +world.name
                     }
                     td {
-                        + world.version.toString()
+                        +world.version.toString()
                     }
                     td {
-                        + world.projects.toString()
+                        +world.projects.toString()
                     }
                     td {
-                        + world.members.toString()
+                        +world.members.toString()
                     }
                     td {
-                        + world.createdAt.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))
+                        +world.createdAt.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))
                     }
                     td("actions") {
                         worldActionButtons()

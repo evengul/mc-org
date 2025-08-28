@@ -2,8 +2,10 @@ package app.mcorg.presentation.handler
 
 import app.mcorg.domain.pipeline.Pipeline
 import app.mcorg.domain.pipeline.Result
+import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.failure.DatabaseFailure
 import app.mcorg.pipeline.invitation.GetUserInvitationsStep
+import app.mcorg.pipeline.notification.GetUnreadNotificationCountStep
 import app.mcorg.pipeline.world.GetPermittedWorldsStep
 import app.mcorg.presentation.templated.home.homePage
 import app.mcorg.presentation.utils.getUser
@@ -31,18 +33,29 @@ class HomeHandler {
         val worldsPipeline = Pipeline.create<DatabaseFailure, Int>()
             .pipe(GetPermittedWorldsStep)
 
+        val notificationCountPipeline = Pipeline.create<Unit, Int>()
+            .pipe(object : Step<Int, Unit, Int> {
+                override suspend fun process(input: Int): Result<Unit, Int> {
+                    return when (val result = GetUnreadNotificationCountStep.process(input)) {
+                        is Result.Success -> Result.success(result.value)
+                        is Result.Failure -> Result.success(0)
+                    }
+                }
+            })
+
         executeParallelPipeline(
-            onSuccess = {
-                respondHtml(homePage(user, it.first, it.second))
+            onSuccess = { (invitations, worlds, unreadCount) ->
+                respondHtml(homePage(user, invitations, worlds, unreadCount))
             },
             onFailure = {
-                logger.warn("Failed to load worlds for user: ${user.id}. Error: $it")
+                logger.warn("Failed to load home data for user: ${user.id}. Error: $it")
             }
         ) {
             val invitationsRef = pipeline("invitations", user.id, invitationsPipeline)
             val worldsRef = pipeline("worlds", user.id, worldsPipeline)
-            merge("invitationsAndWorlds", invitationsRef, worldsRef) { invitations, worlds ->
-                Result.success(invitations to worlds)
+            val notificationCountRef = pipeline("notifications", user.id, notificationCountPipeline)
+            merge("homeData", invitationsRef, worldsRef, notificationCountRef) { invitations, worlds, unreadCount ->
+                Result.success(Triple(invitations, worlds, unreadCount))
             }
         }
     }

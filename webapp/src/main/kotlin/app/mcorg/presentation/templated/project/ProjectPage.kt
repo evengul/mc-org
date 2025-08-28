@@ -54,10 +54,12 @@ sealed interface ProjectTab {
 
 fun projectPage(
     user: TokenProfile,
-    data: ProjectTab
+    data: ProjectTab,
+    unreadNotifications: Int
 ) = createPage(
     user = user,
-    pageTitle = data.project.name
+    pageTitle = data.project.name,
+    unreadNotificationCount = unreadNotifications
 ) {
     val project = data.project
     classes += "project"

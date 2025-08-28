@@ -10,8 +10,12 @@ import kotlinx.html.id
 fun homePage(
     user: TokenProfile,
     pendingInvites: List<Invite>,
-    worlds: List<World>
-) = createPage(user = user) {
+    worlds: List<World>,
+    unreadNotificationCount: Int = 0
+) = createPage(
+    user = user,
+    unreadNotificationCount = unreadNotificationCount
+) {
     id = "home"
     pendingInvites.takeIf { it.isNotEmpty() }?.let {
         addComponent(PendingInvitesView(it))

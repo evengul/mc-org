@@ -7,7 +7,7 @@ import app.mcorg.presentation.mockdata.MockProjects
 import app.mcorg.presentation.mockdata.MockResourceProduction
 import app.mcorg.presentation.mockdata.MockStages
 import app.mcorg.presentation.mockdata.MockTasks
-import app.mcorg.presentation.mockdata.MockUsers
+import app.mcorg.presentation.templated.layout.topbar.getUnreadNotificationCount
 import app.mcorg.presentation.templated.project.ProjectTab
 import app.mcorg.presentation.templated.project.dependenciesTab
 import app.mcorg.presentation.templated.project.locationTab
@@ -16,6 +16,7 @@ import app.mcorg.presentation.templated.project.resourcesTab
 import app.mcorg.presentation.templated.project.stagesTab
 import app.mcorg.presentation.templated.project.tasksTab
 import app.mcorg.presentation.utils.getProjectId
+import app.mcorg.presentation.utils.getUser
 import app.mcorg.presentation.utils.respondHtml
 import app.mcorg.presentation.utils.respondNotFound
 import io.ktor.server.application.ApplicationCall
@@ -23,7 +24,7 @@ import kotlinx.html.div
 import kotlinx.html.stream.createHTML
 
 suspend fun ApplicationCall.handleGetProject() {
-    val user = MockUsers.Evegul.tokenProfile()
+    val user = this.getUser()
     val tab = request.queryParameters["tab"]?.let {
         when (it) {
             "tasks", "resources", "location", "stages", "dependencies" -> it
@@ -35,6 +36,8 @@ suspend fun ApplicationCall.handleGetProject() {
         respondNotFound("Project not found")
         return
     }
+
+    val unreadNotifications = getUnreadNotificationCount(user)
 
     val tasks = lazy {
         MockTasks.getTasksByProjectId(project.id)
@@ -61,12 +64,11 @@ suspend fun ApplicationCall.handleGetProject() {
     }
 
     if (request.headers["HX-Request"] == "true" && tab != null) {
-        // Handle HTMX request for specific tab or content
         handleGetTab(tabData)
         return
     }
 
-    respondHtml(projectPage(user, tabData))
+    respondHtml(projectPage(user, tabData, unreadNotifications))
 }
 
 suspend fun ApplicationCall.handleGetTab(tabData: ProjectTab) {

@@ -9,6 +9,9 @@ import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.ValidationSteps
 import app.mcorg.pipeline.failure.DatabaseFailure
 import app.mcorg.pipeline.failure.ValidationFailure
+import app.mcorg.pipeline.notification.CreateNotificationInput
+import app.mcorg.pipeline.notification.CreateNotificationStep
+import app.mcorg.pipeline.notification.NotificationTypes
 import app.mcorg.presentation.handler.executePipeline
 import app.mcorg.presentation.utils.getUser
 import app.mcorg.presentation.utils.getWorldId
@@ -19,7 +22,6 @@ import io.ktor.server.request.receiveParameters
 import kotlinx.html.div
 import kotlinx.html.stream.createHTML
 
-// Failure types for invitation creation
 sealed interface CreateInvitationFailures {
     data class ValidationError(val errors: List<ValidationFailure>) : CreateInvitationFailures
     data object DatabaseError : CreateInvitationFailures
@@ -27,18 +29,20 @@ sealed interface CreateInvitationFailures {
     data object UserNotFound : CreateInvitationFailures
     data object DuplicateInvitation : CreateInvitationFailures
     data object CannotInviteSelf : CreateInvitationFailures
+    data object NotificationError : CreateInvitationFailures
 }
 
-// Input data class for validated invitation data
 data class CreateInvitationInput(
     val toUsername: String,
     val role: Role
 )
 
-// Result data class for successful invitation creation
 data class CreateInvitationResult(
     val invitationId: Int,
-    val worldId: Int
+    val worldId: Int,
+    val worldName: String,
+    val inviterName: String,
+    val inviteeUserId: Int
 )
 
 suspend fun ApplicationCall.handleCreateInvitation() {
@@ -75,6 +79,8 @@ suspend fun ApplicationCall.handleCreateInvitation() {
                     "Invitation already exists: This user already has a pending invitation"
                 is CreateInvitationFailures.CannotInviteSelf ->
                     "Cannot invite yourself to the world"
+                is CreateInvitationFailures.NotificationError ->
+                    "Invitation created but notification could not be sent"
             }
             respondBadRequest(errorMessage)
         }
@@ -85,6 +91,7 @@ suspend fun ApplicationCall.handleCreateInvitation() {
             .step(ValidateTargetUserStep)
             .step(ValidateNotSelfInviteStep(user.id))
             .step(CreateInvitationStep(user.id, worldId))
+            .step(SendInvitationNotificationStep(user.minecraftUsername))
     }
 }
 
@@ -239,13 +246,51 @@ class CreateInvitationStep(
                     CreateInvitationFailures.DatabaseError
                 }
             }
-        ).process(input).let { result ->
-            when (result) {
-                is Result.Success -> {
-                    val invitationId = result.value
-                    Result.success(CreateInvitationResult(invitationId, worldId))
+        ).process(input).flatMap { invitationId ->
+            // Fetch world name for notification
+            DatabaseSteps.query<Int, CreateInvitationFailures, String>(
+                sql = SafeSQL.select("SELECT name FROM world WHERE id = ?"),
+                parameterSetter = { stmt, _ ->
+                    stmt.setInt(1, worldId)
+                },
+                errorMapper = { CreateInvitationFailures.DatabaseError },
+                resultMapper = { rs ->
+                    if (rs.next()) {
+                        rs.getString("name")
+                    } else {
+                        "Unknown World"
+                    }
                 }
-                is Result.Failure -> result
+            ).process(invitationId).map { worldName ->
+                CreateInvitationResult(invitationId, worldId, worldName, "", toUserId)
+            }
+        }
+    }
+}
+
+// Step 6: Send invitation notification
+class SendInvitationNotificationStep(
+    private val inviterUsername: String
+) : Step<CreateInvitationResult, CreateInvitationFailures, CreateInvitationResult> {
+    override suspend fun process(input: CreateInvitationResult): Result<CreateInvitationFailures, CreateInvitationResult> {
+        // Create notification for the invitee
+        val notificationInput = CreateNotificationInput(
+            userId = input.inviteeUserId,
+            title = "World Invitation Received",
+            description = "$inviterUsername has invited you to join the world \"${input.worldName}\"",
+            type = NotificationTypes.INVITATION_RECEIVED,
+            link = "/app"
+        )
+
+        // Send notification
+        return CreateNotificationStep.process(notificationInput).let { result ->
+            when (result) {
+                is Result.Success -> Result.success(input.copy(inviterName = inviterUsername))
+                is Result.Failure -> {
+                    // Log the failure but do not block the invitation creation
+                    // The invitation was created successfully, but notification failed
+                    Result.failure(CreateInvitationFailures.NotificationError)
+                }
             }
         }
     }

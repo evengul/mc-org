@@ -30,6 +30,7 @@ fun worldPage(
     world: World,
     projects: List<Project>,
     tab: String? = null,
+    unreadNotificationCount: Int = 0,
     toggles: Set<WorldPageToggles> = setOf(
         WorldPageToggles.PROJECTS,
         WorldPageToggles.NEW_PROJECT,
@@ -37,7 +38,8 @@ fun worldPage(
     )
 ) = createPage(
     user = user,
-    pageTitle = world.name
+    pageTitle = world.name,
+    unreadNotificationCount = unreadNotificationCount
 ) {
     classes += "world"
 

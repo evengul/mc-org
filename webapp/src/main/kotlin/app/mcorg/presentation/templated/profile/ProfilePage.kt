@@ -22,8 +22,13 @@ enum class ProfilePageToggles {
 fun profilePage(
     user: TokenProfile,
     profile: Profile,
+    unreadNotificationCount: Int = 0,
     toggles: Set<ProfilePageToggles> = emptySet()
-) = createPage("Profile", user = user) {
+) = createPage(
+    pageTitle = "Profile", 
+    user = user,
+    unreadNotificationCount = unreadNotificationCount
+) {
     classes += "profile-page"
 
     profilePageHeader()

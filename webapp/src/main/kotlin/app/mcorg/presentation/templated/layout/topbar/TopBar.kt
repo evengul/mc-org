@@ -1,6 +1,7 @@
 package app.mcorg.presentation.templated.layout.topbar
 
 import app.mcorg.domain.model.user.TokenProfile
+import app.mcorg.presentation.templated.common.button.IconButtonColor
 import app.mcorg.presentation.templated.common.button.iconButton
 import app.mcorg.presentation.templated.common.component.LeafComponent
 import app.mcorg.presentation.templated.common.component.addComponent
@@ -10,15 +11,18 @@ import app.mcorg.presentation.templated.common.link.Link
 import app.mcorg.presentation.templated.common.link.linkComponent
 import kotlinx.html.BODY
 import kotlinx.html.TagConsumer
+import kotlinx.html.a
 import kotlinx.html.classes
 import kotlinx.html.div
 import kotlinx.html.h1
 import kotlinx.html.header
 import kotlinx.html.li
 import kotlinx.html.nav
+import kotlinx.html.span
 import kotlinx.html.ul
 
-fun BODY.topBar(user: TokenProfile? = null) = addComponent(TopBar(user))
+fun BODY.topBar(user: TokenProfile? = null, unreadNotificationCount: Int = 0) =
+    addComponent(TopBar(user, unreadNotificationCount))
 
 enum class ActiveLinks {
     HOME,
@@ -32,8 +36,10 @@ enum class ActiveLinks {
 
 data class TopBar(
     val user: TokenProfile? = null,
+    val unreadNotificationCount: Int = 0,
     val activeLinks: Set<ActiveLinks> = setOf(
         ActiveLinks.HOME,
+        ActiveLinks.NOTIFICATIONS,
         ActiveLinks.ADMIN_DASHBOARD,
         ActiveLinks.PROFILE
     ),
@@ -86,7 +92,17 @@ data class TopBar(
                     }
                     if (user != null) {
                         if (activeLinks.contains(ActiveLinks.NOTIFICATIONS)) {
-                            iconButton(Icons.Notification.INFO, iconSize = IconSize.SMALL)
+                            a(href = Link.Notifications.to, classes = "top-bar-notification") {
+                                iconButton(Icons.Notification.INFO, iconSize = IconSize.SMALL, color = IconButtonColor.GHOST) {
+                                    // Remove default href since we're wrapping in an anchor
+                                    href = null
+                                }
+                                if (unreadNotificationCount > 0) {
+                                    span("top-bar-notification__badge") {
+                                        + unreadNotificationCount.toString()
+                                    }
+                                }
+                            }
                         }
                         if (activeLinks.contains(ActiveLinks.PROFILE)) {
                             iconButton(Icons.Users.PROFILE, iconSize = IconSize.SMALL) {

@@ -183,6 +183,10 @@ sealed interface Link {
         override val to: String = "/app/admin"
     }
 
+    object Notifications : Link {
+        override val to: String = "/app/notifications"
+    }
+
     @Suppress("unused")
     object Servers : Link {
         override val to: String = "/app/servers"

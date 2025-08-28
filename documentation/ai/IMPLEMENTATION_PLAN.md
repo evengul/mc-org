@@ -65,18 +65,18 @@
   - **Actual Effort**: ~2 hours (within estimated 2-3 hours)
 
 #### Notification System (User Experience)
-- [ ] **GET /app/notifications** - List user notifications
+- [x] **GET /app/notifications** - List user notifications
   - Pipeline: GetUserNotificationsStep → FormatNotificationsStep
   - Template: Full page with notifications list including read/unread states
   - **Estimated Effort**: 3-4 hours
 
-- [ ] **PATCH /app/notifications/{notificationId}/read** - Mark notification as read
+- [x] **PATCH /app/notifications/{notificationId}/read** - Mark notification as read
   - Pipeline: ValidateNotificationStep → MarkNotificationReadStep
   - Side Effects: Updates notification read status and timestamp
   - Template: HTML fragment replacing notification item with updated read state
   - **Estimated Effort**: 2-3 hours
 
-- [ ] **PATCH /app/notifications/read** - Mark all notifications as read
+- [x] **PATCH /app/notifications/read** - Mark all notifications as read
   - Pipeline: GetUserNotificationsStep → BulkMarkReadStep
   - Side Effects: Updates all unread notifications for user
   - Template: HTML fragment replacing notification list with all items marked as read

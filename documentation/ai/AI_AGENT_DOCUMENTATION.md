@@ -23,6 +23,7 @@ This is a **Ktor-based Kotlin web application** using **server-side HTML generat
 - **Testing**: Playwright for end-to-end testing
 
 ### Build & Deployment
+- The local environment uses Powershell as the shell for running commands. This means that commands with && does not work, so use `;` to chain commands.
 - **Build Tool**: Maven with specialized Flyway integration
 - **Database Migrations**: Flyway (27 migrations from V1 to V2)
 - **Containerization**: Docker with Fly.io deployment
