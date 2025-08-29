@@ -29,7 +29,7 @@ fun <T : Tag> T.createTaskModal(project: Project) = formModal(
     description = "Create a new task with requirements for your Minecraft project.",
     saveText = "Create Task",
     hxValues = FormModalHxValues(
-        hxTarget = "#project-task-list",
+        hxTarget = ".project-tasks",
         method = FormModalHttpMethod.POST,
         href = "${Link.Worlds.world(project.worldId).project(project.id).to}/tasks"
     ),
@@ -48,6 +48,10 @@ fun <T : Tag> T.createTaskModal(project: Project) = formModal(
                 + "Name"
             }
             input {
+                name = "name"
+                required = true
+                minLength = "3"
+                maxLength = "100"
                 type = InputType.text
             }
         }
@@ -55,13 +59,15 @@ fun <T : Tag> T.createTaskModal(project: Project) = formModal(
             + "Description"
         }
         textArea {
-
+            name = "description"
+            maxLength = "2000"
         }
         span("input-group") {
             label {
                 + "Related Stage"
             }
             select {
+                name = "stage"
                 ProjectStage.entries.forEach {
                     option {
                         value = it.name

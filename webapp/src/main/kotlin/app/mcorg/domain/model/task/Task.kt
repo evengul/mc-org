@@ -16,4 +16,9 @@ data class Task(
         val completed = requirements.count { it.isCompleted() }
         return (completed.toDouble() / requirements.size) * 100.0
     }
+
+    fun isCompleted(): Boolean {
+        return stage == ProjectStage.COMPLETED || (requirements.isNotEmpty() && requirements.all { it.isCompleted() })
+    }
 }
+

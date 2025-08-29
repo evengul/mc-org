@@ -5,12 +5,16 @@ import app.mcorg.domain.model.task.ActionRequirement
 import app.mcorg.domain.model.task.ItemRequirement
 import app.mcorg.domain.model.task.Priority
 import app.mcorg.domain.model.task.Task
+import app.mcorg.presentation.hxPatch
+import app.mcorg.presentation.hxSwap
+import app.mcorg.presentation.hxTarget
 import app.mcorg.presentation.templated.common.button.iconButton
 import app.mcorg.presentation.templated.common.button.neutralButton
 import app.mcorg.presentation.templated.common.chip.ChipVariant
 import app.mcorg.presentation.templated.common.chip.chipComponent
 import app.mcorg.presentation.templated.common.icon.IconSize
 import app.mcorg.presentation.templated.common.icon.Icons
+import app.mcorg.presentation.templated.common.link.Link
 import app.mcorg.presentation.templated.common.progress.progressComponent
 import app.mcorg.presentation.templated.utils.toPrettyEnumName
 import kotlinx.html.*
@@ -52,9 +56,8 @@ private fun DIV.taskManagementSection(project: Project, tasks: List<Task>) {
         taskManagementHeader()
         if (tasks.isEmpty()) {
             emptyTasksDisplay(project)
-        } else {
-            tasksList(tasks)
         }
+        tasksList(project.worldId, project.id, tasks)
     }
 }
 
@@ -108,17 +111,18 @@ private fun DIV.emptyTasksDisplay(project: Project) {
     }
 }
 
-private fun DIV.tasksList(tasks: List<Task>) {
+fun DIV.tasksList(worldId: Int, projectId: Int, tasks: List<Task>) {
     ul {
-        tasks.forEach { task ->
-            taskItem(task)
+        id = "tasks-list"
+        tasks.sortedBy { it.isCompleted() }.forEach { task ->
+            taskItem(worldId, projectId, task)
         }
     }
 }
 
-private fun UL.taskItem(task: Task) {
+private fun UL.taskItem(worldId: Int, projectId: Int, task: Task) {
     li {
-        taskHeader(task)
+        taskHeader(worldId, projectId, task)
         if (task.description.isNotBlank()) {
             p("subtle") {
                 + task.description
@@ -129,10 +133,16 @@ private fun UL.taskItem(task: Task) {
     }
 }
 
-private fun LI.taskHeader(task: Task) {
+private fun LI.taskHeader(worldId: Int, projectId: Int, task: Task) {
     div("task-header") {
         div("task-header-start") {
             input {
+                id = "task-${task.id}-complete"
+                checked = task.isCompleted()
+                disabled = task.isCompleted()
+                hxTarget("#task-${task.id}-complete")
+                hxPatch(Link.Worlds.world(worldId).project(projectId).tasks().task(task.id) + "/complete")
+                hxSwap("outerHTML")
                 type = InputType.checkBox
             }
             h3 {
@@ -172,6 +182,9 @@ private fun LI.taskProgressDisplay(task: Task) {
 }
 
 private fun LI.taskRequirements(task: Task) {
+    if (task.requirements.isEmpty()) {
+        return
+    }
     neutralButton("Show details") {
         classes += "task-requirements-toggle"
         onClick = "document.getElementById('task-requirements-${task.id}')?.classList.toggle('visible'); this.textContent = this.textContent === 'Show details' ? 'Hide details' : 'Show details';"

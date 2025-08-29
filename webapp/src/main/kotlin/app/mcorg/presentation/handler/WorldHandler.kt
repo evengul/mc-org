@@ -11,6 +11,9 @@ import app.mcorg.pipeline.world.settings.handleCreateInvitation
 import app.mcorg.presentation.plugins.ProjectParamPlugin
 import app.mcorg.presentation.plugins.TaskParamPlugin
 import app.mcorg.presentation.plugins.WorldParamPlugin
+import app.mcorg.presentation.handler.TaskHandler.handleCompleteTask
+import app.mcorg.presentation.handler.TaskHandler.handleCreateTask
+import app.mcorg.presentation.handler.TaskHandler.handleDeleteTask
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.delete
 import io.ktor.server.routing.get
@@ -83,15 +86,15 @@ class WorldHandler {
                         }
                         route("/tasks") {
                             post {
-                                // Create a new task
+                                call.handleCreateTask()
                             }
                             route("/{taskId}") {
                                 install(TaskParamPlugin)
                                 patch("/complete") {
-                                    // Mark task as complete
+                                    call.handleCompleteTask()
                                 }
                                 delete {
-                                    // Delete task
+                                    call.handleDeleteTask()
                                 }
                                 route("/requirements") {
                                     put {

@@ -145,19 +145,19 @@
 ### 🔧 MEDIUM PRIORITY - Project Management (Sprint 2)
 
 #### Task Management
-- [ ] **POST /app/worlds/{worldId}/projects/{projectId}/tasks** - Create new task
+- [x] **POST /app/worlds/{worldId}/projects/{projectId}/tasks** - Create new task
   - Pipeline: ValidateTaskInputStep → CreateTaskStep → GetProjectTasksStep
   - Validation: Name required, description optional, priority enum
   - Template: HTML fragment replacing tasks list with new task included
   - **Estimated Effort**: 4-5 hours
 
-- [ ] **PATCH /app/worlds/{worldId}/projects/{projectId}/tasks/{taskId}/complete** - Mark task complete
+- [x] **PATCH /app/worlds/{worldId}/projects/{projectId}/tasks/{taskId}/complete** - Mark task complete
   - Pipeline: ValidateTaskAccessStep → CompleteTaskStep → CheckProjectProgressStep
   - Side Effects: Updates task completion, may trigger project stage change
   - Template: HTML fragment replacing task item with completed state
   - **Estimated Effort**: 3-4 hours
 
-- [ ] **DELETE /app/worlds/{worldId}/projects/{projectId}/tasks/{taskId}** - Delete task
+- [x] **DELETE /app/worlds/{worldId}/projects/{projectId}/tasks/{taskId}** - Delete task
   - Pipeline: ValidateTaskOwnershipStep → DeleteTaskStep → GetUpdatedTasksStep
   - Authorization: Task creator or world admin+
   - Template: HTML fragment replacing tasks list with task removed
@@ -175,6 +175,7 @@
   - Pipeline: ValidateRequirementsStep → UpdateRequirementsStep
   - Data: Countable vs Action tasks, quantities, completion criteria
   - Template: HTML fragment replacing requirements form with updated fields
+  - Form: The create task form does not have any requirement fields yet, so this will be a new form section
   - **Estimated Effort**: 5-6 hours
 
 - [ ] **PATCH /app/worlds/{worldId}/projects/{projectId}/tasks/{taskId}/requirements/done-more** - Update task progress

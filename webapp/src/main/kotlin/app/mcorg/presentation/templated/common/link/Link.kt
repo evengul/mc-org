@@ -154,6 +154,18 @@ sealed interface Link {
 
             data class Project(val worldId: Int, val projectId: Int) : Link {
                 override val to: String = "/app/worlds/$worldId/projects/$projectId"
+
+                fun tasks(): Tasks {
+                    return Tasks(worldId, projectId)
+                }
+
+                data class Tasks(val worldId: Int, val projectId: Int): Link {
+                    override val to: String = "/app/worlds/$worldId/projects/$projectId/tasks"
+
+                    fun task(taskId: Int): String {
+                        return Tasks(worldId, projectId).to + "/$taskId"
+                    }
+                }
             }
 
             data class ResourceMaps(val worldId: Int): Link {
