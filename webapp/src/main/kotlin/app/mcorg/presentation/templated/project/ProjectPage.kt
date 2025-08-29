@@ -19,6 +19,7 @@ import app.mcorg.presentation.templated.utils.toPrettyEnumName
 import kotlinx.html.classes
 import kotlinx.html.div
 import kotlinx.html.h1
+import kotlinx.html.id
 import kotlinx.html.option
 import kotlinx.html.p
 import kotlinx.html.select
@@ -69,6 +70,8 @@ fun projectPage(
             +project.name
         }
         div("project-header-content") {
+            id = "project-header-content" // Target ID for HTMX replacement
+
             div("project-header-start") {
                 chipComponent {
                     variant = ChipVariant.ACTION
@@ -92,6 +95,15 @@ fun projectPage(
             }
             div("project-header-end") {
                 select {
+                    id = "project-stage-selector"
+                    name = "stage"
+
+                    // HTMX attributes for dynamic stage updates
+                    attributes["hx-patch"] = "/app/worlds/${project.worldId}/projects/${project.id}/stage"
+                    attributes["hx-target"] = "#project-header-content"
+                    attributes["hx-swap"] = "outerHTML"
+                    attributes["hx-trigger"] = "change"
+
                     ProjectStage.entries.forEach {
                         option {
                             value = it.name

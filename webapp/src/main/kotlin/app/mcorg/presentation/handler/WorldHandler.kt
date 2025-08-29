@@ -5,6 +5,7 @@ import app.mcorg.pipeline.world.handleGetProject
 import app.mcorg.pipeline.world.handleGetWorld
 import app.mcorg.pipeline.world.handleGetWorldSettings
 import app.mcorg.pipeline.project.handleCreateProject
+import app.mcorg.pipeline.project.handleUpdateProjectStage
 import app.mcorg.pipeline.world.handleDeleteWorld
 import app.mcorg.pipeline.world.handleUpdateWorld
 import app.mcorg.pipeline.world.settings.handleCreateInvitation
@@ -50,6 +51,7 @@ class WorldHandler {
                         }
                         patch("/stage") {
                             // Update project stage
+                            call.handleUpdateProjectStage()
                         }
                         route("/resources") {
                             post {
