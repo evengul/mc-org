@@ -12,16 +12,7 @@ import app.mcorg.presentation.templated.common.modal.FormModalHttpMethod
 import app.mcorg.presentation.templated.common.modal.FormModalHxValues
 import app.mcorg.presentation.templated.common.modal.formModal
 import app.mcorg.presentation.templated.utils.toPrettyEnumName
-import kotlinx.html.InputType
-import kotlinx.html.Tag
-import kotlinx.html.classes
-import kotlinx.html.div
-import kotlinx.html.input
-import kotlinx.html.label
-import kotlinx.html.option
-import kotlinx.html.select
-import kotlinx.html.span
-import kotlinx.html.textArea
+import kotlinx.html.*
 
 fun <T : Tag> T.createTaskModal(project: Project) = formModal(
     modalId = "create-task-modal",
@@ -43,48 +34,92 @@ fun <T : Tag> T.createTaskModal(project: Project) = formModal(
 ) {
     formContent {
         classes += "create-task-form"
-        span("input-group") {
-            label {
-                + "Name"
-            }
-            input {
-                name = "name"
-                required = true
-                minLength = "3"
-                maxLength = "100"
-                type = InputType.text
-            }
-        }
-        label {
-            + "Description"
-        }
-        textArea {
-            name = "description"
-            maxLength = "2000"
-        }
-        span("input-group") {
-            label {
-                + "Related Stage"
-            }
-            select {
-                name = "stage"
-                ProjectStage.entries.forEach {
-                    option {
-                        value = it.name
-                        selected = it == project.stage
-                        + it.toPrettyEnumName()
-                    }
+        
+        // Tab navigation
+        div("form-tabs") {
+            div("tab-buttons") {
+                button(classes = "tab-button active") {
+                    type = ButtonType.button
+                    attributes["data-tab"] = "basic"
+                    onClick = "switchTab('basic')"
+                    +"Basic Info"
+                }
+                button(classes = "tab-button") {
+                    type = ButtonType.button
+                    attributes["data-tab"] = "requirements"
+                    onClick = "switchTab('requirements')"
+                    +"Requirements"
                 }
             }
         }
-        span("input-group") {
-            label {
-                + "Priority"
+        
+        // Basic Info Tab
+        div("tab-content") {
+            id = "basic-tab"
+            
+            span("input-group") {
+                label {
+                    + "Name"
+                }
+                input {
+                    name = "name"
+                    required = true
+                    minLength = "3"
+                    maxLength = "100"
+                    type = InputType.text
+                    classes += "form-control"
+                }
             }
-            div("priority-group") {
-                radioGroup("priority", Priority.entries.map { RadioGroupOption(it.name, it.toPrettyEnumName()) }, selectedOption = "medium")
+            
+            span("input-group") {
+                label {
+                    + "Description"
+                }
+                textArea {
+                    name = "description"
+                    maxLength = "2000"
+                    classes += "form-control"
+                }
+            }
+            
+            span("input-group") {
+                label {
+                    + "Related Stage"
+                }
+                select {
+                    name = "stage"
+                    classes += "form-control"
+                    ProjectStage.entries.forEach {
+                        option {
+                            value = it.name
+                            selected = it == project.stage
+                            + it.toPrettyEnumName()
+                        }
+                    }
+                }
+            }
+            
+            span("input-group") {
+                label {
+                    + "Priority"
+                }
+                div("priority-group") {
+                    radioGroup("priority", Priority.entries.map { RadioGroupOption(it.name, it.toPrettyEnumName()) }, selectedOption = "MEDIUM")
+                }
             }
         }
-        // TODO: Requirement tabs
+        
+        // Requirements Tab
+        div("tab-content") {
+            id = "requirements-tab"
+            style = "display: none;"
+            
+            taskRequirementsForm()
+        }
+        
+        // JavaScript include for form functionality
+        script {
+            src = "/static/scripts/task-requirements.js"
+        }
     }
 }

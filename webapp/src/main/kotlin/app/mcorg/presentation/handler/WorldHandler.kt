@@ -15,6 +15,8 @@ import app.mcorg.presentation.plugins.WorldParamPlugin
 import app.mcorg.presentation.handler.TaskHandler.handleCompleteTask
 import app.mcorg.presentation.handler.TaskHandler.handleCreateTask
 import app.mcorg.presentation.handler.TaskHandler.handleDeleteTask
+import app.mcorg.presentation.handler.TaskHandler.handleUpdateRequirementProgress
+import app.mcorg.presentation.handler.TaskHandler.handleToggleActionRequirement
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.delete
 import io.ktor.server.routing.get
@@ -100,10 +102,15 @@ class WorldHandler {
                                 }
                                 route("/requirements") {
                                     put {
-
+                                        // Update task requirements (edit functionality)
                                     }
-                                    patch("/done-more") {
-                                        // Update done count for a task
+                                    route("/{requirementId}") {
+                                        patch("/done-more") {
+                                            call.handleUpdateRequirementProgress()
+                                        }
+                                        patch("/toggle") {
+                                            call.handleToggleActionRequirement()
+                                        }
                                     }
                                 }
                             }

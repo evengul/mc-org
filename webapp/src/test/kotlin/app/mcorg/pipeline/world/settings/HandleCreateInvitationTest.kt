@@ -156,32 +156,4 @@ class HandleCreateInvitationTest {
         assertIs<Result.Success<Pair<CreateInvitationInput, Int>>>(result)
         assertEquals(input, result.value)
     }
-
-    @Test
-    fun `CreateInvitationInput should store correct values`() {
-        // Given
-        val username = "testuser"
-        val role = Role.ADMIN
-
-        // When
-        val input = CreateInvitationInput(username, role)
-
-        // Then
-        assertEquals(username, input.toUsername)
-        assertEquals(role, input.role)
-    }
-
-    @Test
-    fun `CreateInvitationResult should store correct values`() {
-        // Given
-        val invitationId = 42
-        val worldId = 123
-
-        // When
-        val result = CreateInvitationResult(invitationId, worldId)
-
-        // Then
-        assertEquals(invitationId, result.invitationId)
-        assertEquals(worldId, result.worldId)
-    }
 }

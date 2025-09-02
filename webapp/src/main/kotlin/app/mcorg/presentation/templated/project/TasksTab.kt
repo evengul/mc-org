@@ -129,7 +129,7 @@ private fun UL.taskItem(worldId: Int, projectId: Int, task: Task) {
             }
         }
         taskProgressDisplay(task)
-        taskRequirements(task)
+        taskRequirements(task, worldId, projectId)
     }
 }
 
@@ -181,7 +181,7 @@ private fun LI.taskProgressDisplay(task: Task) {
     }
 }
 
-private fun LI.taskRequirements(task: Task) {
+private fun LI.taskRequirements(task: Task, worldId: Int, projectId: Int) {
     if (task.requirements.isEmpty()) {
         return
     }
@@ -201,8 +201,8 @@ private fun LI.taskRequirements(task: Task) {
                         classes += "completed"
                     }
                     when(requirement) {
-                        is ActionRequirement -> actionRequirement(requirement)
-                        is ItemRequirement -> itemRequirement(requirement)
+                        is ActionRequirement -> actionRequirement(requirement, worldId, projectId, task.id)
+                        is ItemRequirement -> itemRequirement(requirement, worldId, projectId, task.id)
                     }
                 }
             }
@@ -210,47 +210,112 @@ private fun LI.taskRequirements(task: Task) {
     }
 }
 
-private fun LI.actionRequirement(requirement: ActionRequirement) {
+private fun LI.actionRequirement(requirement: ActionRequirement, worldId: Int, projectId: Int, taskId: Int) {
     classes += "action-requirement"
-    input {
-        id = "requirement-${requirement.id}"
-        checked = requirement.isCompleted()
-        type = InputType.checkBox
-    }
-    label {
-        htmlFor = "requirement-${requirement.id}"
-        + requirement.action
+    id = "requirement-${requirement.id}"
+
+    div("action-requirement-content") {
+        input {
+            id = "requirement-checkbox-${requirement.id}"
+            checked = requirement.isCompleted()
+            disabled = requirement.isCompleted()
+            type = InputType.checkBox
+            if (!requirement.isCompleted()) {
+                hxPatch("/app/worlds/$worldId/projects/$projectId/tasks/$taskId/requirements/${requirement.id}/toggle")
+                hxTarget("#requirement-${requirement.id}")
+                hxSwap("outerHTML")
+            }
+        }
+        label {
+            htmlFor = "requirement-checkbox-${requirement.id}"
+            + requirement.action
+        }
+
+        if (!requirement.isCompleted()) {
+            iconButton(Icons.MENU, iconSize = IconSize.SMALL) {
+                buttonBlock = {
+                    classes += "edit-requirement-btn"
+                    onClick = "openEditRequirementModal(${requirement.id}, '${requirement.action}', $worldId, $projectId, $taskId)"
+                    title = "Edit requirement"
+                }
+            }
+        }
     }
 }
 
-private fun LI.itemRequirement(requirement: ItemRequirement) {
+private fun LI.itemRequirement(requirement: ItemRequirement, worldId: Int, projectId: Int, taskId: Int) {
     classes += "item-requirement"
-    div("item-requirement-counts") {
-        p {
-            + requirement.item
-        }
-        span {
-            p {
+    id = "requirement-${requirement.id}"
+
+    div("item-requirement-header") {
+        div("item-requirement-info") {
+            p("item-name") {
+                + requirement.item
+            }
+            span("item-counts") {
                 + "${requirement.collected} / ${requirement.requiredAmount}"
             }
-            // TODO(ICON): Edit icon for item requirement
-            iconButton(Icons.MENU_ADD, iconSize = IconSize.SMALL)
+        }
+        div("item-requirement-controls") {
+            iconButton(Icons.MENU, iconSize = IconSize.SMALL) {
+                buttonBlock = {
+                    classes += "edit-requirement-btn"
+                    onClick = "openEditRequirementModal(${requirement.id}, '${requirement.item}', ${requirement.requiredAmount}, $worldId, $projectId, $taskId)"
+                    title = "Edit requirement"
+                }
+            }
         }
     }
+
     progressComponent {
         value = requirement.collected.toDouble()
         max = requirement.requiredAmount.toDouble()
     }
-    itemRequirementActions()
+
+    if (!requirement.isCompleted()) {
+        itemRequirementActions(requirement, worldId, projectId, taskId)
+    }
 }
 
-private fun LI.itemRequirementActions() {
+private fun LI.itemRequirementActions(requirement: ItemRequirement, worldId: Int, projectId: Int, taskId: Int) {
     div("item-requirement-actions") {
-        neutralButton("+1")
-        neutralButton("+64")
-        neutralButton("+1728")
-        neutralButton("+3456")
-        neutralButton("+ Custom")
+        neutralButton("+1") {
+            buttonBlock = {
+                attributes["hx-vals"] = """{"amount": 1}"""
+                hxPatch("/app/worlds/$worldId/projects/$projectId/tasks/$taskId/requirements/${requirement.id}/done-more")
+                hxTarget("#requirement-${requirement.id}")
+                hxSwap("outerHTML")
+            }
+        }
+        neutralButton("+64") {
+            buttonBlock = {
+                attributes["hx-vals"] = """{"amount": 64}"""
+                hxPatch("/app/worlds/$worldId/projects/$projectId/tasks/$taskId/requirements/${requirement.id}/done-more")
+                hxTarget("#requirement-${requirement.id}")
+                hxSwap("outerHTML")
+            }
+        }
+        neutralButton("+1728") {
+            buttonBlock = {
+                attributes["hx-vals"] = """{"amount": 1728}"""
+                hxPatch("/app/worlds/$worldId/projects/$projectId/tasks/$taskId/requirements/${requirement.id}/done-more")
+                hxTarget("#requirement-${requirement.id}")
+                hxSwap("outerHTML")
+            }
+        }
+        neutralButton("+3456") {
+            buttonBlock = {
+                attributes["hx-vals"] = """{"amount": 3456}"""
+                hxPatch("/app/worlds/$worldId/projects/$projectId/tasks/$taskId/requirements/${requirement.id}/done-more")
+                hxTarget("#requirement-${requirement.id}")
+                hxSwap("outerHTML")
+            }
+        }
+        neutralButton("+ Custom") {
+            buttonBlock = {
+                onClick = "openCustomAmountModal(${requirement.id}, $worldId, $projectId, $taskId)"
+            }
+        }
     }
 }
 

@@ -2,6 +2,8 @@ package app.mcorg.presentation.handler
 
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.task.*
+import app.mcorg.domain.model.task.ActionRequirement
+import app.mcorg.domain.model.task.ItemRequirement
 import app.mcorg.presentation.hxPatch
 import app.mcorg.presentation.hxTarget
 import app.mcorg.presentation.templated.common.link.Link
@@ -9,10 +11,8 @@ import app.mcorg.presentation.templated.project.tasksList
 import app.mcorg.presentation.utils.*
 import io.ktor.server.application.*
 import io.ktor.server.request.*
-import kotlinx.html.InputType
-import kotlinx.html.div
-import kotlinx.html.id
-import kotlinx.html.input
+import io.ktor.http.Parameters
+import kotlinx.html.*
 import kotlinx.html.stream.createHTML
 
 object TaskHandler {
@@ -141,6 +141,137 @@ object TaskHandler {
                 .step(ValidateTaskDependenciesStep)
                 .step(DeleteTaskStep)
                 .step(GetUpdatedTasksAfterDeletionStep)
+        }
+    }
+
+    suspend fun ApplicationCall.handleUpdateRequirementProgress() {
+        val parameters = this.receiveParameters()
+        val user = this.getUser()
+        val projectId = this.getProjectId()
+        val taskId = this.getTaskId()
+        val requirementId = this.parameters["requirementId"]?.toIntOrNull()
+            ?: return respondBadRequest("Invalid requirement ID")
+
+        executePipeline(
+            onSuccess = { result: UpdateRequirementProgressResult ->
+                respondHtml(createHTML().li {
+                    if (result.requirement.isCompleted()) {
+                        classes += "completed"
+                    }
+                    id = "requirement-${result.requirement.id}"
+                    when (result.requirement) {
+                        is ActionRequirement -> {
+                            classes += "action-requirement"
+                            div("action-requirement-content") {
+                                input {
+                                    id = "requirement-checkbox-${result.requirement.id}"
+                                    checked = result.requirement.isCompleted()
+                                    disabled = result.requirement.isCompleted()
+                                    type = InputType.checkBox
+                                }
+                                label {
+                                    htmlFor = "requirement-checkbox-${result.requirement.id}"
+                                    +result.requirement.action
+                                }
+                            }
+                        }
+                        is ItemRequirement -> {
+                            classes += "item-requirement"
+                            div("item-requirement-header") {
+                                div("item-requirement-info") {
+                                    p("item-name") {
+                                        +result.requirement.item
+                                    }
+                                    span("item-counts") {
+                                        + "${result.requirement.collected} / ${result.requirement.requiredAmount}"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                })
+            },
+            onFailure = { failure: UpdateRequirementFailures ->
+                when (failure) {
+                    is UpdateRequirementFailures.ValidationError ->
+                        respondBadRequest("Invalid input: ${failure.errors.joinToString(", ")}")
+                    UpdateRequirementFailures.RequirementNotFound ->
+                        respondBadRequest("Requirement not found")
+                    UpdateRequirementFailures.RequirementAlreadyCompleted ->
+                        respondBadRequest("Requirement is already completed")
+                    UpdateRequirementFailures.InsufficientPermissions ->
+                        respondBadRequest("You don't have permission to update this requirement")
+                    UpdateRequirementFailures.InvalidAmount ->
+                        respondBadRequest("Invalid amount specified")
+                    UpdateRequirementFailures.DatabaseError ->
+                        respondBadRequest("Failed to update requirement. Please try again.")
+                }
+            }
+        ) {
+            step(Step.value(parameters))
+                .step(ValidateRequirementProgressInputStep)
+                .step(InjectRequirementContextStep(requirementId, taskId, projectId, user.id))
+                .step(ValidateRequirementAccessStep)
+                .step(GetRequirementStep)
+                .step(UpdateItemRequirementProgressStep)
+                .step(CheckTaskCompletionStep)
+        }
+    }
+
+    suspend fun ApplicationCall.handleToggleActionRequirement() {
+        val user = this.getUser()
+        val projectId = this.getProjectId()
+        val taskId = this.getTaskId()
+        val requirementId = this.parameters["requirementId"]?.toIntOrNull()
+            ?: return respondBadRequest("Invalid requirement ID")
+
+        // Create empty parameters for action toggle (no amount needed)
+        val emptyParameters = Parameters.Empty
+
+        executePipeline(
+            onSuccess = { result: UpdateRequirementProgressResult ->
+                respondHtml(createHTML().li {
+                    if (result.requirement.isCompleted()) {
+                        classes += "completed"
+                    }
+                    id = "requirement-${result.requirement.id}"
+                    classes += "action-requirement"
+                    div("action-requirement-content") {
+                        input {
+                            id = "requirement-checkbox-${result.requirement.id}"
+                            checked = result.requirement.isCompleted()
+                            disabled = result.requirement.isCompleted()
+                            type = InputType.checkBox
+                        }
+                        label {
+                            htmlFor = "requirement-checkbox-${result.requirement.id}"
+                            + (result.requirement as ActionRequirement).action
+                        }
+                    }
+                })
+            },
+            onFailure = { failure: UpdateRequirementFailures ->
+                when (failure) {
+                    UpdateRequirementFailures.RequirementNotFound ->
+                        respondBadRequest("Requirement not found")
+                    UpdateRequirementFailures.RequirementAlreadyCompleted ->
+                        respondBadRequest("Requirement is already completed")
+                    UpdateRequirementFailures.InsufficientPermissions ->
+                        respondBadRequest("You don't have permission to update this requirement")
+                    UpdateRequirementFailures.DatabaseError ->
+                        respondBadRequest("Failed to update requirement. Please try again.")
+                    else ->
+                        respondBadRequest("Failed to update requirement")
+                }
+            }
+        ) {
+            step(Step.value(emptyParameters))
+                .step(ValidateRequirementProgressInputStep)
+                .step(InjectRequirementContextStep(requirementId, taskId, projectId, user.id))
+                .step(ValidateRequirementAccessStep)
+                .step(GetRequirementStep)
+                .step(UpdateItemRequirementProgressStep)
+                .step(CheckTaskCompletionStep)
         }
     }
 }

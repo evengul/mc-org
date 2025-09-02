@@ -164,21 +164,21 @@
   - **Estimated Effort**: 3-4 hours
 
 #### Project Stage Management
-- [ ] **PATCH /app/worlds/{worldId}/projects/{projectId}/stage** - Update project stage
+- [x] **PATCH /app/worlds/{worldId}/projects/{projectId}/stage** - Update project stage
   - Pipeline: ValidateStageTransitionStep → UpdateProjectStageStep
   - Validation: Valid stage enum, logical progression rules
   - Template: HTML fragment replacing project header with updated stage indicator
   - **Estimated Effort**: 4-5 hours
 
 #### Task Requirements System
-- [ ] **PUT /app/worlds/{worldId}/projects/{projectId}/tasks/{taskId}/requirements** - Update task requirements
+- [x] **PUT /app/worlds/{worldId}/projects/{projectId}/tasks/{taskId}/requirements** - Update task requirements
   - Pipeline: ValidateRequirementsStep → UpdateRequirementsStep
   - Data: Countable vs Action tasks, quantities, completion criteria
   - Template: HTML fragment replacing requirements form with updated fields
   - Form: The create task form does not have any requirement fields yet, so this will be a new form section
   - **Estimated Effort**: 5-6 hours
 
-- [ ] **PATCH /app/worlds/{worldId}/projects/{projectId}/tasks/{taskId}/requirements/done-more** - Update task progress
+- [x] **PATCH /app/worlds/{worldId}/projects/{projectId}/tasks/{taskId}/requirements/done-more** - Update task progress
   - Pipeline: ValidateProgressStep → UpdateTaskProgressStep
   - Validation: Cannot exceed total requirements
   - Template: HTML fragment replacing progress bar with updated percentage

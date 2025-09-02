@@ -11,12 +11,20 @@ import app.mcorg.pipeline.ValidationSteps
 import app.mcorg.pipeline.failure.ValidationFailure
 import io.ktor.http.Parameters
 
+data class TaskRequirementInput(
+    val type: String, // "ITEM" or "ACTION"
+    val item: String? = null, // For ITEM requirements
+    val requiredAmount: Int? = null, // For ITEM requirements
+    val action: String? = null // For ACTION requirements
+)
+
 data class CreateTaskInput(
     val projectId: Int,
     val creatorId: Int,
     val name: String,
     val description: String?,
-    val priority: Priority
+    val priority: Priority,
+    val requirements: List<TaskRequirementInput> = emptyList()
 )
 
 data class CreateTaskResult(
@@ -49,6 +57,9 @@ object ValidateTaskInputStep : Step<Parameters, CreateTaskFailures, CreateTaskIn
                 if (it.isNullOrBlank()) Priority.MEDIUM else Priority.valueOf(it.uppercase())
             }
 
+        // Parse requirements from form parameters
+        val requirements = parseRequirementsFromParameters(input)
+
         val errors = mutableListOf<ValidationFailure>()
         if (name is Result.Failure) {
             errors.addAll(name.error.errors)
@@ -76,6 +87,10 @@ object ValidateTaskInputStep : Step<Parameters, CreateTaskFailures, CreateTaskIn
             }
         }
 
+        // Validate requirements
+        val requirementValidationErrors = validateRequirements(requirements)
+        errors.addAll(requirementValidationErrors)
+
         if (errors.isNotEmpty()) {
             return Result.failure(CreateTaskFailures.ValidationError(errors.toList()))
         }
@@ -86,9 +101,95 @@ object ValidateTaskInputStep : Step<Parameters, CreateTaskFailures, CreateTaskIn
                 creatorId = 0, // Will be injected by InjectTaskContextStep
                 name = name.getOrNull()!!,
                 description = description.getOrNull(),
-                priority = priority.getOrNull()!!
+                priority = priority.getOrNull()!!,
+                requirements = requirements
             )
         )
+    }
+
+    fun parseRequirementsFromParameters(parameters: Parameters): List<TaskRequirementInput> {
+        val requirements = mutableListOf<TaskRequirementInput>()
+        val parameterNames = parameters.names()
+
+        // Find all requirement indices by looking for requirements[X].type parameters
+        val requirementIndices = parameterNames
+            .filter { it.startsWith("requirements[") && it.endsWith("].type") }
+            .mapNotNull { paramName ->
+                val indexMatch = Regex("requirements\\[(\\d+)\\]\\.type").find(paramName)
+                indexMatch?.groupValues?.get(1)?.toIntOrNull()
+            }
+            .distinct()
+            .sorted()
+
+        // Parse each requirement
+        for (index in requirementIndices) {
+            val type = parameters["requirements[$index].type"]
+            when (type?.uppercase()) {
+                "ITEM" -> {
+                    val item = parameters["requirements[$index].item"]
+                    val amountStr = parameters["requirements[$index].requiredAmount"]
+                    val amount = amountStr?.toIntOrNull()
+
+                    if (!item.isNullOrBlank() && amount != null && amount > 0) {
+                        requirements.add(
+                            TaskRequirementInput(
+                                type = "ITEM",
+                                item = item.trim(),
+                                requiredAmount = amount
+                            )
+                        )
+                    }
+                }
+                "ACTION" -> {
+                    val action = parameters["requirements[$index].action"]
+
+                    if (!action.isNullOrBlank()) {
+                        requirements.add(
+                            TaskRequirementInput(
+                                type = "ACTION",
+                                action = action.trim()
+                            )
+                        )
+                    }
+                }
+            }
+        }
+
+        return requirements
+    }
+
+    fun validateRequirements(requirements: List<TaskRequirementInput>): List<ValidationFailure> {
+        val errors = mutableListOf<ValidationFailure>()
+
+        requirements.forEachIndexed { index, requirement ->
+            when (requirement.type.uppercase()) {
+                "ITEM" -> {
+                    if (requirement.item.isNullOrBlank()) {
+                        errors.add(ValidationFailure.MissingParameter("requirements[$index].item"))
+                    } else if (requirement.item.length > 100) {
+                        errors.add(ValidationFailure.InvalidLength("requirements[$index].item", 1, 100))
+                    }
+
+                    if (requirement.requiredAmount == null || requirement.requiredAmount <= 0) {
+                        errors.add(ValidationFailure.InvalidFormat("requirements[$index].requiredAmount", "Must be a positive number"))
+                    } else if (requirement.requiredAmount > 999999) {
+                        errors.add(ValidationFailure.InvalidFormat("requirements[$index].requiredAmount", "Amount cannot exceed 999,999"))
+                    }
+                }
+                "ACTION" -> {
+                    if (requirement.action.isNullOrBlank()) {
+                        errors.add(ValidationFailure.MissingParameter("requirements[$index].action"))
+                    } else if (requirement.action.length > 500) {
+                        errors.add(ValidationFailure.InvalidLength("requirements[$index].action", 1, 500))
+                    }
+                }
+                else -> {
+                    errors.add(ValidationFailure.InvalidFormat("requirements[$index].type", "Must be ITEM or ACTION"))
+                }
+            }
+        }
+
+        return errors
     }
 }
 
@@ -138,20 +239,92 @@ object ValidateProjectAccessStep : Step<CreateTaskInput, CreateTaskFailures, Cre
 
 object CreateTaskStep : Step<CreateTaskInput, CreateTaskFailures, Int> {
     override suspend fun process(input: CreateTaskInput): Result<CreateTaskFailures, Int> {
-        return DatabaseSteps.update<CreateTaskInput, CreateTaskFailures>(
-            sql = SafeSQL.insert("""
-                INSERT INTO tasks (project_id, name, description, stage, priority, created_at, updated_at)
-                VALUES (?, ?, ?, 'PLANNING', ?, NOW(), NOW())
-                RETURNING id
-            """),
-            parameterSetter = { statement, _ ->
-                statement.setInt(1, input.projectId)
-                statement.setString(2, input.name)
-                statement.setString(3, input.description ?: "")
-                statement.setString(4, input.priority.name)
+        return DatabaseSteps.transaction(
+            step = object : Step<CreateTaskInput, CreateTaskFailures, Int> {
+                override suspend fun process(transactionInput: CreateTaskInput): Result<CreateTaskFailures, Int> {
+                    // First, create the task
+                    val taskIdResult = DatabaseSteps.update<CreateTaskInput, CreateTaskFailures>(
+                        sql = SafeSQL.insert("""
+                            INSERT INTO tasks (project_id, name, description, stage, priority, created_at, updated_at)
+                            VALUES (?, ?, ?, 'PLANNING', ?, NOW(), NOW())
+                            RETURNING id
+                        """),
+                        parameterSetter = { statement, _ ->
+                            statement.setInt(1, transactionInput.projectId)
+                            statement.setString(2, transactionInput.name)
+                            statement.setString(3, transactionInput.description ?: "")
+                            statement.setString(4, transactionInput.priority.name)
+                        },
+                        errorMapper = { CreateTaskFailures.DatabaseError }
+                    ).process(transactionInput)
+
+                    // If task creation failed, return the failure
+                    if (taskIdResult is Result.Failure) {
+                        return taskIdResult
+                    }
+
+                    val taskId = taskIdResult.getOrNull()!!
+
+                    // Create requirements if any exist
+                    if (transactionInput.requirements.isNotEmpty()) {
+                        for ((index, requirement) in transactionInput.requirements.withIndex()) {
+                            val requirementResult = when (requirement.type.uppercase()) {
+                                "ITEM" -> createItemRequirement(taskId, requirement, index)
+                                "ACTION" -> createActionRequirement(taskId, requirement, index)
+                                else -> Result.failure(CreateTaskFailures.DatabaseError)
+                            }
+
+                            // If any requirement creation fails, the transaction will be rolled back
+                            if (requirementResult is Result.Failure) {
+                                return requirementResult
+                            }
+                        }
+                    }
+
+                    return Result.success(taskId)
+                }
             },
             errorMapper = { CreateTaskFailures.DatabaseError }
         ).process(input)
+    }
+
+    private suspend fun createItemRequirement(
+        taskId: Int,
+        requirement: TaskRequirementInput,
+        index: Int
+    ): Result<CreateTaskFailures, Int> {
+        return DatabaseSteps.update<TaskRequirementInput, CreateTaskFailures>(
+            sql = SafeSQL.insert("""
+                INSERT INTO task_requirements (task_id, type, item, required_amount, collected, completed, created_at, updated_at)
+                VALUES (?, 'ITEM', ?, ?, 0, false, NOW(), NOW())
+                RETURNING id
+            """),
+            parameterSetter = { statement, _ ->
+                statement.setInt(1, taskId)
+                statement.setString(2, requirement.item!!)
+                statement.setInt(3, requirement.requiredAmount!!)
+            },
+            errorMapper = { CreateTaskFailures.DatabaseError }
+        ).process(requirement)
+    }
+
+    private suspend fun createActionRequirement(
+        taskId: Int,
+        requirement: TaskRequirementInput,
+        index: Int
+    ): Result<CreateTaskFailures, Int> {
+        return DatabaseSteps.update<TaskRequirementInput, CreateTaskFailures>(
+            sql = SafeSQL.insert("""
+                INSERT INTO task_requirements (task_id, type, action, completed, created_at, updated_at)
+                VALUES (?, 'ACTION', ?, false, NOW(), NOW())
+                RETURNING id
+            """),
+            parameterSetter = { statement, _ ->
+                statement.setInt(1, taskId)
+                statement.setString(2, requirement.action!!)
+            },
+            errorMapper = { CreateTaskFailures.DatabaseError }
+        ).process(requirement)
     }
 }
 
