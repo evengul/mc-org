@@ -9,6 +9,9 @@ import app.mcorg.pipeline.project.handleUpdateProjectStage
 import app.mcorg.pipeline.world.handleDeleteWorld
 import app.mcorg.pipeline.world.handleUpdateWorld
 import app.mcorg.pipeline.world.settings.handleCreateInvitation
+import app.mcorg.pipeline.world.settings.handleUpdateWorldName
+import app.mcorg.pipeline.world.settings.handleUpdateWorldDescription
+import app.mcorg.pipeline.world.settings.handleUpdateWorldVersion
 import app.mcorg.presentation.plugins.ProjectParamPlugin
 import app.mcorg.presentation.plugins.TaskParamPlugin
 import app.mcorg.presentation.plugins.WorldParamPlugin
@@ -17,6 +20,7 @@ import app.mcorg.presentation.handler.TaskHandler.handleCreateTask
 import app.mcorg.presentation.handler.TaskHandler.handleDeleteTask
 import app.mcorg.presentation.handler.TaskHandler.handleUpdateRequirementProgress
 import app.mcorg.presentation.handler.TaskHandler.handleToggleActionRequirement
+import app.mcorg.presentation.plugins.WorldAdminPlugin
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.delete
 import io.ktor.server.routing.get
@@ -137,17 +141,18 @@ class WorldHandler {
                     }
                 }
                 route("/settings") {
+                    install(WorldAdminPlugin)
                     get {
                         call.handleGetWorldSettings()
                     }
                     patch("/name") {
-                        // Update world name
+                        call.handleUpdateWorldName()
                     }
                     patch("/description") {
-                        // Update world description
+                        call.handleUpdateWorldDescription()
                     }
                     patch("/version") {
-                        // Update world version
+                        call.handleUpdateWorldVersion()
                     }
                     delete {
 

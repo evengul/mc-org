@@ -58,7 +58,7 @@ suspend fun ApplicationCall.handleGetSignIn() {
 }
 
 suspend fun ApplicationCall.handleLocalSignIn() {
-    val localUsername = "lilpebblez"
+    val localUsername = "evegul"
     val localUuid = "${localUsername}-uuid"
     val redirectPath = parameters["redirect_to"] ?: "/"
     Pipeline.create<SignInLocallyFailure, Unit>()

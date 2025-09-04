@@ -4,6 +4,7 @@ import app.mcorg.domain.model.minecraft.MinecraftVersion
 import app.mcorg.domain.model.world.World
 import app.mcorg.presentation.hxConfirm
 import app.mcorg.presentation.hxDelete
+import app.mcorg.presentation.hxPatch
 import app.mcorg.presentation.hxPut
 import app.mcorg.presentation.hxTarget
 import app.mcorg.presentation.templated.common.button.actionButton
@@ -70,6 +71,73 @@ fun FORM.worldSettingsForm(world: World) {
     actionButton("Save Changes")
 }
 
+fun FORM.worldNameForm(world: World) {
+    id = "world-name-form"
+    encType = FormEncType.applicationXWwwFormUrlEncoded
+
+    hxTarget("#world-name-form")
+    hxPatch("/app/worlds/${world.id}/settings/name")
+
+    label {
+        htmlFor = "world-name-input"
+        + "World Name"
+    }
+    input {
+        name = "name"
+        id = "world-name-input"
+        type = InputType.text
+        value = world.name
+        classes += "form-control"
+    }
+    actionButton("Update Name")
+}
+
+fun FORM.worldDescriptionForm(world: World) {
+    id = "world-description-form"
+    encType = FormEncType.applicationXWwwFormUrlEncoded
+
+    hxTarget("#world-description-form")
+    hxPatch("/app/worlds/${world.id}/settings/description")
+
+    label {
+        htmlFor = "world-description-input"
+        + "World Description"
+    }
+    textArea {
+        name = "description"
+        id = "world-description-input"
+        classes += "form-control"
+        + world.description
+    }
+    actionButton("Update Description")
+}
+
+fun FORM.worldVersionForm(world: World) {
+    id = "world-version-form"
+    encType = FormEncType.applicationXWwwFormUrlEncoded
+
+    hxTarget("#world-version-form")
+    hxPatch("/app/worlds/${world.id}/settings/version")
+
+    label {
+        htmlFor = "world-version-select"
+        + "Game Version"
+    }
+    select {
+        name = "version"
+        id = "world-version-select"
+        classes += "form-control"
+        MinecraftVersion.supportedVersions.forEach { version ->
+            option {
+                value = version.toString()
+                selected = version == world.version
+                + "$version"
+            }
+        }
+    }
+    actionButton("Update Version")
+}
+
 fun DIV.generalTab(tabData: SettingsTab.General) {
     classes += "settings-general-tab"
     div("general-settings") {
@@ -81,9 +149,14 @@ fun DIV.generalTab(tabData: SettingsTab.General) {
                 + "Configure basic settings for your world"
             }
         }
-
         form {
-            worldSettingsForm(tabData.world)
+            worldNameForm(tabData.world)
+        }
+        form {
+            worldDescriptionForm(tabData.world)
+        }
+        form {
+            worldVersionForm(tabData.world)
         }
     }
 

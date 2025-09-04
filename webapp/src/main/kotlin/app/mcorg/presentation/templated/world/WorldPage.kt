@@ -1,7 +1,9 @@
 package app.mcorg.presentation.templated.world
 
 import app.mcorg.domain.model.project.Project
+import app.mcorg.domain.model.user.Role
 import app.mcorg.domain.model.user.TokenProfile
+import app.mcorg.domain.model.user.WorldMember
 import app.mcorg.domain.model.world.World
 import app.mcorg.presentation.templated.common.button.neutralButton
 import app.mcorg.presentation.templated.common.chip.ChipVariant
@@ -28,6 +30,7 @@ enum class WorldPageToggles {
 fun worldPage(
     user: TokenProfile,
     world: World,
+    worldMember: WorldMember,
     projects: List<Project>,
     tab: String? = null,
     unreadNotificationCount: Int = 0,
@@ -43,15 +46,15 @@ fun worldPage(
 ) {
     classes += "world"
 
-    worldHeader(world, toggles)
+    worldHeader(world, worldMember, toggles)
     worldSearchSection(toggles)
     worldProjectsSection(projects, tab, toggles)
 }
 
-private fun MAIN.worldHeader(world: World, toggles: Set<WorldPageToggles>) {
+private fun MAIN.worldHeader(world: World, user: WorldMember, toggles: Set<WorldPageToggles>) {
     div("world-header") {
         worldHeaderInfo(world)
-        worldHeaderActions(world, toggles)
+        worldHeaderActions(world, user, toggles)
     }
 }
 
@@ -73,7 +76,7 @@ private fun FlowContent.worldHeaderInfo(world: World) {
     }
 }
 
-private fun FlowContent.worldHeaderActions(world: World, toggles: Set<WorldPageToggles>) {
+private fun FlowContent.worldHeaderActions(world: World, user: WorldMember, toggles: Set<WorldPageToggles>) {
     div("world-header-end") {
         if (WorldPageToggles.NEW_PROJECT in toggles) {
             createProjectModal(world.id)
@@ -85,7 +88,7 @@ private fun FlowContent.worldHeaderActions(world: World, toggles: Set<WorldPageT
                 iconSize = IconSize.SMALL
             }
         }
-        if (WorldPageToggles.SETTINGS in toggles) {
+        if (WorldPageToggles.SETTINGS in toggles && user.worldRole.isHigherThanOrEqualTo(Role.ADMIN)) {
             neutralButton("Settings") {
                 // TODO(ICON): Settings icon
                 iconLeft = Icons.Menu.UTILITIES

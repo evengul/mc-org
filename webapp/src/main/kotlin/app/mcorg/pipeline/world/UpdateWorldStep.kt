@@ -19,7 +19,7 @@ object UpdateWorldStep : Step<Pair<Int, UpdateWorldInput>, UpdateWorldFailures.D
                 statement.setString(1, second.name)
                 statement.setString(2, second.description)
                 statement.setString(3, second.version.toString())
-                statement.setObject(4, Timestamp.valueOf(ZonedDateTime.now().toLocalDateTime()))
+                statement.setObject(4, Timestamp(ZonedDateTime.now().toInstant().toEpochMilli()))
                 statement.setInt(5, first)
             },
             errorMapper = { UpdateWorldFailures.DatabaseError(it) }

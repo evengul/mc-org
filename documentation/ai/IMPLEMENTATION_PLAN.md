@@ -187,20 +187,20 @@
 ### ⚙️ MEDIUM PRIORITY - World Management (Sprint 3)
 
 #### World Settings Management
-- [ ] **PATCH /app/worlds/{worldId}/settings/name** - Update world name
+- [x] **PATCH /app/worlds/{worldId}/settings/name** - Update world name
   - Pipeline: ValidateWorldNameStep → UpdateWorldStep → GetUpdatedWorldStep
   - Validation: Non-empty, max 100 characters, unique per user
   - Authorization: Admin+ role required
   - Template: HTML fragment replacing settings form with updated name
   - **Estimated Effort**: 3-4 hours
 
-- [ ] **PATCH /app/worlds/{worldId}/settings/description** - Update world description
+- [x] **PATCH /app/worlds/{worldId}/settings/description** - Update world description
   - Pipeline: ValidateDescriptionStep → UpdateWorldStep
   - Validation: Max 1000 characters, HTML escaping
   - Template: HTML fragment replacing description editor with updated content
   - **Estimated Effort**: 3-4 hours
 
-- [ ] **PATCH /app/worlds/{worldId}/settings/version** - Update Minecraft version
+- [x] **PATCH /app/worlds/{worldId}/settings/version** - Update Minecraft version
   - Pipeline: ValidateMinecraftVersionStep → UpdateWorldStep
   - Validation: Valid MinecraftVersion.fromString() format
   - Template: HTML fragment replacing version selector with updated selection

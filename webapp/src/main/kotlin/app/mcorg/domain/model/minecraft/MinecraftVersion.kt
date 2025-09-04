@@ -61,7 +61,7 @@ sealed interface MinecraftVersion {
     companion object {
         fun fromString(version: String): MinecraftVersion {
             return when {
-                version.matches(Regex("""\d+w\d+[a-zA-Z]""")) -> parseSnapshot(version)
+                version.matches(Regex("""[2-3][0-9]w[0-5]?[0-9]+[a-zA-Z]""")) -> parseSnapshot(version)
                 version.matches(Regex("""\d+\.\d+\.\d+""")) -> parseRelease(version)
                 else -> throw IllegalArgumentException("Invalid version format: $version")
             }
