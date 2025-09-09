@@ -40,7 +40,7 @@ object GetTasksByProjectIdStep : Step<GetTasksByProjectIdInput, GetTasksByProjec
                     tr.completed
                 FROM tasks t
                 LEFT JOIN task_requirements tr ON t.id = tr.task_id
-                WHERE t.project_id = ?
+                WHERE t.project_id = ? AND t.stage != 'COMPLETED'
                 ORDER BY t.id, tr.id
             """),
             parameterSetter = { statement, queryInput ->
@@ -104,6 +104,25 @@ object GetTasksByProjectIdStep : Step<GetTasksByProjectIdInput, GetTasksByProjec
         )
 
         return tasksStep.process(input)
+    }
+}
+
+object CountTotalTasksStep : Step<Int, GetTasksByProjectIdFailures, Int> {
+    override suspend fun process(input: Int): Result<GetTasksByProjectIdFailures, Int> {
+        return DatabaseSteps.query<Int, GetTasksByProjectIdFailures, Int>(
+            sql = SafeSQL.select("SELECT COUNT(id) as task_count FROM tasks WHERE project_id = ?"),
+            parameterSetter = { statement, projectId ->
+                statement.setInt(1, projectId)
+            },
+            errorMapper = { GetTasksByProjectIdFailures.DatabaseError },
+            resultMapper = { resultSet ->
+                if (resultSet.next()) {
+                    resultSet.getInt("task_count")
+                } else {
+                    0
+                }
+            }
+        ).process(input)
     }
 }
 

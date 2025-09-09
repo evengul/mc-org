@@ -3,10 +3,10 @@ package app.mcorg.presentation.handler
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.task.*
 import app.mcorg.domain.model.task.ActionRequirement
-import app.mcorg.domain.model.task.ItemRequirement
 import app.mcorg.presentation.hxPatch
 import app.mcorg.presentation.hxTarget
 import app.mcorg.presentation.templated.common.link.Link
+import app.mcorg.presentation.templated.project.requirement
 import app.mcorg.presentation.templated.project.tasksList
 import app.mcorg.presentation.utils.*
 import io.ktor.server.application.*
@@ -25,7 +25,7 @@ object TaskHandler {
 
         executePipeline(
             onSuccess = { result: CreateTaskResult ->
-                respondHtml(createHTML().div {
+                respondHtml(createHTML().ul {
                     tasksList(worldId, projectId, result.updatedTasks)
                 })
             },
@@ -48,6 +48,44 @@ object TaskHandler {
                 .step(ValidateProjectAccessStep)
                 .step(CreateTaskStep)
                 .step(GetUpdatedTasksStep)
+        }
+    }
+
+    suspend fun ApplicationCall.handleSearchTasks() {
+        val user = this.getUser()
+        val worldId = this.getWorldId()
+        val projectId = this.getProjectId()
+
+        val enrichedParameters = Parameters.build {
+            appendAll(parameters)
+            append("projectId", projectId.toString())
+            append("userId", user.id.toString())
+        }
+
+        executePipeline(
+            onSuccess = { result: SearchTasksResult ->
+                respondHtml(createHTML().ul {
+                    tasksList(worldId, projectId, result.tasks)
+                })
+            },
+            onFailure = { failure: SearchTasksFailures ->
+                when (failure) {
+                    is SearchTasksFailures.ValidationError ->
+                        respondBadRequest("Invalid search parameters: ${failure.errors.joinToString(", ")}")
+                    SearchTasksFailures.ProjectNotFound ->
+                        respondBadRequest("Project not found")
+                    SearchTasksFailures.InsufficientPermissions ->
+                        respondBadRequest("You don't have permission to search tasks in this project")
+                    SearchTasksFailures.DatabaseError ->
+                        respondBadRequest("Failed to search tasks. Please try again.")
+                }
+            }
+        ) {
+            step(Step.value(enrichedParameters))
+                .step(ValidateSearchTasksInputStep)
+                .step(InjectSearchTasksContextStep)
+                .step(ValidateSearchTasksAccessStep)
+                .step(SearchTasksStep)
         }
     }
 
@@ -147,6 +185,7 @@ object TaskHandler {
     suspend fun ApplicationCall.handleUpdateRequirementProgress() {
         val parameters = this.receiveParameters()
         val user = this.getUser()
+        val worldId = this.getWorldId()
         val projectId = this.getProjectId()
         val taskId = this.getTaskId()
         val requirementId = this.parameters["requirementId"]?.toIntOrNull()
@@ -155,40 +194,7 @@ object TaskHandler {
         executePipeline(
             onSuccess = { result: UpdateRequirementProgressResult ->
                 respondHtml(createHTML().li {
-                    if (result.requirement.isCompleted()) {
-                        classes += "completed"
-                    }
-                    id = "requirement-${result.requirement.id}"
-                    when (result.requirement) {
-                        is ActionRequirement -> {
-                            classes += "action-requirement"
-                            div("action-requirement-content") {
-                                input {
-                                    id = "requirement-checkbox-${result.requirement.id}"
-                                    checked = result.requirement.isCompleted()
-                                    disabled = result.requirement.isCompleted()
-                                    type = InputType.checkBox
-                                }
-                                label {
-                                    htmlFor = "requirement-checkbox-${result.requirement.id}"
-                                    +result.requirement.action
-                                }
-                            }
-                        }
-                        is ItemRequirement -> {
-                            classes += "item-requirement"
-                            div("item-requirement-header") {
-                                div("item-requirement-info") {
-                                    p("item-name") {
-                                        +result.requirement.item
-                                    }
-                                    span("item-counts") {
-                                        + "${result.requirement.collected} / ${result.requirement.requiredAmount}"
-                                    }
-                                }
-                            }
-                        }
-                    }
+                    requirement(result.requirement, worldId, projectId, taskId)
                 })
             },
             onFailure = { failure: UpdateRequirementFailures ->

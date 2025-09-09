@@ -61,6 +61,7 @@ main.project {
                     display: flex;
                     flex-direction: row;
                     flex-wrap: nowrap;
+                    align-items: center;
 
                     gap: var(--spacing-xs);
 
@@ -71,6 +72,10 @@ main.project {
                     > select {
                         width: fit-content;
                         min-width: 20ch;
+                    }
+
+                    > button {
+                        height: 100%;
                     }
                 }
 

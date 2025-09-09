@@ -14,18 +14,15 @@ import app.mcorg.pipeline.project.GetProjectStageHistoryInput
 import app.mcorg.pipeline.project.GetProjectStageHistoryStep
 import app.mcorg.presentation.templated.layout.topbar.getUnreadNotificationCount
 import app.mcorg.presentation.templated.project.ProjectTab
-import app.mcorg.presentation.templated.project.dependenciesTab
-import app.mcorg.presentation.templated.project.locationTab
 import app.mcorg.presentation.templated.project.projectPage
-import app.mcorg.presentation.templated.project.resourcesTab
-import app.mcorg.presentation.templated.project.stagesTab
-import app.mcorg.presentation.templated.project.tasksTab
 import app.mcorg.presentation.utils.getProjectId
 import app.mcorg.presentation.utils.getUser
 import app.mcorg.presentation.utils.respondHtml
 import app.mcorg.presentation.utils.respondNotFound
 import app.mcorg.presentation.utils.respondBadRequest
 import app.mcorg.domain.pipeline.Result
+import app.mcorg.pipeline.project.CountTotalTasksStep
+import app.mcorg.presentation.templated.project.projectTabsContent
 import io.ktor.server.application.ApplicationCall
 import kotlinx.html.div
 import kotlinx.html.stream.createHTML
@@ -119,30 +116,18 @@ suspend fun ApplicationCall.handleGetProject() {
 
         "location" -> ProjectTab.Location(project)
 
-        else -> ProjectTab.Tasks(project, tasks)
+        else -> {
+            val totalCount = CountTotalTasksStep.process(projectId).getOrNull() ?: tasks.size
+            ProjectTab.Tasks(project, totalCount, tasks)
+        }
     }
 
     if (request.headers["HX-Request"] == "true" && tab != null) {
-        handleGetTab(tabData)
+        respondHtml(createHTML().div {
+            projectTabsContent(tabData)
+        })
         return
     }
 
     respondHtml(projectPage(user, tabData, unreadNotifications))
-}
-
-suspend fun ApplicationCall.handleGetTab(tabData: ProjectTab) {
-    respondHtml(createHTML().div {
-        when (tabData) {
-            is ProjectTab.Tasks -> tasksTab(tabData.project, tabData.tasks)
-            is ProjectTab.Dependencies -> dependenciesTab(tabData.dependencies, tabData.dependents)
-            is ProjectTab.Location -> locationTab(tabData.project)
-            is ProjectTab.Resources -> resourcesTab(
-                tabData.project,
-                tabData.resourceProduction,
-                tabData.resourceGathering
-            )
-
-            is ProjectTab.Stages -> stagesTab(tabData.stageChanges)
-        }
-    })
 }

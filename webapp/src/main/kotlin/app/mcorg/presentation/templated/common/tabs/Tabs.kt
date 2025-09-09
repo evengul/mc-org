@@ -1,6 +1,7 @@
 package app.mcorg.presentation.templated.common.tabs
 
 import app.mcorg.presentation.hxGet
+import app.mcorg.presentation.hxSwap
 import app.mcorg.presentation.hxTarget
 import app.mcorg.presentation.templated.common.component.LeafComponent
 import app.mcorg.presentation.templated.common.component.addComponent
@@ -123,6 +124,7 @@ class Tabs(
 
                     // HTMX attributes
                     hxGet("?tab=${tab.value}")
+                    hxSwap("outerHTML")
                     hxTarget?.let { target -> hxTarget(target) }
 
                     // Accessibility attributes

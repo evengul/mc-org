@@ -16,6 +16,7 @@ import app.mcorg.presentation.templated.common.page.createPage
 import app.mcorg.presentation.templated.common.tabs.TabData
 import app.mcorg.presentation.templated.common.tabs.tabsComponent
 import app.mcorg.presentation.templated.utils.toPrettyEnumName
+import kotlinx.html.DIV
 import kotlinx.html.classes
 import kotlinx.html.div
 import kotlinx.html.h1
@@ -28,7 +29,7 @@ sealed interface ProjectTab {
     val id: String
     val project: Project
 
-    data class Tasks(override val project: Project, val tasks: List<Task>) : ProjectTab {
+    data class Tasks(override val project: Project, val totalTasksCount: Int, val tasks: List<Task>) : ProjectTab {
         override val id: String = "tasks"
     }
 
@@ -132,14 +133,19 @@ fun projectPage(
         ) {
             activeTab = data.id
         }
-        div("project-tabs-content") {
-            when (data) {
-                is ProjectTab.Tasks -> tasksTab(project, data.tasks)
-                is ProjectTab.Resources -> resourcesTab(project, data.resourceProduction, data.resourceGathering)
-                is ProjectTab.Location -> locationTab(project)
-                is ProjectTab.Stages -> stagesTab(data.stageChanges)
-                is ProjectTab.Dependencies -> dependenciesTab(data.dependencies, data.dependents)
-            }
+        div {
+            projectTabsContent(data)
         }
+    }
+}
+
+fun DIV.projectTabsContent(data: ProjectTab) {
+    classes += "project-tabs-content"
+    when(data) {
+        is ProjectTab.Tasks -> tasksTab(data.project, data.totalTasksCount, data.tasks)
+        is ProjectTab.Resources -> resourcesTab(data.project, data.resourceProduction, data.resourceGathering)
+        is ProjectTab.Location -> locationTab(data.project)
+        is ProjectTab.Stages -> stagesTab(data.stageChanges)
+        is ProjectTab.Dependencies -> dependenciesTab(data.dependencies, data.dependents)
     }
 }

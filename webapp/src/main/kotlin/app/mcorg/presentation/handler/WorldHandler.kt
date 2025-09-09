@@ -18,6 +18,7 @@ import app.mcorg.presentation.plugins.WorldParamPlugin
 import app.mcorg.presentation.handler.TaskHandler.handleCompleteTask
 import app.mcorg.presentation.handler.TaskHandler.handleCreateTask
 import app.mcorg.presentation.handler.TaskHandler.handleDeleteTask
+import app.mcorg.presentation.handler.TaskHandler.handleSearchTasks
 import app.mcorg.presentation.handler.TaskHandler.handleUpdateRequirementProgress
 import app.mcorg.presentation.handler.TaskHandler.handleToggleActionRequirement
 import app.mcorg.presentation.plugins.WorldAdminPlugin
@@ -95,6 +96,9 @@ class WorldHandler {
                         route("/tasks") {
                             post {
                                 call.handleCreateTask()
+                            }
+                            get("/search") {
+                                call.handleSearchTasks()
                             }
                             route("/{taskId}") {
                                 install(TaskParamPlugin)

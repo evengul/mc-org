@@ -35,24 +35,6 @@ fun <T : Tag> T.createTaskModal(project: Project) = formModal(
     formContent {
         classes += "create-task-form"
         
-        // Tab navigation
-        div("form-tabs") {
-            div("tab-buttons") {
-                button(classes = "tab-button active") {
-                    type = ButtonType.button
-                    attributes["data-tab"] = "basic"
-                    onClick = "switchTab('basic')"
-                    +"Basic Info"
-                }
-                button(classes = "tab-button") {
-                    type = ButtonType.button
-                    attributes["data-tab"] = "requirements"
-                    onClick = "switchTab('requirements')"
-                    +"Requirements"
-                }
-            }
-        }
-        
         // Basic Info Tab
         div("tab-content") {
             id = "basic-tab"
@@ -112,8 +94,7 @@ fun <T : Tag> T.createTaskModal(project: Project) = formModal(
         // Requirements Tab
         div("tab-content") {
             id = "requirements-tab"
-            style = "display: none;"
-            
+
             taskRequirementsForm()
         }
         

@@ -5,9 +5,12 @@ import app.mcorg.domain.model.task.ActionRequirement
 import app.mcorg.domain.model.task.ItemRequirement
 import app.mcorg.domain.model.task.Priority
 import app.mcorg.domain.model.task.Task
+import app.mcorg.domain.model.task.TaskRequirement
+import app.mcorg.presentation.hxGet
 import app.mcorg.presentation.hxPatch
 import app.mcorg.presentation.hxSwap
 import app.mcorg.presentation.hxTarget
+import app.mcorg.presentation.templated.common.button.actionButton
 import app.mcorg.presentation.templated.common.button.iconButton
 import app.mcorg.presentation.templated.common.button.neutralButton
 import app.mcorg.presentation.templated.common.chip.ChipVariant
@@ -20,11 +23,11 @@ import app.mcorg.presentation.templated.utils.toPrettyEnumName
 import kotlinx.html.*
 import java.time.format.DateTimeFormatter
 
-fun DIV.tasksTab(project: Project, tasks: List<Task>) {
+fun DIV.tasksTab(project: Project, totalTasksCount: Int, tasks: List<Task>) {
     classes += "project-tasks-tab"
     div("project-tasks-content") {
         projectProgressSection(project)
-        taskManagementSection(project, tasks)
+        taskManagementSection(project, totalTasksCount, tasks)
     }
     projectDetailsSidebar(project)
 }
@@ -51,49 +54,74 @@ private fun DIV.projectProgressSection(project: Project) {
     }
 }
 
-private fun DIV.taskManagementSection(project: Project, tasks: List<Task>) {
+private fun DIV.taskManagementSection(project: Project, totalTasksCount: Int, tasks: List<Task>) {
     div("project-tasks") {
-        taskManagementHeader()
-        if (tasks.isEmpty()) {
+        taskManagementHeader(project.worldId, project.id)
+        if (totalTasksCount == 0) {
             emptyTasksDisplay(project)
         }
-        tasksList(project.worldId, project.id, tasks)
+        ul {
+            tasksList(project.worldId, project.id, tasks)
+        }
     }
 }
 
-private fun DIV.taskManagementHeader() {
+private fun DIV.taskManagementHeader(worldId: Int, projectId: Int) {
     h2 {
         + "Tasks"
     }
-    taskSearchAndFilters()
+    taskSearchAndFilters(worldId, projectId)
 }
 
-private fun DIV.taskSearchAndFilters() {
-    div("project-tasks-search-filter") {
+private fun DIV.taskSearchAndFilters(worldId: Int, projectId: Int) {
+    form(classes = "project-tasks-search-filter") {
+        encType = FormEncType.applicationXWwwFormUrlEncoded
+        hxGet("${Link.Worlds.world(worldId).project(projectId).tasks().to}/search")
+        hxTarget("#tasks-list")
+        hxSwap("outerHTML")
         input {
+            id = "task-search-input"
+            name = "query"
+            type = InputType.text
             placeholder = "Search tasks..."
         }
         select {
             name = "completionStatus"
             option {
-                value = "all"
+                value = "ALL"
                 + "All Tasks"
             }
             option {
-                value = "in-progress"
+                value = "IN_PROGRESS"
+                selected = true
                 + "Active Tasks"
             }
             option {
-                value = "completed"
+                value = "COMPLETED"
                 + "Completed Tasks"
             }
         }
         select {
+            name = "priority"
+            option {
+                value = "ALL"
+                + "All Priorities"
+            }
             Priority.entries.forEach {
                 option {
                     value = it.name
                     + it.toPrettyEnumName()
                 }
+            }
+        }
+        neutralButton("Clear filters") {
+            buttonBlock = {
+                type = ButtonType.reset
+            }
+        }
+        actionButton("Search") {
+            buttonBlock = {
+                type = ButtonType.submit
             }
         }
     }
@@ -111,12 +139,10 @@ private fun DIV.emptyTasksDisplay(project: Project) {
     }
 }
 
-fun DIV.tasksList(worldId: Int, projectId: Int, tasks: List<Task>) {
-    ul {
-        id = "tasks-list"
-        tasks.sortedBy { it.isCompleted() }.forEach { task ->
-            taskItem(worldId, projectId, task)
-        }
+fun UL.tasksList(worldId: Int, projectId: Int, tasks: List<Task>) {
+    id = "tasks-list"
+    tasks.sortedBy { it.isCompleted() }.forEach { task ->
+        taskItem(worldId, projectId, task)
     }
 }
 
@@ -197,22 +223,26 @@ private fun LI.taskRequirements(task: Task, worldId: Int, projectId: Int) {
         ul {
             task.requirements.forEach { requirement ->
                 li {
-                    if (requirement.isCompleted()) {
-                        classes += "completed"
-                    }
-                    when(requirement) {
-                        is ActionRequirement -> actionRequirement(requirement, worldId, projectId, task.id)
-                        is ItemRequirement -> itemRequirement(requirement, worldId, projectId, task.id)
-                    }
+                    requirement(requirement, worldId, projectId, task.id)
                 }
             }
         }
     }
 }
 
+fun LI.requirement(requirement: TaskRequirement, worldId: Int, projectId: Int, taskId: Int) {
+    id = "requirement-${requirement.id}"
+    if (requirement.isCompleted()) {
+        classes += "completed"
+    }
+    when(requirement) {
+        is ActionRequirement -> actionRequirement(requirement, worldId, projectId, taskId)
+        is ItemRequirement -> itemRequirement(requirement, worldId, projectId, taskId)
+    }
+}
+
 private fun LI.actionRequirement(requirement: ActionRequirement, worldId: Int, projectId: Int, taskId: Int) {
     classes += "action-requirement"
-    id = "requirement-${requirement.id}"
 
     div("action-requirement-content") {
         input {
@@ -245,7 +275,6 @@ private fun LI.actionRequirement(requirement: ActionRequirement, worldId: Int, p
 
 private fun LI.itemRequirement(requirement: ItemRequirement, worldId: Int, projectId: Int, taskId: Int) {
     classes += "item-requirement"
-    id = "requirement-${requirement.id}"
 
     div("item-requirement-header") {
         div("item-requirement-info") {
