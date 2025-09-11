@@ -2,6 +2,28 @@
 let itemRequirementCounter = 0;
 let actionRequirementCounter = 0;
 
+function validateName(name) {
+  const trimmedName = name.trim();
+  if (trimmedName.length < 3) {
+    return {isValid: false, message: "Name must be at least 3 characters long"};
+  }
+  if (trimmedName.length > 200) {
+    return {isValid: false, message: "Name must be less than 200 characters"};
+  }
+  return {isValid: true};
+}
+
+function validateAmount(amount) {
+  const numAmount = parseInt(amount, 10);
+  if (isNaN(numAmount) || numAmount <= 0) {
+    return {isValid: false, message: "Amount must be a positive number"};
+  }
+  if (numAmount >= 1000000) {
+    return {isValid: false, message: "Amount must be less than 1,000,000"};
+  }
+  return {isValid: true};
+}
+
 function addItemRequirement() {
   const container = document.getElementById('item-requirements-container');
   const template = document.getElementById('requirement-template');
@@ -11,6 +33,19 @@ function addItemRequirement() {
   if (!container || !template || !nameInput || !amountInput) return;
 
   // Validate input
+  const nameValidation = validateName(nameInput.value)
+  if (!nameValidation.isValid) {
+    nameInput.setCustomValidity(nameValidation.message)
+    nameInput.reportValidity()
+    return
+  }
+
+  const amountValidation = validateAmount(amountInput.value)
+  if (!amountValidation.isValid) {
+    amountInput.setCustomValidity(amountValidation.message)
+    amountInput.reportValidity()
+    return
+  }
 
   // Clone the template
 
@@ -57,6 +92,12 @@ function addActionRequirement() {
   if (!container || !template || !nameInput) return;
 
   // Validate input
+  const nameValidation = validateName(nameInput.value)
+  if (!nameValidation.isValid) {
+    nameInput.setCustomValidity(nameValidation.message)
+    nameInput.reportValidity()
+    return
+  }
 
   // Clone the template
 
@@ -189,6 +230,18 @@ function initializeTaskRequirementsForm() {
   switchTab('basic');
 }
 
+function disableEnterSubmit(elementId) {
+  const element = document.getElementById(elementId);
+  if (element) {
+    element.addEventListener('keydown', function (event) {
+      if (event.key === 'Enter' || event.keyCode === 13) {
+        event.preventDefault();
+        return false;
+      }
+    });
+  }
+}
+
 // Call initialization when the modal is shown
 document.addEventListener('DOMContentLoaded', function () {
   // Listen for modal show events
@@ -196,4 +249,28 @@ document.addEventListener('DOMContentLoaded', function () {
   if (modal) {
     modal.addEventListener('show', initializeTaskRequirementsForm);
   }
+
+  document.getElementById('item-requirement-name-input')?.addEventListener('keydown', function (event) {
+    if (event.key === 'Enter' || event.keyCode === 13) {
+      event.preventDefault();
+      addItemRequirement();
+      return false;
+    }
+  });
+
+  document.getElementById('item-requirement-amount-input')?.addEventListener('keydown', function (event) {
+    if (event.key === 'Enter' || event.keyCode === 13) {
+      event.preventDefault();
+      addItemRequirement();
+      return false;
+    }
+  });
+
+  document.getElementById('action-requirement-input')?.addEventListener('keydown', function (event) {
+    if (event.key === 'Enter' || event.keyCode === 13) {
+      event.preventDefault();
+      addActionRequirement();
+      return false;
+    }
+  });
 });
