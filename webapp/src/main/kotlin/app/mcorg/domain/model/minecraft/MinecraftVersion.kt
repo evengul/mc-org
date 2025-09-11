@@ -7,7 +7,7 @@ sealed interface MinecraftVersion {
         val patch: Char,
         val forRelease: Release? = null
     ) : MinecraftVersion {
-        override fun toString(): String = "${year}w${week}${patch.lowercase()}"
+        override fun toString(): String = "${year - 2000}w${week}${patch.lowercase()}"
     }
 
     data class Release(
@@ -68,13 +68,13 @@ sealed interface MinecraftVersion {
         }
 
         private fun parseSnapshot(version: String): Snapshot {
-            val regex = Regex("""(\d+)w(\d+)([a-zA-Z])""")
+            val regex = Regex("""([2-3][0-9])w([0-5]?[0-9]+)([a-zA-Z])""")
             val matchResult = regex.matchEntire(version)
                 ?: throw IllegalArgumentException("Invalid snapshot format: $version")
 
             val (year, week, patch) = matchResult.destructured
             return Snapshot(
-                year = year.toInt(),
+                year = year.toInt() + 2000,
                 week = week.toInt(),
                 patch = patch.first().lowercaseChar()
             )

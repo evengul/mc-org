@@ -79,8 +79,17 @@ class CreateUserIfNotExistsStepTest {
             roles = emptyList()
         )
 
+        val rolesStatement = mockk<PreparedStatement>()
+        val rolesResultSet = mockk<ResultSet>()
+
         every { mockConnection.prepareStatement(match { it.contains("SELECT u.id, u.email, mp.uuid, mp.username") }) } returns mockCheckUserStatement
+        every { mockConnection.prepareStatement(match { it.contains("FROM global_user_roles") }) } returns rolesStatement
         every { mockCheckUserStatement.executeQuery() } returns mockResultSet
+        every { rolesStatement.setInt(any(), any()) } just Runs
+        every { rolesStatement.close() } just Runs
+        every { rolesResultSet.close() } just Runs
+        every { rolesStatement.executeQuery() } returns rolesResultSet
+        every { rolesResultSet.next() } returns false
         every { mockResultSet.next() } returns true
         every { mockResultSet.getInt("id") } returns 1
         every { mockResultSet.getString("email") } returns "test@example.com"
@@ -91,7 +100,7 @@ class CreateUserIfNotExistsStepTest {
         val result = CreateUserIfNotExistsStep.process(testProfile)
 
         // Assert
-        assertTrue(result is Result.Success)
+        assertTrue(result is Result.Success, "Expected success but got failure: ${(result as? Result.Failure)?.error}")
         assertEquals(expectedUser, result.value)
         verify { mockCheckUserStatement.setString(1, "test-uuid-123") }
         verify { mockCheckUserStatement.executeQuery() }
@@ -113,6 +122,17 @@ class CreateUserIfNotExistsStepTest {
         every { mockResultSet.getString("uuid") } returns "test-uuid-123"
         every { mockResultSet.getString("username") } returns "TestPlayer" // Old username
 
+        // Mock global roles query
+        val rolesStatement = mockk<PreparedStatement>()
+        val rolesResultSet = mockk<ResultSet>()
+
+        every { mockConnection.prepareStatement(match { it.contains("FROM global_user_roles") }) } returns rolesStatement
+        every { rolesStatement.setInt(any(), any()) } just Runs
+        every { rolesStatement.close() } just Runs
+        every { rolesResultSet.close() } just Runs
+        every { rolesStatement.executeQuery() } returns rolesResultSet
+        every { rolesResultSet.next() } returns false
+
         // Mock update username
         every { mockConnection.prepareStatement(match { it.contains("UPDATE minecraft_profiles") }) } returns mockUpdateUsernameStatement
         every { mockUpdateUsernameStatement.executeUpdate() } returns 1
@@ -125,7 +145,7 @@ class CreateUserIfNotExistsStepTest {
         val result = CreateUserIfNotExistsStep.process(profileWithNewUsername)
 
         // Assert
-        assertTrue(result is Result.Success)
+        assertTrue(result is Result.Success, "Expected success but got failure: ${(result as? Result.Failure)?.error}")
         val tokenProfile = result.value
         assertEquals(1, tokenProfile.id)
         assertEquals("test-uuid-123", tokenProfile.uuid)
@@ -159,6 +179,17 @@ class CreateUserIfNotExistsStepTest {
         every { mockResultSet.getString("uuid") } returns "test-uuid-123"
         every { mockResultSet.getString("username") } returns "TestPlayer"
 
+        val rolesStatement = mockk<PreparedStatement>()
+        val rolesResultSet = mockk<ResultSet>()
+
+        every { mockConnection.prepareStatement(match { it.contains("FROM global_user_roles") }) } returns rolesStatement
+        every { rolesStatement.setInt(any(), any()) } just Runs
+        every { rolesStatement.close() } just Runs
+        every { rolesResultSet.close() } just Runs
+        every { rolesStatement.executeQuery() } returns rolesResultSet
+        every { rolesResultSet.next() } returns false
+
+
         // Mock update username - succeeds
         every { mockConnection.prepareStatement(match { it.contains("UPDATE minecraft_profiles") }) } returns mockUpdateUsernameStatement
         every { mockUpdateUsernameStatement.executeUpdate() } returns 1
@@ -171,7 +202,7 @@ class CreateUserIfNotExistsStepTest {
         val result = CreateUserIfNotExistsStep.process(profileWithNewUsername)
 
         // Assert
-        assertTrue(result is Result.Success)
+        assertTrue(result is Result.Success, "Expected success but got failure: ${(result as? Result.Failure)?.error}")
         val tokenProfile = result.value
         assertEquals(newUsername, tokenProfile.minecraftUsername)
 
