@@ -1,161 +1,199 @@
 // Task Requirements Form Dynamic Functionality
-let requirementCounter = 0;
+let itemRequirementCounter = 0;
+let actionRequirementCounter = 0;
 
 function addItemRequirement() {
-    const container = document.getElementById('requirements-container');
-    const template = document.getElementById('item-requirement-template');
+  const container = document.getElementById('item-requirements-container');
+  const template = document.getElementById('requirement-template');
+  const nameInput = document.getElementById('item-requirement-name-input');
+  const amountInput = document.getElementById('item-requirement-amount-input');
 
-    if (!container || !template) return;
+  if (!container || !template || !nameInput || !amountInput) return;
 
-    // Clone the template
-    const newRequirement = template.cloneNode(true);
-    newRequirement.style.display = 'block';
-    newRequirement.id = `item-requirement-${requirementCounter}`;
-    newRequirement.setAttribute('data-requirement-index', requirementCounter);
+  // Validate input
 
-    // Update all name attributes and IDs
-    updateRequirementIndexes(newRequirement, requirementCounter);
+  // Clone the template
 
-    container.appendChild(newRequirement);
-    requirementCounter++;
+  const newRequirement = template.cloneNode(true);
+  newRequirement.id = `item-requirement-${itemRequirementCounter}`;
 
-    // Focus on the first input of the new requirement
-    const firstInput = newRequirement.querySelector('input[type="text"]');
-    if (firstInput) {
-        firstInput.focus();
-    }
+  const paragraph = newRequirement.children.item(0);
+  const input = newRequirement.children.item(1);
+  const deleteButton = newRequirement.children.item(2);
+
+  if (!paragraph || !input || !deleteButton) return;
+
+  paragraph.textContent = `${nameInput.value} x${amountInput.value}`;
+  const value = {
+    name: nameInput.value,
+    requiredAmount: parseInt(amountInput.value, 10)
+  }
+  input.value = JSON.stringify(value);
+  input.name = `itemRequirements[${itemRequirementCounter}]`;
+  input.id = `item-requirement-input-${itemRequirementCounter}`;
+  input.type = 'hidden';
+
+  // Clear the input fields
+  nameInput.value = '';
+  amountInput.value = '';
+
+  // Set up delete button
+  deleteButton.addEventListener('click', () => removeRequirement(deleteButton));
+
+  // Update all name attributes and IDs
+  updateRequirementIndexes(newRequirement, itemRequirementCounter);
+
+  container.appendChild(newRequirement);
+  itemRequirementCounter++;
+
+  document.getElementById("item-requirement-name-input")?.focus();
 }
 
 function addActionRequirement() {
-    const container = document.getElementById('requirements-container');
-    const template = document.getElementById('action-requirement-template');
+  const container = document.getElementById('action-requirements-container');
+  const template = document.getElementById('requirement-template');
+  const nameInput = document.getElementById('action-requirement-input');
 
-    if (!container || !template) return;
+  if (!container || !template || !nameInput) return;
 
-    // Clone the template
-    const newRequirement = template.cloneNode(true);
-    newRequirement.style.display = 'block';
-    newRequirement.id = `action-requirement-${requirementCounter}`;
-    newRequirement.setAttribute('data-requirement-index', requirementCounter);
+  // Validate input
 
-    // Update all name attributes and IDs
-    updateRequirementIndexes(newRequirement, requirementCounter);
+  // Clone the template
 
-    container.appendChild(newRequirement);
-    requirementCounter++;
+  const newRequirement = template.cloneNode(true);
+  newRequirement.id = `item-requirement-${actionRequirementCounter}`;
 
-    // Focus on the textarea of the new requirement
-    const textarea = newRequirement.querySelector('textarea');
-    if (textarea) {
-        textarea.focus();
-    }
+  const paragraph = newRequirement.children.item(0);
+  const input = newRequirement.children.item(1);
+  const deleteButton = newRequirement.children.item(2);
+
+  if (!paragraph || !input || !deleteButton) return;
+
+  paragraph.textContent = nameInput.value;
+  input.value = nameInput.value;
+  input.name = `actionRequirements[${actionRequirementCounter}]`;
+  input.id = `action-requirement-input-${actionRequirementCounter}`;
+  input.type = 'hidden';
+
+  // Clear the input fields
+  nameInput.value = '';
+
+  // Set up delete button
+  deleteButton.addEventListener('click', () => removeRequirement(deleteButton));
+
+  // Update all name attributes and IDs
+  updateRequirementIndexes(newRequirement, actionRequirementCounter);
+
+  container.appendChild(newRequirement);
+  actionRequirementCounter++;
+
+  document.getElementById("action-requirement-input")?.focus();
 }
 
 function removeRequirement(button) {
-    const requirementItem = button.closest('.requirement-item');
-    if (requirementItem) {
-        requirementItem.remove();
+  const requirementItem = button.closest('.requirement-item');
+  if (requirementItem) {
+    requirementItem.remove();
 
-        // Reindex all remaining requirements
-        reindexAllRequirements();
-    }
+    // Reindex all remaining requirements
+    reindexAllRequirements();
+  }
 }
 
 function updateRequirementIndexes(element, index) {
-    // Update all name attributes
-    const inputs = element.querySelectorAll('input, textarea');
-    inputs.forEach(input => {
-        if (input.name) {
-            input.name = input.name.replace('[INDEX]', `[${index}]`);
-            input.name = input.name.replace(/\[\d+]/, `[${index}]`);
-        }
-        if (input.id) {
-            input.id = input.id.replace(/-\d+$/, `-${index}`);
-        }
+  // Update all name attributes
+  const inputs = element.querySelectorAll('input, textarea');
+  inputs.forEach(input => {
+    if (input.name) {
+      input.name = input.name.replace('[INDEX]', `[${index}]`);
+      input.name = input.name.replace(/\[\d+]/, `[${index}]`);
+    }
+    if (input.id) {
+      input.id = input.id.replace(/-\d+$/, `-${index}`);
+    }
 
-        // Add required attribute for form fields that need validation
-        if (input.type === 'text' || input.type === 'number' || input.tagName.toLowerCase() === 'textarea') {
-            if (input.name && input.name.includes('item')) {
-                input.required = true;
-            }
-            if (input.name && input.name.includes('requiredAmount')) {
-                input.required = true;
-            }
-            if (input.name && input.name.includes('action')) {
-                input.required = true;
-            }
-        }
-    });
+    // Add required attribute for form fields that need validation
+    if (input.type === 'text' || input.type === 'number' || input.tagName.toLowerCase() === 'textarea') {
+      if (input.name && input.name.includes('item')) {
+        input.required = true;
+      }
+      if (input.name && input.name.includes('requiredAmount')) {
+        input.required = true;
+      }
+      if (input.name && input.name.includes('action')) {
+        input.required = true;
+      }
+    }
+  });
 
-    // Update label for attributes
-    const labels = element.querySelectorAll('label');
-    labels.forEach(label => {
-        if (label.htmlFor) {
-            label.htmlFor = label.htmlFor.replace(/-\d+$/, `-${index}`);
-        }
-    });
+  // Update label for attributes
+  const labels = element.querySelectorAll('label');
+  labels.forEach(label => {
+    if (label.htmlFor) {
+      label.htmlFor = label.htmlFor.replace(/-\d+$/, `-${index}`);
+    }
+  });
 }
 
 function reindexAllRequirements() {
-    const container = document.getElementById('requirements-container');
-    if (!container) return;
+  const container = document.getElementById('requirements-container');
+  if (!container) return;
 
-    const requirements = container.querySelectorAll('.requirement-item');
-    requirements.forEach((requirement, index) => {
-        requirement.setAttribute('data-requirement-index', index);
-        updateRequirementIndexes(requirement, index);
-    });
+  const requirements = container.querySelectorAll('.requirement-item');
+  requirements.forEach((requirement, index) => {
+    requirement.setAttribute('data-requirement-index', index);
+    updateRequirementIndexes(requirement, index);
+  });
 
-    // Update the counter
-    requirementCounter = requirements.length;
+  // Update the counter
+  itemRequirementCounter = requirements.length;
 }
 
 // Tab switching functionality for create task modal
 function switchTab(tabName) {
-    // Hide all tab contents
-    const contents = document.querySelectorAll('.tab-content');
-    contents.forEach(content => {
-        content.style.display = 'none';
-    });
+  switch (tabName) {
+    case 'item-requirements-tab':
+      switchToItems();
+      break;
+    case 'action-requirements-tab':
+      switchToActions();
+      break;
+  }
+}
 
-    // Remove active class from all tabs
-    const tabs = document.querySelectorAll('.tab-button');
-    tabs.forEach(tab => {
-        tab.classList.remove('active');
-    });
+function switchToActions() {
+  document.getElementById("action-requirements-tab").style.display = 'block';
+  document.getElementById("item-requirements-tab").style.display = 'none';
 
-    // Show selected tab content
-    const selectedContent = document.getElementById(`${tabName}-tab`);
-    if (selectedContent) {
-        selectedContent.style.display = 'block';
-    }
+  document.getElementById("action-requirement-input")?.focus();
+}
 
-    // Add active class to selected tab
-    const selectedTab = document.querySelector(`[data-tab="${tabName}"]`);
-    if (selectedTab) {
-        selectedTab.classList.add('active');
-    }
+function switchToItems() {
+  document.getElementById("action-requirements-tab").style.display = 'none';
+  document.getElementById("item-requirements-tab").style.display = 'block';
+
+  document.getElementById("item-requirement-name-input")?.focus();
 }
 
 // Initialize the form when modal opens
 function initializeTaskRequirementsForm() {
-    requirementCounter = 0;
+  itemRequirementCounter = 0;
 
-    // Clear any existing requirements
-    const container = document.getElementById('requirements-container');
-    if (container) {
-        container.innerHTML = '';
-    }
+  // Clear any existing requirements
+  const container = document.getElementById('requirements-container');
+  if (container) {
+    container.innerHTML = '';
+  }
 
-    // Set basic info tab as active by default
-    switchTab('basic');
+  // Set basic info tab as active by default
+  switchTab('basic');
 }
 
 // Call initialization when the modal is shown
-document.addEventListener('DOMContentLoaded', function() {
-    // Listen for modal show events
-    const modal = document.getElementById('create-task-modal');
-    if (modal) {
-        modal.addEventListener('show', initializeTaskRequirementsForm);
-    }
+document.addEventListener('DOMContentLoaded', function () {
+  // Listen for modal show events
+  const modal = document.getElementById('create-task-modal');
+  if (modal) {
+    modal.addEventListener('show', initializeTaskRequirementsForm);
+  }
 });

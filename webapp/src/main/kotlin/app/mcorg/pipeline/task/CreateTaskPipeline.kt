@@ -10,13 +10,22 @@ import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.ValidationSteps
 import app.mcorg.pipeline.failure.ValidationFailure
 import io.ktor.http.Parameters
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
 
-data class TaskRequirementInput(
-    val type: String, // "ITEM" or "ACTION"
-    val item: String? = null, // For ITEM requirements
-    val requiredAmount: Int? = null, // For ITEM requirements
-    val action: String? = null // For ACTION requirements
-)
+sealed interface TaskRequirementInput {
+    val name: String
+
+    @Serializable
+    data class ItemRequirementInput(
+        override val name: String,
+        val requiredAmount: Int
+    ) : TaskRequirementInput
+
+    data class ActionRequirementInput(
+        override val name: String
+    ) : TaskRequirementInput
+}
 
 data class CreateTaskInput(
     val projectId: Int,
@@ -111,48 +120,29 @@ object ValidateTaskInputStep : Step<Parameters, CreateTaskFailures, CreateTaskIn
         val requirements = mutableListOf<TaskRequirementInput>()
         val parameterNames = parameters.names()
 
-        // Find all requirement indices by looking for requirements[X].type parameters
-        val requirementIndices = parameterNames
-            .filter { it.startsWith("requirements[") && it.endsWith("].type") }
-            .mapNotNull { paramName ->
-                val indexMatch = Regex("requirements\\[(\\d+)\\]\\.type").find(paramName)
-                indexMatch?.groupValues?.get(1)?.toIntOrNull()
-            }
-            .distinct()
-            .sorted()
-
-        // Parse each requirement
-        for (index in requirementIndices) {
-            val type = parameters["requirements[$index].type"]
-            when (type?.uppercase()) {
-                "ITEM" -> {
-                    val item = parameters["requirements[$index].item"]
-                    val amountStr = parameters["requirements[$index].requiredAmount"]
-                    val amount = amountStr?.toIntOrNull()
-
-                    if (!item.isNullOrBlank() && amount != null && amount > 0) {
-                        requirements.add(
-                            TaskRequirementInput(
-                                type = "ITEM",
-                                item = item.trim(),
-                                requiredAmount = amount
-                            )
-                        )
-                    }
+        fun findIndices(name: String): List<Int> {
+            return parameterNames
+                .filter { it.startsWith("$name[") && it.endsWith("]") }
+                .mapNotNull { paramName ->
+                    val indexMatch = Regex("${Regex.escape("$name[")}(\\d+)${Regex.escape("]")}").find(paramName)
+                    indexMatch?.groupValues?.get(1)?.toIntOrNull()
                 }
-                "ACTION" -> {
-                    val action = parameters["requirements[$index].action"]
+                .distinct()
+                .sorted()
+        }
 
-                    if (!action.isNullOrBlank()) {
-                        requirements.add(
-                            TaskRequirementInput(
-                                type = "ACTION",
-                                action = action.trim()
-                            )
-                        )
-                    }
-                }
-            }
+        val itemRequirementIndices = findIndices("itemRequirements")
+
+        val actionRequirementIndices = findIndices("actionRequirements")
+
+        for (index in itemRequirementIndices) {
+            val json = parameters["itemRequirements[$index]"] ?: continue
+            requirements.add(Json.decodeFromString<TaskRequirementInput.ItemRequirementInput>(json))
+        }
+
+        for (index in actionRequirementIndices) {
+            val text = parameters["actionRequirements[$index]"] ?: continue
+            requirements.add(TaskRequirementInput.ActionRequirementInput(text))
         }
 
         return requirements
@@ -162,29 +152,26 @@ object ValidateTaskInputStep : Step<Parameters, CreateTaskFailures, CreateTaskIn
         val errors = mutableListOf<ValidationFailure>()
 
         requirements.forEachIndexed { index, requirement ->
-            when (requirement.type.uppercase()) {
-                "ITEM" -> {
-                    if (requirement.item.isNullOrBlank()) {
+            when (requirement) {
+                is TaskRequirementInput.ItemRequirementInput -> {
+                    if (requirement.name.isBlank()) {
                         errors.add(ValidationFailure.MissingParameter("requirements[$index].item"))
-                    } else if (requirement.item.length > 100) {
+                    } else if (requirement.name.length > 100) {
                         errors.add(ValidationFailure.InvalidLength("requirements[$index].item", 1, 100))
                     }
 
-                    if (requirement.requiredAmount == null || requirement.requiredAmount <= 0) {
+                    if (requirement.requiredAmount <= 0) {
                         errors.add(ValidationFailure.InvalidFormat("requirements[$index].requiredAmount", "Must be a positive number"))
                     } else if (requirement.requiredAmount > 999999) {
                         errors.add(ValidationFailure.InvalidFormat("requirements[$index].requiredAmount", "Amount cannot exceed 999,999"))
                     }
                 }
-                "ACTION" -> {
-                    if (requirement.action.isNullOrBlank()) {
+                is TaskRequirementInput.ActionRequirementInput -> {
+                    if (requirement.name.isBlank()) {
                         errors.add(ValidationFailure.MissingParameter("requirements[$index].action"))
-                    } else if (requirement.action.length > 500) {
+                    } else if (requirement.name.length > 500) {
                         errors.add(ValidationFailure.InvalidLength("requirements[$index].action", 1, 500))
                     }
-                }
-                else -> {
-                    errors.add(ValidationFailure.InvalidFormat("requirements[$index].type", "Must be ITEM or ACTION"))
                 }
             }
         }
@@ -267,11 +254,10 @@ object CreateTaskStep : Step<CreateTaskInput, CreateTaskFailures, Int> {
 
                     // Create requirements if any exist
                     if (transactionInput.requirements.isNotEmpty()) {
-                        for ((index, requirement) in transactionInput.requirements.withIndex()) {
-                            val requirementResult = when (requirement.type.uppercase()) {
-                                "ITEM" -> createItemRequirement(taskId, requirement, index)
-                                "ACTION" -> createActionRequirement(taskId, requirement, index)
-                                else -> Result.failure(CreateTaskFailures.DatabaseError)
+                        for (requirement in transactionInput.requirements) {
+                            val requirementResult = when (requirement) {
+                                is TaskRequirementInput.ItemRequirementInput -> createItemRequirement(taskId, requirement)
+                                is TaskRequirementInput.ActionRequirementInput -> createActionRequirement(taskId, requirement)
                             }
 
                             // If any requirement creation fails, the transaction will be rolled back
@@ -290,8 +276,7 @@ object CreateTaskStep : Step<CreateTaskInput, CreateTaskFailures, Int> {
 
     private suspend fun createItemRequirement(
         taskId: Int,
-        requirement: TaskRequirementInput,
-        index: Int
+        requirement: TaskRequirementInput.ItemRequirementInput
     ): Result<CreateTaskFailures, Int> {
         return DatabaseSteps.update<TaskRequirementInput, CreateTaskFailures>(
             sql = SafeSQL.insert("""
@@ -301,8 +286,8 @@ object CreateTaskStep : Step<CreateTaskInput, CreateTaskFailures, Int> {
             """),
             parameterSetter = { statement, _ ->
                 statement.setInt(1, taskId)
-                statement.setString(2, requirement.item!!)
-                statement.setInt(3, requirement.requiredAmount!!)
+                statement.setString(2, requirement.name)
+                statement.setInt(3, requirement.requiredAmount)
             },
             errorMapper = { CreateTaskFailures.DatabaseError }
         ).process(requirement)
@@ -310,8 +295,7 @@ object CreateTaskStep : Step<CreateTaskInput, CreateTaskFailures, Int> {
 
     private suspend fun createActionRequirement(
         taskId: Int,
-        requirement: TaskRequirementInput,
-        index: Int
+        requirement: TaskRequirementInput.ActionRequirementInput
     ): Result<CreateTaskFailures, Int> {
         return DatabaseSteps.update<TaskRequirementInput, CreateTaskFailures>(
             sql = SafeSQL.insert("""
@@ -321,7 +305,7 @@ object CreateTaskStep : Step<CreateTaskInput, CreateTaskFailures, Int> {
             """),
             parameterSetter = { statement, _ ->
                 statement.setInt(1, taskId)
-                statement.setString(2, requirement.action!!)
+                statement.setString(2, requirement.name)
             },
             errorMapper = { CreateTaskFailures.DatabaseError }
         ).process(requirement)

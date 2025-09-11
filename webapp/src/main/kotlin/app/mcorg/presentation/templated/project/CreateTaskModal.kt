@@ -3,6 +3,7 @@ package app.mcorg.presentation.templated.project
 import app.mcorg.domain.model.project.Project
 import app.mcorg.domain.model.project.ProjectStage
 import app.mcorg.domain.model.task.Priority
+import app.mcorg.presentation.templated.common.form.radiogroup.RadioGroupLayout
 import app.mcorg.presentation.templated.common.form.radiogroup.RadioGroupOption
 import app.mcorg.presentation.templated.common.form.radiogroup.radioGroup
 import app.mcorg.presentation.templated.common.icon.IconSize
@@ -34,69 +35,55 @@ fun <T : Tag> T.createTaskModal(project: Project) = formModal(
 ) {
     formContent {
         classes += "create-task-form"
-        
-        // Basic Info Tab
-        div("tab-content") {
-            id = "basic-tab"
-            
-            span("input-group") {
-                label {
-                    + "Name"
-                }
-                input {
-                    name = "name"
-                    required = true
-                    minLength = "3"
-                    maxLength = "100"
-                    type = InputType.text
-                    classes += "form-control"
-                }
-            }
-            
-            span("input-group") {
-                label {
-                    + "Description"
-                }
-                textArea {
-                    name = "description"
-                    maxLength = "2000"
-                    classes += "form-control"
-                }
-            }
-            
-            span("input-group") {
-                label {
-                    + "Related Stage"
-                }
-                select {
-                    name = "stage"
-                    classes += "form-control"
-                    ProjectStage.entries.forEach {
-                        option {
-                            value = it.name
-                            selected = it == project.stage
-                            + it.toPrettyEnumName()
-                        }
-                    }
-                }
-            }
-            
-            span("input-group") {
-                label {
-                    + "Priority"
-                }
-                div("priority-group") {
-                    radioGroup("priority", Priority.entries.map { RadioGroupOption(it.name, it.toPrettyEnumName()) }, selectedOption = "MEDIUM")
-                }
-            }
-        }
-        
-        // Requirements Tab
-        div("tab-content") {
-            id = "requirements-tab"
 
-            taskRequirementsForm()
+        label {
+            + "Name"
         }
+        input {
+            name = "name"
+            required = true
+            minLength = "3"
+            maxLength = "100"
+            type = InputType.text
+            classes += "form-control"
+        }
+
+        label {
+            + "Description"
+        }
+        textArea {
+            name = "description"
+            maxLength = "2000"
+            classes += "form-control"
+        }
+
+        label {
+            + "Related Stage"
+        }
+        select {
+            name = "stage"
+            classes += "form-control"
+            ProjectStage.entries.forEach {
+                option {
+                    value = it.name
+                    selected = it == project.stage
+                    + it.toPrettyEnumName()
+                }
+            }
+        }
+        label {
+            + "Priority"
+        }
+        div("priority-group") {
+            radioGroup(
+                "priority",
+                Priority.entries.map { RadioGroupOption(it.name, it.toPrettyEnumName()) },
+                selectedOption = "MEDIUM",
+                layout = RadioGroupLayout.HORIZONTAL
+            )
+        }
+
+        taskRequirementsForm()
         
         // JavaScript include for form functionality
         script {

@@ -348,18 +348,13 @@ main.project {
 }
 
 .create-task-form {
-    .input-group {
-        display: flex;
-        flex-direction: row;
-        align-items: center;
-        justify-content: space-between;
-        gap: var(--spacing-sm);
-
-        margin-block: var(--spacing-sm);
-
-        label {
-            text-wrap: nowrap;
-        }
+    input,
+    select,
+    .priority-group,
+    .task-requirements-tabs,
+    .add-requirement-button,
+    .requirements-list {
+        margin-block-end: var(--spacing-sm);
     }
 
     .priority-group {
@@ -371,5 +366,31 @@ main.project {
         > input[type="radio"]{
             margin-right: var(--spacing-xxs);
         }
+    }
+
+    .task-requirements-tabs,
+    .add-requirement-button {
+        width: 100%;
+    }
+
+    .task-requirements-tabs > button {
+        flex-grow: 1;
+    }
+
+    .requirement-item {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+
+        padding: var(--spacing-xs);
+        margin-bottom: var(--spacing-xxs);
+
+        border: 1px solid var(--clr-border-subtle);
+        border-radius: var(--border-radius-md);
+    }
+
+    #requirement-template {
+        display: none;
     }
 }

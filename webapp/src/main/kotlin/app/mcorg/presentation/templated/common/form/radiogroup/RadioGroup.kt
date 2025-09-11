@@ -60,7 +60,7 @@ class RadioGroup(
 
             options.forEach { option ->
                 div {
-                    classes = setOf("u-flex", "u-flex-align-center", "u-flex-gap-xs")
+                    classes = setOf("u-flex", "u-flex-gap-xs")
 
                     input(type = InputType.radio) {
                         id = "${inputName}-${option.value}"

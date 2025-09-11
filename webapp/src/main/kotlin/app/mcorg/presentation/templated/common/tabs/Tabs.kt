@@ -5,6 +5,7 @@ import app.mcorg.presentation.hxSwap
 import app.mcorg.presentation.hxTarget
 import app.mcorg.presentation.templated.common.component.LeafComponent
 import app.mcorg.presentation.templated.common.component.addComponent
+import kotlinx.html.ButtonType
 import kotlinx.html.Tag
 import kotlinx.html.TagConsumer
 import kotlinx.html.button
@@ -47,6 +48,15 @@ fun <T : Tag> T.tabsComponent(
 }
 
 fun <T : Tag> T.tabsComponent(
+    vararg tabs: TabData,
+    handler: (Tabs.() -> Unit)? = null,
+) {
+    val component = Tabs(tabs.toList())
+    handler?.invoke(component)
+    addComponent(component)
+}
+
+fun <T : Tag> T.tabsComponent(
     hxTarget: String,
     vararg tabs: TabData,
     handler: (Tabs.() -> Unit)? = null,
@@ -70,6 +80,7 @@ class Tabs(
     var activeTab: String? = null,
     var variant: TabsVariant = TabsVariant.DEFAULT,
     var size: TabsSize = TabsSize.MEDIUM,
+    var onClick: ((tab: TabData) -> String)? = null,
     var classes: MutableSet<String> = mutableSetOf(),
 ) : LeafComponent() {
 
@@ -116,21 +127,32 @@ class Tabs(
                         }
                     }
 
-                    // Enhanced click handling with new CSS classes
-                    onClick = """
+                    val mainClick = """
                         document.querySelectorAll('.tabs__tab--active').forEach(el => el.classList.remove('tabs__tab--active'));
                         this.classList.add('tabs__tab--active');
                     """.trimIndent()
 
-                    // HTMX attributes
-                    hxGet("?tab=${tab.value}")
-                    hxSwap("outerHTML")
-                    hxTarget?.let { target -> hxTarget(target) }
+                    this@Tabs.onClick?.let {
+                        val customClick = it(tab)
+                        onClick = mainClick + customClick
+                    }
+
+                    if (this@Tabs.onClick == null) {
+                        onClick = mainClick
+                    }
+
+                    hxTarget?.let { target ->
+                        hxTarget(target)
+                        hxGet("?tab=${tab.value}")
+                        hxSwap("outerHTML")
+                    }
 
                     // Accessibility attributes
                     attributes["role"] = "tab"
                     attributes["aria-selected"] = (tab.value == activeTab).toString()
                     attributes["aria-controls"] = "tabpanel-${tab.value}"
+
+                    type = ButtonType.button
 
                     + tab.label
                 }
