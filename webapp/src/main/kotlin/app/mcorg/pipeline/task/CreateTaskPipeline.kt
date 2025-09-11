@@ -336,7 +336,7 @@ object GetUpdatedTasksStep : Step<Int, CreateTaskFailures, CreateTaskResult> {
                 sql = SafeSQL.select("""
                     SELECT t.id, t.project_id, t.name, t.description, t.stage, t.priority
                     FROM tasks t
-                    WHERE t.project_id = ?
+                    WHERE t.project_id = ? AND stage != 'COMPLETED'
                     ORDER BY t.created_at DESC
                 """),
                 parameterSetter = { statement, _ ->

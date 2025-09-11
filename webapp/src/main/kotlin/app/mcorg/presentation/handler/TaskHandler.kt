@@ -226,6 +226,7 @@ object TaskHandler {
 
     suspend fun ApplicationCall.handleToggleActionRequirement() {
         val user = this.getUser()
+        val worldId = this.getWorldId()
         val projectId = this.getProjectId()
         val taskId = this.getTaskId()
         val requirementId = this.parameters["requirementId"]?.toIntOrNull()
@@ -237,23 +238,7 @@ object TaskHandler {
         executePipeline(
             onSuccess = { result: UpdateRequirementProgressResult ->
                 respondHtml(createHTML().li {
-                    if (result.requirement.isCompleted()) {
-                        classes += "completed"
-                    }
-                    id = "requirement-${result.requirement.id}"
-                    classes += "action-requirement"
-                    div("action-requirement-content") {
-                        input {
-                            id = "requirement-checkbox-${result.requirement.id}"
-                            checked = result.requirement.isCompleted()
-                            disabled = result.requirement.isCompleted()
-                            type = InputType.checkBox
-                        }
-                        label {
-                            htmlFor = "requirement-checkbox-${result.requirement.id}"
-                            + (result.requirement as ActionRequirement).action
-                        }
-                    }
+                    requirement(result.requirement, worldId, projectId, taskId)
                 })
             },
             onFailure = { failure: UpdateRequirementFailures ->

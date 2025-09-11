@@ -221,7 +221,7 @@ private fun LI.taskRequirements(task: Task, worldId: Int, projectId: Int) {
             + "Requirements:"
         }
         ul {
-            task.requirements.forEach { requirement ->
+            task.requirements.sortedBy { it.isCompleted() }.forEach { requirement ->
                 li {
                     requirement(requirement, worldId, projectId, task.id)
                 }
@@ -259,16 +259,6 @@ private fun LI.actionRequirement(requirement: ActionRequirement, worldId: Int, p
         label {
             htmlFor = "requirement-checkbox-${requirement.id}"
             + requirement.action
-        }
-    }
-
-    if (!requirement.isCompleted()) {
-        iconButton(Icons.MENU, iconSize = IconSize.SMALL) {
-            buttonBlock = {
-                classes += "edit-requirement-btn"
-                onClick = "openEditRequirementModal(${requirement.id}, '${requirement.action}', $worldId, $projectId, $taskId)"
-                title = "Edit requirement"
-            }
         }
     }
 }

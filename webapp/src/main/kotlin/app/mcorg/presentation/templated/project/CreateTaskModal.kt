@@ -21,7 +21,8 @@ fun <T : Tag> T.createTaskModal(project: Project) = formModal(
     description = "Create a new task with requirements for your Minecraft project.",
     saveText = "Create Task",
     hxValues = FormModalHxValues(
-        hxTarget = ".project-tasks",
+        hxTarget = "#tasks-list",
+        hxSwap = "outerHTML",
         method = FormModalHttpMethod.POST,
         href = "${Link.Worlds.world(project.worldId).project(project.id).to}/tasks"
     ),

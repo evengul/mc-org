@@ -5,6 +5,7 @@ import app.mcorg.presentation.hxGet
 import app.mcorg.presentation.hxPatch
 import app.mcorg.presentation.hxPost
 import app.mcorg.presentation.hxPut
+import app.mcorg.presentation.hxSwap
 import app.mcorg.presentation.hxTarget
 import app.mcorg.presentation.templated.common.button.GenericButton
 import app.mcorg.presentation.templated.common.component.addComponent
@@ -29,6 +30,7 @@ enum class FormModalHttpMethod {
 data class FormModalHxValues(
     val hxTarget: String,
     val method: FormModalHttpMethod,
+    val hxSwap: String = "innerHTML",
     val href: String
 )
 
@@ -69,6 +71,7 @@ class FormModal(
 
             hxValues?.let { hx ->
                 hxTarget(hx.hxTarget)
+                hxSwap(hx.hxSwap)
                 when(hx.method) {
                     FormModalHttpMethod.GET -> hxGet(hx.href)
                     FormModalHttpMethod.POST -> hxPost(hx.href)
