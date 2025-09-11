@@ -38,6 +38,7 @@ val worldMemberQueryStep = DatabaseSteps.query<WorldMemberQueryInput, DatabaseFa
 private fun ResultSet.toWorldMember(): WorldMember {
     return WorldMember(
         id = getInt("id"),
+        worldId = getInt("world_id"),
         displayName = getString("display_name"),
         worldRole = Role.fromLevel(getInt("world_role")),
         createdAt = getTimestamp("created_at").toInstant().atZone(java.time.ZoneOffset.UTC),

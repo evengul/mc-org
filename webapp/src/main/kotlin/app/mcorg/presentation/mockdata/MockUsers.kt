@@ -14,6 +14,7 @@ object MockUsers {
         fun worldMember(displayName: String = "evegul", worldRole: Role = Role.ADMIN): WorldMember {
             return WorldMember(
                 id = ID,
+                worldId = MockWorlds.survivalWorld.id,
                 displayName = displayName,
                 worldRole = worldRole,
                 createdAt = ZonedDateTime.now(),
@@ -53,6 +54,7 @@ object MockUsers {
         fun worldMember(displayName: String = "Alex", worldRole: Role = Role.MEMBER): WorldMember {
             return WorldMember(
                 id = ID,
+                worldId = MockWorlds.survivalWorld.id,
                 displayName = displayName,
                 worldRole = worldRole,
                 createdAt = ZonedDateTime.now(),

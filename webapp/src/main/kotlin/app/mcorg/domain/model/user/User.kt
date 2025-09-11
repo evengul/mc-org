@@ -8,6 +8,7 @@ sealed interface User {
 
 data class WorldMember(
     override val id: Int,
+    val worldId: Int,
     val displayName: String,
     val worldRole: Role,
     val createdAt: ZonedDateTime,
