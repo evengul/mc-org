@@ -21,7 +21,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
 import java.sql.*
 import kotlin.test.*
-import java.util.Date;
+import java.util.Date
 
 /**
  * Comprehensive test suite for the MC-ORG Authentication Pipeline.
@@ -523,9 +523,5 @@ class AuthenticationPipelineTest {
         every { updateWorldMembersStatement.setInt(any(), any()) } just Runs
         every { updateWorldMembersStatement.executeUpdate() } returns 1
         every { updateWorldMembersStatement.close() } just Runs
-    }
-
-    private fun setupMockForDatabaseError() {
-        every { mockConnection.prepareStatement(any()) } throws SQLException("Simulated database error")
     }
 }
