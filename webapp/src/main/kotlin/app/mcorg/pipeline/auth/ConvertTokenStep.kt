@@ -17,6 +17,10 @@ import com.auth0.jwt.exceptions.TokenExpiredException
 
 data class ConvertTokenStep(val issuer: String = ISSUER) : Step<String, ConvertTokenStepFailure, TokenProfile> {
     override suspend fun process(input: String): Result<ConvertTokenStepFailure, TokenProfile> {
+        if (input.trim().isBlank()) {
+            return Result.failure(ConvertTokenStepFailure.InvalidToken)
+        }
+
         val (publicKey, privateKey) = JwtHelper.getKeys()
 
         val jwt = try {
