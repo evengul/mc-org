@@ -41,7 +41,7 @@ data class ConvertTokenStep(val issuer: String = ISSUER) : Step<String, ConvertT
                 is SignatureVerificationException -> Result.failure(ConvertTokenStepFailure.InvalidToken)
                 is TokenExpiredException -> Result.failure(ConvertTokenStepFailure.ExpiredToken)
                 is MissingClaimException -> Result.failure(ConvertTokenStepFailure.MissingClaim(e.claimName))
-                is IncorrectClaimException -> Result.failure(ConvertTokenStepFailure.IncorrectClaim(e.claimName, e.claimValue.toString()))
+                is IncorrectClaimException -> Result.failure(ConvertTokenStepFailure.IncorrectClaim(e.claimName, e.claimValue.asString()))
                 else -> Result.failure(ConvertTokenStepFailure.ConversionError(e))
             }
         }
