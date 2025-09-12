@@ -64,7 +64,7 @@ src/test/kotlin/app/mcorg/
 │   ├── WorldHandlerTest.kt ⚠️ MISSING
 │   └── HomeHandlerTest.kt ⚠️ MISSING
 ├── pipeline/auth/
-│   ├── AuthenticationPipelineTest.kt ⚠️ MISSING
+│   ├── AuthenticationPipelineTest.kt ✅ EXISTS
 │   └── CreateUserIfNotExistsStepTest.kt ✅ EXISTS
 ├── pipeline/world/
 │   ├── CreateWorldPipelineTest.kt ⚠️ MISSING
