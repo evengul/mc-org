@@ -175,8 +175,8 @@ class GetMinecraftProfileStepTest {
     @Test
     fun `should handle network timeout or connection error`() {
         // Arrange
-        MinecraftApiConfig.useFakeProvider { httpMethod, url ->
-            app.mcorg.domain.pipeline.Result.failure(
+        MinecraftApiConfig.useFakeProvider { _, _ ->
+            Result.failure(
                 ApiFailure.NetworkError
             )
         }

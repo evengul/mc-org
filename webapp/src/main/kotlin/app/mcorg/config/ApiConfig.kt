@@ -79,3 +79,10 @@ object MinecraftApiConfig : ApiConfig() {
     fun getAuthenticateUrl() = "${getBaseUrl()}/authentication/login_with_xbox"
     fun getProfileUrl() = "${getBaseUrl()}/minecraft/profile"
 }
+
+class TestApiConfig : ApiConfig() {
+    override fun getBaseUrl(): String = "https://api.example.com"
+    override fun getContentType(): ContentType = ContentType.Application.Json
+    override fun acceptContentType(): ContentType = ContentType.Application.Json
+    override fun getUserAgent(): String = "MC-ORG-Test/1.0"
+}

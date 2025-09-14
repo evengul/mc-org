@@ -245,6 +245,16 @@ class FakeApiProvider(
     ): Step<I, E, String> {
         return object : Step<I, E, String> {
             override suspend fun process(input: I): Result<E, String> {
+                val requestBuilder = HttpRequestBuilder().apply {
+                    this.method = method
+                    contentType(config.getContentType())
+                    accept(config.acceptContentType())
+                    config.getUserAgent()?.let { userAgent ->
+                        header(HttpHeaders.UserAgent, userAgent)
+                    }
+                }
+                headerBuilder(requestBuilder, input)
+                bodyBuilder(requestBuilder, input)
                 return getResponseBody(method, url).mapError { errorMapper(it) }
             }
         }
