@@ -24,6 +24,11 @@ sealed class ApiConfig {
         provider = ProviderType.FAKE
     }
 
+    fun resetProvider() {
+        fakeResponses = null
+        provider = ProviderType.DEFAULT
+    }
+
     fun getProvider(): ApiProvider {
         return when(provider) {
             ProviderType.DEFAULT -> DefaultApiProvider(this)
