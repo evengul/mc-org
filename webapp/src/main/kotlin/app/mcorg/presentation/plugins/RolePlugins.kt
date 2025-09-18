@@ -13,7 +13,7 @@ import io.ktor.server.response.respond
 val AdminPlugin = createRouteScopedPlugin("AdminPlugin") {
     onCall {
         if (!it.getUser().isSuperAdmin) {
-            it.respond(HttpStatusCode.Forbidden)
+            it.respond(HttpStatusCode.NotFound)
         }
     }
 }

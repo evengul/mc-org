@@ -70,3 +70,17 @@ val hasWorldRoleOrHigherQuery = SafeSQL.select("""
 """.trimIndent())
 
 val deleteWorldQuery = SafeSQL.delete("DELETE FROM world WHERE id = ?")
+
+val getWorldMembersQuery = SafeSQL.select("""
+    SELECT 
+         id,
+         user_id,
+         world_id,
+         display_name,
+         world_role,
+         updated_at,
+         created_at
+    FROM
+     world_members 
+     WHERE world_id = ?;
+""".trimIndent())

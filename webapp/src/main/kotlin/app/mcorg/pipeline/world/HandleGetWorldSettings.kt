@@ -1,14 +1,10 @@
 package app.mcorg.pipeline.world
 
-import app.mcorg.domain.model.invite.Invite
-import app.mcorg.domain.model.world.World
 import app.mcorg.domain.pipeline.Pipeline
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.pipeline.failure.HandleGetWorldFailure
 import app.mcorg.presentation.handler.executeParallelPipeline
-import app.mcorg.presentation.handler.executePipeline
-import app.mcorg.presentation.mockdata.MockUsers
 import app.mcorg.presentation.templated.settings.SettingsTab
 import app.mcorg.presentation.templated.settings.generalTab
 import app.mcorg.presentation.templated.settings.membersTab
@@ -21,11 +17,6 @@ import io.ktor.http.Parameters
 import io.ktor.server.application.ApplicationCall
 import kotlinx.html.div
 import kotlinx.html.stream.createHTML
-
-data class WorldSettingsData(
-    val world: World,
-    val invitations: List<Invite>
-)
 
 suspend fun ApplicationCall.handleGetWorldSettings() {
     val user = this.getUser()
@@ -65,19 +56,35 @@ suspend fun ApplicationCall.handleGetWorldSettings() {
 }
 
 suspend fun ApplicationCall.handleGetMembersTab(worldId: Int) {
-    executePipeline(
-        onSuccess = { data: WorldSettingsData ->
-            val tabData = SettingsTab.Members(data.world, data.invitations, MockUsers.getWorldMembers())
-            respondHtml(createHTML().div {
-                membersTab(tabData)
-            })
-        },
-        onFailure = { failure: HandleGetWorldFailure ->
-            handleWorldFailure(failure)
-        }
+    val worldPipeline = Pipeline.create<HandleGetWorldFailure, Int>()
+        .pipe(Step.value(worldId))
+        .pipe(worldQueryStep)
+
+    val invitationsPipeline = Pipeline.create<HandleGetWorldFailure, Int>()
+        .pipe(Step.value(worldId))
+        .pipe(GetWorldInvitationsStep)
+
+    val membersPipeline = Pipeline.create<HandleGetWorldFailure, Int>()
+        .pipe(Step.value(worldId))
+        .pipe(worldMembersQueryStep)
+
+    executeParallelPipeline(
+        onSuccess = { tabData -> respondHtml(createHTML().div {
+            membersTab(tabData)
+        })},
+        onFailure = { handleWorldFailure(it) }
     ) {
-        step(Step.value(worldId))
-            .step(GetWorldAndInvitationsStep)
+        val world = pipeline("world", worldId, worldPipeline)
+        val invitations = pipeline("invitations", worldId, invitationsPipeline)
+        val members = pipeline("members", worldId, membersPipeline)
+
+        merge("data", world, invitations, members) { w, i, m ->
+            Result.success(SettingsTab.Members(
+                world = w,
+                invitations = i,
+                members = m
+            ))
+        }
     }
 }
 
@@ -118,28 +125,5 @@ suspend fun ApplicationCall.handleGetStatisticsTab(worldId: Int) {
                 .pipe(Step.value(worldId))
                 .pipe(worldQueryStep)
         )
-    }
-}
-
-object GetWorldAndInvitationsStep : Step<Int, HandleGetWorldFailure, WorldSettingsData> {
-    override suspend fun process(input: Int): Result<HandleGetWorldFailure, WorldSettingsData> {
-        val worldId = input
-
-        // Get world data
-        val worldResult = worldQueryStep.process(worldId)
-        if (worldResult is Result.Failure) {
-            return worldResult
-        }
-
-        // Get invitations data
-        val invitationsResult = GetWorldInvitationsStep.process(worldId)
-        if (invitationsResult is Result.Failure) {
-            return invitationsResult
-        }
-
-        return Result.success(WorldSettingsData(
-            world = worldResult.getOrNull()!!,
-            invitations = invitationsResult.getOrNull()!!
-        ))
     }
 }

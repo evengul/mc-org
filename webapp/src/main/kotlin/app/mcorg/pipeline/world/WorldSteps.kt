@@ -35,6 +35,21 @@ val worldMemberQueryStep = DatabaseSteps.query<WorldMemberQueryInput, DatabaseFa
     resultMapper = { if(it.next()) it.toWorldMember() else throw IllegalStateException() }
 )
 
+val worldMembersQueryStep = DatabaseSteps.query<Int, HandleGetWorldFailure, List<WorldMember>>(
+    getWorldMembersQuery,
+    parameterSetter = { statement, input ->
+        statement.setInt(1, input)
+    },
+    errorMapper = { HandleGetWorldFailure.SystemError("A system error occurred while fetching the members of the world.") },
+    resultMapper = {
+        buildList {
+            while (it.next()) {
+                add(it.toWorldMember())
+            }
+        }
+    }
+)
+
 private fun ResultSet.toWorldMember(): WorldMember {
     return WorldMember(
         id = getInt("id"),
