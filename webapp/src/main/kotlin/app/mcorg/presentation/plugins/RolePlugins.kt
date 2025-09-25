@@ -2,6 +2,9 @@ package app.mcorg.presentation.plugins
 
 import app.mcorg.domain.model.user.Role
 import app.mcorg.domain.pipeline.Result
+import app.mcorg.pipeline.DatabaseSteps
+import app.mcorg.pipeline.SafeSQL
+import app.mcorg.pipeline.failure.DatabaseFailure
 import app.mcorg.pipeline.world.ValidateWorldMemberRole
 import app.mcorg.pipeline.world.ValidateWorldMemberRoleFailure
 import app.mcorg.presentation.utils.getUser
@@ -32,7 +35,14 @@ val WorldAdminPlugin = createRouteScopedPlugin("WorldAdminPlugin") {
 
 val BannedPlugin = createRouteScopedPlugin("BannedPlugin") {
     onCall {
-        if (it.getUser().isBanned) {
+        val userId = it.getUser().id
+        val result = DatabaseSteps.query<Int, DatabaseFailure, Boolean>(
+            sql = SafeSQL.select("SELECT 1 FROM global_user_roles where user_id = ? AND role = 'banned'"),
+            parameterSetter = { statement, _ -> statement.setInt(1, userId) },
+            errorMapper = { e -> e },
+            resultMapper = { rs -> rs.next() }
+        ).process(userId)
+        if (result is Result.Success && result.value) {
             it.respond(HttpStatusCode.Forbidden, "You are banned from accessing this application.")
         }
     }

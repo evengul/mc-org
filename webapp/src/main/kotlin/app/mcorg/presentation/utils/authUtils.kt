@@ -9,7 +9,6 @@ import io.ktor.util.date.*
 
 fun ApplicationCall.storeUser(user: TokenProfile) = attributes.put(AttributeKey("user"), user)
 fun ApplicationCall.getUser() = attributes[AttributeKey<TokenProfile>("user")]
-fun ApplicationCall.getUserId() = getUser().id
 
 fun ResponseCookies.removeToken(host: String) {
     if (host == "false") {

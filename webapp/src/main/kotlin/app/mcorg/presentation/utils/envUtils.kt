@@ -7,7 +7,6 @@ import app.mcorg.domain.Test
 import io.ktor.http.HttpHeaders
 import io.ktor.server.application.*
 import io.ktor.server.request.host
-import io.ktor.util.*
 
 fun ApplicationCall.getHost(): String? {
     val env = AppConfig.env
