@@ -1,5 +1,6 @@
 package app.mcorg.config
 
+import app.mcorg.domain.Local
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
 import java.sql.Connection
@@ -58,7 +59,7 @@ object Database {
         return provider!!
     }
 
-    private fun isLocalEnvironment(): Boolean = System.getenv("ENV") == "LOCAL"
+    private fun isLocalEnvironment(): Boolean = AppConfig.env == Local
 
     // For testing purposes
     internal fun setProvider(testProvider: DatabaseConnectionProvider) {
@@ -73,7 +74,7 @@ object Database {
     data class Config(val url: String, val user: String, val password: String) {
         companion object {
             fun get(): Config {
-                return Config(System.getenv("DB_URL"), System.getenv("DB_USER"), System.getenv("DB_PASSWORD"))
+                return Config(AppConfig.dbUrl, AppConfig.dbUsername, AppConfig.dbPassword)
             }
         }
     }

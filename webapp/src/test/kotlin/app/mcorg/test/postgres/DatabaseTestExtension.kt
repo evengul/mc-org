@@ -1,4 +1,4 @@
-package app.mcorg.test
+package app.mcorg.test.postgres
 
 import app.mcorg.config.Database
 import app.mcorg.config.DatabaseConnectionProvider

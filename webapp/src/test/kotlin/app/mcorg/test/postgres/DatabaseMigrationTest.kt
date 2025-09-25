@@ -1,4 +1,4 @@
-package app.mcorg.test
+package app.mcorg.test.postgres
 
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.pipeline.DatabaseSteps

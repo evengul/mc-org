@@ -1,5 +1,6 @@
 package app.mcorg.presentation.security
 
+import app.mcorg.config.AppConfig
 import java.security.KeyFactory
 import java.security.interfaces.RSAPrivateKey
 import java.security.interfaces.RSAPublicKey
@@ -45,11 +46,11 @@ fun JwtHelper.Companion.getKeys(): Pair<RSAPublicKey, RSAPrivateKey> {
 }
 
 private fun JwtHelper.Companion.readPrivateKey(): String {
-    return System.getenv("RSA_PRIVATE_KEY") ?: readKey("private_key.pem")
+    return AppConfig.rsaPrivateKey ?: readKey("private_key.pem")
 }
 
 private fun JwtHelper.Companion.readPublicKey(): String {
-    return System.getenv("RSA_PUBLIC_KEY") ?: readKey("public_key.pem")
+    return AppConfig.rsaPublicKey ?: readKey("public_key.pem")
 }
 
 private fun JwtHelper.Companion.readKey(filename: String) =

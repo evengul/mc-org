@@ -1,5 +1,6 @@
 package app.mcorg.presentation.handler
 
+import app.mcorg.config.AppConfig
 import app.mcorg.domain.pipeline.Pipeline
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.domain.Local
@@ -62,7 +63,7 @@ suspend fun ApplicationCall.handleLocalSignIn() {
     val localUuid = "${localUsername}-uuid"
     val redirectPath = parameters["redirect_to"] ?: "/"
     Pipeline.create<SignInLocallyFailure, Unit>()
-        .pipe(Step.value(getEnvironment()))
+        .pipe(Step.value(AppConfig.env))
         .pipe(ValidateEnvStep(Local))
         .pipe(Step.value(MinecraftProfile(uuid = localUuid, username = localUsername)))
         .pipe(CreateUserIfNotExistsStep)
@@ -83,7 +84,7 @@ suspend fun ApplicationCall.handleTestSignIn() {
     val redirectPath = parameters["redirect_to"] ?: "/"
     val testUser = getTestUser()
     Pipeline.create<SignInLocallyFailure, Unit>()
-        .pipe(Step.value(getEnvironment()))
+        .pipe(Step.value(AppConfig.env))
         .pipe(ValidateEnvStep(Test))
         .pipe(Step.value(testUser))
         .pipe(CreateUserIfNotExistsStep)
@@ -115,9 +116,9 @@ suspend fun ApplicationCall.handleSignIn() {
         .map {
             GetMicrosoftTokenInput(
                 code = it,
-                clientId = getMicrosoftClientId(),
-                clientSecret = getMicrosoftClientSecret(),
-                env = getEnvironment(),
+                clientId = AppConfig.microsoftClientId,
+                clientSecret = AppConfig.microsoftClientSecret,
+                env = AppConfig.env,
                 host = getHost()
             )
         }
@@ -144,9 +145,9 @@ suspend fun ApplicationCall.handleGetSignOut() {
 }
 
 private fun ApplicationCall.getSignInUrl(redirectPath: String = "/"): String {
-    return if (getEnvironment() == Test) {
+    return if (AppConfig.env == Test) {
         "/auth/oidc/test-redirect?redirect_to=$redirectPath"
-    } else if (getSkipMicrosoftSignIn().lowercase() != "true") {
+    } else if (!AppConfig.skipMicrosoftSignIn) {
         getMicrosoftSignInUrl(redirectPath)
     } else {
         "/auth/oidc/local-redirect?redirect_to=$redirectPath"
@@ -154,8 +155,8 @@ private fun ApplicationCall.getSignInUrl(redirectPath: String = "/"): String {
 }
 
 private fun ApplicationCall.getMicrosoftSignInUrl(redirectPath: String): String {
-    val clientId = getMicrosoftClientId()
-    val env = getEnvironment()
+    val clientId = AppConfig.microsoftClientId
+    val env = AppConfig.env
     val host = getHost()
     val redirectUrl =
         if (env == Local) "http://localhost:8080/auth/oidc/microsoft-redirect"

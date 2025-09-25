@@ -13,9 +13,9 @@ fun ApplicationCall.getUserId() = getUser().id
 
 fun ResponseCookies.removeToken(host: String) {
     if (host == "false") {
-        append(AUTH_COOKIE, "", expires = GMTDate(-1), httpOnly = true, path = "/")
+        append(AUTH_COOKIE, "", expires = GMTDate(-1), maxAge = 0, httpOnly = true, path = "/")
     } else {
-        append(AUTH_COOKIE, "", expires = GMTDate(-1), httpOnly = true, domain = host, path = "/")
+        append(AUTH_COOKIE, "", expires = GMTDate(-1), maxAge = 0, httpOnly = true, domain = host, path = "/")
     }
 }
 

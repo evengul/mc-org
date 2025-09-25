@@ -148,7 +148,7 @@ class DefaultApiProvider(
             override suspend fun process(input: I): Result<E, String> {
                 return try {
                     // Check rate limiting before making the request
-                    val rateLimitCheck = checkRateLimit(config.getBaseUrl())
+                    val rateLimitCheck = checkRateLimit(config.baseUrl)
                     if (!rateLimitCheck) {
                         return Result.failure(errorMapper(ApiFailure.RateLimitExceeded))
                     }
@@ -173,7 +173,7 @@ class DefaultApiProvider(
                     }
 
                     // Update rate limiting information from response headers
-                    updateRateLimit(config.getBaseUrl(), response)
+                    updateRateLimit(config.baseUrl, response)
 
                     if (response.status.isSuccess()) {
                         Result.success(response.bodyAsText())
