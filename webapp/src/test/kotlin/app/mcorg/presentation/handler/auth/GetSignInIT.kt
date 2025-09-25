@@ -1,50 +1,25 @@
 package app.mcorg.presentation.handler.auth
 
-import app.mcorg.domain.model.user.MinecraftProfile
-import app.mcorg.domain.model.user.TokenProfile
-import app.mcorg.domain.pipeline.Result
 import app.mcorg.pipeline.auth.CreateTokenStep
-import app.mcorg.pipeline.auth.CreateUserIfNotExistsStep
 import app.mcorg.presentation.consts.AUTH_COOKIE
 import app.mcorg.presentation.router.authRouter
-import app.mcorg.presentation.utils.respondEmptyHtml
+import app.mcorg.test.WithUser
 import app.mcorg.test.postgres.DatabaseTestExtension
-import io.ktor.client.plugins.HttpRedirect
 import io.ktor.client.request.cookie
 import io.ktor.client.request.get
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpStatusCode
-import io.ktor.server.response.respond
-import io.ktor.server.routing.get
 import io.ktor.server.routing.route
 import io.ktor.server.testing.testApplication
-import kotlinx.coroutines.runBlocking
-import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.api.extension.ExtendWith
-import org.junit.jupiter.api.fail
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @ExtendWith(DatabaseTestExtension::class)
-class GetSignInIT {
-    lateinit var user: TokenProfile
-
-    @BeforeAll
-    fun setup() {
-        runBlocking {
-            when (val result = CreateUserIfNotExistsStep.process(
-                MinecraftProfile(
-                    "uuid", "mcname"
-                )
-            )) {
-                is Result.Failure -> fail("Could not create test user: $result")
-                is Result.Success -> user = result.value
-            }
-        }
-    }
+class GetSignInIT : WithUser() {
 
     @Test
     fun `Redirects to home page when already signed in`() = testApplication {
