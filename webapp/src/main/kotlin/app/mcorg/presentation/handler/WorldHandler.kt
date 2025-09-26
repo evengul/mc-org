@@ -42,6 +42,7 @@ class WorldHandler {
                     call.handleGetWorld()
                 }
                 delete {
+                    install(WorldAdminPlugin)
                     call.handleDeleteWorld()
                 }
                 put {
