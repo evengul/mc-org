@@ -89,7 +89,7 @@ suspend fun ApplicationCall.handleTestSignIn() {
         .pipe(Step.value(testUser))
         .pipe(CreateUserIfNotExistsStep)
         .pipe(CreateTokenStep)
-        .pipe(AddCookieStep(response.cookies, getHost() ?: "false"))
+        .pipe(AddCookieStep(response.cookies, AppConfig.testHost ?: "false"))
         .map { testUser.username }
         .pipe(UpdateLastSignInStep)
         .fold(
@@ -140,7 +140,7 @@ suspend fun ApplicationCall.handleSignIn() {
 }
 
 suspend fun ApplicationCall.handleGetSignOut() {
-    response.cookies.removeToken(getHost() ?: "localhost")
+    response.cookies.removeToken(getHost() ?: "false")
     respondRedirect("/", permanent = false)
 }
 

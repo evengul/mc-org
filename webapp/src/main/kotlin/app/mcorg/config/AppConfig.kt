@@ -23,7 +23,7 @@ object AppConfig {
     var rsaPrivateKey: String? = null
     var rsaPublicKey: String? = null
 
-    var testHost: String? = "http://localhost:8080"
+    var testHost: String? = null
 
     var modrinthBaseUrl: String = "https://api.modrinth.com/v2"
     var microsoftLoginBaseUrl: String = "https://login.microsoftonline.com"

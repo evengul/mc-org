@@ -14,7 +14,7 @@ fun ApplicationCall.getHost(): String? {
     return when (env) {
         Production -> return if (referrer.contains("mcorg.fly.dev")) "mcorg.fly.dev"
                         else "mcorg.app"
-        Test -> AppConfig.testHost ?: "http://localhost:8080"
+        Test -> AppConfig.testHost
         Local -> null
         else -> throw IllegalStateException("Invalid ENV=[$env]")
     }
