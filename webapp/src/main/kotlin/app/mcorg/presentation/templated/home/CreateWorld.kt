@@ -43,6 +43,9 @@ fun <T : Tag> T.createWorldModal(versions: List<MinecraftVersion.Release>) = for
             type = InputType.text
             name = "name"
             placeholder = "My survival world"
+            maxLength = "100"
+            minLength = "3"
+            required = true
         }
 
         label {
@@ -52,6 +55,7 @@ fun <T : Tag> T.createWorldModal(versions: List<MinecraftVersion.Release>) = for
         textArea {
             id = "create-world-description"
             name = "description"
+            maxLength = "1000"
             placeholder = "A brief description of the world"
         }
 
@@ -62,6 +66,7 @@ fun <T : Tag> T.createWorldModal(versions: List<MinecraftVersion.Release>) = for
         select {
             id = "create-world-version"
             name = "version"
+            required = true
             versions.forEachIndexed { i, version ->
                 option {
                     value = version.toString()
