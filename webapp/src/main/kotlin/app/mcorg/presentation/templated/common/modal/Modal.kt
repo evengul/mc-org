@@ -87,6 +87,7 @@ open class Modal(
             // Modal backdrop click handler
             attributes["onclick"] = """
                 if (event.target === this) {
+                    this.querySelector('form')?.reset();
                     this.close();
                 }
             """.trimIndent()
@@ -131,7 +132,7 @@ open class Modal(
 
     protected open fun DIALOG.renderCloseButton() {
         iconButton(Icons.CLOSE, iconSize = IconSize.SMALL, color = IconButtonColor.GHOST) {
-            onClick = "document.getElementById('$modalId')?.close()"
+            onClick = "this.closest('dialog')?.querySelector('form')?.reset(); document.getElementById('$modalId')?.close();"
             addClass("modal__close")
             addClass("u-cursor-pointer")
         }
