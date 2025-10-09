@@ -66,16 +66,8 @@ export class ProjectHelpers {
     if (!newStage) return;
 
     // Look for stage dropdown or buttons
-    const stageSelect = this.page.locator('select[name="stage"], select[name="projectStage"]');
-    if (await stageSelect.count() > 0) {
-      await stageSelect.selectOption(newStage);
-    } else {
-      // Try buttons or other stage selection method
-      const stageButton = this.page.locator('button').filter({ hasText: newStage });
-      if (await stageButton.count() > 0) {
-        await stageButton.click();
-      }
-    }
+    const stageSelect = this.page.locator('#project-stage-selector');
+    await stageSelect.selectOption(newStage);
 
     await this.page.waitForLoadState('networkidle');
   }
