@@ -41,10 +41,6 @@ class WorldHandler {
                 get {
                     call.handleGetWorld()
                 }
-                delete {
-                    install(WorldAdminPlugin)
-                    call.handleDeleteWorld()
-                }
                 put {
                     call.handleUpdateWorld()
                 }
@@ -160,7 +156,7 @@ class WorldHandler {
                         call.handleUpdateWorldVersion()
                     }
                     delete {
-
+                        call.handleDeleteWorld()
                     }
                     route("/members") {
                         route("/invitations") {

@@ -72,7 +72,7 @@ class FormModal(
             hxValues?.let { hx ->
                 hxTarget(hx.hxTarget)
                 hxSwap(hx.hxSwap)
-                attributes["hx-on::afterOnLoad"] = "this.reset(); this.closest('dialog')?.close()"
+                attributes["hx-on::after-request"] = "this.reset(); this.closest('dialog')?.close()"
                 when(hx.method) {
                     FormModalHttpMethod.GET -> hxGet(hx.href)
                     FormModalHttpMethod.POST -> hxPost(hx.href)

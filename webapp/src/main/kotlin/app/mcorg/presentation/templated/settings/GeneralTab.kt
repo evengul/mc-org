@@ -178,7 +178,7 @@ fun DIV.generalTab(tabData: SettingsTab.General) {
             }
             dangerButton("Delete World") {
                 buttonBlock = {
-                    hxDelete(Link.Worlds.world(tabData.world.id).to)
+                    hxDelete(Link.Worlds.world(tabData.world.id).settings().to)
                     hxConfirm("Are you sure you want to delete this world? This action cannot be undone.")
                 }
             }
