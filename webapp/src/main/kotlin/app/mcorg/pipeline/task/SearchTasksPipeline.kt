@@ -73,13 +73,6 @@ object InjectSearchTasksContextStep : Step<SearchTasksInput, SearchTasksFailures
     }
 }
 
-object ValidateSearchTasksAccessStep : Step<SearchTasksInput, SearchTasksFailures, SearchTasksInput> {
-    override suspend fun process(input: SearchTasksInput): Result<SearchTasksFailures, SearchTasksInput> {
-        // Since the requirement specifies no access validation, we pass through
-        return Result.Success(input)
-    }
-}
-
 object SearchTasksStep : Step<SearchTasksInput, SearchTasksFailures, SearchTasksResult> {
     override suspend fun process(input: SearchTasksInput): Result<SearchTasksFailures, SearchTasksResult> {
         val taskStep = DatabaseSteps.query<SearchTasksInput, SearchTasksFailures, List<Task>>(
@@ -91,7 +84,7 @@ object SearchTasksStep : Step<SearchTasksInput, SearchTasksFailures, SearchTasks
                 LEFT JOIN task_requirements tr ON t.id = tr.task_id
                 WHERE t.project_id = ?
                   AND (? IS NULL OR LOWER(t.name) LIKE LOWER(?) OR LOWER(t.description) LIKE LOWER(?))
-                  AND (? = 'ALL' OR (? = 'IN_PROGRESS' AND t.stage != 'COMPLETED') OR (? = 'COMPLETED' AND t.stage = 'COMPLETED'))
+                  AND (? = 'ALL' OR (? = 'IN_PROGRESS' AND (tr.completed = FALSE OR tr.collected < tr.required_amount)) OR (? = 'COMPLETED' AND (tr.completed = TRUE OR tr.collected >= tr.required_amount)))
                   AND (? = 'ALL' OR t.priority = ?)
                 ORDER BY t.id, tr.id
             """.trimIndent()),

@@ -7,7 +7,7 @@ export interface TaskData {
   name: string;
   description: string;
   type: 'Action' | 'Countable';
-  priority: 'Critical' | 'Normal' | 'Nice-to-have';
+  priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
   quantity?: number; // For countable tasks
 }
 
@@ -23,52 +23,57 @@ export class TaskHelpers {
       name: taskData.name || `Test Task ${timestamp}`,
       description: taskData.description || `Test task created at ${new Date().toISOString()}`,
       type: taskData.type || 'Action',
-      priority: taskData.priority || 'Normal',
+      priority: taskData.priority || 'MEDIUM',
       quantity: taskData.quantity || (taskData.type === 'Countable' ? 10 : undefined)
     };
 
     // Look for "Create Task" or "Add Task" button
-    const createTaskButton = this.page.locator('button, a').filter({ hasText: /create.*task|add.*task|\+.*task/i });
+    const createTaskButton = this.page.locator('#project-header-content').getByRole('button', { name: 'New Task' });
     await createTaskButton.waitFor({ state: 'visible' });
     await createTaskButton.click();
 
     // Fill out task creation form
-    await this.page.fill('input[name="name"], input[placeholder*="name" i]', task.name);
-    await this.page.fill('textarea[name="description"], textarea[placeholder*="description" i]', task.description);
+    await this.page.fill('input[name="name"]', task.name);
+    await this.page.fill('textarea[name="description"]', task.description);
 
     // Select task type
-    const typeSelect = this.page.locator('select[name="type"], select[name="taskType"]');
-    if (await typeSelect.count() > 0) {
-      await typeSelect.selectOption(task.type);
-    } else {
-      // Try radio buttons
-      const typeOption = this.page.locator(`input[value="${task.type}"], label`).filter({ hasText: task.type });
-      if (await typeOption.count() > 0) {
-        await typeOption.click();
-      }
+    const typeTabs = this.page.locator('div.task-requirements-tabs').locator("button");
+    if (task.type === "Countable") {
+      await typeTabs.nth(0).click();
+    } else if (task.type === "Action") {
+      await typeTabs.nth(1).click();
     }
 
     // Select priority
-    const prioritySelect = this.page.locator('select[name="priority"]');
-    if (await prioritySelect.count() > 0) {
-      await prioritySelect.selectOption(task.priority);
-    } else {
-      const priorityOption = this.page.locator(`input[value="${task.priority}"], label`).filter({ hasText: task.priority });
-      if (await priorityOption.count() > 0) {
-        await priorityOption.click();
+    const priorityOption = this.page.locator("#project-header-content").locator(`input[value="${task.priority}"], label`).filter({ hasText: task.priority });
+    if (await priorityOption.count() > 0) {
+      await priorityOption.click();
+    }
+
+    if (task.type === 'Countable' && task.quantity) {
+      const requirementNameInput = this.page.locator("#project-header-content").locator("#item-requirement-name-input");
+      await requirementNameInput.fill("stone");
+      const requirementAmountInput = this.page.locator("#project-header-content").locator("#item-requirement-amount-input");
+      await requirementAmountInput.fill(task.quantity.toString());
+
+      const requirementButton = this.page.locator("#project-header-content").locator('button').filter({ hasText: "Add Item Requirement" });
+      if (await requirementButton.count() > 0) {
+        await requirementButton.click();
+      }
+    } else if (task.type === "Action") {
+      const requirementInput = this.page.locator("#project-header-content").locator("#action-requirement-input");
+      await requirementInput.fill("Build a wall");
+
+      const requirementButton = this.page.locator("#project-header-content").locator('button').filter({ hasText: "Add Action Requirement" });
+      if (await requirementButton.count() > 0) {
+        await requirementButton.click();
       }
     }
 
-    // Set quantity for countable tasks
-    if (task.type === 'Countable' && task.quantity) {
-      const quantityInput = this.page.locator('input[name="quantity"], input[type="number"]');
-      if (await quantityInput.count() > 0) {
-        await quantityInput.fill(task.quantity.toString());
-      }
-    }
+
 
     // Submit the form
-    const submitButton = this.page.locator('button[type="submit"], button').filter({ hasText: /create|save|submit/i });
+    const submitButton = this.page.locator("#project-header-content").locator('button[type="submit"]').filter({ hasText: /create|save|submit/i });
     await submitButton.click();
 
     await this.page.waitForLoadState('networkidle');
@@ -83,7 +88,7 @@ export class TaskHelpers {
     const taskRow = this.page.locator('.task-item, [data-testid="task-item"]').filter({ hasText: taskName });
     await taskRow.waitFor({ state: 'visible' });
 
-    const completeButton = taskRow.locator('button').filter({ hasText: /complete|done|✓/i });
+    const completeButton = taskRow.locator('input.task-completion-checkbox');
     await completeButton.waitFor({ state: 'visible' });
     await completeButton.click();
 
@@ -97,12 +102,19 @@ export class TaskHelpers {
     const taskRow = this.page.locator('.task-item, [data-testid="task-item"]').filter({ hasText: taskName });
     await taskRow.waitFor({ state: 'visible' });
 
+    if (await taskRow.locator("button").filter({hasText: "Hide details"}).count() === 0) {
+      const showDetailsButton = taskRow.locator('button').filter({ hasText: "Show details" });
+      if (await showDetailsButton.count() > 0) {
+        await showDetailsButton.click();
+      }
+    }
+
     if (action === 'increment') {
-      const incrementButton = taskRow.locator('button').filter({ hasText: /\+|increment|more/i });
+      const incrementButton = taskRow.getByText("+1", { exact: true });
       await incrementButton.waitFor({ state: 'visible' });
       await incrementButton.click();
     } else if (action === 'decrement') {
-      const decrementButton = taskRow.locator('button').filter({ hasText: /-|decrement|less/i });
+      const decrementButton = taskRow.getByText("-1", { exact: true });
       await decrementButton.waitFor({ state: 'visible' });
       await decrementButton.click();
     } else if (action === 'set' && value !== undefined) {
@@ -123,43 +135,37 @@ export class TaskHelpers {
     const searchInput = this.page.locator('input[type="search"], input[placeholder*="search" i]');
     await searchInput.waitFor({ state: 'visible' });
     await searchInput.fill(searchTerm);
-
-    await this.page.waitForLoadState('networkidle');
   }
+
+
 
   /**
    * Filter tasks by completion status
    */
   async filterTasks(options: {
-    hideCompleted?: boolean;
-    priority?: 'Critical' | 'Normal' | 'Nice-to-have';
-    type?: 'Action' | 'Countable';
+    status?: "ALL" | "IN_PROGRESS" | "COMPLETED"
+    priority?: 'ALL' | 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
   } = {}): Promise<void> {
-    if (options.hideCompleted !== undefined) {
-      const hideCompletedToggle = this.page.locator('input[type="checkbox"]').filter({ hasText: /hide.*completed/i });
-      if (await hideCompletedToggle.count() > 0) {
-        if (options.hideCompleted) {
-          await hideCompletedToggle.check();
-        } else {
-          await hideCompletedToggle.uncheck();
-        }
+    if (options.status !== undefined) {
+      const completionStatusSelect = this.page.locator('select[name="completionStatus"]');
+      if (await completionStatusSelect.count() > 0) {
+        await completionStatusSelect.selectOption(options.status)
       }
     }
 
     if (options.priority) {
-      const priorityFilter = this.page.locator('select[name="priority"], select').filter({ hasText: /priority/i });
+      const priorityFilter = this.page.locator('select[name="priority"]');
       if (await priorityFilter.count() > 0) {
         await priorityFilter.selectOption(options.priority);
       }
     }
+  }
 
-    if (options.type) {
-      const typeFilter = this.page.locator('select[name="type"], select').filter({ hasText: /type/i });
-      if (await typeFilter.count() > 0) {
-        await typeFilter.selectOption(options.type);
-      }
+  async applySearch() {
+    const searchButton = this.page.locator('button').filter({ hasText: "Search" });
+    if (await searchButton.count() > 0) {
+      await searchButton.click();
     }
-
     await this.page.waitForLoadState('networkidle');
   }
 
@@ -167,18 +173,13 @@ export class TaskHelpers {
    * Delete a task
    */
   async deleteTask(taskName: string): Promise<void> {
+    this.page.on("dialog", async (dialog) => await dialog.accept())
     const taskRow = this.page.locator('.task-item, [data-testid="task-item"]').filter({ hasText: taskName });
     await taskRow.waitFor({ state: 'visible' });
 
-    const deleteButton = taskRow.locator('button').filter({ hasText: /delete|remove|✗/i });
+    const deleteButton = taskRow.locator('button[title="Delete task"]');
     await deleteButton.waitFor({ state: 'visible' });
     await deleteButton.click();
-
-    // Confirm deletion if there's a confirmation dialog
-    const confirmButton = this.page.locator('button').filter({ hasText: /confirm|delete|yes/i });
-    if (await confirmButton.count() > 0) {
-      await confirmButton.click();
-    }
 
     await this.page.waitForLoadState('networkidle');
   }
@@ -197,8 +198,7 @@ export class TaskHelpers {
     const taskRow = this.page.locator('.task-item, [data-testid="task-item"]').filter({ hasText: taskName });
     await taskRow.waitFor({ state: 'visible' });
 
-    // Look for completion indicators (checkmark, completed class, etc.)
-    const completionIndicator = taskRow.locator('.completed, .task-completed, [data-status="completed"]');
+    const completionIndicator = taskRow.locator('input[type="checkbox"]:checked');
     await completionIndicator.waitFor({ state: 'visible' });
   }
 
@@ -206,7 +206,7 @@ export class TaskHelpers {
    * Get visible tasks on current page
    */
   async getVisibleTasks(): Promise<string[]> {
-    const taskElements = this.page.locator('[data-testid="task-item"], .task-item, .task-card');
+    const taskElements = this.page.locator('.task-item');
     const count = await taskElements.count();
     const tasks: string[] = [];
 

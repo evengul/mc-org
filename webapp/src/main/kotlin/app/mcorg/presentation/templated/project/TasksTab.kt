@@ -88,7 +88,7 @@ private fun DIV.taskSearchAndFilters(worldId: Int, projectId: Int) {
         input {
             id = "task-search-input"
             name = "query"
-            type = InputType.text
+            type = InputType.search
             placeholder = "Search tasks..."
         }
         select {
@@ -210,6 +210,7 @@ private fun LI.taskHeader(worldId: Int, projectId: Int, task: Task) {
 
 fun INPUT.taskCompletionCheckbox(worldId: Int, projectId: Int, taskId: Int, completed: Boolean) {
     id = "task-${taskId}-complete"
+    classes += "task-completion-checkbox"
     checked = completed
     disabled = completed
     hxTarget("#task-${taskId}")

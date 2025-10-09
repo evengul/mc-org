@@ -69,9 +69,16 @@ object TaskHandler {
 
         executePipeline(
             onSuccess = { result: SearchTasksResult ->
-                respondHtml(createHTML().ul {
-                    tasksList(worldId, projectId, result.tasks)
-                })
+                if (result.tasks.isEmpty()) {
+                    respondHtml(createHTML().p {
+                        classes += "subtle"
+                        +"No tasks found matching the search criteria."
+                    })
+                } else {
+                    respondHtml(createHTML().ul {
+                        tasksList(worldId, projectId, result.tasks)
+                    })
+                }
             },
             onFailure = { failure: SearchTasksFailures ->
                 when (failure) {
@@ -89,7 +96,6 @@ object TaskHandler {
             step(Step.value(enrichedParameters))
                 .step(ValidateSearchTasksInputStep)
                 .step(InjectSearchTasksContextStep)
-                .step(ValidateSearchTasksAccessStep)
                 .step(SearchTasksStep)
         }
     }

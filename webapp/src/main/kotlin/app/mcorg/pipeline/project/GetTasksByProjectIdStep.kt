@@ -40,7 +40,7 @@ object GetTasksByProjectIdStep : Step<GetTasksByProjectIdInput, GetTasksByProjec
                     tr.completed
                 FROM tasks t
                 LEFT JOIN task_requirements tr ON t.id = tr.task_id
-                WHERE t.project_id = ? AND t.stage != 'COMPLETED'
+                WHERE t.project_id = ? AND (tr.completed = FALSE OR tr.collected < tr.required_amount OR tr.id IS NULL)
                 ORDER BY t.id, tr.id
             """),
             parameterSetter = { statement, queryInput ->
