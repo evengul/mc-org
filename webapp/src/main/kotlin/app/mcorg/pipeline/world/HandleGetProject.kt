@@ -2,6 +2,7 @@ package app.mcorg.pipeline.world
 
 import app.mcorg.domain.model.project.toProjectResourceGathering
 import app.mcorg.domain.model.task.ItemRequirement
+import app.mcorg.domain.model.user.Role
 import app.mcorg.pipeline.project.GetProjectByIdInput
 import app.mcorg.pipeline.project.GetProjectByIdStep
 import app.mcorg.pipeline.project.GetTasksByProjectIdInput
@@ -23,16 +24,18 @@ import app.mcorg.presentation.utils.respondBadRequest
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.pipeline.project.CountTotalTasksStep
 import app.mcorg.presentation.templated.project.projectTabsContent
+import app.mcorg.presentation.utils.getWorldId
 import io.ktor.server.application.ApplicationCall
 import kotlinx.html.div
 import kotlinx.html.stream.createHTML
 
 suspend fun ApplicationCall.handleGetProject() {
     val user = this.getUser()
+    val worldId = this.getWorldId()
     val projectId = this.getProjectId()
     val tab = request.queryParameters["tab"]?.let {
         when (it) {
-            "tasks", "resources", "location", "stages", "dependencies" -> it
+            "tasks", "resources", "location", "stages", "dependencies", "settings" -> it
             else -> null // Invalid tab, return null
         }
     }
@@ -115,6 +118,13 @@ suspend fun ApplicationCall.handleGetProject() {
         }
 
         "location" -> ProjectTab.Location(project)
+
+        "settings" -> {
+            val worldMemberRole = worldMemberQueryStep.process(
+                WorldMemberQueryInput(user.id, worldId)
+            ).getOrNull()?.worldRole ?: Role.MEMBER
+            ProjectTab.Settings(project, worldMemberRole)
+        }
 
         else -> {
             val totalCount = CountTotalTasksStep.process(projectId).getOrNull() ?: tasks.size

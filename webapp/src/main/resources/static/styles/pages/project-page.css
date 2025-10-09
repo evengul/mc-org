@@ -407,3 +407,49 @@ main.project {
         display: none;
     }
 }
+
+.project-settings-tab {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+
+    section {
+        background-color: var(--clr-bg-subtle);
+        box-shadow: var(--shadow-sm);
+        border-radius: var(--border-radius-sm);
+    }
+
+    section:not(.danger-zone) {
+        padding: var(--spacing-md);
+    }
+
+    h2, form > input, form > select {
+        margin-block-end: var(--spacing-sm);
+    }
+
+    .danger-zone {
+        border-radius: var(--border-radius-sm);
+        background-color: var(--clr-bg-subtle);
+        box-shadow: var(--shadow-sm);
+
+        .danger-zone-content,
+        .danger-zone-header{
+            padding: var(--spacing-sm);
+        }
+
+        .danger-zone-header {
+            background-color: var(--clr-danger-subtle);
+            h3 {
+                color: var(--clr-text-danger);
+            }
+        }
+
+        .danger-zone-content {
+            padding: var(--spacing-md);
+            button {
+                margin-top: var(--spacing-sm);
+                width: fit-content;
+            }
+        }
+    }
+}

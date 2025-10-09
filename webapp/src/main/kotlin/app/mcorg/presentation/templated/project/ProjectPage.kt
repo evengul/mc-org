@@ -7,6 +7,7 @@ import app.mcorg.domain.model.project.ProjectResourceGathering
 import app.mcorg.domain.model.project.ProjectStage
 import app.mcorg.domain.model.project.ProjectStageChange
 import app.mcorg.domain.model.task.Task
+import app.mcorg.domain.model.user.Role
 import app.mcorg.domain.model.user.TokenProfile
 import app.mcorg.presentation.templated.common.button.backButton
 import app.mcorg.presentation.templated.common.chip.ChipVariant
@@ -51,6 +52,9 @@ sealed interface ProjectTab {
 
     data class Dependencies(override val project: Project, val dependencies: List<ProjectDependency>, val dependents: List<ProjectDependency>) : ProjectTab {
         override val id: String = "dependencies"
+    }
+    data class Settings(override val project: Project, val worldMemberRole: Role) : ProjectTab {
+        override val id: String = "settings"
     }
 }
 
@@ -129,7 +133,8 @@ fun projectPage(
             TabData.create("Resources"),
             TabData.create("Location"),
             TabData.create("Stages"),
-            TabData.create("Dependencies")
+            TabData.create("Dependencies"),
+            TabData.create("Settings")
         ) {
             activeTab = data.id
         }
@@ -147,5 +152,6 @@ fun DIV.projectTabsContent(data: ProjectTab) {
         is ProjectTab.Location -> locationTab(data.project)
         is ProjectTab.Stages -> stagesTab(data.stageChanges)
         is ProjectTab.Dependencies -> dependenciesTab(data.dependencies, data.dependents)
+        is ProjectTab.Settings -> projectSettingsTab(data.project, data.worldMemberRole)
     }
 }

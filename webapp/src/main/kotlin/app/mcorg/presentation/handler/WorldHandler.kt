@@ -5,6 +5,7 @@ import app.mcorg.pipeline.world.handleGetProject
 import app.mcorg.pipeline.world.handleGetWorld
 import app.mcorg.pipeline.world.handleGetWorldSettings
 import app.mcorg.pipeline.project.handleCreateProject
+import app.mcorg.pipeline.project.handleDeleteProject
 import app.mcorg.pipeline.project.handleUpdateProjectStage
 import app.mcorg.pipeline.world.handleDeleteWorld
 import app.mcorg.pipeline.world.handleUpdateWorld
@@ -56,6 +57,10 @@ class WorldHandler {
                         patch("/stage") {
                             // Update project stage
                             call.handleUpdateProjectStage()
+                        }
+                        delete {
+                            install(WorldAdminPlugin)
+                            call.handleDeleteProject()
                         }
                         route("/resources") {
                             post {
