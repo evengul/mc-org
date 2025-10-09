@@ -76,17 +76,38 @@ object InjectSearchTasksContextStep : Step<SearchTasksInput, SearchTasksFailures
 object SearchTasksStep : Step<SearchTasksInput, SearchTasksFailures, SearchTasksResult> {
     override suspend fun process(input: SearchTasksInput): Result<SearchTasksFailures, SearchTasksResult> {
         val taskStep = DatabaseSteps.query<SearchTasksInput, SearchTasksFailures, List<Task>>(
-            sql = SafeSQL.select("""
-                SELECT t.id, t.project_id, t.name, t.description, t.stage, t.priority,
+            sql = SafeSQL.with("""
+                WITH task_completion AS (
+                    SELECT 
+                        t.id,
+                        t.project_id,
+                        t.name,
+                        t.description,
+                        t.stage,
+                        t.priority,
+                        CASE 
+                            WHEN COUNT(tr.id) = 0 THEN FALSE
+                            WHEN COUNT(tr.id) = COUNT(CASE 
+                                WHEN tr.type = 'ACTION' AND tr.completed = TRUE THEN 1
+                                WHEN tr.type = 'ITEM' AND tr.collected >= tr.required_amount THEN 1
+                                ELSE NULL
+                            END) THEN TRUE
+                            ELSE FALSE
+                        END as is_completed
+                    FROM tasks t
+                    LEFT JOIN task_requirements tr ON t.id = tr.task_id
+                    WHERE t.project_id = ?
+                      AND (? IS NULL OR LOWER(t.name) LIKE LOWER(?) OR LOWER(t.description) LIKE LOWER(?))
+                      AND (? = 'ALL' OR t.priority = ?)
+                    GROUP BY t.id, t.project_id, t.name, t.description, t.stage, t.priority
+                )
+                SELECT tc.id, tc.project_id, tc.name, tc.description, tc.stage, tc.priority,
                        tr.id as req_id, tr.task_id, tr.type, tr.action, tr.item, 
-                       tr.required_amount, tr.collected
-                FROM tasks t
-                LEFT JOIN task_requirements tr ON t.id = tr.task_id
-                WHERE t.project_id = ?
-                  AND (? IS NULL OR LOWER(t.name) LIKE LOWER(?) OR LOWER(t.description) LIKE LOWER(?))
-                  AND (? = 'ALL' OR (? = 'IN_PROGRESS' AND (tr.completed = FALSE OR tr.collected < tr.required_amount)) OR (? = 'COMPLETED' AND (tr.completed = TRUE OR tr.collected >= tr.required_amount)))
-                  AND (? = 'ALL' OR t.priority = ?)
-                ORDER BY t.id, tr.id
+                       tr.required_amount, tr.collected, tr.completed
+                FROM task_completion tc
+                LEFT JOIN task_requirements tr ON tc.id = tr.task_id
+                WHERE (? = 'ALL' OR (? = 'IN_PROGRESS' AND tc.is_completed = FALSE) OR (? = 'COMPLETED' AND tc.is_completed = TRUE))
+                ORDER BY tc.id, tr.id
             """.trimIndent()),
             parameterSetter = { statement, searchInput ->
                 statement.setInt(1, searchInput.projectId)
@@ -96,12 +117,12 @@ object SearchTasksStep : Step<SearchTasksInput, SearchTasksFailures, SearchTasks
                 statement.setString(3, searchPattern)
                 statement.setString(4, searchPattern)
 
-                statement.setString(5, searchInput.completionStatus)
-                statement.setString(6, searchInput.completionStatus)
-                statement.setString(7, searchInput.completionStatus)
+                statement.setString(5, searchInput.priority)
+                statement.setString(6, searchInput.priority)
 
-                statement.setString(8, searchInput.priority)
-                statement.setString(9, searchInput.priority)
+                statement.setString(7, searchInput.completionStatus)
+                statement.setString(8, searchInput.completionStatus)
+                statement.setString(9, searchInput.completionStatus)
             },
             errorMapper = { _: DatabaseFailure -> SearchTasksFailures.DatabaseError },
             resultMapper = { resultSet -> extractTasksFromResultSet(resultSet) }
@@ -147,7 +168,7 @@ private fun extractTasksFromResultSet(resultSet: ResultSet): List<Task> {
                 "ACTION" -> ActionRequirement(
                     id = reqId,
                     action = resultSet.getString("action"),
-                    completed = resultSet.getBoolean("collected") // Using collected field to store completion status for actions
+                    completed = resultSet.getBoolean("completed")
                 )
                 else -> throw IllegalStateException("Unknown requirement type: ${resultSet.getString("type")}")
             }

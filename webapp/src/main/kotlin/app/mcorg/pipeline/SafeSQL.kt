@@ -8,7 +8,7 @@ import org.intellij.lang.annotations.Language
  * This class ensures SQL queries are validated before execution.
  */
 @JvmInline
-value class SafeSQL private constructor(@Language("SQL") val query: String) {
+value class SafeSQL private constructor(@param:Language("SQL") val query: String) {
     companion object {
         private val DANGEROUS_PATTERNS = listOf(
             ";", "--", "/*", "*/", "xp_", "sp_", "exec", "execute"
@@ -22,6 +22,13 @@ value class SafeSQL private constructor(@Language("SQL") val query: String) {
         fun select(@Language("SQL") query: String): SafeSQL {
             require(query.trim().lowercase().startsWith("select")) {
                 "Query must be a SELECT statement"
+            }
+            return create(query)
+        }
+
+        fun with(@Language("SQL") query: String): SafeSQL {
+            require(query.trim().lowercase().startsWith("with")) {
+                "Query must be a WITH statement"
             }
             return create(query)
         }

@@ -65,6 +65,11 @@ private fun DIV.taskManagementSection(project: Project, totalTasksCount: Int, ta
             div {
                 emptyTasksDisplay(project)
             }
+        } else if (tasks.isEmpty()) {
+            p {
+                classes += "subtle"
+                + "No tasks found matching the search criteria. Try to include all statuses to see more."
+            }
         }
         ul {
             tasksList(project.worldId, project.id, tasks)
