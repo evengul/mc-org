@@ -27,7 +27,7 @@ fun <T : Tag> T.createTaskModal(project: Project) = formModal(
         href = "${Link.Worlds.world(project.worldId).project(project.id).to}/tasks"
     ),
     openButtonBlock = {
-        addClass("create-world-button")
+        addClass("create-task-button")
         addClass("btn--action")
         iconLeft = Icons.MENU_ADD
         iconSize = IconSize.SMALL
@@ -64,7 +64,7 @@ fun <T : Tag> T.createTaskModal(project: Project) = formModal(
         select {
             name = "stage"
             classes += "form-control"
-            ProjectStage.entries.forEach {
+            ProjectStage.entries.filter { it != ProjectStage.COMPLETED }.forEach {
                 option {
                     value = it.name
                     selected = it == project.stage

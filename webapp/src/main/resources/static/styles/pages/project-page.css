@@ -99,7 +99,8 @@ main.project {
                             align-items: center;
                             justify-content: space-between;
 
-                            .task-header-start {
+                            .task-header-start,
+                            .task-header-end {
                                 display: flex;
                                 flex-direction: row;
                                 align-items: center;

@@ -28,15 +28,11 @@ fun FORM.taskRequirementsForm() {
             id = "item-requirement-name-input"
             placeholder = "Item name (e.g., Oak Logs, Stone, Diamond)"
             type = InputType.text
-            minLength = "1"
-            maxLength = "100"
         }
         input {
             id = "item-requirement-amount-input"
             placeholder = "Required amount (e.g., 64, 128, 256)"
             type = InputType.number
-            min = "1"
-            max = "999999"
         }
         neutralButton("Add Item Requirement") {
             onClick = "addItemRequirement()"
@@ -56,8 +52,6 @@ fun FORM.taskRequirementsForm() {
         input {
             id = "action-requirement-input"
             type = InputType.text
-            minLength = "1"
-            maxLength = "200"
             placeholder = "Action description"
         }
         neutralButton("Add Action Requirement") {

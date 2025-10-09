@@ -1,7 +1,6 @@
 package app.mcorg.pipeline.task
 
 import app.mcorg.domain.model.task.Task
-import app.mcorg.domain.model.user.Role
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.pipeline.DatabaseSteps
@@ -22,37 +21,6 @@ sealed class DeleteTaskFailures {
     object InsufficientPermissions : DeleteTaskFailures()
     object TaskHasDependencies : DeleteTaskFailures()
     object DatabaseError : DeleteTaskFailures()
-}
-
-object ValidateTaskOwnershipStep : Step<DeleteTaskInput, DeleteTaskFailures, DeleteTaskInput> {
-    override suspend fun process(input: DeleteTaskInput): Result<DeleteTaskFailures, DeleteTaskInput> {
-        return DatabaseSteps.query<DeleteTaskInput, DeleteTaskFailures, Boolean>(
-            sql = SafeSQL.select("""
-                SELECT EXISTS(
-                    SELECT 1 FROM tasks t
-                    JOIN projects p ON t.project_id = p.id
-                    JOIN world_members wm ON p.world_id = wm.world_id
-                    WHERE t.id = ? AND wm.user_id = ? AND wm.world_role <= ?
-                )
-            """),
-            parameterSetter = { statement, _ ->
-                statement.setInt(1, input.taskId)
-                statement.setInt(2, input.userId)
-                statement.setInt(3, Role.MEMBER.level)
-            },
-            errorMapper = { DeleteTaskFailures.DatabaseError },
-            resultMapper = { rs ->
-                rs.next()
-                rs.getBoolean(1)
-            }
-        ).process(input).flatMap { hasAccess ->
-            if (hasAccess) {
-                Result.success(input)
-            } else {
-                Result.failure(DeleteTaskFailures.InsufficientPermissions)
-            }
-        }
-    }
 }
 
 object ValidateTaskDependenciesStep : Step<DeleteTaskInput, DeleteTaskFailures, DeleteTaskInput> {

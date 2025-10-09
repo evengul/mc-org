@@ -2,16 +2,20 @@ package app.mcorg.presentation.handler
 
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.task.*
-import app.mcorg.domain.model.task.ActionRequirement
-import app.mcorg.presentation.hxPatch
-import app.mcorg.presentation.hxTarget
-import app.mcorg.presentation.templated.common.link.Link
+import app.mcorg.pipeline.project.GetProjectByIdInput
+import app.mcorg.pipeline.project.GetProjectByIdStep
+import app.mcorg.presentation.templated.project.emptyTasksDisplay
 import app.mcorg.presentation.templated.project.requirement
+import app.mcorg.presentation.templated.project.taskCompletionCheckbox
+import app.mcorg.presentation.templated.project.taskItem
+import app.mcorg.presentation.templated.project.taskProgressDisplay
 import app.mcorg.presentation.templated.project.tasksList
 import app.mcorg.presentation.utils.*
+import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.*
 import io.ktor.server.request.*
 import io.ktor.http.Parameters
+import io.ktor.server.response.respond
 import kotlinx.html.*
 import kotlinx.html.stream.createHTML
 
@@ -27,6 +31,8 @@ object TaskHandler {
             onSuccess = { result: CreateTaskResult ->
                 respondHtml(createHTML().ul {
                     tasksList(worldId, projectId, result.updatedTasks)
+                } + createHTML().div {
+                    attributes["hx-swap-oob"] = "delete:.project-tasks-empty"
                 })
             },
             onFailure = { failure: CreateTaskFailures ->
@@ -45,7 +51,6 @@ object TaskHandler {
             step(Step.value(parameters))
                 .step(ValidateTaskInputStep)
                 .step(InjectTaskContextStep(projectId, user.id))
-                .step(ValidateProjectAccessStep)
                 .step(CreateTaskStep)
                 .step(GetUpdatedTasksStep)
         }
@@ -103,15 +108,13 @@ object TaskHandler {
 
         executePipeline(
             onSuccess = { result: CompleteTaskResult ->
-                val task = result.task
-                respondHtml(createHTML().input {
-                    id = "task-${task.id}-complete"
-                    checked = true
-                    disabled = true
-                    hxSwap("outerHTML")
-                    hxTarget("#task-${task.id}-complete")
-                    hxPatch(Link.Worlds.world(worldId).project(projectId).tasks().task(task.id) + "/complete")
-                    type = InputType.checkBox
+                val task = result.updatedTasks.find { it.id == taskId }
+                if (task == null) {
+                    respond(HttpStatusCode.InternalServerError)
+                    return@executePipeline
+                }
+                respondHtml(createHTML().li {
+                    taskItem(worldId, projectId, task)
                 })
             },
             onFailure = { failure: CompleteTaskFailures ->
@@ -128,15 +131,9 @@ object TaskHandler {
             }
         ) {
             step(Step.value(input))
-                .step(ValidateTaskAccessStep)
                 .step(ValidateTaskCompletionStep)
                 .step(CompleteTaskStep)
-                .step(CheckProjectProgressStep)
-                .step(object : Step<Boolean, CompleteTaskFailures, CompleteTaskResult> {
-                    override suspend fun process(progressResult: Boolean): app.mcorg.domain.pipeline.Result<CompleteTaskFailures, CompleteTaskResult> {
-                        return GetUpdatedTasksAfterCompletionStep.process(Pair(input, progressResult))
-                    }
-                })
+                .step(GetUpdatedTasksAfterCompletionStep)
         }
     }
 
@@ -153,13 +150,24 @@ object TaskHandler {
 
         executePipeline(
             onSuccess = { result: DeleteTaskResult ->
-                respondHtml(createHTML().div {
-                    div("notice notice--success") {
-                        +"Task deleted successfully"
+                if (result.updatedTasks.isNotEmpty()) {
+                    respond(HttpStatusCode.OK)
+                } else {
+                    val project = GetProjectByIdStep.process(
+                        GetProjectByIdInput(projectId, user.id)
+                    ).getOrNull()
+
+                    if (project == null) {
+                        respond(HttpStatusCode.InternalServerError, "Failed to load project after task deletion.")
+                    } else {
+                        respondHtml(createHTML().div {
+                            attributes["hx-swap-oob"] = "beforebegin:#tasks-list"
+                            div {
+                                emptyTasksDisplay(project)
+                            }
+                        })
                     }
-                    // Return updated tasks list fragment
-                    id = "tasks-list"
-                })
+                }
             },
             onFailure = { failure: DeleteTaskFailures ->
                 when (failure) {
@@ -175,7 +183,6 @@ object TaskHandler {
             }
         ) {
             step(Step.value(input))
-                .step(ValidateTaskOwnershipStep)
                 .step(ValidateTaskDependenciesStep)
                 .step(DeleteTaskStep)
                 .step(GetUpdatedTasksAfterDeletionStep)
@@ -193,9 +200,7 @@ object TaskHandler {
 
         executePipeline(
             onSuccess = { result: UpdateRequirementProgressResult ->
-                respondHtml(createHTML().li {
-                    requirement(result.requirement, worldId, projectId, taskId)
-                })
+                respondHtml(respondUpdateTaskResult(worldId, projectId, taskId, result))
             },
             onFailure = { failure: UpdateRequirementFailures ->
                 when (failure) {
@@ -203,8 +208,6 @@ object TaskHandler {
                         respondBadRequest("Invalid input: ${failure.errors.joinToString(", ")}")
                     UpdateRequirementFailures.RequirementNotFound ->
                         respondBadRequest("Requirement not found")
-                    UpdateRequirementFailures.RequirementAlreadyCompleted ->
-                        respondBadRequest("Requirement is already completed")
                     UpdateRequirementFailures.InsufficientPermissions ->
                         respondBadRequest("You don't have permission to update this requirement")
                     UpdateRequirementFailures.InvalidAmount ->
@@ -217,9 +220,9 @@ object TaskHandler {
             step(Step.value(parameters))
                 .step(ValidateRequirementProgressInputStep)
                 .step(InjectRequirementContextStep(requirementId, taskId, projectId, user.id))
-                .step(ValidateRequirementAccessStep)
                 .step(GetRequirementStep)
                 .step(UpdateItemRequirementProgressStep)
+                .step(Step.value { taskId to it })
                 .step(CheckTaskCompletionStep)
         }
     }
@@ -237,16 +240,12 @@ object TaskHandler {
 
         executePipeline(
             onSuccess = { result: UpdateRequirementProgressResult ->
-                respondHtml(createHTML().li {
-                    requirement(result.requirement, worldId, projectId, taskId)
-                })
+                respondHtml(respondUpdateTaskResult(worldId, projectId, taskId, result))
             },
             onFailure = { failure: UpdateRequirementFailures ->
                 when (failure) {
                     UpdateRequirementFailures.RequirementNotFound ->
                         respondBadRequest("Requirement not found")
-                    UpdateRequirementFailures.RequirementAlreadyCompleted ->
-                        respondBadRequest("Requirement is already completed")
                     UpdateRequirementFailures.InsufficientPermissions ->
                         respondBadRequest("You don't have permission to update this requirement")
                     UpdateRequirementFailures.DatabaseError ->
@@ -259,10 +258,22 @@ object TaskHandler {
             step(Step.value(emptyParameters))
                 .step(ValidateRequirementProgressInputStep)
                 .step(InjectRequirementContextStep(requirementId, taskId, projectId, user.id))
-                .step(ValidateRequirementAccessStep)
                 .step(GetRequirementStep)
                 .step(UpdateItemRequirementProgressStep)
+                .step(Step.value { taskId to it })
                 .step(CheckTaskCompletionStep)
         }
+    }
+
+    private fun respondUpdateTaskResult(worldId: Int, projectId: Int, taskId: Int, result: UpdateRequirementProgressResult) = createHTML().li {
+        requirement(result.requirement, worldId, projectId, taskId)
+    } + createHTML().span {
+        attributes["hx-swap-oob"] = "true"
+        attributes["hx-target"] = "#task-$taskId-progress"
+        taskProgressDisplay(taskId, result.taskProgress * 100.0)
+    } + createHTML().input {
+        attributes["hx-swap-oob"] = "true"
+        attributes["hx-target"] = "#task-$taskId-complete"
+        taskCompletionCheckbox(worldId, projectId, taskId, result.taskProgress >= 1.0)
     }
 }

@@ -6,15 +6,19 @@ import app.mcorg.domain.model.task.ItemRequirement
 import app.mcorg.domain.model.task.Priority
 import app.mcorg.domain.model.task.Task
 import app.mcorg.domain.model.task.TaskRequirement
+import app.mcorg.presentation.hxConfirm
+import app.mcorg.presentation.hxDelete
 import app.mcorg.presentation.hxGet
 import app.mcorg.presentation.hxPatch
 import app.mcorg.presentation.hxSwap
 import app.mcorg.presentation.hxTarget
+import app.mcorg.presentation.templated.common.button.IconButtonColor
 import app.mcorg.presentation.templated.common.button.actionButton
 import app.mcorg.presentation.templated.common.button.iconButton
 import app.mcorg.presentation.templated.common.button.neutralButton
 import app.mcorg.presentation.templated.common.chip.ChipVariant
 import app.mcorg.presentation.templated.common.chip.chipComponent
+import app.mcorg.presentation.templated.common.icon.Icon
 import app.mcorg.presentation.templated.common.icon.IconSize
 import app.mcorg.presentation.templated.common.icon.Icons
 import app.mcorg.presentation.templated.common.link.Link
@@ -58,7 +62,9 @@ private fun DIV.taskManagementSection(project: Project, totalTasksCount: Int, ta
     div("project-tasks") {
         taskManagementHeader(project.worldId, project.id)
         if (totalTasksCount == 0) {
-            emptyTasksDisplay(project)
+            div {
+                emptyTasksDisplay(project)
+            }
         }
         ul {
             tasksList(project.worldId, project.id, tasks)
@@ -127,49 +133,46 @@ private fun DIV.taskSearchAndFilters(worldId: Int, projectId: Int) {
     }
 }
 
-private fun DIV.emptyTasksDisplay(project: Project) {
-    div("project-tasks-empty") {
-        h2 {
-            + "No Tasks Yet"
-        }
-        p("subtle") {
-            + "Create your first task to get started."
-        }
-        createTaskModal(project)
+fun DIV.emptyTasksDisplay(project: Project) {
+    classes += "project-tasks-empty"
+    h2 {
+        + "No Tasks Yet"
     }
+    p("subtle") {
+        + "Create your first task to get started."
+    }
+    createTaskModal(project)
 }
 
 fun UL.tasksList(worldId: Int, projectId: Int, tasks: List<Task>) {
     id = "tasks-list"
     tasks.sortedBy { it.isCompleted() }.forEach { task ->
-        taskItem(worldId, projectId, task)
+        li {
+            taskItem(worldId, projectId, task)
+        }
     }
 }
 
-private fun UL.taskItem(worldId: Int, projectId: Int, task: Task) {
-    li {
-        taskHeader(worldId, projectId, task)
-        if (task.description.isNotBlank()) {
-            p("subtle") {
-                + task.description
-            }
+fun LI.taskItem(worldId: Int, projectId: Int, task: Task) {
+    classes += "task-item"
+    id = "task-${task.id}"
+    taskHeader(worldId, projectId, task)
+    if (task.description.isNotBlank()) {
+        p("subtle") {
+            + task.description
         }
-        taskProgressDisplay(task)
-        taskRequirements(task, worldId, projectId)
     }
+    span {
+        taskProgressDisplay(task.id, task.progress())
+    }
+    taskRequirements(task, worldId, projectId)
 }
 
 private fun LI.taskHeader(worldId: Int, projectId: Int, task: Task) {
     div("task-header") {
         div("task-header-start") {
             input {
-                id = "task-${task.id}-complete"
-                checked = task.isCompleted()
-                disabled = task.isCompleted()
-                hxTarget("#task-${task.id}-complete")
-                hxPatch(Link.Worlds.world(worldId).project(projectId).tasks().task(task.id) + "/complete")
-                hxSwap("outerHTML")
-                type = InputType.checkBox
+               taskCompletionCheckbox(worldId, projectId, task.id, task.isCompleted())
             }
             h3 {
                 + task.name
@@ -188,27 +191,51 @@ private fun LI.taskHeader(worldId: Int, projectId: Int, task: Task) {
                     Priority.LOW -> ChipVariant.INFO
                 }
             }
+            iconButton(
+                icon = Icons.DELETE,
+                iconSize = IconSize.SMALL,
+                color = IconButtonColor.DANGER,
+            ) {
+                buttonBlock = {
+                    hxDelete(Link.Worlds.world(worldId).project(projectId).tasks().task(task.id))
+                    hxConfirm("Are you sure you want to delete the task \"${task.name}\"? This action cannot be undone.")
+                    hxTarget("#task-${task.id}")
+                    hxSwap("delete")
+                    title = "Delete task"
+                }
+            }
         }
     }
 }
 
-private fun LI.taskProgressDisplay(task: Task) {
+fun INPUT.taskCompletionCheckbox(worldId: Int, projectId: Int, taskId: Int, completed: Boolean) {
+    id = "task-${taskId}-complete"
+    checked = completed
+    disabled = completed
+    hxTarget("#task-${taskId}")
+    hxPatch(Link.Worlds.world(worldId).project(projectId).tasks().task(taskId) + "/complete")
+    hxSwap("outerHTML")
+    type = InputType.checkBox
+}
+
+fun SPAN.taskProgressDisplay(taskId: Int, progress: Double) {
+    id = "task-${taskId}-progress"
     div("task-progress-description") {
         p("subtle") {
             +"Progress"
         }
         p("subtle") {
-            +"${task.progress().toInt()}% completed"
+            +"${progress.toInt()}% completed"
         }
     }
     progressComponent {
-        value = task.progress()
+        value = progress
         max = 100.0
     }
 }
 
 private fun LI.taskRequirements(task: Task, worldId: Int, projectId: Int) {
-    if (task.requirements.isEmpty()) {
+    if (task.requirements.isEmpty() || (task.requirements.size == 1 && task.requirements[0].title() == task.name)) {
         return
     }
     neutralButton("Show details") {
@@ -247,14 +274,13 @@ private fun LI.actionRequirement(requirement: ActionRequirement, worldId: Int, p
     span("action-requirement-info") {
         input {
             id = "requirement-checkbox-${requirement.id}"
-            checked = requirement.isCompleted()
-            disabled = requirement.isCompleted()
-            type = InputType.checkBox
-            if (!requirement.isCompleted()) {
-                hxPatch("/app/worlds/$worldId/projects/$projectId/tasks/$taskId/requirements/${requirement.id}/toggle")
-                hxTarget("#requirement-${requirement.id}")
-                hxSwap("outerHTML")
+            if (requirement.isCompleted()) {
+                checked = true
             }
+            type = InputType.checkBox
+            hxPatch("/app/worlds/$worldId/projects/$projectId/tasks/$taskId/requirements/${requirement.id}/toggle")
+            hxTarget("#requirement-${requirement.id}")
+            hxSwap("outerHTML")
         }
         label {
             htmlFor = "requirement-checkbox-${requirement.id}"

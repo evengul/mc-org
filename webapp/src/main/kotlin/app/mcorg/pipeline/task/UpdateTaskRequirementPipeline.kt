@@ -3,7 +3,6 @@ package app.mcorg.pipeline.task
 import app.mcorg.domain.model.task.ActionRequirement
 import app.mcorg.domain.model.task.ItemRequirement
 import app.mcorg.domain.model.task.TaskRequirement
-import app.mcorg.domain.model.user.Role
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.pipeline.DatabaseSteps
@@ -21,13 +20,12 @@ data class UpdateRequirementProgressInput(
 
 data class UpdateRequirementProgressResult(
     val requirement: TaskRequirement,
-    val taskUpdated: Boolean // Whether the parent task completion status changed
+    val taskProgress: Double
 )
 
 sealed class UpdateRequirementFailures {
     data class ValidationError(val errors: List<ValidationFailure>) : UpdateRequirementFailures()
     object RequirementNotFound : UpdateRequirementFailures()
-    object RequirementAlreadyCompleted : UpdateRequirementFailures()
     object InsufficientPermissions : UpdateRequirementFailures()
     object InvalidAmount : UpdateRequirementFailures()
     object DatabaseError : UpdateRequirementFailures()
@@ -76,37 +74,6 @@ class InjectRequirementContextStep(
     }
 }
 
-object ValidateRequirementAccessStep : Step<UpdateRequirementProgressInput, UpdateRequirementFailures, UpdateRequirementProgressInput> {
-    override suspend fun process(input: UpdateRequirementProgressInput): Result<UpdateRequirementFailures, UpdateRequirementProgressInput> {
-        return DatabaseSteps.query<UpdateRequirementProgressInput, UpdateRequirementFailures, Boolean>(
-            sql = SafeSQL.select("""
-                SELECT EXISTS(
-                    SELECT 1 FROM tasks t
-                    JOIN projects p ON t.project_id = p.id
-                    JOIN world_members wm ON p.world_id = wm.world_id
-                    WHERE t.id = ? AND wm.user_id = ? AND wm.world_role <= ?
-                )
-            """),
-            parameterSetter = { statement, _ ->
-                statement.setInt(1, input.taskId)
-                statement.setInt(2, input.userId)
-                statement.setInt(3, Role.MEMBER.level)
-            },
-            errorMapper = { UpdateRequirementFailures.DatabaseError },
-            resultMapper = { rs ->
-                rs.next()
-                rs.getBoolean(1)
-            }
-        ).process(input).flatMap { hasAccess ->
-            if (hasAccess) {
-                Result.success(input)
-            } else {
-                Result.failure(UpdateRequirementFailures.InsufficientPermissions)
-            }
-        }
-    }
-}
-
 object GetRequirementStep : Step<UpdateRequirementProgressInput, UpdateRequirementFailures, Pair<UpdateRequirementProgressInput, TaskRequirement>> {
     override suspend fun process(input: UpdateRequirementProgressInput): Result<UpdateRequirementFailures, Pair<UpdateRequirementProgressInput, TaskRequirement>> {
         return DatabaseSteps.query<UpdateRequirementProgressInput, UpdateRequirementFailures, TaskRequirement?>(
@@ -144,8 +111,6 @@ object GetRequirementStep : Step<UpdateRequirementProgressInput, UpdateRequireme
         ).process(input).flatMap { requirement ->
             if (requirement == null) {
                 Result.failure(UpdateRequirementFailures.RequirementNotFound)
-            } else if (requirement.isCompleted()) {
-                Result.failure(UpdateRequirementFailures.RequirementAlreadyCompleted)
             } else {
                 Result.success(Pair(input, requirement))
             }
@@ -188,59 +153,52 @@ object UpdateItemRequirementProgressStep : Step<Pair<UpdateRequirementProgressIn
                 return DatabaseSteps.update<Pair<UpdateRequirementProgressInput, TaskRequirement>, UpdateRequirementFailures>(
                     sql = SafeSQL.update("""
                         UPDATE task_requirements 
-                        SET completed = true, updated_at = NOW()
+                        SET completed = ?, updated_at = NOW()
                         WHERE id = ?
                     """),
                     parameterSetter = { statement, _ ->
-                        statement.setInt(1, requirement.id)
+                        statement.setBoolean(1, !requirement.completed)
+                        statement.setInt(2, requirement.id)
                     },
                     errorMapper = { UpdateRequirementFailures.DatabaseError }
                 ).process(input).map {
-                    requirement.copy(completed = true)
+                    requirement.copy(completed = !requirement.completed)
                 }
             }
         }
     }
 }
 
-object CheckTaskCompletionStep : Step<TaskRequirement, UpdateRequirementFailures, UpdateRequirementProgressResult> {
-    override suspend fun process(input: TaskRequirement): Result<UpdateRequirementFailures, UpdateRequirementProgressResult> {
+object CheckTaskCompletionStep : Step<Pair<Int, TaskRequirement>, UpdateRequirementFailures, UpdateRequirementProgressResult> {
+    override suspend fun process(input: Pair<Int, TaskRequirement>): Result<UpdateRequirementFailures, UpdateRequirementProgressResult> {
         // Check if all requirements for this task are now completed
-        return DatabaseSteps.query<TaskRequirement, UpdateRequirementFailures, Boolean>(
+        return DatabaseSteps.query<Pair<Int, TaskRequirement>, UpdateRequirementFailures, Double>(
             sql = SafeSQL.select("""
-                SELECT NOT EXISTS(
-                    SELECT 1 FROM task_requirements
-                    WHERE task_id = (SELECT task_id FROM task_requirements WHERE id = ?)
-                    AND completed = false
-                )
+                SELECT 
+                    CASE 
+                        WHEN total_count = 0 THEN 0.0
+                        ELSE (total_count - incomplete_count)::DECIMAL / total_count
+                    END as completion_ratio
+                FROM (
+                    SELECT 
+                        COUNT(*) as total_count,
+                        COUNT(*) FILTER (WHERE completed = FALSE) as incomplete_count
+                    FROM task_requirements 
+                    WHERE task_id = ?
+                ) counts
             """),
             parameterSetter = { statement, _ ->
-                statement.setInt(1, input.id)
+                statement.setInt(1, input.first)
             },
             errorMapper = { UpdateRequirementFailures.DatabaseError },
             resultMapper = { rs ->
                 rs.next()
-                rs.getBoolean(1)
+                rs.getDouble(1)
             }
-        ).process(input).flatMap { allCompleted ->
-            if (allCompleted) {
-                // Update the parent task as completed
-                DatabaseSteps.update<TaskRequirement, UpdateRequirementFailures>(
-                    sql = SafeSQL.update("""
-                        UPDATE tasks 
-                        SET updated_at = NOW(), stage = 'COMPLETED'
-                        WHERE id = (SELECT task_id FROM task_requirements WHERE id = ?)
-                    """),
-                    parameterSetter = { statement, _ ->
-                        statement.setInt(1, input.id)
-                    },
-                    errorMapper = { UpdateRequirementFailures.DatabaseError }
-                ).process(input).map {
-                    UpdateRequirementProgressResult(input, true)
-                }
-            } else {
-                Result.success(UpdateRequirementProgressResult(input, false))
-            }
+        ).process(input).flatMap { completionRate ->
+            Result.success(
+                UpdateRequirementProgressResult(input.second, completionRate)
+            )
         }
     }
 }

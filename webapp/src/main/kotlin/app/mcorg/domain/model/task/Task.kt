@@ -18,7 +18,7 @@ data class Task(
     }
 
     fun isCompleted(): Boolean {
-        return stage == ProjectStage.COMPLETED || (requirements.isNotEmpty() && requirements.all { it.isCompleted() })
+        return requirements.isNotEmpty() && requirements.all { it.isCompleted() }
     }
 }
 

@@ -28,7 +28,6 @@
 .progress__bar {
     height: 100%;
     background-color: var(--clr-action);
-    transition: width 0.4s ease;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -153,55 +152,7 @@
     border-color: var(--clr-border-info);
 }
 
-/* Animation for progress bar fill */
-@keyframes progress-fill {
-    from {
-        width: 0;
-    }
-}
-
-.progress__bar {
-    animation: progress-fill 0.8s ease-out;
-}
-
-/* Hover effects for interactive progress bars */
-.progress:hover .progress__bar {
-    opacity: 0.9;
-}
-
 /* Focus styles for accessibility */
 .progress:focus-within .progress__container {
     box-shadow: var(--shadow-focus);
-}
-
-/* Legacy classes for backward compatibility - deprecated */
-.app-progress-container {
-    position: relative;
-    height: 20px;
-    background-color: var(--clr-bg-default);
-    border-radius: var(--border-radius-full);
-    overflow: hidden;
-    box-shadow: var(--shadow-md);
-}
-
-.app-progress-bar {
-    height: 100%;
-    background: linear-gradient(90deg, var(--clr-neutral) 0%, var(--clr-action) 100%);
-    transition: width 0.4s ease;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--clr-text-default);
-    font-weight: bold;
-    border-radius: var(--border-radius-full) 0 0 var(--border-radius-full);
-    animation: progress-fill 2s ease-out;
-}
-
-.app-progress-value {
-    position: absolute;
-    width: 100%;
-    text-align: center;
-    z-index: 1;
-    color: var(--clr-text-default);
-    font-weight: bold;
 }
