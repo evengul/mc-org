@@ -1,111 +1,125 @@
 package app.mcorg.presentation.plugins
 
-import app.mcorg.domain.pipeline.Pipeline
 import app.mcorg.domain.pipeline.Result
-import app.mcorg.domain.pipeline.Step
-import app.mcorg.pipeline.project.EnsureProjectExistsInWorldFailure
-import app.mcorg.pipeline.project.EnsureProjectExistsInWorldStep
-import app.mcorg.pipeline.project.EnsureUserExistsInProject
-import app.mcorg.pipeline.project.EnsureUserExistsInProjectFailure
-import app.mcorg.pipeline.project.GetProjectIdParamFailure
-import app.mcorg.pipeline.project.GetProjectIdParamStep
-import app.mcorg.pipeline.project.ProjectParamFailure
-import app.mcorg.pipeline.task.EnsureTaskExistsInProject
-import app.mcorg.pipeline.task.EnsureTaskExistsInProjectFailure
-import app.mcorg.pipeline.task.GetTaskIdParameterFailure
-import app.mcorg.pipeline.task.GetTaskIdParameterStep
-import app.mcorg.pipeline.task.TaskParamFailure
-import app.mcorg.pipeline.world.EnsureWorldExistsFailure
-import app.mcorg.pipeline.world.EnsureWorldExistsStep
-import app.mcorg.pipeline.world.GetWorldIdParameterFailure
-import app.mcorg.pipeline.world.GetWorldIdParameterStep
-import app.mcorg.pipeline.world.WorldParamFailure
-import app.mcorg.presentation.utils.*
+import app.mcorg.pipeline.DatabaseSteps
+import app.mcorg.pipeline.SafeSQL
+import app.mcorg.pipeline.failure.DatabaseFailure
+import app.mcorg.presentation.utils.getProjectId
+import app.mcorg.presentation.utils.getUser
+import app.mcorg.presentation.utils.getWorldId
+import app.mcorg.presentation.utils.respondBadRequest
+import app.mcorg.presentation.utils.setNotificationId
+import app.mcorg.presentation.utils.setProjectId
+import app.mcorg.presentation.utils.setTaskId
+import app.mcorg.presentation.utils.setWorldId
 import io.ktor.http.HttpStatusCode
-import io.ktor.http.Parameters
-import io.ktor.server.application.*
-import io.ktor.server.response.*
+import io.ktor.server.application.createRouteScopedPlugin
+import io.ktor.server.response.respond
 
 val WorldParamPlugin = createRouteScopedPlugin("WorldParamPlugin") {
-    onCall {
-        val userId = it.getUserId()
-        Pipeline.create<WorldParamFailure, Parameters>()
-            .pipe(GetWorldIdParameterStep)
-            .pipe(object : Step<Int, WorldParamFailure, Int> {
-                override suspend fun process(input: Int): Result<WorldParamFailure, Int> {
-                    return EnsureUserExistsInProject(input).process(userId).map { input }.mapError { error ->
-                        when (error) {
-                            is EnsureUserExistsInProjectFailure.Other -> WorldParamFailure.Other(error.failure)
-                            EnsureUserExistsInProjectFailure.UserNotFound -> WorldParamFailure.UserNotInWorld
-                        }
-                    }
-                }
-            })
-            .pipe(EnsureWorldExistsStep)
-            .fold(
-                input = it.parameters,
-                onSuccess = { worldId -> it.setWorldId(worldId) },
-                onFailure = { error ->
-                    when (error) {
-                        is EnsureWorldExistsFailure.Other -> it.respond(
-                            HttpStatusCode.InternalServerError,
-                            "An unknown error occurred"
-                        )
-                        EnsureWorldExistsFailure.WorldNotFound -> it.respond(HttpStatusCode.NotFound)
-                        GetWorldIdParameterFailure.WorldIdNotPresent -> it.respondRedirect(
-                            "/app/worlds",
-                            permanent = false
-                        )
-                        is WorldParamFailure.Other -> it.respond(
-                            HttpStatusCode.InternalServerError,
-                            "An unknown error occurred"
-                        )
-                        WorldParamFailure.UserNotInWorld -> it.respond(HttpStatusCode.Forbidden, "You do not have access to this world")
-                    }
-                }
-            )
+    onCall { call ->
+        val worldId = call.parameters["worldId"]?.toIntOrNull()
+        if (worldId == null) {
+            call.respondBadRequest("Invalid or missing world ID")
+        } else {
+            val checkResult = ensureWorldExists(worldId)
+            if (checkResult is Result.Success && checkResult.value) {
+                call.setWorldId(worldId)
+            } else if ((checkResult is Result.Success && !checkResult.value) || (checkResult is Result.Failure && checkResult.error is DatabaseFailure.NotFound)) {
+                call.respond(HttpStatusCode.NotFound, "World with ID $worldId does not exist")
+            } else {
+                call.respond(HttpStatusCode.InternalServerError, "Database error occurred")
+            }
+        }
     }
 }
 
-val ProjectParamPlugin = createRouteScopedPlugin("ProjectParamPlugin") {
-    onCall {
-        val worldId = it.getWorldId()
-        Pipeline.create<ProjectParamFailure, Parameters>()
-            .pipe(GetProjectIdParamStep)
-            .pipe(EnsureProjectExistsInWorldStep(worldId))
-            .fold(
-                input = it.parameters,
-                onSuccess = { projectId -> it.setProjectId(projectId) },
-                onFailure = { error -> when(error) {
-                    is EnsureProjectExistsInWorldFailure.Other -> it.respond(
-                        HttpStatusCode.InternalServerError,
-                        "An unknown error occurred"
-                    )
-                    EnsureProjectExistsInWorldFailure.ProjectNotFound -> it.respond(HttpStatusCode.NotFound, "Project not found in world")
-                    GetProjectIdParamFailure.ProjectIdNotPresent -> it.respondRedirect("/app/worlds/$worldId/projects")
-                } }
-            )
+val ProjectParamPlugin = createRouteScopedPlugin("ParamPlugin") {
+    onCall { call ->
+        val worldId = call.getWorldId()
+        val projectId = call.parameters["projectId"]?.toIntOrNull()
+        if (projectId == null) {
+            call.respondBadRequest("Invalid or missing project ID")
+        } else {
+            val checkResult = ensureProjectExists(worldId, projectId)
+            if (checkResult is Result.Success && checkResult.value) {
+                call.setProjectId(projectId)
+            } else if ((checkResult is Result.Success && !checkResult.value) || (checkResult is Result.Failure && checkResult.error is DatabaseFailure.NotFound)) {
+                call.respond(HttpStatusCode.NotFound, "Project with ID $projectId does not exist")
+            } else {
+                call.respond(HttpStatusCode.InternalServerError, "Database error occurred")
+            }
+        }
     }
 }
 
 val TaskParamPlugin = createRouteScopedPlugin("TaskParamPlugin") {
-    onCall {
-        val worldId = it.getWorldId()
-        val projectId = it.getProjectId()
-        Pipeline.create<TaskParamFailure, Parameters>()
-            .pipe(GetTaskIdParameterStep)
-            .pipe(EnsureTaskExistsInProject(projectId))
-            .fold(
-                input = it.parameters,
-                onSuccess = { taskId -> it.setTaskId(taskId) },
-                onFailure = { error -> when(error) {
-                    is EnsureTaskExistsInProjectFailure.Other -> it.respond(
-                        HttpStatusCode.InternalServerError,
-                        "An unknown error occurred"
-                    )
-                    EnsureTaskExistsInProjectFailure.TaskNotFound -> it.respondNotFound("Task not found in project")
-                    GetTaskIdParameterFailure.TaskIdNotPresent -> it.respondRedirect("/app/worlds/$worldId/projects/$projectId/tasks", permanent = false)
-                }}
-            )
+    onCall { call ->
+        val projectId = call.getProjectId()
+        val taskId = call.parameters["taskId"]?.toIntOrNull()
+        if (taskId == null) {
+            call.respondBadRequest("Invalid or missing task ID")
+        } else {
+            val checkResult = ensureTaskExists(projectId, taskId)
+            if (checkResult is Result.Success && checkResult.value) {
+                call.setTaskId(taskId)
+            } else if ((checkResult is Result.Success && !checkResult.value) || (checkResult is Result.Failure && checkResult.error is DatabaseFailure.NotFound)) {
+                call.respond(HttpStatusCode.NotFound, "Task with ID $taskId does not exist")
+            } else {
+                call.respond(HttpStatusCode.InternalServerError, "Database error occurred")
+            }
+        }
     }
+}
+
+val NotificationParamPlugin = createRouteScopedPlugin("NotificationParamPlugin") {
+    onCall { call ->
+        val notificationId = call.parameters["notificationId"]?.toIntOrNull()
+        if (notificationId == null) {
+            call.respondBadRequest("Invalid or missing notification ID")
+        } else {
+            val userId = call.getUser().id
+            val checkResult = ensureNotificationExists(userId, notificationId)
+            if (checkResult is Result.Success && checkResult.value) {
+                call.setNotificationId(notificationId)
+            } else if ((checkResult is Result.Success && !checkResult.value) || (checkResult is Result.Failure && checkResult.error is DatabaseFailure.NotFound)) {
+                call.respond(HttpStatusCode.NotFound, "Notification with ID $notificationId does not exist")
+            } else {
+                call.respond(HttpStatusCode.InternalServerError, "Database error occurred")
+            }
+        }
+    }
+}
+
+private suspend fun ensureWorldExists(worldId: Int) = ensureParamEntityExists(
+    SafeSQL.select("SELECT EXISTS(SELECT 1 FROM world WHERE id = ?)"),
+    worldId
+)
+
+private suspend fun ensureProjectExists(worldId: Int, projectId: Int) = ensureParamEntityExists(
+    SafeSQL.select("SELECT EXISTS(SELECT 1 FROM projects WHERE id = ? AND world_id = ?)"),
+    projectId, worldId
+)
+
+private suspend fun ensureTaskExists(projectId: Int, taskId: Int) = ensureParamEntityExists(
+    SafeSQL.select("SELECT EXISTS(SELECT 1 FROM tasks WHERE id = ? AND project_id = ?)"),
+    taskId, projectId
+)
+
+private suspend fun ensureNotificationExists(userId: Int, notificationId: Int) = ensureParamEntityExists(
+    SafeSQL.select("SELECT EXISTS(SELECT 1 FROM notifications WHERE id = ? AND user_id = ?)"),
+    notificationId, userId
+)
+
+private suspend fun ensureParamEntityExists(
+    sql: SafeSQL,
+    vararg ids: Int
+): Result<DatabaseFailure, Boolean> {
+    val step = DatabaseSteps.query<List<Int>, DatabaseFailure, Boolean>(
+        sql,
+        { statement, input -> input.forEachIndexed { index, id -> statement.setInt(index + 1, id)} },
+        { it },
+        resultMapper = { rs -> rs.next() && rs.getBoolean(1) }
+    )
+    return step.process(ids.toList())
 }

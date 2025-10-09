@@ -8,6 +8,11 @@ primary_region = 'arn'
   DB_USER = 'mcorg_owner'
   ENV = 'PRODUCTION'
   SKIP_MICROSOFT_SIGN_IN = 'false'
+  MODRINTH_BASE_URL='https://staging-api.modrinth.com'
+  MICROSOFT_LOGIN_BASE_URL='https://login.microsoftonline.com'
+  XBOX_AUTH_BASE_URL='https://user.auth.xboxlive.com'
+  XSTS_AUTH_BASE_URL='https://xsts.auth.xboxlive.com'
+  MINECRAFT_BASE_URL='https://api.minecraftservices.com'
 
 [http_service]
   internal_port = 8080

@@ -1,79 +1,46 @@
+/* ==========================================================================
+   BUTTON COMPONENT
+   Element-specific styles for <button> elements and legacy class support
+   ========================================================================== */
+
 button {
-    border: 1px solid var(--clr-primary);
-    background-color: var(--clr-primary);
-    cursor: pointer;
+    border: none;
+    border-radius: var(--border-radius-md);
+    padding-inline: var(--spacing-sm);
     padding-block: var(--spacing-xs);
-    word-break: keep-all;
-
-    border-radius: 4px;
-}
-
-button:hover {
-    background-color: var(--clr-primary-light);
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-}
-
-button:active {
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    text-wrap: nowrap;
+    font-size: var(--text-sm);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-xxs);
+    text-decoration: none;
 }
 
 button:disabled {
-    border: none;
-    background-color: var(--clr-secondary);
-    cursor: auto;
-    box-shadow: none;
+    opacity: 0.6;
+    cursor: not-allowed;
 }
 
-button.button-secondary {
-    background-color: transparent;
+button:focus-visible {
+    outline: none;
+    box-shadow: var(--shadow-focus);
 }
 
-button.button-danger {
-    border: 1px solid var(--clr-danger);
-    background-color: var(--clr-danger);
-    color: var(--clr-bg-light);
-}
-
-button.button-icon {
-    border: none;
-    padding: 0;
-    background-color: transparent;
-    height: 48px;
-    width: 48px;
-    background-repeat: no-repeat;
-}
-
-button.button-icon.icon-small {
-    height: 24px;
-    width: 24px;
-}
-
-button.button-fab {
-    position: fixed;
-    z-index: 999;
-    right: var(--spacing-md);
-    bottom: var(--spacing-md);
-    height: calc(48px + var(--spacing-xs));
-    width: calc(48px + var(--spacing-xs));
-    outline: 5px solid var(--clr-text);
-    border-radius: 50%;
-    background-color: var(--clr-primary);
-
-    background-position-x: calc(var(--spacing-xs) / 2);
-    background-position-y: calc(var(--spacing-xs) / 2);
-
-    transition: bottom 0.3s ease-in-out, background-color 0.3s ease, box-shadow 0.3s ease;
-
-    &:hover {
-        background-color: var(--clr-primary-light);
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-    }
-}
-
-.button-row {
-    width: 100%;
+/* Button with SVG icons - element-specific behavior */
+button:has(svg) {
     display: flex;
     flex-direction: row;
     align-items: center;
-    justify-content: space-between;
+    gap: var(--spacing-xxs);
+
+    :first-of-type(svg) {
+        justify-self: start;
+    }
+
+    :last-of-type(svg) {
+        justify-self: end;
+    }
 }

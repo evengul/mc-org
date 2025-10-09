@@ -1,25 +1,48 @@
 package app.mcorg.pipeline.world
 
+import app.mcorg.domain.model.minecraft.MinecraftVersion
+import app.mcorg.domain.model.user.Role
+import app.mcorg.domain.model.user.TokenProfile
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
-import app.mcorg.pipeline.DatabaseFailure
-import app.mcorg.pipeline.getReturnedId
-import app.mcorg.pipeline.useConnection
+import app.mcorg.pipeline.DatabaseSteps
+import app.mcorg.pipeline.SafeSQL
+import app.mcorg.pipeline.failure.CreateWorldFailures
 
-sealed interface CreateWorldStepFailure : CreateWorldFailure {
-    data class Other(val failure: DatabaseFailure) : CreateWorldStepFailure
-}
+data class CreateWorldInput(
+    val name: String,
+    val description: String,
+    val version: MinecraftVersion
+)
 
-data class CreateWorldStep(val username: String) : Step<String, CreateWorldStepFailure, Int> {
-    override suspend fun process(input: String): Result<CreateWorldStepFailure, Int> {
-        return useConnection({ CreateWorldStepFailure.Other(it) }) {
-            prepareStatement("insert into world (name, created_by, updated_by) values (?, ?, ?) returning id")
-                .apply {
-                    setString(1, input)
-                    setString(2, username)
-                    setString(3, username)
+data class CreateWorldStep(val user: TokenProfile) : Step<CreateWorldInput, CreateWorldFailures.DatabaseError, Unit> {
+    override suspend fun process(input: CreateWorldInput): Result<CreateWorldFailures.DatabaseError, Unit> {
+        return DatabaseSteps.transaction(
+            object : Step<CreateWorldInput, CreateWorldFailures.DatabaseError, Unit> {
+                override suspend fun process(input: CreateWorldInput): Result<CreateWorldFailures.DatabaseError, Unit> {
+                    return DatabaseSteps.update<CreateWorldInput, CreateWorldFailures.DatabaseError>(
+                        SafeSQL.insert("INSERT INTO world (name, description, version) VALUES (?, ?, ?) RETURNING id"),
+                        parameterSetter = { parameters, i ->
+                            parameters.setString(1, i.name)
+                            parameters.setString(2, i.description)
+                            parameters.setString(3, i.version.toString())
+                        },
+                        errorMapper = { CreateWorldFailures.DatabaseError }
+                    ).process(input).flatMap {
+                        DatabaseSteps.update<Int, CreateWorldFailures.DatabaseError>(
+                            SafeSQL.insert("INSERT INTO world_members (user_id, world_id, display_name, world_role) VALUES (?, ?, ?, ?)"),
+                            parameterSetter = { parameters, worldId ->
+                                parameters.setInt(1, user.id)
+                                parameters.setInt(2, it)
+                                parameters.setString(3, user.minecraftUsername)
+                                parameters.setInt(4, Role.OWNER.level)
+                            },
+                            errorMapper = { CreateWorldFailures.DatabaseError }
+                        ).process(it).map {  }
+                    }
                 }
-                .getReturnedId(CreateWorldStepFailure.Other(DatabaseFailure.NoIdReturned))
-        }
+            },
+            errorMapper = { CreateWorldFailures.DatabaseError }
+        ).process(input)
     }
 }

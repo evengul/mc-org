@@ -1,3 +1,72 @@
+/* ==========================================================================
+   INPUT COMPONENT
+   ========================================================================== */
+
+/* Base input styles - inherits from form-control base */
 input {
-    background-color: var(--clr-input);
+    display: block;
+    width: 100%;
+    padding: var(--spacing-xs);
+    font-size: var(--text-md);
+
+    background-color: var(--clr-surface-default);
+    color: var(--clr-text-default);
+
+    border: 2px solid var(--clr-border-subtle);
+    border-radius: var(--border-radius-md);
+
+    transition: all 0.2s ease;
+}
+
+input:hover {
+    border-color: var(--clr-border-subtle-hover);
+}
+
+input:focus {
+    outline: none;
+    border-color: var(--clr-border-action);
+    box-shadow: var(--shadow-focus);
+    background-color: var(--clr-surface-default);
+}
+
+input::placeholder {
+    color: var(--clr-text-subtle);
+}
+
+input:disabled {
+    background-color: var(--clr-neutral-subtle);
+    border-color: var(--clr-border-subtle);
+    color: var(--clr-text-subtle);
+    cursor: not-allowed;
+}
+
+/* Input size variants */
+input.input--sm {
+    padding: calc(var(--spacing-xs) * 0.75);
+    font-size: var(--text-sm);
+}
+
+input.input--lg {
+    padding: var(--spacing-sm);
+    font-size: var(--text-lg);
+}
+
+/* Input state variants */
+input.input--error {
+    border-color: var(--clr-border-danger);
+    color: var(--clr-text-danger);
+}
+
+input.input--error:focus {
+    border-color: var(--clr-border-danger);
+    box-shadow: 0 0 0 3px var(--clr-danger-subtle);
+}
+
+input.input--success {
+    border-color: var(--clr-border-success);
+}
+
+input.input--success:focus {
+    border-color: var(--clr-border-success);
+    box-shadow: 0 0 0 3px var(--clr-green-100);
 }

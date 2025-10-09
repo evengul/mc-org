@@ -1,8 +1,0 @@
-package app.mcorg.pipeline.project
-
-sealed interface ProjectParamFailure
-sealed interface GetProjectsFailure
-sealed interface GetProjectFailure
-sealed interface CreateProjectFailure
-sealed interface DeleteProjectFailure
-sealed interface AssignProjectFailure

@@ -1,0 +1,85 @@
+/* ==========================================================================
+   TEXTAREA COMPONENT
+   ========================================================================== */
+
+/* Base textarea styles - inherits from form-control base */
+textarea {
+    display: block;
+    width: 100%;
+    padding: var(--spacing-xs);
+    font-size: var(--text-md);
+    background-color: var(--clr-surface-default);
+    color: var(--clr-text-default);
+    border: 2px solid var(--clr-border-subtle);
+    border-radius: var(--border-radius-md);
+    transition: all 0.2s ease;
+
+    resize: vertical;
+    min-height: 100px;
+
+    font-family: inherit;
+}
+
+textarea:hover {
+    border-color: var(--clr-border-subtle-hover);
+}
+
+textarea:focus {
+    outline: none;
+    border-color: var(--clr-border-action);
+    box-shadow: var(--shadow-focus);
+    background-color: var(--clr-surface-default);
+}
+
+textarea::placeholder {
+    color: var(--clr-text-subtle);
+}
+
+textarea:disabled {
+    background-color: var(--clr-neutral-subtle);
+    border-color: var(--clr-border-subtle);
+    color: var(--clr-text-subtle);
+    cursor: not-allowed;
+    resize: none;
+}
+
+/* Textarea size variants */
+textarea.textarea--sm {
+    padding: calc(var(--spacing-xs) * 0.75);
+    font-size: var(--text-sm);
+    min-height: 80px;
+}
+
+textarea.textarea--lg {
+    padding: var(--spacing-sm);
+    font-size: var(--text-lg);
+    min-height: 120px;
+}
+
+/* Textarea height variants */
+textarea.textarea--compact {
+    min-height: 60px;
+}
+
+textarea.textarea--tall {
+    min-height: 200px;
+}
+
+/* Textarea state variants */
+textarea.textarea--error {
+    border-color: var(--clr-border-danger);
+}
+
+textarea.textarea--error:focus {
+    border-color: var(--clr-border-danger);
+    box-shadow: 0 0 0 3px var(--clr-danger-subtle);
+}
+
+textarea.textarea--success {
+    border-color: var(--clr-border-success);
+}
+
+textarea.textarea--success:focus {
+    border-color: var(--clr-border-success);
+    box-shadow: 0 0 0 3px var(--clr-green-100);
+}

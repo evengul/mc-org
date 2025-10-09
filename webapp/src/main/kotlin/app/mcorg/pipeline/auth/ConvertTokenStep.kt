@@ -1,8 +1,9 @@
 package app.mcorg.pipeline.auth
 
-import app.mcorg.domain.model.users.User
+import app.mcorg.domain.model.user.TokenProfile
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
+import app.mcorg.pipeline.failure.ConvertTokenStepFailure
 import app.mcorg.presentation.consts.ISSUER
 import app.mcorg.presentation.security.JwtHelper
 import app.mcorg.presentation.security.getKeys
@@ -14,16 +15,12 @@ import com.auth0.jwt.exceptions.MissingClaimException
 import com.auth0.jwt.exceptions.SignatureVerificationException
 import com.auth0.jwt.exceptions.TokenExpiredException
 
-sealed interface ConvertTokenStepFailure : GetSignInPageFailure, AuthPluginFailure {
-    data object InvalidToken : ConvertTokenStepFailure
-    data object ExpiredToken : ConvertTokenStepFailure
-    data class MissingClaim(val claimName: String) : ConvertTokenStepFailure
-    data class IncorrectClaim(val claimName: String, val claimValue: String) : ConvertTokenStepFailure
-    data class ConversionError(val error: Exception) : ConvertTokenStepFailure
-}
+data class ConvertTokenStep(val issuer: String = ISSUER) : Step<String, ConvertTokenStepFailure, TokenProfile> {
+    override suspend fun process(input: String): Result<ConvertTokenStepFailure, TokenProfile> {
+        if (input.trim().isBlank()) {
+            return Result.failure(ConvertTokenStepFailure.InvalidToken)
+        }
 
-data class ConvertTokenStep(val issuer: String = ISSUER) : Step<String, ConvertTokenStepFailure, User> {
-    override suspend fun process(input: String): Result<ConvertTokenStepFailure, User> {
         val (publicKey, privateKey) = JwtHelper.getKeys()
 
         val jwt = try {
@@ -31,7 +28,10 @@ data class ConvertTokenStep(val issuer: String = ISSUER) : Step<String, ConvertT
                 .withIssuer(issuer)
                 .withAudience(JwtHelper.AUDIENCE)
                 .withClaimPresence("sub")
-                .withClaimPresence("username")
+                .withClaimPresence("minecraft_username")
+                .withClaimPresence("minecraft_uuid")
+                .withClaimPresence("display_name")
+                .withClaimPresence("roles")
                 .acceptLeeway(3L)
                 .build()
                 .verify(input)
@@ -41,14 +41,17 @@ data class ConvertTokenStep(val issuer: String = ISSUER) : Step<String, ConvertT
                 is SignatureVerificationException -> Result.failure(ConvertTokenStepFailure.InvalidToken)
                 is TokenExpiredException -> Result.failure(ConvertTokenStepFailure.ExpiredToken)
                 is MissingClaimException -> Result.failure(ConvertTokenStepFailure.MissingClaim(e.claimName))
-                is IncorrectClaimException -> Result.failure(ConvertTokenStepFailure.IncorrectClaim(e.claimName, e.claimValue.toString()))
+                is IncorrectClaimException -> Result.failure(ConvertTokenStepFailure.IncorrectClaim(e.claimName, e.claimValue.asString()))
                 else -> Result.failure(ConvertTokenStepFailure.ConversionError(e))
             }
         }
 
-        return Result.success(User(
+        return Result.success(TokenProfile(
             jwt.getClaim("sub").asInt(),
-            jwt.getClaim("username").asString()
+            jwt.getClaim("minecraft_uuid").asString(),
+            jwt.getClaim("minecraft_username").asString(),
+            jwt.getClaim("display_name").asString(),
+            jwt.getClaim("roles").asList(String::class.java) ?: emptyList()
         ))
     }
 }

@@ -1,5 +1,7 @@
 package app.mcorg.presentation.plugins
 
+import app.mcorg.config.AppConfig
+import app.mcorg.domain.Production
 import io.ktor.http.*
 import io.ktor.http.content.*
 import io.ktor.server.application.*
@@ -7,7 +9,7 @@ import io.ktor.server.plugins.cachingheaders.*
 import io.ktor.server.plugins.conditionalheaders.*
 
 fun Application.configureHTTP() {
-    if (System.getenv("ENV") != "LOCAL" && System.getenv("ENV") != "TEST") {
+    if (AppConfig.env == Production) {
         install(CachingHeaders) {
             options { _, outgoingContent ->
                 when (outgoingContent.contentType?.withoutParameters()) {

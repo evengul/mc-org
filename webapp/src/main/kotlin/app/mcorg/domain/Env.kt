@@ -4,4 +4,4 @@ interface Env
 
 object Local : Env
 object Test : Env
-object Prod : Env
+object Production : Env

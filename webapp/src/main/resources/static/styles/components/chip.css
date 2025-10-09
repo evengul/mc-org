@@ -1,0 +1,115 @@
+.chip {
+    display: inline-flex;
+    flex-direction: row;
+    align-items: center;
+    gap: var(--spacing-xs);
+
+    padding: calc(var(--spacing-xxs) / 2) var(--spacing-xs);
+    width: fit-content;
+    height: fit-content;
+
+    border-width: 1px;
+    border-style: solid;
+    border-radius: var(--border-radius-full);
+
+    text-wrap: nowrap;
+
+    /* Default styling - neutral appearance */
+    border-color: var(--clr-border-subtle);
+    background-color: var(--clr-surface-subtle);
+    color: var(--clr-text-default);
+}
+
+/* Interactive state for clickable chips */
+.chip--interactive {
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.chip--interactive:hover {
+    opacity: 0.8;
+    box-shadow: var(--shadow-focus);
+}
+
+/* Variant modifier classes following new CSS architecture */
+.chip--action {
+    border-color: var(--clr-action);
+    background-color: var(--clr-action);
+    color: var(--clr-text-on-action);
+}
+
+.chip--neutral {
+    border-color: var(--clr-neutral);
+    background-color: var(--clr-neutral);
+    color: var(--clr-text-on-neutral);
+}
+
+.chip--danger {
+    border-color: var(--clr-danger);
+    background-color: var(--clr-danger);
+    color: var(--clr-text-on-danger);
+}
+
+.chip--success {
+    border-color: var(--clr-success);
+    background-color: var(--clr-success);
+    color: var(--clr-text-on-success);
+}
+
+.chip--warning {
+    border-color: var(--clr-warning);
+    background-color: var(--clr-warning);
+    color: var(--clr-text-on-warning);
+}
+
+.chip--info {
+    border-color: var(--clr-info);
+    background-color: var(--clr-info);
+    color: var(--clr-text-on-info);
+}
+
+/* Size modifier classes */
+.chip--sm {
+    padding: calc(var(--spacing-xxs) / 3) calc(var(--spacing-xs) / 1.5);
+    font-size: var(--text-sm);
+    gap: calc(var(--spacing-xs) / 1.5);
+}
+
+.chip--lg {
+    padding: var(--spacing-xxs) var(--spacing-sm);
+    font-size: var(--text-lg);
+    gap: var(--spacing-sm);
+}
+
+/* Interactive hover states for variants */
+.chip--action.chip--interactive:hover {
+    background-color: var(--clr-action-hover);
+    border-color: var(--clr-action-hover);
+}
+
+.chip--neutral.chip--interactive:hover {
+    background-color: var(--clr-neutral-hover);
+    border-color: var(--clr-neutral-hover);
+}
+
+.chip--danger.chip--interactive:hover {
+    background-color: var(--clr-danger-hover);
+    border-color: var(--clr-danger-hover);
+}
+
+.chip--success.chip--interactive:hover {
+    background-color: var(--clr-success-hover);
+    border-color: var(--clr-success-hover);
+}
+
+.chip--warning.chip--interactive:hover {
+    background-color: var(--clr-warning);
+    border-color: var(--clr-warning);
+    opacity: 0.9;
+}
+
+.chip--info.chip--interactive:hover {
+    background-color: var(--clr-info);
+    border-color: var(--clr-info);
+    opacity: 0.9;
+}

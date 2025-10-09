@@ -1,22 +1,24 @@
 package app.mcorg.domain.model.task
 
-import app.mcorg.domain.model.projects.Priority
-import app.mcorg.domain.model.projects.ProjectDependency
-import app.mcorg.domain.model.users.User
+import app.mcorg.domain.model.project.ProjectStage
 
-data class Task(val id: Int,
-                var name: String,
-                val priority: Priority,
-                val dependencies: MutableList<ProjectDependency>,
-                var needed: Int,
-                var done: Int,
-                val assignee: User?,
-                val taskType: TaskType,
-                val stage: TaskStage,
+data class Task(
+    val id: Int,
+    val projectId: Int,
+    val name: String,
+    val description: String,
+    val stage: ProjectStage,
+    val priority: Priority,
+    val requirements: List<TaskRequirement>
 ) {
-    fun isDone(): Boolean {
-        return done >= needed || stage == TaskStages.DONE
+    fun progress(): Double {
+        if (requirements.isEmpty()) return 0.0
+        val completed = requirements.count { it.isCompleted() }
+        return (completed.toDouble() / requirements.size) * 100.0
     }
 
-    fun isCountable() = taskType == TaskType.COUNTABLE
+    fun isCompleted(): Boolean {
+        return requirements.isNotEmpty() && requirements.all { it.isCompleted() }
+    }
 }
+

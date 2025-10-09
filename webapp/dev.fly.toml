@@ -7,6 +7,11 @@ primary_region = 'arn'
     SKIP_MICROSOFT_SIGN_IN = 'true'
     MICROSOFT_CLIENT_ID=''
     MICROSOFT_CLIENT_SECRET=''
+    MODRINTH_BASE_URL='https://staging-api.modrinth.com'
+    MICROSOFT_LOGIN_BASE_URL='https://login.microsoftonline.com'
+    XBOX_AUTH_BASE_URL='https://user.auth.xboxlive.com'
+    XSTS_AUTH_BASE_URL='https://xsts.auth.xboxlive.com'
+    MINECRAFT_BASE_URL='https://api.minecraftservices.com'
 
 [http_service]
     internal_port = 8080

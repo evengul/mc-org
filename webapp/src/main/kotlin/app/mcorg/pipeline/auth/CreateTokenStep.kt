@@ -1,8 +1,9 @@
 package app.mcorg.pipeline.auth
 
-import app.mcorg.domain.model.users.User
+import app.mcorg.domain.model.user.TokenProfile
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.domain.pipeline.Result
+import app.mcorg.pipeline.failure.CreateTokenFailure
 import app.mcorg.presentation.security.EIGHT_HOURS
 import app.mcorg.presentation.security.JwtHelper
 import app.mcorg.presentation.security.getKeys
@@ -10,12 +11,8 @@ import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
 import java.util.Date
 
-sealed interface CreateTokenFailure : SignInLocallyFailure, SignInWithMinecraftFailure {
-    data class CouldNotCreateToken(val cause: Throwable) : CreateTokenFailure
-}
-
-data object CreateTokenStep : Step<User, CreateTokenFailure, String> {
-    override suspend fun process(input: User): Result<CreateTokenFailure, String> {
+data object CreateTokenStep : Step<TokenProfile, CreateTokenFailure, String> {
+    override suspend fun process(input: TokenProfile): Result<CreateTokenFailure, String> {
         val (publicKey, privateKey) = JwtHelper.getKeys()
 
         try {
@@ -23,7 +20,10 @@ data object CreateTokenStep : Step<User, CreateTokenFailure, String> {
                 .withAudience(JwtHelper.AUDIENCE)
                 .withIssuer("mcorg")
                 .withClaim("sub", input.id)
-                .withClaim("username", input.username)
+                .withClaim("minecraft_username", input.minecraftUsername)
+                .withClaim("minecraft_uuid", input.uuid)
+                .withClaim("display_name", input.displayName)
+                .withClaim("roles", input.roles)
                 .withExpiresAt(Date(System.currentTimeMillis() + EIGHT_HOURS))
                 .sign(Algorithm.RSA256(publicKey, privateKey)) as String
             return Result.success(jwt)

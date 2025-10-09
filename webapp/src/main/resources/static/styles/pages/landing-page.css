@@ -1,0 +1,98 @@
+.landing-page {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+
+    gap: var(--spacing-md);
+
+    width: 100%;
+    height: calc(100vh - var(--navbar-height));
+
+    .sign-in-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: var(--spacing-sm);
+
+        a {
+            border: none;
+            color: #5E5E5E;
+            &:hover {
+                border: none;
+                text-decoration: none;
+                color: #5E5E5E;
+            }
+
+            &:visited {
+                color: #5E5E5E;
+            }
+
+            button.microsoft-sign-in {
+                all: unset;
+
+                display: flex;
+                flex-direction: row;
+                align-items: center;
+                justify-content: space-between;
+
+                background-color: var(--clr-global-white);
+                border: 1px solid #8C8C8C;
+                font-weight: 600;
+                font-family: "Segoe UI Regular", sans-serif;
+                font-size: 15px;
+
+                height: 41px;
+                padding: 12px;
+                gap: 12px;
+
+                :hover,
+                :focus-visible,
+                :active {
+                    all: unset;
+
+                    cursor: pointer;
+                }
+            }
+        }
+
+        p {
+            font-size: var(--text-sm);
+            opacity: 0.8;
+        }
+    }
+
+    .landing-features {
+        list-style: none;
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: var(--spacing-md);
+
+        li {
+            background-color: var(--clr-neutral-moderate);
+
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: var(--spacing-sm);
+
+            padding: var(--spacing-md);
+
+            box-shadow: var(--shadow-sm);
+
+            p.card-title {
+                text-align: center;
+                font-weight: bold;
+            }
+
+            p.card-description {
+                font-size: var(--text-sm);
+                text-align: center;
+                font-weight: lighter;
+                opacity: 0.8;
+            }
+        }
+    }
+}

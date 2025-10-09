@@ -1,10 +1,11 @@
 package app.mcorg.presentation.handler
 
-import app.mcorg.domain.model.minecraft.MinecraftProfile
+import app.mcorg.config.AppConfig
 import app.mcorg.domain.pipeline.Pipeline
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.domain.Local
 import app.mcorg.domain.Test
+import app.mcorg.domain.model.user.MinecraftProfile
 import app.mcorg.pipeline.auth.AddCookieStep
 import app.mcorg.pipeline.auth.ConvertTokenStep
 import app.mcorg.pipeline.auth.CreateTokenStep
@@ -14,22 +15,20 @@ import app.mcorg.pipeline.auth.GetMicrosoftTokenInput
 import app.mcorg.pipeline.auth.GetMicrosoftTokenStep
 import app.mcorg.pipeline.auth.GetMinecraftProfileStep
 import app.mcorg.pipeline.auth.GetMinecraftToken
-import app.mcorg.pipeline.auth.GetProfileStepForAuth
-import app.mcorg.pipeline.auth.GetSelectedWorldIdStep
-import app.mcorg.pipeline.auth.GetSignInPageFailure
+import app.mcorg.pipeline.failure.GetSignInPageFailure
 import app.mcorg.pipeline.auth.GetTokenStep
 import app.mcorg.pipeline.auth.GetXboxProfileStep
 import app.mcorg.pipeline.auth.GetXstsToken
-import app.mcorg.pipeline.auth.MissingToken
-import app.mcorg.pipeline.auth.Redirect
-import app.mcorg.pipeline.auth.SignInLocallyFailure
-import app.mcorg.pipeline.auth.SignInWithMinecraftFailure
+import app.mcorg.pipeline.failure.MissingToken
+import app.mcorg.pipeline.failure.Redirect
+import app.mcorg.pipeline.failure.SignInLocallyFailure
+import app.mcorg.pipeline.failure.SignInWithMinecraftFailure
 import app.mcorg.pipeline.auth.UpdateLastSignInStep
 import app.mcorg.pipeline.auth.ValidateEnvStep
-import app.mcorg.pipeline.auth.toRedirect
+import app.mcorg.pipeline.failure.toRedirect
 import app.mcorg.presentation.consts.AUTH_COOKIE
 import app.mcorg.presentation.consts.ISSUER
-import app.mcorg.presentation.templates.auth.signInTemplate
+import app.mcorg.presentation.templated.landing.landingPage
 import app.mcorg.presentation.utils.*
 import io.ktor.http.*
 import io.ktor.server.application.*
@@ -45,17 +44,15 @@ suspend fun ApplicationCall.handleGetSignIn() {
     Pipeline.create<GetSignInPageFailure, RequestCookies>()
         .pipe(GetTokenStep(AUTH_COOKIE))
         .pipe(ConvertTokenStep(ISSUER))
-        .pipe(GetProfileStepForAuth)
-        .pipe(GetSelectedWorldIdStep)
         .map {
-            customRedirectPath ?: "/app/worlds/$it/projects"
+            customRedirectPath ?: "/app"
         }
         .mapFailure { it.toRedirect(customRedirectPath) }
         .fold(
             input = request.cookies,
             onSuccess = { respondRedirect(it) },
             onFailure = { when(it) {
-                is MissingToken -> respondHtml(signInTemplate(getSignInUrl(customRedirectPath ?: "/")))
+                is MissingToken -> respondHtml(landingPage(getSignInUrl(customRedirectPath ?: "/")))
                 is Redirect -> respondRedirect(it.url)
             } }
         )
@@ -63,12 +60,12 @@ suspend fun ApplicationCall.handleGetSignIn() {
 
 suspend fun ApplicationCall.handleLocalSignIn() {
     val localUsername = "evegul"
-    val localUuid = "evegul-uuid"
+    val localUuid = "${localUsername}-uuid"
     val redirectPath = parameters["redirect_to"] ?: "/"
     Pipeline.create<SignInLocallyFailure, Unit>()
-        .pipe(Step.value(getEnvironment()))
+        .pipe(Step.value(AppConfig.env))
         .pipe(ValidateEnvStep(Local))
-        .pipe(Step.value(MinecraftProfile(localUsername, "test@example.com", localUuid)))
+        .pipe(Step.value(MinecraftProfile(uuid = localUuid, username = localUsername)))
         .pipe(CreateUserIfNotExistsStep)
         .pipe(CreateTokenStep)
         .pipe(AddCookieStep(response.cookies, getHost() ?: "false"))
@@ -87,12 +84,12 @@ suspend fun ApplicationCall.handleTestSignIn() {
     val redirectPath = parameters["redirect_to"] ?: "/"
     val testUser = getTestUser()
     Pipeline.create<SignInLocallyFailure, Unit>()
-        .pipe(Step.value(getEnvironment()))
+        .pipe(Step.value(AppConfig.env))
         .pipe(ValidateEnvStep(Test))
         .pipe(Step.value(testUser))
         .pipe(CreateUserIfNotExistsStep)
         .pipe(CreateTokenStep)
-        .pipe(AddCookieStep(response.cookies, getHost() ?: "false"))
+        .pipe(AddCookieStep(response.cookies, AppConfig.testHost ?: "false"))
         .map { testUser.username }
         .pipe(UpdateLastSignInStep)
         .fold(
@@ -105,8 +102,7 @@ suspend fun ApplicationCall.handleTestSignIn() {
 private fun getTestUser(): MinecraftProfile {
     val username = "TestUser_${Random.nextInt(89_999) + 10_000}"
     return MinecraftProfile(
-        username,
-        "test-$username@mcorg.app",
+        username = username,
         uuid = UUID.randomUUID().toString()
     )
 }
@@ -120,9 +116,9 @@ suspend fun ApplicationCall.handleSignIn() {
         .map {
             GetMicrosoftTokenInput(
                 code = it,
-                clientId = getMicrosoftClientId(),
-                clientSecret = getMicrosoftClientSecret(),
-                env = getEnvironment(),
+                clientId = AppConfig.microsoftClientId,
+                clientSecret = AppConfig.microsoftClientSecret,
+                env = AppConfig.env,
                 host = getHost()
             )
         }
@@ -131,8 +127,7 @@ suspend fun ApplicationCall.handleSignIn() {
         .pipe(GetXstsToken)
         .pipe(GetMinecraftToken)
         .pipe(GetMinecraftProfileStep)
-        .pipe(CreateUserIfNotExistsStep)
-        .peek { username = it.username }
+        .pipe(CreateUserIfNotExistsStep) { username = it.minecraftUsername }
         .pipe(CreateTokenStep)
         .pipe(AddCookieStep(response.cookies, getHost() ?: "false"))
         .map { username }
@@ -145,14 +140,14 @@ suspend fun ApplicationCall.handleSignIn() {
 }
 
 suspend fun ApplicationCall.handleGetSignOut() {
-    response.cookies.removeToken(getHost() ?: "localhost")
+    response.cookies.removeToken(getHost() ?: "false")
     respondRedirect("/", permanent = false)
 }
 
 private fun ApplicationCall.getSignInUrl(redirectPath: String = "/"): String {
-    return if (getEnvironment() == Test) {
+    return if (AppConfig.env == Test) {
         "/auth/oidc/test-redirect?redirect_to=$redirectPath"
-    } else if (getSkipMicrosoftSignIn().lowercase() != "true") {
+    } else if (!AppConfig.skipMicrosoftSignIn) {
         getMicrosoftSignInUrl(redirectPath)
     } else {
         "/auth/oidc/local-redirect?redirect_to=$redirectPath"
@@ -160,8 +155,8 @@ private fun ApplicationCall.getSignInUrl(redirectPath: String = "/"): String {
 }
 
 private fun ApplicationCall.getMicrosoftSignInUrl(redirectPath: String): String {
-    val clientId = getMicrosoftClientId()
-    val env = getEnvironment()
+    val clientId = AppConfig.microsoftClientId
+    val env = AppConfig.env
     val host = getHost()
     val redirectUrl =
         if (env == Local) "http://localhost:8080/auth/oidc/microsoft-redirect"

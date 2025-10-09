@@ -1,23 +1,10 @@
 package app.mcorg.domain.model.task
 
-interface TaskStage {
-    val id: String
-    val name: String
-}
-
-object TaskStages {
-    object TODO : TaskStage {
-        override val id = "TODO"
-        override val name = "To Do"
-    }
-
-    object IN_PROGRESS : TaskStage {
-        override val id = "IN_PROGRESS"
-        override val name = "In Progress"
-    }
-
-    object DONE : TaskStage {
-        override val id = "DONE"
-        override val name = "Done"
-    }
+enum class TaskProjectStage {
+    IDEA,
+    DESIGN,
+    PLANNING,
+    RESOURCE_GATHERING,
+    BUILDING,
+    TESTING,
 }

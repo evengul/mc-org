@@ -1,0 +1,1 @@
+alter table minecraft_profiles add column last_login timestamp with time zone;

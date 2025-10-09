@@ -1,0 +1,135 @@
+/* Base link styling - applies to all <a> elements */
+a {
+    color: var(--clr-text-action);
+    text-decoration: none;
+    transition: color 0.2s ease, border-bottom 0.2s ease;
+    border-bottom: 1px solid var(--clr-global-transparent);
+    padding-bottom: 2px;
+}
+
+a:hover {
+    color: var(--clr-text-action-hover);
+    border-bottom: 1px solid var(--clr-text-action-hover);
+}
+
+a:visited {
+    color: var(--clr-text-visited);
+}
+
+a:active {
+    color: var(--clr-text-action-selected);
+    border-bottom: 1px solid var(--clr-border-action-selected);
+}
+
+a:focus {
+    outline: none;
+    box-shadow: var(--shadow-focus);
+    border-radius: var(--border-radius-sm);
+}
+
+/* Link component base class */
+.link {
+    display: inline-block;
+    color: var(--clr-text-action);
+    text-decoration: none;
+    transition: color 0.2s ease, border-bottom 0.2s ease, background-color 0.2s ease;
+    border-bottom: 1px solid var(--clr-global-transparent);
+    padding-bottom: 2px;
+    border-radius: var(--border-radius-sm);
+}
+
+.link:hover {
+    color: var(--clr-text-action-hover);
+    border-bottom: 1px solid var(--clr-text-action-hover);
+}
+
+.link:visited {
+    color: var(--clr-text-visited);
+}
+
+.link:active {
+    color: var(--clr-text-action-selected);
+    border-bottom: 1px solid var(--clr-border-action-selected);
+}
+
+.link:focus {
+    outline: none;
+    box-shadow: var(--shadow-focus);
+}
+
+/* Link variant modifier classes following new CSS architecture */
+.link--subtle {
+    color: var(--clr-text-subtle);
+    background-color: var(--clr-global-transparent);
+    opacity: 0.8;
+    border-bottom: 1px solid var(--clr-global-transparent);
+}
+
+.link--subtle:hover {
+    color: var(--clr-text-action);
+    background-color: var(--clr-action-subtle);
+    opacity: 1;
+    padding: var(--spacing-xxs);
+    margin: calc(var(--spacing-xxs) * -1);
+    border-radius: var(--border-radius-md);
+    border-bottom: 1px solid var(--clr-global-transparent);
+}
+
+.link--action {
+    color: var(--clr-text-action);
+    font-weight: 500;
+}
+
+.link--action:hover {
+    color: var(--clr-text-action-hover);
+    background-color: var(--clr-action-subtle);
+    padding: var(--spacing-xxs);
+    margin: calc(var(--spacing-xxs) * -1);
+    border-radius: var(--border-radius-md);
+    border-bottom: 1px solid var(--clr-global-transparent);
+}
+
+.link--danger {
+    color: var(--clr-text-danger);
+    border-bottom: 1px solid var(--clr-global-transparent);
+}
+
+.link--danger:hover {
+    color: var(--clr-danger-hover);
+    background-color: var(--clr-danger-subtle);
+    padding: var(--spacing-xxs);
+    margin: calc(var(--spacing-xxs) * -1);
+    border-radius: var(--border-radius-md);
+    border-bottom: 1px solid var(--clr-global-transparent);
+}
+
+.link--button:has(.btn--back) {
+    width: fit-content;
+}
+
+/* Link size modifier classes */
+.link--sm {
+    font-size: var(--text-sm);
+    padding-bottom: 1px;
+}
+
+.link--lg {
+    font-size: var(--text-lg);
+    padding-bottom: 3px;
+    font-weight: 500;
+}
+
+/* Disabled link state */
+.link--disabled {
+    color: var(--clr-text-subtle);
+    cursor: not-allowed;
+    pointer-events: none;
+    border-bottom: none;
+    opacity: 0.6;
+}
+
+.link--disabled:hover {
+    cursor: not-allowed;
+    color: var(--clr-text-subtle);
+    background-color: var(--clr-global-transparent);
+}

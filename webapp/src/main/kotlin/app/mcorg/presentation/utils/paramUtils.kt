@@ -12,5 +12,8 @@ fun ApplicationCall.getProjectId(): Int = getInt("ProjectParam")
 fun ApplicationCall.setTaskId(id: Int) = setInt("TaskParam", id)
 fun ApplicationCall.getTaskId(): Int = getInt("TaskParam")
 
+fun ApplicationCall.setNotificationId(id: Int) = setInt("NotificationParam", id)
+fun ApplicationCall.getNotificationId(): Int = getInt("NotificationParam")
+
 private fun ApplicationCall.setInt(key: String, value: Int) = attributes.put(AttributeKey(key), value)
 private fun ApplicationCall.getInt(key: String): Int = attributes[AttributeKey(key)]

@@ -2,28 +2,20 @@ package app.mcorg.pipeline.project
 
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
-import app.mcorg.pipeline.DatabaseFailure
-import app.mcorg.pipeline.getReturnedId
-import app.mcorg.pipeline.useConnection
-import app.mcorg.presentation.entities.project.CreateProjectRequest
+import app.mcorg.pipeline.DatabaseSteps
+import app.mcorg.pipeline.failure.CreateProjectFailures
 
-sealed interface CreateProjectStepFailure : CreateProjectFailure {
-    data class Other(val failure: DatabaseFailure) : CreateProjectStepFailure
-}
-
-data class CreateProjectStep(val worldId: Int, val currentUsername: String) : Step<CreateProjectRequest, CreateProjectStepFailure, Int> {
-    override suspend fun process(input: CreateProjectRequest): Result<CreateProjectStepFailure, Int> {
-        return useConnection({ CreateProjectStepFailure.Other(it) }) {
-            prepareStatement("insert into project(world_id, name, archived, priority, requires_perimeter, dimension, assignee, created_by, updated_by) values (?, ?, false, ?, ?, ?, null, ?, ?) returning id")
-                .apply {
-                    setInt(1, worldId)
-                    setString(2, input.name)
-                    setString(3, input.priority.name)
-                    setBoolean(4, input.requiresPerimeter)
-                    setString(5, input.dimension.name)
-                    setString(6, currentUsername)
-                    setString(7, currentUsername)
-                }.getReturnedId(CreateProjectStepFailure.Other(DatabaseFailure.NoIdReturned))
-        }
+data class CreateProjectStep(val worldId: Int) : Step<CreateProjectInput, CreateProjectFailures, Int> {
+    override suspend fun process(input: CreateProjectInput): Result<CreateProjectFailures, Int> {
+        return DatabaseSteps.update<CreateProjectInput, CreateProjectFailures>(
+            insertProjectQuery,
+            parameterSetter = { statement, projectInput ->
+                statement.setInt(1, worldId)
+                statement.setString(2, input.name)
+                statement.setString(3, input.description)
+                statement.setString(4, input.type.name)
+            },
+            errorMapper = { CreateProjectFailures.DatabaseError }
+        ).process(input)
     }
 }

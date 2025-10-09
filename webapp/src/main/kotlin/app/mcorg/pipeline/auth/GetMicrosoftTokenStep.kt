@@ -2,18 +2,15 @@ package app.mcorg.pipeline.auth
 
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
-import app.mcorg.pipeline.auth.minecraft.MicrosoftAccessTokenErrorResponse
 import app.mcorg.pipeline.auth.minecraft.MicrosoftAccessTokenResponse
 import app.mcorg.domain.Env
 import app.mcorg.domain.Local
-import app.mcorg.pipeline.apiGetForm
-import io.ktor.client.call.body
-import io.ktor.http.isSuccess
-
-sealed interface GetMicrosoftTokenFailure : SignInWithMinecraftFailure {
-    data object NoHostForNonLocalEnv : GetMicrosoftTokenFailure
-    data class CouldNotGetToken(val error: String, val description: String) : GetMicrosoftTokenFailure
-}
+import app.mcorg.pipeline.failure.GetMicrosoftTokenFailure
+import app.mcorg.pipeline.failure.ApiFailure
+import app.mcorg.config.MicrosoftLoginApiConfig
+import io.ktor.client.request.forms.*
+import io.ktor.client.request.setBody
+import io.ktor.http.*
 
 data class GetMicrosoftTokenInput(
     val code: String,
@@ -31,20 +28,27 @@ object GetMicrosoftTokenStep : Step<GetMicrosoftTokenInput, GetMicrosoftTokenFai
             else if (host != null) "https://$host/auth/oidc/microsoft-redirect"
             else return Result.failure(GetMicrosoftTokenFailure.NoHostForNonLocalEnv)
 
-        val apiUrl = "https://login.microsoftonline.com/consumers/oauth2/v2.0/token"
+        val step = MicrosoftLoginApiConfig.getProvider()
+            .post<GetMicrosoftTokenInput, GetMicrosoftTokenFailure, MicrosoftAccessTokenResponse>(
+                url = MicrosoftLoginApiConfig.getTokenUrl(),
+                bodyBuilder = { requestBuilder, _ ->
+                    requestBuilder.setBody(FormDataContent(Parameters.build {
+                        append("code", code)
+                        append("client_id", clientId)
+                        append("client_secret", clientSecret)
+                        append("grant_type", "authorization_code")
+                        append("redirect_uri", redirectUrl)
+                    }))
+                    requestBuilder.contentType(ContentType.Application.FormUrlEncoded)
+                },
+                errorMapper = { apiFailure ->
+                    when (apiFailure) {
+                        is ApiFailure.HttpError -> GetMicrosoftTokenFailure.CouldNotGetToken("http_error", "HTTP ${apiFailure.statusCode}")
+                        else -> GetMicrosoftTokenFailure.CouldNotGetToken("api_error", apiFailure.toString())
+                    }
+                }
+            )
 
-        val response = apiGetForm(apiUrl) {
-            append("code", code)
-            append("client_id", clientId)
-            append("client_secret", clientSecret)
-            append("grant_type", "authorization_code")
-            append("redirect_uri", redirectUrl)
-        }
-        if (response.status.isSuccess()) {
-            val token = response.body<MicrosoftAccessTokenResponse>()
-            return Result.success(token.accessToken)
-        }
-        val error = response.body<MicrosoftAccessTokenErrorResponse>()
-        return Result.failure(GetMicrosoftTokenFailure.CouldNotGetToken(error.error, error.description))
+        return step.process(input).map { response -> response.accessToken }
     }
 }

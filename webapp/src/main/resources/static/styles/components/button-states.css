@@ -1,0 +1,93 @@
+/* ==========================================================================
+   BUTTON STATES & VARIANTS
+   Shared button classes and state management for reusable components
+   ========================================================================== */
+
+/* Button variants */
+.btn--action {
+    color: var(--clr-text-on-action);
+    background-color: var(--clr-action);
+    border: 1px solid var(--clr-border-action);
+}
+
+.btn--action:hover:not(:disabled) {
+    background-color: var(--clr-action-hover);
+    border-color: var(--clr-border-action-hover);
+}
+
+.btn--action:active:not(:disabled),
+.btn--action:focus-visible:not(:disabled) {
+    background-color: var(--clr-action-active);
+    border-color: var(--clr-border-action-selected);
+}
+
+.btn--neutral {
+    color: var(--clr-text-on-neutral);
+    background-color: var(--clr-neutral);
+    border: 1px solid var(--clr-neutral);
+}
+
+.btn--neutral:hover:not(:disabled) {
+    background-color: var(--clr-neutral-hover);
+    border-color: var(--clr-neutral-hover);
+}
+
+.btn--neutral:active:not(:disabled),
+.btn--neutral:focus-visible:not(:disabled) {
+    background-color: var(--clr-neutral-active);
+    border-color: var(--clr-neutral-active);
+}
+
+.btn--danger {
+    color: var(--clr-text-on-danger);
+    background-color: var(--clr-danger);
+    border: 1px solid var(--clr-border-danger);
+}
+
+.btn--danger:hover:not(:disabled) {
+    background-color: var(--clr-danger-hover);
+    border-color: var(--clr-danger-hover);
+}
+
+.btn--danger:active:not(:disabled),
+.btn--danger:focus-visible:not(:disabled) {
+    background-color: var(--clr-danger-active);
+    border-color: var(--clr-danger-active);
+}
+
+.btn--ghost {
+    color: var(--clr-text-default);
+    background-color: transparent;
+    border: 1px solid var(--clr-border-subtle);
+}
+
+.btn--ghost:hover:not(:disabled) {
+    background-color: var(--clr-surface-hover);
+    border-color: var(--clr-border-subtle-hover);
+}
+
+.btn--ghost:active:not(:disabled),
+.btn--ghost:focus-visible:not(:disabled) {
+    background-color: var(--clr-surface-active);
+    border-color: var(--clr-border);
+}
+
+/* Button sizes */
+.btn--sm {
+    padding-inline: var(--spacing-xs);
+    padding-block: calc(var(--spacing-xxs) * 0.75);
+    font-size: calc(var(--text-sm) * 0.875);
+}
+
+.btn--lg {
+    padding-inline: var(--spacing-md);
+    padding-block: var(--spacing-sm);
+    font-size: var(--text-md);
+}
+
+/* Button modifiers */
+.btn--icon-only {
+    aspect-ratio: 1 / 1;
+    padding: var(--spacing-xxs);
+    justify-content: center;
+}

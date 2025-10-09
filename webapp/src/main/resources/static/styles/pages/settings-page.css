@@ -1,0 +1,170 @@
+.world-settings-page,
+.settings-general-tab {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+}
+
+.general-settings {
+    background-color: var(--clr-bg-subtle);
+    padding: var(--spacing-md);
+    box-shadow: var(--shadow-sm);
+    border-radius: var(--border-radius-sm);
+
+    .general-settings-header {
+        margin-bottom: var(--spacing-md);
+    }
+
+    form {
+        input, textarea, select {
+            margin-bottom: var(--spacing-sm);
+        }
+    }
+}
+
+.world-settings-page .danger-zone {
+    border-radius: var(--border-radius-sm);
+    background-color: var(--clr-bg-subtle);
+    box-shadow: var(--shadow-sm);
+
+    .danger-zone-content,
+    .danger-zone-header{
+        padding: var(--spacing-sm);
+    }
+
+    .danger-zone-header {
+        background-color: var(--clr-danger-subtle);
+        h3 {
+            color: var(--clr-text-danger);
+        }
+    }
+
+    .danger-zone-content {
+        button {
+            margin-top: var(--spacing-sm);
+            width: fit-content;
+        }
+    }
+}
+
+.settings-members-tab {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+
+    section {
+        background-color: var(--clr-bg-subtle);
+        padding: var(--spacing-md);
+        box-shadow: var(--shadow-sm);
+        border-radius: var(--border-radius-sm);
+    }
+
+    .send-invitation form {
+        .inputs {
+            display: flex;
+            flex-direction: row;
+            flex-wrap: nowrap;
+            gap: var(--spacing-md);
+            width: 100%;
+
+            margin-block: var(--spacing-sm);
+
+            .input-group {
+                display: flex;
+                flex-direction: column;
+                flex-grow: 1;
+            }
+        }
+    }
+
+    .member-invitations {
+        .invitation-status-filter {
+            background-color: var(--clr-neutral-moderate);
+
+            padding: var(--spacing-xxs);
+            width: 100%;
+
+            display: flex;
+            flex-direction: row;
+            flex-wrap: nowrap;
+
+            button {
+                background-color: var(--clr-action-subtle);
+                flex-grow: 1;
+                margin-inline: var(--spacing-xs);
+            }
+
+            button.selected {
+                background-color: var(--clr-action-selected);
+                color: var(--clr-text-on-action);
+            }
+        }
+    }
+
+    ul.invitation-list {
+        list-style-type: none;
+
+        li {
+            margin-block-start: var(--spacing-sm);
+
+            padding: var(--spacing-sm);
+
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            justify-content: space-between;
+            gap: var(--spacing-md);
+
+            border: 1px solid var(--clr-border);
+            border-radius: var(--border-radius-md);
+
+            .invitation-item-start {
+                display: flex;
+                flex-direction: row;
+                align-items: center;
+                gap: var(--spacing-sm);
+            }
+
+            .invitation-item-details {
+                display: flex;
+                flex-direction: column;
+                gap: var(--spacing-xs);
+            }
+
+            .row {
+                display: flex;
+                flex-direction: row;
+                align-items: center;
+                gap: var(--spacing-xs);
+            }
+        }
+    }
+
+    .member-list {
+        ul {
+            list-style-type: none;
+
+            li {
+                display: flex;
+                flex-direction: row;
+                align-items: center;
+                justify-content: space-between;
+                gap: var(--spacing-md);
+
+                margin-block-start: var(--spacing-sm);
+                padding: var(--spacing-sm);
+
+                border: 1px solid var(--clr-border);
+                border-radius: var(--border-radius-md);
+            }
+
+            .member-item-start,
+            .member-item-action{
+                display: flex;
+                flex-direction: row;
+                align-items: center;
+                gap: var(--spacing-sm);
+            }
+        }
+    }
+}
