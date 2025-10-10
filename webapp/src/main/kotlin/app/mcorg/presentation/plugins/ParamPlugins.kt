@@ -98,8 +98,7 @@ val InviteParamPlugin = createRouteScopedPlugin("InviteParamPlugin") {
         if (inviteId == null) {
             call.respondBadRequest("Invalid or missing invite ID")
         } else {
-            val worldId = call.getWorldId()
-            val checkResult = ensureInviteExists(worldId, inviteId)
+            val checkResult = ensureInviteExists(inviteId)
             if (checkResult is Result.Success && checkResult.value) {
                 call.setInviteId(inviteId)
             } else if ((checkResult is Result.Success && !checkResult.value) || (checkResult is Result.Failure && checkResult.error is DatabaseFailure.NotFound)) {
@@ -131,9 +130,9 @@ private suspend fun ensureNotificationExists(userId: Int, notificationId: Int) =
     notificationId, userId
 )
 
-private suspend fun ensureInviteExists(worldId: Int, inviteId: Int) = ensureParamEntityExists(
-    SafeSQL.select("SELECT EXISTS(SELECT 1 FROM invites WHERE id = ? AND world_id = ?)"),
-    inviteId, worldId
+private suspend fun ensureInviteExists(inviteId: Int) = ensureParamEntityExists(
+    SafeSQL.select("SELECT EXISTS(SELECT 1 FROM invites WHERE id = ?)"),
+    inviteId
 )
 
 private suspend fun ensureParamEntityExists(
