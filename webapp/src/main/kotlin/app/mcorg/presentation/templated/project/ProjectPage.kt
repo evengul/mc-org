@@ -93,6 +93,7 @@ fun projectPage(
                         +"•"
                     }
                     chipComponent {
+                        classes += "project-location-chip"
                         variant = ChipVariant.NEUTRAL
                         text = "${it.x}, ${it.y}, ${it.z}"
                     }
