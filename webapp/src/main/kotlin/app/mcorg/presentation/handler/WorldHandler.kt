@@ -6,6 +6,8 @@ import app.mcorg.pipeline.world.handleGetWorld
 import app.mcorg.pipeline.world.handleGetWorldSettings
 import app.mcorg.pipeline.project.handleCreateProject
 import app.mcorg.pipeline.project.handleDeleteProject
+import app.mcorg.pipeline.project.handleEditLocation
+import app.mcorg.pipeline.project.handleGetEditLocationFragment
 import app.mcorg.pipeline.project.handleUpdateProjectStage
 import app.mcorg.pipeline.world.handleDeleteWorld
 import app.mcorg.pipeline.world.handleUpdateWorld
@@ -78,8 +80,13 @@ class WorldHandler {
                                 }
                             }
                         }
-                        patch("/location") {
-
+                        route("/location") {
+                            get("/edit") {
+                                call.handleGetEditLocationFragment()
+                            }
+                            put {
+                                call.handleEditLocation()
+                            }
                         }
                         route("/dependencies") {
                             post("/{projectId}") {

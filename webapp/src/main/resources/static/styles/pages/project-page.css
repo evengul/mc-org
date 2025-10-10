@@ -263,6 +263,49 @@ main.project {
     }
 }
 
+.project-location-tab {
+    background-color: var(--clr-bg-subtle);
+    box-shadow: var(--shadow-md);
+
+    padding: var(--spacing-sm);
+
+    .project-location-header {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+
+        margin-bottom: var(--spacing-sm);
+    }
+
+    .location-details {
+        .coordinate-details,
+        .dimension {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            gap: var(--spacing-sm);
+
+            margin-top: var(--spacing-sm);
+        }
+
+        .coordinate-value {
+            font-size: var(--text-md);
+            font-weight: bold;
+        }
+    }
+
+    .project-location-edit {
+        button#save-location {
+            margin-top: var(--spacing-sm);
+        }
+
+        #project-location-dimension-select {
+            width: fit-content;
+        }
+    }
+}
+
 .stages-tab {
     background-color: var(--clr-bg-subtle);
     padding: var(--spacing-md);
