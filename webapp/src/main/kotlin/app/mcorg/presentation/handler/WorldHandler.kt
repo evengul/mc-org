@@ -11,6 +11,7 @@ import app.mcorg.pipeline.project.handleGetEditLocationFragment
 import app.mcorg.pipeline.project.handleUpdateProjectStage
 import app.mcorg.pipeline.world.handleDeleteWorld
 import app.mcorg.pipeline.world.handleUpdateWorld
+import app.mcorg.pipeline.world.settings.handleCancelInvitation
 import app.mcorg.pipeline.world.settings.handleCreateInvitation
 import app.mcorg.pipeline.world.settings.handleGetInvitationListFragment
 import app.mcorg.pipeline.world.settings.handleUpdateWorldName
@@ -25,6 +26,7 @@ import app.mcorg.presentation.handler.TaskHandler.handleDeleteTask
 import app.mcorg.presentation.handler.TaskHandler.handleSearchTasks
 import app.mcorg.presentation.handler.TaskHandler.handleUpdateRequirementProgress
 import app.mcorg.presentation.handler.TaskHandler.handleToggleActionRequirement
+import app.mcorg.presentation.plugins.InviteParamPlugin
 import app.mcorg.presentation.plugins.WorldAdminPlugin
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.delete
@@ -179,8 +181,11 @@ class WorldHandler {
                             post {
                                 call.handleCreateInvitation()
                             }
-                            delete("/{inviteId}") {
-
+                            route("/{inviteId}") {
+                                install(InviteParamPlugin)
+                                delete {
+                                    call.handleCancelInvitation()
+                                }
                             }
                         }
                         patch("/role") {

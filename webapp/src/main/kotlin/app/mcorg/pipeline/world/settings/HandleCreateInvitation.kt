@@ -1,5 +1,6 @@
 package app.mcorg.pipeline.world.settings
 
+import app.mcorg.domain.model.invite.Invite
 import app.mcorg.domain.model.user.Role
 import app.mcorg.domain.model.user.TokenProfile
 import app.mcorg.domain.pipeline.Result
@@ -12,7 +13,13 @@ import app.mcorg.pipeline.failure.ValidationFailure
 import app.mcorg.pipeline.notification.CreateNotificationInput
 import app.mcorg.pipeline.notification.CreateNotificationStep
 import app.mcorg.pipeline.notification.NotificationTypes
+import app.mcorg.pipeline.world.GetWorldInvitationsInput
+import app.mcorg.pipeline.world.GetWorldInvitationsStep
 import app.mcorg.presentation.handler.executePipeline
+import app.mcorg.presentation.hxOutOfBands
+import app.mcorg.presentation.hxTarget
+import app.mcorg.presentation.templated.settings.worldInvitationTabs
+import app.mcorg.presentation.templated.settings.worldInvite
 import app.mcorg.presentation.utils.getUser
 import app.mcorg.presentation.utils.getWorldId
 import app.mcorg.presentation.utils.respondBadRequest
@@ -20,7 +27,10 @@ import app.mcorg.presentation.utils.respondHtml
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.request.receiveParameters
 import kotlinx.html.div
+import kotlinx.html.id
+import kotlinx.html.li
 import kotlinx.html.stream.createHTML
+import kotlinx.html.ul
 
 sealed interface CreateInvitationFailures {
     data class ValidationError(val errors: List<ValidationFailure>) : CreateInvitationFailures
@@ -50,14 +60,32 @@ suspend fun ApplicationCall.handleCreateInvitation() {
     val user = this.getUser()
     val worldId = this.getWorldId()
 
+    val selectedStatus = this.getStatusFromURL()
+
     executePipeline(
-        onSuccess = { _: CreateInvitationResult ->
-            // Return HTML fragment for HTMX to replace invitations section
-            respondHtml(createHTML().div {
-                div("notice notice--success") {
-                    +"Invitation sent successfully to ${parameters["toUsername"]}"
+        onSuccess = {
+            val mainContent = createHTML().div {
+                hxOutOfBands("true")
+                hxTarget("#invitation-status-filter")
+                worldInvitationTabs(it.second, selectedStatus)
+            }
+            if ((selectedStatus == GetWorldInvitationsInput.StatusFilter.PENDING) || selectedStatus == GetWorldInvitationsInput.StatusFilter.ALL) {
+                val addedInvite = createHTML().li {
+                    worldInvite(it.first)
                 }
-            })
+                if ((selectedStatus == GetWorldInvitationsInput.StatusFilter.PENDING && it.second[GetWorldInvitationsInput.StatusFilter.PENDING] == 1) ||
+                    (selectedStatus == GetWorldInvitationsInput.StatusFilter.ALL && it.second[GetWorldInvitationsInput.StatusFilter.ALL] == 1)) {
+                    respondHtml(mainContent + addedInvite + createHTML().ul {
+                        hxOutOfBands("delete:li#empty-invitations-list")
+                        li { id = "empty-invitations-list" }
+                    })
+                }
+                respondHtml(
+                    mainContent + addedInvite
+                )
+            } else {
+                respondHtml(mainContent)
+            }
         },
         onFailure = { failure: CreateInvitationFailures ->
             val errorMessage = when (failure) {
@@ -92,6 +120,17 @@ suspend fun ApplicationCall.handleCreateInvitation() {
             .step(ValidateNotSelfInviteStep(user.id))
             .step(CreateInvitationStep(user.id, worldId))
             .step(SendInvitationNotificationStep(user.minecraftUsername))
+            .step(object : Step<CreateInvitationResult, CreateInvitationFailures, Pair<Invite, Map<GetWorldInvitationsInput.StatusFilter, Int>>> {
+                override suspend fun process(input: CreateInvitationResult): Result<CreateInvitationFailures, Pair<Invite, Map<GetWorldInvitationsInput.StatusFilter, Int>>> {
+                    return GetWorldInvitationsStep.process(
+                        GetWorldInvitationsInput(
+                            worldId = worldId,
+                            statusFilter = GetWorldInvitationsInput.StatusFilter.PENDING
+                        )
+                    ).mapError { CreateInvitationFailures.DatabaseError }
+                        .map { it.filteredInvitations.find { invite -> invite.id == input.invitationId }!! to it.invitationsCount }
+                }
+            })
     }
 }
 

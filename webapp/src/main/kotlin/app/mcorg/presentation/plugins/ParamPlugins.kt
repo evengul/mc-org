@@ -8,6 +8,7 @@ import app.mcorg.presentation.utils.getProjectId
 import app.mcorg.presentation.utils.getUser
 import app.mcorg.presentation.utils.getWorldId
 import app.mcorg.presentation.utils.respondBadRequest
+import app.mcorg.presentation.utils.setInviteId
 import app.mcorg.presentation.utils.setNotificationId
 import app.mcorg.presentation.utils.setProjectId
 import app.mcorg.presentation.utils.setTaskId
@@ -91,6 +92,25 @@ val NotificationParamPlugin = createRouteScopedPlugin("NotificationParamPlugin")
     }
 }
 
+val InviteParamPlugin = createRouteScopedPlugin("InviteParamPlugin") {
+    onCall { call ->
+        val inviteId = call.parameters["inviteId"]?.toIntOrNull()
+        if (inviteId == null) {
+            call.respondBadRequest("Invalid or missing invite ID")
+        } else {
+            val worldId = call.getWorldId()
+            val checkResult = ensureInviteExists(worldId, inviteId)
+            if (checkResult is Result.Success && checkResult.value) {
+                call.setInviteId(inviteId)
+            } else if ((checkResult is Result.Success && !checkResult.value) || (checkResult is Result.Failure && checkResult.error is DatabaseFailure.NotFound)) {
+                call.respond(HttpStatusCode.NotFound, "Invite with ID $inviteId does not exist")
+            } else {
+                call.respond(HttpStatusCode.InternalServerError, "Database error occurred")
+            }
+        }
+    }
+}
+
 private suspend fun ensureWorldExists(worldId: Int) = ensureParamEntityExists(
     SafeSQL.select("SELECT EXISTS(SELECT 1 FROM world WHERE id = ?)"),
     worldId
@@ -109,6 +129,11 @@ private suspend fun ensureTaskExists(projectId: Int, taskId: Int) = ensureParamE
 private suspend fun ensureNotificationExists(userId: Int, notificationId: Int) = ensureParamEntityExists(
     SafeSQL.select("SELECT EXISTS(SELECT 1 FROM notifications WHERE id = ? AND user_id = ?)"),
     notificationId, userId
+)
+
+private suspend fun ensureInviteExists(worldId: Int, inviteId: Int) = ensureParamEntityExists(
+    SafeSQL.select("SELECT EXISTS(SELECT 1 FROM invites WHERE id = ? AND world_id = ?)"),
+    inviteId, worldId
 )
 
 private suspend fun ensureParamEntityExists(

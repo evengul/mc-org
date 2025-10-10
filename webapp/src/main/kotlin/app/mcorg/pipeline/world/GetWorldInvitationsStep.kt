@@ -28,7 +28,7 @@ data class GetWorldInvitationsOutput(
     val invitationsCount: Map<GetWorldInvitationsInput.StatusFilter, Int>,
 )
 
-private val worldInvitationsCountStep = DatabaseSteps.query<GetWorldInvitationsInput, HandleGetWorldFailure, Map<GetWorldInvitationsInput.StatusFilter, Int>>(
+val worldInvitationsCountStep = DatabaseSteps.query<GetWorldInvitationsInput, HandleGetWorldFailure, Map<GetWorldInvitationsInput.StatusFilter, Int>>(
     sql = SafeSQL.select("""
         SELECT 
             SUM(CASE WHEN i.status = 'PENDING' THEN 1 ELSE 0 END) AS pending_count,

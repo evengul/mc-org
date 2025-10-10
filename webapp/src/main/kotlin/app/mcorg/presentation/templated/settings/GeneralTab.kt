@@ -139,7 +139,7 @@ fun FORM.worldVersionForm(world: World) {
 }
 
 fun DIV.generalTab(tabData: SettingsTab.General) {
-    classes += "settings-general-tab"
+    classes += "settings-general-tab world-settings-content"
     div("general-settings") {
         div("general-settings-header") {
             h2 {

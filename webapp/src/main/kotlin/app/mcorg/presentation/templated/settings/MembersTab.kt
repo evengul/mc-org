@@ -5,8 +5,10 @@ import app.mcorg.domain.model.invite.InviteStatus
 import app.mcorg.domain.model.user.Role
 import app.mcorg.domain.model.user.WorldMember
 import app.mcorg.pipeline.world.GetWorldInvitationsInput
-import app.mcorg.presentation.hxGet
+import app.mcorg.presentation.hxConfirm
+import app.mcorg.presentation.hxDelete
 import app.mcorg.presentation.hxPost
+import app.mcorg.presentation.hxSwap
 import app.mcorg.presentation.hxTarget
 import app.mcorg.presentation.templated.common.avatar.avatar
 import app.mcorg.presentation.templated.common.button.actionButton
@@ -16,20 +18,23 @@ import app.mcorg.presentation.templated.common.chip.chipComponent
 import app.mcorg.presentation.templated.common.icon.IconColor
 import app.mcorg.presentation.templated.common.icon.IconSize
 import app.mcorg.presentation.templated.common.link.Link
+import app.mcorg.presentation.templated.common.tabs.TabData
+import app.mcorg.presentation.templated.common.tabs.TabsVariant
+import app.mcorg.presentation.templated.common.tabs.tabsComponent
 import app.mcorg.presentation.templated.utils.toPrettyEnumName
 import kotlinx.html.DIV
 import kotlinx.html.FormEncType
 import kotlinx.html.InputType
+import kotlinx.html.LI
 import kotlinx.html.UL
-import kotlinx.html.button
 import kotlinx.html.classes
 import kotlinx.html.div
 import kotlinx.html.form
 import kotlinx.html.h2
+import kotlinx.html.id
 import kotlinx.html.input
 import kotlinx.html.label
 import kotlinx.html.li
-import kotlinx.html.onClick
 import kotlinx.html.option
 import kotlinx.html.p
 import kotlinx.html.section
@@ -52,8 +57,10 @@ fun DIV.sendInvitationForm(worldId: Int) {
         }
         form {
             encType = FormEncType.applicationXWwwFormUrlEncoded
-            hxTarget(".member-invitations")
+            hxTarget(".invitation-list")
+            hxSwap("afterbegin")
             hxPost("${Link.Worlds.world(worldId).to}/settings/members/invitations")
+            attributes["hx-on::after-request"] = "this.reset();"
             div("inputs") {
                 div("input-group") {
                     label {
@@ -85,50 +92,13 @@ fun DIV.sendInvitationForm(worldId: Int) {
     }
 }
 
-fun DIV.invitationsListWithFilter(worldId: Int, invitations: List<Invite>, counts: Map<GetWorldInvitationsInput.StatusFilter, Int>) {
+fun DIV.invitationsListWithFilter(invitations: List<Invite>, counts: Map<GetWorldInvitationsInput.StatusFilter, Int>) {
     section("member-invitations") {
         h2 {
             +"World invitations"
         }
-        div("invitation-status-filter") {
-            val onClickHandler = "this.classList.toggle('selected'); document.querySelectorAll('.invitation-status-filter button').forEach(btn => { if (btn !== this) btn.classList.remove('selected'); });"
-            button {
-                classes += "selected"
-                onClick = onClickHandler
-                hxGet(Link.Worlds.world(worldId).settings().to + "/members/invitations?status=pending")
-                hxTarget(".invitation-list")
-                +"Pending (${counts[GetWorldInvitationsInput.StatusFilter.PENDING] ?: 0})"
-            }
-            button {
-                onClick = onClickHandler
-                hxGet(Link.Worlds.world(worldId).settings().to + "/members/invitations?status=accepted")
-                hxTarget(".invitation-list")
-                +"Accepted (${counts[GetWorldInvitationsInput.StatusFilter.ACCEPTED] ?: 0})"
-            }
-            button {
-                onClick = onClickHandler
-                hxGet(Link.Worlds.world(worldId).settings().to + "/members/invitations?status=declined")
-                hxTarget(".invitation-list")
-                +"Declined (${counts[GetWorldInvitationsInput.StatusFilter.DECLINED] ?: 0})"
-            }
-            button {
-                onClick = onClickHandler
-                hxGet(Link.Worlds.world(worldId).settings().to + "/members/invitations?status=expired")
-                hxTarget(".invitation-list")
-                +"Expired (${counts[GetWorldInvitationsInput.StatusFilter.EXPIRED] ?: 0})"
-            }
-            button {
-                onClick = onClickHandler
-                hxGet(Link.Worlds.world(worldId).settings().to + "/members/invitations?status=cancelled")
-                hxTarget(".invitation-list")
-                +"Cancelled (${counts[GetWorldInvitationsInput.StatusFilter.CANCELLED] ?: 0})"
-            }
-            button {
-                onClick = onClickHandler
-                hxGet(Link.Worlds.world(worldId).settings().to + "/members/invitations?status=all")
-                hxTarget(".invitation-list")
-                +"All (${counts[GetWorldInvitationsInput.StatusFilter.ALL] ?: 0})"
-            }
+        div {
+           worldInvitationTabs(counts)
         }
         ul {
             worldInvitations(invitations)
@@ -136,10 +106,29 @@ fun DIV.invitationsListWithFilter(worldId: Int, invitations: List<Invite>, count
     }
 }
 
+fun DIV.worldInvitationTabs(counts: Map<GetWorldInvitationsInput.StatusFilter, Int>, selectedFilter: GetWorldInvitationsInput.StatusFilter = GetWorldInvitationsInput.StatusFilter.PENDING) {
+    classes += "invitation-status-filter"
+    id = "invitation-status-filter"
+    tabsComponent(
+        TabData.create("pending", "Pending (${counts[GetWorldInvitationsInput.StatusFilter.PENDING] ?: 0})"),
+        TabData.create("accepted", "Accepted (${counts[GetWorldInvitationsInput.StatusFilter.ACCEPTED] ?: 0})"),
+        TabData.create("declined", "Declined (${counts[GetWorldInvitationsInput.StatusFilter.DECLINED] ?: 0})"),
+        TabData.create("expired", "Expired (${counts[GetWorldInvitationsInput.StatusFilter.EXPIRED] ?: 0})"),
+        TabData.create("cancelled", "Cancelled (${counts[GetWorldInvitationsInput.StatusFilter.CANCELLED] ?: 0})"),
+        TabData.create("all", "All (${counts[GetWorldInvitationsInput.StatusFilter.ALL] ?: 0})", )
+    ) {
+        activeTab = selectedFilter.name.lowercase()
+        queryName = "status"
+        hxTarget = ".invitation-list"
+        variant = TabsVariant.PILLS
+    }
+}
+
 fun UL.worldInvitations(invitations: List<Invite>) {
     classes += "invitation-list"
     if (invitations.isEmpty()) {
         li {
+            id = "empty-invitations-list"
             p("subtle") {
                 +"No invitations found with this status."
             }
@@ -148,45 +137,50 @@ fun UL.worldInvitations(invitations: List<Invite>) {
     }
     invitations.sortedByDescending { it.createdAt }.forEach { invite ->
         li {
-            div("invitation-item-start") {
-                div {
-                    avatar(color = IconColor.ON_BACKGROUND, size = IconSize.MEDIUM)
+            worldInvite(invite)
+        }
+    }
+}
+
+fun LI.worldInvite(invite: Invite) {
+    id = "invite-${invite.id}"
+    div("invitation-item-start") {
+        div {
+            avatar(color = IconColor.ON_BACKGROUND, size = IconSize.MEDIUM)
+        }
+        div("invitation-item-details") {
+            p {
+                +invite.toUsername
+            }
+            div("row") {
+                chipComponent {
+                    +invite.role.toPrettyEnumName()
                 }
-                div("invitation-item-details") {
-                    p {
-                        +invite.toUsername
-                    }
-                    div("row") {
-                        chipComponent {
-                            +invite.role.toPrettyEnumName()
-                        }
-                        chipComponent {
-                            +invite.status::class.simpleName!!
-                        }
-                    }
-                    div("row") {
-                        p("subtle") {
-                            +"Sent on: ${invite.createdAt.format(DateTimeFormatter.ofPattern("yyyy/MM/dd"))}"
-                        }
-                        p("subtle") {
-                            + "•"
-                        }
-                        p("subtle") {
-                            +"Expires on: ${invite.expiresAt.format(DateTimeFormatter.ofPattern("yyyy/MM/dd"))}"
-                        }
-                    }
+                chipComponent {
+                    +invite.status::class.simpleName!!
                 }
             }
-            div("invitation-item-end") {
-                when (invite.status) {
-                    is InviteStatus.Pending -> neutralButton("Resend")
-                    is InviteStatus.Accepted -> chipComponent {
-                        +"Accepted"
-                    }
-
-                    is InviteStatus.Declined,
-                    is InviteStatus.Expired,
-                    is InviteStatus.Cancelled -> neutralButton("Resend")
+            div("row") {
+                p("subtle") {
+                    +"Sent on: ${invite.createdAt.format(DateTimeFormatter.ofPattern("yyyy/MM/dd"))}"
+                }
+                p("subtle") {
+                    + "•"
+                }
+                p("subtle") {
+                    +"Expires on: ${invite.expiresAt.format(DateTimeFormatter.ofPattern("yyyy/MM/dd"))}"
+                }
+            }
+        }
+    }
+    div("invitation-item-end") {
+        if (invite.status is InviteStatus.Pending) {
+            neutralButton("Cancel") {
+                buttonBlock = {
+                    hxDelete(Link.Worlds.world(invite.worldId).settings().to + "/members/invitations/${invite.id}")
+                    hxTarget("#invite-${invite.id}")
+                    hxSwap("delete")
+                    hxConfirm("Are you sure you want to cancel this invitation? You may resend it later.")
                 }
             }
         }
@@ -231,9 +225,9 @@ fun DIV.membersListSection(members: List<WorldMember>) {
 
 fun DIV.membersTab(tabData: SettingsTab.Members) {
     val (world, invitations, invitationCounts, members) = tabData
-    classes += "settings-members-tab"
+    classes += "settings-members-tab world-settings-content"
 
     sendInvitationForm(world.id)
-    invitationsListWithFilter(world.id, invitations, invitationCounts)
+    invitationsListWithFilter(invitations, invitationCounts)
     membersListSection(members)
 }
