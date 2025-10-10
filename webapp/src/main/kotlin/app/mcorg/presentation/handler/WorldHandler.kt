@@ -12,6 +12,7 @@ import app.mcorg.pipeline.project.handleUpdateProjectStage
 import app.mcorg.pipeline.world.handleDeleteWorld
 import app.mcorg.pipeline.world.handleUpdateWorld
 import app.mcorg.pipeline.world.settings.handleCreateInvitation
+import app.mcorg.pipeline.world.settings.handleGetInvitationListFragment
 import app.mcorg.pipeline.world.settings.handleUpdateWorldName
 import app.mcorg.pipeline.world.settings.handleUpdateWorldDescription
 import app.mcorg.pipeline.world.settings.handleUpdateWorldVersion
@@ -172,6 +173,9 @@ class WorldHandler {
                     }
                     route("/members") {
                         route("/invitations") {
+                            get {
+                                call.handleGetInvitationListFragment()
+                            }
                             post {
                                 call.handleCreateInvitation()
                             }

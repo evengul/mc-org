@@ -4,6 +4,8 @@ import app.mcorg.domain.model.invite.Invite
 import app.mcorg.domain.model.invite.InviteStatus
 import app.mcorg.domain.model.user.Role
 import app.mcorg.domain.model.user.WorldMember
+import app.mcorg.pipeline.world.GetWorldInvitationsInput
+import app.mcorg.presentation.hxGet
 import app.mcorg.presentation.hxPost
 import app.mcorg.presentation.hxTarget
 import app.mcorg.presentation.templated.common.avatar.avatar
@@ -18,6 +20,7 @@ import app.mcorg.presentation.templated.utils.toPrettyEnumName
 import kotlinx.html.DIV
 import kotlinx.html.FormEncType
 import kotlinx.html.InputType
+import kotlinx.html.UL
 import kotlinx.html.button
 import kotlinx.html.classes
 import kotlinx.html.div
@@ -82,7 +85,7 @@ fun DIV.sendInvitationForm(worldId: Int) {
     }
 }
 
-fun DIV.invitationsListWithFilter(invitations: List<Invite>) {
+fun DIV.invitationsListWithFilter(worldId: Int, invitations: List<Invite>, counts: Map<GetWorldInvitationsInput.StatusFilter, Int>) {
     section("member-invitations") {
         h2 {
             +"World invitations"
@@ -92,73 +95,98 @@ fun DIV.invitationsListWithFilter(invitations: List<Invite>) {
             button {
                 classes += "selected"
                 onClick = onClickHandler
-                +"Pending (${invitations.count { it.status is InviteStatus.Pending }})"
+                hxGet(Link.Worlds.world(worldId).settings().to + "/members/invitations?status=pending")
+                hxTarget(".invitation-list")
+                +"Pending (${counts[GetWorldInvitationsInput.StatusFilter.PENDING] ?: 0})"
             }
             button {
                 onClick = onClickHandler
-                +"Accepted (${invitations.count { it.status is InviteStatus.Accepted }})"
+                hxGet(Link.Worlds.world(worldId).settings().to + "/members/invitations?status=accepted")
+                hxTarget(".invitation-list")
+                +"Accepted (${counts[GetWorldInvitationsInput.StatusFilter.ACCEPTED] ?: 0})"
             }
             button {
                 onClick = onClickHandler
-                +"Declined (${invitations.count { it.status is InviteStatus.Declined }})"
+                hxGet(Link.Worlds.world(worldId).settings().to + "/members/invitations?status=declined")
+                hxTarget(".invitation-list")
+                +"Declined (${counts[GetWorldInvitationsInput.StatusFilter.DECLINED] ?: 0})"
             }
             button {
                 onClick = onClickHandler
-                +"Expired (${invitations.count { it.status is InviteStatus.Expired }})"
+                hxGet(Link.Worlds.world(worldId).settings().to + "/members/invitations?status=expired")
+                hxTarget(".invitation-list")
+                +"Expired (${counts[GetWorldInvitationsInput.StatusFilter.EXPIRED] ?: 0})"
             }
             button {
                 onClick = onClickHandler
-                +"Cancelled (${invitations.count { it.status is InviteStatus.Cancelled }})"
+                hxGet(Link.Worlds.world(worldId).settings().to + "/members/invitations?status=cancelled")
+                hxTarget(".invitation-list")
+                +"Cancelled (${counts[GetWorldInvitationsInput.StatusFilter.CANCELLED] ?: 0})"
             }
             button {
                 onClick = onClickHandler
-                +"All (${invitations.size})"
+                hxGet(Link.Worlds.world(worldId).settings().to + "/members/invitations?status=all")
+                hxTarget(".invitation-list")
+                +"All (${counts[GetWorldInvitationsInput.StatusFilter.ALL] ?: 0})"
             }
         }
-        ul("invitation-list") {
-            invitations.sortedByDescending { it.createdAt }.forEach { invite ->
-                li {
-                    div("invitation-item-start") {
-                        div {
-                            avatar(color = IconColor.ON_BACKGROUND, size = IconSize.MEDIUM)
+        ul {
+            worldInvitations(invitations)
+        }
+    }
+}
+
+fun UL.worldInvitations(invitations: List<Invite>) {
+    classes += "invitation-list"
+    if (invitations.isEmpty()) {
+        li {
+            p("subtle") {
+                +"No invitations found with this status."
+            }
+        }
+        return
+    }
+    invitations.sortedByDescending { it.createdAt }.forEach { invite ->
+        li {
+            div("invitation-item-start") {
+                div {
+                    avatar(color = IconColor.ON_BACKGROUND, size = IconSize.MEDIUM)
+                }
+                div("invitation-item-details") {
+                    p {
+                        +invite.toUsername
+                    }
+                    div("row") {
+                        chipComponent {
+                            +invite.role.toPrettyEnumName()
                         }
-                        div("invitation-item-details") {
-                            p {
-                                +invite.toUsername
-                            }
-                            div("row") {
-                                chipComponent {
-                                    +invite.role.toPrettyEnumName()
-                                }
-                                chipComponent {
-                                    +invite.status::class.simpleName!!
-                                }
-                            }
-                            div("row") {
-                                p("subtle") {
-                                    +"Sent on: ${invite.createdAt.format(DateTimeFormatter.ofPattern("yyyy/MM/dd"))}"
-                                }
-                                p("subtle") {
-                                    + "•"
-                                }
-                                p("subtle") {
-                                    +"Expires on: ${invite.expiresAt.format(DateTimeFormatter.ofPattern("yyyy/MM/dd"))}"
-                                }
-                            }
+                        chipComponent {
+                            +invite.status::class.simpleName!!
                         }
                     }
-                   div("invitation-item-end") {
-                       when (invite.status) {
-                           is InviteStatus.Pending -> neutralButton("Resend")
-                           is InviteStatus.Accepted -> chipComponent {
-                               +"Accepted"
-                           }
+                    div("row") {
+                        p("subtle") {
+                            +"Sent on: ${invite.createdAt.format(DateTimeFormatter.ofPattern("yyyy/MM/dd"))}"
+                        }
+                        p("subtle") {
+                            + "•"
+                        }
+                        p("subtle") {
+                            +"Expires on: ${invite.expiresAt.format(DateTimeFormatter.ofPattern("yyyy/MM/dd"))}"
+                        }
+                    }
+                }
+            }
+            div("invitation-item-end") {
+                when (invite.status) {
+                    is InviteStatus.Pending -> neutralButton("Resend")
+                    is InviteStatus.Accepted -> chipComponent {
+                        +"Accepted"
+                    }
 
-                           is InviteStatus.Declined,
-                           is InviteStatus.Expired,
-                           is InviteStatus.Cancelled -> neutralButton("Resend")
-                       }
-                   }
+                    is InviteStatus.Declined,
+                    is InviteStatus.Expired,
+                    is InviteStatus.Cancelled -> neutralButton("Resend")
                 }
             }
         }
@@ -202,10 +230,10 @@ fun DIV.membersListSection(members: List<WorldMember>) {
 }
 
 fun DIV.membersTab(tabData: SettingsTab.Members) {
-    val (world, invitations, members) = tabData
+    val (world, invitations, invitationCounts, members) = tabData
     classes += "settings-members-tab"
 
     sendInvitationForm(world.id)
-    invitationsListWithFilter(invitations)
+    invitationsListWithFilter(world.id, invitations, invitationCounts)
     membersListSection(members)
 }

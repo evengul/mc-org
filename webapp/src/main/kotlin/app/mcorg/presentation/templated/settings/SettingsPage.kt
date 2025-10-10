@@ -4,6 +4,7 @@ import app.mcorg.domain.model.invite.Invite
 import app.mcorg.domain.model.user.TokenProfile
 import app.mcorg.domain.model.user.WorldMember
 import app.mcorg.domain.model.world.World
+import app.mcorg.pipeline.world.GetWorldInvitationsInput
 import app.mcorg.presentation.templated.common.button.backButton
 import app.mcorg.presentation.templated.common.link.Link
 import app.mcorg.presentation.templated.common.page.createPage
@@ -22,7 +23,7 @@ sealed interface SettingsTab {
         override val id: String = "general"
     }
 
-    data class Members(override val world: World, val invitations: List<Invite>, val members: List<WorldMember>) : SettingsTab {
+    data class Members(override val world: World, val invitations: List<Invite>, val invitationCounts: Map<GetWorldInvitationsInput.StatusFilter, Int>, val members: List<WorldMember>) : SettingsTab {
         override val id: String = "members"
     }
 
