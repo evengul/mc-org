@@ -83,7 +83,7 @@ fun DIV.resourcesTab(project: Project, production: List<ProjectProduction>, gath
                 hxPost(Link.Worlds.world(project.worldId).project(project.id).to + "/resources")
                 hxTarget("#project-resources-production-list")
                 hxSwap("afterbegin")
-                attributes["hx-on::after-request"] = "this.reset();"
+                attributes["hx-on::after-request"] = "this.reset(); document.getElementById('project-resources-name-input')?.focus();"
 
                 input {
                     id = "project-resources-name-input"
