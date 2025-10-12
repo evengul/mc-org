@@ -207,21 +207,21 @@
   - **Estimated Effort**: 4-5 hours
 
 #### Member Management
-- [ ] **PATCH /app/worlds/{worldId}/settings/members/role** - Update member role
+- [x] **PATCH /app/worlds/{worldId}/settings/members/role** - Update member role
   - Pipeline: ValidateRoleChangeStep → UpdateMemberRoleStep
   - Authorization: Owner can change any role, Admin can change Member roles
   - Validation: Cannot change Owner role, role enum validation
   - Template: HTML fragment replacing member list with updated role dropdowns
   - **Estimated Effort**: 5-6 hours
 
-- [ ] **DELETE /app/worlds/{worldId}/settings/members** - Remove member from world
+- [x] **DELETE /app/worlds/{worldId}/settings/members** - Remove member from world
   - Pipeline: ValidateMemberRemovalStep → RemoveMemberStep → CheckWorldEmptyStep
   - Authorization: Owner/Admin can remove Members, Owner can remove Admins
   - Side Effects: May trigger world cleanup if no members remain
   - Template: HTML fragment replacing member list with member removed
   - **Estimated Effort**: 4-5 hours
 
-- [ ] **DELETE /app/worlds/{worldId}/settings/members/invitations/{inviteId}** - Cancel invitation
+- [x] **DELETE /app/worlds/{worldId}/settings/members/invitations/{inviteId}** - Cancel invitation
   - Pipeline: ValidateInvitationOwnershipStep → CancelInvitationStep
   - Authorization: Invitation creator or world admin+
   - Template: HTML fragment replacing invitations list with invitation removed
