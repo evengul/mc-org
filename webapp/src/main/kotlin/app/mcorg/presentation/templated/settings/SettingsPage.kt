@@ -23,7 +23,7 @@ sealed interface SettingsTab {
         override val id: String = "general"
     }
 
-    data class Members(override val world: World, val invitations: List<Invite>, val invitationCounts: Map<GetWorldInvitationsInput.StatusFilter, Int>, val members: List<WorldMember>) : SettingsTab {
+    data class Members(override val world: World, val currentUser: TokenProfile, val invitations: List<Invite>, val invitationCounts: Map<GetWorldInvitationsInput.StatusFilter, Int>, val members: List<WorldMember>) : SettingsTab {
         override val id: String = "members"
     }
 

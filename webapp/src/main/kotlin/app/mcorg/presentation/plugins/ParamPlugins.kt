@@ -13,6 +13,7 @@ import app.mcorg.presentation.utils.setNotificationId
 import app.mcorg.presentation.utils.setProjectId
 import app.mcorg.presentation.utils.setTaskId
 import app.mcorg.presentation.utils.setWorldId
+import app.mcorg.presentation.utils.setWorldMemberId
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.createRouteScopedPlugin
 import io.ktor.server.response.respond
@@ -103,6 +104,28 @@ val InviteParamPlugin = createRouteScopedPlugin("InviteParamPlugin") {
                 call.setInviteId(inviteId)
             } else if ((checkResult is Result.Success && !checkResult.value) || (checkResult is Result.Failure && checkResult.error is DatabaseFailure.NotFound)) {
                 call.respond(HttpStatusCode.NotFound, "Invite with ID $inviteId does not exist")
+            } else {
+                call.respond(HttpStatusCode.InternalServerError, "Database error occurred")
+            }
+        }
+    }
+}
+
+val WorldMemberParamPlugin = createRouteScopedPlugin("MemberParamPlugin") {
+    onCall { call ->
+        val worldId = call.getWorldId()
+        val memberId = call.parameters["memberId"]?.toIntOrNull()
+        if (memberId == null) {
+            call.respondBadRequest("Invalid or missing member ID")
+        } else {
+            val checkResult = ensureParamEntityExists(
+                SafeSQL.select("SELECT EXISTS(SELECT 1 FROM world_members WHERE user_id = ? AND world_id = ?)"),
+                memberId, worldId
+            )
+            if (checkResult is Result.Success && checkResult.value) {
+                call.setWorldMemberId(memberId)
+            } else if ((checkResult is Result.Success && !checkResult.value) || (checkResult is Result.Failure && checkResult.error is DatabaseFailure.NotFound)) {
+                call.respond(HttpStatusCode.NotFound, "Member with ID $memberId does not exist in the world")
             } else {
                 call.respond(HttpStatusCode.InternalServerError, "Database error occurred")
             }

@@ -17,6 +17,8 @@ import app.mcorg.pipeline.world.settings.handleGetInvitationListFragment
 import app.mcorg.pipeline.world.settings.handleUpdateWorldName
 import app.mcorg.pipeline.world.settings.handleUpdateWorldDescription
 import app.mcorg.pipeline.world.settings.handleUpdateWorldVersion
+import app.mcorg.pipeline.world.settings.members.handleRemoveWorldMember
+import app.mcorg.pipeline.world.settings.members.handleUpdateWorldMemberRole
 import app.mcorg.presentation.plugins.ProjectParamPlugin
 import app.mcorg.presentation.plugins.TaskParamPlugin
 import app.mcorg.presentation.plugins.WorldParamPlugin
@@ -27,6 +29,7 @@ import app.mcorg.presentation.handler.TaskHandler.handleSearchTasks
 import app.mcorg.presentation.handler.TaskHandler.handleUpdateRequirementProgress
 import app.mcorg.presentation.handler.TaskHandler.handleToggleActionRequirement
 import app.mcorg.presentation.plugins.InviteParamPlugin
+import app.mcorg.presentation.plugins.WorldMemberParamPlugin
 import app.mcorg.presentation.plugins.WorldAdminPlugin
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.delete
@@ -188,11 +191,14 @@ class WorldHandler {
                                 }
                             }
                         }
-                        patch("/role") {
-                            // Update member role
-                        }
-                        delete {
-                            // Remove member from world
+                        route("/{memberId}") {
+                            install(WorldMemberParamPlugin)
+                            patch("/role") {
+                                call.handleUpdateWorldMemberRole()
+                            }
+                            delete {
+                                call.handleRemoveWorldMember()
+                            }
                         }
                     }
                 }

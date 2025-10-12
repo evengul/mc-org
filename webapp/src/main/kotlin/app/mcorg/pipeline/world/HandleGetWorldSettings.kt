@@ -81,6 +81,7 @@ suspend fun ApplicationCall.handleGetWorldSettings() {
 }
 
 suspend fun ApplicationCall.handleGetMembersTabData(worldId: Int, statusFilter: GetWorldInvitationsInput.StatusFilter): Result<HandleGetWorldFailure, SettingsTab.Members> {
+    val user = this.getUser()
     val worldPipeline = Pipeline.create<HandleGetWorldFailure, Int>()
         .pipe(Step.value(worldId))
         .pipe(worldQueryStep)
@@ -100,6 +101,7 @@ suspend fun ApplicationCall.handleGetMembersTabData(worldId: Int, statusFilter: 
 
         merge("data", world, invitations, members) { w, i, m ->
             Result.success(SettingsTab.Members(
+                currentUser = user,
                 world = w,
                 invitations = i.filteredInvitations,
                 invitationCounts = i.invitationsCount,

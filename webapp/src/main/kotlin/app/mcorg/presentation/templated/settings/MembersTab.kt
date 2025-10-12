@@ -3,13 +3,16 @@ package app.mcorg.presentation.templated.settings
 import app.mcorg.domain.model.invite.Invite
 import app.mcorg.domain.model.invite.InviteStatus
 import app.mcorg.domain.model.user.Role
+import app.mcorg.domain.model.user.TokenProfile
 import app.mcorg.domain.model.user.WorldMember
 import app.mcorg.pipeline.world.GetWorldInvitationsInput
 import app.mcorg.presentation.hxConfirm
 import app.mcorg.presentation.hxDelete
+import app.mcorg.presentation.hxPatch
 import app.mcorg.presentation.hxPost
 import app.mcorg.presentation.hxSwap
 import app.mcorg.presentation.hxTarget
+import app.mcorg.presentation.hxTrigger
 import app.mcorg.presentation.templated.common.avatar.avatar
 import app.mcorg.presentation.templated.common.button.actionButton
 import app.mcorg.presentation.templated.common.button.dangerButton
@@ -39,6 +42,7 @@ import kotlinx.html.option
 import kotlinx.html.p
 import kotlinx.html.section
 import kotlinx.html.select
+import kotlinx.html.span
 import kotlinx.html.ul
 import java.time.format.DateTimeFormatter
 
@@ -187,17 +191,19 @@ fun LI.worldInvite(invite: Invite) {
     }
 }
 
-fun DIV.membersListSection(members: List<WorldMember>) {
+fun DIV.membersListSection(currentUser: TokenProfile, members: List<WorldMember>) {
+    val currentMember = members.find { it.id == currentUser.id }
     section("member-list") {
         h2 {
             +"World Members"
         }
         p("subtle") {
-            + "Manage who has access to this world"
+            + "Manage who has access to this world. There is only one owner, and only they can delete a world. Admins can see and use these settings. Members can create and work with projects in a world."
         }
         ul {
             members.forEach { member ->
                 li {
+                    id = "member-${member.id}"
                     div("member-item-start") {
                         avatar(color = IconColor.ON_BACKGROUND, size = IconSize.MEDIUM)
                         div {
@@ -205,17 +211,42 @@ fun DIV.membersListSection(members: List<WorldMember>) {
                                 + member.displayName
                             }
                             p("subtle") {
-                                +listOf(
-                                    member.worldRole.toPrettyEnumName(),
-                                    "Joined on: ${member.createdAt.format(DateTimeFormatter.ofPattern("yyyy/MM/dd"))}"
-                                ).joinToString(" • ")
+                                span {
+                                    id = "member-${member.id}-role-display"
+                                    + member.worldRole.toPrettyEnumName()
+                                }
+                                + " • "
+                                span {
+                                    + "Joined on: ${member.createdAt.format(DateTimeFormatter.ofPattern("yyyy/MM/dd"))}"
+                                }
                             }
                         }
                     }
-                    div("member-item-action") {
-                        neutralButton("Change role...")
-                        dangerButton("Remove member")
-                        dangerButton("Ban member")
+                    if (member.worldRole != Role.OWNER && currentMember != null && currentMember.worldRole.isHigherThan(member.worldRole)) {
+                        div("member-item-action") {
+                            select {
+                                name = "role"
+                                hxPatch("${Link.Worlds.world(member.worldId).to}/settings/members/${member.id}/role")
+                                hxTarget("#member-${member.id}-role-display")
+                                hxSwap("innerHTML")
+                                hxTrigger("change")
+                                Role.entries.filter { it != Role.BANNED && it != Role.OWNER }.map { role ->
+                                    option {
+                                        value = role.name
+                                        selected = role == member.worldRole
+                                        + role.toPrettyEnumName()
+                                    }
+                                }
+                            }
+                            dangerButton("Remove member") {
+                                buttonBlock = {
+                                    hxDelete("${Link.Worlds.world(member.worldId).to}/settings/members/${member.id}")
+                                    hxTarget("#member-${member.id}")
+                                    hxSwap("delete")
+                                    hxConfirm("Are you sure you want to remove ${member.displayName} from this world?")
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -224,10 +255,10 @@ fun DIV.membersListSection(members: List<WorldMember>) {
 }
 
 fun DIV.membersTab(tabData: SettingsTab.Members) {
-    val (world, invitations, invitationCounts, members) = tabData
+    val (world, currentUser, invitations, invitationCounts, members) = tabData
     classes += "settings-members-tab world-settings-content"
 
     sendInvitationForm(world.id)
     invitationsListWithFilter(invitations, invitationCounts)
-    membersListSection(members)
+    membersListSection(currentUser, members)
 }
