@@ -1,5 +1,6 @@
 package app.mcorg.presentation.handler
 
+import app.mcorg.pipeline.project.dependencies.handleCreateProjectDependency
 import app.mcorg.pipeline.world.handleCreateWorld
 import app.mcorg.pipeline.world.handleGetProject
 import app.mcorg.pipeline.world.handleGetWorld
@@ -98,10 +99,10 @@ class WorldHandler {
                             }
                         }
                         route("/dependencies") {
-                            post("/{projectId}") {
-
+                            post {
+                                call.handleCreateProjectDependency()
                             }
-                            delete("/{projectId}") {
+                            delete("/{dependencyId}") {
                                 // Remove project dependency
                             }
                             post("/{projectId}/task/{taskId}") {

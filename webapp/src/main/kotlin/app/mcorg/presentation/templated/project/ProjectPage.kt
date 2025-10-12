@@ -153,7 +153,7 @@ fun DIV.projectTabsContent(data: ProjectTab) {
         is ProjectTab.Resources -> resourcesTab(data.project, data.resourceProduction, data.resourceGathering)
         is ProjectTab.Location -> locationTab(data.project)
         is ProjectTab.Stages -> stagesTab(data.stageChanges)
-        is ProjectTab.Dependencies -> dependenciesTab(data.availableProjects, data.dependencies, data.dependents)
+        is ProjectTab.Dependencies -> dependenciesTab(data.project.worldId, data.project.id, data.availableProjects, data.dependencies, data.dependents)
         is ProjectTab.Settings -> projectSettingsTab(data.project, data.worldMemberRole)
     }
 }

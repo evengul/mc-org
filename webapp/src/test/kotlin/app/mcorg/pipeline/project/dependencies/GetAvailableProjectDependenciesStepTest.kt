@@ -1,7 +1,6 @@
 package app.mcorg.pipeline.project.dependencies
 
 import app.mcorg.domain.model.minecraft.MinecraftVersion
-import app.mcorg.domain.model.project.NamedProjectId
 import app.mcorg.domain.model.project.ProjectType
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.pipeline.DatabaseSteps
@@ -269,20 +268,6 @@ class GetAvailableProjectDependenciesStepTest : WithUser() {
         assertFalse(availableProjectsSecondWorld.any { it.id == projectD })
     }
 
-    // Helper methods for test setup
-    private fun createTestWorld(): Int = runBlocking {
-        val result = CreateWorldStep(user).process(
-            CreateWorldInput(
-                name = "Test World",
-                description = "A test world for dependencies",
-                version = MinecraftVersion.fromString("1.20.1")
-            )
-        )
-        when (result) {
-            is Result.Success -> result.value
-            is Result.Failure -> throw IllegalStateException("Failed to create test world: $result")
-        }
-    }
 
     private fun createTestWorld(name: String, description: String): Int = runBlocking {
         val result = CreateWorldStep(user).process(
