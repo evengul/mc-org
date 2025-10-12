@@ -63,18 +63,13 @@ suspend fun ApplicationCall.handleGetProject() {
 
     val unreadNotifications = getUnreadNotificationCount(user)
 
-    // Get tasks for the project
-    val tasks = when (val tasksResult = GetTasksByProjectIdStep.process(GetTasksByProjectIdInput(projectId))) {
-        is Result.Success -> tasksResult.getOrNull()!!
-        is Result.Failure -> {
-            respondBadRequest("Failed to load tasks")
-            return
-        }
-    }
 
     val tabData = when (tab) {
         "resources" -> {
             // Get resource production data
+            val gatheringTasks = GetTasksByProjectIdStep.process(
+                GetTasksByProjectIdInput(projectId, includeCompleted = true),
+            ).getOrNull() ?: emptyList()
             val resourceProductionResult = GetResourceProductionStep.process(GetResourceProductionInput(projectId))
             val resourceProduction = when (resourceProductionResult) {
                 is Result.Success -> resourceProductionResult.getOrNull()!!
@@ -83,7 +78,7 @@ suspend fun ApplicationCall.handleGetProject() {
 
             ProjectTab.Resources(
                 project,
-                tasks
+                gatheringTasks
                     .flatMap { it.requirements }
                     .filterIsInstance<ItemRequirement>()
                     .toProjectResourceGathering(),
@@ -127,6 +122,13 @@ suspend fun ApplicationCall.handleGetProject() {
         }
 
         else -> {
+            val tasks = when (val tasksResult = GetTasksByProjectIdStep.process(GetTasksByProjectIdInput(projectId, includeCompleted = false))) {
+                is Result.Success -> tasksResult.getOrNull()!!
+                is Result.Failure -> {
+                    respondBadRequest("Failed to load tasks")
+                    return
+                }
+            }
             val totalCount = CountTotalTasksStep.process(projectId).getOrNull() ?: tasks.size
             ProjectTab.Tasks(project, totalCount, tasks)
         }

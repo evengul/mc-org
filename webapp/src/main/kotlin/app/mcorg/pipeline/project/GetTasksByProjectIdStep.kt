@@ -12,7 +12,8 @@ import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
 
 data class GetTasksByProjectIdInput(
-    val projectId: Int
+    val projectId: Int,
+    val includeCompleted: Boolean = false
 )
 
 sealed interface GetTasksByProjectIdFailures {
@@ -40,11 +41,12 @@ object GetTasksByProjectIdStep : Step<GetTasksByProjectIdInput, GetTasksByProjec
                     tr.completed
                 FROM tasks t
                 LEFT JOIN task_requirements tr ON t.id = tr.task_id
-                WHERE t.project_id = ? AND (tr.completed = FALSE OR tr.collected < tr.required_amount OR tr.id IS NULL)
+                WHERE t.project_id = ? AND (? = TRUE OR tr.completed = FALSE OR tr.collected < tr.required_amount OR tr.id IS NULL)
                 ORDER BY t.id, tr.id
             """),
             parameterSetter = { statement, queryInput ->
                 statement.setInt(1, queryInput.projectId)
+                statement.setBoolean(2, queryInput.includeCompleted)
             },
             errorMapper = { GetTasksByProjectIdFailures.DatabaseError },
             resultMapper = { resultSet ->

@@ -9,6 +9,9 @@ fun ApplicationCall.getWorldId(): Int = getInt("WorldParam")
 fun ApplicationCall.setProjectId(id: Int) = setInt("ProjectParam", id)
 fun ApplicationCall.getProjectId(): Int = getInt("ProjectParam")
 
+fun ApplicationCall.setProjectProductionItemId(id: Int) = setInt("ProjectProductionItemParam", id)
+fun ApplicationCall.getProjectProductionItemId(): Int = getInt("ProjectProductionItemParam")
+
 fun ApplicationCall.setTaskId(id: Int) = setInt("TaskParam", id)
 fun ApplicationCall.getTaskId(): Int = getInt("TaskParam")
 
