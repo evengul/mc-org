@@ -230,6 +230,7 @@ main.project {
 
 .project-resources-collection,
 .project-resources-production {
+    width: 100%;
     background-color: var(--clr-bg-subtle);
     padding: var(--spacing-md);
     box-shadow: var(--shadow-sm);
@@ -259,7 +260,35 @@ main.project {
 
         li {
             margin-top: var(--spacing-xs);
+
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            justify-content: space-between;
+            gap: var(--spacing-sm);
+
+            &:has(button:hover) .production-item-start {
+                border-bottom: 2px solid var(--clr-danger-hover);
+            }
         }
+    }
+}
+
+#project-resources-production-form {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: var(--spacing-sm);
+
+    margin-top: var(--spacing-sm);
+
+    input,
+    select {
+        flex-grow: 1;
+    }
+
+    button {
+        height: 100%;
     }
 }
 

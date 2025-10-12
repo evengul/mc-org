@@ -9,6 +9,8 @@ import app.mcorg.pipeline.project.handleDeleteProject
 import app.mcorg.pipeline.project.handleEditLocation
 import app.mcorg.pipeline.project.handleGetEditLocationFragment
 import app.mcorg.pipeline.project.handleUpdateProjectStage
+import app.mcorg.pipeline.project.resources.handleCreateProjectProduction
+import app.mcorg.pipeline.project.resources.handleDeleteProjectProductionItem
 import app.mcorg.pipeline.world.handleDeleteWorld
 import app.mcorg.pipeline.world.handleUpdateWorld
 import app.mcorg.pipeline.world.settings.handleCancelInvitation
@@ -29,6 +31,7 @@ import app.mcorg.presentation.handler.TaskHandler.handleSearchTasks
 import app.mcorg.presentation.handler.TaskHandler.handleUpdateRequirementProgress
 import app.mcorg.presentation.handler.TaskHandler.handleToggleActionRequirement
 import app.mcorg.presentation.plugins.InviteParamPlugin
+import app.mcorg.presentation.plugins.ProjectProductionItemParamPlugin
 import app.mcorg.presentation.plugins.WorldMemberParamPlugin
 import app.mcorg.presentation.plugins.WorldAdminPlugin
 import io.ktor.server.routing.Route
@@ -63,7 +66,6 @@ class WorldHandler {
                             call.handleGetProject()
                         }
                         patch("/stage") {
-                            // Update project stage
                             call.handleUpdateProjectStage()
                         }
                         delete {
@@ -72,9 +74,10 @@ class WorldHandler {
                         }
                         route("/resources") {
                             post {
-
+                                call.handleCreateProjectProduction()
                             }
                             route("/{resourceId}") {
+                                install(ProjectProductionItemParamPlugin)
                                 patch("/active") {
                                     // Update resource
                                 }
@@ -82,7 +85,7 @@ class WorldHandler {
 
                                 }
                                 delete {
-                                    // Delete resource
+                                    call.handleDeleteProjectProductionItem()
                                 }
                             }
                         }
