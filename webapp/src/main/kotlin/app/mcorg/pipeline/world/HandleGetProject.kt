@@ -23,6 +23,8 @@ import app.mcorg.presentation.utils.respondNotFound
 import app.mcorg.presentation.utils.respondBadRequest
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.pipeline.project.CountTotalTasksStep
+import app.mcorg.pipeline.project.ProjectDependencyData
+import app.mcorg.pipeline.project.dependencies.GetAvailableProjectDependenciesStep
 import app.mcorg.presentation.templated.project.projectTabsContent
 import app.mcorg.presentation.utils.getWorldId
 import io.ktor.server.application.ApplicationCall
@@ -102,11 +104,17 @@ suspend fun ApplicationCall.handleGetProject() {
             val dependenciesResult = GetProjectDependenciesStep.process(GetProjectDependenciesInput(projectId))
             val dependencyData = when (dependenciesResult) {
                 is Result.Success -> dependenciesResult.getOrNull()!!
-                is Result.Failure -> app.mcorg.pipeline.project.ProjectDependencyData(emptyList(), emptyList())
+                is Result.Failure -> ProjectDependencyData(emptyList(), emptyList())
+            }
+
+            val availableProjects = when(val result = GetAvailableProjectDependenciesStep(worldId).process(projectId)) {
+                is Result.Success -> result.value
+                is Result.Failure -> emptyList()
             }
 
             ProjectTab.Dependencies(
                 project,
+                availableProjects,
                 dependencyData.dependencies,
                 dependencyData.dependents
             )

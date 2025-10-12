@@ -386,6 +386,7 @@ main.project {
 
 .project-dependencies,
 .project-dependents {
+    flex-grow: 1;
     background-color: var(--clr-bg-subtle);
     padding: var(--spacing-md);
     box-shadow: var(--shadow-sm);
@@ -424,6 +425,16 @@ main.project {
         gap: var(--spacing-md);
 
         margin-bottom: var(--spacing-sm);
+    }
+
+    .project-dependencies-header-actions {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        gap: var(--spacing-xs);
+        .none-available {
+            text-align: end;
+        }
     }
 
     .dependency-item-actions {

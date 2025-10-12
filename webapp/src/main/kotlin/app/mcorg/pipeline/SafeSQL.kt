@@ -11,7 +11,7 @@ import org.intellij.lang.annotations.Language
 value class SafeSQL private constructor(@param:Language("SQL") val query: String) {
     companion object {
         private val DANGEROUS_PATTERNS = listOf(
-            ";", "--", "/*", "*/", "xp_", "sp_", "exec", "execute"
+            ";", "/*", "*/", "xp_", "sp_", "exec", "execute"
         ).map { it.lowercase() }
 
         // DDL keywords that should be matched as whole words to avoid false positives

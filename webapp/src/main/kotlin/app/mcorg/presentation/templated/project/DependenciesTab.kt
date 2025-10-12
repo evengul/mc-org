@@ -1,5 +1,6 @@
 package app.mcorg.presentation.templated.project
 
+import app.mcorg.domain.model.project.NamedProjectId
 import app.mcorg.domain.model.project.ProjectDependency
 import app.mcorg.domain.model.project.ProjectStage
 import app.mcorg.presentation.templated.common.button.actionButton
@@ -12,13 +13,16 @@ import app.mcorg.presentation.templated.utils.toPrettyEnumName
 import kotlinx.html.DIV
 import kotlinx.html.classes
 import kotlinx.html.div
+import kotlinx.html.form
 import kotlinx.html.h2
 import kotlinx.html.li
+import kotlinx.html.option
 import kotlinx.html.p
+import kotlinx.html.select
 import kotlinx.html.span
 import kotlinx.html.ul
 
-fun DIV.dependenciesTab(dependencies: List<ProjectDependency>, dependents: List<ProjectDependency>) {
+fun DIV.dependenciesTab(availableProjects: List<NamedProjectId>, dependencies: List<ProjectDependency>, dependents: List<ProjectDependency>) {
     classes += "dependencies-tab"
     div("project-dependencies") {
         div("project-dependencies-header") {
@@ -30,7 +34,28 @@ fun DIV.dependenciesTab(dependencies: List<ProjectDependency>, dependents: List<
                     +"Projects that this project depends on"
                 }
             }
-            actionButton("Add Dependency")
+            form(classes = "project-dependencies-header-actions") {
+                if (availableProjects.isNotEmpty()) {
+                    select {
+                        required = true
+                        option {
+                            value = ""
+                            + "Select a project to add as a dependency"
+                        }
+                        availableProjects.forEach {
+                            option {
+                                value = it.id.toString()
+                                + it.name
+                            }
+                        }
+                    }
+                    actionButton("Add Dependency")
+                } else {
+                    p("subtle none-available") {
+                        + "No other projects available to add as dependencies. Create more projects to enable this feature."
+                    }
+                }
+            }
         }
         if (dependencies.isEmpty()) {
             p("subtle") {
