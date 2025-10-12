@@ -10,6 +10,10 @@ enum class Role(val level: Int) {
         return this.level <= other.level
     }
 
+    fun isHigherThan(other: Role): Boolean {
+        return this.level < other.level
+    }
+
     companion object {
         fun fromString(role: String): Role {
             return entries.find { it.name.equals(role, ignoreCase = true) } ?: throw IllegalArgumentException("Unknown role: $role")

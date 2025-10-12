@@ -5,6 +5,8 @@ import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
+import app.mcorg.presentation.plugins.InviteParamPlugin
+import app.mcorg.presentation.utils.getInviteId
 import app.mcorg.presentation.utils.getUser
 import app.mcorg.presentation.utils.respondBadRequest
 import app.mcorg.presentation.utils.respondHtml
@@ -44,6 +46,7 @@ data class DeclineInviteResult(
 class InviteHandler {
     fun Route.inviteRoutes() {
         route("/invites/{inviteId}") {
+            install(InviteParamPlugin)
             patch("/accept") {
                 call.handleAcceptInvitation()
             }
@@ -56,7 +59,7 @@ class InviteHandler {
 
 suspend fun ApplicationCall.handleAcceptInvitation() {
     val user = this.getUser()
-    val inviteId = this.parameters["inviteId"]?.toIntOrNull() ?: return respondBadRequest("Invalid invitation ID")
+    val inviteId = this.getInviteId()
 
     executePipeline(
         onSuccess = { result: AcceptInviteResult ->
@@ -92,7 +95,7 @@ suspend fun ApplicationCall.handleAcceptInvitation() {
 
 suspend fun ApplicationCall.handleDeclineInvitation() {
     val user = this.getUser()
-    val inviteId = this.parameters["inviteId"]?.toIntOrNull() ?: return respondBadRequest("Invalid invitation ID")
+    val inviteId = this.getInviteId()
 
     executePipeline(
         onSuccess = { result: DeclineInviteResult ->

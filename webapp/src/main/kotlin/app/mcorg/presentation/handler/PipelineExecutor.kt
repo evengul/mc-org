@@ -5,6 +5,7 @@ import app.mcorg.domain.pipeline.pipeline
 import app.mcorg.domain.pipeline.parallelPipeline
 import app.mcorg.domain.pipeline.ParallelPipelineBuilder
 import app.mcorg.domain.pipeline.PipelineRef
+import app.mcorg.domain.pipeline.Result
 import io.ktor.server.application.ApplicationCall
 
 suspend fun <E, O> ApplicationCall.executePipeline(
@@ -35,4 +36,15 @@ suspend fun <E, O> ApplicationCall.executeParallelPipeline(
         },
         onFailure = onFailure
     )
+}
+
+suspend fun <E, O> ApplicationCall.executeParallelPipeline(
+    block: ParallelPipelineBuilder<E>.() -> PipelineRef<O>
+): Result<E, O> {
+    val pipeline = parallelPipeline(block)
+    return pipeline.execute(input = Unit)
+        .map {
+            @Suppress("UNCHECKED_CAST")
+            it as O
+        }
 }

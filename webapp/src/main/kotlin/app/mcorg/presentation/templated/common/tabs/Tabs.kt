@@ -12,6 +12,7 @@ import kotlinx.html.button
 import kotlinx.html.classes
 import kotlinx.html.div
 import kotlinx.html.onClick
+import org.intellij.lang.annotations.Language
 
 data class TabData(
     val value: String,
@@ -77,7 +78,9 @@ fun <T : Tag> T.tabsComponent(
 class Tabs(
     val tabs: List<TabData>,
     var hxTarget: String? = null,
+    var hxSwap: String? = null,
     var activeTab: String? = null,
+    var queryName: String = "tab",
     var variant: TabsVariant = TabsVariant.DEFAULT,
     var size: TabsSize = TabsSize.MEDIUM,
     var onClick: ((tab: TabData) -> String)? = null,
@@ -125,11 +128,21 @@ class Tabs(
                         if (tab.value == activeTab) {
                             add("tabs__tab--active")
                         }
+
+                        add("tabs__tab--${queryName}")
                     }
 
+                    @Language("JavaScript")
                     val mainClick = """
-                        document.querySelectorAll('.tabs__tab--active').forEach(el => el.classList.remove('tabs__tab--active'));
+                        document.querySelectorAll('.tabs__tab--${queryName}.tabs__tab--active').forEach(el => el.classList.remove('tabs__tab--active'));
                         this.classList.add('tabs__tab--active');
+                        if (location.href.indexOf('?') > -1) {
+                            const searchParams = new URLSearchParams(location.search);
+                            searchParams.set('${queryName}', '${tab.value}');
+                            history.replaceState(null, '', location.pathname + '?' + searchParams.toString());
+                        } else {
+                            history.replaceState(null, '', location.href + '?${queryName}=${tab.value}');
+                        }
                     """.trimIndent()
 
                     this@Tabs.onClick?.let {
@@ -143,8 +156,8 @@ class Tabs(
 
                     hxTarget?.let { target ->
                         hxTarget(target)
-                        hxGet("?tab=${tab.value}")
-                        hxSwap("outerHTML")
+                        hxGet("?${queryName}=${tab.value}")
+                        hxSwap(hxSwap ?: "outerHTML")
                     }
 
                     // Accessibility attributes

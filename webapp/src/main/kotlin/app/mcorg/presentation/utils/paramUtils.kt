@@ -15,5 +15,11 @@ fun ApplicationCall.getTaskId(): Int = getInt("TaskParam")
 fun ApplicationCall.setNotificationId(id: Int) = setInt("NotificationParam", id)
 fun ApplicationCall.getNotificationId(): Int = getInt("NotificationParam")
 
+fun ApplicationCall.setInviteId(id: Int) = setInt("InviteParam", id)
+fun ApplicationCall.getInviteId(): Int = getInt("InviteParam")
+
+fun ApplicationCall.setWorldMemberId(id: Int) = setInt("WorldMemberParam", id)
+fun ApplicationCall.getWorldMemberId(): Int = getInt("WorldMemberParam")
+
 private fun ApplicationCall.setInt(key: String, value: Int) = attributes.put(AttributeKey(key), value)
 private fun ApplicationCall.getInt(key: String): Int = attributes[AttributeKey(key)]

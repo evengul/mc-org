@@ -52,7 +52,7 @@ val worldMembersQueryStep = DatabaseSteps.query<Int, HandleGetWorldFailure, List
 
 private fun ResultSet.toWorldMember(): WorldMember {
     return WorldMember(
-        id = getInt("id"),
+        id = getInt("user_id"),
         worldId = getInt("world_id"),
         displayName = getString("display_name"),
         worldRole = Role.fromLevel(getInt("world_role")),
