@@ -1,5 +1,6 @@
 package app.mcorg.presentation.handler
 
+import app.mcorg.pipeline.idea.handleGetIdeas
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.delete
 import io.ktor.server.routing.get
@@ -11,7 +12,7 @@ class IdeaHandler {
     fun Route.ideaRoutes() {
         route("/ideas") {
             get {
-
+                call.handleGetIdeas()
             }
             post {
 

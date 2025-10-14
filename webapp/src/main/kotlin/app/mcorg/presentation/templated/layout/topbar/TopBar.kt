@@ -39,6 +39,7 @@ data class TopBar(
     val unreadNotificationCount: Int = 0,
     val activeLinks: Set<ActiveLinks> = setOf(
         ActiveLinks.HOME,
+        ActiveLinks.IDEAS,
         ActiveLinks.NOTIFICATIONS,
         ActiveLinks.ADMIN_DASHBOARD,
         ActiveLinks.PROFILE

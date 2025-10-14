@@ -108,17 +108,33 @@ sealed interface MinecraftVersion {
 }
 
 sealed interface MinecraftVersionRange {
-    object Unbounded : MinecraftVersionRange
+    object Unbounded : MinecraftVersionRange {
+        override fun toString(): String {
+            return "All Versions"
+        }
+    }
     data class Bounded(
         val from: MinecraftVersion,
         val to: MinecraftVersion
-    ) : MinecraftVersionRange
+    ) : MinecraftVersionRange {
+        override fun toString(): String {
+            return "$from - $to"
+        }
+    }
     data class UpperBounded(
         val to: MinecraftVersion
-    ) : MinecraftVersionRange
+    ) : MinecraftVersionRange {
+        override fun toString(): String {
+            return "Up to $to"
+        }
+    }
     data class LowerBounded(
         val from: MinecraftVersion
-    ) : MinecraftVersionRange
+    ) : MinecraftVersionRange {
+        override fun toString(): String {
+            return "From $from"
+        }
+    }
 
     fun withinBounds(version: MinecraftVersion): Boolean {
         return when (this) {
