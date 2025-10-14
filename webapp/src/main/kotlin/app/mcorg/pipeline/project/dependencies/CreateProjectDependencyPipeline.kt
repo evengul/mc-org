@@ -8,7 +8,6 @@ import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.ValidationSteps
 import app.mcorg.pipeline.failure.ValidationFailure
-import app.mcorg.pipeline.project.toDependencies
 import app.mcorg.presentation.handler.executePipeline
 import app.mcorg.presentation.hxOutOfBands
 import app.mcorg.presentation.templated.project.addDependencyForm
@@ -39,7 +38,7 @@ suspend fun ApplicationCall.handleCreateProjectDependency() {
     executePipeline(
         onSuccess = { (dependencies, availableDependencies) ->
             respondHtml(createHTML().div {
-                dependenciesList(dependencies)
+                dependenciesList(worldId, projectId, dependencies)
             } + createHTML().form {
                 hxOutOfBands("true")
                 addDependencyForm(worldId, projectId, availableDependencies)
@@ -54,7 +53,12 @@ suspend fun ApplicationCall.handleCreateProjectDependency() {
             .step(EnsureNoDependencyLoopDetectedStep(projectId))
             .step(CreateProjectDependencyStep(projectId))
             .step(Step.value(Unit))
-            .step(GetProjectDependenciesStep(projectId))
+            .step(object : Step<Unit, CreateProjectDependencyFailure.DatabaseError, List<ProjectDependency>> {
+                override suspend fun process(input: Unit): Result<CreateProjectDependencyFailure.DatabaseError, List<ProjectDependency>> {
+                    return GetProjectDependenciesStep(projectId).process(input)
+                        .mapError { CreateProjectDependencyFailure.DatabaseError }
+                }
+            })
             .step(object : Step<List<ProjectDependency>, CreateProjectDependencyFailure, Pair<List<ProjectDependency>, List<NamedProjectId>>> {
                 override suspend fun process(input: List<ProjectDependency>): Result<CreateProjectDependencyFailure, Pair<List<ProjectDependency>, List<NamedProjectId>>> {
                     return GetAvailableProjectDependenciesStep(worldId).process(projectId)
@@ -156,28 +160,3 @@ private data class CreateProjectDependencyStep(val projectId: Int): Step<Int, Cr
     }
 }
 
-private data class GetProjectDependenciesStep(val projectId: Int) : Step<Unit, CreateProjectDependencyFailure.DatabaseError, List<ProjectDependency>> {
-    override suspend fun process(input: Unit): Result<CreateProjectDependencyFailure.DatabaseError, List<ProjectDependency>> {
-        return DatabaseSteps.query<Unit, CreateProjectDependencyFailure.DatabaseError, List<ProjectDependency>>(
-            SafeSQL.select("""
-                SELECT 
-                    p1.id as dependent_id,
-                    p1.name as dependent_name,
-                    p1.stage as dependent_stage,
-                    p2.id as dependency_id,
-                    p2.name as dependency_name,
-                    p2.stage as dependency_stage
-                FROM project_dependencies pd
-                JOIN projects p1 ON pd.project_id = p1.id
-                JOIN projects p2 ON pd.depends_on_project_id = p2.id
-                WHERE pd.project_id = ?
-                ORDER BY p2.name
-            """.trimIndent()),
-            parameterSetter = { statement, _ ->
-                statement.setInt(1, projectId)
-            },
-            errorMapper = { CreateProjectDependencyFailure.DatabaseError },
-            resultMapper = { it.toDependencies() }
-        ).process(input)
-    }
-}

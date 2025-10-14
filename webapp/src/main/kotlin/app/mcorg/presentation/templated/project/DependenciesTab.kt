@@ -3,6 +3,8 @@ package app.mcorg.presentation.templated.project
 import app.mcorg.domain.model.project.NamedProjectId
 import app.mcorg.domain.model.project.ProjectDependency
 import app.mcorg.domain.model.project.ProjectStage
+import app.mcorg.presentation.hxConfirm
+import app.mcorg.presentation.hxDelete
 import app.mcorg.presentation.hxPost
 import app.mcorg.presentation.hxTarget
 import app.mcorg.presentation.templated.common.button.actionButton
@@ -45,7 +47,7 @@ fun DIV.dependenciesTab(worldId: Int, projectId: Int, availableProjects: List<Na
             }
         }
         div {
-            dependenciesList(dependencies)
+            dependenciesList(worldId, projectId, dependencies)
         }
     }
     div("project-dependents") {
@@ -110,7 +112,7 @@ fun FORM.addDependencyForm(worldId: Int, projectId: Int, availableDependencies: 
     }
 }
 
-fun DIV.dependenciesList(dependencies: List<ProjectDependency>) {
+fun DIV.dependenciesList(worldId: Int, projectId: Int, dependencies: List<ProjectDependency>) {
     id = "project-dependencies-list-container"
     if (dependencies.isEmpty()) {
         p("subtle") {
@@ -127,7 +129,13 @@ fun DIV.dependenciesList(dependencies: List<ProjectDependency>) {
                         chipComponent {
                             + dependency.dependencyStage.toPrettyEnumName()
                         }
-                        iconButton(Icons.DELETE, iconSize = IconSize.SMALL)
+                        iconButton(Icons.DELETE, iconSize = IconSize.SMALL) {
+                            buttonBlock = {
+                                hxDelete(Link.Worlds.world(worldId).project(projectId).to + "/dependencies/${dependency.dependencyId}")
+                                hxTarget("#project-dependencies-list-container")
+                                hxConfirm("Are you sure you want to remove the dependency on '${dependency.dependencyName}'?")
+                            }
+                        }
                     }
                 }
             }

@@ -10,6 +10,7 @@ import app.mcorg.presentation.utils.getWorldId
 import app.mcorg.presentation.utils.respondBadRequest
 import app.mcorg.presentation.utils.setInviteId
 import app.mcorg.presentation.utils.setNotificationId
+import app.mcorg.presentation.utils.setProjectDependencyId
 import app.mcorg.presentation.utils.setProjectId
 import app.mcorg.presentation.utils.setProjectProductionItemId
 import app.mcorg.presentation.utils.setTaskId
@@ -149,6 +150,28 @@ val ProjectProductionItemParamPlugin = createRouteScopedPlugin("ProjectProductio
                 call.setProjectProductionItemId(itemId)
             } else if ((checkResult is Result.Success && !checkResult.value) || (checkResult is Result.Failure && checkResult.error is DatabaseFailure.NotFound)) {
                 call.respond(HttpStatusCode.NotFound, "Project production item with ID $itemId does not exist")
+            } else {
+                call.respond(HttpStatusCode.InternalServerError, "Database error occurred")
+            }
+        }
+    }
+}
+
+val ProjectDependencyItemPlugin = createRouteScopedPlugin("ProjectDependencyItemPlugin") {
+    onCall { call ->
+        val projectId = call.getProjectId()
+        val dependencyId = call.parameters["dependencyId"]?.toIntOrNull()
+        if (dependencyId == null) {
+            call.respondBadRequest("Invalid or missing project dependency ID")
+        } else {
+            val checkResult = ensureParamEntityExists(
+                SafeSQL.select("SELECT EXISTS(SELECT 1 FROM project_dependencies WHERE project_id = ? AND depends_on_project_id = ?)"),
+                projectId, dependencyId
+            )
+            if (checkResult is Result.Success && checkResult.value) {
+                call.setProjectDependencyId(dependencyId)
+            } else if ((checkResult is Result.Success && !checkResult.value) || (checkResult is Result.Failure && checkResult.error is DatabaseFailure.NotFound)) {
+                call.respond(HttpStatusCode.NotFound, "Project dependency with ID $dependencyId does not exist for the project")
             } else {
                 call.respond(HttpStatusCode.InternalServerError, "Database error occurred")
             }

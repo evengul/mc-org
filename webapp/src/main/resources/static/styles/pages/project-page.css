@@ -440,6 +440,7 @@ main.project {
     .dependency-item-actions {
         display: flex;
         flex-direction: row;
+        align-items: center;
         gap: var(--spacing-xs);
     }
 }
