@@ -42,8 +42,8 @@ fun HTMLTag.hxTargetError(value: String) {
     attributes += "hx-target-error" to value
 }
 
-fun HTMLTag.hxOutOfBands(id: String) {
-    attributes += "hx-swap-oob" to id
+fun HTMLTag.hxOutOfBands(locator: String) {
+    attributes += "hx-swap-oob" to locator
 }
 
 fun HTMLTag.hxConfirm(value: String) {

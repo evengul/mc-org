@@ -3,7 +3,6 @@ package app.mcorg.pipeline.world
 import app.mcorg.domain.model.project.toProjectResourceGathering
 import app.mcorg.domain.model.task.ItemRequirement
 import app.mcorg.domain.model.user.Role
-import app.mcorg.pipeline.project.GetProjectByIdInput
 import app.mcorg.pipeline.project.GetProjectByIdStep
 import app.mcorg.pipeline.project.GetTasksByProjectIdInput
 import app.mcorg.pipeline.project.GetTasksByProjectIdStep
@@ -43,7 +42,7 @@ suspend fun ApplicationCall.handleGetProject() {
     }
 
     // Get project with access validation
-    val project = when (val projectResult = GetProjectByIdStep.process(GetProjectByIdInput(projectId, user.id))) {
+    val project = when (val projectResult = GetProjectByIdStep.process(projectId)) {
         is Result.Success -> projectResult.getOrNull()!!
         is Result.Failure -> {
             when (projectResult.error) {

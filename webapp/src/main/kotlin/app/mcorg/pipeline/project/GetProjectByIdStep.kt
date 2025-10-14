@@ -10,20 +10,15 @@ import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
 
-data class GetProjectByIdInput(
-    val projectId: Int,
-    val userId: Int // For access validation
-)
-
 sealed interface GetProjectByIdFailures {
     data object ProjectNotFound : GetProjectByIdFailures
     data object AccessDenied : GetProjectByIdFailures
     data object DatabaseError : GetProjectByIdFailures
 }
 
-object GetProjectByIdStep : Step<GetProjectByIdInput, GetProjectByIdFailures, Project> {
-    override suspend fun process(input: GetProjectByIdInput): Result<GetProjectByIdFailures, Project> {
-        val projectStep = DatabaseSteps.query<GetProjectByIdInput, GetProjectByIdFailures, Project?>(
+object GetProjectByIdStep : Step<Int, GetProjectByIdFailures, Project> {
+    override suspend fun process(input: Int): Result<GetProjectByIdFailures, Project> {
+        val projectStep = DatabaseSteps.query<Int, GetProjectByIdFailures, Project?>(
             sql = SafeSQL.select("""
                 SELECT 
                     p.id,
@@ -51,8 +46,8 @@ object GetProjectByIdStep : Step<GetProjectByIdInput, GetProjectByIdFailures, Pr
                 ) task_counts ON p.id = task_counts.project_id
                 WHERE p.id = ?
             """),
-            parameterSetter = { statement, queryInput ->
-                statement.setInt(1, queryInput.projectId)
+            parameterSetter = { statement, projectId ->
+                statement.setInt(1, projectId)
             },
             errorMapper = { GetProjectByIdFailures.DatabaseError },
             resultMapper = { resultSet ->
