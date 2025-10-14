@@ -24,6 +24,29 @@ function validateAmount(amount) {
   return {isValid: true};
 }
 
+function clearElementValidationMessage(element) {
+  if (element) {
+    element.setCustomValidity("");
+    element.reportValidity();
+  }
+}
+
+function clearValidationMessages(inputsToClear) {
+  const nameInput = document.getElementById('item-requirement-name-input');
+  const amountInput = document.getElementById('item-requirement-amount-input');
+  const actionInput = document.getElementById('action-requirement-input');
+
+  if (nameInput && inputsToClear.includes('name')) {
+    clearElementValidationMessage(nameInput)
+  }
+  if (amountInput && inputsToClear.includes('amount')) {
+    clearElementValidationMessage(amountInput)
+  }
+  if (actionInput && inputsToClear.includes('action')) {
+    clearElementValidationMessage(actionInput)
+  }
+}
+
 function addItemRequirement() {
   const container = document.getElementById('item-requirements-container');
   const template = document.getElementById('requirement-template');
@@ -37,14 +60,29 @@ function addItemRequirement() {
   if (!nameValidation.isValid) {
     nameInput.setCustomValidity(nameValidation.message)
     nameInput.reportValidity()
+
+    if (nameInput.value === '') {
+      setTimeout(() => {
+        clearElementValidationMessage(nameInput)
+      }, 300)
+    }
     return
+  } else {
+    clearElementValidationMessage(nameInput);
   }
 
   const amountValidation = validateAmount(amountInput.value)
   if (!amountValidation.isValid) {
     amountInput.setCustomValidity(amountValidation.message)
     amountInput.reportValidity()
+    if (amountInput.value === '') {
+      setTimeout(() => {
+        clearElementValidationMessage(amountInput)
+      }, 300)
+    }
     return
+  } else {
+    clearElementValidationMessage(amountInput)
   }
 
   // Clone the template
@@ -96,7 +134,14 @@ function addActionRequirement() {
   if (!nameValidation.isValid) {
     nameInput.setCustomValidity(nameValidation.message)
     nameInput.reportValidity()
+    if (nameInput.value === '') {
+      setTimeout(() => {
+        clearElementValidationMessage(nameInput)
+      }, 300)
+    }
     return
+  } else {
+    clearElementValidationMessage(nameInput);
   }
 
   // Clone the template
@@ -203,6 +248,7 @@ function switchTab(tabName) {
 }
 
 function switchToActions() {
+  clearValidationMessages(['name', 'amount']);
   document.getElementById("action-requirements-tab").style.display = 'block';
   document.getElementById("item-requirements-tab").style.display = 'none';
 
@@ -210,24 +256,31 @@ function switchToActions() {
 }
 
 function switchToItems() {
+  clearValidationMessages(['action']);
   document.getElementById("action-requirements-tab").style.display = 'none';
   document.getElementById("item-requirements-tab").style.display = 'block';
 
   document.getElementById("item-requirement-name-input")?.focus();
 }
 
-// Initialize the form when modal opens
+// Initialize the form when modal closes
 function initializeTaskRequirementsForm() {
   itemRequirementCounter = 0;
+  actionRequirementCounter = 0;
+  clearValidationMessages(['name', 'amount', 'action']);
 
-  // Clear any existing requirements
-  const container = document.getElementById('requirements-container');
-  if (container) {
-    container.innerHTML = '';
+  const forms = document.getElementsByClassName("create-task-form");
+
+  for (let i = 0; i < forms.length; i++) {
+    forms[i].reset();
   }
 
-  // Set basic info tab as active by default
-  switchTab('basic');
+  const containers = document.getElementsByClassName('requirements-list');
+  for (let i = 0; i < containers.length; i++) {
+    containers[i].innerHTML = '';
+  }
+
+  switchTab('item-requirements-tab');
 }
 
 function disableEnterSubmit(elementId) {
@@ -244,14 +297,13 @@ function disableEnterSubmit(elementId) {
 
 // Call initialization when the modal is shown
 document.addEventListener('DOMContentLoaded', function () {
-  // Listen for modal show events
   const modal = document.getElementById('create-task-modal');
   if (modal) {
-    modal.addEventListener('show', initializeTaskRequirementsForm);
+    modal.addEventListener('close', initializeTaskRequirementsForm);
   }
 
   document.getElementById('item-requirement-name-input')?.addEventListener('keydown', function (event) {
-    if (event.key === 'Enter' || event.keyCode === 13) {
+    if (event.key === 'Enter') {
       event.preventDefault();
       addItemRequirement();
       return false;
@@ -259,7 +311,7 @@ document.addEventListener('DOMContentLoaded', function () {
   });
 
   document.getElementById('item-requirement-amount-input')?.addEventListener('keydown', function (event) {
-    if (event.key === 'Enter' || event.keyCode === 13) {
+    if (event.key === 'Enter') {
       event.preventDefault();
       addItemRequirement();
       return false;
@@ -267,7 +319,7 @@ document.addEventListener('DOMContentLoaded', function () {
   });
 
   document.getElementById('action-requirement-input')?.addEventListener('keydown', function (event) {
-    if (event.key === 'Enter' || event.keyCode === 13) {
+    if (event.key === 'Enter') {
       event.preventDefault();
       addActionRequirement();
       return false;

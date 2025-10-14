@@ -230,13 +230,13 @@
 ### 🔗 MEDIUM PRIORITY - Project Dependencies (Sprint 4)
 
 #### Dependency Management
-- [ ] **POST /app/worlds/{worldId}/projects/{projectId}/dependencies/{projectId}** - Add project dependency
+- [x] **POST /app/worlds/{worldId}/projects/{projectId}/dependencies/{projectId}** - Add project dependency
   - Pipeline: ValidateDependencyStep → CheckCyclesStep → CreateDependencyStep
   - Validation: No circular dependencies, same world only
   - Template: HTML fragment replacing dependency section with updated graph visualization
   - **Estimated Effort**: 6-8 hours (complex cycle detection)
 
-- [ ] **DELETE /app/worlds/{worldId}/projects/{projectId}/dependencies/{projectId}** - Remove project dependency
+- [x] **DELETE /app/worlds/{worldId}/projects/{projectId}/dependencies/{projectId}** - Remove project dependency
   - Pipeline: ValidateDependencyExistsStep → RemoveDependencyStep
   - Template: HTML fragment replacing dependency list with dependency removed
   - **Estimated Effort**: 3-4 hours
@@ -268,13 +268,13 @@
     - **Estimated Effort**: 4-5 hours (complex due to file handling)
 
 #### Project Location & Resources
-- [ ] **PATCH /app/worlds/{worldId}/projects/{projectId}/location** - Update project location
+- [x] **PATCH /app/worlds/{worldId}/projects/{projectId}/location** - Update project location
   - Pipeline: ValidateLocationStep → UpdateProjectLocationStep
   - Data: Coordinates, world region, location description
   - Template: HTML fragment replacing location editor with updated coordinates
   - **Estimated Effort**: 4-5 hours
 
-- [ ] **POST /app/worlds/{worldId}/projects/{projectId}/resources** - Add project resource
+- [x] **POST /app/worlds/{worldId}/projects/{projectId}/resources** - Add project resource
   - Pipeline: ValidateResourceStep → CreateResourceStep
   - Data: Resource type, quantity needed, current stock
   - Template: HTML fragment replacing resource list with new resource included
@@ -291,7 +291,7 @@
   - Template: HTML fragment replacing resource rate calculator with updated values
   - **Estimated Effort**: 4-5 hours
 
-- [ ] **DELETE /app/worlds/{worldId}/projects/{projectId}/resources/{resourceId}** - Delete resource
+- [x] **DELETE /app/worlds/{worldId}/projects/{projectId}/resources/{resourceId}** - Delete resource
   - Pipeline: ValidateResourceOwnershipStep → DeleteResourceStep
   - Template: HTML fragment replacing resource list with resource removed
   - **Estimated Effort**: 3-4 hours
