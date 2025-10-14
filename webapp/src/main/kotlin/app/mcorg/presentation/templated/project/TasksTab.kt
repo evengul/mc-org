@@ -70,7 +70,7 @@ private fun DIV.taskManagementSection(project: Project, totalTasksCount: Int, ta
         p {
             id = "no-tasks-found"
             classes += "subtle"
-            if (tasks.isEmpty()) {
+            if (tasks.isEmpty() && totalTasksCount > 0) {
                 + "No tasks found matching the search criteria."
             }
         }
