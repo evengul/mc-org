@@ -4,6 +4,7 @@ import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.task.*
 import app.mcorg.pipeline.project.GetProjectByIdInput
 import app.mcorg.pipeline.project.GetProjectByIdStep
+import app.mcorg.presentation.hxOutOfBands
 import app.mcorg.presentation.templated.project.emptyTasksDisplay
 import app.mcorg.presentation.templated.project.requirement
 import app.mcorg.presentation.templated.project.taskCompletionCheckbox
@@ -69,14 +70,20 @@ object TaskHandler {
 
         executePipeline(
             onSuccess = { result: SearchTasksResult ->
+                val mainContent = createHTML().ul {
+                    tasksList(worldId, projectId, result.tasks)
+                }
+
                 if (result.tasks.isEmpty()) {
-                    respondHtml(createHTML().p {
-                        classes += "subtle"
-                        +"No tasks found matching the search criteria."
+                    respondHtml(mainContent + createHTML().p {
+                        hxOutOfBands("innerHTML:#no-tasks-found")
+                        + "No tasks found matching the search criteria."
                     })
                 } else {
-                    respondHtml(createHTML().ul {
-                        tasksList(worldId, projectId, result.tasks)
+                    respondHtml(mainContent + createHTML().p {
+                        hxOutOfBands("innerHTML:#no-tasks-found")
+                        style = "display:none;"
+                        + ""
                     })
                 }
             },

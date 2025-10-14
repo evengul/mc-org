@@ -19,7 +19,8 @@ data class SearchTasksInput(
     val userId: Int,
     val query: String? = null,
     val completionStatus: String = "IN_PROGRESS", // ALL, IN_PROGRESS, COMPLETED
-    val priority: String = "ALL" // ALL or Priority enum name
+    val priority: String = "ALL", // ALL or Priority enum name
+    val stage: String = "ALL"
 )
 
 data class SearchTasksResult(
@@ -44,6 +45,9 @@ object ValidateSearchTasksInputStep : Step<Parameters, SearchTasksFailures, Sear
         val priority = input["priority"]?.takeIf {
             it == "ALL" || Priority.entries.any { priority -> priority.name == it }
         } ?: "ALL"
+        val stage = input["stage"]?.takeIf {
+            it == "ALL" || ProjectStage.entries.any { stage -> stage.name == it }
+        } ?: "ALL"
 
         val projectId = projectIdParam?.toIntOrNull()
         val userId = userIdParam?.toIntOrNull()
@@ -61,7 +65,8 @@ object ValidateSearchTasksInputStep : Step<Parameters, SearchTasksFailures, Sear
                 userId = userId!!,
                 query = query,
                 completionStatus = completionStatus,
-                priority = priority
+                priority = priority,
+                stage = stage
             )
         )
     }
@@ -99,6 +104,7 @@ object SearchTasksStep : Step<SearchTasksInput, SearchTasksFailures, SearchTasks
                     WHERE t.project_id = ?
                       AND (? IS NULL OR LOWER(t.name) LIKE LOWER(?) OR LOWER(t.description) LIKE LOWER(?))
                       AND (? = 'ALL' OR t.priority = ?)
+                      AND (? = 'ALL' OR t.stage = ?)
                     GROUP BY t.id, t.project_id, t.name, t.description, t.stage, t.priority
                 )
                 SELECT tc.id, tc.project_id, tc.name, tc.description, tc.stage, tc.priority,
@@ -120,9 +126,12 @@ object SearchTasksStep : Step<SearchTasksInput, SearchTasksFailures, SearchTasks
                 statement.setString(5, searchInput.priority)
                 statement.setString(6, searchInput.priority)
 
-                statement.setString(7, searchInput.completionStatus)
-                statement.setString(8, searchInput.completionStatus)
+                statement.setString(7, searchInput.stage)
+                statement.setString(8, searchInput.stage)
+
                 statement.setString(9, searchInput.completionStatus)
+                statement.setString(10, searchInput.completionStatus)
+                statement.setString(11, searchInput.completionStatus)
             },
             errorMapper = { _: DatabaseFailure -> SearchTasksFailures.DatabaseError },
             resultMapper = { resultSet -> extractTasksFromResultSet(resultSet) }

@@ -1,10 +1,12 @@
 package app.mcorg.presentation.templated.project
 
 import app.mcorg.domain.model.project.Project
+import app.mcorg.domain.model.project.ProjectStage
 import app.mcorg.domain.model.task.ActionRequirement
 import app.mcorg.domain.model.task.ItemRequirement
 import app.mcorg.domain.model.task.Priority
 import app.mcorg.domain.model.task.Task
+import app.mcorg.domain.model.task.TaskProjectStage
 import app.mcorg.domain.model.task.TaskRequirement
 import app.mcorg.presentation.hxConfirm
 import app.mcorg.presentation.hxDelete
@@ -18,7 +20,6 @@ import app.mcorg.presentation.templated.common.button.iconButton
 import app.mcorg.presentation.templated.common.button.neutralButton
 import app.mcorg.presentation.templated.common.chip.ChipVariant
 import app.mcorg.presentation.templated.common.chip.chipComponent
-import app.mcorg.presentation.templated.common.icon.Icon
 import app.mcorg.presentation.templated.common.icon.IconSize
 import app.mcorg.presentation.templated.common.icon.Icons
 import app.mcorg.presentation.templated.common.link.Link
@@ -60,15 +61,17 @@ private fun DIV.projectProgressSection(project: Project) {
 
 private fun DIV.taskManagementSection(project: Project, totalTasksCount: Int, tasks: List<Task>) {
     div("project-tasks") {
-        taskManagementHeader(project.worldId, project.id)
+        taskManagementHeader(project.worldId, project.id, project.stage)
         if (totalTasksCount == 0) {
             div {
                 emptyTasksDisplay(project)
             }
-        } else if (tasks.isEmpty()) {
-            p {
-                classes += "subtle"
-                + "No tasks found matching the search criteria. Try to include all statuses to see more."
+        }
+        p {
+            id = "no-tasks-found"
+            classes += "subtle"
+            if (tasks.isEmpty()) {
+                + "No tasks found matching the search criteria."
             }
         }
         ul {
@@ -77,14 +80,14 @@ private fun DIV.taskManagementSection(project: Project, totalTasksCount: Int, ta
     }
 }
 
-private fun DIV.taskManagementHeader(worldId: Int, projectId: Int) {
+private fun DIV.taskManagementHeader(worldId: Int, projectId: Int, projectStage: ProjectStage) {
     h2 {
         + "Tasks"
     }
-    taskSearchAndFilters(worldId, projectId)
+    taskSearchAndFilters(worldId, projectId, projectStage)
 }
 
-private fun DIV.taskSearchAndFilters(worldId: Int, projectId: Int) {
+private fun DIV.taskSearchAndFilters(worldId: Int, projectId: Int, projectStage: ProjectStage) {
     form(classes = "project-tasks-search-filter") {
         encType = FormEncType.applicationXWwwFormUrlEncoded
         hxGet("${Link.Worlds.world(worldId).project(projectId).tasks().to}/search")
@@ -120,6 +123,28 @@ private fun DIV.taskSearchAndFilters(worldId: Int, projectId: Int) {
             }
             Priority.entries.forEach {
                 option {
+                    value = it.name
+                    + it.toPrettyEnumName()
+                }
+            }
+        }
+        select {
+            name = "stage"
+            option {
+                value = "ALL"
+                + "All Stages"
+            }
+            TaskProjectStage.entries.forEach {
+                option {
+                    selected = when(projectStage) {
+                        ProjectStage.IDEA -> it == TaskProjectStage.IDEA
+                        ProjectStage.DESIGN -> it == TaskProjectStage.DESIGN
+                        ProjectStage.PLANNING -> it == TaskProjectStage.PLANNING
+                        ProjectStage.RESOURCE_GATHERING -> it == TaskProjectStage.RESOURCE_GATHERING
+                        ProjectStage.BUILDING -> it == TaskProjectStage.BUILDING
+                        ProjectStage.TESTING -> it == TaskProjectStage.TESTING
+                        else -> false
+                    }
                     value = it.name
                     + it.toPrettyEnumName()
                 }
