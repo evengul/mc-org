@@ -87,6 +87,7 @@ fun projectPage(
                     +"•"
                 }
                 p("subtle") {
+                    id = "project-type"
                     +"${project.type.toPrettyEnumName()} Project"
                 }
                 project.location?.let {
@@ -125,7 +126,8 @@ fun projectPage(
             }
         }
         p("subtle") {
-            +project.description
+            id = "project-description"
+            + project.description
         }
     }
     div("project-content") {

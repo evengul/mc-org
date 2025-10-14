@@ -5,6 +5,7 @@ import app.mcorg.domain.model.project.ProjectType
 import app.mcorg.domain.model.user.Role
 import app.mcorg.presentation.hxConfirm
 import app.mcorg.presentation.hxDelete
+import app.mcorg.presentation.hxPut
 import app.mcorg.presentation.templated.common.button.actionButton
 import app.mcorg.presentation.templated.common.button.dangerButton
 import app.mcorg.presentation.templated.common.icon.IconSize
@@ -14,6 +15,7 @@ import app.mcorg.presentation.templated.utils.toPrettyEnumName
 import kotlinx.html.ButtonType
 import kotlinx.html.DIV
 import kotlinx.html.FORM
+import kotlinx.html.FormEncType
 import kotlinx.html.InputType
 import kotlinx.html.classes
 import kotlinx.html.div
@@ -67,6 +69,8 @@ fun DIV.projectSettingsTab(project: Project, worldMemberRole: Role) {
 }
 
 fun FORM.projectSettingsForm(project: Project) {
+    encType = FormEncType.applicationXWwwFormUrlEncoded
+    hxPut(Link.Worlds.world(project.worldId).project(project.id).to + "/metadata")
     classes += "project-settings-form"
     label {
         htmlFor = "project-settings-name"

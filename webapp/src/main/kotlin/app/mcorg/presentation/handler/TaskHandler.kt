@@ -2,7 +2,6 @@ package app.mcorg.presentation.handler
 
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.task.*
-import app.mcorg.pipeline.project.GetProjectByIdInput
 import app.mcorg.pipeline.project.GetProjectByIdStep
 import app.mcorg.presentation.hxOutOfBands
 import app.mcorg.presentation.templated.project.emptyTasksDisplay
@@ -167,7 +166,7 @@ object TaskHandler {
                     respond(HttpStatusCode.OK)
                 } else {
                     val project = GetProjectByIdStep.process(
-                        GetProjectByIdInput(projectId, user.id)
+                        projectId
                     ).getOrNull()
 
                     if (project == null) {

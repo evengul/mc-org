@@ -31,7 +31,7 @@ suspend fun ApplicationCall.handleUpdateProjectStage() {
     executePipeline(
         onSuccess = { result: UpdateProjectStageOutput ->
             // Get updated project data to return updated header
-            when (val getProjectResult = GetProjectByIdStep.process(GetProjectByIdInput(projectId, user.id))) {
+            when (val getProjectResult = GetProjectByIdStep.process(projectId)) {
                 is Result.Success -> {
                     val updatedProject = getProjectResult.value
                     // Return HTML fragment for HTMX to replace the entire project header content
@@ -115,7 +115,7 @@ suspend fun ApplicationCall.handleUpdateProjectStage() {
         step(Step.value(parameters))
             .step(ValidateStageTransitionStep)
             .step(ValidatePermissionsStepAdapter(user, projectId))
-            .step(ValidateStageProgressionStepAdapter(projectId, user.id))
+            .step(ValidateStageProgressionStepAdapter(projectId))
             .step(UpdateStageStepAdapter(projectId, user.id))
     }
 }
@@ -132,12 +132,11 @@ class ValidatePermissionsStepAdapter(
 }
 
 class ValidateStageProgressionStepAdapter(
-    private val projectId: Int,
-    private val userId: Int
+    private val projectId: Int
 ) : Step<ProjectStage, UpdateProjectStageFailures, ProjectStage> {
     override suspend fun process(input: ProjectStage): Result<UpdateProjectStageFailures, ProjectStage> {
         // Get current project stage for progression validation
-        return when (val getProjectResult = GetProjectByIdStep.process(GetProjectByIdInput(projectId, userId))) {
+        return when (val getProjectResult = GetProjectByIdStep.process(projectId)) {
             is Result.Success -> {
                 val currentProject = getProjectResult.value
                 val transitionInput = StageTransitionInput(input, currentProject.stage)
