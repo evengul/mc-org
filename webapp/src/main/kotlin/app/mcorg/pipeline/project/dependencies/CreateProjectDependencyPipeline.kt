@@ -1,5 +1,6 @@
 package app.mcorg.pipeline.project.dependencies
 
+import app.mcorg.domain.model.project.NamedProjectId
 import app.mcorg.domain.model.project.ProjectDependency
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
@@ -9,8 +10,11 @@ import app.mcorg.pipeline.ValidationSteps
 import app.mcorg.pipeline.failure.ValidationFailure
 import app.mcorg.pipeline.project.toDependencies
 import app.mcorg.presentation.handler.executePipeline
+import app.mcorg.presentation.hxOutOfBands
+import app.mcorg.presentation.templated.project.addDependencyForm
 import app.mcorg.presentation.templated.project.dependenciesList
 import app.mcorg.presentation.utils.getProjectId
+import app.mcorg.presentation.utils.getWorldId
 import app.mcorg.presentation.utils.respondHtml
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.Parameters
@@ -18,6 +22,7 @@ import io.ktor.server.application.ApplicationCall
 import io.ktor.server.request.receiveParameters
 import io.ktor.server.response.respond
 import kotlinx.html.div
+import kotlinx.html.form
 import kotlinx.html.stream.createHTML
 
 sealed interface CreateProjectDependencyFailure {
@@ -27,13 +32,17 @@ sealed interface CreateProjectDependencyFailure {
 }
 
 suspend fun ApplicationCall.handleCreateProjectDependency() {
+    val worldId = this.getWorldId()
     val projectId = this.getProjectId()
     val parameters = this.receiveParameters()
 
     executePipeline(
-        onSuccess = {
+        onSuccess = { (dependencies, availableDependencies) ->
             respondHtml(createHTML().div {
-                dependenciesList(it)
+                dependenciesList(dependencies)
+            } + createHTML().form {
+                hxOutOfBands("true")
+                addDependencyForm(worldId, projectId, availableDependencies)
             })
         },
         onFailure = {
@@ -46,6 +55,13 @@ suspend fun ApplicationCall.handleCreateProjectDependency() {
             .step(CreateProjectDependencyStep(projectId))
             .step(Step.value(Unit))
             .step(GetProjectDependenciesStep(projectId))
+            .step(object : Step<List<ProjectDependency>, CreateProjectDependencyFailure, Pair<List<ProjectDependency>, List<NamedProjectId>>> {
+                override suspend fun process(input: List<ProjectDependency>): Result<CreateProjectDependencyFailure, Pair<List<ProjectDependency>, List<NamedProjectId>>> {
+                    return GetAvailableProjectDependenciesStep(worldId).process(projectId)
+                        .mapError { CreateProjectDependencyFailure.DatabaseError }
+                        .map { input to it }
+                }
+            })
     }
 }
 

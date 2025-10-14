@@ -14,6 +14,7 @@ import app.mcorg.presentation.templated.common.icon.Icons
 import app.mcorg.presentation.templated.common.link.Link
 import app.mcorg.presentation.templated.utils.toPrettyEnumName
 import kotlinx.html.DIV
+import kotlinx.html.FORM
 import kotlinx.html.FormEncType
 import kotlinx.html.classes
 import kotlinx.html.div
@@ -39,31 +40,8 @@ fun DIV.dependenciesTab(worldId: Int, projectId: Int, availableProjects: List<Na
                     +"Projects that this project depends on"
                 }
             }
-            form(classes = "project-dependencies-header-actions") {
-                encType = FormEncType.applicationXWwwFormUrlEncoded
-                hxPost(Link.Worlds.world(worldId).project(projectId).to + "/dependencies")
-                hxTarget("#project-dependencies-list-container")
-                if (availableProjects.isNotEmpty()) {
-                    select {
-                        name = "dependencyProjectId"
-                        required = true
-                        option {
-                            value = ""
-                            + "Select a project to add as a dependency"
-                        }
-                        availableProjects.forEach {
-                            option {
-                                value = it.id.toString()
-                                + it.name
-                            }
-                        }
-                    }
-                    actionButton("Add Dependency")
-                } else {
-                    p("subtle none-available") {
-                        + "No other projects available to add as dependencies. Create more projects to enable this feature."
-                    }
-                }
+            form {
+                addDependencyForm(worldId, projectId, availableProjects)
             }
         }
         div {
@@ -99,6 +77,35 @@ fun DIV.dependenciesTab(worldId: Int, projectId: Int, availableProjects: List<Na
                     + "${dependents.size} projects depend on this project"
                 }
             }
+        }
+    }
+}
+
+fun FORM.addDependencyForm(worldId: Int, projectId: Int, availableDependencies: List<NamedProjectId>) {
+    id = "add-dependency-form"
+    classes += "project-dependencies-header-actions"
+    encType = FormEncType.applicationXWwwFormUrlEncoded
+    hxPost(Link.Worlds.world(worldId).project(projectId).to + "/dependencies")
+    hxTarget("#project-dependencies-list-container")
+    if (availableDependencies.isNotEmpty()) {
+        select {
+            name = "dependencyProjectId"
+            required = true
+            option {
+                value = ""
+                + "Select a project to add as a dependency"
+            }
+            availableDependencies.forEach {
+                option {
+                    value = it.id.toString()
+                    + it.name
+                }
+            }
+        }
+        actionButton("Add Dependency")
+    } else {
+        p("subtle none-available") {
+            + "No other projects available to add as dependencies. Create more projects to enable this feature."
         }
     }
 }
