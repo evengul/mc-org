@@ -87,7 +87,7 @@ object GetProjectDependenciesStep : Step<GetProjectDependenciesInput, GetProject
     }
 }
 
-private fun ResultSet.toDependencies() = buildList {
+fun ResultSet.toDependencies() = buildList {
     while (next()) {
         add(
             ProjectDependency(

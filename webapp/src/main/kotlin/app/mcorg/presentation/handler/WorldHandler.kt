@@ -1,5 +1,7 @@
 package app.mcorg.presentation.handler
 
+import app.mcorg.pipeline.project.dependencies.handleCreateProjectDependency
+import app.mcorg.pipeline.project.dependencies.handleDeleteProjectDependency
 import app.mcorg.pipeline.world.handleCreateWorld
 import app.mcorg.pipeline.world.handleGetProject
 import app.mcorg.pipeline.world.handleGetWorld
@@ -31,6 +33,7 @@ import app.mcorg.presentation.handler.TaskHandler.handleSearchTasks
 import app.mcorg.presentation.handler.TaskHandler.handleUpdateRequirementProgress
 import app.mcorg.presentation.handler.TaskHandler.handleToggleActionRequirement
 import app.mcorg.presentation.plugins.InviteParamPlugin
+import app.mcorg.presentation.plugins.ProjectDependencyItemPlugin
 import app.mcorg.presentation.plugins.ProjectProductionItemParamPlugin
 import app.mcorg.presentation.plugins.WorldMemberParamPlugin
 import app.mcorg.presentation.plugins.WorldAdminPlugin
@@ -98,11 +101,14 @@ class WorldHandler {
                             }
                         }
                         route("/dependencies") {
-                            post("/{projectId}") {
-
+                            post {
+                                call.handleCreateProjectDependency()
                             }
-                            delete("/{projectId}") {
-                                // Remove project dependency
+                            route("/{dependencyId}") {
+                                install(ProjectDependencyItemPlugin)
+                                delete {
+                                    call.handleDeleteProjectDependency()
+                                }
                             }
                             post("/{projectId}/task/{taskId}") {
                                 // Add task dependency

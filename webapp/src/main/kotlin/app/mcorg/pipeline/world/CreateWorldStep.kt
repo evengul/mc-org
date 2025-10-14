@@ -15,11 +15,11 @@ data class CreateWorldInput(
     val version: MinecraftVersion
 )
 
-data class CreateWorldStep(val user: TokenProfile) : Step<CreateWorldInput, CreateWorldFailures.DatabaseError, Unit> {
-    override suspend fun process(input: CreateWorldInput): Result<CreateWorldFailures.DatabaseError, Unit> {
+data class CreateWorldStep(val user: TokenProfile) : Step<CreateWorldInput, CreateWorldFailures.DatabaseError, Int> {
+    override suspend fun process(input: CreateWorldInput): Result<CreateWorldFailures.DatabaseError, Int> {
         return DatabaseSteps.transaction(
-            object : Step<CreateWorldInput, CreateWorldFailures.DatabaseError, Unit> {
-                override suspend fun process(input: CreateWorldInput): Result<CreateWorldFailures.DatabaseError, Unit> {
+            object : Step<CreateWorldInput, CreateWorldFailures.DatabaseError, Int> {
+                override suspend fun process(input: CreateWorldInput): Result<CreateWorldFailures.DatabaseError, Int> {
                     return DatabaseSteps.update<CreateWorldInput, CreateWorldFailures.DatabaseError>(
                         SafeSQL.insert("INSERT INTO world (name, description, version) VALUES (?, ?, ?) RETURNING id"),
                         parameterSetter = { parameters, i ->
@@ -38,7 +38,8 @@ data class CreateWorldStep(val user: TokenProfile) : Step<CreateWorldInput, Crea
                                 parameters.setInt(4, Role.OWNER.level)
                             },
                             errorMapper = { CreateWorldFailures.DatabaseError }
-                        ).process(it).map {  }
+                        ).process(it)
+                        return@flatMap Result.success(it)
                     }
                 }
             },
