@@ -24,19 +24,22 @@ object IdeaMockData {
         """.trimIndent(),
         category = IdeaCategory.FARM,
         author = Author.SingleAuthor(name = UserMockData.RedstoneWizard.name),
+        subAuthors = emptyList(),
         labels = listOf("redstone", "farm", "automation"),
         favouritesCount = 42,
         rating = RatingSummary(
             average = 4.7,
             total = 23
         ),
-        difficulty = IdeaDifficulty.MEDIUM,
+        difficulty = IdeaDifficulty.MID_GAME,
         worksInVersionRange = MinecraftVersionRange.Bounded(
             from = MinecraftVersion.fromString("1.19.0"),
             to = MinecraftVersion.fromString("1.19.4")
         ),
-        createdAt = ZonedDateTime.now().minusYears(1),
+        testData = emptyList(),
+        categoryData = emptyMap(),
         createdBy = UserMockData.RedstoneWizard.id,
+        createdAt = ZonedDateTime.now().minusYears(1),
     )
 
     val villagerTradingHall = Idea(
@@ -47,18 +50,21 @@ object IdeaMockData {
         """.trimIndent(),
         category = IdeaCategory.BUILD,
         author = Author.SingleAuthor(name = UserMockData.VillagerMaster.name),
+        subAuthors = emptyList(),
         labels = listOf("villager", "trading", "economy"),
         favouritesCount = 38,
         rating = RatingSummary(
             average = 4.2,
             total = 18
         ),
-        difficulty = IdeaDifficulty.HARD,
+        difficulty = IdeaDifficulty.END_GAME,
         worksInVersionRange = MinecraftVersionRange.LowerBounded(
             from = MinecraftVersion.fromString("1.18.0"),
         ),
-        createdAt = ZonedDateTime.now().minusYears(1),
+        testData = emptyList(),
+        categoryData = emptyMap(),
         createdBy = UserMockData.VillagerMaster.id,
+        createdAt = ZonedDateTime.now().minusYears(1),
     )
 
     val ironFarm = Idea(
@@ -69,18 +75,21 @@ object IdeaMockData {
         """.trimIndent(),
         category = IdeaCategory.FARM,
         author = Author.SingleAuthor(name = UserMockData.IronMiner.name),
+        subAuthors = emptyList(),
         labels = listOf("iron", "farm", "villager"),
         favouritesCount = 56,
         rating = RatingSummary(
             average = 4.9,
             total = 32
         ),
-        difficulty = IdeaDifficulty.MEDIUM,
+        difficulty = IdeaDifficulty.MID_GAME,
         worksInVersionRange = MinecraftVersionRange.UpperBounded(
             to = MinecraftVersion.fromString("1.19.0"),
         ),
-        createdAt = ZonedDateTime.now().minusYears(1),
+        testData = emptyList(),
+        categoryData = emptyMap(),
         createdBy = UserMockData.IronMiner.id,
+        createdAt = ZonedDateTime.now().minusYears(1),
     )
 
     val mobXpFarm = Idea(
@@ -91,18 +100,24 @@ object IdeaMockData {
         """.trimIndent(),
         category = IdeaCategory.FARM,
         author = Author.Team(
-            members = listOf(Author.TeamAuthor(UserMockData.XPGrinder.name, 0, "Lead", listOf("Design", "Testing")), Author.TeamAuthor(UserMockData.FarmingPro.name, 1, "Contributor", listOf("Building")))
+            members = listOf(
+                Author.TeamAuthor(UserMockData.XPGrinder.name, 0, "Lead", listOf("Design", "Testing")),
+                Author.TeamAuthor(UserMockData.FarmingPro.name, 1, "Contributor", listOf("Building"))
+            )
         ),
+        subAuthors = emptyList(),
         labels = listOf("mob", "xp", "farm"),
         favouritesCount = 45,
         rating = RatingSummary(
             average = 3.8,
             total = 15
         ),
-        difficulty = IdeaDifficulty.MEDIUM,
+        difficulty = IdeaDifficulty.MID_GAME,
         worksInVersionRange = MinecraftVersionRange.Unbounded,
-        createdAt = ZonedDateTime.now().minusYears(1),
+        testData = emptyList(),
+        categoryData = emptyMap(),
         createdBy = UserMockData.XPGrinder.id,
+        createdAt = ZonedDateTime.now().minusYears(1),
     )
 
     val allIdeas = listOf(sugarcaneFarm, villagerTradingHall, ironFarm, mobXpFarm)
