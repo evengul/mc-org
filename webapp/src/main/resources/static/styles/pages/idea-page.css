@@ -1,68 +1,181 @@
+/* Ideas Page Styles */
+
 #ideas-page {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+
     #ideas-header {
         display: flex;
         flex-direction: row;
         justify-content: space-between;
         align-items: center;
-
+        gap: var(--spacing-md);
         margin-bottom: var(--spacing-md);
+        flex-wrap: wrap;
+
+        #ideas-header-start h1 {
+            margin: 0;
+        }
+
+        #ideas-header-start .subtle {
+            margin-top: var(--spacing-xxs);
+        }
     }
 
     #ideas-content {
-        display: flex;
-        flex-direction: row;
-        justify-content: space-between;
-        gap: var(--spacing-sm);
+        display: grid;
+        grid-template-columns: 300px 1fr;
+        gap: var(--spacing-md);
+        align-items: start;
 
         #ideas-filter {
-            flex: 1;
+            position: sticky;
+            top: var(--spacing-md);
+            max-height: calc(100vh - var(--spacing-lg));
+            overflow-y: auto;
+            padding: var(--spacing-md);
+            background: var(--clr-surface-default);
+            border: 1px solid var(--clr-border-subtle);
+            border-radius: var(--border-radius-md);
+            box-shadow: var(--shadow-sm);
+
+            h2 {
+                margin-top: 0;
+                font-size: var(--text-lg);
+            }
+
+            /* Filter header with clear button */
+            .filter-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: var(--spacing-sm);
+                padding-bottom: var(--spacing-sm);
+                border-bottom: 1px solid var(--clr-border-subtle);
+
+                h2 {
+                    margin: 0;
+                }
+            }
+
+            /* Filter groups */
+            .filter-group {
+                padding-bottom: var(--spacing-sm);
+                margin-bottom: var(--spacing-sm);
+                border-bottom: 1px solid var(--clr-border-subtle);
+
+                &:last-child {
+                    border-bottom: none;
+                    margin-bottom: 0;
+                }
+
+                label {
+                    display: block;
+                    font-weight: 500;
+                    margin-bottom: var(--spacing-xxs);
+                    color: var(--clr-text-default);
+                }
+            }
+
+            /* Radio and checkbox labels */
+            .filter-radio-label,
+            .filter-checkbox-label {
+                display: flex;
+                align-items: center;
+                gap: var(--spacing-xxs);
+                padding: var(--spacing-xxs) 0;
+                cursor: pointer;
+                font-weight: normal;
+
+                &:hover {
+                    color: var(--clr-action);
+                }
+
+                input[type="radio"],
+                input[type="checkbox"] {
+                    cursor: pointer;
+                }
+            }
+
+            /* Category-specific filters container */
+            #category-filters {
+                margin-top: var(--spacing-sm);
+                padding-top: var(--spacing-sm);
+                border-top: 2px solid var(--clr-border);
+
+                &:empty {
+                    display: none;
+                }
+            }
         }
 
         #ideas-list-container {
-            flex: 5;
-
+            min-width: 0; /* Prevent grid overflow */
             display: flex;
             flex-direction: column;
             gap: var(--spacing-sm);
 
             #ideas-list {
                 list-style: none;
-
+                padding: 0;
+                margin: 0;
                 display: grid;
-                flex-direction: column;
                 grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
                 gap: var(--spacing-sm);
 
                 .idea-list-item {
                     background-color: var(--clr-bg-subtle);
                     box-shadow: var(--shadow-sm);
-
                     padding: var(--spacing-sm);
-
                     display: flex;
                     flex-direction: column;
                     gap: var(--spacing-xs);
+                    border: 1px solid var(--clr-border-subtle);
+                    border-radius: var(--border-radius-md);
+                    transition: box-shadow 0.2s ease, border-color 0.2s ease;
+
+                    &:hover {
+                        box-shadow: var(--shadow-md);
+                        border-color: var(--clr-border);
+                        cursor: pointer;
+                    }
 
                     .idea-list-item-header {
                         display: flex;
                         flex-direction: row;
-                        align-items: center;
+                        align-items: flex-start;
                         justify-content: space-between;
-
                         gap: var(--spacing-xs);
 
-                        h2 {
-                            text-wrap: nowrap;
+                        .idea-list-item-header-start {
+                            flex: 1;
+                            min-width: 0;
+
+                            h2 {
+                                margin: 0 0 var(--spacing-xxs) 0;
+                                font-size: var(--text-lg);
+                            }
                         }
+
+                        .idea-list-item-header-end {
+                            flex-shrink: 0;
+                        }
+                    }
+
+                    > p {
+                        margin: var(--spacing-sm) 0;
+                        color: var(--clr-text-subtle);
+                        line-height: 1.6;
                     }
 
                     .idea-list-item-labels {
                         list-style: none;
+                        padding: 0;
+                        margin: var(--spacing-sm) 0;
                         display: flex;
-                        flex-direction: row;
-                        gap: var(--spacing-xs);
-
-                        padding-block: var(--spacing-xs);
+                        flex-wrap: wrap;
+                        gap: var(--spacing-xxs);
                     }
 
                     .idea-list-item-footer {
@@ -70,22 +183,66 @@
                         flex-direction: row;
                         align-items: center;
                         justify-content: space-between;
-
                         gap: var(--spacing-xs);
+                        margin-top: var(--spacing-sm);
+                        padding-top: var(--spacing-sm);
+                        border-top: 1px solid var(--clr-border-subtle);
 
-                        .idea-list-item-footer-start > p {
-                            text-wrap: nowrap;
+                        .idea-list-item-footer-start {
+                            flex: 1;
+
+                            > p {
+                                text-wrap: nowrap;
+                            }
                         }
 
                         .idea-list-item-footer-end {
                             display: flex;
                             flex-direction: row;
                             align-items: center;
-
-                            gap: var(--spacing-xs);
+                            gap: var(--spacing-xxs);
+                            flex-wrap: wrap;
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+/* Responsive layout: Stack filter above list on smaller screens */
+@media (max-width: 768px) {
+    #ideas-page #ideas-content {
+        grid-template-columns: 1fr;
+
+        #ideas-filter {
+            position: static;
+            max-height: none;
+        }
+
+        #ideas-list-container #ideas-list {
+            grid-template-columns: 1fr;
+        }
+    }
+}
+
+/* Very small screens */
+@media (max-width: 480px) {
+    #ideas-page {
+        #ideas-header {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        #ideas-content #ideas-list-container #ideas-list .idea-list-item {
+            .idea-list-item-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .idea-list-item-footer {
+                flex-direction: column;
+                align-items: flex-start;
             }
         }
     }

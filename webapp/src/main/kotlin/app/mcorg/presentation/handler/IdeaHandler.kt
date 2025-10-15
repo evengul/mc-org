@@ -1,6 +1,9 @@
 package app.mcorg.presentation.handler
 
 import app.mcorg.pipeline.idea.handleGetIdeas
+import app.mcorg.pipeline.idea.handleSearchIdeas
+import app.mcorg.pipeline.idea.handleGetCategoryFilters
+import app.mcorg.pipeline.idea.handleClearCategoryFilters
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.delete
 import io.ktor.server.routing.get
@@ -14,6 +17,22 @@ class IdeaHandler {
             get {
                 call.handleGetIdeas()
             }
+
+            // HTMX endpoint: Search/filter ideas
+            get("/search") {
+                call.handleSearchIdeas()
+            }
+
+            // HTMX endpoint: Get category-specific filters
+            route("/filters") {
+                get("/clear") {
+                    call.handleClearCategoryFilters()
+                }
+                get("/{category}") {
+                    call.handleGetCategoryFilters()
+                }
+            }
+
             post {
 
             }

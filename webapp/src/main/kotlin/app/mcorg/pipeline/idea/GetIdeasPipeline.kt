@@ -14,35 +14,9 @@ import app.mcorg.presentation.utils.respondHtml
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.response.respond
-import kotlinx.html.stream.createHTML
-import kotlinx.html.ul
 
 suspend fun ApplicationCall.handleGetIdeas() {
     val user = this.getUser()
-
-    val includeAll = request.queryParameters["tab"] == "all"
-
-    val tab = request.queryParameters["tab"]
-        ?.takeIf { it.isNotEmpty() && arrayOf("builds", "farms", "storage", "cart_tech", "tnt", "slimestone", "other").contains(it) }
-        ?.let { when(it) {
-            "builds" -> IdeaCategory.BUILD
-            "farms" -> IdeaCategory.FARM
-            "storage" -> IdeaCategory.STORAGE
-            "cart_tech" -> IdeaCategory.CART_TECH
-            "tnt" -> IdeaCategory.TNT
-            "slimestone" -> IdeaCategory.SLIMESTONE
-            "other" -> IdeaCategory.OTHER
-            else -> null
-        } }
-
-    if ((tab != null || includeAll) && request.headers["HX-Request"] == "true") {
-        val ideas = IdeaMockData.allIdeas.filter { includeAll || it.category == tab }
-        respondHtml(createHTML().ul {
-            ideaList(ideas)
-        })
-        return
-    }
-
 
     val getIdeasPipeline = Pipeline.create<Nothing, Unit>()
         .pipe(Step.value(IdeaMockData.allIdeas))
