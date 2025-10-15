@@ -8,12 +8,12 @@ data class Idea(
     val name: String,
     val description: String,
     val category: IdeaCategory,
-    val creatorId: Int,
-    val creatorName: String,
-    val createdAt: ZonedDateTime,
+    val author: Author,
     val labels: List<String>,
     val favouritesCount: Int,
     val rating: RatingSummary,
     val difficulty: IdeaDifficulty,
-    val worksInVersionRange: MinecraftVersionRange
+    val worksInVersionRange: MinecraftVersionRange,
+    val createdBy: Int,
+    val createdAt: ZonedDateTime,
 )

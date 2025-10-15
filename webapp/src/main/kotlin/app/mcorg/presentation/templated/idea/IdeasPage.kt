@@ -124,7 +124,7 @@ fun LI.ideaListItem(idea: Idea) {
                 + idea.name
             }
             p("subtle") {
-                + "by ${idea.creatorName} • ${idea.createdAt.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))}"
+                + "by ${idea.author.name} • ${idea.createdAt.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))}"
             }
         }
         div("idea-list-item-header-end") {

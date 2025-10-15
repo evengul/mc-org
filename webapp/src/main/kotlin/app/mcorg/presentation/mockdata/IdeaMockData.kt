@@ -1,5 +1,6 @@
 package app.mcorg.presentation.mockdata
 
+import app.mcorg.domain.model.idea.Author
 import app.mcorg.domain.model.idea.Idea
 import app.mcorg.domain.model.idea.IdeaCategory
 import app.mcorg.domain.model.idea.IdeaDifficulty
@@ -22,8 +23,7 @@ object IdeaMockData {
             This design works in all recent Minecraft versions and is relatively simple to build, requiring only basic redstone knowledge.
         """.trimIndent(),
         category = IdeaCategory.FARM,
-        creatorId = UserMockData.RedstoneWizard.id,
-        creatorName = UserMockData.RedstoneWizard.name,
+        author = Author.SingleAuthor(name = UserMockData.RedstoneWizard.name),
         labels = listOf("redstone", "farm", "automation"),
         favouritesCount = 42,
         rating = RatingSummary(
@@ -35,7 +35,8 @@ object IdeaMockData {
             from = MinecraftVersion.fromString("1.19.0"),
             to = MinecraftVersion.fromString("1.19.4")
         ),
-        createdAt = ZonedDateTime.now().minusYears(1)
+        createdAt = ZonedDateTime.now().minusYears(1),
+        createdBy = UserMockData.RedstoneWizard.id,
     )
 
     val villagerTradingHall = Idea(
@@ -45,8 +46,7 @@ object IdeaMockData {
             A compact and efficient villager trading hall with easy access to all villager professions.
         """.trimIndent(),
         category = IdeaCategory.BUILD,
-        creatorId = UserMockData.VillagerMaster.id,
-        creatorName = UserMockData.VillagerMaster.name,
+        author = Author.SingleAuthor(name = UserMockData.VillagerMaster.name),
         labels = listOf("villager", "trading", "economy"),
         favouritesCount = 38,
         rating = RatingSummary(
@@ -57,7 +57,8 @@ object IdeaMockData {
         worksInVersionRange = MinecraftVersionRange.LowerBounded(
             from = MinecraftVersion.fromString("1.18.0"),
         ),
-        createdAt = ZonedDateTime.now().minusYears(1)
+        createdAt = ZonedDateTime.now().minusYears(1),
+        createdBy = UserMockData.VillagerMaster.id,
     )
 
     val ironFarm = Idea(
@@ -67,8 +68,7 @@ object IdeaMockData {
             A simple but effective iron farm that produces iron at a steady rate using villager mechanics.
         """.trimIndent(),
         category = IdeaCategory.FARM,
-        creatorId = UserMockData.IronMiner.id,
-        creatorName = UserMockData.IronMiner.name,
+        author = Author.SingleAuthor(name = UserMockData.IronMiner.name),
         labels = listOf("iron", "farm", "villager"),
         favouritesCount = 56,
         rating = RatingSummary(
@@ -79,7 +79,8 @@ object IdeaMockData {
         worksInVersionRange = MinecraftVersionRange.UpperBounded(
             to = MinecraftVersion.fromString("1.19.0"),
         ),
-        createdAt = ZonedDateTime.now().minusYears(1)
+        createdAt = ZonedDateTime.now().minusYears(1),
+        createdBy = UserMockData.IronMiner.id,
     )
 
     val mobXpFarm = Idea(
@@ -89,8 +90,9 @@ object IdeaMockData {
             An efficient XP farm using a mob spawner or dark room design for quick leveling.
         """.trimIndent(),
         category = IdeaCategory.FARM,
-        creatorId = UserMockData.XPGrinder.id,
-        creatorName = UserMockData.XPGrinder.name,
+        author = Author.Team(
+            members = listOf(Author.TeamAuthor(UserMockData.XPGrinder.name, 0, "Lead", listOf("Design", "Testing")), Author.TeamAuthor(UserMockData.FarmingPro.name, 1, "Contributor", listOf("Building")))
+        ),
         labels = listOf("mob", "xp", "farm"),
         favouritesCount = 45,
         rating = RatingSummary(
@@ -99,7 +101,8 @@ object IdeaMockData {
         ),
         difficulty = IdeaDifficulty.MEDIUM,
         worksInVersionRange = MinecraftVersionRange.Unbounded,
-        createdAt = ZonedDateTime.now().minusYears(1)
+        createdAt = ZonedDateTime.now().minusYears(1),
+        createdBy = UserMockData.XPGrinder.id,
     )
 
     val allIdeas = listOf(sugarcaneFarm, villagerTradingHall, ironFarm, mobXpFarm)
