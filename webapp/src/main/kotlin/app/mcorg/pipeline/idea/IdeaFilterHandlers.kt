@@ -8,8 +8,6 @@ import app.mcorg.presentation.templated.idea.ideaList
 import app.mcorg.presentation.templated.idea.renderFilterField
 import app.mcorg.presentation.utils.respondHtml
 import io.ktor.server.application.ApplicationCall
-import io.ktor.server.application.call
-import io.ktor.util.pipeline.PipelineContext
 import kotlinx.html.div
 import kotlinx.html.stream.createHTML
 import kotlinx.html.ul
@@ -71,7 +69,7 @@ suspend fun ApplicationCall.handleGetCategoryFilters() {
                 emptyCategoryFilters()
             }
         })
-    } catch (e: IllegalArgumentException) {
+    } catch (_: IllegalArgumentException) {
         // Invalid category name
         respondHtml(createHTML().div {
             emptyCategoryFilters()

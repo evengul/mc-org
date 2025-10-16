@@ -173,15 +173,15 @@ BEGIN
     SET rating_average = (
             SELECT COALESCE(AVG(score), 0.0)
             FROM idea_ratings
-            WHERE idea_id = COALESCE(NEW.idea_id, OLD.idea_id)
+            WHERE idea_id = NEW.idea_id
         ),
         rating_count = (
             SELECT COUNT(*)
             FROM idea_ratings
-            WHERE idea_id = COALESCE(NEW.idea_id, OLD.idea_id)
+            WHERE idea_id = NEW.idea_id
         ),
         updated_at = CURRENT_TIMESTAMP
-    WHERE id = COALESCE(NEW.idea_id, OLD.idea_id);
+    WHERE id = NEW.idea_id;
 
     RETURN COALESCE(NEW, OLD);
 END;
@@ -200,10 +200,10 @@ BEGIN
     SET favourites_count = (
             SELECT COUNT(*)
             FROM idea_favourites
-            WHERE idea_id = COALESCE(NEW.idea_id, OLD.idea_id)
+            WHERE idea_id = NEW.idea_id
         ),
         updated_at = CURRENT_TIMESTAMP
-    WHERE id = COALESCE(NEW.idea_id, OLD.idea_id);
+    WHERE id = NEW.idea_id;
 
     RETURN COALESCE(NEW, OLD);
 END;
@@ -222,10 +222,10 @@ BEGIN
     SET likes_count = (
             SELECT COUNT(*)
             FROM idea_comment_likes
-            WHERE comment_id = COALESCE(NEW.comment_id, OLD.comment_id)
+            WHERE comment_id = NEW.comment_id
         ),
         updated_at = CURRENT_TIMESTAMP
-    WHERE id = COALESCE(NEW.comment_id, OLD.comment_id);
+    WHERE id = NEW.comment_id;
 
     RETURN COALESCE(NEW, OLD);
 END;

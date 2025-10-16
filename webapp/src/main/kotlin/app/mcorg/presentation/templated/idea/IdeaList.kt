@@ -3,10 +3,7 @@ package app.mcorg.presentation.templated.idea
 import app.mcorg.domain.model.idea.Idea
 import app.mcorg.presentation.templated.common.chip.ChipVariant
 import app.mcorg.presentation.templated.common.chip.chipComponent
-import app.mcorg.presentation.templated.common.tabs.TabData
-import app.mcorg.presentation.templated.common.tabs.tabsComponent
 import app.mcorg.presentation.templated.utils.toPrettyEnumName
-import kotlinx.html.DIV
 import kotlinx.html.LI
 import kotlinx.html.UL
 import kotlinx.html.classes

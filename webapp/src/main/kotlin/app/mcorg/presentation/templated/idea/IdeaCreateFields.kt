@@ -19,9 +19,6 @@ fun DIV.renderCreateField(field: CategoryField) {
         is CategoryField.Dimensions -> renderCreateDimensionsField(field)
         is CategoryField.MapField -> renderCreateMapField(field)
         is CategoryField.ListField -> renderCreateListField(field)
-        else -> {
-            // Skip unsupported field types
-        }
     }
 }
 

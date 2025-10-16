@@ -44,7 +44,7 @@ suspend fun ApplicationCall.handleGetCreateCategoryFields() {
                 }
             }
         })
-    } catch (e: IllegalArgumentException) {
+    } catch (_: IllegalArgumentException) {
         // Invalid category name
         respondHtml(createHTML().div {
             p("subtle") {

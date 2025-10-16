@@ -2,7 +2,6 @@ package app.mcorg.presentation.templated.idea
 
 import app.mcorg.domain.model.idea.IdeaCategory
 import app.mcorg.domain.model.idea.IdeaDifficulty
-import app.mcorg.domain.model.idea.schema.CategoryField
 import app.mcorg.presentation.templated.common.button.neutralButton
 import app.mcorg.presentation.templated.common.link.Link
 import app.mcorg.presentation.templated.utils.toPrettyEnumName

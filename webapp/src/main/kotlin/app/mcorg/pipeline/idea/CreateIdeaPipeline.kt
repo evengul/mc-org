@@ -17,7 +17,6 @@ import io.ktor.http.Parameters
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.*
 import java.time.ZoneId
-import java.time.ZonedDateTime
 
 /**
  * Input data for creating an idea
@@ -628,7 +627,6 @@ object GetCreatedIdeaStep : Step<Int, CreateIdeaFailures, Idea> {
             is JsonObject -> element.entries.associate { (key, value) ->
                 key to jsonElementToAny(value)
             }
-            else -> element.toString()
         }
     }
 }
