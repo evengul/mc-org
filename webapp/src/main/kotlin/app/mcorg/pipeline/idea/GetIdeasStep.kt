@@ -53,55 +53,79 @@ object GetAllIdeasStep : Step<Unit, GetIdeasFailure, List<Idea>> {
 }
 
 /**
- * Step to get ideas filtered by category
+ * Step to get ideas filtered by search criteria
  */
 data class GetIdeasByCategoryInput(
-    val category: IdeaCategory?
+    val filters: IdeaSearchFilters
 )
 
 object GetIdeasByCategoryStep : Step<GetIdeasByCategoryInput, SearchIdeasFailure, List<Idea>> {
     override suspend fun process(input: GetIdeasByCategoryInput): Result<SearchIdeasFailure, List<Idea>> {
-        return if (input.category == null) {
-            GetAllIdeasStep.process(Unit)
+        // If no filters at all, delegate to GetAllIdeasStep
+        if (input.filters.category == null &&
+            input.filters.query == null &&
+            input.filters.difficulties.isEmpty() &&
+            input.filters.minRating == null &&
+            input.filters.minecraftVersion == null &&
+            input.filters.categoryFilters.isEmpty()) {
+            return GetAllIdeasStep.process(Unit)
                 .mapError { SearchIdeasFailure.DatabaseError }
-        } else {
-            DatabaseSteps.query<GetIdeasByCategoryInput, SearchIdeasFailure, List<Idea>>(
-                sql = SafeSQL.select("""
-                    SELECT 
-                        i.id, i.name, i.description, i.category, i.author, i.sub_authors, i.labels,
-                        i.favourites_count, i.rating_average, i.rating_count, i.difficulty,
-                        i.minecraft_version_range, i.category_data, i.created_by, i.created_at,
-                        COALESCE(
-                            json_agg(
-                                json_build_object(
-                                    'mspt', t.mspt,
-                                    'hardware', t.hardware,
-                                    'version', t.minecraft_version
-                                )
-                            ) FILTER (WHERE t.id IS NOT NULL),
-                            '[]'
-                        ) as test_data
-                    FROM ideas i
-                    LEFT JOIN idea_test_data t ON i.id = t.idea_id
-                    WHERE i.category = ?
-                    GROUP BY i.id, i.name, i.description, i.category, i.author, i.sub_authors, i.labels,
-                             i.favourites_count, i.rating_average, i.rating_count, i.difficulty,
-                             i.minecraft_version_range, i.category_data, i.created_by, i.created_at
-                    ORDER BY i.created_at DESC
-                """.trimIndent()),
-                parameterSetter = { statement, categoryInput ->
-                    statement.setString(1, categoryInput.category!!.name)
-                },
-                errorMapper = { SearchIdeasFailure.DatabaseError },
-                resultMapper = { rs ->
-                    buildList {
-                        while (rs.next()) {
-                            add(rs.toIdea())
+        }
+
+        // Build dynamic WHERE clause from filters
+        val sqlWhereClause = IdeaSqlBuilder.buildWhereClause(input.filters)
+
+        // Base SELECT with LEFT JOIN for test data
+        val baseSql = """
+            SELECT 
+                i.id, i.name, i.description, i.category, i.author, i.sub_authors, i.labels,
+                i.favourites_count, i.rating_average, i.rating_count, i.difficulty,
+                i.minecraft_version_range, i.category_data, i.created_by, i.created_at,
+                COALESCE(
+                    json_agg(
+                        json_build_object(
+                            'mspt', t.mspt,
+                            'hardware', t.hardware,
+                            'version', t.minecraft_version
+                        )
+                    ) FILTER (WHERE t.id IS NOT NULL),
+                    '[]'
+                ) as test_data
+            FROM ideas i
+            LEFT JOIN idea_test_data t ON i.id = t.idea_id
+            ${sqlWhereClause.whereClause}
+            GROUP BY i.id, i.name, i.description, i.category, i.author, i.sub_authors, i.labels,
+                     i.favourites_count, i.rating_average, i.rating_count, i.difficulty,
+                     i.minecraft_version_range, i.category_data, i.created_by, i.created_at
+            ORDER BY i.created_at DESC
+        """.trimIndent()
+
+        return DatabaseSteps.query<GetIdeasByCategoryInput, SearchIdeasFailure, List<Idea>>(
+            sql = SafeSQL.select(baseSql),
+            parameterSetter = { statement, _ ->
+                sqlWhereClause.parameters.forEachIndexed { index, param ->
+                    when (param) {
+                        is kotlin.Array<*> -> {
+                            // Handle arrays for PostgreSQL (e.g., for ?| operator)
+                            val sqlArray = statement.connection.createArrayOf("text", param)
+                            statement.setArray(index + 1, sqlArray)
+                        }
+                        else -> {
+                            // Handle all other types
+                            statement.setObject(index + 1, param)
                         }
                     }
                 }
-            ).process(input)
-        }
+            },
+            errorMapper = { SearchIdeasFailure.DatabaseError },
+            resultMapper = { rs ->
+                buildList {
+                    while (rs.next()) {
+                        add(rs.toIdea())
+                    }
+                }
+            }
+        ).process(input)
     }
 }
 

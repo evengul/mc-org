@@ -20,13 +20,11 @@ sealed interface SearchIdeasFailure {
  * HTMX endpoint: Returns filtered idea list based on query parameters.
  */
 suspend fun ApplicationCall.handleSearchIdeas() {
-    // Parse filter parameters
-    val query = request.queryParameters["query"]
-    val category = request.queryParameters["category"]?.takeIf { it.isNotEmpty() }
-        ?.let { IdeaCategory.valueOf(it) }
+    // Parse ALL filter parameters using the filter parser
+    val filters = IdeaFilterParser.parse(request.queryParameters)
 
-    // Query database for ideas
-    when (val result = GetIdeasByCategoryStep.process(GetIdeasByCategoryInput(category))) {
+    // Query database with all filters
+    when (val result = GetIdeasByCategoryStep.process(GetIdeasByCategoryInput(filters))) {
         is Result.Success -> {
             // Return HTML fragment for idea list
             respondHtml(createHTML().ul {
