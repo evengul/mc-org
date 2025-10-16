@@ -72,7 +72,16 @@ class FormModal(
             hxValues?.let { hx ->
                 hxTarget(hx.hxTarget)
                 hxSwap(hx.hxSwap)
-                attributes["hx-on::after-request"] = "this.reset(); this.closest('dialog')?.close()"
+
+                // After a successful non-GET request, reset and close the modal
+                attributes["hx-on::after-request"] = """
+                    if (event.detail.xhr.status >= 200 && event.detail.xhr.status < 300 && event.detail.requestConfig.verb !== 'get') {
+                        this.reset();
+                        const modal = document.getElementById("$modalId");
+                        modal.close();
+                        modal.remove();
+                    }
+                """.trimIndent()
                 when(hx.method) {
                     FormModalHttpMethod.GET -> hxGet(hx.href)
                     FormModalHttpMethod.POST -> hxPost(hx.href)

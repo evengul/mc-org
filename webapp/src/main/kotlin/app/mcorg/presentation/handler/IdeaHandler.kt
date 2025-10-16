@@ -1,9 +1,7 @@
 package app.mcorg.presentation.handler
 
-import app.mcorg.pipeline.idea.handleGetIdeas
-import app.mcorg.pipeline.idea.handleSearchIdeas
-import app.mcorg.pipeline.idea.handleGetCategoryFilters
-import app.mcorg.pipeline.idea.handleClearCategoryFilters
+import app.mcorg.pipeline.idea.*
+import app.mcorg.presentation.plugins.IdeaCreatorPlugin
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.delete
 import io.ktor.server.routing.get
@@ -18,12 +16,10 @@ class IdeaHandler {
                 call.handleGetIdeas()
             }
 
-            // HTMX endpoint: Search/filter ideas
             get("/search") {
                 call.handleSearchIdeas()
             }
 
-            // HTMX endpoint: Get category-specific filters
             route("/filters") {
                 get("/clear") {
                     call.handleClearCategoryFilters()
@@ -33,8 +29,20 @@ class IdeaHandler {
                 }
             }
 
-            post {
-
+            route("/create") {
+                install(IdeaCreatorPlugin)
+                get("/fields/{category}") {
+                    call.handleGetCreateCategoryFields()
+                }
+                get("/author-fields") {
+                    call.handleGetAuthorFields()
+                }
+                get("/version-fields") {
+                    call.handleGetVersionFields()
+                }
+                post {
+                    call.handleCreateIdea()
+                }
             }
             route("/{ideaId}") {
                 get {
