@@ -18,13 +18,6 @@ import kotlinx.html.p
 import kotlinx.html.ul
 import java.time.format.DateTimeFormatter
 
-fun DIV.ideaListContainer(ideas: List<Idea>) {
-    id = "ideas-list-container"
-    ul {
-        ideaList(ideas)
-    }
-}
-
 fun UL.ideaList(ideas: List<Idea>) {
     id = "ideas-list"
     ideas.forEach { idea ->

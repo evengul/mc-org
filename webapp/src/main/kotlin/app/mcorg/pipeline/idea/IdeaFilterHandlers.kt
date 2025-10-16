@@ -2,7 +2,7 @@ package app.mcorg.pipeline.idea
 
 import app.mcorg.domain.model.idea.IdeaCategory
 import app.mcorg.domain.model.idea.schema.IdeaCategorySchemas
-import app.mcorg.presentation.mockdata.IdeaMockData
+import app.mcorg.domain.pipeline.Result
 import app.mcorg.presentation.templated.idea.emptyCategoryFilters
 import app.mcorg.presentation.templated.idea.ideaList
 import app.mcorg.presentation.templated.idea.renderFilterField
@@ -14,27 +14,34 @@ import kotlinx.html.div
 import kotlinx.html.stream.createHTML
 import kotlinx.html.ul
 
+sealed interface SearchIdeasFailure {
+    object DatabaseError : SearchIdeasFailure
+}
+
 /**
  * HTMX endpoint: Returns filtered idea list based on query parameters.
- * This is a stub implementation that returns mock data - actual filtering will be implemented with database.
  */
 suspend fun ApplicationCall.handleSearchIdeas() {
-    // Parse filter parameters (stub - will be properly parsed later)
+    // Parse filter parameters
     val query = request.queryParameters["query"]
     val category = request.queryParameters["category"]?.takeIf { it.isNotEmpty() }
         ?.let { IdeaCategory.valueOf(it) }
 
-    // For now, just filter by category if provided, otherwise return all
-    val filteredIdeas = if (category != null) {
-        IdeaMockData.allIdeas.filter { it.category == category }
-    } else {
-        IdeaMockData.allIdeas
+    // Query database for ideas
+    when (val result = GetIdeasByCategoryStep.process(GetIdeasByCategoryInput(category))) {
+        is Result.Success -> {
+            // Return HTML fragment for idea list
+            respondHtml(createHTML().ul {
+                ideaList(result.value)
+            })
+        }
+        is Result.Failure -> {
+            // Return empty list on error
+            respondHtml(createHTML().ul {
+                ideaList(emptyList())
+            })
+        }
     }
-
-    // Return HTML fragment for idea list
-    respondHtml(createHTML().ul {
-        ideaList(filteredIdeas)
-    })
 }
 
 /**
@@ -80,4 +87,3 @@ suspend fun ApplicationCall.handleClearCategoryFilters() {
         emptyCategoryFilters()
     })
 }
-

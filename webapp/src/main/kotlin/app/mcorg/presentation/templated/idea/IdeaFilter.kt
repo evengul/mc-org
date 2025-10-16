@@ -3,6 +3,7 @@ package app.mcorg.presentation.templated.idea
 import app.mcorg.domain.model.idea.IdeaCategory
 import app.mcorg.domain.model.idea.IdeaDifficulty
 import app.mcorg.domain.model.idea.schema.CategoryField
+import app.mcorg.presentation.templated.common.button.neutralButton
 import app.mcorg.presentation.templated.common.link.Link
 import app.mcorg.presentation.templated.utils.toPrettyEnumName
 import kotlinx.html.*
@@ -23,8 +24,12 @@ fun ASIDE.ideaFilter(selectedCategory: IdeaCategory? = null) {
         id = "idea-filter-form"
         attributes["hx-get"] = Link.Ideas.to + "/search"
         attributes["hx-target"] = "#ideas-list"
-        attributes["hx-trigger"] = "change from:.filter-field, submit"
-        attributes["hx-swap"] = "innerHTML"
+        attributes["hx-trigger"] = """
+            change delay:400ms
+            from:#idea-filter-form,
+            submit
+        """.trimIndent()
+        attributes["hx-swap"] = "outerHTML"
 
         // Text search (debounced)
         filterSearchInput()
@@ -52,12 +57,8 @@ fun ASIDE.filterHeader() {
     h2 {
         +"Filters"
     }
-    button(classes = "btn btn--sm btn--neutral") {
-        type = ButtonType.button
-        attributes["hx-get"] = Link.Ideas.to
-        attributes["hx-target"] = "#ideas-page"
-        attributes["hx-swap"] = "innerHTML"
-        +"Clear All"
+    neutralButton("Clear All") {
+        href = Link.Ideas.to
     }
 }
 
@@ -76,6 +77,7 @@ fun FORM.filterSearchInput() {
             placeholder = "Search by name or description..."
             attributes["hx-get"] = Link.Ideas.to + "/search"
             attributes["hx-target"] = "#ideas-list"
+            attributes["hx-swap"] = "outerHTML"
             attributes["hx-trigger"] = "keyup changed delay:500ms"
             attributes["hx-include"] = "#idea-filter-form"
         }
@@ -99,7 +101,7 @@ fun FORM.filterCategoryRadios(selectedCategory: IdeaCategory?) {
                     if (selectedCategory == null) {
                         checked = true
                     }
-                    attributes["hx-get"] = Link.Ideas.to + "/clear"
+                    attributes["hx-get"] = Link.Ideas.to + "/filters/clear"
                     attributes["hx-target"] = "#category-filters"
                     attributes["hx-swap"] = "innerHTML"
                 }

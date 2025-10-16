@@ -1,13 +1,10 @@
 package app.mcorg.pipeline.idea
 
-import app.mcorg.domain.model.idea.IdeaCategory
 import app.mcorg.domain.pipeline.Pipeline
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.notification.GetUnreadNotificationCountStep
 import app.mcorg.presentation.handler.executeParallelPipeline
-import app.mcorg.presentation.mockdata.IdeaMockData
-import app.mcorg.presentation.templated.idea.ideaList
 import app.mcorg.presentation.templated.idea.ideasPage
 import app.mcorg.presentation.utils.getUser
 import app.mcorg.presentation.utils.respondHtml
@@ -15,16 +12,20 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.response.respond
 
+sealed interface GetIdeasFailure {
+    object DatabaseError : GetIdeasFailure
+}
+
 suspend fun ApplicationCall.handleGetIdeas() {
     val user = this.getUser()
 
-    val getIdeasPipeline = Pipeline.create<Nothing, Unit>()
-        .pipe(Step.value(IdeaMockData.allIdeas))
+    val getIdeasPipeline = Pipeline.create<GetIdeasFailure, Unit>()
+        .pipe(GetAllIdeasStep)
 
-    val getNotificationCountsPipeline = Pipeline.create<Nothing, Int>()
+    val getNotificationCountsPipeline = Pipeline.create<GetIdeasFailure, Int>()
         .pipe(Step.value(user.id))
-        .pipe(object : Step<Int, Nothing, Int> {
-            override suspend fun process(input: Int): Result<Nothing, Int> {
+        .pipe(object : Step<Int, GetIdeasFailure, Int> {
+            override suspend fun process(input: Int): Result<GetIdeasFailure, Int> {
                 return when (val result = GetUnreadNotificationCountStep.process(input)) {
                     is Result.Success -> Result.success(result.value)
                     is Result.Failure -> Result.success(0)

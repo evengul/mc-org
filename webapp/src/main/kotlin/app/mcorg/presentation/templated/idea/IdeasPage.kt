@@ -4,10 +4,10 @@ import app.mcorg.domain.model.idea.Idea
 import app.mcorg.domain.model.user.TokenProfile
 import app.mcorg.presentation.templated.common.page.createPage
 import kotlinx.html.aside
-import kotlinx.html.div
 import kotlinx.html.header
 import kotlinx.html.id
 import kotlinx.html.section
+import kotlinx.html.ul
 
 fun ideasPage(
     user: TokenProfile,
@@ -27,8 +27,8 @@ fun ideasPage(
         aside {
             ideaFilter()
         }
-        div {
-            ideaListContainer(ideas)
+        ul {
+            ideaList(ideas)
         }
     }
 }
