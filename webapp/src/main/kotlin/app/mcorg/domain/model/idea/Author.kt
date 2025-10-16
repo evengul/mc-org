@@ -12,8 +12,8 @@ sealed interface Author {
 
     data class TeamAuthor(
         override val name: String,
-        val index: Int,
-        val title: String,
-        val responsibleFor: List<String>
+        val order: Int,
+        val role: String,
+        val contributions: List<String>
     ) : Author
 }
