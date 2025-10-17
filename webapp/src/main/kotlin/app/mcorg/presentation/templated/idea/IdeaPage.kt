@@ -3,6 +3,9 @@ package app.mcorg.presentation.templated.idea
 import app.mcorg.domain.model.idea.Comment
 import app.mcorg.domain.model.idea.Idea
 import app.mcorg.domain.model.user.TokenProfile
+import app.mcorg.presentation.hxPut
+import app.mcorg.presentation.hxSwap
+import app.mcorg.presentation.hxTarget
 import app.mcorg.presentation.templated.common.button.actionButton
 import app.mcorg.presentation.templated.common.button.backButton
 import app.mcorg.presentation.templated.common.button.ghostButton
@@ -95,7 +98,14 @@ fun MAIN.ideaContent(idea: Idea, comments: List<Comment>) {
         }
         footer {
             id = "idea-footer"
-            neutralButton("Favorite (${idea.favouritesCount})")
+            neutralButton("Favorite (${idea.favouritesCount})") {
+                buttonBlock = {
+                    id = "idea-favorite-button"
+                    hxPut(Link.Ideas.single(idea.id) + "/favourite")
+                    hxTarget("#idea-favorite-button")
+                    hxSwap("innerHTML")
+                }
+            }
             actionButton("Import Idea")
         }
     }
