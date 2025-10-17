@@ -8,6 +8,7 @@ import app.mcorg.presentation.utils.getProjectId
 import app.mcorg.presentation.utils.getUser
 import app.mcorg.presentation.utils.getWorldId
 import app.mcorg.presentation.utils.respondBadRequest
+import app.mcorg.presentation.utils.setIdeaId
 import app.mcorg.presentation.utils.setInviteId
 import app.mcorg.presentation.utils.setNotificationId
 import app.mcorg.presentation.utils.setProjectDependencyId
@@ -172,6 +173,27 @@ val ProjectDependencyItemPlugin = createRouteScopedPlugin("ProjectDependencyItem
                 call.setProjectDependencyId(dependencyId)
             } else if ((checkResult is Result.Success && !checkResult.value) || (checkResult is Result.Failure && checkResult.error is DatabaseFailure.NotFound)) {
                 call.respond(HttpStatusCode.NotFound, "Project dependency with ID $dependencyId does not exist for the project")
+            } else {
+                call.respond(HttpStatusCode.InternalServerError, "Database error occurred")
+            }
+        }
+    }
+}
+
+val IdeaParamPlugin = createRouteScopedPlugin("IdeaParamPlugin") {
+    onCall { call ->
+        val ideaId = call.parameters["ideaId"]?.toIntOrNull()
+        if (ideaId == null) {
+            call.respondBadRequest("Invalid or missing idea ID")
+        } else {
+            val checkResult = ensureParamEntityExists(
+                SafeSQL.select("SELECT EXISTS(SELECT 1 FROM ideas WHERE id = ?)"),
+                ideaId
+            )
+            if (checkResult is Result.Success && checkResult.value) {
+                call.setIdeaId(ideaId)
+            } else if ((checkResult is Result.Success && !checkResult.value) || (checkResult is Result.Failure && checkResult.error is DatabaseFailure.NotFound)) {
+                call.respond(HttpStatusCode.NotFound, "Idea with ID $ideaId does not exist")
             } else {
                 call.respond(HttpStatusCode.InternalServerError, "Database error occurred")
             }

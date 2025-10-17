@@ -1,7 +1,9 @@
 package app.mcorg.presentation.handler
 
 import app.mcorg.pipeline.idea.*
+import app.mcorg.pipeline.idea.single.handleGetIdea
 import app.mcorg.presentation.plugins.IdeaCreatorPlugin
+import app.mcorg.presentation.plugins.IdeaParamPlugin
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.delete
 import io.ktor.server.routing.get
@@ -45,8 +47,9 @@ class IdeaHandler {
                 }
             }
             route("/{ideaId}") {
+                install(IdeaParamPlugin)
                 get {
-
+                    call.handleGetIdea()
                 }
                 post("/import/{worldId}") {
                     // Import idea into a world

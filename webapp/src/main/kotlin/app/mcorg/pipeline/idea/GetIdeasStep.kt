@@ -132,7 +132,7 @@ object GetIdeasByCategoryStep : Step<GetIdeasByCategoryInput, SearchIdeasFailure
 /**
  * Extension function to convert a ResultSet row to an Idea object
  */
-private fun java.sql.ResultSet.toIdea(): Idea {
+fun java.sql.ResultSet.toIdea(): Idea {
     return Idea(
         id = getInt("id"),
         name = getString("name"),
