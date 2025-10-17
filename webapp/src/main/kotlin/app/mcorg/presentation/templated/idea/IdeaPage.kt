@@ -3,20 +3,29 @@ package app.mcorg.presentation.templated.idea
 import app.mcorg.domain.model.idea.Comment
 import app.mcorg.domain.model.idea.Idea
 import app.mcorg.domain.model.user.TokenProfile
+import app.mcorg.presentation.hxConfirm
+import app.mcorg.presentation.hxDelete
+import app.mcorg.presentation.hxPost
 import app.mcorg.presentation.hxPut
 import app.mcorg.presentation.hxSwap
 import app.mcorg.presentation.hxTarget
+import app.mcorg.presentation.templated.common.button.IconButtonColor
 import app.mcorg.presentation.templated.common.button.actionButton
 import app.mcorg.presentation.templated.common.button.backButton
 import app.mcorg.presentation.templated.common.button.ghostButton
+import app.mcorg.presentation.templated.common.button.iconButton
 import app.mcorg.presentation.templated.common.button.neutralButton
 import app.mcorg.presentation.templated.common.chip.ChipVariant
 import app.mcorg.presentation.templated.common.chip.chipComponent
+import app.mcorg.presentation.templated.common.icon.IconSize
+import app.mcorg.presentation.templated.common.icon.Icons
 import app.mcorg.presentation.templated.common.link.Link
 import app.mcorg.presentation.templated.common.page.createPage
 import app.mcorg.presentation.templated.common.progress.progressComponent
 import app.mcorg.presentation.templated.utils.toPrettyEnumName
 import kotlinx.html.ButtonType
+import kotlinx.html.FormEncType
+import kotlinx.html.LI
 import kotlinx.html.MAIN
 import kotlinx.html.classes
 import kotlinx.html.div
@@ -50,10 +59,10 @@ fun ideaPage(
 ) {
     id = "idea-page"
     backButton("Back to ideas", Link.Ideas)
-    ideaContent(idea, comments)
+    ideaContent(user.id, idea, comments)
 }
 
-fun MAIN.ideaContent(idea: Idea, comments: List<Comment>) {
+fun MAIN.ideaContent(userId: Int, idea: Idea, comments: List<Comment>) {
     section {
         id = "idea-content"
         header {
@@ -160,11 +169,17 @@ fun MAIN.ideaContent(idea: Idea, comments: List<Comment>) {
             + "Share your thoughts and rate this idea"
         }
         form {
+            encType = FormEncType.applicationXWwwFormUrlEncoded
+            hxPost(Link.Ideas.single(idea.id) + "/comments")
+            hxTarget("#idea-comments-list")
+            hxSwap("afterbegin")
+            attributes["hx-on::after-request"] = "this.reset(); document.getElementById('idea-comment-reset-rating-button').style.display = 'none';"
             id = "idea-comment-form"
             textArea {
                 id = "idea-comment-input-textarea"
                 placeholder = "Add a comment..."
-                name = "comment"
+                name = "content"
+                required = true
             }
             span {
                 id = "idea-comment-input-end"
@@ -204,51 +219,69 @@ fun MAIN.ideaContent(idea: Idea, comments: List<Comment>) {
             id = "idea-comments-list"
             comments.forEach {
                 li {
-                    div {
-                        classes += "idea-comment-header"
-                        div {
-                            classes += "idea-comment-header-content"
-                            div {
-                                classes += "idea-comment-author"
-                                +it.commenterName
-                                when (it) {
-                                    is Comment.RatedTextComment -> it.rating
-                                    is Comment.RatingComment -> it.rating
-                                    is Comment.TextComment -> null
-                                }?.let { rating ->
-                                    span {
-                                        classes += "idea-comment-rating"
-                                        + "• Rated: $rating stars"
-                                    }
-                                }
-                            }
-                            div {
-                                classes += "idea-comment-date"
-                                +it.createdAt.format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"))
-                            }
-                        }
-                        div {
-                            classes += "idea-comment-actions"
-                            if (it.youLiked) {
-                                ghostButton("Unlike (${it.likes})")
-                            } else {
-                                ghostButton("Like (${it.likes})")
-                            }
-                        }
-                    }
+                    ideaCommentItem(userId, it)
+                }
+            }
+        }
+    }
+}
 
-                    when (it) {
-                        is Comment.TextComment -> it.content
-                        is Comment.RatingComment -> null
-                        is Comment.RatedTextComment -> it.content
-                    }?.let { content ->
-                        p {
-                            classes += "idea-comment-content"
-                            + content
-                        }
+fun LI.ideaCommentItem(userId: Int, comment: Comment) {
+    id = "idea-comment-${comment.id}"
+    classes += "idea-comment-item"
+    div {
+        classes += "idea-comment-header"
+        div {
+            classes += "idea-comment-header-content"
+            div {
+                classes += "idea-comment-author"
+                + comment.commenterName
+                when (comment) {
+                    is Comment.RatedTextComment -> comment.rating
+                    is Comment.RatingComment -> comment.rating
+                    is Comment.TextComment -> null
+                }?.let { rating ->
+                    span {
+                        classes += "idea-comment-rating"
+                        + " • $rating stars"
                     }
                 }
             }
+            p {
+                classes += "idea-comment-date subtle"
+                +comment.createdAt.format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"))
+            }
+        }
+        div {
+            classes += "idea-comment-actions"
+            if (comment.youLiked) {
+                ghostButton("Unlike (${comment.likes})")
+            } else {
+                ghostButton("Like (${comment.likes})")
+            }
+
+            if (comment.commenterId == userId) {
+                iconButton(Icons.DELETE, color = IconButtonColor.GHOST) {
+                    iconSize = IconSize.SMALL
+                    buttonBlock = {
+                        hxDelete(Link.Ideas.single(comment.ideaId) + "/comments/${comment.id}")
+                        hxTarget("#idea-comment-${comment.id}")
+                        hxSwap("outerHTML")
+                        hxConfirm("Are you sure you want to delete this comment?")
+                    }
+                }
+            }
+        }
+    }
+
+    when (comment) {
+        is Comment.TextComment -> comment.content
+        is Comment.RatingComment -> null
+        is Comment.RatedTextComment -> comment.content
+    }?.let { content ->
+        p {
+            classes += "idea-comment-content"
+            + content
         }
     }
 }

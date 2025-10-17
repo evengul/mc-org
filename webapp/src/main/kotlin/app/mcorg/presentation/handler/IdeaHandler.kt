@@ -1,8 +1,11 @@
 package app.mcorg.presentation.handler
 
 import app.mcorg.pipeline.idea.*
+import app.mcorg.pipeline.idea.single.handleCreateIdeaComment
+import app.mcorg.pipeline.idea.single.handleDeleteIdeaComment
 import app.mcorg.pipeline.idea.single.handleFavouriteIdea
 import app.mcorg.pipeline.idea.single.handleGetIdea
+import app.mcorg.presentation.plugins.IdeaCommentParamPlugin
 import app.mcorg.presentation.plugins.IdeaCreatorPlugin
 import app.mcorg.presentation.plugins.IdeaParamPlugin
 import app.mcorg.presentation.plugins.WorldParamPlugin
@@ -78,9 +81,10 @@ class IdeaHandler {
 
                 route("/comments") {
                     post {
-                        // Add a comment to the idea
+                        call.handleCreateIdeaComment()
                     }
                     route("/{commentId}") {
+                        install(IdeaCommentParamPlugin)
                         patch {
                             // Update comment
                         }
@@ -88,7 +92,7 @@ class IdeaHandler {
                             // Like comment
                         }
                         delete {
-                            // Delete comment
+                            call.handleDeleteIdeaComment()
                         }
                     }
                 }

@@ -1,5 +1,6 @@
 package app.mcorg.pipeline.idea.single
 
+import app.mcorg.domain.model.idea.Comment
 import app.mcorg.domain.model.idea.Idea
 import app.mcorg.domain.pipeline.Pipeline
 import app.mcorg.domain.pipeline.Result
@@ -16,6 +17,7 @@ import app.mcorg.presentation.utils.respondHtml
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.response.respond
+import java.sql.ResultSet
 
 sealed interface GetIdeaFailure {
     object DatabaseError : GetIdeaFailure
@@ -132,62 +134,66 @@ private object GetIdeaCommentsStep : Step<GetCommentsInput, GetIdeaFailure, List
             resultMapper = { resultSet ->
                 val comments = mutableListOf<app.mcorg.domain.model.idea.Comment>()
                 while (resultSet.next()) {
-                    val id = resultSet.getInt("id")
-                    val ideaId = resultSet.getInt("idea_id")
-                    val commenterId = resultSet.getInt("commenter_id")
-                    val commenterName = resultSet.getString("commenter_name")
-                    val content = resultSet.getString("content")
-                    val ratingDecimal = resultSet.getBigDecimal("rating")
-                    val rating = ratingDecimal?.toInt()
-                    val likesCount = resultSet.getInt("likes_count")
-                    val createdAt = resultSet.getTimestamp("created_at").toInstant()
-                        .atZone(java.time.ZoneId.systemDefault())
-                    val youLiked = resultSet.getBoolean("you_liked")
-
-                    val comment = when {
-                        content != null && rating != null -> {
-                            app.mcorg.domain.model.idea.Comment.RatedTextComment(
-                                id = id,
-                                ideaId = ideaId,
-                                commenterId = commenterId,
-                                commenterName = commenterName,
-                                createdAt = createdAt,
-                                likes = likesCount,
-                                content = content,
-                                rating = rating,
-                                youLiked = youLiked
-                            )
-                        }
-                        content != null && rating == null -> {
-                            app.mcorg.domain.model.idea.Comment.TextComment(
-                                id = id,
-                                ideaId = ideaId,
-                                commenterId = commenterId,
-                                commenterName = commenterName,
-                                createdAt = createdAt,
-                                likes = likesCount,
-                                content = content,
-                                youLiked = youLiked
-                            )
-                        }
-                        content == null && rating != null -> {
-                            app.mcorg.domain.model.idea.Comment.RatingComment(
-                                id = id,
-                                ideaId = ideaId,
-                                commenterId = commenterId,
-                                commenterName = commenterName,
-                                createdAt = createdAt,
-                                likes = likesCount,
-                                youLiked = youLiked,
-                                rating = rating
-                            )
-                        }
-                        else -> throw IllegalStateException("Comment must have either content or rating")
-                    }
+                    val comment = resultSet.toComment()
                     comments.add(comment)
                 }
                 comments
             }
         ).process(input)
+    }
+}
+
+fun ResultSet.toComment(): Comment {
+    val id = getInt("id")
+    val ideaId = getInt("idea_id")
+    val commenterId = getInt("commenter_id")
+    val commenterName = getString("commenter_name")
+    val content = getString("content")
+    val ratingDecimal = getBigDecimal("rating")
+    val rating = ratingDecimal?.toInt()
+    val likesCount = getInt("likes_count")
+    val createdAt = getTimestamp("created_at").toInstant()
+        .atZone(java.time.ZoneId.systemDefault())
+    val youLiked = getBoolean("you_liked")
+
+    return when {
+        content != null && rating != null -> {
+            Comment.RatedTextComment(
+                id = id,
+                ideaId = ideaId,
+                commenterId = commenterId,
+                commenterName = commenterName,
+                createdAt = createdAt,
+                likes = likesCount,
+                content = content,
+                rating = rating,
+                youLiked = youLiked
+            )
+        }
+        content != null && rating == null -> {
+            Comment.TextComment(
+                id = id,
+                ideaId = ideaId,
+                commenterId = commenterId,
+                commenterName = commenterName,
+                createdAt = createdAt,
+                likes = likesCount,
+                content = content,
+                youLiked = youLiked
+            )
+        }
+        content == null && rating != null -> {
+            Comment.RatingComment(
+                id = id,
+                ideaId = ideaId,
+                commenterId = commenterId,
+                commenterName = commenterName,
+                createdAt = createdAt,
+                likes = likesCount,
+                youLiked = youLiked,
+                rating = rating
+            )
+        }
+        else -> throw IllegalStateException("Comment must have either content or rating")
     }
 }

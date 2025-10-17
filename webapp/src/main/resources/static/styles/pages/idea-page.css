@@ -116,4 +116,25 @@
             gap: var(--spacing-xs);
         }
     }
+
+    #idea-comments-list {
+        list-style: none;
+
+        > li {
+            border-bottom: 1px solid var(--clr-stone-900);
+        }
+
+        .idea-comment-header {
+            display: flex;
+            flex-direction: row;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .idea-comment-actions {
+            display: flex;
+            flex-direction: row;
+            gap: var(--spacing-sm);
+        }
+    }
 }
