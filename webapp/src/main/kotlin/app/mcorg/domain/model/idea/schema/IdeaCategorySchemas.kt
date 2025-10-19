@@ -712,14 +712,6 @@ object IdeaCategorySchemas {
     }
 
     val BUILD = ideaCategory(IdeaCategory.BUILD) {
-        textField("purpose") {
-            label = "Purpose"
-            searchable = true
-            required = true
-            multiline = true
-            helpText = "What is this build for?"
-        }
-
         dimensionsField("dimensions") {
             label = "Dimensions"
             searchable = true
@@ -742,13 +734,6 @@ object IdeaCategorySchemas {
                 "Stone", "Wood", "Concrete", "Terracotta", "Glass",
                 "Metal", "Prismarine", "Nether Materials", "End Materials", "Other"
             )
-        }
-
-        textField("description") {
-            label = "Description"
-            searchable = true
-            multiline = true
-            required = true
         }
     }
 
