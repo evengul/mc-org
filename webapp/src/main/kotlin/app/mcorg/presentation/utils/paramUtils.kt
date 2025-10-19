@@ -27,5 +27,11 @@ fun ApplicationCall.getWorldMemberId(): Int = getInt("WorldMemberParam")
 fun ApplicationCall.setProjectDependencyId(id: Int) = setInt("ProjectDependencyParam", id)
 fun ApplicationCall.getProjectDependencyId(): Int = getInt("ProjectDependencyParam")
 
+fun ApplicationCall.setIdeaId(id: Int) = setInt("IdeaParam", id)
+fun ApplicationCall.getIdeaId(): Int = getInt("IdeaParam")
+
+fun ApplicationCall.setIdeaCommentId(id: Int) = setInt("IdeaCommentParam", id)
+fun ApplicationCall.getIdeaCommentId(): Int = getInt("IdeaCommentParam")
+
 private fun ApplicationCall.setInt(key: String, value: Int) = attributes.put(AttributeKey(key), value)
 private fun ApplicationCall.getInt(key: String): Int = attributes[AttributeKey(key)]

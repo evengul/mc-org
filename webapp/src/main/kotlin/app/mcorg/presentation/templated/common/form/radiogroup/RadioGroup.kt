@@ -1,6 +1,7 @@
 package app.mcorg.presentation.templated.common.form.radiogroup
 
 import app.mcorg.presentation.templated.common.component.LeafComponent
+import kotlinx.html.DIV
 import kotlinx.html.InputType
 import kotlinx.html.Tag
 import kotlinx.html.TagConsumer
@@ -47,12 +48,14 @@ class RadioGroup(
     var selectedOption: String? = null,
     var size: RadioGroupSize = RadioGroupSize.MEDIUM,
     var state: RadioGroupState = RadioGroupState.DEFAULT,
-    var layout: RadioGroupLayout = RadioGroupLayout.VERTICAL
+    var layout: RadioGroupLayout = RadioGroupLayout.VERTICAL,
+    var block: DIV.() -> Unit = {},
 ) : LeafComponent() {
 
     override fun render(container: TagConsumer<*>) {
         container.div {
             // Apply layout utility classes
+            block()
             classes = when (layout) {
                 RadioGroupLayout.VERTICAL -> setOf("stack", "stack--sm")
                 RadioGroupLayout.HORIZONTAL -> setOf("cluster", "cluster--sm")

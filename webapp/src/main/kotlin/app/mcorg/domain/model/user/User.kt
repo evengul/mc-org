@@ -37,9 +37,9 @@ data class TokenProfile(
     val isSuperAdmin: Boolean
         get() = roles.contains("superadmin")
     val isModerator: Boolean
-        get() = roles.contains("moderator")
+        get() = isSuperAdmin || roles.contains("moderator")
     val isIdeaCreator: Boolean
-        get() = roles.contains("idea_creator")
+        get() = isSuperAdmin || roles.contains("idea_creator")
     val isBanned: Boolean
         get() = roles.contains("banned")
 }
