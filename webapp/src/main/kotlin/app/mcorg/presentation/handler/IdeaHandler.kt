@@ -2,6 +2,7 @@ package app.mcorg.presentation.handler
 
 import app.mcorg.pipeline.idea.*
 import app.mcorg.pipeline.idea.single.handleCreateIdeaComment
+import app.mcorg.pipeline.idea.single.handleDeleteIdea
 import app.mcorg.pipeline.idea.single.handleDeleteIdeaComment
 import app.mcorg.pipeline.idea.single.handleFavouriteIdea
 import app.mcorg.pipeline.idea.single.handleGetIdea
@@ -76,7 +77,7 @@ class IdeaHandler {
                     // Archive idea
                 }
                 delete {
-                    // Delete idea
+                    call.handleDeleteIdea()
                 }
 
                 route("/comments") {

@@ -17,6 +17,13 @@
         flex-direction: row;
         justify-content: space-between;
         gap: var(--spacing-md);
+
+        #idea-header-end {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            gap: var(--spacing-sm);
+        }
     }
 
     #idea-description {

@@ -82,6 +82,16 @@ fun MAIN.ideaContent(userId: Int, idea: Idea, comments: List<Comment>) {
                     variant = ChipVariant.NEUTRAL
                     + idea.category.toPrettyEnumName()
                 }
+                if (userId == idea.createdBy) {
+                    iconButton(Icons.DELETE, color = IconButtonColor.DANGER) {
+                        iconSize = IconSize.SMALL
+                        buttonBlock = {
+                            hxDelete(Link.Ideas.single(idea.id))
+                            hxSwap("none")
+                            hxConfirm("Are you sure you want to delete this idea?")
+                        }
+                    }
+                }
             }
         }
         span {
