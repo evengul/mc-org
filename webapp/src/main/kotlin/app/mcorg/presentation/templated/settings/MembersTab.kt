@@ -24,6 +24,8 @@ import app.mcorg.presentation.templated.common.link.Link
 import app.mcorg.presentation.templated.common.tabs.TabData
 import app.mcorg.presentation.templated.common.tabs.TabsVariant
 import app.mcorg.presentation.templated.common.tabs.tabsComponent
+import app.mcorg.presentation.templated.utils.formatAsDate
+import app.mcorg.presentation.templated.utils.formatAsRelativeOrDate
 import app.mcorg.presentation.templated.utils.toPrettyEnumName
 import kotlinx.html.DIV
 import kotlinx.html.FormEncType
@@ -44,7 +46,6 @@ import kotlinx.html.section
 import kotlinx.html.select
 import kotlinx.html.span
 import kotlinx.html.ul
-import java.time.format.DateTimeFormatter
 
 val validInitialRoles = listOf(
     Role.MEMBER,
@@ -166,13 +167,13 @@ fun LI.worldInvite(invite: Invite) {
             }
             div("row") {
                 p("subtle") {
-                    +"Sent on: ${invite.createdAt.format(DateTimeFormatter.ofPattern("yyyy/MM/dd"))}"
+                    +"Sent: ${invite.createdAt.formatAsDate()}"
                 }
                 p("subtle") {
                     + "•"
                 }
                 p("subtle") {
-                    +"Expires on: ${invite.expiresAt.format(DateTimeFormatter.ofPattern("yyyy/MM/dd"))}"
+                    +"Expires: ${invite.expiresAt.formatAsDate()}"
                 }
             }
         }
@@ -217,7 +218,7 @@ fun DIV.membersListSection(currentUser: TokenProfile, members: List<WorldMember>
                                 }
                                 + " • "
                                 span {
-                                    + "Joined on: ${member.createdAt.format(DateTimeFormatter.ofPattern("yyyy/MM/dd"))}"
+                                    + "Joined: ${member.createdAt.formatAsRelativeOrDate()}"
                                 }
                             }
                         }

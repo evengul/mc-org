@@ -5,6 +5,7 @@ import app.mcorg.presentation.templated.common.chip.ChipSize
 import app.mcorg.presentation.templated.common.chip.ChipVariant
 import app.mcorg.presentation.templated.common.chip.chipComponent
 import app.mcorg.presentation.templated.common.link.Link
+import app.mcorg.presentation.templated.utils.formatAsRelativeOrDate
 import app.mcorg.presentation.templated.utils.toPrettyEnumName
 import kotlinx.html.LI
 import kotlinx.html.UL
@@ -16,7 +17,6 @@ import kotlinx.html.id
 import kotlinx.html.li
 import kotlinx.html.p
 import kotlinx.html.ul
-import java.time.format.DateTimeFormatter
 
 fun UL.ideaList(ideas: List<Idea>) {
     id = "ideas-list"
@@ -37,7 +37,7 @@ fun LI.ideaListItem(idea: Idea) {
                     +idea.name
                 }
                 p("subtle") {
-                    +"by ${idea.author.name} • ${idea.createdAt.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))}"
+                    +"by ${idea.author.name} • ${idea.createdAt.formatAsRelativeOrDate()}"
                 }
             }
             div("idea-list-item-header-end") {
@@ -95,4 +95,3 @@ fun LI.ideaListItem(idea: Idea) {
         }
     }
 }
-

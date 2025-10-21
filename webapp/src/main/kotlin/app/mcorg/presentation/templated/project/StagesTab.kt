@@ -5,6 +5,7 @@ import app.mcorg.domain.model.project.ProjectStageChange
 import app.mcorg.presentation.templated.common.icon.IconColor
 import app.mcorg.presentation.templated.common.icon.Icons
 import app.mcorg.presentation.templated.common.icon.iconComponent
+import app.mcorg.presentation.templated.utils.formatAsDate
 import app.mcorg.presentation.templated.utils.toPrettyEnumName
 import kotlinx.html.DIV
 import kotlinx.html.classes
@@ -13,7 +14,6 @@ import kotlinx.html.li
 import kotlinx.html.p
 import kotlinx.html.span
 import kotlinx.html.ul
-import java.time.format.DateTimeFormatter
 
 fun DIV.stagesTab(stageChanges: List<ProjectStageChange>) {
     classes += "stages-tab"
@@ -36,7 +36,7 @@ fun DIV.stagesTab(stageChanges: List<ProjectStageChange>) {
                 + stage.toPrettyEnumName()
                 if (change != null) {
                     p("subtle") {
-                        + "Entered on: ${change.enteredOn.format(DateTimeFormatter.ofPattern("dd/MM/yyyy 'at' HH:mm"))}"
+                        + "Entered on: ${change.enteredOn.formatAsDate()}"
                     }
                     if (change.relatedTasks.isEmpty()) {
                         p("subtle") {
