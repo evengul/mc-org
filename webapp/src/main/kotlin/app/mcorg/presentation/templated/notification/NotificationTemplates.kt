@@ -4,6 +4,7 @@ import app.mcorg.domain.model.notification.Notification
 import app.mcorg.domain.model.user.TokenProfile
 import app.mcorg.presentation.templated.common.page.createPage
 import app.mcorg.presentation.templated.common.page.PageScript
+import app.mcorg.presentation.templated.utils.formatAsRelativeOrDate
 import kotlinx.html.*
 
 fun notificationsPage(
@@ -77,7 +78,7 @@ fun DIV.notificationItem(notification: Notification) {
                     +notification.title
                 }
                 span("notification-item__timestamp") {
-                    +formatTimestamp(notification.sentAt)
+                    + notification.sentAt.formatAsRelativeOrDate()
                 }
             }
             p("list__item-meta notification-item__description") {
@@ -125,18 +126,5 @@ fun DIV.notificationsEmptyState(unreadOnly: Boolean) {
                 p { +"You'll receive notifications for invitations, project updates, and other important events." }
             }
         }
-    }
-}
-
-private fun formatTimestamp(timestamp: java.time.ZonedDateTime): String {
-    val now = java.time.ZonedDateTime.now()
-    val duration = java.time.Duration.between(timestamp, now)
-
-    return when {
-        duration.toDays() > 7 -> timestamp.format(java.time.format.DateTimeFormatter.ofPattern("MMM d, yyyy"))
-        duration.toDays() > 0 -> "${duration.toDays()} day${if (duration.toDays() == 1L) "" else "s"} ago"
-        duration.toHours() > 0 -> "${duration.toHours()} hour${if (duration.toHours() == 1L) "" else "s"} ago"
-        duration.toMinutes() > 0 -> "${duration.toMinutes()} minute${if (duration.toMinutes() == 1L) "" else "s"} ago"
-        else -> "Just now"
     }
 }

@@ -24,9 +24,9 @@ import app.mcorg.presentation.templated.common.icon.IconSize
 import app.mcorg.presentation.templated.common.icon.Icons
 import app.mcorg.presentation.templated.common.link.Link
 import app.mcorg.presentation.templated.common.progress.progressComponent
+import app.mcorg.presentation.templated.utils.formatAsRelativeOrDate
 import app.mcorg.presentation.templated.utils.toPrettyEnumName
 import kotlinx.html.*
-import java.time.format.DateTimeFormatter
 
 fun DIV.tasksTab(project: Project, totalTasksCount: Int, tasks: List<Task>) {
     classes += "project-tasks-tab"
@@ -410,13 +410,13 @@ private fun DIV.projectDetailsSidebar(project: Project) {
             + "Created"
         }
         p {
-            + project.createdAt.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))
+            + project.createdAt.formatAsRelativeOrDate()
         }
         p("details-label") {
             + "Last Updated"
         }
         p {
-            + project.updatedAt.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))
+            + project.updatedAt.formatAsRelativeOrDate()
         }
     }
 }

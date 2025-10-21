@@ -7,9 +7,10 @@ import app.mcorg.domain.model.user.TokenProfile
 import app.mcorg.presentation.templated.common.button.dangerButton
 import app.mcorg.presentation.templated.common.button.neutralButton
 import app.mcorg.presentation.templated.common.page.createPage
+import app.mcorg.presentation.templated.utils.formatAsDate
+import app.mcorg.presentation.templated.utils.formatAsDateTime
 import app.mcorg.presentation.templated.utils.toPrettyEnumName
 import kotlinx.html.*
-import java.time.format.DateTimeFormatter
 
 fun adminPage(
     currentUser: TokenProfile,
@@ -99,10 +100,10 @@ private fun FlowContent.userManagementTable(users: List<ManagedUser>) {
                         +user.globalRole.toPrettyEnumName()
                     }
                     td {
-                        +user.joinedAt.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))
+                        +user.joinedAt.formatAsDate()
                     }
                     td {
-                        +(user.lastSeen?.format(DateTimeFormatter.ofPattern("dd/MM/yyyy 'at' HH:mm")) ?: "Never")
+                        +(user.lastSeen?.formatAsDateTime() ?: "Never")
                     }
                     td("actions") {
                         userActionButtons(user)
@@ -187,7 +188,7 @@ private fun FlowContent.worldManagementTable(worlds: List<ManagedWorld>) {
                         +world.members.toString()
                     }
                     td {
-                        +world.createdAt.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))
+                        +world.createdAt.formatAsDate()
                     }
                     td("actions") {
                         worldActionButtons()

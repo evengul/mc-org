@@ -22,6 +22,8 @@ import app.mcorg.presentation.templated.common.icon.Icons
 import app.mcorg.presentation.templated.common.link.Link
 import app.mcorg.presentation.templated.common.page.createPage
 import app.mcorg.presentation.templated.common.progress.progressComponent
+import app.mcorg.presentation.templated.utils.formatAsDateTime
+import app.mcorg.presentation.templated.utils.formatAsRelativeOrDate
 import app.mcorg.presentation.templated.utils.toPrettyEnumName
 import kotlinx.html.ButtonType
 import kotlinx.html.FormEncType
@@ -45,7 +47,6 @@ import kotlinx.html.span
 import kotlinx.html.style
 import kotlinx.html.textArea
 import kotlinx.html.ul
-import java.time.format.DateTimeFormatter
 
 fun ideaPage(
     user: TokenProfile,
@@ -73,7 +74,7 @@ fun MAIN.ideaContent(userId: Int, idea: Idea, comments: List<Comment>) {
                     + idea.name
                 }
                 p("subtle") {
-                    + "by ${idea.author.name} • ${idea.createdAt.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))} • ${idea.rating.average} stars"
+                    + "by ${idea.author.name} • ${idea.createdAt.formatAsRelativeOrDate()} • ${idea.rating.average} stars"
                 }
             }
             div {
@@ -259,7 +260,7 @@ fun LI.ideaCommentItem(userId: Int, comment: Comment) {
             }
             p {
                 classes += "idea-comment-date subtle"
-                +comment.createdAt.format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"))
+                +comment.createdAt.formatAsDateTime()
             }
         }
         div {
