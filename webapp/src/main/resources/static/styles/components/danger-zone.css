@@ -1,0 +1,80 @@
+/* ========================================
+   DANGER ZONE COMPONENT
+   Prominent warning section for destructive actions
+   ======================================== */
+
+.danger-zone {
+    background-color: var(--clr-danger-subtle);
+    border: 2px solid var(--clr-border-danger);
+    border-radius: var(--border-radius-lg);
+    padding: var(--spacing-md);
+    margin-top: var(--spacing-lg);
+    margin-bottom: var(--spacing-md);
+}
+
+.danger-zone__title {
+    font-size: var(--text-lg);
+    font-weight: 600;
+    color: var(--clr-text-danger);
+    margin: 0 0 var(--spacing-sm) 0;
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.danger-zone__title::before {
+    content: "⚠";
+    font-size: var(--text-xl);
+    line-height: 1;
+}
+
+.danger-zone__description {
+    font-size: var(--text-sm);
+    color: var(--clr-text-subtle);
+    margin: 0 0 var(--spacing-md) 0;
+    line-height: 1.5;
+}
+
+.danger-zone__content {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+/* Button styling within danger zone */
+.danger-zone__content .btn--danger {
+    align-self: flex-start;
+}
+
+/* Responsive adjustments */
+@media (min-width: 768px) {
+    .danger-zone {
+        padding: var(--spacing-lg);
+    }
+
+    .danger-zone__content {
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+    }
+}
+
+/* Theme-specific adjustments */
+[data-theme="nether"] .danger-zone {
+    background-color: rgba(139, 31, 40, 0.2);
+    border-color: var(--clr-crimson-500);
+}
+
+[data-theme="nether"] .danger-zone__title {
+    color: var(--clr-crimson-400);
+}
+
+[data-theme="end"] .danger-zone {
+    background-color: rgba(199, 0, 0, 0.15);
+    border-color: var(--clr-danger);
+}
+
+[data-theme="end"] .danger-zone__title {
+    color: var(--clr-red-400);
+}
+
