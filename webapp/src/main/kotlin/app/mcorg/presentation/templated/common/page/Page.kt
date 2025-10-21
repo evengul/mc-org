@@ -10,12 +10,15 @@ import kotlinx.html.lang
 import kotlinx.html.link
 import kotlinx.html.main
 import kotlinx.html.meta
+import kotlinx.html.script
 import kotlinx.html.stream.createHTML
 import kotlinx.html.title
+import kotlinx.html.unsafe
+import org.intellij.lang.annotations.Language
 
 fun createPage(
     pageTitle: String = "MC-ORG",
-    pageScripts: Set<PageScript> = setOf(PageScript.HTMX),
+    pageScripts: Set<PageScript> = setOf(PageScript.THEME_SWITCHER, PageScript.HTMX),
     pageStyles: Set<PageStyle> = PageStyle.entries.toSet(),
     user: TokenProfile? = null,
     unreadNotificationCount: Int = 0,
@@ -25,6 +28,14 @@ fun createPage(
         lang = "en"
         head {
             title { + pageTitle }
+
+            // Inline blocking script to prevent theme flash (FOUC)
+            script {
+                unsafe {
+                    + getThemeScript.trimIndent()
+                }
+            }
+
             pageScripts.forEach { addScript(it) }
             pageStyles.forEach { // TODO: Split styles.css into multiple files
                 link {
@@ -45,3 +56,22 @@ fun createPage(
         }
     }
 }
+
+@Language("JavaScript")
+private const val getThemeScript = """
+    (function() {
+        const THEMES = { OVERWORLD: 'overworld', NETHER: 'nether', END: 'end' };
+        const savedTheme = localStorage.getItem('mc-org-theme');
+        let theme;
+        
+        if (savedTheme && ['overworld', 'nether', 'end'].includes(savedTheme)) {
+            theme = savedTheme;
+        } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            theme = THEMES.END;
+        } else {
+            theme = THEMES.OVERWORLD;
+        }
+        
+        document.documentElement.setAttribute('data-theme', theme);
+    })();
+"""

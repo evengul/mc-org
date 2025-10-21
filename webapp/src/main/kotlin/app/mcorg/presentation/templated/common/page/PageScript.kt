@@ -5,12 +5,14 @@ import app.mcorg.presentation.templated.common.page.PageScript.DRAGGABLE
 import app.mcorg.presentation.templated.common.page.PageScript.HTMX
 import app.mcorg.presentation.templated.common.page.PageScript.REMOVE_FIRST_PROJECT_DIALOG_ON_CREATE
 import app.mcorg.presentation.templated.common.page.PageScript.RESPONSE_TARGETS
+import app.mcorg.presentation.templated.common.page.PageScript.THEME_SWITCHER
 import app.mcorg.presentation.templated.common.page.PageScript.TOGGLE_VISIBILITY
 import io.ktor.util.generateNonce
 import kotlinx.html.HEAD
 import kotlinx.html.script
 
 enum class PageScript {
+    THEME_SWITCHER,
     HTMX,
     RESPONSE_TARGETS,
     DIALOGS,
@@ -21,6 +23,7 @@ enum class PageScript {
 
 fun HEAD.addScript(script: PageScript) {
     when (script) {
+        THEME_SWITCHER -> script { src = "/static/scripts/theme-switcher.js"; nonce = generateNonce() }
         HTMX -> script { src = "/static/scripts/htmx.js"; nonce = generateNonce() }
         RESPONSE_TARGETS -> script { src = "/static/scripts/response-targets.js" }
         DIALOGS -> script { src = "/static/scripts/dialogs.js"; nonce = generateNonce() }
