@@ -22,31 +22,6 @@
     }
 }
 
-.world-settings-page .danger-zone {
-    border-radius: var(--border-radius-sm);
-    background-color: var(--clr-bg-subtle);
-    box-shadow: var(--shadow-sm);
-
-    .danger-zone-content,
-    .danger-zone-header{
-        padding: var(--spacing-sm);
-    }
-
-    .danger-zone-header {
-        background-color: var(--clr-danger-subtle);
-        h3 {
-            color: var(--clr-text-danger);
-        }
-    }
-
-    .danger-zone-content {
-        button {
-            margin-top: var(--spacing-sm);
-            width: fit-content;
-        }
-    }
-}
-
 .settings-members-tab {
     display: flex;
     flex-direction: column;

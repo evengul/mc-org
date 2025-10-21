@@ -58,22 +58,5 @@
                 width: fit-content;
             }
         }
-
-        .danger-zone {
-            border-block-start: 1px solid var(--clr-danger);
-            padding-block-start: var(--spacing-sm);
-
-            display: flex;
-            flex-direction: column;
-            gap: var(--spacing-sm);
-
-            p.danger-zone-title {
-                color: var(--clr-text-danger);
-            }
-
-            button {
-                width: fit-content;
-            }
-        }
     }
 }

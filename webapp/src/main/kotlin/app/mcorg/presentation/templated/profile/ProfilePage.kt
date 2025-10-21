@@ -6,6 +6,7 @@ import app.mcorg.presentation.templated.common.avatar.avatar
 import app.mcorg.presentation.templated.common.button.actionButton
 import app.mcorg.presentation.templated.common.button.dangerButton
 import app.mcorg.presentation.templated.common.button.neutralButton
+import app.mcorg.presentation.templated.common.dangerzone.dangerZone
 import app.mcorg.presentation.templated.common.icon.IconColor
 import app.mcorg.presentation.templated.common.icon.IconSize
 import app.mcorg.presentation.templated.common.icon.Icons
@@ -159,7 +160,12 @@ private fun MAIN.accountSettingsSection() {
     section("profile-settings") {
         accountSettingsHeader()
         signOutSection()
-        dangerZoneSection()
+        dangerZone(description = "Permanently delete your account and all associated data. This action cannot be undone.") {
+            dangerButton("Delete Account") {
+                iconLeft = Icons.DELETE
+                iconSize = IconSize.SMALL
+            }
+        }
     }
 }
 
@@ -185,21 +191,5 @@ private fun FlowContent.signOutSection() {
         neutralButton("Sign Out") {
             href = "/auth/sign-out"
         }
-    }
-}
-
-private fun FlowContent.dangerZoneSection() {
-    div("danger-zone") {
-        p("danger-zone-title") {
-            + "Danger Zone"
-        }
-        p("subtle") {
-            + "Permanently delete your account and all associated data. This action cannot be undone."
-        }
-        dangerButton("Delete Account") {
-            iconLeft = Icons.DELETE
-            iconSize = IconSize.SMALL
-        }
-
     }
 }

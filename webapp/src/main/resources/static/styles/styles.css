@@ -28,6 +28,7 @@
 @import "components/chip.css";
 @import "components/table.css";
 @import "components/icon.css";
+@import "components/danger-zone.css";
 
 /* Page styles */
 @import "pages/landing-page.css";

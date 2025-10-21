@@ -8,6 +8,7 @@ import app.mcorg.presentation.hxDelete
 import app.mcorg.presentation.hxPut
 import app.mcorg.presentation.templated.common.button.actionButton
 import app.mcorg.presentation.templated.common.button.dangerButton
+import app.mcorg.presentation.templated.common.dangerzone.dangerZone
 import app.mcorg.presentation.templated.common.icon.IconSize
 import app.mcorg.presentation.templated.common.icon.Icons
 import app.mcorg.presentation.templated.common.link.Link
@@ -18,7 +19,6 @@ import kotlinx.html.FORM
 import kotlinx.html.FormEncType
 import kotlinx.html.InputType
 import kotlinx.html.classes
-import kotlinx.html.div
 import kotlinx.html.form
 import kotlinx.html.h2
 import kotlinx.html.id
@@ -44,25 +44,15 @@ fun DIV.projectSettingsTab(project: Project, worldMemberRole: Role) {
         }
     }
     if (worldMemberRole.isHigherThanOrEqualTo(Role.ADMIN)) {
-        section("danger-zone") {
-            div("danger-zone-header") {
-                h2("danger-zone-title") {
-                    +"Danger Zone"
+        dangerZone(description = "Permanently delete this project and all associated data. This action cannot be undone.") {
+            dangerButton("Delete Project") {
+                buttonBlock = {
+                    hxDelete(Link.Worlds.world(project.worldId).project(project.id).to)
+                    hxConfirm("Are you sure you want to delete the project \"${project.name}\"? This action cannot be undone.")
+                    type = ButtonType.button
                 }
-                p("subtle") {
-                    + "Permanently delete this project and all associated data. This action cannot be undone."
-                }
-            }
-            div("danger-zone-content") {
-                dangerButton("Delete Project") {
-                    buttonBlock = {
-                        hxDelete(Link.Worlds.world(project.worldId).project(project.id).to)
-                        hxConfirm("Are you sure you want to delete the project \"${project.name}\"? This action cannot be undone.")
-                        type = ButtonType.button
-                    }
-                    iconLeft = Icons.DELETE
-                    iconSize = IconSize.SMALL
-                }
+                iconLeft = Icons.DELETE
+                iconSize = IconSize.SMALL
             }
         }
     }

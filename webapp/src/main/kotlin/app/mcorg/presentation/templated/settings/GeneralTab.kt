@@ -9,6 +9,7 @@ import app.mcorg.presentation.hxPut
 import app.mcorg.presentation.hxTarget
 import app.mcorg.presentation.templated.common.button.actionButton
 import app.mcorg.presentation.templated.common.button.dangerButton
+import app.mcorg.presentation.templated.common.dangerzone.dangerZone
 import app.mcorg.presentation.templated.common.link.Link
 import kotlinx.html.DIV
 import kotlinx.html.FORM
@@ -18,7 +19,6 @@ import kotlinx.html.classes
 import kotlinx.html.div
 import kotlinx.html.form
 import kotlinx.html.h2
-import kotlinx.html.h3
 import kotlinx.html.id
 import kotlinx.html.input
 import kotlinx.html.label
@@ -160,27 +160,11 @@ fun DIV.generalTab(tabData: SettingsTab.General) {
         }
     }
 
-    div("danger-zone") {
-        div("danger-zone-header") {
-            h3 {
-                + "Danger Zone"
-            }
-            p("subtle") {
-                + "Actions in this section can lead to permanent data loss"
-            }
-        }
-        div("danger-zone-content") {
-            p {
-                + "Delete this world"
-            }
-            p("subtle") {
-                + "Once you delete a world, there is no going back. All projects, tasks, and resources will be permanently deleted."
-            }
-            dangerButton("Delete World") {
-                buttonBlock = {
-                    hxDelete(Link.Worlds.world(tabData.world.id).settings().to)
-                    hxConfirm("Are you sure you want to delete this world? This action cannot be undone.")
-                }
+    dangerZone(description = "Once you delete a world, there is no going back. All projects, tasks, and resources will be permanently deleted.") {
+        dangerButton("Delete World") {
+            buttonBlock = {
+                hxDelete(Link.Worlds.world(tabData.world.id).settings().to)
+                hxConfirm("Are you sure you want to delete this world? This action cannot be undone.")
             }
         }
     }
