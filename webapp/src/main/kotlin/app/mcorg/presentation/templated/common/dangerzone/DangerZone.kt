@@ -31,7 +31,7 @@ class DangerZone(
             }
             description?.let {
                 p("danger-zone__description subtle") {
-                    + ("Actions in this area can lead to permanent data loss. $it")
+                    + it
                 }
             }
             div {
