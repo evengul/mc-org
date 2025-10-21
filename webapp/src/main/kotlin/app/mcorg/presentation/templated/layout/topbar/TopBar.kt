@@ -42,6 +42,7 @@ data class TopBar(
         ActiveLinks.IDEAS,
         ActiveLinks.NOTIFICATIONS,
         ActiveLinks.ADMIN_DASHBOARD,
+        ActiveLinks.THEME_TOGGLE,
         ActiveLinks.PROFILE
     ),
 ) : LeafComponent() {
@@ -89,7 +90,11 @@ data class TopBar(
                 div {
                     classes += "top-bar-right"
                     if (activeLinks.contains(ActiveLinks.THEME_TOGGLE)) {
-                        iconButton(Icons.Dimensions.OVERWORLD, iconSize = IconSize.SMALL)
+                        iconButton(Icons.Dimensions.OVERWORLD, iconSize = IconSize.SMALL) {
+                            buttonBlock = {
+                                attributes["onclick"] = "window.mcorgTheme.cycle()"
+                            }
+                        }
                     }
                     if (user != null) {
                         if (activeLinks.contains(ActiveLinks.NOTIFICATIONS)) {
