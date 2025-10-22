@@ -106,6 +106,7 @@ fun FORM.projectDescriptionForm(project: Project) {
         id = "project-description-input"
         name = "description"
         value = project.description
+        minLength = "3"
         maxLength = "1000"
         type = InputType.text
     }

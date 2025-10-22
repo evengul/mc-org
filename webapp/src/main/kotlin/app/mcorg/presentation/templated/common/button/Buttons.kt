@@ -38,6 +38,7 @@ fun <T : Tag> T.backButton(text: String, link: Link) = ghostButton(text) {
     href = link.to
     iconLeft = Icons.BACK
     iconSize = IconSize.SMALL
+    id = "button-back"
     addClass("btn--back")
     addClass("btn--sm")
 }

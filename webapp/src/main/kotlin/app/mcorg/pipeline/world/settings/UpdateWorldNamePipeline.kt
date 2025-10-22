@@ -2,12 +2,14 @@ package app.mcorg.pipeline.world.settings
 
 import app.mcorg.domain.pipeline.Pipeline
 import app.mcorg.presentation.handler.executeParallelPipeline
+import app.mcorg.presentation.hxOutOfBands
 import app.mcorg.presentation.templated.layout.alert.createAlert
 import app.mcorg.presentation.utils.getWorldId
 import app.mcorg.presentation.utils.respondBadRequest
 import app.mcorg.presentation.utils.respondHtml
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.request.receiveParameters
+import kotlinx.html.button
 import kotlinx.html.li
 import kotlinx.html.stream.createHTML
 
@@ -24,6 +26,9 @@ suspend fun ApplicationCall.handleUpdateWorldName() {
                     title = "World Name Updated",
                     autoClose = true
                 )
+            } + createHTML().button {
+                hxOutOfBands("innerHTML:#button-back")
+                + "Back to $it"
             })
         },
         onFailure = { failure: UpdateWorldNameFailures ->

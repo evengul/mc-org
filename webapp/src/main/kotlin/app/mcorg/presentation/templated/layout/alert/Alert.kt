@@ -56,7 +56,7 @@ fun LI.createAlert(
     iconButton(Icons.CLOSE, "Close Alert") {
         classes += "alert-dialog__close-button"
         //language=javascript
-        onClick = "document.getElementById('#$id')?.remove()"
+        onClick = "document.getElementById('$id')?.remove()"
     }
     p {
         classes = setOf("alert-dialog__title")
