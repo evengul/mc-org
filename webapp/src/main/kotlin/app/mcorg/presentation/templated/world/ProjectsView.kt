@@ -3,7 +3,6 @@ package app.mcorg.presentation.templated.world
 import app.mcorg.domain.model.project.Project
 import app.mcorg.presentation.templated.common.button.actionButton
 import app.mcorg.presentation.templated.common.chip.infoChip
-import app.mcorg.presentation.templated.common.chip.neutralChip
 import app.mcorg.presentation.templated.common.icon.Icons
 import app.mcorg.presentation.templated.common.link.Link
 import app.mcorg.presentation.templated.common.progress.progressComponent
@@ -26,21 +25,19 @@ fun UL.projectList(projects: List<Project>) {
                 h2 {
                     + project.name
                 }
-                val completeStatus = if (project.tasksCompleted == 0) 0.0 else (project.tasksCompleted.toDouble() / project.tasksTotal.toDouble()) * 100
-                neutralChip(
-                    text = "${completeStatus.toInt()}% Complete"
+                infoChip(
+                    icon = Icons.Menu.UTILITIES,
+                    text = project.stage.toPrettyEnumName()
                 )
             }
-            infoChip(
-                icon = Icons.Menu.UTILITIES,
-                text = project.stage.toPrettyEnumName()
-            )
-            p("subtle") {
-                + project.description
+            if (project.description.isNotBlank()) {
+                p("subtle") {
+                    + project.description
+                }
             }
             div("project-item-meta") {
                 p("subtle") {
-                    + "${project.tasksCompleted} of ${project.tasksTotal} tasks completed"
+                    + "${project.type.toPrettyEnumName()} Project"
                 }
                 p("subtle") {
                     + "Updated ${project.updatedAt.formatAsRelativeOrDate()}"
@@ -49,15 +46,8 @@ fun UL.projectList(projects: List<Project>) {
             progressComponent {
                 value = project.tasksCompleted.toDouble()
                 max = project.tasksTotal.toDouble()
-            }
-            div {
-                p("subtle") {
-                    + "Current stage progress"
-                }
-                progressComponent {
-                    value = project.stageProgress
-                    max = 100.0
-                }
+                showPercentage = false
+                label = "${project.tasksCompleted} of ${project.tasksTotal} task${if(project.tasksTotal == 1) "" else "s"} completed"
             }
             actionButton("View project") {
                 href = Link.Worlds.world(project.worldId).project(project.id).to
