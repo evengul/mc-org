@@ -6,7 +6,6 @@ import app.mcorg.domain.model.user.Role
 import app.mcorg.domain.model.user.TokenProfile
 import app.mcorg.domain.model.user.WorldMember
 import app.mcorg.pipeline.world.GetWorldInvitationsInput
-import app.mcorg.presentation.hxConfirm
 import app.mcorg.presentation.hxDelete
 import app.mcorg.presentation.hxPatch
 import app.mcorg.presentation.hxPost
@@ -182,10 +181,12 @@ fun LI.worldInvite(invite: Invite) {
         if (invite.status is InviteStatus.Pending) {
             neutralButton("Cancel") {
                 buttonBlock = {
-                    hxDelete(Link.Worlds.world(invite.worldId).settings().to + "/members/invitations/${invite.id}")
+                    hxDelete(
+                        Link.Worlds.world(invite.worldId).settings().to + "/members/invitations/${invite.id}",
+                        "Are you sure you want to cancel this invitation? You may resend it later."
+                    )
                     hxTarget("#invite-${invite.id}")
                     hxSwap("delete")
-                    hxConfirm("Are you sure you want to cancel this invitation? You may resend it later.")
                 }
             }
         }
@@ -241,10 +242,9 @@ fun DIV.membersListSection(currentUser: TokenProfile, members: List<WorldMember>
                             }
                             dangerButton("Remove member") {
                                 buttonBlock = {
-                                    hxDelete("${Link.Worlds.world(member.worldId).to}/settings/members/${member.id}")
+                                    hxDelete("${Link.Worlds.world(member.worldId).to}/settings/members/${member.id}", "Are you sure you want to remove ${member.displayName} from this world?")
                                     hxTarget("#member-${member.id}")
                                     hxSwap("delete")
-                                    hxConfirm("Are you sure you want to remove ${member.displayName} from this world?")
                                 }
                             }
                         }

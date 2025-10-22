@@ -18,8 +18,9 @@ fun HTMLTag.hxPatch(value: String) {
     attributes += "hx-patch" to value
 }
 
-fun HTMLTag.hxDelete(value: String) {
+fun HTMLTag.hxDelete(value: String, confirmMessage: String) {
     attributes += "hx-delete" to value
+    hxConfirm(confirmMessage)
 }
 
 fun HTMLTag.hxSwap(value: String) {

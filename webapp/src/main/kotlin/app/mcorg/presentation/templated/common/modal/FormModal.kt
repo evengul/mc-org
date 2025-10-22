@@ -1,6 +1,5 @@
 package app.mcorg.presentation.templated.common.modal
 
-import app.mcorg.presentation.hxDelete
 import app.mcorg.presentation.hxGet
 import app.mcorg.presentation.hxPatch
 import app.mcorg.presentation.hxPost
@@ -23,7 +22,6 @@ enum class FormModalHttpMethod {
     GET,
     POST,
     PUT,
-    DELETE,
     PATCH
 }
 
@@ -86,7 +84,6 @@ class FormModal(
                     FormModalHttpMethod.GET -> hxGet(hx.href)
                     FormModalHttpMethod.POST -> hxPost(hx.href)
                     FormModalHttpMethod.PUT -> hxPut(hx.href)
-                    FormModalHttpMethod.DELETE -> hxDelete(hx.href)
                     FormModalHttpMethod.PATCH -> hxPatch(hx.href)
                 }
             }
