@@ -42,19 +42,11 @@ private fun DIV.projectProgressSection(project: Project) {
         h2 {
             + "Project Progress"
         }
-        p("subtle") {
-            + "${project.tasksCompleted} of ${project.tasksTotal} tasks completed"
-        }
         progressComponent {
             value = project.tasksCompleted.toDouble()
             max = project.tasksTotal.toDouble()
-        }
-        p("subtle") {
-            + "Current stage progress"
-        }
-        progressComponent {
-            value = project.stageProgress
-            max = 100.0
+            showPercentage = false
+            label = "${project.tasksCompleted} of ${project.tasksTotal} task${if (project.tasksTotal == 1) "" else "s"} completed"
         }
     }
 }

@@ -76,30 +76,21 @@ class Progress(
                 }
             }
 
-            // Optional label
-            label?.let { labelText ->
-                div {
-                    classes = setOf("progress__label")
-                    + labelText
-                }
-            }
-
             // Progress container
             div {
                 classes = setOf("progress__container")
+
+                if (display != ProgressDisplay.COMPACT) {
+                    div {
+                        classes = setOf("progress__value")
+                        + ((if (showPercentage) "$percentage%" else "") + (if (showPercentage && label != null) " - " else "") + (if (label != null) "$label" else ""))
+                    }
+                }
 
                 // Progress bar
                 div {
                     classes = setOf("progress__bar")
                     style = "width: $percentage%;"
-
-                    // Progress value display
-                    if (showPercentage && display != ProgressDisplay.COMPACT) {
-                        div {
-                            classes = setOf("progress__value")
-                            + "$percentage%"
-                        }
-                    }
                 }
             }
 

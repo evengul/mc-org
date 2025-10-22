@@ -39,27 +39,28 @@ fun ResultSet.toWorld() = World(
 
 fun ResultSet.toProjects() = buildList {
     while (next()) {
-        add(Project(
-            id = getInt("id"),
-            worldId = getInt("world_id"),
-            name = getString("name"),
-            description = getString("description") ?: "",
-            type = ProjectType.valueOf(getString("type")),
-            stage = ProjectStage.valueOf(getString("stage")),
-            stageProgress = getDouble("stage_progress"),
-            location = MinecraftLocation(
-                dimension = Dimension.valueOf(getString("location_dimension")),
-                x = getInt("location_x"),
-                y = getInt("location_y"),
-                z = getInt("location_z")
-            ),
-            tasksTotal = getInt("tasks_total"),
-            tasksCompleted = getInt("tasks_completed"),
-            createdAt = getTimestamp("created_at").toInstant().atZone(java.time.ZoneOffset.UTC),
-            updatedAt = getTimestamp("updated_at").toInstant().atZone(java.time.ZoneOffset.UTC)
-        ))
+        add(toProject())
     }
 }
+
+fun ResultSet.toProject() = Project(
+    id = getInt("id"),
+    worldId = getInt("world_id"),
+    name = getString("name"),
+    description = getString("description") ?: "",
+    type = ProjectType.valueOf(getString("type")),
+    stage = ProjectStage.valueOf(getString("stage")),
+    location = MinecraftLocation(
+        dimension = Dimension.valueOf(getString("location_dimension")),
+        x = getInt("location_x"),
+        y = getInt("location_y"),
+        z = getInt("location_z")
+    ),
+    tasksTotal = getInt("tasks_total"),
+    tasksCompleted = getInt("tasks_completed"),
+    createdAt = getTimestamp("created_at").toInstant().atZone(java.time.ZoneOffset.UTC),
+    updatedAt = getTimestamp("updated_at").toInstant().atZone(java.time.ZoneOffset.UTC)
+)
 
 val hasWorldRoleOrHigherQuery = SafeSQL.select("""
     SELECT EXISTS (

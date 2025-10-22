@@ -17,11 +17,15 @@
 /* Progress container - the background track */
 .progress__container {
     position: relative;
-    height: 12px;
+    height: calc(var(--text-sm) + 2px);
     background-color: var(--clr-surface-subtle);
     border-radius: var(--border-radius-full);
     overflow: hidden;
     border: 1px solid var(--clr-border-subtle);
+
+    display: flex;
+    align-items: center;
+    width: 100%;
 }
 
 /* Progress bar - the filled portion */

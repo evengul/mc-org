@@ -3,14 +3,12 @@ package app.mcorg.presentation.templated.home
 import app.mcorg.domain.model.world.World
 import app.mcorg.presentation.templated.common.button.actionButton
 import app.mcorg.presentation.templated.common.chip.ChipSize
-import app.mcorg.presentation.templated.common.chip.ChipVariant
 import app.mcorg.presentation.templated.common.chip.actionChip
-import app.mcorg.presentation.templated.common.chip.chipComponent
 import app.mcorg.presentation.templated.common.component.LeafComponent
 import app.mcorg.presentation.templated.common.icon.Icons
 import app.mcorg.presentation.templated.common.link.Link
 import app.mcorg.presentation.templated.common.progress.progressComponent
-import app.mcorg.presentation.templated.utils.SimpleDateFormat
+import app.mcorg.presentation.templated.utils.formatAsRelativeOrDate
 import kotlinx.html.TagConsumer
 import kotlinx.html.div
 import kotlinx.html.h2
@@ -33,15 +31,14 @@ class WorldView(
             }
             div("home-world-item-statistics") {
                 p("subtle") {
-                    + "${world.completedProjects} of ${world.totalProjects} projects completed"
-                }
-                p("subtle") {
-                    +"Created at: ${world.createdAt.format(SimpleDateFormat.INSTANCE)}"
+                    +"Created: ${world.createdAt.formatAsRelativeOrDate()}"
                 }
             }
             progressComponent {
                 value = world.completedProjects.toDouble()
                 max = world.totalProjects.toDouble()
+                label = "${world.completedProjects} of ${world.totalProjects} project${if (world.totalProjects == 1) "" else "s"} completed"
+                showPercentage = false
             }
             actionButton("View World") {
                 href = Link.Worlds.world(world.id).to
