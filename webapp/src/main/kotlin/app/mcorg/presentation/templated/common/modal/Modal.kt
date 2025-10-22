@@ -131,7 +131,7 @@ open class Modal(
     }
 
     protected open fun DIALOG.renderCloseButton() {
-        iconButton(Icons.CLOSE, iconSize = IconSize.SMALL, color = IconButtonColor.GHOST) {
+        iconButton(Icons.CLOSE, "Close modal", iconSize = IconSize.SMALL, color = IconButtonColor.GHOST) {
             onClick = "this.closest('dialog')?.querySelector('form')?.reset(); document.getElementById('$modalId')?.close();"
             addClass("modal__close")
             addClass("u-cursor-pointer")

@@ -52,12 +52,13 @@ enum class ButtonSize {
 
 fun <T : Tag> T.iconButton(
     icon: Icon,
+    ariaLabel: String,
     iconSize: IconSize = IconSize.MEDIUM,
     color: IconButtonColor = IconButtonColor.NEUTRAL,
     size: ButtonSize = ButtonSize.MEDIUM,
     buttonHandler: (GenericButton.() -> Unit)? = null
 ) {
-    val button = GenericButton(iconLeft = icon, iconSize = iconSize)
+    val button = GenericButton(iconLeft = icon, iconSize = iconSize, ariaLabel = ariaLabel)
     // Updated to use new CSS methodology
     button.addClass("btn--icon-only")
 

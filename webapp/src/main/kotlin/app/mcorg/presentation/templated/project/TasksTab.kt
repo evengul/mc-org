@@ -215,6 +215,7 @@ private fun LI.taskHeader(worldId: Int, projectId: Int, task: Task) {
             }
             iconButton(
                 icon = Icons.DELETE,
+                ariaLabel = "Delete task",
                 iconSize = IconSize.SMALL,
                 color = IconButtonColor.DANGER,
             ) {
@@ -325,7 +326,7 @@ private fun LI.itemRequirement(requirement: ItemRequirement, worldId: Int, proje
             }
         }
         div("item-requirement-controls") {
-            iconButton(Icons.MENU, iconSize = IconSize.SMALL) {
+            iconButton(Icons.MENU, "Edit requirement", iconSize = IconSize.SMALL) {
                 buttonBlock = {
                     classes += "edit-requirement-btn"
                     onClick = "openEditRequirementModal(${requirement.id}, '${requirement.item}', ${requirement.requiredAmount}, $worldId, $projectId, $taskId)"

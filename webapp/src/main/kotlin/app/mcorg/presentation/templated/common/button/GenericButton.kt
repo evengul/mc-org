@@ -19,7 +19,8 @@ class GenericButton(
     var iconSize: IconSize? = null,
     var onClick: String? = null,
     var classes: Set<String> = setOf("btn"),
-    var buttonBlock: (BUTTON.() -> Unit)? = null
+    var ariaLabel: String? = null,
+    var buttonBlock: (BUTTON.() -> Unit)? = null,
 ) : LeafComponent() {
 
     override fun render(container: TagConsumer<*>) {
@@ -44,13 +45,20 @@ class GenericButton(
                 buttonInternals()
             }
         }
-
-
     }
 
     private fun BUTTON.buttonInternals() {
         val color = getColor()
         this.classes = getAllClasses()
+        ariaLabel?.let {
+            attributes["aria-label"] = it
+            if (attributes["title"] == null || attributes["title"]?.isEmpty() == true) {
+                attributes["title"] = it
+            }
+        }
+        if (ariaLabel == null && attributes["title"] != null && attributes["title"]?.isEmpty() == true) {
+            attributes["aria-label"] = attributes["title"]!!
+        }
         onClick?.let {
             attributes["onclick"] = it
         }
@@ -63,6 +71,7 @@ class GenericButton(
         iconRight?.let {
             iconComponent(it, iconSize ?: IconSize.MEDIUM, color)
         }
+
     }
 
     private fun getColor(): IconColor {

@@ -90,7 +90,7 @@ data class TopBar(
                 div {
                     classes += "top-bar-right"
                     if (activeLinks.contains(ActiveLinks.THEME_TOGGLE)) {
-                        iconButton(Icons.Dimensions.OVERWORLD, iconSize = IconSize.SMALL) {
+                        iconButton(Icons.Dimensions.OVERWORLD, "Cycle visual themes", iconSize = IconSize.SMALL) {
                             buttonBlock = {
                                 attributes["onclick"] = "window.mcorgTheme.cycle()"
                             }
@@ -99,7 +99,7 @@ data class TopBar(
                     if (user != null) {
                         if (activeLinks.contains(ActiveLinks.NOTIFICATIONS)) {
                             a(href = Link.Notifications.to, classes = "top-bar-notification") {
-                                iconButton(Icons.Notification.INFO, iconSize = IconSize.SMALL, color = IconButtonColor.GHOST) {
+                                iconButton(Icons.Notification.INFO, "Notifications ($unreadNotificationCount)", iconSize = IconSize.SMALL, color = IconButtonColor.GHOST) {
                                     // Remove default href since we're wrapping in an anchor
                                     href = null
                                 }
@@ -111,7 +111,7 @@ data class TopBar(
                             }
                         }
                         if (activeLinks.contains(ActiveLinks.PROFILE)) {
-                            iconButton(Icons.Users.PROFILE, iconSize = IconSize.SMALL) {
+                            iconButton(Icons.Users.PROFILE, "Profile", iconSize = IconSize.SMALL) {
                                 href = Link.Profile.to
                             }
                         }
