@@ -30,6 +30,9 @@ class GenericButton(
             container.a {
                 this@a.classes += "link--button"
                 this@a.href = it
+                this@GenericButton.id?.let { commonId ->
+                    this.id = "$commonId-link"
+                }
                 button {
                     buttonBlock?.let { block ->
                         block(this)
@@ -53,7 +56,7 @@ class GenericButton(
         val color = getColor()
         this.classes = getAllClasses()
         this@GenericButton.id?.let {
-            this@buttonInternals.id = it
+            this@buttonInternals.id = "$it-button"
         }
         ariaLabel?.let {
             attributes["aria-label"] = it

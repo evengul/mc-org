@@ -3,6 +3,10 @@ package app.mcorg.pipeline.world.settings
 import app.mcorg.domain.pipeline.Pipeline
 import app.mcorg.presentation.handler.executeParallelPipeline
 import app.mcorg.presentation.hxOutOfBands
+import app.mcorg.presentation.templated.common.icon.IconColor
+import app.mcorg.presentation.templated.common.icon.IconSize
+import app.mcorg.presentation.templated.common.icon.Icons
+import app.mcorg.presentation.templated.common.icon.iconComponent
 import app.mcorg.presentation.templated.layout.alert.createAlert
 import app.mcorg.presentation.utils.getWorldId
 import app.mcorg.presentation.utils.respondBadRequest
@@ -10,6 +14,7 @@ import app.mcorg.presentation.utils.respondHtml
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.request.receiveParameters
 import kotlinx.html.button
+import kotlinx.html.classes
 import kotlinx.html.li
 import kotlinx.html.stream.createHTML
 
@@ -27,7 +32,9 @@ suspend fun ApplicationCall.handleUpdateWorldName() {
                     autoClose = true
                 )
             } + createHTML().button {
-                hxOutOfBands("innerHTML:#button-back")
+                classes += setOf("btn--back", "btn--sm")
+                hxOutOfBands("innerHTML:#button-back-button")
+                iconComponent(Icons.BACK, size = IconSize.SMALL, color = IconColor.ON_SURFACE)
                 + "Back to $it"
             })
         },
