@@ -5,12 +5,15 @@ import app.mcorg.domain.model.project.ProjectType
 import app.mcorg.domain.model.user.Role
 import app.mcorg.presentation.hxDelete
 import app.mcorg.presentation.hxPut
-import app.mcorg.presentation.templated.common.button.actionButton
+import app.mcorg.presentation.hxSwap
+import app.mcorg.presentation.hxTarget
+import app.mcorg.presentation.hxTrigger
 import app.mcorg.presentation.templated.common.button.dangerButton
 import app.mcorg.presentation.templated.common.dangerzone.dangerZone
 import app.mcorg.presentation.templated.common.icon.IconSize
 import app.mcorg.presentation.templated.common.icon.Icons
 import app.mcorg.presentation.templated.common.link.Link
+import app.mcorg.presentation.templated.layout.alert.ALERT_CONTAINER_ID
 import app.mcorg.presentation.templated.utils.toPrettyEnumName
 import kotlinx.html.ButtonType
 import kotlinx.html.DIV
@@ -39,7 +42,13 @@ fun DIV.projectSettingsTab(project: Project, worldMemberRole: Role) {
             + "Manage your project settings and preferences"
         }
         form {
-            projectSettingsForm(project)
+            projectNameForm(project)
+        }
+        form {
+            projectDescriptionForm(project)
+        }
+        form {
+            projectTypeForm(project)
         }
     }
     if (worldMemberRole.isHigherThanOrEqualTo(Role.ADMIN)) {
@@ -56,16 +65,21 @@ fun DIV.projectSettingsTab(project: Project, worldMemberRole: Role) {
     }
 }
 
-fun FORM.projectSettingsForm(project: Project) {
+fun FORM.projectNameForm(project: Project) {
     encType = FormEncType.applicationXWwwFormUrlEncoded
-    hxPut(Link.Worlds.world(project.worldId).project(project.id).to + "/metadata")
-    classes += "project-settings-form"
+
+    hxTarget("#$ALERT_CONTAINER_ID")
+    hxSwap("afterbegin")
+    hxPut(Link.Worlds.world(project.worldId).project(project.id).to + "/name")
+    hxTrigger("input changed delay:500ms from:#project-name-input, submit")
+
+    classes += "project-name-form"
     label {
-        htmlFor = "project-settings-name"
+        htmlFor = "project-name-input"
         + "Project Name"
     }
     input {
-        id = "project-settings-name"
+        id = "project-name-input"
         name = "name"
         value = project.name
         required = true
@@ -73,22 +87,46 @@ fun FORM.projectSettingsForm(project: Project) {
         maxLength = "100"
         type = InputType.text
     }
+}
+
+fun FORM.projectDescriptionForm(project: Project) {
+    encType = FormEncType.applicationXWwwFormUrlEncoded
+
+    hxTarget("#$ALERT_CONTAINER_ID")
+    hxSwap("afterbegin")
+    hxPut(Link.Worlds.world(project.worldId).project(project.id).to + "/description")
+    hxTrigger("input changed delay:500ms from:#project-description-input, submit")
+
+    classes += "project-description-form"
     label {
-        htmlFor = "project-settings-description"
-        + "Description"
+        htmlFor = "project-description-input"
+        + "Project Description"
     }
     input {
-        id = "project-settings-description"
+        id = "project-description-input"
         name = "description"
         value = project.description
+        minLength = "3"
         maxLength = "1000"
         type = InputType.text
     }
+}
+
+fun FORM.projectTypeForm(project: Project) {
+    encType = FormEncType.applicationXWwwFormUrlEncoded
+
+    hxTarget("#$ALERT_CONTAINER_ID")
+    hxSwap("afterbegin")
+    hxPut(Link.Worlds.world(project.worldId).project(project.id).to + "/type")
+    hxTrigger("change changed delay:500ms from:#project-type-select, submit")
+
+    classes += "project-type-form"
     label {
-        htmlFor = "project-settings-type"
+        htmlFor = "project-type-select"
+        + "Project Type"
     }
     select {
-        id = "project-settings-type"
+        id = "project-type-select"
         name = "type"
         ProjectType.entries.forEach { type ->
             option {
@@ -98,5 +136,4 @@ fun FORM.projectSettingsForm(project: Project) {
             }
         }
     }
-    actionButton("Save Changes")
 }

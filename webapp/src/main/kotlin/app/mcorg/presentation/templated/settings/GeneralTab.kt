@@ -4,12 +4,13 @@ import app.mcorg.domain.model.minecraft.MinecraftVersion
 import app.mcorg.domain.model.world.World
 import app.mcorg.presentation.hxDelete
 import app.mcorg.presentation.hxPatch
-import app.mcorg.presentation.hxPut
+import app.mcorg.presentation.hxSwap
 import app.mcorg.presentation.hxTarget
-import app.mcorg.presentation.templated.common.button.actionButton
+import app.mcorg.presentation.hxTrigger
 import app.mcorg.presentation.templated.common.button.dangerButton
 import app.mcorg.presentation.templated.common.dangerzone.dangerZone
 import app.mcorg.presentation.templated.common.link.Link
+import app.mcorg.presentation.templated.layout.alert.ALERT_CONTAINER_ID
 import kotlinx.html.DIV
 import kotlinx.html.FORM
 import kotlinx.html.FormEncType
@@ -26,56 +27,14 @@ import kotlinx.html.p
 import kotlinx.html.select
 import kotlinx.html.textArea
 
-fun FORM.worldSettingsForm(world: World) {
-    id = "world-general-settings-form"
-    encType = FormEncType.applicationXWwwFormUrlEncoded
-
-    hxTarget("#world-general-settings-form")
-    hxPut("/app/worlds/${world.id}")
-
-    label {
-        htmlFor = "world-settings-name-input"
-        + "World Name"
-    }
-    input {
-        name = "name"
-        id = "world-settings-name-input"
-        type = InputType.text
-        value = world.name
-    }
-    label {
-        htmlFor = "world-settings-description-input"
-        + "Description"
-    }
-    textArea {
-        id = "world-settings-description-input"
-        name = "description"
-        + world.description
-    }
-    label {
-        htmlFor = "world-settings-version-select"
-        + "Game Version"
-    }
-    select {
-        id = "world-settings-version-select"
-        name = "version"
-        MinecraftVersion.supportedVersions.forEach { version ->
-            option {
-                value = version.toString()
-                selected = version == world.version
-                + "$version"
-            }
-        }
-    }
-    actionButton("Save Changes")
-}
-
 fun FORM.worldNameForm(world: World) {
     id = "world-name-form"
     encType = FormEncType.applicationXWwwFormUrlEncoded
 
-    hxTarget("#world-name-form")
+    hxTarget("#$ALERT_CONTAINER_ID")
+    hxSwap("afterbegin")
     hxPatch("/app/worlds/${world.id}/settings/name")
+    hxTrigger("input changed delay:500ms from:#world-name-input, submit")
 
     label {
         htmlFor = "world-name-input"
@@ -88,15 +47,16 @@ fun FORM.worldNameForm(world: World) {
         value = world.name
         classes += "form-control"
     }
-    actionButton("Update Name")
 }
 
 fun FORM.worldDescriptionForm(world: World) {
     id = "world-description-form"
     encType = FormEncType.applicationXWwwFormUrlEncoded
 
-    hxTarget("#world-description-form")
+    hxTarget("#$ALERT_CONTAINER_ID")
+    hxSwap("afterbegin")
     hxPatch("/app/worlds/${world.id}/settings/description")
+    hxTrigger("input changed delay:500ms from:#world-description-input, submit")
 
     label {
         htmlFor = "world-description-input"
@@ -108,15 +68,16 @@ fun FORM.worldDescriptionForm(world: World) {
         classes += "form-control"
         + world.description
     }
-    actionButton("Update Description")
 }
 
 fun FORM.worldVersionForm(world: World) {
     id = "world-version-form"
     encType = FormEncType.applicationXWwwFormUrlEncoded
 
-    hxTarget("#world-version-form")
+    hxTarget("#$ALERT_CONTAINER_ID")
+    hxSwap("afterbegin")
     hxPatch("/app/worlds/${world.id}/settings/version")
+    hxTrigger("change changed delay:500ms from:#world-version-select")
 
     label {
         htmlFor = "world-version-select"
@@ -134,7 +95,6 @@ fun FORM.worldVersionForm(world: World) {
             }
         }
     }
-    actionButton("Update Version")
 }
 
 fun DIV.generalTab(tabData: SettingsTab.General) {

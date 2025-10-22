@@ -102,7 +102,8 @@ sealed interface MinecraftVersion {
         }
 
         val supportedVersions = setOf<MinecraftVersion>(
-            release(20, 0)
+            release(20, 0),
+            release(21, 0)
         )
     }
 }

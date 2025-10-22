@@ -10,6 +10,7 @@ import kotlinx.html.Tag
 import kotlinx.html.TagConsumer
 import kotlinx.html.classes
 import kotlinx.html.div
+import kotlinx.html.id
 
 fun <T : Tag> T.chipComponent(
     handler: (Chip.() -> Unit)? = null
@@ -39,10 +40,14 @@ class Chip(
     var size: ChipSize = ChipSize.MEDIUM,
     var onClick: String? = null,
     var classes: MutableSet<String> = mutableSetOf(),
+    var id: String? = null
 ) : LeafComponent() {
 
     override fun render(container: TagConsumer<*>) {
         container.div {
+            this@Chip.id?.let {
+                this@div.id = it
+            }
             // Apply base chip class and variant modifiers
             this@div.classes = this@Chip.classes + mutableSetOf("chip").apply {
                 // Add variant modifier classes following new CSS architecture

@@ -7,8 +7,8 @@ import app.mcorg.pipeline.SafeSQL
 import java.sql.Timestamp
 import java.time.ZonedDateTime
 
-object UpdateWorldNameStep : Step<Pair<Int, UpdateWorldNameInput>, UpdateWorldNameFailures, Int> {
-    override suspend fun process(input: Pair<Int, UpdateWorldNameInput>): Result<UpdateWorldNameFailures, Int> {
+object UpdateWorldNameStep : Step<Pair<Int, UpdateWorldNameInput>, UpdateWorldNameFailures, String> {
+    override suspend fun process(input: Pair<Int, UpdateWorldNameInput>): Result<UpdateWorldNameFailures, String> {
         val (worldId, updateInput) = input
 
         return DatabaseSteps.update<Pair<Int, UpdateWorldNameInput>, UpdateWorldNameFailures>(
@@ -25,6 +25,6 @@ object UpdateWorldNameStep : Step<Pair<Int, UpdateWorldNameInput>, UpdateWorldNa
             errorMapper = { dbFailure ->
                 UpdateWorldNameFailures.DatabaseError(dbFailure)
             }
-        ).process(input).map { worldId }
+        ).process(input).map { input.second.name }
     }
 }

@@ -29,6 +29,7 @@
 @import "components/table.css";
 @import "components/icon.css";
 @import "components/danger-zone.css";
+@import "components/alert.css";
 
 /* Page styles */
 @import "pages/landing-page.css";

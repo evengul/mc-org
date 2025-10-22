@@ -10,6 +10,7 @@ import kotlinx.html.TagConsumer
 import kotlinx.html.a
 import kotlinx.html.button
 import kotlinx.html.classes
+import kotlinx.html.id
 
 class GenericButton(
     private var text: String = "",
@@ -21,6 +22,7 @@ class GenericButton(
     var classes: Set<String> = setOf("btn"),
     var ariaLabel: String? = null,
     var buttonBlock: (BUTTON.() -> Unit)? = null,
+    var id: String? = null,
 ) : LeafComponent() {
 
     override fun render(container: TagConsumer<*>) {
@@ -28,6 +30,9 @@ class GenericButton(
             container.a {
                 this@a.classes += "link--button"
                 this@a.href = it
+                this@GenericButton.id?.let { commonId ->
+                    this.id = "$commonId-link"
+                }
                 button {
                     buttonBlock?.let { block ->
                         block(this)
@@ -50,6 +55,9 @@ class GenericButton(
     private fun BUTTON.buttonInternals() {
         val color = getColor()
         this.classes = getAllClasses()
+        this@GenericButton.id?.let {
+            this@buttonInternals.id = "$it-button"
+        }
         ariaLabel?.let {
             attributes["aria-label"] = it
             if (attributes["title"] == null || attributes["title"]?.isEmpty() == true) {

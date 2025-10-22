@@ -13,9 +13,10 @@ import app.mcorg.pipeline.project.handleGetEditLocationFragment
 import app.mcorg.pipeline.project.handleUpdateProjectStage
 import app.mcorg.pipeline.project.resources.handleCreateProjectProduction
 import app.mcorg.pipeline.project.resources.handleDeleteProjectProductionItem
-import app.mcorg.pipeline.project.settings.handleUpdateProjectMetadata
+import app.mcorg.pipeline.project.settings.handleUpdateProjectDescription
+import app.mcorg.pipeline.project.settings.handleUpdateProjectName
+import app.mcorg.pipeline.project.settings.handleUpdateProjectType
 import app.mcorg.pipeline.world.handleDeleteWorld
-import app.mcorg.pipeline.world.handleUpdateWorld
 import app.mcorg.pipeline.world.settings.handleCancelInvitation
 import app.mcorg.pipeline.world.settings.handleCreateInvitation
 import app.mcorg.pipeline.world.settings.handleGetInvitationListFragment
@@ -57,9 +58,6 @@ class WorldHandler {
                 get {
                     call.handleGetWorld()
                 }
-                put {
-                    call.handleUpdateWorld()
-                }
                 route("/projects") {
                     post {
                         call.handleCreateProject()
@@ -72,8 +70,14 @@ class WorldHandler {
                         patch("/stage") {
                             call.handleUpdateProjectStage()
                         }
-                        put("/metadata") {
-                            call.handleUpdateProjectMetadata()
+                        put("/name") {
+                            call.handleUpdateProjectName()
+                        }
+                        put("/description") {
+                            call.handleUpdateProjectDescription()
+                        }
+                        put("/type") {
+                            call.handleUpdateProjectType()
                         }
                         delete {
                             install(WorldAdminPlugin)
