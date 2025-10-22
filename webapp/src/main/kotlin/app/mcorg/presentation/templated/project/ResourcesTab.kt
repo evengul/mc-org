@@ -11,6 +11,8 @@ import app.mcorg.presentation.hxTarget
 import app.mcorg.presentation.templated.common.button.IconButtonColor
 import app.mcorg.presentation.templated.common.button.iconButton
 import app.mcorg.presentation.templated.common.button.neutralButton
+import app.mcorg.presentation.templated.common.emptystate.EmptyStateVariant
+import app.mcorg.presentation.templated.common.emptystate.emptyState
 import app.mcorg.presentation.templated.common.icon.IconSize
 import app.mcorg.presentation.templated.common.icon.Icons
 import app.mcorg.presentation.templated.common.link.Link
@@ -108,6 +110,16 @@ fun DIV.resourcesTab(project: Project, production: List<ProjectProduction>, gath
                     iconSize = IconSize.SMALL
                 }
             }
+        }
+        if (production.isEmpty() && project.stage != ProjectStage.COMPLETED) {
+            emptyState(
+                id = "empty-resource-production-state",
+                title = "No Resource Production",
+                description = "This project doesn't produce any resources yet. Add resources that this project will generate when complete, like farms or automated systems.",
+                icon = Icons.Menu.CONTRAPTIONS,
+                variant = EmptyStateVariant.COMPACT,
+                useH2 = false
+            )
         }
         ul {
             id = "project-resources-production-list"

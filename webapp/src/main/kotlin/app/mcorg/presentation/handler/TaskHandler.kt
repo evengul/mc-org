@@ -2,7 +2,6 @@ package app.mcorg.presentation.handler
 
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.task.*
-import app.mcorg.pipeline.project.GetProjectByIdStep
 import app.mcorg.presentation.hxOutOfBands
 import app.mcorg.presentation.templated.project.emptyTasksDisplay
 import app.mcorg.presentation.templated.project.requirement
@@ -32,7 +31,7 @@ object TaskHandler {
                 respondHtml(createHTML().ul {
                     tasksList(worldId, projectId, result.updatedTasks)
                 } + createHTML().div {
-                    attributes["hx-swap-oob"] = "delete:.project-tasks-empty"
+                    hxOutOfBands("delete:#empty-tasks-state")
                 })
             },
             onFailure = { failure: CreateTaskFailures ->
@@ -165,20 +164,12 @@ object TaskHandler {
                 if (result.updatedTasks.isNotEmpty()) {
                     respond(HttpStatusCode.OK)
                 } else {
-                    val project = GetProjectByIdStep.process(
-                        projectId
-                    ).getOrNull()
-
-                    if (project == null) {
-                        respond(HttpStatusCode.InternalServerError, "Failed to load project after task deletion.")
-                    } else {
-                        respondHtml(createHTML().div {
-                            attributes["hx-swap-oob"] = "beforebegin:#tasks-list"
-                            div {
-                                emptyTasksDisplay(project)
-                            }
-                        })
-                    }
+                    respondHtml(createHTML().div {
+                        attributes["hx-swap-oob"] = "beforebegin:#tasks-list"
+                        div {
+                            emptyTasksDisplay()
+                        }
+                    })
                 }
             },
             onFailure = { failure: DeleteTaskFailures ->

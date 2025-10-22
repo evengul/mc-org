@@ -5,9 +5,12 @@ import app.mcorg.domain.model.user.Role
 import app.mcorg.domain.model.user.TokenProfile
 import app.mcorg.domain.model.user.WorldMember
 import app.mcorg.domain.model.world.World
+import app.mcorg.presentation.templated.common.button.actionButton
 import app.mcorg.presentation.templated.common.button.neutralButton
 import app.mcorg.presentation.templated.common.chip.ChipVariant
 import app.mcorg.presentation.templated.common.chip.chipComponent
+import app.mcorg.presentation.templated.common.emptystate.EmptyStateVariant
+import app.mcorg.presentation.templated.common.emptystate.emptyState
 import app.mcorg.presentation.templated.common.icon.IconSize
 import app.mcorg.presentation.templated.common.icon.Icons
 import app.mcorg.presentation.templated.common.link.Link
@@ -126,12 +129,15 @@ private fun MAIN.worldProjectsSection(
 }
 
 private fun DIV.worldProjectsEmpty() {
-    div("world-projects-empty") {
-        h2 {
-            + "No Active Projects"
-        }
-        p("subtle") {
-            + "All your projects are completed or you haven't created any yet."
+    emptyState(
+        id = "empty-projects-state",
+        title = "No Active Projects",
+        description = "All your projects are completed or you haven't created any yet. Start a new project to organize your builds.",
+        icon = Icons.Menu.PROJECTS,
+        variant = EmptyStateVariant.INLINE
+    ) {
+        actionButton("Create your first project") {
+            onClick = "document.getElementById('create-project-modal')?.showModal()"
         }
     }
 }

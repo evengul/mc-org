@@ -1,0 +1,87 @@
+/* ==========================================================================
+   EMPTY STATE COMPONENT
+   Consistent empty state displays across the application
+   ========================================================================== */
+
+.empty-state {
+    /* Container */
+    background-color: var(--clr-bg-subtle);
+    border: 1px solid var(--clr-border-subtle);
+    border-radius: var(--border-radius-md);
+    padding: var(--spacing-xl);
+
+    /* Layout */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--spacing-md);
+    text-align: center;
+
+    /* Sizing */
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+.empty-state__icon {
+    color: var(--clr-text-subtle);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.empty-state__title {
+    margin: 0;
+    color: var(--clr-text-default);
+    font-size: var(--text-lg);
+    font-weight: bold;
+}
+
+.empty-state__description {
+    margin: 0;
+    color: var(--clr-text-subtle);
+    max-width: 500px;
+    line-height: 1.6;
+}
+
+.empty-state__actions {
+    display: flex;
+    gap: var(--spacing-sm);
+    margin-top: var(--spacing-sm);
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+/* Variants */
+
+/* Inline variant: Fits within existing content areas */
+.empty-state--inline {
+    padding: var(--spacing-md);
+    max-width: none;
+}
+
+/* Compact variant: Minimal spacing for tight spaces */
+.empty-state--compact {
+    padding: var(--spacing-md);
+    gap: var(--spacing-sm);
+}
+
+.empty-state--compact .empty-state__title {
+    font-size: var(--text-md);
+}
+
+.empty-state--compact .empty-state__actions {
+    margin-top: var(--spacing-xs);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .empty-state {
+        padding: var(--spacing-lg);
+        max-width: 100%;
+    }
+
+    .empty-state__description {
+        max-width: 100%;
+    }
+}
+

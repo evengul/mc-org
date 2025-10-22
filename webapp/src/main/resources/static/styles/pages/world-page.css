@@ -53,15 +53,6 @@ main.world {
     }
 }
 
-.world-projects-empty {
-    background-color: var(--clr-bg-subtle);
-    padding: var(--spacing-md);
-    box-shadow: var(--shadow-sm);
-    border-radius: var(--border-radius-sm);
-
-    width: fit-content;
-}
-
 .world-projects-list {
     list-style: none;
 

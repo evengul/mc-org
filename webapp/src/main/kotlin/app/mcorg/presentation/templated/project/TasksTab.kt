@@ -19,6 +19,7 @@ import app.mcorg.presentation.templated.common.button.iconButton
 import app.mcorg.presentation.templated.common.button.neutralButton
 import app.mcorg.presentation.templated.common.chip.ChipVariant
 import app.mcorg.presentation.templated.common.chip.chipComponent
+import app.mcorg.presentation.templated.common.emptystate.emptyState
 import app.mcorg.presentation.templated.common.icon.IconSize
 import app.mcorg.presentation.templated.common.icon.Icons
 import app.mcorg.presentation.templated.common.link.Link
@@ -55,7 +56,7 @@ private fun DIV.taskManagementSection(project: Project, totalTasksCount: Int, ta
         taskManagementHeader(project.worldId, project.id, project.stage)
         if (totalTasksCount == 0) {
             div {
-                emptyTasksDisplay(project)
+                emptyTasksDisplay()
             }
         }
         p {
@@ -154,15 +155,17 @@ private fun DIV.taskSearchAndFilters(worldId: Int, projectId: Int, projectStage:
     }
 }
 
-fun DIV.emptyTasksDisplay(project: Project) {
-    classes += "project-tasks-empty"
-    h2 {
-        + "No Tasks Yet"
+fun DIV.emptyTasksDisplay() {
+    emptyState(
+        id = "empty-tasks-state",
+        title = "No Tasks Yet",
+        description = "Create your first task to break down this project into manageable steps.",
+        icon = Icons.MENU_ADD
+    ) {
+        actionButton("Add first task") {
+            onClick = "document.getElementById('create-task-modal')?.showModal()"
+        }
     }
-    p("subtle") {
-        + "Create your first task to get started."
-    }
-    createTaskModal(project)
 }
 
 fun UL.tasksList(worldId: Int, projectId: Int, tasks: List<Task>) {

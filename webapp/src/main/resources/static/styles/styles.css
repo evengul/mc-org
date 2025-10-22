@@ -30,6 +30,7 @@
 @import "components/icon.css";
 @import "components/danger-zone.css";
 @import "components/alert.css";
+@import "components/empty-state.css";
 
 /* Page styles */
 @import "pages/landing-page.css";
