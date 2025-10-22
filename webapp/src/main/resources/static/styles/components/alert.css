@@ -1,0 +1,297 @@
+/* ==========================================================================
+   ALERT DIALOG COMPONENT
+   Toast-style notifications that appear at the top of the page
+   ========================================================================== */
+
+/* Alert Container - holds all alerts */
+#alert-container {
+    position: fixed;
+    top: calc(var(--navbar-height) + var(--spacing-sm));
+    right: var(--spacing-md);
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    max-width: 400px;
+    width: calc(100vw - (var(--spacing-md) * 2));
+    pointer-events: none;
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+@media (min-width: 768px) {
+    #alert-container {
+        width: 400px;
+    }
+}
+
+/* Base Alert Dialog Styles */
+.alert-dialog {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-sm) var(--spacing-md);
+    border-radius: var(--border-radius-md);
+    box-shadow: var(--shadow-lg);
+    pointer-events: auto;
+    animation: slideInRight 0.3s ease-out;
+    border-left: 4px solid;
+    background: var(--clr-surface-default);
+}
+
+/* Alert Animation */
+@keyframes slideInRight {
+    from {
+        opacity: 0;
+        transform: translateX(100%);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+/* Alert Title */
+.alert-dialog__title {
+    margin: 0;
+    font-family: "Roboto Mono Medium", sans-serif;
+    font-size: var(--text-md);
+    line-height: 1.4;
+    padding-right: var(--spacing-lg); /* Space for close button */
+}
+
+/* Alert Message */
+.alert-dialog__message {
+    margin: 0;
+    font-size: var(--text-sm);
+    line-height: 1.5;
+    color: var(--clr-text-subtle);
+}
+
+/* Alert Close Button */
+.alert-dialog__close-button {
+    position: absolute;
+    top: var(--spacing-xs);
+    right: var(--spacing-xs);
+    width: 28px;
+    height: 28px;
+    padding: var(--spacing-xxs);
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    border-radius: var(--border-radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.2s ease;
+}
+
+.alert-dialog__close-button:hover {
+    background: var(--clr-surface-hover);
+}
+
+.alert-dialog__close-button:active {
+    background: var(--clr-surface-active);
+}
+
+.alert-dialog__close-button:focus-visible {
+    outline: 2px solid var(--clr-border-focus);
+    outline-offset: 2px;
+}
+
+/* Auto-close countdown animation - progress bar at bottom */
+.alert-dialog--success::after,
+.alert-dialog--info::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    height: 3px;
+    width: 0;
+    background: currentColor;
+    opacity: 0.6;
+    border-radius: 0 0 0 var(--border-radius-md);
+    animation: progressBar 3s linear forwards;
+}
+
+@keyframes progressBar {
+    from {
+        width: 0;
+    }
+    to {
+        width: 100%;
+    }
+}
+
+/* Pause animation on hover to let users read */
+.alert-dialog--success:hover::after,
+.alert-dialog--info:hover::after {
+    animation-play-state: paused;
+}
+
+/* Adjust border radius on last element to fit with progress bar */
+.alert-dialog--success::after {
+    border-radius: 0 0 0 var(--border-radius-md);
+}
+
+.alert-dialog--info::after {
+    border-radius: 0 0 0 var(--border-radius-md);
+}
+
+/* ==========================================================================
+   ALERT TYPE VARIANTS
+   ========================================================================== */
+
+/* Success Alert - Green */
+.alert-dialog--success {
+    background: var(--clr-surface-default);
+    border-left-color: var(--clr-success);
+}
+
+.alert-dialog--success .alert-dialog__title {
+    color: var(--clr-success);
+}
+
+.alert-dialog--success .alert-dialog__close-button {
+    color: var(--clr-success);
+}
+
+.alert-dialog--success .alert-dialog__close-button:hover {
+    background: var(--clr-success);
+    color: var(--clr-text-on-success);
+}
+
+/* Error Alert - Red */
+.alert-dialog--error {
+    background: var(--clr-danger-subtle);
+    border-left-color: var(--clr-danger);
+}
+
+.alert-dialog--error .alert-dialog__title {
+    color: var(--clr-danger);
+}
+
+.alert-dialog--error .alert-dialog__message {
+    color: var(--clr-text-default);
+}
+
+.alert-dialog--error .alert-dialog__close-button {
+    color: var(--clr-danger);
+}
+
+.alert-dialog--error .alert-dialog__close-button:hover {
+    background: var(--clr-danger);
+    color: var(--clr-text-on-danger);
+}
+
+/* Warning Alert - Orange */
+.alert-dialog--warning {
+    background: var(--clr-warning-subtle);
+    border-left-color: var(--clr-warning);
+}
+
+.alert-dialog--warning .alert-dialog__title {
+    color: var(--clr-warning);
+}
+
+.alert-dialog--warning .alert-dialog__message {
+    color: var(--clr-text-default);
+}
+
+.alert-dialog--warning .alert-dialog__close-button {
+    color: var(--clr-warning);
+}
+
+.alert-dialog--warning .alert-dialog__close-button:hover {
+    background: var(--clr-warning);
+    color: var(--clr-text-on-warning);
+}
+
+/* Info Alert - Light Blue */
+.alert-dialog--info {
+    background: var(--clr-info-subtle);
+    border-left-color: var(--clr-info);
+}
+
+.alert-dialog--info .alert-dialog__title {
+    color: var(--clr-info);
+}
+
+.alert-dialog--info .alert-dialog__message {
+    color: var(--clr-text-default);
+}
+
+.alert-dialog--info .alert-dialog__close-button {
+    color: var(--clr-info);
+}
+
+.alert-dialog--info .alert-dialog__close-button:hover {
+    background: var(--clr-info);
+    color: var(--clr-text-on-info);
+}
+
+/* ==========================================================================
+   RESPONSIVE ADJUSTMENTS
+   ========================================================================== */
+
+@media (max-width: 767px) {
+    #alert-container {
+        top: var(--spacing-sm);
+        right: var(--spacing-sm);
+        left: var(--spacing-sm);
+        width: auto;
+        max-width: none;
+    }
+
+    .alert-dialog {
+        padding: var(--spacing-sm);
+    }
+}
+
+/* ==========================================================================
+   THEME-SPECIFIC ADJUSTMENTS
+   ========================================================================== */
+
+/* Nether Theme */
+[data-theme="nether"] .alert-dialog {
+    box-shadow: var(--shadow-xl);
+}
+
+[data-theme="nether"] .alert-dialog--success {
+    background: var(--clr-surface-default);
+}
+
+[data-theme="nether"] .alert-dialog--error {
+    background: var(--clr-danger-subtle);
+}
+
+[data-theme="nether"] .alert-dialog--warning {
+    background: var(--clr-warning-subtle);
+}
+
+[data-theme="nether"] .alert-dialog--info {
+    background: var(--clr-info-subtle);
+}
+
+/* End Theme */
+[data-theme="end"] .alert-dialog {
+    box-shadow: var(--shadow-xl);
+}
+
+[data-theme="end"] .alert-dialog--success {
+    background: var(--clr-surface-default);
+}
+
+[data-theme="end"] .alert-dialog--error {
+    background: var(--clr-danger-subtle);
+}
+
+[data-theme="end"] .alert-dialog--warning {
+    background: var(--clr-warning-subtle);
+}
+
+[data-theme="end"] .alert-dialog--info {
+    background: var(--clr-info-subtle);
+}

@@ -2,14 +2,13 @@ package app.mcorg.pipeline.world.settings
 
 import app.mcorg.domain.pipeline.Pipeline
 import app.mcorg.presentation.handler.executeParallelPipeline
-import app.mcorg.presentation.templated.settings.worldDescriptionForm
+import app.mcorg.presentation.templated.layout.alert.createAlert
 import app.mcorg.presentation.utils.getWorldId
 import app.mcorg.presentation.utils.respondBadRequest
 import app.mcorg.presentation.utils.respondHtml
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.request.receiveParameters
-import kotlinx.html.div
-import kotlinx.html.form
+import kotlinx.html.li
 import kotlinx.html.stream.createHTML
 
 suspend fun ApplicationCall.handleUpdateWorldDescription() {
@@ -17,11 +16,14 @@ suspend fun ApplicationCall.handleUpdateWorldDescription() {
     val worldId = this.getWorldId()
 
     executeParallelPipeline(
-        onSuccess = { world ->
-            respondHtml(createHTML().div {
-                form {
-                    worldDescriptionForm(world)
-                }
+        onSuccess = { _ ->
+            respondHtml(createHTML().li {
+                createAlert(
+                    id = "world-description-updated-success-alert",
+                    type = app.mcorg.presentation.templated.layout.alert.AlertType.SUCCESS,
+                    title = "World Description Updated",
+                    autoClose = true
+                )
             })
         },
         onFailure = { failure: UpdateWorldDescriptionFailures ->
@@ -48,7 +50,6 @@ suspend fun ApplicationCall.handleUpdateWorldDescription() {
             Pipeline.create<UpdateWorldDescriptionFailures, UpdateWorldDescriptionInput>()
                 .map { worldId to it }
                 .pipe(UpdateWorldDescriptionStep)
-                .pipe(GetUpdatedWorldForDescriptionStep)
         )
     }
 }

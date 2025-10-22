@@ -2,14 +2,13 @@ package app.mcorg.pipeline.world.settings
 
 import app.mcorg.domain.pipeline.Pipeline
 import app.mcorg.presentation.handler.executeParallelPipeline
-import app.mcorg.presentation.templated.settings.worldNameForm
+import app.mcorg.presentation.templated.layout.alert.createAlert
 import app.mcorg.presentation.utils.getWorldId
 import app.mcorg.presentation.utils.respondBadRequest
 import app.mcorg.presentation.utils.respondHtml
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.request.receiveParameters
-import kotlinx.html.div
-import kotlinx.html.form
+import kotlinx.html.li
 import kotlinx.html.stream.createHTML
 
 suspend fun ApplicationCall.handleUpdateWorldName() {
@@ -17,11 +16,14 @@ suspend fun ApplicationCall.handleUpdateWorldName() {
     val worldId = this.getWorldId()
 
     executeParallelPipeline(
-        onSuccess = { world ->
-            respondHtml(createHTML().div {
-                form {
-                    worldNameForm(world)
-                }
+        onSuccess = {
+            respondHtml(createHTML().li {
+                createAlert(
+                    id = "world-name-updated-success-alert",
+                    type = app.mcorg.presentation.templated.layout.alert.AlertType.SUCCESS,
+                    title = "World Name Updated",
+                    autoClose = true
+                )
             })
         },
         onFailure = { failure: UpdateWorldNameFailures ->
@@ -50,7 +52,6 @@ suspend fun ApplicationCall.handleUpdateWorldName() {
             Pipeline.create<UpdateWorldNameFailures, UpdateWorldNameInput>()
                 .map { worldId to it }
                 .pipe(UpdateWorldNameStep)
-                .pipe(GetUpdatedWorldStep)
         )
     }
 }

@@ -12,51 +12,13 @@
         width: 100%;
     }
 
-    .profile-information {
-        form {
-            input {
-                margin-block-end: var(--spacing-sm);
-            }
-
-            .profile-picture {
-                display: flex;
-                flex-direction: row;
-                gap: var(--spacing-md);
-
-                input[type="file"] {
-                    flex-grow: 1;
-                }
-            }
-        }
-    }
-
-    .profile-connections {
-        ul {
-            list-style-type: none;
-
-            li {
-                padding: var(--spacing-sm);
-                border: 1px solid var(--clr-border-subtle);
-                border-radius: var(--border-radius-md);
-
-                margin-top: var(--spacing-sm);
-            }
-        }
-    }
-
-    .profile-settings {
+    .sign-out {
         display: flex;
         flex-direction: column;
-        gap: var(--spacing-md);
+        gap: var(--spacing-sm);
 
-        .sign-out {
-            display: flex;
-            flex-direction: column;
-            gap: var(--spacing-sm);
-
-            a, button {
-                width: fit-content;
-            }
+        a, button {
+            width: fit-content;
         }
     }
 }
