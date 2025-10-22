@@ -2,6 +2,7 @@ package app.mcorg.pipeline.idea
 
 import app.mcorg.domain.pipeline.Pipeline
 import app.mcorg.domain.pipeline.Result
+import app.mcorg.presentation.hxOutOfBands
 import app.mcorg.presentation.templated.idea.ideaListItem
 import app.mcorg.presentation.utils.getUser
 import app.mcorg.presentation.utils.respondBadRequest
@@ -9,6 +10,7 @@ import app.mcorg.presentation.utils.respondHtml
 import io.ktor.http.Parameters
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.request.receiveParameters
+import kotlinx.html.div
 import kotlinx.html.li
 import kotlinx.html.stream.createHTML
 
@@ -33,6 +35,8 @@ suspend fun ApplicationCall.handleCreateIdea() {
             // Return HTML fragment that will be prepended to the ideas list
             respondHtml(createHTML().li {
                 ideaListItem(idea)
+            } + createHTML().div {
+                hxOutOfBands("delete:#empty-ideas-container")
             })
         }
         is Result.Failure -> {

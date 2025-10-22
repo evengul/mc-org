@@ -29,17 +29,7 @@ main.project {
         flex-direction: row;
         gap: var(--spacing-md);
 
-        .project-tasks-empty {
-            background-color: var(--clr-bg-subtle);
-            padding: var(--spacing-md);
-            box-shadow: var(--shadow-sm);
-            border-radius: var(--border-radius-sm);
 
-            display: flex;
-            flex-direction: column;
-            gap: var(--spacing-sm);
-            align-items: center;
-        }
 
         .project-tasks-content {
             flex-grow: 3;

@@ -10,6 +10,8 @@ import app.mcorg.presentation.templated.common.button.actionButton
 import app.mcorg.presentation.templated.common.button.iconButton
 import app.mcorg.presentation.templated.common.chip.ChipVariant
 import app.mcorg.presentation.templated.common.chip.chipComponent
+import app.mcorg.presentation.templated.common.emptystate.EmptyStateVariant
+import app.mcorg.presentation.templated.common.emptystate.emptyState
 import app.mcorg.presentation.templated.common.icon.IconSize
 import app.mcorg.presentation.templated.common.icon.Icons
 import app.mcorg.presentation.templated.common.link.Link
@@ -114,9 +116,14 @@ fun FORM.addDependencyForm(worldId: Int, projectId: Int, availableDependencies: 
 fun DIV.dependenciesList(worldId: Int, projectId: Int, dependencies: List<ProjectDependency>) {
     id = "project-dependencies-list-container"
     if (dependencies.isEmpty()) {
-        p("subtle") {
-            + "This project doesn't depend on any other projects yet. Add dependencies to help track project relationships."
-        }
+        emptyState(
+            id = "empty-dependencies-state",
+            title = "No Dependencies Yet",
+            description = "This project doesn't depend on any other projects. Add dependencies to track project relationships and ensure prerequisites are completed first.",
+            icon = Icons.Menu.ROAD_MAP,
+            variant = EmptyStateVariant.COMPACT,
+            useH2 = false
+        )
     } else {
         ul("dependency-list") {
             dependencies.forEach { dependency ->

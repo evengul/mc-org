@@ -8,6 +8,7 @@ import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.ValidationSteps
 import app.mcorg.pipeline.failure.ValidationFailure
 import app.mcorg.presentation.handler.executePipeline
+import app.mcorg.presentation.hxOutOfBands
 import app.mcorg.presentation.templated.project.projectResourceProductionItem
 import app.mcorg.presentation.utils.getProjectId
 import app.mcorg.presentation.utils.getWorldId
@@ -17,6 +18,7 @@ import io.ktor.http.Parameters
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.request.receiveParameters
 import io.ktor.server.response.respond
+import kotlinx.html.div
 import kotlinx.html.li
 import kotlinx.html.stream.createHTML
 
@@ -39,6 +41,8 @@ suspend fun ApplicationCall.handleCreateProjectProduction() {
         onSuccess = {
             respondHtml(createHTML().li {
                 projectResourceProductionItem(worldId, it)
+            } + createHTML().div {
+                hxOutOfBands("delete:#empty-resource-production-state")
             })
         },
         onFailure = { respond(HttpStatusCode.InternalServerError, "Failed to create project resource") }
