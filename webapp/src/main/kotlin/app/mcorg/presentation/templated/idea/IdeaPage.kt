@@ -3,7 +3,6 @@ package app.mcorg.presentation.templated.idea
 import app.mcorg.domain.model.idea.Comment
 import app.mcorg.domain.model.idea.Idea
 import app.mcorg.domain.model.user.TokenProfile
-import app.mcorg.presentation.hxConfirm
 import app.mcorg.presentation.hxDelete
 import app.mcorg.presentation.hxPost
 import app.mcorg.presentation.hxPut
@@ -87,9 +86,8 @@ fun MAIN.ideaContent(userId: Int, idea: Idea, comments: List<Comment>) {
                     iconButton(Icons.DELETE, "Delete idea", color = IconButtonColor.DANGER) {
                         iconSize = IconSize.SMALL
                         buttonBlock = {
-                            hxDelete(Link.Ideas.single(idea.id))
+                            hxDelete(Link.Ideas.single(idea.id), "Are you sure you want to delete this idea?")
                             hxSwap("none")
-                            hxConfirm("Are you sure you want to delete this idea?")
                         }
                     }
                 }
@@ -275,10 +273,9 @@ fun LI.ideaCommentItem(userId: Int, comment: Comment) {
                 iconButton(Icons.DELETE, "Delete comment", color = IconButtonColor.GHOST) {
                     iconSize = IconSize.SMALL
                     buttonBlock = {
-                        hxDelete(Link.Ideas.single(comment.ideaId) + "/comments/${comment.id}")
+                        hxDelete(Link.Ideas.single(comment.ideaId) + "/comments/${comment.id}", "Are you sure you want to delete this comment?")
                         hxTarget("#idea-comment-${comment.id}")
                         hxSwap("outerHTML")
-                        hxConfirm("Are you sure you want to delete this comment?")
                     }
                 }
             }

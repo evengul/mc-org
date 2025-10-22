@@ -3,7 +3,6 @@ package app.mcorg.presentation.templated.project
 import app.mcorg.domain.model.project.Project
 import app.mcorg.domain.model.project.ProjectType
 import app.mcorg.domain.model.user.Role
-import app.mcorg.presentation.hxConfirm
 import app.mcorg.presentation.hxDelete
 import app.mcorg.presentation.hxPut
 import app.mcorg.presentation.templated.common.button.actionButton
@@ -47,8 +46,7 @@ fun DIV.projectSettingsTab(project: Project, worldMemberRole: Role) {
         dangerZone(description = "Permanently delete this project and all associated data. This action cannot be undone.") {
             dangerButton("Delete Project") {
                 buttonBlock = {
-                    hxDelete(Link.Worlds.world(project.worldId).project(project.id).to)
-                    hxConfirm("Are you sure you want to delete the project \"${project.name}\"? This action cannot be undone.")
+                    hxDelete(Link.Worlds.world(project.worldId).project(project.id).to, "Are you sure you want to delete the project \"${project.name}\"? This action cannot be undone.")
                     type = ButtonType.button
                 }
                 iconLeft = Icons.DELETE

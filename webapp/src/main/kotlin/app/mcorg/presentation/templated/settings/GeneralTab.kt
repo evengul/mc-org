@@ -2,7 +2,6 @@ package app.mcorg.presentation.templated.settings
 
 import app.mcorg.domain.model.minecraft.MinecraftVersion
 import app.mcorg.domain.model.world.World
-import app.mcorg.presentation.hxConfirm
 import app.mcorg.presentation.hxDelete
 import app.mcorg.presentation.hxPatch
 import app.mcorg.presentation.hxPut
@@ -163,8 +162,7 @@ fun DIV.generalTab(tabData: SettingsTab.General) {
     dangerZone(description = "Once you delete a world, there is no going back. All projects, tasks, and resources will be permanently deleted.") {
         dangerButton("Delete World") {
             buttonBlock = {
-                hxDelete(Link.Worlds.world(tabData.world.id).settings().to)
-                hxConfirm("Are you sure you want to delete this world? This action cannot be undone.")
+                hxDelete(Link.Worlds.world(tabData.world.id).settings().to, "Are you sure you want to delete this world? This action cannot be undone.")
             }
         }
     }
