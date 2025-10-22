@@ -138,7 +138,7 @@ fun LI.projectResourceProductionItem(worldId: Int, production: ProjectProduction
     }
     span {
         classes = setOf("production-item-end")
-        iconButton(Icons.DELETE, color = IconButtonColor.DANGER, iconSize = IconSize.SMALL) {
+        iconButton(Icons.DELETE, "Delete project production value", color = IconButtonColor.DANGER, iconSize = IconSize.SMALL) {
             buttonBlock = {
                 hxDelete(Link.Worlds.world(worldId).project(production.projectId).to + "/resources/${production.id}")
                 hxTarget("#project-resource-production-${production.id}")

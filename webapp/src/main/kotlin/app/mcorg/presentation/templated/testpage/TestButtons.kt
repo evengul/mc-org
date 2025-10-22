@@ -53,11 +53,11 @@ fun MAIN.testButtons() {
         // Icon buttons - enhanced with new variants
         h3 { + "Icon Buttons" }
         div("flex flex--wrap flex--gap-md u-margin-bottom-md") {
-            iconButton(Icons.Dimensions.OVERWORLD)
-            iconButton(Icons.Dimensions.NETHER, IconSize.SMALL, color = IconButtonColor.DANGER)
-            iconButton(Icons.Dimensions.END, color = IconButtonColor.GHOST)
-            iconButton(Icons.Dimensions.OVERWORLD, size = ButtonSize.SMALL)
-            iconButton(Icons.Dimensions.NETHER, size = ButtonSize.LARGE, color = IconButtonColor.DANGER)
+            iconButton(Icons.Dimensions.OVERWORLD, "Test button")
+            iconButton(Icons.Dimensions.NETHER, "Test button", IconSize.SMALL, color = IconButtonColor.DANGER)
+            iconButton(Icons.Dimensions.END, "Test button", color = IconButtonColor.GHOST)
+            iconButton(Icons.Dimensions.OVERWORLD, "Test button", size = ButtonSize.SMALL)
+            iconButton(Icons.Dimensions.NETHER, "Test Button", size = ButtonSize.LARGE, color = IconButtonColor.DANGER)
         }
     }
 }

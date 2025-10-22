@@ -84,7 +84,7 @@ fun MAIN.ideaContent(userId: Int, idea: Idea, comments: List<Comment>) {
                     + idea.category.toPrettyEnumName()
                 }
                 if (userId == idea.createdBy) {
-                    iconButton(Icons.DELETE, color = IconButtonColor.DANGER) {
+                    iconButton(Icons.DELETE, "Delete idea", color = IconButtonColor.DANGER) {
                         iconSize = IconSize.SMALL
                         buttonBlock = {
                             hxDelete(Link.Ideas.single(idea.id))
@@ -272,7 +272,7 @@ fun LI.ideaCommentItem(userId: Int, comment: Comment) {
             }
 
             if (comment.commenterId == userId) {
-                iconButton(Icons.DELETE, color = IconButtonColor.GHOST) {
+                iconButton(Icons.DELETE, "Delete comment", color = IconButtonColor.GHOST) {
                     iconSize = IconSize.SMALL
                     buttonBlock = {
                         hxDelete(Link.Ideas.single(comment.ideaId) + "/comments/${comment.id}")

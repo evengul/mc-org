@@ -75,7 +75,7 @@ fun FORM.taskRequirementsForm() {
         hiddenInput(classes = "requirement-input") {
 
         }
-        iconButton(Icons.DELETE, color = IconButtonColor.GHOST) {
+        iconButton(Icons.DELETE, "Remove requirement", color = IconButtonColor.GHOST) {
             iconSize = IconSize.SMALL
             buttonBlock = {
                 type = ButtonType.button

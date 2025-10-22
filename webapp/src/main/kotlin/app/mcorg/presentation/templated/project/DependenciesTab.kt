@@ -129,7 +129,7 @@ fun DIV.dependenciesList(worldId: Int, projectId: Int, dependencies: List<Projec
                         chipComponent {
                             + dependency.dependencyStage.toPrettyEnumName()
                         }
-                        iconButton(Icons.DELETE, iconSize = IconSize.SMALL) {
+                        iconButton(Icons.DELETE, "Remove dependency", iconSize = IconSize.SMALL) {
                             buttonBlock = {
                                 hxDelete(Link.Worlds.world(worldId).project(projectId).to + "/dependencies/${dependency.dependencyId}")
                                 hxTarget("#project-dependencies-list-container")
