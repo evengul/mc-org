@@ -5,6 +5,7 @@ import app.mcorg.domain.model.user.TokenProfile
 import app.mcorg.domain.model.world.World
 import app.mcorg.presentation.templated.common.component.addComponent
 import app.mcorg.presentation.templated.common.page.createPage
+import app.mcorg.presentation.utils.BreadcrumbBuilder
 import kotlinx.html.id
 
 fun homePage(
@@ -14,7 +15,8 @@ fun homePage(
     unreadNotificationCount: Int = 0
 ) = createPage(
     user = user,
-    unreadNotificationCount = unreadNotificationCount
+    unreadNotificationCount = unreadNotificationCount,
+    breadcrumbs = BreadcrumbBuilder.buildForHome()
 ) {
     id = "home"
     pendingInvites.takeIf { it.isNotEmpty() }?.let {

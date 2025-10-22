@@ -10,7 +10,6 @@ import app.mcorg.presentation.hxSwap
 import app.mcorg.presentation.hxTarget
 import app.mcorg.presentation.templated.common.button.IconButtonColor
 import app.mcorg.presentation.templated.common.button.actionButton
-import app.mcorg.presentation.templated.common.button.backButton
 import app.mcorg.presentation.templated.common.button.ghostButton
 import app.mcorg.presentation.templated.common.button.iconButton
 import app.mcorg.presentation.templated.common.button.neutralButton
@@ -24,6 +23,7 @@ import app.mcorg.presentation.templated.common.progress.progressComponent
 import app.mcorg.presentation.templated.utils.formatAsDateTime
 import app.mcorg.presentation.templated.utils.formatAsRelativeOrDate
 import app.mcorg.presentation.templated.utils.toPrettyEnumName
+import app.mcorg.presentation.utils.BreadcrumbBuilder
 import kotlinx.html.ButtonType
 import kotlinx.html.FormEncType
 import kotlinx.html.LI
@@ -55,10 +55,10 @@ fun ideaPage(
 ) = createPage(
     user = user,
     pageTitle = idea.name,
-    unreadNotificationCount = unreadNotifications
+    unreadNotificationCount = unreadNotifications,
+    breadcrumbs = BreadcrumbBuilder.buildForIdea(idea)
 ) {
     id = "idea-page"
-    backButton("Back to ideas", Link.Ideas)
     ideaContent(user.id, idea, comments)
 }
 

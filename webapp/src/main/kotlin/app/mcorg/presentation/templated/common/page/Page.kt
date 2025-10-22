@@ -1,6 +1,8 @@
 package app.mcorg.presentation.templated.common.page
 
 import app.mcorg.domain.model.user.TokenProfile
+import app.mcorg.presentation.templated.common.breadcrumb.Breadcrumbs
+import app.mcorg.presentation.templated.common.breadcrumb.breadcrumbComponent
 import app.mcorg.presentation.templated.layout.alert.alertContainer
 import app.mcorg.presentation.templated.layout.topbar.topBar
 import kotlinx.html.MAIN
@@ -23,6 +25,7 @@ fun createPage(
     pageStyles: Set<PageStyle> = PageStyle.entries.toSet(),
     user: TokenProfile? = null,
     unreadNotificationCount: Int = 0,
+    breadcrumbs: Breadcrumbs? = null,
     body: MAIN.() -> Unit
 ): String {
     return "<!DOCTYPE html>\n" + createHTML().html {
@@ -51,6 +54,7 @@ fun createPage(
         }
         body {
             topBar(user, unreadNotificationCount)
+            breadcrumbs?.let { breadcrumbComponent(it) }
             alertContainer()
             main {
                 body()

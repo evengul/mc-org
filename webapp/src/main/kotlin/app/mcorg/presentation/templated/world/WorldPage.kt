@@ -17,6 +17,7 @@ import app.mcorg.presentation.templated.common.link.Link
 import app.mcorg.presentation.templated.common.page.createPage
 import app.mcorg.presentation.templated.common.tabs.TabData
 import app.mcorg.presentation.templated.common.tabs.tabsComponent
+import app.mcorg.presentation.utils.BreadcrumbBuilder
 import kotlinx.html.*
 import kotlinx.html.ul
 
@@ -45,7 +46,8 @@ fun worldPage(
 ) = createPage(
     user = user,
     pageTitle = world.name,
-    unreadNotificationCount = unreadNotificationCount
+    unreadNotificationCount = unreadNotificationCount,
+    breadcrumbs = BreadcrumbBuilder.buildForWorld(world)
 ) {
     classes += "world"
 

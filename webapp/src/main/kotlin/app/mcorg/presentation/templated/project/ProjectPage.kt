@@ -10,10 +10,9 @@ import app.mcorg.domain.model.project.ProjectStageChange
 import app.mcorg.domain.model.task.Task
 import app.mcorg.domain.model.user.Role
 import app.mcorg.domain.model.user.TokenProfile
-import app.mcorg.presentation.templated.common.button.backButton
+import app.mcorg.presentation.templated.common.breadcrumb.Breadcrumbs
 import app.mcorg.presentation.templated.common.chip.ChipVariant
 import app.mcorg.presentation.templated.common.chip.chipComponent
-import app.mcorg.presentation.templated.common.link.Link
 import app.mcorg.presentation.templated.common.page.createPage
 import app.mcorg.presentation.templated.common.tabs.TabData
 import app.mcorg.presentation.templated.common.tabs.tabsComponent
@@ -62,15 +61,16 @@ sealed interface ProjectTab {
 fun projectPage(
     user: TokenProfile,
     data: ProjectTab,
-    unreadNotifications: Int
+    unreadNotifications: Int,
+    breadcrumbs: Breadcrumbs
 ) = createPage(
     user = user,
     pageTitle = data.project.name,
-    unreadNotificationCount = unreadNotifications
+    unreadNotificationCount = unreadNotifications,
+    breadcrumbs = breadcrumbs
 ) {
     val project = data.project
     classes += "project"
-    backButton("Back to world", Link.Worlds.world(project.worldId))
     div("project-header") {
         h1 {
             +project.name

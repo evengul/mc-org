@@ -5,11 +5,10 @@ import app.mcorg.domain.model.user.TokenProfile
 import app.mcorg.domain.model.user.WorldMember
 import app.mcorg.domain.model.world.World
 import app.mcorg.pipeline.world.GetWorldInvitationsInput
-import app.mcorg.presentation.templated.common.button.backButton
-import app.mcorg.presentation.templated.common.link.Link
 import app.mcorg.presentation.templated.common.page.createPage
 import app.mcorg.presentation.templated.common.tabs.TabData
 import app.mcorg.presentation.templated.common.tabs.tabsComponent
+import app.mcorg.presentation.utils.BreadcrumbBuilder
 import kotlinx.html.classes
 import kotlinx.html.div
 import kotlinx.html.h1
@@ -32,9 +31,12 @@ sealed interface SettingsTab {
     }
 }
 
-fun worldSettingsPage(user: TokenProfile, tab: SettingsTab) = createPage("Settings", user = user) {
+fun worldSettingsPage(user: TokenProfile, tab: SettingsTab) = createPage(
+    pageTitle = "Settings",
+    user = user,
+    breadcrumbs = BreadcrumbBuilder.buildForWorldSettings(tab.world)
+) {
     classes += "world-settings-page"
-    backButton("Back to ${tab.world.name}", Link.Worlds.world(tab.world.id))
     div {
         h1 {
             + "World Settings"

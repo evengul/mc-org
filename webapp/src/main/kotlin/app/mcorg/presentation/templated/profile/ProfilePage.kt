@@ -7,6 +7,7 @@ import app.mcorg.presentation.templated.common.dangerzone.dangerZone
 import app.mcorg.presentation.templated.common.icon.IconSize
 import app.mcorg.presentation.templated.common.icon.Icons
 import app.mcorg.presentation.templated.common.page.createPage
+import app.mcorg.presentation.utils.BreadcrumbBuilder
 import kotlinx.html.*
 
 fun profilePage(
@@ -15,7 +16,8 @@ fun profilePage(
 ) = createPage(
     pageTitle = "Profile", 
     user = user,
-    unreadNotificationCount = unreadNotificationCount
+    unreadNotificationCount = unreadNotificationCount,
+    breadcrumbs = BreadcrumbBuilder.buildForProfile()
 ) {
     classes += "profile-page"
 

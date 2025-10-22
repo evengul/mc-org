@@ -9,7 +9,6 @@ a {
 
 a:hover {
     color: var(--clr-text-action-hover);
-    border-bottom: 1px solid var(--clr-text-action-hover);
 }
 
 a:visited {
