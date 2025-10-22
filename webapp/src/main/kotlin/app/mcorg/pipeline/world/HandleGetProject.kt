@@ -25,6 +25,7 @@ import app.mcorg.pipeline.project.CountTotalTasksStep
 import app.mcorg.pipeline.project.ProjectDependencyData
 import app.mcorg.pipeline.project.dependencies.GetAvailableProjectDependenciesStep
 import app.mcorg.presentation.templated.project.projectTabsContent
+import app.mcorg.presentation.utils.BreadcrumbBuilder
 import app.mcorg.presentation.utils.getWorldId
 import io.ktor.server.application.ApplicationCall
 import kotlinx.html.div
@@ -63,7 +64,6 @@ suspend fun ApplicationCall.handleGetProject() {
     }
 
     val unreadNotifications = getUnreadNotificationCount(user)
-
 
     val tabData = when (tab) {
         "resources" -> {
@@ -148,5 +148,10 @@ suspend fun ApplicationCall.handleGetProject() {
         return
     }
 
-    respondHtml(projectPage(user, tabData, unreadNotifications))
+    val breadcrumbs = BreadcrumbBuilder.buildForProject(
+        worldId = worldId,
+        projectName = project.name
+    )
+
+    respondHtml(projectPage(user, tabData, unreadNotifications, breadcrumbs))
 }

@@ -5,6 +5,7 @@ import app.mcorg.domain.model.user.TokenProfile
 import app.mcorg.presentation.templated.common.emptystate.emptyState
 import app.mcorg.presentation.templated.common.icon.Icons
 import app.mcorg.presentation.templated.common.page.createPage
+import app.mcorg.presentation.utils.BreadcrumbBuilder
 import kotlinx.html.aside
 import kotlinx.html.div
 import kotlinx.html.header
@@ -18,8 +19,8 @@ fun ideasPage(
     unreadNotifications: Int
 ) = createPage(
     user = user,
-    pageTitle = "Ideas",
-    unreadNotificationCount = unreadNotifications
+    unreadNotificationCount = unreadNotifications,
+    breadcrumbs = BreadcrumbBuilder.buildForIdeasList(),
 ) {
     id = "ideas-page"
     header {

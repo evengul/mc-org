@@ -5,6 +5,7 @@ import app.mcorg.domain.model.user.TokenProfile
 import app.mcorg.presentation.templated.common.page.createPage
 import app.mcorg.presentation.templated.common.page.PageScript
 import app.mcorg.presentation.templated.utils.formatAsRelativeOrDate
+import app.mcorg.presentation.utils.BreadcrumbBuilder
 import kotlinx.html.*
 
 fun notificationsPage(
@@ -16,7 +17,8 @@ fun notificationsPage(
     user = user,
     pageTitle = "Notifications",
     pageScripts = setOf(PageScript.HTMX),
-    unreadNotificationCount = unreadNotificationCount
+    unreadNotificationCount = unreadNotificationCount,
+    breadcrumbs = BreadcrumbBuilder.buildForNotifications()
 ) {
     classes += "notifications-page"
 

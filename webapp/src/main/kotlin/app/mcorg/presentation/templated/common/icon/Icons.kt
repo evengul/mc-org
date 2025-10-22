@@ -146,6 +146,7 @@ object Icons {
         val PROJECTS = Icon("Projects", "menu")
         val ROAD_MAP = Icon("Roadmap", "menu")
         val UTILITIES = Icon("Utilities", "menu")
+        val VOLCANO = Icon("Nether", "dimensions")
     }
     object Notification {
         val ERROR = Icon("Error", "notification")
@@ -167,9 +168,11 @@ object Icons {
     val CLOSE = Icon("Close")
     val CHECK = Icon("Check")
     val DELETE = Icon("Delete")
+    val HOME = Icon("Overworld", "dimensions")
     val FILTER_LIST = Icon("Filter_List")
     val MENU = Icon("Menu")
     val MENU_ADD = Icon("Menu_Add")
+    val USER_PROFILE = Icon("Profile", "users")
     val MICROSOFT_LOGO = Icon("Microsoft_Logo")
 }
 

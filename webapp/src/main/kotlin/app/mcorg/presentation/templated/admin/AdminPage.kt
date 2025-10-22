@@ -10,6 +10,7 @@ import app.mcorg.presentation.templated.common.page.createPage
 import app.mcorg.presentation.templated.utils.formatAsDate
 import app.mcorg.presentation.templated.utils.formatAsDateTime
 import app.mcorg.presentation.templated.utils.toPrettyEnumName
+import app.mcorg.presentation.utils.BreadcrumbBuilder
 import kotlinx.html.*
 
 fun adminPage(
@@ -17,7 +18,12 @@ fun adminPage(
     users: List<ManagedUser>,
     worlds: List<ManagedWorld>,
     unreadNotificationCount: Int = 0
-) = createPage("Admin", user = currentUser, unreadNotificationCount = unreadNotificationCount) {
+) = createPage(
+    "Admin",
+    user = currentUser,
+    unreadNotificationCount = unreadNotificationCount,
+    breadcrumbs = BreadcrumbBuilder.buildForAdminPage()
+) {
     classes += "admin-page"
 
     adminPageHeader()
