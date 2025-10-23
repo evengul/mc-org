@@ -55,7 +55,7 @@ main.world {
 
 
 
-.world-projects-list {
+#world-projects-list {
     list-style: none;
 
     display: grid;

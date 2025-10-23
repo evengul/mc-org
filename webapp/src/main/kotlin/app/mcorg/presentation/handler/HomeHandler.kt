@@ -6,6 +6,7 @@ import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.failure.DatabaseFailure
 import app.mcorg.pipeline.invitation.GetUserInvitationsStep
 import app.mcorg.pipeline.notification.GetUnreadNotificationCountStep
+import app.mcorg.pipeline.world.GetPermittedWorldsInput
 import app.mcorg.pipeline.world.GetPermittedWorldsStep
 import app.mcorg.presentation.templated.home.homePage
 import app.mcorg.presentation.utils.getUser
@@ -31,6 +32,7 @@ class HomeHandler {
             .pipe(GetUserInvitationsStep)
 
         val worldsPipeline = Pipeline.create<DatabaseFailure, Int>()
+            .map { GetPermittedWorldsInput(userId = it) }
             .pipe(GetPermittedWorldsStep)
 
         val notificationCountPipeline = Pipeline.create<Unit, Int>()

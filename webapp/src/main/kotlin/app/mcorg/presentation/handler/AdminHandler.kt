@@ -1,6 +1,8 @@
 package app.mcorg.presentation.handler
 
 import app.mcorg.pipeline.admin.handleGetAdminPage
+import app.mcorg.pipeline.admin.handleSearchManagedUsers
+import app.mcorg.pipeline.admin.handleSearchManagedWorlds
 import app.mcorg.presentation.plugins.AdminPlugin
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.delete
@@ -16,6 +18,9 @@ class AdminHandler {
                 call.handleGetAdminPage()
             }
             route("/users") {
+                get("/search") {
+                    call.handleSearchManagedUsers()
+                }
                 route("/{userId}") {
                     patch("/role") {
                         // Update user role
@@ -29,6 +34,9 @@ class AdminHandler {
                 }
             }
             route("/worlds") {
+                get("/search") {
+                    call.handleSearchManagedWorlds()
+                }
                 route("/{worldId}") {
                     delete {
                         // Delete world

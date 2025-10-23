@@ -5,6 +5,11 @@ import app.mcorg.domain.model.user.Role
 import app.mcorg.domain.model.user.TokenProfile
 import app.mcorg.domain.model.user.WorldMember
 import app.mcorg.domain.model.world.World
+import app.mcorg.presentation.hxGet
+import app.mcorg.presentation.hxIndicator
+import app.mcorg.presentation.hxSwap
+import app.mcorg.presentation.hxTarget
+import app.mcorg.presentation.hxTrigger
 import app.mcorg.presentation.templated.common.button.actionButton
 import app.mcorg.presentation.templated.common.button.neutralButton
 import app.mcorg.presentation.templated.common.chip.ChipVariant
@@ -41,6 +46,7 @@ fun worldPage(
     toggles: Set<WorldPageToggles> = setOf(
         WorldPageToggles.PROJECTS,
         WorldPageToggles.NEW_PROJECT,
+        WorldPageToggles.SEARCH,
         WorldPageToggles.SETTINGS,
     )
 ) = createPage(
@@ -52,8 +58,8 @@ fun worldPage(
     classes += "world"
 
     worldHeader(world, worldMember, toggles)
-    worldSearchSection(toggles)
-    worldProjectsSection(projects, tab, toggles)
+    projectSearch(world.id, visibleProjects = projects.size, totalProjects = world.totalProjects, toggles)
+    worldProjectsSection(world.totalProjects, projects, tab, toggles)
 }
 
 private fun MAIN.worldHeader(world: World, user: WorldMember, toggles: Set<WorldPageToggles>) {
@@ -104,30 +110,53 @@ private fun FlowContent.worldHeaderActions(world: World, user: WorldMember, togg
     }
 }
 
-private fun MAIN.worldSearchSection(toggles: Set<WorldPageToggles>) {
+private fun MAIN.projectSearch(worldId: Int, visibleProjects: Int, totalProjects: Int, toggles: Set<WorldPageToggles>) {
     if (WorldPageToggles.SEARCH in toggles) {
-        div("world-projects-search") {
-            input {
-                placeholder = "Search projects by name, description, tasks..."
+        div {
+            form(classes = "world-projects-search") {
+                hxGet(Link.Worlds.world(worldId).to + "/projects/search")
+                hxTarget("#world-projects-list")
+                hxSwap("outerHTML")
+                hxTrigger("""
+                input from:#world-projects-search-input delay:500ms, 
+                change from:#world-projects-search-filter-completed-checkbox delay:500ms,
+                submit
+            """.trimIndent())
+                hxIndicator(".search-wrapper")
+
+                div("search-wrapper") {
+                    input {
+                        id = "world-projects-search-input"
+                        type = InputType.search
+                        placeholder = "Search projects by name, description, tasks..."
+                        name = "query"
+                    }
+                }
+                input {
+                    id = "world-projects-search-filter-completed-checkbox"
+                    type = InputType.checkBox
+                    name = "showCompleted"
+                }
+                label {
+                    htmlFor = "world-projects-search-filter-completed-checkbox"
+                    + "Show completed projects"
+                }
             }
-            input {
-                id = "world-projects-search-filter-completed-checkbox"
-                type = InputType.checkBox
-            }
-            label {
-                htmlFor = "world-projects-search-filter-completed-checkbox"
-                + "Show completed projects"
+            p("subtle") {
+                id = "world-projects-count"
+                + "Showing $visibleProjects of $totalProjects project${if (totalProjects == 1) "" else "s"}"
             }
         }
     }
 }
 
 private fun MAIN.worldProjectsSection(
+    totalProjects: Int,
     projects: List<Project>,
     tab: String?,
     toggles: Set<WorldPageToggles>
 ) {
-    worldProjectsContent(projects, tab, toggles)
+    worldProjectsContent(totalProjects, projects, tab, toggles)
 }
 
 private fun DIV.worldProjectsEmpty() {
@@ -145,6 +174,7 @@ private fun DIV.worldProjectsEmpty() {
 }
 
 private fun MAIN.worldProjectsContent(
+    totalProjects: Int,
     projects: List<Project>,
     tab: String?,
     toggles: Set<WorldPageToggles>
@@ -155,18 +185,19 @@ private fun MAIN.worldProjectsContent(
         }
     }
     div("world-project-content") {
-        worldProjectContent(tab, projects)
+        worldProjectContent(totalProjects, tab, projects)
     }
 }
 
-fun DIV.worldProjectContent(tab: String?, projects: List<Project>) {
+fun DIV.worldProjectContent(totalProjects: Int, tab: String?, projects: List<Project>) {
     when(tab) {
         "kanban" -> kanbanView()
         "roadmap" -> roadmapView()
-        else -> if (projects.isEmpty()) {
-            worldProjectsEmpty()
-        } else {
-            ul("world-projects-list") {
+        else -> {
+            if (totalProjects == 0) {
+                worldProjectsEmpty()
+            }
+            ul {
                 projectList(projects)
             }
         }

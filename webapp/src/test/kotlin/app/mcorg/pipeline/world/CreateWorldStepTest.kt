@@ -2,7 +2,6 @@ package app.mcorg.pipeline.world
 
 import app.mcorg.domain.model.minecraft.MinecraftVersion
 import app.mcorg.domain.pipeline.Result
-import app.mcorg.pipeline.failure.CreateWorldFailures
 import app.mcorg.test.WithUser
 import app.mcorg.test.postgres.DatabaseTestExtension
 import kotlinx.coroutines.runBlocking
@@ -56,7 +55,7 @@ class CreateWorldStepTest : WithUser() {
     }
 
     private fun getWorlds() = runBlocking {
-        GetPermittedWorldsStep.process(user.id).getOrNull() ?: emptyList()
+        GetPermittedWorldsStep.process(GetPermittedWorldsInput(user.id, query = "")).getOrNull() ?: emptyList()
     }
 
 }

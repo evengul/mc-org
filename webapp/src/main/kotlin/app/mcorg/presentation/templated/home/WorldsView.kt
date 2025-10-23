@@ -2,15 +2,24 @@ package app.mcorg.presentation.templated.home
 
 import app.mcorg.domain.model.minecraft.MinecraftVersion
 import app.mcorg.domain.model.world.World
+import app.mcorg.presentation.hxGet
+import app.mcorg.presentation.hxIndicator
+import app.mcorg.presentation.hxSwap
+import app.mcorg.presentation.hxTarget
+import app.mcorg.presentation.hxTrigger
 import app.mcorg.presentation.templated.common.component.LeafComponent
 import app.mcorg.presentation.templated.common.component.addComponent
 import app.mcorg.presentation.templated.common.emptystate.emptyState
 import app.mcorg.presentation.templated.common.icon.Icons
+import app.mcorg.presentation.templated.common.link.Link
 import kotlinx.html.DIV
+import kotlinx.html.InputType
 import kotlinx.html.TagConsumer
+import kotlinx.html.UL
 import kotlinx.html.div
 import kotlinx.html.id
 import kotlinx.html.input
+import kotlinx.html.p
 import kotlinx.html.ul
 
 fun DIV.worldsView(worlds: List<World>) {
@@ -26,17 +35,36 @@ fun DIV.worldsView(worlds: List<World>) {
         }
     } else {
         div("home-worlds-search-create") {
-            input {
-                placeholder = "Search worlds..."
+            div("search-wrapper") {
+                input {
+                    id = "home-worlds-search-input"
+                    type = InputType.search
+                    placeholder = "Search worlds..."
+                    name = "query"
+
+                    hxGet(Link.Worlds.to + "/search")
+                    hxTarget("#home-worlds-list")
+                    hxSwap("outerHTML")
+                    hxTrigger("input changed delay:500ms, change changed, search")
+                    hxIndicator(".search-wrapper")
+                }
             }
             createWorldModal(MinecraftVersion.supportedVersions.filterIsInstance<MinecraftVersion.Release>())
         }
-        ul {
-            id = "home-worlds-list"
-            worlds.forEach {
-                addComponent(WorldView(world = it))
-            }
+        p("subtle") {
+            id = "home-worlds-count"
+            + "Showing ${worlds.size} of ${worlds.size} world${if(worlds.size == 1) "" else "s"}."
         }
+        ul {
+            worldList(worlds)
+        }
+    }
+}
+
+fun UL.worldList(worlds: List<World>) {
+    id = "home-worlds-list"
+    worlds.forEach {
+        addComponent(WorldView(world = it))
     }
 }
 

@@ -4,8 +4,14 @@ import app.mcorg.domain.model.admin.ManagedUser
 import app.mcorg.domain.model.admin.ManagedWorld
 import app.mcorg.domain.model.user.Role
 import app.mcorg.domain.model.user.TokenProfile
+import app.mcorg.presentation.hxGet
+import app.mcorg.presentation.hxIndicator
+import app.mcorg.presentation.hxSwap
+import app.mcorg.presentation.hxTarget
+import app.mcorg.presentation.hxTrigger
 import app.mcorg.presentation.templated.common.button.dangerButton
 import app.mcorg.presentation.templated.common.button.neutralButton
+import app.mcorg.presentation.templated.common.link.Link
 import app.mcorg.presentation.templated.common.page.createPage
 import app.mcorg.presentation.templated.utils.formatAsDate
 import app.mcorg.presentation.templated.utils.formatAsDateTime
@@ -45,8 +51,18 @@ private fun MAIN.adminPageHeader() {
 private fun MAIN.userManagementSection(users: List<ManagedUser>) {
     section("user-management") {
         userManagementHeader()
-        input {
-            placeholder = "Search users..."
+        div("search-wrapper") {
+            input {
+                id = "user-search-input"
+                type = InputType.search
+                placeholder = "Search users..."
+                name = "query"
+                hxGet(Link.AdminDashboard.to + "/users/search")
+                hxTarget("#admin-user-rows")
+                hxSwap("outerHTML")
+                hxIndicator(".search-wrapper")
+                hxTrigger("input changed delay:500ms")
+            }
         }
         userManagementTable(users)
     }
@@ -91,30 +107,35 @@ private fun FlowContent.userManagementTable(users: List<ManagedUser>) {
             }
         }
         tbody {
-            users.forEach { user ->
-                tr {
-                    td {
-                        +user.displayName
-                    }
-                    td {
-                        +user.minecraftUsername
-                    }
-                    td {
-                        +user.email
-                    }
-                    td {
-                        +user.globalRole.toPrettyEnumName()
-                    }
-                    td {
-                        +user.joinedAt.formatAsDate()
-                    }
-                    td {
-                        +(user.lastSeen?.formatAsDateTime() ?: "Never")
-                    }
-                    td("actions") {
-                        userActionButtons(user)
-                    }
-                }
+            userRows(users)
+        }
+    }
+}
+
+fun TBODY.userRows(users: List<ManagedUser>) {
+    id = "admin-user-rows"
+    users.forEach { user ->
+        tr {
+            td {
+                +user.displayName
+            }
+            td {
+                +user.minecraftUsername
+            }
+            td {
+                +user.email
+            }
+            td {
+                +user.globalRole.toPrettyEnumName()
+            }
+            td {
+                +user.joinedAt.formatAsDate()
+            }
+            td {
+                +(user.lastSeen?.formatAsDateTime() ?: "Never")
+            }
+            td("actions") {
+                userActionButtons(user)
             }
         }
     }
@@ -136,8 +157,18 @@ private fun TD.userActionButtons(user: ManagedUser) {
 private fun MAIN.worldManagementSection(worlds: List<ManagedWorld>) {
     section("world-management") {
         worldManagementHeader()
-        input {
-            placeholder = "Search worlds..."
+        div("search-wrapper") {
+            input {
+                id = "world-search-input"
+                type = InputType.search
+                placeholder = "Search worlds..."
+                name = "query"
+                hxGet(Link.AdminDashboard.to + "/worlds/search")
+                hxTarget("#admin-world-rows")
+                hxSwap("outerHTML")
+                hxIndicator(".search-wrapper")
+                hxTrigger("input changed delay:500ms")
+            }
         }
         worldManagementTable(worlds)
     }
@@ -179,27 +210,32 @@ private fun FlowContent.worldManagementTable(worlds: List<ManagedWorld>) {
             }
         }
         tbody {
-            worlds.forEach { world ->
-                tr {
-                    td {
-                        +world.name
-                    }
-                    td {
-                        +world.version.toString()
-                    }
-                    td {
-                        +world.projects.toString()
-                    }
-                    td {
-                        +world.members.toString()
-                    }
-                    td {
-                        +world.createdAt.formatAsDate()
-                    }
-                    td("actions") {
-                        worldActionButtons()
-                    }
-                }
+            worldRows(worlds)
+        }
+    }
+}
+
+fun TBODY.worldRows(worlds: List<ManagedWorld>) {
+    id = "admin-world-rows"
+    worlds.forEach { world ->
+        tr {
+            td {
+                +world.name
+            }
+            td {
+                +world.version.toString()
+            }
+            td {
+                +world.projects.toString()
+            }
+            td {
+                +world.members.toString()
+            }
+            td {
+                +world.createdAt.formatAsDate()
+            }
+            td("actions") {
+                worldActionButtons()
             }
         }
     }

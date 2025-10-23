@@ -28,7 +28,8 @@ fun <T : Tag> T.createProjectModal(worldId: Int) = formModal(
     description = "Create a new project for your Minecraft world.",
     saveText = "Create Project",
     hxValues = FormModalHxValues(
-        hxTarget = ".world-project-content",
+        hxTarget = "#world-projects-list",
+        hxSwap = "afterbegin",
         method = FormModalHttpMethod.POST,
         href = "${Link.Worlds.world(worldId).to}/projects"
     ),

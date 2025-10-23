@@ -70,15 +70,17 @@ fun FORM.filterSearchInput() {
             htmlFor = "filter-search"
             +"Search Ideas"
         }
-        input(type = InputType.search, classes = "form-control form-control--sm filter-field") {
-            id = "filter-search"
-            name = "query"
-            placeholder = "Search by name or description..."
-            attributes["hx-get"] = Link.Ideas.to + "/search"
-            attributes["hx-target"] = "#ideas-list"
-            attributes["hx-swap"] = "outerHTML"
-            attributes["hx-trigger"] = "keyup changed delay:500ms"
-            attributes["hx-include"] = "#idea-filter-form"
+        div("search-wrapper") {
+            input(type = InputType.search, classes = "form-control form-control--sm filter-field") {
+                id = "filter-search"
+                name = "query"
+                placeholder = "Search by name or description..."
+                attributes["hx-get"] = Link.Ideas.to + "/search"
+                attributes["hx-target"] = "#ideas-list"
+                attributes["hx-swap"] = "outerHTML"
+                attributes["hx-trigger"] = "keyup changed delay:500ms"
+                attributes["hx-include"] = "#idea-filter-form"
+            }
         }
     }
 }

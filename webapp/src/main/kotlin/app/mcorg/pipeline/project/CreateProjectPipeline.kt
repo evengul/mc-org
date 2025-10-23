@@ -1,10 +1,10 @@
 package app.mcorg.pipeline.project
 
-import app.mcorg.domain.model.project.Project
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.failure.CreateProjectFailures
 import app.mcorg.presentation.handler.executePipeline
-import app.mcorg.presentation.templated.world.worldProjectContent
+import app.mcorg.presentation.hxOutOfBands
+import app.mcorg.presentation.templated.world.projectItem
 import app.mcorg.presentation.utils.getUser
 import app.mcorg.presentation.utils.getWorldId
 import app.mcorg.presentation.utils.respondBadRequest
@@ -12,6 +12,7 @@ import app.mcorg.presentation.utils.respondHtml
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.request.receiveParameters
 import kotlinx.html.div
+import kotlinx.html.li
 import kotlinx.html.stream.createHTML
 
 suspend fun ApplicationCall.handleCreateProject() {
@@ -20,9 +21,11 @@ suspend fun ApplicationCall.handleCreateProject() {
     val worldId = this.getWorldId()
 
     executePipeline(
-        onSuccess = { projects: List<Project> ->
-            respondHtml(createHTML().div {
-                worldProjectContent("projects", projects)
+        onSuccess = {
+            respondHtml(createHTML().li {
+                projectItem(it)
+            } + createHTML().div {
+                hxOutOfBands("delete:#empty-projects-state")
             })
         },
         onFailure = { failure ->
@@ -39,7 +42,6 @@ suspend fun ApplicationCall.handleCreateProject() {
             .step(ValidateProjectInputStep)
             .step(ValidateWorldAdminStep(user, worldId))
             .step(CreateProjectStep(worldId))
-            .step(Step.value(worldId))
-            .step(GetProjectsForWorldStep)
+            .step(GetProjectAfterCreation)
     }
 }

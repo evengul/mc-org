@@ -40,6 +40,12 @@ suspend fun ApplicationCall.handleGetWorld() {
         getProjectsByWorldIdQuery,
         parameterSetter = { statement, input ->
             statement.setInt(1, input)
+
+            statement.setString(2, "")
+            statement.setString(3, "")
+            statement.setString(4, "")
+
+            statement.setBoolean(5, false)
         },
         errorMapper = { HandleGetWorldFailure.SystemError("A system error occurred while fetching projects for the world.") },
         resultMapper = { it.toProjects() }
