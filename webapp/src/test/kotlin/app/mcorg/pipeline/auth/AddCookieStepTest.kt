@@ -26,7 +26,16 @@ class AddCookieStepTest {
 
     @BeforeEach
     fun setup() {
-        mockCookies = mockk<ResponseCookies>(relaxed = true)
+        mockCookies = mockk<ResponseCookies>()
+
+        every { mockCookies.append(
+            name = any(),
+            value = any(),
+            httpOnly = any(),
+            expires = any<GMTDate>(),
+            path = any(),
+            domain = any()
+        ) } returns Unit
     }
 
     @AfterEach

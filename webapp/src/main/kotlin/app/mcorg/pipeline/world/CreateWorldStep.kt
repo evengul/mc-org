@@ -28,18 +28,17 @@ data class CreateWorldStep(val user: TokenProfile) : Step<CreateWorldInput, Crea
                             parameters.setString(3, i.version.toString())
                         },
                         errorMapper = { CreateWorldFailures.DatabaseError }
-                    ).process(input).flatMap {
+                    ).process(input).flatMap { previousResult ->
                         DatabaseSteps.update<Int, CreateWorldFailures.DatabaseError>(
                             SafeSQL.insert("INSERT INTO world_members (user_id, world_id, display_name, world_role) VALUES (?, ?, ?, ?)"),
                             parameterSetter = { parameters, worldId ->
                                 parameters.setInt(1, user.id)
-                                parameters.setInt(2, it)
+                                parameters.setInt(2, worldId)
                                 parameters.setString(3, user.minecraftUsername)
                                 parameters.setInt(4, Role.OWNER.level)
                             },
                             errorMapper = { CreateWorldFailures.DatabaseError }
-                        ).process(it)
-                        return@flatMap Result.success(it)
+                        ).process(previousResult).map { previousResult }
                     }
                 }
             },

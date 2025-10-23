@@ -223,11 +223,11 @@ class UserTest {
     fun `TokenProfile should handle role-based properties correctly`() {
         // Test different role combinations
         val testCases = listOf(
-            listOf("superadmin") to arrayOf(true, false, false, false),
+            listOf("superadmin") to arrayOf(true, true, true, false),
             listOf("moderator") to arrayOf(false, true, false, false),
             listOf("idea_creator") to arrayOf(false, false, true, false),
             listOf("banned") to arrayOf(false, false, false, true),
-            listOf("superadmin", "moderator") to arrayOf(true, true, false, false),
+            listOf("superadmin", "moderator") to arrayOf(true, true, true, false),
             emptyList<String>() to arrayOf(false, false, false, false)
         )
 

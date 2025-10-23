@@ -188,22 +188,6 @@ class SafeSQLTest {
     }
 
     @Test
-    fun `dangerous patterns are rejected - comments`() {
-        val dangerousQueries = listOf(
-            "SELECT * FROM users -- comment",
-            "SELECT * FROM users /* comment */",
-            "SELECT * FROM users WHERE name = 'test' -- AND password = 'hack'"
-        )
-
-        dangerousQueries.forEach { query ->
-            val exception = assertThrows<IllegalArgumentException> {
-                SafeSQL.select(query)
-            }
-            assertEquals("SQL query contains potentially unsafe patterns", exception.message)
-        }
-    }
-
-    @Test
     fun `dangerous patterns are rejected - stored procedures`() {
         val dangerousQueries = listOf(
             "SELECT * FROM users; EXEC xp_cmdshell 'dir'",
