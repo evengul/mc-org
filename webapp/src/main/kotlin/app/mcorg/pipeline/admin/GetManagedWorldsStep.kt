@@ -9,11 +9,14 @@ import app.mcorg.pipeline.SafeSQL
 import java.time.ZoneOffset
 
 data class GetManagedWorldsInput(
-    val query: String = ""
+    val query: String = "",
+    val page: Int = 1,
+    val pageSize: Int = 10
 )
 
 object GetManagedWorldsStep : Step<GetManagedWorldsInput, HandleGetAdminPageFailures, List<ManagedWorld>> {
     override suspend fun process(input: GetManagedWorldsInput): Result<HandleGetAdminPageFailures, List<ManagedWorld>> {
+
         return DatabaseSteps.query<GetManagedWorldsInput, HandleGetAdminPageFailures, List<ManagedWorld>>(
             SafeSQL.select("""
                 SELECT world.id, 
@@ -24,11 +27,16 @@ object GetManagedWorldsStep : Step<GetManagedWorldsInput, HandleGetAdminPageFail
                 world.created_at
                 FROM world WHERE (? = '' OR lower(world.name) LIKE '%' || ? || '%')
                 ORDER BY world.id
+                LIMIT ? OFFSET ?
             """.trimIndent()),
-            parameterSetter = { statement, (query) ->
+            parameterSetter = { statement, (query, page, pageSize) ->
                 val normalizedQuery = query.trim().lowercase()
+                val offset = (page - 1) * pageSize
+
                 statement.setString(1, normalizedQuery)
                 statement.setString(2, normalizedQuery)
+                statement.setInt(3, pageSize)
+                statement.setInt(4, offset)
             },
             errorMapper = { HandleGetAdminPageFailures.DatabaseError },
             resultMapper = { rs -> buildList {
