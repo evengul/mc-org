@@ -119,7 +119,8 @@ private fun MAIN.projectSearch(worldId: Int, visibleProjects: Int, totalProjects
                 hxSwap("outerHTML")
                 hxTrigger("""
                 input from:#world-projects-search-input delay:500ms, 
-                change from:#world-projects-search-filter-completed-checkbox delay:500ms,
+                change from:#world-projects-search-filter-completed-checkbox,
+                change from:#world-projects-search-sort-select,
                 submit
             """.trimIndent())
                 hxIndicator(".search-wrapper")
@@ -130,6 +131,19 @@ private fun MAIN.projectSearch(worldId: Int, visibleProjects: Int, totalProjects
                         type = InputType.search
                         placeholder = "Search projects by name, description, tasks..."
                         name = "query"
+                    }
+                }
+                select {
+                    id = "world-projects-search-sort-select"
+                    name = "sortBy"
+                    option {
+                        selected = true
+                        value = "modified_desc"
+                        + "Sort by Last Modified"
+                    }
+                    option {
+                        value = "name_asc"
+                        + "Sort by Name (A-Z)"
                     }
                 }
                 input {

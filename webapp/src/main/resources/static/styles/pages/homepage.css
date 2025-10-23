@@ -87,8 +87,16 @@ main#home {
 
         gap: var(--spacing-sm);
 
-        input {
+        div:has(input[type='search']) {
             flex-grow: 1;
+
+            input[type='search'] {
+                width: 100%;
+            }
+        }
+
+        select {
+            width: fit-content;
         }
 
         button {

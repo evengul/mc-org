@@ -38,12 +38,19 @@ object GetTasksByProjectIdStep : Step<GetTasksByProjectIdInput, GetTasksByProjec
                     tr.required_amount,
                     tr.collected,
                     tr.action,
-                    tr.completed
+                    tr.completed,
+                    CASE 
+                        WHEN t.priority = 'CRITICAL' THEN 1
+                        WHEN t.priority = 'HIGH' THEN 2
+                        WHEN t.priority = 'MEDIUM' THEN 3
+                        WHEN t.priority = 'LOW' THEN 4
+                        ELSE 5
+                    END as priority_order
                 FROM tasks t
                 LEFT JOIN task_requirements tr ON t.id = tr.task_id
                 LEFT JOIN projects p on t.project_id = p.id
                 WHERE t.project_id = ? AND (p.stage = 'COMPLETED' OR p.stage = t.stage) AND (? = TRUE OR tr.completed = FALSE OR tr.collected < tr.required_amount OR tr.id IS NULL)
-                ORDER BY t.id, tr.id
+                ORDER BY priority_order, t.updated_at DESC, t.name
             """),
             parameterSetter = { statement, queryInput ->
                 statement.setInt(1, queryInput.projectId)
@@ -51,6 +58,7 @@ object GetTasksByProjectIdStep : Step<GetTasksByProjectIdInput, GetTasksByProjec
             },
             errorMapper = { GetTasksByProjectIdFailures.DatabaseError },
             resultMapper = { resultSet ->
+                val taskOrder = mutableListOf<Int>()
                 val taskMap = mutableMapOf<Int, MutableList<TaskRequirement>>()
                 val taskDetails = mutableMapOf<Int, TaskData>()
 
@@ -59,6 +67,7 @@ object GetTasksByProjectIdStep : Step<GetTasksByProjectIdInput, GetTasksByProjec
 
                     // Store task details if not already stored
                     if (!taskDetails.containsKey(taskId)) {
+                        taskOrder.add(taskId)
                         taskDetails[taskId] = TaskData(
                             id = taskId,
                             projectId = resultSet.getInt("project_id"),
@@ -92,16 +101,18 @@ object GetTasksByProjectIdStep : Step<GetTasksByProjectIdInput, GetTasksByProjec
                 }
 
                 // Convert to Task objects
-                taskDetails.values.map { taskData ->
-                    Task(
-                        id = taskData.id,
-                        projectId = taskData.projectId,
-                        name = taskData.name,
-                        description = taskData.description,
-                        stage = taskData.stage,
-                        priority = taskData.priority,
-                        requirements = taskMap[taskData.id] ?: emptyList()
-                    )
+                taskOrder.mapNotNull { taskId ->
+                    taskDetails[taskId]?.let { taskData ->
+                        Task(
+                            id = taskData.id,
+                            projectId = taskData.projectId,
+                            name = taskData.name,
+                            description = taskData.description,
+                            stage = taskData.stage,
+                            priority = taskData.priority,
+                            requirements = taskMap[taskData.id] ?: emptyList()
+                        )
+                    }
                 }
             }
         )

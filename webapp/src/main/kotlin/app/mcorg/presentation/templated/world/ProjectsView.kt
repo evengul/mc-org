@@ -20,7 +20,7 @@ import kotlin.collections.plus
 
 fun UL.projectList(projects: List<Project>) {
     id = "world-projects-list"
-    projects.sortedBy { it.name }.forEach { project ->
+    projects.forEach { project ->
         li {
             projectItem(project)
         }

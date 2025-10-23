@@ -90,9 +90,10 @@ private fun DIV.taskSearchAndFilters(worldId: Int, projectId: Int, projectStage:
         hxIndicator(".search-wrapper")
         hxTrigger("""
             input from:#task-search-input delay:500ms,
-            change from:select[name="completionStatus"] delay:500ms,
-            change from:select[name="priority"] delay:500ms,
-            change from:select[name="stage"] delay:500ms,
+            change from:select[name="completionStatus"],
+            change from:select[name="priority"],
+            change from:select[name="stage"],
+            change from:select[name="sortBy"]
             reset delay:100ms,
             submit
         """.trimIndent())
@@ -154,6 +155,22 @@ private fun DIV.taskSearchAndFilters(worldId: Int, projectId: Int, projectStage:
                     value = it.name
                     + it.toPrettyEnumName()
                 }
+            }
+        }
+        select {
+            name = "sortBy"
+            option {
+                value = "priority_asc"
+                selected = true
+                + "Sort by Priority (High to Low)"
+            }
+            option {
+                value = "lastModified_desc"
+                + "Sort by Last Modified"
+            }
+            option {
+                value = "name_asc"
+                + "Sort by Name (A-Z)"
             }
         }
         neutralButton("Clear filters") {

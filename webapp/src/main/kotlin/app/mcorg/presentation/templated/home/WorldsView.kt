@@ -3,6 +3,7 @@ package app.mcorg.presentation.templated.home
 import app.mcorg.domain.model.minecraft.MinecraftVersion
 import app.mcorg.domain.model.world.World
 import app.mcorg.presentation.hxGet
+import app.mcorg.presentation.hxInclude
 import app.mcorg.presentation.hxIndicator
 import app.mcorg.presentation.hxSwap
 import app.mcorg.presentation.hxTarget
@@ -19,7 +20,9 @@ import kotlinx.html.UL
 import kotlinx.html.div
 import kotlinx.html.id
 import kotlinx.html.input
+import kotlinx.html.option
 import kotlinx.html.p
+import kotlinx.html.select
 import kotlinx.html.ul
 
 fun DIV.worldsView(worlds: List<World>) {
@@ -43,10 +46,30 @@ fun DIV.worldsView(worlds: List<World>) {
                     name = "query"
 
                     hxGet(Link.Worlds.to + "/search")
+                    hxInclude("#home-worlds-sort-select")
                     hxTarget("#home-worlds-list")
                     hxSwap("outerHTML")
                     hxTrigger("input changed delay:500ms, change changed, search")
                     hxIndicator(".search-wrapper")
+                }
+            }
+            select {
+                id = "home-worlds-sort-select"
+                name = "sortBy"
+                hxGet(Link.Worlds.to + "/search")
+                hxInclude("#home-worlds-search-input")
+                hxTarget("#home-worlds-list")
+                hxSwap("outerHTML")
+                hxTrigger("change")
+                hxIndicator(".search-wrapper")
+                option {
+                    selected = true
+                    value = "modified_desc"
+                    + "Sort by Last Modified"
+                }
+                option {
+                    value = "name_asc"
+                    + "Sort by Name (A-Z)"
                 }
             }
             createWorldModal(MinecraftVersion.supportedVersions.filterIsInstance<MinecraftVersion.Release>())

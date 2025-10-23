@@ -9,11 +9,18 @@ import app.mcorg.pipeline.failure.DatabaseFailure
 
 data class GetPermittedWorldsInput(
     val userId: Int,
-    val query: String = ""
+    val query: String = "",
+    val sortBy: String = "lastModified_desc"
 )
 
 object GetPermittedWorldsStep : Step<GetPermittedWorldsInput, DatabaseFailure, List<World>> {
     override suspend fun process(input: GetPermittedWorldsInput): Result<DatabaseFailure, List<World>> {
+        val sortByValue = when(input.sortBy) {
+            "name_asc" -> "w.name ASC, w.updated_at DESC"
+            "lastModified_desc" -> "w.updated_at DESC, w.name ASC"
+            else -> "w.updated_at DESC, w.name ASC"
+        }
+
         return DatabaseSteps.query<GetPermittedWorldsInput, DatabaseFailure, List<World>>(
             sql = SafeSQL.select("""
                 SELECT 
@@ -30,7 +37,7 @@ object GetPermittedWorldsStep : Step<GetPermittedWorldsInput, DatabaseFailure, L
                 LEFT JOIN projects p ON w.id = p.world_id
                 WHERE wm.user_id = ? AND (? = '' OR LOWER(w.name) ILIKE '%' || ? || '%' OR LOWER(w.description) ILIKE '%' || ? || '%')
                 GROUP BY w.id, w.name, w.description, w.version, w.created_at, w.updated_at
-                ORDER BY w.name
+                ORDER BY $sortByValue
             """.trimIndent()),
             parameterSetter = { statement, inputData ->
                 statement.setInt(1, inputData.userId)

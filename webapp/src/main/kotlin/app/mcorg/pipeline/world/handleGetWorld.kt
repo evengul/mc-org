@@ -37,7 +37,7 @@ suspend fun ApplicationCall.handleGetWorld() {
     val tab = request.queryParameters["tab"]
 
     val projectsQueryStep = DatabaseSteps.query<Int, HandleGetWorldFailure, List<Project>>(
-        getProjectsByWorldIdQuery,
+        getProjectsByWorldIdQuery(),
         parameterSetter = { statement, input ->
             statement.setInt(1, input)
 

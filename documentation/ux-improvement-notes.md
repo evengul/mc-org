@@ -81,7 +81,7 @@ This document captures UX improvement opportunities across the MC-ORG applicatio
 12. **Progress Visualization**: Progress bar and text are redundant - could be combined more elegantly ✅
 13. **Search Scope**: Not clear what fields are being searched (title only? description too?)
 14. **Keyboard Navigation**: Need to verify tab order and keyboard shortcuts
-15. **Sorting/Filtering**: No visible way to sort or filter worlds beyond search
+15. **Sorting/Filtering**: No visible way to sort or filter worlds beyond search ✅
 
 ---
 

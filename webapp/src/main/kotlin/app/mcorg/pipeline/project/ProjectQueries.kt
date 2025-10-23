@@ -8,7 +8,7 @@ val insertProjectQuery = SafeSQL.insert("""
     RETURNING id
 """.trimIndent())
 
-val getProjectsByWorldIdQuery = SafeSQL.select("""
+fun getProjectsByWorldIdQuery(sortBy: String = "p.updated_at DESC, p.name ASC") = SafeSQL.select("""
     SELECT
         p.id,
         p.world_id,
@@ -46,7 +46,7 @@ val getProjectsByWorldIdQuery = SafeSQL.select("""
         GROUP BY t.project_id
     ) task_stats ON p.id = task_stats.project_id
     WHERE p.world_id = ? AND (? = '' OR LOWER(p.name) ILIKE '%' || ? || '%' OR LOWER(p.description) ILIKE '%' || ? || '%') AND (? = TRUE OR p.stage != 'COMPLETED')
-    ORDER BY p.id
+    ORDER BY $sortBy 
 """.trimIndent())
 
 val getProjectByIdQuery = SafeSQL.select("""
