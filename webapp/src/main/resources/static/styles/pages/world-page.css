@@ -44,8 +44,16 @@ main.world {
     align-items: center;
     gap: var(--spacing-xs);
 
-    input[type="text"] {
-        flex: 1;
+    div:has(input[type='search']) {
+        flex-grow: 1;
+
+        input[type='search'] {
+            width: 100%;
+        }
+    }
+
+    select {
+        width: fit-content;
     }
 
     label {

@@ -30,6 +30,7 @@ sealed interface SearchProjectsFailure {
 data class SearchProjectsInput(
     val worldId: Int,
     val query: String,
+    val sortBy: String,
     val showCompleted: Boolean
 )
 
@@ -77,19 +78,26 @@ private data class ValidateSearchProjectsInputStep(val worldId: Int) : Step<Para
     override suspend fun process(input: Parameters): Result<SearchProjectsFailure, SearchProjectsInput> {
         val query = input["query"] ?: ""
         val showCompleted = input["showCompleted"] == "on"
+        val sortBy = input["sortBy"]?.takeIf { it in setOf("name_asc", "lastModified_desc") } ?: "lastModified_desc"
 
         return Result.success(SearchProjectsInput(
             worldId = worldId,
             query = query,
-            showCompleted = showCompleted
+            showCompleted = showCompleted,
+            sortBy = sortBy
         ))
     }
 }
 
 private data object SearchProjectsStep : Step<SearchProjectsInput, SearchProjectsFailure, List<Project>> {
     override suspend fun process(input: SearchProjectsInput): Result<SearchProjectsFailure, List<Project>> {
+        val sortQuery = when(input.sortBy) {
+            "name_asc" -> "p.name ASC, p.updated_at DESC"
+            "lastModified_desc" -> "p.updated_at DESC, p.name ASC"
+            else -> "p.updated_at DESC, p.name ASC"
+        }
         return DatabaseSteps.query<SearchProjectsInput, SearchProjectsFailure, List<Project>>(
-            getProjectsByWorldIdQuery,
+            getProjectsByWorldIdQuery(sortQuery),
             parameterSetter = { statement, searchInput ->
                 statement.setInt(1, searchInput.worldId)
 
