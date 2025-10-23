@@ -77,7 +77,6 @@ class FormModal(
                         this.reset();
                         const modal = document.getElementById("$modalId");
                         modal.close();
-                        modal.remove();
                     }
                 """.trimIndent()
                 when(hx.method) {
