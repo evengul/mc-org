@@ -10,9 +10,11 @@ import app.mcorg.domain.model.task.TaskProjectStage
 import app.mcorg.domain.model.task.TaskRequirement
 import app.mcorg.presentation.hxDelete
 import app.mcorg.presentation.hxGet
+import app.mcorg.presentation.hxIndicator
 import app.mcorg.presentation.hxPatch
 import app.mcorg.presentation.hxSwap
 import app.mcorg.presentation.hxTarget
+import app.mcorg.presentation.hxTrigger
 import app.mcorg.presentation.templated.common.button.IconButtonColor
 import app.mcorg.presentation.templated.common.button.actionButton
 import app.mcorg.presentation.templated.common.button.iconButton
@@ -85,6 +87,16 @@ private fun DIV.taskSearchAndFilters(worldId: Int, projectId: Int, projectStage:
         hxGet("${Link.Worlds.world(worldId).project(projectId).tasks().to}/search")
         hxTarget("#tasks-list")
         hxSwap("outerHTML")
+        hxIndicator(".search-wrapper")
+        hxTrigger("""
+            input from:#task-search-input delay:500ms,
+            change from:select[name="completionStatus"] delay:500ms,
+            change from:select[name="priority"] delay:500ms,
+            change from:select[name="stage"] delay:500ms,
+            reset delay:100ms,
+            submit
+        """.trimIndent())
+
         div("search-wrapper") {
             input {
                 id = "task-search-input"
@@ -147,11 +159,6 @@ private fun DIV.taskSearchAndFilters(worldId: Int, projectId: Int, projectStage:
         neutralButton("Clear filters") {
             buttonBlock = {
                 type = ButtonType.reset
-            }
-        }
-        actionButton("Search") {
-            buttonBlock = {
-                type = ButtonType.submit
             }
         }
     }
