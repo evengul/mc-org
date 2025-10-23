@@ -5,11 +5,13 @@ import app.mcorg.domain.model.admin.ManagedWorld
 import app.mcorg.domain.model.user.Role
 import app.mcorg.domain.model.user.TokenProfile
 import app.mcorg.presentation.hxGet
+import app.mcorg.presentation.hxInclude
 import app.mcorg.presentation.hxIndicator
 import app.mcorg.presentation.hxSwap
 import app.mcorg.presentation.hxTarget
 import app.mcorg.presentation.hxTrigger
 import app.mcorg.presentation.templated.common.button.dangerButton
+import app.mcorg.presentation.templated.common.button.ghostButton
 import app.mcorg.presentation.templated.common.button.neutralButton
 import app.mcorg.presentation.templated.common.link.Link
 import app.mcorg.presentation.templated.common.page.createPage
@@ -23,6 +25,8 @@ fun adminPage(
     currentUser: TokenProfile,
     users: List<ManagedUser>,
     worlds: List<ManagedWorld>,
+    totalUserCount: Int,
+    totalWorldCount: Int,
     unreadNotificationCount: Int = 0
 ) = createPage(
     "Admin",
@@ -33,8 +37,8 @@ fun adminPage(
     classes += "admin-page"
 
     adminPageHeader()
-    userManagementSection(users)
-    worldManagementSection(worlds)
+    userManagementSection(users, totalUserCount, 1)
+    worldManagementSection(worlds, totalWorldCount, 1)
 }
 
 private fun MAIN.adminPageHeader() {
@@ -48,7 +52,7 @@ private fun MAIN.adminPageHeader() {
     }
 }
 
-private fun MAIN.userManagementSection(users: List<ManagedUser>) {
+private fun MAIN.userManagementSection(users: List<ManagedUser>, totalUserCount: Int, currentUserPage: Int) {
     section("user-management") {
         userManagementHeader()
         div("search-wrapper") {
@@ -64,7 +68,7 @@ private fun MAIN.userManagementSection(users: List<ManagedUser>) {
                 hxTrigger("input changed delay:500ms")
             }
         }
-        userManagementTable(users)
+        userManagementTable(users, totalUserCount, currentUserPage)
     }
 }
 
@@ -79,7 +83,7 @@ private fun FlowContent.userManagementHeader() {
     }
 }
 
-private fun FlowContent.userManagementTable(users: List<ManagedUser>) {
+private fun FlowContent.userManagementTable(users: List<ManagedUser>, totalUserCount: Int, currentPage: Int) {
     table {
         thead {
             tr {
@@ -108,6 +112,20 @@ private fun FlowContent.userManagementTable(users: List<ManagedUser>) {
         }
         tbody {
             userRows(users)
+        }
+        tfoot {
+            tr {
+                td {
+                    colSpan = "7"
+                    div {
+                       paginationInfo(
+                            totalCount = totalUserCount,
+                            currentPage = currentPage,
+                            belongsToTable = AdminTable.USERS
+                       )
+                    }
+                }
+            }
         }
     }
 }
@@ -154,7 +172,7 @@ private fun TD.userActionButtons(user: ManagedUser) {
     dangerButton("Delete user")
 }
 
-private fun MAIN.worldManagementSection(worlds: List<ManagedWorld>) {
+private fun MAIN.worldManagementSection(worlds: List<ManagedWorld>, totalWorldCount: Int, worldPage: Int) {
     section("world-management") {
         worldManagementHeader()
         div("search-wrapper") {
@@ -170,7 +188,7 @@ private fun MAIN.worldManagementSection(worlds: List<ManagedWorld>) {
                 hxTrigger("input changed delay:500ms")
             }
         }
-        worldManagementTable(worlds)
+        worldManagementTable(worlds, totalWorldCount, worldPage)
     }
 }
 
@@ -185,7 +203,7 @@ private fun FlowContent.worldManagementHeader() {
     }
 }
 
-private fun FlowContent.worldManagementTable(worlds: List<ManagedWorld>) {
+private fun FlowContent.worldManagementTable(worlds: List<ManagedWorld>, totalWorldCount: Int, worldPage: Int) {
     table {
         thead {
             tr {
@@ -211,6 +229,20 @@ private fun FlowContent.worldManagementTable(worlds: List<ManagedWorld>) {
         }
         tbody {
             worldRows(worlds)
+        }
+        tfoot {
+            tr {
+                td {
+                    colSpan = "6"
+                    div {
+                        paginationInfo(
+                            totalCount = totalWorldCount,
+                            currentPage = worldPage,
+                            belongsToTable = AdminTable.WORLDS
+                        )
+                    }
+                }
+            }
         }
     }
 }
@@ -245,4 +277,49 @@ private fun TD.worldActionButtons() {
     neutralButton("View World")
     neutralButton("Edit World")
     dangerButton("Delete World")
+}
+
+enum class AdminTable {
+    USERS,
+    WORLDS
+}
+
+fun DIV.paginationInfo(
+    totalCount: Int,
+    currentPage: Int,
+    belongsToTable: AdminTable
+) {
+    val tableSpecific = when (belongsToTable) {
+        AdminTable.USERS -> "user"
+        AdminTable.WORLDS -> "world"
+    }
+    id = "pagination-info-${tableSpecific}s"
+    classes += "pagination-info"
+    val pages = (totalCount + 9) / 10
+    val start = (currentPage - 1) * 10 + 1
+    val end = minOf(currentPage * 10, totalCount)
+
+    if (totalCount > 0) {
+        ghostButton("Previous Page") {
+            buttonBlock = {
+                disabled = currentPage <= 1
+                hxGet(Link.AdminDashboard.to + "/${tableSpecific}s/search?page=${currentPage - 1}")
+                hxInclude("#${tableSpecific}-search-input")
+                hxTarget("#admin-${tableSpecific}-rows")
+                hxSwap("outerHTML")
+            }
+        }
+        +"Showing $start-$end of $totalCount ${tableSpecific}s (Page $currentPage of $pages)"
+        ghostButton("Next Page") {
+            buttonBlock = {
+                disabled = currentPage >= pages
+                hxGet(Link.AdminDashboard.to + "/${tableSpecific}s/search?page=${currentPage + 1}")
+                hxInclude("#${tableSpecific}-search-input")
+                hxTarget("#admin-${tableSpecific}-rows")
+                hxSwap("outerHTML")
+            }
+        }
+    } else {
+        +"No ${tableSpecific}s found"
+    }
 }

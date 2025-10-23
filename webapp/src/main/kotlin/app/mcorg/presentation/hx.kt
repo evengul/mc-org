@@ -55,6 +55,10 @@ fun HTMLTag.hxConfirm(value: String) {
     attributes += "hx-confirm" to value
 }
 
+fun HTMLTag.hxInclude(value: String) {
+    attributes += "hx-include" to value
+}
+
 fun HTMLTag.hxExtension(value: String) {
     attributes += "hx-ext" to value
 }
