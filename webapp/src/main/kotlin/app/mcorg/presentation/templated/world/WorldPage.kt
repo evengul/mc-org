@@ -5,6 +5,11 @@ import app.mcorg.domain.model.user.Role
 import app.mcorg.domain.model.user.TokenProfile
 import app.mcorg.domain.model.user.WorldMember
 import app.mcorg.domain.model.world.World
+import app.mcorg.presentation.hxGet
+import app.mcorg.presentation.hxIndicator
+import app.mcorg.presentation.hxSwap
+import app.mcorg.presentation.hxTarget
+import app.mcorg.presentation.hxTrigger
 import app.mcorg.presentation.templated.common.button.actionButton
 import app.mcorg.presentation.templated.common.button.neutralButton
 import app.mcorg.presentation.templated.common.chip.ChipVariant
@@ -41,6 +46,7 @@ fun worldPage(
     toggles: Set<WorldPageToggles> = setOf(
         WorldPageToggles.PROJECTS,
         WorldPageToggles.NEW_PROJECT,
+        WorldPageToggles.SEARCH,
         WorldPageToggles.SETTINGS,
     )
 ) = createPage(
@@ -52,7 +58,7 @@ fun worldPage(
     classes += "world"
 
     worldHeader(world, worldMember, toggles)
-    worldSearchSection(toggles)
+    projectSearch(world.id, toggles)
     worldProjectsSection(projects, tab, toggles)
 }
 
@@ -104,19 +110,41 @@ private fun FlowContent.worldHeaderActions(world: World, user: WorldMember, togg
     }
 }
 
-private fun MAIN.worldSearchSection(toggles: Set<WorldPageToggles>) {
+private fun MAIN.projectSearch(worldId: Int, toggles: Set<WorldPageToggles>) {
     if (WorldPageToggles.SEARCH in toggles) {
-        div("world-projects-search") {
-            input {
-                placeholder = "Search projects by name, description, tasks..."
+        div {
+            form(classes = "world-projects-search") {
+                hxGet(Link.Worlds.world(worldId).to + "/projects/search")
+                hxTarget("#world-projects-list")
+                hxSwap("outerHTML")
+                hxTrigger("""
+                input from:#world-projects-search-input delay:500ms, 
+                change from:#world-projects-search-filter-completed-checkbox delay:500ms,
+                submit
+            """.trimIndent())
+                hxIndicator(".search-wrapper")
+
+                div("search-wrapper") {
+                    input {
+                        id = "world-projects-search-input"
+                        type = InputType.search
+                        placeholder = "Search projects by name, description, tasks..."
+                        name = "query"
+                    }
+                }
+                input {
+                    id = "world-projects-search-filter-completed-checkbox"
+                    type = InputType.checkBox
+                    name = "showCompleted"
+                }
+                label {
+                    htmlFor = "world-projects-search-filter-completed-checkbox"
+                    + "Show completed projects"
+                }
             }
-            input {
-                id = "world-projects-search-filter-completed-checkbox"
-                type = InputType.checkBox
-            }
-            label {
-                htmlFor = "world-projects-search-filter-completed-checkbox"
-                + "Show completed projects"
+            p("subtle") {
+                id = "world-projects-count"
+                + "Showing all projects."
             }
         }
     }
@@ -166,7 +194,7 @@ fun DIV.worldProjectContent(tab: String?, projects: List<Project>) {
         else -> if (projects.isEmpty()) {
             worldProjectsEmpty()
         } else {
-            ul("world-projects-list") {
+            ul {
                 projectList(projects)
             }
         }

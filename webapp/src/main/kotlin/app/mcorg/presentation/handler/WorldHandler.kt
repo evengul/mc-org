@@ -17,6 +17,7 @@ import app.mcorg.pipeline.project.settings.handleUpdateProjectDescription
 import app.mcorg.pipeline.project.settings.handleUpdateProjectName
 import app.mcorg.pipeline.project.settings.handleUpdateProjectType
 import app.mcorg.pipeline.world.handleDeleteWorld
+import app.mcorg.pipeline.world.handleSearchProjects
 import app.mcorg.pipeline.world.handleSearchWorlds
 import app.mcorg.pipeline.world.settings.handleCancelInvitation
 import app.mcorg.pipeline.world.settings.handleCreateInvitation
@@ -63,6 +64,9 @@ class WorldHandler {
                     call.handleGetWorld()
                 }
                 route("/projects") {
+                    get("/search") {
+                        call.handleSearchProjects()
+                    }
                     post {
                         call.handleCreateProject()
                     }
