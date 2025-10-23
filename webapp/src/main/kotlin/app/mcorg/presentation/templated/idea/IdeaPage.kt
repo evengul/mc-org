@@ -46,6 +46,8 @@ import kotlinx.html.span
 import kotlinx.html.style
 import kotlinx.html.textArea
 import kotlinx.html.ul
+import kotlin.math.ceil
+import kotlin.math.min
 
 fun ideaPage(
     user: TokenProfile,
@@ -73,7 +75,7 @@ fun MAIN.ideaContent(userId: Int, idea: Idea, comments: List<Comment>) {
                     + idea.name
                 }
                 p("subtle") {
-                    + "by ${idea.author.name} • ${idea.createdAt.formatAsRelativeOrDate()} • ${idea.rating.average} stars"
+                    + "by ${idea.author.name} • ${idea.createdAt.formatAsRelativeOrDate()} • ${"⭐".repeat(min(ceil(idea.rating.average).toInt(), 5))}"
                 }
             }
             div {
@@ -140,8 +142,11 @@ fun MAIN.ideaContent(userId: Int, idea: Idea, comments: List<Comment>) {
                     id = "idea-ratings-summary-header"
                     + "${idea.rating.average}"
                 }
+                p {
+                    + "⭐".repeat(min(ceil(idea.rating.average).toInt(), 5))
+                }
                 p("subtle") {
-                    + "${idea.rating.total} ratings"
+                    + "${idea.rating.total} rating${if (idea.rating.total != 1) "s" else ""}"
                 }
             }
             div {
@@ -194,17 +199,25 @@ fun MAIN.ideaContent(userId: Int, idea: Idea, comments: List<Comment>) {
                 id = "idea-comment-input-end"
                 span {
                     id = "idea-comment-rating-inputs"
-                    label {
-                        htmlFor = "idea-comment-input-1"
-                        + "Optional rating:"
+                    span {
+                        + "Optional Rating:"
                     }
-                    for (i in 1..5) {
-                        radioInput {
-                            id = "idea-rating-input-$i"
-                            classes += "idea-rating-input"
-                            name = "rating"
-                            value = "$i"
-                            onClick = "document.getElementById('idea-comment-reset-rating-button').style.display = 'inline-block';"
+                    span {
+                        classes += "idea-rating-stars"
+                        // Reverse order for CSS sibling selector to work
+                        for (i in 5 downTo 1) {
+                            radioInput {
+                                id = "idea-rating-input-$i"
+                                classes += "idea-rating-input"
+                                name = "rating"
+                                value = "$i"
+                                onClick = "document.getElementById('idea-comment-reset-rating-button').style.display = 'inline-block';"
+                            }
+                            label {
+                                classes += "idea-rating-label"
+                                htmlFor = "idea-rating-input-$i"
+                                + "⭐"
+                            }
                         }
                     }
                     ghostButton("Reset rating") {
