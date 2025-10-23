@@ -85,11 +85,13 @@ private fun DIV.taskSearchAndFilters(worldId: Int, projectId: Int, projectStage:
         hxGet("${Link.Worlds.world(worldId).project(projectId).tasks().to}/search")
         hxTarget("#tasks-list")
         hxSwap("outerHTML")
-        input {
-            id = "task-search-input"
-            name = "query"
-            type = InputType.search
-            placeholder = "Search tasks..."
+        div("search-wrapper") {
+            input {
+                id = "task-search-input"
+                name = "query"
+                type = InputType.search
+                placeholder = "Search tasks..."
+            }
         }
         select {
             name = "completionStatus"

@@ -34,7 +34,7 @@ suspend fun ApplicationCall.handleCreateWorld() {
             .step(Step.value(user.id))
             .step(object : Step<Int, CreateWorldFailures.DatabaseError, List<World>> {
                 override suspend fun process(input: Int): Result<CreateWorldFailures.DatabaseError, List<World>> {
-                    return GetPermittedWorldsStep.process(user.id).mapError { CreateWorldFailures.DatabaseError }
+                    return GetPermittedWorldsStep.process(GetPermittedWorldsInput(userId = input)).mapError { CreateWorldFailures.DatabaseError }
                 }
             })
     }

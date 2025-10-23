@@ -17,6 +17,7 @@ import app.mcorg.pipeline.project.settings.handleUpdateProjectDescription
 import app.mcorg.pipeline.project.settings.handleUpdateProjectName
 import app.mcorg.pipeline.project.settings.handleUpdateProjectType
 import app.mcorg.pipeline.world.handleDeleteWorld
+import app.mcorg.pipeline.world.handleSearchWorlds
 import app.mcorg.pipeline.world.settings.handleCancelInvitation
 import app.mcorg.pipeline.world.settings.handleCreateInvitation
 import app.mcorg.pipeline.world.settings.handleGetInvitationListFragment
@@ -52,6 +53,9 @@ class WorldHandler {
         route("/worlds") {
             post {
                 call.handleCreateWorld()
+            }
+            get("/search") {
+                call.handleSearchWorlds()
             }
             route("/{worldId}") {
                 install(WorldParamPlugin)

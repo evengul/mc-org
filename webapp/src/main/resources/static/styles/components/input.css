@@ -70,3 +70,48 @@ input.input--success:focus {
     border-color: var(--clr-border-success);
     box-shadow: 0 0 0 3px var(--clr-green-100);
 }
+
+/* Input search loading indicators */
+.search-wrapper {
+    position: relative;
+    display: block;
+    width: 100%;
+}
+
+.search-wrapper input {
+    width: 100%;
+}
+
+.search-wrapper.htmx-request input {
+    padding-right: calc(var(--spacing-md) + 20px); /* Make room for spinner */
+}
+
+.search-wrapper::after {
+    content: '';
+    position: absolute;
+    right: var(--spacing-sm);
+    top: 50%;
+    transform: translateY(-50%);
+    width: 16px;
+    height: 16px;
+    border: 2px solid var(--clr-border-subtle);
+    border-top-color: var(--clr-action);
+    border-radius: 50%;
+    animation: input-spinner 0.6s linear infinite;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s ease;
+}
+
+.search-wrapper.htmx-request::after {
+    opacity: 1;
+}
+
+@keyframes input-spinner {
+    0% {
+        transform: translateY(-50%) rotate(0deg);
+    }
+    100% {
+        transform: translateY(-50%) rotate(360deg);
+    }
+}
