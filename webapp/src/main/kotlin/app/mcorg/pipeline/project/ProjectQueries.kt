@@ -45,7 +45,7 @@ val getProjectsByWorldIdQuery = SafeSQL.select("""
         ) ct ON t.id = ct.task_id
         GROUP BY t.project_id
     ) task_stats ON p.id = task_stats.project_id
-    WHERE p.world_id = ? AND (LENGTH(?) < 3 OR p.name ILIKE '%' || ? || '%' OR p.description ILIKE '%' || ? || '%') AND (? = TRUE OR p.stage != 'COMPLETED')
+    WHERE p.world_id = ? AND (? = '' OR LOWER(p.name) ILIKE '%' || ? || '%' OR LOWER(p.description) ILIKE '%' || ? || '%') AND (? = TRUE OR p.stage != 'COMPLETED')
     ORDER BY p.id
 """.trimIndent())
 

@@ -93,9 +93,10 @@ private data object SearchProjectsStep : Step<SearchProjectsInput, SearchProject
             parameterSetter = { statement, searchInput ->
                 statement.setInt(1, searchInput.worldId)
 
-                statement.setString(2, searchInput.query)
-                statement.setString(3, searchInput.query)
-                statement.setString(4, searchInput.query)
+                val normalizedQuery = searchInput.query.trim().lowercase()
+                statement.setString(2, normalizedQuery)
+                statement.setString(3, normalizedQuery)
+                statement.setString(4, normalizedQuery)
 
                 statement.setBoolean(5, searchInput.showCompleted)
             },

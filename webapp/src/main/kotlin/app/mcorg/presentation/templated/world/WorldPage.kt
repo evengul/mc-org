@@ -58,7 +58,7 @@ fun worldPage(
     classes += "world"
 
     worldHeader(world, worldMember, toggles)
-    projectSearch(world.id, toggles)
+    projectSearch(world.id, visibleProjects = projects.size, totalProjects = world.totalProjects, toggles)
     worldProjectsSection(projects, tab, toggles)
 }
 
@@ -110,7 +110,7 @@ private fun FlowContent.worldHeaderActions(world: World, user: WorldMember, togg
     }
 }
 
-private fun MAIN.projectSearch(worldId: Int, toggles: Set<WorldPageToggles>) {
+private fun MAIN.projectSearch(worldId: Int, visibleProjects: Int, totalProjects: Int, toggles: Set<WorldPageToggles>) {
     if (WorldPageToggles.SEARCH in toggles) {
         div {
             form(classes = "world-projects-search") {
@@ -144,7 +144,7 @@ private fun MAIN.projectSearch(worldId: Int, toggles: Set<WorldPageToggles>) {
             }
             p("subtle") {
                 id = "world-projects-count"
-                + "Showing all projects."
+                + "Showing $visibleProjects of $totalProjects project${if (totalProjects == 1) "" else "s"}"
             }
         }
     }

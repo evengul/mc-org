@@ -102,7 +102,7 @@ object SearchTasksStep : Step<SearchTasksInput, SearchTasksFailures, SearchTasks
                     FROM tasks t
                     LEFT JOIN task_requirements tr ON t.id = tr.task_id
                     WHERE t.project_id = ?
-                      AND (? IS NULL OR LOWER(t.name) LIKE LOWER(?) OR LOWER(t.description) LIKE LOWER(?))
+                      AND (? IS NULL OR LOWER(t.name) LIKE ? OR LOWER(t.description) LIKE ?)
                       AND (? = 'ALL' OR t.priority = ?)
                       AND (? = 'ALL' OR t.stage = ?)
                     GROUP BY t.id, t.project_id, t.name, t.description, t.stage, t.priority
@@ -118,7 +118,7 @@ object SearchTasksStep : Step<SearchTasksInput, SearchTasksFailures, SearchTasks
             parameterSetter = { statement, searchInput ->
                 statement.setInt(1, searchInput.projectId)
 
-                val searchPattern = searchInput.query?.let { "%$it%" }
+                val searchPattern = searchInput.query?.let { "%$it%".lowercase() }
                 statement.setString(2, searchInput.query)
                 statement.setString(3, searchPattern)
                 statement.setString(4, searchPattern)
