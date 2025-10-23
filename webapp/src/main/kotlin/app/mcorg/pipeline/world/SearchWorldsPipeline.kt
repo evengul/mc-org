@@ -6,7 +6,6 @@ import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
-import app.mcorg.pipeline.ValidationSteps
 import app.mcorg.presentation.handler.executeParallelPipeline
 import app.mcorg.presentation.hxOutOfBands
 import app.mcorg.presentation.templated.home.worldList
@@ -15,7 +14,6 @@ import app.mcorg.presentation.templated.layout.alert.AlertType
 import app.mcorg.presentation.templated.layout.alert.createAlert
 import app.mcorg.presentation.utils.getUser
 import app.mcorg.presentation.utils.respondHtml
-import io.ktor.http.Parameters
 import io.ktor.server.application.ApplicationCall
 import kotlinx.html.id
 import kotlinx.html.li
@@ -27,9 +25,18 @@ sealed interface SearchWorldsFailure {
     object DatabaseError : SearchWorldsFailure
 }
 
+data class SearchWorldsInput(
+    val query: String,
+    val sortBy: String
+)
+
 suspend fun ApplicationCall.handleSearchWorlds() {
     val userId = this.getUser().id
-    val parameters = this.request.queryParameters
+
+    val query = request.queryParameters["query"] ?: ""
+    val sortBy = request.queryParameters["sortBy"]?.takeIf {
+        it in setOf("name_asc", "modified_desc")
+    } ?: "modified_desc"
 
     executeParallelPipeline(
         onSuccess = { (worlds, count) -> respondHtml(createHTML().ul {
@@ -51,8 +58,8 @@ suspend fun ApplicationCall.handleSearchWorlds() {
             })
         },
     ) {
-        val getWorlds = pipeline("getWorlds", parameters, Pipeline.create<SearchWorldsFailure, Parameters>()
-            .pipe(ValidateSearchWorldsInputStep)
+        val getWorlds = pipeline("getWorlds", Unit, Pipeline.create<SearchWorldsFailure, Unit>()
+            .map { SearchWorldsInput(query, sortBy) }
             .pipe(SearchWorldsStep(userId)))
 
         val countWorlds = pipeline("countWorlds", userId, Pipeline.create<SearchWorldsFailure, Int>()
@@ -64,21 +71,13 @@ suspend fun ApplicationCall.handleSearchWorlds() {
     }
 }
 
-private object ValidateSearchWorldsInputStep : Step<Parameters, SearchWorldsFailure, String> {
-    override suspend fun process(input: Parameters): Result<SearchWorldsFailure, String> {
-        val result = ValidationSteps.optional("query").process(input)
-            .getOrNull() ?: ""
-
-        return Result.Success(result)
-    }
-}
-
-private data class SearchWorldsStep(val userId: Int) : Step<String, SearchWorldsFailure, List<World>> {
-    override suspend fun process(input: String): Result<SearchWorldsFailure, List<World>> {
+private data class SearchWorldsStep(val userId: Int) : Step<SearchWorldsInput, SearchWorldsFailure, List<World>> {
+    override suspend fun process(input: SearchWorldsInput): Result<SearchWorldsFailure, List<World>> {
         return GetPermittedWorldsStep.process(
             GetPermittedWorldsInput(
                 userId = userId,
-                query = input
+                query = input.query,
+                sortBy = input.sortBy
             )
         ).mapError { SearchWorldsFailure.DatabaseError }
     }

@@ -33,6 +33,9 @@ class WorldView(
                 p("subtle") {
                     +"Created: ${world.createdAt.formatAsRelativeOrDate()}"
                 }
+                p("subtle") {
+                    +"Last Modified: ${world.updatedAt.formatAsRelativeOrDate()}"
+                }
             }
             progressComponent {
                 value = world.completedProjects.toDouble()
