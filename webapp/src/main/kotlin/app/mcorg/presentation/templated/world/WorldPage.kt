@@ -59,7 +59,7 @@ fun worldPage(
 
     worldHeader(world, worldMember, toggles)
     projectSearch(world.id, visibleProjects = projects.size, totalProjects = world.totalProjects, toggles)
-    worldProjectsSection(projects, tab, toggles)
+    worldProjectsSection(world.totalProjects, projects, tab, toggles)
 }
 
 private fun MAIN.worldHeader(world: World, user: WorldMember, toggles: Set<WorldPageToggles>) {
@@ -151,11 +151,12 @@ private fun MAIN.projectSearch(worldId: Int, visibleProjects: Int, totalProjects
 }
 
 private fun MAIN.worldProjectsSection(
+    totalProjects: Int,
     projects: List<Project>,
     tab: String?,
     toggles: Set<WorldPageToggles>
 ) {
-    worldProjectsContent(projects, tab, toggles)
+    worldProjectsContent(totalProjects, projects, tab, toggles)
 }
 
 private fun DIV.worldProjectsEmpty() {
@@ -173,6 +174,7 @@ private fun DIV.worldProjectsEmpty() {
 }
 
 private fun MAIN.worldProjectsContent(
+    totalProjects: Int,
     projects: List<Project>,
     tab: String?,
     toggles: Set<WorldPageToggles>
@@ -183,17 +185,18 @@ private fun MAIN.worldProjectsContent(
         }
     }
     div("world-project-content") {
-        worldProjectContent(tab, projects)
+        worldProjectContent(totalProjects, tab, projects)
     }
 }
 
-fun DIV.worldProjectContent(tab: String?, projects: List<Project>) {
+fun DIV.worldProjectContent(totalProjects: Int, tab: String?, projects: List<Project>) {
     when(tab) {
         "kanban" -> kanbanView()
         "roadmap" -> roadmapView()
-        else -> if (projects.isEmpty()) {
-            worldProjectsEmpty()
-        } else {
+        else -> {
+            if (totalProjects == 0) {
+                worldProjectsEmpty()
+            }
             ul {
                 projectList(projects)
             }

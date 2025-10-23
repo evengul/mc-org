@@ -3,6 +3,7 @@ package app.mcorg.pipeline.project
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.failure.CreateProjectFailures
 import app.mcorg.presentation.handler.executePipeline
+import app.mcorg.presentation.hxOutOfBands
 import app.mcorg.presentation.templated.world.projectItem
 import app.mcorg.presentation.utils.getUser
 import app.mcorg.presentation.utils.getWorldId
@@ -10,6 +11,7 @@ import app.mcorg.presentation.utils.respondBadRequest
 import app.mcorg.presentation.utils.respondHtml
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.request.receiveParameters
+import kotlinx.html.div
 import kotlinx.html.li
 import kotlinx.html.stream.createHTML
 
@@ -22,6 +24,8 @@ suspend fun ApplicationCall.handleCreateProject() {
         onSuccess = {
             respondHtml(createHTML().li {
                 projectItem(it)
+            } + createHTML().div {
+                hxOutOfBands("delete:#empty-projects-state")
             })
         },
         onFailure = { failure ->

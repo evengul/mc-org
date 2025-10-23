@@ -88,7 +88,6 @@ class WorldHandler {
                             call.handleUpdateProjectType()
                         }
                         delete {
-                            install(WorldAdminPlugin)
                             call.handleDeleteProject()
                         }
                         route("/resources") {

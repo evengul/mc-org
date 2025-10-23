@@ -44,7 +44,7 @@ fun DIV.worldsView(worlds: List<World>) {
 
                     hxGet(Link.Worlds.to + "/search")
                     hxTarget("#home-worlds-list")
-                    hxSwap("innerHTML")
+                    hxSwap("outerHTML")
                     hxTrigger("input changed delay:500ms, change changed, search")
                     hxIndicator(".search-wrapper")
                 }
