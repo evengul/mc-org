@@ -118,9 +118,41 @@
 
         #idea-comment-rating-inputs {
             display: flex;
-            flex-direction: row;
             align-items: center;
-            gap: var(--spacing-xs);
+            gap: var(--spacing-sm, 0.5rem);
+            flex-wrap: wrap;
+        }
+
+        .idea-rating-stars {
+            display: inline-flex;
+            flex-direction: row-reverse;
+            gap: var(--spacing-sm);
+        }
+
+        .idea-rating-input {
+            display: none;
+        }
+
+        .idea-rating-label {
+            font-size: var(--text-xxl);
+            cursor: pointer;
+            filter: grayscale(100%);
+            transition: filter 0.2s ease;
+            line-height: 1.5;
+        }
+
+        .idea-rating-label:hover,
+        .idea-rating-label:hover ~ .idea-rating-label {
+            filter: grayscale(0);
+        }
+
+        .idea-rating-input:checked ~ .idea-rating-label {
+            filter: grayscale(0);
+        }
+
+        .idea-rating-input:checked ~ .idea-rating-label:hover,
+        .idea-rating-input:checked ~ .idea-rating-label:hover ~ .idea-rating-label {
+            filter: grayscale(0);
         }
     }
 

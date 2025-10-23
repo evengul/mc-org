@@ -17,6 +17,8 @@ import kotlinx.html.id
 import kotlinx.html.li
 import kotlinx.html.p
 import kotlinx.html.ul
+import kotlin.math.ceil
+import kotlin.math.min
 
 fun UL.ideaList(ideas: List<Idea>) {
     id = "ideas-list"
@@ -77,7 +79,7 @@ fun LI.ideaListItem(idea: Idea) {
         div("idea-list-item-footer") {
             div("idea-list-item-footer-start") {
                 p("subtle") {
-                    +"${idea.favouritesCount} favourites • ${"%.1f".format(idea.rating.average)} ⭐ (${idea.rating.total} ratings)"
+                    +"${idea.favouritesCount} favourites • ${"%.1f".format(idea.rating.average)} ${"⭐".repeat(min(ceil(idea.rating.average).toInt(), 5))} (${idea.rating.total} ratings)"
                 }
             }
             div("idea-list-item-footer-end") {
