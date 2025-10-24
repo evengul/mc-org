@@ -3,7 +3,7 @@ package app.mcorg.presentation.templated.project
 import app.mcorg.domain.model.project.NamedProjectId
 import app.mcorg.domain.model.project.ProjectDependency
 import app.mcorg.domain.model.project.ProjectStage
-import app.mcorg.presentation.hxDelete
+import app.mcorg.presentation.hxDeleteWithConfirm
 import app.mcorg.presentation.hxPost
 import app.mcorg.presentation.hxTarget
 import app.mcorg.presentation.templated.common.button.actionButton
@@ -137,7 +137,11 @@ fun DIV.dependenciesList(worldId: Int, projectId: Int, dependencies: List<Projec
                         }
                         iconButton(Icons.DELETE, "Remove dependency", iconSize = IconSize.SMALL) {
                             buttonBlock = {
-                                hxDelete(Link.Worlds.world(worldId).project(projectId).to + "/dependencies/${dependency.dependencyId}", "Are you sure you want to remove the dependency on '${dependency.dependencyName}'?")
+                                hxDeleteWithConfirm(
+                                    Link.Worlds.world(worldId).project(projectId).to + "/dependencies/${dependency.dependencyId}",
+                                    title = "Remove dependency",
+                                    description = "Are you sure you want to remove the dependency on '${dependency.dependencyName}'?"
+                                )
                                 hxTarget("#project-dependencies-list-container")
                             }
                         }

@@ -4,7 +4,7 @@ import app.mcorg.domain.model.project.Project
 import app.mcorg.domain.model.project.ProjectProduction
 import app.mcorg.domain.model.project.ProjectResourceGathering
 import app.mcorg.domain.model.project.ProjectStage
-import app.mcorg.presentation.hxDelete
+import app.mcorg.presentation.hxDeleteWithConfirm
 import app.mcorg.presentation.hxPost
 import app.mcorg.presentation.hxSwap
 import app.mcorg.presentation.hxTarget
@@ -151,7 +151,11 @@ fun LI.projectResourceProductionItem(worldId: Int, production: ProjectProduction
         classes = setOf("production-item-end")
         iconButton(Icons.DELETE, "Delete project production value", color = IconButtonColor.DANGER, iconSize = IconSize.SMALL) {
             buttonBlock = {
-                hxDelete(Link.Worlds.world(worldId).project(production.projectId).to + "/resources/${production.id}", "Are you sure you want to delete this production item?")
+                hxDeleteWithConfirm(
+                    url = Link.Worlds.world(worldId).project(production.projectId).to + "/resources/${production.id}",
+                    title = "Delete Production Item",
+                    description = "Are you sure you want to delete this production item?"
+                )
                 hxTarget("#project-resource-production-${production.id}")
                 hxSwap("delete")
             }

@@ -18,9 +18,35 @@ fun HTMLTag.hxPatch(value: String) {
     attributes += "hx-patch" to value
 }
 
-fun HTMLTag.hxDelete(value: String, confirmMessage: String) {
-    attributes += "hx-delete" to value
-    hxConfirm(confirmMessage)
+/**
+ * Configure delete action with custom confirmation modal
+ * @param url The DELETE endpoint URL
+ * @param title Modal title
+ * @param description Modal description
+ * @param warning Warning message shown in danger notice
+ * @param confirmText Optional text user must type to confirm (enables type-to-confirm mode)
+ */
+fun HTMLTag.hxDeleteWithConfirm(
+    url: String,
+    title: String,
+    description: String? = null,
+    warning: String? = null,
+    confirmText: String? = null,
+) {
+    attributes += "hx-delete" to url
+    attributes += "hx-confirm" to title
+
+    attributes += "data-hx-delete-confirm" to "true"
+    attributes += "data-hx-delete-confirm-title" to title
+    description?.let {
+        attributes += "data-hx-delete-confirm-description" to it
+    }
+    warning?.let {
+        attributes += "data-hx-delete-confirm-warning" to it
+    }
+    confirmText?.let {
+        attributes += "data-hx-delete-confirm-text" to it
+    }
 }
 
 fun HTMLTag.hxSwap(value: String) {
@@ -49,10 +75,6 @@ fun HTMLTag.hxTargetError(value: String) {
 
 fun HTMLTag.hxOutOfBands(locator: String) {
     attributes += "hx-swap-oob" to locator
-}
-
-fun HTMLTag.hxConfirm(value: String) {
-    attributes += "hx-confirm" to value
 }
 
 fun HTMLTag.hxInclude(value: String) {

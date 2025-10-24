@@ -1,5 +1,6 @@
 package app.mcorg.presentation.templated.common.page
 
+import app.mcorg.presentation.templated.common.page.PageScript.CONFIRMATION_MODAL
 import app.mcorg.presentation.templated.common.page.PageScript.DIALOGS
 import app.mcorg.presentation.templated.common.page.PageScript.DRAGGABLE
 import app.mcorg.presentation.templated.common.page.PageScript.HTMX
@@ -18,7 +19,8 @@ enum class PageScript {
     DIALOGS,
     DRAGGABLE,
     TOGGLE_VISIBILITY,
-    REMOVE_FIRST_PROJECT_DIALOG_ON_CREATE;
+    REMOVE_FIRST_PROJECT_DIALOG_ON_CREATE,
+    CONFIRMATION_MODAL;
 }
 
 fun HEAD.addScript(script: PageScript) {
@@ -30,5 +32,7 @@ fun HEAD.addScript(script: PageScript) {
         DRAGGABLE -> script { src = "/static/scripts/draggable.js"; nonce = generateNonce() }
         TOGGLE_VISIBILITY -> script { src = "/static/scripts/toggleVisibility.js"; nonce = generateNonce() }
         REMOVE_FIRST_PROJECT_DIALOG_ON_CREATE -> script { src = "/static/scripts/remove-first-project-dialog-on-create.js"; nonce = generateNonce() }
+        CONFIRMATION_MODAL -> script { src = "/static/scripts/confirmation-modal.js"; nonce = generateNonce() }
     }
 }
+

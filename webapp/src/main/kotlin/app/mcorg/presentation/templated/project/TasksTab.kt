@@ -8,7 +8,7 @@ import app.mcorg.domain.model.task.Priority
 import app.mcorg.domain.model.task.Task
 import app.mcorg.domain.model.task.TaskProjectStage
 import app.mcorg.domain.model.task.TaskRequirement
-import app.mcorg.presentation.hxDelete
+import app.mcorg.presentation.hxDeleteWithConfirm
 import app.mcorg.presentation.hxGet
 import app.mcorg.presentation.hxIndicator
 import app.mcorg.presentation.hxPatch
@@ -248,7 +248,11 @@ private fun LI.taskHeader(worldId: Int, projectId: Int, task: Task) {
                 color = IconButtonColor.DANGER,
             ) {
                 buttonBlock = {
-                    hxDelete(Link.Worlds.world(worldId).project(projectId).tasks().task(task.id), "Are you sure you want to delete the task \"${task.name}\"? This action cannot be undone.")
+                    hxDeleteWithConfirm(
+                        url = Link.Worlds.world(worldId).project(projectId).tasks().task(task.id),
+                        title = "Delete Task",
+                        description = "Are you sure you want to delete the task \"${task.name}\"? This action cannot be undone."
+                    )
                     hxTarget("#task-${task.id}")
                     hxSwap("delete")
                     title = "Delete task"

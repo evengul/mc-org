@@ -3,7 +3,7 @@ package app.mcorg.presentation.templated.idea
 import app.mcorg.domain.model.idea.Comment
 import app.mcorg.domain.model.idea.Idea
 import app.mcorg.domain.model.user.TokenProfile
-import app.mcorg.presentation.hxDelete
+import app.mcorg.presentation.hxDeleteWithConfirm
 import app.mcorg.presentation.hxPost
 import app.mcorg.presentation.hxPut
 import app.mcorg.presentation.hxSwap
@@ -88,7 +88,13 @@ fun MAIN.ideaContent(userId: Int, idea: Idea, comments: List<Comment>) {
                     iconButton(Icons.DELETE, "Delete idea", color = IconButtonColor.DANGER) {
                         iconSize = IconSize.SMALL
                         buttonBlock = {
-                            hxDelete(Link.Ideas.single(idea.id), "Are you sure you want to delete this idea?")
+                            hxDeleteWithConfirm(
+                                url = Link.Ideas.single(idea.id),
+                                title = "Delete Idea",
+                                description = "This action cannot be undone. Projects imported from this idea will not be impacted.",
+                                warning = "⚠️ The idea \"${idea.name}\" along with ratings and comments will be permanently deleted.",
+                                confirmText = idea.name
+                            )
                             hxSwap("none")
                         }
                     }
@@ -286,7 +292,12 @@ fun LI.ideaCommentItem(userId: Int, comment: Comment) {
                 iconButton(Icons.DELETE, "Delete comment", color = IconButtonColor.GHOST) {
                     iconSize = IconSize.SMALL
                     buttonBlock = {
-                        hxDelete(Link.Ideas.single(comment.ideaId) + "/comments/${comment.id}", "Are you sure you want to delete this comment?")
+                        hxDeleteWithConfirm(
+                            url = Link.Ideas.single(comment.ideaId) + "/comments/${comment.id}",
+                            title = "Delete Comment",
+                            description = "This action cannot be undone.",
+                            warning = "",
+                        )
                         hxTarget("#idea-comment-${comment.id}")
                         hxSwap("outerHTML")
                     }

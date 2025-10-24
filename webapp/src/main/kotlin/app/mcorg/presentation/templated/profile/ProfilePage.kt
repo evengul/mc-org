@@ -1,6 +1,7 @@
 package app.mcorg.presentation.templated.profile
 
 import app.mcorg.domain.model.user.TokenProfile
+import app.mcorg.presentation.hxDeleteWithConfirm
 import app.mcorg.presentation.templated.common.button.dangerButton
 import app.mcorg.presentation.templated.common.button.neutralButton
 import app.mcorg.presentation.templated.common.dangerzone.dangerZone
@@ -36,6 +37,13 @@ fun profilePage(
         dangerButton("Delete Account") {
             iconLeft = Icons.DELETE
             iconSize = IconSize.SMALL
+            hxDeleteWithConfirm(
+                url = "/account",
+                title = "Delete Account",
+                description = "Are you sure you want to delete your account? This action cannot be undone.",
+                warning = "This will permanently delete your account and all associated data, including your worlds and projects.",
+                confirmText = "DELETE MY ACCOUNT"
+            )
         }
     }
 }
