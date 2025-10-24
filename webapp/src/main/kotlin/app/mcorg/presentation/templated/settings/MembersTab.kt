@@ -6,7 +6,7 @@ import app.mcorg.domain.model.user.Role
 import app.mcorg.domain.model.user.TokenProfile
 import app.mcorg.domain.model.user.WorldMember
 import app.mcorg.pipeline.world.GetWorldInvitationsInput
-import app.mcorg.presentation.hxDelete
+import app.mcorg.presentation.hxDeleteWithConfirm
 import app.mcorg.presentation.hxPatch
 import app.mcorg.presentation.hxPost
 import app.mcorg.presentation.hxSwap
@@ -181,9 +181,10 @@ fun LI.worldInvite(invite: Invite) {
         if (invite.status is InviteStatus.Pending) {
             neutralButton("Cancel") {
                 buttonBlock = {
-                    hxDelete(
-                        Link.Worlds.world(invite.worldId).settings().to + "/members/invitations/${invite.id}",
-                        "Are you sure you want to cancel this invitation? You may resend it later."
+                    hxDeleteWithConfirm(
+                        url = Link.Worlds.world(invite.worldId).settings().to + "/members/invitations/${invite.id}",
+                        title = "Delete Invite",
+                        description = "Are you sure you want to cancel this invitation? You may resend it later."
                     )
                     hxTarget("#invite-${invite.id}")
                     hxSwap("delete")
@@ -242,7 +243,11 @@ fun DIV.membersListSection(currentUser: TokenProfile, members: List<WorldMember>
                             }
                             dangerButton("Remove member") {
                                 buttonBlock = {
-                                    hxDelete("${Link.Worlds.world(member.worldId).to}/settings/members/${member.id}", "Are you sure you want to remove ${member.displayName} from this world?")
+                                    hxDeleteWithConfirm(
+                                        url = "${Link.Worlds.world(member.worldId).to}/settings/members/${member.id}",
+                                        title = "Remove Member",
+                                        description = "Are you sure you want to remove ${member.displayName} from this world?"
+                                    )
                                     hxTarget("#member-${member.id}")
                                     hxSwap("delete")
                                 }

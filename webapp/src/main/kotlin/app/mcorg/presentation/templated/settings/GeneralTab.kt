@@ -126,7 +126,7 @@ fun DIV.generalTab(tabData: SettingsTab.General) {
                     url = Link.Worlds.world(tabData.world.id).settings().to,
                     title = "Delete World",
                     description = "This action cannot be undone. All projects, tasks, and resources will be permanently deleted.",
-                    warning = "⚠️ Warning: This will permanently delete the world \"${tabData.world.name}\" and all associated data.",
+                    warning = " Warning: This will permanently delete the world \"${tabData.world.name}\" and all associated data.",
                     confirmText = tabData.world.name,
                 )
             }
