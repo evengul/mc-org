@@ -4,6 +4,7 @@ import app.mcorg.domain.model.idea.Comment
 import app.mcorg.domain.model.idea.Idea
 import app.mcorg.domain.model.user.TokenProfile
 import app.mcorg.presentation.hxDelete
+import app.mcorg.presentation.hxDeleteWithConfirm
 import app.mcorg.presentation.hxPost
 import app.mcorg.presentation.hxPut
 import app.mcorg.presentation.hxSwap
@@ -287,6 +288,12 @@ fun LI.ideaCommentItem(userId: Int, comment: Comment) {
                     iconSize = IconSize.SMALL
                     buttonBlock = {
                         hxDelete(Link.Ideas.single(comment.ideaId) + "/comments/${comment.id}", "Are you sure you want to delete this comment?")
+                        hxDeleteWithConfirm(
+                            url = Link.Ideas.single(comment.ideaId) + "/comments/${comment.id}",
+                            title = "Delete Comment",
+                            description = "This action cannot be undone.",
+                            warning = "",
+                        )
                         hxTarget("#idea-comment-${comment.id}")
                         hxSwap("outerHTML")
                     }

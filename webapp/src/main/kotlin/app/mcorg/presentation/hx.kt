@@ -34,8 +34,8 @@ fun HTMLTag.hxDelete(value: String, confirmMessage: String) {
 fun HTMLTag.hxDeleteWithConfirm(
     url: String,
     title: String,
-    description: String,
-    warning: String,
+    description: String? = null,
+    warning: String? = null,
     confirmText: String? = null,
 ) {
     attributes += "hx-delete" to url
@@ -43,8 +43,12 @@ fun HTMLTag.hxDeleteWithConfirm(
 
     attributes += "data-hx-delete-confirm" to "true"
     attributes += "data-hx-delete-confirm-title" to title.escapeQuotes()
-    attributes += "data-hx-delete-confirm-description" to description.escapeQuotes()
-    attributes += "data-hx-delete-confirm-warning" to warning.escapeQuotes()
+    description?.let {
+        attributes += "data-hx-delete-confirm-description" to it.escapeQuotes()
+    }
+    warning?.let {
+        attributes += "data-hx-delete-confirm-warning" to it.escapeQuotes()
+    }
     confirmText?.let {
         attributes += "data-hx-delete-confirm-text" to it.escapeQuotes()
     }

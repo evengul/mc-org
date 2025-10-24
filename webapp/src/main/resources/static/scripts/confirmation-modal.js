@@ -47,8 +47,18 @@ showDeleteConfirmModal = function(config) {
 
     // Populate modal content
     title.textContent = config.title;
-    description.textContent = config.description;
-    warning.textContent = config.warning;
+    if (config.description) {
+      description.textContent = config.description;
+      description.style.display = 'block';
+    } else {
+      description.style.display = 'none';
+    }
+    if (config.warning) {
+      warning.textContent = config.warning;
+      warning.style.display = 'block';
+    } else {
+      warning.style.display = 'none';
+    }
 
     // Reset input
     input.value = '';
