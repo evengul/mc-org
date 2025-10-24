@@ -4,7 +4,7 @@
     font-family: 'Segoe UI Regular';
     font-style: normal;
     font-weight: normal;
-    src: url('/static/fonts/microsoft/Segoe UI.woff') format('woff');
+    src: url('https://c.s-microsoft.com/static/fonts/segoe-ui/west-european/normal/latest.woff') format('woff');
 }
 
 :root {
