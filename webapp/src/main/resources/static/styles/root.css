@@ -1,26 +1,6 @@
 /*https://coolors.co/797553-0a2e36-f7f7f7-14cc60-efefef*/
 
 @font-face {
-    font-family: Roboto Mono Light;
-    src: url("/static/fonts/Roboto_Mono/static/RobotoMono-Light.ttf");
-}
-
-@font-face {
-    font-family: Roboto Mono Regular;
-    src: url("/static/fonts/Roboto_Mono/static/RobotoMono-Regular.ttf");
-}
-
-@font-face {
-    font-family: Roboto Mono Medium;
-    src: url("/static/fonts/Roboto_Mono/static/RobotoMono-Medium.ttf");
-}
-
-@font-face {
-    font-family: Roboto Mono Bold;
-    src: url("/static/fonts/Roboto_Mono/static/RobotoMono-Bold.ttf");
-}
-
-@font-face {
     font-family: 'Segoe UI Regular';
     font-style: normal;
     font-weight: normal;
@@ -28,7 +8,7 @@
 }
 
 :root {
-    --font-primary: "Roboto Mono Regular", sans-serif;
+    --font-primary: "Roboto Mono", sans-serif;
 
     --text-base-size: 14px;
     --text-scale-ratio: 1.1;
@@ -609,26 +589,21 @@ html {
 
 h1 {
     font-size: var(--text-xxl);
-    font-family: "Roboto Mono Bold", sans-serif;
 }
 
 h2 {
-    font-size: var(--text-xl);
-    font-family: "Roboto Mono Medium", sans-serif;
+    font-size: var(--text-xl)
 }
 
 h3, button {
     font-size: var(--text-lg);
-    font-family: "Roboto Mono Regular", sans-serif;
 }
 
 p, label {
     font-size: var(--text-md);
-    font-family: "Roboto Mono Light", sans-serif;
 }
 
 caption {
     font-size: var(--text-sm);
-    font-family: "Roboto Mono Light", sans-serif;
 }
 
