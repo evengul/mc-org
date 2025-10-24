@@ -28,7 +28,7 @@ val AuthPlugin = createRouteScopedPlugin("AuthPlugin") {
             .map { user -> it.storeUser(user) }
             .execute(it.request.cookies)
         if (result is Result.Failure && result.error !is GetCookieFailure.MissingCookie) {
-            it.response.cookies.removeToken(it.getHost() ?: "localhost")
+            it.response.cookies.removeToken(it.getHost() ?: "false")
             val url = result.error.toRedirect("/auth/sign-in?redirect_to=${it.request.path()}").url
             it.respondRedirect(url, permanent = false)
         } else if (result is Result.Failure && !it.request.path().contains("/auth/sign-in") && !it.request.path().contains("/oidc")) {

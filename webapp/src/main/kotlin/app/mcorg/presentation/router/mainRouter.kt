@@ -2,6 +2,7 @@ package app.mcorg.presentation.router
 
 import app.mcorg.config.AppConfig
 import app.mcorg.domain.Production
+import app.mcorg.pipeline.auth.handleDeleteAccount
 import app.mcorg.presentation.handler.handleGetLanding
 import app.mcorg.presentation.plugins.AuthPlugin
 import app.mcorg.presentation.plugins.BannedPlugin
@@ -25,6 +26,11 @@ fun Application.configureAppRouter() {
             get("/page") {
                 if (AppConfig.env == Production) call.respond(HttpStatusCode.Forbidden)
                 else call.respondHtml(createTestPage())
+            }
+        }
+        route("/account") {
+            delete {
+                call.handleDeleteAccount()
             }
         }
         route("/auth") {
