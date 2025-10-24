@@ -23,6 +23,36 @@ fun HTMLTag.hxDelete(value: String, confirmMessage: String) {
     hxConfirm(confirmMessage)
 }
 
+/**
+ * Configure delete action with custom confirmation modal
+ * @param url The DELETE endpoint URL
+ * @param title Modal title
+ * @param description Modal description
+ * @param warning Warning message shown in danger notice
+ * @param confirmText Optional text user must type to confirm (enables type-to-confirm mode)
+ */
+fun HTMLTag.hxDeleteWithConfirm(
+    url: String,
+    title: String,
+    description: String,
+    warning: String,
+    confirmText: String? = null,
+) {
+    attributes += "hx-delete" to url
+    attributes += "hx-confirm" to title.escapeQuotes()
+
+    attributes += "data-hx-delete-confirm" to "true"
+    attributes += "data-hx-delete-confirm-title" to title.escapeQuotes()
+    attributes += "data-hx-delete-confirm-description" to description.escapeQuotes()
+    attributes += "data-hx-delete-confirm-warning" to warning.escapeQuotes()
+    confirmText?.let {
+        attributes += "data-hx-delete-confirm-text" to it.escapeQuotes()
+    }
+}
+
+private fun String.escapeQuotes(): String = this.replace("'", "\\'")
+
+
 fun HTMLTag.hxSwap(value: String) {
     attributes += "hx-swap" to value
 }

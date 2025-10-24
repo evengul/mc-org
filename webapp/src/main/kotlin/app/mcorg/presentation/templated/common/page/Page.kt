@@ -3,6 +3,7 @@ package app.mcorg.presentation.templated.common.page
 import app.mcorg.domain.model.user.TokenProfile
 import app.mcorg.presentation.templated.common.breadcrumb.Breadcrumbs
 import app.mcorg.presentation.templated.common.breadcrumb.breadcrumbComponent
+import app.mcorg.presentation.templated.common.modal.confirmDeleteModal
 import app.mcorg.presentation.templated.layout.alert.alertContainer
 import app.mcorg.presentation.templated.layout.topbar.topBar
 import kotlinx.html.MAIN
@@ -21,7 +22,7 @@ import org.intellij.lang.annotations.Language
 
 fun createPage(
     pageTitle: String = "MC-ORG",
-    pageScripts: Set<PageScript> = setOf(PageScript.THEME_SWITCHER, PageScript.HTMX),
+    pageScripts: Set<PageScript> = setOf(PageScript.THEME_SWITCHER, PageScript.HTMX, PageScript.CONFIRMATION_MODAL),
     pageStyles: Set<PageStyle> = PageStyle.entries.toSet(),
     user: TokenProfile? = null,
     unreadNotificationCount: Int = 0,
@@ -56,6 +57,7 @@ fun createPage(
             topBar(user, unreadNotificationCount)
             breadcrumbs?.let { breadcrumbComponent(it) }
             alertContainer()
+            confirmDeleteModal()
             main {
                 body()
             }
