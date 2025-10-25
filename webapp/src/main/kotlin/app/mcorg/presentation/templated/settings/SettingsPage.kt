@@ -1,6 +1,7 @@
 package app.mcorg.presentation.templated.settings
 
 import app.mcorg.domain.model.invite.Invite
+import app.mcorg.domain.model.minecraft.MinecraftVersion
 import app.mcorg.domain.model.user.TokenProfile
 import app.mcorg.domain.model.user.WorldMember
 import app.mcorg.domain.model.world.World
@@ -18,7 +19,7 @@ sealed interface SettingsTab {
     val id: String
     val world: World
 
-    data class General(override val world: World) : SettingsTab {
+    data class General(override val world: World, val supportedVersions: List<MinecraftVersion.Release>) : SettingsTab {
         override val id: String = "general"
     }
 

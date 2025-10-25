@@ -16,6 +16,15 @@ sealed interface MinecraftVersion {
         val patch: Int
     ) : MinecraftVersion {
         override fun toString(): String = "$major.$minor.$patch"
+
+        companion object {
+            fun fromString(version: String): Release {
+                return when {
+                    version.matches(Regex("""\d+\.\d+(\.\d+)?""")) -> parseRelease(version)
+                    else -> throw IllegalArgumentException("Invalid version format: $version")
+                }
+            }
+        }
     }
 
     operator fun compareTo(other: MinecraftVersion): Int {
@@ -82,6 +91,15 @@ sealed interface MinecraftVersion {
 
         private fun parseRelease(version: String): Release {
             val parts = version.split(".")
+            if (parts.size == 2) {
+                // Handle versions like "1.20" as "1.20.0"
+                return Release(
+                    major = parts[0].toInt(),
+                    minor = parts[1].toInt(),
+                    patch = 0
+                )
+            }
+
             if (parts.size != 3) {
                 throw IllegalArgumentException("Invalid release format: $version")
             }
@@ -101,7 +119,7 @@ sealed interface MinecraftVersion {
             return Release(minor = minor, patch = patch)
         }
 
-        val supportedVersions = setOf<MinecraftVersion>(
+        val supportedVersions_backup = listOf<Release>(
             release(20, 0),
             release(21, 0)
         )

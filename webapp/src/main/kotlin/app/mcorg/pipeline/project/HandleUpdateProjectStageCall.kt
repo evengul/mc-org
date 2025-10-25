@@ -5,6 +5,7 @@ import app.mcorg.domain.model.user.TokenProfile
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.failure.UpdateProjectStageFailures
+import app.mcorg.pipeline.project.resources.GetItemsInWorldVersionStep
 import app.mcorg.presentation.handler.executePipeline
 import app.mcorg.presentation.templated.common.chip.ChipVariant
 import app.mcorg.presentation.templated.common.chip.chipComponent
@@ -12,6 +13,7 @@ import app.mcorg.presentation.templated.project.createTaskModal
 import app.mcorg.presentation.templated.utils.toPrettyEnumName
 import app.mcorg.presentation.utils.getProjectId
 import app.mcorg.presentation.utils.getUser
+import app.mcorg.presentation.utils.getWorldId
 import app.mcorg.presentation.utils.respondBadRequest
 import app.mcorg.presentation.utils.respondHtml
 import io.ktor.server.application.ApplicationCall
@@ -26,7 +28,10 @@ import kotlinx.html.stream.createHTML
 suspend fun ApplicationCall.handleUpdateProjectStage() {
     val parameters = this.receiveParameters()
     val user = this.getUser()
+    val worldId = this.getWorldId()
     val projectId = this.getProjectId()
+
+    val itemNames = GetItemsInWorldVersionStep.process(worldId).getOrNull() ?: emptyList()
 
     executePipeline(
         onSuccess = { result: UpdateProjectStageOutput ->
@@ -81,7 +86,7 @@ suspend fun ApplicationCall.handleUpdateProjectStage() {
                                         }
                                     }
                                 }
-                                createTaskModal(updatedProject)
+                                createTaskModal(updatedProject, itemNames)
                             }
                         }
                     })

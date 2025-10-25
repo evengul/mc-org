@@ -14,6 +14,7 @@ import io.ktor.client.request.header
 import io.ktor.client.request.request
 import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsText
+import io.ktor.client.statement.readRawBytes
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpMethod
 import io.ktor.http.contentType
@@ -25,6 +26,7 @@ import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
+import java.io.InputStream
 import java.time.Instant
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.collections.set
@@ -70,6 +72,21 @@ sealed class ApiProvider(
         }
     }
 
+    fun <I, E> getRaw(
+        url: String,
+        headerBuilder: (HttpRequestBuilder, I) -> Unit = { _, _ -> },
+        errorMapper: (ApiFailure) -> E
+    ) : Step<I, E, InputStream> {
+        return request(
+            HttpMethod.Get,
+            url,
+            headerBuilder,
+            { _, _ -> },
+            errorMapper,
+            resultMapper = { response -> response.readRawBytes().inputStream() }
+        )
+    }
+
     inline fun <I, E, reified S> post(
         url: String,
         noinline headerBuilder: (HttpRequestBuilder, I) -> Unit = { _, _ -> },
@@ -110,13 +127,30 @@ sealed class ApiProvider(
         }
     }
 
-    abstract fun <I, E> request(
+    fun <I, E> request(
         method: HttpMethod,
         url: String,
         headerBuilder: (HttpRequestBuilder, I) -> Unit = { _, _ -> },
         bodyBuilder: (HttpRequestBuilder, I) -> Unit = { _, _ -> },
         errorMapper: (ApiFailure) -> E
-    ) : Step<I, E, String>
+    ) : Step<I, E, String> {
+        return request(
+            method,
+            url,
+            headerBuilder,
+            bodyBuilder,
+            errorMapper
+        ) { response -> response.bodyAsText() }
+    }
+
+    abstract fun <I, E, S> request(
+        method: HttpMethod,
+        url: String,
+        headerBuilder: (HttpRequestBuilder, I) -> Unit = { _, _ -> },
+        bodyBuilder: (HttpRequestBuilder, I) -> Unit = { _, _ -> },
+        errorMapper: (ApiFailure) -> E,
+        resultMapper: suspend (HttpResponse) -> S
+    ) : Step<I, E, S>
 }
 
 class DefaultApiProvider(
@@ -137,15 +171,16 @@ class DefaultApiProvider(
         }
     }
 
-    override fun <I, E> request(
+    override fun <I, E, S> request(
         method: HttpMethod,
         url: String,
         headerBuilder: (HttpRequestBuilder, I) -> Unit,
         bodyBuilder: (HttpRequestBuilder, I) -> Unit,
-        errorMapper: (ApiFailure) -> E
-    ): Step<I, E, String> {
-        return object : Step<I, E, String> {
-            override suspend fun process(input: I): Result<E, String> {
+        errorMapper: (ApiFailure) -> E,
+        resultMapper: suspend (HttpResponse) -> S
+    ): Step<I, E, S> {
+        return object : Step<I, E, S> {
+            override suspend fun process(input: I): Result<E, S> {
                 return try {
                     // Check rate limiting before making the request
                     val rateLimitCheck = checkRateLimit(config.baseUrl)
@@ -176,7 +211,7 @@ class DefaultApiProvider(
                     updateRateLimit(config.baseUrl, response)
 
                     if (response.status.isSuccess()) {
-                        Result.success(response.bodyAsText())
+                        Result.success(resultMapper(response))
                     } else {
                         val errorBody = try {
                             response.bodyAsText()
@@ -236,15 +271,16 @@ class FakeApiProvider(
     config: ApiConfig,
     private val getResponseBody: (method: HttpMethod, url: String) -> Result<ApiFailure, String>
 ) : ApiProvider(config) {
-    override fun <I, E> request(
+    override fun <I, E, S> request(
         method: HttpMethod,
         url: String,
         headerBuilder: (HttpRequestBuilder, I) -> Unit,
         bodyBuilder: (HttpRequestBuilder, I) -> Unit,
-        errorMapper: (ApiFailure) -> E
-    ): Step<I, E, String> {
-        return object : Step<I, E, String> {
-            override suspend fun process(input: I): Result<E, String> {
+        errorMapper: (ApiFailure) -> E,
+        resultMapper: suspend (HttpResponse) -> S
+    ): Step<I, E, S> {
+        return object : Step<I, E, S> {
+            override suspend fun process(input: I): Result<E, S> {
                 val requestBuilder = HttpRequestBuilder().apply {
                     this.method = method
                     contentType(config.getContentType())
@@ -255,7 +291,8 @@ class FakeApiProvider(
                 }
                 headerBuilder(requestBuilder, input)
                 bodyBuilder(requestBuilder, input)
-                return getResponseBody(method, url).mapError { errorMapper(it) }
+                @Suppress("UNCHECKED_CAST")
+                return getResponseBody(method, url).mapError { errorMapper(it) } as Result<E, S>
             }
         }
     }

@@ -22,7 +22,7 @@ import kotlinx.html.select
 import kotlinx.html.span
 import kotlinx.html.textArea
 
-fun <T : Tag> T.createProjectModal(worldId: Int) = formModal(
+fun <T : Tag> T.createProjectModal(worldId: Int, supportedVersions: List<MinecraftVersion.Release>) = formModal(
     modalId = "create-project-modal",
     title = "Create Project",
     description = "Create a new project for your Minecraft world.",
@@ -81,7 +81,7 @@ fun <T : Tag> T.createProjectModal(worldId: Int) = formModal(
             select {
                 name = "version"
                 required = true
-                MinecraftVersion.supportedVersions.forEach {
+                supportedVersions.forEach {
                     option {
                         value = it.toString()
                         + it.toString()

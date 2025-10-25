@@ -1,5 +1,6 @@
 package app.mcorg.presentation.templated.project
 
+import app.mcorg.domain.model.minecraft.Item
 import app.mcorg.presentation.templated.common.button.IconButtonColor
 import app.mcorg.presentation.templated.common.button.iconButton
 import app.mcorg.presentation.templated.common.button.neutralButton
@@ -9,7 +10,7 @@ import app.mcorg.presentation.templated.common.tabs.TabData
 import app.mcorg.presentation.templated.common.tabs.tabsComponent
 import kotlinx.html.*
 
-fun FORM.taskRequirementsForm() {
+fun FORM.taskRequirementsForm(itemNames: List<Item>) {
     h4 {
         +"Task Requirements"
     }
@@ -28,6 +29,15 @@ fun FORM.taskRequirementsForm() {
             id = "item-requirement-name-input"
             placeholder = "Item name (e.g., Oak Logs, Stone, Diamond)"
             type = InputType.text
+            list = "item-names-list"
+        }
+        dataList {
+            id = "item-names-list"
+            itemNames.distinctBy { it.name }.sortedBy { it.name }.forEach { (_, name) ->
+                option {
+                    value = name
+                }
+            }
         }
         input {
             id = "item-requirement-amount-input"

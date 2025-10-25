@@ -14,7 +14,7 @@ import app.mcorg.presentation.templated.common.modal.formModal
 import app.mcorg.presentation.templated.utils.toPrettyEnumName
 import kotlinx.html.*
 
-fun HEADER.ideasHeader(user: TokenProfile) {
+fun HEADER.ideasHeader(user: TokenProfile, supportedVersions: List<MinecraftVersion.Release>) {
     id = "ideas-header"
     div {
         id = "ideas-header-start"
@@ -29,12 +29,12 @@ fun HEADER.ideasHeader(user: TokenProfile) {
     div {
         id = "ideas-header-end"
         if (user.isIdeaCreator) {
-            createIdeaModal()
+            createIdeaModal(supportedVersions)
         }
     }
 }
 
-fun DIV.createIdeaModal() = formModal(
+fun DIV.createIdeaModal(supportedVersions: List<MinecraftVersion.Release>) = formModal(
     modalId = "create-idea-modal",
     title = "Submit New Idea",
     description = "Share your Minecraft contraption idea with the community.",
@@ -262,7 +262,7 @@ fun DIV.createIdeaModal() = formModal(
                     name = "versionFrom"
                     classes += "form-control"
                     required = true
-                    MinecraftVersion.supportedVersions.forEach { version ->
+                    supportedVersions.forEach { version ->
                         option {
                             value = version.toString()
                             +version.toString()
@@ -314,7 +314,7 @@ fun DIV.createIdeaModal() = formModal(
                     value = ""
                     +"Select version..."
                 }
-                MinecraftVersion.supportedVersions.forEach { version ->
+                supportedVersions.forEach { version ->
                     option {
                         value = version.toString()
                         +version.toString()

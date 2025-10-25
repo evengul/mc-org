@@ -1,5 +1,6 @@
 package app.mcorg.presentation.templated.project
 
+import app.mcorg.domain.model.minecraft.Item
 import app.mcorg.domain.model.project.NamedProjectId
 import app.mcorg.domain.model.project.Project
 import app.mcorg.domain.model.project.ProjectDependency
@@ -37,7 +38,8 @@ sealed interface ProjectTab {
     data class Resources(
         override val project: Project,
         val resourceGathering: ProjectResourceGathering,
-        val resourceProduction: List<ProjectProduction>
+        val resourceProduction: List<ProjectProduction>,
+        val itemNames: List<Item>
     ) : ProjectTab {
         override val id: String = "resources"
     }
@@ -61,6 +63,7 @@ sealed interface ProjectTab {
 fun projectPage(
     user: TokenProfile,
     data: ProjectTab,
+    itemNames: List<Item>,
     unreadNotifications: Int,
     breadcrumbs: Breadcrumbs
 ) = createPage(
@@ -122,7 +125,7 @@ fun projectPage(
                         }
                     }
                 }
-                createTaskModal(project)
+                createTaskModal(project, itemNames)
             }
         }
         p("subtle") {
@@ -152,7 +155,7 @@ fun DIV.projectTabsContent(data: ProjectTab) {
     classes += "project-tabs-content"
     when(data) {
         is ProjectTab.Tasks -> tasksTab(data.project, data.totalTasksCount, data.tasks)
-        is ProjectTab.Resources -> resourcesTab(data.project, data.resourceProduction, data.resourceGathering)
+        is ProjectTab.Resources -> resourcesTab(data.project, data.resourceProduction, data.resourceGathering, data.itemNames)
         is ProjectTab.Location -> locationTab(data.project)
         is ProjectTab.Stages -> stagesTab(data.stageChanges)
         is ProjectTab.Dependencies -> dependenciesTab(data.project.worldId, data.project.id, data.availableProjects, data.dependencies, data.dependents)

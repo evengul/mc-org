@@ -70,7 +70,7 @@ fun <T : Tag> T.createWorldModal(versions: List<MinecraftVersion.Release>) = for
             versions.forEachIndexed { i, version ->
                 option {
                     value = version.toString()
-                    + "$version ${if(i == 0) " (Latest)" else ""}"
+                    + "$version ${if(i == 0) " (Latest)" else if (i == versions.size -1) "(Earliest compatible)" else ""}"
                 }
             }
         }

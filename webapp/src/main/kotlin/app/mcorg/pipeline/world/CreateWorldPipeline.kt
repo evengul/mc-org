@@ -4,6 +4,7 @@ import app.mcorg.domain.model.world.World
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.failure.CreateWorldFailures
+import app.mcorg.pipeline.minecraft.GetSupportedVersionsStep
 import app.mcorg.presentation.handler.executePipeline
 import app.mcorg.presentation.templated.home.worldsView
 import app.mcorg.presentation.utils.getUser
@@ -20,8 +21,9 @@ suspend fun ApplicationCall.handleCreateWorld() {
 
     executePipeline(
         onSuccess = {
+            val supportedVersions = GetSupportedVersionsStep.getSupportedVersions()
             respondHtml(createHTML().div {
-                worldsView(it)
+                worldsView(it, supportedVersions)
             })
         },
         onFailure = {

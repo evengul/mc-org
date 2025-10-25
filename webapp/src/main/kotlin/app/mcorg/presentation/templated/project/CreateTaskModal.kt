@@ -1,5 +1,6 @@
 package app.mcorg.presentation.templated.project
 
+import app.mcorg.domain.model.minecraft.Item
 import app.mcorg.domain.model.project.Project
 import app.mcorg.domain.model.project.ProjectStage
 import app.mcorg.domain.model.task.Priority
@@ -15,7 +16,7 @@ import app.mcorg.presentation.templated.common.modal.formModal
 import app.mcorg.presentation.templated.utils.toPrettyEnumName
 import kotlinx.html.*
 
-fun <T : Tag> T.createTaskModal(project: Project) = formModal(
+fun <T : Tag> T.createTaskModal(project: Project, itemNames: List<Item>) = formModal(
     modalId = "create-task-modal",
     title = "Create Task",
     description = "Create a new task with requirements for your Minecraft project.",
@@ -84,7 +85,7 @@ fun <T : Tag> T.createTaskModal(project: Project) = formModal(
             )
         }
 
-        taskRequirementsForm()
+        taskRequirementsForm(itemNames)
         
         // JavaScript include for form functionality
         script {

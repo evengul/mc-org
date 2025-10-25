@@ -27,4 +27,5 @@ private fun Application.module() {
     configureMonitoring()
     configureAppRouter()
     configureStatusStaticRouter()
+    configureScheduling()
 }

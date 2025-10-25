@@ -71,6 +71,22 @@ object MinecraftApiConfig : ApiConfig(AppConfig.minecraftBaseUrl) {
     fun getProfileUrl() = "${baseUrl}/minecraft/profile"
 }
 
+object FabricMcApiConfig : ApiConfig(AppConfig.fabricMcBaseUrl) {
+    override fun getContentType() = ContentType.Application.Json
+
+    fun getVersionsUrl() = "${baseUrl}/versions/game"
+}
+
+object GithubGistsApiConfig : ApiConfig(AppConfig.githubGistsBaseUrl) {
+    override fun getContentType() = ContentType.Application.Json
+
+    fun getServerJarsUrl() = "${baseUrl}/cliffano/77a982a7503669c3e1acb0a0cf6127e9/raw/e91cfeacc56e461d5943e100a2bc7eb0919c0a83/minecraft-server-jar-downloads.md"
+}
+
+object NoBaseUrlApiConfig : ApiConfig("") {
+    override fun getContentType() = ContentType.Application.Json
+}
+
 class TestApiConfig : ApiConfig("https://api.example.com") {
     override fun getContentType(): ContentType = ContentType.Application.Json
     override fun acceptContentType(): ContentType = ContentType.Application.Json

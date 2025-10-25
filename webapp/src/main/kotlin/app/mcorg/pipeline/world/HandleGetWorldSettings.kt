@@ -4,6 +4,7 @@ import app.mcorg.domain.pipeline.Pipeline
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.pipeline.failure.HandleGetWorldFailure
+import app.mcorg.pipeline.minecraft.GetSupportedVersionsStep
 import app.mcorg.pipeline.world.settings.handleGetInvitationListFragment
 import app.mcorg.presentation.handler.executeParallelPipeline
 import app.mcorg.presentation.templated.settings.SettingsTab
@@ -112,6 +113,7 @@ suspend fun ApplicationCall.handleGetMembersTabData(worldId: Int, statusFilter: 
 }
 
 suspend fun ApplicationCall.handleGetGeneralTabData(worldId: Int): Result<HandleGetWorldFailure, SettingsTab.General> {
+    val supportedVersions = GetSupportedVersionsStep.getSupportedVersions()
     return executeParallelPipeline {
         pipeline(
             id = "world-general-tab",
@@ -119,7 +121,7 @@ suspend fun ApplicationCall.handleGetGeneralTabData(worldId: Int): Result<Handle
             pipeline = Pipeline.create<HandleGetWorldFailure, Parameters>()
                 .pipe(Step.value(worldId))
                 .pipe(worldQueryStep)
-                .map { SettingsTab.General(it) }
+                .map { SettingsTab.General(it, supportedVersions) }
         )
     }
 }
