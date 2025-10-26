@@ -31,10 +31,10 @@ fun Application.configureScheduling() {
 }
 
 /**
- * Schedules the server files synchronization task to run daily at 2 AM UTC.
+ * Schedules the server files synchronization task to run weekly on Mondays at 2 AM CET.
  *
  * Improvements over simple delay loop:
- * - Runs at a specific time (2 AM UTC)
+ * - Runs at a specific time (Every Monday at 2 AM CET)
  * - Catches and logs exceptions without crashing the scheduler
  * - Uses structured concurrency for proper cancellation
  * - Includes execution time tracking for monitoring
@@ -42,11 +42,11 @@ fun Application.configureScheduling() {
  */
 private suspend fun CoroutineScope.scheduleServerFilesSync(logger: org.slf4j.Logger) {
     val targetTime = LocalTime.of(2, 0) // 2 AM
-    val zoneId = ZoneId.of("UTC")
+    val zoneId = ZoneId.of("CET") // Central European Time
     val maxConsecutiveFailures = 3
     var consecutiveFailures = 0
 
-    logger.info("Server files sync scheduled for $targetTime $zoneId daily")
+    logger.info("Server files sync scheduled for Mondays at $targetTime $zoneId")
 
     // Run immediately on startup
     logger.info("Executing initial server files sync on application startup...")
@@ -127,16 +127,25 @@ private suspend fun CoroutineScope.scheduleServerFilesSync(logger: org.slf4j.Log
 }
 
 /**
- * Calculates the next run time for a daily scheduled task.
- * If the target time has already passed today, schedules for tomorrow.
+ * Calculates the next run time for a weekly scheduled task on Mondays.
+ * If it's Monday and the target time hasn't passed, schedules for today.
+ * Otherwise, schedules for next Monday.
  */
 private fun calculateNextRun(now: LocalDateTime, targetTime: LocalTime): LocalDateTime {
     val today = now.toLocalDate()
-    val scheduledToday = today.atTime(targetTime)
+    val currentDayOfWeek = today.dayOfWeek.value // Monday = 1, Sunday = 7
 
-    return if (now.isBefore(scheduledToday)) {
-        scheduledToday
-    } else {
-        today.plusDays(1).atTime(targetTime)
+    // If it's Monday and the target time hasn't passed yet
+    if (currentDayOfWeek == 1 && now.toLocalTime().isBefore(targetTime)) {
+        return today.atTime(targetTime)
     }
+
+    // Calculate days until next Monday
+    val daysUntilMonday = if (currentDayOfWeek == 1) {
+        7 // If it's Monday but time has passed, schedule for next Monday
+    } else {
+        (8 - currentDayOfWeek) % 7 // Days remaining until next Monday
+    }
+
+    return today.plusDays(daysUntilMonday.toLong()).atTime(targetTime)
 }

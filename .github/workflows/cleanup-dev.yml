@@ -12,7 +12,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Delete Fly app
-        uses: superfly/fly-pr-review-apps@1.2.0
+        uses: superfly/fly-pr-review-apps@1.5.0
+        with:
+          name: mcorg-dev-${{ github.event.number }}
+          org: mc-org
   delete-neon:
     runs-on: ubuntu-22.04
     steps:
