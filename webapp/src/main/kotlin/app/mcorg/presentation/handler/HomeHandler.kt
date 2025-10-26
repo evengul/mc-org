@@ -5,6 +5,7 @@ import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.failure.DatabaseFailure
 import app.mcorg.pipeline.invitation.GetUserInvitationsStep
+import app.mcorg.pipeline.minecraft.GetSupportedVersionsStep
 import app.mcorg.pipeline.notification.GetUnreadNotificationCountStep
 import app.mcorg.pipeline.world.GetPermittedWorldsInput
 import app.mcorg.pipeline.world.GetPermittedWorldsStep
@@ -45,9 +46,11 @@ class HomeHandler {
                 }
             })
 
+        val supportedVersions = GetSupportedVersionsStep.getSupportedVersions()
+
         executeParallelPipeline(
             onSuccess = { (invitations, worlds, unreadCount) ->
-                respondHtml(homePage(user, invitations, worlds, unreadCount))
+                respondHtml(homePage(user, invitations, worlds, supportedVersions, unreadCount))
             },
             onFailure = {
                 logger.warn("Failed to load home data for user: ${user.id}. Error: $it")

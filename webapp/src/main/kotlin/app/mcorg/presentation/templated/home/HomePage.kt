@@ -1,6 +1,7 @@
 package app.mcorg.presentation.templated.home
 
 import app.mcorg.domain.model.invite.Invite
+import app.mcorg.domain.model.minecraft.MinecraftVersion
 import app.mcorg.domain.model.user.TokenProfile
 import app.mcorg.domain.model.world.World
 import app.mcorg.presentation.templated.common.component.addComponent
@@ -12,6 +13,7 @@ fun homePage(
     user: TokenProfile,
     pendingInvites: List<Invite>,
     worlds: List<World>,
+    supportedVersions: List<MinecraftVersion.Release>,
     unreadNotificationCount: Int = 0
 ) = createPage(
     user = user,
@@ -22,5 +24,5 @@ fun homePage(
     pendingInvites.takeIf { it.isNotEmpty() }?.let {
         addComponent(PendingInvitesView(it))
     }
-    addComponent(WorldsView(worlds))
+    addComponent(WorldsView(worlds, supportedVersions))
 }

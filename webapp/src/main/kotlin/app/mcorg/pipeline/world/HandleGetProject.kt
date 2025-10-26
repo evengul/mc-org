@@ -24,6 +24,7 @@ import app.mcorg.domain.pipeline.Result
 import app.mcorg.pipeline.project.CountTotalTasksStep
 import app.mcorg.pipeline.project.ProjectDependencyData
 import app.mcorg.pipeline.project.dependencies.GetAvailableProjectDependenciesStep
+import app.mcorg.pipeline.project.resources.GetItemsInWorldVersionStep
 import app.mcorg.presentation.templated.project.projectTabsContent
 import app.mcorg.presentation.utils.BreadcrumbBuilder
 import app.mcorg.presentation.utils.getWorldId
@@ -64,6 +65,7 @@ suspend fun ApplicationCall.handleGetProject() {
     }
 
     val unreadNotifications = getUnreadNotificationCount(user)
+    val itemNames = GetItemsInWorldVersionStep.process(worldId).getOrNull() ?: emptyList()
 
     val tabData = when (tab) {
         "resources" -> {
@@ -83,7 +85,8 @@ suspend fun ApplicationCall.handleGetProject() {
                     .flatMap { it.requirements }
                     .filterIsInstance<ItemRequirement>()
                     .toProjectResourceGathering(),
-                resourceProduction
+                resourceProduction,
+                itemNames
             )
         }
 
@@ -153,5 +156,5 @@ suspend fun ApplicationCall.handleGetProject() {
         projectName = project.name
     )
 
-    respondHtml(projectPage(user, tabData, unreadNotifications, breadcrumbs))
+    respondHtml(projectPage(user, tabData, itemNames, unreadNotifications, breadcrumbs))
 }

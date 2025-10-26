@@ -30,6 +30,8 @@ object AppConfig {
     var xboxAuthBaseUrl: String = "https://user.auth.xboxlive.com"
     var xstsAuthBaseUrl: String = "https://xsts.auth.xboxlive.com"
     var minecraftBaseUrl: String = "https://api.minecraftservices.com"
+    var fabricMcBaseUrl: String = "https://meta.fabricmc.net/v2"
+    var githubGistsBaseUrl: String = "https://gist.githubusercontent.com"
 
     init {
         val errors = mutableListOf<String>()
@@ -108,6 +110,8 @@ object AppConfig {
         System.getenv("XBOX_AUTH_BASE_URL")?.let { xboxAuthBaseUrl = it }
         System.getenv("XSTS_AUTH_BASE_URL")?.let { xstsAuthBaseUrl = it }
         System.getenv("MINECRAFT_BASE_URL")?.let { minecraftBaseUrl = it }
+        System.getenv("FABRIC_MC_BASE_URL")?.let { fabricMcBaseUrl = it }
+        System.getenv("GITHUB_GISTS_BASE_URL")?.let { githubGistsBaseUrl = it }
 
         if (errors.isNotEmpty()) {
             logger.error("Invalid configuration:\n${errors.joinToString("\n")}")

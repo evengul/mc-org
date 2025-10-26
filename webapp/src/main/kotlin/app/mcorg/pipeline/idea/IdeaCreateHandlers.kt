@@ -2,7 +2,7 @@ package app.mcorg.pipeline.idea
 
 import app.mcorg.domain.model.idea.IdeaCategory
 import app.mcorg.domain.model.idea.schema.IdeaCategorySchemas
-import app.mcorg.domain.model.minecraft.MinecraftVersion
+import app.mcorg.pipeline.minecraft.GetSupportedVersionsStep
 import app.mcorg.presentation.templated.idea.renderCreateField
 import app.mcorg.presentation.utils.respondHtml
 import io.ktor.server.application.ApplicationCall
@@ -133,6 +133,8 @@ suspend fun ApplicationCall.handleGetAuthorFields() {
 suspend fun ApplicationCall.handleGetVersionFields() {
     val rangeType = request.queryParameters["versionRangeType"] ?: "lowerBounded"
 
+    val supportedVersions = GetSupportedVersionsStep.getSupportedVersions()
+
     respondHtml(createHTML().div {
         classes += "stack stack--xs"
 
@@ -149,7 +151,7 @@ suspend fun ApplicationCall.handleGetVersionFields() {
                     name = "versionFrom"
                     classes += "form-control"
                     required = true
-                    MinecraftVersion.supportedVersions.forEach { version ->
+                    supportedVersions.forEach { version ->
                         option {
                             value = version.toString()
                             +version.toString()
@@ -167,7 +169,7 @@ suspend fun ApplicationCall.handleGetVersionFields() {
                     name = "versionTo"
                     classes += "form-control"
                     required = true
-                    MinecraftVersion.supportedVersions.forEach { version ->
+                    supportedVersions.forEach { version ->
                         option {
                             value = version.toString()
                             +version.toString()
@@ -187,7 +189,7 @@ suspend fun ApplicationCall.handleGetVersionFields() {
                     name = "versionFrom"
                     classes += "form-control"
                     required = true
-                    MinecraftVersion.supportedVersions.forEach { version ->
+                    supportedVersions.forEach { version ->
                         option {
                             value = version.toString()
                             +version.toString()
@@ -210,7 +212,7 @@ suspend fun ApplicationCall.handleGetVersionFields() {
                     name = "versionTo"
                     classes += "form-control"
                     required = true
-                    MinecraftVersion.supportedVersions.forEach { version ->
+                    supportedVersions.forEach { version ->
                         option {
                             value = version.toString()
                             +version.toString()

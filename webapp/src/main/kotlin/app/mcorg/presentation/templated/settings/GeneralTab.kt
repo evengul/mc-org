@@ -70,7 +70,7 @@ fun FORM.worldDescriptionForm(world: World) {
     }
 }
 
-fun FORM.worldVersionForm(world: World) {
+fun FORM.worldVersionForm(world: World, supportedVersions: List<MinecraftVersion.Release>) {
     id = "world-version-form"
     encType = FormEncType.applicationXWwwFormUrlEncoded
 
@@ -87,7 +87,7 @@ fun FORM.worldVersionForm(world: World) {
         name = "version"
         id = "world-version-select"
         classes += "form-control"
-        MinecraftVersion.supportedVersions.forEach { version ->
+        supportedVersions.forEach { version ->
             option {
                 value = version.toString()
                 selected = version == world.version
@@ -115,7 +115,7 @@ fun DIV.generalTab(tabData: SettingsTab.General) {
             worldDescriptionForm(tabData.world)
         }
         form {
-            worldVersionForm(tabData.world)
+            worldVersionForm(tabData.world, tabData.supportedVersions)
         }
     }
 

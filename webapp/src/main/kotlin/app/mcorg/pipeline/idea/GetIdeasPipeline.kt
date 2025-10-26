@@ -3,6 +3,7 @@ package app.mcorg.pipeline.idea
 import app.mcorg.domain.pipeline.Pipeline
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
+import app.mcorg.pipeline.minecraft.GetSupportedVersionsStep
 import app.mcorg.pipeline.notification.GetUnreadNotificationCountStep
 import app.mcorg.presentation.handler.executeParallelPipeline
 import app.mcorg.presentation.templated.idea.ideasPage
@@ -34,11 +35,14 @@ suspend fun ApplicationCall.handleGetIdeas() {
         })
         .recover { Result.success(0) }
 
+    val supportedVersions = GetSupportedVersionsStep.getSupportedVersions()
+
     executeParallelPipeline(
         onSuccess = {
             respondHtml(ideasPage(
                 user = user,
                 ideas = it.first,
+                supportedVersions = supportedVersions,
                 unreadNotifications = it.second
             ))
         },

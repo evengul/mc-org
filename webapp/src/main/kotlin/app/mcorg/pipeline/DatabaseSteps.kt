@@ -87,6 +87,46 @@ object DatabaseSteps {
         }
     }
 
+    fun <I, E> batchUpdate(
+        sql: SafeSQL,
+        parameterSetter: (PreparedStatement, I) -> Unit,
+        errorMapper: (DatabaseFailure) -> E,
+        chunkSize: Int = 500
+    ): Step<List<I>, E, Unit> {
+        return object : Step<List<I>, E, Unit> {
+            override suspend fun process(input: List<I>): Result<E, Unit> {
+                return try {
+                    Database.getConnection().use { connection ->
+                        connection.prepareStatement(sql.query).use { statement ->
+                            input.chunked(chunkSize).forEach { chunk ->
+                                statement.clearBatch()
+                                chunk.forEach { item ->
+                                    parameterSetter(statement, item)
+                                    statement.addBatch()
+                                }
+                                val results = statement.executeBatch()
+                                val successCount = results.count { it > 0 }
+                                if (successCount != chunk.size) {
+                                    logger.warn("Expected to affect ${chunk.size} rows, but only $successCount were affected.")
+                                }
+                            }
+                            Result.success()
+                        }
+                    }
+                } catch (e: Exception) {
+                    logger.error("Could not execute batch update", e)
+                    val failure = when (e) {
+                        is SQLTimeoutException -> DatabaseFailure.ConnectionError
+                        is SQLSyntaxErrorException -> DatabaseFailure.StatementError
+                        is SQLIntegrityConstraintViolationException -> DatabaseFailure.IntegrityConstraintError
+                        else -> DatabaseFailure.UnknownError
+                    }
+                    Result.failure(errorMapper(failure))
+                }
+            }
+        }
+    }
+
     fun <I, E, S> transaction(
         step: Step<I, E, S>,
         errorMapper: (DatabaseFailure) -> E

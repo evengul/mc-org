@@ -25,7 +25,7 @@ import kotlinx.html.p
 import kotlinx.html.select
 import kotlinx.html.ul
 
-fun DIV.worldsView(worlds: List<World>) {
+fun DIV.worldsView(worlds: List<World>, supportedVersions: List<MinecraftVersion.Release>) {
     id = "home-worlds"
     if (worlds.isEmpty()) {
         emptyState(
@@ -34,7 +34,7 @@ fun DIV.worldsView(worlds: List<World>) {
             description = "Get started by creating your first Minecraft world to organize your projects.",
             icon = Icons.ADD_WORLD
         ) {
-            createWorldModal(MinecraftVersion.supportedVersions.filterIsInstance<MinecraftVersion.Release>())
+            createWorldModal(supportedVersions)
         }
     } else {
         div("home-worlds-search-create") {
@@ -72,7 +72,7 @@ fun DIV.worldsView(worlds: List<World>) {
                     + "Sort by Name (A-Z)"
                 }
             }
-            createWorldModal(MinecraftVersion.supportedVersions.filterIsInstance<MinecraftVersion.Release>())
+            createWorldModal(supportedVersions)
         }
         p("subtle") {
             id = "home-worlds-count"
@@ -92,11 +92,12 @@ fun UL.worldList(worlds: List<World>) {
 }
 
 class WorldsView(
-    val worlds: List<World>
+    val worlds: List<World>,
+    val supportedVersions: List<MinecraftVersion.Release>
 ) : LeafComponent() {
     override fun render(container: TagConsumer<*>) {
         container.div {
-            worldsView(worlds)
+            worldsView(worlds, supportedVersions)
         }
     }
 }

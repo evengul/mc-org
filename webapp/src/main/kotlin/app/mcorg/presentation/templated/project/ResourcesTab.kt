@@ -1,5 +1,6 @@
 package app.mcorg.presentation.templated.project
 
+import app.mcorg.domain.model.minecraft.Item
 import app.mcorg.domain.model.project.Project
 import app.mcorg.domain.model.project.ProjectProduction
 import app.mcorg.domain.model.project.ProjectResourceGathering
@@ -22,18 +23,25 @@ import kotlinx.html.FormEncType
 import kotlinx.html.InputType
 import kotlinx.html.LI
 import kotlinx.html.classes
+import kotlinx.html.dataList
 import kotlinx.html.div
 import kotlinx.html.form
 import kotlinx.html.h2
 import kotlinx.html.id
 import kotlinx.html.input
 import kotlinx.html.li
+import kotlinx.html.option
 import kotlinx.html.p
 import kotlinx.html.span
 import kotlinx.html.ul
 import java.util.Locale
 
-fun DIV.resourcesTab(project: Project, production: List<ProjectProduction>, gathering: ProjectResourceGathering) {
+fun DIV.resourcesTab(
+    project: Project,
+    production: List<ProjectProduction>,
+    gathering: ProjectResourceGathering,
+    itemNames: List<Item>
+) {
     classes += "project-resources-tab"
     if (project.stage != ProjectStage.COMPLETED && gathering.totalNeeded > 0) {
         div("project-resources-collection") {
@@ -93,6 +101,16 @@ fun DIV.resourcesTab(project: Project, production: List<ProjectProduction>, gath
                     type = InputType.text
                     required = true
                     maxLength = "100"
+                    list = "item-names-list"
+                }
+
+                dataList {
+                    id = "item-names-list"
+                    itemNames.distinctBy { it.name }.sortedBy { it.name }.forEach { item ->
+                        option {
+                            value = item.name
+                        }
+                    }
                 }
 
                 input {
