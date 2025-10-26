@@ -6,6 +6,8 @@ import app.mcorg.domain.model.minecraft.MinecraftVersion
 import app.mcorg.domain.pipeline.Pipeline
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
+import app.mcorg.pipeline.DatabaseSteps
+import app.mcorg.pipeline.SafeSQL
 import org.slf4j.LoggerFactory
 import java.io.FileInputStream
 import java.io.InputStream
@@ -15,30 +17,29 @@ import java.nio.file.Path
 import java.util.zip.ZipInputStream
 
 sealed interface GetServerFilesFailure {
-    object ApiFailure : GetServerFilesFailure
-    object FileError : GetServerFilesFailure
-    object DatabaseError : GetServerFilesFailure
+    data class ApiFailure<S : Step<*, *, *>>(val source: Class<S>) : GetServerFilesFailure
+    data class FileError<S : Step<*, *, *>>(val source: Class<S>) : GetServerFilesFailure
+    data class DatabaseError<S : Step<*, *, *>>(val source: Class<S>) : GetServerFilesFailure
+    data class MultipleErrors(val errors: List<GetServerFilesFailure>) : GetServerFilesFailure
 }
 
 val serverFilesPipeline = Pipeline.create<GetServerFilesFailure, Unit>()
-    .pipe(object : Step<Unit, GetServerFilesFailure.ApiFailure, List<MinecraftVersion.Release>> {
-        override suspend fun process(input: Unit): Result<GetServerFilesFailure.ApiFailure, List<MinecraftVersion.Release>> {
+    .pipe(object : Step<Unit, GetServerFilesFailure, List<MinecraftVersion.Release>> {
+        override suspend fun process(input: Unit): Result<GetServerFilesFailure, List<MinecraftVersion.Release>> {
             return GetAvailableVersionsStep.process(input)
-                .mapError { GetServerFilesFailure.ApiFailure }
+                .mapError { GetServerFilesFailure.ApiFailure(GetAvailableVersionsStep.javaClass) }
         }
     })
     .pipe(GetServerUrlsStep)
     .pipe(FilterAlreadyStoredVersionsStep)
-    .pipe(GetServerFilesStep)
-    .pipe(ExtractAllServersDataStep)
-    .pipe(StoreAllServerDataStep)
+    .pipe(ProcessServerFilesStep)
 
 private data object GetServerUrlsStep : Step<List<MinecraftVersion.Release>, GetServerFilesFailure, List<Pair<MinecraftVersion.Release, URI>>> {
     override suspend fun process(input: List<MinecraftVersion.Release>): Result<GetServerFilesFailure, List<Pair<MinecraftVersion.Release, URI>>> {
-        val logger = LoggerFactory.getLogger(GetServerUrlsStep::class.java)
-        return GithubGistsApiConfig.getProvider().getRaw<Unit, GetServerFilesFailure.ApiFailure>(
+        val logger = LoggerFactory.getLogger(this.javaClass)
+        return GithubGistsApiConfig.getProvider().getRaw<Unit, GetServerFilesFailure>(
             url = GithubGistsApiConfig.getServerJarsUrl(),
-            errorMapper = { GetServerFilesFailure.ApiFailure }
+            errorMapper = { GetServerFilesFailure.ApiFailure(this.javaClass) }
         ).process(Unit).map {
             val lines = it.bufferedReader(Charsets.UTF_8).use { reader -> reader.readLines() }
                 .map { line ->
@@ -67,43 +68,73 @@ private data object GetServerUrlsStep : Step<List<MinecraftVersion.Release>, Get
 
 private data object FilterAlreadyStoredVersionsStep : Step<List<Pair<MinecraftVersion.Release, URI>>, GetServerFilesFailure, List<Pair<MinecraftVersion.Release, URI>>> {
     override suspend fun process(input: List<Pair<MinecraftVersion.Release, URI>>): Result<GetServerFilesFailure, List<Pair<MinecraftVersion.Release, URI>>> {
-        val logger = LoggerFactory.getLogger(FilterAlreadyStoredVersionsStep::class.java)
+        val logger = LoggerFactory.getLogger(this.javaClass)
         val storedVersions = GetSupportedVersionsStep.process(Unit)
 
         if (storedVersions is Result.Failure) {
-            return Result.failure(GetServerFilesFailure.DatabaseError)
+            return Result.failure(GetServerFilesFailure.DatabaseError(this.javaClass))
         }
 
         return Result.success(
             input.filter {
-                val isStored = storedVersions.getOrNull()!!.contains(it.first)
-                if (isStored) {
-                    logger.info("Version ${it.first} already stored, skipping download.")
+                val allMigrationsComplete = AllFileMigrationsCompletedStep.process(it.first)
+
+                if (allMigrationsComplete is Result.Failure) {
+                    logger.error("Failed to check migrations for version ${it.first}")
+                    return Result.failure(GetServerFilesFailure.DatabaseError(this.javaClass))
+                } else if (allMigrationsComplete.getOrNull() == true) {
+                    logger.info("All migrations complete for version ${it.first}, skipping download.")
+                    false
+                } else {
+                    logger.info("Migrations not complete for version ${it.first}, will download and process.")
+                    true
                 }
-                !isStored
             }
         )
     }
 }
 
-private data object GetServerFilesStep : Step<List<Pair<MinecraftVersion.Release, URI>>, GetServerFilesFailure, List<Pair<MinecraftVersion.Release, Path>>> {
-    override suspend fun process(input: List<Pair<MinecraftVersion.Release, URI>>): Result<GetServerFilesFailure, List<Pair<MinecraftVersion.Release, Path>>> {
+private data object AllFileMigrationsCompletedStep : Step<MinecraftVersion.Release, GetServerFilesFailure, Boolean> {
+    override suspend fun process(input: MinecraftVersion.Release): Result<GetServerFilesFailure, Boolean> {
+        return DatabaseSteps.query<MinecraftVersion.Release, GetServerFilesFailure, Boolean>(
+            sql = SafeSQL.select("""
+                SELECT EXISTS(SELECT 1 FROM minecraft_items WHERE version = ?) 
+                    AND EXISTS(SELECT 1 FROM minecraft_version WHERE version = ?)
+            """.trimIndent()),
+            errorMapper = { GetServerFilesFailure.DatabaseError(this.javaClass) },
+            parameterSetter = { statement, version ->
+                statement.setString(1, version.toString())
+                statement.setString(2, version.toString())
+            },
+            resultMapper = { resultSet ->
+                if (resultSet.next()) {
+                    resultSet.getBoolean(1)
+                } else {
+                    false
+                }
+            }
+        ).process(input)
+    }
+}
+
+private data object ProcessServerFilesStep : Step<List<Pair<MinecraftVersion.Release, URI>>, GetServerFilesFailure, Unit> {
+    override suspend fun process(input: List<Pair<MinecraftVersion.Release, URI>>): Result<GetServerFilesFailure, Unit> {
         val getServerFilePipeline = Pipeline.create<GetServerFilesFailure, Pair<MinecraftVersion.Release, URI>>()
             .pipe(GetServerFileStep)
             .pipe(StoreServerFileStep)
-            .pipe(ExtractActualServerFileStep)
-            .map { listOf(it) }
+            .pipe(ExtractRelevantMinecraftFilesStep)
+            .pipe(ExtractMinecraftDataStep)
+            .pipe(StoreMinecraftDataStep)
 
-        val results = mutableListOf<Pair<MinecraftVersion.Release, Path>>()
+        val result = input.map { getServerFilePipeline.execute(it) }
 
-        input.forEach { release ->
-            when (val result = getServerFilePipeline.execute(release)) {
-                is Result.Success -> results.addAll(result.value)
-                is Result.Failure -> return Result.failure(result.error)
-            }
+        val errors = result.filterIsInstance<Result.Failure<GetServerFilesFailure>>().map { it.error }
+
+        if (errors.isNotEmpty()) {
+            return Result.failure(GetServerFilesFailure.MultipleErrors(errors))
         }
 
-        return Result.success(results)
+        return Result.success()
     }
 }
 
@@ -111,7 +142,7 @@ private data object GetServerFileStep : Step<Pair<MinecraftVersion.Release, URI>
     override suspend fun process(input: Pair<MinecraftVersion.Release, URI>): Result<GetServerFilesFailure, Pair<MinecraftVersion.Release, InputStream>> {
         return NoBaseUrlApiConfig.getProvider().getRaw<Pair<MinecraftVersion.Release, URI>, GetServerFilesFailure>(
             url = input.second.toString(),
-            errorMapper = { _ -> GetServerFilesFailure.ApiFailure }
+            errorMapper = { _ -> GetServerFilesFailure.ApiFailure(this.javaClass) }
         ).process(input).map { input.first to it }
     }
 }
@@ -125,13 +156,13 @@ private data object StoreServerFileStep : Step<Pair<MinecraftVersion.Release, In
             return Result.success(input.first to path)
         } catch (e: Exception) {
             logger.error("Failed to store server file for version ${input.first}: ${e.message}", e)
-            return Result.failure(GetServerFilesFailure.FileError)
+            return Result.failure(GetServerFilesFailure.FileError(this.javaClass))
         }
     }
 }
 
-private data object ExtractActualServerFileStep : Step<Pair<MinecraftVersion.Release, Path>, GetServerFilesFailure, Pair<MinecraftVersion.Release, Path>> {
-    private val logger = LoggerFactory.getLogger(ExtractActualServerFileStep::class.java)
+private data object ExtractRelevantMinecraftFilesStep : Step<Pair<MinecraftVersion.Release, Path>, GetServerFilesFailure, Pair<MinecraftVersion.Release, Path>> {
+    private val logger = LoggerFactory.getLogger(ExtractRelevantMinecraftFilesStep::class.java)
 
     override suspend fun process(input: Pair<MinecraftVersion.Release, Path>): Result<GetServerFilesFailure, Pair<MinecraftVersion.Release, Path>> {
         val (version, serverJarPath) = input
@@ -176,21 +207,32 @@ private data object ExtractActualServerFileStep : Step<Pair<MinecraftVersion.Rel
 
             logger.info("Successfully extracted server files for version $versionString to $outputDir")
             return Result.success(version to outputDir)
-
         } catch (e: Exception) {
             logger.error("Failed to extract server files for version $versionString: ${e.message}", e)
-            return Result.failure(GetServerFilesFailure.FileError)
+            return Result.failure(GetServerFilesFailure.FileError(this.javaClass))
+        } finally {
+            try {
+                logger.info("Deleting temporary server JAR file at $serverJarPath")
+                Files.deleteIfExists(serverJarPath)
+            } catch (e: Exception) {
+                logger.warn("Failed to delete temporary server JAR file at $serverJarPath: ${e.message}", e)
+            }
         }
     }
 
+    /**
+     * Determine if the given entry should be extracted.
+     *
+     * Other entries we might want later:
+     * entryName == "assets/minecraft/lang/deprecated.json" ||
+     * entryName.startsWith("data/minecraft/dimension_type/") ||
+     * entryName.startsWith("data/minecraft/loot_table/") ||
+     * entryName.startsWith("data/minecraft/recipe/") ||
+     * entryName.startsWith("data/minecraft/structure/") ||
+     * entryName.startsWith("data/minecraft/worldgen/")
+     */
     private fun shouldExtract(entryName: String): Boolean {
-        return entryName == "assets/minecraft/lang/en_us.json" ||
-                entryName == "assets/minecraft/lang/deprecated.json" ||
-                entryName.startsWith("data/minecraft/dimension_type/") ||
-                entryName.startsWith("data/minecraft/loot_table/") ||
-                entryName.startsWith("data/minecraft/recipe/") ||
-                entryName.startsWith("data/minecraft/structure/") ||
-                entryName.startsWith("data/minecraft/worldgen/")
+        return entryName == "assets/minecraft/lang/en_us.json"
     }
 
     private fun extractEntry(zipStream: ZipInputStream, entryName: String, outputDir: Path) {

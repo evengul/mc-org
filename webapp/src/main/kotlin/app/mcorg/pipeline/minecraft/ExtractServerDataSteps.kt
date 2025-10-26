@@ -9,27 +9,46 @@ import kotlinx.serialization.json.Json
 import org.slf4j.LoggerFactory
 import java.nio.file.Path
 
-data object ExtractAllServersDataStep : Step<List<Pair<MinecraftVersion.Release, Path>>, GetServerFilesFailure, List<ServerData>> {
-    override suspend fun process(input: List<Pair<MinecraftVersion.Release, Path>>): Result<GetServerFilesFailure, List<ServerData>> {
-        val serversData = mutableListOf<ServerData>()
-        for (pair in input) {
-            when (val result = ExtractServerDataStep.process(pair)) {
-                is Result.Success -> serversData.add(result.value)
-                is Result.Failure -> return Result.failure(result.error)
-            }
+data object ExtractMinecraftDataStep : Step<Pair<MinecraftVersion.Release, Path>, GetServerFilesFailure, ServerData> {
+    override suspend fun process(input: Pair<MinecraftVersion.Release, Path>): Result<GetServerFilesFailure, ServerData> {
+        val result = ExtractItemsDataStep.process(input)
+
+        if (result is Result.Failure) {
+            return Result.failure(result.error)
         }
-        return Result.success(serversData)
+
+        val deleteResult = DeleteFileStep.process(input.second)
+
+        if (deleteResult is Result.Failure) {
+            return Result.failure(deleteResult.error)
+        }
+
+        return Result.success(
+            ServerData(
+                version = input.first,
+                items = result.getOrNull() ?: emptyList()
+            )
+        )
     }
 }
 
-data object ExtractServerDataStep : Step<Pair<MinecraftVersion.Release, Path>, GetServerFilesFailure, ServerData> {
-    override suspend fun process(input: Pair<MinecraftVersion.Release, Path>): Result<GetServerFilesFailure, ServerData> {
-        return ExtractItemsDataStep.process(input)
-            .map { items -> ServerData(version = input.first, items = items) }
+data object DeleteFileStep : Step<Path, GetServerFilesFailure, Unit> {
+    private val logger = LoggerFactory.getLogger(this.javaClass)
+
+    override suspend fun process(input: Path): Result<GetServerFilesFailure, Unit> {
+        return try {
+            logger.info("Deleting temporary directory: {}", input)
+            input.toFile().deleteRecursively()
+            Result.success()
+        } catch (e: Exception) {
+            logger.error("Failed to delete temporary directory: {}", input, e)
+            Result.failure(GetServerFilesFailure.FileError(this.javaClass))
+        }
     }
 }
+
 data object ExtractItemsDataStep : Step<Pair<MinecraftVersion.Release, Path>, GetServerFilesFailure, List<Item>> {
-    private val logger = LoggerFactory.getLogger(ExtractItemsDataStep::class.java)
+    private val logger = LoggerFactory.getLogger(this.javaClass)
 
     private val keyWhiteList = listOf(
         "item.minecraft.",
@@ -74,7 +93,7 @@ data object ExtractItemsDataStep : Step<Pair<MinecraftVersion.Release, Path>, Ge
             return Result.success<GetServerFilesFailure, List<Item>>(map)
         } catch (e: Exception) {
             logger.error("Failed to extract items for version {}: {}", input.first, e.message, e)
-            return Result.failure(GetServerFilesFailure.FileError)
+            return Result.failure(GetServerFilesFailure.FileError(this.javaClass))
         }
     }
 }

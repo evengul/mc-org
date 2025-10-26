@@ -21,7 +21,7 @@ object GetSupportedVersionsStep : Step<Unit, DatabaseFailure, List<MinecraftVers
 
     override suspend fun process(input: Unit): Result<DatabaseFailure, List<MinecraftVersion.Release>> {
         return DatabaseSteps.query<Unit, DatabaseFailure, List<MinecraftVersion.Release>>(
-            sql = SafeSQL.select("SELECT DISTINCT version FROM minecraft_items"),
+            sql = SafeSQL.select("SELECT DISTINCT version FROM minecraft_version"),
             errorMapper = { it },
             resultMapper = { resultSet ->
                 buildList {
