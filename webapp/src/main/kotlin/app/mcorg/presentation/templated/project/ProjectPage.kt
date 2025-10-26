@@ -125,7 +125,7 @@ fun projectPage(
                         }
                     }
                 }
-                createTaskModal(project, itemNames)
+                createTaskModal(project, itemNames, CreateTaskModalTab.ITEM_REQUIREMENT)
             }
         }
         p("subtle") {

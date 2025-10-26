@@ -6,6 +6,7 @@ import kotlinx.html.Tag
 import kotlinx.html.TagConsumer
 import kotlinx.html.classes
 import kotlinx.html.div
+import kotlinx.html.id
 import kotlinx.html.style
 
 fun <T : Tag> T.progressComponent(
@@ -29,6 +30,7 @@ enum class ProgressDisplay {
 }
 
 class Progress(
+    var id: String? = null,
     var max: Double = 1.0,
     var value: Double = 0.0,
     var variant: ProgressVariant = ProgressVariant.DEFAULT,
@@ -43,6 +45,9 @@ class Progress(
         val percentage = ((value / max) * 100).coerceIn(0.0, 100.0).toInt()
 
         container.div {
+            this@Progress.id?.let {
+                this.id = it
+            }
             attributes["data-max"] = max.toString()
             attributes["data-value"] = value.toString()
             attributes["role"] = "progressbar"

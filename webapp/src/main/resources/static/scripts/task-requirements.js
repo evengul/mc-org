@@ -2,28 +2,6 @@
 let itemRequirementCounter = 0;
 let actionRequirementCounter = 0;
 
-function validateName(name) {
-  const trimmedName = name.trim();
-  if (trimmedName.length < 3) {
-    return {isValid: false, message: "Name must be at least 3 characters long"};
-  }
-  if (trimmedName.length > 200) {
-    return {isValid: false, message: "Name must be less than 200 characters"};
-  }
-  return {isValid: true};
-}
-
-function validateAmount(amount) {
-  const numAmount = parseInt(amount, 10);
-  if (isNaN(numAmount) || numAmount <= 0) {
-    return {isValid: false, message: "Amount must be a positive number"};
-  }
-  if (numAmount >= 1000000) {
-    return {isValid: false, message: "Amount must be less than 1,000,000"};
-  }
-  return {isValid: true};
-}
-
 function clearElementValidationMessage(element) {
   if (element) {
     element.setCustomValidity("");
@@ -47,194 +25,6 @@ function clearValidationMessages(inputsToClear) {
   }
 }
 
-function addItemRequirement() {
-  const container = document.getElementById('item-requirements-container');
-  const template = document.getElementById('requirement-template');
-  const nameInput = document.getElementById('item-requirement-name-input');
-  const amountInput = document.getElementById('item-requirement-amount-input');
-
-  if (!container || !template || !nameInput || !amountInput) return;
-
-  // Validate input
-  const nameValidation = validateName(nameInput.value)
-  if (!nameValidation.isValid) {
-    nameInput.setCustomValidity(nameValidation.message)
-    nameInput.reportValidity()
-
-    if (nameInput.value === '') {
-      setTimeout(() => {
-        clearElementValidationMessage(nameInput)
-      }, 300)
-    }
-    return
-  } else {
-    clearElementValidationMessage(nameInput);
-  }
-
-  const amountValidation = validateAmount(amountInput.value)
-  if (!amountValidation.isValid) {
-    amountInput.setCustomValidity(amountValidation.message)
-    amountInput.reportValidity()
-    if (amountInput.value === '') {
-      setTimeout(() => {
-        clearElementValidationMessage(amountInput)
-      }, 300)
-    }
-    return
-  } else {
-    clearElementValidationMessage(amountInput)
-  }
-
-  // Clone the template
-
-  const newRequirement = template.cloneNode(true);
-  newRequirement.id = `item-requirement-${itemRequirementCounter}`;
-
-  const paragraph = newRequirement.children.item(0);
-  const input = newRequirement.children.item(1);
-  const deleteButton = newRequirement.children.item(2);
-
-  if (!paragraph || !input || !deleteButton) return;
-
-  paragraph.textContent = `${nameInput.value} x${amountInput.value}`;
-  const value = {
-    name: nameInput.value,
-    requiredAmount: parseInt(amountInput.value, 10)
-  }
-  input.value = JSON.stringify(value);
-  input.name = `itemRequirements[${itemRequirementCounter}]`;
-  input.id = `item-requirement-input-${itemRequirementCounter}`;
-  input.type = 'hidden';
-
-  // Clear the input fields
-  nameInput.value = '';
-  amountInput.value = '';
-
-  // Set up delete button
-  deleteButton.addEventListener('click', () => removeRequirement(deleteButton));
-
-  // Update all name attributes and IDs
-  updateRequirementIndexes(newRequirement, itemRequirementCounter);
-
-  container.appendChild(newRequirement);
-  itemRequirementCounter++;
-
-  document.getElementById("item-requirement-name-input")?.focus();
-}
-
-function addActionRequirement() {
-  const container = document.getElementById('action-requirements-container');
-  const template = document.getElementById('requirement-template');
-  const nameInput = document.getElementById('action-requirement-input');
-
-  if (!container || !template || !nameInput) return;
-
-  // Validate input
-  const nameValidation = validateName(nameInput.value)
-  if (!nameValidation.isValid) {
-    nameInput.setCustomValidity(nameValidation.message)
-    nameInput.reportValidity()
-    if (nameInput.value === '') {
-      setTimeout(() => {
-        clearElementValidationMessage(nameInput)
-      }, 300)
-    }
-    return
-  } else {
-    clearElementValidationMessage(nameInput);
-  }
-
-  // Clone the template
-
-  const newRequirement = template.cloneNode(true);
-  newRequirement.id = `item-requirement-${actionRequirementCounter}`;
-
-  const paragraph = newRequirement.children.item(0);
-  const input = newRequirement.children.item(1);
-  const deleteButton = newRequirement.children.item(2);
-
-  if (!paragraph || !input || !deleteButton) return;
-
-  paragraph.textContent = nameInput.value;
-  input.value = nameInput.value;
-  input.name = `actionRequirements[${actionRequirementCounter}]`;
-  input.id = `action-requirement-input-${actionRequirementCounter}`;
-  input.type = 'hidden';
-
-  // Clear the input fields
-  nameInput.value = '';
-
-  // Set up delete button
-  deleteButton.addEventListener('click', () => removeRequirement(deleteButton));
-
-  // Update all name attributes and IDs
-  updateRequirementIndexes(newRequirement, actionRequirementCounter);
-
-  container.appendChild(newRequirement);
-  actionRequirementCounter++;
-
-  document.getElementById("action-requirement-input")?.focus();
-}
-
-function removeRequirement(button) {
-  const requirementItem = button.closest('.requirement-item');
-  if (requirementItem) {
-    requirementItem.remove();
-
-    // Reindex all remaining requirements
-    reindexAllRequirements();
-  }
-}
-
-function updateRequirementIndexes(element, index) {
-  // Update all name attributes
-  const inputs = element.querySelectorAll('input, textarea');
-  inputs.forEach(input => {
-    if (input.name) {
-      input.name = input.name.replace('[INDEX]', `[${index}]`);
-      input.name = input.name.replace(/\[\d+]/, `[${index}]`);
-    }
-    if (input.id) {
-      input.id = input.id.replace(/-\d+$/, `-${index}`);
-    }
-
-    // Add required attribute for form fields that need validation
-    if (input.type === 'text' || input.type === 'number' || input.tagName.toLowerCase() === 'textarea') {
-      if (input.name && input.name.includes('item')) {
-        input.required = true;
-      }
-      if (input.name && input.name.includes('requiredAmount')) {
-        input.required = true;
-      }
-      if (input.name && input.name.includes('action')) {
-        input.required = true;
-      }
-    }
-  });
-
-  // Update label for attributes
-  const labels = element.querySelectorAll('label');
-  labels.forEach(label => {
-    if (label.htmlFor) {
-      label.htmlFor = label.htmlFor.replace(/-\d+$/, `-${index}`);
-    }
-  });
-}
-
-function reindexAllRequirements() {
-  const container = document.getElementById('requirements-container');
-  if (!container) return;
-
-  const requirements = container.querySelectorAll('.requirement-item');
-  requirements.forEach((requirement, index) => {
-    requirement.setAttribute('data-requirement-index', index);
-    updateRequirementIndexes(requirement, index);
-  });
-
-  // Update the counter
-  itemRequirementCounter = requirements.length;
-}
-
 // Tab switching functionality for create task modal
 function switchTab(tabName) {
   switch (tabName) {
@@ -252,6 +42,19 @@ function switchToActions() {
   document.getElementById("action-requirements-tab").style.display = 'block';
   document.getElementById("item-requirements-tab").style.display = 'none';
 
+  const nameInput = document.getElementById('item-requirement-name-input');
+  nameInput.value = '';
+  nameInput.required = false;
+
+  const amountInput = document.getElementById('item-requirement-amount-input');
+  amountInput.value = '';
+  amountInput.required = false;
+
+  const actionInput = document.getElementById('action-requirement-input');
+  actionInput.required = true;
+  actionInput.minLength = "3";
+  actionInput.maxLength = "100";
+
   document.getElementById("action-requirement-input")?.focus();
 }
 
@@ -259,6 +62,20 @@ function switchToItems() {
   clearValidationMessages(['action']);
   document.getElementById("action-requirements-tab").style.display = 'none';
   document.getElementById("item-requirements-tab").style.display = 'block';
+
+  const actionInput = document.getElementById('action-requirement-input');
+  actionInput.value = '';
+  actionInput.required = false;
+
+  const nameInput = document.getElementById('item-requirement-name-input');
+  nameInput.required = true;
+  nameInput.minLength = "3";
+  nameInput.maxLength = "200";
+
+  const amountInput = document.getElementById('item-requirement-amount-input');
+  amountInput.required = true;
+  amountInput.min = "1";
+  amountInput.max = "2000000000";
 
   document.getElementById("item-requirement-name-input")?.focus();
 }

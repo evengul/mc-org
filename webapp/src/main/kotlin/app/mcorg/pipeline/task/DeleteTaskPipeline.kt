@@ -1,6 +1,5 @@
 package app.mcorg.pipeline.task
 
-import app.mcorg.domain.model.task.Task
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.pipeline.DatabaseSteps
@@ -10,10 +9,6 @@ data class DeleteTaskInput(
     val taskId: Int,
     val userId: Int,
     val projectId: Int
-)
-
-data class DeleteTaskResult(
-    val updatedTasks: List<Task>
 )
 
 sealed class DeleteTaskFailures {
@@ -47,40 +42,46 @@ object ValidateTaskDependenciesStep : Step<DeleteTaskInput, DeleteTaskFailures, 
     }
 }
 
-object DeleteTaskStep : Step<DeleteTaskInput, DeleteTaskFailures, DeleteTaskInput> {
-    override suspend fun process(input: DeleteTaskInput): Result<DeleteTaskFailures, DeleteTaskInput> {
+object DeleteTaskStep : Step<DeleteTaskInput, DeleteTaskFailures, Int> {
+    override suspend fun process(input: DeleteTaskInput): Result<DeleteTaskFailures, Int> {
         return DatabaseSteps.update<DeleteTaskInput, DeleteTaskFailures>(
             sql = SafeSQL.delete("DELETE FROM tasks WHERE id = ?"),
             parameterSetter = { statement, _ ->
                 statement.setInt(1, input.taskId)
             },
             errorMapper = { DeleteTaskFailures.DatabaseError }
-        ).process(input).map { input }
+        ).process(input).map { input.projectId }
     }
 }
 
-object GetUpdatedTasksAfterDeletionStep : Step<DeleteTaskInput, DeleteTaskFailures, DeleteTaskResult> {
-    override suspend fun process(input: DeleteTaskInput): Result<DeleteTaskFailures, DeleteTaskResult> {
-        return DatabaseSteps.query<DeleteTaskInput, DeleteTaskFailures, List<Task>>(
+object GetUpdatedTasksAfterDeletionStep : Step<Int, DeleteTaskFailures, Pair<Int, Int>> {
+    override suspend fun process(input: Int): Result<DeleteTaskFailures, Pair<Int, Int>> {
+        val taskCount = CountProjectTasksStep.process(input).getOrNull() ?: 0
+        val completedCount = CountCompletedTasksInProjectStep.process(input).getOrNull() ?: 0
+
+        return Result.success(Pair(taskCount, completedCount))
+    }
+}
+
+object CountCompletedTasksInProjectStep : Step<Int, DeleteTaskFailures, Int> {
+    override suspend fun process(input: Int): Result<DeleteTaskFailures, Int> {
+        return DatabaseSteps.query<Int, DeleteTaskFailures, Int>(
             sql = SafeSQL.select("""
-                SELECT t.id, t.project_id, t.name, t.description, t.stage, t.priority
-                FROM tasks t
-                WHERE t.project_id = ?
-                ORDER BY t.created_at DESC
-            """),
-            parameterSetter = { statement, _ ->
-                statement.setInt(1, input.projectId)
-            },
+                SELECT COUNT(id) FROM tasks WHERE project_id = ? AND (
+                    (requirement_type = 'ITEM' AND requirement_item_collected >= requirement_item_required_amount)
+                    OR
+                    (requirement_type = 'ACTION' AND requirement_action_completed = TRUE)
+                )
+            """.trimIndent()),
+            parameterSetter = { statement, _ -> statement.setInt(1, input) },
             errorMapper = { DeleteTaskFailures.DatabaseError },
             resultMapper = { rs ->
-                val tasks = mutableListOf<Task>()
-                while (rs.next()) {
-                    tasks.add(rs.toTask())
+                if (rs.next()) {
+                    rs.getInt(1)
+                } else {
+                    0
                 }
-                tasks
             }
-        ).process(input).map { tasks ->
-            DeleteTaskResult(updatedTasks = tasks)
-        }
+        ).process(input)
     }
 }

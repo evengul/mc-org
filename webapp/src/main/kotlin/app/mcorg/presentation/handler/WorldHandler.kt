@@ -151,13 +151,11 @@ class WorldHandler {
                                     put {
                                         // Update task requirements (edit functionality)
                                     }
-                                    route("/{requirementId}") {
-                                        patch("/done-more") {
-                                            call.handleUpdateRequirementProgress()
-                                        }
-                                        patch("/toggle") {
-                                            call.handleToggleActionRequirement()
-                                        }
+                                    patch("/done-more") {
+                                        call.handleUpdateRequirementProgress()
+                                    }
+                                    patch("/toggle") {
+                                        call.handleToggleActionRequirement()
                                     }
                                 }
                             }

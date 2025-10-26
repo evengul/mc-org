@@ -29,20 +29,20 @@ fun getProjectsByWorldIdQuery(sortBy: String = "p.updated_at DESC, p.name ASC") 
         SELECT 
             t.project_id,
             COUNT(t.id) as tasks_total,
-            COUNT(ct.task_id) as tasks_completed
+            COUNT(ct.id) as tasks_completed
         FROM tasks t
         LEFT JOIN (
-            SELECT tr.task_id
-            FROM task_requirements tr
-            GROUP BY tr.task_id
+            SELECT t2.id
+            FROM tasks t2
+            GROUP BY t2.id
             HAVING COUNT(*) = SUM(
                 CASE
-                    WHEN tr.type = 'ITEM' AND tr.collected >= tr.required_amount THEN 1
-                    WHEN tr.type = 'ACTION' AND tr.completed = true THEN 1
+                    WHEN t2.requirement_type = 'ITEM' AND t2.requirement_item_collected >= t2.requirement_item_required_amount THEN 1
+                    WHEN t2.requirement_type = 'ACTION' AND t2.requirement_action_completed = true THEN 1
                     ELSE 0
                 END
             )
-        ) ct ON t.id = ct.task_id
+        ) ct ON t.id = ct.id
         GROUP BY t.project_id
     ) task_stats ON p.id = task_stats.project_id
     WHERE p.world_id = ? AND (? = '' OR LOWER(p.name) ILIKE '%' || ? || '%' OR LOWER(p.description) ILIKE '%' || ? || '%') AND (? = TRUE OR p.stage != 'COMPLETED')
@@ -70,20 +70,20 @@ val getProjectByIdQuery = SafeSQL.select("""
         SELECT 
             t.project_id,
             COUNT(t.id) as tasks_total,
-            COUNT(ct.task_id) as tasks_completed
+            COUNT(ct.id) as tasks_completed
         FROM tasks t
         LEFT JOIN (
-            SELECT tr.task_id
-            FROM task_requirements tr
-            GROUP BY tr.task_id
+            SELECT t2.id
+            FROM tasks t2
+            GROUP BY t2.id
             HAVING COUNT(*) = SUM(
                 CASE
-                    WHEN tr.type = 'ITEM' AND tr.collected >= tr.required_amount THEN 1
-                    WHEN tr.type = 'ACTION' AND tr.completed = true THEN 1
+                    WHEN t2.requirement_type = 'ITEM' AND t2.requirement_item_collected >= t2.requirement_item_required_amount THEN 1
+                    WHEN t2.requirement_type = 'ACTION' AND t2.requirement_action_completed = true THEN 1
                     ELSE 0
                 END
             )
-        ) ct ON t.id = ct.task_id
+        ) ct ON t.id = ct.id
         GROUP BY t.project_id
     ) task_stats ON p.id = task_stats.project_id
     WHERE p.id = ?
