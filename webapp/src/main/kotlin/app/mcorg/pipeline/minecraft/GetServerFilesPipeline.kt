@@ -8,7 +8,9 @@ import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
+import kotlinx.coroutines.delay
 import org.slf4j.LoggerFactory
+import org.slf4j.MDC
 import java.io.FileInputStream
 import java.io.InputStream
 import java.net.URI
@@ -42,12 +44,18 @@ private data object GetServerUrlsStep : Step<List<MinecraftVersion.Release>, Get
             errorMapper = { GetServerFilesFailure.ApiFailure(this.javaClass) }
         ).process(Unit).map {
             val lines = it.bufferedReader(Charsets.UTF_8).use { reader -> reader.readLines() }
-                .map { line ->
-                val parts = line.split("|")
-                    .filter { part -> part.isNotBlank() }
-                    .map { part -> part.trim() }
-                parts[0] to parts[1]
-            }
+                .mapNotNull { line ->
+                    val parts = line.split("|")
+                        .filter { part -> part.isNotBlank() }
+                        .map { part -> part.trim() }
+
+                    if (parts.size >= 2) {
+                        parts[0] to parts[1]
+                    } else {
+                        logger.warn("Skipping malformed line: $line")
+                        null
+                    }
+                }
 
             lines.filter { (version, _) -> !version.contains("Minecraft Version") }
                 .filter { (version, _) -> !version.contains("---------") }
@@ -75,60 +83,98 @@ private data object FilterAlreadyStoredVersionsStep : Step<List<Pair<MinecraftVe
             return Result.failure(GetServerFilesFailure.DatabaseError(this.javaClass))
         }
 
+        val shouldMigrate = AllFileMigrationsCompletedStep.process(input.map { it.first })
+
+        if (shouldMigrate is Result.Failure) {
+            logger.error("Failed to check migrations for some versions.")
+            return Result.failure(GetServerFilesFailure.DatabaseError(this.javaClass))
+        }
+
         return Result.success(
             input.filter {
-                val allMigrationsComplete = AllFileMigrationsCompletedStep.process(it.first)
+                val allMigrationsComplete = shouldMigrate.getOrNull()?.get(it.first) ?: false
 
-                if (allMigrationsComplete is Result.Failure) {
-                    logger.error("Failed to check migrations for version ${it.first}")
-                    return Result.failure(GetServerFilesFailure.DatabaseError(this.javaClass))
-                } else if (allMigrationsComplete.getOrNull() == true) {
+                if (allMigrationsComplete) {
                     logger.info("All migrations complete for version ${it.first}, skipping download.")
-                    false
                 } else {
                     logger.info("Migrations not complete for version ${it.first}, will download and process.")
-                    true
                 }
+
+                !allMigrationsComplete
             }
         )
     }
 }
 
-private data object AllFileMigrationsCompletedStep : Step<MinecraftVersion.Release, GetServerFilesFailure, Boolean> {
-    override suspend fun process(input: MinecraftVersion.Release): Result<GetServerFilesFailure, Boolean> {
-        return DatabaseSteps.query<MinecraftVersion.Release, GetServerFilesFailure, Boolean>(
+private data object AllFileMigrationsCompletedStep : Step<List<MinecraftVersion.Release>, GetServerFilesFailure, Map<MinecraftVersion.Release, Boolean>> {
+    override suspend fun process(input: List<MinecraftVersion.Release>): Result<GetServerFilesFailure, Map<MinecraftVersion.Release, Boolean>> {
+        val logger = LoggerFactory.getLogger(this.javaClass)
+        val result = DatabaseSteps.query<Unit, GetServerFilesFailure, Map<MinecraftVersion.Release, Boolean>>(
             sql = SafeSQL.select("""
-                SELECT EXISTS(SELECT 1 FROM minecraft_items WHERE version = ?) 
-                    AND EXISTS(SELECT 1 FROM minecraft_version WHERE version = ?)
+                SELECT mv.version,
+                       CASE
+                           WHEN mi.version IS NULL THEN FALSE
+                           ELSE TRUE
+                       END AS items_migrated
+                FROM minecraft_version mv
+                LEFT JOIN minecraft_items mi ON mv.version = mi.version
             """.trimIndent()),
             errorMapper = { GetServerFilesFailure.DatabaseError(this.javaClass) },
-            parameterSetter = { statement, version ->
-                statement.setString(1, version.toString())
-                statement.setString(2, version.toString())
-            },
             resultMapper = { resultSet ->
-                if (resultSet.next()) {
-                    resultSet.getBoolean(1)
-                } else {
-                    false
+                val migrationStatus = mutableMapOf<MinecraftVersion.Release, Boolean>()
+                while (resultSet.next()) {
+                    val versionString = resultSet.getString("version")
+                    val itemsMigrated = resultSet.getBoolean("items_migrated")
+                    try {
+                        val version = MinecraftVersion.Release.fromString(versionString)
+                        migrationStatus[version] = itemsMigrated
+                    } catch (e: IllegalArgumentException) {
+                        logger.error("Invalid version format in database: $versionString", e)
+                    }
                 }
+                migrationStatus
             }
-        ).process(input)
+        ).process(Unit)
+
+        return if (result is Result.Failure) {
+            Result.failure(result.error)
+        } else {
+            Result.success(
+                input.associateWith { version ->
+                    result.getOrNull()?.get(version) ?: false
+                }
+            )
+        }
     }
 }
 
 private data object ProcessServerFilesStep : Step<List<Pair<MinecraftVersion.Release, URI>>, GetServerFilesFailure, Unit> {
+    private val logger = LoggerFactory.getLogger(this.javaClass)
     override suspend fun process(input: List<Pair<MinecraftVersion.Release, URI>>): Result<GetServerFilesFailure, Unit> {
-        val getServerFilePipeline = Pipeline.create<GetServerFilesFailure, Pair<MinecraftVersion.Release, URI>>()
+        val processServerFilePipeline = Pipeline.create<GetServerFilesFailure, Pair<MinecraftVersion.Release, URI>>()
             .pipe(GetServerFileStep)
             .pipe(StoreServerFileStep)
             .pipe(ExtractRelevantMinecraftFilesStep)
             .pipe(ExtractMinecraftDataStep)
             .pipe(StoreMinecraftDataStep)
 
-        val result = input.map { getServerFilePipeline.execute(it) }
+        if (input.isEmpty()) {
+            logger.info("No new server files to process.")
+            return Result.success()
+        }
 
-        val errors = result.filterIsInstance<Result.Failure<GetServerFilesFailure>>().map { it.error }
+        val result = input.map {
+            MDC.put("minecraftVersion", it.first.toString())
+            val result = processServerFilePipeline.execute(it)
+            try {
+                delay(500)
+            } catch (e: Exception) {
+                logger.warn("Delay interrupted: ${e.message}", e)
+            }
+            result
+        }
+
+        val errors = result.filterIsInstance<Result.Failure<GetServerFilesFailure>>().map { it.error }.distinctBy { it.javaClass }
 
         if (errors.isNotEmpty()) {
             return Result.failure(GetServerFilesFailure.MultipleErrors(errors))
@@ -166,7 +212,7 @@ private data object ExtractRelevantMinecraftFilesStep : Step<Pair<MinecraftVersi
 
     override suspend fun process(input: Pair<MinecraftVersion.Release, Path>): Result<GetServerFilesFailure, Pair<MinecraftVersion.Release, Path>> {
         val (version, serverJarPath) = input
-        val versionString = version.toString().replace(".0", "")
+        val versionString = "${version.major}.${version.minor}${if (version.patch != 0) ".${version.patch}" else ""}"
         val innerJarPath = "META-INF/versions/${versionString}/"
 
         try {
@@ -203,6 +249,13 @@ private data object ExtractRelevantMinecraftFilesStep : Step<Pair<MinecraftVersi
                         outerEntry = outerZip.nextEntry
                     }
                 }
+            }
+
+            // Check if the output directory has any files
+            val hasExtractedFiles = Files.walk(outputDir).anyMatch { Files.isRegularFile(it) }
+            if (!hasExtractedFiles) {
+                logger.error("No relevant files were extracted for version $versionString from $serverJarPath")
+                return Result.failure(GetServerFilesFailure.FileError(this.javaClass))
             }
 
             logger.info("Successfully extracted server files for version $versionString to $outputDir")
