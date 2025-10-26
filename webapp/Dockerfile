@@ -13,4 +13,4 @@ FROM eclipse-temurin:21 AS mcorg_app
 EXPOSE "8080:8080"
 RUN mkdir /app
 COPY --from=build /home/maven/src/target/*-with-dependencies.jar /app/mcorg.jar
-ENTRYPOINT ["java","-jar","/app/mcorg.jar"]
+ENTRYPOINT ["java", "-Xms256m", "-Xmx768m", "-jar", "/app/mcorg.jar"]
