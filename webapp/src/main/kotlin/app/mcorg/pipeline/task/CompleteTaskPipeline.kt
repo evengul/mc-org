@@ -6,18 +6,11 @@ import app.mcorg.domain.pipeline.Result
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.failure.DatabaseFailure
-import app.mcorg.pipeline.project.GetTasksByProjectIdInput
-import app.mcorg.pipeline.project.GetTasksByProjectIdStep
 
 data class CompleteTaskInput(
     val taskId: Int,
     val userId: Int,
     val projectId: Int
-)
-
-data class CompleteTaskResult(
-    val task: Task,
-    val updatedTasks: List<Task>
 )
 
 sealed class CompleteTaskFailures {
@@ -30,7 +23,7 @@ sealed class CompleteTaskFailures {
 object ValidateTaskCompletionStep : Step<CompleteTaskInput, CompleteTaskFailures, CompleteTaskInput> {
     override suspend fun process(input: CompleteTaskInput): Result<CompleteTaskFailures, CompleteTaskInput> {
         return DatabaseSteps.query<CompleteTaskInput, CompleteTaskFailures, Boolean>(
-            sql = SafeSQL.select("SELECT 1 FROM task_requirements WHERE (completed = FALSE OR collected < required_amount) AND task_id = ?"),
+            sql = SafeSQL.select("SELECT 1 FROM tasks WHERE (requirement_action_completed = FALSE OR requirement_item_collected < requirement_item_required_amount) AND id = ?"),
             parameterSetter = { statement, _ ->
                 statement.setInt(1, input.taskId)
             },
@@ -45,19 +38,19 @@ object ValidateTaskCompletionStep : Step<CompleteTaskInput, CompleteTaskFailures
     }
 }
 
-object CompleteTaskStep : Step<CompleteTaskInput, CompleteTaskFailures, CompleteTaskInput> {
-    override suspend fun process(input: CompleteTaskInput): Result<CompleteTaskFailures, CompleteTaskInput> {
+object CompleteTaskStep : Step<CompleteTaskInput, CompleteTaskFailures, Int> {
+    override suspend fun process(input: CompleteTaskInput): Result<CompleteTaskFailures, Int> {
         return DatabaseSteps.transaction(
             object : Step<CompleteTaskInput, CompleteTaskFailures.DatabaseError, Unit> {
                 override suspend fun process(input: CompleteTaskInput): Result<CompleteTaskFailures.DatabaseError, Unit> {
                     DatabaseSteps.update<Int, DatabaseFailure>(
-                        SafeSQL.update("UPDATE task_requirements SET completed = TRUE WHERE type = 'ACTION' and task_id = ?"),
+                        SafeSQL.update("UPDATE tasks SET requirement_action_completed = TRUE WHERE requirement_type = 'ACTION' and id = ?"),
                         parameterSetter = { statement, taskId -> statement.setInt(1, taskId) },
                         errorMapper = { it }
                     ).process(input.taskId)
 
                     DatabaseSteps.update<Int, DatabaseFailure>(
-                        SafeSQL.update("UPDATE task_requirements SET collected = required_amount WHERE type = 'ITEM' AND task_id = ?"),
+                        SafeSQL.update("UPDATE tasks SET requirement_item_collected = requirement_item_required_amount WHERE requirement_type = 'ITEM' AND id = ?"),
                         parameterSetter = { statement, taskId -> statement.setInt(1, taskId) },
                         errorMapper = { it }
                     ).process(input.taskId)
@@ -66,38 +59,21 @@ object CompleteTaskStep : Step<CompleteTaskInput, CompleteTaskFailures, Complete
                 }
             },
             errorMapper = { CompleteTaskFailures.DatabaseError }
-        ).process(input).map { input }
+        ).process(input).map { input.taskId }
     }
 }
 
-object GetUpdatedTasksAfterCompletionStep : Step<CompleteTaskInput, CompleteTaskFailures, CompleteTaskResult> {
-    override suspend fun process(input: CompleteTaskInput): Result<CompleteTaskFailures, CompleteTaskResult> {
-        // Get the completed task
-        val taskResult = DatabaseSteps.query<CompleteTaskInput, CompleteTaskFailures, Task>(
-            sql = SafeSQL.select("""
-                SELECT t.id, t.project_id, t.name, t.description, t.stage, t.priority
-                FROM tasks t
-                WHERE t.id = ?
-            """),
-            parameterSetter = { statement, _ ->
-                statement.setInt(1, input.taskId)
-            },
-            errorMapper = { CompleteTaskFailures.DatabaseError },
-            resultMapper = { rs ->
-                rs.next()
-                rs.toTask()
-            }
-        ).process(input)
+object CheckAnyTasksStepAfterCompletion : Step<Int, CompleteTaskFailures, Pair<Task, Pair<Int, Int>>> {
+    override suspend fun process(input: Int): Result<CompleteTaskFailures, Pair<Task, Pair<Int, Int>>> {
+        val task = GetTaskStep.process(input)
 
-        return taskResult.flatMap { task ->
-            GetTasksByProjectIdStep.process(GetTasksByProjectIdInput(input.projectId))
-                .mapError { CompleteTaskFailures.DatabaseError }
-                .map { tasks ->
-                    CompleteTaskResult(
-                        task = task,
-                        updatedTasks = tasks
-                    )
-            }
+        val tasksCount = CountTasksInProjectWithTaskIdStep.process(input).getOrNull() ?: 0
+        val completedCount = CountCompletedTasksStep.process(input).getOrNull() ?: 0
+
+        if (task is Result.Failure) {
+            return Result.failure(CompleteTaskFailures.DatabaseError)
         }
+
+        return Result.success(Pair(task.getOrNull()!!, Pair(tasksCount, completedCount)))
     }
 }

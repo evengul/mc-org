@@ -2,12 +2,10 @@ package app.mcorg.presentation.templated.project
 
 import app.mcorg.domain.model.project.Project
 import app.mcorg.domain.model.project.ProjectStage
-import app.mcorg.domain.model.task.ActionRequirement
 import app.mcorg.domain.model.task.ItemRequirement
 import app.mcorg.domain.model.task.Priority
 import app.mcorg.domain.model.task.Task
 import app.mcorg.domain.model.task.TaskProjectStage
-import app.mcorg.domain.model.task.TaskRequirement
 import app.mcorg.presentation.hxDeleteWithConfirm
 import app.mcorg.presentation.hxGet
 import app.mcorg.presentation.hxIndicator
@@ -44,12 +42,17 @@ private fun DIV.projectProgressSection(project: Project) {
         h2 {
             + "Project Progress"
         }
-        progressComponent {
-            value = project.tasksCompleted.toDouble()
-            max = project.tasksTotal.toDouble()
-            showPercentage = false
-            label = "${project.tasksCompleted} of ${project.tasksTotal} task${if (project.tasksTotal == 1) "" else "s"} completed"
-        }
+        projectProgress(project.tasksCompleted, project.tasksTotal)
+    }
+}
+
+fun DIV.projectProgress(completed: Int, total: Int) {
+    progressComponent {
+        id = "project-progress"
+        value = completed.toDouble()
+        max = total.toDouble()
+        showPercentage = false
+        label = "$completed of $total task${if(total == 1) "" else "s"} completed"
     }
 }
 
@@ -212,10 +215,23 @@ fun LI.taskItem(worldId: Int, projectId: Int, task: Task) {
             + task.description
         }
     }
-    span {
-        taskProgressDisplay(task.id, task.progress())
+    if (task.requirement is ItemRequirement) {
+        taskItemProgress(task.id, task.requirement)
+
+        if (!task.isCompleted()) {
+            itemRequirementActions(worldId, projectId, task.id)
+        }
     }
-    taskRequirements(task, worldId, projectId)
+}
+
+fun LI.taskItemProgress(taskId: Int, itemRequirement: ItemRequirement) {
+    progressComponent {
+        id = "task-item-${taskId}-progress"
+        value = itemRequirement.collected.toDouble()
+        max = itemRequirement.requiredAmount.toDouble()
+        showPercentage = false
+        label = "${itemRequirement.collected} of ${itemRequirement.requiredAmount} item${if (itemRequirement.requiredAmount == 1) "" else "s"} collected"
+    }
 }
 
 private fun LI.taskHeader(worldId: Int, projectId: Int, task: Task) {
@@ -267,153 +283,44 @@ fun INPUT.taskCompletionCheckbox(worldId: Int, projectId: Int, taskId: Int, comp
     classes += "task-completion-checkbox"
     checked = completed
     disabled = completed
-    hxTarget("#task-${taskId}")
+    hxTarget("#task-${taskId}-complete")
     hxPatch(Link.Worlds.world(worldId).project(projectId).tasks().task(taskId) + "/complete")
     hxSwap("outerHTML")
     type = InputType.checkBox
 }
 
-fun SPAN.taskProgressDisplay(taskId: Int, progress: Double) {
-    id = "task-${taskId}-progress"
-    div("task-progress-description") {
-        p("subtle") {
-            +"Progress"
-        }
-        p("subtle") {
-            +"${progress.toInt()}% completed"
-        }
-    }
-    progressComponent {
-        value = progress
-        max = 100.0
-    }
-}
-
-private fun LI.taskRequirements(task: Task, worldId: Int, projectId: Int) {
-    if (task.requirements.isEmpty() || (task.requirements.size == 1 && task.requirements[0].title() == task.name)) {
-        return
-    }
-    neutralButton("Show details") {
-        classes += "task-requirements-toggle"
-        onClick = "document.getElementById('task-requirements-${task.id}')?.classList.toggle('visible'); this.textContent = this.textContent === 'Show details' ? 'Hide details' : 'Show details';"
-    }
-    div("task-requirements") {
-        id = "task-requirements-${task.id}"
-        p {
-            + "Requirements:"
-        }
-        ul {
-            task.requirements.sortedBy { it.isCompleted() }.forEach { requirement ->
-                li {
-                    requirement(requirement, worldId, projectId, task.id)
-                }
-            }
-        }
-    }
-}
-
-fun LI.requirement(requirement: TaskRequirement, worldId: Int, projectId: Int, taskId: Int) {
-    id = "requirement-${requirement.id}"
-    if (requirement.isCompleted()) {
-        classes += "completed"
-    }
-    when(requirement) {
-        is ActionRequirement -> actionRequirement(requirement, worldId, projectId, taskId)
-        is ItemRequirement -> itemRequirement(requirement, worldId, projectId, taskId)
-    }
-}
-
-private fun LI.actionRequirement(requirement: ActionRequirement, worldId: Int, projectId: Int, taskId: Int) {
-    classes += "action-requirement"
-
-    span("action-requirement-info") {
-        input {
-            id = "requirement-checkbox-${requirement.id}"
-            if (requirement.isCompleted()) {
-                checked = true
-            }
-            type = InputType.checkBox
-            hxPatch("/app/worlds/$worldId/projects/$projectId/tasks/$taskId/requirements/${requirement.id}/toggle")
-            hxTarget("#requirement-${requirement.id}")
-            hxSwap("outerHTML")
-        }
-        label {
-            htmlFor = "requirement-checkbox-${requirement.id}"
-            + requirement.action
-        }
-    }
-}
-
-private fun LI.itemRequirement(requirement: ItemRequirement, worldId: Int, projectId: Int, taskId: Int) {
-    classes += "item-requirement"
-
-    div("item-requirement-header") {
-        div("item-requirement-info") {
-            p("item-name") {
-                + requirement.item
-            }
-            span("item-counts") {
-                + "${requirement.collected} / ${requirement.requiredAmount}"
-            }
-        }
-        div("item-requirement-controls") {
-            iconButton(Icons.MENU, "Edit requirement", iconSize = IconSize.SMALL) {
-                buttonBlock = {
-                    classes += "edit-requirement-btn"
-                    onClick = "openEditRequirementModal(${requirement.id}, '${requirement.item}', ${requirement.requiredAmount}, $worldId, $projectId, $taskId)"
-                    title = "Edit requirement"
-                }
-            }
-        }
-    }
-
-    progressComponent {
-        value = requirement.collected.toDouble()
-        max = requirement.requiredAmount.toDouble()
-    }
-
-    if (!requirement.isCompleted()) {
-        itemRequirementActions(requirement, worldId, projectId, taskId)
-    }
-}
-
-private fun LI.itemRequirementActions(requirement: ItemRequirement, worldId: Int, projectId: Int, taskId: Int) {
+private fun LI.itemRequirementActions(worldId: Int, projectId: Int, taskId: Int) {
     div("item-requirement-actions") {
         neutralButton("+1") {
             buttonBlock = {
                 attributes["hx-vals"] = """{"amount": 1}"""
-                hxPatch("/app/worlds/$worldId/projects/$projectId/tasks/$taskId/requirements/${requirement.id}/done-more")
-                hxTarget("#requirement-${requirement.id}")
+                hxPatch("/app/worlds/$worldId/projects/$projectId/tasks/$taskId/requirements/done-more")
+                hxTarget("#task-item-${taskId}-progress")
                 hxSwap("outerHTML")
             }
         }
         neutralButton("+64") {
             buttonBlock = {
                 attributes["hx-vals"] = """{"amount": 64}"""
-                hxPatch("/app/worlds/$worldId/projects/$projectId/tasks/$taskId/requirements/${requirement.id}/done-more")
-                hxTarget("#requirement-${requirement.id}")
+                hxPatch("/app/worlds/$worldId/projects/$projectId/tasks/$taskId/requirements/done-more")
+                hxTarget("#task-item-${taskId}-progress")
                 hxSwap("outerHTML")
             }
         }
         neutralButton("+1728") {
             buttonBlock = {
                 attributes["hx-vals"] = """{"amount": 1728}"""
-                hxPatch("/app/worlds/$worldId/projects/$projectId/tasks/$taskId/requirements/${requirement.id}/done-more")
-                hxTarget("#requirement-${requirement.id}")
+                hxPatch("/app/worlds/$worldId/projects/$projectId/tasks/$taskId/requirements/done-more")
+                hxTarget("#task-item-${taskId}-progress")
                 hxSwap("outerHTML")
             }
         }
         neutralButton("+3456") {
             buttonBlock = {
                 attributes["hx-vals"] = """{"amount": 3456}"""
-                hxPatch("/app/worlds/$worldId/projects/$projectId/tasks/$taskId/requirements/${requirement.id}/done-more")
-                hxTarget("#requirement-${requirement.id}")
+                hxPatch("/app/worlds/$worldId/projects/$projectId/tasks/$taskId/requirements/done-more")
+                hxTarget("#task-item-${taskId}-progress")
                 hxSwap("outerHTML")
-            }
-        }
-        neutralButton("+ Custom") {
-            buttonBlock = {
-                onClick = "openCustomAmountModal(${requirement.id}, $worldId, $projectId, $taskId)"
             }
         }
     }

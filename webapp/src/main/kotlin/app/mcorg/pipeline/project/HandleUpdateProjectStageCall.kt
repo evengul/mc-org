@@ -9,6 +9,7 @@ import app.mcorg.pipeline.project.resources.GetItemsInWorldVersionStep
 import app.mcorg.presentation.handler.executePipeline
 import app.mcorg.presentation.templated.common.chip.ChipVariant
 import app.mcorg.presentation.templated.common.chip.chipComponent
+import app.mcorg.presentation.templated.project.CreateTaskModalTab
 import app.mcorg.presentation.templated.project.createTaskModal
 import app.mcorg.presentation.templated.utils.toPrettyEnumName
 import app.mcorg.presentation.utils.getProjectId
@@ -86,7 +87,7 @@ suspend fun ApplicationCall.handleUpdateProjectStage() {
                                         }
                                     }
                                 }
-                                createTaskModal(updatedProject, itemNames)
+                                createTaskModal(updatedProject, itemNames, CreateTaskModalTab.ITEM_REQUIREMENT)
                             }
                         }
                     })

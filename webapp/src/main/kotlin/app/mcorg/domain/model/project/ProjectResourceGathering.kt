@@ -1,6 +1,7 @@
 package app.mcorg.domain.model.project
 
 import app.mcorg.domain.model.task.ItemRequirement
+import app.mcorg.domain.model.task.Task
 
 data class ProjectResourceGathering(
     val totalNeeded: Int,
@@ -15,14 +16,14 @@ data class ProjectResourceGathering(
     )
 }
 
-fun List<ItemRequirement>.toProjectResourceGathering(): ProjectResourceGathering {
-    val totalNeeded = sumOf { it.requiredAmount }
-    val totalCollected = sumOf { it.collected }
+fun List<Task>.toProjectResourceGathering(): ProjectResourceGathering {
+    val totalNeeded = sumOf { (it.requirement as ItemRequirement).requiredAmount }
+    val totalCollected = sumOf { (it.requirement as ItemRequirement).collected }
     val toCollect = map { item ->
         ProjectResourceGathering.Resource(
-            name = item.item,
-            needed = item.requiredAmount,
-            collected = item.collected
+            name = item.name,
+            needed = (item.requirement as ItemRequirement).requiredAmount,
+            collected = item.requirement.collected,
         )
     }
 

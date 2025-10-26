@@ -4,8 +4,6 @@ import app.mcorg.domain.model.project.toProjectResourceGathering
 import app.mcorg.domain.model.task.ItemRequirement
 import app.mcorg.domain.model.user.Role
 import app.mcorg.pipeline.project.GetProjectByIdStep
-import app.mcorg.pipeline.project.GetTasksByProjectIdInput
-import app.mcorg.pipeline.project.GetTasksByProjectIdStep
 import app.mcorg.pipeline.project.GetProjectDependenciesInput
 import app.mcorg.pipeline.project.GetProjectDependenciesStep
 import app.mcorg.pipeline.project.GetResourceProductionInput
@@ -21,10 +19,15 @@ import app.mcorg.presentation.utils.respondHtml
 import app.mcorg.presentation.utils.respondNotFound
 import app.mcorg.presentation.utils.respondBadRequest
 import app.mcorg.domain.pipeline.Result
-import app.mcorg.pipeline.project.CountTotalTasksStep
 import app.mcorg.pipeline.project.ProjectDependencyData
 import app.mcorg.pipeline.project.dependencies.GetAvailableProjectDependenciesStep
 import app.mcorg.pipeline.project.resources.GetItemsInWorldVersionStep
+import app.mcorg.pipeline.task.CountProjectTasksStep
+import app.mcorg.pipeline.task.SearchTasksInput
+import app.mcorg.pipeline.task.SearchTasksStep
+import app.mcorg.presentation.templated.project.CreateTaskModalTab
+import app.mcorg.presentation.templated.project.actionRequirementForm
+import app.mcorg.presentation.templated.project.itemRequirementForm
 import app.mcorg.presentation.templated.project.projectTabsContent
 import app.mcorg.presentation.utils.BreadcrumbBuilder
 import app.mcorg.presentation.utils.getWorldId
@@ -41,6 +44,24 @@ suspend fun ApplicationCall.handleGetProject() {
             "tasks", "resources", "location", "stages", "dependencies", "settings" -> it
             else -> null // Invalid tab, return null
         }
+    }
+
+    val createTaskTab = request.queryParameters["requirementTab"]?.let { when(it) {
+        "item" -> CreateTaskModalTab.ITEM_REQUIREMENT
+        "action" -> CreateTaskModalTab.ACTION_REQUIREMENT
+        else -> null
+    } }
+
+    val itemNames = GetItemsInWorldVersionStep.process(worldId).getOrNull() ?: emptyList()
+
+    if (createTaskTab != null && request.headers["HX-Request"] == "true") {
+        respondHtml(createHTML().div {
+            when(createTaskTab) {
+                CreateTaskModalTab.ITEM_REQUIREMENT -> itemRequirementForm(itemNames)
+                CreateTaskModalTab.ACTION_REQUIREMENT -> actionRequirementForm()
+            }
+        })
+        return
     }
 
     // Get project with access validation
@@ -65,14 +86,17 @@ suspend fun ApplicationCall.handleGetProject() {
     }
 
     val unreadNotifications = getUnreadNotificationCount(user)
-    val itemNames = GetItemsInWorldVersionStep.process(worldId).getOrNull() ?: emptyList()
 
     val tabData = when (tab) {
         "resources" -> {
             // Get resource production data
-            val gatheringTasks = GetTasksByProjectIdStep.process(
-                GetTasksByProjectIdInput(projectId, includeCompleted = true),
-            ).getOrNull() ?: emptyList()
+            val gatheringTasks = SearchTasksStep.process(
+                SearchTasksInput(
+                    projectId,
+                    userId = user.id,
+                    completionStatus = "ALL"
+                )
+            ).getOrNull()?.tasks ?: emptyList()
             val resourceProductionResult = GetResourceProductionStep.process(GetResourceProductionInput(projectId))
             val resourceProduction = when (resourceProductionResult) {
                 is Result.Success -> resourceProductionResult.getOrNull()!!
@@ -82,8 +106,7 @@ suspend fun ApplicationCall.handleGetProject() {
             ProjectTab.Resources(
                 project,
                 gatheringTasks
-                    .flatMap { it.requirements }
-                    .filterIsInstance<ItemRequirement>()
+                    .filter { it.requirement is ItemRequirement }
                     .toProjectResourceGathering(),
                 resourceProduction,
                 itemNames
@@ -132,14 +155,16 @@ suspend fun ApplicationCall.handleGetProject() {
         }
 
         else -> {
-            val tasks = when (val tasksResult = GetTasksByProjectIdStep.process(GetTasksByProjectIdInput(projectId, includeCompleted = false))) {
-                is Result.Success -> tasksResult.getOrNull()!!
+            val tasks = when (val tasksResult = SearchTasksStep.process(
+                SearchTasksInput(projectId, userId = user.id)
+            )) {
+                is Result.Success -> tasksResult.value.tasks
                 is Result.Failure -> {
                     respondBadRequest("Failed to load tasks")
                     return
                 }
             }
-            val totalCount = CountTotalTasksStep.process(projectId).getOrNull() ?: tasks.size
+            val totalCount = CountProjectTasksStep.process(projectId).getOrNull() ?: tasks.size
             ProjectTab.Tasks(project, totalCount, tasks)
         }
     }
