@@ -5,12 +5,9 @@ import app.mcorg.domain.model.user.TokenProfile
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.failure.UpdateProjectStageFailures
-import app.mcorg.pipeline.project.resources.GetItemsInWorldVersionStep
 import app.mcorg.presentation.handler.executePipeline
-import app.mcorg.presentation.templated.common.chip.ChipVariant
-import app.mcorg.presentation.templated.common.chip.chipComponent
-import app.mcorg.presentation.templated.project.CreateTaskModalTab
-import app.mcorg.presentation.templated.project.createTaskModal
+import app.mcorg.presentation.hxOutOfBands
+import app.mcorg.presentation.templated.project.projectStageSelector
 import app.mcorg.presentation.templated.utils.toPrettyEnumName
 import app.mcorg.presentation.utils.getProjectId
 import app.mcorg.presentation.utils.getUser
@@ -19,11 +16,8 @@ import app.mcorg.presentation.utils.respondBadRequest
 import app.mcorg.presentation.utils.respondHtml
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.request.receiveParameters
-import kotlinx.html.div
-import kotlinx.html.id
-import kotlinx.html.option
-import kotlinx.html.p
 import kotlinx.html.select
+import kotlinx.html.span
 import kotlinx.html.stream.createHTML
 
 suspend fun ApplicationCall.handleUpdateProjectStage() {
@@ -32,75 +26,14 @@ suspend fun ApplicationCall.handleUpdateProjectStage() {
     val worldId = this.getWorldId()
     val projectId = this.getProjectId()
 
-    val itemNames = GetItemsInWorldVersionStep.process(worldId).getOrNull() ?: emptyList()
-
     executePipeline(
         onSuccess = { result: UpdateProjectStageOutput ->
-            // Get updated project data to return updated header
-            when (val getProjectResult = GetProjectByIdStep.process(projectId)) {
-                is Result.Success -> {
-                    val updatedProject = getProjectResult.value
-                    // Return HTML fragment for HTMX to replace the entire project header content
-                    respondHtml(createHTML().div {
-                        div("project-header-content") {
-                            id = "project-header-content" // Target for HTMX replacement
-
-                            div("project-header-start") {
-                                chipComponent {
-                                    variant = ChipVariant.ACTION
-                                    +updatedProject.stage.toPrettyEnumName()
-                                }
-                                p("subtle") {
-                                    +"•"
-                                }
-                                p("subtle") {
-                                    +"${updatedProject.type.toPrettyEnumName()} Project"
-                                }
-                                updatedProject.location?.let { location ->
-                                    p("subtle") {
-                                        +"•"
-                                    }
-                                    chipComponent {
-                                        variant = ChipVariant.NEUTRAL
-                                        text = "${location.x}, ${location.y}, ${location.z}"
-                                    }
-                                }
-                            }
-                            div("project-header-end") {
-                                select {
-                                    id = "project-stage-selector"
-                                    name = "stage"
-
-                                    // HTMX attributes for dynamic stage updates
-                                    attributes["hx-patch"] = "/app/worlds/${updatedProject.worldId}/projects/${updatedProject.id}/stage"
-                                    attributes["hx-target"] = "#project-header-content"
-                                    attributes["hx-swap"] = "outerHTML"
-                                    attributes["hx-trigger"] = "change"
-
-                                    ProjectStage.entries.forEach { stage ->
-                                        option {
-                                            value = stage.name
-                                            if (stage == updatedProject.stage) {
-                                                selected = true
-                                            }
-                                            +stage.toPrettyEnumName()
-                                        }
-                                    }
-                                }
-                                createTaskModal(updatedProject, itemNames, CreateTaskModalTab.ITEM_REQUIREMENT)
-                            }
-                        }
-                    })
-                }
-                is Result.Failure -> {
-                    // Fallback response if we can't get updated project data
-                    respondHtml(createHTML().div {
-                        div("notice notice--success") {
-                            +"Project stage updated to ${result.newStage.toPrettyEnumName()}"
-                        }
-                    })
-                }
-            }
+            respondHtml(createHTML().select {
+                projectStageSelector(worldId, projectId, result.newStage)
+            } + createHTML().span {
+                hxOutOfBands("innerHTML:#project-stage-chip")
+                + result.newStage.toPrettyEnumName()
+            })
         },
         onFailure = { failure: UpdateProjectStageFailures ->
             val errorMessage = when (failure) {
