@@ -62,7 +62,7 @@ data class TopBar(
                             }
                         }
                     }
-                    if (activeLinks.contains(ActiveLinks.IDEAS)) {
+                    if (activeLinks.contains(ActiveLinks.IDEAS) && user != null) {
                         li {
                             classes += "top-bar-link"
                             linkComponent(Link.Ideas) {

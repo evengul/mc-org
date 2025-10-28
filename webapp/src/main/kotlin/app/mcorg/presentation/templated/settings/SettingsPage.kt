@@ -50,7 +50,6 @@ fun worldSettingsPage(user: TokenProfile, tab: SettingsTab) = createPage(
         hxTarget = ".world-settings-content",
         TabData.create("General"),
         TabData.create("Members"),
-        TabData.create("Statistics")
     ) {
         activeTab = tab.id
     }
