@@ -13,6 +13,7 @@ import kotlinx.html.ButtonType
 import kotlinx.html.InputType
 import kotlinx.html.Tag
 import kotlinx.html.TagConsumer
+import kotlinx.html.classes
 import kotlinx.html.div
 import kotlinx.html.id
 import kotlinx.html.input
@@ -35,7 +36,8 @@ data class SearchFieldHxValues(
 class SearchField(
     val id: String,
     var placeHolder: String = "Search...",
-    var hxValues: SearchFieldHxValues? = null
+    var hxValues: SearchFieldHxValues? = null,
+    var extraClasses: Set<String> = setOf()
 ) : LeafComponent() {
     override fun render(container: TagConsumer<*>) {
         container.div("search-wrapper") {
@@ -44,6 +46,7 @@ class SearchField(
                 this.type = InputType.search
                 this.placeholder = placeHolder
                 this.name = "query"
+                this.classes += setOf("form-control") + extraClasses
 
                 hxValues?.let {
                     hxGet(it.hxGet)

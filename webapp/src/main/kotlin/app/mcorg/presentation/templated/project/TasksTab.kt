@@ -24,6 +24,7 @@ import app.mcorg.presentation.templated.common.icon.IconSize
 import app.mcorg.presentation.templated.common.icon.Icons
 import app.mcorg.presentation.templated.common.link.Link
 import app.mcorg.presentation.templated.common.progress.progressComponent
+import app.mcorg.presentation.templated.common.searchField.searchField
 import app.mcorg.presentation.templated.utils.formatAsRelativeOrDate
 import app.mcorg.presentation.templated.utils.toPrettyEnumName
 import kotlinx.html.*
@@ -93,6 +94,7 @@ private fun DIV.taskSearchAndFilters(worldId: Int, projectId: Int, projectStage:
         hxIndicator(".search-wrapper")
         hxTrigger("""
             input from:#task-search-input delay:500ms,
+            change from:#task-search-input changed,
             change from:select[name="completionStatus"],
             change from:select[name="priority"],
             change from:select[name="stage"],
@@ -100,14 +102,8 @@ private fun DIV.taskSearchAndFilters(worldId: Int, projectId: Int, projectStage:
             reset delay:100ms,
             submit
         """.trimIndent())
-
-        div("search-wrapper") {
-            input {
-                id = "task-search-input"
-                name = "query"
-                type = InputType.search
-                placeholder = "Search tasks..."
-            }
+        searchField("task-search-input") {
+            placeHolder = "Search tasks by name or description..."
         }
         select {
             name = "completionStatus"

@@ -4,6 +4,8 @@ import app.mcorg.domain.model.idea.IdeaCategory
 import app.mcorg.domain.model.idea.IdeaDifficulty
 import app.mcorg.presentation.templated.common.button.neutralButton
 import app.mcorg.presentation.templated.common.link.Link
+import app.mcorg.presentation.templated.common.searchField.SearchFieldHxValues
+import app.mcorg.presentation.templated.common.searchField.searchField
 import app.mcorg.presentation.templated.utils.toPrettyEnumName
 import kotlinx.html.*
 
@@ -70,17 +72,15 @@ fun FORM.filterSearchInput() {
             htmlFor = "filter-search"
             +"Search Ideas"
         }
-        div("search-wrapper") {
-            input(type = InputType.search, classes = "form-control form-control--sm filter-field") {
-                id = "filter-search"
-                name = "query"
-                placeholder = "Search by name or description..."
-                attributes["hx-get"] = Link.Ideas.to + "/search"
-                attributes["hx-target"] = "#ideas-list"
-                attributes["hx-swap"] = "outerHTML"
-                attributes["hx-trigger"] = "keyup changed delay:500ms"
-                attributes["hx-include"] = "#idea-filter-form"
-            }
+        searchField("filter-search") {
+            placeHolder = "Search..."
+            extraClasses = setOf("form-control--sm", "filter-field")
+            hxValues = SearchFieldHxValues(
+                hxGet = Link.Ideas.to + "/search",
+                hxTarget = "#ideas-list",
+                hxInclude = "#idea-filter-form",
+                hxTrigger = "keyup changed delay:500ms",
+            )
         }
     }
 }
