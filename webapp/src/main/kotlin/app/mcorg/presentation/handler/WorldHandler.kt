@@ -2,6 +2,7 @@ package app.mcorg.presentation.handler
 
 import app.mcorg.pipeline.project.dependencies.handleCreateProjectDependency
 import app.mcorg.pipeline.project.dependencies.handleDeleteProjectDependency
+import app.mcorg.pipeline.project.getStageSelectFragment
 import app.mcorg.pipeline.world.handleCreateWorld
 import app.mcorg.pipeline.world.handleGetProject
 import app.mcorg.pipeline.world.handleGetWorld
@@ -74,6 +75,9 @@ class WorldHandler {
                         install(ProjectParamPlugin)
                         get {
                             call.handleGetProject()
+                        }
+                        get("/stage-select-fragment") {
+                            call.getStageSelectFragment()
                         }
                         patch("/stage") {
                             call.handleUpdateProjectStage()

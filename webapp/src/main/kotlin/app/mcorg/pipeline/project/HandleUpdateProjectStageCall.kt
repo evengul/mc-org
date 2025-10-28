@@ -6,8 +6,9 @@ import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.failure.UpdateProjectStageFailures
 import app.mcorg.presentation.handler.executePipeline
-import app.mcorg.presentation.hxOutOfBands
-import app.mcorg.presentation.templated.project.projectStageSelector
+import app.mcorg.presentation.templated.common.chip.ChipVariant
+import app.mcorg.presentation.templated.common.chip.chipComponent
+import app.mcorg.presentation.templated.common.link.Link
 import app.mcorg.presentation.templated.utils.toPrettyEnumName
 import app.mcorg.presentation.utils.getProjectId
 import app.mcorg.presentation.utils.getUser
@@ -16,8 +17,7 @@ import app.mcorg.presentation.utils.respondBadRequest
 import app.mcorg.presentation.utils.respondHtml
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.request.receiveParameters
-import kotlinx.html.select
-import kotlinx.html.span
+import kotlinx.html.div
 import kotlinx.html.stream.createHTML
 
 suspend fun ApplicationCall.handleUpdateProjectStage() {
@@ -28,11 +28,13 @@ suspend fun ApplicationCall.handleUpdateProjectStage() {
 
     executePipeline(
         onSuccess = { result: UpdateProjectStageOutput ->
-            respondHtml(createHTML().select {
-                projectStageSelector(worldId, projectId, result.newStage)
-            } + createHTML().span {
-                hxOutOfBands("innerHTML:#project-stage-chip")
-                + result.newStage.toPrettyEnumName()
+            respondHtml(createHTML().div {
+                chipComponent {
+                    id = "project-stage-chip"
+                    variant = ChipVariant.ACTION
+                    hxEditableFromHref = Link.Worlds.world(worldId).project(projectId).to + "/stage-select-fragment"
+                    + result.newStage.toPrettyEnumName()
+                }
             })
         },
         onFailure = { failure: UpdateProjectStageFailures ->

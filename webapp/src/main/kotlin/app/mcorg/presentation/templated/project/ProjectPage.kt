@@ -6,15 +6,10 @@ import app.mcorg.domain.model.project.Project
 import app.mcorg.domain.model.project.ProjectDependency
 import app.mcorg.domain.model.project.ProjectProduction
 import app.mcorg.domain.model.project.ProjectResourceGathering
-import app.mcorg.domain.model.project.ProjectStage
 import app.mcorg.domain.model.project.ProjectStageChange
 import app.mcorg.domain.model.task.Task
 import app.mcorg.domain.model.user.Role
 import app.mcorg.domain.model.user.TokenProfile
-import app.mcorg.presentation.hxPatch
-import app.mcorg.presentation.hxSwap
-import app.mcorg.presentation.hxTarget
-import app.mcorg.presentation.hxTrigger
 import app.mcorg.presentation.templated.common.breadcrumb.Breadcrumbs
 import app.mcorg.presentation.templated.common.chip.ChipVariant
 import app.mcorg.presentation.templated.common.chip.chipComponent
@@ -24,14 +19,11 @@ import app.mcorg.presentation.templated.common.tabs.TabData
 import app.mcorg.presentation.templated.common.tabs.tabsComponent
 import app.mcorg.presentation.templated.utils.toPrettyEnumName
 import kotlinx.html.DIV
-import kotlinx.html.SELECT
 import kotlinx.html.classes
 import kotlinx.html.div
 import kotlinx.html.h1
 import kotlinx.html.id
-import kotlinx.html.option
 import kotlinx.html.p
-import kotlinx.html.select
 
 sealed interface ProjectTab {
     val id: String
@@ -91,6 +83,7 @@ fun projectPage(
                 chipComponent {
                     id = "project-stage-chip"
                     variant = ChipVariant.ACTION
+                    hxEditableFromHref = Link.Worlds.world(project.worldId).project(project.id).to + "/stage-select-fragment"
                     +project.stage.toPrettyEnumName()
                 }
                 p("subtle") {
@@ -112,9 +105,6 @@ fun projectPage(
                 }
             }
             div("project-header-end") {
-                select {
-                    projectStageSelector(project.worldId, project.id, project.stage)
-                }
                 createTaskModal(project, itemNames, CreateTaskModalTab.ITEM_REQUIREMENT)
             }
         }
@@ -137,27 +127,6 @@ fun projectPage(
         }
         div {
             projectTabsContent(data)
-        }
-    }
-}
-
-fun SELECT.projectStageSelector(worldId: Int, projectId: Int, selectedStage: ProjectStage) {
-    id = "project-stage-selector"
-    name = "stage"
-
-    // HTMX attributes for dynamic stage updates
-    hxPatch(Link.Worlds.world(worldId).project(projectId).to + "/stage")
-    hxTarget("#project-stage-selector")
-    hxSwap("outerHTML")
-    hxTrigger("change changed")
-
-    ProjectStage.entries.forEach {
-        option {
-            value = it.name
-            if (it == selectedStage) {
-                selected = true
-            }
-            +it.toPrettyEnumName()
         }
     }
 }
