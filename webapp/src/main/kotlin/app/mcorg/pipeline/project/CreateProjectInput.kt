@@ -1,6 +1,5 @@
 package app.mcorg.pipeline.project
 
-import app.mcorg.domain.model.minecraft.MinecraftVersion
 import app.mcorg.domain.model.project.ProjectType
 
 data class CreateProjectInput(
