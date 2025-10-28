@@ -7,5 +7,4 @@ data class CreateProjectInput(
     val name: String,
     val description: String,
     val type: ProjectType,
-    val version: MinecraftVersion
 )

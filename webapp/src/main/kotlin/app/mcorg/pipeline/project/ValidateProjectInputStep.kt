@@ -24,15 +24,6 @@ object ValidateProjectInputStep : Step<Parameters, CreateProjectFailures, Create
                     ProjectType.valueOf(it.uppercase())
                 }.isSuccess
             }).process(input["type"]).map { ProjectType.valueOf(it!!.uppercase()) }
-        val version = ValidationSteps.validateCustom<CreateProjectFailures.ValidationError, String?>(
-            "version",
-            "Invalid Minecraft version",
-            errorMapper = { CreateProjectFailures.ValidationError(listOf(it)) },
-            predicate = {
-                !it.isNullOrBlank() && runCatching {
-                    MinecraftVersion.fromString(it)
-                }.isSuccess
-            }).process(input["version"]).map { MinecraftVersion.fromString(it!!) }
 
         val errors = mutableListOf<ValidationFailure>()
         if (name is Result.Failure) {
@@ -41,9 +32,6 @@ object ValidateProjectInputStep : Step<Parameters, CreateProjectFailures, Create
         if (type is Result.Failure) {
             errors.addAll(type.error.errors)
         }
-        if (version is Result.Failure) {
-            errors.addAll(version.error.errors)
-        }
         if (errors.isNotEmpty()) {
             return Result.failure(CreateProjectFailures.ValidationError(errors.toList()))
         }
@@ -51,8 +39,7 @@ object ValidateProjectInputStep : Step<Parameters, CreateProjectFailures, Create
             CreateProjectInput(
                 name = name.getOrNull()!!,
                 description = description.getOrNull() ?: "",
-                type = type.getOrNull()!!,
-                version = version.getOrNull()!!
+                type = type.getOrNull()!!
             )
         )
     }
