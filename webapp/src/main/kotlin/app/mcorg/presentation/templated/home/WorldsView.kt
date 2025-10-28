@@ -13,16 +13,14 @@ import app.mcorg.presentation.templated.common.component.addComponent
 import app.mcorg.presentation.templated.common.emptystate.emptyState
 import app.mcorg.presentation.templated.common.icon.Icons
 import app.mcorg.presentation.templated.common.link.Link
+import app.mcorg.presentation.templated.common.searchField.SearchFieldHxValues
+import app.mcorg.presentation.templated.common.searchField.searchField
 import kotlinx.html.DIV
-import kotlinx.html.InputType
 import kotlinx.html.TagConsumer
 import kotlinx.html.UL
 import kotlinx.html.div
 import kotlinx.html.id
-import kotlinx.html.input
-import kotlinx.html.option
 import kotlinx.html.p
-import kotlinx.html.select
 import kotlinx.html.ul
 
 fun DIV.worldsView(worlds: List<World>, supportedVersions: List<MinecraftVersion.Release>) {
@@ -38,39 +36,13 @@ fun DIV.worldsView(worlds: List<World>, supportedVersions: List<MinecraftVersion
         }
     } else {
         div("home-worlds-search-create") {
-            div("search-wrapper") {
-                input {
-                    id = "home-worlds-search-input"
-                    type = InputType.search
-                    placeholder = "Search worlds..."
-                    name = "query"
-
-                    hxGet(Link.Worlds.to + "/search")
-                    hxInclude("#home-worlds-sort-select")
-                    hxTarget("#home-worlds-list")
-                    hxSwap("outerHTML")
-                    hxTrigger("input changed delay:500ms, change changed, search")
-                    hxIndicator(".search-wrapper")
-                }
-            }
-            select {
-                id = "home-worlds-sort-select"
-                name = "sortBy"
-                hxGet(Link.Worlds.to + "/search")
-                hxInclude("#home-worlds-search-input")
-                hxTarget("#home-worlds-list")
-                hxSwap("outerHTML")
-                hxTrigger("change")
-                hxIndicator(".search-wrapper")
-                option {
-                    selected = true
-                    value = "modified_desc"
-                    + "Sort by Last Modified"
-                }
-                option {
-                    value = "name_asc"
-                    + "Sort by Name (A-Z)"
-                }
+            searchField("home-worlds-search-input") {
+                placeHolder = "Search worlds by name or description..."
+                hxValues = SearchFieldHxValues(
+                    hxGet = Link.Worlds.to + "/search",
+                    hxTarget = "#home-worlds-list",
+                    hxInclude = "#home-worlds-sort-select",
+                )
             }
             createWorldModal(supportedVersions)
         }

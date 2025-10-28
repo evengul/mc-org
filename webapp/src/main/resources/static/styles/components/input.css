@@ -89,7 +89,7 @@ input.input--success:focus {
 .search-wrapper::after {
     content: '';
     position: absolute;
-    right: var(--spacing-sm);
+    right: var(--spacing-lg);
     top: 50%;
     transform: translateY(-50%);
     width: 16px;
@@ -113,5 +113,21 @@ input.input--success:focus {
     }
     100% {
         transform: translateY(-50%) rotate(360deg);
+    }
+}
+
+.search-wrapper:has(input[type=search]) {
+    .input-clear-button {
+        position: absolute;
+        right: var(--spacing-sm);
+        top: 50%;
+        transform: translateY(-50%);
+
+        border: none;
+        opacity: 0.7;
+
+        &:hover {
+            opacity: 1;
+        }
     }
 }
