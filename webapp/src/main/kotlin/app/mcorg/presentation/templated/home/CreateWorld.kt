@@ -13,6 +13,7 @@ import kotlinx.html.input
 import kotlinx.html.label
 import kotlinx.html.option
 import kotlinx.html.select
+import kotlinx.html.span
 import kotlinx.html.textArea
 
 fun <T : Tag> T.createWorldModal(versions: List<MinecraftVersion.Release>) = formModal(
@@ -37,6 +38,7 @@ fun <T : Tag> T.createWorldModal(versions: List<MinecraftVersion.Release>) = for
         label {
             htmlFor = "create-world-name"
             + "World Name"
+            span("required-indicator") { +"*" }
         }
         input {
             id = "create-world-name"
@@ -62,6 +64,7 @@ fun <T : Tag> T.createWorldModal(versions: List<MinecraftVersion.Release>) = for
         label {
             htmlFor = "create-world-version"
             + "Minecraft Version"
+            span("required-indicator") { +"*" }
         }
         select {
             id = "create-world-version"

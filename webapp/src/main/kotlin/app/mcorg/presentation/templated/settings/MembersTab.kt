@@ -69,6 +69,7 @@ fun DIV.sendInvitationForm(worldId: Int) {
                 div("input-group") {
                     label {
                         + "Minecraft Username"
+                        span("required-indicator") { +"*" }
                     }
                     input(type = InputType.text, name = "toUsername") {
                         placeholder = "Alex"
@@ -78,6 +79,7 @@ fun DIV.sendInvitationForm(worldId: Int) {
                 div("input-group") {
                     label {
                         + "Role"
+                        span("required-indicator") { +"*" }
                     }
                     select {
                         name = "role"

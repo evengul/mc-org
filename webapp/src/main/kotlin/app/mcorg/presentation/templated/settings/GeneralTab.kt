@@ -25,6 +25,7 @@ import kotlinx.html.label
 import kotlinx.html.option
 import kotlinx.html.p
 import kotlinx.html.select
+import kotlinx.html.span
 import kotlinx.html.textArea
 
 fun FORM.worldNameForm(world: World) {
@@ -39,6 +40,7 @@ fun FORM.worldNameForm(world: World) {
     label {
         htmlFor = "world-name-input"
         + "World Name"
+        span("required-indicator") { +"*" }
     }
     input {
         name = "name"
@@ -82,6 +84,7 @@ fun FORM.worldVersionForm(world: World, supportedVersions: List<MinecraftVersion
     label {
         htmlFor = "world-version-select"
         + "Game Version"
+        span("required-indicator") { +"*" }
     }
     select {
         name = "version"

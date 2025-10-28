@@ -30,6 +30,7 @@ import kotlinx.html.option
 import kotlinx.html.p
 import kotlinx.html.section
 import kotlinx.html.select
+import kotlinx.html.span
 
 fun DIV.projectSettingsTab(project: Project, worldMemberRole: Role) {
     classes += "project-settings-tab"
@@ -83,6 +84,7 @@ fun FORM.projectNameForm(project: Project) {
     label {
         htmlFor = "project-name-input"
         + "Project Name"
+        span("required-indicator") { +"*" }
     }
     input {
         id = "project-name-input"
@@ -130,6 +132,7 @@ fun FORM.projectTypeForm(project: Project) {
     label {
         htmlFor = "project-type-select"
         + "Project Type"
+        span("required-indicator") { +"*" }
     }
     select {
         id = "project-type-select"

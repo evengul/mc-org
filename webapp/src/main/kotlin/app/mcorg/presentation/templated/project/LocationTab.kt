@@ -99,6 +99,7 @@ fun DIV.editLocation(worldId: Int, projectId: Int, location: MinecraftLocation) 
                 label {
                     htmlFor = "project-location-coordinate-x"
                     + "X Coordinate"
+                    span("required-indicator") { +"*" }
                 }
                 input(classes = "coordinate-value") {
                     id = "project-location-coordinate-x"
@@ -110,6 +111,7 @@ fun DIV.editLocation(worldId: Int, projectId: Int, location: MinecraftLocation) 
                 label {
                     htmlFor = "project-location-coordinate-y"
                     + "Y Coordinate"
+                    span("required-indicator") { +"*" }
                 }
                 input(classes = "coordinate-value") {
                     id = "project-location-coordinate-y"
@@ -121,6 +123,7 @@ fun DIV.editLocation(worldId: Int, projectId: Int, location: MinecraftLocation) 
                 label {
                     htmlFor = "project-location-coordinate-z"
                     + "Z Coordinate"
+                    span("required-indicator") { +"*" }
                 }
                 input(classes = "coordinate-value") {
                     id = "project-location-coordinate-z"
@@ -133,6 +136,7 @@ fun DIV.editLocation(worldId: Int, projectId: Int, location: MinecraftLocation) 
             label {
                 htmlFor = "project-location-dimension-select"
                 + "Dimension"
+                span("required-indicator") { +"*" }
             }
             select {
                 id = "project-location-dimension-select"

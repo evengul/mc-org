@@ -67,7 +67,7 @@ suspend fun ApplicationCall.handleGetAuthorFields() {
                 label {
                     htmlFor = "author-name"
                     +"Author Name"
-                    span("required-indicator") { +" *" }
+                    span("required-indicator") { +"*" }
                 }
                 input {
                     id = "author-name"
@@ -144,7 +144,7 @@ suspend fun ApplicationCall.handleGetVersionFields() {
                 label {
                     htmlFor = "version-from"
                     +"From Version"
-                    span("required-indicator") { +" *" }
+                    span("required-indicator") { +"*" }
                 }
                 select {
                     id = "version-from"
@@ -162,7 +162,7 @@ suspend fun ApplicationCall.handleGetVersionFields() {
                 label {
                     htmlFor = "version-to"
                     +"To Version"
-                    span("required-indicator") { +" *" }
+                    span("required-indicator") { +"*" }
                 }
                 select {
                     id = "version-to"
@@ -182,7 +182,7 @@ suspend fun ApplicationCall.handleGetVersionFields() {
                 label {
                     htmlFor = "version-from"
                     +"From Version"
-                    span("required-indicator") { +" *" }
+                    span("required-indicator") { +"*" }
                 }
                 select {
                     id = "version-from"
@@ -205,7 +205,7 @@ suspend fun ApplicationCall.handleGetVersionFields() {
                 label {
                     htmlFor = "version-to"
                     +"Up To Version"
-                    span("required-indicator") { +" *" }
+                    span("required-indicator") { +"*" }
                 }
                 select {
                     id = "version-to"

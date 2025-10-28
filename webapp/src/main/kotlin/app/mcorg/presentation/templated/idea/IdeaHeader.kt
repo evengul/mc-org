@@ -64,7 +64,7 @@ fun DIV.createIdeaModal(supportedVersions: List<MinecraftVersion.Release>) = for
             label {
                 htmlFor = "idea-name"
                 + "Name"
-                span("required-indicator") { +" *" }
+                span("required-indicator") { +"*" }
             }
             input {
                 id = "idea-name"
@@ -81,7 +81,7 @@ fun DIV.createIdeaModal(supportedVersions: List<MinecraftVersion.Release>) = for
             label {
                 htmlFor = "idea-description"
                 +"Description"
-                span("required-indicator") { +" *" }
+                span("required-indicator") { +"*" }
             }
             textArea {
                 id = "idea-description"
@@ -98,7 +98,7 @@ fun DIV.createIdeaModal(supportedVersions: List<MinecraftVersion.Release>) = for
             label {
                 htmlFor = "idea-category"
                 +"Category"
-                span("required-indicator") { +" *" }
+                span("required-indicator") { +"*" }
             }
             div("category-select") {
                 IdeaCategory.entries.forEach { category ->
@@ -121,7 +121,7 @@ fun DIV.createIdeaModal(supportedVersions: List<MinecraftVersion.Release>) = for
             label {
                 htmlFor = "idea-difficulty"
                 +"Difficulty"
-                span("required-indicator") { +" *" }
+                span("required-indicator") { +"*" }
             }
             select {
                 id = "idea-difficulty"
@@ -161,7 +161,7 @@ fun DIV.createIdeaModal(supportedVersions: List<MinecraftVersion.Release>) = for
             // Author Type
             label {
                 +"Author Type"
-                span("required-indicator") { +" *" }
+                span("required-indicator") { +"*" }
             }
             div("author-type-select") {
                 radioGroup(
@@ -189,7 +189,7 @@ fun DIV.createIdeaModal(supportedVersions: List<MinecraftVersion.Release>) = for
                 label {
                     htmlFor = "author-name"
                     +"Author Name"
-                    span("required-indicator") { +" *" }
+                    span("required-indicator") { +"*" }
                 }
                 input {
                     id = "author-name"
@@ -225,7 +225,7 @@ fun DIV.createIdeaModal(supportedVersions: List<MinecraftVersion.Release>) = for
             // Version Range Type
             label {
                 +"Works in Minecraft Version"
-                span("required-indicator") { +" *" }
+                span("required-indicator") { +"*" }
             }
             div("version-range-type") {
                 radioGroup(
@@ -255,7 +255,7 @@ fun DIV.createIdeaModal(supportedVersions: List<MinecraftVersion.Release>) = for
                 label {
                     htmlFor = "version-from"
                     +"From Version"
-                    span("required-indicator") { +" *" }
+                    span("required-indicator") { +"*" }
                 }
                 select {
                     id = "version-from"
