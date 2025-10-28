@@ -6,15 +6,15 @@ import app.mcorg.domain.model.user.Role
 import app.mcorg.domain.model.user.TokenProfile
 import app.mcorg.presentation.hxGet
 import app.mcorg.presentation.hxInclude
-import app.mcorg.presentation.hxIndicator
 import app.mcorg.presentation.hxSwap
 import app.mcorg.presentation.hxTarget
-import app.mcorg.presentation.hxTrigger
 import app.mcorg.presentation.templated.common.button.dangerButton
 import app.mcorg.presentation.templated.common.button.ghostButton
 import app.mcorg.presentation.templated.common.button.neutralButton
 import app.mcorg.presentation.templated.common.link.Link
 import app.mcorg.presentation.templated.common.page.createPage
+import app.mcorg.presentation.templated.common.searchField.SearchFieldHxValues
+import app.mcorg.presentation.templated.common.searchField.searchField
 import app.mcorg.presentation.templated.utils.formatAsDate
 import app.mcorg.presentation.templated.utils.formatAsDateTime
 import app.mcorg.presentation.templated.utils.toPrettyEnumName
@@ -55,18 +55,12 @@ private fun MAIN.adminPageHeader() {
 private fun MAIN.userManagementSection(users: List<ManagedUser>, totalUserCount: Int, currentUserPage: Int) {
     section("user-management") {
         userManagementHeader()
-        div("search-wrapper") {
-            input {
-                id = "user-search-input"
-                type = InputType.search
-                placeholder = "Search users..."
-                name = "query"
-                hxGet(Link.AdminDashboard.to + "/users/search")
-                hxTarget("#admin-user-rows")
-                hxSwap("outerHTML")
-                hxIndicator(".search-wrapper")
-                hxTrigger("input changed delay:500ms")
-            }
+        searchField("user-search-input") {
+            placeHolder = "Search users by username..."
+            hxValues = SearchFieldHxValues(
+                hxGet = Link.AdminDashboard.to + "/users/search",
+                hxTarget = "#admin-user-rows"
+            )
         }
         userManagementTable(users, totalUserCount, currentUserPage)
     }
@@ -175,18 +169,12 @@ private fun TD.userActionButtons(user: ManagedUser) {
 private fun MAIN.worldManagementSection(worlds: List<ManagedWorld>, totalWorldCount: Int, worldPage: Int) {
     section("world-management") {
         worldManagementHeader()
-        div("search-wrapper") {
-            input {
-                id = "world-search-input"
-                type = InputType.search
-                placeholder = "Search worlds..."
-                name = "query"
-                hxGet(Link.AdminDashboard.to + "/worlds/search")
-                hxTarget("#admin-world-rows")
-                hxSwap("outerHTML")
-                hxIndicator(".search-wrapper")
-                hxTrigger("input changed delay:500ms")
-            }
+        searchField("world-search-input") {
+            placeHolder = "Search worlds by name..."
+            hxValues = SearchFieldHxValues(
+                hxGet = Link.AdminDashboard.to + "/worlds/search",
+                hxTarget = "#admin-world-rows"
+            )
         }
         worldManagementTable(worlds, totalWorldCount, worldPage)
     }
