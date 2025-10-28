@@ -1,5 +1,7 @@
 package app.mcorg.presentation.templated.common.chip
 
+import app.mcorg.presentation.hxGet
+import app.mcorg.presentation.hxSwap
 import app.mcorg.presentation.templated.common.component.LeafComponent
 import app.mcorg.presentation.templated.common.component.addComponent
 import app.mcorg.presentation.templated.common.icon.Icon
@@ -40,7 +42,8 @@ class Chip(
     var size: ChipSize = ChipSize.MEDIUM,
     var onClick: String? = null,
     var classes: MutableSet<String> = mutableSetOf(),
-    var id: String? = null
+    var id: String? = null,
+    var hxEditableFromHref: String? = null,
 ) : LeafComponent() {
 
     override fun render(container: TagConsumer<*>) {
@@ -72,6 +75,17 @@ class Chip(
                     add("chip--interactive")
                     add("u-cursor-pointer")
                 }
+
+                hxEditableFromHref?.let {
+                    add("chip--interactive")
+                    add("chip--editable")
+                    add("u-cursor-pointer")
+                }
+            }
+
+            hxEditableFromHref?.let {
+                hxGet(it)
+                hxSwap("outerHTML")
             }
 
             onClick?.let {

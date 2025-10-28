@@ -6,7 +6,6 @@ import app.mcorg.domain.model.project.Project
 import app.mcorg.domain.model.project.ProjectDependency
 import app.mcorg.domain.model.project.ProjectProduction
 import app.mcorg.domain.model.project.ProjectResourceGathering
-import app.mcorg.domain.model.project.ProjectStage
 import app.mcorg.domain.model.project.ProjectStageChange
 import app.mcorg.domain.model.task.Task
 import app.mcorg.domain.model.user.Role
@@ -14,6 +13,7 @@ import app.mcorg.domain.model.user.TokenProfile
 import app.mcorg.presentation.templated.common.breadcrumb.Breadcrumbs
 import app.mcorg.presentation.templated.common.chip.ChipVariant
 import app.mcorg.presentation.templated.common.chip.chipComponent
+import app.mcorg.presentation.templated.common.link.Link
 import app.mcorg.presentation.templated.common.page.createPage
 import app.mcorg.presentation.templated.common.tabs.TabData
 import app.mcorg.presentation.templated.common.tabs.tabsComponent
@@ -23,9 +23,7 @@ import kotlinx.html.classes
 import kotlinx.html.div
 import kotlinx.html.h1
 import kotlinx.html.id
-import kotlinx.html.option
 import kotlinx.html.p
-import kotlinx.html.select
 
 sealed interface ProjectTab {
     val id: String
@@ -83,7 +81,9 @@ fun projectPage(
 
             div("project-header-start") {
                 chipComponent {
+                    id = "project-stage-chip"
                     variant = ChipVariant.ACTION
+                    hxEditableFromHref = Link.Worlds.world(project.worldId).project(project.id).to + "/stage-select-fragment"
                     +project.stage.toPrettyEnumName()
                 }
                 p("subtle") {
@@ -105,26 +105,6 @@ fun projectPage(
                 }
             }
             div("project-header-end") {
-                select {
-                    id = "project-stage-selector"
-                    name = "stage"
-
-                    // HTMX attributes for dynamic stage updates
-                    attributes["hx-patch"] = "/app/worlds/${project.worldId}/projects/${project.id}/stage"
-                    attributes["hx-target"] = "#project-header-content"
-                    attributes["hx-swap"] = "outerHTML"
-                    attributes["hx-trigger"] = "change"
-
-                    ProjectStage.entries.forEach {
-                        option {
-                            value = it.name
-                            if (it == project.stage) {
-                                selected = true
-                            }
-                            +it.toPrettyEnumName()
-                        }
-                    }
-                }
                 createTaskModal(project, itemNames, CreateTaskModalTab.ITEM_REQUIREMENT)
             }
         }
