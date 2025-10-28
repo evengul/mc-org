@@ -289,7 +289,6 @@ class GetAvailableProjectDependenciesStepTest : WithUser() {
                 name = name,
                 description = description,
                 type = ProjectType.BUILDING,
-                version = MinecraftVersion.fromString("1.20.1")
             )
         )
         when (result) {

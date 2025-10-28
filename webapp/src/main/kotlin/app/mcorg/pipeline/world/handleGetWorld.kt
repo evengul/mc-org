@@ -8,7 +8,6 @@ import app.mcorg.domain.pipeline.Result
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.failure.DatabaseFailure
 import app.mcorg.pipeline.failure.HandleGetWorldFailure
-import app.mcorg.pipeline.minecraft.GetSupportedVersionsStep
 import app.mcorg.pipeline.notification.GetUnreadNotificationCountStep
 import app.mcorg.pipeline.project.getProjectsByWorldIdQuery
 import app.mcorg.presentation.handler.executeParallelPipeline
@@ -72,14 +71,12 @@ suspend fun ApplicationCall.handleGetWorld() {
             }
         })
 
-    val supportedVersions = GetSupportedVersionsStep.getSupportedVersions()
-
     executeParallelPipeline(
         onSuccess = { (world, worldMember, projects, unreadCount) ->
             if (request.headers["HX-Request"] == "true" && tab != null) {
                 handleGetTab(tab, projects)
             } else {
-                respondHtml(worldPage(user, world, worldMember, projects, supportedVersions, tab, unreadCount))
+                respondHtml(worldPage(user, world, worldMember, projects, tab, unreadCount))
             }
         },
         onFailure = { handleWorldFailure(it) }

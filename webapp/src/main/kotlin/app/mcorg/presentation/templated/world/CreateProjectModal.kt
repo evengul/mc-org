@@ -1,6 +1,5 @@
 package app.mcorg.presentation.templated.world
 
-import app.mcorg.domain.model.minecraft.MinecraftVersion
 import app.mcorg.domain.model.project.ProjectType
 import app.mcorg.presentation.templated.common.form.radiogroup.RadioGroupOption
 import app.mcorg.presentation.templated.common.form.radiogroup.radioGroup
@@ -17,12 +16,10 @@ import kotlinx.html.classes
 import kotlinx.html.div
 import kotlinx.html.input
 import kotlinx.html.label
-import kotlinx.html.option
-import kotlinx.html.select
 import kotlinx.html.span
 import kotlinx.html.textArea
 
-fun <T : Tag> T.createProjectModal(worldId: Int, supportedVersions: List<MinecraftVersion.Release>) = formModal(
+fun <T : Tag> T.createProjectModal(worldId: Int) = formModal(
     modalId = "create-project-modal",
     title = "Create Project",
     description = "Create a new project for your Minecraft world.",
@@ -46,6 +43,7 @@ fun <T : Tag> T.createProjectModal(worldId: Int, supportedVersions: List<Minecra
         span("input-group") {
             label {
                 + "Name"
+                span("required-indicator") { +"*" }
             }
             input {
                 type = InputType.text
@@ -64,6 +62,7 @@ fun <T : Tag> T.createProjectModal(worldId: Int, supportedVersions: List<Minecra
         span("input-group") {
             label {
                 + "Project Type"
+                span("required-indicator") { +"*" }
             }
             div("project-type-select") {
                 radioGroup("type", options = ProjectType.entries.map {
@@ -72,21 +71,6 @@ fun <T : Tag> T.createProjectModal(worldId: Int, supportedVersions: List<Minecra
                         label = it.toPrettyEnumName()
                     )
                 }, selectedOption = "BUILDING")
-            }
-        }
-        span("input-group") {
-            label {
-                + "Minecraft Version"
-            }
-            select {
-                name = "version"
-                required = true
-                supportedVersions.forEach {
-                    option {
-                        value = it.toString()
-                        + it.toString()
-                    }
-                }
             }
         }
         // TODO: Dependency selection

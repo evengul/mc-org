@@ -116,3 +116,8 @@
     border-radius: var(--border-radius-full);
     transform: translate(-50%, -50%);
 }
+
+label > span.required-indicator {
+    color: var(--clr-danger);
+    margin-inline-start: var(--spacing-xs);
+}

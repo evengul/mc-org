@@ -30,7 +30,7 @@ fun DIV.renderCreateTextField(field: CategoryField.Text) {
         htmlFor = "create-${field.key}"
         +field.label
         if (field.required) {
-            span("required-indicator") { +" *" }
+            span("required-indicator") { +"*" }
         }
         if (field.helpText != null) {
             small("form-help-text subtle") {
@@ -68,7 +68,7 @@ fun DIV.renderCreateNumberField(field: CategoryField.Number) {
         htmlFor = "create-${field.key}"
         +field.label
         if (field.required) {
-            span("required-indicator") { +" *" }
+            span("required-indicator") { +"*" }
         }
         if (field.helpText != null) {
             small("form-help-text subtle") {
@@ -104,7 +104,7 @@ fun DIV.renderCreateSelectField(field: CategoryField.Select) {
         htmlFor = "create-${field.key}"
         +field.label
         if (field.required) {
-            span("required-indicator") { +" *" }
+            span("required-indicator") { +"*" }
         }
         if (field.helpText != null) {
             small("form-help-text subtle") {
@@ -142,7 +142,7 @@ fun DIV.renderCreateMultiSelectField(field: CategoryField.MultiSelect) {
     label {
         +field.label
         if (field.required) {
-            span("required-indicator") { +" *" }
+            span("required-indicator") { +"*" }
         }
         if (field.helpText != null) {
             small("form-help-text subtle") {
@@ -193,7 +193,7 @@ fun DIV.renderCreateRateField(field: CategoryField.Rate) {
         htmlFor = "create-${field.key}"
         +field.label
         if (field.required) {
-            span("required-indicator") { +" *" }
+            span("required-indicator") { +"*" }
         }
         if (field.helpText != null) {
             small("form-help-text subtle") {
@@ -226,7 +226,7 @@ fun DIV.renderCreatePercentageField(field: CategoryField.Percentage) {
         htmlFor = "create-${field.key}"
         +field.label
         if (field.required) {
-            span("required-indicator") { +" *" }
+            span("required-indicator") { +"*" }
         }
         if (field.helpText != null) {
             small("form-help-text subtle") {
@@ -259,7 +259,7 @@ fun DIV.renderCreateDimensionsField(field: CategoryField.Dimensions) {
     label {
         +field.label
         if (field.required) {
-            span("required-indicator") { +" *" }
+            span("required-indicator") { +"*" }
         }
         if (field.helpText != null) {
             small("form-help-text subtle") {
@@ -305,7 +305,7 @@ fun DIV.renderCreateMapField(field: CategoryField.MapField) {
     label {
         +field.label
         if (field.required) {
-            span("required-indicator") { +" *" }
+            span("required-indicator") { +"*" }
         }
         if (field.helpText != null) {
             small("form-help-text subtle") {
@@ -352,7 +352,7 @@ fun DIV.renderCreateListField(field: CategoryField.ListField) {
         htmlFor = "create-${field.key}"
         +field.label
         if (field.required) {
-            span("required-indicator") { +" *" }
+            span("required-indicator") { +"*" }
         }
         if (field.helpText != null) {
             small("form-help-text subtle") {

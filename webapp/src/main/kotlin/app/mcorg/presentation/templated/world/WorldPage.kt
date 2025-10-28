@@ -1,6 +1,5 @@
 package app.mcorg.presentation.templated.world
 
-import app.mcorg.domain.model.minecraft.MinecraftVersion
 import app.mcorg.domain.model.project.Project
 import app.mcorg.domain.model.user.Role
 import app.mcorg.domain.model.user.TokenProfile
@@ -43,7 +42,6 @@ fun worldPage(
     world: World,
     worldMember: WorldMember,
     projects: List<Project>,
-    supportedVersions: List<MinecraftVersion.Release>,
     tab: String? = null,
     unreadNotificationCount: Int = 0,
     toggles: Set<WorldPageToggles> = setOf(
@@ -60,15 +58,15 @@ fun worldPage(
 ) {
     classes += "world"
 
-    worldHeader(world, worldMember, supportedVersions, toggles)
+    worldHeader(world, worldMember, toggles)
     projectSearch(world.id, visibleProjects = projects.size, totalProjects = world.totalProjects, toggles)
     worldProjectsSection(world.totalProjects, projects, tab, toggles)
 }
 
-private fun MAIN.worldHeader(world: World, user: WorldMember, supportedVersions: List<MinecraftVersion.Release>, toggles: Set<WorldPageToggles>) {
+private fun MAIN.worldHeader(world: World, user: WorldMember, toggles: Set<WorldPageToggles>) {
     div("world-header") {
         worldHeaderInfo(world)
-        worldHeaderActions(world, user, supportedVersions, toggles)
+        worldHeaderActions(world, user, toggles)
     }
 }
 
@@ -90,10 +88,10 @@ private fun FlowContent.worldHeaderInfo(world: World) {
     }
 }
 
-private fun FlowContent.worldHeaderActions(world: World, user: WorldMember, supportedVersions: List<MinecraftVersion.Release>, toggles: Set<WorldPageToggles>) {
+private fun FlowContent.worldHeaderActions(world: World, user: WorldMember, toggles: Set<WorldPageToggles>) {
     div("world-header-end") {
         if (WorldPageToggles.NEW_PROJECT in toggles) {
-            createProjectModal(world.id, supportedVersions)
+            createProjectModal(world.id)
         }
         if (WorldPageToggles.RESOURCE_MAP in toggles) {
             neutralButton("Resource Map") {
