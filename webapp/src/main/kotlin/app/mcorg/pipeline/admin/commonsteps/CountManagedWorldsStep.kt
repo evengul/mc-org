@@ -1,4 +1,4 @@
-package app.mcorg.pipeline.admin
+package app.mcorg.pipeline.admin.commonsteps
 
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step

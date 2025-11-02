@@ -1,9 +1,11 @@
 package app.mcorg.pipeline.admin
 
-import app.mcorg.domain.model.admin.ManagedWorld
 import app.mcorg.domain.pipeline.Pipeline
 import app.mcorg.domain.pipeline.Result
-import app.mcorg.domain.pipeline.Step
+import app.mcorg.pipeline.admin.commonsteps.CountManagedWorldsStep
+import app.mcorg.pipeline.admin.commonsteps.GetManagedWorldsInput
+import app.mcorg.pipeline.admin.commonsteps.GetManagedWorldsStep
+import app.mcorg.pipeline.failure.DatabaseFailure
 import app.mcorg.presentation.handler.executeParallelPipeline
 import app.mcorg.presentation.hxOutOfBands
 import app.mcorg.presentation.templated.admin.AdminTable
@@ -18,10 +20,6 @@ import kotlinx.html.stream.createHTML
 import kotlinx.html.tbody
 import kotlinx.html.td
 
-sealed interface SearchManagedWorldsFailures {
-    object DatabaseError : SearchManagedWorldsFailures
-}
-
 suspend fun ApplicationCall.handleSearchManagedWorlds() {
     val input = GetManagedWorldsInput(
         query = this.request.queryParameters["query"] ?: "",
@@ -29,21 +27,11 @@ suspend fun ApplicationCall.handleSearchManagedWorlds() {
         pageSize = this.request.queryParameters["pageSize"]?.toIntOrNull() ?: 10
     )
 
-    val worldsPipeline = Pipeline.create<SearchManagedWorldsFailures, GetManagedWorldsInput>()
-        .pipe(object : Step<GetManagedWorldsInput, SearchManagedWorldsFailures, List<ManagedWorld>> {
-            override suspend fun process(input: GetManagedWorldsInput): Result<SearchManagedWorldsFailures, List<ManagedWorld>> {
-                return GetManagedWorldsStep.process(input)
-                    .mapError { SearchManagedWorldsFailures.DatabaseError }
-            }
-        })
+    val worldsPipeline = Pipeline.create<DatabaseFailure, GetManagedWorldsInput>()
+        .pipe(GetManagedWorldsStep)
 
-    val countPipeline = Pipeline.create<SearchManagedWorldsFailures, String>()
-        .pipe(object : Step<String, SearchManagedWorldsFailures, Int> {
-            override suspend fun process(input: String): Result<SearchManagedWorldsFailures, Int> {
-                return CountManagedWorldsStep.process(input)
-                    .mapError { SearchManagedWorldsFailures.DatabaseError }
-            }
-        })
+    val countPipeline = Pipeline.create<DatabaseFailure, String>()
+        .pipe(CountManagedWorldsStep)
 
     executeParallelPipeline(
         onSuccess = { respondHtml(createHTML().tbody {

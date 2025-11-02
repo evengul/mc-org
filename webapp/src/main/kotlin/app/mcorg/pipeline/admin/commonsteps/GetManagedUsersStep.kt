@@ -1,4 +1,4 @@
-package app.mcorg.pipeline.admin
+package app.mcorg.pipeline.admin.commonsteps
 
 import app.mcorg.domain.model.admin.ManagedUser
 import app.mcorg.domain.model.user.Role
@@ -6,6 +6,7 @@ import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
+import app.mcorg.pipeline.failure.DatabaseFailure
 import java.time.ZoneOffset
 
 data class GetManagedUsersInput(
@@ -14,9 +15,9 @@ data class GetManagedUsersInput(
     val pageSize: Int = 10
 )
 
-object GetManagedUsersStep : Step<GetManagedUsersInput, HandleGetAdminPageFailures, List<ManagedUser>> {
-    override suspend fun process(input: GetManagedUsersInput): Result<HandleGetAdminPageFailures, List<ManagedUser>> {
-        return DatabaseSteps.query<GetManagedUsersInput, HandleGetAdminPageFailures, List<ManagedUser>>(
+object GetManagedUsersStep : Step<GetManagedUsersInput, DatabaseFailure, List<ManagedUser>> {
+    override suspend fun process(input: GetManagedUsersInput): Result<DatabaseFailure, List<ManagedUser>> {
+        return DatabaseSteps.query<GetManagedUsersInput, DatabaseFailure, List<ManagedUser>>(
             SafeSQL.select("""
                 SELECT users.id as id, minecraft_profiles.username as minecraft_username, users.email, minecraft_profiles.created_at as joined_at, minecraft_profiles.last_login as last_seen
                 FROM users
@@ -34,7 +35,7 @@ object GetManagedUsersStep : Step<GetManagedUsersInput, HandleGetAdminPageFailur
                 statement.setInt(3, pageSize)
                 statement.setInt(4, offset)
             },
-            errorMapper = { HandleGetAdminPageFailures.DatabaseError },
+            errorMapper = { it },
             resultMapper = { rs -> buildList {
                 while(rs.next()) {
                     add(ManagedUser(

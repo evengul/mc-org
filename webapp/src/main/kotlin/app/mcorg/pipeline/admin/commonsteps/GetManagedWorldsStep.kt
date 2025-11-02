@@ -1,4 +1,4 @@
-package app.mcorg.pipeline.admin
+package app.mcorg.pipeline.admin.commonsteps
 
 import app.mcorg.domain.model.admin.ManagedWorld
 import app.mcorg.domain.model.minecraft.MinecraftVersion
@@ -6,6 +6,7 @@ import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
+import app.mcorg.pipeline.failure.DatabaseFailure
 import java.time.ZoneOffset
 
 data class GetManagedWorldsInput(
@@ -14,10 +15,10 @@ data class GetManagedWorldsInput(
     val pageSize: Int = 10
 )
 
-object GetManagedWorldsStep : Step<GetManagedWorldsInput, HandleGetAdminPageFailures, List<ManagedWorld>> {
-    override suspend fun process(input: GetManagedWorldsInput): Result<HandleGetAdminPageFailures, List<ManagedWorld>> {
+object GetManagedWorldsStep : Step<GetManagedWorldsInput, DatabaseFailure, List<ManagedWorld>> {
+    override suspend fun process(input: GetManagedWorldsInput): Result<DatabaseFailure, List<ManagedWorld>> {
 
-        return DatabaseSteps.query<GetManagedWorldsInput, HandleGetAdminPageFailures, List<ManagedWorld>>(
+        return DatabaseSteps.query<GetManagedWorldsInput, DatabaseFailure, List<ManagedWorld>>(
             SafeSQL.select("""
                 SELECT world.id, 
                 world.name, 
@@ -38,7 +39,7 @@ object GetManagedWorldsStep : Step<GetManagedWorldsInput, HandleGetAdminPageFail
                 statement.setInt(3, pageSize)
                 statement.setInt(4, offset)
             },
-            errorMapper = { HandleGetAdminPageFailures.DatabaseError },
+            errorMapper = { it },
             resultMapper = { rs -> buildList {
                 while(rs.next()) {
                     add(ManagedWorld(

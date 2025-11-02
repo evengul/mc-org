@@ -1,9 +1,11 @@
 package app.mcorg.pipeline.admin
 
-import app.mcorg.domain.model.admin.ManagedUser
 import app.mcorg.domain.pipeline.Pipeline
 import app.mcorg.domain.pipeline.Result
-import app.mcorg.domain.pipeline.Step
+import app.mcorg.pipeline.admin.commonsteps.CountManagedUsersStep
+import app.mcorg.pipeline.admin.commonsteps.GetManagedUsersInput
+import app.mcorg.pipeline.admin.commonsteps.GetManagedUsersStep
+import app.mcorg.pipeline.failure.DatabaseFailure
 import app.mcorg.presentation.handler.executeParallelPipeline
 import app.mcorg.presentation.hxOutOfBands
 import app.mcorg.presentation.templated.admin.AdminTable
@@ -18,30 +20,16 @@ import kotlinx.html.stream.createHTML
 import kotlinx.html.tbody
 import kotlinx.html.td
 
-sealed interface SearchManagedUsersFailures {
-    object DatabaseError : SearchManagedUsersFailures
-}
-
 suspend fun ApplicationCall.handleSearchManagedUsers() {
     val query = this.request.queryParameters["query"] ?: ""
     val page = this.request.queryParameters["page"]?.toIntOrNull() ?: 1
     val pageSize = this.request.queryParameters["pageSize"]?.toIntOrNull() ?: 10
 
-    val usersPipeline = Pipeline.create<SearchManagedUsersFailures, GetManagedUsersInput>()
-        .pipe(object : Step<GetManagedUsersInput, SearchManagedUsersFailures, List<ManagedUser>> {
-            override suspend fun process(input: GetManagedUsersInput): Result<SearchManagedUsersFailures, List<ManagedUser>> {
-                return GetManagedUsersStep.process(input)
-                    .mapError { SearchManagedUsersFailures.DatabaseError }
-            }
-        })
+    val usersPipeline = Pipeline.create<DatabaseFailure, GetManagedUsersInput>()
+        .pipe(GetManagedUsersStep)
 
-    val countPipeline = Pipeline.create<SearchManagedUsersFailures, String>()
-        .pipe(object : Step<String, SearchManagedUsersFailures, Int> {
-            override suspend fun process(input: String): Result<SearchManagedUsersFailures, Int> {
-                return CountManagedUsersStep.process(input)
-                    .mapError { SearchManagedUsersFailures.DatabaseError }
-            }
-        })
+    val countPipeline = Pipeline.create<DatabaseFailure, String>()
+        .pipe(CountManagedUsersStep)
 
     executeParallelPipeline(
         onSuccess = { respondHtml(createHTML().tbody {

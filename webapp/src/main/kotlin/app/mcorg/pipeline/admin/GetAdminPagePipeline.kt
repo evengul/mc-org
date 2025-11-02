@@ -5,16 +5,19 @@ import app.mcorg.domain.model.admin.ManagedWorld
 import app.mcorg.domain.pipeline.Pipeline
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
+import app.mcorg.pipeline.admin.commonsteps.CountManagedUsersStep
+import app.mcorg.pipeline.admin.commonsteps.CountManagedWorldsStep
+import app.mcorg.pipeline.admin.commonsteps.GetManagedUsersInput
+import app.mcorg.pipeline.admin.commonsteps.GetManagedUsersStep
+import app.mcorg.pipeline.admin.commonsteps.GetManagedWorldsInput
+import app.mcorg.pipeline.admin.commonsteps.GetManagedWorldsStep
+import app.mcorg.pipeline.failure.DatabaseFailure
 import app.mcorg.pipeline.notification.GetUnreadNotificationCountStep
 import app.mcorg.presentation.handler.executeParallelPipeline
 import app.mcorg.presentation.templated.admin.adminPage
 import app.mcorg.presentation.utils.getUser
 import app.mcorg.presentation.utils.respondHtml
 import io.ktor.server.application.ApplicationCall
-
-interface HandleGetAdminPageFailures {
-    object DatabaseError : HandleGetAdminPageFailures
-}
 
 private data class Success(
     val users: List<ManagedUser>,
@@ -27,31 +30,25 @@ private data class Success(
 suspend fun ApplicationCall.handleGetAdminPage() {
     val user = getUser()
 
-    val userPipe = Pipeline.create<HandleGetAdminPageFailures, Int>()
+    val userPipe = Pipeline.create<DatabaseFailure, Int>()
         .map { GetManagedUsersInput() }
         .pipe(GetManagedUsersStep)
 
-    val worldsPipe = Pipeline.create<HandleGetAdminPageFailures,  Int>()
+    val worldsPipe = Pipeline.create<DatabaseFailure,  Int>()
         .map { GetManagedWorldsInput() }
         .pipe(GetManagedWorldsStep)
 
-    val userCountPipe = Pipeline.create<HandleGetAdminPageFailures, Unit>()
-        .pipe(object : Step<Unit, HandleGetAdminPageFailures, Int> {
-            override suspend fun process(input: Unit): Result<HandleGetAdminPageFailures, Int> {
-                return CountManagedUsersStep.process("").mapError { HandleGetAdminPageFailures.DatabaseError }
-            }
-        })
+    val userCountPipe = Pipeline.create<DatabaseFailure, Unit>()
+        .map { "" }
+        .pipe(CountManagedUsersStep)
 
-    val worldCountPipe = Pipeline.create<HandleGetAdminPageFailures, Unit>()
-        .pipe(object : Step<Unit, HandleGetAdminPageFailures, Int> {
-            override suspend fun process(input: Unit): Result<HandleGetAdminPageFailures, Int> {
-                return CountManagedWorldsStep.process("").mapError { HandleGetAdminPageFailures.DatabaseError }
-            }
-        })
+    val worldCountPipe = Pipeline.create<DatabaseFailure, Unit>()
+        .map { "" }
+        .pipe(CountManagedWorldsStep)
 
-    val notificationsPipe = Pipeline.create<HandleGetAdminPageFailures, Int>()
-        .pipe(object : Step<Int, HandleGetAdminPageFailures, Int> {
-            override suspend fun process(input: Int): Result<HandleGetAdminPageFailures, Int> {
+    val notificationsPipe = Pipeline.create<DatabaseFailure, Int>()
+        .pipe(object : Step<Int, DatabaseFailure, Int> {
+            override suspend fun process(input: Int): Result<DatabaseFailure, Int> {
                 return when (val result = GetUnreadNotificationCountStep.process(input)) {
                     is Result.Success -> Result.success(result.value)
                     is Result.Failure -> Result.success(0)
