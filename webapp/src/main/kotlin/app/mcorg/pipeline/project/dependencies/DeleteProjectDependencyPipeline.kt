@@ -12,6 +12,7 @@ import app.mcorg.presentation.templated.project.addDependencyForm
 import app.mcorg.presentation.templated.project.dependenciesList
 import app.mcorg.presentation.utils.getProjectDependencyId
 import app.mcorg.presentation.utils.getProjectId
+import app.mcorg.presentation.utils.getUser
 import app.mcorg.presentation.utils.getWorldId
 import app.mcorg.presentation.utils.respondHtml
 import io.ktor.http.HttpStatusCode
@@ -26,6 +27,7 @@ sealed interface DeleteProjectDependencyFailure {
 }
 
 suspend fun ApplicationCall.handleDeleteProjectDependency() {
+    val user = this.getUser()
     val worldId = this.getWorldId()
     val projectId = this.getProjectId()
     val dependencyId = this.getProjectDependencyId()
@@ -36,7 +38,7 @@ suspend fun ApplicationCall.handleDeleteProjectDependency() {
                 dependenciesList(worldId, projectId, dependencies)
             } + createHTML().form {
                 hxOutOfBands("true")
-                addDependencyForm(worldId, projectId, availableDependencies)
+                addDependencyForm(user, worldId, projectId, availableDependencies)
             })
         },
         onFailure = {

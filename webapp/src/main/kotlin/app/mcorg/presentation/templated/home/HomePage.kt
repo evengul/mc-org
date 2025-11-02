@@ -24,5 +24,5 @@ fun homePage(
     pendingInvites.takeIf { it.isNotEmpty() }?.let {
         addComponent(PendingInvitesView(it))
     }
-    addComponent(WorldsView(worlds, supportedVersions))
+    addComponent(WorldsView(user, worlds, supportedVersions))
 }

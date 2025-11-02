@@ -1,10 +1,10 @@
 package app.mcorg.pipeline.auth
 
-import app.mcorg.pipeline.failure.GetMinecraftTokenFailure
 import app.mcorg.pipeline.failure.ApiFailure
 import app.mcorg.test.utils.TestUtils
 import app.mcorg.config.MinecraftApiConfig
 import app.mcorg.domain.pipeline.Result
+import app.mcorg.pipeline.auth.domain.TokenData
 import io.ktor.http.HttpStatusCode
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.BeforeEach
@@ -97,7 +97,7 @@ class GetMinecraftTokenTest {
         TestUtils.executeAndAssertFailure(
             GetMinecraftToken,
             testTokenData,
-            GetMinecraftTokenFailure.CouldNotGetMinecraftToken::class.java
+            MicrosoftSignInFailure.MicrosoftError::class.java
         )
     }
 
@@ -114,7 +114,7 @@ class GetMinecraftTokenTest {
         TestUtils.executeAndAssertFailure(
             GetMinecraftToken,
             testTokenData,
-            GetMinecraftTokenFailure.CouldNotGetMinecraftToken::class.java
+            MicrosoftSignInFailure.MicrosoftError::class.java
         )
     }
 
@@ -131,7 +131,7 @@ class GetMinecraftTokenTest {
         TestUtils.executeAndAssertFailure(
             GetMinecraftToken,
             testTokenData,
-            GetMinecraftTokenFailure.CouldNotGetMinecraftToken::class.java
+            MicrosoftSignInFailure.MicrosoftError::class.java
         )
     }
 
@@ -148,7 +148,7 @@ class GetMinecraftTokenTest {
         TestUtils.executeAndAssertFailure(
             GetMinecraftToken,
             testTokenData,
-            GetMinecraftTokenFailure.CouldNotGetMinecraftToken::class.java
+            MicrosoftSignInFailure.MicrosoftError::class.java
         )
     }
 
@@ -165,7 +165,7 @@ class GetMinecraftTokenTest {
         TestUtils.executeAndAssertFailure(
             GetMinecraftToken,
             testTokenData,
-            GetMinecraftTokenFailure.CouldNotGetMinecraftToken::class.java
+            MicrosoftSignInFailure.MicrosoftError::class.java
         )
     }
 
@@ -182,7 +182,7 @@ class GetMinecraftTokenTest {
         TestUtils.executeAndAssertFailure(
             GetMinecraftToken,
             testTokenData,
-            GetMinecraftTokenFailure.CouldNotGetMinecraftToken::class.java
+            MicrosoftSignInFailure.MicrosoftError::class.java
         )
     }
 
@@ -201,7 +201,7 @@ class GetMinecraftTokenTest {
         TestUtils.executeAndAssertFailure(
             GetMinecraftToken,
             emptyTokenData,
-            GetMinecraftTokenFailure.CouldNotGetMinecraftToken::class.java
+            MicrosoftSignInFailure.MicrosoftError::class.java
         )
     }
 
@@ -220,7 +220,7 @@ class GetMinecraftTokenTest {
         TestUtils.executeAndAssertFailure(
             GetMinecraftToken,
             invalidTokenData,
-            GetMinecraftTokenFailure.CouldNotGetMinecraftToken::class.java
+            MicrosoftSignInFailure.MicrosoftError::class.java
         )
     }
 }

@@ -1,10 +1,10 @@
 package app.mcorg.pipeline.auth
 
-import app.mcorg.pipeline.failure.GetXstsTokenFailure
 import app.mcorg.pipeline.failure.ApiFailure
 import app.mcorg.test.utils.TestUtils
 import app.mcorg.config.XstsAuthorizationApiConfig
 import app.mcorg.domain.pipeline.Result
+import app.mcorg.pipeline.auth.domain.TokenData
 import io.ktor.http.HttpStatusCode
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.BeforeEach
@@ -113,7 +113,7 @@ class GetXstsTokenTest {
         TestUtils.executeAndAssertFailure(
             GetXstsToken,
             testTokenData,
-            GetXstsTokenFailure.CouldNotGetXstsToken::class.java
+            MicrosoftSignInFailure.MicrosoftError::class.java
         )
     }
 
@@ -130,7 +130,7 @@ class GetXstsTokenTest {
         TestUtils.executeAndAssertFailure(
             GetXstsToken,
             testTokenData,
-            GetXstsTokenFailure.CouldNotGetXstsToken::class.java
+            MicrosoftSignInFailure.MicrosoftError::class.java
         )
     }
 
@@ -147,7 +147,7 @@ class GetXstsTokenTest {
         TestUtils.executeAndAssertFailure(
             GetXstsToken,
             testTokenData,
-            GetXstsTokenFailure.CouldNotGetXstsToken::class.java
+            MicrosoftSignInFailure.MicrosoftError::class.java
         )
     }
 
@@ -164,7 +164,7 @@ class GetXstsTokenTest {
         TestUtils.executeAndAssertFailure(
             GetXstsToken,
             testTokenData,
-            GetXstsTokenFailure.CouldNotGetXstsToken::class.java
+            MicrosoftSignInFailure.MicrosoftError::class.java
         )
     }
 
@@ -181,7 +181,7 @@ class GetXstsTokenTest {
         TestUtils.executeAndAssertFailure(
             GetXstsToken,
             testTokenData,
-            GetXstsTokenFailure.CouldNotGetXstsToken::class.java
+            MicrosoftSignInFailure.MicrosoftError::class.java
         )
     }
 
@@ -198,7 +198,7 @@ class GetXstsTokenTest {
         TestUtils.executeAndAssertFailure(
             GetXstsToken,
             testTokenData,
-            GetXstsTokenFailure.CouldNotGetXstsToken::class.java
+            MicrosoftSignInFailure.MicrosoftError::class.java
         )
     }
 
@@ -217,7 +217,7 @@ class GetXstsTokenTest {
         TestUtils.executeAndAssertFailure(
             GetXstsToken,
             emptyTokenData,
-            GetXstsTokenFailure.CouldNotGetXstsToken::class.java
+            MicrosoftSignInFailure.MicrosoftError::class.java
         )
     }
 }

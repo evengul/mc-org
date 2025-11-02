@@ -1,6 +1,7 @@
 package app.mcorg.pipeline.auth
 
-import app.mcorg.pipeline.failure.GetCookieFailure
+import app.mcorg.pipeline.auth.commonsteps.GetTokenStep
+import app.mcorg.pipeline.auth.commonsteps.MissingCookieFailure
 import app.mcorg.test.utils.TestUtils
 import app.mcorg.presentation.consts.AUTH_COOKIE
 import io.ktor.server.request.RequestCookies
@@ -117,7 +118,7 @@ class GetTokenStepTest {
         TestUtils.executeAndAssertFailure(
             getTokenStep,
             mockRequestCookies,
-            GetCookieFailure.MissingCookie::class.java
+            MissingCookieFailure::class.java
         )
         verify { mockRequestCookies[AUTH_COOKIE] }
     }
@@ -133,7 +134,7 @@ class GetTokenStepTest {
         TestUtils.executeAndAssertFailure(
             getTokenStep,
             mockRequestCookies,
-            GetCookieFailure.MissingCookie::class.java
+            MissingCookieFailure::class.java
         )
         verify { mockRequestCookies[customCookieName] }
     }

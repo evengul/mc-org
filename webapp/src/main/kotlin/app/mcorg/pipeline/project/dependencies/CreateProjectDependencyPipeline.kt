@@ -13,6 +13,7 @@ import app.mcorg.presentation.hxOutOfBands
 import app.mcorg.presentation.templated.project.addDependencyForm
 import app.mcorg.presentation.templated.project.dependenciesList
 import app.mcorg.presentation.utils.getProjectId
+import app.mcorg.presentation.utils.getUser
 import app.mcorg.presentation.utils.getWorldId
 import app.mcorg.presentation.utils.respondHtml
 import io.ktor.http.HttpStatusCode
@@ -31,6 +32,7 @@ sealed interface CreateProjectDependencyFailure {
 }
 
 suspend fun ApplicationCall.handleCreateProjectDependency() {
+    val user = this.getUser()
     val worldId = this.getWorldId()
     val projectId = this.getProjectId()
     val parameters = this.receiveParameters()
@@ -41,7 +43,7 @@ suspend fun ApplicationCall.handleCreateProjectDependency() {
                 dependenciesList(worldId, projectId, dependencies)
             } + createHTML().form {
                 hxOutOfBands("true")
-                addDependencyForm(worldId, projectId, availableDependencies)
+                addDependencyForm(user, worldId, projectId, availableDependencies)
             })
         },
         onFailure = {

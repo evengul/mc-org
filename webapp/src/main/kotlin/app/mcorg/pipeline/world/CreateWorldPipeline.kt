@@ -23,7 +23,7 @@ suspend fun ApplicationCall.handleCreateWorld() {
         onSuccess = {
             val supportedVersions = GetSupportedVersionsStep.getSupportedVersions()
             respondHtml(createHTML().div {
-                worldsView(it, supportedVersions)
+                worldsView(user, it, supportedVersions)
             })
         },
         onFailure = {

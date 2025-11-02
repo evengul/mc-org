@@ -2,10 +2,12 @@ package app.mcorg.pipeline.auth
 
 import app.mcorg.config.Database
 import app.mcorg.config.DatabaseConnectionProvider
-import app.mcorg.domain.Local
-import app.mcorg.domain.Test as TestEnv
 import app.mcorg.domain.model.user.MinecraftProfile
 import app.mcorg.domain.model.user.TokenProfile
+import app.mcorg.pipeline.auth.commonsteps.ConvertTokenStep
+import app.mcorg.pipeline.auth.commonsteps.ConvertTokenStepFailure
+import app.mcorg.pipeline.auth.commonsteps.CreateTokenStep
+import app.mcorg.pipeline.auth.commonsteps.CreateUserIfNotExistsStep
 import app.mcorg.pipeline.failure.*
 import app.mcorg.presentation.consts.ISSUER
 import app.mcorg.presentation.security.JwtHelper
@@ -256,48 +258,7 @@ class AuthenticationPipelineTest {
         TestUtils.executeAndAssertFailure(
             CreateUserIfNotExistsStep,
             testMinecraftProfile,
-            CreateUserIfNotExistsFailure.Other::class.java
-        )
-    }
-
-    // ===============================
-    // Environment Validation Tests
-    // ===============================
-
-    @Test
-    fun `ValidateEnvStep should succeed in Local environment with Local requirement`() {
-        // Arrange
-        val validateStep = ValidateEnvStep(Local)
-
-        // Act
-        val environment = TestUtils.executeAndAssertSuccess(validateStep, Local)
-
-        // Assert
-        assertEquals(Local, environment)
-    }
-
-    @Test
-    fun `ValidateEnvStep should succeed in Test environment with Test requirement`() = runBlocking {
-        // Arrange
-        val validateStep = ValidateEnvStep(TestEnv)
-
-        // Act
-        val environment = TestUtils.executeAndAssertSuccess(validateStep, TestEnv)
-
-        // Assert
-        assertEquals(TestEnv, environment)
-    }
-
-    @Test
-    fun `ValidateEnvStep should fail when environment does not match requirement`() {
-        // Arrange
-        val validateStep = ValidateEnvStep(Local)
-
-        // Act
-        TestUtils.executeAndAssertFailure(
-            validateStep,
-            TestEnv,
-            ValidateEnvFailure.InvalidEnv::class.java
+            DatabaseFailure::class.java
         )
     }
 

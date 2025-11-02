@@ -27,14 +27,16 @@ import kotlinx.html.p
 
 sealed interface ProjectTab {
     val id: String
+    val user: TokenProfile
     val project: Project
 
-    data class Tasks(override val project: Project, val totalTasksCount: Int, val tasks: List<Task>) : ProjectTab {
+    data class Tasks(override val project: Project, override val user: TokenProfile, val totalTasksCount: Int, val tasks: List<Task>) : ProjectTab {
         override val id: String = "tasks"
     }
 
     data class Resources(
         override val project: Project,
+        override val user: TokenProfile,
         val resourceGathering: ProjectResourceGathering,
         val resourceProduction: List<ProjectProduction>,
         val itemNames: List<Item>
@@ -42,18 +44,18 @@ sealed interface ProjectTab {
         override val id: String = "resources"
     }
 
-    data class Location(override val project: Project) : ProjectTab {
+    data class Location(override val project: Project, override val user: TokenProfile,) : ProjectTab {
         override val id: String = "location"
     }
 
-    data class Stages(override val project: Project, val stageChanges: List<ProjectStageChange>) : ProjectTab {
+    data class Stages(override val project: Project, override val user: TokenProfile, val stageChanges: List<ProjectStageChange>) : ProjectTab {
         override val id: String = "stages"
     }
 
-    data class Dependencies(override val project: Project, val availableProjects: List<NamedProjectId>, val dependencies: List<ProjectDependency>, val dependents: List<ProjectDependency>) : ProjectTab {
+    data class Dependencies(override val project: Project, override val user: TokenProfile, val availableProjects: List<NamedProjectId>, val dependencies: List<ProjectDependency>, val dependents: List<ProjectDependency>) : ProjectTab {
         override val id: String = "dependencies"
     }
-    data class Settings(override val project: Project, val worldMemberRole: Role) : ProjectTab {
+    data class Settings(override val project: Project, override val user: TokenProfile, val worldMemberRole: Role) : ProjectTab {
         override val id: String = "settings"
     }
 }
@@ -105,7 +107,7 @@ fun projectPage(
                 }
             }
             div("project-header-end") {
-                createTaskModal(project, itemNames, CreateTaskModalTab.ITEM_REQUIREMENT)
+                createTaskModal(user, project, itemNames, CreateTaskModalTab.ITEM_REQUIREMENT)
             }
         }
         p("subtle") {
@@ -135,10 +137,10 @@ fun DIV.projectTabsContent(data: ProjectTab) {
     classes += "project-tabs-content"
     when(data) {
         is ProjectTab.Tasks -> tasksTab(data.project, data.totalTasksCount, data.tasks)
-        is ProjectTab.Resources -> resourcesTab(data.project, data.resourceProduction, data.resourceGathering, data.itemNames)
-        is ProjectTab.Location -> locationTab(data.project)
+        is ProjectTab.Resources -> resourcesTab(data.user, data.project, data.resourceProduction, data.resourceGathering, data.itemNames)
+        is ProjectTab.Location -> locationTab(data.user, data.project)
         is ProjectTab.Stages -> stagesTab(data.stageChanges)
-        is ProjectTab.Dependencies -> dependenciesTab(data.project.worldId, data.project.id, data.availableProjects, data.dependencies, data.dependents)
-        is ProjectTab.Settings -> projectSettingsTab(data.project, data.worldMemberRole)
+        is ProjectTab.Dependencies -> dependenciesTab(data.user, data.project.worldId, data.project.id, data.availableProjects, data.dependencies, data.dependents)
+        is ProjectTab.Settings -> projectSettingsTab(data.user, data.project, data.worldMemberRole)
     }
 }

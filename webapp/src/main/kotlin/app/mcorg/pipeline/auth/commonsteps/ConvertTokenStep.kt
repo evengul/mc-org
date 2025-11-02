@@ -1,9 +1,8 @@
-package app.mcorg.pipeline.auth
+package app.mcorg.pipeline.auth.commonsteps
 
 import app.mcorg.domain.model.user.TokenProfile
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
-import app.mcorg.pipeline.failure.ConvertTokenStepFailure
 import app.mcorg.presentation.consts.ISSUER
 import app.mcorg.presentation.security.JwtHelper
 import app.mcorg.presentation.security.getKeys
@@ -14,6 +13,49 @@ import com.auth0.jwt.exceptions.IncorrectClaimException
 import com.auth0.jwt.exceptions.MissingClaimException
 import com.auth0.jwt.exceptions.SignatureVerificationException
 import com.auth0.jwt.exceptions.TokenExpiredException
+
+sealed interface ConvertTokenStepFailure {
+    val errorCode: String
+    val arguments: List<Pair<String, String>>?
+
+    fun toSignOutQueryParameters(): String {
+        val base = "error=$errorCode"
+        val args = arguments?.joinToString("&") { (key, value) -> "$key=$value" } ?: ""
+        return if (args.isNotBlank()) {
+            "$base&$args"
+        } else {
+            base
+        }
+    }
+
+    fun toSignOutUrl(): String {
+        return "/auth/sign-out?${toSignOutQueryParameters()}"
+    }
+
+    object InvalidToken : ConvertTokenStepFailure {
+        override val errorCode: String = "invalid_token"
+        override val arguments: List<Pair<String, String>>? = null
+    }
+    object ExpiredToken : ConvertTokenStepFailure {
+        override val errorCode: String = "expired_token"
+        override val arguments: List<Pair<String, String>>? = null
+    }
+    data class MissingClaim(val claimName: String) : ConvertTokenStepFailure {
+        override val errorCode: String = "missing_claim"
+        override val arguments: List<Pair<String, String>> = listOf("claim" to claimName)
+    }
+    data class IncorrectClaim(val claimName: String, val claimValue: String) : ConvertTokenStepFailure {
+        override val errorCode: String = "incorrect_claim"
+        override val arguments: List<Pair<String, String>> = listOf(
+            "claim" to claimName,
+            "value" to claimValue
+        )
+    }
+    data class ConversionError(val error: Exception) : ConvertTokenStepFailure {
+        override val errorCode: String = "conversion_error"
+        override val arguments: List<Pair<String, String>>? = null
+    }
+}
 
 data class ConvertTokenStep(val issuer: String = ISSUER) : Step<String, ConvertTokenStepFailure, TokenProfile> {
     override suspend fun process(input: String): Result<ConvertTokenStepFailure, TokenProfile> {

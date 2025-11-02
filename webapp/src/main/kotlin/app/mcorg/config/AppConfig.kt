@@ -33,6 +33,8 @@ object AppConfig {
     var fabricMcBaseUrl: String = "https://meta.fabricmc.net/v2"
     var githubGistsBaseUrl: String = "https://gist.githubusercontent.com"
 
+    var demoUser: String = "evegul"
+
     init {
         val errors = mutableListOf<String>()
         System.getenv("DB_URL")?.let { dbUrl = it } ?: errors.add("DB_URL is not set")
@@ -112,6 +114,8 @@ object AppConfig {
         System.getenv("MINECRAFT_BASE_URL")?.let { minecraftBaseUrl = it }
         System.getenv("FABRIC_MC_BASE_URL")?.let { fabricMcBaseUrl = it }
         System.getenv("GITHUB_GISTS_BASE_URL")?.let { githubGistsBaseUrl = it }
+
+        System.getenv("DEMO_USER")?.let { demoUser = it }
 
         if (errors.isNotEmpty()) {
             logger.error("Invalid configuration:\n${errors.joinToString("\n")}")

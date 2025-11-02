@@ -1,4 +1,4 @@
-package app.mcorg.pipeline.auth.minecraft
+package app.mcorg.pipeline.auth.domain
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable

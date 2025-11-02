@@ -1,6 +1,6 @@
 package app.mcorg.domain
 
-interface Env
+sealed interface Env
 
 object Local : Env
 object Test : Env

@@ -105,6 +105,7 @@ suspend fun ApplicationCall.handleGetProject() {
 
             ProjectTab.Resources(
                 project,
+                user,
                 gatheringTasks
                     .filter { it.requirement is ItemRequirement }
                     .toProjectResourceGathering(),
@@ -121,7 +122,7 @@ suspend fun ApplicationCall.handleGetProject() {
                 is Result.Failure -> emptyList()
             }
 
-            ProjectTab.Stages(project, stageChanges)
+            ProjectTab.Stages(project, user, stageChanges)
         }
 
         "dependencies" -> {
@@ -139,19 +140,20 @@ suspend fun ApplicationCall.handleGetProject() {
 
             ProjectTab.Dependencies(
                 project,
+                user,
                 availableProjects,
                 dependencyData.dependencies,
                 dependencyData.dependents
             )
         }
 
-        "location" -> ProjectTab.Location(project)
+        "location" -> ProjectTab.Location(project, user)
 
         "settings" -> {
             val worldMemberRole = worldMemberQueryStep.process(
                 WorldMemberQueryInput(user.id, worldId)
             ).getOrNull()?.worldRole ?: Role.MEMBER
-            ProjectTab.Settings(project, worldMemberRole)
+            ProjectTab.Settings(project, user, worldMemberRole)
         }
 
         else -> {
@@ -165,7 +167,7 @@ suspend fun ApplicationCall.handleGetProject() {
                 }
             }
             val totalCount = CountProjectTasksStep.process(projectId).getOrNull() ?: tasks.size
-            ProjectTab.Tasks(project, totalCount, tasks)
+            ProjectTab.Tasks(project, user, totalCount, tasks)
         }
     }
 

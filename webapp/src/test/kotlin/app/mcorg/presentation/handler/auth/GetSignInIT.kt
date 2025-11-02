@@ -1,6 +1,6 @@
 package app.mcorg.presentation.handler.auth
 
-import app.mcorg.pipeline.auth.CreateTokenStep
+import app.mcorg.pipeline.auth.commonsteps.CreateTokenStep
 import app.mcorg.presentation.consts.AUTH_COOKIE
 import app.mcorg.presentation.router.authRouter
 import app.mcorg.test.WithUser

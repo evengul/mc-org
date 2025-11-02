@@ -1,6 +1,7 @@
 package app.mcorg.presentation.templated.home
 
 import app.mcorg.domain.model.minecraft.MinecraftVersion
+import app.mcorg.domain.model.user.TokenProfile
 import app.mcorg.domain.model.world.World
 import app.mcorg.presentation.templated.common.component.LeafComponent
 import app.mcorg.presentation.templated.common.component.addComponent
@@ -17,7 +18,7 @@ import kotlinx.html.id
 import kotlinx.html.p
 import kotlinx.html.ul
 
-fun DIV.worldsView(worlds: List<World>, supportedVersions: List<MinecraftVersion.Release>) {
+fun DIV.worldsView(user: TokenProfile, worlds: List<World>, supportedVersions: List<MinecraftVersion.Release>) {
     id = "home-worlds"
     if (worlds.isEmpty()) {
         emptyState(
@@ -26,7 +27,7 @@ fun DIV.worldsView(worlds: List<World>, supportedVersions: List<MinecraftVersion
             description = "Get started by creating your first Minecraft world to organize your projects.",
             icon = Icons.ADD_WORLD
         ) {
-            createWorldModal(supportedVersions)
+            createWorldModal(user, supportedVersions)
         }
     } else {
         div("home-worlds-search-create") {
@@ -38,7 +39,7 @@ fun DIV.worldsView(worlds: List<World>, supportedVersions: List<MinecraftVersion
                     hxInclude = "#home-worlds-sort-select",
                 )
             }
-            createWorldModal(supportedVersions)
+            createWorldModal(user, supportedVersions)
         }
         p("subtle") {
             id = "home-worlds-count"
@@ -58,12 +59,13 @@ fun UL.worldList(worlds: List<World>) {
 }
 
 class WorldsView(
+    val user: TokenProfile,
     val worlds: List<World>,
     val supportedVersions: List<MinecraftVersion.Release>
 ) : LeafComponent() {
     override fun render(container: TagConsumer<*>) {
         container.div {
-            worldsView(worlds, supportedVersions)
+            worldsView(user, worlds, supportedVersions)
         }
     }
 }

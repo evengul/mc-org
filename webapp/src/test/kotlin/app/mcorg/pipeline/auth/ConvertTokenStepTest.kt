@@ -1,6 +1,7 @@
 package app.mcorg.pipeline.auth
 
-import app.mcorg.pipeline.failure.ConvertTokenStepFailure
+import app.mcorg.pipeline.auth.commonsteps.ConvertTokenStep
+import app.mcorg.pipeline.auth.commonsteps.ConvertTokenStepFailure
 import app.mcorg.presentation.consts.ISSUER
 import app.mcorg.presentation.security.JwtHelper
 import app.mcorg.presentation.security.getKeys

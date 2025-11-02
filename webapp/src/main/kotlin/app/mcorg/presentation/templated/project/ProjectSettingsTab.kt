@@ -3,6 +3,7 @@ package app.mcorg.presentation.templated.project
 import app.mcorg.domain.model.project.Project
 import app.mcorg.domain.model.project.ProjectType
 import app.mcorg.domain.model.user.Role
+import app.mcorg.domain.model.user.TokenProfile
 import app.mcorg.presentation.hxDeleteWithConfirm
 import app.mcorg.presentation.hxPut
 import app.mcorg.presentation.hxSwap
@@ -26,13 +27,14 @@ import kotlinx.html.h2
 import kotlinx.html.id
 import kotlinx.html.input
 import kotlinx.html.label
+import kotlinx.html.onSubmit
 import kotlinx.html.option
 import kotlinx.html.p
 import kotlinx.html.section
 import kotlinx.html.select
 import kotlinx.html.span
 
-fun DIV.projectSettingsTab(project: Project, worldMemberRole: Role) {
+fun DIV.projectSettingsTab(user: TokenProfile, project: Project, worldMemberRole: Role) {
     classes += "project-settings-tab"
 
     section("project-settings-form") {
@@ -42,17 +44,22 @@ fun DIV.projectSettingsTab(project: Project, worldMemberRole: Role) {
         p("subtle") {
             + "Manage your project settings and preferences"
         }
-        form {
-            projectNameForm(project)
+        if (user.isDemoUserInProduction) {
+            p("alert alert--info") {
+                + "You are currently using a demo account. Changes made here will not be saved."
+            }
         }
         form {
-            projectDescriptionForm(project)
+            projectNameForm(project, user)
         }
         form {
-            projectTypeForm(project)
+            projectDescriptionForm(project, user)
+        }
+        form {
+            projectTypeForm(project, user)
         }
     }
-    if (worldMemberRole.isHigherThanOrEqualTo(Role.ADMIN)) {
+    if (worldMemberRole.isHigherThanOrEqualTo(Role.ADMIN) && !user.isDemoUserInProduction) {
         dangerZone(description = "Permanently delete this project and all associated data. This action cannot be undone.") {
             dangerButton("Delete Project") {
                 buttonBlock = {
@@ -72,13 +79,17 @@ fun DIV.projectSettingsTab(project: Project, worldMemberRole: Role) {
     }
 }
 
-fun FORM.projectNameForm(project: Project) {
+fun FORM.projectNameForm(project: Project, user: TokenProfile) {
     encType = FormEncType.applicationXWwwFormUrlEncoded
 
-    hxTarget("#$ALERT_CONTAINER_ID")
-    hxSwap("afterbegin")
-    hxPut(Link.Worlds.world(project.worldId).project(project.id).to + "/name")
-    hxTrigger("input changed delay:500ms from:#project-name-input, submit")
+    if (!user.isDemoUserInProduction) {
+        hxTarget("#$ALERT_CONTAINER_ID")
+        hxSwap("afterbegin")
+        hxPut(Link.Worlds.world(project.worldId).project(project.id).to + "/name")
+        hxTrigger("input changed delay:500ms from:#project-name-input, submit")
+    } else {
+        onSubmit = "return false;"
+    }
 
     classes += "project-name-form"
     label {
@@ -97,13 +108,17 @@ fun FORM.projectNameForm(project: Project) {
     }
 }
 
-fun FORM.projectDescriptionForm(project: Project) {
+fun FORM.projectDescriptionForm(project: Project, user: TokenProfile) {
     encType = FormEncType.applicationXWwwFormUrlEncoded
 
-    hxTarget("#$ALERT_CONTAINER_ID")
-    hxSwap("afterbegin")
-    hxPut(Link.Worlds.world(project.worldId).project(project.id).to + "/description")
-    hxTrigger("input changed delay:500ms from:#project-description-input, submit")
+    if (!user.isDemoUserInProduction) {
+        hxTarget("#$ALERT_CONTAINER_ID")
+        hxSwap("afterbegin")
+        hxPut(Link.Worlds.world(project.worldId).project(project.id).to + "/description")
+        hxTrigger("input changed delay:500ms from:#project-description-input, submit")
+    } else {
+        onSubmit = "return false;"
+    }
 
     classes += "project-description-form"
     label {
@@ -120,13 +135,17 @@ fun FORM.projectDescriptionForm(project: Project) {
     }
 }
 
-fun FORM.projectTypeForm(project: Project) {
+fun FORM.projectTypeForm(project: Project, user: TokenProfile) {
     encType = FormEncType.applicationXWwwFormUrlEncoded
 
-    hxTarget("#$ALERT_CONTAINER_ID")
-    hxSwap("afterbegin")
-    hxPut(Link.Worlds.world(project.worldId).project(project.id).to + "/type")
-    hxTrigger("change changed delay:500ms from:#project-type-select, submit")
+    if (!user.isDemoUserInProduction) {
+        hxTarget("#$ALERT_CONTAINER_ID")
+        hxSwap("afterbegin")
+        hxPut(Link.Worlds.world(project.worldId).project(project.id).to + "/type")
+        hxTrigger("change changed delay:500ms from:#project-type-select, submit")
+    } else {
+        onSubmit = "return false;"
+    }
 
     classes += "project-type-form"
     label {

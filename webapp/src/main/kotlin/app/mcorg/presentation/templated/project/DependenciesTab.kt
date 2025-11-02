@@ -3,6 +3,7 @@ package app.mcorg.presentation.templated.project
 import app.mcorg.domain.model.project.NamedProjectId
 import app.mcorg.domain.model.project.ProjectDependency
 import app.mcorg.domain.model.project.ProjectStage
+import app.mcorg.domain.model.user.TokenProfile
 import app.mcorg.presentation.hxDeleteWithConfirm
 import app.mcorg.presentation.hxPost
 import app.mcorg.presentation.hxTarget
@@ -25,13 +26,14 @@ import kotlinx.html.form
 import kotlinx.html.h2
 import kotlinx.html.id
 import kotlinx.html.li
+import kotlinx.html.onSubmit
 import kotlinx.html.option
 import kotlinx.html.p
 import kotlinx.html.select
 import kotlinx.html.span
 import kotlinx.html.ul
 
-fun DIV.dependenciesTab(worldId: Int, projectId: Int, availableProjects: List<NamedProjectId>, dependencies: List<ProjectDependency>, dependents: List<ProjectDependency>) {
+fun DIV.dependenciesTab(user: TokenProfile, worldId: Int, projectId: Int, availableProjects: List<NamedProjectId>, dependencies: List<ProjectDependency>, dependents: List<ProjectDependency>) {
     classes += "dependencies-tab"
     div("project-dependencies") {
         div("project-dependencies-header") {
@@ -44,7 +46,7 @@ fun DIV.dependenciesTab(worldId: Int, projectId: Int, availableProjects: List<Na
                 }
             }
             form {
-                addDependencyForm(worldId, projectId, availableProjects)
+                addDependencyForm(user, worldId, projectId, availableProjects)
             }
         }
         div {
@@ -84,12 +86,16 @@ fun DIV.dependenciesTab(worldId: Int, projectId: Int, availableProjects: List<Na
     }
 }
 
-fun FORM.addDependencyForm(worldId: Int, projectId: Int, availableDependencies: List<NamedProjectId>) {
+fun FORM.addDependencyForm(user: TokenProfile, worldId: Int, projectId: Int, availableDependencies: List<NamedProjectId>) {
     id = "add-dependency-form"
     classes += "project-dependencies-header-actions"
     encType = FormEncType.applicationXWwwFormUrlEncoded
-    hxPost(Link.Worlds.world(worldId).project(projectId).to + "/dependencies")
-    hxTarget("#project-dependencies-list-container")
+    if (!user.isDemoUserInProduction) {
+        hxPost(Link.Worlds.world(worldId).project(projectId).to + "/dependencies")
+        hxTarget("#project-dependencies-list-container")
+    } else {
+        onSubmit = "return false;"
+    }
     if (availableDependencies.isNotEmpty()) {
         select {
             name = "dependencyProjectId"
@@ -105,7 +111,7 @@ fun FORM.addDependencyForm(worldId: Int, projectId: Int, availableDependencies: 
                 }
             }
         }
-        actionButton("Add Dependency")
+        actionButton("Add Dependency${if (user.isDemoUserInProduction) " (Disabled in Demo)" else ""}") {}
     } else {
         p("subtle none-available") {
             + "No other projects available to add as dependencies. Create more projects to enable this feature."

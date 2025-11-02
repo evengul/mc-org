@@ -2,8 +2,8 @@ package app.mcorg.pipeline.auth
 
 import app.mcorg.config.Database
 import app.mcorg.config.DatabaseConnectionProvider
+import app.mcorg.pipeline.auth.commonsteps.UpdateLastSignInStep
 import app.mcorg.pipeline.failure.DatabaseFailure
-import app.mcorg.pipeline.failure.UpdateLastSignInFailure
 import app.mcorg.test.utils.TestUtils
 import io.mockk.*
 import org.junit.jupiter.api.BeforeEach
@@ -92,11 +92,10 @@ class UpdateLastSignInStepTest {
         val error = TestUtils.executeAndAssertFailure(
             UpdateLastSignInStep,
             username,
-            UpdateLastSignInFailure.Other::class.java
+            DatabaseFailure::class.java
         )
 
-        assertTrue(error is UpdateLastSignInFailure.Other)
-        assertTrue(error.failure is DatabaseFailure.ConnectionError)
+        assertTrue(error is DatabaseFailure.ConnectionError)
 
         // Verify the step attempted the database call and failed gracefully
         verify {

@@ -1,5 +1,6 @@
 package app.mcorg.pipeline.auth
 
+import app.mcorg.pipeline.auth.commonsteps.CreateTokenStep
 import app.mcorg.test.fixtures.TestDataFactory
 import app.mcorg.test.utils.TestUtils
 import app.mcorg.presentation.security.JwtHelper

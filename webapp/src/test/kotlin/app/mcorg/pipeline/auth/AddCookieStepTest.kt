@@ -1,5 +1,6 @@
 package app.mcorg.pipeline.auth
 
+import app.mcorg.pipeline.auth.commonsteps.AddCookieStep
 import app.mcorg.test.utils.TestUtils
 import app.mcorg.presentation.consts.AUTH_COOKIE
 import io.ktor.server.response.ResponseCookies
