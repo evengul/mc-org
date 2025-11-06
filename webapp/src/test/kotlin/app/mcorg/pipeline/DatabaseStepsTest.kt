@@ -3,14 +3,16 @@ package app.mcorg.pipeline
 import app.mcorg.config.Database
 import app.mcorg.config.DatabaseConnectionProvider
 import app.mcorg.domain.pipeline.Result
+import app.mcorg.pipeline.failure.AppFailure
+import app.mcorg.test.utils.TestUtils
 import io.mockk.*
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.AfterEach
-import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import java.sql.*
 import kotlin.test.assertEquals
+import kotlin.test.assertIs
 import kotlin.test.assertTrue
 
 @Suppress("SqlSourceToSinkFlow")
@@ -67,7 +69,6 @@ class DatabaseStepsTest {
         val parameterSetter: (PreparedStatement, Int) -> Unit = { stmt, id ->
             stmt.setInt(1, id)
         }
-        val errorMapper: (DatabaseFailure) -> String = { failure -> "Error: $failure" }
         val resultMapper: (ResultSet) -> String = { rs -> expectedData }
 
         // Act
@@ -90,16 +91,16 @@ class DatabaseStepsTest {
         every { mockConnection.prepareStatement(safeSQL.query) } returns mockPreparedStatement
         val expectedCount = 42
 
-        val errorMapper: (DatabaseFailure) -> String = { "Error" }
         val resultMapper: (ResultSet) -> Int = { expectedCount }
 
         // Act
-        val step = DatabaseSteps.query<Unit, Int>(safeSQL, resultMapper = resultMapper)
-        val result = step.process(input)
+        val result = TestUtils.executeAndAssertSuccess(
+            DatabaseSteps.query(safeSQL, resultMapper = resultMapper),
+            input
+        )
 
         // Assert
-        assertTrue(result is Result.Success)
-        assertEquals(expectedCount, result.value)
+        assertEquals(expectedCount, result)
         verify { mockPreparedStatement.executeQuery() }
         verify(exactly = 0) { mockPreparedStatement.setInt(any(), any()) }
     }
@@ -113,21 +114,16 @@ class DatabaseStepsTest {
 
         every { mockConnection.prepareStatement(safeSQL.query) } throws timeoutException
 
-        val errorMapper: (DatabaseFailure) -> String = { failure ->
-            when (failure) {
-                DatabaseFailure.ConnectionError -> "Connection error"
-                else -> "Other error"
-            }
-        }
         val resultMapper: (ResultSet) -> String = { "data" }
 
         // Act
-        val step = DatabaseSteps.query<Unit, String>(safeSQL, resultMapper = resultMapper)
-        val result = step.process(input)
+        val result = TestUtils.executeAndAssertFailure(
+            DatabaseSteps.query(safeSQL, resultMapper = resultMapper),
+            input
+        )
 
         // Assert
-        assertTrue(result is Result.Failure)
-        assertEquals("Connection error", result.error)
+        assertEquals(AppFailure.DatabaseError.ConnectionError, result)
     }
 
     @Test
@@ -139,21 +135,16 @@ class DatabaseStepsTest {
 
         every { mockConnection.prepareStatement(safeSQL.query) } throws syntaxException
 
-        val errorMapper: (DatabaseFailure) -> String = { failure ->
-            when (failure) {
-                DatabaseFailure.StatementError -> "Statement error"
-                else -> "Other error"
-            }
-        }
         val resultMapper: (ResultSet) -> String = { "data" }
 
         // Act
-        val step = DatabaseSteps.query<Unit, String>(safeSQL, resultMapper = resultMapper)
-        val result = step.process(input)
+        val result = TestUtils.executeAndAssertFailure(
+            DatabaseSteps.query(safeSQL, resultMapper = resultMapper),
+            input
+        )
 
         // Assert
-        assertTrue(result is Result.Failure)
-        assertEquals("Statement error", result.error)
+        assertEquals(AppFailure.DatabaseError.StatementError, result)
     }
 
     @Test
@@ -165,21 +156,16 @@ class DatabaseStepsTest {
 
         every { mockConnection.prepareStatement(safeSQL.query) } throws constraintException
 
-        val errorMapper: (DatabaseFailure) -> String = { failure ->
-            when (failure) {
-                DatabaseFailure.IntegrityConstraintError -> "Constraint error"
-                else -> "Other error"
-            }
-        }
         val resultMapper: (ResultSet) -> String = { "data" }
 
         // Act
-        val step = DatabaseSteps.query<Unit, String>(safeSQL, resultMapper = resultMapper)
-        val result = step.process(input)
+        val result = TestUtils.executeAndAssertFailure(
+            DatabaseSteps.query(safeSQL, resultMapper = resultMapper),
+            input
+        )
 
         // Assert
-        assertTrue(result is Result.Failure)
-        assertEquals("Constraint error", result.error)
+        assertEquals(AppFailure.DatabaseError.IntegrityConstraintError, result)
     }
 
     @Test
@@ -191,21 +177,16 @@ class DatabaseStepsTest {
 
         every { mockConnection.prepareStatement(safeSQL.query) } throws unknownException
 
-        val errorMapper: (DatabaseFailure) -> String = { failure ->
-            when (failure) {
-                DatabaseFailure.UnknownError -> "Unknown error"
-                else -> "Other error"
-            }
-        }
         val resultMapper: (ResultSet) -> String = { "data" }
 
         // Act
-        val step = DatabaseSteps.query<Unit, String>(safeSQL, resultMapper = resultMapper)
-        val result = step.process(input)
+        val result = TestUtils.executeAndAssertFailure(
+            DatabaseSteps.query(safeSQL, resultMapper = resultMapper),
+            input
+        )
 
         // Assert
-        assertTrue(result is Result.Failure)
-        assertEquals("Unknown error", result.error)
+        assertEquals(AppFailure.DatabaseError.UnknownError, result)
     }
 
     // Update Tests
@@ -224,18 +205,18 @@ class DatabaseStepsTest {
             stmt.setString(1, data.first)
             stmt.setInt(2, data.second)
         }
-        val errorMapper: (DatabaseFailure) -> String = { "Error" }
 
         every { mockPreparedStatement.setString(1, input.first) } just Runs
         every { mockPreparedStatement.setInt(2, input.second) } just Runs
 
         // Act
-        val step = DatabaseSteps.update(safeSQL, parameterSetter)
-        val result = step.process(input)
+        val result = TestUtils.executeAndAssertSuccess(
+            DatabaseSteps.update(safeSQL, parameterSetter),
+            input
+        )
 
         // Assert
-        assertTrue(result is Result.Success)
-        assertEquals(expectedAffectedRows, result.value)
+        assertEquals(expectedAffectedRows, result)
         verify { mockPreparedStatement.setString(1, input.first) }
         verify { mockPreparedStatement.setInt(2, input.second) }
         verify { mockPreparedStatement.executeUpdate() }
@@ -253,24 +234,19 @@ class DatabaseStepsTest {
         val parameterSetter: (PreparedStatement, String) -> Unit = { stmt, name ->
             stmt.setString(1, name)
         }
-        val errorMapper: (DatabaseFailure) -> String = { failure ->
-            when (failure) {
-                DatabaseFailure.ConnectionError -> "Connection error"
-                else -> "Other error"
-            }
-        }
 
         // Act
-        val step = DatabaseSteps.update(safeSQL, parameterSetter)
-        val result = step.process(input)
+        val result = TestUtils.executeAndAssertFailure(
+            DatabaseSteps.update(safeSQL, parameterSetter),
+            input
+        )
 
         // Assert
-        assertTrue(result is Result.Failure)
-        assertEquals("Connection error", result.error)
+        assertEquals(AppFailure.DatabaseError.ConnectionError, result)
     }
 
     @Test
-    fun `update handles SQLSyntaxErrorException correctly`() = runBlocking {
+    fun `update handles SQLSyntaxErrorException correctly`() {
         // Arrange
         val safeSQL = SafeSQL.update("UPDATE users SET name = ?")
         val input = "John Doe"
@@ -281,24 +257,19 @@ class DatabaseStepsTest {
         val parameterSetter: (PreparedStatement, String) -> Unit = { stmt, name ->
             stmt.setString(1, name)
         }
-        val errorMapper: (DatabaseFailure) -> String = { failure ->
-            when (failure) {
-                DatabaseFailure.StatementError -> "Statement error"
-                else -> "Other error"
-            }
-        }
 
         // Act
-        val step = DatabaseSteps.update(safeSQL, parameterSetter)
-        val result = step.process(input)
+        val result = TestUtils.executeAndAssertFailure(
+            DatabaseSteps.update(safeSQL, parameterSetter),
+            input
+        )
 
         // Assert
-        assertTrue(result is Result.Failure)
-        assertEquals("Statement error", result.error)
+        assertIs<AppFailure.DatabaseError.StatementError>(result)
     }
 
     @Test
-    fun `update handles SQLIntegrityConstraintViolationException correctly`() = runBlocking {
+    fun `update handles SQLIntegrityConstraintViolationException correctly`() {
         // Arrange
         val safeSQL = SafeSQL.insert("INSERT INTO users (email) VALUES (?)")
         val input = "duplicate@example.com"
@@ -309,20 +280,15 @@ class DatabaseStepsTest {
         val parameterSetter: (PreparedStatement, String) -> Unit = { stmt, email ->
             stmt.setString(1, email)
         }
-        val errorMapper: (DatabaseFailure) -> String = { failure ->
-            when (failure) {
-                DatabaseFailure.IntegrityConstraintError -> "Constraint error"
-                else -> "Other error"
-            }
-        }
 
         // Act
-        val step = DatabaseSteps.update(safeSQL, parameterSetter)
-        val result = step.process(input)
+        val result = TestUtils.executeAndAssertFailure(
+            DatabaseSteps.update(safeSQL, parameterSetter),
+            input
+        )
 
         // Assert
-        assertTrue(result is Result.Failure)
-        assertEquals("Constraint error", result.error)
+        assertIs<AppFailure.DatabaseError.IntegrityConstraintError>(result)
     }
 
     @Test
@@ -337,49 +303,15 @@ class DatabaseStepsTest {
         val parameterSetter: (PreparedStatement, Int) -> Unit = { stmt, id ->
             stmt.setInt(1, id)
         }
-        val errorMapper: (DatabaseFailure) -> String = { failure ->
-            when (failure) {
-                DatabaseFailure.UnknownError -> "Unknown error"
-                else -> "Other error"
-            }
-        }
 
         // Act
-        val step = DatabaseSteps.update(safeSQL, parameterSetter)
-        val result = step.process(input)
+        val result = TestUtils.executeAndAssertFailure(
+            DatabaseSteps.update(safeSQL, parameterSetter),
+            input
+        )
 
         // Assert
-        assertTrue(result is Result.Failure)
-        assertEquals("Unknown error", result.error)
-    }
-
-    enum class CustomError { DATABASE_ERROR, CONNECTION_FAILED, SYNTAX_ERROR }
-
-    @Test
-    fun `query with custom error mapper works correctly`() = runBlocking {
-
-        val safeSQL = SafeSQL.select("SELECT * FROM users")
-        val input = Unit
-        val timeoutException = SQLTimeoutException("Connection timeout")
-
-        every { mockConnection.prepareStatement(safeSQL.query) } throws timeoutException
-
-        val errorMapper: (DatabaseFailure) -> CustomError = { failure ->
-            when (failure) {
-                DatabaseFailure.ConnectionError -> CustomError.CONNECTION_FAILED
-                DatabaseFailure.StatementError -> CustomError.SYNTAX_ERROR
-                else -> CustomError.DATABASE_ERROR
-            }
-        }
-        val resultMapper: (ResultSet) -> String = { "data" }
-
-        // Act
-        val step = DatabaseSteps.query<Unit, String>(safeSQL, resultMapper = resultMapper)
-        val result = step.process(input)
-
-        // Assert
-        assertTrue(result is Result.Failure)
-        assertEquals(CustomError.CONNECTION_FAILED, result.error)
+        assertIs<AppFailure.DatabaseError.UnknownError>(result)
     }
 
     @Test
@@ -397,7 +329,6 @@ class DatabaseStepsTest {
             stmt.setString(2, params.second)
             stmt.setBoolean(3, params.third)
         }
-        val errorMapper: (DatabaseFailure) -> String = { "Error" }
         val resultMapper: (ResultSet) -> List<String> = { expectedResult }
 
         every { mockPreparedStatement.setInt(1, input.first) } just Runs
@@ -405,12 +336,13 @@ class DatabaseStepsTest {
         every { mockPreparedStatement.setBoolean(3, input.third) } just Runs
 
         // Act
-        val step = DatabaseSteps.query(safeSQL, parameterSetter, resultMapper)
-        val result = step.process(input)
+        val result = TestUtils.executeAndAssertSuccess(
+            DatabaseSteps.query(safeSQL, parameterSetter, resultMapper),
+            input
+        )
 
         // Assert
-        assertTrue(result is Result.Success)
-        assertEquals(expectedResult, result.value)
+        assertEquals(expectedResult, result)
         verify { mockPreparedStatement.setInt(1, input.first) }
         verify { mockPreparedStatement.setString(2, input.second) }
         verify { mockPreparedStatement.setBoolean(3, input.third) }
@@ -433,7 +365,6 @@ class DatabaseStepsTest {
             stmt.setInt(3, user.age)
             stmt.setInt(4, user.id)
         }
-        val errorMapper: (DatabaseFailure) -> String = { "Error" }
 
         every { mockPreparedStatement.setString(1, input.name) } just Runs
         every { mockPreparedStatement.setString(2, input.email) } just Runs
@@ -441,12 +372,13 @@ class DatabaseStepsTest {
         every { mockPreparedStatement.setInt(4, input.id) } just Runs
 
         // Act
-        val step = DatabaseSteps.update(safeSQL, parameterSetter)
-        val result = step.process(input)
+        val result = TestUtils.executeAndAssertSuccess(
+            DatabaseSteps.update(safeSQL, parameterSetter, ),
+            input
+        )
 
         // Assert
-        assertTrue(result is Result.Success)
-        assertEquals(expectedAffectedRows, result.value)
+        assertEquals(expectedAffectedRows, result)
         verify { mockPreparedStatement.setString(1, input.name) }
         verify { mockPreparedStatement.setString(2, input.email) }
         verify { mockPreparedStatement.setInt(3, input.age) }
@@ -470,18 +402,18 @@ class DatabaseStepsTest {
                 stmt.setString(1, name)
             }
         }
-        val errorMapper: (DatabaseFailure) -> String = { "Error" }
         val resultMapper: (ResultSet) -> List<String> = { expectedData }
 
         every { mockPreparedStatement.setNull(1, Types.VARCHAR) } just Runs
 
         // Act
-        val step = DatabaseSteps.query(safeSQL, parameterSetter, resultMapper)
-        val result = step.process(input)
+        val result = TestUtils.executeAndAssertSuccess(
+            DatabaseSteps.query(safeSQL, parameterSetter, resultMapper),
+            input
+        )
 
         // Assert
-        assertTrue(result is Result.Success)
-        assertEquals(expectedData, result.value)
+        assertEquals(expectedData, result)
         verify { mockPreparedStatement.setNull(1, Types.VARCHAR) }
         verify { mockPreparedStatement.executeQuery() }
     }
@@ -500,22 +432,22 @@ class DatabaseStepsTest {
             stmt.setString(1, data.first)
             stmt.setInt(2, data.second)
         }
-        val errorMapper: (DatabaseFailure) -> String = { "Error" }
 
         every { mockPreparedStatement.setString(1, input.first) } just Runs
         every { mockPreparedStatement.setInt(2, input.second) } just Runs
 
         // Act
-        val step = DatabaseSteps.update(safeSQL, parameterSetter)
-        val result = step.process(input)
+        val result = TestUtils.executeAndAssertSuccess(
+            DatabaseSteps.update(safeSQL, parameterSetter),
+            input
+        )
 
         // Assert
-        assertTrue(result is Result.Success)
-        assertEquals(expectedAffectedRows, result.value)
+        assertEquals(expectedAffectedRows, result)
     }
 
     @Test
-    fun `query with ResultSet processing exception is handled correctly`() = runBlocking {
+    fun `query with ResultSet processing exception is handled correctly`() {
         // Arrange
         val safeSQL = SafeSQL.select("SELECT * FROM users")
         val input = Unit
@@ -523,23 +455,18 @@ class DatabaseStepsTest {
         every { mockConnection.prepareStatement(safeSQL.query) } returns mockPreparedStatement
         every { mockPreparedStatement.executeQuery() } returns mockResultSet
 
-        val errorMapper: (DatabaseFailure) -> String = { failure ->
-            when (failure) {
-                DatabaseFailure.UnknownError -> "Processing error"
-                else -> "Other error"
-            }
-        }
         val resultMapper: (ResultSet) -> String = {
-            throw RuntimeException("ResultSet processing failed")
+            throw SQLException("ResultSet processing failed")
         }
 
         // Act
-        val step = DatabaseSteps.query<Unit, String>(safeSQL, resultMapper = resultMapper)
-        val result = step.process(input)
+        val result = TestUtils.executeAndAssertFailure(
+            DatabaseSteps.query(safeSQL, resultMapper = resultMapper),
+            input
+        )
 
         // Assert
-        assertTrue(result is Result.Failure)
-        assertEquals("Processing error", result.error)
+        assertIs<AppFailure.DatabaseError.ResultMappingError>(result)
     }
 
     @Test
@@ -551,50 +478,16 @@ class DatabaseStepsTest {
         every { mockConnection.prepareStatement(safeSQL.query) } returns mockPreparedStatement
         every { mockPreparedStatement.executeQuery() } throws RuntimeException("Query failed")
 
-        val errorMapper: (DatabaseFailure) -> String = { "Error" }
         val resultMapper: (ResultSet) -> String = { "data" }
 
         // Act
-        val step =
-            DatabaseSteps.query<Unit, String>(safeSQL, resultMapper = resultMapper)
-        val result = step.process(input)
+        TestUtils.executeAndAssertFailure(
+            DatabaseSteps.query(safeSQL, resultMapper = resultMapper),
+            input
+        )
 
         // Assert
-        assertTrue(result is Result.Failure)
-        // Verify that close() methods were called (which proves use() worked correctly)
         verify { mockConnection.close() }
         verify { mockPreparedStatement.close() }
-    }
-
-    @Test
-    fun `query step implements Step interface correctly`() {
-        // Arrange
-        val safeSQL = SafeSQL.select("SELECT * FROM users")
-        val errorMapper: (DatabaseFailure) -> String = { "Error" }
-        val resultMapper: (ResultSet) -> String = { "result" }
-
-        // Act
-        val step = DatabaseSteps.query<Unit, String>(safeSQL, resultMapper = resultMapper)
-
-        // Assert
-        assertNotNull(step)
-        assertTrue(true)
-    }
-
-    @Test
-    fun `update step implements Step interface correctly`() {
-        // Arrange
-        val safeSQL = SafeSQL.update("UPDATE users SET name = ?")
-        val parameterSetter: (PreparedStatement, String) -> Unit = { stmt, name ->
-            stmt.setString(1, name)
-        }
-        val errorMapper: (DatabaseFailure) -> String = { "Error" }
-
-        // Act
-        val step = DatabaseSteps.update(safeSQL, parameterSetter)
-
-        // Assert
-        assertNotNull(step)
-        assertTrue(true)
     }
 }

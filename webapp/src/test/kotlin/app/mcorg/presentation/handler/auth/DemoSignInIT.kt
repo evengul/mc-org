@@ -5,11 +5,10 @@ import app.mcorg.domain.Local
 import app.mcorg.presentation.consts.AUTH_COOKIE
 import app.mcorg.presentation.router.authRouter
 import app.mcorg.test.postgres.DatabaseTestExtension
-import io.ktor.client.request.get
-import io.ktor.http.HttpStatusCode
-import io.ktor.http.setCookie
-import io.ktor.server.routing.route
-import io.ktor.server.testing.testApplication
+import io.ktor.client.request.*
+import io.ktor.http.*
+import io.ktor.server.routing.*
+import io.ktor.server.testing.*
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
@@ -18,10 +17,10 @@ import kotlin.test.assertNotNull
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @ExtendWith(DatabaseTestExtension::class)
-class TestSignInIT {
+class DemoSignInIT {
     @BeforeEach
     fun setup() {
-        AppConfig.env = app.mcorg.domain.Test
+        AppConfig.env = Local
     }
 
     @Test
@@ -36,7 +35,7 @@ class TestSignInIT {
             }
         }
 
-        val response = client.get("/auth/oidc/test-redirect")
+        val response = client.get("/auth/oidc/demo-redirect")
         assert(response.status == HttpStatusCode.Found)
         assert(response.headers["Location"] == "/")
         val cookie = response.setCookie().find { it.name == AUTH_COOKIE }
@@ -56,14 +55,14 @@ class TestSignInIT {
             }
         }
 
-        val response = client.get("/auth/oidc/test-redirect?redirect_to=/custom-path")
+        val response = client.get("/auth/oidc/local-redirect?redirect_to=/custom-path")
         assert(response.status == HttpStatusCode.Found)
         assert(response.headers["Location"] == "/custom-path")
     }
 
     @Test
     fun `Respond with 403 when sign in fails`() = testApplication {
-        AppConfig.env = Local
+        AppConfig.env = app.mcorg.domain.Test
 
         val client = createClient { followRedirects = false }
         routing {
@@ -72,7 +71,7 @@ class TestSignInIT {
             }
         }
 
-        val response = client.get("/auth/oidc/test-redirect")
+        val response = client.get("/auth/oidc/local-redirect")
         assert(response.status == HttpStatusCode.Forbidden)
     }
 }

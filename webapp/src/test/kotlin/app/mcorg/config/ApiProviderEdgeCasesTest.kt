@@ -1,6 +1,7 @@
 package app.mcorg.config
 
 import app.mcorg.domain.pipeline.Result
+import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.test.utils.TestUtils
 import io.ktor.client.request.*
 import kotlinx.serialization.Serializable
@@ -24,24 +25,6 @@ class ApiProviderEdgeCasesTest {
     @Serializable
     data class Metadata(val total: Int, val hasMore: Boolean)
 
-    sealed class TestError {
-        data class HttpError(val status: Int, val body: String?) : TestError()
-        data object SerializationError : TestError()
-        data object NetworkError : TestError()
-        data object TimeoutError : TestError()
-        data object RateLimitError : TestError()
-        data object UnknownError : TestError()
-    }
-
-    private fun detailedErrorMapper(failure: ApiFailure): TestError = when (failure) {
-        is ApiFailure.HttpError -> TestError.HttpError(failure.statusCode, failure.body)
-        is ApiFailure.SerializationError -> TestError.SerializationError
-        is ApiFailure.NetworkError -> TestError.NetworkError
-        is ApiFailure.TimeoutError -> TestError.TimeoutError
-        is ApiFailure.RateLimitExceeded -> TestError.RateLimitError
-        is ApiFailure.UnknownError -> TestError.UnknownError
-    }
-
     @Test
     fun `should handle complex nested JSON structures`() {
         val config = TestApiConfig()
@@ -60,9 +43,8 @@ class ApiProviderEdgeCasesTest {
 
         val provider = FakeApiProvider(config) { _, _ -> Result.success(complexJson) }
 
-        val step = provider.get<Unit, TestError, ComplexResponse>(
+        val step = provider.get<Unit, ComplexResponse>(
             url = "https://api.example.com/complex",
-            errorMapper = ::detailedErrorMapper
         )
 
         val response = TestUtils.executeAndAssertSuccess(step, Unit)
@@ -94,9 +76,8 @@ class ApiProviderEdgeCasesTest {
 
         val provider = FakeApiProvider(config) { _, _ -> Result.success(jsonWithExtraFields) }
 
-        val step = provider.get<Unit, TestError, ComplexResponse>(
+        val step = provider.get<Unit, ComplexResponse>(
             url = "https://api.example.com/with-extra-fields",
-            errorMapper = ::detailedErrorMapper
         )
 
         val response = TestUtils.executeAndAssertSuccess(step, Unit)
@@ -120,9 +101,8 @@ class ApiProviderEdgeCasesTest {
 
         val provider = FakeApiProvider(config) { _, _ -> Result.success(emptyJson) }
 
-        val step = provider.get<Unit, TestError, ComplexResponse>(
-            url = "https://api.example.com/empty",
-            errorMapper = ::detailedErrorMapper
+        val step = provider.get<Unit, ComplexResponse>(
+            url = "https://api.example.com/empty"
         )
 
         val response = TestUtils.executeAndAssertSuccess(step, Unit)
@@ -135,15 +115,13 @@ class ApiProviderEdgeCasesTest {
         val config = TestApiConfig()
         val provider = FakeApiProvider(config) { _, _ -> Result.success("   \n\t  ") }
 
-        val step = provider.get<Unit, TestError, ComplexResponse>(
-            url = "https://api.example.com/whitespace",
-            errorMapper = ::detailedErrorMapper
+        val step = provider.get<Unit, ComplexResponse>(
+            url = "https://api.example.com/whitespace"
         )
 
         TestUtils.executeAndAssertFailure(
             step,
-            Unit,
-            TestError.SerializationError::class.java
+            Unit
         )
     }
 
@@ -152,15 +130,13 @@ class ApiProviderEdgeCasesTest {
         val config = TestApiConfig()
         val provider = FakeApiProvider(config) { _, _ -> Result.success("") }
 
-        val step = provider.get<Unit, TestError, ComplexResponse>(
-            url = "https://api.example.com/empty-string",
-            errorMapper = ::detailedErrorMapper
+        val step = provider.get<Unit, ComplexResponse>(
+            url = "https://api.example.com/empty-string"
         )
 
         TestUtils.executeAndAssertFailure(
             step,
-            Unit,
-            TestError.SerializationError::class.java
+            Unit
         )
     }
 
@@ -169,21 +145,19 @@ class ApiProviderEdgeCasesTest {
         val config = TestApiConfig()
         val errorBody = """{"error": "Resource not found", "code": "NOT_FOUND"}"""
         val provider = FakeApiProvider(config) { _, _ ->
-            Result.failure(ApiFailure.HttpError(404, errorBody))
+            Result.failure(AppFailure.ApiError.HttpError(404, errorBody))
         }
 
-        val step = provider.get<Unit, TestError, ComplexResponse>(
-            url = "https://api.example.com/not-found",
-            errorMapper = ::detailedErrorMapper
+        val step = provider.get<Unit, ComplexResponse>(
+            url = "https://api.example.com/not-found"
         )
 
         val error = TestUtils.executeAndAssertFailure(
             step,
-            Unit,
-            TestError.HttpError::class.java
+            Unit
         )
-        assertIs<TestError.HttpError>(error)
-        assertEquals(404, error.status)
+        assertIs<AppFailure.ApiError.HttpError>(error)
+        assertEquals(404, error.statusCode)
         assertEquals(errorBody, error.body)
     }
 
@@ -194,21 +168,19 @@ class ApiProviderEdgeCasesTest {
 
         statusCodes.forEach { statusCode ->
             val provider = FakeApiProvider(config) { _, _ ->
-                Result.failure(ApiFailure.HttpError(statusCode, "Error $statusCode"))
+                Result.failure(AppFailure.ApiError.HttpError(statusCode, "Error $statusCode"))
             }
 
-            val step = provider.get<Unit, TestError, ComplexResponse>(
+            val step = provider.get<Unit, ComplexResponse>(
                 url = "https://api.example.com/status/$statusCode",
-                errorMapper = ::detailedErrorMapper
             )
 
             val error = TestUtils.executeAndAssertFailure(
                 step,
-                Unit,
-                TestError.HttpError::class.java
+                Unit
             )
-            assertIs<TestError.HttpError>(error)
-            assertEquals(statusCode, error.status)
+            assertIs<AppFailure.ApiError.HttpError>(error)
+            assertEquals(statusCode, error.statusCode)
             assertEquals("Error $statusCode", error.body)
         }
     }
@@ -226,7 +198,7 @@ class ApiProviderEdgeCasesTest {
             Result.success("""{"data": [], "metadata": {"total": 0, "hasMore": false}}""")
         }
 
-        val step = provider.post<TestInput, TestError, ComplexResponse>(
+        val step = provider.post<TestInput, ComplexResponse>(
             url = "https://api.example.com/custom",
             headerBuilder = { builder: HttpRequestBuilder, input: TestInput ->
                 builder.header("Authorization", "Bearer ${input.token}")
@@ -238,8 +210,7 @@ class ApiProviderEdgeCasesTest {
                 val bodyContent = input.payload.entries.joinToString(",") { "${it.key}=${it.value}" }
                 capturedBody = bodyContent
                 // In real implementation, this would set the actual request body
-            },
-            errorMapper = ::detailedErrorMapper
+            }
         )
 
         val testInput = TestInput(
@@ -260,48 +231,5 @@ class ApiProviderEdgeCasesTest {
         assertNotNull(capturedBody)
         assertTrue(capturedBody.contains("key1=value1"))
         assertTrue(capturedBody.contains("key2=value2"))
-    }
-
-    @Test
-    fun `should handle all ApiFailure types comprehensively`() {
-        val config = TestApiConfig()
-
-        val allFailureTypes = mapOf(
-            "network" to ApiFailure.NetworkError,
-            "timeout" to ApiFailure.TimeoutError,
-            "rate-limit" to ApiFailure.RateLimitExceeded,
-            "http-400" to ApiFailure.HttpError(400, "Bad Request"),
-            "http-500" to ApiFailure.HttpError(500),
-            "serialization" to ApiFailure.SerializationError,
-            "unknown" to ApiFailure.UnknownError
-        )
-
-        allFailureTypes.forEach { (name, failureType) ->
-            val provider = FakeApiProvider(config) { _, _ -> Result.failure(failureType) }
-
-            val step = provider.get<Unit, TestError, ComplexResponse>(
-                url = "https://api.example.com/$name",
-                errorMapper = ::detailedErrorMapper
-            )
-
-            val error = TestUtils.executeAndAssertFailure(
-                step,
-                Unit,
-                TestError::class.java
-            )
-
-            when (failureType) {
-                is ApiFailure.NetworkError -> assertEquals(TestError.NetworkError, error)
-                is ApiFailure.TimeoutError -> assertEquals(TestError.TimeoutError, error)
-                is ApiFailure.RateLimitExceeded -> assertEquals(TestError.RateLimitError, error)
-                is ApiFailure.HttpError -> {
-                    assertIs<TestError.HttpError>(error)
-                    assertEquals(failureType.statusCode, error.status)
-                    assertEquals(failureType.body, error.body)
-                }
-                is ApiFailure.SerializationError -> assertEquals(TestError.SerializationError, error)
-                is ApiFailure.UnknownError -> assertEquals(TestError.UnknownError, error)
-            }
-        }
     }
 }

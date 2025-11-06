@@ -296,7 +296,7 @@ class ParallelPipelineBuilderTest {
             Result.success("Success: $input")
         }
 
-        val failingPipeline = Pipeline<String, TestError, String> { input ->
+        val failingPipeline = Pipeline<String, TestError, String> { _ ->
             Result.failure(TestError("Pipeline failed"))
         }
 

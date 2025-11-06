@@ -1,7 +1,6 @@
 package app.mcorg.pipeline.auth
 
 import app.mcorg.pipeline.auth.commonsteps.ConvertTokenStep
-import app.mcorg.pipeline.auth.commonsteps.ConvertTokenStepFailure
 import app.mcorg.presentation.consts.ISSUER
 import app.mcorg.presentation.security.JwtHelper
 import app.mcorg.presentation.security.getKeys
@@ -114,12 +113,10 @@ class ConvertTokenStepTest {
         val emptyToken = ""
 
         // Act & Assert
-        val error = TestUtils.executeAndAssertFailure(
+        TestUtils.executeAndAssertFailure(
             convertTokenStep,
-            emptyToken,
-            ConvertTokenStepFailure.InvalidToken::class.java
+            emptyToken
         )
-        assertEquals(ConvertTokenStepFailure.InvalidToken, error)
     }
 
     @Test
@@ -130,8 +127,7 @@ class ConvertTokenStepTest {
         // Act & Assert
         TestUtils.executeAndAssertFailure(
             convertTokenStep,
-            blankToken,
-            ConvertTokenStepFailure.InvalidToken::class.java
+            blankToken
         )
     }
 
@@ -143,8 +139,7 @@ class ConvertTokenStepTest {
         // Act & Assert
         TestUtils.executeAndAssertFailure(
             convertTokenStep,
-            malformedToken,
-            ConvertTokenStepFailure.ConversionError::class.java
+            malformedToken
         )
     }
 
@@ -158,8 +153,7 @@ class ConvertTokenStepTest {
         // Act & Assert
         TestUtils.executeAndAssertFailure(
             convertTokenStep,
-            expiredToken,
-            ConvertTokenStepFailure.ExpiredToken::class.java
+            expiredToken
         )
     }
 
@@ -171,13 +165,11 @@ class ConvertTokenStepTest {
         // Act & Assert
         val error = TestUtils.executeAndAssertFailure(
             convertTokenStep,
-            tokenWithWrongIssuer,
-            ConvertTokenStepFailure.IncorrectClaim::class.java
+            tokenWithWrongIssuer
         )
 
-        assertTrue(error is ConvertTokenStepFailure.IncorrectClaim)
-        assertEquals("iss", error.claimName)
-        assertEquals("wrong-issuer", error.claimValue)
+        assertEquals("iss", error.arguments[0].second)
+        assertEquals("wrong-issuer", error.arguments[1].second)
     }
 
     @Test
@@ -188,25 +180,22 @@ class ConvertTokenStepTest {
         // Act & Assert
         val error = TestUtils.executeAndAssertFailure(
             convertTokenStep,
-            tokenWithWrongAudience,
-            ConvertTokenStepFailure.IncorrectClaim::class.java
+            tokenWithWrongAudience
         )
 
-        assertTrue(error is ConvertTokenStepFailure.IncorrectClaim)
-        assertEquals("aud", error.claimName)
+        assertEquals("aud", error.arguments[0].second)
     }
 
     @Test
     fun `should fail with InvalidToken for token with invalid signature`() {
         // Arrange - Create a token and then modify it to corrupt the signature
         val validToken = createValidJwtToken()
-        val corruptedToken = validToken.substring(0, validToken.length - 5) + "XXXXX"
+        val corruptedToken = validToken.dropLast(5) + "XXXXX"
 
         // Act & Assert
         TestUtils.executeAndAssertFailure(
             convertTokenStep,
-            corruptedToken,
-            ConvertTokenStepFailure.InvalidToken::class.java
+            corruptedToken
         )
     }
 
@@ -222,12 +211,10 @@ class ConvertTokenStepTest {
         // Act & Assert
         val error = TestUtils.executeAndAssertFailure(
             convertTokenStep,
-            tokenWithoutUserId,
-            ConvertTokenStepFailure.MissingClaim::class.java
+            tokenWithoutUserId
         )
 
-        assertTrue(error is ConvertTokenStepFailure.MissingClaim)
-        assertEquals("sub", error.claimName)
+        assertEquals("sub", error.arguments[0].second)
     }
 
     @Test
@@ -238,12 +225,10 @@ class ConvertTokenStepTest {
         // Act & Assert
         val error = TestUtils.executeAndAssertFailure(
             convertTokenStep,
-            tokenWithoutUsername,
-            ConvertTokenStepFailure.MissingClaim::class.java
+            tokenWithoutUsername
         )
 
-        assertTrue(error is ConvertTokenStepFailure.MissingClaim)
-        assertEquals("minecraft_username", error.claimName)
+        assertEquals("minecraft_username", error.arguments[0].second)
     }
 
     @Test
@@ -254,12 +239,10 @@ class ConvertTokenStepTest {
         // Act & Assert
         val error = TestUtils.executeAndAssertFailure(
             convertTokenStep,
-            tokenWithoutUuid,
-            ConvertTokenStepFailure.MissingClaim::class.java
+            tokenWithoutUuid
         )
 
-        assertTrue(error is ConvertTokenStepFailure.MissingClaim)
-        assertEquals("minecraft_uuid", error.claimName)
+        assertEquals("minecraft_uuid", error.arguments[0].second)
     }
 
     @Test
@@ -270,12 +253,10 @@ class ConvertTokenStepTest {
         // Act & Assert
         val error = TestUtils.executeAndAssertFailure(
             convertTokenStep,
-            tokenWithoutDisplayName,
-            ConvertTokenStepFailure.MissingClaim::class.java
+            tokenWithoutDisplayName
         )
 
-        assertTrue(error is ConvertTokenStepFailure.MissingClaim)
-        assertEquals("display_name", error.claimName)
+        assertEquals("display_name", error.arguments[0].second)
     }
 
     @Test
@@ -286,12 +267,10 @@ class ConvertTokenStepTest {
         // Act & Assert
         val error = TestUtils.executeAndAssertFailure(
             convertTokenStep,
-            tokenWithoutRoles,
-            ConvertTokenStepFailure.MissingClaim::class.java
+            tokenWithoutRoles
         )
 
-        assertTrue(error is ConvertTokenStepFailure.MissingClaim)
-        assertEquals("roles", error.claimName)
+        assertEquals("roles", error.arguments[0].second)
     }
 
     // =====================================

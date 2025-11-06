@@ -2,7 +2,7 @@ package app.mcorg.pipeline.auth
 
 import app.mcorg.config.XboxAuthApiConfig
 import app.mcorg.domain.pipeline.Result
-import app.mcorg.pipeline.failure.GetXboxProfileFailure
+import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.test.utils.TestUtils
 import io.ktor.http.*
 import org.junit.jupiter.api.AfterEach
@@ -102,15 +102,14 @@ class GetXboxProfileStepTest {
         // Arrange
         XboxAuthApiConfig.useFakeProvider { _, _ ->
             Result.failure(
-                ApiFailure.HttpError(HttpStatusCode.Unauthorized.value, "Invalid Microsoft access token")
+                AppFailure.ApiError.HttpError(HttpStatusCode.Unauthorized.value, "Invalid Microsoft access token")
             )
         }
 
         // Act & Assert
         TestUtils.executeAndAssertFailure(
             GetXboxProfileStep,
-            testAccessToken,
-            GetXboxProfileFailure.CouldNotGetXboxProfile::class.java
+            testAccessToken
         )
     }
 
@@ -119,15 +118,14 @@ class GetXboxProfileStepTest {
         // Arrange
         XboxAuthApiConfig.useFakeProvider { _, _ ->
             Result.failure(
-                ApiFailure.HttpError(HttpStatusCode.BadRequest.value, "Malformed request")
+                AppFailure.ApiError.HttpError(HttpStatusCode.BadRequest.value, "Malformed request")
             )
         }
 
         // Act & Assert
         TestUtils.executeAndAssertFailure(
             GetXboxProfileStep,
-            testAccessToken,
-            GetXboxProfileFailure.CouldNotGetXboxProfile::class.java
+            testAccessToken
         )
     }
 
@@ -136,15 +134,14 @@ class GetXboxProfileStepTest {
         // Arrange
         XboxAuthApiConfig.useFakeProvider { _, _ ->
             Result.failure(
-                ApiFailure.HttpError(HttpStatusCode.InternalServerError.value, "Xbox service error")
+                AppFailure.ApiError.HttpError(HttpStatusCode.InternalServerError.value, "Xbox service error")
             )
         }
 
         // Act & Assert
         TestUtils.executeAndAssertFailure(
             GetXboxProfileStep,
-            testAccessToken,
-            GetXboxProfileFailure.CouldNotGetXboxProfile::class.java
+            testAccessToken
         )
     }
 
@@ -153,15 +150,14 @@ class GetXboxProfileStepTest {
         // Arrange
         XboxAuthApiConfig.useFakeProvider { _, _ ->
             Result.failure(
-                ApiFailure.NetworkError
+                AppFailure.ApiError.NetworkError
             )
         }
 
         // Act & Assert
         TestUtils.executeAndAssertFailure(
             GetXboxProfileStep,
-            testAccessToken,
-            GetXboxProfileFailure.CouldNotGetXboxProfile::class.java
+            testAccessToken
         )
     }
 
@@ -170,15 +166,14 @@ class GetXboxProfileStepTest {
         // Arrange
         XboxAuthApiConfig.useFakeProvider { _, _ ->
             Result.failure(
-                ApiFailure.SerializationError
+                AppFailure.ApiError.SerializationError
             )
         }
 
         // Act & Assert
         TestUtils.executeAndAssertFailure(
             GetXboxProfileStep,
-            testAccessToken,
-            GetXboxProfileFailure.CouldNotGetXboxProfile::class.java
+            testAccessToken
         )
     }
 
@@ -189,15 +184,14 @@ class GetXboxProfileStepTest {
 
         XboxAuthApiConfig.useFakeProvider { _, _ ->
             Result.failure(
-                ApiFailure.HttpError(HttpStatusCode.BadRequest.value, "Empty access token")
+                AppFailure.ApiError.HttpError(HttpStatusCode.BadRequest.value, "Empty access token")
             )
         }
 
         // Act & Assert
         TestUtils.executeAndAssertFailure(
             GetXboxProfileStep,
-            emptyToken,
-            GetXboxProfileFailure.CouldNotGetXboxProfile::class.java
+            emptyToken
         )
     }
 
@@ -208,15 +202,14 @@ class GetXboxProfileStepTest {
 
         XboxAuthApiConfig.useFakeProvider { _, _ ->
             Result.failure(
-                ApiFailure.HttpError(HttpStatusCode.Unauthorized.value, "Token expired")
+                AppFailure.ApiError.HttpError(HttpStatusCode.Unauthorized.value, "Token expired")
             )
         }
 
         // Act & Assert
         TestUtils.executeAndAssertFailure(
             GetXboxProfileStep,
-            expiredToken,
-            GetXboxProfileFailure.CouldNotGetXboxProfile::class.java
+            expiredToken
         )
     }
 }

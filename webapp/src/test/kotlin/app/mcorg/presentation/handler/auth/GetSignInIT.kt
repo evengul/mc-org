@@ -5,12 +5,11 @@ import app.mcorg.presentation.consts.AUTH_COOKIE
 import app.mcorg.presentation.router.authRouter
 import app.mcorg.test.WithUser
 import app.mcorg.test.postgres.DatabaseTestExtension
-import io.ktor.client.request.cookie
-import io.ktor.client.request.get
-import io.ktor.client.statement.bodyAsText
-import io.ktor.http.HttpStatusCode
-import io.ktor.server.routing.route
-import io.ktor.server.testing.testApplication
+import io.ktor.client.request.*
+import io.ktor.client.statement.*
+import io.ktor.http.*
+import io.ktor.server.routing.*
+import io.ktor.server.testing.*
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.api.extension.ExtendWith
@@ -84,6 +83,6 @@ class GetSignInIT : WithUser() {
         }
 
         assertEquals(HttpStatusCode.Found, response.status)
-        assertEquals("/auth/sign-out?error=conversion&args=", response.headers["Location"])
+        assertEquals("/auth/sign-out?error=conversion", response.headers["Location"])
     }
 }

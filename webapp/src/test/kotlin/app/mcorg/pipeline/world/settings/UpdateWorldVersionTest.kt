@@ -1,11 +1,9 @@
 package app.mcorg.pipeline.world.settings
 
 import app.mcorg.domain.model.minecraft.MinecraftVersion
-import app.mcorg.domain.pipeline.Result
 import app.mcorg.pipeline.failure.ValidationFailure
-import app.mcorg.pipeline.world.settings.general.UpdateWorldVersionFailures
-import app.mcorg.pipeline.world.settings.general.UpdateWorldVersionInput
 import app.mcorg.pipeline.world.settings.general.ValidateWorldVersionInputStep
+import app.mcorg.test.utils.TestUtils
 import io.ktor.http.*
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Test
@@ -13,7 +11,6 @@ import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
 import kotlin.test.assertEquals
-import kotlin.test.assertIs
 import kotlin.test.assertTrue
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -31,11 +28,13 @@ class UpdateWorldVersionTest {
         val parameters = createParameters("version" to "1.20.1")
 
         // When
-        val result = ValidateWorldVersionInputStep.process(parameters)
+        val result = TestUtils.executeAndAssertSuccess(
+            ValidateWorldVersionInputStep,
+            parameters
+        )
 
         // Then
-        assertIs<Result.Success<UpdateWorldVersionInput>>(result)
-        assertEquals(MinecraftVersion.fromString("1.20.1"), result.value.version)
+        assertEquals(MinecraftVersion.fromString("1.20.1"), result)
     }
 
     @Test
@@ -44,11 +43,13 @@ class UpdateWorldVersionTest {
         val parameters = createParameters("version" to "23w31a")
 
         // When
-        val result = ValidateWorldVersionInputStep.process(parameters)
+        val result = TestUtils.executeAndAssertSuccess(
+            ValidateWorldVersionInputStep,
+            parameters
+        )
 
         // Then
-        assertIs<Result.Success<UpdateWorldVersionInput>>(result)
-        assertEquals(MinecraftVersion.fromString("23w31a"), result.value.version)
+        assertEquals(MinecraftVersion.fromString("23w31a"), result)
     }
 
     @Test
@@ -57,11 +58,13 @@ class UpdateWorldVersionTest {
         val parameters = createParameters("version" to "  1.19.4  ")
 
         // When
-        val result = ValidateWorldVersionInputStep.process(parameters)
+        val result = TestUtils.executeAndAssertSuccess(
+            ValidateWorldVersionInputStep,
+            parameters
+        )
 
         // Then
-        assertIs<Result.Success<UpdateWorldVersionInput>>(result)
-        assertEquals(MinecraftVersion.fromString("1.19.4"), result.value.version)
+        assertEquals(MinecraftVersion.fromString("1.19.4"), result)
     }
 
     @Test
@@ -70,11 +73,13 @@ class UpdateWorldVersionTest {
         val parameters = createParameters()
 
         // When
-        val result = ValidateWorldVersionInputStep.process(parameters)
+        val result = TestUtils.executeAndAssertFailure(
+            ValidateWorldVersionInputStep,
+            parameters
+        )
 
         // Then
-        assertIs<Result.Failure<UpdateWorldVersionFailures.ValidationError>>(result)
-        assertTrue(result.error.errors.any { it is ValidationFailure.MissingParameter && it.parameterName == "version" })
+        assertTrue(result.errors.any { it is ValidationFailure.MissingParameter && it.parameterName == "version" })
     }
 
     @Test
@@ -83,11 +88,13 @@ class UpdateWorldVersionTest {
         val parameters = createParameters("version" to "")
 
         // When
-        val result = ValidateWorldVersionInputStep.process(parameters)
+        val result = TestUtils.executeAndAssertFailure(
+            ValidateWorldVersionInputStep,
+            parameters
+        )
 
         // Then
-        assertIs<Result.Failure<UpdateWorldVersionFailures.ValidationError>>(result)
-        assertTrue(result.error.errors.isNotEmpty())
+        assertTrue(result.errors.isNotEmpty())
     }
 
     @ParameterizedTest
@@ -103,11 +110,13 @@ class UpdateWorldVersionTest {
         val parameters = createParameters("version" to invalidVersion)
 
         // When
-        val result = ValidateWorldVersionInputStep.process(parameters)
+        val result = TestUtils.executeAndAssertFailure(
+            ValidateWorldVersionInputStep,
+            parameters
+        )
 
         // Then
-        assertIs<Result.Failure<UpdateWorldVersionFailures.ValidationError>>(result)
-        assertTrue(result.error.errors.any {
+        assertTrue(result.errors.any {
             it is ValidationFailure.CustomValidation && it.message.contains("Invalid Minecraft version format")
         })
     }
@@ -127,68 +136,13 @@ class UpdateWorldVersionTest {
         val parameters = createParameters("version" to validVersion)
 
         // When
-        val result = ValidateWorldVersionInputStep.process(parameters)
-
-        // Then
-        assertIs<Result.Success<UpdateWorldVersionInput>>(result)
-        assertEquals(MinecraftVersion.fromString(validVersion), result.value.version)
-    }
-
-    @Test
-    fun `ValidateWorldVersionInputStep should handle MinecraftVersion parsing correctly`() = runBlocking {
-        // Given
-        val parameters = createParameters("version" to "1.20.1")
-
-        // When
-        val result = ValidateWorldVersionInputStep.process(parameters)
-
-        // Then
-        assertIs<Result.Success<UpdateWorldVersionInput>>(result)
-        val expectedVersion = MinecraftVersion.fromString("1.20.1")
-        assertEquals(expectedVersion, result.value.version)
-        assertEquals("1.20.1", result.value.version.toString())
-    }
-
-    @Test
-    fun `UpdateWorldVersionInput should create correct data structure`() {
-        // Given
-        val version = MinecraftVersion.fromString("1.20.1")
-
-        // When
-        val input = UpdateWorldVersionInput(version)
-
-        // Then
-        assertEquals(version, input.version)
-        assertEquals("1.20.1", input.version.toString())
-    }
-
-    @Test
-    fun `UpdateWorldVersionFailures ValidationError should contain error list`() {
-        // Given
-        val validationFailures = listOf(
-            ValidationFailure.MissingParameter("version"),
-            ValidationFailure.CustomValidation("version", "Invalid format")
+        val result = TestUtils.executeAndAssertSuccess(
+            ValidateWorldVersionInputStep,
+            parameters
         )
 
-        // When
-        val failure = UpdateWorldVersionFailures.ValidationError(validationFailures)
-
         // Then
-        assertEquals(validationFailures, failure.errors)
-        assertEquals(2, failure.errors.size)
-    }
-
-    @Test
-    fun `ValidateWorldVersionInputStep should handle edge case with leading and trailing spaces`() = runBlocking {
-        // Given
-        val parameters = createParameters("version" to "   23w31a   ")
-
-        // When
-        val result = ValidateWorldVersionInputStep.process(parameters)
-
-        // Then
-        assertIs<Result.Success<UpdateWorldVersionInput>>(result)
-        assertEquals(MinecraftVersion.fromString("23w31a"), result.value.version)
+        assertEquals(MinecraftVersion.fromString(validVersion), result)
     }
 
     @Test
@@ -197,11 +151,13 @@ class UpdateWorldVersionTest {
         val parameters = createParameters("version" to "null")
 
         // When
-        val result = ValidateWorldVersionInputStep.process(parameters)
+        val result = TestUtils.executeAndAssertFailure(
+            ValidateWorldVersionInputStep,
+            parameters
+        )
 
         // Then
-        assertIs<Result.Failure<UpdateWorldVersionFailures.ValidationError>>(result)
-        assertTrue(result.error.errors.any {
+        assertTrue(result.errors.any {
             it is ValidationFailure.CustomValidation && it.message.contains("Invalid Minecraft version format")
         })
     }

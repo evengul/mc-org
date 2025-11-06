@@ -1,6 +1,7 @@
 package app.mcorg.config
 
 import app.mcorg.domain.pipeline.Result
+import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.test.utils.TestUtils
 import io.ktor.http.*
 import kotlinx.coroutines.runBlocking
@@ -17,24 +18,6 @@ class ApiProviderTest {
     
     @Serializable
     data class TestRequest(val data: String)
-    
-    sealed class TestError {
-        data object NetworkFailure : TestError()
-        data object ValidationFailure : TestError()
-        data object SerializationFailure : TestError()
-        data object RateLimit : TestError()
-        data object Timeout : TestError()
-        data object Unknown : TestError()
-    }
-
-    private fun errorMapper(failure: ApiFailure): TestError = when (failure) {
-        is ApiFailure.NetworkError -> TestError.NetworkFailure
-        is ApiFailure.TimeoutError -> TestError.Timeout
-        is ApiFailure.RateLimitExceeded -> TestError.RateLimit
-        is ApiFailure.HttpError -> TestError.ValidationFailure
-        is ApiFailure.SerializationError -> TestError.SerializationFailure
-        is ApiFailure.UnknownError -> TestError.Unknown
-    }
 
     @Test
     fun `deserializeJson should successfully deserialize valid JSON`() {
@@ -43,7 +26,7 @@ class ApiProviderTest {
         
         val jsonString = """{"id": 123, "name": "Test Item"}"""
         
-        val result = provider.deserializeJson<TestResponse>(jsonString, ::errorMapper)
+        val result = provider.deserializeJson<TestResponse>(jsonString)
         
         assertIs<Result.Success<TestResponse>>(result)
         assertEquals(123, result.value.id)
@@ -57,10 +40,10 @@ class ApiProviderTest {
         
         val invalidJson = """{"invalid": "json", "missing": "fields"}"""
         
-        val result = provider.deserializeJson<TestResponse>(invalidJson, ::errorMapper)
+        val result = provider.deserializeJson<TestResponse>(invalidJson)
         
-        assertIs<Result.Failure<TestError>>(result)
-        assertEquals(TestError.SerializationFailure, result.error)
+        assertIs<Result.Failure<AppFailure.ApiError.SerializationError>>(result)
+        assertEquals(AppFailure.ApiError.SerializationError, result.error)
     }
 
     @Test
@@ -70,10 +53,10 @@ class ApiProviderTest {
         
         val malformedJson = """{"incomplete": json"""
         
-        val result = provider.deserializeJson<TestResponse>(malformedJson, ::errorMapper)
+        val result = provider.deserializeJson<TestResponse>(malformedJson)
         
-        assertIs<Result.Failure<TestError>>(result)
-        assertEquals(TestError.SerializationFailure, result.error)
+        assertIs<Result.Failure<AppFailure.ApiError.SerializationError>>(result)
+        assertEquals(AppFailure.ApiError.SerializationError, result.error)
     }
 
     @Test
@@ -85,9 +68,8 @@ class ApiProviderTest {
             Result.success("""{"id": 123, "name": "Test Item"}""")
         }
         
-        val step = provider.get<Unit, TestError, TestResponse>(
-            url = "https://api.test.com/items/123",
-            errorMapper = ::errorMapper
+        val step = provider.get<Unit, TestResponse>(
+            url = "https://api.test.com/items/123"
         )
         
         val result = TestUtils.executeAndAssertSuccess(step, Unit)
@@ -100,17 +82,16 @@ class ApiProviderTest {
     fun `get should return failure when API returns error`() {
         val config = TestApiConfig()
         val provider = FakeApiProvider(config) { _, _ ->
-            Result.failure(ApiFailure.NetworkError)
+            Result.failure(AppFailure.ApiError.NetworkError)
         }
         
-        val step = provider.get<Unit, TestError, TestResponse>(
-            url = "https://api.test.com/items/123",
-            errorMapper = ::errorMapper
+        val step = provider.get<Unit, TestResponse>(
+            url = "https://api.test.com/items/123"
         )
         
-        val result = TestUtils.executeAndAssertFailure(step, Unit, TestError::class.java)
+        val result = TestUtils.executeAndAssertFailure(step, Unit)
         
-        assertEquals(TestError.NetworkFailure, result)
+        assertEquals(AppFailure.ApiError.NetworkError, result)
     }
 
     @Test
@@ -122,9 +103,8 @@ class ApiProviderTest {
             Result.success("""{"id": 456, "name": "Created Item"}""")
         }
         
-        val step = provider.post<TestRequest, TestError, TestResponse>(
-            url = "https://api.test.com/items",
-            errorMapper = ::errorMapper
+        val step = provider.post<TestRequest, TestResponse>(
+            url = "https://api.test.com/items"
         )
         
         val result = TestUtils.executeAndAssertSuccess(step, TestRequest("test data"))
@@ -140,28 +120,26 @@ class ApiProviderTest {
             Result.success("""{"invalid": "response"}""")
         }
         
-        val step = provider.post<TestRequest, TestError, TestResponse>(
-            url = "https://api.test.com/items",
-            errorMapper = ::errorMapper
+        val step = provider.post<TestRequest, TestResponse>(
+            url = "https://api.test.com/items"
         )
 
-        TestUtils.executeAndAssertFailure(step, TestRequest("test data"), TestError.SerializationFailure::class.java)
+        TestUtils.executeAndAssertFailure(step, TestRequest("test data"))
     }
 
     @Test
     fun `FakeApiProvider should call error mapper correctly`() {
         val config = TestApiConfig()
         val provider = FakeApiProvider(config) { _, _ ->
-            Result.failure(ApiFailure.TimeoutError)
+            Result.failure(AppFailure.ApiError.TimeoutError)
         }
         
         val step = provider.request<Unit>(
             method = HttpMethod.Get,
-            url = "https://api.test.com/test",
-            errorMapper = ::errorMapper
+            url = "https://api.test.com/test"
         )
 
-        TestUtils.executeAndAssertFailure(step, Unit, TestError.Timeout::class.java)
+        TestUtils.executeAndAssertFailure(step, Unit)
     }
 
     @Test
@@ -174,8 +152,7 @@ class ApiProviderTest {
         
         val step = provider.request<Unit>(
             method = HttpMethod.Get,
-            url = "https://api.test.com/test",
-            errorMapper = ::errorMapper
+            url = "https://api.test.com/test"
         )
         
         val result = TestUtils.executeAndAssertSuccess(step, Unit)
@@ -197,8 +174,7 @@ class ApiProviderTest {
         
         val step = provider.request<Unit>(
             method = HttpMethod.Post,
-            url = "https://example.com/api/endpoint",
-            errorMapper = ::errorMapper
+            url = "https://example.com/api/endpoint"
         )
         
         runBlocking {

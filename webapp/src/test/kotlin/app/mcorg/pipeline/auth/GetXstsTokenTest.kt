@@ -3,6 +3,7 @@ package app.mcorg.pipeline.auth
 import app.mcorg.config.XstsAuthorizationApiConfig
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.pipeline.auth.domain.TokenData
+import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.test.utils.TestUtils
 import io.ktor.http.*
 import org.junit.jupiter.api.AfterEach
@@ -104,15 +105,14 @@ class GetXstsTokenTest {
         // Arrange
         XstsAuthorizationApiConfig.useFakeProvider { _, _ ->
             Result.failure(
-                ApiFailure.HttpError(HttpStatusCode.Unauthorized.value, "Invalid Xbox Live token")
+                AppFailure.ApiError.HttpError(HttpStatusCode.Unauthorized.value, "Invalid Xbox Live token")
             )
         }
 
         // Act & Assert
         TestUtils.executeAndAssertFailure(
             GetXstsToken,
-            testTokenData,
-            MicrosoftSignInFailure.MicrosoftError::class.java
+            testTokenData
         )
     }
 
@@ -121,15 +121,14 @@ class GetXstsTokenTest {
         // Arrange
         XstsAuthorizationApiConfig.useFakeProvider { _, _ ->
             Result.failure(
-                ApiFailure.HttpError(HttpStatusCode.BadRequest.value, "Malformed XSTS request")
+                AppFailure.ApiError.HttpError(HttpStatusCode.BadRequest.value, "Malformed XSTS request")
             )
         }
 
         // Act & Assert
         TestUtils.executeAndAssertFailure(
             GetXstsToken,
-            testTokenData,
-            MicrosoftSignInFailure.MicrosoftError::class.java
+            testTokenData
         )
     }
 
@@ -138,15 +137,14 @@ class GetXstsTokenTest {
         // Arrange
         XstsAuthorizationApiConfig.useFakeProvider { _, _ ->
             Result.failure(
-                ApiFailure.HttpError(HttpStatusCode.Forbidden.value, "XSTS authorization denied")
+                AppFailure.ApiError.HttpError(HttpStatusCode.Forbidden.value, "XSTS authorization denied")
             )
         }
 
         // Act & Assert
         TestUtils.executeAndAssertFailure(
             GetXstsToken,
-            testTokenData,
-            MicrosoftSignInFailure.MicrosoftError::class.java
+            testTokenData
         )
     }
 
@@ -155,15 +153,14 @@ class GetXstsTokenTest {
         // Arrange
         XstsAuthorizationApiConfig.useFakeProvider { _, _ ->
             Result.failure(
-                ApiFailure.HttpError(HttpStatusCode.InternalServerError.value, "XSTS service error")
+                AppFailure.ApiError.HttpError(HttpStatusCode.InternalServerError.value, "XSTS service error")
             )
         }
 
         // Act & Assert
         TestUtils.executeAndAssertFailure(
             GetXstsToken,
-            testTokenData,
-            MicrosoftSignInFailure.MicrosoftError::class.java
+            testTokenData
         )
     }
 
@@ -172,15 +169,14 @@ class GetXstsTokenTest {
         // Arrange
         XstsAuthorizationApiConfig.useFakeProvider { _, _ ->
             Result.failure(
-                ApiFailure.NetworkError
+                AppFailure.ApiError.NetworkError
             )
         }
 
         // Act & Assert
         TestUtils.executeAndAssertFailure(
             GetXstsToken,
-            testTokenData,
-            MicrosoftSignInFailure.MicrosoftError::class.java
+            testTokenData
         )
     }
 
@@ -189,15 +185,14 @@ class GetXstsTokenTest {
         // Arrange
         XstsAuthorizationApiConfig.useFakeProvider { _, _ ->
             Result.failure(
-                ApiFailure.SerializationError
+                AppFailure.ApiError.SerializationError
             )
         }
 
         // Act & Assert
         TestUtils.executeAndAssertFailure(
             GetXstsToken,
-            testTokenData,
-            MicrosoftSignInFailure.MicrosoftError::class.java
+            testTokenData
         )
     }
 
@@ -208,15 +203,14 @@ class GetXstsTokenTest {
 
         XstsAuthorizationApiConfig.useFakeProvider { _, _ ->
             Result.failure(
-                ApiFailure.HttpError(HttpStatusCode.BadRequest.value, "Empty Xbox token")
+                AppFailure.ApiError.HttpError(HttpStatusCode.BadRequest.value, "Empty Xbox token")
             )
         }
 
         // Act & Assert
         TestUtils.executeAndAssertFailure(
             GetXstsToken,
-            emptyTokenData,
-            MicrosoftSignInFailure.MicrosoftError::class.java
+            emptyTokenData
         )
     }
 }

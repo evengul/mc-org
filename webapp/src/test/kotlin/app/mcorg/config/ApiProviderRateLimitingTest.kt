@@ -1,6 +1,7 @@
 package app.mcorg.config
 
 import app.mcorg.domain.pipeline.Result
+import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.test.utils.TestUtils
 import io.ktor.http.*
 import kotlinx.coroutines.runBlocking
@@ -13,16 +14,6 @@ class ApiProviderRateLimitingTest {
     @Serializable
     data class TestResponse(val message: String)
 
-    sealed class TestError {
-        data object RateLimit : TestError()
-        data object Other : TestError()
-    }
-
-    private fun errorMapper(failure: ApiFailure): TestError = when (failure) {
-        is ApiFailure.RateLimitExceeded -> TestError.RateLimit
-        else -> TestError.Other
-    }
-
     @Test
     fun `rate limiting should block requests when limit exceeded`() {
         val config = TestApiConfig()
@@ -34,13 +25,12 @@ class ApiProviderRateLimitingTest {
             if (requestCount <= 3) {
                 Result.success("""{"message": "success"}""")
             } else {
-                Result.failure(ApiFailure.RateLimitExceeded)
+                Result.failure(AppFailure.ApiError.RateLimitExceeded)
             }
         }
 
-        val step = provider.get<Unit, TestError, TestResponse>(
-            url = "https://api.test.com/endpoint",
-            errorMapper = ::errorMapper
+        val step = provider.get<Unit, TestResponse>(
+            url = "https://api.test.com/endpoint"
         )
 
         // First 3 requests should succeed
@@ -55,10 +45,9 @@ class ApiProviderRateLimitingTest {
         // 4th request should fail with rate limit
         val error = TestUtils.executeAndAssertFailure(
             step,
-            Unit,
-            TestError::class.java
+            Unit
         )
-        assertEquals(TestError.RateLimit, error)
+        assertEquals(AppFailure.ApiError.RateLimitExceeded, error)
     }
 
     @Test
@@ -73,18 +62,16 @@ class ApiProviderRateLimitingTest {
             if (count <= 2) {
                 Result.success("""{"message": "success from $url"}""")
             } else {
-                Result.failure(ApiFailure.RateLimitExceeded)
+                Result.failure(AppFailure.ApiError.RateLimitExceeded)
             }
         }
 
-        val step1 = provider.get<Unit, TestError, TestResponse>(
-            url = "https://api.test.com/endpoint1",
-            errorMapper = ::errorMapper
+        val step1 = provider.get<Unit, TestResponse>(
+            url = "https://api.test.com/endpoint1"
         )
 
-        val step2 = provider.get<Unit, TestError, TestResponse>(
-            url = "https://api.test.com/endpoint2",
-            errorMapper = ::errorMapper
+        val step2 = provider.get<Unit, TestResponse>(
+            url = "https://api.test.com/endpoint2"
         )
 
         // Each endpoint should have its own rate limit
@@ -96,17 +83,15 @@ class ApiProviderRateLimitingTest {
         // Both should now hit rate limits
         val rateLimitResult1 = TestUtils.executeAndAssertFailure(
             step1,
-            Unit,
-            TestError::class.java
+            Unit
         )
         val rateLimitResult2 = TestUtils.executeAndAssertFailure(
             step1,
-            Unit,
-            TestError::class.java
+            Unit
         )
 
-        assertEquals(TestError.RateLimit, rateLimitResult1)
-        assertEquals(TestError.RateLimit, rateLimitResult2)
+        assertEquals(AppFailure.ApiError.RateLimitExceeded, rateLimitResult1)
+        assertEquals(AppFailure.ApiError.RateLimitExceeded, rateLimitResult2)
     }
 
     @Test
@@ -119,13 +104,12 @@ class ApiProviderRateLimitingTest {
             if (requestCount <= 5) {
                 Result.success("""{"message": "concurrent success"}""")
             } else {
-                Result.failure(ApiFailure.RateLimitExceeded)
+                Result.failure(AppFailure.ApiError.RateLimitExceeded)
             }
         }
 
-        val step = provider.get<Unit, TestError, TestResponse>(
-            url = "https://api.test.com/concurrent",
-            errorMapper = ::errorMapper
+        val step = provider.get<Unit, TestResponse>(
+            url = "https://api.test.com/concurrent"
         )
 
         // Test concurrent access (though FakeApiProvider doesn't actually test real concurrency)
@@ -151,17 +135,15 @@ class ApiProviderRateLimitingTest {
         }
 
         // Test GET request
-        val getStep = provider.get<Unit, TestError, TestResponse>(
-            url = "https://api.test.com/get",
-            errorMapper = ::errorMapper
+        val getStep = provider.get<Unit, TestResponse>(
+            url = "https://api.test.com/get"
         )
         runBlocking { getStep.process(Unit) }
         assertEquals(HttpMethod.Get, capturedMethod)
 
         // Test POST request
-        val postStep = provider.post<Unit, TestError, TestResponse>(
-            url = "https://api.test.com/post",
-            errorMapper = ::errorMapper
+        val postStep = provider.post<Unit, TestResponse>(
+            url = "https://api.test.com/post"
         )
         runBlocking { postStep.process(Unit) }
         assertEquals(HttpMethod.Post, capturedMethod)
@@ -178,11 +160,10 @@ class ApiProviderRateLimitingTest {
             Result.success("""{"message": "builders called"}""")
         }
 
-        val step = provider.post<String, TestError, TestResponse>(
+        val step = provider.post<String, TestResponse>(
             url = "https://api.test.com/post",
             headerBuilder = { _, _ -> headerBuilderCalled = true },
             bodyBuilder = { _, _ -> bodyBuilderCalled = true },
-            errorMapper = ::errorMapper
         )
 
         val result = TestUtils.executeAndAssertSuccess(
@@ -193,43 +174,5 @@ class ApiProviderRateLimitingTest {
         assertEquals("builders called", result.message)
         assertEquals(true, headerBuilderCalled)
         assertEquals(true, bodyBuilderCalled)
-    }
-
-    @Test
-    fun `different failure types should be mapped correctly`() {
-        val config = TestApiConfig()
-
-        val failureTypes = listOf(
-            ApiFailure.NetworkError,
-            ApiFailure.TimeoutError,
-            ApiFailure.RateLimitExceeded,
-            ApiFailure.HttpError(404, "Not Found"),
-            ApiFailure.SerializationError,
-            ApiFailure.UnknownError
-        )
-
-        failureTypes.forEach { failureType ->
-            val provider = FakeApiProvider(config) { _, _ ->
-                Result.failure(failureType)
-            }
-
-            val step = provider.get<Unit, TestError, TestResponse>(
-                url = "https://api.test.com/test",
-                errorMapper = ::errorMapper
-            )
-
-            val result = TestUtils.executeAndAssertFailure(
-                step,
-                Unit,
-                TestError::class.java
-            )
-
-            val expectedError = if (failureType is ApiFailure.RateLimitExceeded) {
-                TestError.RateLimit
-            } else {
-                TestError.Other
-            }
-            assertEquals(expectedError, result)
-        }
     }
 }

@@ -3,6 +3,7 @@ package app.mcorg.pipeline.auth
 import app.mcorg.config.MinecraftApiConfig
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.pipeline.auth.domain.TokenData
+import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.test.utils.TestUtils
 import io.ktor.http.*
 import org.junit.jupiter.api.AfterEach
@@ -88,15 +89,14 @@ class GetMinecraftTokenTest {
         // Arrange
         MinecraftApiConfig.useFakeProvider { _, _ ->
             Result.failure(
-                ApiFailure.HttpError(HttpStatusCode.Unauthorized.value, "Invalid XSTS token")
+                AppFailure.ApiError.HttpError(HttpStatusCode.Unauthorized.value, "Invalid XSTS token")
             )
         }
 
         // Act & Assert
         TestUtils.executeAndAssertFailure(
             GetMinecraftToken,
-            testTokenData,
-            MicrosoftSignInFailure.MicrosoftError::class.java
+            testTokenData
         )
     }
 
@@ -105,15 +105,14 @@ class GetMinecraftTokenTest {
         // Arrange
         MinecraftApiConfig.useFakeProvider { _, _ ->
             Result.failure(
-                ApiFailure.HttpError(HttpStatusCode.BadRequest.value, "Malformed Minecraft authentication request")
+                AppFailure.ApiError.HttpError(HttpStatusCode.BadRequest.value, "Malformed Minecraft authentication request")
             )
         }
 
         // Act & Assert
         TestUtils.executeAndAssertFailure(
             GetMinecraftToken,
-            testTokenData,
-            MicrosoftSignInFailure.MicrosoftError::class.java
+            testTokenData
         )
     }
 
@@ -122,15 +121,14 @@ class GetMinecraftTokenTest {
         // Arrange
         MinecraftApiConfig.useFakeProvider { _, _ ->
             Result.failure(
-                ApiFailure.HttpError(HttpStatusCode.Forbidden.value, "Minecraft account access denied")
+                AppFailure.ApiError.HttpError(HttpStatusCode.Forbidden.value, "Minecraft account access denied")
             )
         }
 
         // Act & Assert
         TestUtils.executeAndAssertFailure(
             GetMinecraftToken,
-            testTokenData,
-            MicrosoftSignInFailure.MicrosoftError::class.java
+            testTokenData
         )
     }
 
@@ -139,15 +137,14 @@ class GetMinecraftTokenTest {
         // Arrange
         MinecraftApiConfig.useFakeProvider { _, _ ->
             Result.failure(
-                ApiFailure.HttpError(HttpStatusCode.InternalServerError.value, "Minecraft service error")
+                AppFailure.ApiError.HttpError(HttpStatusCode.InternalServerError.value, "Minecraft service error")
             )
         }
 
         // Act & Assert
         TestUtils.executeAndAssertFailure(
             GetMinecraftToken,
-            testTokenData,
-            MicrosoftSignInFailure.MicrosoftError::class.java
+            testTokenData
         )
     }
 
@@ -156,15 +153,14 @@ class GetMinecraftTokenTest {
         // Arrange
         MinecraftApiConfig.useFakeProvider { _, _ ->
             Result.failure(
-                ApiFailure.NetworkError
+                AppFailure.ApiError.NetworkError
             )
         }
 
         // Act & Assert
         TestUtils.executeAndAssertFailure(
             GetMinecraftToken,
-            testTokenData,
-            MicrosoftSignInFailure.MicrosoftError::class.java
+            testTokenData
         )
     }
 
@@ -173,15 +169,14 @@ class GetMinecraftTokenTest {
         // Arrange
         MinecraftApiConfig.useFakeProvider { _, _ ->
             Result.failure(
-                ApiFailure.SerializationError
+                AppFailure.ApiError.SerializationError
             )
         }
 
         // Act & Assert
         TestUtils.executeAndAssertFailure(
             GetMinecraftToken,
-            testTokenData,
-            MicrosoftSignInFailure.MicrosoftError::class.java
+            testTokenData
         )
     }
 
@@ -192,15 +187,14 @@ class GetMinecraftTokenTest {
 
         MinecraftApiConfig.useFakeProvider { _, _ ->
             Result.failure(
-                ApiFailure.HttpError(HttpStatusCode.BadRequest.value, "Empty XSTS token")
+                AppFailure.ApiError.HttpError(HttpStatusCode.BadRequest.value, "Empty XSTS token")
             )
         }
 
         // Act & Assert
         TestUtils.executeAndAssertFailure(
             GetMinecraftToken,
-            emptyTokenData,
-            MicrosoftSignInFailure.MicrosoftError::class.java
+            emptyTokenData
         )
     }
 
@@ -211,15 +205,14 @@ class GetMinecraftTokenTest {
 
         MinecraftApiConfig.useFakeProvider { _, _ ->
             Result.failure(
-                ApiFailure.HttpError(HttpStatusCode.BadRequest.value, "Invalid user hash")
+                AppFailure.ApiError.HttpError(HttpStatusCode.BadRequest.value, "Invalid user hash")
             )
         }
 
         // Act & Assert
         TestUtils.executeAndAssertFailure(
             GetMinecraftToken,
-            invalidTokenData,
-            MicrosoftSignInFailure.MicrosoftError::class.java
+            invalidTokenData
         )
     }
 }

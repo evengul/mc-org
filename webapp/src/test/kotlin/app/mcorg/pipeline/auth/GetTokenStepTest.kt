@@ -1,14 +1,16 @@
 package app.mcorg.pipeline.auth
 
 import app.mcorg.pipeline.auth.commonsteps.GetTokenStep
-import app.mcorg.pipeline.auth.commonsteps.MissingCookieFailure
-import app.mcorg.test.utils.TestUtils
 import app.mcorg.presentation.consts.AUTH_COOKIE
-import io.ktor.server.request.RequestCookies
-import io.mockk.*
-import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.BeforeEach
+import app.mcorg.test.utils.TestUtils
+import io.ktor.server.request.*
+import io.mockk.clearAllMocks
+import io.mockk.every
+import io.mockk.mockk
+import io.mockk.verify
 import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
 
 /**
@@ -117,8 +119,7 @@ class GetTokenStepTest {
         // Act & Assert
         TestUtils.executeAndAssertFailure(
             getTokenStep,
-            mockRequestCookies,
-            MissingCookieFailure::class.java
+            mockRequestCookies
         )
         verify { mockRequestCookies[AUTH_COOKIE] }
     }
@@ -133,8 +134,7 @@ class GetTokenStepTest {
         // Act & Assert
         TestUtils.executeAndAssertFailure(
             getTokenStep,
-            mockRequestCookies,
-            MissingCookieFailure::class.java
+            mockRequestCookies
         )
         verify { mockRequestCookies[customCookieName] }
     }

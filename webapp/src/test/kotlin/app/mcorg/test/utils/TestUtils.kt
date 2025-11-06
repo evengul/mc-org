@@ -1,11 +1,12 @@
 package app.mcorg.test.utils
 
+import app.mcorg.domain.model.user.TokenProfile
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
-import app.mcorg.domain.model.user.TokenProfile
 import app.mcorg.test.fixtures.TestDataFactory
 import kotlinx.coroutines.runBlocking
-import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.Assertions.fail
+import kotlin.test.assertIs
 import kotlin.test.assertTrue
 
 /**
@@ -63,20 +64,17 @@ object TestUtils {
     /**
      * Execute a pipeline step and assert it fails with expected error type
      */
-    fun <I, E, S> executeAndAssertFailure(
+    inline fun <I, reified E, S> executeAndAssertFailure(
         step: Step<I, E, S>,
-        input: I,
-        expectedErrorClass: Class<out E>
+        input: I
     ): E = runBlocking {
         when (val result = step.process(input)) {
             is Result.Success -> {
                 fail("Expected step to fail but it succeeded with: ${result.value}")
             }
             is Result.Failure -> {
-                val error = result.error
-                assertTrue(expectedErrorClass.isInstance(error),
-                    "Expected error of type ${expectedErrorClass.simpleName} but got ${error!!::class.simpleName}")
-                error
+                assertIs<E>(result.error)
+                result.error
             }
         }
     }
