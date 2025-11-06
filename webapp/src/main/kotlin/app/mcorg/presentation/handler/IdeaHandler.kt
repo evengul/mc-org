@@ -1,22 +1,15 @@
 package app.mcorg.presentation.handler
 
 import app.mcorg.pipeline.idea.*
-import app.mcorg.pipeline.idea.single.handleCreateIdeaComment
-import app.mcorg.pipeline.idea.single.handleDeleteIdea
-import app.mcorg.pipeline.idea.single.handleDeleteIdeaComment
-import app.mcorg.pipeline.idea.single.handleFavouriteIdea
-import app.mcorg.pipeline.idea.single.handleGetIdea
+import app.mcorg.pipeline.idea.createfragments.handleGetAuthorFields
+import app.mcorg.pipeline.idea.createfragments.handleGetCreateCategoryFields
+import app.mcorg.pipeline.idea.createfragments.handleGetVersionFields
+import app.mcorg.pipeline.idea.single.*
 import app.mcorg.presentation.plugins.IdeaCommentParamPlugin
 import app.mcorg.presentation.plugins.IdeaCreatorPlugin
 import app.mcorg.presentation.plugins.IdeaParamPlugin
 import app.mcorg.presentation.plugins.WorldParamPlugin
-import io.ktor.server.routing.Route
-import io.ktor.server.routing.delete
-import io.ktor.server.routing.get
-import io.ktor.server.routing.patch
-import io.ktor.server.routing.post
-import io.ktor.server.routing.put
-import io.ktor.server.routing.route
+import io.ktor.server.routing.*
 
 class IdeaHandler {
     fun Route.ideaRoutes() {

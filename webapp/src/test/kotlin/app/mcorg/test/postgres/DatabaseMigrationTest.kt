@@ -3,11 +3,10 @@ package app.mcorg.test.postgres
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
-import app.mcorg.pipeline.failure.DatabaseFailure
 import kotlinx.coroutines.runBlocking
+import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
-import org.junit.jupiter.api.Assertions.*
 import java.sql.DriverManager
 
 /**
@@ -124,15 +123,13 @@ class DatabaseMigrationTest {
 
     @Test
     fun `Should be able to use DatabaseSteps for queries`() = runBlocking {
-        DatabaseSteps.update<Unit, DatabaseFailure>(
+        DatabaseSteps.update<Unit>(
             sql = SafeSQL.insert("INSERT INTO world (name, version, created_at) VALUES ('Test World', '1.20.4', NOW())"),
-            parameterSetter = { _, _ -> },
-            errorMapper = { it }
+            parameterSetter = { _, _ -> }
         ).process(Unit)
-        val result = DatabaseSteps.query<Unit, DatabaseFailure, Int>(
+        val result = DatabaseSteps.query<Unit, Int>(
             sql = SafeSQL.select("SELECT COUNT(*) as count FROM world WHERE name = 'Test World'"),
-            resultMapper = { rs -> if (rs.next()) rs.getInt("count") else 0 },
-            errorMapper = { it }
+            resultMapper = { rs -> if (rs.next()) rs.getInt("count") else 0 }
         ).process(Unit)
 
         assertTrue(result is Result.Success)

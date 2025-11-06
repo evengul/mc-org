@@ -1,6 +1,7 @@
 package app.mcorg.presentation.templated.home
 
 import app.mcorg.domain.model.minecraft.MinecraftVersion
+import app.mcorg.domain.model.user.TokenProfile
 import app.mcorg.presentation.templated.common.icon.IconSize
 import app.mcorg.presentation.templated.common.icon.Icons
 import app.mcorg.presentation.templated.common.modal.FormModalHxValues
@@ -11,17 +12,19 @@ import kotlinx.html.Tag
 import kotlinx.html.id
 import kotlinx.html.input
 import kotlinx.html.label
+import kotlinx.html.onSubmit
 import kotlinx.html.option
+import kotlinx.html.p
 import kotlinx.html.select
 import kotlinx.html.span
 import kotlinx.html.textArea
 
-fun <T : Tag> T.createWorldModal(versions: List<MinecraftVersion.Release>) = formModal(
+fun <T : Tag> T.createWorldModal(user: TokenProfile, versions: List<MinecraftVersion.Release>) = formModal(
     modalId = "create-world-modal",
     title = "Create World",
     description = "Create a new Minecraft world to organize your projects.",
     saveText = "Create World",
-    hxValues = FormModalHxValues(
+    hxValues = if (user.isDemoUserInProduction) null else FormModalHxValues(
         hxTarget = "#home-worlds",
         method = FormModalHttpMethod.POST,
         href = "/app/worlds"
@@ -35,6 +38,9 @@ fun <T : Tag> T.createWorldModal(versions: List<MinecraftVersion.Release>) = for
     }
 ) {
     formContent {
+        if (user.isDemoUserInProduction) {
+            onSubmit = "return false;"
+        }
         label {
             htmlFor = "create-world-name"
             + "World Name"
@@ -75,6 +81,11 @@ fun <T : Tag> T.createWorldModal(versions: List<MinecraftVersion.Release>) = for
                     value = version.toString()
                     + "$version ${if(i == 0) " (Latest)" else if (i == versions.size -1) "(Earliest compatible)" else ""}"
                 }
+            }
+        }
+        if (user.isDemoUserInProduction) {
+            p("subtle") {
+                + "Demo users cannot create worlds. Please register for a full account to access this feature."
             }
         }
     }

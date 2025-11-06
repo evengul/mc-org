@@ -1,14 +1,10 @@
 package app.mcorg.presentation.handler
 
-import app.mcorg.domain.pipeline.PipelineBuilder
-import app.mcorg.domain.pipeline.pipeline
-import app.mcorg.domain.pipeline.parallelPipeline
-import app.mcorg.domain.pipeline.ParallelPipelineBuilder
-import app.mcorg.domain.pipeline.PipelineRef
-import app.mcorg.domain.pipeline.Result
-import io.ktor.server.application.ApplicationCall
+import app.mcorg.domain.pipeline.*
+import app.mcorg.pipeline.failure.AppFailure
+import io.ktor.server.application.*
 
-suspend fun <E, O> ApplicationCall.executePipeline(
+suspend fun <E : AppFailure, O> ApplicationCall.executePipeline(
     onSuccess: suspend (O) -> Unit = { },
     onFailure: suspend (E) -> Unit = { },
     block: PipelineBuilder<Unit, E, Unit>.() -> PipelineBuilder<Unit, E, O>
@@ -22,9 +18,11 @@ suspend fun <E, O> ApplicationCall.executePipeline(
     )
 }
 
-suspend fun <E, O> ApplicationCall.executeParallelPipeline(
+suspend fun <E : AppFailure, O> ApplicationCall.executeParallelPipeline(
     onSuccess: suspend (O) -> Unit = { },
-    onFailure: suspend (E) -> Unit = { },
+    onFailure: suspend (E) -> Unit = {
+
+    },
     block: ParallelPipelineBuilder<E>.() -> PipelineRef<O>
 ) {
     val pipeline = parallelPipeline(block)
@@ -34,11 +32,13 @@ suspend fun <E, O> ApplicationCall.executeParallelPipeline(
             @Suppress("UNCHECKED_CAST")
             onSuccess(it as O)
         },
-        onFailure = onFailure
+        onFailure = {
+            onFailure(it)
+        }
     )
 }
 
-suspend fun <E, O> ApplicationCall.executeParallelPipeline(
+suspend fun <E : AppFailure, O> ApplicationCall.executeParallelPipeline(
     block: ParallelPipelineBuilder<E>.() -> PipelineRef<O>
 ): Result<E, O> {
     val pipeline = parallelPipeline(block)

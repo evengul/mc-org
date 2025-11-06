@@ -1,6 +1,7 @@
 package app.mcorg.presentation.templated.world
 
 import app.mcorg.domain.model.project.ProjectType
+import app.mcorg.domain.model.user.TokenProfile
 import app.mcorg.presentation.templated.common.form.radiogroup.RadioGroupOption
 import app.mcorg.presentation.templated.common.form.radiogroup.radioGroup
 import app.mcorg.presentation.templated.common.icon.IconSize
@@ -16,15 +17,17 @@ import kotlinx.html.classes
 import kotlinx.html.div
 import kotlinx.html.input
 import kotlinx.html.label
+import kotlinx.html.onSubmit
+import kotlinx.html.p
 import kotlinx.html.span
 import kotlinx.html.textArea
 
-fun <T : Tag> T.createProjectModal(worldId: Int) = formModal(
+fun <T : Tag> T.createProjectModal(user: TokenProfile, worldId: Int) = formModal(
     modalId = "create-project-modal",
     title = "Create Project",
     description = "Create a new project for your Minecraft world.",
     saveText = "Create Project",
-    hxValues = FormModalHxValues(
+    hxValues = if (user.isDemoUserInProduction) null else FormModalHxValues(
         hxTarget = "#world-projects-list",
         hxSwap = "afterbegin",
         method = FormModalHttpMethod.POST,
@@ -39,6 +42,9 @@ fun <T : Tag> T.createProjectModal(worldId: Int) = formModal(
     }
 ) {
     formContent {
+        if (user.isDemoUserInProduction) {
+            onSubmit = "return false;"
+        }
         classes += "create-project-form"
         span("input-group") {
             label {
@@ -71,6 +77,11 @@ fun <T : Tag> T.createProjectModal(worldId: Int) = formModal(
                         label = it.toPrettyEnumName()
                     )
                 }, selectedOption = "BUILDING")
+            }
+        }
+        if (user.isDemoUserInProduction) {
+            p("subtle") {
+                + "Project creation is disabled in demo mode."
             }
         }
         // TODO: Dependency selection

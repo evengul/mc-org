@@ -1,19 +1,15 @@
 package app.mcorg.pipeline.auth
 
-import app.mcorg.domain.pipeline.Result
+import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
-import app.mcorg.pipeline.failure.DatabaseFailure
+import app.mcorg.presentation.handler.executePipeline
 import app.mcorg.presentation.hxOutOfBands
 import app.mcorg.presentation.templated.layout.alert.ALERT_CONTAINER_ID
 import app.mcorg.presentation.templated.layout.alert.AlertType
 import app.mcorg.presentation.templated.layout.alert.createAlert
-import app.mcorg.presentation.utils.clientRedirect
-import app.mcorg.presentation.utils.getHost
-import app.mcorg.presentation.utils.getUser
-import app.mcorg.presentation.utils.removeToken
-import app.mcorg.presentation.utils.respondHtml
-import io.ktor.server.application.ApplicationCall
+import app.mcorg.presentation.utils.*
+import io.ktor.server.application.*
 import kotlinx.html.li
 import kotlinx.html.stream.createHTML
 
@@ -21,18 +17,12 @@ suspend fun ApplicationCall.handleDeleteAccount() {
     val user = this.getUser()
     val host = this.getHost() ?: "false"
 
-    val deleteUserStep = DatabaseSteps.update<Int, DatabaseFailure>(
-        sql = SafeSQL.delete("DELETE FROM users WHERE id = ?"),
-        parameterSetter = { statement, _ -> statement.setInt(1, user.id) },
-        errorMapper = { it }
-    )
-
-    when (deleteUserStep.process(user.id)) {
-        is Result.Success -> {
+    executePipeline(
+        onSuccess = {
             this.response.cookies.removeToken(host)
             this.clientRedirect("/")
-        }
-        is Result.Failure -> {
+        },
+        onFailure = {
             respondHtml(createHTML().li {
                 hxOutOfBands("#$ALERT_CONTAINER_ID")
                 createAlert(
@@ -43,5 +33,13 @@ suspend fun ApplicationCall.handleDeleteAccount() {
                 )
             })
         }
+    ) {
+        step(Step.value(user.id))
+            .step(DeleteAccountStep)
     }
 }
+
+private val DeleteAccountStep = DatabaseSteps.update<Int>(
+    sql = SafeSQL.delete("DELETE FROM users WHERE id = ?"),
+    parameterSetter = { statement, userId -> statement.setInt(1, userId) }
+)

@@ -5,7 +5,7 @@ import app.mcorg.config.DatabaseConnectionProvider
 import app.mcorg.domain.model.user.MinecraftProfile
 import app.mcorg.domain.model.user.TokenProfile
 import app.mcorg.domain.pipeline.Result
-import app.mcorg.pipeline.failure.CreateUserIfNotExistsFailure
+import app.mcorg.pipeline.auth.commonsteps.CreateUserIfNotExistsStep
 import io.mockk.*
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.AfterEach
@@ -259,7 +259,6 @@ class CreateUserIfNotExistsStepTest {
 
         // Assert
         assertTrue(result is Result.Failure)
-        assertTrue(result.error is CreateUserIfNotExistsFailure.Other)
     }
 
     @Test
@@ -286,7 +285,6 @@ class CreateUserIfNotExistsStepTest {
 
         // Assert
         assertTrue(result is Result.Failure)
-        assertTrue(result.error is CreateUserIfNotExistsFailure.Other)
     }
 
     @Test
@@ -313,7 +311,6 @@ class CreateUserIfNotExistsStepTest {
 
         // Assert
         assertTrue(result is Result.Failure)
-        assertTrue(result.error is CreateUserIfNotExistsFailure.Other)
     }
 
     @Test
@@ -332,7 +329,6 @@ class CreateUserIfNotExistsStepTest {
 
         // Assert
         assertTrue(result is Result.Failure)
-        assertTrue(result.error is CreateUserIfNotExistsFailure.Other)
     }
 
     @Test
@@ -357,7 +353,6 @@ class CreateUserIfNotExistsStepTest {
 
         // Assert
         assertTrue(result is Result.Failure)
-        assertTrue(result.error is CreateUserIfNotExistsFailure.Other)
     }
 
     @Test
@@ -382,6 +377,5 @@ class CreateUserIfNotExistsStepTest {
 
         // Assert
         assertTrue(result is Result.Failure)
-        assertTrue(result.error is CreateUserIfNotExistsFailure.Other)
     }
 }

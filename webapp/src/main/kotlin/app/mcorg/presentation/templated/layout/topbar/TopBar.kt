@@ -49,7 +49,7 @@ data class TopBar(
     override fun render(container: TagConsumer<*>) {
         container.header {
             classes += "top-bar"
-            h1 { +"MC-ORG" }
+            h1 { + "MC-ORG${if (user?.isDemoUserInProduction == true) " (DEMO)" else ""}" }
             nav {
                 classes += "top-bar-nav"
                 ul {
@@ -78,7 +78,7 @@ data class TopBar(
                             }
                         }
                     }
-                    if (activeLinks.contains(ActiveLinks.ADMIN_DASHBOARD) && user?.isSuperAdmin == true) {
+                    if (activeLinks.contains(ActiveLinks.ADMIN_DASHBOARD) && user?.isSuperAdmin == true && !user.isDemoUserInProduction) {
                         li {
                             classes += "top-bar-link"
                             linkComponent(Link.AdminDashboard) {

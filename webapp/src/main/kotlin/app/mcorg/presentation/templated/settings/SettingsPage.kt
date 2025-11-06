@@ -5,7 +5,7 @@ import app.mcorg.domain.model.minecraft.MinecraftVersion
 import app.mcorg.domain.model.user.TokenProfile
 import app.mcorg.domain.model.user.WorldMember
 import app.mcorg.domain.model.world.World
-import app.mcorg.pipeline.world.GetWorldInvitationsInput
+import app.mcorg.pipeline.world.invitations.CountWorldInvitationsResult
 import app.mcorg.presentation.templated.common.page.createPage
 import app.mcorg.presentation.templated.common.tabs.TabData
 import app.mcorg.presentation.templated.common.tabs.tabsComponent
@@ -23,7 +23,7 @@ sealed interface SettingsTab {
         override val id: String = "general"
     }
 
-    data class Members(override val world: World, val currentUser: TokenProfile, val invitations: List<Invite>, val invitationCounts: Map<GetWorldInvitationsInput.StatusFilter, Int>, val members: List<WorldMember>) : SettingsTab {
+    data class Members(override val world: World, val currentUser: TokenProfile, val invitations: List<Invite>, val invitationCounts: CountWorldInvitationsResult, val members: List<WorldMember>) : SettingsTab {
         override val id: String = "members"
     }
 

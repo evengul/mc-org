@@ -5,11 +5,12 @@ import app.mcorg.domain.model.idea.IdeaDifficulty
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
-import app.mcorg.pipeline.failure.DatabaseFailure
 import app.mcorg.test.WithUser
 import app.mcorg.test.postgres.DatabaseTestExtension
 import kotlinx.coroutines.runBlocking
-import org.junit.jupiter.api.*
+import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.api.extension.ExtendWith
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -22,10 +23,9 @@ class GetIdeasByCategoryStepTest : WithUser() {
     fun setup() {
         // Clean ideas data before each test
         runBlocking {
-            DatabaseSteps.update<Unit, DatabaseFailure>(
+            DatabaseSteps.update<Unit>(
                 sql = SafeSQL.delete("DELETE FROM ideas"),
-                parameterSetter = { _, _ -> },
-                errorMapper = { it }
+                parameterSetter = { _, _ -> }
             ).process(Unit)
         }
     }
@@ -39,7 +39,7 @@ class GetIdeasByCategoryStepTest : WithUser() {
 
         // When: Searching with no filters
         val filters = IdeaSearchFilters()
-        val result = GetIdeasByCategoryStep.process(GetIdeasByCategoryInput(filters))
+        val result = SearchIdeasStep.process(filters)
 
         // Then: All ideas returned
         assertTrue(result is Result.Success)
@@ -55,7 +55,7 @@ class GetIdeasByCategoryStepTest : WithUser() {
 
         // When: Filtering by FARM category
         val filters = IdeaSearchFilters(category = IdeaCategory.FARM)
-        val result = GetIdeasByCategoryStep.process(GetIdeasByCategoryInput(filters))
+        val result = SearchIdeasStep.process(filters)
 
         // Then: Only FARM ideas returned
         assertTrue(result is Result.Success)
@@ -74,7 +74,7 @@ class GetIdeasByCategoryStepTest : WithUser() {
         val filters = IdeaSearchFilters(
             difficulties = listOf(IdeaDifficulty.START_OF_GAME, IdeaDifficulty.MID_GAME)
         )
-        val result = GetIdeasByCategoryStep.process(GetIdeasByCategoryInput(filters))
+        val result = SearchIdeasStep.process(filters)
 
         // Then: Only START_OF_GAME and MID_GAME ideas returned
         assertTrue(result is Result.Success)
@@ -91,7 +91,7 @@ class GetIdeasByCategoryStepTest : WithUser() {
 
         // When: Filtering by minimum rating of 4.0
         val filters = IdeaSearchFilters(minRating = 4.0)
-        val result = GetIdeasByCategoryStep.process(GetIdeasByCategoryInput(filters))
+        val result = SearchIdeasStep.process(filters)
 
         // Then: Only ideas with rating >= 4.0 returned
         assertTrue(result is Result.Success)
@@ -108,7 +108,7 @@ class GetIdeasByCategoryStepTest : WithUser() {
 
         // When: Searching for "iron"
         val filters = IdeaSearchFilters(query = "iron")
-        val result = GetIdeasByCategoryStep.process(GetIdeasByCategoryInput(filters))
+        val result = SearchIdeasStep.process(filters)
 
         // Then: Only iron-related ideas returned
         assertTrue(result is Result.Success)
@@ -135,7 +135,7 @@ class GetIdeasByCategoryStepTest : WithUser() {
             category = IdeaCategory.FARM,
             categoryFilters = mapOf("afkable" to FilterValue.BooleanValue(true))
         )
-        val result = GetIdeasByCategoryStep.process(GetIdeasByCategoryInput(filters))
+        val result = SearchIdeasStep.process(filters)
 
         // Then: Only AFK-able farm returned
         assertTrue(result is Result.Success)
@@ -167,7 +167,7 @@ class GetIdeasByCategoryStepTest : WithUser() {
             category = IdeaCategory.FARM,
             categoryFilters = mapOf("productionRate" to FilterValue.NumberRange(1000.0, 10000.0))
         )
-        val result = GetIdeasByCategoryStep.process(GetIdeasByCategoryInput(filters))
+        val result = SearchIdeasStep.process(filters)
 
         // Then: Only medium farm returned
         assertTrue(result is Result.Success)
@@ -199,7 +199,7 @@ class GetIdeasByCategoryStepTest : WithUser() {
             category = IdeaCategory.FARM,
             categoryFilters = mapOf("playersRequired" to FilterValue.SelectValue("1"))
         )
-        val result = GetIdeasByCategoryStep.process(GetIdeasByCategoryInput(filters))
+        val result = SearchIdeasStep.process(filters)
 
         // Then: Only solo farm returned
         assertTrue(result is Result.Success)
@@ -231,7 +231,7 @@ class GetIdeasByCategoryStepTest : WithUser() {
             category = IdeaCategory.FARM,
             categoryFilters = mapOf("biomes" to FilterValue.MultiSelectValue(listOf("Plains", "Desert")))
         )
-        val result = GetIdeasByCategoryStep.process(GetIdeasByCategoryInput(filters))
+        val result = SearchIdeasStep.process(filters)
 
         // Then: All three farms returned (each contains at least one matching biome)
         assertTrue(result is Result.Success)
@@ -257,7 +257,7 @@ class GetIdeasByCategoryStepTest : WithUser() {
             category = IdeaCategory.STORAGE,
             categoryFilters = mapOf("type" to FilterValue.TextValue("sorter"))
         )
-        val result = GetIdeasByCategoryStep.process(GetIdeasByCategoryInput(filters))
+        val result = SearchIdeasStep.process(filters)
 
         // Then: Item sorter returned
         assertTrue(result is Result.Success)
@@ -300,7 +300,7 @@ class GetIdeasByCategoryStepTest : WithUser() {
                 "productionRate" to FilterValue.NumberRange(9000.0, null)
             )
         )
-        val result = GetIdeasByCategoryStep.process(GetIdeasByCategoryInput(filters))
+        val result = SearchIdeasStep.process(filters)
 
         // Then: Only the perfect iron farm matches all criteria
         assertTrue(result is Result.Success)
@@ -315,7 +315,7 @@ class GetIdeasByCategoryStepTest : WithUser() {
 
         // When: Filtering for non-existent category
         val filters = IdeaSearchFilters(category = IdeaCategory.CART_TECH)
-        val result = GetIdeasByCategoryStep.process(GetIdeasByCategoryInput(filters))
+        val result = SearchIdeasStep.process(filters)
 
         // Then: Empty list returned
         assertTrue(result is Result.Success)
@@ -341,7 +341,7 @@ class GetIdeasByCategoryStepTest : WithUser() {
             ) VALUES (?, ?, ?, ?::jsonb, ?, ?::jsonb, ?::jsonb, ?, ?, 0)
         """.trimIndent())
 
-        DatabaseSteps.update<Unit, DatabaseFailure>(
+        DatabaseSteps.update<Unit>(
             sql = sql,
             parameterSetter = { statement, _ ->
                 statement.setString(1, name)
@@ -353,8 +353,7 @@ class GetIdeasByCategoryStepTest : WithUser() {
                 statement.setString(7, categoryData)
                 statement.setInt(8, user.id)
                 statement.setDouble(9, ratingAverage)
-            },
-            errorMapper = { it }
+            }
         ).process(Unit).getOrNull() ?: error("Failed to create test idea")
     }
 }

@@ -3,8 +3,8 @@ package app.mcorg.presentation.handler.auth
 import app.mcorg.domain.model.user.MinecraftProfile
 import app.mcorg.domain.model.user.TokenProfile
 import app.mcorg.domain.pipeline.Result
-import app.mcorg.pipeline.auth.CreateTokenStep
-import app.mcorg.pipeline.auth.CreateUserIfNotExistsStep
+import app.mcorg.pipeline.auth.commonsteps.CreateTokenStep
+import app.mcorg.pipeline.auth.commonsteps.CreateUserIfNotExistsStep
 import app.mcorg.presentation.consts.AUTH_COOKIE
 import app.mcorg.presentation.router.authRouter
 import app.mcorg.test.postgres.DatabaseTestExtension

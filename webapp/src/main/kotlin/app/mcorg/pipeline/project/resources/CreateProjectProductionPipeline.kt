@@ -6,6 +6,7 @@ import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.ValidationSteps
+import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.failure.ValidationFailure
 import app.mcorg.presentation.handler.executePipeline
 import app.mcorg.presentation.hxOutOfBands
@@ -13,11 +14,10 @@ import app.mcorg.presentation.templated.project.projectResourceProductionItem
 import app.mcorg.presentation.utils.getProjectId
 import app.mcorg.presentation.utils.getWorldId
 import app.mcorg.presentation.utils.respondHtml
-import io.ktor.http.HttpStatusCode
-import io.ktor.http.Parameters
-import io.ktor.server.application.ApplicationCall
-import io.ktor.server.request.receiveParameters
-import io.ktor.server.response.respond
+import io.ktor.http.*
+import io.ktor.server.application.*
+import io.ktor.server.request.*
+import io.ktor.server.response.*
 import kotlinx.html.div
 import kotlinx.html.li
 import kotlinx.html.stream.createHTML
@@ -26,11 +26,6 @@ data class CreateProjectProductionInput(
     val name: String,
     val rate: Int? = null
 )
-
-sealed interface CreateProjectProductionFailure {
-    data class ValidationError(val errors: List<ValidationFailure>) : CreateProjectProductionFailure
-    object DatabaseError : CreateProjectProductionFailure
-}
 
 suspend fun ApplicationCall.handleCreateProjectProduction() {
     val worldId = this.getWorldId()
@@ -47,14 +42,14 @@ suspend fun ApplicationCall.handleCreateProjectProduction() {
         },
         onFailure = { respond(HttpStatusCode.InternalServerError, "Failed to create project resource") }
     ) {
-        step(Step.value(parameters))
+        value(parameters)
             .step(ValidateCreateProjectProductionInputStep)
             .step(CreateProjectProductionStep(projectId))
     }
 }
 
-private object ValidateCreateProjectProductionInputStep : Step<Parameters, CreateProjectProductionFailure.ValidationError, CreateProjectProductionInput> {
-    override suspend fun process(input: Parameters): Result<CreateProjectProductionFailure.ValidationError, CreateProjectProductionInput> {
+private object ValidateCreateProjectProductionInputStep : Step<Parameters, AppFailure.ValidationError, CreateProjectProductionInput> {
+    override suspend fun process(input: Parameters): Result<AppFailure.ValidationError, CreateProjectProductionInput> {
         val name = ValidationSteps.required("name") { it }.process(input)
         val rate = ValidationSteps.optionalInt("ratePerHour") { it }.process(input)
 
@@ -62,23 +57,22 @@ private object ValidateCreateProjectProductionInputStep : Step<Parameters, Creat
             val errors = mutableListOf<ValidationFailure>()
             if (name is Result.Failure) errors.add(name.error)
             if (rate is Result.Failure) errors.add(rate.error)
-            return Result.Failure(CreateProjectProductionFailure.ValidationError(errors))
+            return Result.Failure(AppFailure.ValidationError(errors))
         }
 
         return Result.Success(CreateProjectProductionInput(name.getOrNull()!!, rate.getOrNull() ?: 0))
     }
 }
 
-private data class CreateProjectProductionStep(val projectId: Int): Step<CreateProjectProductionInput, CreateProjectProductionFailure.DatabaseError, ProjectProduction> {
-    override suspend fun process(input: CreateProjectProductionInput): Result<CreateProjectProductionFailure.DatabaseError, ProjectProduction> {
-        return DatabaseSteps.update<CreateProjectProductionInput, CreateProjectProductionFailure.DatabaseError>(
-            SafeSQL.insert("INSERT INTO project_productions (project_id, name, rate_per_hour) VALUES (?, ?, ?) RETURNING ID"),
-            { statement, params ->
+private data class CreateProjectProductionStep(val projectId: Int): Step<CreateProjectProductionInput, AppFailure.DatabaseError, ProjectProduction> {
+    override suspend fun process(input: CreateProjectProductionInput): Result<AppFailure.DatabaseError, ProjectProduction> {
+        return DatabaseSteps.update<CreateProjectProductionInput>(
+            sql = SafeSQL.insert("INSERT INTO project_productions (project_id, name, rate_per_hour) VALUES (?, ?, ?) RETURNING ID"),
+            parameterSetter = { statement, params ->
                 statement.setInt(1, projectId)
                 statement.setString(2, params.name)
                 statement.setInt(3, params.rate ?: 0)
-            },
-            { CreateProjectProductionFailure.DatabaseError }
+            }
         ).process(input).map {
             ProjectProduction(
                 id = it,

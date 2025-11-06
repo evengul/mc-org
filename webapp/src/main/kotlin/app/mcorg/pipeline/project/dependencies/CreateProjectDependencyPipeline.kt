@@ -7,30 +7,25 @@ import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.ValidationSteps
-import app.mcorg.pipeline.failure.ValidationFailure
+import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.presentation.handler.executePipeline
 import app.mcorg.presentation.hxOutOfBands
 import app.mcorg.presentation.templated.project.addDependencyForm
 import app.mcorg.presentation.templated.project.dependenciesList
 import app.mcorg.presentation.utils.getProjectId
+import app.mcorg.presentation.utils.getUser
 import app.mcorg.presentation.utils.getWorldId
 import app.mcorg.presentation.utils.respondHtml
-import io.ktor.http.HttpStatusCode
-import io.ktor.http.Parameters
-import io.ktor.server.application.ApplicationCall
-import io.ktor.server.request.receiveParameters
-import io.ktor.server.response.respond
+import io.ktor.http.*
+import io.ktor.server.application.*
+import io.ktor.server.request.*
+import io.ktor.server.response.*
 import kotlinx.html.div
 import kotlinx.html.form
 import kotlinx.html.stream.createHTML
 
-sealed interface CreateProjectDependencyFailure {
-    object DependencyLoopDetected : CreateProjectDependencyFailure
-    object DatabaseError : CreateProjectDependencyFailure
-    data class ValidationError(val errors: List<ValidationFailure>) : CreateProjectDependencyFailure
-}
-
 suspend fun ApplicationCall.handleCreateProjectDependency() {
+    val user = this.getUser()
     val worldId = this.getWorldId()
     val projectId = this.getProjectId()
     val parameters = this.receiveParameters()
@@ -41,46 +36,40 @@ suspend fun ApplicationCall.handleCreateProjectDependency() {
                 dependenciesList(worldId, projectId, dependencies)
             } + createHTML().form {
                 hxOutOfBands("true")
-                addDependencyForm(worldId, projectId, availableDependencies)
+                addDependencyForm(user, worldId, projectId, availableDependencies)
             })
         },
         onFailure = {
             respond(HttpStatusCode.InternalServerError, "Failed to create project dependency")
         }
     ) {
-        step(Step.value(parameters))
+        value(parameters)
             .step(ValidateProjectDependencyInputStep)
             .step(EnsureNoDependencyLoopDetectedStep(projectId))
             .step(CreateProjectDependencyStep(projectId))
-            .step(Step.value(Unit))
-            .step(object : Step<Unit, CreateProjectDependencyFailure.DatabaseError, List<ProjectDependency>> {
-                override suspend fun process(input: Unit): Result<CreateProjectDependencyFailure.DatabaseError, List<ProjectDependency>> {
-                    return GetProjectDependenciesStep(projectId).process(input)
-                        .mapError { CreateProjectDependencyFailure.DatabaseError }
-                }
-            })
-            .step(object : Step<List<ProjectDependency>, CreateProjectDependencyFailure, Pair<List<ProjectDependency>, List<NamedProjectId>>> {
-                override suspend fun process(input: List<ProjectDependency>): Result<CreateProjectDependencyFailure, Pair<List<ProjectDependency>, List<NamedProjectId>>> {
+            .value(Unit)
+            .step(GetProjectDependenciesStep(projectId))
+            .step(object : Step<List<ProjectDependency>, AppFailure, Pair<List<ProjectDependency>, List<NamedProjectId>>> {
+                override suspend fun process(input: List<ProjectDependency>): Result<AppFailure, Pair<List<ProjectDependency>, List<NamedProjectId>>> {
                     return GetAvailableProjectDependenciesStep(worldId).process(projectId)
-                        .mapError { CreateProjectDependencyFailure.DatabaseError }
                         .map { input to it }
                 }
             })
     }
 }
 
-private object ValidateProjectDependencyInputStep : Step<Parameters, CreateProjectDependencyFailure.ValidationError, Int> {
-    override suspend fun process(input: Parameters): Result<CreateProjectDependencyFailure.ValidationError, Int> {
+private object ValidateProjectDependencyInputStep : Step<Parameters, AppFailure.ValidationError, Int> {
+    override suspend fun process(input: Parameters): Result<AppFailure.ValidationError, Int> {
         return ValidationSteps.requiredInt(
             parameterName = "dependencyProjectId",
-            errorMapper = { CreateProjectDependencyFailure.ValidationError(listOf(it)) }
+            errorMapper = { AppFailure.ValidationError(listOf(it)) }
         ).process(input)
     }
 }
 
-data class EnsureNoDependencyLoopDetectedStep(val projectId: Int) : Step<Int, CreateProjectDependencyFailure, Int> {
-    override suspend fun process(input: Int): Result<CreateProjectDependencyFailure, Int> {
-        return DatabaseSteps.query<Int, CreateProjectDependencyFailure, Boolean>(
+data class EnsureNoDependencyLoopDetectedStep(val projectId: Int) : Step<Int, AppFailure, Int> {
+    override suspend fun process(input: Int): Result<AppFailure, Int> {
+        val result = DatabaseSteps.query<Int, Boolean>(
             SafeSQL.with(
                 """
                 WITH RECURSIVE dependency_chain AS (
@@ -129,7 +118,6 @@ data class EnsureNoDependencyLoopDetectedStep(val projectId: Int) : Step<Int, Cr
                 statement.setInt(5, projectId)           // self-reference check: projectId
                 statement.setInt(6, dependencyProjectId) // self-reference check: dependencyProjectId
             },
-            errorMapper = { CreateProjectDependencyFailure.DatabaseError },
             resultMapper = {
                 if (it.next()) {
                     it.getBoolean("loop_detected")
@@ -138,24 +126,26 @@ data class EnsureNoDependencyLoopDetectedStep(val projectId: Int) : Step<Int, Cr
                 }
             }
         ).process(input)
-            .flatMap { loopDetected ->
-                when (loopDetected) {
-                    true -> Result.failure(CreateProjectDependencyFailure.DependencyLoopDetected)
+
+        return when (result) {
+            is Result.Failure -> result
+            is Result.Success -> {
+                when (result.value) {
+                    true -> Result.failure(AppFailure.customValidationError("dependencyProjectId",  "Adding this dependency would create a dependency loop"))
                     false -> Result.success(input)
                 }
-            }
+            }}
     }
 }
 
-private data class CreateProjectDependencyStep(val projectId: Int): Step<Int, CreateProjectDependencyFailure.DatabaseError, Int> {
-    override suspend fun process(input: Int): Result<CreateProjectDependencyFailure.DatabaseError, Int> {
-        return DatabaseSteps.update<Int, CreateProjectDependencyFailure.DatabaseError>(
+private data class CreateProjectDependencyStep(val projectId: Int): Step<Int, AppFailure.DatabaseError, Int> {
+    override suspend fun process(input: Int): Result<AppFailure.DatabaseError, Int> {
+        return DatabaseSteps.update<Int>(
             SafeSQL.insert("INSERT INTO project_dependencies (project_id, depends_on_project_id) VALUES (?, ?)"),
             parameterSetter = { statement, dependencyProjectId ->
                 statement.setInt(1, projectId)
                 statement.setInt(2, dependencyProjectId)
-            },
-            errorMapper = { CreateProjectDependencyFailure.DatabaseError }
+            }
         ).process(input)
     }
 }

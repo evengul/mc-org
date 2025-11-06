@@ -3,6 +3,7 @@ package app.mcorg.presentation.templated.project
 import app.mcorg.domain.model.minecraft.Dimension
 import app.mcorg.domain.model.minecraft.MinecraftLocation
 import app.mcorg.domain.model.project.Project
+import app.mcorg.domain.model.user.TokenProfile
 import app.mcorg.presentation.hxGet
 import app.mcorg.presentation.hxPut
 import app.mcorg.presentation.hxTarget
@@ -26,16 +27,18 @@ import kotlinx.html.select
 import kotlinx.html.span
 
 // TODO: Nearby projects and resources
-fun DIV.locationTab(project: Project) {
+fun DIV.locationTab(user: TokenProfile, project: Project) {
     classes += "project-location-tab"
     div("project-location-header") {
         h2 {
             + "Project Location"
         }
-        neutralButton("Edit Location") {
+        neutralButton("Edit Location${if (user.isDemoUserInProduction) " (Disabled in Demo)" else ""}") {
             buttonBlock = {
-                hxGet(Link.Worlds.world(project.worldId).project(project.id).to + "/location/edit")
-                hxTarget(".location-details")
+                if (!user.isDemoUserInProduction) {
+                    hxGet(Link.Worlds.world(project.worldId).project(project.id).to + "/location/edit")
+                    hxTarget(".location-details")
+                }
             }
         }
     }

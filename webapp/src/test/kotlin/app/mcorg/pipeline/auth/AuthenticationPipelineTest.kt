@@ -2,11 +2,12 @@ package app.mcorg.pipeline.auth
 
 import app.mcorg.config.Database
 import app.mcorg.config.DatabaseConnectionProvider
-import app.mcorg.domain.Local
-import app.mcorg.domain.Test as TestEnv
 import app.mcorg.domain.model.user.MinecraftProfile
 import app.mcorg.domain.model.user.TokenProfile
-import app.mcorg.pipeline.failure.*
+import app.mcorg.pipeline.auth.commonsteps.ConvertTokenStep
+import app.mcorg.pipeline.auth.commonsteps.CreateTokenStep
+import app.mcorg.pipeline.auth.commonsteps.CreateUserIfNotExistsStep
+import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.presentation.consts.ISSUER
 import app.mcorg.presentation.security.JwtHelper
 import app.mcorg.presentation.security.getKeys
@@ -19,9 +20,14 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
-import java.sql.*
-import kotlin.test.*
-import java.util.Date
+import java.sql.Connection
+import java.sql.PreparedStatement
+import java.sql.ResultSet
+import java.sql.SQLException
+import java.util.*
+import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
+import kotlin.test.assertTrue
 
 /**
  * Comprehensive test suite for the MC-ORG Authentication Pipeline.
@@ -110,7 +116,7 @@ class AuthenticationPipelineTest {
         val convertStep = ConvertTokenStep(ISSUER)
 
         // Act
-        TestUtils.executeAndAssertFailure(convertStep, invalidToken, ConvertTokenStepFailure.ConversionError::class.java)
+        TestUtils.executeAndAssertFailure(convertStep, invalidToken)
     }
 
     @Test
@@ -122,8 +128,7 @@ class AuthenticationPipelineTest {
         // Act
         TestUtils.executeAndAssertFailure(
             convertStep,
-            expiredToken,
-            ConvertTokenStepFailure.ExpiredToken::class.java
+            expiredToken
         )
     }
 
@@ -136,8 +141,7 @@ class AuthenticationPipelineTest {
         // Act
         TestUtils.executeAndAssertFailure(
             convertStep,
-            tokenWithWrongIssuer,
-            ConvertTokenStepFailure.IncorrectClaim::class.java
+            tokenWithWrongIssuer
         )
     }
 
@@ -150,8 +154,7 @@ class AuthenticationPipelineTest {
         // Act
         TestUtils.executeAndAssertFailure(
             convertStep,
-            tokenWithMissingClaims,
-            ConvertTokenStepFailure.MissingClaim::class.java
+            tokenWithMissingClaims
         )
     }
 
@@ -255,49 +258,7 @@ class AuthenticationPipelineTest {
         // Act
         TestUtils.executeAndAssertFailure(
             CreateUserIfNotExistsStep,
-            testMinecraftProfile,
-            CreateUserIfNotExistsFailure.Other::class.java
-        )
-    }
-
-    // ===============================
-    // Environment Validation Tests
-    // ===============================
-
-    @Test
-    fun `ValidateEnvStep should succeed in Local environment with Local requirement`() {
-        // Arrange
-        val validateStep = ValidateEnvStep(Local)
-
-        // Act
-        val environment = TestUtils.executeAndAssertSuccess(validateStep, Local)
-
-        // Assert
-        assertEquals(Local, environment)
-    }
-
-    @Test
-    fun `ValidateEnvStep should succeed in Test environment with Test requirement`() = runBlocking {
-        // Arrange
-        val validateStep = ValidateEnvStep(TestEnv)
-
-        // Act
-        val environment = TestUtils.executeAndAssertSuccess(validateStep, TestEnv)
-
-        // Assert
-        assertEquals(TestEnv, environment)
-    }
-
-    @Test
-    fun `ValidateEnvStep should fail when environment does not match requirement`() {
-        // Arrange
-        val validateStep = ValidateEnvStep(Local)
-
-        // Act
-        TestUtils.executeAndAssertFailure(
-            validateStep,
-            TestEnv,
-            ValidateEnvFailure.InvalidEnv::class.java
+            testMinecraftProfile
         )
     }
 
@@ -350,15 +311,13 @@ class AuthenticationPipelineTest {
         // Act & Assert - Empty token
         TestUtils.executeAndAssertFailure(
             convertStep,
-            "",
-            ConvertTokenStepFailure.InvalidToken::class.java
+            ""
         )
 
         // Act & Assert - Blank token
         TestUtils.executeAndAssertFailure(
             convertStep,
-            "   ",
-            ConvertTokenStepFailure.InvalidToken::class.java
+            "   "
         )
     }
 
@@ -379,7 +338,7 @@ class AuthenticationPipelineTest {
             val result = convertStep.process(malformedToken)
             TestUtils.assertResultFailure(
                 result,
-                ConvertTokenStepFailure::class.java
+                AppFailure.AuthError.ConvertTokenError::class.java
             )
         }
     }

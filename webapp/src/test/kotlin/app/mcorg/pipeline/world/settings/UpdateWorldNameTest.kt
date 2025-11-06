@@ -1,16 +1,15 @@
 package app.mcorg.pipeline.world.settings
 
-import app.mcorg.domain.pipeline.Result
 import app.mcorg.pipeline.failure.ValidationFailure
-import io.ktor.http.Parameters
-import io.ktor.http.ParametersBuilder
+import app.mcorg.pipeline.world.settings.general.ValidateWorldNameInputStep
+import app.mcorg.test.utils.TestUtils
+import io.ktor.http.*
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
 import kotlin.test.assertEquals
-import kotlin.test.assertIs
 import kotlin.test.assertTrue
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -28,11 +27,13 @@ class UpdateWorldNameTest {
         val parameters = createParameters("name" to "My Awesome World")
 
         // When
-        val result = ValidateWorldNameInputStep.process(parameters)
+        val result = TestUtils.executeAndAssertSuccess(
+            ValidateWorldNameInputStep,
+            parameters
+        )
 
         // Then
-        assertIs<Result.Success<UpdateWorldNameInput>>(result)
-        assertEquals("My Awesome World", result.value.name)
+        assertEquals("My Awesome World", result)
     }
 
     @Test
@@ -41,11 +42,13 @@ class UpdateWorldNameTest {
         val parameters = createParameters("name" to "  Spaced World  ")
 
         // When
-        val result = ValidateWorldNameInputStep.process(parameters)
+        val result = TestUtils.executeAndAssertSuccess(
+            ValidateWorldNameInputStep,
+            parameters
+        )
 
         // Then
-        assertIs<Result.Success<UpdateWorldNameInput>>(result)
-        assertEquals("Spaced World", result.value.name)
+        assertEquals("Spaced World", result)
     }
 
     @Test
@@ -54,11 +57,13 @@ class UpdateWorldNameTest {
         val parameters = createParameters()
 
         // When
-        val result = ValidateWorldNameInputStep.process(parameters)
+        val result = TestUtils.executeAndAssertFailure(
+            ValidateWorldNameInputStep,
+            parameters
+        )
 
         // Then
-        assertIs<Result.Failure<UpdateWorldNameFailures.ValidationError>>(result)
-        assertTrue(result.error.errors.any { it is ValidationFailure.MissingParameter && it.parameterName == "name" })
+        assertTrue(result.errors.any { it is ValidationFailure.MissingParameter && it.parameterName == "name" })
     }
 
     @Test
@@ -67,11 +72,13 @@ class UpdateWorldNameTest {
         val parameters = createParameters("name" to "")
 
         // When
-        val result = ValidateWorldNameInputStep.process(parameters)
+        val result = TestUtils.executeAndAssertFailure(
+            ValidateWorldNameInputStep,
+            parameters
+        )
 
         // Then
-        assertIs<Result.Failure<UpdateWorldNameFailures.ValidationError>>(result)
-        assertTrue(result.error.errors.isNotEmpty())
+        assertTrue(result.errors.isNotEmpty())
     }
 
     @ParameterizedTest
@@ -81,11 +88,13 @@ class UpdateWorldNameTest {
         val parameters = createParameters("name" to shortName)
 
         // When
-        val result = ValidateWorldNameInputStep.process(parameters)
+        val result = TestUtils.executeAndAssertFailure(
+            ValidateWorldNameInputStep,
+            parameters
+        )
 
         // Then
-        assertIs<Result.Failure<UpdateWorldNameFailures.ValidationError>>(result)
-        assertTrue(result.error.errors.isNotEmpty())
+        assertTrue(result.errors.isNotEmpty())
     }
 
     @Test
@@ -95,11 +104,13 @@ class UpdateWorldNameTest {
         val parameters = createParameters("name" to longName)
 
         // When
-        val result = ValidateWorldNameInputStep.process(parameters)
+        val result = TestUtils.executeAndAssertFailure(
+            ValidateWorldNameInputStep,
+            parameters
+        )
 
         // Then
-        assertIs<Result.Failure<UpdateWorldNameFailures.ValidationError>>(result)
-        assertTrue(result.error.errors.any {
+        assertTrue(result.errors.any {
             it is ValidationFailure.CustomValidation && it.message.contains("between 3 and 100 characters")
         })
     }
@@ -111,53 +122,12 @@ class UpdateWorldNameTest {
         val parameters = createParameters("name" to validName)
 
         // When
-        val result = ValidateWorldNameInputStep.process(parameters)
-
-        // Then
-        assertIs<Result.Success<UpdateWorldNameInput>>(result)
-        assertEquals(validName.trim(), result.value.name)
-    }
-
-    @Test
-    fun `UpdateWorldNameInput should create correct data structure`() {
-        // Given
-        val name = "Test World Name"
-
-        // When
-        val input = UpdateWorldNameInput(name)
-
-        // Then
-        assertEquals(name, input.name)
-    }
-
-    @Test
-    fun `UpdateWorldNameFailures ValidationError should contain error list`() {
-        // Given
-        val validationFailures = listOf(
-            ValidationFailure.MissingParameter("name"),
-            ValidationFailure.InvalidFormat("name", "Too short")
+        val result = TestUtils.executeAndAssertSuccess(
+            ValidateWorldNameInputStep,
+            parameters
         )
 
-        // When
-        val failure = UpdateWorldNameFailures.ValidationError(validationFailures)
-
         // Then
-        assertEquals(validationFailures, failure.errors)
-        assertEquals(2, failure.errors.size)
-    }
-
-    @Test
-    fun `UpdateWorldNameFailures should have correct sealed interface structure`() {
-        // Test that all failure types can be created
-        val validationError = UpdateWorldNameFailures.ValidationError(emptyList())
-        val nameAlreadyExists = UpdateWorldNameFailures.NameAlreadyExists
-        val databaseError = UpdateWorldNameFailures.DatabaseError(
-            app.mcorg.pipeline.failure.DatabaseFailure.NotFound
-        )
-
-        // Verify all are instances of UpdateWorldNameFailures
-        assertIs<UpdateWorldNameFailures>(validationError)
-        assertIs<UpdateWorldNameFailures>(nameAlreadyExists)
-        assertIs<UpdateWorldNameFailures>(databaseError)
+        assertEquals(validName.trim(), result)
     }
 }

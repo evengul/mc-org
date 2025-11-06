@@ -6,8 +6,8 @@ import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
 import kotlin.test.assertEquals
-import kotlin.test.assertIs
 import kotlin.test.assertFalse
+import kotlin.test.assertIs
 
 class PipelineTest {
 
@@ -121,56 +121,6 @@ class PipelineTest {
             assertIs<Result.Failure<TestError>>(result)
             assertEquals("Initial pipeline failed", result.error.message)
             assertFalse(stepExecuted) // Step should not execute due to pipeline failure
-        }
-    }
-
-    @Test
-    fun `pipe with peek should execute peek function on success`() {
-        val initialPipeline = Pipeline<String, TestError, Int> { input ->
-            Result.Success(input.length)
-        }
-
-        val doubleStep = object : Step<Int, TestError, Int> {
-            override suspend fun process(input: Int): Result<TestError, Int> {
-                return Result.Success(input * 2)
-            }
-        }
-
-        var peekedValue: Int? = null
-        val chainedPipeline = initialPipeline.pipe(doubleStep) { value ->
-            peekedValue = value
-        }
-
-        runBlocking {
-            val result = chainedPipeline.execute("hello")
-            assertIs<Result.Success<Int>>(result)
-            assertEquals(10, result.value)
-            assertEquals(10, peekedValue) // Peek should have been called with result value
-        }
-    }
-
-    @Test
-    fun `pipe with peek should not execute peek function on failure`() {
-        val initialPipeline = Pipeline<String, TestError, Int> { input ->
-            Result.Success(input.length)
-        }
-
-        val failingStep = object : Step<Int, TestError, Int> {
-            override suspend fun process(input: Int): Result<TestError, Int> {
-                return Result.Failure(TestError("Step failed"))
-            }
-        }
-
-        var peekCalled = false
-        val chainedPipeline = initialPipeline.pipe(failingStep) { _ ->
-            peekCalled = true
-        }
-
-        runBlocking {
-            val result = chainedPipeline.execute("test")
-            assertIs<Result.Failure<TestError>>(result)
-            assertEquals("Step failed", result.error.message)
-            assertFalse(peekCalled) // Peek should not be called on failure
         }
     }
 

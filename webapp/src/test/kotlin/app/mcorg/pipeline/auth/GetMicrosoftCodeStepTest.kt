@@ -1,12 +1,11 @@
 package app.mcorg.pipeline.auth
 
-import app.mcorg.pipeline.failure.GetMicrosoftCodeFailure
+import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.test.utils.TestUtils
-import io.ktor.http.Parameters
-import io.ktor.http.parametersOf
-import org.junit.jupiter.api.Assertions.fail
+import io.ktor.http.*
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertIs
 
 /**
  * Test suite for GetMicrosoftCodeStep - OAuth code parameter extraction
@@ -59,16 +58,11 @@ class GetMicrosoftCodeStepTest {
         // Act & Assert
         val error = TestUtils.executeAndAssertFailure(
             GetMicrosoftCodeStep,
-            parameters,
-            GetMicrosoftCodeFailure.Error::class.java
+            parameters
         )
-        when(error) {
-            is GetMicrosoftCodeFailure.Error -> {
-                assertEquals("access_denied", error.error)
-                assertEquals("The user denied the request", error.description)
-            }
-            else -> fail("Unexpected error type: ${error.javaClass.name}")
-        }
+        assertIs<AppFailure.Redirect>(error)
+        assertEquals("access_denied", error.queryParameters["microsoft_error"])
+        assertEquals("The user denied the request", error.queryParameters["microsoft_description"])
     }
 
     @Test
@@ -79,16 +73,10 @@ class GetMicrosoftCodeStepTest {
         // Act & Assert
         val error = TestUtils.executeAndAssertFailure(
             GetMicrosoftCodeStep,
-            parameters,
-            GetMicrosoftCodeFailure.Error::class.java
+            parameters
         )
-        when(error) {
-            is GetMicrosoftCodeFailure.Error -> {
-                assertEquals("invalid_request", error.error)
-                assertEquals("Some error occurred", error.description)
-            }
-            else -> fail("Unexpected error type: ${error.javaClass.name}")
-        }
+        assertIs<AppFailure.Redirect>(error)
+        assertEquals("invalid_request", error.queryParameters["microsoft_error"])
     }
 
     @Test
@@ -100,11 +88,12 @@ class GetMicrosoftCodeStepTest {
         )
 
         // Act & Assert
-        TestUtils.executeAndAssertFailure(
+        val error = TestUtils.executeAndAssertFailure(
             GetMicrosoftCodeStep,
-            parameters,
-            GetMicrosoftCodeFailure.MissingCode::class.java
+            parameters
         )
+        assertIs<AppFailure.Redirect>(error)
+        assertEquals("missing_code", error.queryParameters["error"])
     }
 
     @Test
@@ -113,11 +102,12 @@ class GetMicrosoftCodeStepTest {
         val parameters = Parameters.Empty
 
         // Act & Assert
-        TestUtils.executeAndAssertFailure(
+        val error = TestUtils.executeAndAssertFailure(
             GetMicrosoftCodeStep,
-            parameters,
-            GetMicrosoftCodeFailure.MissingCode::class.java
+            parameters
         )
+        assertIs<AppFailure.Redirect>(error)
+        assertEquals("missing_code", error.queryParameters["error"])
     }
 
     @Test
@@ -143,16 +133,11 @@ class GetMicrosoftCodeStepTest {
             // Act & Assert
             val error = TestUtils.executeAndAssertFailure(
                 GetMicrosoftCodeStep,
-                parameters,
-                GetMicrosoftCodeFailure.Error::class.java
+                parameters
             )
-            when(error) {
-                is GetMicrosoftCodeFailure.Error -> {
-                    assertEquals(errorCode, error.error)
-                    assertEquals(description, error.description)
-                }
-                else -> fail("Unexpected error type: ${error.javaClass.name}")
-            }
+            assertIs<AppFailure.Redirect>(error)
+            assertEquals(errorCode, error.queryParameters["microsoft_error"])
+            assertEquals(description, error.queryParameters["microsoft_description"])
         }
     }
 }

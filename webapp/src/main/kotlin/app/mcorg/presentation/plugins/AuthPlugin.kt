@@ -2,18 +2,17 @@ package app.mcorg.presentation.plugins
 
 import app.mcorg.domain.pipeline.Pipeline
 import app.mcorg.domain.pipeline.Result
-import app.mcorg.pipeline.failure.AuthPluginFailure
-import app.mcorg.pipeline.auth.ConvertTokenStep
-import app.mcorg.pipeline.auth.GetTokenStep
-import app.mcorg.pipeline.failure.GetCookieFailure
-import app.mcorg.pipeline.failure.toRedirect
+import app.mcorg.pipeline.auth.commonsteps.ConvertTokenStep
+import app.mcorg.pipeline.auth.commonsteps.GetTokenStep
+import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.presentation.consts.AUTH_COOKIE
 import app.mcorg.presentation.consts.ISSUER
-import app.mcorg.presentation.utils.*
+import app.mcorg.presentation.utils.getHost
+import app.mcorg.presentation.utils.removeToken
+import app.mcorg.presentation.utils.storeUser
 import io.ktor.server.application.*
-import io.ktor.server.request.RequestCookies
-import io.ktor.server.request.path
-import io.ktor.server.response.respondRedirect
+import io.ktor.server.request.*
+import io.ktor.server.response.*
 
 val AuthPlugin = createRouteScopedPlugin("AuthPlugin") {
     onCall {
@@ -22,15 +21,14 @@ val AuthPlugin = createRouteScopedPlugin("AuthPlugin") {
             || it.request.path().startsWith("/favicon.ico")) {
             return@onCall
         }
-        val result = Pipeline.create<AuthPluginFailure, RequestCookies>()
+        val result = Pipeline.create<AppFailure, RequestCookies>()
             .pipe(GetTokenStep(AUTH_COOKIE))
             .pipe(ConvertTokenStep(ISSUER))
             .map { user -> it.storeUser(user) }
             .execute(it.request.cookies)
-        if (result is Result.Failure && result.error !is GetCookieFailure.MissingCookie) {
+        if (result is Result.Failure && result.error is AppFailure.Redirect) {
             it.response.cookies.removeToken(it.getHost() ?: "false")
-            val url = result.error.toRedirect("/auth/sign-in?redirect_to=${it.request.path()}").url
-            it.respondRedirect(url, permanent = false)
+            it.respondRedirect(result.error.toUrl(), permanent = false)
         } else if (result is Result.Failure && !it.request.path().contains("/auth/sign-in") && !it.request.path().contains("/oidc")) {
             it.respondRedirect("/auth/sign-in?redirect_to=${it.request.path()}", permanent = false)
         }

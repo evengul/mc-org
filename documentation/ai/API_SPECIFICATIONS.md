@@ -152,17 +152,7 @@ suspend fun ApplicationCall.handleCreateFeature() {
                 featureSuccessContent(result)
             })
         },
-        onFailure = { failure: CreateFeatureFailures ->
-            val errorMessage = when (failure) {
-                is CreateFeatureFailures.ValidationError -> 
-                    "Invalid data: ${failure.errors.joinToString(", ")}"
-                is CreateFeatureFailures.DatabaseError -> 
-                    "Unable to create: Database error"
-                is CreateFeatureFailures.InsufficientPermissions -> 
-                    "Permission denied"
-            }
-            respondBadRequest(errorMessage)
-        }
+        onFailure = { respond(HttpStatusCode.InternalServerError) }
     ) {
         step(Step.value(parameters))
             .step(ValidateFeatureInputStep)
@@ -175,16 +165,10 @@ suspend fun ApplicationCall.handleCreateFeature() {
 
 ### Error Handling Pattern
 ```kotlin
-// Actual pattern: Pipeline Result handling, not try-catch
-sealed interface CreateFeatureFailures {
-    data class ValidationError(val errors: List<ValidationFailure>) : CreateFeatureFailures
-    data object DatabaseError : CreateFeatureFailures
-    data object InsufficientPermissions : CreateFeatureFailures
-}
 
 // Error handling in pipeline steps
-object ValidateFeatureInputStep : Step<Parameters, CreateFeatureFailures, FeatureInput> {
-    override suspend fun process(input: Parameters): Result<CreateFeatureFailures, FeatureInput> {
+object ValidateFeatureInputStep : Step<Parameters, AppFailure.ValidationError, FeatureInput> {
+    override suspend fun process(input: Parameters): Result<AppFailure.ValidationError, FeatureInput> {
         val name = ValidationSteps.required("name", { CreateFeatureFailures.ValidationError(listOf(it)) })
             .process(input)
         val description = ValidationSteps.optional("description")
@@ -196,7 +180,7 @@ object ValidateFeatureInputStep : Step<Parameters, CreateFeatureFailures, Featur
         }
         
         return if (errors.isNotEmpty()) {
-            Result.failure(CreateFeatureFailures.ValidationError(errors))
+            Result.failure(AppFailure.ValidationError(errors))
         } else {
             Result.success(FeatureInput(name.getOrNull()!!, description.getOrNull() ?: ""))
         }

@@ -58,15 +58,15 @@ fun worldPage(
 ) {
     classes += "world"
 
-    worldHeader(world, worldMember, toggles)
+    worldHeader(user, world, worldMember, toggles)
     projectSearch(world.id, visibleProjects = projects.size, totalProjects = world.totalProjects, toggles)
     worldProjectsSection(world.totalProjects, projects, tab, toggles)
 }
 
-private fun MAIN.worldHeader(world: World, user: WorldMember, toggles: Set<WorldPageToggles>) {
+private fun MAIN.worldHeader(user: TokenProfile, world: World, worldMember: WorldMember, toggles: Set<WorldPageToggles>) {
     div("world-header") {
         worldHeaderInfo(world)
-        worldHeaderActions(world, user, toggles)
+        worldHeaderActions(user, world, worldMember, toggles)
     }
 }
 
@@ -88,10 +88,10 @@ private fun FlowContent.worldHeaderInfo(world: World) {
     }
 }
 
-private fun FlowContent.worldHeaderActions(world: World, user: WorldMember, toggles: Set<WorldPageToggles>) {
+private fun FlowContent.worldHeaderActions(user: TokenProfile, world: World, worldMember: WorldMember, toggles: Set<WorldPageToggles>) {
     div("world-header-end") {
         if (WorldPageToggles.NEW_PROJECT in toggles) {
-            createProjectModal(world.id)
+            createProjectModal(user, world.id)
         }
         if (WorldPageToggles.RESOURCE_MAP in toggles) {
             neutralButton("Resource Map") {
@@ -100,7 +100,7 @@ private fun FlowContent.worldHeaderActions(world: World, user: WorldMember, togg
                 iconSize = IconSize.SMALL
             }
         }
-        if (WorldPageToggles.SETTINGS in toggles && user.worldRole.isHigherThanOrEqualTo(Role.ADMIN)) {
+        if (WorldPageToggles.SETTINGS in toggles && worldMember.worldRole.isHigherThanOrEqualTo(Role.ADMIN) && !user.isDemoUserInProduction) {
             neutralButton("Settings") {
                 // TODO(ICON): Settings icon
                 iconLeft = Icons.Menu.UTILITIES

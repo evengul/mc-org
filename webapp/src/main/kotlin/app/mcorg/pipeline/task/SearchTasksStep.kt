@@ -4,20 +4,59 @@ import app.mcorg.domain.model.task.Task
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.DatabaseSteps
-import app.mcorg.pipeline.failure.DatabaseFailure
+import app.mcorg.pipeline.SafeSQL
+import app.mcorg.pipeline.failure.AppFailure
+import app.mcorg.pipeline.task.extractors.toTasks
 
-object SearchTasksStep : Step<SearchTasksInput, SearchTasksFailures.DatabaseError, SearchTasksResult> {
-    override suspend fun process(input: SearchTasksInput): Result<SearchTasksFailures.DatabaseError, SearchTasksResult> {
+data class SearchTasksInput(
+    val query: String? = null,
+    val completionStatus: String = "IN_PROGRESS", // ALL, IN_PROGRESS, COMPLETED
+    val priority: String = "ALL", // ALL or Priority enum name
+    val stage: String = "ALL",
+    val sortBy: String = "lastModified_desc" // name_asc, lastModified_desc
+)
+
+data class SearchTasksStep(val projectId: Int) : Step<SearchTasksInput, AppFailure.DatabaseError, List<Task>> {
+    override suspend fun process(input: SearchTasksInput): Result<AppFailure.DatabaseError, List<Task>> {
         val sortBy = when(input.sortBy) {
             "name_asc" -> "t.name ASC, priority_order ASC, t.updated_at DESC"
             "lastModified_desc" -> "t.updated_at DESC, priority_order ASC, t.name ASC"
             "priority_asc" -> "priority_order ASC, t.updated_at DESC, t.name ASC"
             else -> "priority_order ASC, t.updated_at DESC, t.name ASC"
         }
-        val taskStep = DatabaseSteps.query<SearchTasksInput, SearchTasksFailures.DatabaseError, List<Task>>(
-            sql = searchTasksQuery(sortBy),
+        return DatabaseSteps.query<SearchTasksInput, List<Task>>(
+            sql = SafeSQL.select("""
+                SELECT 
+                    t.id,
+                    t.project_id,
+                    t.name,
+                    t.description,
+                    t.stage,
+                    t.priority,
+                    t.requirement_type,
+                    t.requirement_item_required_amount,
+                    t.requirement_item_collected,
+                    t.requirement_action_completed,
+                    CASE 
+                        WHEN t.priority = 'CRITICAL' THEN 1
+                        WHEN t.priority = 'HIGH' THEN 2
+                        WHEN t.priority = 'MEDIUM' THEN 3
+                        WHEN t.priority = 'LOW' THEN 4
+                        ELSE 5
+                    END as priority_order
+                FROM tasks t
+                WHERE t.project_id = ?
+                  AND (? IS NULL OR LOWER(t.name) LIKE ? OR LOWER(t.description) LIKE ?)
+                  AND (? = 'ALL' OR t.priority = ?)
+                  AND (? = 'ALL' OR t.stage = ?)
+                  AND (? = 'ALL'
+                    OR (? = 'COMPLETED' AND ((t.requirement_type = 'ACTION' AND t.requirement_action_completed = TRUE) OR (t.requirement_type = 'ITEM' AND t.requirement_item_collected >= t.requirement_item_required_amount)))
+                    OR (? = 'IN_PROGRESS' AND ((t.requirement_type = 'ACTION' AND t.requirement_action_completed = FALSE) OR (t.requirement_type = 'ITEM' AND t.requirement_item_collected < t.requirement_item_required_amount)))
+                    )
+                ORDER BY $sortBy
+            """.trimIndent()),
             parameterSetter = { statement, searchInput ->
-                statement.setInt(1, searchInput.projectId)
+                statement.setInt(1, projectId)
 
                 val searchPattern = searchInput.query?.let { "%$it%".lowercase() }
                 statement.setString(2, searchInput.query)
@@ -34,13 +73,7 @@ object SearchTasksStep : Step<SearchTasksInput, SearchTasksFailures.DatabaseErro
                 statement.setString(10, searchInput.completionStatus)
                 statement.setString(11, searchInput.completionStatus)
             },
-            errorMapper = { _: DatabaseFailure -> SearchTasksFailures.DatabaseError },
             resultMapper = { it.toTasks() }
-        )
-
-        return when (val result = taskStep.process(input)) {
-            is Result.Success -> Result.Success(SearchTasksResult(result.value))
-            is Result.Failure -> Result.Failure(result.error)
-        }
+        ).process(input)
     }
 }

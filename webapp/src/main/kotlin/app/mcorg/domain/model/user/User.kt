@@ -1,5 +1,7 @@
 package app.mcorg.domain.model.user
 
+import app.mcorg.config.AppConfig
+import app.mcorg.domain.Production
 import java.time.ZonedDateTime
 
 sealed interface User {
@@ -42,9 +44,12 @@ data class TokenProfile(
         get() = isSuperAdmin || roles.contains("idea_creator")
     val isBanned: Boolean
         get() = roles.contains("banned")
+    val isDemoUserInProduction: Boolean
+        get() = roles.contains("demo_user") && AppConfig.env == Production
 }
 
 data class MinecraftProfile(
     val uuid: String,
-    val username: String
+    val username: String,
+    val isDemoUser: Boolean = false
 )

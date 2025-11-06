@@ -1,27 +1,22 @@
 package app.mcorg.pipeline.idea.single
 
 import app.mcorg.domain.model.idea.Comment
-import app.mcorg.domain.model.idea.Idea
 import app.mcorg.domain.pipeline.Pipeline
 import app.mcorg.domain.pipeline.Result
-import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
-import app.mcorg.pipeline.idea.toIdea
-import app.mcorg.pipeline.notification.GetUnreadNotificationCountStep
+import app.mcorg.pipeline.failure.AppFailure
+import app.mcorg.pipeline.idea.commonsteps.GetIdeaStep
+import app.mcorg.pipeline.notification.getUnreadNotificationsOrZero
 import app.mcorg.presentation.handler.executeParallelPipeline
 import app.mcorg.presentation.templated.idea.ideaPage
 import app.mcorg.presentation.utils.getIdeaId
 import app.mcorg.presentation.utils.getUser
 import app.mcorg.presentation.utils.respondHtml
-import io.ktor.http.HttpStatusCode
-import io.ktor.server.application.ApplicationCall
-import io.ktor.server.response.respond
+import io.ktor.http.*
+import io.ktor.server.application.*
+import io.ktor.server.response.*
 import java.sql.ResultSet
-
-sealed interface GetIdeaFailure {
-    object DatabaseError : GetIdeaFailure
-}
 
 data class GetCommentsInput(
     val ideaId: Int,
@@ -32,25 +27,17 @@ suspend fun ApplicationCall.handleGetIdea() {
     val ideaId = this.getIdeaId()
     val user = this.getUser()
 
-    val ideaPipeline = Pipeline.create<GetIdeaFailure, Int>()
+    val ideaPipeline = Pipeline.create<AppFailure.DatabaseError, Int>()
         .pipe(GetIdeaStep)
 
-    val commentsPipeline = Pipeline.create<GetIdeaFailure, GetCommentsInput>()
+    val commentsPipeline = Pipeline.create<AppFailure.DatabaseError, GetCommentsInput>()
         .pipe(GetIdeaCommentsStep)
 
-    val notificationsPipeline = Pipeline.create<GetIdeaFailure, Int>()
-        .pipe(Step.value(user.id))
-        .pipe(object : Step<Int, GetIdeaFailure, Int> {
-            override suspend fun process(input: Int): Result<GetIdeaFailure, Int> {
-                return GetUnreadNotificationCountStep.process(input)
-                    .mapError { GetIdeaFailure.DatabaseError }
-            }
-        })
-        .recover { Result.success(0) }
+    val notifications = getUnreadNotificationsOrZero(user.id)
 
     executeParallelPipeline(
-        onSuccess = { (idea, comments, unreadCount) ->
-            respondHtml(ideaPage(user, idea, comments, unreadCount))
+        onSuccess = { (idea, comments) ->
+            respondHtml(ideaPage(user, idea, comments, notifications))
         },
         onFailure = {
             respond(HttpStatusCode.InternalServerError, "Failed to get idea")
@@ -58,56 +45,15 @@ suspend fun ApplicationCall.handleGetIdea() {
     ) {
         val idea = pipeline("idea", ideaId, ideaPipeline)
         val comments = pipeline("comments", GetCommentsInput(ideaId, user.id), commentsPipeline)
-        val unreadCount = pipeline("unreadCount", user.id, notificationsPipeline)
 
-        merge("ideaWithCommentsAndCount", idea, comments, unreadCount) { ideaResult, commentsResult, countResult ->
-            Result.success(Triple(ideaResult, commentsResult, countResult))
+        merge("ideaWithComments", idea, comments) { ideaResult, commentsResult ->
+            Result.success(Pair(ideaResult, commentsResult))
         }
     }
 }
 
-private object GetIdeaStep : Step<Int, GetIdeaFailure, Idea> {
-    override suspend fun process(input: Int): Result<GetIdeaFailure, Idea> {
-        return DatabaseSteps.query<Int, GetIdeaFailure, Idea>(
-            sql = SafeSQL.select("""
-                SELECT 
-                    i.id, i.name, i.description, i.category, i.author, i.sub_authors, i.labels,
-                    i.favourites_count, i.rating_average, i.rating_count, i.difficulty,
-                    i.minecraft_version_range, i.category_data, i.created_by, i.created_at,
-                    COALESCE(
-                        json_agg(
-                            json_build_object(
-                                'mspt', t.mspt,
-                                'hardware', t.hardware,
-                                'version', t.minecraft_version
-                            )
-                        ) FILTER (WHERE t.id IS NOT NULL),
-                        '[]'
-                    ) as test_data
-                FROM ideas i
-                LEFT JOIN idea_test_data t ON i.id = t.idea_id
-                WHERE i.id = ?
-                GROUP BY i.id, i.name, i.description, i.category, i.author, i.sub_authors, i.labels,
-                         i.favourites_count, i.rating_average, i.rating_count, i.difficulty,
-                         i.minecraft_version_range, i.category_data, i.created_by, i.created_at
-                ORDER BY i.created_at DESC
-            """.trimIndent()),
-            parameterSetter = { statement, id ->
-                statement.setInt(1, id)
-            },
-            errorMapper = { GetIdeaFailure.DatabaseError },
-            resultMapper = { resultSet ->
-                resultSet.next()
-                resultSet.toIdea()
-            }
-        ).process(input)
-    }
-}
-
-private object GetIdeaCommentsStep : Step<GetCommentsInput, GetIdeaFailure, List<app.mcorg.domain.model.idea.Comment>> {
-    override suspend fun process(input: GetCommentsInput): Result<GetIdeaFailure, List<app.mcorg.domain.model.idea.Comment>> {
-        return DatabaseSteps.query<GetCommentsInput, GetIdeaFailure, List<app.mcorg.domain.model.idea.Comment>>(
-            sql = SafeSQL.select("""
+private val GetIdeaCommentsStep = DatabaseSteps.query<GetCommentsInput, List<Comment>>(
+    sql = SafeSQL.select("""
                 SELECT 
                     c.id,
                     c.idea_id,
@@ -126,22 +72,19 @@ private object GetIdeaCommentsStep : Step<GetCommentsInput, GetIdeaFailure, List
                 WHERE c.idea_id = ?
                 ORDER BY c.created_at DESC
             """.trimIndent()),
-            parameterSetter = { statement, input ->
-                statement.setInt(1, input.userId) // For you_liked check
-                statement.setInt(2, input.ideaId) // For filtering comments by idea
-            },
-            errorMapper = { GetIdeaFailure.DatabaseError },
-            resultMapper = { resultSet ->
-                val comments = mutableListOf<app.mcorg.domain.model.idea.Comment>()
-                while (resultSet.next()) {
-                    val comment = resultSet.toComment()
-                    comments.add(comment)
-                }
-                comments
-            }
-        ).process(input)
+    parameterSetter = { statement, input ->
+        statement.setInt(1, input.userId) // For you_liked check
+        statement.setInt(2, input.ideaId) // For filtering comments by idea
+    },
+    resultMapper = { resultSet ->
+        val comments = mutableListOf<Comment>()
+        while (resultSet.next()) {
+            val comment = resultSet.toComment()
+            comments.add(comment)
+        }
+        comments
     }
-}
+)
 
 fun ResultSet.toComment(): Comment {
     val id = getInt("id")

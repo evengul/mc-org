@@ -1,9 +1,9 @@
 package app.mcorg.pipeline.world.settings
 
-import app.mcorg.domain.pipeline.Result
 import app.mcorg.pipeline.failure.ValidationFailure
-import io.ktor.http.Parameters
-import io.ktor.http.ParametersBuilder
+import app.mcorg.pipeline.world.settings.general.ValidateWorldDescriptionInputStep
+import app.mcorg.test.utils.TestUtils
+import io.ktor.http.*
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
@@ -11,7 +11,6 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
-import kotlin.test.assertTrue
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class UpdateWorldDescriptionTest {
@@ -28,11 +27,13 @@ class UpdateWorldDescriptionTest {
         val parameters = createParameters("description" to "This is a detailed description of my world")
 
         // When
-        val result = ValidateWorldDescriptionInputStep.process(parameters)
+        val result = TestUtils.executeAndAssertSuccess(
+            ValidateWorldDescriptionInputStep,
+            parameters
+        )
 
         // Then
-        assertIs<Result.Success<UpdateWorldDescriptionInput>>(result)
-        assertEquals("This is a detailed description of my world", result.value.description)
+        assertEquals("This is a detailed description of my world", result)
     }
 
     @Test
@@ -41,11 +42,13 @@ class UpdateWorldDescriptionTest {
         val parameters = createParameters("description" to "  Spaced Description  ")
 
         // When
-        val result = ValidateWorldDescriptionInputStep.process(parameters)
+        val result = TestUtils.executeAndAssertSuccess(
+            ValidateWorldDescriptionInputStep,
+            parameters
+        )
 
         // Then
-        assertIs<Result.Success<UpdateWorldDescriptionInput>>(result)
-        assertEquals("Spaced Description", result.value.description)
+        assertEquals("Spaced Description", result)
     }
 
     @Test
@@ -54,11 +57,13 @@ class UpdateWorldDescriptionTest {
         val parameters = createParameters()
 
         // When
-        val result = ValidateWorldDescriptionInputStep.process(parameters)
+        val result = TestUtils.executeAndAssertSuccess(
+            ValidateWorldDescriptionInputStep,
+            parameters
+        )
 
         // Then
-        assertIs<Result.Success<UpdateWorldDescriptionInput>>(result)
-        assertEquals("", result.value.description)
+        assertEquals("", result)
     }
 
     @Test
@@ -67,27 +72,30 @@ class UpdateWorldDescriptionTest {
         val parameters = createParameters("description" to "")
 
         // When
-        val result = ValidateWorldDescriptionInputStep.process(parameters)
+        val result = TestUtils.executeAndAssertSuccess(
+            ValidateWorldDescriptionInputStep,
+            parameters
+        )
 
         // Then
-        assertIs<Result.Success<UpdateWorldDescriptionInput>>(result)
-        assertEquals("", result.value.description)
+        assertEquals("", result)
     }
 
     @Test
-    fun `ValidateWorldDescriptionInputStep should fail with description longer than 1000 characters`() = runBlocking {
+    fun `ValidateWorldDescriptionInputStep should fail with description longer than 1000 characters`() {
         // Given
         val longDescription = "a".repeat(1001) // 1001 characters
         val parameters = createParameters("description" to longDescription)
 
         // When
-        val result = ValidateWorldDescriptionInputStep.process(parameters)
+        val result = TestUtils.executeAndAssertFailure(
+            ValidateWorldDescriptionInputStep,
+            parameters
+        )
 
         // Then
-        assertIs<Result.Failure<UpdateWorldDescriptionFailures.ValidationError>>(result)
-        assertTrue(result.error.errors.any {
-            it is ValidationFailure.CustomValidation && it.message.contains("1000 characters or less")
-        })
+        assertEquals(1, result.errors.size)
+        assertIs<ValidationFailure.InvalidLength>(result.errors.first())
     }
 
     @ParameterizedTest
@@ -101,51 +109,12 @@ class UpdateWorldDescriptionTest {
         val parameters = createParameters("description" to validDescription)
 
         // When
-        val result = ValidateWorldDescriptionInputStep.process(parameters)
-
-        // Then
-        assertIs<Result.Success<UpdateWorldDescriptionInput>>(result)
-        assertEquals(validDescription.trim(), result.value.description)
-    }
-
-    @Test
-    fun `UpdateWorldDescriptionInput should create correct data structure`() {
-        // Given
-        val description = "Test world description"
-
-        // When
-        val input = UpdateWorldDescriptionInput(description)
-
-        // Then
-        assertEquals(description, input.description)
-    }
-
-    @Test
-    fun `UpdateWorldDescriptionFailures ValidationError should contain error list`() {
-        // Given
-        val validationFailures = listOf(
-            ValidationFailure.CustomValidation("description", "Too long"),
-            ValidationFailure.InvalidFormat("description", "Invalid format")
+        val result = TestUtils.executeAndAssertSuccess(
+            ValidateWorldDescriptionInputStep,
+            parameters
         )
 
-        // When
-        val failure = UpdateWorldDescriptionFailures.ValidationError(validationFailures)
-
         // Then
-        assertEquals(validationFailures, failure.errors)
-        assertEquals(2, failure.errors.size)
-    }
-
-    @Test
-    fun `UpdateWorldDescriptionFailures should have correct sealed interface structure`() {
-        // Test that all failure types can be created
-        val validationError = UpdateWorldDescriptionFailures.ValidationError(emptyList())
-        val databaseError = UpdateWorldDescriptionFailures.DatabaseError(
-            app.mcorg.pipeline.failure.DatabaseFailure.NotFound
-        )
-
-        // Verify all are instances of UpdateWorldDescriptionFailures
-        assertIs<UpdateWorldDescriptionFailures>(validationError)
-        assertIs<UpdateWorldDescriptionFailures>(databaseError)
+        assertEquals(validDescription.trim(), result)
     }
 }

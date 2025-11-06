@@ -3,13 +3,12 @@ package app.mcorg.pipeline.idea.single
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
-import app.mcorg.pipeline.failure.DatabaseFailure
 import app.mcorg.presentation.handler.executePipeline
 import app.mcorg.presentation.utils.getIdeaCommentId
 import app.mcorg.presentation.utils.respondEmptyHtml
-import io.ktor.http.HttpStatusCode
-import io.ktor.server.application.ApplicationCall
-import io.ktor.server.response.respond
+import io.ktor.http.*
+import io.ktor.server.application.*
+import io.ktor.server.response.*
 
 suspend fun ApplicationCall.handleDeleteIdeaComment() {
     val ideaCommentId = this.getIdeaCommentId()
@@ -27,8 +26,7 @@ suspend fun ApplicationCall.handleDeleteIdeaComment() {
     }
 }
 
-private val deleteIdeaStep = DatabaseSteps.update<Int, DatabaseFailure>(
+private val deleteIdeaStep = DatabaseSteps.update<Int>(
     sql = SafeSQL.delete("DELETE FROM idea_comments WHERE id = ?"),
-    parameterSetter = { ps, input -> ps.setInt(1, input) },
-    errorMapper = { it }
+    parameterSetter = { ps, input -> ps.setInt(1, input) }
 )

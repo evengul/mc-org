@@ -1,60 +1,36 @@
 package app.mcorg.pipeline.idea
 
-import app.mcorg.domain.pipeline.Pipeline
-import app.mcorg.domain.pipeline.Result
-import app.mcorg.domain.pipeline.Step
+import app.mcorg.pipeline.idea.commonsteps.GetAllIdeasStep
 import app.mcorg.pipeline.minecraft.GetSupportedVersionsStep
-import app.mcorg.pipeline.notification.GetUnreadNotificationCountStep
-import app.mcorg.presentation.handler.executeParallelPipeline
+import app.mcorg.pipeline.notification.getUnreadNotificationsOrZero
+import app.mcorg.presentation.handler.executePipeline
 import app.mcorg.presentation.templated.idea.ideasPage
 import app.mcorg.presentation.utils.getUser
 import app.mcorg.presentation.utils.respondHtml
-import io.ktor.http.HttpStatusCode
-import io.ktor.server.application.ApplicationCall
-import io.ktor.server.response.respond
-
-sealed interface GetIdeasFailure {
-    object DatabaseError : GetIdeasFailure
-}
+import io.ktor.http.*
+import io.ktor.server.application.*
+import io.ktor.server.response.*
 
 suspend fun ApplicationCall.handleGetIdeas() {
     val user = this.getUser()
 
-    val getIdeasPipeline = Pipeline.create<GetIdeasFailure, Unit>()
-        .pipe(GetAllIdeasStep)
-
-    val getNotificationCountsPipeline = Pipeline.create<GetIdeasFailure, Int>()
-        .pipe(Step.value(user.id))
-        .pipe(object : Step<Int, GetIdeasFailure, Int> {
-            override suspend fun process(input: Int): Result<GetIdeasFailure, Int> {
-                return when (val result = GetUnreadNotificationCountStep.process(input)) {
-                    is Result.Success -> Result.success(result.value)
-                    is Result.Failure -> Result.success(0)
-                }
-            }
-        })
-        .recover { Result.success(0) }
+    val unreadNotifications = getUnreadNotificationsOrZero(user.id)
 
     val supportedVersions = GetSupportedVersionsStep.getSupportedVersions()
 
-    executeParallelPipeline(
+    executePipeline(
         onSuccess = {
             respondHtml(ideasPage(
                 user = user,
-                ideas = it.first,
+                ideas = it,
                 supportedVersions = supportedVersions,
-                unreadNotifications = it.second
+                unreadNotifications = unreadNotifications
             ))
         },
         onFailure = {
             respond(HttpStatusCode.InternalServerError, "Failed to get ideas")
         }
     ) {
-        val ideas = pipeline("ideas", Unit, getIdeasPipeline)
-        val unreadCount = pipeline("unreadCount", user.id, getNotificationCountsPipeline)
-
-        merge("ideasWithCount", ideas, unreadCount) { ideas, count ->
-            Result.success(ideas to count)
-        }
+        step(GetAllIdeasStep)
     }
 }

@@ -5,18 +5,19 @@ import app.mcorg.domain.model.minecraft.MinecraftVersion
 import app.mcorg.domain.model.minecraft.ServerData
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
+import app.mcorg.pipeline.failure.AppFailure
 import kotlinx.serialization.json.Json
 import org.slf4j.LoggerFactory
 import java.io.IOException
 import java.nio.file.Path
 
-data object ExtractMinecraftDataStep : Step<Pair<MinecraftVersion.Release, Path>, GetServerFilesFailure, ServerData> {
-    override suspend fun process(input: Pair<MinecraftVersion.Release, Path>): Result<GetServerFilesFailure, ServerData> {
+data object ExtractMinecraftDataStep : Step<Pair<MinecraftVersion.Release, Path>, AppFailure, ServerData> {
+    override suspend fun process(input: Pair<MinecraftVersion.Release, Path>): Result<AppFailure, ServerData> {
         try {
             val result = ExtractItemsDataStep.process(input)
 
             if (result is Result.Failure) {
-                return Result.failure(result.error)
+                return result
             }
 
             return Result.success(
@@ -31,17 +32,17 @@ data object ExtractMinecraftDataStep : Step<Pair<MinecraftVersion.Release, Path>
     }
 }
 
-data object DeleteFileStep : Step<Path, GetServerFilesFailure, Unit> {
+data object DeleteFileStep : Step<Path, AppFailure, Unit> {
     private val logger = LoggerFactory.getLogger(this.javaClass)
 
-    override suspend fun process(input: Path): Result<GetServerFilesFailure, Unit> {
+    override suspend fun process(input: Path): Result<AppFailure, Unit> {
         return try {
             logger.info("Deleting temporary directory: {}", input)
             deleteWithRetry(input)
             Result.success()
         } catch (e: Exception) {
             logger.error("Failed to delete temporary directory: {}", input, e)
-            Result.failure(GetServerFilesFailure.FileError(this.javaClass))
+            Result.failure(AppFailure.FileError(this.javaClass))
         }
     }
 
@@ -58,7 +59,7 @@ data object DeleteFileStep : Step<Path, GetServerFilesFailure, Unit> {
 
 }
 
-data object ExtractItemsDataStep : Step<Pair<MinecraftVersion.Release, Path>, GetServerFilesFailure, List<Item>> {
+data object ExtractItemsDataStep : Step<Pair<MinecraftVersion.Release, Path>, AppFailure, List<Item>> {
     private val logger = LoggerFactory.getLogger(this.javaClass)
 
     private val keyWhiteList = listOf(
@@ -86,13 +87,13 @@ data object ExtractItemsDataStep : Step<Pair<MinecraftVersion.Release, Path>, Ge
         "%"
     )
 
-    override suspend fun process(input: Pair<MinecraftVersion.Release, Path>): Result<GetServerFilesFailure, List<Item>> {
+    override suspend fun process(input: Pair<MinecraftVersion.Release, Path>): Result<AppFailure, List<Item>> {
         try {
             // input.second is the directory, we need to read lang/en_us.json from within it
             val enUsFile = input.second.resolve("lang").resolve("en_us.json")
             if (!enUsFile.toFile().exists()) {
                 logger.error("en_us.json file does not exist at path: {}", enUsFile)
-                return Result.failure(GetServerFilesFailure.FileError(this.javaClass))
+                return Result.failure(AppFailure.FileError(this.javaClass))
             }
             logger.info("Reading items from: {}", enUsFile)
 
@@ -106,14 +107,14 @@ data object ExtractItemsDataStep : Step<Pair<MinecraftVersion.Release, Path>, Ge
 
             if (map.isEmpty()) {
                 logger.warn("No items extracted from en_us.json for version {}", input.first)
-                return Result.failure(GetServerFilesFailure.FileError(this.javaClass))
+                return Result.failure(AppFailure.FileError(this.javaClass))
             }
 
             logger.info("Extracted {} items for version {}", map.size, input.first)
             return Result.success(map)
         } catch (e: Exception) {
             logger.error("Failed to extract items for version {}: {}", input.first, e.message, e)
-            return Result.failure(GetServerFilesFailure.FileError(this.javaClass))
+            return Result.failure(AppFailure.FileError(this.javaClass))
         }
     }
 }

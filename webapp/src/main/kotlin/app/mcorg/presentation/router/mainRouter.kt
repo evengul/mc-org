@@ -6,6 +6,7 @@ import app.mcorg.pipeline.auth.handleDeleteAccount
 import app.mcorg.presentation.handler.handleGetLanding
 import app.mcorg.presentation.plugins.AuthPlugin
 import app.mcorg.presentation.plugins.BannedPlugin
+import app.mcorg.presentation.plugins.DemoUserPlugin
 import app.mcorg.presentation.templated.testpage.createTestPage
 import app.mcorg.presentation.utils.respondHtml
 import io.ktor.http.HttpStatusCode
@@ -16,6 +17,7 @@ import io.ktor.server.routing.*
 fun Application.configureAppRouter() {
     routing {
         install(AuthPlugin)
+        install(DemoUserPlugin)
         get {
             call.handleGetLanding()
         }

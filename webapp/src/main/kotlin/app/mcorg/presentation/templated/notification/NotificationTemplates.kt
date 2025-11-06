@@ -2,8 +2,8 @@ package app.mcorg.presentation.templated.notification
 
 import app.mcorg.domain.model.notification.Notification
 import app.mcorg.domain.model.user.TokenProfile
-import app.mcorg.presentation.templated.common.page.createPage
 import app.mcorg.presentation.templated.common.page.PageScript
+import app.mcorg.presentation.templated.common.page.createPage
 import app.mcorg.presentation.templated.utils.formatAsRelativeOrDate
 import app.mcorg.presentation.utils.BreadcrumbBuilder
 import kotlinx.html.*
@@ -98,9 +98,8 @@ fun DIV.notificationItem(notification: Notification) {
         div("list__item-actions") {
             // Mark as read button (only show for unread notifications)
             if (notification.readAt == null) {
-                button(classes = "btn btn--sm btn--neutral") {
+                button(classes = "btn btn--sm btn--neutral notification-item__mark-read-btn") {
                     attributes["hx-patch"] = "/app/notifications/${notification.id}/read"
-                    attributes["hx-target"] = "closest .notification-item"
                     +"Mark Read"
                 }
             }

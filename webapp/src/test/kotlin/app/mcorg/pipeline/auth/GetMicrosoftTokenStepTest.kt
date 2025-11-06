@@ -1,17 +1,17 @@
 package app.mcorg.pipeline.auth
 
+import app.mcorg.config.MicrosoftLoginApiConfig
 import app.mcorg.domain.Local
 import app.mcorg.domain.Production
-import app.mcorg.pipeline.failure.GetMicrosoftTokenFailure
-import app.mcorg.pipeline.failure.ApiFailure
-import app.mcorg.test.utils.TestUtils
-import app.mcorg.config.MicrosoftLoginApiConfig
 import app.mcorg.domain.pipeline.Result
-import io.ktor.http.HttpStatusCode
-import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.BeforeEach
+import app.mcorg.pipeline.failure.AppFailure
+import app.mcorg.test.utils.TestUtils
+import io.ktor.http.*
 import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertIs
 
 /**
  * Test suite for GetMicrosoftTokenStep - Microsoft OAuth token exchange
@@ -120,8 +120,7 @@ class GetMicrosoftTokenStepTest {
         // Act & Assert
         TestUtils.executeAndAssertFailure(
             GetMicrosoftTokenStep,
-            input,
-            GetMicrosoftTokenFailure.NoHostForNonLocalEnv::class.java
+            input
         )
     }
 
@@ -138,23 +137,16 @@ class GetMicrosoftTokenStepTest {
 
         MicrosoftLoginApiConfig.useFakeProvider { _, _ ->
             Result.failure(
-                ApiFailure.HttpError(HttpStatusCode.BadRequest.value, "Invalid authorization code")
+                AppFailure.ApiError.HttpError(HttpStatusCode.BadRequest.value, "Invalid authorization code")
             )
         }
 
         // Act & Assert
         val error = TestUtils.executeAndAssertFailure(
             GetMicrosoftTokenStep,
-            input,
-            GetMicrosoftTokenFailure.CouldNotGetToken::class.java
+            input
         )
-        when(error) {
-            is GetMicrosoftTokenFailure.CouldNotGetToken -> {
-                assertEquals("http_error", error.error)
-                assertEquals("HTTP 400", error.description)
-            }
-            else -> throw IllegalStateException("Unexpected error type: ${error::class.java}")
-        }
+        assertIs<AppFailure.ApiError.HttpError>(error)
     }
 
     @Test
@@ -170,23 +162,16 @@ class GetMicrosoftTokenStepTest {
 
         MicrosoftLoginApiConfig.useFakeProvider { _, _ ->
             Result.failure(
-                ApiFailure.HttpError(HttpStatusCode.Unauthorized.value, "Invalid client credentials")
+                AppFailure.ApiError.HttpError(HttpStatusCode.Unauthorized.value, "Invalid client credentials")
             )
         }
 
         // Act & Assert
         val error = TestUtils.executeAndAssertFailure(
             GetMicrosoftTokenStep,
-            input,
-            GetMicrosoftTokenFailure.CouldNotGetToken::class.java
+            input
         )
-        when(error) {
-            is GetMicrosoftTokenFailure.CouldNotGetToken -> {
-                assertEquals("http_error", error.error)
-                assertEquals("HTTP 401", error.description)
-            }
-            else -> throw IllegalStateException("Unexpected error type: ${error::class.java}")
-        }
+        assertIs<AppFailure.ApiError.HttpError>(error)
     }
 
     @Test
@@ -202,23 +187,16 @@ class GetMicrosoftTokenStepTest {
 
         MicrosoftLoginApiConfig.useFakeProvider { _, _ ->
             Result.failure(
-                ApiFailure.HttpError(HttpStatusCode.InternalServerError.value, "Microsoft server error")
+                AppFailure.ApiError.HttpError(HttpStatusCode.InternalServerError.value, "Microsoft server error")
             )
         }
 
         // Act & Assert
         val error = TestUtils.executeAndAssertFailure(
             GetMicrosoftTokenStep,
-            input,
-            GetMicrosoftTokenFailure.CouldNotGetToken::class.java
+            input
         )
-        when(error) {
-            is GetMicrosoftTokenFailure.CouldNotGetToken -> {
-                assertEquals("http_error", error.error)
-                assertEquals("HTTP 500", error.description)
-            }
-            else -> throw IllegalStateException("Unexpected error type: ${error::class.java}")
-        }
+        assertIs<AppFailure.ApiError.HttpError>(error)
     }
 
     @Test
@@ -234,23 +212,16 @@ class GetMicrosoftTokenStepTest {
 
         MicrosoftLoginApiConfig.useFakeProvider { _, _ ->
             Result.failure(
-                ApiFailure.NetworkError
+                AppFailure.ApiError.NetworkError
             )
         }
 
         // Act & Assert
         val error = TestUtils.executeAndAssertFailure(
             GetMicrosoftTokenStep,
-            input,
-            GetMicrosoftTokenFailure.CouldNotGetToken::class.java
+            input
         )
-        when(error) {
-            is GetMicrosoftTokenFailure.CouldNotGetToken -> {
-                assertEquals("api_error", error.error)
-                assertEquals("NetworkError", error.description)
-            }
-            else -> throw IllegalStateException("Unexpected error type: ${error::class.java}")
-        }
+        assertIs<AppFailure.ApiError.NetworkError>(error)
     }
 
     @Test
@@ -266,22 +237,15 @@ class GetMicrosoftTokenStepTest {
 
         MicrosoftLoginApiConfig.useFakeProvider { _, _ ->
             Result.failure(
-                ApiFailure.SerializationError
+                AppFailure.ApiError.SerializationError
             )
         }
 
         // Act & Assert
         val error = TestUtils.executeAndAssertFailure(
             GetMicrosoftTokenStep,
-            input,
-            GetMicrosoftTokenFailure.CouldNotGetToken::class.java
+            input
         )
-        when(error) {
-            is GetMicrosoftTokenFailure.CouldNotGetToken -> {
-                assertEquals("api_error", error.error)
-                assertEquals("SerializationError", error.description)
-            }
-            else -> throw IllegalStateException("Unexpected error type: ${error::class.java}")
-        }
+        assertIs<AppFailure.ApiError.SerializationError>(error)
     }
 }

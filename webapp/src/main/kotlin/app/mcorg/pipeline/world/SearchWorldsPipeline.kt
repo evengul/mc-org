@@ -1,11 +1,12 @@
 package app.mcorg.pipeline.world
 
-import app.mcorg.domain.model.world.World
 import app.mcorg.domain.pipeline.Pipeline
 import app.mcorg.domain.pipeline.Result
-import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
+import app.mcorg.pipeline.failure.AppFailure
+import app.mcorg.pipeline.world.commonsteps.GetPermittedWorldsInput
+import app.mcorg.pipeline.world.commonsteps.GetPermittedWorldsStep
 import app.mcorg.presentation.handler.executeParallelPipeline
 import app.mcorg.presentation.hxOutOfBands
 import app.mcorg.presentation.templated.home.worldList
@@ -14,21 +15,12 @@ import app.mcorg.presentation.templated.layout.alert.AlertType
 import app.mcorg.presentation.templated.layout.alert.createAlert
 import app.mcorg.presentation.utils.getUser
 import app.mcorg.presentation.utils.respondHtml
-import io.ktor.server.application.ApplicationCall
+import io.ktor.server.application.*
 import kotlinx.html.id
 import kotlinx.html.li
 import kotlinx.html.p
 import kotlinx.html.stream.createHTML
 import kotlinx.html.ul
-
-sealed interface SearchWorldsFailure {
-    object DatabaseError : SearchWorldsFailure
-}
-
-data class SearchWorldsInput(
-    val query: String,
-    val sortBy: String
-)
 
 suspend fun ApplicationCall.handleSearchWorlds() {
     val userId = this.getUser().id
@@ -58,11 +50,11 @@ suspend fun ApplicationCall.handleSearchWorlds() {
             })
         },
     ) {
-        val getWorlds = pipeline("getWorlds", Unit, Pipeline.create<SearchWorldsFailure, Unit>()
-            .map { SearchWorldsInput(query, sortBy) }
-            .pipe(SearchWorldsStep(userId)))
+        val getWorlds = pipeline("getWorlds", Unit, Pipeline.create<AppFailure.DatabaseError, Unit>()
+            .map { GetPermittedWorldsInput(userId = userId, query, sortBy) }
+            .pipe(GetPermittedWorldsStep))
 
-        val countWorlds = pipeline("countWorlds", userId, Pipeline.create<SearchWorldsFailure, Int>()
+        val countWorlds = pipeline("countWorlds", userId, Pipeline.create<AppFailure.DatabaseError, Int>()
             .pipe(CountPermittedWorldsStep))
 
         merge("searchWorldsData", getWorlds, countWorlds) { worlds, totalCount ->
@@ -71,41 +63,24 @@ suspend fun ApplicationCall.handleSearchWorlds() {
     }
 }
 
-private data class SearchWorldsStep(val userId: Int) : Step<SearchWorldsInput, SearchWorldsFailure, List<World>> {
-    override suspend fun process(input: SearchWorldsInput): Result<SearchWorldsFailure, List<World>> {
-        return GetPermittedWorldsStep.process(
-            GetPermittedWorldsInput(
-                userId = userId,
-                query = input.query,
-                sortBy = input.sortBy
-            )
-        ).mapError { SearchWorldsFailure.DatabaseError }
-    }
-}
-
-private data object CountPermittedWorldsStep : Step<Int, SearchWorldsFailure, Int> {
-    override suspend fun process(input: Int): Result<SearchWorldsFailure, Int> {
-        return DatabaseSteps.query<Int, SearchWorldsFailure, Int>(
-            sql = SafeSQL.select(
-                """
+private val CountPermittedWorldsStep = DatabaseSteps.query<Int, Int>(
+    sql = SafeSQL.select(
+        """
                 SELECT COUNT(distinct world_id) as total_worlds
                 FROM world w
                 INNER JOIN world_members wm ON w.id = wm.world_id
                 WHERE wm.user_id = ?
             """.trimIndent()
-            ),
-            parameterSetter = { statement, inputData ->
-                statement.setInt(1, inputData)
-            },
-            errorMapper = { SearchWorldsFailure.DatabaseError },
-            resultMapper = { resultSet ->
-                if (resultSet.next()) {
-                    resultSet.getInt("total_worlds")
-                } else {
-                    0
-                }
-            }
-        ).process(input)
+    ),
+    parameterSetter = { statement, inputData ->
+        statement.setInt(1, inputData)
+    },
+    resultMapper = { resultSet ->
+        if (resultSet.next()) {
+            resultSet.getInt("total_worlds")
+        } else {
+            0
+        }
     }
-}
+)
 

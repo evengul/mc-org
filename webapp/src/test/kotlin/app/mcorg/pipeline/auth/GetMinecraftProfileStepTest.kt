@@ -1,14 +1,13 @@
 package app.mcorg.pipeline.auth
 
-import app.mcorg.pipeline.failure.GetMinecraftProfileFailure
-import app.mcorg.pipeline.failure.ApiFailure
-import app.mcorg.test.utils.TestUtils
 import app.mcorg.config.MinecraftApiConfig
 import app.mcorg.domain.pipeline.Result
-import io.ktor.http.HttpStatusCode
-import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.BeforeEach
+import app.mcorg.pipeline.failure.AppFailure
+import app.mcorg.test.utils.TestUtils
+import io.ktor.http.*
 import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
 
 /**
@@ -109,15 +108,14 @@ class GetMinecraftProfileStepTest {
         // Arrange
         MinecraftApiConfig.useFakeProvider { _, _ ->
             Result.failure(
-                ApiFailure.HttpError(HttpStatusCode.Unauthorized.value, "Invalid Minecraft access token")
+                AppFailure.ApiError.HttpError(HttpStatusCode.Unauthorized.value, "Invalid Minecraft access token")
             )
         }
 
         // Act & Assert
         TestUtils.executeAndAssertFailure(
             GetMinecraftProfileStep,
-            testAccessToken,
-            GetMinecraftProfileFailure.CouldNotGetProfile::class.java
+            testAccessToken
         )
     }
 
@@ -126,15 +124,14 @@ class GetMinecraftProfileStepTest {
         // Arrange
         MinecraftApiConfig.useFakeProvider { _, _ ->
             Result.failure(
-                ApiFailure.HttpError(HttpStatusCode.Forbidden.value, "No Minecraft license")
+                AppFailure.ApiError.HttpError(HttpStatusCode.Forbidden.value, "No Minecraft license")
             )
         }
 
         // Act & Assert
         TestUtils.executeAndAssertFailure(
             GetMinecraftProfileStep,
-            testAccessToken,
-            GetMinecraftProfileFailure.CouldNotGetProfile::class.java
+            testAccessToken
         )
     }
 
@@ -143,15 +140,14 @@ class GetMinecraftProfileStepTest {
         // Arrange
         MinecraftApiConfig.useFakeProvider { _, _ ->
             Result.failure(
-                ApiFailure.HttpError(HttpStatusCode.NotFound.value, "Minecraft profile not found")
+                AppFailure.ApiError.HttpError(HttpStatusCode.NotFound.value, "Minecraft profile not found")
             )
         }
 
         // Act & Assert
         TestUtils.executeAndAssertFailure(
             GetMinecraftProfileStep,
-            testAccessToken,
-            GetMinecraftProfileFailure.CouldNotGetProfile::class.java
+            testAccessToken
         )
     }
 
@@ -160,15 +156,14 @@ class GetMinecraftProfileStepTest {
         // Arrange
         MinecraftApiConfig.useFakeProvider { _, _ ->
             Result.failure(
-                ApiFailure.HttpError(HttpStatusCode.InternalServerError.value, "Minecraft service error")
+                AppFailure.ApiError.HttpError(HttpStatusCode.InternalServerError.value, "Minecraft service error")
             )
         }
 
         // Act & Assert
         TestUtils.executeAndAssertFailure(
             GetMinecraftProfileStep,
-            testAccessToken,
-            GetMinecraftProfileFailure.CouldNotGetProfile::class.java
+            testAccessToken
         )
     }
 
@@ -177,15 +172,14 @@ class GetMinecraftProfileStepTest {
         // Arrange
         MinecraftApiConfig.useFakeProvider { _, _ ->
             Result.failure(
-                ApiFailure.NetworkError
+                AppFailure.ApiError.NetworkError
             )
         }
 
         // Act & Assert
         TestUtils.executeAndAssertFailure(
             GetMinecraftProfileStep,
-            testAccessToken,
-            GetMinecraftProfileFailure.CouldNotGetProfile::class.java
+            testAccessToken
         )
     }
 
@@ -194,15 +188,14 @@ class GetMinecraftProfileStepTest {
         // Arrange
         MinecraftApiConfig.useFakeProvider { _, _ ->
             Result.failure(
-                ApiFailure.SerializationError
+                AppFailure.ApiError.SerializationError
             )
         }
 
         // Act & Assert
         TestUtils.executeAndAssertFailure(
             GetMinecraftProfileStep,
-            testAccessToken,
-            GetMinecraftProfileFailure.CouldNotGetProfile::class.java
+            testAccessToken
         )
     }
 
@@ -213,15 +206,14 @@ class GetMinecraftProfileStepTest {
 
         MinecraftApiConfig.useFakeProvider { _, _ ->
             Result.failure(
-                ApiFailure.HttpError(HttpStatusCode.BadRequest.value, "Empty access token")
+                AppFailure.ApiError.HttpError(HttpStatusCode.BadRequest.value, "Empty access token")
             )
         }
 
         // Act & Assert
         TestUtils.executeAndAssertFailure(
             GetMinecraftProfileStep,
-            emptyToken,
-            GetMinecraftProfileFailure.CouldNotGetProfile::class.java
+            emptyToken
         )
     }
 
@@ -232,15 +224,14 @@ class GetMinecraftProfileStepTest {
 
         MinecraftApiConfig.useFakeProvider { _, _ ->
             Result.failure(
-                ApiFailure.HttpError(HttpStatusCode.Unauthorized.value, "Token expired")
+                AppFailure.ApiError.HttpError(HttpStatusCode.Unauthorized.value, "Token expired")
             )
         }
 
         // Act & Assert
         TestUtils.executeAndAssertFailure(
             GetMinecraftProfileStep,
-            expiredToken,
-            GetMinecraftProfileFailure.CouldNotGetProfile::class.java
+            expiredToken
         )
     }
 }

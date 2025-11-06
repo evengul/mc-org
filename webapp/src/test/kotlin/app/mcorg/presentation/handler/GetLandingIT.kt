@@ -1,6 +1,6 @@
 package app.mcorg.presentation.handler
 
-import app.mcorg.pipeline.auth.CreateTokenStep
+import app.mcorg.pipeline.auth.commonsteps.CreateTokenStep
 import app.mcorg.presentation.consts.AUTH_COOKIE
 import app.mcorg.test.WithUser
 import app.mcorg.test.postgres.DatabaseTestExtension

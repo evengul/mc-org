@@ -1,11 +1,10 @@
 package app.mcorg.presentation.utils
 
-import app.mcorg.domain.model.world.World
-import app.mcorg.domain.model.project.Project
 import app.mcorg.domain.model.idea.Idea
+import app.mcorg.domain.model.project.Project
+import app.mcorg.domain.model.world.World
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
-import app.mcorg.pipeline.failure.DatabaseFailure
 import app.mcorg.presentation.templated.common.breadcrumb.BreadcrumbItem
 import app.mcorg.presentation.templated.common.breadcrumb.Breadcrumbs
 import app.mcorg.presentation.templated.common.icon.Icons
@@ -15,35 +14,35 @@ import app.mcorg.presentation.templated.common.link.Link
  * Helper functions to fetch entity names from database for breadcrumb construction
  */
 suspend fun getWorldName(worldId: Int): String {
-    return DatabaseSteps.query<Int, DatabaseFailure, String?>(
+    return DatabaseSteps.query<Int, String?>(
         SafeSQL.select("SELECT name FROM world WHERE id = ?"),
-        { ps, id -> ps.setInt(1, id) },
-        errorMapper = { it }
-    ) {
-        if (it.next()) {
-            it.getString("name")
-        } else {
-            null
+        parameterSetter = { ps, id -> ps.setInt(1, id) },
+        resultMapper = {
+            if (it.next()) {
+                it.getString("name")
+            } else {
+                null
+            }
         }
-    }.process(worldId).getOrNull() ?: "World #$worldId"
+    ).process(worldId).getOrNull() ?: "World #$worldId"
 }
 
 suspend fun getProjectName(projectId: Int): String {
-    return DatabaseSteps.query<Int, DatabaseFailure, String?>(
+    return DatabaseSteps.query<Int, String?>(
         SafeSQL.select("SELECT name FROM projects WHERE id = ?"),
         { ps, id -> ps.setInt(1, id) },
-        errorMapper = { it }
-    ) { rs ->
-        if (rs.next()) {
-            rs.getString("name")
-        } else {
-            null
+        resultMapper = { rs ->
+            if (rs.next()) {
+                rs.getString("name")
+            } else {
+                null
+            }
         }
-    }.process(projectId).getOrNull() ?: "Project #$projectId"
+    ).process(projectId).getOrNull() ?: "Project #$projectId"
 }
 
 suspend fun getIdeaName(ideaId: Int): String {
-    return DatabaseSteps.query<Int, DatabaseFailure, String?>(
+    return DatabaseSteps.query<Int, String?>(
         sql = SafeSQL.select("SELECT name FROM ideas WHERE id = ?"),
         parameterSetter = { ps, id -> ps.setInt(1, id) },
         resultMapper = { rs ->
@@ -52,8 +51,7 @@ suspend fun getIdeaName(ideaId: Int): String {
             } else {
                 null
             }
-        },
-        errorMapper = { DatabaseFailure.NotFound }
+        }
     ).process(ideaId).getOrNull() ?: "Idea #$ideaId"
 }
 

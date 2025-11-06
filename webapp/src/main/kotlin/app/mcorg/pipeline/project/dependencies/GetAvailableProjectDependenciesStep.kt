@@ -5,11 +5,11 @@ import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
-import app.mcorg.pipeline.failure.DatabaseFailure
+import app.mcorg.pipeline.failure.AppFailure
 
-data class GetAvailableProjectDependenciesStep(val worldId: Int) : Step<Int, DatabaseFailure, List<NamedProjectId>> {
-    override suspend fun process(input: Int): Result<DatabaseFailure, List<NamedProjectId>> {
-        return DatabaseSteps.query<Int, DatabaseFailure, List<NamedProjectId>>(
+data class GetAvailableProjectDependenciesStep(val worldId: Int) : Step<Int, AppFailure.DatabaseError, List<NamedProjectId>> {
+    override suspend fun process(input: Int): Result<AppFailure.DatabaseError, List<NamedProjectId>> {
+        return DatabaseSteps.query<Int, List<NamedProjectId>>(
             SafeSQL.with(
                 """
                 WITH RECURSIVE dependency_chain AS (
@@ -65,7 +65,6 @@ data class GetAvailableProjectDependenciesStep(val worldId: Int) : Step<Int, Dat
                 statement.setInt(4, projectId)  // exclude self
                 statement.setInt(5, projectId)  // exclude direct dependencies
             },
-            errorMapper = { it },
             resultMapper = {
                 buildList {
                     while (it.next()) {

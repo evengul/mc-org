@@ -5,6 +5,7 @@ import app.mcorg.domain.model.project.Project
 import app.mcorg.domain.model.project.ProjectProduction
 import app.mcorg.domain.model.project.ProjectResourceGathering
 import app.mcorg.domain.model.project.ProjectStage
+import app.mcorg.domain.model.user.TokenProfile
 import app.mcorg.presentation.hxDeleteWithConfirm
 import app.mcorg.presentation.hxPost
 import app.mcorg.presentation.hxSwap
@@ -30,6 +31,7 @@ import kotlinx.html.h2
 import kotlinx.html.id
 import kotlinx.html.input
 import kotlinx.html.li
+import kotlinx.html.onSubmit
 import kotlinx.html.option
 import kotlinx.html.p
 import kotlinx.html.span
@@ -37,6 +39,7 @@ import kotlinx.html.ul
 import java.util.Locale
 
 fun DIV.resourcesTab(
+    user: TokenProfile,
     project: Project,
     production: List<ProjectProduction>,
     gathering: ProjectResourceGathering,
@@ -89,10 +92,14 @@ fun DIV.resourcesTab(
             form {
                 id = "project-resources-production-form"
                 encType = FormEncType.applicationXWwwFormUrlEncoded
-                hxPost(Link.Worlds.world(project.worldId).project(project.id).to + "/resources")
-                hxTarget("#project-resources-production-list")
-                hxSwap("afterbegin")
-                attributes["hx-on::after-request"] = "this.reset(); document.getElementById('project-resources-name-input')?.focus();"
+                if (!user.isDemoUserInProduction) {
+                    hxPost(Link.Worlds.world(project.worldId).project(project.id).to + "/resources")
+                    hxTarget("#project-resources-production-list")
+                    hxSwap("afterbegin")
+                    attributes["hx-on::after-request"] = "this.reset(); document.getElementById('project-resources-name-input')?.focus();"
+                } else {
+                    onSubmit = "return false;"
+                }
 
                 input {
                     id = "project-resources-name-input"
@@ -123,7 +130,7 @@ fun DIV.resourcesTab(
                     max = "2000000000"
                 }
 
-                neutralButton("Add resource production") {
+                neutralButton(if (user.isDemoUserInProduction) "Add Resource (Disabled in Demo)" else "Add Resource Production") {
                     iconLeft = Icons.Menu.CONTRAPTIONS
                     iconSize = IconSize.SMALL
                 }

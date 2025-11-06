@@ -4,6 +4,7 @@ import app.mcorg.domain.model.minecraft.Item
 import app.mcorg.domain.model.project.Project
 import app.mcorg.domain.model.project.ProjectStage
 import app.mcorg.domain.model.task.Priority
+import app.mcorg.domain.model.user.TokenProfile
 import app.mcorg.presentation.templated.common.form.radiogroup.RadioGroupLayout
 import app.mcorg.presentation.templated.common.form.radiogroup.RadioGroupOption
 import app.mcorg.presentation.templated.common.form.radiogroup.radioGroup
@@ -23,12 +24,12 @@ enum class CreateTaskModalTab {
     ACTION_REQUIREMENT
 }
 
-fun <T : Tag> T.createTaskModal(project: Project, itemNames: List<Item>, tab: CreateTaskModalTab) = formModal(
+fun <T : Tag> T.createTaskModal(user: TokenProfile, project: Project, itemNames: List<Item>, tab: CreateTaskModalTab) = formModal(
     modalId = "create-task-modal",
     title = "Create Task",
     description = "Create a new task with requirements for your Minecraft project.",
     saveText = "Create Task",
-    hxValues = FormModalHxValues(
+    hxValues = if (user.isDemoUserInProduction) null else FormModalHxValues(
         hxTarget = "#tasks-list",
         hxSwap = "afterbegin",
         method = FormModalHttpMethod.POST,
@@ -44,6 +45,9 @@ fun <T : Tag> T.createTaskModal(project: Project, itemNames: List<Item>, tab: Cr
 ) {
     formContent {
         classes += "create-task-form"
+        if (user.isDemoUserInProduction) {
+            onSubmit = "return false;"
+        }
 
         label {
             + "Related Stage"
@@ -90,6 +94,11 @@ fun <T : Tag> T.createTaskModal(project: Project, itemNames: List<Item>, tab: Cr
             when(tab) {
                 CreateTaskModalTab.ACTION_REQUIREMENT -> actionRequirementForm()
                 CreateTaskModalTab.ITEM_REQUIREMENT -> itemRequirementForm(itemNames)
+            }
+        }
+        if (user.isDemoUserInProduction) {
+            p("subtle") {
+                + "Task creation is disabled in demo mode."
             }
         }
     }

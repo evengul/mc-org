@@ -3,8 +3,11 @@ package app.mcorg.pipeline.world.settings
 import app.mcorg.domain.model.user.Role
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.pipeline.failure.ValidationFailure
-import io.ktor.http.Parameters
-import io.ktor.http.ParametersBuilder
+import app.mcorg.pipeline.world.settings.invitations.CreateInvitationInput
+import app.mcorg.pipeline.world.settings.invitations.ValidateInvitationInputStep
+import app.mcorg.pipeline.world.settings.invitations.ValidateNotSelfInviteStep
+import app.mcorg.test.utils.TestUtils
+import io.ktor.http.*
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
@@ -46,11 +49,13 @@ class HandleCreateInvitationTest {
         val parameters = createParameters("role" to "MEMBER")
 
         // When
-        val result = ValidateInvitationInputStep.process(parameters)
+        val result = TestUtils.executeAndAssertFailure(
+            ValidateInvitationInputStep,
+            parameters
+        )
 
         // Then
-        assertIs<Result.Failure<CreateInvitationFailures.ValidationError>>(result)
-        assertTrue(result.error.errors.any { it is ValidationFailure.MissingParameter && it.parameterName == "toUsername" })
+        assertTrue(result.errors.any { it is ValidationFailure.MissingParameter && it.parameterName == "toUsername" })
     }
 
     @Test
@@ -59,11 +64,13 @@ class HandleCreateInvitationTest {
         val parameters = createParameters("toUsername" to "testuser")
 
         // When
-        val result = ValidateInvitationInputStep.process(parameters)
+        val result = TestUtils.executeAndAssertFailure(
+            ValidateInvitationInputStep,
+            parameters
+        )
 
         // Then
-        assertIs<Result.Failure<CreateInvitationFailures.ValidationError>>(result)
-        assertTrue(result.error.errors.any { it is ValidationFailure.MissingParameter && it.parameterName == "role" })
+        assertTrue(result.errors.any { it is ValidationFailure.MissingParameter && it.parameterName == "role" })
     }
 
     @ParameterizedTest
@@ -76,11 +83,13 @@ class HandleCreateInvitationTest {
         )
 
         // When
-        val result = ValidateInvitationInputStep.process(parameters)
+        val result = TestUtils.executeAndAssertFailure(
+            ValidateInvitationInputStep,
+            parameters
+        )
 
         // Then
-        assertIs<Result.Failure<CreateInvitationFailures.ValidationError>>(result)
-        assertTrue(result.error.errors.any {
+        assertTrue(result.errors.any {
             it is ValidationFailure.InvalidFormat &&
             it.parameterName == "role" &&
             it.message == "Can only invite as MEMBER or ADMIN"
@@ -96,11 +105,13 @@ class HandleCreateInvitationTest {
         )
 
         // When
-        val result = ValidateInvitationInputStep.process(parameters)
+        val result = TestUtils.executeAndAssertFailure(
+            ValidateInvitationInputStep,
+            parameters
+        )
 
         // Then
-        assertIs<Result.Failure<CreateInvitationFailures.ValidationError>>(result)
-        assertTrue(result.error.errors.any {
+        assertTrue(result.errors.any {
             it is ValidationFailure.InvalidFormat &&
             it.parameterName == "role" &&
             it.message == "Invalid role specified"
@@ -133,10 +144,15 @@ class HandleCreateInvitationTest {
         val step = ValidateNotSelfInviteStep(inviterUserId)
 
         // When
-        val result = step.process(input)
+        val result = TestUtils.executeAndAssertFailure(
+            step,
+            input
+        )
 
         // Then
-        assertIs<Result.Failure<CreateInvitationFailures.CannotInviteSelf>>(result)
+        val error = result.errors.first()
+        assertIs<ValidationFailure.CustomValidation>(error)
+        assertEquals("toUsername", error.parameterName)
 
         return@runBlocking
     }
