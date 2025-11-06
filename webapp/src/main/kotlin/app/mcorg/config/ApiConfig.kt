@@ -1,9 +1,8 @@
 package app.mcorg.config
 
 import app.mcorg.domain.pipeline.Result
-import app.mcorg.pipeline.failure.ApiFailure
-import io.ktor.http.ContentType
-import io.ktor.http.HttpMethod
+import app.mcorg.pipeline.failure.AppFailure
+import io.ktor.http.*
 
 sealed class ApiConfig(
     internal val baseUrl: String
@@ -18,9 +17,9 @@ sealed class ApiConfig(
     }
 
     var provider: ProviderType = ProviderType.DEFAULT
-    var fakeResponses : ((httpMethod: HttpMethod, url: String) -> Result<ApiFailure, String>)? = null
+    var fakeResponses : ((httpMethod: HttpMethod, url: String) -> Result<AppFailure.ApiError, String>)? = null
 
-    fun useFakeProvider(responses: (httpMethod: HttpMethod, url: String) -> Result<ApiFailure, String>) {
+    fun useFakeProvider(responses: (httpMethod: HttpMethod, url: String) -> Result<AppFailure.ApiError, String>) {
         fakeResponses = responses
         provider = ProviderType.FAKE
     }

@@ -1,7 +1,6 @@
 package app.mcorg.config
 
 import app.mcorg.domain.pipeline.Result
-import app.mcorg.pipeline.failure.ApiFailure
 import io.ktor.http.*
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals

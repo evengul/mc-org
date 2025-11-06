@@ -1,20 +1,19 @@
 package app.mcorg.pipeline.auth.commonsteps
 
 import app.mcorg.domain.model.user.TokenProfile
-import app.mcorg.domain.pipeline.Step
 import app.mcorg.domain.pipeline.Result
+import app.mcorg.domain.pipeline.Step
+import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.presentation.security.EIGHT_HOURS
 import app.mcorg.presentation.security.JwtHelper
 import app.mcorg.presentation.security.getKeys
 import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
 import org.slf4j.LoggerFactory
-import java.util.Date
+import java.util.*
 
-data object CouldNotCreateTokenFailure
-
-data object CreateTokenStep : Step<TokenProfile, CouldNotCreateTokenFailure, String> {
-    override suspend fun process(input: TokenProfile): Result<CouldNotCreateTokenFailure, String> {
+data object CreateTokenStep : Step<TokenProfile, AppFailure.AuthError.CouldNotCreateToken, String> {
+    override suspend fun process(input: TokenProfile): Result<AppFailure.AuthError.CouldNotCreateToken, String> {
         val (publicKey, privateKey) = JwtHelper.getKeys()
         val logger = LoggerFactory.getLogger(CreateTokenStep.javaClass)
 
@@ -32,7 +31,7 @@ data object CreateTokenStep : Step<TokenProfile, CouldNotCreateTokenFailure, Str
             return Result.success(jwt)
         } catch (e: Exception) {
             logger.error("Could not create JWT token for user ${input.minecraftUsername} (${input.id})", e)
-            return Result.failure(CouldNotCreateTokenFailure)
+            return Result.failure(AppFailure.AuthError.CouldNotCreateToken)
         }
     }
 }

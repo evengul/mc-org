@@ -3,7 +3,6 @@ package app.mcorg.pipeline
 import app.mcorg.config.Database
 import app.mcorg.config.DatabaseConnectionProvider
 import app.mcorg.domain.pipeline.Result
-import app.mcorg.pipeline.failure.DatabaseFailure
 import io.mockk.*
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.AfterEach
@@ -72,7 +71,7 @@ class DatabaseStepsTest {
         val resultMapper: (ResultSet) -> String = { rs -> expectedData }
 
         // Act
-        val step = DatabaseSteps.query(safeSQL, parameterSetter, errorMapper, resultMapper)
+        val step = DatabaseSteps.query(safeSQL, parameterSetter, resultMapper)
         val result = step.process(input)
 
         // Assert
@@ -95,7 +94,7 @@ class DatabaseStepsTest {
         val resultMapper: (ResultSet) -> Int = { expectedCount }
 
         // Act
-        val step = DatabaseSteps.query<Unit, String, Int>(safeSQL, errorMapper = errorMapper, resultMapper = resultMapper)
+        val step = DatabaseSteps.query<Unit, Int>(safeSQL, resultMapper = resultMapper)
         val result = step.process(input)
 
         // Assert
@@ -123,7 +122,7 @@ class DatabaseStepsTest {
         val resultMapper: (ResultSet) -> String = { "data" }
 
         // Act
-        val step = DatabaseSteps.query<Unit, String, String>(safeSQL, errorMapper = errorMapper, resultMapper = resultMapper)
+        val step = DatabaseSteps.query<Unit, String>(safeSQL, resultMapper = resultMapper)
         val result = step.process(input)
 
         // Assert
@@ -149,7 +148,7 @@ class DatabaseStepsTest {
         val resultMapper: (ResultSet) -> String = { "data" }
 
         // Act
-        val step = DatabaseSteps.query<Unit, String, String>(safeSQL, errorMapper = errorMapper, resultMapper = resultMapper)
+        val step = DatabaseSteps.query<Unit, String>(safeSQL, resultMapper = resultMapper)
         val result = step.process(input)
 
         // Assert
@@ -175,7 +174,7 @@ class DatabaseStepsTest {
         val resultMapper: (ResultSet) -> String = { "data" }
 
         // Act
-        val step = DatabaseSteps.query<Unit, String, String>(safeSQL, errorMapper = errorMapper, resultMapper = resultMapper)
+        val step = DatabaseSteps.query<Unit, String>(safeSQL, resultMapper = resultMapper)
         val result = step.process(input)
 
         // Assert
@@ -201,7 +200,7 @@ class DatabaseStepsTest {
         val resultMapper: (ResultSet) -> String = { "data" }
 
         // Act
-        val step = DatabaseSteps.query<Unit, String, String>(safeSQL, errorMapper = errorMapper, resultMapper = resultMapper)
+        val step = DatabaseSteps.query<Unit, String>(safeSQL, resultMapper = resultMapper)
         val result = step.process(input)
 
         // Assert
@@ -231,7 +230,7 @@ class DatabaseStepsTest {
         every { mockPreparedStatement.setInt(2, input.second) } just Runs
 
         // Act
-        val step = DatabaseSteps.update(safeSQL, parameterSetter, errorMapper)
+        val step = DatabaseSteps.update(safeSQL, parameterSetter)
         val result = step.process(input)
 
         // Assert
@@ -262,7 +261,7 @@ class DatabaseStepsTest {
         }
 
         // Act
-        val step = DatabaseSteps.update(safeSQL, parameterSetter, errorMapper)
+        val step = DatabaseSteps.update(safeSQL, parameterSetter)
         val result = step.process(input)
 
         // Assert
@@ -290,7 +289,7 @@ class DatabaseStepsTest {
         }
 
         // Act
-        val step = DatabaseSteps.update(safeSQL, parameterSetter, errorMapper)
+        val step = DatabaseSteps.update(safeSQL, parameterSetter)
         val result = step.process(input)
 
         // Assert
@@ -318,7 +317,7 @@ class DatabaseStepsTest {
         }
 
         // Act
-        val step = DatabaseSteps.update(safeSQL, parameterSetter, errorMapper)
+        val step = DatabaseSteps.update(safeSQL, parameterSetter)
         val result = step.process(input)
 
         // Assert
@@ -346,7 +345,7 @@ class DatabaseStepsTest {
         }
 
         // Act
-        val step = DatabaseSteps.update(safeSQL, parameterSetter, errorMapper)
+        val step = DatabaseSteps.update(safeSQL, parameterSetter)
         val result = step.process(input)
 
         // Assert
@@ -375,7 +374,7 @@ class DatabaseStepsTest {
         val resultMapper: (ResultSet) -> String = { "data" }
 
         // Act
-        val step = DatabaseSteps.query<Unit, CustomError, String>(safeSQL, errorMapper = errorMapper, resultMapper = resultMapper)
+        val step = DatabaseSteps.query<Unit, String>(safeSQL, resultMapper = resultMapper)
         val result = step.process(input)
 
         // Assert
@@ -406,7 +405,7 @@ class DatabaseStepsTest {
         every { mockPreparedStatement.setBoolean(3, input.third) } just Runs
 
         // Act
-        val step = DatabaseSteps.query(safeSQL, parameterSetter, errorMapper, resultMapper)
+        val step = DatabaseSteps.query(safeSQL, parameterSetter, resultMapper)
         val result = step.process(input)
 
         // Assert
@@ -442,7 +441,7 @@ class DatabaseStepsTest {
         every { mockPreparedStatement.setInt(4, input.id) } just Runs
 
         // Act
-        val step = DatabaseSteps.update(safeSQL, parameterSetter, errorMapper)
+        val step = DatabaseSteps.update(safeSQL, parameterSetter)
         val result = step.process(input)
 
         // Assert
@@ -477,7 +476,7 @@ class DatabaseStepsTest {
         every { mockPreparedStatement.setNull(1, Types.VARCHAR) } just Runs
 
         // Act
-        val step = DatabaseSteps.query(safeSQL, parameterSetter, errorMapper, resultMapper)
+        val step = DatabaseSteps.query(safeSQL, parameterSetter, resultMapper)
         val result = step.process(input)
 
         // Assert
@@ -507,7 +506,7 @@ class DatabaseStepsTest {
         every { mockPreparedStatement.setInt(2, input.second) } just Runs
 
         // Act
-        val step = DatabaseSteps.update(safeSQL, parameterSetter, errorMapper)
+        val step = DatabaseSteps.update(safeSQL, parameterSetter)
         val result = step.process(input)
 
         // Assert
@@ -535,7 +534,7 @@ class DatabaseStepsTest {
         }
 
         // Act
-        val step = DatabaseSteps.query<Unit, String, String>(safeSQL, errorMapper = errorMapper, resultMapper = resultMapper)
+        val step = DatabaseSteps.query<Unit, String>(safeSQL, resultMapper = resultMapper)
         val result = step.process(input)
 
         // Assert
@@ -557,7 +556,7 @@ class DatabaseStepsTest {
 
         // Act
         val step =
-            DatabaseSteps.query<Unit, String, String>(safeSQL, errorMapper = errorMapper, resultMapper = resultMapper)
+            DatabaseSteps.query<Unit, String>(safeSQL, resultMapper = resultMapper)
         val result = step.process(input)
 
         // Assert
@@ -575,7 +574,7 @@ class DatabaseStepsTest {
         val resultMapper: (ResultSet) -> String = { "result" }
 
         // Act
-        val step = DatabaseSteps.query<Unit, String, String>(safeSQL, errorMapper = errorMapper, resultMapper = resultMapper)
+        val step = DatabaseSteps.query<Unit, String>(safeSQL, resultMapper = resultMapper)
 
         // Assert
         assertNotNull(step)
@@ -592,7 +591,7 @@ class DatabaseStepsTest {
         val errorMapper: (DatabaseFailure) -> String = { "Error" }
 
         // Act
-        val step = DatabaseSteps.update(safeSQL, parameterSetter, errorMapper)
+        val step = DatabaseSteps.update(safeSQL, parameterSetter)
 
         // Assert
         assertNotNull(step)

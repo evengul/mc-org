@@ -3,64 +3,21 @@ package app.mcorg.pipeline.auth.commonsteps
 import app.mcorg.domain.model.user.TokenProfile
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
+import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.presentation.consts.ISSUER
 import app.mcorg.presentation.security.JwtHelper
 import app.mcorg.presentation.security.getKeys
 import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
-import com.auth0.jwt.exceptions.AlgorithmMismatchException
-import com.auth0.jwt.exceptions.IncorrectClaimException
-import com.auth0.jwt.exceptions.MissingClaimException
-import com.auth0.jwt.exceptions.SignatureVerificationException
-import com.auth0.jwt.exceptions.TokenExpiredException
+import com.auth0.jwt.exceptions.*
+import org.slf4j.LoggerFactory
 
-sealed interface ConvertTokenStepFailure {
-    val errorCode: String
-    val arguments: List<Pair<String, String>>?
+data class ConvertTokenStep(val issuer: String = ISSUER) : Step<String, AppFailure.AuthError.ConvertTokenError, TokenProfile> {
+    override suspend fun process(input: String): Result<AppFailure.AuthError.ConvertTokenError, TokenProfile> {
+        val logger = LoggerFactory.getLogger(ConvertTokenStep::class.java)
 
-    fun toSignOutQueryParameters(): String {
-        val base = "error=$errorCode"
-        val args = arguments?.joinToString("&") { (key, value) -> "$key=$value" } ?: ""
-        return if (args.isNotBlank()) {
-            "$base&$args"
-        } else {
-            base
-        }
-    }
-
-    fun toSignOutUrl(): String {
-        return "/auth/sign-out?${toSignOutQueryParameters()}"
-    }
-
-    object InvalidToken : ConvertTokenStepFailure {
-        override val errorCode: String = "invalid_token"
-        override val arguments: List<Pair<String, String>>? = null
-    }
-    object ExpiredToken : ConvertTokenStepFailure {
-        override val errorCode: String = "expired_token"
-        override val arguments: List<Pair<String, String>>? = null
-    }
-    data class MissingClaim(val claimName: String) : ConvertTokenStepFailure {
-        override val errorCode: String = "missing_claim"
-        override val arguments: List<Pair<String, String>> = listOf("claim" to claimName)
-    }
-    data class IncorrectClaim(val claimName: String, val claimValue: String) : ConvertTokenStepFailure {
-        override val errorCode: String = "incorrect_claim"
-        override val arguments: List<Pair<String, String>> = listOf(
-            "claim" to claimName,
-            "value" to claimValue
-        )
-    }
-    data class ConversionError(val error: Exception) : ConvertTokenStepFailure {
-        override val errorCode: String = "conversion_error"
-        override val arguments: List<Pair<String, String>>? = null
-    }
-}
-
-data class ConvertTokenStep(val issuer: String = ISSUER) : Step<String, ConvertTokenStepFailure, TokenProfile> {
-    override suspend fun process(input: String): Result<ConvertTokenStepFailure, TokenProfile> {
         if (input.trim().isBlank()) {
-            return Result.failure(ConvertTokenStepFailure.InvalidToken)
+            return Result.failure(AppFailure.AuthError.ConvertTokenError.invalidToken())
         }
 
         val (publicKey, privateKey) = JwtHelper.getKeys()
@@ -79,12 +36,15 @@ data class ConvertTokenStep(val issuer: String = ISSUER) : Step<String, ConvertT
                 .verify(input)
         } catch (e: Exception) {
             return when(e) {
-                is AlgorithmMismatchException -> Result.failure(ConvertTokenStepFailure.InvalidToken)
-                is SignatureVerificationException -> Result.failure(ConvertTokenStepFailure.InvalidToken)
-                is TokenExpiredException -> Result.failure(ConvertTokenStepFailure.ExpiredToken)
-                is MissingClaimException -> Result.failure(ConvertTokenStepFailure.MissingClaim(e.claimName))
-                is IncorrectClaimException -> Result.failure(ConvertTokenStepFailure.IncorrectClaim(e.claimName, e.claimValue.asString()))
-                else -> Result.failure(ConvertTokenStepFailure.ConversionError(e))
+                is AlgorithmMismatchException,
+                is SignatureVerificationException -> Result.failure(AppFailure.AuthError.ConvertTokenError.invalidToken())
+                is TokenExpiredException -> Result.failure(AppFailure.AuthError.ConvertTokenError.expiredToken())
+                is MissingClaimException -> Result.failure(AppFailure.AuthError.ConvertTokenError.missingClaim(e.claimName))
+                is IncorrectClaimException -> Result.failure(AppFailure.AuthError.ConvertTokenError.incorrectClaim(e.claimName, e.claimValue.asString()))
+                else -> {
+                    logger.error("Could not convert token", e)
+                    Result.failure(AppFailure.AuthError.ConvertTokenError.conversionError())
+                }
             }
         }
 

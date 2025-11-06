@@ -1,16 +1,15 @@
 package app.mcorg.pipeline.auth
 
+import app.mcorg.config.MicrosoftLoginApiConfig
 import app.mcorg.domain.Local
 import app.mcorg.domain.Production
-import app.mcorg.pipeline.failure.GetMicrosoftTokenFailure
-import app.mcorg.pipeline.failure.ApiFailure
-import app.mcorg.test.utils.TestUtils
-import app.mcorg.config.MicrosoftLoginApiConfig
 import app.mcorg.domain.pipeline.Result
-import io.ktor.http.HttpStatusCode
-import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.BeforeEach
+import app.mcorg.pipeline.failure.GetMicrosoftTokenFailure
+import app.mcorg.test.utils.TestUtils
+import io.ktor.http.*
 import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
 
 /**

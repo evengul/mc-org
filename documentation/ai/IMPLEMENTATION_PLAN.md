@@ -401,16 +401,7 @@ suspend fun ApplicationCall.handleFeatureAction() {
                 featureSuccessTemplate(result)
             })
         },
-        onFailure = { failure: FeatureFailures ->
-            when (failure) {
-                is FeatureFailures.ValidationError ->
-                    respondBadRequest("Validation failed: ${failure.errors.joinToString()}")
-                is FeatureFailures.DatabaseError ->
-                    respondBadRequest("Database operation failed")
-                is FeatureFailures.InsufficientPermissions ->
-                    respondBadRequest("Permission denied")
-            }
-        }
+        onFailure = { respond(HttpStatusCode.InternalServerError) }
     ) {
         step(Step.value(parameters))
             .step(ValidateInputStep)
@@ -484,8 +475,7 @@ DatabaseSteps.transaction(
             // 3. Update related records
             // 4. Return result
         }
-    },
-    errorMapper = { dbFailure -> FeatureFailures.DatabaseError }
+    }
 ).process(input)
 ```
 

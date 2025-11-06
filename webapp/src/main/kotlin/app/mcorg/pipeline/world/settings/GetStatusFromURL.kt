@@ -1,20 +1,12 @@
 package app.mcorg.pipeline.world.settings
 
-import app.mcorg.pipeline.world.GetWorldInvitationsInput
-import io.ktor.server.application.ApplicationCall
+import app.mcorg.pipeline.world.invitations.InvitationStatusFilter
+import io.ktor.server.application.*
 
-fun ApplicationCall.getStatusFromURL(): GetWorldInvitationsInput.StatusFilter {
-    return when(this.request.queryParameters["status"]
+fun ApplicationCall.getStatusFromURL(): InvitationStatusFilter {
+    return InvitationStatusFilter.fromApiName(this.request.queryParameters["status"]
         ?: this.request.headers["HX-Current-Url"]
             ?.substringAfter("status=")
             ?.substringBefore("&")
-        ?: "pending") {
-        "all" -> GetWorldInvitationsInput.StatusFilter.ALL
-        "pending" -> GetWorldInvitationsInput.StatusFilter.PENDING
-        "accepted" -> GetWorldInvitationsInput.StatusFilter.ACCEPTED
-        "declined" -> GetWorldInvitationsInput.StatusFilter.DECLINED
-        "expired" -> GetWorldInvitationsInput.StatusFilter.EXPIRED
-        "cancelled" -> GetWorldInvitationsInput.StatusFilter.CANCELLED
-        else -> GetWorldInvitationsInput.StatusFilter.PENDING
-    }
+        ?: "pending") ?: InvitationStatusFilter.PENDING
 }

@@ -4,23 +4,19 @@ import app.mcorg.config.AppConfig
 import app.mcorg.domain.Local
 import app.mcorg.domain.Production
 import app.mcorg.domain.Test
-import app.mcorg.domain.pipeline.Pipeline
 import app.mcorg.pipeline.auth.commonsteps.ConvertTokenStep
 import app.mcorg.pipeline.auth.commonsteps.GetTokenStep
+import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.presentation.consts.AUTH_COOKIE
 import app.mcorg.presentation.consts.ISSUER
+import app.mcorg.presentation.handler.executePipeline
 import app.mcorg.presentation.templated.landing.landingPage
 import app.mcorg.presentation.utils.getHost
 import app.mcorg.presentation.utils.respondHtml
-import io.ktor.server.application.ApplicationCall
-import io.ktor.server.request.RequestCookies
-import io.ktor.server.response.respondRedirect
+import io.ktor.http.*
+import io.ktor.server.application.*
+import io.ktor.server.response.*
 import java.net.URLEncoder
-
-sealed interface GetSignInFailure {
-    object MissingToken : GetSignInFailure
-    data class Redirect(val url: String) : GetSignInFailure
-}
 
 suspend fun ApplicationCall.handleGetSignIn() {
     val customRedirectPath = parameters["redirect_to"]
@@ -28,24 +24,22 @@ suspend fun ApplicationCall.handleGetSignIn() {
         Production -> null
         else -> parameters["username"]
     }
-    Pipeline.create<GetSignInFailure, RequestCookies>()
-        .wrapPipe(GetTokenStep(AUTH_COOKIE)) {
-            it.mapError { GetSignInFailure.MissingToken }
+
+    executePipeline(
+        onSuccess = { respondRedirect(it) },
+        onFailure = {
+            when(it) {
+                is AppFailure.AuthError.MissingToken -> respondHtml(landingPage(getSignInUrl(customRedirectPath ?: "/", requestedUsername)))
+                is AppFailure.AuthError.ConvertTokenError -> respondRedirect(it.toRedirect().toUrl())
+                else -> respond(HttpStatusCode.InternalServerError)
+            }
         }
-        .wrapPipe(ConvertTokenStep(ISSUER)) {
-            it.mapError { failure -> GetSignInFailure.Redirect(failure.toSignOutUrl()) }
-        }
-        .map {
-            customRedirectPath ?: "/app"
-        }
-        .fold(
-            input = request.cookies,
-            onSuccess = { respondRedirect(it) },
-            onFailure = { when(it) {
-                is GetSignInFailure.MissingToken -> respondHtml(landingPage(getSignInUrl(customRedirectPath ?: "/", requestedUsername)))
-                is GetSignInFailure.Redirect -> respondRedirect(it.url)
-            } }
-        )
+    ) {
+        value(request.cookies)
+            .step(GetTokenStep(AUTH_COOKIE))
+            .step(ConvertTokenStep(ISSUER))
+            .value(customRedirectPath ?: "/app")
+    }
 }
 
 private fun ApplicationCall.getSignInUrl(redirectPath: String = "/", requestedUsername: String?): String {

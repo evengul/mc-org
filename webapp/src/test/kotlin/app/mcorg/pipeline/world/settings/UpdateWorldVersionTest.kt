@@ -3,8 +3,10 @@ package app.mcorg.pipeline.world.settings
 import app.mcorg.domain.model.minecraft.MinecraftVersion
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.pipeline.failure.ValidationFailure
-import io.ktor.http.Parameters
-import io.ktor.http.ParametersBuilder
+import app.mcorg.pipeline.world.settings.general.UpdateWorldVersionFailures
+import app.mcorg.pipeline.world.settings.general.UpdateWorldVersionInput
+import app.mcorg.pipeline.world.settings.general.ValidateWorldVersionInputStep
+import io.ktor.http.*
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
@@ -174,19 +176,6 @@ class UpdateWorldVersionTest {
         // Then
         assertEquals(validationFailures, failure.errors)
         assertEquals(2, failure.errors.size)
-    }
-
-    @Test
-    fun `UpdateWorldVersionFailures should have correct sealed interface structure`() {
-        // Test that all failure types can be created
-        val validationError = UpdateWorldVersionFailures.ValidationError(emptyList())
-        val databaseError = UpdateWorldVersionFailures.DatabaseError(
-            app.mcorg.pipeline.failure.DatabaseFailure.NotFound
-        )
-
-        // Verify all are instances of UpdateWorldVersionFailures
-        assertIs<UpdateWorldVersionFailures>(validationError)
-        assertIs<UpdateWorldVersionFailures>(databaseError)
     }
 
     @Test

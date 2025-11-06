@@ -4,7 +4,7 @@ import app.mcorg.config.FabricMcApiConfig
 import app.mcorg.domain.model.minecraft.MinecraftVersion
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
-import app.mcorg.pipeline.failure.ApiFailure
+import app.mcorg.pipeline.failure.AppFailure
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -15,11 +15,10 @@ private data class FabricVersion(
 
 private val EARLIEST_SUPPORTED_VERSION = MinecraftVersion.Release(1, 18, 0)
 
-data object GetAvailableVersionsStep : Step<Unit, ApiFailure, List<MinecraftVersion.Release>> {
-    override suspend fun process(input: Unit): Result<ApiFailure, List<MinecraftVersion.Release>> {
-        return FabricMcApiConfig.getProvider().get<Unit, ApiFailure, Array<FabricVersion>>(
+data object GetAvailableVersionsStep : Step<Unit, AppFailure.ApiError, List<MinecraftVersion.Release>> {
+    override suspend fun process(input: Unit): Result<AppFailure.ApiError, List<MinecraftVersion.Release>> {
+        return FabricMcApiConfig.getProvider().get<Unit, Array<FabricVersion>>(
             url = FabricMcApiConfig.getVersionsUrl(),
-            errorMapper = { it }
         ).process(input)
             .map { versions ->
                 versions.filter { version -> version.stable }

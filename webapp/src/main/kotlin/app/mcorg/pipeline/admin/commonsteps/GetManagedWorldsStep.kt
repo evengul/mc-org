@@ -2,11 +2,8 @@ package app.mcorg.pipeline.admin.commonsteps
 
 import app.mcorg.domain.model.admin.ManagedWorld
 import app.mcorg.domain.model.minecraft.MinecraftVersion
-import app.mcorg.domain.pipeline.Result
-import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
-import app.mcorg.pipeline.failure.DatabaseFailure
 import java.time.ZoneOffset
 
 data class GetManagedWorldsInput(
@@ -15,11 +12,8 @@ data class GetManagedWorldsInput(
     val pageSize: Int = 10
 )
 
-object GetManagedWorldsStep : Step<GetManagedWorldsInput, DatabaseFailure, List<ManagedWorld>> {
-    override suspend fun process(input: GetManagedWorldsInput): Result<DatabaseFailure, List<ManagedWorld>> {
-
-        return DatabaseSteps.query<GetManagedWorldsInput, DatabaseFailure, List<ManagedWorld>>(
-            SafeSQL.select("""
+val GetManagedWorldsStep = DatabaseSteps.query<GetManagedWorldsInput, List<ManagedWorld>>(
+    SafeSQL.select("""
                 SELECT world.id, 
                 world.name, 
                 world.version, 
@@ -30,28 +24,25 @@ object GetManagedWorldsStep : Step<GetManagedWorldsInput, DatabaseFailure, List<
                 ORDER BY world.id
                 LIMIT ? OFFSET ?
             """.trimIndent()),
-            parameterSetter = { statement, (query, page, pageSize) ->
-                val normalizedQuery = query.trim().lowercase()
-                val offset = (page - 1) * pageSize
+    parameterSetter = { statement, (query, page, pageSize) ->
+        val normalizedQuery = query.trim().lowercase()
+        val offset = (page - 1) * pageSize
 
-                statement.setString(1, normalizedQuery)
-                statement.setString(2, normalizedQuery)
-                statement.setInt(3, pageSize)
-                statement.setInt(4, offset)
-            },
-            errorMapper = { it },
-            resultMapper = { rs -> buildList {
-                while(rs.next()) {
-                    add(ManagedWorld(
-                        id = rs.getInt("id"),
-                        name = rs.getString("name"),
-                        version = MinecraftVersion.fromString(rs.getString("version")),
-                        projects = rs.getInt("total_projects"),
-                        members = rs.getInt("total_members"),
-                        createdAt = rs.getTimestamp("created_at").toInstant().atZone(ZoneOffset.UTC)
-                    ))
-                }
-            }}
-        ).process(input)
-    }
-}
+        statement.setString(1, normalizedQuery)
+        statement.setString(2, normalizedQuery)
+        statement.setInt(3, pageSize)
+        statement.setInt(4, offset)
+    },
+    resultMapper = { rs -> buildList {
+        while(rs.next()) {
+            add(ManagedWorld(
+                id = rs.getInt("id"),
+                name = rs.getString("name"),
+                version = MinecraftVersion.fromString(rs.getString("version")),
+                projects = rs.getInt("total_projects"),
+                members = rs.getInt("total_members"),
+                createdAt = rs.getTimestamp("created_at").toInstant().atZone(ZoneOffset.UTC)
+            ))
+        }
+    }}
+)

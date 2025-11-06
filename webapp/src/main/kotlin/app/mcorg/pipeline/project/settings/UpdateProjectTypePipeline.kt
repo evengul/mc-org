@@ -6,7 +6,7 @@ import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.ValidationSteps
-import app.mcorg.pipeline.failure.ValidationFailure
+import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.presentation.handler.executePipeline
 import app.mcorg.presentation.hxOutOfBands
 import app.mcorg.presentation.templated.layout.alert.AlertType
@@ -14,17 +14,12 @@ import app.mcorg.presentation.templated.layout.alert.createAlert
 import app.mcorg.presentation.templated.utils.toPrettyEnumName
 import app.mcorg.presentation.utils.getProjectId
 import app.mcorg.presentation.utils.respondHtml
-import io.ktor.http.Parameters
-import io.ktor.server.application.ApplicationCall
-import io.ktor.server.request.receiveParameters
+import io.ktor.http.*
+import io.ktor.server.application.*
+import io.ktor.server.request.*
 import kotlinx.html.div
 import kotlinx.html.li
 import kotlinx.html.stream.createHTML
-
-sealed interface UpdateProjectTypeFailure {
-    data class ValidationError(val errors: List<ValidationFailure>) : UpdateProjectTypeFailure
-    object DatabaseError : UpdateProjectTypeFailure
-}
 
 suspend fun ApplicationCall.handleUpdateProjectType() {
     val projectId = this.getProjectId()
@@ -48,9 +43,9 @@ suspend fun ApplicationCall.handleUpdateProjectType() {
                     type = AlertType.ERROR,
                     title = "Failed to update project type",
                     message = when(it) {
-                        is UpdateProjectTypeFailure.ValidationError ->
+                        is AppFailure.ValidationError ->
                             "Validation failed: ${it.errors.joinToString { error -> error.toString() }}"
-                        is UpdateProjectTypeFailure.DatabaseError ->
+                        else ->
                             "An unexpected database error occurred"
                     }
                 )
@@ -63,8 +58,8 @@ suspend fun ApplicationCall.handleUpdateProjectType() {
     }
 }
 
-private object ValidateProjectTypeInputStep : Step<Parameters, UpdateProjectTypeFailure.ValidationError, ProjectType> {
-    override suspend fun process(input: Parameters): Result<UpdateProjectTypeFailure.ValidationError, ProjectType> {
+private object ValidateProjectTypeInputStep : Step<Parameters, AppFailure.ValidationError, ProjectType> {
+    override suspend fun process(input: Parameters): Result<AppFailure.ValidationError, ProjectType> {
         val type = ValidationSteps.required("type") { it }
             .process(input)
             .flatMap { existingType -> ValidationSteps.validateAllowedValues("type", ProjectType.entries.map { it.toString() }, { it }, false).process(existingType) }
@@ -72,20 +67,19 @@ private object ValidateProjectTypeInputStep : Step<Parameters, UpdateProjectType
 
         return when(type) {
             is Result.Success -> Result.success(type.value)
-            is Result.Failure -> Result.failure(UpdateProjectTypeFailure.ValidationError(listOf(type.error)))
+            is Result.Failure -> Result.failure(AppFailure.ValidationError(listOf(type.error)))
         }
     }
 }
 
-private data class UpdateProjectTypeStep(val projectId: Int) : Step<ProjectType, UpdateProjectTypeFailure.DatabaseError, ProjectType> {
-    override suspend fun process(input: ProjectType): Result<UpdateProjectTypeFailure.DatabaseError, ProjectType> {
-        return DatabaseSteps.update<ProjectType, UpdateProjectTypeFailure.DatabaseError>(
+private data class UpdateProjectTypeStep(val projectId: Int) : Step<ProjectType, AppFailure.DatabaseError, ProjectType> {
+    override suspend fun process(input: ProjectType): Result<AppFailure.DatabaseError, ProjectType> {
+        return DatabaseSteps.update<ProjectType>(
             sql = SafeSQL.update("UPDATE projects SET type = ? WHERE id = ?"),
             parameterSetter = { statement, type ->
                 statement.setString(1, type.name)
                 statement.setInt(2, projectId)
-            },
-            errorMapper = { UpdateProjectTypeFailure.DatabaseError }
+            }
         ).process(input).map { input }
     }
 }

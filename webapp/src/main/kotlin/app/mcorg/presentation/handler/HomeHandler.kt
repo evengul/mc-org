@@ -2,19 +2,17 @@ package app.mcorg.presentation.handler
 
 import app.mcorg.domain.pipeline.Pipeline
 import app.mcorg.domain.pipeline.Result
-import app.mcorg.domain.pipeline.Step
-import app.mcorg.pipeline.failure.DatabaseFailure
-import app.mcorg.pipeline.invitation.GetUserInvitationsStep
+import app.mcorg.pipeline.failure.AppFailure
+import app.mcorg.pipeline.invitation.commonsteps.GetUserInvitationsStep
 import app.mcorg.pipeline.minecraft.GetSupportedVersionsStep
-import app.mcorg.pipeline.notification.GetUnreadNotificationCountStep
-import app.mcorg.pipeline.world.GetPermittedWorldsInput
-import app.mcorg.pipeline.world.GetPermittedWorldsStep
+import app.mcorg.pipeline.notification.getUnreadNotificationsOrZero
+import app.mcorg.pipeline.world.commonsteps.GetPermittedWorldsInput
+import app.mcorg.pipeline.world.commonsteps.GetPermittedWorldsStep
 import app.mcorg.presentation.templated.home.homePage
 import app.mcorg.presentation.utils.getUser
 import app.mcorg.presentation.utils.respondHtml
-import io.ktor.server.application.ApplicationCall
-import io.ktor.server.routing.Route
-import io.ktor.server.routing.get
+import io.ktor.server.application.*
+import io.ktor.server.routing.*
 import org.slf4j.LoggerFactory
 
 class HomeHandler {
@@ -29,28 +27,20 @@ class HomeHandler {
     private suspend fun ApplicationCall.handleGetHome() {
         val user = getUser()
 
-        val invitationsPipeline = Pipeline.create<DatabaseFailure, Int>()
+        val invitationsPipeline = Pipeline.create<AppFailure.DatabaseError, Int>()
             .pipe(GetUserInvitationsStep)
 
-        val worldsPipeline = Pipeline.create<DatabaseFailure, Int>()
+        val worldsPipeline = Pipeline.create<AppFailure.DatabaseError, Int>()
             .map { GetPermittedWorldsInput(userId = it) }
             .pipe(GetPermittedWorldsStep)
 
-        val notificationCountPipeline = Pipeline.create<Unit, Int>()
-            .pipe(object : Step<Int, Unit, Int> {
-                override suspend fun process(input: Int): Result<Unit, Int> {
-                    return when (val result = GetUnreadNotificationCountStep.process(input)) {
-                        is Result.Success -> Result.success(result.value)
-                        is Result.Failure -> Result.success(0)
-                    }
-                }
-            })
+        val notifications = getUnreadNotificationsOrZero(user.id)
 
         val supportedVersions = GetSupportedVersionsStep.getSupportedVersions()
 
         executeParallelPipeline(
-            onSuccess = { (invitations, worlds, unreadCount) ->
-                respondHtml(homePage(user, invitations, worlds, supportedVersions, unreadCount))
+            onSuccess = { (invitations, worlds) ->
+                respondHtml(homePage(user, invitations, worlds, supportedVersions, notifications))
             },
             onFailure = {
                 logger.warn("Failed to load home data for user: ${user.id}. Error: $it")
@@ -58,9 +48,8 @@ class HomeHandler {
         ) {
             val invitationsRef = pipeline("invitations", user.id, invitationsPipeline)
             val worldsRef = pipeline("worlds", user.id, worldsPipeline)
-            val notificationCountRef = pipeline("notifications", user.id, notificationCountPipeline)
-            merge("homeData", invitationsRef, worldsRef, notificationCountRef) { invitations, worlds, unreadCount ->
-                Result.success(Triple(invitations, worlds, unreadCount))
+            merge("homeData", invitationsRef, worldsRef) { invitations, worlds ->
+                Result.success(Pair(invitations, worlds))
             }
         }
     }

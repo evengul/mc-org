@@ -1,25 +1,16 @@
 package app.mcorg.config
 
-import app.mcorg.domain.pipeline.Step
 import app.mcorg.domain.pipeline.Result
-import app.mcorg.pipeline.failure.ApiFailure
-import io.ktor.client.HttpClient
-import io.ktor.client.engine.cio.CIO
-import io.ktor.client.plugins.HttpRequestTimeoutException
-import io.ktor.client.plugins.HttpTimeout
-import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
-import io.ktor.client.request.HttpRequestBuilder
-import io.ktor.client.request.accept
-import io.ktor.client.request.header
-import io.ktor.client.request.request
-import io.ktor.client.statement.HttpResponse
-import io.ktor.client.statement.bodyAsText
-import io.ktor.client.statement.readRawBytes
-import io.ktor.http.HttpHeaders
-import io.ktor.http.HttpMethod
-import io.ktor.http.contentType
-import io.ktor.http.isSuccess
-import io.ktor.serialization.kotlinx.json.json
+import app.mcorg.domain.pipeline.Step
+import app.mcorg.pipeline.failure.AppFailure
+import io.ktor.client.*
+import io.ktor.client.engine.cio.*
+import io.ktor.client.plugins.*
+import io.ktor.client.plugins.contentnegotiation.*
+import io.ktor.client.request.*
+import io.ktor.client.statement.*
+import io.ktor.http.*
+import io.ktor.serialization.kotlinx.json.*
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.SerializationException
@@ -29,9 +20,6 @@ import org.slf4j.LoggerFactory
 import java.io.InputStream
 import java.time.Instant
 import java.util.concurrent.ConcurrentHashMap
-import kotlin.collections.set
-import kotlin.text.toIntOrNull
-import kotlin.text.toLongOrNull
 
 private data class RateLimitInfo(
     val limit: Int,
@@ -49,108 +37,98 @@ sealed class ApiProvider(
         isLenient = true
     }
 
-    inline fun <I, E, reified S> get(
+    inline fun <I, reified S> get(
         url: String,
         noinline headerBuilder: (HttpRequestBuilder, I) -> Unit = { _, _ -> },
-        noinline errorMapper: (ApiFailure) -> E
-    ) : Step<I, E, S> {
-        return object : Step<I, E, S> {
-            override suspend fun process(input: I): Result<E, S> {
+    ) : Step<I, AppFailure.ApiError, S> {
+        return object : Step<I, AppFailure.ApiError, S> {
+            override suspend fun process(input: I): Result<AppFailure.ApiError, S> {
                 val result = request(
                     HttpMethod.Get,
                     url,
                     headerBuilder,
                     { _, _ -> },
-                    errorMapper
                 ).process(input)
 
                 return when(result) {
-                    is Result.Success -> deserializeJson(result.value, errorMapper)
+                    is Result.Success -> deserializeJson(result.value)
                     is Result.Failure -> Result.failure(result.error)
                 }
             }
         }
     }
 
-    fun <I, E> getRaw(
+    fun <I> getRaw(
         url: String,
         headerBuilder: (HttpRequestBuilder, I) -> Unit = { _, _ -> },
-        errorMapper: (ApiFailure) -> E
-    ) : Step<I, E, InputStream> {
+    ) : Step<I, AppFailure.ApiError, InputStream> {
         return request(
             HttpMethod.Get,
             url,
             headerBuilder,
             { _, _ -> },
-            errorMapper,
             resultMapper = { response -> response.readRawBytes().inputStream() }
         )
     }
 
-    inline fun <I, E, reified S> post(
+    inline fun <I, reified S> post(
         url: String,
         noinline headerBuilder: (HttpRequestBuilder, I) -> Unit = { _, _ -> },
         noinline bodyBuilder: (HttpRequestBuilder, I) -> Unit = { _, _ -> },
-        noinline errorMapper: (ApiFailure) -> E
-    ) : Step<I, E, S> {
-        return object : Step<I, E, S> {
-            override suspend fun process(input: I): Result<E, S> {
+    ) : Step<I, AppFailure.ApiError, S> {
+        return object : Step<I, AppFailure.ApiError, S> {
+            override suspend fun process(input: I): Result<AppFailure.ApiError, S> {
                 val result = request(
                     HttpMethod.Post,
                     url,
                     headerBuilder,
                     bodyBuilder,
-                    errorMapper
                 ).process(input)
 
                 return when(result) {
-                    is Result.Success -> deserializeJson(result.value, errorMapper)
+                    is Result.Success -> deserializeJson(result.value)
                     is Result.Failure -> Result.failure(result.error)
                 }
             }
         }
     }
 
-    inline fun <E, reified T> deserializeJson(
+    inline fun <reified T> deserializeJson(
         responseBody: String,
-        noinline errorMapper: (ApiFailure) -> E
-    ): Result<E, T> {
+    ): Result<AppFailure.ApiError.SerializationError, T> {
         return try {
             val result = json.decodeFromString<T>(responseBody)
             Result.success(result)
         } catch (e: SerializationException) {
             println("Failed to deserialize JSON response: ${e.message}")
-            Result.failure(errorMapper(ApiFailure.SerializationError))
+            Result.failure(AppFailure.ApiError.SerializationError)
         } catch (e: Exception) {
             println("Failed to deserialize JSON response: ${e.message}")
-            Result.failure(errorMapper(ApiFailure.SerializationError))
+            Result.failure(AppFailure.ApiError.SerializationError)
         }
     }
 
-    fun <I, E> request(
+    fun <I> request(
         method: HttpMethod,
         url: String,
         headerBuilder: (HttpRequestBuilder, I) -> Unit = { _, _ -> },
         bodyBuilder: (HttpRequestBuilder, I) -> Unit = { _, _ -> },
-        errorMapper: (ApiFailure) -> E
-    ) : Step<I, E, String> {
+    ) : Step<I, AppFailure.ApiError, String> {
         return request(
             method,
             url,
             headerBuilder,
             bodyBuilder,
-            errorMapper
         ) { response -> response.bodyAsText() }
     }
 
-    abstract fun <I, E, S> request(
+    abstract fun <I, S> request(
         method: HttpMethod,
         url: String,
         headerBuilder: (HttpRequestBuilder, I) -> Unit = { _, _ -> },
         bodyBuilder: (HttpRequestBuilder, I) -> Unit = { _, _ -> },
-        errorMapper: (ApiFailure) -> E,
         resultMapper: suspend (HttpResponse) -> S
-    ) : Step<I, E, S>
+    ) : Step<I, AppFailure.ApiError, S>
 }
 
 class DefaultApiProvider(
@@ -171,21 +149,20 @@ class DefaultApiProvider(
         }
     }
 
-    override fun <I, E, S> request(
+    override fun <I, S> request(
         method: HttpMethod,
         url: String,
         headerBuilder: (HttpRequestBuilder, I) -> Unit,
         bodyBuilder: (HttpRequestBuilder, I) -> Unit,
-        errorMapper: (ApiFailure) -> E,
         resultMapper: suspend (HttpResponse) -> S
-    ): Step<I, E, S> {
-        return object : Step<I, E, S> {
-            override suspend fun process(input: I): Result<E, S> {
+    ): Step<I, AppFailure.ApiError, S> {
+        return object : Step<I, AppFailure.ApiError, S> {
+            override suspend fun process(input: I): Result<AppFailure.ApiError, S> {
                 return try {
                     // Check rate limiting before making the request
                     val rateLimitCheck = checkRateLimit(config.baseUrl)
                     if (!rateLimitCheck) {
-                        return Result.failure(errorMapper(ApiFailure.RateLimitExceeded))
+                        return Result.failure(AppFailure.ApiError.RateLimitExceeded)
                     }
 
                     val response = httpClient.request(url) {
@@ -220,19 +197,18 @@ class DefaultApiProvider(
                             null
                         }
                         logger.warn("API request failed with status ${response.status.value}: $errorBody")
-                        Result.failure(errorMapper(ApiFailure.HttpError(response.status.value, errorBody)))
+                        Result.failure(AppFailure.ApiError.HttpError(response.status.value, errorBody))
                     }
                 } catch (e: HttpRequestTimeoutException) {
                     logger.error("API request timed out for URL: $url", e)
-                    Result.failure(errorMapper(ApiFailure.TimeoutError))
+                    Result.failure(AppFailure.ApiError.TimeoutError)
                 } catch (e: Exception) {
                     logger.error("API request failed for URL: $url", e)
-                    val failure = when (e) {
+                    Result.failure(when (e) {
                         is java.net.ConnectException,
-                        is java.net.UnknownHostException -> ApiFailure.NetworkError
-                        else -> ApiFailure.UnknownError
-                    }
-                    Result.failure(errorMapper(failure))
+                        is java.net.UnknownHostException -> AppFailure.ApiError.NetworkError
+                        else -> AppFailure.ApiError.UnknownError
+                    })
                 }
             }
         }
@@ -267,20 +243,19 @@ class DefaultApiProvider(
     }
 }
 
-class FakeApiProvider(
+class FakeApiProvider<S>(
     config: ApiConfig,
-    private val getResponseBody: (method: HttpMethod, url: String) -> Result<ApiFailure, String>
+    private val getResponseBody: (method: HttpMethod, url: String) -> Result<AppFailure.ApiError, S>
 ) : ApiProvider(config) {
-    override fun <I, E, S> request(
+    override fun <I, S> request(
         method: HttpMethod,
         url: String,
         headerBuilder: (HttpRequestBuilder, I) -> Unit,
         bodyBuilder: (HttpRequestBuilder, I) -> Unit,
-        errorMapper: (ApiFailure) -> E,
         resultMapper: suspend (HttpResponse) -> S
-    ): Step<I, E, S> {
-        return object : Step<I, E, S> {
-            override suspend fun process(input: I): Result<E, S> {
+    ): Step<I, AppFailure.ApiError, S> {
+        return object : Step<I, AppFailure.ApiError, S> {
+            override suspend fun process(input: I): Result<AppFailure.ApiError, S> {
                 val requestBuilder = HttpRequestBuilder().apply {
                     this.method = method
                     contentType(config.getContentType())
@@ -292,7 +267,7 @@ class FakeApiProvider(
                 headerBuilder(requestBuilder, input)
                 bodyBuilder(requestBuilder, input)
                 @Suppress("UNCHECKED_CAST")
-                return getResponseBody(method, url).mapError { errorMapper(it) } as Result<E, S>
+                return getResponseBody(method, url) as Result<AppFailure.ApiError, S>
             }
         }
     }

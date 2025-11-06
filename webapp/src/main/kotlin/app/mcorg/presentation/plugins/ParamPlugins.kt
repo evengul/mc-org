@@ -3,24 +3,11 @@ package app.mcorg.presentation.plugins
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
-import app.mcorg.pipeline.failure.DatabaseFailure
-import app.mcorg.presentation.utils.getProjectId
-import app.mcorg.presentation.utils.getUser
-import app.mcorg.presentation.utils.getWorldId
-import app.mcorg.presentation.utils.respondBadRequest
-import app.mcorg.presentation.utils.setIdeaCommentId
-import app.mcorg.presentation.utils.setIdeaId
-import app.mcorg.presentation.utils.setInviteId
-import app.mcorg.presentation.utils.setNotificationId
-import app.mcorg.presentation.utils.setProjectDependencyId
-import app.mcorg.presentation.utils.setProjectId
-import app.mcorg.presentation.utils.setProjectProductionItemId
-import app.mcorg.presentation.utils.setTaskId
-import app.mcorg.presentation.utils.setWorldId
-import app.mcorg.presentation.utils.setWorldMemberId
-import io.ktor.http.HttpStatusCode
-import io.ktor.server.application.createRouteScopedPlugin
-import io.ktor.server.response.respond
+import app.mcorg.pipeline.failure.AppFailure
+import app.mcorg.presentation.utils.*
+import io.ktor.http.*
+import io.ktor.server.application.*
+import io.ktor.server.response.*
 
 val WorldParamPlugin = createRouteScopedPlugin("WorldParamPlugin") {
     onCall { call ->
@@ -31,7 +18,7 @@ val WorldParamPlugin = createRouteScopedPlugin("WorldParamPlugin") {
             val checkResult = ensureWorldExists(worldId)
             if (checkResult is Result.Success && checkResult.value) {
                 call.setWorldId(worldId)
-            } else if ((checkResult is Result.Success && !checkResult.value) || (checkResult is Result.Failure && checkResult.error is DatabaseFailure.NotFound)) {
+            } else if ((checkResult is Result.Success && !checkResult.value) || (checkResult is Result.Failure && checkResult.error is AppFailure.DatabaseError.NotFound)) {
                 call.respond(HttpStatusCode.NotFound, "World with ID $worldId does not exist")
             } else {
                 call.respond(HttpStatusCode.InternalServerError, "Database error occurred")
@@ -50,7 +37,7 @@ val ProjectParamPlugin = createRouteScopedPlugin("ParamPlugin") {
             val checkResult = ensureProjectExists(worldId, projectId)
             if (checkResult is Result.Success && checkResult.value) {
                 call.setProjectId(projectId)
-            } else if ((checkResult is Result.Success && !checkResult.value) || (checkResult is Result.Failure && checkResult.error is DatabaseFailure.NotFound)) {
+            } else if ((checkResult is Result.Success && !checkResult.value) || (checkResult is Result.Failure && checkResult.error is AppFailure.DatabaseError.NotFound)) {
                 call.respond(HttpStatusCode.NotFound, "Project with ID $projectId does not exist")
             } else {
                 call.respond(HttpStatusCode.InternalServerError, "Database error occurred")
@@ -69,7 +56,7 @@ val TaskParamPlugin = createRouteScopedPlugin("TaskParamPlugin") {
             val checkResult = ensureTaskExists(projectId, taskId)
             if (checkResult is Result.Success && checkResult.value) {
                 call.setTaskId(taskId)
-            } else if ((checkResult is Result.Success && !checkResult.value) || (checkResult is Result.Failure && checkResult.error is DatabaseFailure.NotFound)) {
+            } else if ((checkResult is Result.Success && !checkResult.value) || (checkResult is Result.Failure && checkResult.error is AppFailure.DatabaseError.NotFound)) {
                 call.respond(HttpStatusCode.NotFound, "Task with ID $taskId does not exist")
             } else {
                 call.respond(HttpStatusCode.InternalServerError, "Database error occurred")
@@ -88,7 +75,7 @@ val NotificationParamPlugin = createRouteScopedPlugin("NotificationParamPlugin")
             val checkResult = ensureNotificationExists(userId, notificationId)
             if (checkResult is Result.Success && checkResult.value) {
                 call.setNotificationId(notificationId)
-            } else if ((checkResult is Result.Success && !checkResult.value) || (checkResult is Result.Failure && checkResult.error is DatabaseFailure.NotFound)) {
+            } else if ((checkResult is Result.Success && !checkResult.value) || (checkResult is Result.Failure && checkResult.error is AppFailure.DatabaseError.NotFound)) {
                 call.respond(HttpStatusCode.NotFound, "Notification with ID $notificationId does not exist")
             } else {
                 call.respond(HttpStatusCode.InternalServerError, "Database error occurred")
@@ -106,7 +93,7 @@ val InviteParamPlugin = createRouteScopedPlugin("InviteParamPlugin") {
             val checkResult = ensureInviteExists(inviteId)
             if (checkResult is Result.Success && checkResult.value) {
                 call.setInviteId(inviteId)
-            } else if ((checkResult is Result.Success && !checkResult.value) || (checkResult is Result.Failure && checkResult.error is DatabaseFailure.NotFound)) {
+            } else if ((checkResult is Result.Success && !checkResult.value) || (checkResult is Result.Failure && checkResult.error is AppFailure.DatabaseError.NotFound)) {
                 call.respond(HttpStatusCode.NotFound, "Invite with ID $inviteId does not exist")
             } else {
                 call.respond(HttpStatusCode.InternalServerError, "Database error occurred")
@@ -128,7 +115,7 @@ val WorldMemberParamPlugin = createRouteScopedPlugin("MemberParamPlugin") {
             )
             if (checkResult is Result.Success && checkResult.value) {
                 call.setWorldMemberId(memberId)
-            } else if ((checkResult is Result.Success && !checkResult.value) || (checkResult is Result.Failure && checkResult.error is DatabaseFailure.NotFound)) {
+            } else if ((checkResult is Result.Success && !checkResult.value) || (checkResult is Result.Failure && checkResult.error is AppFailure.DatabaseError.NotFound)) {
                 call.respond(HttpStatusCode.NotFound, "Member with ID $memberId does not exist in the world")
             } else {
                 call.respond(HttpStatusCode.InternalServerError, "Database error occurred")
@@ -150,7 +137,7 @@ val ProjectProductionItemParamPlugin = createRouteScopedPlugin("ProjectProductio
             )
             if (checkResult is Result.Success && checkResult.value) {
                 call.setProjectProductionItemId(itemId)
-            } else if ((checkResult is Result.Success && !checkResult.value) || (checkResult is Result.Failure && checkResult.error is DatabaseFailure.NotFound)) {
+            } else if ((checkResult is Result.Success && !checkResult.value) || (checkResult is Result.Failure && checkResult.error is AppFailure.DatabaseError.NotFound)) {
                 call.respond(HttpStatusCode.NotFound, "Project production item with ID $itemId does not exist")
             } else {
                 call.respond(HttpStatusCode.InternalServerError, "Database error occurred")
@@ -172,7 +159,7 @@ val ProjectDependencyItemPlugin = createRouteScopedPlugin("ProjectDependencyItem
             )
             if (checkResult is Result.Success && checkResult.value) {
                 call.setProjectDependencyId(dependencyId)
-            } else if ((checkResult is Result.Success && !checkResult.value) || (checkResult is Result.Failure && checkResult.error is DatabaseFailure.NotFound)) {
+            } else if ((checkResult is Result.Success && !checkResult.value) || (checkResult is Result.Failure && checkResult.error is AppFailure.DatabaseError.NotFound)) {
                 call.respond(HttpStatusCode.NotFound, "Project dependency with ID $dependencyId does not exist for the project")
             } else {
                 call.respond(HttpStatusCode.InternalServerError, "Database error occurred")
@@ -193,7 +180,7 @@ val IdeaParamPlugin = createRouteScopedPlugin("IdeaParamPlugin") {
             )
             if (checkResult is Result.Success && checkResult.value) {
                 call.setIdeaId(ideaId)
-            } else if ((checkResult is Result.Success && !checkResult.value) || (checkResult is Result.Failure && checkResult.error is DatabaseFailure.NotFound)) {
+            } else if ((checkResult is Result.Success && !checkResult.value) || (checkResult is Result.Failure && checkResult.error is AppFailure.DatabaseError.NotFound)) {
                 call.respond(HttpStatusCode.NotFound, "Idea with ID $ideaId does not exist")
             } else {
                 call.respond(HttpStatusCode.InternalServerError, "Database error occurred")
@@ -214,7 +201,7 @@ val IdeaCommentParamPlugin = createRouteScopedPlugin("IdeaCommentParamPlugin") {
             )
             if (checkResult is Result.Success && checkResult.value) {
                 call.setIdeaCommentId(commentId)
-            } else if ((checkResult is Result.Success && !checkResult.value) || (checkResult is Result.Failure && checkResult.error is DatabaseFailure.NotFound)) {
+            } else if ((checkResult is Result.Success && !checkResult.value) || (checkResult is Result.Failure && checkResult.error is AppFailure.DatabaseError.NotFound)) {
                 call.respond(HttpStatusCode.NotFound, "Idea comment with ID $commentId does not exist")
             } else {
                 call.respond(HttpStatusCode.InternalServerError, "Database error occurred")
@@ -251,11 +238,10 @@ private suspend fun ensureInviteExists(inviteId: Int) = ensureParamEntityExists(
 private suspend fun ensureParamEntityExists(
     sql: SafeSQL,
     vararg ids: Int
-): Result<DatabaseFailure, Boolean> {
-    val step = DatabaseSteps.query<List<Int>, DatabaseFailure, Boolean>(
+): Result<AppFailure.DatabaseError, Boolean> {
+    val step = DatabaseSteps.query<List<Int>, Boolean>(
         sql,
         { statement, input -> input.forEachIndexed { index, id -> statement.setInt(index + 1, id)} },
-        { it },
         resultMapper = { rs -> rs.next() && rs.getBoolean(1) }
     )
     return step.process(ids.toList())

@@ -5,10 +5,10 @@ import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
-import app.mcorg.pipeline.failure.DatabaseFailure
+import app.mcorg.pipeline.failure.AppFailure
 import org.slf4j.LoggerFactory
 
-object GetSupportedVersionsStep : Step<Unit, DatabaseFailure, List<MinecraftVersion.Release>> {
+object GetSupportedVersionsStep : Step<Unit, AppFailure.DatabaseError, List<MinecraftVersion.Release>> {
     private val logger = LoggerFactory.getLogger(GetSupportedVersionsStep::class.java)
 
     suspend fun getSupportedVersions(): List<MinecraftVersion.Release> {
@@ -19,10 +19,9 @@ object GetSupportedVersionsStep : Step<Unit, DatabaseFailure, List<MinecraftVers
             .sortedWith { a, b -> b.compareTo(a) }
     }
 
-    override suspend fun process(input: Unit): Result<DatabaseFailure, List<MinecraftVersion.Release>> {
-        return DatabaseSteps.query<Unit, DatabaseFailure, List<MinecraftVersion.Release>>(
+    override suspend fun process(input: Unit): Result<AppFailure.DatabaseError, List<MinecraftVersion.Release>> {
+        return DatabaseSteps.query<Unit, List<MinecraftVersion.Release>>(
             sql = SafeSQL.select("SELECT DISTINCT version FROM minecraft_version"),
-            errorMapper = { it },
             resultMapper = { resultSet ->
                 buildList {
                     while (resultSet.next()) {

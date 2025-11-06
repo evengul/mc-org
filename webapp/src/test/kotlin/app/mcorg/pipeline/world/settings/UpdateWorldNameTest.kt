@@ -2,8 +2,10 @@ package app.mcorg.pipeline.world.settings
 
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.pipeline.failure.ValidationFailure
-import io.ktor.http.Parameters
-import io.ktor.http.ParametersBuilder
+import app.mcorg.pipeline.world.settings.general.UpdateWorldNameFailures
+import app.mcorg.pipeline.world.settings.general.UpdateWorldNameInput
+import app.mcorg.pipeline.world.settings.general.ValidateWorldNameInputStep
+import io.ktor.http.*
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
@@ -144,20 +146,5 @@ class UpdateWorldNameTest {
         // Then
         assertEquals(validationFailures, failure.errors)
         assertEquals(2, failure.errors.size)
-    }
-
-    @Test
-    fun `UpdateWorldNameFailures should have correct sealed interface structure`() {
-        // Test that all failure types can be created
-        val validationError = UpdateWorldNameFailures.ValidationError(emptyList())
-        val nameAlreadyExists = UpdateWorldNameFailures.NameAlreadyExists
-        val databaseError = UpdateWorldNameFailures.DatabaseError(
-            app.mcorg.pipeline.failure.DatabaseFailure.NotFound
-        )
-
-        // Verify all are instances of UpdateWorldNameFailures
-        assertIs<UpdateWorldNameFailures>(validationError)
-        assertIs<UpdateWorldNameFailures>(nameAlreadyExists)
-        assertIs<UpdateWorldNameFailures>(databaseError)
     }
 }

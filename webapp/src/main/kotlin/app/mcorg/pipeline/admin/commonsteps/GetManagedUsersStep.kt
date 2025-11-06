@@ -2,11 +2,8 @@ package app.mcorg.pipeline.admin.commonsteps
 
 import app.mcorg.domain.model.admin.ManagedUser
 import app.mcorg.domain.model.user.Role
-import app.mcorg.domain.pipeline.Result
-import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
-import app.mcorg.pipeline.failure.DatabaseFailure
 import java.time.ZoneOffset
 
 data class GetManagedUsersInput(
@@ -15,10 +12,8 @@ data class GetManagedUsersInput(
     val pageSize: Int = 10
 )
 
-object GetManagedUsersStep : Step<GetManagedUsersInput, DatabaseFailure, List<ManagedUser>> {
-    override suspend fun process(input: GetManagedUsersInput): Result<DatabaseFailure, List<ManagedUser>> {
-        return DatabaseSteps.query<GetManagedUsersInput, DatabaseFailure, List<ManagedUser>>(
-            SafeSQL.select("""
+val GetManagedUsersStep = DatabaseSteps.query<GetManagedUsersInput, List<ManagedUser>>(
+    SafeSQL.select("""
                 SELECT users.id as id, minecraft_profiles.username as minecraft_username, users.email, minecraft_profiles.created_at as joined_at, minecraft_profiles.last_login as last_seen
                 FROM users
                 JOIN minecraft_profiles on users.id = minecraft_profiles.user_id
@@ -26,29 +21,26 @@ object GetManagedUsersStep : Step<GetManagedUsersInput, DatabaseFailure, List<Ma
                 ORDER BY minecraft_profiles.username DESC 
                 LIMIT ? OFFSET ?
             """.trimIndent()),
-            parameterSetter = { statement, (query, page, pageSize) ->
-                val normalizedQuery = query.trim().lowercase()
-                val offset = (page - 1) * pageSize
+    parameterSetter = { statement, (query, page, pageSize) ->
+        val normalizedQuery = query.trim().lowercase()
+        val offset = (page - 1) * pageSize
 
-                statement.setString(1, normalizedQuery)
-                statement.setString(2, normalizedQuery)
-                statement.setInt(3, pageSize)
-                statement.setInt(4, offset)
-            },
-            errorMapper = { it },
-            resultMapper = { rs -> buildList {
-                while(rs.next()) {
-                    add(ManagedUser(
-                        id = rs.getInt("id"),
-                        displayName = rs.getString("minecraft_username"),
-                        minecraftUsername = rs.getString("minecraft_username"),
-                        email = rs.getString("email"),
-                        globalRole = Role.MEMBER, // TODO: replace with list of global roles,
-                        joinedAt = rs.getTimestamp("joined_at").toInstant().atZone(ZoneOffset.UTC),
-                        lastSeen = rs.getTimestamp("last_seen").toInstant().atZone(ZoneOffset.UTC),
-                    ))
-                }
-            }}
-        ).process(input)
-    }
-}
+        statement.setString(1, normalizedQuery)
+        statement.setString(2, normalizedQuery)
+        statement.setInt(3, pageSize)
+        statement.setInt(4, offset)
+    },
+    resultMapper = { rs -> buildList {
+        while(rs.next()) {
+            add(ManagedUser(
+                id = rs.getInt("id"),
+                displayName = rs.getString("minecraft_username"),
+                minecraftUsername = rs.getString("minecraft_username"),
+                email = rs.getString("email"),
+                globalRole = Role.MEMBER, // TODO: replace with list of global roles,
+                joinedAt = rs.getTimestamp("joined_at").toInstant().atZone(ZoneOffset.UTC),
+                lastSeen = rs.getTimestamp("last_seen").toInstant().atZone(ZoneOffset.UTC),
+            ))
+        }
+    }}
+)

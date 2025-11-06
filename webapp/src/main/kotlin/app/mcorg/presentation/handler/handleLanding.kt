@@ -6,7 +6,7 @@ import app.mcorg.pipeline.auth.commonsteps.GetTokenStep
 import app.mcorg.presentation.consts.AUTH_COOKIE
 import app.mcorg.presentation.consts.ISSUER
 import io.ktor.server.application.*
-import io.ktor.server.request.RequestCookies
+import io.ktor.server.request.*
 import io.ktor.server.response.*
 
 suspend fun ApplicationCall.handleGetLanding() {
@@ -15,7 +15,7 @@ suspend fun ApplicationCall.handleGetLanding() {
             it.mapError { "/auth/sign-in" }
         }
         .wrapPipe(ConvertTokenStep(ISSUER)) {
-            it.mapError { e -> e.toSignOutUrl() }
+            it.mapError { e -> e.toRedirect().toUrl() }
         }
         .fold(
             input = request.cookies,

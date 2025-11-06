@@ -1,16 +1,14 @@
 package app.mcorg.config
 
 import app.mcorg.domain.pipeline.Result
-import app.mcorg.pipeline.failure.ApiFailure
 import app.mcorg.test.utils.TestUtils
-import io.ktor.client.request.HttpRequestBuilder
-import io.ktor.client.request.header
+import io.ktor.client.request.*
 import kotlinx.serialization.Serializable
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
-import kotlin.test.assertTrue
 import kotlin.test.assertNotNull
+import kotlin.test.assertTrue
 
 class ApiProviderEdgeCasesTest {
 

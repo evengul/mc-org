@@ -3,7 +3,6 @@ package app.mcorg.pipeline.auth
 import app.mcorg.config.Database
 import app.mcorg.config.DatabaseConnectionProvider
 import app.mcorg.pipeline.auth.commonsteps.UpdateLastSignInStep
-import app.mcorg.pipeline.failure.DatabaseFailure
 import app.mcorg.test.utils.TestUtils
 import io.mockk.*
 import org.junit.jupiter.api.BeforeEach

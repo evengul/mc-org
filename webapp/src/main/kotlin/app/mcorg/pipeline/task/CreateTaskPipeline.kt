@@ -3,38 +3,75 @@ package app.mcorg.pipeline.task
 import app.mcorg.domain.model.task.Priority
 import app.mcorg.domain.model.task.Task
 import app.mcorg.domain.model.task.TaskProjectStage
-import app.mcorg.domain.pipeline.Step
 import app.mcorg.domain.pipeline.Result
+import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.ValidationSteps
+import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.failure.ValidationFailure
-import io.ktor.http.Parameters
+import app.mcorg.pipeline.task.commonsteps.CountCompletedTasksStep
+import app.mcorg.pipeline.task.commonsteps.CountTasksInProjectWithTaskIdStep
+import app.mcorg.pipeline.task.commonsteps.GetTaskStep
+import app.mcorg.presentation.handler.executePipeline
+import app.mcorg.presentation.hxOutOfBands
+import app.mcorg.presentation.templated.project.projectProgress
+import app.mcorg.presentation.templated.project.taskItem
+import app.mcorg.presentation.utils.getProjectId
+import app.mcorg.presentation.utils.getUser
+import app.mcorg.presentation.utils.getWorldId
+import app.mcorg.presentation.utils.respondHtml
+import io.ktor.http.*
+import io.ktor.server.application.*
+import io.ktor.server.request.*
+import io.ktor.server.response.*
+import kotlinx.html.div
+import kotlinx.html.li
+import kotlinx.html.stream.createHTML
 import java.sql.Types
 
 data class CreateTaskInput(
-    val projectId: Int,
-    val creatorId: Int,
     val name: String,
     val priority: Priority,
     val stage: TaskProjectStage,
     val requiredAmount: Int?
 )
 
-sealed class CreateTaskFailures {
-    data class ValidationError(val errors: List<ValidationFailure>) : CreateTaskFailures()
-    object InsufficientPermissions : CreateTaskFailures()
-    object ProjectNotFound : CreateTaskFailures()
-    object DatabaseError : CreateTaskFailures()
+suspend fun ApplicationCall.handleCreateTask() {
+    val parameters = this.receiveParameters()
+    val user = this.getUser()
+    val worldId = this.getWorldId()
+    val projectId = this.getProjectId()
+
+    executePipeline(
+        onSuccess = {
+            respondHtml(createHTML().li {
+                taskItem(worldId, projectId, it.first)
+            } + createHTML().div {
+                hxOutOfBands("delete:#empty-tasks-state")
+            } + createHTML().div {
+                hxOutOfBands("innerHTML:#project-progress")
+                div {
+                    projectProgress(it.second.second, it.second.first)
+                }
+            })
+        },
+        onFailure = { respond(HttpStatusCode.InternalServerError) }
+    ) {
+        value(parameters)
+            .step(ValidateTaskInputStep)
+            .step(CreateTaskStep(projectId, user.id))
+            .step(GetUpdatedTaskStep)
+    }
 }
 
-object ValidateTaskInputStep : Step<Parameters, CreateTaskFailures, CreateTaskInput> {
-    override suspend fun process(input: Parameters): Result<CreateTaskFailures, CreateTaskInput> {
+object ValidateTaskInputStep : Step<Parameters, AppFailure.ValidationError, CreateTaskInput> {
+    override suspend fun process(input: Parameters): Result<AppFailure.ValidationError, CreateTaskInput> {
 
-        val priority = ValidationSteps.validateCustom<CreateTaskFailures.ValidationError, String?>(
+        val priority = ValidationSteps.validateCustom<AppFailure.ValidationError, String?>(
             "priority",
             "Invalid task priority",
-            errorMapper = { CreateTaskFailures.ValidationError(listOf(it)) },
+            errorMapper = { AppFailure.ValidationError(listOf(it)) },
             predicate = {
                 it.isNullOrBlank() || runCatching {
                     Priority.valueOf(it.uppercase())
@@ -43,10 +80,10 @@ object ValidateTaskInputStep : Step<Parameters, CreateTaskFailures, CreateTaskIn
                 if (it.isNullOrBlank()) Priority.MEDIUM else Priority.valueOf(it.uppercase())
             }
 
-        val stage = ValidationSteps.validateCustom<CreateTaskFailures.ValidationError, String?>(
+        val stage = ValidationSteps.validateCustom<AppFailure.ValidationError, String?>(
             "stage",
             "Invalid task stage",
-            errorMapper = { CreateTaskFailures.ValidationError(listOf(it)) },
+            errorMapper = { AppFailure.ValidationError(listOf(it)) },
             predicate = {
                 it.isNullOrBlank() || runCatching {
                     TaskProjectStage.valueOf(it.uppercase().replace(" ", "_"))
@@ -64,7 +101,7 @@ object ValidateTaskInputStep : Step<Parameters, CreateTaskFailures, CreateTaskIn
             .process(input)
             .flatMap { requiredAmount ->
                 if (requiredAmount == null) Result.success(null)
-                else ValidationSteps.validateRange("requiredAmount", 1, 2_000_000) { it }.process(requiredAmount)
+                else ValidationSteps.validateRange("requiredAmount", 1, 2_000_000_000) { it }.process(requiredAmount)
             }
 
         val actionName = input["action"]?.let { actionName ->
@@ -97,7 +134,7 @@ object ValidateTaskInputStep : Step<Parameters, CreateTaskFailures, CreateTaskIn
         }
 
         if (errors.isNotEmpty()) {
-            return Result.failure(CreateTaskFailures.ValidationError(errors.toList()))
+            return Result.failure(AppFailure.ValidationError(errors.toList()))
         }
 
         val name = if (requirement.getOrNull() != null && itemName != null && itemName is Result.Success) {
@@ -110,8 +147,6 @@ object ValidateTaskInputStep : Step<Parameters, CreateTaskFailures, CreateTaskIn
 
         return Result.success(
             CreateTaskInput(
-                projectId = 0, // Will be injected by InjectTaskContextStep
-                creatorId = 0, // Will be injected by InjectTaskContextStep
                 name = name,
                 priority = priority.getOrNull()!!,
                 stage = stage.getOrNull()!!,
@@ -121,30 +156,16 @@ object ValidateTaskInputStep : Step<Parameters, CreateTaskFailures, CreateTaskIn
     }
 }
 
-class InjectTaskContextStep(
-    private val projectId: Int,
-    private val creatorId: Int
-) : Step<CreateTaskInput, CreateTaskFailures, CreateTaskInput> {
-    override suspend fun process(input: CreateTaskInput): Result<CreateTaskFailures, CreateTaskInput> {
-        return Result.success(
-            input.copy(
-                projectId = projectId,
-                creatorId = creatorId
-            )
-        )
-    }
-}
-
-object CreateTaskStep : Step<CreateTaskInput, CreateTaskFailures, Int> {
-    override suspend fun process(input: CreateTaskInput): Result<CreateTaskFailures, Int> {
-        return DatabaseSteps.update<CreateTaskInput, CreateTaskFailures>(
+data class CreateTaskStep(val projectId: Int, val userId: Int) : Step<CreateTaskInput, AppFailure.DatabaseError, Int> {
+    override suspend fun process(input: CreateTaskInput): Result<AppFailure.DatabaseError, Int> {
+        return DatabaseSteps.update<CreateTaskInput>(
             sql = SafeSQL.insert("""
                             INSERT INTO tasks (project_id, name, description, stage, priority, requirement_type, requirement_item_required_amount, requirement_item_collected, requirement_action_completed, created_at, updated_at)
                             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
                             RETURNING id
                         """),
             parameterSetter = { statement, _ ->
-                statement.setInt(1, input.projectId)
+                statement.setInt(1, projectId)
                 statement.setString(2, input.name)
                 statement.setString(3, "")
                 statement.setString(4, input.stage.name)
@@ -160,71 +181,24 @@ object CreateTaskStep : Step<CreateTaskInput, CreateTaskFailures, Int> {
                     statement.setNull(8, Types.INTEGER)
                     statement.setBoolean(9, false)
                 }
-            },
-            errorMapper = { CreateTaskFailures.DatabaseError }
+            }
         ).process(input)
     }
 
 }
 
-object GetUpdatedTaskStep : Step<Int, CreateTaskFailures, Pair<Task, Pair<Int, Int>>> {
-    override suspend fun process(input: Int): Result<CreateTaskFailures, Pair<Task, Pair<Int, Int>>> {
+object GetUpdatedTaskStep : Step<Int, AppFailure.DatabaseError, Pair<Task, Pair<Int, Int>>> {
+    override suspend fun process(input: Int): Result<AppFailure.DatabaseError, Pair<Task, Pair<Int, Int>>> {
         val task = GetTaskStep.process(input)
-            .mapError { CreateTaskFailures.DatabaseError }
 
         val taskCount = CountTasksInProjectWithTaskIdStep.process(input).getOrNull() ?: 0
         val completedCount = CountCompletedTasksStep.process(input).getOrNull() ?: 0
 
         if (task is Result.Failure) {
-            return Result.failure(task.error)
+            return task
         }
 
         return Result.success(Pair(task.getOrNull()!!, Pair(taskCount, completedCount)))
     }
 }
 
-object CountCompletedTasksStep : Step<Int, CreateTaskFailures, Int> {
-    override suspend fun process(input: Int): Result<CreateTaskFailures, Int> {
-        return DatabaseSteps.query<Int, CreateTaskFailures, Int>(
-            sql = SafeSQL.select("""
-                SELECT COUNT(id) FROM tasks WHERE project_id = (
-                    SELECT project_id FROM tasks WHERE id = ?
-                ) AND (
-                    (requirement_type = 'ITEM' AND requirement_item_collected >= requirement_item_required_amount)
-                    OR
-                    (requirement_type = 'ACTION' AND requirement_action_completed = TRUE)
-                )
-            """.trimIndent()),
-            parameterSetter = { statement, _ -> statement.setInt(1, input) },
-            errorMapper = { CreateTaskFailures.DatabaseError },
-            resultMapper = { rs ->
-                if (rs.next()) {
-                    rs.getInt(1)
-                } else {
-                    0
-                }
-            }
-        ).process(input)
-    }
-}
-
-object CountTasksInProjectWithTaskIdStep : Step<Int, CreateTaskFailures, Int> {
-    override suspend fun process(input: Int): Result<CreateTaskFailures, Int> {
-        return DatabaseSteps.query<Int, CreateTaskFailures, Int>(
-            sql = SafeSQL.select("""
-                SELECT COUNT(id) FROM tasks WHERE project_id = (
-                    SELECT project_id FROM tasks WHERE id = ?
-                )
-            """.trimIndent()),
-            parameterSetter = { statement, _ -> statement.setInt(1, input) },
-            errorMapper = { CreateTaskFailures.DatabaseError },
-            resultMapper = { rs ->
-                if (rs.next()) {
-                    rs.getInt(1)
-                } else {
-                    0
-                }
-            }
-        ).process(input)
-    }
-}

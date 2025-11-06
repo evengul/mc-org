@@ -1,61 +1,69 @@
 package app.mcorg.pipeline.task
 
-import app.mcorg.domain.pipeline.Step
 import app.mcorg.domain.pipeline.Result
+import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
+import app.mcorg.pipeline.failure.AppFailure
+import app.mcorg.pipeline.task.commonsteps.CountProjectTasksStep
+import app.mcorg.presentation.handler.executePipeline
+import app.mcorg.presentation.templated.project.emptyTasksDisplay
+import app.mcorg.presentation.templated.project.projectProgress
+import app.mcorg.presentation.utils.getProjectId
+import app.mcorg.presentation.utils.getTaskId
+import app.mcorg.presentation.utils.respondHtml
+import io.ktor.http.*
+import io.ktor.server.application.*
+import io.ktor.server.response.*
+import kotlinx.html.div
+import kotlinx.html.stream.createHTML
 
-data class DeleteTaskInput(
-    val taskId: Int,
-    val userId: Int,
-    val projectId: Int
-)
+suspend fun ApplicationCall.handleDeleteTask() {
+    val projectId = this.getProjectId()
+    val taskId = this.getTaskId()
 
-sealed class DeleteTaskFailures {
-    object TaskNotFound : DeleteTaskFailures()
-    object InsufficientPermissions : DeleteTaskFailures()
-    object TaskHasDependencies : DeleteTaskFailures()
-    object DatabaseError : DeleteTaskFailures()
-}
-
-object ValidateTaskDependenciesStep : Step<DeleteTaskInput, DeleteTaskFailures, DeleteTaskInput> {
-    override suspend fun process(input: DeleteTaskInput): Result<DeleteTaskFailures, DeleteTaskInput> {
-        // For now, we'll implement a simple check - in the future this could check task_dependencies table
-        // Currently just ensuring the task exists
-        return DatabaseSteps.query<DeleteTaskInput, DeleteTaskFailures, Boolean>(
-            sql = SafeSQL.select("SELECT EXISTS(SELECT 1 FROM tasks WHERE id = ?)"),
-            parameterSetter = { statement, _ ->
-                statement.setInt(1, input.taskId)
-            },
-            errorMapper = { DeleteTaskFailures.DatabaseError },
-            resultMapper = { rs ->
-                rs.next()
-                rs.getBoolean(1)
+    executePipeline(
+        onSuccess = {
+            val baseHtml = createHTML().div {
+                attributes["hx-swap-oob"] = "innerHTML:#project-progress"
+                div {
+                    projectProgress(it.second, it.first)
+                }
             }
-        ).process(input).flatMap { exists ->
-            if (exists) {
-                Result.success(input)
+            if (it.first == 0) {
+                respondHtml(baseHtml + createHTML().div {
+                    attributes["hx-swap-oob"] = "beforebegin:#tasks-list"
+                    div {
+                        emptyTasksDisplay()
+                    }
+                })
+                return@executePipeline
             } else {
-                Result.failure(DeleteTaskFailures.TaskNotFound)
+                respondHtml(baseHtml)
             }
-        }
+        },
+        onFailure = { respond(HttpStatusCode.InternalServerError) }
+    ) {
+        value(taskId)
+            .step(DeleteTaskStep)
+            .value(projectId)
+            .step(GetUpdatedTasksAfterDeletionStep)
     }
 }
 
-object DeleteTaskStep : Step<DeleteTaskInput, DeleteTaskFailures, Int> {
-    override suspend fun process(input: DeleteTaskInput): Result<DeleteTaskFailures, Int> {
-        return DatabaseSteps.update<DeleteTaskInput, DeleteTaskFailures>(
+private object DeleteTaskStep : Step<Int, AppFailure.DatabaseError, Unit> {
+    override suspend fun process(input: Int): Result<AppFailure.DatabaseError, Unit> {
+        return DatabaseSteps.update<Int>(
             sql = SafeSQL.delete("DELETE FROM tasks WHERE id = ?"),
-            parameterSetter = { statement, _ ->
-                statement.setInt(1, input.taskId)
-            },
-            errorMapper = { DeleteTaskFailures.DatabaseError }
-        ).process(input).map { input.projectId }
+            parameterSetter = { statement, taskId ->
+                statement.setInt(1, taskId)
+            }
+        ).process(input).map { }
     }
 }
 
-object GetUpdatedTasksAfterDeletionStep : Step<Int, DeleteTaskFailures, Pair<Int, Int>> {
-    override suspend fun process(input: Int): Result<DeleteTaskFailures, Pair<Int, Int>> {
+private object GetUpdatedTasksAfterDeletionStep : Step<Int, Nothing, Pair<Int, Int>> {
+    override suspend fun process(input: Int): Result<Nothing, Pair<Int, Int>> {
         val taskCount = CountProjectTasksStep.process(input).getOrNull() ?: 0
         val completedCount = CountCompletedTasksInProjectStep.process(input).getOrNull() ?: 0
 
@@ -63,9 +71,9 @@ object GetUpdatedTasksAfterDeletionStep : Step<Int, DeleteTaskFailures, Pair<Int
     }
 }
 
-object CountCompletedTasksInProjectStep : Step<Int, DeleteTaskFailures, Int> {
-    override suspend fun process(input: Int): Result<DeleteTaskFailures, Int> {
-        return DatabaseSteps.query<Int, DeleteTaskFailures, Int>(
+private object CountCompletedTasksInProjectStep : Step<Int, AppFailure.DatabaseError, Int> {
+    override suspend fun process(input: Int): Result<AppFailure.DatabaseError, Int> {
+        return DatabaseSteps.query<Int, Int>(
             sql = SafeSQL.select("""
                 SELECT COUNT(id) FROM tasks WHERE project_id = ? AND (
                     (requirement_type = 'ITEM' AND requirement_item_collected >= requirement_item_required_amount)
@@ -73,8 +81,7 @@ object CountCompletedTasksInProjectStep : Step<Int, DeleteTaskFailures, Int> {
                     (requirement_type = 'ACTION' AND requirement_action_completed = TRUE)
                 )
             """.trimIndent()),
-            parameterSetter = { statement, _ -> statement.setInt(1, input) },
-            errorMapper = { DeleteTaskFailures.DatabaseError },
+            parameterSetter = { statement, taskId -> statement.setInt(1, taskId) },
             resultMapper = { rs ->
                 if (rs.next()) {
                     rs.getInt(1)

@@ -1,7 +1,6 @@
 package app.mcorg.config
 
 import app.mcorg.domain.pipeline.Result
-import app.mcorg.pipeline.failure.ApiFailure
 import app.mcorg.test.utils.TestUtils
 import io.ktor.http.*
 import kotlinx.coroutines.runBlocking

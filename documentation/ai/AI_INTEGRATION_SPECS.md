@@ -106,16 +106,7 @@ suspend fun ApplicationCall.handleFeatureAction() {
                 featureSuccessContent(result)
             })
         },
-        onFailure = { failure: FeatureFailures ->
-            when (failure) {
-                is FeatureFailures.ValidationError ->
-                    respondBadRequest("Validation failed: ${failure.errors.joinToString()}")
-                is FeatureFailures.DatabaseError ->
-                    respondBadRequest("Database operation failed")
-                is FeatureFailures.InsufficientPermissions ->
-                    respondBadRequest("Permission denied")
-            }
-        }
+        onFailure = { respond(HttpStatusCode.InternalServerError) }
     ) {
         // Pipeline composition using Step interface
         step(Step.value(parameters))
@@ -225,8 +216,7 @@ suspend fun performComplexOperation(request: OperationRequest): OperationResult 
                 // 5. Return successful result
                 return Result.success(OperationResult(updateResult.getOrNull()!!, auditResult.getOrNull()!!))
             }
-        },
-        errorMapper = { dbFailure -> OperationFailures.DatabaseError }
+        }
     ).process(request)
 }
 
@@ -290,6 +280,8 @@ Audit Logging Pattern:
 // Currently the application uses Result<E, S> pattern with specific failure types per feature
 // This unified error hierarchy would provide better error handling across the application
 
+// There is now an AppFailure sealed interface used everywhere, but it is yet to be documented, and it is not finished.
+
 // Proposed Error Hierarchy (to be implemented):
 sealed class ApplicationError(message: String) : Exception(message)
 
@@ -304,14 +296,6 @@ class BusinessRuleError(rule: String) :
 
 class SystemError(cause: Throwable) : 
     ApplicationError("System error: ${cause.message}")
-
-// Current Pattern: Feature-specific failure types
-// Example: CreateProjectFailures, UpdateWorldFailures, etc.
-sealed interface CreateProjectFailures {
-    data class ValidationError(val errors: List<ValidationFailure>) : CreateProjectFailures
-    data object DatabaseError : CreateProjectFailures
-    data object InsufficientPermissions : CreateProjectFailures
-}
 
 // Migration strategy: Gradually unify error types while maintaining pipeline compatibility
 ```

@@ -1,12 +1,7 @@
 package app.mcorg.presentation.templated.project
 
 import app.mcorg.domain.model.minecraft.Item
-import app.mcorg.domain.model.project.NamedProjectId
-import app.mcorg.domain.model.project.Project
-import app.mcorg.domain.model.project.ProjectDependency
-import app.mcorg.domain.model.project.ProjectProduction
-import app.mcorg.domain.model.project.ProjectResourceGathering
-import app.mcorg.domain.model.project.ProjectStageChange
+import app.mcorg.domain.model.project.*
 import app.mcorg.domain.model.task.Task
 import app.mcorg.domain.model.user.Role
 import app.mcorg.domain.model.user.TokenProfile
@@ -18,12 +13,7 @@ import app.mcorg.presentation.templated.common.page.createPage
 import app.mcorg.presentation.templated.common.tabs.TabData
 import app.mcorg.presentation.templated.common.tabs.tabsComponent
 import app.mcorg.presentation.templated.utils.toPrettyEnumName
-import kotlinx.html.DIV
-import kotlinx.html.classes
-import kotlinx.html.div
-import kotlinx.html.h1
-import kotlinx.html.id
-import kotlinx.html.p
+import kotlinx.html.*
 
 sealed interface ProjectTab {
     val id: String
@@ -46,10 +36,6 @@ sealed interface ProjectTab {
 
     data class Location(override val project: Project, override val user: TokenProfile,) : ProjectTab {
         override val id: String = "location"
-    }
-
-    data class Stages(override val project: Project, override val user: TokenProfile, val stageChanges: List<ProjectStageChange>) : ProjectTab {
-        override val id: String = "stages"
     }
 
     data class Dependencies(override val project: Project, override val user: TokenProfile, val availableProjects: List<NamedProjectId>, val dependencies: List<ProjectDependency>, val dependents: List<ProjectDependency>) : ProjectTab {
@@ -121,7 +107,6 @@ fun projectPage(
             TabData.create("Tasks"),
             TabData.create("Resources"),
             TabData.create("Location"),
-            TabData.create("Stages"),
             TabData.create("Dependencies"),
             TabData.create("Settings")
         ) {
@@ -139,7 +124,6 @@ fun DIV.projectTabsContent(data: ProjectTab) {
         is ProjectTab.Tasks -> tasksTab(data.project, data.totalTasksCount, data.tasks)
         is ProjectTab.Resources -> resourcesTab(data.user, data.project, data.resourceProduction, data.resourceGathering, data.itemNames)
         is ProjectTab.Location -> locationTab(data.user, data.project)
-        is ProjectTab.Stages -> stagesTab(data.stageChanges)
         is ProjectTab.Dependencies -> dependenciesTab(data.user, data.project.worldId, data.project.id, data.availableProjects, data.dependencies, data.dependents)
         is ProjectTab.Settings -> projectSettingsTab(data.user, data.project, data.worldMemberRole)
     }

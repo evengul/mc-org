@@ -5,24 +5,19 @@ import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.ValidationSteps
-import app.mcorg.pipeline.failure.ValidationFailure
+import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.presentation.handler.executePipeline
 import app.mcorg.presentation.hxOutOfBands
 import app.mcorg.presentation.templated.layout.alert.AlertType
 import app.mcorg.presentation.templated.layout.alert.createAlert
 import app.mcorg.presentation.utils.getProjectId
 import app.mcorg.presentation.utils.respondHtml
-import io.ktor.http.Parameters
-import io.ktor.server.application.ApplicationCall
-import io.ktor.server.request.receiveParameters
+import io.ktor.http.*
+import io.ktor.server.application.*
+import io.ktor.server.request.*
 import kotlinx.html.div
 import kotlinx.html.li
 import kotlinx.html.stream.createHTML
-
-sealed interface UpdateProjectDescriptionFailure {
-    data class ValidationError(val errors: List<ValidationFailure>) : UpdateProjectDescriptionFailure
-    object DatabaseError : UpdateProjectDescriptionFailure
-}
 
 suspend fun ApplicationCall.handleUpdateProjectDescription() {
     val projectId = this.getProjectId()
@@ -46,9 +41,9 @@ suspend fun ApplicationCall.handleUpdateProjectDescription() {
                     type = AlertType.ERROR,
                     title = "Failed to update project description",
                     message = when(it) {
-                        is UpdateProjectDescriptionFailure.ValidationError ->
+                        is AppFailure.ValidationError ->
                             "Validation failed: ${it.errors.joinToString { error -> error.toString() }}"
-                        is UpdateProjectDescriptionFailure.DatabaseError ->
+                        else ->
                             "An unexpected database error occurred"
                     }
                 )
@@ -61,8 +56,8 @@ suspend fun ApplicationCall.handleUpdateProjectDescription() {
     }
 }
 
-private object ValidateProjectDescriptionInputStep : Step<Parameters, UpdateProjectDescriptionFailure.ValidationError, String?> {
-    override suspend fun process(input: Parameters): Result<UpdateProjectDescriptionFailure.ValidationError, String?> {
+private object ValidateProjectDescriptionInputStep : Step<Parameters, AppFailure.ValidationError, String?> {
+    override suspend fun process(input: Parameters): Result<AppFailure.ValidationError, String?> {
         val description = input["description"]?.takeIf { it.isNotBlank() }?.let { existingDescription ->
             ValidationSteps.validateLength("description", 3, 100) { it }.process(existingDescription)
         }
@@ -70,14 +65,14 @@ private object ValidateProjectDescriptionInputStep : Step<Parameters, UpdateProj
         return when(description) {
             null -> Result.success(null)
             is Result.Success -> Result.success(description.value)
-            is Result.Failure -> Result.failure(UpdateProjectDescriptionFailure.ValidationError(listOf(description.error)))
+            is Result.Failure -> Result.failure(AppFailure.ValidationError(listOf(description.error)))
         }
     }
 }
 
-private data class UpdateProjectDescriptionStep(val projectId: Int) : Step<String?, UpdateProjectDescriptionFailure.DatabaseError, String?> {
-    override suspend fun process(input: String?): Result<UpdateProjectDescriptionFailure.DatabaseError, String?> {
-        return DatabaseSteps.update<String?, UpdateProjectDescriptionFailure.DatabaseError>(
+private data class UpdateProjectDescriptionStep(val projectId: Int) : Step<String?, AppFailure.DatabaseError, String?> {
+    override suspend fun process(input: String?): Result<AppFailure.DatabaseError, String?> {
+        return DatabaseSteps.update<String?>(
             sql = SafeSQL.update("UPDATE projects SET description = ? WHERE id = ?"),
             parameterSetter = { statement, name ->
                 if (name == null) {
@@ -86,8 +81,7 @@ private data class UpdateProjectDescriptionStep(val projectId: Int) : Step<Strin
                     statement.setString(1, name)
                 }
                 statement.setInt(2, projectId)
-            },
-            errorMapper = { UpdateProjectDescriptionFailure.DatabaseError }
+            }
         ).process(input).map { input }
     }
 }

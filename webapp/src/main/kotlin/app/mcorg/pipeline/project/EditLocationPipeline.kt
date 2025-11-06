@@ -7,24 +7,19 @@ import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.ValidationSteps
+import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.failure.ValidationFailure
 import app.mcorg.presentation.handler.executePipeline
 import app.mcorg.presentation.hxOutOfBands
 import app.mcorg.presentation.templated.project.locationDetails
 import app.mcorg.presentation.utils.getProjectId
 import app.mcorg.presentation.utils.respondHtml
-import io.ktor.http.HttpStatusCode
-import io.ktor.http.Parameters
-import io.ktor.server.application.ApplicationCall
-import io.ktor.server.request.receiveParameters
-import io.ktor.server.response.respond
+import io.ktor.http.*
+import io.ktor.server.application.*
+import io.ktor.server.request.*
+import io.ktor.server.response.*
 import kotlinx.html.div
 import kotlinx.html.stream.createHTML
-
-sealed interface EditLocationFailure {
-    data class ValidationFailure(val errors: List<app.mcorg.pipeline.failure.ValidationFailure>) : EditLocationFailure
-    object DatabaseFailure : EditLocationFailure
-}
 
 suspend fun ApplicationCall.handleEditLocation() {
     val projectId = this.getProjectId()
@@ -41,14 +36,14 @@ suspend fun ApplicationCall.handleEditLocation() {
         },
         onFailure = { respond(HttpStatusCode.InternalServerError, "An error occurred while updating the project location") }
     ) {
-        step(Step.value(parameters))
+        value(parameters)
             .step(ValidateLocationStep)
             .step(UpdateLocationStep(projectId))
     }
 }
 
-object ValidateLocationStep : Step<Parameters, EditLocationFailure.ValidationFailure, MinecraftLocation> {
-    override suspend fun process(input: Parameters): Result<EditLocationFailure.ValidationFailure, MinecraftLocation> {
+object ValidateLocationStep : Step<Parameters, AppFailure.ValidationError, MinecraftLocation> {
+    override suspend fun process(input: Parameters): Result<AppFailure.ValidationError, MinecraftLocation> {
         val x = ValidationSteps.requiredInt("x") { it }.process(input)
         val y = ValidationSteps.requiredInt("y") { it }.process(input)
         val z = ValidationSteps.requiredInt("z") { it }.process(input)
@@ -69,7 +64,7 @@ object ValidateLocationStep : Step<Parameters, EditLocationFailure.ValidationFai
         }
 
         return if (errors.isNotEmpty()) {
-            Result.failure(EditLocationFailure.ValidationFailure(errors))
+            Result.failure(AppFailure.ValidationError(errors))
         } else {
             Result.success(
                 MinecraftLocation(
@@ -83,18 +78,17 @@ object ValidateLocationStep : Step<Parameters, EditLocationFailure.ValidationFai
     }
 }
 
-data class UpdateLocationStep(val projectId: Int) : Step<MinecraftLocation, EditLocationFailure.DatabaseFailure, MinecraftLocation> {
-    override suspend fun process(input: MinecraftLocation): Result<EditLocationFailure.DatabaseFailure, MinecraftLocation> {
-        val result = DatabaseSteps.update<MinecraftLocation, EditLocationFailure.DatabaseFailure>(
-            SafeSQL.update("UPDATE projects SET location_x = ?, location_y = ?, location_z = ?, location_dimension = ? WHERE id = ?"),
-            { statement, loc ->
+data class UpdateLocationStep(val projectId: Int) : Step<MinecraftLocation, AppFailure.DatabaseError, MinecraftLocation> {
+    override suspend fun process(input: MinecraftLocation): Result<AppFailure.DatabaseError, MinecraftLocation> {
+        val result = DatabaseSteps.update<MinecraftLocation>(
+            sql = SafeSQL.update("UPDATE projects SET location_x = ?, location_y = ?, location_z = ?, location_dimension = ? WHERE id = ?"),
+            parameterSetter = { statement, loc ->
                 statement.setInt(1, loc.x)
                 statement.setInt(2, loc.y)
                 statement.setInt(3, loc.z)
                 statement.setString(4, loc.dimension.name)
                 statement.setInt(5, projectId)
-            },
-            { EditLocationFailure.DatabaseFailure }
+            }
         ).process(input)
 
         return when(result) {

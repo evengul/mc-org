@@ -1,61 +1,69 @@
 package app.mcorg.pipeline
 
 import app.mcorg.config.Database
-import app.mcorg.domain.pipeline.Step
 import app.mcorg.domain.pipeline.Result
-import app.mcorg.pipeline.failure.DatabaseFailure
+import app.mcorg.domain.pipeline.Step
+import app.mcorg.pipeline.failure.AppFailure
 import org.slf4j.LoggerFactory
-import java.sql.PreparedStatement
-import java.sql.ResultSet
-import java.sql.SQLIntegrityConstraintViolationException
-import java.sql.SQLSyntaxErrorException
-import java.sql.SQLTimeoutException
+import java.sql.*
 
 private val logger = LoggerFactory.getLogger("DatabaseSteps")
 
 @Suppress("SqlSourceToSinkFlow")
 object DatabaseSteps {
-    fun <I, E, S> query(
+    fun <I, S> query(
         sql: SafeSQL,
         parameterSetter: (PreparedStatement, I) -> Unit = { _, _ -> },
-        errorMapper: (DatabaseFailure) -> E,
-        resultMapper: (ResultSet) -> S
-    ): Step<I, E, S> {
-        return object : Step<I, E, S> {
-            override suspend fun process(input: I): Result<E, S> {
+        resultMapper: (ResultSet) -> S,
+        transactionConnection: TransactionConnection? = null,
+    ): Step<I, AppFailure.DatabaseError, S> {
+        return object : Step<I, AppFailure.DatabaseError, S> {
+            override suspend fun process(input: I): Result<AppFailure.DatabaseError, S> {
                 return try {
-                    Database.getConnection().use { connection ->
-                        connection.prepareStatement(sql.query).use { statement ->
+                    val block = { conn: Connection ->
+                        conn.prepareStatement(sql.query).use { statement ->
                             parameterSetter(statement, input)
                             statement.executeQuery().use { resultSet ->
-                                Result.success(resultMapper(resultSet))
+                                try {
+                                    Result.success(resultMapper(resultSet))
+                                } catch (e: SQLException) {
+                                    logger.error("Error mapping result set", e)
+                                    Result.failure(AppFailure.DatabaseError.ResultMappingError)
+                                }
                             }
+                        }
+                    }
+                    if (transactionConnection != null) {
+                        block(transactionConnection.connection)
+                    } else {
+                        Database.getConnection().use { connection ->
+                            block(connection)
                         }
                     }
                 } catch (e: Exception) {
                     logger.error("Could not execute query", e)
                     val failure = when (e) {
-                        is SQLTimeoutException -> DatabaseFailure.ConnectionError
-                        is SQLSyntaxErrorException -> DatabaseFailure.StatementError
-                        is SQLIntegrityConstraintViolationException -> DatabaseFailure.IntegrityConstraintError
-                        else -> DatabaseFailure.UnknownError
+                        is SQLTimeoutException -> AppFailure.DatabaseError.ConnectionError
+                        is SQLSyntaxErrorException -> AppFailure.DatabaseError.StatementError
+                        is SQLIntegrityConstraintViolationException -> AppFailure.DatabaseError.IntegrityConstraintError
+                        else -> AppFailure.DatabaseError.UnknownError
                     }
-                    Result.failure(errorMapper(failure))
+                    Result.failure(failure)
                 }
             }
         }
     }
 
-    fun <I, E> update(
+    fun <I> update(
         sql: SafeSQL,
         parameterSetter: (PreparedStatement, I) -> Unit,
-        errorMapper: (DatabaseFailure) -> E
-    ): Step<I, E, Int> {
-        return object : Step<I, E, Int> {
-            override suspend fun process(input: I): Result<E, Int> {
+        transactionConnection: TransactionConnection? = null,
+    ): Step<I, AppFailure.DatabaseError, Int> {
+        return object : Step<I, AppFailure.DatabaseError, Int> {
+            override suspend fun process(input: I): Result<AppFailure.DatabaseError, Int> {
                 return try {
-                    Database.getConnection().use { connection ->
-                        connection.prepareStatement(sql.query).use { statement ->
+                    val block = { conn: Connection ->
+                        conn.prepareStatement(sql.query).use { statement ->
                             parameterSetter(statement, input)
                             if (sql.query.contains("RETURNING", ignoreCase = false)) {
                                 statement.executeQuery().use { resultSet ->
@@ -63,7 +71,7 @@ object DatabaseSteps {
                                         val id = resultSet.getInt(1)
                                         Result.success(id)
                                     } else {
-                                        Result.failure(errorMapper(DatabaseFailure.UnknownError))
+                                        Result.failure(AppFailure.DatabaseError.NoIdReturned)
                                     }
                                 }
                             } else {
@@ -73,31 +81,38 @@ object DatabaseSteps {
                             }
                         }
                     }
+                    if (transactionConnection != null) {
+                        block(transactionConnection.connection)
+                    } else {
+                        Database.getConnection().use { connection ->
+                            block(connection)
+                        }
+                    }
                 } catch (e: Exception) {
                     logger.error("Could not execute update", e)
                     val failure = when (e) {
-                        is SQLTimeoutException -> DatabaseFailure.ConnectionError
-                        is SQLSyntaxErrorException -> DatabaseFailure.StatementError
-                        is SQLIntegrityConstraintViolationException -> DatabaseFailure.IntegrityConstraintError
-                        else -> DatabaseFailure.UnknownError
+                        is SQLTimeoutException -> AppFailure.DatabaseError.ConnectionError
+                        is SQLSyntaxErrorException -> AppFailure.DatabaseError.StatementError
+                        is SQLIntegrityConstraintViolationException -> AppFailure.DatabaseError.IntegrityConstraintError
+                        else -> AppFailure.DatabaseError.UnknownError
                     }
-                    Result.failure(errorMapper(failure))
+                    Result.failure(failure)
                 }
             }
         }
     }
 
-    fun <I, E> batchUpdate(
+    fun <I> batchUpdate(
         sql: SafeSQL,
         parameterSetter: (PreparedStatement, I) -> Unit,
-        errorMapper: (DatabaseFailure) -> E,
-        chunkSize: Int = 500
-    ): Step<List<I>, E, Unit> {
-        return object : Step<List<I>, E, Unit> {
-            override suspend fun process(input: List<I>): Result<E, Unit> {
+        chunkSize: Int = 500,
+        transactionConnection: TransactionConnection? = null,
+    ): Step<List<I>, AppFailure.DatabaseError, Unit> {
+        return object : Step<List<I>, AppFailure.DatabaseError, Unit> {
+            override suspend fun process(input: List<I>): Result<AppFailure.DatabaseError, Unit> {
                 return try {
-                    Database.getConnection().use { connection ->
-                        connection.prepareStatement(sql.query).use { statement ->
+                    val block = { conn: Connection ->
+                        conn.prepareStatement(sql.query).use { statement ->
                             input.chunked(chunkSize).forEach { chunk ->
                                 statement.clearBatch()
                                 chunk.forEach { item ->
@@ -110,35 +125,40 @@ object DatabaseSteps {
                                     logger.warn("Expected to affect ${chunk.size} rows, but only $successCount were affected.")
                                 }
                             }
-                            Result.success()
+                            Result.success<AppFailure.DatabaseError>()
+                        }
+                    }
+                    if (transactionConnection != null) {
+                        block(transactionConnection.connection)
+                    } else {
+                        Database.getConnection().use { connection ->
+                            block(connection)
                         }
                     }
                 } catch (e: Exception) {
                     logger.error("Could not execute batch update", e)
                     val failure = when (e) {
-                        is SQLTimeoutException -> DatabaseFailure.ConnectionError
-                        is SQLSyntaxErrorException -> DatabaseFailure.StatementError
-                        is SQLIntegrityConstraintViolationException -> DatabaseFailure.IntegrityConstraintError
-                        else -> DatabaseFailure.UnknownError
+                        is SQLTimeoutException -> AppFailure.DatabaseError.ConnectionError
+                        is SQLSyntaxErrorException -> AppFailure.DatabaseError.StatementError
+                        is SQLIntegrityConstraintViolationException -> AppFailure.DatabaseError.IntegrityConstraintError
+                        else -> AppFailure.DatabaseError.UnknownError
                     }
-                    Result.failure(errorMapper(failure))
+                    Result.failure(failure)
                 }
             }
         }
     }
 
-    fun <I, E, S> transaction(
-        step: Step<I, E, S>,
-        errorMapper: (DatabaseFailure) -> E
-    ): Step<I, E, S> {
-        return object : Step<I, E, S> {
-            override suspend fun process(input: I): Result<E, S> {
+    fun <I, S> transaction(
+        step: (connection: TransactionConnection) -> Step<I, AppFailure.DatabaseError, S>
+    ): Step<I, AppFailure.DatabaseError, S> {
+        return object : Step<I, AppFailure.DatabaseError, S> {
+            override suspend fun process(input: I): Result<AppFailure.DatabaseError, S> {
                 return try {
                     Database.getConnection().use { connection ->
                         connection.autoCommit = false
                         try {
-                            val result = step.process(input)
-                            when (result) {
+                            when (val result = step(TransactionConnection(connection)).process(input)) {
                                 is Result.Success -> {
                                     connection.commit()
                                     result
@@ -156,14 +176,20 @@ object DatabaseSteps {
                 } catch (e: Exception) {
                     logger.error("Could not execute transaction", e)
                     val failure = when (e) {
-                        is SQLTimeoutException -> DatabaseFailure.ConnectionError
-                        is SQLSyntaxErrorException -> DatabaseFailure.StatementError
-                        is SQLIntegrityConstraintViolationException -> DatabaseFailure.IntegrityConstraintError
-                        else -> DatabaseFailure.UnknownError
+                        is SQLTimeoutException -> AppFailure.DatabaseError.ConnectionError
+                        is SQLSyntaxErrorException -> AppFailure.DatabaseError.StatementError
+                        is SQLIntegrityConstraintViolationException -> AppFailure.DatabaseError.IntegrityConstraintError
+                        else -> AppFailure.DatabaseError.UnknownError
                     }
-                    Result.failure(errorMapper(failure))
+                    Result.failure(failure)
                 }
             }
         }
+    }
+}
+
+data class TransactionConnection(val connection: Connection) {
+    fun use(block: (Connection) -> Unit) {
+        block(connection)
     }
 }

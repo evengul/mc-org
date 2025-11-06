@@ -1,26 +1,33 @@
 package app.mcorg.pipeline.idea
 
 import app.mcorg.domain.model.idea.Author
-import app.mcorg.domain.model.idea.Idea
 import app.mcorg.domain.model.idea.IdeaCategory
 import app.mcorg.domain.model.idea.IdeaDifficulty
 import app.mcorg.domain.model.idea.PerformanceTestData
-import app.mcorg.domain.model.idea.RatingSummary
 import app.mcorg.domain.model.minecraft.MinecraftVersion
 import app.mcorg.domain.model.minecraft.MinecraftVersionRange
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
+import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.failure.ValidationFailure
-import io.ktor.http.Parameters
+import app.mcorg.pipeline.idea.commonsteps.GetIdeaStep
+import app.mcorg.presentation.handler.executePipeline
+import app.mcorg.presentation.hxOutOfBands
+import app.mcorg.presentation.templated.idea.ideaListItem
+import app.mcorg.presentation.utils.getUser
+import app.mcorg.presentation.utils.respondHtml
+import io.ktor.http.*
+import io.ktor.server.application.*
+import io.ktor.server.request.*
+import io.ktor.server.response.*
+import kotlinx.html.div
+import kotlinx.html.li
+import kotlinx.html.stream.createHTML
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.*
-import java.time.ZoneId
 
-/**
- * Input data for creating an idea
- */
 data class CreateIdeaInput(
     val name: String,
     val description: String,
@@ -32,37 +39,48 @@ data class CreateIdeaInput(
     val versionRange: MinecraftVersionRange,
     val testData: PerformanceTestData?,
     val categoryData: Map<String, Any>,
-    val createdBy: Int
 )
 
 /**
- * Failure types for idea creation
+ * Handles the creation of a new idea.
+ * Validates input, creates idea in database, and returns HTML fragment.
  */
-sealed class CreateIdeaFailures {
-    data class ValidationError(val errors: List<ValidationFailure>) : CreateIdeaFailures()
-    object InsufficientPermissions : CreateIdeaFailures()
-    object DatabaseError : CreateIdeaFailures()
+suspend fun ApplicationCall.handleCreateIdea() {
+    val user = getUser()
+    val parameters = receiveParameters()
+
+    executePipeline(
+        onSuccess = {
+            respondHtml(createHTML().li {
+                ideaListItem(it)
+            } + createHTML().div {
+                hxOutOfBands("delete:#empty-ideas-container")
+            })
+        },
+        onFailure = { respond(HttpStatusCode.InternalServerError) }
+    ) {
+        value(parameters)
+            .step(ValidateIdeaInputStep)
+            .step(CreateIdeaStep(user.id))
+            .step(GetIdeaStep)
+    }
 }
 
-/**
- * Step to validate and parse idea input from form parameters
- */
-object ValidateIdeaInputStep : Step<Parameters, CreateIdeaFailures, CreateIdeaInput> {
-    override suspend fun process(input: Parameters): Result<CreateIdeaFailures, CreateIdeaInput> {
+object ValidateIdeaInputStep : Step<Parameters, AppFailure.ValidationError, CreateIdeaInput> {
+    override suspend fun process(input: Parameters): Result<AppFailure.ValidationError, CreateIdeaInput> {
         val errors = mutableListOf<ValidationFailure>()
 
-        // Validate basic fields
         val name = input["name"]?.trim()
         if (name.isNullOrBlank()) {
             errors.add(ValidationFailure.MissingParameter("name"))
-        } else if (name.length < 3 || name.length > 255) {
+        } else if (name.length !in 3..255) {
             errors.add(ValidationFailure.InvalidLength("name", 3, 255))
         }
 
         val description = input["description"]?.trim()
         if (description.isNullOrBlank()) {
             errors.add(ValidationFailure.MissingParameter("description"))
-        } else if (description.length < 20 || description.length > 5000) {
+        } else if (description.length !in 20..5000) {
             errors.add(ValidationFailure.InvalidLength("description", 20, 5000))
         }
 
@@ -116,7 +134,7 @@ object ValidateIdeaInputStep : Step<Parameters, CreateIdeaFailures, CreateIdeaIn
         val categoryData = parseCategoryData(input)
 
         if (errors.isNotEmpty()) {
-            return Result.failure(CreateIdeaFailures.ValidationError(errors))
+            return Result.failure(AppFailure.ValidationError(errors))
         }
 
         return Result.success(
@@ -130,8 +148,7 @@ object ValidateIdeaInputStep : Step<Parameters, CreateIdeaFailures, CreateIdeaIn
                 subAuthors = subAuthors,
                 versionRange = versionRange!!,
                 testData = testData,
-                categoryData = categoryData,
-                createdBy = 0 // Will be injected by InjectIdeaContextStep
+                categoryData = categoryData
             )
         )
     }
@@ -313,34 +330,21 @@ object ValidateIdeaInputStep : Step<Parameters, CreateIdeaFailures, CreateIdeaIn
     }
 }
 
-/**
- * Step to inject creator ID into the input
- */
-class InjectIdeaContextStep(
-    private val creatorId: Int
-) : Step<CreateIdeaInput, CreateIdeaFailures, CreateIdeaInput> {
-    override suspend fun process(input: CreateIdeaInput): Result<CreateIdeaFailures, CreateIdeaInput> {
-        return Result.success(input.copy(createdBy = creatorId))
-    }
-}
-
-/**
- * Step to create the idea in the database
- */
-object CreateIdeaStep : Step<CreateIdeaInput, CreateIdeaFailures, Int> {
-    override suspend fun process(input: CreateIdeaInput): Result<CreateIdeaFailures, Int> {
+data class CreateIdeaStep(val userId: Int) : Step<CreateIdeaInput, AppFailure.DatabaseError, Int> {
+    override suspend fun process(input: CreateIdeaInput): Result<AppFailure.DatabaseError, Int> {
         return DatabaseSteps.transaction(
-            step = object : Step<CreateIdeaInput, CreateIdeaFailures, Int> {
-                override suspend fun process(input: CreateIdeaInput): Result<CreateIdeaFailures, Int> {
-                    // Serialize complex fields to JSON
-                    val authorJson = serializeAuthor(input.author)
-                    val subAuthorsJson = input.subAuthors.map { serializeAuthor(it) }
-                    val versionRangeJson = serializeVersionRange(input.versionRange)
-                    val categoryDataJson = serializeCategoryData(input.categoryData)
+            step = { connection ->
+                object : Step<CreateIdeaInput, AppFailure.DatabaseError, Int> {
+                    override suspend fun process(input: CreateIdeaInput): Result<AppFailure.DatabaseError, Int> {
+                        // Serialize complex fields to JSON
+                        val authorJson = serializeAuthor(input.author)
+                        val subAuthorsJson = input.subAuthors.map { serializeAuthor(it) }
+                        val versionRangeJson = serializeVersionRange(input.versionRange)
+                        val categoryDataJson = serializeCategoryData(input.categoryData)
 
-                    // Insert idea
-                    val ideaIdResult = DatabaseSteps.update<CreateIdeaInput, CreateIdeaFailures>(
-                        sql = SafeSQL.insert("""
+                        // Insert idea
+                        val ideaIdResult = DatabaseSteps.update<CreateIdeaInput>(
+                            sql = SafeSQL.insert("""
                             INSERT INTO ideas (
                                 name, description, category, author, sub_authors, labels,
                                 difficulty, minecraft_version_range, category_data, created_by,
@@ -349,59 +353,59 @@ object CreateIdeaStep : Step<CreateIdeaInput, CreateIdeaFailures, Int> {
                             VALUES (?, ?, ?, ?::jsonb, ?::jsonb[], ?, ?, ?::jsonb, ?::jsonb, ?, NOW(), NOW())
                             RETURNING id
                         """),
-                        parameterSetter = { statement, _ ->
-                            statement.setString(1, input.name)
-                            statement.setString(2, input.description)
-                            statement.setString(3, input.category.name)
-                            statement.setString(4, authorJson)
+                            parameterSetter = { statement, _ ->
+                                statement.setString(1, input.name)
+                                statement.setString(2, input.description)
+                                statement.setString(3, input.category.name)
+                                statement.setString(4, authorJson)
 
-                            // Convert array to PostgreSQL array format
-                            val subAuthorsArray = statement.connection.createArrayOf("jsonb", subAuthorsJson.toTypedArray())
-                            statement.setArray(5, subAuthorsArray)
+                                // Convert array to PostgreSQL array format
+                                val subAuthorsArray = statement.connection.createArrayOf("jsonb", subAuthorsJson.toTypedArray())
+                                statement.setArray(5, subAuthorsArray)
 
-                            // Convert labels to PostgreSQL array
-                            val labelsArray = statement.connection.createArrayOf("text", input.labels.toTypedArray())
-                            statement.setArray(6, labelsArray)
+                                // Convert labels to PostgreSQL array
+                                val labelsArray = statement.connection.createArrayOf("text", input.labels.toTypedArray())
+                                statement.setArray(6, labelsArray)
 
-                            statement.setString(7, input.difficulty.name)
-                            statement.setString(8, versionRangeJson)
-                            statement.setString(9, categoryDataJson)
-                            statement.setInt(10, input.createdBy)
-                        },
-                        errorMapper = { CreateIdeaFailures.DatabaseError }
-                    ).process(input)
+                                statement.setString(7, input.difficulty.name)
+                                statement.setString(8, versionRangeJson)
+                                statement.setString(9, categoryDataJson)
+                                statement.setInt(10, userId)
+                            },
+                            connection
+                        ).process(input)
 
-                    if (ideaIdResult is Result.Failure) {
-                        return ideaIdResult
-                    }
+                        if (ideaIdResult is Result.Failure) {
+                            return ideaIdResult
+                        }
 
-                    val ideaId = ideaIdResult.getOrNull()!!
+                        val ideaId = ideaIdResult.getOrNull()!!
 
-                    // Insert test data if provided
-                    if (input.testData != null) {
-                        val testDataResult = DatabaseSteps.update<PerformanceTestData, CreateIdeaFailures>(
-                            sql = SafeSQL.insert("""
+                        // Insert test data if provided
+                        if (input.testData != null) {
+                            val testDataResult = DatabaseSteps.update<PerformanceTestData>(
+                                sql = SafeSQL.insert("""
                                 INSERT INTO idea_test_data (idea_id, mspt, hardware, minecraft_version, created_at)
                                 VALUES (?, ?, ?, ?, NOW())
                             """),
-                            parameterSetter = { statement, _ ->
-                                statement.setInt(1, ideaId)
-                                statement.setDouble(2, input.testData.mspt)
-                                statement.setString(3, input.testData.hardware)
-                                statement.setString(4, input.testData.version.toString())
-                            },
-                            errorMapper = { CreateIdeaFailures.DatabaseError }
-                        ).process(input.testData)
+                                parameterSetter = { statement, _ ->
+                                    statement.setInt(1, ideaId)
+                                    statement.setDouble(2, input.testData.mspt)
+                                    statement.setString(3, input.testData.hardware)
+                                    statement.setString(4, input.testData.version.toString())
+                                },
+                                connection
+                            ).process(input.testData)
 
-                        if (testDataResult is Result.Failure) {
-                            return testDataResult
+                            if (testDataResult is Result.Failure) {
+                                return testDataResult
+                            }
                         }
-                    }
 
-                    return Result.success(ideaId)
+                        return Result.success(ideaId)
+                    }
                 }
-            },
-            errorMapper = { CreateIdeaFailures.DatabaseError }
+            }
         ).process(input)
     }
 
@@ -511,122 +515,3 @@ object CreateIdeaStep : Step<CreateIdeaInput, CreateIdeaFailures, Int> {
     }
 }
 
-/**
- * Step to fetch the newly created idea from the database
- */
-object GetCreatedIdeaStep : Step<Int, CreateIdeaFailures, Idea> {
-    override suspend fun process(input: Int): Result<CreateIdeaFailures, Idea> {
-        return DatabaseSteps.query<Int, CreateIdeaFailures, Idea>(
-            sql = SafeSQL.select("""
-                SELECT 
-                    id, name, description, category, author, sub_authors, labels,
-                    favourites_count, rating_average, rating_count, difficulty,
-                    minecraft_version_range, category_data, created_by, created_at
-                FROM ideas
-                WHERE id = ?
-            """),
-            parameterSetter = { statement, ideaId ->
-                statement.setInt(1, ideaId)
-            },
-            errorMapper = { CreateIdeaFailures.DatabaseError },
-            resultMapper = { rs ->
-                if (rs.next()) {
-                    Idea(
-                        id = rs.getInt("id"),
-                        name = rs.getString("name"),
-                        description = rs.getString("description"),
-                        category = IdeaCategory.valueOf(rs.getString("category")),
-                        author = deserializeAuthor(rs.getString("author")),
-                        subAuthors = deserializeSubAuthors(rs.getArray("sub_authors")),
-                        labels = (rs.getArray("labels").array as Array<*>).map { it.toString() },
-                        favouritesCount = rs.getInt("favourites_count"),
-                        rating = RatingSummary(
-                            average = rs.getDouble("rating_average"),
-                            total = rs.getInt("rating_count")
-                        ),
-                        difficulty = IdeaDifficulty.valueOf(rs.getString("difficulty")),
-                        worksInVersionRange = deserializeVersionRange(rs.getString("minecraft_version_range")),
-                        testData = emptyList(), // Test data loaded separately if needed
-                        categoryData = deserializeCategoryData(rs.getString("category_data")),
-                        createdBy = rs.getInt("created_by"),
-                        createdAt = rs.getTimestamp("created_at").toInstant().atZone(ZoneId.systemDefault())
-                    )
-                } else {
-                    throw IllegalStateException("Idea not found after creation")
-                }
-            }
-        ).process(input)
-    }
-
-    private fun deserializeAuthor(json: String): Author {
-        val obj = Json.parseToJsonElement(json).jsonObject
-        return when (obj["type"]?.jsonPrimitive?.content) {
-            "single" -> Author.SingleAuthor(obj["name"]!!.jsonPrimitive.content)
-            "team" -> {
-                val members = obj["members"]!!.jsonArray.map { memberObj ->
-                    val member = memberObj.jsonObject
-                    Author.TeamAuthor(
-                        name = member["name"]!!.jsonPrimitive.content,
-                        order = member["order"]!!.jsonPrimitive.int,
-                        role = member["role"]!!.jsonPrimitive.content,
-                        contributions = member["contributions"]!!.jsonArray.map { it.jsonPrimitive.content }
-                    )
-                }
-                Author.Team(members)
-            }
-            else -> Author.SingleAuthor("Unknown")
-        }
-    }
-
-    private fun deserializeSubAuthors(array: java.sql.Array?): List<Author> {
-        if (array == null) return emptyList()
-        val jsonArray = array.array as Array<*>
-        return jsonArray.map { deserializeAuthor(it.toString()) }
-    }
-
-    private fun deserializeVersionRange(json: String): MinecraftVersionRange {
-        val obj = Json.parseToJsonElement(json).jsonObject
-        return when (obj["type"]?.jsonPrimitive?.content) {
-            "bounded" -> MinecraftVersionRange.Bounded(
-                MinecraftVersion.fromString(obj["from"]!!.jsonPrimitive.content),
-                MinecraftVersion.fromString(obj["to"]!!.jsonPrimitive.content)
-            )
-            "lowerBounded" -> MinecraftVersionRange.LowerBounded(
-                MinecraftVersion.fromString(obj["from"]!!.jsonPrimitive.content)
-            )
-            "upperBounded" -> MinecraftVersionRange.UpperBounded(
-                MinecraftVersion.fromString(obj["to"]!!.jsonPrimitive.content)
-            )
-            "unbounded" -> MinecraftVersionRange.Unbounded
-            else -> MinecraftVersionRange.Unbounded
-        }
-    }
-
-    private fun deserializeCategoryData(json: String): Map<String, Any> {
-        val jsonElement = Json.parseToJsonElement(json)
-        if (jsonElement !is JsonObject) return emptyMap()
-
-        return jsonElement.entries.associate { (key, value) ->
-            key to jsonElementToAny(value)
-        }
-    }
-
-    private fun jsonElementToAny(element: JsonElement): Any {
-        return when (element) {
-            is JsonPrimitive -> {
-                when {
-                    element.isString -> element.content
-                    element.content == "true" -> true
-                    element.content == "false" -> false
-                    element.content.toIntOrNull() != null -> element.content.toInt()
-                    element.content.toDoubleOrNull() != null -> element.content.toDouble()
-                    else -> element.content
-                }
-            }
-            is JsonArray -> element.map { jsonElementToAny(it) }
-            is JsonObject -> element.entries.associate { (key, value) ->
-                key to jsonElementToAny(value)
-            }
-        }
-    }
-}

@@ -6,25 +6,18 @@ import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.ValidationSteps
-import app.mcorg.pipeline.failure.ValidationFailure
+import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.presentation.handler.executePipeline
 import app.mcorg.presentation.templated.idea.ideaCommentItem
 import app.mcorg.presentation.utils.getIdeaId
 import app.mcorg.presentation.utils.getUser
 import app.mcorg.presentation.utils.respondHtml
-import io.ktor.http.HttpStatusCode
-import io.ktor.http.Parameters
-import io.ktor.server.application.ApplicationCall
-import io.ktor.server.request.receiveParameters
-import io.ktor.server.response.respond
+import io.ktor.http.*
+import io.ktor.server.application.*
+import io.ktor.server.request.*
+import io.ktor.server.response.*
 import kotlinx.html.li
 import kotlinx.html.stream.createHTML
-
-sealed interface CreateIdeaCommentFailure {
-    object DatabaseError : CreateIdeaCommentFailure
-    object AlreadyCommented : CreateIdeaCommentFailure
-    data class ValidationErrors(val errors: List<ValidationFailure>) : CreateIdeaCommentFailure
-}
 
 private data class CreateIdeaCommentInput(
     val content: String,
@@ -47,47 +40,15 @@ suspend fun ApplicationCall.handleCreateIdeaComment() {
             respond(HttpStatusCode.InternalServerError, "Failed to comment on idea")
         }
     ) {
-        step(Step.value(parameters))
+        value(parameters)
             .step(ValidateCommentInput)
             .step(ValidateNoExistingCommentStep(ideaId, userId))
             .step(CreateCommentStep(ideaId, userId))
     }
 }
 
-private data class ValidateNoExistingCommentStep(val ideaId: Int, val userId: Int) : Step<CreateIdeaCommentInput, CreateIdeaCommentFailure, CreateIdeaCommentInput> {
-    override suspend fun process(input: CreateIdeaCommentInput): Result<CreateIdeaCommentFailure, CreateIdeaCommentInput> {
-        DatabaseSteps.query<Unit, CreateIdeaCommentFailure, Boolean>(
-            sql = SafeSQL.select("""
-                SELECT EXISTS (
-                    SELECT 1 FROM idea_comments
-                    WHERE idea_id = ? AND commenter_id = ?
-                )
-            """.trimIndent()),
-            parameterSetter = { statement, _ ->
-                statement.setInt(1, ideaId)
-                statement.setInt(2, userId)
-            },
-            resultMapper = { resultSet ->
-                resultSet.next() && resultSet.getBoolean(1)
-            },
-            errorMapper = { CreateIdeaCommentFailure.DatabaseError }
-        ).process(Unit).let { result ->
-            return when (result) {
-                is Result.Success -> {
-                    if (result.value) {
-                        Result.failure(CreateIdeaCommentFailure.AlreadyCommented)
-                    } else {
-                        Result.success(input)
-                    }
-                }
-                is Result.Failure -> Result.failure(result.error)
-            }
-        }
-    }
-}
-
-private object ValidateCommentInput : Step<Parameters, CreateIdeaCommentFailure, CreateIdeaCommentInput> {
-    override suspend fun process(input: Parameters): Result<CreateIdeaCommentFailure, CreateIdeaCommentInput> {
+private object ValidateCommentInput : Step<Parameters, AppFailure.ValidationError, CreateIdeaCommentInput> {
+    override suspend fun process(input: Parameters): Result<AppFailure.ValidationError, CreateIdeaCommentInput> {
         val content = ValidationSteps.required("content") { it }.process(input)
         val rating = ValidationSteps.optionalInt("rating") { it }
             .process(input)
@@ -103,7 +64,7 @@ private object ValidateCommentInput : Step<Parameters, CreateIdeaCommentFailure,
             content.errorOrNull(),
             rating.errorOrNull()
         ).takeIf { it.isNotEmpty() }?.let {
-            return Result.failure(CreateIdeaCommentFailure.ValidationErrors(it))
+            return Result.failure(AppFailure.ValidationError(it))
         }
 
         return Result.success(
@@ -115,12 +76,43 @@ private object ValidateCommentInput : Step<Parameters, CreateIdeaCommentFailure,
     }
 }
 
-private data class CreateCommentStep(val ideaId: Int, val userId: Int) : Step<CreateIdeaCommentInput, CreateIdeaCommentFailure, Comment> {
-    override suspend fun process(input: CreateIdeaCommentInput): Result<CreateIdeaCommentFailure, Comment> {
-        return DatabaseSteps.transaction(
-            object : Step<CreateIdeaCommentInput, CreateIdeaCommentFailure, Comment> {
-                override suspend fun process(input: CreateIdeaCommentInput): Result<CreateIdeaCommentFailure, Comment> {
-                    val commenterName = DatabaseSteps.query<Int, CreateIdeaCommentFailure.DatabaseError, String>(
+private data class ValidateNoExistingCommentStep(val ideaId: Int, val userId: Int) : Step<CreateIdeaCommentInput, AppFailure, CreateIdeaCommentInput> {
+    override suspend fun process(input: CreateIdeaCommentInput): Result<AppFailure, CreateIdeaCommentInput> {
+        DatabaseSteps.query<Unit, Boolean>(
+            sql = SafeSQL.select("""
+                SELECT EXISTS (
+                    SELECT 1 FROM idea_comments
+                    WHERE idea_id = ? AND commenter_id = ?
+                )
+            """.trimIndent()),
+            parameterSetter = { statement, _ ->
+                statement.setInt(1, ideaId)
+                statement.setInt(2, userId)
+            },
+            resultMapper = { resultSet ->
+                resultSet.next() && resultSet.getBoolean(1)
+            }
+        ).process(Unit).let { result ->
+            return when (result) {
+                is Result.Success -> {
+                    if (result.value) {
+                        Result.failure(AppFailure.customValidationError("user", "You have already commented on this idea"))
+                    } else {
+                        Result.success(input)
+                    }
+                }
+                is Result.Failure -> Result.failure(result.error)
+            }
+        }
+    }
+}
+
+private data class CreateCommentStep(val ideaId: Int, val userId: Int) : Step<CreateIdeaCommentInput, AppFailure.DatabaseError, Comment> {
+    override suspend fun process(input: CreateIdeaCommentInput): Result<AppFailure.DatabaseError, Comment> {
+        return DatabaseSteps.transaction { connection ->
+            object : Step<CreateIdeaCommentInput, AppFailure.DatabaseError, Comment> {
+                override suspend fun process(input: CreateIdeaCommentInput): Result<AppFailure.DatabaseError, Comment> {
+                    val commenterName = DatabaseSteps.query<Int, String>(
                         sql = SafeSQL.select("SELECT username FROM minecraft_profiles WHERE id = ?"),
                         parameterSetter = { statement, userId ->
                             statement.setInt(1, userId)
@@ -132,14 +124,14 @@ private data class CreateCommentStep(val ideaId: Int, val userId: Int) : Step<Cr
                                 throw IllegalStateException("User not found")
                             }
                         },
-                        errorMapper = { CreateIdeaCommentFailure.DatabaseError }
+                        connection
                     ).process(userId)
 
                     if (commenterName is Result.Failure) {
                         return Result.failure(commenterName.error)
                     }
 
-                    val id = DatabaseSteps.update<CreateIdeaCommentInput, CreateIdeaCommentFailure>(
+                    val id = DatabaseSteps.update<CreateIdeaCommentInput>(
                         sql = SafeSQL.insert("""
                             INSERT INTO idea_comments (idea_id, commenter_id, commenter_name, content, rating, likes_count, created_at)
                             VALUES (?, ?, ?, ?, ?, 0, NOW())
@@ -156,14 +148,14 @@ private data class CreateCommentStep(val ideaId: Int, val userId: Int) : Step<Cr
                                 statement.setNull(5, java.sql.Types.INTEGER)
                             }
                         },
-                        errorMapper = { CreateIdeaCommentFailure.DatabaseError }
+                        connection
                     ).process(input)
 
                     if (id is Result.Failure) {
                         return Result.failure(id.error)
                     }
 
-                    return DatabaseSteps.query<Int, CreateIdeaCommentFailure, Comment>(
+                    return DatabaseSteps.query<Int, Comment>(
                         sql = SafeSQL.select("""
                             SELECT 
                                 c.id,
@@ -181,12 +173,11 @@ private data class CreateCommentStep(val ideaId: Int, val userId: Int) : Step<Cr
                         parameterSetter = { statement, commentId ->
                             statement.setInt(1, commentId)
                         },
-                        errorMapper = { CreateIdeaCommentFailure.DatabaseError },
-                        resultMapper = { it.next(); it.toComment() }
+                        resultMapper = { it.next(); it.toComment() },
+                        connection
                     ).process(id.getOrNull()!!)
                 }
-            },
-            errorMapper = { CreateIdeaCommentFailure.DatabaseError }
-        ).process(input)
+            }
+        }.process(input)
     }
 }

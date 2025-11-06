@@ -5,13 +5,9 @@ import app.mcorg.domain.model.invite.InviteStatus
 import app.mcorg.domain.model.user.Role
 import app.mcorg.domain.model.user.TokenProfile
 import app.mcorg.domain.model.user.WorldMember
-import app.mcorg.pipeline.world.GetWorldInvitationsInput
-import app.mcorg.presentation.hxDeleteWithConfirm
-import app.mcorg.presentation.hxPatch
-import app.mcorg.presentation.hxPost
-import app.mcorg.presentation.hxSwap
-import app.mcorg.presentation.hxTarget
-import app.mcorg.presentation.hxTrigger
+import app.mcorg.pipeline.world.invitations.CountWorldInvitationsResult
+import app.mcorg.pipeline.world.invitations.InvitationStatusFilter
+import app.mcorg.presentation.*
 import app.mcorg.presentation.templated.common.avatar.avatar
 import app.mcorg.presentation.templated.common.button.actionButton
 import app.mcorg.presentation.templated.common.button.dangerButton
@@ -26,25 +22,7 @@ import app.mcorg.presentation.templated.common.tabs.tabsComponent
 import app.mcorg.presentation.templated.utils.formatAsDate
 import app.mcorg.presentation.templated.utils.formatAsRelativeOrDate
 import app.mcorg.presentation.templated.utils.toPrettyEnumName
-import kotlinx.html.DIV
-import kotlinx.html.FormEncType
-import kotlinx.html.InputType
-import kotlinx.html.LI
-import kotlinx.html.UL
-import kotlinx.html.classes
-import kotlinx.html.div
-import kotlinx.html.form
-import kotlinx.html.h2
-import kotlinx.html.id
-import kotlinx.html.input
-import kotlinx.html.label
-import kotlinx.html.li
-import kotlinx.html.option
-import kotlinx.html.p
-import kotlinx.html.section
-import kotlinx.html.select
-import kotlinx.html.span
-import kotlinx.html.ul
+import kotlinx.html.*
 
 val validInitialRoles = listOf(
     Role.MEMBER,
@@ -98,7 +76,7 @@ fun DIV.sendInvitationForm(worldId: Int) {
     }
 }
 
-fun DIV.invitationsListWithFilter(invitations: List<Invite>, counts: Map<GetWorldInvitationsInput.StatusFilter, Int>) {
+fun DIV.invitationsListWithFilter(invitations: List<Invite>, counts: CountWorldInvitationsResult) {
     section("member-invitations") {
         h2 {
             +"World invitations"
@@ -112,16 +90,16 @@ fun DIV.invitationsListWithFilter(invitations: List<Invite>, counts: Map<GetWorl
     }
 }
 
-fun DIV.worldInvitationTabs(counts: Map<GetWorldInvitationsInput.StatusFilter, Int>, selectedFilter: GetWorldInvitationsInput.StatusFilter = GetWorldInvitationsInput.StatusFilter.PENDING) {
+fun DIV.worldInvitationTabs(counts: CountWorldInvitationsResult, selectedFilter: InvitationStatusFilter = InvitationStatusFilter.PENDING) {
     classes += "invitation-status-filter"
     id = "invitation-status-filter"
     tabsComponent(
-        TabData.create("pending", "Pending (${counts[GetWorldInvitationsInput.StatusFilter.PENDING] ?: 0})"),
-        TabData.create("accepted", "Accepted (${counts[GetWorldInvitationsInput.StatusFilter.ACCEPTED] ?: 0})"),
-        TabData.create("declined", "Declined (${counts[GetWorldInvitationsInput.StatusFilter.DECLINED] ?: 0})"),
-        TabData.create("expired", "Expired (${counts[GetWorldInvitationsInput.StatusFilter.EXPIRED] ?: 0})"),
-        TabData.create("cancelled", "Cancelled (${counts[GetWorldInvitationsInput.StatusFilter.CANCELLED] ?: 0})"),
-        TabData.create("all", "All (${counts[GetWorldInvitationsInput.StatusFilter.ALL] ?: 0})", )
+        TabData.create("pending", "Pending (${counts.pending})"),
+        TabData.create("accepted", "Accepted (${counts.accepted})"),
+        TabData.create("declined", "Declined (${counts.declined})"),
+        TabData.create("expired", "Expired (${counts.expired})"),
+        TabData.create("cancelled", "Cancelled (${counts.cancelled})"),
+        TabData.create("all", "All (${counts.all})", )
     ) {
         activeTab = selectedFilter.name.lowercase()
         queryName = "status"

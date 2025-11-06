@@ -7,13 +7,11 @@ import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.auth.commonsteps.CreateTokenStep
 import app.mcorg.pipeline.auth.commonsteps.CreateUserIfNotExistsStep
-import app.mcorg.pipeline.failure.DatabaseFailure
 import app.mcorg.presentation.consts.AUTH_COOKIE
-import io.ktor.client.request.HttpRequestBuilder
-import io.ktor.client.request.cookie
+import io.ktor.client.request.*
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.fail
-import java.util.UUID
+import java.util.*
 import kotlin.random.Random
 
 open class WithUser {
@@ -57,10 +55,9 @@ open class WithUser {
                 INSERT INTO global_user_roles (user_id, role) VALUES (?, ?)
             """.trimIndent()
         )
-        DatabaseSteps.update<Unit, DatabaseFailure>(
+        DatabaseSteps.update<Unit>(
             sql = sql,
-            parameterSetter = { statement, _ -> statement.setInt(1, userId); statement.setString(2, role) },
-            errorMapper = { it }
+            parameterSetter = { statement, _ -> statement.setInt(1, userId); statement.setString(2, role) }
         ).process(Unit)
     }
 }

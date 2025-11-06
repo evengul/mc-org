@@ -6,16 +6,17 @@ import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
-import app.mcorg.pipeline.failure.DatabaseFailure
+import app.mcorg.pipeline.TransactionConnection
+import app.mcorg.pipeline.failure.AppFailure
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import java.sql.ResultSet
 
-data object CreateUserIfNotExistsStep : Step<MinecraftProfile, DatabaseFailure, TokenProfile> {
+data object CreateUserIfNotExistsStep : Step<MinecraftProfile, AppFailure.DatabaseError, TokenProfile> {
 
     val logger: Logger = LoggerFactory.getLogger(CreateUserIfNotExistsStep::class.java)
 
-    override suspend fun process(input: MinecraftProfile): Result<DatabaseFailure, TokenProfile> {
+    override suspend fun process(input: MinecraftProfile): Result<AppFailure.DatabaseError, TokenProfile> {
         logger.info("Processing user creation for UUID: ${input.uuid}, username: ${input.username}")
 
         // First, check if a user with this UUID already exists
@@ -29,7 +30,6 @@ data object CreateUserIfNotExistsStep : Step<MinecraftProfile, DatabaseFailure, 
             parameterSetter = { statement, profile: MinecraftProfile ->
                 statement.setString(1, profile.uuid)
             },
-            errorMapper = { it },
             resultMapper = { resultSet: ResultSet ->
                 if (resultSet.next()) {
                     ExistingUser(
@@ -75,7 +75,7 @@ data object CreateUserIfNotExistsStep : Step<MinecraftProfile, DatabaseFailure, 
         }
     }
 
-    private suspend fun fetchUserRoles(userId: Int): Result<DatabaseFailure, List<String>> {
+    private suspend fun fetchUserRoles(userId: Int): Result<AppFailure.DatabaseError, List<String>> {
         val fetchRolesStep = DatabaseSteps.query(
             sql = SafeSQL.select("""
                 SELECT role
@@ -86,7 +86,6 @@ data object CreateUserIfNotExistsStep : Step<MinecraftProfile, DatabaseFailure, 
             parameterSetter = { statement, _: Int ->
                 statement.setInt(1, userId)
             },
-            errorMapper = { it },
             resultMapper = { resultSet: ResultSet ->
                 val roles = mutableListOf<String>()
                 while (resultSet.next()) {
@@ -102,7 +101,7 @@ data object CreateUserIfNotExistsStep : Step<MinecraftProfile, DatabaseFailure, 
     private suspend fun updateUsernameAndReturnProfile(
         existingUser: ExistingUser,
         newUsername: String
-    ): Result<DatabaseFailure, TokenProfile> {
+    ): Result<AppFailure.DatabaseError, TokenProfile> {
         // First update the minecraft profile username
         val updateUsernameStep = DatabaseSteps.update(
             sql = SafeSQL.update("""
@@ -113,8 +112,7 @@ data object CreateUserIfNotExistsStep : Step<MinecraftProfile, DatabaseFailure, 
             parameterSetter = { statement, _: Unit ->
                 statement.setString(1, newUsername)
                 statement.setString(2, existingUser.uuid)
-            },
-            errorMapper = { it }
+            }
         )
 
         return when (val updateResult = updateUsernameStep.process(Unit)) {
@@ -137,7 +135,7 @@ data object CreateUserIfNotExistsStep : Step<MinecraftProfile, DatabaseFailure, 
                     }
                 } else {
                     logger.error("Failed to update username for UUID: ${existingUser.uuid}")
-                    Result.failure(DatabaseFailure.UnknownError)
+                    Result.failure(AppFailure.DatabaseError.UnknownError)
                 }
             }
         }
@@ -158,8 +156,7 @@ data object CreateUserIfNotExistsStep : Step<MinecraftProfile, DatabaseFailure, 
                 statement.setString(1, newUsername)
                 statement.setInt(2, userId)
                 statement.setString(3, oldUsername)
-            },
-            errorMapper = { it }
+            }
         )
 
         when (val result = updateWorldMembersStep.process(Unit)) {
@@ -177,11 +174,10 @@ data object CreateUserIfNotExistsStep : Step<MinecraftProfile, DatabaseFailure, 
         }
     }
 
-    private suspend fun createNewUserAndProfile(profile: MinecraftProfile): Result<DatabaseFailure, TokenProfile> {
+    private suspend fun createNewUserAndProfile(profile: MinecraftProfile): Result<AppFailure.DatabaseError, TokenProfile> {
         // We need to create both user and minecraft_profile in a transaction
         val createUserTransaction = DatabaseSteps.transaction(
-            step = CreateUserWithProfileStep(),
-            errorMapper = { it }
+            step = { CreateUserWithProfileStep(it) }
         )
 
         return createUserTransaction.process(profile)
@@ -194,8 +190,8 @@ data object CreateUserIfNotExistsStep : Step<MinecraftProfile, DatabaseFailure, 
         val currentUsername: String
     )
 
-    private class CreateUserWithProfileStep : Step<MinecraftProfile, DatabaseFailure, TokenProfile> {
-        override suspend fun process(input: MinecraftProfile): Result<DatabaseFailure, TokenProfile> {
+    private data class CreateUserWithProfileStep(val connection: TransactionConnection) : Step<MinecraftProfile, AppFailure.DatabaseError, TokenProfile> {
+        override suspend fun process(input: MinecraftProfile): Result<AppFailure.DatabaseError, TokenProfile> {
             // First create the user record with a placeholder email
             val createUserStep = DatabaseSteps.query(
                 sql = SafeSQL.insert("""
@@ -207,14 +203,14 @@ data object CreateUserIfNotExistsStep : Step<MinecraftProfile, DatabaseFailure, 
                     // Use UUID as temporary email since we don't have email in MinecraftProfile
                     statement.setString(1, "${profile.uuid}@minecraft.temp")
                 },
-                errorMapper = { it },
                 resultMapper = { resultSet: ResultSet ->
                     if (resultSet.next()) {
                         resultSet.getInt("id")
                     } else {
                         throw RuntimeException("Failed to get user ID after insert")
                     }
-                }
+                },
+                connection
             )
 
             return when (val userResult = createUserStep.process(input)) {
@@ -233,7 +229,7 @@ data object CreateUserIfNotExistsStep : Step<MinecraftProfile, DatabaseFailure, 
                             statement.setString(2, profile.uuid)
                             statement.setString(3, profile.username)
                         },
-                        errorMapper = { it }
+                        connection
                     )
 
                     val addDemoRoleStep = DatabaseSteps.update(
@@ -244,7 +240,7 @@ data object CreateUserIfNotExistsStep : Step<MinecraftProfile, DatabaseFailure, 
                         parameterSetter = { statement, _: Unit ->
                             statement.setInt(1, userId)
                         },
-                        errorMapper = { it }
+                        connection
                     )
 
                     when (val profileResult = createProfileStep.process(input)) {
@@ -264,7 +260,7 @@ data object CreateUserIfNotExistsStep : Step<MinecraftProfile, DatabaseFailure, 
                                                     roles = listOf("demo_user")
                                                 ))
                                             } else {
-                                                Result.failure(DatabaseFailure.UnknownError)
+                                                Result.failure(AppFailure.DatabaseError.UnknownError)
                                             }
                                         }
                                     }
@@ -278,7 +274,7 @@ data object CreateUserIfNotExistsStep : Step<MinecraftProfile, DatabaseFailure, 
                                     ))
                                 }
                             } else {
-                                Result.failure(DatabaseFailure.UnknownError)
+                                Result.failure(AppFailure.DatabaseError.UnknownError)
                             }
                         }
                     }

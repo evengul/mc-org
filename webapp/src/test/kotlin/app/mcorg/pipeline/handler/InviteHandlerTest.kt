@@ -1,15 +1,10 @@
 package app.mcorg.pipeline.handler
 
 import app.mcorg.domain.model.user.Role
-import app.mcorg.presentation.handler.AcceptInviteResult
-import app.mcorg.presentation.handler.DeclineInviteResult
-import app.mcorg.presentation.handler.InviteFailures
-import app.mcorg.presentation.handler.InviteOperationInput
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
 import kotlin.test.assertEquals
-import kotlin.test.assertIs
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class InviteHandlerTest {
@@ -67,22 +62,5 @@ class InviteHandlerTest {
 
         // Then
         assertEquals(inviteId, result.inviteId)
-    }
-
-    @Test
-    fun `InviteFailures sealed interface should have all expected types`() {
-        // Given/When/Then - Testing that all failure types exist and are properly typed
-        val databaseError: InviteFailures = InviteFailures.DatabaseError
-        val notFound: InviteFailures = InviteFailures.InvitationNotFound
-        val notPending: InviteFailures = InviteFailures.InvitationNotPending
-        val unauthorized: InviteFailures = InviteFailures.UnauthorizedAccess
-        val alreadyMember: InviteFailures = InviteFailures.AlreadyWorldMember
-
-        // Verify they are all InviteFailures instances
-        assertIs<InviteFailures>(databaseError)
-        assertIs<InviteFailures>(notFound)
-        assertIs<InviteFailures>(notPending)
-        assertIs<InviteFailures>(unauthorized)
-        assertIs<InviteFailures>(alreadyMember)
     }
 }

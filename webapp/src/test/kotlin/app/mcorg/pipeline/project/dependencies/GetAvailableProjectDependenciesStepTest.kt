@@ -5,7 +5,6 @@ import app.mcorg.domain.model.project.ProjectType
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
-import app.mcorg.pipeline.failure.DatabaseFailure
 import app.mcorg.pipeline.project.CreateProjectInput
 import app.mcorg.pipeline.project.CreateProjectStep
 import app.mcorg.pipeline.world.CreateWorldInput
@@ -298,7 +297,7 @@ class GetAvailableProjectDependenciesStepTest : WithUser() {
     }
 
     private fun createProjectDependency(projectId: Int, dependsOnProjectId: Int) = runBlocking {
-        val result = DatabaseSteps.update<Unit, DatabaseFailure>(
+        val result = DatabaseSteps.update<Unit>(
             SafeSQL.insert(
                 """
                 INSERT INTO project_dependencies (project_id, depends_on_project_id)
@@ -308,8 +307,7 @@ class GetAvailableProjectDependenciesStepTest : WithUser() {
             parameterSetter = { statement, _ ->
                 statement.setInt(1, projectId)
                 statement.setInt(2, dependsOnProjectId)
-            },
-            errorMapper = { it }
+            }
         ).process(Unit)
 
         when (result) {
@@ -319,12 +317,11 @@ class GetAvailableProjectDependenciesStepTest : WithUser() {
     }
 
     private fun deleteProject(projectId: Int) = runBlocking {
-        DatabaseSteps.update<Unit, DatabaseFailure>(
+        DatabaseSteps.update<Unit>(
             SafeSQL.delete("DELETE FROM projects WHERE id = ?"),
             parameterSetter = { statement, _ ->
                 statement.setInt(1, projectId)
-            },
-            errorMapper = { it }
+            }
         ).process(Unit)
     }
 }

@@ -5,16 +5,16 @@ import app.mcorg.domain.pipeline.Result
 import app.mcorg.pipeline.admin.commonsteps.CountManagedWorldsStep
 import app.mcorg.pipeline.admin.commonsteps.GetManagedWorldsInput
 import app.mcorg.pipeline.admin.commonsteps.GetManagedWorldsStep
-import app.mcorg.pipeline.failure.DatabaseFailure
+import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.presentation.handler.executeParallelPipeline
 import app.mcorg.presentation.hxOutOfBands
 import app.mcorg.presentation.templated.admin.AdminTable
 import app.mcorg.presentation.templated.admin.paginationInfo
 import app.mcorg.presentation.templated.admin.worldRows
 import app.mcorg.presentation.utils.respondHtml
-import io.ktor.http.HttpStatusCode
-import io.ktor.server.application.ApplicationCall
-import io.ktor.server.response.respond
+import io.ktor.http.*
+import io.ktor.server.application.*
+import io.ktor.server.response.*
 import kotlinx.html.div
 import kotlinx.html.stream.createHTML
 import kotlinx.html.tbody
@@ -27,10 +27,10 @@ suspend fun ApplicationCall.handleSearchManagedWorlds() {
         pageSize = this.request.queryParameters["pageSize"]?.toIntOrNull() ?: 10
     )
 
-    val worldsPipeline = Pipeline.create<DatabaseFailure, GetManagedWorldsInput>()
+    val worldsPipeline = Pipeline.create<AppFailure.DatabaseError, GetManagedWorldsInput>()
         .pipe(GetManagedWorldsStep)
 
-    val countPipeline = Pipeline.create<DatabaseFailure, String>()
+    val countPipeline = Pipeline.create<AppFailure.DatabaseError, String>()
         .pipe(CountManagedWorldsStep)
 
     executeParallelPipeline(
