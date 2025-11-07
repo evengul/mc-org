@@ -9,9 +9,7 @@ import app.mcorg.presentation.templated.project.editLocation
 import app.mcorg.presentation.utils.getProjectId
 import app.mcorg.presentation.utils.getWorldId
 import app.mcorg.presentation.utils.respondHtml
-import io.ktor.http.*
 import io.ktor.server.application.*
-import io.ktor.server.response.*
 import kotlinx.html.div
 import kotlinx.html.stream.createHTML
 
@@ -25,7 +23,6 @@ suspend fun ApplicationCall.handleGetEditLocationFragment() {
                 editLocation(worldId, projectId, it)
             })
         },
-        onFailure = { respond(HttpStatusCode.InternalServerError, "An error occurred while fetching the project location") }
     ) {
         value(projectId)
             .step(GetLocationStep)

@@ -13,7 +13,6 @@ import app.mcorg.presentation.handler.executePipeline
 import app.mcorg.presentation.templated.landing.landingPage
 import app.mcorg.presentation.utils.getHost
 import app.mcorg.presentation.utils.respondHtml
-import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.response.*
 import java.net.URLEncoder
@@ -31,7 +30,7 @@ suspend fun ApplicationCall.handleGetSignIn() {
             when(it) {
                 is AppFailure.AuthError.MissingToken -> respondHtml(landingPage(getSignInUrl(customRedirectPath ?: "/", requestedUsername)))
                 is AppFailure.AuthError.ConvertTokenError -> respondRedirect(it.toRedirect().toUrl())
-                else -> respond(HttpStatusCode.InternalServerError)
+                else -> respondRedirect("/auth/sign-out?error=${it.javaClass.simpleName}")
             }
         }
     ) {

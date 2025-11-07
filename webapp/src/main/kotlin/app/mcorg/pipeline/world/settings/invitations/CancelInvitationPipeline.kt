@@ -14,9 +14,7 @@ import app.mcorg.presentation.templated.settings.worldInvitationTabs
 import app.mcorg.presentation.utils.getInviteId
 import app.mcorg.presentation.utils.getWorldId
 import app.mcorg.presentation.utils.respondHtml
-import io.ktor.http.*
 import io.ktor.server.application.*
-import io.ktor.server.response.*
 import kotlinx.html.*
 import kotlinx.html.stream.createHTML
 
@@ -49,9 +47,6 @@ suspend fun ApplicationCall.handleCancelInvitation() {
             } else {
                 respondHtml(mainContent)
             }
-        },
-        onFailure = {
-            respond(HttpStatusCode.InternalServerError, "Failed to cancel invitation")
         }
     ) {
         step(Step.value(worldId to invitationId))

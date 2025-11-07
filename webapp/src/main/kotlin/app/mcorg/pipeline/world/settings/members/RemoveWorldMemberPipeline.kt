@@ -10,9 +10,7 @@ import app.mcorg.presentation.utils.getUser
 import app.mcorg.presentation.utils.getWorldId
 import app.mcorg.presentation.utils.getWorldMemberId
 import app.mcorg.presentation.utils.respondEmptyHtml
-import io.ktor.http.*
 import io.ktor.server.application.*
-import io.ktor.server.response.*
 
 suspend fun ApplicationCall.handleRemoveWorldMember() {
     val currentUserId = this.getUser().id
@@ -21,7 +19,6 @@ suspend fun ApplicationCall.handleRemoveWorldMember() {
 
     executePipeline(
         onSuccess = { respondEmptyHtml() },
-        onFailure = { respond(HttpStatusCode.InternalServerError, "Failed to remove world member") }
     ) {
         step(Step.value(Unit))
             .step(ValidateWorldMemberRemovalAllowedStep(

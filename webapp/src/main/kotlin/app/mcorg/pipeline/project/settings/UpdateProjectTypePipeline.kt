@@ -35,22 +35,7 @@ suspend fun ApplicationCall.handleUpdateProjectType() {
         } + createHTML().div {
             hxOutOfBands("innerHTML:#project-type")
             + "${it.toPrettyEnumName()} Project"
-        }) },
-        onFailure = {
-            respondHtml(createHTML().li {
-                createAlert(
-                    id = "project-type-updated-failure-alert",
-                    type = AlertType.ERROR,
-                    title = "Failed to update project type",
-                    message = when(it) {
-                        is AppFailure.ValidationError ->
-                            "Validation failed: ${it.errors.joinToString { error -> error.toString() }}"
-                        else ->
-                            "An unexpected database error occurred"
-                    }
-                )
-            })
-        }
+        }) }
     ) {
         step(Step.value(parameters))
             .step(ValidateProjectTypeInputStep)

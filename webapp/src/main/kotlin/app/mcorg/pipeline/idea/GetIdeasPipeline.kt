@@ -7,9 +7,7 @@ import app.mcorg.presentation.handler.executePipeline
 import app.mcorg.presentation.templated.idea.ideasPage
 import app.mcorg.presentation.utils.getUser
 import app.mcorg.presentation.utils.respondHtml
-import io.ktor.http.*
 import io.ktor.server.application.*
-import io.ktor.server.response.*
 
 suspend fun ApplicationCall.handleGetIdeas() {
     val user = this.getUser()
@@ -26,9 +24,6 @@ suspend fun ApplicationCall.handleGetIdeas() {
                 supportedVersions = supportedVersions,
                 unreadNotifications = unreadNotifications
             ))
-        },
-        onFailure = {
-            respond(HttpStatusCode.InternalServerError, "Failed to get ideas")
         }
     ) {
         step(GetAllIdeasStep)

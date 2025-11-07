@@ -33,22 +33,7 @@ suspend fun ApplicationCall.handleUpdateProjectDescription() {
         } + if (it == null) "" else createHTML().div {
             hxOutOfBands("innerHTML:#project-description")
             + it
-        }) },
-        onFailure = {
-            respondHtml(createHTML().li {
-                createAlert(
-                    id = "project-description-updated-success-alert",
-                    type = AlertType.ERROR,
-                    title = "Failed to update project description",
-                    message = when(it) {
-                        is AppFailure.ValidationError ->
-                            "Validation failed: ${it.errors.joinToString { error -> error.toString() }}"
-                        else ->
-                            "An unexpected database error occurred"
-                    }
-                )
-            })
-        }
+        }) }
     ) {
         step(Step.value(parameters))
             .step(ValidateProjectDescriptionInputStep)
@@ -59,11 +44,11 @@ suspend fun ApplicationCall.handleUpdateProjectDescription() {
 private object ValidateProjectDescriptionInputStep : Step<Parameters, AppFailure.ValidationError, String?> {
     override suspend fun process(input: Parameters): Result<AppFailure.ValidationError, String?> {
         val description = input["description"]?.takeIf { it.isNotBlank() }?.let { existingDescription ->
-            ValidationSteps.validateLength("description", 3, 100) { it }.process(existingDescription)
+            ValidationSteps.validateLength("description", maxLength = 100) { it }.process(existingDescription)
         }
 
         return when(description) {
-            null -> Result.success(null)
+            null -> Result.success("")
             is Result.Success -> Result.success(description.value)
             is Result.Failure -> Result.failure(AppFailure.ValidationError(listOf(description.error)))
         }

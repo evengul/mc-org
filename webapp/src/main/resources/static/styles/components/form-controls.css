@@ -121,3 +121,8 @@ label > span.required-indicator {
     color: var(--clr-danger);
     margin-inline-start: var(--spacing-xs);
 }
+
+.validation-error-message {
+    color: var(--clr-danger);
+    font-size: var(--text-sm);
+}

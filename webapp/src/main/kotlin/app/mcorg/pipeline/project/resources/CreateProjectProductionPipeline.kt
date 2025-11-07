@@ -17,7 +17,6 @@ import app.mcorg.presentation.utils.respondHtml
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.request.*
-import io.ktor.server.response.*
 import kotlinx.html.div
 import kotlinx.html.li
 import kotlinx.html.stream.createHTML
@@ -39,8 +38,7 @@ suspend fun ApplicationCall.handleCreateProjectProduction() {
             } + createHTML().div {
                 hxOutOfBands("delete:#empty-resource-production-state")
             })
-        },
-        onFailure = { respond(HttpStatusCode.InternalServerError, "Failed to create project resource") }
+        }
     ) {
         value(parameters)
             .step(ValidateCreateProjectProductionInputStep)

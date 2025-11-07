@@ -2,10 +2,8 @@ package app.mcorg.pipeline.admin
 
 import app.mcorg.domain.model.admin.ManagedUser
 import app.mcorg.domain.model.admin.ManagedWorld
-import app.mcorg.domain.pipeline.Pipeline
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.pipeline.admin.commonsteps.*
-import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.notification.getUnreadNotificationsOrZero
 import app.mcorg.presentation.handler.executeParallelPipeline
 import app.mcorg.presentation.templated.admin.adminPage
@@ -24,39 +22,22 @@ private data class Success(
 suspend fun ApplicationCall.handleGetAdminPage() {
     val user = getUser()
 
-    val userPipe = Pipeline.create<AppFailure.DatabaseError, Int>()
-        .map { GetManagedUsersInput() }
-        .pipe(GetManagedUsersStep)
-
-    val worldsPipe = Pipeline.create<AppFailure.DatabaseError,  Int>()
-        .map { GetManagedWorldsInput() }
-        .pipe(GetManagedWorldsStep)
-
-    val userCountPipe = Pipeline.create<AppFailure.DatabaseError, Unit>()
-        .map { "" }
-        .pipe(CountManagedUsersStep)
-
-    val worldCountPipe = Pipeline.create<AppFailure.DatabaseError, Unit>()
-        .map { "" }
-        .pipe(CountManagedWorldsStep)
-
     val unreadNotifications = getUnreadNotificationsOrZero(user.id)
 
     executeParallelPipeline(
-        onSuccess = { result -> respondHtml(adminPage(
+        onSuccess = { result: Success -> respondHtml(adminPage(
             user,
             result.users,
             result.worlds,
             result.userCount,
             result.worldCount,
             result.unreadNotifications))},
-        onFailure = { respondHtml("A system error occurred.") }
     ) {
-        val users = pipeline("users", user.id, userPipe)
-        val worlds = pipeline("worlds", user.id, worldsPipe)
+        val users = singleStep("users", GetManagedUsersInput(), GetManagedUsersStep)
+        val worlds = singleStep("worlds", GetManagedWorldsInput(), GetManagedWorldsStep)
 
-        val userCount = pipeline("userCount", Unit, userCountPipe)
-        val worldCount = pipeline("worldCount", Unit, worldCountPipe)
+        val userCount = singleStep("userCount", "", CountManagedUsersStep)
+        val worldCount = singleStep("worldCount", "", CountManagedWorldsStep)
 
         val data = merge("data", users, worlds) { u, w ->
             Result.success(u to w)

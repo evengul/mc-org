@@ -29,7 +29,7 @@ val AuthPlugin = createRouteScopedPlugin("AuthPlugin") {
         if (result is Result.Failure && result.error is AppFailure.Redirect) {
             it.response.cookies.removeToken(it.getHost() ?: "false")
             it.respondRedirect(result.error.toUrl(), permanent = false)
-        } else if (result is Result.Failure && !it.request.path().contains("/auth/sign-in") && !it.request.path().contains("/oidc")) {
+        } else if (result is Result.Failure && !it.request.path().contains("/auth/sign-in") && !it.request.path().contains("/auth/sign-out") && !it.request.path().contains("/oidc")) {
             it.respondRedirect("/auth/sign-in?redirect_to=${it.request.path()}", permanent = false)
         }
     }

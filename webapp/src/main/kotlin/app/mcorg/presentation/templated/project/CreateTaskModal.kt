@@ -5,6 +5,7 @@ import app.mcorg.domain.model.project.Project
 import app.mcorg.domain.model.project.ProjectStage
 import app.mcorg.domain.model.task.Priority
 import app.mcorg.domain.model.user.TokenProfile
+import app.mcorg.presentation.hxTargetError
 import app.mcorg.presentation.templated.common.form.radiogroup.RadioGroupLayout
 import app.mcorg.presentation.templated.common.form.radiogroup.RadioGroupOption
 import app.mcorg.presentation.templated.common.form.radiogroup.radioGroup
@@ -44,6 +45,7 @@ fun <T : Tag> T.createTaskModal(user: TokenProfile, project: Project, itemNames:
     }
 ) {
     formContent {
+        hxTargetError(".validation-error-message")
         classes += "create-task-form"
         if (user.isDemoUserInProduction) {
             onSubmit = "return false;"
@@ -63,6 +65,9 @@ fun <T : Tag> T.createTaskModal(user: TokenProfile, project: Project, itemNames:
                 }
             }
         }
+        p("validation-error-message") {
+            id = "validation-error-stage"
+        }
         label {
             + "Priority"
         }
@@ -73,6 +78,9 @@ fun <T : Tag> T.createTaskModal(user: TokenProfile, project: Project, itemNames:
                 selectedOption = "MEDIUM",
                 layout = RadioGroupLayout.HORIZONTAL
             )
+        }
+        p("validation-error-message") {
+            id = "validation-error-priority"
         }
 
         tabsComponent(
@@ -113,6 +121,9 @@ fun DIV.actionRequirementForm() {
         name = "action"
         required = true
     }
+    p("validation-error-message") {
+        id = "validation-error-action"
+    }
 }
 
 fun DIV.itemRequirementForm(itemNames: List<Item>) {
@@ -133,6 +144,9 @@ fun DIV.itemRequirementForm(itemNames: List<Item>) {
             }
         }
     }
+    p("validation-error-message") {
+        id = "validation-error-itemName"
+    }
     input {
         id = "item-requirement-amount-input"
         placeholder = "Required amount (e.g., 64, 128, 256)"
@@ -141,5 +155,8 @@ fun DIV.itemRequirementForm(itemNames: List<Item>) {
         name = "requiredAmount"
         min = "1"
         max = 2_000_000_000.toString()
+    }
+    p("validation-error-message") {
+        id = "validation-error-requiredAmount"
     }
 }

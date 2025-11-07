@@ -5,8 +5,8 @@ import app.mcorg.pipeline.failure.AppFailure
 import io.ktor.server.application.*
 
 suspend fun <E : AppFailure, O> ApplicationCall.executePipeline(
-    onSuccess: suspend (O) -> Unit = { },
-    onFailure: suspend (E) -> Unit = { },
+    onSuccess: suspend (O) -> Unit,
+    onFailure: suspend (E) -> Unit,
     block: PipelineBuilder<Unit, E, Unit>.() -> PipelineBuilder<Unit, E, O>
 ) {
     val builder = pipeline<Unit, E>()
@@ -18,11 +18,23 @@ suspend fun <E : AppFailure, O> ApplicationCall.executePipeline(
     )
 }
 
-suspend fun <E : AppFailure, O> ApplicationCall.executeParallelPipeline(
-    onSuccess: suspend (O) -> Unit = { },
-    onFailure: suspend (E) -> Unit = {
+suspend fun <E : AppFailure, O> ApplicationCall.executePipeline(
+    onSuccess: suspend (O) -> Unit,
+    block: PipelineBuilder<Unit, E, Unit>.() -> PipelineBuilder<Unit, E, O>
+) {
+    val defaultOnFailure: suspend (E) -> Unit = { error ->
+        this.defaultHandleError(error)
+    }
+    executePipeline(
+        onSuccess = onSuccess,
+        onFailure = defaultOnFailure,
+        block = block
+    )
+}
 
-    },
+suspend fun <E : AppFailure, O> ApplicationCall.executeParallelPipeline(
+    onSuccess: suspend (O) -> Unit,
+    onFailure: suspend (E) -> Unit,
     block: ParallelPipelineBuilder<E>.() -> PipelineRef<O>
 ) {
     val pipeline = parallelPipeline(block)
@@ -35,6 +47,20 @@ suspend fun <E : AppFailure, O> ApplicationCall.executeParallelPipeline(
         onFailure = {
             onFailure(it)
         }
+    )
+}
+
+suspend fun <E : AppFailure, O> ApplicationCall.executeParallelPipeline(
+    onSuccess: suspend (O) -> Unit,
+    block: ParallelPipelineBuilder<E>.() -> PipelineRef<O>
+) {
+    val defaultOnFailure: suspend (E) -> Unit = { error ->
+        this.defaultHandleError(error)
+    }
+    executeParallelPipeline(
+        onSuccess = onSuccess,
+        onFailure = defaultOnFailure,
+        block = block
     )
 }
 

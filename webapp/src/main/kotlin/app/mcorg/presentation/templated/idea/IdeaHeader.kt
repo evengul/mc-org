@@ -4,6 +4,7 @@ import app.mcorg.domain.model.idea.IdeaCategory
 import app.mcorg.domain.model.idea.IdeaDifficulty
 import app.mcorg.domain.model.minecraft.MinecraftVersion
 import app.mcorg.domain.model.user.TokenProfile
+import app.mcorg.presentation.hxTargetError
 import app.mcorg.presentation.templated.common.form.radiogroup.RadioGroupOption
 import app.mcorg.presentation.templated.common.form.radiogroup.radioGroup
 import app.mcorg.presentation.templated.common.icon.IconSize
@@ -54,6 +55,7 @@ fun DIV.createIdeaModal(supportedVersions: List<MinecraftVersion.Release>) = for
     }
 ) {
     formContent {
+        hxTargetError(".validation-error-message")
         classes += "create-idea-form stack stack--sm"
 
         // Basic Information Section
@@ -73,8 +75,11 @@ fun DIV.createIdeaModal(supportedVersions: List<MinecraftVersion.Release>) = for
                 classes += "form-control"
                 required = true
                 minLength = "3"
-                maxLength = "255"
+                maxLength = "100"
                 placeholder = "e.g., High-Speed Sugar Cane Farm"
+            }
+            p("validation-error-message") {
+                id = "validation-error-name"
             }
 
             // Description
@@ -92,6 +97,9 @@ fun DIV.createIdeaModal(supportedVersions: List<MinecraftVersion.Release>) = for
                 maxLength = "5000"
                 rows = "6"
                 placeholder = "Describe your contraption, how it works, and what makes it unique..."
+            }
+            p("validation-error-message") {
+                id = "validation-error-description"
             }
 
             // Category Selection (triggers HTMX to load category-specific fields)
@@ -116,6 +124,9 @@ fun DIV.createIdeaModal(supportedVersions: List<MinecraftVersion.Release>) = for
                     }
                 }
             }
+            p("validation-error-message") {
+                id = "validation-error-category"
+            }
 
             // Difficulty
             label {
@@ -136,6 +147,9 @@ fun DIV.createIdeaModal(supportedVersions: List<MinecraftVersion.Release>) = for
                     }
                 }
             }
+            p("validation-error-message") {
+                id = "validation-error-difficulty"
+            }
 
             // Labels/Tags
             label {
@@ -148,6 +162,9 @@ fun DIV.createIdeaModal(supportedVersions: List<MinecraftVersion.Release>) = for
                 type = InputType.text
                 classes += "form-control"
                 placeholder = "redstone, farm, automation (comma-separated)"
+            }
+            p("validation-error-message") {
+                id = "validation-error-labels"
             }
             small("form-help-text subtle") {
                 +"Add labels to help others find your idea"
@@ -199,6 +216,9 @@ fun DIV.createIdeaModal(supportedVersions: List<MinecraftVersion.Release>) = for
                     required = true
                     placeholder = "Your name or username"
                 }
+                p("validation-error-message") {
+                    id = "validation-error-authorName"
+                }
             }
 
             // Sub-authors/Contributors
@@ -212,6 +232,9 @@ fun DIV.createIdeaModal(supportedVersions: List<MinecraftVersion.Release>) = for
                 type = InputType.text
                 classes += "form-control"
                 placeholder = "Contributor1, Contributor2 (comma-separated)"
+            }
+            p("validation-error-message") {
+                id = "validation-error-subAuthors"
             }
             small("form-help-text subtle") {
                 +"Credit others who contributed to this design"
@@ -247,6 +270,9 @@ fun DIV.createIdeaModal(supportedVersions: List<MinecraftVersion.Release>) = for
                     }
                 }
             }
+            p("validation-error-message") {
+                id = "validation-error-versionRangeType"
+            }
 
             // Dynamic version fields
             div {
@@ -269,6 +295,9 @@ fun DIV.createIdeaModal(supportedVersions: List<MinecraftVersion.Release>) = for
                         }
                     }
                 }
+                p("validation-error-message") {
+                    id = "validation-error-versionFrom"
+                }
             }
         }
 
@@ -289,6 +318,9 @@ fun DIV.createIdeaModal(supportedVersions: List<MinecraftVersion.Release>) = for
                 attributes["min"] = "0"
                 placeholder = "e.g., 2.5"
             }
+            p("validation-error-message") {
+                id = "validation-error-testMspt"
+            }
 
             label {
                 htmlFor = "test-hardware"
@@ -300,6 +332,9 @@ fun DIV.createIdeaModal(supportedVersions: List<MinecraftVersion.Release>) = for
                 type = InputType.text
                 classes += "form-control"
                 placeholder = "e.g., Intel i7-12700K, 32GB RAM"
+            }
+            p("validation-error-message") {
+                id = "validation-error-testHardware"
             }
 
             label {
@@ -320,6 +355,9 @@ fun DIV.createIdeaModal(supportedVersions: List<MinecraftVersion.Release>) = for
                         +version.toString()
                     }
                 }
+            }
+            p("validation-error-message") {
+                id = "validation-error-testVersion"
             }
         }
 

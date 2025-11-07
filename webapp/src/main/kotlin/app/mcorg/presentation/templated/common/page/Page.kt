@@ -6,23 +6,13 @@ import app.mcorg.presentation.templated.common.breadcrumb.breadcrumbComponent
 import app.mcorg.presentation.templated.common.modal.confirmDeleteModal
 import app.mcorg.presentation.templated.layout.alert.alertContainer
 import app.mcorg.presentation.templated.layout.topbar.topBar
-import kotlinx.html.MAIN
-import kotlinx.html.body
-import kotlinx.html.head
-import kotlinx.html.html
-import kotlinx.html.lang
-import kotlinx.html.link
-import kotlinx.html.main
-import kotlinx.html.meta
-import kotlinx.html.script
+import kotlinx.html.*
 import kotlinx.html.stream.createHTML
-import kotlinx.html.title
-import kotlinx.html.unsafe
 import org.intellij.lang.annotations.Language
 
 fun createPage(
     pageTitle: String = "MC-ORG",
-    pageScripts: Set<PageScript> = setOf(PageScript.THEME_SWITCHER, PageScript.HTMX, PageScript.CONFIRMATION_MODAL),
+    pageScripts: Set<PageScript> = setOf(PageScript.THEME_SWITCHER, PageScript.HTMX, PageScript.CONFIRMATION_MODAL, PageScript.RESPONSE_TARGETS),
     pageStyles: Set<PageStyle> = PageStyle.entries.toSet(),
     user: TokenProfile? = null,
     unreadNotificationCount: Int = 0,
@@ -67,6 +57,7 @@ fun createPage(
             }
         }
         body {
+            attributes["hx-ext"] = "response-targets"
             topBar(user, unreadNotificationCount)
             breadcrumbs?.let { breadcrumbComponent(it) }
             alertContainer()

@@ -2,22 +2,13 @@ package app.mcorg.presentation.templated.home
 
 import app.mcorg.domain.model.minecraft.MinecraftVersion
 import app.mcorg.domain.model.user.TokenProfile
+import app.mcorg.presentation.hxTargetError
 import app.mcorg.presentation.templated.common.icon.IconSize
 import app.mcorg.presentation.templated.common.icon.Icons
-import app.mcorg.presentation.templated.common.modal.FormModalHxValues
 import app.mcorg.presentation.templated.common.modal.FormModalHttpMethod
+import app.mcorg.presentation.templated.common.modal.FormModalHxValues
 import app.mcorg.presentation.templated.common.modal.formModal
-import kotlinx.html.InputType
-import kotlinx.html.Tag
-import kotlinx.html.id
-import kotlinx.html.input
-import kotlinx.html.label
-import kotlinx.html.onSubmit
-import kotlinx.html.option
-import kotlinx.html.p
-import kotlinx.html.select
-import kotlinx.html.span
-import kotlinx.html.textArea
+import kotlinx.html.*
 
 fun <T : Tag> T.createWorldModal(user: TokenProfile, versions: List<MinecraftVersion.Release>) = formModal(
     modalId = "create-world-modal",
@@ -38,6 +29,7 @@ fun <T : Tag> T.createWorldModal(user: TokenProfile, versions: List<MinecraftVer
     }
 ) {
     formContent {
+        hxTargetError(".validation-error-message")
         if (user.isDemoUserInProduction) {
             onSubmit = "return false;"
         }
@@ -55,6 +47,9 @@ fun <T : Tag> T.createWorldModal(user: TokenProfile, versions: List<MinecraftVer
             minLength = "3"
             required = true
         }
+        p("validation-error-message") {
+            id = "validation-error-name"
+        }
 
         label {
             htmlFor = "create-world-description"
@@ -63,8 +58,11 @@ fun <T : Tag> T.createWorldModal(user: TokenProfile, versions: List<MinecraftVer
         textArea {
             id = "create-world-description"
             name = "description"
-            maxLength = "1000"
+            maxLength = "500"
             placeholder = "A brief description of the world"
+        }
+        p("validation-error-message") {
+            id = "validation-error-description"
         }
 
         label {
@@ -82,6 +80,9 @@ fun <T : Tag> T.createWorldModal(user: TokenProfile, versions: List<MinecraftVer
                     + "$version ${if(i == 0) " (Latest)" else if (i == versions.size -1) "(Earliest compatible)" else ""}"
                 }
             }
+        }
+        p("validation-error-message") {
+            id = "validation-error-version"
         }
         if (user.isDemoUserInProduction) {
             p("subtle") {

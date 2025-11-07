@@ -10,9 +10,7 @@ import app.mcorg.presentation.handler.executePipeline
 import app.mcorg.presentation.utils.getIdeaId
 import app.mcorg.presentation.utils.getUser
 import app.mcorg.presentation.utils.respondHtml
-import io.ktor.http.*
 import io.ktor.server.application.*
-import io.ktor.server.response.*
 
 private data class Input(
     val ideaId: Int,
@@ -24,9 +22,7 @@ suspend fun ApplicationCall.handleFavouriteIdea() {
     val userId = this.getUser().id
 
     executePipeline(
-        onSuccess = { respondHtml("Favorite (${it})") },
-        onFailure = { respond(HttpStatusCode.InternalServerError, "Failed to change favourite state of idea for user") }
-    ) {
+        onSuccess = { respondHtml("Favorite (${it})") }) {
         step(Step.value(Input(ideaId, userId)))
             .step(ChangeFavouriteStateStep)
             .step(Step.value(ideaId))

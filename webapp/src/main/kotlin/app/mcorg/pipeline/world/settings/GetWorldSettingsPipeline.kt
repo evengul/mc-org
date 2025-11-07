@@ -78,26 +78,12 @@ suspend fun ApplicationCall.handleGetWorldSettings() {
 
 suspend fun ApplicationCall.handleGetMembersTabData(worldId: Int, statusFilter: InvitationStatusFilter): Result<AppFailure.DatabaseError, SettingsTab.Members> {
     val user = this.getUser()
-    val worldPipeline = Pipeline.create<AppFailure.DatabaseError, Int>()
-        .pipe(Step.value(worldId))
-        .pipe(GetWorldStep)
-
-    val invitationsPipeline = Pipeline.create<AppFailure.DatabaseError, Unit>()
-        .map { statusFilter }
-        .pipe(GetWorldInvitationsStep(worldId))
-
-    val invitationCountPipeline = Pipeline.create<AppFailure.DatabaseError, Unit>()
-        .pipe(CountWorldInvitationsStep(worldId))
-
-    val membersPipeline = Pipeline.create<AppFailure.DatabaseError, Int>()
-        .pipe(Step.value(worldId))
-        .pipe(getWorldMembersStep)
 
     return executeParallelPipeline {
-        val world = pipeline("world", worldId, worldPipeline)
-        val invitations = pipeline("invitations", Unit, invitationsPipeline)
-        val counts = pipeline("invitationCounts", Unit, invitationCountPipeline)
-        val members = pipeline("members", worldId, membersPipeline)
+        val world = singleStep("world", worldId, GetWorldStep)
+        val invitations = singleStep("invitations", statusFilter, GetWorldInvitationsStep(worldId))
+        val counts = singleStep("invitationCounts", Unit, CountWorldInvitationsStep(worldId))
+        val members = singleStep("members", worldId, getWorldMembersStep)
 
         val invitationsWithCount = merge("invitationsWithCount", invitations, counts) { i, c ->
             Result.success(i to c)

@@ -19,9 +19,7 @@ import app.mcorg.presentation.utils.getProjectId
 import app.mcorg.presentation.utils.getTaskId
 import app.mcorg.presentation.utils.getWorldId
 import app.mcorg.presentation.utils.respondHtml
-import io.ktor.http.*
 import io.ktor.server.application.*
-import io.ktor.server.response.*
 import kotlinx.html.div
 import kotlinx.html.input
 import kotlinx.html.li
@@ -59,7 +57,6 @@ suspend fun ApplicationCall.handleCompleteTask() {
                 respondHtml(baseHtml)
             }
         },
-        onFailure = { respond(HttpStatusCode.InternalServerError) }
     ) {
         value(taskId)
             .step(ValidateTaskCompletionStep)

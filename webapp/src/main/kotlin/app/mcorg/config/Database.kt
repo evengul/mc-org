@@ -33,6 +33,7 @@ class LocalDatabaseProvider : DatabaseConnectionProvider {
                         driverClassName = "org.postgresql.Driver"
                         maximumPoolSize = 5
                         minimumIdle = 1
+                        connectionTimeout = 5000
                     })
                 }
             }

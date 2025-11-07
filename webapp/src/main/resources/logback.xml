@@ -9,8 +9,11 @@
     </root>
     <logger name="org.eclipse.jetty" level="INFO"/>
     <logger name="io.netty" level="INFO"/>
-    <logger name="org.flywaydb" level="DEBUG" />
+    <logger name="org.flywaydb" level="INFO" />
     <logger name="io.ktor.server.routing.Routing" level="INFO" />
     <logger name="io.ktor.server.plugins" level="WARN" />
     <logger name="com.zaxxer.hikari" level="WARN" />
+    <logger name="com.github.dockerjava" level="WARN" />
+    <logger name="org.testcontainers" level="WARN" />
+    <logger name="io.mockk" level="ERROR" />
 </configuration>

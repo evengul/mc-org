@@ -2,34 +2,16 @@ package app.mcorg.presentation.templated.settings
 
 import app.mcorg.domain.model.minecraft.MinecraftVersion
 import app.mcorg.domain.model.world.World
-import app.mcorg.presentation.hxDeleteWithConfirm
-import app.mcorg.presentation.hxPatch
-import app.mcorg.presentation.hxSwap
-import app.mcorg.presentation.hxTarget
-import app.mcorg.presentation.hxTrigger
+import app.mcorg.presentation.*
 import app.mcorg.presentation.templated.common.button.dangerButton
 import app.mcorg.presentation.templated.common.dangerzone.dangerZone
 import app.mcorg.presentation.templated.common.link.Link
 import app.mcorg.presentation.templated.layout.alert.ALERT_CONTAINER_ID
-import kotlinx.html.DIV
-import kotlinx.html.FORM
-import kotlinx.html.FormEncType
-import kotlinx.html.InputType
-import kotlinx.html.classes
-import kotlinx.html.div
-import kotlinx.html.form
-import kotlinx.html.h2
-import kotlinx.html.id
-import kotlinx.html.input
-import kotlinx.html.label
-import kotlinx.html.option
-import kotlinx.html.p
-import kotlinx.html.select
-import kotlinx.html.span
-import kotlinx.html.textArea
+import kotlinx.html.*
 
 fun FORM.worldNameForm(world: World) {
     id = "world-name-form"
+    hxTargetError(".validation-error-message")
     encType = FormEncType.applicationXWwwFormUrlEncoded
 
     hxTarget("#$ALERT_CONTAINER_ID")
@@ -47,12 +29,19 @@ fun FORM.worldNameForm(world: World) {
         id = "world-name-input"
         type = InputType.text
         value = world.name
+        required = true
+        minLength = "3"
+        maxLength = "100"
         classes += "form-control"
+    }
+    p("validation-error-message") {
+        id = "validation-error-name"
     }
 }
 
 fun FORM.worldDescriptionForm(world: World) {
     id = "world-description-form"
+    hxTargetError(".validation-error-message")
     encType = FormEncType.applicationXWwwFormUrlEncoded
 
     hxTarget("#$ALERT_CONTAINER_ID")
@@ -68,12 +57,17 @@ fun FORM.worldDescriptionForm(world: World) {
         name = "description"
         id = "world-description-input"
         classes += "form-control"
+        maxLength = "500"
         + world.description
+    }
+    p("validation-error-message") {
+        id = "validation-error-description"
     }
 }
 
 fun FORM.worldVersionForm(world: World, supportedVersions: List<MinecraftVersion.Release>) {
     id = "world-version-form"
+    hxTargetError(".validation-error-message")
     encType = FormEncType.applicationXWwwFormUrlEncoded
 
     hxTarget("#$ALERT_CONTAINER_ID")
@@ -90,6 +84,7 @@ fun FORM.worldVersionForm(world: World, supportedVersions: List<MinecraftVersion
         name = "version"
         id = "world-version-select"
         classes += "form-control"
+        required = true
         supportedVersions.forEach { version ->
             option {
                 value = version.toString()
@@ -97,6 +92,9 @@ fun FORM.worldVersionForm(world: World, supportedVersions: List<MinecraftVersion
                 + "$version"
             }
         }
+    }
+    p("validation-error-message") {
+        id = "validation-error-version"
     }
 }
 

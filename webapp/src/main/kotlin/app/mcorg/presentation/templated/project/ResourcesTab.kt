@@ -6,10 +6,7 @@ import app.mcorg.domain.model.project.ProjectProduction
 import app.mcorg.domain.model.project.ProjectResourceGathering
 import app.mcorg.domain.model.project.ProjectStage
 import app.mcorg.domain.model.user.TokenProfile
-import app.mcorg.presentation.hxDeleteWithConfirm
-import app.mcorg.presentation.hxPost
-import app.mcorg.presentation.hxSwap
-import app.mcorg.presentation.hxTarget
+import app.mcorg.presentation.*
 import app.mcorg.presentation.templated.common.button.IconButtonColor
 import app.mcorg.presentation.templated.common.button.iconButton
 import app.mcorg.presentation.templated.common.button.neutralButton
@@ -19,24 +16,8 @@ import app.mcorg.presentation.templated.common.icon.IconSize
 import app.mcorg.presentation.templated.common.icon.Icons
 import app.mcorg.presentation.templated.common.link.Link
 import app.mcorg.presentation.templated.common.progress.progressComponent
-import kotlinx.html.DIV
-import kotlinx.html.FormEncType
-import kotlinx.html.InputType
-import kotlinx.html.LI
-import kotlinx.html.classes
-import kotlinx.html.dataList
-import kotlinx.html.div
-import kotlinx.html.form
-import kotlinx.html.h2
-import kotlinx.html.id
-import kotlinx.html.input
-import kotlinx.html.li
-import kotlinx.html.onSubmit
-import kotlinx.html.option
-import kotlinx.html.p
-import kotlinx.html.span
-import kotlinx.html.ul
-import java.util.Locale
+import kotlinx.html.*
+import java.util.*
 
 fun DIV.resourcesTab(
     user: TokenProfile,
@@ -92,6 +73,7 @@ fun DIV.resourcesTab(
             form {
                 id = "project-resources-production-form"
                 encType = FormEncType.applicationXWwwFormUrlEncoded
+                hxTargetError(".validation-error-message")
                 if (!user.isDemoUserInProduction) {
                     hxPost(Link.Worlds.world(project.worldId).project(project.id).to + "/resources")
                     hxTarget("#project-resources-production-list")
@@ -133,6 +115,13 @@ fun DIV.resourcesTab(
                 neutralButton(if (user.isDemoUserInProduction) "Add Resource (Disabled in Demo)" else "Add Resource Production") {
                     iconLeft = Icons.Menu.CONTRAPTIONS
                     iconSize = IconSize.SMALL
+                }
+
+                p("validation-error-message") {
+                    id = "validation-error-name"
+                }
+                p("validation-error-message") {
+                    id = "validation-error-ratePerHour"
                 }
             }
         }

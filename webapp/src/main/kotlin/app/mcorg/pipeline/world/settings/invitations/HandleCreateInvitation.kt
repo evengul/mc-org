@@ -29,7 +29,6 @@ import app.mcorg.presentation.utils.respondHtml
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.request.*
-import io.ktor.server.response.*
 import kotlinx.html.div
 import kotlinx.html.id
 import kotlinx.html.li
@@ -81,7 +80,6 @@ suspend fun ApplicationCall.handleCreateInvitation() {
                 respondHtml(mainContent)
             }
         },
-        onFailure = { respond(HttpStatusCode.InternalServerError)}
     ) {
         value(parameters)
             .step(ValidateInvitationInputStep)
@@ -182,8 +180,8 @@ class ValidateInviterPermissionsStep(
 }
 
 // Step 3: Validate target user exists
-object ValidateTargetUserStep : Step<CreateInvitationInput, AppFailure.DatabaseError, Pair<CreateInvitationInput, Int>> {
-    override suspend fun process(input: CreateInvitationInput): Result<AppFailure.DatabaseError, Pair<CreateInvitationInput, Int>> {
+object ValidateTargetUserStep : Step<CreateInvitationInput, AppFailure, Pair<CreateInvitationInput, Int>> {
+    override suspend fun process(input: CreateInvitationInput): Result<AppFailure, Pair<CreateInvitationInput, Int>> {
         return DatabaseSteps.query<CreateInvitationInput, Int?>(
             sql = SafeSQL.select("SELECT u.id FROM users u join minecraft_profiles mp on u.id = mp.user_id WHERE mp.username = ?"),
             parameterSetter = { stmt, _ ->
@@ -201,7 +199,7 @@ object ValidateTargetUserStep : Step<CreateInvitationInput, AppFailure.DatabaseE
                 is Result.Success -> {
                     val targetUserId = result.value
                     if (targetUserId == null) {
-                        Result.failure(AppFailure.DatabaseError.NotFound)
+                        Result.failure(AppFailure.customValidationError("toUsername", "User with username '${input.toUsername}' does not exist"))
                     } else {
                         Result.success(Pair(input, targetUserId))
                     }
@@ -230,11 +228,11 @@ class ValidateNotSelfInviteStep(
 class CreateInvitationStep(
     private val fromUserId: Int,
     private val worldId: Int
-) : Step<Pair<CreateInvitationInput, Int>, AppFailure.DatabaseError, CreateInvitationResult> {
-    override suspend fun process(input: Pair<CreateInvitationInput, Int>): Result<AppFailure.DatabaseError, CreateInvitationResult> {
+) : Step<Pair<CreateInvitationInput, Int>, AppFailure, CreateInvitationResult> {
+    override suspend fun process(input: Pair<CreateInvitationInput, Int>): Result<AppFailure, CreateInvitationResult> {
         val (invitationInput, toUserId) = input
 
-        return DatabaseSteps.update<Pair<CreateInvitationInput, Int>>(
+        val result =  DatabaseSteps.update<Pair<CreateInvitationInput, Int>>(
             sql = SafeSQL.insert("""
                 INSERT INTO invites (world_id, from_user_id, to_user_id, role, created_at, status, status_reached_at)
                 VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, 'PENDING', CURRENT_TIMESTAMP)
@@ -246,7 +244,22 @@ class CreateInvitationStep(
                 stmt.setInt(3, toUserId)
                 stmt.setString(4, invitationInput.role.name)
             }
-        ).process(input).flatMap { invitationId ->
+        ).process(input)
+
+        if (result is Result.Failure) {
+            if (result.error is AppFailure.DatabaseError.IntegrityConstraintError) {
+                // Check if it's a unique constraint violation on (world_id, to_user_id) to indicate existing pending invite
+                return Result.failure(
+                    AppFailure.customValidationError(
+                        "toUsername",
+                        "This user already has a pending invitation to this world"
+                    )
+                )
+            }
+            return result
+        }
+
+        return result.flatMap { invitationId ->
             // Fetch world name for notification
             DatabaseSteps.query<Int, String>(
                 sql = SafeSQL.select("SELECT name FROM world WHERE id = ?"),

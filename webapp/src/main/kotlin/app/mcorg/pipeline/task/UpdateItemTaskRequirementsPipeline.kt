@@ -23,7 +23,6 @@ import app.mcorg.presentation.utils.respondHtml
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.request.*
-import io.ktor.server.response.*
 import kotlinx.html.div
 import kotlinx.html.input
 import kotlinx.html.li
@@ -62,7 +61,6 @@ suspend fun ApplicationCall.handleUpdateRequirementProgress() {
                 respondHtml(baseHtml)
             }
         },
-        onFailure = { respond(HttpStatusCode.InternalServerError) }
     ) {
         step(Step.value(parameters))
             .step(ValidateUpdateItemTaskRequirementsInputStep)

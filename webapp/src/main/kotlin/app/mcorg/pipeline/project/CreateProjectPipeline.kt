@@ -20,7 +20,6 @@ import app.mcorg.presentation.utils.respondHtml
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.request.*
-import io.ktor.server.response.*
 import kotlinx.html.div
 import kotlinx.html.li
 import kotlinx.html.stream.createHTML
@@ -43,9 +42,6 @@ suspend fun ApplicationCall.handleCreateProject() {
             } + createHTML().div {
                 hxOutOfBands("delete:#empty-projects-state")
             })
-        },
-        onFailure = { _ ->
-            respond(HttpStatusCode.InternalServerError)
         }
     ) {
         step(Step.value(parameters))
@@ -58,10 +54,15 @@ suspend fun ApplicationCall.handleCreateProject() {
 
 object ValidateProjectInputStep : Step<Parameters, AppFailure.ValidationError, CreateProjectInput> {
     override suspend fun process(input: Parameters): Result<AppFailure.ValidationError, CreateProjectInput> {
-        val name = ValidationSteps.required("name", { AppFailure.ValidationError(listOf(it)) })
+        val name = ValidationSteps.required("name") { AppFailure.ValidationError(listOf(it)) }
             .process(input)
-        val description = ValidationSteps.optional("description")
-            .process(input)
+            .flatMap { name -> ValidationSteps.validateLength("name", 3, 100) { AppFailure.ValidationError(listOf(it)) }.process(name) }
+
+        val description = input["description"]?.let {
+            ValidationSteps.validateLength("description", 0, 500) { e -> AppFailure.ValidationError(listOf(e)) }
+                .process(it)
+        } ?: Result.success("")
+
         val type = ValidationSteps.validateCustom<AppFailure.ValidationError, String?>(
             "type",
             "Invalid project type",
@@ -75,6 +76,9 @@ object ValidateProjectInputStep : Step<Parameters, AppFailure.ValidationError, C
         val errors = mutableListOf<ValidationFailure>()
         if (name is Result.Failure) {
             errors.addAll(name.error.errors)
+        }
+        if (description is Result.Failure) {
+            errors.addAll(description.error.errors)
         }
         if (type is Result.Failure) {
             errors.addAll(type.error.errors)

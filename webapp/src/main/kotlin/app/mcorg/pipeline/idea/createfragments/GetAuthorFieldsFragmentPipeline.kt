@@ -24,6 +24,9 @@ suspend fun ApplicationCall.handleGetAuthorFields() {
                     required = true
                     placeholder = "Your name or username"
                 }
+                p("validation-error-message") {
+                    id = "validation-error-authorName"
+                }
             }
             "team" -> {
                 p("subtle") {
@@ -53,6 +56,9 @@ suspend fun ApplicationCall.handleGetAuthorFields() {
                             classes += "form-control"
                             placeholder = "e.g., Lead Designer"
                         }
+                        p("validation-error-message") {
+                            id = "validation-error-teamMembers[0][role]"
+                        }
 
                         label { +"Contributions" }
                         input {
@@ -60,6 +66,9 @@ suspend fun ApplicationCall.handleGetAuthorFields() {
                             type = InputType.text
                             classes += "form-control"
                             placeholder = "e.g., Design, Testing (comma-separated)"
+                        }
+                        p("validation-error-message") {
+                            id = "validation-error-teamMembers[0][contributions]"
                         }
                     }
                 }

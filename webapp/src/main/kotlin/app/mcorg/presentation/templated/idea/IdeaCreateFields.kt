@@ -58,6 +58,9 @@ fun DIV.renderCreateTextField(field: CategoryField.Text) {
             field.maxLength?.let { maxLength = it.toString() }
         }
     }
+    p("validation-error-message") {
+        id = "validation-error-categoryData[${field.key}]"
+    }
 }
 
 /**
@@ -93,6 +96,9 @@ fun DIV.renderCreateNumberField(field: CategoryField.Number) {
                 +suffix
             }
         }
+    }
+    p("validation-error-message") {
+        id = "validation-error-categoryData[${field.key}]"
     }
 }
 
@@ -133,6 +139,9 @@ fun DIV.renderCreateSelectField(field: CategoryField.Select) {
             }
         }
     }
+    p("validation-error-message") {
+        id = "validation-error-categoryData[${field.key}]"
+    }
 }
 
 /**
@@ -162,6 +171,9 @@ fun DIV.renderCreateMultiSelectField(field: CategoryField.MultiSelect) {
             }
         }
     }
+    p("validation-error-message") {
+        id = "validation-error-categoryData[${field.key}]"
+    }
 }
 
 /**
@@ -182,6 +194,9 @@ fun DIV.renderCreateBooleanField(field: CategoryField.BooleanField) {
                 +" (${field.helpText})"
             }
         }
+    }
+    p("validation-error-message") {
+        id = "validation-error-categoryData[${field.key}]"
     }
 }
 
@@ -216,6 +231,9 @@ fun DIV.renderCreateRateField(field: CategoryField.Rate) {
             +field.unit
         }
     }
+    p("validation-error-message") {
+        id = "validation-error-categoryData[${field.key}]"
+    }
 }
 
 /**
@@ -249,6 +267,9 @@ fun DIV.renderCreatePercentageField(field: CategoryField.Percentage) {
             style = "align-self: center; color: var(--clr-text-subtle);"
             +"(0-1)"
         }
+    }
+    p("validation-error-message") {
+        id = "validation-error-categoryData[${field.key}]"
     }
 }
 
@@ -296,6 +317,9 @@ fun DIV.renderCreateDimensionsField(field: CategoryField.Dimensions) {
             if (field.required) required = true
         }
     }
+    p("validation-error-message") {
+        id = "validation-error-categoryData[${field.key}]"
+    }
 }
 
 /**
@@ -326,15 +350,24 @@ fun DIV.renderCreateMapField(field: CategoryField.MapField) {
                         option { value = opt; +opt }
                     }
                 }
+                p("validation-error-message") {
+                    id = "validation-error-categoryData[${field.key}][key][]"
+                }
             } else {
                 input(type = InputType.text, classes = "form-control") {
                     name = "categoryData[${field.key}][key][]"
                     placeholder = field.keyLabel
                 }
+                p("validation-error-message") {
+                    id = "validation-error-categoryData[${field.key}][key]"
+                }
             }
             input(type = InputType.text, classes = "form-control") {
                 name = "categoryData[${field.key}][value][]"
                 placeholder = field.valueLabel
+            }
+            p("validation-error-message") {
+                id = "validation-error-categoryData[${field.key}][value]"
             }
         }
     }
@@ -374,6 +407,9 @@ fun DIV.renderCreateListField(field: CategoryField.ListField) {
                     +value
                 }
             }
+            p("validation-error-message") {
+                id = "validation-error-categoryData[${field.key}]"
+            }
         }
     } else {
         // Free-form text list (comma-separated)
@@ -382,6 +418,9 @@ fun DIV.renderCreateListField(field: CategoryField.ListField) {
             name = "categoryData[${field.key}]"
             placeholder = "Enter values separated by commas"
             if (field.required) required = true
+        }
+        p("validation-error-message") {
+            id = "validation-error-categoryData[${field.key}]"
         }
     }
 }

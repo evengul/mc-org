@@ -26,7 +26,6 @@ suspend fun ApplicationCall.handleDeleteProject() {
     }
 
     executePipeline(
-        onFailure = { respond(HttpStatusCode.InternalServerError, "Failed to delete project.") },
         onSuccess = { clientRedirect("/app/worlds/$worldId") }
     ) {
         value(projectId)

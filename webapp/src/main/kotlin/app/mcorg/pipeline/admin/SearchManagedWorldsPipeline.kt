@@ -12,9 +12,7 @@ import app.mcorg.presentation.templated.admin.AdminTable
 import app.mcorg.presentation.templated.admin.paginationInfo
 import app.mcorg.presentation.templated.admin.worldRows
 import app.mcorg.presentation.utils.respondHtml
-import io.ktor.http.*
 import io.ktor.server.application.*
-import io.ktor.server.response.*
 import kotlinx.html.div
 import kotlinx.html.stream.createHTML
 import kotlinx.html.tbody
@@ -41,10 +39,7 @@ suspend fun ApplicationCall.handleSearchManagedWorlds() {
             div {
                 paginationInfo(it.second, input.page, AdminTable.WORLDS)
             }
-        }) },
-        onFailure = {
-            respond(HttpStatusCode.InternalServerError)
-        }
+        }) }
     ) {
         val worlds = pipeline("worlds", input, worldsPipeline)
         val count = pipeline("count", input.query, countPipeline)

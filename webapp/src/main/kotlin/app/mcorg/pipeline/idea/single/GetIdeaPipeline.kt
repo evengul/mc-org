@@ -13,9 +13,7 @@ import app.mcorg.presentation.templated.idea.ideaPage
 import app.mcorg.presentation.utils.getIdeaId
 import app.mcorg.presentation.utils.getUser
 import app.mcorg.presentation.utils.respondHtml
-import io.ktor.http.*
 import io.ktor.server.application.*
-import io.ktor.server.response.*
 import java.sql.ResultSet
 
 data class GetCommentsInput(
@@ -38,9 +36,6 @@ suspend fun ApplicationCall.handleGetIdea() {
     executeParallelPipeline(
         onSuccess = { (idea, comments) ->
             respondHtml(ideaPage(user, idea, comments, notifications))
-        },
-        onFailure = {
-            respond(HttpStatusCode.InternalServerError, "Failed to get idea")
         }
     ) {
         val idea = pipeline("idea", ideaId, ideaPipeline)

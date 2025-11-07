@@ -12,9 +12,7 @@ import app.mcorg.presentation.templated.project.projectProgress
 import app.mcorg.presentation.utils.getProjectId
 import app.mcorg.presentation.utils.getTaskId
 import app.mcorg.presentation.utils.respondHtml
-import io.ktor.http.*
 import io.ktor.server.application.*
-import io.ktor.server.response.*
 import kotlinx.html.div
 import kotlinx.html.stream.createHTML
 
@@ -42,7 +40,6 @@ suspend fun ApplicationCall.handleDeleteTask() {
                 respondHtml(baseHtml)
             }
         },
-        onFailure = { respond(HttpStatusCode.InternalServerError) }
     ) {
         value(taskId)
             .step(DeleteTaskStep)

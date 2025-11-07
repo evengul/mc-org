@@ -12,9 +12,7 @@ import app.mcorg.presentation.templated.admin.AdminTable
 import app.mcorg.presentation.templated.admin.paginationInfo
 import app.mcorg.presentation.templated.admin.userRows
 import app.mcorg.presentation.utils.respondHtml
-import io.ktor.http.*
 import io.ktor.server.application.*
-import io.ktor.server.response.*
 import kotlinx.html.div
 import kotlinx.html.stream.createHTML
 import kotlinx.html.tbody
@@ -39,10 +37,7 @@ suspend fun ApplicationCall.handleSearchManagedUsers() {
             div {
                 paginationInfo(it.second, page, AdminTable.USERS)
             }
-        }) },
-        onFailure = {
-            respond(HttpStatusCode.InternalServerError)
-        }
+        }) }
     ) {
         val users = pipeline("users", GetManagedUsersInput(query, page, pageSize), usersPipeline)
         val count = pipeline("count", query, countPipeline)
