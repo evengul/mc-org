@@ -7,9 +7,7 @@ import app.mcorg.presentation.handler.executePipeline
 import app.mcorg.presentation.templated.settings.worldInvitations
 import app.mcorg.presentation.utils.getWorldId
 import app.mcorg.presentation.utils.respondHtml
-import io.ktor.http.*
 import io.ktor.server.application.*
-import io.ktor.server.response.*
 import kotlinx.html.stream.createHTML
 import kotlinx.html.ul
 
@@ -21,9 +19,6 @@ suspend fun ApplicationCall.handleGetInvitationListFragment() {
     executePipeline(
         onSuccess = {
             respondHtml(createHTML().ul { worldInvitations(it) })
-        },
-        onFailure = {
-            respond(HttpStatusCode.InternalServerError, "Failed to load invitations")
         }
     ) {
         step(Step.value(statusFilter))

@@ -2,6 +2,7 @@ package app.mcorg.presentation.templated.world
 
 import app.mcorg.domain.model.project.ProjectType
 import app.mcorg.domain.model.user.TokenProfile
+import app.mcorg.presentation.hxTargetError
 import app.mcorg.presentation.templated.common.form.radiogroup.RadioGroupOption
 import app.mcorg.presentation.templated.common.form.radiogroup.radioGroup
 import app.mcorg.presentation.templated.common.icon.IconSize
@@ -11,16 +12,7 @@ import app.mcorg.presentation.templated.common.modal.FormModalHttpMethod
 import app.mcorg.presentation.templated.common.modal.FormModalHxValues
 import app.mcorg.presentation.templated.common.modal.formModal
 import app.mcorg.presentation.templated.utils.toPrettyEnumName
-import kotlinx.html.InputType
-import kotlinx.html.Tag
-import kotlinx.html.classes
-import kotlinx.html.div
-import kotlinx.html.input
-import kotlinx.html.label
-import kotlinx.html.onSubmit
-import kotlinx.html.p
-import kotlinx.html.span
-import kotlinx.html.textArea
+import kotlinx.html.*
 
 fun <T : Tag> T.createProjectModal(user: TokenProfile, worldId: Int) = formModal(
     modalId = "create-project-modal",
@@ -42,6 +34,7 @@ fun <T : Tag> T.createProjectModal(user: TokenProfile, worldId: Int) = formModal
     }
 ) {
     formContent {
+        hxTargetError(".validation-error-message")
         if (user.isDemoUserInProduction) {
             onSubmit = "return false;"
         }
@@ -54,7 +47,12 @@ fun <T : Tag> T.createProjectModal(user: TokenProfile, worldId: Int) = formModal
             input {
                 type = InputType.text
                 name = "name"
+                minLength = "3"
+                maxLength = "100"
                 required = true
+            }
+            p("validation-error-message") {
+                id = "validation-error-name"
             }
         }
         span("input-group") {
@@ -63,6 +61,10 @@ fun <T : Tag> T.createProjectModal(user: TokenProfile, worldId: Int) = formModal
             }
             textArea {
                 name = "description"
+                maxLength = "500"
+            }
+            p("validation-error-message") {
+                id = "validation-error-description"
             }
         }
         span("input-group") {
@@ -77,6 +79,9 @@ fun <T : Tag> T.createProjectModal(user: TokenProfile, worldId: Int) = formModal
                         label = it.toPrettyEnumName()
                     )
                 }, selectedOption = "BUILDING")
+            }
+            p("validation-error-message") {
+                id = "validation-error-type"
             }
         }
         if (user.isDemoUserInProduction) {

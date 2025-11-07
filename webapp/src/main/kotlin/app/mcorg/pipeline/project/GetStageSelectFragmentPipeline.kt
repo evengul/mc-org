@@ -6,18 +6,17 @@ import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.failure.AppFailure
-import app.mcorg.presentation.*
 import app.mcorg.presentation.handler.executePipeline
-import app.mcorg.presentation.templated.common.chip.ChipVariant
-import app.mcorg.presentation.templated.common.chip.chipComponent
+import app.mcorg.presentation.hxPatch
+import app.mcorg.presentation.hxSwap
+import app.mcorg.presentation.hxTarget
+import app.mcorg.presentation.hxTrigger
 import app.mcorg.presentation.templated.common.link.Link
 import app.mcorg.presentation.templated.utils.toPrettyEnumName
 import app.mcorg.presentation.utils.getProjectId
 import app.mcorg.presentation.utils.getWorldId
-import app.mcorg.presentation.utils.hxTarget
 import app.mcorg.presentation.utils.respondHtml
 import io.ktor.server.application.*
-import kotlinx.html.div
 import kotlinx.html.id
 import kotlinx.html.option
 import kotlinx.html.select
@@ -47,17 +46,6 @@ suspend fun ApplicationCall.getStageSelectFragment() {
                         }
                         +it.toPrettyEnumName()
                     }
-                }
-            })
-        },
-        onFailure = {
-            hxTarget("none")
-            respondHtml(createHTML().div {
-                hxOutOfBands("true")
-                chipComponent {
-                    id = "project-stage-chip"
-                    variant = ChipVariant.ACTION
-                    + "Unknown Stage"
                 }
             })
         }

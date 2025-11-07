@@ -36,31 +36,6 @@ sealed interface AppFailure {
                 }
             )
         }
-
-        data class MinecraftTokenError(
-            val errorCode: String,
-            val arguments: Map<String, String> = emptyMap()
-        ) : AuthError {
-            companion object {
-                fun microsoftCodeError(
-                    microsoftErrorCode: String? = null,
-                    microsoftErrorDescription: String? = null
-                ) = MinecraftTokenError("microsoft_code", buildMap {
-                    microsoftErrorCode?.let { put("microsoft_error_code", it) }
-                    microsoftErrorDescription?.let { put("microsoft_error_description", it) }
-                })
-            }
-
-            fun toRedirect() = Redirect(
-                path = "/auth/minecraft-error",
-                queryParameters = buildMap {
-                    put("error", errorCode)
-                    arguments.forEach { (key, value) ->
-                        put(key, value)
-                    }
-                }
-            )
-        }
     }
 
     sealed interface DatabaseError : AppFailure {

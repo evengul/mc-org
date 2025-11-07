@@ -1,22 +1,9 @@
 package app.mcorg.presentation.templated.common.modal
 
-import app.mcorg.presentation.hxGet
-import app.mcorg.presentation.hxPatch
-import app.mcorg.presentation.hxPost
-import app.mcorg.presentation.hxPut
-import app.mcorg.presentation.hxSwap
-import app.mcorg.presentation.hxTarget
+import app.mcorg.presentation.*
 import app.mcorg.presentation.templated.common.button.GenericButton
 import app.mcorg.presentation.templated.common.component.addComponent
-import kotlinx.html.ButtonType
-import kotlinx.html.DIALOG
-import kotlinx.html.FORM
-import kotlinx.html.FormEncType
-import kotlinx.html.Tag
-import kotlinx.html.button
-import kotlinx.html.classes
-import kotlinx.html.form
-import kotlinx.html.id
+import kotlinx.html.*
 
 enum class FormModalHttpMethod {
     GET,
@@ -76,6 +63,7 @@ class FormModal(
                     if (event.detail.xhr.status >= 200 && event.detail.xhr.status < 300 && event.detail.requestConfig.verb !== 'get') {
                         this.reset();
                         const modal = document.getElementById("$modalId");
+                        modal.getElementsByClassName("validation-error-message").forEach(elem => elem.innerHTML = "");
                         modal.close();
                     }
                 """.trimIndent()

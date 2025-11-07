@@ -4,9 +4,9 @@ import app.mcorg.config.AppConfig
 import app.mcorg.domain.Local
 import app.mcorg.domain.Production
 import app.mcorg.domain.Test
-import io.ktor.http.HttpHeaders
+import io.ktor.http.*
 import io.ktor.server.application.*
-import io.ktor.server.request.host
+import io.ktor.server.request.*
 
 fun ApplicationCall.getHost(): String? {
     val env = AppConfig.env
@@ -16,6 +16,5 @@ fun ApplicationCall.getHost(): String? {
                         else "mcorg.app"
         Test -> AppConfig.testHost
         Local -> null
-        else -> throw IllegalStateException("Invalid ENV=[$env]")
     }
 }

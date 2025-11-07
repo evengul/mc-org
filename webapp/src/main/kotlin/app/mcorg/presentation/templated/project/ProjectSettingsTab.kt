@@ -4,11 +4,7 @@ import app.mcorg.domain.model.project.Project
 import app.mcorg.domain.model.project.ProjectType
 import app.mcorg.domain.model.user.Role
 import app.mcorg.domain.model.user.TokenProfile
-import app.mcorg.presentation.hxDeleteWithConfirm
-import app.mcorg.presentation.hxPut
-import app.mcorg.presentation.hxSwap
-import app.mcorg.presentation.hxTarget
-import app.mcorg.presentation.hxTrigger
+import app.mcorg.presentation.*
 import app.mcorg.presentation.templated.common.button.dangerButton
 import app.mcorg.presentation.templated.common.dangerzone.dangerZone
 import app.mcorg.presentation.templated.common.icon.IconSize
@@ -16,23 +12,7 @@ import app.mcorg.presentation.templated.common.icon.Icons
 import app.mcorg.presentation.templated.common.link.Link
 import app.mcorg.presentation.templated.layout.alert.ALERT_CONTAINER_ID
 import app.mcorg.presentation.templated.utils.toPrettyEnumName
-import kotlinx.html.ButtonType
-import kotlinx.html.DIV
-import kotlinx.html.FORM
-import kotlinx.html.FormEncType
-import kotlinx.html.InputType
-import kotlinx.html.classes
-import kotlinx.html.form
-import kotlinx.html.h2
-import kotlinx.html.id
-import kotlinx.html.input
-import kotlinx.html.label
-import kotlinx.html.onSubmit
-import kotlinx.html.option
-import kotlinx.html.p
-import kotlinx.html.section
-import kotlinx.html.select
-import kotlinx.html.span
+import kotlinx.html.*
 
 fun DIV.projectSettingsTab(user: TokenProfile, project: Project, worldMemberRole: Role) {
     classes += "project-settings-tab"
@@ -83,6 +63,7 @@ fun FORM.projectNameForm(project: Project, user: TokenProfile) {
     encType = FormEncType.applicationXWwwFormUrlEncoded
 
     if (!user.isDemoUserInProduction) {
+        hxTargetError(".validation-error-message")
         hxTarget("#$ALERT_CONTAINER_ID")
         hxSwap("afterbegin")
         hxPut(Link.Worlds.world(project.worldId).project(project.id).to + "/name")
@@ -106,12 +87,16 @@ fun FORM.projectNameForm(project: Project, user: TokenProfile) {
         maxLength = "100"
         type = InputType.text
     }
+    p("validation-error-message") {
+        id = "validation-error-name"
+    }
 }
 
 fun FORM.projectDescriptionForm(project: Project, user: TokenProfile) {
     encType = FormEncType.applicationXWwwFormUrlEncoded
 
     if (!user.isDemoUserInProduction) {
+        hxTargetError(".validation-error-message")
         hxTarget("#$ALERT_CONTAINER_ID")
         hxSwap("afterbegin")
         hxPut(Link.Worlds.world(project.worldId).project(project.id).to + "/description")
@@ -129,9 +114,11 @@ fun FORM.projectDescriptionForm(project: Project, user: TokenProfile) {
         id = "project-description-input"
         name = "description"
         value = project.description
-        minLength = "3"
         maxLength = "1000"
         type = InputType.text
+    }
+    p("validation-error-message") {
+        id = "validation-error-description"
     }
 }
 
@@ -139,6 +126,7 @@ fun FORM.projectTypeForm(project: Project, user: TokenProfile) {
     encType = FormEncType.applicationXWwwFormUrlEncoded
 
     if (!user.isDemoUserInProduction) {
+        hxTargetError(".validation-error-message")
         hxTarget("#$ALERT_CONTAINER_ID")
         hxSwap("afterbegin")
         hxPut(Link.Worlds.world(project.worldId).project(project.id).to + "/type")
@@ -163,5 +151,8 @@ fun FORM.projectTypeForm(project: Project, user: TokenProfile) {
                 + type.toPrettyEnumName()
             }
         }
+    }
+    p("validation-error-message") {
+        id = "validation-error-type"
     }
 }

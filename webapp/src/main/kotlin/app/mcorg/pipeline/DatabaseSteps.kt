@@ -4,6 +4,8 @@ import app.mcorg.config.Database
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.failure.AppFailure
+import com.zaxxer.hikari.pool.HikariPool
+import org.postgresql.util.PSQLException
 import org.slf4j.LoggerFactory
 import java.sql.*
 
@@ -42,13 +44,7 @@ object DatabaseSteps {
                     }
                 } catch (e: Exception) {
                     logger.error("Could not execute query", e)
-                    val failure = when (e) {
-                        is SQLTimeoutException -> AppFailure.DatabaseError.ConnectionError
-                        is SQLSyntaxErrorException -> AppFailure.DatabaseError.StatementError
-                        is SQLIntegrityConstraintViolationException -> AppFailure.DatabaseError.IntegrityConstraintError
-                        else -> AppFailure.DatabaseError.UnknownError
-                    }
-                    Result.failure(failure)
+                    handleException(e)
                 }
             }
         }
@@ -90,13 +86,7 @@ object DatabaseSteps {
                     }
                 } catch (e: Exception) {
                     logger.error("Could not execute update", e)
-                    val failure = when (e) {
-                        is SQLTimeoutException -> AppFailure.DatabaseError.ConnectionError
-                        is SQLSyntaxErrorException -> AppFailure.DatabaseError.StatementError
-                        is SQLIntegrityConstraintViolationException -> AppFailure.DatabaseError.IntegrityConstraintError
-                        else -> AppFailure.DatabaseError.UnknownError
-                    }
-                    Result.failure(failure)
+                    handleException(e)
                 }
             }
         }
@@ -137,13 +127,7 @@ object DatabaseSteps {
                     }
                 } catch (e: Exception) {
                     logger.error("Could not execute batch update", e)
-                    val failure = when (e) {
-                        is SQLTimeoutException -> AppFailure.DatabaseError.ConnectionError
-                        is SQLSyntaxErrorException -> AppFailure.DatabaseError.StatementError
-                        is SQLIntegrityConstraintViolationException -> AppFailure.DatabaseError.IntegrityConstraintError
-                        else -> AppFailure.DatabaseError.UnknownError
-                    }
-                    Result.failure(failure)
+                    handleException(e)
                 }
             }
         }
@@ -175,16 +159,23 @@ object DatabaseSteps {
                     }
                 } catch (e: Exception) {
                     logger.error("Could not execute transaction", e)
-                    val failure = when (e) {
-                        is SQLTimeoutException -> AppFailure.DatabaseError.ConnectionError
-                        is SQLSyntaxErrorException -> AppFailure.DatabaseError.StatementError
-                        is SQLIntegrityConstraintViolationException -> AppFailure.DatabaseError.IntegrityConstraintError
-                        else -> AppFailure.DatabaseError.UnknownError
-                    }
-                    Result.failure(failure)
+                    handleException(e)
                 }
             }
         }
+    }
+
+    private fun handleException(e: Exception): Result<AppFailure.DatabaseError, Nothing> {
+        return Result.failure(
+            when (e) {
+                is SQLTimeoutException -> AppFailure.DatabaseError.ConnectionError
+                is SQLSyntaxErrorException -> AppFailure.DatabaseError.StatementError
+                is SQLIntegrityConstraintViolationException -> AppFailure.DatabaseError.IntegrityConstraintError
+                is HikariPool.PoolInitializationException -> AppFailure.DatabaseError.ConnectionError
+                is PSQLException if e.sqlState == "23505" -> AppFailure.DatabaseError.IntegrityConstraintError
+                else -> AppFailure.DatabaseError.UnknownError
+            }
+        )
     }
 }
 

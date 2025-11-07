@@ -7,9 +7,9 @@ import app.mcorg.pipeline.auth.commonsteps.AddCookieStep
 import app.mcorg.pipeline.auth.commonsteps.CreateTokenStep
 import app.mcorg.pipeline.auth.commonsteps.CreateUserIfNotExistsStep
 import app.mcorg.pipeline.auth.commonsteps.UpdateLastSignInStep
+import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.presentation.handler.executePipeline
 import app.mcorg.presentation.utils.getHost
-import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.response.*
 import kotlin.random.Random
@@ -27,7 +27,15 @@ suspend fun ApplicationCall.handleDemoSignIn() {
 
     executePipeline(
         onSuccess = { respondRedirect(redirectPath) },
-        onFailure = { respond(HttpStatusCode.Forbidden) }
+        onFailure = {
+            when (it) {
+                is AppFailure.AuthError.MissingToken -> respondRedirect("/auth/sign-in")
+                is AppFailure.Redirect -> respondRedirect(it.toUrl())
+                is AppFailure.AuthError.ConvertTokenError -> respondRedirect(it.toRedirect().toUrl())
+                is AppFailure.AuthError.CouldNotCreateToken -> respondRedirect("/auth/sign-out?error=token_creation_failed")
+                else -> respondRedirect("/auth/sign-out?error=${it.javaClass.simpleName}")
+            }
+        }
     ) {
         value(MinecraftProfile(uuid = demoUuid, username = demoUsername, isDemoUser = true))
             .step(CreateUserIfNotExistsStep)

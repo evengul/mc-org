@@ -16,7 +16,6 @@ import app.mcorg.pipeline.world.commonsteps.GetPermittedWorldsStep
 import app.mcorg.presentation.handler.executePipeline
 import app.mcorg.presentation.templated.home.worldsView
 import app.mcorg.presentation.utils.getUser
-import app.mcorg.presentation.utils.respondBadRequest
 import app.mcorg.presentation.utils.respondHtml
 import io.ktor.http.*
 import io.ktor.server.application.*
@@ -34,9 +33,6 @@ suspend fun ApplicationCall.handleCreateWorld() {
             respondHtml(createHTML().div {
                 worldsView(user, it, supportedVersions)
             })
-        },
-        onFailure = {
-            respondBadRequest("Unable to create world: ${it.javaClass.simpleName}")
         }
     ) {
         value(parameters)
@@ -51,8 +47,12 @@ suspend fun ApplicationCall.handleCreateWorld() {
 
 object ValidateWorldInputStep : Step<Parameters, AppFailure.ValidationError, CreateWorldInput> {
     override suspend fun process(input: Parameters): Result<AppFailure.ValidationError, CreateWorldInput> {
-        val nameResult = ValidationSteps.required("name", { listOf(it) }).process(input)
-        val descriptionResult = ValidationSteps.optional("description").process(input)
+        val nameResult = ValidationSteps.required("name") { listOf(it) }.process(input)
+            .flatMap { name -> ValidationSteps.validateLength("name", 3, 100) { listOf(it) }.process(name) }
+
+        val descriptionResult = input["description"]?.let { desc ->
+            ValidationSteps.validateLength("description", 0, 500) { listOf(it) }.process(desc)
+        }
         val versionResult = ValidationSteps.validateCustom<List<ValidationFailure>, String?>(
             "version",
             "Invalid Minecraft version",
@@ -67,6 +67,9 @@ object ValidateWorldInputStep : Step<Parameters, AppFailure.ValidationError, Cre
         if (nameResult is Result.Failure) {
             errors.addAll(nameResult.error)
         }
+        if (descriptionResult is Result.Failure) {
+            errors.addAll(descriptionResult.error)
+        }
         if (versionResult is Result.Failure) {
             errors.addAll(versionResult.error)
         }
@@ -78,7 +81,7 @@ object ValidateWorldInputStep : Step<Parameters, AppFailure.ValidationError, Cre
         return Result.success(
             CreateWorldInput(
                 name = nameResult.getOrNull()!!,
-                description = descriptionResult.getOrNull() ?: "",
+                description = descriptionResult?.getOrNull() ?: "",
                 version = versionResult.getOrNull()!!
             )
         )

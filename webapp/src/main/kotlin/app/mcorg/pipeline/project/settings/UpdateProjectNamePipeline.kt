@@ -34,21 +34,6 @@ suspend fun ApplicationCall.handleUpdateProjectName() {
             hxOutOfBands("innerHTML:.project-header h1")
             + it
         }) },
-        onFailure = {
-            respondHtml(createHTML().li {
-                createAlert(
-                    id = "project-name-updated-success-alert",
-                    type = AlertType.ERROR,
-                    title = "Failed to update project name",
-                    message = when(it) {
-                        is AppFailure.ValidationError ->
-                            "Validation failed: ${it.errors.joinToString { error -> error.toString() }}"
-                        else ->
-                            "An unexpected database error occurred"
-                    }
-                )
-            })
-        }
     ) {
         step(Step.value(parameters))
             .step(ValidateProjectNameInputStep)

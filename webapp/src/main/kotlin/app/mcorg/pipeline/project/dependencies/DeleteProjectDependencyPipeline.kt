@@ -12,9 +12,7 @@ import app.mcorg.presentation.hxOutOfBands
 import app.mcorg.presentation.templated.project.addDependencyForm
 import app.mcorg.presentation.templated.project.dependenciesList
 import app.mcorg.presentation.utils.*
-import io.ktor.http.*
 import io.ktor.server.application.*
-import io.ktor.server.response.*
 import kotlinx.html.div
 import kotlinx.html.form
 import kotlinx.html.stream.createHTML
@@ -33,9 +31,6 @@ suspend fun ApplicationCall.handleDeleteProjectDependency() {
                 hxOutOfBands("true")
                 addDependencyForm(user, worldId, projectId, availableDependencies)
             })
-        },
-        onFailure = {
-            respond(HttpStatusCode.InternalServerError, "Failed to delete project dependency")
         }
     ) {
         step(Step.value(dependencyId))

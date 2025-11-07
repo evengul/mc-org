@@ -34,6 +34,9 @@ suspend fun ApplicationCall.handleGetVersionFields() {
                         }
                     }
                 }
+                p("validation-error-message") {
+                    id = "validation-error-versionFrom"
+                }
 
                 label {
                     htmlFor = "version-to"
@@ -51,6 +54,9 @@ suspend fun ApplicationCall.handleGetVersionFields() {
                             +version.toString()
                         }
                     }
+                }
+                p("validation-error-message") {
+                    id = "validation-error-versionTo"
                 }
             }
             "lowerBounded" -> {
@@ -71,6 +77,9 @@ suspend fun ApplicationCall.handleGetVersionFields() {
                             +version.toString()
                         }
                     }
+                }
+                p("validation-error-message") {
+                    id = "validation-error-versionFrom"
                 }
                 small("form-help-text subtle") {
                     +"Works from this version onwards"
@@ -94,6 +103,9 @@ suspend fun ApplicationCall.handleGetVersionFields() {
                             +version.toString()
                         }
                     }
+                }
+                p("validation-error-message") {
+                    id = "validation-error-versionTo"
                 }
                 small("form-help-text subtle") {
                     +"Works up to and including this version"

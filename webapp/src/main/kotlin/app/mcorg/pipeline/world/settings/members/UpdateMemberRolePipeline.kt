@@ -16,7 +16,6 @@ import app.mcorg.presentation.utils.respondHtml
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.request.*
-import io.ktor.server.response.*
 
 suspend fun ApplicationCall.handleUpdateWorldMemberRole() {
     val currentUserId = this.getUser().id
@@ -27,7 +26,6 @@ suspend fun ApplicationCall.handleUpdateWorldMemberRole() {
 
     executePipeline(
         onSuccess = { respondHtml(it.toPrettyEnumName()) },
-        onFailure = { respond(HttpStatusCode.InternalServerError, "Failed to update world member role") },
     ) {
         value(parameters)
             .step(ValidateWorldMemberRoleInputStep)

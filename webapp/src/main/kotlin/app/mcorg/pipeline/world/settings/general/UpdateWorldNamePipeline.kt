@@ -20,7 +20,6 @@ import app.mcorg.presentation.utils.respondHtml
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.request.*
-import io.ktor.server.response.*
 import kotlinx.html.button
 import kotlinx.html.classes
 import kotlinx.html.li
@@ -46,7 +45,6 @@ suspend fun ApplicationCall.handleUpdateWorldName() {
                 + "Back to $it"
             })
         },
-        onFailure = { respond(HttpStatusCode.InternalServerError) }
     ) {
         value(parameters)
             .step(ValidateWorldNameInputStep)

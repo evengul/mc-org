@@ -10,16 +10,12 @@ import app.mcorg.pipeline.project.commonsteps.SearchProjectsInput
 import app.mcorg.pipeline.project.commonsteps.SearchProjectsStep
 import app.mcorg.presentation.handler.executeParallelPipeline
 import app.mcorg.presentation.hxOutOfBands
-import app.mcorg.presentation.templated.layout.alert.ALERT_CONTAINER_ID
-import app.mcorg.presentation.templated.layout.alert.AlertType
-import app.mcorg.presentation.templated.layout.alert.createAlert
 import app.mcorg.presentation.templated.world.projectList
 import app.mcorg.presentation.utils.getWorldId
 import app.mcorg.presentation.utils.respondHtml
 import io.ktor.http.*
 import io.ktor.server.application.*
 import kotlinx.html.id
-import kotlinx.html.li
 import kotlinx.html.p
 import kotlinx.html.stream.createHTML
 import kotlinx.html.ul
@@ -37,26 +33,14 @@ suspend fun ApplicationCall.handleSearchProjects() {
                 id = "world-projects-count"
                 +"Showing ${projects.size} of $projectCount projects."
             })
-        },
-        onFailure = {
-            respondHtml(createHTML().li {
-                hxOutOfBands("#$ALERT_CONTAINER_ID")
-                createAlert(
-                    id = "search-projects-error",
-                    type = AlertType.ERROR,
-                    title = "Error while searching projects",
-                    message = "An error occurred while searching for projects. Please try again later.",
-                    autoClose = true
-                )
-            })
         }
     ) {
         val searchResult = pipeline("searchResults", parameters, Pipeline.create<AppFailure.DatabaseError, Parameters>()
             .pipe(ValidateSearchProjectsInputStep(worldId))
             .pipe(SearchProjectsStep))
 
-        val countResult = pipeline("projectCount", worldId, Pipeline.create<AppFailure.DatabaseError, Int>()
-            .pipe(CountProjectsInWorldStep))
+
+        val countResult = singleStep("projectCount", worldId, CountProjectsInWorldStep)
 
         merge("merged", searchResult, countResult) { searchProjects, projectCount ->
             Result.success(searchProjects to projectCount)

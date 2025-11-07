@@ -9,9 +9,7 @@ import app.mcorg.presentation.handler.executePipeline
 import app.mcorg.presentation.utils.getNotificationId
 import app.mcorg.presentation.utils.getUser
 import app.mcorg.presentation.utils.respondHtml
-import io.ktor.http.*
 import io.ktor.server.application.*
-import io.ktor.server.response.*
 import kotlinx.html.div
 import kotlinx.html.span
 import kotlinx.html.stream.createHTML
@@ -27,9 +25,6 @@ suspend fun ApplicationCall.handleMarkNotificationRead() {
                     + "Read"
                 }
             })
-        },
-        onFailure = {
-            respond(HttpStatusCode.InternalServerError)
         }
     ) {
         value(notificationId)

@@ -6,6 +6,16 @@ class ParallelPipelineBuilder<E> {
     private val nodes = mutableMapOf<String, PipelineNode<E, *>>()
     private val dependencies = mutableMapOf<String, Set<String>>()
 
+    fun <I, O> singleStep(
+        id: String,
+        input: I,
+        step: Step<I, E, O>
+    ): PipelineRef<O> {
+        nodes[id] = PipelineNode.Single(input, Pipeline.create<E, I>().pipe(step))
+        dependencies[id] = emptySet()
+        return PipelineRef(id)
+    }
+
     fun <I, O> pipeline(
         id: String,
         input: I,

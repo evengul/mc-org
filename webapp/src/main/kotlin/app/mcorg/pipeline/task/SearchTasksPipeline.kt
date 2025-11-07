@@ -13,7 +13,6 @@ import app.mcorg.presentation.utils.getWorldId
 import app.mcorg.presentation.utils.respondHtml
 import io.ktor.http.*
 import io.ktor.server.application.*
-import io.ktor.server.response.*
 import kotlinx.html.p
 import kotlinx.html.stream.createHTML
 import kotlinx.html.style
@@ -43,7 +42,6 @@ suspend fun ApplicationCall.handleSearchTasks() {
                 })
             }
         },
-        onFailure = { respond(HttpStatusCode.InternalServerError) }
     ) {
         value(parameters)
             .step(ValidateSearchTasksInputStep)

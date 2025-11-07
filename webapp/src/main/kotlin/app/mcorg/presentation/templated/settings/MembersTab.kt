@@ -40,9 +40,14 @@ fun DIV.sendInvitationForm(worldId: Int) {
         form {
             encType = FormEncType.applicationXWwwFormUrlEncoded
             hxTarget(".invitation-list")
+            attributes["hx-target-error"] = ".validation-error-message"
             hxSwap("afterbegin")
             hxPost("${Link.Worlds.world(worldId).to}/settings/members/invitations")
-            attributes["hx-on::after-request"] = "this.reset();"
+            attributes["hx-on::after-request"] = """
+                if (event.detail.xhr.status >= 200 && event.detail.xhr.status < 300) {
+                        this.reset(); document.querySelectorAll('.validation-error-message').forEach(el => el.innerHTML = '');
+                }
+            """.trimIndent()
             div("inputs") {
                 div("input-group") {
                     label {
@@ -70,6 +75,12 @@ fun DIV.sendInvitationForm(worldId: Int) {
                         }
                     }
                 }
+            }
+            p("validation-error-message") {
+                id = "validation-error-toUsername"
+            }
+            p("validation-error-message") {
+                id = "validation-error-role"
             }
             actionButton("Send Invitation")
         }

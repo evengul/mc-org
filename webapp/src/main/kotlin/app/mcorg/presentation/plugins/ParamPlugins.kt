@@ -4,10 +4,9 @@ import app.mcorg.domain.pipeline.Result
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.failure.AppFailure
+import app.mcorg.presentation.handler.defaultHandleError
 import app.mcorg.presentation.utils.*
-import io.ktor.http.*
 import io.ktor.server.application.*
-import io.ktor.server.response.*
 
 val WorldParamPlugin = createRouteScopedPlugin("WorldParamPlugin") {
     onCall { call ->
@@ -19,9 +18,9 @@ val WorldParamPlugin = createRouteScopedPlugin("WorldParamPlugin") {
             if (checkResult is Result.Success && checkResult.value) {
                 call.setWorldId(worldId)
             } else if ((checkResult is Result.Success && !checkResult.value) || (checkResult is Result.Failure && checkResult.error is AppFailure.DatabaseError.NotFound)) {
-                call.respond(HttpStatusCode.NotFound, "World with ID $worldId does not exist")
+                call.defaultHandleError(AppFailure.DatabaseError.NotFound)
             } else {
-                call.respond(HttpStatusCode.InternalServerError, "Database error occurred")
+                call.defaultHandleError(checkResult.errorOrNull()!!)
             }
         }
     }
@@ -38,9 +37,9 @@ val ProjectParamPlugin = createRouteScopedPlugin("ParamPlugin") {
             if (checkResult is Result.Success && checkResult.value) {
                 call.setProjectId(projectId)
             } else if ((checkResult is Result.Success && !checkResult.value) || (checkResult is Result.Failure && checkResult.error is AppFailure.DatabaseError.NotFound)) {
-                call.respond(HttpStatusCode.NotFound, "Project with ID $projectId does not exist")
+                call.defaultHandleError(AppFailure.DatabaseError.NotFound)
             } else {
-                call.respond(HttpStatusCode.InternalServerError, "Database error occurred")
+                call.defaultHandleError(checkResult.errorOrNull()!!)
             }
         }
     }
@@ -57,9 +56,9 @@ val TaskParamPlugin = createRouteScopedPlugin("TaskParamPlugin") {
             if (checkResult is Result.Success && checkResult.value) {
                 call.setTaskId(taskId)
             } else if ((checkResult is Result.Success && !checkResult.value) || (checkResult is Result.Failure && checkResult.error is AppFailure.DatabaseError.NotFound)) {
-                call.respond(HttpStatusCode.NotFound, "Task with ID $taskId does not exist")
+                call.defaultHandleError(AppFailure.DatabaseError.NotFound)
             } else {
-                call.respond(HttpStatusCode.InternalServerError, "Database error occurred")
+                call.defaultHandleError(checkResult.errorOrNull()!!)
             }
         }
     }
@@ -76,9 +75,9 @@ val NotificationParamPlugin = createRouteScopedPlugin("NotificationParamPlugin")
             if (checkResult is Result.Success && checkResult.value) {
                 call.setNotificationId(notificationId)
             } else if ((checkResult is Result.Success && !checkResult.value) || (checkResult is Result.Failure && checkResult.error is AppFailure.DatabaseError.NotFound)) {
-                call.respond(HttpStatusCode.NotFound, "Notification with ID $notificationId does not exist")
+                call.defaultHandleError(AppFailure.DatabaseError.NotFound)
             } else {
-                call.respond(HttpStatusCode.InternalServerError, "Database error occurred")
+                call.defaultHandleError(checkResult.errorOrNull()!!)
             }
         }
     }
@@ -94,9 +93,9 @@ val InviteParamPlugin = createRouteScopedPlugin("InviteParamPlugin") {
             if (checkResult is Result.Success && checkResult.value) {
                 call.setInviteId(inviteId)
             } else if ((checkResult is Result.Success && !checkResult.value) || (checkResult is Result.Failure && checkResult.error is AppFailure.DatabaseError.NotFound)) {
-                call.respond(HttpStatusCode.NotFound, "Invite with ID $inviteId does not exist")
+                call.defaultHandleError(AppFailure.DatabaseError.NotFound)
             } else {
-                call.respond(HttpStatusCode.InternalServerError, "Database error occurred")
+                call.defaultHandleError(checkResult.errorOrNull()!!)
             }
         }
     }
@@ -116,9 +115,9 @@ val WorldMemberParamPlugin = createRouteScopedPlugin("MemberParamPlugin") {
             if (checkResult is Result.Success && checkResult.value) {
                 call.setWorldMemberId(memberId)
             } else if ((checkResult is Result.Success && !checkResult.value) || (checkResult is Result.Failure && checkResult.error is AppFailure.DatabaseError.NotFound)) {
-                call.respond(HttpStatusCode.NotFound, "Member with ID $memberId does not exist in the world")
+                call.defaultHandleError(AppFailure.DatabaseError.NotFound)
             } else {
-                call.respond(HttpStatusCode.InternalServerError, "Database error occurred")
+                call.defaultHandleError(checkResult.errorOrNull()!!)
             }
         }
     }
@@ -138,9 +137,9 @@ val ProjectProductionItemParamPlugin = createRouteScopedPlugin("ProjectProductio
             if (checkResult is Result.Success && checkResult.value) {
                 call.setProjectProductionItemId(itemId)
             } else if ((checkResult is Result.Success && !checkResult.value) || (checkResult is Result.Failure && checkResult.error is AppFailure.DatabaseError.NotFound)) {
-                call.respond(HttpStatusCode.NotFound, "Project production item with ID $itemId does not exist")
+                call.defaultHandleError(AppFailure.DatabaseError.NotFound)
             } else {
-                call.respond(HttpStatusCode.InternalServerError, "Database error occurred")
+                call.defaultHandleError(checkResult.errorOrNull()!!)
             }
         }
     }
@@ -160,9 +159,9 @@ val ProjectDependencyItemPlugin = createRouteScopedPlugin("ProjectDependencyItem
             if (checkResult is Result.Success && checkResult.value) {
                 call.setProjectDependencyId(dependencyId)
             } else if ((checkResult is Result.Success && !checkResult.value) || (checkResult is Result.Failure && checkResult.error is AppFailure.DatabaseError.NotFound)) {
-                call.respond(HttpStatusCode.NotFound, "Project dependency with ID $dependencyId does not exist for the project")
+                call.defaultHandleError(AppFailure.DatabaseError.NotFound)
             } else {
-                call.respond(HttpStatusCode.InternalServerError, "Database error occurred")
+                call.defaultHandleError(checkResult.errorOrNull()!!)
             }
         }
     }
@@ -181,9 +180,9 @@ val IdeaParamPlugin = createRouteScopedPlugin("IdeaParamPlugin") {
             if (checkResult is Result.Success && checkResult.value) {
                 call.setIdeaId(ideaId)
             } else if ((checkResult is Result.Success && !checkResult.value) || (checkResult is Result.Failure && checkResult.error is AppFailure.DatabaseError.NotFound)) {
-                call.respond(HttpStatusCode.NotFound, "Idea with ID $ideaId does not exist")
+                call.defaultHandleError(AppFailure.DatabaseError.NotFound)
             } else {
-                call.respond(HttpStatusCode.InternalServerError, "Database error occurred")
+                call.defaultHandleError(checkResult.errorOrNull()!!)
             }
         }
     }
@@ -202,9 +201,9 @@ val IdeaCommentParamPlugin = createRouteScopedPlugin("IdeaCommentParamPlugin") {
             if (checkResult is Result.Success && checkResult.value) {
                 call.setIdeaCommentId(commentId)
             } else if ((checkResult is Result.Success && !checkResult.value) || (checkResult is Result.Failure && checkResult.error is AppFailure.DatabaseError.NotFound)) {
-                call.respond(HttpStatusCode.NotFound, "Idea comment with ID $commentId does not exist")
+                call.defaultHandleError(AppFailure.DatabaseError.NotFound)
             } else {
-                call.respond(HttpStatusCode.InternalServerError, "Database error occurred")
+                call.defaultHandleError(checkResult.errorOrNull()!!)
             }
         }
     }

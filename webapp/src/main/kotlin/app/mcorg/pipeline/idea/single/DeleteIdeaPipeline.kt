@@ -10,17 +10,14 @@ import app.mcorg.presentation.templated.common.link.Link
 import app.mcorg.presentation.utils.clientRedirect
 import app.mcorg.presentation.utils.getIdeaId
 import app.mcorg.presentation.utils.getUser
-import io.ktor.http.*
 import io.ktor.server.application.*
-import io.ktor.server.response.*
 
 suspend fun ApplicationCall.handleDeleteIdea() {
     val ideaId = this.getIdeaId()
     val userId = this.getUser().id
 
     executePipeline(
-        onSuccess = { clientRedirect(Link.Ideas.to) },
-        onFailure = { respond(HttpStatusCode.InternalServerError, "Failed to delete idea") }
+        onSuccess = { clientRedirect(Link.Ideas.to) }
     ) {
         value(ideaId)
             .step(ValidateIdeaOwnerStep(userId))

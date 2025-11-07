@@ -3,10 +3,7 @@ package app.mcorg.pipeline.world
 import app.mcorg.domain.model.project.Project
 import app.mcorg.domain.model.user.WorldMember
 import app.mcorg.domain.model.world.World
-import app.mcorg.domain.pipeline.Pipeline
 import app.mcorg.domain.pipeline.Result
-import app.mcorg.domain.pipeline.Step
-import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.notification.getUnreadNotificationsOrZero
 import app.mcorg.pipeline.project.commonsteps.SearchProjectsInput
 import app.mcorg.pipeline.project.commonsteps.SearchProjectsStep
@@ -20,9 +17,7 @@ import app.mcorg.presentation.templated.world.worldPage
 import app.mcorg.presentation.utils.getUser
 import app.mcorg.presentation.utils.getWorldId
 import app.mcorg.presentation.utils.respondHtml
-import io.ktor.http.*
 import io.ktor.server.application.*
-import io.ktor.server.response.*
 import kotlinx.html.div
 import kotlinx.html.stream.createHTML
 import kotlinx.html.ul
@@ -39,16 +34,6 @@ suspend fun ApplicationCall.handleGetWorld() {
 
     val tab = request.queryParameters["tab"]
 
-    val getWorldPipeline = Pipeline.create<AppFailure.DatabaseError, Int>()
-        .pipe(GetWorldStep)
-
-    val getWorldMemberPipeline = Pipeline.create<AppFailure.DatabaseError, Int>()
-        .pipe(GetWorldMemberStep(worldId))
-
-    val getProjectsPipeline = Pipeline.create<AppFailure.DatabaseError, Int>()
-        .pipe(Step.value(SearchProjectsInput(worldId = worldId)))
-        .pipe(SearchProjectsStep)
-
     val notifications = getUnreadNotificationsOrZero(user.id)
 
     executeParallelPipeline(
@@ -58,14 +43,11 @@ suspend fun ApplicationCall.handleGetWorld() {
             } else {
                 respondHtml(worldPage(user, world, worldMember, projects, tab, notifications))
             }
-        },
-        onFailure = {
-            respond(HttpStatusCode.InternalServerError)
         }
     ) {
-        val getWorld = pipeline("world", worldId, getWorldPipeline)
-        val getProjects = pipeline("projects", worldId, getProjectsPipeline)
-        val getWorldMember = pipeline("worldMember", user.id, getWorldMemberPipeline)
+        val getWorld = singleStep("world", worldId, GetWorldStep)
+        val getProjects = singleStep("projects", SearchProjectsInput(worldId = worldId), SearchProjectsStep)
+        val getWorldMember = singleStep("worldMember", user.id, GetWorldMemberStep(worldId))
 
 
         merge("worldData", getWorld, getProjects, getWorldMember) { world, projects, member ->

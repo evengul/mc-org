@@ -6,9 +6,7 @@ import app.mcorg.presentation.handler.executePipeline
 import app.mcorg.presentation.utils.getProjectId
 import app.mcorg.presentation.utils.getProjectProductionItemId
 import app.mcorg.presentation.utils.respondEmptyHtml
-import io.ktor.http.*
 import io.ktor.server.application.*
-import io.ktor.server.response.*
 
 suspend fun ApplicationCall.handleDeleteProjectProductionItem() {
     val projectId = this.getProjectId()
@@ -16,7 +14,6 @@ suspend fun ApplicationCall.handleDeleteProjectProductionItem() {
 
     executePipeline(
         onSuccess = { respondEmptyHtml() },
-        onFailure = { respond(HttpStatusCode.InternalServerError, "Failed to delete project production item") }
     ) {
         value(projectId to productionItemId)
             .step(DeleteProjectProductionItemStep)
