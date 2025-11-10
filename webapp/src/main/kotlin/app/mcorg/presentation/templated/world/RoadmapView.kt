@@ -86,23 +86,44 @@ private fun DIV.statItem(label: String, value: String, variant: String) {
 }
 
 private fun DIV.roadmapLayer(layer: RoadmapLayer, roadmap: Roadmap) {
-    div("roadmap-layer") {
-        // Layer header
-        div("roadmap-layer-header") {
-            h3 {
-                val layerTitle = when {
-                    layer.isRootLayer() -> "Layer ${layer.depth + 1} - Start Here"
-                    layer.depth == roadmap.getMaxDepth() - 1 -> "Layer ${layer.depth + 1} - Final"
-                    else -> "Layer ${layer.depth + 1}"
+    val layerId = "roadmap-layer-${layer.depth}"
+
+    // Check if all projects in this layer are completed
+    val layerProjects = layer.projectIds.mapNotNull { projectId ->
+        roadmap.nodes.find { it.projectId == projectId }
+    }
+    val isLayerCompleted = layerProjects.isNotEmpty() && layerProjects.all { it.isCompleted() }
+
+    div("roadmap-layer${if (isLayerCompleted) " roadmap-layer-collapsed" else ""}") {
+        id = layerId
+
+        div("roadmap-layer-header roadmap-layer-header--clickable") {
+            attributes["onclick"] = "document.getElementById('$layerId').classList.toggle('roadmap-layer-collapsed')"
+            attributes["style"] = "cursor: pointer;"
+            attributes["role"] = "button"
+            attributes["aria-expanded"] = if (isLayerCompleted) "false" else "true"
+            attributes["aria-controls"] = layerId
+
+            div("u-flex u-flex-align-center u-flex-gap-sm") {
+                // Collapse indicator
+                span("roadmap-layer-toggle") {
+                    +"▼"
                 }
-                +layerTitle
+                h3 {
+                    val layerTitle = when {
+                        layer.isRootLayer() -> "Layer ${layer.depth + 1} - Start Here"
+                        layer.depth == roadmap.getMaxDepth() - 1 -> "Layer ${layer.depth + 1} - Final"
+                        else -> "Layer ${layer.depth + 1}"
+                    }
+                    +layerTitle
+                }
             }
             span("roadmap-layer-count") {
                 +"${layer.projectCount} project${if (layer.projectCount == 1) "" else "s"}"
             }
         }
 
-        // Projects in this layer
+        // Projects in this layer (collapsible content)
         div("roadmap-layer-projects") {
             layer.projectIds.forEach { projectId ->
                 val node = roadmap.nodes.find { it.projectId == projectId }
