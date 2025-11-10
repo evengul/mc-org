@@ -1,25 +1,34 @@
 package app.mcorg.config
 
-import app.mcorg.domain.Local
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
 import java.sql.Connection
-import java.sql.DriverManager
 
 interface DatabaseConnectionProvider {
     fun getConnection(): Connection
 }
 
-class ProductionDatabaseProvider : DatabaseConnectionProvider {
-    override fun getConnection(): Connection {
-        val config = Database.Config.get()
-        return DriverManager.getConnection(config.url, config.user, config.password)
-    }
-}
-
-class LocalDatabaseProvider : DatabaseConnectionProvider {
+class HikariDatabaseProvider(isProduction: Boolean) : DatabaseConnectionProvider {
     @Volatile
     private var dataSource: HikariDataSource? = null
+
+    private val poolConfig = if (isProduction) {
+        PoolConfig(
+            maximumPoolSize = 10,
+            minimumIdle = 2,
+            connectionTimeout = 30000,
+            idleTimeout = 600000,
+            maxLifetime = 1800000
+        )
+    } else {
+        PoolConfig(
+            maximumPoolSize = 5,
+            minimumIdle = 1,
+            connectionTimeout = 30000,
+            idleTimeout = 600000,
+            maxLifetime = 1800000
+        )
+    }
 
     override fun getConnection(): Connection {
         if (dataSource == null) {
@@ -31,15 +40,26 @@ class LocalDatabaseProvider : DatabaseConnectionProvider {
                         username = config.user
                         password = config.password
                         driverClassName = "org.postgresql.Driver"
-                        maximumPoolSize = 5
-                        minimumIdle = 1
-                        connectionTimeout = 5000
+                        maximumPoolSize = poolConfig.maximumPoolSize
+                        minimumIdle = poolConfig.minimumIdle
+                        connectionTimeout = poolConfig.connectionTimeout
+                        idleTimeout = poolConfig.idleTimeout
+                        maxLifetime = poolConfig.maxLifetime
+                        leakDetectionThreshold = 60000 // 60 seconds
                     })
                 }
             }
         }
         return dataSource!!.connection
     }
+
+    private data class PoolConfig(
+        val maximumPoolSize: Int,
+        val minimumIdle: Int,
+        val connectionTimeout: Long,
+        val idleTimeout: Long,
+        val maxLifetime: Long
+    )
 }
 
 object Database {
@@ -51,16 +71,12 @@ object Database {
 
     private fun getProvider(): DatabaseConnectionProvider {
         if (provider == null) {
-            provider = if (isLocalEnvironment()) {
-                LocalDatabaseProvider()
-            } else {
-                ProductionDatabaseProvider()
-            }
+            provider = HikariDatabaseProvider(isProduction = !isLocalEnvironment())
         }
         return provider!!
     }
 
-    private fun isLocalEnvironment(): Boolean = AppConfig.env == Local
+    private fun isLocalEnvironment(): Boolean = AppConfig.dbUrl.contains("localhost")
 
     // For testing purposes
     internal fun setProvider(testProvider: DatabaseConnectionProvider) {
