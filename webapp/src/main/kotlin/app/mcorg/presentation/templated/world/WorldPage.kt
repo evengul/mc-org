@@ -5,11 +5,7 @@ import app.mcorg.domain.model.user.Role
 import app.mcorg.domain.model.user.TokenProfile
 import app.mcorg.domain.model.user.WorldMember
 import app.mcorg.domain.model.world.World
-import app.mcorg.presentation.hxGet
-import app.mcorg.presentation.hxIndicator
-import app.mcorg.presentation.hxSwap
-import app.mcorg.presentation.hxTarget
-import app.mcorg.presentation.hxTrigger
+import app.mcorg.presentation.*
 import app.mcorg.presentation.templated.common.button.actionButton
 import app.mcorg.presentation.templated.common.button.neutralButton
 import app.mcorg.presentation.templated.common.chip.ChipVariant
@@ -25,7 +21,6 @@ import app.mcorg.presentation.templated.common.tabs.TabData
 import app.mcorg.presentation.templated.common.tabs.tabsComponent
 import app.mcorg.presentation.utils.BreadcrumbBuilder
 import kotlinx.html.*
-import kotlinx.html.ul
 
 enum class WorldPageToggles {
     PROJECTS,
@@ -37,33 +32,72 @@ enum class WorldPageToggles {
     SEARCH,
 }
 
+sealed interface WorldPageTabData {
+    val id: String
+    val world: World
+    val worldMember: WorldMember
+    val projects: List<Project>
+
+    data class Projects(
+        override val projects: List<Project>,
+        override val world: World,
+        override val worldMember: WorldMember
+    ) : WorldPageTabData {
+        override val id: String = "projects"
+    }
+
+    data class Kanban(
+        override val projects: List<Project>,
+        override val world: World,
+        override val worldMember: WorldMember
+    ) : WorldPageTabData {
+        override val id: String = "kanban"
+    }
+
+    data class Roadmap(
+        override val projects: List<Project>,
+        override val world: World,
+        override val worldMember: WorldMember
+    ) : WorldPageTabData {
+        override val id: String = "roadmap"
+    }
+}
+
 fun worldPage(
     user: TokenProfile,
-    world: World,
-    worldMember: WorldMember,
-    projects: List<Project>,
-    tab: String? = null,
+    tabData: WorldPageTabData,
     unreadNotificationCount: Int = 0,
     toggles: Set<WorldPageToggles> = setOf(
         WorldPageToggles.PROJECTS,
+        WorldPageToggles.ROADMAP,
         WorldPageToggles.NEW_PROJECT,
         WorldPageToggles.SEARCH,
         WorldPageToggles.SETTINGS,
     )
 ) = createPage(
     user = user,
-    pageTitle = world.name,
+    pageTitle = tabData.world.name,
     unreadNotificationCount = unreadNotificationCount,
-    breadcrumbs = BreadcrumbBuilder.buildForWorld(world)
+    breadcrumbs = BreadcrumbBuilder.buildForWorld(tabData.world)
 ) {
     classes += "world"
 
-    worldHeader(user, world, worldMember, toggles)
-    projectSearch(world.id, visibleProjects = projects.size, totalProjects = world.totalProjects, toggles)
-    worldProjectsSection(world.totalProjects, projects, tab, toggles)
+    worldHeader(user, tabData.world, tabData.worldMember, toggles)
+    projectSearch(
+        tabData.world.id,
+        visibleProjects = tabData.projects.size,
+        totalProjects = tabData.world.totalProjects,
+        toggles
+    )
+    worldProjectsSection(tabData, toggles)
 }
 
-private fun MAIN.worldHeader(user: TokenProfile, world: World, worldMember: WorldMember, toggles: Set<WorldPageToggles>) {
+private fun MAIN.worldHeader(
+    user: TokenProfile,
+    world: World,
+    worldMember: WorldMember,
+    toggles: Set<WorldPageToggles>
+) {
     div("world-header") {
         worldHeaderInfo(world)
         worldHeaderActions(user, world, worldMember, toggles)
@@ -74,21 +108,26 @@ private fun FlowContent.worldHeaderInfo(world: World) {
     div("world-header-start") {
         div("world-header-title") {
             h1 {
-                + world.name
+                +world.name
             }
             chipComponent {
                 icon = Icons.Dimensions.OVERWORLD
                 variant = ChipVariant.NEUTRAL
-                + "MC ${world.version}"
+                +"MC ${world.version}"
             }
         }
         p("subtle") {
-            + world.description
+            +world.description
         }
     }
 }
 
-private fun FlowContent.worldHeaderActions(user: TokenProfile, world: World, worldMember: WorldMember, toggles: Set<WorldPageToggles>) {
+private fun FlowContent.worldHeaderActions(
+    user: TokenProfile,
+    world: World,
+    worldMember: WorldMember,
+    toggles: Set<WorldPageToggles>
+) {
     div("world-header-end") {
         if (WorldPageToggles.NEW_PROJECT in toggles) {
             createProjectModal(user, world.id)
@@ -118,13 +157,15 @@ private fun MAIN.projectSearch(worldId: Int, visibleProjects: Int, totalProjects
                 hxGet(Link.Worlds.world(worldId).to + "/projects/search")
                 hxTarget("#world-projects-list")
                 hxSwap("outerHTML")
-                hxTrigger("""
+                hxTrigger(
+                    """
                 input from:#world-projects-search-input delay:500ms, 
                 change from:#world-projects-search-input changed, 
                 change from:#world-projects-search-filter-completed-checkbox,
                 change from:#world-projects-search-sort-select,
                 submit
-            """.trimIndent())
+            """.trimIndent()
+                )
                 hxIndicator(".search-wrapper")
 
                 searchField("world-projects-search-input") {
@@ -136,11 +177,11 @@ private fun MAIN.projectSearch(worldId: Int, visibleProjects: Int, totalProjects
                     option {
                         selected = true
                         value = "modified_desc"
-                        + "Sort by Last Modified"
+                        +"Sort by Last Modified"
                     }
                     option {
                         value = "name_asc"
-                        + "Sort by Name (A-Z)"
+                        +"Sort by Name (A-Z)"
                     }
                 }
                 input {
@@ -150,24 +191,22 @@ private fun MAIN.projectSearch(worldId: Int, visibleProjects: Int, totalProjects
                 }
                 label {
                     htmlFor = "world-projects-search-filter-completed-checkbox"
-                    + "Show completed projects"
+                    +"Show completed projects"
                 }
             }
             p("subtle") {
                 id = "world-projects-count"
-                + "Showing $visibleProjects of $totalProjects project${if (totalProjects == 1) "" else "s"}"
+                +"Showing $visibleProjects of $totalProjects project${if (totalProjects == 1) "" else "s"}"
             }
         }
     }
 }
 
 private fun MAIN.worldProjectsSection(
-    totalProjects: Int,
-    projects: List<Project>,
-    tab: String?,
+    tabData: WorldPageTabData,
     toggles: Set<WorldPageToggles>
 ) {
-    worldProjectsContent(totalProjects, projects, tab, toggles)
+    worldProjectsContent(tabData, toggles)
 }
 
 private fun DIV.worldProjectsEmpty() {
@@ -185,31 +224,34 @@ private fun DIV.worldProjectsEmpty() {
 }
 
 private fun MAIN.worldProjectsContent(
-    totalProjects: Int,
-    projects: List<Project>,
-    tab: String?,
+    tabData: WorldPageTabData,
     toggles: Set<WorldPageToggles>
 ) {
     if (toggles.filter { it == WorldPageToggles.PROJECTS || it == WorldPageToggles.KANBAN || it == WorldPageToggles.ROADMAP }.size > 1) {
-        tabsComponent(".world-project-content", TabData.create("Projects"), TabData.create("Kanban"), TabData.create("Roadmap")) {
-            activeTab = tab ?: "projects"
+        tabsComponent(mutableListOf<TabData>().apply {
+            if (WorldPageToggles.PROJECTS in toggles) add(TabData.create("projects", "Projects"))
+            if (WorldPageToggles.KANBAN in toggles) add(TabData.create("kanban", "Kanban"))
+            if (WorldPageToggles.ROADMAP in toggles) add(TabData.create("roadmap", "Roadmap"))
+        }) {
+            hxTarget = ".world-project-content"
+            activeTab = tabData.id
         }
     }
     div("world-project-content") {
-        worldProjectContent(totalProjects, tab, projects)
+        worldProjectContent(tabData)
     }
 }
 
-fun DIV.worldProjectContent(totalProjects: Int, tab: String?, projects: List<Project>) {
-    when(tab) {
-        "kanban" -> kanbanView()
-        "roadmap" -> roadmapView()
-        else -> {
-            if (totalProjects == 0) {
+fun DIV.worldProjectContent(tabData: WorldPageTabData) {
+    when (tabData) {
+        is WorldPageTabData.Kanban -> kanbanView()
+        is WorldPageTabData.Roadmap -> roadmapView(tabData)
+        is WorldPageTabData.Projects -> {
+            if (tabData.world.totalProjects == 0) {
                 worldProjectsEmpty()
             }
             ul {
-                projectList(projects)
+                projectList(tabData.projects)
             }
         }
     }

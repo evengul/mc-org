@@ -5,13 +5,7 @@ import app.mcorg.presentation.hxSwap
 import app.mcorg.presentation.hxTarget
 import app.mcorg.presentation.templated.common.component.LeafComponent
 import app.mcorg.presentation.templated.common.component.addComponent
-import kotlinx.html.ButtonType
-import kotlinx.html.Tag
-import kotlinx.html.TagConsumer
-import kotlinx.html.button
-import kotlinx.html.classes
-import kotlinx.html.div
-import kotlinx.html.onClick
+import kotlinx.html.*
 import org.intellij.lang.annotations.Language
 
 data class TabData(
@@ -52,7 +46,16 @@ fun <T : Tag> T.tabsComponent(
     vararg tabs: TabData,
     handler: (Tabs.() -> Unit)? = null,
 ) {
-    val component = Tabs(tabs.toList())
+    tabsComponent(tabs.toList(), handler)
+}
+
+fun <T : Tag> T.tabsComponent(
+    tabList: List<TabData>,
+    handler: (Tabs.() -> Unit)? = null,
+) {
+    val component = Tabs(
+        tabs = tabList
+    )
     handler?.invoke(component)
     addComponent(component)
 }
