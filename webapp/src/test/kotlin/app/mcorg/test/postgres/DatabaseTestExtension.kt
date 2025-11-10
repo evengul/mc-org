@@ -87,6 +87,10 @@ class DatabaseTestExtension : BeforeAllCallback {
             override fun getConnection(): Connection {
                 return DriverManager.getConnection(getJdbcUrl(), getUsername(), getPassword())
             }
+
+            override fun close() {
+                postgres.close()
+            }
         })
     }
 }
