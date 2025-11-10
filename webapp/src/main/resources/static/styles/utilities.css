@@ -53,12 +53,32 @@
     margin-top: 0;
 }
 
+.u-margin-top-xs {
+    margin-top: var(--spacing-xs);
+}
+
+.u-margin-top-sm {
+    margin-top: var(--spacing-sm);
+}
+
+.u-margin-top-md {
+    margin-top: var(--spacing-md);
+}
+
+.u-margin-bottom-xs {
+    margin-bottom: var(--spacing-xs);
+}
+
 .u-margin-bottom-sm {
     margin-bottom: var(--spacing-sm);
 }
 
 .u-margin-bottom-md {
     margin-bottom: var(--spacing-md);
+}
+
+.u-margin-left-xs {
+    margin-left: var(--spacing-xs);
 }
 
 .u-margin-left-auto {

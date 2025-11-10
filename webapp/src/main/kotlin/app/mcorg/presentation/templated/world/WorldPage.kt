@@ -4,6 +4,7 @@ import app.mcorg.domain.model.project.Project
 import app.mcorg.domain.model.user.Role
 import app.mcorg.domain.model.user.TokenProfile
 import app.mcorg.domain.model.user.WorldMember
+import app.mcorg.domain.model.world.Roadmap
 import app.mcorg.domain.model.world.World
 import app.mcorg.presentation.*
 import app.mcorg.presentation.templated.common.button.actionButton
@@ -38,7 +39,7 @@ sealed interface WorldPageTabData {
     val worldMember: WorldMember
     val projects: List<Project>
 
-    data class Projects(
+    data class ProjectsData(
         override val projects: List<Project>,
         override val world: World,
         override val worldMember: WorldMember
@@ -46,7 +47,7 @@ sealed interface WorldPageTabData {
         override val id: String = "projects"
     }
 
-    data class Kanban(
+    data class KanbanData(
         override val projects: List<Project>,
         override val world: World,
         override val worldMember: WorldMember
@@ -54,10 +55,11 @@ sealed interface WorldPageTabData {
         override val id: String = "kanban"
     }
 
-    data class Roadmap(
+    data class RoadmapData(
         override val projects: List<Project>,
         override val world: World,
-        override val worldMember: WorldMember
+        override val worldMember: WorldMember,
+        val roadmap: Roadmap
     ) : WorldPageTabData {
         override val id: String = "roadmap"
     }
@@ -244,9 +246,9 @@ private fun MAIN.worldProjectsContent(
 
 fun DIV.worldProjectContent(tabData: WorldPageTabData) {
     when (tabData) {
-        is WorldPageTabData.Kanban -> kanbanView()
-        is WorldPageTabData.Roadmap -> roadmapView(tabData)
-        is WorldPageTabData.Projects -> {
+        is WorldPageTabData.KanbanData -> kanbanView()
+        is WorldPageTabData.RoadmapData -> roadmapView(tabData)
+        is WorldPageTabData.ProjectsData -> {
             if (tabData.world.totalProjects == 0) {
                 worldProjectsEmpty()
             }

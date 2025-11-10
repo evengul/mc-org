@@ -11,6 +11,7 @@ import app.mcorg.pipeline.project.commonsteps.SearchProjectsInput
 import app.mcorg.pipeline.project.commonsteps.SearchProjectsStep
 import app.mcorg.pipeline.world.commonsteps.GetWorldMemberStep
 import app.mcorg.pipeline.world.commonsteps.GetWorldStep
+import app.mcorg.pipeline.world.roadmap.GetWorldRoadMapStep
 import app.mcorg.presentation.handler.executePipeline
 import app.mcorg.presentation.templated.world.WorldPageTabData
 import app.mcorg.presentation.templated.world.worldPage
@@ -50,17 +51,20 @@ private data class GetTabDataStep(val worldId: Int, val userId: Int) : Step<Stri
     override suspend fun process(input: String?): Result<AppFailure, WorldPageTabData> {
         return when (input) {
             "roadmap" -> {
+                val roadmap = GetWorldRoadMapStep(worldId).process(Unit)
+                if (roadmap is Result.Failure) return Result.failure(roadmap.error)
+
                 getCommonTabData(worldId, userId)
-                    .map { (world, member, projects) -> WorldPageTabData.Roadmap(projects, world, member) }
+                    .map { (world, member, projects) -> WorldPageTabData.RoadmapData(projects, world, member, roadmap.getOrNull()!!) }
 
             }
             "kanban" -> {
                 getCommonTabData(worldId, userId)
-                    .map { (world, member, projects) -> WorldPageTabData.Kanban(projects, world, member) }
+                    .map { (world, member, projects) -> WorldPageTabData.KanbanData(projects, world, member) }
             }
             else -> {
                 getCommonTabData(worldId, userId)
-                    .map { (world, member, projects) -> WorldPageTabData.Projects(projects, world, member) }
+                    .map { (world, member, projects) -> WorldPageTabData.ProjectsData(projects, world, member) }
             }
         }
     }

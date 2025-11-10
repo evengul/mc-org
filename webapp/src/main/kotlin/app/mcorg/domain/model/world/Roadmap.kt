@@ -111,11 +111,6 @@ data class RoadmapNode(
      * Gets the count of blocking dependencies
      */
     fun getBlockingCount(): Int = blockingProjectIds.size
-
-    /**
-     * Gets the count of dependent projects
-     */
-    fun getDependentCount(): Int = dependentProjectIds.size
 }
 
 /**
@@ -145,11 +140,6 @@ data class RoadmapLayer(
     val projectIds: List<Int>,
     val projectCount: Int
 ) {
-    /**
-     * Gets the index of this layer (0-based)
-     */
-    fun getLayerIndex(): Int = depth
-
     /**
      * Checks if this is the root layer (depth 0)
      */
