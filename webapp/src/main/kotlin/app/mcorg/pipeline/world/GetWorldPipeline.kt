@@ -51,26 +51,31 @@ private data class GetTabDataStep(val worldId: Int, val userId: Int) : Step<Stri
     override suspend fun process(input: String?): Result<AppFailure, WorldPageTabData> {
         return when (input) {
             "roadmap" -> {
+                val worldMember = GetWorldMemberStep(worldId).process(userId)
+                val world = GetWorldStep.process(worldId)
                 val roadmap = GetWorldRoadMapStep(worldId).process(Unit)
+                if (worldMember is Result.Failure) return Result.failure(worldMember.error)
+                if (world is Result.Failure) return Result.failure(world.error)
                 if (roadmap is Result.Failure) return Result.failure(roadmap.error)
 
-                getCommonTabData(worldId, userId)
-                    .map { (world, member, projects) -> WorldPageTabData.RoadmapData(projects, world, member, roadmap.getOrNull()!!) }
-
+                Result.success(WorldPageTabData.RoadmapData(world.getOrNull()!!, worldMember.getOrNull()!!, roadmap.getOrNull()!!))
             }
             "kanban" -> {
-                getCommonTabData(worldId, userId)
-                    .map { (world, member, projects) -> WorldPageTabData.KanbanData(projects, world, member) }
+                val worldMember = GetWorldMemberStep(worldId).process(userId)
+                val world = GetWorldStep.process(worldId)
+                if (worldMember is Result.Failure) return Result.failure(worldMember.error)
+                if (world is Result.Failure) return Result.failure(world.error)
+                Result.success(WorldPageTabData.KanbanData(world.getOrNull()!!, worldMember.getOrNull()!!))
             }
             else -> {
-                getCommonTabData(worldId, userId)
-                    .map { (world, member, projects) -> WorldPageTabData.ProjectsData(projects, world, member) }
+                getProjectTabData(worldId, userId)
+                    .map { (world, member, projects) -> WorldPageTabData.ProjectsData(world, member, projects) }
             }
         }
     }
 }
 
-private suspend fun getCommonTabData(worldId: Int, userId: Int): Result<AppFailure, Triple<World, WorldMember, List<Project>>> {
+private suspend fun getProjectTabData(worldId: Int, userId: Int): Result<AppFailure, Triple<World, WorldMember, List<Project>>> {
     val world = GetWorldStep.process(worldId)
     val worldMember = GetWorldMemberStep(worldId).process(userId)
     val projects = SearchProjectsStep.process(SearchProjectsInput(worldId))

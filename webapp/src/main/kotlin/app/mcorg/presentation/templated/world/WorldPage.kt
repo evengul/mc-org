@@ -37,18 +37,16 @@ sealed interface WorldPageTabData {
     val id: String
     val world: World
     val worldMember: WorldMember
-    val projects: List<Project>
 
     data class ProjectsData(
-        override val projects: List<Project>,
         override val world: World,
-        override val worldMember: WorldMember
+        override val worldMember: WorldMember,
+        val projects: List<Project>
     ) : WorldPageTabData {
         override val id: String = "projects"
     }
 
     data class KanbanData(
-        override val projects: List<Project>,
         override val world: World,
         override val worldMember: WorldMember
     ) : WorldPageTabData {
@@ -56,7 +54,6 @@ sealed interface WorldPageTabData {
     }
 
     data class RoadmapData(
-        override val projects: List<Project>,
         override val world: World,
         override val worldMember: WorldMember,
         val roadmap: Roadmap
@@ -85,12 +82,6 @@ fun worldPage(
     classes += "world"
 
     worldHeader(user, tabData.world, tabData.worldMember, toggles)
-    projectSearch(
-        tabData.world.id,
-        visibleProjects = tabData.projects.size,
-        totalProjects = tabData.world.totalProjects,
-        toggles
-    )
     worldProjectsSection(tabData, toggles)
 }
 
@@ -152,54 +143,52 @@ private fun FlowContent.worldHeaderActions(
     }
 }
 
-private fun MAIN.projectSearch(worldId: Int, visibleProjects: Int, totalProjects: Int, toggles: Set<WorldPageToggles>) {
-    if (WorldPageToggles.SEARCH in toggles) {
-        div {
-            form(classes = "world-projects-search") {
-                hxGet(Link.Worlds.world(worldId).to + "/projects/search")
-                hxTarget("#world-projects-list")
-                hxSwap("outerHTML")
-                hxTrigger(
-                    """
+private fun DIV.projectSearch(worldId: Int, visibleProjects: Int, totalProjects: Int) {
+    div {
+        form(classes = "world-projects-search") {
+            hxGet(Link.Worlds.world(worldId).to + "/projects/search")
+            hxTarget("#world-projects-list")
+            hxSwap("outerHTML")
+            hxTrigger(
+                """
                 input from:#world-projects-search-input delay:500ms, 
                 change from:#world-projects-search-input changed, 
                 change from:#world-projects-search-filter-completed-checkbox,
                 change from:#world-projects-search-sort-select,
                 submit
             """.trimIndent()
-                )
-                hxIndicator(".search-wrapper")
+            )
+            hxIndicator(".search-wrapper")
 
-                searchField("world-projects-search-input") {
-                    placeHolder = "Search projects by name or description..."
+            searchField("world-projects-search-input") {
+                placeHolder = "Search projects by name or description..."
+            }
+            select {
+                id = "world-projects-search-sort-select"
+                name = "sortBy"
+                option {
+                    selected = true
+                    value = "modified_desc"
+                    +"Sort by Last Modified"
                 }
-                select {
-                    id = "world-projects-search-sort-select"
-                    name = "sortBy"
-                    option {
-                        selected = true
-                        value = "modified_desc"
-                        +"Sort by Last Modified"
-                    }
-                    option {
-                        value = "name_asc"
-                        +"Sort by Name (A-Z)"
-                    }
-                }
-                input {
-                    id = "world-projects-search-filter-completed-checkbox"
-                    type = InputType.checkBox
-                    name = "showCompleted"
-                }
-                label {
-                    htmlFor = "world-projects-search-filter-completed-checkbox"
-                    +"Show completed projects"
+                option {
+                    value = "name_asc"
+                    +"Sort by Name (A-Z)"
                 }
             }
-            p("subtle") {
-                id = "world-projects-count"
-                +"Showing $visibleProjects of $totalProjects project${if (totalProjects == 1) "" else "s"}"
+            input {
+                id = "world-projects-search-filter-completed-checkbox"
+                type = InputType.checkBox
+                name = "showCompleted"
             }
+            label {
+                htmlFor = "world-projects-search-filter-completed-checkbox"
+                +"Show completed projects"
+            }
+        }
+        p("subtle") {
+            id = "world-projects-count"
+            +"Showing $visibleProjects of $totalProjects project${if (totalProjects == 1) "" else "s"}"
         }
     }
 }
@@ -211,7 +200,7 @@ private fun MAIN.worldProjectsSection(
     worldProjectsContent(tabData, toggles)
 }
 
-private fun DIV.worldProjectsEmpty() {
+fun DIV.worldProjectsEmpty() {
     emptyState(
         id = "empty-projects-state",
         title = "No Active Projects",
@@ -251,6 +240,12 @@ fun DIV.worldProjectContent(tabData: WorldPageTabData) {
         is WorldPageTabData.ProjectsData -> {
             if (tabData.world.totalProjects == 0) {
                 worldProjectsEmpty()
+            } else {
+                projectSearch(
+                    tabData.world.id,
+                    visibleProjects = tabData.projects.size,
+                    totalProjects = tabData.world.totalProjects
+                )
             }
             ul {
                 projectList(tabData.projects)

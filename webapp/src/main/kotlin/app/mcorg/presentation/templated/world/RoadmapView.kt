@@ -19,17 +19,16 @@ import app.mcorg.presentation.templated.utils.toPrettyEnumName
 import kotlinx.html.*
 
 fun DIV.roadmapView(tabData: WorldPageTabData.RoadmapData) {
-    val (_, world, _, roadmap) = tabData
-
-    // Statistics header
-    div("roadmap-stats") {
-        roadmapStatistics(roadmap.getStatistics(), roadmap)
-    }
+    val (_, _, roadmap) = tabData
 
     // Empty state (if no projects)
     if (roadmap.isEmpty()) {
-        roadmapEmptyState(world.id)
+        worldProjectsEmpty()
         return
+    }
+
+    div("roadmap-stats") {
+        roadmapStatistics(roadmap.getStatistics(), roadmap)
     }
 
     // Layers (grouped by depth)
