@@ -14,11 +14,10 @@ import app.mcorg.pipeline.task.SearchTasksInput
 import app.mcorg.pipeline.task.SearchTasksStep
 import app.mcorg.pipeline.task.commonsteps.CountProjectTasksStep
 import app.mcorg.pipeline.world.commonsteps.GetWorldMemberStep
+import app.mcorg.presentation.handler.defaultHandleError
 import app.mcorg.presentation.templated.project.*
 import app.mcorg.presentation.utils.*
-import io.ktor.http.*
 import io.ktor.server.application.*
-import io.ktor.server.response.*
 import kotlinx.html.div
 import kotlinx.html.stream.createHTML
 
@@ -55,7 +54,7 @@ suspend fun ApplicationCall.handleGetProject() {
     val project = when (val projectResult = GetProjectByIdStep.process(projectId)) {
         is Result.Success -> projectResult.value
         is Result.Failure -> {
-            respond(HttpStatusCode.InternalServerError)
+            defaultHandleError(projectResult.error)
             return
         }
     }

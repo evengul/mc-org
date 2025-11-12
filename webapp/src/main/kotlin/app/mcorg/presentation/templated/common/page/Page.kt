@@ -10,9 +10,16 @@ import kotlinx.html.*
 import kotlinx.html.stream.createHTML
 import org.intellij.lang.annotations.Language
 
+val defaultScripts = setOf(
+    PageScript.THEME_SWITCHER,
+    PageScript.HTMX,
+    PageScript.CONFIRMATION_MODAL,
+    PageScript.RESPONSE_TARGETS
+)
+
 fun createPage(
     pageTitle: String = "MC-ORG",
-    pageScripts: Set<PageScript> = setOf(PageScript.THEME_SWITCHER, PageScript.HTMX, PageScript.CONFIRMATION_MODAL, PageScript.RESPONSE_TARGETS),
+    pageScripts: Set<PageScript> = emptySet(),
     pageStyles: Set<PageStyle> = PageStyle.entries.toSet(),
     user: TokenProfile? = null,
     unreadNotificationCount: Int = 0,
@@ -31,7 +38,7 @@ fun createPage(
                 }
             }
 
-            pageScripts.forEach { addScript(it) }
+            (defaultScripts + pageScripts).forEach { addScript(it) }
             pageStyles.forEach { // TODO: Split styles.css into multiple files
                 link {
                     href = it.getPath()

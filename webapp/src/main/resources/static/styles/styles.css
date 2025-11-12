@@ -22,6 +22,7 @@
 @import "components/dialog.css";
 @import "components/checkbox.css";
 @import "components/select.css";
+@import "components/searchable-select.css";
 @import "components/input.css";
 @import "components/radio.css";
 @import "components/textarea.css";

@@ -3,6 +3,10 @@
    ========================================================================== */
 
 /* Base modal styling - replaces generic dialog styling */
+dialog {
+    max-height: 80vh;
+}
+
 .modal {
     position: relative;
     justify-self: center;

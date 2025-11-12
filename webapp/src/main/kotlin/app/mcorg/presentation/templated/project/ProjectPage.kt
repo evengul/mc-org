@@ -9,6 +9,7 @@ import app.mcorg.presentation.templated.common.breadcrumb.Breadcrumbs
 import app.mcorg.presentation.templated.common.chip.ChipVariant
 import app.mcorg.presentation.templated.common.chip.chipComponent
 import app.mcorg.presentation.templated.common.link.Link
+import app.mcorg.presentation.templated.common.page.PageScript
 import app.mcorg.presentation.templated.common.page.createPage
 import app.mcorg.presentation.templated.common.tabs.TabData
 import app.mcorg.presentation.templated.common.tabs.tabsComponent
@@ -20,7 +21,12 @@ sealed interface ProjectTab {
     val user: TokenProfile
     val project: Project
 
-    data class Tasks(override val project: Project, override val user: TokenProfile, val totalTasksCount: Int, val tasks: List<Task>) : ProjectTab {
+    data class Tasks(
+        override val project: Project,
+        override val user: TokenProfile,
+        val totalTasksCount: Int,
+        val tasks: List<Task>
+    ) : ProjectTab {
         override val id: String = "tasks"
     }
 
@@ -34,14 +40,22 @@ sealed interface ProjectTab {
         override val id: String = "resources"
     }
 
-    data class Location(override val project: Project, override val user: TokenProfile,) : ProjectTab {
+    data class Location(override val project: Project, override val user: TokenProfile) : ProjectTab {
         override val id: String = "location"
     }
 
-    data class Dependencies(override val project: Project, override val user: TokenProfile, val availableProjects: List<NamedProjectId>, val dependencies: List<ProjectDependency>, val dependents: List<ProjectDependency>) : ProjectTab {
+    data class Dependencies(
+        override val project: Project,
+        override val user: TokenProfile,
+        val availableProjects: List<NamedProjectId>,
+        val dependencies: List<ProjectDependency>,
+        val dependents: List<ProjectDependency>
+    ) : ProjectTab {
         override val id: String = "dependencies"
     }
-    data class Settings(override val project: Project, override val user: TokenProfile, val worldMemberRole: Role) : ProjectTab {
+
+    data class Settings(override val project: Project, override val user: TokenProfile, val worldMemberRole: Role) :
+        ProjectTab {
         override val id: String = "settings"
     }
 }
@@ -55,6 +69,7 @@ fun projectPage(
 ) = createPage(
     user = user,
     pageTitle = data.project.name,
+    pageScripts = setOf(PageScript.SEARCHABLE_SELECT),
     unreadNotificationCount = unreadNotifications,
     breadcrumbs = breadcrumbs
 ) {
@@ -71,7 +86,8 @@ fun projectPage(
                 chipComponent {
                     id = "project-stage-chip"
                     variant = ChipVariant.ACTION
-                    hxEditableFromHref = Link.Worlds.world(project.worldId).project(project.id).to + "/stage-select-fragment"
+                    hxEditableFromHref =
+                        Link.Worlds.world(project.worldId).project(project.id).to + "/stage-select-fragment"
                     +project.stage.toPrettyEnumName()
                 }
                 p("subtle") {
@@ -98,7 +114,7 @@ fun projectPage(
         }
         p("subtle") {
             id = "project-description"
-            + project.description
+            +project.description
         }
     }
     div("project-content") {
@@ -118,13 +134,28 @@ fun projectPage(
     }
 }
 
-fun DIV.projectTabsContent(data: ProjectTab) {
+fun DIV.projectTabsContent(tab: ProjectTab) {
     classes += "project-tabs-content"
-    when(data) {
-        is ProjectTab.Tasks -> tasksTab(data.project, data.totalTasksCount, data.tasks)
-        is ProjectTab.Resources -> resourcesTab(data.user, data.project, data.resourceProduction, data.resourceGathering, data.itemNames)
-        is ProjectTab.Location -> locationTab(data.user, data.project)
-        is ProjectTab.Dependencies -> dependenciesTab(data.user, data.project.worldId, data.project.id, data.availableProjects, data.dependencies, data.dependents)
-        is ProjectTab.Settings -> projectSettingsTab(data.user, data.project, data.worldMemberRole)
+    when (tab) {
+        is ProjectTab.Tasks -> tasksTab(tab)
+        is ProjectTab.Resources -> resourcesTab(
+            tab.user,
+            tab.project,
+            tab.resourceProduction,
+            tab.resourceGathering,
+            tab.itemNames
+        )
+
+        is ProjectTab.Location -> locationTab(tab.user, tab.project)
+        is ProjectTab.Dependencies -> dependenciesTab(
+            tab.user,
+            tab.project.worldId,
+            tab.project.id,
+            tab.availableProjects,
+            tab.dependencies,
+            tab.dependents
+        )
+
+        is ProjectTab.Settings -> projectSettingsTab(tab.user, tab.project, tab.worldMemberRole)
     }
 }

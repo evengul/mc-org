@@ -9,6 +9,7 @@ val GetResourceProductionStep = DatabaseSteps.query<Int, List<ProjectProduction>
                 SELECT 
                     id,
                     project_id,
+                    item_id,
                     name,
                     rate_per_hour
                 FROM project_productions
@@ -26,7 +27,8 @@ val GetResourceProductionStep = DatabaseSteps.query<Int, List<ProjectProduction>
                     id = resultSet.getInt("id"),
                     projectId = resultSet.getInt("project_id"),
                     name = resultSet.getString("name"),
-                    ratePerHour = resultSet.getInt("rate_per_hour")
+                    ratePerHour = resultSet.getInt("rate_per_hour"),
+                    itemId = resultSet.getString("item_id")
                 )
             )
         }

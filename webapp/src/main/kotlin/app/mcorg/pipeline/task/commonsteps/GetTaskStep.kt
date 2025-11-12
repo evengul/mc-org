@@ -20,6 +20,7 @@ object GetTaskStep : Step<Int, AppFailure.DatabaseError, Task> {
                         t.stage,
                         t.priority,
                         t.requirement_type,
+                        t.item_id,
                         t.requirement_item_required_amount,
                         t.requirement_item_collected,
                         t.requirement_action_completed

@@ -1,5 +1,6 @@
 package app.mcorg.pipeline.project.resources
 
+import app.mcorg.domain.model.minecraft.Item
 import app.mcorg.domain.model.project.ProjectProduction
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
@@ -22,6 +23,7 @@ import kotlinx.html.li
 import kotlinx.html.stream.createHTML
 
 data class CreateProjectProductionInput(
+    val itemId: String,
     val name: String,
     val rate: Int? = null
 )
@@ -30,6 +32,8 @@ suspend fun ApplicationCall.handleCreateProjectProduction() {
     val worldId = this.getWorldId()
     val projectId = this.getProjectId()
     val parameters = receiveParameters()
+
+    val itemNames = GetItemsInWorldVersionStep.process(worldId).getOrNull() ?: emptyList()
 
     executePipeline(
         onSuccess = {
@@ -41,41 +45,47 @@ suspend fun ApplicationCall.handleCreateProjectProduction() {
         }
     ) {
         value(parameters)
-            .step(ValidateCreateProjectProductionInputStep)
+            .step(ValidateCreateProjectProductionInputStep(itemNames))
             .step(CreateProjectProductionStep(projectId))
     }
 }
 
-private object ValidateCreateProjectProductionInputStep : Step<Parameters, AppFailure.ValidationError, CreateProjectProductionInput> {
+private data class ValidateCreateProjectProductionInputStep(val items: List<Item>) : Step<Parameters, AppFailure.ValidationError, CreateProjectProductionInput> {
     override suspend fun process(input: Parameters): Result<AppFailure.ValidationError, CreateProjectProductionInput> {
-        val name = ValidationSteps.required("name") { it }.process(input)
+        val itemId = ValidationSteps.required("itemId") { it }.process(input)
+            .flatMap { existingItemId -> ValidationSteps.validateAllowedValues("itemId", items.map { it.id }, { it }, ignoreCase = false).process(existingItemId) }
+
         val rate = ValidationSteps.optionalInt("ratePerHour") { it }.process(input)
 
-        if (name is Result.Failure || rate is Result.Failure) {
+        if (itemId is Result.Failure || rate is Result.Failure) {
             val errors = mutableListOf<ValidationFailure>()
-            if (name is Result.Failure) errors.add(name.error)
+            if (itemId is Result.Failure) errors.add(itemId.error)
             if (rate is Result.Failure) errors.add(rate.error)
             return Result.Failure(AppFailure.ValidationError(errors))
         }
 
-        return Result.Success(CreateProjectProductionInput(name.getOrNull()!!, rate.getOrNull() ?: 0))
+        val itemName = items.find { it.id == itemId.getOrNull()!! }!!.name
+
+        return Result.Success(CreateProjectProductionInput(itemId.getOrNull()!!, itemName, rate.getOrNull() ?: 0))
     }
 }
 
 private data class CreateProjectProductionStep(val projectId: Int): Step<CreateProjectProductionInput, AppFailure.DatabaseError, ProjectProduction> {
     override suspend fun process(input: CreateProjectProductionInput): Result<AppFailure.DatabaseError, ProjectProduction> {
         return DatabaseSteps.update<CreateProjectProductionInput>(
-            sql = SafeSQL.insert("INSERT INTO project_productions (project_id, name, rate_per_hour) VALUES (?, ?, ?) RETURNING ID"),
+            sql = SafeSQL.insert("INSERT INTO project_productions (project_id, name, rate_per_hour, item_id) VALUES (?, ?, ?, ?) RETURNING ID"),
             parameterSetter = { statement, params ->
                 statement.setInt(1, projectId)
                 statement.setString(2, params.name)
                 statement.setInt(3, params.rate ?: 0)
+                statement.setString(4, params.itemId)
             }
         ).process(input).map {
             ProjectProduction(
                 id = it,
                 projectId = projectId,
                 name = input.name,
+                itemId = input.itemId,
                 ratePerHour = input.rate ?: 0
             )
         }

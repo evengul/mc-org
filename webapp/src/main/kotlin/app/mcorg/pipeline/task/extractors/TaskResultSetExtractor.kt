@@ -27,6 +27,7 @@ private fun ResultSet.toTaskRequirement(): TaskRequirement {
     return when (val type = getString("requirement_type")) {
         "ITEM" -> {
             ItemRequirement(
+                itemId = getString("item_id"),
                 requiredAmount = getInt("requirement_item_required_amount"),
                 collected = getInt("requirement_item_collected"),
             )

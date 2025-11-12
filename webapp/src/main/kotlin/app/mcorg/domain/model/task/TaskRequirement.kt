@@ -5,6 +5,7 @@ sealed interface TaskRequirement {
 }
 
 data class ItemRequirement(
+    val itemId: String,
     val requiredAmount: Int,
     val collected: Int
 ) : TaskRequirement {

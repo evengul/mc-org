@@ -1,14 +1,7 @@
 package app.mcorg.presentation.templated.common.page
 
-import app.mcorg.presentation.templated.common.page.PageScript.CONFIRMATION_MODAL
-import app.mcorg.presentation.templated.common.page.PageScript.DIALOGS
-import app.mcorg.presentation.templated.common.page.PageScript.DRAGGABLE
-import app.mcorg.presentation.templated.common.page.PageScript.HTMX
-import app.mcorg.presentation.templated.common.page.PageScript.REMOVE_FIRST_PROJECT_DIALOG_ON_CREATE
-import app.mcorg.presentation.templated.common.page.PageScript.RESPONSE_TARGETS
-import app.mcorg.presentation.templated.common.page.PageScript.THEME_SWITCHER
-import app.mcorg.presentation.templated.common.page.PageScript.TOGGLE_VISIBILITY
-import io.ktor.util.generateNonce
+import app.mcorg.presentation.templated.common.page.PageScript.*
+import io.ktor.util.*
 import kotlinx.html.HEAD
 import kotlinx.html.script
 
@@ -20,7 +13,8 @@ enum class PageScript {
     DRAGGABLE,
     TOGGLE_VISIBILITY,
     REMOVE_FIRST_PROJECT_DIALOG_ON_CREATE,
-    CONFIRMATION_MODAL;
+    CONFIRMATION_MODAL,
+    SEARCHABLE_SELECT;
 }
 
 fun HEAD.addScript(script: PageScript) {
@@ -33,6 +27,7 @@ fun HEAD.addScript(script: PageScript) {
         TOGGLE_VISIBILITY -> script { src = "/static/scripts/toggleVisibility.js"; nonce = generateNonce() }
         REMOVE_FIRST_PROJECT_DIALOG_ON_CREATE -> script { src = "/static/scripts/remove-first-project-dialog-on-create.js"; nonce = generateNonce() }
         CONFIRMATION_MODAL -> script { src = "/static/scripts/confirmation-modal.js"; nonce = generateNonce() }
+        SEARCHABLE_SELECT -> script { src = "/static/scripts/searchable-select.js"; nonce = generateNonce() }
     }
 }
 

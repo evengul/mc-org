@@ -23,13 +23,13 @@ import app.mcorg.presentation.templated.utils.formatAsRelativeOrDate
 import app.mcorg.presentation.templated.utils.toPrettyEnumName
 import kotlinx.html.*
 
-fun DIV.tasksTab(project: Project, totalTasksCount: Int, tasks: List<Task>) {
+fun DIV.tasksTab(tab: ProjectTab.Tasks) {
     classes += "project-tasks-tab"
     div("project-tasks-content") {
-        projectProgressSection(project)
-        taskManagementSection(project, totalTasksCount, tasks)
+        projectProgressSection(tab.project)
+        taskManagementSection(tab)
     }
-    projectDetailsSidebar(project)
+    projectDetailsSidebar(tab.project)
 }
 
 private fun DIV.projectProgressSection(project: Project) {
@@ -51,10 +51,10 @@ fun DIV.projectProgress(completed: Int, total: Int) {
     }
 }
 
-private fun DIV.taskManagementSection(project: Project, totalTasksCount: Int, tasks: List<Task>) {
+private fun DIV.taskManagementSection(tab: ProjectTab.Tasks) {
     div("project-tasks") {
-        taskManagementHeader(project.worldId, project.id, project.stage)
-        if (totalTasksCount == 0) {
+        taskManagementHeader(tab.project.worldId, tab.project.id, tab.project.stage)
+        if (tab.totalTasksCount == 0) {
             div {
                 emptyTasksDisplay()
             }
@@ -62,12 +62,12 @@ private fun DIV.taskManagementSection(project: Project, totalTasksCount: Int, ta
         p {
             id = "no-tasks-found"
             classes += "subtle"
-            if (tasks.isEmpty() && totalTasksCount > 0) {
+            if (tab.tasks.isEmpty() && tab.totalTasksCount > 0) {
                 + "No tasks found matching the search criteria."
             }
         }
         ul {
-            tasksList(project.worldId, project.id, tasks)
+            tasksList(tab.project.worldId, tab.project.id, tab.tasks)
         }
     }
 }
