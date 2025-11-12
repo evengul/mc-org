@@ -1,11 +1,6 @@
-package app.mcorg.presentation.templated.common.searchField
+package app.mcorg.presentation.templated.common.form.searchField
 
-import app.mcorg.presentation.hxGet
-import app.mcorg.presentation.hxInclude
-import app.mcorg.presentation.hxIndicator
-import app.mcorg.presentation.hxSwap
-import app.mcorg.presentation.hxTarget
-import app.mcorg.presentation.hxTrigger
+import app.mcorg.presentation.*
 import app.mcorg.presentation.templated.common.button.ghostButton
 import app.mcorg.presentation.templated.common.component.LeafComponent
 import app.mcorg.presentation.templated.common.component.addComponent

@@ -6,13 +6,7 @@ import app.mcorg.domain.model.task.ItemRequirement
 import app.mcorg.domain.model.task.Priority
 import app.mcorg.domain.model.task.Task
 import app.mcorg.domain.model.task.TaskProjectStage
-import app.mcorg.presentation.hxDeleteWithConfirm
-import app.mcorg.presentation.hxGet
-import app.mcorg.presentation.hxIndicator
-import app.mcorg.presentation.hxPatch
-import app.mcorg.presentation.hxSwap
-import app.mcorg.presentation.hxTarget
-import app.mcorg.presentation.hxTrigger
+import app.mcorg.presentation.*
 import app.mcorg.presentation.templated.common.button.IconButtonColor
 import app.mcorg.presentation.templated.common.button.actionButton
 import app.mcorg.presentation.templated.common.button.iconButton
