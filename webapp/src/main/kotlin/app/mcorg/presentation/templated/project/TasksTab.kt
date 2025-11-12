@@ -14,11 +14,11 @@ import app.mcorg.presentation.templated.common.button.neutralButton
 import app.mcorg.presentation.templated.common.chip.ChipVariant
 import app.mcorg.presentation.templated.common.chip.chipComponent
 import app.mcorg.presentation.templated.common.emptystate.emptyState
+import app.mcorg.presentation.templated.common.form.searchField.searchField
 import app.mcorg.presentation.templated.common.icon.IconSize
 import app.mcorg.presentation.templated.common.icon.Icons
 import app.mcorg.presentation.templated.common.link.Link
 import app.mcorg.presentation.templated.common.progress.progressComponent
-import app.mcorg.presentation.templated.common.searchField.searchField
 import app.mcorg.presentation.templated.utils.formatAsRelativeOrDate
 import app.mcorg.presentation.templated.utils.toPrettyEnumName
 import kotlinx.html.*

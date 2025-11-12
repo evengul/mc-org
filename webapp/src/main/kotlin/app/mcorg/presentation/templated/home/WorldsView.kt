@@ -6,10 +6,10 @@ import app.mcorg.domain.model.world.World
 import app.mcorg.presentation.templated.common.component.LeafComponent
 import app.mcorg.presentation.templated.common.component.addComponent
 import app.mcorg.presentation.templated.common.emptystate.emptyState
+import app.mcorg.presentation.templated.common.form.searchField.SearchFieldHxValues
+import app.mcorg.presentation.templated.common.form.searchField.searchField
 import app.mcorg.presentation.templated.common.icon.Icons
 import app.mcorg.presentation.templated.common.link.Link
-import app.mcorg.presentation.templated.common.searchField.SearchFieldHxValues
-import app.mcorg.presentation.templated.common.searchField.searchField
 import kotlinx.html.*
 
 fun DIV.worldsView(user: TokenProfile, worlds: List<World>, supportedVersions: List<MinecraftVersion.Release>) {
