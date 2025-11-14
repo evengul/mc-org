@@ -36,10 +36,6 @@ class IdeaCategorySchemaBuilder(private val category: IdeaCategory) {
         fields += RateFieldBuilder(key).apply(block).build()
     }
 
-    fun dimensionsField(key: String, block: DimensionsFieldBuilder.() -> Unit = {}) {
-        fields += DimensionsFieldBuilder(key).apply(block).build()
-    }
-
     fun mapField(key: String, block: MapFieldBuilder.() -> Unit = {}) {
         fields += MapFieldBuilder(key).apply(block).build()
     }

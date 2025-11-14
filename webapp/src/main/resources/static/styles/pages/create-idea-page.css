@@ -1,0 +1,16 @@
+#create-idea-page {
+    max-width: clamp(300px, 90%, 800px);
+    margin: 0 auto;
+
+    #create-idea-form {
+        p.validation-error-message {
+            margin-bottom: var(--spacing-md);
+        }
+    }
+
+    .form-navigation-buttons {
+        display: flex;
+        justify-content: space-between;
+        gap: var(--spacing-lg);
+    }
+}

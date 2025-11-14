@@ -1,23 +1,16 @@
 package app.mcorg.presentation.templated.idea
 
 import app.mcorg.domain.model.idea.Idea
-import app.mcorg.domain.model.minecraft.MinecraftVersion
 import app.mcorg.domain.model.user.TokenProfile
 import app.mcorg.presentation.templated.common.emptystate.emptyState
 import app.mcorg.presentation.templated.common.icon.Icons
 import app.mcorg.presentation.templated.common.page.createPage
 import app.mcorg.presentation.utils.BreadcrumbBuilder
-import kotlinx.html.aside
-import kotlinx.html.div
-import kotlinx.html.header
-import kotlinx.html.id
-import kotlinx.html.section
-import kotlinx.html.ul
+import kotlinx.html.*
 
 fun ideasPage(
     user: TokenProfile,
     ideas: List<Idea>,
-    supportedVersions: List<MinecraftVersion.Release>,
     unreadNotifications: Int
 ) = createPage(
     user = user,
@@ -26,7 +19,7 @@ fun ideasPage(
 ) {
     id = "ideas-page"
     header {
-        ideasHeader(user, supportedVersions)
+        ideasHeader(user)
     }
     section {
         id = "ideas-content"

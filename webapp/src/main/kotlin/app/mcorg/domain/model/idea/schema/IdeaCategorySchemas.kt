@@ -46,10 +46,11 @@ object IdeaCategorySchemas {
         }
 
         // Physical dimensions
-        dimensionsField("size") {
+        mapField("size") {
             label = "Size (X × Y × Z)"
             filterable = true
             required = true
+            keyOptions = listOf("x", "y", "z")
         }
 
         booleanField("stackable") {
@@ -97,9 +98,9 @@ object IdeaCategorySchemas {
         }
 
         // Player requirements
-        listField("playerSetup") {
+        multiSelectField("playerSetup") {
             label = "Player Setup Requirements"
-            allowedValues = listOf(
+            options = listOf(
                 "Looting III Sword", "Fire Aspect II", "Sweeping Edge III",
                 "Strength II Potion", "Speed II Potion", "Regeneration",
                 "Full Diamond Armor", "Full Netherite Armor", "Elytra",
@@ -107,9 +108,9 @@ object IdeaCategorySchemas {
             )
         }
 
-        listField("beaconSetup") {
+        multiSelectField("beaconSetup") {
             label = "Beacon Setup Requirements"
-            allowedValues = listOf(
+            options = listOf(
                 "Speed I", "Speed II", "Haste I", "Haste II",
                 "Strength I", "Strength II", "Jump Boost I", "Jump Boost II",
                 "Regeneration I", "Regeneration II", "Resistance I", "Resistance II"
@@ -122,6 +123,7 @@ object IdeaCategorySchemas {
             searchable = true
             multiline = true
             required = true
+            maxLength = 1000
             helpText = "Instructions for operating the farm"
         }
 
@@ -712,10 +714,11 @@ object IdeaCategorySchemas {
     }
 
     val BUILD = ideaCategory(IdeaCategory.BUILD) {
-        dimensionsField("dimensions") {
+        mapField("dimensions") {
             label = "Dimensions"
             searchable = true
             helpText = "Approximate size of the build"
+            keyOptions = listOf("height", "width", "length")
         }
 
         selectField("buildStyle") {

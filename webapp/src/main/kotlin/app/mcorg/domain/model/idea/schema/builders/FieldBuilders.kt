@@ -76,12 +76,6 @@ class RateFieldBuilder(key: String) : FieldBuilder<CategoryField.Rate>(key) {
     )
 }
 
-class DimensionsFieldBuilder(key: String) : FieldBuilder<CategoryField.Dimensions>(key) {
-    override fun build() = CategoryField.Dimensions(
-        key, label, searchable, filterable, required, helpText
-    )
-}
-
 class MapFieldBuilder(key: String) : FieldBuilder<CategoryField.MapField>(key) {
     var keyLabel: String = "Key"
     var valueLabel: String = "Value"
@@ -94,10 +88,9 @@ class MapFieldBuilder(key: String) : FieldBuilder<CategoryField.MapField>(key) {
 
 class ListFieldBuilder(key: String) : FieldBuilder<CategoryField.ListField>(key) {
     var itemLabel: String = "Item"
-    var allowedValues: List<String>? = null
 
     override fun build() = CategoryField.ListField(
-        key, label, searchable, filterable, required, helpText, itemLabel, allowedValues
+        key, label, searchable, filterable, required, helpText, itemLabel
     )
 }
 

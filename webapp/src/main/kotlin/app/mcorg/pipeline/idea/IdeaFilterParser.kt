@@ -105,7 +105,6 @@ object IdeaFilterParser {
             is CategoryField.Select -> parseSelectField(parameters, field)
             is CategoryField.MultiSelect -> parseMultiSelectField(parameters, field)
             is CategoryField.BooleanField -> parseBooleanField(parameters, field)
-            is CategoryField.Dimensions -> parseDimensionsField(parameters, field)
             else -> null // Unsupported field type for filtering
         }
     }
@@ -215,22 +214,5 @@ object IdeaFilterParser {
         }
     }
 
-    /**
-     * Parse dimensions field filter (X × Y × Z)
-     */
-    private fun parseDimensionsField(parameters: Parameters, field: CategoryField.Dimensions): FilterValue? {
-        // Dimensions filtering would require min/max for each axis
-        // For now, we'll skip this or implement basic range filtering
-        val minX = parameters["categoryFilters[${field.key}_x_min]"]?.toDoubleOrNull()
-        val maxX = parameters["categoryFilters[${field.key}_x_max]"]?.toDoubleOrNull()
-        val minY = parameters["categoryFilters[${field.key}_y_min]"]?.toDoubleOrNull()
-        val maxY = parameters["categoryFilters[${field.key}_y_max]"]?.toDoubleOrNull()
-        val minZ = parameters["categoryFilters[${field.key}_z_min]"]?.toDoubleOrNull()
-        val maxZ = parameters["categoryFilters[${field.key}_z_max]"]?.toDoubleOrNull()
-
-        // For simplicity, we'll skip dimensions filtering for now
-        // Can be enhanced later if needed
-        return null
-    }
 }
 

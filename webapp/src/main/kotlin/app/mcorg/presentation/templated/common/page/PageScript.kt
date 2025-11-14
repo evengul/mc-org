@@ -3,6 +3,7 @@ package app.mcorg.presentation.templated.common.page
 import app.mcorg.presentation.templated.common.page.PageScript.*
 import io.ktor.util.*
 import kotlinx.html.HEAD
+import kotlinx.html.ScriptCrossorigin
 import kotlinx.html.script
 
 enum class PageScript {
@@ -20,7 +21,7 @@ enum class PageScript {
 fun HEAD.addScript(script: PageScript) {
     when (script) {
         THEME_SWITCHER -> script { src = "/static/scripts/theme-switcher.js"; nonce = generateNonce() }
-        HTMX -> script { src = "/static/scripts/htmx.js"; nonce = generateNonce() }
+        HTMX -> script { src = "https://cdn.jsdelivr.net/npm/htmx.org@2.0.8/dist/htmx.min.js"; integrity = "sha384-/TgkGk7p307TH7EXJDuUlgG3Ce1UVolAOFopFekQkkXihi5u/6OCvVKyz1W+idaz"; crossorigin = ScriptCrossorigin.anonymous }
         RESPONSE_TARGETS -> script { src = "/static/scripts/response-targets.js" }
         DIALOGS -> script { src = "/static/scripts/dialogs.js"; nonce = generateNonce() }
         DRAGGABLE -> script { src = "/static/scripts/draggable.js"; nonce = generateNonce() }

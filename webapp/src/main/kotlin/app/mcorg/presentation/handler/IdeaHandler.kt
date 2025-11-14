@@ -33,6 +33,9 @@ class IdeaHandler {
 
             route("/create") {
                 install(IdeaCreatorPlugin)
+                get {
+                    call.handleGetCreateIdeaPage()
+                }
                 get("/fields/{category}") {
                     call.handleGetCreateCategoryFields()
                 }

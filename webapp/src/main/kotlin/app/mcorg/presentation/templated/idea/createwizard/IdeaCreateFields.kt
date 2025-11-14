@@ -1,4 +1,4 @@
-package app.mcorg.presentation.templated.idea
+package app.mcorg.presentation.templated.idea.createwizard
 
 import app.mcorg.domain.model.idea.schema.CategoryField
 import kotlinx.html.*
@@ -7,25 +7,24 @@ import kotlinx.html.*
  * Renders a form input field for idea creation based on its type.
  * Similar to renderFilterField but for creation forms (not filters).
  */
-fun DIV.renderCreateField(field: CategoryField) {
+fun DIV.renderCreateField(field: CategoryField, value: Any? = null) {
     when (field) {
-        is CategoryField.Text -> renderCreateTextField(field)
-        is CategoryField.Number -> renderCreateNumberField(field)
-        is CategoryField.Select -> renderCreateSelectField(field)
-        is CategoryField.MultiSelect -> renderCreateMultiSelectField(field)
-        is CategoryField.BooleanField -> renderCreateBooleanField(field)
-        is CategoryField.Rate -> renderCreateRateField(field)
-        is CategoryField.Percentage -> renderCreatePercentageField(field)
-        is CategoryField.Dimensions -> renderCreateDimensionsField(field)
-        is CategoryField.MapField -> renderCreateMapField(field)
-        is CategoryField.ListField -> renderCreateListField(field)
+        is CategoryField.Text -> renderCreateTextField(field, value as? String?)
+        is CategoryField.Number -> renderCreateNumberField(field, value as? Int?)
+        is CategoryField.Select -> renderCreateSelectField(field, value as? String?)
+        is CategoryField.MultiSelect -> renderCreateMultiSelectField(field, value as? Set<*>?)
+        is CategoryField.BooleanField -> renderCreateBooleanField(field, value as? Boolean?)
+        is CategoryField.Rate -> renderCreateRateField(field, value as? Int?)
+        is CategoryField.Percentage -> renderCreatePercentageField(field, value as? Double?)
+        is CategoryField.MapField -> renderCreateMapField(field, value as? Map<*, *>)
+        is CategoryField.ListField -> renderCreateListField(field, value as? List<*>)
     }
 }
 
 /**
  * Renders a text input field for creation
  */
-fun DIV.renderCreateTextField(field: CategoryField.Text) {
+fun DIV.renderCreateTextField(field: CategoryField.Text, value: String? = null) {
     label {
         htmlFor = "create-${field.key}"
         +field.label
@@ -48,6 +47,7 @@ fun DIV.renderCreateTextField(field: CategoryField.Text) {
             field.placeholder?.let { placeholder = it }
             field.maxLength?.let { maxLength = it.toString() }
             rows = "4"
+            value?.let { +it }
         }
     } else {
         input(type = InputType.text, classes = "form-control") {
@@ -56,6 +56,7 @@ fun DIV.renderCreateTextField(field: CategoryField.Text) {
             if (field.required) required = true
             field.placeholder?.let { placeholder = it }
             field.maxLength?.let { maxLength = it.toString() }
+            value?.let { this.value = it }
         }
     }
     p("validation-error-message") {
@@ -66,7 +67,7 @@ fun DIV.renderCreateTextField(field: CategoryField.Text) {
 /**
  * Renders a number input field
  */
-fun DIV.renderCreateNumberField(field: CategoryField.Number) {
+fun DIV.renderCreateNumberField(field: CategoryField.Number, value: Int? = null) {
     label {
         htmlFor = "create-${field.key}"
         +field.label
@@ -89,6 +90,9 @@ fun DIV.renderCreateNumberField(field: CategoryField.Number) {
             field.max?.let { attributes["max"] = it.toString() }
             field.step?.let { attributes["step"] = it.toString() }
             placeholder = field.label
+            value?.let {
+                this.value = it.toString()
+            }
         }
         field.suffix?.let { suffix ->
             span {
@@ -105,7 +109,7 @@ fun DIV.renderCreateNumberField(field: CategoryField.Number) {
 /**
  * Renders a select dropdown
  */
-fun DIV.renderCreateSelectField(field: CategoryField.Select) {
+fun DIV.renderCreateSelectField(field: CategoryField.Select, selectedValue: String? = null) {
     label {
         htmlFor = "create-${field.key}"
         +field.label
@@ -134,7 +138,7 @@ fun DIV.renderCreateSelectField(field: CategoryField.Select) {
         field.options.forEach { opt ->
             option {
                 value = opt
-                if (opt == field.defaultValue) selected = true
+                if (opt == field.defaultValue || opt == selectedValue) selected = true
                 +opt
             }
         }
@@ -147,7 +151,7 @@ fun DIV.renderCreateSelectField(field: CategoryField.Select) {
 /**
  * Renders checkboxes for multi-select
  */
-fun DIV.renderCreateMultiSelectField(field: CategoryField.MultiSelect) {
+fun DIV.renderCreateMultiSelectField(field: CategoryField.MultiSelect, selectedValues: Set<*>? = null) {
     label {
         +field.label
         if (field.required) {
@@ -166,6 +170,9 @@ fun DIV.renderCreateMultiSelectField(field: CategoryField.MultiSelect) {
                 input(type = InputType.checkBox) {
                     name = "categoryData[${field.key}][]"
                     value = opt
+                    if (selectedValues != null && selectedValues.contains(opt)) {
+                        checked = true
+                    }
                 }
                 +opt
             }
@@ -179,13 +186,13 @@ fun DIV.renderCreateMultiSelectField(field: CategoryField.MultiSelect) {
 /**
  * Renders a boolean checkbox
  */
-fun DIV.renderCreateBooleanField(field: CategoryField.BooleanField) {
+fun DIV.renderCreateBooleanField(field: CategoryField.BooleanField, checked: Boolean? = null) {
     label("filter-checkbox-label") {
         input(type = InputType.checkBox) {
             id = "create-${field.key}"
             name = "categoryData[${field.key}]"
             value = "true"
-            if (field.defaultValue) checked = true
+            if (field.defaultValue || checked == true) this.checked = true
         }
         +field.label
         if (field.helpText != null) {
@@ -203,7 +210,7 @@ fun DIV.renderCreateBooleanField(field: CategoryField.BooleanField) {
 /**
  * Renders a rate field with unit
  */
-fun DIV.renderCreateRateField(field: CategoryField.Rate) {
+fun DIV.renderCreateRateField(field: CategoryField.Rate, value: Int? = null) {
     label {
         htmlFor = "create-${field.key}"
         +field.label
@@ -225,6 +232,9 @@ fun DIV.renderCreateRateField(field: CategoryField.Rate) {
             field.min?.let { attributes["min"] = it.toString() }
             field.max?.let { attributes["max"] = it.toString() }
             placeholder = field.unit
+            value?.let {
+                this.value = it.toString()
+            }
         }
         span {
             style = "align-self: center; color: var(--clr-text-subtle);"
@@ -239,7 +249,7 @@ fun DIV.renderCreateRateField(field: CategoryField.Rate) {
 /**
  * Renders a percentage field
  */
-fun DIV.renderCreatePercentageField(field: CategoryField.Percentage) {
+fun DIV.renderCreatePercentageField(field: CategoryField.Percentage, value: Double? = null) {
     label {
         htmlFor = "create-${field.key}"
         +field.label
@@ -262,6 +272,9 @@ fun DIV.renderCreatePercentageField(field: CategoryField.Percentage) {
             attributes["max"] = field.max.toString()
             attributes["step"] = "0.01"
             placeholder = "e.g., 0.75"
+            value?.let {
+                this.value = it.toString()
+            }
         }
         span {
             style = "align-self: center; color: var(--clr-text-subtle);"
@@ -274,58 +287,9 @@ fun DIV.renderCreatePercentageField(field: CategoryField.Percentage) {
 }
 
 /**
- * Renders dimension inputs (X, Y, Z)
- */
-fun DIV.renderCreateDimensionsField(field: CategoryField.Dimensions) {
-    label {
-        +field.label
-        if (field.required) {
-            span("required-indicator") { +"*" }
-        }
-        if (field.helpText != null) {
-            small("form-help-text subtle") {
-                style = "display: block; margin-top: var(--spacing-xxs);"
-                +field.helpText
-            }
-        }
-    }
-    div("cluster cluster--xs") {
-        input(type = InputType.number, classes = "form-control") {
-            name = "categoryData[${field.key}][x]"
-            placeholder = "X"
-            attributes["min"] = "1"
-            if (field.required) required = true
-        }
-        span {
-            style = "align-self: center;"
-            +"×"
-        }
-        input(type = InputType.number, classes = "form-control") {
-            name = "categoryData[${field.key}][y]"
-            placeholder = "Y"
-            attributes["min"] = "1"
-            if (field.required) required = true
-        }
-        span {
-            style = "align-self: center;"
-            +"×"
-        }
-        input(type = InputType.number, classes = "form-control") {
-            name = "categoryData[${field.key}][z]"
-            placeholder = "Z"
-            attributes["min"] = "1"
-            if (field.required) required = true
-        }
-    }
-    p("validation-error-message") {
-        id = "validation-error-categoryData[${field.key}]"
-    }
-}
-
-/**
  * Renders a map field (key-value pairs)
  */
-fun DIV.renderCreateMapField(field: CategoryField.MapField) {
+fun DIV.renderCreateMapField(field: CategoryField.MapField, values: Map<*, *>? = null) {
     label {
         +field.label
         if (field.required) {
@@ -340,36 +304,66 @@ fun DIV.renderCreateMapField(field: CategoryField.MapField) {
     }
     div("map-field-container stack stack--xs") {
         id = "map-${field.key}"
-        // Initial empty row
-        div("cluster cluster--xs map-field-row") {
-            if (field.keyOptions != null) {
-                select(classes = "form-control") {
-                    name = "categoryData[${field.key}][key][]"
-                    option { value = ""; +"Select ${field.keyLabel}..." }
-                    field.keyOptions.forEach { opt ->
-                        option { value = opt; +opt }
+        if (field.keyOptions != null) {
+            field.keyOptions.forEach { option ->
+                label {
+                    htmlFor = "create-${field.key}-$option"
+                    +option
+                    if (field.required) {
+                        span("required-indicator") { +"*" }
                     }
                 }
-                p("validation-error-message") {
-                    id = "validation-error-categoryData[${field.key}][key][]"
-                }
-            } else {
                 input(type = InputType.text, classes = "form-control") {
-                    name = "categoryData[${field.key}][key][]"
-                    placeholder = field.keyLabel
+                    id = "create-${field.key}-$option"
+                    name = "categoryData[${field.key}][$option][value]"
+                    placeholder = field.valueLabel
+                    required = field.required
+                    values?.get(option)?.let { this.value = it.toString() }
                 }
-                p("validation-error-message") {
-                    id = "validation-error-categoryData[${field.key}][key]"
-                }
-            }
-            input(type = InputType.text, classes = "form-control") {
-                name = "categoryData[${field.key}][value][]"
-                placeholder = field.valueLabel
             }
             p("validation-error-message") {
-                id = "validation-error-categoryData[${field.key}][value]"
+                id = "validation-error-categoryData[${field.key}][key][]"
             }
+        } else {
+            if (values != null && values.isNotEmpty()) {
+                values.forEach { (k, v) ->
+                    div("cluster cluster--xs map-field-row") {
+                        input(type = InputType.text, classes = "form-control") {
+                            name = "categoryData[${field.key}][key][]"
+                            placeholder = field.keyLabel
+                            if (k != null) this.value = k.toString()
+                        }
+                        input(type = InputType.text, classes = "form-control") {
+                            name = "categoryData[${field.key}][value][]"
+                            placeholder = field.valueLabel
+                            if (v != null) this.value = v.toString()
+                        }
+                        p("validation-error-message") {
+                            id = "validation-error-categoryData[${field.key}][key]"
+                        }
+                    }
+                }
+            } else {
+                div("cluster cluster--xs map-field-row") {
+                    input(type = InputType.text, classes = "form-control") {
+                        name = "categoryData[${field.key}][key][]"
+                        placeholder = field.keyLabel
+                    }
+                    input(type = InputType.text, classes = "form-control") {
+                        name = "categoryData[${field.key}][value][]"
+                        placeholder = field.valueLabel
+                    }
+                    p("validation-error-message") {
+                        id = "validation-error-categoryData[${field.key}][key]"
+                    }
+                }
+            }
+
         }
+        p("validation-error-message") {
+            id = "validation-error-categoryData[${field.key}][value]"
+        }
+
     }
     button(type = ButtonType.button, classes = "btn btn--sm btn--neutral") {
         attributes["onclick"] = "addMapFieldRow('map-${field.key}')"
@@ -380,7 +374,7 @@ fun DIV.renderCreateMapField(field: CategoryField.MapField) {
 /**
  * Renders a list field
  */
-fun DIV.renderCreateListField(field: CategoryField.ListField) {
+fun DIV.renderCreateListField(field: CategoryField.ListField, selectedValues: List<*>? = null) {
     label {
         htmlFor = "create-${field.key}"
         +field.label
@@ -395,33 +389,17 @@ fun DIV.renderCreateListField(field: CategoryField.ListField) {
         }
     }
 
-    if (field.allowedValues != null) {
-        // Show as checkboxes
-        div("stack stack--xs") {
-            field.allowedValues.forEach { value ->
-                label("filter-checkbox-label") {
-                    input(type = InputType.checkBox) {
-                        name = "categoryData[${field.key}][]"
-                        this.value = value
-                    }
-                    +value
-                }
-            }
-            p("validation-error-message") {
-                id = "validation-error-categoryData[${field.key}]"
-            }
+    input(type = InputType.text, classes = "form-control") {
+        id = "create-${field.key}"
+        name = "categoryData[${field.key}]"
+        placeholder = "Enter values separated by commas"
+        if (field.required) required = true
+        selectedValues?.let {
+            this.value = it.joinToString(", ")
         }
-    } else {
-        // Free-form text list (comma-separated)
-        input(type = InputType.text, classes = "form-control") {
-            id = "create-${field.key}"
-            name = "categoryData[${field.key}]"
-            placeholder = "Enter values separated by commas"
-            if (field.required) required = true
-        }
-        p("validation-error-message") {
-            id = "validation-error-categoryData[${field.key}]"
-        }
+    }
+    p("validation-error-message") {
+        id = "validation-error-categoryData[${field.key}]"
     }
 }
 

@@ -18,7 +18,6 @@ fun DIV.renderFilterField(field: CategoryField) {
         is CategoryField.BooleanField -> renderBooleanField(field)
         is CategoryField.Rate -> renderRateField(field)
         is CategoryField.Percentage -> renderPercentageField(field)
-        is CategoryField.Dimensions -> renderDimensionsField(field)
         else -> {
             // Skip non-filterable or unsupported field types
         }
@@ -245,48 +244,6 @@ fun DIV.renderPercentageField(field: CategoryField.Percentage) {
                 attributes["min"] = field.min.toString()
                 attributes["max"] = field.max.toString()
                 attributes["step"] = "0.01"
-            }
-        }
-    }
-}
-
-/**
- * Renders dimension filters (X, Y, Z)
- */
-fun DIV.renderDimensionsField(field: CategoryField.Dimensions) {
-    div("filter-group") {
-        label {
-            +field.label
-            if (field.helpText != null) {
-                span("subtle") {
-                    style = "font-size: var(--text-sm); margin-left: var(--spacing-xxs);"
-                    +" (${field.helpText})"
-                }
-            }
-        }
-        div("cluster cluster--xs") {
-            input(type = InputType.number, classes = "form-control form-control--sm filter-field") {
-                name = "categoryFilters[${field.key}_x]"
-                placeholder = "X"
-                attributes["min"] = "1"
-            }
-            span {
-                style = "align-self: center;"
-                +"×"
-            }
-            input(type = InputType.number, classes = "form-control form-control--sm filter-field") {
-                name = "categoryFilters[${field.key}_y]"
-                placeholder = "Y"
-                attributes["min"] = "1"
-            }
-            span {
-                style = "align-self: center;"
-                +"×"
-            }
-            input(type = InputType.number, classes = "form-control form-control--sm filter-field") {
-                name = "categoryFilters[${field.key}_z]"
-                placeholder = "Z"
-                attributes["min"] = "1"
             }
         }
     }

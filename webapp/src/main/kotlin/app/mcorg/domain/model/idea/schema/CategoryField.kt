@@ -82,15 +82,6 @@ sealed class CategoryField(
         val max: Double? = null
     ) : CategoryField(key, label, searchable, filterable, required, helpText)
 
-    data class Dimensions(
-        override val key: String,
-        override val label: String,
-        override val searchable: Boolean = false,
-        override val filterable: Boolean = false,
-        override val required: Boolean = false,
-        override val helpText: String? = null
-    ) : CategoryField(key, label, searchable, filterable, required, helpText)
-
     data class MapField(
         override val key: String,
         override val label: String,
@@ -103,6 +94,10 @@ sealed class CategoryField(
         val keyOptions: List<String>? = null
     ) : CategoryField(key, label, searchable, filterable, required, helpText)
 
+    /**
+     * Used for free-form lists with comma-separated values.
+     * @see:MultiSelect for predefined option lists.
+     */
     data class ListField(
         override val key: String,
         override val label: String,
@@ -110,8 +105,7 @@ sealed class CategoryField(
         override val filterable: Boolean = false,
         override val required: Boolean = false,
         override val helpText: String? = null,
-        val itemLabel: String = "Item",
-        val allowedValues: List<String>? = null
+        val itemLabel: String = "Item"
     ) : CategoryField(key, label, searchable, filterable, required, helpText)
 
     data class Percentage(
@@ -124,4 +118,34 @@ sealed class CategoryField(
         val min: Double = 0.0,
         val max: Double = 1.0
     ) : CategoryField(key, label, searchable, filterable, required, helpText)
+
+    fun displayValue(value: Any?): String {
+        when (this) {
+            is Rate -> if (value is Int) {
+                return "$value $unit"
+            }
+            is Percentage -> if (value is Int) {
+                val percentage = if (max <= 1.0) {
+                    value.toDouble() * 100.0
+                } else {
+                    value.toDouble()
+                }
+                return "%.2f%%".format(percentage)
+            }
+            is ListField -> if (value is List<*>) {
+                return value.joinToString(", ")
+            }
+            is MapField -> if (value is Map<*, *>) {
+                return value.entries.joinToString(", ") { (k, v) -> "$k: $v" }
+            }
+            is MultiSelect -> if (value is Set<*>) {
+                return value.joinToString(", ")
+            }
+            is BooleanField -> if (value is Boolean) {
+                return if (value) "Yes" else "No"
+            }
+            else -> value?.toString() ?: ""
+        }
+        return value?.toString() ?: ""
+    }
 }

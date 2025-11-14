@@ -1,15 +1,7 @@
 package app.mcorg.presentation.templated.common.form.radiogroup
 
 import app.mcorg.presentation.templated.common.component.LeafComponent
-import kotlinx.html.DIV
-import kotlinx.html.InputType
-import kotlinx.html.Tag
-import kotlinx.html.TagConsumer
-import kotlinx.html.id
-import kotlinx.html.input
-import kotlinx.html.label
-import kotlinx.html.div
-import kotlinx.html.classes
+import kotlinx.html.*
 
 data class RadioGroupOption(
     val value: String,
@@ -32,12 +24,13 @@ fun <T : Tag> T.radioGroup(
     name: String,
     options: List<RadioGroupOption>,
     selectedOption: String? = null,
+    required: Boolean? = null,
     size: RadioGroupSize = RadioGroupSize.MEDIUM,
     state: RadioGroupState = RadioGroupState.DEFAULT,
     layout: RadioGroupLayout = RadioGroupLayout.VERTICAL,
     radioGroupHandler: (RadioGroup.() -> Unit)? = null
 ) {
-    val element = RadioGroup(name, options, selectedOption, size, state, layout)
+    val element = RadioGroup(name, options, selectedOption, required, size, state, layout)
     radioGroupHandler?.let { it(element) }
     element.render(consumer)
 }
@@ -46,6 +39,7 @@ class RadioGroup(
     private val inputName: String,
     private val options: List<RadioGroupOption>,
     var selectedOption: String? = null,
+    var required: Boolean? = false,
     var size: RadioGroupSize = RadioGroupSize.MEDIUM,
     var state: RadioGroupState = RadioGroupState.DEFAULT,
     var layout: RadioGroupLayout = RadioGroupLayout.VERTICAL,
@@ -69,6 +63,12 @@ class RadioGroup(
                         id = "${inputName}-${option.value}"
                         attributes["name"] = inputName
                         attributes["value"] = option.value
+
+                        this@RadioGroup.required?.let {
+                            if (it) {
+                                attributes["required"] = "required"
+                            }
+                        }
 
                         // Apply form control base class and variants
                         classes = mutableSetOf("form-control")
