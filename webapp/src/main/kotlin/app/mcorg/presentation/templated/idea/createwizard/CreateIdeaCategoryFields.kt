@@ -2,6 +2,7 @@ package app.mcorg.presentation.templated.idea.createwizard
 
 import app.mcorg.domain.model.idea.IdeaCategory
 import app.mcorg.domain.model.idea.schema.IdeaCategorySchemas
+import app.mcorg.domain.model.minecraft.MinecraftVersionRange
 import app.mcorg.presentation.templated.utils.toPrettyEnumName
 import kotlinx.html.*
 
@@ -9,12 +10,11 @@ fun FORM.categoryFields(data: CreateIdeaWizardData) {
     val schema = data.categoryData?.let { IdeaCategorySchemas.getSchema(it.first) }
 
     categoryField(data.categoryData?.first)
-    // Container for dynamic category-specific fields
     div {
         id = "category-specific-fields"
         if (schema != null) {
             schema.fields.forEach { field ->
-                renderCreateField(field, data.categoryData.second[field.key])
+                renderCreateField(data.versionRange ?: MinecraftVersionRange.Unbounded, field, data.categoryData.second[field.key])
             }
 
             // If no fields exist
@@ -47,6 +47,7 @@ private fun FORM.categoryField(selectedCategory: IdeaCategory? = null) {
                     attributes["hx-target"] = "#category-specific-fields"
                     attributes["hx-swap"] = "innerHTML"
                     attributes["hx-trigger"] = "change"
+                    attributes["hx-include"] = "[name='versionRangeType'], [name='versionFrom'], [name='versionTo']"
                 }
                 +category.toPrettyEnumName()
             }

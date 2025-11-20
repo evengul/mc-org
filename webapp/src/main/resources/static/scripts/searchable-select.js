@@ -434,11 +434,6 @@ if (document.readyState === 'loading') {
 
 // Re-initialize after HTMX content swap
 document.addEventListener('htmx:afterSwap', (event) => {
-    initSearchableSelects(event.detail.target);
-});
-
-// Also handle HTMX settle event for dynamic content
-document.addEventListener('htmx:afterSettle', (event) => {
-    initSearchableSelects(event.detail.target);
+    initSearchableSelects();
 });
 

@@ -20,8 +20,8 @@ class IdeaCategorySchemaBuilder(private val category: IdeaCategory) {
         fields += NumberFieldBuilder(key).apply(block).build()
     }
 
-    fun selectField(key: String, block: SelectFieldBuilder.() -> Unit) {
-        fields += SelectFieldBuilder(key).apply(block).build()
+    fun <T>selectField(key: String, block: SelectFieldBuilder<T>.() -> Unit) {
+        fields += SelectFieldBuilder<T>(key).apply(block).build()
     }
 
     fun multiSelectField(key: String, block: MultiSelectFieldBuilder.() -> Unit) {
@@ -32,12 +32,12 @@ class IdeaCategorySchemaBuilder(private val category: IdeaCategory) {
         fields += BooleanFieldBuilder(key).apply(block).build()
     }
 
-    fun rateField(key: String, block: RateFieldBuilder.() -> Unit = {}) {
-        fields += RateFieldBuilder(key).apply(block).build()
+    fun structField(key: String, block: StructFieldBuilder.() -> Unit = {}) {
+        fields += StructFieldBuilder(key).apply(block).build()
     }
 
-    fun mapField(key: String, block: MapFieldBuilder.() -> Unit = {}) {
-        fields += MapFieldBuilder(key).apply(block).build()
+    fun typedMapField(key: String, block: TypedMapFieldBuilder.() -> Unit = {}) {
+        fields += TypedMapFieldBuilder(key).apply(block).build()
     }
 
     fun listField(key: String, block: ListFieldBuilder.() -> Unit = {}) {
@@ -63,6 +63,7 @@ class IdeaCategorySchemaBuilder(private val category: IdeaCategory) {
 /**
  * Builder for subcategories within a category
  */
+@Suppress("unused")
 class SubcategoryBuilder(val name: String) {
     internal val fields = mutableListOf<CategoryField>()
 
@@ -74,8 +75,8 @@ class SubcategoryBuilder(val name: String) {
         fields += NumberFieldBuilder(key).apply(block).build()
     }
 
-    fun selectField(key: String, block: SelectFieldBuilder.() -> Unit) {
-        fields += SelectFieldBuilder(key).apply(block).build()
+    fun <T> selectField(key: String, block: SelectFieldBuilder<T>.() -> Unit) {
+        fields += SelectFieldBuilder<T>(key).apply(block).build()
     }
 
     fun multiSelectField(key: String, block: MultiSelectFieldBuilder.() -> Unit) {

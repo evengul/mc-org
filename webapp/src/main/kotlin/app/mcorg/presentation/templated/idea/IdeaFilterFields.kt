@@ -13,7 +13,7 @@ fun DIV.renderFilterField(field: CategoryField) {
     when (field) {
         is CategoryField.Text -> renderTextField(field)
         is CategoryField.Number -> renderNumberField(field)
-        is CategoryField.Select -> renderSelectField(field)
+        is CategoryField.Select<*> -> @Suppress("UNCHECKED_CAST") renderSelectField(field as CategoryField.Select<Any>)
         is CategoryField.MultiSelect -> renderMultiSelectField(field)
         is CategoryField.BooleanField -> renderBooleanField(field)
         is CategoryField.Rate -> renderRateField(field)
@@ -96,7 +96,7 @@ fun DIV.renderNumberField(field: CategoryField.Number) {
 /**
  * Renders a select dropdown
  */
-fun DIV.renderSelectField(field: CategoryField.Select) {
+fun DIV.renderSelectField(field: CategoryField.Select<Any>) {
     div("filter-group") {
         label {
             htmlFor = "filter-${field.key}"
@@ -115,10 +115,10 @@ fun DIV.renderSelectField(field: CategoryField.Select) {
                 value = ""
                 +"Any"
             }
-            field.options.forEach { opt ->
+            field.options().forEach { opt ->
                 option {
-                    value = opt
-                    +opt
+                    value = opt.value.toString()
+                    + opt.label
                 }
             }
         }

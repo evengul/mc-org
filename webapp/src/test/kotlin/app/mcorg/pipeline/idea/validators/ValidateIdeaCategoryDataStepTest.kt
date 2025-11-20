@@ -1,17 +1,21 @@
 package app.mcorg.pipeline.idea.validators
 
 import app.mcorg.domain.model.idea.IdeaCategory
+import app.mcorg.domain.model.idea.schema.IdeaCategorySchemas
+import app.mcorg.domain.model.minecraft.Item
 import app.mcorg.pipeline.failure.ValidationFailure
+import app.mcorg.pipeline.idea.commonsteps.GetItemsInVersionRangeStep
 import app.mcorg.test.utils.TestUtils
 import io.ktor.http.*
+import io.mockk.coEvery
+import io.mockk.mockkObject
+import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertIs
-import kotlin.test.assertTrue
+import kotlin.test.*
 
 class ValidateIdeaCategoryDataStepTest {
 
-    private val requiredFarmFields = 4
+    private val requiredFarmFields = IdeaCategorySchemas.FARM.fields.count { it.required }
 
     private fun createParameters(vararg pairs: Pair<String, List<String>>, type: IdeaCategory = IdeaCategory.FARM): Parameters {
         val builder = ParametersBuilder()
@@ -19,33 +23,44 @@ class ValidateIdeaCategoryDataStepTest {
             values.forEach { value -> builder.append(key, value) }
         }
         if (type == IdeaCategory.FARM) {
-            // Ensure required field is present for FARM category
-            if (!builder.build().contains("categoryData[productionRate]")) {
-                builder.append("categoryData[productionRate]", "1000")
+            if (!builder.build().contains("categoryData.size.x")) {
+                builder.append("categoryData.size.x", "16")
             }
-            if (!builder.build().contains("categoryData[size][x][value]")) {
-                builder.append("categoryData[size][x][value]", "16")
+            if (!builder.build().contains("categoryData.size.y")) {
+                builder.append("categoryData.size.y", "10")
             }
-            if (!builder.build().contains("categoryData[size][y][value]")) {
-                builder.append("categoryData[size][y][value]", "10")
+            if (!builder.build().contains("categoryData.size.z")) {
+                builder.append("categoryData.size.z", "16")
             }
-            if (!builder.build().contains("categoryData[size][z][value]")) {
-                builder.append("categoryData[size][z][value]", "16")
+            if (!builder.build().contains("categoryData.howToUse")) {
+                builder.append("categoryData.howToUse", "Default usage instructions")
             }
-            if (!builder.build().contains("categoryData[howToUse]")) {
-                builder.append("categoryData[howToUse]", "Default usage instructions")
-            }
-            if (!builder.build().contains("categoryData[playersRequired]")) {
-                builder.append("categoryData[playersRequired]", "1")
+            if (!builder.build().contains("categoryData.playersRequired")) {
+                builder.append("categoryData.playersRequired", "1")
             }
         }
         return builder.build()
     }
 
+    companion object {
+        @JvmStatic
+        @BeforeAll
+        fun setup() {
+            mockkObject(GetItemsInVersionRangeStep)
+            coEvery { GetItemsInVersionRangeStep.process(any()) } returns app.mcorg.domain.pipeline.Result.success(
+                listOf(
+                    Item("minecraft:iron_ingot", "Iron Ingot"),
+                    Item("minecraft:diamond", "Diamond"),
+                    Item("minecraft:gold_ingot", "Gold Ingot")
+                )
+            )
+        }
+    }
+
     @Test
     fun `text field with valid value returns success`() {
         val params = createParameters(
-            "categoryData[farmVersion]" to listOf("v3.2")
+            "categoryData.farmVersion" to listOf("v3.2")
         )
         val step = ValidateIdeaCategoryDataStep(IdeaCategory.FARM)
 
@@ -58,12 +73,12 @@ class ValidateIdeaCategoryDataStepTest {
     fun `text field exceeding max length returns failure`() {
         val longText = "a".repeat(1001)
         val params = createParameters(
-            "categoryData[howToUse]" to listOf(longText)
+            "categoryData.howToUse" to listOf(longText)
         )
         val step = ValidateIdeaCategoryDataStep(IdeaCategory.FARM)
 
         val result = TestUtils.executeAndAssertFailure(step, params)
-        assertTrue(result.any { it is ValidationFailure.InvalidFormat && it.parameterName == "howToUse" })
+        assertTrue(result.any { it is ValidationFailure.InvalidFormat && it.parameterName == "categoryData.howToUse" })
     }
 
     @Test
@@ -81,7 +96,7 @@ class ValidateIdeaCategoryDataStepTest {
     @Test
     fun `number field with valid integer returns success`() {
         val params = createParameters(
-            "categoryData[yLevel]" to listOf("64")
+            "categoryData.yLevel" to listOf("64")
         )
         val step = ValidateIdeaCategoryDataStep(IdeaCategory.FARM)
 
@@ -93,19 +108,19 @@ class ValidateIdeaCategoryDataStepTest {
     @Test
     fun `number field with non-integer returns failure`() {
         val params = createParameters(
-            "categoryData[yLevel]" to listOf("not-a-number")
+            "categoryData.yLevel" to listOf("not-a-number")
         )
         val step = ValidateIdeaCategoryDataStep(IdeaCategory.FARM)
 
         val result = TestUtils.executeAndAssertFailure(step, params)
 
-        assertTrue(result.any { it is ValidationFailure.InvalidFormat && it.parameterName == "yLevel" })
+        assertTrue(result.any { it is ValidationFailure.InvalidFormat && it.parameterName == "categoryData.yLevel" })
     }
 
     @Test
     fun `number field below minimum returns failure`() {
         val params = createParameters(
-            "categoryData[productionRate]" to listOf("-100")
+            "categoryData.yLevel" to listOf("-100")
         )
         val step = ValidateIdeaCategoryDataStep(IdeaCategory.FARM)
 
@@ -119,7 +134,7 @@ class ValidateIdeaCategoryDataStepTest {
     @Test
     fun `select field with valid option returns success`() {
         val params = createParameters(
-            "categoryData[playersRequired]" to listOf("1")
+            "categoryData.playersRequired" to listOf("1")
         )
         val step = ValidateIdeaCategoryDataStep(IdeaCategory.FARM)
 
@@ -130,7 +145,7 @@ class ValidateIdeaCategoryDataStepTest {
     @Test
     fun `select field with invalid option returns failure`() {
         val params = createParameters(
-            "categoryData[playersRequired]" to listOf("invalid-option")
+            "categoryData.playersRequired" to listOf("invalid-option")
         )
         val step = ValidateIdeaCategoryDataStep(IdeaCategory.FARM)
 
@@ -144,7 +159,7 @@ class ValidateIdeaCategoryDataStepTest {
     @Test
     fun `multi-select field with valid options returns success`() {
         val params = createParameters(
-            "categoryData[biomes][]" to listOf("Plains", "Forest", "Desert")
+            "categoryData.biomes[]" to listOf("Plains", "Forest", "Desert")
         )
         val step = ValidateIdeaCategoryDataStep(IdeaCategory.FARM)
 
@@ -160,7 +175,7 @@ class ValidateIdeaCategoryDataStepTest {
     @Test
     fun `multi-select field with invalid option returns failure`() {
         val params = createParameters(
-            "categoryData[biomes][]" to listOf("Plains", "InvalidBiome")
+            "categoryData.biomes[]" to listOf("Plains", "InvalidBiome")
         )
         val step = ValidateIdeaCategoryDataStep(IdeaCategory.FARM)
 
@@ -172,7 +187,7 @@ class ValidateIdeaCategoryDataStepTest {
     @Test
     fun `multi-select field with empty array returns success`() {
         val params = createParameters(
-            "categoryData[biomes][]" to emptyList()
+            "categoryData.biomes[]" to emptyList()
         )
         val step = ValidateIdeaCategoryDataStep(IdeaCategory.FARM)
 
@@ -182,7 +197,7 @@ class ValidateIdeaCategoryDataStepTest {
     @Test
     fun `boolean field with true returns success`() {
         val params = createParameters(
-            "categoryData[afkable]" to listOf("true")
+            "categoryData.afkable" to listOf("true")
         )
         val step = ValidateIdeaCategoryDataStep(IdeaCategory.FARM)
 
@@ -194,7 +209,7 @@ class ValidateIdeaCategoryDataStepTest {
     @Test
     fun `boolean field with on returns success as true`() {
         val params = createParameters(
-            "categoryData[stackable]" to listOf("on")
+            "categoryData.stackable" to listOf("on")
         )
         val step = ValidateIdeaCategoryDataStep(IdeaCategory.FARM)
 
@@ -206,7 +221,7 @@ class ValidateIdeaCategoryDataStepTest {
     @Test
     fun `boolean field with invalid value returns failure`() {
         val params = createParameters(
-            "categoryData[afkable]" to listOf("maybe")
+            "categoryData.afkable" to listOf("maybe")
         )
         val step = ValidateIdeaCategoryDataStep(IdeaCategory.FARM)
 
@@ -220,19 +235,19 @@ class ValidateIdeaCategoryDataStepTest {
     @Test
     fun `rate field with valid integer returns success`() {
         val params = createParameters(
-            "categoryData[productionRate]" to listOf("5000")
+            "categoryData.yLevel" to listOf("60")
         )
         val step = ValidateIdeaCategoryDataStep(IdeaCategory.FARM)
 
         val result = TestUtils.executeAndAssertSuccess(step, params)
 
-        assertEquals(5000, result["productionRate"])
+        assertEquals(60, result["yLevel"])
     }
 
     @Test
     fun `percentage field with valid decimal returns success`() {
         val params = createParameters(
-            "categoryData[hopperLockPercentage]" to listOf("0.75"),
+            "categoryData.hopperLockPercentage" to listOf("0.75"),
             type = IdeaCategory.STORAGE
         )
         val step = ValidateIdeaCategoryDataStep(IdeaCategory.STORAGE)
@@ -244,7 +259,7 @@ class ValidateIdeaCategoryDataStepTest {
     @Test
     fun `percentage field outside range returns failure`() {
         val params = createParameters(
-            "categoryData[hopperLockPercentage]" to listOf("1.5"),
+            "categoryData.hopperLockPercentage" to listOf("1.5"),
             type = IdeaCategory.STORAGE
         )
         val step = ValidateIdeaCategoryDataStep(IdeaCategory.STORAGE)
@@ -258,100 +273,100 @@ class ValidateIdeaCategoryDataStepTest {
     @Test
     fun `map field with key options returns success`() {
         val params = createParameters(
-            "categoryData[size][x][value]" to listOf("16"),
-            "categoryData[size][y][value]" to listOf("10"),
-            "categoryData[size][z][value]" to listOf("16")
+            "categoryData.size.x" to listOf("16"),
+            "categoryData.size.y" to listOf("10"),
+            "categoryData.size.z" to listOf("16")
         )
         val step = ValidateIdeaCategoryDataStep(IdeaCategory.FARM)
 
         val result = TestUtils.executeAndAssertSuccess(step, params)
         val size = result["size"] as Map<*, *>
-        assertEquals("16", size["x"])
-        assertEquals("10", size["y"])
-        assertEquals("16", size["z"])
+        assertEquals(16, size["x"])
+        assertEquals(10, size["y"])
+        assertEquals(16, size["z"])
     }
 
     @Test
     fun `map field with invalid key option returns failure`() {
-        val params = createParameters(
-            "categoryData[size][width][value]" to listOf("16")
-        )
+        val params = ParametersBuilder().apply {
+            append("categoryData.width", "16")
+            append("categoryData.howToUse", "Default usage instructions")
+            append("categoryData.playersRequired", "1")
+        }.build()
         val step = ValidateIdeaCategoryDataStep(IdeaCategory.FARM)
 
         val result = TestUtils.executeAndAssertFailure(step, params)
         assertTrue(result.any {
-            it is ValidationFailure.InvalidFormat && it.message?.contains("Invalid key 'width'") == true
+            it is ValidationFailure.CustomValidation && it.message.contains("Unknown field provided: width")
         })
     }
 
     @Test
-    fun `map field with blank values are ignored`() {
+    fun `map field with blank required values get error`() {
         val params = createParameters(
-            "categoryData[size][x][value]" to listOf("16"),
-            "categoryData[size][y][value]" to listOf(""),
-            "categoryData[size][z][value]" to listOf("16")
+            "categoryData.size.x" to listOf("16"),
+            "categoryData.size.y" to listOf(""),
+            "categoryData.size.z" to listOf("16")
         )
         val step = ValidateIdeaCategoryDataStep(IdeaCategory.FARM)
 
-        val result = TestUtils.executeAndAssertSuccess(step, params)
-        val size = result["size"] as Map<*, *>
-        assertEquals(2, size.size)
-        assertEquals("16", size["x"])
-        assertEquals("16", size["z"])
+        val result = TestUtils.executeAndAssertFailure(step, params)
+        assertEquals(1, result.size)
+        assertIs<ValidationFailure.MissingParameter>(result.first())
     }
 
     @Test
     fun `free-form map field with matching keys and values returns success`() {
         val params = createParameters(
-            "categoryData[mobRequirements][key][]" to listOf("Zombie", "Skeleton"),
-            "categoryData[mobRequirements][value][]" to listOf("10", "5")
+            "categoryData.mobRequirements.key[]" to listOf("zombie", "skeleton"),
+            "categoryData.mobRequirements.value[]" to listOf("10", "5")
         )
         val step = ValidateIdeaCategoryDataStep(IdeaCategory.FARM)
 
         val result = TestUtils.executeAndAssertSuccess(step, params)
         val mobReqs = result["mobRequirements"] as Map<*, *>
-        assertEquals("10", mobReqs["Zombie"])
-        assertEquals("5", mobReqs["Skeleton"])
+        assertEquals(10, mobReqs["zombie"])
+        assertEquals(5, mobReqs["skeleton"])
     }
 
     @Test
     fun `free-form map field with mismatched keys and values returns failure`() {
         val params = createParameters(
-            "categoryData[mobRequirements][key][]" to listOf("Zombie", "Skeleton", "Creeper"),
-            "categoryData[mobRequirements][value][]" to listOf("10", "5")
+            "categoryData.mobRequirements.key[]" to listOf("zombie", "skeleton", "creeper"),
+            "categoryData.mobRequirements.value[]" to listOf("10", "5")
         )
         val step = ValidateIdeaCategoryDataStep(IdeaCategory.FARM)
 
         val result = TestUtils.executeAndAssertFailure(step, params)
         assertTrue(result.any {
-            it is ValidationFailure.InvalidFormat && it.message?.contains("mismatched key-value pairs") == true
+            it is ValidationFailure.InvalidFormat && it.message?.contains("Mismatched number of keys and values for typed map field") == true
         })
     }
 
     @Test
     fun `free-form map field filters out blank keys`() {
         val params = createParameters(
-            "categoryData[mobRequirements][key][]" to listOf("Zombie", "", "Skeleton"),
-            "categoryData[mobRequirements][value][]" to listOf("10", "3", "5")
+            "categoryData.mobRequirements.key[]" to listOf("zombie", "", "skeleton"),
+            "categoryData.mobRequirements.value[]" to listOf("10", "3", "5")
         )
         val step = ValidateIdeaCategoryDataStep(IdeaCategory.FARM)
 
         val result = TestUtils.executeAndAssertSuccess(step, params)
         val mobReqs = result["mobRequirements"] as Map<*, *>
         assertEquals(2, mobReqs.size)
-        assertEquals("10", mobReqs["Zombie"])
-        assertEquals("5", mobReqs["Skeleton"])
+        assertEquals(10, mobReqs["zombie"])
+        assertEquals(5, mobReqs["skeleton"])
     }
 
     @Test
     fun `list field with allowed values returns success`() {
         val params = createParameters(
-            "categoryData[playerSetup][]" to listOf("Looting III Sword", "Shield")
+            "categoryData.playerSetup[]" to listOf("Looting III Sword", "Shield")
         )
         val step = ValidateIdeaCategoryDataStep(IdeaCategory.FARM)
 
         val result = TestUtils.executeAndAssertSuccess(step, params)
-        val setup = result["playerSetup"] as List<*>
+        val setup = assertIs<Set<*>>(result["playerSetup"])
         assertEquals(2, setup.size)
         assertTrue(setup.contains("Looting III Sword"))
         assertTrue(setup.contains("Shield"))
@@ -360,20 +375,20 @@ class ValidateIdeaCategoryDataStepTest {
     @Test
     fun `list field with invalid allowed value returns failure`() {
         val params = createParameters(
-            "categoryData[playerSetup][]" to listOf("Looting III Sword", "Invalid Item")
+            "categoryData.playerSetup[]" to listOf("Looting III Sword", "Invalid Item")
         )
         val step = ValidateIdeaCategoryDataStep(IdeaCategory.FARM)
 
         val result = TestUtils.executeAndAssertFailure(step, params)
         assertTrue(result.any {
-            it is ValidationFailure.InvalidFormat && it.message?.contains("Invalid values") == true
+            it is ValidationFailure.InvalidFormat && it.message?.contains("Invalid option for multi-select") == true
         })
     }
 
     @Test
     fun `list field without allowed values as comma-separated returns success`() {
         val params = createParameters(
-            "categoryData[pros]" to listOf("Fast, Efficient, Cheap")
+            "categoryData.pros" to listOf("Fast, Efficient, Cheap")
         )
         val step = ValidateIdeaCategoryDataStep(IdeaCategory.FARM)
 
@@ -388,37 +403,37 @@ class ValidateIdeaCategoryDataStepTest {
     @Test
     fun `multiple fields of different types return success`() {
         val params = createParameters(
-            "categoryData[farmVersion]" to listOf("v3.2"),
-            "categoryData[productionRate]" to listOf("5000"),
-            "categoryData[afkable]" to listOf("true"),
-            "categoryData[playersRequired]" to listOf("1"),
-            "categoryData[biomes][]" to listOf("Plains", "Forest"),
-            "categoryData[size][x][value]" to listOf("16"),
-            "categoryData[size][y][value]" to listOf("10"),
-            "categoryData[size][z][value]" to listOf("16"),
-            "categoryData[howToUse]" to listOf("Stand here and wait")
+            "categoryData.farmVersion" to listOf("v3.2"),
+            "categoryData.afkable" to listOf("true"),
+            "categoryData.playersRequired" to listOf("1"),
+            "categoryData.biomes[]" to listOf("Plains", "Forest"),
+            "categoryData.size.x" to listOf("16"),
+            "categoryData.size.y" to listOf("10"),
+            "categoryData.size.z" to listOf("16"),
+            "categoryData.howToUse" to listOf("Stand here and wait")
         )
         val step = ValidateIdeaCategoryDataStep(IdeaCategory.FARM)
 
         val result = TestUtils.executeAndAssertSuccess(step, params)
 
-        assertEquals(7, result.size)
+        assertEquals(6, result.size)
         assertEquals("v3.2", result["farmVersion"])
-        assertEquals(5000, result["productionRate"])
         assertEquals(true, result["afkable"])
     }
 
     @Test
-    fun `unknown field is ignored without error`() {
+    fun `unknown field returns failure`() {
         val params = createParameters(
-            "categoryData[unknownField]" to listOf("some value"),
-            "categoryData[farmVersion]" to listOf("v3.2")
+            "categoryData.unknownField" to listOf("some value"),
+            "categoryData.farmVersion" to listOf("v3.2")
         )
         val step = ValidateIdeaCategoryDataStep(IdeaCategory.FARM)
 
-        val result = TestUtils.executeAndAssertSuccess(step, params)
-        assertEquals(requiredFarmFields + 1, result.size)
-        assertEquals("v3.2", result["farmVersion"])
+        val result = TestUtils.executeAndAssertFailure(step, params)
+        assertEquals(1, result.size)
+        val error = result.first()
+        assertIs<ValidationFailure.CustomValidation>(error)
+        assertContains(error.message, "Unknown field provided: unknownField")
     }
 
     @Test
@@ -426,7 +441,7 @@ class ValidateIdeaCategoryDataStepTest {
         val params = createParameters(
             "title" to listOf("Iron Farm"),
             "description" to listOf("A simple iron farm"),
-            "categoryData[farmVersion]" to listOf("v3.2")
+            "categoryData.farmVersion" to listOf("v3.2")
         )
         val step = ValidateIdeaCategoryDataStep(IdeaCategory.FARM)
 
@@ -436,42 +451,32 @@ class ValidateIdeaCategoryDataStepTest {
     }
 
     @Test
-    fun `multi-select submitted as single value returns failure`() {
+    fun `single value field submitted as array ignores value`() {
         val params = createParameters(
-            "categoryData[biomes]" to listOf("Plains")
+            "categoryData.farmVersion[]" to listOf("v3.2", "v3.3")
         )
         val step = ValidateIdeaCategoryDataStep(IdeaCategory.FARM)
 
-        val result = TestUtils.executeAndAssertFailure(step, params)
-        assertTrue(result.any {
-            it is ValidationFailure.InvalidFormat && it.message?.contains("multi-select") == true
-        })
-    }
-
-    @Test
-    fun `single value field submitted as array returns failure`() {
-        val params = createParameters(
-            "categoryData[farmVersion][]" to listOf("v3.2", "v3.3")
-        )
-        val step = ValidateIdeaCategoryDataStep(IdeaCategory.FARM)
-
-        val result = TestUtils.executeAndAssertFailure(step, params)
-        assertTrue(result.any {
-            it is ValidationFailure.InvalidFormat && it.message?.contains("not a multi-select or list field") == true
-        })
+        val result = TestUtils.executeAndAssertSuccess(step, params)
+        assertNull(result["farmVersion"])
     }
 
     @Test
     fun `map field submitted as single value returns failure`() {
-        val params = createParameters(
-            "categoryData[size]" to listOf("16x10x16")
-        )
+        val params = ParametersBuilder().apply {
+            append("categoryData.size", "16x16x16")
+            append("categoryData.howToUse", "Default usage instructions")
+            append("categoryData.playersRequired", "1")
+        }.build()
+
         val step = ValidateIdeaCategoryDataStep(IdeaCategory.FARM)
 
         val result = TestUtils.executeAndAssertFailure(step, params)
-        assertTrue(result.any {
-            it is ValidationFailure.InvalidFormat && it.message?.contains("map field") == true
-        })
+        assertEquals(result.size, 3)
+        result.forEach {
+            assertIs<ValidationFailure.MissingParameter>(it)
+            assertTrue { it.parameterName.contains("x") || it.parameterName.contains("y") || it.parameterName.contains("z")  }
+        }
     }
 
     @Test
@@ -484,21 +489,9 @@ class ValidateIdeaCategoryDataStepTest {
     }
 
     @Test
-    fun `malformed category data key is skipped with warning`() {
-        val params = createParameters(
-            "categoryData[invalid" to listOf("value"),
-            "categoryData[farmVersion]" to listOf("v3.2")
-        )
-        val step = ValidateIdeaCategoryDataStep(IdeaCategory.FARM)
-
-        val result = TestUtils.executeAndAssertSuccess(step, params)
-        assertEquals(requiredFarmFields + 1, result.size)
-    }
-
-    @Test
     fun `multiple values for single value field returns failure`() {
         val params = createParameters(
-            "categoryData[farmVersion]" to listOf("v3.2", "v3.3")
+            "categoryData.farmVersion" to listOf("v3.2", "v3.3")
         )
         val step = ValidateIdeaCategoryDataStep(IdeaCategory.FARM)
 
@@ -511,7 +504,7 @@ class ValidateIdeaCategoryDataStepTest {
     @Test
     fun `blank values in multi-select are filtered out`() {
         val params = createParameters(
-            "categoryData[biomes][]" to listOf("Plains", "", "Forest", "  ")
+            "categoryData.biomes[]" to listOf("Plains", "", "Forest", "  ")
         )
         val step = ValidateIdeaCategoryDataStep(IdeaCategory.FARM)
 
@@ -525,18 +518,18 @@ class ValidateIdeaCategoryDataStepTest {
     @Test
     fun `list field returns list type for allowed values`() {
         val params = createParameters(
-            "categoryData[playerSetup][]" to listOf("Looting III Sword", "Shield")
+            "categoryData.playerSetup[]" to listOf("Looting III Sword", "Shield")
         )
         val step = ValidateIdeaCategoryDataStep(IdeaCategory.FARM)
 
         val result = TestUtils.executeAndAssertSuccess(step, params)
-        assertTrue(result["playerSetup"] is List<*>)
+        assertIs<Set<*>>(result["playerSetup"])
     }
 
     @Test
     fun `multi-select returns set type`() {
         val params = createParameters(
-            "categoryData[biomes][]" to listOf("Plains", "Forest")
+            "categoryData.biomes[]" to listOf("Plains", "Forest")
         )
         val step = ValidateIdeaCategoryDataStep(IdeaCategory.FARM)
 
@@ -547,14 +540,99 @@ class ValidateIdeaCategoryDataStepTest {
     @Test
     fun `all validation failures are collected before returning`() {
         val params = createParameters(
-            "categoryData[yLevel]" to listOf("not-a-number"),
-            "categoryData[playersRequired]" to listOf("invalid-option"),
-            "categoryData[biomes][]" to listOf("InvalidBiome")
+            "categoryData.yLevel" to listOf("not-a-number"),
+            "categoryData.playersRequired" to listOf("invalid-option"),
+            "categoryData.biomes[]" to listOf("InvalidBiome")
         )
         val step = ValidateIdeaCategoryDataStep(IdeaCategory.FARM)
 
         val result = TestUtils.executeAndAssertFailure(step, params)
         assertTrue(result.size >= 3)
+    }
+
+    @Test
+    fun `complex farm is decoded`() {
+        val params = createParameters(
+            "categoryData.productionRate.key[]" to listOf("Normal Mode"),
+            "categoryData.productionRate.value.key[]" to listOf("minecraft:iron_ingot", "minecraft:diamond"),
+            "categoryData.productionRate.value.value[]" to listOf("2000", "500"),
+            "categoryData.size.x" to listOf("10"),
+            "categoryData.size.y" to listOf("20"),
+            "categoryData.size.z" to listOf("30"),
+            "categoryData.howToUse" to listOf("Use as needed"),
+        )
+
+        val step = ValidateIdeaCategoryDataStep(IdeaCategory.FARM)
+
+        val result = TestUtils.executeAndAssertSuccess(step, params)
+
+        val productionRate = assertIs<Map<*, *>>(result["productionRate"])
+        assertEquals(1, productionRate.size)
+        val normalRate = assertIs<Map<*, *>>(productionRate["Normal Mode"])
+        assertEquals(2, normalRate.size)
+        assertEquals(2000, normalRate["minecraft:iron_ingot"])
+        assertEquals(500, normalRate["minecraft:diamond"])
+
+        val size = assertIs<Map<*, *>>(result["size"])
+        assertEquals(10, size["x"])
+        assertEquals(20, size["y"])
+        assertEquals(30, size["z"])
+
+        assertEquals("Use as needed", result["howToUse"])
+    }
+
+    @Test
+    fun `empty parameters returns errors for each required field`() {
+        val params = Parameters.Empty
+        val step = ValidateIdeaCategoryDataStep(IdeaCategory.FARM)
+
+        val result = TestUtils.executeAndAssertFailure(step, params)
+        assertEquals(requiredFarmFields, result.size)
+        result.forEach {
+            assertIs<ValidationFailure.MissingParameter>(it)
+        }
+    }
+
+    @Test
+    fun `Empty, non-required values are ignored`() {
+        val params = ParametersBuilder().apply {
+            append("categoryData.farmVersion", "")
+            append("categoryData.productionRate.key[]", "")
+            append("categoryData.productionRate.value.key[]", "")
+            append("categoryData.productionRate.value.value[]", "")
+            append("categoryData.consumptionRate.key[]", "")
+            append("categoryData.consumptionRate.value.key[]", "")
+            append("categoryData.consumptionRate.value.value[]", "")
+            append("categoryData.size.x", "16")
+            append("categoryData.size.y", "10")
+            append("categoryData.size.z", "16")
+            append("categoryData.stackable", "")
+            append("categoryData.tileable", "")
+            append("categoryData.yLevel", "")
+            append("categoryData.subChunkAligned", "")
+            append("categoryData.biomes[]", "")
+            append("categoryData.mobRequirements.key[]", "")
+            append("categoryData.mobRequirements.value[]", "")
+            append("categoryData.playerSetup[]", "")
+            append("categoryData.beaconSetup[]", "")
+            append("categoryData.howToUse", "Default usage instructions")
+            append("categoryData.afkable", "")
+            append("categoryData.playersRequired", "1")
+            append("categoryData.pros", "")
+            append("categoryData.cons", "")
+            append("categoryData.directional", "")
+            append("categoryData.locational", "")
+        }.build()
+
+        val step = ValidateIdeaCategoryDataStep(IdeaCategory.FARM)
+        val result = TestUtils.executeAndAssertSuccess(step, params)
+
+        assertEquals(3, result.size)
+        assertEquals("Default usage instructions", result["howToUse"])
+        assertEquals(16, (result["size"] as Map<*, *>)["x"])
+        assertEquals(10, (result["size"] as Map<*, *>)["y"])
+        assertEquals(16, (result["size"] as Map<*, *>)["z"])
+        assertEquals("1", result["playersRequired"])
     }
 }
 

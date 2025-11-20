@@ -148,15 +148,16 @@ fun FORM.hiddenFields(data: CreateIdeaWizardData) {
             val schema = IdeaCategorySchemas.getSchema(category)
             schema.fields.forEach { field ->
                 when (field) {
-                    is CategoryField.BooleanField -> hiddenBasicField(field, map[field.key])
-                    is CategoryField.Text -> hiddenBasicField(field, map[field.key])
-                    is CategoryField.Number -> hiddenBasicField(field, map[field.key])
-                    is CategoryField.Percentage -> hiddenBasicField(field, map[field.key])
-                    is CategoryField.Rate -> hiddenBasicField(field, map[field.key])
-                    is CategoryField.Select -> hiddenBasicField(field, map[field.key])
-                    is CategoryField.MultiSelect -> hiddenMultiSelectField(field, map[field.key])
+                    is CategoryField.BooleanField,
+                    is CategoryField.Number,
+                    is CategoryField.Percentage,
+                    is CategoryField.Rate,
+                    is CategoryField.Select<*>,
+                    is CategoryField.Text-> hiddenBasicField(field, map[field.key])
                     is CategoryField.ListField -> hiddenListField(field, map[field.key])
-                    is CategoryField.MapField -> hiddenMapField(field, map[field.key])
+                    is CategoryField.MultiSelect -> hiddenMultiSelectField(field, map[field.key])
+                    is CategoryField.StructField -> hiddenStructField(field, map[field.key])
+                    is CategoryField.TypedMapField -> hiddenTypedMapField(field, map[field.key])
                 }
             }
         }
@@ -166,7 +167,7 @@ fun FORM.hiddenFields(data: CreateIdeaWizardData) {
 private fun FORM.hiddenBasicField(field: CategoryField, value: Any?) {
     input {
         type = InputType.hidden
-        name = "categoryData[${field.key}]"
+        name = field.getCompleteKey()
         if (value != null) {
             this.value = value.toString()
         }
@@ -178,7 +179,7 @@ private fun FORM.hiddenMultiSelectField(field: CategoryField.MultiSelect, value:
     set.forEach { v ->
         input {
             type = InputType.hidden
-            name = "categoryData[${field.key}][]"
+            name = field.getCompleteKey()
             if (v != null) {
                 this.value = v.toString()
             }
@@ -190,43 +191,42 @@ private fun FORM.hiddenListField(field: CategoryField.ListField, value: Any?) {
     val list = value as? List<*> ?: return
     input {
         type = InputType.hidden
-        name = "categoryData[${field.key}]"
+        name = field.getCompleteKey()
         if (list.isNotEmpty()) {
             this.value = list.joinToString(",")
         }
     }
 }
 
-private fun FORM.hiddenMapField(field: CategoryField.MapField, value: Any?) {
-    val map = value as? Map<*, *> ?: return
-
-    if (field.keyOptions != null) {
-        field.keyOptions.forEach {
-            input {
-                type = InputType.hidden
-                name = "categoryData[${field.key}][$it][value]"
-                val v = map[it]
-                if (v != null) {
-                    this.value = v.toString()
-                }
-            }
-        }
-    } else {
-        map.forEach { (k, v) ->
-            input {
-                type = InputType.hidden
-                name = "categoryData[${field.key}][key][]"
-                if (k != null) {
-                    this.value = k.toString()
-                }
-            }
-            input {
-                type = InputType.hidden
-                name = "categoryData[${field.key}][value][]"
-                if (v != null) {
-                    this.value = v.toString()
-                }
-            }
-        }
+private fun FORM.hiddenStructField(field: CategoryField.StructField, value: Any?) {
+    val structMap = value as? Map<*, *> ?: return
+    field.fields.forEach { subField ->
+        val v = structMap[subField.key]
+        hiddenTypedMapEntry(subField, v)
     }
 }
+
+private fun FORM.hiddenTypedMapField(field: CategoryField.TypedMapField, value: Any?) {
+    val map = value as? Map<*, *> ?: return
+
+    map.forEach { (key, value) ->
+        hiddenTypedMapEntry(field.keyType, key)
+        hiddenTypedMapEntry(field.valueType, value)
+    }
+}
+
+private fun FORM.hiddenTypedMapEntry(field: CategoryField, value: Any?) {
+    when (field) {
+        is CategoryField.BooleanField,
+        is CategoryField.Text,
+        is CategoryField.Number,
+        is CategoryField.Percentage,
+        is CategoryField.Rate,
+        is CategoryField.Select<*> -> hiddenBasicField(field, value)
+        is CategoryField.MultiSelect -> hiddenMultiSelectField(field, value)
+        is CategoryField.ListField -> hiddenListField(field, value)
+        is CategoryField.StructField -> hiddenStructField(field, value)
+        is CategoryField.TypedMapField -> hiddenTypedMapField(field, value)
+    }
+}
+

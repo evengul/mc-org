@@ -1,13 +1,12 @@
 package app.mcorg.presentation.templated.idea.createwizard
 
-import app.mcorg.domain.model.idea.IdeaDifficulty
 import app.mcorg.domain.model.minecraft.MinecraftVersion
 import app.mcorg.domain.model.user.TokenProfile
 import app.mcorg.presentation.*
 import app.mcorg.presentation.templated.common.button.actionButton
 import app.mcorg.presentation.templated.common.button.neutralButton
+import app.mcorg.presentation.templated.common.page.PageScript
 import app.mcorg.presentation.templated.common.page.createPage
-import app.mcorg.presentation.templated.utils.toPrettyEnumName
 import app.mcorg.presentation.utils.BreadcrumbBuilder
 import kotlinx.html.*
 
@@ -35,6 +34,7 @@ fun createIdeaPage(
 ) = createPage(
     pageTitle = "Create Idea",
     user = user,
+    pageScripts = setOf(PageScript.SEARCHABLE_SELECT),
     unreadNotificationCount = unreadNotifications,
     breadcrumbs = BreadcrumbBuilder.buildForCreateIdea()
 ) {
@@ -117,76 +117,5 @@ private fun SPAN.navigationButtons(stage: CreateIdeaStage) {
                 type = ButtonType.submit
             }
         }
-    }
-}
-
-private fun FORM.generalFields(data: CreateIdeaWizardData) {
-    label {
-        htmlFor = "idea-name"
-        +"Name"
-        span("required-indicator") { +"*" }
-    }
-    input {
-        id = "idea-name"
-        name = "name"
-        type = InputType.text
-        classes += "form-control"
-        required = true
-        minLength = "3"
-        maxLength = "100"
-        if (data.name != null) {
-            value = data.name
-        }
-        placeholder = "e.g., High-Speed Sugar Cane Farm"
-    }
-    p("validation-error-message") {
-        id = "validation-error-name"
-    }
-
-    label {
-        htmlFor = "idea-description"
-        +"Description"
-        span("required-indicator") { +"*" }
-    }
-    textArea {
-        id = "idea-description"
-        name = "description"
-        classes += "form-control"
-        required = true
-        minLength = "20"
-        maxLength = "5000"
-        rows = "6"
-        placeholder = "Describe your contraption, how it works, and what makes it unique..."
-        if (data.description != null) {
-            + data.description
-        }
-    }
-    p("validation-error-message") {
-        id = "validation-error-description"
-    }
-
-    label {
-        htmlFor = "idea-difficulty"
-        +"Difficulty"
-        span("required-indicator") { +"*" }
-    }
-    select {
-        id = "idea-difficulty"
-        name = "difficulty"
-        classes += "form-control"
-        required = true
-        IdeaDifficulty.entries.forEach { difficulty ->
-            option {
-                if (data.difficulty != null) {
-                    selected = data.difficulty == difficulty
-                }
-                value = difficulty.name
-                selected = difficulty == IdeaDifficulty.MID_GAME
-                +difficulty.toPrettyEnumName()
-            }
-        }
-    }
-    p("validation-error-message") {
-        id = "validation-error-difficulty"
     }
 }

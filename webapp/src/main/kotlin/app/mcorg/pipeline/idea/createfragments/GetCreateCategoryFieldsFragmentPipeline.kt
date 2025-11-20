@@ -2,6 +2,8 @@ package app.mcorg.pipeline.idea.createfragments
 
 import app.mcorg.domain.model.idea.IdeaCategory
 import app.mcorg.domain.model.idea.schema.IdeaCategorySchemas
+import app.mcorg.domain.model.minecraft.MinecraftVersionRange
+import app.mcorg.pipeline.idea.validators.ValidateIdeaMinecraftVersionStep
 import app.mcorg.presentation.hxOutOfBands
 import app.mcorg.presentation.templated.idea.createwizard.renderCreateField
 import app.mcorg.presentation.utils.respondHtml
@@ -23,13 +25,14 @@ suspend fun ApplicationCall.handleGetCreateCategoryFields() {
     try {
         val category = IdeaCategory.valueOf(categoryParam)
         val schema = IdeaCategorySchemas.getSchema(category)
+        val versionRange = ValidateIdeaMinecraftVersionStep.process(parameters).getOrNull() ?: MinecraftVersionRange.Unbounded
 
         respondHtml(createHTML().div {
             classes += "stack stack--sm"
 
             // Render all fields from the schema (not just filterable ones)
             schema.fields.forEach { field ->
-                renderCreateField(field)
+                renderCreateField(versionRange, field)
             }
 
             // If no fields exist

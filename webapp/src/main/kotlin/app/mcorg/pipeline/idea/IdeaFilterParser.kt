@@ -102,7 +102,7 @@ object IdeaFilterParser {
             is CategoryField.Number -> parseNumberField(parameters, field)
             is CategoryField.Rate -> parseRateField(parameters, field)
             is CategoryField.Percentage -> parsePercentageField(parameters, field)
-            is CategoryField.Select -> parseSelectField(parameters, field)
+            is CategoryField.Select<*> -> parseSelectField(parameters, field)
             is CategoryField.MultiSelect -> parseMultiSelectField(parameters, field)
             is CategoryField.BooleanField -> parseBooleanField(parameters, field)
             else -> null // Unsupported field type for filtering
@@ -179,9 +179,9 @@ object IdeaFilterParser {
     /**
      * Parse select field filter
      */
-    private fun parseSelectField(parameters: Parameters, field: CategoryField.Select): FilterValue? {
+    private fun parseSelectField(parameters: Parameters, field: CategoryField.Select<*>): FilterValue? {
         val value = parameters["categoryFilters[${field.key}]"]?.takeIf { it.isNotBlank() }
-        return if (value != null && field.options.contains(value)) {
+        return if (value != null && field.options().map { it.value }.contains(value)) {
             FilterValue.SelectValue(value)
         } else {
             null
