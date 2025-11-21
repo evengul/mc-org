@@ -40,6 +40,19 @@ fun FORM.reviewIdeaFields(data: CreateIdeaWizardData) {
         reviewField("Version Range", it.toString())
     }
 
+    data.itemRequirements?.let {
+        if (it.isNotEmpty()) {
+            if (it.entries.size > 10) {
+                reviewField("Item Requirements", "${it.entries.size} items selected. A total of ${it.values.sum()} items.")
+                return@let
+            }
+            val requirementsText = it.entries.joinToString(", ") { entry -> "${entry.key.name} (x${entry.value})" }
+            reviewField("Item Requirements", requirementsText)
+        } else {
+            reviewField("Item Requirements", "None")
+        }
+    }
+
     data.categoryData?.let { (category, map) ->
         reviewField("Category", category.name)
         val schema = IdeaCategorySchemas.getSchema(category)

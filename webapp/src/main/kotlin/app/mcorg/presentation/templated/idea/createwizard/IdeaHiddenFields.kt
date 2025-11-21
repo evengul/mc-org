@@ -4,9 +4,7 @@ import app.mcorg.domain.model.idea.Author
 import app.mcorg.domain.model.idea.schema.CategoryField
 import app.mcorg.domain.model.idea.schema.IdeaCategorySchemas
 import app.mcorg.domain.model.minecraft.MinecraftVersionRange
-import kotlinx.html.FORM
-import kotlinx.html.InputType
-import kotlinx.html.input
+import kotlinx.html.*
 
 fun FORM.hiddenFields(data: CreateIdeaWizardData) {
     if (data.stage != CreateIdeaStage.BASIC_INFO) {
@@ -138,6 +136,18 @@ fun FORM.hiddenFields(data: CreateIdeaWizardData) {
         }
     }
 
+    // Item requirement inputs are always hidden
+    div {
+        id = "hidden-item-requirements-fields"
+        data.itemRequirements?.let {
+            it.forEach { req ->
+                input {
+                    hiddenItemRequirementField(req.key.id, req.value)
+                }
+            }
+        }
+    }
+
     if (data.stage != CreateIdeaStage.CATEGORY_SPECIFIC_FIELDS) {
         data.categoryData?.let { (category, map) ->
             input {
@@ -162,6 +172,13 @@ fun FORM.hiddenFields(data: CreateIdeaWizardData) {
             }
         }
     }
+}
+
+fun INPUT.hiddenItemRequirementField(itemId: String, quantity: Int) {
+    id = "hidden-item-requirement-$itemId"
+    type = InputType.hidden
+    name = "itemRequirements.$itemId"
+    value = quantity.toString()
 }
 
 private fun FORM.hiddenBasicField(field: CategoryField, value: Any?) {

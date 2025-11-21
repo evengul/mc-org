@@ -31,6 +31,7 @@ data class CreateIdeaInput(
     val subAuthors: List<Author>,
     val versionRange: MinecraftVersionRange,
     val testData: PerformanceTestData?,
+    val itemRequirements: Map<String, Int>,
     val categoryData: Map<String, Any>,
 )
 
@@ -63,6 +64,7 @@ object ValidateIdeaInputStep : Step<Parameters, AppFailure.ValidationError, Crea
         val category = ValidateIdeaCategoryStep.process(input)
         val author = ValidateIdeaAuthorStep.process(input)
         val versionRange = ValidateIdeaMinecraftVersionStep.process(input)
+        val itemRequirements = ValidateAllItemRequirementsStep(versionRange.getOrNull() ?: MinecraftVersionRange.Unbounded).process(input)
 
         var categoryData = mapOf<String, Any>()
 
@@ -83,6 +85,9 @@ object ValidateIdeaInputStep : Step<Parameters, AppFailure.ValidationError, Crea
         }
         if (versionRange is Result.Failure) {
             errors.addAll(versionRange.error)
+        }
+        if (itemRequirements is Result.Failure) {
+            errors.addAll(itemRequirements.error)
         }
         if (category is Result.Failure) {
             errors.add(category.error)
@@ -110,6 +115,7 @@ object ValidateIdeaInputStep : Step<Parameters, AppFailure.ValidationError, Crea
                 subAuthors = emptyList(),
                 versionRange = versionRange.getOrNull()!!,
                 testData = null,
+                itemRequirements = itemRequirements.getOrNull()?.mapKeys { it.key.id } ?: emptyMap(),
                 categoryData = categoryData
             )
         )
@@ -185,6 +191,25 @@ data class CreateIdeaStep(val userId: Int) : Step<CreateIdeaInput, AppFailure.Da
 
                             if (testDataResult is Result.Failure) {
                                 return testDataResult
+                            }
+                        }
+
+                        if (input.itemRequirements.isNotEmpty()) {
+                            val requirementResult = DatabaseSteps.batchUpdate<Pair<String, Int>>(
+                                SafeSQL.insert("""
+                                    INSERT INTO idea_item_requirements (idea_id, item_id, quantity) VALUES (?, ?, ?)
+                                """.trimIndent()),
+                                parameterSetter = { statement, (itemId, quantity) ->
+                                    statement.setInt(1, ideaId)
+                                    statement.setString(2, itemId)
+                                    statement.setInt(3, quantity)
+                                },
+                                chunkSize = 500,
+                                transactionConnection = connection
+                            ).process(input.itemRequirements.entries.map { it.key to it.value })
+
+                            if (requirementResult is Result.Failure) {
+                                return requirementResult
                             }
                         }
 

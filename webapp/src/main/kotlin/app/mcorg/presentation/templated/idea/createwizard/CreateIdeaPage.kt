@@ -13,8 +13,9 @@ import kotlinx.html.*
 enum class CreateIdeaStage(val displayName: String, private val previousStep: String?, private val nextStep: String?) {
     BASIC_INFO("Basic Information", null, "AUTHOR_INFO"),
     AUTHOR_INFO("Author Information", "BASIC_INFO", "VERSION_COMPATIBILITY"),
-    VERSION_COMPATIBILITY("Version Compatibility", "AUTHOR_INFO", "CATEGORY_SPECIFIC_FIELDS"),
-    CATEGORY_SPECIFIC_FIELDS("Category Specific Fields", "VERSION_COMPATIBILITY", "REVIEW_SUBMIT"),
+    VERSION_COMPATIBILITY("Version Compatibility", "AUTHOR_INFO", "ITEM_REQUIREMENTS"),
+    ITEM_REQUIREMENTS("Item Requirements", "VERSION_COMPATIBILITY", "CATEGORY_SPECIFIC_FIELDS"),
+    CATEGORY_SPECIFIC_FIELDS("Category Specific Fields", "ITEM_REQUIREMENTS", "REVIEW_SUBMIT"),
     REVIEW_SUBMIT("Review & Submit", "CATEGORY_SPECIFIC_FIELDS", null);
 
     fun getPreviousStep(): CreateIdeaStage? {
@@ -34,7 +35,7 @@ fun createIdeaPage(
 ) = createPage(
     pageTitle = "Create Idea",
     user = user,
-    pageScripts = setOf(PageScript.SEARCHABLE_SELECT),
+    pageScripts = setOf(PageScript.SEARCHABLE_SELECT, PageScript.IDEA_ITEM_REQUIREMENTS),
     unreadNotificationCount = unreadNotifications,
     breadcrumbs = BreadcrumbBuilder.buildForCreateIdea()
 ) {
@@ -58,6 +59,7 @@ fun FORM.createIdeaStageContent(data: CreateIdeaWizardData, supportedVersions: L
         CreateIdeaStage.BASIC_INFO -> generalFields(data)
         CreateIdeaStage.AUTHOR_INFO -> authorFields(data)
         CreateIdeaStage.VERSION_COMPATIBILITY -> versionFields(supportedVersions, data.versionRange)
+        CreateIdeaStage.ITEM_REQUIREMENTS -> itemRequirementFields(data)
         CreateIdeaStage.CATEGORY_SPECIFIC_FIELDS -> categoryFields(data)
         CreateIdeaStage.REVIEW_SUBMIT -> reviewIdeaFields(data)
     }

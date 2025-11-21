@@ -3,6 +3,7 @@ package app.mcorg.presentation.handler
 import app.mcorg.pipeline.idea.*
 import app.mcorg.pipeline.idea.createfragments.handleGetAuthorFields
 import app.mcorg.pipeline.idea.createfragments.handleGetCreateCategoryFields
+import app.mcorg.pipeline.idea.createfragments.handleGetItemRequirementFields
 import app.mcorg.pipeline.idea.createfragments.handleGetVersionFields
 import app.mcorg.pipeline.idea.single.*
 import app.mcorg.presentation.plugins.IdeaCommentParamPlugin
@@ -44,6 +45,9 @@ class IdeaHandler {
                 }
                 get("/version-fields") {
                     call.handleGetVersionFields()
+                }
+                get("/item-requirement-field") {
+                    call.handleGetItemRequirementFields()
                 }
                 post {
                     call.handleCreateIdea()

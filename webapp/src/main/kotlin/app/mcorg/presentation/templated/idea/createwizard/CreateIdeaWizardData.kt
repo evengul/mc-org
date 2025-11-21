@@ -3,6 +3,7 @@ package app.mcorg.presentation.templated.idea.createwizard
 import app.mcorg.domain.model.idea.Author
 import app.mcorg.domain.model.idea.IdeaCategory
 import app.mcorg.domain.model.idea.IdeaDifficulty
+import app.mcorg.domain.model.minecraft.Item
 import app.mcorg.domain.model.minecraft.MinecraftVersion
 import app.mcorg.domain.model.minecraft.MinecraftVersionRange
 import app.mcorg.domain.pipeline.Result
@@ -18,6 +19,8 @@ data class CreateIdeaWizardData(
 
     val author: Author? = null,
     val versionRange: MinecraftVersionRange? = null,
+
+    val itemRequirements: Map<Item, Int>? = null,
 
     val categoryData: Pair<IdeaCategory, Map<String, Any?>>? = null
 )
@@ -59,6 +62,10 @@ suspend fun Parameters.toCreateIdeaDataHolder(currentUsername: String, supported
         }
     }
 
+    val itemRequirements = versionRange.getOrNull()?.let {
+        ValidateAllItemRequirementsStep(it).process(this).getOrNull() ?: emptyMap()
+    } ?: emptyMap()
+
     val categoryData = category.getOrNull()?.let {
         val result = ValidateIdeaCategoryDataStep(it).process(this)
         if (result is Result.Success) {
@@ -75,6 +82,7 @@ suspend fun Parameters.toCreateIdeaDataHolder(currentUsername: String, supported
         difficulty = difficulty.getOrNull(),
         author = author.getOrNull(),
         versionRange = versionRange.getOrNull(),
+        itemRequirements = itemRequirements,
         categoryData = categoryData
     )
 }

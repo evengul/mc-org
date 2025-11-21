@@ -15,7 +15,8 @@ enum class PageScript {
     TOGGLE_VISIBILITY,
     REMOVE_FIRST_PROJECT_DIALOG_ON_CREATE,
     CONFIRMATION_MODAL,
-    SEARCHABLE_SELECT;
+    SEARCHABLE_SELECT,
+    IDEA_ITEM_REQUIREMENTS;
 }
 
 fun HEAD.addScript(script: PageScript) {
@@ -29,6 +30,7 @@ fun HEAD.addScript(script: PageScript) {
         REMOVE_FIRST_PROJECT_DIALOG_ON_CREATE -> script { src = "/static/scripts/remove-first-project-dialog-on-create.js"; nonce = generateNonce() }
         CONFIRMATION_MODAL -> script { src = "/static/scripts/confirmation-modal.js"; nonce = generateNonce() }
         SEARCHABLE_SELECT -> script { src = "/static/scripts/searchable-select.js"; nonce = generateNonce() }
+        IDEA_ITEM_REQUIREMENTS -> script { src = "/static/scripts/ideaItemRequirements.js"; nonce = generateNonce() }
     }
 }
 
