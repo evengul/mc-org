@@ -26,6 +26,12 @@ fun FORM.itemRequirementFields(data: CreateIdeaWizardData) {
         name = "litematicaFile"
         type = InputType.file
         classes += "form-control"
+        hxPost(Link.Ideas.to + "/create/litematica-parse")
+        hxTarget("#idea-item-requirements-list")
+        hxSwap("none")
+        hxInclude("[name='versionRangeType'], [name='versionFrom'], [name='versionTo']")
+        hxTrigger("change")
+        attributes["hx-encoding"] = "multipart/form-data"
     }
 
     div {
@@ -73,7 +79,9 @@ fun FORM.itemRequirementFields(data: CreateIdeaWizardData) {
     ul {
         id = "idea-item-requirements-list"
         data.itemRequirements?.let {
-            it.toSortedMap { a, b -> a.name.compareTo(b.name) }.forEach { (item, quantity) ->
+            it.entries
+                .sortedByDescending { (_, amount) -> amount }
+                .forEach { (item, quantity) ->
                 li {
                     itemRequirementListEntry(item, quantity)
                 }

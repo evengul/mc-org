@@ -49,6 +49,9 @@ class IdeaHandler {
                 get("/item-requirement-field") {
                     call.handleGetItemRequirementFields()
                 }
+                post("/litematica-parse") {
+                    call.handleParseLitematicaMaterialListToIdeaRequirements()
+                }
                 post {
                     call.handleCreateIdea()
                 }
