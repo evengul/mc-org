@@ -286,43 +286,31 @@ data class CreateIdeaStep(val userId: Int) : Step<CreateIdeaInput, AppFailure.Da
     private fun serializeCategoryData(data: Map<String, Any>): String {
         return buildJsonObject {
             data.forEach { (key, value) ->
-                when (value) {
-                    is String -> put(key, value)
-                    is Int -> put(key, value)
-                    is Double -> put(key, value)
-                    is Boolean -> put(key, value)
-                    is List<*> -> {
-                        putJsonArray(key) {
-                            value.forEach { item ->
-                                when (item) {
-                                    is String -> add(item)
-                                    is Int -> add(item)
-                                    is Double -> add(item)
-                                    is Boolean -> add(item)
-                                    else -> add(item.toString())
-                                }
-                            }
-                        }
-                    }
-                    is Map<*, *> -> {
-                        putJsonObject(key) {
-                            @Suppress("UNCHECKED_CAST")
-                            val nestedMap = value as Map<String, Any>
-                            nestedMap.forEach { (nestedKey, nestedValue) ->
-                                when (nestedValue) {
-                                    is String -> put(nestedKey, nestedValue)
-                                    is Int -> put(nestedKey, nestedValue)
-                                    is Double -> put(nestedKey, nestedValue)
-                                    is Boolean -> put(nestedKey, nestedValue)
-                                    else -> put(nestedKey, nestedValue.toString())
-                                }
-                            }
-                        }
-                    }
-                    else -> put(key, value.toString())
-                }
+                put(key, convertToJsonElement(value))
             }
         }.toString()
+    }
+
+    private fun convertToJsonElement(value: Any?): JsonElement {
+        return when (value) {
+            null -> JsonNull
+            is String -> JsonPrimitive(value)
+            is Number -> JsonPrimitive(value)
+            is Boolean -> JsonPrimitive(value)
+            is Map<*, *> -> buildJsonObject {
+                @Suppress("UNCHECKED_CAST")
+                val map = value as Map<String, Any?>
+                map.forEach { (key, nestedValue) ->
+                    put(key, convertToJsonElement(nestedValue))
+                }
+            }
+            is List<*> -> buildJsonArray {
+                value.forEach { item ->
+                    add(convertToJsonElement(item))
+                }
+            }
+            else -> JsonPrimitive(value.toString())
+        }
     }
 }
 

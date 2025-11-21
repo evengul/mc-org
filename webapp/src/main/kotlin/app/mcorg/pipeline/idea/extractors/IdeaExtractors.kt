@@ -80,7 +80,7 @@ private fun deserializeSubAuthors(array: Array?): List<Author> {
 /**
  * Deserialize version range JSON to MinecraftVersionRange object
  */
-private fun deserializeVersionRange(json: String): MinecraftVersionRange {
+fun deserializeVersionRange(json: String): MinecraftVersionRange {
     val jsonObject = Json.parseToJsonElement(json).jsonObject
     val type = jsonObject["type"]?.jsonPrimitive?.content
 

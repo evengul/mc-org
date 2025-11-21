@@ -6,10 +6,11 @@ import app.mcorg.pipeline.idea.createfragments.handleGetCreateCategoryFields
 import app.mcorg.pipeline.idea.createfragments.handleGetItemRequirementFields
 import app.mcorg.pipeline.idea.createfragments.handleGetVersionFields
 import app.mcorg.pipeline.idea.single.*
+import app.mcorg.pipeline.project.handleGetSelectWorldForIdeaImportFragment
+import app.mcorg.pipeline.project.handleImportIdea
 import app.mcorg.presentation.plugins.IdeaCommentParamPlugin
 import app.mcorg.presentation.plugins.IdeaCreatorPlugin
 import app.mcorg.presentation.plugins.IdeaParamPlugin
-import app.mcorg.presentation.plugins.WorldParamPlugin
 import io.ktor.server.routing.*
 
 class IdeaHandler {
@@ -61,14 +62,13 @@ class IdeaHandler {
                 get {
                     call.handleGetIdea()
                 }
-                post("/import") {
-                    route("/{worldId}") {
-                        install(WorldParamPlugin)
-                        post {
-
-                        }
+                route("/import") {
+                    get("/select") {
+                        call.handleGetSelectWorldForIdeaImportFragment()
                     }
-                    // Import idea into a world
+                    post {
+                        call.handleImportIdea()
+                    }
                 }
                 put("/favourite") {
                     call.handleFavouriteIdea()
