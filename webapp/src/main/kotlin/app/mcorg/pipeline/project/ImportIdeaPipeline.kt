@@ -120,7 +120,7 @@ private val GetIdeaForImportStep = DatabaseSteps.transaction { connection ->
                         resultSet.getString("name"),
                         resultSet.getString("description"),
                         IdeaCategory.valueOf(resultSet.getString("category")),
-                        Json.decodeFromString(resultSet.getString("production_rate"))
+                        resultSet.getString("production_rate")?.let { Json.decodeFromString(it) } ?: emptyMap()
                     )
                 },
                 transactionConnection = connection
