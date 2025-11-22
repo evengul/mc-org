@@ -59,12 +59,18 @@ class FormModal(
                 hxSwap(hx.hxSwap)
 
                 // After a successful non-GET request, reset and close the modal
+                // language=js
                 attributes["hx-on::after-request"] = """
                     if (event.detail.xhr.status >= 200 && event.detail.xhr.status < 300 && event.detail.requestConfig.verb !== 'get') {
                         this.reset();
                         const modal = document.getElementById("$modalId");
-                        modal.getElementsByClassName("validation-error-message").forEach(elem => elem.innerHTML = "");
-                        modal.close();
+                        if (modal) {
+                            const errorMessages = modal.getElementsByClassName("validation-error-message");
+                            for (let i = 0; i < errorMessages.length; i++) {
+                                errorMessages[i].textContent = "";
+                            }
+                            modal.close();
+                        }
                     }
                 """.trimIndent()
                 when(hx.method) {

@@ -1,6 +1,7 @@
 package app.mcorg.pipeline.task.extractors
 
 import app.mcorg.domain.model.task.*
+import org.postgresql.util.PSQLException
 import java.sql.ResultSet
 
 fun ResultSet.toTasks(): List<Task> {
@@ -19,8 +20,12 @@ fun ResultSet.toTask(): Task {
         description = getString("description"),
         stage = TaskProjectStage.valueOf(getString("stage")),
         priority = Priority.valueOf(getString("priority")),
-        solvedByProject = getInt("solved_by_project_id").takeIf { !wasNull() }?.let {
-            Pair(it, getString("solved_by_project_name"))
+        solvedByProject = try {
+            getInt("solved_by_project_id").takeIf { !wasNull() }?.let {
+                Pair(it, getString("solved_by_project_name"))
+            }
+        } catch (_: PSQLException) {
+            null
         },
         requirement = toTaskRequirement()
     )
