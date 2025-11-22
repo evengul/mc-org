@@ -7,7 +7,8 @@ data class Task(
     val description: String,
     val stage: TaskProjectStage,
     val priority: Priority,
-    val requirement: TaskRequirement
+    val requirement: TaskRequirement,
+    val solvedByProject: Pair<Int, String>? = null
 ) {
     fun isCompleted() = requirement.isCompleted()
 }

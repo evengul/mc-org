@@ -90,7 +90,7 @@ private object GetPermittedWorldsStep : Step<Pair<MinecraftVersionRange, Int>, A
                         val worldId = it.getInt("id")
                         val worldName = it.getString("name")
                         val version = MinecraftVersion.fromString(it.getString("version"))
-                        if (input.first.withinBounds(version)) {
+                        if (input.first.contains(version)) {
                             add(Pair(worldId, worldName))
                         }
                     }

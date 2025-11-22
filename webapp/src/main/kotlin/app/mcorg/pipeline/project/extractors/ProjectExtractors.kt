@@ -29,6 +29,13 @@ fun ResultSet.toProject() = Project(
     ),
     tasksTotal = getInt("tasks_total"),
     tasksCompleted = getInt("tasks_completed"),
+    importedFromIdea = run {
+        val ideaId = getInt("project_idea_id").takeIf { !wasNull() }
+        val ideaName = getString("idea_name")
+        if (ideaId != null && ideaName != null) {
+            Pair(ideaId, ideaName)
+        } else null
+    },
     createdAt = getTimestamp("created_at").toInstant().atZone(ZoneOffset.UTC),
     updatedAt = getTimestamp("updated_at").toInstant().atZone(ZoneOffset.UTC)
 )

@@ -19,6 +19,9 @@ fun ResultSet.toTask(): Task {
         description = getString("description"),
         stage = TaskProjectStage.valueOf(getString("stage")),
         priority = Priority.valueOf(getString("priority")),
+        solvedByProject = getInt("solved_by_project_id").takeIf { !wasNull() }?.let {
+            Pair(it, getString("solved_by_project_name"))
+        },
         requirement = toTaskRequirement()
     )
 }

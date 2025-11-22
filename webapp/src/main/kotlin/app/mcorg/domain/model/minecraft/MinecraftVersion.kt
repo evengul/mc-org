@@ -157,7 +157,7 @@ sealed interface MinecraftVersionRange {
         }
     }
 
-    fun withinBounds(version: MinecraftVersion): Boolean {
+    fun contains(version: MinecraftVersion): Boolean {
         return when (this) {
             is Unbounded -> true
             is Bounded -> version >= from && version <= to

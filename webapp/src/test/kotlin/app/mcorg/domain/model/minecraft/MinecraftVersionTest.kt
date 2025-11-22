@@ -1,8 +1,8 @@
 package app.mcorg.domain.model.minecraft
 
 import org.junit.jupiter.api.Assertions.*
-import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Nested
+import org.junit.jupiter.api.Test
 
 class MinecraftVersionTest {
 
@@ -205,7 +205,7 @@ class MinecraftVersionTest {
             val range = MinecraftVersionRange.Unbounded
             val version = MinecraftVersion.release(20, 0)
 
-            assertTrue(range.withinBounds(version))
+            assertTrue(range.contains(version))
         }
 
         @Test
@@ -220,11 +220,11 @@ class MinecraftVersionTest {
             val v4 = MinecraftVersion.release(20, 0)
             val v5 = MinecraftVersion.release(20, 1)
 
-            assertFalse(range.withinBounds(v1))
-            assertTrue(range.withinBounds(v2))
-            assertTrue(range.withinBounds(v3))
-            assertTrue(range.withinBounds(v4))
-            assertFalse(range.withinBounds(v5))
+            assertFalse(range.contains(v1))
+            assertTrue(range.contains(v2))
+            assertTrue(range.contains(v3))
+            assertTrue(range.contains(v4))
+            assertFalse(range.contains(v5))
         }
 
         @Test
@@ -236,9 +236,9 @@ class MinecraftVersionTest {
             val v2 = MinecraftVersion.release(19, 0)
             val v3 = MinecraftVersion.release(19, 1)
 
-            assertTrue(range.withinBounds(v1))
-            assertTrue(range.withinBounds(v2))
-            assertFalse(range.withinBounds(v3))
+            assertTrue(range.contains(v1))
+            assertTrue(range.contains(v2))
+            assertFalse(range.contains(v3))
         }
 
         @Test
@@ -247,10 +247,10 @@ class MinecraftVersionTest {
             val snapshot = MinecraftVersion.snapshot(2023, 45, 'a', release)
             val upperBoundedRange = MinecraftVersionRange.UpperBounded(release)
 
-            assertTrue(upperBoundedRange.withinBounds(snapshot))
+            assertTrue(upperBoundedRange.contains(snapshot))
 
             val laterSnapshot = MinecraftVersion.snapshot(2023, 46, 'a', MinecraftVersion.release(20, 1))
-            assertFalse(upperBoundedRange.withinBounds(laterSnapshot))
+            assertFalse(upperBoundedRange.contains(laterSnapshot))
         }
 
         @Test
@@ -262,9 +262,9 @@ class MinecraftVersionTest {
             val v2 = MinecraftVersion.release(19, 0)
             val v3 = MinecraftVersion.release(19, 1)
 
-            assertFalse(range.withinBounds(v1))
-            assertTrue(range.withinBounds(v2))
-            assertTrue(range.withinBounds(v3))
+            assertFalse(range.contains(v1))
+            assertTrue(range.contains(v2))
+            assertTrue(range.contains(v3))
         }
 
         @Test
@@ -275,10 +275,10 @@ class MinecraftVersionTest {
 
             val boundedRange = MinecraftVersionRange.Bounded(release1, release2)
 
-            assertTrue(boundedRange.withinBounds(snapshot))
+            assertTrue(boundedRange.contains(snapshot))
 
             val lowerBoundedRange = MinecraftVersionRange.LowerBounded(release2)
-            assertTrue(lowerBoundedRange.withinBounds(snapshot))
+            assertTrue(lowerBoundedRange.contains(snapshot))
         }
     }
 }

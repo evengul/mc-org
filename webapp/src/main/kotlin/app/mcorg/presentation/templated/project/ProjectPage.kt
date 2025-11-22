@@ -107,6 +107,19 @@ fun projectPage(
                         text = "${it.x}, ${it.y}, ${it.z}"
                     }
                 }
+                project.importedFromIdea?.let {
+                    p("subtle") {
+                        + "•"
+                    }
+                    p("subtle") {
+                        + "Imported from Idea: "
+                        a {
+                            href = Link.Ideas.single(it.first)
+                            + it.second
+                        }
+                    }
+
+                }
             }
             div("project-header-end") {
                 createTaskModal(user, project, itemNames, CreateTaskModalTab.ITEM_REQUIREMENT)

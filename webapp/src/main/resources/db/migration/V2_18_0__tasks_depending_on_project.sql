@@ -1,0 +1,1 @@
+ALTER TABLE project_dependencies ADD COLUMN tasks_depending_on_dependency_project INTEGER[] NOT NULL DEFAULT '{}';

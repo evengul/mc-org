@@ -26,7 +26,7 @@ object GetItemsInVersionRangeStep : Step<MinecraftVersionRange, AppFailure.Datab
                                 logger.warn("Invalid item version format in database: ${it.getString("version")}", e)
                                 continue
                             }
-                            if (!input.withinBounds(version)) continue
+                            if (!input.contains(version)) continue
                         }
                         val item = Item(
                             id = it.getString("item_id"),
