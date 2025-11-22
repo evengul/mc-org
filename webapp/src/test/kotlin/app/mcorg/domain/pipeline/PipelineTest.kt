@@ -13,7 +13,6 @@ class PipelineTest {
 
     // Test data classes
     data class TestError(val message: String)
-    data class ValidationError(val field: String, val reason: String)
 
     @Test
     fun `Pipeline constructor should accept processor function`() {
@@ -121,90 +120,6 @@ class PipelineTest {
             assertIs<Result.Failure<TestError>>(result)
             assertEquals("Initial pipeline failed", result.error.message)
             assertFalse(stepExecuted) // Step should not execute due to pipeline failure
-        }
-    }
-
-    @Test
-    fun `wrapPipe should transform Step result using wrap function`() {
-        val initialPipeline = Pipeline<String, TestError, Int> { input ->
-            Result.Success(input.length)
-        }
-
-        val parseStep = object : Step<Int, ValidationError, String> {
-            override suspend fun process(input: Int): Result<ValidationError, String> {
-                return Result.Success("Length: $input")
-            }
-        }
-
-        val wrapFunction: suspend (Result<ValidationError, String>) -> Result<TestError, String> = { result ->
-            when (result) {
-                is Result.Success -> Result.Success("Wrapped: ${result.value}")
-                is Result.Failure -> Result.Failure(TestError("Validation failed: ${result.error.field}"))
-            }
-        }
-
-        val wrappedPipeline = initialPipeline.wrapPipe(parseStep, wrapFunction)
-
-        runBlocking {
-            val result = wrappedPipeline.execute("test")
-            assertIs<Result.Success<String>>(result)
-            assertEquals("Wrapped: Length: 4", result.value)
-        }
-    }
-
-    @Test
-    fun `wrapPipe should handle Step failure through wrap function`() {
-        val initialPipeline = Pipeline<String, TestError, Int> { input ->
-            Result.Success(input.length)
-        }
-
-        val failingStep = object : Step<Int, ValidationError, String> {
-            override suspend fun process(input: Int): Result<ValidationError, String> {
-                return Result.Failure(ValidationError("input", "invalid format"))
-            }
-        }
-
-        val wrapFunction: suspend (Result<ValidationError, String>) -> Result<TestError, String> = { result ->
-            when (result) {
-                is Result.Success -> Result.Success("Wrapped: ${result.value}")
-                is Result.Failure -> Result.Failure(TestError("Validation error: ${result.error.reason}"))
-            }
-        }
-
-        val wrappedPipeline = initialPipeline.wrapPipe(failingStep, wrapFunction)
-
-        runBlocking {
-            val result = wrappedPipeline.execute("test")
-            assertIs<Result.Failure<TestError>>(result)
-            assertEquals("Validation error: invalid format", result.error.message)
-        }
-    }
-
-    @Test
-    fun `wrapPipe should handle initial Pipeline failure`() {
-        val failingPipeline = Pipeline<String, TestError, Int> { _ ->
-            Result.Failure(TestError("Initial failure"))
-        }
-
-        val testStep = object : Step<Int, ValidationError, String> {
-            override suspend fun process(input: Int): Result<ValidationError, String> {
-                return Result.Success("Should not reach here")
-            }
-        }
-
-        var wrapFunctionCalled = false
-        val wrapFunction: suspend (Result<ValidationError, String>) -> Result<TestError, String> = { _ ->
-            wrapFunctionCalled = true
-            Result.Success("Should not reach here")
-        }
-
-        val wrappedPipeline = failingPipeline.wrapPipe(testStep, wrapFunction)
-
-        runBlocking {
-            val result = wrappedPipeline.execute("test")
-            assertIs<Result.Failure<TestError>>(result)
-            assertEquals("Initial failure", result.error.message)
-            assertFalse(wrapFunctionCalled) // Wrap function should not be called if initial pipeline fails
         }
     }
 
@@ -351,31 +266,6 @@ class PipelineTest {
         assertThrows<RuntimeException> {
             runBlocking {
                 exceptionPipeline.execute("throw")
-            }
-        }
-    }
-
-    @Test
-    fun `wrapPipe wrap function should handle exceptions`() {
-        val pipeline = Pipeline<String, TestError, Int> { input ->
-            Result.Success(input.length)
-        }
-
-        val simpleStep = object : Step<Int, ValidationError, String> {
-            override suspend fun process(input: Int): Result<ValidationError, String> {
-                return Result.Success("Length: $input")
-            }
-        }
-
-        val throwingWrapFunction: suspend (Result<ValidationError, String>) -> Result<TestError, String> = { _ ->
-            throw RuntimeException("Wrap function failed")
-        }
-
-        val wrappedPipeline = pipeline.wrapPipe(simpleStep, throwingWrapFunction)
-
-        assertThrows<RuntimeException> {
-            runBlocking {
-                wrappedPipeline.execute("test")
             }
         }
     }

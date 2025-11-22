@@ -34,6 +34,7 @@ data class SearchTasksStep(val projectId: Int) : Step<SearchTasksInput, AppFailu
                     t.stage,
                     t.priority,
                     t.requirement_type,
+                    t.item_id,
                     t.requirement_item_required_amount,
                     t.requirement_item_collected,
                     t.requirement_action_completed,

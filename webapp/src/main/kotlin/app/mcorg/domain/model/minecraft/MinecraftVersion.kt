@@ -28,23 +28,25 @@ sealed interface MinecraftVersion {
     }
 
     operator fun compareTo(other: MinecraftVersion): Int {
-        return when {
-            this is Snapshot && other is Snapshot -> compareSnapshots(this, other)
-            this is Release && other is Release -> compareReleases(this, other)
-            this is Snapshot && other is Release -> {
+        return when (this) {
+            is Snapshot if other is Snapshot -> compareSnapshots(this, other)
+            is Release if other is Release -> compareReleases(this, other)
+            is Snapshot if other is Release -> {
                 if (this.forRelease != null) {
                     // If the snapshot is for a specific release, compare it to that release
                     return compareReleases(this.forRelease, other)
                 }
                 return -1 // Snapshots are considered less than releases
             }
-            this is Release && other is Snapshot -> {
+
+            is Release if other is Snapshot -> {
                 if (other.forRelease != null) {
                     // If the snapshot is for a specific release, compare it to that release
                     return compareReleases(this, other.forRelease)
                 }
                 return 1 // Releases are considered greater than snapshots
             }
+
             else -> 1 // Releases are considered greater than snapshots
         }
     }

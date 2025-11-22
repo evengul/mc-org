@@ -12,6 +12,8 @@ import app.mcorg.presentation.templated.common.button.iconButton
 import app.mcorg.presentation.templated.common.button.neutralButton
 import app.mcorg.presentation.templated.common.emptystate.EmptyStateVariant
 import app.mcorg.presentation.templated.common.emptystate.emptyState
+import app.mcorg.presentation.templated.common.form.searchableselect.SearchableSelectOption
+import app.mcorg.presentation.templated.common.form.searchableselect.searchableSelect
 import app.mcorg.presentation.templated.common.icon.IconSize
 import app.mcorg.presentation.templated.common.icon.Icons
 import app.mcorg.presentation.templated.common.link.Link
@@ -83,23 +85,16 @@ fun DIV.resourcesTab(
                     onSubmit = "return false;"
                 }
 
-                input {
-                    id = "project-resources-name-input"
-                    name = "name"
+                searchableSelect(
+                    id = "project-resources-item-select",
+                    name = "itemId",
+                    options = itemNames.map { SearchableSelectOption(
+                        value = it.id,
+                        label = it.name
+                    ) },
+                ) {
                     placeholder = "Item name (e.g., Oak Logs, Stone, Diamond)"
-                    type = InputType.text
                     required = true
-                    maxLength = "100"
-                    list = "item-names-list"
-                }
-
-                dataList {
-                    id = "item-names-list"
-                    itemNames.distinctBy { it.name }.sortedBy { it.name }.forEach { item ->
-                        option {
-                            value = item.name
-                        }
-                    }
                 }
 
                 input {
@@ -153,7 +148,7 @@ fun LI.projectResourceProductionItem(worldId: Int, production: ProjectProduction
         p {
             + production.name
         }
-        p("subtle") {
+        p("small") {
             if (production.ratePerHour > 0) {
                 + "${production.ratePerHour.toRate()} per hour"
             } else {

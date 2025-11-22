@@ -37,6 +37,10 @@
         align-items: center;
     }
 
+    #import-idea-selector {
+        width: fit-content;
+    }
+
     #idea-ratings-summary {
 
         #idea-ratings-summary-container {

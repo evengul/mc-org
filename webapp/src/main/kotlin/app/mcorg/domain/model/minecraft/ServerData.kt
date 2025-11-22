@@ -5,7 +5,3 @@ data class ServerData(
     val items: List<Item>
 )
 
-data class Item(
-    val id: String,
-    val name: String
-)

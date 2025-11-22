@@ -3,16 +3,8 @@ package app.mcorg.presentation.templated.idea
 import app.mcorg.domain.model.idea.Comment
 import app.mcorg.domain.model.idea.Idea
 import app.mcorg.domain.model.user.TokenProfile
-import app.mcorg.presentation.hxDeleteWithConfirm
-import app.mcorg.presentation.hxPost
-import app.mcorg.presentation.hxPut
-import app.mcorg.presentation.hxSwap
-import app.mcorg.presentation.hxTarget
-import app.mcorg.presentation.templated.common.button.IconButtonColor
-import app.mcorg.presentation.templated.common.button.actionButton
-import app.mcorg.presentation.templated.common.button.ghostButton
-import app.mcorg.presentation.templated.common.button.iconButton
-import app.mcorg.presentation.templated.common.button.neutralButton
+import app.mcorg.presentation.*
+import app.mcorg.presentation.templated.common.button.*
 import app.mcorg.presentation.templated.common.chip.ChipVariant
 import app.mcorg.presentation.templated.common.chip.chipComponent
 import app.mcorg.presentation.templated.common.icon.IconSize
@@ -24,28 +16,7 @@ import app.mcorg.presentation.templated.utils.formatAsDateTime
 import app.mcorg.presentation.templated.utils.formatAsRelativeOrDate
 import app.mcorg.presentation.templated.utils.toPrettyEnumName
 import app.mcorg.presentation.utils.BreadcrumbBuilder
-import kotlinx.html.ButtonType
-import kotlinx.html.FormEncType
-import kotlinx.html.LI
-import kotlinx.html.MAIN
-import kotlinx.html.classes
-import kotlinx.html.div
-import kotlinx.html.footer
-import kotlinx.html.form
-import kotlinx.html.h2
-import kotlinx.html.h3
-import kotlinx.html.header
-import kotlinx.html.id
-import kotlinx.html.label
-import kotlinx.html.li
-import kotlinx.html.onClick
-import kotlinx.html.p
-import kotlinx.html.radioInput
-import kotlinx.html.section
-import kotlinx.html.span
-import kotlinx.html.style
-import kotlinx.html.textArea
-import kotlinx.html.ul
+import kotlinx.html.*
 import kotlin.math.ceil
 import kotlin.math.min
 
@@ -132,7 +103,13 @@ fun MAIN.ideaContent(userId: Int, idea: Idea, comments: List<Comment>) {
                     hxSwap("innerHTML")
                 }
             }
-            actionButton("Import Idea")
+            actionButton("Import Idea") {
+                buttonBlock = {
+                    hxGet(Link.Ideas.single(idea.id) + "/import/select")
+                    hxSwap("outerHTML")
+                    type = ButtonType.button
+                }
+            }
         }
     }
     section {

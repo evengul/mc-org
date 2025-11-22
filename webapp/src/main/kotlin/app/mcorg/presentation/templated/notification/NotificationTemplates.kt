@@ -2,7 +2,6 @@ package app.mcorg.presentation.templated.notification
 
 import app.mcorg.domain.model.notification.Notification
 import app.mcorg.domain.model.user.TokenProfile
-import app.mcorg.presentation.templated.common.page.PageScript
 import app.mcorg.presentation.templated.common.page.createPage
 import app.mcorg.presentation.templated.utils.formatAsRelativeOrDate
 import app.mcorg.presentation.utils.BreadcrumbBuilder
@@ -16,7 +15,6 @@ fun notificationsPage(
 ) = createPage(
     user = user,
     pageTitle = "Notifications",
-    pageScripts = setOf(PageScript.HTMX),
     unreadNotificationCount = unreadNotificationCount,
     breadcrumbs = BreadcrumbBuilder.buildForNotifications()
 ) {

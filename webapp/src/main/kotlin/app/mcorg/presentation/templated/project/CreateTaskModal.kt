@@ -9,6 +9,8 @@ import app.mcorg.presentation.hxTargetError
 import app.mcorg.presentation.templated.common.form.radiogroup.RadioGroupLayout
 import app.mcorg.presentation.templated.common.form.radiogroup.RadioGroupOption
 import app.mcorg.presentation.templated.common.form.radiogroup.radioGroup
+import app.mcorg.presentation.templated.common.form.searchableselect.SearchableSelectOption
+import app.mcorg.presentation.templated.common.form.searchableselect.searchableSelect
 import app.mcorg.presentation.templated.common.icon.IconSize
 import app.mcorg.presentation.templated.common.icon.Icons
 import app.mcorg.presentation.templated.common.link.Link
@@ -127,22 +129,15 @@ fun DIV.actionRequirementForm() {
 }
 
 fun DIV.itemRequirementForm(itemNames: List<Item>) {
-    input {
-        id = "item-requirement-name-input"
-        placeholder = "Item name (e.g., Oak Logs, Stone, Diamond)"
-        type = InputType.text
-        list = "item-names-list"
-        classes += "form-control"
-        name = "itemName"
+    searchableSelect(
+        id = "item-requirement-name-input",
+        name = "itemId",
+        options = itemNames.distinctBy { it.name }.sortedBy { it.name }.map { SearchableSelectOption(
+            value = it.id,
+            label = it.name
+        ) }
+    ) {
         required = true
-    }
-    dataList {
-        id = "item-names-list"
-        itemNames.distinctBy { it.name }.sortedBy { it.name }.forEach { (_, name) ->
-            option {
-                value = name
-            }
-        }
     }
     p("validation-error-message") {
         id = "validation-error-itemName"

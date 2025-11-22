@@ -7,6 +7,10 @@ class PipelineBuilder<I, E, O>(
         return map { value }
     }
 
+    fun <S> value(transform: suspend (O) -> S): PipelineBuilder<I, E, S> {
+        return map(transform)
+    }
+
     fun <S> step(step: Step<O, E, S>): PipelineBuilder<I, E, S> {
         return PipelineBuilder(currentPipeline.pipe(step))
     }

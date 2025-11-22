@@ -16,21 +16,6 @@ class Pipeline<in I, out E, out S>(
         }
     }
 
-    fun <E0, S0, R> wrapPipe(
-        nextStep: Step<S, E0, S0>,
-        wrapFunc: suspend (Result<E0, S0>) -> Result<@UnsafeVariance E, @UnsafeVariance R>
-    ): Pipeline<I, E, R> {
-        return Pipeline {
-            val wrapStep = object : Step<@UnsafeVariance S, E, R> {
-                override suspend fun process(input: @UnsafeVariance S): Result<E, R> {
-                    return wrapFunc(nextStep.process(input))
-                }
-            }
-            val intermediate = execute(it)
-            intermediate.flatMap(wrapStep::process)
-        }
-    }
-
     fun <R> map(transform: suspend (S) -> R): Pipeline<I, E, R> {
         return Pipeline {
             val intermediate = execute(it)

@@ -6,13 +6,7 @@ import app.mcorg.domain.model.task.ItemRequirement
 import app.mcorg.domain.model.task.Priority
 import app.mcorg.domain.model.task.Task
 import app.mcorg.domain.model.task.TaskProjectStage
-import app.mcorg.presentation.hxDeleteWithConfirm
-import app.mcorg.presentation.hxGet
-import app.mcorg.presentation.hxIndicator
-import app.mcorg.presentation.hxPatch
-import app.mcorg.presentation.hxSwap
-import app.mcorg.presentation.hxTarget
-import app.mcorg.presentation.hxTrigger
+import app.mcorg.presentation.*
 import app.mcorg.presentation.templated.common.button.IconButtonColor
 import app.mcorg.presentation.templated.common.button.actionButton
 import app.mcorg.presentation.templated.common.button.iconButton
@@ -20,22 +14,22 @@ import app.mcorg.presentation.templated.common.button.neutralButton
 import app.mcorg.presentation.templated.common.chip.ChipVariant
 import app.mcorg.presentation.templated.common.chip.chipComponent
 import app.mcorg.presentation.templated.common.emptystate.emptyState
+import app.mcorg.presentation.templated.common.form.searchField.searchField
 import app.mcorg.presentation.templated.common.icon.IconSize
 import app.mcorg.presentation.templated.common.icon.Icons
 import app.mcorg.presentation.templated.common.link.Link
 import app.mcorg.presentation.templated.common.progress.progressComponent
-import app.mcorg.presentation.templated.common.searchField.searchField
 import app.mcorg.presentation.templated.utils.formatAsRelativeOrDate
 import app.mcorg.presentation.templated.utils.toPrettyEnumName
 import kotlinx.html.*
 
-fun DIV.tasksTab(project: Project, totalTasksCount: Int, tasks: List<Task>) {
+fun DIV.tasksTab(tab: ProjectTab.Tasks) {
     classes += "project-tasks-tab"
     div("project-tasks-content") {
-        projectProgressSection(project)
-        taskManagementSection(project, totalTasksCount, tasks)
+        projectProgressSection(tab.project)
+        taskManagementSection(tab)
     }
-    projectDetailsSidebar(project)
+    projectDetailsSidebar(tab.project)
 }
 
 private fun DIV.projectProgressSection(project: Project) {
@@ -57,10 +51,10 @@ fun DIV.projectProgress(completed: Int, total: Int) {
     }
 }
 
-private fun DIV.taskManagementSection(project: Project, totalTasksCount: Int, tasks: List<Task>) {
+private fun DIV.taskManagementSection(tab: ProjectTab.Tasks) {
     div("project-tasks") {
-        taskManagementHeader(project.worldId, project.id, project.stage)
-        if (totalTasksCount == 0) {
+        taskManagementHeader(tab.project.worldId, tab.project.id, tab.project.stage)
+        if (tab.totalTasksCount == 0) {
             div {
                 emptyTasksDisplay()
             }
@@ -68,12 +62,12 @@ private fun DIV.taskManagementSection(project: Project, totalTasksCount: Int, ta
         p {
             id = "no-tasks-found"
             classes += "subtle"
-            if (tasks.isEmpty() && totalTasksCount > 0) {
+            if (tab.tasks.isEmpty() && tab.totalTasksCount > 0) {
                 + "No tasks found matching the search criteria."
             }
         }
         ul {
-            tasksList(project.worldId, project.id, tasks)
+            tasksList(tab.project.worldId, tab.project.id, tab.tasks)
         }
     }
 }

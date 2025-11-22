@@ -1,6 +1,7 @@
 package app.mcorg.domain.model.idea.schema
 
 import app.mcorg.domain.model.idea.IdeaCategory
+import app.mcorg.domain.model.minecraft.MinecraftVersionRange
 
 /**
  * Represents the complete schema for an idea category.
@@ -9,7 +10,9 @@ import app.mcorg.domain.model.idea.IdeaCategory
 data class IdeaCategorySchema(
     val category: IdeaCategory,
     val fields: List<CategoryField>,
-    val subcategories: Map<String, List<CategoryField>> = emptyMap()
+    val subcategories: Map<String, List<CategoryField>> = emptyMap(),
+
+    var versionRange: MinecraftVersionRange = MinecraftVersionRange.Unbounded
 ) {
     fun getField(key: String): CategoryField? = fields.find { it.key == key }
 

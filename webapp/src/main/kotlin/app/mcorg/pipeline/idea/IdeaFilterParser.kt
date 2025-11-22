@@ -102,10 +102,9 @@ object IdeaFilterParser {
             is CategoryField.Number -> parseNumberField(parameters, field)
             is CategoryField.Rate -> parseRateField(parameters, field)
             is CategoryField.Percentage -> parsePercentageField(parameters, field)
-            is CategoryField.Select -> parseSelectField(parameters, field)
+            is CategoryField.Select<*> -> parseSelectField(parameters, field)
             is CategoryField.MultiSelect -> parseMultiSelectField(parameters, field)
             is CategoryField.BooleanField -> parseBooleanField(parameters, field)
-            is CategoryField.Dimensions -> parseDimensionsField(parameters, field)
             else -> null // Unsupported field type for filtering
         }
     }
@@ -180,9 +179,9 @@ object IdeaFilterParser {
     /**
      * Parse select field filter
      */
-    private fun parseSelectField(parameters: Parameters, field: CategoryField.Select): FilterValue? {
+    private fun parseSelectField(parameters: Parameters, field: CategoryField.Select<*>): FilterValue? {
         val value = parameters["categoryFilters[${field.key}]"]?.takeIf { it.isNotBlank() }
-        return if (value != null && field.options.contains(value)) {
+        return if (value != null && field.options().map { it.value }.contains(value)) {
             FilterValue.SelectValue(value)
         } else {
             null
@@ -215,22 +214,5 @@ object IdeaFilterParser {
         }
     }
 
-    /**
-     * Parse dimensions field filter (X × Y × Z)
-     */
-    private fun parseDimensionsField(parameters: Parameters, field: CategoryField.Dimensions): FilterValue? {
-        // Dimensions filtering would require min/max for each axis
-        // For now, we'll skip this or implement basic range filtering
-        val minX = parameters["categoryFilters[${field.key}_x_min]"]?.toDoubleOrNull()
-        val maxX = parameters["categoryFilters[${field.key}_x_max]"]?.toDoubleOrNull()
-        val minY = parameters["categoryFilters[${field.key}_y_min]"]?.toDoubleOrNull()
-        val maxY = parameters["categoryFilters[${field.key}_y_max]"]?.toDoubleOrNull()
-        val minZ = parameters["categoryFilters[${field.key}_z_min]"]?.toDoubleOrNull()
-        val maxZ = parameters["categoryFilters[${field.key}_z_max]"]?.toDoubleOrNull()
-
-        // For simplicity, we'll skip dimensions filtering for now
-        // Can be enhanced later if needed
-        return null
-    }
 }
 

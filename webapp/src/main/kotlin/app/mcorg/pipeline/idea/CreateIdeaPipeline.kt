@@ -4,7 +4,6 @@ import app.mcorg.domain.model.idea.Author
 import app.mcorg.domain.model.idea.IdeaCategory
 import app.mcorg.domain.model.idea.IdeaDifficulty
 import app.mcorg.domain.model.idea.PerformanceTestData
-import app.mcorg.domain.model.minecraft.MinecraftVersion
 import app.mcorg.domain.model.minecraft.MinecraftVersionRange
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
@@ -12,18 +11,13 @@ import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.failure.ValidationFailure
-import app.mcorg.pipeline.idea.commonsteps.GetIdeaStep
+import app.mcorg.pipeline.idea.validators.*
 import app.mcorg.presentation.handler.executePipeline
-import app.mcorg.presentation.hxOutOfBands
-import app.mcorg.presentation.templated.idea.ideaListItem
+import app.mcorg.presentation.utils.clientRedirect
 import app.mcorg.presentation.utils.getUser
-import app.mcorg.presentation.utils.respondHtml
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.request.*
-import kotlinx.html.div
-import kotlinx.html.li
-import kotlinx.html.stream.createHTML
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.*
 
@@ -37,6 +31,7 @@ data class CreateIdeaInput(
     val subAuthors: List<Author>,
     val versionRange: MinecraftVersionRange,
     val testData: PerformanceTestData?,
+    val itemRequirements: Map<String, Int>,
     val categoryData: Map<String, Any>,
 )
 
@@ -50,17 +45,12 @@ suspend fun ApplicationCall.handleCreateIdea() {
 
     executePipeline(
         onSuccess = {
-            respondHtml(createHTML().li {
-                ideaListItem(it)
-            } + createHTML().div {
-                hxOutOfBands("delete:#empty-ideas-container")
-            })
+            clientRedirect("/app/ideas/$it")
         }
     ) {
         value(parameters)
             .step(ValidateIdeaInputStep)
             .step(CreateIdeaStep(user.id))
-            .step(GetIdeaStep)
     }
 }
 
@@ -68,68 +58,47 @@ object ValidateIdeaInputStep : Step<Parameters, AppFailure.ValidationError, Crea
     override suspend fun process(input: Parameters): Result<AppFailure.ValidationError, CreateIdeaInput> {
         val errors = mutableListOf<ValidationFailure>()
 
-        val name = input["name"]?.trim()
-        if (name.isNullOrBlank()) {
-            errors.add(ValidationFailure.MissingParameter("name"))
-        } else if (name.length !in 3..255) {
-            errors.add(ValidationFailure.InvalidLength("name", 3, 255))
-        }
+        val name = ValidateIdeaNameStep.process(input)
+        val description = ValidateIdeaDescriptionStep.process(input)
+        val difficulty = ValidateIdeaDifficultyStep.process(input)
+        val category = ValidateIdeaCategoryStep.process(input)
+        val author = ValidateIdeaAuthorStep.process(input)
+        val versionRange = ValidateIdeaMinecraftVersionStep.process(input)
+        val itemRequirements = ValidateAllItemRequirementsStep(versionRange.getOrNull() ?: MinecraftVersionRange.Unbounded).process(input)
 
-        val description = input["description"]?.trim()
-        if (description.isNullOrBlank()) {
-            errors.add(ValidationFailure.MissingParameter("description"))
-        } else if (description.length !in 20..5000) {
-            errors.add(ValidationFailure.InvalidLength("description", 20, 5000))
-        }
+        var categoryData = mapOf<String, Any>()
 
-        // Validate category
-        val categoryStr = input["category"]
-        val category = try {
-            if (categoryStr.isNullOrBlank()) {
-                errors.add(ValidationFailure.MissingParameter("category"))
-                null
+        if (name is Result.Failure) {
+            errors.add(name.error)
+        }
+        if (description is Result.Failure) {
+            errors.add(description.error)
+        }
+        if (difficulty is Result.Failure) {
+            errors.add(difficulty.error)
+        }
+        if (category is Result.Failure) {
+            errors.add(category.error)
+        }
+        if (author is Result.Failure) {
+            errors.add(author.error)
+        }
+        if (versionRange is Result.Failure) {
+            errors.addAll(versionRange.error)
+        }
+        if (itemRequirements is Result.Failure) {
+            errors.addAll(itemRequirements.error)
+        }
+        if (category is Result.Failure) {
+            errors.add(category.error)
+        } else if (category is Result.Success) {
+            val categoryDataResult = ValidateIdeaCategoryDataStep(category.value).process(input)
+            if (categoryDataResult is Result.Failure) {
+                errors.addAll(categoryDataResult.error)
             } else {
-                IdeaCategory.valueOf(categoryStr.uppercase())
+                categoryData = categoryDataResult.getOrNull()!!
             }
-        } catch (_: IllegalArgumentException) {
-            errors.add(ValidationFailure.InvalidFormat("category", "Invalid category"))
-            null
         }
-
-        // Validate difficulty
-        val difficultyStr = input["difficulty"]
-        val difficulty = try {
-            if (difficultyStr.isNullOrBlank()) {
-                errors.add(ValidationFailure.MissingParameter("difficulty"))
-                null
-            } else {
-                IdeaDifficulty.valueOf(difficultyStr.uppercase())
-            }
-        } catch (_: IllegalArgumentException) {
-            errors.add(ValidationFailure.InvalidFormat("difficulty", "Invalid difficulty"))
-            null
-        }
-
-        // Parse labels (comma-separated)
-        val labels = input["labels"]?.split(",")
-            ?.map { it.trim() }
-            ?.filter { it.isNotEmpty() }
-            ?: emptyList()
-
-        // Parse author
-        val author = parseAuthor(input, errors)
-
-        // Parse sub-authors (contributors)
-        val subAuthors = parseSubAuthors(input)
-
-        // Parse version range
-        val versionRange = parseVersionRange(input, errors)
-
-        // Parse optional test data
-        val testData = parseTestData(input)
-
-        // Parse category-specific data
-        val categoryData = parseCategoryData(input)
 
         if (errors.isNotEmpty()) {
             return Result.failure(AppFailure.ValidationError(errors))
@@ -137,194 +106,19 @@ object ValidateIdeaInputStep : Step<Parameters, AppFailure.ValidationError, Crea
 
         return Result.success(
             CreateIdeaInput(
-                name = name!!,
-                description = description!!,
-                category = category!!,
-                difficulty = difficulty!!,
-                labels = labels,
-                author = author!!,
-                subAuthors = subAuthors,
-                versionRange = versionRange!!,
-                testData = testData,
+                name = name.getOrNull()!!,
+                description = description.getOrNull()!!,
+                category = category.getOrNull()!!,
+                difficulty = difficulty.getOrNull()!!,
+                labels = emptyList(),
+                author = author.getOrNull()!!,
+                subAuthors = emptyList(),
+                versionRange = versionRange.getOrNull()!!,
+                testData = null,
+                itemRequirements = itemRequirements.getOrNull()?.mapKeys { it.key.id } ?: emptyMap(),
                 categoryData = categoryData
             )
         )
-    }
-
-    private fun parseAuthor(params: Parameters, errors: MutableList<ValidationFailure>): Author? {
-        val authorType = params["authorType"] ?: "single"
-
-        return when (authorType) {
-            "single" -> {
-                val authorName = params["authorName"]?.trim()
-                if (authorName.isNullOrBlank()) {
-                    errors.add(ValidationFailure.MissingParameter("authorName"))
-                    null
-                } else {
-                    Author.SingleAuthor(authorName)
-                }
-            }
-            "team" -> {
-                val members = mutableListOf<Author.TeamAuthor>()
-                var index = 0
-
-                while (params["teamMembers[$index][name]"] != null) {
-                    val name = params["teamMembers[$index][name]"]?.trim()
-                    val title = params["teamMembers[$index][role]"]?.trim() ?: ""
-                    val responsibleFor = params["teamMembers[$index][contributions]"]?.split(",")
-                        ?.map { it.trim() }
-                        ?.filter { it.isNotEmpty() }
-                        ?: emptyList()
-
-                    if (!name.isNullOrBlank()) {
-                        members.add(Author.TeamAuthor(name, index, title, responsibleFor))
-                    }
-                    index++
-                }
-
-                if (members.isEmpty()) {
-                    errors.add(ValidationFailure.MissingParameter("teamMembers"))
-                    null
-                } else {
-                    Author.Team(members)
-                }
-            }
-            else -> {
-                errors.add(ValidationFailure.InvalidFormat("authorType", "Invalid author type"))
-                null
-            }
-        }
-    }
-
-    private fun parseSubAuthors(params: Parameters): List<Author> {
-        val subAuthorsStr = params["subAuthors"]?.trim()
-        if (subAuthorsStr.isNullOrBlank()) return emptyList()
-
-        return subAuthorsStr.split(",")
-            .map { it.trim() }
-            .filter { it.isNotEmpty() }
-            .map { Author.SingleAuthor(it) }
-    }
-
-    private fun parseVersionRange(params: Parameters, errors: MutableList<ValidationFailure>): MinecraftVersionRange? {
-        val rangeType = params["versionRangeType"] ?: "lowerBounded"
-
-        return try {
-            when (rangeType) {
-                "bounded" -> {
-                    val fromStr = params["versionFrom"]
-                    val toStr = params["versionTo"]
-                    if (fromStr.isNullOrBlank() || toStr.isNullOrBlank()) {
-                        errors.add(ValidationFailure.MissingParameter("versionFrom/versionTo"))
-                        null
-                    } else {
-                        MinecraftVersionRange.Bounded(
-                            MinecraftVersion.fromString(fromStr),
-                            MinecraftVersion.fromString(toStr)
-                        )
-                    }
-                }
-                "lowerBounded" -> {
-                    val fromStr = params["versionFrom"]
-                    if (fromStr.isNullOrBlank()) {
-                        errors.add(ValidationFailure.MissingParameter("versionFrom"))
-                        null
-                    } else {
-                        MinecraftVersionRange.LowerBounded(MinecraftVersion.fromString(fromStr))
-                    }
-                }
-                "upperBounded" -> {
-                    val toStr = params["versionTo"]
-                    if (toStr.isNullOrBlank()) {
-                        errors.add(ValidationFailure.MissingParameter("versionTo"))
-                        null
-                    } else {
-                        MinecraftVersionRange.UpperBounded(MinecraftVersion.fromString(toStr))
-                    }
-                }
-                "unbounded" -> MinecraftVersionRange.Unbounded
-                else -> {
-                    errors.add(ValidationFailure.InvalidFormat("versionRangeType", "Invalid version range type"))
-                    null
-                }
-            }
-        } catch (_: Exception) {
-            errors.add(ValidationFailure.InvalidFormat("version", "Invalid version format"))
-            null
-        }
-    }
-
-    private fun parseTestData(params: Parameters): PerformanceTestData? {
-        val msptStr = params["testMspt"]
-        val hardware = params["testHardware"]?.trim()
-        val versionStr = params["testVersion"]
-
-        // All three are required if any is provided
-        if (msptStr.isNullOrBlank() || hardware.isNullOrBlank() || versionStr.isNullOrBlank()) {
-            return null
-        }
-
-        return try {
-            val mspt = msptStr.toDouble()
-            val version = MinecraftVersion.fromString(versionStr)
-            PerformanceTestData(mspt, hardware, version)
-        } catch (_: Exception) {
-            null
-        }
-    }
-
-    private fun parseCategoryData(params: Parameters): Map<String, Any> {
-        val categoryData = mutableMapOf<String, Any>()
-
-        // Parse all parameters starting with "categoryData["
-        params.entries().forEach { (key, values) ->
-            if (key.startsWith("categoryData[") && key.endsWith("]")) {
-                val fieldKey = key.removePrefix("categoryData[").removeSuffix("]")
-
-                // Handle nested fields like categoryData[size][x]
-                if (fieldKey.contains("][")) {
-                    val parts = fieldKey.split("][")
-                    val mainKey = parts[0]
-                    val subKey = parts[1]
-
-                    @Suppress("UNCHECKED_CAST")
-                    val nestedMap = categoryData.getOrPut(mainKey) { mutableMapOf<String, Any>() } as MutableMap<String, Any>
-
-                    // Try to parse as number, otherwise keep as string
-                    val value = values.firstOrNull()?.let { parseValue(it) }
-                    if (value != null) {
-                        nestedMap[subKey] = value
-                    }
-                } else if (key.endsWith("[]")) {
-                    // Array field (checkboxes)
-                    val actualKey = fieldKey.removeSuffix("[]")
-                    categoryData[actualKey] = values.filter { it.isNotBlank() }
-                } else {
-                    // Simple field
-                    val value = values.firstOrNull()?.let { parseValue(it) }
-                    if (value != null) {
-                        categoryData[fieldKey] = value
-                    }
-                }
-            }
-        }
-
-        return categoryData
-    }
-
-    private fun parseValue(str: String): Any? {
-        if (str.isBlank()) return null
-
-        // Try boolean
-        if (str.equals("true", ignoreCase = true)) return true
-        if (str.equals("false", ignoreCase = true)) return false
-
-        // Try number
-        str.toIntOrNull()?.let { return it }
-        str.toDoubleOrNull()?.let { return it }
-
-        // Keep as string
-        return str
     }
 }
 
@@ -397,6 +191,25 @@ data class CreateIdeaStep(val userId: Int) : Step<CreateIdeaInput, AppFailure.Da
 
                             if (testDataResult is Result.Failure) {
                                 return testDataResult
+                            }
+                        }
+
+                        if (input.itemRequirements.isNotEmpty()) {
+                            val requirementResult = DatabaseSteps.batchUpdate<Pair<String, Int>>(
+                                SafeSQL.insert("""
+                                    INSERT INTO idea_item_requirements (idea_id, item_id, quantity) VALUES (?, ?, ?)
+                                """.trimIndent()),
+                                parameterSetter = { statement, (itemId, quantity) ->
+                                    statement.setInt(1, ideaId)
+                                    statement.setString(2, itemId)
+                                    statement.setInt(3, quantity)
+                                },
+                                chunkSize = 500,
+                                transactionConnection = connection
+                            ).process(input.itemRequirements.entries.map { it.key to it.value })
+
+                            if (requirementResult is Result.Failure) {
+                                return requirementResult
                             }
                         }
 
@@ -473,43 +286,31 @@ data class CreateIdeaStep(val userId: Int) : Step<CreateIdeaInput, AppFailure.Da
     private fun serializeCategoryData(data: Map<String, Any>): String {
         return buildJsonObject {
             data.forEach { (key, value) ->
-                when (value) {
-                    is String -> put(key, value)
-                    is Int -> put(key, value)
-                    is Double -> put(key, value)
-                    is Boolean -> put(key, value)
-                    is List<*> -> {
-                        putJsonArray(key) {
-                            value.forEach { item ->
-                                when (item) {
-                                    is String -> add(item)
-                                    is Int -> add(item)
-                                    is Double -> add(item)
-                                    is Boolean -> add(item)
-                                    else -> add(item.toString())
-                                }
-                            }
-                        }
-                    }
-                    is Map<*, *> -> {
-                        putJsonObject(key) {
-                            @Suppress("UNCHECKED_CAST")
-                            val nestedMap = value as Map<String, Any>
-                            nestedMap.forEach { (nestedKey, nestedValue) ->
-                                when (nestedValue) {
-                                    is String -> put(nestedKey, nestedValue)
-                                    is Int -> put(nestedKey, nestedValue)
-                                    is Double -> put(nestedKey, nestedValue)
-                                    is Boolean -> put(nestedKey, nestedValue)
-                                    else -> put(nestedKey, nestedValue.toString())
-                                }
-                            }
-                        }
-                    }
-                    else -> put(key, value.toString())
-                }
+                put(key, convertToJsonElement(value))
             }
         }.toString()
+    }
+
+    private fun convertToJsonElement(value: Any?): JsonElement {
+        return when (value) {
+            null -> JsonNull
+            is String -> JsonPrimitive(value)
+            is Number -> JsonPrimitive(value)
+            is Boolean -> JsonPrimitive(value)
+            is Map<*, *> -> buildJsonObject {
+                @Suppress("UNCHECKED_CAST")
+                val map = value as Map<String, Any?>
+                map.forEach { (key, nestedValue) ->
+                    put(key, convertToJsonElement(nestedValue))
+                }
+            }
+            is List<*> -> buildJsonArray {
+                value.forEach { item ->
+                    add(convertToJsonElement(item))
+                }
+            }
+            else -> JsonPrimitive(value.toString())
+        }
     }
 }
 

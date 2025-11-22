@@ -1,7 +1,9 @@
 package app.mcorg.domain.model.idea.schema
 
 import app.mcorg.domain.model.idea.IdeaCategory
+import app.mcorg.domain.model.idea.schema.builders.IdeaCategorySchemaBuilder
 import app.mcorg.domain.model.idea.schema.builders.ideaCategory
+import app.mcorg.presentation.templated.common.form.searchableselect.SearchableSelectOption
 
 /**
  * Single Source of Truth for Idea Category Schemas.
@@ -15,6 +17,56 @@ import app.mcorg.domain.model.idea.schema.builders.ideaCategory
  */
 object IdeaCategorySchemas {
 
+    fun IdeaCategorySchemaBuilder.sizeField(key: String = "size") = structField(key) {
+        label = "Size (X × Y × Z)"
+        required = true
+        fields {
+            numberField("x") {
+                label = "X Dimension"
+                required = true
+            }
+            numberField("y") {
+                label = "Y Dimension"
+                required = true
+            }
+            numberField("z") {
+                label = "Z Dimension"
+                required = true
+            }
+        }
+    }
+
+    fun IdeaCategorySchemaBuilder.tileability(key: String = "tileability") = selectField(key) {
+        label = "Tileable Configuration"
+        filterable = true
+        options = listOf(
+            SearchableSelectOption(
+                value = "1",
+                label = "1",
+            ),
+            SearchableSelectOption(
+                value = "2",
+                label = "2",
+            ),
+            SearchableSelectOption(
+                value = "3",
+                label = "3",
+            ),
+            SearchableSelectOption(
+                value = "AB",
+                label = "AB",
+            ),
+            SearchableSelectOption(
+                value = "ABC",
+                label = "ABC",
+            ),
+            SearchableSelectOption(
+                value = "Not Tileable",
+                label = "Not Tileable",
+            )
+        )
+    }
+
     val FARM = ideaCategory(IdeaCategory.FARM) {
         // Farm version tracking
         textField("farmVersion") {
@@ -23,34 +75,53 @@ object IdeaCategorySchemas {
             helpText = "Version identifier for this farm design (e.g., v3.2, Mark-IV)"
         }
 
-        // Production rates
-        rateField("productionRate") {
+        typedMapField("productionRate") {
             label = "Production Rate"
-            filterable = true
-            required = true
-            unit = "items/hour"
-            min = 0.0
+            types {
+                textKey {
+                    label = "Mode"
+                    placeholder = "e.g., Normal, Fast, Eco"
+                }
+                typedMapValue {
+                    label = "Rate Details"
+                    types {
+                        selectKey {
+                            label = "Item"
+                            dynamicOptionsConfig = DynamicOptionsConfig.items()
+                        }
+                        rateValue {
+                            label = "Rate"
+                            min = 0.0
+                        }
+                    }
+                }
+            }
         }
 
-        listField("alternativeRates") {
-            label = "Alternative Rates (Modes/Switches)"
-            helpText = "Different production rates for various modes"
-            itemLabel = "Rate Configuration"
-        }
-
-        rateField("consumptionRate") {
+        typedMapField("consumptionRate") {
             label = "Consumption Rate"
-            filterable = true
-            unit = "items/hour"
-            min = 0.0
+            types {
+                textKey {
+                    label = "Mode"
+                    placeholder = "e.g., Normal, Fast, Eco"
+                }
+                typedMapValue {
+                    label = "Rate Details"
+                    types {
+                        selectKey {
+                            label = "Item"
+                            dynamicOptionsConfig = DynamicOptionsConfig.items()
+                        }
+                        rateValue {
+                            label = "Rate"
+                            min = 0.0
+                        }
+                    }
+                }
+            }
         }
 
-        // Physical dimensions
-        dimensionsField("size") {
-            label = "Size (X × Y × Z)"
-            filterable = true
-            required = true
-        }
+        sizeField()
 
         booleanField("stackable") {
             label = "Stackable"
@@ -69,6 +140,8 @@ object IdeaCategorySchemas {
             label = "Required Y-Level"
             filterable = true
             helpText = "Specific Y-level requirement (if any)"
+            min = -64.0
+            max = 320.0
         }
 
         booleanField("subChunkAligned") {
@@ -89,17 +162,56 @@ object IdeaCategorySchemas {
             )
         }
 
-        mapField("mobRequirements") {
+        typedMapField("mobRequirements") {
             label = "Mob Requirements"
-            keyLabel = "Mob Type"
-            valueLabel = "Amount Required"
-            helpText = "Specific mob spawning requirements"
+            helpText = "Specific mobs required for farm operation"
+            types {
+                selectKey {
+                    label = "Mob Type"
+                    options = listOf(
+                        SearchableSelectOption(
+                            value = "zombie",
+                            label = "Zombie",
+                            searchTerms = listOf("zombie", "undead")
+                        ),
+                        SearchableSelectOption(
+                            value = "skeleton",
+                            label = "Skeleton",
+                            searchTerms = listOf("skeleton", "undead", "arrow")
+                        ),
+                        SearchableSelectOption(
+                            value = "creeper",
+                            label = "Creeper",
+                            searchTerms = listOf("creeper", "explosive")
+                        ),
+                        SearchableSelectOption(
+                            value = "spider",
+                            label = "Spider",
+                            searchTerms = listOf("spider", "arachnid")
+                        ),
+                        SearchableSelectOption(
+                            value = "witch",
+                            label = "Witch",
+                            searchTerms = listOf("witch", "potion", "alchemist")
+                        ),
+                        SearchableSelectOption(
+                            value = "any",
+                            label = "Any",
+                            searchTerms = listOf("any", "all", "generic")
+                        )
+                    )
+                }
+                numberValue {
+                    label = "Amount Required"
+                    min = 1.0
+                }
+            }
         }
 
         // Player requirements
-        listField("playerSetup") {
+        multiSelectField("playerSetup") {
             label = "Player Setup Requirements"
-            allowedValues = listOf(
+            options = listOf(
                 "Looting III Sword", "Fire Aspect II", "Sweeping Edge III",
                 "Strength II Potion", "Speed II Potion", "Regeneration",
                 "Full Diamond Armor", "Full Netherite Armor", "Elytra",
@@ -107,9 +219,9 @@ object IdeaCategorySchemas {
             )
         }
 
-        listField("beaconSetup") {
+        multiSelectField("beaconSetup") {
             label = "Beacon Setup Requirements"
-            allowedValues = listOf(
+            options = listOf(
                 "Speed I", "Speed II", "Haste I", "Haste II",
                 "Strength I", "Strength II", "Jump Boost I", "Jump Boost II",
                 "Regeneration I", "Regeneration II", "Resistance I", "Resistance II"
@@ -122,6 +234,7 @@ object IdeaCategorySchemas {
             searchable = true
             multiline = true
             required = true
+            maxLength = 1000
             helpText = "Instructions for operating the farm"
         }
 
@@ -135,8 +248,29 @@ object IdeaCategorySchemas {
         selectField("playersRequired") {
             label = "Players Required"
             filterable = true
-            required = true
-            options = listOf("0 (Automatic)", "1", "2", "3+")
+            required = true // listOf("0 (Automatic)", "1", "2", "3+")
+            options = listOf(
+                SearchableSelectOption(
+                    value = "0",
+                    label = "0 (Automatic)",
+                    searchTerms = listOf("0", "automatic", "auto")
+                ),
+                SearchableSelectOption(
+                    value = "1",
+                    label = "1",
+                    searchTerms = listOf("1", "one")
+                ),
+                SearchableSelectOption(
+                    value = "2",
+                    label = "2",
+                    searchTerms = listOf("2", "two")
+                ),
+                SearchableSelectOption(
+                    value = "3+",
+                    label = "3+",
+                    searchTerms = listOf("3+", "three or more", "three+", "many", "multiple")
+                )
+            )
             defaultValue = "1"
         }
 
@@ -270,11 +404,7 @@ object IdeaCategorySchemas {
 
         // Box loader
         subcategory("boxLoader") {
-            selectField("tileable") {
-                label = "Tileable Configuration"
-                filterable = true
-                options = listOf("1", "2", "3", "AB", "ABC", "Not Tileable")
-            }
+
 
             booleanField("noToggle") {
                 label = "No Toggle"
@@ -310,11 +440,7 @@ object IdeaCategorySchemas {
 
         // Box sorters
         subcategory("boxSorter") {
-            selectField("tilability") {
-                label = "Tilability"
-                filterable = true
-                options = listOf("1", "2", "3", "AB", "ABC", "Not Tileable")
-            }
+            tileability()
 
             rateField("speed") {
                 label = "Speed"
@@ -346,11 +472,7 @@ object IdeaCategorySchemas {
                 unit = "items/hour"
             }
 
-            selectField("tilability") {
-                label = "Tilability"
-                filterable = true
-                options = listOf("1", "2", "3", "AB", "ABC", "Not Tileable")
-            }
+            tileability()
         }
 
         // Multi item sorter
@@ -457,9 +579,50 @@ object IdeaCategorySchemas {
             filterable = true
             required = true
             options = listOf(
-                "Storage", "Transport", "Computational", "Farm Collection",
-                "Furnace Arrays", "Item Whitelisters", "Loading/Unloading",
-                "Stackers and Unstackers", "Stationary", "Villagers++", "Other"
+                SearchableSelectOption(
+                    value = "storage",
+                    label = "Storage",
+                ),
+                SearchableSelectOption(
+                    value = "transport",
+                    label = "Transport",
+                ),
+                SearchableSelectOption(
+                    value = "computational",
+                    label = "Computational",
+                ),
+                SearchableSelectOption(
+                    value = "farm_collection",
+                    label = "Farm Collection",
+                ),
+                SearchableSelectOption(
+                    value = "furnace_arrays",
+                    label = "Furnace Arrays",
+                ),
+                SearchableSelectOption(
+                    value = "item_whitelisters",
+                    label = "Item Whitelisters",
+                ),
+                SearchableSelectOption(
+                    value = "loading_unloading",
+                    label = "Loading/Unloading",
+                ),
+                SearchableSelectOption(
+                    value = "stackers_unstackers",
+                    label = "Stackers and Unstackers",
+                ),
+                SearchableSelectOption(
+                    value = "stationary",
+                    label = "Stationary",
+                ),
+                SearchableSelectOption(
+                    value = "villagers_plus_plus",
+                    label = "Villagers++",
+                ),
+                SearchableSelectOption(
+                    value = "other",
+                    label = "Other",
+                )
             )
         }
 
@@ -518,8 +681,34 @@ object IdeaCategorySchemas {
             label = "TNT Type"
             filterable = true
             options = listOf(
-                "TNT Duper", "TNT Compressor", "Transport Cannon",
-                "Digging Cannon", "Arrow Cannon", "Weaponry", "Other"
+                SearchableSelectOption(
+                    value = "tnt_duper",
+                    label = "TNT Duper",
+                ),
+                SearchableSelectOption(
+                    value = "tnt_compressor",
+                    label = "TNT Compressor",
+                ),
+                SearchableSelectOption(
+                    value = "transport_cannon",
+                    label = "Transport Cannon",
+                ),
+                SearchableSelectOption(
+                    value = "digging_cannon",
+                    label = "Digging Cannon",
+                ),
+                SearchableSelectOption(
+                    value = "arrow_cannon",
+                    label = "Arrow Cannon",
+                ),
+                SearchableSelectOption(
+                    value = "weaponry",
+                    label = "Weaponry",
+                ),
+                SearchableSelectOption(
+                    value = "other",
+                    label = "Other",
+                )
             )
         }
 
@@ -656,9 +845,42 @@ object IdeaCategorySchemas {
             label = "Slimestone Type"
             filterable = true
             options = listOf(
-                "Engine", "1-Way Extension", "2-Way Extension", "Return Station",
-                "Quarry", "Trencher", "Tunnel Bore", "World Eater",
-                "Liquid Sweeper", "Bedrock Breaker", "Building Machine", "Other"
+                SearchableSelectOption(
+                    value = "engine",
+                    label = "Engine",
+                ),
+                SearchableSelectOption(
+                    value = "one_way_extension",
+                    label = "1-Way Extension",
+                ),
+                SearchableSelectOption(
+                    value = "two_way_extension",
+                    label = "2-Way Extension",
+                ),
+                SearchableSelectOption(
+                    value = "return_station",
+                    label = "Return Station",
+                ),
+                SearchableSelectOption(
+                    value = "quarry",
+                    label = "Quarry",
+                ),
+                SearchableSelectOption(
+                    value = "trencher",
+                    label = "Trencher",
+                ),
+                SearchableSelectOption(
+                    value = "world_eater",
+                    label = "World Eater",
+                ),
+                SearchableSelectOption(
+                    value = "bedrock_breaker",
+                    label = "Bedrock Breaker",
+                ),
+                SearchableSelectOption(
+                    value = "other",
+                    label = "Other",
+                )
             )
         }
 
@@ -674,8 +896,30 @@ object IdeaCategorySchemas {
             label = "Contraption Type"
             filterable = true
             options = listOf(
-                "Entity Transport", "Furnaces", "Brewers",
-                "Instant Wires", "Logic Computation", "Other"
+                SearchableSelectOption(
+                    value = "entity_transport",
+                    label = "Entity Transport",
+                ),
+                SearchableSelectOption(
+                    value = "furnaces",
+                    label = "Furnaces",
+                ),
+                SearchableSelectOption(
+                    value = "brewers",
+                    label = "Brewers",
+                ),
+                SearchableSelectOption(
+                    value = "instant_wires",
+                    label = "Instant Wires",
+                ),
+                SearchableSelectOption(
+                    value = "logic_computation",
+                    label = "Logic Computation",
+                ),
+                SearchableSelectOption(
+                    value = "other",
+                    label = "Other",
+                )
             )
         }
 
@@ -712,18 +956,36 @@ object IdeaCategorySchemas {
     }
 
     val BUILD = ideaCategory(IdeaCategory.BUILD) {
-        dimensionsField("dimensions") {
-            label = "Dimensions"
-            searchable = true
-            helpText = "Approximate size of the build"
-        }
+        sizeField()
 
         selectField("buildStyle") {
             label = "Build Style"
             filterable = true
             options = listOf(
-                "Medieval", "Modern", "Fantasy", "Steampunk", "Sci-Fi",
-                "Oriental", "Victorian", "Rustic", "Industrial", "Organic"
+                SearchableSelectOption(
+                    value = "modern",
+                    label = "Modern",
+                ),
+                SearchableSelectOption(
+                    value = "medieval",
+                    label = "Medieval",
+                ),
+                SearchableSelectOption(
+                    value = "fantasy",
+                    label = "Fantasy",
+                ),
+                SearchableSelectOption(
+                    value = "rustic",
+                    label = "Rustic",
+                ),
+                SearchableSelectOption(
+                    value = "industrial",
+                    label = "Industrial",
+                ),
+                SearchableSelectOption(
+                    value = "other",
+                    label = "Other",
+                )
             )
         }
 

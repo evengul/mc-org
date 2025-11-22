@@ -13,11 +13,11 @@ import app.mcorg.presentation.templated.common.chip.ChipVariant
 import app.mcorg.presentation.templated.common.chip.chipComponent
 import app.mcorg.presentation.templated.common.emptystate.EmptyStateVariant
 import app.mcorg.presentation.templated.common.emptystate.emptyState
+import app.mcorg.presentation.templated.common.form.searchField.searchField
 import app.mcorg.presentation.templated.common.icon.IconSize
 import app.mcorg.presentation.templated.common.icon.Icons
 import app.mcorg.presentation.templated.common.link.Link
 import app.mcorg.presentation.templated.common.page.createPage
-import app.mcorg.presentation.templated.common.searchField.searchField
 import app.mcorg.presentation.templated.common.tabs.TabData
 import app.mcorg.presentation.templated.common.tabs.tabsComponent
 import app.mcorg.presentation.utils.BreadcrumbBuilder

@@ -3,12 +3,14 @@ package app.mcorg.presentation.handler
 import app.mcorg.pipeline.idea.*
 import app.mcorg.pipeline.idea.createfragments.handleGetAuthorFields
 import app.mcorg.pipeline.idea.createfragments.handleGetCreateCategoryFields
+import app.mcorg.pipeline.idea.createfragments.handleGetItemRequirementFields
 import app.mcorg.pipeline.idea.createfragments.handleGetVersionFields
 import app.mcorg.pipeline.idea.single.*
+import app.mcorg.pipeline.project.handleGetSelectWorldForIdeaImportFragment
+import app.mcorg.pipeline.project.handleImportIdea
 import app.mcorg.presentation.plugins.IdeaCommentParamPlugin
 import app.mcorg.presentation.plugins.IdeaCreatorPlugin
 import app.mcorg.presentation.plugins.IdeaParamPlugin
-import app.mcorg.presentation.plugins.WorldParamPlugin
 import io.ktor.server.routing.*
 
 class IdeaHandler {
@@ -33,6 +35,9 @@ class IdeaHandler {
 
             route("/create") {
                 install(IdeaCreatorPlugin)
+                get {
+                    call.handleGetCreateIdeaPage()
+                }
                 get("/fields/{category}") {
                     call.handleGetCreateCategoryFields()
                 }
@@ -41,6 +46,12 @@ class IdeaHandler {
                 }
                 get("/version-fields") {
                     call.handleGetVersionFields()
+                }
+                get("/item-requirement-field") {
+                    call.handleGetItemRequirementFields()
+                }
+                post("/litematica-parse") {
+                    call.handleParseLitematicaMaterialListToIdeaRequirements()
                 }
                 post {
                     call.handleCreateIdea()
@@ -51,14 +62,13 @@ class IdeaHandler {
                 get {
                     call.handleGetIdea()
                 }
-                post("/import") {
-                    route("/{worldId}") {
-                        install(WorldParamPlugin)
-                        post {
-
-                        }
+                route("/import") {
+                    get("/select") {
+                        call.handleGetSelectWorldForIdeaImportFragment()
                     }
-                    // Import idea into a world
+                    post {
+                        call.handleImportIdea()
+                    }
                 }
                 put("/favourite") {
                     call.handleFavouriteIdea()

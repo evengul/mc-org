@@ -4,8 +4,8 @@ import app.mcorg.domain.model.idea.IdeaCategory
 import app.mcorg.domain.model.idea.IdeaDifficulty
 import app.mcorg.presentation.templated.common.button.neutralButton
 import app.mcorg.presentation.templated.common.link.Link
-import app.mcorg.presentation.templated.common.searchField.SearchFieldHxValues
-import app.mcorg.presentation.templated.common.searchField.searchField
+import app.mcorg.presentation.templated.common.form.searchField.SearchFieldHxValues
+import app.mcorg.presentation.templated.common.form.searchField.searchField
 import app.mcorg.presentation.templated.utils.toPrettyEnumName
 import kotlinx.html.*
 

@@ -13,12 +13,11 @@ fun DIV.renderFilterField(field: CategoryField) {
     when (field) {
         is CategoryField.Text -> renderTextField(field)
         is CategoryField.Number -> renderNumberField(field)
-        is CategoryField.Select -> renderSelectField(field)
+        is CategoryField.Select<*> -> @Suppress("UNCHECKED_CAST") renderSelectField(field as CategoryField.Select<Any>)
         is CategoryField.MultiSelect -> renderMultiSelectField(field)
         is CategoryField.BooleanField -> renderBooleanField(field)
         is CategoryField.Rate -> renderRateField(field)
         is CategoryField.Percentage -> renderPercentageField(field)
-        is CategoryField.Dimensions -> renderDimensionsField(field)
         else -> {
             // Skip non-filterable or unsupported field types
         }
@@ -97,7 +96,7 @@ fun DIV.renderNumberField(field: CategoryField.Number) {
 /**
  * Renders a select dropdown
  */
-fun DIV.renderSelectField(field: CategoryField.Select) {
+fun DIV.renderSelectField(field: CategoryField.Select<Any>) {
     div("filter-group") {
         label {
             htmlFor = "filter-${field.key}"
@@ -116,10 +115,10 @@ fun DIV.renderSelectField(field: CategoryField.Select) {
                 value = ""
                 +"Any"
             }
-            field.options.forEach { opt ->
+            field.options().forEach { opt ->
                 option {
-                    value = opt
-                    +opt
+                    value = opt.value.toString()
+                    + opt.label
                 }
             }
         }
@@ -245,48 +244,6 @@ fun DIV.renderPercentageField(field: CategoryField.Percentage) {
                 attributes["min"] = field.min.toString()
                 attributes["max"] = field.max.toString()
                 attributes["step"] = "0.01"
-            }
-        }
-    }
-}
-
-/**
- * Renders dimension filters (X, Y, Z)
- */
-fun DIV.renderDimensionsField(field: CategoryField.Dimensions) {
-    div("filter-group") {
-        label {
-            +field.label
-            if (field.helpText != null) {
-                span("subtle") {
-                    style = "font-size: var(--text-sm); margin-left: var(--spacing-xxs);"
-                    +" (${field.helpText})"
-                }
-            }
-        }
-        div("cluster cluster--xs") {
-            input(type = InputType.number, classes = "form-control form-control--sm filter-field") {
-                name = "categoryFilters[${field.key}_x]"
-                placeholder = "X"
-                attributes["min"] = "1"
-            }
-            span {
-                style = "align-self: center;"
-                +"×"
-            }
-            input(type = InputType.number, classes = "form-control form-control--sm filter-field") {
-                name = "categoryFilters[${field.key}_y]"
-                placeholder = "Y"
-                attributes["min"] = "1"
-            }
-            span {
-                style = "align-self: center;"
-                +"×"
-            }
-            input(type = InputType.number, classes = "form-control form-control--sm filter-field") {
-                name = "categoryFilters[${field.key}_z]"
-                placeholder = "Z"
-                attributes["min"] = "1"
             }
         }
     }

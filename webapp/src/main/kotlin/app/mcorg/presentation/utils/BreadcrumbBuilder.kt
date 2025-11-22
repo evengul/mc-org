@@ -181,6 +181,14 @@ object BreadcrumbBuilder {
         ))
     }
 
+    fun buildForCreateIdea(): Breadcrumbs {
+        return Breadcrumbs(listOf(
+            BreadcrumbItem("Home", Link.Home, Icons.HOME),
+            BreadcrumbItem("Ideas", Link.Ideas, Icons.Menu.VOLCANO),
+            BreadcrumbItem("Create Idea", null, Icons.MENU_ADD)
+        ))
+    }
+
     /**
      * Build breadcrumbs for a specific idea page
      */

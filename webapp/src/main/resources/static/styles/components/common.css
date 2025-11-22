@@ -13,6 +13,11 @@ p.subtle,
     color: var(--clr-text-subtle);
 }
 
+p.small {
+    font-weight: lighter;
+    font-size: var(--text-sm);
+}
+
 /* Notice/Alert Box Component */
 .notice {
     border: 2px solid var(--clr-border-subtle);

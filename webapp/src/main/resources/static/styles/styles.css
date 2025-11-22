@@ -22,6 +22,7 @@
 @import "components/dialog.css";
 @import "components/checkbox.css";
 @import "components/select.css";
+@import "components/searchable-select.css";
 @import "components/input.css";
 @import "components/radio.css";
 @import "components/textarea.css";
@@ -42,5 +43,6 @@
 @import "pages/settings-page.css";
 @import "pages/profile-page.css";
 @import "pages/ideas-page.css";
+@import "pages/create-idea-page.css";
 @import "pages/idea-page.css";
 @import "pages/admin-page.css";
