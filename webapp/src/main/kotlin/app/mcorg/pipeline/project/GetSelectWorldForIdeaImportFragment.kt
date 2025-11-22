@@ -34,7 +34,6 @@ suspend fun ApplicationCall.handleGetSelectWorldForIdeaImportFragment() {
                 id = "import-idea-selector"
                 name = "worldId"
 
-                // HTMX attributes for dynamic world selection
                 hxPost(Link.Ideas.single(ideaId) + "/import")
                 hxTarget("#import-idea-selector")
                 hxSwap("outerHTML")
@@ -44,10 +43,10 @@ suspend fun ApplicationCall.handleGetSelectWorldForIdeaImportFragment() {
                 option {
                     value = ""
                     if (worldsList.isEmpty()) {
-                        +"No compatible worlds available"
-                        attributes["disabled"] = "disabled"
+                        disabled = true
+                        + "No compatible worlds available"
                     } else {
-                        +"Select a world"
+                        + "Select a world"
                     }
                 }
                 for ((worldId, worldName) in worldsList) {
