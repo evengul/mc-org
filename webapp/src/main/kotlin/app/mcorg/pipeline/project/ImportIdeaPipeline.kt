@@ -210,8 +210,8 @@ private data class CreateProjectFromIdeaStep(val worldId: Int) : Step<IdeaForImp
                 override suspend fun process(input: IdeaForImport): Result<AppFailure.DatabaseError, Int> {
                     val projectIdResult = DatabaseSteps.update<IdeaForImport>(
                         sql = SafeSQL.insert("""
-                            INSERT INTO projects (world_id, name, description, type, stage, location_x, location_y, location_z, location_dimension) 
-                            VALUES (?, ?, ?, ?, 'RESOURCE_GATHERING', 0, 0, 0, 'OVERWORLD') 
+                            INSERT INTO projects (world_id, name, description, type, stage, location_x, location_y, location_z, location_dimension, project_idea_id) 
+                            VALUES (?, ?, ?, ?, 'RESOURCE_GATHERING', 0, 0, 0, 'OVERWORLD', ?) 
                             RETURNING id
                         """.trimIndent()),
                         parameterSetter = { statement, idea ->
@@ -219,6 +219,7 @@ private data class CreateProjectFromIdeaStep(val worldId: Int) : Step<IdeaForImp
                             statement.setString(2, idea.name)
                             statement.setString(3, idea.description)
                             statement.setString(4, idea.category.toProjectType().name)
+                            statement.setInt(5, idea.id)
                         },
                         transactionConnection = connection
                     ).process(input)

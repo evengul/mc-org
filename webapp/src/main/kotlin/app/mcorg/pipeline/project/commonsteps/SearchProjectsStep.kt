@@ -52,9 +52,12 @@ object SearchProjectsStep : Step<SearchProjectsInput, AppFailure.DatabaseError, 
             p.location_z,
             p.created_at,
             p.updated_at,
+            p.project_idea_id,
+            i.name as idea_name,
             COALESCE(task_stats.tasks_total, 0) as tasks_total,
             COALESCE(task_stats.tasks_completed, 0) as tasks_completed
         FROM projects p
+        LEFT JOIN ideas i ON p.project_idea_id = i.id
         LEFT JOIN (
             SELECT 
                 t.project_id,

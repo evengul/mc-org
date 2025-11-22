@@ -13,6 +13,7 @@ data class Project(
     val location: MinecraftLocation?,
     val tasksTotal: Int,
     val tasksCompleted: Int,
+    val importedFromIdea: Pair<Int, String>? = null,
     val createdAt: ZonedDateTime,
     val updatedAt: ZonedDateTime
 )
