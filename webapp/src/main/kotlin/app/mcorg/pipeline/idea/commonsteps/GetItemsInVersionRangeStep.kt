@@ -32,7 +32,9 @@ object GetItemsInVersionRangeStep : Step<MinecraftVersionRange, AppFailure.Datab
                             id = it.getString("item_id"),
                             name = it.getString("item_name")
                         )
-                        add(item)
+                        if (!this.contains(item)) {
+                            add(item)
+                        }
                     }
                 }
             }
