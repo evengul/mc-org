@@ -42,6 +42,7 @@ suspend fun ApplicationCall.handleGetSelectWorldForIdeaImportFragment() {
 
                 option {
                     value = ""
+                    selected = true
                     if (worldsList.isEmpty()) {
                         disabled = true
                         + "No compatible worlds available"
