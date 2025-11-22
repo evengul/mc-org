@@ -2,11 +2,7 @@ package app.mcorg.presentation.templated.common.icon
 
 import app.mcorg.presentation.templated.common.component.LeafComponent
 import app.mcorg.presentation.templated.common.component.addComponent
-import kotlinx.html.Tag
-import kotlinx.html.TagConsumer
-import kotlinx.html.classes
-import kotlinx.html.div
-import kotlinx.html.unsafe
+import kotlinx.html.*
 
 enum class IconSize(val width: Int, val height: Int) {
     SMALL(24, 24),
@@ -163,6 +159,7 @@ object Icons {
         val GROUP = Icon("Group", "users")
         val PROFILE = Icon("Profile", "users")
     }
+    val Search = Icon("Search")
     val ADD_WORLD = Icon("Add_World")
     val BACK = Icon("Back")
     val CLOSE = Icon("Close")

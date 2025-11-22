@@ -101,7 +101,7 @@ suspend fun ApplicationCall.handleGetProject() {
                 project,
                 user,
                 availableProjects,
-                dependencyData.filter { it.dependencyId == projectId },
+                dependencyData.filter { it.dependentId == projectId },
                 dependencyData.filter { it.dependencyId == projectId }
             )
         }

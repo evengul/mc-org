@@ -137,6 +137,9 @@ class WorldHandler {
                                         call.handleToggleActionRequirement()
                                     }
                                 }
+                                get("/matching-ideas") {
+                                    call.handleFindIdeasForTask()
+                                }
                             }
                         }
                     }

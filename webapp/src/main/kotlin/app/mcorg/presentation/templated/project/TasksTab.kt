@@ -6,6 +6,7 @@ import app.mcorg.domain.model.task.ItemRequirement
 import app.mcorg.domain.model.task.Priority
 import app.mcorg.domain.model.task.Task
 import app.mcorg.domain.model.task.TaskProjectStage
+import app.mcorg.pipeline.task.FoundIdea
 import app.mcorg.presentation.*
 import app.mcorg.presentation.templated.common.button.IconButtonColor
 import app.mcorg.presentation.templated.common.button.actionButton
@@ -211,6 +212,48 @@ fun LI.taskItem(worldId: Int, projectId: Int, task: Task) {
         if (!task.isCompleted()) {
             itemRequirementActions(worldId, projectId, task.id)
         }
+        div {
+            foundIdeas(worldId, task.id to task.name)
+        }
+    }
+}
+
+fun DIV.foundIdeas(worldId: Int, task: Pair<Int, String>, ideas: List<FoundIdea>? = null) {
+    id = "found-ideas-for-task-${task.first}"
+    if (ideas != null) {
+        p {
+            + "Ideas that produce ${task.second}: "
+        }
+        if (ideas.isEmpty()) {
+            p("subtle") {
+                + "No ideas found."
+            }
+        } else {
+            ul {
+                ideas.forEach { idea ->
+                    li {
+                        if (idea.alreadyImported) {
+                            span {
+                                + "${idea.name} (Already imported)"
+                            }
+                        } else {
+                            a(href = Link.Ideas.single(idea.id)) {
+                                attributes["target"] = "_blank"
+                                attributes["rel"] = "noopener noreferrer"
+                                + idea.name
+                            }
+                            + "Rate: ${idea.rate} / hour"
+                            actionButton("Import ${idea.name} into this world") {
+                                buttonBlock = {
+                                    hxPost(Link.Ideas.single(idea.id) + "/import?worldId=$worldId&forTask=${task.first}")
+                                    hxSwap("none")
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -235,6 +278,26 @@ private fun LI.taskHeader(worldId: Int, projectId: Int, task: Task) {
             }
         }
         div("task-header-end") {
+            if (task.requirement is ItemRequirement) {
+                if (task.solvedByProject != null) {
+                    chipComponent {
+                        icon = Icons.Menu.PROJECTS
+                        variant = ChipVariant.SUCCESS
+                        href = Link.Worlds.world(worldId).project(task.solvedByProject.first).to
+                        + "Farmable with ${task.solvedByProject.second}"
+                    }
+                } else {
+                    neutralButton("Find Farm Ideas") {
+                        iconLeft = Icons.Search
+                        iconSize = IconSize.SMALL
+                        buttonBlock = {
+                            hxGet("/app/worlds/$worldId/projects/$projectId/tasks/${task.id}/matching-ideas")
+                            hxTarget("#found-ideas-for-task-${task.id}")
+                            hxSwap("innerHTML")
+                        }
+                    }
+                }
+            }
             chipComponent {
                 icon = when(task.priority) {
                     Priority.HIGH, Priority.CRITICAL -> Icons.Priority.HIGH

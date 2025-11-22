@@ -34,10 +34,12 @@ data class IdeaForImport(
 suspend fun ApplicationCall.handleImportIdea() {
     val ideaId = this.getIdeaId()
 
-    val worldId = this.receiveParameters()["worldId"]?.toIntOrNull()
+    val worldId = (this.receiveParameters()["worldId"] ?: parameters["worldId"])?.toIntOrNull()
         ?: return run {
             defaultHandleError(AppFailure.customValidationError("worldId", "Invalid or missing worldId parameter"))
         }
+
+    val taskId = parameters["forTask"]?.toIntOrNull()
 
     val items = GetItemsInWorldVersionStep.process(worldId).getOrNull() ?: emptyList()
 
@@ -49,7 +51,7 @@ suspend fun ApplicationCall.handleImportIdea() {
             .value(ideaId)
             .step(GetIdeaForImportStep)
             .step(ValidateItemIdsStep(items))
-            .step(CreateProjectFromIdeaStep(worldId))
+            .step(CreateProjectFromIdeaStep(worldId, taskId))
     }
 }
 
@@ -85,7 +87,7 @@ private object ValidateVersionRangeStep : Step<Pair<Int, Int>, AppFailure, Pair<
             return ideaVersion
         }
 
-        return if (ideaVersion.getOrNull()!!.withinBounds(worldVersion.getOrNull()!!)) {
+        return if (ideaVersion.getOrNull()!!.contains(worldVersion.getOrNull()!!)) {
             Result.Success(input)
         } else {
             Result.Failure(AppFailure.customValidationError("idea", "Idea is not compatible with the world's Minecraft version"))
@@ -203,7 +205,13 @@ private data class ValidateItemIdsStep(val availableIds: List<Item>) : Step<Pair
     }
 }
 
-private data class CreateProjectFromIdeaStep(val worldId: Int) : Step<IdeaForImport, AppFailure.DatabaseError, Int> {
+data class CreateDependencyInput(
+    val projectId: Int,
+    val taskId: Int,
+    val dependsOnProjectId: Int
+)
+
+private data class CreateProjectFromIdeaStep(val worldId: Int, val taskId: Int?) : Step<IdeaForImport, AppFailure.DatabaseError, Int> {
     override suspend fun process(input: IdeaForImport): Result<AppFailure.DatabaseError, Int> {
         return DatabaseSteps.transaction { connection ->
             object : Step<IdeaForImport, AppFailure.DatabaseError, Int> {
@@ -268,6 +276,43 @@ private data class CreateProjectFromIdeaStep(val worldId: Int) : Step<IdeaForImp
                         return Result.Failure(production.error)
                     }
 
+                    if (taskId != null) {
+                        val projectOfTaskId = DatabaseSteps.query<Int, Int>(
+                            sql = SafeSQL.select("SELECT project_id FROM tasks WHERE id = ?"),
+                            parameterSetter = { statement, tId ->
+                                statement.setInt(1, tId)
+                            },
+                            resultMapper = { resultSet ->
+                                resultSet.next()
+                                resultSet.getInt("project_id")
+                            },
+                            transactionConnection = connection
+                        ).process(taskId)
+
+                        if (projectOfTaskId is Result.Failure) {
+                            return projectOfTaskId
+                        }
+                        val dependencyResult = DatabaseSteps.update<CreateDependencyInput>(
+                            sql = SafeSQL.insert("""
+                                INSERT INTO project_dependencies (project_id, depends_on_project_id, tasks_depending_on_dependency_project) VALUES (?, ?, ?)
+                            """.trimIndent()),
+                            parameterSetter = { statement, input ->
+                                statement.setInt(1, input.projectId)
+                                statement.setInt(2, input.dependsOnProjectId)
+                                statement.setArray(3, statement.connection.createArrayOf("INTEGER", arrayOf(input.taskId)))
+                            },
+                            transactionConnection = connection
+                        ).process(CreateDependencyInput(
+                            projectId = projectOfTaskId.getOrNull()!!,
+                            taskId = taskId,
+                            dependsOnProjectId = projectId
+                        ))
+
+                        if (dependencyResult is Result.Failure) {
+                            return dependencyResult
+                        }
+                    }
+
                     return Result.Success(projectId)
                 }
             }
@@ -286,4 +331,5 @@ private data class CreateProjectFromIdeaStep(val worldId: Int) : Step<IdeaForImp
         }
     }
 }
+
 

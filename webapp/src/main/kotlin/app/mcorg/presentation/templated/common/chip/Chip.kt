@@ -44,6 +44,7 @@ class Chip(
     var classes: MutableSet<String> = mutableSetOf(),
     var id: String? = null,
     var hxEditableFromHref: String? = null,
+    var href: String? = null
 ) : LeafComponent() {
 
     override fun render(container: TagConsumer<*>) {
@@ -81,6 +82,11 @@ class Chip(
                     add("chip--editable")
                     add("u-cursor-pointer")
                 }
+
+                href?.let {
+                    add("chip--interactive")
+                    add("u-cursor-pointer")
+                }
             }
 
             hxEditableFromHref?.let {
@@ -90,6 +96,11 @@ class Chip(
 
             onClick?.let {
                 attributes["onclick"] = it
+            }
+
+            href?.let {
+                attributes["role"] = "link"
+                attributes["onclick"] = "window.location.href='$it';"
             }
 
             icon?.let {

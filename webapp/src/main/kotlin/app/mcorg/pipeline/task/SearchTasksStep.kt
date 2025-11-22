@@ -38,6 +38,8 @@ data class SearchTasksStep(val projectId: Int) : Step<SearchTasksInput, AppFailu
                     t.requirement_item_required_amount,
                     t.requirement_item_collected,
                     t.requirement_action_completed,
+                    pd.depends_on_project_id AS solved_by_project_id,
+                    p.name AS solved_by_project_name,
                     CASE 
                         WHEN t.priority = 'CRITICAL' THEN 1
                         WHEN t.priority = 'HIGH' THEN 2
@@ -46,6 +48,8 @@ data class SearchTasksStep(val projectId: Int) : Step<SearchTasksInput, AppFailu
                         ELSE 5
                     END as priority_order
                 FROM tasks t
+                LEFT JOIN project_dependencies pd on t.id = ANY(pd.tasks_depending_on_dependency_project)
+                LEFT JOIN projects p on pd.depends_on_project_id = p.id
                 WHERE t.project_id = ?
                   AND (? IS NULL OR LOWER(t.name) LIKE ? OR LOWER(t.description) LIKE ?)
                   AND (? = 'ALL' OR t.priority = ?)
