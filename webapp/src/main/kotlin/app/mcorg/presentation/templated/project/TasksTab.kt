@@ -274,7 +274,111 @@ fun LI.taskItemProgress(taskId: Int, itemRequirement: ItemRequirement) {
         value = itemRequirement.collected.toDouble()
         max = itemRequirement.requiredAmount.toDouble()
         showPercentage = false
-        label = "${itemRequirement.collected} of ${itemRequirement.requiredAmount} item${if (itemRequirement.requiredAmount == 1) "" else "s"} collected"
+        label = progressText(itemRequirement.requiredAmount, itemRequirement.collected)
+    }
+}
+
+private fun progressText(required: Int, collected: Int): String {
+    // Special case: single item
+    if (required == 1) {
+        return if (collected >= 1) "Collected" else "Not Collected"
+    }
+
+    // Determine the best unit based on required amount
+    return when {
+        required >= 1728 -> {
+            // Use shulker boxes (1728 items per shulker box)
+            val requiredShulkers = required / 1728
+            val requiredRemainder = required % 1728
+            val collectedShulkers = collected / 1728
+            val collectedRemainder = collected % 1728
+
+            buildString {
+                // Collected portion
+                if (collectedShulkers > 0) {
+                    append(collectedShulkers)
+                    if (collectedRemainder > 0) {
+                        val collectedStacks = collectedRemainder / 64
+                        val collectedItems = collectedRemainder % 64
+                        if (collectedStacks > 0) {
+                            append(" shulker boxes + $collectedStacks stacks")
+                            if (collectedItems > 0) append(" + $collectedItems items")
+                        } else if (collectedItems > 0) {
+                            append(" shulker boxes + $collectedItems items")
+                        } else {
+                            append(" shulker boxes")
+                        }
+                    } else {
+                        append(" shulker boxes")
+                    }
+                } else {
+                    // Less than 1 shulker box collected - just show stacks/items
+                    val collectedStacks = collectedRemainder / 64
+                    val collectedItems = collectedRemainder % 64
+                    if (collectedStacks > 0) {
+                        append(collectedStacks)
+                        append(" stacks")
+                        if (collectedItems > 0) append(" + $collectedItems items")
+                    } else {
+                        append(collectedItems)
+                        append(" items")
+                    }
+                }
+
+                append(" / ")
+
+                // Required portion
+                append(requiredShulkers)
+                if (requiredRemainder > 0) {
+                    val requiredStacks = requiredRemainder / 64
+                    val requiredItems = requiredRemainder % 64
+                    if (requiredStacks > 0) {
+                        append(" shulker boxes + $requiredStacks stacks")
+                        if (requiredItems > 0) append(" + $requiredItems items")
+                    } else if (requiredItems > 0) {
+                        append(" shulker boxes + $requiredItems items")
+                    } else {
+                        append(" shulker boxes")
+                    }
+                } else {
+                    append(" shulker boxes")
+                }
+                append(" collected")
+            }
+        }
+        required >= 64 -> {
+            // Use stacks (64 items per stack)
+            val requiredStacks = required / 64
+            val requiredRemainder = required % 64
+            val collectedStacks = collected / 64
+            val collectedRemainder = collected % 64
+
+            buildString {
+                if (collectedStacks > 0) {
+                    append(collectedStacks)
+                    if (collectedRemainder > 0) {
+                        append(" stacks + $collectedRemainder")
+                    } else {
+                        append(" stacks")
+                    }
+                } else {
+                    // Less than 1 stack collected - just show items
+                    append(collectedRemainder)
+                }
+
+                append(" / $requiredStacks")
+                if (requiredRemainder > 0) {
+                    append(" stacks + $requiredRemainder")
+                } else {
+                    append(" stacks")
+                }
+                append(" collected")
+            }
+        }
+        else -> {
+            // Use individual items
+            "$collected / $required collected"
+        }
     }
 }
 
