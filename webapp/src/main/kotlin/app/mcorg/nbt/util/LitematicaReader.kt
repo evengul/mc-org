@@ -4,14 +4,23 @@ import app.mcorg.domain.model.minecraft.Litematica
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.nbt.io.BinaryNbtDeserializer
 import app.mcorg.nbt.io.CompressionType
-import app.mcorg.nbt.tag.*
+import app.mcorg.nbt.tag.ByteTag
+import app.mcorg.nbt.tag.CompoundTag
+import app.mcorg.nbt.tag.IntTag
+import app.mcorg.nbt.tag.ListTag
+import app.mcorg.nbt.tag.LongListTag
+import app.mcorg.nbt.tag.StringTag
 import app.mcorg.pipeline.failure.AppFailure
 import java.io.InputStream
 import kotlin.math.absoluteValue
 
 object LitematicaReader {
-    fun readLitematica(inputStream: InputStream): Result<AppFailure, Litematica> {
-        val content = inputStream.readBytes()
+    fun readLitematica(stream: InputStream): Result<AppFailure, Litematica> {
+        val content = stream.readBytes()
+        return readLitematica(content)
+    }
+
+    fun readLitematica(content: ByteArray): Result<AppFailure, Litematica> {
         val compressionType = CompressionType.detect(content)
 
         if (compressionType is Result.Failure) {

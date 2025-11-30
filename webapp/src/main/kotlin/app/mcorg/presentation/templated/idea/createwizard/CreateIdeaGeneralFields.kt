@@ -1,8 +1,22 @@
 package app.mcorg.presentation.templated.idea.createwizard
 
 import app.mcorg.domain.model.idea.IdeaDifficulty
+import app.mcorg.presentation.hxPost
+import app.mcorg.presentation.hxSwap
+import app.mcorg.presentation.hxTarget
+import app.mcorg.presentation.hxTrigger
 import app.mcorg.presentation.templated.utils.toPrettyEnumName
-import kotlinx.html.*
+import kotlinx.html.FORM
+import kotlinx.html.InputType
+import kotlinx.html.classes
+import kotlinx.html.id
+import kotlinx.html.input
+import kotlinx.html.label
+import kotlinx.html.option
+import kotlinx.html.p
+import kotlinx.html.select
+import kotlinx.html.span
+import kotlinx.html.textArea
 
 fun FORM.generalFields(data: CreateIdeaWizardData) {
     label {
@@ -47,6 +61,30 @@ fun FORM.generalFields(data: CreateIdeaWizardData) {
     }
     p("validation-error-message") {
         id = "validation-error-description"
+    }
+
+    label {
+        + "Litematic file, if you have one"
+    }
+    input {
+        type = InputType.file
+        id = "idea-litematic-file"
+        name = "litematicFile"
+        classes += "form-control"
+        hxPost("/app/ideas/create/litematic")
+        hxTarget("#create-idea-form")
+        hxSwap("innerHTML")
+        hxTrigger("change")
+        attributes["hx-encoding"] = "multipart/form-data"
+    }
+    p {
+        id = "idea-litematic-response"
+        if (data.litematicaValues != null) {
+            +"Uploaded Litematic: ${data.litematicaValues.first} (${data.litematicaValues.second} items and blocks to collect)"
+        }
+    }
+    p("validation-error-message") {
+        id = "validation-error-litematicFile"
     }
 
     label {

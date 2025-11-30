@@ -7,8 +7,15 @@ import app.mcorg.domain.model.minecraft.Item
 import app.mcorg.domain.model.minecraft.MinecraftVersion
 import app.mcorg.domain.model.minecraft.MinecraftVersionRange
 import app.mcorg.domain.pipeline.Result
-import app.mcorg.pipeline.idea.validators.*
-import io.ktor.http.*
+import app.mcorg.pipeline.idea.validators.ValidateAllItemRequirementsStep
+import app.mcorg.pipeline.idea.validators.ValidateIdeaAuthorStep
+import app.mcorg.pipeline.idea.validators.ValidateIdeaCategoryDataStep
+import app.mcorg.pipeline.idea.validators.ValidateIdeaCategoryStep
+import app.mcorg.pipeline.idea.validators.ValidateIdeaDescriptionStep
+import app.mcorg.pipeline.idea.validators.ValidateIdeaDifficultyStep
+import app.mcorg.pipeline.idea.validators.ValidateIdeaMinecraftVersionStep
+import app.mcorg.pipeline.idea.validators.ValidateIdeaNameStep
+import io.ktor.http.Parameters
 import kotlinx.html.emptyMap
 
 data class CreateIdeaWizardData(
@@ -20,6 +27,7 @@ data class CreateIdeaWizardData(
     val author: Author? = null,
     val versionRange: MinecraftVersionRange? = null,
 
+    val litematicaValues: Pair<String, Int>? = null,
     val itemRequirements: Map<Item, Int>? = null,
 
     val categoryData: Pair<IdeaCategory, Map<String, Any?>>? = null
