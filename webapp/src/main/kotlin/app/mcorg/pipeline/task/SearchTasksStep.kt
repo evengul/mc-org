@@ -42,7 +42,7 @@ data class SearchTasksStep(val projectId: Int) : Step<SearchTasksInput, AppFailu
                     CASE 
                         WHEN t.requirement_type = 'ACTION' THEN 1
                         ELSE t.requirement_item_required_amount
-                    END AS required_amount
+                    END AS required_amount,
                     pd.depends_on_project_id AS solved_by_project_id,
                     p.name AS solved_by_project_name,
                     CASE 
