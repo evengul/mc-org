@@ -13,16 +13,17 @@ data class SearchTasksInput(
     val completionStatus: String = "IN_PROGRESS", // ALL, IN_PROGRESS, COMPLETED
     val priority: String = "ALL", // ALL or Priority enum name
     val stage: String = "ALL",
-    val sortBy: String = "lastModified_desc" // name_asc, lastModified_desc
+    val sortBy: String = "required_amount_desc" // name_asc, lastModified_desc
 )
 
 data class SearchTasksStep(val projectId: Int) : Step<SearchTasksInput, AppFailure.DatabaseError, List<Task>> {
     override suspend fun process(input: SearchTasksInput): Result<AppFailure.DatabaseError, List<Task>> {
         val sortBy = when(input.sortBy) {
-            "name_asc" -> "t.name ASC, priority_order ASC, t.updated_at DESC"
-            "lastModified_desc" -> "t.updated_at DESC, priority_order ASC, t.name ASC"
-            "priority_asc" -> "priority_order ASC, t.updated_at DESC, t.name ASC"
-            else -> "priority_order ASC, t.updated_at DESC, t.name ASC"
+            "name_asc" -> "t.name ASC, required_amount DESC, priority_order ASC, t.updated_at DESC"
+            "lastModified_desc" -> "t.updated_at DESC, required_amount DESC, priority_order ASC, t.name ASC"
+            "priority_asc" -> "priority_order ASC, required_amount DESC, t.updated_at DESC, t.name ASC"
+            "required_amount_desc" -> "required_amount DESC, priority_order ASC, t.updated_at DESC, t.name ASC"
+            else -> "required_amount DESC, priority_order ASC, t.updated_at DESC, t.name ASC"
         }
         return DatabaseSteps.query<SearchTasksInput, List<Task>>(
             sql = SafeSQL.select("""
@@ -38,6 +39,10 @@ data class SearchTasksStep(val projectId: Int) : Step<SearchTasksInput, AppFailu
                     t.requirement_item_required_amount,
                     t.requirement_item_collected,
                     t.requirement_action_completed,
+                    CASE 
+                        WHEN t.requirement_type = 'ACTION' THEN 1
+                        ELSE t.requirement_item_required_amount
+                    END AS required_amount,
                     pd.depends_on_project_id AS solved_by_project_id,
                     p.name AS solved_by_project_name,
                     CASE 
