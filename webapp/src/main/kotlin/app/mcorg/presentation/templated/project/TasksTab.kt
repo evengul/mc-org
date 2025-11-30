@@ -7,7 +7,14 @@ import app.mcorg.domain.model.task.Priority
 import app.mcorg.domain.model.task.Task
 import app.mcorg.domain.model.task.TaskProjectStage
 import app.mcorg.pipeline.task.FoundIdea
-import app.mcorg.presentation.*
+import app.mcorg.presentation.hxDeleteWithConfirm
+import app.mcorg.presentation.hxGet
+import app.mcorg.presentation.hxIndicator
+import app.mcorg.presentation.hxPatch
+import app.mcorg.presentation.hxPost
+import app.mcorg.presentation.hxSwap
+import app.mcorg.presentation.hxTarget
+import app.mcorg.presentation.hxTrigger
 import app.mcorg.presentation.templated.common.button.IconButtonColor
 import app.mcorg.presentation.templated.common.button.actionButton
 import app.mcorg.presentation.templated.common.button.iconButton
@@ -154,8 +161,12 @@ private fun DIV.taskSearchAndFilters(worldId: Int, projectId: Int, projectStage:
         select {
             name = "sortBy"
             option {
-                value = "priority_asc"
+                value = "required_amount_desc"
                 selected = true
+                + "Sort by Required Amount (High to Low)"
+            }
+            option {
+                value = "priority_asc"
                 + "Sort by Priority (High to Low)"
             }
             option {

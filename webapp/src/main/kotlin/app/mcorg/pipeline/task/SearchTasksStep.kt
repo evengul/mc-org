@@ -22,6 +22,7 @@ data class SearchTasksStep(val projectId: Int) : Step<SearchTasksInput, AppFailu
             "name_asc" -> "t.name ASC, priority_order ASC, t.updated_at DESC"
             "lastModified_desc" -> "t.updated_at DESC, priority_order ASC, t.name ASC"
             "priority_asc" -> "priority_order ASC, t.updated_at DESC, t.name ASC"
+            "required_amount_desc" -> "required_amount DESC, priority_order ASC, t.updated_at DESC, t.name ASC"
             else -> "priority_order ASC, t.updated_at DESC, t.name ASC"
         }
         return DatabaseSteps.query<SearchTasksInput, List<Task>>(
@@ -38,6 +39,10 @@ data class SearchTasksStep(val projectId: Int) : Step<SearchTasksInput, AppFailu
                     t.requirement_item_required_amount,
                     t.requirement_item_collected,
                     t.requirement_action_completed,
+                    CASE 
+                        WHEN t.requirement_type = 'ACTION' THEN 1
+                        ELSE t.requirement_item_required_amount
+                    END AS required_amount
                     pd.depends_on_project_id AS solved_by_project_id,
                     p.name AS solved_by_project_name,
                     CASE 
