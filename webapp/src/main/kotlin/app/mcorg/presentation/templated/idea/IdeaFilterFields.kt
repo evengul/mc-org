@@ -1,7 +1,16 @@
 package app.mcorg.presentation.templated.idea
 
 import app.mcorg.domain.model.idea.schema.CategoryField
-import kotlinx.html.*
+import kotlinx.html.DIV
+import kotlinx.html.InputType
+import kotlinx.html.div
+import kotlinx.html.id
+import kotlinx.html.input
+import kotlinx.html.label
+import kotlinx.html.option
+import kotlinx.html.select
+import kotlinx.html.span
+import kotlinx.html.style
 
 /**
  * Renders a filterable field based on its type.
@@ -13,7 +22,7 @@ fun DIV.renderFilterField(field: CategoryField) {
     when (field) {
         is CategoryField.Text -> renderTextField(field)
         is CategoryField.Number -> renderNumberField(field)
-        is CategoryField.Select<*> -> @Suppress("UNCHECKED_CAST") renderSelectField(field as CategoryField.Select<Any>)
+        is CategoryField.Select -> renderSelectField(field)
         is CategoryField.MultiSelect -> renderMultiSelectField(field)
         is CategoryField.BooleanField -> renderBooleanField(field)
         is CategoryField.Rate -> renderRateField(field)
@@ -96,7 +105,7 @@ fun DIV.renderNumberField(field: CategoryField.Number) {
 /**
  * Renders a select dropdown
  */
-fun DIV.renderSelectField(field: CategoryField.Select<Any>) {
+fun DIV.renderSelectField(field: CategoryField.Select) {
     div("filter-group") {
         label {
             htmlFor = "filter-${field.key}"
@@ -117,7 +126,7 @@ fun DIV.renderSelectField(field: CategoryField.Select<Any>) {
             }
             field.options().forEach { opt ->
                 option {
-                    value = opt.value.toString()
+                    value = opt.value
                     + opt.label
                 }
             }

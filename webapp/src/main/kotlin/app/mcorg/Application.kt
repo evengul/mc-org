@@ -1,10 +1,16 @@
 package app.mcorg
 
-import io.ktor.server.application.*
-import io.ktor.server.engine.*
-import io.ktor.server.netty.*
-import app.mcorg.presentation.plugins.*
+import app.mcorg.presentation.plugins.configureHTTP
+import app.mcorg.presentation.plugins.configureMonitoring
+import app.mcorg.presentation.plugins.configureScheduling
+import app.mcorg.presentation.plugins.configureSessions
+import app.mcorg.presentation.plugins.configureStatusStaticRouter
 import app.mcorg.presentation.router.configureAppRouter
+import io.ktor.server.application.Application
+import io.ktor.server.engine.applicationEnvironment
+import io.ktor.server.engine.connector
+import io.ktor.server.engine.embeddedServer
+import io.ktor.server.netty.Netty
 
 fun main() {
     defaultServer { module() }.start(wait = true)
@@ -28,4 +34,5 @@ private fun Application.module() {
     configureAppRouter()
     configureStatusStaticRouter()
     configureScheduling()
+    configureSessions()
 }

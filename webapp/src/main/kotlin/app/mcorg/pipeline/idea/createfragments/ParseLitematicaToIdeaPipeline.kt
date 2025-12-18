@@ -1,18 +1,16 @@
 package app.mcorg.pipeline.idea.createfragments
 
 import app.mcorg.domain.model.idea.Author
-import app.mcorg.domain.model.minecraft.Item
 import app.mcorg.domain.model.minecraft.Litematica
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.nbt.util.LitematicaReader
 import app.mcorg.pipeline.failure.AppFailure
-import app.mcorg.pipeline.minecraft.GetSupportedVersionsStep
+import app.mcorg.pipeline.idea.createsession.CreateIdeaWizardSession
+import app.mcorg.pipeline.idea.createsession.getWizardSession
+import app.mcorg.pipeline.idea.createsession.updateWizardSession
 import app.mcorg.presentation.handler.executePipeline
-import app.mcorg.presentation.templated.idea.createwizard.CreateIdeaWizardData
 import app.mcorg.presentation.templated.idea.createwizard.generalFields
-import app.mcorg.presentation.templated.idea.createwizard.toCreateIdeaDataHolder
-import app.mcorg.presentation.utils.getUser
 import app.mcorg.presentation.utils.respondHtml
 import io.ktor.http.content.MultiPartData
 import io.ktor.http.content.PartData
@@ -27,15 +25,14 @@ import kotlinx.io.readByteArray
 suspend fun ApplicationCall.handleParseLitematica() {
     val input = receiveMultipart()
 
-    val user = this.getUser()
-    val supportedVersions = GetSupportedVersionsStep.getSupportedVersions()
-
-    val data = request.queryParameters.toCreateIdeaDataHolder(user.minecraftUsername, supportedVersions)
-
     executePipeline(
-        onSuccess = { respondHtml(createHTML().form {
-            generalFields(it.second.toValues(it.first, data))
-        }) }
+        onSuccess = { (filename, litematica) ->
+            updateWizardSession { withLitematicaData(litematica, filename) }
+            val updatedSession = getWizardSession()
+            respondHtml(createHTML().form {
+                generalFields(updatedSession)
+            })
+        }
     ) {
         value(input)
             .step(GetContentStep)
@@ -43,21 +40,20 @@ suspend fun ApplicationCall.handleParseLitematica() {
     }
 }
 
-private fun Litematica.toValues(filename: String?, existingValues: CreateIdeaWizardData): CreateIdeaWizardData {
-    return existingValues.copy(
-        name = existingValues.name ?: this.name,
-        description = existingValues.name ?: this.description,
-        author = existingValues.author ?: Author.SingleAuthor(this.author),
-        litematicaValues = (this.name.takeIf { it.isNotEmpty() } ?: filename ?: "Unnamed") to this.items.entries.sumOf { it.value },
-        // TODO: Category data without category selection for the size
-        itemRequirements = if (existingValues.itemRequirements == null) {
-            this.items.entries.associate { Item(it.key, it.key) to it.value }
+private fun CreateIdeaWizardSession.withLitematicaData(litematica: Litematica, filename: String?): CreateIdeaWizardSession {
+    return this.copy(
+        name = this.name ?: litematica.name.takeUnless { it.isBlank() } ?: filename?.removeSuffix(".litematic"),
+        description = this.description ?: litematica.description,
+        author = this.author ?: Author.SingleAuthor(litematica.author),
+        litematicaFileName = filename?.removeSuffix(".litematic"),
+        litematicaUploadedAt = System.currentTimeMillis(),
+        itemRequirements = if (this.itemRequirements == null) {
+            litematica.items.entries.associate { it.key to it.value }
         } else {
-            val items = mutableMapOf<Item, Int>()
-            items.putAll(existingValues.itemRequirements)
-            this.items.entries.forEach { entry ->
-                val item = Item(entry.key, entry.key) // TODO: Name resolution with the new format
-                items[item] = (items[item] ?: 0) + entry.value
+            val items = mutableMapOf<String, Int>()
+            items.putAll(this.itemRequirements)
+            litematica.items.entries.forEach { entry ->
+                items[entry.key] = (items[entry.key] ?: 0) + entry.value
             }
             items
         }

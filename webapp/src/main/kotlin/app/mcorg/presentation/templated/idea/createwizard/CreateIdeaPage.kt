@@ -2,14 +2,28 @@ package app.mcorg.presentation.templated.idea.createwizard
 
 import app.mcorg.domain.model.minecraft.MinecraftVersion
 import app.mcorg.domain.model.user.TokenProfile
-import app.mcorg.presentation.*
+import app.mcorg.pipeline.idea.createsession.CreateIdeaWizardSession
+import app.mcorg.presentation.hxGet
+import app.mcorg.presentation.hxInclude
+import app.mcorg.presentation.hxPost
+import app.mcorg.presentation.hxSwap
+import app.mcorg.presentation.hxTarget
 import app.mcorg.presentation.templated.common.button.actionButton
 import app.mcorg.presentation.templated.common.button.neutralButton
 import app.mcorg.presentation.templated.common.page.PageScript
 import app.mcorg.presentation.templated.common.page.createPage
 import app.mcorg.presentation.utils.BreadcrumbBuilder
-import kotlinx.html.*
+import kotlinx.html.ButtonType
+import kotlinx.html.FORM
+import kotlinx.html.SPAN
+import kotlinx.html.classes
+import kotlinx.html.form
+import kotlinx.html.h1
+import kotlinx.html.id
+import kotlinx.html.span
+import kotlinx.serialization.Serializable
 
+@Serializable
 enum class CreateIdeaStage(val displayName: String, private val previousStep: String?, private val nextStep: String?) {
     BASIC_INFO("Basic Information", null, "AUTHOR_INFO"),
     AUTHOR_INFO("Author Information", "BASIC_INFO", "VERSION_COMPATIBILITY"),
@@ -31,7 +45,7 @@ fun createIdeaPage(
     user: TokenProfile,
     unreadNotifications: Int,
     supportedVersions: List<MinecraftVersion.Release>,
-    data: CreateIdeaWizardData
+    data: CreateIdeaWizardSession
 ) = createPage(
     pageTitle = "Create Idea",
     user = user,
@@ -49,13 +63,13 @@ fun createIdeaPage(
     }
 }
 
-fun FORM.createIdeaStageContent(data: CreateIdeaWizardData, supportedVersions: List<MinecraftVersion.Release>) {
+fun FORM.createIdeaStageContent(data: CreateIdeaWizardSession, supportedVersions: List<MinecraftVersion.Release>) {
     id = "create-idea-form"
 
     hxPost("/app/ideas/create")
     hxSwap("none")
 
-    when(data.stage) {
+    when(data.currentStage) {
         CreateIdeaStage.BASIC_INFO -> generalFields(data)
         CreateIdeaStage.AUTHOR_INFO -> authorFields(data)
         CreateIdeaStage.VERSION_COMPATIBILITY -> versionFields(supportedVersions, data.versionRange)
@@ -64,10 +78,8 @@ fun FORM.createIdeaStageContent(data: CreateIdeaWizardData, supportedVersions: L
         CreateIdeaStage.REVIEW_SUBMIT -> reviewIdeaFields(data)
     }
 
-    hiddenFields(data)
-
     span {
-        navigationButtons(data.stage)
+        navigationButtons(data.currentStage)
     }
 }
 

@@ -3,7 +3,12 @@ package app.mcorg.presentation.templated.idea.createwizard
 import app.mcorg.domain.model.minecraft.Item
 import app.mcorg.domain.model.minecraft.MinecraftVersionRange
 import app.mcorg.pipeline.idea.commonsteps.GetItemsInVersionRangeStep
-import app.mcorg.presentation.*
+import app.mcorg.pipeline.idea.createsession.CreateIdeaWizardSession
+import app.mcorg.presentation.hxGet
+import app.mcorg.presentation.hxInclude
+import app.mcorg.presentation.hxSwap
+import app.mcorg.presentation.hxTarget
+import app.mcorg.presentation.hxTargetError
 import app.mcorg.presentation.templated.common.button.iconButton
 import app.mcorg.presentation.templated.common.button.neutralButton
 import app.mcorg.presentation.templated.common.form.searchableselect.SearchableSelectOption
@@ -11,27 +16,23 @@ import app.mcorg.presentation.templated.common.form.searchableselect.searchableS
 import app.mcorg.presentation.templated.common.icon.Icons
 import app.mcorg.presentation.templated.common.link.Link
 import kotlinx.coroutines.runBlocking
-import kotlinx.html.*
+import kotlinx.html.ButtonType
+import kotlinx.html.FORM
+import kotlinx.html.InputType
+import kotlinx.html.LI
+import kotlinx.html.classes
+import kotlinx.html.div
+import kotlinx.html.id
+import kotlinx.html.input
+import kotlinx.html.li
+import kotlinx.html.onClick
+import kotlinx.html.p
+import kotlinx.html.span
+import kotlinx.html.ul
 
-fun FORM.itemRequirementFields(data: CreateIdeaWizardData) {
+fun FORM.itemRequirementFields(data: CreateIdeaWizardSession) {
     p {
         +"Specify any item requirements for your idea. Only items available in the selected version range will be shown."
-    }
-    label {
-        htmlFor = "item-requirements-litematica-file"
-        + "Litematica File:"
-    }
-    input {
-        id = "item-requirements-litematica-file"
-        name = "litematicaFile"
-        type = InputType.file
-        classes += "form-control"
-        hxPost(Link.Ideas.to + "/create/litematica-parse")
-        hxTarget("#idea-item-requirements-list")
-        hxSwap("none")
-        hxInclude("[name='versionRangeType'], [name='versionFrom'], [name='versionTo']")
-        hxTrigger("change")
-        attributes["hx-encoding"] = "multipart/form-data"
     }
 
     div {
@@ -83,7 +84,7 @@ fun FORM.itemRequirementFields(data: CreateIdeaWizardData) {
                 .sortedByDescending { (_, amount) -> amount }
                 .forEach { (item, quantity) ->
                 li {
-                    itemRequirementListEntry(item, quantity)
+                    itemRequirementListEntry(Item(item, item), quantity)
                 }
             }
         }

@@ -7,7 +7,6 @@ import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.failure.AppFailure
-import app.mcorg.pipeline.idea.extractors.deserializeVersionRange
 import app.mcorg.presentation.handler.executePipeline
 import app.mcorg.presentation.hxInclude
 import app.mcorg.presentation.hxPost
@@ -18,11 +17,12 @@ import app.mcorg.presentation.utils.getIdeaId
 import app.mcorg.presentation.utils.getUser
 import app.mcorg.presentation.utils.hxSwap
 import app.mcorg.presentation.utils.respondHtml
-import io.ktor.server.application.*
+import io.ktor.server.application.ApplicationCall
 import kotlinx.html.id
 import kotlinx.html.option
 import kotlinx.html.select
 import kotlinx.html.stream.createHTML
+import kotlinx.serialization.json.Json
 
 suspend fun ApplicationCall.handleGetSelectWorldForIdeaImportFragment() {
     val userId = this.getUser().id
@@ -72,7 +72,7 @@ private val GetIdeaVersionRangeStep = DatabaseSteps.query<Int, MinecraftVersionR
     resultMapper = {
         if (it.next()) {
             val rangeString = it.getString("minecraft_version_range")
-            deserializeVersionRange(rangeString)
+            Json.decodeFromString(MinecraftVersionRange.serializer(), rangeString)
         } else {
             MinecraftVersionRange.Unbounded
         }

@@ -11,3 +11,5 @@ package.json
 package-lock.json
 node_modules/
 .playwright-mcp/
+
+.sessions

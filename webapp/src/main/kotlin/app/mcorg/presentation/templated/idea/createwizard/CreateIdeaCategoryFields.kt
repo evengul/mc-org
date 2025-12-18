@@ -3,18 +3,27 @@ package app.mcorg.presentation.templated.idea.createwizard
 import app.mcorg.domain.model.idea.IdeaCategory
 import app.mcorg.domain.model.idea.schema.IdeaCategorySchemas
 import app.mcorg.domain.model.minecraft.MinecraftVersionRange
+import app.mcorg.pipeline.idea.createsession.CreateIdeaWizardSession
 import app.mcorg.presentation.templated.utils.toPrettyEnumName
-import kotlinx.html.*
+import kotlinx.html.FORM
+import kotlinx.html.InputType
+import kotlinx.html.div
+import kotlinx.html.id
+import kotlinx.html.input
+import kotlinx.html.label
+import kotlinx.html.p
+import kotlinx.html.span
+import kotlinx.html.style
 
-fun FORM.categoryFields(data: CreateIdeaWizardData) {
-    val schema = data.categoryData?.let { IdeaCategorySchemas.getSchema(it.first) }
+fun FORM.categoryFields(data: CreateIdeaWizardSession) {
+    val schema = data.category?.let { IdeaCategorySchemas.getSchema(it) }
 
-    categoryField(data.categoryData?.first)
+    categoryField(data.category)
     div {
         id = "category-specific-fields"
-        if (schema != null) {
+        if (schema != null && data.categoryData != null) {
             schema.fields.forEach { field ->
-                renderCreateField(data.versionRange ?: MinecraftVersionRange.Unbounded, field, data.categoryData.second[field.key])
+                renderCreateField(data.versionRange ?: MinecraftVersionRange.Unbounded, field, data.categoryData[field.key])
             }
 
             // If no fields exist

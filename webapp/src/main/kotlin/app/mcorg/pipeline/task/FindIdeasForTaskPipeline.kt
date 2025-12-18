@@ -8,13 +8,12 @@ import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.failure.ValidationFailure
-import app.mcorg.pipeline.idea.extractors.deserializeVersionRange
 import app.mcorg.presentation.handler.executePipeline
 import app.mcorg.presentation.templated.project.foundIdeas
 import app.mcorg.presentation.utils.getTaskId
 import app.mcorg.presentation.utils.getWorldId
 import app.mcorg.presentation.utils.respondHtml
-import io.ktor.server.application.*
+import io.ktor.server.application.ApplicationCall
 import kotlinx.html.div
 import kotlinx.html.stream.createHTML
 import kotlinx.serialization.json.Json
@@ -97,7 +96,7 @@ private data class FindIdeasStep(val worldId: Int) : Step<Pair<String, String>, 
                         } ?: emptyMap()
                         val totalRate = productionRateJson.values.sumOf { it[input.second] ?: 0 }
                         val alreadyImported = resultSet.getBoolean("already_imported")
-                        val versionRange = deserializeVersionRange(resultSet.getString("minecraft_version_range"))
+                        val versionRange = Json.decodeFromString(MinecraftVersionRange.serializer(), resultSet.getString("minecraft_version_range"))
                         if (totalRate > 0) {
                             add(FoundIdea(id = id, name = name, rate = totalRate, versionRange, alreadyImported))
                         }

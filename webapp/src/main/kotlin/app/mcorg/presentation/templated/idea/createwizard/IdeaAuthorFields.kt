@@ -1,12 +1,26 @@
 package app.mcorg.presentation.templated.idea.createwizard
 
 import app.mcorg.domain.model.idea.Author
+import app.mcorg.pipeline.idea.createsession.CreateIdeaWizardSession
 import app.mcorg.presentation.templated.common.form.radiogroup.RadioGroupLayout
 import app.mcorg.presentation.templated.common.form.radiogroup.RadioGroupOption
 import app.mcorg.presentation.templated.common.form.radiogroup.radioGroup
-import kotlinx.html.*
+import kotlinx.html.ButtonType
+import kotlinx.html.DIV
+import kotlinx.html.FORM
+import kotlinx.html.InputType
+import kotlinx.html.button
+import kotlinx.html.classes
+import kotlinx.html.div
+import kotlinx.html.h3
+import kotlinx.html.id
+import kotlinx.html.input
+import kotlinx.html.label
+import kotlinx.html.p
+import kotlinx.html.span
+import kotlinx.html.style
 
-fun FORM.authorFields(data: CreateIdeaWizardData) {
+fun FORM.authorFields(data: CreateIdeaWizardSession) {
     div("form-section") {
         id = "author-information-section"
         h3 { +"Author Information" }

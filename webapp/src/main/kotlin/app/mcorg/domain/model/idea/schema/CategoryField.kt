@@ -2,6 +2,7 @@ package app.mcorg.domain.model.idea.schema
 
 import app.mcorg.domain.model.minecraft.MinecraftVersionRange
 import app.mcorg.presentation.templated.common.form.searchableselect.SearchableSelectOption
+import kotlin.reflect.KClass
 
 /**
  * Sealed class representing different field types in category schemas.
@@ -14,9 +15,11 @@ sealed class CategoryField(
     open val filterable: Boolean,
     open val required: Boolean,
     open val helpText: String?,
-    open val isBottomLevelField: Boolean,
     open val parents: List<CategoryField>
 ) {
+    abstract val isBottomLevelField: Boolean
+    abstract val categoryValueClass: KClass<out CategoryValue>
+
     data class Text(
         override val key: String,
         override val label: String,
@@ -28,7 +31,10 @@ sealed class CategoryField(
         val placeholder: String? = null,
         val maxLength: Int? = null,
         val multiline: Boolean = false
-    ) : CategoryField(key, label, searchable, filterable, required, helpText, true, parents)
+    ) : CategoryField(key, label, searchable, filterable, required, helpText, parents) {
+        override val isBottomLevelField = true
+        override val categoryValueClass = CategoryValue.TextValue::class
+    }
 
     data class Number(
         override val key: String,
@@ -42,9 +48,12 @@ sealed class CategoryField(
         val max: Double? = null,
         val suffix: String? = null,
         val step: Double? = null
-    ) : CategoryField(key, label, searchable, filterable, required, helpText, true, parents)
+    ) : CategoryField(key, label, searchable, filterable, required, helpText, parents) {
+        override val isBottomLevelField = true
+        override val categoryValueClass = CategoryValue.IntValue::class
+    }
 
-    data class Select<T>(
+    data class Select(
         override val key: String,
         override val label: String,
         override val searchable: Boolean = false,
@@ -52,12 +61,15 @@ sealed class CategoryField(
         override val required: Boolean = false,
         override val helpText: String? = null,
         override val parents: List<CategoryField> = emptyList(),
-        private val options: List<SearchableSelectOption<T>>,
-        val dynamicOptions: DynamicOptionsConfig<T>? = null,
+        private val options: List<SearchableSelectOption<String>>,
+        val dynamicOptions: DynamicOptionsConfig? = null,
         val defaultValue: String? = null,
         var showSearchLimit: Int = 10
-    ) : CategoryField(key, label, searchable, filterable, required, helpText, true, parents) {
-        fun options(versionRange: MinecraftVersionRange = MinecraftVersionRange.Unbounded): List<SearchableSelectOption<T>> {
+    ) : CategoryField(key, label, searchable, filterable, required, helpText,  parents) {
+        override val isBottomLevelField = true
+        override val categoryValueClass = CategoryValue.TextValue::class
+
+        fun options(versionRange: MinecraftVersionRange = MinecraftVersionRange.Unbounded): List<SearchableSelectOption<String>> {
             return dynamicOptions?.resolve(versionRange)?.ifEmpty { options } ?: options
         }
     }
@@ -73,7 +85,10 @@ sealed class CategoryField(
         val options: List<String>,
         val minSelections: Int? = null,
         val maxSelections: Int? = null
-    ) : CategoryField(key, label, searchable, filterable, required, helpText, true, parents)
+    ) : CategoryField(key, label, searchable, filterable, required, helpText, parents) {
+        override val isBottomLevelField = true
+        override val categoryValueClass = CategoryValue.MultiSelectValue::class
+    }
 
     data class BooleanField(
         override val key: String,
@@ -84,7 +99,10 @@ sealed class CategoryField(
         override val helpText: String? = null,
         override val parents: List<CategoryField> = emptyList(),
         val defaultValue: Boolean = false
-    ) : CategoryField(key, label, searchable, filterable, required, helpText, true, parents)
+    ) : CategoryField(key, label, searchable, filterable, required, helpText, parents) {
+        override val isBottomLevelField = true
+        override val categoryValueClass = CategoryValue.BooleanValue::class
+    }
 
     data class Rate(
         override val key: String,
@@ -97,7 +115,10 @@ sealed class CategoryField(
         val unit: String = "items/hour",
         val min: Double? = null,
         val max: Double? = null
-    ) : CategoryField(key, label, searchable, filterable, required, helpText, true, parents)
+    ) : CategoryField(key, label, searchable, filterable, required, helpText, parents) {
+        override val isBottomLevelField = true
+        override val categoryValueClass = CategoryValue.IntValue::class
+    }
 
     data class StructField(
         override val key: String,
@@ -108,7 +129,10 @@ sealed class CategoryField(
         override val helpText: String? = null,
         override val parents: List<CategoryField> = emptyList(),
         val fields: List<CategoryField>
-    ) : CategoryField(key, label, searchable, filterable, required, helpText, false, parents)
+    ) : CategoryField(key, label, searchable, filterable, required, helpText, parents) {
+        override val isBottomLevelField = false
+        override val categoryValueClass = CategoryValue.MapValue::class
+    }
 
     data class TypedMapField(
         override val key: String,
@@ -120,7 +144,10 @@ sealed class CategoryField(
         override val parents: List<CategoryField> = emptyList(),
         val keyType: CategoryField,
         val valueType: CategoryField
-    ) : CategoryField(key, label, searchable, filterable, required, helpText, false, parents)
+    ) : CategoryField(key, label, searchable, filterable, required, helpText, parents) {
+        override val isBottomLevelField = false
+        override val categoryValueClass = CategoryValue.MapValue::class
+    }
 
     /**
      * Used for free-form lists with comma-separated values.
@@ -135,7 +162,10 @@ sealed class CategoryField(
         override val helpText: String? = null,
         override val parents: List<CategoryField> = emptyList(),
         val itemLabel: String = "Item"
-    ) : CategoryField(key, label, searchable, filterable, required, helpText, true, parents)
+    ) : CategoryField(key, label, searchable, filterable, required, helpText, parents) {
+        override val isBottomLevelField = true
+        override val categoryValueClass = CategoryValue.MultiSelectValue::class
+    }
 
     data class Percentage(
         override val key: String,
@@ -145,9 +175,12 @@ sealed class CategoryField(
         override val required: Boolean = false,
         override val helpText: String? = null,
         override val parents: List<CategoryField> = emptyList(),
-        val min: Double = 0.0,
-        val max: Double = 1.0
-    ) : CategoryField(key, label, searchable, filterable, required, helpText, true, parents)
+        val min: Int = 0,
+        val max: Int = 100
+    ) : CategoryField(key, label, searchable, filterable, required, helpText, parents) {
+        override val isBottomLevelField = true
+        override val categoryValueClass = CategoryValue.IntValue::class
+    }
 
     fun getCompleteKey(): String {
         return "categoryData." + if (parents.isNotEmpty()) {
@@ -164,34 +197,4 @@ sealed class CategoryField(
         return ""
     }
 
-    fun displayValue(value: Any?): String {
-        when (this) {
-            is Rate -> if (value is Int) {
-                return "$value $unit"
-            }
-            is Percentage -> if (value is Int) {
-                val percentage = if (max <= 1.0) {
-                    value.toDouble() * 100.0
-                } else {
-                    value.toDouble()
-                }
-                return "%.2f%%".format(percentage)
-            }
-            is ListField -> if (value is List<*>) {
-                return value.joinToString(", ")
-            }
-            is MultiSelect -> if (value is Set<*>) {
-                return value.joinToString(", ")
-            }
-            is BooleanField -> if (value is Boolean) {
-                return if (value) "Yes" else "No"
-            }
-            is Select<*> -> {
-                val option = options().find { it.value.toString() == value?.toString() }
-                return option?.label ?: value?.toString() ?: ""
-            }
-            else -> value?.toString() ?: ""
-        }
-        return value?.toString() ?: ""
-    }
 }

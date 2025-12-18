@@ -20,8 +20,8 @@ class StructContentBuilder(private val structField: CategoryField.StructField) {
         }.build()
     }
 
-    fun <T> selectField(key: String, block: SelectFieldBuilder<T>.() -> Unit) {
-        fields += SelectFieldBuilder<T>(key).apply {
+    fun selectField(key: String, block: SelectFieldBuilder.() -> Unit) {
+        fields += SelectFieldBuilder(key).apply {
             parents = structField.parents + structField
             block()
         }.build()
