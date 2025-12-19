@@ -11,15 +11,14 @@ import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.failure.ValidationFailure
-import app.mcorg.pipeline.idea.extractors.deserializeVersionRange
 import app.mcorg.pipeline.project.resources.GetItemsInWorldVersionStep
 import app.mcorg.presentation.handler.defaultHandleError
 import app.mcorg.presentation.handler.executePipeline
 import app.mcorg.presentation.templated.common.link.Link
 import app.mcorg.presentation.utils.clientRedirect
 import app.mcorg.presentation.utils.getIdeaId
-import io.ktor.server.application.*
-import io.ktor.server.request.*
+import io.ktor.server.application.ApplicationCall
+import io.ktor.server.request.receiveParameters
 import kotlinx.serialization.json.Json
 
 data class IdeaForImport(
@@ -75,7 +74,7 @@ private object ValidateVersionRangeStep : Step<Pair<Int, Int>, AppFailure, Pair<
             },
             resultMapper = { resultSet ->
                 resultSet.next()
-                deserializeVersionRange(resultSet.getString("minecraft_version_range"))
+                Json.decodeFromString(MinecraftVersionRange.serializer(), resultSet.getString("minecraft_version_range"))
             }
         ).process(input.second)
 

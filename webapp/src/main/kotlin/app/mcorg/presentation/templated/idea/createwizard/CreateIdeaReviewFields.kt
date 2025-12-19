@@ -2,13 +2,14 @@ package app.mcorg.presentation.templated.idea.createwizard
 
 import app.mcorg.domain.model.idea.Author
 import app.mcorg.domain.model.idea.schema.IdeaCategorySchemas
+import app.mcorg.pipeline.idea.createsession.CreateIdeaWizardSession
 import app.mcorg.presentation.templated.utils.toPrettyEnumName
 import kotlinx.html.FORM
 import kotlinx.html.hr
 import kotlinx.html.p
 import kotlinx.html.strong
 
-fun FORM.reviewIdeaFields(data: CreateIdeaWizardData) {
+fun FORM.reviewIdeaFields(data: CreateIdeaWizardSession) {
     p {
         + "Please review your idea details before submission."
     }
@@ -46,22 +47,25 @@ fun FORM.reviewIdeaFields(data: CreateIdeaWizardData) {
                 reviewField("Item Requirements", "${it.entries.size} items selected. A total of ${it.values.sum()} items.")
                 return@let
             }
-            val requirementsText = it.entries.joinToString(", ") { entry -> "${entry.key.name} (x${entry.value})" }
+            val requirementsText = it.entries.joinToString(", ") { entry -> "${entry.key} (x${entry.value})" }
             reviewField("Item Requirements", requirementsText)
         } else {
             reviewField("Item Requirements", "None")
         }
     }
 
-    data.categoryData?.let { (category, map) ->
-        reviewField("Category", category.name)
-        val schema = IdeaCategorySchemas.getSchema(category)
-        map.forEach { (key, value) ->
-            schema.getField(key)?.let { field ->
-                reviewField(field.label, field.displayValue(value))
+    data.category?.let {
+        reviewField("Category", it.name)
+        val schema = IdeaCategorySchemas.getSchema(it)
+        data.categoryData?.let { map ->
+            map.forEach { (key, value) ->
+                schema.getField(key)?.let { field ->
+                    reviewField(field.label, value.display())
+                }
             }
         }
     }
+
 }
 
 private fun FORM.reviewField(labelText: String, valueText: String) {

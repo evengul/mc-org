@@ -56,7 +56,7 @@ object IdeaSqlBuilder {
         return when (value) {
             is FilterValue.TextValue -> {
                 // Case-insensitive text search in JSONB field
-                "i.category_data->>'$key' ILIKE ?" to listOf("%${value.value}%")
+                "i.category_data->'$key'->>'value' ILIKE ?" to listOf("%${value.value}%")
             }
 
             is FilterValue.NumberRange -> {
@@ -64,11 +64,11 @@ object IdeaSqlBuilder {
                 val params = mutableListOf<Any>()
 
                 value.min?.let {
-                    conditions.add("(i.category_data->>'$key')::numeric >= ?")
+                    conditions.add("(i.category_data->'$key'->>'value')::numeric >= ?")
                     params.add(it)
                 }
                 value.max?.let {
-                    conditions.add("(i.category_data->>'$key')::numeric <= ?")
+                    conditions.add("(i.category_data->'$key'->>'value')::numeric <= ?")
                     params.add(it)
                 }
 
@@ -81,19 +81,19 @@ object IdeaSqlBuilder {
 
             is FilterValue.BooleanValue -> {
                 // JSONB boolean comparison (stored as JSON boolean)
-                "(i.category_data->>'$key')::boolean = ?" to listOf(value.value)
+                "(i.category_data->'$key'->>'value')::boolean = ?" to listOf(value.value)
             }
 
             is FilterValue.SelectValue -> {
                 // Exact match for select field
-                "i.category_data->>'$key' = ?" to listOf(value.value)
+                "i.category_data->'$key'->>'value' = ?" to listOf(value.value)
             }
 
             is FilterValue.MultiSelectValue -> {
                 // Check if JSONB array contains any of the selected values
                 // Use EXISTS with jsonb_array_elements_text to check for overlap
                 val placeholders = value.values.joinToString(",") { "?" }
-                "EXISTS (SELECT 1 FROM jsonb_array_elements_text(i.category_data->'$key') AS elem WHERE elem IN ($placeholders))" to value.values
+                "EXISTS (SELECT 1 FROM jsonb_array_elements_text(i.category_data->'$key'->'values') AS elem WHERE elem IN ($placeholders))" to value.values
             }
         }
     }

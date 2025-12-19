@@ -321,8 +321,6 @@ object IdeaCategorySchemas {
             percentageField("hopperLockPercentage") {
                 label = "Hopper Lock Percentage"
                 filterable = true
-                min = 0.0
-                max = 1.0
             }
 
             numberField("idleMspt") {

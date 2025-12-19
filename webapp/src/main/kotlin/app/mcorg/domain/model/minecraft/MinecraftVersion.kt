@@ -1,6 +1,10 @@
 package app.mcorg.domain.model.minecraft
 
+import kotlinx.serialization.Serializable
+
+@Serializable
 sealed interface MinecraftVersion {
+    @Serializable
     data class Snapshot(
         val year: Int,
         val week: Int,
@@ -10,6 +14,7 @@ sealed interface MinecraftVersion {
         override fun toString(): String = "${year - 2000}w${week}${patch.lowercase()}"
     }
 
+    @Serializable
     data class Release(
         val major: Int = 1,
         val minor: Int,
@@ -128,12 +133,15 @@ sealed interface MinecraftVersion {
     }
 }
 
+@Serializable
 sealed interface MinecraftVersionRange {
+    @Serializable
     object Unbounded : MinecraftVersionRange {
         override fun toString(): String {
             return "All Versions"
         }
     }
+    @Serializable
     data class Bounded(
         val from: MinecraftVersion,
         val to: MinecraftVersion
@@ -142,6 +150,7 @@ sealed interface MinecraftVersionRange {
             return "$from - $to"
         }
     }
+    @Serializable
     data class UpperBounded(
         val to: MinecraftVersion
     ) : MinecraftVersionRange {
@@ -149,6 +158,7 @@ sealed interface MinecraftVersionRange {
             return "Up to $to"
         }
     }
+    @Serializable
     data class LowerBounded(
         val from: MinecraftVersion
     ) : MinecraftVersionRange {

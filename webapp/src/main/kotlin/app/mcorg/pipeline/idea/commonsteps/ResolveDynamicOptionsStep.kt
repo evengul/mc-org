@@ -9,19 +9,15 @@ import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.presentation.templated.common.form.searchableselect.SearchableSelectOption
 
 @Suppress("UNCHECKED_CAST")
-data class ResolveDynamicOptionsStep<T>(val versionRange: MinecraftVersionRange = MinecraftVersionRange.Unbounded) : Step<DynamicOptionsConfig<T>, AppFailure.DatabaseError, List<SearchableSelectOption<T>>> {
-    override suspend fun process(input: DynamicOptionsConfig<T>): Result<AppFailure.DatabaseError, List<SearchableSelectOption<T>>> {
+data class ResolveDynamicOptionsStep(val versionRange: MinecraftVersionRange = MinecraftVersionRange.Unbounded) : Step<DynamicOptionsConfig, AppFailure.DatabaseError, List<SearchableSelectOption<String>>> {
+    override suspend fun process(input: DynamicOptionsConfig): Result<AppFailure.DatabaseError, List<SearchableSelectOption<String>>> {
         return when (input.source) {
             DynamicOptionsSource.ITEMS -> {
                 when (val result = GetItemsInVersionRangeStep.process(versionRange)) {
                     is Result.Success -> {
-                        val items = result.value
-                        val filteredItems = input.filter?.let { filterFunc ->
-                            items.filter { filterFunc(it.id as T) }
-                        } ?: items
-                        val options = filteredItems.map { item ->
+                        val options = result.value.map { item ->
                             SearchableSelectOption(
-                                value = item.id as T,
+                                value = item.id,
                                 label = item.name
                             )
                         }
@@ -32,9 +28,9 @@ data class ResolveDynamicOptionsStep<T>(val versionRange: MinecraftVersionRange 
             }
 
             DynamicOptionsSource.MOBS -> Result.success(listOf(
-                SearchableSelectOption(value = "zombie" as T, label = "Zombie"),
-                SearchableSelectOption(value = "skeleton" as T, label = "Skeleton"),
-                SearchableSelectOption(value = "creeper" as T, label = "Creeper")
+                SearchableSelectOption(value = "zombie", label = "Zombie"),
+                SearchableSelectOption(value = "skeleton", label = "Skeleton"),
+                SearchableSelectOption(value = "creeper", label = "Creeper")
             ))
             else -> Result.failure(AppFailure.DatabaseError.NotFound) // TODO: Implement other sources
         }

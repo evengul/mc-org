@@ -10,9 +10,10 @@ import app.mcorg.presentation.consts.ISSUER
 import app.mcorg.presentation.utils.getHost
 import app.mcorg.presentation.utils.removeToken
 import app.mcorg.presentation.utils.storeUser
-import io.ktor.server.application.*
-import io.ktor.server.request.*
-import io.ktor.server.response.*
+import io.ktor.server.application.createRouteScopedPlugin
+import io.ktor.server.request.RequestCookies
+import io.ktor.server.request.path
+import io.ktor.server.response.respondRedirect
 
 val AuthPlugin = createRouteScopedPlugin("AuthPlugin") {
     onCall {
@@ -26,9 +27,14 @@ val AuthPlugin = createRouteScopedPlugin("AuthPlugin") {
             .pipe(ConvertTokenStep(ISSUER))
             .map { user -> it.storeUser(user) }
             .execute(it.request.cookies)
-        if (result is Result.Failure && result.error is AppFailure.Redirect) {
+        if (result is Result.Failure && (result.error is AppFailure.Redirect || result.error is AppFailure.AuthError.ConvertTokenError)) {
             it.response.cookies.removeToken(it.getHost() ?: "false")
-            it.respondRedirect(result.error.toUrl(), permanent = false)
+            val url = when (result.error) {
+                is AppFailure.Redirect -> result.error.toUrl()
+                is AppFailure.AuthError.ConvertTokenError -> result.error.toRedirect().toUrl()
+                else -> "/auth/sign-in"
+            }
+            it.respondRedirect(url, permanent = false)
         } else if (result is Result.Failure && !it.request.path().contains("/auth/sign-in") && !it.request.path().contains("/auth/sign-out") && !it.request.path().contains("/oidc")) {
             it.respondRedirect("/auth/sign-in?redirect_to=${it.request.path()}", permanent = false)
         }

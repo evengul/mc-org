@@ -2,22 +2,23 @@ package app.mcorg.pipeline.idea.validators
 
 import app.mcorg.domain.model.idea.IdeaCategory
 import app.mcorg.domain.model.idea.schema.CategoryField
+import app.mcorg.domain.model.idea.schema.CategoryValue
 import app.mcorg.domain.model.idea.schema.IdeaCategorySchema
 import app.mcorg.domain.model.idea.schema.IdeaCategorySchemas
 import app.mcorg.domain.model.minecraft.MinecraftVersionRange
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.failure.ValidationFailure
-import io.ktor.http.*
+import io.ktor.http.Parameters
 import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
 
-data class ValidateIdeaCategoryDataStep(private val category: IdeaCategory): Step<Parameters, List<ValidationFailure>, Map<String, Any>> {
+data class ValidateIdeaCategoryDataStep(private val category: IdeaCategory): Step<Parameters, List<ValidationFailure>, Map<String, CategoryValue>> {
     private val logger = LoggerFactory.getLogger(this.javaClass)
     private val schema = IdeaCategorySchemas.getSchema(category)
 
-    override suspend fun process(input: Parameters): Result<List<ValidationFailure>, Map<String, Any>> {
-        val categoryData = mutableMapOf<String, Any>()
+    override suspend fun process(input: Parameters): Result<List<ValidationFailure>, Map<String, CategoryValue>> {
+        val categoryData = mutableMapOf<String, CategoryValue>()
         val errors = mutableListOf<ValidationFailure>()
         val processedFields = mutableSetOf<String>()
 
@@ -34,10 +35,10 @@ data class ValidateIdeaCategoryDataStep(private val category: IdeaCategory): Ste
             when (val validationResult = input.validateValue(versionRange, field)) {
                 is Result.Success -> {
                     if (
-                        (field is CategoryField.MultiSelect && (validationResult.value as? Set<*>)?.isNotEmpty() == true) ||
-                        (field.isBottomLevelField && field !is CategoryField.MultiSelect && validationResult.value != BottomLevelValidationResult.Ignored) ||
-                        (field is CategoryField.StructField && (validationResult.value as? Map<*, *>)?.isNotEmpty() == true) ||
-                        (field is CategoryField.TypedMapField && (validationResult.value as? Map<*, *>)?.isNotEmpty() == true)
+                        (field is CategoryField.MultiSelect && (validationResult.value as? CategoryValue.MultiSelectValue)?.values?.isNotEmpty() == true) ||
+                        (field.isBottomLevelField && field !is CategoryField.MultiSelect && validationResult.value != CategoryValue.IgnoredValue) ||
+                        (field is CategoryField.StructField && (validationResult.value as? CategoryValue.MapValue)?.value?.isNotEmpty() == true) ||
+                        (field is CategoryField.TypedMapField && (validationResult.value as? CategoryValue.MapValue)?.value?.isNotEmpty() == true)
                     ) {
                         categoryData[field.key] = validationResult.value
                     }
@@ -94,11 +95,11 @@ data class ValidateIdeaCategoryDataStep(private val category: IdeaCategory): Ste
         versionRange: MinecraftVersionRange,
         field: CategoryField,
         values: List<String> = getAllIgnoringSuffix(field.getCompleteKey())
-    ): Result<List<ValidationFailure>, Any> {
+    ): Result<List<ValidationFailure>, CategoryValue> {
         if (field.isBottomLevelField) {
             val bottomLevelValidation = validateBottomLevelField(values, field)
             if (bottomLevelValidation is Result.Success && bottomLevelValidation.value == BottomLevelValidationResult.Ignored) {
-                return Result.Success(BottomLevelValidationResult.Ignored)
+                return Result.Success(CategoryValue.IgnoredValue)
             } else if (bottomLevelValidation is Result.Failure) {
                 return Result.Failure(listOf(bottomLevelValidation.error))
             }
@@ -112,7 +113,7 @@ data class ValidateIdeaCategoryDataStep(private val category: IdeaCategory): Ste
                 is CategoryField.Percentage -> validatePercentage(values.firstOrNull() ?: "", field).mapError { listOf(it) }
                 is CategoryField.Rate -> validateRate(values.firstOrNull() ?: "", field).mapError { listOf(it) }
                 is CategoryField.BooleanField -> validateBoolean(values.firstOrNull() ?: "", field).mapError { listOf(it) }
-                is CategoryField.Select<*> -> validateSelect(versionRange, values.firstOrNull() ?: "", field).mapError { listOf(it) }
+                is CategoryField.Select -> validateSelect(versionRange, values.firstOrNull() ?: "", field).mapError { listOf(it) }
                 is CategoryField.ListField -> validateListField(values.firstOrNull() ?: "", field).mapError { listOf(it) }
                 is CategoryField.StructField -> validateStructField(versionRange, this@validateValue, field)
                 is CategoryField.TypedMapField -> validateTypedMapField(versionRange, this@validateValue, field)
@@ -168,24 +169,24 @@ data class ValidateIdeaCategoryDataStep(private val category: IdeaCategory): Ste
         }
     }
 
-    private fun validateBoolean(value: String, field: CategoryField.BooleanField): Result<ValidationFailure, Boolean> {
+    private fun validateBoolean(value: String, field: CategoryField.BooleanField): Result<ValidationFailure, CategoryValue.BooleanValue> {
         return when (value.trim()) {
-            "true", "1", "on" -> Result.Success(true)
-            "false", "0", "off" -> Result.Success(false)
+            "true", "1", "on" -> Result.Success(CategoryValue.BooleanValue(true))
+            "false", "0", "off" -> Result.Success(CategoryValue.BooleanValue(false))
             else -> Result.Failure(ValidationFailure.InvalidFormat(field.getCompleteKey(), "Boolean value expected, got: $value"))
         }
     }
 
-    private fun validateListField(value: String, field: CategoryField.ListField): Result<ValidationFailure, List<String>> {
-        val values = value.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+    private fun validateListField(value: String, field: CategoryField.ListField): Result<ValidationFailure, CategoryValue.MultiSelectValue> {
+        val values = value.split(",").map { it.trim() }.filter { it.isNotEmpty() }.toSet()
         if (field.required && values.isEmpty()) {
             return Result.failure(ValidationFailure.MissingParameter(field.getCompleteKey()))
         }
-        return Result.Success(values)
+        return Result.Success(CategoryValue.MultiSelectValue(values))
     }
 
-    private fun validateTypedMapField(versionRange: MinecraftVersionRange, input: Parameters, field: CategoryField.TypedMapField): Result<List<ValidationFailure>, Map<String, Any>> {
-        val map = mutableMapOf<String, Any>()
+    private fun validateTypedMapField(versionRange: MinecraftVersionRange, input: Parameters, field: CategoryField.TypedMapField): Result<List<ValidationFailure>, CategoryValue.MapValue> {
+        val map = mutableMapOf<String, CategoryValue>()
         val errors = mutableListOf<ValidationFailure>()
 
         val keys = input.getAllIgnoringSuffix(field.keyType.getCompleteKey())
@@ -205,8 +206,8 @@ data class ValidateIdeaCategoryDataStep(private val category: IdeaCategory): Ste
                 is Result.Success -> {
                     when (valueResult) {
                         is Result.Success -> {
-                            if (keyResult.value is String && keyResult.value.isNotBlank() && valueResult.value != BottomLevelValidationResult.Ignored) {
-                                map[keyResult.value] = valueResult.value
+                            if (keyResult.value !is CategoryValue.IgnoredValue) {
+                                map[keys[i]] = valueResult.value
                             }
                         }
                         is Result.Failure -> {
@@ -223,17 +224,17 @@ data class ValidateIdeaCategoryDataStep(private val category: IdeaCategory): Ste
         return if (errors.isNotEmpty()) {
             Result.Failure(errors.toList())
         } else {
-            Result.Success(map.toMap())
+            Result.Success(CategoryValue.MapValue(map))
         }
     }
 
-    private fun validateStructField(versionRange: MinecraftVersionRange, input: Parameters, field: CategoryField.StructField): Result<List<ValidationFailure>, Any> {
-        val struct = mutableMapOf<String, Any>()
+    private fun validateStructField(versionRange: MinecraftVersionRange, input: Parameters, field: CategoryField.StructField): Result<List<ValidationFailure>, CategoryValue.MapValue> {
+        val struct = mutableMapOf<String, CategoryValue>()
         val errors = mutableListOf<ValidationFailure>()
         field.fields.forEach {
             when (val result = input.validateValue(versionRange, it)) {
                 is Result.Success -> {
-                    if (result.value != BottomLevelValidationResult.Ignored) {
+                    if (result.value != CategoryValue.IgnoredValue) {
                         struct[it.key] = result.value
                     }
                 }
@@ -246,11 +247,11 @@ data class ValidateIdeaCategoryDataStep(private val category: IdeaCategory): Ste
         return if (errors.isNotEmpty()) {
             Result.Failure(errors)
         } else {
-            Result.Success(struct)
+            Result.Success(CategoryValue.MapValue(struct))
         }
     }
 
-    private fun validateMultiSelect(values: List<String>, field: CategoryField.MultiSelect): Result<List<ValidationFailure>, Set<String>> {
+    private fun validateMultiSelect(values: List<String>, field: CategoryField.MultiSelect): Result<List<ValidationFailure>, CategoryValue.MultiSelectValue> {
         val results = values.filter { it.isNotBlank() }.map { value ->
             if (field.options.contains(value)) {
                 Result.Success(value)
@@ -264,11 +265,13 @@ data class ValidateIdeaCategoryDataStep(private val category: IdeaCategory): Ste
         return if (failures.isNotEmpty()) {
             Result.Failure(failures)
         } else {
-            Result.Success(results.filterIsInstance<Result.Success<String>>().map { it.value }.toSet())
+            Result.Success(CategoryValue.MultiSelectValue(
+                results.filterIsInstance<Result.Success<String>>().map { it.value }.toSet()
+            ))
         }
     }
 
-    private fun validateNumber(value: String, field: CategoryField.Number): Result<ValidationFailure, Int> {
+    private fun validateNumber(value: String, field: CategoryField.Number): Result<ValidationFailure, CategoryValue.IntValue> {
         val intValue = value.toIntOrNull()
         return if (intValue != null) {
             if (field.min != null && intValue < field.min) {
@@ -277,51 +280,50 @@ data class ValidateIdeaCategoryDataStep(private val category: IdeaCategory): Ste
             if (field.max != null && intValue > field.max) {
                 return Result.Failure(ValidationFailure.InvalidFormat(field.getCompleteKey(), "Number value for '${field.key}' must be at most ${field.max}, got: $intValue"))
             }
-            Result.Success(intValue)
+            Result.Success(CategoryValue.IntValue(intValue))
         } else {
             Result.Failure(ValidationFailure.InvalidFormat(field.getCompleteKey(), "Number value expected, got: $value"))
         }
     }
 
-    private fun validatePercentage(value: String, field: CategoryField.Percentage): Result<ValidationFailure, Double> {
-        val doubleValue = value.toDoubleOrNull()
-        return if (doubleValue != null) {
-            if (doubleValue < field.min || doubleValue > field.max) {
-                return Result.Failure(ValidationFailure.InvalidFormat(field.getCompleteKey(), "Percentage value for '${field.key}' must be between ${field.min} and ${field.max}, got: $doubleValue"))
+    private fun validatePercentage(value: String, field: CategoryField.Percentage): Result<ValidationFailure, CategoryValue.IntValue> {
+        val intValue = value.toIntOrNull() ?: value.toDoubleOrNull()?.toInt()
+        return if (intValue != null) {
+            if (intValue < field.min || intValue > field.max) {
+                return Result.Failure(ValidationFailure.InvalidFormat(field.getCompleteKey(), "Percentage value for '${field.key}' must be between ${field.min} and ${field.max}, got: $intValue"))
             }
-            Result.Success(doubleValue)
+            Result.Success(CategoryValue.IntValue(intValue))
         } else {
             Result.Failure(ValidationFailure.InvalidFormat(field.getCompleteKey(), "Percentage value expected, got: $value"))
         }
     }
 
-    private fun validateRate(value: String, field: CategoryField.Rate): Result<ValidationFailure, Int> {
-        val doubleValue = value.toIntOrNull()
-        return if (doubleValue != null) {
-            if (field.min != null && doubleValue < field.min) {
-                return Result.Failure(ValidationFailure.InvalidFormat(field.getCompleteKey(), "Rate value for '${field.key}' must be at least ${field.min.toInt()}, got: $doubleValue"))
+    private fun validateRate(value: String, field: CategoryField.Rate): Result<ValidationFailure, CategoryValue.IntValue> {
+        val intValue = value.toIntOrNull()
+        return if (intValue != null) {
+            if (field.min != null && intValue < field.min) {
+                return Result.Failure(ValidationFailure.InvalidFormat(field.getCompleteKey(), "Rate value for '${field.key}' must be at least ${field.min.toInt()}, got: $intValue"))
             }
-            if (field.max != null && doubleValue > field.max) {
-                return Result.Failure(ValidationFailure.InvalidFormat(field.getCompleteKey(), "Rate value for '${field.key}' must be at most ${field.max.toInt()}, got: $doubleValue"))
+            if (field.max != null && intValue > field.max) {
+                return Result.Failure(ValidationFailure.InvalidFormat(field.getCompleteKey(), "Rate value for '${field.key}' must be at most ${field.max.toInt()}, got: $intValue"))
             }
-            Result.Success(doubleValue)
+            Result.Success(CategoryValue.IntValue(intValue))
         } else {
             Result.Failure(ValidationFailure.InvalidFormat(field.getCompleteKey(), "Rate value expected, got: $value"))
         }
     }
 
-    private fun validateSelect(versionRange: MinecraftVersionRange, value: String, field: CategoryField.Select<*>): Result<ValidationFailure, String> {
-        return if (field.options(versionRange).map { it.value }.contains(value)) {
-            Result.Success(value)
-        } else {
-            Result.Failure(ValidationFailure.InvalidFormat(field.getCompleteKey(), "Invalid option for select field '${field.key}': $value"))
-        }
+    private fun validateSelect(versionRange: MinecraftVersionRange, value: String, field: CategoryField.Select): Result<ValidationFailure, CategoryValue> {
+        return field.options(versionRange)
+            .find { it.value == value }
+            ?.let { Result.Success(CategoryValue.TextValue(it.value)) }
+            ?: Result.Failure(ValidationFailure.InvalidFormat(field.getCompleteKey(), "Invalid option for select field '${field.key}': $value"))
     }
 
-    private fun validateText(value: String, field: CategoryField.Text): Result<ValidationFailure, String> {
+    private fun validateText(value: String, field: CategoryField.Text): Result<ValidationFailure, CategoryValue.TextValue> {
         if (value.length > (field.maxLength ?: Int.MAX_VALUE)) {
             return Result.Failure(ValidationFailure.InvalidFormat(field.getCompleteKey(), "Text value for '${field.key}' exceeds maximum length of ${field.maxLength}, got length: ${value.length}"))
         }
-        return Result.Success(value)
+        return Result.Success(CategoryValue.TextValue(value))
     }
 }

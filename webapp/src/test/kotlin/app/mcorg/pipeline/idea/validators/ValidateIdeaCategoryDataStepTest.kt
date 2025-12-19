@@ -1,17 +1,23 @@
 package app.mcorg.pipeline.idea.validators
 
 import app.mcorg.domain.model.idea.IdeaCategory
+import app.mcorg.domain.model.idea.schema.CategoryValue
 import app.mcorg.domain.model.idea.schema.IdeaCategorySchemas
 import app.mcorg.domain.model.minecraft.Item
 import app.mcorg.pipeline.failure.ValidationFailure
 import app.mcorg.pipeline.idea.commonsteps.GetItemsInVersionRangeStep
 import app.mcorg.test.utils.TestUtils
-import io.ktor.http.*
+import io.ktor.http.Parameters
+import io.ktor.http.ParametersBuilder
 import io.mockk.coEvery
 import io.mockk.mockkObject
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
-import kotlin.test.*
+import kotlin.test.assertContains
+import kotlin.test.assertEquals
+import kotlin.test.assertIs
+import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 class ValidateIdeaCategoryDataStepTest {
 
@@ -66,7 +72,7 @@ class ValidateIdeaCategoryDataStepTest {
 
         val result = TestUtils.executeAndAssertSuccess(step, params)
 
-        assertEquals("v3.2", result["farmVersion"])
+        assertEquals(CategoryValue.TextValue("v3.2"), result["farmVersion"])
     }
 
     @Test
@@ -102,7 +108,7 @@ class ValidateIdeaCategoryDataStepTest {
 
         val result = TestUtils.executeAndAssertSuccess(step, params)
 
-        assertEquals(64, result["yLevel"])
+        assertEquals(CategoryValue.IntValue(64), result["yLevel"])
     }
 
     @Test
@@ -139,7 +145,7 @@ class ValidateIdeaCategoryDataStepTest {
         val step = ValidateIdeaCategoryDataStep(IdeaCategory.FARM)
 
         val result = TestUtils.executeAndAssertSuccess(step, params)
-        assertEquals("1", result["playersRequired"])
+        assertEquals(CategoryValue.TextValue("1"), result["playersRequired"])
     }
 
     @Test
@@ -165,7 +171,7 @@ class ValidateIdeaCategoryDataStepTest {
 
         val result = TestUtils.executeAndAssertSuccess(step, params)
 
-        val biomes = result["biomes"] as Set<*>
+        val biomes = assertIs<CategoryValue.MultiSelectValue>(result["biomes"]).values
         assertEquals(3, biomes.size)
         assertTrue(biomes.contains("Plains"))
         assertTrue(biomes.contains("Forest"))
@@ -203,7 +209,7 @@ class ValidateIdeaCategoryDataStepTest {
 
         val result = TestUtils.executeAndAssertSuccess(step, params)
 
-        assertEquals(true, result["afkable"])
+        assertEquals(CategoryValue.BooleanValue(true), result["afkable"])
     }
 
     @Test
@@ -215,7 +221,7 @@ class ValidateIdeaCategoryDataStepTest {
 
         val result = TestUtils.executeAndAssertSuccess(step, params)
 
-        assertEquals(true, result["stackable"])
+        assertEquals(CategoryValue.BooleanValue(true), result["stackable"])
     }
 
     @Test
@@ -241,25 +247,25 @@ class ValidateIdeaCategoryDataStepTest {
 
         val result = TestUtils.executeAndAssertSuccess(step, params)
 
-        assertEquals(60, result["yLevel"])
+        assertEquals(CategoryValue.IntValue(60), result["yLevel"])
     }
 
     @Test
     fun `percentage field with valid decimal returns success`() {
         val params = createParameters(
-            "categoryData.hopperLockPercentage" to listOf("0.75"),
+            "categoryData.hopperLockPercentage" to listOf("75"),
             type = IdeaCategory.STORAGE
         )
         val step = ValidateIdeaCategoryDataStep(IdeaCategory.STORAGE)
 
         val result = TestUtils.executeAndAssertSuccess(step, params)
-        assertEquals(0.75, result["hopperLockPercentage"])
+        assertEquals(CategoryValue.IntValue(75), result["hopperLockPercentage"])
     }
 
     @Test
     fun `percentage field outside range returns failure`() {
         val params = createParameters(
-            "categoryData.hopperLockPercentage" to listOf("1.5"),
+            "categoryData.hopperLockPercentage" to listOf("150"),
             type = IdeaCategory.STORAGE
         )
         val step = ValidateIdeaCategoryDataStep(IdeaCategory.STORAGE)
@@ -280,10 +286,10 @@ class ValidateIdeaCategoryDataStepTest {
         val step = ValidateIdeaCategoryDataStep(IdeaCategory.FARM)
 
         val result = TestUtils.executeAndAssertSuccess(step, params)
-        val size = result["size"] as Map<*, *>
-        assertEquals(16, size["x"])
-        assertEquals(10, size["y"])
-        assertEquals(16, size["z"])
+        val size = assertIs<CategoryValue.MapValue>(result["size"]).value
+        assertEquals(CategoryValue.IntValue(16), size["x"])
+        assertEquals(CategoryValue.IntValue(10), size["y"])
+        assertEquals(CategoryValue.IntValue(16), size["z"])
     }
 
     @Test
@@ -324,9 +330,9 @@ class ValidateIdeaCategoryDataStepTest {
         val step = ValidateIdeaCategoryDataStep(IdeaCategory.FARM)
 
         val result = TestUtils.executeAndAssertSuccess(step, params)
-        val mobReqs = result["mobRequirements"] as Map<*, *>
-        assertEquals(10, mobReqs["zombie"])
-        assertEquals(5, mobReqs["skeleton"])
+        val mobReqs = assertIs<CategoryValue.MapValue>(result["mobRequirements"]).value
+        assertEquals(CategoryValue.IntValue(10), mobReqs["zombie"])
+        assertEquals(CategoryValue.IntValue(5), mobReqs["skeleton"])
     }
 
     @Test
@@ -352,10 +358,10 @@ class ValidateIdeaCategoryDataStepTest {
         val step = ValidateIdeaCategoryDataStep(IdeaCategory.FARM)
 
         val result = TestUtils.executeAndAssertSuccess(step, params)
-        val mobReqs = result["mobRequirements"] as Map<*, *>
+        val mobReqs = assertIs<CategoryValue.MapValue>(result["mobRequirements"]).value
         assertEquals(2, mobReqs.size)
-        assertEquals(10, mobReqs["zombie"])
-        assertEquals(5, mobReqs["skeleton"])
+        assertEquals(CategoryValue.IntValue(10), mobReqs["zombie"])
+        assertEquals(CategoryValue.IntValue(5), mobReqs["skeleton"])
     }
 
     @Test
@@ -366,7 +372,7 @@ class ValidateIdeaCategoryDataStepTest {
         val step = ValidateIdeaCategoryDataStep(IdeaCategory.FARM)
 
         val result = TestUtils.executeAndAssertSuccess(step, params)
-        val setup = assertIs<Set<*>>(result["playerSetup"])
+        val setup = assertIs<CategoryValue.MultiSelectValue>(result["playerSetup"]).values
         assertEquals(2, setup.size)
         assertTrue(setup.contains("Looting III Sword"))
         assertTrue(setup.contains("Shield"))
@@ -393,7 +399,7 @@ class ValidateIdeaCategoryDataStepTest {
         val step = ValidateIdeaCategoryDataStep(IdeaCategory.FARM)
 
         val result = TestUtils.executeAndAssertSuccess(step, params)
-        val pros = result["pros"] as List<*>
+        val pros = assertIs<CategoryValue.MultiSelectValue>(result["pros"]).values
         assertEquals(3, pros.size)
         assertTrue(pros.contains("Fast"))
         assertTrue(pros.contains("Efficient"))
@@ -417,8 +423,8 @@ class ValidateIdeaCategoryDataStepTest {
         val result = TestUtils.executeAndAssertSuccess(step, params)
 
         assertEquals(6, result.size)
-        assertEquals("v3.2", result["farmVersion"])
-        assertEquals(true, result["afkable"])
+        assertEquals(CategoryValue.TextValue("v3.2"), result["farmVersion"])
+        assertEquals(CategoryValue.BooleanValue(true), result["afkable"])
     }
 
     @Test
@@ -447,7 +453,7 @@ class ValidateIdeaCategoryDataStepTest {
 
         val result = TestUtils.executeAndAssertSuccess(step, params)
         assertEquals(requiredFarmFields + 1, result.size)
-        assertEquals("v3.2", result["farmVersion"])
+        assertEquals(CategoryValue.TextValue("v3.2"), result["farmVersion"])
     }
 
     @Test
@@ -509,7 +515,7 @@ class ValidateIdeaCategoryDataStepTest {
         val step = ValidateIdeaCategoryDataStep(IdeaCategory.FARM)
 
         val result = TestUtils.executeAndAssertSuccess(step, params)
-        val biomes = result["biomes"] as Set<*>
+        val biomes = assertIs<CategoryValue.MultiSelectValue>(result["biomes"]).values
         assertEquals(2, biomes.size)
         assertTrue(biomes.contains("Plains"))
         assertTrue(biomes.contains("Forest"))
@@ -523,7 +529,7 @@ class ValidateIdeaCategoryDataStepTest {
         val step = ValidateIdeaCategoryDataStep(IdeaCategory.FARM)
 
         val result = TestUtils.executeAndAssertSuccess(step, params)
-        assertIs<Set<*>>(result["playerSetup"])
+        assertIs<CategoryValue.MultiSelectValue>(result["playerSetup"])
     }
 
     @Test
@@ -534,7 +540,7 @@ class ValidateIdeaCategoryDataStepTest {
         val step = ValidateIdeaCategoryDataStep(IdeaCategory.FARM)
 
         val result = TestUtils.executeAndAssertSuccess(step, params)
-        assertIs<Set<*>>(result["biomes"])
+        assertIs<CategoryValue.MultiSelectValue>(result["biomes"])
     }
 
     @Test
@@ -566,19 +572,19 @@ class ValidateIdeaCategoryDataStepTest {
 
         val result = TestUtils.executeAndAssertSuccess(step, params)
 
-        val productionRate = assertIs<Map<*, *>>(result["productionRate"])
+        val productionRate = assertIs<CategoryValue.MapValue>(result["productionRate"]).value
         assertEquals(1, productionRate.size)
-        val normalRate = assertIs<Map<*, *>>(productionRate["Normal Mode"])
+        val normalRate = assertIs<CategoryValue.MapValue>(productionRate["Normal Mode"]).value
         assertEquals(2, normalRate.size)
-        assertEquals(2000, normalRate["minecraft:iron_ingot"])
-        assertEquals(500, normalRate["minecraft:diamond"])
+        assertEquals(CategoryValue.IntValue(2000), normalRate["minecraft:iron_ingot"])
+        assertEquals(CategoryValue.IntValue(500), normalRate["minecraft:diamond"])
 
-        val size = assertIs<Map<*, *>>(result["size"])
-        assertEquals(10, size["x"])
-        assertEquals(20, size["y"])
-        assertEquals(30, size["z"])
+        val size = assertIs<CategoryValue.MapValue>(result["size"]).value
+        assertEquals(CategoryValue.IntValue(10), size["x"])
+        assertEquals(CategoryValue.IntValue(20), size["y"])
+        assertEquals(CategoryValue.IntValue(30), size["z"])
 
-        assertEquals("Use as needed", result["howToUse"])
+        assertEquals(CategoryValue.TextValue("Use as needed"), result["howToUse"])
     }
 
     @Test
@@ -628,11 +634,11 @@ class ValidateIdeaCategoryDataStepTest {
         val result = TestUtils.executeAndAssertSuccess(step, params)
 
         assertEquals(3, result.size)
-        assertEquals("Default usage instructions", result["howToUse"])
-        assertEquals(16, (result["size"] as Map<*, *>)["x"])
-        assertEquals(10, (result["size"] as Map<*, *>)["y"])
-        assertEquals(16, (result["size"] as Map<*, *>)["z"])
-        assertEquals("1", result["playersRequired"])
+        assertEquals(CategoryValue.TextValue("Default usage instructions"), result["howToUse"])
+        val size = assertIs<CategoryValue.MapValue>(result["size"]).value
+        assertEquals(CategoryValue.IntValue(10), size["y"])
+        assertEquals(CategoryValue.IntValue(16), size["z"])
+        assertEquals(CategoryValue.TextValue("1"), result["playersRequired"])
     }
 }
 

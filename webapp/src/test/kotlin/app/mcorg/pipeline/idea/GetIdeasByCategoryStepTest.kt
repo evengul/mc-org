@@ -122,12 +122,12 @@ class GetIdeasByCategoryStepTest : WithUser() {
         createTestIdea(
             name = "AFK Iron Farm",
             category = IdeaCategory.FARM,
-            categoryData = """{"afkable": true, "productionRate": 1000}"""
+            categoryData = """{"afkable": {"type": "app.mcorg.domain.model.idea.schema.CategoryValue.BooleanValue", "value": true}, "productionRate": {"type": "app.mcorg.domain.model.idea.schema.CategoryValue.MapValue", "value": {"Normal": {"type": "app.mcorg.domain.model.idea.schema.CategoryValue.MapValue", "value": {"item.minecraft.golden_carrot": {"type": "app.mcorg.domain.model.idea.schema.CategoryValue.IntValue", "value": 5000}}}}}}"""
         )
         createTestIdea(
             name = "Manual Iron Farm",
             category = IdeaCategory.FARM,
-            categoryData = """{"afkable": false, "productionRate": 2000}"""
+            categoryData = """{"afkable": {"type": "app.mcorg.domain.model.idea.schema.CategoryValue.BooleanValue", "value": false}, "productionRate": {"type": "app.mcorg.domain.model.idea.schema.CategoryValue.MapValue", "value": {"Normal": {"type": "app.mcorg.domain.model.idea.schema.CategoryValue.MapValue", "value": {"item.minecraft.golden_carrot": {"type": "app.mcorg.domain.model.idea.schema.CategoryValue.IntValue", "value": 5000}}}}}}"""
         )
 
         // When: Filtering for AFK-able farms
@@ -149,17 +149,17 @@ class GetIdeasByCategoryStepTest : WithUser() {
         createTestIdea(
             name = "Slow Farm",
             category = IdeaCategory.FARM,
-            categoryData = """{"productionRate": 500}"""
+            categoryData = """{"productionRate": {"type": "app.mcorg.domain.model.idea.schema.CategoryValue.IntValue", "value": 500} }"""
         )
         createTestIdea(
             name = "Medium Farm",
             category = IdeaCategory.FARM,
-            categoryData = """{"productionRate": 5000}"""
+            categoryData = """{"productionRate": {"type": "app.mcorg.domain.model.idea.schema.CategoryValue.IntValue", "value": 5000} }"""
         )
         createTestIdea(
             name = "Fast Farm",
             category = IdeaCategory.FARM,
-            categoryData = """{"productionRate": 15000}"""
+            categoryData = """{"productionRate": {"type": "app.mcorg.domain.model.idea.schema.CategoryValue.IntValue", "value": 15000} }"""
         )
 
         // When: Filtering for production rate between 1000 and 10000
@@ -181,17 +181,17 @@ class GetIdeasByCategoryStepTest : WithUser() {
         createTestIdea(
             name = "Auto Farm",
             category = IdeaCategory.FARM,
-            categoryData = """{"playersRequired": "0 (Automatic)"}"""
+            categoryData = """{"playersRequired": {"type": "app.mcorg.domain.model.idea.schema.CategoryValue.TextValue", "value": "0"}}"""
         )
         createTestIdea(
             name = "Solo Farm",
             category = IdeaCategory.FARM,
-            categoryData = """{"playersRequired": "1"}"""
+            categoryData =  """{"playersRequired": {"type": "app.mcorg.domain.model.idea.schema.CategoryValue.TextValue", "value": "1"}}"""
         )
         createTestIdea(
             name = "Co-op Farm",
             category = IdeaCategory.FARM,
-            categoryData = """{"playersRequired": "2"}"""
+            categoryData = """{"playersRequired": {"type": "app.mcorg.domain.model.idea.schema.CategoryValue.TextValue", "value": "2"}}"""
         )
 
         // When: Filtering for single player farms
@@ -213,17 +213,17 @@ class GetIdeasByCategoryStepTest : WithUser() {
         createTestIdea(
             name = "Plains Farm",
             category = IdeaCategory.FARM,
-            categoryData = """{"biomes": ["Plains", "Forest"]}"""
+            categoryData = """{"biomes": {"type": "app.mcorg.domain.model.idea.schema.CategoryValue.MultiSelectValue", "values": ["Plains", "Forest"]}}"""
         )
         createTestIdea(
             name = "Desert Farm",
             category = IdeaCategory.FARM,
-            categoryData = """{"biomes": ["Desert", "Savanna"]}"""
+            categoryData = """{"biomes": {"type": "app.mcorg.domain.model.idea.schema.CategoryValue.MultiSelectValue", "values": ["Desert", "Savanna"]}}"""
         )
         createTestIdea(
             name = "Universal Farm",
             category = IdeaCategory.FARM,
-            categoryData = """{"biomes": ["Plains", "Desert", "Forest"]}"""
+            categoryData = """{"biomes": {"type": "app.mcorg.domain.model.idea.schema.CategoryValue.MultiSelectValue", "values": ["Plains", "Desert", "Forest", "Savanna", "Jungle"]}}"""
         )
 
         // When: Filtering for farms that work in Plains or Desert
@@ -244,12 +244,12 @@ class GetIdeasByCategoryStepTest : WithUser() {
         createTestIdea(
             name = "Item Sorter A",
             category = IdeaCategory.STORAGE,
-            categoryData = """{"type": "item sorter"}"""
+            categoryData = """{"type": {"type": "app.mcorg.domain.model.idea.schema.CategoryValue.TextValue", "value": "sorter"}}"""
         )
         createTestIdea(
             name = "Box Loader",
             category = IdeaCategory.STORAGE,
-            categoryData = """{"type": "loader"}"""
+            categoryData = """{"type": {"type": "app.mcorg.domain.model.idea.schema.CategoryValue.TextValue", "value": "loader"}}"""
         )
 
         // When: Searching for "SORTER" (case-insensitive)
@@ -269,43 +269,46 @@ class GetIdeasByCategoryStepTest : WithUser() {
     fun `should combine multiple filters`() = runBlocking {
         // Given: Multiple farms with various attributes
         createTestIdea(
-            name = "Perfect Iron Farm",
+            name = "Bad Carrot Farm",
             category = IdeaCategory.FARM,
             difficulty = IdeaDifficulty.START_OF_GAME,
             ratingAverage = 4.8,
-            categoryData = """{"afkable": true, "productionRate": 10000}"""
+            // language=json
+            categoryData = """{"productionRate": {"type": "app.mcorg.domain.model.idea.schema.CategoryValue.IntValue", "value": 50}}"""
         )
         createTestIdea(
-            name = "Manual Iron Farm",
+            name = "Better Carrot Farm",
             category = IdeaCategory.FARM,
             difficulty = IdeaDifficulty.START_OF_GAME,
             ratingAverage = 4.2,
-            categoryData = """{"afkable": false, "productionRate": 12000}"""
+            // language=json
+            categoryData =  """{"productionRate": {"type": "app.mcorg.domain.model.idea.schema.CategoryValue.IntValue", "value": 500}}"""
         )
         createTestIdea(
-            name = "Complex Gold Farm",
+            name = "Good Carrot Farm",
             category = IdeaCategory.FARM,
             difficulty = IdeaDifficulty.END_GAME,
             ratingAverage = 4.5,
-            categoryData = """{"afkable": true, "productionRate": 8000}"""
+            // language=json
+            categoryData =  """{"productionRate": {"type": "app.mcorg.domain.model.idea.schema.CategoryValue.IntValue", "value": 5000}, "afkable": {"type": "app.mcorg.domain.model.idea.schema.CategoryValue.BooleanValue", "value": true}}"""
         )
 
         // When: Applying multiple filters
         val filters = IdeaSearchFilters(
             category = IdeaCategory.FARM,
-            difficulties = listOf(IdeaDifficulty.START_OF_GAME),
+            difficulties = listOf(IdeaDifficulty.END_GAME),
             minRating = 4.5,
             categoryFilters = mapOf(
                 "afkable" to FilterValue.BooleanValue(true),
-                "productionRate" to FilterValue.NumberRange(9000.0, null)
+                "productionRate" to FilterValue.NumberRange(1000.0, null)
             )
         )
         val result = SearchIdeasStep.process(filters)
 
-        // Then: Only the perfect iron farm matches all criteria
+        // Then: Only the good farm matches all criteria
         assertTrue(result is Result.Success)
         assertEquals(1, result.value.size)
-        assertEquals("Perfect Iron Farm", result.value.first().name)
+        assertEquals("Good Carrot Farm", result.value.first().name)
     }
 
     @Test
@@ -347,9 +350,15 @@ class GetIdeasByCategoryStepTest : WithUser() {
                 statement.setString(1, name)
                 statement.setString(2, description)
                 statement.setString(3, category.name)
-                statement.setString(4, """{"type": "single", "name": "TestAuthor"}""")
+                statement.setString(
+                    4,
+                    """{"name": "evegul", "type": "app.mcorg.domain.model.idea.Author.SingleAuthor"}"""
+                )
                 statement.setString(5, difficulty.name)
-                statement.setString(6, """{"type": "unbounded"}""")
+                statement.setString(
+                    6,
+                    """{"type": "app.mcorg.domain.model.minecraft.MinecraftVersionRange.Unbounded"}"""
+                )
                 statement.setString(7, categoryData)
                 statement.setInt(8, user.id)
                 statement.setDouble(9, ratingAverage)

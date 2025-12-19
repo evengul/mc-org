@@ -4,6 +4,7 @@ import app.mcorg.domain.model.idea.Author
 import app.mcorg.domain.model.idea.IdeaCategory
 import app.mcorg.domain.model.idea.IdeaDifficulty
 import app.mcorg.domain.model.idea.PerformanceTestData
+import app.mcorg.domain.model.idea.schema.CategoryValue
 import app.mcorg.domain.model.minecraft.MinecraftVersionRange
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
@@ -11,15 +12,15 @@ import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.failure.ValidationFailure
-import app.mcorg.pipeline.idea.validators.*
+import app.mcorg.pipeline.idea.createsession.CreateIdeaWizardSession
+import app.mcorg.pipeline.idea.createsession.getWizardSession
 import app.mcorg.presentation.handler.executePipeline
 import app.mcorg.presentation.utils.clientRedirect
 import app.mcorg.presentation.utils.getUser
-import io.ktor.http.*
-import io.ktor.server.application.*
-import io.ktor.server.request.*
-import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.*
+import io.ktor.server.application.ApplicationCall
+import kotlinx.serialization.builtins.MapSerializer
+import kotlinx.serialization.builtins.serializer
+import kotlinx.serialization.json.Json
 
 data class CreateIdeaInput(
     val name: String,
@@ -32,7 +33,7 @@ data class CreateIdeaInput(
     val versionRange: MinecraftVersionRange,
     val testData: PerformanceTestData?,
     val itemRequirements: Map<String, Int>,
-    val categoryData: Map<String, Any>,
+    val categoryData: Map<String, CategoryValue>,
 )
 
 /**
@@ -41,32 +42,32 @@ data class CreateIdeaInput(
  */
 suspend fun ApplicationCall.handleCreateIdea() {
     val user = getUser()
-    val parameters = receiveParameters()
+    val data = getWizardSession()
 
     executePipeline(
         onSuccess = {
             clientRedirect("/app/ideas/$it")
         }
     ) {
-        value(parameters)
+        value(data)
             .step(ValidateIdeaInputStep)
             .step(CreateIdeaStep(user.id))
     }
 }
 
-object ValidateIdeaInputStep : Step<Parameters, AppFailure.ValidationError, CreateIdeaInput> {
-    override suspend fun process(input: Parameters): Result<AppFailure.ValidationError, CreateIdeaInput> {
+object ValidateIdeaInputStep : Step<CreateIdeaWizardSession, AppFailure.ValidationError, CreateIdeaInput> {
+    override suspend fun process(input: CreateIdeaWizardSession): Result<AppFailure.ValidationError, CreateIdeaInput> {
         val errors = mutableListOf<ValidationFailure>()
 
-        val name = ValidateIdeaNameStep.process(input)
-        val description = ValidateIdeaDescriptionStep.process(input)
-        val difficulty = ValidateIdeaDifficultyStep.process(input)
-        val category = ValidateIdeaCategoryStep.process(input)
-        val author = ValidateIdeaAuthorStep.process(input)
-        val versionRange = ValidateIdeaMinecraftVersionStep.process(input)
-        val itemRequirements = ValidateAllItemRequirementsStep(versionRange.getOrNull() ?: MinecraftVersionRange.Unbounded).process(input)
+        val name = input.name?.let { Result.success(it) } ?: Result.failure(ValidationFailure.MissingParameter("name"))
+        val description = input.description?.let { Result.success(it) } ?: Result.failure(ValidationFailure.MissingParameter("description"))
+        val difficulty = input.difficulty?.let { Result.success(it) } ?: Result.failure(ValidationFailure.MissingParameter("difficulty"))
+        val category = input.category?.let { Result.success(it) } ?: Result.failure(ValidationFailure.MissingParameter("category"))
+        val author = input.author?.let { Result.success(it) } ?: Result.failure(ValidationFailure.MissingParameter("author"))
+        val versionRange = input.versionRange?.let { Result.success(it) } ?: Result.failure(ValidationFailure.MissingParameter("versionRange"))
+        val itemRequirements = input.itemRequirements ?: emptyMap()
 
-        var categoryData = mapOf<String, Any>()
+        var categoryData = mapOf<String, CategoryValue>()
 
         if (name is Result.Failure) {
             errors.add(name.error)
@@ -84,19 +85,16 @@ object ValidateIdeaInputStep : Step<Parameters, AppFailure.ValidationError, Crea
             errors.add(author.error)
         }
         if (versionRange is Result.Failure) {
-            errors.addAll(versionRange.error)
-        }
-        if (itemRequirements is Result.Failure) {
-            errors.addAll(itemRequirements.error)
+            errors.add(versionRange.error)
         }
         if (category is Result.Failure) {
             errors.add(category.error)
         } else if (category is Result.Success) {
-            val categoryDataResult = ValidateIdeaCategoryDataStep(category.value).process(input)
-            if (categoryDataResult is Result.Failure) {
-                errors.addAll(categoryDataResult.error)
+            val categoryDataResult = input.categoryData
+            if (categoryDataResult == null || categoryDataResult.isEmpty()) {
+                errors.add(ValidationFailure.MissingParameter("categoryData"))
             } else {
-                categoryData = categoryDataResult.getOrNull()!!
+                categoryData = input.categoryData
             }
         }
 
@@ -115,7 +113,7 @@ object ValidateIdeaInputStep : Step<Parameters, AppFailure.ValidationError, Crea
                 subAuthors = emptyList(),
                 versionRange = versionRange.getOrNull()!!,
                 testData = null,
-                itemRequirements = itemRequirements.getOrNull()?.mapKeys { it.key.id } ?: emptyMap(),
+                itemRequirements = itemRequirements,
                 categoryData = categoryData
             )
         )
@@ -129,10 +127,9 @@ data class CreateIdeaStep(val userId: Int) : Step<CreateIdeaInput, AppFailure.Da
                 object : Step<CreateIdeaInput, AppFailure.DatabaseError, Int> {
                     override suspend fun process(input: CreateIdeaInput): Result<AppFailure.DatabaseError, Int> {
                         // Serialize complex fields to JSON
-                        val authorJson = serializeAuthor(input.author)
-                        val subAuthorsJson = input.subAuthors.map { serializeAuthor(it) }
-                        val versionRangeJson = serializeVersionRange(input.versionRange)
-                        val categoryDataJson = serializeCategoryData(input.categoryData)
+                        val authorJson = Json.encodeToString(Author.serializer(), input.author)
+                        val versionRangeJson = Json.encodeToString(MinecraftVersionRange.serializer(), input.versionRange)
+                        val categoryDataJson = Json.encodeToString(MapSerializer(String.serializer(), CategoryValue.serializer()), input.categoryData)
 
                         // Insert idea
                         val ideaIdResult = DatabaseSteps.update<CreateIdeaInput>(
@@ -152,11 +149,11 @@ data class CreateIdeaStep(val userId: Int) : Step<CreateIdeaInput, AppFailure.Da
                                 statement.setString(4, authorJson)
 
                                 // Convert array to PostgreSQL array format
-                                val subAuthorsArray = statement.connection.createArrayOf("jsonb", subAuthorsJson.toTypedArray())
+                                val subAuthorsArray = statement.connection.createArrayOf("jsonb", emptyArray())
                                 statement.setArray(5, subAuthorsArray)
 
                                 // Convert labels to PostgreSQL array
-                                val labelsArray = statement.connection.createArrayOf("text", input.labels.toTypedArray())
+                                val labelsArray = statement.connection.createArrayOf("text", emptyArray())
                                 statement.setArray(6, labelsArray)
 
                                 statement.setString(7, input.difficulty.name)
@@ -218,99 +215,6 @@ data class CreateIdeaStep(val userId: Int) : Step<CreateIdeaInput, AppFailure.Da
                 }
             }
         ).process(input)
-    }
-
-    private fun serializeAuthor(author: Author): String {
-        return when (author) {
-            is Author.SingleAuthor -> Json.encodeToString(
-                buildJsonObject {
-                    put("type", "single")
-                    put("name", author.name)
-                }
-            )
-            is Author.Team -> Json.encodeToString(
-                buildJsonObject {
-                    put("type", "team")
-                    putJsonArray("members") {
-                        author.members.forEach { member ->
-                            addJsonObject {
-                                put("name", member.name)
-                                put("index", member.order)
-                                put("title", member.role)
-                                putJsonArray("responsibleFor") {
-                                    member.contributions.forEach { add(it) }
-                                }
-                            }
-                        }
-                    }
-                }
-            )
-            is Author.TeamAuthor -> Json.encodeToString(
-                buildJsonObject {
-                    put("type", "single")
-                    put("name", author.name)
-                }
-            )
-        }
-    }
-
-    private fun serializeVersionRange(range: MinecraftVersionRange): String {
-        return when (range) {
-            is MinecraftVersionRange.Bounded -> Json.encodeToString(
-                buildJsonObject {
-                    put("type", "bounded")
-                    put("from", range.from.toString())
-                    put("to", range.to.toString())
-                }
-            )
-            is MinecraftVersionRange.LowerBounded -> Json.encodeToString(
-                buildJsonObject {
-                    put("type", "lowerBounded")
-                    put("from", range.from.toString())
-                }
-            )
-            is MinecraftVersionRange.UpperBounded -> Json.encodeToString(
-                buildJsonObject {
-                    put("type", "upperBounded")
-                    put("to", range.to.toString())
-                }
-            )
-            MinecraftVersionRange.Unbounded -> Json.encodeToString(
-                buildJsonObject {
-                    put("type", "unbounded")
-                }
-            )
-        }
-    }
-
-    private fun serializeCategoryData(data: Map<String, Any>): String {
-        return buildJsonObject {
-            data.forEach { (key, value) ->
-                put(key, convertToJsonElement(value))
-            }
-        }.toString()
-    }
-
-    private fun convertToJsonElement(value: Any?): JsonElement {
-        return when (value) {
-            null -> JsonNull
-            is String -> JsonPrimitive(value)
-            is Number -> JsonPrimitive(value)
-            is Boolean -> JsonPrimitive(value)
-            is Map<*, *> -> buildJsonObject {
-                @Suppress("UNCHECKED_CAST")
-                val map = value as Map<String, Any?>
-                map.forEach { (key, nestedValue) ->
-                    put(key, convertToJsonElement(nestedValue))
-                }
-            }
-            is List<*> -> buildJsonArray {
-                value.forEach { item ->
-                    add(convertToJsonElement(item))
-                }
-            }
-            else -> JsonPrimitive(value.toString())
-        }
     }
 }
 

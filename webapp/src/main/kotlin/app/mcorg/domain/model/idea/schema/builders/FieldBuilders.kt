@@ -43,11 +43,11 @@ class NumberFieldBuilder(key: String) : FieldBuilder<CategoryField.Number>(key) 
     )
 }
 
-class SelectFieldBuilder<T>(key: String) : FieldBuilder<CategoryField.Select<T>>(key) {
-    var options: List<SearchableSelectOption<T>> = emptyList()
+class SelectFieldBuilder(key: String) : FieldBuilder<CategoryField.Select>(key) {
+    var options: List<SearchableSelectOption<String>> = emptyList()
     var defaultValue: String? = null
     var parents: List<CategoryField> = emptyList()
-    var dynamicOptionsConfig: DynamicOptionsConfig<T>? = null
+    var dynamicOptionsConfig: DynamicOptionsConfig? = null
     var showSearchLimit: Int = 10
 
     override fun build() = CategoryField.Select(
@@ -147,11 +147,9 @@ class ListFieldBuilder(key: String) : FieldBuilder<CategoryField.ListField>(key)
 }
 
 class PercentageFieldBuilder(key: String) : FieldBuilder<CategoryField.Percentage>(key) {
-    var min: Double = 0.0
-    var max: Double = 1.0
     var parents: List<CategoryField> = emptyList()
 
     override fun build() = CategoryField.Percentage(
-        key, label, searchable, filterable, required, helpText, parents, min, max
+        key, label, searchable, filterable, required, helpText, parents
     )
 }

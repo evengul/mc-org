@@ -15,7 +15,7 @@ class TypedMapFieldContentBuilder(private val mapField: CategoryField.TypedMapFi
         keyField = numberField("key", block)
     }
 
-    fun <T> selectKey(block: SelectFieldBuilder<T>.() -> Unit) {
+    fun selectKey(block: SelectFieldBuilder.() -> Unit) {
         keyField = selectField("key", block)
     }
 
@@ -31,7 +31,7 @@ class TypedMapFieldContentBuilder(private val mapField: CategoryField.TypedMapFi
         valueField = numberField("value", block)
     }
 
-    fun <T> selectValue(block: SelectFieldBuilder<T>.() -> Unit) {
+    fun selectValue(block: SelectFieldBuilder.() -> Unit) {
         valueField = selectField("value", block)
     }
 
@@ -84,8 +84,8 @@ class TypedMapFieldContentBuilder(private val mapField: CategoryField.TypedMapFi
         }.build()
     }
 
-    private fun <T> selectField(key: String, block: SelectFieldBuilder<T>.() -> Unit): CategoryField.Select<T> {
-        return SelectFieldBuilder<T>(key).apply {
+    private fun selectField(key: String, block: SelectFieldBuilder.() -> Unit): CategoryField.Select {
+        return SelectFieldBuilder(key).apply {
             parents = mapField.parents + mapField
             block()
         }.build()

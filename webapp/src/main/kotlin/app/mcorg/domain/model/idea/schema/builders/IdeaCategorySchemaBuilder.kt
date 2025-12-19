@@ -20,8 +20,8 @@ class IdeaCategorySchemaBuilder(private val category: IdeaCategory) {
         fields += NumberFieldBuilder(key).apply(block).build()
     }
 
-    fun <T>selectField(key: String, block: SelectFieldBuilder<T>.() -> Unit) {
-        fields += SelectFieldBuilder<T>(key).apply(block).build()
+    fun selectField(key: String, block: SelectFieldBuilder.() -> Unit) {
+        fields += SelectFieldBuilder(key).apply(block).build()
     }
 
     fun multiSelectField(key: String, block: MultiSelectFieldBuilder.() -> Unit) {
@@ -75,8 +75,8 @@ class SubcategoryBuilder(val name: String) {
         fields += NumberFieldBuilder(key).apply(block).build()
     }
 
-    fun <T> selectField(key: String, block: SelectFieldBuilder<T>.() -> Unit) {
-        fields += SelectFieldBuilder<T>(key).apply(block).build()
+    fun selectField(key: String, block: SelectFieldBuilder.() -> Unit) {
+        fields += SelectFieldBuilder(key).apply(block).build()
     }
 
     fun multiSelectField(key: String, block: MultiSelectFieldBuilder.() -> Unit) {

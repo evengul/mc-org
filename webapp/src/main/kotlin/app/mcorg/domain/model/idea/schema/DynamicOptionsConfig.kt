@@ -6,24 +6,23 @@ import app.mcorg.presentation.templated.common.form.searchableselect.SearchableS
 import kotlinx.coroutines.runBlocking
 
 // TODO: Actual DB caching solution
-private val cache: MutableMap<MinecraftVersionRange, List<SearchableSelectOption<*>>> = mutableMapOf()
+private val cache: MutableMap<MinecraftVersionRange, List<SearchableSelectOption<String>>> = mutableMapOf()
 
-data class DynamicOptionsConfig<T>(
+data class DynamicOptionsConfig(
     val source: DynamicOptionsSource,
     val versionDependent: Boolean = true,
-    val filter: ((T) -> Boolean)? = null,
 ) {
     companion object {
-        fun items() = DynamicOptionsConfig<String>(DynamicOptionsSource.ITEMS)
+        fun items() = DynamicOptionsConfig(DynamicOptionsSource.ITEMS)
     }
 
-    fun resolve(versionRange: MinecraftVersionRange = MinecraftVersionRange.Unbounded): List<SearchableSelectOption<T>> {
+    fun resolve(versionRange: MinecraftVersionRange = MinecraftVersionRange.Unbounded): List<SearchableSelectOption<String>> {
         return runBlocking {
             if (!cache.containsKey(versionRange)) {
-                cache[versionRange] = ResolveDynamicOptionsStep<T>(versionRange).process(this@DynamicOptionsConfig).getOrNull() ?: emptyList()
+                cache[versionRange] = ResolveDynamicOptionsStep(versionRange).process(this@DynamicOptionsConfig).getOrNull() ?: emptyList()
             }
             @Suppress("UNCHECKED_CAST")
-            return@runBlocking (cache[versionRange] as? List<SearchableSelectOption<T>>) ?: emptyList()
+            return@runBlocking cache[versionRange] ?: emptyList()
         }
     }
 }

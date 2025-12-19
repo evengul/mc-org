@@ -1,5 +1,6 @@
 package app.mcorg.domain.model.idea
 
+import app.mcorg.domain.model.idea.schema.CategoryValue
 import app.mcorg.domain.model.minecraft.MinecraftVersionRange
 import java.time.ZonedDateTime
 
@@ -16,7 +17,7 @@ data class Idea(
     val difficulty: IdeaDifficulty,
     val worksInVersionRange: MinecraftVersionRange,
     val testData: List<PerformanceTestData>,
-    val categoryData: Map<String, Any>,
+    val categoryData: Map<String, CategoryValue>,
     val createdBy: Int,
     val createdAt: ZonedDateTime,
 )
