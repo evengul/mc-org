@@ -2,7 +2,8 @@ package app.mcorg.pipeline.idea
 
 import app.mcorg.domain.model.idea.IdeaCategory
 import app.mcorg.domain.model.idea.IdeaDifficulty
-import io.ktor.http.*
+import io.ktor.http.Parameters
+import io.ktor.http.parametersOf
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -85,16 +86,16 @@ class IdeaFilterParserTest {
     fun `parse number range category filter`() {
         val params = parametersOf(
             "category" to listOf("FARM"),
-            "categoryFilters[productionRate_min]" to listOf("1000"),
-            "categoryFilters[productionRate_max]" to listOf("5000")
+            "categoryFilters[yLevel_min]" to listOf("-15"),
+            "categoryFilters[yLevel_max]" to listOf("120")
         )
         val filters = IdeaFilterParser.parse(params)
 
         assertEquals(1, filters.categoryFilters.size)
-        val rateFilter = filters.categoryFilters["productionRate"]
+        val rateFilter = filters.categoryFilters["yLevel"]
         assertTrue(rateFilter is FilterValue.NumberRange)
-        assertEquals(1000.0, rateFilter.min)
-        assertEquals(5000.0, rateFilter.max)
+        assertEquals(-15.0, rateFilter.min)
+        assertEquals(120.0, rateFilter.max)
     }
 
     @Test
@@ -137,7 +138,7 @@ class IdeaFilterParserTest {
             "difficulty[]" to listOf("START_OF_GAME", "END_GAME"),
             "minRating" to listOf("4.0"),
             "categoryFilters[afkable]" to listOf("true"),
-            "categoryFilters[productionRate_min]" to listOf("10000")
+            "categoryFilters[yLevel_min]" to listOf("64")
         )
         val filters = IdeaFilterParser.parse(params)
 

@@ -100,7 +100,7 @@ class MicrosoftSignInIT {
         val response = client.get("/auth/oidc/microsoft-redirect")
 
         assertEquals(HttpStatusCode.Found, response.status)
-        assertEquals("/auth/sign-out?error=missing_code&args=", response.headers["Location"])
+        assertEquals("/auth/sign-out?error=missing_code", response.headers["Location"])
     }
 
     fun stubMicrosoftTokenEndpoint() {

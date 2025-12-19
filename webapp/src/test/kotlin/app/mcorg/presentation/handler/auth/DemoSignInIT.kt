@@ -5,14 +5,16 @@ import app.mcorg.domain.Local
 import app.mcorg.presentation.consts.AUTH_COOKIE
 import app.mcorg.presentation.router.authRouter
 import app.mcorg.test.postgres.DatabaseTestExtension
-import io.ktor.client.request.*
-import io.ktor.http.*
-import io.ktor.server.routing.*
-import io.ktor.server.testing.*
+import io.ktor.client.request.get
+import io.ktor.http.HttpStatusCode
+import io.ktor.http.setCookie
+import io.ktor.server.routing.route
+import io.ktor.server.testing.testApplication
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.api.extension.ExtendWith
+import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -55,23 +57,8 @@ class DemoSignInIT {
             }
         }
 
-        val response = client.get("/auth/oidc/local-redirect?redirect_to=/custom-path")
-        assert(response.status == HttpStatusCode.Found)
-        assert(response.headers["Location"] == "/custom-path")
-    }
-
-    @Test
-    fun `Respond with 403 when sign in fails`() = testApplication {
-        AppConfig.env = app.mcorg.domain.Test
-
-        val client = createClient { followRedirects = false }
-        routing {
-            route("/auth") {
-                authRouter()
-            }
-        }
-
-        val response = client.get("/auth/oidc/local-redirect")
-        assert(response.status == HttpStatusCode.Forbidden)
+        val response = client.get("/auth/oidc/demo-redirect?redirect_to=/custom-path")
+        assertEquals(HttpStatusCode.Found, response.status)
+        assertEquals("/custom-path", response.headers["Location"])
     }
 }

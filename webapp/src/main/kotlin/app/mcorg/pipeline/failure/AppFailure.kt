@@ -27,7 +27,7 @@ sealed interface AppFailure {
             }
 
             fun toRedirect() = Redirect(
-                path = "/auth/error",
+                path = "/auth/sign-out",
                 queryParameters = buildMap {
                     put("error", errorCode)
                     arguments.forEach { (key, value) ->

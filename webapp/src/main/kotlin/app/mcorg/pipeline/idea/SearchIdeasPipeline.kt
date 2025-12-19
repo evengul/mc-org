@@ -10,7 +10,7 @@ import app.mcorg.pipeline.idea.commonsteps.GetAllIdeasStep
 import app.mcorg.pipeline.idea.extractors.toIdea
 import app.mcorg.presentation.templated.idea.ideaList
 import app.mcorg.presentation.utils.respondHtml
-import io.ktor.server.application.*
+import io.ktor.server.application.ApplicationCall
 import kotlinx.html.stream.createHTML
 import kotlinx.html.ul
 
@@ -81,7 +81,7 @@ object SearchIdeasStep : Step<IdeaSearchFilters, AppFailure.DatabaseError, List<
             parameterSetter = { statement, whereClause ->
                 whereClause.parameters.forEachIndexed { index, param ->
                     when (param) {
-                        is kotlin.Array<*> -> {
+                        is Array<*> -> {
                             // Handle arrays for PostgreSQL (e.g., for ?| operator)
                             val sqlArray = statement.connection.createArrayOf("text", param)
                             statement.setArray(index + 1, sqlArray)

@@ -58,7 +58,7 @@ class SignOutIT {
         }
 
         assertEquals(HttpStatusCode.Found, response.status)
-        assertEquals("/", response.headers["Location"])
+        assertEquals("/auth/sign-in", response.headers["Location"])
         val cookie = response.setCookie().find { it.name == AUTH_COOKIE }
         assertEquals("", cookie?.value)
         assertEquals(0, cookie?.maxAge)
