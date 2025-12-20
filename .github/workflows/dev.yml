@@ -27,15 +27,11 @@ jobs:
       - name: Cache Maven packages
         uses: actions/cache@v4
         with:
-          path: ~/.m2
-          key: maven-${{ runner.os }}-${{ hashFiles('**/pom.xml', '**/dependencies.xml') }}
-          restore-keys: ${{ runner.os }}-m2
-      - name: Cache Flyway schemas
-        uses: actions/cache@v4
-        with:
-          path: ./webapp/.flyway
-          key: flyway-${{ runner.os }}-${{ hashFiles('./webapp/src/main/resources/db/migration/**') }}
-          restore-keys: ${{ runner.os }}-flyway
+          path: ~/.m2/repository
+          key: maven-${{ runner.os }}-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            maven-${{ runner.os }}-
+
       - name: Create Neon branch
         uses: neondatabase/create-branch-action@v6.0.1
         id: create-neon-branch
@@ -65,6 +61,10 @@ jobs:
           config: ./dev.fly.toml
           org: mc-org
           secrets: APP_HOST=mcorg-dev-${{ github.event.number }}.fly.dev DB_PASSWORD=${{ steps.create-neon-branch.outputs.password }} DB_URL=jdbc:postgresql://${{ steps.create-neon-branch.outputs.db_host_pooled }}/mcorg?sslmode=require DB_USER=${{ env.DB_USERNAME }} RSA_PUBLIC_KEY=${{ secrets.RSA_PUBLIC_KEY }} RSA_PRIVATE_KEY=${{ secrets.RSA_PRIVATE_KEY }}
+          build_args: |
+            BUILDKIT_INLINE_CACHE=1
+        env:
+          DOCKER_BUILDKIT: 1
       - uses: actions/github-script@v7
         with:
           github-token: ${{secrets.GH_TOKEN_PR_COMMENTS}}

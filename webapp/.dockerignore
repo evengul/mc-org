@@ -1,52 +1,66 @@
-# flyctl launch added from .gitignore
-**/.gradle
-**/build
-!**/gradle/wrapper/gradle-wrapper.jar
-!**/**/src/main/**/build
-!**/**/src/test/**/build
+# Build artifacts
+target/
 
-### STS ###
-**/.apt_generated
-**/.classpath
-**/.factorypath
-**/.project
-**/.settings
-**/.springBeans
-**/.sts4-cache
-**/bin
-!**/**/src/main/**/bin
-!**/**/src/test/**/bin
+# IDE files
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.settings/
+.project
+.classpath
 
-### IntelliJ IDEA ###
-**/.idea
-**/*.iws
-**/*.iml
-**/*.ipr
-**/out
-!**/**/src/main/**/out
-!**/**/src/test/**/out
+# OS files
+.DS_Store
+Thumbs.db
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
 
-### NetBeans ###
-nbproject/private
-nbbuild
-dist
-nbdist
-.nb-gradle
+# Git
+.git/
+.gitignore
+.gitattributes
 
-### VS Code ###
-**/.vscode
+# Documentation
+documentation/
+*.md
 
-**/target
+# Tests
+src/test/
 
-**/src/main/resources/keys
-
-# flyctl launch added from .idea/.gitignore
-# Default ignored files
-.idea/shelf
-.idea/workspace.xml
-# Editor-based HTTP Client requests
-.idea/httpRequests
-# Datasource local storage ignored files
-.idea/dataSources
-.idea/dataSources.local.xml
+# CI/CD
+.github/
 fly.toml
+dev.fly.toml
+
+# Logs
+*.log
+logs/
+
+# Environment files
+*.env
+
+# Maven wrapper (if not needed)
+.mvn/
+mvnw
+mvnw.cmd
+
+# Flyway
+.flyway/
+
+# Temporary files
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+
+# Docker
+docker-compose*.yaml
+Dockerfile
+.dockerignore
+

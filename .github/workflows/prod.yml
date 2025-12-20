@@ -19,8 +19,8 @@ jobs:
       - name: Cache Maven packages
         uses: actions/cache@v4
         with:
-          path: ~/.m2
-          key: maven-${{ runner.os }}-${{ hashFiles('**/pom.xml', '**/dependencies.xml') }}
+          path: ~/.m2/repository
+          key: maven-${{ runner.os }}-${{ hashFiles('**/pom.xml') }}
           restore-keys: |
             maven-${{ runner.os }}-
       - name: Set up JDK 21
@@ -28,11 +28,7 @@ jobs:
         with:
           distribution: 'adopt'
           java-version: '21'
-      - name: Cache Flyway schemas
-        uses: actions/cache@v4
-        with:
-          path: ./webapp/.flyway
-          key: flyway-${{ runner.os }}-${{ hashFiles('./webapp/src/main/resources/db/migration/**') }}
+
       - name: Run Flyway migrations
         run: mvn flyway:migrate
         env:
@@ -40,6 +36,7 @@ jobs:
           DB_USER: ${{ vars.DB_USER }}
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
       - uses: superfly/flyctl-actions/setup-flyctl@master
-      - run: flyctl deploy --remote-only
+      - run: flyctl deploy --remote-only --build-arg BUILDKIT_INLINE_CACHE=1
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          DOCKER_BUILDKIT: 1
