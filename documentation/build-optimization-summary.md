@@ -262,7 +262,7 @@ RUN mvn clean package -DskipTests -B
 
 Track these after merging:
 
-- [ ] **First build** completes with cache misses
+- [✅] **First build** completes with cache misses
 - [ ] **Second build** (code change) completes in < 5 minutes
 - [ ] **Cache hit rate** > 80% after first week
 - [ ] **Build failures** reduced (faster iteration on fixes)
