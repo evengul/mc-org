@@ -2,13 +2,8 @@ package app.mcorg.presentation.templated.project
 
 import app.mcorg.domain.model.minecraft.Item
 import app.mcorg.domain.model.project.Project
-import app.mcorg.domain.model.project.ProjectStage
-import app.mcorg.domain.model.task.Priority
 import app.mcorg.domain.model.user.TokenProfile
 import app.mcorg.presentation.hxTargetError
-import app.mcorg.presentation.templated.common.form.radiogroup.RadioGroupLayout
-import app.mcorg.presentation.templated.common.form.radiogroup.RadioGroupOption
-import app.mcorg.presentation.templated.common.form.radiogroup.radioGroup
 import app.mcorg.presentation.templated.common.form.searchableselect.SearchableSelectOption
 import app.mcorg.presentation.templated.common.form.searchableselect.searchableSelect
 import app.mcorg.presentation.templated.common.icon.IconSize
@@ -19,8 +14,15 @@ import app.mcorg.presentation.templated.common.modal.FormModalHxValues
 import app.mcorg.presentation.templated.common.modal.formModal
 import app.mcorg.presentation.templated.common.tabs.TabData
 import app.mcorg.presentation.templated.common.tabs.tabsComponent
-import app.mcorg.presentation.templated.utils.toPrettyEnumName
-import kotlinx.html.*
+import kotlinx.html.DIV
+import kotlinx.html.InputType
+import kotlinx.html.Tag
+import kotlinx.html.classes
+import kotlinx.html.div
+import kotlinx.html.id
+import kotlinx.html.input
+import kotlinx.html.onSubmit
+import kotlinx.html.p
 
 enum class CreateTaskModalTab {
     ITEM_REQUIREMENT,
@@ -51,38 +53,6 @@ fun <T : Tag> T.createTaskModal(user: TokenProfile, project: Project, itemNames:
         classes += "create-task-form"
         if (user.isDemoUserInProduction) {
             onSubmit = "return false;"
-        }
-
-        label {
-            + "Related Stage"
-        }
-        select {
-            name = "stage"
-            classes += "form-control"
-            ProjectStage.entries.filter { it != ProjectStage.COMPLETED }.forEach {
-                option {
-                    value = it.name
-                    selected = it == project.stage
-                    + it.toPrettyEnumName()
-                }
-            }
-        }
-        p("validation-error-message") {
-            id = "validation-error-stage"
-        }
-        label {
-            + "Priority"
-        }
-        div("priority-group") {
-            radioGroup(
-                "priority",
-                Priority.entries.map { RadioGroupOption(it.name, it.toPrettyEnumName()) },
-                selectedOption = "MEDIUM",
-                layout = RadioGroupLayout.HORIZONTAL
-            )
-        }
-        p("validation-error-message") {
-            id = "validation-error-priority"
         }
 
         tabsComponent(

@@ -1,6 +1,9 @@
 package app.mcorg.pipeline.task.extractors
 
-import app.mcorg.domain.model.task.*
+import app.mcorg.domain.model.task.ActionRequirement
+import app.mcorg.domain.model.task.ItemRequirement
+import app.mcorg.domain.model.task.Task
+import app.mcorg.domain.model.task.TaskRequirement
 import org.postgresql.util.PSQLException
 import java.sql.ResultSet
 
@@ -17,9 +20,6 @@ fun ResultSet.toTask(): Task {
         id = getInt("id"),
         projectId = getInt("project_id"),
         name = getString("name"),
-        description = getString("description"),
-        stage = TaskProjectStage.valueOf(getString("stage")),
-        priority = Priority.valueOf(getString("priority")),
         solvedByProject = try {
             getInt("solved_by_project_id").takeIf { !wasNull() }?.let {
                 Pair(it, getString("solved_by_project_name"))
