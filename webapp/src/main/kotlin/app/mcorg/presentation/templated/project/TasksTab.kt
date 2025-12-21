@@ -1,11 +1,8 @@
 package app.mcorg.presentation.templated.project
 
 import app.mcorg.domain.model.project.Project
-import app.mcorg.domain.model.project.ProjectStage
 import app.mcorg.domain.model.task.ItemRequirement
-import app.mcorg.domain.model.task.Priority
 import app.mcorg.domain.model.task.Task
-import app.mcorg.domain.model.task.TaskProjectStage
 import app.mcorg.pipeline.task.FoundIdea
 import app.mcorg.presentation.hxDeleteWithConfirm
 import app.mcorg.presentation.hxGet
@@ -61,7 +58,7 @@ fun DIV.projectProgress(completed: Int, total: Int) {
 
 private fun DIV.taskManagementSection(tab: ProjectTab.Tasks) {
     div("project-tasks") {
-        taskManagementHeader(tab.project.worldId, tab.project.id, tab.project.stage)
+        taskManagementHeader(tab.project.worldId, tab.project.id)
         if (tab.totalTasksCount == 0) {
             div {
                 emptyTasksDisplay()
@@ -80,14 +77,14 @@ private fun DIV.taskManagementSection(tab: ProjectTab.Tasks) {
     }
 }
 
-private fun DIV.taskManagementHeader(worldId: Int, projectId: Int, projectStage: ProjectStage) {
+private fun DIV.taskManagementHeader(worldId: Int, projectId: Int) {
     h2 {
         + "Tasks"
     }
-    taskSearchAndFilters(worldId, projectId, projectStage)
+    taskSearchAndFilters(worldId, projectId)
 }
 
-private fun DIV.taskSearchAndFilters(worldId: Int, projectId: Int, projectStage: ProjectStage) {
+private fun DIV.taskSearchAndFilters(worldId: Int, projectId: Int) {
     form(classes = "project-tasks-search-filter") {
         encType = FormEncType.applicationXWwwFormUrlEncoded
         hxGet("${Link.Worlds.world(worldId).project(projectId).tasks().to}/search")
@@ -124,50 +121,11 @@ private fun DIV.taskSearchAndFilters(worldId: Int, projectId: Int, projectStage:
             }
         }
         select {
-            name = "priority"
-            option {
-                value = "ALL"
-                + "All Priorities"
-            }
-            Priority.entries.forEach {
-                option {
-                    value = it.name
-                    + it.toPrettyEnumName()
-                }
-            }
-        }
-        select {
-            name = "stage"
-            option {
-                value = "ALL"
-                + "All Stages"
-            }
-            TaskProjectStage.entries.forEach {
-                option {
-                    selected = when(projectStage) {
-                        ProjectStage.IDEA -> it == TaskProjectStage.IDEA
-                        ProjectStage.DESIGN -> it == TaskProjectStage.DESIGN
-                        ProjectStage.PLANNING -> it == TaskProjectStage.PLANNING
-                        ProjectStage.RESOURCE_GATHERING -> it == TaskProjectStage.RESOURCE_GATHERING
-                        ProjectStage.BUILDING -> it == TaskProjectStage.BUILDING
-                        ProjectStage.TESTING -> it == TaskProjectStage.TESTING
-                        else -> false
-                    }
-                    value = it.name
-                    + it.toPrettyEnumName()
-                }
-            }
-        }
-        select {
             name = "sortBy"
             option {
                 value = "required_amount_desc"
                 selected = true
                 + "Sort by Required Amount (High to Low)"
-            }
-            option {
-                value = "priority_asc"
-                + "Sort by Priority (High to Low)"
             }
             option {
                 value = "lastModified_desc"
@@ -212,11 +170,6 @@ fun LI.taskItem(worldId: Int, projectId: Int, task: Task) {
     classes += "task-item"
     id = "task-${task.id}"
     taskHeader(worldId, projectId, task)
-    if (task.description.isNotBlank()) {
-        p("subtle") {
-            + task.description
-        }
-    }
     if (task.requirement is ItemRequirement) {
         taskItemProgress(task.id, task.requirement)
 
@@ -411,18 +364,6 @@ private fun LI.taskHeader(worldId: Int, projectId: Int, task: Task) {
                             hxSwap("innerHTML")
                         }
                     }
-                }
-            }
-            chipComponent {
-                icon = when(task.priority) {
-                    Priority.HIGH, Priority.CRITICAL -> Icons.Priority.HIGH
-                    Priority.MEDIUM -> Icons.Priority.MEDIUM
-                    Priority.LOW -> Icons.Priority.LOW
-                }
-                variant = when(task.priority) {
-                    Priority.HIGH, Priority.CRITICAL -> ChipVariant.DANGER
-                    Priority.MEDIUM -> ChipVariant.WARNING
-                    Priority.LOW -> ChipVariant.INFO
                 }
             }
             iconButton(

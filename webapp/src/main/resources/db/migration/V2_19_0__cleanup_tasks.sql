@@ -1,0 +1,4 @@
+ALTER TABLE tasks
+    DROP COLUMN IF EXISTS description,
+    DROP COLUMN IF EXISTS priority,
+    DROP COLUMN IF EXISTS stage;

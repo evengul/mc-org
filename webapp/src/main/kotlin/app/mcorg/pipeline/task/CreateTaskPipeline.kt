@@ -1,9 +1,7 @@
 package app.mcorg.pipeline.task
 
 import app.mcorg.domain.model.minecraft.Item
-import app.mcorg.domain.model.task.Priority
 import app.mcorg.domain.model.task.Task
-import app.mcorg.domain.model.task.TaskProjectStage
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.DatabaseSteps
@@ -23,9 +21,9 @@ import app.mcorg.presentation.utils.getProjectId
 import app.mcorg.presentation.utils.getUser
 import app.mcorg.presentation.utils.getWorldId
 import app.mcorg.presentation.utils.respondHtml
-import io.ktor.http.*
-import io.ktor.server.application.*
-import io.ktor.server.request.*
+import io.ktor.http.Parameters
+import io.ktor.server.application.ApplicationCall
+import io.ktor.server.request.receiveParameters
 import kotlinx.html.div
 import kotlinx.html.li
 import kotlinx.html.stream.createHTML
@@ -33,19 +31,13 @@ import java.sql.Types
 
 sealed interface CreateTaskInput {
     val name: String
-    val priority: Priority
-    val stage: TaskProjectStage
 
     data class ActionTaskInput(
         override val name: String,
-        override val priority: Priority,
-        override val stage: TaskProjectStage
     ) : CreateTaskInput
 
     data class ItemTaskInput(
         override val name: String,
-        override val priority: Priority,
-        override val stage: TaskProjectStage,
         val itemId: String,
         val requiredAmount: Int
     ) : CreateTaskInput
@@ -83,30 +75,6 @@ suspend fun ApplicationCall.handleCreateTask() {
 data class ValidateTaskInputStep(val validItems: List<Item>) : Step<Parameters, AppFailure.ValidationError, CreateTaskInput> {
     override suspend fun process(input: Parameters): Result<AppFailure.ValidationError, CreateTaskInput> {
 
-        val priority = ValidationSteps.validateCustom<AppFailure.ValidationError, String?>(
-            "priority",
-            "Invalid task priority",
-            errorMapper = { AppFailure.ValidationError(listOf(it)) },
-            predicate = {
-                it.isNullOrBlank() || runCatching {
-                    Priority.valueOf(it.uppercase())
-                }.isSuccess
-            }).process(input["priority"]).map {
-                if (it.isNullOrBlank()) Priority.MEDIUM else Priority.valueOf(it.uppercase())
-            }
-
-        val stage = ValidationSteps.validateCustom<AppFailure.ValidationError, String?>(
-            "stage",
-            "Invalid task stage",
-            errorMapper = { AppFailure.ValidationError(listOf(it)) },
-            predicate = {
-                it.isNullOrBlank() || runCatching {
-                    TaskProjectStage.valueOf(it.uppercase().replace(" ", "_"))
-                }.isSuccess
-            }).process(input["stage"]).map {
-                if (it.isNullOrBlank()) TaskProjectStage.PLANNING else TaskProjectStage.valueOf(it.uppercase().replace(" ", "_"))
-            }
-
         // Parse requirements from form parameters
         val itemId = input["itemId"]?.let { itemId ->
                 ValidationSteps.validateAllowedValues("itemId", validItems.map { it.id }, { it }, ignoreCase = false).process(itemId)
@@ -124,12 +92,6 @@ data class ValidateTaskInputStep(val validItems: List<Item>) : Step<Parameters, 
         }
 
         val errors = mutableListOf<ValidationFailure>()
-        if (priority is Result.Failure) {
-            errors.addAll(priority.error.errors)
-        }
-        if (stage is Result.Failure) {
-            errors.addAll(stage.error.errors)
-        }
         if (itemId == null && actionName == null && requirement.getOrNull() == null) {
             errors.add(ValidationFailure.MissingParameter("Either itemName with requiredAmount or action must be provided"))
         }
@@ -156,8 +118,6 @@ data class ValidateTaskInputStep(val validItems: List<Item>) : Step<Parameters, 
             return Result.success(
                 CreateTaskInput.ItemTaskInput(
                     name = validItems.find { it.id == itemId.value }?.name!!,
-                    priority = priority.getOrNull()!!,
-                    stage = stage.getOrNull()!!,
                     itemId = itemId.value,
                     requiredAmount = requirement.getOrNull()!!
                 )
@@ -166,8 +126,6 @@ data class ValidateTaskInputStep(val validItems: List<Item>) : Step<Parameters, 
             return Result.success(
                 CreateTaskInput.ActionTaskInput(
                     name = actionName.value,
-                    priority = priority.getOrNull()!!,
-                    stage = stage.getOrNull()!!
                 )
             )
         }
@@ -180,30 +138,27 @@ data class CreateTaskStep(val projectId: Int, val userId: Int) : Step<CreateTask
     override suspend fun process(input: CreateTaskInput): Result<AppFailure.DatabaseError, Int> {
         return DatabaseSteps.update<CreateTaskInput>(
             sql = SafeSQL.insert("""
-                            INSERT INTO tasks (project_id, name, description, stage, priority, requirement_type, item_id, requirement_item_required_amount, requirement_item_collected, requirement_action_completed, created_at, updated_at)
-                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+                            INSERT INTO tasks (project_id, name, requirement_type, item_id, requirement_item_required_amount, requirement_item_collected, requirement_action_completed, created_at, updated_at)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
                             RETURNING id
                         """),
             parameterSetter = { statement, _ ->
                 statement.setInt(1, projectId)
                 statement.setString(2, input.name)
-                statement.setString(3, "")
-                statement.setString(4, input.stage.name)
-                statement.setString(5, input.priority.name)
                 when (input) {
                     is CreateTaskInput.ActionTaskInput -> {
-                        statement.setString(6, "ACTION")
-                        statement.setNull(7, Types.INTEGER)
-                        statement.setNull(8, Types.INTEGER)
-                        statement.setNull(9, Types.INTEGER)
-                        statement.setBoolean(10, false)
+                        statement.setString(3, "ACTION")
+                        statement.setNull(4, Types.INTEGER)
+                        statement.setNull(5, Types.INTEGER)
+                        statement.setNull(6, Types.INTEGER)
+                        statement.setBoolean(7, false)
                     }
                     is CreateTaskInput.ItemTaskInput -> {
-                        statement.setString(6, "ITEM")
-                        statement.setString(7, input.itemId)
-                        statement.setInt(8, input.requiredAmount)
-                        statement.setInt(9, 0)
-                        statement.setNull(10, Types.BOOLEAN)
+                        statement.setString(3, "ITEM")
+                        statement.setString(4, input.itemId)
+                        statement.setInt(5, input.requiredAmount)
+                        statement.setInt(6, 0)
+                        statement.setNull(7, Types.BOOLEAN)
                     }
                 }
             }
