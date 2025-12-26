@@ -8,7 +8,9 @@ import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.failure.AppFailure
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import org.slf4j.LoggerFactory
 import org.slf4j.MDC
 import java.io.InputStream
@@ -169,7 +171,9 @@ private data object GetServerFileStep : Step<Pair<MinecraftVersion.Release, URI>
     private val logger = LoggerFactory.getLogger(GetServerFileStep::class.java)
     override suspend fun process(input: Pair<MinecraftVersion.Release, URI>): Result<AppFailure, Pair<MinecraftVersion.Release, InputStream>> {
         return try {
-            Result.success(input.first to input.second.toURL().openStream())
+            Result.success(input.first to withContext(Dispatchers.IO) {
+                input.second.toURL().openStream()
+            })
         } catch (e: Exception) {
             logger.error("Failed to download server file for version ${input.first} from ${input.second}: ${e.message}", e)
             Result.failure(AppFailure.ApiError.UnknownError)
@@ -187,7 +191,9 @@ private data object ExtractRelevantMinecraftFilesStep : Step<Pair<MinecraftVersi
 
         try {
             // Create temp directory for extracted files
-            val outputDir = Files.createTempDirectory("minecraft-server-$versionString")
+            val outputDir = withContext(Dispatchers.IO) {
+                Files.createTempDirectory("minecraft-server-$versionString")
+            }
 
             // Open outer JAR
             serverInputStream.use { outerFileStream ->
@@ -222,7 +228,10 @@ private data object ExtractRelevantMinecraftFilesStep : Step<Pair<MinecraftVersi
             }
 
             // Check if the output directory has any files
-            val hasExtractedFiles = Files.walk(outputDir).anyMatch { Files.isRegularFile(it) }
+            val hasExtractedFiles = withContext(Dispatchers.IO) {
+                Files.walk(outputDir)
+            }.anyMatch { Files.isRegularFile(it) }
+
             if (!hasExtractedFiles) {
                 logger.error("No relevant files were extracted for version $versionString from $serverInputStream")
                 return Result.failure(AppFailure.FileError(this.javaClass))
@@ -242,13 +251,17 @@ private data object ExtractRelevantMinecraftFilesStep : Step<Pair<MinecraftVersi
      * Other entries we might want later:
      * entryName == "assets/minecraft/lang/deprecated.json" ||
      * entryName.startsWith("data/minecraft/dimension_type/") ||
-     * entryName.startsWith("data/minecraft/loot_table/") ||
-     * entryName.startsWith("data/minecraft/recipe/") ||
      * entryName.startsWith("data/minecraft/structure/") ||
      * entryName.startsWith("data/minecraft/worldgen/")
      */
     private fun shouldExtract(entryName: String): Boolean {
-        return entryName == "assets/minecraft/lang/en_us.json"
+        return entryName == "assets/minecraft/lang/en_us.json" ||
+                entryName.startsWith("data/minecraft/tags/block/") ||
+                entryName.startsWith("data/minecraft/tags/item/") ||
+                entryName.startsWith("data/minecraft/tags/items/") ||       // pre-1.21
+                entryName.startsWith("data/minecraft/tags/blocks/") ||      // pre-1.21
+                entryName.startsWith("data/minecraft/recipe/") ||
+                entryName.startsWith("data/minecraft/loot_table/")
     }
 
     private fun extractEntry(zipStream: ZipInputStream, entryName: String, outputDir: Path) {
