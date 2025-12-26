@@ -19,6 +19,7 @@ fun Application.configureSessions() {
             cookie.maxAgeInSeconds = 60 * 60 // 1 hour
             cookie.httpOnly = true
             cookie.secure = this@configureSessions.environment.config.propertyOrNull("ktor.deployment.sslPort") != null
+            cookie.extensions["SameSite"] = "Strict"
 
             serializer = KotlinxSessionSerializer(Json {
                 ignoreUnknownKeys = true

@@ -1,27 +1,23 @@
 package app.mcorg.pipeline.task.commonsteps
 
-import app.mcorg.domain.model.task.Task
+import app.mcorg.domain.model.task.ActionTask
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.failure.AppFailure
-import app.mcorg.pipeline.task.extractors.toTask
+import app.mcorg.pipeline.task.extractors.toActionTask
 
-object GetTaskStep : Step<Int, AppFailure.DatabaseError, Task> {
-    override suspend fun process(input: Int): Result<AppFailure.DatabaseError, Task> {
-        return DatabaseSteps.query<Int, Task?>(
+object GetActionTaskStep : Step<Int, AppFailure.DatabaseError, ActionTask> {
+    override suspend fun process(input: Int): Result<AppFailure.DatabaseError, ActionTask> {
+        return DatabaseSteps.query<Int, ActionTask?>(
             sql = SafeSQL.select("""
                     SELECT 
                         t.id,
                         t.project_id,
                         t.name,
-                        t.requirement_type,
-                        t.item_id,
-                        t.requirement_item_required_amount,
-                        t.requirement_item_collected,
-                        t.requirement_action_completed
-                    FROM tasks t
+                        t.completed
+                    FROM action_task t
                     WHERE t.id = ?
                 """.trimIndent()),
             parameterSetter = { statement, taskId ->
@@ -29,7 +25,7 @@ object GetTaskStep : Step<Int, AppFailure.DatabaseError, Task> {
             },
             resultMapper = {
                 if (it.next()) {
-                    it.toTask()
+                    it.toActionTask()
                 } else null
             }
         ).process(input).flatMap {

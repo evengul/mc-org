@@ -26,95 +26,74 @@ main.project {
 
     .project-tasks-tab {
         display: flex;
-        flex-direction: row;
+        flex-direction: column;
         gap: var(--spacing-md);
 
-
-
-        .project-tasks-content {
-            flex-grow: 3;
-
+        .project-tasks {
             display: flex;
             flex-direction: column;
-            gap: var(--spacing-md);
+            gap: var(--spacing-sm);
 
-            > div {
-                width: 100%;
-            }
-
-            .project-tasks {
+            .project-tasks-search-filter {
                 display: flex;
-                flex-direction: column;
-                gap: var(--spacing-sm);
+                flex-direction: row;
+                flex-wrap: nowrap;
+                align-items: center;
 
-                .project-tasks-search-filter {
-                    display: flex;
-                    flex-direction: row;
-                    flex-wrap: nowrap;
-                    align-items: center;
+                gap: var(--spacing-xs);
 
-                    gap: var(--spacing-xs);
-
-                    > input {
-                        flex-grow: 1;
-                    }
-
-                    > select {
-                        width: fit-content;
-                        min-width: 20ch;
-                    }
-
-                    > button {
-                        height: 100%;
-                    }
+                > input {
+                    flex-grow: 1;
                 }
 
-                > ul {
-                    list-style: none;
+                > select {
+                    width: fit-content;
+                    min-width: 20ch;
+                }
 
-                    > li {
-                        background-color: var(--clr-bg-subtle);
-                        box-shadow: var(--shadow-sm);
+                > button {
+                    height: 100%;
+                }
+            }
 
-                        margin-top: var(--spacing-sm);
-                        padding: var(--spacing-xs);
+            #project-create-action-task-form {
+                display: flex;
+                flex-direction: row;
+                align-items: center;
+                gap: var(--spacing-sm);
 
+                margin-top: var(--spacing-sm);
+
+                input {
+                    flex-grow: 1;
+                }
+
+                button {
+                    height: 100%;
+                }
+            }
+
+            > ul {
+                list-style: none;
+
+                > li {
+                    background-color: var(--clr-bg-subtle);
+                    box-shadow: var(--shadow-sm);
+
+                    margin-top: var(--spacing-sm);
+                    padding: var(--spacing-xs);
+
+                    display: flex;
+                    flex-direction: row;
+                    align-items: center;
+                    justify-content: space-between;
+
+                    .task-item-start,
+                    .task-item-end {
                         display: flex;
-                        flex-direction: column;
-                        gap: var(--spacing-sm);
-
-                        .task-header {
-                            display: flex;
-                            flex-direction: row;
-                            align-items: center;
-                            justify-content: space-between;
-
-                            .task-header-start,
-                            .task-header-end {
-                                display: flex;
-                                flex-direction: row;
-                                align-items: center;
-                                gap: var(--spacing-xs);
-                            }
-                        }
-
-                        .task-progress-description {
-                            display: flex;
-                            flex-direction: row;
-                            align-items: center;
-                            justify-content: space-between;
-                        }
-
-                        .item-requirement-actions {
-                            display: flex;
-                            flex-direction: row;
-                            gap: var(--spacing-xxs);
-
-                            > button {
-                                width: fit-content;
-                                min-width: 6ch;
-                            }
-                        }
+                        flex-direction: row;
+                        align-items: center;
+                        gap: var(--spacing-xs);
                     }
                 }
             }
@@ -123,30 +102,6 @@ main.project {
         .project-tasks-progress {
             background-color: var(--clr-bg-subtle);
             padding: var(--spacing-sm);
-        }
-    }
-
-    aside {
-        flex-grow: 1;
-        height: fit-content;
-
-        background-color: var(--clr-bg-subtle);
-        padding: var(--spacing-sm);
-
-        h2 {
-            margin-block-end: var(--spacing-sm);
-        }
-
-        p {
-            font-size: var(--text-sm);
-        }
-
-        p:nth-child(2n + 1) {
-            margin-block-end: var(--spacing-xs);
-        }
-
-        p:not(.details-label) {
-            color: var(--clr-text-subtle);
         }
     }
 }
@@ -167,15 +122,52 @@ main.project {
 }
 
 .project-resources-collection {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+
     .project-resources-collection-summary {
         display: flex;
-        flex-direction: row;
+        flex-direction: column;
         justify-content: space-between;
 
+        box-shadow: var(--shadow-md);
+        padding: var(--spacing-sm);
+
+        gap: var(--spacing-sm);
+
         font-size: var(--text-sm);
-    }
-    .app-progress-container {
-        margin-block-end: var(--spacing-sm);
+
+        .project-resources-collection-summary-header {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+
+            gap: var(--spacing-lg);
+
+            p {
+                text-wrap: nowrap;
+            }
+
+            .app-progress-container {
+                flex-grow: 1;
+            }
+        }
+
+        .project-resources-collection-summary-actions {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            justify-content: space-between;
+            gap: var(--spacing-sm);
+
+            .item-requirement-actions {
+                display: flex;
+                flex-direction: row;
+                align-items: center;
+                gap: var(--spacing-xs);
+            }
+        }
     }
 }
 
@@ -203,7 +195,8 @@ main.project {
     }
 }
 
-#project-resources-production-form {
+#project-resources-production-form,
+#project-resource-gathering-form {
     display: flex;
     flex-direction: row;
     align-items: center;

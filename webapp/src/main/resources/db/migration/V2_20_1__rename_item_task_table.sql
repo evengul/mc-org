@@ -1,0 +1,1 @@
+ALTER TABLE item_task RENAME TO resource_gathering;

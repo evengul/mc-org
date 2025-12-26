@@ -5,8 +5,22 @@ import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.presentation.handler.defaultHandleError
-import app.mcorg.presentation.utils.*
-import io.ktor.server.application.*
+import app.mcorg.presentation.utils.getProjectId
+import app.mcorg.presentation.utils.getUser
+import app.mcorg.presentation.utils.getWorldId
+import app.mcorg.presentation.utils.respondBadRequest
+import app.mcorg.presentation.utils.setIdeaCommentId
+import app.mcorg.presentation.utils.setIdeaId
+import app.mcorg.presentation.utils.setInviteId
+import app.mcorg.presentation.utils.setNotificationId
+import app.mcorg.presentation.utils.setProjectDependencyId
+import app.mcorg.presentation.utils.setProjectId
+import app.mcorg.presentation.utils.setProjectProductionItemId
+import app.mcorg.presentation.utils.setResourceGatheringId
+import app.mcorg.presentation.utils.setTaskId
+import app.mcorg.presentation.utils.setWorldId
+import app.mcorg.presentation.utils.setWorldMemberId
+import io.ktor.server.application.createRouteScopedPlugin
 
 val WorldParamPlugin = createRouteScopedPlugin("WorldParamPlugin") {
     onCall { call ->
@@ -45,16 +59,35 @@ val ProjectParamPlugin = createRouteScopedPlugin("ParamPlugin") {
     }
 }
 
-val TaskParamPlugin = createRouteScopedPlugin("TaskParamPlugin") {
+val ActionTaskParamPlugin = createRouteScopedPlugin("TaskParamPlugin") {
     onCall { call ->
         val projectId = call.getProjectId()
         val taskId = call.parameters["taskId"]?.toIntOrNull()
         if (taskId == null) {
             call.respondBadRequest("Invalid or missing task ID")
         } else {
-            val checkResult = ensureTaskExists(projectId, taskId)
+            val checkResult = ensureActionTaskExists(projectId, taskId)
             if (checkResult is Result.Success && checkResult.value) {
                 call.setTaskId(taskId)
+            } else if ((checkResult is Result.Success && !checkResult.value) || (checkResult is Result.Failure && checkResult.error is AppFailure.DatabaseError.NotFound)) {
+                call.defaultHandleError(AppFailure.DatabaseError.NotFound)
+            } else {
+                call.defaultHandleError(checkResult.errorOrNull()!!)
+            }
+        }
+    }
+}
+
+val ResourceGatheringIdParamPlugin = createRouteScopedPlugin("ResourceGatheringIdParamPlugin") {
+    onCall { call ->
+        val projectId = call.getProjectId()
+        val resourceGatheringId = call.parameters["resourceGatheringId"]?.toIntOrNull()
+        if (resourceGatheringId == null) {
+            call.respondBadRequest("Invalid or missing resource gathering ID")
+        } else {
+            val checkResult = ensureResourceGatheringIdExists(projectId, resourceGatheringId)
+            if (checkResult is Result.Success && checkResult.value) {
+                call.setResourceGatheringId(resourceGatheringId)
             } else if ((checkResult is Result.Success && !checkResult.value) || (checkResult is Result.Failure && checkResult.error is AppFailure.DatabaseError.NotFound)) {
                 call.defaultHandleError(AppFailure.DatabaseError.NotFound)
             } else {
@@ -219,8 +252,13 @@ private suspend fun ensureProjectExists(worldId: Int, projectId: Int) = ensurePa
     projectId, worldId
 )
 
-private suspend fun ensureTaskExists(projectId: Int, taskId: Int) = ensureParamEntityExists(
-    SafeSQL.select("SELECT EXISTS(SELECT 1 FROM tasks WHERE id = ? AND project_id = ?)"),
+private suspend fun ensureActionTaskExists(projectId: Int, taskId: Int) = ensureParamEntityExists(
+    SafeSQL.select("SELECT EXISTS(SELECT 1 FROM action_task WHERE id = ? AND project_id = ?)"),
+    taskId, projectId
+)
+
+private suspend fun ensureResourceGatheringIdExists(projectId: Int, taskId: Int) = ensureParamEntityExists(
+    SafeSQL.select("SELECT EXISTS(SELECT 1 FROM resource_gathering WHERE id = ? AND project_id = ?)"),
     taskId, projectId
 )
 

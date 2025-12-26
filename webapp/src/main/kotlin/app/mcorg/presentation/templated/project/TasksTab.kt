@@ -1,9 +1,7 @@
 package app.mcorg.presentation.templated.project
 
 import app.mcorg.domain.model.project.Project
-import app.mcorg.domain.model.task.ItemRequirement
-import app.mcorg.domain.model.task.Task
-import app.mcorg.pipeline.task.FoundIdea
+import app.mcorg.domain.model.task.ActionTask
 import app.mcorg.presentation.hxDeleteWithConfirm
 import app.mcorg.presentation.hxGet
 import app.mcorg.presentation.hxIndicator
@@ -16,25 +14,18 @@ import app.mcorg.presentation.templated.common.button.IconButtonColor
 import app.mcorg.presentation.templated.common.button.actionButton
 import app.mcorg.presentation.templated.common.button.iconButton
 import app.mcorg.presentation.templated.common.button.neutralButton
-import app.mcorg.presentation.templated.common.chip.ChipVariant
-import app.mcorg.presentation.templated.common.chip.chipComponent
 import app.mcorg.presentation.templated.common.emptystate.emptyState
 import app.mcorg.presentation.templated.common.form.searchField.searchField
 import app.mcorg.presentation.templated.common.icon.IconSize
 import app.mcorg.presentation.templated.common.icon.Icons
 import app.mcorg.presentation.templated.common.link.Link
 import app.mcorg.presentation.templated.common.progress.progressComponent
-import app.mcorg.presentation.templated.utils.formatAsRelativeOrDate
-import app.mcorg.presentation.templated.utils.toPrettyEnumName
 import kotlinx.html.*
 
 fun DIV.tasksTab(tab: ProjectTab.Tasks) {
     classes += "project-tasks-tab"
-    div("project-tasks-content") {
-        projectProgressSection(tab.project)
-        taskManagementSection(tab)
-    }
-    projectDetailsSidebar(tab.project)
+    projectProgressSection(tab.project)
+    taskManagementSection(tab)
 }
 
 private fun DIV.projectProgressSection(project: Project) {
@@ -59,6 +50,41 @@ fun DIV.projectProgress(completed: Int, total: Int) {
 private fun DIV.taskManagementSection(tab: ProjectTab.Tasks) {
     div("project-tasks") {
         taskManagementHeader(tab.project.worldId, tab.project.id)
+        form {
+            id = "project-create-action-task-form"
+
+            encType = FormEncType.applicationXWwwFormUrlEncoded
+
+            hxPost(Link.Worlds.world(tab.project.worldId).project(tab.project.id).tasks().to)
+            hxTarget("#tasks-list")
+            hxSwap("afterbegin")
+
+            // language=js
+            attributes["hx-on::after-request"] = """
+                if (event.detail.xhr.status < 300) {
+                    document.getElementById('new-task-name-input').value = '';
+                    document.getElementById('validation-error-name').innerText = '';
+                    document.getElementById('new-task-name-input').focus();
+                }
+            """.trimIndent()
+
+            input {
+                type = InputType.text
+                minLength = "3"
+                maxLength = "100"
+                required = true
+                name = "name"
+                placeholder = "New task name..."
+                id = "new-task-name-input"
+            }
+            p("validation-error-message") {
+                id = "validation-error-name"
+            }
+            neutralButton("Add Task") {
+                iconLeft = Icons.MENU_ADD
+                iconSize = IconSize.SMALL
+            }
+        }
         if (tab.totalTasksCount == 0) {
             div {
                 emptyTasksDisplay()
@@ -123,11 +149,6 @@ private fun DIV.taskSearchAndFilters(worldId: Int, projectId: Int) {
         select {
             name = "sortBy"
             option {
-                value = "required_amount_desc"
-                selected = true
-                + "Sort by Required Amount (High to Low)"
-            }
-            option {
                 value = "lastModified_desc"
                 + "Sort by Last Modified"
             }
@@ -152,236 +173,48 @@ fun DIV.emptyTasksDisplay() {
         icon = Icons.MENU_ADD
     ) {
         actionButton("Add first task") {
-            onClick = "document.getElementById('create-task-modal')?.showModal()"
+            // language=js
+            onClick = "document.getElementById('new-task-name-input')?.focus()"
         }
     }
 }
 
-fun UL.tasksList(worldId: Int, projectId: Int, tasks: List<Task>) {
+fun UL.tasksList(worldId: Int, projectId: Int, tasks: List<ActionTask>) {
     id = "tasks-list"
-    tasks.sortedBy { it.isCompleted() }.forEach { task ->
+    tasks.forEach { task ->
         li {
             taskItem(worldId, projectId, task)
         }
     }
 }
 
-fun LI.taskItem(worldId: Int, projectId: Int, task: Task) {
+fun LI.taskItem(worldId: Int, projectId: Int, task: ActionTask) {
     classes += "task-item"
     id = "task-${task.id}"
-    taskHeader(worldId, projectId, task)
-    if (task.requirement is ItemRequirement) {
-        taskItemProgress(task.id, task.requirement)
-
-        if (!task.isCompleted()) {
-            itemRequirementActions(worldId, projectId, task.id)
+    div("task-item-start") {
+        input {
+            taskCompletionCheckbox(worldId, projectId, task.id, task.completed)
         }
-        div {
-            foundIdeas(worldId, task.id to task.name)
+        h3 {
+            + task.name
         }
     }
-}
-
-fun DIV.foundIdeas(worldId: Int, task: Pair<Int, String>, ideas: List<FoundIdea>? = null) {
-    id = "found-ideas-for-task-${task.first}"
-    if (ideas != null) {
-        p {
-            + "Ideas that produce ${task.second}: "
-        }
-        if (ideas.isEmpty()) {
-            p("subtle") {
-                + "No ideas found."
-            }
-        } else {
-            ul {
-                ideas.forEach { idea ->
-                    li {
-                        if (idea.alreadyImported) {
-                            span {
-                                + "${idea.name} (Already imported)"
-                            }
-                        } else {
-                            a(href = Link.Ideas.single(idea.id)) {
-                                attributes["target"] = "_blank"
-                                attributes["rel"] = "noopener noreferrer"
-                                + idea.name
-                            }
-                            + "Rate: ${idea.rate} / hour"
-                            actionButton("Import ${idea.name} into this world") {
-                                buttonBlock = {
-                                    hxPost(Link.Ideas.single(idea.id) + "/import?worldId=$worldId&forTask=${task.first}")
-                                    hxSwap("none")
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-fun LI.taskItemProgress(taskId: Int, itemRequirement: ItemRequirement) {
-    progressComponent {
-        id = "task-item-${taskId}-progress"
-        value = itemRequirement.collected.toDouble()
-        max = itemRequirement.requiredAmount.toDouble()
-        showPercentage = false
-        label = progressText(itemRequirement.requiredAmount, itemRequirement.collected)
-    }
-}
-
-private fun progressText(required: Int, collected: Int): String {
-    // Special case: single item
-    if (required == 1) {
-        return if (collected >= 1) "Collected" else "Not Collected"
-    }
-
-    // Determine the best unit based on required amount
-    return when {
-        required >= 1728 -> {
-            // Use shulker boxes (1728 items per shulker box)
-            val requiredShulkers = required / 1728
-            val requiredRemainder = required % 1728
-            val collectedShulkers = collected / 1728
-            val collectedRemainder = collected % 1728
-
-            buildString {
-                // Collected portion
-                if (collectedShulkers > 0) {
-                    append(collectedShulkers)
-                    if (collectedRemainder > 0) {
-                        val collectedStacks = collectedRemainder / 64
-                        val collectedItems = collectedRemainder % 64
-                        if (collectedStacks > 0) {
-                            append(" shulker boxes + $collectedStacks stacks")
-                            if (collectedItems > 0) append(" + $collectedItems items")
-                        } else if (collectedItems > 0) {
-                            append(" shulker boxes + $collectedItems items")
-                        } else {
-                            append(" shulker boxes")
-                        }
-                    } else {
-                        append(" shulker boxes")
-                    }
-                } else {
-                    // Less than 1 shulker box collected - just show stacks/items
-                    val collectedStacks = collectedRemainder / 64
-                    val collectedItems = collectedRemainder % 64
-                    if (collectedStacks > 0) {
-                        append(collectedStacks)
-                        append(" stacks")
-                        if (collectedItems > 0) append(" + $collectedItems items")
-                    } else {
-                        append(collectedItems)
-                        append(" items")
-                    }
-                }
-
-                append(" / ")
-
-                // Required portion
-                append(requiredShulkers)
-                if (requiredRemainder > 0) {
-                    val requiredStacks = requiredRemainder / 64
-                    val requiredItems = requiredRemainder % 64
-                    if (requiredStacks > 0) {
-                        append(" shulker boxes + $requiredStacks stacks")
-                        if (requiredItems > 0) append(" + $requiredItems items")
-                    } else if (requiredItems > 0) {
-                        append(" shulker boxes + $requiredItems items")
-                    } else {
-                        append(" shulker boxes")
-                    }
-                } else {
-                    append(" shulker boxes")
-                }
-                append(" collected")
-            }
-        }
-        required >= 64 -> {
-            // Use stacks (64 items per stack)
-            val requiredStacks = required / 64
-            val requiredRemainder = required % 64
-            val collectedStacks = collected / 64
-            val collectedRemainder = collected % 64
-
-            buildString {
-                if (collectedStacks > 0) {
-                    append(collectedStacks)
-                    if (collectedRemainder > 0) {
-                        append(" stacks + $collectedRemainder")
-                    } else {
-                        append(" stacks")
-                    }
-                } else {
-                    // Less than 1 stack collected - just show items
-                    append(collectedRemainder)
-                }
-
-                append(" / $requiredStacks")
-                if (requiredRemainder > 0) {
-                    append(" stacks + $requiredRemainder")
-                } else {
-                    append(" stacks")
-                }
-                append(" collected")
-            }
-        }
-        else -> {
-            // Use individual items
-            "$collected / $required collected"
-        }
-    }
-}
-
-private fun LI.taskHeader(worldId: Int, projectId: Int, task: Task) {
-    div("task-header") {
-        div("task-header-start") {
-            input {
-               taskCompletionCheckbox(worldId, projectId, task.id, task.isCompleted())
-            }
-            h3 {
-                + task.name
-            }
-        }
-        div("task-header-end") {
-            if (task.requirement is ItemRequirement) {
-                if (task.solvedByProject != null) {
-                    chipComponent {
-                        icon = Icons.Menu.PROJECTS
-                        variant = ChipVariant.SUCCESS
-                        href = Link.Worlds.world(worldId).project(task.solvedByProject.first).to
-                        + "Farmable with ${task.solvedByProject.second}"
-                    }
-                } else {
-                    neutralButton("Find Farm Ideas") {
-                        iconLeft = Icons.Search
-                        iconSize = IconSize.SMALL
-                        buttonBlock = {
-                            hxGet("/app/worlds/$worldId/projects/$projectId/tasks/${task.id}/matching-ideas")
-                            hxTarget("#found-ideas-for-task-${task.id}")
-                            hxSwap("innerHTML")
-                        }
-                    }
-                }
-            }
-            iconButton(
-                icon = Icons.DELETE,
-                ariaLabel = "Delete task",
-                iconSize = IconSize.SMALL,
-                color = IconButtonColor.DANGER,
-            ) {
-                buttonBlock = {
-                    hxDeleteWithConfirm(
-                        url = Link.Worlds.world(worldId).project(projectId).tasks().task(task.id),
-                        title = "Delete Task",
-                        description = "Are you sure you want to delete the task \"${task.name}\"? This action cannot be undone."
-                    )
-                    hxTarget("#task-${task.id}")
-                    hxSwap("delete")
-                    title = "Delete task"
-                }
+    div("task-item-end") {
+        iconButton(
+            icon = Icons.DELETE,
+            ariaLabel = "Delete task",
+            iconSize = IconSize.SMALL,
+            color = IconButtonColor.DANGER,
+        ) {
+            buttonBlock = {
+                hxDeleteWithConfirm(
+                    url = Link.Worlds.world(worldId).project(projectId).tasks().task(task.id),
+                    title = "Delete Task",
+                    description = "Are you sure you want to delete the task \"${task.name}\"? This action cannot be undone."
+                )
+                hxTarget("#task-${task.id}")
+                hxSwap("delete")
+                title = "Delete task"
             }
         }
     }
@@ -398,65 +231,3 @@ fun INPUT.taskCompletionCheckbox(worldId: Int, projectId: Int, taskId: Int, comp
     type = InputType.checkBox
 }
 
-private fun LI.itemRequirementActions(worldId: Int, projectId: Int, taskId: Int) {
-    div("item-requirement-actions") {
-        neutralButton("+1") {
-            buttonBlock = {
-                attributes["hx-vals"] = """{"amount": 1}"""
-                hxPatch("/app/worlds/$worldId/projects/$projectId/tasks/$taskId/requirements/done-more")
-                hxTarget("#task-item-${taskId}-progress")
-                hxSwap("outerHTML")
-            }
-        }
-        neutralButton("+64") {
-            buttonBlock = {
-                attributes["hx-vals"] = """{"amount": 64}"""
-                hxPatch("/app/worlds/$worldId/projects/$projectId/tasks/$taskId/requirements/done-more")
-                hxTarget("#task-item-${taskId}-progress")
-                hxSwap("outerHTML")
-            }
-        }
-        neutralButton("+1728") {
-            buttonBlock = {
-                attributes["hx-vals"] = """{"amount": 1728}"""
-                hxPatch("/app/worlds/$worldId/projects/$projectId/tasks/$taskId/requirements/done-more")
-                hxTarget("#task-item-${taskId}-progress")
-                hxSwap("outerHTML")
-            }
-        }
-        neutralButton("+3456") {
-            buttonBlock = {
-                attributes["hx-vals"] = """{"amount": 3456}"""
-                hxPatch("/app/worlds/$worldId/projects/$projectId/tasks/$taskId/requirements/done-more")
-                hxTarget("#task-item-${taskId}-progress")
-                hxSwap("outerHTML")
-            }
-        }
-    }
-}
-
-private fun DIV.projectDetailsSidebar(project: Project) {
-    aside {
-        h2 {
-            + "Project Details"
-        }
-        p("details-label") {
-            + "Project Type"
-        }
-        p {
-            + project.type.toPrettyEnumName()
-        }
-        p("details-label") {
-            + "Created"
-        }
-        p {
-            + project.createdAt.formatAsRelativeOrDate()
-        }
-        p("details-label") {
-            + "Last Updated"
-        }
-        p {
-            + project.updatedAt.formatAsRelativeOrDate()
-        }
-    }
-}

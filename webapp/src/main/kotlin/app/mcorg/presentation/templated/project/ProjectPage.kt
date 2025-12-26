@@ -1,8 +1,12 @@
 package app.mcorg.presentation.templated.project
 
 import app.mcorg.domain.model.minecraft.Item
-import app.mcorg.domain.model.project.*
-import app.mcorg.domain.model.task.Task
+import app.mcorg.domain.model.project.NamedProjectId
+import app.mcorg.domain.model.project.Project
+import app.mcorg.domain.model.project.ProjectDependency
+import app.mcorg.domain.model.project.ProjectProduction
+import app.mcorg.domain.model.resources.ResourceGatheringItem
+import app.mcorg.domain.model.task.ActionTask
 import app.mcorg.domain.model.user.Role
 import app.mcorg.domain.model.user.TokenProfile
 import app.mcorg.presentation.templated.common.breadcrumb.Breadcrumbs
@@ -14,7 +18,13 @@ import app.mcorg.presentation.templated.common.page.createPage
 import app.mcorg.presentation.templated.common.tabs.TabData
 import app.mcorg.presentation.templated.common.tabs.tabsComponent
 import app.mcorg.presentation.templated.utils.toPrettyEnumName
-import kotlinx.html.*
+import kotlinx.html.DIV
+import kotlinx.html.a
+import kotlinx.html.classes
+import kotlinx.html.div
+import kotlinx.html.h1
+import kotlinx.html.id
+import kotlinx.html.p
 
 sealed interface ProjectTab {
     val id: String
@@ -25,7 +35,7 @@ sealed interface ProjectTab {
         override val project: Project,
         override val user: TokenProfile,
         val totalTasksCount: Int,
-        val tasks: List<Task>
+        val tasks: List<ActionTask>
     ) : ProjectTab {
         override val id: String = "tasks"
     }
@@ -33,7 +43,7 @@ sealed interface ProjectTab {
     data class Resources(
         override val project: Project,
         override val user: TokenProfile,
-        val resourceGathering: ProjectResourceGathering,
+        val resourceGathering: List<ResourceGatheringItem>,
         val resourceProduction: List<ProjectProduction>,
         val itemNames: List<Item>
     ) : ProjectTab {
@@ -63,7 +73,6 @@ sealed interface ProjectTab {
 fun projectPage(
     user: TokenProfile,
     data: ProjectTab,
-    itemNames: List<Item>,
     unreadNotifications: Int,
     breadcrumbs: Breadcrumbs
 ) = createPage(
@@ -120,9 +129,6 @@ fun projectPage(
                     }
 
                 }
-            }
-            div("project-header-end") {
-                createTaskModal(user, project, itemNames, CreateTaskModalTab.ITEM_REQUIREMENT)
             }
         }
         p("subtle") {

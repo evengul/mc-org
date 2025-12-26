@@ -1,7 +1,5 @@
 package app.mcorg.pipeline.project
 
-import app.mcorg.domain.model.project.toProjectResourceGathering
-import app.mcorg.domain.model.task.ItemRequirement
 import app.mcorg.domain.model.user.Role
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.pipeline.notification.getUnreadNotificationsOrZero
@@ -10,14 +8,22 @@ import app.mcorg.pipeline.project.dependencies.GetAvailableProjectDependenciesSt
 import app.mcorg.pipeline.project.dependencies.GetProjectDependenciesStep
 import app.mcorg.pipeline.project.resources.GetItemsInWorldVersionStep
 import app.mcorg.pipeline.project.resources.GetResourceProductionStep
+import app.mcorg.pipeline.resources.commonsteps.GetAllResourceGatheringItemsStep
 import app.mcorg.pipeline.task.SearchTasksInput
 import app.mcorg.pipeline.task.SearchTasksStep
-import app.mcorg.pipeline.task.commonsteps.CountProjectTasksStep
+import app.mcorg.pipeline.task.commonsteps.CountActionTasksInProjectStep
 import app.mcorg.pipeline.world.commonsteps.GetWorldMemberStep
 import app.mcorg.presentation.handler.defaultHandleError
-import app.mcorg.presentation.templated.project.*
-import app.mcorg.presentation.utils.*
-import io.ktor.server.application.*
+import app.mcorg.presentation.templated.project.ProjectTab
+import app.mcorg.presentation.templated.project.projectPage
+import app.mcorg.presentation.templated.project.projectTabsContent
+import app.mcorg.presentation.utils.BreadcrumbBuilder
+import app.mcorg.presentation.utils.getProjectId
+import app.mcorg.presentation.utils.getUser
+import app.mcorg.presentation.utils.getWorldId
+import app.mcorg.presentation.utils.respondBadRequest
+import app.mcorg.presentation.utils.respondHtml
+import io.ktor.server.application.ApplicationCall
 import kotlinx.html.div
 import kotlinx.html.stream.createHTML
 
@@ -32,23 +38,7 @@ suspend fun ApplicationCall.handleGetProject() {
         }
     }
 
-    val createTaskTab = request.queryParameters["requirementTab"]?.let { when(it) {
-        "item" -> CreateTaskModalTab.ITEM_REQUIREMENT
-        "action" -> CreateTaskModalTab.ACTION_REQUIREMENT
-        else -> null
-    } }
-
     val itemNames = GetItemsInWorldVersionStep.process(worldId).getOrNull() ?: emptyList()
-
-    if (createTaskTab != null && request.headers["HX-Request"] == "true") {
-        respondHtml(createHTML().div {
-            when(createTaskTab) {
-                CreateTaskModalTab.ITEM_REQUIREMENT -> itemRequirementForm(itemNames)
-                CreateTaskModalTab.ACTION_REQUIREMENT -> actionRequirementForm()
-            }
-        })
-        return
-    }
 
     // Get project with access validation
     val project = when (val projectResult = GetProjectByIdStep.process(projectId)) {
@@ -64,11 +54,8 @@ suspend fun ApplicationCall.handleGetProject() {
     val tabData = when (tab) {
         "resources" -> {
             // Get resource production data
-            val gatheringTasks = SearchTasksStep(projectId).process(
-                SearchTasksInput(
-                    completionStatus = "ALL"
-                )
-            ).getOrNull() ?: emptyList()
+            val gatheringTasks = GetAllResourceGatheringItemsStep.process(projectId).getOrNull() ?: emptyList()
+
             val resourceProduction = when (val result = GetResourceProductionStep.process(projectId)) {
                 is Result.Success -> result.value
                 is Result.Failure -> emptyList()
@@ -77,9 +64,7 @@ suspend fun ApplicationCall.handleGetProject() {
             ProjectTab.Resources(
                 project,
                 user,
-                gatheringTasks
-                    .filter { it.requirement is ItemRequirement }
-                    .toProjectResourceGathering(),
+                gatheringTasks,
                 resourceProduction,
                 itemNames
             )
@@ -123,7 +108,7 @@ suspend fun ApplicationCall.handleGetProject() {
                     return
                 }
             }
-            val totalCount = CountProjectTasksStep.process(projectId).getOrNull() ?: tasks.size
+            val totalCount = CountActionTasksInProjectStep.process(projectId).getOrNull() ?: tasks.size
             ProjectTab.Tasks(project, user, totalCount, tasks)
         }
     }
@@ -140,5 +125,5 @@ suspend fun ApplicationCall.handleGetProject() {
         projectName = project.name
     )
 
-    respondHtml(projectPage(user, tabData, itemNames, unreadNotifications, breadcrumbs))
+    respondHtml(projectPage(user, tabData, unreadNotifications, breadcrumbs))
 }
