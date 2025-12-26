@@ -63,15 +63,14 @@ object SearchProjectsStep : Step<SearchProjectsInput, AppFailure.DatabaseError, 
                 t.project_id,
                 COUNT(t.id) as tasks_total,
                 COUNT(ct.id) as tasks_completed
-            FROM tasks t
+            FROM action_task t
             LEFT JOIN (
                 SELECT t2.id
-                FROM tasks t2
+                FROM action_task t2
                 GROUP BY t2.id
                 HAVING COUNT(*) = SUM(
                     CASE
-                        WHEN t2.requirement_type = 'ITEM' AND t2.requirement_item_collected >= t2.requirement_item_required_amount THEN 1
-                        WHEN t2.requirement_type = 'ACTION' AND t2.requirement_action_completed = true THEN 1
+                        WHEN t2.completed = TRUE THEN 1
                         ELSE 0
                     END
                 )
