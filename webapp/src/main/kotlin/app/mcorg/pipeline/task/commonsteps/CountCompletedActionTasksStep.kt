@@ -1,0 +1,20 @@
+package app.mcorg.pipeline.task.commonsteps
+
+import app.mcorg.pipeline.DatabaseSteps
+import app.mcorg.pipeline.SafeSQL
+
+val CountCompletedActionTasksStep = DatabaseSteps.query<Int, Int>(
+    sql = SafeSQL.select("""
+                SELECT COUNT(id) FROM action_task WHERE project_id = (
+                    SELECT project_id FROM action_task WHERE id = ?
+                ) AND completed = TRUE
+            """.trimIndent()),
+    parameterSetter = { statement, taskId -> statement.setInt(1, taskId) },
+    resultMapper = { rs ->
+        if (rs.next()) {
+            rs.getInt(1)
+        } else {
+            0
+        }
+    }
+)

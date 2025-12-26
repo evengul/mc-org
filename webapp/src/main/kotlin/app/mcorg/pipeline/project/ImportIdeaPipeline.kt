@@ -1,6 +1,7 @@
 package app.mcorg.pipeline.project
 
 import app.mcorg.domain.model.idea.IdeaCategory
+import app.mcorg.domain.model.idea.schema.CategoryValue
 import app.mcorg.domain.model.minecraft.Item
 import app.mcorg.domain.model.minecraft.MinecraftVersion
 import app.mcorg.domain.model.minecraft.MinecraftVersionRange
@@ -99,7 +100,7 @@ data class BasicIdeaInfo(
     val name: String,
     val description: String,
     val category: IdeaCategory,
-    val productionRate: Map<String, Map<String, Int>>
+    val productionRate: Map<String, Int>
 )
 
 private val GetIdeaForImportStep = DatabaseSteps.transaction { connection ->
@@ -107,7 +108,7 @@ private val GetIdeaForImportStep = DatabaseSteps.transaction { connection ->
         override suspend fun process(input: Int): Result<AppFailure.DatabaseError, Pair<BasicIdeaInfo, Map<String, Int>>> {
             val ideaInfo = DatabaseSteps.query<Int, BasicIdeaInfo>(
                 sql = SafeSQL.select("""
-                    SELECT id, name, description, category, category_data -> 'productionRate' as production_rate
+                    SELECT id, name, description, category, category_data ->> 'productionRate' as production_rate
                     FROM ideas
                     WHERE id = ?
                 """.trimIndent()),
@@ -121,7 +122,11 @@ private val GetIdeaForImportStep = DatabaseSteps.transaction { connection ->
                         resultSet.getString("name"),
                         resultSet.getString("description"),
                         IdeaCategory.valueOf(resultSet.getString("category")),
-                        resultSet.getString("production_rate")?.let { Json.decodeFromString(it) } ?: emptyMap()
+                        extractProductionRates(
+                            resultSet.getString("production_rate")
+                                ?.let { Json.decodeFromString<CategoryValue>(it) as? CategoryValue.MapValue }?.value
+                                ?: emptyMap()
+                        )
                     )
                 },
                 transactionConnection = connection
@@ -156,6 +161,23 @@ private val GetIdeaForImportStep = DatabaseSteps.transaction { connection ->
     }
 }
 
+private fun extractProductionRates(productionRateData: Map<String, CategoryValue>): Map<String, Int> {
+    val productionRates = mutableMapOf<String, Int>()
+    val modeMap = productionRateData["value"] as? CategoryValue.MapValue ?: return productionRates
+
+    for (mode in modeMap.value.values) {
+        if (mode is CategoryValue.MapValue) {
+            for ((itemId, amountValue) in mode.value) {
+                if (amountValue is CategoryValue.IntValue) {
+                    productionRates[itemId] = (productionRates[itemId] ?: 0) // TODO: Support multiple production entries?
+                }
+            }
+        }
+    }
+
+    return productionRates
+}
+
 private data class ValidateItemIdsStep(val availableIds: List<Item>) : Step<Pair<BasicIdeaInfo, Map<String, Int>>, AppFailure, IdeaForImport> {
     override suspend fun process(input: Pair<BasicIdeaInfo, Map<String, Int>>): Result<AppFailure, IdeaForImport> {
         val (ideaInfo, requirements) = input
@@ -174,17 +196,14 @@ private data class ValidateItemIdsStep(val availableIds: List<Item>) : Step<Pair
         }
 
         // TODO: Support multiple production entries?
-        for ((_, amounts) in ideaInfo.productionRate) {
-            for ((itemId, amount) in amounts) {
-                val item = availableIds.find { it.id == itemId }
+        for ((itemId, amount) in ideaInfo.productionRate) {
+            val item = availableIds.find { it.id == itemId }
 
-                if (item == null) {
-                    errors.add(ValidationFailure.CustomValidation("productionRate", "Item ID $itemId is not available in the world version"))
-                } else {
-                    mappedProduction[item] = amount
-                }
+            if (item == null) {
+                errors.add(ValidationFailure.CustomValidation("productionRate", "Item ID $itemId is not available in the world version"))
+            } else {
+                mappedProduction[item] = amount
             }
-            break
         }
 
         return if (errors.isEmpty()) {
@@ -239,9 +258,9 @@ private data class CreateProjectFromIdeaStep(val worldId: Int, val taskId: Int?)
 
                     val reqs = DatabaseSteps.batchUpdate<Pair<Item, Int>>(
                         SafeSQL.insert("""
-                            INSERT INTO tasks 
-                                (project_id, name, description, stage, priority, requirement_type, requirement_item_required_amount, requirement_item_collected, item_id) 
-                                values (?, ?, '', 'RESOURCE_GATHERING', 'MEDIUM', 'ITEM', ?, 0, ?)
+                            INSERT INTO resource_gathering 
+                                (project_id, name, required, item_id) 
+                                values (?, ?, ?, ?)
                         """.trimIndent()),
                         parameterSetter = { statement, idea ->
                             statement.setInt(1, projectId)
@@ -277,7 +296,7 @@ private data class CreateProjectFromIdeaStep(val worldId: Int, val taskId: Int?)
 
                     if (taskId != null) {
                         val projectOfTaskId = DatabaseSteps.query<Int, Int>(
-                            sql = SafeSQL.select("SELECT project_id FROM tasks WHERE id = ?"),
+                            sql = SafeSQL.select("SELECT project_id FROM resource_gathering WHERE id = ?"),
                             parameterSetter = { statement, tId ->
                                 statement.setInt(1, tId)
                             },

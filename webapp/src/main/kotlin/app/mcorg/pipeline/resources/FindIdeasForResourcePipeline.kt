@@ -1,5 +1,6 @@
-package app.mcorg.pipeline.task
+package app.mcorg.pipeline.resources
 
+import app.mcorg.domain.model.idea.schema.CategoryValue
 import app.mcorg.domain.model.minecraft.MinecraftVersion
 import app.mcorg.domain.model.minecraft.MinecraftVersionRange
 import app.mcorg.domain.pipeline.Result
@@ -10,7 +11,7 @@ import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.failure.ValidationFailure
 import app.mcorg.presentation.handler.executePipeline
 import app.mcorg.presentation.templated.project.foundIdeas
-import app.mcorg.presentation.utils.getTaskId
+import app.mcorg.presentation.utils.getResourceGatheringId
 import app.mcorg.presentation.utils.getWorldId
 import app.mcorg.presentation.utils.respondHtml
 import io.ktor.server.application.ApplicationCall
@@ -18,27 +19,27 @@ import kotlinx.html.div
 import kotlinx.html.stream.createHTML
 import kotlinx.serialization.json.Json
 
-suspend fun ApplicationCall.handleFindIdeasForTask() {
+suspend fun ApplicationCall.handleFindIdeasForResource() {
     val worldId = this.getWorldId()
-    val taskId = this.getTaskId()
+    val gatheringId = this.getResourceGatheringId()
 
     executePipeline(
         onSuccess = { respondHtml(createHTML().div {
-            foundIdeas(worldId, taskId to it.first, it.second)
+            foundIdeas(worldId, gatheringId to it.first, it.second)
         })}
     ) {
-        value(taskId)
-            .step(ValidateTaskStep)
-            .step(FindIdeasStep(worldId))
+        value(gatheringId)
+            .step(ValidateGathering)
+            .step(FindIdeasStep(worldId)) // TODO: Add existing projects as returned values
             .step(FilterIdeasByWorldVersionStep(worldId))
     }
 }
 
-private object ValidateTaskStep : Step<Int, AppFailure, Pair<String, String>> {
+private object ValidateGathering : Step<Int, AppFailure, Pair<String, String>> {
     override suspend fun process(input: Int): Result<AppFailure, Pair<String, String>> {
         val validationResult = DatabaseSteps.query<Int, Pair<String, String>?>(
-            sql = SafeSQL.select("SELECT name, item_id FROM tasks WHERE id = ? AND requirement_type = 'ITEM'"),
-            parameterSetter = { statement, taskId -> statement.setInt(1, taskId) },
+            sql = SafeSQL.select("SELECT name, item_id FROM resource_gathering WHERE id = ?"),
+            parameterSetter = { statement, resourceGatheringId -> statement.setInt(1, resourceGatheringId) },
             resultMapper = { resultSet ->
                 if (resultSet.next()) {
                     resultSet.getString("name") to resultSet.getString("item_id")
@@ -56,7 +57,7 @@ private object ValidateTaskStep : Step<Int, AppFailure, Pair<String, String>> {
             Result.success(validationResult.getOrNull()!!)
         } else {
             Result.failure(AppFailure.ValidationError(listOf(
-                ValidationFailure.InvalidFormat("taskId", "Task is not of type ITEM")
+                ValidationFailure.InvalidFormat("resourceGatheringId", "Resource Gathering")
             )))
         }
     }
@@ -74,27 +75,34 @@ private data class FindIdeasStep(val worldId: Int) : Step<Pair<String, String>, 
     override suspend fun process(input: Pair<String, String>): Result<AppFailure, Pair<String, List<FoundIdea>>> {
         return DatabaseSteps.query<String, Pair<String, List<FoundIdea>>>(
             sql = SafeSQL.select("""
-                SELECT ideas.id, ideas.name, minecraft_version_range, category_data -> 'productionRate' as production_rate, projects.id IS NOT NULL AS already_imported
+                SELECT ideas.id, ideas.name, minecraft_version_range, category_data ->> 'productionRate' as production_rate, projects.id IS NOT NULL AS already_imported
                 FROM ideas
-                LEFT JOIN projects ON ideas.id = projects.project_idea_id
-                WHERE category = 'FARM' 
+                         LEFT JOIN projects ON ideas.id = projects.project_idea_id
+                WHERE category = 'FARM'
                   AND category_data -> 'productionRate' IS NOT NULL
-                  AND EXISTS (
-                    SELECT 1
-                    FROM jsonb_each(category_data -> 'productionRate') AS production_modes
-                    WHERE production_modes.value ?? ?
-                  )
+                  AND category_data -> 'productionRate' ->> 'value' LIKE ?
             """.trimIndent()),
-            parameterSetter = { statement, itemId -> statement.setString(1, itemId) },
+            parameterSetter = { statement, itemId -> statement.setString(1, "%$itemId%") },
             resultMapper = { resultSet ->
                 input.first to buildList {
                     while (resultSet.next()) {
                         val id = resultSet.getInt("id")
                         val name = resultSet.getString("name")
                         val productionRateJson = resultSet.getString("production_rate")?.let {
-                            Json.decodeFromString<Map<String, Map<String, Int>>>(it)
-                        } ?: emptyMap()
-                        val totalRate = productionRateJson.values.sumOf { it[input.second] ?: 0 }
+                            Json.decodeFromString(CategoryValue.serializer(), it) as? CategoryValue.MapValue
+                        }?.value ?: emptyMap()
+
+                        val totalRate = productionRateJson.values.sumOf {
+                            when (it) {
+                                is CategoryValue.MapValue -> {
+                                    when (val rate = it.value[input.second]) {
+                                        is CategoryValue.IntValue -> rate.value
+                                        else -> 0
+                                    }
+                                }
+                                else -> 0
+                            }
+                        }
                         val alreadyImported = resultSet.getBoolean("already_imported")
                         val versionRange = Json.decodeFromString(MinecraftVersionRange.serializer(), resultSet.getString("minecraft_version_range"))
                         if (totalRate > 0) {

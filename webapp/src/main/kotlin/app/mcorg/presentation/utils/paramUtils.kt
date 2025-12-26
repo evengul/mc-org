@@ -1,7 +1,7 @@
 package app.mcorg.presentation.utils
 
-import io.ktor.server.application.*
-import io.ktor.util.*
+import io.ktor.server.application.ApplicationCall
+import io.ktor.util.AttributeKey
 
 fun ApplicationCall.setWorldId(id: Int) = setInt("WorldParam", id)
 fun ApplicationCall.getWorldId(): Int = getInt("WorldParam")
@@ -14,6 +14,9 @@ fun ApplicationCall.getProjectProductionItemId(): Int = getInt("ProjectProductio
 
 fun ApplicationCall.setTaskId(id: Int) = setInt("TaskParam", id)
 fun ApplicationCall.getTaskId(): Int = getInt("TaskParam")
+
+fun ApplicationCall.setResourceGatheringId(id: Int) = setInt("ResourceGatheringParam", id)
+fun ApplicationCall.getResourceGatheringId(): Int = getInt("ResourceGatheringParam")
 
 fun ApplicationCall.setNotificationId(id: Int) = setInt("NotificationParam", id)
 fun ApplicationCall.getNotificationId(): Int = getInt("NotificationParam")

@@ -43,9 +43,9 @@ data class GetWorldRoadMapStep(val worldId: Int) : Step<Unit, AppFailure, Roadma
                     p.stage,
                     p.world_id,
                     COUNT(t.id) as tasks_total,
-                    COUNT(CASE WHEN ((t.requirement_type = 'ACTION' AND t.requirement_action_completed = TRUE) OR (t.requirement_type = 'ITEM' AND t.requirement_item_collected >= t.requirement_item_required_amount)) THEN 1 END) as tasks_completed
+                    COUNT(CASE WHEN t.completed = TRUE THEN 1 ELSE 0 END) as tasks_completed
                 FROM projects p
-                LEFT JOIN tasks t ON t.project_id = p.id
+                LEFT JOIN action_task t ON t.project_id = p.id
                 WHERE p.world_id = ?
                 GROUP BY p.id, p.name, p.type, p.stage, p.world_id
                 ORDER BY p.name
