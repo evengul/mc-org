@@ -15,4 +15,8 @@ object ServerPathResolvers {
             mainDirectory.resolve("data").resolve("tags").resolve("block")
         } else mainDirectory.resolve("data").resolve("tags").resolve("blocks")
     }
+
+    fun resolveLootTablesPath(mainDirectory: Path): Path {
+        return mainDirectory.resolve("data").resolve("minecraft").resolve("loot_table")
+    }
 }

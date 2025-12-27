@@ -1,6 +1,7 @@
 package app.mcorg.pipeline.minecraft
 
 import app.mcorg.domain.model.minecraft.MinecraftVersion
+import app.mcorg.pipeline.minecraft.extract.ExtractItemsStep
 import app.mcorg.test.utils.TestUtils
 import org.junit.jupiter.api.Test
 import java.nio.file.Path

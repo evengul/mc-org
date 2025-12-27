@@ -5,6 +5,7 @@ import app.mcorg.domain.model.minecraft.ServerData
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.failure.AppFailure
+import app.mcorg.pipeline.minecraft.extract.ExtractItemsStep
 import org.slf4j.LoggerFactory
 import java.io.IOException
 import java.nio.file.Path
