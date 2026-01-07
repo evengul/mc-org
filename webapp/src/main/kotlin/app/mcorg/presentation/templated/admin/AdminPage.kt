@@ -4,6 +4,7 @@ import app.mcorg.domain.model.admin.ManagedUser
 import app.mcorg.domain.model.admin.ManagedWorld
 import app.mcorg.domain.model.user.Role
 import app.mcorg.domain.model.user.TokenProfile
+import app.mcorg.presentation.hxDeleteWithConfirm
 import app.mcorg.presentation.hxGet
 import app.mcorg.presentation.hxInclude
 import app.mcorg.presentation.hxSwap
@@ -13,6 +14,8 @@ import app.mcorg.presentation.templated.common.button.ghostButton
 import app.mcorg.presentation.templated.common.button.neutralButton
 import app.mcorg.presentation.templated.common.form.searchField.SearchFieldHxValues
 import app.mcorg.presentation.templated.common.form.searchField.searchField
+import app.mcorg.presentation.templated.common.icon.IconSize
+import app.mcorg.presentation.templated.common.icon.Icons
 import app.mcorg.presentation.templated.common.link.Link
 import app.mcorg.presentation.templated.common.page.createPage
 import app.mcorg.presentation.templated.utils.formatAsDate
@@ -239,6 +242,7 @@ fun TBODY.worldRows(worlds: List<ManagedWorld>) {
     id = "admin-world-rows"
     worlds.forEach { world ->
         tr {
+            id = "world-row-${world.id}"
             td {
                 +world.name
             }
@@ -255,16 +259,31 @@ fun TBODY.worldRows(worlds: List<ManagedWorld>) {
                 +world.createdAt.formatAsDate()
             }
             td("actions") {
-                worldActionButtons()
+                worldActionButtons(world)
             }
         }
     }
 }
 
-private fun TD.worldActionButtons() {
-    neutralButton("View World")
-    neutralButton("Edit World")
-    dangerButton("Delete World")
+private fun TD.worldActionButtons(world: ManagedWorld) {
+    neutralButton("View World") {
+        href = Link.Worlds.world(world.id).to
+    }
+    dangerButton("Delete World") {
+        iconLeft = Icons.DELETE
+        iconSize = IconSize.SMALL
+        buttonBlock = {
+            hxDeleteWithConfirm(
+                url = Link.Worlds.world(world.id).settings().to,
+                title = "Delete World",
+                description = "Are you sure you want to delete this world?",
+                warning = "All related projects and tasks will also be deleted.",
+                confirmText = world.name
+            )
+            hxTarget("#world-row-${world.id}")
+            hxSwap("delete")
+        }
+    }
 }
 
 enum class AdminTable {

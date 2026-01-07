@@ -14,8 +14,15 @@
         flex-direction: column;
         gap: var(--spacing-sm);
 
-        td button {
-            margin-inline: var(--spacing-xxs);
+        td.actions {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            gap: var(--spacing-xxs);
+
+            button {
+                height: 100%;
+            }
         }
     }
 
