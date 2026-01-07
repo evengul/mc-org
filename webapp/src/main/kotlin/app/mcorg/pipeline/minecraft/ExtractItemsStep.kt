@@ -23,15 +23,20 @@ data object ExtractItemsStep : Step<Pair<MinecraftVersion.Release, Path>, AppFai
     private val logger = LoggerFactory.getLogger(this.javaClass)
 
     override suspend fun process(input: Pair<MinecraftVersion.Release, Path>): Result<AppFailure, List<Item>> {
-        val names = cleanNames(GetNamesStep.process(input).getOrNull() ?: emptyMap())
+        try {
+            val names = cleanNames(GetNamesStep.process(input).getOrNull() ?: emptyMap())
 
-        return ExtractTagFilePathsStep.process(input)
-            .flatMap { ExtractItemsFromTagFilesStep.process(it) }
-            .mapSuccess { ids ->
-                ids.distinct()
-                    .filter { id -> !id.startsWith("#") }
-                    .map { Item(it, findNameForId(it, names)) }
-            }
+            return ExtractTagFilePathsStep.process(input)
+                .flatMap { ExtractItemsFromTagFilesStep.process(it) }
+                .mapSuccess { ids ->
+                    ids.distinct()
+                        .filter { id -> !id.startsWith("#") }
+                        .map { Item(it, findNameForId(it, names)) }
+                }
+        } catch (e: Exception) {
+            logger.error("Failed to extract items for version ${input.first}: ${e.message}", e)
+            return Result.failure(AppFailure.FileError(this.javaClass))
+        }
     }
 
     private fun cleanNames(names: Map<String, String>): Map<String, String> {
