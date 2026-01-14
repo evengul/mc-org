@@ -140,6 +140,241 @@ styles/
 --border-radius-full: 9999px    /* Fully rounded */
 ```
 
+---
+
+## 🧩 Component Combination Matrix
+
+This matrix shows how to combine base components with modifiers and utilities for common patterns:
+
+| Base Component  | + Modifier              | + Utility               | Result Example                        |
+|-----------------|-------------------------|-------------------------|---------------------------------------|
+| `.btn`          | `.btn--action`          | `.u-full-width`         | Full-width primary action button      |
+| `.btn`          | `.btn--danger`          | `.u-margin-sm`          | Delete button with spacing            |
+| `.btn`          | `.btn--ghost`           | `.u-flex u-flex-center` | Transparent centered button           |
+| `.card`         | `.card--elevated`       | `.u-margin-lg`          | Raised card with large margin         |
+| `.card`         | (none)                  | `.u-padding-md`         | Flat card with medium padding         |
+| `.list__item`   | `.list__item--selected` | `.u-flex-between`       | Selected list item with space-between |
+| `.list__item`   | `.list__item--danger`   | `.u-padding-sm`         | Danger-state item with padding        |
+| `.form-control` | (none)                  | `.u-full-width`         | Full-width input field                |
+| `.notice`       | `.notice--success`      | `.u-margin-md`          | Success message with margin           |
+| `.notice`       | `.notice--danger`       | `.u-flex u-flex-center` | Centered error message                |
+| `.badge`        | `.badge--success`       | `.u-margin-xs`          | Success badge with small margin       |
+| `.badge`        | `.badge--info`          | (none)                  | Info badge no extra spacing           |
+
+**Usage Pattern:**
+
+```html
+<!-- Base + Modifier + Utility -->
+<button class="btn btn--action u-full-width u-margin-md">
+    Save Changes
+</button>
+
+<!-- Base + Multiple Utilities -->
+<div class="card u-padding-lg u-margin-md u-full-width">
+    Card content
+</div>
+
+<!-- Base + Modifier + Multiple Utilities -->
+<div class="list__item list__item--selected u-flex u-flex-between u-padding-sm">
+    <span>Item name</span>
+    <span>Status</span>
+</div>
+```
+
+---
+
+## 🔄 Before/After Refactoring Examples
+
+### Example 1: Inline Styles to Design Tokens
+
+**Before:**
+
+```kotlin
+div {
+    style = "color: #666; margin: 16px; padding: 12px; background: #f5f5f5;"
+    +"Content with inline styles"
+}
+```
+
+**After:**
+
+```kotlin
+div("u-text-subtle u-margin-md u-padding-sm u-bg-subtle") {
+    +"Content with utility classes"
+}
+```
+
+**Rationale**: Uses semantic color (`u-text-subtle`), spacing scale (`u-margin-md`, `u-padding-sm`), and background
+token (`u-bg-subtle`)
+
+---
+
+### Example 2: Custom Button to Component Class
+
+**Before:**
+
+```kotlin
+button {
+    style = "padding: 12px 24px; background: #007bff; color: white; border: none; border-radius: 4px;"
+    +"Submit"
+}
+```
+
+**After:**
+
+```kotlin
+button(classes = "btn btn--action") {
+    +"Submit"
+}
+```
+
+**Rationale**: Component class handles all styling, consistent with design system
+
+---
+
+### Example 3: Custom Card Layout to Component
+
+**Before:**
+
+```kotlin
+div {
+    style = "padding: 20px; background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);"
+    h3 { +"Title" }
+    p { +"Content" }
+}
+```
+
+**After:**
+
+```kotlin
+div("card card--elevated") {
+    h3 { +"Title" }
+    p { +"Content" }
+}
+```
+
+**Rationale**: `.card--elevated` provides padding, background, border-radius, and shadow automatically
+
+---
+
+### Example 4: Flexbox Layout to Utilities
+
+**Before:**
+
+```kotlin
+div {
+    style = "display: flex; justify-content: space-between; align-items: center; gap: 16px;"
+    span { +"Left" }
+    span { +"Right" }
+}
+```
+
+**After:**
+
+```kotlin
+div("u-flex u-flex-between u-flex-align-center u-gap-md") {
+    span { +"Left" }
+    span { +"Right" }
+}
+```
+
+**Rationale**: Utility classes for flexbox patterns, uses spacing scale for gap
+
+---
+
+### Example 5: Form Field to Component
+
+**Before:**
+
+```kotlin
+input(type = InputType.text) {
+    style = "width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;"
+}
+```
+
+**After:**
+
+```kotlin
+input(type = InputType.text, classes = "form-control u-full-width")
+```
+
+**Rationale**: `.form-control` handles padding, border, radius; `.u-full-width` for width
+
+---
+
+### Example 6: Color-Coded Status Badge
+
+**Before:**
+
+```kotlin
+span {
+    style = "padding: 4px 8px; background: #d4edda; color: #155724; border-radius: 4px; font-size: 0.875rem;"
+    +"Active"
+}
+```
+
+**After:**
+
+```kotlin
+span("badge badge--success") {
+    +"Active"
+}
+```
+
+**Rationale**: Component class provides semantic success styling
+
+---
+
+### Example 7: List Item with Hover State
+
+**Before:**
+
+```kotlin
+div {
+    style = "padding: 12px; background: #f8f9fa; margin-bottom: 8px;"
+    onMouseOver = "this.style.background='#e9ecef'"
+    onMouseOut = "this.style.background='#f8f9fa'"
+    +"List item"
+}
+```
+
+**After:**
+
+```kotlin
+div("list__item u-margin-sm") {
+    +"List item"
+}
+```
+
+**Rationale**: `.list__item` has hover state built-in, no JavaScript needed
+
+---
+
+### Example 8: Grid Layout
+
+**Before:**
+
+```kotlin
+div {
+    style = "display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px;"
+    div { +"Column 1" }
+    div { +"Column 2" }
+}
+```
+
+**After:**
+
+```kotlin
+div("grid grid--cols-2 u-gap-md") {
+    div { +"Column 1" }
+    div { +"Column 2" }
+}
+```
+
+**Rationale**: Grid component classes with responsive behavior
+
+---
+
 ## 🧩 Component Classes for HTML Refactoring
 
 ### Buttons - Replace Custom Button Styles
