@@ -1,6 +1,7 @@
 package app.mcorg.pipeline.minecraft.extract
 
 import app.mcorg.domain.model.minecraft.MinecraftVersion
+import app.mcorg.domain.model.minecraft.MinecraftVersionRange
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.failure.AppFailure
@@ -18,11 +19,34 @@ object ExtractNamesStep : Step<Pair<MinecraftVersion.Release, Path>, AppFailure,
 
     private val whiteListedKeyPrefixes = listOf(
         "item.minecraft.",
-        "block.minecraft."
+        "block.minecraft.",
+        "trim_pattern.minecraft.",
+        "upgrade.minecraft."
     )
 
     suspend fun getName(input: Pair<MinecraftVersion.Release, Path>, id: String): String {
         val names = getNames(input)
+
+        if (id.startsWith("minecraft:charged_creeper/")) {
+            val entityId = id.removePrefix("minecraft:charged_creeper/")
+            val baseName = names["minecraft:${entityId}_skull"] ?: names["minecraft:${entityId}_head"] ?: entityId
+            return baseName
+        }
+
+        if (id.contains("_armor_trim_smithing_template") && MinecraftVersionRange.Bounded(
+            from = MinecraftVersion.release(20, 0),
+            to = MinecraftVersion.release(20, 1)
+        ).contains(input.first)) {
+            return names["minecraft:armor_trim_${id.removePrefix("minecraft:").removeSuffix("_armor_trim_smithing_template")}"] ?: id
+        }
+
+        if (id.contains("_upgrade_smithing_template") && MinecraftVersionRange.Bounded(
+            from = MinecraftVersion.release(20, 0),
+            to = MinecraftVersion.release(20, 1)
+        ).contains(input.first)) {
+            return names["minecraft:${id.removePrefix("minecraft:").removeSuffix("_smithing_template")}"] ?: id
+        }
+
         return names[id] ?: id
     }
 
@@ -94,6 +118,8 @@ object ExtractNamesStep : Step<Pair<MinecraftVersion.Release, Path>, AppFailure,
             entry.key
                 .replace("item.minecraft.", "minecraft:")
                 .replace("block.minecraft.", "minecraft:")
+                .replace("trim_pattern.minecraft.", "minecraft:armor_trim_")
+                .replace("upgrade.minecraft.", "minecraft:")
         }
     }
 
