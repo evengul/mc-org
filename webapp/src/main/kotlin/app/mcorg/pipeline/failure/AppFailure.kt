@@ -76,7 +76,7 @@ sealed interface AppFailure {
 
     data class IllegalConfigurationError(val reason: String) : AppFailure
 
-    data class FileError(val source: Class<Step<*, *, *>>) : AppFailure
+    data class FileError(val source: Class<Step<*, *, *>>, val filename: String? = null) : AppFailure
 
     companion object {
         fun customValidationError(field: String, message: String) = ValidationError(
