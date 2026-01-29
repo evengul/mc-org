@@ -1,43 +1,55 @@
 package app.mcorg.pipeline.minecraft.extract.loot
 
 import app.mcorg.domain.model.minecraft.Item
+import app.mcorg.domain.model.minecraft.MinecraftTag
 import app.mcorg.domain.model.minecraft.MinecraftVersion
 import app.mcorg.domain.model.resources.ResourceSource
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.minecraft.ServerPathResolvers
 import app.mcorg.pipeline.minecraft.extract.ExtractNamesStep
+import app.mcorg.pipeline.minecraft.extract.ExtractTagsStep
 import app.mcorg.pipeline.minecraft.extract.ParseFilesRecursivelyStep
+import app.mcorg.pipeline.minecraft.extract.getResult
+import app.mcorg.pipeline.minecraft.extract.objectResult
+import app.mcorg.pipeline.minecraft.extract.primitiveResult
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonElement
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.jsonArray
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
 import org.slf4j.LoggerFactory
 import java.nio.file.Path
 
 data object ExtractLootTables : ParseFilesRecursivelyStep<ResourceSource>() {
     private val logger = LoggerFactory.getLogger(this.javaClass)
 
+    private lateinit var lootTableParser: LootTableParser
+
     override suspend fun process(input: Pair<MinecraftVersion.Release, Path>): Result<AppFailure, List<ResourceSource>> {
         val version = input.first
         val basePath = input.second
-        val namesInput = version to basePath.resolve("assets/minecraft")
+
+        val entryParser = EntryParser(basePath, version)
+        val poolParser = PoolParser()
+
+        lootTableParser = LootTableParser(poolParser, entryParser)
 
         // Pre-load names cache to avoid race conditions during concurrent file parsing
-        ExtractNamesStep.getNames(namesInput)
+        ExtractNamesStep.getNames(input)
+        ExtractTagsStep.process(input)
 
-        return super.process(version to ServerPathResolvers.resolveLootTablesPath(basePath))
+        return super.process(version to ServerPathResolvers.resolveLootTablesPath(basePath, version))
             .map { sources ->
                 sources.map { source ->
                     source.copy(
                         producedItems = source.producedItems.map { item ->
-                            item.copy(
-                                name = ExtractNamesStep.getName(namesInput, item.id)
-                            )
+                            when (item) {
+                                is MinecraftTag -> item.copy(
+                                    name = ExtractTagsStep.getNameOfTag(item.id),
+                                    content = ExtractTagsStep.getContentOfTag(version, item.id)
+                                        .map { Item(it, ExtractNamesStep.getName(input, it)) }
+                                )
+                                is Item -> item.copy(
+                                    name = ExtractNamesStep.getName(input, item.id)
+                                )
+                            }
                         }
                     )
                 }
@@ -52,7 +64,17 @@ data object ExtractLootTables : ParseFilesRecursivelyStep<ResourceSource>() {
             return Result.failure(AppFailure.FileError(this.javaClass))
         }
 
-        return when (val type = json.jsonObject["type"]?.jsonPrimitive?.contentOrNull) {
+        val type = json.objectResult(filename)
+            .flatMap { it.getResult("type", filename) }
+            .flatMap { it.primitiveResult(filename) }
+            .mapSuccess { it.content }
+
+        if (type is Result.Failure) {
+            logger.warn("Error parsing type from loot file: $filename")
+            return Result.failure(AppFailure.FileError(this.javaClass, filename))
+        }
+
+        return when (type.getOrThrow()) {
             "minecraft:archaeology",
             "minecraft:fishing",
             "minecraft:block",
@@ -64,64 +86,12 @@ data object ExtractLootTables : ParseFilesRecursivelyStep<ResourceSource>() {
             "minecraft:gift",
             "minecraft:equipment",
             "minecraft:shearing" -> {
-                parseStandardLootTableStructure(json)
+                lootTableParser.parse(json, filename)
             }
             else -> {
                 logger.warn("Unknown loot table type: $type")
-                Result.success(ResourceSource(
-                    type = ResourceSource.SourceType.UNKNOWN
-                ))
+                Result.failure(AppFailure.FileError(javaClass, filename))
             }
         }.mapSuccess { if (it.producedItems.isNotEmpty()) listOf(it) else emptyList() }
-    }
-
-    private fun parseStandardLootTableStructure(json: JsonElement): Result<AppFailure, ResourceSource> {
-        val parsed = buildSet {
-            json.jsonObject["pools"]?.jsonArray?.forEach { pool ->
-                pool.jsonObject["entries"]?.jsonArray?.forEach { entry ->
-                    addAll(parseEntriesRecursively(entry.jsonObject))
-                }
-            }
-        }
-
-        return Result.success(ResourceSource(
-            type = json.jsonObject["type"]?.jsonPrimitive?.content?.let {
-                ResourceSource.SourceType.of(it)
-            } ?: ResourceSource.SourceType.UNKNOWN,
-            producedItems = parsed.map { Item(id = it, name = it) }
-        ))
-    }
-
-    private fun parseEntriesRecursively(json: JsonElement): Set<String> {
-        return buildSet {
-            when (val type = json.jsonObject["type"]?.jsonPrimitive?.contentOrNull) {
-                "minecraft:item", "minecraft:dynamic" -> {
-                    json.jsonObject["name"]?.jsonPrimitive?.contentOrNull?.let { itemId ->
-                        add(itemId)
-                    }
-                }
-                "minecraft:empty", "minecraft:tag" -> {
-                    // Do nothing for empty entries
-                }
-                "minecraft:loot_table" -> {
-                    when (val value = json.jsonObject["value"]) {
-                        is JsonPrimitive -> add(value.jsonPrimitive.content)
-                        is JsonObject -> value["pools"]?.jsonArray?.forEach { pool ->
-                            pool.jsonObject["entries"]?.jsonArray?.forEach { entry ->
-                                addAll(parseEntriesRecursively(entry.jsonObject))
-                            }
-                        }
-                        else -> logger.warn("Unknown value type in loot_table entry: ${value?.javaClass}")
-                    }
-                }
-                "minecraft:alternatives" -> {
-                    // Recursively parse children entries
-                    json.jsonObject["children"]?.jsonArray?.forEach { childEntry ->
-                        addAll(parseEntriesRecursively(childEntry))
-                    }
-                }
-                else -> logger.warn("Unknown entry type in loot table: $type")
-            }
-        }
     }
 }
