@@ -6,6 +6,8 @@ Template for creating a new HTTP endpoint in MC-ORG.
 
 Location: `src/main/kotlin/app/mcorg/presentation/handler/{Feature}Handler.kt`
 
+**Standard Pattern (using executePipeline):**
+
 ```kotlin
 suspend fun ApplicationCall.handle{Action}{Feature}() {
     // 1. Extract inputs
@@ -13,25 +15,44 @@ suspend fun ApplicationCall.handle{Action}{Feature}() {
     val user = this.getUser()
     val worldId = this.getWorldId()  // if world-scoped
 
-    // 2. Build pipeline
-    val pipeline = Pipeline.create<AppFailure, Parameters>()
-        .pipe(Validate{Feature}InputStep)
-        .pipe({Action}{Feature}Step(user.id, worldId))
-        .pipe(Get{Feature}ByIdStep)
-
-    // 3. Execute with fold
-    pipeline.fold(
-        input = parameters,
+    // 2. Build and execute pipeline
+    executePipeline(
         onSuccess = { result ->
             respondHtml(createHTML().div {
                 id = "{feature}-result"
                 // Success HTML fragment
             })
-        },
-        onFailure = { failure ->
-            respondBadRequest("Operation failed")
         }
-    )
+        // onFailure is optional - default handler responds appropriately
+    ) {
+        value(parameters)
+            .step(Validate{Feature}InputStep)
+            .step({Action}{Feature}Step(user.id, worldId))
+            .step(Get{Feature}ByIdStep)
+    }
+}
+```
+
+**Parallel Pattern (for multiple independent data fetches):**
+
+```kotlin
+suspend fun ApplicationCall.handleGet{Feature}Page() {
+    val user = this.getUser()
+    val worldId = this.getWorldId()
+
+    executeParallelPipeline(
+        onSuccess = { (feature, relatedItems) ->
+            respondHtml(createPage(user, "Feature Page") {
+                featurePage(feature, relatedItems)
+            })
+        }
+    ) {
+        val featureRef = singleStep("feature", featureId, Get{Feature}ByIdStep)
+        val relatedRef = singleStep("related", featureId, GetRelatedItemsStep)
+        merge("pageData", featureRef, relatedRef) { feature, related ->
+            Result.success(Pair(feature, related))
+        }
+    }
 }
 ```
 

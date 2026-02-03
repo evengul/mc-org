@@ -29,11 +29,60 @@
 - `Result.failure(error)` - failed outcome with error details
 - Never throws exceptions for business logic errors
 
+**ApiConfig**
+
+- Sealed class defining configuration for external API endpoints
+- Each external API (Microsoft, Xbox, Minecraft, Modrinth, etc.) has its own config object
+- Contains base URL, content types, and User-Agent settings
+- Supports fake providers for testing via `useFakeProvider()`
+
+**ApiProvider**
+
+- Sealed class providing HTTP client operations for external API calls
+- Methods: `get()`, `post()`, `getRaw()` - all return Step types
+- Built-in rate limiting via X-RateLimit headers
+- `DefaultApiProvider` for real HTTP, `FakeApiProvider` for testing
+
 **AppFailure**
 
 - Sealed interface hierarchy for all application errors
-- Subtypes: ValidationError, DatabaseError, AuthError, BusinessRuleError, RedirectFailure
+- Subtypes: ValidationError, DatabaseError, AuthError, ApiError, Redirect, FileError
 - Forces explicit error handling
+
+**executePipeline**
+
+- Handler helper function that executes a pipeline with default error handling
+- Syntax: `executePipeline(onSuccess = { ... }) { pipeline DSL }`
+- Automatically handles `onFailure` with appropriate HTTP responses
+- Preferred over manual `Pipeline.create().fold()` pattern
+
+**executeParallelPipeline**
+
+- Handler helper for parallel pipeline execution
+- Executes multiple independent operations concurrently
+- Merges results using type-safe lambdas
+- Uses DAG-based dependency resolution
+
+**ParallelPipelineBuilder**
+
+- Builder for creating pipelines with concurrent execution
+- Methods: `singleStep()`, `pipeline()`, `merge()`, `pipe()`
+- Creates DAG of operations with dependency tracking
+- Used via `parallelPipeline<E> { }` builder function
+
+**PipelineBuilder**
+
+- Fluent DSL for constructing sequential pipelines
+- Methods: `.step()`, `.map()`, `.value()`, `.validate()`, `.transform()`, `.execute()`
+- Alternative to `Pipeline.create().pipe()` pattern
+- Used via `pipeline<I, E>()` builder function
+
+**PipelineRef**
+
+- Reference to a node in a parallel pipeline graph
+- Returned by `singleStep()`, `pipeline()`, `merge()` in ParallelPipelineBuilder
+- Used as dependency input for `merge()` and `pipe()` operations
+- Type-safe tracking of node outputs
 
 **SafeSQL**
 

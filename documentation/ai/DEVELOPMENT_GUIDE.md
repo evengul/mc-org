@@ -484,6 +484,30 @@ result.flatMap { value -> Step.process(value) }
 result.getOrNull()              // Returns value or null
 result.getOrElse { defaultValue }
 result.getOrThrow()             // Throws if failure
+result.errorOrNull()            // Returns error or null
+```
+
+**Side Effects and Recovery:**
+
+```kotlin
+// Execute side effect on success (returns original result)
+result.peek { value -> logger.info("Processing: $value") }
+
+// Attempt recovery from failure
+result.recover { error ->
+    when (error) {
+        is AppFailure.DatabaseError.NotFound -> Result.success(defaultValue)
+        else -> Result.failure(error)
+    }
+}
+```
+
+**Non-Suspend Variants:**
+
+```kotlin
+// Non-suspend versions (for use outside coroutines)
+result.flatMapSuccess { value -> anotherResult }  // Chain Results
+result.mapSuccess { value -> transformedValue }   // Transform success value
 ```
 
 ### Common Step Patterns
@@ -592,7 +616,15 @@ sealed interface AppFailure {
         data class ConvertTokenError(
             val errorCode: String,
             val arguments: List<Pair<String, String>> = emptyList()
-        ) : AuthError
+        ) : AuthError {
+            companion object {
+                fun invalidToken(): ConvertTokenError
+                fun expiredToken(): ConvertTokenError
+                fun missingClaim(claimName: String): ConvertTokenError
+                fun incorrectClaim(claimName: String, claimValue: String): ConvertTokenError
+                fun conversionError(): ConvertTokenError
+            }
+        }
     }
 
     // Database errors
@@ -770,6 +802,46 @@ fun HTMLTag.hxSwap(value: String)
 fun HTMLTag.hxConfirm(value: String)
 fun HTMLTag.hxTrigger(value: String)
 fun HTMLTag.hxPushUrl(value: String)
+fun HTMLTag.hxIndicator(value: String)
+
+// Include additional form data
+fun HTMLTag.hxInclude(value: String)  // CSS selector for additional inputs
+
+// Out-of-band swaps (update multiple elements)
+fun HTMLTag.hxOutOfBands(locator: String)  // "true" or swap specification
+
+// Error targeting
+fun HTMLTag.hxErrorTarget(target: String)  // Target for error responses
+fun HTMLTag.hxErrorTarget(target: String, errorCode: String)  // Target for specific HTTP error
+
+// Extensions
+fun HTMLTag.hxExtension(value: String)  // Enable HTMX extensions
+```
+
+### HTMX Response Helpers
+
+**Response utilities in handlers** (from `htmxResponseUtils.kt`):
+
+```kotlin
+// HTMX redirect (sets HX-Redirect header)
+suspend fun ApplicationCall.clientRedirect(path: String)
+
+// Error responses with HX-ReTarget and HX-ReSwap headers
+suspend fun ApplicationCall.respondBadRequest(
+    errorHtml: String = "An error occurred",
+    target: String = "#error-message",
+    swap: String = "innerHTML"
+)
+
+suspend fun ApplicationCall.respondNotFound(
+    errorHtml: String = "Something could not be found",
+    target: String = "#error-message",
+    swap: String = "innerHTML"
+)
+
+// Response header setters
+fun ApplicationCall.hxTarget(value: String)  // Sets HX-Retarget
+fun ApplicationCall.hxSwap(value: String)    // Sets HX-Reswap
 ```
 
 ### HTMX Usage Patterns
@@ -864,7 +936,36 @@ div {
 }
 ```
 
-**5. Inline Editing**
+**5. Out-of-Band Swaps**
+
+Out-of-band swaps let you update multiple elements in a single response:
+
+```kotlin
+// Request: Form submission
+form {
+    hxPost("/app/worlds/${worldId}/projects")
+    hxTarget("#project-list")  // Main target
+
+    input(classes = "form-control") { name = "name" }
+    button(classes = "btn btn--action") { +"Create" }
+}
+
+// Response: Updates both project list AND notification area
+respondHtml(createHTML().div {
+    // Main content (replaces #project-list)
+    id = "project-list"
+    projectList(projects)
+
+    // Out-of-band update (replaces #notification-count elsewhere on page)
+    span {
+        id = "notification-count"
+        hxOutOfBands("true")
+        +"${notificationCount}"
+    }
+})
+```
+
+**6. Inline Editing**
 
 ```kotlin
 div {
@@ -1282,8 +1383,8 @@ val result = updateStep.process(input)
 val insertStep = DatabaseSteps.update<InputType>(
     sql = SafeSQL.insert(
         """
-        INSERT INTO table (name, value) 
-        VALUES (?, ?) 
+        INSERT INTO table (name, value)
+        VALUES (?, ?)
         RETURNING id
         """
     ),
@@ -1297,7 +1398,32 @@ val result = insertStep.process(input)
 // result contains the new ID
 ```
 
-**4. Transaction (Multi-Step)**
+**4. Batch Update (Bulk Operations)**
+
+DatabaseSteps.batchUpdate handles bulk INSERT/UPDATE/DELETE operations efficiently by processing items in chunks:
+
+```kotlin
+val batchStep = DatabaseSteps.batchUpdate<ItemInput>(
+    sql = SafeSQL.insert("INSERT INTO items (name, quantity) VALUES (?, ?)"),
+    parameterSetter = { statement, input ->
+        statement.setString(1, input.name)
+        statement.setInt(2, input.quantity)
+    },
+    chunkSize = 500  // Default, processes in batches of 500
+)
+
+// Process a list of items
+val items = listOf(item1, item2, item3, /* ... */)
+val result = batchStep.process(items)
+// Returns Result<AppFailure.DatabaseError, Unit>
+```
+
+**When to use batchUpdate:**
+- Inserting many records at once (imports, bulk creation)
+- Updating multiple records with different values
+- Deleting multiple records by criteria
+
+**5. Transaction (Multi-Step)**
 
 DatabaseSteps.transaction takes a function that receives a TransactionConnection and returns a Step. All database
 operations within the transaction must use the provided connection.
@@ -1917,10 +2043,10 @@ handler is called.
 
 **Key Plugins** (defined in `RolePlugins.kt`):
 
-1. **AdminPlugin** - Requires super admin role
-2. **WorldAdminPlugin** - Requires admin role in specific world
-3. **BannedPlugin** - Blocks banned users
-4. **DemoUserPlugin** - Restricts demo users in production
+1. **AdminPlugin** - Requires super admin role, returns 404 if not (hides admin routes)
+2. **WorldAdminPlugin** - Requires ADMIN role in specific world, returns 403 if not
+3. **BannedPlugin** - Checks global ban status, returns 403 if banned
+4. **DemoUserPlugin** - In production only, blocks non-GET/OPTIONS requests from demo users (prevents demo accounts from modifying data)
 
 ### Plugin Usage Pattern
 

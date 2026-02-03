@@ -40,7 +40,7 @@ mvn exec:java         # Start development server
 
 ### 1. Pipeline Pattern (Railway-Oriented)
 
-Every endpoint uses pipelines with Steps that return `Result<E, S>`:
+Every endpoint uses pipelines with Steps that return `Result<E, S>`. Use `executePipeline()` helper:
 
 ```kotlin
 suspend fun ApplicationCall.handleCreateProject() {
@@ -48,23 +48,35 @@ suspend fun ApplicationCall.handleCreateProject() {
     val user = this.getUser()
     val worldId = this.getWorldId()
 
-    val pipeline = Pipeline.create<AppFailure, Parameters>()
-        .pipe(ValidateInputStep)
-        .pipe(CreateProjectStep(user, worldId))
-        .pipe(GetUpdatedDataStep)
-
-    pipeline.fold(
-        input = parameters,
+    executePipeline(
         onSuccess = { project ->
             respondHtml(createHTML().div {
                 projectCard(project)
             })
-        },
-        onFailure = { failure ->
-            // Built-in error handling logs automatically
-            respondBadRequest("Failed to create project")
         }
-    )
+        // onFailure is optional - default handler logs and responds appropriately
+    ) {
+        value(parameters)
+            .step(ValidateInputStep)
+            .step(CreateProjectStep(user, worldId))
+            .step(GetUpdatedDataStep)
+    }
+}
+```
+
+For parallel operations (multiple independent data fetches):
+
+```kotlin
+executeParallelPipeline(
+    onSuccess = { (projects, notifications) ->
+        respondHtml(dashboardPage(projects, notifications))
+    }
+) {
+    val projectsRef = singleStep("projects", userId, GetUserProjectsStep)
+    val notificationsRef = singleStep("notifications", userId, GetNotificationsStep)
+    merge("data", projectsRef, notificationsRef) { projects, notifications ->
+        Result.success(Pair(projects, notifications))
+    }
 }
 ```
 
@@ -144,6 +156,8 @@ import app.mcorg.presentation.utils.respondNotFound
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Pipeline
+import app.mcorg.domain.pipeline.executePipeline
+import app.mcorg.domain.pipeline.executeParallelPipeline
 
 // Database
 import app.mcorg.pipeline.SafeSQL
@@ -168,6 +182,13 @@ import app.mcorg.presentation.hxGet
 import app.mcorg.presentation.hxTarget
 import app.mcorg.presentation.hxSwap
 import app.mcorg.presentation.hxDeleteWithConfirm
+import app.mcorg.presentation.hxInclude
+import app.mcorg.presentation.hxOutOfBands
+
+// HTMX Response Helpers
+import app.mcorg.presentation.utils.clientRedirect
+import app.mcorg.presentation.utils.respondBadRequest
+import app.mcorg.presentation.utils.respondNotFound
 ```
 
 ---
@@ -549,13 +570,16 @@ div("u-text-danger u-padding-sm") { }
 
 ### AppFailure Types
 
-| Type                              | Use Case                        |
-|-----------------------------------|---------------------------------|
-| `AppFailure.ValidationError`      | Input validation failures       |
-| `AppFailure.DatabaseError.NotFound`| Entity not found               |
-| `AppFailure.AuthError.NotAuthorized`| Permission denied             |
-| `AppFailure.ApiError`             | External API failures           |
-| `AppFailure.Redirect`             | Redirect response               |
+| Type                                    | Use Case                        |
+|-----------------------------------------|---------------------------------|
+| `AppFailure.ValidationError`            | Input validation failures       |
+| `AppFailure.DatabaseError.NotFound`     | Entity not found                |
+| `AppFailure.DatabaseError.NoIdReturned` | INSERT didn't return ID         |
+| `AppFailure.AuthError.NotAuthorized`    | Permission denied               |
+| `AppFailure.ApiError`                   | External API failures           |
+| `AppFailure.Redirect`                   | Redirect response               |
+| `AppFailure.IllegalConfigurationError`  | Bad configuration               |
+| `AppFailure.FileError`                  | File operation failures         |
 
 ### ValidationFailure Types
 
@@ -563,7 +587,9 @@ div("u-text-danger u-padding-sm") { }
 |-----------------------|------------------------------|
 | `MissingParameter`    | Required field missing       |
 | `InvalidFormat`       | Wrong format (email, date)   |
-| `InvalidValue`        | Value out of range/invalid   |
+| `OutOfRange`          | Value outside min/max        |
+| `InvalidLength`       | String/collection length     |
+| `InvalidValue`        | Value not in allowed set     |
 | `CustomValidation`    | Business rule violation      |
 
 ### HTTP Response Helpers
@@ -574,6 +600,7 @@ div("u-text-danger u-padding-sm") { }
 | `respondBadRequest()` | 400    | Validation/client error     |
 | `respondNotFound()`   | 404    | Resource not found          |
 | `respondForbidden()`  | 403    | Authorization failed        |
+| `clientRedirect()`    | 200    | HTMX redirect (HX-Redirect) |
 
 ### HTMX Swap Strategies
 

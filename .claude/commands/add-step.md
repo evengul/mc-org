@@ -345,30 +345,52 @@ data class {Feature}Filter(
 
 ## Using Steps in Pipeline
 
+**Sequential Pipeline (using executePipeline):**
+
 ```kotlin
 suspend fun ApplicationCall.handle{Action}{Feature}() {
     val parameters = this.receiveParameters()
     val user = this.getUser()
     val worldId = this.getWorldId()
 
-    val pipeline = Pipeline.create<AppFailure, Parameters>()
-        .pipe(Validate{Feature}Step)
-        .pipe(Create{Feature}Step(user.id, worldId))
-        .pipe { id -> Get{Feature}ByIdStep(id).process(Unit) }
-
-    pipeline.fold(
-        input = parameters,
+    executePipeline(
         onSuccess = { feature ->
             respondHtml(createHTML().div {
                 // success HTML
             })
-        },
-        onFailure = { failure ->
-            respondBadRequest("Operation failed")
         }
-    )
+        // onFailure is optional - default handler responds appropriately
+    ) {
+        value(parameters)
+            .step(Validate{Feature}Step)
+            .step(Create{Feature}Step(user.id, worldId))
+            .step(Get{Feature}ByIdStep)
+    }
 }
 ```
+
+**Parallel Pipeline (for independent steps):**
+
+```kotlin
+suspend fun ApplicationCall.handleGet{Feature}Dashboard() {
+    val featureId = this.getFeatureId()
+
+    executeParallelPipeline(
+        onSuccess = { (feature, relatedItems, stats) ->
+            respondHtml(dashboardPage(feature, relatedItems, stats))
+        }
+    ) {
+        val featureRef = singleStep("feature", featureId, Get{Feature}ByIdStep(featureId))
+        val relatedRef = singleStep("related", featureId, GetRelatedItemsStep(featureId))
+        val statsRef = singleStep("stats", featureId, Get{Feature}StatsStep(featureId))
+        merge("dashboard", featureRef, relatedRef, statsRef) { feature, related, stats ->
+            Result.success(Triple(feature, related, stats))
+        }
+    }
+}
+```
+
+**Note:** Steps are the building blocks used in both patterns. Use `singleStep()` in parallel pipelines when operations are independent and can execute concurrently.
 
 ---
 
