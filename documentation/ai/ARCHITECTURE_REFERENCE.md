@@ -12,7 +12,8 @@
 4. [Module Structure](#module-structure)
 5. [Routing Architecture](#routing-architecture)
 6. [Authentication & Authorization](#authentication--authorization)
-7. [Data Flow](#data-flow)
+7. [External API Integrations](#external-api-integrations)
+8. [Data Flow](#data-flow)
 
 ---
 
@@ -1066,6 +1067,114 @@ object ValidateAdminRoleStep : Step<Input, AppFailure.AuthError, Input> {
 4. **Hierarchical** - Role levels allow easy comparison
 5. **Immutable Owner** - Owner role cannot be transferred or removed
 6. **Audit Trail** - All actions logged with user ID and timestamp
+
+---
+
+## 🌐 External API Integrations
+
+### Overview
+
+MC-ORG integrates with several external APIs for authentication and Minecraft-related data. All API calls use the `ApiProvider` pattern with built-in rate limiting, error handling, and testability.
+
+### Integrated APIs
+
+| API | Purpose | Config Object |
+|-----|---------|---------------|
+| **Microsoft OAuth** | User authentication via Microsoft accounts | `MicrosoftLoginApiConfig` |
+| **Xbox Live** | Xbox authentication for Minecraft accounts | `XboxAuthApiConfig` |
+| **XSTS** | Xbox Secure Token Service authorization | `XstsAuthorizationApiConfig` |
+| **Minecraft Services** | Official Minecraft profile & auth | `MinecraftApiConfig` |
+| **Modrinth** | Minecraft mod repository, game versions | `ModrinthApiConfig` |
+| **Fabric MC** | Fabric modding framework versions | `FabricMcApiConfig` |
+| **GitHub Gists** | Server JAR download links | `GithubGistsApiConfig` |
+
+### Authentication Flow
+
+```
+User clicks "Sign in with Microsoft"
+    ↓
+Microsoft OAuth (MicrosoftLoginApiConfig)
+    → Exchange code for access token
+    ↓
+Xbox Live Auth (XboxAuthApiConfig)
+    → Exchange Microsoft token for Xbox token
+    ↓
+XSTS Auth (XstsAuthorizationApiConfig)
+    → Exchange Xbox token for XSTS token
+    ↓
+Minecraft Services (MinecraftApiConfig)
+    → Exchange XSTS token for Minecraft access
+    → Fetch Minecraft profile (UUID, username)
+    ↓
+Create/update user record
+Generate JWT token
+Set HTTP-only cookie
+```
+
+### ApiProvider Pattern
+
+```kotlin
+// All API configs extend ApiConfig sealed class
+sealed class ApiConfig(internal val baseUrl: String) {
+    abstract fun getContentType(): ContentType
+    fun getProvider(): ApiProvider  // Get DefaultApiProvider or FakeApiProvider
+    fun useFakeProvider(responses: ...)  // Switch to mock for testing
+}
+
+// ApiProvider provides Step-based HTTP operations
+sealed class ApiProvider(config: ApiConfig) {
+    fun <I, S> get(url, headerBuilder): Step<I, AppFailure.ApiError, S>
+    fun <I, S> post(url, headerBuilder, bodyBuilder): Step<I, AppFailure.ApiError, S>
+    fun <I> getRaw(url, headerBuilder): Step<I, AppFailure.ApiError, InputStream>
+}
+```
+
+### Built-in Features
+
+**Rate Limiting:**
+- Automatically tracks `X-RateLimit-*` headers
+- Returns `AppFailure.ApiError.RateLimitExceeded` when limits hit
+- Per-API-endpoint tracking
+
+**Timeouts:**
+- Request timeout: 30 seconds
+- Connect timeout: 10 seconds
+- Socket timeout: 30 seconds
+
+**Error Handling:**
+- `NetworkError` - Connection failures
+- `TimeoutError` - Request timeouts
+- `HttpError(statusCode, body)` - HTTP error responses
+- `SerializationError` - JSON parsing failures
+
+**Testing Support:**
+```kotlin
+// In tests, use fake provider
+ModrinthApiConfig.useFakeProvider { method, url ->
+    if (url.contains("/versions")) {
+        Result.success("""{"versions": [...]}""")
+    } else {
+        Result.failure(AppFailure.ApiError.UnknownError)
+    }
+}
+
+// Reset after tests
+ModrinthApiConfig.resetProvider()
+```
+
+### Configuration
+
+API base URLs can be overridden via environment variables:
+
+```env
+MODRINTH_BASE_URL=https://api.modrinth.com/v2
+MICROSOFT_LOGIN_BASE_URL=https://login.microsoftonline.com
+XBOX_AUTH_BASE_URL=https://user.auth.xboxlive.com
+XSTS_AUTH_BASE_URL=https://xsts.auth.xboxlive.com
+MINECRAFT_BASE_URL=https://api.minecraftservices.com
+FABRIC_MC_BASE_URL=https://meta.fabricmc.net/v2
+GITHUB_GISTS_BASE_URL=https://gist.githubusercontent.com
+```
 
 ---
 
