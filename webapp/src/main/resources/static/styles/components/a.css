@@ -1,5 +1,5 @@
-/* Base link styling - applies to all <a> elements */
-a {
+/* Base link styling - applies to all <a> elements except buttons */
+a:not(.btn) {
     color: var(--clr-text-action);
     text-decoration: none;
     transition: color 0.2s ease, border-bottom 0.2s ease;
@@ -7,20 +7,20 @@ a {
     padding-bottom: 2px;
 }
 
-a:hover {
+a:not(.btn):hover {
     color: var(--clr-text-action-hover);
 }
 
-a:visited {
+a:not(.btn):visited {
     color: var(--clr-text-visited);
 }
 
-a:active {
+a:not(.btn):active {
     color: var(--clr-text-action-selected);
     border-bottom: 1px solid var(--clr-border-action-selected);
 }
 
-a:focus {
+a:not(.btn):focus {
     outline: none;
     box-shadow: var(--shadow-focus);
     border-radius: var(--border-radius-sm);
@@ -100,10 +100,6 @@ a:focus {
     margin: calc(var(--spacing-xxs) * -1);
     border-radius: var(--border-radius-md);
     border-bottom: 1px solid var(--clr-global-transparent);
-}
-
-.link--button:has(.btn--back) {
-    width: fit-content;
 }
 
 /* Link size modifier classes */
