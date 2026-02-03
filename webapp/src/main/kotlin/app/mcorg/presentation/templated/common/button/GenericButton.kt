@@ -27,22 +27,37 @@ class GenericButton(
 
     override fun render(container: TagConsumer<*>) {
         href?.let {
+            // Render as <a> styled as button (for navigation)
             container.a {
-                this@a.classes += "link--button"
+                this@a.classes = getAllClasses()
                 this@a.href = it
                 this@GenericButton.id?.let { commonId ->
-                    this.id = "$commonId-link"
+                    this.id = commonId
                 }
-                button {
-                    buttonBlock?.let { block ->
-                        block(this)
+                ariaLabel?.let { label ->
+                    attributes["aria-label"] = label
+                    if (attributes["title"] == null || attributes["title"]?.isEmpty() == true) {
+                        attributes["title"] = label
                     }
-                    buttonInternals()
+                }
+                onClick?.let { clickHandler ->
+                    attributes["onclick"] = clickHandler
+                }
+                val color = getColor()
+                iconLeft?.let { icon ->
+                    iconComponent(icon, iconSize ?: IconSize.MEDIUM, color)
+                }
+                if (text.isNotEmpty()) {
+                    + text
+                }
+                iconRight?.let { icon ->
+                    iconComponent(icon, iconSize ?: IconSize.MEDIUM, color)
                 }
             }
         }
 
         if (href == null) {
+            // Render as <button> (for actions)
             container.button {
                 buttonBlock?.let { block ->
                     block(this)
