@@ -5,7 +5,7 @@ import app.mcorg.domain.model.minecraft.MinecraftId
 import app.mcorg.domain.model.minecraft.MinecraftTag
 import app.mcorg.domain.model.minecraft.MinecraftVersion
 import app.mcorg.domain.model.minecraft.ServerData
-import app.mcorg.domain.model.resources.ItemSourceGraph
+import app.mcorg.domain.model.resources.ResourceQuantity
 import app.mcorg.domain.model.resources.ResourceSource
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
@@ -13,8 +13,6 @@ import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.TransactionConnection
 import app.mcorg.pipeline.failure.AppFailure
-import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
 import org.slf4j.LoggerFactory
 
 data object StoreMinecraftDataStep : Step<ServerData, AppFailure.DatabaseError, Unit> {
@@ -162,10 +160,10 @@ private data class StoreResourceSourcesStep(val connection: TransactionConnectio
                     SELECT id FROM inserted_source
                 """.trimIndent()),
                 parameterSetter = { statement, source ->
-                    val producedItems = source.producedItems.filterIsInstance<Item>()
-                    val producedTags = source.producedItems.filterIsInstance<MinecraftTag>()
-                    val consumedItems = source.requiredItems.filterIsInstance<Item>()
-                    val consumedTags = source.requiredItems.filterIsInstance<MinecraftTag>()
+                    val producedItems = source.producedItems.filter { it.first is Item }
+                    val producedTags = source.producedItems.filter { it.first is MinecraftTag }
+                    val consumedItems = source.requiredItems.filter { it.first is Item }
+                    val consumedTags = source.requiredItems.filter { it.first is MinecraftTag }
 
                     // Insert source (3 parameters)
                     statement.setString(1, version.toString())
@@ -173,24 +171,24 @@ private data class StoreResourceSourcesStep(val connection: TransactionConnectio
                     statement.setString(3, source.filename)
 
                     // Produced items (3 parameters: items array, counts array, check array)
-                    statement.setArray(4, connection.connection.createArrayOf("text", producedItems.map { it.id }.toTypedArray()))
-                    statement.setArray(5, connection.connection.createArrayOf("integer", Array(producedItems.size) { 1 /*TODO: Change to actual value when available*/ }))
-                    statement.setArray(6, connection.connection.createArrayOf("text", producedItems.map { it.id }.toTypedArray()))
+                    statement.setArray(4, connection.connection.createArrayOf("text", producedItems.map { it.first.id }.toTypedArray()))
+                    statement.setArray(5, connection.connection.createArrayOf("integer", producedItems.map { it.second.toDatabaseCount() }.toTypedArray()))
+                    statement.setArray(6, connection.connection.createArrayOf("text", producedItems.map { it.first.id }.toTypedArray()))
 
                     // Produced tags (3 parameters)
-                    statement.setArray(7, connection.connection.createArrayOf("text", producedTags.map { it.id }.toTypedArray()))
-                    statement.setArray(8, connection.connection.createArrayOf("integer", Array(producedTags.size) { 1 }))
-                    statement.setArray(9, connection.connection.createArrayOf("text", producedTags.map { it.id }.toTypedArray()))
+                    statement.setArray(7, connection.connection.createArrayOf("text", producedTags.map { it.first.id }.toTypedArray()))
+                    statement.setArray(8, connection.connection.createArrayOf("integer", producedTags.map { it.second.toDatabaseCount() }.toTypedArray()))
+                    statement.setArray(9, connection.connection.createArrayOf("text", producedTags.map { it.first.id }.toTypedArray()))
 
                     // Consumed items (3 parameters)
-                    statement.setArray(10, connection.connection.createArrayOf("text", consumedItems.map { it.id }.toTypedArray()))
-                    statement.setArray(11, connection.connection.createArrayOf("integer", Array(consumedItems.size) { 1 }))
-                    statement.setArray(12, connection.connection.createArrayOf("text", consumedItems.map { it.id }.toTypedArray()))
+                    statement.setArray(10, connection.connection.createArrayOf("text", consumedItems.map { it.first.id }.toTypedArray()))
+                    statement.setArray(11, connection.connection.createArrayOf("integer", consumedItems.map { it.second.toDatabaseCount() }.toTypedArray()))
+                    statement.setArray(12, connection.connection.createArrayOf("text", consumedItems.map { it.first.id }.toTypedArray()))
 
                     // Consumed tags (3 parameters)
-                    statement.setArray(13, connection.connection.createArrayOf("text", consumedTags.map { it.id }.toTypedArray()))
-                    statement.setArray(14, connection.connection.createArrayOf("integer", Array(consumedTags.size) { 1 }))
-                    statement.setArray(15, connection.connection.createArrayOf("text", consumedTags.map { it.id }.toTypedArray()))
+                    statement.setArray(13, connection.connection.createArrayOf("text", consumedTags.map { it.first.id }.toTypedArray()))
+                    statement.setArray(14, connection.connection.createArrayOf("integer", consumedTags.map { it.second.toDatabaseCount() }.toTypedArray()))
+                    statement.setArray(15, connection.connection.createArrayOf("text", consumedTags.map { it.first.id }.toTypedArray()))
                 },
                 transactionConnection = connection
             ).process(sources).map {
@@ -203,34 +201,11 @@ private data class StoreResourceSourcesStep(val connection: TransactionConnectio
             Result.failure(AppFailure.DatabaseError.UnknownError)
         }
     }
-}
 
-private data class StoreMinecraftItemSourceGraphStep(val connection: TransactionConnection) : Step<Pair<MinecraftVersion.Release, ItemSourceGraph>, AppFailure.DatabaseError, Unit> {
-    private val logger = LoggerFactory.getLogger(javaClass)
-    private val serializer = Json {
-        allowStructuredMapKeys = true
-    }
-
-    override suspend fun process(input: Pair<MinecraftVersion.Release, ItemSourceGraph>): Result<AppFailure.DatabaseError, Unit> {
-        val (version, graph) = input
-        return try {
-            DatabaseSteps.update<ItemSourceGraph>(
-                sql = SafeSQL.insert("""
-                INSERT INTO item_graph (minecraft_version, graph_data)
-                VALUES (?, ?::jsonb)
-                ON CONFLICT (minecraft_version) DO UPDATE SET graph_data = excluded.graph_data
-            """.trimIndent()),
-                parameterSetter = { statement, graph ->
-                    statement.setString(1, version.toString())
-                    statement.setString(2, serializer.encodeToString(graph))
-                },
-                transactionConnection = connection
-            ).process(graph).map {
-                logger.info("Stored item source graph for minecraft version $version in the database.")
-            }
-        } catch (e: Exception) {
-            logger.error("Error while storing item source graph for version $version", e)
-            Result.failure(AppFailure.DatabaseError.UnknownError)
+    private fun ResourceQuantity.toDatabaseCount(): Int {
+        return when (this) {
+            ResourceQuantity.Unknown -> 1
+            is ResourceQuantity.ItemQuantity -> this.itemQuantity
         }
     }
 }

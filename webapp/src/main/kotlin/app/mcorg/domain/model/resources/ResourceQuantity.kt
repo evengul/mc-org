@@ -1,6 +1,6 @@
 package app.mcorg.domain.model.resources
 
-interface ResourceQuantity {
+sealed interface ResourceQuantity {
     object Unknown : ResourceQuantity
 
     data class ItemQuantity(val itemQuantity: Int) : ResourceQuantity {

@@ -43,7 +43,6 @@ class ExtractRecipesStepTest : ServerFileTest(
                 assertNotEquals("", item.first.name)
                 assertNotEquals(item.first.id, item.first.name)
 
-                // TODO: Ensure item quantity have been resolved
                 assertIsNot<ResourceQuantity.Unknown>(item.second)
 
                 // Ensure no item ids with tag references exist
@@ -57,7 +56,6 @@ class ExtractRecipesStepTest : ServerFileTest(
                 assertNotEquals("", item.first.name)
                 assertNotEquals(item.first.id, item.first.name)
 
-                // TODO: Ensure item quantity have been resolved
                 assertIsNot<ResourceQuantity.Unknown>(item.second)
 
                 // Ensure no item ids with tag references exist

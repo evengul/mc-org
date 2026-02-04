@@ -2,7 +2,6 @@ package app.mcorg.pipeline.minecraft.extract.recipe
 
 import app.mcorg.domain.model.resources.ResourceQuantity
 import app.mcorg.domain.pipeline.Result
-import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.minecraft.extract.getResult
 import app.mcorg.pipeline.minecraft.extract.objectResult
 import app.mcorg.pipeline.minecraft.extract.primitiveResult
