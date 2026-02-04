@@ -17,7 +17,10 @@ import app.mcorg.pipeline.project.settings.handleUpdateProjectName
 import app.mcorg.pipeline.project.settings.handleUpdateProjectType
 import app.mcorg.pipeline.resources.handleCreateResourceGatheringItem
 import app.mcorg.pipeline.resources.handleDeleteResourceGatheringItem
+import app.mcorg.pipeline.resources.handleExpandPathNode
 import app.mcorg.pipeline.resources.handleFindIdeasForResource
+import app.mcorg.pipeline.resources.handlePreviewPath
+import app.mcorg.pipeline.resources.handleSelectResourcePath
 import app.mcorg.pipeline.resources.handleUpdateRequirementProgress
 import app.mcorg.pipeline.task.handleCompleteActionTask
 import app.mcorg.pipeline.task.handleCreateActionTask
@@ -109,6 +112,17 @@ class WorldHandler {
                                     }
                                     get("/matching-ideas") {
                                         call.handleFindIdeasForResource()
+                                    }
+                                    get("/select-path") {
+                                        call.handleSelectResourcePath()
+                                    }
+                                    route("/select-path") {
+                                        get("/expand") {
+                                            call.handleExpandPathNode()
+                                        }
+                                        get("/preview") {
+                                            call.handlePreviewPath()
+                                        }
                                     }
                                     delete {
                                         call.handleDeleteResourceGatheringItem()

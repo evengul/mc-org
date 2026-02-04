@@ -25,7 +25,7 @@ val serverFilesPipeline = Pipeline.create<AppFailure, Unit>()
     .pipe(FilterAlreadyStoredVersionsStep)
     .pipe(ProcessServerFilesStep)
 
-private data object GetServerUrlsStep : Step<List<MinecraftVersion.Release>, AppFailure, List<Pair<MinecraftVersion.Release, URI>>> {
+data object GetServerUrlsStep : Step<List<MinecraftVersion.Release>, AppFailure, List<Pair<MinecraftVersion.Release, URI>>> {
     override suspend fun process(input: List<MinecraftVersion.Release>): Result<AppFailure, List<Pair<MinecraftVersion.Release, URI>>> {
         val logger = LoggerFactory.getLogger(this.javaClass)
         return GithubGistsApiConfig.getProvider().getRaw<Unit>(
@@ -103,18 +103,24 @@ private data object AllFileMigrationsCompletedStep : Step<List<MinecraftVersion.
                        CASE
                            WHEN mi.version IS NULL THEN FALSE
                            ELSE TRUE
-                       END AS items_migrated
+                       END AS items_migrated,
+                       CASE
+                           WHEN g.minecraft_version IS NULL THEN FALSE
+                           ELSE TRUE
+                       END AS graph_migrated
                 FROM minecraft_version mv
                 LEFT JOIN minecraft_items mi ON mv.version = mi.version
+                LEFT JOIN item_graph g ON mv.version = g.minecraft_version
             """.trimIndent()),
             resultMapper = { resultSet ->
                 val migrationStatus = mutableMapOf<MinecraftVersion.Release, Boolean>()
                 while (resultSet.next()) {
                     val versionString = resultSet.getString("version")
                     val itemsMigrated = resultSet.getBoolean("items_migrated")
+                    val graphMigrated = resultSet.getBoolean("graph_migrated")
                     try {
                         val version = MinecraftVersion.Release.fromString(versionString)
-                        migrationStatus[version] = itemsMigrated
+                        migrationStatus[version] = itemsMigrated && graphMigrated
                     } catch (e: IllegalArgumentException) {
                         logger.error("Invalid version format in database: $versionString", e)
                     }
@@ -137,7 +143,7 @@ private data object ProcessServerFilesStep : Step<List<Pair<MinecraftVersion.Rel
     override suspend fun process(input: List<Pair<MinecraftVersion.Release, URI>>): Result<AppFailure, Unit> {
         val processServerFilePipeline = Pipeline.create<AppFailure, Pair<MinecraftVersion.Release, URI>>()
             .pipe(GetServerFileStep)
-            .pipe(ExtractRelevantMinecraftFilesStep)
+            .pipe(ExtractRelevantMinecraftFilesStep())
             .pipe(ExtractMinecraftDataStep)
             .pipe(StoreMinecraftDataStep)
 
@@ -167,7 +173,7 @@ private data object ProcessServerFilesStep : Step<List<Pair<MinecraftVersion.Rel
     }
 }
 
-private data object GetServerFileStep : Step<Pair<MinecraftVersion.Release, URI>, AppFailure, Pair<MinecraftVersion.Release, InputStream>> {
+data object GetServerFileStep : Step<Pair<MinecraftVersion.Release, URI>, AppFailure, Pair<MinecraftVersion.Release, InputStream>> {
     private val logger = LoggerFactory.getLogger(GetServerFileStep::class.java)
     override suspend fun process(input: Pair<MinecraftVersion.Release, URI>): Result<AppFailure, Pair<MinecraftVersion.Release, InputStream>> {
         return try {
@@ -181,7 +187,9 @@ private data object GetServerFileStep : Step<Pair<MinecraftVersion.Release, URI>
     }
 }
 
-private data object ExtractRelevantMinecraftFilesStep : Step<Pair<MinecraftVersion.Release, InputStream>, AppFailure, Pair<MinecraftVersion.Release, Path>> {
+data class ExtractRelevantMinecraftFilesStep(
+    val dirCreator: (String) -> Path = { versionString -> Files.createTempDirectory("minecraft-server-$versionString") }
+) : Step<Pair<MinecraftVersion.Release, InputStream>, AppFailure, Pair<MinecraftVersion.Release, Path>> {
     private val logger = LoggerFactory.getLogger(ExtractRelevantMinecraftFilesStep::class.java)
 
     override suspend fun process(input: Pair<MinecraftVersion.Release, InputStream>): Result<AppFailure, Pair<MinecraftVersion.Release, Path>> {
@@ -192,7 +200,7 @@ private data object ExtractRelevantMinecraftFilesStep : Step<Pair<MinecraftVersi
         try {
             // Create temp directory for extracted files
             val outputDir = withContext(Dispatchers.IO) {
-                Files.createTempDirectory("minecraft-server-$versionString")
+                dirCreator(versionString)
             }
 
             // Open outer JAR
@@ -261,7 +269,9 @@ private data object ExtractRelevantMinecraftFilesStep : Step<Pair<MinecraftVersi
                 entryName.startsWith("data/minecraft/tags/items/") ||       // pre-1.21
                 entryName.startsWith("data/minecraft/tags/blocks/") ||      // pre-1.21
                 entryName.startsWith("data/minecraft/recipe/") ||
-                entryName.startsWith("data/minecraft/loot_table/")
+                entryName.startsWith("data/minecraft/recipes/") ||          // pre-1.21
+                entryName.startsWith("data/minecraft/loot_table/") ||
+                entryName.startsWith("data/minecraft/loot_tables/")         // pre-1.21
     }
 
     private fun extractEntry(zipStream: ZipInputStream, entryName: String, outputDir: Path) {
@@ -271,7 +281,7 @@ private data object ExtractRelevantMinecraftFilesStep : Step<Pair<MinecraftVersi
                 outputDir.resolve("lang").resolve(entryName.substringAfter("assets/minecraft/lang/"))
             }
             entryName.startsWith("data/minecraft/") -> {
-                outputDir.resolve("data").resolve(entryName.substringAfter("data/minecraft/"))
+                outputDir.resolve(entryName.substringAfter("data/minecraft/"))
             }
             else -> return
         }

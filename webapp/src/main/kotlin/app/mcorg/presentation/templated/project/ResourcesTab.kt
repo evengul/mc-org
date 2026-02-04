@@ -6,6 +6,8 @@ import app.mcorg.domain.model.project.ProjectProduction
 import app.mcorg.domain.model.project.ProjectStage
 import app.mcorg.domain.model.resources.ResourceGatheringItem
 import app.mcorg.domain.model.user.TokenProfile
+import app.mcorg.domain.services.ProductionBranch
+import app.mcorg.domain.services.ProductionTree
 import app.mcorg.pipeline.resources.FoundIdea
 import app.mcorg.presentation.hxDeleteWithConfirm
 import app.mcorg.presentation.hxGet
@@ -14,6 +16,7 @@ import app.mcorg.presentation.hxPost
 import app.mcorg.presentation.hxSwap
 import app.mcorg.presentation.hxTarget
 import app.mcorg.presentation.hxTargetError
+import app.mcorg.presentation.hxTrigger
 import app.mcorg.presentation.templated.common.button.IconButtonColor
 import app.mcorg.presentation.templated.common.button.actionButton
 import app.mcorg.presentation.templated.common.button.ghostButton
@@ -231,13 +234,14 @@ fun LI.projectResourceGatheringItem(worldId: Int, projectId: Int, item: Resource
                 + "Farmable with ${item.solvedByProject.second}"
             }
         } else {
-            ghostButton("Find Farm Ideas") {
+            ghostButton("Select Resource Path") {
                 iconLeft = Icons.Search
                 iconSize = IconSize.SMALL
                 buttonBlock = {
-                    hxGet("/app/worlds/$worldId/projects/$projectId/resources/gathering/${item.id}/matching-ideas")
-                    hxTarget("#found-ideas-for-task-${item.id}")
+                    hxGet("/app/worlds/$worldId/projects/$projectId/resources/gathering/${item.id}/select-path?depth=2&maxBranches=3")
+                    hxTarget("#found-paths-for-gathering-${item.id}")
                     hxSwap("innerHTML")
+                    attributes["hx-on::before-request"] = "window.clearAllPathSelectors();"
                 }
             }
         }
@@ -253,6 +257,10 @@ fun LI.projectResourceGatheringItem(worldId: Int, projectId: Int, item: Resource
                 hxSwap("delete")
             }
         }
+    }
+
+    div("project-resources-collection-found-paths") {
+        foundPaths(worldId, projectId, item.id)
     }
 
     div("project-resources-collection-found-ideas") {
@@ -383,6 +391,44 @@ private fun DIV.addResourcesActions(worldId: Int, projectId: Int, gatheringId: I
                     hxPatch("/app/worlds/$worldId/projects/$projectId/resources/gathering/$gatheringId/done-more")
                     hxTarget("#resource-gathering-item-${gatheringId}-progress")
                     hxSwap("outerHTML")
+                }
+            }
+        }
+    }
+}
+
+fun DIV.foundPaths(worldId: Int, projectId: Int, gatheringId: Int, paths: ProductionTree? = null) {
+    id = "found-paths-for-gathering-$gatheringId"
+    if (paths != null) {
+        p {
+            + "Paths to produce ${paths.targetItem.itemId}"
+        }
+        ul {
+            paths.sources.forEach { branch ->
+                li {
+                    foundPathItem(worldId, projectId, gatheringId, branch)
+                }
+            }
+        }
+    }
+}
+
+private fun LI.foundPathItem(worldId: Int, projectId: Int, gatheringId: Int, branch: ProductionBranch) {
+    hxGet("/app/worlds/$worldId/projects/$projectId/resources/gathering/$gatheringId/resource-paths?maxDepth=${branch.getDepth() + 1}")
+    hxTarget("#found-paths-for-gathering-$gatheringId")
+    hxSwap("innerHTML")
+    hxTrigger("click")
+    + "Source: ${branch.source.sourceType.name}"
+    ul {
+        branch.requiredItems.filter { it.sources.isNotEmpty() }.forEach { tree ->
+            p {
+                + "Paths to produce ${tree.targetItem.itemId}"
+            }
+            ul {
+                tree.sources.forEach { subBranch ->
+                    li {
+                        foundPathItem(worldId, projectId, gatheringId, subBranch)
+                    }
                 }
             }
         }

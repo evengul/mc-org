@@ -6,6 +6,7 @@ import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.minecraft.extract.ExtractItemsStep
+import app.mcorg.pipeline.minecraft.extract.ExtractResourceSources
 import org.slf4j.LoggerFactory
 import java.io.IOException
 import java.nio.file.Path
@@ -13,16 +14,26 @@ import java.nio.file.Path
 data object ExtractMinecraftDataStep : Step<Pair<MinecraftVersion.Release, Path>, AppFailure, ServerData> {
     override suspend fun process(input: Pair<MinecraftVersion.Release, Path>): Result<AppFailure, ServerData> {
         try {
-            val result = ExtractItemsStep.process(input)
+            val items = ExtractItemsStep.process(input)
+            val itemSources = ExtractResourceSources.process(input)
 
-            if (result is Result.Failure) {
-                return result
+            if (items is Result.Failure) {
+                return items
             }
+
+            if (itemSources is Result.Failure) {
+                return itemSources
+            }
+
+            val allItems = items.getOrThrow() + itemSources.getOrThrow().second.flatMap {
+                source -> source.requiredItems + source.producedItems
+            }.distinctBy { it.id }
 
             return Result.success(
                 ServerData(
                     version = input.first,
-                    items = result.getOrNull() ?: emptyList()
+                    items = allItems,
+                    sources = itemSources.getOrThrow().second
                 )
             )
         } finally {

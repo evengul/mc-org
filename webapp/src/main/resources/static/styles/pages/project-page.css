@@ -431,3 +431,198 @@ main.project {
         margin-block-end: var(--spacing-sm);
     }
 }
+
+/* ========================================
+   Path Selector Components
+   ======================================== */
+
+.path-selector {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    padding: var(--spacing-md);
+    background-color: var(--clr-bg-subtle);
+    border-radius: var(--border-radius-md);
+    margin-top: var(--spacing-sm);
+}
+
+.path-breadcrumb {
+    padding: var(--spacing-sm);
+    background-color: var(--clr-bg-default);
+    border-radius: var(--border-radius-sm);
+    border-left: 3px solid var(--clr-action);
+}
+
+.path-breadcrumb__list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    font-size: var(--text-sm);
+}
+
+.path-breadcrumb__item {
+    display: inline;
+}
+
+.path-breadcrumb__current {
+    font-weight: bold;
+    color: var(--clr-action);
+}
+
+.path-selector__tree h3 {
+    margin-bottom: var(--spacing-sm);
+    color: var(--clr-text-default);
+}
+
+.path-selector__branches {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.path-node {
+    border: 1px solid var(--clr-border);
+    border-radius: var(--border-radius-sm);
+    background-color: var(--clr-bg-default);
+    overflow: hidden;
+    transition: all 0.2s ease;
+}
+
+.path-node:hover {
+    border-color: var(--clr-action);
+    box-shadow: var(--shadow-sm);
+}
+
+.path-node--selected {
+    border-color: var(--clr-success);
+    background-color: var(--clr-success, rgba(76, 175, 80, 0.1));
+}
+
+.path-node__header {
+    padding: var(--spacing-sm);
+}
+
+.path-node__button {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    text-align: left;
+    color: inherit;
+    font-size: var(--text-md);
+}
+
+.path-node__icon {
+    font-size: var(--text-lg);
+    flex-shrink: 0;
+}
+
+.path-node__name {
+    flex-grow: 1;
+    font-weight: 500;
+}
+
+.path-node__count {
+    font-size: var(--text-sm);
+    padding: var(--spacing-xs) var(--spacing-sm);
+}
+
+.path-node__check {
+    color: var(--clr-success);
+    font-weight: bold;
+    font-size: var(--text-lg);
+}
+
+.path-node__requirements {
+    padding: var(--spacing-sm);
+    padding-top: 0;
+    border-top: 1px solid var(--clr-border);
+    background-color: var(--clr-bg-subtle);
+}
+
+.path-requirement {
+    padding: var(--spacing-sm);
+    background-color: var(--clr-bg-default);
+    border-radius: var(--border-radius-sm);
+    border: 1px solid var(--clr-border);
+}
+
+.path-requirement__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.path-summary {
+    padding: var(--spacing-md);
+    background-color: var(--clr-bg-default);
+    border-radius: var(--border-radius-sm);
+    border: 1px solid var(--clr-border);
+}
+
+.path-summary h4 {
+    margin-top: 0;
+    margin-bottom: var(--spacing-sm);
+    color: var(--clr-text-default);
+}
+
+.path-summary__stats {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: var(--spacing-xs) var(--spacing-sm);
+    margin-bottom: var(--spacing-md);
+}
+
+.path-summary__stats dt {
+    font-weight: 500;
+    color: var(--clr-text-subtle);
+}
+
+.path-summary__stats dd {
+    margin: 0;
+    text-align: right;
+    font-weight: bold;
+}
+
+.path-summary__actions {
+    display: flex;
+    justify-content: flex-end;
+}
+
+.path-selector__more-options {
+    margin-top: var(--spacing-sm);
+    font-style: italic;
+}
+
+/* Mobile responsiveness */
+@media (max-width: 768px) {
+    .path-breadcrumb__list {
+        flex-direction: column;
+    }
+
+    .path-requirement__header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .path-summary__stats {
+        grid-template-columns: 1fr;
+        gap: var(--spacing-xs);
+    }
+
+    .path-summary__stats dd {
+        text-align: left;
+    }
+}
+

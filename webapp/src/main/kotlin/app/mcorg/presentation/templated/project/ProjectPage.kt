@@ -78,7 +78,7 @@ fun projectPage(
 ) = createPage(
     user = user,
     pageTitle = data.project.name,
-    pageScripts = setOf(PageScript.SEARCHABLE_SELECT),
+    pageScripts = setOf(PageScript.SEARCHABLE_SELECT, PageScript.RESOURCE_PATH_SELECTOR),
     unreadNotificationCount = unreadNotifications,
     breadcrumbs = breadcrumbs
 ) {
