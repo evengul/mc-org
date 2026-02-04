@@ -26,7 +26,7 @@ data object ExtractMinecraftDataStep : Step<Pair<MinecraftVersion.Release, Path>
             }
 
             val allItems = items.getOrThrow() + itemSources.getOrThrow().second.flatMap {
-                source -> source.requiredItems + source.producedItems
+                source -> source.requiredItems.map { it.first } + source.producedItems.map { it.first }
             }.distinctBy { it.id }
 
             return Result.success(

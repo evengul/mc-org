@@ -12,8 +12,8 @@ import org.slf4j.LoggerFactory
 data class ResourceSource(
     val type: SourceType,
     val filename: String,
-    val requiredItems: List<MinecraftId> = emptyList(),
-    val producedItems: List<MinecraftId> = emptyList()
+    val requiredItems: List<Pair<MinecraftId, ResourceQuantity>> = emptyList(),
+    val producedItems: List<Pair<MinecraftId, ResourceQuantity>> = emptyList()
 ) {
 
     @Serializable(with = SourceType.Companion.SourceTypeSerializer::class)

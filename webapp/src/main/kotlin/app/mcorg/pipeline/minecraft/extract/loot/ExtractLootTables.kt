@@ -39,24 +39,28 @@ data object ExtractLootTables : ParseFilesRecursivelyStep<ResourceSource>() {
             .map { sources ->
                 sources.map { source ->
                     source.copy(
-                        producedItems = source.producedItems.map { item ->
-                            when (item) {
-                                is MinecraftTag -> item.copy(
-                                    name = ExtractTagsStep.getNameOfTag(item.id),
-                                    content = ExtractTagsStep.getContentOfTag(version, item.id)
-                                        .map { Item(it, ExtractNamesStep.getName(input, it)) }
+                        producedItems = source.producedItems.map { itemAndQuantity ->
+                            when (val item = itemAndQuantity.first) {
+                                is MinecraftTag -> itemAndQuantity.copy(
+                                    first = item.copy(
+                                        name = ExtractTagsStep.getNameOfTag(itemAndQuantity.first.id),
+                                        content = ExtractTagsStep.getContentOfTag(version, itemAndQuantity.first.id)
+                                            .map { Item(it, ExtractNamesStep.getName(input, it)) }
+                                    )
                                 )
-                                is Item -> item.copy(
-                                    name = ExtractNamesStep.getName(input, item.id)
+                                is Item -> itemAndQuantity.copy(
+                                    first = item.copy(
+                                        name = ExtractNamesStep.getName(input, itemAndQuantity.first.id)
+                                    )
                                 )
                             }
                         }
                     )
-                }
+                }.filter { it.type != ResourceSource.SourceType.RecipeTypes.IGNORED && it.producedItems.isNotEmpty() }
             }
     }
 
-    override suspend fun parseFile(content: String, filename: String): Result<AppFailure, List<ResourceSource>> {
+    override suspend fun parseFile(content: String, filename: String): Result<AppFailure, ResourceSource> {
         val json = try {
             Json.parseToJsonElement(content)
         } catch (e: Exception) {
@@ -92,6 +96,6 @@ data object ExtractLootTables : ParseFilesRecursivelyStep<ResourceSource>() {
                 logger.warn("Unknown loot table type: $type")
                 Result.failure(AppFailure.FileError(javaClass, filename))
             }
-        }.mapSuccess { if (it.producedItems.isNotEmpty()) listOf(it) else emptyList() }
+        }
     }
 }

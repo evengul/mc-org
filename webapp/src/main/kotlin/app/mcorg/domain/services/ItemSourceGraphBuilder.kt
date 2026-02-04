@@ -79,13 +79,13 @@ object ItemSourceGraphBuilder {
 
         // Connect required items to source (inputs)
         for (requiredItem in source.requiredItems) {
-            val itemNode = builder.addItemNode(requiredItem.id)
+            val itemNode = builder.addItemNode(requiredItem.first.id)
             builder.addItemToSourceEdge(itemNode, sourceNode)
         }
 
         // Connect source to produced items (outputs)
         for (producedItem in source.producedItems) {
-            val itemNode = builder.addItemNode(producedItem.id)
+            val itemNode = builder.addItemNode(producedItem.first.id)
             builder.addSourceToItemEdge(sourceNode, itemNode)
         }
     }
@@ -107,8 +107,8 @@ object ItemSourceGraphBuilder {
 
         for (source in sources) {
             // Count items
-            source.requiredItems.forEach { uniqueItems.add(it.id) }
-            source.producedItems.forEach { uniqueItems.add(it.id) }
+            source.requiredItems.forEach { uniqueItems.add(it.first.id) }
+            source.producedItems.forEach { uniqueItems.add(it.first.id) }
 
             // Count by source type
             sourceTypeCount[source.type.id] = sourceTypeCount.getOrDefault(source.type.id, 0) + 1

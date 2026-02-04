@@ -3,6 +3,7 @@ package app.mcorg.pipeline.minecraft.extract.recipe
 import app.mcorg.domain.model.minecraft.Item
 import app.mcorg.domain.model.minecraft.MinecraftVersion
 import app.mcorg.domain.model.minecraft.MinecraftVersionRange
+import app.mcorg.domain.model.resources.ResourceQuantity
 import app.mcorg.pipeline.minecraft.extract.ServerFileTest
 import app.mcorg.test.utils.TestUtils
 import org.junit.jupiter.api.TestInstance
@@ -10,6 +11,7 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
 import java.nio.file.Path
 import kotlin.test.assertEquals
+import kotlin.test.assertIsNot
 import kotlin.test.assertNotEquals
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -38,22 +40,29 @@ class ExtractRecipesStepTest : ServerFileTest(
         recipes.forEach { recipe ->
             recipe.requiredItems.forEach { item ->
                 // Ensure names have been resolved
-                assertNotEquals("", item.name)
-                assertNotEquals(item.id, item.name)
+                assertNotEquals("", item.first.name)
+                assertNotEquals(item.first.id, item.first.name)
+
+                // TODO: Ensure item quantity have been resolved
+                assertIsNot<ResourceQuantity.Unknown>(item.second)
 
                 // Ensure no item ids with tag references exist
-                if (item is Item) {
-                    assertNotEquals('#', item.id.first())
+                if (item.first is Item) {
+                    assertNotEquals('#', item.first.id.first())
                 }
             }
+
             recipe.producedItems.forEach { item ->
                 // Ensure names have been resolved
-                assertNotEquals("", item.name)
-                assertNotEquals(item.id, item.name)
+                assertNotEquals("", item.first.name)
+                assertNotEquals(item.first.id, item.first.name)
+
+                // TODO: Ensure item quantity have been resolved
+                assertIsNot<ResourceQuantity.Unknown>(item.second)
 
                 // Ensure no item ids with tag references exist
-                if (item is Item) {
-                    assertNotEquals('#', item.id.first())
+                if (item.first is Item) {
+                    assertNotEquals('#', item.first.id.first())
                 }
             }
         }

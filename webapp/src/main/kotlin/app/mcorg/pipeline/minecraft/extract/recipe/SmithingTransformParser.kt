@@ -15,7 +15,7 @@ object SmithingTransformParser {
     suspend fun parse(
         json: JsonElement,
         filename: String
-    ) : Result<AppFailure, List<ResourceSource>> {
+    ) : Result<AppFailure, ResourceSource> {
         val base = json.objectResult(filename).flatMap { it.getResult("base", filename) }.flatMap { it.primitiveResult(filename).mapSuccess { p -> p.content } }
             .recover { json.objectResult(filename).flatMap { it.getResult("base", filename) }.flatMap { it.objectResult(filename) }.flatMap { it.getResult("key", filename) }.flatMap { it.primitiveResult(filename).mapSuccess { p -> p.content } } }
             .recover { json.objectResult(filename).flatMap { it.getResult("base", filename) }.flatMap { it.objectResult(filename) }.flatMap { it.getResult("item", filename) }.flatMap { it.primitiveResult(filename).mapSuccess { p -> p.content } } }
@@ -26,28 +26,21 @@ object SmithingTransformParser {
 
         if (base is Result.Failure || addition is Result.Failure || result is Result.Failure) {
             logger.warn("Smithing transform recipe missing base, addition, or result id in $filename")
-            return Result.success(
-                listOf(
-                    ResourceSource(
-                        type = ResourceSource.SourceType.UNKNOWN,
-                        filename = filename
-                    )
-                )
-            )
+            return Result.failure(AppFailure.FileError(ExtractRecipesStep.javaClass, filename))
         }
 
+        val resultQuantity = RecipeQuantityParser.parseResultQuantity(json, filename)
+
         return Result.success(
-            listOf(
-                ResourceSource(
-                    type = ResourceSource.SourceType.RecipeTypes.SMITHING_TRANSFORM,
-                    filename = filename,
-                    requiredItems = listOf(
-                        MinecraftIdFactory.minecraftIdFromId(base.getOrThrow()),
-                        MinecraftIdFactory.minecraftIdFromId(addition.getOrThrow())
-                    ),
-                    producedItems = listOf(
-                        MinecraftIdFactory.minecraftIdFromId(result.getOrThrow())
-                    )
+            ResourceSource(
+                type = ResourceSource.SourceType.RecipeTypes.SMITHING_TRANSFORM,
+                filename = filename,
+                requiredItems = listOf(
+                    MinecraftIdFactory.minecraftIdFromId(base.getOrThrow()) to RecipeQuantityParser.ingredientQuantity(),
+                    MinecraftIdFactory.minecraftIdFromId(addition.getOrThrow()) to RecipeQuantityParser.ingredientQuantity()
+                ),
+                producedItems = listOf(
+                    MinecraftIdFactory.minecraftIdFromId(result.getOrThrow()) to resultQuantity
                 )
             )
         )

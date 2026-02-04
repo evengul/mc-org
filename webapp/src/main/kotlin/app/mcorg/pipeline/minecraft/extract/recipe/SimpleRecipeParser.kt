@@ -22,7 +22,7 @@ object SimpleRecipeParser {
         json: JsonElement,
         sourceType: ResourceSource.SourceType,
         filename: String
-    ): Result<AppFailure, List<ResourceSource>> {
+    ): Result<AppFailure, ResourceSource> {
         val ingredient = json.objectResult(filename)
             .flatMap { it.getResult("ingredient", filename) }
             .flatMap { ingredient ->
@@ -58,25 +58,18 @@ object SimpleRecipeParser {
 
         if (ingredient is Result.Failure || result is Result.Failure) {
             logger.warn("Smelting recipe missing ingredient or result id in $filename")
-            return Result.success(
-                listOf(
-                    ResourceSource(
-                        type = ResourceSource.SourceType.UNKNOWN,
-                        filename = filename
-                    )
-                )
-            )
+            return Result.failure(AppFailure.FileError(ExtractRecipesStep.javaClass, filename))
         }
 
+        val resultQuantity = RecipeQuantityParser.parseResultQuantity(json, filename)
+
         return Result.success(
-            listOf(
-                ResourceSource(
-                    type = sourceType,
-                    filename = filename,
-                    requiredItems = ingredient.getOrThrow().map { MinecraftIdFactory.minecraftIdFromId(it) },
-                    producedItems = listOf(
-                        MinecraftIdFactory.minecraftIdFromId(result.getOrThrow())
-                    )
+            ResourceSource(
+                type = sourceType,
+                filename = filename,
+                requiredItems = ingredient.getOrThrow().map { MinecraftIdFactory.minecraftIdFromId(it) to RecipeQuantityParser.ingredientQuantity() },
+                producedItems = listOf(
+                    MinecraftIdFactory.minecraftIdFromId(result.getOrThrow()) to resultQuantity
                 )
             )
         )

@@ -2,6 +2,7 @@ package app.mcorg.pipeline.minecraft.extract.loot
 
 import app.mcorg.domain.model.minecraft.Item
 import app.mcorg.domain.model.minecraft.MinecraftTag
+import app.mcorg.domain.model.resources.ResourceQuantity
 import app.mcorg.domain.model.resources.ResourceSource
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.pipeline.failure.AppFailure
@@ -29,7 +30,7 @@ data class LootTableParser(
         val type = json.objectResult(filename)
             .flatMap { it.getResult("type", filename) }
             .flatMap { it.primitiveResult(filename) }
-            .flatMap { ResourceSource.SourceType.of(it.content)?.let { type -> app.mcorg.domain.pipeline.Result.success(type) } ?: app.mcorg.domain.pipeline.Result.failure(
+            .flatMap { ResourceSource.SourceType.of(it.content)?.let { type -> Result.success(type) } ?: Result.failure(
                 AppFailure.FileError(ExtractLootTables.javaClass, filename))
             }
 
@@ -67,12 +68,12 @@ data class LootTableParser(
                         id = id,
                         name = "",
                         content = emptyList()
-                    )
+                    ) to ResourceQuantity.Unknown
                 } else {
                     Item(
                         id = id,
                         name = ""
-                    )
+                    ) to ResourceQuantity.Unknown
                 }
             }
         ))

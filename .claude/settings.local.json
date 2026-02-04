@@ -1,6 +1,9 @@
 {
   "permissions": {
     "allow": [
+      "Bash(mvn compile:*)",
+      "Bash(mvn test:*)",
+      "Bash(mvn clean install:*)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
       "Bash(git status:*)",

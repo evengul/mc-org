@@ -185,8 +185,8 @@ data class EntryParser(
                             logger.warn("Error parsing referenced loot table file at $lootTablePath for file: $filename")
                             sources
                         } else {
-                            Result.success(sources.getOrThrow().flatMap {
-                                it.producedItems.map { item -> item.id } + it.requiredItems.map { item -> item.id }
+                            Result.success(sources.getOrThrow().let {
+                                it.producedItems.map { item -> item.first.id } + it.requiredItems.map { item -> item.first.id }
                             }.toSet())
                         }
                     } else {

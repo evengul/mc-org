@@ -2,6 +2,7 @@ package app.mcorg.domain.services
 
 import app.mcorg.domain.model.minecraft.Item
 import app.mcorg.domain.model.resources.ItemSourceGraph
+import app.mcorg.domain.model.resources.ResourceQuantity
 import app.mcorg.domain.model.resources.ResourceSource
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -26,46 +27,46 @@ class ItemSourceGraphQueriesTest {
             ResourceSource(
                 type = ResourceSource.SourceType.RecipeTypes.CRAFTING_SHAPELESS,
                 filename = "oak_planks.json",
-                requiredItems = listOf(Item("minecraft:oak_log", "Oak Log")),
-                producedItems = listOf(Item("minecraft:oak_planks", "Oak Planks"))
+                requiredItems = listOf(Item("minecraft:oak_log", "Oak Log") to ResourceQuantity.Unknown),
+                producedItems = listOf(Item("minecraft:oak_planks", "Oak Planks") to ResourceQuantity.Unknown)
             ),
             // Sticks from planks
             ResourceSource(
                 type = ResourceSource.SourceType.RecipeTypes.CRAFTING_SHAPED,
                 filename = "stick.json",
-                requiredItems = listOf(Item("minecraft:oak_planks", "Oak Planks")),
-                producedItems = listOf(Item("minecraft:stick", "Stick"))
+                requiredItems = listOf(Item("minecraft:oak_planks", "Oak Planks") to ResourceQuantity.Unknown),
+                producedItems = listOf(Item("minecraft:stick", "Stick") to ResourceQuantity.Unknown)
             ),
             // Crafting table from planks
             ResourceSource(
                 type = ResourceSource.SourceType.RecipeTypes.CRAFTING_SHAPED,
                 filename = "crafting_table.json",
-                requiredItems = listOf(Item("minecraft:oak_planks", "Oak Planks")),
-                producedItems = listOf(Item("minecraft:crafting_table", "Crafting Table"))
+                requiredItems = listOf(Item("minecraft:oak_planks", "Oak Planks") to ResourceQuantity.Unknown),
+                producedItems = listOf(Item("minecraft:crafting_table", "Crafting Table") to ResourceQuantity.Unknown)
             ),
             // Diamond pickaxe from diamonds and sticks
             ResourceSource(
                 type = ResourceSource.SourceType.RecipeTypes.CRAFTING_SHAPED,
                 filename = "diamond_pickaxe.json",
                 requiredItems = listOf(
-                    Item("minecraft:diamond", "Diamond"),
-                    Item("minecraft:stick", "Stick")
+                    Item("minecraft:diamond", "Diamond") to ResourceQuantity.Unknown,
+                    Item("minecraft:stick", "Stick") to ResourceQuantity.Unknown
                 ),
-                producedItems = listOf(Item("minecraft:diamond_pickaxe", "Diamond Pickaxe"))
+                producedItems = listOf(Item("minecraft:diamond_pickaxe", "Diamond Pickaxe") to ResourceQuantity.Unknown)
             ),
             // Diamond from mining (leaf item - no inputs)
             ResourceSource(
                 type = ResourceSource.SourceType.LootTypes.BLOCK,
                 filename = "diamond_ore.json",
                 requiredItems = emptyList(),
-                producedItems = listOf(Item("minecraft:diamond", "Diamond"))
+                producedItems = listOf(Item("minecraft:diamond", "Diamond") to ResourceQuantity.Unknown)
             ),
             // Oak log from trees (leaf item - no inputs)
             ResourceSource(
                 type = ResourceSource.SourceType.LootTypes.BLOCK,
                 filename = "oak_log.json",
                 requiredItems = emptyList(),
-                producedItems = listOf(Item("minecraft:oak_log", "Oak Log"))
+                producedItems = listOf(Item("minecraft:oak_log", "Oak Log") to ResourceQuantity.Unknown)
             )
         )
 
@@ -203,20 +204,20 @@ class ItemSourceGraphQueriesTest {
             ResourceSource(
                 type = ResourceSource.SourceType.RecipeTypes.CRAFTING_SHAPED,
                 filename = "item_b.json",
-                requiredItems = listOf(Item("minecraft:item_a", "Item A")),
-                producedItems = listOf(Item("minecraft:item_b", "Item B"))
+                requiredItems = listOf(Item("minecraft:item_a", "Item A") to ResourceQuantity.Unknown),
+                producedItems = listOf(Item("minecraft:item_b", "Item B") to ResourceQuantity.Unknown)
             ),
             ResourceSource(
                 type = ResourceSource.SourceType.RecipeTypes.CRAFTING_SHAPED,
                 filename = "item_c.json",
-                requiredItems = listOf(Item("minecraft:item_b", "Item B")),
-                producedItems = listOf(Item("minecraft:item_c", "Item C"))
+                requiredItems = listOf(Item("minecraft:item_b", "Item B") to ResourceQuantity.Unknown),
+                producedItems = listOf(Item("minecraft:item_c", "Item C") to ResourceQuantity.Unknown)
             ),
             ResourceSource(
                 type = ResourceSource.SourceType.RecipeTypes.CRAFTING_SHAPED,
                 filename = "item_a.json",
-                requiredItems = listOf(Item("minecraft:item_c", "Item C")),
-                producedItems = listOf(Item("minecraft:item_a", "Item A"))
+                requiredItems = listOf(Item("minecraft:item_c", "Item C") to ResourceQuantity.Unknown),
+                producedItems = listOf(Item("minecraft:item_a", "Item A") to ResourceQuantity.Unknown)
             )
         )
 
@@ -306,20 +307,20 @@ class ItemSourceGraphQueriesTest {
             ResourceSource(
                 type = ResourceSource.SourceType.RecipeTypes.CRAFTING_SHAPELESS,
                 filename = "oak_planks.json",
-                requiredItems = listOf(Item("minecraft:oak_log", "Oak Log")),
-                producedItems = listOf(Item("minecraft:oak_planks", "Oak Planks"))
+                requiredItems = listOf(Item("minecraft:oak_log", "Oak Log") to ResourceQuantity.Unknown),
+                producedItems = listOf(Item("minecraft:oak_planks", "Oak Planks") to ResourceQuantity.Unknown)
             ),
             ResourceSource(
                 type = ResourceSource.SourceType.RecipeTypes.CRAFTING_SHAPELESS,
                 filename = "birch_planks.json",
-                requiredItems = listOf(Item("minecraft:birch_log", "Birch Log")),
-                producedItems = listOf(Item("minecraft:oak_planks", "Oak Planks"))
+                requiredItems = listOf(Item("minecraft:birch_log", "Birch Log") to ResourceQuantity.Unknown),
+                producedItems = listOf(Item("minecraft:oak_planks", "Oak Planks") to ResourceQuantity.Unknown)
             ),
             ResourceSource(
                 type = ResourceSource.SourceType.LootTypes.BLOCK,
                 filename = "birch_log.json",
                 requiredItems = emptyList(),
-                producedItems = listOf(Item("minecraft:birch_log", "Birch Log"))
+                producedItems = listOf(Item("minecraft:birch_log", "Birch Log") to ResourceQuantity.Unknown)
             )
         )
 
@@ -340,27 +341,27 @@ class ItemSourceGraphQueriesTest {
             ResourceSource(
                 type = ResourceSource.SourceType.RecipeTypes.CRAFTING_SHAPED,
                 filename = "direct.json",
-                requiredItems = listOf(Item("minecraft:item_a", "Item A")),
-                producedItems = listOf(Item("minecraft:item_b", "Item B"))
+                requiredItems = listOf(Item("minecraft:item_a", "Item A") to ResourceQuantity.Unknown),
+                producedItems = listOf(Item("minecraft:item_b", "Item B") to ResourceQuantity.Unknown)
             ),
             // Longer path: A -> X -> Y -> B
             ResourceSource(
                 type = ResourceSource.SourceType.RecipeTypes.CRAFTING_SHAPED,
                 filename = "step1.json",
-                requiredItems = listOf(Item("minecraft:item_a", "Item A")),
-                producedItems = listOf(Item("minecraft:item_x", "Item X"))
+                requiredItems = listOf(Item("minecraft:item_a", "Item A") to ResourceQuantity.Unknown),
+                producedItems = listOf(Item("minecraft:item_x", "Item X") to ResourceQuantity.Unknown)
             ),
             ResourceSource(
                 type = ResourceSource.SourceType.RecipeTypes.CRAFTING_SHAPED,
                 filename = "step2.json",
-                requiredItems = listOf(Item("minecraft:item_x", "Item X")),
-                producedItems = listOf(Item("minecraft:item_y", "Item Y"))
+                requiredItems = listOf(Item("minecraft:item_x", "Item X") to ResourceQuantity.Unknown),
+                producedItems = listOf(Item("minecraft:item_y", "Item Y") to ResourceQuantity.Unknown)
             ),
             ResourceSource(
                 type = ResourceSource.SourceType.RecipeTypes.CRAFTING_SHAPED,
                 filename = "step3.json",
-                requiredItems = listOf(Item("minecraft:item_y", "Item Y")),
-                producedItems = listOf(Item("minecraft:item_b", "Item B"))
+                requiredItems = listOf(Item("minecraft:item_y", "Item Y") to ResourceQuantity.Unknown),
+                producedItems = listOf(Item("minecraft:item_b", "Item B") to ResourceQuantity.Unknown)
             )
         )
 

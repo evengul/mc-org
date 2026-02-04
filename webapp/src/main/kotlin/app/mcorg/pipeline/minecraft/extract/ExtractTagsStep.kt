@@ -39,18 +39,16 @@ data object ExtractTagsStep : ParseFilesRecursivelyStep<Pair<String, List<String
     override suspend fun parseFile(
         content: String,
         filename: String
-    ): Result<AppFailure, List<Pair<String, List<String>>>> {
+    ): Result<AppFailure, Pair<String, List<String>>> {
         if (cache[version]?.containsKey(filename) == true) {
             return Result.success(
-                listOf(
-                    filename to (cache[version]?.get(filename) ?: emptyList())
-                )
+                filename to (cache[version]?.get(filename) ?: emptyList())
             )
         }
 
         if (content.isEmpty()) {
-            logger.warn("Empty recipe file: $filename")
-            return Result.success(emptyList())
+            logger.warn("Empty tag file: $filename")
+            return Result.failure(AppFailure.FileError(javaClass, filename))
         }
 
         mutexMap.computeIfAbsent(version) { Mutex() }.withLock {
@@ -68,9 +66,7 @@ data object ExtractTagsStep : ParseFilesRecursivelyStep<Pair<String, List<String
         }
 
         return Result.success(
-            listOf(
-                filename to (cache[version]?.get(filename) ?: emptyList())
-            )
+            filename to (cache[version]?.get(filename) ?: emptyList())
         )
     }
 }

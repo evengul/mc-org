@@ -32,16 +32,17 @@ data object ExtractRecipesStep : ParseFilesRecursivelyStep<ResourceSource>() {
         return super.process(version to ServerPathResolvers.resolveRecipesPath(basePath, version))
             .map { sources ->
                 sources.map { it.withNames(input) }
+                    .filter { it.producedItems.isNotEmpty() }
             }
     }
 
     private suspend fun ResourceSource.withNames(namesInput: Pair<MinecraftVersion.Release, Path>): ResourceSource {
         return this.copy(
             requiredItems = this.requiredItems.map { item ->
-                item.withNames(namesInput)
+                item.first.withNames(namesInput) to item.second
             },
             producedItems = this.producedItems.map { item ->
-                item.withNames(namesInput)
+                item.first.withNames(namesInput) to item.second
             }
         )
     }
@@ -66,17 +67,10 @@ data object ExtractRecipesStep : ParseFilesRecursivelyStep<ResourceSource>() {
     override suspend fun parseFile(
         content: String,
         filename: String
-    ): Result<AppFailure, List<ResourceSource>> {
+    ): Result<AppFailure, ResourceSource> {
         if (content.isEmpty()) {
             logger.warn("Empty recipe file: $filename")
-            return Result.success(
-                listOf(
-                    ResourceSource(
-                        type = ResourceSource.SourceType.UNKNOWN,
-                        filename = filename
-                    )
-                )
-            )
+            return Result.failure(AppFailure.FileError(javaClass, filename))
         }
         val json = try {
             Json.parseToJsonElement(content)
@@ -90,14 +84,7 @@ data object ExtractRecipesStep : ParseFilesRecursivelyStep<ResourceSource>() {
                 .mapSuccess { it.content }
             if (typeResult is Result.Failure) {
                 logger.warn("Recipe file $filename missing 'type' field")
-                return Result.success(
-                    listOf(
-                        ResourceSource(
-                            type = ResourceSource.SourceType.UNKNOWN,
-                            filename = filename
-                        )
-                    )
-                )
+                return Result.failure(AppFailure.FileError(this.javaClass, filename))
             }
             when (val type = typeResult.getOrThrow()) {
                 "minecraft:crafting_shaped" -> ShapedRecipeParser.parse(json, filename)
@@ -132,37 +119,26 @@ data object ExtractRecipesStep : ParseFilesRecursivelyStep<ResourceSource>() {
 
                 "minecraft:smithing_trim",
                 "minecraft:crafting_decorated_pot" -> Result.success(
-                    listOf(
-                        ResourceSource(
-                            type = ResourceSource.SourceType.RecipeTypes.IGNORED,
-                            filename = filename
-                        )
+                    ResourceSource(
+                        type = ResourceSource.SourceType.RecipeTypes.IGNORED,
+                        filename = filename
                     )
                 )
 
                 else -> {
                     if (type.contains("_special_")) {
                         Result.success(
-                            listOf(
-                                ResourceSource(
-                                    type = ResourceSource.SourceType.RecipeTypes.IGNORED,
-                                    filename = filename
-                                )
+                            ResourceSource(
+                                type = ResourceSource.SourceType.RecipeTypes.IGNORED,
+                                filename = filename
                             )
                         )
                     } else {
                         logger.warn("Unknown recipe type: $type in file $filename")
-                        Result.success(
-                            listOf(
-                                ResourceSource(
-                                    type = ResourceSource.SourceType.UNKNOWN,
-                                    filename = filename
-                                )
-                            )
-                        )
+                        Result.failure(AppFailure.FileError(this.javaClass, filename))
                     }
                 }
-            }.mapSuccess { fileSources -> fileSources.filter { source -> source.type != ResourceSource.SourceType.UNKNOWN && source.producedItems.isNotEmpty() } }
+            }
         } catch (e: Exception) {
             logger.error("Error parsing recipe file $filename", e)
             Result.failure(AppFailure.FileError(this.javaClass))

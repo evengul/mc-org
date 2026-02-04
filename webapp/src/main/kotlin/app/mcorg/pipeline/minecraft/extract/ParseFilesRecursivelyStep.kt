@@ -48,10 +48,7 @@ abstract class ParseFilesRecursivelyStep<T> : Step<Pair<MinecraftVersion.Release
             )
         }
 
-        val results = parsedResults
-            .filter { it is Result.Success<*> }
-            .map { it as Result.Success }
-            .flatMap { it.value }
+        val results = parsedResults.mapNotNull { (it as? Result.Success)?.value }
 
         return Result.Success(results)
     }
@@ -66,7 +63,7 @@ abstract class ParseFilesRecursivelyStep<T> : Step<Pair<MinecraftVersion.Release
         return try {
             if (!basePath.toFile().exists()) {
                 logger.warn("File does not exist: $basePath in version $version")
-                return Result.Success(emptyList())
+                return Result.Failure(AppFailure.FileError(this.javaClass, basePath.toString()))
             }
             val filePaths = Files.walk(basePath).use { paths ->
                 paths
@@ -85,5 +82,5 @@ abstract class ParseFilesRecursivelyStep<T> : Step<Pair<MinecraftVersion.Release
         return file.toFile().extension == "json"
     }
 
-    abstract suspend fun parseFile(content: String, filename: String): Result<AppFailure, List<T>>
+    abstract suspend fun parseFile(content: String, filename: String): Result<AppFailure, T>
 }

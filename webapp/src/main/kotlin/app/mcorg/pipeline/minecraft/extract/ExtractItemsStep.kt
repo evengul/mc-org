@@ -19,8 +19,8 @@ data object ExtractItemsStep : Step<Pair<MinecraftVersion.Release, Path>, AppFai
 
     override suspend fun process(input: Pair<MinecraftVersion.Release, Path>): Result<AppFailure, List<Item>> {
         val idsFromTags = buildSet {
-            addAll(GetItemIdsStep.process(input).getOrNull() ?: emptyList())
-            addAll(GetBlockIdsStep.process(input).getOrNull() ?: emptyList())
+            addAll(GetItemIdsStep.process(input).getOrNull()?.flatten() ?: emptyList())
+            addAll(GetBlockIdsStep.process(input).getOrNull()?.flatten() ?: emptyList())
         }
 
         if (idsFromTags.isEmpty()) {
@@ -37,8 +37,8 @@ data object ExtractItemsStep : Step<Pair<MinecraftVersion.Release, Path>, AppFai
 
 }
 
-private data object GetItemIdsStep : ParseFilesRecursivelyStep<String>() {
-    override suspend fun process(input: Pair<MinecraftVersion.Release, Path>): Result<AppFailure, List<String>> {
+private data object GetItemIdsStep : ParseFilesRecursivelyStep<List<String>>() {
+    override suspend fun process(input: Pair<MinecraftVersion.Release, Path>): Result<AppFailure, List<List<String>>> {
         return super.process(input.first to ServerPathResolvers.resolveItemTagsPath(input.second, input.first))
     }
 
@@ -47,8 +47,8 @@ private data object GetItemIdsStep : ParseFilesRecursivelyStep<String>() {
     }
 }
 
-private data object GetBlockIdsStep : ParseFilesRecursivelyStep<String>() {
-    override suspend fun process(input: Pair<MinecraftVersion.Release, Path>): Result<AppFailure, List<String>> {
+private data object GetBlockIdsStep : ParseFilesRecursivelyStep<List<String>>() {
+    override suspend fun process(input: Pair<MinecraftVersion.Release, Path>): Result<AppFailure, List<List<String>>> {
         return super.process(input.first to ServerPathResolvers.resolveBlockTagsPath(input.second, input.first))
     }
 

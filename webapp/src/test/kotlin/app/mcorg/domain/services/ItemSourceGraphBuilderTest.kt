@@ -2,6 +2,7 @@ package app.mcorg.domain.services
 
 import app.mcorg.domain.model.minecraft.Item
 import app.mcorg.domain.model.minecraft.MinecraftVersion
+import app.mcorg.domain.model.resources.ResourceQuantity
 import app.mcorg.domain.model.resources.ResourceSource
 import app.mcorg.pipeline.minecraft.extract.ExtractResourceSources
 import app.mcorg.test.utils.TestUtils
@@ -33,8 +34,8 @@ class ItemSourceGraphBuilderTest {
             ResourceSource(
                 type = ResourceSource.SourceType.RecipeTypes.CRAFTING_SHAPED,
                 filename = "stick.json",
-                requiredItems = listOf(Item("minecraft:oak_planks", "Oak Planks")),
-                producedItems = listOf(Item("minecraft:stick", "Stick"))
+                requiredItems = listOf(Item("minecraft:oak_planks", "Oak Planks") to ResourceQuantity.Unknown),
+                producedItems = listOf(Item("minecraft:stick", "Stick") to ResourceQuantity.Unknown)
             )
         )
 
@@ -63,20 +64,20 @@ class ItemSourceGraphBuilderTest {
             ResourceSource(
                 type = ResourceSource.SourceType.RecipeTypes.CRAFTING_SHAPELESS,
                 filename = "oak_planks.json",
-                requiredItems = listOf(Item("minecraft:oak_log", "Oak Log")),
-                producedItems = listOf(Item("minecraft:oak_planks", "Oak Planks"))
+                requiredItems = listOf(Item("minecraft:oak_log", "Oak Log") to ResourceQuantity.Unknown),
+                producedItems = listOf(Item("minecraft:oak_planks", "Oak Planks") to ResourceQuantity.Unknown)
             ),
             ResourceSource(
                 type = ResourceSource.SourceType.RecipeTypes.CRAFTING_SHAPED,
                 filename = "stick.json",
-                requiredItems = listOf(Item("minecraft:oak_planks", "Oak Planks")),
-                producedItems = listOf(Item("minecraft:stick", "Stick"))
+                requiredItems = listOf(Item("minecraft:oak_planks", "Oak Planks") to ResourceQuantity.Unknown),
+                producedItems = listOf(Item("minecraft:stick", "Stick") to ResourceQuantity.Unknown)
             ),
             ResourceSource(
                 type = ResourceSource.SourceType.RecipeTypes.CRAFTING_SHAPED,
                 filename = "crafting_table.json",
-                requiredItems = listOf(Item("minecraft:oak_planks", "Oak Planks")),
-                producedItems = listOf(Item("minecraft:crafting_table", "Crafting Table"))
+                requiredItems = listOf(Item("minecraft:oak_planks", "Oak Planks") to ResourceQuantity.Unknown),
+                producedItems = listOf(Item("minecraft:crafting_table", "Crafting Table") to ResourceQuantity.Unknown)
             )
         )
 
@@ -116,15 +117,15 @@ class ItemSourceGraphBuilderTest {
                 type = ResourceSource.SourceType.LootTypes.BLOCK,
                 filename = "diamond_ore.json",
                 requiredItems = emptyList(),
-                producedItems = listOf(Item("minecraft:diamond", "Diamond"))
+                producedItems = listOf(Item("minecraft:diamond", "Diamond") to ResourceQuantity.Unknown)
             ),
             ResourceSource(
                 type = ResourceSource.SourceType.LootTypes.CHEST,
                 filename = "stronghold_corridor.json",
                 requiredItems = emptyList(),
                 producedItems = listOf(
-                    Item("minecraft:diamond", "Diamond"),
-                    Item("minecraft:emerald", "Emerald")
+                    Item("minecraft:diamond", "Diamond") to ResourceQuantity.Unknown,
+                    Item("minecraft:emerald", "Emerald") to ResourceQuantity.Unknown
                 )
             )
         )
@@ -152,14 +153,14 @@ class ItemSourceGraphBuilderTest {
             ResourceSource(
                 type = ResourceSource.SourceType.RecipeTypes.CRAFTING_SHAPED,
                 filename = "stick.json",
-                requiredItems = listOf(Item("minecraft:oak_planks", "Oak Planks")),
-                producedItems = listOf(Item("minecraft:stick", "Stick"))
+                requiredItems = listOf(Item("minecraft:oak_planks", "Oak Planks") to ResourceQuantity.Unknown),
+                producedItems = listOf(Item("minecraft:stick", "Stick") to ResourceQuantity.Unknown)
             ),
             ResourceSource(
                 type = ResourceSource.SourceType.RecipeTypes.CRAFTING_SHAPED,
                 filename = "ladder.json",
-                requiredItems = listOf(Item("minecraft:stick", "Stick")),
-                producedItems = listOf(Item("minecraft:ladder", "Ladder"))
+                requiredItems = listOf(Item("minecraft:stick", "Stick") to ResourceQuantity.Unknown),
+                producedItems = listOf(Item("minecraft:ladder", "Ladder") to ResourceQuantity.Unknown)
             )
         )
 
@@ -185,20 +186,20 @@ class ItemSourceGraphBuilderTest {
             ResourceSource(
                 type = ResourceSource.SourceType.RecipeTypes.CRAFTING_SHAPED,
                 filename = "stick.json",
-                requiredItems = listOf(Item("minecraft:oak_planks", "Oak Planks")),
-                producedItems = listOf(Item("minecraft:stick", "Stick"))
+                requiredItems = listOf(Item("minecraft:oak_planks", "Oak Planks") to ResourceQuantity.Unknown),
+                producedItems = listOf(Item("minecraft:stick", "Stick") to ResourceQuantity.Unknown)
             ),
             ResourceSource(
                 type = ResourceSource.SourceType.LootTypes.CHEST,
                 filename = "chest.json",
                 requiredItems = emptyList(),
-                producedItems = listOf(Item("minecraft:diamond", "Diamond"))
+                producedItems = listOf(Item("minecraft:diamond", "Diamond") to ResourceQuantity.Unknown)
             ),
             ResourceSource(
                 type = ResourceSource.SourceType.RecipeTypes.SMELTING,
                 filename = "iron.json",
-                requiredItems = listOf(Item("minecraft:raw_iron", "Raw Iron")),
-                producedItems = listOf(Item("minecraft:iron_ingot", "Iron Ingot"))
+                requiredItems = listOf(Item("minecraft:raw_iron", "Raw Iron") to ResourceQuantity.Unknown),
+                producedItems = listOf(Item("minecraft:iron_ingot", "Iron Ingot") to ResourceQuantity.Unknown)
             )
         )
 
@@ -271,13 +272,13 @@ class ItemSourceGraphBuilderTest {
                 type = ResourceSource.SourceType.RecipeTypes.CRAFTING_SHAPED,
                 filename = "diamond_pickaxe.json",
                 requiredItems = listOf(
-                    Item("minecraft:diamond", "Diamond"),
-                    Item("minecraft:diamond", "Diamond"),
-                    Item("minecraft:diamond", "Diamond"),
-                    Item("minecraft:stick", "Stick"),
-                    Item("minecraft:stick", "Stick")
+                    Item("minecraft:diamond", "Diamond") to ResourceQuantity.Unknown,
+                    Item("minecraft:diamond", "Diamond") to ResourceQuantity.Unknown,
+                    Item("minecraft:diamond", "Diamond") to ResourceQuantity.Unknown,
+                    Item("minecraft:stick", "Stick") to ResourceQuantity.Unknown,
+                    Item("minecraft:stick", "Stick") to ResourceQuantity.Unknown
                 ),
-                producedItems = listOf(Item("minecraft:diamond_pickaxe", "Diamond Pickaxe"))
+                producedItems = listOf(Item("minecraft:diamond_pickaxe", "Diamond Pickaxe") to ResourceQuantity.Unknown)
             )
         )
 
@@ -301,8 +302,8 @@ class ItemSourceGraphBuilderTest {
             ResourceSource(
                 type = ResourceSource.SourceType.RecipeTypes.CRAFTING_SHAPED,
                 filename = "stick.json",
-                requiredItems = listOf(Item("minecraft:planks", "Planks")),
-                producedItems = listOf(Item("minecraft:stick", "Stick"))
+                requiredItems = listOf(Item("minecraft:planks", "Planks") to ResourceQuantity.Unknown),
+                producedItems = listOf(Item("minecraft:stick", "Stick") to ResourceQuantity.Unknown)
             )
         )
 

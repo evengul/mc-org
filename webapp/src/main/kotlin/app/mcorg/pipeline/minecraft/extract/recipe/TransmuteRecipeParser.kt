@@ -15,34 +15,27 @@ object TransmuteRecipeParser {
     suspend fun parse(
         json: JsonElement,
         filename: String
-    ) : Result<AppFailure, List<ResourceSource>> {
+    ) : Result<AppFailure, ResourceSource> {
         val input = json.objectResult(filename).flatMap { it.getResult("input", filename) }.flatMap { it.primitiveResult(filename).mapSuccess { p -> p.content } }
         val material = json.objectResult(filename).flatMap { it.getResult("material", filename) }.flatMap { it.primitiveResult(filename).mapSuccess { p -> p.content } }
         val result =  RecipeItemIdParser.parse(json, filename)
 
         if (input is Result.Failure || material is Result.Failure || result is Result.Failure) {
             logger.warn("Transmute recipe missing input, material, or result id in $filename")
-            return Result.success(
-                listOf(
-                    ResourceSource(
-                        type = ResourceSource.SourceType.UNKNOWN,
-                        filename = filename
-                    )
-                )
-            )
+            return Result.failure(AppFailure.FileError(ExtractRecipesStep.javaClass, filename))
         }
 
+        val resultQuantity = RecipeQuantityParser.parseResultQuantity(json, filename)
+
         return Result.success(
-            listOf(
-                ResourceSource(
-                    type = ResourceSource.SourceType.RecipeTypes.CRAFTING_TRANSMUTE,
-                    filename = filename,
-                    requiredItems = listOf(
-                        MinecraftIdFactory.minecraftIdFromId(input.getOrThrow()),
-                        MinecraftIdFactory.minecraftIdFromId(material.getOrThrow())
-                    ), producedItems = listOf(
-                        MinecraftIdFactory.minecraftIdFromId(result.getOrThrow())
-                    )
+            ResourceSource(
+                type = ResourceSource.SourceType.RecipeTypes.CRAFTING_TRANSMUTE,
+                filename = filename,
+                requiredItems = listOf(
+                    MinecraftIdFactory.minecraftIdFromId(input.getOrThrow()) to RecipeQuantityParser.ingredientQuantity(),
+                    MinecraftIdFactory.minecraftIdFromId(material.getOrThrow()) to RecipeQuantityParser.ingredientQuantity()
+                ), producedItems = listOf(
+                    MinecraftIdFactory.minecraftIdFromId(result.getOrThrow()) to resultQuantity
                 )
             )
         )
