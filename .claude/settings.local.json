@@ -5,7 +5,16 @@
       "Bash(git commit:*)",
       "Bash(git status:*)",
       "Bash(find:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(/home/evengul/dev/mc-org/webapp/scripts/start-db.sh)",
+      "Bash(/home/evengul/dev/mc-org/webapp/scripts/migrate-locally.sh:*)",
+      "Bash(/home/evengul/dev/mc-org/webapp/scripts/run.sh:*)",
+      "mcp__postgres__list_schemas",
+      "mcp__postgres__list_objects"
     ]
-  }
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "intelliJ"
+  ]
 }
