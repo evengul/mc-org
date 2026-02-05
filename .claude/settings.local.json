@@ -13,7 +13,8 @@
       "Bash(/home/evengul/dev/mc-org/webapp/scripts/migrate-locally.sh:*)",
       "Bash(/home/evengul/dev/mc-org/webapp/scripts/run.sh:*)",
       "mcp__postgres__list_schemas",
-      "mcp__postgres__list_objects"
+      "mcp__postgres__list_objects",
+      "Skill(playwright)"
     ]
   },
   "enableAllProjectMcpServers": true,
