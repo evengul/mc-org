@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+docker compose -f docker-compose-local.yaml up -d
+echo "Database started on localhost:5432"
