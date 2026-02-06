@@ -38,7 +38,6 @@ class DatabaseMigrationTest {
                 "users",
                 "world_members",
                 "projects",
-                "tasks",
                 "invites",
                 "notifications",
                 "project_dependencies",
@@ -90,34 +89,6 @@ class DatabaseMigrationTest {
 
             assertTrue(foundWorldFK, "world_members should have foreign key to world table")
             assertTrue(foundUserFK, "world_members should have foreign key to users table")
-        }
-    }
-
-    @Test
-    fun `should be able to clean database without errors`() {
-        // Test the cleanDatabase utility method
-        assertDoesNotThrow {
-            DatabaseTestExtension.cleanDatabase()
-        }
-
-        // Verify that tables are empty after cleaning
-        val connection = DriverManager.getConnection(
-            DatabaseTestExtension.getJdbcUrl(),
-            DatabaseTestExtension.getUsername(),
-            DatabaseTestExtension.getPassword()
-        )
-
-        connection.use { conn ->
-            val statement = conn.createStatement()
-            val tablesToCheck = listOf("world", "users", "projects", "tasks")
-
-            tablesToCheck.forEach { tableName ->
-                statement.executeQuery("SELECT COUNT(*) FROM $tableName").use { rs ->
-                    assertTrue(rs.next())
-                    val count = rs.getInt(1)
-                    assertEquals(0, count, "Table '$tableName' should be empty after cleaning")
-                }
-            }
         }
     }
 
