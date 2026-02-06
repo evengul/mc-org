@@ -9,7 +9,6 @@ import app.mcorg.test.utils.TestUtils
 import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
-import java.nio.file.Path
 import kotlin.test.assertEquals
 import kotlin.test.assertIsNot
 import kotlin.test.assertNotEquals
@@ -23,7 +22,7 @@ class ExtractRecipesStepTest : ServerFileTest(
     fun getRecipes(version: MinecraftVersion.Release) {
         val recipes = TestUtils.executeAndAssertSuccess(
             ExtractRecipesStep,
-            version to Path.of("src/test/resources/servers/extracted/${version.toString().replace(".0", "")}")
+            version to versionPath(version)
         )
 
         assertNotEquals(0, recipes.size)

@@ -7,7 +7,6 @@ import app.mcorg.test.utils.TestUtils
 import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
-import java.nio.file.Path
 import kotlin.test.assertIs
 import kotlin.test.assertNotEquals
 
@@ -20,7 +19,7 @@ class ExtractLootTablesTest : ServerFileTest() {
 
         val loot = TestUtils.executeAndAssertSuccess(
             ExtractLootTables,
-            version to Path.of("src/test/resources/servers/extracted/${version.toString().replace(".0", "")}")
+            version to versionPath(version)
         )
 
         assertNotEquals(0, loot.size)

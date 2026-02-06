@@ -3,6 +3,7 @@ package app.mcorg.pipeline.minecraft.extract.loot
 import app.mcorg.domain.model.minecraft.Item
 import app.mcorg.domain.model.minecraft.MinecraftTag
 import app.mcorg.domain.model.minecraft.MinecraftVersion
+import app.mcorg.domain.model.resources.ResourceQuantity
 import app.mcorg.domain.model.resources.ResourceSource
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.pipeline.failure.AppFailure
@@ -36,28 +37,30 @@ data object ExtractLootTables : ParseFilesRecursivelyStep<ResourceSource>() {
         ExtractTagsStep.process(input)
 
         return super.process(version to ServerPathResolvers.resolveLootTablesPath(basePath, version))
-            .map { sources ->
-                sources.map { source ->
-                    source.copy(
-                        producedItems = source.producedItems.map { itemAndQuantity ->
-                            when (val item = itemAndQuantity.first) {
-                                is MinecraftTag -> itemAndQuantity.copy(
-                                    first = item.copy(
-                                        name = ExtractTagsStep.getNameOfTag(itemAndQuantity.first.id),
-                                        content = ExtractTagsStep.getContentOfTag(version, itemAndQuantity.first.id)
-                                            .map { Item(it, ExtractNamesStep.getName(input, it)) }
-                                    )
-                                )
-                                is Item -> itemAndQuantity.copy(
-                                    first = item.copy(
-                                        name = ExtractNamesStep.getName(input, itemAndQuantity.first.id)
-                                    )
-                                )
-                            }
-                        }
-                    )
-                }.filter { it.type != ResourceSource.SourceType.RecipeTypes.IGNORED && it.producedItems.isNotEmpty() }
-            }
+            .map { addNames(input, it)+ hardcodedLoot() }
+    }
+
+    private suspend fun addNames(input: Pair<MinecraftVersion.Release, Path>, sources: List<ResourceSource>): List<ResourceSource> {
+        return sources.map { source ->
+            source.copy(
+                producedItems = source.producedItems.map { itemAndQuantity ->
+                    when (val item = itemAndQuantity.first) {
+                        is MinecraftTag -> itemAndQuantity.copy(
+                            first = item.copy(
+                                name = ExtractTagsStep.getNameOfTag(itemAndQuantity.first.id),
+                                content = ExtractTagsStep.getContentOfTag(version, itemAndQuantity.first.id)
+                                    .map { Item(it, ExtractNamesStep.getName(input, it)) }
+                            )
+                        )
+                        is Item -> itemAndQuantity.copy(
+                            first = item.copy(
+                                name = ExtractNamesStep.getName(input, itemAndQuantity.first.id)
+                            )
+                        )
+                    }
+                }
+            )
+        }.filter { it.type != ResourceSource.SourceType.RecipeTypes.IGNORED && it.producedItems.isNotEmpty() }
     }
 
     override suspend fun parseFile(content: String, filename: String): Result<AppFailure, ResourceSource> {
@@ -98,4 +101,14 @@ data object ExtractLootTables : ParseFilesRecursivelyStep<ResourceSource>() {
             }
         }
     }
+
+    private fun hardcodedLoot() = listOf(
+        ResourceSource(
+            type = ResourceSource.SourceType.LootTypes.ENTITY,
+            filename = "wither.json",
+            producedItems = listOf(
+                Item("minecraft:nether_star", "Nether Star (Item)") to ResourceQuantity.Unknown
+            )
+        )
+    )
 }

@@ -27,6 +27,12 @@ import kotlin.io.path.listDirectoryEntries
 open class ServerFileTest(
     val whitelistedVersions: MinecraftVersionRange = MinecraftVersionRange.Unbounded
 ) {
+    companion object {
+        fun versionPath(version: MinecraftVersion.Release): Path {
+            return Path.of("src/test/resources/servers/extracted/${version.toString().replace(".0", "")}")
+        }
+    }
+
     @BeforeAll
     fun beforeAll() {
         val basePath = Paths.get("").toAbsolutePath()
@@ -42,7 +48,7 @@ open class ServerFileTest(
                 .pipe(GetServerUrlsStep)
                 .pipe(object :
                     Step<List<Pair<MinecraftVersion.Release, URI>>, AppFailure, List<Pair<MinecraftVersion.Release, Path>>> {
-                    override suspend fun process(input: List<Pair<MinecraftVersion.Release, URI>>): app.mcorg.domain.pipeline.Result<AppFailure, List<Pair<MinecraftVersion.Release, Path>>> {
+                    override suspend fun process(input: List<Pair<MinecraftVersion.Release, URI>>): Result<AppFailure, List<Pair<MinecraftVersion.Release, Path>>> {
                         val innerPipeline = Pipeline.create<AppFailure, Pair<MinecraftVersion.Release, URI>>()
                             .pipe(GetServerFileStep)
                             .pipe(ExtractRelevantMinecraftFilesStep {
@@ -51,7 +57,7 @@ open class ServerFileTest(
 
                         if (input.isEmpty()) {
                             println("No server files to process")
-                            return app.mcorg.domain.pipeline.Result.success(emptyList())
+                            return Result.success(emptyList())
                         }
 
                         val result = input.map {
@@ -64,9 +70,9 @@ open class ServerFileTest(
                             innerResult
                         }
 
-                        val errors = result.filterIsInstance<app.mcorg.domain.pipeline.Result.Failure<AppFailure>>()
+                        val errors = result.filterIsInstance<Result.Failure<AppFailure>>()
                         if (errors.isNotEmpty()) {
-                            return app.mcorg.domain.pipeline.Result.failure(
+                            return Result.failure(
                                 AppFailure.customValidationError(
                                     "files",
                                     "Couldn't process some server files: ${errors.map { it.error }}"

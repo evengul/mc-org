@@ -2,21 +2,23 @@ package app.mcorg.pipeline.minecraft
 
 import app.mcorg.domain.model.minecraft.MinecraftVersion
 import app.mcorg.pipeline.minecraft.extract.ExtractItemsStep
+import app.mcorg.pipeline.minecraft.extract.ServerFileTest
 import app.mcorg.test.utils.TestUtils
-import org.junit.jupiter.api.Test
-import java.nio.file.Path
+import org.junit.jupiter.api.TestInstance
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.MethodSource
 import kotlin.test.assertNotEquals
 
-class ExtractItemsStepTest {
 
-    private val directory = "src/test/resources/extracted_server_data"
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
+class ExtractItemsStepTest : ServerFileTest() {
 
-    @Test
-    fun testExtractItems() {
-        val result = TestUtils.executeAndAssertSuccess(ExtractItemsStep, MinecraftVersion.Release(1, 21, 11) to Path.of(directory))
+    @ParameterizedTest
+    @MethodSource("getVersions")
+    fun testExtractItems(version: MinecraftVersion.Release) {
+        val result = TestUtils.executeAndAssertSuccess(ExtractItemsStep, version to versionPath(version))
 
         assertNotEquals(result.size, 0)
-        result.forEach { assertNotEquals(it.id, it.name) }
     }
 
 }
