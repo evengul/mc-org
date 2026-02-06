@@ -100,27 +100,19 @@ private data object AllFileMigrationsCompletedStep : Step<List<MinecraftVersion.
         val result = DatabaseSteps.query<Unit, Map<MinecraftVersion.Release, Boolean>>(
             sql = SafeSQL.select("""
                 SELECT mv.version,
-                       CASE
-                           WHEN mi.version IS NULL THEN FALSE
-                           ELSE TRUE
-                       END AS items_migrated,
-                       CASE
-                           WHEN g.minecraft_version IS NULL THEN FALSE
-                           ELSE TRUE
-                       END AS graph_migrated
+                       EXISTS(SELECT 1 FROM minecraft_items mi WHERE mi.version = mv.version) AS items_migrated,
+                       EXISTS(SELECT 1 FROM resource_source rs WHERE rs.version = mv.version) AS sources_migrated
                 FROM minecraft_version mv
-                LEFT JOIN minecraft_items mi ON mv.version = mi.version
-                LEFT JOIN item_graph g ON mv.version = g.minecraft_version
             """.trimIndent()),
             resultMapper = { resultSet ->
                 val migrationStatus = mutableMapOf<MinecraftVersion.Release, Boolean>()
                 while (resultSet.next()) {
                     val versionString = resultSet.getString("version")
                     val itemsMigrated = resultSet.getBoolean("items_migrated")
-                    val graphMigrated = resultSet.getBoolean("graph_migrated")
+                    val sourcesMigrated = resultSet.getBoolean("sources_migrated")
                     try {
                         val version = MinecraftVersion.Release.fromString(versionString)
-                        migrationStatus[version] = itemsMigrated && graphMigrated
+                        migrationStatus[version] = itemsMigrated && sourcesMigrated
                     } catch (e: IllegalArgumentException) {
                         logger.error("Invalid version format in database: $versionString", e)
                     }
