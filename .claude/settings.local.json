@@ -9,12 +9,13 @@
       "Bash(git status:*)",
       "Bash(find:*)",
       "Bash(grep:*)",
-      "Bash(/home/evengul/dev/mc-org/webapp/scripts/start-db.sh)",
-      "Bash(/home/evengul/dev/mc-org/webapp/scripts/migrate-locally.sh:*)",
-      "Bash(/home/evengul/dev/mc-org/webapp/scripts/run.sh:*)",
       "mcp__postgres__list_schemas",
       "mcp__postgres__list_objects",
-      "Skill(playwright)"
+      "Skill(playwright)",
+      "Bash(webapp/scripts/start-db.sh:*)",
+      "Bash(webapp/scripts/migrate-locally.sh:*)",
+      "Bash(webapp/scripts/run.sh:*)",
+      "mcp__postgres__get_object_details"
     ]
   },
   "enableAllProjectMcpServers": true,
