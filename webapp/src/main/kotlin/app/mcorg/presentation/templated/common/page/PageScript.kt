@@ -16,8 +16,7 @@ enum class PageScript {
     REMOVE_FIRST_PROJECT_DIALOG_ON_CREATE,
     CONFIRMATION_MODAL,
     SEARCHABLE_SELECT,
-    IDEA_ITEM_REQUIREMENTS,
-    RESOURCE_PATH_SELECTOR;
+    IDEA_ITEM_REQUIREMENTS;
 }
 
 fun HEAD.addScript(script: PageScript) {
@@ -32,7 +31,6 @@ fun HEAD.addScript(script: PageScript) {
         CONFIRMATION_MODAL -> script { src = "/static/scripts/confirmation-modal.js"; nonce = generateNonce() }
         SEARCHABLE_SELECT -> script { src = "/static/scripts/searchable-select.js"; nonce = generateNonce() }
         IDEA_ITEM_REQUIREMENTS -> script { src = "/static/scripts/ideaItemRequirements.js"; nonce = generateNonce() }
-        RESOURCE_PATH_SELECTOR -> script { src = "/static/scripts/path-selector.js"; nonce = generateNonce() }
     }
 }
 

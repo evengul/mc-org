@@ -19,7 +19,8 @@ import app.mcorg.pipeline.resources.handleCreateResourceGatheringItem
 import app.mcorg.pipeline.resources.handleDeleteResourceGatheringItem
 import app.mcorg.pipeline.resources.handleExpandPathNode
 import app.mcorg.pipeline.resources.handleFindIdeasForResource
-import app.mcorg.pipeline.resources.handlePreviewPath
+import app.mcorg.pipeline.resources.handleConfirmResourcePath
+import app.mcorg.pipeline.resources.handleSaveResourcePath
 import app.mcorg.pipeline.resources.handleSelectResourcePath
 import app.mcorg.pipeline.resources.handleUpdateRequirementProgress
 import app.mcorg.pipeline.task.handleCompleteActionTask
@@ -117,11 +118,14 @@ class WorldHandler {
                                         call.handleSelectResourcePath()
                                     }
                                     route("/select-path") {
+                                        put {
+                                            call.handleSaveResourcePath()
+                                        }
                                         get("/expand") {
                                             call.handleExpandPathNode()
                                         }
-                                        get("/preview") {
-                                            call.handlePreviewPath()
+                                        put("/confirm") {
+                                            call.handleConfirmResourcePath()
                                         }
                                     }
                                     delete {

@@ -5,30 +5,13 @@ import app.mcorg.domain.model.resources.SourceNode
 import app.mcorg.domain.services.ProductionBranch
 import app.mcorg.domain.services.ProductionTree
 import app.mcorg.presentation.hxGet
+import app.mcorg.presentation.hxPut
 import app.mcorg.presentation.hxSwap
 import app.mcorg.presentation.hxTarget
 import app.mcorg.presentation.templated.common.button.ghostButton
 import app.mcorg.presentation.templated.common.icon.IconSize
 import app.mcorg.presentation.templated.common.icon.Icons
-import kotlinx.html.ButtonType
-import kotlinx.html.DIV
-import kotlinx.html.LI
-import kotlinx.html.button
-import kotlinx.html.classes
-import kotlinx.html.dd
-import kotlinx.html.div
-import kotlinx.html.dl
-import kotlinx.html.dt
-import kotlinx.html.h3
-import kotlinx.html.h4
-import kotlinx.html.id
-import kotlinx.html.li
-import kotlinx.html.nav
-import kotlinx.html.ol
-import kotlinx.html.onClick
-import kotlinx.html.p
-import kotlinx.html.span
-import kotlinx.html.ul
+import kotlinx.html.*
 
 /**
  * Main path selector tree component
@@ -40,7 +23,8 @@ fun DIV.pathSelectorTree(
     tree: ProductionTree,
     selectedPath: ProductionPath?,
     depth: Int,
-    maxBranches: Int
+    maxBranches: Int,
+    confirmed: Boolean = false
 ) {
     div("path-selector") {
         id = "path-selector-$gatheringId"
@@ -76,7 +60,7 @@ fun DIV.pathSelectorTree(
         }
 
         // Selection summary panel
-        pathSummary(worldId, projectId, gatheringId, selectedPath)
+        pathSummary(worldId, projectId, gatheringId, selectedPath, confirmed)
     }
 }
 
@@ -105,8 +89,10 @@ fun LI.pathNode(
     div("path-node__header") {
         button(classes = "path-node__button") {
             type = ButtonType.button
-            // Click handler to select this path
-            onClick = "window.selectPathNode('$gatheringId', '$itemId', '${branch.source.getKey()}')"
+            hxPut("/app/worlds/$worldId/projects/$projectId/resources/gathering/$gatheringId/select-path")
+            attributes["hx-vals"] = """{"itemId": "$itemId", "sourceType": "${branch.source.getKey()}"}"""
+            hxTarget("#path-selector-$gatheringId")
+            hxSwap("outerHTML")
 
             // Icon showing source type
             span("path-node__icon") {
@@ -150,12 +136,11 @@ fun LI.pathNode(
                                     +"Base resource"
                                 }
                             } else {
-                                val currentPathEncoded = selectedPath?.encode() ?: ""
-                                ghostButton(selectedPath?.takeIf { it.itemId == requiredTree.targetItem.itemId }?.source?.let { SourceNode.fromKey(it).getName() } ?: "Choose Source") {
+                                ghostButton(selectedPath?.let { findSourceTypeName(it, requiredTree.targetItem.itemId) } ?: "Choose Source") {
                                     iconLeft = Icons.MENU_ADD
                                     iconSize = IconSize.SMALL
                                     buttonBlock = {
-                                        hxGet("/app/worlds/$worldId/projects/$projectId/resources/gathering/$gatheringId/select-path/expand?nodeItemId=${requiredTree.targetItem.itemId}&depth=$depth&maxBranches=$maxBranches&path=${currentPathEncoded}")
+                                        hxGet("/app/worlds/$worldId/projects/$projectId/resources/gathering/$gatheringId/select-path/expand?nodeItemId=${requiredTree.targetItem.itemId}&depth=$depth&maxBranches=$maxBranches")
                                         hxTarget("closest .path-requirement")
                                         hxSwap("innerHTML")
                                     }
@@ -167,6 +152,22 @@ fun LI.pathNode(
             }
         }
     }
+}
+
+private fun findSourceTypeName(path: ProductionPath, targetItemId: String): String? {
+    if (path.itemId == targetItemId) {
+        return path.source?.let { SourceNode.fromKey(it).getName() }
+    }
+    for (req in path.requirements) {
+        if (req.itemId == targetItemId) {
+            return req.source?.let { SourceNode.fromKey(it).getName() }
+        }
+    }
+    var sourceTypeName: String? = null
+    for (req in path.requirements) {
+        sourceTypeName = findSourceTypeName(req, targetItemId)
+    }
+    return sourceTypeName
 }
 
 /**
@@ -202,8 +203,10 @@ fun DIV.pathBreadcrumb(tree: ProductionTree, selectedPath: ProductionPath?) {
 /**
  * Summary panel showing selection progress
  */
-fun DIV.pathSummary(worldId: Int, projectId: Int, gatheringId: Int, selectedPath: ProductionPath?) {
+fun DIV.pathSummary(worldId: Int, projectId: Int, gatheringId: Int, selectedPath: ProductionPath?, confirmed: Boolean = false) {
     div("path-summary") {
+        id = "path-summary-$gatheringId"
+
         h4 {
             +"Selection Summary"
         }
@@ -222,7 +225,11 @@ fun DIV.pathSummary(worldId: Int, projectId: Int, gatheringId: Int, selectedPath
 
                 dt { +"Status:" }
                 dd {
-                    if (isComplete) {
+                    if (confirmed) {
+                        span("badge badge--success") {
+                            +"Confirmed"
+                        }
+                    } else if (isComplete) {
                         span("badge badge--success") {
                             +"Complete"
                         }
@@ -235,14 +242,22 @@ fun DIV.pathSummary(worldId: Int, projectId: Int, gatheringId: Int, selectedPath
             }
 
             div("path-summary__actions") {
-                button(classes = "btn btn--primary") {
-                    type = ButtonType.button
-                    disabled = !isComplete
-
-                    if (isComplete) {
-                        onClick = "alert('Path complete!\\n\\nDatabase persistence will be implemented in Phase 2.1.\\nCurrently the path is stored in the URL and maintained during your session.');"
-                        +"Confirm Path (Preview)"
-                    } else {
+                if (confirmed) {
+                    span("badge badge--success") {
+                        +"Path confirmed"
+                    }
+                } else if (isComplete) {
+                    button(classes = "btn btn--action") {
+                        type = ButtonType.button
+                        hxPut("/app/worlds/$worldId/projects/$projectId/resources/gathering/$gatheringId/select-path/confirm")
+                        hxTarget("#path-summary-$gatheringId")
+                        hxSwap("outerHTML")
+                        +"Confirm Path"
+                    }
+                } else {
+                    button(classes = "btn btn--neutral") {
+                        type = ButtonType.button
+                        disabled = true
                         +"Complete path to confirm"
                     }
                 }

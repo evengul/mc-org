@@ -1,28 +1,28 @@
 package app.mcorg.pipeline.resources
 
+import app.mcorg.domain.model.minecraft.Item
 import app.mcorg.domain.model.resources.ItemSourceGraph
 import app.mcorg.domain.model.resources.ProductionPath
+import app.mcorg.domain.model.resources.ResourceQuantity
+import app.mcorg.domain.model.resources.ResourceSource
 import app.mcorg.domain.pipeline.Result
+import app.mcorg.domain.pipeline.Step
+import app.mcorg.domain.services.ItemSourceGraphBuilder
 import app.mcorg.domain.services.ItemSourceGraphQueries
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
+import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.presentation.handler.executeParallelPipeline
 import app.mcorg.presentation.handler.executePipeline
 import app.mcorg.presentation.templated.project.pathSelectorTree
-import app.mcorg.presentation.utils.getProjectId
-import app.mcorg.presentation.utils.getResourceGatheringId
-import app.mcorg.presentation.utils.getWorldId
-import app.mcorg.presentation.utils.respondBadRequest
-import app.mcorg.presentation.utils.respondHtml
-import io.ktor.server.application.ApplicationCall
+import app.mcorg.presentation.templated.project.pathSummary
+import app.mcorg.presentation.utils.*
+import io.ktor.server.application.*
+import io.ktor.server.request.*
 import kotlinx.html.div
 import kotlinx.html.stream.createHTML
-import kotlinx.serialization.json.Json
 
-private val decoder = Json {
-    allowStructuredMapKeys = true
-}
-
+// TODO: Remove the whole decoding step, store it properly in the database
 /**
  * Handles the initial path selection view
  * GET /app/worlds/{worldId}/projects/{projectId}/resources/gathering/{gatheringId}/select-path
@@ -35,15 +35,122 @@ suspend fun ApplicationCall.handleSelectResourcePath() {
 
     val depth = request.queryParameters["depth"]?.toIntOrNull()?.takeIf { it in 1..10 } ?: 2
     val maxBranches = request.queryParameters["maxBranches"]?.toIntOrNull()?.takeIf { it in 1..10 } ?: 3
-    val selectedPath = request.queryParameters["path"]?.let { ProductionPath.decode(it) }
 
     executeParallelPipeline(
-        onSuccess = {
-            if (it == null) {
+        onSuccess = { (tree, plan) ->
+            if (tree == null) {
                 respondBadRequest("Item not found in production graph")
             } else {
                 respondHtml(createHTML().div {
-                    pathSelectorTree(worldId, projectId, resourceGatheringId, it, selectedPath, depth, maxBranches)
+                    pathSelectorTree(worldId, projectId, resourceGatheringId, tree, plan.getOrNull()?.selectedPath, depth, maxBranches, plan.getOrNull()?.confirmed ?: false)
+                })
+            }
+        }
+    ) {
+        val graph = singleStep("graph", worldId, GetGraphStep)
+        val itemId = singleStep("itemId", resourceGatheringId, GetItemIdStep)
+        val savedPlan = singleStep("plan", resourceGatheringId, LoadSavedPathStep)
+
+        val tree = merge("tree", graph, itemId) { g, id ->
+            Result.success(
+                ItemSourceGraphQueries(g)
+                    .findProductionChain(id, depth)
+                    ?.deduplicated()
+                    ?.pruneRecursively(maxBranchesPerLevel = maxBranches)
+            )
+        }
+
+        merge("result", tree, savedPlan) { t, p ->
+            Result.success(t to p)
+        }
+    }
+}
+
+/**
+ * Handles expanding a specific node in the tree
+ * GET /app/worlds/{worldId}/projects/{projectId}/resources/gathering/{gatheringId}/select-path/expand
+ * Query params: nodeItemId (required), depth (default 2), maxBranches (default 3)
+ */
+suspend fun ApplicationCall.handleExpandPathNode() {
+    val worldId = this.getWorldId()
+    val projectId = this.getProjectId()
+    val resourceGatheringId = this.getResourceGatheringId()
+
+    val nodeItemId = request.queryParameters["nodeItemId"]
+    if (nodeItemId == null) {
+        respondBadRequest("Missing nodeItemId parameter")
+        return
+    }
+
+    val depth = request.queryParameters["depth"]?.toIntOrNull()?.takeIf { it in 1..10 } ?: 2
+    val maxBranches = request.queryParameters["maxBranches"]?.toIntOrNull()?.takeIf { it in 1..10 } ?: 3
+
+    executeParallelPipeline(
+        onSuccess = { (tree, plan) ->
+            if (tree == null) {
+                respondBadRequest("Item not found in production graph")
+            } else {
+                respondHtml(createHTML().div {
+                    pathSelectorTree(worldId, projectId, resourceGatheringId, tree, plan.getOrNull()?.selectedPath, depth, maxBranches, plan.getOrNull()?.confirmed ?: false)
+                })
+            }
+        }
+    ) {
+        val graph = singleStep("graph", worldId, GetGraphStep)
+        val savedPlan = singleStep("plan", resourceGatheringId, LoadSavedPathStep)
+
+        merge("result", graph, savedPlan) { g, plan ->
+            val tree = ItemSourceGraphQueries(g)
+                .findProductionChain(nodeItemId, depth)
+                ?.deduplicated()
+                ?.pruneRecursively(maxBranchesPerLevel = maxBranches)
+            Result.success(tree to plan)
+        }
+    }
+}
+
+/**
+ * Saves a path selection to the database
+ * PUT /app/worlds/{worldId}/projects/{projectId}/resources/gathering/{gatheringId}/select-path
+ * Form params: itemId (item being configured), sourceType (source selected for it)
+ */
+suspend fun ApplicationCall.handleSaveResourcePath() {
+    val worldId = this.getWorldId()
+    val projectId = this.getProjectId()
+    val resourceGatheringId = this.getResourceGatheringId()
+
+    val parameters = receiveParameters()
+    val selectedItemId = parameters["itemId"]
+    val sourceType = parameters["sourceType"]
+    if (selectedItemId.isNullOrBlank() || sourceType.isNullOrBlank()) {
+        respondBadRequest("Missing itemId or sourceType parameter")
+        return
+    }
+
+    val depth = request.queryParameters["depth"]?.toIntOrNull()?.takeIf { it in 1..10 } ?: 2
+    val maxBranches = request.queryParameters["maxBranches"]?.toIntOrNull()?.takeIf { it in 1..10 } ?: 3
+
+    // Load existing path, apply selection, upsert
+    val existingPlan = LoadSavedPathStep.process(resourceGatheringId)
+    val existingPath = (existingPlan as? Result.Success)?.value?.getOrNull()?.selectedPath
+
+    val updatedPath = existingPath?.selectSourceForItem(selectedItemId, sourceType)
+        ?: ProductionPath(itemId = selectedItemId, source = sourceType)
+
+    val encodedPath = updatedPath.encode()
+    val upsertResult = UpsertPathStep.process(resourceGatheringId to encodedPath)
+    if (upsertResult is Result.Failure) {
+        respondBadRequest("Failed to save path")
+        return
+    }
+
+    executeParallelPipeline(
+        onSuccess = { tree ->
+            if (tree == null) {
+                respondBadRequest("Item not found in production graph")
+            } else {
+                respondHtml(createHTML().div {
+                    pathSelectorTree(worldId, projectId, resourceGatheringId, tree, updatedPath, depth, maxBranches, confirmed = false)
                 })
             }
         }
@@ -63,90 +170,107 @@ suspend fun ApplicationCall.handleSelectResourcePath() {
 }
 
 /**
- * Handles expanding a specific node in the tree
- * GET /app/worlds/{worldId}/projects/{projectId}/resources/gathering/{gatheringId}/select-path/expand
- * Query params: nodeItemId (required), depth (default 2), maxBranches (default 3), path (optional)
+ * Confirms a path selection
+ * PUT /app/worlds/{worldId}/projects/{projectId}/resources/gathering/{gatheringId}/select-path/confirm
  */
-suspend fun ApplicationCall.handleExpandPathNode() {
+suspend fun ApplicationCall.handleConfirmResourcePath() {
     val worldId = this.getWorldId()
     val projectId = this.getProjectId()
     val resourceGatheringId = this.getResourceGatheringId()
 
-    val nodeItemId = request.queryParameters["nodeItemId"]
-    if (nodeItemId == null) {
-        respondBadRequest("Missing nodeItemId parameter")
-        return
-    }
-
-    val depth = request.queryParameters["depth"]?.toIntOrNull()?.takeIf { it in 1..10 } ?: 2
-    val maxBranches = request.queryParameters["maxBranches"]?.toIntOrNull()?.takeIf { it in 1..10 } ?: 3
-    val selectedPath = request.queryParameters["path"]?.let { ProductionPath.decode(it) }
-
     executePipeline(
-        onSuccess = {
-            if (it == null) {
-                respondBadRequest("Item not found in production graph")
+        onSuccess = { plan ->
+            if (plan.getOrNull() == null) {
+                respondBadRequest("No path saved yet")
             } else {
                 respondHtml(createHTML().div {
-                    // Return expanded node HTML fragment
-                    pathSelectorTree(worldId, projectId, resourceGatheringId, it, selectedPath, depth, maxBranches)
+                    pathSummary(worldId, projectId, resourceGatheringId, plan.getOrNull()?.selectedPath, confirmed = true)
                 })
             }
         }
     ) {
-        value(worldId)
-            .step(GetGraphStep)
-            .map {
-                ItemSourceGraphQueries(it)
-                    .findProductionChain(nodeItemId, depth)
-                    ?.deduplicated()
-                    ?.pruneRecursively(maxBranchesPerLevel = maxBranches)
-            }
+        value(resourceGatheringId)
+            .step(ConfirmPathStep)
+            .map { resourceGatheringId }
+            .step(LoadSavedPathStep)
     }
 }
 
-/**
- * Handles previewing the current selection
- * GET /app/worlds/{worldId}/projects/{projectId}/resources/gathering/{gatheringId}/select-path/preview
- * Query params: path (required)
- */
-suspend fun ApplicationCall.handlePreviewPath() {
-    val encodedPath = request.queryParameters["path"]
-    if (encodedPath == null) {
-        respondBadRequest("Missing path parameter")
-        return
-    }
-
-    val path = ProductionPath.decode(encodedPath)
-    if (path == null) {
-        respondBadRequest("Invalid path encoding")
-        return
-    }
-
-    respondHtml(createHTML().div {
-        // TODO: Render preview/summary view
-        div("path-summary") {
-            +"Preview: ${path.getAllItemIds().size} unique items required"
-        }
-    })
-}
-
-private val GetGraphStep = DatabaseSteps.query<Int, ItemSourceGraph>(
-    sql = SafeSQL.select(
-        """
-        SELECT graph_data FROM item_graph
-        INNER JOIN world on item_graph.minecraft_version = world.version
-        WHERE world.id = ?
-    """.trimIndent()
-    ),
-    parameterSetter = { ps, worldId ->
-        ps.setInt(1, worldId)
-    },
-    resultMapper = {
-        it.next()
-        decoder.decodeFromString<ItemSourceGraph>(it.getString("graph_data"))
+private val GetWorldVersionStep = DatabaseSteps.query<Int, String>(
+    sql = SafeSQL.select("SELECT version FROM world WHERE id = ?"),
+    parameterSetter = { ps, worldId -> ps.setInt(1, worldId) },
+    resultMapper = { rs ->
+        rs.next()
+        rs.getString("version")
     }
 )
+
+private val GetResourceSourcesStep = DatabaseSteps.query<String, List<ResourceSource>>(
+    sql = SafeSQL.select(
+        """
+        SELECT rs.id as source_id, rs.source_type, rs.created_from_filename,
+               pi.item as produced_item, pi.count as produced_count,
+               ci.item as consumed_item, ci.count as consumed_count
+        FROM resource_source rs
+        LEFT JOIN resource_source_produced_item pi ON pi.resource_source_id = rs.id AND pi.version = rs.version
+        LEFT JOIN resource_source_consumed_item ci ON ci.resource_source_id = rs.id AND ci.version = rs.version
+        WHERE rs.version = ?
+        ORDER BY rs.id
+    """.trimIndent()
+    ),
+    parameterSetter = { ps, version -> ps.setString(1, version) },
+    resultMapper = { rs ->
+        val sourcesMap = linkedMapOf<Int, Triple<ResourceSource.SourceType, String, MutableList<Pair<Item, Int>>>>()
+        val producedMap = mutableMapOf<Int, MutableSet<Pair<String, Int>>>()
+        val consumedMap = mutableMapOf<Int, MutableSet<Pair<String, Int>>>()
+
+        while (rs.next()) {
+            val sourceId = rs.getInt("source_id")
+            val sourceType = ResourceSource.SourceType.of(rs.getString("source_type")) ?: ResourceSource.SourceType.UNKNOWN
+            val filename = rs.getString("created_from_filename")
+
+            sourcesMap.getOrPut(sourceId) { Triple(sourceType, filename, mutableListOf()) }
+
+            val producedItem = rs.getString("produced_item")
+            if (producedItem != null) {
+                producedMap.getOrPut(sourceId) { mutableSetOf() }.add(producedItem to rs.getInt("produced_count"))
+            }
+
+            val consumedItem = rs.getString("consumed_item")
+            if (consumedItem != null) {
+                consumedMap.getOrPut(sourceId) { mutableSetOf() }.add(consumedItem to rs.getInt("consumed_count"))
+            }
+        }
+
+        sourcesMap.map { (sourceId, triple) ->
+            val (sourceType, filename, _) = triple
+            ResourceSource(
+                type = sourceType,
+                filename = filename,
+                producedItems = producedMap[sourceId]?.map { (item, count) ->
+                    Item(item, item) as app.mcorg.domain.model.minecraft.MinecraftId to
+                        if (count > 0) ResourceQuantity.ItemQuantity(count) else ResourceQuantity.Unknown
+                } ?: emptyList(),
+                requiredItems = consumedMap[sourceId]?.map { (item, count) ->
+                    Item(item, item) as app.mcorg.domain.model.minecraft.MinecraftId to
+                        if (count > 0) ResourceQuantity.ItemQuantity(count) else ResourceQuantity.Unknown
+                } ?: emptyList()
+            )
+        }
+    }
+)
+
+private object GetGraphStep : Step<Int, AppFailure.DatabaseError, ItemSourceGraph> {
+    override suspend fun process(input: Int): Result<AppFailure.DatabaseError, ItemSourceGraph> {
+        val versionResult = GetWorldVersionStep.process(input)
+        if (versionResult is Result.Failure) return versionResult
+
+        val sourcesResult = GetResourceSourcesStep.process((versionResult as Result.Success).value)
+        if (sourcesResult is Result.Failure) return sourcesResult
+
+        return Result.success(ItemSourceGraphBuilder.buildFromResourceSources((sourcesResult as Result.Success).value))
+    }
+}
 
 private val GetItemIdStep = DatabaseSteps.query<Int, String>(
     sql = SafeSQL.select(

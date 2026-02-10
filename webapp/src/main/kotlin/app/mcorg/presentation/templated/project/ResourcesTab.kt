@@ -241,7 +241,6 @@ fun LI.projectResourceGatheringItem(worldId: Int, projectId: Int, item: Resource
                     hxGet("/app/worlds/$worldId/projects/$projectId/resources/gathering/${item.id}/select-path?depth=2&maxBranches=3")
                     hxTarget("#found-paths-for-gathering-${item.id}")
                     hxSwap("innerHTML")
-                    attributes["hx-on::before-request"] = "window.clearAllPathSelectors();"
                 }
             }
         }
