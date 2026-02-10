@@ -22,7 +22,6 @@ import io.ktor.server.request.*
 import kotlinx.html.div
 import kotlinx.html.stream.createHTML
 
-// TODO: Remove the whole decoding step, store it properly in the database
 /**
  * Handles the initial path selection view
  * GET /app/worlds/{worldId}/projects/{projectId}/resources/gathering/{gatheringId}/select-path
@@ -137,8 +136,7 @@ suspend fun ApplicationCall.handleSaveResourcePath() {
     val updatedPath = existingPath?.selectSourceForItem(selectedItemId, sourceType)
         ?: ProductionPath(itemId = selectedItemId, source = sourceType)
 
-    val encodedPath = updatedPath.encode()
-    val upsertResult = UpsertPathStep.process(resourceGatheringId to encodedPath)
+    val upsertResult = UpsertPathStep.process(resourceGatheringId to updatedPath)
     if (upsertResult is Result.Failure) {
         respondBadRequest("Failed to save path")
         return
