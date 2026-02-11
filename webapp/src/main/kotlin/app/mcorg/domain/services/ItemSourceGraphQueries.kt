@@ -26,7 +26,7 @@ class ItemSourceGraphQueries(private val graph: ItemSourceGraph) {
      * Find all sources that can produce a specific item.
      * Convenience wrapper around graph.getSourcesForItem()
      *
-     * @param itemId The item identifier
+     * @param item The item identifier
      * @return Set of all sources that produce this item
      */
     fun findAllSourcesForItem(item: MinecraftId): Set<SourceNode> {
@@ -89,7 +89,7 @@ class ItemSourceGraphQueries(private val graph: ItemSourceGraph) {
 
         // Tags expand to their member items instead of having sources
         if (item.item is MinecraftTag) {
-            val memberTrees = (item.item as MinecraftTag).content.mapNotNull { member ->
+            val memberTrees = item.item.content.mapNotNull { member ->
                 graph.getItemNode(member)?.let { memberNode ->
                     buildProductionTree(memberNode, visited, depth - 1)
                 }
@@ -228,8 +228,8 @@ class ItemSourceGraphQueries(private val graph: ItemSourceGraph) {
      * Find the shortest production path from a source item to a target item.
      * Uses BFS to find the shortest chain of crafting steps.
      *
-     * @param fromItemId Starting item ID
-     * @param toItemId Target item ID
+     * @param fromItem Starting item
+     * @param toItem Target item
      * @return List of item IDs representing the shortest path, or null if no path exists
      */
     fun findShortestPath(fromItem: MinecraftId, toItem: MinecraftId): List<String>? {

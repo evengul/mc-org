@@ -26,8 +26,8 @@ class ItemSourceGraphTest {
     fun `can add item nodes`() {
         val builder = ItemSourceGraph.builder()
 
-        val stick = builder.addItemNode(Item("minecraft:stick", "Stick"))
-        val planks = builder.addItemNode(Item("minecraft:planks", "Planks"))
+        builder.addItemNode(Item("minecraft:stick", "Stick"))
+        builder.addItemNode(Item("minecraft:planks", "Planks"))
 
         val graph = builder.build()
 
@@ -40,8 +40,8 @@ class ItemSourceGraphTest {
     fun `can add source nodes`() {
         val builder = ItemSourceGraph.builder()
 
-        val craftingSource = builder.addSourceNode(ResourceSource.SourceType.RecipeTypes.CRAFTING_SHAPED, "stick.json")
-        val miningSource = builder.addSourceNode(ResourceSource.SourceType.LootTypes.BLOCK, "diamond_ore.json")
+        builder.addSourceNode(ResourceSource.SourceType.RecipeTypes.CRAFTING_SHAPED, "stick.json")
+        builder.addSourceNode(ResourceSource.SourceType.LootTypes.BLOCK, "diamond_ore.json")
 
         val graph = builder.build()
 
