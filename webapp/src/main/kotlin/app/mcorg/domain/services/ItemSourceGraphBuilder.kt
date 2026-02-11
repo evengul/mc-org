@@ -79,13 +79,13 @@ object ItemSourceGraphBuilder {
 
         // Connect required items to source (inputs)
         for (requiredItem in source.requiredItems) {
-            val itemNode = builder.addItemNode(requiredItem.first.id)
+            val itemNode = builder.addItemNode(requiredItem.first)
             builder.addItemToSourceEdge(itemNode, sourceNode)
         }
 
         // Connect source to produced items (outputs)
         for (producedItem in source.producedItems) {
-            val itemNode = builder.addItemNode(producedItem.first.id)
+            val itemNode = builder.addItemNode(producedItem.first)
             builder.addSourceToItemEdge(sourceNode, itemNode)
         }
     }

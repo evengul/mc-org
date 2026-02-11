@@ -1,5 +1,7 @@
 package app.mcorg.domain.services
 
+import app.mcorg.domain.model.minecraft.MinecraftId
+import app.mcorg.domain.model.minecraft.MinecraftTag
 import app.mcorg.domain.model.resources.ItemNode
 import app.mcorg.domain.model.resources.ItemSourceGraph
 import app.mcorg.domain.model.resources.SourceNode
@@ -27,8 +29,8 @@ class ItemSourceGraphQueries(private val graph: ItemSourceGraph) {
      * @param itemId The item identifier
      * @return Set of all sources that produce this item
      */
-    fun findAllSourcesForItem(itemId: String): Set<SourceNode> {
-        return graph.getSourcesForItem(itemId)
+    fun findAllSourcesForItem(item: MinecraftId): Set<SourceNode> {
+        return graph.getSourcesForItem(item)
     }
 
     /**
@@ -50,10 +52,22 @@ class ItemSourceGraphQueries(private val graph: ItemSourceGraph) {
      * @param maxDepth Maximum recursion depth (prevents infinite loops)
      * @return ProductionTree with all production paths, or null if item not found
      */
-    fun findProductionChain(targetItem: String, maxDepth: Int = 10): ProductionTree? {
+    fun findProductionChain(targetItem: MinecraftId, maxDepth: Int = 10): ProductionTree? {
         val itemNode = graph.getItemNode(targetItem) ?: return null
         val visited = mutableSetOf<ItemNode>()
 
+        return buildProductionTree(itemNode, visited, maxDepth)
+    }
+
+    /**
+     * Find production chain by string item ID.
+     * Finds any ItemNode matching the string ID (prefers concrete Item over Tag).
+     */
+    fun findProductionChain(targetItemId: String, maxDepth: Int = 10): ProductionTree? {
+        val nodes = graph.getItemNodesByStringId(targetItemId)
+        // Prefer concrete Item over Tag for root lookup
+        val itemNode = nodes.find { it.item !is MinecraftTag } ?: nodes.firstOrNull() ?: return null
+        val visited = mutableSetOf<ItemNode>()
         return buildProductionTree(itemNode, visited, maxDepth)
     }
 
@@ -73,8 +87,18 @@ class ItemSourceGraphQueries(private val graph: ItemSourceGraph) {
 
         visited.add(item)
 
+        // Tags expand to their member items instead of having sources
+        if (item.item is MinecraftTag) {
+            val memberTrees = (item.item as MinecraftTag).content.mapNotNull { member ->
+                graph.getItemNode(member)?.let { memberNode ->
+                    buildProductionTree(memberNode, visited, depth - 1)
+                }
+            }
+            return ProductionTree(item, sources = emptyList(), tagMembers = memberTrees)
+        }
+
         // Find all sources that produce this item
-        val sources = graph.getSourcesForItem(item.itemId)
+        val sources = graph.getSourcesForItem(item.item)
 
         // For each source, recursively find production chains for required items
         val branches = sources.map { source ->
@@ -100,7 +124,7 @@ class ItemSourceGraphQueries(private val graph: ItemSourceGraph) {
         val leafItems = mutableSetOf<ItemNode>()
 
         for (item in graph.getAllItems()) {
-            val sources = graph.getSourcesForItem(item.itemId)
+            val sources = graph.getSourcesForItem(item.item)
 
             // Item is a leaf if it has no sources
             if (sources.isEmpty()) {
@@ -177,7 +201,7 @@ class ItemSourceGraphQueries(private val graph: ItemSourceGraph) {
         currentPath.add(item)
 
         // Get all sources for this item
-        val sources = graph.getSourcesForItem(item.itemId)
+        val sources = graph.getSourcesForItem(item.item)
 
         // For each source, check its required items
         for (source in sources) {
@@ -208,12 +232,12 @@ class ItemSourceGraphQueries(private val graph: ItemSourceGraph) {
      * @param toItemId Target item ID
      * @return List of item IDs representing the shortest path, or null if no path exists
      */
-    fun findShortestPath(fromItemId: String, toItemId: String): List<String>? {
-        val fromItem = graph.getItemNode(fromItemId) ?: return null
-        val toItem = graph.getItemNode(toItemId) ?: return null
+    fun findShortestPath(fromItem: MinecraftId, toItem: MinecraftId): List<String>? {
+        val fromNode = graph.getItemNode(fromItem) ?: return null
+        val toNode = graph.getItemNode(toItem) ?: return null
 
-        if (fromItem == toItem) {
-            return listOf(fromItemId)
+        if (fromNode == toNode) {
+            return listOf(fromItem.id)
         }
 
         // BFS to find shortest path
@@ -221,8 +245,8 @@ class ItemSourceGraphQueries(private val graph: ItemSourceGraph) {
         val visited = mutableSetOf<ItemNode>()
         val parent = mutableMapOf<ItemNode, ItemNode>()
 
-        queue.add(fromItem)
-        visited.add(fromItem)
+        queue.add(fromNode)
+        visited.add(fromNode)
 
         while (queue.isNotEmpty()) {
             val current = queue.removeFirst()
@@ -241,9 +265,9 @@ class ItemSourceGraphQueries(private val graph: ItemSourceGraph) {
                         visited.add(produced)
                         parent[produced] = current
 
-                        if (produced == toItem) {
+                        if (produced == toNode) {
                             // Found the target! Reconstruct path
-                            return reconstructPath(fromItem, toItem, parent)
+                            return reconstructPath(fromNode, toNode, parent)
                         }
 
                         queue.add(produced)
@@ -291,7 +315,7 @@ class ItemSourceGraphQueries(private val graph: ItemSourceGraph) {
 
         // Find items with most sources
         val itemSourceCounts = graph.getAllItems().associate { item ->
-            item.itemId to graph.getSourcesForItem(item.itemId).size
+            item.itemId to graph.getSourcesForItem(item.item).size
         }
         val maxSources = itemSourceCounts.maxByOrNull { it.value }
         if (maxSources != null) {
@@ -320,7 +344,8 @@ class ItemSourceGraphQueries(private val graph: ItemSourceGraph) {
 @Serializable
 data class ProductionTree(
     val targetItem: ItemNode,
-    val sources: List<ProductionBranch>
+    val sources: List<ProductionBranch>,
+    val tagMembers: List<ProductionTree> = emptyList()
 ) {
     fun getNBestBranches(n: Int): List<ProductionBranch> {
         return sources.sortedByDescending { it.getScore() }.take(n)
@@ -346,7 +371,10 @@ data class ProductionTree(
             )
         }
 
-        return ProductionTree(targetItem, prunedBranches)
+        // Recursively prune tag members
+        val prunedMembers = tagMembers.map { it.pruneRecursively(maxBranchesPerLevel, scorer) }
+
+        return ProductionTree(targetItem, prunedBranches, prunedMembers)
     }
 
     fun deduplicated(): ProductionTree {
@@ -369,19 +397,37 @@ data class ProductionTree(
                 )
             }
 
-            return ProductionTree(subtree.targetItem, deduplicatedBranches)
+            val deduplicatedMembers = subtree.tagMembers.map { deduplicate(it) }
+
+            return ProductionTree(subtree.targetItem, deduplicatedBranches, deduplicatedMembers)
         }
 
         return deduplicate(this)
     }
 
     fun getDepth(): Int {
-        if (sources.isEmpty()) {
-            return 0
+        val sourceDepth = if (sources.isEmpty()) 0
+            else 1 + sources.maxOf { branch ->
+                branch.requiredItems.maxOfOrNull { it.getDepth() } ?: 0
+            }
+        val memberDepth = if (tagMembers.isEmpty()) 0
+            else 1 + tagMembers.maxOf { it.getDepth() }
+        return maxOf(sourceDepth, memberDepth)
+    }
+
+    fun findSubtreeForItem(targetItemId: String): ProductionTree? {
+        if (targetItem.itemId == targetItemId) return this
+        for (branch in sources) {
+            for (req in branch.requiredItems) {
+                val found = req.findSubtreeForItem(targetItemId)
+                if (found != null) return found
+            }
         }
-        return 1 + sources.maxOf { branch ->
-            branch.requiredItems.maxOfOrNull { it.getDepth() } ?: 0
+        for (member in tagMembers) {
+            val found = member.findSubtreeForItem(targetItemId)
+            if (found != null) return found
         }
+        return null
     }
 }
 

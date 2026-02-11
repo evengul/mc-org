@@ -500,8 +500,8 @@ main.project {
 }
 
 .path-node--selected {
-    border-color: var(--clr-success);
-    background-color: var(--clr-success, rgba(76, 175, 80, 0.1));
+    border-left: 3px solid var(--clr-success);
+    border-color: var(--clr-border);
 }
 
 .path-node__header {
@@ -533,8 +533,7 @@ main.project {
 }
 
 .path-node__count {
-    font-size: var(--text-sm);
-    padding: var(--spacing-xs) var(--spacing-sm);
+    flex-shrink: 0;
 }
 
 .path-node__check {
@@ -547,6 +546,8 @@ main.project {
     padding: var(--spacing-sm);
     padding-top: 0;
     border-top: 1px solid var(--clr-border);
+    border-left: 2px solid var(--clr-border-subtle);
+    margin-left: var(--spacing-sm);
     background-color: var(--clr-bg-subtle);
 }
 
@@ -597,7 +598,9 @@ main.project {
 
 .path-summary__actions {
     display: flex;
+    align-items: center;
     justify-content: flex-end;
+    gap: var(--spacing-sm);
 }
 
 .path-selector__more-options {

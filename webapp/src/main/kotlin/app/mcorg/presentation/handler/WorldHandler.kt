@@ -20,6 +20,7 @@ import app.mcorg.pipeline.resources.handleDeleteResourceGatheringItem
 import app.mcorg.pipeline.resources.handleExpandPathNode
 import app.mcorg.pipeline.resources.handleFindIdeasForResource
 import app.mcorg.pipeline.resources.handleConfirmResourcePath
+import app.mcorg.pipeline.resources.handleResetResourcePath
 import app.mcorg.pipeline.resources.handleSaveResourcePath
 import app.mcorg.pipeline.resources.handleSelectResourcePath
 import app.mcorg.pipeline.resources.handleUpdateRequirementProgress
@@ -126,6 +127,9 @@ class WorldHandler {
                                         }
                                         put("/confirm") {
                                             call.handleConfirmResourcePath()
+                                        }
+                                        delete {
+                                            call.handleResetResourcePath()
                                         }
                                     }
                                     delete {

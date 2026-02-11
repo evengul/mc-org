@@ -76,22 +76,22 @@ class ItemSourceGraphQueriesTest {
 
     @Test
     fun `findAllSourcesForItem returns all sources`() {
-        val plankSources = queries.findAllSourcesForItem("minecraft:oak_planks")
+        val plankSources = queries.findAllSourcesForItem(Item("minecraft:oak_planks", "Oak Planks"))
         assertEquals(1, plankSources.size)
 
-        val stickSources = queries.findAllSourcesForItem("minecraft:stick")
+        val stickSources = queries.findAllSourcesForItem(Item("minecraft:stick", "Stick"))
         assertEquals(1, stickSources.size)
     }
 
     @Test
     fun `findAllSourcesForItem returns empty set for non-existent item`() {
-        val sources = queries.findAllSourcesForItem("minecraft:nonexistent")
+        val sources = queries.findAllSourcesForItem(Item("minecraft:nonexistent", "Nonexistent"))
         assertTrue(sources.isEmpty())
     }
 
     @Test
     fun `findRequiredItemsForSource returns correct items`() {
-        val stickSource = queries.findAllSourcesForItem("minecraft:stick").first()
+        val stickSource = queries.findAllSourcesForItem(Item("minecraft:stick", "Stick")).first()
         val requiredItems = queries.findRequiredItemsForSource(stickSource)
 
         assertEquals(1, requiredItems.size)
@@ -100,7 +100,7 @@ class ItemSourceGraphQueriesTest {
 
     @Test
     fun `findProductionChain for simple item`() {
-        val tree = queries.findProductionChain("minecraft:oak_planks")
+        val tree = queries.findProductionChain(Item("minecraft:oak_planks", "Oak Planks"))
 
         assertNotNull(tree)
         assertEquals("minecraft:oak_planks", tree.targetItem.itemId)
@@ -138,7 +138,7 @@ class ItemSourceGraphQueriesTest {
 
     @Test
     fun `findProductionChain returns null for non-existent item`() {
-        val tree = queries.findProductionChain("minecraft:nonexistent")
+        val tree = queries.findProductionChain(Item("minecraft:nonexistent", "Nonexistent"))
         assertNull(tree)
     }
 
@@ -236,7 +236,7 @@ class ItemSourceGraphQueriesTest {
 
     @Test
     fun `findShortestPath finds direct path`() {
-        val path = queries.findShortestPath("minecraft:oak_log", "minecraft:oak_planks")
+        val path = queries.findShortestPath(Item("minecraft:oak_log", "Oak Log"), Item("minecraft:oak_planks", "Oak Planks"))
 
         assertNotNull(path)
         assertEquals(2, path.size)
@@ -246,7 +246,7 @@ class ItemSourceGraphQueriesTest {
 
     @Test
     fun `findShortestPath finds multi-step path`() {
-        val path = queries.findShortestPath("minecraft:oak_log", "minecraft:stick")
+        val path = queries.findShortestPath(Item("minecraft:oak_log", "Oak Log"), Item("minecraft:stick", "Stick"))
 
         assertNotNull(path)
         assertEquals(3, path.size)
@@ -258,13 +258,13 @@ class ItemSourceGraphQueriesTest {
     @Test
     fun `findShortestPath returns null for no path`() {
         // Diamond cannot be crafted from logs
-        val path = queries.findShortestPath("minecraft:oak_log", "minecraft:diamond")
+        val path = queries.findShortestPath(Item("minecraft:oak_log", "Oak Log"), Item("minecraft:diamond", "Diamond"))
         assertNull(path)
     }
 
     @Test
     fun `findShortestPath returns single item for same start and end`() {
-        val path = queries.findShortestPath("minecraft:oak_log", "minecraft:oak_log")
+        val path = queries.findShortestPath(Item("minecraft:oak_log", "Oak Log"), Item("minecraft:oak_log", "Oak Log"))
 
         assertNotNull(path)
         assertEquals(1, path.size)
@@ -273,8 +273,8 @@ class ItemSourceGraphQueriesTest {
 
     @Test
     fun `findShortestPath returns null for non-existent items`() {
-        assertNull(queries.findShortestPath("minecraft:nonexistent", "minecraft:oak_log"))
-        assertNull(queries.findShortestPath("minecraft:oak_log", "minecraft:nonexistent"))
+        assertNull(queries.findShortestPath(Item("minecraft:nonexistent", "No"), Item("minecraft:oak_log", "Oak Log")))
+        assertNull(queries.findShortestPath(Item("minecraft:oak_log", "Oak Log"), Item("minecraft:nonexistent", "No")))
     }
 
     @Test
@@ -327,7 +327,7 @@ class ItemSourceGraphQueriesTest {
         val altGraph = ItemSourceGraphBuilder.buildFromResourceSources(sourcesWithAlternatives)
         val altQueries = ItemSourceGraphQueries(altGraph)
 
-        val tree = altQueries.findProductionChain("minecraft:oak_planks")
+        val tree = altQueries.findProductionChain(Item("minecraft:oak_planks", "Oak Planks"))
 
         assertNotNull(tree)
         assertEquals(2, tree.sources.size) // Two ways to get planks
@@ -368,7 +368,7 @@ class ItemSourceGraphQueriesTest {
         val multiPathGraph = ItemSourceGraphBuilder.buildFromResourceSources(multiPathSources)
         val multiPathQueries = ItemSourceGraphQueries(multiPathGraph)
 
-        val path = multiPathQueries.findShortestPath("minecraft:item_a", "minecraft:item_b")
+        val path = multiPathQueries.findShortestPath(Item("minecraft:item_a", "Item A"), Item("minecraft:item_b", "Item B"))
 
         assertNotNull(path)
         // Should find the direct path (length 2) not the longer path (length 4)

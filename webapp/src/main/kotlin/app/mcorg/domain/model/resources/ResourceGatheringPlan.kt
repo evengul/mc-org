@@ -1,5 +1,8 @@
 package app.mcorg.domain.model.resources
 
+import app.mcorg.domain.model.minecraft.MinecraftId
+import app.mcorg.domain.services.ProductionTree
+
 data class ResourceGatheringPlan(
     val id: Int,
     val resourceGatheringId: Int,
@@ -11,17 +14,16 @@ data class ResourceGatheringPlan(
  * A concrete, user-selected production path (no branches, linear decisions)
  */
 data class ProductionPath(
-    val itemId: String,                     // What we're making
-    val source: String?,                // How we get it (null for leaf items)
-    val requirements: List<ProductionPath> = emptyList()  // What we need (each is a decision point)
+    val item: MinecraftId,
+    val source: SelectedSource? = null
 ) {
 
     /**
      * Get all unique item IDs in this path (for summary display)
      */
     fun getAllItemIds(): Set<String> {
-        val items = mutableSetOf(itemId)
-        requirements.forEach { items.addAll(it.getAllItemIds()) }
+        val items = mutableSetOf(item.id)
+        source?.requirements?.forEach { items.addAll(it.getAllItemIds()) }
         return items
     }
 
@@ -29,7 +31,7 @@ data class ProductionPath(
      * Count total decision points (nodes with sources)
      */
     fun countDecisions(): Int {
-        return (if (source != null) 1 else 0) + requirements.sumOf { it.countDecisions() }
+        return (if (source != null) 1 else 0) + (source?.requirements?.sumOf { it.countDecisions() } ?: 0)
     }
 
     /**
@@ -37,31 +39,59 @@ data class ProductionPath(
      */
     fun isComplete(): Boolean {
         if (source == null) return true // Leaf node
-        return requirements.isEmpty() || requirements.all { it.isComplete() }
+        return source.requirements.isEmpty() || source.requirements.all { it.isComplete() }
     }
 
     /**
      * Select a source for a specific item in the path tree.
+     * Uses the ProductionTree to populate requirements of the selected source.
      * Returns a new path with the selection applied.
      */
-    fun selectSourceForItem(targetItemId: String, sourceType: String): ProductionPath {
-        // If this is the target item, update its source
-        if (itemId == targetItemId) {
-            return copy(source = sourceType)
+    fun selectSourceForItem(targetItemId: String, sourceType: String, tree: ProductionTree): ProductionPath {
+        if (item.id == targetItemId) {
+            val matchingBranch = tree.sources.find { it.source.getKey() == sourceType }
+                ?: tree.tagMembers.firstNotNullOfOrNull { member ->
+                    member.sources.find { it.source.getKey() == sourceType }
+                }
+            val requirements = matchingBranch?.requiredItems?.map {
+                ProductionPath(item = it.targetItem.item)
+            } ?: emptyList()
+            return copy(source = SelectedSource(sourceKey = sourceType, requirements = requirements))
         }
 
-        // Check if target exists in any requirement - if so, recurse
-        val hasMatch = requirements.any { it.containsItem(targetItemId) }
+        val currentRequirements = source?.requirements ?: emptyList()
+
+        val hasMatch = currentRequirements.any { it.containsItem(targetItemId) }
         if (hasMatch) {
-            return copy(requirements = requirements.map { it.selectSourceForItem(targetItemId, sourceType) })
+            val subtree = tree.findSubtreeForItem(targetItemId)
+            val updatedRequirements = currentRequirements.map {
+                if (it.containsItem(targetItemId) && subtree != null) it.selectSourceForItem(targetItemId, sourceType, subtree)
+                else it
+            }
+            return copy(source = source?.copy(requirements = updatedRequirements))
         }
 
-        // Target doesn't exist yet - add as a new requirement
-        return copy(requirements = requirements + ProductionPath(itemId = targetItemId, source = sourceType))
+        // Target doesn't exist yet - find subtree and add as new requirement
+        val subtree = tree.findSubtreeForItem(targetItemId)
+        if (subtree != null) {
+            val matchingBranch = subtree.sources.find { it.source.getKey() == sourceType }
+            val childReqs = matchingBranch?.requiredItems?.map {
+                ProductionPath(item = it.targetItem.item)
+            } ?: emptyList()
+            val newReq = ProductionPath(item = subtree.targetItem.item, source = SelectedSource(sourceKey = sourceType, requirements = childReqs))
+            return copy(source = source?.copy(requirements = currentRequirements + newReq))
+        }
+
+        return this
     }
 
     private fun containsItem(targetItemId: String): Boolean {
-        if (itemId == targetItemId) return true
-        return requirements.any { it.containsItem(targetItemId) }
+        if (item.id == targetItemId) return true
+        return source?.requirements?.any { it.containsItem(targetItemId) } ?: false
     }
 }
+
+data class SelectedSource(
+    val sourceKey: String,
+    val requirements: List<ProductionPath> = emptyList()
+)

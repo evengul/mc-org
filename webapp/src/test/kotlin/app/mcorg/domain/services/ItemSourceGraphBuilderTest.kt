@@ -46,7 +46,7 @@ class ItemSourceGraphBuilderTest {
         assertEquals(1, graph.getAllSources().size)
 
         // Verify relationships
-        val stickSources = graph.getSourcesForItem("minecraft:stick")
+        val stickSources = graph.getSourcesForItem(Item("minecraft:stick", "Stick"))
         assertEquals(1, stickSources.size)
 
         val source = stickSources.first()
@@ -89,16 +89,16 @@ class ItemSourceGraphBuilderTest {
         assertEquals(3, graph.getAllSources().size)
 
         // Verify planks is used in multiple recipes
-        assertNotNull(graph.getItemNode("minecraft:oak_planks"))
-        val planksNode = graph.getItemNode("minecraft:oak_planks")!!
+        assertNotNull(graph.getItemNode(Item("minecraft:oak_planks", "Oak Planks")))
+        val planksNode = graph.getItemNode(Item("minecraft:oak_planks", "Oak Planks"))!!
 
         // Planks should be produced by one source (CRAFTING_SHAPELESS from oak_planks.json)
-        val planksProducers = graph.getSourcesForItem("minecraft:oak_planks")
+        val planksProducers = graph.getSourcesForItem(Item("minecraft:oak_planks", "Oak Planks"))
         assertEquals(1, planksProducers.size)
 
         // stick and crafting_table have separate sources now (different filenames)
-        val stickSources = graph.getSourcesForItem("minecraft:stick")
-        val tableSources = graph.getSourcesForItem("minecraft:crafting_table")
+        val stickSources = graph.getSourcesForItem(Item("minecraft:stick", "Stick"))
+        val tableSources = graph.getSourcesForItem(Item("minecraft:crafting_table", "Crafting Table"))
 
         assertEquals(1, stickSources.size)
         assertEquals(1, tableSources.size)
@@ -137,7 +137,7 @@ class ItemSourceGraphBuilderTest {
         assertEquals(2, graph.getAllSources().size)
 
         // Diamond has two sources
-        val diamondSources = graph.getSourcesForItem("minecraft:diamond")
+        val diamondSources = graph.getSourcesForItem(Item("minecraft:diamond", "Diamond"))
         assertEquals(2, diamondSources.size)
 
         // Both sources should have no requirements
@@ -173,8 +173,8 @@ class ItemSourceGraphBuilderTest {
         assertEquals(2, graph.getAllSources().size)
 
         // Each source produces one item
-        val stickSource = graph.getSourcesForItem("minecraft:stick").first()
-        val ladderSource = graph.getSourcesForItem("minecraft:ladder").first()
+        val stickSource = graph.getSourcesForItem(Item("minecraft:stick", "Stick")).first()
+        val ladderSource = graph.getSourcesForItem(Item("minecraft:ladder", "Ladder")).first()
 
         assertEquals(1, graph.getProducedItems(stickSource).size)
         assertEquals(1, graph.getProducedItems(ladderSource).size)
@@ -243,7 +243,7 @@ class ItemSourceGraphBuilderTest {
 
         // Verify we can query the graph and get detailed source information
         // Test with a known Minecraft item (sticks are almost always present)
-        val stickSources = graph.getSourcesForItem("minecraft:stick")
+        val stickSources = graph.getSourcesForItem(Item("minecraft:stick", "Stick"))
         println("Found ${stickSources.size} sources for sticks")
 
         // Demonstrate that each source has its own filename and required items

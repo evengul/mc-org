@@ -129,12 +129,37 @@ suspend fun ApplicationCall.handleSaveResourcePath() {
     val depth = request.queryParameters["depth"]?.toIntOrNull()?.takeIf { it in 1..10 } ?: 2
     val maxBranches = request.queryParameters["maxBranches"]?.toIntOrNull()?.takeIf { it in 1..10 } ?: 3
 
-    // Load existing path, apply selection, upsert
+    // Load graph and build tree first (needed for populating requirements)
+    val graphResult = GetGraphStep.process(worldId)
+    if (graphResult is Result.Failure) {
+        respondBadRequest("Failed to load production graph")
+        return
+    }
+    val graph = (graphResult as Result.Success).value
+
+    val itemIdResult = GetItemIdStep.process(resourceGatheringId)
+    if (itemIdResult is Result.Failure) {
+        respondBadRequest("Failed to load item")
+        return
+    }
+    val rootItemId = (itemIdResult as Result.Success).value
+
+    val tree = ItemSourceGraphQueries(graph)
+        .findProductionChain(rootItemId, depth)
+        ?.deduplicated()
+        ?.pruneRecursively(maxBranchesPerLevel = maxBranches)
+
+    if (tree == null) {
+        respondBadRequest("Item not found in production graph")
+        return
+    }
+
+    // Load existing path, apply selection with tree context, upsert
     val existingPlan = LoadSavedPathStep.process(resourceGatheringId)
     val existingPath = (existingPlan as? Result.Success)?.value?.getOrNull()?.selectedPath
 
-    val updatedPath = existingPath?.selectSourceForItem(selectedItemId, sourceType)
-        ?: ProductionPath(itemId = selectedItemId, source = sourceType)
+    val updatedPath = (existingPath ?: ProductionPath(item = tree.targetItem.item))
+        .selectSourceForItem(selectedItemId, sourceType, tree)
 
     val upsertResult = UpsertPathStep.process(resourceGatheringId to updatedPath)
     if (upsertResult is Result.Failure) {
@@ -142,29 +167,9 @@ suspend fun ApplicationCall.handleSaveResourcePath() {
         return
     }
 
-    executeParallelPipeline(
-        onSuccess = { tree ->
-            if (tree == null) {
-                respondBadRequest("Item not found in production graph")
-            } else {
-                respondHtml(createHTML().div {
-                    pathSelectorTree(worldId, projectId, resourceGatheringId, tree, updatedPath, depth, maxBranches, confirmed = false)
-                })
-            }
-        }
-    ) {
-        val graph = singleStep("graph", worldId, GetGraphStep)
-        val itemId = singleStep("itemId", resourceGatheringId, GetItemIdStep)
-
-        merge("tree", graph, itemId) { g, id ->
-            Result.success(
-                ItemSourceGraphQueries(g)
-                    .findProductionChain(id, depth)
-                    ?.deduplicated()
-                    ?.pruneRecursively(maxBranchesPerLevel = maxBranches)
-            )
-        }
-    }
+    respondHtml(createHTML().div {
+        pathSelectorTree(worldId, projectId, resourceGatheringId, tree, updatedPath, depth, maxBranches, confirmed = false)
+    })
 }
 
 /**
@@ -194,6 +199,67 @@ suspend fun ApplicationCall.handleConfirmResourcePath() {
     }
 }
 
+/**
+ * Resets (deletes) a saved path selection so the user can start over
+ * DELETE /app/worlds/{worldId}/projects/{projectId}/resources/gathering/{gatheringId}/select-path
+ */
+suspend fun ApplicationCall.handleResetResourcePath() {
+    val worldId = this.getWorldId()
+    val projectId = this.getProjectId()
+    val resourceGatheringId = this.getResourceGatheringId()
+
+    val depth = request.queryParameters["depth"]?.toIntOrNull()?.takeIf { it in 1..10 } ?: 2
+    val maxBranches = request.queryParameters["maxBranches"]?.toIntOrNull()?.takeIf { it in 1..10 } ?: 3
+
+    // Delete the saved plan
+    val deleteResult = DeletePathStep.process(resourceGatheringId)
+    if (deleteResult is Result.Failure) {
+        respondBadRequest("Failed to reset path")
+        return
+    }
+
+    // Rebuild the tree for fresh selection
+    val graphResult = GetGraphStep.process(worldId)
+    if (graphResult is Result.Failure) {
+        respondBadRequest("Failed to load production graph")
+        return
+    }
+    val graph = (graphResult as Result.Success).value
+
+    val itemIdResult = GetItemIdStep.process(resourceGatheringId)
+    if (itemIdResult is Result.Failure) {
+        respondBadRequest("Failed to load item")
+        return
+    }
+    val rootItemId = (itemIdResult as Result.Success).value
+
+    val tree = ItemSourceGraphQueries(graph)
+        .findProductionChain(rootItemId, depth)
+        ?.deduplicated()
+        ?.pruneRecursively(maxBranchesPerLevel = maxBranches)
+
+    if (tree == null) {
+        respondBadRequest("Item not found in production graph")
+        return
+    }
+
+    respondHtml(createHTML().div {
+        pathSelectorTree(worldId, projectId, resourceGatheringId, tree, null, depth, maxBranches, confirmed = false)
+    })
+}
+
+private val DeletePathStep = DatabaseSteps.update<Int>(
+    sql = SafeSQL.delete(
+        """
+        DELETE FROM resource_gathering_plan
+        WHERE resource_gathering_id = ?
+        """.trimIndent()
+    ),
+    parameterSetter = { ps, resourceGatheringId ->
+        ps.setInt(1, resourceGatheringId)
+    }
+)
+
 private val GetWorldVersionStep = DatabaseSteps.query<Int, String>(
     sql = SafeSQL.select("SELECT version FROM world WHERE id = ?"),
     parameterSetter = { ps, worldId -> ps.setInt(1, worldId) },
@@ -211,7 +277,14 @@ private val GetResourceSourcesStep = DatabaseSteps.query<String, List<ResourceSo
                ci.item as consumed_item, ci.count as consumed_count
         FROM resource_source rs
         LEFT JOIN resource_source_produced_item pi ON pi.resource_source_id = rs.id AND pi.version = rs.version
-        LEFT JOIN resource_source_consumed_item ci ON ci.resource_source_id = rs.id AND ci.version = rs.version
+        LEFT JOIN (
+            SELECT resource_source_id, version, item, count
+            FROM resource_source_consumed_item
+            UNION ALL
+            SELECT ct.resource_source_id, ct.version, cti.item, ct.count
+            FROM resource_source_consumed_tag ct
+            JOIN minecraft_tag_item cti ON cti.tag = ct.tag AND cti.version = ct.version
+        ) ci ON ci.resource_source_id = rs.id AND ci.version = rs.version
         WHERE rs.version = ?
         ORDER BY rs.id
     """.trimIndent()

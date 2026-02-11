@@ -1,0 +1,3 @@
+ALTER TABLE resource_gathering_plan_node
+    ADD COLUMN item_name VARCHAR NOT NULL DEFAULT '',
+    ADD COLUMN is_tag BOOLEAN NOT NULL DEFAULT FALSE;

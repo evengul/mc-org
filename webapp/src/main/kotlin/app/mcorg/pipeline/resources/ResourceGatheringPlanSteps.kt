@@ -1,7 +1,11 @@
 package app.mcorg.pipeline.resources
 
+import app.mcorg.domain.model.minecraft.Item
+import app.mcorg.domain.model.minecraft.MinecraftId
+import app.mcorg.domain.model.minecraft.MinecraftTag
 import app.mcorg.domain.model.resources.ProductionPath
 import app.mcorg.domain.model.resources.ResourceGatheringPlan
+import app.mcorg.domain.model.resources.SelectedSource
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.DatabaseSteps
@@ -64,17 +68,19 @@ private suspend fun insertNodeTree(
     val insertNode = DatabaseSteps.update<Unit>(
         sql = SafeSQL.insert(
             """
-            INSERT INTO resource_gathering_plan_node (plan_id, parent_node_id, item_id, source, sort_order)
-            VALUES (?, ?, ?, ?, ?)
+            INSERT INTO resource_gathering_plan_node (plan_id, parent_node_id, item_id, item_name, is_tag, source, sort_order)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             RETURNING id
             """.trimIndent()
         ),
         parameterSetter = { ps, _ ->
             ps.setInt(1, planId)
             if (parentNodeId != null) ps.setInt(2, parentNodeId) else ps.setNull(2, java.sql.Types.INTEGER)
-            ps.setString(3, path.itemId)
-            if (path.source != null) ps.setString(4, path.source) else ps.setNull(4, java.sql.Types.VARCHAR)
-            ps.setInt(5, sortOrder)
+            ps.setString(3, path.item.id)
+            ps.setString(4, path.item.name)
+            ps.setBoolean(5, path.item is MinecraftTag)
+            if (path.source != null) ps.setString(6, path.source.sourceKey) else ps.setNull(6, java.sql.Types.VARCHAR)
+            ps.setInt(7, sortOrder)
         },
         transactionConnection = txConn
     )
@@ -85,7 +91,7 @@ private suspend fun insertNodeTree(
     }
 
     // Insert children
-    for ((index, child) in path.requirements.withIndex()) {
+    for ((index, child) in (path.source?.requirements ?: emptyList()).withIndex()) {
         val childResult = insertNodeTree(txConn, planId, nodeId, child, index)
         if (childResult is Result.Failure) return childResult
     }
@@ -97,7 +103,7 @@ val LoadSavedPathStep = DatabaseSteps.query<Int, Result<AppFailure, ResourceGath
     sql = SafeSQL.select(
         """
         SELECT p.id AS plan_id, p.resource_gathering_id, p.confirmed,
-               n.id AS node_id, n.parent_node_id, n.item_id, n.source, n.sort_order
+               n.id AS node_id, n.parent_node_id, n.item_id, n.item_name, n.is_tag, n.source, n.sort_order
         FROM resource_gathering_plan p
         LEFT JOIN resource_gathering_plan_node n ON n.plan_id = p.id
         WHERE p.resource_gathering_id = ?
@@ -114,8 +120,12 @@ val LoadSavedPathStep = DatabaseSteps.query<Int, Result<AppFailure, ResourceGath
         val resourceGatheringId = rs.getInt("resource_gathering_id")
         val confirmed = rs.getBoolean("confirmed")
 
-        data class NodeRow(val id: Int, val parentNodeId: Int?, val itemId: String, val source: String?, val sortOrder: Int)
+        data class NodeRow(val id: Int, val parentNodeId: Int?, val item: MinecraftId, val source: String?, val sortOrder: Int)
         val nodes = mutableListOf<NodeRow>()
+
+        fun readItem(itemId: String, itemName: String, isTag: Boolean): MinecraftId {
+            return if (isTag) MinecraftTag(itemId, itemName, emptyList()) else Item(itemId, itemName)
+        }
 
         // First row might have node data (LEFT JOIN)
         val firstNodeId = rs.getInt("node_id")
@@ -123,7 +133,7 @@ val LoadSavedPathStep = DatabaseSteps.query<Int, Result<AppFailure, ResourceGath
             nodes.add(NodeRow(
                 id = firstNodeId,
                 parentNodeId = rs.getInt("parent_node_id").takeIf { !rs.wasNull() },
-                itemId = rs.getString("item_id"),
+                item = readItem(rs.getString("item_id"), rs.getString("item_name"), rs.getBoolean("is_tag")),
                 source = rs.getString("source"),
                 sortOrder = rs.getInt("sort_order")
             ))
@@ -135,7 +145,7 @@ val LoadSavedPathStep = DatabaseSteps.query<Int, Result<AppFailure, ResourceGath
                 nodes.add(NodeRow(
                     id = nodeId,
                     parentNodeId = rs.getInt("parent_node_id").takeIf { !rs.wasNull() },
-                    itemId = rs.getString("item_id"),
+                    item = readItem(rs.getString("item_id"), rs.getString("item_name"), rs.getBoolean("is_tag")),
                     source = rs.getString("source"),
                     sortOrder = rs.getInt("sort_order")
                 ))
@@ -153,9 +163,8 @@ val LoadSavedPathStep = DatabaseSteps.query<Int, Result<AppFailure, ResourceGath
                 ?.map { buildTree(it) }
                 ?: emptyList()
             return ProductionPath(
-                itemId = nodeRow.itemId,
-                source = nodeRow.source,
-                requirements = children
+                item = nodeRow.item,
+                source = nodeRow.source?.let { SelectedSource(it, children) }
             )
         }
 

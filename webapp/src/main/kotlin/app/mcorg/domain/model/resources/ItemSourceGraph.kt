@@ -1,5 +1,7 @@
 package app.mcorg.domain.model.resources
 
+import app.mcorg.domain.model.minecraft.MinecraftId
+import app.mcorg.domain.model.minecraft.MinecraftTag
 import kotlinx.serialization.Serializable
 import java.util.Locale.getDefault
 
@@ -8,8 +10,9 @@ import java.util.Locale.getDefault
  * Items can be both inputs (required) and outputs (produced) of various sources.
  */
 @Serializable
-data class ItemNode(val itemId: String) {
-    override fun toString(): String = "Item($itemId)"
+data class ItemNode(val item: MinecraftId) {
+    val itemId: String get() = item.id
+    override fun toString(): String = "Item(${item.id})"
 }
 
 /**
@@ -101,7 +104,7 @@ sealed class GraphEdge {
  */
 @Serializable
 class ItemSourceGraph private constructor(
-    private val itemNodes: Map<String, ItemNode>,
+    private val itemNodes: Map<MinecraftId, ItemNode>,
     private val sourceNodes: Map<String, SourceNode>,
     private val itemToSourceEdges: Map<ItemNode, Set<SourceNode>>,
     private val sourceToItemEdges: Map<SourceNode, Set<ItemNode>>,
@@ -110,11 +113,11 @@ class ItemSourceGraph private constructor(
 
     /**
      * Get all sources that can produce a specific item.
-     * @param itemId The item identifier (e.g., "minecraft:diamond")
+     * @param item The MinecraftId (e.g., Item("minecraft:diamond", "Diamond"))
      * @return Set of all sources that produce this item, or empty set if none found
      */
-    fun getSourcesForItem(itemId: String): Set<SourceNode> {
-        val itemNode = itemNodes[itemId] ?: return emptySet()
+    fun getSourcesForItem(item: MinecraftId): Set<SourceNode> {
+        val itemNode = itemNodes[item] ?: return emptySet()
         return sourceToItemEdges.entries
             .filter { it.value.contains(itemNode) }
             .map { it.key }
@@ -140,12 +143,20 @@ class ItemSourceGraph private constructor(
     }
 
     /**
-     * Get an item node by its ID.
-     * @param itemId The item identifier
+     * Get an item node by its MinecraftId.
+     * @param item The MinecraftId
      * @return The ItemNode if it exists, null otherwise
      */
-    fun getItemNode(itemId: String): ItemNode? {
-        return itemNodes[itemId]
+    fun getItemNode(item: MinecraftId): ItemNode? {
+        return itemNodes[item]
+    }
+
+    /**
+     * Find all item nodes matching a string ID.
+     * May return multiple nodes if both an Item and MinecraftTag share the same ID.
+     */
+    fun getItemNodesByStringId(itemId: String): Set<ItemNode> {
+        return itemNodes.values.filter { it.itemId == itemId }.toSet()
     }
 
     /**
@@ -204,7 +215,7 @@ class ItemSourceGraph private constructor(
      * The builder is mutable during construction, but produces an immutable graph.
      */
     class Builder {
-        private val itemNodes = mutableMapOf<String, ItemNode>()
+        private val itemNodes = mutableMapOf<MinecraftId, ItemNode>()
         private val sourceNodes = mutableMapOf<String, SourceNode>()
         private val itemToSourceEdges = mutableMapOf<ItemNode, MutableSet<SourceNode>>()
         private val sourceToItemEdges = mutableMapOf<SourceNode, MutableSet<ItemNode>>()
@@ -213,11 +224,18 @@ class ItemSourceGraph private constructor(
         /**
          * Add or get an item node.
          * If the item already exists, returns the existing node.
-         * @param itemId The item identifier
+         * When adding a MinecraftTag, also creates nodes for each member item.
+         * @param item The MinecraftId (Item or MinecraftTag)
          * @return The ItemNode (new or existing)
          */
-        fun addItemNode(itemId: String): ItemNode {
-            return itemNodes.getOrPut(itemId) { ItemNode(itemId) }
+        fun addItemNode(item: MinecraftId): ItemNode {
+            val node = itemNodes.getOrPut(item) { ItemNode(item) }
+            if (item is MinecraftTag) {
+                for (member in item.content) {
+                    itemNodes.getOrPut(member) { ItemNode(member) }
+                }
+            }
+            return node
         }
 
         /**
