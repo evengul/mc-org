@@ -36,6 +36,22 @@ mvn exec:java         # Start development server
 
 ---
 
+## Environment
+
+This project is developed in **WSL2 (Ubuntu) on Windows**. Key implications:
+
+- **Networking**: `localhost` inside WSL2 is NOT the same as Windows localhost. Services on Windows (e.g. IntelliJ MCP server) must be reached via the Windows host IP (`cat /etc/resolv.conf | grep nameserver`).
+- **Docker**: Requires systemd running as PID 1. Config is at `/etc/wsl.conf` (NOT `/opt/wsl.conf`).
+- **Shell environment**: Non-interactive shells don't source `.bashrc`. Use `.profile` for env vars needed by background processes and MCP servers (e.g. `BROWSER`).
+- **Paths**: WSL paths (`/home/...`) and Windows paths (`C:\...`) are different. Don't assume UNC path translation works.
+
+## MCP Servers
+
+- **PostgreSQL**: Configured via MCP. Check with `/mcp` before attempting DB operations.
+- **IntelliJ**: When connecting from WSL2, uses the Windows host IP (not `localhost`). If connections fail, verify the IP with `cat /etc/resolv.conf | grep nameserver` and that IntelliJ's MCP server is running.
+
+---
+
 ## Critical Patterns
 
 ### 1. Pipeline Pattern (Railway-Oriented)
@@ -611,6 +627,14 @@ div("u-text-danger u-padding-sm") { }
 | `beforeend`   | Append to end                       |
 | `afterbegin`  | Prepend to beginning                |
 | `delete`      | Remove element                      |
+
+---
+
+## Working Style
+
+- **Implement, don't just plan.** For bug fixes and well-understood tasks, make the code change directly. Do not spend entire sessions exploring and writing plan documents without implementing.
+- **Break large refactors into committed phases.** After completing each logical phase, run the tests and commit before starting the next phase. This prevents losing progress to context limits and makes it easy to resume in a new session.
+- **Analyze logs before guessing.** When debugging, read error logs and stack traces first. Do not try speculative fixes without evidence.
 
 ---
 
