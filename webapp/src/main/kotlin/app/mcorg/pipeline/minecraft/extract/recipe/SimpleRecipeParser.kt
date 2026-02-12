@@ -6,13 +6,7 @@ import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.minecraft.extract.getResult
 import app.mcorg.pipeline.minecraft.extract.objectResult
 import app.mcorg.pipeline.minecraft.extract.primitiveResult
-import kotlinx.serialization.json.JsonArray
-import kotlinx.serialization.json.JsonElement
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.jsonArray
-import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.*
 import org.slf4j.LoggerFactory
 
 object SimpleRecipeParser {

@@ -4,11 +4,7 @@ import app.mcorg.domain.model.minecraft.Item
 import app.mcorg.domain.model.minecraft.MinecraftVersionRange
 import app.mcorg.pipeline.idea.commonsteps.GetItemsInVersionRangeStep
 import app.mcorg.pipeline.idea.createsession.CreateIdeaWizardSession
-import app.mcorg.presentation.hxGet
-import app.mcorg.presentation.hxInclude
-import app.mcorg.presentation.hxSwap
-import app.mcorg.presentation.hxTarget
-import app.mcorg.presentation.hxTargetError
+import app.mcorg.presentation.*
 import app.mcorg.presentation.templated.common.button.iconButton
 import app.mcorg.presentation.templated.common.button.neutralButton
 import app.mcorg.presentation.templated.common.form.searchableselect.SearchableSelectOption
@@ -16,19 +12,7 @@ import app.mcorg.presentation.templated.common.form.searchableselect.searchableS
 import app.mcorg.presentation.templated.common.icon.Icons
 import app.mcorg.presentation.templated.common.link.Link
 import kotlinx.coroutines.runBlocking
-import kotlinx.html.ButtonType
-import kotlinx.html.FORM
-import kotlinx.html.InputType
-import kotlinx.html.LI
-import kotlinx.html.classes
-import kotlinx.html.div
-import kotlinx.html.id
-import kotlinx.html.input
-import kotlinx.html.li
-import kotlinx.html.onClick
-import kotlinx.html.p
-import kotlinx.html.span
-import kotlinx.html.ul
+import kotlinx.html.*
 
 fun FORM.itemRequirementFields(data: CreateIdeaWizardSession) {
     p {

@@ -21,7 +21,7 @@ data object ExtractTagsStep : ParseFilesRecursivelyStep<Pair<String, List<String
         version: MinecraftVersion.Release,
         tag: String
     ): List<String> {
-        return cache[version]?.get(tag.removePrefix("#minecraft:") + ".json")?.flatMap {
+        return cache[version]?.get(tag)?.flatMap {
             if (it.startsWith("#")) getContentOfTag(version, it) else listOf(it)
         } ?: emptyList()
     }
@@ -40,9 +40,10 @@ data object ExtractTagsStep : ParseFilesRecursivelyStep<Pair<String, List<String
         content: String,
         filename: String
     ): Result<AppFailure, Pair<String, List<String>>> {
-        if (cache[version]?.containsKey(filename) == true) {
+        val tagId = filenameToTagId(filename)
+        if (cache[version]?.containsKey(tagId) == true) {
             return Result.success(
-                filename to (cache[version]?.get(filename) ?: emptyList())
+                tagId to (cache[version]?.get(tagId) ?: emptyList())
             )
         }
 
@@ -53,7 +54,7 @@ data object ExtractTagsStep : ParseFilesRecursivelyStep<Pair<String, List<String
 
         mutexMap.computeIfAbsent(version) { Mutex() }.withLock {
             val versionCache = cache.computeIfAbsent(version) { mutableMapOf() }
-            versionCache.computeIfAbsent(filename) {
+            versionCache.computeIfAbsent(tagId) {
                 val json = try {
                     kotlinx.serialization.json.Json.parseToJsonElement(content)
                 } catch (e: Exception) {
@@ -66,7 +67,9 @@ data object ExtractTagsStep : ParseFilesRecursivelyStep<Pair<String, List<String
         }
 
         return Result.success(
-            filename to (cache[version]?.get(filename) ?: emptyList())
+            tagId to (cache[version]?.get(tagId) ?: emptyList())
         )
     }
+
+    private fun filenameToTagId(filename: String) = "#minecraft:${filename.substringAfterLast('/').substringBeforeLast('.')}"
 }

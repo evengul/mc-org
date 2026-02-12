@@ -121,7 +121,7 @@ class HandleSaveResourcePathTest {
             type = ResourceSource.SourceType.RecipeTypes.CRAFTING_SHAPED,
             filename = "beacon.json",
             requiredItems = listOf(
-                MinecraftTag("minecraft:glass", "Glass", listOf(Item("minecraft:glass", "Glass"), Item("minecraft:white_glass", "White Glass"))) to ResourceQuantity.ItemQuantity(5),
+                MinecraftTag("minecraft:glass", "Glass", emptyList()) to ResourceQuantity.ItemQuantity(5),
                 Item("minecraft:nether_star", "Nether Star") to ResourceQuantity.ItemQuantity(1),
                 Item("minecraft:obsidian", "Obsidian") to ResourceQuantity.ItemQuantity(3)
             ),
@@ -140,7 +140,7 @@ class HandleSaveResourcePathTest {
             type = ResourceSource.SourceType.RecipeTypes.SMELTING,
             filename = "glass.json",
             requiredItems = listOf(
-                MinecraftTag("minecraft:sand", "Sand", listOf(Item("minecraft:sand", "Sand"), Item("minecraft:red_sand", "Red Sand"))) to ResourceQuantity.ItemQuantity(1),
+                MinecraftTag("minecraft:sand", "Sand", emptyList()) to ResourceQuantity.ItemQuantity(1),
             ),
             producedItems = listOf(
                 Item("minecraft:glass", "Glass") to ResourceQuantity.ItemQuantity(1),

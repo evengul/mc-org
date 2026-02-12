@@ -9,11 +9,7 @@ import app.mcorg.pipeline.minecraft.extract.getResult
 import app.mcorg.pipeline.minecraft.extract.objectResult
 import app.mcorg.pipeline.minecraft.extract.primitiveResult
 import kotlinx.coroutines.runBlocking
-import kotlinx.serialization.json.JsonElement
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.*
 import org.slf4j.LoggerFactory
 
 object ShapedRecipeParser {

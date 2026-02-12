@@ -1,6 +1,7 @@
 package app.mcorg.pipeline.minecraft.extract.recipe
 
 import app.mcorg.domain.model.minecraft.Item
+import app.mcorg.domain.model.minecraft.MinecraftTag
 import app.mcorg.domain.model.minecraft.MinecraftVersion
 import app.mcorg.domain.model.minecraft.MinecraftVersionRange
 import app.mcorg.domain.model.resources.ResourceQuantity
@@ -45,8 +46,9 @@ class ExtractRecipesStepTest : ServerFileTest(
                 assertIsNot<ResourceQuantity.Unknown>(item.second)
 
                 // Ensure no item ids with tag references exist
-                if (item.first is Item) {
-                    assertNotEquals('#', item.first.id.first())
+                when (val id = item.first) {
+                    is Item -> assertNotEquals('#', id.id.first())
+                    is MinecraftTag -> assertNotEquals(0, id.content.size)
                 }
             }
 
@@ -58,8 +60,9 @@ class ExtractRecipesStepTest : ServerFileTest(
                 assertIsNot<ResourceQuantity.Unknown>(item.second)
 
                 // Ensure no item ids with tag references exist
-                if (item.first is Item) {
-                    assertNotEquals('#', item.first.id.first())
+                when (val id = item.first) {
+                    is Item -> assertNotEquals('#', id.id.first())
+                    is MinecraftTag -> assertNotEquals(0, id.content.size)
                 }
             }
         }

@@ -1,5 +1,7 @@
 package app.mcorg.pipeline.minecraft.extract.loot
 
+import app.mcorg.domain.model.minecraft.Item
+import app.mcorg.domain.model.minecraft.MinecraftTag
 import app.mcorg.domain.model.minecraft.MinecraftVersion
 import app.mcorg.domain.model.resources.ResourceQuantity
 import app.mcorg.pipeline.minecraft.extract.ServerFileTest
@@ -30,12 +32,22 @@ class ExtractLootTablesTest : ServerFileTest() {
                 assertNotEquals("", it.first.name, "Item name is empty for id: ${it.first.id} in loot table: ${source.filename}")
 
                 assertIs<ResourceQuantity.Unknown>(it.second)
+
+                when (val id = it.first) {
+                    is Item -> assertNotEquals('#', id.id.first(), "Item has tag prefix in loot table: ${source.filename}")
+                    is MinecraftTag -> assertNotEquals(0, id.content.size, "Tag has no content in loot table: ${source.filename}")
+                }
             }
             source.producedItems.forEach {
                 assertNotEquals(it.first.id, it.first.name, "Item id and name are equal for id: ${it.first.id} in loot table: ${source.filename}")
                 assertNotEquals("", it.first.name, "Item name is empty for id: ${it.first.id} in loot table: ${source.filename}")
 
                 assertIs<ResourceQuantity.Unknown>(it.second)
+
+                when (val id = it.first) {
+                    is Item -> assertNotEquals('#', id.id.first(), "Item has tag prefix in loot table: ${source.filename}")
+                    is MinecraftTag -> assertNotEquals(0, id.content.size, "Tag has no content in loot table: ${source.filename}")
+                }
             }
         }
     }

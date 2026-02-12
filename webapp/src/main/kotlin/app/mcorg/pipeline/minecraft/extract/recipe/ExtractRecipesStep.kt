@@ -8,12 +8,7 @@ import app.mcorg.domain.model.resources.ResourceSource
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.minecraft.ServerPathResolvers
-import app.mcorg.pipeline.minecraft.extract.ExtractNamesStep
-import app.mcorg.pipeline.minecraft.extract.ExtractTagsStep
-import app.mcorg.pipeline.minecraft.extract.ParseFilesRecursivelyStep
-import app.mcorg.pipeline.minecraft.extract.getResult
-import app.mcorg.pipeline.minecraft.extract.objectResult
-import app.mcorg.pipeline.minecraft.extract.primitiveResult
+import app.mcorg.pipeline.minecraft.extract.*
 import kotlinx.serialization.json.Json
 import org.slf4j.LoggerFactory
 import java.nio.file.Path
