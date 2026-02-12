@@ -1,0 +1,1 @@
+ALTER TABLE minecraft_tag rename column minecraft_version to version;

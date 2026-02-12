@@ -1,0 +1,1 @@
+ALTER TABLE resource_gathering_plan ADD COLUMN confirmed BOOLEAN NOT NULL DEFAULT FALSE;

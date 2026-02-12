@@ -4,6 +4,6 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class Item(
-    val id: String,
-    val name: String
-)
+    override val id: String,
+    override val name: String
+) : MinecraftId

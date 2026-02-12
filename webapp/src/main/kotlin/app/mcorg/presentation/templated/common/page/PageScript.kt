@@ -1,7 +1,7 @@
 package app.mcorg.presentation.templated.common.page
 
 import app.mcorg.presentation.templated.common.page.PageScript.*
-import io.ktor.util.*
+import io.ktor.util.generateNonce
 import kotlinx.html.HEAD
 import kotlinx.html.ScriptCrossorigin
 import kotlinx.html.script

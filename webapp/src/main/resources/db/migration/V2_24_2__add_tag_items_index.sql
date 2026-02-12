@@ -1,0 +1,1 @@
+CREATE INDEX idx_tag_item_lookup ON minecraft_tag_item(version, tag);

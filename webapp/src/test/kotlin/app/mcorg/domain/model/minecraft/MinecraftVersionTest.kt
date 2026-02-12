@@ -133,11 +133,15 @@ class MinecraftVersionTest {
 
         @Test
         fun `test parse various release versions`() {
-            val versions = listOf("1.19.2", "1.20.0", "2.0.1")
+            val versions = listOf("1.19.2", "1.20.0", "2.0.1", "1.18", "26.1", "26.1.1")
             versions.forEach { versionString ->
                 val version = MinecraftVersion.fromString(versionString)
                 assertTrue(version is MinecraftVersion.Release)
-                assertEquals(versionString, version.toString())
+                if (versionString.count { it == '.' } == 1) {
+                    assertEquals("$versionString.0", version.toString())
+                } else {
+                    assertEquals(versionString, version.toString())
+                }
             }
         }
 
@@ -162,7 +166,6 @@ class MinecraftVersionTest {
         @Test
         fun `test parse invalid version formats throws exception`() {
             val invalidVersions = listOf(
-                "1.20", // Missing patch
                 "1.20.4.1", // Too many parts
                 "2023w45", // Missing patch letter
                 "w45a", // Missing year

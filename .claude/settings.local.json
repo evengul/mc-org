@@ -1,16 +1,25 @@
 {
   "permissions": {
     "allow": [
+      "Bash(mvn compile:*)",
+      "Bash(mvn test:*)",
+      "Bash(mvn clean install:*)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
       "Bash(git status:*)",
       "Bash(find:*)",
       "Bash(grep:*)",
-      "Bash(/home/evengul/dev/mc-org/webapp/scripts/start-db.sh)",
-      "Bash(/home/evengul/dev/mc-org/webapp/scripts/migrate-locally.sh:*)",
-      "Bash(/home/evengul/dev/mc-org/webapp/scripts/run.sh:*)",
       "mcp__postgres__list_schemas",
-      "mcp__postgres__list_objects"
+      "mcp__postgres__list_objects",
+      "Skill(playwright)",
+      "Bash(webapp/scripts/start-db.sh:*)",
+      "Bash(webapp/scripts/migrate-locally.sh:*)",
+      "Bash(webapp/scripts/run.sh:*)",
+      "mcp__postgres__get_object_details",
+      "mcp__jetbrains__list_directory_tree",
+      "mcp__jetbrains__find_files_by_name_keyword",
+      "Bash(sort:*)",
+      "Bash(mvn clean compile:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

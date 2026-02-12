@@ -1,0 +1,1 @@
+delete from minecraft_items;

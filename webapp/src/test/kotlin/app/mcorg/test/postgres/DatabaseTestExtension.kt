@@ -59,7 +59,6 @@ class DatabaseTestExtension : BeforeAllCallback {
                 TRUNCATE TABLE 
                     world_members,
                     projects,
-                    tasks,
                     project_dependencies,
                     invites,
                     notifications,
