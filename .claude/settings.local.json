@@ -1,29 +1,47 @@
 {
   "permissions": {
     "allow": [
-      "Bash(mvn compile:*)",
-      "Bash(mvn test:*)",
-      "Bash(mvn clean install:*)",
-      "Bash(git add:*)",
-      "Bash(git commit:*)",
-      "Bash(git status:*)",
-      "Bash(find:*)",
-      "Bash(grep:*)",
-      "mcp__postgres__list_schemas",
+      "Bash(docker info:*)",
+      "Bash(mvn compile *)",
+      "Bash(mvn test *)",
+      "Bash(mvn clean install *)",
+      "Bash(mvn clean compile *)",
+      "Bash(git status *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(find *)",
+      "Bash(grep *)",
+      "Bash(sort *)",
+      "Bash(webapp/scripts/start-db.sh)",
+      "Bash(webapp/scripts/migrate-locally.sh)",
+      "Bash(webapp/scripts/run.sh)",
+      "Bash(webapp/scripts/run.sh *)",
+      "Bash(docker compose -f webapp/docker-compose-local.yaml exec db pg_isready*)",
+      "Bash(docker compose -f webapp/docker-compose-local.yaml ps*)",
+      "Bash(docker compose -f webapp/docker-compose-local.yaml down*)",
+      "Bash(curl -s *localhost:8080*)",
+      "Bash(lsof -ti:8080*)",
+      "Bash(pkill -f *mcorg*)",
       "mcp__postgres__list_objects",
-      "Skill(playwright)",
-      "Bash(webapp/scripts/start-db.sh:*)",
-      "Bash(webapp/scripts/migrate-locally.sh:*)",
-      "Bash(webapp/scripts/run.sh:*)",
+      "mcp__postgres__list_schemas",
       "mcp__postgres__get_object_details",
       "mcp__jetbrains__list_directory_tree",
       "mcp__jetbrains__find_files_by_name_keyword",
-      "Bash(sort:*)",
-      "Bash(mvn clean compile:*)"
+      "Skill(playwright)"
     ]
   },
   "enableAllProjectMcpServers": true,
-  "enabledMcpjsonServers": [
-    "intelliJ"
-  ]
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/home/evengul/dev/mc-org/.claude/hooks/post-edit-compile.sh"
+          }
+        ]
+      }
+    ]
+  }
 }
