@@ -1,10 +1,6 @@
 package app.mcorg.pipeline.minecraft
 
-import app.mcorg.domain.model.minecraft.Item
-import app.mcorg.domain.model.minecraft.MinecraftId
-import app.mcorg.domain.model.minecraft.MinecraftTag
-import app.mcorg.domain.model.minecraft.MinecraftVersion
-import app.mcorg.domain.model.minecraft.ServerData
+import app.mcorg.domain.model.minecraft.*
 import app.mcorg.domain.model.resources.ResourceQuantity
 import app.mcorg.domain.model.resources.ResourceSource
 import app.mcorg.domain.pipeline.Result
@@ -88,7 +84,8 @@ private data class StoreMinecraftItemDataStep(val connection: TransactionConnect
                     statement.setString(1, version.toString())
                     statement.setString(2, tag.id)
                     statement.setString(3, tag.name)
-                }
+                },
+                transactionConnection = connection
             ).process(tags).map {
                 logger.info("Stored ${tags.size} tags for minecraft version $version in the database.")
             }
@@ -104,6 +101,7 @@ private data class StoreMinecraftItemDataStep(val connection: TransactionConnect
                     statement.setString(2, tag.id)
                     statement.setString(3, item.id)
                 },
+                transactionConnection = connection
             ).process(tags.flatMap { tag -> tag.content.map { item -> tag to item } }).map {
                 logger.info("Stored tag-item relationships for minecraft version $version in the database.")
             }
