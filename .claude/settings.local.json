@@ -27,7 +27,10 @@
       "mcp__postgres__get_object_details",
       "mcp__jetbrains__list_directory_tree",
       "mcp__jetbrains__find_files_by_name_keyword",
-      "Skill(playwright)"
+      "Skill(playwright)",
+      "mcp__linear__create_issue_label",
+      "mcp__linear__list_issue_labels",
+      "mcp__linear__create_issue"
     ]
   },
   "enableAllProjectMcpServers": true,
