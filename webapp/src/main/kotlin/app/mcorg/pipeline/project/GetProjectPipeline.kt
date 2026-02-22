@@ -9,6 +9,7 @@ import app.mcorg.pipeline.project.dependencies.GetProjectDependenciesStep
 import app.mcorg.pipeline.project.resources.GetItemsInWorldVersionStep
 import app.mcorg.pipeline.project.resources.GetResourceProductionStep
 import app.mcorg.pipeline.resources.commonsteps.GetAllResourceGatheringItemsStep
+import app.mcorg.pipeline.resources.commonsteps.GetGatheringItemsWithPlansStep
 import app.mcorg.pipeline.task.SearchTasksInput
 import app.mcorg.pipeline.task.SearchTasksStep
 import app.mcorg.pipeline.task.commonsteps.CountActionTasksInProjectStep
@@ -55,6 +56,7 @@ suspend fun ApplicationCall.handleGetProject() {
         "resources" -> {
             // Get resource production data
             val gatheringTasks = GetAllResourceGatheringItemsStep.process(projectId).getOrNull() ?: emptyList()
+            val gatheringPlans = GetGatheringItemsWithPlansStep.process(projectId).getOrNull() ?: emptySet()
 
             val resourceProduction = when (val result = GetResourceProductionStep.process(projectId)) {
                 is Result.Success -> result.value
@@ -66,7 +68,8 @@ suspend fun ApplicationCall.handleGetProject() {
                 user,
                 gatheringTasks,
                 resourceProduction,
-                itemNames
+                itemNames,
+                gatheringPlans
             )
         }
 

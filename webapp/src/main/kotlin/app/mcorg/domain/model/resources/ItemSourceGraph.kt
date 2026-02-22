@@ -43,6 +43,21 @@ data class SourceNode(
         }
     }
 
+    fun getMethodLabel(): String {
+        return when (sourceType.id) {
+            "minecraft:block" -> "Break Block"
+            "minecraft:block_interact" -> "Interact"
+            "minecraft:entity" -> "Entity Drop"
+            "minecraft:entity_interact" -> "Interact"
+            "minecraft:barter" -> "Bartering"
+            "minecraft:chest" -> "Chest Loot"
+            "minecraft:gift" -> "Gift Drop"
+            "minecraft:archaeology" -> "Archaeology"
+            "minecraft:equipment" -> "Equipment"
+            else -> sourceType.name
+        }
+    }
+
     private fun getPrettyFilename(): String {
         return filename.substringAfterLast('/').substringBeforeLast('.').replace('_', ' ')
             .replaceFirstChar { if (it.isLowerCase()) it.titlecase(getDefault()) else it.toString() }
@@ -108,7 +123,9 @@ class ItemSourceGraph private constructor(
     private val sourceNodes: Map<String, SourceNode>,
     private val itemToSourceEdges: Map<ItemNode, Set<SourceNode>>,
     private val sourceToItemEdges: Map<SourceNode, Set<ItemNode>>,
-    private val sourceToRequiredItems: Map<SourceNode, Set<ItemNode>>
+    private val sourceToRequiredItems: Map<SourceNode, Set<ItemNode>>,
+    private val sourceInputQuantities: Map<SourceNode, Map<ItemNode, Int>> = emptyMap(),
+    private val sourceOutputQuantities: Map<SourceNode, Map<ItemNode, Int>> = emptyMap()
 ) {
 
     /**
@@ -140,6 +157,29 @@ class ItemSourceGraph private constructor(
      */
     fun getProducedItems(source: SourceNode): Set<ItemNode> {
         return sourceToItemEdges[source] ?: emptySet()
+    }
+
+    /**
+     * Get the quantity of a specific item required by a source.
+     * @return The count, or 1 if unknown
+     */
+    fun getRequiredQuantity(source: SourceNode, item: ItemNode): Int {
+        return sourceInputQuantities[source]?.get(item) ?: 1
+    }
+
+    /**
+     * Get the quantity of a specific item produced by a source.
+     * @return The count, or 1 if unknown
+     */
+    fun getProducedQuantity(source: SourceNode, item: ItemNode): Int {
+        return sourceOutputQuantities[source]?.get(item) ?: 1
+    }
+
+    /**
+     * Get all required quantities for a source as a map of itemId -> count.
+     */
+    fun getRequiredQuantities(source: SourceNode): Map<String, Int> {
+        return sourceInputQuantities[source]?.map { (item, qty) -> item.itemId to qty }?.toMap() ?: emptyMap()
     }
 
     /**
@@ -220,6 +260,8 @@ class ItemSourceGraph private constructor(
         private val itemToSourceEdges = mutableMapOf<ItemNode, MutableSet<SourceNode>>()
         private val sourceToItemEdges = mutableMapOf<SourceNode, MutableSet<ItemNode>>()
         private val sourceToRequiredItems = mutableMapOf<SourceNode, MutableSet<ItemNode>>()
+        private val sourceInputQuantities = mutableMapOf<SourceNode, MutableMap<ItemNode, Int>>()
+        private val sourceOutputQuantities = mutableMapOf<SourceNode, MutableMap<ItemNode, Int>>()
 
         /**
          * Add or get an item node.
@@ -254,19 +296,29 @@ class ItemSourceGraph private constructor(
          * Add an edge from an item to a source (item is required for source).
          * @param item The item node
          * @param source The source node
+         * @param quantity The quantity required (null means unknown, defaults to 1)
          */
-        fun addItemToSourceEdge(item: ItemNode, source: SourceNode) {
+        fun addItemToSourceEdge(item: ItemNode, source: SourceNode, quantity: Int? = null) {
             itemToSourceEdges.getOrPut(item) { mutableSetOf() }.add(source)
             sourceToRequiredItems.getOrPut(source) { mutableSetOf() }.add(item)
+            if (quantity != null && quantity > 0) {
+                sourceInputQuantities.getOrPut(source) { mutableMapOf() }
+                    .merge(item, quantity) { existing, new -> existing + new }
+            }
         }
 
         /**
          * Add an edge from a source to an item (source produces item).
          * @param source The source node
          * @param item The item node
+         * @param quantity The quantity produced (null means unknown, defaults to 1)
          */
-        fun addSourceToItemEdge(source: SourceNode, item: ItemNode) {
+        fun addSourceToItemEdge(source: SourceNode, item: ItemNode, quantity: Int? = null) {
             sourceToItemEdges.getOrPut(source) { mutableSetOf() }.add(item)
+            if (quantity != null && quantity > 0) {
+                sourceOutputQuantities.getOrPut(source) { mutableMapOf() }
+                    .merge(item, quantity) { existing, new -> existing + new }
+            }
         }
 
         /**
@@ -280,13 +332,17 @@ class ItemSourceGraph private constructor(
             val immutableItemToSourceEdges = itemToSourceEdges.mapValues { it.value.toSet() }
             val immutableSourceToItemEdges = sourceToItemEdges.mapValues { it.value.toSet() }
             val immutableSourceToRequiredItems = sourceToRequiredItems.mapValues { it.value.toSet() }
+            val immutableSourceInputQuantities = sourceInputQuantities.mapValues { it.value.toMap() }
+            val immutableSourceOutputQuantities = sourceOutputQuantities.mapValues { it.value.toMap() }
 
             return ItemSourceGraph(
                 immutableItemNodes,
                 immutableSourceNodes,
                 immutableItemToSourceEdges,
                 immutableSourceToItemEdges,
-                immutableSourceToRequiredItems
+                immutableSourceToRequiredItems,
+                immutableSourceInputQuantities,
+                immutableSourceOutputQuantities
             )
         }
     }

@@ -19,10 +19,13 @@ import app.mcorg.pipeline.resources.handleCreateResourceGatheringItem
 import app.mcorg.pipeline.resources.handleDeleteResourceGatheringItem
 import app.mcorg.pipeline.resources.handleExpandPathNode
 import app.mcorg.pipeline.resources.handleFindIdeasForResource
+import app.mcorg.pipeline.resources.handleGetPlanView
 import app.mcorg.pipeline.resources.handleConfirmResourcePath
 import app.mcorg.pipeline.resources.handleResetResourcePath
 import app.mcorg.pipeline.resources.handleSaveResourcePath
 import app.mcorg.pipeline.resources.handleSelectResourcePath
+import app.mcorg.pipeline.resources.handleSuggestAllResourcePaths
+import app.mcorg.pipeline.resources.handleSuggestResourcePath
 import app.mcorg.pipeline.resources.handleUpdateRequirementProgress
 import app.mcorg.pipeline.task.handleCompleteActionTask
 import app.mcorg.pipeline.task.handleCreateActionTask
@@ -103,6 +106,9 @@ class WorldHandler {
                             call.handleDeleteProject()
                         }
                         route("/resources") {
+                            post("/suggest-all-paths") {
+                                call.handleSuggestAllResourcePaths()
+                            }
                             route("/gathering") {
                                 post {
                                     call.handleCreateResourceGatheringItem()
@@ -115,8 +121,14 @@ class WorldHandler {
                                     get("/matching-ideas") {
                                         call.handleFindIdeasForResource()
                                     }
+                                    get("/plan-view") {
+                                        call.handleGetPlanView()
+                                    }
                                     get("/select-path") {
                                         call.handleSelectResourcePath()
+                                    }
+                                    post("/suggest-path") {
+                                        call.handleSuggestResourcePath()
                                     }
                                     route("/select-path") {
                                         put {

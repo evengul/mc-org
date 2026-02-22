@@ -1,14 +1,13 @@
 package app.mcorg.presentation.templated.project
 
+import app.mcorg.domain.model.minecraft.Item
+import app.mcorg.domain.model.minecraft.MinecraftTag
 import app.mcorg.domain.model.resources.ProductionPath
+import app.mcorg.domain.model.resources.ResourceGatheringPlan
 import app.mcorg.domain.model.resources.SourceNode
 import app.mcorg.domain.services.ProductionBranch
 import app.mcorg.domain.services.ProductionTree
-import app.mcorg.presentation.hxDeleteWithConfirm
-import app.mcorg.presentation.hxGet
-import app.mcorg.presentation.hxPut
-import app.mcorg.presentation.hxSwap
-import app.mcorg.presentation.hxTarget
+import app.mcorg.presentation.*
 import app.mcorg.presentation.templated.common.button.actionButton
 import app.mcorg.presentation.templated.common.button.ghostButton
 import app.mcorg.presentation.templated.common.button.neutralButton
@@ -36,12 +35,25 @@ fun DIV.pathSelectorTree(
         id = "path-selector-$gatheringId"
 
         // Breadcrumb navigation
-        pathBreadcrumb(tree, selectedPath)
+        pathBreadcrumb(selectedPath)
 
         // Main tree view
         div("path-selector__tree") {
-            h3 {
-                +"Select how to obtain ${tree.targetItem.item.name}"
+            div("u-flex u-flex-between u-flex-align-center") {
+                h3 {
+                    +"Select how to obtain ${tree.targetItem.item.name}"
+                }
+                if (tree.sources.isNotEmpty()) {
+                    neutralButton("Suggest Path") {
+                        iconLeft = Icons.MENU_ADD
+                        iconSize = IconSize.SMALL
+                        buttonBlock = {
+                            hxPost("/app/worlds/$worldId/projects/$projectId/resources/gathering/$gatheringId/suggest-path")
+                            hxTarget("#path-selector-$gatheringId")
+                            hxSwap("outerHTML")
+                        }
+                    }
+                }
             }
 
             if (tree.sources.isEmpty()) {
@@ -147,7 +159,13 @@ fun LI.pathNode(
                     li("path-requirement") {
                         div("path-requirement__header") {
                             span {
-                                + requiredTree.targetItem.item.name
+                                if (requiredTree.targetItem.item is MinecraftTag) {
+                                    title = "Any of ${requiredTree.tagMembers.joinToString { it.targetItem.item.name }}"
+                                }
+                                + when (val id = requiredTree.targetItem.item) {
+                                    is Item -> id.name
+                                    is MinecraftTag -> "${id.name} \uD83D\uDEC8"
+                                }
                             }
 
                             if (requiredTree.sources.isEmpty()) {
@@ -205,34 +223,85 @@ private fun findSourceTypeName(path: ProductionPath, targetItemId: String): Stri
 }
 
 /**
- * Breadcrumb navigation showing current selection path
+ * Compact read-only view for items that already have a saved plan.
+ * Shows the recipe breadcrumb + summary panel without the interactive selection tree.
+ * Rendered into #found-paths-for-gathering-{id} on page load.
  */
-fun DIV.pathBreadcrumb(tree: ProductionTree, selectedPath: ProductionPath?) {
+fun DIV.pathPlanView(worldId: Int, projectId: Int, gatheringId: Int, plan: ResourceGatheringPlan) {
+    div("path-selector") {
+        id = "path-selector-$gatheringId"
+        pathBreadcrumb(plan.selectedPath)
+        if (!plan.confirmed) {
+            div("path-plan-view__status") {
+                chipComponent {
+                    variant = ChipVariant.WARNING
+                    size = ChipSize.SMALL
+                    +"Not confirmed"
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Breadcrumb navigation showing current selection path as a recipe formula:
+ * e.g.  Sand → Glass (Smelting)  +  Obsidian (Break Block)  +  Nether Star (Base Resource)  →  Beacon (Crafting)
+ */
+fun DIV.pathBreadcrumb(selectedPath: ProductionPath?) {
     nav("path-breadcrumb") {
         attributes["aria-label"] = "Selection path"
 
-        if (selectedPath != null) {
-            val entries = buildBreadcrumbEntries(selectedPath)
-            ol("path-breadcrumb__list") {
-                entries.forEachIndexed { index, (itemName, sourceName) ->
-                    li("path-breadcrumb__item") {
-                        val label = itemName +
-                            (sourceName?.let { " ($it)" } ?: "")
+        if (selectedPath == null || selectedPath.source == null) {
+            p("subtle") { +"Select a source to begin" }
+            return@nav
+        }
 
-                        if (index < entries.size - 1) {
-                            +"$label \u2192 "
-                        } else {
-                            span("path-breadcrumb__current") {
-                                +label
-                            }
+        div("path-recipe") {
+            val ingredients = selectedPath.source.requirements
+            if (ingredients.isNotEmpty()) {
+                div("path-recipe__ingredients") {
+                    ingredients.forEachIndexed { i, req ->
+                        // Group the separator with its ingredient so they never wrap apart
+                        div("path-recipe__ingredient-group") {
+                            if (i > 0) span("path-recipe__plus") { +"+" }
+                            recipeIngredient(req)
                         }
                     }
                 }
             }
-        } else {
-            p("subtle") {
-                +"Select a source to begin"
+
+            // Arrow + target grouped so the arrow never orphans on a line
+            div("path-recipe__target-group") {
+                if (ingredients.isNotEmpty()) span("path-recipe__arrow") { +"\u2192" }
+                div("path-recipe__target") {
+                    span("path-recipe__item-name") { +selectedPath.item.name }
+                    val method = SourceNode.fromKey(selectedPath.source.sourceKey).getMethodLabel()
+                    span("path-recipe__method") { +"($method)" }
+                }
             }
+        }
+    }
+}
+
+private fun DIV.recipeIngredient(path: ProductionPath) {
+    val isBase = path.source == null
+    div("path-recipe__ingredient${if (isBase) " path-recipe__ingredient--base" else ""}") {
+        // Sub-chain: show what this ingredient is made from
+        val reqs = path.source?.requirements
+        if (!reqs.isNullOrEmpty()) {
+            span("path-recipe__sub-chain") {
+                reqs.forEachIndexed { i, req ->
+                    if (i > 0) span("path-recipe__sub-sep") { +"+" }
+                    span("path-recipe__sub-item") { +req.item.name }
+                }
+                span("path-recipe__connector") { +"\u2192" }
+            }
+        }
+
+        span("path-recipe__item-name") { +path.item.name }
+        val methodLabel = path.source?.let { SourceNode.fromKey(it.sourceKey).getMethodLabel() }
+        span("path-recipe__method${if (isBase) " path-recipe__method--base" else ""}") {
+            +"(${methodLabel ?: "Base Resource"})"
         }
     }
 }
@@ -326,14 +395,6 @@ fun DIV.pathSummary(worldId: Int, projectId: Int, gatheringId: Int, selectedPath
 
 // Helper functions
 
-private fun buildBreadcrumbEntries(path: ProductionPath): List<Pair<String, String?>> {
-    val sourceName = path.source?.let { SourceNode.fromKey(it.sourceKey).getName() }
-    val entries = mutableListOf(path.item.name to sourceName)
-    path.source?.requirements?.forEach { req ->
-        entries.addAll(buildBreadcrumbEntries(req))
-    }
-    return entries
-}
 
 private fun getSourceIcon(sourceTypeId: String): String {
     return when {
