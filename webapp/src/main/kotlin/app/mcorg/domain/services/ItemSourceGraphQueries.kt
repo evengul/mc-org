@@ -87,14 +87,15 @@ class ItemSourceGraphQueries(private val graph: ItemSourceGraph) {
 
         visited.add(item)
 
-        // Tags expand to their member items instead of having sources
+        // Tags: build member trees and inherit their sources
         if (item.item is MinecraftTag) {
             val memberTrees = item.item.content.mapNotNull { member ->
                 graph.getItemNode(member)?.let { memberNode ->
                     buildProductionTree(memberNode, visited, depth - 1)
                 }
             }
-            return ProductionTree(item, sources = emptyList(), tagMembers = memberTrees)
+            val memberSources = memberTrees.flatMap { it.sources }
+            return ProductionTree(item, sources = memberSources, tagMembers = memberTrees)
         }
 
         // Find all sources that produce this item
@@ -106,7 +107,12 @@ class ItemSourceGraphQueries(private val graph: ItemSourceGraph) {
             val requiredTrees = requiredItems.map { requiredItem ->
                 buildProductionTree(requiredItem, visited, depth - 1)
             }
-            ProductionBranch(source, requiredTrees)
+            ProductionBranch(
+                source = source,
+                requiredItems = requiredTrees,
+                requiredQuantities = graph.getRequiredQuantities(source),
+                producedQuantity = graph.getProducedQuantity(source, item)
+            )
         }
 
         return ProductionTree(item, branches)
@@ -367,7 +373,9 @@ data class ProductionTree(
                 source = branch.source,
                 requiredItems = branch.requiredItems.map { childTree ->
                     childTree.pruneRecursively(maxBranchesPerLevel, scorer)
-                }
+                },
+                requiredQuantities = branch.requiredQuantities,
+                producedQuantity = branch.producedQuantity
             )
         }
 
@@ -392,8 +400,10 @@ data class ProductionTree(
 
             val deduplicatedBranches = subtree.sources.map { branch ->
                 ProductionBranch(
-                    branch.source,
-                    branch.requiredItems.map { deduplicate(it) }
+                    source = branch.source,
+                    requiredItems = branch.requiredItems.map { deduplicate(it) },
+                    requiredQuantities = branch.requiredQuantities,
+                    producedQuantity = branch.producedQuantity
                 )
             }
 
@@ -437,7 +447,9 @@ data class ProductionTree(
 @Serializable
 data class ProductionBranch(
     val source: SourceNode,
-    val requiredItems: List<ProductionTree>  // Recursive: each required item has its own production tree
+    val requiredItems: List<ProductionTree>,  // Recursive: each required item has its own production tree
+    val requiredQuantities: Map<String, Int> = emptyMap(),  // itemId -> count needed
+    val producedQuantity: Int = 1  // how many of the target item this source produces
 ) {
     fun getScore(): Int {
         return source.sourceType.score - requiredItems.size * 10 - (requiredItems.takeIf { it.isNotEmpty() }?.let { items -> items.maxOf { item -> item.getDepth() } } ?: 0)
