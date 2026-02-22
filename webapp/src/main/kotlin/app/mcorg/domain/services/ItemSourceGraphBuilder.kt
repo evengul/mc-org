@@ -1,6 +1,7 @@
 package app.mcorg.domain.services
 
 import app.mcorg.domain.model.resources.ItemSourceGraph
+import app.mcorg.domain.model.resources.ResourceQuantity
 import app.mcorg.domain.model.resources.ResourceSource
 import org.slf4j.LoggerFactory
 
@@ -77,16 +78,18 @@ object ItemSourceGraphBuilder {
         // Create source node for this resource (unique by type + filename)
         val sourceNode = builder.addSourceNode(source.type, source.filename)
 
-        // Connect required items to source (inputs)
-        for (requiredItem in source.requiredItems) {
-            val itemNode = builder.addItemNode(requiredItem.first)
-            builder.addItemToSourceEdge(itemNode, sourceNode)
+        // Connect required items to source (inputs) with quantities
+        for ((item, quantity) in source.requiredItems) {
+            val itemNode = builder.addItemNode(item)
+            val count = (quantity as? ResourceQuantity.ItemQuantity)?.itemQuantity
+            builder.addItemToSourceEdge(itemNode, sourceNode, count)
         }
 
-        // Connect source to produced items (outputs)
-        for (producedItem in source.producedItems) {
-            val itemNode = builder.addItemNode(producedItem.first)
-            builder.addSourceToItemEdge(sourceNode, itemNode)
+        // Connect source to produced items (outputs) with quantities
+        for ((item, quantity) in source.producedItems) {
+            val itemNode = builder.addItemNode(item)
+            val count = (quantity as? ResourceQuantity.ItemQuantity)?.itemQuantity
+            builder.addSourceToItemEdge(sourceNode, itemNode, count)
         }
     }
 

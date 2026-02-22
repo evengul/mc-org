@@ -6,8 +6,6 @@ import app.mcorg.domain.model.project.ProjectProduction
 import app.mcorg.domain.model.project.ProjectStage
 import app.mcorg.domain.model.resources.ResourceGatheringItem
 import app.mcorg.domain.model.user.TokenProfile
-import app.mcorg.domain.services.ProductionBranch
-import app.mcorg.domain.services.ProductionTree
 import app.mcorg.pipeline.resources.FoundIdea
 import app.mcorg.presentation.hxDeleteWithConfirm
 import app.mcorg.presentation.hxGet
@@ -55,7 +53,8 @@ fun DIV.resourcesTab(
     project: Project,
     production: List<ProjectProduction>,
     gathering: List<ResourceGatheringItem>,
-    itemNames: List<Item>
+    itemNames: List<Item>,
+    gatheringPlans: Set<Int> = emptySet()
 ) {
     val totalNeeded = gathering.sumOf { it.required }
     val totalCollected = gathering.sumOf { it.collected }
@@ -127,11 +126,23 @@ fun DIV.resourcesTab(
                 id = "validation-error-requiredAmount"
             }
         }
+        if (gathering.isNotEmpty() && !user.isDemoUserInProduction) {
+            div("u-margin-top-sm u-margin-bottom-sm") {
+                neutralButton("Suggest All Paths") {
+                    iconLeft = Icons.MENU_ADD
+                    iconSize = IconSize.SMALL
+                    buttonBlock = {
+                        hxPost("/app/worlds/${project.worldId}/projects/${project.id}/resources/suggest-all-paths")
+                        attributes["hx-confirm"] = "This will auto-suggest production paths for all items without a confirmed path. Existing unconfirmed paths will be overwritten. Continue?"
+                    }
+                }
+            }
+        }
         ul {
             id = "project-resource-gathering-list"
             gathering.forEach {
                 li {
-                    projectResourceGatheringItem(project.worldId, project.id, it)
+                    projectResourceGatheringItem(project.worldId, project.id, it, hasPlan = it.id in gatheringPlans)
                 }
             }
         }
@@ -215,7 +226,7 @@ fun DIV.resourcesTab(
     }
 }
 
-fun LI.projectResourceGatheringItem(worldId: Int, projectId: Int, item: ResourceGatheringItem) {
+fun LI.projectResourceGatheringItem(worldId: Int, projectId: Int, item: ResourceGatheringItem, hasPlan: Boolean = false) {
     id = "project-resource-gathering-${item.id}"
     classes += "project-resources-collection-summary"
     div("project-resources-collection-summary-header") {
@@ -234,7 +245,7 @@ fun LI.projectResourceGatheringItem(worldId: Int, projectId: Int, item: Resource
                 + "Farmable with ${item.solvedByProject.second}"
             }
         } else {
-            ghostButton("Select Resource Path") {
+            ghostButton(if (hasPlan) "Update Resource Path" else "Select Resource Path") {
                 iconLeft = Icons.Search
                 iconSize = IconSize.SMALL
                 buttonBlock = {
@@ -259,7 +270,13 @@ fun LI.projectResourceGatheringItem(worldId: Int, projectId: Int, item: Resource
     }
 
     div("project-resources-collection-found-paths") {
-        foundPaths(worldId, projectId, item.id)
+        id = "found-paths-for-gathering-${item.id}"
+        if (hasPlan) {
+            hxGet("/app/worlds/$worldId/projects/$projectId/resources/gathering/${item.id}/plan-view")
+            hxTarget("#found-paths-for-gathering-${item.id}")
+            hxSwap("innerHTML")
+            hxTrigger("load")
+        }
     }
 
     div("project-resources-collection-found-ideas") {
@@ -396,43 +413,6 @@ private fun DIV.addResourcesActions(worldId: Int, projectId: Int, gatheringId: I
     }
 }
 
-fun DIV.foundPaths(worldId: Int, projectId: Int, gatheringId: Int, paths: ProductionTree? = null) {
-    id = "found-paths-for-gathering-$gatheringId"
-    if (paths != null) {
-        p {
-            + "Paths to produce ${paths.targetItem.itemId}"
-        }
-        ul {
-            paths.sources.forEach { branch ->
-                li {
-                    foundPathItem(worldId, projectId, gatheringId, branch)
-                }
-            }
-        }
-    }
-}
-
-private fun LI.foundPathItem(worldId: Int, projectId: Int, gatheringId: Int, branch: ProductionBranch) {
-    hxGet("/app/worlds/$worldId/projects/$projectId/resources/gathering/$gatheringId/resource-paths?maxDepth=${branch.getDepth() + 1}")
-    hxTarget("#found-paths-for-gathering-$gatheringId")
-    hxSwap("innerHTML")
-    hxTrigger("click")
-    + "Source: ${branch.source.sourceType.name}"
-    ul {
-        branch.requiredItems.filter { it.sources.isNotEmpty() }.forEach { tree ->
-            p {
-                + "Paths to produce ${tree.targetItem.itemId}"
-            }
-            ul {
-                tree.sources.forEach { subBranch ->
-                    li {
-                        foundPathItem(worldId, projectId, gatheringId, subBranch)
-                    }
-                }
-            }
-        }
-    }
-}
 
 fun DIV.foundIdeas(worldId: Int, task: Pair<Int, String>, ideas: List<FoundIdea>? = null) {
     id = "found-ideas-for-task-${task.first}"

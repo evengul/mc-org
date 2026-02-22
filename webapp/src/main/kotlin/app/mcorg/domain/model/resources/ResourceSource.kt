@@ -19,6 +19,27 @@ data class ResourceSource(
     @Serializable(with = SourceType.Companion.SourceTypeSerializer::class)
     data class SourceType(val id: String, val name: String, val score: Int = 0) {
 
+        fun isRecipe(): Boolean = this in RECIPE_TYPES
+
+        fun isLoot(): Boolean = this in LOOT_TYPES
+
+        private object TypeSets {
+            val RECIPE_TYPES = setOf(
+                RecipeTypes.CRAFTING_SHAPED, RecipeTypes.CRAFTING_SHAPELESS, RecipeTypes.CRAFTING_TRANSMUTE,
+                RecipeTypes.SMELTING, RecipeTypes.BLASTING, RecipeTypes.SMOKING,
+                RecipeTypes.CAMPFIRE_COOKING, RecipeTypes.STONECUTTING, RecipeTypes.SMITHING_TRANSFORM
+            )
+            val LOOT_TYPES = setOf(
+                LootTypes.BLOCK, LootTypes.ENTITY, LootTypes.SHEARING,
+                LootTypes.BLOCK_INTERACT, LootTypes.ENTITY_INTERACT,
+                LootTypes.BARTER, LootTypes.FISHING, LootTypes.CHEST,
+                LootTypes.ARCHAEOLOGY, LootTypes.EQUIPMENT, LootTypes.GIFT
+            )
+        }
+
+        private val RECIPE_TYPES get() = TypeSets.RECIPE_TYPES
+        private val LOOT_TYPES get() = TypeSets.LOOT_TYPES
+
         data object LootTypes {
             val BLOCK = SourceType("minecraft:block", "Break the block yourself", 100)
             val ENTITY = SourceType("minecraft:entity", "Entity", 100)

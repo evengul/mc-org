@@ -453,23 +453,114 @@ main.project {
     border-left: 3px solid var(--clr-action);
 }
 
-.path-breadcrumb__list {
+.path-plan-view__status {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+/* Recipe formula: Ingredient (Method) + … → Target (Method) */
+.path-recipe {
     display: flex;
     flex-wrap: wrap;
+    align-items: center;
     gap: var(--spacing-xs);
-    list-style: none;
-    margin: 0;
-    padding: 0;
+}
+
+.path-recipe__ingredients {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+/* Keeps the + separator and its ingredient together on wrap */
+.path-recipe__ingredient-group {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+/* Keeps the → arrow attached to the target on wrap */
+.path-recipe__target-group {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.path-recipe__ingredient {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xxs);
+    padding: var(--spacing-xxs) var(--spacing-xs);
+    background-color: var(--clr-bg-subtle);
+    border-radius: var(--border-radius-sm);
+    border: 1px solid var(--clr-border-subtle);
+    font-size: var(--text-sm);
+    line-height: 1.4;
+}
+
+.path-recipe__ingredient--base {
+    border-color: var(--clr-border-success);
+}
+
+.path-recipe__sub-chain {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xxs);
+    color: var(--clr-text-subtle);
     font-size: var(--text-sm);
 }
 
-.path-breadcrumb__item {
-    display: inline;
+.path-recipe__sub-item {
+    font-style: italic;
 }
 
-.path-breadcrumb__current {
+.path-recipe__sub-sep,
+.path-recipe__connector {
+    opacity: 0.6;
+}
+
+.path-recipe__item-name {
+    font-weight: 500;
+}
+
+.path-recipe__method {
+    color: var(--clr-text-subtle);
+    font-size: var(--text-sm);
+}
+
+.path-recipe__method--base {
+    color: var(--clr-success);
+}
+
+.path-recipe__plus {
+    color: var(--clr-text-subtle);
     font-weight: bold;
+    padding: 0 2px;
+}
+
+.path-recipe__arrow {
     color: var(--clr-action);
+    font-weight: bold;
+    font-size: var(--text-md);
+    padding: 0 var(--spacing-xxs);
+}
+
+.path-recipe__target {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xxs);
+    padding: var(--spacing-xxs) var(--spacing-sm);
+    background-color: var(--clr-action-subtle);
+    border-radius: var(--border-radius-sm);
+    border: 1px solid var(--clr-border-action);
+    font-size: var(--text-sm);
+}
+
+.path-recipe__target .path-recipe__item-name {
+    font-weight: 600;
+    color: var(--clr-text-action);
 }
 
 .path-selector__tree h3 {
@@ -610,8 +701,10 @@ main.project {
 
 /* Mobile responsiveness */
 @media (max-width: 768px) {
-    .path-breadcrumb__list {
+    .path-recipe,
+    .path-recipe__ingredients {
         flex-direction: column;
+        align-items: flex-start;
     }
 
     .path-requirement__header {

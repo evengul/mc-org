@@ -45,7 +45,8 @@ sealed interface ProjectTab {
         override val user: TokenProfile,
         val resourceGathering: List<ResourceGatheringItem>,
         val resourceProduction: List<ProjectProduction>,
-        val itemNames: List<Item>
+        val itemNames: List<Item>,
+        val gatheringPlans: Set<Int> = emptySet()
     ) : ProjectTab {
         override val id: String = "resources"
     }
@@ -162,7 +163,8 @@ fun DIV.projectTabsContent(tab: ProjectTab) {
             tab.project,
             tab.resourceProduction,
             tab.resourceGathering,
-            tab.itemNames
+            tab.itemNames,
+            tab.gatheringPlans
         )
 
         is ProjectTab.Location -> locationTab(tab.user, tab.project)
