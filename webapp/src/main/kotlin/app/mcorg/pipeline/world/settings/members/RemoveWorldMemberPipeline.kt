@@ -5,7 +5,7 @@ import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.failure.AppFailure
-import app.mcorg.presentation.handler.executePipeline
+import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.utils.getUser
 import app.mcorg.presentation.utils.getWorldId
 import app.mcorg.presentation.utils.getWorldMemberId
@@ -17,19 +17,18 @@ suspend fun ApplicationCall.handleRemoveWorldMember() {
     val worldId = this.getWorldId()
     val memberId = this.getWorldMemberId()
 
-    executePipeline(
+    handlePipeline(
         onSuccess = { respondEmptyHtml() },
     ) {
-        step(Step.value(Unit))
-            .step(ValidateWorldMemberRemovalAllowedStep(
-                worldId = worldId,
-                currentUserId = currentUserId,
-                removedMemberId = memberId
-            ))
-            .step(RemoveWorldMemberStep(
-                worldId = worldId,
-                memberId = memberId
-            ))
+        ValidateWorldMemberRemovalAllowedStep(
+            worldId = worldId,
+            currentUserId = currentUserId,
+            removedMemberId = memberId
+        ).run(Unit)
+        RemoveWorldMemberStep(
+            worldId = worldId,
+            memberId = memberId
+        ).run(Unit)
     }
 }
 

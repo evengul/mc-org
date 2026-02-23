@@ -8,7 +8,7 @@ import app.mcorg.pipeline.idea.commonsteps.GetItemsInVersionRangeStep
 import app.mcorg.pipeline.idea.createsession.updateWizardSession
 import app.mcorg.pipeline.idea.validators.ValidateIdeaMinecraftVersionStep
 import app.mcorg.pipeline.idea.validators.ValidateItemRequirementStep
-import app.mcorg.presentation.handler.executePipeline
+import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.templated.idea.createwizard.itemRequirementListEntry
 import app.mcorg.presentation.utils.respondHtml
 import io.ktor.http.Parameters
@@ -19,7 +19,7 @@ import kotlinx.html.stream.createHTML
 suspend fun ApplicationCall.handleGetItemRequirementFields() {
     val input = this.parameters
 
-    executePipeline(
+    handlePipeline(
         onSuccess = {
             updateWizardSession {
                 copy(
@@ -33,14 +33,14 @@ suspend fun ApplicationCall.handleGetItemRequirementFields() {
             })
         }
     ) {
-        value(input)
-            .step(object : Step<Parameters, AppFailure, MinecraftVersionRange> {
-                override suspend fun process(input: Parameters): Result<AppFailure, MinecraftVersionRange> {
-                    return ValidateIdeaMinecraftVersionStep.process(input).mapError { AppFailure.ValidationError(it) }
-                }
-            })
-            .step(GetItemsInVersionRangeStep)
-            .value { input to it }
-            .step(ValidateItemRequirementStep)
+        val versionRange = ValidateVersionRangeStep.run(input)
+        val items = GetItemsInVersionRangeStep.run(versionRange)
+        ValidateItemRequirementStep.run(input to items)
+    }
+}
+
+private object ValidateVersionRangeStep : Step<Parameters, AppFailure, MinecraftVersionRange> {
+    override suspend fun process(input: Parameters): Result<AppFailure, MinecraftVersionRange> {
+        return ValidateIdeaMinecraftVersionStep.process(input).mapError { AppFailure.ValidationError(it) }
     }
 }

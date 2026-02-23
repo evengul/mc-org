@@ -7,7 +7,7 @@ import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.invitation.commonsteps.ValidateInvitationAccessStep
 import app.mcorg.pipeline.invitation.commonsteps.ValidateInvitationPendingStep
-import app.mcorg.presentation.handler.executePipeline
+import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.utils.getInviteId
 import app.mcorg.presentation.utils.getUser
 import app.mcorg.presentation.utils.respondHtml
@@ -20,7 +20,7 @@ suspend fun ApplicationCall.handleDeclineInvitation() {
     val user = this.getUser()
     val inviteId = this.getInviteId()
 
-    executePipeline(
+    handlePipeline(
         onSuccess = {
             respondHtml(createHTML().div {
                 div("notice notice--success") {
@@ -32,11 +32,9 @@ suspend fun ApplicationCall.handleDeclineInvitation() {
             })
         }
     ) {
-        value(inviteId)
-            .step(ValidateInvitationAccessStep(user.id))
-            .map { inviteId to inviteId }
-            .step(ValidateInvitationPendingStep())
-            .step(DeclineInvitationStep(user.id))
+        ValidateInvitationAccessStep(user.id).run(inviteId)
+        ValidateInvitationPendingStep<Int>().run(inviteId to inviteId)
+        DeclineInvitationStep(user.id).run(inviteId)
     }
 }
 

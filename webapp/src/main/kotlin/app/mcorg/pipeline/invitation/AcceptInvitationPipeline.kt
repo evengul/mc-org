@@ -9,7 +9,7 @@ import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.failure.ValidationFailure
 import app.mcorg.pipeline.invitation.commonsteps.ValidateInvitationAccessStep
 import app.mcorg.pipeline.invitation.commonsteps.ValidateInvitationPendingStep
-import app.mcorg.presentation.handler.executePipeline
+import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.utils.getInviteId
 import app.mcorg.presentation.utils.getUser
 import app.mcorg.presentation.utils.respondHtml
@@ -28,7 +28,7 @@ suspend fun ApplicationCall.handleAcceptInvitation() {
     val user = this.getUser()
     val inviteId = this.getInviteId()
 
-    executePipeline(
+    handlePipeline(
         onSuccess = {
             respondHtml(createHTML().div {
                 div("notice notice--success") {
@@ -37,19 +37,17 @@ suspend fun ApplicationCall.handleAcceptInvitation() {
             })
         }
     ) {
-        value(inviteId)
-            .step(ValidateInvitationAccessStep(user.id))
-            .map { AcceptInvitationContext(
-                userId = user.id,
-                inviteId = inviteId,
-                worldId = it.first,
-                worldName = it.second
-            ) }
-            .map { inviteId to it }
-            .step(ValidateInvitationPendingStep())
-            .step(CheckNotAlreadyMemberStep)
-            .step(AcceptInvitationStep)
-            .map { it.worldName }
+        val access = ValidateInvitationAccessStep(user.id).run(inviteId)
+        val context = AcceptInvitationContext(
+            userId = user.id,
+            inviteId = inviteId,
+            worldId = access.first,
+            worldName = access.second
+        )
+        val validated = ValidateInvitationPendingStep<AcceptInvitationContext>().run(inviteId to context)
+        CheckNotAlreadyMemberStep.run(validated)
+        AcceptInvitationStep.run(validated)
+        context.worldName
     }
 }
 

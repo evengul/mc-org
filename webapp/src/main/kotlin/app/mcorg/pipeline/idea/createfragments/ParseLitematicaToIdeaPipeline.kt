@@ -9,7 +9,7 @@ import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.idea.createsession.CreateIdeaWizardSession
 import app.mcorg.pipeline.idea.createsession.getWizardSession
 import app.mcorg.pipeline.idea.createsession.updateWizardSession
-import app.mcorg.presentation.handler.executePipeline
+import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.templated.idea.createwizard.generalFields
 import app.mcorg.presentation.utils.respondHtml
 import io.ktor.http.content.MultiPartData
@@ -25,7 +25,7 @@ import kotlinx.io.readByteArray
 suspend fun ApplicationCall.handleParseLitematica() {
     val input = receiveMultipart()
 
-    executePipeline(
+    handlePipeline(
         onSuccess = { (filename, litematica) ->
             updateWizardSession { withLitematicaData(litematica, filename) }
             val updatedSession = getWizardSession()
@@ -34,9 +34,8 @@ suspend fun ApplicationCall.handleParseLitematica() {
             })
         }
     ) {
-        value(input)
-            .step(GetContentStep)
-            .step(ParseLitematicaStep)
+        val content = GetContentStep.run(input)
+        ParseLitematicaStep.run(content)
     }
 }
 

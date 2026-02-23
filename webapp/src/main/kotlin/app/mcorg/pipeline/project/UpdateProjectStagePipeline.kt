@@ -7,7 +7,7 @@ import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.ValidationSteps
 import app.mcorg.pipeline.failure.AppFailure
-import app.mcorg.presentation.handler.executePipeline
+import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.templated.common.chip.ChipVariant
 import app.mcorg.presentation.templated.common.chip.chipComponent
 import app.mcorg.presentation.templated.common.link.Link
@@ -26,7 +26,7 @@ suspend fun ApplicationCall.handleUpdateProjectStage() {
     val worldId = this.getWorldId()
     val projectId = this.getProjectId()
 
-    executePipeline(
+    handlePipeline(
         onSuccess = { result ->
             respondHtml(createHTML().div {
                 chipComponent {
@@ -38,9 +38,8 @@ suspend fun ApplicationCall.handleUpdateProjectStage() {
             })
         }
     ) {
-        value(parameters)
-            .step(ValidateStageTransitionStep)
-            .step(UpdateProjectStageStep(projectId))
+        val stage = ValidateStageTransitionStep.run(parameters)
+        UpdateProjectStageStep(projectId).run(stage)
     }
 }
 
@@ -71,7 +70,7 @@ data class UpdateProjectStageStep(val projectId: Int) : Step<ProjectStage, AppFa
     override suspend fun process(input: ProjectStage): Result<AppFailure.DatabaseError, ProjectStage> {
         return DatabaseSteps.update<ProjectStage>(
             sql = SafeSQL.update("""
-                UPDATE projects 
+                UPDATE projects
                 SET stage = ?, updated_at = NOW()
                 WHERE id = ?
             """),

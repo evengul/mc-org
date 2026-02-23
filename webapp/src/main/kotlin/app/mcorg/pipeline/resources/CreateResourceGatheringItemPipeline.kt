@@ -13,7 +13,7 @@ import app.mcorg.pipeline.project.resources.GetItemsInWorldVersionStep
 import app.mcorg.pipeline.resources.commonsteps.CountCollectedResourcesInProjectWithItemIdStep
 import app.mcorg.pipeline.resources.commonsteps.CountTotalResourcesRequiredInProjectWithItemIdStep
 import app.mcorg.pipeline.resources.commonsteps.GetResourceGatheringItemStep
-import app.mcorg.presentation.handler.executePipeline
+import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.hxOutOfBands
 import app.mcorg.presentation.templated.project.projectResourceGatheringItem
 import app.mcorg.presentation.templated.project.resourceGatheringProgress
@@ -47,7 +47,7 @@ suspend fun ApplicationCall.handleCreateResourceGatheringItem() {
 
     val itemNames = GetItemsInWorldVersionStep.process(worldId).getOrNull() ?: emptyList()
 
-    executePipeline(
+    handlePipeline(
         onSuccess = {
             respondHtml(createHTML().li {
                 projectResourceGatheringItem(worldId, projectId, it.gatheringItem)
@@ -65,10 +65,9 @@ suspend fun ApplicationCall.handleCreateResourceGatheringItem() {
             })
         }
     ) {
-        value(parameters)
-            .step(ValidateCreateResourceGatheringItemInputStep(itemNames))
-            .step(CreateResourceGatheringItemStep(projectId))
-            .step(GetUpdatedResourceGatheringProgressStep)
+        val input = ValidateCreateResourceGatheringItemInputStep(itemNames).run(parameters)
+        val id = CreateResourceGatheringItemStep(projectId).run(input)
+        GetUpdatedResourceGatheringProgressStep.run(id)
     }
 }
 

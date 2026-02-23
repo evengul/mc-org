@@ -1,11 +1,10 @@
 package app.mcorg.pipeline.world
 
-import app.mcorg.domain.pipeline.Result
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.world.commonsteps.GetPermittedWorldsInput
 import app.mcorg.pipeline.world.commonsteps.GetPermittedWorldsStep
-import app.mcorg.presentation.handler.executeParallelPipeline
+import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.hxOutOfBands
 import app.mcorg.presentation.templated.home.worldList
 import app.mcorg.presentation.utils.getUser
@@ -24,22 +23,22 @@ suspend fun ApplicationCall.handleSearchWorlds() {
         it in setOf("name_asc", "modified_desc")
     } ?: "modified_desc"
 
-    executeParallelPipeline(
-        onSuccess = { (worlds, count) -> respondHtml(createHTML().ul {
-            worldList(worlds)
-        } + createHTML().p("subtle") {
-            hxOutOfBands("true")
-            id = "home-worlds-count"
-            + "Showing ${worlds.size} of $count world${if(count == 1) "" else "s"}."
-        })}
-    ) {
-        val getWorlds = singleStep("getWorlds", GetPermittedWorldsInput(userId = userId, query, sortBy), GetPermittedWorldsStep)
-
-        val countWorlds = singleStep("countWorlds", userId, CountPermittedWorldsStep)
-
-        merge("searchWorldsData", getWorlds, countWorlds) { worlds, totalCount ->
-            Result.success(worlds to totalCount)
+    handlePipeline(
+        onSuccess = { (worlds, count) ->
+            respondHtml(createHTML().ul {
+                worldList(worlds)
+            } + createHTML().p("subtle") {
+                hxOutOfBands("true")
+                id = "home-worlds-count"
+                + "Showing ${worlds.size} of $count world${if(count == 1) "" else "s"}."
+            })
         }
+    ) {
+        val (worlds, count) = parallel(
+            { GetPermittedWorldsStep.run(GetPermittedWorldsInput(userId = userId, query, sortBy)) },
+            { CountPermittedWorldsStep.run(userId) },
+        )
+        worlds to count
     }
 }
 
@@ -63,4 +62,3 @@ private val CountPermittedWorldsStep = DatabaseSteps.query<Int, Int>(
         }
     }
 )
-

@@ -8,7 +8,7 @@ import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.ValidationSteps
 import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.failure.ValidationFailure
-import app.mcorg.presentation.handler.executePipeline
+import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.templated.layout.alert.AlertType
 import app.mcorg.presentation.templated.layout.alert.createAlert
 import app.mcorg.presentation.utils.getWorldId
@@ -23,7 +23,7 @@ suspend fun ApplicationCall.handleUpdateWorldVersion() {
     val parameters = this.receiveParameters()
     val worldId = this.getWorldId()
 
-    executePipeline(
+    handlePipeline(
         onSuccess = {
             respondHtml(createHTML().li {
                 createAlert(
@@ -34,9 +34,8 @@ suspend fun ApplicationCall.handleUpdateWorldVersion() {
             })
         },
     ) {
-        value(parameters)
-            .step(ValidateWorldVersionInputStep)
-            .step(UpdateWorldVersionStep(worldId))
+        val version = ValidateWorldVersionInputStep.run(parameters)
+        UpdateWorldVersionStep(worldId).run(version)
     }
 }
 
@@ -46,7 +45,6 @@ object ValidateWorldVersionInputStep : Step<Parameters, AppFailure.ValidationErr
             "version"
         ) { AppFailure.ValidationError(listOf(it)) }.process(input)
 
-        // Additional validation for valid MinecraftVersion format
         val formatValidation = ValidationSteps.validateCustom<AppFailure.ValidationError, String?>(
             "version",
             "Invalid Minecraft version format",
@@ -82,7 +80,7 @@ data class UpdateWorldVersionStep(val worldId: Int) : Step<MinecraftVersion, App
     override suspend fun process(input: MinecraftVersion): Result<AppFailure.DatabaseError, Int> {
         return DatabaseSteps.update<MinecraftVersion>(
             SafeSQL.update("""
-                UPDATE world 
+                UPDATE world
                 SET version = ?, updated_at = CURRENT_TIMESTAMP
                 WHERE id = ?
             """),

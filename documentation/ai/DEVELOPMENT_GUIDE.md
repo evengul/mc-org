@@ -48,22 +48,24 @@ Quick links to common patterns and solutions:
 
 **Key Concepts:**
 
-- **Step**: Single processing unit with `process(input): Result<Failure, Success>`
-- **Pipeline**: Chain of steps executed sequentially or in parallel
+- **Step**: Single processing unit with `process(input): Result<Failure, Success>` (called via `.run()` inside pipelines)
+- **handlePipeline**: Executes a block of steps with `onSuccess`/`onFailure` callbacks
+- **pipelineResult**: Executes a block of steps and returns a `Result` directly (no callbacks)
 - **Result**: Success or Failure wrapper (no exceptions for business logic)
-- **Short-circuiting**: First failure stops pipeline execution
+- **Short-circuiting**: First failure stops pipeline execution (via `.run()`)
 
 ### Pipeline Execution Types
 
-There are two ways to execute pipelines:
+There are two ways to structure steps inside a pipeline:
 
-1. **Sequential Execution**: Steps execute one after another
-2. **Parallel Execution**: Independent steps execute concurrently, with merge points for combining results
+1. **Sequential Execution**: Steps execute one after another via `.run()` calls
+2. **Parallel Execution**: Independent steps execute concurrently via `parallel()`, then results are used sequentially
 
 ### Sequential Pipeline Pattern
 
-Sequential pipelines execute steps one after another. The pipeline has built-in error handling via the `.fold()` method,
-which logs errors automatically. Explicit `onFailure` handlers are rarely needed.
+Sequential pipelines execute steps one after another using `handlePipeline`. Steps are called directly via `.run()`
+inside the pipeline block. If any step fails, the pipeline short-circuits and the `onFailure` handler runs (or the
+default error handler if none is provided).
 
 **Basic Sequential Pattern:**
 
@@ -73,150 +75,104 @@ suspend fun ApplicationCall.handleFeatureAction() {
     val user = this.getUser()
     val worldId = this.getWorldId()
 
-    // Create pipeline
-    val pipeline = Pipeline.create<AppFailure, Parameters>()
-        .pipe(ValidateInputStep)
-        .pipe(ValidatePermissionsStep(user, worldId))
-        .pipe(ExecuteBusinessLogicStep)
-        .pipe(GetUpdatedDataStep)
-
-    // Execute with default error handling
-    pipeline.fold(
-        input = parameters,
+    handlePipeline(
         onSuccess = { result ->
             respondHtml(createHTML().div {
                 // Return HTML fragment for HTMX or full page
                 featureSuccessContent(result)
             })
-        },
-        onFailure = {
-            // An explicit error handler is rarely needed, as the default handler does it well.
         }
-    )
+        // onFailure is optional - default handler logs and responds appropriately
+    ) {
+        val validated = ValidateInputStep.run(parameters)
+        val processed = ExecuteBusinessLogicStep(user, worldId).run(validated)
+        GetUpdatedDataStep.run(processed)
+    }
 }
 ```
 
-**Note**: The `.fold()` method automatically logs errors, so explicit error logging in `onFailure` is usually
+**Note**: The default error handler automatically logs errors, so explicit error logging in `onFailure` is usually
 unnecessary.
 
 ### Parallel Pipeline Pattern
 
-Parallel pipelines allow independent operations to execute concurrently, then merge results. Use when you have multiple
-independent data fetches or operations that don't depend on each other.
+Parallel pipelines allow independent operations to execute concurrently using the `parallel()` function inside
+`handlePipeline`. Use when you have multiple independent data fetches or operations that don't depend on each other.
 
-**Basic Parallel Pattern:**
+**2-Way Parallel Pattern:**
 
 ```kotlin
 suspend fun ApplicationCall.handleDashboard() {
     val user = this.getUser()
 
-    val pipeline = parallelPipeline<AppFailure> {
-        // Define independent operations
-        val projects = singleStep(
-            id = "fetch-projects",
-            input = user.id,
-            step = GetUserProjectsStep
-        )
-
-        val notifications = singleStep(
-            id = "fetch-notifications",
-            input = user.id,
-            step = GetUserNotificationsStep
-        )
-
-        val invites = singleStep(
-            id = "fetch-invites",
-            input = user.id,
-            step = GetUserInvitesStep
-        )
-
-        // Merge results
-        merge(
-            id = "combine-dashboard",
-            depA = projects,
-            depB = notifications,
-            depC = invites
-        ) { projectList, notificationList, inviteList ->
-            Result.success(
-                DashboardData(
-                    projects = projectList,
-                    notifications = notificationList,
-                    invites = inviteList
-                )
-            )
-        }
-    }
-
-    // Execute with default error handling
-    pipeline.fold(
-        input = Unit,
-        onSuccess = { dashboardData ->
+    handlePipeline(
+        onSuccess = { (projects, notifications) ->
             respondHtml(createHTML().div {
-                dashboardContent(dashboardData)
+                dashboardContent(projects, notifications)
             })
-        },
-        onFailure = { failure ->
-            respondBadRequest("Failed to load dashboard")
         }
-    )
+    ) {
+        val (projects, notifications) = parallel(
+            { GetUserProjectsStep.run(user.id) },
+            { GetUserNotificationsStep.run(user.id) }
+        )
+        Pair(projects, notifications)
+    }
 }
 ```
 
-**Parallel Pipeline Features:**
-
-- `singleStep()`: Execute a single step with given input
-- `pipeline()`: Execute an entire pipeline as a node
-- `merge()`: Combine results from 2-3 dependencies
-- `pipe()`: Transform one dependency's output through a pipeline
-
-**Example with Sequential Dependencies in Parallel Graph:**
+**3-Way Parallel Pattern:**
 
 ```kotlin
-val pipeline = parallelPipeline<AppFailure> {
-    // Fetch world independently
-    val world = singleStep(
-        id = "fetch-world",
-        input = worldId,
-        step = GetWorldByIdStep
-    )
+suspend fun ApplicationCall.handleDashboard() {
+    val user = this.getUser()
 
-    // Fetch projects independently
-    val projects = singleStep(
-        id = "fetch-projects",
-        input = worldId,
-        step = GetProjectsByWorldIdStep
-    )
-
-    // Process projects (depends on projects being fetched)
-    val processedProjects = pipe(
-        id = "process-projects",
-        dependency = projects,
-        pipeline = Pipeline.create<AppFailure, List<Project>>()
-            .pipe(FilterArchivedProjectsStep)
-            .pipe(SortProjectsByStageStep)
-    )
-
-    // Merge world and processed projects
-    merge(
-        id = "combine-world-view",
-        depA = world,
-        depB = processedProjects
-    ) { worldData, projectList ->
-        Result.success(WorldView(worldData, projectList))
+    handlePipeline(
+        onSuccess = { (projects, notifications, invites) ->
+            respondHtml(createHTML().div {
+                dashboardContent(projects, notifications, invites)
+            })
+        }
+    ) {
+        val (projects, notifications, invites) = parallel(
+            { GetUserProjectsStep.run(user.id) },
+            { GetUserNotificationsStep.run(user.id) },
+            { GetUserInvitesStep.run(user.id) }
+        )
+        Triple(projects, notifications, invites)
     }
+}
+```
+
+**Parallel with Post-Processing:**
+
+```kotlin
+handlePipeline(
+    onSuccess = { worldView -> respondHtml(createHTML().div { worldViewContent(worldView) }) }
+) {
+    // Fetch world and projects in parallel
+    val (world, projects) = parallel(
+        { GetWorldByIdStep.run(worldId) },
+        { GetProjectsByWorldIdStep.run(worldId) }
+    )
+
+    // Post-process sequentially after parallel fetch
+    val filtered = FilterArchivedProjectsStep.run(projects)
+    val sorted = SortProjectsByStageStep.run(filtered)
+    WorldView(world, sorted)
 }
 ```
 
 ### When to Use Each Type
 
-**Sequential Pipelines:**
+**Sequential (just `.run()` calls):**
 
 - Default choice for most operations
 - When steps depend on previous results
 - When order matters
 - Simple, linear workflows
 
-**Parallel Pipelines:**
+**Parallel (using `parallel()`):**
 
 - Multiple independent data fetches
 - Dashboard pages loading multiple resources
@@ -332,42 +288,46 @@ class GetProjectByIdStep(private val projectId: Int) : Step<Unit, AppFailure.Dat
 **Sequential Steps:**
 
 ```kotlin
-executePipeline(onSuccess, onFailure) {
-    step(Step.value(input))
-        .step(Step1)
-        .step(Step2)
-        .step(Step3)
+handlePipeline(onSuccess = { /* ... */ }) {
+    val a = Step1.run(input)
+    val b = Step2.run(a)
+    Step3.run(b)
 }
 ```
 
 **Conditional Steps:**
 
 ```kotlin
-executePipeline(onSuccess, onFailure) {
-    step(Step.value(input))
-        .step(ValidateInputStep)
-        .step { validated ->
-            if (validated.needsSpecialHandling) {
-                SpecialHandlingStep.process(validated)
-            } else {
-                StandardHandlingStep.process(validated)
-            }
-        }
+handlePipeline(onSuccess = { /* ... */ }) {
+    val validated = ValidateInputStep.run(input)
+    if (validated.needsSpecialHandling) {
+        SpecialHandlingStep.run(validated)
+    } else {
+        StandardHandlingStep.run(validated)
+    }
 }
 ```
 
 **Parallel Steps (when independent):**
 
 ```kotlin
-// Note: Use with caution, ensure no shared mutable state
-val result1 = Step1.process(input)
-val result2 = Step2.process(input)
-
-if (result1 is Result.Success && result2 is Result.Success) {
-    Result.success(Combined(result1.value, result2.value))
-} else {
-    // Handle failures
+handlePipeline(onSuccess = { /* ... */ }) {
+    val (result1, result2) = parallel(
+        { Step1.run(input) },
+        { Step2.run(input) }
+    )
+    Combined(result1, result2)
 }
+```
+
+**Using `pipelineResult` (returns Result directly, no callbacks):**
+
+```kotlin
+val result = pipelineResult<AppFailure, Output> {
+    val a = StepA.run(input)
+    StepB.run(a)
+}
+// result is Result<AppFailure, Output>
 ```
 
 ### Required Imports
@@ -376,7 +336,8 @@ if (result1 is Result.Success && result2 is Result.Success) {
 // Pipeline core
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.domain.pipeline.Result
-import app.mcorg.domain.pipeline.executePipeline
+import app.mcorg.presentation.handler.handlePipeline
+import app.mcorg.presentation.handler.pipelineResult
 
 // Error types
 import app.mcorg.pipeline.failure.AppFailure
@@ -455,7 +416,6 @@ class YourParameterizedStep(
 ```kotlin
 Result.success(value)           // Success case
 Result.failure(error)           // Failure case
-Step.value(value)              // Wrap value as successful step
 ```
 
 **Checking Results:**
@@ -683,7 +643,7 @@ sealed interface ValidationFailure {
 **In Pipeline onFailure:**
 
 ```kotlin
-executePipeline(
+handlePipeline(
     onSuccess = { result -> /* ... */ },
     onFailure = { failure ->
         when (failure) {
@@ -706,7 +666,10 @@ executePipeline(
                 respondBadRequest("An error occurred. Please try again.")
         }
     }
-)
+) {
+    val validated = ValidateInputStep.run(parameters)
+    ProcessStep.run(validated)
+}
 ```
 
 **Formatting Validation Errors:**
@@ -1839,13 +1802,7 @@ suspend fun ApplicationCall.handleFileUpload() {
         return
     }
 
-    val pipeline = Pipeline.create<AppFailure, FileUploadInput>()
-        .pipe(ValidateFileUploadStep)
-        .pipe(ProcessSchematicFileStep)
-        .pipe(SaveFileMetadataStep)
-
-    pipeline.fold(
-        input = FileUploadInput(fileItem!!),
+    handlePipeline(
         onSuccess = { result ->
             respondHtml(createHTML().div {
                 div("notice notice--success") { +"File uploaded successfully" }
@@ -1854,7 +1811,11 @@ suspend fun ApplicationCall.handleFileUpload() {
         onFailure = { failure ->
             respondBadRequest("Upload failed: ${failure}")
         }
-    )
+    ) {
+        val validated = ValidateFileUploadStep.run(FileUploadInput(fileItem!!))
+        val processed = ProcessSchematicFileStep.run(validated)
+        SaveFileMetadataStep.run(processed)
+    }
 }
 ```
 
@@ -2497,11 +2458,7 @@ object FetchDataStep : Step<String, AppFailure.ApiError, MyData> {
 ### Error Handling Pattern
 
 ```kotlin
-val pipeline = Pipeline.create<AppFailure, Unit>()
-    .pipe(FetchExternalDataStep)
-
-pipeline.fold(
-    input = Unit,
+handlePipeline(
     onSuccess = { data ->
         // Use data
     },
@@ -2520,7 +2477,9 @@ pipeline.fold(
             else -> logger.error("Unknown API error")
         }
     }
-)
+) {
+    FetchExternalDataStep.run(Unit)
+}
 ```
 
 ### Best Practices
@@ -2888,7 +2847,7 @@ ENVIRONMENT=development
 
 ---
 
-**Document Version**: 1.0  
-**Last Updated**: January 12, 2026  
+**Document Version**: 1.1
+**Last Updated**: February 23, 2026
 **Maintained By**: Development Team
 

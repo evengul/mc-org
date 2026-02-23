@@ -5,7 +5,7 @@ import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.failure.AppFailure
-import app.mcorg.presentation.handler.executePipeline
+import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.templated.common.link.Link
 import app.mcorg.presentation.utils.clientRedirect
 import app.mcorg.presentation.utils.getIdeaId
@@ -16,13 +16,11 @@ suspend fun ApplicationCall.handleDeleteIdea() {
     val ideaId = this.getIdeaId()
     val userId = this.getUser().id
 
-    executePipeline(
+    handlePipeline(
         onSuccess = { clientRedirect(Link.Ideas.to) }
     ) {
-        value(ideaId)
-            .step(ValidateIdeaOwnerStep(userId))
-            .value(ideaId)
-            .step(DeleteIdeaStep)
+        ValidateIdeaOwnerStep(userId).run(ideaId)
+        DeleteIdeaStep.run(ideaId)
     }
 }
 

@@ -5,7 +5,7 @@ import app.mcorg.domain.pipeline.Result
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.world.ValidateWorldMemberRole
-import app.mcorg.presentation.handler.executePipeline
+import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.utils.clientRedirect
 import app.mcorg.presentation.utils.getProjectId
 import app.mcorg.presentation.utils.getUser
@@ -25,11 +25,10 @@ suspend fun ApplicationCall.handleDeleteProject() {
         respond(HttpStatusCode.Forbidden, "You don't have permission to delete this world.")
     }
 
-    executePipeline(
+    handlePipeline(
         onSuccess = { clientRedirect("/app/worlds/$worldId") }
     ) {
-        value(projectId)
-            .step(handleDeleteProjectStep)
+        handleDeleteProjectStep.run(projectId)
     }
 }
 

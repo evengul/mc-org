@@ -1,14 +1,13 @@
 package app.mcorg.pipeline.idea.single
 
 import app.mcorg.domain.model.idea.Comment
-import app.mcorg.domain.pipeline.Pipeline
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.idea.commonsteps.GetIdeaStep
 import app.mcorg.pipeline.notification.getUnreadNotificationsOrZero
-import app.mcorg.presentation.handler.executeParallelPipeline
+import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.templated.idea.ideaPage
 import app.mcorg.presentation.utils.getIdeaId
 import app.mcorg.presentation.utils.getUser
@@ -25,25 +24,18 @@ suspend fun ApplicationCall.handleGetIdea() {
     val ideaId = this.getIdeaId()
     val user = this.getUser()
 
-    val ideaPipeline = Pipeline.create<AppFailure.DatabaseError, Int>()
-        .pipe(GetIdeaStep)
-
-    val commentsPipeline = Pipeline.create<AppFailure.DatabaseError, GetCommentsInput>()
-        .pipe(GetIdeaCommentsStep)
-
     val notifications = getUnreadNotificationsOrZero(user.id)
 
-    executeParallelPipeline(
+    handlePipeline(
         onSuccess = { (idea, comments) ->
             respondHtml(ideaPage(user, idea, comments, notifications))
         }
     ) {
-        val idea = pipeline("idea", ideaId, ideaPipeline)
-        val comments = pipeline("comments", GetCommentsInput(ideaId, user.id), commentsPipeline)
-
-        merge("ideaWithComments", idea, comments) { ideaResult, commentsResult ->
-            Result.success(Pair(ideaResult, commentsResult))
-        }
+        val (idea, comments) = parallel(
+            { GetIdeaStep.run(ideaId) },
+            { GetIdeaCommentsStep.run(GetCommentsInput(ideaId, user.id)) },
+        )
+        idea to comments
     }
 }
 

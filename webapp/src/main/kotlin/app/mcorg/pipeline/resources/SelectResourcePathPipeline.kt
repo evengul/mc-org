@@ -16,8 +16,7 @@ import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.resources.commonsteps.GetAllResourceGatheringItemsStep
-import app.mcorg.presentation.handler.executeParallelPipeline
-import app.mcorg.presentation.handler.executePipeline
+import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.templated.project.pathPlanView
 import app.mcorg.presentation.templated.project.pathSelectorTree
 import app.mcorg.presentation.templated.project.pathSummary
@@ -62,7 +61,7 @@ suspend fun ApplicationCall.handleSelectResourcePath() {
     val depth = request.queryParameters["depth"]?.toIntOrNull()?.takeIf { it in 1..10 } ?: 2
     val maxBranches = request.queryParameters["maxBranches"]?.toIntOrNull()?.takeIf { it in 1..10 } ?: 3
 
-    executeParallelPipeline(
+    handlePipeline(
         onSuccess = { (tree, plan) ->
             if (tree == null) {
                 respondBadRequest("Item not found in production graph")
@@ -73,22 +72,16 @@ suspend fun ApplicationCall.handleSelectResourcePath() {
             }
         }
     ) {
-        val graph = singleStep("graph", worldId, GetGraphStep)
-        val itemId = singleStep("itemId", resourceGatheringId, GetItemIdStep)
-        val savedPlan = singleStep("plan", resourceGatheringId, LoadSavedPathStep)
-
-        val tree = merge("tree", graph, itemId) { g, id ->
-            Result.success(
-                ItemSourceGraphQueries(g)
-                    .findProductionChain(id, depth)
-                    ?.deduplicated()
-                    ?.pruneRecursively(maxBranchesPerLevel = maxBranches)
-            )
-        }
-
-        merge("result", tree, savedPlan) { t, p ->
-            Result.success(t to p)
-        }
+        val (graph, itemId, plan) = parallel(
+            { GetGraphStep.run(worldId) },
+            { GetItemIdStep.run(resourceGatheringId) },
+            { LoadSavedPathStep.run(resourceGatheringId) },
+        )
+        val tree = ItemSourceGraphQueries(graph)
+            .findProductionChain(itemId, depth)
+            ?.deduplicated()
+            ?.pruneRecursively(maxBranchesPerLevel = maxBranches)
+        tree to plan
     }
 }
 
@@ -111,7 +104,7 @@ suspend fun ApplicationCall.handleExpandPathNode() {
     val depth = request.queryParameters["depth"]?.toIntOrNull()?.takeIf { it in 1..10 } ?: 2
     val maxBranches = request.queryParameters["maxBranches"]?.toIntOrNull()?.takeIf { it in 1..10 } ?: 3
 
-    executeParallelPipeline(
+    handlePipeline(
         onSuccess = { (tree, plan) ->
             if (tree == null) {
                 respondBadRequest("Item not found in production graph")
@@ -122,16 +115,15 @@ suspend fun ApplicationCall.handleExpandPathNode() {
             }
         }
     ) {
-        val graph = singleStep("graph", worldId, GetGraphStep)
-        val savedPlan = singleStep("plan", resourceGatheringId, LoadSavedPathStep)
-
-        merge("result", graph, savedPlan) { g, plan ->
-            val tree = ItemSourceGraphQueries(g)
-                .findProductionChain(nodeItemId, depth)
-                ?.deduplicated()
-                ?.pruneRecursively(maxBranchesPerLevel = maxBranches)
-            Result.success(tree to plan)
-        }
+        val (graph, plan) = parallel(
+            { GetGraphStep.run(worldId) },
+            { LoadSavedPathStep.run(resourceGatheringId) },
+        )
+        val tree = ItemSourceGraphQueries(graph)
+            .findProductionChain(nodeItemId, depth)
+            ?.deduplicated()
+            ?.pruneRecursively(maxBranchesPerLevel = maxBranches)
+        tree to plan
     }
 }
 
@@ -208,7 +200,7 @@ suspend fun ApplicationCall.handleConfirmResourcePath() {
     val projectId = this.getProjectId()
     val resourceGatheringId = this.getResourceGatheringId()
 
-    executePipeline(
+    handlePipeline(
         onSuccess = { plan ->
             if (plan.getOrNull() == null) {
                 respondBadRequest("No path saved yet")
@@ -219,10 +211,8 @@ suspend fun ApplicationCall.handleConfirmResourcePath() {
             }
         }
     ) {
-        value(resourceGatheringId)
-            .step(ConfirmPathStep)
-            .map { resourceGatheringId }
-            .step(LoadSavedPathStep)
+        ConfirmPathStep.run(resourceGatheringId)
+        LoadSavedPathStep.run(resourceGatheringId)
     }
 }
 

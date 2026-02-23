@@ -6,7 +6,7 @@ import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.failure.AppFailure
-import app.mcorg.presentation.handler.executePipeline
+import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.hxPatch
 import app.mcorg.presentation.hxSwap
 import app.mcorg.presentation.hxTarget
@@ -26,7 +26,7 @@ suspend fun ApplicationCall.getStageSelectFragment() {
     val worldId = this.getWorldId()
     val projectId = this.getProjectId()
 
-    executePipeline(
+    handlePipeline(
         onSuccess = { selectedStage ->
             respondHtml(createHTML().select {
                 id = "project-stage-selector"
@@ -50,8 +50,7 @@ suspend fun ApplicationCall.getStageSelectFragment() {
             })
         }
     ) {
-        value(projectId)
-            .step(GetProjectStageStep)
+        GetProjectStageStep.run(projectId)
     }
 }
 

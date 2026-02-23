@@ -3,7 +3,7 @@ package app.mcorg.pipeline.task
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.failure.AppFailure
-import app.mcorg.presentation.handler.executePipeline
+import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.hxOutOfBands
 import app.mcorg.presentation.templated.project.tasksList
 import app.mcorg.presentation.utils.getProjectId
@@ -21,7 +21,7 @@ suspend fun ApplicationCall.handleSearchTasks() {
     val projectId = this.getProjectId()
     val parameters = this.parameters
 
-    executePipeline(
+    handlePipeline(
         onSuccess = {
             val mainContent = createHTML().ul {
                 tasksList(worldId, projectId, it)
@@ -41,9 +41,8 @@ suspend fun ApplicationCall.handleSearchTasks() {
             }
         },
     ) {
-        value(parameters)
-            .step(ValidateSearchTasksInputStep)
-            .step(SearchTasksStep(projectId))
+        val input = ValidateSearchTasksInputStep.run(parameters)
+        SearchTasksStep(projectId).run(input)
     }
 }
 

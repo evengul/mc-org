@@ -9,7 +9,7 @@ import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.ValidationSteps
 import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.failure.ValidationFailure
-import app.mcorg.presentation.handler.executePipeline
+import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.hxOutOfBands
 import app.mcorg.presentation.templated.project.locationDetails
 import app.mcorg.presentation.utils.getProjectId
@@ -24,7 +24,7 @@ suspend fun ApplicationCall.handleEditLocation() {
     val projectId = this.getProjectId()
     val parameters = this.receiveParameters()
 
-    executePipeline(
+    handlePipeline(
         onSuccess = {
             respondHtml(createHTML().div {
                 locationDetails(it)
@@ -34,9 +34,8 @@ suspend fun ApplicationCall.handleEditLocation() {
             })
         },
     ) {
-        value(parameters)
-            .step(ValidateLocationStep)
-            .step(UpdateLocationStep(projectId))
+        val location = ValidateLocationStep.run(parameters)
+        UpdateLocationStep(projectId).run(location)
     }
 }
 

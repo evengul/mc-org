@@ -43,27 +43,31 @@ object SimpleStep : Step<Input, Never, Output> {
     }
 }
 
-// Pipeline:
-val pipeline = Pipeline.create<AppFailure.ValidationError, Input>()
-    .pipe(SimpleStep)  // Type mismatch!
+// In handlePipeline (which uses PipelineScope<AppFailure>):
+handlePipeline(onSuccess = { ... }) {
+    SimpleStep.run(input)  // Type mismatch: Never vs AppFailure
+}
 ```
 
 **Fix Option 1** - Change Step to use proper error type:
 
 ```kotlin
-object SimpleStep : Step<Input, AppFailure.ValidationError, Output> {
-    override suspend fun process(input: Input): Result<AppFailure.ValidationError, Output> {
-        // Handle potential errors properly
+object SimpleStep : Step<Input, AppFailure, Output> {
+    override suspend fun process(input: Input): Result<AppFailure, Output> {
+        // Use AppFailure to match the pipeline's error type
         return Result.success(output)
     }
 }
 ```
 
-**Fix Option 2** - Use a common error supertype in pipeline:
+**Fix Option 2** - Use `Nothing` error type (Result covariance allows this):
 
 ```kotlin
-val pipeline = Pipeline.create<AppFailure, Input>()  // More general error type
-    .pipe(SimpleStep)
+object SimpleStep : Step<Input, Nothing, Output> {
+    override suspend fun process(input: Input): Result<Nothing, Output> {
+        return Result.success(output)  // Nothing is subtype of all types
+    }
+}
 ```
 
 ---

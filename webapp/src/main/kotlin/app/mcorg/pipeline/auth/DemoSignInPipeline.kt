@@ -3,12 +3,12 @@ package app.mcorg.pipeline.auth
 import app.mcorg.config.AppConfig
 import app.mcorg.domain.Production
 import app.mcorg.domain.model.user.MinecraftProfile
+import app.mcorg.domain.pipeline.pipeline
 import app.mcorg.pipeline.auth.commonsteps.AddCookieStep
 import app.mcorg.pipeline.auth.commonsteps.CreateTokenStep
 import app.mcorg.pipeline.auth.commonsteps.CreateUserIfNotExistsStep
 import app.mcorg.pipeline.auth.commonsteps.UpdateLastSignInStep
 import app.mcorg.pipeline.failure.AppFailure
-import app.mcorg.presentation.handler.executePipeline
 import app.mcorg.presentation.utils.getHost
 import io.ktor.server.application.*
 import io.ktor.server.response.*
@@ -25,23 +25,22 @@ suspend fun ApplicationCall.handleDemoSignIn() {
     val demoUuid = "${demoUsername}-uuid"
     val redirectPath = parameters["redirect_to"] ?: "/"
 
-    executePipeline(
+    pipeline(
         onSuccess = { respondRedirect(redirectPath) },
-        onFailure = {
-            when (it) {
+        onFailure = { error: AppFailure ->
+            when (error) {
                 is AppFailure.AuthError.MissingToken -> respondRedirect("/auth/sign-in")
-                is AppFailure.Redirect -> respondRedirect(it.toUrl())
-                is AppFailure.AuthError.ConvertTokenError -> respondRedirect(it.toRedirect().toUrl())
+                is AppFailure.Redirect -> respondRedirect(error.toUrl())
+                is AppFailure.AuthError.ConvertTokenError -> respondRedirect(error.toRedirect().toUrl())
                 is AppFailure.AuthError.CouldNotCreateToken -> respondRedirect("/auth/sign-out?error=token_creation_failed")
-                else -> respondRedirect("/auth/sign-out?error=${it.javaClass.simpleName}")
+                else -> respondRedirect("/auth/sign-out?error=${error.javaClass.simpleName}")
             }
         }
     ) {
-        value(MinecraftProfile(uuid = demoUuid, username = demoUsername, isDemoUser = true))
-            .step(CreateUserIfNotExistsStep)
-            .step(CreateTokenStep)
-            .step(AddCookieStep(response.cookies, getHost() ?: "false"))
-            .value(demoUsername)
-            .step(UpdateLastSignInStep)
+        val profile = MinecraftProfile(uuid = demoUuid, username = demoUsername, isDemoUser = true)
+        val tokenProfile = CreateUserIfNotExistsStep.run(profile)
+        val token = CreateTokenStep.run(tokenProfile)
+        AddCookieStep(response.cookies, getHost() ?: "false").run(token)
+        UpdateLastSignInStep.run(demoUsername)
     }
 }

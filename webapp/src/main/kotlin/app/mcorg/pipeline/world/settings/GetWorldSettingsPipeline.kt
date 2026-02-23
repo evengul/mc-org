@@ -1,9 +1,8 @@
 package app.mcorg.pipeline.world.settings
 
 import app.mcorg.domain.model.user.WorldMember
-import app.mcorg.domain.pipeline.Pipeline
 import app.mcorg.domain.pipeline.Result
-import app.mcorg.domain.pipeline.Step
+import app.mcorg.domain.pipeline.pipelineResult
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.failure.AppFailure
@@ -14,7 +13,7 @@ import app.mcorg.pipeline.world.invitations.CountWorldInvitationsStep
 import app.mcorg.pipeline.world.invitations.GetWorldInvitationsStep
 import app.mcorg.pipeline.world.invitations.InvitationStatusFilter
 import app.mcorg.pipeline.world.settings.invitations.handleGetInvitationListFragment
-import app.mcorg.presentation.handler.executeParallelPipeline
+import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.templated.settings.*
 import app.mcorg.presentation.utils.getUser
 import app.mcorg.presentation.utils.getWorldId
@@ -79,58 +78,41 @@ suspend fun ApplicationCall.handleGetWorldSettings() {
 suspend fun ApplicationCall.handleGetMembersTabData(worldId: Int, statusFilter: InvitationStatusFilter): Result<AppFailure.DatabaseError, SettingsTab.Members> {
     val user = this.getUser()
 
-    return executeParallelPipeline {
-        val world = singleStep("world", worldId, GetWorldStep)
-        val invitations = singleStep("invitations", statusFilter, GetWorldInvitationsStep(worldId))
-        val counts = singleStep("invitationCounts", Unit, CountWorldInvitationsStep(worldId))
-        val members = singleStep("members", worldId, getWorldMembersStep)
-
-        val invitationsWithCount = merge("invitationsWithCount", invitations, counts) { i, c ->
-            Result.success(i to c)
-        }
-
-        merge("data", world, invitationsWithCount, members) { w, ic, m ->
-            Result.success(SettingsTab.Members(
-                currentUser = user,
-                world = w,
-                invitations = ic.first,
-                invitationCounts = ic.second,
-                members = m
-            ))
-        }
+    return pipelineResult {
+        val (world, invitations, counts, members) = parallel(
+            { GetWorldStep.run(worldId) },
+            { GetWorldInvitationsStep(worldId).run(statusFilter) },
+            { CountWorldInvitationsStep(worldId).run(Unit) },
+            { getWorldMembersStep.run(worldId) },
+        )
+        SettingsTab.Members(
+            currentUser = user,
+            world = world,
+            invitations = invitations,
+            invitationCounts = counts,
+            members = members
+        )
     }
 }
 
 suspend fun ApplicationCall.handleGetGeneralTabData(worldId: Int): Result<AppFailure.DatabaseError, SettingsTab.General> {
     val supportedVersions = GetSupportedVersionsStep.getSupportedVersions()
-    return executeParallelPipeline {
-        pipeline(
-            id = "world-general-tab",
-            input = parameters,
-            pipeline = Pipeline.create<AppFailure.DatabaseError, Parameters>()
-                .pipe(Step.value(worldId))
-                .pipe(GetWorldStep)
-                .map { SettingsTab.General(it, supportedVersions) }
-        )
+    return pipelineResult {
+        val world = GetWorldStep.run(worldId)
+        SettingsTab.General(world, supportedVersions)
     }
 }
 
 suspend fun ApplicationCall.handleGetStatisticsTabData(worldId: Int): Result<AppFailure.DatabaseError, SettingsTab.Statistics> {
-    return executeParallelPipeline {
-        pipeline(
-            id = "world-statistics-tab",
-            input = parameters,
-            pipeline = Pipeline.create<AppFailure.DatabaseError, Parameters>()
-                .pipe(Step.value(worldId))
-                .pipe(GetWorldStep)
-                .map { SettingsTab.Statistics(it) }
-        )
+    return pipelineResult {
+        val world = GetWorldStep.run(worldId)
+        SettingsTab.Statistics(world)
     }
 }
 
 private val getWorldMembersStep = DatabaseSteps.query<Int, List<WorldMember>>(
     SafeSQL.select("""
-        SELECT 
+        SELECT
             id,
             user_id,
             world_id,
@@ -139,7 +121,7 @@ private val getWorldMembersStep = DatabaseSteps.query<Int, List<WorldMember>>(
             updated_at,
             created_at
         FROM
-            world_members 
+            world_members
             WHERE world_id = ?;
     """.trimIndent()),
     parameterSetter = { statement, input ->

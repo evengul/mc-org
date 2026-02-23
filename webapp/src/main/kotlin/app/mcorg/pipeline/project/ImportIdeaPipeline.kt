@@ -14,7 +14,7 @@ import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.failure.ValidationFailure
 import app.mcorg.pipeline.project.resources.GetItemsInWorldVersionStep
 import app.mcorg.presentation.handler.defaultHandleError
-import app.mcorg.presentation.handler.executePipeline
+import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.templated.common.link.Link
 import app.mcorg.presentation.utils.clientRedirect
 import app.mcorg.presentation.utils.getIdeaId
@@ -43,15 +43,13 @@ suspend fun ApplicationCall.handleImportIdea() {
 
     val items = GetItemsInWorldVersionStep.process(worldId).getOrNull() ?: emptyList()
 
-    executePipeline(
+    handlePipeline(
         onSuccess = { clientRedirect(Link.Worlds.world(worldId).project(it).to) }
     ) {
-        value(worldId to ideaId)
-            .step(ValidateVersionRangeStep)
-            .value(ideaId)
-            .step(GetIdeaForImportStep)
-            .step(ValidateItemIdsStep(items))
-            .step(CreateProjectFromIdeaStep(worldId, taskId))
+        ValidateVersionRangeStep.run(worldId to ideaId)
+        val ideaData = GetIdeaForImportStep.run(ideaId)
+        val validatedIdea = ValidateItemIdsStep(items).run(ideaData)
+        CreateProjectFromIdeaStep(worldId, taskId).run(validatedIdea)
     }
 }
 
@@ -236,8 +234,8 @@ private data class CreateProjectFromIdeaStep(val worldId: Int, val taskId: Int?)
                 override suspend fun process(input: IdeaForImport): Result<AppFailure.DatabaseError, Int> {
                     val projectIdResult = DatabaseSteps.update<IdeaForImport>(
                         sql = SafeSQL.insert("""
-                            INSERT INTO projects (world_id, name, description, type, stage, location_x, location_y, location_z, location_dimension, project_idea_id) 
-                            VALUES (?, ?, ?, ?, 'RESOURCE_GATHERING', 0, 0, 0, 'OVERWORLD', ?) 
+                            INSERT INTO projects (world_id, name, description, type, stage, location_x, location_y, location_z, location_dimension, project_idea_id)
+                            VALUES (?, ?, ?, ?, 'RESOURCE_GATHERING', 0, 0, 0, 'OVERWORLD', ?)
                             RETURNING id
                         """.trimIndent()),
                         parameterSetter = { statement, idea ->
@@ -258,8 +256,8 @@ private data class CreateProjectFromIdeaStep(val worldId: Int, val taskId: Int?)
 
                     val reqs = DatabaseSteps.batchUpdate<Pair<Item, Int>>(
                         SafeSQL.insert("""
-                            INSERT INTO resource_gathering 
-                                (project_id, name, required, item_id) 
+                            INSERT INTO resource_gathering
+                                (project_id, name, required, item_id)
                                 values (?, ?, ?, ?)
                         """.trimIndent()),
                         parameterSetter = { statement, idea ->
@@ -278,7 +276,7 @@ private data class CreateProjectFromIdeaStep(val worldId: Int, val taskId: Int?)
                     val production = DatabaseSteps.batchUpdate<Pair<Item, Int>>(
                         SafeSQL.insert("""
                             INSERT INTO project_productions
-                                (project_id, name, item_id, rate_per_hour) 
+                                (project_id, name, item_id, rate_per_hour)
                                 values (?, ?, ?, ?)
                         """.trimIndent()),
                         parameterSetter = { statement, idea ->
@@ -349,5 +347,3 @@ private data class CreateProjectFromIdeaStep(val worldId: Int, val taskId: Int?)
         }
     }
 }
-
-

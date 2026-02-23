@@ -18,7 +18,7 @@ import app.mcorg.pipeline.world.invitations.CountWorldInvitationsResult
 import app.mcorg.pipeline.world.invitations.CountWorldInvitationsStep
 import app.mcorg.pipeline.world.invitations.InvitationStatusFilter
 import app.mcorg.pipeline.world.settings.getStatusFromURL
-import app.mcorg.presentation.handler.executePipeline
+import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.hxOutOfBands
 import app.mcorg.presentation.hxTarget
 import app.mcorg.presentation.templated.settings.worldInvitationTabs
@@ -55,19 +55,19 @@ suspend fun ApplicationCall.handleCreateInvitation() {
 
     val selectedStatus = this.getStatusFromURL()
 
-    executePipeline(
-        onSuccess = {
+    handlePipeline(
+        onSuccess = { (invite, counts) ->
             val mainContent = createHTML().div {
                 hxOutOfBands("true")
                 hxTarget("#invitation-status-filter")
-                worldInvitationTabs(it.second, selectedStatus)
+                worldInvitationTabs(counts, selectedStatus)
             }
             if ((selectedStatus == InvitationStatusFilter.PENDING) || selectedStatus == InvitationStatusFilter.ALL) {
                 val addedInvite = createHTML().li {
-                    worldInvite(it.first)
+                    worldInvite(invite)
                 }
-                if ((selectedStatus == InvitationStatusFilter.PENDING && it.second.pending == 1) ||
-                    (selectedStatus == InvitationStatusFilter.ALL && it.second.all == 1)) {
+                if ((selectedStatus == InvitationStatusFilter.PENDING && counts.pending == 1) ||
+                    (selectedStatus == InvitationStatusFilter.ALL && counts.all == 1)) {
                     respondHtml(mainContent + addedInvite + createHTML().ul {
                         hxOutOfBands("delete:li#empty-invitations-list")
                         li { id = "empty-invitations-list" }
@@ -81,26 +81,15 @@ suspend fun ApplicationCall.handleCreateInvitation() {
             }
         },
     ) {
-        value(parameters)
-            .step(ValidateInvitationInputStep)
-            .step(ValidateInviterPermissionsStep(user, worldId))
-            .step(ValidateTargetUserStep)
-            .step(ValidateNotSelfInviteStep(user.id))
-            .step(CreateInvitationStep(user.id, worldId))
-            .step(SendInvitationNotificationStep(user.minecraftUsername))
-            .step(object : Step<CreateInvitationResult, AppFailure.DatabaseError, Pair<Invite, CountWorldInvitationsResult>> {
-                override suspend fun process(input: CreateInvitationResult): Result<AppFailure.DatabaseError, Pair<Invite, CountWorldInvitationsResult>> {
-                    val invite = GetInviteStep.process(input.invitationId)
-                    if (invite is Result.Failure) {
-                        return invite
-                    }
-                    val counts = CountWorldInvitationsStep(worldId).process(Unit)
-                    if (counts is Result.Failure) {
-                        return counts
-                    }
-                    return Result.success(Pair(invite.getOrNull()!!, counts.getOrNull()!!))
-                }
-            })
+        val input = ValidateInvitationInputStep.run(parameters)
+        val validatedInput = ValidateInviterPermissionsStep(user, worldId).run(input)
+        val (invInput, targetUserId) = ValidateTargetUserStep.run(validatedInput)
+        ValidateNotSelfInviteStep(user.id).run(invInput to targetUserId)
+        val creationResult = CreateInvitationStep(user.id, worldId).run(invInput to targetUserId)
+        val notifiedResult = SendInvitationNotificationStep(user.minecraftUsername).run(creationResult)
+        val invite = GetInviteStep.run(notifiedResult.invitationId)
+        val counts = CountWorldInvitationsStep(worldId).run(Unit)
+        invite to counts
     }
 }
 
@@ -148,7 +137,6 @@ class ValidateInviterPermissionsStep(
     private val worldId: Int
 ) : Step<CreateInvitationInput, AppFailure, CreateInvitationInput> {
     override suspend fun process(input: CreateInvitationInput): Result<AppFailure, CreateInvitationInput> {
-        // Query to check if user has Admin+ role in world
         val result = DatabaseSteps.query<CreateInvitationInput, Role?>(
             sql = SafeSQL.select("SELECT world_role FROM world_members WHERE world_id = ? AND user_id = ?"),
             parameterSetter = { stmt, _ ->
@@ -160,7 +148,7 @@ class ValidateInviterPermissionsStep(
                     val userRole = Role.fromLevel(rs.getInt("world_role"))
                     userRole
                 } else {
-                    null // User not member of world
+                    null
                 }
             }
         ).process(input)
@@ -248,7 +236,6 @@ class CreateInvitationStep(
 
         if (result is Result.Failure) {
             if (result.error is AppFailure.DatabaseError.IntegrityConstraintError) {
-                // Check if it's a unique constraint violation on (world_id, to_user_id) to indicate existing pending invite
                 return Result.failure(
                     AppFailure.customValidationError(
                         "toUsername",
@@ -260,7 +247,6 @@ class CreateInvitationStep(
         }
 
         return result.flatMap { invitationId ->
-            // Fetch world name for notification
             DatabaseSteps.query<Int, String>(
                 sql = SafeSQL.select("SELECT name FROM world WHERE id = ?"),
                 parameterSetter = { stmt, _ ->
@@ -285,7 +271,6 @@ class SendInvitationNotificationStep(
     private val inviterUsername: String
 ) : Step<CreateInvitationResult, AppFailure.DatabaseError, CreateInvitationResult> {
     override suspend fun process(input: CreateInvitationResult): Result<AppFailure.DatabaseError, CreateInvitationResult> {
-        // Create notification for the invitee
         val notificationInput = CreateNotificationInput(
             userId = input.inviteeUserId,
             title = "World Invitation Received",
@@ -294,7 +279,6 @@ class SendInvitationNotificationStep(
             link = "/app"
         )
 
-        // Send notification
         return CreateNotificationStep.process(notificationInput).let { result ->
             when (result) {
                 is Result.Success -> Result.success(input.copy(inviterName = inviterUsername))
@@ -308,7 +292,7 @@ object GetInviteStep : Step<Int, AppFailure.DatabaseError, Invite> {
     override suspend fun process(input: Int): Result<AppFailure.DatabaseError, Invite> {
         return DatabaseSteps.query<Int, Invite?>(
             sql = SafeSQL.select("""
-                SELECT 
+                SELECT
                     i.id,
                     i.world_id,
                     w.name as world_name,

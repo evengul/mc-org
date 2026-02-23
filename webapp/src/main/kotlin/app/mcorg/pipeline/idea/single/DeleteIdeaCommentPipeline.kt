@@ -1,9 +1,8 @@
 package app.mcorg.pipeline.idea.single
 
-import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
-import app.mcorg.presentation.handler.executePipeline
+import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.utils.getIdeaCommentId
 import app.mcorg.presentation.utils.respondEmptyHtml
 import io.ktor.server.application.*
@@ -11,13 +10,12 @@ import io.ktor.server.application.*
 suspend fun ApplicationCall.handleDeleteIdeaComment() {
     val ideaCommentId = this.getIdeaCommentId()
 
-    executePipeline(
+    handlePipeline(
         onSuccess = {
             respondEmptyHtml()
         }
     ) {
-        step(Step.value(ideaCommentId))
-            .step(deleteIdeaStep)
+        deleteIdeaStep.run(ideaCommentId)
     }
 }
 

@@ -9,7 +9,7 @@ import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.failure.ValidationFailure
-import app.mcorg.presentation.handler.executePipeline
+import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.templated.project.foundIdeas
 import app.mcorg.presentation.utils.getResourceGatheringId
 import app.mcorg.presentation.utils.getWorldId
@@ -23,15 +23,14 @@ suspend fun ApplicationCall.handleFindIdeasForResource() {
     val worldId = this.getWorldId()
     val gatheringId = this.getResourceGatheringId()
 
-    executePipeline(
+    handlePipeline(
         onSuccess = { respondHtml(createHTML().div {
             foundIdeas(worldId, gatheringId to it.first, it.second)
         })}
     ) {
-        value(gatheringId)
-            .step(ValidateGathering)
-            .step(FindIdeasStep(worldId)) // TODO: Add existing projects as returned values
-            .step(FilterIdeasByWorldVersionStep(worldId))
+        val gathering = ValidateGathering.run(gatheringId)
+        val ideas = FindIdeasStep(worldId).run(gathering)
+        FilterIdeasByWorldVersionStep(worldId).run(ideas)
     }
 }
 

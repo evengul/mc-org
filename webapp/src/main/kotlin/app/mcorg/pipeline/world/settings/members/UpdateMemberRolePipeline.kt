@@ -7,7 +7,7 @@ import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.ValidationSteps
 import app.mcorg.pipeline.failure.AppFailure
-import app.mcorg.presentation.handler.executePipeline
+import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.templated.utils.toPrettyEnumName
 import app.mcorg.presentation.utils.getUser
 import app.mcorg.presentation.utils.getWorldId
@@ -24,13 +24,12 @@ suspend fun ApplicationCall.handleUpdateWorldMemberRole() {
 
     val parameters = receiveParameters()
 
-    executePipeline(
+    handlePipeline(
         onSuccess = { respondHtml(it.toPrettyEnumName()) },
     ) {
-        value(parameters)
-            .step(ValidateWorldMemberRoleInputStep)
-            .step(ValidateWorldMemberRoleChangeAllowedStep(worldId, currentUserId, memberId))
-            .step(UpdateWorldMemberRoleStep(worldId, memberId))
+        val role = ValidateWorldMemberRoleInputStep.run(parameters)
+        val validatedRole = ValidateWorldMemberRoleChangeAllowedStep(worldId, currentUserId, memberId).run(role)
+        UpdateWorldMemberRoleStep(worldId, memberId).run(validatedRole)
     }
 }
 

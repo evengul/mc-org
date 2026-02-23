@@ -1,6 +1,5 @@
 package app.mcorg.pipeline.project
 
-import app.mcorg.domain.pipeline.Pipeline
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.DatabaseSteps
@@ -8,7 +7,7 @@ import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.project.commonsteps.SearchProjectsInput
 import app.mcorg.pipeline.project.commonsteps.SearchProjectsStep
-import app.mcorg.presentation.handler.executeParallelPipeline
+import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.hxOutOfBands
 import app.mcorg.presentation.templated.world.projectList
 import app.mcorg.presentation.utils.getWorldId
@@ -24,7 +23,7 @@ suspend fun ApplicationCall.handleSearchProjects() {
     val worldId = this.getWorldId()
     val parameters = this.request.queryParameters
 
-    executeParallelPipeline(
+    handlePipeline(
         onSuccess = { (projects, projectCount) ->
             respondHtml(createHTML().ul {
                 projectList(projects)
@@ -35,16 +34,14 @@ suspend fun ApplicationCall.handleSearchProjects() {
             })
         }
     ) {
-        val searchResult = pipeline("searchResults", parameters, Pipeline.create<AppFailure.DatabaseError, Parameters>()
-            .pipe(ValidateSearchProjectsInputStep(worldId))
-            .pipe(SearchProjectsStep))
-
-
-        val countResult = singleStep("projectCount", worldId, CountProjectsInWorldStep)
-
-        merge("merged", searchResult, countResult) { searchProjects, projectCount ->
-            Result.success(searchProjects to projectCount)
-        }
+        val (projects, projectCount) = parallel(
+            {
+                val searchInput = ValidateSearchProjectsInputStep(worldId).run(parameters)
+                SearchProjectsStep.run(searchInput)
+            },
+            { CountProjectsInWorldStep.run(worldId) },
+        )
+        projects to projectCount
     }
 }
 

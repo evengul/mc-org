@@ -696,8 +696,7 @@ app.mcorg/
 │   └── pipeline/                   # Pipeline infrastructure
 │       ├── Step.kt                 # Step interface
 │       ├── Result.kt               # Result<E, S> type
-│       ├── Pipeline.kt             # Pipeline execution
-│       └── PipelineBuilder.kt      # Pipeline composition
+│       └── PipelineScope.kt         # Pipeline DSL with bind/run/parallel
 ├── nbt/                            # NBT file parsing (Litematica)
 │   ├── tag/                        # NBT tag types
 │   └── util/                       # NBT utilities
@@ -1210,34 +1209,34 @@ HTTP Request (POST /worlds/123/projects)
     Extract user (call.getUser())
     Extract worldId (call.getWorldId())
     ↓
-    Create Pipeline
+    Execute Pipeline
     ↓
-executePipeline {
+handlePipeline {
     ↓
-    step(ValidateProjectNameStep)
+    ValidateProjectNameStep.run(params)
         Input: ProjectParams
         Validates: name is 3-100 chars, non-empty
-        Output: ValidatedParams | ValidationError
+        Output: ValidatedParams | short-circuits with ValidationError
     ↓
-    step(ValidateProjectTypeStep)
+    ValidateProjectTypeStep.run(validated)
         Input: ValidatedParams
         Validates: type is valid ProjectType enum
-        Output: ValidatedParams | ValidationError
+        Output: ValidatedParams | short-circuits with ValidationError
     ↓
-    step(CheckCyclicDependenciesStep)
+    CheckCyclicDependenciesStep.run(validated)
         Input: ValidatedParams
         Validates: no circular dependency graph
-        Output: ValidatedParams | BusinessRuleError
+        Output: ValidatedParams | short-circuits with BusinessRuleError
     ↓
-    step(CreateProjectInDatabaseStep)
+    CreateProjectInDatabaseStep.run(validated)
         Input: ValidatedParams
         Database: INSERT INTO projects (...)
-        Output: Project | DatabaseError
+        Output: Project | short-circuits with DatabaseError
     ↓
-    step(CreateNotificationStep)
+    CreateNotificationStep.run(project)
         Input: Project
         Database: INSERT INTO notifications (...)
-        Output: Notification | DatabaseError
+        Output: Notification | short-circuits with DatabaseError
     ↓
     Result<AppFailure, Project>
 }
@@ -1271,19 +1270,17 @@ Plugin Pipeline (Env → Auth → Banned → Param extraction)
     ↓
 Handler Function (ApplicationCall.handleXxx)
     ↓
-executePipeline {
+handlePipeline {
     ↓
-    Step 1: Validate Input (ValidationSteps)
+    Step 1: ValidateInputStep.run(params)
     ↓
-    Step 2: Validate Permissions (Authorization)
+    Step 2: Execute Business Logic (Domain operations)
     ↓
-    Step 3: Execute Business Logic (Domain operations)
+    Step 3: Database Operations (SafeSQL + DatabaseSteps)
     ↓
-    Step 4: Database Operations (SafeSQL + DatabaseSteps)
+    Step 4: Get Updated Data
     ↓
-    Step 5: Get Updated Data
-    ↓
-    Result<Failure, Success>
+    Success value (or short-circuits on failure)
 }
     ↓
 onSuccess: Generate HTML (Kotlin HTML DSL)
@@ -1341,11 +1338,11 @@ DatabaseSteps.transaction {
 ### Error Propagation Flow
 
 ```
-Step.process() returns Result.Failure
+Step.run() calls process() which returns Result.Failure
     ↓
-Pipeline short-circuits (remaining steps skipped)
+.bind() throws PipelineFailure → short-circuits (remaining steps skipped)
     ↓
-executePipeline onFailure handler
+handlePipeline default error handler
     ↓
 Match AppFailure type
     ↓

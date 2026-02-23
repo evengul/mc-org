@@ -4,7 +4,7 @@ import app.mcorg.domain.model.minecraft.Dimension
 import app.mcorg.domain.model.minecraft.MinecraftLocation
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
-import app.mcorg.presentation.handler.executePipeline
+import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.templated.project.editLocation
 import app.mcorg.presentation.utils.getProjectId
 import app.mcorg.presentation.utils.getWorldId
@@ -17,15 +17,14 @@ suspend fun ApplicationCall.handleGetEditLocationFragment() {
     val worldId = this.getWorldId()
     val projectId = this.getProjectId()
 
-    executePipeline(
+    handlePipeline(
         onSuccess = {
             respondHtml(createHTML().div {
                 editLocation(worldId, projectId, it)
             })
         },
     ) {
-        value(projectId)
-            .step(GetLocationStep)
+        GetLocationStep.run(projectId)
     }
 }
 

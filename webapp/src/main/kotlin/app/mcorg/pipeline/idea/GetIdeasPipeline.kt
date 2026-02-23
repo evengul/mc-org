@@ -2,7 +2,7 @@ package app.mcorg.pipeline.idea
 
 import app.mcorg.pipeline.idea.commonsteps.GetAllIdeasStep
 import app.mcorg.pipeline.notification.getUnreadNotificationsOrZero
-import app.mcorg.presentation.handler.executePipeline
+import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.templated.idea.ideasPage
 import app.mcorg.presentation.utils.getUser
 import app.mcorg.presentation.utils.respondHtml
@@ -13,7 +13,7 @@ suspend fun ApplicationCall.handleGetIdeas() {
 
     val unreadNotifications = getUnreadNotificationsOrZero(user.id)
 
-    executePipeline(
+    handlePipeline(
         onSuccess = {
             respondHtml(ideasPage(
                 user = user,
@@ -22,6 +22,6 @@ suspend fun ApplicationCall.handleGetIdeas() {
             ))
         }
     ) {
-        step(GetAllIdeasStep)
+        GetAllIdeasStep.run(Unit)
     }
 }

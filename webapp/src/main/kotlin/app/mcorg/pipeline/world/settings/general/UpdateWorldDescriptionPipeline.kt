@@ -6,7 +6,7 @@ import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.ValidationSteps
 import app.mcorg.pipeline.failure.AppFailure
-import app.mcorg.presentation.handler.executePipeline
+import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.templated.layout.alert.AlertType
 import app.mcorg.presentation.templated.layout.alert.createAlert
 import app.mcorg.presentation.utils.getWorldId
@@ -21,7 +21,7 @@ suspend fun ApplicationCall.handleUpdateWorldDescription() {
     val parameters = this.receiveParameters()
     val worldId = this.getWorldId()
 
-    executePipeline(
+    handlePipeline(
         onSuccess = {
             respondHtml(createHTML().li {
                 createAlert(
@@ -33,9 +33,8 @@ suspend fun ApplicationCall.handleUpdateWorldDescription() {
             })
         },
     ) {
-        value(parameters)
-            .step(ValidateWorldDescriptionInputStep)
-            .step(UpdateWorldDescriptionStep(worldId))
+        val description = ValidateWorldDescriptionInputStep.run(parameters)
+        UpdateWorldDescriptionStep(worldId).run(description)
     }
 }
 
@@ -58,7 +57,7 @@ data class UpdateWorldDescriptionStep(val worldId: Int) : Step<String, AppFailur
     override suspend fun process(input: String): Result<AppFailure.DatabaseError, Int> {
         return DatabaseSteps.update<String>(
             SafeSQL.update("""
-                UPDATE world 
+                UPDATE world
                 SET description = ?, updated_at = CURRENT_TIMESTAMP
                 WHERE id = ?
             """),
