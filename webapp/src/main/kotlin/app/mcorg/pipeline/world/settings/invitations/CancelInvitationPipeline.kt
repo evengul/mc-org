@@ -1,13 +1,11 @@
 package app.mcorg.pipeline.world.settings.invitations
 
-import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
-import app.mcorg.pipeline.world.invitations.CountWorldInvitationsResult
 import app.mcorg.pipeline.world.invitations.CountWorldInvitationsStep
 import app.mcorg.pipeline.world.invitations.InvitationStatusFilter
 import app.mcorg.pipeline.world.settings.getStatusFromURL
-import app.mcorg.presentation.handler.executePipeline
+import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.hxOutOfBands
 import app.mcorg.presentation.hxTarget
 import app.mcorg.presentation.templated.settings.worldInvitationTabs
@@ -24,8 +22,8 @@ suspend fun ApplicationCall.handleCancelInvitation() {
 
     val selectedStatus = this.getStatusFromURL()
 
-    executePipeline(
-        onSuccess = { result: CountWorldInvitationsResult ->
+    handlePipeline(
+        onSuccess = { result ->
             val mainContent = createHTML().div {
                 hxOutOfBands("true")
                 hxTarget("#invitation-status-filter")
@@ -49,10 +47,8 @@ suspend fun ApplicationCall.handleCancelInvitation() {
             }
         }
     ) {
-        step(Step.value(worldId to invitationId))
-            .step(cancelInviteStep)
-            .map { }
-            .step(CountWorldInvitationsStep(worldId))
+        cancelInviteStep.run(worldId to invitationId)
+        CountWorldInvitationsStep(worldId).run(Unit)
     }
 }
 

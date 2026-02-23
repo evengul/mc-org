@@ -7,7 +7,7 @@ import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.failure.AppFailure
-import app.mcorg.presentation.handler.executePipeline
+import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.hxOutOfBands
 import app.mcorg.presentation.templated.project.addDependencyForm
 import app.mcorg.presentation.templated.project.dependenciesList
@@ -23,7 +23,7 @@ suspend fun ApplicationCall.handleDeleteProjectDependency() {
     val projectId = this.getProjectId()
     val dependencyId = this.getProjectDependencyId()
 
-    executePipeline(
+    handlePipeline(
         onSuccess = { (dependencies, availableDependencies) ->
             respondHtml(createHTML().div {
                 dependenciesList(worldId, projectId, dependencies)
@@ -33,16 +33,10 @@ suspend fun ApplicationCall.handleDeleteProjectDependency() {
             })
         }
     ) {
-        step(Step.value(dependencyId))
-            .step(DeleteProjectDependencyStep(projectId))
-            .value(Unit)
-            .step(GetProjectDependenciesStep(projectId))
-            .step(object : Step<List<ProjectDependency>, AppFailure, Pair<List<ProjectDependency>, List<NamedProjectId>>> {
-                override suspend fun process(input: List<ProjectDependency>): Result<AppFailure, Pair<List<ProjectDependency>, List<NamedProjectId>>> {
-                    return GetAvailableProjectDependenciesStep(worldId).process(projectId)
-                        .map { availableDependencies -> Pair(input, availableDependencies) }
-                }
-            })
+        DeleteProjectDependencyStep(projectId).run(dependencyId)
+        val dependencies = GetProjectDependenciesStep(projectId).run(Unit)
+        val availableDependencies = GetAvailableProjectDependenciesStep(worldId).run(projectId)
+        dependencies to availableDependencies
     }
 }
 
@@ -57,4 +51,3 @@ private data class DeleteProjectDependencyStep(val projectId: Int) : Step<Int, A
         ).process(input).map {  }
     }
 }
-

@@ -345,7 +345,7 @@ data class {Feature}Filter(
 
 ## Using Steps in Pipeline
 
-**Sequential Pipeline (using executePipeline):**
+**Sequential Pipeline (using handlePipeline):**
 
 ```kotlin
 suspend fun ApplicationCall.handle{Action}{Feature}() {
@@ -353,18 +353,17 @@ suspend fun ApplicationCall.handle{Action}{Feature}() {
     val user = this.getUser()
     val worldId = this.getWorldId()
 
-    executePipeline(
+    handlePipeline(
         onSuccess = { feature ->
             respondHtml(createHTML().div {
                 // success HTML
             })
         }
-        // onFailure is optional - default handler responds appropriately
+        // onFailure is handled by default - logs and responds appropriately
     ) {
-        value(parameters)
-            .step(Validate{Feature}Step)
-            .step(Create{Feature}Step(user.id, worldId))
-            .step(Get{Feature}ByIdStep)
+        val input = Validate{Feature}Step.run(parameters)
+        val id = Create{Feature}Step(user.id, worldId).run(input)
+        Get{Feature}ByIdStep.run(id)
     }
 }
 ```
@@ -375,22 +374,22 @@ suspend fun ApplicationCall.handle{Action}{Feature}() {
 suspend fun ApplicationCall.handleGet{Feature}Dashboard() {
     val featureId = this.getFeatureId()
 
-    executeParallelPipeline(
+    handlePipeline(
         onSuccess = { (feature, relatedItems, stats) ->
             respondHtml(dashboardPage(feature, relatedItems, stats))
         }
     ) {
-        val featureRef = singleStep("feature", featureId, Get{Feature}ByIdStep(featureId))
-        val relatedRef = singleStep("related", featureId, GetRelatedItemsStep(featureId))
-        val statsRef = singleStep("stats", featureId, Get{Feature}StatsStep(featureId))
-        merge("dashboard", featureRef, relatedRef, statsRef) { feature, related, stats ->
-            Result.success(Triple(feature, related, stats))
-        }
+        val (feature, relatedItems, stats) = parallel(
+            { Get{Feature}ByIdStep(featureId).run(Unit) },
+            { GetRelatedItemsStep(featureId).run(Unit) },
+            { Get{Feature}StatsStep(featureId).run(Unit) }
+        )
+        Triple(feature, relatedItems, stats)
     }
 }
 ```
 
-**Note:** Steps are the building blocks used in both patterns. Use `singleStep()` in parallel pipelines when operations are independent and can execute concurrently.
+**Note:** Inside `handlePipeline`, call `.run(input)` on any Step to execute it and automatically short-circuit on failure. Use `parallel()` when operations are independent and can execute concurrently (supports 2, 3, or 4 parallel operations).
 
 ---
 

@@ -40,7 +40,8 @@ Verify the code works correctly:
 Verify adherence to project patterns:
 
 **Pipeline Pattern:**
-- Uses `executePipeline()` or `executeParallelPipeline()` helpers
+- Uses `handlePipeline()` with `.run()` on Steps for short-circuit semantics
+- Uses `parallel()` for concurrent independent operations
 - Steps implement `Step<I, E, S>` interface correctly
 - Proper failure types from `AppFailure` hierarchy
 

@@ -13,7 +13,7 @@
 - A composition of Steps that transform input → output with explicit error handling
 - Uses railway-oriented programming pattern
 - Short-circuits on first failure
-- Example: `Pipeline.create().pipe(Step1).pipe(Step2)`
+- Example: `handlePipeline { val a = Step1.run(input); Step2.run(a) }`
 
 **Step**
 
@@ -49,40 +49,25 @@
 - Subtypes: ValidationError, DatabaseError, AuthError, ApiError, Redirect, FileError
 - Forces explicit error handling
 
-**executePipeline**
+**handlePipeline**
 
 - Handler helper function that executes a pipeline with default error handling
-- Syntax: `executePipeline(onSuccess = { ... }) { pipeline DSL }`
+- Syntax: `handlePipeline(onSuccess = { ... }) { StepA.run(x); StepB.run(y) }`
 - Automatically handles `onFailure` with appropriate HTTP responses
-- Preferred over manual `Pipeline.create().fold()` pattern
+- Inside the block, call `.run()` on Steps to execute and short-circuit on failure
 
-**executeParallelPipeline**
+**PipelineScope**
 
-- Handler helper for parallel pipeline execution
-- Executes multiple independent operations concurrently
-- Merges results using type-safe lambdas
-- Uses DAG-based dependency resolution
+- DSL scope class for railway-oriented pipeline execution
+- Methods: `.bind()` (extract Result value), `.run()` (execute Step and bind), `.parallel()` (concurrent execution)
+- Short-circuits on first failure via internal exception mechanism
+- Supports 2, 3, or 4-way parallel execution
 
-**ParallelPipelineBuilder**
+**pipelineResult**
 
-- Builder for creating pipelines with concurrent execution
-- Methods: `singleStep()`, `pipeline()`, `merge()`, `pipe()`
-- Creates DAG of operations with dependency tracking
-- Used via `parallelPipeline<E> { }` builder function
-
-**PipelineBuilder**
-
-- Fluent DSL for constructing sequential pipelines
-- Methods: `.step()`, `.map()`, `.value()`, `.validate()`, `.transform()`, `.execute()`
-- Alternative to `Pipeline.create().pipe()` pattern
-- Used via `pipeline<I, E>()` builder function
-
-**PipelineRef**
-
-- Reference to a node in a parallel pipeline graph
-- Returned by `singleStep()`, `pipeline()`, `merge()` in ParallelPipelineBuilder
-- Used as dependency input for `merge()` and `pipe()` operations
-- Type-safe tracking of node outputs
+- Executes a pipeline block and returns `Result<E, O>` directly
+- Useful when you need the Result value rather than callbacks
+- Syntax: `pipelineResult<AppFailure, Output> { StepA.run(x) }`
 
 **SafeSQL**
 

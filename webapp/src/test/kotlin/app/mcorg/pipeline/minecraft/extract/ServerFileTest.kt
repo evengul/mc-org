@@ -2,9 +2,8 @@ package app.mcorg.pipeline.minecraft.extract
 
 import app.mcorg.domain.model.minecraft.MinecraftVersion
 import app.mcorg.domain.model.minecraft.MinecraftVersionRange
-import app.mcorg.domain.pipeline.Pipeline
 import app.mcorg.domain.pipeline.Result
-import app.mcorg.domain.pipeline.Step
+import app.mcorg.domain.pipeline.pipelineResult
 import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.minecraft.ExtractRelevantMinecraftFilesStep
 import app.mcorg.pipeline.minecraft.GetAvailableVersionsStep
@@ -16,7 +15,6 @@ import org.junit.jupiter.api.Assertions.fail
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.params.provider.Arguments
-import java.net.URI
 import java.nio.file.Path
 import java.nio.file.Paths
 import kotlin.io.path.createDirectories
@@ -42,51 +40,38 @@ open class ServerFileTest(
             return
         }
 
-
         runBlocking {
-            Pipeline.create<AppFailure, Unit>()
-                .pipe(GetAvailableVersionsStep)
-                .pipe(GetServerUrlsStep)
-                .pipe(object :
-                    Step<List<Pair<MinecraftVersion.Release, URI>>, AppFailure, List<Pair<MinecraftVersion.Release, Path>>> {
-                    override suspend fun process(input: List<Pair<MinecraftVersion.Release, URI>>): Result<AppFailure, List<Pair<MinecraftVersion.Release, Path>>> {
-                        val innerPipeline = Pipeline.create<AppFailure, Pair<MinecraftVersion.Release, URI>>()
-                            .pipe(GetServerFileStep)
-                            .pipe(ExtractRelevantMinecraftFilesStep {
-                                resourcesPath.resolve(it).createDirectories()
-                            })
+            pipelineResult<AppFailure, Unit> {
+                val versions = GetAvailableVersionsStep.run(Unit)
+                val urls = GetServerUrlsStep.run(versions)
 
-                        if (input.isEmpty()) {
-                            println("No server files to process")
-                            return Result.success(emptyList())
-                        }
+                if (urls.isEmpty()) {
+                    println("No server files to process")
+                    return@pipelineResult
+                }
 
-                        val result = input.map {
-                            val innerResult = innerPipeline.execute(it)
-                            try {
-                                delay(500)
-                            } catch (e: Exception) {
-                                println("Error in processing $e")
-                            }
-                            innerResult
-                        }
-
-                        val errors = result.filterIsInstance<Result.Failure<AppFailure>>()
-                        if (errors.isNotEmpty()) {
-                            return Result.failure(
-                                AppFailure.customValidationError(
-                                    "files",
-                                    "Couldn't process some server files: ${errors.map { it.error }}"
-                                )
-                            )
-                        }
-
-                        val successes =
-                            result.filterIsInstance<Result.Success<Pair<MinecraftVersion.Release, Path>>>()
-                        return Result.success(successes.map { it.value })
+                val results = urls.map { pair ->
+                    val fileResult = GetServerFileStep.process(pair)
+                    val extractResult = when (fileResult) {
+                        is Result.Success -> ExtractRelevantMinecraftFilesStep {
+                            resourcesPath.resolve(it).createDirectories()
+                        }.process(fileResult.value)
+                        is Result.Failure -> fileResult
                     }
-                })
-                .execute(Unit)
+                    try { delay(500) } catch (e: Exception) { println("Error in processing $e") }
+                    extractResult
+                }
+
+                val errors = results.filterIsInstance<Result.Failure<AppFailure>>()
+                if (errors.isNotEmpty()) {
+                    Result.failure<AppFailure, Unit>(
+                        AppFailure.customValidationError(
+                            "files",
+                            "Couldn't process some server files: ${errors.map { it.error }}"
+                        )
+                    ).bind()
+                }
+            }
         }
     }
 

@@ -14,7 +14,7 @@ import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.failure.ValidationFailure
 import app.mcorg.pipeline.idea.createsession.CreateIdeaWizardSession
 import app.mcorg.pipeline.idea.createsession.getWizardSession
-import app.mcorg.presentation.handler.executePipeline
+import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.utils.clientRedirect
 import app.mcorg.presentation.utils.getUser
 import io.ktor.server.application.ApplicationCall
@@ -44,14 +44,13 @@ suspend fun ApplicationCall.handleCreateIdea() {
     val user = getUser()
     val data = getWizardSession()
 
-    executePipeline(
-        onSuccess = {
-            clientRedirect("/app/ideas/$it")
+    handlePipeline(
+        onSuccess = { ideaId ->
+            clientRedirect("/app/ideas/$ideaId")
         }
     ) {
-        value(data)
-            .step(ValidateIdeaInputStep)
-            .step(CreateIdeaStep(user.id))
+        val input = ValidateIdeaInputStep.run(data)
+        CreateIdeaStep(user.id).run(input)
     }
 }
 

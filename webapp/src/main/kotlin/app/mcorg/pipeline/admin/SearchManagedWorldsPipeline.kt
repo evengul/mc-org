@@ -1,12 +1,9 @@
 package app.mcorg.pipeline.admin
 
-import app.mcorg.domain.pipeline.Pipeline
-import app.mcorg.domain.pipeline.Result
 import app.mcorg.pipeline.admin.commonsteps.CountManagedWorldsStep
 import app.mcorg.pipeline.admin.commonsteps.GetManagedWorldsInput
 import app.mcorg.pipeline.admin.commonsteps.GetManagedWorldsStep
-import app.mcorg.pipeline.failure.AppFailure
-import app.mcorg.presentation.handler.executeParallelPipeline
+import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.hxOutOfBands
 import app.mcorg.presentation.templated.admin.AdminTable
 import app.mcorg.presentation.templated.admin.paginationInfo
@@ -25,27 +22,22 @@ suspend fun ApplicationCall.handleSearchManagedWorlds() {
         pageSize = this.request.queryParameters["pageSize"]?.toIntOrNull() ?: 10
     )
 
-    val worldsPipeline = Pipeline.create<AppFailure.DatabaseError, GetManagedWorldsInput>()
-        .pipe(GetManagedWorldsStep)
-
-    val countPipeline = Pipeline.create<AppFailure.DatabaseError, String>()
-        .pipe(CountManagedWorldsStep)
-
-    executeParallelPipeline(
-        onSuccess = { respondHtml(createHTML().tbody {
-            worldRows(it.first)
-        } + createHTML().td {
-            hxOutOfBands("innerHTML:#pagination-info-worlds")
-            div {
-                paginationInfo(it.second, input.page, AdminTable.WORLDS)
-            }
-        }) }
-    ) {
-        val worlds = pipeline("worlds", input, worldsPipeline)
-        val count = pipeline("count", input.query, countPipeline)
-
-        merge("data", worlds, count) { w, c ->
-            Result.success(w to c)
+    handlePipeline(
+        onSuccess = { (worlds, count) ->
+            respondHtml(createHTML().tbody {
+                worldRows(worlds)
+            } + createHTML().td {
+                hxOutOfBands("innerHTML:#pagination-info-worlds")
+                div {
+                    paginationInfo(count, input.page, AdminTable.WORLDS)
+                }
+            })
         }
+    ) {
+        val (worlds, count) = parallel(
+            { GetManagedWorldsStep.run(input) },
+            { CountManagedWorldsStep.run(input.query) },
+        )
+        worlds to count
     }
 }

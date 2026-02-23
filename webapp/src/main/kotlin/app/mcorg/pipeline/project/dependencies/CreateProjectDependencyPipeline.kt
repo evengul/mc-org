@@ -8,7 +8,7 @@ import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.ValidationSteps
 import app.mcorg.pipeline.failure.AppFailure
-import app.mcorg.presentation.handler.executePipeline
+import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.hxOutOfBands
 import app.mcorg.presentation.templated.project.addDependencyForm
 import app.mcorg.presentation.templated.project.dependenciesList
@@ -29,7 +29,7 @@ suspend fun ApplicationCall.handleCreateProjectDependency() {
     val projectId = this.getProjectId()
     val parameters = this.receiveParameters()
 
-    executePipeline(
+    handlePipeline(
         onSuccess = { (dependencies, availableDependencies) ->
             respondHtml(createHTML().div {
                 dependenciesList(worldId, projectId, dependencies)
@@ -39,18 +39,12 @@ suspend fun ApplicationCall.handleCreateProjectDependency() {
             })
         }
     ) {
-        value(parameters)
-            .step(ValidateProjectDependencyInputStep)
-            .step(EnsureNoDependencyLoopDetectedStep(projectId))
-            .step(CreateProjectDependencyStep(projectId))
-            .value(Unit)
-            .step(GetProjectDependenciesStep(projectId))
-            .step(object : Step<List<ProjectDependency>, AppFailure, Pair<List<ProjectDependency>, List<NamedProjectId>>> {
-                override suspend fun process(input: List<ProjectDependency>): Result<AppFailure, Pair<List<ProjectDependency>, List<NamedProjectId>>> {
-                    return GetAvailableProjectDependenciesStep(worldId).process(projectId)
-                        .map { input to it }
-                }
-            })
+        val dependencyProjectId = ValidateProjectDependencyInputStep.run(parameters)
+        EnsureNoDependencyLoopDetectedStep(projectId).run(dependencyProjectId)
+        CreateProjectDependencyStep(projectId).run(dependencyProjectId)
+        val dependencies = GetProjectDependenciesStep(projectId).run(Unit)
+        val availableDependencies = GetAvailableProjectDependenciesStep(worldId).run(projectId)
+        dependencies to availableDependencies
     }
 }
 
@@ -73,9 +67,9 @@ data class EnsureNoDependencyLoopDetectedStep(val projectId: Int) : Step<Int, Ap
                     SELECT depends_on_project_id as project_id
                     FROM project_dependencies
                     WHERE project_id = ?
-                    
+
                     UNION
-                    
+
                     -- Recursive case: transitive dependencies
                     SELECT pd.depends_on_project_id
                     FROM project_dependencies pd
@@ -86,16 +80,16 @@ data class EnsureNoDependencyLoopDetectedStep(val projectId: Int) : Step<Int, Ap
                     SELECT project_id
                     FROM project_dependencies
                     WHERE depends_on_project_id = ?
-                    
+
                     UNION
-                    
+
                     -- Recursive case: projects that transitively depend on the input project
                     SELECT pd.project_id
                     FROM project_dependencies pd
                     INNER JOIN reverse_dependency_chain rdc ON pd.depends_on_project_id = rdc.project_id
                 )
-                SELECT 
-                    CASE 
+                SELECT
+                    CASE
                         WHEN EXISTS (
                             SELECT 1 FROM dependency_chain WHERE project_id = ?
                         ) OR EXISTS (
@@ -145,4 +139,3 @@ private data class CreateProjectDependencyStep(val projectId: Int): Step<Int, Ap
         ).process(input)
     }
 }
-

@@ -6,7 +6,7 @@ import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.ValidationSteps
 import app.mcorg.pipeline.failure.AppFailure
-import app.mcorg.presentation.handler.executePipeline
+import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.hxOutOfBands
 import app.mcorg.presentation.templated.layout.alert.AlertType
 import app.mcorg.presentation.templated.layout.alert.createAlert
@@ -23,7 +23,7 @@ suspend fun ApplicationCall.handleUpdateProjectName() {
     val projectId = this.getProjectId()
     val parameters = this.receiveParameters()
 
-    executePipeline(
+    handlePipeline(
         onSuccess = { respondHtml(createHTML().li {
             createAlert(
                 id = "project-name-updated-success-alert",
@@ -35,9 +35,8 @@ suspend fun ApplicationCall.handleUpdateProjectName() {
             + it
         }) },
     ) {
-        step(Step.value(parameters))
-            .step(ValidateProjectNameInputStep)
-            .step(UpdateProjectNameStep(projectId))
+        val name = ValidateProjectNameInputStep.run(parameters)
+        UpdateProjectNameStep(projectId).run(name)
     }
 }
 

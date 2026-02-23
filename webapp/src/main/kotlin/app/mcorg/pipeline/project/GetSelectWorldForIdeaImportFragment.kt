@@ -7,7 +7,7 @@ import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.failure.AppFailure
-import app.mcorg.presentation.handler.executePipeline
+import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.hxInclude
 import app.mcorg.presentation.hxPost
 import app.mcorg.presentation.hxTarget
@@ -28,7 +28,7 @@ suspend fun ApplicationCall.handleGetSelectWorldForIdeaImportFragment() {
     val userId = this.getUser().id
     val ideaId = this.getIdeaId()
 
-    executePipeline(
+    handlePipeline(
         onSuccess = { worldsList ->
             respondHtml(createHTML().select {
                 id = "import-idea-selector"
@@ -59,10 +59,8 @@ suspend fun ApplicationCall.handleGetSelectWorldForIdeaImportFragment() {
             })
         }
     ) {
-        value(ideaId)
-            .step(GetIdeaVersionRangeStep)
-            .value { it to userId }
-            .step(GetPermittedWorldsStep)
+        val versionRange = GetIdeaVersionRangeStep.run(ideaId)
+        GetPermittedWorldsStep.run(versionRange to userId)
     }
 }
 

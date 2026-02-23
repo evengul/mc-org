@@ -1,9 +1,8 @@
 package app.mcorg.pipeline.world.settings.invitations
 
-import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.world.invitations.GetWorldInvitationsStep
 import app.mcorg.pipeline.world.settings.getStatusFromURL
-import app.mcorg.presentation.handler.executePipeline
+import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.templated.settings.worldInvitations
 import app.mcorg.presentation.utils.getWorldId
 import app.mcorg.presentation.utils.respondHtml
@@ -16,12 +15,11 @@ suspend fun ApplicationCall.handleGetInvitationListFragment() {
     val worldId = this.getWorldId()
     val statusFilter = this.getStatusFromURL()
 
-    executePipeline(
+    handlePipeline(
         onSuccess = {
             respondHtml(createHTML().ul { worldInvitations(it) })
         }
     ) {
-        step(Step.value(statusFilter))
-            .step(GetWorldInvitationsStep(worldId))
+        GetWorldInvitationsStep(worldId).run(statusFilter)
     }
 }

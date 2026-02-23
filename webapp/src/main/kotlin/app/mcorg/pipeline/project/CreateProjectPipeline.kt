@@ -11,7 +11,7 @@ import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.failure.ValidationFailure
 import app.mcorg.pipeline.project.commonsteps.GetProjectByIdStep
 import app.mcorg.pipeline.world.ValidateWorldMemberRole
-import app.mcorg.presentation.handler.executePipeline
+import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.hxOutOfBands
 import app.mcorg.presentation.templated.world.projectItem
 import app.mcorg.presentation.utils.getUser
@@ -35,7 +35,7 @@ suspend fun ApplicationCall.handleCreateProject() {
     val user = this.getUser()
     val worldId = this.getWorldId()
 
-    executePipeline(
+    handlePipeline(
         onSuccess = {
             respondHtml(createHTML().li {
                 projectItem(it)
@@ -44,11 +44,10 @@ suspend fun ApplicationCall.handleCreateProject() {
             })
         }
     ) {
-        step(Step.value(parameters))
-            .step(ValidateProjectInputStep)
-            .step(ValidateWorldMemberRole(user, Role.ADMIN, worldId))
-            .step(CreateProjectStep(worldId))
-            .step(GetProjectByIdStep)
+        val input = ValidateProjectInputStep.run(parameters)
+        ValidateWorldMemberRole<CreateProjectInput>(user, Role.ADMIN, worldId).run(input)
+        val projectId = CreateProjectStep(worldId).run(input)
+        GetProjectByIdStep.run(projectId)
     }
 }
 
@@ -100,8 +99,8 @@ data class CreateProjectStep(val worldId: Int) : Step<CreateProjectInput, AppFai
     override suspend fun process(input: CreateProjectInput): Result<AppFailure.DatabaseError, Int> {
         return DatabaseSteps.update<CreateProjectInput>(
             sql = SafeSQL.insert("""
-                INSERT INTO projects (world_id, name, description, type, stage, location_x, location_y, location_z, location_dimension) 
-                VALUES (?, ?, ?, ?, 'IDEA', 0, 0, 0, 'OVERWORLD') 
+                INSERT INTO projects (world_id, name, description, type, stage, location_x, location_y, location_z, location_dimension)
+                VALUES (?, ?, ?, ?, 'IDEA', 0, 0, 0, 'OVERWORLD')
                 RETURNING id
             """.trimIndent()),
             parameterSetter = { statement, (name, description, type) ->

@@ -10,7 +10,7 @@ import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.task.commonsteps.CountActionTasksInProjectWithTaskIdStep
 import app.mcorg.pipeline.task.commonsteps.CountCompletedActionTasksStep
 import app.mcorg.pipeline.task.commonsteps.GetActionTaskStep
-import app.mcorg.presentation.handler.executePipeline
+import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.hxOutOfBands
 import app.mcorg.presentation.templated.project.projectProgress
 import app.mcorg.presentation.templated.project.taskItem
@@ -35,7 +35,7 @@ suspend fun ApplicationCall.handleCreateActionTask() {
     val worldId = this.getWorldId()
     val projectId = this.getProjectId()
 
-    executePipeline(
+    handlePipeline(
         onSuccess = {
             respondHtml(createHTML().li {
                 taskItem(worldId, projectId, it.task)
@@ -49,10 +49,9 @@ suspend fun ApplicationCall.handleCreateActionTask() {
             })
         },
     ) {
-        value(parameters)
-            .step(ValidateCreateActionTaskInputStep)
-            .step(CreateActionTaskStep(projectId))
-            .step(GetUpdatedActionTaskCountsStep)
+        val name = ValidateCreateActionTaskInputStep.run(parameters)
+        val taskId = CreateActionTaskStep(projectId).run(name)
+        GetUpdatedActionTaskCountsStep.run(taskId)
     }
 }
 

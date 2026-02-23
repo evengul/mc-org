@@ -5,7 +5,7 @@ import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.failure.AppFailure
-import app.mcorg.presentation.handler.executePipeline
+import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.utils.getNotificationId
 import app.mcorg.presentation.utils.getUser
 import app.mcorg.presentation.utils.respondHtml
@@ -18,7 +18,7 @@ suspend fun ApplicationCall.handleMarkNotificationRead() {
     val user = getUser()
     val notificationId = getNotificationId()
 
-    executePipeline(
+    handlePipeline(
         onSuccess = { _ ->
             respondHtml(createHTML().div {
                 span("notification-item__read-indicator") {
@@ -27,8 +27,7 @@ suspend fun ApplicationCall.handleMarkNotificationRead() {
             })
         }
     ) {
-        value(notificationId)
-            .step(MarkNotificationReadStep(user.id))
+        MarkNotificationReadStep(user.id).run(notificationId)
     }
 }
 

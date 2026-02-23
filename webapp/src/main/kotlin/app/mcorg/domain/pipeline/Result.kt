@@ -79,3 +79,12 @@ sealed interface Result<out E, out S> {
     }
 
 }
+
+/**
+ * Returns the success value, or calls [onFailure] and returns its result.
+ * Useful for early returns: `val value = result.getOrElse { return }`
+ */
+inline fun <E, S> Result<E, S>.getOrElse(onFailure: (E) -> S): S = when (this) {
+    is Result.Success -> value
+    is Result.Failure -> onFailure(error)
+}

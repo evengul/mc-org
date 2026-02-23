@@ -1,9 +1,8 @@
 package app.mcorg.pipeline.auth
 
-import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
-import app.mcorg.presentation.handler.executePipeline
+import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.utils.clientRedirect
 import app.mcorg.presentation.utils.getHost
 import app.mcorg.presentation.utils.getUser
@@ -14,14 +13,13 @@ suspend fun ApplicationCall.handleDeleteAccount() {
     val user = this.getUser()
     val host = this.getHost() ?: "false"
 
-    executePipeline(
+    handlePipeline(
         onSuccess = {
             this.response.cookies.removeToken(host)
             this.clientRedirect("/")
         }
     ) {
-        step(Step.value(user.id))
-            .step(DeleteAccountStep)
+        DeleteAccountStep.run(user.id)
     }
 }
 

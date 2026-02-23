@@ -9,7 +9,7 @@ import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.task.commonsteps.CountActionTasksInProjectWithTaskIdStep
 import app.mcorg.pipeline.task.commonsteps.CountCompletedActionTasksStep
 import app.mcorg.pipeline.task.commonsteps.GetActionTaskStep
-import app.mcorg.presentation.handler.executePipeline
+import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.templated.project.projectProgress
 import app.mcorg.presentation.templated.project.taskCompletionCheckbox
 import app.mcorg.presentation.utils.getProjectId
@@ -26,7 +26,7 @@ suspend fun ApplicationCall.handleCompleteActionTask() {
     val projectId = this.getProjectId()
     val taskId = this.getTaskId()
 
-    executePipeline(
+    handlePipeline(
         onSuccess = {
             respondHtml(createHTML().input {
                 taskCompletionCheckbox(
@@ -43,10 +43,9 @@ suspend fun ApplicationCall.handleCompleteActionTask() {
             })
         },
     ) {
-        value(taskId)
-            .step(ValidateTaskCompletionStep)
-            .step(CompleteTaskStep)
-            .step(CheckAnyTasksStepAfterCompletion)
+        ValidateTaskCompletionStep.run(taskId)
+        CompleteTaskStep.run(taskId)
+        CheckAnyTasksStepAfterCompletion.run(taskId)
     }
 }
 

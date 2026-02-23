@@ -5,7 +5,7 @@ import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.failure.AppFailure
-import app.mcorg.presentation.handler.executePipeline
+import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.hxOutOfBands
 import app.mcorg.presentation.templated.project.resourceGatheringProgress
 import app.mcorg.presentation.utils.getProjectId
@@ -19,7 +19,7 @@ suspend fun ApplicationCall.handleDeleteResourceGatheringItem() {
     val projectId = this.getProjectId()
     val resourceGatheringId = this.getResourceGatheringId()
 
-    executePipeline(
+    handlePipeline(
         onSuccess = {
             val progressContent = createHTML().div {
                 hxOutOfBands("innerHTML:#resource-gathering-total-progress")
@@ -34,10 +34,8 @@ suspend fun ApplicationCall.handleDeleteResourceGatheringItem() {
             respondHtml(progressContent)
         },
     ) {
-        value(resourceGatheringId)
-            .step(DeleteResourceGatheringStep)
-            .value(projectId)
-            .step(GetUpdatedResourceGatheringStep)
+        DeleteResourceGatheringStep.run(resourceGatheringId)
+        GetUpdatedResourceGatheringStep.run(projectId)
     }
 }
 

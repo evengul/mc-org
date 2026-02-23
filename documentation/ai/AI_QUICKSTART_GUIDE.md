@@ -62,18 +62,16 @@ suspend fun ApplicationCall.handleFeatureAction() {
     val user = this.getUser()
     val worldId = this.getWorldId()
 
-    // Create pipeline
-    executePipeline(
-        onSucess = { result ->
+    handlePipeline(
+        onSuccess = { result ->
             respondHtml(createHTML().div {
                 // Return HTML fragment for HTMX
             })
         },
     ) {
-        value(parameters)
-            .step(ValidateInputStep)
-            .step(ExecuteBusinessLogicStep)
-            .step(GetUpdatedDataStep)
+        val input = ValidateInputStep.run(parameters)
+        val created = ExecuteBusinessLogicStep.run(input)
+        GetUpdatedDataStep.run(created)
     }
 }
 ```
@@ -180,7 +178,7 @@ import app.mcorg.presentation.utils.respondBadRequest
 // Pipeline & Steps
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.domain.pipeline.Result
-import app.mcorg.domain.pipeline.executePipeline
+import app.mcorg.presentation.handler.handlePipeline
 
 // Database
 import app.mcorg.pipeline.SafeSQL
@@ -206,7 +204,7 @@ suspend fun ApplicationCall.handleYourFeature() {
     val user = getUser()
     val worldId = getWorldId()
 
-    executePipeline(
+    handlePipeline(
         onSuccess = { result ->
             respondHtml(createHTML().div {
                 div("notice notice--success") { +"Success!" }
@@ -223,9 +221,8 @@ suspend fun ApplicationCall.handleYourFeature() {
             }
         }
     ) {
-        step(Step.value(params))
-            .step(YourValidationStep)
-            .step(YourBusinessLogicStep)
+        val validated = YourValidationStep.run(params)
+        YourBusinessLogicStep.run(validated)
     }
 }
 ```
@@ -344,7 +341,7 @@ call.respondText(..., ContentType.Text.Html)  // Use respondHtml()
 DatabaseSteps.query(step = object : Step<...> { ... })  // Takes SafeSQL, parameterSetter, mapper
 
 // ❌ Check authorization in pipeline
-    .step(ValidatePermissionsStep)  // Authorization is handled by plugins, not pipelines
+    ValidatePermissionsStep.run(input)  // Authorization is handled by plugins, not pipelines
 
 // ❌ Return JSON
 call.respond(mapOf("status" to "ok"))  // This is HTML app, not JSON API
@@ -438,8 +435,7 @@ val result = queryStep.process(input)
 ### Task: Return HTMX fragment
 
 ```kotlin
-pipeline.fold(
-    input = params,
+handlePipeline(
     onSuccess = { result ->
         // Return HTML fragment that replaces target element
         respondHtml(createHTML().div {
@@ -452,7 +448,10 @@ pipeline.fold(
     onFailure = { failure ->
         respondBadRequest("Error message")
     }
-)
+) {
+    val validated = YourValidationStep.run(params)
+    YourBusinessLogicStep.run(validated)
+}
 ```
 
 **Note**: Authorization/permissions are handled by Ktor plugins (AdminPlugin, WorldAdminPlugin, etc.) before the handler
@@ -555,7 +554,7 @@ Tests Failing?
 | JSON response                    | Not an HTML app                | Return HTML with `respondHtml()`        |
 | No `hxTarget` attribute          | HTMX won't know what to update | Add `hxTarget = "#element-id"`          |
 | `user.userId`                    | Wrong property name            | Use `user.id` (TokenProfile)            |
-| `.pipe(ValidatePermissionsStep)` | Auth in wrong place            | Remove, use plugin instead              |
+| `ValidatePermissionsStep.run(input)` in pipeline | Auth in wrong place | Remove, use plugin instead              |
 | Direct SQL string concat         | SQL injection risk             | Use SafeSQL with params                 |
 | No tests written                 | Violates TDD protocol          | Write tests first                       |
 

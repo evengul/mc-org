@@ -56,7 +56,7 @@ This project is developed in **WSL2 (Ubuntu) on Windows**. Key implications:
 
 ### 1. Pipeline Pattern (Railway-Oriented)
 
-Every endpoint uses pipelines with Steps that return `Result<E, S>`. Use `executePipeline()` helper:
+Every endpoint uses pipelines with Steps that return `Result<E, S>`. Use `handlePipeline()` helper:
 
 ```kotlin
 suspend fun ApplicationCall.handleCreateProject() {
@@ -64,35 +64,36 @@ suspend fun ApplicationCall.handleCreateProject() {
     val user = this.getUser()
     val worldId = this.getWorldId()
 
-    executePipeline(
+    handlePipeline(
         onSuccess = { project ->
             respondHtml(createHTML().div {
                 projectCard(project)
             })
         }
-        // onFailure is optional - default handler logs and responds appropriately
+        // onFailure is handled by default - logs and responds appropriately
     ) {
-        value(parameters)
-            .step(ValidateInputStep)
-            .step(CreateProjectStep(user, worldId))
-            .step(GetUpdatedDataStep)
+        val input = ValidateInputStep.run(parameters)
+        val projectId = CreateProjectStep(user, worldId).run(input)
+        GetUpdatedDataStep.run(projectId)
     }
 }
 ```
 
+Inside the block, call `.run()` on any Step to execute it and automatically short-circuit on failure. The last expression is the success value passed to `onSuccess`.
+
 For parallel operations (multiple independent data fetches):
 
 ```kotlin
-executeParallelPipeline(
+handlePipeline(
     onSuccess = { (projects, notifications) ->
         respondHtml(dashboardPage(projects, notifications))
     }
 ) {
-    val projectsRef = singleStep("projects", userId, GetUserProjectsStep)
-    val notificationsRef = singleStep("notifications", userId, GetNotificationsStep)
-    merge("data", projectsRef, notificationsRef) { projects, notifications ->
-        Result.success(Pair(projects, notifications))
-    }
+    val (projects, notifications) = parallel(
+        { GetUserProjectsStep.run(userId) },
+        { GetNotificationsStep.run(userId) }
+    )
+    Pair(projects, notifications)
 }
 ```
 
@@ -171,9 +172,10 @@ import app.mcorg.presentation.utils.respondNotFound
 // Pipeline & Steps
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.domain.pipeline.Result
-import app.mcorg.domain.pipeline.Pipeline
-import app.mcorg.domain.pipeline.executePipeline
-import app.mcorg.domain.pipeline.executeParallelPipeline
+import app.mcorg.domain.pipeline.pipeline
+import app.mcorg.domain.pipeline.pipelineResult
+import app.mcorg.presentation.handler.handlePipeline
+import app.mcorg.presentation.handler.runPipeline
 
 // Database
 import app.mcorg.pipeline.SafeSQL
@@ -466,7 +468,7 @@ app.mcorg/
 │   │   ├── idea/                  # Idea, IdeaCategory, IdeaDifficulty
 │   │   ├── invite/                # Invite, InviteStatus
 │   │   └── notification/          # Notification, NotificationType
-│   └── pipeline/                  # Step, Result, Pipeline
+│   └── pipeline/                  # Step, Result, PipelineScope
 ├── pipeline/
 │   ├── SafeSQL.kt                 # Type-safe SQL builder
 │   ├── DatabaseSteps.kt           # Database operations
@@ -539,8 +541,9 @@ user.id
 ### Authorization in Pipeline
 ```kotlin
 // WRONG - use Ktor plugins instead
-val pipeline = Pipeline.create<AppFailure, Input>()
-    .pipe(ValidatePermissionsStep)  // Don't do this!
+handlePipeline(onSuccess = { ... }) {
+    ValidatePermissionsStep.run(input)  // Don't do this!
+}
 
 // CORRECT - install plugin on route
 route("/worlds/{worldId}") {

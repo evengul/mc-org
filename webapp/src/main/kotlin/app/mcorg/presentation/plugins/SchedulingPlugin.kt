@@ -1,7 +1,7 @@
 package app.mcorg.presentation.plugins
 
 import app.mcorg.domain.pipeline.Result
-import app.mcorg.pipeline.minecraft.serverFilesPipeline
+import app.mcorg.pipeline.minecraft.executeServerFilesPipeline
 import io.ktor.server.application.Application
 import kotlinx.coroutines.*
 import org.slf4j.LoggerFactory
@@ -52,7 +52,7 @@ private suspend fun CoroutineScope.scheduleServerFilesSync(logger: org.slf4j.Log
     logger.info("Executing initial server files sync on application startup...")
     try {
         val startTime = System.currentTimeMillis()
-        when (val result = serverFilesPipeline.execute(Unit)) {
+        when (val result = executeServerFilesPipeline()) {
             is Result.Success -> {
                 val duration = System.currentTimeMillis() - startTime
                 logger.info("Initial server files sync completed successfully. (${duration}ms)")
@@ -85,7 +85,7 @@ private suspend fun CoroutineScope.scheduleServerFilesSync(logger: org.slf4j.Log
             val startTime = System.currentTimeMillis()
             logger.info("Starting scheduled server files sync...")
 
-            when (val result = serverFilesPipeline.execute(Unit)) {
+            when (val result = executeServerFilesPipeline()) {
                 is Result.Success -> {
                     val duration = System.currentTimeMillis() - startTime
                     logger.info("Successfully retrieved and stored server files for all Minecraft versions. (${duration}ms)")

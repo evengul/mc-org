@@ -2,9 +2,9 @@ package app.mcorg.pipeline.minecraft
 
 import app.mcorg.config.GithubGistsApiConfig
 import app.mcorg.domain.model.minecraft.MinecraftVersion
-import app.mcorg.domain.pipeline.Pipeline
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
+import app.mcorg.domain.pipeline.pipelineResult
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.failure.AppFailure
@@ -19,11 +19,12 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.util.zip.ZipInputStream
 
-val serverFilesPipeline = Pipeline.create<AppFailure, Unit>()
-    .pipe(GetAvailableVersionsStep)
-    .pipe(GetServerUrlsStep)
-    .pipe(FilterAlreadyStoredVersionsStep)
-    .pipe(ProcessServerFilesStep)
+suspend fun executeServerFilesPipeline(): Result<AppFailure, Unit> = pipelineResult {
+    val versions = GetAvailableVersionsStep.run(Unit)
+    val urls = GetServerUrlsStep.run(versions)
+    val filtered = FilterAlreadyStoredVersionsStep.run(urls)
+    ProcessServerFilesStep.run(filtered)
+}
 
 data object GetServerUrlsStep : Step<List<MinecraftVersion.Release>, AppFailure, List<Pair<MinecraftVersion.Release, URI>>> {
     override suspend fun process(input: List<MinecraftVersion.Release>): Result<AppFailure, List<Pair<MinecraftVersion.Release, URI>>> {
@@ -137,12 +138,6 @@ private data object AllFileMigrationsCompletedStep : Step<List<MinecraftVersion.
 private data object ProcessServerFilesStep : Step<List<Pair<MinecraftVersion.Release, URI>>, AppFailure, Unit> {
     private val logger = LoggerFactory.getLogger(this.javaClass)
     override suspend fun process(input: List<Pair<MinecraftVersion.Release, URI>>): Result<AppFailure, Unit> {
-        val processServerFilePipeline = Pipeline.create<AppFailure, Pair<MinecraftVersion.Release, URI>>()
-            .pipe(GetServerFileStep)
-            .pipe(ExtractRelevantMinecraftFilesStep())
-            .pipe(ExtractMinecraftDataStep)
-            .pipe(StoreMinecraftDataStep)
-
         if (input.isEmpty()) {
             logger.info("No new server files to process.")
             return Result.success()
@@ -150,13 +145,13 @@ private data object ProcessServerFilesStep : Step<List<Pair<MinecraftVersion.Rel
 
         val result = input.map {
             MDC.put("minecraftVersion", it.first.toString())
-            val result = processServerFilePipeline.execute(it)
+            val stepResult = processServerFile(it)
             try {
                 delay(500)
             } catch (e: Exception) {
                 logger.warn("Delay interrupted: ${e.message}", e)
             }
-            result
+            stepResult
         }
 
         val errors = result.filterIsInstance<Result.Failure<AppFailure>>().map { it.error }.distinctBy { it.javaClass }
@@ -166,6 +161,13 @@ private data object ProcessServerFilesStep : Step<List<Pair<MinecraftVersion.Rel
         }
 
         return Result.success()
+    }
+
+    private suspend fun processServerFile(input: Pair<MinecraftVersion.Release, URI>): Result<AppFailure, Unit> = pipelineResult {
+        val file = GetServerFileStep.run(input)
+        val extracted = ExtractRelevantMinecraftFilesStep().run(file)
+        val data = ExtractMinecraftDataStep.run(extracted)
+        StoreMinecraftDataStep.run(data)
     }
 }
 

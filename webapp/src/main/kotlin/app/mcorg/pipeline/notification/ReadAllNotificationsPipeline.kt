@@ -2,7 +2,7 @@ package app.mcorg.pipeline.notification
 
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
-import app.mcorg.presentation.handler.executePipeline
+import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.hxOutOfBands
 import app.mcorg.presentation.utils.getUser
 import app.mcorg.presentation.utils.respondHtml
@@ -14,7 +14,7 @@ import kotlinx.html.stream.createHTML
 suspend fun ApplicationCall.handleMarkAllNotificationsRead() {
     val user = getUser()
 
-    executePipeline(
+    handlePipeline(
         onSuccess = {
             respondHtml(createHTML().div {
                 hxOutOfBands(".notification-item__mark-read-btn")
@@ -24,8 +24,7 @@ suspend fun ApplicationCall.handleMarkAllNotificationsRead() {
             })
         }
     ) {
-        value(user.id)
-            .step(BulkMarkNotificationsReadStep)
+        BulkMarkNotificationsReadStep.run(user.id)
     }
 }
 

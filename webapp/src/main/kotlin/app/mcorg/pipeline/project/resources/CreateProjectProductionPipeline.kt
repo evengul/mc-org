@@ -9,7 +9,7 @@ import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.ValidationSteps
 import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.failure.ValidationFailure
-import app.mcorg.presentation.handler.executePipeline
+import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.hxOutOfBands
 import app.mcorg.presentation.templated.project.projectResourceProductionItem
 import app.mcorg.presentation.utils.getProjectId
@@ -35,7 +35,7 @@ suspend fun ApplicationCall.handleCreateProjectProduction() {
 
     val itemNames = GetItemsInWorldVersionStep.process(worldId).getOrNull() ?: emptyList()
 
-    executePipeline(
+    handlePipeline(
         onSuccess = {
             respondHtml(createHTML().li {
                 projectResourceProductionItem(worldId, it)
@@ -44,9 +44,8 @@ suspend fun ApplicationCall.handleCreateProjectProduction() {
             })
         }
     ) {
-        value(parameters)
-            .step(ValidateCreateProjectProductionInputStep(itemNames))
-            .step(CreateProjectProductionStep(projectId))
+        val input = ValidateCreateProjectProductionInputStep(itemNames).run(parameters)
+        CreateProjectProductionStep(projectId).run(input)
     }
 }
 

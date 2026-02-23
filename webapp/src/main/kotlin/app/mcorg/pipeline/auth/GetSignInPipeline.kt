@@ -4,12 +4,12 @@ import app.mcorg.config.AppConfig
 import app.mcorg.domain.Local
 import app.mcorg.domain.Production
 import app.mcorg.domain.Test
+import app.mcorg.domain.pipeline.pipeline
 import app.mcorg.pipeline.auth.commonsteps.ConvertTokenStep
 import app.mcorg.pipeline.auth.commonsteps.GetTokenStep
 import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.presentation.consts.AUTH_COOKIE
 import app.mcorg.presentation.consts.ISSUER
-import app.mcorg.presentation.handler.executePipeline
 import app.mcorg.presentation.templated.landing.landingPage
 import app.mcorg.presentation.utils.getHost
 import app.mcorg.presentation.utils.respondHtml
@@ -24,20 +24,19 @@ suspend fun ApplicationCall.handleGetSignIn() {
         else -> parameters["username"]
     }
 
-    executePipeline(
-        onSuccess = { respondRedirect(it) },
-        onFailure = {
-            when(it) {
+    pipeline(
+        onSuccess = { url: String -> respondRedirect(url) },
+        onFailure = { error: AppFailure ->
+            when(error) {
                 is AppFailure.AuthError.MissingToken -> respondHtml(landingPage(getSignInUrl(customRedirectPath ?: "/", requestedUsername)))
-                is AppFailure.AuthError.ConvertTokenError -> respondRedirect(it.toRedirect().toUrl())
-                else -> respondRedirect("/auth/sign-out?error=${it.javaClass.simpleName}")
+                is AppFailure.AuthError.ConvertTokenError -> respondRedirect(error.toRedirect().toUrl())
+                else -> respondRedirect("/auth/sign-out?error=${error.javaClass.simpleName}")
             }
         }
     ) {
-        value(request.cookies)
-            .step(GetTokenStep(AUTH_COOKIE))
-            .step(ConvertTokenStep(ISSUER))
-            .value(customRedirectPath ?: "/app")
+        val token = GetTokenStep(AUTH_COOKIE).run(request.cookies)
+        ConvertTokenStep(ISSUER).run(token)
+        customRedirectPath ?: "/app"
     }
 }
 

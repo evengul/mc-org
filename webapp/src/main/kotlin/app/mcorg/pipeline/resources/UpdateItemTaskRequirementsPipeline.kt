@@ -10,7 +10,7 @@ import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.resources.commonsteps.CountCollectedResourcesInProjectWithItemIdStep
 import app.mcorg.pipeline.resources.commonsteps.CountTotalResourcesRequiredInProjectWithItemIdStep
 import app.mcorg.pipeline.resources.commonsteps.GetResourceGatheringItemStep
-import app.mcorg.presentation.handler.executePipeline
+import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.hxOutOfBands
 import app.mcorg.presentation.templated.project.resourceGatheringProgress
 import app.mcorg.presentation.utils.getResourceGatheringId
@@ -31,7 +31,7 @@ suspend fun ApplicationCall.handleUpdateRequirementProgress() {
     val parameters = this.receiveParameters()
     val taskId = this.getResourceGatheringId()
 
-    executePipeline(
+    handlePipeline(
         onSuccess = {
             respondHtml(
                 createHTML().div {
@@ -53,11 +53,9 @@ suspend fun ApplicationCall.handleUpdateRequirementProgress() {
             )
         },
     ) {
-        step(Step.value(parameters))
-            .step(ValidateUpdateItemTaskRequirementsInputStep)
-            .step(UpdateItemTaskRequirement(taskId))
-            .value(taskId)
-            .step(GetUpdatedTaskCountsStep)
+        val amount = ValidateUpdateItemTaskRequirementsInputStep.run(parameters)
+        UpdateItemTaskRequirement(taskId).run(amount)
+        GetUpdatedTaskCountsStep.run(taskId)
     }
 }
 

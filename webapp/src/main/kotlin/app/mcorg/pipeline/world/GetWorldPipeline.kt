@@ -12,7 +12,7 @@ import app.mcorg.pipeline.project.commonsteps.SearchProjectsStep
 import app.mcorg.pipeline.world.commonsteps.GetWorldMemberStep
 import app.mcorg.pipeline.world.commonsteps.GetWorldStep
 import app.mcorg.pipeline.world.roadmap.GetWorldRoadMapStep
-import app.mcorg.presentation.handler.executePipeline
+import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.templated.world.WorldPageTabData
 import app.mcorg.presentation.templated.world.worldPage
 import app.mcorg.presentation.templated.world.worldProjectContent
@@ -31,7 +31,7 @@ suspend fun ApplicationCall.handleGetWorld() {
 
     val notifications = getUnreadNotificationsOrZero(user.id)
 
-    executePipeline(
+    handlePipeline(
         onSuccess = { tabData ->
             if (request.headers["HX-Request"] == "true" && tab != null) {
                 respondHtml(createHTML().div("world-project-content") {
@@ -42,8 +42,7 @@ suspend fun ApplicationCall.handleGetWorld() {
             }
         }
     ) {
-        value(tab)
-            .step(GetTabDataStep(worldId, user.id))
+        GetTabDataStep(worldId, user.id).run(tab)
     }
 }
 

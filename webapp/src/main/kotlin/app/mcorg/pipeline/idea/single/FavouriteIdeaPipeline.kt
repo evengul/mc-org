@@ -6,7 +6,7 @@ import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.TransactionConnection
 import app.mcorg.pipeline.failure.AppFailure
-import app.mcorg.presentation.handler.executePipeline
+import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.utils.getIdeaId
 import app.mcorg.presentation.utils.getUser
 import app.mcorg.presentation.utils.respondHtml
@@ -21,12 +21,10 @@ suspend fun ApplicationCall.handleFavouriteIdea() {
     val ideaId = this.getIdeaId()
     val userId = this.getUser().id
 
-    executePipeline(
+    handlePipeline(
         onSuccess = { respondHtml("Favorite (${it})") }) {
-        step(Step.value(Input(ideaId, userId)))
-            .step(ChangeFavouriteStateStep)
-            .step(Step.value(ideaId))
-            .step(GetFavouriteCountForIdeaStep)
+        ChangeFavouriteStateStep.run(Input(ideaId, userId))
+        GetFavouriteCountForIdeaStep.run(ideaId)
     }
 }
 

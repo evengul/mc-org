@@ -7,7 +7,7 @@ import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.ValidationSteps
 import app.mcorg.pipeline.failure.AppFailure
-import app.mcorg.presentation.handler.executePipeline
+import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.templated.idea.ideaCommentItem
 import app.mcorg.presentation.utils.getIdeaId
 import app.mcorg.presentation.utils.getUser
@@ -29,17 +29,16 @@ suspend fun ApplicationCall.handleCreateIdeaComment() {
 
     val parameters = this.receiveParameters()
 
-    executePipeline(
+    handlePipeline(
         onSuccess = {
             respondHtml(createHTML().li {
                 ideaCommentItem(userId, it)
             })
         }
     ) {
-        value(parameters)
-            .step(ValidateCommentInput)
-            .step(ValidateNoExistingCommentStep(ideaId, userId))
-            .step(CreateCommentStep(ideaId, userId))
+        val input = ValidateCommentInput.run(parameters)
+        val validated = ValidateNoExistingCommentStep(ideaId, userId).run(input)
+        CreateCommentStep(ideaId, userId).run(validated)
     }
 }
 

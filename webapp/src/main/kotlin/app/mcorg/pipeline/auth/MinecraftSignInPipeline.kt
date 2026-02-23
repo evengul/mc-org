@@ -7,13 +7,13 @@ import app.mcorg.domain.model.user.MinecraftProfile
 import app.mcorg.domain.model.user.TokenProfile
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
+import app.mcorg.domain.pipeline.pipeline
 import app.mcorg.pipeline.auth.commonsteps.AddCookieStep
 import app.mcorg.pipeline.auth.commonsteps.CreateTokenStep
 import app.mcorg.pipeline.auth.commonsteps.CreateUserIfNotExistsStep
 import app.mcorg.pipeline.auth.commonsteps.UpdateLastSignInStep
 import app.mcorg.pipeline.auth.domain.*
 import app.mcorg.pipeline.failure.AppFailure
-import app.mcorg.presentation.handler.executePipeline
 import app.mcorg.presentation.utils.getHost
 import io.ktor.client.request.*
 import io.ktor.client.request.forms.*
@@ -27,40 +27,33 @@ import java.net.URLDecoder
 suspend fun ApplicationCall.handleSignIn() {
     val redirectPath = parameters["state"]?.let { URLDecoder.decode(it, Charsets.UTF_8) } ?: "/"
 
-    executePipeline(
+    pipeline(
         onSuccess = { respondRedirect(redirectPath) },
-        onFailure = { when(it) {
-            is AppFailure.Redirect -> respondRedirect(it.toUrl())
-            is AppFailure.ApiError -> respondRedirect("/auth/sign-out?error=external_api_error")
-            else -> respondRedirect("/auth/sign-out?error=internal_error")
-        } }
-    ) {
-        value(parameters)
-            .step(GetMicrosoftCodeStep)
-            .map {
-                GetMicrosoftTokenInput(
-                    code = it,
-                    clientId = AppConfig.microsoftClientId,
-                    clientSecret = AppConfig.microsoftClientSecret,
-                    env = AppConfig.env,
-                    host = getHost()
-                )
+        onFailure = { error: AppFailure ->
+            when(error) {
+                is AppFailure.Redirect -> respondRedirect(error.toUrl())
+                is AppFailure.ApiError -> respondRedirect("/auth/sign-out?error=external_api_error")
+                else -> respondRedirect("/auth/sign-out?error=internal_error")
             }
-            .step(GetMicrosoftTokenStep)
-            .step(GetXboxProfileStep)
-            .step(GetXstsToken)
-            .step(GetMinecraftToken)
-            .step(GetMinecraftProfileStep)
-            .step(CreateUserIfNotExistsStep)
-            .step(object : Step<TokenProfile, AppFailure, String> {
-                override suspend fun process(input: TokenProfile): Result<AppFailure, String> {
-                    return when (val tokenResult = CreateTokenStep.process(input)) {
-                        is Result.Success -> AddCookieStep(response.cookies, getHost() ?: "false").process(tokenResult.value).map { input.minecraftUsername }
-                        is Result.Failure -> tokenResult
-                    }
-                }
-            })
-            .step(UpdateLastSignInStep)
+        }
+    ) {
+        val code = GetMicrosoftCodeStep.run(parameters)
+        val tokenInput = GetMicrosoftTokenInput(
+            code = code,
+            clientId = AppConfig.microsoftClientId,
+            clientSecret = AppConfig.microsoftClientSecret,
+            env = AppConfig.env,
+            host = getHost()
+        )
+        val msToken = GetMicrosoftTokenStep.run(tokenInput)
+        val xboxProfile = GetXboxProfileStep.run(msToken)
+        val xstsToken = GetXstsToken.run(xboxProfile)
+        val mcToken = GetMinecraftToken.run(xstsToken)
+        val mcProfile = GetMinecraftProfileStep.run(mcToken)
+        val user = CreateUserIfNotExistsStep.run(mcProfile)
+        val token = CreateTokenStep.run(user)
+        AddCookieStep(response.cookies, getHost() ?: "false").run(token)
+        UpdateLastSignInStep.run(user.minecraftUsername)
     }
 }
 

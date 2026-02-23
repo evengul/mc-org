@@ -6,7 +6,7 @@ import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.task.commonsteps.CountActionTasksInProjectStep
-import app.mcorg.presentation.handler.executePipeline
+import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.templated.project.emptyTasksDisplay
 import app.mcorg.presentation.templated.project.projectProgress
 import app.mcorg.presentation.utils.getProjectId
@@ -20,7 +20,7 @@ suspend fun ApplicationCall.handleDeleteActionTask() {
     val projectId = this.getProjectId()
     val taskId = this.getTaskId()
 
-    executePipeline(
+    handlePipeline(
         onSuccess = {
             val baseHtml = createHTML().div {
                 attributes["hx-swap-oob"] = "innerHTML:#project-progress"
@@ -35,16 +35,14 @@ suspend fun ApplicationCall.handleDeleteActionTask() {
                         emptyTasksDisplay()
                     }
                 })
-                return@executePipeline
+                return@handlePipeline
             } else {
                 respondHtml(baseHtml)
             }
         },
     ) {
-        value(taskId)
-            .step(DeleteTaskStep)
-            .value(projectId)
-            .step(GetUpdatedTasksAfterDeletionStep)
+        DeleteTaskStep.run(taskId)
+        GetUpdatedTasksAfterDeletionStep.run(projectId)
     }
 }
 

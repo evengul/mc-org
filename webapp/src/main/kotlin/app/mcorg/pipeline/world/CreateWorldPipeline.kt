@@ -13,7 +13,7 @@ import app.mcorg.pipeline.failure.ValidationFailure
 import app.mcorg.pipeline.minecraft.GetSupportedVersionsStep
 import app.mcorg.pipeline.world.commonsteps.GetPermittedWorldsInput
 import app.mcorg.pipeline.world.commonsteps.GetPermittedWorldsStep
-import app.mcorg.presentation.handler.executePipeline
+import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.templated.home.worldsView
 import app.mcorg.presentation.utils.getUser
 import app.mcorg.presentation.utils.respondHtml
@@ -27,21 +27,17 @@ suspend fun ApplicationCall.handleCreateWorld() {
     val parameters = this.receiveParameters()
     val user = this.getUser()
 
-    executePipeline(
-        onSuccess = {
+    handlePipeline(
+        onSuccess = { worlds ->
             val supportedVersions = GetSupportedVersionsStep.getSupportedVersions()
             respondHtml(createHTML().div {
-                worldsView(user, it, supportedVersions)
+                worldsView(user, worlds, supportedVersions)
             })
         }
     ) {
-        value(parameters)
-            .step(ValidateWorldInputStep)
-            .step(CreateWorldStep(user))
-            .map { GetPermittedWorldsInput(
-                userId = user.id
-            ) }
-            .step(GetPermittedWorldsStep)
+        val input = ValidateWorldInputStep.run(parameters)
+        CreateWorldStep(user).run(input)
+        GetPermittedWorldsStep.run(GetPermittedWorldsInput(userId = user.id))
     }
 }
 
