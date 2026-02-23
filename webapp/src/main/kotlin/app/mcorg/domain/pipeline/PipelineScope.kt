@@ -95,7 +95,7 @@ class PipelineScope<E> {
      * Internal exception used for short-circuit control flow.
      * Not meant to propagate outside of [pipeline] blocks.
      */
-    internal class PipelineFailure<E>(val error: E) : Exception("Pipeline short-circuit (not a real error)")
+    internal class PipelineFailure(val error: Any?) : Exception("Pipeline short-circuit (not a real error)")
 }
 
 data class Quadruple<A, B, C, D>(val first: A, val second: B, val third: C, val fourth: D)
@@ -120,7 +120,7 @@ suspend fun <E, O> pipeline(
     try {
         val result = scope.block()
         onSuccess(result)
-    } catch (e: PipelineScope.PipelineFailure<*>) {
+    } catch (e: PipelineScope.PipelineFailure) {
         @Suppress("UNCHECKED_CAST")
         onFailure(e.error as E)
     }
@@ -136,7 +136,7 @@ suspend fun <E, O> pipelineResult(
     val scope = PipelineScope<E>()
     return try {
         Result.success(scope.block())
-    } catch (e: PipelineScope.PipelineFailure<*>) {
+    } catch (e: PipelineScope.PipelineFailure) {
         @Suppress("UNCHECKED_CAST")
         Result.failure(e.error as E)
     }
