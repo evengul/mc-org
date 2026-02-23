@@ -52,6 +52,15 @@ sealed interface Result<out E, out S> {
         is Failure -> throw IllegalStateException("Result is a failure with error: ${this.error}")
     }
 
+    /**
+     * Returns the success value, or calls [onFailure] and returns its result.
+     * Useful for early returns: `val value = result.getOrElse { return }`
+     */
+    inline fun getOrElse(onFailure: (E) -> S): S = when (this) {
+        is Success -> value
+        is Failure -> onFailure(error)
+    }
+
     fun errorOrNull(): E? = when (this) {
         is Success -> null
         is Failure -> error

@@ -1,6 +1,5 @@
 package app.mcorg.presentation.handler
 
-import app.mcorg.domain.pipeline.Result
 import app.mcorg.pipeline.invitation.commonsteps.GetUserInvitationsStep
 import app.mcorg.pipeline.minecraft.GetSupportedVersionsStep
 import app.mcorg.pipeline.notification.getUnreadNotificationsOrZero
@@ -26,16 +25,15 @@ class HomeHandler {
 
         val supportedVersions = GetSupportedVersionsStep.getSupportedVersions()
 
-        executeParallelPipeline(
+        handlePipeline(
             onSuccess = { (invitations, worlds) ->
                 respondHtml(homePage(user, invitations, worlds, supportedVersions, notifications))
             }
         ) {
-            val invitationsRef = singleStep("invitations", user.id, GetUserInvitationsStep)
-            val worldsRef = singleStep("worlds", GetPermittedWorldsInput(userId = user.id), GetPermittedWorldsStep)
-            merge("homeData", invitationsRef, worldsRef) { invitations, worlds ->
-                Result.success(Pair(invitations, worlds))
-            }
+            parallel(
+                { GetUserInvitationsStep.run(user.id) },
+                { GetPermittedWorldsStep.run(GetPermittedWorldsInput(userId = user.id)) }
+            )
         }
     }
 }

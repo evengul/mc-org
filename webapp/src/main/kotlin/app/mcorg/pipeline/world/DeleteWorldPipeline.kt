@@ -2,7 +2,7 @@ package app.mcorg.pipeline.world
 
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
-import app.mcorg.presentation.handler.executePipeline
+import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.templated.common.link.Link
 import app.mcorg.presentation.utils.clientRedirect
 import app.mcorg.presentation.utils.getWorldId
@@ -13,7 +13,7 @@ import io.ktor.server.request.header
 suspend fun ApplicationCall.handleDeleteWorld() {
     val worldId = this.getWorldId()
 
-    executePipeline(
+    handlePipeline(
         onSuccess = {
             if (this.request.header("HX-Current-URL")?.contains("/app/admin") == true) {
                 respondEmptyHtml()
@@ -22,8 +22,7 @@ suspend fun ApplicationCall.handleDeleteWorld() {
             }
         }
     ) {
-        value(worldId)
-            .step(DeleteWorldStep)
+        DeleteWorldStep.run(worldId)
     }
 }
 

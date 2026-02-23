@@ -7,7 +7,7 @@ import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.notification.extractors.toNotifications
-import app.mcorg.presentation.handler.executePipeline
+import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.templated.notification.notificationsPage
 import app.mcorg.presentation.utils.getUser
 import app.mcorg.presentation.utils.respondHtml
@@ -26,14 +26,13 @@ suspend fun ApplicationCall.handleGetNotifications() {
         unreadOnly = unreadOnly
     )
 
-    executePipeline(
+    handlePipeline(
         onSuccess = { notifications ->
             val unreadCount = notifications.count { it.readAt == null }
             respondHtml(notificationsPage(user, notifications, unreadOnly, unreadCount))
         }
     ) {
-        value(input)
-            .step(GetUserNotificationsStep)
+        GetUserNotificationsStep.run(input)
     }
 }
 
