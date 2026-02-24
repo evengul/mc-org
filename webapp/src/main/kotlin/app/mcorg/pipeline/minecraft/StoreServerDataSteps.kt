@@ -1,5 +1,6 @@
 package app.mcorg.pipeline.minecraft
 
+import app.mcorg.config.CacheManager
 import app.mcorg.domain.model.minecraft.*
 import app.mcorg.domain.model.resources.ResourceQuantity
 import app.mcorg.domain.model.resources.ResourceSource
@@ -28,6 +29,7 @@ data object StoreMinecraftDataStep : Step<ServerData, AppFailure.DatabaseError, 
                 } }
         }.process(input)
             .peek {
+                CacheManager.onSupportedVersionsChanged()
                 logger.info("Successfully stored server data for version ${input.version}.")
             }
     }

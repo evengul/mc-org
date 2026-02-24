@@ -1,5 +1,6 @@
 package app.mcorg.pipeline.task
 
+import app.mcorg.config.CacheManager
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.DatabaseSteps
@@ -42,6 +43,7 @@ suspend fun ApplicationCall.handleDeleteActionTask() {
         },
     ) {
         DeleteTaskStep.run(taskId)
+        CacheManager.onTaskDeleted(projectId, taskId)
         GetUpdatedTasksAfterDeletionStep.run(projectId)
     }
 }

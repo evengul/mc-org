@@ -1,5 +1,6 @@
 package app.mcorg.pipeline.project.resources
 
+import app.mcorg.config.CacheManager
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.presentation.handler.handlePipeline
@@ -16,6 +17,7 @@ suspend fun ApplicationCall.handleDeleteProjectProductionItem() {
         onSuccess = { respondEmptyHtml() },
     ) {
         DeleteProjectProductionItemStep.run(projectId to productionItemId)
+        CacheManager.onProjectProductionItemDeleted(productionItemId, projectId)
     }
 }
 

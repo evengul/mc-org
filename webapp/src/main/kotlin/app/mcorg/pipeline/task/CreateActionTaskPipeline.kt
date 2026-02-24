@@ -1,5 +1,6 @@
 package app.mcorg.pipeline.task
 
+import app.mcorg.config.CacheManager
 import app.mcorg.domain.model.task.ActionTask
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
@@ -51,6 +52,7 @@ suspend fun ApplicationCall.handleCreateActionTask() {
     ) {
         val name = ValidateCreateActionTaskInputStep.run(parameters)
         val taskId = CreateActionTaskStep(projectId).run(name)
+        CacheManager.onTaskCreated(projectId, taskId)
         GetUpdatedActionTaskCountsStep.run(taskId)
     }
 }

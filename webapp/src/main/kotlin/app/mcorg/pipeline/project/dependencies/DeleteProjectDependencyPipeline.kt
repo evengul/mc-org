@@ -1,5 +1,6 @@
 package app.mcorg.pipeline.project.dependencies
 
+import app.mcorg.config.CacheManager
 import app.mcorg.domain.model.project.NamedProjectId
 import app.mcorg.domain.model.project.ProjectDependency
 import app.mcorg.domain.pipeline.Result
@@ -34,6 +35,7 @@ suspend fun ApplicationCall.handleDeleteProjectDependency() {
         }
     ) {
         DeleteProjectDependencyStep(projectId).run(dependencyId)
+        CacheManager.onProjectDependencyDeleted(projectId, dependencyId)
         val dependencies = GetProjectDependenciesStep(projectId).run(Unit)
         val availableDependencies = GetAvailableProjectDependenciesStep(worldId).run(projectId)
         dependencies to availableDependencies

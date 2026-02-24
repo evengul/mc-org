@@ -1,5 +1,6 @@
 package app.mcorg.pipeline.project
 
+import app.mcorg.config.CacheManager
 import app.mcorg.domain.model.user.Role
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.pipeline.DatabaseSteps
@@ -29,6 +30,7 @@ suspend fun ApplicationCall.handleDeleteProject() {
         onSuccess = { clientRedirect("/app/worlds/$worldId") }
     ) {
         handleDeleteProjectStep.run(projectId)
+        CacheManager.onProjectDeleted(worldId, projectId)
     }
 }
 

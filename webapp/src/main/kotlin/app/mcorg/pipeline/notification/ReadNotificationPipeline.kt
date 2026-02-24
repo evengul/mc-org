@@ -1,5 +1,6 @@
 package app.mcorg.pipeline.notification
 
+import app.mcorg.config.CacheManager
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.DatabaseSteps
@@ -28,6 +29,7 @@ suspend fun ApplicationCall.handleMarkNotificationRead() {
         }
     ) {
         MarkNotificationReadStep(user.id).run(notificationId)
+        CacheManager.onNotificationRead(user.id)
     }
 }
 

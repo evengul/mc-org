@@ -1,5 +1,6 @@
 package app.mcorg.pipeline.world
 
+import app.mcorg.config.CacheManager
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.presentation.handler.handlePipeline
@@ -23,6 +24,7 @@ suspend fun ApplicationCall.handleDeleteWorld() {
         }
     ) {
         DeleteWorldStep.run(worldId)
+        CacheManager.onWorldDeleted(worldId)
     }
 }
 

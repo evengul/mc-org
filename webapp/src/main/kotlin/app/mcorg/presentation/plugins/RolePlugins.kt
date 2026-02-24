@@ -1,6 +1,7 @@
 package app.mcorg.presentation.plugins
 
 import app.mcorg.config.AppConfig
+import app.mcorg.config.CacheManager
 import app.mcorg.domain.Production
 import app.mcorg.domain.model.user.Role
 import app.mcorg.domain.pipeline.Result
@@ -43,13 +44,28 @@ val WorldAdminPlugin = createRouteScopedPlugin("WorldAdminPlugin") {
 val BannedPlugin = createRouteScopedPlugin("BannedPlugin") {
     onCall {
         val userId = it.getUser().id
+
+        // Check cache first
+        val cached = CacheManager.bannedUsers.getIfPresent(userId)
+        if (cached != null) {
+            if (cached) {
+                it.respond(HttpStatusCode.Forbidden, "You are banned from accessing this application.")
+            }
+            return@onCall
+        }
+
+        // Cache miss - query DB
         val result = DatabaseSteps.query<Int, Boolean>(
             sql = SafeSQL.select("SELECT 1 FROM global_user_roles where user_id = ? AND role = 'banned'"),
             parameterSetter = { statement, _ -> statement.setInt(1, userId) },
             resultMapper = { rs -> rs.next() }
         ).process(userId)
-        if (result is Result.Success && result.value) {
-            it.respond(HttpStatusCode.Forbidden, "You are banned from accessing this application.")
+
+        if (result is Result.Success) {
+            CacheManager.bannedUsers.put(userId, result.value)
+            if (result.value) {
+                it.respond(HttpStatusCode.Forbidden, "You are banned from accessing this application.")
+            }
         }
     }
 }

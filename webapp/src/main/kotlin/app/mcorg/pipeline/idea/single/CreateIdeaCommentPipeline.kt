@@ -1,5 +1,6 @@
 package app.mcorg.pipeline.idea.single
 
+import app.mcorg.config.CacheManager
 import app.mcorg.domain.model.idea.Comment
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
@@ -38,7 +39,9 @@ suspend fun ApplicationCall.handleCreateIdeaComment() {
     ) {
         val input = ValidateCommentInput.run(parameters)
         val validated = ValidateNoExistingCommentStep(ideaId, userId).run(input)
-        CreateCommentStep(ideaId, userId).run(validated)
+        val comment = CreateCommentStep(ideaId, userId).run(validated)
+        CacheManager.onIdeaCommentCreated(comment.id)
+        comment
     }
 }
 

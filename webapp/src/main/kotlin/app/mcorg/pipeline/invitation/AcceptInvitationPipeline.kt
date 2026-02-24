@@ -1,5 +1,6 @@
 package app.mcorg.pipeline.invitation
 
+import app.mcorg.config.CacheManager
 import app.mcorg.domain.model.user.Role
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
@@ -47,6 +48,8 @@ suspend fun ApplicationCall.handleAcceptInvitation() {
         val validated = ValidateInvitationPendingStep<AcceptInvitationContext>().run(inviteId to context)
         CheckNotAlreadyMemberStep.run(validated)
         AcceptInvitationStep.run(validated)
+        CacheManager.onMemberAdded(user.id, context.worldId)
+        CacheManager.onInviteChanged(inviteId)
         context.worldName
     }
 }

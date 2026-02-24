@@ -1,5 +1,6 @@
 package app.mcorg.pipeline.idea.single
 
+import app.mcorg.config.CacheManager
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.DatabaseSteps
@@ -21,6 +22,7 @@ suspend fun ApplicationCall.handleDeleteIdea() {
     ) {
         ValidateIdeaOwnerStep(userId).run(ideaId)
         DeleteIdeaStep.run(ideaId)
+        CacheManager.onIdeaDeleted(ideaId)
     }
 }
 

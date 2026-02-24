@@ -1,5 +1,6 @@
 package app.mcorg.pipeline.world.settings.members
 
+import app.mcorg.config.CacheManager
 import app.mcorg.domain.model.user.Role
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
@@ -29,7 +30,9 @@ suspend fun ApplicationCall.handleUpdateWorldMemberRole() {
     ) {
         val role = ValidateWorldMemberRoleInputStep.run(parameters)
         val validatedRole = ValidateWorldMemberRoleChangeAllowedStep(worldId, currentUserId, memberId).run(role)
-        UpdateWorldMemberRoleStep(worldId, memberId).run(validatedRole)
+        val updatedRole = UpdateWorldMemberRoleStep(worldId, memberId).run(validatedRole)
+        CacheManager.onMemberRoleChanged(memberId, worldId)
+        updatedRole
     }
 }
 

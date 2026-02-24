@@ -1,5 +1,6 @@
 package app.mcorg.pipeline.invitation
 
+import app.mcorg.config.CacheManager
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.DatabaseSteps
@@ -35,6 +36,7 @@ suspend fun ApplicationCall.handleDeclineInvitation() {
         ValidateInvitationAccessStep(user.id).run(inviteId)
         ValidateInvitationPendingStep<Int>().run(inviteId to inviteId)
         DeclineInvitationStep(user.id).run(inviteId)
+        CacheManager.onInviteChanged(inviteId)
     }
 }
 

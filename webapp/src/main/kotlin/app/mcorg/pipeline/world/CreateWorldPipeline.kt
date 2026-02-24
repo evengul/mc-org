@@ -1,5 +1,6 @@
 package app.mcorg.pipeline.world
 
+import app.mcorg.config.CacheManager
 import app.mcorg.domain.model.minecraft.MinecraftVersion
 import app.mcorg.domain.model.user.Role
 import app.mcorg.domain.model.user.TokenProfile
@@ -36,7 +37,9 @@ suspend fun ApplicationCall.handleCreateWorld() {
         }
     ) {
         val input = ValidateWorldInputStep.run(parameters)
-        CreateWorldStep(user).run(input)
+        val worldId = CreateWorldStep(user).run(input)
+        CacheManager.onWorldCreated(worldId)
+        CacheManager.onMemberAdded(user.id, worldId)
         GetPermittedWorldsStep.run(GetPermittedWorldsInput(userId = user.id))
     }
 }
