@@ -33,7 +33,13 @@ import kotlinx.html.select
 import kotlinx.html.span
 import kotlinx.html.ul
 
-fun DIV.dependenciesTab(user: TokenProfile, worldId: Int, projectId: Int, availableProjects: List<NamedProjectId>, dependencies: List<ProjectDependency>, dependents: List<ProjectDependency>) {
+fun DIV.dependenciesTab(tab: ProjectTab.Dependencies) {
+    val user = tab.user
+    val worldId = tab.project.worldId
+    val projectId = tab.project.id
+    val availableProjects = tab.availableProjects
+    val dependencies = tab.dependencies
+    val dependents = tab.dependents
     classes += "dependencies-tab"
     div("project-dependencies") {
         div("project-dependencies-header") {

@@ -5,6 +5,7 @@ import app.mcorg.pipeline.minecraft.GetSupportedVersionsStep
 import app.mcorg.pipeline.notification.getUnreadNotificationsOrZero
 import app.mcorg.pipeline.world.commonsteps.GetPermittedWorldsInput
 import app.mcorg.pipeline.world.commonsteps.GetPermittedWorldsStep
+import app.mcorg.presentation.templated.home.HomePageData
 import app.mcorg.presentation.templated.home.homePage
 import app.mcorg.presentation.utils.getUser
 import app.mcorg.presentation.utils.respondHtml
@@ -27,7 +28,7 @@ class HomeHandler {
 
         handlePipeline(
             onSuccess = { (invitations, worlds) ->
-                respondHtml(homePage(user, invitations, worlds, supportedVersions, notifications))
+                respondHtml(homePage(HomePageData(user, invitations, worlds, supportedVersions, notifications)))
             }
         ) {
             parallel(

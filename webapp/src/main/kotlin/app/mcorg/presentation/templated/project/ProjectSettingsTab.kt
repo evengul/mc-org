@@ -14,7 +14,10 @@ import app.mcorg.presentation.templated.layout.alert.ALERT_CONTAINER_ID
 import app.mcorg.presentation.templated.utils.toPrettyEnumName
 import kotlinx.html.*
 
-fun DIV.projectSettingsTab(user: TokenProfile, project: Project, worldMemberRole: Role) {
+fun DIV.projectSettingsTab(tab: ProjectTab.Settings) {
+    val user = tab.user
+    val project = tab.project
+    val worldMemberRole = tab.worldMemberRole
     classes += "project-settings-tab"
 
     section("project-settings-form") {

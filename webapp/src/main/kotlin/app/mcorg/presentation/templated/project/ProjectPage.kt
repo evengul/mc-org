@@ -72,12 +72,11 @@ sealed interface ProjectTab {
 }
 
 fun projectPage(
-    user: TokenProfile,
     data: ProjectTab,
     unreadNotifications: Int,
     breadcrumbs: Breadcrumbs
 ) = createPage(
-    user = user,
+    user = data.user,
     pageTitle = data.project.name,
     pageScripts = setOf(PageScript.SEARCHABLE_SELECT),
     unreadNotificationCount = unreadNotifications,
@@ -158,25 +157,9 @@ fun DIV.projectTabsContent(tab: ProjectTab) {
     classes += "project-tabs-content"
     when (tab) {
         is ProjectTab.Tasks -> tasksTab(tab)
-        is ProjectTab.Resources -> resourcesTab(
-            tab.user,
-            tab.project,
-            tab.resourceProduction,
-            tab.resourceGathering,
-            tab.itemNames,
-            tab.gatheringPlans
-        )
-
-        is ProjectTab.Location -> locationTab(tab.user, tab.project)
-        is ProjectTab.Dependencies -> dependenciesTab(
-            tab.user,
-            tab.project.worldId,
-            tab.project.id,
-            tab.availableProjects,
-            tab.dependencies,
-            tab.dependents
-        )
-
-        is ProjectTab.Settings -> projectSettingsTab(tab.user, tab.project, tab.worldMemberRole)
+        is ProjectTab.Resources -> resourcesTab(tab)
+        is ProjectTab.Location -> locationTab(tab)
+        is ProjectTab.Dependencies -> dependenciesTab(tab)
+        is ProjectTab.Settings -> projectSettingsTab(tab)
     }
 }

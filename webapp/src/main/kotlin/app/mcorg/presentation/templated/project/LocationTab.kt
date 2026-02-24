@@ -27,7 +27,9 @@ import kotlinx.html.select
 import kotlinx.html.span
 
 // TODO: Nearby projects and resources
-fun DIV.locationTab(user: TokenProfile, project: Project) {
+fun DIV.locationTab(tab: ProjectTab.Location) {
+    val user = tab.user
+    val project = tab.project
     classes += "project-location-tab"
     div("project-location-header") {
         h2 {

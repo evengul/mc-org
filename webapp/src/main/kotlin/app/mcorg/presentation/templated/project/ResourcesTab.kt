@@ -48,14 +48,13 @@ import kotlinx.html.span
 import kotlinx.html.ul
 import java.util.*
 
-fun DIV.resourcesTab(
-    user: TokenProfile,
-    project: Project,
-    production: List<ProjectProduction>,
-    gathering: List<ResourceGatheringItem>,
-    itemNames: List<Item>,
-    gatheringPlans: Set<Int> = emptySet()
-) {
+fun DIV.resourcesTab(tab: ProjectTab.Resources) {
+    val user = tab.user
+    val project = tab.project
+    val production = tab.resourceProduction
+    val gathering = tab.resourceGathering
+    val itemNames = tab.itemNames
+    val gatheringPlans = tab.gatheringPlans
     val totalNeeded = gathering.sumOf { it.required }
     val totalCollected = gathering.sumOf { it.collected }
 

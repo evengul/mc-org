@@ -1,6 +1,7 @@
 package app.mcorg.pipeline.world
 
 import app.mcorg.domain.model.project.Project
+import app.mcorg.domain.model.user.TokenProfile
 import app.mcorg.domain.model.user.WorldMember
 import app.mcorg.domain.model.world.World
 import app.mcorg.domain.pipeline.Result
@@ -38,45 +39,45 @@ suspend fun ApplicationCall.handleGetWorld() {
                     worldProjectContent(tabData)
                 })
             } else {
-                respondHtml(worldPage(user, tabData, notifications))
+                respondHtml(worldPage(tabData, notifications))
             }
         }
     ) {
-        GetTabDataStep(worldId, user.id).run(tab)
+        GetTabDataStep(worldId, user).run(tab)
     }
 }
 
-private data class GetTabDataStep(val worldId: Int, val userId: Int) : Step<String?, AppFailure, WorldPageTabData> {
+private data class GetTabDataStep(val worldId: Int, val user: TokenProfile) : Step<String?, AppFailure, WorldPageTabData> {
     override suspend fun process(input: String?): Result<AppFailure, WorldPageTabData> {
         return when (input) {
             "roadmap" -> {
-                val worldMember = GetWorldMemberStep(worldId).process(userId)
+                val worldMember = GetWorldMemberStep(worldId).process(user.id)
                 val world = GetWorldStep.process(worldId)
                 val roadmap = GetWorldRoadMapStep(worldId).process(Unit)
                 if (worldMember is Result.Failure) return Result.failure(worldMember.error)
                 if (world is Result.Failure) return Result.failure(world.error)
                 if (roadmap is Result.Failure) return Result.failure(roadmap.error)
 
-                Result.success(WorldPageTabData.RoadmapData(world.getOrNull()!!, worldMember.getOrNull()!!, roadmap.getOrNull()!!))
+                Result.success(WorldPageTabData.RoadmapData(user, world.getOrNull()!!, worldMember.getOrNull()!!, roadmap.getOrNull()!!))
             }
             "kanban" -> {
-                val worldMember = GetWorldMemberStep(worldId).process(userId)
+                val worldMember = GetWorldMemberStep(worldId).process(user.id)
                 val world = GetWorldStep.process(worldId)
                 if (worldMember is Result.Failure) return Result.failure(worldMember.error)
                 if (world is Result.Failure) return Result.failure(world.error)
-                Result.success(WorldPageTabData.KanbanData(world.getOrNull()!!, worldMember.getOrNull()!!))
+                Result.success(WorldPageTabData.KanbanData(user, world.getOrNull()!!, worldMember.getOrNull()!!))
             }
             else -> {
-                getProjectTabData(worldId, userId)
-                    .map { (world, member, projects) -> WorldPageTabData.ProjectsData(world, member, projects) }
+                getProjectTabData(worldId, user)
+                    .map { (world, member, projects) -> WorldPageTabData.ProjectsData(user, world, member, projects) }
             }
         }
     }
 }
 
-private suspend fun getProjectTabData(worldId: Int, userId: Int): Result<AppFailure, Triple<World, WorldMember, List<Project>>> {
+private suspend fun getProjectTabData(worldId: Int, user: TokenProfile): Result<AppFailure, Triple<World, WorldMember, List<Project>>> {
     val world = GetWorldStep.process(worldId)
-    val worldMember = GetWorldMemberStep(worldId).process(userId)
+    val worldMember = GetWorldMemberStep(worldId).process(user.id)
     val projects = SearchProjectsStep.process(SearchProjectsInput(worldId))
 
     if (world is Result.Failure) return Result.failure(world.error)

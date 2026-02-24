@@ -71,7 +71,7 @@ suspend fun ApplicationCall.handleGetWorldSettings() {
             }
         )
     } else {
-        respondHtml(worldSettingsPage(user, tabDataResult))
+        respondHtml(worldSettingsPage(tabDataResult))
     }
 }
 
@@ -86,7 +86,7 @@ suspend fun ApplicationCall.handleGetMembersTabData(worldId: Int, statusFilter: 
             { getWorldMembersStep.run(worldId) },
         )
         SettingsTab.Members(
-            currentUser = user,
+            user = user,
             world = world,
             invitations = invitations,
             invitationCounts = counts,
@@ -96,17 +96,19 @@ suspend fun ApplicationCall.handleGetMembersTabData(worldId: Int, statusFilter: 
 }
 
 suspend fun ApplicationCall.handleGetGeneralTabData(worldId: Int): Result<AppFailure.DatabaseError, SettingsTab.General> {
+    val user = this.getUser()
     val supportedVersions = GetSupportedVersionsStep.getSupportedVersions()
     return pipelineResult {
         val world = GetWorldStep.run(worldId)
-        SettingsTab.General(world, supportedVersions)
+        SettingsTab.General(user, world, supportedVersions)
     }
 }
 
 suspend fun ApplicationCall.handleGetStatisticsTabData(worldId: Int): Result<AppFailure.DatabaseError, SettingsTab.Statistics> {
+    val user = this.getUser()
     return pipelineResult {
         val world = GetWorldStep.run(worldId)
-        SettingsTab.Statistics(world)
+        SettingsTab.Statistics(user, world)
     }
 }
 

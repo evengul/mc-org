@@ -9,20 +9,22 @@ import app.mcorg.presentation.templated.common.page.createPage
 import app.mcorg.presentation.utils.BreadcrumbBuilder
 import kotlinx.html.id
 
-fun homePage(
-    user: TokenProfile,
-    pendingInvites: List<Invite>,
-    worlds: List<World>,
-    supportedVersions: List<MinecraftVersion.Release>,
-    unreadNotificationCount: Int = 0
-) = createPage(
-    user = user,
-    unreadNotificationCount = unreadNotificationCount,
+data class HomePageData(
+    val user: TokenProfile,
+    val pendingInvites: List<Invite>,
+    val worlds: List<World>,
+    val supportedVersions: List<MinecraftVersion.Release>,
+    val unreadNotificationCount: Int = 0
+)
+
+fun homePage(data: HomePageData) = createPage(
+    user = data.user,
+    unreadNotificationCount = data.unreadNotificationCount,
     breadcrumbs = BreadcrumbBuilder.buildForHome()
 ) {
     id = "home"
-    pendingInvites.takeIf { it.isNotEmpty() }?.let {
+    data.pendingInvites.takeIf { it.isNotEmpty() }?.let {
         addComponent(PendingInvitesView(it))
     }
-    addComponent(WorldsView(user, worlds, supportedVersions))
+    addComponent(WorldsView(data.user, data.worlds, data.supportedVersions))
 }

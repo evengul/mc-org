@@ -19,7 +19,7 @@ import app.mcorg.presentation.templated.utils.toPrettyEnumName
 import kotlinx.html.*
 
 fun DIV.roadmapView(tabData: WorldPageTabData.RoadmapData) {
-    val (_, _, roadmap) = tabData
+    val roadmap = tabData.roadmap
 
     // Empty state (if no projects)
     if (roadmap.isEmpty()) {

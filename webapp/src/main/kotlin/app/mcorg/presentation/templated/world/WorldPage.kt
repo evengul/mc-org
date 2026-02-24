@@ -35,10 +35,12 @@ enum class WorldPageToggles {
 
 sealed interface WorldPageTabData {
     val id: String
+    val user: TokenProfile
     val world: World
     val worldMember: WorldMember
 
     data class ProjectsData(
+        override val user: TokenProfile,
         override val world: World,
         override val worldMember: WorldMember,
         val projects: List<Project>
@@ -47,6 +49,7 @@ sealed interface WorldPageTabData {
     }
 
     data class KanbanData(
+        override val user: TokenProfile,
         override val world: World,
         override val worldMember: WorldMember
     ) : WorldPageTabData {
@@ -54,6 +57,7 @@ sealed interface WorldPageTabData {
     }
 
     data class RoadmapData(
+        override val user: TokenProfile,
         override val world: World,
         override val worldMember: WorldMember,
         val roadmap: Roadmap
@@ -63,7 +67,6 @@ sealed interface WorldPageTabData {
 }
 
 fun worldPage(
-    user: TokenProfile,
     tabData: WorldPageTabData,
     unreadNotificationCount: Int = 0,
     toggles: Set<WorldPageToggles> = setOf(
@@ -74,26 +77,24 @@ fun worldPage(
         WorldPageToggles.SETTINGS,
     )
 ) = createPage(
-    user = user,
+    user = tabData.user,
     pageTitle = tabData.world.name,
     unreadNotificationCount = unreadNotificationCount,
     breadcrumbs = BreadcrumbBuilder.buildForWorld(tabData.world)
 ) {
     classes += "world"
 
-    worldHeader(user, tabData.world, tabData.worldMember, toggles)
+    worldHeader(tabData, toggles)
     worldProjectsSection(tabData, toggles)
 }
 
 private fun MAIN.worldHeader(
-    user: TokenProfile,
-    world: World,
-    worldMember: WorldMember,
+    tabData: WorldPageTabData,
     toggles: Set<WorldPageToggles>
 ) {
     div("world-header") {
-        worldHeaderInfo(world)
-        worldHeaderActions(user, world, worldMember, toggles)
+        worldHeaderInfo(tabData.world)
+        worldHeaderActions(tabData, toggles)
     }
 }
 
@@ -116,11 +117,12 @@ private fun FlowContent.worldHeaderInfo(world: World) {
 }
 
 private fun FlowContent.worldHeaderActions(
-    user: TokenProfile,
-    world: World,
-    worldMember: WorldMember,
+    tabData: WorldPageTabData,
     toggles: Set<WorldPageToggles>
 ) {
+    val user = tabData.user
+    val world = tabData.world
+    val worldMember = tabData.worldMember
     div("world-header-end") {
         if (WorldPageToggles.NEW_PROJECT in toggles) {
             createProjectModal(user, world.id)

@@ -128,5 +128,5 @@ suspend fun ApplicationCall.handleGetProject() {
         projectName = project.name
     )
 
-    respondHtml(projectPage(user, tabData, unreadNotifications, breadcrumbs))
+    respondHtml(projectPage(tabData, unreadNotifications, breadcrumbs))
 }

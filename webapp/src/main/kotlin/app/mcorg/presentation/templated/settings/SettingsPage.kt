@@ -17,24 +17,25 @@ import kotlinx.html.p
 
 sealed interface SettingsTab {
     val id: String
+    val user: TokenProfile
     val world: World
 
-    data class General(override val world: World, val supportedVersions: List<MinecraftVersion.Release>) : SettingsTab {
+    data class General(override val user: TokenProfile, override val world: World, val supportedVersions: List<MinecraftVersion.Release>) : SettingsTab {
         override val id: String = "general"
     }
 
-    data class Members(override val world: World, val currentUser: TokenProfile, val invitations: List<Invite>, val invitationCounts: CountWorldInvitationsResult, val members: List<WorldMember>) : SettingsTab {
+    data class Members(override val user: TokenProfile, override val world: World, val invitations: List<Invite>, val invitationCounts: CountWorldInvitationsResult, val members: List<WorldMember>) : SettingsTab {
         override val id: String = "members"
     }
 
-    data class Statistics(override val world: World) : SettingsTab {
+    data class Statistics(override val user: TokenProfile, override val world: World) : SettingsTab {
         override val id: String = "statistics"
     }
 }
 
-fun worldSettingsPage(user: TokenProfile, tab: SettingsTab) = createPage(
+fun worldSettingsPage(tab: SettingsTab) = createPage(
     pageTitle = "Settings",
-    user = user,
+    user = tab.user,
     breadcrumbs = BreadcrumbBuilder.buildForWorldSettings(tab.world)
 ) {
     classes += "world-settings-page"

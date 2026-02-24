@@ -252,10 +252,9 @@ fun DIV.membersListSection(currentUser: TokenProfile, members: List<WorldMember>
 }
 
 fun DIV.membersTab(tabData: SettingsTab.Members) {
-    val (world, currentUser, invitations, invitationCounts, members) = tabData
     classes += "settings-members-tab world-settings-content"
 
-    sendInvitationForm(world.id)
-    invitationsListWithFilter(invitations, invitationCounts)
-    membersListSection(currentUser, members)
+    sendInvitationForm(tabData.world.id)
+    invitationsListWithFilter(tabData.invitations, tabData.invitationCounts)
+    membersListSection(tabData.user, tabData.members)
 }
