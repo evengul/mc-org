@@ -15,7 +15,7 @@ jobs:
         working-directory: ./webapp
     environment: production
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Cache Maven packages
         uses: actions/cache@v4
         with:
