@@ -1,3 +1,9 @@
+---
+name: add-endpoint
+description: Step-by-step template for creating a new HTTP endpoint in MC-ORG (handler, validation step, business logic step, route, auth plugin, tests, HTMX).
+disable-model-invocation: true
+---
+
 # Add New HTTP Endpoint
 
 Template for creating a new HTTP endpoint in MC-ORG.

@@ -1,3 +1,10 @@
+---
+name: run
+description: Start the application locally. Pass flags through to the run script.
+disable-model-invocation: true
+argument-hint: "[--debug] [--suspend] [--env <name>]"
+---
+
 Start the application locally. Pass flags through to the script.
 
 Usage: /run [args]

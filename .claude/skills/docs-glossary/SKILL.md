@@ -1,3 +1,9 @@
+---
+name: docs-glossary
+description: Technical and domain terminology for MC-ORG. Use when clarifying what Pipeline, Step, Result, handlePipeline, SafeSQL, DatabaseSteps, World, Project, Task, or other MC-ORG terms mean.
+user-invocable: false
+---
+
 # Glossary
 
 Technical and domain terminology for MC-ORG.

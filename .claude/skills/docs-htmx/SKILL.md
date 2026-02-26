@@ -1,3 +1,9 @@
+---
+name: docs-htmx
+description: HTMX helper functions and interaction patterns for MC-ORG. Use when using hx* helper functions, writing HTMX attributes, implementing form submissions, delete-with-confirm, out-of-band swaps, or inline editing patterns.
+user-invocable: false
+---
+
 # HTMX Patterns Reference
 
 HTMX helper functions and interaction patterns for MC-ORG.

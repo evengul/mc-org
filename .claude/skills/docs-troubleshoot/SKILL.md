@@ -1,3 +1,9 @@
+---
+name: docs-troubleshoot
+description: Troubleshooting guide for MC-ORG. Use when debugging compile errors, runtime exceptions, test failures, HTMX not updating, 403 errors, database issues, or build/deployment failures.
+user-invocable: false
+---
+
 # Troubleshooting Guide
 
 Solutions to common errors in MC-ORG.

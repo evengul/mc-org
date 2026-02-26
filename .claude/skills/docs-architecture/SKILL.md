@@ -1,3 +1,9 @@
+---
+name: docs-architecture
+description: Architecture reference for MC-ORG. Use when determining where to place new code, understanding the domain model, setting up route plugins, learning about the plugin chain, or navigating the file structure.
+user-invocable: false
+---
+
 # Architecture Reference
 
 System structure, domain model, plugin chain, file locations for MC-ORG.

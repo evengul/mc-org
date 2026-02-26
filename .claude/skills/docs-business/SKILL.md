@@ -1,3 +1,9 @@
+---
+name: docs-business
+description: Business rules and domain workflows for MC-ORG. Use when implementing business logic, checking role permissions, understanding project stage transitions, invitation workflow, task rules, or cascade effects.
+user-invocable: false
+---
+
 # Business Rules Reference
 
 Domain rules, workflows, and constraints for MC-ORG.

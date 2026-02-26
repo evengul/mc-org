@@ -1,3 +1,9 @@
+---
+name: add-step
+description: Template for creating a new pipeline Step in MC-ORG — transformation, validation, database query/insert/update/delete, transaction, and business rule patterns.
+disable-model-invocation: true
+---
+
 # Add Pipeline Step
 
 Template for creating a new pipeline Step in MC-ORG.
@@ -294,51 +300,6 @@ class Create{Feature}WithRelatedStep(
         }.process(input)
     }
 }
-```
-
----
-
-## Pattern 9: Parameterized Step (Object with Parameters)
-
-For reusable steps with configuration:
-
-```kotlin
-class {Feature}QueryStep(
-    private val worldId: Int,
-    private val filter: {Feature}Filter? = null,
-    private val limit: Int = 50
-) : Step<Unit, AppFailure.DatabaseError, List<{Feature}>> {
-    override suspend fun process(input: Unit): Result<AppFailure.DatabaseError, List<{Feature}>> {
-        val sql = SafeSQL.select("""
-            SELECT * FROM {features}
-            WHERE world_id = ?
-            ${if (filter?.status != null) "AND status = ?" else ""}
-            ORDER BY created_at DESC
-            LIMIT ?
-        """)
-
-        return DatabaseSteps.query<Unit, List<{Feature}>>(
-            sql = sql,
-            parameterSetter = { stmt, _ ->
-                var idx = 1
-                stmt.setInt(idx++, worldId)
-                filter?.status?.let { stmt.setString(idx++, it.name) }
-                stmt.setInt(idx, limit)
-            },
-            resultMapper = { rs ->
-                val results = mutableListOf<{Feature}>()
-                while (rs.next()) {
-                    results.add(rs.mapTo{Feature}())
-                }
-                results
-            }
-        ).process(Unit)
-    }
-}
-
-data class {Feature}Filter(
-    val status: {Feature}Status? = null
-)
 ```
 
 ---

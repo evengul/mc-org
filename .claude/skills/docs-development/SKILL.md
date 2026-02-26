@@ -1,3 +1,9 @@
+---
+name: docs-development
+description: Development patterns reference for MC-ORG. Use when writing pipeline steps, using handlePipeline, performing database operations with SafeSQL/DatabaseSteps, writing validation steps, or needing the critical imports list.
+user-invocable: false
+---
+
 # Development Patterns Reference
 
 Core implementation patterns for MC-ORG — Pipeline, Steps, Database, Validation, Imports.

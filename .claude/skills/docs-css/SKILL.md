@@ -1,3 +1,9 @@
+---
+name: docs-css
+description: CSS component classes and layout utilities for MC-ORG. Use when writing HTML templates, choosing button/form/layout/notice/card classes, or avoiding inline styles.
+user-invocable: false
+---
+
 # CSS Architecture Reference
 
 CSS component classes, utility classes, and layout system for MC-ORG.
