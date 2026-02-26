@@ -1,0 +1,7 @@
+name: CodeQL Config
+
+queries:
+  - uses: security-extended # Includes security + quality-of-life security checks
+
+paths-ignore:
+  - webapp/src/test
