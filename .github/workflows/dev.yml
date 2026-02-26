@@ -25,7 +25,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Cache Maven packages
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.m2/repository
           key: maven-${{ runner.os }}-${{ hashFiles('**/pom.xml') }}
@@ -88,13 +88,13 @@ jobs:
 #    steps:
 #      - uses: actions/checkout@v4
 #      - name: Cache Node modules
-#        uses: actions/cache@v4
+#        uses: actions/cache@v5
 #        with:
 #          path: ./webapp/src/test/javascript/node_modules
 #          key: ${{ runner.os }}-node-${{ hashFiles('./webapp/src/test/javascript/package-lock.json') }}
 #          restore-keys: ${{ runner.os }}-node-
 #      - name: Cache Playwright browsers
-#        uses: actions/cache@v4
+#        uses: actions/cache@v5
 #        id: playwright-cache
 #        with:
 #          path: |
