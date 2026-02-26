@@ -3,6 +3,8 @@ on:
   workflow_dispatch:
   pull_request:
     types: [closed]
+    paths:
+      - webapp/**
 
 env:
   FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }} # You can generate a Fly API token in your account settings

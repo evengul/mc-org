@@ -10,6 +10,8 @@ Follow these steps in order. Stop and report if any step fails.
 
 ## Step 1: Compile
 
+Only compile if the changes include Kotlin/Java source files (`webapp/src/main/**`). Skip this step for config-only or non-code changes (e.g. workflow files, docs).
+
 ```bash
 cd webapp && mvn clean compile
 ```
@@ -18,14 +20,16 @@ Zero errors required. If it fails, fix the errors before continuing.
 
 ## Step 2: Run Tests
 
+Only run tests if the changes include Kotlin/Java source files (`webapp/src/main/**`). Skip this step for config-only or non-code changes.
+
 ```bash
 cd webapp && mvn test
 ```
 
-All tests must pass. If any fail, fix them before continuing. 
+All tests must pass. If any fail, fix them before continuing.
 
-This might not include tests that failed prior to the current session. 
-If you think a test might have failed before this session, ask me before you 
+This might not include tests that failed prior to the current session.
+If you think a test might have failed before this session, ask me before you
 stash and test on main.
 
 ## Step 3: Review Changes
