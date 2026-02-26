@@ -1,3 +1,10 @@
+---
+name: devstart
+description: Start the full local development environment in the correct order (Docker, database, migrations, application).
+disable-model-invocation: true
+argument-hint: "[--debug] [--env <name>]"
+---
+
 Start the full local development environment in the correct order.
 
 Run each step sequentially, stopping if any step fails:

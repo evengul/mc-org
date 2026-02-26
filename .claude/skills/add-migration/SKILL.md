@@ -1,3 +1,9 @@
+---
+name: add-migration
+description: Step-by-step template for creating a new Flyway database migration in MC-ORG (version numbering, SQL patterns, Kotlin model, ResultSet mapper).
+disable-model-invocation: true
+---
+
 # Add Database Migration
 
 Template for creating a new Flyway database migration in MC-ORG.

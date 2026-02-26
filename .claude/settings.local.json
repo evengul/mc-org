@@ -1,7 +1,7 @@
 {
   "permissions": {
     "allow": [
-      "Bash(docker info:*)",
+      "Bash(docker info *)",
       "Bash(mvn compile *)",
       "Bash(mvn test *)",
       "Bash(mvn clean install *)",
@@ -9,12 +9,13 @@
       "Bash(git status *)",
       "Bash(git add *)",
       "Bash(git commit *)",
+      "Bash(git checkout *)",
       "Bash(find *)",
       "Bash(grep *)",
+      "Bash(tail *)",
       "Bash(sort *)",
       "Bash(webapp/scripts/start-db.sh)",
       "Bash(webapp/scripts/migrate-locally.sh)",
-      "Bash(webapp/scripts/run.sh)",
       "Bash(webapp/scripts/run.sh *)",
       "Bash(docker compose -f webapp/docker-compose-local.yaml exec db pg_isready*)",
       "Bash(docker compose -f webapp/docker-compose-local.yaml ps*)",
@@ -30,7 +31,7 @@
       "Skill(playwright)",
       "mcp__linear__create_issue_label",
       "mcp__linear__list_issue_labels",
-      "mcp__linear__create_issue"
+      "mcp__linear__save_issue"
     ]
   },
   "enableAllProjectMcpServers": true,
