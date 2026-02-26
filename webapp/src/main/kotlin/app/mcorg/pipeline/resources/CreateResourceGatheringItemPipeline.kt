@@ -1,5 +1,6 @@
 package app.mcorg.pipeline.resources
 
+import app.mcorg.config.CacheManager
 import app.mcorg.domain.model.minecraft.Item
 import app.mcorg.domain.model.resources.ResourceGatheringItem
 import app.mcorg.domain.pipeline.Result
@@ -67,6 +68,7 @@ suspend fun ApplicationCall.handleCreateResourceGatheringItem() {
     ) {
         val input = ValidateCreateResourceGatheringItemInputStep(itemNames).run(parameters)
         val id = CreateResourceGatheringItemStep(projectId).run(input)
+        CacheManager.onResourceGatheringCreated(projectId, id)
         GetUpdatedResourceGatheringProgressStep.run(id)
     }
 }

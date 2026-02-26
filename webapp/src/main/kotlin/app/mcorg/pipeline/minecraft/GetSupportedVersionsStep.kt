@@ -1,5 +1,6 @@
 package app.mcorg.pipeline.minecraft
 
+import app.mcorg.config.CacheManager
 import app.mcorg.domain.model.minecraft.MinecraftVersion
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
@@ -10,8 +11,17 @@ import org.slf4j.LoggerFactory
 
 object GetSupportedVersionsStep : Step<Unit, AppFailure.DatabaseError, List<MinecraftVersion.Release>> {
     private val logger = LoggerFactory.getLogger(GetSupportedVersionsStep::class.java)
+    private const val CACHE_KEY = "versions"
 
+    @Suppress("UNCHECKED_CAST")
     suspend fun getSupportedVersions(): List<MinecraftVersion.Release> {
+        // Check cache first
+        val cached = CacheManager.supportedVersions.getIfPresent(CACHE_KEY)
+        if (cached != null) {
+            return (cached as List<MinecraftVersion.Release>)
+                .sortedWith { a, b -> b.compareTo(a) }
+        }
+
         return runCatching {
             GetSupportedVersionsStep.process(Unit)
                 .getOrNull()?.toList() ?: MinecraftVersion.supportedVersions_backup
@@ -20,7 +30,7 @@ object GetSupportedVersionsStep : Step<Unit, AppFailure.DatabaseError, List<Mine
     }
 
     override suspend fun process(input: Unit): Result<AppFailure.DatabaseError, List<MinecraftVersion.Release>> {
-        return DatabaseSteps.query<Unit, List<MinecraftVersion.Release>>(
+        val result = DatabaseSteps.query<Unit, List<MinecraftVersion.Release>>(
             sql = SafeSQL.select("SELECT DISTINCT version FROM minecraft_version"),
             resultMapper = { resultSet ->
                 buildList {
@@ -35,5 +45,12 @@ object GetSupportedVersionsStep : Step<Unit, AppFailure.DatabaseError, List<Mine
                 }
             }
         ).process(Unit)
+
+        // Cache successful results
+        if (result is Result.Success) {
+            CacheManager.supportedVersions.put(CACHE_KEY, result.value)
+        }
+
+        return result
     }
 }

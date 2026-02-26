@@ -1,5 +1,6 @@
 package app.mcorg.pipeline.notification.commonsteps
 
+import app.mcorg.config.CacheManager
 import app.mcorg.domain.model.notification.Notification
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
@@ -31,6 +32,7 @@ object CreateNotificationStep : Step<CreateNotificationInput, AppFailure.Databas
                 statement.setString(5, notificationInput.link)
             }
         ).process(input).flatMap { notificationId ->
+            CacheManager.onNotificationCreated(input.userId)
             // Fetch the created notification
             GetNotificationByIdStep.process(notificationId to input.userId)
         }

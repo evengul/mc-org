@@ -1,5 +1,6 @@
 package app.mcorg.pipeline.project
 
+import app.mcorg.config.CacheManager
 import app.mcorg.domain.model.project.ProjectType
 import app.mcorg.domain.model.user.Role
 import app.mcorg.domain.pipeline.Result
@@ -47,6 +48,7 @@ suspend fun ApplicationCall.handleCreateProject() {
         val input = ValidateProjectInputStep.run(parameters)
         ValidateWorldMemberRole<CreateProjectInput>(user, Role.ADMIN, worldId).run(input)
         val projectId = CreateProjectStep(worldId).run(input)
+        CacheManager.onProjectCreated(worldId, projectId)
         GetProjectByIdStep.run(projectId)
     }
 }

@@ -1,5 +1,6 @@
 package app.mcorg.pipeline.project.resources
 
+import app.mcorg.config.CacheManager
 import app.mcorg.domain.model.minecraft.Item
 import app.mcorg.domain.model.project.ProjectProduction
 import app.mcorg.domain.pipeline.Result
@@ -45,7 +46,9 @@ suspend fun ApplicationCall.handleCreateProjectProduction() {
         }
     ) {
         val input = ValidateCreateProjectProductionInputStep(itemNames).run(parameters)
-        CreateProjectProductionStep(projectId).run(input)
+        val production = CreateProjectProductionStep(projectId).run(input)
+        CacheManager.onProjectProductionItemCreated(production.id, projectId)
+        production
     }
 }
 

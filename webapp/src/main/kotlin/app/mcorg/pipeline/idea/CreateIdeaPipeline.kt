@@ -1,5 +1,6 @@
 package app.mcorg.pipeline.idea
 
+import app.mcorg.config.CacheManager
 import app.mcorg.domain.model.idea.Author
 import app.mcorg.domain.model.idea.IdeaCategory
 import app.mcorg.domain.model.idea.IdeaDifficulty
@@ -50,7 +51,9 @@ suspend fun ApplicationCall.handleCreateIdea() {
         }
     ) {
         val input = ValidateIdeaInputStep.run(data)
-        CreateIdeaStep(user.id).run(input)
+        val ideaId = CreateIdeaStep(user.id).run(input)
+        CacheManager.onIdeaCreated(ideaId)
+        ideaId
     }
 }
 

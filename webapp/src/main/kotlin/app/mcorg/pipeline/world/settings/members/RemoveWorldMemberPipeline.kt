@@ -1,5 +1,6 @@
 package app.mcorg.pipeline.world.settings.members
 
+import app.mcorg.config.CacheManager
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.DatabaseSteps
@@ -29,6 +30,7 @@ suspend fun ApplicationCall.handleRemoveWorldMember() {
             worldId = worldId,
             memberId = memberId
         ).run(Unit)
+        CacheManager.onMemberRemoved(memberId, worldId)
     }
 }
 

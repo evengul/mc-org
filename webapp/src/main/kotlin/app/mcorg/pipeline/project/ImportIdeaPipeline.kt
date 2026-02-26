@@ -1,5 +1,6 @@
 package app.mcorg.pipeline.project
 
+import app.mcorg.config.CacheManager
 import app.mcorg.domain.model.idea.IdeaCategory
 import app.mcorg.domain.model.idea.schema.CategoryValue
 import app.mcorg.domain.model.minecraft.Item
@@ -49,7 +50,9 @@ suspend fun ApplicationCall.handleImportIdea() {
         ValidateVersionRangeStep.run(worldId to ideaId)
         val ideaData = GetIdeaForImportStep.run(ideaId)
         val validatedIdea = ValidateItemIdsStep(items).run(ideaData)
-        CreateProjectFromIdeaStep(worldId, taskId).run(validatedIdea)
+        val projectId = CreateProjectFromIdeaStep(worldId, taskId).run(validatedIdea)
+        CacheManager.onProjectCreated(worldId, projectId)
+        projectId
     }
 }
 

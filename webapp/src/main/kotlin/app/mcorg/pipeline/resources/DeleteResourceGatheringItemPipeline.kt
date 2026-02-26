@@ -1,5 +1,6 @@
 package app.mcorg.pipeline.resources
 
+import app.mcorg.config.CacheManager
 import app.mcorg.domain.pipeline.Result
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.DatabaseSteps
@@ -35,6 +36,7 @@ suspend fun ApplicationCall.handleDeleteResourceGatheringItem() {
         },
     ) {
         DeleteResourceGatheringStep.run(resourceGatheringId)
+        CacheManager.onResourceGatheringDeleted(projectId, resourceGatheringId)
         GetUpdatedResourceGatheringStep.run(projectId)
     }
 }

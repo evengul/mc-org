@@ -1,5 +1,6 @@
 package app.mcorg.pipeline.auth
 
+import app.mcorg.config.CacheManager
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.presentation.handler.handlePipeline
@@ -20,6 +21,7 @@ suspend fun ApplicationCall.handleDeleteAccount() {
         }
     ) {
         DeleteAccountStep.run(user.id)
+        CacheManager.onBanStatusChanged(user.id)
     }
 }
 

@@ -1,5 +1,6 @@
 package app.mcorg.pipeline.world.settings.invitations
 
+import app.mcorg.config.CacheManager
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.world.invitations.CountWorldInvitationsStep
@@ -48,6 +49,7 @@ suspend fun ApplicationCall.handleCancelInvitation() {
         }
     ) {
         cancelInviteStep.run(worldId to invitationId)
+        CacheManager.onInviteChanged(invitationId)
         CountWorldInvitationsStep(worldId).run(Unit)
     }
 }

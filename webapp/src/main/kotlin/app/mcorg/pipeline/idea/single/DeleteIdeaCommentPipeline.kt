@@ -1,5 +1,6 @@
 package app.mcorg.pipeline.idea.single
 
+import app.mcorg.config.CacheManager
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.presentation.handler.handlePipeline
@@ -16,6 +17,7 @@ suspend fun ApplicationCall.handleDeleteIdeaComment() {
         }
     ) {
         deleteIdeaStep.run(ideaCommentId)
+        CacheManager.onIdeaCommentDeleted(ideaCommentId)
     }
 }
 
