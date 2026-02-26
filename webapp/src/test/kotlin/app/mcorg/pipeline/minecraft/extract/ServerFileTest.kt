@@ -20,6 +20,7 @@ import java.nio.file.Paths
 import kotlin.io.path.createDirectories
 import kotlin.io.path.exists
 import kotlin.io.path.listDirectoryEntries
+import kotlin.time.Duration.Companion.milliseconds
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 open class ServerFileTest(
@@ -51,20 +52,19 @@ open class ServerFileTest(
                 }
 
                 val results = urls.map { pair ->
-                    val fileResult = GetServerFileStep.process(pair)
-                    val extractResult = when (fileResult) {
+                    val extractResult = when (val fileResult = GetServerFileStep.process(pair)) {
                         is Result.Success -> ExtractRelevantMinecraftFilesStep {
                             resourcesPath.resolve(it).createDirectories()
                         }.process(fileResult.value)
                         is Result.Failure -> fileResult
                     }
-                    try { delay(500) } catch (e: Exception) { println("Error in processing $e") }
+                    try { delay(500.milliseconds) } catch (e: Exception) { println("Error in processing $e") }
                     extractResult
                 }
 
                 val errors = results.filterIsInstance<Result.Failure<AppFailure>>()
                 if (errors.isNotEmpty()) {
-                    Result.failure<AppFailure, Unit>(
+                    Result.failure<AppFailure>(
                         AppFailure.customValidationError(
                             "files",
                             "Couldn't process some server files: ${errors.map { it.error }}"
