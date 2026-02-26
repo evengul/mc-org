@@ -15,16 +15,17 @@ Minecraft World Collaboration Platform — managing building projects, tasks, an
 ## Build Commands
 
 ```bash
-mvn clean compile     # Compile (must pass with zero errors)
-mvn test              # Run tests
-mvn flyway:migrate    # Apply database migrations
-mvn exec:java         # Start development server
+mvn clean compile                   # Compile (must pass with zero errors)
+mvn test                            # Run tests
+sudo service docker start           # Start docker if not running (can run without password)
+./webapp/scripts/start-db.sh        # Start the database     
+./webapp/scripts/migrate-locally.sh # Apply database migrations
+./webapp/scripts/run.sh             # Start development server
 ```
 
 ## Environment (WSL2)
 
-- `localhost` in WSL2 ≠ Windows localhost. IntelliJ MCP: use Windows host IP (`cat /etc/resolv.conf | grep nameserver`)
-- Docker requires systemd as PID 1. Config at `/etc/wsl.conf`
+- `localhost` in WSL2 ≠ Windows localhost.
 - MCP: check `/mcp` before DB operations
 
 ## Critical Rules
@@ -38,8 +39,6 @@ mvn exec:java         # Start development server
 **SQL:** Use `SafeSQL.select/insert/update/delete/with()` — NEVER constructor or string interpolation
 
 **Styles:** Use CSS utility classes — NEVER inline `style =`
-
-**User:** `user.id` — NOT `user.userId`
 
 ## Skills — Load On Demand
 
