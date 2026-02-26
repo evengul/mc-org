@@ -15,4 +15,3 @@ node_modules/
 .sessions
 .playwright-cli
 .claude/screenshots/
-.claude/hooks/
