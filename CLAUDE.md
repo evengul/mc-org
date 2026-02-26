@@ -77,6 +77,7 @@ Invoke with the Skill tool when the task matches:
 - Implement, don't just plan. Make code changes directly for well-understood tasks.
 - Break large refactors into committed phases. Run tests and commit between phases.
 - Analyze logs before guessing. Read error logs and stack traces first.
+- Ask questions in interview format when you need more information. 
 
 ## Before Committing
 
