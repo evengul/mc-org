@@ -65,7 +65,7 @@ jobs:
             BUILDKIT_INLINE_CACHE=1
         env:
           DOCKER_BUILDKIT: 1
-      - uses: actions/github-script@v7
+      - uses: actions/github-script@v8
         with:
           github-token: ${{secrets.GH_TOKEN_PR_COMMENTS}}
           script: |
