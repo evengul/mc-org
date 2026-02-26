@@ -2,12 +2,16 @@
 
 Minecraft World Collaboration Platform — managing building projects, tasks, and team coordination.
 
+## Developer
+
+Even — solo developer, expert in the full stack (built this project from the ground up). Communicate concisely: short explanations with rationale on non-obvious decisions. Ask when uncertain; follow-up questions are welcome.
+
 ## Tech Stack
 
 | Layer    | Technology                 | Notes                        |
 |----------|----------------------------|------------------------------|
 | Backend  | Ktor 3.0.3 + Kotlin 2.1.10 | JVM 21, Netty, port 8080     |
-| Database | PostgreSQL + Flyway         | Current migration: V2_21_0   |
+| Database | PostgreSQL + Flyway         | Migrations in `webapp/src/main/resources/db/migration/` |
 | Frontend | Kotlin HTML DSL + HTMX     | Server-side rendering only   |
 | Build    | Maven                      | NOT Gradle                   |
 | Deploy   | Docker + Fly.io            |                              |
@@ -18,7 +22,7 @@ Minecraft World Collaboration Platform — managing building projects, tasks, an
 mvn clean compile                   # Compile (must pass with zero errors)
 mvn test                            # Run tests
 sudo service docker start           # Start docker if not running (can run without password)
-./webapp/scripts/start-db.sh        # Start the database     
+./webapp/scripts/start-db.sh        # Start the database
 ./webapp/scripts/migrate-locally.sh # Apply database migrations
 ./webapp/scripts/run.sh             # Start development server
 ```
@@ -26,7 +30,11 @@ sudo service docker start           # Start docker if not running (can run witho
 ## Environment (WSL2)
 
 - `localhost` in WSL2 ≠ Windows localhost.
-- MCP: check `/mcp` before DB operations
+- **Database access:** Before any database read or query, verify the postgres MCP server is available (`/mcp`). Always use MCP tools for database access — never `psql` or other CLI database tools.
+
+## Issue Tracking
+
+Linear — workspace: evegul, team: Mcorg. Do NOT create GitHub issues.
 
 ## Critical Rules
 
@@ -53,9 +61,16 @@ Invoke with the Skill tool when the task matches:
 | `/docs-business`    | Business rules, roles, project stages, workflows          |
 | `/docs-troubleshoot`| Debugging errors, compile failures                        |
 | `/docs-glossary`    | Technical/domain terminology                              |
+| `/docs-testing`     | Test patterns, `testApplication`, auth helpers, DB tests  |
 | `/add-endpoint`     | Creating a new HTTP endpoint                              |
 | `/add-migration`    | Adding a database migration                               |
 | `/add-step`         | Creating a new pipeline Step                              |
+| `/commit`           | Compile → test → stage → commit with a good message       |
+| `/linear`           | Create, update, or link Linear issues                     |
+| `/devstart`         | Full dev environment startup (Docker → DB → migrate → run)|
+| `/run`              | Start the application only (with optional flags)          |
+| `/migrate`          | Run Flyway migrations locally                             |
+| `/start-db`         | Start the PostgreSQL container                            |
 
 ## Working Style
 
@@ -72,3 +87,4 @@ Invoke with the Skill tool when the task matches:
 - [ ] Authorization in plugins, not pipelines
 - [ ] HTMX targets match response element IDs
 - [ ] Correct import: `stream.createHTML`
+- [ ] Linear issue linked if applicable

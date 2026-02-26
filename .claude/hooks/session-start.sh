@@ -11,5 +11,5 @@ Branch: $BRANCH
 Last migration: $LAST_MIGRATION
 Stack: Ktor + Kotlin, Maven (NOT Gradle), PostgreSQL + Flyway, HTMX + Kotlin HTML DSL
 Key rules: HTML-only (no JSON), auth in plugins not pipelines, import kotlinx.html.stream.createHTML
-Skills: /docs-development /docs-architecture /docs-css /docs-htmx /docs-business /docs-troubleshoot
+Skills: /docs-development /docs-architecture /docs-css /docs-htmx /docs-business /docs-troubleshoot /docs-testing /add-endpoint /add-migration /add-step /commit /linear
 EOF

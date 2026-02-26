@@ -6,5 +6,5 @@ INPUT=$(cat)
 FILE_PATH=$(echo "$INPUT" | grep -oP '"file_path"\s*:\s*"\K[^"]+' | head -1)
 
 if [[ "$FILE_PATH" == *.kt ]]; then
-  cd /home/evengul/dev/mc-org/webapp && mvn compile -q 2>&1 | tail -10
+  cd /home/evengul/dev/mc-org/webapp && mvn compile -q 2>&1 | tail -50
 fi

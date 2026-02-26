@@ -67,6 +67,11 @@ Verify testing:
 - Tests cover happy path and error cases
 - Tests follow existing patterns in the codebase
 
+### 6. Linear Issue Linkage
+- Check if there is a corresponding Linear issue (team: Mcorg)
+- Note in the review whether the commit/PR references or closes a Linear issue
+- If the PR closes an issue, verify the issue title matches the scope of the changes
+
 ## Review Output Format
 
 Structure your review as follows:
@@ -102,6 +107,7 @@ Structure your review as follows:
 - [ ] Authorization via plugins (not pipelines)
 - [ ] HTMX targets match response IDs
 - [ ] Correct imports used
+- [ ] Linear issue linked if applicable
 
 ### 🎯 Verdict
 READY FOR PR / NEEDS CHANGES / NEEDS MAJOR REVISION
