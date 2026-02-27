@@ -5,8 +5,20 @@
     <groupId>app.mcorg</groupId>
     <artifactId>webapp</artifactId>
     <version>0.0.1</version>
+    <packaging>pom</packaging>
+
     <name>webapp</name>
     <description>webapp</description>
+
+    <modules>
+        <module>mc-domain</module>
+        <module>mc-engine</module>
+        <module>mc-nbt</module>
+        <module>mc-pipeline</module>
+        <module>mc-web</module>
+        <module>mc-data</module>
+    </modules>
+
     <properties>
         <java.version>21</java.version>
         <ktor_version>3.4.0</ktor_version>

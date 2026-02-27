@@ -10,7 +10,7 @@ on:
   pull_request:
     branches: [ master ]
     paths:
-      - webapp/src/main**
+      - webapp/**
 jobs:
   deploy-dev:
     environment: dev
