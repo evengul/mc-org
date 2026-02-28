@@ -40,6 +40,11 @@ done
 
 cd "$WEBAPP_DIR"
 
+if [[ ! -f mc-web/src/main/resources/keys/private_key.pem ]]; then
+    echo "Generating JWT signing keys..."
+    bash mc-web/create-keys.sh
+fi
+
 echo "Running unit tests..."
 mvn test -B
 

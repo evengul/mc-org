@@ -29,6 +29,8 @@ jobs:
         with:
           distribution: 'adopt'
           java-version: '21'
+      - name: Generate JWT signing keys
+        run: bash mc-web/create-keys.sh
       - name: Run unit tests
         run: mvn test -B
 
@@ -52,6 +54,8 @@ jobs:
         with:
           distribution: 'adopt'
           java-version: '21'
+      - name: Generate JWT signing keys
+        run: bash mc-web/create-keys.sh
       - name: Build modules
         run: mvn install -DskipTests -B
       - name: Run database tests
