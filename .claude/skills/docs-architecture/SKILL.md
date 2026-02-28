@@ -138,54 +138,93 @@ data class Notification(val id: Int, val userId: Int, val type: NotificationType
 
 ---
 
-## File Structure — Where to Put New Code
+## Module Structure
+
+All modules live under `webapp/`. Dependencies flow inward: `mc-web` → `mc-data`/`mc-engine`/`mc-nbt` → `mc-domain`/`mc-pipeline`.
 
 ```
-src/main/kotlin/app/mcorg/
-├── Application.kt
-├── config/                        # AppConfig, ApiProvider
-├── domain/
-│   ├── model/                     # Domain entities
-│   │   ├── user/                  # User, TokenProfile, Role
-│   │   ├── world/                 # World, WorldMember
-│   │   ├── project/               # Project, ProjectStage, ProjectType
-│   │   ├── task/                  # ItemTask, ActionTask, TaskPriority
-│   │   ├── idea/                  # Idea, IdeaCategory, IdeaDifficulty
-│   │   ├── invite/                # Invite, InviteStatus
-│   │   └── notification/          # Notification, NotificationType
-│   └── pipeline/                  # Step, Result, PipelineScope
-├── pipeline/
-│   ├── SafeSQL.kt
-│   ├── DatabaseSteps.kt
-│   ├── ValidationSteps.kt
-│   └── failure/                   # AppFailure, ValidationFailure
-└── presentation/
-    ├── handler/                   # Request handlers (one file per feature)
-    ├── plugins/                   # Ktor plugins (Auth, Role, Param extraction)
-    ├── router/                    # Route configuration (AppRouterV2.kt)
-    ├── hx.kt                      # HTMX helper functions
-    ├── templated/
-    │   ├── common/                # Reusable components
-    │   ├── pages/                 # Full page templates + createPage.kt
-    │   └── partials/              # Partial templates
-    └── utils/                     # authUtils, htmlResponseUtils, paramUtils
-
-src/main/resources/
-├── db/migration/                  # Flyway SQL migrations (V2_21_0+)
-└── static/
-    ├── styles/                    # CSS files
-    └── icons/                     # SVG icons
+webapp/
+├── mc-domain/           # Pure domain models, no dependencies
+│   └── src/main/kotlin/app/mcorg/domain/model/
+│       ├── user/        # User, Role
+│       ├── world/       # World, WorldStatistics, Roadmap
+│       ├── project/     # Project, ProjectStage, ProjectType
+│       ├── task/        # ActionTask, TaskPriority
+│       ├── idea/        # Idea, IdeaCategory, IdeaDifficulty, Comment
+│       ├── invite/      # Invite, InviteStatus
+│       ├── notification/# Notification
+│       ├── resources/   # ResourceSource, ResourceQuantity, ResourceMap
+│       ├── minecraft/   # Item, MinecraftVersion, Litematica, Dimension
+│       └── admin/       # AdminStatistics, ManagedUser, ManagedWorld
+│
+├── mc-pipeline/         # Generic pipeline framework, no dependencies
+│   └── src/main/kotlin/app/mcorg/pipeline/
+│       ├── Step.kt      # Step<I, E, S> interface
+│       ├── Result.kt    # Result<E, V> sealed class (Success/Failure)
+│       ├── PipelineScope.kt
+│       └── MergeSteps.kt
+│
+├── mc-engine/           # Game logic — depends on mc-domain
+│   └── src/main/kotlin/app/mcorg/engine/
+│       ├── model/       # ItemSourceGraph, ResourceGatheringPlan
+│       └── service/     # PathSuggestionService, graph building & scoring
+│
+├── mc-nbt/              # NBT binary parser — depends on mc-domain, mc-pipeline
+│   └── src/main/kotlin/app/mcorg/nbt/
+│       ├── io/          # BinaryNbtDeserializer, input streams
+│       ├── tag/         # Tag sealed class (TAG_BYTE, TAG_COMPOUND, etc.)
+│       ├── util/        # LitematicaReader
+│       └── failure/     # NBTFailure, BinaryParseFailure
+│
+├── mc-data/             # Minecraft data extraction — depends on mc-domain, mc-pipeline
+│   └── src/main/kotlin/app/mcorg/data/minecraft/
+│       ├── extract/     # Items, recipes, loot tables, tags
+│       │   ├── recipe/  # Shaped, shapeless, smelting, smithing parsers
+│       │   └── loot/    # Loot table & pool parsers
+│       └── failure/     # ExtractionFailure
+│
+└── mc-web/              # HTTP layer — depends on all modules
+    └── src/main/kotlin/app/mcorg/
+        ├── Application.kt
+        ├── config/                        # AppConfig, ApiProvider
+        ├── pipeline/
+        │   ├── SafeSQL.kt
+        │   ├── DatabaseSteps.kt
+        │   ├── ValidationSteps.kt
+        │   ├── failure/                   # AppFailure, ValidationFailure
+        │   └── {feature}/                 # Feature pipelines, extractors, validators
+        └── presentation/
+            ├── handler/                   # Request handlers (one file per feature)
+            ├── plugins/                   # Ktor plugins (Auth, Role, Param extraction)
+            ├── router/                    # Route configuration (AppRouterV2.kt)
+            ├── hx.kt                      # HTMX helper functions
+            ├── templated/
+            │   ├── common/                # Reusable components
+            │   ├── pages/                 # Full page templates + createPage.kt
+            │   └── partials/              # Partial templates
+            └── utils/                     # authUtils, htmlResponseUtils, paramUtils
+    └── src/main/resources/
+        ├── db/migration/                  # Flyway SQL migrations
+        └── static/
+            ├── styles/                    # CSS files
+            └── icons/                     # SVG icons
 ```
 
-| New code type      | Location                                      |
-|--------------------|-----------------------------------------------|
-| Handler            | `presentation/handler/{Feature}Handler.kt`    |
-| Step               | Near related handler, or `pipeline/` if shared|
-| Domain entity      | `domain/model/{feature}/`                     |
-| Route              | `presentation/router/AppRouterV2.kt`          |
-| Full page template | `presentation/templated/pages/{feature}/`     |
-| Component          | `presentation/templated/common/`              |
-| DB migration       | `src/main/resources/db/migration/`            |
+## Where to Put New Code
+
+| New code type         | Module         | Location                                       |
+|-----------------------|----------------|-------------------------------------------------|
+| Domain entity         | `mc-domain`    | `domain/model/{feature}/`                       |
+| Pipeline step (generic)| `mc-pipeline` | `pipeline/`                                     |
+| Game/resource logic   | `mc-engine`    | `engine/service/` or `engine/model/`            |
+| NBT/schematic parsing | `mc-nbt`       | `nbt/`                                          |
+| Minecraft data parser | `mc-data`      | `data/minecraft/extract/`                       |
+| Handler               | `mc-web`       | `presentation/handler/{Feature}Handler.kt`      |
+| Pipeline step (app)   | `mc-web`       | `pipeline/{feature}/`                           |
+| Route                 | `mc-web`       | `presentation/router/AppRouterV2.kt`            |
+| Full page template    | `mc-web`       | `presentation/templated/pages/{feature}/`       |
+| Component             | `mc-web`       | `presentation/templated/common/`                |
+| DB migration          | `mc-web`       | `src/main/resources/db/migration/`              |
 
 ---
 
@@ -206,4 +245,4 @@ notifications (id, user_id, type, related_entity_type, related_entity_id, messag
 project_dependencies (id, dependent_project_id, dependency_project_id, created_by, created_at)
 ```
 
-Current migration version: **V2_21_0**
+Migration files are in `mc-web/src/main/resources/db/migration/`.
