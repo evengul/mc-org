@@ -62,4 +62,31 @@ mvn test -pl mc-data
 
 ## Tests
 
-Tests currently live in mc-web's test directory (historical). Covers recipe parsing, loot table extraction, and item extraction.
+Two categories of tests:
+
+**Unit tests** (always run, no external data needed):
+- Parser tests use inline JSON strings via `Json.parseToJsonElement(...)`
+- Cover all recipe parsers, loot entry/pool/table parsers, JSON utils, path resolvers, and MinecraftIdFactory
+- `TestUtils.kt` provides `executeAndAssertSuccess`, `executeAndAssertFailure`, `assertResultSuccess`, `assertResultFailure`
+
+**E2E tests** (require extracted Minecraft server data):
+- `ExtractItemsStepTest`, `ExtractRecipesStepTest`, `ExtractLootTablesTest`
+- Run against real server data across 26+ Minecraft versions
+- Data accessed via symlink: `src/test/resources/servers/extracted` → mc-web's test data
+
+### E2E Test Setup
+
+The E2E tests need extracted Minecraft server data. To set up:
+
+```bash
+# Create symlink to mc-web's test data (one-time setup)
+mkdir -p mc-data/src/test/resources/servers
+ln -sf ../../../../../mc-web/src/test/resources/servers/extracted mc-data/src/test/resources/servers/extracted
+```
+
+If mc-web's test data doesn't exist yet, run mc-web's tests first to trigger the download:
+```bash
+cd webapp && mvn test -pl mc-web -Dtest="ExtractItemsStepTest"
+```
+
+The symlink is in `.gitignore` and not committed. E2E tests silently skip (return 0 test cases) if no data is found.
