@@ -4,7 +4,15 @@ on:
   pull_request:
     types: [closed]
     paths:
-      - webapp/**
+      - webapp/mc-domain/src/main/**
+      - webapp/mc-engine/src/main/**
+      - webapp/mc-nbt/src/main/**
+      - webapp/mc-pipeline/src/main/**
+      - webapp/mc-data/src/main/**
+      - webapp/mc-web/src/main/**
+      - webapp/pom.xml
+      - webapp/*/pom.xml
+      - webapp/Dockerfile
 
 env:
   FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }} # You can generate a Fly API token in your account settings

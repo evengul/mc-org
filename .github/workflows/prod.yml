@@ -4,7 +4,15 @@ on:
     branches:
       - master
     paths:
-      - webapp/**
+      - webapp/mc-domain/src/main/**
+      - webapp/mc-engine/src/main/**
+      - webapp/mc-nbt/src/main/**
+      - webapp/mc-pipeline/src/main/**
+      - webapp/mc-data/src/main/**
+      - webapp/mc-web/src/main/**
+      - webapp/pom.xml
+      - webapp/*/pom.xml
+      - webapp/Dockerfile
 jobs:
   deploy:
     name: Deploy app
@@ -31,6 +39,7 @@ jobs:
 
       - name: Run Flyway migrations
         run: mvn flyway:migrate
+        working-directory: ./webapp/mc-web
         env:
           DB_URL: ${{ vars.DB_URL }}
           DB_USER: ${{ vars.DB_USER }}
