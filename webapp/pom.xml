@@ -35,6 +35,7 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <kotlin.compiler.incremental>true</kotlin.compiler.incremental>
         <main.class>app.mcorg.ApplicationKt</main.class>
+        <surefire.excludedGroups>database</surefire.excludedGroups>
 
         <!--suppress UnresolvedMavenProperty -->
         <flyway.url>${env.DB_URL}</flyway.url>
@@ -362,6 +363,9 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>${surefire.version}</version>
+                <configuration>
+                    <excludedGroups>${surefire.excludedGroups}</excludedGroups>
+                </configuration>
                 <dependencies>
                     <dependency>
                         <groupId>org.junit.jupiter</groupId>

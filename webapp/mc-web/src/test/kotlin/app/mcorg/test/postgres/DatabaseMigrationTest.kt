@@ -5,6 +5,7 @@ import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import java.sql.DriverManager
@@ -13,6 +14,7 @@ import java.sql.DriverManager
  * Test to ensure database migrations run smoothly and create expected schema structure.
  * Uses the DatabaseTestExtension to provide a clean PostgreSQL environment.
  */
+@Tag("database")
 @ExtendWith(DatabaseTestExtension::class)
 class DatabaseMigrationTest {
 
