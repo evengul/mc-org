@@ -37,6 +37,8 @@ jobs:
           distribution: 'adopt'
           java-version: '21'
 
+      - name: Install modules
+        run: mvn install -DskipTests -B
       - name: Run Flyway migrations
         run: mvn flyway:migrate
         working-directory: ./webapp/mc-web
