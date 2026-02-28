@@ -10,11 +10,26 @@ Even — solo developer, expert in the full stack (built this project from the g
 
 | Layer    | Technology                 | Notes                        |
 |----------|----------------------------|------------------------------|
-| Backend  | Ktor 3.0.3 + Kotlin 2.1.10 | JVM 21, Netty, port 8080     |
-| Database | PostgreSQL + Flyway         | Migrations in `webapp/src/main/resources/db/migration/` |
+| Backend  | Ktor 3.4.0 + Kotlin 2.2.21 | JVM 21, Netty, port 8080     |
+| Database | PostgreSQL + Flyway         | Migrations in `webapp/mc-web/src/main/resources/db/migration/` |
 | Frontend | Kotlin HTML DSL + HTMX     | Server-side rendering only   |
 | Build    | Maven                      | NOT Gradle                   |
 | Deploy   | Docker + Fly.io            |                              |
+
+## Modules
+
+The project is a multi-module Maven build under `webapp/`:
+
+| Module         | Purpose                                                        |
+|----------------|----------------------------------------------------------------|
+| `mc-domain`    | Pure domain models and value objects. No business logic, no dependencies. |
+| `mc-pipeline`  | Generic pipeline framework — `Step<I, E, S>` interface and `Result<E, V>` type for composing processing steps. |
+| `mc-engine`    | Game logic — resource gathering graph, pathfinding, and production chain optimization. |
+| `mc-nbt`       | NBT (Named Binary Tag) binary format parser for Minecraft schematics and Litematica files. |
+| `mc-data`      | Minecraft server data extraction — recipes, loot tables, items, and tags from JSON data files. |
+| `mc-web`       | HTTP layer — Ktor routes, handlers, Kotlin HTML templates, database access, auth, and Flyway migrations. |
+
+**Dependency flow:** `mc-domain` and `mc-pipeline` are leaf modules with no internal dependencies. `mc-engine`, `mc-nbt`, and `mc-data` depend on those. `mc-web` depends on all modules.
 
 ## Build Commands
 

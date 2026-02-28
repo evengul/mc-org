@@ -31,7 +31,8 @@
       "Skill(playwright)",
       "mcp__linear__create_issue_label",
       "mcp__linear__list_issue_labels",
-      "mcp__linear__save_issue"
+      "mcp__linear__save_issue",
+      "Bash(npx skills:*)"
     ]
   },
   "enableAllProjectMcpServers": true,
