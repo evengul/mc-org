@@ -291,11 +291,18 @@ data class ExtractRelevantMinecraftFilesStep(
             else -> return
         }
 
+        // Prevent Zip Slip: ensure the resolved path stays within the output directory
+        val normalizedTarget = targetPath.normalize()
+        if (!normalizedTarget.startsWith(outputDir.normalize())) {
+            logger.warn("Skipping zip entry with path traversal: {}", entryName)
+            return
+        }
+
         // Create parent directories
-        Files.createDirectories(targetPath.parent)
+        Files.createDirectories(normalizedTarget.parent)
 
         // Copy file content
-        Files.copy(zipStream, targetPath, StandardCopyOption.REPLACE_EXISTING)
-        logger.debug("Extracted: {} -> {}", entryName, targetPath)
+        Files.copy(zipStream, normalizedTarget, StandardCopyOption.REPLACE_EXISTING)
+        logger.debug("Extracted: {} -> {}", entryName, normalizedTarget)
     }
 }
