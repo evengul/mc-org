@@ -10,7 +10,15 @@ on:
   pull_request:
     branches: [ master ]
     paths:
-      - webapp/src/main**
+      - webapp/mc-domain/src/main/**
+      - webapp/mc-engine/src/main/**
+      - webapp/mc-nbt/src/main/**
+      - webapp/mc-pipeline/src/main/**
+      - webapp/mc-data/src/main/**
+      - webapp/mc-web/src/main/**
+      - webapp/pom.xml
+      - webapp/*/pom.xml
+      - webapp/Dockerfile
 jobs:
   deploy-dev:
     environment: dev
@@ -46,8 +54,11 @@ jobs:
         with:
           distribution: 'adopt'
           java-version: '21'
+      - name: Install modules
+        run: mvn install -DskipTests -B
       - name: Run flyway migrations
         run: mvn flyway:migrate
+        working-directory: ./webapp/mc-web
         env:
           DB_URL: "jdbc:postgresql://${{ steps.create-neon-branch.outputs.db_host }}/mcorg?sslmode=require"
           DB_USER: ${{ env.DB_USERNAME }}
