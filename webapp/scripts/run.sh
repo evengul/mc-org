@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-export JAVA_HOME="$HOME/.jdks/temurin-21.0.10"
+if [[ -z "${JAVA_HOME:-}" ]]; then
+    echo "Error: JAVA_HOME is not set"
+    exit 1
+fi
 
 SCRIPT_DIR="$(dirname "$0")"
 WEBAPP_DIR="$SCRIPT_DIR/.."
@@ -93,4 +96,4 @@ cd "$WEBAPP_DIR"
 mvn compile -q
 
 echo "Starting application with $ENV_NAME environment..."
-MAVEN_OPTS="$MAVEN_OPTS" exec mvn exec:java
+MAVEN_OPTS="$MAVEN_OPTS" exec mvn exec:java -pl mc-web

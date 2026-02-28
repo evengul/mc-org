@@ -7,11 +7,13 @@ import app.mcorg.pipeline.world.commonsteps.GetPermittedWorldsStep
 import app.mcorg.test.WithUser
 import app.mcorg.test.postgres.DatabaseTestExtension
 import kotlinx.coroutines.runBlocking
+import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.api.extension.ExtendWith
 import kotlin.test.assertTrue
 
+@Tag("database")
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @ExtendWith(DatabaseTestExtension::class)
 class CreateWorldStepTest : WithUser() {
