@@ -20,6 +20,7 @@ Takes extracted Minecraft server JAR data (JSON files) and produces structured `
 ExtractServerDataSteps.kt   — Top-level orchestration: ExtractMinecraftDataStep, DeleteFileStep
 PathResolvers.kt             — Resolves file paths within extracted server data
 extract/
+  ExtractRelevantMinecraftFilesStep.kt — Extracts JSON files from server JAR (nested zip)
   ExtractItemsStep.kt         — Parses items from registry data
   ExtractNamesStep.kt         — Extracts display names
   ExtractResourceSources.kt   — Combines recipes + loot into ResourceSources
@@ -72,21 +73,7 @@ Two categories of tests:
 **E2E tests** (require extracted Minecraft server data):
 - `ExtractItemsStepTest`, `ExtractRecipesStepTest`, `ExtractLootTablesTest`
 - Run against real server data across 26+ Minecraft versions
-- Data accessed via symlink: `src/test/resources/servers/extracted` → mc-web's test data
-
-### E2E Test Setup
-
-The E2E tests need extracted Minecraft server data. To set up:
-
-```bash
-# Create symlink to mc-web's test data (one-time setup)
-mkdir -p mc-data/src/test/resources/servers
-ln -sf ../../../../../mc-web/src/test/resources/servers/extracted mc-data/src/test/resources/servers/extracted
-```
-
-If mc-web's test data doesn't exist yet, run mc-web's tests first to trigger the download:
-```bash
-cd webapp && mvn test -pl mc-web -Dtest="ExtractItemsStepTest"
-```
-
-The symlink is in `.gitignore` and not committed. E2E tests silently skip (return 0 test cases) if no data is found.
+- `ServerFileTest` base class with `@BeforeAll` auto-downloads and extracts server JARs if data is missing
+- `ServerFileDownloader` test utility fetches versions from Fabric MC API and server JARs from a GitHub Gist
+- Downloaded data is cached in CI via GitHub Actions cache
+- Data stored at `src/test/resources/servers/extracted/` (gitignored)
