@@ -16,6 +16,22 @@ import kotlin.collections.get
 import kotlin.math.absoluteValue
 
 object LitematicaReader {
+    private object Keys {
+        const val METADATA = "Metadata"
+        const val REGIONS = "Regions"
+        const val NAME = "Name"
+        const val AUTHOR = "Author"
+        const val DESCRIPTION = "Description"
+        const val ENCLOSING_SIZE = "EnclosingSize"
+        const val SIZE = "Size"
+        const val BLOCK_STATES = "BlockStates"
+        const val BLOCK_STATE_PALETTE = "BlockStatePalette"
+        const val TILE_ENTITIES = "TileEntities"
+        const val ITEMS = "Items"
+        const val ID = "id"
+        const val COUNT = "Count"
+    }
+
     fun readLitematica(stream: InputStream): Result<NBTFailure, Litematica> {
         val content = stream.readBytes()
         return readLitematica(content)
@@ -33,7 +49,7 @@ object LitematicaReader {
         val result = deserializer.fromBytes(content)
 
         if (result is Result.Failure) {
-            return Result.failure(NBTFailure.DeserializeError )
+            return Result.failure(NBTFailure.DeserializeError(result.error.toString()))
         }
 
         val root = result.getOrThrow().tag.value
@@ -42,11 +58,11 @@ object LitematicaReader {
             return Result.failure(NBTFailure.InvalidStructure)
         }
 
-        val metadata = (root["Metadata"] as? CompoundTag)?.extractMetadata()
-            ?: return Result.failure(NBTFailure.MissingData(listOf("Metadata")))
+        val metadata = (root[Keys.METADATA] as? CompoundTag)?.extractMetadata()
+            ?: return Result.failure(NBTFailure.MissingData(listOf(Keys.METADATA)))
 
-        val regionData = (root["Regions"] as? CompoundTag)?.extractRegionData()
-            ?: return Result.failure(NBTFailure.MissingData(listOf("Regions")))
+        val regionData = (root[Keys.REGIONS] as? CompoundTag)?.extractRegionData()
+            ?: return Result.failure(NBTFailure.MissingData(listOf(Keys.REGIONS)))
 
         val litematica = Litematica(
             name = metadata.name,
@@ -73,11 +89,11 @@ object LitematicaReader {
     private fun CompoundTag.extractMetadata(): LitematicaMetadata {
         val content = this.value
 
-        val name = (content["Name"] as? StringTag)?.value ?: "Unnamed"
-        val author = (content["Author"] as? StringTag)?.value ?: "Unknown"
-        val description = (content["Description"] as? StringTag)?.value
+        val name = (content[Keys.NAME] as? StringTag)?.value ?: "Unnamed"
+        val author = (content[Keys.AUTHOR] as? StringTag)?.value ?: "Unknown"
+        val description = (content[Keys.DESCRIPTION] as? StringTag)?.value
 
-        val size = (content["EnclosingSize"] as? CompoundTag)?.value
+        val size = (content[Keys.ENCLOSING_SIZE] as? CompoundTag)?.value
         val x = (size?.get("x") as? IntTag)?.value ?: 0
         val y = (size?.get("y") as? IntTag)?.value ?: 0
         val z = (size?.get("z") as? IntTag)?.value ?: 0
@@ -112,14 +128,17 @@ object LitematicaReader {
         val palette = this.getBlockStatePalette()
 
         // Get the size of the region
-        val size = this.value["Size"] as? CompoundTag
+        // Litematica dimensions can be negative (indicating region direction); absolute value gives block count
+        val size = this.value[Keys.SIZE] as? CompoundTag
         val x = (size?.value?.get("x") as? IntTag)?.value?.absoluteValue ?: return emptyMap()
-        val y = (size.value["y"] as? IntTag)?.value?.absoluteValue ?: return emptyMap()
-        val z = (size.value["z"] as? IntTag)?.value?.absoluteValue ?: return emptyMap()
-        val totalBlocks = x * y * z
+        val y = (size?.value?.get("y") as? IntTag)?.value?.absoluteValue ?: return emptyMap()
+        val z = (size?.value?.get("z") as? IntTag)?.value?.absoluteValue ?: return emptyMap()
+        val totalBlocks = x.toLong() * y * z
+        if (totalBlocks > Int.MAX_VALUE) return emptyMap()
+        val totalBlocksInt = totalBlocks.toInt()
 
         // Get the packed block states
-        val blockStatesTag = this.value["BlockStates"] as? LongListTag
+        val blockStatesTag = this.value[Keys.BLOCK_STATES] as? LongListTag
         if (blockStatesTag == null || palette.isEmpty()) {
             return emptyMap()
         }
@@ -127,23 +146,22 @@ object LitematicaReader {
         val blockStates = blockStatesTag.value
 
         // Calculate bits per block (minimum bits needed to represent palette indices)
+        // palette.size >= 1 guaranteed by guard above
         val bitsPerBlock = maxOf(2, 32 - Integer.numberOfLeadingZeros(palette.size - 1))
 
-        // Decode the packed block states
-        val blockIndices = mutableListOf<Int>()
+        // Decode the packed block states and count directly
+        val counts = IntArray(palette.size)
         var bitIndex = 0
 
-        repeat(totalBlocks) {
+        repeat(totalBlocksInt) {
             val longIndex = bitIndex / 64
             val bitOffset = bitIndex % 64
 
             if (longIndex >= blockStates.size) return@repeat
 
             val paletteIndex = if (bitOffset + bitsPerBlock <= 64) {
-                // The value fits within a single long
                 ((blockStates[longIndex] ushr bitOffset) and ((1L shl bitsPerBlock) - 1)).toInt()
             } else {
-                // The value spans two longs
                 val bitsFromFirst = 64 - bitOffset
                 val bitsFromSecond = bitsPerBlock - bitsFromFirst
                 val firstPart = (blockStates[longIndex] ushr bitOffset) and ((1L shl bitsFromFirst) - 1)
@@ -155,19 +173,16 @@ object LitematicaReader {
                 (firstPart or secondPart).toInt()
             }
 
-            blockIndices.add(paletteIndex)
+            if (paletteIndex in counts.indices) {
+                counts[paletteIndex]++
+            }
             bitIndex += bitsPerBlock
         }
 
-        // Count occurrences of each palette index
-        val indexCounts = blockIndices.groupingBy { it }.eachCount()
-
-        // Map palette indices to block names and aggregate counts
         val blockCounts = mutableMapOf<String, Int>()
-        indexCounts.forEach { (paletteIndex, count) ->
-            if (paletteIndex < palette.size) {
-                val blockName = palette[paletteIndex]
-                blockCounts[blockName] = blockCounts.getOrDefault(blockName, 0) + count
+        counts.forEachIndexed { index, count ->
+            if (count > 0) {
+                blockCounts[palette[index]] = blockCounts.getOrDefault(palette[index], 0) + count
             }
         }
 
@@ -182,16 +197,16 @@ object LitematicaReader {
     private fun CompoundTag.getItemsInInventories(): Map<String, Int> {
         val items = mutableMapOf<String, Int>()
 
-        val tileEntities = this.value["TileEntities"]
+        val tileEntities = this.value[Keys.TILE_ENTITIES]
         if (tileEntities is ListTag<*>) {
             tileEntities.value.forEach { entry ->
                 if (entry is CompoundTag) {
-                    val itemsTag = entry.value["Items"]
+                    val itemsTag = entry.value[Keys.ITEMS]
                     if (itemsTag != null && itemsTag is ListTag<*> && itemsTag.value.isNotEmpty()) {
                         itemsTag.value.forEach { itemTag ->
                             if (itemTag is CompoundTag) {
-                                val id = itemTag.value["id"] as? StringTag
-                                val count = itemTag.value["Count"] as? ByteTag
+                                val id = itemTag.value[Keys.ID] as? StringTag
+                                val count = itemTag.value[Keys.COUNT] as? ByteTag
 
                                 if (id != null && count != null) {
                                     items[id.value] = items.getOrDefault(id.value, 0) + count.value.toInt()
@@ -208,11 +223,11 @@ object LitematicaReader {
 
     private fun CompoundTag.getBlockStatePalette(): List<String> {
         val blockNames = mutableListOf<String>()
-        val paletteTag = this.value["BlockStatePalette"]
+        val paletteTag = this.value[Keys.BLOCK_STATE_PALETTE]
         if (paletteTag is ListTag<*>) {
             paletteTag.value.forEach { entry ->
                 if (entry is CompoundTag) {
-                    val nameTag = entry.value["Name"]
+                    val nameTag = entry.value[Keys.NAME]
                     if (nameTag is StringTag) {
                         blockNames.add(nameTag.value)
                     }
