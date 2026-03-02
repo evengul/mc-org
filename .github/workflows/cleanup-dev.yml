@@ -14,6 +14,8 @@ on:
       - webapp/*/pom.xml
       - webapp/Dockerfile
 
+permissions: {}
+
 env:
   FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }} # You can generate a Fly API token in your account settings
 
