@@ -2,7 +2,6 @@ package app.mcorg.nbt.io
 
 import app.mcorg.pipeline.Result
 import app.mcorg.nbt.tag.*
-import kotlinx.coroutines.runBlocking
 import java.io.DataInputStream
 import java.io.InputStream
 
@@ -135,7 +134,10 @@ class BigEndianNbtInputStream(
                 }
             }
 
-            val decrementedMaxDepth = runBlocking { decrementMaxDepth(maxDepth).mapError { BinaryParseFailure.MaxDepthFailure.from(it) } }
+            val decrementedMaxDepth = when (val result = decrementMaxDepth(maxDepth)) {
+                is Result.Success -> result
+                is Result.Failure -> Result.failure(BinaryParseFailure.MaxDepthFailure.from(result.error))
+            }
             val tagResult = decrementedMaxDepth.flatMapSuccess { readTag(id.toByte(), it) }
 
             when (tagResult) {
