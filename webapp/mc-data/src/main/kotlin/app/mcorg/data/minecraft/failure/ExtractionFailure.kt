@@ -36,4 +36,6 @@ sealed interface ExtractionFailure {
 
     data class MissingFile(val filename: String, val version: MinecraftVersion) : ExtractionFailure
     data class MissingContent(val filename: String) : ExtractionFailure
+
+    data class FileExtractionFailed(val version: MinecraftVersion, val message: String) : ExtractionFailure
 }

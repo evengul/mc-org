@@ -2,6 +2,9 @@ package app.mcorg.data.minecraft.extract
 
 import app.mcorg.domain.model.minecraft.MinecraftVersion
 import app.mcorg.domain.model.minecraft.MinecraftVersionRange
+import kotlinx.coroutines.runBlocking
+import org.junit.jupiter.api.Assertions.fail
+import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.params.provider.Arguments
 import java.nio.file.Path
@@ -19,20 +22,25 @@ open class ServerFileTest(
         }
     }
 
+    @BeforeAll
+    fun beforeAll() {
+        val basePath = Paths.get("").toAbsolutePath()
+        val resourcesPath = basePath.resolve("src/test/resources/servers/extracted")
+
+        if (resourcesPath.exists() && resourcesPath.listDirectoryEntries().isNotEmpty()) {
+            return
+        }
+
+        runBlocking {
+            ServerFileDownloader.downloadAndExtract(resourcesPath)
+        }
+    }
+
     fun getVersions(): Array<Arguments> {
         val basePath = Paths.get("").toAbsolutePath()
         val resourcesPath = basePath.resolve("src/test/resources/servers/extracted")
 
-        if (!resourcesPath.exists()) {
-            return emptyArray()
-        }
-
-        val entries = resourcesPath.listDirectoryEntries()
-        if (entries.isEmpty()) {
-            return emptyArray()
-        }
-
-        return entries
+        return resourcesPath.listDirectoryEntries()
             .asSequence()
             .map { dir -> dir.toString().substringAfterLast("/").substringAfterLast("\\") }
             .map { MinecraftVersion.Release.fromString(it) }
@@ -41,5 +49,6 @@ open class ServerFileTest(
             .map { Arguments.of(it) }
             .toList()
             .toTypedArray()
+            .takeIf { it.isNotEmpty() } ?: fail("No extracted server data found at $resourcesPath. Is the BeforeAll not running?")
     }
 }
