@@ -20,6 +20,7 @@ Takes extracted Minecraft server JAR data (JSON files) and produces structured `
 ExtractServerDataSteps.kt   — Top-level orchestration: ExtractMinecraftDataStep, DeleteFileStep
 PathResolvers.kt             — Resolves file paths within extracted server data
 extract/
+  ExtractRelevantMinecraftFilesStep.kt — Extracts JSON files from server JAR (nested zip)
   ExtractItemsStep.kt         — Parses items from registry data
   ExtractNamesStep.kt         — Extracts display names
   ExtractResourceSources.kt   — Combines recipes + loot into ResourceSources
@@ -62,4 +63,17 @@ mvn test -pl mc-data
 
 ## Tests
 
-Tests currently live in mc-web's test directory (historical). Covers recipe parsing, loot table extraction, and item extraction.
+Two categories of tests:
+
+**Unit tests** (always run, no external data needed):
+- Parser tests use inline JSON strings via `Json.parseToJsonElement(...)`
+- Cover all recipe parsers, loot entry/pool/table parsers, JSON utils, path resolvers, and MinecraftIdFactory
+- `TestUtils.kt` provides `executeAndAssertSuccess`, `executeAndAssertFailure`, `assertResultSuccess`, `assertResultFailure`
+
+**E2E tests** (require extracted Minecraft server data):
+- `ExtractItemsStepTest`, `ExtractRecipesStepTest`, `ExtractLootTablesTest`
+- Run against real server data across 26+ Minecraft versions
+- `ServerFileTest` base class with `@BeforeAll` auto-downloads and extracts server JARs if data is missing
+- `ServerFileDownloader` test utility fetches versions from Fabric MC API and server JARs from a GitHub Gist
+- Downloaded data is cached in CI via GitHub Actions cache
+- Data stored at `src/test/resources/servers/extracted/` (gitignored)

@@ -5,8 +5,8 @@ import app.mcorg.domain.model.minecraft.MinecraftTag
 import app.mcorg.domain.model.minecraft.MinecraftVersion
 import app.mcorg.domain.model.minecraft.MinecraftVersionRange
 import app.mcorg.domain.model.resources.ResourceQuantity
+import app.mcorg.data.minecraft.TestUtils
 import app.mcorg.data.minecraft.extract.ServerFileTest
-import app.mcorg.pipeline.TestUtils
 import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
@@ -39,13 +39,11 @@ class ExtractRecipesStepTest : ServerFileTest(
 
         recipes.forEach { recipe ->
             recipe.requiredItems.forEach { item ->
-                // Ensure names have been resolved
                 assertNotEquals("", item.first.name)
                 assertNotEquals(item.first.id, item.first.name)
 
                 assertIsNot<ResourceQuantity.Unknown>(item.second)
 
-                // Ensure no item ids with tag references exist
                 when (val id = item.first) {
                     is Item -> assertNotEquals('#', id.id.first())
                     is MinecraftTag -> assertNotEquals(0, id.content.size, "Tag ${id.id} does not have content")
@@ -53,13 +51,11 @@ class ExtractRecipesStepTest : ServerFileTest(
             }
 
             recipe.producedItems.forEach { item ->
-                // Ensure names have been resolved
                 assertNotEquals("", item.first.name)
                 assertNotEquals(item.first.id, item.first.name)
 
                 assertIsNot<ResourceQuantity.Unknown>(item.second)
 
-                // Ensure no item ids with tag references exist
                 when (val id = item.first) {
                     is Item -> assertNotEquals('#', id.id.first())
                     is MinecraftTag -> assertNotEquals(0, id.content.size)

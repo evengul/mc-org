@@ -4,8 +4,8 @@ import app.mcorg.domain.model.minecraft.Item
 import app.mcorg.domain.model.minecraft.MinecraftTag
 import app.mcorg.domain.model.minecraft.MinecraftVersion
 import app.mcorg.domain.model.resources.ResourceQuantity
+import app.mcorg.data.minecraft.TestUtils
 import app.mcorg.data.minecraft.extract.ServerFileTest
-import app.mcorg.pipeline.TestUtils
 import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
