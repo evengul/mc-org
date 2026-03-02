@@ -29,6 +29,13 @@ jobs:
         with:
           distribution: 'adopt'
           java-version: '21'
+      - name: Cache Minecraft server data
+        uses: actions/cache@v5
+        with:
+          path: webapp/mc-data/src/test/resources/servers/extracted
+          key: minecraft-server-data-${{ hashFiles('webapp/mc-data/src/test/kotlin/app/mcorg/data/minecraft/extract/ServerFileDownloader.kt') }}
+          restore-keys: |
+            minecraft-server-data-
       - name: Generate JWT signing keys
         working-directory: ./webapp/mc-web
         run: bash create-keys.sh
