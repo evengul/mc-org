@@ -8,6 +8,9 @@ on:
       - webapp/pom.xml
       - webapp/*/pom.xml
 
+permissions:
+  contents: read
+
 jobs:
   unit-tests:
     name: Unit Tests

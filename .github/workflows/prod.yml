@@ -13,6 +13,9 @@ on:
       - webapp/pom.xml
       - webapp/*/pom.xml
       - webapp/Dockerfile
+permissions:
+  contents: read
+
 jobs:
   deploy:
     name: Deploy app
