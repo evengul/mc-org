@@ -33,11 +33,25 @@ For epics touching UI, load `/docs-ia` and `/docs-product`. The IA and design sy
 
 ## Determining PO involvement
 
-Involve the `product-owner` agent when the epic has meaningful user-facing behaviour to define — new UI, changed workflows, new user-visible features.
+The single deciding question is: **will a user see, feel, or experience anything differently when this epic is complete?**
 
-Do NOT involve the `product-owner` agent when the epic is purely technical — database migrations, architecture rewrites, caching implementations, performance work, internal refactors with no user-visible change.
+If yes — involve the `product-owner` agent. This includes:
+- UI changes of any kind (layout, styling, component changes, new pages)
+- Changed workflows or navigation
+- New or removed user-visible features
+- Performance changes the user will notice
+- Anything that changes what a user can do or how they do it
 
-When unsure: ask the user, or involve the PO anyway. Only skip the PO when it is unambiguous that no user-facing behaviour is being defined or changed.
+If no — skip the PO. This means the change is completely invisible to users:
+- Database migrations with no UI impact
+- Connection pool or infrastructure changes
+- Caching that doesn't change behaviour
+- Internal refactors that produce identical output
+- Logging, monitoring, build tooling changes
+
+**The classification trap**: "It's just a rewrite / refactor" does not make something technical. A frontend rewrite changes everything the user sees — it is a feature epic. A CSS token rename that produces identical visual output is technical. The motivation for the change is irrelevant — only the user-visible outcome matters.
+
+When unsure: ask the user, or involve the PO anyway. Only skip the PO when the answer to the deciding question is unambiguously no.
 
 ## Output format
 
@@ -82,9 +96,9 @@ Explain why this approach is safe and what the rollback position is at each stag
 Ordered list. Hard dependencies noted explicitly. Parallelisation opportunities flagged.
 
 1. **[Feature name]** — [one sentence description]
-   - Depends on: [none / feature N]
-   - Restricted area: [yes/no — if yes, which]
-   - Can parallelise with: [none / feature N]
+    - Depends on: [none / feature N]
+    - Restricted area: [yes/no — if yes, which]
+    - Can parallelise with: [none / feature N]
 
 2. ...
 

@@ -13,7 +13,7 @@ Orchestrates the full epic planning flow for a large, cross-cutting change.
 1. You provide a description (can be rough or detailed)
 2. architect agent determines if PO involvement is needed
 3a. Technical epic: architect drafts directly
-3b. Feature epic: PO defines user value first, architect plans on top of that
+3b. Feature epic: PO produces product framing block, architect plans on top of that
 4. You iterate — fill gaps, correct assumptions, answer questions
 5. When satisfied: trigger tech-lead review with "ready for tech review"
 6. Tech-lead returns verdict
@@ -25,23 +25,23 @@ Orchestrates the full epic planning flow for a large, cross-cutting change.
 
 Use the `architect` agent to read the description and classify it:
 
-- **Technical epic**: database migrations, architecture rewrites, caching, performance work, internal refactors with no user-visible change → skip PO, go straight to Step 3a
-- **Feature epic**: new UI, changed workflows, new user-visible features → involve PO in Step 3b
+- **Technical epic**: no user-visible change when complete → skip PO, go straight to Step 3a
+- **Feature epic**: user will see, feel, or experience anything differently → involve PO in Step 3b
 - **Uncertain**: architect asks the user directly before proceeding
 
 ## Step 2 — PO involvement (feature epics only)
 
-Use the `product-owner` agent to define:
-- Which personas are affected and how
-- What the user value is
-- Phase compliance — does this belong in Phase 1, 2, or 3?
-- Any scope concerns from a product perspective
+Use the `product-owner` agent in **epic context (Context B)**. It must produce the full product framing block as defined in its output format — not a summary, not prose.
 
-The PO produces a brief (not a full spec — just the product framing). The architect uses this as input.
+The framing block covers: personas affected, user value, phase compliance, scope concerns, IA conflicts, and a PO verdict.
+
+Do not proceed to Step 3 until the PO has returned the complete framing block. If the PO returns a summary or prose instead of the structured block, instruct it to re-output using Context B format explicitly. The architect reads this block directly as input — it cannot work from a paraphrase.
 
 ## Step 3 — Architect drafts epic spec
 
-Use the `architect` agent to produce the full epic spec:
+Use the `architect` agent to produce the full epic spec. For feature epics, pass the PO's complete framing block as input — do not summarise it.
+
+The architect produces:
 - Current state vs. target state
 - Migration strategy
 - Decomposition into child features with sequencing and dependency mapping
@@ -83,11 +83,11 @@ On approval (either "Approved" or "Changes recommended" where user accepts):
 
 1. Write the epic spec to `tasks/epics/{slug}.md` where slug is kebab-case epic name
 2. Use the `/linear` skill to:
-    - Create a Linear epic in workspace evegul, team Mcorg
-    - Title: epic name
-    - Description: epic goal + migration strategy summary + link to spec file
-    - Create child Linear issues for each child feature (stub only — full spec comes via /new-task)
-    - Link all child issues to the epic
+   - Create a Linear epic in workspace evegul, team Mcorg
+   - Title: epic name
+   - Description: epic goal + migration strategy summary + link to spec file
+   - Create child Linear issues for each child feature (stub only — full spec comes via /new-task)
+   - Link all child issues to the epic
 3. Add the Linear epic ID and child issue IDs to the epic spec front matter
 4. Present the **Next steps** section from the epic spec prominently — this is the user's guide to proceeding
 5. Confirm all actions to the user

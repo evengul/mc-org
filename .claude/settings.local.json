@@ -32,7 +32,19 @@
       "mcp__linear__create_issue_label",
       "mcp__linear__list_issue_labels",
       "mcp__linear__save_issue",
-      "Bash(npx skills:*)"
+      "Bash(npx skills:*)",
+      "mcp__linear-server__get_issue",
+      "WebFetch(domain:htmx.org)",
+      "mcp__linear-server__save_issue",
+      "Bash(ls:*)",
+      "Bash(for f in ab7e939e936ca360a ac5ff655c8306a3d0 acd5f111be5eca737)",
+      "Bash(do echo \"=== $f ===\")",
+      "Read(//private/tmp/claude-502/-Users-even-gultvedt-git-mc-org/tasks/**)",
+      "Bash(python3 -c \"import sys,json; d=json.loads\\(sys.stdin.read\\(\\)\\); print\\(d.get\\(''type'',''?''\\), ''-'', d.get\\(''message'',{}\\).get\\(''content'',[{}]\\)[-1].get\\(''text'',''''\\)[:120] if d.get\\(''type''\\)==''assistant'' else d.get\\(''data'',{}\\).get\\(''statusMessage'',''working...''\\)[:120]\\)\")",
+      "Bash(done)",
+      "Bash(python3 -c \"import sys,json; d=json.loads\\(sys.stdin.read\\(\\)\\); t=d.get\\(''type'',''?''\\); print\\(t, ''-'', d.get\\(''message'',{}\\).get\\(''content'',[{}]\\)[-1].get\\(''text'',''''\\)[:150] if t==''assistant'' else d.get\\(''data'',{}\\).get\\(''statusMessage'',''working...''\\)[:150]\\)\")",
+      "Bash(for f in ac5ff655c8306a3d0 acd5f111be5eca737)",
+      "Bash(python3 -c \"import sys,json; d=json.loads\\(sys.stdin.read\\(\\)\\); t=d.get\\(''type'',''?''\\); c=d.get\\(''message'',{}\\).get\\(''content'',[]\\); text=[x.get\\(''text'',''''\\) for x in c if x.get\\(''type''\\)==''text'']; print\\(t, ''-'', \\(text[-1] if text else str\\(d.get\\(''data'',{}\\)\\)\\)[:200]\\)\")"
     ]
   },
   "enableAllProjectMcpServers": true,
