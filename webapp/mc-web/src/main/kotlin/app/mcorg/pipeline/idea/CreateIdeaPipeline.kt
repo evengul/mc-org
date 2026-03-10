@@ -47,7 +47,7 @@ suspend fun ApplicationCall.handleCreateIdea() {
 
     handlePipeline(
         onSuccess = { ideaId ->
-            clientRedirect("/app/ideas/$ideaId")
+            clientRedirect("/ideas/$ideaId")
         }
     ) {
         val input = ValidateIdeaInputStep.run(data)

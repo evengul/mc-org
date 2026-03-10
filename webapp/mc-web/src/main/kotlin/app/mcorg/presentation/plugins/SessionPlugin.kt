@@ -15,7 +15,7 @@ const val WIZARD_SESSION_COOKIE_NAME = "CREATE_IDEA_WIZARD_DATA"
 fun Application.configureSessions() {
     install(Sessions) {
         cookie<CreateIdeaWizardSession>(WIZARD_SESSION_COOKIE_NAME, directorySessionStorage(File(".sessions/idea-wizard"), cached = true)) {
-            cookie.path = "/app/ideas/create"
+            cookie.path = "/ideas/create"
             cookie.maxAgeInSeconds = 60 * 60 // 1 hour
             cookie.httpOnly = true
             cookie.secure = this@configureSessions.environment.config.propertyOrNull("ktor.deployment.sslPort") != null

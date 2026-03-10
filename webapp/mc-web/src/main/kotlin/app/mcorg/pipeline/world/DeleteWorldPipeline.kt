@@ -16,7 +16,7 @@ suspend fun ApplicationCall.handleDeleteWorld() {
 
     handlePipeline(
         onSuccess = {
-            if (this.request.header("HX-Current-URL")?.contains("/app/admin") == true) {
+            if (this.request.header("HX-Current-URL")?.contains("/admin") == true) {
                 respondEmptyHtml()
             } else {
                 clientRedirect(Link.Home.to)

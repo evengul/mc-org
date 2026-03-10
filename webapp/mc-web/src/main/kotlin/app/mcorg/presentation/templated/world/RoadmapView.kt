@@ -277,7 +277,7 @@ private fun DIV.roadmapEmptyState(worldId: Int) {
         variant = EmptyStateVariant.DEFAULT
     ) {
         actionButton("Create Project") {
-            href = "/app/worlds/$worldId/projects/new"
+            href = "/worlds/$worldId/projects/new"
         }
     }
 }

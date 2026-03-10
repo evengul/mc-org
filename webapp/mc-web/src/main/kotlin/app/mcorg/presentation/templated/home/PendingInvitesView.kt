@@ -54,7 +54,7 @@ fun UL.pendingInvitesListView(invites: List<Invite>) {
                     iconLeft = Icons.CLOSE
                     iconSize = IconSize.SMALL
                     buttonBlock = {
-                        attributes["hx-patch"] = "/app/invites/${invite.id}/decline"
+                        attributes["hx-patch"] = "/invites/${invite.id}/decline"
                         attributes["hx-target"] = "#invite-${invite.id}"
                         attributes["hx-confirm"] = "Are you sure you want to decline this invitation?"
                     }
@@ -64,7 +64,7 @@ fun UL.pendingInvitesListView(invites: List<Invite>) {
                     iconLeft = Icons.ADD_WORLD
                     iconSize = IconSize.SMALL
                     buttonBlock = {
-                        attributes["hx-patch"] = "/app/invites/${invite.id}/accept"
+                        attributes["hx-patch"] = "/invites/${invite.id}/accept"
                         attributes["hx-target"] = "#invite-${invite.id}"
                         attributes["hx-confirm"] = "Accept invitation to join ${invite.worldName}?"
                     }

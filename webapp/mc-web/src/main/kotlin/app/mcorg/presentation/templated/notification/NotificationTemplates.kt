@@ -27,10 +27,10 @@ fun notificationsPage(
             // Filter tabs
             div("u-flex u-flex-row u-flex-gap-sm") {
                 div("tabs") {
-                    a(href = "/app/notifications", classes = if (!unreadOnly) "tab tab--active" else "tab") {
+                    a(href = "/notifications", classes = if (!unreadOnly) "tab tab--active" else "tab") {
                         +"All"
                     }
-                    a(href = "/app/notifications?unread=true", classes = if (unreadOnly) "tab tab--active" else "tab") {
+                    a(href = "/notifications?unread=true", classes = if (unreadOnly) "tab tab--active" else "tab") {
                         +"Unread"
                     }
                 }
@@ -38,7 +38,7 @@ fun notificationsPage(
                 // Mark all as read button (only show if there are unread notifications)
                 if (notifications.any { it.readAt == null }) {
                     button(classes = "btn btn--neutral") {
-                        attributes["hx-patch"] = "/app/notifications/read"
+                        attributes["hx-patch"] = "/notifications/read"
                         attributes["hx-target"] = "#notifications-list"
                         attributes["hx-confirm"] = "Mark all notifications as read?"
                         +"Mark All Read"
@@ -97,7 +97,7 @@ fun DIV.notificationItem(notification: Notification) {
             // Mark as read button (only show for unread notifications)
             if (notification.readAt == null) {
                 button(classes = "btn btn--sm btn--neutral notification-item__mark-read-btn") {
-                    attributes["hx-patch"] = "/app/notifications/${notification.id}/read"
+                    attributes["hx-patch"] = "/notifications/${notification.id}/read"
                     +"Mark Read"
                 }
             }
@@ -117,7 +117,7 @@ fun DIV.notificationsEmptyState(unreadOnly: Boolean) {
         div("notice__body") {
             if (unreadOnly) {
                 p { +"You have no unread notifications." }
-                a(href = "/app/notifications") {
+                a(href = "/notifications") {
                     +"View all notifications"
                 }
             } else {

@@ -62,6 +62,6 @@ class GetLandingIT : WithUser() {
             cookie(AUTH_COOKIE, jwt)
         }
         assertEquals(HttpStatusCode.Found, response.status)
-        assertEquals("/app", response.headers["Location"])
+        assertEquals("/worlds", response.headers["Location"])
     }
 }

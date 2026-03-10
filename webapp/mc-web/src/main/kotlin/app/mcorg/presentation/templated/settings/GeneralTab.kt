@@ -16,7 +16,7 @@ fun FORM.worldNameForm(world: World) {
 
     hxTarget("#$ALERT_CONTAINER_ID")
     hxSwap("afterbegin")
-    hxPatch("/app/worlds/${world.id}/settings/name")
+    hxPatch("/worlds/${world.id}/settings/name")
     hxTrigger("input changed delay:500ms from:#world-name-input, submit")
 
     label {
@@ -46,7 +46,7 @@ fun FORM.worldDescriptionForm(world: World) {
 
     hxTarget("#$ALERT_CONTAINER_ID")
     hxSwap("afterbegin")
-    hxPatch("/app/worlds/${world.id}/settings/description")
+    hxPatch("/worlds/${world.id}/settings/description")
     hxTrigger("input changed delay:500ms from:#world-description-input, submit")
 
     label {
@@ -72,7 +72,7 @@ fun FORM.worldVersionForm(world: World, supportedVersions: List<MinecraftVersion
 
     hxTarget("#$ALERT_CONTAINER_ID")
     hxSwap("afterbegin")
-    hxPatch("/app/worlds/${world.id}/settings/version")
+    hxPatch("/worlds/${world.id}/settings/version")
     hxTrigger("change changed delay:500ms from:#world-version-select")
 
     label {

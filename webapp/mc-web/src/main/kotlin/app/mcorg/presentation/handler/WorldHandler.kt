@@ -1,5 +1,8 @@
 package app.mcorg.presentation.handler
 
+import app.mcorg.pipeline.invitation.commonsteps.GetUserInvitationsStep
+import app.mcorg.pipeline.minecraftfiles.GetSupportedVersionsStep
+import app.mcorg.pipeline.notification.getUnreadNotificationsOrZero
 import app.mcorg.pipeline.project.dependencies.handleCreateProjectDependency
 import app.mcorg.pipeline.project.dependencies.handleDeleteProjectDependency
 import app.mcorg.pipeline.project.viewpreference.handleSetViewPreference
@@ -43,6 +46,8 @@ import app.mcorg.pipeline.world.settings.handleGetWorldSettings
 import app.mcorg.pipeline.world.settings.invitations.handleCancelInvitation
 import app.mcorg.pipeline.world.settings.invitations.handleCreateInvitation
 import app.mcorg.pipeline.world.settings.invitations.handleGetInvitationListFragment
+import app.mcorg.pipeline.world.commonsteps.GetPermittedWorldsInput
+import app.mcorg.pipeline.world.commonsteps.GetPermittedWorldsStep
 import app.mcorg.pipeline.world.settings.members.handleRemoveWorldMember
 import app.mcorg.pipeline.world.settings.members.handleUpdateWorldMemberRole
 import app.mcorg.presentation.plugins.ActionTaskParamPlugin
@@ -54,6 +59,10 @@ import app.mcorg.presentation.plugins.ResourceGatheringIdParamPlugin
 import app.mcorg.presentation.plugins.WorldAdminPlugin
 import app.mcorg.presentation.plugins.WorldMemberParamPlugin
 import app.mcorg.presentation.plugins.WorldParamPlugin
+import app.mcorg.presentation.templated.home.homePage
+import app.mcorg.presentation.utils.getUser
+import app.mcorg.presentation.utils.respondHtml
+import io.ktor.server.application.ApplicationCall
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.delete
 import io.ktor.server.routing.get
@@ -65,6 +74,9 @@ import io.ktor.server.routing.route
 class WorldHandler {
     fun Route.worldRoutes() {
         route("/worlds") {
+            get {
+                call.handleGetHome()
+            }
             post {
                 call.handleCreateWorld()
             }
@@ -278,6 +290,25 @@ class WorldHandler {
                     }
                 }
             }
+        }
+    }
+
+    private suspend fun ApplicationCall.handleGetHome() {
+        val user = getUser()
+
+        val notifications = getUnreadNotificationsOrZero(user.id)
+
+        val supportedVersions = GetSupportedVersionsStep.getSupportedVersions()
+
+        handlePipeline(
+            onSuccess = { (invitations, worlds) ->
+                respondHtml(homePage(user, invitations, worlds, supportedVersions, notifications))
+            }
+        ) {
+            parallel(
+                { GetUserInvitationsStep.run(user.id) },
+                { GetPermittedWorldsStep.run(GetPermittedWorldsInput(userId = user.id)) }
+            )
         }
     }
 }

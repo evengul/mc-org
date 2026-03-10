@@ -66,7 +66,7 @@ fun createIdeaPage(
 fun FORM.createIdeaStageContent(data: CreateIdeaWizardSession, supportedVersions: List<MinecraftVersion.Release>) {
     id = "create-idea-form"
 
-    hxPost("/app/ideas/create")
+    hxPost("/ideas/create")
     hxSwap("none")
 
     when(data.currentStage) {
@@ -89,7 +89,7 @@ private fun SPAN.navigationButtons(stage: CreateIdeaStage) {
         neutralButton("Previous stage: ${it.displayName}") {
             buttonBlock = {
                 type = ButtonType.button
-                hxGet("/app/ideas/create?stage=${it.name}")
+                hxGet("/ideas/create?stage=${it.name}")
                 hxInclude("#create-idea-form")
                 hxTarget("#create-idea-form")
                 hxSwap("outerHTML")
@@ -104,7 +104,7 @@ private fun SPAN.navigationButtons(stage: CreateIdeaStage) {
                 buttonBlock = {
                     id = "next-stage-button"
                     type = ButtonType.button
-                    hxGet("/app/ideas/create?stage=${it.name}")
+                    hxGet("/ideas/create?stage=${it.name}")
                     hxInclude("#create-idea-form")
                     hxTarget("#create-idea-form")
                     hxSwap("outerHTML")

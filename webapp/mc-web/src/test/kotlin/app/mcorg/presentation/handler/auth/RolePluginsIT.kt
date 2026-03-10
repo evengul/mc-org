@@ -29,7 +29,7 @@ class RolePluginsIT : WithUser() {
 
         val user = createExtraUser("banned")
 
-        val response = client.get("/app") {
+        val response = client.get("/worlds") {
             addAuthCookie(this, user)
         }
 
@@ -42,7 +42,7 @@ class RolePluginsIT : WithUser() {
 
         val user = createExtraUser()
 
-        val response = client.get("/app") {
+        val response = client.get("/worlds") {
             addAuthCookie(this, user)
         }
 
@@ -56,7 +56,7 @@ class RolePluginsIT : WithUser() {
 
         val user = createExtraUser()
 
-        val response = client.get("/app/admin") {
+        val response = client.get("/admin") {
             addAuthCookie(this, user)
         }
 
@@ -69,7 +69,7 @@ class RolePluginsIT : WithUser() {
 
         val user = createExtraUser("superadmin")
 
-        val response = client.get("/app/admin") {
+        val response = client.get("/admin") {
             addAuthCookie(this, user)
         }
 
@@ -82,10 +82,12 @@ class RolePluginsIT : WithUser() {
     private fun ApplicationTestBuilder.setup(): HttpClient {
         routing {
             install(AuthPlugin)
-            install(BannedPlugin)
-            route("/app") {
-                get {
-                    call.respondText("App content")
+            route("") {
+                install(BannedPlugin)
+                route("/worlds") {
+                    get {
+                        call.respondText("App content")
+                    }
                 }
                 route("/admin") {
                     install(AdminPlugin)

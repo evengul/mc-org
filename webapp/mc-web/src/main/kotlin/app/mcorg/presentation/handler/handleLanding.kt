@@ -12,7 +12,7 @@ import io.ktor.server.response.*
 suspend fun ApplicationCall.handleGetLanding() {
     pipeline(
         onSuccess = {
-            respondRedirect("/app")
+            respondRedirect("/worlds")
         },
         onFailure = { error: AppFailure ->
             when (error) {

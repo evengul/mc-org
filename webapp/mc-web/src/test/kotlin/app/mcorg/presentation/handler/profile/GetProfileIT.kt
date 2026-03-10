@@ -25,7 +25,7 @@ class GetProfileIT : WithUser() {
     fun `Get profile page`() = testApplication {
         val client = setup()
 
-        val response = client.get("/app/profile") {
+        val response = client.get("/profile") {
             addAuthCookie(this)
         }
 
@@ -36,10 +36,8 @@ class GetProfileIT : WithUser() {
     private fun ApplicationTestBuilder.setup(): HttpClient {
         routing {
             install(AuthPlugin)
-            route("/app") {
-                with(ProfileHandler()) {
-                    profileRoutes()
-                }
+            with(ProfileHandler()) {
+                profileRoutes()
             }
         }
         return createClient {

@@ -19,7 +19,7 @@ fun <T : Tag> T.createWorldModal(user: TokenProfile, versions: List<MinecraftVer
     hxValues = if (user.isDemoUserInProduction()) null else FormModalHxValues(
         hxTarget = "#home-worlds",
         method = FormModalHttpMethod.POST,
-        href = "/app/worlds"
+        href = "/worlds"
     ),
     openButtonBlock = {
         addClass("create-world-button")

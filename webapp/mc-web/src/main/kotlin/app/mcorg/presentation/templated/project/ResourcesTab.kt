@@ -133,7 +133,7 @@ fun DIV.resourcesTab(
                     iconLeft = Icons.MENU_ADD
                     iconSize = IconSize.SMALL
                     buttonBlock = {
-                        hxPost("/app/worlds/${project.worldId}/projects/${project.id}/resources/suggest-all-paths")
+                        hxPost("/worlds/${project.worldId}/projects/${project.id}/resources/suggest-all-paths")
                         attributes["hx-confirm"] = "This will auto-suggest production paths for all items without a confirmed path. Existing unconfirmed paths will be overwritten. Continue?"
                     }
                 }
@@ -243,7 +243,7 @@ fun LI.projectResourceGatheringItem(worldId: Int, projectId: Int, item: Resource
                 iconLeft = Icons.Search
                 iconSize = IconSize.SMALL
                 buttonBlock = {
-                    hxGet("/app/worlds/$worldId/projects/$projectId/resources/gathering/${item.id}/select-path?depth=2&maxBranches=3")
+                    hxGet("/worlds/$worldId/projects/$projectId/resources/gathering/${item.id}/select-path?depth=2&maxBranches=3")
                     hxTarget("#found-paths-for-gathering-${item.id}")
                     hxSwap("innerHTML")
                 }
@@ -272,7 +272,7 @@ fun LI.projectResourceGatheringItem(worldId: Int, projectId: Int, item: Resource
     div("project-resources-collection-found-paths") {
         id = "found-paths-for-gathering-${item.id}"
         if (hasPlan) {
-            hxGet("/app/worlds/$worldId/projects/$projectId/resources/gathering/${item.id}/plan-view")
+            hxGet("/worlds/$worldId/projects/$projectId/resources/gathering/${item.id}/plan-view")
             hxTarget("#found-paths-for-gathering-${item.id}")
             hxSwap("innerHTML")
             hxTrigger("load")
@@ -404,7 +404,7 @@ private fun DIV.addResourcesActions(worldId: Int, projectId: Int, gatheringId: I
             ghostButton("+$amount") {
                 buttonBlock = {
                     attributes["hx-vals"] = """{"amount": $amount}"""
-                    hxPatch("/app/worlds/$worldId/projects/$projectId/resources/gathering/$gatheringId/done-more")
+                    hxPatch("/worlds/$worldId/projects/$projectId/resources/gathering/$gatheringId/done-more")
                     hxTarget("#resource-gathering-item-${gatheringId}-progress")
                     hxSwap("outerHTML")
                 }

@@ -52,7 +52,7 @@ private fun FORM.categoryField(selectedCategory: IdeaCategory? = null) {
                     checked = category == selectedCategory
                     required = true
                     // HTMX attributes to load category-specific fields
-                    attributes["hx-get"] = "/app/ideas/create/fields/${category.name.lowercase()}"
+                    attributes["hx-get"] = "/ideas/create/fields/${category.name.lowercase()}"
                     attributes["hx-target"] = "#category-specific-fields"
                     attributes["hx-swap"] = "innerHTML"
                     attributes["hx-trigger"] = "change"

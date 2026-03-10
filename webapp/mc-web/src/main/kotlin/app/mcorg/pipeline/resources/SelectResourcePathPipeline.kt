@@ -29,7 +29,7 @@ import org.slf4j.LoggerFactory
 
 /**
  * Returns a lightweight read-only view for items that already have a saved plan.
- * GET /app/worlds/{worldId}/projects/{projectId}/resources/gathering/{gatheringId}/plan-view
+ * GET /worlds/{worldId}/projects/{projectId}/resources/gathering/{gatheringId}/plan-view
  * Used for auto-loading on page render — no graph building required.
  */
 suspend fun ApplicationCall.handleGetPlanView() {
@@ -50,7 +50,7 @@ suspend fun ApplicationCall.handleGetPlanView() {
 
 /**
  * Handles the initial path selection view
- * GET /app/worlds/{worldId}/projects/{projectId}/resources/gathering/{gatheringId}/select-path
+ * GET /worlds/{worldId}/projects/{projectId}/resources/gathering/{gatheringId}/select-path
  * Query params: depth (default 2), maxBranches (default 3)
  */
 suspend fun ApplicationCall.handleSelectResourcePath() {
@@ -87,7 +87,7 @@ suspend fun ApplicationCall.handleSelectResourcePath() {
 
 /**
  * Handles expanding a specific node in the tree
- * GET /app/worlds/{worldId}/projects/{projectId}/resources/gathering/{gatheringId}/select-path/expand
+ * GET /worlds/{worldId}/projects/{projectId}/resources/gathering/{gatheringId}/select-path/expand
  * Query params: nodeItemId (required), depth (default 2), maxBranches (default 3)
  */
 suspend fun ApplicationCall.handleExpandPathNode() {
@@ -129,7 +129,7 @@ suspend fun ApplicationCall.handleExpandPathNode() {
 
 /**
  * Saves a path selection to the database
- * PUT /app/worlds/{worldId}/projects/{projectId}/resources/gathering/{gatheringId}/select-path
+ * PUT /worlds/{worldId}/projects/{projectId}/resources/gathering/{gatheringId}/select-path
  * Form params: itemId (item being configured), sourceType (source selected for it)
  */
 suspend fun ApplicationCall.handleSaveResourcePath() {
@@ -193,7 +193,7 @@ suspend fun ApplicationCall.handleSaveResourcePath() {
 
 /**
  * Confirms a path selection
- * PUT /app/worlds/{worldId}/projects/{projectId}/resources/gathering/{gatheringId}/select-path/confirm
+ * PUT /worlds/{worldId}/projects/{projectId}/resources/gathering/{gatheringId}/select-path/confirm
  */
 suspend fun ApplicationCall.handleConfirmResourcePath() {
     val worldId = this.getWorldId()
@@ -218,7 +218,7 @@ suspend fun ApplicationCall.handleConfirmResourcePath() {
 
 /**
  * Resets (deletes) a saved path selection so the user can start over
- * DELETE /app/worlds/{worldId}/projects/{projectId}/resources/gathering/{gatheringId}/select-path
+ * DELETE /worlds/{worldId}/projects/{projectId}/resources/gathering/{gatheringId}/select-path
  */
 suspend fun ApplicationCall.handleResetResourcePath() {
     val worldId = this.getWorldId()
@@ -425,7 +425,7 @@ private val GetWorldProductionItemIdsStep = DatabaseSteps.query<Int, Set<String>
 
 /**
  * Auto-suggests a production path for a single resource gathering item.
- * POST /app/worlds/{worldId}/projects/{projectId}/resources/gathering/{gatheringId}/suggest-path
+ * POST /worlds/{worldId}/projects/{projectId}/resources/gathering/{gatheringId}/suggest-path
  * Query params: recipeThreshold (default 100), depth (default 5), maxBranches (default 5)
  */
 suspend fun ApplicationCall.handleSuggestResourcePath() {
@@ -496,7 +496,7 @@ suspend fun ApplicationCall.handleSuggestResourcePath() {
 
 /**
  * Auto-suggests production paths for all resource gathering items in a project.
- * POST /app/worlds/{worldId}/projects/{projectId}/resources/suggest-all-paths
+ * POST /worlds/{worldId}/projects/{projectId}/resources/suggest-all-paths
  * Query params: recipeThreshold (default 100)
  *
  * Returns an HX-Redirect to reload the project page with updated plans.
@@ -574,6 +574,6 @@ suspend fun ApplicationCall.handleSuggestAllResourcePaths() {
     logger.info("Suggest-all for project {}: {} succeeded, {} skipped (confirmed), {} failed out of {} items",
         projectId, successCount, skipCount, failureCount, gatheringItems.size)
 
-    clientRedirect("/app/worlds/$worldId/projects/$projectId")
+    clientRedirect("/worlds/$worldId/projects/$projectId")
 }
 

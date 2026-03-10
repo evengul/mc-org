@@ -75,7 +75,7 @@ fun FORM.generalFields(data: CreateIdeaWizardSession) {
             id = "idea-litematic-file"
             name = "litematicFile"
             classes += "form-control"
-            hxPost("/app/ideas/create/litematic")
+            hxPost("/ideas/create/litematic")
             hxTarget("#create-idea-general-fields")
             hxSwap("innerHTML")
             hxTrigger("change")

@@ -33,7 +33,7 @@ fun FORM.versionFields(supportedVersions: List<MinecraftVersion.Release>, versio
                 }
             ) {
                 block = {
-                    attributes["hx-get"] = "/app/ideas/create/version-fields"
+                    attributes["hx-get"] = "/ideas/create/version-fields"
                     attributes["hx-target"] = "#version-fields"
                     attributes["hx-swap"] = "innerHTML"
                     attributes["hx-trigger"] = "change"

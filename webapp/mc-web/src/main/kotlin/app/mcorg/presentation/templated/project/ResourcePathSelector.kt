@@ -48,7 +48,7 @@ fun DIV.pathSelectorTree(
                         iconLeft = Icons.MENU_ADD
                         iconSize = IconSize.SMALL
                         buttonBlock = {
-                            hxPost("/app/worlds/$worldId/projects/$projectId/resources/gathering/$gatheringId/suggest-path")
+                            hxPost("/worlds/$worldId/projects/$projectId/resources/gathering/$gatheringId/suggest-path")
                             hxTarget("#path-selector-$gatheringId")
                             hxSwap("outerHTML")
                         }
@@ -76,7 +76,7 @@ fun DIV.pathSelectorTree(
                             iconLeft = Icons.MENU_ADD
                             iconSize = IconSize.SMALL
                             buttonBlock = {
-                                hxGet("/app/worlds/$worldId/projects/$projectId/resources/gathering/$gatheringId/select-path?depth=$depth&maxBranches=${maxBranches + 3}")
+                                hxGet("/worlds/$worldId/projects/$projectId/resources/gathering/$gatheringId/select-path?depth=$depth&maxBranches=${maxBranches + 3}")
                                 hxTarget("#path-selector-$gatheringId")
                                 hxSwap("outerHTML")
                             }
@@ -116,7 +116,7 @@ fun LI.pathNode(
     div("path-node__header") {
         button(classes = "path-node__button") {
             type = ButtonType.button
-            hxPut("/app/worlds/$worldId/projects/$projectId/resources/gathering/$gatheringId/select-path")
+            hxPut("/worlds/$worldId/projects/$projectId/resources/gathering/$gatheringId/select-path")
             attributes["hx-vals"] = """{"itemId": "$itemId", "sourceType": "${branch.source.getKey()}"}"""
             hxTarget("#path-selector-$gatheringId")
             hxSwap("outerHTML")
@@ -181,7 +181,7 @@ fun LI.pathNode(
                                         iconLeft = Icons.MENU_ADD
                                         iconSize = IconSize.SMALL
                                         buttonBlock = {
-                                            hxGet("/app/worlds/$worldId/projects/$projectId/resources/gathering/$gatheringId/select-path/expand?nodeItemId=${requiredTree.targetItem.itemId}&depth=$depth&maxBranches=$maxBranches")
+                                            hxGet("/worlds/$worldId/projects/$projectId/resources/gathering/$gatheringId/select-path/expand?nodeItemId=${requiredTree.targetItem.itemId}&depth=$depth&maxBranches=$maxBranches")
                                             hxTarget("closest .path-requirement")
                                             hxSwap("innerHTML")
                                         }
@@ -191,7 +191,7 @@ fun LI.pathNode(
                                         iconLeft = Icons.MENU_ADD
                                         iconSize = IconSize.SMALL
                                         buttonBlock = {
-                                            hxGet("/app/worlds/$worldId/projects/$projectId/resources/gathering/$gatheringId/select-path/expand?nodeItemId=${requiredTree.targetItem.itemId}&depth=$depth&maxBranches=$maxBranches")
+                                            hxGet("/worlds/$worldId/projects/$projectId/resources/gathering/$gatheringId/select-path/expand?nodeItemId=${requiredTree.targetItem.itemId}&depth=$depth&maxBranches=$maxBranches")
                                             hxTarget("closest .path-requirement")
                                             hxSwap("innerHTML")
                                         }
@@ -362,7 +362,7 @@ fun DIV.pathSummary(worldId: Int, projectId: Int, gatheringId: Int, selectedPath
                     ghostButton("Reconfigure") {
                         buttonBlock = {
                             hxDeleteWithConfirm(
-                                url = "/app/worlds/$worldId/projects/$projectId/resources/gathering/$gatheringId/select-path",
+                                url = "/worlds/$worldId/projects/$projectId/resources/gathering/$gatheringId/select-path",
                                 title = "Reset Resource Path",
                                 description = "This will clear your current path selection so you can start over."
                             )
@@ -373,7 +373,7 @@ fun DIV.pathSummary(worldId: Int, projectId: Int, gatheringId: Int, selectedPath
                 } else if (isComplete) {
                     actionButton("Confirm Path") {
                         buttonBlock = {
-                            hxPut("/app/worlds/$worldId/projects/$projectId/resources/gathering/$gatheringId/select-path/confirm")
+                            hxPut("/worlds/$worldId/projects/$projectId/resources/gathering/$gatheringId/select-path/confirm")
                             hxTarget("#path-summary-$gatheringId")
                             hxSwap("outerHTML")
                         }

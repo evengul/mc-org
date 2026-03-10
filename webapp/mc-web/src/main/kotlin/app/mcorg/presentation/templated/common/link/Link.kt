@@ -132,7 +132,7 @@ sealed interface Link {
     }
 
     object Worlds : Link {
-        override val to: String = "/app/worlds"
+        override val to: String = "/worlds"
 
         fun world(id: Int) = World(id)
 
@@ -153,14 +153,14 @@ sealed interface Link {
             }
 
             data class Project(val worldId: Int, val projectId: Int) : Link {
-                override val to: String = "/app/worlds/$worldId/projects/$projectId"
+                override val to: String = "/worlds/$worldId/projects/$projectId"
 
                 fun tasks(): Tasks {
                     return Tasks(worldId, projectId)
                 }
 
                 data class Tasks(val worldId: Int, val projectId: Int): Link {
-                    override val to: String = "/app/worlds/$worldId/projects/$projectId/tasks"
+                    override val to: String = "/worlds/$worldId/projects/$projectId/tasks"
 
                     fun task(taskId: Int): String {
                         return Tasks(worldId, projectId).to + "/$taskId"
@@ -169,38 +169,38 @@ sealed interface Link {
             }
 
             data class ResourceMaps(val worldId: Int): Link {
-                override val to: String = "/app/worlds/$worldId/resources"
+                override val to: String = "/worlds/$worldId/resources"
             }
 
             data class Settings(val worldId: Int) : Link {
-                override val to: String = "/app/worlds/$worldId/settings"
+                override val to: String = "/worlds/$worldId/settings"
             }
         }
     }
 
     object Ideas : Link {
-        override val to: String = "/app/ideas"
+        override val to: String = "/ideas"
 
         @Suppress("unused")
         fun single(id: Int): String {
-            return "/app/ideas/$id"
+            return "/ideas/$id"
         }
     }
 
     object Profile : Link {
-        override val to: String = "/app/profile"
+        override val to: String = "/profile"
     }
 
     object AdminDashboard : Link {
-        override val to: String = "/app/admin"
+        override val to: String = "/admin"
     }
 
     object Notifications : Link {
-        override val to: String = "/app/notifications"
+        override val to: String = "/notifications"
     }
 
     @Suppress("unused")
     object Servers : Link {
-        override val to: String = "/app/servers"
+        override val to: String = "/servers"
     }
 }

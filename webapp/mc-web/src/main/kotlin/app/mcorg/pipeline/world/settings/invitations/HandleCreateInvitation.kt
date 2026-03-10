@@ -275,7 +275,7 @@ class SendInvitationNotificationStep(
             title = "World Invitation Received",
             description = "$inviterUsername has invited you to join the world \"${input.worldName}\"",
             type = NotificationTypes.INVITATION_RECEIVED,
-            link = "/app"
+            link = "/worlds"
         )
 
         return CreateNotificationStep.process(notificationInput).let { result ->

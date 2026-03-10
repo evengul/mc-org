@@ -46,7 +46,7 @@ fun FORM.authorFields(data: CreateIdeaWizardSession) {
                 }
                 layout = RadioGroupLayout.HORIZONTAL
                 block = {
-                    attributes["hx-get"] = "/app/ideas/create/author-fields"
+                    attributes["hx-get"] = "/ideas/create/author-fields"
                     attributes["hx-target"] = "#author-fields"
                     attributes["hx-swap"] = "innerHTML"
                     attributes["hx-trigger"] = "change"
