@@ -365,6 +365,7 @@
                 <version>${surefire.version}</version>
                 <configuration>
                     <excludedGroups>${surefire.excludedGroups}</excludedGroups>
+                    <argLine>-Djavax.net.ssl.trustStore=${session.executionRootDirectory}/truststore.jks -Djavax.net.ssl.trustStorePassword=changeit</argLine>
                 </configuration>
                 <dependencies>
                     <dependency>
