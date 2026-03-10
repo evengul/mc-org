@@ -1,0 +1,178 @@
+/* --- Font faces --- */
+
+@font-face {
+    font-family: 'IBM Plex Mono';
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url('/static/fonts/ibm-plex-mono-400.woff2') format('woff2');
+}
+
+@font-face {
+    font-family: 'IBM Plex Mono';
+    font-style: normal;
+    font-weight: 500;
+    font-display: swap;
+    src: url('/static/fonts/ibm-plex-mono-500.woff2') format('woff2');
+}
+
+@font-face {
+    font-family: 'IBM Plex Mono';
+    font-style: normal;
+    font-weight: 600;
+    font-display: swap;
+    src: url('/static/fonts/ibm-plex-mono-600.woff2') format('woff2');
+}
+
+@font-face {
+    font-family: 'Inter';
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url('/static/fonts/inter-400.woff2') format('woff2');
+}
+
+@font-face {
+    font-family: 'Inter';
+    font-style: normal;
+    font-weight: 500;
+    font-display: swap;
+    src: url('/static/fonts/inter-500.woff2') format('woff2');
+}
+
+/* --- Design tokens --- */
+
+:root {
+    /* Fonts */
+    --font-ui: 'IBM Plex Mono', monospace;
+    --font-body: 'Inter', sans-serif;
+
+    /* Colors */
+    --bg-base: #0F1117;
+    --bg-surface: #181C27;
+    --bg-raised: #1F2435;
+    --border: #2A2F42;
+    --text-primary: #E8EAF0;
+    --text-muted: #6E748A;
+    --text-disabled: #3C4158;
+    --accent: #4A7CFF;
+    --accent-muted: #1E2D5C;
+    --green: #3DBA7A;
+    --amber: #E8A225;
+    --red: #E05252;
+    --progress: #4A7CFF;
+    --green-bg: #1C3828;
+    --red-bg: #3A1E1E;
+
+    /* Typography scale */
+    --text-xs: 11px;
+    --text-sm: 13px;
+    --text-base: 15px;
+    --text-ui: 13px;
+    --text-label: 11px;
+
+    /* Spacing (4px base) */
+    --space-1: 4px;
+    --space-2: 8px;
+    --space-3: 12px;
+    --space-4: 16px;
+    --space-5: 24px;
+    --space-6: 32px;
+    --space-8: 48px;
+
+    /* Layout */
+    --max-width: 1080px;
+    --breakpoint-mobile: 768px;
+    --radius: 6px;
+}
+
+/* --- Section label --- */
+.section-label {
+    font-family: var(--font-ui);
+    font-size: var(--text-label);
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+}
+
+/* --- Layout utilities (Tailwind-style) --- */
+.container {
+    max-width: var(--max-width);
+    margin-inline: auto;
+    padding-inline: var(--space-4);
+}
+
+.surface {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+}
+
+.divider {
+    border-top: 1px solid var(--border);
+}
+
+.flex {
+    display: flex;
+}
+
+.flex-col {
+    flex-direction: column;
+}
+
+.items-center {
+    align-items: center;
+}
+
+.justify-between {
+    justify-content: space-between;
+}
+
+.gap-1 {
+    gap: var(--space-1);
+}
+
+.gap-2 {
+    gap: var(--space-2);
+}
+
+.gap-3 {
+    gap: var(--space-3);
+}
+
+.gap-4 {
+    gap: var(--space-4);
+}
+
+.gap-5 {
+    gap: var(--space-5);
+}
+
+.w-full {
+    width: 100%;
+}
+
+.mt-4 {
+    margin-top: var(--space-4);
+}
+
+.mt-5 {
+    margin-top: var(--space-5);
+}
+
+.mb-4 {
+    margin-bottom: var(--space-4);
+}
+
+.mb-5 {
+    margin-bottom: var(--space-5);
+}
+
+.p-4 {
+    padding: var(--space-4);
+}
+
+.p-5 {
+    padding: var(--space-5);
+}
