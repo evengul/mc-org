@@ -2,6 +2,7 @@ package app.mcorg.presentation.handler
 
 import app.mcorg.pipeline.project.dependencies.handleCreateProjectDependency
 import app.mcorg.pipeline.project.dependencies.handleDeleteProjectDependency
+import app.mcorg.pipeline.project.viewpreference.handleSetViewPreference
 import app.mcorg.pipeline.project.getStageSelectFragment
 import app.mcorg.pipeline.project.handleCreateProject
 import app.mcorg.pipeline.project.handleDeleteProject
@@ -208,6 +209,9 @@ class WorldHandler {
                                     call.handleDeleteActionTask()
                                 }
                             }
+                        }
+                        post("/view-preference") {
+                            call.handleSetViewPreference()
                         }
                     }
                 }

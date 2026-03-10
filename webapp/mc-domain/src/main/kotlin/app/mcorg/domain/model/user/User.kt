@@ -33,6 +33,7 @@ data class TokenProfile(
     val minecraftUsername: String,
     val displayName: String,
     val roles: List<String>,
+    val activeWorldId: Int? = null,
 ) : User {
     val isSuperAdmin: Boolean
         get() = roles.contains("superadmin")

@@ -274,6 +274,42 @@ class ConvertTokenStepTest {
     }
 
     // =====================================
+    // activeWorldId Tests
+    // =====================================
+
+    @Test
+    fun `should decode token without active_world_id claim to null activeWorldId`() {
+        // Old tokens will not have this claim
+        val token = createValidJwtToken()
+
+        val tokenProfile = TestUtils.executeAndAssertSuccess(convertTokenStep, token)
+        assertEquals(null, tokenProfile.activeWorldId)
+    }
+
+    @Test
+    fun `should decode token with active_world_id claim correctly`() {
+        val (publicKey, privateKey) = JwtHelper.getKeys()
+        val algorithm = Algorithm.RSA256(publicKey, privateKey)
+
+        val token = JWT.create()
+            .withIssuer(ISSUER)
+            .withAudience(JwtHelper.AUDIENCE)
+            .withSubject(TEST_USER_ID.toString())
+            .withClaim("sub", TEST_USER_ID)
+            .withClaim("minecraft_username", TEST_USERNAME)
+            .withClaim("minecraft_uuid", TEST_UUID)
+            .withClaim("display_name", TEST_DISPLAY_NAME)
+            .withClaim("roles", TEST_ROLES)
+            .withClaim("active_world_id", 42)
+            .withExpiresAt(Date.from(Instant.now().plusSeconds(3600)))
+            .withIssuedAt(Date.from(Instant.now()))
+            .sign(algorithm)
+
+        val tokenProfile = TestUtils.executeAndAssertSuccess(convertTokenStep, token)
+        assertEquals(42, tokenProfile.activeWorldId)
+    }
+
+    // =====================================
     // Edge Cases and Data Extraction Tests
     // =====================================
 

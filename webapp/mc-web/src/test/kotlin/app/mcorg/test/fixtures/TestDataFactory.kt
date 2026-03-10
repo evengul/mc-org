@@ -18,13 +18,15 @@ object TestDataFactory {
         uuid: String = "550e8400-e29b-41d4-a716-446655440000",
         minecraftUsername: String = "TestPlayer",
         displayName: String = "Test User",
-        roles: List<String> = emptyList()
+        roles: List<String> = emptyList(),
+        activeWorldId: Int? = null
     ): TokenProfile = TokenProfile(
         id = id,
         uuid = uuid,
         minecraftUsername = minecraftUsername,
         displayName = displayName,
-        roles = roles
+        roles = roles,
+        activeWorldId = activeWorldId
     )
 
     /**
