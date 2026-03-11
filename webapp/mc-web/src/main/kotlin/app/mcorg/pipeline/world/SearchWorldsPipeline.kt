@@ -5,15 +5,13 @@ import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.world.commonsteps.GetPermittedWorldsInput
 import app.mcorg.pipeline.world.commonsteps.GetPermittedWorldsStep
 import app.mcorg.presentation.handler.handlePipeline
-import app.mcorg.presentation.hxOutOfBands
-import app.mcorg.presentation.templated.home.worldList
+import app.mcorg.presentation.templated.dsl.worldCard
+import kotlinx.html.div
+import kotlinx.html.id
 import app.mcorg.presentation.utils.getUser
 import app.mcorg.presentation.utils.respondHtml
 import io.ktor.server.application.*
-import kotlinx.html.id
-import kotlinx.html.p
 import kotlinx.html.stream.createHTML
-import kotlinx.html.ul
 
 suspend fun ApplicationCall.handleSearchWorlds() {
     val userId = this.getUser().id
@@ -24,21 +22,16 @@ suspend fun ApplicationCall.handleSearchWorlds() {
     } ?: "modified_desc"
 
     handlePipeline(
-        onSuccess = { (worlds, count) ->
-            respondHtml(createHTML().ul {
-                worldList(worlds)
-            } + createHTML().p("subtle") {
-                hxOutOfBands("true")
-                id = "home-worlds-count"
-                + "Showing ${worlds.size} of $count world${if(count == 1) "" else "s"}."
+        onSuccess = { worlds ->
+            respondHtml(createHTML(prettyPrint = false).div {
+                id = "world-card-list"
+                worlds.forEach { world ->
+                    worldCard(world)
+                }
             })
         }
     ) {
-        val (worlds, count) = parallel(
-            { GetPermittedWorldsStep.run(GetPermittedWorldsInput(userId = userId, query, sortBy)) },
-            { CountPermittedWorldsStep.run(userId) },
-        )
-        worlds to count
+        GetPermittedWorldsStep.run(GetPermittedWorldsInput(userId = userId, query, sortBy))
     }
 }
 

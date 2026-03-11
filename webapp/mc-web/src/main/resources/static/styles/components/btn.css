@@ -1,0 +1,84 @@
+/* ==========================================================================
+   BUTTON VARIANTS — new design system
+   Base element styles (button, a.btn) remain in button.css (old system).
+   This file adds the variant classes used by new DSL pages.
+   ========================================================================== */
+
+.btn {
+    font-family: var(--font-ui);
+    font-size: var(--text-ui);
+    font-weight: 500;
+    padding: 8px 16px;
+    border-radius: var(--radius);
+    border: none;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    text-decoration: none;
+    white-space: nowrap;
+    min-height: 36px;
+    transition: background 150ms ease, color 150ms ease, border-color 150ms ease;
+}
+
+.btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+.btn--primary {
+    background: var(--accent);
+    color: #fff;
+    border: 1px solid transparent;
+}
+
+.btn--primary:hover:not(:disabled) {
+    background: #3a6aee;
+}
+
+.btn--secondary {
+    background: var(--bg-raised);
+    color: var(--text-primary);
+    border: 1px solid var(--border);
+}
+
+.btn--secondary:hover:not(:disabled) {
+    background: var(--bg-surface);
+    border-color: #3a4060;
+}
+
+.btn--ghost {
+    background: transparent;
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+}
+
+.btn--ghost:hover:not(:disabled) {
+    background: var(--bg-raised);
+    color: var(--text-primary);
+}
+
+.btn--danger {
+    background: var(--red);
+    color: #fff;
+    border: 1px solid transparent;
+}
+
+.btn--danger:hover:not(:disabled) {
+    background: #cc4545;
+}
+
+.btn--sm {
+    font-size: var(--text-label);
+    padding: 4px 10px;
+    min-height: 28px;
+}
+
+/* Mobile: 44px minimum tap target for primary actions */
+@media (max-width: 768px) {
+    .btn--primary {
+        min-height: 44px;
+    }
+}

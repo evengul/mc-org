@@ -7,6 +7,7 @@ import kotlinx.html.stream.createHTML
 fun pageShell(
     pageTitle: String = "MC-ORG",
     user: TokenProfile? = null,
+    stylesheets: List<String> = emptyList(),
     body: BODY.() -> Unit
 ): String {
     return "<!DOCTYPE html>\n" + createHTML().html {
@@ -29,6 +30,12 @@ fun pageShell(
             link {
                 rel = "stylesheet"
                 href = "/static/styles/components/app-header.css"
+            }
+            for (stylesheet in stylesheets) {
+                link {
+                    rel = "stylesheet"
+                    href = stylesheet
+                }
             }
             script {
                 src = "https://cdn.jsdelivr.net/npm/htmx.org@2.0.8/dist/htmx.min.js"

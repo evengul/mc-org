@@ -86,6 +86,19 @@
     --radius: 6px;
 }
 
+/* --- Base body styles --- */
+body {
+    background: var(--bg-base);
+    color: var(--text-primary);
+    font-family: var(--font-body);
+    font-size: var(--text-base);
+}
+
+main {
+    padding-top: var(--space-5);
+    padding-bottom: var(--space-8);
+}
+
 /* --- Section label --- */
 .section-label {
     font-family: var(--font-ui);

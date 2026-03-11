@@ -191,7 +191,14 @@ Delete old Component hierarchy, old CSS, old routes, Google Fonts refs, theme sy
 - Rewrite `/worlds` page with new design
 - World cards, empty state, "Create world" flow
 - Sets `activeWorldId` in JWT when clicking into a world
+- Pending invitations display deferred to Feature 6b (see below)
 - Depends: features 4a, 5
+
+**Feature 6b: Pending invitations on user front page** *(needs spec — not yet planned)*
+
+- Pending world invitations should be shown on the user's front page (likely `/worlds` or a dedicated notifications area)
+- Acceptance/decline flow with new DSL and design tokens
+- [NOTE: Needs full spec before implementation. Determine: is this a section on `/worlds`, a separate `/invitations` page, or part of a notifications feature? Coordinate with Feature 12 (remaining pages).]
 
 **Feature 7: Project list page (world home)**
 

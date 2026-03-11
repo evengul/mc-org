@@ -1,0 +1,103 @@
+/* ==========================================================================
+   MODAL COMPONENT — new design system
+   Class names: .modal-backdrop (on <dialog>), .modal, .modal__heading,
+                .modal__body, .modal__actions
+   ========================================================================== */
+
+dialog.modal-backdrop {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0;
+    width: min(440px, 90vw);
+    color: var(--text-primary);
+    margin: auto;
+    animation: modal-scale-in 150ms ease-out;
+}
+
+dialog.modal-backdrop::backdrop {
+    background: rgba(0, 0, 0, 0.6);
+    animation: backdrop-fade 150ms ease-out;
+}
+
+.modal {
+    display: flex;
+    flex-direction: column;
+}
+
+.modal__heading {
+    font-family: var(--font-ui);
+    font-size: var(--text-base);
+    font-weight: 600;
+    color: var(--text-primary);
+    padding: var(--space-4) var(--space-5);
+    border-bottom: 1px solid var(--border);
+}
+
+.modal__body {
+    padding: var(--space-5);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+}
+
+.modal__body label {
+    font-family: var(--font-ui);
+    font-size: var(--text-ui);
+    color: var(--text-muted);
+    margin-bottom: calc(var(--space-1) * -1);
+}
+
+.modal__body label .required-indicator {
+    font-size: var(--text-xs);
+    vertical-align: super;
+    color: var(--red);
+}
+
+.modal__body input,
+.modal__body textarea,
+.modal__body select {
+    width: 100%;
+    background: var(--bg-raised);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 8px var(--space-3);
+    color: var(--text-primary);
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+}
+
+.modal__body input:focus,
+.modal__body textarea:focus,
+.modal__body select:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+.modal__body input::placeholder,
+.modal__body textarea::placeholder {
+    color: var(--text-muted);
+}
+
+.modal__body textarea {
+    resize: vertical;
+    min-height: 80px;
+}
+
+.modal__actions {
+    display: flex;
+    gap: var(--space-3);
+    justify-content: flex-end;
+    padding-top: var(--space-4);
+    border-top: 1px solid var(--border);
+}
+
+@keyframes modal-scale-in {
+    from { opacity: 0; transform: scale(0.97); }
+    to   { opacity: 1; transform: scale(1); }
+}
+
+@keyframes backdrop-fade {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}

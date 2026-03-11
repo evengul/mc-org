@@ -1,11 +1,22 @@
 package app.mcorg.presentation.templated.dsl
 
 import kotlinx.html.FlowContent
+import kotlinx.html.div
+import kotlinx.html.h2
+import kotlinx.html.p
 
-@Suppress("UNUSED_PARAMETER")
 fun FlowContent.emptyState(heading: String, body: String? = null, block: (FlowContent.() -> Unit)? = null) {
+    div("empty-state") {
+        h2("empty-state__heading") { +heading }
+        if (body != null) {
+            p("empty-state__body") { +body }
+        }
+        if (block != null) {
+            div("empty-state__actions") { block() }
+        }
+    }
 }
 
-@Suppress("UNUSED_PARAMETER")
 fun FlowContent.emptyStateCards(block: FlowContent.() -> Unit) {
+    div("empty-state-cards") { block() }
 }

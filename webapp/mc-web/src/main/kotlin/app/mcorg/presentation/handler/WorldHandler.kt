@@ -1,8 +1,6 @@
 package app.mcorg.presentation.handler
 
-import app.mcorg.pipeline.invitation.commonsteps.GetUserInvitationsStep
 import app.mcorg.pipeline.minecraftfiles.GetSupportedVersionsStep
-import app.mcorg.pipeline.notification.getUnreadNotificationsOrZero
 import app.mcorg.pipeline.project.dependencies.handleCreateProjectDependency
 import app.mcorg.pipeline.project.dependencies.handleDeleteProjectDependency
 import app.mcorg.pipeline.project.viewpreference.handleSetViewPreference
@@ -60,7 +58,7 @@ import app.mcorg.presentation.plugins.UpdateActiveWorldPlugin
 import app.mcorg.presentation.plugins.WorldAdminPlugin
 import app.mcorg.presentation.plugins.WorldMemberParamPlugin
 import app.mcorg.presentation.plugins.WorldParamPlugin
-import app.mcorg.presentation.templated.home.homePage
+import app.mcorg.presentation.templated.dsl.pages.worldListPage
 import app.mcorg.presentation.utils.getUser
 import app.mcorg.presentation.utils.respondHtml
 import io.ktor.server.application.ApplicationCall
@@ -297,20 +295,14 @@ class WorldHandler {
 
     private suspend fun ApplicationCall.handleGetHome() {
         val user = getUser()
-
-        val notifications = getUnreadNotificationsOrZero(user.id)
-
         val supportedVersions = GetSupportedVersionsStep.getSupportedVersions()
 
         handlePipeline(
-            onSuccess = { (invitations, worlds) ->
-                respondHtml(homePage(user, invitations, worlds, supportedVersions, notifications))
+            onSuccess = { worlds ->
+                respondHtml(worldListPage(user, worlds, supportedVersions))
             }
         ) {
-            parallel(
-                { GetUserInvitationsStep.run(user.id) },
-                { GetPermittedWorldsStep.run(GetPermittedWorldsInput(userId = user.id)) }
-            )
+            GetPermittedWorldsStep.run(GetPermittedWorldsInput(userId = user.id))
         }
     }
 }
