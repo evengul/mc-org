@@ -44,7 +44,7 @@ val WorldAdminPlugin = createRouteScopedPlugin("WorldAdminPlugin") {
 
 val BannedPlugin = createRouteScopedPlugin("BannedPlugin") {
     onCall {
-        val userId = it.getUser().id
+        val userId = runCatching { it.getUser().id }.getOrNull() ?: return@onCall
 
         // Check cache first
         val cached = CacheManager.bannedUsers.getIfPresent(userId)
