@@ -89,9 +89,35 @@ class NavigationTest {
     }
 
     @Test
-    fun `mobile header has hamburger button`() {
+    fun `mobile header does not have hamburger button`() {
         val html = render { appHeader() }
-        assertTrue(html.contains("app-header__hamburger"))
-        assertTrue(html.contains("aria-label=\"Menu\""))
+        assertTrue(!html.contains("app-header__hamburger"))
+        assertTrue(!html.contains("aria-label=\"Menu\""))
+    }
+
+    @Test
+    fun `gear links to profile when no world or project context`() {
+        val html = render { appHeader() }
+        assertTrue(html.contains("aria-label=\"Settings\""))
+        assertTrue(html.contains("/profile"))
+    }
+
+    @Test
+    fun `gear links to world settings when worldId is set and projectId is null`() {
+        val html = render { appHeader(worldId = 42) }
+        assertTrue(html.contains("aria-label=\"Settings\""))
+        assertTrue(html.contains("/worlds/42/settings"))
+    }
+
+    @Test
+    fun `gear is not rendered when projectId is set`() {
+        val html = render { appHeader(worldId = 42, projectId = 7) }
+        assertTrue(!html.contains("aria-label=\"Settings\""))
+    }
+
+    @Test
+    fun `no breadcrumb nav rendered when breadcrumbBlock is null`() {
+        val html = render { appHeader() }
+        assertTrue(!html.contains("<nav"))
     }
 }

@@ -32,11 +32,21 @@ sealed class BreadcrumbSegment {
     data class Current(val label: String) : BreadcrumbSegment()
 }
 
+private fun gearHref(worldId: Int?, projectId: Int?): String? = when {
+    projectId != null -> null
+    worldId != null -> "/worlds/$worldId/settings"
+    else -> "/profile"
+}
+
 fun FlowContent.appHeader(
     worldName: String? = null,
+    worldId: Int? = null,
+    projectId: Int? = null,
     user: TokenProfile? = null,
     breadcrumbBlock: (BreadcrumbBuilder.() -> BreadcrumbBuilder)? = null
 ) {
+    val gear = gearHref(worldId, projectId)
+
     header("app-header") {
         div("app-header__desktop") {
             span("app-header__logo") { +"MC-ORG" }
@@ -67,25 +77,26 @@ fun FlowContent.appHeader(
                     href = "/ideas"
                     +"Ideas"
                 }
-                a(classes = "app-header__link") {
-                    href = "/worlds"
-                    attributes["aria-label"] = "Settings"
-                    +"\u2699"
+                if (gear != null) {
+                    a(classes = "app-header__link") {
+                        href = gear
+                        attributes["aria-label"] = "Settings"
+                        +"\u2699"
+                    }
                 }
             }
         }
 
         div("app-header__mobile") {
-            button(classes = "app-header__hamburger") {
-                attributes["aria-label"] = "Menu"
-                +"\u2630"
-            }
             span("app-header__world-name") {
                 +(worldName ?: "MC-ORG")
             }
-            a(classes = "app-header__link") {
-                attributes["aria-label"] = "Settings"
-                +"\u2699"
+            if (gear != null) {
+                a(classes = "app-header__link") {
+                    href = gear
+                    attributes["aria-label"] = "Settings"
+                    +"\u2699"
+                }
             }
         }
     }

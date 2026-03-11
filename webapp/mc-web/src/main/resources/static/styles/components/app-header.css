@@ -1,0 +1,131 @@
+/* ============================================
+   Component: App Header (Navigation Chrome)
+   ============================================ */
+
+.app-header {
+    height: 56px;
+    background: var(--bg-surface);
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
+
+/* --- Desktop layout --- */
+
+.app-header__desktop {
+    display: none;
+    align-items: center;
+    height: 100%;
+    padding-inline: var(--space-5);
+    gap: var(--space-4);
+}
+
+@media (min-width: 768px) {
+    .app-header__desktop {
+        display: flex;
+    }
+}
+
+.app-header__logo {
+    font-family: var(--font-ui);
+    font-size: var(--text-sm);
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.app-header__actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    margin-left: auto;
+    flex-shrink: 0;
+}
+
+.app-header__link {
+    font-family: var(--font-ui);
+    font-size: var(--text-sm);
+    color: var(--text-muted);
+    text-decoration: none;
+    transition: color 0.15s ease;
+}
+
+.app-header__link:hover {
+    color: var(--text-primary);
+}
+
+/* --- Breadcrumb (app-header scoped) --- */
+
+.breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    overflow: hidden;
+    flex: 1;
+    min-width: 0;
+}
+
+.breadcrumb__item {
+    font-family: var(--font-ui);
+    font-size: var(--text-sm);
+    color: var(--text-muted);
+    text-decoration: none;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 200px;
+    transition: color 0.15s ease;
+}
+
+a.breadcrumb__item:hover {
+    color: var(--text-primary);
+}
+
+.breadcrumb__item--current {
+    color: var(--text-primary);
+    font-weight: 500;
+}
+
+.breadcrumb__sep {
+    color: var(--text-disabled);
+    font-size: var(--text-sm);
+    user-select: none;
+    flex-shrink: 0;
+}
+
+/* --- Mobile layout --- */
+
+.app-header__mobile {
+    display: none;
+    align-items: center;
+    height: 100%;
+    padding-inline: var(--space-4);
+    position: relative;
+}
+
+@media (max-width: 767px) {
+    .app-header__mobile {
+        display: flex;
+    }
+}
+
+.app-header__world-name {
+    font-family: var(--font-ui);
+    font-size: var(--text-sm);
+    font-weight: 500;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: calc(100% - 48px);
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+.app-header__mobile .app-header__link {
+    margin-left: auto;
+    font-size: var(--text-base);
+}
