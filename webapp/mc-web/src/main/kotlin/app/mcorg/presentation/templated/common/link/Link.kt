@@ -143,6 +143,10 @@ sealed interface Link {
                 return Project(id, projectId)
             }
 
+            fun projects(): Projects {
+                return Projects(id)
+            }
+
             @Suppress("unused")
             fun resourceMaps(): ResourceMaps {
                 return ResourceMaps(id)
@@ -150,6 +154,10 @@ sealed interface Link {
 
             fun settings(): Settings {
                 return Settings(id)
+            }
+
+            data class Projects(val worldId: Int) : Link {
+                override val to: String = "/worlds/$worldId/projects"
             }
 
             data class Project(val worldId: Int, val projectId: Int) : Link {

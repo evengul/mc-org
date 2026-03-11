@@ -56,6 +56,7 @@ import app.mcorg.presentation.plugins.ProjectDependencyItemPlugin
 import app.mcorg.presentation.plugins.ProjectParamPlugin
 import app.mcorg.presentation.plugins.ProjectProductionItemParamPlugin
 import app.mcorg.presentation.plugins.ResourceGatheringIdParamPlugin
+import app.mcorg.presentation.plugins.UpdateActiveWorldPlugin
 import app.mcorg.presentation.plugins.WorldAdminPlugin
 import app.mcorg.presentation.plugins.WorldMemberParamPlugin
 import app.mcorg.presentation.plugins.WorldParamPlugin
@@ -85,6 +86,7 @@ class WorldHandler {
             }
             route("/{worldId}") {
                 install(WorldParamPlugin)
+                install(UpdateActiveWorldPlugin)
                 get {
                     call.handleGetWorld()
                 }
