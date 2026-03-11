@@ -8,7 +8,8 @@ linear-children:
   - MCO-133  # Feature 4b: Root redirect logic
   - MCO-134  # Feature 5: Navigation chrome + page shell
   - MCO-135  # Feature 6: World list page
-  - MCO-136  # Feature 7: Project list page
+  - MCO-136  # Feature 7a: Project list page — execute view + empty state + create flow
+  - TBD     # Feature 7b: Project list page — plan view + toggle
   - MCO-137  # Feature 8: Idea Hub pages
   - MCO-138  # Feature 9: Project detail — execute view
   - MCO-139  # Feature 10: Project detail — plan view
@@ -200,16 +201,24 @@ Delete old Component hierarchy, old CSS, old routes, Google Fonts refs, theme sy
 - Acceptance/decline flow with new DSL and design tokens
 - [NOTE: Needs full spec before implementation. Determine: is this a section on `/worlds`, a separate `/invitations` page, or part of a notifications feature? Coordinate with Feature 12 (remaining pages).]
 
-**Feature 7: Project list page (world home)**
+**Feature 7a: Project list page — execute view + empty state + create flow**
 
-- Rewrite `/worlds/:worldId/projects`
-- Project cards per docs-product spec
-- Session-level plan/execute toggle
-- Execute view: task progress, status badge, resource progress, next task
-- Plan view: resource definition status, dependency summary
-- Empty state: two equal-weight cards ("Plan your own project" / "Browse community ideas")
-- Create project flow
+- Rewrite `/worlds/:worldId/projects` using new DSL and design tokens
+- `GET /worlds/:worldId` redirects to `/worlds/:worldId/projects`
+- Project cards (execute view): project name, status badge (NOT_STARTED/IN_PROGRESS/DONE — no BLOCKED in Phase 1),
+  task progress text, resource progress bar (6px), next incomplete task
+- Resource aggregates and next task fetched via a single extended query (JOIN/subquery on the project list query — no N+1)
+- Empty state: two equal-weight cards ("Plan your own project" → create modal / "Browse community ideas" → `/ideas`)
+- Create project modal (name + description + type)
 - Depends: features 3, 5, 6
+
+**Feature 7b: Project list page — plan view + toggle**
+
+- Plan view project cards: resource definition count, dependency summary (blocked-by / blocks counts)
+- Session-level Plan/Execute toggle wired to HTMX fragment swap
+- Toggle preference stored in a true session cookie (no `Max-Age`) — not the DB view preference table
+- `GET /worlds/:worldId/projects/list-fragment?view=plan|execute` fragment endpoint
+- Depends: feature 7a
 
 **Feature 8: Idea Hub pages**
 
@@ -217,7 +226,7 @@ Delete old Component hierarchy, old CSS, old routes, Google Fonts refs, theme sy
 - Filterable card grid, version filter, search
 - Import-to-world with version mismatch modal
 - Depends: feature 5
-- Can parallelise with: features 6, 7
+- Can parallelise with: features 6, 7a
 
 **Feature 9: Project detail — execute view**
 
@@ -225,7 +234,7 @@ Delete old Component hierarchy, old CSS, old routes, Google Fonts refs, theme sy
 - Resource rows with counter increments (+1/+64/+1782), progress bars, source labels
 - Task checklist below resources
 - Plan/execute toggle wired to DB persistence
-- Depends: features 3, 5, 7
+- Depends: features 3, 5, 7a
 
 **Feature 10: Project detail — plan view (Phase 1 read-only)**
 
@@ -276,10 +285,11 @@ Delete old Component hierarchy, old CSS, old routes, Google Fonts refs, theme sy
 ```
 Feature 1 (Fonts + CSS) ─────┐
                               ├─> Feature 2 (DSL foundation) ─> Feature 5 (Nav + shell) ─┐
-Feature 3 (JWT + DB) ────────┤                                                            ├─> Feature 7 (Project list) ─> Feature 9 (Execute) ─> Feature 10 (Plan)
-                              │                                                            ├─> Feature 6 (World list) ──┘
-Feature 4a (Routes) ─────────┤                                                            ├─> Feature 8 (Idea Hub)
-                              └─> Feature 4b (/ redirect) [after 3]                       ├─> Feature 11 (Settings)
+Feature 3 (JWT + DB) ────────┤                                                            ├─> Feature 7a (Project list — execute) ─> Feature 7b (Project list — plan/toggle)
+                              │                                                            │       └─> Feature 9 (Execute) ─> Feature 10 (Plan)
+Feature 4a (Routes) ─────────┤                                                            ├─> Feature 6 (World list) ──┘
+                              └─> Feature 4b (/ redirect) [after 3]                       ├─> Feature 8 (Idea Hub)
+                                                                                           ├─> Feature 11 (Settings)
                                                                                            └─> Feature 12 (Remaining)
                                                                                                        │
                                                                                        All Layer 2 ────┘─> Feature 13 (Cleanup) ─> Feature 14 (docs-frontend)
@@ -290,6 +300,7 @@ Feature 4a (Routes) ─────────┤                              
 - Features 1, 3, 4a: all start in parallel (zero file overlap)
 - Feature 2 starts after 1; Feature 4b starts after 3
 - Features 6, 8, 11, 12 all parallelise after feature 5
+- Feature 7a unblocks Feature 7b; both unblock Feature 9
 - Features 9, 10 are sequential (same page)
 
 ## Deferred / Out of Scope
