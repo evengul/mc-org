@@ -280,6 +280,13 @@
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
+            <!-- flyway-core 12.x (Jackson 3.x databind) requires jackson-annotations 2.21;
+                 flyway-database-postgresql pulls in 2.19.0 which is missing JsonSerializeAs -->
+            <dependency>
+                <groupId>com.fasterxml.jackson.core</groupId>
+                <artifactId>jackson-annotations</artifactId>
+                <version>2.21</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 
