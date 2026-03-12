@@ -11,9 +11,12 @@ import app.mcorg.pipeline.ValidationSteps
 import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.failure.ValidationFailure
 import app.mcorg.pipeline.project.commonsteps.GetProjectByIdStep
+import app.mcorg.pipeline.project.commonsteps.GetProjectListItemStep
 import app.mcorg.pipeline.world.ValidateWorldMemberRole
 import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.hxOutOfBands
+import app.mcorg.presentation.templated.dsl.pages.projectCardFragment
+import app.mcorg.presentation.templated.dsl.pages.projectsToolbarOobFragment
 import app.mcorg.presentation.templated.world.projectItem
 import app.mcorg.presentation.utils.getUser
 import app.mcorg.presentation.utils.getWorldId
@@ -21,6 +24,7 @@ import app.mcorg.presentation.utils.respondHtml
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.request.*
+import io.ktor.server.response.*
 import kotlinx.html.div
 import kotlinx.html.li
 import kotlinx.html.stream.createHTML
@@ -35,21 +39,36 @@ suspend fun ApplicationCall.handleCreateProject() {
     val parameters = this.receiveParameters()
     val user = this.getUser()
     val worldId = this.getWorldId()
+    val isHtmx = request.headers["HX-Request"] == "true"
+    val isFirstProject = parameters["first_project"] == "true"
 
     handlePipeline(
-        onSuccess = {
-            respondHtml(createHTML().li {
-                projectItem(it)
-            } + createHTML().div {
-                hxOutOfBands("delete:#empty-projects-state")
-            })
+        onSuccess = { projectId ->
+            if (isHtmx) {
+                val projectListItem = GetProjectListItemStep.process(projectId)
+                if (projectListItem is Result.Success) {
+                    val cardHtml = projectCardFragment(worldId, projectListItem.value)
+                    val oobToolbar = projectsToolbarOobFragment()
+                    val oobDeleteEmptyState = if (isFirstProject) createHTML().div {
+                        attributes["id"] = "projects-empty-state"
+                        hxOutOfBands("delete")
+                    } else ""
+                    respondHtml(cardHtml + oobDeleteEmptyState + oobToolbar)
+                } else {
+                    response.headers.append("HX-Redirect", "/worlds/$worldId/projects")
+                    respondHtml("")
+                }
+            } else {
+                response.headers.append("Location", "/worlds/$worldId/projects")
+                respond(HttpStatusCode.SeeOther, "")
+            }
         }
     ) {
         val input = ValidateProjectInputStep.run(parameters)
         ValidateWorldMemberRole<CreateProjectInput>(user, Role.ADMIN, worldId).run(input)
         val projectId = CreateProjectStep(worldId).run(input)
         CacheManager.onProjectCreated(worldId, projectId)
-        GetProjectByIdStep.run(projectId)
+        projectId
     }
 }
 

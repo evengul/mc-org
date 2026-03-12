@@ -1,0 +1,159 @@
+/* ==========================================================================
+   PROJECT CARD COMPONENT
+   Card showing project summary in execute view
+   ========================================================================== */
+
+.project-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: var(--space-4);
+    transition: border-color 0.15s ease, background 0.15s ease;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+}
+
+.project-card:hover {
+    border-color: #3a4060;
+    background: var(--bg-raised);
+}
+
+/* --- Header: name + badge --- */
+
+.project-card__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+}
+
+.project-card__name {
+    font-family: var(--font-ui);
+    font-size: var(--text-base);
+    font-weight: 600;
+    color: var(--text-primary);
+    text-decoration: none;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+}
+
+.project-card__name:hover {
+    text-decoration: underline;
+    color: var(--accent);
+}
+
+/* --- Meta row --- */
+
+.project-card__meta {
+    font-family: var(--font-ui);
+    font-size: var(--text-sm);
+    color: var(--text-muted);
+}
+
+.project-card__tasks {
+    font-family: var(--font-ui);
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+}
+
+/* --- Next task hint --- */
+
+.project-card__next-task {
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    color: var(--text-muted);
+    margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.project-card__next-task-label {
+    font-family: var(--font-ui);
+    font-size: var(--text-xs);
+    font-weight: 500;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+/* --- Done state --- */
+
+.project-card--done {
+    opacity: 0.6;
+}
+
+/* --- Badge styles (referenced by DSL) --- */
+
+.badge {
+    font-family: var(--font-ui);
+    font-size: var(--text-xs);
+    font-weight: 500;
+    padding: 2px 8px;
+    border-radius: 4px;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.badge--not-started {
+    background: var(--bg-raised);
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+}
+
+.badge--in-progress {
+    background: var(--accent-muted);
+    color: var(--accent);
+    border: 1px solid var(--accent-muted);
+}
+
+.badge--done {
+    background: var(--green-bg);
+    color: var(--green);
+    border: 1px solid var(--green-bg);
+}
+
+.badge--blocked {
+    background: var(--red-bg);
+    color: var(--red);
+    border: 1px solid var(--red-bg);
+}
+
+/* --- Progress bar (new DSL component) --- */
+
+.progress {
+    position: relative;
+    height: 4px;
+    background: var(--bg-raised);
+    border-radius: 2px;
+    overflow: hidden;
+    width: 100%;
+}
+
+.progress--lg {
+    height: 6px;
+}
+
+.progress__fill {
+    height: 100%;
+    background: var(--progress);
+    border-radius: 2px;
+    transition: width 200ms ease;
+    min-width: 0;
+}
+
+.progress__fill--complete {
+    background: var(--green);
+}
+
+/* --- Mobile: full-width, 44px tap targets --- */
+
+@media (max-width: 768px) {
+    .project-card {
+        min-height: 44px;
+        padding: var(--space-4);
+    }
+}

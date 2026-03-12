@@ -33,6 +33,7 @@ import app.mcorg.pipeline.task.handleCompleteActionTask
 import app.mcorg.pipeline.task.handleCreateActionTask
 import app.mcorg.pipeline.task.handleDeleteActionTask
 import app.mcorg.pipeline.task.handleSearchTasks
+import app.mcorg.pipeline.project.handleGetProjectList
 import app.mcorg.pipeline.world.handleCreateWorld
 import app.mcorg.pipeline.world.handleDeleteWorld
 import app.mcorg.pipeline.world.handleGetWorld
@@ -62,6 +63,7 @@ import app.mcorg.presentation.templated.dsl.pages.worldListPage
 import app.mcorg.presentation.utils.getUser
 import app.mcorg.presentation.utils.respondHtml
 import io.ktor.server.application.ApplicationCall
+import io.ktor.server.response.respondRedirect
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.delete
 import io.ktor.server.routing.get
@@ -86,9 +88,14 @@ class WorldHandler {
                 install(WorldParamPlugin)
                 install(UpdateActiveWorldPlugin)
                 get {
-                    call.handleGetWorld()
+                    // TODO Feature 13: remove with cleanup — old handleGetWorld() dead code after redirect
+                    val worldId = call.parameters["worldId"]!!.toInt()
+                    call.respondRedirect("/worlds/$worldId/projects", permanent = true)
                 }
                 route("/projects") {
+                    get {
+                        call.handleGetProjectList()
+                    }
                     get("/search") {
                         call.handleSearchProjects()
                     }

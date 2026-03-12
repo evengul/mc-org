@@ -46,6 +46,8 @@ fun FlowContent.modalForm(
                     hxTarget(hxTarget)
                     hxSwap(hxSwap)
                     hxTargetError(errorTarget)
+                    attributes["hx-on::after-request"] =
+                        "if(event.detail.successful) { this.reset(); this.closest('dialog')?.close() }"
                     body()
                 }
             }
