@@ -129,7 +129,8 @@ sealed interface MinecraftVersion {
         // Fallback used when the Modrinth API is unavailable
         val supportedVersions_backup = listOf(
             release(20, 0),
-            release(21, 0)
+            release(21, 0),
+            release(21, 4)
         )
     }
 }
