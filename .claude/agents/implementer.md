@@ -32,6 +32,7 @@ These apply to every task, every time. No exceptions.
 - Implement, don't plan. Write code directly for well-understood tasks.
 - Follow existing patterns exactly. If the codebase does something a certain way, do it that way. Do not introduce new patterns without flagging it.
 - Break large tasks into phases. Compile and verify between phases — do not batch up ten files and then compile.
+- Run tests with `./webapp/scripts/test.sh`. Add `--database` if you wrote `@Tag("database")` tests, `--integration` if you wrote `*IT.kt` tests.
 - Read error logs before guessing. Never diagnose blind.
 - When the approach is ambiguous, pick the path consistent with existing code. If nothing in the codebase covers it, flag it rather than invent a pattern.
 
@@ -61,7 +62,9 @@ If a task requires touching these, stop. State what you found and why a human ne
 Before declaring the task complete:
 
 - [ ] `mvn clean compile` passes with zero errors
-- [ ] `mvn test` passes with all tests
+- [ ] `./webapp/scripts/test.sh` passes (unit tests)
+- [ ] `./webapp/scripts/test.sh --database` passes if database tests were written
+- [ ] `./webapp/scripts/test.sh --integration` passes if integration tests were written
 - [ ] Tests written for new functionality
 - [ ] No inline styles
 - [ ] Authorization in plugins, not pipelines
