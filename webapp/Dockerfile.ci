@@ -1,0 +1,12 @@
+FROM eclipse-temurin:21-jre-alpine
+
+EXPOSE "8080:8080"
+
+RUN mkdir /app
+
+COPY *-with-dependencies.jar /app/mcorg.jar
+
+ENTRYPOINT ["java", "-Xms256m", "-Xmx768m", "-jar", "/app/mcorg.jar"]
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD wget --no-verbose --tries=1 --spider http://localhost:8080/test/ping || exit 1
