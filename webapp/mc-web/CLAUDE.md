@@ -89,7 +89,8 @@ These project-specific skills provide detailed guidance for mc-web development:
 |---------------------|-----------------------------------------------------------|
 | `/docs-development` | Pipeline steps, `handlePipeline`, DB ops, validation      |
 | `/docs-architecture`| Domain model, file structure, plugin chain, route setup   |
-| `/docs-css`         | CSS component classes, layout, notices, cards             |
+| `/docs-css`         | CSS component classes, layout, notices, cards (legacy — deprecated during frontend rewrite; use `/docs-product` instead) |
+| `/docs-product`     | Design system tokens, component patterns, spacing, mobile behaviour (use during frontend rewrite) |
 | `/docs-htmx`        | HTMX helper functions, `hx*` attributes, HTMX patterns   |
 | `/docs-business`    | Business rules, roles, project stages, workflows          |
 | `/docs-troubleshoot`| Debugging errors, compile failures                        |

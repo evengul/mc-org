@@ -9,7 +9,7 @@ linear-children:
   - MCO-134  # Feature 5: Navigation chrome + page shell
   - MCO-135  # Feature 6: World list page
   - MCO-136  # Feature 7a: Project list page — execute view + empty state + create flow
-  - TBD     # Feature 7b: Project list page — plan view + toggle
+  - MCO-150  # Feature 7b: Project list page — plan view + toggle
   - MCO-137  # Feature 8: Idea Hub pages
   - MCO-138  # Feature 9: Project detail — execute view
   - MCO-139  # Feature 10: Project detail — plan view

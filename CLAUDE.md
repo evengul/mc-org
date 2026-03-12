@@ -140,12 +140,13 @@ Load the matching skill before starting a task. Do not rely on memory for patter
 |----------------------|------------------------------------------------------------|
 | `/docs-development`  | Pipeline steps, `handlePipeline`, DB ops, validation       |
 | `/docs-architecture` | Domain model, file structure, plugin chain, route setup    |
-| `/docs-css`          | CSS component classes, layout, notices, cards              |
+| `/docs-css`          | CSS component classes, layout, notices, cards (legacy — deprecated during frontend rewrite; use `/docs-product` instead) |
+| `/docs-product`      | Design system tokens, component patterns, spacing, mobile behaviour (use during frontend rewrite) |
 | `/docs-htmx`         | HTMX helper functions, `hx*` attributes, HTMX patterns     |
+| `/docs-testing`      | Test patterns, `testApplication`, auth helpers, DB tests   |
 | `/docs-business`     | Business rules, roles, project stages, workflows           |
 | `/docs-troubleshoot` | Debugging errors, compile failures                         |
 | `/docs-glossary`     | Technical/domain terminology                               |
-| `/docs-testing`      | Test patterns, `testApplication`, auth helpers, DB tests   |
 | `/add-endpoint`      | Creating a new HTTP endpoint                               |
 | `/add-migration`     | Adding a database migration                                |
 | `/add-step`          | Creating a new pipeline Step                               |
