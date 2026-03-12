@@ -44,7 +44,8 @@
       "Bash(done)",
       "Bash(python3 -c \"import sys,json; d=json.loads\\(sys.stdin.read\\(\\)\\); t=d.get\\(''type'',''?''\\); print\\(t, ''-'', d.get\\(''message'',{}\\).get\\(''content'',[{}]\\)[-1].get\\(''text'',''''\\)[:150] if t==''assistant'' else d.get\\(''data'',{}\\).get\\(''statusMessage'',''working...''\\)[:150]\\)\")",
       "Bash(for f in ac5ff655c8306a3d0 acd5f111be5eca737)",
-      "Bash(python3 -c \"import sys,json; d=json.loads\\(sys.stdin.read\\(\\)\\); t=d.get\\(''type'',''?''\\); c=d.get\\(''message'',{}\\).get\\(''content'',[]\\); text=[x.get\\(''text'',''''\\) for x in c if x.get\\(''type''\\)==''text'']; print\\(t, ''-'', \\(text[-1] if text else str\\(d.get\\(''data'',{}\\)\\)\\)[:200]\\)\")"
+      "Bash(python3 -c \"import sys,json; d=json.loads\\(sys.stdin.read\\(\\)\\); t=d.get\\(''type'',''?''\\); c=d.get\\(''message'',{}\\).get\\(''content'',[]\\); text=[x.get\\(''text'',''''\\) for x in c if x.get\\(''type''\\)==''text'']; print\\(t, ''-'', \\(text[-1] if text else str\\(d.get\\(''data'',{}\\)\\)\\)[:200]\\)\")",
+      "Bash(./webapp/scripts/test.sh --integration --exclude-unit-tests 2>&1 | tail -60)"
     ]
   },
   "enableAllProjectMcpServers": true,
