@@ -12,9 +12,11 @@ import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.failure.ValidationFailure
 import app.mcorg.pipeline.project.commonsteps.GetProjectByIdStep
 import app.mcorg.pipeline.project.commonsteps.GetProjectListItemStep
+import app.mcorg.pipeline.project.commonsteps.GetProjectPlanListItemStep
 import app.mcorg.pipeline.world.ValidateWorldMemberRole
 import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.hxOutOfBands
+import app.mcorg.presentation.templated.dsl.pages.planProjectCardFragment
 import app.mcorg.presentation.templated.dsl.pages.projectCardFragment
 import app.mcorg.presentation.templated.dsl.pages.projectsToolbarOobFragment
 import app.mcorg.presentation.templated.world.projectItem
@@ -41,22 +43,35 @@ suspend fun ApplicationCall.handleCreateProject() {
     val worldId = this.getWorldId()
     val isHtmx = request.headers["HX-Request"] == "true"
     val isFirstProject = parameters["first_project"] == "true"
+    val view = parameters["view"]?.takeIf { it == "plan" } ?: "execute"
 
     handlePipeline(
         onSuccess = { projectId ->
             if (isHtmx) {
-                val projectListItem = GetProjectListItemStep.process(projectId)
-                if (projectListItem is Result.Success) {
-                    val cardHtml = projectCardFragment(worldId, projectListItem.value)
-                    val oobToolbar = projectsToolbarOobFragment()
-                    val oobDeleteEmptyState = if (isFirstProject) createHTML().div {
-                        attributes["id"] = "projects-empty-state"
-                        hxOutOfBands("delete")
-                    } else ""
-                    respondHtml(cardHtml + oobDeleteEmptyState + oobToolbar)
+                val oobDeleteEmptyState = if (isFirstProject) createHTML().div {
+                    attributes["id"] = "projects-empty-state"
+                    hxOutOfBands("delete")
+                } else ""
+                val oobToolbar = projectsToolbarOobFragment(worldId, view)
+
+                if (view == "plan") {
+                    val planItem = GetProjectPlanListItemStep(worldId).process(projectId)
+                    if (planItem is Result.Success) {
+                        val cardHtml = planProjectCardFragment(worldId, planItem.value)
+                        respondHtml(cardHtml + oobDeleteEmptyState + oobToolbar)
+                    } else {
+                        response.headers.append("HX-Redirect", "/worlds/$worldId/projects")
+                        respondHtml("")
+                    }
                 } else {
-                    response.headers.append("HX-Redirect", "/worlds/$worldId/projects")
-                    respondHtml("")
+                    val projectListItem = GetProjectListItemStep.process(projectId)
+                    if (projectListItem is Result.Success) {
+                        val cardHtml = projectCardFragment(worldId, projectListItem.value)
+                        respondHtml(cardHtml + oobDeleteEmptyState + oobToolbar)
+                    } else {
+                        response.headers.append("HX-Redirect", "/worlds/$worldId/projects")
+                        respondHtml("")
+                    }
                 }
             } else {
                 response.headers.append("Location", "/worlds/$worldId/projects")

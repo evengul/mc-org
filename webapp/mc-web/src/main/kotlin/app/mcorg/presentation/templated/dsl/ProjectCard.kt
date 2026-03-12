@@ -48,6 +48,10 @@ fun FlowContent.projectCard(worldId: Int, project: ProjectListItem) {
         }
 
         if (project.resourcesRequired > 0) {
+            div("project-card__resource-header") {
+                span("project-card__next-task-label") { +"Resources" }
+                span("project-card__next-task-label") { +"${formatItemCount(project.resourcesGathered)} / ${formatItemCount(project.resourcesRequired)}" }
+            }
             progressBar(project.resourcesGathered, project.resourcesRequired, large = true)
         }
 

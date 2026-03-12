@@ -5,14 +5,14 @@ import app.mcorg.pipeline.project.commonsteps.GetProjectPlanListStep
 import app.mcorg.pipeline.world.commonsteps.GetWorldMemberStep
 import app.mcorg.pipeline.world.commonsteps.GetWorldStep
 import app.mcorg.presentation.handler.handlePipeline
-import app.mcorg.presentation.templated.dsl.pages.projectListPage
-import app.mcorg.presentation.templated.dsl.pages.projectListPageWithPlanView
+import app.mcorg.presentation.templated.dsl.pages.projectsViewFragment
+import app.mcorg.presentation.templated.dsl.pages.projectsViewFragmentPlan
 import app.mcorg.presentation.utils.getUser
 import app.mcorg.presentation.utils.getWorldId
 import app.mcorg.presentation.utils.respondHtml
 import io.ktor.server.application.ApplicationCall
 
-suspend fun ApplicationCall.handleGetProjectList() {
+suspend fun ApplicationCall.handleGetProjectListFragment() {
     val user = getUser()
     val worldId = getWorldId()
     val view = request.queryParameters["view"]?.takeIf { it == "plan" } ?: "execute"
@@ -20,7 +20,7 @@ suspend fun ApplicationCall.handleGetProjectList() {
     if (view == "plan") {
         handlePipeline(
             onSuccess = { (world, _, projects) ->
-                respondHtml(projectListPageWithPlanView(user, world, projects))
+                respondHtml(projectsViewFragmentPlan(world, projects))
             }
         ) {
             val world = GetWorldStep.run(worldId)
@@ -31,7 +31,7 @@ suspend fun ApplicationCall.handleGetProjectList() {
     } else {
         handlePipeline(
             onSuccess = { (world, _, projects) ->
-                respondHtml(projectListPage(user, world, projects, view))
+                respondHtml(projectsViewFragment(world, projects, view))
             }
         ) {
             val world = GetWorldStep.run(worldId)

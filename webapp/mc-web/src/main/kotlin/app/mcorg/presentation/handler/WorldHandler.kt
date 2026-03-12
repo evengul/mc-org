@@ -34,6 +34,7 @@ import app.mcorg.pipeline.task.handleCreateActionTask
 import app.mcorg.pipeline.task.handleDeleteActionTask
 import app.mcorg.pipeline.task.handleSearchTasks
 import app.mcorg.pipeline.project.handleGetProjectList
+import app.mcorg.pipeline.project.handleGetProjectListFragment
 import app.mcorg.pipeline.world.handleCreateWorld
 import app.mcorg.pipeline.world.handleDeleteWorld
 import app.mcorg.pipeline.world.handleGetWorld
@@ -98,6 +99,9 @@ class WorldHandler {
                     }
                     get("/search") {
                         call.handleSearchProjects()
+                    }
+                    get("/list-fragment") {
+                        call.handleGetProjectListFragment()
                     }
                     post {
                         call.handleCreateProject()

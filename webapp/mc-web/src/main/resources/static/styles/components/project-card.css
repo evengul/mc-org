@@ -59,6 +59,15 @@
     color: var(--text-muted);
 }
 
+/* --- Resource progress label row --- */
+
+.project-card__resource-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: var(--space-1);
+}
+
 /* --- Next task hint --- */
 
 .project-card__next-task {
@@ -84,6 +93,58 @@
 
 .project-card--done {
     opacity: 0.6;
+}
+
+/* --- Plan view: dependency details (expandable) --- */
+
+.project-card__dep-details {
+    font-family: var(--font-ui);
+    font-size: var(--text-sm);
+    color: var(--text-muted);
+}
+
+.project-card__dep-summary {
+    cursor: pointer;
+    list-style: none;
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+    user-select: none;
+}
+
+.project-card__dep-summary::-webkit-details-marker {
+    display: none;
+}
+
+.project-card__dep-summary::after {
+    content: '▸';
+    font-size: var(--text-xs);
+    transition: transform 0.15s ease;
+    display: inline-block;
+}
+
+.project-card__dep-details[open] > .project-card__dep-summary::after {
+    transform: rotate(90deg);
+}
+
+.project-card__dep-list {
+    list-style: none;
+    margin: var(--space-1) 0 0 0;
+    padding: 0 0 0 var(--space-3);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+}
+
+.project-card__dep-link {
+    font-family: var(--font-ui);
+    font-size: var(--text-sm);
+    color: var(--accent);
+    text-decoration: none;
+}
+
+.project-card__dep-link:hover {
+    text-decoration: underline;
 }
 
 /* --- Badge styles (referenced by DSL) --- */

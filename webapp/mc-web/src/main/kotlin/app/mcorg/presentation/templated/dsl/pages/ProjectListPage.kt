@@ -1,6 +1,7 @@
 package app.mcorg.presentation.templated.dsl.pages
 
 import app.mcorg.domain.model.project.ProjectListItem
+import app.mcorg.domain.model.project.ProjectPlanListItem
 import app.mcorg.domain.model.project.ProjectType
 import app.mcorg.domain.model.user.TokenProfile
 import app.mcorg.domain.model.world.World
@@ -12,6 +13,9 @@ import app.mcorg.presentation.templated.dsl.appHeader
 import app.mcorg.presentation.templated.dsl.container
 import app.mcorg.presentation.templated.dsl.emptyStateCards
 import app.mcorg.presentation.templated.dsl.modalForm
+import app.mcorg.presentation.templated.dsl.planExecuteToggle
+import app.mcorg.presentation.templated.dsl.planProjectCard
+import app.mcorg.presentation.templated.dsl.planProjectCardList
 import app.mcorg.presentation.templated.dsl.projectCard
 import app.mcorg.presentation.templated.dsl.projectCardList
 import app.mcorg.presentation.templated.dsl.pageShell
@@ -35,13 +39,15 @@ import kotlinx.html.textArea
 fun projectListPage(
     user: TokenProfile,
     world: World,
-    projects: List<ProjectListItem>
+    projects: List<ProjectListItem>,
+    view: String = "execute"
 ): String = pageShell(
     pageTitle = "MC-ORG — ${world.name}",
     user = user,
     stylesheets = listOf(
         "/static/styles/components/btn.css",
         "/static/styles/components/modal.css",
+        "/static/styles/components/toggle.css",
         "/static/styles/components/project-card.css",
         "/static/styles/pages/project-list.css",
     )
@@ -58,7 +64,40 @@ fun projectListPage(
         container {
             div {
                 id = "projects-content"
-                projectsContent(user, world, projects)
+                projectsContent(user, world, projects, view)
+            }
+        }
+    }
+}
+
+fun projectListPageWithPlanView(
+    user: TokenProfile,
+    world: World,
+    projects: List<ProjectPlanListItem>
+): String = pageShell(
+    pageTitle = "MC-ORG — ${world.name}",
+    user = user,
+    stylesheets = listOf(
+        "/static/styles/components/btn.css",
+        "/static/styles/components/modal.css",
+        "/static/styles/components/toggle.css",
+        "/static/styles/components/project-card.css",
+        "/static/styles/pages/project-list.css",
+    )
+) {
+    appHeader(
+        worldName = world.name,
+        worldId = world.id,
+        user = user,
+        breadcrumbBlock = {
+            link("Worlds", "/worlds").current(world.name)
+        }
+    )
+    main {
+        container {
+            div {
+                id = "projects-content"
+                projectsContentPlan(user, world, projects)
             }
         }
     }
@@ -67,11 +106,36 @@ fun projectListPage(
 fun kotlinx.html.FlowContent.projectsContent(
     user: TokenProfile,
     world: World,
-    projects: List<ProjectListItem>
+    projects: List<ProjectListItem>,
+    view: String = "execute"
+) {
+    div {
+        id = "projects-view"
+        projectsViewContent(world, projects, view)
+    }
+    createProjectModal(world.id, view)
+}
+
+fun kotlinx.html.FlowContent.projectsContentPlan(
+    user: TokenProfile,
+    world: World,
+    projects: List<ProjectPlanListItem>
+) {
+    div {
+        id = "projects-view"
+        projectsViewContentPlan(world, projects)
+    }
+    createProjectModal(world.id, "plan")
+}
+
+fun kotlinx.html.FlowContent.projectsViewContent(
+    world: World,
+    projects: List<ProjectListItem>,
+    view: String = "execute"
 ) {
     div {
         id = "projects-toolbar-slot"
-        if (projects.isNotEmpty()) { projectsToolbar() }
+        if (projects.isNotEmpty()) { projectsToolbar(world.id, view) }
     }
 
     if (projects.isEmpty()) {
@@ -79,8 +143,43 @@ fun kotlinx.html.FlowContent.projectsContent(
     }
 
     projectCardList(world.id, projects)
+}
 
-    createProjectModal(world.id)
+fun kotlinx.html.FlowContent.projectsViewContentPlan(
+    world: World,
+    projects: List<ProjectPlanListItem>
+) {
+    div {
+        id = "projects-toolbar-slot"
+        if (projects.isNotEmpty()) { projectsToolbar(world.id, "plan") }
+    }
+
+    if (projects.isEmpty()) {
+        projectsEmptyState(world.id)
+    }
+
+    planProjectCardList(world.id, projects)
+}
+
+fun projectsViewFragment(
+    world: World,
+    projects: List<ProjectListItem>,
+    view: String = "execute"
+): String {
+    return kotlinx.html.stream.createHTML().div {
+        id = "projects-view"
+        projectsViewContent(world, projects, view)
+    }
+}
+
+fun projectsViewFragmentPlan(
+    world: World,
+    projects: List<ProjectPlanListItem>
+): String {
+    return kotlinx.html.stream.createHTML().div {
+        id = "projects-view"
+        projectsViewContentPlan(world, projects)
+    }
 }
 
 fun kotlinx.html.FlowContent.projectsEmptyState(worldId: Int) {
@@ -110,7 +209,7 @@ fun kotlinx.html.FlowContent.projectsEmptyState(worldId: Int) {
     }
 }
 
-private fun kotlinx.html.FlowContent.createProjectModal(worldId: Int) {
+private fun kotlinx.html.FlowContent.createProjectModal(worldId: Int, view: String = "execute") {
     modalForm(
         id = "create-project-modal",
         title = "Create Project",
@@ -124,6 +223,12 @@ private fun kotlinx.html.FlowContent.createProjectModal(worldId: Int) {
             type = InputType.hidden
             name = "first_project"
             value = ""
+        }
+        input {
+            id = "create-project-view"
+            type = InputType.hidden
+            name = "view"
+            value = view
         }
         label {
             htmlFor = "create-project-name"
@@ -181,6 +286,8 @@ private fun kotlinx.html.FlowContent.createProjectModal(worldId: Int) {
             button {
                 classes = setOf("btn", "btn--primary")
                 type = ButtonType.submit
+                attributes["onclick"] =
+                    "document.getElementById('create-project-view').value = new URLSearchParams(window.location.search).get('view') || 'execute'"
                 +"Create Project"
             }
             button {
@@ -199,7 +306,13 @@ fun projectCardFragment(worldId: Int, project: ProjectListItem): String {
     }
 }
 
-fun kotlinx.html.FlowContent.projectsToolbar() {
+fun planProjectCardFragment(worldId: Int, project: ProjectPlanListItem): String {
+    return kotlinx.html.stream.createHTML().div {
+        planProjectCard(worldId, project)
+    }
+}
+
+fun kotlinx.html.FlowContent.projectsToolbar(worldId: Int, view: String = "execute") {
     div("projects-toolbar") {
         button {
             classes = setOf("btn", "btn--primary")
@@ -207,13 +320,14 @@ fun kotlinx.html.FlowContent.projectsToolbar() {
                 "document.getElementById('first-project-flag').value=''; document.getElementById('create-project-modal')?.showModal()"
             +"New Project"
         }
+        planExecuteToggle(worldId, view)
     }
 }
 
-fun projectsToolbarOobFragment(): String {
+fun projectsToolbarOobFragment(worldId: Int, view: String = "execute"): String {
     return kotlinx.html.stream.createHTML().div {
         id = "projects-toolbar-slot"
         attributes["hx-swap-oob"] = "innerHTML"
-        projectsToolbar()
+        projectsToolbar(worldId, view)
     }
 }

@@ -4,7 +4,7 @@ import app.mcorg.domain.model.minecraft.MinecraftVersion
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.Result
 import app.mcorg.pipeline.SafeSQL
-import app.mcorg.pipeline.project.handleGetProjectList
+import app.mcorg.pipeline.project.handleGetProjectListFragment
 import app.mcorg.pipeline.world.CreateWorldInput
 import app.mcorg.pipeline.world.CreateWorldStep
 import app.mcorg.presentation.plugins.AuthPlugin
@@ -29,7 +29,7 @@ import kotlin.test.assertEquals
 @Tag("database")
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @ExtendWith(DatabaseTestExtension::class)
-class GetProjectListIT : WithUser() {
+class GetProjectListFragmentIT : WithUser() {
 
     private fun createWorld(name: String): Int = runBlocking {
         val result = CreateWorldStep(user).process(
@@ -40,133 +40,6 @@ class GetProjectListIT : WithUser() {
             )
         )
         (result as Result.Success).value
-    }
-
-    @Test
-    fun `returns 200 with empty state when no projects exist`() = testApplication {
-        val emptyWorldId = createWorld("ProjectList IT Empty World")
-
-        routing {
-            install(AuthPlugin)
-            route("/worlds/{worldId}") {
-                install(WorldParamPlugin)
-                install(UpdateActiveWorldPlugin)
-                route("/projects") {
-                    get { call.handleGetProjectList() }
-                }
-            }
-        }
-
-        val response = client.get("/worlds/$emptyWorldId/projects") {
-            addAuthCookie(this)
-        }
-
-        assertEquals(HttpStatusCode.OK, response.status)
-        val body = response.bodyAsText()
-        assertContains(body, "projects-empty-state")
-        assertContains(body, "Plan your own project")
-        assertContains(body, "Browse community ideas")
-    }
-
-    @Test
-    fun `returns 200 with project cards when projects exist`() = testApplication {
-        val worldId = createWorld("ProjectList IT Projects World")
-        val projectId = createProject(worldId, "Integration Test Project")
-
-        routing {
-            install(AuthPlugin)
-            route("/worlds/{worldId}") {
-                install(WorldParamPlugin)
-                install(UpdateActiveWorldPlugin)
-                route("/projects") {
-                    get { call.handleGetProjectList() }
-                }
-            }
-        }
-
-        val response = client.get("/worlds/$worldId/projects") {
-            addAuthCookie(this)
-        }
-
-        assertEquals(HttpStatusCode.OK, response.status)
-        val body = response.bodyAsText()
-        assertContains(body, "project-card-$projectId")
-        assertContains(body, "Integration Test Project")
-    }
-
-    @Test
-    fun `returns 200 with plan view cards when view=plan`() = testApplication {
-        val worldId = createWorld("ProjectList IT Plan World")
-        val projectId = createProject(worldId, "Plan View Test Project")
-
-        routing {
-            install(AuthPlugin)
-            route("/worlds/{worldId}") {
-                install(WorldParamPlugin)
-                install(UpdateActiveWorldPlugin)
-                route("/projects") {
-                    get { call.handleGetProjectList() }
-                }
-            }
-        }
-
-        val response = client.get("/worlds/$worldId/projects?view=plan") {
-            addAuthCookie(this)
-        }
-
-        assertEquals(HttpStatusCode.OK, response.status)
-        val body = response.bodyAsText()
-        assertContains(body, "project-card-$projectId")
-        assertContains(body, "Plan View Test Project")
-        // Plan view shows resource definition count, not task progress bar
-        assertContains(body, "No resources defined")
-    }
-
-    @Test
-    fun `returns execute view when view param is absent`() = testApplication {
-        val worldId = createWorld("ProjectList IT No Param World")
-        val projectId = createProject(worldId, "Execute Default Project")
-
-        routing {
-            install(AuthPlugin)
-            route("/worlds/{worldId}") {
-                install(WorldParamPlugin)
-                install(UpdateActiveWorldPlugin)
-                route("/projects") {
-                    get { call.handleGetProjectList() }
-                }
-            }
-        }
-
-        val response = client.get("/worlds/$worldId/projects") {
-            addAuthCookie(this)
-        }
-
-        assertEquals(HttpStatusCode.OK, response.status)
-        val body = response.bodyAsText()
-        assertContains(body, "project-card-$projectId")
-        assertContains(body, "Execute Default Project")
-    }
-
-    @Test
-    fun `redirects to sign in when not authenticated`() = testApplication {
-        val worldId = createWorld("ProjectList IT Auth World")
-        val client = createClient { followRedirects = false }
-
-        routing {
-            install(AuthPlugin)
-            route("/worlds/{worldId}") {
-                install(WorldParamPlugin)
-                install(UpdateActiveWorldPlugin)
-                route("/projects") {
-                    get { call.handleGetProjectList() }
-                }
-            }
-        }
-
-        val response = client.get("/worlds/$worldId/projects")
-
-        assertEquals(HttpStatusCode.Found, response.status)
     }
 
     private fun createProject(worldId: Int, name: String): Int = runBlocking {
@@ -181,5 +54,143 @@ class GetProjectListIT : WithUser() {
             }
         ).process(Unit)
         (result as Result.Success).value
+    }
+
+    @Test
+    fun `returns execute view fragment when view=execute`() = testApplication {
+        val worldId = createWorld("Fragment IT Execute World")
+        createProject(worldId, "Execute Fragment Project")
+
+        routing {
+            install(AuthPlugin)
+            route("/worlds/{worldId}") {
+                install(WorldParamPlugin)
+                install(UpdateActiveWorldPlugin)
+                route("/projects") {
+                    get("/list-fragment") {
+                        call.handleGetProjectListFragment()
+                    }
+                }
+            }
+        }
+
+        val response = client.get("/worlds/$worldId/projects/list-fragment?view=execute") {
+            addAuthCookie(this)
+        }
+
+        assertEquals(HttpStatusCode.OK, response.status)
+        val body = response.bodyAsText()
+        assertContains(body, "projects-view")
+        assertContains(body, "project-card-list")
+        assertContains(body, "Execute Fragment Project")
+    }
+
+    @Test
+    fun `returns plan view fragment when view=plan`() = testApplication {
+        val worldId = createWorld("Fragment IT Plan World")
+        createProject(worldId, "Plan Fragment Project")
+
+        routing {
+            install(AuthPlugin)
+            route("/worlds/{worldId}") {
+                install(WorldParamPlugin)
+                install(UpdateActiveWorldPlugin)
+                route("/projects") {
+                    get("/list-fragment") {
+                        call.handleGetProjectListFragment()
+                    }
+                }
+            }
+        }
+
+        val response = client.get("/worlds/$worldId/projects/list-fragment?view=plan") {
+            addAuthCookie(this)
+        }
+
+        assertEquals(HttpStatusCode.OK, response.status)
+        val body = response.bodyAsText()
+        assertContains(body, "projects-view")
+        assertContains(body, "project-card-list")
+        assertContains(body, "Plan Fragment Project")
+        assertContains(body, "No resources defined")
+    }
+
+    @Test
+    fun `defaults to execute view when view param is missing`() = testApplication {
+        val worldId = createWorld("Fragment IT Default World")
+        createProject(worldId, "Default Fragment Project")
+
+        routing {
+            install(AuthPlugin)
+            route("/worlds/{worldId}") {
+                install(WorldParamPlugin)
+                install(UpdateActiveWorldPlugin)
+                route("/projects") {
+                    get("/list-fragment") {
+                        call.handleGetProjectListFragment()
+                    }
+                }
+            }
+        }
+
+        val response = client.get("/worlds/$worldId/projects/list-fragment") {
+            addAuthCookie(this)
+        }
+
+        assertEquals(HttpStatusCode.OK, response.status)
+        val body = response.bodyAsText()
+        assertContains(body, "projects-view")
+        assertContains(body, "project-card-list")
+        assertContains(body, "Default Fragment Project")
+    }
+
+    @Test
+    fun `defaults to execute view when view param is invalid`() = testApplication {
+        val worldId = createWorld("Fragment IT Invalid World")
+        createProject(worldId, "Invalid View Fragment Project")
+
+        routing {
+            install(AuthPlugin)
+            route("/worlds/{worldId}") {
+                install(WorldParamPlugin)
+                install(UpdateActiveWorldPlugin)
+                route("/projects") {
+                    get("/list-fragment") {
+                        call.handleGetProjectListFragment()
+                    }
+                }
+            }
+        }
+
+        val response = client.get("/worlds/$worldId/projects/list-fragment?view=invalid") {
+            addAuthCookie(this)
+        }
+
+        assertEquals(HttpStatusCode.OK, response.status)
+        val body = response.bodyAsText()
+        assertContains(body, "projects-view")
+    }
+
+    @Test
+    fun `redirects to sign in when not authenticated`() = testApplication {
+        val worldId = createWorld("Fragment IT Auth World")
+        val client = createClient { followRedirects = false }
+
+        routing {
+            install(AuthPlugin)
+            route("/worlds/{worldId}") {
+                install(WorldParamPlugin)
+                install(UpdateActiveWorldPlugin)
+                route("/projects") {
+                    get("/list-fragment") {
+                        call.handleGetProjectListFragment()
+                    }
+                }
+            }
+        }
+
+        val response = client.get("/worlds/$worldId/projects/list-fragment")
+
+        assertEquals(HttpStatusCode.Found, response.status)
     }
 }

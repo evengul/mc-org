@@ -14,20 +14,20 @@ class ToggleTest {
 
     @Test
     fun `toggle emits div with toggle class`() {
-        val html = render { planExecuteToggle(active = "PLAN") }
+        val html = render { planExecuteToggle(worldId = 1, active = "plan") }
         assertTrue(html.contains("class=\"toggle\""))
     }
 
     @Test
     fun `toggle has exactly two child buttons`() {
-        val html = render { planExecuteToggle(active = "PLAN") }
+        val html = render { planExecuteToggle(worldId = 1, active = "plan") }
         val buttonCount = Regex("<button").findAll(html).count()
         assertEquals(2, buttonCount)
     }
 
     @Test
-    fun `PLAN active marks first button active`() {
-        val html = render { planExecuteToggle(active = "PLAN") }
+    fun `plan active marks PLAN button active`() {
+        val html = render { planExecuteToggle(worldId = 1, active = "plan") }
         assertTrue(html.contains("toggle__btn--active"))
         assertTrue(html.contains("PLAN"))
         assertTrue(html.contains("EXEC"))
@@ -42,13 +42,43 @@ class ToggleTest {
     }
 
     @Test
-    fun `EXECUTE active marks second button active`() {
-        val html = render { planExecuteToggle(active = "EXECUTE") }
+    fun `execute active marks EXEC button active`() {
+        val html = render { planExecuteToggle(worldId = 1, active = "execute") }
         assertTrue(html.contains("toggle__btn--active"))
         // First button (PLAN) should NOT have active class
         val planIndex = html.indexOf("PLAN")
         val execIndex = html.indexOf("EXEC")
         val activeIndex = html.indexOf("toggle__btn--active")
         assertTrue(activeIndex > planIndex && activeIndex < execIndex)
+    }
+
+    @Test
+    fun `PLAN button emits correct hx-get attribute`() {
+        val html = render { planExecuteToggle(worldId = 42, active = "plan") }
+        assertTrue(html.contains("/worlds/42/projects/list-fragment?view=plan"))
+    }
+
+    @Test
+    fun `EXEC button emits correct hx-get attribute`() {
+        val html = render { planExecuteToggle(worldId = 42, active = "execute") }
+        assertTrue(html.contains("/worlds/42/projects/list-fragment?view=execute"))
+    }
+
+    @Test
+    fun `buttons emit hx-target for projects-view`() {
+        val html = render { planExecuteToggle(worldId = 1, active = "plan") }
+        assertTrue(html.contains("hx-target=\"#projects-view\""))
+    }
+
+    @Test
+    fun `PLAN button emits correct hx-push-url`() {
+        val html = render { planExecuteToggle(worldId = 42, active = "plan") }
+        assertTrue(html.contains("/worlds/42/projects?view=plan"))
+    }
+
+    @Test
+    fun `EXEC button emits correct hx-push-url`() {
+        val html = render { planExecuteToggle(worldId = 42, active = "execute") }
+        assertTrue(html.contains("/worlds/42/projects?view=execute"))
     }
 }
