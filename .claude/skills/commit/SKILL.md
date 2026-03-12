@@ -23,8 +23,10 @@ Zero errors required. If it fails, fix the errors before continuing.
 Only run tests if the changes include Kotlin/Java source files (`webapp/src/main/**`). Skip this step for config-only or non-code changes.
 
 ```bash
-cd webapp && mvn test
+./webapp/scripts/test.sh
 ```
+
+Run with `--database` if the changes include `@Tag("database")` tests, `--integration` if they include `*IT.kt` integration tests. Add `--exclude-unit-tests` to skip unit tests when only running a specific tier.
 
 All tests must pass. If any fail, fix them before continuing.
 
