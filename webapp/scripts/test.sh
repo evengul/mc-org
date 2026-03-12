@@ -51,6 +51,9 @@ if [[ ! -f mc-web/src/main/resources/keys/private_key.pem ]]; then
     (cd mc-web && bash create-keys.sh)
 fi
 
+echo "Compiling..."
+mvn test-compile -B
+
 if [[ "$UNIT" == true ]]; then
     echo "Running unit tests..."
     mvn test -B

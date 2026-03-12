@@ -6,7 +6,6 @@ import app.mcorg.presentation.consts.AUTH_COOKIE
 import app.mcorg.presentation.router.authRouter
 import app.mcorg.test.postgres.DatabaseTestExtension
 import com.github.tomakehurst.wiremock.client.WireMock
-import com.github.tomakehurst.wiremock.client.WireMock.stubFor
 import com.github.tomakehurst.wiremock.junit5.WireMockRuntimeInfo
 import com.github.tomakehurst.wiremock.junit5.WireMockTest
 import io.ktor.client.request.get
@@ -25,8 +24,13 @@ import kotlin.test.assertNotNull
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @ExtendWith(DatabaseTestExtension::class)
 class MicrosoftSignInIT {
+
+    private lateinit var wireMock: WireMock
+
     @BeforeEach
     fun setup(wiremock: WireMockRuntimeInfo) {
+        wireMock = wiremock.wireMock
+
         AppConfig.env = Production
         AppConfig.skipMicrosoftSignIn = false
 
@@ -104,7 +108,7 @@ class MicrosoftSignInIT {
     }
 
     fun stubMicrosoftTokenEndpoint() {
-        stubFor(WireMock.post("/consumers/oauth2/v2.0/token").willReturn(WireMock.aResponse().withStatus(200)
+        wireMock.register(WireMock.post("/consumers/oauth2/v2.0/token").willReturn(WireMock.aResponse().withStatus(200)
             // language=json
             .withBody("""
                 {
@@ -119,7 +123,7 @@ class MicrosoftSignInIT {
     }
 
     fun stubXboxAuthEndpoint() {
-        stubFor(WireMock.post("/user/authenticate").willReturn(WireMock.aResponse().withBody(
+        wireMock.register(WireMock.post("/user/authenticate").willReturn(WireMock.aResponse().withBody(
             // language=json
             """
                 {
@@ -139,7 +143,7 @@ class MicrosoftSignInIT {
     }
 
     fun stubXstsAuthEndpoint() {
-        stubFor(WireMock.post("/xsts/authorize").willReturn(WireMock.aResponse().withBody(
+        wireMock.register(WireMock.post("/xsts/authorize").willReturn(WireMock.aResponse().withBody(
             // language=json
             """
                 {
@@ -159,7 +163,7 @@ class MicrosoftSignInIT {
     }
 
     fun stubMinecraftTokenEndpoint() {
-        stubFor(WireMock.post("/authentication/login_with_xbox").willReturn(WireMock.aResponse().withBody(
+        wireMock.register(WireMock.post("/authentication/login_with_xbox").willReturn(WireMock.aResponse().withBody(
             // language=json
             """
                 {
@@ -175,7 +179,7 @@ class MicrosoftSignInIT {
     }
 
     fun stubMinecraftProfileEndpoint() {
-        stubFor(WireMock.get("/minecraft/profile").willReturn(WireMock.aResponse().withBody(
+        wireMock.register(WireMock.get("/minecraft/profile").willReturn(WireMock.aResponse().withBody(
             // language=json
             """
                 {

@@ -48,26 +48,26 @@ object ModrinthApiConfig : ApiConfig(AppConfig.modrinthBaseUrl) {
 object MicrosoftLoginApiConfig : ApiConfig(AppConfig.microsoftLoginBaseUrl) {
     override fun getContentType() = ContentType.Application.Json
 
-    fun getTokenUrl() = "${baseUrl}/consumers/oauth2/v2.0/token"
+    fun getTokenUrl() = "${AppConfig.microsoftLoginBaseUrl}/consumers/oauth2/v2.0/token"
 }
 
 object XboxAuthApiConfig : ApiConfig(AppConfig.xboxAuthBaseUrl) {
     override fun getContentType() = ContentType.Application.Json
 
-    fun getAuthenticateUrl() = "${baseUrl}/user/authenticate"
+    fun getAuthenticateUrl() = "${AppConfig.xboxAuthBaseUrl}/user/authenticate"
 }
 
 object XstsAuthorizationApiConfig : ApiConfig(AppConfig.xstsAuthBaseUrl) {
     override fun getContentType() = ContentType.Application.Json
 
-    fun getAuthorizeUrl() = "${baseUrl}/xsts/authorize"
+    fun getAuthorizeUrl() = "${AppConfig.xstsAuthBaseUrl}/xsts/authorize"
 }
 
 object MinecraftApiConfig : ApiConfig(AppConfig.minecraftBaseUrl) {
     override fun getContentType() = ContentType.Application.Json
 
-    fun getAuthenticateUrl() = "${baseUrl}/authentication/login_with_xbox"
-    fun getProfileUrl() = "${baseUrl}/minecraft/profile"
+    fun getAuthenticateUrl() = "${AppConfig.minecraftBaseUrl}/authentication/login_with_xbox"
+    fun getProfileUrl() = "${AppConfig.minecraftBaseUrl}/minecraft/profile"
 }
 
 object FabricMcApiConfig : ApiConfig(AppConfig.fabricMcBaseUrl) {
