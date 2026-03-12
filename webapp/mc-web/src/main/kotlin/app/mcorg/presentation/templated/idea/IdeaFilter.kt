@@ -2,123 +2,87 @@ package app.mcorg.presentation.templated.idea
 
 import app.mcorg.domain.model.idea.IdeaCategory
 import app.mcorg.domain.model.idea.IdeaDifficulty
-import app.mcorg.presentation.templated.common.button.neutralButton
 import app.mcorg.presentation.templated.common.link.Link
-import app.mcorg.presentation.templated.common.form.searchField.SearchFieldHxValues
-import app.mcorg.presentation.templated.common.form.searchField.searchField
 import app.mcorg.presentation.templated.utils.toPrettyEnumName
 import kotlinx.html.*
 
+fun DIV.emptyCategoryFilters() {
+    p("ideas-filter__label") { +"Select a category for specific filters" }
+}
+
 /**
  * Main filter sidebar component.
- * Renders base filters (always visible) and dynamic category-specific filters (loaded via HTMX).
+ * HTMX target is #ideas-list-container (wraps both cards and pagination).
  */
 fun ASIDE.ideaFilter(selectedCategory: IdeaCategory? = null) {
-    id = "ideas-filter"
-    classes += "stack stack--md"
+    div("ideas-filter__header") {
+        h2("ideas-filter__title") { +"Filters" }
+        a(classes = "btn btn--ghost btn--sm") {
+            href = Link.Ideas.to
+            +"Clear All"
+        }
+    }
 
-    // Filter header with title and clear button
-    filterHeader()
-
-    // Filter form that triggers HTMX updates
     form {
         id = "idea-filter-form"
-        attributes["hx-get"] = Link.Ideas.to + "/search"
-        attributes["hx-target"] = "#ideas-list"
-        attributes["hx-trigger"] = """
-            change delay:400ms
-            from:#idea-filter-form,
-            submit
-        """.trimIndent()
+        attributes["hx-get"] = "${Link.Ideas.to}/search"
+        attributes["hx-target"] = "#ideas-list-container"
+        attributes["hx-trigger"] = "change delay:400ms from:#idea-filter-form, submit"
         attributes["hx-swap"] = "outerHTML"
 
-        // Text search (debounced)
         filterSearchInput()
-
-        // Base filters
         filterCategoryRadios(selectedCategory)
         filterDifficulty()
         filterRating()
         filterMinecraftVersion()
 
-        // Dynamic category-specific filters (loaded via HTMX)
         div {
             id = "category-filters"
-            classes += "stack stack--sm"
-            // Will be populated by HTMX when category is selected
         }
     }
 }
 
-/**
- * Filter header with title and clear button
- */
-fun ASIDE.filterHeader() {
-    classes += "filter-header"
-    h2 {
-        +"Filters"
-    }
-    neutralButton("Clear All") {
-        href = Link.Ideas.to
-    }
-}
-
-/**
- * Text search input with debounced HTMX trigger
- */
 fun FORM.filterSearchInput() {
-    div("filter-group") {
+    div("ideas-filter__group") {
         label {
             htmlFor = "filter-search"
-            +"Search Ideas"
+            +"Search"
         }
-        searchField("filter-search") {
-            placeHolder = "Search..."
-            extraClasses = setOf("form-control--sm", "filter-field")
-            hxValues = SearchFieldHxValues(
-                hxGet = Link.Ideas.to + "/search",
-                hxTarget = "#ideas-list",
-                hxInclude = "#idea-filter-form",
-                hxTrigger = "keyup changed delay:500ms",
-            )
+        input(type = InputType.text, classes = "form-control ideas-filter__input") {
+            id = "filter-search"
+            name = "query"
+            placeholder = "Search ideas…"
+            attributes["hx-get"] = "${Link.Ideas.to}/search"
+            attributes["hx-target"] = "#ideas-list-container"
+            attributes["hx-trigger"] = "input delay:400ms"
+            attributes["hx-swap"] = "outerHTML"
+            attributes["hx-include"] = "#idea-filter-form"
         }
     }
 }
 
-/**
- * Category filter using radio buttons (exclusive selection)
- */
 fun FORM.filterCategoryRadios(selectedCategory: IdeaCategory?) {
-    div("filter-group") {
-        label {
-            +"Category"
-        }
-        div("stack stack--xs") {
-            // "All" option (no category filter)
-            label("filter-radio-label") {
-                input(type = InputType.radio, classes = "filter-field") {
+    div("ideas-filter__group") {
+        p("ideas-filter__label") { +"Category" }
+        div("ideas-filter__options") {
+            label("ideas-filter__radio-label") {
+                input(type = InputType.radio, classes = "ideas-filter__radio") {
                     name = "category"
                     value = ""
-                    if (selectedCategory == null) {
-                        checked = true
-                    }
-                    attributes["hx-get"] = Link.Ideas.to + "/filters/clear"
+                    checked = selectedCategory == null
+                    attributes["hx-get"] = "${Link.Ideas.to}/filters/clear"
                     attributes["hx-target"] = "#category-filters"
                     attributes["hx-swap"] = "innerHTML"
                 }
                 +"All Categories"
             }
-
-            // Individual categories
             IdeaCategory.entries.forEach { category ->
-                label("filter-radio-label") {
-                    input(type = InputType.radio, classes = "filter-field") {
+                label("ideas-filter__radio-label") {
+                    input(type = InputType.radio, classes = "ideas-filter__radio") {
                         name = "category"
                         value = category.name
-                        if (selectedCategory == category) {
-                            checked = true
-                        }
-                        attributes["hx-get"] = Link.Ideas.to + "/filters/${category.name.lowercase()}"
+                        checked = selectedCategory == category
+                        attributes["hx-get"] = "${Link.Ideas.to}/filters/${category.name.lowercase()}"
                         attributes["hx-target"] = "#category-filters"
                         attributes["hx-swap"] = "innerHTML"
                         attributes["hx-include"] = "#idea-filter-form"
@@ -130,18 +94,13 @@ fun FORM.filterCategoryRadios(selectedCategory: IdeaCategory?) {
     }
 }
 
-/**
- * Difficulty filter with checkboxes
- */
 fun FORM.filterDifficulty() {
-    div("filter-group") {
-        label {
-            +"Difficulty"
-        }
-        div("stack stack--xs") {
+    div("ideas-filter__group") {
+        p("ideas-filter__label") { +"Difficulty" }
+        div("ideas-filter__options") {
             IdeaDifficulty.entries.forEach { difficulty ->
-                label("filter-checkbox-label") {
-                    input(type = InputType.checkBox, classes = "filter-field") {
+                label("ideas-filter__checkbox-label") {
+                    input(type = InputType.checkBox, classes = "ideas-filter__checkbox") {
                         name = "difficulty[]"
                         value = difficulty.name
                     }
@@ -152,19 +111,16 @@ fun FORM.filterDifficulty() {
     }
 }
 
-/**
- * Minimum rating filter
- */
 fun FORM.filterRating() {
-    div("filter-group") {
-        label {
+    div("ideas-filter__group") {
+        label("ideas-filter__label") {
             htmlFor = "filter-min-rating"
-            +"Minimum Rating"
+            +"Min Rating"
         }
-        input(type = InputType.number, classes = "form-control form-control--sm filter-field") {
+        input(type = InputType.number, classes = "form-control ideas-filter__input") {
             id = "filter-min-rating"
             name = "minRating"
-            placeholder = "e.g., 4.0"
+            placeholder = "0 – 5"
             attributes["min"] = "0"
             attributes["max"] = "5"
             attributes["step"] = "0.1"
@@ -172,30 +128,16 @@ fun FORM.filterRating() {
     }
 }
 
-/**
- * Minecraft version filter
- */
 fun FORM.filterMinecraftVersion() {
-    div("filter-group") {
-        label {
+    div("ideas-filter__group") {
+        label("ideas-filter__label") {
             htmlFor = "filter-minecraft-version"
             +"Minecraft Version"
         }
-        input(type = InputType.text, classes = "form-control form-control--sm filter-field") {
+        input(type = InputType.text, classes = "form-control ideas-filter__input") {
             id = "filter-minecraft-version"
             name = "minecraftVersion"
-            placeholder = "e.g., 1.20.1"
+            placeholder = "e.g. 1.20.1"
         }
     }
 }
-
-/**
- * Renders an empty state when "All Categories" is selected
- */
-fun DIV.emptyCategoryFilters() {
-    p("subtle") {
-        style = "text-align: center; padding: var(--spacing-sm);"
-        +"Select a category to see specific filters"
-    }
-}
-

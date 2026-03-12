@@ -21,6 +21,7 @@ object IdeaFilterParser {
         val minRating = parseMinRating(parameters)
         val minecraftVersion = parameters["minecraftVersion"]?.takeIf { it.isNotBlank() }
         val categoryFilters = parseCategoryFilters(parameters, category)
+        val page = parameters["page"]?.toIntOrNull()?.coerceAtLeast(1) ?: 1
 
         return IdeaSearchFilters(
             query = query,
@@ -28,7 +29,8 @@ object IdeaFilterParser {
             difficulties = difficulties,
             minRating = minRating,
             minecraftVersion = minecraftVersion,
-            categoryFilters = categoryFilters
+            categoryFilters = categoryFilters,
+            page = page
         )
     }
 

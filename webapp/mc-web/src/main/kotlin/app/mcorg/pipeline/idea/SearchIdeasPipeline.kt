@@ -6,57 +6,44 @@ import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.failure.AppFailure
-import app.mcorg.pipeline.idea.commonsteps.GetAllIdeasStep
 import app.mcorg.pipeline.idea.extractors.toIdea
-import app.mcorg.presentation.templated.idea.ideaList
+import app.mcorg.presentation.templated.idea.ideasListContainerContent
 import app.mcorg.presentation.utils.respondHtml
 import io.ktor.server.application.ApplicationCall
+import kotlinx.html.div
+import kotlinx.html.id
 import kotlinx.html.stream.createHTML
-import kotlinx.html.ul
 
 
 suspend fun ApplicationCall.handleSearchIdeas() {
-    // Parse ALL filter parameters using the filter parser
     val filters = IdeaFilterParser.parse(request.queryParameters)
 
-    // Query database with all filters
     when (val result = SearchIdeasStep.process(filters)) {
         is Result.Success -> {
-            // Return HTML fragment for idea list
-            respondHtml(createHTML().ul {
-                ideaList(result.value)
+            respondHtml(createHTML().div {
+                id = "ideas-list-container"
+                ideasListContainerContent(result.value, filters)
             })
         }
         is Result.Failure -> {
-            // Return empty list on error
-            respondHtml(createHTML().ul {
-                ideaList(emptyList())
+            respondHtml(createHTML().div {
+                id = "ideas-list-container"
+                ideasListContainerContent(PaginatedResult(emptyList<app.mcorg.domain.model.idea.Idea>(), 0, 1, 20), filters)
             })
         }
     }
 }
 
-object SearchIdeasStep : Step<IdeaSearchFilters, AppFailure.DatabaseError, List<Idea>> {
-    override suspend fun process(input: IdeaSearchFilters): Result<AppFailure.DatabaseError, List<Idea>> {
-        // If no filters at all, delegate to GetAllIdeasStep
-        if (input.category == null &&
-            input.query == null &&
-            input.difficulties.isEmpty() &&
-            input.minRating == null &&
-            input.minecraftVersion == null &&
-            input.categoryFilters.isEmpty()) {
-            return GetAllIdeasStep.process(Unit)
-        }
-
-        // Build dynamic WHERE clause from filters
+object SearchIdeasStep : Step<IdeaSearchFilters, AppFailure.DatabaseError, PaginatedResult<Idea>> {
+    override suspend fun process(input: IdeaSearchFilters): Result<AppFailure.DatabaseError, PaginatedResult<Idea>> {
         val sqlWhereClause = IdeaSqlBuilder.buildWhereClause(input)
 
-        // Base SELECT with LEFT JOIN for test data
         val baseSql = """
-            SELECT 
+            SELECT
                 i.id, i.name, i.description, i.category, i.author, i.sub_authors, i.labels,
                 i.favourites_count, i.rating_average, i.rating_count, i.difficulty,
                 i.minecraft_version_range, i.category_data, i.created_by, i.created_at,
+                COUNT(*) OVER() AS total_count,
                 COALESCE(
                     json_agg(
                         json_build_object(
@@ -74,36 +61,37 @@ object SearchIdeasStep : Step<IdeaSearchFilters, AppFailure.DatabaseError, List<
                      i.favourites_count, i.rating_average, i.rating_count, i.difficulty,
                      i.minecraft_version_range, i.category_data, i.created_by, i.created_at
             ORDER BY i.created_at DESC
+            LIMIT ? OFFSET ?
         """.trimIndent()
 
-        return DatabaseSteps.query<SqlWhereClause, List<Idea>>(
+        return DatabaseSteps.query<SqlWhereClause, Pair<List<Idea>, Int>>(
             sql = SafeSQL.select(baseSql),
             parameterSetter = { statement, whereClause ->
-                whereClause.parameters.forEachIndexed { index, param ->
+                var index = 1
+                whereClause.parameters.forEach { param ->
                     when (param) {
                         is Array<*> -> {
-                            // Handle arrays for PostgreSQL (e.g., for ?| operator)
                             val sqlArray = statement.connection.createArrayOf("text", param)
-                            statement.setArray(index + 1, sqlArray)
+                            statement.setArray(index, sqlArray)
                         }
-                        else -> {
-                            // Handle all other types
-                            statement.setObject(index + 1, param)
-                        }
+                        else -> statement.setObject(index, param)
                     }
+                    index++
                 }
+                statement.setInt(index, whereClause.pageSize)
+                statement.setInt(index + 1, (whereClause.page - 1) * whereClause.pageSize)
             },
             resultMapper = { rs ->
-                buildList {
-                    while (rs.next()) {
-                        add(rs.toIdea())
-                    }
+                val ideas = mutableListOf<Idea>()
+                var totalCount = 0
+                while (rs.next()) {
+                    ideas.add(rs.toIdea())
+                    if (ideas.size == 1) totalCount = rs.getInt("total_count")
                 }
+                ideas to totalCount
             }
-        ).process(sqlWhereClause)
+        ).process(sqlWhereClause).map { (ideas, totalCount) ->
+            PaginatedResult(ideas, totalCount, input.page, input.pageSize)
+        }
     }
 }
-
-/**
- * Extension function to convert a ResultSet row to an Idea object
- */

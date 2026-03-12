@@ -45,7 +45,9 @@ object IdeaSqlBuilder {
 
         return SqlWhereClause(
             whereClause = if (conditions.isEmpty()) "" else "WHERE ${conditions.joinToString(" AND ")}",
-            parameters = parameters
+            parameters = parameters,
+            page = filters.page,
+            pageSize = filters.pageSize
         )
     }
 
@@ -100,9 +102,11 @@ object IdeaSqlBuilder {
 }
 
 /**
- * Container for SQL WHERE clause and its parameters
+ * Container for SQL WHERE clause, its parameters, and pagination info
  */
 data class SqlWhereClause(
     val whereClause: String,
-    val parameters: List<Any>
+    val parameters: List<Any>,
+    val page: Int = 1,
+    val pageSize: Int = 20
 )

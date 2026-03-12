@@ -1,99 +1,125 @@
 package app.mcorg.presentation.templated.idea
 
 import app.mcorg.domain.model.idea.Idea
-import app.mcorg.presentation.templated.common.chip.ChipSize
-import app.mcorg.presentation.templated.common.chip.ChipVariant
-import app.mcorg.presentation.templated.common.chip.chipComponent
+import app.mcorg.pipeline.idea.IdeaSearchFilters
+import app.mcorg.pipeline.idea.PaginatedResult
+import app.mcorg.presentation.hxGet
+import app.mcorg.presentation.hxInclude
+import app.mcorg.presentation.hxSwap
+import app.mcorg.presentation.hxTarget
 import app.mcorg.presentation.templated.common.link.Link
 import app.mcorg.presentation.templated.utils.formatAsRelativeOrDate
 import app.mcorg.presentation.templated.utils.toPrettyEnumName
-import kotlinx.html.LI
-import kotlinx.html.UL
-import kotlinx.html.a
-import kotlinx.html.classes
-import kotlinx.html.div
-import kotlinx.html.h2
-import kotlinx.html.id
-import kotlinx.html.li
-import kotlinx.html.p
-import kotlinx.html.ul
-import kotlin.math.ceil
+import kotlinx.html.*
 import kotlin.math.min
+import java.net.URLEncoder
 
-fun UL.ideaList(ideas: List<Idea>) {
-    id = "ideas-list"
-    ideas.forEach { idea ->
-        li {
-            ideaListItem(idea)
+fun FlowContent.ideasListContainerContent(result: PaginatedResult<Idea>, filters: IdeaSearchFilters) {
+    if (result.items.isEmpty()) {
+        div("empty-state") {
+            p("empty-state__heading") { +"No ideas match your filters" }
+        }
+    } else {
+        div("ideas-card-grid") {
+            result.items.forEach { idea ->
+                ideaCard(idea)
+            }
         }
     }
+    ideaPaginationControls(result, filters)
 }
 
-fun LI.ideaListItem(idea: Idea) {
-    classes += "idea-list-item"
-    a {
+fun FlowContent.ideaCard(idea: Idea) {
+    a(classes = "idea-card") {
         href = Link.Ideas.single(idea.id)
-        div("idea-list-item-header") {
-            div("idea-list-item-header-start") {
-                h2 {
-                    +idea.name
-                }
-                p("subtle") {
-                    +"by ${idea.author.name} • ${idea.createdAt.formatAsRelativeOrDate()}"
-                }
-            }
-            div("idea-list-item-header-end") {
-                chipComponent {
-                    variant = ChipVariant.NEUTRAL
-                    +idea.category.toPrettyEnumName()
-                }
-            }
+        div("idea-card__header") {
+            h2("idea-card__name") { +idea.name }
+            span("badge") { +idea.category.toPrettyEnumName() }
         }
-        p("subtle") {
-            val maxDescriptionLength = 100
-            if (idea.description.length > maxDescriptionLength) {
-                val lastPeriodIndex = idea.description.indexOf('.', maxDescriptionLength)
-                if (lastPeriodIndex != -1) {
-                    +idea.description.take(lastPeriodIndex + 1)
-                    +"."
-                } else {
-                    +idea.description.take(maxDescriptionLength)
-                    +" "
-                }
+        p("idea-card__meta") {
+            +"by ${idea.author.name} • ${idea.createdAt.formatAsRelativeOrDate()}"
+        }
+        p("idea-card__description") {
+            val maxLen = 150
+            if (idea.description.length > maxLen) {
+                +"${idea.description.take(maxLen)}…"
             } else {
                 +idea.description
             }
         }
-        ul {
-            classes += "idea-list-item-labels"
-            idea.labels.forEach { label ->
-                li {
-                    chipComponent {
-                        size = ChipSize.SMALL
-                        variant = ChipVariant.NEUTRAL
-                        +label
-                    }
-                }
+        div("idea-card__footer") {
+            div("idea-card__badges") {
+                span("badge") { +idea.difficulty.toPrettyEnumName() }
+                span("badge") { +idea.worksInVersionRange.toString() }
             }
-        }
-        div("idea-list-item-footer") {
-            div("idea-list-item-footer-start") {
-                p("subtle") {
-                    +"${idea.favouritesCount} favourites • ${"%.1f".format(idea.rating.average)} ${"⭐".repeat(min(ceil(idea.rating.average).toInt(), 5))} (${idea.rating.total} ratings)"
-                }
-            }
-            div("idea-list-item-footer-end") {
-                chipComponent {
-                    size = ChipSize.SMALL
-                    variant = ChipVariant.NEUTRAL
-                    +idea.difficulty.toPrettyEnumName()
-                }
-                chipComponent {
-                    size = ChipSize.SMALL
-                    variant = ChipVariant.NEUTRAL
-                    +idea.worksInVersionRange.toString()
+            div("idea-card__stats") {
+                span("idea-card__stat") { +"♥ ${idea.favouritesCount}" }
+                span("idea-card__stat") {
+                    val avg = "%.1f".format(idea.rating.average)
+                    val stars = "★".repeat(min(idea.rating.average.toInt().coerceAtLeast(0), 5))
+                    +"$avg $stars (${idea.rating.total})"
                 }
             }
         }
     }
+}
+
+fun FlowContent.ideaPaginationControls(result: PaginatedResult<Idea>, filters: IdeaSearchFilters) {
+    if (result.totalPages <= 1) return
+
+    nav("ideas-pagination") {
+        attributes["aria-label"] = "Pagination"
+
+        if (result.hasPreviousPage) {
+            val prevPage = result.page - 1
+            a(classes = "btn btn--ghost btn--sm") {
+                href = "/ideas/search?${filtersToQueryString(filters, prevPage)}"
+                hxGet("/ideas/search?page=$prevPage")
+                hxTarget("#ideas-list-container")
+                hxSwap("outerHTML")
+                hxInclude("#idea-filter-form")
+                +"← Previous"
+            }
+        }
+
+        for (pageNum in 1..result.totalPages) {
+            if (pageNum == result.page) {
+                span("ideas-pagination__page ideas-pagination__page--current") { +"$pageNum" }
+            } else {
+                a(classes = "ideas-pagination__page") {
+                    href = "/ideas/search?${filtersToQueryString(filters, pageNum)}"
+                    hxGet("/ideas/search?page=$pageNum")
+                    hxTarget("#ideas-list-container")
+                    hxSwap("outerHTML")
+                    hxInclude("#idea-filter-form")
+                    +"$pageNum"
+                }
+            }
+        }
+
+        if (result.hasNextPage) {
+            val nextPage = result.page + 1
+            a(classes = "btn btn--ghost btn--sm") {
+                href = "/ideas/search?${filtersToQueryString(filters, nextPage)}"
+                hxGet("/ideas/search?page=$nextPage")
+                hxTarget("#ideas-list-container")
+                hxSwap("outerHTML")
+                hxInclude("#idea-filter-form")
+                +"Next →"
+            }
+        }
+    }
+}
+
+private fun encode(value: String): String = URLEncoder.encode(value, "UTF-8")
+
+fun filtersToQueryString(filters: IdeaSearchFilters, page: Int): String {
+    val params = mutableListOf<String>()
+    filters.query?.let { params.add("query=${encode(it)}") }
+    filters.category?.let { params.add("category=${it.name}") }
+    filters.difficulties.forEach { params.add("difficulty[]=${it.name}") }
+    filters.minRating?.let { params.add("minRating=$it") }
+    filters.minecraftVersion?.let { params.add("minecraftVersion=${encode(it)}") }
+    params.add("page=$page")
+    return params.joinToString("&")
 }

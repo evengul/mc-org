@@ -1,7 +1,5 @@
 package app.mcorg.pipeline.idea
 
-import app.mcorg.pipeline.idea.commonsteps.GetAllIdeasStep
-import app.mcorg.pipeline.notification.getUnreadNotificationsOrZero
 import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.templated.idea.ideasPage
 import app.mcorg.presentation.utils.getUser
@@ -10,18 +8,13 @@ import io.ktor.server.application.*
 
 suspend fun ApplicationCall.handleGetIdeas() {
     val user = this.getUser()
-
-    val unreadNotifications = getUnreadNotificationsOrZero(user.id)
+    val filters = IdeaFilterParser.parse(request.queryParameters)
 
     handlePipeline(
         onSuccess = {
-            respondHtml(ideasPage(
-                user = user,
-                ideas = it,
-                unreadNotifications = unreadNotifications
-            ))
+            respondHtml(ideasPage(user = user, result = it, filters = filters))
         }
     ) {
-        GetAllIdeasStep.run(Unit)
+        SearchIdeasStep.run(filters)
     }
 }
