@@ -32,7 +32,7 @@ These apply to every task, every time. No exceptions.
 - Implement, don't plan. Write code directly for well-understood tasks.
 - Follow existing patterns exactly. If the codebase does something a certain way, do it that way. Do not introduce new patterns without flagging it.
 - Break large tasks into phases. Compile and verify between phases — do not batch up ten files and then compile.
-- Run tests with `./webapp/scripts/test.sh`. Add `--database` if you wrote `@Tag("database")` tests, `--integration` if you wrote `*IT.kt` tests.
+- Run tests with `./webapp/scripts/test.sh`. Add `--database` if you wrote `@Tag("database")` tests, `--integration` if you wrote `*IT.kt` tests. Add `--exclude-unit-tests` to skip unit tests when only running a specific tier.
 - Read error logs before guessing. Never diagnose blind.
 - When the approach is ambiguous, pick the path consistent with existing code. If nothing in the codebase covers it, flag it rather than invent a pattern.
 
