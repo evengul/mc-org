@@ -21,6 +21,7 @@ on:
       - webapp/Dockerfile
 jobs:
   deploy-dev:
+    if: github.actor != 'dependabot[bot]'
     environment: dev
     runs-on: ubuntu-latest
     permissions:
