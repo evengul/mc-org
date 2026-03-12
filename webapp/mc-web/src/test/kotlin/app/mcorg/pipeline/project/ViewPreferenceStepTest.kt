@@ -42,7 +42,7 @@ class ViewPreferenceStepTest : WithUser() {
 
         val projectResult = runBlocking {
             app.mcorg.pipeline.DatabaseSteps.update<Unit>(
-                sql = app.mcorg.pipeline.SafeSQL.insert("INSERT INTO projects (name, world_id, type, stage) VALUES ('Test Project', ?, 'build', 'planning') RETURNING id"),
+                sql = app.mcorg.pipeline.SafeSQL.insert("INSERT INTO projects (name, world_id, description, type, stage, location_x, location_y, location_z, location_dimension) VALUES ('Test Project', ?, '', 'BUILDING', 'PLANNING', 0, 0, 0, 'OVERWORLD') RETURNING id"),
                 parameterSetter = { stmt, _ -> stmt.setInt(1, worldId) }
             ).process(Unit)
         }
