@@ -52,7 +52,7 @@ class SetViewPreferenceIT : WithUser() {
 
         val projectResult = runBlocking {
             DatabaseSteps.update<Unit>(
-                sql = SafeSQL.insert("INSERT INTO projects (name, world_id, type, stage) VALUES ('IT Project', ?, 'build', 'planning') RETURNING id"),
+                sql = SafeSQL.insert("INSERT INTO projects (name, world_id, description, type, stage, location_x, location_y, location_z, location_dimension) VALUES ('IT Project', ?, '', 'BUILDING', 'PLANNING', 0, 0, 0, 'OVERWORLD') RETURNING id"),
                 parameterSetter = { stmt, _ -> stmt.setInt(1, worldId) }
             ).process(Unit)
         }
@@ -105,6 +105,6 @@ class SetViewPreferenceIT : WithUser() {
             setBody("preference=invalid")
         }
 
-        assertEquals(HttpStatusCode.BadRequest, response.status)
+        assertEquals(HttpStatusCode.UnprocessableEntity, response.status)
     }
 }
