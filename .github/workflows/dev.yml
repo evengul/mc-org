@@ -20,8 +20,13 @@ on:
       - webapp/*/pom.xml
       - webapp/Dockerfile
 jobs:
+  compile:
+    if: github.actor != 'dependabot[bot]'
+    uses: ./.github/workflows/compile.yml
+
   deploy-dev:
     if: github.actor != 'dependabot[bot]'
+    needs: compile
     environment: dev
     runs-on: ubuntu-latest
     permissions:
@@ -42,6 +47,11 @@ jobs:
           key: maven-${{ runner.os }}-${{ hashFiles('**/pom.xml') }}
           restore-keys: |
             maven-${{ runner.os }}-
+      - name: Restore local Maven artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: maven-local-modules
+          path: ~/.m2/repository/app/mcorg
 
       - name: Create Neon branch
         uses: neondatabase/create-branch-action@v6.4.0
@@ -57,10 +67,8 @@ jobs:
         with:
           distribution: 'adopt'
           java-version: '21'
-      - name: Install modules
-        run: mvn install -DskipTests -B
       - name: Run flyway migrations
-        run: mvn flyway:migrate
+        run: mvn flyway:migrate -o
         working-directory: ./webapp/mc-web
         env:
           DB_URL: "jdbc:postgresql://${{ steps.create-neon-branch.outputs.db_host }}/mcorg?sslmode=require"
