@@ -3,8 +3,8 @@
 name: Deploy to dev and test E2E
 env:
   NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID }}
-  FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }} # You can generate a Fly API token in your account settings
-  GH_TOKEN: ${{ secrets.GH_TOKEN }} # Required for commenting on pull requests for private repos
+  FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+  GH_TOKEN: ${{ secrets.GH_TOKEN }}
   DB_USERNAME: mcorg_owner
 on:
   pull_request:
@@ -27,6 +27,7 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
+      packages: write
     concurrency:
       group: pr-${{ github.event.number }}
     defaults:
@@ -65,19 +66,54 @@ jobs:
           DB_URL: "jdbc:postgresql://${{ steps.create-neon-branch.outputs.db_host }}/mcorg?sslmode=require"
           DB_USER: ${{ env.DB_USERNAME }}
           DB_PASSWORD: ${{ steps.create-neon-branch.outputs.password }}
-      - name: Deploy dev app to Fly
-        uses: superfly/fly-pr-review-apps@1.6.0
-        id: deploy
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
         with:
-          name: mcorg-dev-${{ github.event.number }}
-          path: ./webapp
-          config: ./dev.fly.toml
-          org: mc-org
-          secrets: APP_HOST=mcorg-dev-${{ github.event.number }}.fly.dev DB_PASSWORD=${{ steps.create-neon-branch.outputs.password }} DB_URL=jdbc:postgresql://${{ steps.create-neon-branch.outputs.db_host_pooled }}/mcorg?sslmode=require DB_USER=${{ env.DB_USERNAME }} RSA_PUBLIC_KEY=${{ secrets.RSA_PUBLIC_KEY }} RSA_PRIVATE_KEY=${{ secrets.RSA_PRIVATE_KEY }}
-          build_args: |
-            BUILDKIT_INLINE_CACHE=1
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./webapp
+          file: ./webapp/Dockerfile
+          push: true
+          tags: ghcr.io/${{ github.repository }}:pr-${{ github.event.number }}
+          cache-from: type=registry,ref=ghcr.io/${{ github.repository }}:buildcache
+          cache-to: type=registry,ref=ghcr.io/${{ github.repository }}:buildcache,mode=max
+
+      - name: Setup flyctl
+        uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Create Fly preview app
+        run: flyctl apps create mcorg-dev-${{ github.event.number }} --org mc-org || true
         env:
-          DOCKER_BUILDKIT: 1
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+      - name: Set Fly app secrets
+        run: |
+          flyctl secrets set \
+            APP_HOST=mcorg-dev-${{ github.event.number }}.fly.dev \
+            DB_PASSWORD=${{ steps.create-neon-branch.outputs.password }} \
+            "DB_URL=jdbc:postgresql://${{ steps.create-neon-branch.outputs.db_host_pooled }}/mcorg?sslmode=require" \
+            DB_USER=${{ env.DB_USERNAME }} \
+            RSA_PUBLIC_KEY="${{ secrets.RSA_PUBLIC_KEY }}" \
+            RSA_PRIVATE_KEY="${{ secrets.RSA_PRIVATE_KEY }}" \
+            --app mcorg-dev-${{ github.event.number }} --stage
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+      - name: Deploy to Fly
+        run: |
+          flyctl deploy \
+            --image ghcr.io/${{ github.repository }}:pr-${{ github.event.number }} \
+            --app mcorg-dev-${{ github.event.number }} \
+            --config ./dev.fly.toml
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
       - uses: actions/github-script@v8
         with:
           github-token: ${{secrets.GH_TOKEN_PR_COMMENTS}}
@@ -86,10 +122,10 @@ jobs:
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: 'Fly Preview URL :balloon: : ${{ steps.deploy.outputs.url }}\n Neon branch :elephant: : https://console.neon.tech/app/projects/${{ env.NEON_PROJECT_ID }}/branches/${{ steps.create-branch.outputs.branch_id }}'
+              body: 'Fly Preview URL :balloon: : https://mcorg-dev-${{ github.event.number }}.fly.dev\n Neon branch :elephant: : https://console.neon.tech/app/projects/${{ env.NEON_PROJECT_ID }}/branches/${{ steps.create-neon-branch.outputs.branch_id }}'
             })
     outputs:
-      dev_url: ${{ steps.deploy.outputs.url }}
+      dev_url: https://mcorg-dev-${{ github.event.number }}.fly.dev
 #  playwright-tests:
 #    name: "E2E Playwright Tests"
 #    timeout-minutes: 60
