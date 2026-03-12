@@ -24,9 +24,82 @@ jobs:
     if: github.actor != 'dependabot[bot]'
     uses: ./.github/workflows/compile.yml
 
-  deploy-dev:
+  unit-tests:
+    name: Unit Tests
     if: github.actor != 'dependabot[bot]'
     needs: compile
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./webapp
+    steps:
+      - uses: actions/checkout@v6
+      - name: Cache Maven packages
+        uses: actions/cache@v5
+        with:
+          path: ~/.m2/repository
+          key: maven-${{ runner.os }}-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            maven-${{ runner.os }}-
+      - name: Set up JDK 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: 'adopt'
+          java-version: '21'
+      - name: Restore local Maven artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: maven-local-modules
+          path: ~/.m2/repository/app/mcorg
+      - name: Cache Minecraft server data
+        uses: actions/cache@v5
+        with:
+          path: webapp/mc-data/src/test/resources/servers/extracted
+          key: minecraft-server-data-${{ hashFiles('webapp/mc-data/src/test/kotlin/app/mcorg/data/minecraft/extract/ServerFileDownloader.kt') }}
+          restore-keys: |
+            minecraft-server-data-
+      - name: Generate JWT signing keys
+        working-directory: ./webapp/mc-web
+        run: bash create-keys.sh
+      - name: Run unit tests
+        run: mvn test -B -Dmaven.main.skip=true
+
+  integration-tests:
+    name: Integration Tests
+    if: github.actor != 'dependabot[bot]'
+    needs: compile
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./webapp
+    steps:
+      - uses: actions/checkout@v6
+      - name: Cache Maven packages
+        uses: actions/cache@v5
+        with:
+          path: ~/.m2/repository
+          key: maven-${{ runner.os }}-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            maven-${{ runner.os }}-
+      - name: Set up JDK 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: 'adopt'
+          java-version: '21'
+      - name: Restore local Maven artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: maven-local-modules
+          path: ~/.m2/repository/app/mcorg
+      - name: Generate JWT signing keys
+        working-directory: ./webapp/mc-web
+        run: bash create-keys.sh
+      - name: Run database tests
+        run: mvn test -pl mc-web -Dsurefire.excludedGroups= -Dgroups=database -B -Dmaven.main.skip=true
+
+  deploy-dev:
+    if: github.actor != 'dependabot[bot]'
+    needs: [unit-tests, integration-tests]
     environment: dev
     runs-on: ubuntu-latest
     permissions:
