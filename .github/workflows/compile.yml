@@ -1,0 +1,40 @@
+name: Compile
+
+on:
+  workflow_call:
+
+jobs:
+  compile:
+    name: Compile
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./webapp
+    steps:
+      - uses: actions/checkout@v6
+      - name: Cache Maven packages
+        uses: actions/cache@v5
+        with:
+          path: ~/.m2/repository
+          key: maven-${{ runner.os }}-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            maven-${{ runner.os }}-
+      - name: Set up JDK 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: 'adopt'
+          java-version: '21'
+      - name: Compile and install modules
+        run: mvn install -DskipTests -B
+      - name: Upload local Maven artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: maven-local-modules
+          path: ~/.m2/repository/app/mcorg
+          retention-days: 1
+      - name: Upload application JAR
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-jar
+          path: webapp/mc-web/target/*-with-dependencies.jar
+          retention-days: 1
