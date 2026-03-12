@@ -126,7 +126,7 @@ sealed interface MinecraftVersion {
             return Release(minor = minor, patch = patch)
         }
 
-        val supportedVersions_backup = listOf<Release>(
+        val supportedVersions = listOf(
             release(20, 0),
             release(21, 0)
         )
