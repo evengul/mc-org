@@ -126,7 +126,8 @@ sealed interface MinecraftVersion {
             return Release(minor = minor, patch = patch)
         }
 
-        val supportedVersions = listOf(
+        // Fallback used when the Modrinth API is unavailable
+        val supportedVersions_backup = listOf(
             release(20, 0),
             release(21, 0)
         )
