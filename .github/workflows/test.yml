@@ -52,7 +52,7 @@ jobs:
         working-directory: ./webapp/mc-web
         run: bash create-keys.sh
       - name: Run unit tests
-        run: mvn test -B -o -Dmaven.main.skip=true
+        run: mvn test -B -Dmaven.main.skip=true
 
   integration-tests:
     name: Integration Tests
@@ -84,4 +84,4 @@ jobs:
         working-directory: ./webapp/mc-web
         run: bash create-keys.sh
       - name: Run database tests
-        run: mvn test -pl mc-web -Dsurefire.excludedGroups= -Dgroups=database -B -o -Dmaven.main.skip=true
+        run: mvn test -pl mc-web -Dsurefire.excludedGroups= -Dgroups=database -B -Dmaven.main.skip=true

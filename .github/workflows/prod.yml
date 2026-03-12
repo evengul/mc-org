@@ -53,7 +53,7 @@ jobs:
           java-version: '21'
 
       - name: Run Flyway migrations
-        run: mvn flyway:migrate -o
+        run: mvn flyway:migrate
         working-directory: ./webapp/mc-web
         env:
           DB_URL: ${{ vars.DB_URL }}

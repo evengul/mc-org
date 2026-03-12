@@ -68,7 +68,7 @@ jobs:
           distribution: 'adopt'
           java-version: '21'
       - name: Run flyway migrations
-        run: mvn flyway:migrate -o
+        run: mvn flyway:migrate
         working-directory: ./webapp/mc-web
         env:
           DB_URL: "jdbc:postgresql://${{ steps.create-neon-branch.outputs.db_host }}/mcorg?sslmode=require"

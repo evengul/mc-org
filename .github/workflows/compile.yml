@@ -26,8 +26,6 @@ jobs:
           java-version: '21'
       - name: Compile and install modules
         run: mvn install -DskipTests -B
-      - name: Resolve all dependencies for offline use
-        run: mvn dependency:go-offline -B
       - name: Upload local Maven artifacts
         uses: actions/upload-artifact@v4
         with:
