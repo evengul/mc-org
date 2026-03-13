@@ -1,13 +1,11 @@
 package app.mcorg.pipeline.resources
 
-import app.mcorg.domain.model.resources.ResourceGatheringItem
 import app.mcorg.pipeline.Result
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.ValidationSteps
 import app.mcorg.pipeline.failure.AppFailure
-import app.mcorg.pipeline.failure.ValidationFailure
 import app.mcorg.pipeline.resources.commonsteps.CountCollectedResourcesInProjectWithItemIdStep
 import app.mcorg.pipeline.resources.commonsteps.CountTotalResourcesRequiredInProjectWithItemIdStep
 import app.mcorg.pipeline.resources.commonsteps.GetResourceGatheringItemStep
@@ -26,17 +24,11 @@ import kotlinx.html.div
 import kotlinx.html.id
 import kotlinx.html.stream.createHTML
 
-data class UpdatedProgress(
-    val item: ResourceGatheringItem,
-    val totalRequired: Int,
-    val totalCollected: Int
-)
-
-suspend fun ApplicationCall.handleUpdateRequirementProgress() {
+suspend fun ApplicationCall.handleSetCollectedValue() {
     val parameters = this.receiveParameters()
-    val resourceGatheringId = this.getResourceGatheringId()
     val worldId = this.getWorldId()
     val projectId = this.getProjectId()
+    val resourceGatheringId = this.getResourceGatheringId()
 
     handlePipeline(
         onSuccess = { progress ->
@@ -58,62 +50,41 @@ suspend fun ApplicationCall.handleUpdateRequirementProgress() {
                     progressBar(progress.totalCollected, progress.totalRequired)
                 }
             )
-        },
-    ) {
-        val amount = ValidateUpdateItemTaskRequirementsInputStep.run(parameters)
-        UpdateItemTaskRequirement(resourceGatheringId).run(amount)
-        GetUpdatedTaskCountsStep.run(resourceGatheringId)
-    }
-}
-
-private object ValidateUpdateItemTaskRequirementsInputStep : Step<Parameters, AppFailure.ValidationError, Int> {
-    override suspend fun process(input: Parameters): Result<AppFailure.ValidationError, Int> {
-        val amount = ValidationSteps.requiredInt("amount") { it }
-            .process(input)
-            .flatMap { providedAmount ->
-                if (providedAmount == 0) {
-                    Result.failure(ValidationFailure.InvalidValue("amount", listOf("any non-zero integer")))
-                } else {
-                    Result.success(providedAmount)
-                }
-            }
-
-        return when (amount) {
-            is Result.Success -> Result.success(amount.value)
-            is Result.Failure -> Result.failure(AppFailure.ValidationError(listOf(amount.error)))
         }
+    ) {
+        val value = ValidateSetCollectedValueStep.run(parameters)
+        SetCollectedValueStep(resourceGatheringId).run(value)
+        GetUpdatedCollectedCountsStep.run(resourceGatheringId)
     }
 }
 
-private data class UpdateItemTaskRequirement(val taskId: Int) : Step<Int, AppFailure.DatabaseError, Unit> {
+private object ValidateSetCollectedValueStep : Step<Parameters, AppFailure.ValidationError, Int> {
+    override suspend fun process(input: Parameters): Result<AppFailure.ValidationError, Int> {
+        return ValidationSteps.requiredInt("value") { AppFailure.ValidationError(listOf(it)) }
+            .process(input)
+    }
+}
+
+private data class SetCollectedValueStep(val resourceGatheringId: Int) : Step<Int, AppFailure.DatabaseError, Unit> {
     override suspend fun process(input: Int): Result<AppFailure.DatabaseError, Unit> {
         return DatabaseSteps.update<Int>(
-            sql = SafeSQL.update("UPDATE resource_gathering SET collected = GREATEST(LEAST(collected + ?, required), 0) WHERE id = ?"),
-            parameterSetter = { statement, amount ->
-                statement.setInt(1, amount)
-                statement.setInt(2, taskId)
+            sql = SafeSQL.update(
+                "UPDATE resource_gathering SET collected = LEAST(GREATEST(?, 0), required) WHERE id = ?"
+            ),
+            parameterSetter = { stmt, value ->
+                stmt.setInt(1, value)
+                stmt.setInt(2, resourceGatheringId)
             }
-        ).process(input).map {  }
+        ).process(input).map { }
     }
 }
 
-private object GetUpdatedTaskCountsStep : Step<Int, AppFailure.DatabaseError, UpdatedProgress> {
+private object GetUpdatedCollectedCountsStep : Step<Int, AppFailure.DatabaseError, UpdatedProgress> {
     override suspend fun process(input: Int): Result<AppFailure.DatabaseError, UpdatedProgress> {
-        val task = GetResourceGatheringItemStep.process(input)
-
+        val item = GetResourceGatheringItemStep.process(input)
         val required = CountTotalResourcesRequiredInProjectWithItemIdStep.process(input).getOrNull() ?: 0
         val collected = CountCollectedResourcesInProjectWithItemIdStep.process(input).getOrNull() ?: 0
-
-        if (task is Result.Failure) {
-            return task
-        }
-
-        return Result.success(
-            UpdatedProgress(
-                item = task.getOrNull()!!,
-                totalRequired = required,
-                totalCollected = collected
-            )
-        )
+        if (item is Result.Failure) return item
+        return Result.success(UpdatedProgress(item.getOrNull()!!, required, collected))
     }
 }

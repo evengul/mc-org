@@ -17,9 +17,9 @@ data class SearchTasksInput(
 data class SearchTasksStep(val projectId: Int) : Step<SearchTasksInput, AppFailure.DatabaseError, List<ActionTask>> {
     override suspend fun process(input: SearchTasksInput): Result<AppFailure.DatabaseError, List<ActionTask>> {
         val sortBy = when(input.sortBy) {
-            "name_asc" -> "t.name ASC, t.updated_at DESC"
-            "lastModified_desc" -> "t.updated_at DESC, t.name ASC"
-            else -> "t.name ASC, t.updated_at DESC"
+            "name_asc" -> "t.completed ASC, t.name ASC, t.updated_at DESC"
+            "lastModified_desc" -> "t.completed ASC, t.updated_at DESC, t.name ASC"
+            else -> "t.completed ASC, t.name ASC, t.updated_at DESC"
         }
         return DatabaseSteps.query<SearchTasksInput, List<ActionTask>>(
             sql = SafeSQL.select("""

@@ -1,6 +1,7 @@
 package app.mcorg.presentation.templated.dsl
 
 import app.mcorg.domain.model.user.TokenProfile
+import app.mcorg.presentation.templated.common.modal.confirmDeleteModal
 import kotlinx.html.*
 import kotlinx.html.stream.createHTML
 
@@ -8,6 +9,7 @@ fun pageShell(
     pageTitle: String = "MC-ORG",
     user: TokenProfile? = null,
     stylesheets: List<String> = emptyList(),
+    scripts: List<String> = emptyList(),
     body: BODY.() -> Unit
 ): String {
     return "<!DOCTYPE html>\n" + createHTML().html {
@@ -31,6 +33,14 @@ fun pageShell(
                 rel = "stylesheet"
                 href = "/static/styles/components/app-header.css"
             }
+            link {
+                rel = "stylesheet"
+                href = "/static/styles/components/btn.css"
+            }
+            link {
+                rel = "stylesheet"
+                href = "/static/styles/components/modal.css"
+            }
             for (stylesheet in stylesheets) {
                 link {
                     rel = "stylesheet"
@@ -47,9 +57,20 @@ fun pageShell(
                 integrity = "sha384-T41oglUPvXLGBVyRdZsVRxNWnOOqCynaPubjUVjxhsjFTKrFJGEMm3/0KGmNQ+Pg"
                 crossorigin = ScriptCrossorigin.anonymous
             }
+            script {
+                src = "/static/scripts/confirmation-modal.js"
+                defer = true
+            }
+            for (scriptSrc in scripts) {
+                script {
+                    src = scriptSrc
+                    defer = true
+                }
+            }
         }
         body {
             attributes["hx-ext"] = "response-targets"
+            confirmDeleteModal()
             body()
         }
     }

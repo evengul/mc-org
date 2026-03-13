@@ -75,9 +75,10 @@ class LayoutTest {
     }
 
     @Test
-    fun `pageShell does not include confirmation modal script`() {
+    fun `pageShell includes confirmation modal script and dialog`() {
         val html = pageShell { div { } }
-        assertFalse(html.contains("confirmation-modal"))
+        assertTrue(html.contains("confirmation-modal.js"))
+        assertTrue(html.contains("confirm-delete-modal"))
     }
 
     @Test

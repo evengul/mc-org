@@ -13,8 +13,8 @@ import app.mcorg.pipeline.task.commonsteps.CountCompletedActionTasksStep
 import app.mcorg.pipeline.task.commonsteps.GetActionTaskStep
 import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.hxOutOfBands
-import app.mcorg.presentation.templated.project.projectProgress
-import app.mcorg.presentation.templated.project.taskItem
+import app.mcorg.presentation.templated.dsl.taskRowFragment
+import app.mcorg.presentation.templated.dsl.pages.taskProgressOobFragment
 import app.mcorg.presentation.utils.getProjectId
 import app.mcorg.presentation.utils.getWorldId
 import app.mcorg.presentation.utils.respondHtml
@@ -22,7 +22,6 @@ import io.ktor.http.Parameters
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.request.receiveParameters
 import kotlinx.html.div
-import kotlinx.html.li
 import kotlinx.html.stream.createHTML
 
 private data class UpdatedActionTaskProgress(
@@ -38,16 +37,13 @@ suspend fun ApplicationCall.handleCreateActionTask() {
 
     handlePipeline(
         onSuccess = {
-            respondHtml(createHTML().li {
-                taskItem(worldId, projectId, it.task)
-            } + createHTML().div {
-                hxOutOfBands("delete:#empty-tasks-state")
-            } + createHTML().div {
-                hxOutOfBands("innerHTML:#project-progress")
-                div {
-                    projectProgress(it.completedTasksInProject, it.totalTasksInProject)
-                }
-            })
+            respondHtml(
+                taskRowFragment(worldId, projectId, it.task) +
+                createHTML().div {
+                    hxOutOfBands("delete:#task-list-empty")
+                } +
+                taskProgressOobFragment(it.completedTasksInProject, it.totalTasksInProject)
+            )
         },
     ) {
         val name = ValidateCreateActionTaskInputStep.run(parameters)

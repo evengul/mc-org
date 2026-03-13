@@ -28,6 +28,8 @@ import app.mcorg.pipeline.resources.handleSaveResourcePath
 import app.mcorg.pipeline.resources.handleSelectResourcePath
 import app.mcorg.pipeline.resources.handleSuggestAllResourcePaths
 import app.mcorg.pipeline.resources.handleSuggestResourcePath
+import app.mcorg.pipeline.project.handleGetDetailContent
+import app.mcorg.pipeline.resources.handleSetCollectedValue
 import app.mcorg.pipeline.resources.handleUpdateRequirementProgress
 import app.mcorg.pipeline.task.handleCompleteActionTask
 import app.mcorg.pipeline.task.handleCreateActionTask
@@ -111,6 +113,9 @@ class WorldHandler {
                         get {
                             call.handleGetProject()
                         }
+                        get("/detail-content") {
+                            call.handleGetDetailContent()
+                        }
                         get("/stage-select-fragment") {
                             call.getStageSelectFragment()
                         }
@@ -139,8 +144,11 @@ class WorldHandler {
                                 }
                                 route("/{resourceGatheringId}") {
                                     install(ResourceGatheringIdParamPlugin)
-                                    patch("/done-more") {
+                                    patch("/edit-done") {
                                         call.handleUpdateRequirementProgress()
+                                    }
+                                    put("/collected") {
+                                        call.handleSetCollectedValue()
                                     }
                                     get("/matching-ideas") {
                                         call.handleFindIdeasForResource()

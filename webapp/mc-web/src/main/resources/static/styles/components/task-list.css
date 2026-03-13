@@ -1,0 +1,122 @@
+/* ==========================================================================
+   TASK LIST COMPONENT
+   ========================================================================== */
+
+.task-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.task-list__empty {
+    padding: var(--space-3) var(--space-4);
+    color: var(--text-muted);
+    font-size: var(--text-sm);
+}
+
+.task-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-4);
+    border-bottom: 1px solid var(--border);
+}
+
+@media (max-width: 768px) {
+    .task-row {
+        padding: var(--space-4) var(--space-3);
+    }
+}
+
+.task-row__label {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    cursor: pointer;
+    flex: 1;
+}
+
+.task-checkbox {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    accent-color: var(--accent);
+}
+
+.task-checkbox:disabled {
+    cursor: default;
+    opacity: 1;
+    accent-color: var(--text-disabled);
+}
+
+.task-row__name {
+    font-size: var(--text-sm);
+    color: var(--text-primary);
+}
+
+.task-row__name--done {
+    color: var(--text-disabled);
+    text-decoration: line-through;
+}
+
+.task-row__delete-btn {
+    margin-left: auto;
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: var(--text-base);
+    line-height: 1;
+    padding: 0 var(--space-1);
+    opacity: 0;
+    transition: opacity 0.15s, color 0.15s;
+}
+
+.task-row:hover .task-row__delete-btn {
+    opacity: 1;
+}
+
+@media (hover: none) {
+    .task-row__delete-btn {
+        opacity: 1;
+    }
+}
+
+.task-row__delete-btn:hover {
+    color: var(--danger, #e53e3e);
+}
+
+.add-task-inline {
+    padding: var(--space-3) var(--space-2);
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+}
+
+.add-task-inline__form {
+    display: none;
+    flex: 1;
+    min-width: 0;
+    gap: var(--space-2);
+}
+
+.add-task-inline--visible {
+    display: flex;
+    flex: 1;
+}
+
+.add-task-inline__input {
+    width: 100%;
+    background: var(--bg-raised);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text-primary);
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    padding: var(--space-2) var(--space-3);
+}
+
+.add-task-inline__input:focus {
+    outline: none;
+    border-color: var(--accent);
+}
