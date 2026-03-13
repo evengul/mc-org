@@ -32,22 +32,14 @@ suspend fun ApplicationCall.handleGetProject() {
     val view = GetViewPreferenceStep.process(GetViewPreferenceInput(user.id, projectId))
         .getOrNull() ?: "execute"
 
-    val resources = if (view == "execute") {
-        GetAllResourceGatheringItemsStep.process(projectId).getOrNull() ?: emptyList()
-    } else {
-        emptyList()
-    }
+    val resources = GetAllResourceGatheringItemsStep.process(projectId).getOrNull() ?: emptyList()
 
-    val tasks = if (view == "execute") {
-        when (val result = SearchTasksStep(projectId).process(SearchTasksInput(completionStatus = "ALL"))) {
-            is Result.Success -> result.value
-            is Result.Failure -> {
-                respondBadRequest("Failed to load tasks")
-                return
-            }
+    val tasks = when (val result = SearchTasksStep(projectId).process(SearchTasksInput(completionStatus = "ALL"))) {
+        is Result.Success -> result.value
+        is Result.Failure -> {
+            respondBadRequest("Failed to load tasks")
+            return
         }
-    } else {
-        emptyList()
     }
 
     respondHtml(projectDetailPage(user, project, resources, tasks, view))

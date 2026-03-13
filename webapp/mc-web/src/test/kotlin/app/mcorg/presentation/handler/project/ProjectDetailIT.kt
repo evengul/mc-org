@@ -83,7 +83,7 @@ class ProjectDetailIT : WithUser() {
     // -------------------------------------------------------------------------
 
     @Test
-    fun `returns 200 with plan stub when view preference is plan`() = testApplication {
+    fun `returns 200 with plan view when view preference is plan`() = testApplication {
         setViewPreference(user.id, projectId, "plan")
 
         setupRoutes()
@@ -93,7 +93,7 @@ class ProjectDetailIT : WithUser() {
         }
 
         assertEquals(HttpStatusCode.OK, response.status)
-        assertContains(response.bodyAsText(), "plan-view-stub")
+        assertContains(response.bodyAsText(), "plan-resource-table")
 
         // Reset for other tests
         setViewPreference(user.id, projectId, "execute")
@@ -204,7 +204,7 @@ class ProjectDetailIT : WithUser() {
     // -------------------------------------------------------------------------
 
     @Test
-    fun `detail-content returns plan stub`() = testApplication {
+    fun `detail-content returns plan view content`() = testApplication {
         setupRoutes()
 
         val response = client.get(
@@ -214,7 +214,7 @@ class ProjectDetailIT : WithUser() {
         }
 
         assertEquals(HttpStatusCode.OK, response.status)
-        assertContains(response.bodyAsText(), "plan-view-stub")
+        assertContains(response.bodyAsText(), "plan-resource-table")
     }
 
     // -------------------------------------------------------------------------

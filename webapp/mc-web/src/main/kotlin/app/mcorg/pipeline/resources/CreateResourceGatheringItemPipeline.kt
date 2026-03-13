@@ -16,6 +16,7 @@ import app.mcorg.pipeline.resources.commonsteps.CountTotalResourcesRequiredInPro
 import app.mcorg.pipeline.resources.commonsteps.GetResourceGatheringItemStep
 import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.hxOutOfBands
+import app.mcorg.presentation.templated.dsl.pages.planResourceRow
 import app.mcorg.presentation.templated.project.projectResourceGatheringItem
 import app.mcorg.presentation.templated.project.resourceGatheringProgress
 import app.mcorg.presentation.utils.getProjectId
@@ -27,6 +28,7 @@ import io.ktor.server.request.receiveParameters
 import kotlinx.html.div
 import kotlinx.html.li
 import kotlinx.html.stream.createHTML
+import kotlinx.html.tr
 
 private data class CreateResourceGatheringItemInput(
     val name: String,
@@ -45,8 +47,27 @@ suspend fun ApplicationCall.handleCreateResourceGatheringItem() {
 
     val worldId = this.getWorldId()
     val projectId = this.getProjectId()
+    val context = request.queryParameters["context"]
 
     val itemNames = GetItemsInWorldVersionStep.process(worldId).getOrNull() ?: emptyList()
+
+    if (context == "plan") {
+        handlePipeline(
+            onSuccess = { item ->
+                respondHtml(createHTML().tr {
+                    planResourceRow(worldId, projectId, item)
+                } + createHTML().div {
+                    hxOutOfBands("delete:#plan-empty-state")
+                })
+            }
+        ) {
+            val input = ValidateCreateResourceGatheringItemInputStep(itemNames).run(parameters)
+            val id = CreateResourceGatheringItemStep(projectId).run(input)
+            CacheManager.onResourceGatheringCreated(projectId, id)
+            GetResourceGatheringItemStep.run(id)
+        }
+        return
+    }
 
     handlePipeline(
         onSuccess = {

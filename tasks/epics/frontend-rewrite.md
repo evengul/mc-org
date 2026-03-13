@@ -12,7 +12,8 @@ linear-children:
   - MCO-150  # Feature 7b: Project list page — plan view + toggle
   - MCO-137  # Feature 8: Idea Hub pages
   - MCO-138  # Feature 9: Project detail — execute view
-  - MCO-139  # Feature 10: Project detail — plan view
+  - MCO-139  # Feature 10a: Project detail — plan view resource table
+  - MCO-153  # Feature 10b: Project detail — resource detail panel
   - MCO-140  # Feature 11: World settings page
   - MCO-141  # Feature 12: Remaining pages
   - MCO-142  # Feature 13: Delete old system (cleanup)

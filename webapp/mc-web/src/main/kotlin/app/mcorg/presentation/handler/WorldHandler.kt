@@ -19,6 +19,7 @@ import app.mcorg.pipeline.project.settings.handleUpdateProjectName
 import app.mcorg.pipeline.project.settings.handleUpdateProjectType
 import app.mcorg.pipeline.resources.handleCreateResourceGatheringItem
 import app.mcorg.pipeline.resources.handleDeleteResourceGatheringItem
+import app.mcorg.pipeline.resources.handleUpdateResourceRequiredAmount
 import app.mcorg.pipeline.resources.handleExpandPathNode
 import app.mcorg.pipeline.resources.handleFindIdeasForResource
 import app.mcorg.pipeline.resources.handleGetPlanView
@@ -146,6 +147,9 @@ class WorldHandler {
                                     install(ResourceGatheringIdParamPlugin)
                                     patch("/edit-done") {
                                         call.handleUpdateRequirementProgress()
+                                    }
+                                    patch("/required") {
+                                        call.handleUpdateResourceRequiredAmount()
                                     }
                                     put("/collected") {
                                         call.handleSetCollectedValue()

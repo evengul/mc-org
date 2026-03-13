@@ -177,6 +177,240 @@
     font-size: var(--text-sm);
 }
 
+/* Plan view empty state */
+.plan-empty-state {
+    padding: var(--space-5) var(--space-4);
+    text-align: center;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    margin-top: var(--space-3);
+}
+
+.plan-empty-state__text {
+    color: var(--text-muted);
+    font-size: var(--text-sm);
+    margin: 0 0 var(--space-1);
+}
+
+.plan-empty-state__hint {
+    color: var(--text-disabled);
+    font-size: var(--text-xs);
+    margin: 0;
+}
+
+/* Plan resource table */
+.plan-resource-table {
+    width: 100%;
+    border-collapse: collapse;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    margin-top: var(--space-3);
+}
+
+.plan-resource-table thead th {
+    font-family: var(--font-ui);
+    font-size: var(--text-label);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    background: var(--bg-surface);
+    padding: var(--space-2) var(--space-3);
+    border-bottom: 1px solid var(--border);
+    text-align: left;
+    font-weight: 500;
+}
+
+.plan-resource-table tbody tr {
+    border-bottom: 1px solid var(--border);
+}
+
+.plan-resource-table tbody tr:last-child {
+    border-bottom: none;
+}
+
+.plan-resource-table tbody tr:nth-child(even) {
+    background: var(--bg-raised);
+}
+
+.plan-resource-table tbody tr:nth-child(odd) {
+    background: var(--bg-surface);
+}
+
+.plan-resource-table td {
+    padding: var(--space-2) var(--space-3);
+    font-size: var(--text-sm);
+    color: var(--text-primary);
+    vertical-align: middle;
+    height: 40px;
+}
+
+.plan-resource-table__col-status {
+    width: 24px;
+}
+
+.plan-resource-table__col-item {
+    flex: 1;
+}
+
+.plan-resource-table__col-qty {
+    width: 120px;
+}
+
+.plan-resource-table__col-source {
+    width: 120px;
+}
+
+.plan-resource-table__col-action {
+    width: 40px;
+}
+
+/* Status dot */
+.status-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.status-dot--unset {
+    background: var(--text-disabled);
+}
+
+.status-dot--set {
+    background: var(--green);
+}
+
+/* Qty cell inline edit */
+.plan-resource-table__qty {
+    cursor: pointer;
+}
+
+.plan-resource-table__qty-display {
+    display: inline;
+}
+
+.plan-resource-table__qty-input {
+    display: none;
+    width: 80px;
+    padding: var(--space-1) var(--space-2);
+    background: var(--bg-raised);
+    border: 1px solid var(--accent);
+    border-radius: var(--radius);
+    color: var(--text-primary);
+    font-size: var(--text-sm);
+    font-family: var(--font-body);
+}
+
+.plan-resource-table__qty--editing .plan-resource-table__qty-display {
+    display: none;
+}
+
+.plan-resource-table__qty--editing .plan-resource-table__qty-input {
+    display: inline;
+}
+
+/* Source badge */
+.plan-resource-table__source-badge {
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+    font-family: var(--font-ui);
+}
+
+/* Delete button */
+.plan-resource-table__delete-btn {
+    color: var(--text-muted);
+    border: none;
+    background: none;
+    cursor: pointer;
+    padding: var(--space-1) var(--space-2);
+    font-size: var(--text-sm);
+    border-radius: var(--radius);
+}
+
+.plan-resource-table__delete-btn:hover {
+    color: var(--red);
+    background: var(--red-bg);
+}
+
+/* Add resource form */
+.plan-add-resource-form {
+    display: none;
+    margin-top: var(--space-3);
+    padding: var(--space-4);
+    background: var(--bg-raised);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+}
+
+.plan-add-resource-form--visible {
+    display: block;
+}
+
+.plan-add-resource-form__fields {
+    display: flex;
+    align-items: flex-end;
+    gap: var(--space-4);
+    flex-wrap: wrap;
+}
+
+.plan-add-resource-form__field {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+}
+
+.plan-add-resource-form__field--item {
+    flex: 1;
+    min-width: 200px;
+}
+
+.plan-add-resource-form__field--qty {
+    width: 88px;
+    flex-shrink: 0;
+}
+
+.plan-add-resource-form__field--qty .form-control {
+    width: 88px;
+    font-size: var(--text-sm);
+    padding: var(--space-2) var(--space-2);
+}
+
+.plan-add-resource-form__field--item .form-control {
+    font-size: var(--text-sm);
+    padding: var(--space-2) var(--space-3);
+}
+
+.plan-add-resource-form__label {
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+    font-family: var(--font-ui);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.plan-add-resource-form__actions {
+    display: flex;
+    gap: var(--space-2);
+    align-items: flex-end;
+    padding-bottom: 2px;
+}
+
+/* Tasks section collapsed state */
+.tasks-section--collapsed {
+    display: none;
+}
+
+.tasks-section--expanded {
+    display: block;
+}
+
+/* Plan tasks header */
+.plan-tasks-header {
+    cursor: pointer;
+}
+
 @media (max-width: 768px) {
     .project-detail__mobile-header {
         display: flex;

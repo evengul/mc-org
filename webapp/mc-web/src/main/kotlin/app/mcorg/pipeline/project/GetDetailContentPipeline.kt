@@ -29,11 +29,6 @@ suspend fun ApplicationCall.handleGetDetailContent() {
     // Persist preference
     SetViewPreferenceStep.process(SetViewPreferenceInput(user.id, projectId, view))
 
-    if (view == "plan") {
-        respondHtml(planViewFragment() + toggleOobFragments(worldId, projectId, "plan"))
-        return
-    }
-
     val project = when (val result = GetProjectByIdStep.process(projectId)) {
         is Result.Success -> result.value
         is Result.Failure -> {
@@ -43,12 +38,17 @@ suspend fun ApplicationCall.handleGetDetailContent() {
     }
 
     val resources = GetAllResourceGatheringItemsStep.process(projectId).getOrNull() ?: emptyList()
-    val tasks = when (val result = SearchTasksStep(projectId).process(SearchTasksInput())) {
+    val tasks = when (val result = SearchTasksStep(projectId).process(SearchTasksInput(completionStatus = "ALL"))) {
         is Result.Success -> result.value
         is Result.Failure -> {
             respondBadRequest("Failed to load tasks")
             return
         }
+    }
+
+    if (view == "plan") {
+        respondHtml(planViewFragment(project, resources, tasks) + toggleOobFragments(worldId, projectId, "plan"))
+        return
     }
 
     respondHtml(executeViewFragment(project, resources, tasks) + toggleOobFragments(worldId, projectId, "execute"))

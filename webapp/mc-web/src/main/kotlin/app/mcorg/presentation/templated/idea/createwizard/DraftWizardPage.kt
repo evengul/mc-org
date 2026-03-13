@@ -68,6 +68,7 @@ fun draftWizardPage(
         "/static/styles/components/btn.css",
         "/static/styles/components/callout.css",
         "/static/styles/components/form.css",
+        "/static/styles/components/item-search.css",
         "/static/styles/pages/idea-wizard.css",
     )
 ) {

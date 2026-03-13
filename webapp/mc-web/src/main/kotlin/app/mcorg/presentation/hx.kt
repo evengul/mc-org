@@ -49,6 +49,10 @@ fun HTMLTag.hxDeleteWithConfirm(
     }
 }
 
+fun HTMLTag.hxDelete(value: String) {
+    attributes += "hx-delete" to value
+}
+
 fun HTMLTag.hxSwap(value: String) {
     attributes += "hx-swap" to value
 }

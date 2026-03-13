@@ -5,10 +5,13 @@ import app.mcorg.domain.model.project.ProjectStage
 import app.mcorg.domain.model.resources.ResourceGatheringItem
 import app.mcorg.domain.model.task.ActionTask
 import app.mcorg.domain.model.user.TokenProfile
+import app.mcorg.presentation.hxDelete
 import app.mcorg.presentation.hxGet
 import app.mcorg.presentation.hxOutOfBands
+import app.mcorg.presentation.hxPatch
 import app.mcorg.presentation.hxSwap
 import app.mcorg.presentation.hxTarget
+import app.mcorg.presentation.hxTrigger
 import app.mcorg.presentation.templated.dsl.BadgeStatus
 import app.mcorg.presentation.templated.dsl.BreadcrumbBuilder
 import app.mcorg.presentation.templated.dsl.addTaskInline
@@ -34,6 +37,8 @@ fun projectDetailPage(
     user = user,
     stylesheets = listOf(
         "/static/styles/components/btn.css",
+        "/static/styles/components/form.css",
+        "/static/styles/components/item-search.css",
         "/static/styles/components/toggle.css",
         "/static/styles/components/badge.css",
         "/static/styles/components/progress.css",
@@ -42,7 +47,10 @@ fun projectDetailPage(
         "/static/styles/components/resource-search.css",
         "/static/styles/pages/project-detail.css",
     ),
-    scripts = listOf("/static/scripts/resource-search.js")
+    scripts = listOf(
+        "/static/scripts/resource-search.js",
+        "/static/scripts/plan-view.js"
+    )
 ) {
     appHeader(
         worldId = project.worldId,
@@ -98,7 +106,7 @@ fun projectDetailPage(
             div {
                 id = "project-content"
                 if (view == "plan") {
-                    planViewStub()
+                    planViewContent(project, resources, tasks)
                 } else {
                     executeViewContent(project, resources, tasks)
                 }
@@ -203,10 +211,188 @@ fun FlowContent.executeViewContent(
     }
 }
 
-fun FlowContent.planViewStub() {
-    div("plan-view-stub") {
-        h2("plan-view-stub__title") { +"Plan view" }
-        p("plan-view-stub__body") { +"Coming soon — use the execute view to track your progress." }
+fun FlowContent.planViewContent(
+    project: Project,
+    resources: List<ResourceGatheringItem>,
+    tasks: List<ActionTask>
+) {
+    val filteredResources = resources.filter { it.required > 0 }
+
+    // Resources section
+    div("project-detail__section") {
+        div("project-detail__section-header") {
+            span("project-detail__section-title section-label") { +"Resources" }
+            button(classes = "btn btn--secondary btn--sm plan-add-resource-btn") {
+                id = "plan-add-resource-btn"
+                type = ButtonType.button
+                +"+ Add resource"
+            }
+        }
+
+        if (filteredResources.isEmpty()) {
+            div("plan-empty-state") {
+                id = "plan-empty-state"
+                p("plan-empty-state__text") { +"No resources defined yet." }
+                p("plan-empty-state__hint") { +"Add resources to start planning." }
+            }
+        }
+
+        // Add resource form (hidden by default)
+        div("plan-add-resource-form") {
+            id = "plan-add-resource-form"
+            form {
+                id = "plan-resource-form"
+                div("plan-add-resource-form__fields") {
+                    div("plan-add-resource-form__field plan-add-resource-form__field--item") {
+                        label("plan-add-resource-form__label") {
+                            htmlFor = "plan-item-search"
+                            +"Item"
+                        }
+                        div("item-search-field") {
+                            input(type = InputType.text, classes = "form-control") {
+                                id = "plan-item-search"
+                                placeholder = "Search items by name..."
+                                autoComplete = false
+                                hxGet("/items/search")
+                                hxTrigger("input changed delay:300ms")
+                                hxTarget("#plan-item-search-results")
+                                hxSwap("innerHTML")
+                                attributes["hx-vals"] = "js:{q: this.value}"
+                            }
+                            div("item-search-results") {
+                                id = "plan-item-search-results"
+                            }
+                        }
+                        hiddenInput {
+                            id = "plan-selected-item-id"
+                            name = "requiredItemId"
+                        }
+                    }
+                    div("plan-add-resource-form__field plan-add-resource-form__field--qty") {
+                        label("plan-add-resource-form__label") {
+                            htmlFor = "plan-item-amount"
+                            +"Quantity"
+                        }
+                        input(type = InputType.number, classes = "form-control") {
+                            id = "plan-item-amount"
+                            name = "requiredAmount"
+                            min = "1"
+                            max = "2000000000"
+                            value = "1"
+                        }
+                    }
+                    div("plan-add-resource-form__actions") {
+                        button(classes = "btn btn--primary btn--sm") {
+                            id = "plan-add-resource-submit"
+                            type = ButtonType.button
+                            +"Add"
+                        }
+                        button(classes = "btn btn--ghost btn--sm") {
+                            id = "plan-add-resource-cancel"
+                            type = ButtonType.button
+                            +"Cancel"
+                        }
+                    }
+                }
+            }
+        }
+
+        // Resource table (always render for HTMX swap target)
+        table("data-table plan-resource-table") {
+            id = "plan-resource-table"
+            if (filteredResources.isNotEmpty()) {
+                thead {
+                    tr {
+                        th { classes = setOf("plan-resource-table__col-status") }
+                        th { classes = setOf("plan-resource-table__col-item"); +"Item" }
+                        th { classes = setOf("plan-resource-table__col-qty"); +"Qty" }
+                        th { classes = setOf("plan-resource-table__col-source"); +"Source" }
+                        th { classes = setOf("plan-resource-table__col-action") }
+                    }
+                }
+            }
+            tbody {
+                id = "plan-resource-table-body"
+                filteredResources.forEach { item ->
+                    tr {
+                        planResourceRow(project.worldId, project.id, item)
+                    }
+                }
+            }
+        }
+    }
+
+    // Tasks section (collapsed)
+    div("project-detail__section") {
+        div("project-detail__section-header plan-tasks-header") {
+            id = "plan-tasks-header"
+            span("project-detail__section-title section-label") {
+                val done = tasks.count { it.completed }
+                +"Tasks — $done / ${tasks.size}"
+            }
+            button(classes = "btn btn--ghost btn--sm plan-tasks-toggle") {
+                id = "plan-tasks-toggle"
+                type = ButtonType.button
+                +"Show"
+            }
+        }
+        div("task-section tasks-section--collapsed") {
+            id = "plan-task-section"
+            div {
+                id = "project-progress"
+                val done = tasks.count { it.completed }
+                if (tasks.isNotEmpty()) {
+                    progressBar(done, tasks.size)
+                    p("project-detail__overall-progress-label") {
+                        +"$done of ${tasks.size} tasks completed"
+                    }
+                }
+            }
+            taskList(project.worldId, project.id, tasks)
+            addTaskInline(project.worldId, project.id)
+        }
+    }
+}
+
+fun TR.planResourceRow(worldId: Int, projectId: Int, item: ResourceGatheringItem) {
+    id = "plan-row-${item.id}"
+    attributes["data-resource-id"] = item.id.toString()
+
+    td("plan-resource-table__status") {
+        span("status-dot status-dot--unset") {}
+    }
+    td("plan-resource-table__item") {
+        +item.name
+    }
+    td("plan-resource-table__qty") {
+        attributes["data-resource-id"] = item.id.toString()
+        attributes["data-current-qty"] = item.required.toString()
+        span("plan-resource-table__qty-display") {
+            +item.required.toString()
+        }
+        input(type = InputType.number, classes = "plan-resource-table__qty-input") {
+            name = "required"
+            min = "1"
+            max = "2000000000"
+            value = item.required.toString()
+            attributes["data-resource-id"] = item.id.toString()
+            hxPatch("/worlds/$worldId/projects/$projectId/resources/gathering/${item.id}/required")
+            hxTarget("#plan-row-${item.id}")
+            hxSwap("outerHTML")
+            hxTrigger("change")
+        }
+    }
+    td("plan-resource-table__source") {
+        span("plan-resource-table__source-badge") { +"--" }
+    }
+    td("plan-resource-table__action") {
+        button(classes = "btn btn--ghost btn--sm plan-resource-table__delete-btn") {
+            type = ButtonType.button
+            hxDelete("/worlds/$worldId/projects/$projectId/resources/gathering/${item.id}?context=plan")
+            hxTarget("#plan-row-${item.id}")
+            hxSwap("outerHTML")
+            +"\u00d7"
+        }
     }
 }
 
@@ -222,9 +408,10 @@ fun executeViewFragment(project: Project, resources: List<ResourceGatheringItem>
         executeViewContent(project, resources, tasks)
     }
 
-fun planViewFragment(): String = createHTML().div {
-    planViewStub()
-}
+fun planViewFragment(project: Project, resources: List<ResourceGatheringItem>, tasks: List<ActionTask>): String =
+    createHTML().div {
+        planViewContent(project, resources, tasks)
+    }
 
 // OOB fragments to update both toggle instances when switching views
 fun toggleOobFragments(worldId: Int, projectId: Int, active: String): String {
