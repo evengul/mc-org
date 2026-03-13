@@ -5,7 +5,6 @@ import app.mcorg.pipeline.Result
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.idea.commonsteps.GetItemsInVersionRangeStep
-import app.mcorg.pipeline.idea.createsession.updateWizardSession
 import app.mcorg.pipeline.idea.validators.ValidateIdeaMinecraftVersionStep
 import app.mcorg.pipeline.idea.validators.ValidateItemRequirementStep
 import app.mcorg.presentation.handler.handlePipeline
@@ -21,13 +20,6 @@ suspend fun ApplicationCall.handleGetItemRequirementFields() {
 
     handlePipeline(
         onSuccess = {
-            updateWizardSession {
-                copy(
-                    itemRequirements = itemRequirements?.toMutableMap()?.apply {
-                        this[it.first.id] = it.second
-                    } ?: mapOf(it.first.id to it.second)
-                )
-            }
             respondHtml(createHTML().li {
                 itemRequirementListEntry(it.first, it.second)
             })

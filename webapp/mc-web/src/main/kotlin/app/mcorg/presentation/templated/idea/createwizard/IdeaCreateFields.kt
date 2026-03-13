@@ -4,7 +4,6 @@ import app.mcorg.domain.model.idea.schema.CategoryField
 import app.mcorg.domain.model.idea.schema.CategoryValue
 import app.mcorg.domain.model.minecraft.MinecraftVersionRange
 import app.mcorg.presentation.templated.common.button.iconButton
-import app.mcorg.presentation.templated.common.form.searchableselect.searchableSelect
 import app.mcorg.presentation.templated.common.icon.IconSize
 import app.mcorg.presentation.templated.common.icon.Icons
 import kotlinx.html.DIV
@@ -19,7 +18,6 @@ import kotlinx.html.p
 import kotlinx.html.select
 import kotlinx.html.small
 import kotlinx.html.span
-import kotlinx.html.style
 import kotlinx.html.textArea
 import org.slf4j.LoggerFactory
 
@@ -61,8 +59,7 @@ fun DIV.renderCreateTextField(field: CategoryField.Text, value: CategoryValue.Te
             span("required-indicator") { +"*" }
         }
         if (field.helpText != null) {
-            small("form-help-text subtle") {
-                style = "display: block; margin-top: var(--spacing-xxs);"
+            small("form-help-text") {
                 +field.helpText
             }
         }
@@ -104,8 +101,7 @@ fun DIV.renderCreateNumberField(field: CategoryField.Number, value: CategoryValu
             span("required-indicator") { +"*" }
         }
         if (field.helpText != null) {
-            small("form-help-text subtle") {
-                style = "display: block; margin-top: var(--spacing-xxs);"
+            small("form-help-text") {
                 +field.helpText
             }
         }
@@ -125,7 +121,7 @@ fun DIV.renderCreateNumberField(field: CategoryField.Number, value: CategoryValu
         }
         field.suffix?.let { suffix ->
             span {
-                style = "align-self: center; color: var(--clr-text-subtle);"
+                classes += "form-suffix"
                 +suffix
             }
         }
@@ -146,42 +142,29 @@ fun DIV.renderCreateSelectField(versionRange: MinecraftVersionRange, field: Cate
             span("required-indicator") { +"*" }
         }
         if (field.helpText != null) {
-            small("form-help-text subtle") {
-                style = "display: block; margin-top: var(--spacing-xxs);"
+            small("form-help-text") {
                 +field.helpText
             }
         }
     }
 
-    if (field.options(versionRange).size > field.showSearchLimit) {
-        searchableSelect(
-            id = "create-${field.key}",
-            name = field.getCompleteKey(),
-            options = field.options(versionRange)
-        ) {
-            selectedValue?.let {
-                this.selectedValue = it.value
+    select(classes = "form-control") {
+        id = "create-${field.key}"
+        name = field.getCompleteKey()
+        if (field.required) required = true
+
+        if (!field.required) {
+            option {
+                value = ""
+                +"Select..."
             }
         }
-    } else {
-        select(classes = "form-control") {
-            id = "create-${field.key}"
-            name = field.getCompleteKey()
-            if (field.required) required = true
 
-            if (!field.required) {
-                option {
-                    value = ""
-                    +"Select..."
-                }
-            }
-
-            field.options(versionRange).forEach { opt ->
-                option {
-                    value = opt.value
-                    if (opt.value == field.defaultValue || opt.value == selectedValue?.value) selected = true
-                    + opt.label
-                }
+        field.options(versionRange).forEach { opt ->
+            option {
+                value = opt.value
+                if (opt.value == field.defaultValue || opt.value == selectedValue?.value) selected = true
+                +opt.label
             }
         }
     }
@@ -200,8 +183,7 @@ fun DIV.renderCreateMultiSelectField(field: CategoryField.MultiSelect, selectedV
             span("required-indicator") { +"*" }
         }
         if (field.helpText != null) {
-            small("form-help-text subtle") {
-                style = "display: block; margin-top: var(--spacing-xxs);"
+            small("form-help-text") {
                 +field.helpText
             }
         }
@@ -238,8 +220,7 @@ fun DIV.renderCreateBooleanField(field: CategoryField.BooleanField, checked: Cat
         }
         +field.label
         if (field.helpText != null) {
-            small("form-help-text subtle") {
-                style = "display: inline; margin-left: var(--spacing-xxs);"
+            small("form-help-text") {
                 +" (${field.helpText})"
             }
         }
@@ -260,8 +241,7 @@ fun DIV.renderCreateRateField(field: CategoryField.Rate, value: CategoryValue.In
             span("required-indicator") { +"*" }
         }
         if (field.helpText != null) {
-            small("form-help-text subtle") {
-                style = "display: block; margin-top: var(--spacing-xxs);"
+            small("form-help-text") {
                 +field.helpText
             }
         }
@@ -278,8 +258,7 @@ fun DIV.renderCreateRateField(field: CategoryField.Rate, value: CategoryValue.In
                 this.value = it.value.toString()
             }
         }
-        span {
-            style = "align-self: center; color: var(--clr-text-subtle);"
+        span("form-suffix") {
             +field.unit
         }
     }
@@ -299,8 +278,7 @@ fun DIV.renderCreatePercentageField(field: CategoryField.Percentage, value: Cate
             span("required-indicator") { +"*" }
         }
         if (field.helpText != null) {
-            small("form-help-text subtle") {
-                style = "display: block; margin-top: var(--spacing-xxs);"
+            small("form-help-text") {
                 +field.helpText
             }
         }
@@ -318,8 +296,7 @@ fun DIV.renderCreatePercentageField(field: CategoryField.Percentage, value: Cate
                 this.value = it.value.toString()
             }
         }
-        span {
-            style = "align-self: center; color: var(--clr-text-subtle);"
+        span("form-suffix") {
             +"(0-1)"
         }
     }
@@ -338,8 +315,7 @@ fun DIV.renderCreateTypedMapField(versionRange: MinecraftVersionRange, field: Ca
             span("required-indicator") { +"*" }
         }
         if (field.helpText != null) {
-            small("form-help-text subtle") {
-                style = "display: block; margin-top: var(--spacing-xxs);"
+            small("form-help-text") {
                 +field.helpText
             }
         }
@@ -387,8 +363,7 @@ fun DIV.renderCreateListField(field: CategoryField.ListField, selectedValues: Ca
             span("required-indicator") { +"*" }
         }
         if (field.helpText != null) {
-            small("form-help-text subtle") {
-                style = "display: block; margin-top: var(--spacing-xxs);"
+            small("form-help-text") {
                 +field.helpText
             }
         }

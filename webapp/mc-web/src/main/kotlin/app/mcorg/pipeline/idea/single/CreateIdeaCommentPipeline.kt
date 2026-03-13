@@ -9,7 +9,9 @@ import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.ValidationSteps
 import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.presentation.handler.handlePipeline
+import app.mcorg.presentation.templated.idea.ideaAlreadyCommentedOob
 import app.mcorg.presentation.templated.idea.ideaCommentItem
+import app.mcorg.presentation.templated.idea.ideaRatingDistributionOob
 import app.mcorg.presentation.utils.getIdeaId
 import app.mcorg.presentation.utils.getUser
 import app.mcorg.presentation.utils.respondHtml
@@ -20,7 +22,7 @@ import kotlinx.html.li
 import kotlinx.html.stream.createHTML
 
 private data class CreateIdeaCommentInput(
-    val content: String,
+    val content: String?,
     val rating: Int?
 )
 
@@ -31,23 +33,26 @@ suspend fun ApplicationCall.handleCreateIdeaComment() {
     val parameters = this.receiveParameters()
 
     handlePipeline(
-        onSuccess = {
-            respondHtml(createHTML().li {
-                ideaCommentItem(userId, it)
-            })
+        onSuccess = { (comment, distribution) ->
+            respondHtml(
+                createHTML().li { ideaCommentItem(userId, comment) } +
+                ideaRatingDistributionOob(distribution.total, distribution.average, distribution.countPerStar) +
+                ideaAlreadyCommentedOob()
+            )
         }
     ) {
         val input = ValidateCommentInput.run(parameters)
         val validated = ValidateNoExistingCommentStep(ideaId, userId).run(input)
         val comment = CreateCommentStep(ideaId, userId).run(validated)
         CacheManager.onIdeaCommentCreated(comment.id)
-        comment
+        val distribution = FetchRatingDistributionStep(ideaId).run(Unit)
+        comment to distribution
     }
 }
 
 private object ValidateCommentInput : Step<Parameters, AppFailure.ValidationError, CreateIdeaCommentInput> {
     override suspend fun process(input: Parameters): Result<AppFailure.ValidationError, CreateIdeaCommentInput> {
-        val content = ValidationSteps.required("content") { it }.process(input)
+        val content = ValidationSteps.optional("content").process(input)
         val rating = ValidationSteps.optionalInt("rating") { it }
             .process(input)
             .flatMap { ratingValue ->
@@ -65,10 +70,17 @@ private object ValidateCommentInput : Step<Parameters, AppFailure.ValidationErro
             return Result.failure(AppFailure.ValidationError(it))
         }
 
+        val contentValue = content.getOrNull()
+        val ratingValue = rating.getOrNull()
+
+        if (contentValue == null && ratingValue == null) {
+            return Result.failure(AppFailure.customValidationError("content", "A comment or rating is required"))
+        }
+
         return Result.success(
             CreateIdeaCommentInput(
-                content = content.getOrNull()!!,
-                rating = rating.getOrNull()
+                content = contentValue,
+                rating = ratingValue
             )
         )
     }
@@ -139,7 +151,8 @@ private data class CreateCommentStep(val ideaId: Int, val userId: Int) : Step<Cr
                             statement.setInt(1, ideaId)
                             statement.setInt(2, userId)
                             statement.setString(3, commenterName.getOrNull()!!)
-                            statement.setString(4, input.content)
+                            if (input.content != null) statement.setString(4, input.content)
+                            else statement.setNull(4, java.sql.Types.VARCHAR)
                             if (input.rating != null) {
                                 statement.setInt(5, input.rating)
                             } else {

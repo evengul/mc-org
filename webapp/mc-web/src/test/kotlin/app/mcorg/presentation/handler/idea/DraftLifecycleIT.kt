@@ -351,7 +351,7 @@ class DraftLifecycleIT : WithUser() {
     }
 
     @Test
-    fun `POST publish with incomplete draft returns 422 and draft still exists`() = testApplication {
+    fun `POST publish with incomplete draft returns 400 and draft still exists`() = testApplication {
         val ideaCreator = createExtraUser("idea_creator")
         // Create draft with only a name — missing required fields
         val draftId = runBlocking { (CreateDraftStep(ideaCreator.id).process(Unit) as Result.Success).value }
@@ -370,7 +370,7 @@ class DraftLifecycleIT : WithUser() {
         }
 
         val response = client.post("/ideas/drafts/$draftId/publish") { addAuthCookie(this, ideaCreator) }
-        assertEquals(HttpStatusCode.UnprocessableEntity, response.status)
+        assertEquals(HttpStatusCode.BadRequest, response.status)
 
         // Draft should still exist
         val draft = runBlocking { GetDraftStep().process(GetDraftInput(draftId, ideaCreator.id)) }

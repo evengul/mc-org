@@ -1,6 +1,5 @@
 package app.mcorg.pipeline.idea
 
-import app.mcorg.config.CacheManager
 import app.mcorg.domain.model.idea.Author
 import app.mcorg.domain.model.idea.IdeaCategory
 import app.mcorg.domain.model.idea.IdeaDifficulty
@@ -12,13 +11,6 @@ import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.failure.AppFailure
-import app.mcorg.pipeline.failure.ValidationFailure
-import app.mcorg.pipeline.idea.createsession.CreateIdeaWizardSession
-import app.mcorg.pipeline.idea.createsession.getWizardSession
-import app.mcorg.presentation.handler.handlePipeline
-import app.mcorg.presentation.utils.clientRedirect
-import app.mcorg.presentation.utils.getUser
-import io.ktor.server.application.ApplicationCall
 import kotlinx.serialization.builtins.MapSerializer
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
@@ -36,91 +28,6 @@ data class CreateIdeaInput(
     val itemRequirements: Map<String, Int>,
     val categoryData: Map<String, CategoryValue>,
 )
-
-/**
- * Handles the creation of a new idea.
- * Validates input, creates idea in database, and returns HTML fragment.
- */
-suspend fun ApplicationCall.handleCreateIdea() {
-    val user = getUser()
-    val data = getWizardSession()
-
-    handlePipeline(
-        onSuccess = { ideaId ->
-            clientRedirect("/ideas/$ideaId")
-        }
-    ) {
-        val input = ValidateIdeaInputStep.run(data)
-        val ideaId = CreateIdeaStep(user.id).run(input)
-        CacheManager.onIdeaCreated(ideaId)
-        ideaId
-    }
-}
-
-object ValidateIdeaInputStep : Step<CreateIdeaWizardSession, AppFailure.ValidationError, CreateIdeaInput> {
-    override suspend fun process(input: CreateIdeaWizardSession): Result<AppFailure.ValidationError, CreateIdeaInput> {
-        val errors = mutableListOf<ValidationFailure>()
-
-        val name = input.name?.let { Result.success(it) } ?: Result.failure(ValidationFailure.MissingParameter("name"))
-        val description = input.description?.let { Result.success(it) } ?: Result.failure(ValidationFailure.MissingParameter("description"))
-        val difficulty = input.difficulty?.let { Result.success(it) } ?: Result.failure(ValidationFailure.MissingParameter("difficulty"))
-        val category = input.category?.let { Result.success(it) } ?: Result.failure(ValidationFailure.MissingParameter("category"))
-        val author = input.author?.let { Result.success(it) } ?: Result.failure(ValidationFailure.MissingParameter("author"))
-        val versionRange = input.versionRange?.let { Result.success(it) } ?: Result.failure(ValidationFailure.MissingParameter("versionRange"))
-        val itemRequirements = input.itemRequirements ?: emptyMap()
-
-        var categoryData = mapOf<String, CategoryValue>()
-
-        if (name is Result.Failure) {
-            errors.add(name.error)
-        }
-        if (description is Result.Failure) {
-            errors.add(description.error)
-        }
-        if (difficulty is Result.Failure) {
-            errors.add(difficulty.error)
-        }
-        if (category is Result.Failure) {
-            errors.add(category.error)
-        }
-        if (author is Result.Failure) {
-            errors.add(author.error)
-        }
-        if (versionRange is Result.Failure) {
-            errors.add(versionRange.error)
-        }
-        if (category is Result.Failure) {
-            errors.add(category.error)
-        } else if (category is Result.Success) {
-            val categoryDataResult = input.categoryData
-            if (categoryDataResult == null || categoryDataResult.isEmpty()) {
-                errors.add(ValidationFailure.MissingParameter("categoryData"))
-            } else {
-                categoryData = input.categoryData
-            }
-        }
-
-        if (errors.isNotEmpty()) {
-            return Result.failure(AppFailure.ValidationError(errors))
-        }
-
-        return Result.success(
-            CreateIdeaInput(
-                name = name.getOrNull()!!,
-                description = description.getOrNull()!!,
-                category = category.getOrNull()!!,
-                difficulty = difficulty.getOrNull()!!,
-                labels = emptyList(),
-                author = author.getOrNull()!!,
-                subAuthors = emptyList(),
-                versionRange = versionRange.getOrNull()!!,
-                testData = null,
-                itemRequirements = itemRequirements,
-                categoryData = categoryData
-            )
-        )
-    }
-}
 
 data class CreateIdeaStep(val userId: Int) : Step<CreateIdeaInput, AppFailure.DatabaseError, Int> {
     override suspend fun process(input: CreateIdeaInput): Result<AppFailure.DatabaseError, Int> {
@@ -219,4 +126,3 @@ data class CreateIdeaStep(val userId: Int) : Step<CreateIdeaInput, AppFailure.Da
         ).process(input)
     }
 }
-

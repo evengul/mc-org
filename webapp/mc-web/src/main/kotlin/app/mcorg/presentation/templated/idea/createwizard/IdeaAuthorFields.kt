@@ -1,13 +1,11 @@
 package app.mcorg.presentation.templated.idea.createwizard
 
 import app.mcorg.domain.model.idea.Author
-import app.mcorg.pipeline.idea.createsession.CreateIdeaWizardSession
 import app.mcorg.presentation.templated.common.form.radiogroup.RadioGroupLayout
 import app.mcorg.presentation.templated.common.form.radiogroup.RadioGroupOption
 import app.mcorg.presentation.templated.common.form.radiogroup.radioGroup
 import kotlinx.html.ButtonType
 import kotlinx.html.DIV
-import kotlinx.html.FORM
 import kotlinx.html.InputType
 import kotlinx.html.button
 import kotlinx.html.classes
@@ -18,61 +16,6 @@ import kotlinx.html.input
 import kotlinx.html.label
 import kotlinx.html.p
 import kotlinx.html.span
-import kotlinx.html.style
-
-fun FORM.authorFields(data: CreateIdeaWizardSession) {
-    div("form-section") {
-        id = "author-information-section"
-        h3 { +"Author Information" }
-
-        // Author Type
-        label {
-            +"Author Type"
-            span("required-indicator") { +"*" }
-        }
-        div("author-type-select") {
-            radioGroup(
-                "authorType",
-                listOf(
-                    RadioGroupOption("single", "Single Author"),
-                    RadioGroupOption("team", "Team")
-                )
-            ) {
-                required = true
-                selectedOption = when(data.author) {
-                    is Author.SingleAuthor -> "single"
-                    is Author.Team -> "team"
-                    else -> null
-                }
-                layout = RadioGroupLayout.HORIZONTAL
-                block = {
-                    attributes["hx-get"] = "/ideas/create/author-fields"
-                    attributes["hx-target"] = "#author-fields"
-                    attributes["hx-swap"] = "innerHTML"
-                    attributes["hx-trigger"] = "change"
-                    attributes["hx-vals"] = "js:{authorType: event.target.value}"
-                }
-            }
-            p("validation-error-message") {
-                id = "validation-error-authorType"
-            }
-        }
-
-        // Dynamic author fields container
-        div {
-            id = "author-fields"
-            when (data.author) {
-                is Author.SingleAuthor -> {
-                    singleAuthorFields(data.author)
-                }
-                is Author.Team -> {
-                    teamAuthorFields(data.author)
-                }
-                else -> { }
-            }
-        }
-    }
-}
 
 fun DIV.singleAuthorFields(data: Author.SingleAuthor? = null) {
     label {
@@ -95,11 +38,6 @@ fun DIV.singleAuthorFields(data: Author.SingleAuthor? = null) {
 }
 
 fun DIV.teamAuthorFields(data: Author.Team? = null) {
-    p("subtle") {
-        style = "margin-bottom: var(--spacing-sm);"
-        +"Add team members below. Each member should have a name, role, and contributions."
-    }
-
     div {
         id = "team-members-container"
         classes += "stack stack--sm"
@@ -112,8 +50,7 @@ fun DIV.teamAuthorFields(data: Author.Team? = null) {
         }
     }
 
-    button(type = ButtonType.button, classes = "btn btn--sm btn--neutral") {
-        style = "margin-top: var(--spacing-xs);"
+    button(type = ButtonType.button, classes = "btn btn--sm btn--ghost") {
         attributes["onclick"] = "addTeamMember()"
         +"+ Add Team Member"
     }
@@ -132,7 +69,7 @@ private fun DIV.teamAuthor(author: Author.TeamAuthor? = null, index: Int) {
 
     label { +"Role" }
     input {
-        name = "teamMembers[0][role]"
+        name = "teamMembers[$index][role]"
         type = InputType.text
         classes += "form-control"
         value = author?.role ?: ""
@@ -144,7 +81,7 @@ private fun DIV.teamAuthor(author: Author.TeamAuthor? = null, index: Int) {
 
     label { +"Contributions" }
     input {
-        name = "teamMembers[0][contributions]"
+        name = "teamMembers[$index][contributions]"
         type = InputType.text
         classes += "form-control"
         value = author?.contributions?.joinToString(", ") ?: ""

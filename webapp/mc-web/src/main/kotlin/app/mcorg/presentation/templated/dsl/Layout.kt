@@ -43,7 +43,9 @@ fun pageShell(
                 crossorigin = ScriptCrossorigin.anonymous
             }
             script {
-                src = "/static/scripts/response-targets.js"
+                src = "https://cdn.jsdelivr.net/npm/htmx-ext-response-targets@2.0.4/dist/response-targets.js"
+                integrity = "sha384-T41oglUPvXLGBVyRdZsVRxNWnOOqCynaPubjUVjxhsjFTKrFJGEMm3/0KGmNQ+Pg"
+                crossorigin = ScriptCrossorigin.anonymous
             }
         }
         body {

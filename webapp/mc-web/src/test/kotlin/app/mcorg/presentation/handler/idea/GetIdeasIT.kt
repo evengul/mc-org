@@ -37,7 +37,7 @@ class GetIdeasIT : WithUser() {
     fun cleanIdeas() {
         runBlocking {
             DatabaseSteps.update<Unit>(
-                sql = SafeSQL.delete("TRUNCATE ideas"),
+                sql = SafeSQL.delete("DELETE FROM ideas"),
                 parameterSetter = { _, _ -> }
             ).process(Unit)
         }

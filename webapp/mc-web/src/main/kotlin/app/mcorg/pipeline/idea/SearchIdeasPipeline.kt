@@ -7,6 +7,7 @@ import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.idea.extractors.toIdea
+import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.templated.idea.ideasListContainerContent
 import app.mcorg.presentation.utils.respondHtml
 import io.ktor.server.application.ApplicationCall
@@ -18,19 +19,15 @@ import kotlinx.html.stream.createHTML
 suspend fun ApplicationCall.handleSearchIdeas() {
     val filters = IdeaFilterParser.parse(request.queryParameters)
 
-    when (val result = SearchIdeasStep.process(filters)) {
-        is Result.Success -> {
+    handlePipeline(
+        onSuccess = { result ->
             respondHtml(createHTML().div {
                 id = "ideas-list-container"
-                ideasListContainerContent(result.value, filters)
+                ideasListContainerContent(result, filters)
             })
         }
-        is Result.Failure -> {
-            respondHtml(createHTML().div {
-                id = "ideas-list-container"
-                ideasListContainerContent(PaginatedResult(emptyList<app.mcorg.domain.model.idea.Idea>(), 0, 1, 20), filters)
-            })
-        }
+    ) {
+        SearchIdeasStep.run(filters)
     }
 }
 

@@ -254,7 +254,7 @@ val IdeaParamPlugin = createRouteScopedPlugin("IdeaParamPlugin") {
             val checkResult = cachedEnsureExists(
                 CacheManager.ideaExists,
                 ideaId,
-                SafeSQL.select("SELECT EXISTS(SELECT 1 FROM ideas WHERE id = ?)"),
+                SafeSQL.select("SELECT EXISTS(SELECT 1 FROM ideas WHERE id = ? AND is_active = TRUE)"),
                 ideaId
             )
             if (checkResult is Result.Success && checkResult.value) {

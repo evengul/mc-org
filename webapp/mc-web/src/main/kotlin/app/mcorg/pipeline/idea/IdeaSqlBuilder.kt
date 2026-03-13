@@ -1,9 +1,21 @@
 package app.mcorg.pipeline.idea
 
+import app.mcorg.domain.model.idea.schema.IdeaCategorySchemas
+
 /**
  * Builds dynamic SQL WHERE clauses for idea filtering
  */
 object IdeaSqlBuilder {
+
+    /**
+     * All valid filterable field keys derived from IdeaCategorySchemas.
+     * Only these keys are permitted in JSONB path interpolation to prevent SQL injection.
+     */
+    private val ALLOWED_CATEGORY_FIELD_KEYS: Set<String> by lazy {
+        IdeaCategorySchemas.getAllSchemas().values
+            .flatMap { schema -> schema.getAllFields().map { it.key } }
+            .toSet()
+    }
 
     /**
      * Builds WHERE clause and parameter list from filters
@@ -11,6 +23,9 @@ object IdeaSqlBuilder {
     fun buildWhereClause(filters: IdeaSearchFilters): SqlWhereClause {
         val conditions = mutableListOf<String>()
         val parameters = mutableListOf<Any>()
+
+        // Always filter ideas that are inactive (being edited)
+        conditions.add("i.is_active = TRUE")
 
         // Base filters
         filters.category?.let {
@@ -52,9 +67,11 @@ object IdeaSqlBuilder {
     }
 
     /**
-     * Builds JSONB filter condition based on field type
+     * Builds JSONB filter condition based on field type.
+     * The key is validated against a compile-time allowlist of known filterable schema fields.
      */
     private fun buildJsonbCondition(key: String, value: FilterValue): Pair<String, List<Any>> {
+        require(key in ALLOWED_CATEGORY_FIELD_KEYS) { "Invalid category field key: $key" }
         return when (value) {
             is FilterValue.TextValue -> {
                 // Case-insensitive text search in JSONB field

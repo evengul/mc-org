@@ -25,6 +25,7 @@ suspend fun ApplicationCall.handleGetAuthorFields() {
     }.getOrNull()
 
     respondHtml(createHTML().div {
+        id = "author-fields-container"
         when (author) {
             is Author.SingleAuthor -> {
                 if (author.name.isBlank()) {
