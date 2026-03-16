@@ -47,7 +47,7 @@ jobs:
           distribution: 'adopt'
           java-version: '21'
       - name: Restore local Maven artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: maven-local-modules
           path: ~/.m2/repository/app/mcorg
@@ -87,7 +87,7 @@ jobs:
           distribution: 'adopt'
           java-version: '21'
       - name: Restore local Maven artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: maven-local-modules
           path: ~/.m2/repository/app/mcorg
@@ -121,7 +121,7 @@ jobs:
           restore-keys: |
             maven-${{ runner.os }}-
       - name: Restore local Maven artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: maven-local-modules
           path: ~/.m2/repository/app/mcorg
@@ -149,7 +149,7 @@ jobs:
           DB_PASSWORD: ${{ steps.create-neon-branch.outputs.password }}
 
       - name: Download application JAR
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: app-jar
           path: ./jar
