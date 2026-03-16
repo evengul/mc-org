@@ -27,13 +27,13 @@ jobs:
       - name: Compile and install modules
         run: mvn install -DskipTests -B
       - name: Upload local Maven artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: maven-local-modules
           path: ~/.m2/repository/app/mcorg
           retention-days: 1
       - name: Upload application JAR
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: app-jar
           path: webapp/mc-web/target/*-with-dependencies.jar
