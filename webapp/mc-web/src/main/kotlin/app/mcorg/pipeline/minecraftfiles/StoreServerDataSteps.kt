@@ -204,7 +204,8 @@ private data class StoreResourceSourcesStep(val connection: TransactionConnectio
 
     private fun ResourceQuantity.toDatabaseCount(): Int {
         return when (this) {
-            ResourceQuantity.Unknown -> 1
+            ResourceQuantity.Unknown,
+            ResourceQuantity.RuntimeCalculation -> 1
             is ResourceQuantity.ItemQuantity -> this.itemQuantity
         }
     }
