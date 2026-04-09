@@ -26,6 +26,7 @@ data class ResourceSource(
         private object TypeSets {
             val RECIPE_TYPES = setOf(
                 RecipeTypes.CRAFTING_SHAPED, RecipeTypes.CRAFTING_SHAPELESS, RecipeTypes.CRAFTING_TRANSMUTE,
+                RecipeTypes.CRAFTING_IMBUE,
                 RecipeTypes.SMELTING, RecipeTypes.BLASTING, RecipeTypes.SMOKING,
                 RecipeTypes.CAMPFIRE_COOKING, RecipeTypes.STONECUTTING, RecipeTypes.SMITHING_TRANSFORM
             )
@@ -58,6 +59,7 @@ data class ResourceSource(
             val CRAFTING_SHAPELESS = SourceType("minecraft:crafting_shapeless", "Crafting", 95)
             val CRAFTING_SHAPED = SourceType("minecraft:crafting_shaped", "Crafting", 95)
             val CRAFTING_TRANSMUTE = SourceType("minecraft:crafting_transmute", "Crafting", 95)
+            val CRAFTING_IMBUE = SourceType("minecraft:crafting_imbue", "Crafting", 95)
             val STONECUTTING = SourceType("minecraft:stonecutting", "Stonecutting", 90)
             val SMELTING = SourceType("minecraft:smelting", "Smelting", 85)
             val CAMPFIRE_COOKING = SourceType("minecraft:campfire_cooking", "Campfire Cooking", 80)
@@ -88,6 +90,7 @@ data class ResourceSource(
                     RecipeTypes.CRAFTING_SHAPED.id -> RecipeTypes.CRAFTING_SHAPED
                     RecipeTypes.CRAFTING_SHAPELESS.id -> RecipeTypes.CRAFTING_SHAPELESS
                     RecipeTypes.CRAFTING_TRANSMUTE.id -> RecipeTypes.CRAFTING_TRANSMUTE
+                    RecipeTypes.CRAFTING_IMBUE.id -> RecipeTypes.CRAFTING_IMBUE
                     RecipeTypes.SMITHING_TRANSFORM.id -> RecipeTypes.SMITHING_TRANSFORM
                     RecipeTypes.SMELTING.id -> RecipeTypes.SMELTING
                     RecipeTypes.BLASTING.id -> RecipeTypes.BLASTING
@@ -117,6 +120,7 @@ data class ResourceSource(
                 RecipeTypes.CRAFTING_SHAPED,
                 RecipeTypes.CRAFTING_SHAPELESS,
                 RecipeTypes.CRAFTING_TRANSMUTE,
+                RecipeTypes.CRAFTING_IMBUE,
                 RecipeTypes.SMITHING_TRANSFORM,
                 RecipeTypes.SMELTING,
                 RecipeTypes.BLASTING,
