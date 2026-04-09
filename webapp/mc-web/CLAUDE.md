@@ -83,19 +83,28 @@ mvn test -pl mc-web
 
 ## Skills
 
-These project-specific skills provide detailed guidance for mc-web development:
+Project-specific skills provide detailed guidance for mc-web development. The `docs-*` reference skills are
+auto-loaded by Claude when the task matches their description (they are not user-invocable slash commands).
+The action commands below are slash-invocable workflows.
 
-| Skill               | Load when...                                              |
-|---------------------|-----------------------------------------------------------|
-| `/docs-development` | Pipeline steps, `handlePipeline`, DB ops, validation      |
-| `/docs-architecture`| Domain model, file structure, plugin chain, route setup   |
-| `/docs-css`         | CSS component classes, layout, notices, cards (legacy — deprecated during frontend rewrite; use `/docs-product` instead) |
-| `/docs-product`     | Design system tokens, component patterns, spacing, mobile behaviour (use during frontend rewrite) |
-| `/docs-htmx`        | HTMX helper functions, `hx*` attributes, HTMX patterns   |
-| `/docs-business`    | Business rules, roles, project stages, workflows          |
-| `/docs-troubleshoot`| Debugging errors, compile failures                        |
-| `/docs-glossary`    | Technical/domain terminology                              |
-| `/docs-testing`     | Test patterns, `testApplication`, auth helpers, DB tests  |
-| `/add-endpoint`     | Creating a new HTTP endpoint                              |
-| `/add-migration`    | Adding a database migration                               |
-| `/add-step`         | Creating a new pipeline Step                              |
+**Reference docs (auto-loaded):**
+
+| Skill              | Auto-loads when...                                        |
+|--------------------|-----------------------------------------------------------|
+| `docs-development` | Pipeline steps, `handlePipeline`, DB ops, validation      |
+| `docs-architecture`| Domain model, file structure, plugin chain, route setup   |
+| `docs-css`         | CSS component classes, layout, notices, cards (legacy — deprecated during frontend rewrite; use `docs-product` instead) |
+| `docs-product`     | Design system tokens, component patterns, spacing, mobile behaviour (use during frontend rewrite) |
+| `docs-htmx`        | HTMX helper functions, `hx*` attributes, HTMX patterns    |
+| `docs-business`    | Business rules, roles, project stages, workflows          |
+| `docs-troubleshoot`| Debugging errors, compile failures                        |
+| `docs-glossary`    | Technical/domain terminology                              |
+| `docs-testing`     | Writing or running tests (unit, integration, pipeline)    |
+
+**Action commands (slash-invocable):**
+
+| Slash command   | Use when...                 |
+|-----------------|-----------------------------|
+| `/add-endpoint` | Creating a new HTTP endpoint|
+| `/add-migration`| Adding a database migration |
+| `/add-step`     | Creating a new pipeline Step|
