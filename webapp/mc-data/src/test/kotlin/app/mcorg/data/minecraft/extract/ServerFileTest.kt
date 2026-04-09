@@ -9,7 +9,6 @@ import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.params.provider.Arguments
 import java.nio.file.Path
 import java.nio.file.Paths
-import kotlin.io.path.exists
 import kotlin.io.path.listDirectoryEntries
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -27,10 +26,8 @@ open class ServerFileTest(
         val basePath = Paths.get("").toAbsolutePath()
         val resourcesPath = basePath.resolve("src/test/resources/servers/extracted")
 
-        if (resourcesPath.exists() && resourcesPath.listDirectoryEntries().isNotEmpty()) {
-            return
-        }
-
+        // Always run — ServerFileDownloader is idempotent and will skip versions that are already
+        // extracted. This ensures new Mojang releases are picked up even when the CI cache is warm.
         runBlocking {
             ServerFileDownloader.downloadAndExtract(resourcesPath)
         }
