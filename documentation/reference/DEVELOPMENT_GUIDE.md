@@ -2417,7 +2417,7 @@ API base URLs are configured in `AppConfig` and can be overridden with environme
 object AppConfig {
     var modrinthBaseUrl: String = "https://api.modrinth.com/v2"
     var minecraftBaseUrl: String = "https://api.minecraftservices.com"
-    var fabricMcBaseUrl: String = "https://meta.fabricmc.net/v2"
+    var launcherMetaBaseUrl: String = "https://launchermeta.mojang.com"
 
     init {
         System.getenv("MODRINTH_BASE_URL")?.let { modrinthBaseUrl = it }

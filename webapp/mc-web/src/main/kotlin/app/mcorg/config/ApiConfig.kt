@@ -70,16 +70,10 @@ object MinecraftApiConfig : ApiConfig(AppConfig.minecraftBaseUrl) {
     fun getProfileUrl() = "${AppConfig.minecraftBaseUrl}/minecraft/profile"
 }
 
-object FabricMcApiConfig : ApiConfig(AppConfig.fabricMcBaseUrl) {
+object MojangLauncherMetaApiConfig : ApiConfig(AppConfig.launcherMetaBaseUrl) {
     override fun getContentType() = ContentType.Application.Json
 
-    fun getVersionsUrl() = "${baseUrl}/versions/game"
-}
-
-object GithubGistsApiConfig : ApiConfig(AppConfig.githubGistsBaseUrl) {
-    override fun getContentType() = ContentType.Application.Json
-
-    fun getServerJarsUrl() = "${baseUrl}/cliffano/77a982a7503669c3e1acb0a0cf6127e9/raw/e91cfeacc56e461d5943e100a2bc7eb0919c0a83/minecraft-server-jar-downloads.md"
+    fun getVersionManifestUrl() = "${baseUrl}/mc/game/version_manifest_v2.json"
 }
 
 class TestApiConfig : ApiConfig("https://api.example.com") {

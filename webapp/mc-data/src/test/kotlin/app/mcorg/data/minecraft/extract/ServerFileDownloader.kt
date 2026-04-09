@@ -19,12 +19,11 @@ object ServerFileDownloader {
     private val logger = LoggerFactory.getLogger(ServerFileDownloader::class.java)
     private val json = Json { ignoreUnknownKeys = true }
 
-    private const val FABRIC_MC_VERSIONS_URL = "https://meta.fabricmc.net/v2/versions/game"
-    private const val SERVER_JARS_GIST_URL = "https://gist.githubusercontent.com/cliffano/77a982a7503669c3e1acb0a0cf6127e9/raw/e91cfeacc56e461d5943e100a2bc7eb0919c0a83/minecraft-server-jar-downloads.md"
+    private const val MOJANG_VERSION_MANIFEST_URL = "https://launchermeta.mojang.com/mc/game/version_manifest_v2.json"
+    private val EARLIEST_SUPPORTED_VERSION = MinecraftVersion.Release(1, 18, 0)
 
     suspend fun downloadAndExtract(outputDir: Path) {
-        val versions = getAvailableVersions()
-        val urls = getServerUrls(versions)
+        val urls = getServerUrls()
 
         if (urls.isEmpty()) {
             logger.warn("No server URLs found to download")
@@ -57,48 +56,59 @@ object ServerFileDownloader {
         }
     }
 
-    private suspend fun getAvailableVersions(): List<MinecraftVersion.Release> {
-        val response = withContext(Dispatchers.IO) {
-            URI.create(FABRIC_MC_VERSIONS_URL).toURL().readText()
+    /**
+     * Fetches the Mojang version manifest, filters to releases at or above
+     * [EARLIEST_SUPPORTED_VERSION], and resolves each version's server.jar URL by fetching its
+     * per-version metadata JSON.
+     */
+    private suspend fun getServerUrls(): List<Pair<MinecraftVersion.Release, URI>> {
+        val manifestJson = withContext(Dispatchers.IO) {
+            URI.create(MOJANG_VERSION_MANIFEST_URL).toURL().readText()
         }
 
-        return json.parseToJsonElement(response).jsonArray
-            .filter { it.jsonObject["stable"]?.jsonPrimitive?.content == "true" }
+        val entries = json.parseToJsonElement(manifestJson)
+            .jsonObject["versions"]
+            ?.jsonArray
+            ?: return emptyList()
+
+        return entries
             .mapNotNull { element ->
-                val version = element.jsonObject["version"]?.jsonPrimitive?.content ?: return@mapNotNull null
-                if (!version.matches("""1\.\d+(\.\d+)?""".toRegex())) return@mapNotNull null
-                try {
-                    MinecraftVersion.Release.fromString(version)
+                val obj = element.jsonObject
+                if (obj["type"]?.jsonPrimitive?.content != "release") return@mapNotNull null
+                val id = obj["id"]?.jsonPrimitive?.content ?: return@mapNotNull null
+                val url = obj["url"]?.jsonPrimitive?.content ?: return@mapNotNull null
+                val version = try {
+                    MinecraftVersion.Release.fromString(id)
                 } catch (e: IllegalArgumentException) {
+                    return@mapNotNull null
+                }
+                if (version < EARLIEST_SUPPORTED_VERSION) return@mapNotNull null
+                version to url
+            }
+            .mapNotNull { (version, metaUrl) ->
+                val serverUrl = fetchServerUrl(metaUrl)
+                if (serverUrl == null) {
+                    logger.warn("No server download for $version, skipping")
                     null
+                } else {
+                    version to URI.create(serverUrl)
                 }
             }
-            .filter { it.major == 1 && it.minor >= 18 }
     }
 
-    private suspend fun getServerUrls(versions: List<MinecraftVersion.Release>): List<Pair<MinecraftVersion.Release, URI>> {
-        val response = withContext(Dispatchers.IO) {
-            URI.create(SERVER_JARS_GIST_URL).toURL().readText()
+    private suspend fun fetchServerUrl(metaUrl: String): String? {
+        return try {
+            val metaJson = withContext(Dispatchers.IO) {
+                URI.create(metaUrl).toURL().readText()
+            }
+            json.parseToJsonElement(metaJson)
+                .jsonObject["downloads"]
+                ?.jsonObject?.get("server")
+                ?.jsonObject?.get("url")
+                ?.jsonPrimitive?.content
+        } catch (e: Exception) {
+            logger.error("Failed to fetch per-version metadata at $metaUrl: ${e.message}", e)
+            null
         }
-
-        return response.lines()
-            .mapNotNull { line ->
-                val parts = line.split("|").filter { it.isNotBlank() }.map { it.trim() }
-                if (parts.size >= 2) parts[0] to parts[1] else null
-            }
-            .filter { (version, _) -> !version.contains("Minecraft Version") }
-            .filter { (version, _) -> !version.contains("---------") }
-            .filter { (version, url) -> version.isNotBlank() && url.isNotBlank() }
-            .filter { (version, _) -> version.matches("""1\.\d+(\.\d+)?""".toRegex()) }
-            .filter { (_, url) -> url.endsWith("server.jar") }
-            .mapNotNull { (version, url) ->
-                try {
-                    MinecraftVersion.Release.fromString(version) to URI.create(url)
-                } catch (e: IllegalArgumentException) {
-                    logger.error("Invalid version format or URL: $version", e)
-                    null
-                }
-            }
-            .filter { (version, _) -> versions.contains(version) }
     }
 }

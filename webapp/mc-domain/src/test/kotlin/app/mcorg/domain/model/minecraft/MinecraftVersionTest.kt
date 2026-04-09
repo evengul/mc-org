@@ -202,6 +202,74 @@ class MinecraftVersionTest {
     }
 
     @Nested
+    inner class YearBasedVersionTests {
+        @Test
+        fun `parses year-based release versions`() {
+            val cases = mapOf(
+                "26.1.1" to Triple(26, 1, 1),
+                "25.11.0" to Triple(25, 11, 0),
+                "30.0.0" to Triple(30, 0, 0)
+            )
+
+            cases.forEach { (versionString, expected) ->
+                val version = MinecraftVersion.fromString(versionString)
+                assertTrue(version is MinecraftVersion.Release, "Expected Release for $versionString")
+                val release = version as MinecraftVersion.Release
+                assertEquals(expected.first, release.major)
+                assertEquals(expected.second, release.minor)
+                assertEquals(expected.third, release.patch)
+                assertEquals(versionString, release.toString())
+            }
+        }
+
+        @Test
+        fun `parses two-part year-based release as patch zero`() {
+            val version = MinecraftVersion.fromString("26.1") as MinecraftVersion.Release
+            assertEquals(26, version.major)
+            assertEquals(1, version.minor)
+            assertEquals(0, version.patch)
+        }
+
+        @Test
+        fun `compares year-based release as greater than classic release`() {
+            val classic = MinecraftVersion.Release(1, 21, 0)
+            val yearBased = MinecraftVersion.Release(26, 1, 1)
+
+            assertTrue(yearBased > classic)
+            assertTrue(classic < yearBased)
+        }
+
+        @Test
+        fun `orders multiple year-based releases`() {
+            val v25_1 = MinecraftVersion.Release(25, 1, 0)
+            val v25_11 = MinecraftVersion.Release(25, 11, 0)
+            val v26_1 = MinecraftVersion.Release(26, 1, 1)
+
+            val sorted = listOf(v26_1, v25_1, v25_11).sortedWith { a, b -> a.compareTo(b) }
+            assertEquals(listOf(v25_1, v25_11, v26_1), sorted)
+        }
+
+        @Test
+        fun `lower-bounded range admits year-based release`() {
+            val from = MinecraftVersion.release(18, 0)
+            val range = MinecraftVersionRange.LowerBounded(from)
+
+            assertTrue(range.contains(MinecraftVersion.Release(26, 1, 1)))
+            assertTrue(range.contains(MinecraftVersion.Release(25, 11, 0)))
+        }
+
+        @Test
+        fun `rejects unsupported suffixes like rc and pre`() {
+            val invalid = listOf("26.1.2-rc-1", "26.1.0-pre1", "1.21-pre3")
+            invalid.forEach { versionString ->
+                assertThrows(IllegalArgumentException::class.java) {
+                    MinecraftVersion.fromString(versionString)
+                }
+            }
+        }
+    }
+
+    @Nested
     inner class RangeTests {
         @Test
         fun `test unbounded range`() {
