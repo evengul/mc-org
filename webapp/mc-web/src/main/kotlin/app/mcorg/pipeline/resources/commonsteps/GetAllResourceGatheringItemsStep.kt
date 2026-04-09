@@ -6,7 +6,17 @@ import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.resources.extractors.toResourceGatheringItems
 
 val GetAllResourceGatheringItemsStep = DatabaseSteps.query<Int, List<ResourceGatheringItem>>(
-    sql = SafeSQL.select("SELECT id, project_id, item_id, name, required, collected from resource_gathering where project_id = ? order by required"),
+    sql = SafeSQL.select(
+        """
+        SELECT rg.id, rg.project_id, rg.item_id, rg.name, rg.required, rg.collected,
+               rg.source_type,
+               p.id AS solved_project_id, p.name AS solved_project_name
+        FROM resource_gathering rg
+        LEFT JOIN projects p ON p.id = rg.solved_by_project_id
+        WHERE rg.project_id = ?
+        ORDER BY rg.required
+        """.trimIndent()
+    ),
     parameterSetter = { statement, projectId -> statement.setInt(1, projectId) },
     resultMapper = { it.toResourceGatheringItems() }
 )

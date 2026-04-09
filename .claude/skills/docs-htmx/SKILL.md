@@ -1,6 +1,6 @@
 ---
 name: docs-htmx
-description: HTMX helper functions and interaction patterns for MC-ORG. Use when using hx* helper functions, writing HTMX attributes, implementing form submissions, delete-with-confirm, out-of-band swaps, or inline editing patterns.
+description: HTMX helper functions and interaction patterns for MC-ORG. Use when using hx* helper functions, writing HTMX attributes, implementing form submissions, delete-with-confirm, out-of-band swaps (including OOB swaps of <tr>/<td>/<tbody>/<thead> table elements which require a <template> wrapper), or inline editing patterns.
 user-invocable: false
 ---
 
@@ -166,6 +166,36 @@ respondHtml(createHTML().div {
     }
 })
 ```
+
+### Out-of-band swap of a table row (`<tr>`)
+
+Browsers strip orphan `<tr>`/`<td>`/`<tbody>`/`<thead>`/`<tfoot>` elements during HTML fragment parsing, so an OOB `<tr>` at the top level of the response will be discarded before HTMX sees it. HTMX handles this by letting you wrap the element in an HTML `<template>` — HTMX unwraps the template and processes the contained OOB element.
+
+**Use this pattern whenever OOB-swapping any of:** `tr`, `td`, `th`, `tbody`, `thead`, `tfoot`, `col`, `colgroup`, `caption`.
+
+```kotlin
+import kotlinx.html.TEMPLATE
+
+// Main target: panel source section (innerHTML swap)
+// OOB target: #plan-row-{id} — a <tr> inside a different table
+respondHtml(createHTML().div {
+    id = "resource-panel-source"
+    resourcePanelSourceSection(resource)
+
+    // OOB table row — wrapped in <template> so the browser parser preserves it
+    TEMPLATE(mapOf(), consumer).visit {
+        tr {
+            id = "plan-row-${resource.id}"
+            hxOutOfBands("outerHTML:#plan-row-${resource.id}")
+            planResourceRow(worldId, projectId, resource)  // renders td children
+        }
+    }
+})
+```
+
+The `<template>` wrapper is invisible to the browser and to HTMX's swap logic — it exists purely to survive HTML parsing. Do NOT put the `<tr>` directly at the response top level, and do NOT wrap it in a throwaway `<table style="display:none">` (that's an inline-style violation and an unnecessary DOM node).
+
+If you find yourself using `hxOutOfBands(...)` with a `<tr>` selector (e.g. `"outerHTML:#plan-row-123"`), load this skill — the `<template>` wrapper is mandatory.
 
 ### Include extra inputs in request
 

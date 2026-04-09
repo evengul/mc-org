@@ -1,0 +1,215 @@
+/* Resource detail panel — <dialog> slide-over on desktop, bottom sheet on mobile */
+
+dialog#resource-panel {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: auto;
+    margin: 0;
+    padding: 0;
+    width: min(560px, 100vw);
+    max-width: 100vw;
+    height: 100vh;
+    max-height: 100vh;
+    border: none;
+    border-left: 1px solid var(--border);
+    background: var(--bg-surface);
+    color: var(--text-primary);
+    overflow-y: auto;
+}
+
+dialog#resource-panel::backdrop {
+    background: rgba(0, 0, 0, 0.5);
+}
+
+#resource-panel-content {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    padding: var(--space-6) var(--space-5);
+    gap: var(--space-6);
+}
+
+.resource-panel__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+}
+
+.resource-panel__close-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-size: 20px;
+    cursor: pointer;
+    width: 32px;
+    height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+}
+
+.resource-panel__close-btn:hover {
+    background: var(--bg-raised);
+    color: var(--text-primary);
+}
+
+.resource-panel__title {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    padding-bottom: var(--space-2);
+}
+
+.resource-panel__item-name {
+    font-size: var(--text-base);
+    font-weight: 600;
+    margin: 0;
+}
+
+.resource-panel__qty {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-size: var(--text-sm);
+    color: var(--text-muted);
+    cursor: pointer;
+}
+
+.resource-panel__qty-label {
+    color: var(--text-muted);
+}
+
+.resource-panel__qty-display {
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+.resource-panel__qty-input {
+    display: none;
+    width: 100px;
+    background: var(--bg-raised);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    padding: var(--space-1) var(--space-2);
+    border-radius: 4px;
+    font: inherit;
+}
+
+.resource-panel__qty--editing .resource-panel__qty-display {
+    display: none;
+}
+
+.resource-panel__qty--editing .resource-panel__qty-input {
+    display: inline-block;
+}
+
+.resource-panel__divider {
+    font-size: var(--text-label);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border);
+    padding-bottom: var(--space-2);
+    margin-top: var(--space-2);
+}
+
+.resource-panel__source {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    flex: 1;
+    padding-top: var(--space-2);
+}
+
+.resource-panel__source-empty {
+    color: var(--text-muted);
+    font-size: var(--text-sm);
+    margin: 0;
+}
+
+.resource-panel__source-btn,
+.resource-panel__project-picker {
+    width: 100%;
+}
+
+.resource-panel__project-picker {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    margin-top: var(--space-4);
+}
+
+.resource-panel__project-picker-label {
+    font-size: var(--text-label);
+    text-transform: uppercase;
+    color: var(--text-muted);
+}
+
+.resource-panel__project-select {
+    background: var(--bg-raised);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    padding: var(--space-2);
+    border-radius: 4px;
+    font: inherit;
+    width: 100%;
+}
+
+.resource-panel__source-set {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+    background: var(--bg-raised);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+}
+
+.resource-panel__source-label {
+    flex: 1;
+    font-size: var(--text-sm);
+    color: var(--text-primary);
+}
+
+.resource-panel__footer {
+    margin-top: auto;
+    padding-top: var(--space-5);
+    border-top: 1px solid var(--border);
+}
+
+.resource-panel__remove-btn {
+    width: 100%;
+}
+
+/* Plan table rows are clickable (cursor hint) */
+.plan-resource-table tbody tr {
+    cursor: pointer;
+}
+
+.plan-resource-table tbody tr .plan-resource-table__delete-btn,
+.plan-resource-table tbody tr .plan-resource-table__qty,
+.plan-resource-table tbody tr .plan-resource-table__qty-input {
+    cursor: auto;
+}
+
+/* Mobile: bottom sheet */
+@media (max-width: 768px) {
+    dialog#resource-panel {
+        top: auto;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        width: 100vw;
+        max-width: 100vw;
+        height: 90vh;
+        max-height: 90vh;
+        border-left: none;
+        border-top: 1px solid var(--border);
+        border-top-left-radius: 12px;
+        border-top-right-radius: 12px;
+    }
+}

@@ -17,8 +17,11 @@ import app.mcorg.pipeline.project.resources.handleDeleteProjectProductionItem
 import app.mcorg.pipeline.project.settings.handleUpdateProjectDescription
 import app.mcorg.pipeline.project.settings.handleUpdateProjectName
 import app.mcorg.pipeline.project.settings.handleUpdateProjectType
+import app.mcorg.pipeline.resources.handleClearResourceSource
 import app.mcorg.pipeline.resources.handleCreateResourceGatheringItem
 import app.mcorg.pipeline.resources.handleDeleteResourceGatheringItem
+import app.mcorg.pipeline.resources.handleGetResourceDetailPanel
+import app.mcorg.pipeline.resources.handleSetResourceSource
 import app.mcorg.pipeline.resources.handleUpdateResourceRequiredAmount
 import app.mcorg.pipeline.resources.handleExpandPathNode
 import app.mcorg.pipeline.resources.handleFindIdeasForResource
@@ -159,6 +162,15 @@ class WorldHandler {
                                     }
                                     get("/plan-view") {
                                         call.handleGetPlanView()
+                                    }
+                                    get("/detail-panel") {
+                                        call.handleGetResourceDetailPanel()
+                                    }
+                                    patch("/source") {
+                                        call.handleSetResourceSource()
+                                    }
+                                    delete("/source") {
+                                        call.handleClearResourceSource()
                                     }
                                     get("/select-path") {
                                         call.handleSelectResourcePath()

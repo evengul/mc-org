@@ -45,11 +45,13 @@ fun projectDetailPage(
         "/static/styles/components/resource-row.css",
         "/static/styles/components/task-list.css",
         "/static/styles/components/resource-search.css",
+        "/static/styles/components/resource-panel.css",
         "/static/styles/pages/project-detail.css",
     ),
     scripts = listOf(
         "/static/scripts/resource-search.js",
-        "/static/scripts/plan-view.js"
+        "/static/scripts/plan-view.js",
+        "/static/scripts/resource-panel.js"
     )
 ) {
     appHeader(
@@ -111,6 +113,12 @@ fun projectDetailPage(
                     executeViewContent(project, resources, tasks)
                 }
             }
+        }
+    }
+    dialog {
+        id = "resource-panel"
+        div {
+            id = "resource-panel-content"
         }
     }
 }
@@ -358,8 +366,9 @@ fun TR.planResourceRow(worldId: Int, projectId: Int, item: ResourceGatheringItem
     id = "plan-row-${item.id}"
     attributes["data-resource-id"] = item.id.toString()
 
+    val dotModifier = if (item.sourceType != null) "status-dot--set" else "status-dot--unset"
     td("plan-resource-table__status") {
-        span("status-dot status-dot--unset") {}
+        span("status-dot $dotModifier") {}
     }
     td("plan-resource-table__item") {
         +item.name
@@ -382,8 +391,13 @@ fun TR.planResourceRow(worldId: Int, projectId: Int, item: ResourceGatheringItem
             hxTrigger("change")
         }
     }
+    val sourceLabel = when (item.sourceType) {
+        "manual" -> "Manual gather"
+        "project" -> item.solvedByProject?.second ?: "Unknown project"
+        else -> "--"
+    }
     td("plan-resource-table__source") {
-        span("plan-resource-table__source-badge") { +"--" }
+        span("plan-resource-table__source-badge") { +sourceLabel }
     }
     td("plan-resource-table__action") {
         button(classes = "btn btn--ghost btn--sm plan-resource-table__delete-btn") {

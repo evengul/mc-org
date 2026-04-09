@@ -165,6 +165,10 @@ Load the matching skill before starting a task. Do not rely on memory for patter
 - When multiple valid approaches exist, pick the one consistent with existing patterns in the codebase — don't introduce
   new patterns without flagging it.
 - Interview format for missing information — one focused question at a time, not a list.
+- **Do not spelunk inside `~/.m2`, vendored jars, or other dependency caches to discover library APIs.** If you need to
+  know the exact signature, class hierarchy, or DSL shape of a third-party library (e.g. `kotlinx.html`), either fetch
+  the official docs/source from the web with WebFetch/WebSearch, or ask the user directly with a concise, specific
+  question. Cracking open jars is slow, noisy, and often gives outdated or obfuscated output.
 
 ## Before Committing
 
