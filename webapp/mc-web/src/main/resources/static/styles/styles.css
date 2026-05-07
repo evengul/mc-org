@@ -37,7 +37,6 @@
 
 /* Page styles */
 @import "pages/landing-page.css";
-@import "pages/homepage.css";
 @import "pages/world-page.css";
 @import "pages/project-page.css";
 @import "pages/settings-page.css";

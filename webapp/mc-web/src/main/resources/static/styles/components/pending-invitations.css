@@ -1,0 +1,113 @@
+/* ==========================================================================
+   PENDING INVITATIONS SECTION
+   ========================================================================== */
+
+.pending-invitations {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    margin-bottom: var(--space-5);
+    padding: var(--space-4);
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+}
+
+.pending-invitations__header {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+}
+
+.pending-invitations__heading {
+    font-family: var(--font-ui);
+    font-size: var(--text-base);
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+.pending-invitations__subheading {
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    color: var(--text-muted);
+    margin: 0;
+}
+
+.pending-invitations__list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
+/* --- Invitation row --- */
+
+.invitation-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    padding: var(--space-3) var(--space-4);
+    background: var(--bg-raised);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+}
+
+.invitation-row__content {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.invitation-row__name {
+    font-family: var(--font-ui);
+    font-size: var(--text-base);
+    font-weight: 500;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+.invitation-row__meta {
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    color: var(--text-muted);
+    margin: 0;
+}
+
+.invitation-row__actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    margin-left: auto;
+    flex: 0 0 auto;
+}
+
+@media (max-width: 767px) {
+    .invitation-row {
+        flex-direction: column;
+        align-items: stretch;
+        gap: var(--space-3);
+    }
+
+    .invitation-row__content {
+        flex-direction: column;
+    }
+
+    .invitation-row__meta {
+        white-space: normal;
+        word-break: break-word;
+    }
+
+    .invitation-row__actions {
+        flex-direction: column;
+        gap: var(--space-2);
+        margin-left: 0;
+        width: 100%;
+    }
+
+    .invitation-row__actions .btn {
+        flex: 1 1 auto;
+        width: 100%;
+    }
+}

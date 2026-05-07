@@ -23,8 +23,11 @@ suspend fun ApplicationCall.handleSearchWorlds() {
 
     handlePipeline(
         onSuccess = { worlds ->
-            respondHtml(createHTML(prettyPrint = false).div {
+            respondHtml(createHTML(prettyPrint = false).div("world-card-list") {
                 id = "world-card-list"
+                attributes["hx-get"] = "/worlds/search"
+                attributes["hx-trigger"] = "worldListChanged from:body"
+                attributes["hx-swap"] = "outerHTML"
                 worlds.forEach { world ->
                     worldCard(world)
                 }

@@ -47,6 +47,9 @@ fun FlowContent.worldCard(world: World) {
 fun FlowContent.worldCardList(worlds: List<World>) {
     div("world-card-list") {
         id = "world-card-list"
+        attributes["hx-get"] = "/worlds/search"
+        attributes["hx-trigger"] = "worldListChanged from:body"
+        attributes["hx-swap"] = "outerHTML"
         worlds.forEach { worldCard(it) }
     }
 }

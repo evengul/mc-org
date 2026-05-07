@@ -1,5 +1,6 @@
 package app.mcorg.presentation.handler
 
+import app.mcorg.pipeline.invitation.commonsteps.GetUserInvitationsStep
 import app.mcorg.pipeline.minecraftfiles.GetSupportedVersionsStep
 import app.mcorg.pipeline.project.dependencies.handleCreateProjectDependency
 import app.mcorg.pipeline.project.dependencies.handleDeleteProjectDependency
@@ -333,11 +334,13 @@ class WorldHandler {
         val supportedVersions = GetSupportedVersionsStep.getSupportedVersions()
 
         handlePipeline(
-            onSuccess = { worlds ->
-                respondHtml(worldListPage(user, worlds, supportedVersions))
+            onSuccess = { (worlds, invitations) ->
+                respondHtml(worldListPage(user, worlds, supportedVersions, invitations))
             }
         ) {
-            GetPermittedWorldsStep.run(GetPermittedWorldsInput(userId = user.id))
+            val worlds = GetPermittedWorldsStep.run(GetPermittedWorldsInput(userId = user.id))
+            val invitations = GetUserInvitationsStep.run(user.id)
+            worlds to invitations
         }
     }
 }

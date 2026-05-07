@@ -1,6 +1,7 @@
 package app.mcorg.presentation.templated.dsl.pages
 
 import app.mcorg.domain.isDemoUserInProduction
+import app.mcorg.domain.model.invite.Invite
 import app.mcorg.domain.model.minecraft.MinecraftVersion
 import app.mcorg.domain.model.user.TokenProfile
 import app.mcorg.domain.model.world.World
@@ -14,6 +15,7 @@ import app.mcorg.presentation.templated.dsl.emptyState
 import app.mcorg.presentation.templated.dsl.modalForm
 import app.mcorg.presentation.templated.dsl.pageShell
 import app.mcorg.presentation.templated.dsl.worldCardList
+import app.mcorg.presentation.templated.dsl.components.pendingInvitationsSection
 import kotlinx.html.InputType
 import kotlinx.html.button
 import kotlinx.html.classes
@@ -31,23 +33,29 @@ import kotlinx.html.textArea
 fun worldListPage(
     user: TokenProfile,
     worlds: List<World>,
-    supportedVersions: List<MinecraftVersion.Release>
+    supportedVersions: List<MinecraftVersion.Release>,
+    pendingInvitations: List<Invite> = emptyList()
 ): String = pageShell(
     pageTitle = "MC-ORG — Worlds",
     user = user,
     stylesheets = listOf(
+        "/static/styles/components/common.css",
         "/static/styles/components/world-card.css",
         "/static/styles/components/empty-state.css",
         "/static/styles/components/btn.css",
         "/static/styles/components/modal.css",
+        "/static/styles/components/pending-invitations.css",
     )
 ) {
     appHeader(user = user)
     main {
         container {
             div {
+                id = "notice-container"
+            }
+            div {
                 id = "worlds-content"
-                worldsContent(user, worlds, supportedVersions)
+                worldsContent(user, worlds, supportedVersions, pendingInvitations)
             }
         }
     }
@@ -56,8 +64,11 @@ fun worldListPage(
 fun kotlinx.html.FlowContent.worldsContent(
     user: TokenProfile,
     worlds: List<World>,
-    supportedVersions: List<MinecraftVersion.Release>
+    supportedVersions: List<MinecraftVersion.Release>,
+    pendingInvitations: List<Invite> = emptyList()
 ) {
+    pendingInvitationsSection(pendingInvitations)
+
     if (worlds.isEmpty()) {
         emptyState(
             heading = "No worlds yet",

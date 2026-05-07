@@ -8,6 +8,7 @@ linear-children:
   - MCO-133  # Feature 4b: Root redirect logic
   - MCO-134  # Feature 5: Navigation chrome + page shell
   - MCO-135  # Feature 6: World list page
+  - MCO-155  # Feature 6b: Pending invitations on world list page
   - MCO-136  # Feature 7a: Project list page — execute view + empty state + create flow
   - MCO-150  # Feature 7b: Project list page — plan view + toggle
   - MCO-137  # Feature 8: Idea Hub pages
@@ -196,11 +197,17 @@ Delete old Component hierarchy, old CSS, old routes, Google Fonts refs, theme sy
 - Pending invitations display deferred to Feature 6b (see below)
 - Depends: features 4a, 5
 
-**Feature 6b: Pending invitations on user front page** *(needs spec — not yet planned)*
+**Feature 6b: Pending invitations on world list page** (MCO-155)
 
-- Pending world invitations should be shown on the user's front page (likely `/worlds` or a dedicated notifications area)
-- Acceptance/decline flow with new DSL and design tokens
-- [NOTE: Needs full spec before implementation. Determine: is this a section on `/worlds`, a separate `/invitations` page, or part of a notifications feature? Coordinate with Feature 12 (remaining pages).]
+- Pending world invitations rendered as a section above the world list on `/worlds`, absent from the DOM when empty
+- Inline accept/decline via HTMX; accept triggers a `worldListChanged` HX-Trigger that refreshes `#world-card-list`
+- Mobile-first layout with a new `invitationRow` DSL component
+- Reuses existing `notice notice--*` pattern; toast primitive deferred to a later notifications epic
+- Dedicated `/invitations` page rejected — expected volumes (1–5 per user) don't justify a separate navigation target
+- Also deletes legacy dead code under `templated/home/` and the stale `homepage.css` import
+- Depends: features 5, 6
+- Can parallelise with: features 11, 12
+- Spec: `tasks/mco-pending-invitations-on-world-list.md`
 
 **Feature 7a: Project list page — execute view + empty state + create flow**
 
