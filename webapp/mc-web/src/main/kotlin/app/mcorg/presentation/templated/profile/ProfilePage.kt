@@ -21,6 +21,7 @@ fun profilePage(user: TokenProfile): String = pageShell(
     pageTitle = "MC-ORG — Profile",
     user = user,
     stylesheets = listOf(
+        "/static/styles/components/danger-zone.css",
         "/static/styles/pages/profile-page.css",
     )
 ) {

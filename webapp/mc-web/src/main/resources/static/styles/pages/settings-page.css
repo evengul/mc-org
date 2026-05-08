@@ -422,54 +422,6 @@ ul.invitation-list > li {
     color: #fff;
 }
 
-/* --- Danger Zone --- */
-
-.danger-zone {
-    background: var(--red-bg);
-    border: 1px solid var(--red);
-    border-radius: var(--radius);
-    padding: var(--space-5);
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-3);
-}
-
-.danger-zone__title {
-    margin: 0;
-    font-family: var(--font-ui);
-    font-size: 18px;
-    font-weight: 600;
-    color: var(--red);
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
-}
-
-.danger-zone__title::before {
-    content: "⚠";
-    font-size: 20px;
-    line-height: 1;
-}
-
-.danger-zone__description {
-    margin: 0;
-    font-size: var(--text-sm);
-    color: var(--text-muted);
-    line-height: 1.5;
-}
-
-.danger-zone__content {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    gap: var(--space-3);
-    flex-wrap: wrap;
-}
-
-.danger-zone__content .btn--danger {
-    align-self: flex-start;
-}
-
 /* --- Alert container --- */
 
 #alert-container {
@@ -533,12 +485,4 @@ ul.invitation-list > li {
         width: 100%;
     }
 
-    .danger-zone__content {
-        flex-direction: column;
-        align-items: stretch;
-    }
-
-    .danger-zone__content .btn--danger {
-        align-self: stretch;
-    }
 }
