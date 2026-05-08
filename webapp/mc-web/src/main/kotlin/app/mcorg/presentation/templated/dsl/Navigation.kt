@@ -32,10 +32,10 @@ sealed class BreadcrumbSegment {
     data class Current(val label: String) : BreadcrumbSegment()
 }
 
-private fun gearHref(worldId: Int?, projectId: Int?): String? = when {
+private fun settingsHref(worldId: Int?, projectId: Int?, isWorldAdmin: Boolean): String? = when {
     projectId != null -> null
-    worldId != null -> "/worlds/$worldId/settings"
-    else -> "/profile"
+    worldId != null && isWorldAdmin -> "/worlds/$worldId/settings"
+    else -> null
 }
 
 fun FlowContent.appHeader(
@@ -43,9 +43,11 @@ fun FlowContent.appHeader(
     worldId: Int? = null,
     projectId: Int? = null,
     user: TokenProfile? = null,
+    isWorldAdmin: Boolean = false,
     breadcrumbBlock: (BreadcrumbBuilder.() -> BreadcrumbBuilder)? = null
 ) {
-    val gear = gearHref(worldId, projectId)
+    val settings = settingsHref(worldId, projectId, isWorldAdmin)
+    val showProfile = user != null
 
     header("app-header") {
         div("app-header__desktop") {
@@ -57,7 +59,7 @@ fun FlowContent.appHeader(
                 nav("breadcrumb") {
                     for ((index, segment) in builder.segments.withIndex()) {
                         if (index > 0) {
-                            span("breadcrumb__sep") { +"\u203A" }
+                            span("breadcrumb__sep") { +"›" }
                         }
                         when (segment) {
                             is BreadcrumbSegment.Link -> a(classes = "breadcrumb__item") {
@@ -77,11 +79,17 @@ fun FlowContent.appHeader(
                     href = "/ideas"
                     +"Ideas"
                 }
-                if (gear != null) {
+                if (showProfile) {
                     a(classes = "app-header__link") {
-                        href = gear
-                        attributes["aria-label"] = "Settings"
-                        +"\u2699"
+                        href = "/profile"
+                        +"Profile"
+                    }
+                }
+                if (settings != null) {
+                    a(classes = "app-header__link") {
+                        href = settings
+                        attributes["aria-label"] = "World settings"
+                        +"⚙"
                     }
                 }
             }
@@ -91,11 +99,17 @@ fun FlowContent.appHeader(
             span("app-header__world-name") {
                 +(worldName ?: "MC-ORG")
             }
-            if (gear != null) {
+            if (showProfile) {
                 a(classes = "app-header__link") {
-                    href = gear
-                    attributes["aria-label"] = "Settings"
-                    +"\u2699"
+                    href = "/profile"
+                    +"Profile"
+                }
+            }
+            if (settings != null) {
+                a(classes = "app-header__link") {
+                    href = settings
+                    attributes["aria-label"] = "World settings"
+                    +"⚙"
                 }
             }
         }

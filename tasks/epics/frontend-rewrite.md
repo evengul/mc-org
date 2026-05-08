@@ -19,6 +19,7 @@ linear-children:
   - MCO-141  # Feature 12: Remaining pages
   - MCO-142  # Feature 13: Delete old system (cleanup)
   - MCO-143  # Feature 14: docs-frontend skill
+  - MCO-156  # Feature 12b: Status / error pages (split from MCO-141)
 status: approved
 type: feature
 created: 2026-03-04
@@ -278,6 +279,28 @@ Delete old Component hierarchy, old CSS, old routes, Google Fonts refs, theme sy
 - Remove `createPage()` (replaced by `pageShell()`)
 - Remove overworld/nether/end theme CSS and theme-cycling script
 - Clean up `PageStyle` enum
+- **Sweep dead CSS-token references** (discovered during MCO-140 implementation): the current
+  `design-tokens.css` only defines the *new* tokens (`--space-1`–`--space-8`, `--bg-base/surface/raised`,
+  `--text-primary/muted/disabled`, `--accent`, `--accent-muted`, `--green`, `--amber`, `--red`,
+  `--green-bg`, `--red-bg`, `--border`, `--max-width`, `--radius`, `--font-ui`, `--font-body`).
+  Several CSS files were written against an older token set that no longer exists, so every `var()`
+  in them silently resolves to nothing and the rules effectively no-op. Known affected files (likely
+  not exhaustive — grep `--clr-`, `--spacing-`, `--border-radius-`, `--shadow-`, `--text-lg`,
+  `--text-xl`, `--text-2xl`, `--clr-text-on-action` in `src/main/resources/static/styles/` to find
+  the rest):
+    - `components/common.css`
+    - `components/danger-zone.css`
+    - `components/alert.css`
+    - `components/avatar.css`
+    - `components/tabs.css`
+    - `components/chip.css`
+    - any other `--clr-*` / `--spacing-*` references
+  Each Layer 2 feature has been working around this by inlining the styles it needs against the
+  real tokens (e.g. MCO-140 inlines danger-zone, alert container, avatar fallback, badge styles
+  into `pages/settings-page.css`). The cleanup pass should: (a) decide whether to bring the
+  affected component CSS files forward to the real token set or delete them outright if every
+  consumer has inlined replacements, and (b) ensure no `var(--clr-*)` / `var(--spacing-*)` / etc.
+  references remain in the codebase so the dual-system confusion stops here.
 - Depends: ALL Layer 2 features complete
 
 **Feature 14: docs-frontend skill**
@@ -336,6 +359,7 @@ Feature 4a (Routes) ─────────┤                              
 | Project page complexity (feature 9+10)              | MEDIUM   | Split into sub-features at implementation time if needed                      |
 | Three-theme removal is user-visible                 | LOW      | Accepted as part of redesign. Dark-only for Phase 1 per docs-product          |
 | Triple font loading during transition               | LOW      | Temporary (~200KB extra). Removed in cleanup. Use `font-display: swap`        |
+| Dead CSS-token references silently no-op styles     | MEDIUM   | Files using `--clr-*`/`--spacing-*` (`common.css`, `danger-zone.css`, `alert.css`, `avatar.css`, `tabs.css`, `chip.css`, …) resolve to nothing because `design-tokens.css` only defines the new token set. Each Layer 2 page rewrite must inline the styles it actually needs against real tokens (`--space-N`, `--bg-*`, `--accent`, `--red`, `--radius`, `--font-ui`, `--text-sm/ui/label`). Feature 13 sweeps these files. |
 
 ## Tech Lead Review
 

@@ -1,5 +1,6 @@
 package app.mcorg.pipeline.project
 
+import app.mcorg.domain.model.user.Role
 import app.mcorg.pipeline.Result
 import app.mcorg.pipeline.project.commonsteps.GetProjectByIdStep
 import app.mcorg.pipeline.project.commonsteps.GetViewPreferenceInput
@@ -7,6 +8,7 @@ import app.mcorg.pipeline.project.commonsteps.GetViewPreferenceStep
 import app.mcorg.pipeline.resources.commonsteps.GetAllResourceGatheringItemsStep
 import app.mcorg.pipeline.task.SearchTasksInput
 import app.mcorg.pipeline.task.SearchTasksStep
+import app.mcorg.pipeline.world.ValidateWorldMemberRole
 import app.mcorg.presentation.handler.defaultHandleError
 import app.mcorg.presentation.templated.dsl.pages.projectDetailPage
 import app.mcorg.presentation.utils.getProjectId
@@ -42,5 +44,7 @@ suspend fun ApplicationCall.handleGetProject() {
         }
     }
 
-    respondHtml(projectDetailPage(user, project, resources, tasks, view))
+    val isAdmin = ValidateWorldMemberRole<Unit>(user, Role.ADMIN, worldId).process(Unit) is Result.Success
+
+    respondHtml(projectDetailPage(user, project, resources, tasks, view, isWorldAdmin = isAdmin))
 }

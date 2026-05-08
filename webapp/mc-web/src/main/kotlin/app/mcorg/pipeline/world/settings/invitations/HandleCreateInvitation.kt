@@ -19,8 +19,7 @@ import app.mcorg.pipeline.world.invitations.InvitationStatusFilter
 import app.mcorg.pipeline.world.settings.getStatusFromURL
 import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.hxOutOfBands
-import app.mcorg.presentation.hxTarget
-import app.mcorg.presentation.templated.settings.worldInvitationTabs
+import app.mcorg.presentation.templated.settings.renderInvitationStatusFilterOob
 import app.mcorg.presentation.templated.settings.worldInvite
 import app.mcorg.presentation.utils.getUser
 import app.mcorg.presentation.utils.getWorldId
@@ -56,11 +55,7 @@ suspend fun ApplicationCall.handleCreateInvitation() {
 
     handlePipeline(
         onSuccess = { (invite, counts) ->
-            val mainContent = createHTML().div {
-                hxOutOfBands("true")
-                hxTarget("#invitation-status-filter")
-                worldInvitationTabs(counts, selectedStatus)
-            }
+            val mainContent = renderInvitationStatusFilterOob(worldId, counts, selectedStatus)
             if ((selectedStatus == InvitationStatusFilter.PENDING) || selectedStatus == InvitationStatusFilter.ALL) {
                 val addedInvite = createHTML().li {
                     worldInvite(invite)
@@ -71,10 +66,11 @@ suspend fun ApplicationCall.handleCreateInvitation() {
                         hxOutOfBands("delete:li#empty-invitations-list")
                         li { id = "empty-invitations-list" }
                     })
+                } else {
+                    respondHtml(
+                        mainContent + addedInvite
+                    )
                 }
-                respondHtml(
-                    mainContent + addedInvite
-                )
             } else {
                 respondHtml(mainContent)
             }

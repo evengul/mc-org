@@ -40,7 +40,8 @@ fun projectListPage(
     user: TokenProfile,
     world: World,
     projects: List<ProjectListItem>,
-    view: String = "execute"
+    view: String = "execute",
+    isWorldAdmin: Boolean = false,
 ): String = pageShell(
     pageTitle = "MC-ORG — ${world.name}",
     user = user,
@@ -56,6 +57,7 @@ fun projectListPage(
         worldName = world.name,
         worldId = world.id,
         user = user,
+        isWorldAdmin = isWorldAdmin,
         breadcrumbBlock = {
             link("Worlds", "/worlds").current(world.name)
         }
@@ -73,7 +75,8 @@ fun projectListPage(
 fun projectListPageWithPlanView(
     user: TokenProfile,
     world: World,
-    projects: List<ProjectPlanListItem>
+    projects: List<ProjectPlanListItem>,
+    isWorldAdmin: Boolean = false,
 ): String = pageShell(
     pageTitle = "MC-ORG — ${world.name}",
     user = user,
@@ -89,6 +92,7 @@ fun projectListPageWithPlanView(
         worldName = world.name,
         worldId = world.id,
         user = user,
+        isWorldAdmin = isWorldAdmin,
         breadcrumbBlock = {
             link("Worlds", "/worlds").current(world.name)
         }

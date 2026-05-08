@@ -64,11 +64,26 @@ class NavigationTest {
     }
 
     @Test
-    fun `appHeader renders Ideas link and settings`() {
+    fun `appHeader renders Ideas link`() {
         val html = render { appHeader() }
         assertTrue(html.contains("app-header__actions"))
         assertTrue(html.contains("Ideas"))
         assertTrue(html.contains("/ideas"))
+    }
+
+    @Test
+    fun `appHeader renders Profile link when user is signed in`() {
+        val user = app.mcorg.test.fixtures.TestDataFactory.createTestTokenProfile()
+        val html = render { appHeader(user = user) }
+        assertTrue(html.contains("Profile"))
+        assertTrue(html.contains("/profile"))
+    }
+
+    @Test
+    fun `appHeader does not render Profile link when user is null`() {
+        val html = render { appHeader(user = null) }
+        // The string "Profile" would only appear from the explicit link; not rendered without user
+        assertTrue(!html.contains(">Profile<"))
     }
 
     @Test
@@ -96,23 +111,28 @@ class NavigationTest {
     }
 
     @Test
-    fun `gear links to profile when no world or project context`() {
+    fun `gear is hidden when no world context`() {
         val html = render { appHeader() }
-        assertTrue(html.contains("aria-label=\"Settings\""))
-        assertTrue(html.contains("/profile"))
+        assertTrue(!html.contains("aria-label=\"World settings\""))
     }
 
     @Test
-    fun `gear links to world settings when worldId is set and projectId is null`() {
-        val html = render { appHeader(worldId = 42) }
-        assertTrue(html.contains("aria-label=\"Settings\""))
+    fun `gear is hidden when worldId is set but user is not admin`() {
+        val html = render { appHeader(worldId = 42, isWorldAdmin = false) }
+        assertTrue(!html.contains("aria-label=\"World settings\""))
+    }
+
+    @Test
+    fun `gear links to world settings when worldId is set and user is admin`() {
+        val html = render { appHeader(worldId = 42, isWorldAdmin = true) }
+        assertTrue(html.contains("aria-label=\"World settings\""))
         assertTrue(html.contains("/worlds/42/settings"))
     }
 
     @Test
-    fun `gear is not rendered when projectId is set`() {
-        val html = render { appHeader(worldId = 42, projectId = 7) }
-        assertTrue(!html.contains("aria-label=\"Settings\""))
+    fun `gear is not rendered when projectId is set even with admin`() {
+        val html = render { appHeader(worldId = 42, projectId = 7, isWorldAdmin = true) }
+        assertTrue(!html.contains("aria-label=\"World settings\""))
     }
 
     @Test

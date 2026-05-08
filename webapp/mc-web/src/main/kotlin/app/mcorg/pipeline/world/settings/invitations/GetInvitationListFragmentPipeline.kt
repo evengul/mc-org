@@ -23,3 +23,4 @@ suspend fun ApplicationCall.handleGetInvitationListFragment() {
         GetWorldInvitationsStep(worldId).run(statusFilter)
     }
 }
+

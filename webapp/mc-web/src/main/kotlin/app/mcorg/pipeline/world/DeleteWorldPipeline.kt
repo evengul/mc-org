@@ -16,6 +16,9 @@ suspend fun ApplicationCall.handleDeleteWorld() {
 
     handlePipeline(
         onSuccess = {
+            // TODO: HX-Current-URL "/admin" branch is currently unreachable; AdminHandler.kt:36-46
+            // is a stub. Future SuperAdmin-driven world deletion should use a different route under
+            // /admin gated by AdminPlugin's isSuperAdmin check (bypassing WorldOwnerPlugin).
             if (this.request.header("HX-Current-URL")?.contains("/admin") == true) {
                 respondEmptyHtml()
             } else {

@@ -11,6 +11,7 @@ import app.mcorg.pipeline.invitation.extractors.toInvite
 enum class InvitationStatusFilter {
     ALL,
     PENDING,
+    HISTORY,
     ACCEPTED,
     DECLINED,
     CANCELLED,
@@ -20,6 +21,7 @@ enum class InvitationStatusFilter {
         fun fromApiName(name: String?, default: InvitationStatusFilter? = PENDING): InvitationStatusFilter? = when(name?.lowercase()?.trim()) {
             "all" -> ALL
             "pending" -> PENDING
+            "history" -> HISTORY
             "accepted" -> ACCEPTED
             "declined" -> DECLINED
             "cancelled" -> CANCELLED
@@ -52,13 +54,19 @@ data class GetWorldInvitationsStep(val worldId: Int) : Step<InvitationStatusFilt
                 JOIN minecraft_profiles mp_from ON u_from.id = mp_from.user_id
                 JOIN users u_to ON i.to_user_id = u_to.id
                 JOIN minecraft_profiles mp_to ON u_to.id = mp_to.user_id
-                WHERE i.world_id = ? AND (? = 'ALL' OR i.status = ?)
+                WHERE i.world_id = ?
+                  AND (
+                      ? = 'ALL'
+                      OR (? = 'HISTORY' AND i.status != 'PENDING')
+                      OR i.status = ?
+                  )
                 ORDER BY i.created_at DESC
             """.trimIndent()),
             parameterSetter = { statement, filter ->
                 statement.setInt(1, worldId)
                 statement.setString(2, filter.name)
                 statement.setString(3, filter.name)
+                statement.setString(4, filter.name)
             },
             resultMapper = { resultSet ->
                 buildList {

@@ -42,6 +42,18 @@ val WorldAdminPlugin = createRouteScopedPlugin("WorldAdminPlugin") {
     }
 }
 
+val WorldOwnerPlugin = createRouteScopedPlugin("WorldOwnerPlugin") {
+    onCall {
+        val user = it.getUser()
+        val worldId = it.getWorldId()
+
+        val result = ValidateWorldMemberRole<Unit>(user, Role.OWNER, worldId).process(Unit)
+        if (result is Result.Failure && result.error is AppFailure.AuthError.NotAuthorized) {
+            it.respond(HttpStatusCode.Forbidden, "Only the world owner can perform this action.")
+        }
+    }
+}
+
 val BannedPlugin = createRouteScopedPlugin("BannedPlugin") {
     onCall {
         val userId = runCatching { it.getUser().id }.getOrNull() ?: return@onCall

@@ -31,7 +31,8 @@ fun projectDetailPage(
     project: Project,
     resources: List<ResourceGatheringItem>,
     tasks: List<ActionTask>,
-    view: String = "execute"
+    view: String = "execute",
+    isWorldAdmin: Boolean = false,
 ): String = pageShell(
     pageTitle = "MC-ORG — ${project.name}",
     user = user,
@@ -58,6 +59,7 @@ fun projectDetailPage(
         worldId = project.worldId,
         projectId = project.id,
         user = user,
+        isWorldAdmin = isWorldAdmin,
         breadcrumbBlock = {
             link("Worlds", "/worlds")
                 .link(project.name, "/worlds/${project.worldId}/projects")

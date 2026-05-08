@@ -66,15 +66,18 @@ import app.mcorg.presentation.plugins.ResourceGatheringIdParamPlugin
 import app.mcorg.presentation.plugins.UpdateActiveWorldPlugin
 import app.mcorg.presentation.plugins.WorldAdminPlugin
 import app.mcorg.presentation.plugins.WorldMemberParamPlugin
+import app.mcorg.presentation.plugins.WorldOwnerPlugin
 import app.mcorg.presentation.plugins.WorldParamPlugin
 import app.mcorg.presentation.templated.dsl.pages.worldListPage
 import app.mcorg.presentation.utils.getUser
 import app.mcorg.presentation.utils.respondHtml
+import io.ktor.http.HttpMethod
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.response.respondRedirect
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.delete
 import io.ktor.server.routing.get
+import io.ktor.server.routing.method
 import io.ktor.server.routing.patch
 import io.ktor.server.routing.post
 import io.ktor.server.routing.put
@@ -296,8 +299,11 @@ class WorldHandler {
                     patch("/version") {
                         call.handleUpdateWorldVersion()
                     }
-                    delete {
-                        call.handleDeleteWorld()
+                    method(HttpMethod.Delete) {
+                        install(WorldOwnerPlugin)
+                        handle {
+                            call.handleDeleteWorld()
+                        }
                     }
                     route("/members") {
                         route("/invitations") {

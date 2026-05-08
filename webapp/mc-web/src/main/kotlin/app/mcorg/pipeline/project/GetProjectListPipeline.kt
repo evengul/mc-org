@@ -1,5 +1,6 @@
 package app.mcorg.pipeline.project
 
+import app.mcorg.domain.model.user.Role
 import app.mcorg.pipeline.project.commonsteps.GetProjectListStep
 import app.mcorg.pipeline.project.commonsteps.GetProjectPlanListStep
 import app.mcorg.pipeline.world.commonsteps.GetWorldMemberStep
@@ -19,8 +20,9 @@ suspend fun ApplicationCall.handleGetProjectList() {
 
     if (view == "plan") {
         handlePipeline(
-            onSuccess = { (world, _, projects) ->
-                respondHtml(projectListPageWithPlanView(user, world, projects))
+            onSuccess = { (world, member, projects) ->
+                val isAdmin = member.worldRole.isHigherThanOrEqualTo(Role.ADMIN)
+                respondHtml(projectListPageWithPlanView(user, world, projects, isWorldAdmin = isAdmin))
             }
         ) {
             val world = GetWorldStep.run(worldId)
@@ -30,8 +32,9 @@ suspend fun ApplicationCall.handleGetProjectList() {
         }
     } else {
         handlePipeline(
-            onSuccess = { (world, _, projects) ->
-                respondHtml(projectListPage(user, world, projects, view))
+            onSuccess = { (world, member, projects) ->
+                val isAdmin = member.worldRole.isHigherThanOrEqualTo(Role.ADMIN)
+                respondHtml(projectListPage(user, world, projects, view, isWorldAdmin = isAdmin))
             }
         ) {
             val world = GetWorldStep.run(worldId)
