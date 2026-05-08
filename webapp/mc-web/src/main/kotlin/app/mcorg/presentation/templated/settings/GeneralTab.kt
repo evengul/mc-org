@@ -3,7 +3,8 @@ package app.mcorg.presentation.templated.settings
 import app.mcorg.domain.model.minecraft.MinecraftVersion
 import app.mcorg.domain.model.world.World
 import app.mcorg.presentation.*
-import app.mcorg.presentation.templated.layout.alert.ALERT_CONTAINER_ID
+import app.mcorg.presentation.templated.dsl.ALERT_CONTAINER_ID
+import app.mcorg.presentation.templated.dsl.section
 import kotlinx.html.*
 
 fun FORM.worldNameForm(world: World) {
@@ -88,15 +89,13 @@ fun FORM.worldVersionForm(world: World, supportedVersions: List<MinecraftVersion
 }
 
 fun DIV.generalSection(data: SettingsPageData) {
-    section("settings-section settings-section--general") {
-        div("settings-section__heading") {
-            h2 { +"General Settings" }
-            p("settings-section__subtitle subtle") { +"Configure basic settings for your world" }
-        }
-        div("settings-section__body settings-section__card") {
-            form { worldNameForm(data.world) }
-            form { worldDescriptionForm(data.world) }
-            form { worldVersionForm(data.world, data.supportedVersions) }
-        }
+    section(
+        title = "General Settings",
+        subtitle = "Configure basic settings for your world",
+        card = true,
+    ) {
+        form { worldNameForm(data.world) }
+        form { worldDescriptionForm(data.world) }
+        form { worldVersionForm(data.world, data.supportedVersions) }
     }
 }

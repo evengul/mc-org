@@ -12,6 +12,7 @@ import app.mcorg.presentation.templated.dsl.TabItem
 import app.mcorg.presentation.templated.dsl.TabVariant
 import app.mcorg.presentation.templated.dsl.avatar
 import app.mcorg.presentation.templated.dsl.badge
+import app.mcorg.presentation.templated.dsl.section
 import app.mcorg.presentation.templated.dsl.tabStrip
 import app.mcorg.presentation.templated.utils.formatAsDate
 import app.mcorg.presentation.templated.utils.toPrettyEnumName
@@ -23,17 +24,14 @@ val validInitialRoles = listOf(
 )
 
 fun DIV.invitationsSection(data: SettingsPageData) {
-    section("settings-section settings-section--invitations") {
-        div("settings-section__heading") {
-            h2 { +"Invitations" }
-            p("settings-section__subtitle subtle") { +"Invite players to this world and review their status." }
-        }
-        div("settings-section__body settings-section__card") {
+    section(
+        title = "Invitations",
+        subtitle = "Invite players to this world and review their status.",
+    ) {
+        div("section__card") {
             sendInvitationForm(data.world.id)
         }
-        div("settings-section__body") {
-            invitationsListWithFilter(data.world.id, data.invitations, data.invitationCounts, data.statusFilter)
-        }
+        invitationsListWithFilter(data.world.id, data.invitations, data.invitationCounts, data.statusFilter)
     }
 }
 

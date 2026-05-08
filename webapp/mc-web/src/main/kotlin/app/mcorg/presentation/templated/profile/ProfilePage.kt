@@ -7,15 +7,13 @@ import app.mcorg.presentation.templated.dsl.container
 import app.mcorg.presentation.templated.dsl.dangerZone
 import app.mcorg.presentation.templated.dsl.pageHeading
 import app.mcorg.presentation.templated.dsl.pageShell
+import app.mcorg.presentation.templated.dsl.section
 import kotlinx.html.ButtonType
 import kotlinx.html.a
 import kotlinx.html.button
 import kotlinx.html.classes
 import kotlinx.html.div
-import kotlinx.html.h2
 import kotlinx.html.main
-import kotlinx.html.p
-import kotlinx.html.section
 
 fun profilePage(user: TokenProfile): String = pageShell(
     pageTitle = "MC-ORG — Profile",
@@ -43,13 +41,11 @@ fun profilePage(user: TokenProfile): String = pageShell(
 }
 
 private fun kotlinx.html.FlowContent.accountSection() {
-    section("profile-section") {
-        div("profile-section__heading") {
-            h2("section-label") { +"ACCOUNT" }
-        }
-        p("profile-section__body") {
-            +"Sign out of your account on this device. You will need to sign in again to access your worlds and projects."
-        }
+    section(
+        eyebrow = "ACCOUNT",
+        subtitle = "Sign out of your account on this device. You will need to sign in again to access your worlds and projects.",
+        tight = true,
+    ) {
         a(classes = "btn btn--secondary") {
             href = "/auth/sign-out"
             +"Sign out"

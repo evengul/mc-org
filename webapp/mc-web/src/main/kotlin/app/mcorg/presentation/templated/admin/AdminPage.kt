@@ -17,6 +17,7 @@ import app.mcorg.presentation.templated.dsl.badge
 import app.mcorg.presentation.templated.dsl.container
 import app.mcorg.presentation.templated.dsl.pageHeading
 import app.mcorg.presentation.templated.dsl.pageShell
+import app.mcorg.presentation.templated.dsl.section
 import app.mcorg.presentation.templated.utils.formatAsDate
 import app.mcorg.presentation.templated.utils.formatAsDateTime
 import app.mcorg.presentation.templated.utils.toPrettyEnumName
@@ -99,14 +100,12 @@ private fun FlowContent.userManagementSection(
     totalUserCount: Int,
     currentPage: Int,
 ) {
-    section("admin-section") {
-        div("admin-section__heading") {
-            p("section-label") { +"USER MANAGEMENT" }
-            h2 { +"Users" }
-            p("admin-section__subtitle") {
-                +"View and manage all users in the system."
-            }
-        }
+    section(
+        eyebrow = "USER MANAGEMENT",
+        title = "Users",
+        subtitle = "View and manage all users in the system.",
+        tight = true,
+    ) {
         input(classes = "admin-search") {
             id = "user-search-input"
             type = InputType.search
@@ -247,14 +246,12 @@ private fun FlowContent.worldManagementSection(
     totalWorldCount: Int,
     currentPage: Int,
 ) {
-    section("admin-section") {
-        div("admin-section__heading") {
-            p("section-label") { +"WORLD MANAGEMENT" }
-            h2 { +"Worlds" }
-            p("admin-section__subtitle") {
-                +"View and manage all worlds in the system."
-            }
-        }
+    section(
+        eyebrow = "WORLD MANAGEMENT",
+        title = "Worlds",
+        subtitle = "View and manage all worlds in the system.",
+        tight = true,
+    ) {
         input(classes = "admin-search") {
             id = "world-search-input"
             type = InputType.search

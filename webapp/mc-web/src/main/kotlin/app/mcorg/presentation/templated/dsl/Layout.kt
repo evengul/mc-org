@@ -55,6 +55,10 @@ fun pageShell(
                 rel = "stylesheet"
                 href = "/static/styles/components/page-heading.css"
             }
+            link {
+                rel = "stylesheet"
+                href = "/static/styles/components/section.css"
+            }
             for (stylesheet in stylesheets) {
                 link {
                     rel = "stylesheet"

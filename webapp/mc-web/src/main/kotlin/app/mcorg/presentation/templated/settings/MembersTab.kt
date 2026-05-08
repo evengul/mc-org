@@ -6,21 +6,17 @@ import app.mcorg.domain.model.user.WorldMember
 import app.mcorg.presentation.*
 import app.mcorg.presentation.templated.common.link.Link
 import app.mcorg.presentation.templated.dsl.avatar
+import app.mcorg.presentation.templated.dsl.section
 import app.mcorg.presentation.templated.utils.formatAsRelativeOrDate
 import app.mcorg.presentation.templated.utils.toPrettyEnumName
 import kotlinx.html.*
 
 fun DIV.membersSection(currentUser: TokenProfile, members: List<WorldMember>) {
-    section("settings-section settings-section--members") {
-        div("settings-section__heading") {
-            h2 { +"World Members" }
-            p("settings-section__subtitle subtle") {
-                +"Only the owner can delete a world. Admins can see and use these settings. Members can create and work with projects in a world."
-            }
-        }
-        div("settings-section__body") {
-            membersList(currentUser, members)
-        }
+    section(
+        title = "World Members",
+        subtitle = "Only the owner can delete a world. Admins can see and use these settings. Members can create and work with projects in a world.",
+    ) {
+        membersList(currentUser, members)
     }
 }
 

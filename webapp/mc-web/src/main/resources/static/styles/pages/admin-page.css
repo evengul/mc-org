@@ -11,33 +11,6 @@
     margin-block: var(--space-5) var(--space-8);
 }
 
-.admin-section {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-3);
-}
-
-.admin-section__heading {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-1);
-}
-
-.admin-section__heading h2 {
-    margin: 0;
-    font-family: var(--font-ui);
-    font-size: 18px;
-    font-weight: 600;
-    color: var(--text-primary);
-}
-
-.admin-section__subtitle {
-    color: var(--text-muted);
-    font-size: var(--text-sm);
-    margin: 0;
-    line-height: 1.5;
-}
-
 /* --- Search input --- */
 
 .admin-search {
