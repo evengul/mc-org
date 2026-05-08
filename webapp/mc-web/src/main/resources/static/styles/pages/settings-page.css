@@ -146,49 +146,6 @@
     font-size: var(--text-sm);
 }
 
-/* --- Pill tabs (for invitation Pending/History filter) --- */
-
-.tabs {
-    display: flex;
-    flex-direction: row;
-    gap: var(--space-2);
-    flex-wrap: wrap;
-    padding: 0;
-    margin: 0;
-}
-
-.tabs__tab {
-    cursor: pointer;
-    padding: 6px var(--space-3);
-    border-radius: 999px;
-    background: var(--bg-raised);
-    color: var(--text-muted);
-    border: 1px solid var(--border);
-    font-family: var(--font-ui);
-    font-size: var(--text-ui);
-    font-weight: 500;
-    transition: background 150ms ease, color 150ms ease, border-color 150ms ease;
-}
-
-.tabs__tab:hover {
-    background: var(--bg-surface);
-    color: var(--text-primary);
-    border-color: #3a4060;
-}
-
-.tabs__tab--active,
-.tabs__tab[aria-selected="true"] {
-    background: var(--accent);
-    color: #fff;
-    border-color: transparent;
-}
-
-.tabs__tab--active:hover,
-.tabs__tab[aria-selected="true"]:hover {
-    background: #3a6aee;
-    color: #fff;
-}
-
 /* --- Subtle helper --- */
 
 .subtle {
