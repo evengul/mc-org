@@ -12,6 +12,7 @@ import app.mcorg.presentation.templated.dsl.TabItem
 import app.mcorg.presentation.templated.dsl.TabVariant
 import app.mcorg.presentation.templated.dsl.avatar
 import app.mcorg.presentation.templated.dsl.badge
+import app.mcorg.presentation.templated.dsl.personRow
 import app.mcorg.presentation.templated.dsl.section
 import app.mcorg.presentation.templated.dsl.tabStrip
 import app.mcorg.presentation.templated.utils.formatAsDate
@@ -103,9 +104,7 @@ fun DIV.invitationsListWithFilter(
     div("invitations-list-section") {
         h3 { +"Invitations" }
         worldInvitationTabs(worldId, counts, selectedFilter)
-        ul {
-            worldInvitations(invitations)
-        }
+        ul { worldInvitations(invitations) }
     }
 }
 
@@ -172,56 +171,50 @@ fun renderInvitationStatusFilterOob(
 
 fun UL.worldInvitations(invitations: List<Invite>) {
     id = "invitation-list"
-    classes += "invitation-list"
+    classes = classes + "person-row-list"
     if (invitations.isEmpty()) {
-        li("invitation-list__empty") {
-            id = "empty-invitations-list"
-            p("subtle") {
-                +"No invitations found with this status."
-            }
+        personRow(rowId = "empty-invitations-list", empty = true) {
+            start { p("subtle") { +"No invitations found with this status." } }
         }
         return
     }
     invitations.sortedByDescending { it.createdAt }.forEach { invite ->
-        li("invitation-list__item") {
-            worldInvite(invite)
+        personRow(rowId = "invite-${invite.id}") {
+            start { inviteRowStart(invite) }
+            if (invite.status is InviteStatus.Pending) {
+                end { inviteRowEnd(invite) }
+            }
         }
     }
 }
 
-fun LI.worldInvite(invite: Invite) {
-    id = "invite-${invite.id}"
-    div("invitation-item-start") {
-        avatar(invite.toUsername)
-        div("invitation-item-details") {
-            p("invitation-item__username") {
-                +invite.toUsername
-            }
-            div("row") {
-                badge(invite.role.toPrettyEnumName(), BadgeVariant.NEUTRAL)
-                badge(invite.status::class.simpleName!!, BadgeVariant.ACCENT)
-            }
-            div("row") {
-                p("subtle") { +"Sent: ${invite.createdAt.formatAsDate()}" }
-                p("subtle") { +"•" }
-                p("subtle") { +"Expires: ${invite.expiresAt.formatAsDate()}" }
-            }
+fun FlowContent.inviteRowStart(invite: Invite) {
+    avatar(invite.toUsername)
+    div("person-row__info") {
+        p("person-row__name") { +invite.toUsername }
+        div("row") {
+            badge(invite.role.toPrettyEnumName(), BadgeVariant.NEUTRAL)
+            badge(invite.status::class.simpleName!!, BadgeVariant.ACCENT)
+        }
+        div("row") {
+            p("subtle") { +"Sent: ${invite.createdAt.formatAsDate()}" }
+            p("subtle") { +"•" }
+            p("subtle") { +"Expires: ${invite.expiresAt.formatAsDate()}" }
         }
     }
-    div("invitation-item-end") {
-        if (invite.status is InviteStatus.Pending) {
-            button {
-                classes = setOf("btn", "btn--ghost", "btn--sm")
-                type = ButtonType.button
-                hxDeleteWithConfirm(
-                    url = Link.Worlds.world(invite.worldId).settings().to + "/members/invitations/${invite.id}",
-                    title = "Delete Invite",
-                    description = "Are you sure you want to cancel this invitation? You may resend it later."
-                )
-                hxTarget("#invite-${invite.id}")
-                hxSwap("delete")
-                +"Cancel"
-            }
-        }
+}
+
+fun FlowContent.inviteRowEnd(invite: Invite) {
+    button {
+        classes = setOf("btn", "btn--ghost", "btn--sm")
+        type = ButtonType.button
+        hxDeleteWithConfirm(
+            url = Link.Worlds.world(invite.worldId).settings().to + "/members/invitations/${invite.id}",
+            title = "Delete Invite",
+            description = "Are you sure you want to cancel this invitation? You may resend it later."
+        )
+        hxTarget("#invite-${invite.id}")
+        hxSwap("delete")
+        +"Cancel"
     }
 }

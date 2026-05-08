@@ -19,14 +19,17 @@ import app.mcorg.pipeline.world.invitations.InvitationStatusFilter
 import app.mcorg.pipeline.world.settings.getStatusFromURL
 import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.hxOutOfBands
+import app.mcorg.presentation.templated.settings.inviteRowEnd
+import app.mcorg.presentation.templated.settings.inviteRowStart
 import app.mcorg.presentation.templated.settings.renderInvitationStatusFilterOob
-import app.mcorg.presentation.templated.settings.worldInvite
 import app.mcorg.presentation.utils.getUser
 import app.mcorg.presentation.utils.getWorldId
 import app.mcorg.presentation.utils.respondHtml
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.request.*
+import app.mcorg.domain.model.invite.InviteStatus
+import kotlinx.html.classes
 import kotlinx.html.div
 import kotlinx.html.id
 import kotlinx.html.li
@@ -58,7 +61,12 @@ suspend fun ApplicationCall.handleCreateInvitation() {
             val mainContent = renderInvitationStatusFilterOob(worldId, counts, selectedStatus)
             if ((selectedStatus == InvitationStatusFilter.PENDING) || selectedStatus == InvitationStatusFilter.ALL) {
                 val addedInvite = createHTML().li {
-                    worldInvite(invite)
+                    classes = setOf("person-row")
+                    id = "invite-${invite.id}"
+                    div("person-row__start") { inviteRowStart(invite) }
+                    if (invite.status is InviteStatus.Pending) {
+                        div("person-row__end") { inviteRowEnd(invite) }
+                    }
                 }
                 if ((selectedStatus == InvitationStatusFilter.PENDING && counts.pending == 1) ||
                     (selectedStatus == InvitationStatusFilter.ALL && counts.all == 1)) {

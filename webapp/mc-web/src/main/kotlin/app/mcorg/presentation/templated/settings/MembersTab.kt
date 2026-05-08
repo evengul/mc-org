@@ -6,6 +6,7 @@ import app.mcorg.domain.model.user.WorldMember
 import app.mcorg.presentation.*
 import app.mcorg.presentation.templated.common.link.Link
 import app.mcorg.presentation.templated.dsl.avatar
+import app.mcorg.presentation.templated.dsl.personRow
 import app.mcorg.presentation.templated.dsl.section
 import app.mcorg.presentation.templated.utils.formatAsRelativeOrDate
 import app.mcorg.presentation.templated.utils.toPrettyEnumName
@@ -22,30 +23,25 @@ fun DIV.membersSection(currentUser: TokenProfile, members: List<WorldMember>) {
 
 private fun DIV.membersList(currentUser: TokenProfile, members: List<WorldMember>) {
     val currentMember = members.find { it.id == currentUser.id }
-    ul("member-list") {
+    ul("person-row-list") {
         members.forEach { member ->
-            li("member-list__item") {
-                id = "member-${member.id}"
-                div("member-list__item-start") {
+            personRow(rowId = "member-${member.id}") {
+                start {
                     avatar(member.displayName)
-                    div("member-list__item-info") {
-                        p("member-list__name") {
-                            +member.displayName
-                        }
-                        p("member-list__meta subtle") {
+                    div("person-row__info") {
+                        p("person-row__name") { +member.displayName }
+                        p("person-row__meta subtle") {
                             span {
                                 id = "member-${member.id}-role-display"
                                 +member.worldRole.toPrettyEnumName()
                             }
                             +" • "
-                            span {
-                                +"Joined: ${member.createdAt.formatAsRelativeOrDate()}"
-                            }
+                            span { +"Joined: ${member.createdAt.formatAsRelativeOrDate()}" }
                         }
                     }
                 }
                 if (member.worldRole != Role.OWNER && currentMember != null && currentMember.worldRole.isHigherThan(member.worldRole)) {
-                    div("member-list__item-actions") {
+                    end {
                         select(classes = "form-control form-control--sm") {
                             name = "role"
                             hxPatch("${Link.Worlds.world(member.worldId).to}/settings/members/${member.id}/role")
