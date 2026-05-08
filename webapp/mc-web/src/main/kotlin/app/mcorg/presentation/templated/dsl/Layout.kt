@@ -41,6 +41,10 @@ fun pageShell(
                 rel = "stylesheet"
                 href = "/static/styles/components/modal.css"
             }
+            link {
+                rel = "stylesheet"
+                href = "/static/styles/components/alert.css"
+            }
             for (stylesheet in stylesheets) {
                 link {
                     rel = "stylesheet"
@@ -71,6 +75,7 @@ fun pageShell(
         body {
             attributes["hx-ext"] = "response-targets"
             confirmDeleteModal()
+            alertContainer()
             body()
         }
     }

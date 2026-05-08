@@ -11,7 +11,6 @@ import app.mcorg.pipeline.world.invitations.InvitationStatusFilter
 import app.mcorg.presentation.templated.dsl.appHeader
 import app.mcorg.presentation.templated.dsl.container
 import app.mcorg.presentation.templated.dsl.pageShell
-import app.mcorg.presentation.templated.layout.alert.alertContainer
 import kotlinx.html.div
 import kotlinx.html.h1
 import kotlinx.html.id
@@ -49,7 +48,6 @@ fun worldSettingsPage(user: TokenProfile, data: SettingsPageData): String = page
                 .current("Settings")
         }
     )
-    alertContainer()
     main {
         container {
             div("settings-page__heading") {
