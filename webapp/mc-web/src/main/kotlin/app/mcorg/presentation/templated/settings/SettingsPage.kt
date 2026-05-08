@@ -34,6 +34,7 @@ fun worldSettingsPage(user: TokenProfile, data: SettingsPageData): String = page
     stylesheets = listOf(
         "/static/styles/components/form.css",
         "/static/styles/components/danger-zone.css",
+        "/static/styles/components/avatar.css",
         "/static/styles/pages/settings-page.css",
     )
 ) {

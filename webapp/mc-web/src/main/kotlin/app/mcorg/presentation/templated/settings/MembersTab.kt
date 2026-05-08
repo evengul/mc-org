@@ -5,6 +5,7 @@ import app.mcorg.domain.model.user.TokenProfile
 import app.mcorg.domain.model.user.WorldMember
 import app.mcorg.presentation.*
 import app.mcorg.presentation.templated.common.link.Link
+import app.mcorg.presentation.templated.dsl.avatar
 import app.mcorg.presentation.templated.utils.formatAsRelativeOrDate
 import app.mcorg.presentation.templated.utils.toPrettyEnumName
 import kotlinx.html.*
@@ -30,10 +31,7 @@ private fun DIV.membersList(currentUser: TokenProfile, members: List<WorldMember
             li("member-list__item") {
                 id = "member-${member.id}"
                 div("member-list__item-start") {
-                    div("avatar avatar--md") {
-                        attributes["aria-hidden"] = "true"
-                        +(member.displayName.firstOrNull()?.toString() ?: "?")
-                    }
+                    avatar(member.displayName)
                     div("member-list__item-info") {
                         p("member-list__name") {
                             +member.displayName

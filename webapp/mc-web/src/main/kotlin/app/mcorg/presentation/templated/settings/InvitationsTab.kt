@@ -9,6 +9,7 @@ import app.mcorg.presentation.*
 import app.mcorg.presentation.templated.common.link.Link
 import app.mcorg.presentation.templated.dsl.TabItem
 import app.mcorg.presentation.templated.dsl.TabVariant
+import app.mcorg.presentation.templated.dsl.avatar
 import app.mcorg.presentation.templated.dsl.tabStrip
 import app.mcorg.presentation.templated.utils.formatAsDate
 import app.mcorg.presentation.templated.utils.toPrettyEnumName
@@ -191,10 +192,7 @@ fun UL.worldInvitations(invitations: List<Invite>) {
 fun LI.worldInvite(invite: Invite) {
     id = "invite-${invite.id}"
     div("invitation-item-start") {
-        div("avatar avatar--md") {
-            attributes["aria-hidden"] = "true"
-            +(invite.toUsername.firstOrNull()?.toString() ?: "?")
-        }
+        avatar(invite.toUsername)
         div("invitation-item-details") {
             p("invitation-item__username") {
                 +invite.toUsername
