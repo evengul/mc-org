@@ -7,7 +7,7 @@ import app.mcorg.domain.model.user.Role
 import app.mcorg.domain.model.user.TokenProfile
 import app.mcorg.presentation.*
 import app.mcorg.presentation.templated.common.button.dangerButton
-import app.mcorg.presentation.templated.common.dangerzone.dangerZone
+import app.mcorg.presentation.templated.dsl.dangerZone
 import app.mcorg.presentation.templated.common.icon.IconSize
 import app.mcorg.presentation.templated.common.icon.Icons
 import app.mcorg.presentation.templated.common.link.Link

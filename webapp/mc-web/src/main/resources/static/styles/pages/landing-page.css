@@ -1,98 +1,150 @@
+/* ==========================================================================
+   LANDING PAGE
+   Unauthenticated marketing surface — brand bar + hero + feature cards
+   ========================================================================== */
+
+.landing-brand-bar {
+    height: 56px;
+    background: var(--bg-surface);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding-inline: var(--space-5);
+}
+
+.landing-brand-bar__logo {
+    font-family: var(--font-ui);
+    font-size: var(--text-base);
+    font-weight: 600;
+    color: var(--text-primary);
+    text-decoration: none;
+    transition: color 150ms ease;
+}
+
+.landing-brand-bar__logo:hover {
+    color: var(--accent);
+}
+
 .landing-page {
     display: flex;
     flex-direction: column;
+    gap: var(--space-8);
+    padding-block: var(--space-6);
+}
+
+.landing-hero {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-4);
+}
+
+.landing-hero__title {
+    font-family: var(--font-ui);
+    font-size: 32px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0;
+    line-height: 1.2;
+}
+
+.landing-hero__tagline {
+    font-family: var(--font-body);
+    font-size: var(--text-base);
+    color: var(--text-muted);
+    margin: 0;
+    max-width: 60ch;
+    line-height: 1.5;
+}
+
+.landing-hero__cta {
+    margin-top: var(--space-2);
+}
+
+/*
+   Microsoft "Sign in with Microsoft" button — branded per Microsoft's identity
+   platform guidelines. Colors, typography, and dimensions are dictated by
+   Microsoft and intentionally bypass MC-ORG design tokens.
+   Reference: https://learn.microsoft.com/en-us/entra/identity-platform/howto-add-branding-in-apps
+*/
+.btn-microsoft {
+    display: inline-flex;
     align-items: center;
-    justify-content: center;
+    gap: 12px;
+    height: 41px;
+    min-width: 215px;
+    padding: 0 12px;
+    background: #2F2F2F;
+    border: none;
+    border-radius: 0;
+    color: #FFFFFF;
+    font-family: "Segoe UI", "Segoe UI Web (West European)", -apple-system, "Helvetica Neue", Arial, sans-serif;
+    font-size: 15px;
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background 150ms ease;
+}
 
-    gap: var(--spacing-md);
+.btn-microsoft:hover,
+.btn-microsoft:focus-visible {
+    background: #1F1F1F;
+    color: #FFFFFF;
+    text-decoration: none;
+}
 
-    width: 100%;
-    height: calc(100vh - var(--navbar-height));
+.btn-microsoft:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
 
-    .sign-in-container {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        gap: var(--spacing-sm);
+.btn-microsoft__logo {
+    width: 21px;
+    height: 21px;
+    flex-shrink: 0;
+}
 
-        a {
-            border: none;
-            color: #5E5E5E;
-            &:hover {
-                border: none;
-                text-decoration: none;
-                color: #5E5E5E;
-            }
+.landing-features {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-4);
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
 
-            &:visited {
-                color: #5E5E5E;
-            }
+.landing-feature {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: var(--space-5);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
 
-            button.microsoft-sign-in {
-                all: unset;
+.landing-feature__title {
+    font-family: var(--font-ui);
+    font-size: var(--text-base);
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0;
+}
 
-                display: flex;
-                flex-direction: row;
-                align-items: center;
-                justify-content: space-between;
+.landing-feature__body {
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    color: var(--text-muted);
+    margin: 0;
+    line-height: 1.5;
+}
 
-                background-color: var(--clr-global-white);
-                border: 1px solid #8C8C8C;
-                font-weight: 600;
-                font-family: "Segoe UI Regular", sans-serif;
-                font-size: 15px;
-
-                height: 41px;
-                padding: 12px;
-                gap: 12px;
-
-                :hover,
-                :focus-visible,
-                :active {
-                    all: unset;
-
-                    cursor: pointer;
-                }
-            }
-        }
-
-        p {
-            font-size: var(--text-sm);
-            opacity: 0.8;
-        }
+@media (max-width: 768px) {
+    .landing-hero__title {
+        font-size: 24px;
     }
 
     .landing-features {
-        list-style: none;
-        display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: var(--spacing-md);
-
-        li {
-            background-color: var(--clr-neutral-moderate);
-
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            gap: var(--spacing-sm);
-
-            padding: var(--spacing-md);
-
-            box-shadow: var(--shadow-sm);
-
-            p.card-title {
-                text-align: center;
-                font-weight: bold;
-            }
-
-            p.card-description {
-                font-size: var(--text-sm);
-                text-align: center;
-                font-weight: lighter;
-                opacity: 0.8;
-            }
-        }
+        grid-template-columns: 1fr;
     }
 }

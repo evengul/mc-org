@@ -15,11 +15,9 @@ import kotlinx.html.TagConsumer
 import kotlinx.html.a
 import kotlinx.html.classes
 import kotlinx.html.div
-import kotlinx.html.h1
 import kotlinx.html.header
 import kotlinx.html.li
 import kotlinx.html.nav
-import kotlinx.html.span
 import kotlinx.html.ul
 
 fun BODY.topBar(user: TokenProfile? = null, unreadNotificationCount: Int = 0) =
@@ -31,17 +29,16 @@ enum class ActiveLinks {
     SERVERS,
     ADMIN_DASHBOARD,
     THEME_TOGGLE,
-    NOTIFICATIONS,
     PROFILE
 }
 
+@Suppress("unused")
 data class TopBar(
     val user: TokenProfile? = null,
     val unreadNotificationCount: Int = 0,
     val activeLinks: Set<ActiveLinks> = setOf(
         ActiveLinks.HOME,
         ActiveLinks.IDEAS,
-        ActiveLinks.NOTIFICATIONS,
         ActiveLinks.ADMIN_DASHBOARD,
         ActiveLinks.THEME_TOGGLE,
         ActiveLinks.PROFILE
@@ -98,21 +95,8 @@ data class TopBar(
                         }
                     }
                     if (user != null) {
-                        if (activeLinks.contains(ActiveLinks.NOTIFICATIONS)) {
-                            a(href = Link.Notifications.to, classes = "top-bar-notification") {
-                                iconButton(Icons.Notification.INFO, "Notifications ($unreadNotificationCount)", iconSize = IconSize.SMALL, color = IconButtonColor.GHOST) {
-                                    // Remove default href since we're wrapping in an anchor
-                                    href = null
-                                }
-                                if (unreadNotificationCount > 0) {
-                                    span("top-bar-notification__badge") {
-                                        + unreadNotificationCount.toString()
-                                    }
-                                }
-                            }
-                        }
                         if (activeLinks.contains(ActiveLinks.PROFILE)) {
-                            iconButton(Icons.Users.PROFILE, "Profile", iconSize = IconSize.SMALL) {
+                            iconButton(Icons.Users.PROFILE, "Profile", iconSize = IconSize.SMALL, color = IconButtonColor.GHOST) {
                                 href = Link.Profile.to
                             }
                         }

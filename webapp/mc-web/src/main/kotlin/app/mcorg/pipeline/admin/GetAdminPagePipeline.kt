@@ -2,7 +2,6 @@ package app.mcorg.pipeline.admin
 
 import app.mcorg.domain.pipeline.Quadruple
 import app.mcorg.pipeline.admin.commonsteps.*
-import app.mcorg.pipeline.notification.getUnreadNotificationsOrZero
 import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.templated.admin.adminPage
 import app.mcorg.presentation.utils.getUser
@@ -12,8 +11,6 @@ import io.ktor.server.application.*
 suspend fun ApplicationCall.handleGetAdminPage() {
     val user = getUser()
 
-    val unreadNotifications = getUnreadNotificationsOrZero(user.id)
-
     handlePipeline(
         onSuccess = { (users, userCount, worlds, worldCount) ->
             respondHtml(adminPage(
@@ -22,7 +19,6 @@ suspend fun ApplicationCall.handleGetAdminPage() {
                 worlds,
                 userCount,
                 worldCount,
-                unreadNotifications
             ))
         },
     ) {

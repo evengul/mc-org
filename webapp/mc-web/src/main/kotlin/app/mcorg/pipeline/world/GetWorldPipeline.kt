@@ -6,7 +6,6 @@ import app.mcorg.domain.model.world.World
 import app.mcorg.pipeline.Result
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.failure.AppFailure
-import app.mcorg.pipeline.notification.getUnreadNotificationsOrZero
 import app.mcorg.pipeline.project.commonsteps.SearchProjectsInput
 import app.mcorg.pipeline.project.commonsteps.SearchProjectsStep
 import app.mcorg.pipeline.world.commonsteps.GetWorldMemberStep
@@ -29,8 +28,6 @@ suspend fun ApplicationCall.handleGetWorld() {
 
     val tab = request.queryParameters["tab"]
 
-    val notifications = getUnreadNotificationsOrZero(user.id)
-
     handlePipeline(
         onSuccess = { tabData ->
             if (request.headers["HX-Request"] == "true" && tab != null) {
@@ -38,7 +35,7 @@ suspend fun ApplicationCall.handleGetWorld() {
                     worldProjectContent(tabData)
                 })
             } else {
-                respondHtml(worldPage(user, tabData, notifications))
+                respondHtml(worldPage(user, tabData))
             }
         }
     ) {

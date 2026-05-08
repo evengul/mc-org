@@ -51,7 +51,10 @@ fun FlowContent.appHeader(
 
     header("app-header") {
         div("app-header__desktop") {
-            span("app-header__logo") { +"MC-ORG" }
+            a(classes = "app-header__logo") {
+                href = "/"
+                +"MC-ORG"
+            }
 
             if (breadcrumbBlock != null) {
                 val builder = BreadcrumbBuilder()

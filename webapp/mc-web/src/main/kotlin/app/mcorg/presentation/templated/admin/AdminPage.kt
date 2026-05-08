@@ -9,20 +9,54 @@ import app.mcorg.presentation.hxGet
 import app.mcorg.presentation.hxInclude
 import app.mcorg.presentation.hxSwap
 import app.mcorg.presentation.hxTarget
-import app.mcorg.presentation.templated.common.button.dangerButton
-import app.mcorg.presentation.templated.common.button.ghostButton
-import app.mcorg.presentation.templated.common.button.neutralButton
-import app.mcorg.presentation.templated.common.form.searchField.SearchFieldHxValues
-import app.mcorg.presentation.templated.common.form.searchField.searchField
-import app.mcorg.presentation.templated.common.icon.IconSize
-import app.mcorg.presentation.templated.common.icon.Icons
+import app.mcorg.presentation.hxTrigger
 import app.mcorg.presentation.templated.common.link.Link
-import app.mcorg.presentation.templated.common.page.createPage
+import app.mcorg.presentation.templated.dsl.appHeader
+import app.mcorg.presentation.templated.dsl.container
+import app.mcorg.presentation.templated.dsl.pageShell
 import app.mcorg.presentation.templated.utils.formatAsDate
 import app.mcorg.presentation.templated.utils.formatAsDateTime
 import app.mcorg.presentation.templated.utils.toPrettyEnumName
-import app.mcorg.presentation.utils.BreadcrumbBuilder
-import kotlinx.html.*
+import kotlinx.html.ButtonType
+import kotlinx.html.FlowContent
+import kotlinx.html.InputType
+import kotlinx.html.TBODY
+import kotlinx.html.a
+import kotlinx.html.button
+import kotlinx.html.classes
+import kotlinx.html.div
+import kotlinx.html.h1
+import kotlinx.html.h2
+import kotlinx.html.id
+import kotlinx.html.input
+import kotlinx.html.main
+import kotlinx.html.p
+import kotlinx.html.section
+import kotlinx.html.span
+import kotlinx.html.table
+import kotlinx.html.tbody
+import kotlinx.html.td
+import kotlinx.html.tfoot
+import kotlinx.html.th
+import kotlinx.html.thead
+import kotlinx.html.tr
+
+private const val PAGE_SIZE = 10
+
+enum class AdminTable {
+    USERS,
+    WORLDS;
+
+    val singular: String get() = when (this) {
+        USERS -> "user"
+        WORLDS -> "world"
+    }
+
+    val plural: String get() = when (this) {
+        USERS -> "users"
+        WORLDS -> "worlds"
+    }
+}
 
 fun adminPage(
     currentUser: TokenProfile,
@@ -30,81 +64,77 @@ fun adminPage(
     worlds: List<ManagedWorld>,
     totalUserCount: Int,
     totalWorldCount: Int,
-    unreadNotificationCount: Int = 0
-) = createPage(
-    "Admin",
+): String = pageShell(
+    pageTitle = "MC-ORG — Admin",
     user = currentUser,
-    unreadNotificationCount = unreadNotificationCount,
-    breadcrumbs = BreadcrumbBuilder.buildForAdminPage()
+    stylesheets = listOf(
+        "/static/styles/pages/admin-page.css",
+    )
 ) {
-    classes += "admin-page"
-
-    adminPageHeader()
-    userManagementSection(users, totalUserCount, 1)
-    worldManagementSection(worlds, totalWorldCount, 1)
-}
-
-private fun MAIN.adminPageHeader() {
-    div("admin-header") {
-        h1 {
-            +"Admin Dashboard"
+    appHeader(
+        user = currentUser,
+        breadcrumbBlock = {
+            current("Admin")
         }
-        p("subtle") {
-            +"Manage users, worlds, and system settings."
-        }
-    }
-}
-
-private fun MAIN.userManagementSection(users: List<ManagedUser>, totalUserCount: Int, currentUserPage: Int) {
-    section("user-management") {
-        userManagementHeader()
-        searchField("user-search-input") {
-            placeHolder = "Search users by username..."
-            hxValues = SearchFieldHxValues(
-                hxGet = Link.AdminDashboard.to + "/users/search",
-                hxTarget = "#admin-user-rows"
-            )
-        }
-        userManagementTable(users, totalUserCount, currentUserPage)
-    }
-}
-
-private fun FlowContent.userManagementHeader() {
-    div("user-management-header") {
-        h2 {
-            +"User Management"
-        }
-        p("subtle") {
-            +"View and manage all users in the system. You can make users admins, ban users, or view their details."
+    )
+    main {
+        container {
+            div("admin-page") {
+                h1("admin-page__title") { +"Admin Dashboard" }
+                p("admin-page__subtitle") {
+                    +"Manage users, worlds, and system settings."
+                }
+            }
+            div("admin-page__sections") {
+                userManagementSection(users, totalUserCount, currentPage = 1)
+                worldManagementSection(worlds, totalWorldCount, currentPage = 1)
+            }
         }
     }
 }
 
-private fun FlowContent.userManagementTable(users: List<ManagedUser>, totalUserCount: Int, currentPage: Int) {
-    table {
+private fun FlowContent.userManagementSection(
+    users: List<ManagedUser>,
+    totalUserCount: Int,
+    currentPage: Int,
+) {
+    section("admin-section") {
+        div("admin-section__heading") {
+            p("section-label") { +"USER MANAGEMENT" }
+            h2 { +"Users" }
+            p("admin-section__subtitle") {
+                +"View and manage all users in the system."
+            }
+        }
+        input(classes = "admin-search") {
+            id = "user-search-input"
+            type = InputType.search
+            name = "query"
+            placeholder = "Search users by username..."
+            hxGet(Link.AdminDashboard.to + "/users/search")
+            hxTarget("#admin-user-rows")
+            hxSwap("outerHTML")
+            hxTrigger("input changed delay:300ms, search")
+        }
+        userManagementTable(users, totalUserCount, currentPage)
+    }
+}
+
+private fun FlowContent.userManagementTable(
+    users: List<ManagedUser>,
+    totalUserCount: Int,
+    currentPage: Int,
+) {
+    table(classes = "data-table") {
         thead {
             tr {
-                th {
-                    +"User"
-                }
-                th {
-                    +"Username"
-                }
-                th {
-                    +"Email"
-                }
-                th {
-                    +"Status"
-                }
-                th {
-                    +"Joined"
-                }
-                th {
-                    +"Last Active"
-                }
-                th {
-                    +"Actions"
-                }
+                th { +"User" }
+                th { +"Username" }
+                th { +"Email" }
+                th { +"Status" }
+                th { +"Joined" }
+                th { +"Last Active" }
+                th { +"Actions" }
             }
         }
         tbody {
@@ -113,14 +143,8 @@ private fun FlowContent.userManagementTable(users: List<ManagedUser>, totalUserC
         tfoot {
             tr {
                 td {
-                    colSpan = "7"
-                    div {
-                       paginationInfo(
-                            totalCount = totalUserCount,
-                            currentPage = currentPage,
-                            belongsToTable = AdminTable.USERS
-                       )
-                    }
+                    attributes["colspan"] = "7"
+                    paginationInfo(totalUserCount, currentPage, AdminTable.USERS)
                 }
             }
         }
@@ -129,93 +153,135 @@ private fun FlowContent.userManagementTable(users: List<ManagedUser>, totalUserC
 
 fun TBODY.userRows(users: List<ManagedUser>) {
     id = "admin-user-rows"
+    if (users.isEmpty()) {
+        tr("data-table__empty") {
+            td {
+                attributes["colspan"] = "7"
+                +"No matches"
+            }
+        }
+        return
+    }
     users.forEach { user ->
         tr {
             td {
+                attributes["data-label"] = "User"
                 +user.displayName
             }
             td {
+                attributes["data-label"] = "Username"
                 +user.minecraftUsername
             }
             td {
+                attributes["data-label"] = "Email"
                 +user.email
             }
             td {
-                +user.globalRole.toPrettyEnumName()
+                attributes["data-label"] = "Status"
+                userStatus(user.globalRole)
             }
             td {
+                attributes["data-label"] = "Joined"
                 +user.joinedAt.formatAsDate()
             }
             td {
+                attributes["data-label"] = "Last Active"
                 +(user.lastSeen?.formatAsDateTime() ?: "Never")
             }
-            td("actions") {
-                userActionButtons(user)
+            td {
+                attributes["data-label"] = "Actions"
+                div("data-table__actions") {
+                    userActionButtons(user)
+                }
             }
         }
     }
 }
 
-private fun TD.userActionButtons(user: ManagedUser) {
+private fun FlowContent.userStatus(role: Role) {
+    if (role == Role.BANNED) {
+        span("badge--blocked") { +role.toPrettyEnumName() }
+    } else {
+        +role.toPrettyEnumName()
+    }
+}
+
+private fun FlowContent.userActionButtons(user: ManagedUser) {
     when (user.globalRole) {
         Role.OWNER -> {}
-        Role.ADMIN -> neutralButton("Remove Admin")
-        Role.MEMBER -> neutralButton("Make Admin")
-        Role.BANNED -> neutralButton("Unban User")
-    }
-    if (user.globalRole != Role.BANNED) {
-        dangerButton("Ban user")
-    }
-    dangerButton("Delete user")
-}
-
-private fun MAIN.worldManagementSection(worlds: List<ManagedWorld>, totalWorldCount: Int, worldPage: Int) {
-    section("world-management") {
-        worldManagementHeader()
-        searchField("world-search-input") {
-            placeHolder = "Search worlds by name..."
-            hxValues = SearchFieldHxValues(
-                hxGet = Link.AdminDashboard.to + "/worlds/search",
-                hxTarget = "#admin-world-rows"
-            )
+        Role.ADMIN -> button {
+            classes = setOf("btn", "btn--secondary", "btn--sm")
+            type = ButtonType.button
+            +"Remove Admin"
         }
-        worldManagementTable(worlds, totalWorldCount, worldPage)
-    }
-}
-
-private fun FlowContent.worldManagementHeader() {
-    div("world-management-header") {
-        h2 {
-            +"World Management"
+        Role.MEMBER -> button {
+            classes = setOf("btn", "btn--secondary", "btn--sm")
+            type = ButtonType.button
+            +"Make Admin"
         }
-        p("subtle") {
-            +"View and manage all worlds in the system. You can view details, edit, or delete worlds."
+        Role.BANNED -> button {
+            classes = setOf("btn", "btn--secondary", "btn--sm")
+            type = ButtonType.button
+            +"Unban User"
+        }
+    }
+    if (user.globalRole != Role.BANNED && user.globalRole != Role.OWNER) {
+        button {
+            classes = setOf("btn", "btn--danger", "btn--sm")
+            type = ButtonType.button
+            +"Ban user"
+        }
+    }
+    if (user.globalRole != Role.OWNER) {
+        button {
+            classes = setOf("btn", "btn--danger", "btn--sm")
+            type = ButtonType.button
+            +"Delete user"
         }
     }
 }
 
-private fun FlowContent.worldManagementTable(worlds: List<ManagedWorld>, totalWorldCount: Int, worldPage: Int) {
-    table {
+private fun FlowContent.worldManagementSection(
+    worlds: List<ManagedWorld>,
+    totalWorldCount: Int,
+    currentPage: Int,
+) {
+    section("admin-section") {
+        div("admin-section__heading") {
+            p("section-label") { +"WORLD MANAGEMENT" }
+            h2 { +"Worlds" }
+            p("admin-section__subtitle") {
+                +"View and manage all worlds in the system."
+            }
+        }
+        input(classes = "admin-search") {
+            id = "world-search-input"
+            type = InputType.search
+            name = "query"
+            placeholder = "Search worlds by name..."
+            hxGet(Link.AdminDashboard.to + "/worlds/search")
+            hxTarget("#admin-world-rows")
+            hxSwap("outerHTML")
+            hxTrigger("input changed delay:300ms, search")
+        }
+        worldManagementTable(worlds, totalWorldCount, currentPage)
+    }
+}
+
+private fun FlowContent.worldManagementTable(
+    worlds: List<ManagedWorld>,
+    totalWorldCount: Int,
+    currentPage: Int,
+) {
+    table(classes = "data-table") {
         thead {
             tr {
-                th {
-                    +"Name"
-                }
-                th {
-                    +"Version"
-                }
-                th {
-                    +"Projects"
-                }
-                th {
-                    +"Members"
-                }
-                th {
-                    +"Created On"
-                }
-                th {
-                    +"Actions"
-                }
+                th { +"Name" }
+                th { +"Version" }
+                th { +"Projects" }
+                th { +"Members" }
+                th { +"Created On" }
+                th { +"Actions" }
             }
         }
         tbody {
@@ -224,14 +290,8 @@ private fun FlowContent.worldManagementTable(worlds: List<ManagedWorld>, totalWo
         tfoot {
             tr {
                 td {
-                    colSpan = "6"
-                    div {
-                        paginationInfo(
-                            totalCount = totalWorldCount,
-                            currentPage = worldPage,
-                            belongsToTable = AdminTable.WORLDS
-                        )
-                    }
+                    attributes["colspan"] = "6"
+                    paginationInfo(totalWorldCount, currentPage, AdminTable.WORLDS)
                 }
             }
         }
@@ -240,93 +300,115 @@ private fun FlowContent.worldManagementTable(worlds: List<ManagedWorld>, totalWo
 
 fun TBODY.worldRows(worlds: List<ManagedWorld>) {
     id = "admin-world-rows"
+    if (worlds.isEmpty()) {
+        tr("data-table__empty") {
+            td {
+                attributes["colspan"] = "6"
+                +"No matches"
+            }
+        }
+        return
+    }
     worlds.forEach { world ->
         tr {
             id = "world-row-${world.id}"
             td {
+                attributes["data-label"] = "Name"
                 +world.name
             }
             td {
+                attributes["data-label"] = "Version"
                 +world.version.toString()
             }
             td {
+                attributes["data-label"] = "Projects"
                 +world.projects.toString()
             }
             td {
+                attributes["data-label"] = "Members"
                 +world.members.toString()
             }
             td {
+                attributes["data-label"] = "Created On"
                 +world.createdAt.formatAsDate()
             }
-            td("actions") {
-                worldActionButtons(world)
+            td {
+                attributes["data-label"] = "Actions"
+                div("data-table__actions") {
+                    worldActionButtons(world)
+                }
             }
         }
     }
 }
 
-private fun TD.worldActionButtons(world: ManagedWorld) {
-    neutralButton("View World") {
+private fun FlowContent.worldActionButtons(world: ManagedWorld) {
+    a(classes = "btn btn--secondary btn--sm") {
         href = Link.Worlds.world(world.id).to
+        +"View"
     }
-    dangerButton("Delete World") {
-        iconLeft = Icons.DELETE
-        iconSize = IconSize.SMALL
-        buttonBlock = {
-            hxDeleteWithConfirm(
-                url = Link.Worlds.world(world.id).settings().to,
-                title = "Delete World",
-                description = "Are you sure you want to delete this world?",
-                warning = "All related projects and tasks will also be deleted.",
-                confirmText = world.name
-            )
-            hxTarget("#world-row-${world.id}")
-            hxSwap("delete")
-        }
+    button {
+        classes = setOf("btn", "btn--danger", "btn--sm")
+        type = ButtonType.button
+        hxDeleteWithConfirm(
+            url = Link.Worlds.world(world.id).settings().to,
+            title = "Delete World",
+            description = "Are you sure you want to delete this world?",
+            warning = "All related projects and tasks will also be deleted.",
+            confirmText = world.name,
+        )
+        hxTarget("#world-row-${world.id}")
+        hxSwap("delete")
+        +"Delete"
     }
 }
 
-enum class AdminTable {
-    USERS,
-    WORLDS
-}
-
-fun DIV.paginationInfo(
+fun FlowContent.paginationInfo(
     totalCount: Int,
     currentPage: Int,
-    belongsToTable: AdminTable
+    table: AdminTable,
 ) {
-    val tableSpecific = when (belongsToTable) {
-        AdminTable.USERS -> "user"
-        AdminTable.WORLDS -> "world"
+    div("pagination-info") {
+        id = "pagination-info-${table.plural}"
+        paginationInfoBody(totalCount, currentPage, table)
     }
-    id = "pagination-info-${tableSpecific}s"
-    classes += "pagination-info"
-    val pages = (totalCount + 9) / 10
-    val start = (currentPage - 1) * 10 + 1
-    val end = minOf(currentPage * 10, totalCount)
+}
 
-    if (totalCount > 0) {
-        ghostButton("Previous Page") {
-            buttonBlock = {
-                disabled = currentPage <= 1
-                hxGet(Link.AdminDashboard.to + "/${tableSpecific}s/search?page=${currentPage - 1}")
-                hxInclude("#${tableSpecific}-search-input")
-                hxTarget("#admin-${tableSpecific}-rows")
-                hxSwap("outerHTML")
-            }
-        }
-        +"Showing $start-$end of $totalCount ${tableSpecific}s (Page $currentPage of $pages)"
-        ghostButton("Next Page") {
-            buttonBlock = {
-                disabled = currentPage >= pages
-                hxGet(Link.AdminDashboard.to + "/${tableSpecific}s/search?page=${currentPage + 1}")
-                hxInclude("#${tableSpecific}-search-input")
-                hxTarget("#admin-${tableSpecific}-rows")
-                hxSwap("outerHTML")
-            }
-        }
-    } else {
-        +"No ${tableSpecific}s found"
+fun FlowContent.paginationInfoBody(
+    totalCount: Int,
+    currentPage: Int,
+    table: AdminTable,
+) {
+    if (totalCount == 0) {
+        span("pagination-info__label") { +"No ${table.plural} found" }
+        return
+    }
+
+    val pages = (totalCount + PAGE_SIZE - 1) / PAGE_SIZE
+    val start = (currentPage - 1) * PAGE_SIZE + 1
+    val end = minOf(currentPage * PAGE_SIZE, totalCount)
+
+    button {
+        classes = setOf("btn", "btn--ghost", "btn--sm")
+        type = ButtonType.button
+        disabled = currentPage <= 1
+        hxGet(Link.AdminDashboard.to + "/${table.plural}/search?page=${currentPage - 1}")
+        hxInclude("#${table.singular}-search-input")
+        hxTarget("#admin-${table.singular}-rows")
+        hxSwap("outerHTML")
+        +"Previous"
+    }
+    span("pagination-info__label") {
+        +"Showing $start–$end of $totalCount ${table.plural} (Page $currentPage of $pages)"
+    }
+    button {
+        classes = setOf("btn", "btn--ghost", "btn--sm")
+        type = ButtonType.button
+        disabled = currentPage >= pages
+        hxGet(Link.AdminDashboard.to + "/${table.plural}/search?page=${currentPage + 1}")
+        hxInclude("#${table.singular}-search-input")
+        hxTarget("#admin-${table.singular}-rows")
+        hxSwap("outerHTML")
+        +"Next"
     }
 }

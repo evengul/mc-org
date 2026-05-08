@@ -26,7 +26,6 @@ fun ideaPage(
     user: TokenProfile,
     idea: Idea,
     comments: List<Comment>,
-    unreadNotifications: Int = 0
 ): String = pageShell(
     pageTitle = "MC-ORG — ${idea.name}",
     user = user,

@@ -223,16 +223,6 @@ object BreadcrumbBuilder {
         ))
     }
 
-    /**
-     * Build breadcrumbs for notifications page
-     */
-    fun buildForNotifications(): Breadcrumbs {
-        return Breadcrumbs(listOf(
-            BreadcrumbItem("Home", Link.Home, Icons.HOME),
-            BreadcrumbItem("Notifications", null, Icons.Notification.INFO)
-        ))
-    }
-
     fun buildForAdminPage(): Breadcrumbs {
         return Breadcrumbs(listOf(
             BreadcrumbItem("Home", Link.Home, Icons.HOME),

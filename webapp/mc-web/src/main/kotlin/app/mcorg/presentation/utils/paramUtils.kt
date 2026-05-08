@@ -18,9 +18,6 @@ fun ApplicationCall.getTaskId(): Int = getInt("TaskParam")
 fun ApplicationCall.setResourceGatheringId(id: Int) = setInt("ResourceGatheringParam", id)
 fun ApplicationCall.getResourceGatheringId(): Int = getInt("ResourceGatheringParam")
 
-fun ApplicationCall.setNotificationId(id: Int) = setInt("NotificationParam", id)
-fun ApplicationCall.getNotificationId(): Int = getInt("NotificationParam")
-
 fun ApplicationCall.setInviteId(id: Int) = setInt("InviteParam", id)
 fun ApplicationCall.getInviteId(): Int = getInt("InviteParam")
 

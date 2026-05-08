@@ -2,41 +2,71 @@ package app.mcorg.presentation.templated.profile
 
 import app.mcorg.domain.model.user.TokenProfile
 import app.mcorg.presentation.hxDeleteWithConfirm
-import app.mcorg.presentation.templated.common.button.dangerButton
-import app.mcorg.presentation.templated.common.button.neutralButton
-import app.mcorg.presentation.templated.common.dangerzone.dangerZone
-import app.mcorg.presentation.templated.common.icon.IconSize
-import app.mcorg.presentation.templated.common.icon.Icons
-import app.mcorg.presentation.templated.common.page.createPage
-import app.mcorg.presentation.utils.BreadcrumbBuilder
-import kotlinx.html.*
+import app.mcorg.presentation.templated.dsl.appHeader
+import app.mcorg.presentation.templated.dsl.container
+import app.mcorg.presentation.templated.dsl.dangerZone
+import app.mcorg.presentation.templated.dsl.pageShell
+import kotlinx.html.ButtonType
+import kotlinx.html.a
+import kotlinx.html.button
+import kotlinx.html.classes
+import kotlinx.html.div
+import kotlinx.html.h1
+import kotlinx.html.h2
+import kotlinx.html.main
+import kotlinx.html.p
+import kotlinx.html.section
 
-fun profilePage(
-    user: TokenProfile,
-    unreadNotificationCount: Int = 0,
-) = createPage(
-    pageTitle = "Profile", 
+fun profilePage(user: TokenProfile): String = pageShell(
+    pageTitle = "MC-ORG — Profile",
     user = user,
-    unreadNotificationCount = unreadNotificationCount,
-    breadcrumbs = BreadcrumbBuilder.buildForProfile()
+    stylesheets = listOf(
+        "/static/styles/pages/profile-page.css",
+    )
 ) {
-    classes += "profile-page"
+    appHeader(
+        user = user,
+        breadcrumbBlock = {
+            current("Profile")
+        }
+    )
+    main {
+        container {
+            div("profile-page") {
+                h1("profile-page__title") {
+                    +"${user.minecraftUsername}'s Profile"
+                }
+            }
+            div("profile-page__sections") {
+                accountSection()
+                deleteAccountSection()
+            }
+        }
+    }
+}
 
-    h1 {
-        + "${user.minecraftUsername}'s Profile"
-    }
-    section("sign-out") {
-        p("subtle") {
-            + "Sign out of your account on this device. You will need to sign in again to access your worlds and projects."
+private fun kotlinx.html.FlowContent.accountSection() {
+    section("profile-section") {
+        div("profile-section__heading") {
+            h2("section-label") { +"ACCOUNT" }
         }
-        neutralButton("Sign Out") {
+        p("profile-section__body") {
+            +"Sign out of your account on this device. You will need to sign in again to access your worlds and projects."
+        }
+        a(classes = "btn btn--secondary") {
             href = "/auth/sign-out"
+            +"Sign out"
         }
     }
-    dangerZone(description = "Permanently delete your account and all associated data. This action cannot be undone.") {
-        dangerButton("Delete Account") {
-            iconLeft = Icons.DELETE
-            iconSize = IconSize.SMALL
+}
+
+private fun kotlinx.html.FlowContent.deleteAccountSection() {
+    dangerZone(
+        description = "Permanently delete your account and all associated data. This action cannot be undone.",
+    ) {
+        button {
+            classes = setOf("btn", "btn--danger")
+            type = ButtonType.button
             hxDeleteWithConfirm(
                 url = "/account",
                 title = "Delete Account",
@@ -44,6 +74,7 @@ fun profilePage(
                 warning = "This will permanently delete your account and all associated data, including your worlds and projects.",
                 confirmText = "DELETE MY ACCOUNT"
             )
+            +"Delete account"
         }
     }
 }

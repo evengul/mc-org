@@ -1,24 +1,104 @@
+/* ==========================================================================
+   PROFILE PAGE
+   Stacked sections: Account · Danger zone
+   ========================================================================== */
+
 .profile-page {
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-md);
+    gap: var(--space-1);
+    margin-block: var(--space-5);
+}
 
-    > section {
-        background-color: var(--clr-bg-subtle);
-        padding: var(--spacing-md);
-        box-shadow: var(--shadow-sm);
-        border-radius: var(--border-radius-sm);
+.profile-page__title {
+    font-family: var(--font-ui);
+    font-size: 24px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0;
+}
 
-        width: 100%;
+.profile-page__sections {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-8);
+    margin-block: var(--space-5) var(--space-8);
+}
+
+.profile-section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+}
+
+.profile-section__heading {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+}
+
+.profile-section__body {
+    color: var(--text-muted);
+    font-size: var(--text-sm);
+    line-height: 1.5;
+    margin: 0;
+}
+
+/* --- Danger zone (inlined against real tokens — see frontend rewrite epic) --- */
+
+.danger-zone {
+    background: var(--red-bg);
+    border: 1px solid var(--red);
+    border-radius: var(--radius);
+    padding: var(--space-5);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+}
+
+.danger-zone__title {
+    margin: 0;
+    font-family: var(--font-ui);
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--red);
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.danger-zone__title::before {
+    content: "\26A0";
+    font-size: 20px;
+    line-height: 1;
+}
+
+.danger-zone__description {
+    margin: 0;
+    font-size: var(--text-sm);
+    color: var(--text-muted);
+    line-height: 1.5;
+}
+
+.danger-zone__content {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: var(--space-3);
+    flex-wrap: wrap;
+}
+
+.danger-zone__content .btn--danger {
+    align-self: flex-start;
+}
+
+@media (max-width: 768px) {
+    .danger-zone__content {
+        flex-direction: column;
+        align-items: stretch;
     }
 
-    .sign-out {
-        display: flex;
-        flex-direction: column;
-        gap: var(--spacing-sm);
-
-        a, button {
-            width: fit-content;
-        }
+    .danger-zone__content .btn--danger {
+        align-self: stretch;
     }
 }

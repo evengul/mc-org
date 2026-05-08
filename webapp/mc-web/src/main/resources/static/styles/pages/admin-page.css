@@ -1,38 +1,291 @@
+/* ==========================================================================
+   ADMIN PAGE
+   Stacked sections — User Management · World Management
+   Each section: section label + search field + .data-table + pagination
+   ========================================================================== */
+
 .admin-page {
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-md);
+    gap: var(--space-1);
+    margin-block: var(--space-5);
+}
 
-    > section {
-        background-color: var(--clr-bg-subtle);
-        padding: var(--spacing-md);
-        box-shadow: var(--shadow-sm);
-        border-radius: var(--border-radius-sm);
-        width: 100%;
+.admin-page__title {
+    font-family: var(--font-ui);
+    font-size: 24px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0;
+}
 
+.admin-page__subtitle {
+    color: var(--text-muted);
+    font-size: var(--text-sm);
+    margin: 0;
+}
+
+.admin-page__sections {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-8);
+    margin-block: var(--space-5) var(--space-8);
+}
+
+.admin-section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+}
+
+.admin-section__heading {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+}
+
+.admin-section__heading h2 {
+    margin: 0;
+    font-family: var(--font-ui);
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.admin-section__subtitle {
+    color: var(--text-muted);
+    font-size: var(--text-sm);
+    margin: 0;
+    line-height: 1.5;
+}
+
+/* --- Search input --- */
+
+.admin-search {
+    width: 100%;
+    max-width: 360px;
+    padding: var(--space-2) var(--space-3);
+    background: var(--bg-raised);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text-primary);
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+}
+
+.admin-search:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+.admin-search::placeholder {
+    color: var(--text-muted);
+}
+
+/* --- Data table (admin variant) --- */
+
+.data-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+}
+
+.data-table thead {
+    background: var(--bg-raised);
+}
+
+.data-table th {
+    padding: var(--space-3) var(--space-4);
+    text-align: left;
+    font-family: var(--font-ui);
+    font-size: var(--text-label);
+    font-weight: 500;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+}
+
+.data-table td {
+    padding: var(--space-3) var(--space-4);
+    color: var(--text-primary);
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+}
+
+.data-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.data-table tbody tr:nth-child(even) td {
+    background: var(--bg-raised);
+}
+
+.data-table tbody tr:hover td {
+    background: var(--bg-raised);
+}
+
+.data-table .data-table__empty td {
+    text-align: center;
+    color: var(--text-muted);
+    padding-block: var(--space-5);
+}
+
+.data-table tfoot td {
+    background: var(--bg-surface);
+    border-top: 1px solid var(--border);
+    border-bottom: none;
+}
+
+.data-table__actions {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: var(--space-2);
+    flex-wrap: wrap;
+}
+
+/* --- Pagination footer --- */
+
+.pagination-info {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--space-3);
+    font-family: var(--font-ui);
+    font-size: var(--text-sm);
+    color: var(--text-muted);
+}
+
+.pagination-info__label {
+    flex: 1;
+}
+
+/* --- Mobile collapse: table → stacked cards (CSS only) --- */
+
+@media (max-width: 768px) {
+    .data-table,
+    .data-table thead,
+    .data-table tbody,
+    .data-table tr,
+    .data-table th,
+    .data-table td {
+        display: block;
+    }
+
+    .data-table thead {
+        position: absolute;
+        clip: rect(0 0 0 0);
+        clip-path: inset(50%);
+        height: 1px;
+        width: 1px;
+        overflow: hidden;
+    }
+
+    .data-table tbody tr {
+        background: var(--bg-surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        margin-bottom: var(--space-3);
+        padding: var(--space-3);
+    }
+
+    .data-table tbody tr:nth-child(even) td,
+    .data-table tbody tr:hover td {
+        background: transparent;
+    }
+
+    .data-table td {
         display: flex;
-        flex-direction: column;
-        gap: var(--spacing-sm);
+        justify-content: space-between;
+        gap: var(--space-3);
+        padding: var(--space-2) 0;
+        border-bottom: 1px solid var(--border);
+    }
 
-        td.actions {
-            display: flex;
-            flex-direction: row;
-            align-items: center;
-            gap: var(--spacing-xxs);
+    .data-table tr td:last-child {
+        border-bottom: none;
+    }
 
-            button {
-                height: 100%;
-            }
-        }
+    .data-table td::before {
+        content: attr(data-label);
+        font-family: var(--font-ui);
+        font-size: var(--text-label);
+        font-weight: 500;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+    }
+
+    .data-table .data-table__empty {
+        background: var(--bg-surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: var(--space-5);
+    }
+
+    .data-table .data-table__empty td {
+        display: block;
+        padding: 0;
+        text-align: center;
+        border-bottom: none;
+    }
+
+    .data-table .data-table__empty td::before {
+        content: none;
+    }
+
+    .data-table tfoot {
+        display: block;
+        margin-top: var(--space-3);
+    }
+
+    .data-table tfoot tr {
+        background: transparent;
+        border: none;
+        margin-bottom: 0;
+        padding: 0;
+    }
+
+    .data-table tfoot td {
+        display: block;
+        padding: 0;
+        border-bottom: none;
+    }
+
+    .data-table tfoot td::before {
+        content: none;
     }
 
     .pagination-info {
-        width: 100%;
-        display: flex;
-        flex-direction: row;
-        align-items: center;
-        justify-content: flex-end;
-
-        gap: var(--spacing-md);
+        flex-wrap: wrap;
+        justify-content: center;
+        text-align: center;
     }
+
+    .pagination-info__label {
+        flex: 1 0 100%;
+        order: -1;
+    }
+}
+
+/* --- Status badges (BANNED only) --- */
+
+.badge--blocked {
+    display: inline-block;
+    padding: 2px var(--space-2);
+    border-radius: var(--radius);
+    background: var(--red-bg);
+    color: var(--red);
+    font-family: var(--font-ui);
+    font-size: var(--text-ui);
+    font-weight: 500;
 }

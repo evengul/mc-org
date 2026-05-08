@@ -1,63 +1,80 @@
 package app.mcorg.presentation.templated.landing
 
-import app.mcorg.presentation.templated.common.button.actionButton
-import app.mcorg.presentation.templated.common.icon.IconColor
-import app.mcorg.presentation.templated.common.icon.Icons
-import app.mcorg.presentation.templated.common.icon.iconComponent
-import app.mcorg.presentation.templated.common.page.createPage
-import kotlinx.html.classes
+import app.mcorg.presentation.templated.dsl.container
+import app.mcorg.presentation.templated.dsl.pageShell
+import kotlinx.html.a
 import kotlinx.html.div
 import kotlinx.html.h1
+import kotlinx.html.h2
+import kotlinx.html.header
+import kotlinx.html.img
 import kotlinx.html.li
+import kotlinx.html.main
 import kotlinx.html.p
+import kotlinx.html.span
 import kotlinx.html.ul
 
-fun landingPage(microsoftUrl: String) = createPage {
-    classes += "landing-page"
-    h1 {
-        + "Organize Your Minecraft Projects"
+fun landingPage(microsoftUrl: String): String = pageShell(
+    pageTitle = "MC-ORG — Minecraft Resource Planner",
+    stylesheets = listOf(
+        "/static/styles/pages/landing-page.css",
+    )
+) {
+    header("landing-brand-bar") {
+        a(classes = "landing-brand-bar__logo") {
+            href = "/"
+            +"MC-ORG"
+        }
     }
-    p {
-        + "Plan, track and collaborate on your Minecraft builds, farms and redstone contraptions"
+    main {
+        container {
+            div("landing-page") {
+                landingHero(microsoftUrl)
+                landingFeatures()
+            }
+        }
     }
-    div {
-        classes += "sign-in-container"
-        actionButton("Sign in with Microsoft") {
-            classes += "microsoft-sign-in"
-            iconLeft = Icons.MICROSOFT_LOGO
+}
+
+private fun kotlinx.html.FlowContent.landingHero(microsoftUrl: String) {
+    div("landing-hero") {
+        h1("landing-hero__title") {
+            +"Organize your Minecraft projects."
+        }
+        p("landing-hero__tagline") {
+            +"Plan builds, track resources, and turn farms into project dependencies — without leaving the field."
+        }
+        a(classes = "btn-microsoft landing-hero__cta") {
             href = microsoftUrl
-        }
-        p {
-            + "Sign in with your Microsoft account to start organizing your Minecraft projects."
+            attributes["aria-label"] = "Sign in with Microsoft"
+            img(classes = "btn-microsoft__logo") {
+                src = "/static/icons/Microsoft_Logo_48x48.svg"
+                alt = ""
+                attributes["aria-hidden"] = "true"
+            }
+            span { +"Sign in with Microsoft" }
         }
     }
-    ul {
-        classes += "landing-features"
-        li {
-            iconComponent(Icons.Priority.HIGH, color = IconColor.ON_BACKGROUND)
-            p("card-title") {
-                + "Organize Projects"
-            }
-            p("card-description") {
-                + "Keep track of all your Minecraft projects, from simple builds to complex redstone contraptions."
-            }
-        }
-        li {
-            iconComponent(Icons.Users.GROUP, color = IconColor.ON_BACKGROUND)
-            p("card-title") {
-                + "Collaborate"
-            }
-            p("card-description") {
-                + "Invite friends to collaborate on your worlds and projects, assigning tasks and tracking progress together."
+}
+
+private fun kotlinx.html.FlowContent.landingFeatures() {
+    ul("landing-features") {
+        li("landing-feature") {
+            h2("landing-feature__title") { +"Define projects" }
+            p("landing-feature__body") {
+                +"Capture each build, farm, or contraption with the resources it needs and the tasks it depends on."
             }
         }
-        li {
-            iconComponent(Icons.Menu.UTILITIES, color = IconColor.ON_BACKGROUND)
-            p("card-title") {
-                + "Resource Management"
+        li("landing-feature") {
+            h2("landing-feature__title") { +"Track resources" }
+            p("landing-feature__body") {
+                +"Increment counters one stack at a time while mining; see progress at a glance from anywhere."
             }
-            p("card-description") {
-                + "Track resource locations, manage farms, and plan your resource gathering efficiently."
+        }
+        li("landing-feature") {
+            h2("landing-feature__title") { +"Resolve dependencies" }
+            p("landing-feature__body") {
+                +"Generate a production path that respects what you've already built and what's still planned."
             }
         }
     }

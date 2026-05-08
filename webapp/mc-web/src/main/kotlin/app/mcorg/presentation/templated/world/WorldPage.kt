@@ -66,7 +66,6 @@ sealed interface WorldPageTabData {
 fun worldPage(
     user: TokenProfile,
     tabData: WorldPageTabData,
-    unreadNotificationCount: Int = 0,
     toggles: Set<WorldPageToggles> = setOf(
         WorldPageToggles.PROJECTS,
         WorldPageToggles.ROADMAP,
@@ -77,7 +76,6 @@ fun worldPage(
 ) = createPage(
     user = user,
     pageTitle = tabData.world.name,
-    unreadNotificationCount = unreadNotificationCount,
     breadcrumbs = BreadcrumbBuilder.buildForWorld(tabData.world)
 ) {
     classes += "world"

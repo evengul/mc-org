@@ -102,24 +102,6 @@ class CacheManagerTest {
     }
 
     @Test
-    fun `notificationExists cache uses composite key`() {
-        CacheManager.notificationExists.put("1:99", true)
-
-        assertEquals(true, CacheManager.notificationExists.getIfPresent("1:99"))
-        assertNull(CacheManager.notificationExists.getIfPresent("1:100"))
-    }
-
-    @Test
-    fun `unreadNotificationCount cache stores integer counts`() {
-        CacheManager.unreadNotificationCount.put(1, 5)
-        CacheManager.unreadNotificationCount.put(2, 0)
-
-        assertEquals(5, CacheManager.unreadNotificationCount.getIfPresent(1))
-        assertEquals(0, CacheManager.unreadNotificationCount.getIfPresent(2))
-        assertNull(CacheManager.unreadNotificationCount.getIfPresent(3))
-    }
-
-    @Test
     fun `supportedVersions cache uses singleton key`() {
         val versions = listOf("1.20.1", "1.21.0")
         CacheManager.supportedVersions.put("versions", versions)
@@ -300,35 +282,6 @@ class CacheManagerTest {
     }
 
     @Test
-    fun `onNotificationCreated invalidates unread count for user`() {
-        CacheManager.unreadNotificationCount.put(1, 5)
-
-        CacheManager.onNotificationCreated(1)
-
-        assertNull(CacheManager.unreadNotificationCount.getIfPresent(1))
-    }
-
-    @Test
-    fun `onNotificationCreated does not affect other users`() {
-        CacheManager.unreadNotificationCount.put(1, 5)
-        CacheManager.unreadNotificationCount.put(2, 3)
-
-        CacheManager.onNotificationCreated(1)
-
-        assertNull(CacheManager.unreadNotificationCount.getIfPresent(1))
-        assertEquals(3, CacheManager.unreadNotificationCount.getIfPresent(2))
-    }
-
-    @Test
-    fun `onNotificationRead invalidates unread count for user`() {
-        CacheManager.unreadNotificationCount.put(1, 5)
-
-        CacheManager.onNotificationRead(1)
-
-        assertNull(CacheManager.unreadNotificationCount.getIfPresent(1))
-    }
-
-    @Test
     fun `onSupportedVersionsChanged invalidates all versions`() {
         CacheManager.supportedVersions.put("versions", listOf("1.20.1"))
 
@@ -404,10 +357,8 @@ class CacheManagerTest {
         CacheManager.ideaCommentExists.put(1, true)
         CacheManager.inviteExists.put(1, true)
         CacheManager.worldMemberExists.put("1:1", true)
-        CacheManager.notificationExists.put("1:1", true)
         CacheManager.projectProductionItemExists.put("1:1", true)
         CacheManager.projectDependencyExists.put("1:1", true)
-        CacheManager.unreadNotificationCount.put(1, 5)
         CacheManager.supportedVersions.put("versions", listOf("1.20"))
 
         CacheManager.invalidateAll()
@@ -423,10 +374,8 @@ class CacheManagerTest {
         assertNull(CacheManager.ideaCommentExists.getIfPresent(1))
         assertNull(CacheManager.inviteExists.getIfPresent(1))
         assertNull(CacheManager.worldMemberExists.getIfPresent("1:1"))
-        assertNull(CacheManager.notificationExists.getIfPresent("1:1"))
         assertNull(CacheManager.projectProductionItemExists.getIfPresent("1:1"))
         assertNull(CacheManager.projectDependencyExists.getIfPresent("1:1"))
-        assertNull(CacheManager.unreadNotificationCount.getIfPresent(1))
         assertNull(CacheManager.supportedVersions.getIfPresent("versions"))
     }
 
@@ -449,7 +398,6 @@ class CacheManagerTest {
         CacheManager.onTaskDeleted(1, 999)
         CacheManager.onMemberRoleChanged(999, 999)
         CacheManager.onBanStatusChanged(999)
-        CacheManager.onNotificationRead(999)
     }
 
     @Test

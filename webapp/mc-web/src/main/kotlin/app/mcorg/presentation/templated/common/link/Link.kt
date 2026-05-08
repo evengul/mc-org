@@ -203,10 +203,6 @@ sealed interface Link {
         override val to: String = "/admin"
     }
 
-    object Notifications : Link {
-        override val to: String = "/notifications"
-    }
-
     @Suppress("unused")
     object Servers : Link {
         override val to: String = "/servers"

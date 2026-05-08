@@ -74,13 +74,11 @@ sealed interface ProjectTab {
 fun projectPage(
     user: TokenProfile,
     data: ProjectTab,
-    unreadNotifications: Int,
     breadcrumbs: Breadcrumbs
 ) = createPage(
     user = user,
     pageTitle = data.project.name,
     pageScripts = setOf(PageScript.SEARCHABLE_SELECT),
-    unreadNotificationCount = unreadNotifications,
     breadcrumbs = breadcrumbs
 ) {
     val project = data.project
