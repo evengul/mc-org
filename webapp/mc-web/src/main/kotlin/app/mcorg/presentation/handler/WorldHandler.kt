@@ -44,7 +44,6 @@ import app.mcorg.pipeline.project.handleGetProjectList
 import app.mcorg.pipeline.project.handleGetProjectListFragment
 import app.mcorg.pipeline.world.handleCreateWorld
 import app.mcorg.pipeline.world.handleDeleteWorld
-import app.mcorg.pipeline.world.handleGetWorld
 import app.mcorg.pipeline.world.handleSearchWorlds
 import app.mcorg.pipeline.world.settings.general.handleUpdateWorldDescription
 import app.mcorg.pipeline.world.settings.general.handleUpdateWorldName
@@ -99,7 +98,6 @@ class WorldHandler {
                 install(WorldParamPlugin)
                 install(UpdateActiveWorldPlugin)
                 get {
-                    // TODO Feature 13: remove with cleanup — old handleGetWorld() dead code after redirect
                     val worldId = call.parameters["worldId"]!!.toInt()
                     call.respondRedirect("/worlds/$worldId/projects", permanent = true)
                 }
