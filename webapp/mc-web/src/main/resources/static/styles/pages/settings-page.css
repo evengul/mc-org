@@ -3,29 +3,6 @@
    Stacked sections: General · Invitations · Members · Danger zone
    ========================================================================== */
 
-/* --- Page heading --- */
-
-.settings-page__heading {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-1);
-    margin-block: var(--space-5) var(--space-5);
-}
-
-.settings-page__title {
-    font-family: var(--font-ui);
-    font-size: 24px;
-    font-weight: 600;
-    color: var(--text-primary);
-    margin: 0;
-}
-
-.settings-page__subtitle {
-    color: var(--text-muted);
-    font-size: var(--text-sm);
-    margin: 0;
-}
-
 /* --- Sections (stacked) --- */
 
 .settings-page__sections {

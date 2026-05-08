@@ -3,21 +3,6 @@
    Stacked sections: Account · Danger zone
    ========================================================================== */
 
-.profile-page {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-1);
-    margin-block: var(--space-5);
-}
-
-.profile-page__title {
-    font-family: var(--font-ui);
-    font-size: 24px;
-    font-weight: 600;
-    color: var(--text-primary);
-    margin: 0;
-}
-
 .profile-page__sections {
     display: flex;
     flex-direction: column;

@@ -15,6 +15,7 @@ import app.mcorg.presentation.templated.dsl.BadgeVariant
 import app.mcorg.presentation.templated.dsl.appHeader
 import app.mcorg.presentation.templated.dsl.badge
 import app.mcorg.presentation.templated.dsl.container
+import app.mcorg.presentation.templated.dsl.pageHeading
 import app.mcorg.presentation.templated.dsl.pageShell
 import app.mcorg.presentation.templated.utils.formatAsDate
 import app.mcorg.presentation.templated.utils.formatAsDateTime
@@ -81,12 +82,10 @@ fun adminPage(
     )
     main {
         container {
-            div("admin-page") {
-                h1("admin-page__title") { +"Admin Dashboard" }
-                p("admin-page__subtitle") {
-                    +"Manage users, worlds, and system settings."
-                }
-            }
+            pageHeading(
+                title = "Admin Dashboard",
+                subtitle = "Manage users, worlds, and system settings.",
+            )
             div("admin-page__sections") {
                 userManagementSection(users, totalUserCount, currentPage = 1)
                 worldManagementSection(worlds, totalWorldCount, currentPage = 1)

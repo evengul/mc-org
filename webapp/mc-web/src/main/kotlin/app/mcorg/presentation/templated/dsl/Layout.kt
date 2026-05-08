@@ -3,6 +3,8 @@ package app.mcorg.presentation.templated.dsl
 import app.mcorg.domain.model.user.TokenProfile
 import app.mcorg.presentation.templated.common.modal.confirmDeleteModal
 import kotlinx.html.*
+import kotlinx.html.h1
+import kotlinx.html.p
 import kotlinx.html.stream.createHTML
 
 fun pageShell(
@@ -48,6 +50,10 @@ fun pageShell(
             link {
                 rel = "stylesheet"
                 href = "/static/styles/components/badge.css"
+            }
+            link {
+                rel = "stylesheet"
+                href = "/static/styles/components/page-heading.css"
             }
             for (stylesheet in stylesheets) {
                 link {
@@ -95,4 +101,11 @@ fun FlowContent.surface(block: FlowContent.() -> Unit) {
 
 fun FlowContent.divider() {
     div("divider") {}
+}
+
+fun FlowContent.pageHeading(title: String, subtitle: String? = null) {
+    div("page-heading") {
+        h1("page-heading__title") { +title }
+        subtitle?.let { p("page-heading__subtitle") { +it } }
+    }
 }

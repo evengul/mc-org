@@ -10,12 +10,11 @@ import app.mcorg.pipeline.world.invitations.CountWorldInvitationsResult
 import app.mcorg.pipeline.world.invitations.InvitationStatusFilter
 import app.mcorg.presentation.templated.dsl.appHeader
 import app.mcorg.presentation.templated.dsl.container
+import app.mcorg.presentation.templated.dsl.pageHeading
 import app.mcorg.presentation.templated.dsl.pageShell
 import kotlinx.html.div
-import kotlinx.html.h1
 import kotlinx.html.id
 import kotlinx.html.main
-import kotlinx.html.p
 
 data class SettingsPageData(
     val world: World,
@@ -51,10 +50,10 @@ fun worldSettingsPage(user: TokenProfile, data: SettingsPageData): String = page
     )
     main {
         container {
-            div("settings-page__heading") {
-                h1("settings-page__title") { +"World Settings" }
-                p("settings-page__subtitle") { +"Manage your world settings, members, and invitations" }
-            }
+            pageHeading(
+                title = "World Settings",
+                subtitle = "Manage your world settings, members, and invitations",
+            )
             div("settings-page__sections") {
                 id = "world-settings-content"
                 generalSection(data)

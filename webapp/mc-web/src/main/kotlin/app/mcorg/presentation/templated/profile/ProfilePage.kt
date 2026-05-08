@@ -5,13 +5,13 @@ import app.mcorg.presentation.hxDeleteWithConfirm
 import app.mcorg.presentation.templated.dsl.appHeader
 import app.mcorg.presentation.templated.dsl.container
 import app.mcorg.presentation.templated.dsl.dangerZone
+import app.mcorg.presentation.templated.dsl.pageHeading
 import app.mcorg.presentation.templated.dsl.pageShell
 import kotlinx.html.ButtonType
 import kotlinx.html.a
 import kotlinx.html.button
 import kotlinx.html.classes
 import kotlinx.html.div
-import kotlinx.html.h1
 import kotlinx.html.h2
 import kotlinx.html.main
 import kotlinx.html.p
@@ -33,11 +33,7 @@ fun profilePage(user: TokenProfile): String = pageShell(
     )
     main {
         container {
-            div("profile-page") {
-                h1("profile-page__title") {
-                    +"${user.minecraftUsername}'s Profile"
-                }
-            }
+            pageHeading(title = "${user.minecraftUsername}'s Profile")
             div("profile-page__sections") {
                 accountSection()
                 deleteAccountSection()
