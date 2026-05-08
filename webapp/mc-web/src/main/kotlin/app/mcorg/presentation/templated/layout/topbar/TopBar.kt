@@ -15,6 +15,7 @@ import kotlinx.html.TagConsumer
 import kotlinx.html.a
 import kotlinx.html.classes
 import kotlinx.html.div
+import kotlinx.html.h1
 import kotlinx.html.header
 import kotlinx.html.li
 import kotlinx.html.nav

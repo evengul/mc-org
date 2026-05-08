@@ -14,8 +14,10 @@ import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.world.ValidateWorldMemberRole
 import app.mcorg.presentation.consts.AUTH_COOKIE
 import app.mcorg.presentation.consts.ISSUER
+import app.mcorg.presentation.templated.error.bannedPage
 import app.mcorg.presentation.utils.getUser
 import app.mcorg.presentation.utils.getWorldId
+import app.mcorg.presentation.utils.respondHtml
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.request.*
@@ -62,7 +64,7 @@ val BannedPlugin = createRouteScopedPlugin("BannedPlugin") {
         val cached = CacheManager.bannedUsers.getIfPresent(userId)
         if (cached != null) {
             if (cached) {
-                it.respond(HttpStatusCode.Forbidden, "You are banned from accessing this application.")
+                it.respondHtml(bannedPage(), HttpStatusCode.Forbidden)
             }
             return@onCall
         }
@@ -77,7 +79,7 @@ val BannedPlugin = createRouteScopedPlugin("BannedPlugin") {
         if (result is Result.Success) {
             CacheManager.bannedUsers.put(userId, result.value)
             if (result.value) {
-                it.respond(HttpStatusCode.Forbidden, "You are banned from accessing this application.")
+                it.respondHtml(bannedPage(), HttpStatusCode.Forbidden)
             }
         }
     }

@@ -1,5 +1,6 @@
 package app.mcorg.presentation.handler.auth
 
+import app.mcorg.config.CacheManager
 import app.mcorg.presentation.plugins.AdminPlugin
 import app.mcorg.presentation.plugins.AuthPlugin
 import app.mcorg.presentation.plugins.BannedPlugin
@@ -18,6 +19,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.api.extension.ExtendWith
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @ExtendWith(DatabaseTestExtension::class)
@@ -28,12 +30,20 @@ class RolePluginsIT : WithUser() {
         val client = setup()
 
         val user = createExtraUser("banned")
+        // Exercise the DB-lookup branch deterministically across test ordering.
+        // Cache-hit branch has unit coverage in CacheManagerTest.
+        CacheManager.bannedUsers.invalidate(user.id)
 
         val response = client.get("/worlds") {
             addAuthCookie(this, user)
         }
 
         assertEquals(HttpStatusCode.Forbidden, response.status)
+        assertEquals("text/html;charset=utf-8", response.headers["Content-Type"])
+        assertTrue(
+            response.bodyAsText().contains("Account Suspended"),
+            "Banned response should render the bannedPage() HTML",
+        )
     }
 
     @Test
