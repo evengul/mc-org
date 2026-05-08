@@ -45,6 +45,10 @@ fun pageShell(
                 rel = "stylesheet"
                 href = "/static/styles/components/alert.css"
             }
+            link {
+                rel = "stylesheet"
+                href = "/static/styles/components/badge.css"
+            }
             for (stylesheet in stylesheets) {
                 link {
                     rel = "stylesheet"

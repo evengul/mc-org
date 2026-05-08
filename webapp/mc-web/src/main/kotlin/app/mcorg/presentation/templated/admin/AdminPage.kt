@@ -11,7 +11,9 @@ import app.mcorg.presentation.hxSwap
 import app.mcorg.presentation.hxTarget
 import app.mcorg.presentation.hxTrigger
 import app.mcorg.presentation.templated.common.link.Link
+import app.mcorg.presentation.templated.dsl.BadgeVariant
 import app.mcorg.presentation.templated.dsl.appHeader
+import app.mcorg.presentation.templated.dsl.badge
 import app.mcorg.presentation.templated.dsl.container
 import app.mcorg.presentation.templated.dsl.pageShell
 import app.mcorg.presentation.templated.utils.formatAsDate
@@ -200,7 +202,7 @@ fun TBODY.userRows(users: List<ManagedUser>) {
 
 private fun FlowContent.userStatus(role: Role) {
     if (role == Role.BANNED) {
-        span("badge--blocked") { +role.toPrettyEnumName() }
+        badge(role.toPrettyEnumName(), BadgeVariant.DANGER)
     } else {
         +role.toPrettyEnumName()
     }

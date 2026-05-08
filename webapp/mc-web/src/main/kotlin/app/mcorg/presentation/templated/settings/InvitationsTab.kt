@@ -7,9 +7,11 @@ import app.mcorg.pipeline.world.invitations.CountWorldInvitationsResult
 import app.mcorg.pipeline.world.invitations.InvitationStatusFilter
 import app.mcorg.presentation.*
 import app.mcorg.presentation.templated.common.link.Link
+import app.mcorg.presentation.templated.dsl.BadgeVariant
 import app.mcorg.presentation.templated.dsl.TabItem
 import app.mcorg.presentation.templated.dsl.TabVariant
 import app.mcorg.presentation.templated.dsl.avatar
+import app.mcorg.presentation.templated.dsl.badge
 import app.mcorg.presentation.templated.dsl.tabStrip
 import app.mcorg.presentation.templated.utils.formatAsDate
 import app.mcorg.presentation.templated.utils.toPrettyEnumName
@@ -198,12 +200,8 @@ fun LI.worldInvite(invite: Invite) {
                 +invite.toUsername
             }
             div("row") {
-                span("badge badge--neutral") {
-                    +invite.role.toPrettyEnumName()
-                }
-                span("badge badge--status") {
-                    +invite.status::class.simpleName!!
-                }
+                badge(invite.role.toPrettyEnumName(), BadgeVariant.NEUTRAL)
+                badge(invite.status::class.simpleName!!, BadgeVariant.ACCENT)
             }
             div("row") {
                 p("subtle") { +"Sent: ${invite.createdAt.formatAsDate()}" }

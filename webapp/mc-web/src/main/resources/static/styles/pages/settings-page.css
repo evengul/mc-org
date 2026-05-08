@@ -331,29 +331,6 @@ ul.invitation-list > li {
     color: var(--text-muted);
 }
 
-/* Inline badge / chip used for role + status */
-.badge {
-    display: inline-block;
-    padding: 2px 8px;
-    border-radius: 999px;
-    font-size: var(--text-label);
-    font-weight: 500;
-    background: var(--bg-raised);
-    color: var(--text-primary);
-    border: 1px solid var(--border);
-}
-
-.badge--neutral {
-    background: var(--bg-raised);
-    color: var(--text-primary);
-}
-
-.badge--status {
-    background: var(--accent-muted);
-    color: var(--accent);
-    border-color: transparent;
-}
-
 /* --- Pill tabs (for invitation Pending/History filter) --- */
 
 .tabs {
