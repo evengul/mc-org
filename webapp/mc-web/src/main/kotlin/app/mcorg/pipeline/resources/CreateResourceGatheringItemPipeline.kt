@@ -2,7 +2,6 @@ package app.mcorg.pipeline.resources
 
 import app.mcorg.config.CacheManager
 import app.mcorg.domain.model.minecraft.Item
-import app.mcorg.domain.model.resources.ResourceGatheringItem
 import app.mcorg.pipeline.Result
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.DatabaseSteps
@@ -11,14 +10,10 @@ import app.mcorg.pipeline.ValidationSteps
 import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.failure.ValidationFailure
 import app.mcorg.pipeline.project.resources.GetItemsInWorldVersionStep
-import app.mcorg.pipeline.resources.commonsteps.CountCollectedResourcesInProjectWithItemIdStep
-import app.mcorg.pipeline.resources.commonsteps.CountTotalResourcesRequiredInProjectWithItemIdStep
 import app.mcorg.pipeline.resources.commonsteps.GetResourceGatheringItemStep
 import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.hxOutOfBands
 import app.mcorg.presentation.templated.dsl.pages.planResourceRow
-import app.mcorg.presentation.templated.project.projectResourceGatheringItem
-import app.mcorg.presentation.templated.project.resourceGatheringProgress
 import app.mcorg.presentation.utils.getProjectId
 import app.mcorg.presentation.utils.getWorldId
 import app.mcorg.presentation.utils.respondHtml
@@ -26,7 +21,6 @@ import io.ktor.http.Parameters
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.request.receiveParameters
 import kotlinx.html.div
-import kotlinx.html.li
 import kotlinx.html.stream.createHTML
 import kotlinx.html.tr
 
@@ -36,61 +30,27 @@ private data class CreateResourceGatheringItemInput(
     val requiredAmount: Int
 )
 
-private data class UpdatedResourceGatheringProgress(
-    val gatheringItem: ResourceGatheringItem,
-    val totalResourceRequired: Int,
-    val totalResourcesCollected: Int
-)
-
 suspend fun ApplicationCall.handleCreateResourceGatheringItem() {
     val parameters = this.receiveParameters()
 
     val worldId = this.getWorldId()
     val projectId = this.getProjectId()
-    val context = request.queryParameters["context"]
 
     val itemNames = GetItemsInWorldVersionStep.process(worldId).getOrNull() ?: emptyList()
 
-    if (context == "plan") {
-        handlePipeline(
-            onSuccess = { item ->
-                respondHtml(createHTML().tr {
-                    planResourceRow(worldId, projectId, item)
-                } + createHTML().div {
-                    hxOutOfBands("delete:#plan-empty-state")
-                })
-            }
-        ) {
-            val input = ValidateCreateResourceGatheringItemInputStep(itemNames).run(parameters)
-            val id = CreateResourceGatheringItemStep(projectId).run(input)
-            CacheManager.onResourceGatheringCreated(projectId, id)
-            GetResourceGatheringItemStep.run(id)
-        }
-        return
-    }
-
     handlePipeline(
-        onSuccess = {
-            respondHtml(createHTML().li {
-                projectResourceGatheringItem(worldId, projectId, it.gatheringItem)
+        onSuccess = { item ->
+            respondHtml(createHTML().tr {
+                planResourceRow(worldId, projectId, item)
             } + createHTML().div {
-                hxOutOfBands("delete:#empty-resource-gathering-state")
-            } + createHTML().div {
-                hxOutOfBands("innerHTML:#resource-gathering-total-progress")
-                div {
-                    resourceGatheringProgress(
-                        "resource-gathering-total-progress",
-                        it.totalResourcesCollected,
-                        it.totalResourceRequired
-                    )
-                }
+                hxOutOfBands("delete:#plan-empty-state")
             })
         }
     ) {
         val input = ValidateCreateResourceGatheringItemInputStep(itemNames).run(parameters)
         val id = CreateResourceGatheringItemStep(projectId).run(input)
         CacheManager.onResourceGatheringCreated(projectId, id)
-        GetUpdatedResourceGatheringProgressStep.run(id)
+        GetResourceGatheringItemStep.run(id)
     }
 }
 
@@ -153,23 +113,3 @@ private data class CreateResourceGatheringItemStep(val projectId: Int) : Step<Cr
     }
 }
 
-private object GetUpdatedResourceGatheringProgressStep : Step<Int, AppFailure.DatabaseError, UpdatedResourceGatheringProgress> {
-    override suspend fun process(input: Int): Result<AppFailure.DatabaseError, UpdatedResourceGatheringProgress> {
-        val item = GetResourceGatheringItemStep.process(input)
-
-        if (item is Result.Failure) {
-            return item
-        }
-
-        val required = CountTotalResourcesRequiredInProjectWithItemIdStep.process(input).getOrNull() ?: 0
-        val collected = CountCollectedResourcesInProjectWithItemIdStep.process(input).getOrNull() ?: 0
-
-        return Result.success(
-            UpdatedResourceGatheringProgress(
-                gatheringItem = item.getOrNull()!!,
-                totalResourceRequired = required,
-                totalResourcesCollected = collected
-            )
-        )
-    }
-}
