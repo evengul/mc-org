@@ -1,7 +1,6 @@
 package app.mcorg.presentation.templated.dsl
 
 import app.mcorg.domain.model.user.TokenProfile
-import app.mcorg.presentation.templated.common.modal.confirmDeleteModal
 import kotlinx.html.*
 import kotlinx.html.h1
 import kotlinx.html.p

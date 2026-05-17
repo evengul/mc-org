@@ -131,6 +131,10 @@ main {
     font-size: var(--text-sm);
 }
 
+.is-hidden {
+    display: none;
+}
+
 .flex {
     display: flex;
 }
