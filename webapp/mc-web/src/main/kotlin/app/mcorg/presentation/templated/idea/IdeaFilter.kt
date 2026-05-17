@@ -2,7 +2,7 @@ package app.mcorg.presentation.templated.idea
 
 import app.mcorg.domain.model.idea.IdeaCategory
 import app.mcorg.domain.model.idea.IdeaDifficulty
-import app.mcorg.presentation.templated.common.link.Link
+import app.mcorg.presentation.templated.dsl.Link
 import app.mcorg.presentation.templated.utils.toPrettyEnumName
 import kotlinx.html.*
 

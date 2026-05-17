@@ -1,6 +1,6 @@
 package app.mcorg.presentation.handler
 
-import app.mcorg.presentation.templated.common.link.Link
+import app.mcorg.presentation.templated.dsl.Link
 import app.mcorg.presentation.utils.getUser
 import io.ktor.server.application.*
 import io.ktor.server.response.*

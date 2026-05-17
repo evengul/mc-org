@@ -1,6 +1,5 @@
 package app.mcorg.presentation.templated.common.form.radiogroup
 
-import app.mcorg.presentation.templated.common.component.LeafComponent
 import kotlinx.html.*
 
 data class RadioGroupOption(
@@ -44,9 +43,9 @@ class RadioGroup(
     var state: RadioGroupState = RadioGroupState.DEFAULT,
     var layout: RadioGroupLayout = RadioGroupLayout.VERTICAL,
     var block: DIV.() -> Unit = {},
-) : LeafComponent() {
+) {
 
-    override fun render(container: TagConsumer<*>) {
+    fun render(container: TagConsumer<*>) {
         container.div {
             // Apply layout utility classes
             block()

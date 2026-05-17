@@ -11,7 +11,7 @@ import app.mcorg.presentation.hxPut
 import app.mcorg.presentation.hxSwap
 import app.mcorg.presentation.hxTarget
 import kotlinx.html.stream.createHTML
-import app.mcorg.presentation.templated.common.link.Link
+import app.mcorg.presentation.templated.dsl.Link
 import app.mcorg.presentation.templated.dsl.appHeader
 import app.mcorg.presentation.templated.dsl.container
 import app.mcorg.presentation.templated.dsl.pageShell

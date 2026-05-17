@@ -2,7 +2,7 @@ package app.mcorg.presentation.templated.settings
 
 import app.mcorg.domain.model.world.World
 import app.mcorg.presentation.hxDeleteWithConfirm
-import app.mcorg.presentation.templated.common.link.Link
+import app.mcorg.presentation.templated.dsl.Link
 import app.mcorg.presentation.templated.dsl.dangerZone
 import kotlinx.html.ButtonType
 import kotlinx.html.DIV

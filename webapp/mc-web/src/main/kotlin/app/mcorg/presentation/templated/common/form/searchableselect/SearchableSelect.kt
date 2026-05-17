@@ -1,8 +1,6 @@
 package app.mcorg.presentation.templated.common.form.searchableselect
 
 import app.mcorg.presentation.*
-import app.mcorg.presentation.templated.common.component.LeafComponent
-import app.mcorg.presentation.templated.common.component.addComponent
 import kotlinx.html.*
 
 /**
@@ -145,9 +143,9 @@ class SearchableSelect<T>(
     var valueSerializer: (T) -> String = { it.toString() },
     var minQueryLength: Int = 2,
     var maxDisplayedResults: Int = 200
-) : LeafComponent() {
+) {
 
-    override fun render(container: TagConsumer<*>) {
+    fun render(container: TagConsumer<*>) {
         container.div("searchable-select ${getSizeClass()} ${extraClasses.joinToString(" ")}".trim()) {
             this.id = this@SearchableSelect.id
             attributes["data-searchable-select"] = this@SearchableSelect.id
@@ -316,6 +314,6 @@ inline fun <reified V, T : Tag> T.searchableSelect(
 ) {
     val component = SearchableSelect(id, name, options)
     block.invoke(component)
-    this.addComponent(component)
+    component.render(consumer)
 }
 

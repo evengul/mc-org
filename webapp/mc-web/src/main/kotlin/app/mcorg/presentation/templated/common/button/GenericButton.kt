@@ -3,7 +3,6 @@ package app.mcorg.presentation.templated.common.button
 import app.mcorg.presentation.templated.common.icon.Icon
 import app.mcorg.presentation.templated.common.icon.IconSize
 import app.mcorg.presentation.templated.common.icon.iconComponent
-import app.mcorg.presentation.templated.common.component.LeafComponent
 import app.mcorg.presentation.templated.common.icon.IconColor
 import kotlinx.html.BUTTON
 import kotlinx.html.TagConsumer
@@ -23,9 +22,9 @@ class GenericButton(
     var ariaLabel: String? = null,
     var buttonBlock: (BUTTON.() -> Unit)? = null,
     var id: String? = null,
-) : LeafComponent() {
+) {
 
-    override fun render(container: TagConsumer<*>) {
+    fun render(container: TagConsumer<*>) {
         href?.let {
             // Render as <a> styled as button (for navigation)
             container.a {

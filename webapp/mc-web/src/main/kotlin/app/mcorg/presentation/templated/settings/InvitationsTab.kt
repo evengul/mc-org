@@ -6,7 +6,7 @@ import app.mcorg.domain.model.user.Role
 import app.mcorg.pipeline.world.invitations.CountWorldInvitationsResult
 import app.mcorg.pipeline.world.invitations.InvitationStatusFilter
 import app.mcorg.presentation.*
-import app.mcorg.presentation.templated.common.link.Link
+import app.mcorg.presentation.templated.dsl.Link
 import app.mcorg.presentation.templated.dsl.BadgeVariant
 import app.mcorg.presentation.templated.dsl.TabItem
 import app.mcorg.presentation.templated.dsl.TabVariant

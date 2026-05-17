@@ -3,12 +3,16 @@ package app.mcorg.presentation.handler
 import app.mcorg.presentation.templated.dsl.CONFIRM_DELETE_MODAL_ID
 import app.mcorg.presentation.templated.dsl.pageShell
 import app.mcorg.presentation.utils.respondHtml
+import app.mcorg.test.postgres.DatabaseTestExtension
 import io.ktor.client.request.get
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.routing.get
 import io.ktor.server.testing.testApplication
+import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.TestInstance
+import org.junit.jupiter.api.extension.ExtendWith
 import kotlin.test.assertEquals
 import kotlin.test.assertContains
 
@@ -17,7 +21,10 @@ import kotlin.test.assertContains
  * confirmation-modal.js. Any drift in IDs silently breaks all delete flows in production,
  * so this test guards the JS contract after the port from the legacy common/modal location.
  */
-class ConfirmDeleteModalIT {
+@Tag("database")
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
+@ExtendWith(DatabaseTestExtension::class)
+class ConfirmDeleteModalTest {
 
     @Test
     fun `confirmDeleteModal renders all 9 element IDs required by confirmation-modal js`() {

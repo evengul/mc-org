@@ -4,7 +4,7 @@ import app.mcorg.domain.model.idea.Idea
 import app.mcorg.domain.model.user.TokenProfile
 import app.mcorg.pipeline.idea.IdeaSearchFilters
 import app.mcorg.pipeline.idea.PaginatedResult
-import app.mcorg.presentation.templated.common.link.Link
+import app.mcorg.presentation.templated.dsl.Link
 import app.mcorg.presentation.templated.dsl.appHeader
 import app.mcorg.presentation.templated.dsl.container
 import app.mcorg.presentation.templated.dsl.pageShell

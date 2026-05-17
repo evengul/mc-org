@@ -3,7 +3,7 @@ package app.mcorg.presentation.templated.common.button
 import app.mcorg.presentation.templated.common.icon.Icon
 import app.mcorg.presentation.templated.common.icon.IconSize
 import app.mcorg.presentation.templated.common.icon.Icons
-import app.mcorg.presentation.templated.common.link.Link
+import app.mcorg.presentation.templated.dsl.Link
 import kotlinx.html.Tag
 
 fun <T : Tag> T.actionButton(text: String, buttonHandler: (GenericButton.() -> Unit)? = null) {

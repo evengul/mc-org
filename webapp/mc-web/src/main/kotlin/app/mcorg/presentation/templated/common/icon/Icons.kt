@@ -1,7 +1,5 @@
 package app.mcorg.presentation.templated.common.icon
 
-import app.mcorg.presentation.templated.common.component.LeafComponent
-import app.mcorg.presentation.templated.common.component.addComponent
 import kotlinx.html.*
 
 enum class IconSize(val width: Int, val height: Int) {
@@ -45,7 +43,7 @@ fun <T : Tag> T.iconComponent(
     classes: MutableSet<String> = mutableSetOf()
 ) {
     val component = IconComponent(icon, size, color, classes)
-    addComponent(component)
+    component.render(consumer)
 }
 
 class IconComponent(
@@ -53,9 +51,9 @@ class IconComponent(
     private val size: IconSize = IconSize.MEDIUM,
     private val color: IconColor = IconColor.DEFAULT,
     private val additionalClasses: MutableSet<String> = mutableSetOf(),
-) : LeafComponent() {
+) {
 
-    override fun render(container: TagConsumer<*>) {
+    fun render(container: TagConsumer<*>) {
         container.div {
             // Apply base icon class and modifiers
             classes = additionalClasses + mutableSetOf("icon").apply {
