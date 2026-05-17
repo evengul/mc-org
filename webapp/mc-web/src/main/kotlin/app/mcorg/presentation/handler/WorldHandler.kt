@@ -2,44 +2,22 @@ package app.mcorg.presentation.handler
 
 import app.mcorg.pipeline.invitation.commonsteps.GetUserInvitationsStep
 import app.mcorg.pipeline.minecraftfiles.GetSupportedVersionsStep
-import app.mcorg.pipeline.project.dependencies.handleCreateProjectDependency
-import app.mcorg.pipeline.project.dependencies.handleDeleteProjectDependency
 import app.mcorg.pipeline.project.viewpreference.handleSetViewPreference
-import app.mcorg.pipeline.project.getStageSelectFragment
 import app.mcorg.pipeline.project.handleCreateProject
 import app.mcorg.pipeline.project.handleDeleteProject
-import app.mcorg.pipeline.project.handleEditLocation
-import app.mcorg.pipeline.project.handleGetEditLocationFragment
 import app.mcorg.pipeline.project.handleGetProject
-import app.mcorg.pipeline.project.handleSearchProjects
-import app.mcorg.pipeline.project.handleUpdateProjectStage
-import app.mcorg.pipeline.project.resources.handleCreateProjectProduction
-import app.mcorg.pipeline.project.resources.handleDeleteProjectProductionItem
-import app.mcorg.pipeline.project.settings.handleUpdateProjectDescription
-import app.mcorg.pipeline.project.settings.handleUpdateProjectName
-import app.mcorg.pipeline.project.settings.handleUpdateProjectType
+import app.mcorg.pipeline.project.handleGetDetailContent
 import app.mcorg.pipeline.resources.handleClearResourceSource
 import app.mcorg.pipeline.resources.handleCreateResourceGatheringItem
 import app.mcorg.pipeline.resources.handleDeleteResourceGatheringItem
 import app.mcorg.pipeline.resources.handleGetResourceDetailPanel
 import app.mcorg.pipeline.resources.handleSetResourceSource
 import app.mcorg.pipeline.resources.handleUpdateResourceRequiredAmount
-import app.mcorg.pipeline.resources.handleExpandPathNode
-import app.mcorg.pipeline.resources.handleFindIdeasForResource
-import app.mcorg.pipeline.resources.handleGetPlanView
-import app.mcorg.pipeline.resources.handleConfirmResourcePath
-import app.mcorg.pipeline.resources.handleResetResourcePath
-import app.mcorg.pipeline.resources.handleSaveResourcePath
-import app.mcorg.pipeline.resources.handleSelectResourcePath
-import app.mcorg.pipeline.resources.handleSuggestAllResourcePaths
-import app.mcorg.pipeline.resources.handleSuggestResourcePath
-import app.mcorg.pipeline.project.handleGetDetailContent
 import app.mcorg.pipeline.resources.handleSetCollectedValue
 import app.mcorg.pipeline.resources.handleUpdateRequirementProgress
 import app.mcorg.pipeline.task.handleCompleteActionTask
 import app.mcorg.pipeline.task.handleCreateActionTask
 import app.mcorg.pipeline.task.handleDeleteActionTask
-import app.mcorg.pipeline.task.handleSearchTasks
 import app.mcorg.pipeline.project.handleGetProjectList
 import app.mcorg.pipeline.project.handleGetProjectListFragment
 import app.mcorg.pipeline.world.handleCreateWorld
@@ -58,9 +36,7 @@ import app.mcorg.pipeline.world.settings.members.handleRemoveWorldMember
 import app.mcorg.pipeline.world.settings.members.handleUpdateWorldMemberRole
 import app.mcorg.presentation.plugins.ActionTaskParamPlugin
 import app.mcorg.presentation.plugins.InviteParamPlugin
-import app.mcorg.presentation.plugins.ProjectDependencyItemPlugin
 import app.mcorg.presentation.plugins.ProjectParamPlugin
-import app.mcorg.presentation.plugins.ProjectProductionItemParamPlugin
 import app.mcorg.presentation.plugins.ResourceGatheringIdParamPlugin
 import app.mcorg.presentation.plugins.UpdateActiveWorldPlugin
 import app.mcorg.presentation.plugins.WorldAdminPlugin
@@ -105,9 +81,6 @@ class WorldHandler {
                     get {
                         call.handleGetProjectList()
                     }
-                    get("/search") {
-                        call.handleSearchProjects()
-                    }
                     get("/list-fragment") {
                         call.handleGetProjectListFragment()
                     }
@@ -122,28 +95,10 @@ class WorldHandler {
                         get("/detail-content") {
                             call.handleGetDetailContent()
                         }
-                        get("/stage-select-fragment") {
-                            call.getStageSelectFragment()
-                        }
-                        patch("/stage") {
-                            call.handleUpdateProjectStage()
-                        }
-                        put("/name") {
-                            call.handleUpdateProjectName()
-                        }
-                        put("/description") {
-                            call.handleUpdateProjectDescription()
-                        }
-                        put("/type") {
-                            call.handleUpdateProjectType()
-                        }
                         delete {
                             call.handleDeleteProject()
                         }
                         route("/resources") {
-                            post("/suggest-all-paths") {
-                                call.handleSuggestAllResourcePaths()
-                            }
                             route("/gathering") {
                                 post {
                                     call.handleCreateResourceGatheringItem()
@@ -159,12 +114,6 @@ class WorldHandler {
                                     put("/collected") {
                                         call.handleSetCollectedValue()
                                     }
-                                    get("/matching-ideas") {
-                                        call.handleFindIdeasForResource()
-                                    }
-                                    get("/plan-view") {
-                                        call.handleGetPlanView()
-                                    }
                                     get("/detail-panel") {
                                         call.handleGetResourceDetailPanel()
                                     }
@@ -174,80 +123,15 @@ class WorldHandler {
                                     delete("/source") {
                                         call.handleClearResourceSource()
                                     }
-                                    get("/select-path") {
-                                        call.handleSelectResourcePath()
-                                    }
-                                    post("/suggest-path") {
-                                        call.handleSuggestResourcePath()
-                                    }
-                                    route("/select-path") {
-                                        put {
-                                            call.handleSaveResourcePath()
-                                        }
-                                        get("/expand") {
-                                            call.handleExpandPathNode()
-                                        }
-                                        put("/confirm") {
-                                            call.handleConfirmResourcePath()
-                                        }
-                                        delete {
-                                            call.handleResetResourcePath()
-                                        }
-                                    }
                                     delete {
                                         call.handleDeleteResourceGatheringItem()
                                     }
                                 }
                             }
-                            route("/production") {
-                                post {
-                                    call.handleCreateProjectProduction()
-                                }
-                                route("/{resourceId}") {
-                                    install(ProjectProductionItemParamPlugin)
-                                    patch("/active") {
-                                        // Update resource
-                                    }
-                                    patch("/rate") {
-
-                                    }
-                                    delete {
-                                        call.handleDeleteProjectProductionItem()
-                                    }
-                                }
-                            }
-                        }
-                        route("/location") {
-                            get("/edit") {
-                                call.handleGetEditLocationFragment()
-                            }
-                            put {
-                                call.handleEditLocation()
-                            }
-                        }
-                        route("/dependencies") {
-                            post {
-                                call.handleCreateProjectDependency()
-                            }
-                            route("/{dependencyId}") {
-                                install(ProjectDependencyItemPlugin)
-                                delete {
-                                    call.handleDeleteProjectDependency()
-                                }
-                            }
-                            post("/{projectId}/task/{taskId}") {
-                                // Add task dependency
-                            }
-                            delete("/{projectId}/task/{taskId}") {
-                                // Remove task dependency
-                            }
                         }
                         route("/tasks") {
                             post {
                                 call.handleCreateActionTask()
-                            }
-                            get("/search") {
-                                call.handleSearchTasks()
                             }
                             route("/{taskId}") {
                                 install(ActionTaskParamPlugin)
@@ -261,25 +145,6 @@ class WorldHandler {
                         }
                         post("/view-preference") {
                             call.handleSetViewPreference()
-                        }
-                    }
-                }
-                route("/resources") {
-                    get {
-
-                    }
-                    route("/map") {
-                        post {
-
-                        }
-                        delete {
-
-                        }
-                        post("/{mapId}") {
-                            // Create map resource
-                        }
-                        delete("/{mapId}/{resourceId}") {
-                            // Delete map resource
                         }
                     }
                 }
