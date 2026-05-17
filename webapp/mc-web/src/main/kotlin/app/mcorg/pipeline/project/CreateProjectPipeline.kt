@@ -19,7 +19,6 @@ import app.mcorg.presentation.hxOutOfBands
 import app.mcorg.presentation.templated.dsl.pages.planProjectCardFragment
 import app.mcorg.presentation.templated.dsl.pages.projectCardFragment
 import app.mcorg.presentation.templated.dsl.pages.projectsToolbarOobFragment
-import app.mcorg.presentation.templated.world.projectItem
 import app.mcorg.presentation.utils.getUser
 import app.mcorg.presentation.utils.getWorldId
 import app.mcorg.presentation.utils.respondHtml
