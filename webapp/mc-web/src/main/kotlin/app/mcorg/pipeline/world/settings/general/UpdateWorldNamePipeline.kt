@@ -9,10 +9,10 @@ import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.failure.ValidationFailure
 import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.hxOutOfBands
-import app.mcorg.presentation.templated.common.icon.IconColor
-import app.mcorg.presentation.templated.common.icon.IconSize
-import app.mcorg.presentation.templated.common.icon.Icons
-import app.mcorg.presentation.templated.common.icon.iconComponent
+import app.mcorg.presentation.templated.dsl.IconColor
+import app.mcorg.presentation.templated.dsl.IconSize
+import app.mcorg.presentation.templated.dsl.Icons
+import app.mcorg.presentation.templated.dsl.iconComponent
 import app.mcorg.presentation.templated.dsl.AlertType
 import app.mcorg.presentation.templated.dsl.createAlert
 import app.mcorg.presentation.utils.getWorldId

@@ -1,7 +1,4 @@
-package app.mcorg.presentation.templated.common.breadcrumb
-
-import app.mcorg.presentation.templated.common.icon.Icon
-import app.mcorg.presentation.templated.dsl.Link
+package app.mcorg.presentation.templated.dsl
 
 /**
  * Represents a single item in the breadcrumb navigation
@@ -29,4 +26,3 @@ data class Breadcrumbs(
         fun empty(): Breadcrumbs = Breadcrumbs(emptyList())
     }
 }
-

@@ -3,9 +3,9 @@ package app.mcorg.presentation.templated.idea.createwizard
 import app.mcorg.domain.model.idea.schema.CategoryField
 import app.mcorg.domain.model.idea.schema.CategoryValue
 import app.mcorg.domain.model.minecraft.MinecraftVersionRange
-import app.mcorg.presentation.templated.common.button.iconButton
-import app.mcorg.presentation.templated.common.icon.IconSize
-import app.mcorg.presentation.templated.common.icon.Icons
+import app.mcorg.presentation.templated.dsl.iconButton
+import app.mcorg.presentation.templated.dsl.IconSize
+import app.mcorg.presentation.templated.dsl.Icons
 import kotlinx.html.DIV
 import kotlinx.html.InputType
 import kotlinx.html.classes

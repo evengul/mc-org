@@ -1,9 +1,9 @@
 package app.mcorg.presentation.templated.idea.createwizard
 
 import app.mcorg.domain.model.idea.Author
-import app.mcorg.presentation.templated.common.form.radiogroup.RadioGroupLayout
-import app.mcorg.presentation.templated.common.form.radiogroup.RadioGroupOption
-import app.mcorg.presentation.templated.common.form.radiogroup.radioGroup
+import app.mcorg.presentation.templated.dsl.RadioGroupLayout
+import app.mcorg.presentation.templated.dsl.RadioGroupOption
+import app.mcorg.presentation.templated.dsl.radioGroup
 import kotlinx.html.ButtonType
 import kotlinx.html.DIV
 import kotlinx.html.InputType

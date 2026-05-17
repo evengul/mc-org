@@ -1,8 +1,8 @@
 package app.mcorg.presentation.templated.idea.createwizard
 
 import app.mcorg.domain.model.minecraft.Item
-import app.mcorg.presentation.templated.common.button.iconButton
-import app.mcorg.presentation.templated.common.icon.Icons
+import app.mcorg.presentation.templated.dsl.iconButton
+import app.mcorg.presentation.templated.dsl.Icons
 import kotlinx.html.ButtonType
 import kotlinx.html.LI
 import kotlinx.html.classes

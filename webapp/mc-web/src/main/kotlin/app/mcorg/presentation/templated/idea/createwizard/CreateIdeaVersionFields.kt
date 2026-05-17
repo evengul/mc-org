@@ -2,8 +2,8 @@ package app.mcorg.presentation.templated.idea.createwizard
 
 import app.mcorg.domain.model.minecraft.MinecraftVersion
 import app.mcorg.domain.model.minecraft.MinecraftVersionRange
-import app.mcorg.presentation.templated.common.form.radiogroup.RadioGroupOption
-import app.mcorg.presentation.templated.common.form.radiogroup.radioGroup
+import app.mcorg.presentation.templated.dsl.RadioGroupOption
+import app.mcorg.presentation.templated.dsl.radioGroup
 import kotlinx.html.*
 
 fun FORM.versionFields(supportedVersions: List<MinecraftVersion.Release>, versionRange: MinecraftVersionRange? = null, ) {

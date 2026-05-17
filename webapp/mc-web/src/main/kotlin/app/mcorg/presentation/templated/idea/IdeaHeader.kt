@@ -1,9 +1,9 @@
 package app.mcorg.presentation.templated.idea
 
 import app.mcorg.domain.model.user.TokenProfile
-import app.mcorg.presentation.templated.common.button.actionButton
-import app.mcorg.presentation.templated.common.icon.IconSize
-import app.mcorg.presentation.templated.common.icon.Icons
+import app.mcorg.presentation.templated.dsl.actionButton
+import app.mcorg.presentation.templated.dsl.IconSize
+import app.mcorg.presentation.templated.dsl.Icons
 import app.mcorg.presentation.templated.dsl.Link
 import kotlinx.html.*
 

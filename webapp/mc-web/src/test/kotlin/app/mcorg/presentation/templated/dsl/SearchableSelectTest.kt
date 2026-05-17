@@ -1,4 +1,4 @@
-package app.mcorg.presentation.templated.common.form.searchableselect
+package app.mcorg.presentation.templated.dsl
 
 import kotlinx.html.div
 import kotlinx.html.stream.createHTML

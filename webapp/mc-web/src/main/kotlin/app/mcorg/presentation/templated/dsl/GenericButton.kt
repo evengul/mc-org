@@ -1,9 +1,5 @@
-package app.mcorg.presentation.templated.common.button
+package app.mcorg.presentation.templated.dsl
 
-import app.mcorg.presentation.templated.common.icon.Icon
-import app.mcorg.presentation.templated.common.icon.IconSize
-import app.mcorg.presentation.templated.common.icon.iconComponent
-import app.mcorg.presentation.templated.common.icon.IconColor
 import kotlinx.html.BUTTON
 import kotlinx.html.TagConsumer
 import kotlinx.html.a

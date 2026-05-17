@@ -1,4 +1,4 @@
-package app.mcorg.presentation.templated.common.form.radiogroup
+package app.mcorg.presentation.templated.dsl
 
 import kotlinx.html.*
 

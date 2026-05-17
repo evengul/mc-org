@@ -5,9 +5,9 @@ import app.mcorg.domain.model.project.Project
 import app.mcorg.domain.model.world.World
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
-import app.mcorg.presentation.templated.common.breadcrumb.BreadcrumbItem
-import app.mcorg.presentation.templated.common.breadcrumb.Breadcrumbs
-import app.mcorg.presentation.templated.common.icon.Icons
+import app.mcorg.presentation.templated.dsl.BreadcrumbItem
+import app.mcorg.presentation.templated.dsl.Breadcrumbs
+import app.mcorg.presentation.templated.dsl.Icons
 import app.mcorg.presentation.templated.dsl.Link
 
 /**

@@ -1,4 +1,4 @@
-package app.mcorg.presentation.templated.common.form.searchableselect
+package app.mcorg.presentation.templated.dsl
 
 import app.mcorg.presentation.*
 import kotlinx.html.*
@@ -316,4 +316,3 @@ inline fun <reified V, T : Tag> T.searchableSelect(
     block.invoke(component)
     component.render(consumer)
 }
-
