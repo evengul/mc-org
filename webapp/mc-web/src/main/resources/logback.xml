@@ -17,5 +17,5 @@
     <logger name="com.github.dockerjava" level="WARN" />
     <logger name="org.testcontainers" level="WARN" />
     <logger name="io.mockk" level="ERROR" />
-    <logger name="app.mcorg.pipeline.minecraftfiles.ExtractRelevantMinecraftFilesStep" level="INFO" />
+    <logger name="app.mcorg.data.minecraft.extract.ExtractRelevantMinecraftFilesStep" level="INFO" />
 </configuration>
