@@ -15,7 +15,7 @@ suspend fun ApplicationCall.handleGetCreateCategoryFields() {
     val categoryParam = request.queryParameters["category"]?.uppercase() ?: run {
         respondHtml(createHTML().div {
             p("subtle") {
-                style = "text-align: center; padding: var(--spacing-sm);"
+                style = "text-align: center;"
                 +"Select a category to see specific fields"
             }
         })
@@ -38,7 +38,7 @@ suspend fun ApplicationCall.handleGetCreateCategoryFields() {
             // If no fields exist
             if (schema.fields.isEmpty()) {
                 p("subtle") {
-                    style = "text-align: center; padding: var(--spacing-sm);"
+                    style = "text-align: center;"
                     +"No additional fields for this category"
                 }
             }
@@ -50,7 +50,7 @@ suspend fun ApplicationCall.handleGetCreateCategoryFields() {
         // Invalid category name
         respondHtml(createHTML().div {
             p("subtle") {
-                style = "text-align: center; padding: var(--spacing-sm);"
+                style = "text-align: center;"
                 +"Invalid category"
             }
         })

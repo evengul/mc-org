@@ -7,9 +7,7 @@ import app.mcorg.presentation.plugins.BannedPlugin
 import app.mcorg.presentation.plugins.DemoUserPlugin
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.*
-import io.ktor.server.request.queryString
 import io.ktor.server.response.respond
-import io.ktor.server.response.respondRedirect
 import io.ktor.server.routing.*
 
 fun Application.configureAppRouter() {
@@ -35,17 +33,6 @@ fun Application.configureAppRouter() {
         route("") {
             install(BannedPlugin)
             appRouterV2()
-        }
-        route("/app") {
-            get("{path...}") {
-                val path = call.parameters.getAll("path")?.joinToString("/") ?: ""
-                val query = call.request.queryString()
-                val redirect = "/$path${if (query.isNotEmpty()) "?$query" else ""}"
-                call.respondRedirect(redirect, permanent = true)
-            }
-            get {
-                call.respondRedirect("/worlds", permanent = true)
-            }
         }
     }
 }

@@ -69,7 +69,7 @@ fun DIV.versionBoundFields(supportedVersions: List<MinecraftVersion.Release>, ve
         }
         is MinecraftVersionRange.Unbounded -> {
             p("subtle") {
-                style = "text-align: center; padding: var(--spacing-sm);"
+                style = "text-align: center;"
                 +"This idea works in all Minecraft versions"
             }
             input {

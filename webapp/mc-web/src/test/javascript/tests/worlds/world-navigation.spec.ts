@@ -51,7 +51,7 @@ test.describe('World Navigation', () => {
   });
 
   test('should handle navigation to non-existent world gracefully', async ({ page }) => {
-    await page.goto("/app/worlds/999999")
+    await page.goto("/worlds/999999")
     await expect(page.locator('body')).toContainText("World with ID 999999 does not exist");
   });
 
@@ -68,7 +68,7 @@ test.describe('World Navigation', () => {
     }
 
     // Navigate to home/world selection
-    await page.goto('/app');
+    await page.goto('/worlds');
     await TestSetup.waitForPageLoad(page);
 
     // All worlds should be visible

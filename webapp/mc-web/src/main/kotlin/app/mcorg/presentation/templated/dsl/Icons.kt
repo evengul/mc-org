@@ -10,30 +10,31 @@ enum class IconSize(val width: Int, val height: Int) {
 
 
 /**
- * Icon colors using CSS custom properties instead of hardcoded hex values.
- * These align with the new CSS architecture documented in DOCUMENTATION.md
+ * Icon colors. The original legacy colour-token mappings were removed during
+ * the MCO-161 dead-token sweep; every value currently inherits the surrounding
+ * text colour. Semantic per-variant colours are to be restored in a follow-up.
  */
 enum class IconColor(val cssVar: String) {
     // Action/Primary colors
-    ACTION("var(--clr-action)"),
-    ON_ACTION("var(--clr-text-on-action)"),
+    ACTION("inherit"),
+    ON_ACTION("inherit"),
 
     // State colors
-    ON_NEUTRAL("var(--clr-text-on-neutral)"),
-    ON_DANGER("var(--clr-text-on-danger)"),
-    ON_SUCCESS("var(--clr-text-on-success)"),
-    ON_WARNING("var(--clr-text-on-warning)"),
-    ON_INFO("var(--clr-text-on-info)"),
+    ON_NEUTRAL("inherit"),
+    ON_DANGER("inherit"),
+    ON_SUCCESS("inherit"),
+    ON_WARNING("inherit"),
+    ON_INFO("inherit"),
 
     // Text colors
-    DEFAULT("var(--clr-text-default)"),
-    SUBTLE("var(--clr-text-subtle)"),
-    ACTION_TEXT("var(--clr-text-action)"),
-    DANGER_TEXT("var(--clr-text-danger)"),
+    DEFAULT("inherit"),
+    SUBTLE("inherit"),
+    ACTION_TEXT("inherit"),
+    DANGER_TEXT("inherit"),
 
     // Surface colors
-    ON_BACKGROUND("var(--clr-text-default)"),
-    ON_SURFACE("var(--clr-text-default)")
+    ON_BACKGROUND("inherit"),
+    ON_SURFACE("inherit")
 }
 
 fun <T : Tag> T.iconComponent(

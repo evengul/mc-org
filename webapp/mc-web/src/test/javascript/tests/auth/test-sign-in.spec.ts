@@ -10,7 +10,7 @@ test.describe('Authentication', () => {
 
   test('should redirect unauthenticated users to sign-in page', async ({page}) => {
     // Attempt to access protected route
-    await page.goto('/app');
+    await page.goto('/worlds');
 
     // Should be redirected to sign-in page
     await expect(page).toHaveURL(/\/auth\/sign-in/);
@@ -30,7 +30,7 @@ test.describe('Authentication', () => {
     await authHelpers.signInAsTestUser();
 
     // Should be redirected to app and authenticated
-    await expect(page).toHaveURL('/app');
+    await expect(page).toHaveURL('/worlds');
 
     // Verify we can access authenticated content
     await expect(page.locator('body')).not.toContainText('Sign In');
@@ -41,14 +41,14 @@ test.describe('Authentication', () => {
 
     // Sign in first
     await authHelpers.signInAsTestUser();
-    await expect(page).toHaveURL('/app');
+    await expect(page).toHaveURL('/worlds');
 
     // Refresh the page
     await page.reload();
     await TestSetup.waitForPageLoad(page);
 
     // Should still be authenticated
-    await expect(page).toHaveURL('/app');
+    await expect(page).toHaveURL('/worlds');
     await expect(page.locator('body')).not.toContainText('Sign In');
   });
 
@@ -57,7 +57,7 @@ test.describe('Authentication', () => {
 
     // Sign in first
     await authHelpers.signInAsTestUser();
-    await expect(page).toHaveURL('/app');
+    await expect(page).toHaveURL('/worlds');
 
     // Sign out
     await authHelpers.signOut();
@@ -66,7 +66,7 @@ test.describe('Authentication', () => {
     await expect(page).toHaveURL(/\/(auth\/sign-in)?$/);
 
     // Attempt to access protected route should redirect to sign-in
-    await page.goto('/app');
+    await page.goto('/worlds');
     await expect(page).toHaveURL(/\/auth\/sign-in/);
   });
 
@@ -75,7 +75,7 @@ test.describe('Authentication', () => {
     await page.goto('/auth/oidc/test-redirect');
 
     // Should be authenticated and redirected to app
-    await expect(page).toHaveURL('/app');
+    await expect(page).toHaveURL('/worlds');
 
     // Verify authentication worked
     await expect(page.locator('body')).not.toContainText('Sign In');
@@ -86,10 +86,10 @@ test.describe('Authentication', () => {
 
     // First authentication
     await authHelpers.signInAsTestUser();
-    await expect(page).toHaveURL('/app');
+    await expect(page).toHaveURL('/worlds');
 
     // Get some indicator of current user (this may need adjustment based on actual UI)
-    await page.goto("/app/profile")
+    await page.goto("/profile")
     const userIndicator1 = await page.getByRole("textbox").nth(1).textContent();
 
     // Sign out and sign in again
@@ -97,7 +97,7 @@ test.describe('Authentication', () => {
     await authHelpers.signInAsTestUser();
 
     // Get user indicator again
-    await page.goto("/app/profile")
+    await page.goto("/profile")
     const userIndicator2 = await page.getByRole("textbox").nth(1).textContent();
 
     // Should have different users (TestUser_{random} format)
