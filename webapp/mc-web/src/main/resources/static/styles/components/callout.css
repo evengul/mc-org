@@ -1,0 +1,49 @@
+/* ==========================================================================
+   CALLOUT / NOTICE
+   ========================================================================== */
+
+.callout {
+    display: flex;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-4);
+    background: var(--bg-raised);
+    border-left: 3px solid var(--amber);
+    border-radius: 0 var(--radius) var(--radius) 0;
+}
+
+.callout--error {
+    border-left-color: var(--red);
+}
+
+.callout--info {
+    border-left-color: var(--accent);
+}
+
+.callout__icon {
+    font-size: var(--text-base);
+    color: var(--amber);
+    flex-shrink: 0;
+    line-height: 1.5;
+}
+
+.callout--error .callout__icon {
+    color: var(--red);
+}
+
+.callout--info .callout__icon {
+    color: var(--accent);
+}
+
+.callout__body {
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    color: var(--text-primary);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    line-height: 1.5;
+}
+
+.callout__body p {
+    margin: 0;
+}

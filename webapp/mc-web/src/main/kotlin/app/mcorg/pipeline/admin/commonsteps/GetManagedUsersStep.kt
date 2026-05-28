@@ -39,7 +39,7 @@ val GetManagedUsersStep = DatabaseSteps.query<GetManagedUsersInput, List<Managed
                 email = rs.getString("email"),
                 globalRole = Role.MEMBER, // TODO: replace with list of global roles,
                 joinedAt = rs.getTimestamp("joined_at").toInstant().atZone(ZoneOffset.UTC),
-                lastSeen = rs.getTimestamp("last_seen").toInstant().atZone(ZoneOffset.UTC),
+                lastSeen = rs.getTimestamp("last_seen")?.toInstant()?.atZone(ZoneOffset.UTC),
             ))
         }
     }}

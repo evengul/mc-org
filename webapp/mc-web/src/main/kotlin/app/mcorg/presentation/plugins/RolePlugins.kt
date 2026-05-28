@@ -14,8 +14,10 @@ import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.world.ValidateWorldMemberRole
 import app.mcorg.presentation.consts.AUTH_COOKIE
 import app.mcorg.presentation.consts.ISSUER
+import app.mcorg.presentation.templated.error.bannedPage
 import app.mcorg.presentation.utils.getUser
 import app.mcorg.presentation.utils.getWorldId
+import app.mcorg.presentation.utils.respondHtml
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.request.*
@@ -42,15 +44,27 @@ val WorldAdminPlugin = createRouteScopedPlugin("WorldAdminPlugin") {
     }
 }
 
+val WorldOwnerPlugin = createRouteScopedPlugin("WorldOwnerPlugin") {
+    onCall {
+        val user = it.getUser()
+        val worldId = it.getWorldId()
+
+        val result = ValidateWorldMemberRole<Unit>(user, Role.OWNER, worldId).process(Unit)
+        if (result is Result.Failure && result.error is AppFailure.AuthError.NotAuthorized) {
+            it.respond(HttpStatusCode.Forbidden, "Only the world owner can perform this action.")
+        }
+    }
+}
+
 val BannedPlugin = createRouteScopedPlugin("BannedPlugin") {
     onCall {
-        val userId = it.getUser().id
+        val userId = runCatching { it.getUser().id }.getOrNull() ?: return@onCall
 
         // Check cache first
         val cached = CacheManager.bannedUsers.getIfPresent(userId)
         if (cached != null) {
             if (cached) {
-                it.respond(HttpStatusCode.Forbidden, "You are banned from accessing this application.")
+                it.respondHtml(bannedPage(), HttpStatusCode.Forbidden)
             }
             return@onCall
         }
@@ -65,7 +79,7 @@ val BannedPlugin = createRouteScopedPlugin("BannedPlugin") {
         if (result is Result.Success) {
             CacheManager.bannedUsers.put(userId, result.value)
             if (result.value) {
-                it.respond(HttpStatusCode.Forbidden, "You are banned from accessing this application.")
+                it.respondHtml(bannedPage(), HttpStatusCode.Forbidden)
             }
         }
     }

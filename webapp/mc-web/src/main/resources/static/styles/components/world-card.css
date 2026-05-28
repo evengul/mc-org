@@ -1,0 +1,151 @@
+/* ==========================================================================
+   WORLD CARD COMPONENT
+   Clickable card linking to a world's projects page
+   ========================================================================== */
+
+/* --- Toolbar: search + create button --- */
+
+.worlds-toolbar {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    margin-bottom: var(--space-5);
+}
+
+.worlds-toolbar input {
+    flex: 1;
+    background: var(--bg-raised);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 8px var(--space-3);
+    color: var(--text-primary);
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+}
+
+.worlds-toolbar input::placeholder {
+    color: var(--text-muted);
+}
+
+.worlds-toolbar input:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+@media (max-width: 768px) {
+    .worlds-toolbar {
+        flex-direction: column;
+        align-items: stretch;
+    }
+}
+
+/* --- Card list --- */
+
+.world-card-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+}
+
+.world-card {
+    display: block;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: var(--space-4);
+    text-decoration: none;
+    color: inherit;
+    transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.world-card:hover {
+    border-color: #3a4060;
+    background: var(--bg-raised);
+}
+
+/* --- Header: name + version --- */
+
+.world-card__header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-3);
+    margin-bottom: var(--space-2);
+}
+
+.world-card__name {
+    font-family: var(--font-ui);
+    font-size: var(--text-base);
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+}
+
+.world-card__version {
+    font-family: var(--font-ui);
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+/* --- Description --- */
+
+.world-card__description {
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    color: var(--text-muted);
+    margin: 0 0 var(--space-3) 0;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    line-height: 1.5;
+}
+
+/* --- Progress section --- */
+
+.world-card__progress {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+}
+
+.world-card__progress-bar {
+    position: relative;
+    height: 6px;
+    background: var(--bg-raised);
+    border-radius: 2px;
+    overflow: hidden;
+    width: 100%;
+}
+
+.world-card__progress-fill {
+    height: 100%;
+    background: var(--progress);
+    border-radius: 2px;
+    transition: width 200ms ease;
+    min-width: 0;
+}
+
+.world-card__progress-fill--complete {
+    background: var(--green);
+}
+
+.world-card__progress-label {
+    font-family: var(--font-ui);
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+}
+
+/* --- Mobile: full-width, minimum 44px tap target --- */
+
+@media (max-width: 768px) {
+    .world-card {
+        min-height: 44px;
+        padding: var(--space-4);
+    }
+}

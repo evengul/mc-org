@@ -8,8 +8,7 @@ import app.mcorg.pipeline.world.invitations.InvitationStatusFilter
 import app.mcorg.pipeline.world.settings.getStatusFromURL
 import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.hxOutOfBands
-import app.mcorg.presentation.hxTarget
-import app.mcorg.presentation.templated.settings.worldInvitationTabs
+import app.mcorg.presentation.templated.settings.renderInvitationStatusFilterOob
 import app.mcorg.presentation.utils.getInviteId
 import app.mcorg.presentation.utils.getWorldId
 import app.mcorg.presentation.utils.respondHtml
@@ -25,16 +24,12 @@ suspend fun ApplicationCall.handleCancelInvitation() {
 
     handlePipeline(
         onSuccess = { result ->
-            val mainContent = createHTML().div {
-                hxOutOfBands("true")
-                hxTarget("#invitation-status-filter")
-                worldInvitationTabs(result, selectedStatus)
-            }
+            val mainContent = renderInvitationStatusFilterOob(worldId, result, selectedStatus)
             if ((selectedStatus == InvitationStatusFilter.PENDING && result.pending == 0) ||
                 (selectedStatus == InvitationStatusFilter.ALL && result.all == 0)) {
                 respondHtml(
                     mainContent + createHTML().ul {
-                        hxOutOfBands("afterbegin:ul.invitation-list")
+                        hxOutOfBands("afterbegin:#invitation-list")
                         li {
                             id = "empty-invitations-list"
                             p("subtle") {

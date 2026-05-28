@@ -18,7 +18,7 @@ data object CreateTokenStep : Step<TokenProfile, AppFailure.AuthError.CouldNotCr
         val logger = LoggerFactory.getLogger(CreateTokenStep.javaClass)
 
         try {
-            val jwt = JWT.create()
+            val builder = JWT.create()
                 .withAudience(JwtHelper.AUDIENCE)
                 .withIssuer("mcorg")
                 .withClaim("sub", input.id)
@@ -27,7 +27,8 @@ data object CreateTokenStep : Step<TokenProfile, AppFailure.AuthError.CouldNotCr
                 .withClaim("display_name", input.displayName)
                 .withClaim("roles", input.roles)
                 .withExpiresAt(Date(System.currentTimeMillis() + EIGHT_HOURS))
-                .sign(Algorithm.RSA256(publicKey, privateKey)) as String
+            input.activeWorldId?.let { builder.withClaim("active_world_id", it) }
+            val jwt = builder.sign(Algorithm.RSA256(publicKey, privateKey)) as String
             return Result.success(jwt)
         } catch (e: Exception) {
             logger.error("Could not create JWT token for user ${input.minecraftUsername} (${input.id})", e)

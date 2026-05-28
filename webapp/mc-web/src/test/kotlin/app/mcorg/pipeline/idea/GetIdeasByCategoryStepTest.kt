@@ -45,7 +45,8 @@ class GetIdeasByCategoryStepTest : WithUser() {
 
         // Then: All ideas returned
         assertTrue(result is Result.Success)
-        assertEquals(3, result.value.size)
+        assertEquals(3, result.value.items.size)
+        assertEquals(3, result.value.totalCount)
     }
 
     @Test
@@ -61,8 +62,8 @@ class GetIdeasByCategoryStepTest : WithUser() {
 
         // Then: Only FARM ideas returned
         assertTrue(result is Result.Success)
-        assertEquals(2, result.value.size)
-        assertTrue(result.value.all { it.category == IdeaCategory.FARM })
+        assertEquals(2, result.value.items.size)
+        assertTrue(result.value.items.all { it.category == IdeaCategory.FARM })
     }
 
     @Test
@@ -80,8 +81,8 @@ class GetIdeasByCategoryStepTest : WithUser() {
 
         // Then: Only START_OF_GAME and MID_GAME ideas returned
         assertTrue(result is Result.Success)
-        assertEquals(2, result.value.size)
-        assertTrue(result.value.all { it.difficulty in listOf(IdeaDifficulty.START_OF_GAME, IdeaDifficulty.MID_GAME) })
+        assertEquals(2, result.value.items.size)
+        assertTrue(result.value.items.all { it.difficulty in listOf(IdeaDifficulty.START_OF_GAME, IdeaDifficulty.MID_GAME) })
     }
 
     @Test
@@ -97,8 +98,8 @@ class GetIdeasByCategoryStepTest : WithUser() {
 
         // Then: Only ideas with rating >= 4.0 returned
         assertTrue(result is Result.Success)
-        assertEquals(1, result.value.size)
-        assertEquals("High Rated", result.value.first().name)
+        assertEquals(1, result.value.items.size)
+        assertEquals("High Rated", result.value.items.first().name)
     }
 
     @Test
@@ -114,8 +115,8 @@ class GetIdeasByCategoryStepTest : WithUser() {
 
         // Then: Only iron-related ideas returned
         assertTrue(result is Result.Success)
-        assertEquals(1, result.value.size)
-        assertEquals("Iron Farm", result.value.first().name)
+        assertEquals(1, result.value.items.size)
+        assertEquals("Iron Farm", result.value.items.first().name)
     }
 
     @Test
@@ -141,8 +142,8 @@ class GetIdeasByCategoryStepTest : WithUser() {
 
         // Then: Only AFK-able farm returned
         assertTrue(result is Result.Success)
-        assertEquals(1, result.value.size)
-        assertEquals("AFK Iron Farm", result.value.first().name)
+        assertEquals(1, result.value.items.size)
+        assertEquals("AFK Iron Farm", result.value.items.first().name)
     }
 
     @Test
@@ -173,8 +174,8 @@ class GetIdeasByCategoryStepTest : WithUser() {
 
         // Then: Only medium farm returned
         assertTrue(result is Result.Success)
-        assertEquals(1, result.value.size)
-        assertEquals("Medium Farm", result.value.first().name)
+        assertEquals(1, result.value.items.size)
+        assertEquals("Medium Farm", result.value.items.first().name)
     }
 
     @Test
@@ -205,8 +206,8 @@ class GetIdeasByCategoryStepTest : WithUser() {
 
         // Then: Only solo farm returned
         assertTrue(result is Result.Success)
-        assertEquals(1, result.value.size)
-        assertEquals("Solo Farm", result.value.first().name)
+        assertEquals(1, result.value.items.size)
+        assertEquals("Solo Farm", result.value.items.first().name)
     }
 
     @Test
@@ -237,7 +238,7 @@ class GetIdeasByCategoryStepTest : WithUser() {
 
         // Then: All three farms returned (each contains at least one matching biome)
         assertTrue(result is Result.Success)
-        assertEquals(3, result.value.size)
+        assertEquals(3, result.value.items.size)
     }
 
     @Test
@@ -263,8 +264,8 @@ class GetIdeasByCategoryStepTest : WithUser() {
 
         // Then: Item sorter returned
         assertTrue(result is Result.Success)
-        assertEquals(1, result.value.size)
-        assertEquals("Item Sorter A", result.value.first().name)
+        assertEquals(1, result.value.items.size)
+        assertEquals("Item Sorter A", result.value.items.first().name)
     }
 
     @Test
@@ -309,8 +310,8 @@ class GetIdeasByCategoryStepTest : WithUser() {
 
         // Then: Only the good farm matches all criteria
         assertTrue(result is Result.Success)
-        assertEquals(1, result.value.size)
-        assertEquals("Good Carrot Farm", result.value.first().name)
+        assertEquals(1, result.value.items.size)
+        assertEquals("Good Carrot Farm", result.value.items.first().name)
     }
 
     @Test
@@ -324,7 +325,7 @@ class GetIdeasByCategoryStepTest : WithUser() {
 
         // Then: Empty list returned
         assertTrue(result is Result.Success)
-        assertEquals(0, result.value.size)
+        assertEquals(0, result.value.items.size)
     }
 
     /**

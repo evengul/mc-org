@@ -27,4 +27,10 @@ object ServerPathResolvers {
             mainDirectory.resolve("recipe")
         } else mainDirectory.resolve("recipes")
     }
+
+    /** Villager trade JSON files were introduced in 26.1 — earlier versions return a
+     *  non-existent path and the extractor returns an empty list. */
+    fun resolveVillagerTradesPath(mainDirectory: Path): Path {
+        return mainDirectory.resolve("villager_trade")
+    }
 }

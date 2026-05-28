@@ -12,7 +12,7 @@ import app.mcorg.presentation.hxInclude
 import app.mcorg.presentation.hxPost
 import app.mcorg.presentation.hxTarget
 import app.mcorg.presentation.hxTrigger
-import app.mcorg.presentation.templated.common.link.Link
+import app.mcorg.presentation.templated.dsl.Link
 import app.mcorg.presentation.utils.getIdeaId
 import app.mcorg.presentation.utils.getUser
 import app.mcorg.presentation.utils.hxSwap

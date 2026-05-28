@@ -5,10 +5,15 @@ import app.mcorg.pipeline.idea.createfragments.handleGetCreateCategoryFields
 import app.mcorg.pipeline.idea.createfragments.handleGetItemRequirementFields
 import app.mcorg.pipeline.idea.createfragments.handleGetVersionFields
 import app.mcorg.pipeline.idea.createfragments.handleParseLitematica
+import app.mcorg.pipeline.idea.draft.handleCreateDraft
+import app.mcorg.pipeline.idea.draft.handleDeleteDraft
+import app.mcorg.pipeline.idea.draft.handleGetDraftList
+import app.mcorg.pipeline.idea.draft.handleGetDraftWizard
+import app.mcorg.pipeline.idea.draft.handlePublishDraft
+import app.mcorg.pipeline.idea.draft.handleRevertIdeaToDraft
+import app.mcorg.pipeline.idea.draft.handleUpdateDraftStage
 import app.mcorg.pipeline.idea.handleClearCategoryFilters
-import app.mcorg.pipeline.idea.handleCreateIdea
 import app.mcorg.pipeline.idea.handleGetCategoryFilters
-import app.mcorg.pipeline.idea.handleGetCreateIdeaPage
 import app.mcorg.pipeline.idea.handleGetIdeas
 import app.mcorg.pipeline.idea.handleSearchIdeas
 import app.mcorg.pipeline.idea.single.handleCreateIdeaComment
@@ -49,11 +54,16 @@ class IdeaHandler {
                 }
             }
 
+            // Draft-based creation flow (replaces session-based wizard)
             route("/create") {
                 install(IdeaCreatorPlugin)
                 get {
-                    call.handleGetCreateIdeaPage()
+                    call.handleGetDraftList()
                 }
+                post {
+                    call.handleCreateDraft()
+                }
+                // Legacy fragment endpoints retained for now (used by old wizard fields)
                 get("/fields/{category}") {
                     call.handleGetCreateCategoryFields()
                 }
@@ -69,10 +79,27 @@ class IdeaHandler {
                 post("/litematic") {
                     call.handleParseLitematica()
                 }
-                post {
-                    call.handleCreateIdea()
+            }
+
+            // Draft wizard routes
+            route("/drafts") {
+                install(IdeaCreatorPlugin)
+                route("/{draftId}") {
+                    get("/edit") {
+                        call.handleGetDraftWizard()
+                    }
+                    post("/stage") {
+                        call.handleUpdateDraftStage()
+                    }
+                    post("/publish") {
+                        call.handlePublishDraft()
+                    }
+                    delete {
+                        call.handleDeleteDraft()
+                    }
                 }
             }
+
             route("/{ideaId}") {
                 install(IdeaParamPlugin)
                 get {
@@ -97,6 +124,13 @@ class IdeaHandler {
                 }
                 delete {
                     call.handleDeleteIdea()
+                }
+
+                route("/revert") {
+                    install(IdeaCreatorPlugin)
+                    post {
+                        call.handleRevertIdeaToDraft()
+                    }
                 }
 
                 route("/comments") {

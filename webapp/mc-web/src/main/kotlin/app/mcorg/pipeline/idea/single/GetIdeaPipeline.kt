@@ -6,7 +6,6 @@ import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.idea.commonsteps.GetIdeaStep
-import app.mcorg.pipeline.notification.getUnreadNotificationsOrZero
 import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.templated.idea.ideaPage
 import app.mcorg.presentation.utils.getIdeaId
@@ -24,11 +23,9 @@ suspend fun ApplicationCall.handleGetIdea() {
     val ideaId = this.getIdeaId()
     val user = this.getUser()
 
-    val notifications = getUnreadNotificationsOrZero(user.id)
-
     handlePipeline(
         onSuccess = { (idea, comments) ->
-            respondHtml(ideaPage(user, idea, comments, notifications))
+            respondHtml(ideaPage(user, idea, comments))
         }
     ) {
         val (idea, comments) = parallel(

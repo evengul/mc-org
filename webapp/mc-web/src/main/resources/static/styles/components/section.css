@@ -1,0 +1,52 @@
+/* ========================================
+   SECTION
+   Stacked content section: optional eyebrow + h2 + subtitle, then body.
+   Used by settings tabs, profile sections, admin tables. The --tight
+   modifier matches profile / admin (gap-3); the default matches the
+   slightly more spacious settings layout (gap-4). The --card modifier
+   wraps body content in a surface card.
+   ======================================== */
+
+.section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+}
+
+.section--tight {
+    gap: var(--space-3);
+}
+
+.section__heading {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+}
+
+.section__heading-title {
+    margin: 0;
+    font-family: var(--font-ui);
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.section__subtitle {
+    color: var(--text-muted);
+    font-size: var(--text-sm);
+    margin: 0;
+    line-height: 1.5;
+}
+
+.section__body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+}
+
+.section__card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: var(--space-5);
+}

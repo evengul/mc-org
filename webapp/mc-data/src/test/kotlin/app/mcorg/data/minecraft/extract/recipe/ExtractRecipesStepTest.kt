@@ -16,7 +16,9 @@ import kotlin.test.assertNotEquals
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class ExtractRecipesStepTest : ServerFileTest(
-    MinecraftVersionRange.Unbounded
+    MinecraftVersionRange.LowerBounded(
+        from = MinecraftVersion.fromString("26.1")
+    )
 ) {
     @ParameterizedTest
     @MethodSource("getVersions")
@@ -30,6 +32,7 @@ class ExtractRecipesStepTest : ServerFileTest(
 
         val byType = recipes.groupBy { it.type }.mapValues { it.value.size }
         when {
+            version >= MinecraftVersion.Release(26, 1, 0) -> assertEquals(10, byType.size)
             version > MinecraftVersion.Release(1, 21, 1) -> assertEquals(9, byType.size)
             else -> assertEquals(8, byType.size)
         }

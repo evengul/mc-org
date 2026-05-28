@@ -7,8 +7,8 @@ import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.ValidationSteps
 import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.presentation.handler.handlePipeline
-import app.mcorg.presentation.templated.layout.alert.AlertType
-import app.mcorg.presentation.templated.layout.alert.createAlert
+import app.mcorg.presentation.templated.dsl.AlertType
+import app.mcorg.presentation.templated.dsl.createAlert
 import app.mcorg.presentation.utils.getWorldId
 import app.mcorg.presentation.utils.respondHtml
 import io.ktor.http.*

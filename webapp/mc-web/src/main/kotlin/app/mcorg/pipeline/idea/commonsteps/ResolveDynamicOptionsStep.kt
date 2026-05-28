@@ -6,7 +6,7 @@ import app.mcorg.domain.model.minecraft.MinecraftVersionRange
 import app.mcorg.pipeline.Result
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.failure.AppFailure
-import app.mcorg.presentation.templated.common.form.searchableselect.SearchableSelectOption
+import app.mcorg.presentation.templated.dsl.SearchableSelectOption
 
 @Suppress("UNCHECKED_CAST")
 data class ResolveDynamicOptionsStep(val versionRange: MinecraftVersionRange = MinecraftVersionRange.Unbounded) : Step<DynamicOptionsConfig, AppFailure.DatabaseError, List<SearchableSelectOption<String>>> {

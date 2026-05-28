@@ -48,38 +48,32 @@ object ModrinthApiConfig : ApiConfig(AppConfig.modrinthBaseUrl) {
 object MicrosoftLoginApiConfig : ApiConfig(AppConfig.microsoftLoginBaseUrl) {
     override fun getContentType() = ContentType.Application.Json
 
-    fun getTokenUrl() = "${baseUrl}/consumers/oauth2/v2.0/token"
+    fun getTokenUrl() = "${AppConfig.microsoftLoginBaseUrl}/consumers/oauth2/v2.0/token"
 }
 
 object XboxAuthApiConfig : ApiConfig(AppConfig.xboxAuthBaseUrl) {
     override fun getContentType() = ContentType.Application.Json
 
-    fun getAuthenticateUrl() = "${baseUrl}/user/authenticate"
+    fun getAuthenticateUrl() = "${AppConfig.xboxAuthBaseUrl}/user/authenticate"
 }
 
 object XstsAuthorizationApiConfig : ApiConfig(AppConfig.xstsAuthBaseUrl) {
     override fun getContentType() = ContentType.Application.Json
 
-    fun getAuthorizeUrl() = "${baseUrl}/xsts/authorize"
+    fun getAuthorizeUrl() = "${AppConfig.xstsAuthBaseUrl}/xsts/authorize"
 }
 
 object MinecraftApiConfig : ApiConfig(AppConfig.minecraftBaseUrl) {
     override fun getContentType() = ContentType.Application.Json
 
-    fun getAuthenticateUrl() = "${baseUrl}/authentication/login_with_xbox"
-    fun getProfileUrl() = "${baseUrl}/minecraft/profile"
+    fun getAuthenticateUrl() = "${AppConfig.minecraftBaseUrl}/authentication/login_with_xbox"
+    fun getProfileUrl() = "${AppConfig.minecraftBaseUrl}/minecraft/profile"
 }
 
-object FabricMcApiConfig : ApiConfig(AppConfig.fabricMcBaseUrl) {
+object MojangLauncherMetaApiConfig : ApiConfig(AppConfig.launcherMetaBaseUrl) {
     override fun getContentType() = ContentType.Application.Json
 
-    fun getVersionsUrl() = "${baseUrl}/versions/game"
-}
-
-object GithubGistsApiConfig : ApiConfig(AppConfig.githubGistsBaseUrl) {
-    override fun getContentType() = ContentType.Application.Json
-
-    fun getServerJarsUrl() = "${baseUrl}/cliffano/77a982a7503669c3e1acb0a0cf6127e9/raw/e91cfeacc56e461d5943e100a2bc7eb0919c0a83/minecraft-server-jar-downloads.md"
+    fun getVersionManifestUrl() = "${baseUrl}/mc/game/version_manifest_v2.json"
 }
 
 class TestApiConfig : ApiConfig("https://api.example.com") {

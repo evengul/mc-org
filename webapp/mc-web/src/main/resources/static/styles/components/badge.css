@@ -1,0 +1,54 @@
+/* ========================================
+   BADGE
+   Small pill used for status, role, and category labels.
+   Project-stage variants (--not-started/--in-progress/--done) plus
+   general-purpose --neutral, --status (accent), --blocked (danger).
+   ======================================== */
+
+.badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-family: var(--font-ui);
+    font-size: var(--text-label);
+    font-weight: 500;
+    background: var(--bg-raised);
+    color: var(--text-primary);
+    border: 1px solid var(--border);
+}
+
+.badge--neutral {
+    background: var(--bg-raised);
+    color: var(--text-primary);
+    border-color: var(--border);
+}
+
+.badge--status {
+    background: var(--accent-muted);
+    color: var(--accent);
+    border-color: transparent;
+}
+
+.badge--not-started {
+    background: var(--bg-raised);
+    color: var(--text-muted);
+    border-color: var(--border);
+}
+
+.badge--in-progress {
+    background: var(--accent-muted);
+    color: var(--accent);
+    border-color: var(--accent-muted);
+}
+
+.badge--done {
+    background: var(--green-bg);
+    color: var(--green);
+    border-color: var(--green-bg);
+}
+
+.badge--blocked {
+    background: var(--red-bg);
+    color: var(--red);
+    border-color: var(--red-bg);
+}

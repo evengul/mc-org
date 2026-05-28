@@ -2,8 +2,8 @@ package app.mcorg.presentation.templated.idea.createwizard
 
 import app.mcorg.domain.model.minecraft.MinecraftVersion
 import app.mcorg.domain.model.minecraft.MinecraftVersionRange
-import app.mcorg.presentation.templated.common.form.radiogroup.RadioGroupOption
-import app.mcorg.presentation.templated.common.form.radiogroup.radioGroup
+import app.mcorg.presentation.templated.dsl.RadioGroupOption
+import app.mcorg.presentation.templated.dsl.radioGroup
 import kotlinx.html.*
 
 fun FORM.versionFields(supportedVersions: List<MinecraftVersion.Release>, versionRange: MinecraftVersionRange? = null, ) {
@@ -33,7 +33,7 @@ fun FORM.versionFields(supportedVersions: List<MinecraftVersion.Release>, versio
                 }
             ) {
                 block = {
-                    attributes["hx-get"] = "/app/ideas/create/version-fields"
+                    attributes["hx-get"] = "/ideas/create/version-fields"
                     attributes["hx-target"] = "#version-fields"
                     attributes["hx-swap"] = "innerHTML"
                     attributes["hx-trigger"] = "change"
@@ -69,7 +69,7 @@ fun DIV.versionBoundFields(supportedVersions: List<MinecraftVersion.Release>, ve
         }
         is MinecraftVersionRange.Unbounded -> {
             p("subtle") {
-                style = "text-align: center; padding: var(--spacing-sm);"
+                style = "text-align: center;"
                 +"This idea works in all Minecraft versions"
             }
             input {

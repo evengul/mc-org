@@ -6,6 +6,7 @@ import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.failure.AppFailure
+import app.mcorg.pipeline.invitation.commonsteps.GetUserInvitationsStep
 import app.mcorg.pipeline.invitation.commonsteps.ValidateInvitationAccessStep
 import app.mcorg.pipeline.invitation.commonsteps.ValidateInvitationPendingStep
 import app.mcorg.presentation.handler.handlePipeline
@@ -15,6 +16,7 @@ import app.mcorg.presentation.utils.respondHtml
 import io.ktor.server.application.*
 import kotlinx.html.div
 import kotlinx.html.id
+import kotlinx.html.span
 import kotlinx.html.stream.createHTML
 
 suspend fun ApplicationCall.handleDeclineInvitation() {
@@ -22,21 +24,32 @@ suspend fun ApplicationCall.handleDeclineInvitation() {
     val inviteId = this.getInviteId()
 
     handlePipeline(
-        onSuccess = {
-            respondHtml(createHTML().div {
+        onSuccess = { result ->
+            val (worldName, remaining) = result
+            val primary = createHTML(prettyPrint = false).span { }
+            val notice = createHTML(prettyPrint = false).div {
+                id = "notice-container"
+                attributes["hx-swap-oob"] = "innerHTML"
                 div("notice notice--success") {
-                    +"Invitation declined successfully"
+                    +"Declined invitation to $worldName"
                 }
-                div {
-                    id = "invite-${inviteId}"
+            }
+            val sectionOob = if (remaining == 0) {
+                createHTML(prettyPrint = false).span {
+                    id = "pending-invitations-section"
+                    attributes["hx-swap-oob"] = "outerHTML"
                 }
-            })
+            } else ""
+            respondHtml(primary + notice + sectionOob)
         }
     ) {
-        ValidateInvitationAccessStep(user.id).run(inviteId)
+        val access = ValidateInvitationAccessStep(user.id).run(inviteId)
+        val worldName = access.second
         ValidateInvitationPendingStep<Int>().run(inviteId to inviteId)
         DeclineInvitationStep(user.id).run(inviteId)
         CacheManager.onInviteChanged(inviteId)
+        val remaining = GetUserInvitationsStep.run(user.id).size
+        worldName to remaining
     }
 }
 

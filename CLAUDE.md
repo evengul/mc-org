@@ -130,31 +130,47 @@ Tests are not optional. Minimum expectations per task type:
 | Template-only change | Compile passes, existing tests still pass — no new tests required |
 
 Integration tests in `mc-web` use Testcontainers PostgreSQL. Use `WithUser` for auth context and `TestDataFactory` for
-fixtures. See `/docs-testing` skill.
+fixtures. The `docs-testing` skill is auto-loaded when writing or running tests.
 
-## Skills — Load On Demand
+## Skills
 
-Load the matching skill before starting a task. Do not rely on memory for patterns covered by a skill.
+Two kinds of skills live under `.claude/skills/`:
 
-| Skill                | Load when...                                               |
-|----------------------|------------------------------------------------------------|
-| `/docs-development`  | Pipeline steps, `handlePipeline`, DB ops, validation       |
-| `/docs-architecture` | Domain model, file structure, plugin chain, route setup    |
-| `/docs-css`          | CSS component classes, layout, notices, cards              |
-| `/docs-htmx`         | HTMX helper functions, `hx*` attributes, HTMX patterns     |
-| `/docs-business`     | Business rules, roles, project stages, workflows           |
-| `/docs-troubleshoot` | Debugging errors, compile failures                         |
-| `/docs-glossary`     | Technical/domain terminology                               |
-| `/docs-testing`      | Test patterns, `testApplication`, auth helpers, DB tests   |
-| `/add-endpoint`      | Creating a new HTTP endpoint                               |
-| `/add-migration`     | Adding a database migration                                |
-| `/add-step`          | Creating a new pipeline Step                               |
-| `/commit`            | Compile → test → stage → commit with a good message        |
-| `/linear`            | Create, update, or link Linear issues                      |
-| `/devstart`          | Full dev environment startup (Docker → DB → migrate → run) |
-| `/run`               | Start the application only (with optional flags)           |
-| `/migrate`           | Run Flyway migrations locally                              |
-| `/start-db`          | Start the PostgreSQL container                             |
+### Reference docs — auto-loaded by Claude, not user-invocable
+
+These carry project patterns and conventions. Claude auto-loads the matching one when the task matches its
+description — do not rely on memory for patterns covered by a skill, and do not try to invoke these as slash
+commands (they have `user-invocable: false`).
+
+| Skill               | Auto-loads when...                                            |
+|---------------------|---------------------------------------------------------------|
+| `docs-development`  | Pipeline steps, `handlePipeline`, DB ops, validation          |
+| `docs-architecture` | Domain model, file structure, plugin chain, route setup       |
+| `docs-frontend`     | DSL component functions, CSS classes, design tokens, layout, page shell — writing/editing templates |
+| `docs-product`      | Design system tokens, component patterns, motion, mobile behaviour — UI review and design intent |
+| `docs-htmx`         | HTMX helper functions, `hx*` attributes, HTMX patterns        |
+| `docs-ia`           | Information architecture, URL structure, navigation, personas |
+| `docs-testing`      | Writing or running tests — unit, integration, pipeline step   |
+| `docs-business`     | Business rules, roles, project stages, workflows              |
+| `docs-troubleshoot` | Debugging errors, compile failures                            |
+| `docs-glossary`     | Technical/domain terminology                                  |
+
+### Action commands — user-invocable slash commands
+
+These run workflows and are meant to be triggered explicitly with `/name` by the user (or by Claude when the
+request clearly maps to the action).
+
+| Slash command   | Use when...                                                |
+|-----------------|------------------------------------------------------------|
+| `/add-endpoint` | Creating a new HTTP endpoint                               |
+| `/add-migration`| Adding a database migration                                |
+| `/add-step`     | Creating a new pipeline Step                               |
+| `/commit`       | Compile → test → stage → commit with a good message        |
+| `/linear`       | Create, update, or link Linear issues                      |
+| `/devstart`     | Full dev environment startup (Docker → DB → migrate → run) |
+| `/run`          | Start the application only (with optional flags)           |
+| `/migrate`      | Run Flyway migrations locally                              |
+| `/start-db`     | Start the PostgreSQL container                             |
 
 ## Working Style
 
@@ -164,6 +180,10 @@ Load the matching skill before starting a task. Do not rely on memory for patter
 - When multiple valid approaches exist, pick the one consistent with existing patterns in the codebase — don't introduce
   new patterns without flagging it.
 - Interview format for missing information — one focused question at a time, not a list.
+- **Do not spelunk inside `~/.m2`, vendored jars, or other dependency caches to discover library APIs.** If you need to
+  know the exact signature, class hierarchy, or DSL shape of a third-party library (e.g. `kotlinx.html`), either fetch
+  the official docs/source from the web with WebFetch/WebSearch, or ask the user directly with a concise, specific
+  question. Cracking open jars is slow, noisy, and often gives outdated or obfuscated output.
 
 ## Before Committing
 

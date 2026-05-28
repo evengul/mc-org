@@ -6,11 +6,10 @@ import app.mcorg.pipeline.admin.commonsteps.GetManagedWorldsStep
 import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.hxOutOfBands
 import app.mcorg.presentation.templated.admin.AdminTable
-import app.mcorg.presentation.templated.admin.paginationInfo
+import app.mcorg.presentation.templated.admin.paginationInfoBody
 import app.mcorg.presentation.templated.admin.worldRows
 import app.mcorg.presentation.utils.respondHtml
 import io.ktor.server.application.*
-import kotlinx.html.div
 import kotlinx.html.stream.createHTML
 import kotlinx.html.tbody
 import kotlinx.html.td
@@ -28,9 +27,7 @@ suspend fun ApplicationCall.handleSearchManagedWorlds() {
                 worldRows(worlds)
             } + createHTML().td {
                 hxOutOfBands("innerHTML:#pagination-info-worlds")
-                div {
-                    paginationInfo(count, input.page, AdminTable.WORLDS)
-                }
+                paginationInfoBody(count, input.page, AdminTable.WORLDS)
             })
         }
     ) {

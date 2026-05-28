@@ -92,6 +92,7 @@ data object ExtractRecipesStep : ParseFilesRecursivelyStep<ResourceSource>() {
                 "minecraft:smithing_transform",
                 "minecraft:smithing" -> SmithingTransformParser.parse(json, filename)
                 "minecraft:crafting_transmute" -> TransmuteRecipeParser.parse(json, filename)
+                "minecraft:crafting_imbue" -> CraftingImbueParser.parse(json, filename)
                 "minecraft:smelting" -> SimpleRecipeParser.parse(
                     json,
                     ResourceSource.SourceType.RecipeTypes.SMELTING,
@@ -118,7 +119,8 @@ data object ExtractRecipesStep : ParseFilesRecursivelyStep<ResourceSource>() {
                 )
 
                 "minecraft:smithing_trim",
-                "minecraft:crafting_decorated_pot" -> Result.success(
+                "minecraft:crafting_decorated_pot",
+                "minecraft:crafting_dye" -> Result.success(
                     ResourceSource(
                         type = ResourceSource.SourceType.RecipeTypes.IGNORED,
                         filename = filename

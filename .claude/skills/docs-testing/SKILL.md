@@ -1,7 +1,7 @@
 ---
 name: docs-testing
-description: Test patterns reference for MC-ORG. Covers testApplication setup, auth mocking via WithUser, DatabaseTestExtension, request/assertion patterns, and test file organization.
-disable-model-invocation: true
+description: Test patterns reference for MC-ORG. Load any time tests should be written or run — unit tests, integration tests, pipeline step tests, fake API providers, assertions, running the test suite. Covers testApplication setup, auth mocking via WithUser, DatabaseTestExtension, request/assertion patterns, test file organization, and JUnit 5 gotchas.
+user-invocable: false
 ---
 
 # Testing Reference
@@ -29,33 +29,42 @@ src/test/kotlin/app/mcorg/
 
 ## Integration Test Setup
 
+Integration tests that hit the database (Testcontainers PostgreSQL) are tagged `@Tag("database")`.
+Run with `./webapp/scripts/test.sh --database`.
+
 ```kotlin
+@Tag("database")
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @ExtendWith(DatabaseTestExtension::class)
 class MyFeatureIT : WithUser() {
 
     @Test
     fun `should do something`() = testApplication {
-        val client = setup()
-        val response = client.get("/app/some-path") {
+        routing {
+            install(AuthPlugin)
+            install(WorldParamPlugin)
+            route("/worlds/{worldId}") {
+                get { call.handleMyThing() }
+            }
+        }
+
+        val response = client.get("/worlds/1") {
             addAuthCookie(this)
         }
         assertEquals(HttpStatusCode.OK, response.status)
-    }
-
-    private fun ApplicationTestBuilder.setup(): HttpClient {
-        routing {
-            install(AuthPlugin)
-            install(BannedPlugin)
-            // install(WorldParamPlugin) etc. as needed
-            route("/app") {
-                get { call.respondText("content") }
-            }
-        }
-        return createClient { followRedirects = false }
+        assertContains(response.bodyAsText(), "expected-content")
     }
 }
 ```
+
+**Key rules for database tests:**
+- `@Tag("database")` is required — without it the test is excluded from `--database` runs and
+  will fail in the default unit test run (no DB available)
+- `@TestInstance(PER_CLASS)` is required to share the lazy `user` from `WithUser`
+- `@ExtendWith(DatabaseTestExtension::class)` starts Testcontainers PostgreSQL + runs Flyway
+- Do NOT call `createClient { followRedirects = false }` in a setup function —
+  just use `client` directly inside `testApplication` (Ktor test host provides it)
+- Install only the plugins your route actually needs — don't copy the full plugin stack
 
 ---
 
@@ -167,6 +176,22 @@ DatabaseSteps.update<Unit>(
 
 ---
 
+## Running Tests
+
+Use `webapp/scripts/test.sh` — it handles key generation, compilation, and test execution.
+
+```bash
+./webapp/scripts/test.sh                          # Unit tests only (no Docker required)
+./webapp/scripts/test.sh --database               # + database tests (requires Docker)
+./webapp/scripts/test.sh --integration            # + integration tests (requires Docker + app running)
+./webapp/scripts/test.sh --exclude-unit-tests --database  # Database tests only
+```
+
+The script runs `mvn test-compile` before any tests. New IT tests tagged `@Tag("database")`
+are picked up automatically by `--database`.
+
+---
+
 ## Common Pitfalls
 
 - **`followRedirects = false`** — always set this so you can assert on 302 responses
@@ -174,3 +199,18 @@ DatabaseSteps.update<Unit>(
 - **`@ExtendWith(DatabaseTestExtension::class)`** — required for any test that touches the DB or auth (auth requires the DB)
 - **Install only the plugins your test needs** — don't blindly install everything or tests become opaque
 - **`addAuthCookie(this)`** takes the `HttpRequestBuilder` as receiver — pass `this` inside the request block
+- **JUnit 5 silently skips `@Test` methods with non-Unit return types.** Kotlin expression-body functions like
+  `@Test fun `foo`() = runBlocking { … assertIs<Foo>(x) }` inherit the return type of the last expression — if
+  that expression returns anything other than `Unit` (e.g. `assertIs`, `assertNotNull`, `assertIs<Failure>(result)`),
+  surefire quietly drops the test from discovery with no error. It just doesn't run. Fix by wrapping in a block body:
+  ```kotlin
+  @Test
+  fun `foo`() {
+      runBlocking {
+          // ...
+          assertIs<Result.Failure<...>>(result)
+      }
+  }
+  ```
+  Sanity-check the surefire XML report (`target/surefire-reports/TEST-*.xml`) if your test count doesn't match the
+  number of `@Test` annotations.

@@ -7,18 +7,23 @@ import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.ValidationSteps
 import app.mcorg.pipeline.failure.AppFailure
+import app.mcorg.pipeline.failure.ValidationFailure
 import app.mcorg.pipeline.resources.commonsteps.CountCollectedResourcesInProjectWithItemIdStep
 import app.mcorg.pipeline.resources.commonsteps.CountTotalResourcesRequiredInProjectWithItemIdStep
 import app.mcorg.pipeline.resources.commonsteps.GetResourceGatheringItemStep
 import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.hxOutOfBands
-import app.mcorg.presentation.templated.project.resourceGatheringProgress
+import app.mcorg.presentation.templated.dsl.progressBar
+import app.mcorg.presentation.templated.dsl.resourceRow
+import app.mcorg.presentation.utils.getProjectId
 import app.mcorg.presentation.utils.getResourceGatheringId
+import app.mcorg.presentation.utils.getWorldId
 import app.mcorg.presentation.utils.respondHtml
 import io.ktor.http.Parameters
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.request.receiveParameters
 import kotlinx.html.div
+import kotlinx.html.id
 import kotlinx.html.stream.createHTML
 
 data class UpdatedProgress(
@@ -29,33 +34,35 @@ data class UpdatedProgress(
 
 suspend fun ApplicationCall.handleUpdateRequirementProgress() {
     val parameters = this.receiveParameters()
-    val taskId = this.getResourceGatheringId()
+    val resourceGatheringId = this.getResourceGatheringId()
+    val worldId = this.getWorldId()
+    val projectId = this.getProjectId()
 
     handlePipeline(
-        onSuccess = {
+        onSuccess = { progress ->
             respondHtml(
                 createHTML().div {
-                    resourceGatheringProgress(
-                        divId = "resource-gathering-item-${it.item.id}-progress",
-                        collected = it.item.collected,
-                        required = it.item.required
+                    resourceRow(
+                        id = progress.item.id,
+                        worldId = worldId,
+                        projectId = projectId,
+                        itemName = progress.item.name,
+                        current = progress.item.collected,
+                        required = progress.item.required,
+                        source = progress.item.solvedByProject?.second
                     )
-                }.removePrefix("<div>").removeSuffix("</div>") + createHTML().div {
-                    hxOutOfBands("innerHTML:#resource-gathering-total-progress")
-                    div {
-                        resourceGatheringProgress(
-                            "resource-gathering-total-progress",
-                            it.totalCollected,
-                            it.totalRequired
-                        )
-                    }
+                }.removePrefix("<div>").removeSuffix("</div>") +
+                createHTML().div {
+                    id = "overall-progress"
+                    hxOutOfBands("outerHTML:#overall-progress")
+                    progressBar(progress.totalCollected, progress.totalRequired)
                 }
             )
         },
     ) {
         val amount = ValidateUpdateItemTaskRequirementsInputStep.run(parameters)
-        UpdateItemTaskRequirement(taskId).run(amount)
-        GetUpdatedTaskCountsStep.run(taskId)
+        UpdateItemTaskRequirement(resourceGatheringId).run(amount)
+        GetUpdatedTaskCountsStep.run(resourceGatheringId)
     }
 }
 
@@ -64,8 +71,11 @@ private object ValidateUpdateItemTaskRequirementsInputStep : Step<Parameters, Ap
         val amount = ValidationSteps.requiredInt("amount") { it }
             .process(input)
             .flatMap { providedAmount ->
-                ValidationSteps.validateRange("amount", 1, Int.MAX_VALUE) { it }
-                    .process(providedAmount)
+                if (providedAmount == 0) {
+                    Result.failure(ValidationFailure.InvalidValue("amount", listOf("any non-zero integer")))
+                } else {
+                    Result.success(providedAmount)
+                }
             }
 
         return when (amount) {
@@ -78,7 +88,7 @@ private object ValidateUpdateItemTaskRequirementsInputStep : Step<Parameters, Ap
 private data class UpdateItemTaskRequirement(val taskId: Int) : Step<Int, AppFailure.DatabaseError, Unit> {
     override suspend fun process(input: Int): Result<AppFailure.DatabaseError, Unit> {
         return DatabaseSteps.update<Int>(
-            sql = SafeSQL.update("UPDATE resource_gathering SET collected = LEAST(collected + ?, required) WHERE id = ?"),
+            sql = SafeSQL.update("UPDATE resource_gathering SET collected = GREATEST(LEAST(collected + ?, required), 0) WHERE id = ?"),
             parameterSetter = { statement, amount ->
                 statement.setInt(1, amount)
                 statement.setInt(2, taskId)

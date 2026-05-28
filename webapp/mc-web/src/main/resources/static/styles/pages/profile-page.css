@@ -1,24 +1,12 @@
-.profile-page {
+/* ==========================================================================
+   PROFILE PAGE
+   Stacked sections: Account · Danger zone
+   ========================================================================== */
+
+.profile-page__sections {
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-md);
-
-    > section {
-        background-color: var(--clr-bg-subtle);
-        padding: var(--spacing-md);
-        box-shadow: var(--shadow-sm);
-        border-radius: var(--border-radius-sm);
-
-        width: 100%;
-    }
-
-    .sign-out {
-        display: flex;
-        flex-direction: column;
-        gap: var(--spacing-sm);
-
-        a, button {
-            width: fit-content;
-        }
-    }
+    gap: var(--space-8);
+    margin-block: var(--space-5) var(--space-8);
 }
+

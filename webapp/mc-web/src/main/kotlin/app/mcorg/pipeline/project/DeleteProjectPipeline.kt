@@ -27,7 +27,7 @@ suspend fun ApplicationCall.handleDeleteProject() {
     }
 
     handlePipeline(
-        onSuccess = { clientRedirect("/app/worlds/$worldId") }
+        onSuccess = { clientRedirect("/worlds/$worldId") }
     ) {
         handleDeleteProjectStep.run(projectId)
         CacheManager.onProjectDeleted(worldId, projectId)

@@ -4,7 +4,7 @@ import app.mcorg.config.CacheManager
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.presentation.handler.handlePipeline
-import app.mcorg.presentation.templated.common.link.Link
+import app.mcorg.presentation.templated.dsl.Link
 import app.mcorg.presentation.utils.clientRedirect
 import app.mcorg.presentation.utils.getWorldId
 import app.mcorg.presentation.utils.respondEmptyHtml
@@ -16,7 +16,10 @@ suspend fun ApplicationCall.handleDeleteWorld() {
 
     handlePipeline(
         onSuccess = {
-            if (this.request.header("HX-Current-URL")?.contains("/app/admin") == true) {
+            // TODO: HX-Current-URL "/admin" branch is currently unreachable; AdminHandler.kt:36-46
+            // is a stub. Future SuperAdmin-driven world deletion should use a different route under
+            // /admin gated by AdminPlugin's isSuperAdmin check (bypassing WorldOwnerPlugin).
+            if (this.request.header("HX-Current-URL")?.contains("/admin") == true) {
                 respondEmptyHtml()
             } else {
                 clientRedirect(Link.Home.to)

@@ -2,7 +2,7 @@ package app.mcorg.domain.model.idea.schema.builders
 
 import app.mcorg.domain.model.idea.schema.CategoryField
 import app.mcorg.domain.model.idea.schema.DynamicOptionsConfig
-import app.mcorg.presentation.templated.common.form.searchableselect.SearchableSelectOption
+import app.mcorg.presentation.templated.dsl.SearchableSelectOption
 
 /**
  * Base builder class for all field types.

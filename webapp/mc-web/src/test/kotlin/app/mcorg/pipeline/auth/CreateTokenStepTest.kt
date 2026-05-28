@@ -98,6 +98,32 @@ class CreateTokenStepTest {
     }
 
     @Test
+    fun `should create JWT token with activeWorldId claim when present`() {
+        val tokenProfile = TestDataFactory.createTestTokenProfile(
+            id = 200,
+            activeWorldId = 42
+        )
+
+        val result = TestUtils.executeAndAssertSuccess(CreateTokenStep, tokenProfile)
+
+        val decodedJWT = JWT.decode(result)
+        assertEquals(42, decodedJWT.getClaim("active_world_id").asInt())
+    }
+
+    @Test
+    fun `should create JWT token without activeWorldId claim when null`() {
+        val tokenProfile = TestDataFactory.createTestTokenProfile(
+            id = 201,
+            activeWorldId = null
+        )
+
+        val result = TestUtils.executeAndAssertSuccess(CreateTokenStep, tokenProfile)
+
+        val decodedJWT = JWT.decode(result)
+        assertTrue(decodedJWT.getClaim("active_world_id").isMissing, "active_world_id claim should be absent")
+    }
+
+    @Test
     fun `should set expiration time correctly`() {
         // Arrange
         val tokenProfile = TestDataFactory.createTestTokenProfile()

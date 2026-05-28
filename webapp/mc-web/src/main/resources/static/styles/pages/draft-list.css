@@ -1,0 +1,40 @@
+/* ==========================================================================
+   DRAFT LIST PAGE (/ideas/create)
+   ========================================================================== */
+
+.section-heading {
+    font-family: var(--font-ui);
+    font-size: 24px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+.drafts-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-4);
+    margin-bottom: var(--space-5);
+}
+
+#draft-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+}
+
+/* Actions row at the bottom of each draft card */
+.project-card__actions {
+    display: flex;
+    gap: var(--space-2);
+    justify-content: flex-end;
+    flex-wrap: wrap;
+}
+
+@media (max-width: 768px) {
+    .project-card__actions .btn {
+        flex: 1;
+        justify-content: center;
+    }
+}

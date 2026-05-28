@@ -4,7 +4,7 @@
 INPUT=$(cat)
 
 # Prevent infinite loop — if Claude is already reacting to a hook, skip
-STOP_HOOK_ACTIVE=$(echo "$INPUT" | grep -oP '"stop_hook_active"\s*:\s*\K(true|false)' | head -1)
+STOP_HOOK_ACTIVE=$(echo "$INPUT" | sed -n 's/.*"stop_hook_active"\s*:\s*\(true\|false\).*/\1/p' | head -1)
 if [ "$STOP_HOOK_ACTIVE" = "true" ]; then
   exit 0
 fi

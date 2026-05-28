@@ -5,10 +5,10 @@ import app.mcorg.domain.model.project.Project
 import app.mcorg.domain.model.world.World
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
-import app.mcorg.presentation.templated.common.breadcrumb.BreadcrumbItem
-import app.mcorg.presentation.templated.common.breadcrumb.Breadcrumbs
-import app.mcorg.presentation.templated.common.icon.Icons
-import app.mcorg.presentation.templated.common.link.Link
+import app.mcorg.presentation.templated.dsl.BreadcrumbItem
+import app.mcorg.presentation.templated.dsl.Breadcrumbs
+import app.mcorg.presentation.templated.dsl.Icons
+import app.mcorg.presentation.templated.dsl.Link
 
 /**
  * Helper functions to fetch entity names from database for breadcrumb construction
@@ -220,16 +220,6 @@ object BreadcrumbBuilder {
         return Breadcrumbs(listOf(
             BreadcrumbItem("Home", Link.Home, Icons.HOME),
             BreadcrumbItem("Profile", null, Icons.USER_PROFILE)
-        ))
-    }
-
-    /**
-     * Build breadcrumbs for notifications page
-     */
-    fun buildForNotifications(): Breadcrumbs {
-        return Breadcrumbs(listOf(
-            BreadcrumbItem("Home", Link.Home, Icons.HOME),
-            BreadcrumbItem("Notifications", null, Icons.Notification.INFO)
         ))
     }
 

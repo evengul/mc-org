@@ -3,9 +3,9 @@ package app.mcorg.presentation.handler
 import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.failure.ValidationFailure
 import app.mcorg.presentation.hxOutOfBands
-import app.mcorg.presentation.templated.layout.alert.ALERT_CONTAINER_ID
-import app.mcorg.presentation.templated.layout.alert.AlertType
-import app.mcorg.presentation.templated.layout.alert.createAlert
+import app.mcorg.presentation.templated.dsl.ALERT_CONTAINER_ID
+import app.mcorg.presentation.templated.dsl.AlertType
+import app.mcorg.presentation.templated.dsl.createAlert
 import app.mcorg.presentation.utils.clientRedirect
 import app.mcorg.presentation.utils.hxSwap
 import app.mcorg.presentation.utils.hxTarget

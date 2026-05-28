@@ -3,7 +3,7 @@ package app.mcorg.domain.model.idea.schema
 import app.mcorg.domain.model.idea.IdeaCategory
 import app.mcorg.domain.model.idea.schema.builders.IdeaCategorySchemaBuilder
 import app.mcorg.domain.model.idea.schema.builders.ideaCategory
-import app.mcorg.presentation.templated.common.form.searchableselect.SearchableSelectOption
+import app.mcorg.presentation.templated.dsl.SearchableSelectOption
 
 /**
  * Single Source of Truth for Idea Category Schemas.

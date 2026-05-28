@@ -7,13 +7,11 @@ import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.presentation.handler.defaultHandleError
 import app.mcorg.presentation.utils.getProjectId
-import app.mcorg.presentation.utils.getUser
 import app.mcorg.presentation.utils.getWorldId
 import app.mcorg.presentation.utils.respondBadRequest
 import app.mcorg.presentation.utils.setIdeaCommentId
 import app.mcorg.presentation.utils.setIdeaId
 import app.mcorg.presentation.utils.setInviteId
-import app.mcorg.presentation.utils.setNotificationId
 import app.mcorg.presentation.utils.setProjectDependencyId
 import app.mcorg.presentation.utils.setProjectId
 import app.mcorg.presentation.utils.setProjectProductionItemId
@@ -113,31 +111,6 @@ val ResourceGatheringIdParamPlugin = createRouteScopedPlugin("ResourceGatheringI
             )
             if (checkResult is Result.Success && checkResult.value) {
                 call.setResourceGatheringId(resourceGatheringId)
-            } else if ((checkResult is Result.Success && !checkResult.value) || (checkResult is Result.Failure && checkResult.error is AppFailure.DatabaseError.NotFound)) {
-                call.defaultHandleError(AppFailure.DatabaseError.NotFound)
-            } else {
-                call.defaultHandleError(checkResult.errorOrNull()!!)
-            }
-        }
-    }
-}
-
-val NotificationParamPlugin = createRouteScopedPlugin("NotificationParamPlugin") {
-    onCall { call ->
-        val notificationId = call.parameters["notificationId"]?.toIntOrNull()
-        if (notificationId == null) {
-            call.respondBadRequest("Invalid or missing notification ID")
-        } else {
-            val userId = call.getUser().id
-            val cacheKey = "$userId:$notificationId"
-            val checkResult = cachedEnsureExists(
-                CacheManager.notificationExists,
-                cacheKey,
-                SafeSQL.select("SELECT EXISTS(SELECT 1 FROM notifications WHERE id = ? AND user_id = ?)"),
-                notificationId, userId
-            )
-            if (checkResult is Result.Success && checkResult.value) {
-                call.setNotificationId(notificationId)
             } else if ((checkResult is Result.Success && !checkResult.value) || (checkResult is Result.Failure && checkResult.error is AppFailure.DatabaseError.NotFound)) {
                 call.defaultHandleError(AppFailure.DatabaseError.NotFound)
             } else {
@@ -254,7 +227,7 @@ val IdeaParamPlugin = createRouteScopedPlugin("IdeaParamPlugin") {
             val checkResult = cachedEnsureExists(
                 CacheManager.ideaExists,
                 ideaId,
-                SafeSQL.select("SELECT EXISTS(SELECT 1 FROM ideas WHERE id = ?)"),
+                SafeSQL.select("SELECT EXISTS(SELECT 1 FROM ideas WHERE id = ? AND is_active = TRUE)"),
                 ideaId
             )
             if (checkResult is Result.Success && checkResult.value) {

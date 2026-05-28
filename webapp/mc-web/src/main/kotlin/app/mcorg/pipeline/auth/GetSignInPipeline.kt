@@ -36,7 +36,7 @@ suspend fun ApplicationCall.handleGetSignIn() {
     ) {
         val token = GetTokenStep(AUTH_COOKIE).run(request.cookies)
         ConvertTokenStep(ISSUER).run(token)
-        customRedirectPath ?: "/app"
+        customRedirectPath ?: "/worlds"
     }
 }
 

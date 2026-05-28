@@ -15,13 +15,14 @@ import app.mcorg.pipeline.minecraftfiles.GetSupportedVersionsStep
 import app.mcorg.pipeline.world.commonsteps.GetPermittedWorldsInput
 import app.mcorg.pipeline.world.commonsteps.GetPermittedWorldsStep
 import app.mcorg.presentation.handler.handlePipeline
-import app.mcorg.presentation.templated.home.worldsView
+import app.mcorg.presentation.templated.dsl.pages.worldsContent
 import app.mcorg.presentation.utils.getUser
 import app.mcorg.presentation.utils.respondHtml
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.request.*
 import kotlinx.html.div
+import kotlinx.html.id
 import kotlinx.html.stream.createHTML
 
 suspend fun ApplicationCall.handleCreateWorld() {
@@ -32,7 +33,8 @@ suspend fun ApplicationCall.handleCreateWorld() {
         onSuccess = { worlds ->
             val supportedVersions = GetSupportedVersionsStep.getSupportedVersions()
             respondHtml(createHTML().div {
-                worldsView(user, worlds, supportedVersions)
+                id = "worlds-content"
+                worldsContent(user, worlds, supportedVersions)
             })
         }
     ) {

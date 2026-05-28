@@ -10,7 +10,6 @@ import kotlinx.html.label
 import kotlinx.html.option
 import kotlinx.html.select
 import kotlinx.html.span
-import kotlinx.html.style
 
 /**
  * Renders a filterable field based on its type.
@@ -42,8 +41,7 @@ fun DIV.renderTextField(field: CategoryField.Text) {
             htmlFor = "filter-${field.key}"
             +field.label
             if (field.helpText != null) {
-                span("subtle") {
-                    style = "font-size: var(--text-sm); margin-left: var(--spacing-xxs);"
+                span("ideas-filter__help") {
                     +" (${field.helpText})"
                 }
             }
@@ -67,8 +65,7 @@ fun DIV.renderNumberField(field: CategoryField.Number) {
         label {
             +field.label
             if (field.helpText != null) {
-                span("subtle") {
-                    style = "font-size: var(--text-sm); margin-left: var(--spacing-xxs);"
+                span("ideas-filter__help") {
                     +" (${field.helpText})"
                 }
             }
@@ -81,10 +78,7 @@ fun DIV.renderNumberField(field: CategoryField.Number) {
                 field.max?.let { attributes["max"] = it.toString() }
                 field.step?.let { attributes["step"] = it.toString() }
             }
-            span {
-                style = "align-self: center;"
-                +"to"
-            }
+            span("ideas-filter__range-sep") { +"to" }
             input(type = InputType.number, classes = "form-control form-control--sm filter-field") {
                 name = "categoryFilters[${field.key}_max]"
                 placeholder = "Max"
@@ -93,10 +87,7 @@ fun DIV.renderNumberField(field: CategoryField.Number) {
                 field.step?.let { attributes["step"] = it.toString() }
             }
             field.suffix?.let { suffix ->
-                span("subtle") {
-                    style = "align-self: center;"
-                    +suffix
-                }
+                span("ideas-filter__range-sep") { +suffix }
             }
         }
     }
@@ -111,8 +102,7 @@ fun DIV.renderSelectField(field: CategoryField.Select) {
             htmlFor = "filter-${field.key}"
             +field.label
             if (field.helpText != null) {
-                span("subtle") {
-                    style = "font-size: var(--text-sm); margin-left: var(--spacing-xxs);"
+                span("ideas-filter__help") {
                     +" (${field.helpText})"
                 }
             }
@@ -142,8 +132,7 @@ fun DIV.renderMultiSelectField(field: CategoryField.MultiSelect) {
         label {
             +field.label
             if (field.helpText != null) {
-                span("subtle") {
-                    style = "font-size: var(--text-sm); margin-left: var(--spacing-xxs);"
+                span("ideas-filter__help") {
                     +" (${field.helpText})"
                 }
             }
@@ -177,8 +166,7 @@ fun DIV.renderBooleanField(field: CategoryField.BooleanField) {
             }
             +field.label
             if (field.helpText != null) {
-                span("subtle") {
-                    style = "font-size: var(--text-sm); margin-left: var(--spacing-xxs);"
+                span("ideas-filter__help") {
                     +" (${field.helpText})"
                 }
             }
@@ -194,8 +182,7 @@ fun DIV.renderRateField(field: CategoryField.Rate) {
         label {
             +field.label
             if (field.helpText != null) {
-                span("subtle") {
-                    style = "font-size: var(--text-sm); margin-left: var(--spacing-xxs);"
+                span("ideas-filter__help") {
                     +" (${field.helpText})"
                 }
             }
@@ -207,10 +194,7 @@ fun DIV.renderRateField(field: CategoryField.Rate) {
                 field.min?.let { attributes["min"] = it.toString() }
                 field.max?.let { attributes["max"] = it.toString() }
             }
-            span {
-                style = "align-self: center;"
-                +"to"
-            }
+            span("ideas-filter__range-sep") { +"to" }
             input(type = InputType.number, classes = "form-control form-control--sm filter-field") {
                 name = "categoryFilters[${field.key}_max]"
                 placeholder = "Max ${field.unit}"
@@ -229,8 +213,7 @@ fun DIV.renderPercentageField(field: CategoryField.Percentage) {
         label {
             +field.label
             if (field.helpText != null) {
-                span("subtle") {
-                    style = "font-size: var(--text-sm); margin-left: var(--spacing-xxs);"
+                span("ideas-filter__help") {
                     +" (${field.helpText})"
                 }
             }
@@ -243,10 +226,7 @@ fun DIV.renderPercentageField(field: CategoryField.Percentage) {
                 attributes["max"] = field.max.toString()
                 attributes["step"] = "0.01"
             }
-            span {
-                style = "align-self: center;"
-                +"to"
-            }
+            span("ideas-filter__range-sep") { +"to" }
             input(type = InputType.number, classes = "form-control form-control--sm filter-field") {
                 name = "categoryFilters[${field.key}_max]"
                 placeholder = "Max %"

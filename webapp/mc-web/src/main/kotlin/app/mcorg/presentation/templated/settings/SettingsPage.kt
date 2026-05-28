@@ -2,62 +2,68 @@ package app.mcorg.presentation.templated.settings
 
 import app.mcorg.domain.model.invite.Invite
 import app.mcorg.domain.model.minecraft.MinecraftVersion
+import app.mcorg.domain.model.user.Role
 import app.mcorg.domain.model.user.TokenProfile
 import app.mcorg.domain.model.user.WorldMember
 import app.mcorg.domain.model.world.World
 import app.mcorg.pipeline.world.invitations.CountWorldInvitationsResult
-import app.mcorg.presentation.templated.common.page.createPage
-import app.mcorg.presentation.templated.common.tabs.TabData
-import app.mcorg.presentation.templated.common.tabs.tabsComponent
-import app.mcorg.presentation.utils.BreadcrumbBuilder
-import kotlinx.html.classes
+import app.mcorg.pipeline.world.invitations.InvitationStatusFilter
+import app.mcorg.presentation.templated.dsl.appHeader
+import app.mcorg.presentation.templated.dsl.container
+import app.mcorg.presentation.templated.dsl.pageHeading
+import app.mcorg.presentation.templated.dsl.pageShell
 import kotlinx.html.div
-import kotlinx.html.h1
-import kotlinx.html.p
+import kotlinx.html.id
+import kotlinx.html.main
 
-sealed interface SettingsTab {
-    val id: String
-    val world: World
+data class SettingsPageData(
+    val world: World,
+    val supportedVersions: List<MinecraftVersion.Release>,
+    val currentUser: TokenProfile,
+    val currentUserRole: Role,
+    val members: List<WorldMember>,
+    val invitations: List<Invite>,
+    val invitationCounts: CountWorldInvitationsResult,
+    val statusFilter: InvitationStatusFilter,
+)
 
-    data class General(override val world: World, val supportedVersions: List<MinecraftVersion.Release>) : SettingsTab {
-        override val id: String = "general"
-    }
-
-    data class Members(override val world: World, val currentUser: TokenProfile, val invitations: List<Invite>, val invitationCounts: CountWorldInvitationsResult, val members: List<WorldMember>) : SettingsTab {
-        override val id: String = "members"
-    }
-
-    data class Statistics(override val world: World) : SettingsTab {
-        override val id: String = "statistics"
-    }
-}
-
-fun worldSettingsPage(user: TokenProfile, tab: SettingsTab) = createPage(
-    pageTitle = "Settings",
+fun worldSettingsPage(user: TokenProfile, data: SettingsPageData): String = pageShell(
+    pageTitle = "MC-ORG — ${data.world.name} Settings",
     user = user,
-    breadcrumbs = BreadcrumbBuilder.buildForWorldSettings(tab.world)
+    stylesheets = listOf(
+        "/static/styles/components/form.css",
+        "/static/styles/components/danger-zone.css",
+        "/static/styles/components/avatar.css",
+        "/static/styles/components/person-row.css",
+        "/static/styles/pages/settings-page.css",
+    )
 ) {
-    classes += "world-settings-page"
-    div {
-        h1 {
-            + "World Settings"
+    appHeader(
+        worldName = data.world.name,
+        worldId = data.world.id,
+        user = user,
+        isWorldAdmin = true,
+        breadcrumbBlock = {
+            link("Worlds", "/worlds")
+                .link(data.world.name, "/worlds/${data.world.id}/projects")
+                .current("Settings")
         }
-        p("subtle") {
-            + "Manage your world settings and members"
-        }
-    }
-    tabsComponent(
-        hxTarget = ".world-settings-content",
-        TabData.create("General"),
-        TabData.create("Members"),
-    ) {
-        activeTab = tab.id
-    }
-    div("world-settings-content") {
-        when(tab) {
-            is SettingsTab.General -> generalTab(tab)
-            is SettingsTab.Members -> membersTab(tab)
-            is SettingsTab.Statistics -> statisticsTab(tab)
+    )
+    main {
+        container {
+            pageHeading(
+                title = "World Settings",
+                subtitle = "Manage your world settings, members, and invitations",
+            )
+            div("settings-page__sections") {
+                id = "world-settings-content"
+                generalSection(data)
+                invitationsSection(data)
+                membersSection(data.currentUser, data.members)
+                if (data.currentUserRole == Role.OWNER) {
+                    dangerSection(data.world)
+                }
+            }
         }
     }
 }

@@ -53,7 +53,8 @@ data class ConvertTokenStep(val issuer: String = ISSUER) : Step<String, AppFailu
             jwt.getClaim("minecraft_uuid").asString(),
             jwt.getClaim("minecraft_username").asString(),
             jwt.getClaim("display_name").asString(),
-            jwt.getClaim("roles").asList(String::class.java) ?: emptyList()
+            jwt.getClaim("roles").asList(String::class.java) ?: emptyList(),
+            jwt.getClaim("active_world_id").asInt()
         ))
     }
 }

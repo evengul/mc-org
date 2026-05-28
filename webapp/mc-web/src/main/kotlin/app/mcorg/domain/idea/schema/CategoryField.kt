@@ -1,7 +1,7 @@
 package app.mcorg.domain.model.idea.schema
 
 import app.mcorg.domain.model.minecraft.MinecraftVersionRange
-import app.mcorg.presentation.templated.common.form.searchableselect.SearchableSelectOption
+import app.mcorg.presentation.templated.dsl.SearchableSelectOption
 import kotlin.reflect.KClass
 
 /**

@@ -76,12 +76,6 @@ object CacheManager {
         .expireAfterWrite(5, TimeUnit.MINUTES)
         .build()
 
-    /** Notification existence. Key: "userId:notificationId" */
-    val notificationExists: Cache<String, Boolean> = Caffeine.newBuilder()
-        .maximumSize(2_000)
-        .expireAfterWrite(5, TimeUnit.MINUTES)
-        .build()
-
     /** Project production item existence. Key: "itemId:projectId" */
     val projectProductionItemExists: Cache<String, Boolean> = Caffeine.newBuilder()
         .maximumSize(2_000)
@@ -95,12 +89,6 @@ object CacheManager {
         .build()
 
     // ── Tier 2: Reference data ───────────────────────────────────────────
-
-    /** Unread notification count. Key: userId */
-    val unreadNotificationCount: Cache<Int, Int> = Caffeine.newBuilder()
-        .maximumSize(1_000)
-        .expireAfterWrite(1, TimeUnit.MINUTES)
-        .build()
 
     /** Supported Minecraft versions. Key: "versions" (singleton) */
     val supportedVersions: Cache<String, Any> = Caffeine.newBuilder()
@@ -191,16 +179,6 @@ object CacheManager {
         inviteExists.invalidate(inviteId)
     }
 
-    fun onNotificationCreated(userId: Int) {
-        unreadNotificationCount.invalidate(userId)
-        logger.debug("Cache: unread notification count invalidated for user {}", userId)
-    }
-
-    fun onNotificationRead(userId: Int) {
-        unreadNotificationCount.invalidate(userId)
-        logger.debug("Cache: unread notification count invalidated for user {}", userId)
-    }
-
     fun onSupportedVersionsChanged() {
         supportedVersions.invalidateAll()
         logger.debug("Cache: supported versions invalidated")
@@ -239,10 +217,8 @@ object CacheManager {
         ideaCommentExists.invalidateAll()
         inviteExists.invalidateAll()
         worldMemberExists.invalidateAll()
-        notificationExists.invalidateAll()
         projectProductionItemExists.invalidateAll()
         projectDependencyExists.invalidateAll()
-        unreadNotificationCount.invalidateAll()
         supportedVersions.invalidateAll()
         logger.info("All caches invalidated")
     }

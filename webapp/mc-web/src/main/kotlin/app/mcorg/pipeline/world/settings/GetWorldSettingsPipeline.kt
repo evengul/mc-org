@@ -1,5 +1,6 @@
 package app.mcorg.pipeline.world.settings
 
+import app.mcorg.domain.model.user.Role
 import app.mcorg.domain.model.user.WorldMember
 import app.mcorg.pipeline.Result
 import app.mcorg.domain.pipeline.pipelineResult
@@ -7,75 +8,57 @@ import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.minecraftfiles.GetSupportedVersionsStep
+import app.mcorg.pipeline.world.ValidateWorldMemberRole
 import app.mcorg.pipeline.world.commonsteps.GetWorldStep
 import app.mcorg.pipeline.world.extractors.toWorldMembers
 import app.mcorg.pipeline.world.invitations.CountWorldInvitationsStep
 import app.mcorg.pipeline.world.invitations.GetWorldInvitationsStep
 import app.mcorg.pipeline.world.invitations.InvitationStatusFilter
 import app.mcorg.pipeline.world.settings.invitations.handleGetInvitationListFragment
-import app.mcorg.presentation.templated.settings.*
+import app.mcorg.presentation.templated.settings.SettingsPageData
+import app.mcorg.presentation.templated.settings.worldSettingsPage
 import app.mcorg.presentation.utils.getUser
 import app.mcorg.presentation.utils.getWorldId
 import app.mcorg.presentation.utils.respondHtml
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.response.*
-import kotlinx.html.classes
-import kotlinx.html.div
-import kotlinx.html.stream.createHTML
 
 suspend fun ApplicationCall.handleGetWorldSettings() {
     val user = this.getUser()
     val worldId = this.getWorldId()
 
     val isHtmxRequest = request.headers["HX-Request"] == "true"
+    val rawStatus = request.queryParameters["status"]
+    val status = InvitationStatusFilter.fromApiName(rawStatus, default = null)
 
-    val tab = request.queryParameters["tab"]?.let {
-        when(it) {
-            "general", "members", "statistics" -> it
-            else -> null // Invalid tab, return null
-        }
-    }
-
-    val status = request.queryParameters["status"].let { InvitationStatusFilter.fromApiName(it, default = null) }
-
-    if (tab == null && isHtmxRequest && status != null) {
+    // HTMX request asking for the invitation list fragment only
+    if (isHtmxRequest && status != null) {
         handleGetInvitationListFragment()
         return
     }
 
-    val tabData = when(tab) {
-        "members" -> handleGetMembersTabData(worldId, status ?: InvitationStatusFilter.PENDING)
-        "statistics" -> handleGetStatisticsTabData(worldId)
-        else -> handleGetGeneralTabData(worldId) // General tab or no tab specified
-    }
+    val statusFilter = status ?: InvitationStatusFilter.PENDING
 
-    if (tabData is Result.Failure) {
+    val dataResult = handleGetSettingsPageData(worldId, statusFilter)
+    if (dataResult is Result.Failure) {
         respond(HttpStatusCode.InternalServerError)
         return
     }
 
-    val tabDataResult = (tabData as Result.Success).value
+    val data = (dataResult as Result.Success).value
 
-    if (request.headers["HX-Request"] == "true") {
-        // For HTMX requests, handle specific tabs
-        respondHtml(
-            createHTML().div {
-                classes += "world-settings-content"
-                when (tabDataResult) {
-                    is SettingsTab.General -> generalTab(tabDataResult)
-                    is SettingsTab.Members -> membersTab(tabDataResult)
-                    is SettingsTab.Statistics -> statisticsTab(tabDataResult)
-                }
-            }
-        )
-    } else {
-        respondHtml(worldSettingsPage(user, tabDataResult))
-    }
+    respondHtml(worldSettingsPage(user, data))
 }
 
-suspend fun ApplicationCall.handleGetMembersTabData(worldId: Int, statusFilter: InvitationStatusFilter): Result<AppFailure.DatabaseError, SettingsTab.Members> {
+suspend fun ApplicationCall.handleGetSettingsPageData(
+    worldId: Int,
+    statusFilter: InvitationStatusFilter,
+): Result<AppFailure.DatabaseError, SettingsPageData> {
     val user = this.getUser()
+    val supportedVersions = GetSupportedVersionsStep.getSupportedVersions()
+    val isOwner = ValidateWorldMemberRole<Unit>(user, Role.OWNER, worldId).process(Unit) is Result.Success
+    val currentUserRole = if (isOwner) Role.OWNER else Role.ADMIN
 
     return pipelineResult {
         val (world, invitations, counts, members) = parallel(
@@ -84,28 +67,16 @@ suspend fun ApplicationCall.handleGetMembersTabData(worldId: Int, statusFilter: 
             { CountWorldInvitationsStep(worldId).run(Unit) },
             { getWorldMembersStep.run(worldId) },
         )
-        SettingsTab.Members(
-            currentUser = user,
+        SettingsPageData(
             world = world,
+            supportedVersions = supportedVersions,
+            currentUser = user,
+            currentUserRole = currentUserRole,
+            members = members,
             invitations = invitations,
             invitationCounts = counts,
-            members = members
+            statusFilter = statusFilter,
         )
-    }
-}
-
-suspend fun ApplicationCall.handleGetGeneralTabData(worldId: Int): Result<AppFailure.DatabaseError, SettingsTab.General> {
-    val supportedVersions = GetSupportedVersionsStep.getSupportedVersions()
-    return pipelineResult {
-        val world = GetWorldStep.run(worldId)
-        SettingsTab.General(world, supportedVersions)
-    }
-}
-
-suspend fun ApplicationCall.handleGetStatisticsTabData(worldId: Int): Result<AppFailure.DatabaseError, SettingsTab.Statistics> {
-    return pipelineResult {
-        val world = GetWorldStep.run(worldId)
-        SettingsTab.Statistics(world)
     }
 }
 

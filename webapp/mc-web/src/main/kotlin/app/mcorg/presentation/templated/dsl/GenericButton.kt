@@ -1,0 +1,145 @@
+package app.mcorg.presentation.templated.dsl
+
+import kotlinx.html.BUTTON
+import kotlinx.html.TagConsumer
+import kotlinx.html.a
+import kotlinx.html.button
+import kotlinx.html.classes
+import kotlinx.html.id
+
+class GenericButton(
+    private var text: String = "",
+    var href: String? = null,
+    var iconLeft: Icon? = null,
+    var iconRight: Icon? = null,
+    var iconSize: IconSize? = null,
+    var onClick: String? = null,
+    var classes: Set<String> = setOf("btn"),
+    var ariaLabel: String? = null,
+    var buttonBlock: (BUTTON.() -> Unit)? = null,
+    var id: String? = null,
+) {
+
+    fun render(container: TagConsumer<*>) {
+        href?.let {
+            // Render as <a> styled as button (for navigation)
+            container.a {
+                this@a.classes = getAllClasses()
+                this@a.href = it
+                this@GenericButton.id?.let { commonId ->
+                    this.id = commonId
+                }
+                ariaLabel?.let { label ->
+                    attributes["aria-label"] = label
+                    if (attributes["title"] == null || attributes["title"]?.isEmpty() == true) {
+                        attributes["title"] = label
+                    }
+                }
+                onClick?.let { clickHandler ->
+                    attributes["onclick"] = clickHandler
+                }
+                val color = getColor()
+                iconLeft?.let { icon ->
+                    iconComponent(icon, iconSize ?: IconSize.MEDIUM, color)
+                }
+                if (text.isNotEmpty()) {
+                    + text
+                }
+                iconRight?.let { icon ->
+                    iconComponent(icon, iconSize ?: IconSize.MEDIUM, color)
+                }
+            }
+        }
+
+        if (href == null) {
+            // Render as <button> (for actions)
+            container.button {
+                buttonBlock?.let { block ->
+                    block(this)
+                }
+                buttonInternals()
+            }
+        }
+    }
+
+    private fun BUTTON.buttonInternals() {
+        val color = getColor()
+        this.classes = getAllClasses()
+        this@GenericButton.id?.let {
+            this@buttonInternals.id = "$it-button"
+        }
+        ariaLabel?.let {
+            attributes["aria-label"] = it
+            if (attributes["title"] == null || attributes["title"]?.isEmpty() == true) {
+                attributes["title"] = it
+            }
+        }
+        if (ariaLabel == null && attributes["title"] != null && attributes["title"]?.isEmpty() == true) {
+            attributes["aria-label"] = attributes["title"]!!
+        }
+        onClick?.let {
+            attributes["onclick"] = it
+        }
+        iconLeft?.let {
+            iconComponent(it, iconSize ?: IconSize.MEDIUM, color)
+        }
+        if (text.isNotEmpty()) {
+            + text
+        }
+        iconRight?.let {
+            iconComponent(it, iconSize ?: IconSize.MEDIUM, color)
+        }
+
+    }
+
+    private fun getColor(): IconColor {
+        return if (classes.contains("btn--action")) {
+            IconColor.ON_ACTION
+        } else if (classes.contains("btn--neutral")) {
+            IconColor.ON_NEUTRAL
+        } else if (classes.contains("btn--danger")) {
+            IconColor.ON_DANGER
+        } else if (classes.contains("btn--ghost")) {
+            IconColor.ON_BACKGROUND
+        } else if (classes.contains("icon--action")) {
+            IconColor.ON_ACTION
+        }  else if (classes.contains("icon--neutral")) {
+            IconColor.ON_NEUTRAL
+        } else if (classes.contains("icon--danger")) {
+            IconColor.ON_DANGER
+        } else if (classes.contains("icon--success")) {
+            IconColor.ON_SUCCESS
+        } else if (classes.contains("icon--warning")) {
+            IconColor.ON_WARNING
+        } else if (classes.contains("icon--info")) {
+            IconColor.ON_INFO
+        } else  {
+            IconColor.ON_ACTION // Default color
+        }
+    }
+
+    operator fun String.unaryPlus() {
+        text = this
+    }
+
+    fun getAllClasses(): Set<String> {
+        if (!classes.contains("btn")) {
+            classes = classes + "btn"
+        }
+        if (text.isEmpty() && iconLeft != null) {
+            classes = classes + "btn--icon-only"
+        } else if (text.isEmpty() && iconRight != null) {
+            classes = classes + "btn--icon-only"
+        }
+        return if (classes.contains("btn")) {
+            classes
+        } else {
+            classes + "btn"
+        }
+    }
+
+    fun addClass(className: String): GenericButton {
+        classes += className
+        return this
+    }
+}

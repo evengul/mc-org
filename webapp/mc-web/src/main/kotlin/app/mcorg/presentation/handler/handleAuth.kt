@@ -1,13 +1,14 @@
 package app.mcorg.presentation.handler
 
-import app.mcorg.presentation.templated.common.button.neutralButton
-import app.mcorg.presentation.templated.common.page.createPage
+import app.mcorg.presentation.templated.dsl.pageShell
 import app.mcorg.presentation.utils.getHost
 import app.mcorg.presentation.utils.removeToken
 import app.mcorg.presentation.utils.respondHtml
 import io.ktor.server.application.*
 import io.ktor.server.response.*
 import io.ktor.util.*
+import kotlinx.html.a
+import kotlinx.html.classes
 import kotlinx.html.div
 import kotlinx.html.h1
 
@@ -29,7 +30,7 @@ suspend fun ApplicationCall.handleGetSignOut() {
         .toMap()
         .map { it.key to it.value.first() }
 
-    respondHtml(createPage {
+    respondHtml(pageShell(pageTitle = "MC-ORG — Error") {
         h1 {
             + "An error occurred"
         }
@@ -41,8 +42,10 @@ suspend fun ApplicationCall.handleGetSignOut() {
                 + "$key: $value"
             }
         }
-        neutralButton("Sign Out") {
+        a {
             href = "/auth/sign-out"
+            classes = setOf("btn", "btn--neutral")
+            + "Sign Out"
         }
     })
 }

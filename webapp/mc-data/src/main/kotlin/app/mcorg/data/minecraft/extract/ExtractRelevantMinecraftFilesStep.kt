@@ -97,7 +97,8 @@ data class ExtractRelevantMinecraftFilesStep(
                 entryName.startsWith("data/minecraft/recipe/") ||
                 entryName.startsWith("data/minecraft/recipes/") ||          // pre-1.21
                 entryName.startsWith("data/minecraft/loot_table/") ||
-                entryName.startsWith("data/minecraft/loot_tables/")         // pre-1.21
+                entryName.startsWith("data/minecraft/loot_tables/") ||      // pre-1.21
+                entryName.startsWith("data/minecraft/villager_trade/")      // 26.1+
     }
 
     private fun extractEntry(zipStream: ZipInputStream, entryName: String, outputDir: Path) {

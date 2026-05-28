@@ -1,6 +1,6 @@
 package app.mcorg.pipeline.minecraftfiles
 
-import app.mcorg.config.GithubGistsApiConfig
+import app.mcorg.config.MojangLauncherMetaApiConfig
 import app.mcorg.data.minecraft.ExtractMinecraftDataStep
 import app.mcorg.data.minecraft.extract.ExtractRelevantMinecraftFilesStep
 import app.mcorg.domain.model.minecraft.MinecraftVersion
@@ -29,38 +29,38 @@ suspend fun executeServerFilesPipeline(): Result<AppFailure, Unit> = pipelineRes
 
 
 data object GetServerUrlsStep : Step<List<MinecraftVersion.Release>, AppFailure, List<Pair<MinecraftVersion.Release, URI>>> {
-    override suspend fun process(input: List<MinecraftVersion.Release>): Result<AppFailure, List<Pair<MinecraftVersion.Release, URI>>> {
-        val logger = LoggerFactory.getLogger(this.javaClass)
-        return GithubGistsApiConfig.getProvider().getRaw<Unit>(
-            url = GithubGistsApiConfig.getServerJarsUrl(),
-        ).process(Unit).map {
-            val lines = it.bufferedReader(Charsets.UTF_8).use { reader -> reader.readLines() }
-                .mapNotNull { line ->
-                    val parts = line.split("|")
-                        .filter { part -> part.isNotBlank() }
-                        .map { part -> part.trim() }
+    private val logger = LoggerFactory.getLogger(this.javaClass)
 
-                    if (parts.size >= 2) {
-                        parts[0] to parts[1]
-                    } else {
-                        logger.warn("Skipping malformed line: $line")
-                        null
-                    }
+    override suspend fun process(input: List<MinecraftVersion.Release>): Result<AppFailure, List<Pair<MinecraftVersion.Release, URI>>> = pipelineResult {
+        val provider = MojangLauncherMetaApiConfig.getProvider()
+
+        val manifest = provider.get<Unit, VersionManifest>(
+            url = MojangLauncherMetaApiConfig.getVersionManifestUrl(),
+        ).run(Unit)
+
+        // Index manifest entries by parsed Release for O(1) lookup
+        val entryByVersion: Map<MinecraftVersion.Release, VersionManifest.ManifestEntry> =
+            manifest.versions
+                .filter { it.type == "release" }
+                .mapNotNull { entry ->
+                    runCatching { MinecraftVersion.Release.fromString(entry.id) }.getOrNull()
+                        ?.let { it to entry }
                 }
+                .toMap()
 
-            lines.filter { (version, _) -> !version.contains("Minecraft Version") }
-                .filter { (version, _) -> !version.contains("---------") }
-                .filter { (version, url) -> version.isNotBlank() && url.isNotBlank() }
-                .filter { (version, _) -> version.matches("""1\.\d+(\.\d+)?""".toRegex()) }
-                .filter { (_, url) -> url.endsWith("server.jar") }
-                .mapNotNull { (version, url) ->
-                    try {
-                        MinecraftVersion.Release.fromString(version) to URI.create(url)
-                    } catch (e: IllegalArgumentException) {
-                        logger.error("Invalid version format or URL in gist: $version", e)
-                        null
-                    }
-                }.filter { result -> input.contains(result.first) }
+        input.mapNotNull { version ->
+            val entry = entryByVersion[version]
+            if (entry == null) {
+                logger.warn("Version $version not found in Mojang manifest, skipping")
+                return@mapNotNull null
+            }
+            val meta = provider.get<Unit, VersionMeta>(url = entry.url).process(Unit).getOrNull()
+            val serverUrl = meta?.downloads?.server?.url
+            if (serverUrl == null) {
+                logger.warn("No server.jar download for $version in Mojang metadata, skipping")
+                return@mapNotNull null
+            }
+            version to URI.create(serverUrl)
         }
     }
 }

@@ -15,7 +15,11 @@ data class IdeaSearchFilters(
     val minecraftVersion: String? = null,           // Will check compatibility
 
     // Category-specific filters (JSONB field queries)
-    val categoryFilters: Map<String, FilterValue> = emptyMap()
+    val categoryFilters: Map<String, FilterValue> = emptyMap(),
+
+    // Pagination
+    val page: Int = 1,
+    val pageSize: Int = 20
 )
 
 /**

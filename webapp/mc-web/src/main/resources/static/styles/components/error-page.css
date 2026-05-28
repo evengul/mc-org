@@ -1,0 +1,69 @@
+/* ==========================================================================
+   ERROR / STATUS PAGES
+   Chrome-less brand bar + centered card. Used by 404, 500, banned.
+   ========================================================================== */
+
+.error-brand-bar {
+    height: 56px;
+    background: var(--bg-surface);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding-inline: var(--space-5);
+}
+
+.error-brand-bar__logo {
+    font-family: var(--font-ui);
+    font-size: var(--text-base);
+    font-weight: 600;
+    color: var(--text-primary);
+    text-decoration: none;
+    transition: color 150ms ease;
+}
+
+.error-brand-bar__logo:hover {
+    color: var(--accent);
+}
+
+.error-page {
+    min-height: calc(100vh - 56px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-5);
+}
+
+.error-page__card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: var(--space-6);
+    max-width: 480px;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    text-align: center;
+}
+
+.error-page__heading {
+    font-family: var(--font-ui);
+    font-size: 24px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0;
+    line-height: 1.2;
+}
+
+.error-page__body {
+    font-family: var(--font-body);
+    font-size: var(--text-base);
+    color: var(--text-muted);
+    margin: 0;
+    line-height: 1.5;
+}
+
+.error-page__cta {
+    align-self: center;
+    margin-top: var(--space-3);
+}

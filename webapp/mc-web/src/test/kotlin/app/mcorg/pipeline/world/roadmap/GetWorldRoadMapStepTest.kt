@@ -8,7 +8,7 @@ import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.project.CreateProjectInput
 import app.mcorg.pipeline.project.CreateProjectStep
-import app.mcorg.pipeline.project.UpdateProjectStageStep
+import app.mcorg.pipeline.project.commonsteps.UpdateProjectStageStep
 import app.mcorg.pipeline.world.CreateWorldInput
 import app.mcorg.pipeline.world.CreateWorldStep
 import app.mcorg.test.WithUser

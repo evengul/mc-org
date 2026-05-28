@@ -1,0 +1,9 @@
+{
+  "downloads": {
+    "server": {
+      "sha1": "aaaaaaaa",
+      "size": 60000000,
+      "url": "https://piston-data.mojang.com/v1/objects/aaaaaaaa/server.jar"
+    }
+  }
+}

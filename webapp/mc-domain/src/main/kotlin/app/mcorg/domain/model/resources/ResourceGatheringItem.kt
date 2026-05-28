@@ -7,5 +7,6 @@ data class ResourceGatheringItem(
     val name: String,
     val required: Int,
     val collected: Int,
-    val solvedByProject: Pair<Int, String>? = null
+    val solvedByProject: Pair<Int, String>? = null,
+    val sourceType: String? = null,
 )

@@ -30,8 +30,7 @@ object AppConfig {
     var xboxAuthBaseUrl: String = "https://user.auth.xboxlive.com"
     var xstsAuthBaseUrl: String = "https://xsts.auth.xboxlive.com"
     var minecraftBaseUrl: String = "https://api.minecraftservices.com"
-    var fabricMcBaseUrl: String = "https://meta.fabricmc.net/v2"
-    var githubGistsBaseUrl: String = "https://gist.githubusercontent.com"
+    var launcherMetaBaseUrl: String = "https://launchermeta.mojang.com"
 
     var demoUser: String = "evegul"
 
@@ -112,8 +111,7 @@ object AppConfig {
         System.getenv("XBOX_AUTH_BASE_URL")?.let { xboxAuthBaseUrl = it }
         System.getenv("XSTS_AUTH_BASE_URL")?.let { xstsAuthBaseUrl = it }
         System.getenv("MINECRAFT_BASE_URL")?.let { minecraftBaseUrl = it }
-        System.getenv("FABRIC_MC_BASE_URL")?.let { fabricMcBaseUrl = it }
-        System.getenv("GITHUB_GISTS_BASE_URL")?.let { githubGistsBaseUrl = it }
+        System.getenv("LAUNCHER_META_BASE_URL")?.let { launcherMetaBaseUrl = it }
 
         System.getenv("DEMO_USER")?.let { demoUser = it }
 

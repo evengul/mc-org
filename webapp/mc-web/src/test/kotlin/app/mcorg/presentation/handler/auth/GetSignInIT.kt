@@ -35,7 +35,7 @@ class GetSignInIT : WithUser() {
             cookie(AUTH_COOKIE, jwt)
         }
         assertEquals(HttpStatusCode.Found, response.status)
-        assertEquals("/app", response.headers["Location"])
+        assertEquals("/worlds", response.headers["Location"])
     }
 
     @Test
@@ -47,12 +47,12 @@ class GetSignInIT : WithUser() {
             }
         }
 
-        val response = client.get("/auth/sign-in?redirect_to=/app/some-page") {
+        val response = client.get("/auth/sign-in?redirect_to=/worlds/some-page") {
             val jwt = CreateTokenStep.process(user).getOrNull()!!
             cookie(AUTH_COOKIE, jwt)
         }
         assertEquals(HttpStatusCode.Found, response.status)
-        assertEquals("/app/some-page", response.headers["Location"])
+        assertEquals("/worlds/some-page", response.headers["Location"])
     }
 
     @Test
