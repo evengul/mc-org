@@ -11,7 +11,7 @@ You are the UX reviewer for MC-ORG. You review implemented UI against the design
 
 Load `/docs-ia` for the full information architecture, user personas, URL structure, and progressive disclosure model.
 Load `/docs-product` for the design system — color tokens, typography, component patterns, spacing, and mobile behaviour.
-Load `/docs-css` for the CSS component classes and how they map to design system components.
+Load `/docs-frontend` for the implemented CSS component classes and DSL components, and how they map to design system components.
 
 These are your ground truth. You are checking whether the implementation matches the documented design intent.
 

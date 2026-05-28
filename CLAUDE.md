@@ -146,8 +146,8 @@ commands (they have `user-invocable: false`).
 |---------------------|---------------------------------------------------------------|
 | `docs-development`  | Pipeline steps, `handlePipeline`, DB ops, validation          |
 | `docs-architecture` | Domain model, file structure, plugin chain, route setup       |
-| `docs-css`          | CSS component classes, layout, notices, cards (legacy — deprecated during frontend rewrite; use `docs-product` instead) |
-| `docs-product`      | Design system tokens, component patterns, spacing, mobile behaviour (use during frontend rewrite) |
+| `docs-frontend`     | DSL component functions, CSS classes, design tokens, layout, page shell — writing/editing templates |
+| `docs-product`      | Design system tokens, component patterns, motion, mobile behaviour — UI review and design intent |
 | `docs-htmx`         | HTMX helper functions, `hx*` attributes, HTMX patterns        |
 | `docs-ia`           | Information architecture, URL structure, navigation, personas |
 | `docs-testing`      | Writing or running tests — unit, integration, pipeline step   |
