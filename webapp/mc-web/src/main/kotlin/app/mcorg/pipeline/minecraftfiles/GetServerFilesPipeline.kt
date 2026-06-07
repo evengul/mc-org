@@ -28,10 +28,17 @@ suspend fun executeServerFilesPipeline(): Result<AppFailure, Unit> = pipelineRes
 }
 
 
-data object GetServerUrlsStep : Step<List<MinecraftVersion.Release>, AppFailure, List<Pair<MinecraftVersion.Release, URI>>> {
+/** A Minecraft release resolved to its server.jar download URL and the SHA1 Mojang advertises for it. */
+data class ResolvedServerJar(
+    val version: MinecraftVersion.Release,
+    val url: URI,
+    val sha1: String,
+)
+
+data object GetServerUrlsStep : Step<List<MinecraftVersion.Release>, AppFailure, List<ResolvedServerJar>> {
     private val logger = LoggerFactory.getLogger(this.javaClass)
 
-    override suspend fun process(input: List<MinecraftVersion.Release>): Result<AppFailure, List<Pair<MinecraftVersion.Release, URI>>> = pipelineResult {
+    override suspend fun process(input: List<MinecraftVersion.Release>): Result<AppFailure, List<ResolvedServerJar>> = pipelineResult {
         val provider = MojangLauncherMetaApiConfig.getProvider()
 
         val manifest = provider.get<Unit, VersionManifest>(
@@ -54,53 +61,69 @@ data object GetServerUrlsStep : Step<List<MinecraftVersion.Release>, AppFailure,
                 logger.warn("Version $version not found in Mojang manifest, skipping")
                 return@mapNotNull null
             }
-            val meta = provider.get<Unit, VersionMeta>(url = entry.url).process(Unit).getOrNull()
-            val serverUrl = meta?.downloads?.server?.url
-            if (serverUrl == null) {
+            val server = provider.get<Unit, VersionMeta>(url = entry.url).process(Unit).getOrNull()
+                ?.downloads?.server
+            if (server == null) {
                 logger.warn("No server.jar download for $version in Mojang metadata, skipping")
                 return@mapNotNull null
             }
-            version to URI.create(serverUrl)
+            ResolvedServerJar(version, URI.create(server.url), server.sha1)
         }
     }
 }
 
-internal data object FilterAlreadyStoredVersionsStep : Step<List<Pair<MinecraftVersion.Release, URI>>, AppFailure, List<Pair<MinecraftVersion.Release, URI>>> {
-    override suspend fun process(input: List<Pair<MinecraftVersion.Release, URI>>): Result<AppFailure, List<Pair<MinecraftVersion.Release, URI>>> {
-        val logger = LoggerFactory.getLogger(this.javaClass)
+internal data object FilterAlreadyStoredVersionsStep : Step<List<ResolvedServerJar>, AppFailure, List<ResolvedServerJar>> {
+    private val logger = LoggerFactory.getLogger(this.javaClass)
 
-        val statuses = LoadIngestionStatusStep.process(Unit)
-        if (statuses is Result.Failure) {
+    override suspend fun process(input: List<ResolvedServerJar>): Result<AppFailure, List<ResolvedServerJar>> {
+        val ledger = LoadIngestionStatusStep.process(Unit)
+        if (ledger is Result.Failure) {
             logger.error("Failed to load ingestion status from the ledger.")
-            return statuses
+            return ledger
         }
-        val completed = statuses.getOrNull().orEmpty()
+        val byVersion = ledger.getOrNull().orEmpty()
 
         return Result.success(
-            input.filter { (version, _) ->
-                val alreadyIngested = completed[version] == IngestionStatus.COMPLETED
-                if (alreadyIngested) {
-                    logger.info("Version $version already ingested (ledger status=completed), skipping download.")
+            input.filter { jar ->
+                val ingest = shouldIngest(jar, byVersion[jar.version])
+                if (ingest) {
+                    logger.info("Version ${jar.version} will be downloaded and processed (ledger=${byVersion[jar.version]}, manifest sha=${jar.sha1}).")
                 } else {
-                    logger.info("Version $version not yet ingested, will download and process.")
+                    logger.info("Version ${jar.version} already ingested, skipping download.")
                 }
-                !alreadyIngested
+                ingest
             }
         )
     }
+
+    /**
+     * Decide whether a resolved server.jar needs ingesting, given its current ledger entry (or null
+     * if there is no row). Ingest when: there is no row (incl. post-truncate recreate), the previous
+     * run did not complete, or the SHA has changed. A completed row whose stored SHA is unknown
+     * (NULL) is NOT re-ingested — re-ingesting would duplicate resource_source rows, and the existing
+     * data already came from this immutable release jar. The pre-ledger versions had their SHAs
+     * backfilled by migration `V2_36_0`; any NULL that slips through (environment drift) is simply
+     * skipped. Skip when a completed row's stored SHA matches Mojang's advertised SHA (MCO-168).
+     */
+    internal fun shouldIngest(jar: ResolvedServerJar, entry: IngestionLedgerEntry?): Boolean = when {
+        entry == null -> true
+        entry.status != IngestionStatus.COMPLETED -> true
+        entry.serverJarSha == null -> false
+        else -> entry.serverJarSha != jar.sha1
+    }
 }
 
-private data object ProcessServerFilesStep : Step<List<Pair<MinecraftVersion.Release, URI>>, AppFailure, Unit> {
+private data object ProcessServerFilesStep : Step<List<ResolvedServerJar>, AppFailure, Unit> {
     private val logger = LoggerFactory.getLogger(this.javaClass)
-    override suspend fun process(input: List<Pair<MinecraftVersion.Release, URI>>): Result<AppFailure, Unit> {
+    override suspend fun process(input: List<ResolvedServerJar>): Result<AppFailure, Unit> {
         if (input.isEmpty()) {
             logger.info("No new server files to process.")
             return Result.success()
         }
 
-        val result = input.map {
-            MDC.put("minecraftVersion", it.first.toString())
-            val stepResult = processServerFile(it)
+        val result = input.map { jar ->
+            MDC.put("minecraftVersion", jar.version.toString())
+            val stepResult = processServerFile(jar)
             try {
                 delay(500)
             } catch (e: Exception) {
@@ -118,8 +141,8 @@ private data object ProcessServerFilesStep : Step<List<Pair<MinecraftVersion.Rel
         return Result.success()
     }
 
-    private suspend fun processServerFile(input: Pair<MinecraftVersion.Release, URI>): Result<AppFailure, Unit> {
-        val version = input.first
+    private suspend fun processServerFile(jar: ResolvedServerJar): Result<AppFailure, Unit> {
+        val version = jar.version
 
         val marked = MarkIngestionInProgressStep.process(version)
         if (marked is Result.Failure) {
@@ -128,7 +151,7 @@ private data object ProcessServerFilesStep : Step<List<Pair<MinecraftVersion.Rel
         }
 
         val result: Result<AppFailure, Unit> = pipelineResult {
-            val file = GetServerFileStep.run(input)
+            val file = GetServerFileStep.run(version to jar.url)
             val extracted = ExtractRelevantMinecraftFilesStep().process(file)
                 .mapError { AppFailure.FileError(ProcessServerFilesStep.javaClass) }
                 .bind()
@@ -139,7 +162,7 @@ private data object ProcessServerFilesStep : Step<List<Pair<MinecraftVersion.Rel
         }
 
         return when (result) {
-            is Result.Success -> MarkIngestionCompletedStep.process(version)
+            is Result.Success -> MarkIngestionCompletedStep.process(jar)
             is Result.Failure -> {
                 // Best-effort: record the failure so a rerun retries this version only. If the ledger
                 // write itself fails we still surface the original, more informative error.
@@ -171,23 +194,30 @@ object IngestionStatus {
     const val FAILED = "failed"
 }
 
+/** A row of the ingestion ledger relevant to the freshness decision (status + last-ingested SHA). */
+internal data class IngestionLedgerEntry(val status: String, val serverJarSha: String?)
+
 /**
- * Reads the ingestion ledger into a `version -> status` map. A version absent from the map has no
+ * Reads the ingestion ledger into a `version -> entry` map. A version absent from the map has no
  * ledger row and is treated as "never ingested" by the caller. Replaces the legacy 4-table EXISTS
- * proxy as the source of truth for ingestion decisions (MCO-167).
+ * proxy as the source of truth for ingestion decisions (MCO-167); carries the stored server.jar SHA
+ * for the freshness check (MCO-168).
  */
-internal data object LoadIngestionStatusStep : Step<Unit, AppFailure.DatabaseError, Map<MinecraftVersion.Release, String>> {
+internal data object LoadIngestionStatusStep : Step<Unit, AppFailure.DatabaseError, Map<MinecraftVersion.Release, IngestionLedgerEntry>> {
     private val logger = LoggerFactory.getLogger(this.javaClass)
 
-    override suspend fun process(input: Unit): Result<AppFailure.DatabaseError, Map<MinecraftVersion.Release, String>> =
-        DatabaseSteps.query<Unit, Map<MinecraftVersion.Release, String>>(
-            sql = SafeSQL.select("SELECT version, status FROM minecraft_version_ingestion"),
+    override suspend fun process(input: Unit): Result<AppFailure.DatabaseError, Map<MinecraftVersion.Release, IngestionLedgerEntry>> =
+        DatabaseSteps.query<Unit, Map<MinecraftVersion.Release, IngestionLedgerEntry>>(
+            sql = SafeSQL.select("SELECT version, status, server_jar_sha FROM minecraft_version_ingestion"),
             resultMapper = { resultSet ->
                 buildMap {
                     while (resultSet.next()) {
                         val versionString = resultSet.getString("version")
                         try {
-                            put(MinecraftVersion.Release.fromString(versionString), resultSet.getString("status"))
+                            put(
+                                MinecraftVersion.Release.fromString(versionString),
+                                IngestionLedgerEntry(resultSet.getString("status"), resultSet.getString("server_jar_sha")),
+                            )
                         } catch (e: IllegalArgumentException) {
                             logger.error("Invalid version format in ingestion ledger: $versionString", e)
                         }
@@ -218,16 +248,25 @@ internal data object MarkIngestionInProgressStep : Step<MinecraftVersion.Release
         ).process(input).map { }
 }
 
-/** Marks a version's ingestion as completed and clears any prior error (MCO-167). */
-internal data object MarkIngestionCompletedStep : Step<MinecraftVersion.Release, AppFailure.DatabaseError, Unit> {
-    override suspend fun process(input: MinecraftVersion.Release): Result<AppFailure.DatabaseError, Unit> =
-        DatabaseSteps.update<MinecraftVersion.Release>(
+/**
+ * Marks a version's ingestion as completed, records the server.jar SHA + URL it was ingested from,
+ * and clears any prior error. The stored SHA is what the next run's freshness check compares against
+ * (MCO-167 set status; MCO-168 adds the SHA/URL).
+ */
+internal data object MarkIngestionCompletedStep : Step<ResolvedServerJar, AppFailure.DatabaseError, Unit> {
+    override suspend fun process(input: ResolvedServerJar): Result<AppFailure.DatabaseError, Unit> =
+        DatabaseSteps.update<ResolvedServerJar>(
             sql = SafeSQL.update("""
                 UPDATE minecraft_version_ingestion
-                SET status = 'completed', completed_at = now(), last_error = NULL
+                SET status = 'completed', completed_at = now(), last_error = NULL,
+                    server_jar_sha = ?, server_jar_url = ?
                 WHERE version = ?
             """.trimIndent()),
-            parameterSetter = { statement, version -> statement.setString(1, version.toString()) }
+            parameterSetter = { statement, jar ->
+                statement.setString(1, jar.sha1)
+                statement.setString(2, jar.url.toString())
+                statement.setString(3, jar.version.toString())
+            }
         ).process(input).map { }
 }
 

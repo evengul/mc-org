@@ -118,6 +118,18 @@ private data class StoreResourceSourcesStep(val connection: TransactionConnectio
     override suspend fun process(input: Pair<MinecraftVersion.Release, List<ResourceSource>>): Result<AppFailure, Unit> {
         return try {
             val (version, sources) = input
+
+            // resource_source has no natural unique key and its insert below is not idempotent, so a
+            // re-ingest of an existing version would duplicate every source. Clear this version's
+            // sources first (FK ON DELETE CASCADE removes the produced/consumed children); nothing
+            // outside ingestion references these rows. Runs inside the enclosing transaction, so a
+            // later failure rolls the delete back too. (MCO-168)
+            DatabaseSteps.update<MinecraftVersion.Release>(
+                sql = SafeSQL.delete("DELETE FROM resource_source WHERE version = ?"),
+                parameterSetter = { statement, v -> statement.setString(1, v.toString()) },
+                connection
+            ).process(version).let { if (it is Result.Failure) return it }
+
             DatabaseSteps.batchUpdate<ResourceSource>(
                 sql = SafeSQL.with("""
                     WITH inserted_source AS (

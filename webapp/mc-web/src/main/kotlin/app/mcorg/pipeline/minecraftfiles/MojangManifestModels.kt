@@ -24,5 +24,5 @@ internal data class VersionMeta(val downloads: Downloads) {
     data class Downloads(val server: ServerDownload? = null)
 
     @Serializable
-    data class ServerDownload(val url: String)
+    data class ServerDownload(val url: String, val sha1: String)
 }

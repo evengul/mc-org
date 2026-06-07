@@ -64,14 +64,14 @@ class GetServerUrlsStepTest {
         )
 
         val result = GetServerUrlsStep.process(input)
-        val pairs = assertIs<Result.Success<List<Pair<MinecraftVersion.Release, URI>>>>(result).value
+        val jars = assertIs<Result.Success<List<ResolvedServerJar>>>(result).value
 
         assertEquals(
             listOf(
-                MinecraftVersion.Release(1, 21, 3) to URI.create("https://piston-data.mojang.com/v1/objects/bbbbbbbb/server.jar"),
-                MinecraftVersion.Release(1, 20, 4) to URI.create("https://piston-data.mojang.com/v1/objects/cccccccc/server.jar")
+                ResolvedServerJar(MinecraftVersion.Release(1, 21, 3), URI.create("https://piston-data.mojang.com/v1/objects/bbbbbbbb/server.jar"), "bbbbbbbb"),
+                ResolvedServerJar(MinecraftVersion.Release(1, 20, 4), URI.create("https://piston-data.mojang.com/v1/objects/cccccccc/server.jar"), "cccccccc")
             ),
-            pairs
+            jars
         )
     }
 
@@ -82,14 +82,15 @@ class GetServerUrlsStepTest {
         val input = listOf(MinecraftVersion.Release(26, 1, 1))
 
         val result = GetServerUrlsStep.process(input)
-        val pairs = assertIs<Result.Success<List<Pair<MinecraftVersion.Release, URI>>>>(result).value
+        val jars = assertIs<Result.Success<List<ResolvedServerJar>>>(result).value
 
-        assertEquals(1, pairs.size)
-        assertEquals(MinecraftVersion.Release(26, 1, 1), pairs[0].first)
+        assertEquals(1, jars.size)
+        assertEquals(MinecraftVersion.Release(26, 1, 1), jars[0].version)
         assertEquals(
             URI.create("https://piston-data.mojang.com/v1/objects/aaaaaaaa/server.jar"),
-            pairs[0].second
+            jars[0].url
         )
+        assertEquals("aaaaaaaa", jars[0].sha1)
     }
 
     @Test
@@ -102,10 +103,10 @@ class GetServerUrlsStepTest {
         )
 
         val result = GetServerUrlsStep.process(input)
-        val pairs = assertIs<Result.Success<List<Pair<MinecraftVersion.Release, URI>>>>(result).value
+        val jars = assertIs<Result.Success<List<ResolvedServerJar>>>(result).value
 
-        assertEquals(1, pairs.size)
-        assertEquals(MinecraftVersion.Release(1, 21, 3), pairs[0].first)
+        assertEquals(1, jars.size)
+        assertEquals(MinecraftVersion.Release(1, 21, 3), jars[0].version)
     }
 
     @Test
@@ -122,11 +123,11 @@ class GetServerUrlsStepTest {
         )
 
         val result = GetServerUrlsStep.process(input)
-        val pairs = assertIs<Result.Success<List<Pair<MinecraftVersion.Release, URI>>>>(result).value
+        val jars = assertIs<Result.Success<List<ResolvedServerJar>>>(result).value
 
-        assertEquals(1, pairs.size)
-        assertEquals(MinecraftVersion.Release(1, 21, 3), pairs[0].first)
-        assertNull(pairs.firstOrNull { it.first == MinecraftVersion.Release(1, 20, 4) })
+        assertEquals(1, jars.size)
+        assertEquals(MinecraftVersion.Release(1, 21, 3), jars[0].version)
+        assertNull(jars.firstOrNull { it.version == MinecraftVersion.Release(1, 20, 4) })
     }
 
     @Test
