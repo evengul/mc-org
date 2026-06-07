@@ -139,14 +139,18 @@ DROP TABLE IF EXISTS {table_name};
 ## Step 4: Test Migration
 
 ```bash
-# Apply migration
-mvn flyway:migrate
+# Apply migration (supplies the local DB connection env, then runs Flyway against mc-web)
+./webapp/scripts/migrate-locally.sh
 
-# Verify migration applied
-mvn flyway:info
+# flyway:info / flyway:repair need the same connection env — a bare `mvn flyway:migrate`
+# fails to connect. Run from webapp/ with the env the script uses:
+cd webapp
+DB_URL="jdbc:postgresql://localhost:5432/postgres" DB_USER="postgres" DB_PASSWORD="supersecret" \
+  mvn flyway:info -pl mc-web
 
 # If issues, repair Flyway history
-mvn flyway:repair
+DB_URL="jdbc:postgresql://localhost:5432/postgres" DB_USER="postgres" DB_PASSWORD="supersecret" \
+  mvn flyway:repair -pl mc-web
 ```
 
 ## Step 5: Create Kotlin Model (if new table)
@@ -233,7 +237,7 @@ ADD COLUMN status {enum_name} NOT NULL DEFAULT 'VALUE1';
 - [ ] SQL syntax is valid
 - [ ] Foreign keys have appropriate ON DELETE behavior
 - [ ] Indexes added for frequently queried columns
-- [ ] Migration tested locally (`mvn flyway:migrate`)
+- [ ] Migration tested locally (`./webapp/scripts/migrate-locally.sh`)
 - [ ] Kotlin model created (if new table)
 - [ ] ResultSet mapper created (if new table)
 - [ ] `mvn test` passes
