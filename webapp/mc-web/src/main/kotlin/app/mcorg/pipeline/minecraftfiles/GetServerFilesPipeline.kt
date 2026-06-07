@@ -1,5 +1,6 @@
 package app.mcorg.pipeline.minecraftfiles
 
+import app.mcorg.config.Database
 import app.mcorg.config.MojangLauncherMetaApiConfig
 import app.mcorg.data.minecraft.ExtractMinecraftDataStep
 import app.mcorg.data.minecraft.extract.ExtractRelevantMinecraftFilesStep
@@ -9,10 +10,12 @@ import app.mcorg.domain.pipeline.Step
 import app.mcorg.domain.pipeline.pipelineResult
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
+import app.mcorg.pipeline.TransactionConnection
 import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.minecraft.GetAvailableVersionsStep
 import app.mcorg.pipeline.minecraft.StoreMinecraftDataStep
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import org.slf4j.LoggerFactory
@@ -20,11 +23,81 @@ import org.slf4j.MDC
 import java.io.InputStream
 import java.net.URI
 
-suspend fun executeServerFilesPipeline(): Result<AppFailure, Unit> = pipelineResult {
-    val versions = GetAvailableVersionsStep.run(Unit)
-    val urls = GetServerUrlsStep.run(versions)
-    val filtered = FilterAlreadyStoredVersionsStep.run(urls)
-    ProcessServerFilesStep.run(filtered)
+/**
+ * Fixed advisory-lock key guarding a whole ingestion run. Any stable bigint works; this value is
+ * arbitrary and shared by every invocation path (app boot, manual run, the future cron machine) so
+ * they serialise against each other.
+ */
+private const val INGESTION_ADVISORY_LOCK_KEY = 7331L
+
+private val ingestionLogger = LoggerFactory.getLogger("app.mcorg.pipeline.minecraftfiles.ServerFilesIngestion")
+
+/**
+ * Runs server-files ingestion under a Postgres advisory lock so overlapping triggers become silent
+ * no-ops instead of duplicate work. The lock is held on a dedicated connection for the whole run and
+ * released on every exit path, including failure and cancellation (MCO-169).
+ */
+suspend fun executeServerFilesPipeline(): Result<AppFailure, Unit> = withIngestionLock {
+    pipelineResult {
+        val versions = GetAvailableVersionsStep.run(Unit)
+        val urls = GetServerUrlsStep.run(versions)
+        val filtered = FilterAlreadyStoredVersionsStep.run(urls)
+        ProcessServerFilesStep.run(filtered)
+    }
+}
+
+/**
+ * Acquires the ingestion advisory lock on a dedicated connection and runs [block]. If another run
+ * already holds the lock, logs and returns success without running [block] — overlapping triggers
+ * become no-ops. The lock is released and the connection returned on every path; release runs under
+ * [NonCancellable] so a cancelled run still frees the lock rather than leaking it on the pooled
+ * session (a pg advisory lock is session-scoped and Hikari keeps sessions alive across checkouts).
+ */
+internal suspend fun withIngestionLock(block: suspend () -> Result<AppFailure, Unit>): Result<AppFailure, Unit> {
+    val connection = try {
+        TransactionConnection(withContext(Dispatchers.IO) { Database.getConnection() })
+    } catch (e: Exception) {
+        ingestionLogger.error("Could not open a connection for the ingestion advisory lock", e)
+        return Result.failure(AppFailure.DatabaseError.ConnectionError)
+    }
+
+    return connection.connection.use {
+        when (val acquired = tryAdvisoryLock(connection)) {
+            is Result.Failure -> acquired
+            is Result.Success -> if (!acquired.value) {
+                ingestionLogger.info("Another ingestion run is in progress, skipping.")
+                Result.success()
+            } else {
+                try {
+                    block()
+                } finally {
+                    withContext(NonCancellable) { releaseAdvisoryLock(connection) }
+                }
+            }
+        }
+    }
+}
+
+private suspend fun tryAdvisoryLock(connection: TransactionConnection): Result<AppFailure.DatabaseError, Boolean> =
+    DatabaseSteps.query<Long, Boolean>(
+        sql = SafeSQL.select("SELECT pg_try_advisory_lock(?)"),
+        parameterSetter = { statement, key -> statement.setLong(1, key) },
+        resultMapper = { rs -> rs.next() && rs.getBoolean(1) },
+        transactionConnection = connection,
+    ).process(INGESTION_ADVISORY_LOCK_KEY)
+
+private suspend fun releaseAdvisoryLock(connection: TransactionConnection) {
+    DatabaseSteps.query<Long, Boolean>(
+        sql = SafeSQL.select("SELECT pg_advisory_unlock(?)"),
+        parameterSetter = { statement, key -> statement.setLong(1, key) },
+        resultMapper = { rs -> rs.next() && rs.getBoolean(1) },
+        transactionConnection = connection,
+    ).process(INGESTION_ADVISORY_LOCK_KEY).fold(
+        onSuccess = { released ->
+            if (!released) ingestionLogger.warn("Ingestion advisory lock $INGESTION_ADVISORY_LOCK_KEY was not held at release time.")
+        },
+        onFailure = { ingestionLogger.error("Failed to release ingestion advisory lock: $it") },
+    )
 }
 
 
