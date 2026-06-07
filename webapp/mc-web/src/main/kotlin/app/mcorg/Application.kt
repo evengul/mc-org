@@ -2,7 +2,6 @@ package app.mcorg
 
 import app.mcorg.presentation.plugins.configureHTTP
 import app.mcorg.presentation.plugins.configureMonitoring
-import app.mcorg.presentation.plugins.configureScheduling
 import app.mcorg.presentation.plugins.configureSessions
 import app.mcorg.presentation.plugins.configureStatusStaticRouter
 import app.mcorg.presentation.router.configureAppRouter
@@ -33,6 +32,5 @@ private fun Application.module() {
     configureMonitoring()
     configureAppRouter()
     configureStatusStaticRouter()
-    configureScheduling()
     configureSessions()
 }
