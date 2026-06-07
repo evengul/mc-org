@@ -59,7 +59,7 @@
 }
 
 .world-card:hover {
-    border-color: #3a4060;
+    border-color: var(--border-strong);
     background: var(--bg-raised);
 }
 

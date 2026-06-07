@@ -24,25 +24,62 @@ The system must scale between "tap a counter on your phone while mining" and "sc
 
 All colors are CSS variables. Never use hardcoded hex values.
 
+The palette is **"Daylight Field Notebook" (Overworld)** — a warm paper + sepia-ink
+substrate drawn from the overworld's dirt/sand/wood, with accents borrowed from
+overworld materials. It is a **light** theme (there is currently no dark theme).
+
 | Role | Token | Hex |
 |------|-------|-----|
-| Page background | `--bg-base` | `#0F1117` |
-| Cards, panels | `--bg-surface` | `#181C27` |
-| Table rows hover, inputs | `--bg-raised` | `#1F2435` |
-| Dividers, table borders | `--border` | `#2A2F42` |
-| Body, headings | `--text-primary` | `#E8EAF0` |
-| Labels, metadata | `--text-muted` | `#6E748A` |
-| Done items, dimmed content | `--text-disabled` | `#3C4158` |
-| CTAs, active toggle, links | `--accent` | `#4A7CFF` |
-| Accent backgrounds, badges | `--accent-muted` | `#1E2D5C` |
-| Completed resources, done badges | `--green` | `#3DBA7A` |
-| Partial block notices, warnings | `--amber` | `#E8A225` |
-| Destructive actions | `--red` | `#E05252` |
-| Progress bar fill | `--progress` | `#4A7CFF` |
-| Done badge background | `--green-bg` | `#1C3828` |
-| Blocked badge background | `--red-bg` | `#3A1E1E` |
+| Page edge / app background (sand·dirt) | `--bg-base` | `#EBE1C8` |
+| Page surface — cards, panels (paper) | `--bg-surface` | `#F7F0DE` |
+| Raised — inputs, row hover, badges | `--bg-raised` | `#FCF7EA` |
+| Rule lines, dividers, borders | `--border` | `#D6C6A2` |
+| Emphasized rule (hover/focus border) | `--border-strong` | `#C2AE82` |
+| Body, headings (sepia ink) | `--text-primary` | `#2A2218` |
+| Labels, metadata (faded ink) | `--text-muted` | `#7A6B47` |
+| Done items, dimmed content | `--text-disabled` | `#A99B78` |
+| **CTA, active toggle, links — "act" (lapis)** | `--accent` | `#2C6E9E` |
+| CTA hover | `--accent-hover` | `#245C85` |
+| Accent wash — info callout, badges, focus ring | `--accent-muted` | `#D6E2EC` |
+| Text/icon on an accent fill (cream) | `--on-accent` | `#FCF7EA` |
+| **Success / status / progress — "done" (grass)** | `--green` | `#4F7A2B` |
+| **Warning (wheat-gold)** | `--amber` | `#B0791A` |
+| **Danger / destructive (redstone)** | `--red` | `#A6321F` |
+| Progress bar fill (grass) | `--progress` | `#4F7A2B` |
+| Done badge background | `--green-bg` | `#DEE8CB` |
+| Blocked badge background | `--red-bg` | `#F0DACF` |
 
-Dark theme only. Light theme is Phase 3.
+### Role discipline — one hue, one job
+
+Every accent hue maps to **exactly one role**. This is what keeps the UI from
+reading as generic SaaS, and it is enforced:
+
+| Overworld material | Token(s) | Job |
+|--------------------|----------|-----|
+| Sand · dirt · wood | `--bg-*`, `--border*`, `--text-*` | Substrate: surfaces, rules, ink. **Brown is structural, never an accent.** |
+| Lapis (sky·water) | `--accent`, `--accent-muted` | **Act**: primary/CTA, links, active states — and **info** (the quiet `--accent-muted` wash) |
+| Grass · emerald | `--green`, `--progress` | **Done**: success, status, progress |
+| Wheat-gold | `--amber` | Warning |
+| Redstone | `--red` | Danger |
+
+Rules that follow from this:
+
+- **Secondary actions are not a second colour** — they're ink-on-paper
+  (`.btn--secondary`: raised surface + border + ink). Resist colored secondary buttons.
+- **Info is the *quiet* lapis**, not a new hue (we are out of colour-blind-safe hues):
+  pale `--accent-muted` wash + ⓘ icon. Solid lapis = act, pale lapis = inform.
+- **Primary (lapis) vs success (grass) are separated by hue**, so a CTA never reads
+  as "done"; primary vs status badge are further separated by fill-vs-tint.
+
+### Colour-blind constraint (load-bearing — the primary user is red-green colour-blind)
+
+- The **only reliably distinguishable axis is blue↔yellow**. The act and status
+  anchors (lapis, gold) live on it deliberately. Red/orange/brown/green all collapse
+  together — which is why the CTA is **lapis, not copper/green** (copper read as red and
+  collided with danger).
+- **Never convey state by colour alone.** Success/warning/danger must *also* carry an
+  icon or text label. Status badges already do this (they are text-labelled); callouts
+  carry an icon. Honour this in any new component.
 
 ---
 
@@ -92,7 +129,7 @@ Most-used interactive element. Must look intentional, not like a form control.
 
 - Pill shape, 2 segments, **fixed width** — not content-derived (no layout shift on toggle)
 - Inactive: `--bg-raised` background, `--text-muted` text
-- Active: `--accent` background, white text
+- Active: `--accent` background, `--on-accent` text
 - Text: IBM Plex Mono, 12px, uppercase (`PLAN` / `EXEC`)
 - Position: top-right of project detail header on desktop; inline in mobile header
 - Transition: 150ms ease-in-out on background + text color
@@ -169,7 +206,8 @@ Used for partial dependency notices and inline warnings. **Not a banner. Not ful
 - Padding: `--space-3` / `--space-4`
 - IBM Plex Mono `⚠` in amber, then Inter body text
 - CSS: `.callout`, `.callout__icon`, `.callout__body`
-- Info variant: `.callout--info` (accent color instead of amber)
+- Info variant: `.callout--info` (lapis `--accent` rule + ⓘ icon — the "quiet lapis")
+- Success variant: `.callout--success` (`--green` rule + ✓ icon)
 
 ### Navigation Header
 
@@ -186,7 +224,7 @@ CSS: `.app-header`, `.breadcrumb`, `.breadcrumb__item`, `.breadcrumb__item--curr
 ### Project Card (Project List)
 
 - Background: `--bg-surface`, border: `--border`, border-radius: `--radius`
-- Hover: border-color `#3a4060`, background `--bg-raised`
+- Hover: border-color `--border-strong`, background `--bg-raised`
 - Project name: IBM Plex Mono, `--text-base`, weight 600
 - Meta: IBM Plex Mono, `--text-xs`, `--text-muted`
 - CSS: `.project-card`, `.project-card__header`, `.project-card__name`, `.project-card__meta`
@@ -281,3 +319,14 @@ These rules apply to every UI implementation without exception:
 - Status badges text-only — no icons inside badges
 - Warning callouts left-border only — never full-width banners
 - Mobile minimum tap target: 36px for counter buttons, 44px for primary actions
+- Each accent hue keeps one role: lapis = act/info, grass = done, gold = warn, redstone = danger, brown = structure
+- Never convey state by colour alone — success/warning/danger also carry an icon or text label (the primary user is red-green colour-blind)
+
+---
+
+## Living Reference
+
+A static gallery of every component on the live tokens lives at
+**`/static/styleguide.html`** (no auth). Use it to eyeball palette/token changes
+in one place before rolling them across real pages. Source:
+`static/styleguide.html` + `static/styles/pages/styleguide.css`.

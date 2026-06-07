@@ -32,18 +32,18 @@
 .tabs__tab:hover {
     background: var(--bg-surface);
     color: var(--text-primary);
-    border-color: #3a4060;
+    border-color: var(--border-strong);
 }
 
 .tabs__tab--active,
 .tabs__tab[aria-selected="true"] {
     background: var(--accent);
-    color: #fff;
+    color: var(--on-accent);
     border-color: transparent;
 }
 
 .tabs__tab--active:hover,
 .tabs__tab[aria-selected="true"]:hover {
-    background: #3a6aee;
-    color: #fff;
+    background: var(--accent-hover);
+    color: var(--on-accent);
 }

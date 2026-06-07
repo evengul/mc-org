@@ -15,6 +15,10 @@
     border-left-color: var(--red);
 }
 
+.callout--success {
+    border-left-color: var(--green);
+}
+
 .callout--info {
     border-left-color: var(--accent);
 }
@@ -28,6 +32,10 @@
 
 .callout--error .callout__icon {
     color: var(--red);
+}
+
+.callout--success .callout__icon {
+    color: var(--green);
 }
 
 .callout--info .callout__icon {

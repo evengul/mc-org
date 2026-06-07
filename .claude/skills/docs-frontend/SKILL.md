@@ -7,7 +7,7 @@ user-invocable: false
 # Frontend Implementation Reference
 
 How to build UI in MC-ORG's "technical field notebook" design system. Server-side rendered Kotlin HTML
-DSL + HTMX, dark-only.
+DSL + HTMX. Light "paper" theme — the "Daylight Field Notebook" Overworld palette (warm paper + sepia ink).
 
 **This skill = how to write it** (DSL function names, CSS class names, tokens that actually exist in code).
 For the *why* — visual spec, motion, mobile rules, design rationale — load `docs-product`.
@@ -55,9 +55,11 @@ GET handlers return a full `pageShell { }`. Mutating handlers (POST/PUT/PATCH/DE
 
 Defined in `design-tokens.css`. Never hardcode hex, px, or font names — always `var(--token)`.
 
-**Color:** `--bg-base` `--bg-surface` `--bg-raised` `--border` · `--text-primary` `--text-muted`
-`--text-disabled` · `--accent` `--accent-muted` · `--green` `--amber` `--red` · `--progress`
-`--green-bg` `--red-bg`
+**Color:** `--bg-base` `--bg-surface` `--bg-raised` `--border` `--border-strong` · `--text-primary`
+`--text-muted` `--text-disabled` · `--accent` (lapis — act/links) `--accent-hover` `--accent-muted` (info
+wash + badges + focus ring) `--on-accent` (cream text on an accent fill) · `--green` (done) `--amber` (warn)
+`--red` (danger) · `--progress` `--green-bg` `--red-bg`. **One hue, one role** — see `docs-product` for the
+full palette map and the load-bearing colour-blind constraint (never signal state by colour alone).
 
 **Fonts:** `--font-ui` (IBM Plex Mono — chrome, headings, badges, labels, buttons) ·
 `--font-body` (Inter — body text, table cells, prose)
@@ -290,8 +292,10 @@ table(classes = "data-table") {
 }
 ```
 
-For a callout, emit the `.callout` structure directly (left-border notice; `.callout--info` for the accent
-variant). If a reusable DSL helper is worth adding, build it against these classes.
+For a callout, emit the `.callout` structure directly (left-border notice). Variants: default = warning
+(amber + ⚠), `.callout--error` (redstone + ✕), `.callout--success` (grass + ✓), `.callout--info` (the
+"quiet lapis" — lapis rule + ⓘ, our info treatment). If a reusable DSL helper is worth adding, build it
+against these classes.
 
 ---
 
