@@ -13,8 +13,8 @@ fun ApplicationCall.getHost(): String? {
     val referrer = request.headers[HttpHeaders.Referrer] ?: request.host()
     return when (env) {
         Production -> return if (referrer.contains("mcorg.fly.dev")) "mcorg.fly.dev"
-                        else "mcorg.app"
-        Test -> AppConfig.testHost
+                        else AppConfig.appHost
+        Test -> AppConfig.appHost
         Local -> null
     }
 }

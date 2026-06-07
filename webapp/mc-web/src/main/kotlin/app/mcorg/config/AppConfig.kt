@@ -23,7 +23,9 @@ object AppConfig {
     var rsaPrivateKey: String? = null
     var rsaPublicKey: String? = null
 
-    var testHost: String? = null
+    // Public host for the current environment. Drives the OAuth redirect_uri and auth-cookie domain.
+    // Production defaults to "app.seam.gg"; override via APP_HOST. Required in TEST, unused in LOCAL.
+    var appHost: String? = null
 
     var modrinthBaseUrl: String = "https://api.modrinth.com/v2"
     var microsoftLoginBaseUrl: String = "https://login.microsoftonline.com"
@@ -95,14 +97,12 @@ object AppConfig {
         }
 
         System.getenv("APP_HOST").let {
-            if (env != Test) {
-                if (it.isNullOrBlank()) {
-                    errors.add("APP_HOST is not set")
-                } else {
-                    testHost = it
+            when (env) {
+                Production -> appHost = if (it.isNullOrBlank()) "app.seam.gg" else it
+                Test -> {
+                    if (it.isNullOrBlank()) errors.add("APP_HOST is not set") else appHost = it
                 }
-            } else if (!it.isNullOrBlank()) {
-                errors.add("APP_HOST is set in a non-TEST environment, should not be set")
+                Local -> { /* host is not used in LOCAL — getHost() returns null */ }
             }
         }
 
