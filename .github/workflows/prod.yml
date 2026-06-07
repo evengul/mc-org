@@ -92,3 +92,25 @@ jobs:
       - run: flyctl deploy --image ghcr.io/${{ github.repository }}:sha-${{ github.sha }}
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+      # Ingestion runs as its own Fly scheduled machine (MCO-171), not in the
+      # web process. A scheduled machine is pinned to the image it was created
+      # with and is NOT reconciled by `flyctl deploy`, so we recreate it here on
+      # every deploy to keep it tracking the just-deployed image. Destroy is by a
+      # stable name and idempotent, so re-runs replace rather than duplicate.
+      # DB_PASSWORD is an app-level Fly secret and is injected automatically.
+      - name: (Re)create scheduled ingestion machine
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          flyctl machine list -a mcorg --json \
+            | jq -r '.[] | select(.name=="ingest-scheduler") | .id' \
+            | xargs -r -n1 flyctl machine destroy -a mcorg --force
+          flyctl machine run ghcr.io/${{ github.repository }}:sha-${{ github.sha }} \
+            --app mcorg --name ingest-scheduler \
+            --region arn --schedule daily --restart no --vm-memory 1024 \
+            --entrypoint "java -Xmx768m -cp /app/mcorg.jar app.mcorg.cli.IngestServerFilesKt" \
+            --env DB_URL="${{ vars.DB_URL }}" \
+            --env DB_USER="${{ vars.DB_USER }}" \
+            --env ENV=PRODUCTION \
+            --env SKIP_MICROSOFT_SIGN_IN=true
