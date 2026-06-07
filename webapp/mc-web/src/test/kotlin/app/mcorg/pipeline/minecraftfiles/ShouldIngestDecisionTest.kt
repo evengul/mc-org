@@ -27,8 +27,8 @@ class ShouldIngestDecisionTest {
     }
 
     @Test
-    fun `ingests when completed but stored SHA is unknown (backfilled NULL)`() {
-        assertTrue(FilterAlreadyStoredVersionsStep.shouldIngest(jar, IngestionLedgerEntry(IngestionStatus.COMPLETED, null)))
+    fun `does NOT re-ingest when completed but stored SHA is unknown (backfilled NULL is adopted in place)`() {
+        assertFalse(FilterAlreadyStoredVersionsStep.shouldIngest(jar, IngestionLedgerEntry(IngestionStatus.COMPLETED, null)))
     }
 
     @Test

@@ -83,13 +83,30 @@ internal data object FilterAlreadyStoredVersionsStep : Step<List<ResolvedServerJ
         }
         val byVersion = ledger.getOrNull().orEmpty()
 
+        // Adopt the SHA for already-completed rows whose SHA is still unknown (the MCO-166 backfill
+        // left it NULL) WITHOUT re-ingesting: a released jar is immutable, so today's manifest SHA is
+        // the SHA of the data we already hold. Re-ingesting instead would duplicate resource_source
+        // rows (that insert path is not idempotent). This converges the ledger so these versions are
+        // then skipped by the SHA check (MCO-168).
+        val needSha = input.filter { jar ->
+            byVersion[jar.version]?.let { it.status == IngestionStatus.COMPLETED && it.serverJarSha == null } == true
+        }
+        if (needSha.isNotEmpty()) {
+            val backfilled = BackfillServerJarShaStep.process(needSha)
+            if (backfilled is Result.Failure) {
+                logger.error("Failed to backfill server.jar SHAs into the ledger.")
+                return backfilled
+            }
+            logger.info("Backfilled server.jar SHA for ${needSha.size} already-ingested version(s): ${needSha.map { it.version }}.")
+        }
+
         return Result.success(
             input.filter { jar ->
                 val ingest = shouldIngest(jar, byVersion[jar.version])
                 if (ingest) {
                     logger.info("Version ${jar.version} will be downloaded and processed (ledger=${byVersion[jar.version]}, manifest sha=${jar.sha1}).")
                 } else {
-                    logger.info("Version ${jar.version} already ingested with matching server.jar SHA, skipping download.")
+                    logger.info("Version ${jar.version} already ingested, skipping download.")
                 }
                 ingest
             }
@@ -99,13 +116,15 @@ internal data object FilterAlreadyStoredVersionsStep : Step<List<ResolvedServerJ
     /**
      * Decide whether a resolved server.jar needs ingesting, given its current ledger entry (or null
      * if there is no row). Ingest when: there is no row (incl. post-truncate recreate), the previous
-     * run did not complete, the stored SHA is unknown (backfilled NULL), or the SHA has changed.
-     * Skip only when a completed row's stored SHA matches Mojang's advertised SHA (MCO-168).
+     * run did not complete, or the SHA has changed. A completed row whose stored SHA is unknown
+     * (backfilled NULL) is NOT re-ingested — its SHA is adopted in place by [BackfillServerJarShaStep]
+     * because the existing data already came from this immutable release jar. Skip when a completed
+     * row's stored SHA matches Mojang's advertised SHA (MCO-168).
      */
     internal fun shouldIngest(jar: ResolvedServerJar, entry: IngestionLedgerEntry?): Boolean = when {
         entry == null -> true
         entry.status != IngestionStatus.COMPLETED -> true
-        entry.serverJarSha == null -> true
+        entry.serverJarSha == null -> false
         else -> entry.serverJarSha != jar.sha1
     }
 }
@@ -222,6 +241,31 @@ internal data object LoadIngestionStatusStep : Step<Unit, AppFailure.DatabaseErr
                 }
             }
         ).process(Unit)
+}
+
+/**
+ * Adopts the advertised server.jar SHA for already-`completed` ledger rows whose SHA is still NULL
+ * (the MCO-166 backfill could not know it). A released version's jar is immutable, so the SHA Mojang
+ * advertises now is the SHA of the jar the existing data was built from — so we record it WITHOUT
+ * re-downloading or re-processing. Only ever fills a NULL (guarded WHERE); never overwrites a known
+ * SHA. This is what lets the filter treat a completed+NULL row as "skip" instead of a duplicate
+ * re-ingest (MCO-168). Callers pass only the versions that actually need it, so every batched row
+ * matches the WHERE.
+ */
+internal data object BackfillServerJarShaStep : Step<List<ResolvedServerJar>, AppFailure.DatabaseError, Unit> {
+    override suspend fun process(input: List<ResolvedServerJar>): Result<AppFailure.DatabaseError, Unit> =
+        DatabaseSteps.batchUpdate<ResolvedServerJar>(
+            sql = SafeSQL.update("""
+                UPDATE minecraft_version_ingestion
+                SET server_jar_sha = ?, server_jar_url = ?
+                WHERE version = ? AND status = 'completed' AND server_jar_sha IS NULL
+            """.trimIndent()),
+            parameterSetter = { statement, jar ->
+                statement.setString(1, jar.sha1)
+                statement.setString(2, jar.url.toString())
+                statement.setString(3, jar.version.toString())
+            }
+        ).process(input)
 }
 
 /**
