@@ -16,6 +16,7 @@ node_modules/
 .playwright-cli
 .claude/screenshots/
 .claude/worktrees/
+.claude/settings.local.json
 
 # mc-data symlink to mc-web test data
 webapp/mc-data/src/test/resources/servers/extracted
