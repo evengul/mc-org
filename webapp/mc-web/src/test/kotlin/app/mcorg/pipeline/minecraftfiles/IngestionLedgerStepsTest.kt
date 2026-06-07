@@ -125,8 +125,8 @@ class IngestionLedgerStepsTest {
     }
 
     @Test
-    fun `Filter keeps missing failed and in_progress versions but skips and backfills a completed NULL-SHA row`() {
-        seed(v1, IngestionStatus.COMPLETED, serverJarSha = null) // backfilled row → adopt SHA in place, do NOT re-ingest
+    fun `Filter keeps missing, failed and in_progress versions and a completed NULL-SHA row is skipped not re-ingested`() {
+        seed(v1, IngestionStatus.COMPLETED, serverJarSha = null) // SHA unknown → skip (do NOT re-ingest/duplicate); migration V2_36_0 fills these in prod
         seed(v2, IngestionStatus.FAILED, serverJarSha = "sha-x")
         // v3 intentionally has no ledger row (the truncate-to-recreate path)
 
@@ -135,26 +135,8 @@ class IngestionLedgerStepsTest {
         val result = runBlocking { FilterAlreadyStoredVersionsStep.process(input) }
         val kept = assertIs<Result.Success<List<ResolvedServerJar>>>(result).value
 
-        // v1 is NOT re-ingested (no duplication), v2 (failed) and v3 (missing) are.
+        // v1 is NOT re-ingested (no duplication); v2 (failed) and v3 (missing) are.
         assertEquals(setOf(v2, v3), kept.map { it.version }.toSet())
-        // v1's SHA was adopted from the manifest without re-ingesting.
-        assertEquals("sha-a", assertNotNull(readRow(v1)).serverJarSha)
-    }
-
-    @Test
-    fun `Backfill only fills NULL SHAs on completed rows and never overwrites a known SHA`() {
-        seed(v1, IngestionStatus.COMPLETED, serverJarSha = null)
-        seed(v2, IngestionStatus.COMPLETED, serverJarSha = "already-known")
-        seed(v3, IngestionStatus.FAILED, serverJarSha = null)
-
-        val result = runBlocking {
-            BackfillServerJarShaStep.process(listOf(jar(v1, "new-1"), jar(v2, "new-2"), jar(v3, "new-3")))
-        }
-        assertIs<Result.Success<*>>(result)
-
-        assertEquals("new-1", assertNotNull(readRow(v1)).serverJarSha)      // NULL on completed → filled
-        assertEquals("already-known", assertNotNull(readRow(v2)).serverJarSha) // known → untouched
-        assertNull(assertNotNull(readRow(v3)).serverJarSha)                  // not completed → untouched
     }
 
     @Test
