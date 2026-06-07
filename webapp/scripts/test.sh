@@ -5,7 +5,7 @@ SCRIPT_DIR="$(dirname "$0")"
 WEBAPP_DIR="$SCRIPT_DIR/.."
 
 usage() {
-    echo "Usage: $0 [--database] [--integration] [--exclude-unit-tests]"
+    echo "Usage: $0 [--database] [--integration] [--exclude-unit-tests] [-- <maven-args>...]"
     echo ""
     echo "Runs unit tests by default (no Docker required)."
     echo ""
@@ -13,12 +13,16 @@ usage() {
     echo "  --database            Include database tests (requires Docker)"
     echo "  --integration         Include integration tests (requires Docker and the app running)"
     echo "  --exclude-unit-tests  Skip unit tests"
+    echo ""
+    echo "Anything after a literal '--' is forwarded verbatim to the underlying 'mvn test' runs,"
+    echo "e.g. narrow to one class:  $0 --database -- -Dtest=IngestionLedgerStepsTest"
     exit 1
 }
 
 DATABASE=false
 INTEGRATION=false
 UNIT=true
+PASSTHROUGH=()
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -36,6 +40,11 @@ while [[ $# -gt 0 ]]; do
             ;;
         -h|--help)
             usage
+            ;;
+        --)
+            shift
+            PASSTHROUGH=("$@")
+            break
             ;;
         *)
             echo "Unknown option: $1"
@@ -56,15 +65,15 @@ mvn test-compile -B
 
 if [[ "$UNIT" == true ]]; then
     echo "Running unit tests..."
-    mvn test -B
+    mvn test -B ${PASSTHROUGH[@]+"${PASSTHROUGH[@]}"}
 fi
 
 if [[ "$DATABASE" == true ]]; then
     echo "Running database tests..."
-    mvn test -pl mc-web -Dsurefire.excludedGroups= -Dgroups=database -B
+    mvn test -pl mc-web -Dsurefire.excludedGroups= -Dgroups=database -B ${PASSTHROUGH[@]+"${PASSTHROUGH[@]}"}
 fi
 
 if [[ "$INTEGRATION" == true ]]; then
     echo "Running integration tests..."
-    mvn failsafe:integration-test failsafe:verify -pl mc-web -B
+    mvn failsafe:integration-test failsafe:verify -pl mc-web -B ${PASSTHROUGH[@]+"${PASSTHROUGH[@]}"}
 fi
