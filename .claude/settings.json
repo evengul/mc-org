@@ -51,6 +51,23 @@
             "type": "command",
             "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/worktree-create-keys.sh",
             "statusMessage": "Generating JWT signing keys..."
+          },
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/webapp/scripts/worktree-db.sh\"",
+            "statusMessage": "Provisioning isolated Neon branch for worktree...",
+            "timeout": 180
+          }
+        ]
+      },
+      {
+        "matcher": "ExitWorktree",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/webapp/scripts/worktree-db-cleanup.sh\" --prune",
+            "statusMessage": "Pruning orphaned Neon worktree branches...",
+            "timeout": 60
           }
         ]
       }
