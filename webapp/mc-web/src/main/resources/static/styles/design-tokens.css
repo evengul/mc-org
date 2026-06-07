@@ -47,22 +47,33 @@
     --font-ui: 'IBM Plex Mono', monospace;
     --font-body: 'Inter', sans-serif;
 
+    /* --------------------------------------------------------------------
+       PALETTE — "Daylight Field Notebook" (Overworld theme). A warm paper +
+       sepia-ink substrate; each accent hue has exactly ONE role. The act and
+       status anchors sit on the blue↔yellow axis so they stay distinct under
+       red-green colour vision; green/red states must ALSO carry an icon or
+       label, never colour alone. Full rationale in the docs-product skill.
+       -------------------------------------------------------------------- */
+
     /* Colors */
-    --bg-base: #0F1117;
-    --bg-surface: #181C27;
-    --bg-raised: #1F2435;
-    --border: #2A2F42;
-    --text-primary: #E8EAF0;
-    --text-muted: #6E748A;
-    --text-disabled: #3C4158;
-    --accent: #4A7CFF;
-    --accent-muted: #1E2D5C;
-    --green: #3DBA7A;
-    --amber: #E8A225;
-    --red: #E05252;
-    --progress: #4A7CFF;
-    --green-bg: #1C3828;
-    --red-bg: #3A1E1E;
+    --bg-base: #EBE1C8;        /* desk / page edge — aged tan */
+    --bg-surface: #F7F0DE;     /* the page */
+    --bg-raised: #FCF7EA;      /* a raised note / card */
+    --border: #D6C6A2;         /* pencil rule line */
+    --border-strong: #C2AE82;  /* emphasized rule (hover/focus) */
+    --text-primary: #2A2218;   /* dark sepia ink */
+    --text-muted: #7A6B47;     /* faded pencil */
+    --text-disabled: #A99B78;
+    --accent: #2C6E9E;         /* lapis ink — primary / CTA + links (act) */
+    --accent-hover: #245C85;
+    --accent-muted: #D6E2EC;   /* pale lapis wash */
+    --on-accent: #FCF7EA;      /* cream text/icon on a lapis fill */
+    --green: #4F7A2B;          /* grass — success / status / growth (done) */
+    --amber: #B0791A;          /* wheat-gold — warning */
+    --red: #A6321F;            /* redstone — danger */
+    --progress: #4F7A2B;       /* grass — completion is status, not brand */
+    --green-bg: #DEE8CB;
+    --red-bg: #F0DACF;
 
     /* Typography scale */
     --text-xs: 11px;

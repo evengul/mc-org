@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<!--
+  STYLEGUIDE — living component gallery / design-system reference.
+  A static kitchen-sink of the real component classes on the live design
+  tokens, for judging UI and token changes in one place. Not a route —
+  served statically at /static/styleguide.html (no auth required).
+-->
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>MC-ORG — palette test</title>
+    <link rel="stylesheet" href="/static/styles/reset.css">
+    <link rel="stylesheet" href="/static/styles/design-tokens.css">
+    <link rel="stylesheet" href="/static/styles/components/btn.css">
+    <link rel="stylesheet" href="/static/styles/components/badge.css">
+    <link rel="stylesheet" href="/static/styles/components/callout.css">
+    <link rel="stylesheet" href="/static/styles/components/progress.css">
+    <link rel="stylesheet" href="/static/styles/components/project-card.css">
+    <link rel="stylesheet" href="/static/styles/components/section.css">
+    <link rel="stylesheet" href="/static/styles/components/page-heading.css">
+    <link rel="stylesheet" href="/static/styles/components/tabs.css">
+    <link rel="stylesheet" href="/static/styles/components/form.css">
+    <link rel="stylesheet" href="/static/styles/pages/styleguide.css">
+</head>
+<body>
+    <div class="container">
+        <div class="page-heading">
+            <h1 class="page-heading__title">Palette test — world-keeper's logbook</h1>
+            <p class="page-heading__subtitle">
+                Real components on the live design tokens — a reference for judging future UI changes.
+                Roles: lapis = act/links, grass = done, gold = warn, redstone = danger, dirt = structure.
+            </p>
+        </div>
+
+        <!-- ============================ TOKENS ============================ -->
+        <section class="sg-section">
+            <h2>Tokens &amp; roles</h2>
+            <p>Each colour has one job. The blue↔yellow anchors (lapis, gold) stay distinct under red-green colour vision; green/red states are reinforced with icons, never colour alone.</p>
+            <div class="sg-swatches">
+                <div class="sg-swatch"><div class="sg-swatch__chip sw-accent"></div><div class="sg-swatch__meta"><span class="sg-swatch__role">CTA / links — act</span><span class="sg-swatch__token">--accent</span></div></div>
+                <div class="sg-swatch"><div class="sg-swatch__chip sw-accent-hover"></div><div class="sg-swatch__meta"><span class="sg-swatch__role">CTA hover</span><span class="sg-swatch__token">--accent-hover</span></div></div>
+                <div class="sg-swatch"><div class="sg-swatch__chip sw-accent-muted"></div><div class="sg-swatch__meta"><span class="sg-swatch__role">Quiet lapis / info</span><span class="sg-swatch__token">--accent-muted</span></div></div>
+                <div class="sg-swatch"><div class="sg-swatch__chip sw-green"></div><div class="sg-swatch__meta"><span class="sg-swatch__role">Success / status — done</span><span class="sg-swatch__token">--green</span></div></div>
+                <div class="sg-swatch"><div class="sg-swatch__chip sw-amber"></div><div class="sg-swatch__meta"><span class="sg-swatch__role">Warning</span><span class="sg-swatch__token">--amber</span></div></div>
+                <div class="sg-swatch"><div class="sg-swatch__chip sw-red"></div><div class="sg-swatch__meta"><span class="sg-swatch__role">Danger</span><span class="sg-swatch__token">--red</span></div></div>
+                <div class="sg-swatch"><div class="sg-swatch__chip sw-progress"></div><div class="sg-swatch__meta"><span class="sg-swatch__role">Progress fill</span><span class="sg-swatch__token">--progress</span></div></div>
+                <div class="sg-swatch"><div class="sg-swatch__chip sw-bg-base"></div><div class="sg-swatch__meta"><span class="sg-swatch__role">Page edge</span><span class="sg-swatch__token">--bg-base</span></div></div>
+                <div class="sg-swatch"><div class="sg-swatch__chip sw-bg-surface"></div><div class="sg-swatch__meta"><span class="sg-swatch__role">Page surface</span><span class="sg-swatch__token">--bg-surface</span></div></div>
+                <div class="sg-swatch"><div class="sg-swatch__chip sw-bg-raised"></div><div class="sg-swatch__meta"><span class="sg-swatch__role">Raised / input</span><span class="sg-swatch__token">--bg-raised</span></div></div>
+                <div class="sg-swatch"><div class="sg-swatch__chip sw-border"></div><div class="sg-swatch__meta"><span class="sg-swatch__role">Rule line</span><span class="sg-swatch__token">--border</span></div></div>
+                <div class="sg-swatch"><div class="sg-swatch__chip sw-border-strong"></div><div class="sg-swatch__meta"><span class="sg-swatch__role">Rule (hover)</span><span class="sg-swatch__token">--border-strong</span></div></div>
+                <div class="sg-swatch"><div class="sg-swatch__chip sw-text-primary"></div><div class="sg-swatch__meta"><span class="sg-swatch__role">Ink</span><span class="sg-swatch__token">--text-primary</span></div></div>
+                <div class="sg-swatch"><div class="sg-swatch__chip sw-text-muted"></div><div class="sg-swatch__meta"><span class="sg-swatch__role">Faded ink</span><span class="sg-swatch__token">--text-muted</span></div></div>
+            </div>
+        </section>
+
+        <!-- ============================ BUTTONS ============================ -->
+        <section class="sg-section">
+            <h2>Buttons</h2>
+            <p>Primary = solid lapis fill. Secondary = ink-on-paper (no colour). Lapis is deliberately distinct in hue from the redstone danger button.</p>
+            <div class="sg-row">
+                <button class="btn btn--primary">Plan build</button>
+                <button class="btn btn--secondary">Cancel</button>
+                <button class="btn btn--ghost">Skip</button>
+                <button class="btn btn--danger">Delete world</button>
+                <button class="btn btn--primary" disabled>Disabled</button>
+            </div>
+            <div class="sg-row mt-4">
+                <button class="btn btn--primary btn--sm">Small primary</button>
+                <button class="btn btn--secondary btn--sm">Small secondary</button>
+                <button class="btn btn--danger btn--sm">Small danger</button>
+            </div>
+        </section>
+
+        <!-- ============================ BADGES ============================ -->
+        <section class="sg-section">
+            <h2>Badges</h2>
+            <p>Status pills. In-progress borrows the quiet lapis; done is grass; blocked is redstone.</p>
+            <div class="sg-row">
+                <span class="badge badge--neutral">Neutral</span>
+                <span class="badge badge--status">Status</span>
+                <span class="badge badge--not-started">Not started</span>
+                <span class="badge badge--in-progress">In progress</span>
+                <span class="badge badge--done">Done</span>
+                <span class="badge badge--blocked">Blocked</span>
+            </div>
+        </section>
+
+        <!-- ============================ CALLOUTS ============================ -->
+        <section class="sg-section">
+            <h2>Callouts</h2>
+            <p>Info uses the quiet lapis (pale rule + ⓘ icon). Success / warning / danger each carry an icon as well as colour, so the state survives red-green colour vision.</p>
+            <div class="sg-stack">
+                <div class="callout callout--info">
+                    <span class="callout__icon">&#9432;</span>
+                    <div class="callout__body"><p><strong>Info.</strong> Resource graph last rebuilt 3 minutes ago.</p></div>
+                </div>
+                <div class="callout callout--success">
+                    <span class="callout__icon">&#10003;</span>
+                    <div class="callout__body"><p><strong>Success.</strong> Roadmap generated for 12 projects.</p></div>
+                </div>
+                <div class="callout">
+                    <span class="callout__icon">&#9888;</span>
+                    <div class="callout__body"><p><strong>Warning.</strong> Two recipes have unresolved ingredients.</p></div>
+                </div>
+                <div class="callout callout--error">
+                    <span class="callout__icon">&#10007;</span>
+                    <div class="callout__body"><p><strong>Danger.</strong> Could not reach the data server.</p></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ============================ PROGRESS ============================ -->
+        <section class="sg-section">
+            <h2>Progress</h2>
+            <p>Completion bars use the grass/status fill; a fully complete bar uses the brighter complete green.</p>
+            <div class="sg-stack">
+                <div class="progress sg-w-35"><div class="progress__fill"></div></div>
+                <div class="progress sg-w-70"><div class="progress__fill"></div></div>
+                <div class="progress sg-w-100"><div class="progress__fill progress__fill--complete"></div></div>
+            </div>
+        </section>
+
+        <!-- ============================ CARDS ============================ -->
+        <section class="sg-section">
+            <h2>Project cards</h2>
+            <p>A realistic composite — name, status badge, progress, next-task hint, actions.</p>
+            <div class="sg-grid">
+                <div class="project-card">
+                    <div class="project-card__header">
+                        <a class="project-card__name" href="#">Iron farm</a>
+                        <span class="badge badge--in-progress">In progress</span>
+                    </div>
+                    <div class="project-card__meta">Overworld &middot; 4 stacks iron required</div>
+                    <div>
+                        <div class="project-card__resource-header">
+                            <span class="project-card__next-task-label">Resources</span>
+                            <span class="project-card__tasks">70%</span>
+                        </div>
+                        <div class="progress sg-w-70"><div class="progress__fill"></div></div>
+                    </div>
+                    <p class="project-card__next-task"><span class="project-card__next-task-label">Next</span> Smelt 32 iron ingots</p>
+                    <div class="sg-row">
+                        <button class="btn btn--primary btn--sm">Open</button>
+                        <button class="btn btn--ghost btn--sm">Mark done</button>
+                    </div>
+                </div>
+                <div class="project-card project-card--done">
+                    <div class="project-card__header">
+                        <a class="project-card__name" href="#">Cobblestone generator</a>
+                        <span class="badge badge--done">Done</span>
+                    </div>
+                    <div class="project-card__meta">Overworld &middot; complete</div>
+                    <div>
+                        <div class="project-card__resource-header">
+                            <span class="project-card__next-task-label">Resources</span>
+                            <span class="project-card__tasks">100%</span>
+                        </div>
+                        <div class="progress sg-w-100"><div class="progress__fill progress__fill--complete"></div></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ============================ FORM ============================ -->
+        <section class="sg-section">
+            <h2>Form controls</h2>
+            <p>Focus rings, hover borders, and the checked/invalid states all draw from the tokens — worth checking on paper.</p>
+            <div class="wizard-fields sg-stack">
+                <div>
+                    <label>Project name</label>
+                    <input class="form-control" type="text" value="Iron farm">
+                </div>
+                <div>
+                    <label>Dimension</label>
+                    <select class="form-control">
+                        <option>Overworld</option>
+                        <option>Nether</option>
+                        <option>The End</option>
+                    </select>
+                </div>
+                <div>
+                    <label>Target rate <span class="required-indicator">*</span></label>
+                    <input class="form-control is-invalid" type="text" placeholder="items / hour">
+                    <span class="form-error">Enter a number greater than 0.</span>
+                    <span class="form-help-text">Used to size the farm in the roadmap.</span>
+                </div>
+                <label class="filter-checkbox-label"><input type="checkbox" checked> Auto-resolve dependencies</label>
+                <label class="filter-radio-label"><input type="radio" name="view" checked> Plan view</label>
+            </div>
+        </section>
+
+        <!-- ============================ TABS ============================ -->
+        <section class="sg-section">
+            <h2>Tabs</h2>
+            <ul class="tabs">
+                <li class="tabs__tab tabs__tab--active">All</li>
+                <li class="tabs__tab">Pending</li>
+                <li class="tabs__tab">Accepted</li>
+            </ul>
+        </section>
+    </div>
+</body>
+</html>

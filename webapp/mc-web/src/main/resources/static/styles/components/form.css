@@ -21,7 +21,7 @@
 }
 
 .form-control:hover:not(:focus):not(:disabled) {
-    border-color: #3a4060;
+    border-color: var(--border-strong);
 }
 
 .form-control:focus {
@@ -156,7 +156,7 @@ select.form-control option {
 .filter-radio-label:hover,
 .filter-checkbox-label:hover {
     background: var(--bg-raised);
-    border-color: #3a4060;
+    border-color: var(--border-strong);
 }
 
 .filter-radio-label:has(input:checked),
@@ -215,7 +215,7 @@ select.form-control option {
     top: 1px;
     width: 4px;
     height: 8px;
-    border: solid #fff;
+    border: solid var(--on-accent);
     border-width: 0 2px 2px 0;
     transform: rotate(45deg);
 }

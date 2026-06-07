@@ -1,0 +1,106 @@
+/* ==========================================================================
+   STYLEGUIDE PAGE
+   Layout-only styles for the component gallery at /static/styleguide.html — a
+   living reference for the design system. Component appearance comes from the
+   real component CSS + design tokens; this file only arranges the gallery.
+   ========================================================================== */
+
+.sg-section {
+    margin-bottom: var(--space-8);
+}
+
+.sg-section > h2 {
+    font-family: var(--font-ui);
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0 0 var(--space-2) 0;
+}
+
+.sg-section > p {
+    color: var(--text-muted);
+    font-size: var(--text-sm);
+    margin: 0 0 var(--space-4) 0;
+    line-height: 1.5;
+}
+
+/* A row of components shown together, wrapping */
+.sg-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-3);
+}
+
+.sg-stack {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    max-width: 520px;
+}
+
+.sg-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: var(--space-4);
+}
+
+/* --- Token swatches --- */
+.sg-swatches {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: var(--space-3);
+}
+
+.sg-swatch {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    background: var(--bg-surface);
+}
+
+.sg-swatch__chip {
+    height: 56px;
+    border-bottom: 1px solid var(--border);
+}
+
+.sg-swatch__meta {
+    padding: var(--space-2) var(--space-3);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.sg-swatch__role {
+    font-family: var(--font-ui);
+    font-size: var(--text-label);
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.sg-swatch__token {
+    font-family: var(--font-ui);
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+}
+
+/* Swatch fills — one per token so the page needs no inline styles */
+.sw-bg-base { background: var(--bg-base); }
+.sw-bg-surface { background: var(--bg-surface); }
+.sw-bg-raised { background: var(--bg-raised); }
+.sw-border { background: var(--border); }
+.sw-border-strong { background: var(--border-strong); }
+.sw-text-primary { background: var(--text-primary); }
+.sw-text-muted { background: var(--text-muted); }
+.sw-accent { background: var(--accent); }
+.sw-accent-hover { background: var(--accent-hover); }
+.sw-accent-muted { background: var(--accent-muted); }
+.sw-green { background: var(--green); }
+.sw-amber { background: var(--amber); }
+.sw-red { background: var(--red); }
+.sw-progress { background: var(--progress); }
+
+/* Progress-bar demo widths (no inline styles on the page) */
+.sg-w-35 .progress__fill { width: 35%; }
+.sg-w-70 .progress__fill { width: 70%; }
+.sg-w-100 .progress__fill { width: 100%; }
