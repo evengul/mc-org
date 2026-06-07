@@ -86,8 +86,12 @@ JDBC_URL="jdbc:postgresql://${DB_HOST}/${DB_NAME}?sslmode=require"
 # branch's Neon credentials. The script fully owns the worktree's local.env.
 MAIN_ENV="$MAIN_REPO/webapp/local.env"
 if [ ! -f "$MAIN_ENV" ]; then
-  echo "worktree-db: $MAIN_ENV not found — create it in the main checkout first." >&2
-  echo "worktree-db: (it holds the non-DB local config that worktrees inherit.)" >&2
+  # Fresh clone with no local.env yet — fall back to the committed template so
+  # worktrees still get the non-DB config (DB_* lines are stripped below anyway).
+  MAIN_ENV="$MAIN_REPO/webapp/local.env.example"
+fi
+if [ ! -f "$MAIN_ENV" ]; then
+  echo "worktree-db: no local.env or local.env.example in $MAIN_REPO/webapp." >&2
   exit 1
 fi
 {

@@ -95,8 +95,10 @@ the real ingested Minecraft data instantly (no re-ingestion) and matches CI exac
 - `webapp/local.env` is **gitignored**. The main checkout's copy is the single
   source for non-DB local config (Microsoft, Modrinth, `ENV`, …); the setup script
   writes each worktree's `local.env` fresh from it, swapping in the branch's Neon
-  `DB_*` values. Keep the main checkout's `local.env` current — a fresh clone has
-  none, and the script errors until you create it.
+  `DB_*` values. A fresh clone has no `local.env` — copy `webapp/local.env.example`
+  (the committed template) to create it; `run.sh` seeds it for you on first run, and
+  `worktree-db.sh` falls back to the template so worktrees provision even before the
+  main checkout's `local.env` exists.
 - **Migration number collisions are orthogonal to DB isolation.** If two branches
   each add `V{n}__*.sql` with the same `{n}`, Flyway errors on merge (out-of-order
   / checksum). Fix: renumber the later-merged migration to the next free number and

@@ -68,6 +68,12 @@ case "$ENV_NAME" in
 esac
 
 if [[ ! -f "$ENV_FILE" ]]; then
+    if [[ "$ENV_NAME" == "local" && -f "$WEBAPP_DIR/local.env.example" ]]; then
+        cp "$WEBAPP_DIR/local.env.example" "$ENV_FILE"
+        echo "Seeded $ENV_FILE from local.env.example."
+        echo "Set DB_PASSWORD (see docker-compose-local.yaml) and any other blanks, then re-run."
+        exit 1
+    fi
     echo "Environment file not found: $ENV_FILE"
     exit 1
 fi
