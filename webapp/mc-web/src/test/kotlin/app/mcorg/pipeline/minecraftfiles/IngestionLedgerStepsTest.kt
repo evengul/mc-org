@@ -35,15 +35,15 @@ class IngestionLedgerStepsTest {
     // --- LoadIngestionStatusStep ---------------------------------------------------------------
 
     @Test
-    fun `LoadIngestionStatusStep returns a status per ledger row and omits absent versions`() {
-        seed(v1, IngestionStatus.COMPLETED)
+    fun `LoadIngestionStatusStep returns status plus SHA per row and omits absent versions`() {
+        seed(v1, IngestionStatus.COMPLETED, serverJarSha = "sha-1")
         seed(v2, IngestionStatus.FAILED)
 
-        val statuses = runBlocking { LoadIngestionStatusStep.process(Unit) }
-        val map = assertIs<Result.Success<Map<MinecraftVersion.Release, String>>>(statuses).value
+        val loaded = runBlocking { LoadIngestionStatusStep.process(Unit) }
+        val map = assertIs<Result.Success<Map<MinecraftVersion.Release, IngestionLedgerEntry>>>(loaded).value
 
-        assertEquals(IngestionStatus.COMPLETED, map[v1])
-        assertEquals(IngestionStatus.FAILED, map[v2])
+        assertEquals(IngestionLedgerEntry(IngestionStatus.COMPLETED, "sha-1"), map[v1])
+        assertEquals(IngestionLedgerEntry(IngestionStatus.FAILED, null), map[v2])
         assertNull(map[v3]) // no row → absent from map
     }
 
@@ -77,16 +77,18 @@ class IngestionLedgerStepsTest {
     // --- MarkIngestionCompletedStep ------------------------------------------------------------
 
     @Test
-    fun `MarkIngestionCompleted sets completed, stamps completed_at and clears last_error`() {
+    fun `MarkIngestionCompleted sets completed, records SHA and URL, clears last_error`() {
         seed(v1, IngestionStatus.IN_PROGRESS, attemptCount = 1, lastError = "stale")
 
-        val result = runBlocking { MarkIngestionCompletedStep.process(v1) }
+        val result = runBlocking { MarkIngestionCompletedStep.process(jar(v1, "fresh-sha")) }
         assertIs<Result.Success<*>>(result)
 
         val row = assertNotNull(readRow(v1))
         assertEquals(IngestionStatus.COMPLETED, row.status)
         assertTrue(row.hasCompleted)
         assertNull(row.lastError)
+        assertEquals("fresh-sha", row.serverJarSha)
+        assertEquals("https://example.test/${v1}/server.jar", row.serverJarUrl)
     }
 
     // --- MarkIngestionFailedStep ---------------------------------------------------------------
@@ -107,42 +109,56 @@ class IngestionLedgerStepsTest {
     // --- FilterAlreadyStoredVersionsStep -------------------------------------------------------
 
     @Test
-    fun `Filter keeps versions that are missing, failed or in_progress and drops completed`() {
-        seed(v1, IngestionStatus.COMPLETED)
-        seed(v2, IngestionStatus.FAILED)
-        // v3 intentionally has no ledger row (the truncate-to-recreate path)
+    fun `Filter drops completed versions whose stored SHA matches and keeps SHA mismatches`() {
+        seed(v1, IngestionStatus.COMPLETED, serverJarSha = "sha-unchanged")
+        seed(v2, IngestionStatus.COMPLETED, serverJarSha = "sha-old")
 
         val input = listOf(
-            v1 to URI.create("https://example.test/v1/server.jar"),
-            v2 to URI.create("https://example.test/v2/server.jar"),
-            v3 to URI.create("https://example.test/v3/server.jar"),
+            jar(v1, "sha-unchanged"), // completed + same SHA → skip
+            jar(v2, "sha-new"),       // completed + changed SHA → re-ingest
         )
 
         val result = runBlocking { FilterAlreadyStoredVersionsStep.process(input) }
-        val kept = assertIs<Result.Success<List<Pair<MinecraftVersion.Release, URI>>>>(result).value
+        val kept = assertIs<Result.Success<List<ResolvedServerJar>>>(result).value
 
-        assertEquals(setOf(v2, v3), kept.map { it.first }.toSet())
+        assertEquals(setOf(v2), kept.map { it.version }.toSet())
+    }
+
+    @Test
+    fun `Filter keeps versions that are missing, failed, in_progress, or have a NULL stored SHA`() {
+        seed(v1, IngestionStatus.COMPLETED, serverJarSha = null) // backfilled row → ingest once to populate
+        seed(v2, IngestionStatus.FAILED, serverJarSha = "sha-x")
+        // v3 intentionally has no ledger row (the truncate-to-recreate path)
+
+        val input = listOf(jar(v1, "sha-a"), jar(v2, "sha-x"), jar(v3, "sha-c"))
+
+        val result = runBlocking { FilterAlreadyStoredVersionsStep.process(input) }
+        val kept = assertIs<Result.Success<List<ResolvedServerJar>>>(result).value
+
+        assertEquals(setOf(v1, v2, v3), kept.map { it.version }.toSet())
     }
 
     @Test
     fun `Filter keeps everything when the ledger is empty`() {
-        val input = listOf(
-            v1 to URI.create("https://example.test/v1/server.jar"),
-            v2 to URI.create("https://example.test/v2/server.jar"),
-        )
+        val input = listOf(jar(v1, "sha-a"), jar(v2, "sha-b"))
 
         val result = runBlocking { FilterAlreadyStoredVersionsStep.process(input) }
-        val kept = assertIs<Result.Success<List<Pair<MinecraftVersion.Release, URI>>>>(result).value
+        val kept = assertIs<Result.Success<List<ResolvedServerJar>>>(result).value
 
-        assertEquals(setOf(v1, v2), kept.map { it.first }.toSet())
+        assertEquals(setOf(v1, v2), kept.map { it.version }.toSet())
     }
 
     // --- helpers --------------------------------------------------------------------------------
+
+    private fun jar(version: MinecraftVersion.Release, sha: String) =
+        ResolvedServerJar(version, URI.create("https://example.test/$version/server.jar"), sha)
 
     private data class LedgerRow(
         val status: String,
         val attemptCount: Int,
         val lastError: String?,
+        val serverJarSha: String?,
+        val serverJarUrl: String?,
         val hasStarted: Boolean,
         val hasCompleted: Boolean,
     )
@@ -152,16 +168,18 @@ class IngestionLedgerStepsTest {
         status: String,
         attemptCount: Int = 0,
         lastError: String? = null,
+        serverJarSha: String? = null,
     ) = runBlocking {
         val result = DatabaseSteps.update<Unit>(
             sql = SafeSQL.insert(
-                "INSERT INTO minecraft_version_ingestion (version, status, attempt_count, last_error) VALUES (?, ?, ?, ?)"
+                "INSERT INTO minecraft_version_ingestion (version, status, attempt_count, last_error, server_jar_sha) VALUES (?, ?, ?, ?, ?)"
             ),
             parameterSetter = { stmt, _ ->
                 stmt.setString(1, version.toString())
                 stmt.setString(2, status)
                 stmt.setInt(3, attemptCount)
                 stmt.setString(4, lastError)
+                stmt.setString(5, serverJarSha)
             }
         ).process(Unit)
         assertIs<Result.Success<*>>(result)
@@ -170,7 +188,7 @@ class IngestionLedgerStepsTest {
     private fun readRow(version: MinecraftVersion.Release): LedgerRow? = runBlocking {
         DatabaseSteps.query<Unit, LedgerRow?>(
             sql = SafeSQL.select(
-                "SELECT status, attempt_count, last_error, started_at, completed_at FROM minecraft_version_ingestion WHERE version = ?"
+                "SELECT status, attempt_count, last_error, server_jar_sha, server_jar_url, started_at, completed_at FROM minecraft_version_ingestion WHERE version = ?"
             ),
             parameterSetter = { stmt, _ -> stmt.setString(1, version.toString()) },
             resultMapper = { rs ->
@@ -179,6 +197,8 @@ class IngestionLedgerStepsTest {
                         status = rs.getString("status"),
                         attemptCount = rs.getInt("attempt_count"),
                         lastError = rs.getString("last_error"),
+                        serverJarSha = rs.getString("server_jar_sha"),
+                        serverJarUrl = rs.getString("server_jar_url"),
                         hasStarted = rs.getTimestamp("started_at") != null,
                         hasCompleted = rs.getTimestamp("completed_at") != null,
                     )
