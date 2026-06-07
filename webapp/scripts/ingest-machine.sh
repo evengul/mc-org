@@ -59,16 +59,23 @@ case "${1:-}" in
 esac
 
 # Resolve the exact image the app is currently running so the CLI runs identical
-# code to the deployed web process. Falls back to a manual hint if jq/parsing
-# fails — copy the Ref from `fly image show -a mcorg`.
-echo "Resolving current image for app '$APP'..."
-IMAGE="$(fly image show -a "$APP" --json 2>/dev/null | jq -r '.Ref // empty')"
-if [[ -z "$IMAGE" ]]; then
-  echo "Could not auto-resolve the image. Run 'fly image show -a $APP', then re-run with:"
-  echo "  IMAGE=<ref> $0 ${1:-}"
-  IMAGE="${IMAGE:?IMAGE not set}"
+# code to the deployed web process. Honors a manual `IMAGE=<ref>` override; else
+# pins the deployed image by digest from `fly image show --json`, which returns
+# an ARRAY of {Registry, Repository, Tag, Digest} (e.g. the image lives on GHCR:
+# ghcr.io/evengul/mc-org@sha256:...). Pinning by digest is immutable, unlike Tag.
+if [[ -n "${IMAGE:-}" ]]; then
+  echo "Using image from \$IMAGE override: $IMAGE"
+else
+  echo "Resolving current image for app '$APP'..."
+  IMAGE="$(fly image show -a "$APP" --json 2>/dev/null \
+    | jq -r 'first | .Registry + "/" + .Repository + "@" + .Digest')"
+  if [[ -z "$IMAGE" || "$IMAGE" == *null* ]]; then
+    echo "Could not auto-resolve the image. Run 'fly image show -a $APP', then re-run with:"
+    echo "  IMAGE=<registry>/<repository>@<digest> $0 ${1:-}"
+    exit 1
+  fi
+  echo "Using image: $IMAGE"
 fi
-echo "Using image: $IMAGE"
 
 if [[ "$MODE" == "once" ]]; then
   echo "Running a one-off ingestion (immediate, then destroyed)..."
