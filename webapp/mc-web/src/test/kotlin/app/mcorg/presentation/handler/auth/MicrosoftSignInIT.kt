@@ -20,7 +20,7 @@ import org.junit.jupiter.api.extension.ExtendWith
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 
-@WireMockTest(proxyMode = true)
+@WireMockTest
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @ExtendWith(DatabaseTestExtension::class)
 class MicrosoftSignInIT {
