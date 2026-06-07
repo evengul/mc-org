@@ -60,18 +60,20 @@ esac
 
 # Resolve the exact image the app is currently running so the CLI runs identical
 # code to the deployed web process. Honors a manual `IMAGE=<ref>` override; else
-# pins the deployed image by digest from `fly image show --json`, which returns
-# an ARRAY of {Registry, Repository, Tag, Digest} (e.g. the image lives on GHCR:
-# ghcr.io/evengul/mc-org@sha256:...). Pinning by digest is immutable, unlike Tag.
+# pins the deployed image by TAG from `fly image show --json`, which returns an
+# ARRAY of {Registry, Repository, Tag, Digest} (the image lives on GHCR, e.g.
+# ghcr.io/evengul/mc-org:sha-<commit>). We use the tag rather than the digest:
+# `fly machine run` fails to launch from a cross-registry `@sha256:...` digest
+# ref ("could not launch machine") but launches fine from the tag.
 if [[ -n "${IMAGE:-}" ]]; then
   echo "Using image from \$IMAGE override: $IMAGE"
 else
   echo "Resolving current image for app '$APP'..."
   IMAGE="$(fly image show -a "$APP" --json 2>/dev/null \
-    | jq -r 'first | .Registry + "/" + .Repository + "@" + .Digest')"
+    | jq -r 'first | .Registry + "/" + .Repository + ":" + .Tag')"
   if [[ -z "$IMAGE" || "$IMAGE" == *null* ]]; then
     echo "Could not auto-resolve the image. Run 'fly image show -a $APP', then re-run with:"
-    echo "  IMAGE=<registry>/<repository>@<digest> $0 ${1:-}"
+    echo "  IMAGE=<registry>/<repository>:<tag> $0 ${1:-}"
     exit 1
   fi
   echo "Using image: $IMAGE"
