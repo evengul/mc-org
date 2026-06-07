@@ -18,7 +18,7 @@ class HikariDatabaseProvider(private val isProduction: Boolean) : DatabaseConnec
     private val poolConfig = if (isProduction) {
         PoolConfig(
             maximumPoolSize = 10,
-            minimumIdle = 2,
+            minimumIdle = 0,
             connectionTimeout = 30000,
             idleTimeout = 600000,
             maxLifetime = 1800000
