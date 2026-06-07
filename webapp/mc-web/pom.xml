@@ -104,6 +104,25 @@
                 <configuration>
                     <mainClass>${main.class}</mainClass>
                 </configuration>
+                <executions>
+                    <!--
+                      Standalone ingestion entry point (MCO-170): runs the server-files pipeline
+                      once and exits, no Ktor server. Invoke with:
+                        mvn -pl mc-web exec:java@ingest-server-files
+                      The jar-with-dependencies artifact also bundles this class, so the Fly machine
+                      (MCO-171) can run it directly:
+                        java -cp mc-web-*-jar-with-dependencies.jar app.mcorg.cli.IngestServerFilesKt
+                    -->
+                    <execution>
+                        <id>ingest-server-files</id>
+                        <goals>
+                            <goal>java</goal>
+                        </goals>
+                        <configuration>
+                            <mainClass>app.mcorg.cli.IngestServerFilesKt</mainClass>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>
