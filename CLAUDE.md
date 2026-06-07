@@ -59,6 +59,56 @@ cd webapp && mvn test -pl mc-web         # Single module tests
 - **Database access:** Verify the postgres MCP server is available (`/mcp`) before any database read or query. Always
   use MCP tools for database access — never `psql` or other CLI tools.
 
+## Worktree Database Isolation
+
+**Start new work in a git worktree, not the main checkout.** The main checkout
+(`master`) shares the production-backed dev database; worktrees each get their own
+isolated copy (below). Working in a worktree keeps `master` clean, lets features
+run in parallel without database or migration collisions, and matches how CI builds
+each PR. Use an agent's `isolation: "worktree"` or `git worktree add` to start.
+
+Each git worktree gets its **own** database so migrations and data never collide
+with the main checkout or sibling worktrees. This mirrors what CI already does
+per pull request (`.github/workflows/dev.yml` forks `dev/pr-<N>` Neon branches) —
+only locally, per worktree, using the same Neon project (`morning-fog-11467472`).
+
+**Workflow:**
+
+1. Start a worktree (an agent's `isolation: "worktree"`, or `git worktree add`).
+2. On `EnterWorktree`, a PostToolUse hook runs `webapp/scripts/worktree-db.sh`. It:
+   - Forks a copy-on-write Neon branch `wt/<git-branch>` from production (`master`)
+   - Writes the worktree's `webapp/local.env` (main checkout's non-DB config + the
+     branch's `DB_*` credentials)
+   - Runs `flyway:migrate` against the isolated branch
+3. The worktree's app and tests now target the worktree's own branch — never the
+   shared dev DB — and any migrations you run land on the isolated branch.
+4. On `ExitWorktree`, `webapp/scripts/worktree-db-cleanup.sh --prune` reconciles
+   live `wt/*` Neon branches against `git worktree list` and deletes orphans.
+5. **Manual worktrees** (e.g. `claude -w`, where the EnterWorktree hook may not fire):
+   run `bash webapp/scripts/worktree-db.sh` yourself from the worktree root.
+
+**Why fork production?** Same as the CI previews — a copy-on-write branch inherits
+the real ingested Minecraft data instantly (no re-ingestion) and matches CI exactly.
+
+**Caveats:**
+
+- `webapp/local.env` is **gitignored**. The main checkout's copy is the single
+  source for non-DB local config (Microsoft, Modrinth, `ENV`, …); the setup script
+  writes each worktree's `local.env` fresh from it, swapping in the branch's Neon
+  `DB_*` values. Keep the main checkout's `local.env` current — a fresh clone has
+  none, and the script errors until you create it.
+- **Migration number collisions are orthogonal to DB isolation.** If two branches
+  each add `V{n}__*.sql` with the same `{n}`, Flyway errors on merge (out-of-order
+  / checksum). Fix: renumber the later-merged migration to the next free number and
+  re-run `migrate-locally.sh`. No DB-branching scheme prevents this — it's a git
+  conflict, not a data one.
+
+**Scripts:**
+
+- `webapp/scripts/worktree-db.sh` — fork Neon branch + point `local.env` at it + migrate
+- `webapp/scripts/worktree-db-cleanup.sh` — delete the current worktree's branch
+- `webapp/scripts/worktree-db-cleanup.sh --prune` — delete all orphaned `wt/*` branches
+
 ## Issue Tracking
 
 Linear — workspace: evegul, team: Mcorg. Do NOT create GitHub issues.

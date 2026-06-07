@@ -38,5 +38,6 @@ out/
 target
 
 src/main/resources/keys
+local.env
 local_microsoft.env
 truststore.jks
