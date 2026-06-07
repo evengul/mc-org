@@ -136,19 +136,27 @@ sealed class ApiProvider(
 class DefaultApiProvider(
     config: ApiConfig
 ) : ApiProvider(config) {
-    // Rate limiting state
-    private val rateLimitState = ConcurrentHashMap<String, RateLimitInfo>()
-    private val rateLimitMutex = Mutex()
+    companion object {
+        // A single HttpClient shared across all providers: one connection pool + TLS-session
+        // cache reused app-wide, instead of constructing (and leaking) a new client per call.
+        private val httpClient = HttpClient(CIO) {
+            install(ContentNegotiation) {
+                json(Json {
+                    ignoreUnknownKeys = true
+                    isLenient = true
+                })
+            }
+            install(HttpTimeout) {
+                requestTimeoutMillis = 30000
+                connectTimeoutMillis = 10000
+                socketTimeoutMillis = 30000
+            }
+        }
 
-    private val httpClient = HttpClient(CIO) {
-        install(ContentNegotiation) {
-            json(json)
-        }
-        install(HttpTimeout) {
-            requestTimeoutMillis = 30000
-            connectTimeoutMillis = 10000
-            socketTimeoutMillis = 30000
-        }
+        // Rate limiting state, keyed by baseUrl and shared so the window persists across
+        // calls (each getProvider() previously returned a fresh instance with empty state).
+        private val rateLimitState = ConcurrentHashMap<String, RateLimitInfo>()
+        private val rateLimitMutex = Mutex()
     }
 
     override fun <I, S> request(
