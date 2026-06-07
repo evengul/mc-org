@@ -32,6 +32,7 @@ class MicrosoftSignInIT {
         wireMock = wiremock.wireMock
 
         AppConfig.env = Production
+        AppConfig.appHost = "app.seam.gg"
         AppConfig.skipMicrosoftSignIn = false
 
         AppConfig.microsoftLoginBaseUrl = wiremock.httpBaseUrl
