@@ -45,7 +45,7 @@
         <bcrypt.version>0.10.2</bcrypt.version>
         <hikari.version>5.1.0</hikari.version>
         <postgresql.version>42.7.10</postgresql.version>
-        <flyway.version>12.1.0</flyway.version>
+        <flyway.version>12.8.1</flyway.version>
         <wiremock.version>3.13.1</wiremock.version>
         <mockk.version>1.13.13</mockk.version>
         <!-- mockk 1.13.13 transitively pins ByteBuddy 1.10.9, which cannot instrument
