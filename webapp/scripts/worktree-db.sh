@@ -19,7 +19,7 @@
 
 set -euo pipefail
 
-NEON_PROJECT_ID="morning-fog-11467472"
+NEON_PROJECT_ID="sweet-dust-00910797"
 NEON_PARENT="master"        # the production / default Neon branch
 DB_NAME="mcorg"
 DB_ROLE="mcorg_owner"

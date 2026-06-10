@@ -12,13 +12,13 @@ import java.sql.DriverManager
 
 /**
  * JUnit 5 extension for managing PostgreSQL Testcontainer lifecycle during testing.
- * Provides a clean PostgreSQL 16.9 database with Flyway migrations for each test class.
+ * Provides a clean PostgreSQL 18 database with Flyway migrations for each test class.
  */
 class DatabaseTestExtension : BeforeAllCallback {
 
     companion object {
         private val postgres: PostgreSQLContainer by lazy {
-            PostgreSQLContainer(DockerImageName.parse("postgres:16.9"))
+            PostgreSQLContainer(DockerImageName.parse("postgres:18"))
                 .withDatabaseName("mcorg_test")
                 .withUsername("test_user")
                 .withPassword("test_password")
