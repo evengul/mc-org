@@ -1,3 +1,10 @@
+// Uses the deprecated org.testcontainers.containers.PostgreSQLContainer: Testcontainers 2.0
+// supersedes it with org.testcontainers.postgresql.PostgreSQLContainer, a redesigned API
+// (non-generic, different accessors/lifecycle). The deprecated 1.x-compatible class still ships
+// in 2.0 and keeps this extension working unchanged; new-API migration is tracked in MCO-184.
+// File-level suppress so the deprecated import line itself is also covered.
+@file:Suppress("DEPRECATION")
+
 package app.mcorg.test.postgres
 
 import app.mcorg.config.Database

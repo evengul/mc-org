@@ -290,7 +290,7 @@ class DatabaseStepsTest {
     }
 
     @Test
-    fun `update handles unknown exceptions correctly`() = runBlocking {
+    fun `update handles unknown exceptions correctly`(): Unit = runBlocking {
         // Arrange
         val safeSQL = SafeSQL.delete("DELETE FROM users WHERE id = ?")
         val input = 123

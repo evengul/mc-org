@@ -69,7 +69,7 @@ private object GetContentStep : Step<MultiPartData, AppFailure, Pair<String?, By
                 content = part.provider().readRemaining().readByteArray()
                 name = part.originalFileName
             } else {
-                part.dispose()
+                part.release()
             }
         }
         return if (content != null) {
