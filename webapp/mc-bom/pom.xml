@@ -1,0 +1,197 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <!--
+      MC-ORG platform BOM — the single source of truth for third-party dependency versions
+      across every module. It is intentionally standalone (no <parent>): the aggregator pom
+      (../pom.xml) imports it in <dependencyManagement>, and a module importing the aggregator
+      cannot also be its parent without creating a reactor cycle.
+
+      Strategy:
+        * Library families that publish their own BOM are imported (Kotlin, kotlinx-coroutines,
+          Ktor, JUnit, Testcontainers) — one version bump moves the whole family coherently.
+        * Libraries with no upstream BOM are pinned individually below.
+      Internal module versions are NOT managed here; modules reference siblings with
+      ${project.version} so a project-wide version bump stays consistent automatically.
+    -->
+    <groupId>app.mcorg</groupId>
+    <artifactId>mc-bom</artifactId>
+    <version>0.0.1</version>
+    <packaging>pom</packaging>
+
+    <name>mc-bom</name>
+    <description>Centralised dependency version management (BOM) for all MC-ORG modules.</description>
+
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+
+        <!-- Families managed via their own upstream BOM -->
+        <kotlin.version>2.2.21</kotlin.version>
+        <kotlinx_coroutines_version>1.10.2</kotlinx_coroutines_version>
+        <ktor_version>3.4.0</ktor_version>
+        <junit.version>5.10.2</junit.version>
+        <testcontainers.version>1.21.3</testcontainers.version>
+
+        <!-- Libraries with no upstream BOM (pinned individually) -->
+        <kotlinx_serialization_version>1.10.0</kotlinx_serialization_version>
+        <kotlinx_html_version>0.11.0</kotlinx_html_version>
+        <kotlinx_io_version>0.9.0</kotlinx_io_version>
+        <slf4j_version>2.0.9</slf4j_version>
+        <logback_version>1.4.14</logback_version>
+        <caffeine.version>3.1.8</caffeine.version>
+        <bcrypt.version>0.10.2</bcrypt.version>
+        <hikari.version>5.1.0</hikari.version>
+        <postgresql.version>42.7.10</postgresql.version>
+        <flyway.version>12.1.0</flyway.version>
+        <wiremock.version>3.13.1</wiremock.version>
+        <mockk.version>1.13.13</mockk.version>
+        <!-- mockk 1.13.13 transitively pins ByteBuddy 1.10.9, which cannot instrument
+             classes on JVM 21 (mockk then mocks Ktor calls as null). Force a current
+             ByteBuddy. (Previously supplied accidentally by an unused mockito-core.)
+             1.17.5 covers Java 8-25, so the eventual JDK 25 move needs no further bump. -->
+        <bytebuddy.version>1.17.5</bytebuddy.version>
+        <jackson.version>2.21</jackson.version>
+    </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <!-- ===================== Upstream BOMs ===================== -->
+            <dependency>
+                <groupId>org.jetbrains.kotlin</groupId>
+                <artifactId>kotlin-bom</artifactId>
+                <version>${kotlin.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.jetbrains.kotlinx</groupId>
+                <artifactId>kotlinx-coroutines-bom</artifactId>
+                <version>${kotlinx_coroutines_version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>io.ktor</groupId>
+                <artifactId>ktor-bom</artifactId>
+                <version>${ktor_version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.junit</groupId>
+                <artifactId>junit-bom</artifactId>
+                <version>${junit.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.testcontainers</groupId>
+                <artifactId>testcontainers-bom</artifactId>
+                <version>${testcontainers.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
+            <!-- ============ Libraries without an upstream BOM ============ -->
+            <!-- kotlinx-serialization publishes no BOM; pin core + json together.
+                 Pinned here so the whole reactor uses one version (Ktor otherwise
+                 drags serialization-core down to an older transitive version). -->
+            <dependency>
+                <groupId>org.jetbrains.kotlinx</groupId>
+                <artifactId>kotlinx-serialization-core</artifactId>
+                <version>${kotlinx_serialization_version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.jetbrains.kotlinx</groupId>
+                <artifactId>kotlinx-serialization-json</artifactId>
+                <version>${kotlinx_serialization_version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.jetbrains.kotlinx</groupId>
+                <artifactId>kotlinx-html-jvm</artifactId>
+                <version>${kotlinx_html_version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.jetbrains.kotlinx</groupId>
+                <artifactId>kotlinx-io-core-jvm</artifactId>
+                <version>${kotlinx_io_version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.slf4j</groupId>
+                <artifactId>slf4j-api</artifactId>
+                <version>${slf4j_version}</version>
+            </dependency>
+            <dependency>
+                <groupId>ch.qos.logback</groupId>
+                <artifactId>logback-classic</artifactId>
+                <version>${logback_version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.github.ben-manes.caffeine</groupId>
+                <artifactId>caffeine</artifactId>
+                <version>${caffeine.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>at.favre.lib</groupId>
+                <artifactId>bcrypt</artifactId>
+                <version>${bcrypt.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.zaxxer</groupId>
+                <artifactId>HikariCP</artifactId>
+                <version>${hikari.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.postgresql</groupId>
+                <artifactId>postgresql</artifactId>
+                <version>${postgresql.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.flywaydb</groupId>
+                <artifactId>flyway-core</artifactId>
+                <version>${flyway.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.flywaydb</groupId>
+                <artifactId>flyway-database-postgresql</artifactId>
+                <version>${flyway.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.wiremock</groupId>
+                <artifactId>wiremock</artifactId>
+                <version>${wiremock.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.mockk</groupId>
+                <artifactId>mockk-jvm</artifactId>
+                <version>${mockk.version}</version>
+            </dependency>
+            <!-- Override mockk's stale transitive ByteBuddy (see bytebuddy.version note above) -->
+            <dependency>
+                <groupId>net.bytebuddy</groupId>
+                <artifactId>byte-buddy</artifactId>
+                <version>${bytebuddy.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>net.bytebuddy</groupId>
+                <artifactId>byte-buddy-agent</artifactId>
+                <version>${bytebuddy.version}</version>
+            </dependency>
+
+            <!-- flyway-core 12.x (Jackson 3.x databind) requires jackson-annotations 2.21;
+                 flyway-database-postgresql pulls in 2.19.0 which is missing JsonSerializeAs -->
+            <dependency>
+                <groupId>com.fasterxml.jackson.core</groupId>
+                <artifactId>jackson-annotations</artifactId>
+                <version>${jackson.version}</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+</project>
