@@ -32,8 +32,8 @@
         <kotlin.version>2.2.21</kotlin.version>
         <kotlinx_coroutines_version>1.10.2</kotlinx_coroutines_version>
         <ktor_version>3.4.0</ktor_version>
-        <junit.version>5.10.2</junit.version>
-        <testcontainers.version>1.21.3</testcontainers.version>
+        <junit.version>6.1.0</junit.version>
+        <testcontainers.version>2.0.5</testcontainers.version>
 
         <!-- Libraries with no upstream BOM (pinned individually) -->
         <kotlinx_serialization_version>1.10.0</kotlinx_serialization_version>
@@ -46,8 +46,8 @@
         <hikari.version>5.1.0</hikari.version>
         <postgresql.version>42.7.10</postgresql.version>
         <flyway.version>12.1.0</flyway.version>
-        <wiremock.version>3.13.1</wiremock.version>
-        <mockk.version>1.13.13</mockk.version>
+        <wiremock.version>3.13.2</wiremock.version>
+        <mockk.version>1.14.11</mockk.version>
         <!-- mockk 1.13.13 transitively pins ByteBuddy 1.10.9, which cannot instrument
              classes on JVM 21 (mockk then mocks Ktor calls as null). Force a current
              ByteBuddy. (Previously supplied accidentally by an unused mockito-core.)
