@@ -38,6 +38,11 @@ data class LootTableParser(
                 }
             }
 
+        if (type is Result.Failure) {
+            logger.warn("Error parsing type from loot file: $filename")
+            return type
+        }
+
         if (json is JsonObject && json.jsonObject["pools"] == null) {
             // Loot table with no pools produces no items
             return Result.success(ResourceSource(
@@ -51,11 +56,6 @@ data class LootTableParser(
             .flatMap { it.getResult("pools", filename) }
             .flatMap { it.arrayResult(filename) }
             .flatMap { poolParser.parsePools(it, filename) }
-
-        if (type is Result.Failure) {
-            logger.warn("Error parsing type from loot file: $filename")
-            return type
-        }
 
         if (result is Result.Failure) {
             logger.warn("Error parsing entries from loot file: $filename")

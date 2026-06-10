@@ -69,6 +69,11 @@ class LootTableParserTest {
     }
 
     @Test
+    fun `a table missing both type and pools fails instead of throwing`() {
+        assertResultFailure(parse("""{}"""))
+    }
+
+    @Test
     fun `parses tag entries as MinecraftTag`() {
         val json = """
         {

@@ -35,6 +35,14 @@ internal class SelectionScorer(
 
     private val minDepthMemo = HashMap<String, Int>()
 
+    /**
+     * Set when a depth walk hits an item already on the walk's own stack. A
+     * result computed under that condition is only valid for this path — caching
+     * it would give other walks a depth that pretends the in-progress item is
+     * unreachable — so tainted results are never memoized.
+     */
+    private var depthWalkTainted = false
+
     fun score(
         item: MinecraftId,
         source: SourceNode,
@@ -102,7 +110,13 @@ internal class SelectionScorer(
         if (item.id in supplied) return 0
         if (item is MinecraftTag) return 0
         minDepthMemo[item.id]?.let { return it }
-        if (!visiting.add(item.id)) return UNREACHABLE_DEPTH
+        if (!visiting.add(item.id)) {
+            depthWalkTainted = true
+            return UNREACHABLE_DEPTH
+        }
+
+        val taintedBefore = depthWalkTainted
+        depthWalkTainted = false
 
         val sources = graph.getSourcesForItem(item)
         val depth = if (sources.isEmpty()) 0 else {
@@ -118,7 +132,8 @@ internal class SelectionScorer(
         }
 
         visiting.remove(item.id)
-        minDepthMemo[item.id] = depth
+        if (!depthWalkTainted) minDepthMemo[item.id] = depth
+        depthWalkTainted = depthWalkTainted || taintedBefore
         return depth
     }
 
