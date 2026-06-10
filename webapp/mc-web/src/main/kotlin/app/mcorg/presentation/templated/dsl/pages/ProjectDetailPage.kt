@@ -262,7 +262,7 @@ fun FlowContent.planViewContent(
                             input(type = InputType.text, classes = "form-control") {
                                 id = "plan-item-search"
                                 placeholder = "Search items by name..."
-                                autoComplete = false
+                                autoComplete = "off"
                                 hxGet("/items/search")
                                 hxTrigger("input changed delay:300ms")
                                 hxTarget("#plan-item-search-results")

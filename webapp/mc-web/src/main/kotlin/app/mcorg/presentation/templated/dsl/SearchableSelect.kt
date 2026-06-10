@@ -214,7 +214,7 @@ class SearchableSelect<T>(
                     input(type = InputType.search, classes = "searchable-select__search form-control form-control--sm") {
                         id = "${this@SearchableSelect.id}-search"
                         placeholder = this@SearchableSelect.searchPlaceholder
-                        autoComplete = false
+                        autoComplete = "off"
                         attributes["aria-label"] = "Search options"
                         // Apply HTMX config if provided for server-side search
                         hxConfig?.let { config ->

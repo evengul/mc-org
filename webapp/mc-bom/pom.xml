@@ -29,31 +29,31 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
         <!-- Families managed via their own upstream BOM -->
-        <kotlin.version>2.2.21</kotlin.version>
-        <kotlinx_coroutines_version>1.10.2</kotlinx_coroutines_version>
-        <ktor_version>3.4.0</ktor_version>
-        <junit.version>5.10.2</junit.version>
-        <testcontainers.version>1.21.3</testcontainers.version>
+        <kotlin.version>2.4.0</kotlin.version>
+        <kotlinx_coroutines_version>1.11.0</kotlinx_coroutines_version>
+        <ktor_version>3.5.0</ktor_version>
+        <junit.version>6.1.0</junit.version>
+        <testcontainers.version>2.0.5</testcontainers.version>
 
         <!-- Libraries with no upstream BOM (pinned individually) -->
-        <kotlinx_serialization_version>1.10.0</kotlinx_serialization_version>
-        <kotlinx_html_version>0.11.0</kotlinx_html_version>
+        <kotlinx_serialization_version>1.11.0</kotlinx_serialization_version>
+        <kotlinx_html_version>0.12.0</kotlinx_html_version>
         <kotlinx_io_version>0.9.0</kotlinx_io_version>
-        <slf4j_version>2.0.9</slf4j_version>
-        <logback_version>1.4.14</logback_version>
-        <caffeine.version>3.1.8</caffeine.version>
+        <slf4j_version>2.0.18</slf4j_version>
+        <logback_version>1.5.34</logback_version>
+        <caffeine.version>3.2.4</caffeine.version>
         <bcrypt.version>0.10.2</bcrypt.version>
-        <hikari.version>5.1.0</hikari.version>
-        <postgresql.version>42.7.10</postgresql.version>
-        <flyway.version>12.1.0</flyway.version>
-        <wiremock.version>3.13.1</wiremock.version>
-        <mockk.version>1.13.13</mockk.version>
-        <!-- mockk 1.13.13 transitively pins ByteBuddy 1.10.9, which cannot instrument
-             classes on JVM 21 (mockk then mocks Ktor calls as null). Force a current
-             ByteBuddy. (Previously supplied accidentally by an unused mockito-core.)
-             1.17.5 covers Java 8-25, so the eventual JDK 25 move needs no further bump. -->
-        <bytebuddy.version>1.17.5</bytebuddy.version>
-        <jackson.version>2.21</jackson.version>
+        <hikari.version>7.0.2</hikari.version>
+        <postgresql.version>42.7.11</postgresql.version>
+        <flyway.version>12.8.1</flyway.version>
+        <wiremock.version>3.13.2</wiremock.version>
+        <mockk.version>1.14.11</mockk.version>
+        <!-- mockk's transitive ByteBuddy historically lagged (1.13.13 pinned 1.10.9,
+             which cannot instrument classes on JVM 21 — mockk then mocked Ktor calls as
+             null). Force a current ByteBuddy. 1.18.10 covers Java 8-25, so the eventual
+             JDK 25 move needs no further bump. -->
+        <bytebuddy.version>1.18.10</bytebuddy.version>
+        <jackson.version>2.22</jackson.version>
     </properties>
 
     <dependencyManagement>

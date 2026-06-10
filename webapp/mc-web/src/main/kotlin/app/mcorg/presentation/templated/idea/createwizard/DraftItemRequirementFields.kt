@@ -58,7 +58,7 @@ fun FlowContent.draftItemRequirementFields(draft: IdeaDraft) {
                 input(type = InputType.text, classes = "form-control") {
                     id = "item-search"
                     placeholder = "Search items by name..."
-                    autoComplete = false
+                    autoComplete = "off"
                     hxGet("/items/search")
                     hxTrigger("input changed delay:300ms")
                     hxTarget("#item-search-results")
