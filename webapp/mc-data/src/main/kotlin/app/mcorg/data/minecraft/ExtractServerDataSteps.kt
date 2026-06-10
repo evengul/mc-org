@@ -58,12 +58,9 @@ data object DeleteFileStep : Step<Path, ExtractionFailure, Unit> {
 
     private fun deleteWithRetry(input: Path, attempts: Int = 3) {
         repeat(attempts) { attempt ->
-            try {
-                input.toFile().deleteRecursively()
-            } catch (e: IOException) {
-                if (attempt == 2) throw e
-                Thread.sleep(100) // Brief delay for file locks to release
-            }
+            if (input.toFile().deleteRecursively()) return
+            if (attempt < attempts - 1) Thread.sleep(100) // Brief delay for file locks to release
         }
+        throw IOException("Could not delete $input after $attempts attempts")
     }
 }
