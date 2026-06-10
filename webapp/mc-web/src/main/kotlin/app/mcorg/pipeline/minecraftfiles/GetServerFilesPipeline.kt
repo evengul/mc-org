@@ -22,6 +22,11 @@ import org.slf4j.LoggerFactory
 import org.slf4j.MDC
 import java.io.InputStream
 import java.net.URI
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
+import java.nio.file.StandardOpenOption
+import java.security.DigestInputStream
+import java.security.MessageDigest
 
 /**
  * Fixed advisory-lock key guarding a whole ingestion run. Any stable bigint works; this value is
@@ -224,7 +229,7 @@ private data object ProcessServerFilesStep : Step<List<ResolvedServerJar>, AppFa
         }
 
         val result: Result<AppFailure, Unit> = pipelineResult {
-            val file = GetServerFileStep.run(version to jar.url)
+            val file = GetServerFileStep.run(jar)
             val extracted = ExtractRelevantMinecraftFilesStep().process(file)
                 .mapError { AppFailure.FileError(ProcessServerFilesStep.javaClass) }
                 .bind()
@@ -246,15 +251,39 @@ private data object ProcessServerFilesStep : Step<List<ResolvedServerJar>, AppFa
     }
 }
 
-data object GetServerFileStep : Step<Pair<MinecraftVersion.Release, URI>, AppFailure, Pair<MinecraftVersion.Release, InputStream>> {
+/**
+ * Downloads a server.jar to a temp file, verifying it against the SHA1 Mojang advertises in the
+ * version metadata. The returned stream opens the verified file with DELETE_ON_CLOSE, so the
+ * consumer closing it (ExtractRelevantMinecraftFilesStep's `use`) also removes the temp file.
+ */
+data object GetServerFileStep : Step<ResolvedServerJar, AppFailure, Pair<MinecraftVersion.Release, InputStream>> {
     private val logger = LoggerFactory.getLogger(GetServerFileStep::class.java)
-    override suspend fun process(input: Pair<MinecraftVersion.Release, URI>): Result<AppFailure, Pair<MinecraftVersion.Release, InputStream>> {
+    override suspend fun process(input: ResolvedServerJar): Result<AppFailure, Pair<MinecraftVersion.Release, InputStream>> {
         return try {
-            Result.success(input.first to withContext(Dispatchers.IO) {
-                input.second.toURL().openStream()
-            })
+            withContext(Dispatchers.IO) {
+                val tempFile = Files.createTempFile("server-${input.version}", ".jar")
+                try {
+                    val digest = MessageDigest.getInstance("SHA-1")
+                    input.url.toURL().openStream().use { remote ->
+                        DigestInputStream(remote, digest).use { digested ->
+                            Files.copy(digested, tempFile, StandardCopyOption.REPLACE_EXISTING)
+                        }
+                    }
+                    val actualSha = digest.digest().joinToString("") { "%02x".format(it) }
+                    if (!actualSha.equals(input.sha1, ignoreCase = true)) {
+                        logger.error("SHA-1 mismatch for ${input.version} server.jar from ${input.url}: expected ${input.sha1}, got $actualSha")
+                        Files.deleteIfExists(tempFile)
+                        Result.failure(AppFailure.ApiError.ChecksumMismatch(expected = input.sha1, actual = actualSha))
+                    } else {
+                        Result.success(input.version to Files.newInputStream(tempFile, StandardOpenOption.DELETE_ON_CLOSE))
+                    }
+                } catch (e: Exception) {
+                    Files.deleteIfExists(tempFile)
+                    throw e
+                }
+            }
         } catch (e: Exception) {
-            logger.error("Failed to download server file for version ${input.first} from ${input.second}: ${e.message}", e)
+            logger.error("Failed to download server file for version ${input.version} from ${input.url}: ${e.message}", e)
             Result.failure(AppFailure.ApiError.UnknownError)
         }
     }
