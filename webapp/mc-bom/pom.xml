@@ -29,7 +29,12 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
         <!-- Families managed via their own upstream BOM -->
-        <kotlin.version>2.4.0</kotlin.version>
+        <!-- Held at 2.3.21 (not 2.4.0): CodeQL's Kotlin extractor lags Kotlin releases and
+             rejects 2.4.0 ("supports versions below 2.3.30"), failing the security scan.
+             2.3.21 is the latest CodeQL-analysable 2.3.x and still satisfies the Kotlin >=2.3
+             prerequisite for the JDK 25 move (MCO-179). Bump to 2.4.x once CodeQL supports it
+             (github/codeql#21938). -->
+        <kotlin.version>2.3.21</kotlin.version>
         <kotlinx_coroutines_version>1.11.0</kotlinx_coroutines_version>
         <ktor_version>3.5.0</ktor_version>
         <junit.version>6.1.0</junit.version>

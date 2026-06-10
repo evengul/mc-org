@@ -28,7 +28,8 @@
           live here rather than in mc-bom. kotlin.version / junit.version / flyway.version
           also appear in mc-bom (for the libraries); Dependabot bumps both occurrences.
         -->
-        <kotlin.version>2.4.0</kotlin.version>
+        <!-- Held at 2.3.21 to keep CodeQL green; see mc-bom/pom.xml for the full rationale. -->
+        <kotlin.version>2.3.21</kotlin.version>
         <junit.version>6.1.0</junit.version>
         <flyway.version>12.8.1</flyway.version>
         <surefire.version>3.5.6</surefire.version>
