@@ -5,9 +5,40 @@ updates:
     schedule:
       interval: weekly
       day: monday
+    open-pull-requests-limit: 10
+    # Versions are centralised in mc-bom (libraries) and webapp/pom.xml (build-plugin
+    # versions), so most bumps land as a single property change. Grouping keeps a family
+    # that spans several artifacts (Ktor, Kotlin, the test stack) in one PR.
+    groups:
+      kotlin:
+        patterns:
+          - "org.jetbrains.kotlin:*"
+          - "org.jetbrains.kotlinx:*"
+      ktor:
+        patterns:
+          - "io.ktor:*"
+      testing:
+        patterns:
+          - "org.junit:*"
+          - "org.junit.jupiter:*"
+          - "io.mockk:*"
+          - "org.mockito:*"
+          - "org.wiremock:*"
+          - "org.testcontainers:*"
+      flyway:
+        patterns:
+          - "org.flywaydb:*"
+      logging:
+        patterns:
+          - "org.slf4j:*"
+          - "ch.qos.logback:*"
 
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
       day: monday
+    groups:
+      github-actions:
+        patterns:
+          - "*"
