@@ -72,7 +72,6 @@ data class SourceNode(
             val sourceTypeId = parts[1]
             val filename = parts.subList(2, parts.size).joinToString(":")
             val sourceType = ResourceSource.SourceType.of("$groupId:$sourceTypeId")
-                ?: ResourceSource.SourceType.UNKNOWN
             return SourceNode(sourceType, filename)
         }
     }

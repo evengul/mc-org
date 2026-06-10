@@ -30,8 +30,12 @@ data class LootTableParser(
         val type = json.objectResult(filename)
             .flatMap { it.getResult("type", filename) }
             .flatMap { it.primitiveResult(filename) }
-            .flatMap { ResourceSource.SourceType.of(it.content)?.let { type -> Result.success(type) } ?: Result.failure(
-                ExtractionFailure.JsonFailure.UnknownValue(it.content, "type", json, filename))
+            .map { primitive ->
+                ResourceSource.SourceType.of(primitive.content).also { resolved ->
+                    if (resolved == ResourceSource.SourceType.UNKNOWN) {
+                        logger.warn("Unknown ResourceSource.SourceType id '${primitive.content}' in loot file: $filename")
+                    }
+                }
             }
 
         if (json is JsonObject && json.jsonObject["pools"] == null) {

@@ -1,6 +1,7 @@
 # mc-domain
 
-Pure domain models and value objects. No business logic, no framework dependencies.
+Pure domain models and value objects. No business logic, no framework dependencies
+(see the serialization exception below).
 
 ## Purpose
 
@@ -8,9 +9,25 @@ This module defines the shared vocabulary of the entire application. Every other
 
 ## Tech
 
-- Kotlin stdlib only (no Ktor, no database, no serialization annotations)
+- Kotlin stdlib + `kotlinx-serialization-core` only (no Ktor, no database, no logging, no I/O)
 - Maven build, JVM 21 target
 - Package: `app.mcorg.domain.model.*`
+
+## Allowed dependencies (and the one exception)
+
+The only third-party dependency is `kotlinx-serialization-core`. Domain models **may**
+carry `@Serializable` annotations and, where a sealed/value type needs custom wire
+handling, a `KSerializer` (e.g. `ResourceSource.SourceType.SourceTypeSerializer`). This
+is a deliberate, stated exception: with a single entity layer and railway architecture,
+a separate DTO layer purely to keep annotations off the domain would duplicate every
+model plus mappers for negligible gain. `serialization-core` is pure-Kotlin, compile-time,
+and effectively a marker — categorically lighter than JPA/Jackson.
+
+Everything else stays out: **no logging, no I/O, no Ktor, no database, no other framework
+deps.** Models are pure data + lookups. Behaviour that needs runtime context (e.g. logging
+an unrecognized id) belongs at the boundary that has that context — for source-type
+resolution that is the `mc-data` extraction layer, not `SourceType.of()`, which returns
+`UNKNOWN` silently.
 
 ## Structure
 
