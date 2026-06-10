@@ -1,64 +1,34 @@
 package app.mcorg.data.minecraft.extract.loot
 
 import app.mcorg.domain.model.minecraft.Item
-import app.mcorg.domain.model.minecraft.MinecraftTag
-import app.mcorg.domain.model.minecraft.MinecraftVersion
 import app.mcorg.domain.model.resources.ResourceQuantity
 import app.mcorg.domain.model.resources.ResourceSource
 import app.mcorg.pipeline.Result
 import app.mcorg.data.minecraft.ServerPathResolvers
-import app.mcorg.data.minecraft.extract.ExtractNamesStep
-import app.mcorg.data.minecraft.extract.ExtractTagsStep
+import app.mcorg.data.minecraft.extract.ExtractionContext
 import app.mcorg.data.minecraft.extract.getResult
 import app.mcorg.data.minecraft.extract.objectResult
 import app.mcorg.data.minecraft.extract.parseJsonFilesRecursively
 import app.mcorg.data.minecraft.extract.primitiveResult
+import app.mcorg.data.minecraft.extract.withNames
 import app.mcorg.data.minecraft.failure.ExtractionFailure
 import app.mcorg.domain.pipeline.Step
 import kotlinx.serialization.json.Json
 import org.slf4j.LoggerFactory
-import java.nio.file.Path
 
-data object ExtractLootTables : Step<Pair<MinecraftVersion.Release, Path>, ExtractionFailure, List<ResourceSource>> {
+data object ExtractLootTables : Step<ExtractionContext, ExtractionFailure, List<ResourceSource>> {
     private val logger = LoggerFactory.getLogger(this.javaClass)
 
-    override suspend fun process(input: Pair<MinecraftVersion.Release, Path>): Result<ExtractionFailure, List<ResourceSource>> {
-        val version = input.first
-        val basePath = input.second
+    override suspend fun process(input: ExtractionContext): Result<ExtractionFailure, List<ResourceSource>> {
+        val lootTableParser = LootTableParser(input.root, input.version)
 
-        val lootTableParser = LootTableParser(basePath, version)
-
-        // Pre-load names cache to avoid race conditions during concurrent file parsing
-        ExtractNamesStep.getNames(input)
-        ExtractTagsStep.process(input.first to input.second.resolve("tags"))
-
-        return parseJsonFilesRecursively(version, ServerPathResolvers.resolveLootTablesPath(basePath, version)) { content, filename ->
+        return parseJsonFilesRecursively(input.version, ServerPathResolvers.resolveLootTablesPath(input.root, input.version)) { content, filename ->
             parseFile(lootTableParser, content, filename)
         }
-            .map { addNames(input, it) + hardcodedLoot() }
-    }
-
-    private suspend fun addNames(input: Pair<MinecraftVersion.Release, Path>, sources: List<ResourceSource>): List<ResourceSource> {
-        return sources.map { source ->
-            source.copy(
-                producedItems = source.producedItems.map { itemAndQuantity ->
-                    when (val item = itemAndQuantity.first) {
-                        is MinecraftTag -> itemAndQuantity.copy(
-                            first = item.copy(
-                                name = ExtractTagsStep.getNameOfTag(itemAndQuantity.first.id),
-                                content = ExtractTagsStep.getContentOfTag(input.first, itemAndQuantity.first.id)
-                                    .map { Item(it, ExtractNamesStep.getName(input, it)) }
-                            )
-                        )
-                        is Item -> itemAndQuantity.copy(
-                            first = item.copy(
-                                name = ExtractNamesStep.getName(input, itemAndQuantity.first.id)
-                            )
-                        )
-                    }
-                }
-            )
-        }.filter { it.type != ResourceSource.SourceType.RecipeTypes.IGNORED && it.producedItems.isNotEmpty() }
+            .map { sources ->
+                sources.map { it.withNames(input) }
+                    .filter { it.type != ResourceSource.SourceType.RecipeTypes.IGNORED && it.producedItems.isNotEmpty() } + hardcodedLoot()
+            }
     }
 
     private suspend fun parseFile(lootTableParser: LootTableParser, content: String, filename: String): Result<ExtractionFailure, ResourceSource> {

@@ -6,6 +6,7 @@ import app.mcorg.pipeline.Result
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.data.minecraft.extract.ExtractItemsStep
 import app.mcorg.data.minecraft.extract.ExtractResourceSources
+import app.mcorg.data.minecraft.extract.ExtractionContextFactory
 import app.mcorg.data.minecraft.failure.ExtractionFailure
 import org.slf4j.LoggerFactory
 import java.io.IOException
@@ -14,8 +15,14 @@ import java.nio.file.Path
 data object ExtractMinecraftDataStep : Step<Pair<MinecraftVersion.Release, Path>, ExtractionFailure, ServerData> {
     override suspend fun process(input: Pair<MinecraftVersion.Release, Path>): Result<ExtractionFailure, ServerData> {
         try {
-            val items = ExtractItemsStep.process(input)
-            val itemSources = ExtractResourceSources.process(input)
+            val contextResult = ExtractionContextFactory.create(input.first, input.second)
+            if (contextResult is Result.Failure) {
+                return contextResult
+            }
+            val context = contextResult.getOrThrow()
+
+            val items = ExtractItemsStep.process(context)
+            val itemSources = ExtractResourceSources.process(context)
 
             if (items is Result.Failure) {
                 return items
@@ -25,15 +32,15 @@ data object ExtractMinecraftDataStep : Step<Pair<MinecraftVersion.Release, Path>
                 return itemSources
             }
 
-            val allItems = items.getOrThrow() + itemSources.getOrThrow().second.flatMap {
+            val allItems = (items.getOrThrow() + itemSources.getOrThrow().flatMap {
                 source -> source.requiredItems.map { it.first } + source.producedItems.map { it.first }
-            }.distinctBy { it.id }
+            }).distinctBy { it.id }
 
             return Result.success(
                 ServerData(
                     version = input.first,
                     items = allItems,
-                    sources = itemSources.getOrThrow().second
+                    sources = itemSources.getOrThrow()
                 )
             )
         } finally {

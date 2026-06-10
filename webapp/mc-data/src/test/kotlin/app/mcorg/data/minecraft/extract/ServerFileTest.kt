@@ -2,6 +2,7 @@ package app.mcorg.data.minecraft.extract
 
 import app.mcorg.domain.model.minecraft.MinecraftVersion
 import app.mcorg.domain.model.minecraft.MinecraftVersionRange
+import app.mcorg.pipeline.Result
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.fail
 import org.junit.jupiter.api.BeforeAll
@@ -18,6 +19,13 @@ open class ServerFileTest(
     companion object {
         fun versionPath(version: MinecraftVersion.Release): Path {
             return Path.of("src/test/resources/servers/extracted/${version.toString().replace(".0", "")}")
+        }
+
+        fun contextFor(version: MinecraftVersion.Release): ExtractionContext = runBlocking {
+            when (val result = ExtractionContextFactory.create(version, versionPath(version))) {
+                is Result.Success -> result.value
+                is Result.Failure -> fail("Could not create extraction context for $version: ${result.error}")
+            }
         }
     }
 

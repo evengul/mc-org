@@ -14,7 +14,7 @@ class ExtractItemsStepTest : ServerFileTest() {
     @ParameterizedTest
     @MethodSource("getVersions")
     fun testExtractItems(version: MinecraftVersion.Release) {
-        val result = TestUtils.executeAndAssertSuccess(ExtractItemsStep, version to versionPath(version))
+        val result = TestUtils.executeAndAssertSuccess(ExtractItemsStep, contextFor(version))
 
         assertNotEquals(result.size, 0)
     }

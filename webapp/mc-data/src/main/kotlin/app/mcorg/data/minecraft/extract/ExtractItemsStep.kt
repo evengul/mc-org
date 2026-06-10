@@ -14,25 +14,24 @@ import kotlinx.serialization.json.jsonPrimitive
 import org.slf4j.LoggerFactory
 import java.nio.file.Path
 
-data object ExtractItemsStep : Step<Pair<MinecraftVersion.Release, Path>, ExtractionFailure, List<Item>> {
+data object ExtractItemsStep : Step<ExtractionContext, ExtractionFailure, List<Item>> {
     private val logger = LoggerFactory.getLogger(this.javaClass)
 
-    override suspend fun process(input: Pair<MinecraftVersion.Release, Path>): Result<ExtractionFailure, List<Item>> {
-        val (version, basePath) = input
+    override suspend fun process(input: ExtractionContext): Result<ExtractionFailure, List<Item>> {
         val idsFromTags = buildSet {
-            addAll(tagValues(version, ServerPathResolvers.resolveItemTagsPath(basePath, version)))
-            addAll(tagValues(version, ServerPathResolvers.resolveBlockTagsPath(basePath, version)))
+            addAll(tagValues(input.version, ServerPathResolvers.resolveItemTagsPath(input.root, input.version)))
+            addAll(tagValues(input.version, ServerPathResolvers.resolveBlockTagsPath(input.root, input.version)))
         }
 
         if (idsFromTags.isEmpty()) {
-            logger.warn("No item or block IDs extracted for version {}", input.first)
+            logger.warn("No item or block IDs extracted for version {}", input.version)
             return Result.success(emptyList())
         }
 
         return Result.success(
             idsFromTags
                 .filter { id -> !id.startsWith("#") }
-                .map { Item(it, ExtractNamesStep.getName(input, it)) }
+                .map { Item(it, input.nameOf(it)) }
         )
     }
 

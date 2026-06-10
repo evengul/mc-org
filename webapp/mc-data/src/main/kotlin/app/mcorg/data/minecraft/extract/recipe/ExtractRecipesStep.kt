@@ -1,70 +1,29 @@
 package app.mcorg.data.minecraft.extract.recipe
 
-import app.mcorg.domain.model.minecraft.Item
-import app.mcorg.domain.model.minecraft.MinecraftId
-import app.mcorg.domain.model.minecraft.MinecraftTag
-import app.mcorg.domain.model.minecraft.MinecraftVersion
 import app.mcorg.domain.model.resources.ResourceSource
 import app.mcorg.pipeline.Result
 import app.mcorg.data.minecraft.ServerPathResolvers
-import app.mcorg.data.minecraft.extract.ExtractNamesStep
-import app.mcorg.data.minecraft.extract.ExtractTagsStep
+import app.mcorg.data.minecraft.extract.ExtractionContext
 import app.mcorg.data.minecraft.extract.getResult
 import app.mcorg.data.minecraft.extract.objectResult
 import app.mcorg.data.minecraft.extract.primitiveResult
 import app.mcorg.data.minecraft.extract.parseJsonFilesRecursively
+import app.mcorg.data.minecraft.extract.withNames
 import app.mcorg.data.minecraft.failure.ExtractionFailure
 import app.mcorg.domain.pipeline.Step
 import kotlinx.serialization.json.Json
 import org.slf4j.LoggerFactory
-import java.nio.file.Path
 
-data object ExtractRecipesStep : Step<Pair<MinecraftVersion.Release, Path>, ExtractionFailure, List<ResourceSource>> {
+data object ExtractRecipesStep : Step<ExtractionContext, ExtractionFailure, List<ResourceSource>> {
     private val logger = LoggerFactory.getLogger(javaClass)
-    override suspend fun process(input: Pair<MinecraftVersion.Release, Path>): Result<ExtractionFailure, List<ResourceSource>> {
-        val version = input.first
-        val basePath = input.second
-
-        ExtractNamesStep.getNames(input)
-        ExtractTagsStep.process(input.first to input.second.resolve("tags"))
-
-        // Expand input and outputs of recipes based on tags so we get the complete set of possible recipes
-
-        return parseJsonFilesRecursively(version, ServerPathResolvers.resolveRecipesPath(basePath, version)) { content, filename ->
+    override suspend fun process(input: ExtractionContext): Result<ExtractionFailure, List<ResourceSource>> {
+        return parseJsonFilesRecursively(input.version, ServerPathResolvers.resolveRecipesPath(input.root, input.version)) { content, filename ->
             parseFile(content, filename)
         }
             .map { sources ->
                 sources.map { it.withNames(input) }
                     .filter { it.producedItems.isNotEmpty() }
             }
-    }
-
-    private suspend fun ResourceSource.withNames(namesInput: Pair<MinecraftVersion.Release, Path>): ResourceSource {
-        return this.copy(
-            requiredItems = this.requiredItems.map { item ->
-                item.first.withNames(namesInput) to item.second
-            },
-            producedItems = this.producedItems.map { item ->
-                item.first.withNames(namesInput) to item.second
-            }
-        )
-    }
-
-    private suspend fun MinecraftId.withNames(namesInput: Pair<MinecraftVersion.Release, Path>): MinecraftId {
-        return when (this) {
-            is Item -> copy(
-                name = ExtractNamesStep.getName(namesInput, this.id)
-            )
-            is MinecraftTag -> copy(
-                name = ExtractTagsStep.getNameOfTag(this.id),
-                content = ExtractTagsStep.getContentOfTag(namesInput.first, this.id).map { taggedItem ->
-                    Item(
-                        id = taggedItem,
-                        name = ExtractNamesStep.getName(namesInput, taggedItem)
-                    )
-                }
-            )
-        }
     }
 
     private suspend fun parseFile(
