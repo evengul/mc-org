@@ -63,8 +63,8 @@ data class ExtractRelevantMinecraftFilesStep(
 
             // Check if the output directory has any files
             val hasExtractedFiles = withContext(Dispatchers.IO) {
-                Files.walk(outputDir)
-            }.anyMatch { Files.isRegularFile(it) }
+                Files.walk(outputDir).use { paths -> paths.anyMatch { Files.isRegularFile(it) } }
+            }
 
             if (!hasExtractedFiles) {
                 logger.error("No relevant files were extracted for version $versionString from $serverInputStream")
