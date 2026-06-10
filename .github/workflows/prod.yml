@@ -46,11 +46,11 @@ jobs:
         with:
           name: maven-local-modules
           path: ~/.m2/repository/app/mcorg
-      - name: Set up JDK 21
+      - name: Set up JDK 25
         uses: actions/setup-java@v5
         with:
-          distribution: 'adopt'
-          java-version: '21'
+          distribution: 'temurin'
+          java-version: '25'
 
       - name: Run Flyway migrations
         run: mvn flyway:migrate
