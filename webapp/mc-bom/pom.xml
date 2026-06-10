@@ -41,7 +41,7 @@
         <kotlinx_io_version>0.9.0</kotlinx_io_version>
         <slf4j_version>2.0.9</slf4j_version>
         <logback_version>1.4.14</logback_version>
-        <caffeine.version>3.1.8</caffeine.version>
+        <caffeine.version>3.2.4</caffeine.version>
         <bcrypt.version>0.10.2</bcrypt.version>
         <hikari.version>5.1.0</hikari.version>
         <postgresql.version>42.7.10</postgresql.version>
