@@ -6,9 +6,7 @@ import app.mcorg.pipeline.Result
 import app.mcorg.data.minecraft.extract.arrayResult
 import app.mcorg.data.minecraft.extract.getResult
 import app.mcorg.data.minecraft.extract.objectResult
-import app.mcorg.data.minecraft.extract.primitiveResult
 import app.mcorg.data.minecraft.failure.ExtractionFailure
-import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.*
 import org.slf4j.LoggerFactory
 
@@ -48,22 +46,8 @@ object ShapedRecipeParser {
             .flatMap { it.getResult("key", filename) }
             .flatMap { it.objectResult(filename) }
             .mapSuccess { keyObject ->
-                keyObject.jsonObject.entries.associate { (symbol, ingredientJson) ->
-                    val ingredientId = runBlocking {
-                        when (ingredientJson) {
-                            is JsonPrimitive -> ingredientJson.content
-                            is JsonObject -> {
-                                ingredientJson.jsonObject.getResult("item", filename)
-                                    .recover { ingredientJson.jsonObject.getResult("tag", filename).mapSuccess { tag -> JsonPrimitive("#${tag.jsonPrimitive.content}") } }
-                                    .recover { ingredientJson.jsonObject.getResult("key", filename) }
-                                    .recover { ingredientJson.jsonObject.getResult("id", filename) }
-                                    .flatMap { it.primitiveResult(filename).mapSuccess { p -> p.content } }
-                                    .getOrNull()
-                            }
-                            else -> null
-                        }
-                    }
-                    symbol.single() to ingredientId
+                keyObject.entries.associate { (symbol, ingredientJson) ->
+                    symbol.single() to parseItemRef(ingredientJson)
                 }
             }
 

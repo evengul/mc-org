@@ -1,56 +1,31 @@
 package app.mcorg.data.minecraft.extract.recipe
 
 import app.mcorg.pipeline.Result
-import app.mcorg.data.minecraft.extract.getResult
-import app.mcorg.data.minecraft.extract.objectResult
-import app.mcorg.data.minecraft.extract.primitiveResult
 import app.mcorg.data.minecraft.failure.ExtractionFailure
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
 
+/**
+ * Resolves a recipe's result item id across the shapes used by different versions:
+ * a top-level `id`, a primitive `result`, a `result` object carrying any [parseItemRef]
+ * spelling, or 1.20.x's nested `result.value.id`.
+ */
 object RecipeItemIdParser {
-    suspend fun parse(json: JsonElement, filename: String): Result<ExtractionFailure, String> {
-        return json.objectResult(filename).flatMap { it.getResult("id", filename) }.flatMap { it.primitiveResult(filename).mapSuccess { p -> p.content } }
-            .recover {
-                json.objectResult(filename)
-                    .flatMap { it.getResult("result", filename) }
-                    .flatMap { it.primitiveResult(filename).mapSuccess { p -> p.content } }
-            }
-            .recover {
-                json.objectResult(filename)
-                    .flatMap { it.getResult("result", filename) }
-                    .flatMap { it.objectResult(filename) }
-                    .flatMap { it.getResult("value", filename) }
-                    .flatMap { it.primitiveResult(filename).mapSuccess { p -> p.content } }
-            }
-            .recover {
-                json.objectResult(filename)
-                    .flatMap { it.getResult("result", filename) }
-                    .flatMap { it.objectResult(filename) }
-                    .flatMap { it.getResult("id", filename) }
-                    .flatMap { it.primitiveResult(filename).mapSuccess { p -> p.content } }
-            }
-            .recover {
-                json.objectResult(filename)
-                    .flatMap { it.getResult("result", filename) }
-                    .flatMap { it.objectResult(filename) }
-                    .flatMap { it.getResult("key", filename) }
-                    .flatMap { it.primitiveResult(filename).mapSuccess { p -> p.content } }
-            }
-            .recover {
-                json.objectResult(filename)
-                    .flatMap { it.getResult("result", filename) }
-                    .flatMap { it.objectResult(filename) }
-                    .flatMap { it.getResult("item", filename) }
-                    .flatMap { it.primitiveResult(filename).mapSuccess { p -> p.content } }
-            }
-            .recover {
-                json.objectResult(filename)
-                    .flatMap { it.getResult("result", filename) }
-                    .flatMap { it.objectResult(filename) }
-                    .flatMap { it.getResult("value", filename) }
-                    .flatMap { it.objectResult(filename) }
-                    .flatMap { it.getResult("id", filename) }
-                    .flatMap { it.primitiveResult(filename).mapSuccess { p -> p.content } }
-            }
+    fun parse(json: JsonElement, filename: String): Result<ExtractionFailure, String> {
+        val obj = json as? JsonObject
+            ?: return Result.failure(ExtractionFailure.JsonFailure.NotAnObject(json, filename))
+
+        (obj["id"] as? JsonPrimitive)?.contentOrNull?.let { return Result.success(it) }
+
+        val result = obj["result"]
+            ?: return Result.failure(ExtractionFailure.JsonFailure.KeyNotFound(obj, "result", filename))
+
+        parseItemRef(result)?.let { return Result.success(it) }
+
+        parseItemRef((result as? JsonObject)?.get("value"))?.let { return Result.success(it) }
+
+        return Result.failure(ExtractionFailure.JsonFailure.KeyNotFound(result, "{id,item,key,value}", filename))
     }
 }
