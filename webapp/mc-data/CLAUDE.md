@@ -9,7 +9,6 @@ Takes extracted Minecraft server JAR data (JSON files) and produces structured `
 ## Tech
 
 - Depends on: `mc-domain`, `mc-pipeline` (uses Step/Result pattern)
-- Uses Caffeine for caching
 - Uses SLF4J for logging
 - Maven build, JVM 21 target
 - Package: `app.mcorg.data.minecraft.*`
