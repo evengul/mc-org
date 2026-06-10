@@ -2,6 +2,7 @@ package app.mcorg.data.minecraft.extract
 
 import app.mcorg.data.minecraft.failure.ExtractionFailure
 import app.mcorg.domain.model.minecraft.MinecraftVersion
+import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.Result
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -11,9 +12,10 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.slf4j.LoggerFactory
+import java.nio.file.Path
 import java.util.concurrent.ConcurrentHashMap
 
-data object ExtractTagsStep : ParseFilesRecursivelyStep<Pair<String, List<String>>>() {
+data object ExtractTagsStep : Step<Pair<MinecraftVersion.Release, Path>, ExtractionFailure, List<Pair<String, List<String>>>> {
     private val logger = LoggerFactory.getLogger(javaClass)
     private val cache = ConcurrentHashMap<MinecraftVersion.Release, MutableMap<String, List<String>>>()
     private val mutexMap = ConcurrentHashMap<MinecraftVersion.Release, Mutex>()
@@ -37,7 +39,15 @@ data object ExtractTagsStep : ParseFilesRecursivelyStep<Pair<String, List<String
         }.joinToString("")
     }
 
-    override suspend fun parseFile(
+    override suspend fun process(input: Pair<MinecraftVersion.Release, Path>): Result<ExtractionFailure, List<Pair<String, List<String>>>> {
+        val (version, basePath) = input
+        return parseJsonFilesRecursively(version, basePath) { content, filename ->
+            parseFile(version, content, filename)
+        }
+    }
+
+    private suspend fun parseFile(
+        version: MinecraftVersion.Release,
         content: String,
         filename: String
     ): Result<ExtractionFailure, Pair<String, List<String>>> {

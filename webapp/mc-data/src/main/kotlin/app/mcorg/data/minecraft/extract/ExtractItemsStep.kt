@@ -18,9 +18,10 @@ data object ExtractItemsStep : Step<Pair<MinecraftVersion.Release, Path>, Extrac
     private val logger = LoggerFactory.getLogger(this.javaClass)
 
     override suspend fun process(input: Pair<MinecraftVersion.Release, Path>): Result<ExtractionFailure, List<Item>> {
+        val (version, basePath) = input
         val idsFromTags = buildSet {
-            addAll(GetItemIdsStep.process(input).getOrNull()?.flatten() ?: emptyList())
-            addAll(GetBlockIdsStep.process(input).getOrNull()?.flatten() ?: emptyList())
+            addAll(tagValues(version, ServerPathResolvers.resolveItemTagsPath(basePath, version)))
+            addAll(tagValues(version, ServerPathResolvers.resolveBlockTagsPath(basePath, version)))
         }
 
         if (idsFromTags.isEmpty()) {
@@ -29,49 +30,28 @@ data object ExtractItemsStep : Step<Pair<MinecraftVersion.Release, Path>, Extrac
         }
 
         return Result.success(
-            idsFromTags.distinct()
+            idsFromTags
                 .filter { id -> !id.startsWith("#") }
                 .map { Item(it, ExtractNamesStep.getName(input, it)) }
         )
     }
 
-}
+    private suspend fun tagValues(version: MinecraftVersion.Release, path: Path): List<String> =
+        parseJsonFilesRecursively(version, path) { content, filename -> parseTagFile(content, filename) }
+            .getOrNull()?.flatten() ?: emptyList()
 
-private data object GetItemIdsStep : ParseFilesRecursivelyStep<List<String>>() {
-    override suspend fun process(input: Pair<MinecraftVersion.Release, Path>): Result<ExtractionFailure, List<List<String>>> {
-        return super.process(input.first to ServerPathResolvers.resolveItemTagsPath(input.second, input.first))
-    }
-
-    override suspend fun parseFile(content: String, filename: String): Result<ExtractionFailure, List<String>> {
-        return ParseTagFile.process(content to filename)
-    }
-}
-
-private data object GetBlockIdsStep : ParseFilesRecursivelyStep<List<String>>() {
-    override suspend fun process(input: Pair<MinecraftVersion.Release, Path>): Result<ExtractionFailure, List<List<String>>> {
-        return super.process(input.first to ServerPathResolvers.resolveBlockTagsPath(input.second, input.first))
-    }
-
-    override suspend fun parseFile(content: String, filename: String): Result<ExtractionFailure, List<String>> {
-        return ParseTagFile.process(content to filename)
-    }
-}
-
-private data object ParseTagFile : Step<Pair<String, String>, ExtractionFailure, List<String>> {
-    private val logger = LoggerFactory.getLogger(this.javaClass)
-    override suspend fun process(input: Pair<String, String>): Result<ExtractionFailure, List<String>> {
-        val (content, filename) = input
+    private fun parseTagFile(content: String, filename: String): Result<ExtractionFailure, List<String>> {
         val json = try {
             Json.parseToJsonElement(content)
         } catch (e: Exception) {
-            logger.error("Error parsing JSON from tag file $input", e)
+            logger.error("Error parsing JSON from tag file $filename", e)
             return Result.failure(ExtractionFailure.JsonFailure.ParseError(content, filename))
         }
 
         val itemIds = json.jsonObject["values"]?.let { valuesElement ->
             valuesElement.jsonArray.mapNotNull { it.jsonPrimitive.contentOrNull }
         } ?: run {
-            logger.error("No 'values' array found in tag file $input")
+            logger.error("No 'values' array found in tag file $filename")
             return Result.failure(ExtractionFailure.JsonFailure.KeyNotFound(json, "values", filename))
         }
 

@@ -9,16 +9,17 @@ import app.mcorg.pipeline.Result
 import app.mcorg.data.minecraft.ServerPathResolvers
 import app.mcorg.data.minecraft.extract.ExtractNamesStep
 import app.mcorg.data.minecraft.extract.ExtractTagsStep
-import app.mcorg.data.minecraft.extract.ParseFilesRecursivelyStep
 import app.mcorg.data.minecraft.extract.getResult
 import app.mcorg.data.minecraft.extract.objectResult
 import app.mcorg.data.minecraft.extract.primitiveResult
+import app.mcorg.data.minecraft.extract.parseJsonFilesRecursively
 import app.mcorg.data.minecraft.failure.ExtractionFailure
+import app.mcorg.domain.pipeline.Step
 import kotlinx.serialization.json.Json
 import org.slf4j.LoggerFactory
 import java.nio.file.Path
 
-data object ExtractRecipesStep : ParseFilesRecursivelyStep<ResourceSource>() {
+data object ExtractRecipesStep : Step<Pair<MinecraftVersion.Release, Path>, ExtractionFailure, List<ResourceSource>> {
     private val logger = LoggerFactory.getLogger(javaClass)
     override suspend fun process(input: Pair<MinecraftVersion.Release, Path>): Result<ExtractionFailure, List<ResourceSource>> {
         val version = input.first
@@ -29,7 +30,9 @@ data object ExtractRecipesStep : ParseFilesRecursivelyStep<ResourceSource>() {
 
         // Expand input and outputs of recipes based on tags so we get the complete set of possible recipes
 
-        return super.process(version to ServerPathResolvers.resolveRecipesPath(basePath, version))
+        return parseJsonFilesRecursively(version, ServerPathResolvers.resolveRecipesPath(basePath, version)) { content, filename ->
+            parseFile(content, filename)
+        }
             .map { sources ->
                 sources.map { it.withNames(input) }
                     .filter { it.producedItems.isNotEmpty() }
@@ -64,7 +67,7 @@ data object ExtractRecipesStep : ParseFilesRecursivelyStep<ResourceSource>() {
         }
     }
 
-    override suspend fun parseFile(
+    private suspend fun parseFile(
         content: String,
         filename: String
     ): Result<ExtractionFailure, ResourceSource> {

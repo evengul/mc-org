@@ -9,32 +9,33 @@ import app.mcorg.pipeline.Result
 import app.mcorg.data.minecraft.ServerPathResolvers
 import app.mcorg.data.minecraft.extract.ExtractNamesStep
 import app.mcorg.data.minecraft.extract.ExtractTagsStep
-import app.mcorg.data.minecraft.extract.ParseFilesRecursivelyStep
 import app.mcorg.data.minecraft.extract.getResult
 import app.mcorg.data.minecraft.extract.objectResult
+import app.mcorg.data.minecraft.extract.parseJsonFilesRecursively
 import app.mcorg.data.minecraft.extract.primitiveResult
 import app.mcorg.data.minecraft.failure.ExtractionFailure
+import app.mcorg.domain.pipeline.Step
 import kotlinx.serialization.json.Json
 import org.slf4j.LoggerFactory
 import java.nio.file.Path
 
-data object ExtractLootTables : ParseFilesRecursivelyStep<ResourceSource>() {
+data object ExtractLootTables : Step<Pair<MinecraftVersion.Release, Path>, ExtractionFailure, List<ResourceSource>> {
     private val logger = LoggerFactory.getLogger(this.javaClass)
-
-    private lateinit var lootTableParser: LootTableParser
 
     override suspend fun process(input: Pair<MinecraftVersion.Release, Path>): Result<ExtractionFailure, List<ResourceSource>> {
         val version = input.first
         val basePath = input.second
 
-        lootTableParser = LootTableParser(basePath, version)
+        val lootTableParser = LootTableParser(basePath, version)
 
         // Pre-load names cache to avoid race conditions during concurrent file parsing
         ExtractNamesStep.getNames(input)
         ExtractTagsStep.process(input.first to input.second.resolve("tags"))
 
-        return super.process(version to ServerPathResolvers.resolveLootTablesPath(basePath, version))
-            .map { addNames(input, it)+ hardcodedLoot() }
+        return parseJsonFilesRecursively(version, ServerPathResolvers.resolveLootTablesPath(basePath, version)) { content, filename ->
+            parseFile(lootTableParser, content, filename)
+        }
+            .map { addNames(input, it) + hardcodedLoot() }
     }
 
     private suspend fun addNames(input: Pair<MinecraftVersion.Release, Path>, sources: List<ResourceSource>): List<ResourceSource> {
@@ -45,7 +46,7 @@ data object ExtractLootTables : ParseFilesRecursivelyStep<ResourceSource>() {
                         is MinecraftTag -> itemAndQuantity.copy(
                             first = item.copy(
                                 name = ExtractTagsStep.getNameOfTag(itemAndQuantity.first.id),
-                                content = ExtractTagsStep.getContentOfTag(version, itemAndQuantity.first.id)
+                                content = ExtractTagsStep.getContentOfTag(input.first, itemAndQuantity.first.id)
                                     .map { Item(it, ExtractNamesStep.getName(input, it)) }
                             )
                         )
@@ -60,7 +61,7 @@ data object ExtractLootTables : ParseFilesRecursivelyStep<ResourceSource>() {
         }.filter { it.type != ResourceSource.SourceType.RecipeTypes.IGNORED && it.producedItems.isNotEmpty() }
     }
 
-    override suspend fun parseFile(content: String, filename: String): Result<ExtractionFailure, ResourceSource> {
+    private suspend fun parseFile(lootTableParser: LootTableParser, content: String, filename: String): Result<ExtractionFailure, ResourceSource> {
         val json = try {
             Json.parseToJsonElement(content)
         } catch (e: Exception) {

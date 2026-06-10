@@ -9,6 +9,7 @@ import app.mcorg.domain.model.minecraft.MinecraftTag
 import app.mcorg.domain.model.minecraft.MinecraftVersion
 import app.mcorg.domain.model.resources.ResourceQuantity
 import app.mcorg.domain.model.resources.ResourceSource
+import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.Result
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -33,7 +34,7 @@ import java.nio.file.Path
  * The first path segment (profession directory name) determines which
  * [ResourceSource.SourceType.TradeTypes] value is used.
  */
-data object ExtractVillagerTradesStep : ParseFilesRecursivelyStep<ResourceSource>() {
+data object ExtractVillagerTradesStep : Step<Pair<MinecraftVersion.Release, Path>, ExtractionFailure, List<ResourceSource>> {
     private val logger = LoggerFactory.getLogger(javaClass)
 
     private val professionToType: Map<String, ResourceSource.SourceType> = mapOf(
@@ -69,14 +70,16 @@ data object ExtractVillagerTradesStep : ParseFilesRecursivelyStep<ResourceSource
         // run before recipes in the future.
         ExtractNamesStep.getNames(input)
 
-        return super.process(version to tradesPath)
+        return parseJsonFilesRecursively(version, tradesPath) { content, filename ->
+            parseFile(content, filename)
+        }
             .map { sources ->
                 sources.map { it.withNames(input) }
                     .filter { it.producedItems.isNotEmpty() }
             }
     }
 
-    override suspend fun parseFile(
+    private suspend fun parseFile(
         content: String,
         filename: String
     ): Result<ExtractionFailure, ResourceSource> {
