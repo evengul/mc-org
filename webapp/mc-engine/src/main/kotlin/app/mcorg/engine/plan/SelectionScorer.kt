@@ -71,8 +71,7 @@ internal class SelectionScorer(
 
     private fun selfBlockLootPenalty(item: MinecraftId, source: SourceNode, hasRecipeSibling: Boolean): Int {
         if (!hasRecipeSibling) return 0
-        if (source.sourceType != ResourceSource.SourceType.LootTypes.BLOCK) return 0
-        return if (filenameStem(source.filename) == itemName(item.id)) SELF_BLOCK_LOOT_PENALTY else 0
+        return if (isSelfBlockLoot(item, source)) SELF_BLOCK_LOOT_PENALTY else 0
     }
 
     /**
@@ -110,11 +109,6 @@ internal class SelectionScorer(
         return depth
     }
 
-    private fun filenameStem(filename: String): String =
-        filename.substringAfterLast('/').substringBeforeLast('.')
-
-    private fun itemName(itemId: String): String = itemId.substringAfterLast(':')
-
     companion object {
         private const val EFFICIENCY_WEIGHT = 20
         private const val SUPPLIED_BONUS = 30
@@ -123,5 +117,17 @@ internal class SelectionScorer(
         private const val DEPTH_PENALTY = 5
         private const val REQUIREMENT_PENALTY = 10
         private const val UNREACHABLE_DEPTH = Int.MAX_VALUE / 2
+
+        /**
+         * Breaking a block that *is* the item ("blocks/beacon.json" for
+         * minecraft:beacon) only re-collects something already placed — never a
+         * natural acquisition. Mining a different block that drops the item
+         * (diamond ore for diamonds) does not match.
+         */
+        internal fun isSelfBlockLoot(item: MinecraftId, source: SourceNode): Boolean {
+            if (source.sourceType != ResourceSource.SourceType.LootTypes.BLOCK) return false
+            val stem = source.filename.substringAfterLast('/').substringBeforeLast('.')
+            return stem == item.id.substringAfterLast(':')
+        }
     }
 }

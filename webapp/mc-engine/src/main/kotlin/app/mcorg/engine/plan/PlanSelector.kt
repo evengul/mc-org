@@ -206,7 +206,14 @@ object PlanSelector {
 
             // Provisional false cuts graph cycles below this item on the current walk.
             memo[id] = false
-            val usable = graph.getSourcesForItem(item).any { source ->
+            val sources = graph.getSourcesForItem(item)
+            val hasRecipeSibling = sources.any { it.sourceType.isRecipe() }
+            val usable = sources.any { source ->
+                // Breaking the item's own placed block cannot ground a chain when a
+                // recipe exists — the placed block had to be obtained first. Without
+                // this, "unpack iron block <- break a placed iron block" would count
+                // as a complete acquisition path.
+                if (hasRecipeSibling && SelectionScorer.isSelfBlockLoot(item, source)) return@any false
                 graph.getRequiredItems(source).all { requirement ->
                     val effective = redirectTag(requirement.item)
                     acquirable(effective, effective.id, resolvingId, memo)
