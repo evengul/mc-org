@@ -1,6 +1,7 @@
 package app.mcorg.engine.plan
 
 import app.mcorg.domain.model.minecraft.MinecraftId
+import app.mcorg.domain.model.resources.ResourceSource
 import app.mcorg.engine.model.SourceNode
 
 /**
@@ -61,6 +62,41 @@ data class PlanNode(
 )
 
 /**
+ * The kind of play activity a node maps to. Declaration order is the preferred
+ * session order: resolve open questions first, collect what farms already
+ * produce, then head out gathering/hunting/looting/trading, and finish at the
+ * furnaces and crafting tables.
+ */
+enum class ActivityGroup {
+    /** OPEN_TAG / BLOCKED — needs a user decision before the plan is real. */
+    NEEDS_ATTENTION,
+
+    /** Pick up from a farm or a linked project. */
+    COLLECT_SUPPLIED,
+
+    /** Break/mine blocks in the world. */
+    GATHER,
+
+    /** Kill or interact with entities. */
+    HUNT,
+
+    /** Chests, fishing, archaeology, gifts, equipment drops. */
+    LOOT,
+
+    /** Villager trades and piglin bartering. */
+    TRADE,
+
+    /** Furnace work — smelting, blasting, smoking, campfire. */
+    SMELT,
+
+    /** Bench work — crafting, stonecutting, smithing. */
+    CRAFT,
+
+    /** Unrecognized source types. */
+    OTHER
+}
+
+/**
  * One row of the consolidated activity list — a [PlanNode] flattened for display,
  * ordered so that every ingredient appears before the activity consuming it.
  */
@@ -70,6 +106,7 @@ data class Activity(
     val crafts: Long,
     val leftover: Long,
     val status: PlanNodeStatus,
+    val group: ActivityGroup,
     val source: SourceNode? = null,
     val supply: SupplySource? = null
 )
@@ -123,6 +160,11 @@ class GatheringPlan(
      */
     val activityList: List<Activity> by lazy { ActivityOrdering.order(nodes) }
 
+    /** The activities awaiting a user decision (open tags and blocked nodes). */
+    val needsAttention: List<Activity> by lazy {
+        activityList.filter { it.group == ActivityGroup.NEEDS_ATTENTION }
+    }
+
     /**
      * Drill-down tree for one target, or null if [targetItemId] is not a target.
      * Quantities are "if gathered alone" — see [TargetTree].
@@ -166,8 +208,10 @@ internal fun ceilDiv(amount: Long, per: Int): Long {
  * Ordering rule for the consolidated activity list.
  *
  * Base constraint (non-negotiable): topological — every node's ingredients appear
- * before it. Within that constraint ties are broken deterministically by item id,
- * so the list is stable across data refreshes and JVM runs.
+ * before it. Within that constraint, ready activities are emitted grouped by
+ * [ActivityGroup] in play-session order, so all mining clusters together before
+ * the furnace work and so on; the final tiebreak is the item id, making the list
+ * stable across data refreshes and JVM runs.
  */
 internal object ActivityOrdering {
 
@@ -186,7 +230,8 @@ internal object ActivityOrdering {
             }
         }
 
-        val ready = sortedSetOf<String>()
+        val byGroupThenId = compareBy<String>({ nodes.getValue(it).group().ordinal }, { it })
+        val ready = sortedSetOf(byGroupThenId)
         pending.forEach { (id, count) -> if (count == 0) ready.add(id) }
 
         val result = ArrayList<Activity>(nodes.size)
@@ -212,12 +257,44 @@ internal object ActivityOrdering {
         return result
     }
 
+    private fun PlanNode.group(): ActivityGroup = when (status) {
+        PlanNodeStatus.OPEN_TAG, PlanNodeStatus.BLOCKED -> ActivityGroup.NEEDS_ATTENTION
+        PlanNodeStatus.SUPPLIED -> ActivityGroup.COLLECT_SUPPLIED
+        PlanNodeStatus.RESOLVED, PlanNodeStatus.RAW_GATHER -> source?.sourceType.toGroup()
+    }
+
+    private fun ResourceSource.SourceType?.toGroup(): ActivityGroup {
+        if (this == null) return ActivityGroup.OTHER
+        return when {
+            this == ResourceSource.SourceType.LootTypes.BLOCK ||
+                this == ResourceSource.SourceType.LootTypes.BLOCK_INTERACT -> ActivityGroup.GATHER
+
+            this == ResourceSource.SourceType.LootTypes.ENTITY ||
+                this == ResourceSource.SourceType.LootTypes.ENTITY_INTERACT ||
+                this == ResourceSource.SourceType.LootTypes.SHEARING -> ActivityGroup.HUNT
+
+            this == ResourceSource.SourceType.LootTypes.BARTER || isTrade() -> ActivityGroup.TRADE
+
+            isLoot() -> ActivityGroup.LOOT
+
+            this == ResourceSource.SourceType.RecipeTypes.SMELTING ||
+                this == ResourceSource.SourceType.RecipeTypes.BLASTING ||
+                this == ResourceSource.SourceType.RecipeTypes.SMOKING ||
+                this == ResourceSource.SourceType.RecipeTypes.CAMPFIRE_COOKING -> ActivityGroup.SMELT
+
+            isRecipe() -> ActivityGroup.CRAFT
+
+            else -> ActivityGroup.OTHER
+        }
+    }
+
     private fun PlanNode.toActivity() = Activity(
         item = item,
         quantity = quantity,
         crafts = crafts,
         leftover = leftover,
         status = status,
+        group = group(),
         source = source,
         supply = supply
     )
