@@ -1,10 +1,3 @@
-// Uses the deprecated org.testcontainers.containers.PostgreSQLContainer: Testcontainers 2.0
-// supersedes it with org.testcontainers.postgresql.PostgreSQLContainer, a redesigned API
-// (non-generic, different accessors/lifecycle). The deprecated 1.x-compatible class still ships
-// in 2.0 and keeps this extension working unchanged; new-API migration is tracked in MCO-184.
-// File-level suppress so the deprecated import line itself is also covered.
-@file:Suppress("DEPRECATION")
-
 package app.mcorg.test.postgres
 
 import app.mcorg.config.Database
@@ -12,7 +5,7 @@ import app.mcorg.config.DatabaseConnectionProvider
 import org.flywaydb.core.Flyway
 import org.junit.jupiter.api.extension.BeforeAllCallback
 import org.junit.jupiter.api.extension.ExtensionContext
-import org.testcontainers.containers.PostgreSQLContainer
+import org.testcontainers.postgresql.PostgreSQLContainer
 import org.testcontainers.utility.DockerImageName
 import java.sql.Connection
 import java.sql.DriverManager
@@ -24,7 +17,7 @@ import java.sql.DriverManager
 class DatabaseTestExtension : BeforeAllCallback {
 
     companion object {
-        private val postgres: PostgreSQLContainer<*> by lazy {
+        private val postgres: PostgreSQLContainer by lazy {
             PostgreSQLContainer(DockerImageName.parse("postgres:16.9"))
                 .withDatabaseName("mcorg_test")
                 .withUsername("test_user")
