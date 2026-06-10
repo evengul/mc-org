@@ -21,7 +21,7 @@
     </modules>
 
     <properties>
-        <java.version>21</java.version>
+        <java.version>25</java.version>
         <kotlin.code.style>official</kotlin.code.style>
         <!--
           Versions below are needed by BUILD PLUGINS (which BOMs cannot manage), so they

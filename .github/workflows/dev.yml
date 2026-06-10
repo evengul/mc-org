@@ -42,11 +42,11 @@ jobs:
           key: maven-${{ runner.os }}-${{ hashFiles('**/pom.xml') }}
           restore-keys: |
             maven-${{ runner.os }}-
-      - name: Set up JDK 21
+      - name: Set up JDK 25
         uses: actions/setup-java@v5
         with:
-          distribution: 'adopt'
-          java-version: '21'
+          distribution: 'temurin'
+          java-version: '25'
       - name: Restore local Maven artifacts
         uses: actions/download-artifact@v8
         with:
@@ -82,11 +82,11 @@ jobs:
           key: maven-${{ runner.os }}-${{ hashFiles('**/pom.xml') }}
           restore-keys: |
             maven-${{ runner.os }}-
-      - name: Set up JDK 21
+      - name: Set up JDK 25
         uses: actions/setup-java@v5
         with:
-          distribution: 'adopt'
-          java-version: '21'
+          distribution: 'temurin'
+          java-version: '25'
       - name: Restore local Maven artifacts
         uses: actions/download-artifact@v8
         with:
@@ -138,11 +138,11 @@ jobs:
           branch_name: dev/pr-${{ github.event.number }}
           role: ${{ env.DB_USERNAME }}
           api_key: ${{ secrets.NEON_API_KEY }}
-      - name: Set up JDK 21
+      - name: Set up JDK 25
         uses: actions/setup-java@v5
         with:
-          distribution: 'adopt'
-          java-version: '21'
+          distribution: 'temurin'
+          java-version: '25'
       - name: Run flyway migrations
         run: mvn flyway:migrate
         working-directory: ./webapp/mc-web

@@ -1,4 +1,4 @@
-FROM maven:3-eclipse-temurin-21 AS build
+FROM maven:3-eclipse-temurin-25 AS build
 
 # Cache maven dependencies
 WORKDIR /home/maven/src
@@ -20,7 +20,7 @@ COPY mc-data/src mc-data/src
 COPY mc-web/src mc-web/src
 RUN mvn clean package -DskipTests -B
 
-FROM eclipse-temurin:21-jre-alpine AS mcorg_app
+FROM eclipse-temurin:25-jre-alpine AS mcorg_app
 
 EXPOSE "8080:8080"
 
