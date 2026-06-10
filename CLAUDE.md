@@ -53,6 +53,20 @@ cd webapp && mvn compile -pl mc-engine   # Single module
 cd webapp && mvn test -pl mc-web         # Single module tests
 ```
 
+## CI / PR Previews
+
+`.github/workflows/dev.yml` runs `compile` + `unit-tests` + `integration-tests` on
+**every** PR touching source paths. The `deploy-dev` job (Neon branch + Docker image +
+ephemeral Fly app `mcorg-dev-<PR#>` + preview-URL comment) is **opt-in**: it only runs
+when the PR carries the **`preview`** label.
+
+- **No `preview` label** → tests run, no Fly preview deploy. This is the default; use it
+  for backend / data / logic changes with nothing to eyeball.
+- **Want a preview** → add the `preview` label, or comment **`!preview`** on the PR
+  (`.github/workflows/preview-label.yml` applies the label for you, via the
+  `GH_TOKEN_PR_COMMENTS` PAT so the `labeled` trigger re-fires). The label is the single
+  source of truth; adding it re-runs compile → test → deploy with the preview included.
+
 ## Environment (WSL2)
 
 - `localhost` in WSL2 ≠ Windows localhost.
@@ -73,8 +87,9 @@ default. Never edit or commit on `master` directly.
 
 Each git worktree gets its **own** database so migrations and data never collide
 with the main checkout or sibling worktrees. This mirrors what CI already does
-per pull request (`.github/workflows/dev.yml` forks `dev/pr-<N>` Neon branches) —
-only locally, per worktree, using the same Neon project (`morning-fog-11467472`).
+per pull request (`.github/workflows/dev.yml` forks `dev/pr-<N>` Neon branches for
+`preview`-labelled PRs — see [CI / PR Previews](#ci--pr-previews)) — only locally, per
+worktree, using the same Neon project (`morning-fog-11467472`).
 
 **Workflow:**
 
