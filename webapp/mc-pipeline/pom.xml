@@ -88,12 +88,6 @@
             <artifactId>junit-jupiter-params</artifactId>
             <scope>test</scope>
         </dependency>
-        <!-- TestUtils.createTestParameters (published in the tests JAR) uses io.ktor.http.Parameters -->
-        <dependency>
-            <groupId>io.ktor</groupId>
-            <artifactId>ktor-http-jvm</artifactId>
-            <scope>test</scope>
-        </dependency>
     </dependencies>
 
 </project>

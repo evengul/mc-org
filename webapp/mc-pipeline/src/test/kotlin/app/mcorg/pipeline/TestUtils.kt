@@ -1,8 +1,6 @@
 package app.mcorg.pipeline
 
 import app.mcorg.domain.pipeline.Step
-import io.ktor.http.Parameters
-import io.ktor.http.parametersOf
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.fail
 import kotlin.test.assertIs
@@ -76,13 +74,6 @@ object TestUtils {
                 error
             }
         }
-    }
-
-    /**
-     * Create test parameters map for form data simulation
-     */
-    fun createTestParameters(vararg pairs: Pair<String, String>): Parameters {
-        return parametersOf(*pairs.map { (key, value) -> key to listOf(value) }.toTypedArray())
     }
 
     /**
