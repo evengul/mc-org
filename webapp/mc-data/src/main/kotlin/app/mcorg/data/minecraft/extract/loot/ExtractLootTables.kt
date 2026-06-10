@@ -107,7 +107,7 @@ data object ExtractLootTables : ParseFilesRecursivelyStep<ResourceSource>() {
             type = ResourceSource.SourceType.LootTypes.ENTITY,
             filename = "wither.json",
             producedItems = listOf(
-                Item("minecraft:nether_star", "Nether Star (Item)") to ResourceQuantity.Unknown
+                Item("minecraft:nether_star", "Nether Star (Item)") to ResourceQuantity.ExpectedYield(1.0)
             )
         )
     )

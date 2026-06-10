@@ -125,8 +125,25 @@ class ItemSourceGraph private constructor(
     private val sourceToItemEdges: Map<SourceNode, Set<ItemNode>>,
     private val sourceToRequiredItems: Map<SourceNode, Set<ItemNode>>,
     private val sourceInputQuantities: Map<SourceNode, Map<ItemNode, Int>> = emptyMap(),
-    private val sourceOutputQuantities: Map<SourceNode, Map<ItemNode, Int>> = emptyMap()
+    private val sourceOutputQuantities: Map<SourceNode, Map<ItemNode, Int>> = emptyMap(),
+    private val sourceOutputExpectedYields: Map<SourceNode, Map<ItemNode, Double>> = emptyMap()
 ) {
+
+    /**
+     * Producer reverse-index: item -> the sources that produce it. Built lazily
+     * on first lookup (O(edges) once), making [getSourcesForItem] O(1) — it sits
+     * on the planner's hottest path. Delegated properties are not serialized,
+     * so the wire format is unchanged.
+     */
+    private val producersByItem: Map<ItemNode, Set<SourceNode>> by lazy {
+        val index = HashMap<ItemNode, MutableSet<SourceNode>>(itemNodes.size)
+        for ((source, items) in sourceToItemEdges) {
+            for (item in items) {
+                index.getOrPut(item) { linkedSetOf() }.add(source)
+            }
+        }
+        index
+    }
 
     /**
      * Get all sources that can produce a specific item.
@@ -135,10 +152,7 @@ class ItemSourceGraph private constructor(
      */
     fun getSourcesForItem(item: MinecraftId): Set<SourceNode> {
         val itemNode = itemNodes[item] ?: return emptySet()
-        return sourceToItemEdges.entries
-            .filter { it.value.contains(itemNode) }
-            .map { it.key }
-            .toSet()
+        return producersByItem[itemNode] ?: emptySet()
     }
 
     /**
@@ -173,6 +187,15 @@ class ItemSourceGraph private constructor(
      */
     fun getProducedQuantity(source: SourceNode, item: ItemNode): Int {
         return sourceOutputQuantities[source]?.get(item) ?: 1
+    }
+
+    /**
+     * Average amount of the item one attempt at this source produces, from
+     * loot-table rolls/weights/count data. Null when unknown or not applicable
+     * (recipes use [getProducedQuantity]).
+     */
+    fun getExpectedYield(source: SourceNode, item: ItemNode): Double? {
+        return sourceOutputExpectedYields[source]?.get(item)
     }
 
     /**
@@ -262,6 +285,7 @@ class ItemSourceGraph private constructor(
         private val sourceToRequiredItems = mutableMapOf<SourceNode, MutableSet<ItemNode>>()
         private val sourceInputQuantities = mutableMapOf<SourceNode, MutableMap<ItemNode, Int>>()
         private val sourceOutputQuantities = mutableMapOf<SourceNode, MutableMap<ItemNode, Int>>()
+        private val sourceOutputExpectedYields = mutableMapOf<SourceNode, MutableMap<ItemNode, Double>>()
 
         /**
          * Add or get an item node.
@@ -312,12 +336,17 @@ class ItemSourceGraph private constructor(
          * @param source The source node
          * @param item The item node
          * @param quantity The quantity produced (null means unknown, defaults to 1)
+         * @param expectedYield Average amount per attempt from loot-table data (null when unknown)
          */
-        fun addSourceToItemEdge(source: SourceNode, item: ItemNode, quantity: Int? = null) {
+        fun addSourceToItemEdge(source: SourceNode, item: ItemNode, quantity: Int? = null, expectedYield: Double? = null) {
             sourceToItemEdges.getOrPut(source) { mutableSetOf() }.add(item)
             if (quantity != null && quantity > 0) {
                 sourceOutputQuantities.getOrPut(source) { mutableMapOf() }
                     .merge(item, quantity) { existing, new -> existing + new }
+            }
+            if (expectedYield != null && expectedYield > 0) {
+                sourceOutputExpectedYields.getOrPut(source) { mutableMapOf() }
+                    .merge(item, expectedYield) { existing, new -> existing + new }
             }
         }
 
@@ -334,6 +363,7 @@ class ItemSourceGraph private constructor(
             val immutableSourceToRequiredItems = sourceToRequiredItems.mapValues { it.value.toSet() }
             val immutableSourceInputQuantities = sourceInputQuantities.mapValues { it.value.toMap() }
             val immutableSourceOutputQuantities = sourceOutputQuantities.mapValues { it.value.toMap() }
+            val immutableSourceOutputExpectedYields = sourceOutputExpectedYields.mapValues { it.value.toMap() }
 
             return ItemSourceGraph(
                 immutableItemNodes,
@@ -342,7 +372,8 @@ class ItemSourceGraph private constructor(
                 immutableSourceToItemEdges,
                 immutableSourceToRequiredItems,
                 immutableSourceInputQuantities,
-                immutableSourceOutputQuantities
+                immutableSourceOutputQuantities,
+                immutableSourceOutputExpectedYields
             )
         }
     }

@@ -89,7 +89,8 @@ object ItemSourceGraphBuilder {
         for ((item, quantity) in source.producedItems) {
             val itemNode = builder.addItemNode(item)
             val count = (quantity as? ResourceQuantity.ItemQuantity)?.itemQuantity
-            builder.addSourceToItemEdge(sourceNode, itemNode, count)
+            val expectedYield = (quantity as? ResourceQuantity.ExpectedYield)?.expected
+            builder.addSourceToItemEdge(sourceNode, itemNode, count, expectedYield)
         }
     }
 

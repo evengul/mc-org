@@ -29,7 +29,7 @@ data object StoreMinecraftDataStep : Step<ServerData, AppFailure.DatabaseError, 
                 } }
         }.process(input)
             .peek {
-                CacheManager.onSupportedVersionsChanged()
+                CacheManager.onVersionIngested(input.version.toString())
                 logger.info("Successfully stored server data for version ${input.version}.")
             }
     }
@@ -138,24 +138,24 @@ private data class StoreResourceSourcesStep(val connection: TransactionConnectio
                         RETURNING id, version
                     ),
                     produced_items AS (
-                        INSERT INTO resource_source_produced_item (version, resource_source_id, item, count)
-                        SELECT inserted_source.version, inserted_source.id, 
-                               unnest(?::text[]), unnest(?::int[])
+                        INSERT INTO resource_source_produced_item (version, resource_source_id, item, count, expected_yield)
+                        SELECT inserted_source.version, inserted_source.id,
+                               unnest(?::text[]), unnest(?::int[]), unnest(?::float8[])
                         FROM inserted_source
                         WHERE array_length(?::text[], 1) > 0
                         RETURNING id
                     ),
                     produced_tags AS (
-                        INSERT INTO resource_source_produced_tag (version, resource_source_id, tag, count)
-                        SELECT inserted_source.version, inserted_source.id, 
-                               unnest(?::text[]), unnest(?::int[])
+                        INSERT INTO resource_source_produced_tag (version, resource_source_id, tag, count, expected_yield)
+                        SELECT inserted_source.version, inserted_source.id,
+                               unnest(?::text[]), unnest(?::int[]), unnest(?::float8[])
                         FROM inserted_source
                         WHERE array_length(?::text[], 1) > 0
                         RETURNING id
                     ),
                     consumed_items AS (
                         INSERT INTO resource_source_consumed_item (version, resource_source_id, item, count)
-                        SELECT inserted_source.version, inserted_source.id, 
+                        SELECT inserted_source.version, inserted_source.id,
                                unnest(?::text[]), unnest(?::int[])
                         FROM inserted_source
                         WHERE array_length(?::text[], 1) > 0
@@ -163,7 +163,7 @@ private data class StoreResourceSourcesStep(val connection: TransactionConnectio
                     ),
                     consumed_tags AS (
                         INSERT INTO resource_source_consumed_tag (version, resource_source_id, tag, count)
-                        SELECT inserted_source.version, inserted_source.id, 
+                        SELECT inserted_source.version, inserted_source.id,
                                unnest(?::text[]), unnest(?::int[])
                         FROM inserted_source
                         WHERE array_length(?::text[], 1) > 0
@@ -177,30 +177,35 @@ private data class StoreResourceSourcesStep(val connection: TransactionConnectio
                     val consumedItems = source.requiredItems.filter { it.first is Item }
                     val consumedTags = source.requiredItems.filter { it.first is MinecraftTag }
 
+                    fun yieldsOf(pairs: List<Pair<MinecraftId, ResourceQuantity>>): Array<Double?> =
+                        pairs.map { (it.second as? ResourceQuantity.ExpectedYield)?.expected }.toTypedArray()
+
                     // Insert source (3 parameters)
                     statement.setString(1, version.toString())
                     statement.setString(2, source.type.id)
                     statement.setString(3, source.filename)
 
-                    // Produced items (3 parameters: items array, counts array, check array)
+                    // Produced items (4 parameters: items, counts, expected yields, check array)
                     statement.setArray(4, connection.connection.createArrayOf("text", producedItems.map { it.first.id }.toTypedArray()))
                     statement.setArray(5, connection.connection.createArrayOf("integer", producedItems.map { it.second.toDatabaseCount() }.toTypedArray()))
-                    statement.setArray(6, connection.connection.createArrayOf("text", producedItems.map { it.first.id }.toTypedArray()))
+                    statement.setArray(6, connection.connection.createArrayOf("float8", yieldsOf(producedItems)))
+                    statement.setArray(7, connection.connection.createArrayOf("text", producedItems.map { it.first.id }.toTypedArray()))
 
-                    // Produced tags (3 parameters)
-                    statement.setArray(7, connection.connection.createArrayOf("text", producedTags.map { it.first.id }.toTypedArray()))
-                    statement.setArray(8, connection.connection.createArrayOf("integer", producedTags.map { it.second.toDatabaseCount() }.toTypedArray()))
-                    statement.setArray(9, connection.connection.createArrayOf("text", producedTags.map { it.first.id }.toTypedArray()))
+                    // Produced tags (4 parameters)
+                    statement.setArray(8, connection.connection.createArrayOf("text", producedTags.map { it.first.id }.toTypedArray()))
+                    statement.setArray(9, connection.connection.createArrayOf("integer", producedTags.map { it.second.toDatabaseCount() }.toTypedArray()))
+                    statement.setArray(10, connection.connection.createArrayOf("float8", yieldsOf(producedTags)))
+                    statement.setArray(11, connection.connection.createArrayOf("text", producedTags.map { it.first.id }.toTypedArray()))
 
                     // Consumed items (3 parameters)
-                    statement.setArray(10, connection.connection.createArrayOf("text", consumedItems.map { it.first.id }.toTypedArray()))
-                    statement.setArray(11, connection.connection.createArrayOf("integer", consumedItems.map { it.second.toDatabaseCount() }.toTypedArray()))
                     statement.setArray(12, connection.connection.createArrayOf("text", consumedItems.map { it.first.id }.toTypedArray()))
+                    statement.setArray(13, connection.connection.createArrayOf("integer", consumedItems.map { it.second.toDatabaseCount() }.toTypedArray()))
+                    statement.setArray(14, connection.connection.createArrayOf("text", consumedItems.map { it.first.id }.toTypedArray()))
 
                     // Consumed tags (3 parameters)
-                    statement.setArray(13, connection.connection.createArrayOf("text", consumedTags.map { it.first.id }.toTypedArray()))
-                    statement.setArray(14, connection.connection.createArrayOf("integer", consumedTags.map { it.second.toDatabaseCount() }.toTypedArray()))
                     statement.setArray(15, connection.connection.createArrayOf("text", consumedTags.map { it.first.id }.toTypedArray()))
+                    statement.setArray(16, connection.connection.createArrayOf("integer", consumedTags.map { it.second.toDatabaseCount() }.toTypedArray()))
+                    statement.setArray(17, connection.connection.createArrayOf("text", consumedTags.map { it.first.id }.toTypedArray()))
                 },
                 transactionConnection = connection
             ).process(sources).map {
@@ -217,7 +222,8 @@ private data class StoreResourceSourcesStep(val connection: TransactionConnectio
     private fun ResourceQuantity.toDatabaseCount(): Int {
         return when (this) {
             ResourceQuantity.Unknown,
-            ResourceQuantity.RuntimeCalculation -> 1
+            ResourceQuantity.RuntimeCalculation,
+            is ResourceQuantity.ExpectedYield -> 1
             is ResourceQuantity.ItemQuantity -> this.itemQuantity
         }
     }

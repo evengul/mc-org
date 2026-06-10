@@ -1,5 +1,6 @@
 package app.mcorg.config
 
+import app.mcorg.engine.model.ItemSourceGraph
 import com.github.benmanes.caffeine.cache.Cache
 import com.github.benmanes.caffeine.cache.Caffeine
 import org.slf4j.LoggerFactory
@@ -96,7 +97,23 @@ object CacheManager {
         .expireAfterWrite(1, TimeUnit.HOURS)
         .build()
 
+    /**
+     * Item-source graph per Minecraft version, built on first use from the
+     * persisted resource_source tables. Versions are immutable, so entries have
+     * no TTL — only [onVersionIngested] replaces one. The LRU bound keeps a
+     * handful of active versions hot. Key: version string.
+     */
+    val itemSourceGraph: Cache<String, ItemSourceGraph> = Caffeine.newBuilder()
+        .maximumSize(4)
+        .build()
+
     // ── Invalidation helpers ─────────────────────────────────────────────
+
+    fun onVersionIngested(version: String) {
+        itemSourceGraph.invalidate(version)
+        supportedVersions.invalidateAll()
+        logger.debug("Cache: item-source graph for version {} invalidated after ingest", version)
+    }
 
     fun onWorldCreated(worldId: Int) {
         worldExists.put(worldId, true)
@@ -220,6 +237,7 @@ object CacheManager {
         projectProductionItemExists.invalidateAll()
         projectDependencyExists.invalidateAll()
         supportedVersions.invalidateAll()
+        itemSourceGraph.invalidateAll()
         logger.info("All caches invalidated")
     }
 }

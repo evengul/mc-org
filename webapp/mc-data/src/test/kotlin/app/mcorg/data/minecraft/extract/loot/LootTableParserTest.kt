@@ -54,7 +54,7 @@ class LootTableParserTest {
         assertEquals(1, source.producedItems.size)
         assertIs<Item>(source.producedItems[0].first)
         assertEquals("minecraft:diamond", source.producedItems[0].first.id)
-        assertEquals(ResourceQuantity.Unknown, source.producedItems[0].second)
+        assertEquals(ResourceQuantity.ExpectedYield(1.0), source.producedItems[0].second)
     }
 
     @Test
@@ -66,6 +66,11 @@ class LootTableParserTest {
         """
         val source = assertResultSuccess(parse(json))
         assertTrue(source.producedItems.isEmpty())
+    }
+
+    @Test
+    fun `a table missing both type and pools fails instead of throwing`() {
+        assertResultFailure(parse("""{}"""))
     }
 
     @Test
@@ -88,7 +93,7 @@ class LootTableParserTest {
     }
 
     @Test
-    fun `all produced items have Unknown quantity`() {
+    fun `entries sharing a pool split the expected yield`() {
         val json = """
         {
             "type": "minecraft:entity",
@@ -104,7 +109,7 @@ class LootTableParserTest {
         """
         val source = assertResultSuccess(parse(json))
         source.producedItems.forEach { (_, quantity) ->
-            assertEquals(ResourceQuantity.Unknown, quantity)
+            assertEquals(ResourceQuantity.ExpectedYield(0.5), quantity)
         }
     }
 
