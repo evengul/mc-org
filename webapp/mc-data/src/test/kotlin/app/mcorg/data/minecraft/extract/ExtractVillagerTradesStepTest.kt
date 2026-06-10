@@ -25,7 +25,7 @@ class ExtractVillagerTradesStepTest : ServerFileTest(
     fun extractsTradesFor26_1AndLater(version: MinecraftVersion.Release) {
         val trades = TestUtils.executeAndAssertSuccess(
             ExtractVillagerTradesStep,
-            version to versionPath(version)
+            contextFor(version)
         )
 
         // 26.1.1 ships 387 trade JSON files across 15 professions.
@@ -97,7 +97,7 @@ class ExtractVillagerTradesStepTest : ServerFileTest(
         val version = MinecraftVersion.Release(1, 21, 11)
         val trades = TestUtils.executeAndAssertSuccess(
             ExtractVillagerTradesStep,
-            version to versionPath(version)
+            contextFor(version)
         )
         assertTrue(trades.isEmpty(), "Expected no trades for pre-26.1 version $version, got ${trades.size}")
     }

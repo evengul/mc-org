@@ -4,9 +4,9 @@ import app.mcorg.domain.model.resources.ResourceSource
 import app.mcorg.pipeline.Result
 import app.mcorg.data.minecraft.extract.getResult
 import app.mcorg.data.minecraft.extract.objectResult
-import app.mcorg.data.minecraft.extract.primitiveResult
 import app.mcorg.data.minecraft.failure.ExtractionFailure
-import kotlinx.serialization.json.*
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
 import org.slf4j.LoggerFactory
 
 object SimpleRecipeParser {
@@ -21,30 +21,12 @@ object SimpleRecipeParser {
             .flatMap { it.getResult("ingredient", filename) }
             .flatMap { ingredient ->
                 when (ingredient) {
-                    is JsonPrimitive -> Result.success(ingredient.jsonPrimitive.content.let { listOf(it) })
-                    is JsonArray -> Result.success(ingredient.jsonArray.mapNotNull { value ->
-                        when (value) {
-                            is JsonPrimitive -> value.contentOrNull
-                            is JsonObject -> value.objectResult(filename)
-                                .flatMap { it.getResult("key", filename) }
-                                .recover { value.objectResult(filename).flatMap { i -> i.getResult("tag", filename).flatMap { tag -> tag.primitiveResult(filename) }.mapSuccess { tag -> JsonPrimitive("#${tag.content}") } } }
-                                .flatMap { it.primitiveResult(filename) }
-                                .mapSuccess { p -> p.content }
-                                .getOrNull()
-                            else -> {
-                                logger.warn("Unknown ingredient value type in simple recipe: ${value.javaClass} in file $filename")
-                                null
-                            }
+                    is JsonArray -> Result.success(ingredient.mapNotNull { value ->
+                        parseItemRef(value).also {
+                            if (it == null) logger.warn("Unknown ingredient value in simple recipe: $value in file $filename")
                         }
                     })
-                    is JsonObject -> ingredient.objectResult(filename)
-                        .flatMap { it.getResult("value", filename)
-                            .recover { ingredient.objectResult(filename).flatMap { i -> i.getResult("id", filename) } }
-                            .recover { ingredient.objectResult(filename).flatMap { i -> i.getResult("key", filename) } }
-                            .recover { ingredient.objectResult(filename).flatMap { i -> i.getResult("item", filename) } }
-                            .recover { ingredient.objectResult(filename).flatMap { i -> i.getResult("tag", filename).flatMap { tag -> tag.primitiveResult(filename) }.mapSuccess { tag -> JsonPrimitive("#${tag.content}") } } }
-                        }
-                        .flatMap { it.primitiveResult(filename).mapSuccess { p -> listOf(p.content) } }
+                    else -> requireItemRef(ingredient, "ingredient", filename).mapSuccess { listOf(it) }
                 }
             }
 

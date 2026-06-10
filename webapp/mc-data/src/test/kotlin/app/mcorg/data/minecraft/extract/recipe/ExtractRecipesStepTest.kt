@@ -25,7 +25,7 @@ class ExtractRecipesStepTest : ServerFileTest(
     fun getRecipes(version: MinecraftVersion.Release) {
         val recipes = TestUtils.executeAndAssertSuccess(
             ExtractRecipesStep,
-            version to versionPath(version)
+            contextFor(version)
         )
 
         assertNotEquals(0, recipes.size)

@@ -22,7 +22,7 @@ class ExtractLootTablesTest : ServerFileTest() {
 
         val loot = TestUtils.executeAndAssertSuccess(
             ExtractLootTables,
-            version to versionPath(version)
+            contextFor(version)
         )
 
         assertNotEquals(0, loot.size)

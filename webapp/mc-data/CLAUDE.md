@@ -9,7 +9,6 @@ Takes extracted Minecraft server JAR data (JSON files) and produces structured `
 ## Tech
 
 - Depends on: `mc-domain`, `mc-pipeline` (uses Step/Result pattern)
-- Uses Caffeine for caching
 - Uses SLF4J for logging
 - Maven build, JVM 21 target
 - Package: `app.mcorg.data.minecraft.*`
@@ -18,29 +17,31 @@ Takes extracted Minecraft server JAR data (JSON files) and produces structured `
 
 ```
 ExtractServerDataSteps.kt   — Top-level orchestration: ExtractMinecraftDataStep, DeleteFileStep
-PathResolvers.kt             — Resolves file paths within extracted server data
+PathResolvers.kt             — Resolves file paths within extracted server data (pre/post-1.21 naming)
 extract/
   ExtractRelevantMinecraftFilesStep.kt — Extracts JSON files from server JAR (nested zip)
-  ExtractItemsStep.kt         — Parses items from registry data
-  ExtractNamesStep.kt         — Extracts display names
-  ExtractResourceSources.kt   — Combines recipes + loot into ResourceSources
-  ExtractTagsStep.kt          — Parses Minecraft tags (item groups)
+  ExtractionContext.kt        — Immutable per-version context (names, tags, item registry)
+                                + ExtractionContextFactory + ResourceSource.withNames
+  ExtractItemsStep.kt         — Maps the context's lang-derived item registry to Items
+  ExtractResourceSources.kt   — Combines recipes + loot + trades into ResourceSources
+  ExtractVillagerTradesStep.kt — Parses villager trade JSON (26.1+)
   JsonResultUtils.kt          — JSON parsing helpers
-  ParseFilesRecursivelyStep.kt — Recursive directory traversal for JSON files
+  ParseFilesRecursively.kt    — Stateless concurrent recursive JSON-directory walker
   loot/
-    ExtractLootTables.kt       — Loot table orchestration
-    LootTableParser.kt         — Parses loot_table JSON structure
-    PoolParser.kt              — Parses loot pools
-    EntryParser.kt             — Parses loot entries
+    ExtractLootTables.kt       — Loot table orchestration (type whitelist, hardcoded loot)
+    LootTableParser.kt         — Parses tables, pools, and entries (mutually recursive, one class)
+    LootYield.kt               — LootEntry/LootDrop models + number-provider averaging
   recipe/
-    ExtractRecipesStep.kt      — Recipe extraction orchestration
+    ExtractRecipesStep.kt      — Recipe extraction orchestration (type dispatch)
     ShapedRecipeParser.kt      — 3x3 crafting grid recipes
     ShapelessRecipeParser.kt   — Orderless crafting recipes
     SimpleRecipeParser.kt      — Smelting, smoking, blasting, etc.
     SmithingTransformParser.kt — Smithing table recipes
     TransmuteRecipeParser.kt   — Transmutation recipes
+    CraftingImbueParser.kt     — crafting_imbue recipes (26.1+)
     CraftingValuesParser.kt    — Shared crafting value extraction
-    RecipeItemIdParser.kt      — Item ID resolution from recipe JSON
+    ItemRefParser.kt           — parseItemRef: one helper for all ingredient/result id spellings
+    RecipeItemIdParser.kt      — Result-item id resolution across version schemas
     RecipeQuantityParser.kt    — Quantity extraction
     MinecraftIdFactory.kt      — Creates MinecraftId from raw strings
 failure/
@@ -49,10 +50,19 @@ failure/
 
 ## Key Concepts
 
-- All extraction is done via **pipeline Steps** returning `Result<ExtractionFailure, T>`
-- Input is `Pair<MinecraftVersion.Release, Path>` — version + path to extracted server data
-- Output is `ServerData` containing items + resource sources
-- Temporary files are cleaned up via `DeleteFileStep` in a `finally` block
+- `ExtractMinecraftDataStep` builds an **`ExtractionContext`** once per version (display names
+  from `lang/en_us.json`, item/block tags, and the item registry derived from lang keys), then
+  passes it to the item/recipe/loot/trade steps as their Step input. There is no global or
+  mutable state — parsers are pure functions of (context, json).
+- Tag names collide between `tags/item/` and `tags/block/` (e.g. `banners`); the context loads
+  item tags with precedence and block tags only fill unused names, deterministically.
+- Names are resolved at the end of each step via the shared `ResourceSource.withNames(context)`.
+- All extraction is **fail-fast by design**: any single bad file fails the whole version with
+  `ExtractionFailure.Multiple` so new/changed formats are noticed, not silently dropped.
+  Unknown recipe types that contain `_special_` (and a few cosmetic types) are deliberately
+  IGNORED instead.
+- Output is `ServerData` containing items + resource sources.
+- Temporary files are cleaned up via `DeleteFileStep` in a `finally` block.
 
 ## Build
 
@@ -67,12 +77,14 @@ Two categories of tests:
 
 **Unit tests** (always run, no external data needed):
 - Parser tests use inline JSON strings via `Json.parseToJsonElement(...)`
-- Cover all recipe parsers, loot entry/pool/table parsers, JSON utils, path resolvers, and MinecraftIdFactory
+- Cover all recipe parsers, loot table/pool/entry parsing, the extraction context,
+  JSON utils, path resolvers, and MinecraftIdFactory
 - `TestUtils.kt` provides `executeAndAssertSuccess`, `executeAndAssertFailure`, `assertResultSuccess`, `assertResultFailure`
 
 **E2E tests** (require extracted Minecraft server data):
-- `ExtractItemsStepTest`, `ExtractRecipesStepTest`, `ExtractLootTablesTest`
-- Run against real server data across 26+ Minecraft versions
+- `ExtractItemsStepTest`, `ExtractRecipesStepTest`, `ExtractLootTablesTest`, `ExtractVillagerTradesStepTest`
+- Run against real server data across 30 Minecraft versions; steps take a context built via
+  `ServerFileTest.contextFor(version)`
 - `ServerFileTest` base class with `@BeforeAll` auto-downloads and extracts server JARs if data is missing
 - `ServerFileDownloader` test utility fetches versions from Fabric MC API and server JARs from a GitHub Gist
 - Downloaded data is cached in CI via GitHub Actions cache

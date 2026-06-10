@@ -15,18 +15,14 @@ import kotlin.test.assertTrue
 
 class EntryParserTest {
 
-    private lateinit var entryParser: EntryParser
-    private lateinit var poolParser: PoolParser
+    private lateinit var entryParser: LootTableParser
 
     @BeforeEach
     fun setup() {
-        entryParser = EntryParser(
+        entryParser = LootTableParser(
             path = Path.of("/tmp/test"),
             version = MinecraftVersion.Release(1, 21, 0)
         )
-        poolParser = PoolParser()
-        poolParser.entryParser = entryParser
-        entryParser.poolParser = poolParser
     }
 
     private fun parseEntry(jsonString: String): Result<*, LootEntry> = runBlocking {

@@ -54,6 +54,7 @@ sealed interface AppFailure {
         data object RateLimitExceeded : ApiError
         data class HttpError(val statusCode: Int, val body: String? = null) : ApiError
         data object SerializationError : ApiError
+        data class ChecksumMismatch(val expected: String, val actual: String) : ApiError
         data object UnknownError : ApiError
     }
 

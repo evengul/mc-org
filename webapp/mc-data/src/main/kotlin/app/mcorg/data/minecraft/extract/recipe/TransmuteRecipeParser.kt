@@ -26,6 +26,7 @@ object TransmuteRecipeParser {
                 buildList {
                     if (input is Result.Failure) add(input.error)
                     if (material is Result.Failure) add(material.error)
+                    if (result is Result.Failure) add(result.error)
                 }
             ))
         }

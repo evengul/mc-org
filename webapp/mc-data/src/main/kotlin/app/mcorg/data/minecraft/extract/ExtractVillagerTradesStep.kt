@@ -9,6 +9,7 @@ import app.mcorg.domain.model.minecraft.MinecraftTag
 import app.mcorg.domain.model.minecraft.MinecraftVersion
 import app.mcorg.domain.model.resources.ResourceQuantity
 import app.mcorg.domain.model.resources.ResourceSource
+import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.Result
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -33,7 +34,7 @@ import java.nio.file.Path
  * The first path segment (profession directory name) determines which
  * [ResourceSource.SourceType.TradeTypes] value is used.
  */
-data object ExtractVillagerTradesStep : ParseFilesRecursivelyStep<ResourceSource>() {
+data object ExtractVillagerTradesStep : Step<ExtractionContext, ExtractionFailure, List<ResourceSource>> {
     private val logger = LoggerFactory.getLogger(javaClass)
 
     private val professionToType: Map<String, ResourceSource.SourceType> = mapOf(
@@ -54,29 +55,25 @@ data object ExtractVillagerTradesStep : ParseFilesRecursivelyStep<ResourceSource
         "wandering_trader" to ResourceSource.SourceType.TradeTypes.WANDERING_TRADER,
     )
 
-    override suspend fun process(input: Pair<MinecraftVersion.Release, Path>): Result<ExtractionFailure, List<ResourceSource>> {
-        val version = input.first
-        val basePath = input.second
-        val tradesPath = ServerPathResolvers.resolveVillagerTradesPath(basePath)
+    override suspend fun process(input: ExtractionContext): Result<ExtractionFailure, List<ResourceSource>> {
+        val tradesPath = ServerPathResolvers.resolveVillagerTradesPath(input.root)
 
         // Versions prior to 26.1 simply don't ship this directory — return an empty list.
         if (!Files.exists(tradesPath)) {
-            logger.debug("No villager_trade directory for version $version at $tradesPath — skipping trades")
+            logger.debug("No villager_trade directory for version ${input.version} at $tradesPath — skipping trades")
             return Result.success(emptyList())
         }
 
-        // Prime the name cache so withNames() can resolve display names below, even if trades
-        // run before recipes in the future.
-        ExtractNamesStep.getNames(input)
-
-        return super.process(version to tradesPath)
+        return parseJsonFilesRecursively(input.version, tradesPath) { content, filename ->
+            parseFile(content, filename)
+        }
             .map { sources ->
                 sources.map { it.withNames(input) }
                     .filter { it.producedItems.isNotEmpty() }
             }
     }
 
-    override suspend fun parseFile(
+    private suspend fun parseFile(
         content: String,
         filename: String
     ): Result<ExtractionFailure, ResourceSource> {
@@ -184,17 +181,4 @@ data object ExtractVillagerTradesStep : ParseFilesRecursivelyStep<ResourceSource
         }
     }
 
-    private suspend fun ResourceSource.withNames(namesInput: Pair<MinecraftVersion.Release, Path>): ResourceSource {
-        return copy(
-            requiredItems = requiredItems.map { it.first.withName(namesInput) to it.second },
-            producedItems = producedItems.map { it.first.withName(namesInput) to it.second }
-        )
-    }
-
-    private suspend fun MinecraftId.withName(namesInput: Pair<MinecraftVersion.Release, Path>): MinecraftId {
-        return when (this) {
-            is Item -> copy(name = ExtractNamesStep.getName(namesInput, this.id))
-            is MinecraftTag -> this  // trades only contain plain item IDs, never tag refs
-        }
-    }
 }
