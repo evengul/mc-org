@@ -129,16 +129,29 @@ class ItemSourceGraph private constructor(
 ) {
 
     /**
+     * Producer reverse-index: item -> the sources that produce it. Built lazily
+     * on first lookup (O(edges) once), making [getSourcesForItem] O(1) — it sits
+     * on the planner's hottest path. Delegated properties are not serialized,
+     * so the wire format is unchanged.
+     */
+    private val producersByItem: Map<ItemNode, Set<SourceNode>> by lazy {
+        val index = HashMap<ItemNode, MutableSet<SourceNode>>(itemNodes.size)
+        for ((source, items) in sourceToItemEdges) {
+            for (item in items) {
+                index.getOrPut(item) { linkedSetOf() }.add(source)
+            }
+        }
+        index
+    }
+
+    /**
      * Get all sources that can produce a specific item.
      * @param item The MinecraftId (e.g., Item("minecraft:diamond", "Diamond"))
      * @return Set of all sources that produce this item, or empty set if none found
      */
     fun getSourcesForItem(item: MinecraftId): Set<SourceNode> {
         val itemNode = itemNodes[item] ?: return emptySet()
-        return sourceToItemEdges.entries
-            .filter { it.value.contains(itemNode) }
-            .map { it.key }
-            .toSet()
+        return producersByItem[itemNode] ?: emptySet()
     }
 
     /**

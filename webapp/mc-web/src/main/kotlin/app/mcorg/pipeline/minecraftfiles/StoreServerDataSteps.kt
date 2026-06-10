@@ -29,7 +29,7 @@ data object StoreMinecraftDataStep : Step<ServerData, AppFailure.DatabaseError, 
                 } }
         }.process(input)
             .peek {
-                CacheManager.onSupportedVersionsChanged()
+                CacheManager.onVersionIngested(input.version.toString())
                 logger.info("Successfully stored server data for version ${input.version}.")
             }
     }
