@@ -31,7 +31,7 @@ data object ExtractLootTables : ParseFilesRecursivelyStep<ResourceSource>() {
 
         // Pre-load names cache to avoid race conditions during concurrent file parsing
         ExtractNamesStep.getNames(input)
-        ExtractTagsStep.process(input)
+        ExtractTagsStep.process(input.first to input.second.resolve("tags"))
 
         return super.process(version to ServerPathResolvers.resolveLootTablesPath(basePath, version))
             .map { addNames(input, it)+ hardcodedLoot() }
