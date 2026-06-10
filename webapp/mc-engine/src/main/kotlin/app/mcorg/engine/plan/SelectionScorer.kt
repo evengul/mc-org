@@ -17,7 +17,11 @@ import app.mcorg.domain.model.resources.ResourceSource
  * 5. Self-block-loot penalty — breaking a block that *is* the item (beacon,
  *    redstone lamp) is "break what you crafted", not a natural acquisition;
  *    mining a different block that drops the item (diamond ore) is not penalized.
- * 6. Requirement-count and chain-depth penalties.
+ * 6. Low-yield penalty — a loot source averaging under one item per attempt
+ *    (0.33 sticks per witch kill) costs effort proportional to the attempts
+ *    needed, so cheap recipes win even at small demand. Sources averaging at
+ *    least one per attempt (cow leather, golem iron) are untouched.
+ * 7. Requirement-count and chain-depth penalties.
  *
  * Circular crafting (a recipe whose ingredient chain contains the item itself,
  * e.g. diamond <- diamond block <- 9 diamonds) is not a scoring concern: the
@@ -43,12 +47,21 @@ internal class SelectionScorer(
         total += suppliedBonus(source)
         total += recipeThresholdBonus(source, demand)
         total -= selfBlockLootPenalty(item, source, hasRecipeSibling)
+        total -= lowYieldPenalty(item, source)
 
         val requirements = graph.getRequiredItems(source)
         total -= requirements.size * REQUIREMENT_PENALTY
         total -= chainDepth(requirements.map { it.item }) * DEPTH_PENALTY
 
         return total
+    }
+
+    private fun lowYieldPenalty(item: MinecraftId, source: SourceNode): Int {
+        val itemNode = graph.getItemNode(item) ?: return 0
+        val expectedYield = graph.getExpectedYield(source, itemNode) ?: return 0
+        if (expectedYield >= 1.0) return 0
+        return ((1.0 / expectedYield - 1.0) * LOW_YIELD_PENALTY_WEIGHT).toInt()
+            .coerceAtMost(LOW_YIELD_PENALTY_CAP)
     }
 
     private fun efficiencyBonus(item: MinecraftId, source: SourceNode): Int {
@@ -114,6 +127,8 @@ internal class SelectionScorer(
         private const val SUPPLIED_BONUS = 30
         private const val RECIPE_THRESHOLD_BONUS = 50
         private const val SELF_BLOCK_LOOT_PENALTY = 200
+        private const val LOW_YIELD_PENALTY_WEIGHT = 20
+        private const val LOW_YIELD_PENALTY_CAP = 60
         private const val DEPTH_PENALTY = 5
         private const val REQUIREMENT_PENALTY = 10
         private const val UNREACHABLE_DEPTH = Int.MAX_VALUE / 2

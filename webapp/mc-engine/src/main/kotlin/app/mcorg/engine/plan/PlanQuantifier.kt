@@ -55,8 +55,11 @@ object PlanQuantifier {
             val demand = demands[id] ?: 0L
             val drawn = surplus.draw(id, demand).coerceIn(0L, demand)
             val net = demand - drawn
-            val crafts = ceilDiv(net, selected.producedQuantity)
-            val leftover = crafts * selected.producedQuantity - net
+            val crafts = attemptsFor(net, selected.producedQuantity, selected.expectedYield)
+            // Probabilistic yield has no bankable surplus — only deterministic
+            // recipe rounding feeds the leftover bank.
+            val leftover = if (selected.expectedYield != null) 0L
+                else crafts * selected.producedQuantity - net
 
             for (requirement in selected.requires) {
                 demands.merge(requirement.itemId, crafts * requirement.quantityPerCraft, Long::plus)
@@ -71,6 +74,7 @@ object PlanQuantifier {
                 source = selected.source,
                 supply = selected.supply,
                 producedQuantity = selected.producedQuantity,
+                expectedYield = selected.expectedYield,
                 requires = selected.requires
             )
         }

@@ -1,6 +1,7 @@
 package app.mcorg.data.minecraft.extract.loot
 
 import app.mcorg.domain.model.minecraft.MinecraftVersion
+import app.mcorg.domain.model.resources.ResourceQuantity
 import app.mcorg.pipeline.Result
 import app.mcorg.data.minecraft.ServerPathResolvers
 import app.mcorg.data.minecraft.extract.arrayResult
@@ -28,7 +29,7 @@ data class EntryParser(
 
     private val logger = LoggerFactory.getLogger(EntryParser::class.java)
 
-    suspend fun parseEntry(entry: JsonElement, filename: String): Result<ExtractionFailure, Set<String>> {
+    suspend fun parseEntry(entry: JsonElement, filename: String): Result<ExtractionFailure, LootEntry> {
         val type = entry.objectResult(filename)
             .flatMap { it.getResult("type", filename) }
             .flatMap { it.primitiveResult(filename) }
@@ -40,7 +41,7 @@ data class EntryParser(
         }
 
         return when (val typeValue = type.getOrThrow()) {
-            "minecraft:empty" ->  parseEmpty()
+            "minecraft:empty" -> parseEmpty(entry)
             "minecraft:item" -> parseItem(entry, filename)
             "minecraft:dynamic" -> parseDynamic(entry, filename)
             "minecraft:tag" -> parseTag(entry, filename)
@@ -53,15 +54,20 @@ data class EntryParser(
         }
     }
 
-    fun parseEmpty(): Result<ExtractionFailure, Set<String>> {
-        return Result.success(emptySet())
+    fun parseEmpty(entry: JsonElement): Result<ExtractionFailure, LootEntry> {
+        return Result.success(LootEntry(weight = LootNumbers.weightOf(entry), drops = emptyList()))
     }
 
-    suspend fun parseItem(item: JsonElement, filename: String): Result<ExtractionFailure, Set<String>> {
+    suspend fun parseItem(item: JsonElement, filename: String): Result<ExtractionFailure, LootEntry> {
         val name = item.jsonObject
             .getResult("name", filename)
             .flatMap { it.primitiveResult(filename) }
-            .mapSuccess { setOf(it.content) }
+            .mapSuccess { primitive ->
+                LootEntry(
+                    weight = LootNumbers.weightOf(item),
+                    drops = listOf(LootDrop(primitive.content, LootNumbers.countAfterFunctions(item)))
+                )
+            }
 
         if (name is Result.Failure) {
             logger.warn("Error parsing item in loot table for file: $filename")
@@ -70,7 +76,7 @@ data class EntryParser(
         return name
     }
 
-    suspend fun parseDynamic(dynamic: JsonElement, filename: String): Result<ExtractionFailure, Set<String>> {
+    suspend fun parseDynamic(dynamic: JsonElement, filename: String): Result<ExtractionFailure, LootEntry> {
         val name = dynamic.jsonObject
             .getResult("name", filename)
             .flatMap { it.primitiveResult(filename) }
@@ -85,26 +91,36 @@ data class EntryParser(
                 when (val value = name.value) {
                     "minecraft:contents" -> {
                         // Cannot determine item ids from dynamic contents. Usually used in shulker boxes.
-                        return parseEmpty()
+                        return parseEmpty(dynamic)
                     }
                     "minecraft:sherds" -> {
-                        return Result.success(setOf("#minecraft:decorated_pot_sherds"))
+                        return Result.success(
+                            LootEntry(
+                                weight = LootNumbers.weightOf(dynamic),
+                                drops = listOf(LootDrop("#minecraft:decorated_pot_sherds", null))
+                            )
+                        )
                     }
                     else -> {
                         logger.warn("Unhandled dynamic entry '${name.value}' in loot table for file: $filename")
-                        return Result.failure(ExtractionFailure.JsonFailure.UnknownValue(value, "name",dynamic, filename))
+                        return Result.failure(ExtractionFailure.JsonFailure.UnknownValue(value, "name", dynamic, filename))
                     }
                 }
             }
         }
     }
 
-    suspend fun parseTag(tag: JsonElement, filename: String): Result<ExtractionFailure, Set<String>> {
+    suspend fun parseTag(tag: JsonElement, filename: String): Result<ExtractionFailure, LootEntry> {
         val name = tag.jsonObject
             .getResult("tag", filename)
             .recover { tag.jsonObject.getResult("name", filename) }
             .flatMap { it.primitiveResult(filename) }
-            .mapSuccess { setOf("#${it.content}") }
+            .mapSuccess { primitive ->
+                LootEntry(
+                    weight = LootNumbers.weightOf(tag),
+                    drops = listOf(LootDrop("#${primitive.content}", LootNumbers.countAfterFunctions(tag)))
+                )
+            }
 
         if (name is Result.Failure) {
             logger.warn("Error parsing tag in loot table for file: $filename")
@@ -113,82 +129,111 @@ data class EntryParser(
         return name
     }
 
-    suspend fun parseAlternatives(alternatives: JsonElement, filename: String): Result<ExtractionFailure, Set<String>> {
+    /**
+     * Alternatives select the first child whose conditions match. The last child
+     * is the unconditional fallback and carries the entry's yield; earlier
+     * (conditional) children's items are still recorded as obtainable, but with
+     * unknown yield — their trigger probability isn't in the data.
+     */
+    suspend fun parseAlternatives(alternatives: JsonElement, filename: String): Result<ExtractionFailure, LootEntry> {
         val children = alternatives.jsonObject.getResult("children", filename)
             .flatMap { it.arrayResult(filename) }
             .flatMap { parseEntries(it, filename) }
 
         if (children is Result.Failure) {
             logger.warn("Error parsing alternatives children in loot table for file: $filename")
+            return children
         }
 
-        return children
+        val parsed = children.getOrThrow()
+        val fallback = parsed.lastOrNull()?.drops.orEmpty()
+        val conditional = parsed.dropLast(1)
+            .flatMap { it.drops }
+            .map { it.copy(countPerSelection = null) }
+
+        return Result.success(
+            LootEntry(
+                weight = LootNumbers.weightOf(alternatives),
+                drops = conditional + fallback
+            )
+        )
     }
 
-    suspend fun parseLootTable(lootTable: JsonElement, filename: String): Result<ExtractionFailure, Set<String>> {
-        val result = lootTable.jsonObject.getResult("value", filename)
+    suspend fun parseLootTable(lootTable: JsonElement, filename: String): Result<ExtractionFailure, LootEntry> {
+        val weight = LootNumbers.weightOf(lootTable)
+        val value = lootTable.jsonObject.getResult("value", filename)
             .recover { lootTable.jsonObject.getResult("name", filename) }
-            .flatMap { value ->
-                when (value) {
-                    is JsonPrimitive -> value.primitiveResult(filename).mapSuccess { setOf(it.content) }
-                    is JsonObject -> value.jsonObject.getResult("pools", filename)
-                        .flatMap { it.arrayResult(filename) }
-                        .flatMap { poolParser.parsePool(it, filename) }
-                    else -> {
-                        logger.warn("Unknown loot_table value type in file: $filename")
-                        Result.failure(ExtractionFailure.JsonFailure.UnsupportedType(value.javaClass.simpleName, "{value,name}", lootTable, filename))
-                    }
-                }
-            }
 
-        return when (result) {
-            is Result.Failure -> {
-                logger.warn("Error parsing loot_table value in loot table for file: $filename")
-                result
-            }
-            is Result.Success -> {
-                if (result.value.size == 1) {
-                    val single = result.getOrThrow().first()
-                    if (single.contains("/")) {
-                        val lootTablePath = findLootTableFilePath(single)
-                        val content = try {
-                            withContext(Dispatchers.IO) {
-                                runInterruptible {
-                                    lootTablePath.toFile().readText()
-                                }
-                            }
-                        } catch (e: Exception) {
-                            logger.error("Error reading loot table file at $lootTablePath for file: $filename", e)
+        if (value is Result.Failure) {
+            logger.warn("Error parsing loot_table value in loot table for file: $filename")
+            return value
+        }
 
-                            return Result.failure(ExtractionFailure.FileReadFailure(single))
-                        }
-
-                        val sources = parseFile(content, lootTablePath.toFile().name)
-
-                        if (sources is Result.Failure) {
-                            logger.warn("Error parsing referenced loot table file at $lootTablePath for file: $filename")
-                            sources
-                        } else {
-                            Result.success(sources.getOrThrow().let {
-                                it.producedItems.map { item -> item.first.id } + it.requiredItems.map { item -> item.first.id }
-                            }.toSet())
-                        }
-                    } else {
-                        result
-                    }
+        return when (val element = value.getOrThrow()) {
+            is JsonPrimitive -> {
+                val reference = element.content
+                if (reference.contains("/")) {
+                    parseReferencedTable(reference, weight, filename)
                 } else {
-                    result
+                    Result.success(
+                        LootEntry(weight, listOf(LootDrop(reference, LootNumbers.countAfterFunctions(lootTable))))
+                    )
                 }
+            }
+            is JsonObject -> element.jsonObject.getResult("pools", filename)
+                .flatMap { it.arrayResult(filename) }
+                .flatMap { poolParser.parsePools(it, filename) }
+                .mapSuccess { yields ->
+                    LootEntry(weight, yields.map { (id, expected) -> LootDrop(id, expected) })
+                }
+            else -> {
+                logger.warn("Unknown loot_table value type in file: $filename")
+                Result.failure(
+                    ExtractionFailure.JsonFailure.UnsupportedType(
+                        element.javaClass.simpleName, "{value,name}", lootTable, filename
+                    )
+                )
             }
         }
     }
 
-    suspend fun parseEntries(entries: JsonArray, filename: String): Result<ExtractionFailure, Set<String>> {
+    private suspend fun parseReferencedTable(
+        reference: String,
+        weight: Double,
+        filename: String
+    ): Result<ExtractionFailure, LootEntry> {
+        val lootTablePath = findLootTableFilePath(reference)
+        val content = try {
+            withContext(Dispatchers.IO) {
+                runInterruptible {
+                    lootTablePath.toFile().readText()
+                }
+            }
+        } catch (e: Exception) {
+            logger.error("Error reading loot table file at $lootTablePath for file: $filename", e)
+            return Result.failure(ExtractionFailure.FileReadFailure(reference))
+        }
+
+        val sources = parseFile(content, lootTablePath.toFile().name)
+        if (sources is Result.Failure) {
+            logger.warn("Error parsing referenced loot table file at $lootTablePath for file: $filename")
+            return sources
+        }
+
+        val source = sources.getOrThrow()
+        val drops = source.producedItems.map { (item, quantity) ->
+            LootDrop(item.id, (quantity as? ResourceQuantity.ExpectedYield)?.expected)
+        } + source.requiredItems.map { (item, _) -> LootDrop(item.id, null) }
+
+        return Result.success(LootEntry(weight, drops))
+    }
+
+    suspend fun parseEntries(entries: JsonArray, filename: String): Result<ExtractionFailure, List<LootEntry>> {
         val mappedEntries = entries.map { entry -> parseEntry(entry, filename) }
         return if (mappedEntries.any { it is Result.Failure }) {
             Result.failure(ExtractionFailure.Multiple(mappedEntries.filter { it is Result.Failure }.mapNotNull { it.errorOrNull() }))
         } else {
-            Result.success(mappedEntries.filter { it is Result.Success }.map { it as Result.Success }.flatMap { it.value }.toSet())
+            Result.success(mappedEntries.filterIsInstance<Result.Success<LootEntry>>().map { it.value })
         }
     }
 

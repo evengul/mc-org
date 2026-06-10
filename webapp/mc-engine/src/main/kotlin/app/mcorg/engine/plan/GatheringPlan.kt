@@ -47,6 +47,9 @@ data class PlanRequirement(
  * @param source the chosen source ([PlanNodeStatus.RESOLVED] / [PlanNodeStatus.RAW_GATHER]).
  * @param supply the external supply label ([PlanNodeStatus.SUPPLIED]).
  * @param producedQuantity output of one execution of [source] (1 for terminals).
+ * @param expectedYield average output per attempt from loot-table data; when
+ *   set, [crafts] counts attempts (`ceil(quantity / expectedYield)`) and the
+ *   probabilistic surplus is not banked as [leftover].
  * @param requires ingredient edges into sibling nodes (empty for terminals).
  */
 data class PlanNode(
@@ -58,6 +61,7 @@ data class PlanNode(
     val source: SourceNode? = null,
     val supply: SupplySource? = null,
     val producedQuantity: Int = 1,
+    val expectedYield: Double? = null,
     val requires: List<PlanRequirement> = emptyList()
 )
 
@@ -177,7 +181,7 @@ class GatheringPlan(
     }
 
     private fun expand(node: PlanNode, demand: Long, path: MutableSet<String>): TargetTree {
-        val crafts = ceilDiv(demand, node.producedQuantity)
+        val crafts = attemptsFor(demand, node.producedQuantity, node.expectedYield)
         // The selection stage guarantees an acyclic DAG; the path guard only protects
         // against hand-constructed cyclic input.
         val children = if (!path.add(node.item.id)) emptyList() else try {
@@ -202,6 +206,17 @@ class GatheringPlan(
 internal fun ceilDiv(amount: Long, per: Int): Long {
     require(per >= 1) { "producedQuantity must be >= 1, was $per" }
     return (amount + per - 1) / per
+}
+
+/**
+ * Executions needed to cover [demand]: attempts against the average loot yield
+ * when one is known, otherwise crafts against the nominal output quantity.
+ */
+internal fun attemptsFor(demand: Long, producedQuantity: Int, expectedYield: Double?): Long {
+    if (expectedYield != null && expectedYield > 0) {
+        return kotlin.math.ceil(demand / expectedYield).toLong()
+    }
+    return ceilDiv(demand, producedQuantity)
 }
 
 /**

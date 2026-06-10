@@ -50,7 +50,7 @@ data class LootTableParser(
         val result = json.objectResult(filename)
             .flatMap { it.getResult("pools", filename) }
             .flatMap { it.arrayResult(filename) }
-            .flatMap { poolParser.parsePool(it, filename) }
+            .flatMap { poolParser.parsePools(it, filename) }
 
         if (type is Result.Failure) {
             logger.warn("Error parsing type from loot file: $filename")
@@ -66,18 +66,21 @@ data class LootTableParser(
         return Result.success(ResourceSource(
             type = type.getOrThrow(),
             filename = filename,
-            producedItems = result.getOrThrow().map { id ->
+            producedItems = result.getOrThrow().map { (id, expectedYield) ->
+                val quantity = expectedYield?.takeIf { it > 0 }
+                    ?.let { ResourceQuantity.ExpectedYield(it) }
+                    ?: ResourceQuantity.Unknown
                 if (id.startsWith("#")) {
                     MinecraftTag(
                         id = id,
                         name = "",
                         content = emptyList()
-                    ) to ResourceQuantity.Unknown
+                    ) to quantity
                 } else {
                     Item(
                         id = id,
                         name = ""
-                    ) to ResourceQuantity.Unknown
+                    ) to quantity
                 }
             }
         ))

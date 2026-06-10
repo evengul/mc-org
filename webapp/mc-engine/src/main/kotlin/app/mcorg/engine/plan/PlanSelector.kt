@@ -136,7 +136,8 @@ object PlanSelector {
 
             val itemNode = ItemNode(item)
             val producedQuantity = graph.getProducedQuantity(candidate, itemNode)
-            val crafts = ceilDiv(demands.getValue(id), producedQuantity)
+            val expectedYield = graph.getExpectedYield(candidate, itemNode)
+            val crafts = attemptsFor(demands.getValue(id), producedQuantity, expectedYield)
 
             expanding.add(id)
             val requires = ArrayList<PlanRequirement>(requirements.size)
@@ -155,6 +156,7 @@ object PlanSelector {
                 status = if (requirements.isEmpty()) PlanNodeStatus.RAW_GATHER else PlanNodeStatus.RESOLVED,
                 source = candidate,
                 producedQuantity = producedQuantity,
+                expectedYield = expectedYield,
                 requires = requires
             )
             return true

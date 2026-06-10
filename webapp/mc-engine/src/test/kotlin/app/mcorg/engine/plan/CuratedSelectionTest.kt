@@ -48,10 +48,18 @@ class CuratedSelectionTest {
         producedItems = listOf(item(produces) to ResourceQuantity.ItemQuantity(quantity))
     )
 
-    private fun entityLoot(entityName: String, produces: String, quantity: Int = 1) = ResourceSource(
+    private fun entityLoot(
+        entityName: String,
+        produces: String,
+        quantity: Int = 1,
+        expectedYield: Double? = null
+    ) = ResourceSource(
         type = ResourceSource.SourceType.LootTypes.ENTITY,
         filename = "entities/$entityName.json",
-        producedItems = listOf(item(produces) to ResourceQuantity.ItemQuantity(quantity))
+        producedItems = listOf(
+            item(produces) to (expectedYield?.let { ResourceQuantity.ExpectedYield(it) }
+                ?: ResourceQuantity.ItemQuantity(quantity))
+        )
     )
 
     private fun chestLoot(path: String, produces: String, quantity: Int = 1) = ResourceSource(
@@ -158,6 +166,41 @@ class CuratedSelectionTest {
         val result = plan(stickChain, "minecraft:stick", amount = 10)
 
         assertEquals("minecraft:crafting_shaped:stick.json", result.sourceKeyOf("minecraft:stick"))
+    }
+
+    @Test
+    fun `stick - with drop-rate data, crafting wins even at small demand`() {
+        // Witches average well under one stick per kill; with that yield ingested
+        // the low-yield penalty makes the recipe win without threshold help.
+        val sources = plankChain + listOf(
+            recipe(
+                "stick.json",
+                inputs = listOf(item("minecraft:oak_planks") to 2),
+                output = "minecraft:stick" to 4
+            ),
+            entityLoot("witch", "minecraft:stick", expectedYield = 0.33)
+        )
+
+        val result = plan(sources, "minecraft:stick", amount = 10)
+
+        assertEquals("minecraft:crafting_shaped:stick.json", result.sourceKeyOf("minecraft:stick"))
+    }
+
+    @Test
+    fun `leather - a one-per-kill drop keeps beating the crafting recipe`() {
+        val sources = listOf(
+            entityLoot("cow", "minecraft:leather", expectedYield = 1.0),
+            recipe(
+                "leather.json",
+                inputs = listOf(item("minecraft:rabbit_hide") to 4),
+                output = "minecraft:leather" to 1
+            ),
+            entityLoot("rabbit", "minecraft:rabbit_hide", expectedYield = 0.5)
+        )
+
+        val result = plan(sources, "minecraft:leather")
+
+        assertEquals("minecraft:entity:entities/cow.json", result.sourceKeyOf("minecraft:leather"))
     }
 
     @Test

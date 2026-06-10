@@ -44,7 +44,14 @@ object LoadResourceSourcesForVersionStep : Step<String, AppFailure.DatabaseError
     private val logger = LoggerFactory.getLogger(javaClass)
 
     private data class SourceRow(val id: Int, val typeId: String, val filename: String)
-    private data class EdgeRow(val sourceId: Int, val kind: String, val ref: String, val count: Int, val name: String?)
+    private data class EdgeRow(
+        val sourceId: Int,
+        val kind: String,
+        val ref: String,
+        val count: Int,
+        val name: String?,
+        val expectedYield: Double?
+    )
 
     private val tagsQuery = DatabaseSteps.query<String, Map<String, MinecraftTag>>(
         sql = SafeSQL.select(
@@ -96,18 +103,18 @@ object LoadResourceSourcesForVersionStep : Step<String, AppFailure.DatabaseError
     private val edgesQuery = DatabaseSteps.query<String, List<EdgeRow>>(
         sql = SafeSQL.select(
             """
-            SELECT e.resource_source_id, e.kind, e.ref, e.count, mi.item_name
+            SELECT e.resource_source_id, e.kind, e.ref, e.count, e.expected_yield, mi.item_name
             FROM (
-                SELECT resource_source_id, 'produced_item' AS kind, item AS ref, count, version
+                SELECT resource_source_id, 'produced_item' AS kind, item AS ref, count, expected_yield, version
                 FROM resource_source_produced_item WHERE version = ?
                 UNION ALL
-                SELECT resource_source_id, 'consumed_item', item, count, version
+                SELECT resource_source_id, 'consumed_item', item, count, NULL, version
                 FROM resource_source_consumed_item WHERE version = ?
                 UNION ALL
-                SELECT resource_source_id, 'produced_tag', tag, count, version
+                SELECT resource_source_id, 'produced_tag', tag, count, expected_yield, version
                 FROM resource_source_produced_tag WHERE version = ?
                 UNION ALL
-                SELECT resource_source_id, 'consumed_tag', tag, count, version
+                SELECT resource_source_id, 'consumed_tag', tag, count, NULL, version
                 FROM resource_source_consumed_tag WHERE version = ?
             ) e
             LEFT JOIN minecraft_items mi ON mi.version = e.version AND mi.item_id = e.ref
@@ -129,7 +136,8 @@ object LoadResourceSourcesForVersionStep : Step<String, AppFailure.DatabaseError
                         kind = rs.getString("kind"),
                         ref = rs.getString("ref"),
                         count = rs.getInt("count"),
-                        name = rs.getString("item_name")
+                        name = rs.getString("item_name"),
+                        expectedYield = rs.getDouble("expected_yield").takeIf { !rs.wasNull() }
                     )
                 )
             }
@@ -176,6 +184,9 @@ object LoadResourceSourcesForVersionStep : Step<String, AppFailure.DatabaseError
         } else {
             Item(ref, name ?: ref.substringAfterLast(':'))
         }
-        return minecraftId to ResourceQuantity.ItemQuantity(count)
+        val quantity = expectedYield?.takeIf { it > 0 }
+            ?.let { ResourceQuantity.ExpectedYield(it) }
+            ?: ResourceQuantity.ItemQuantity(count)
+        return minecraftId to quantity
     }
 }

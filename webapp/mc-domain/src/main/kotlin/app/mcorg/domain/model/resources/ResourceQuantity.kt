@@ -16,4 +16,15 @@ sealed interface ResourceQuantity {
             require(itemQuantity > 0) { "ItemQuantity must be positive" }
         }
     }
+
+    /**
+     * Average amount produced per attempt, derived from loot-table rolls, entry
+     * weights, and count functions — e.g. 0.33 sticks per witch kill. Lets the
+     * planner reason in attempts needed instead of assuming one item per action.
+     */
+    data class ExpectedYield(val expected: Double) : ResourceQuantity {
+        init {
+            require(expected > 0) { "ExpectedYield must be positive" }
+        }
+    }
 }

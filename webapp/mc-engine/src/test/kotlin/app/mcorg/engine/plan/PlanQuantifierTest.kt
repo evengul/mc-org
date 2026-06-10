@@ -164,6 +164,51 @@ class PlanQuantifierTest {
         assertTrue(plan.complete)
     }
 
+    // ── expected yield ──────────────────────────────────────────────────────
+
+    @Test
+    fun `expected yield turns demand into attempts`() {
+        val dag = SelectedDag(
+            nodes = linkedMapOf(
+                "minecraft:stick" to SelectedNode(
+                    item = item("stick"),
+                    status = PlanNodeStatus.RAW_GATHER,
+                    source = mine,
+                    expectedYield = 0.33
+                )
+            ),
+            roots = mapOf("minecraft:stick" to "minecraft:stick")
+        )
+
+        val plan = PlanQuantifier.quantify(dag, listOf(PlanTarget(item("stick"), 10)))
+
+        val stick = plan.nodes.getValue("minecraft:stick")
+        assertEquals(10, stick.quantity)
+        assertEquals(31, stick.crafts)     // ceil(10 / 0.33)
+        assertEquals(0, stick.leftover)    // probabilistic surplus is not banked
+    }
+
+    @Test
+    fun `per-target drill-down also counts attempts for yield nodes`() {
+        val dag = SelectedDag(
+            nodes = linkedMapOf(
+                "minecraft:stick" to SelectedNode(
+                    item = item("stick"),
+                    status = PlanNodeStatus.RAW_GATHER,
+                    source = mine,
+                    expectedYield = 0.5
+                )
+            ),
+            roots = mapOf("minecraft:stick" to "minecraft:stick")
+        )
+
+        val plan = PlanQuantifier.quantify(dag, listOf(PlanTarget(item("stick"), 7)))
+
+        val tree = plan.perTarget("minecraft:stick")
+        assertNotNull(tree)
+        assertEquals(14, tree.craftsIfAlone)   // ceil(7 / 0.5)
+    }
+
     // ── surplus hook ────────────────────────────────────────────────────────
 
     @Test

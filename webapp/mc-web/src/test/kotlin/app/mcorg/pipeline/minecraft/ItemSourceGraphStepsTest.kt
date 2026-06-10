@@ -37,16 +37,22 @@ class ItemSourceGraphStepsTest {
     private val oakPlanks = Item("minecraft:oak_planks", "Oak Planks")
     private val birchPlanks = Item("minecraft:birch_planks", "Birch Planks")
     private val chest = Item("minecraft:chest", "Chest")
+    private val stick = Item("minecraft:stick", "Stick")
     private val planksTag = MinecraftTag("#minecraft:planks", "Planks", listOf(oakPlanks, birchPlanks))
 
     private fun serverData() = ServerData(
         version = version,
-        items = listOf(log, oakPlanks, birchPlanks, chest, planksTag),
+        items = listOf(log, oakPlanks, birchPlanks, chest, stick, planksTag),
         sources = listOf(
             ResourceSource(
                 type = ResourceSource.SourceType.LootTypes.BLOCK,
                 filename = "blocks/oak_log.json",
                 producedItems = listOf(log to ResourceQuantity.ItemQuantity(1))
+            ),
+            ResourceSource(
+                type = ResourceSource.SourceType.LootTypes.ENTITY,
+                filename = "entities/witch.json",
+                producedItems = listOf(stick to ResourceQuantity.ExpectedYield(0.33))
             ),
             ResourceSource(
                 type = ResourceSource.SourceType.RecipeTypes.CRAFTING_SHAPELESS,
@@ -76,7 +82,10 @@ class ItemSourceGraphStepsTest {
 
         assertIs<Result.Success<List<ResourceSource>>>(result)
         val sources = result.value
-        assertEquals(3, sources.size)
+        assertEquals(4, sources.size)
+
+        val witchLoot = sources.single { it.filename == "entities/witch.json" }
+        assertEquals(ResourceQuantity.ExpectedYield(0.33), witchLoot.producedItems.single().second)
 
         val chestRecipe = sources.single { it.filename == "chest.json" }
         assertEquals(ResourceSource.SourceType.RecipeTypes.CRAFTING_SHAPED, chestRecipe.type)

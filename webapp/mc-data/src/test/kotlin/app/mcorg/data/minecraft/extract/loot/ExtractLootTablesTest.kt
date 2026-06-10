@@ -11,6 +11,7 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
 import kotlin.test.assertIs
 import kotlin.test.assertNotEquals
+import kotlin.test.assertTrue
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class ExtractLootTablesTest : ServerFileTest() {
@@ -42,7 +43,12 @@ class ExtractLootTablesTest : ServerFileTest() {
                 assertNotEquals(it.first.id, it.first.name, "Item id and name are equal for id: ${it.first.id} in loot table: ${source.filename}")
                 assertNotEquals("", it.first.name, "Item name is empty for id: ${it.first.id} in loot table: ${source.filename}")
 
-                assertIs<ResourceQuantity.Unknown>(it.second)
+                val quantity = it.second
+                assertTrue(
+                    quantity is ResourceQuantity.Unknown ||
+                        (quantity is ResourceQuantity.ExpectedYield && quantity.expected > 0),
+                    "Loot quantity must be Unknown or a positive ExpectedYield, was $quantity for ${it.first.id} in ${source.filename}"
+                )
 
                 when (val id = it.first) {
                     is Item -> assertNotEquals('#', id.id.first(), "Item has tag prefix in loot table: ${source.filename}")

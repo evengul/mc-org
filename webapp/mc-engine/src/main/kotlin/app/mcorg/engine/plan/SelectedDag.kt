@@ -39,6 +39,8 @@ class SelectedDag(
  *
  * @param producedQuantity how many of the item one execution of [source] yields
  *   (1 for terminals without a source).
+ * @param expectedYield average output per attempt from loot-table data (null
+ *   when unknown or not applicable).
  * @param requires per-execution ingredient amounts, pointing at sibling nodes.
  */
 data class SelectedNode(
@@ -47,5 +49,6 @@ data class SelectedNode(
     val source: SourceNode? = null,
     val supply: SupplySource? = null,
     val producedQuantity: Int = 1,
+    val expectedYield: Double? = null,
     val requires: List<PlanRequirement> = emptyList()
 )
