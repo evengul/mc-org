@@ -8,6 +8,7 @@ env:
   DB_USERNAME: mcorg_owner
 on:
   pull_request:
+    types: [ opened, synchronize, reopened, labeled ]
     branches: [ master ]
     paths:
       - webapp/mc-domain/src/main/**
@@ -98,7 +99,9 @@ jobs:
         run: mvn test -pl mc-web -Dsurefire.excludedGroups= -Dgroups=database -B -Dmaven.main.skip=true
 
   deploy-dev:
-    if: github.actor != 'dependabot[bot]'
+    if: >-
+      github.actor != 'dependabot[bot]'
+      && contains(github.event.pull_request.labels.*.name, 'preview')
     needs: [unit-tests, integration-tests]
     environment: dev
     runs-on: ubuntu-latest

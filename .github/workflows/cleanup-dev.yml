@@ -21,6 +21,13 @@ env:
 
 jobs:
   delete-preview:
+    # Only PRs that actually got a preview deploy (the `preview` label, per dev.yml's
+    # gate) have a Fly app / Neon branch to delete. Without this, closing any other
+    # paths-matching PR fails trying to delete resources that never existed.
+    # workflow_dispatch has no PR context, so allow manual runs through unconditionally.
+    if: >-
+      github.event_name == 'workflow_dispatch'
+      || contains(github.event.pull_request.labels.*.name, 'preview')
     runs-on: ubuntu-latest
     steps:
       - name: Delete Fly app
@@ -29,6 +36,9 @@ jobs:
           name: mcorg-dev-${{ github.event.number }}
           org: mc-org
   delete-neon:
+    if: >-
+      github.event_name == 'workflow_dispatch'
+      || contains(github.event.pull_request.labels.*.name, 'preview')
     runs-on: ubuntu-22.04
     steps:
       - name: Delete Neon Branch
