@@ -28,6 +28,8 @@ data class ExtractionContext(
     val root: Path,
     val names: Map<String, String>,
     val tags: Map<String, List<String>>,
+    /** The version's item registry, derived from the lang file's item/block keys. */
+    val itemIds: Set<String>,
 ) {
     /**
      * Display name for an item id, falling back to the id itself. Carries the historical
@@ -100,9 +102,9 @@ object ExtractionContextFactory {
     )
 
     suspend fun create(version: MinecraftVersion.Release, root: Path): Result<ExtractionFailure, ExtractionContext> {
-        val names = loadNames(version, root)
-        if (names is Result.Failure) {
-            return names
+        val rawNames = loadNames(version, root)
+        if (rawNames is Result.Failure) {
+            return rawNames
         }
 
         val tags = loadTags(version, root)
@@ -114,10 +116,29 @@ object ExtractionContextFactory {
             ExtractionContext(
                 version = version,
                 root = root,
-                names = names.getOrThrow(),
+                names = cleanNames(rawNames.getOrThrow()),
                 tags = tags.getOrThrow(),
+                itemIds = registryIds(rawNames.getOrThrow()),
             )
         )
+    }
+
+    /**
+     * The version's item registry, read off the lang file: every dot-free
+     * `item.minecraft.X` / `block.minecraft.X` key is an id. Dotted suffixes
+     * (`item.minecraft.splash_potion.effect.luck`) are auxiliary strings, not items.
+     */
+    private fun registryIds(raw: Map<String, String>): Set<String> = buildSet {
+        raw.keys.forEach { key ->
+            for (prefix in listOf("item.minecraft.", "block.minecraft.")) {
+                if (key.startsWith(prefix)) {
+                    val id = key.removePrefix(prefix)
+                    if (!id.contains('.')) {
+                        add("minecraft:$id")
+                    }
+                }
+            }
+        }
     }
 
     private fun loadNames(version: MinecraftVersion.Release, root: Path): Result<ExtractionFailure, Map<String, String>> {
@@ -137,7 +158,7 @@ object ExtractionContextFactory {
 
             logger.debug("Extracted {} names for version {}", raw.size, version)
 
-            return Result.success(cleanNames(raw))
+            return Result.success(raw)
         } catch (e: Exception) {
             logger.error("Failed to extract names for version {}: {}", version, e.message, e)
             return Result.failure(ExtractionFailure.ItemExtractionFailed(version))

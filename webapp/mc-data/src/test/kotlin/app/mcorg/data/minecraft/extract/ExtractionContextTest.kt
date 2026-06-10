@@ -11,7 +11,8 @@ class ExtractionContextTest {
         version: MinecraftVersion.Release = MinecraftVersion.Release(1, 21, 0),
         names: Map<String, String> = emptyMap(),
         tags: Map<String, List<String>> = emptyMap(),
-    ) = ExtractionContext(version, Path.of("/tmp/test"), names, tags)
+        itemIds: Set<String> = emptySet(),
+    ) = ExtractionContext(version, Path.of("/tmp/test"), names, tags, itemIds)
 
     @Test
     fun `nameOf falls back to the id when no name is known`() {
