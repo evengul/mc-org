@@ -31,7 +31,7 @@
         <!-- Families managed via their own upstream BOM -->
         <kotlin.version>2.2.21</kotlin.version>
         <kotlinx_coroutines_version>1.10.2</kotlinx_coroutines_version>
-        <ktor_version>3.4.0</ktor_version>
+        <ktor_version>3.5.0</ktor_version>
         <junit.version>5.10.2</junit.version>
         <testcontainers.version>1.21.3</testcontainers.version>
 
