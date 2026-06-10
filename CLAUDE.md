@@ -62,10 +62,10 @@ when the PR carries the **`preview`** label.
 
 - **No `preview` label** → tests run, no Fly preview deploy. This is the default; use it
   for backend / data / logic changes with nothing to eyeball.
-- **Want a preview** → add the `preview` label, or comment **`!preview`** on the PR
-  (`.github/workflows/preview-label.yml` applies the label for you, via the
-  `GH_TOKEN_PR_COMMENTS` PAT so the `labeled` trigger re-fires). The label is the single
-  source of truth; adding it re-runs compile → test → deploy with the preview included.
+- **Want a preview** → add the **`preview`** label. Applying it fires `dev.yml`'s
+  `labeled` trigger and runs compile → test → deploy with the preview included. Apply it
+  at PR-open time to avoid a redundant second run. `cleanup-dev.yml` tears the preview
+  down (Fly app + Neon branch) when a `preview`-labelled PR closes.
 
 ## Environment (WSL2)
 

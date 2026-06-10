@@ -2,17 +2,10 @@ name: Clean up Preview Deployment
 on:
   workflow_dispatch:
   pull_request:
+    # No paths filter: the `preview` label (gated per-job below) is the single source
+    # of truth for "this PR has a preview to tear down". A previewed PR always carries
+    # the label, so cleanup fires on close regardless of which files it touched.
     types: [closed]
-    paths:
-      - webapp/mc-domain/src/main/**
-      - webapp/mc-engine/src/main/**
-      - webapp/mc-nbt/src/main/**
-      - webapp/mc-pipeline/src/main/**
-      - webapp/mc-data/src/main/**
-      - webapp/mc-web/src/main/**
-      - webapp/pom.xml
-      - webapp/*/pom.xml
-      - webapp/Dockerfile
 
 permissions: {}
 

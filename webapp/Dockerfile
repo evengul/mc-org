@@ -1,5 +1,3 @@
-# (MCO-183) no-op touch so this PR matches dev.yml's paths filter and can exercise
-# the preview-label gate end-to-end; remove before merge.
 FROM maven:3-eclipse-temurin-21 AS build
 
 # Cache maven dependencies
