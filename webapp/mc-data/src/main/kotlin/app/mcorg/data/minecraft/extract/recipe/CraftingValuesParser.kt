@@ -103,7 +103,14 @@ object CraftingValuesParser {
 
         if (resultIdResult is Result.Failure || ingredientListResult is Result.Failure) {
             logger.warn("Crafting recipe missing ingredients or result id in $filename")
-            return Result.failure(ExtractionFailure.JsonFailure.KeyNotFound(json, "{id,ingredients}", filename))
+            return Result.failure(
+                ExtractionFailure.Multiple(
+                    buildList {
+                        if (resultIdResult is Result.Failure) add(resultIdResult.error)
+                        if (ingredientListResult is Result.Failure) add(ingredientListResult.error)
+                    }
+                )
+            )
         }
 
         return Result.success(

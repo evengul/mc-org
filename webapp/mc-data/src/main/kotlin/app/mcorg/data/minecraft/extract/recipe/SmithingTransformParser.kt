@@ -31,6 +31,7 @@ object SmithingTransformParser {
                     buildList {
                         if (base is Result.Failure) add(base.error)
                         if (addition is Result.Failure) add(addition.error)
+                        if (result is Result.Failure) add(result.error)
                     }
                 )
             )
