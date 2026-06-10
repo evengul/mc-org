@@ -7,7 +7,6 @@ import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.descriptors.SerialDescriptor
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
-import org.slf4j.LoggerFactory
 
 data class ResourceSource(
     val type: SourceType,
@@ -98,11 +97,15 @@ data class ResourceSource(
         }
 
         companion object {
-            private val logger = LoggerFactory.getLogger(ResourceSource::class.java)
-
             val UNKNOWN = SourceType("mcorg:unknown", "Unknown", 0)
 
-            fun of(id: String): SourceType? {
+            /**
+             * Resolves a raw source-type id to its [SourceType], returning [UNKNOWN] for
+             * unrecognized ids. This is a pure lookup — callers at an extraction boundary
+             * (where file/version context is available) are responsible for logging an
+             * [UNKNOWN] result if it warrants a diagnostic.
+             */
+            fun of(id: String): SourceType {
                 return when (id) {
                     LootTypes.ARCHAEOLOGY.id -> LootTypes.ARCHAEOLOGY
                     LootTypes.FISHING.id -> LootTypes.FISHING
@@ -141,10 +144,7 @@ data class ResourceSource(
                     TradeTypes.TOOLSMITH.id -> TradeTypes.TOOLSMITH
                     TradeTypes.WEAPONSMITH.id -> TradeTypes.WEAPONSMITH
                     TradeTypes.WANDERING_TRADER.id -> TradeTypes.WANDERING_TRADER
-                    else -> {
-                        logger.warn("Unknown ResourceSource.Type id: $id")
-                        UNKNOWN
-                    }
+                    else -> UNKNOWN
                 }
             }
 
@@ -200,7 +200,7 @@ data class ResourceSource(
                 }
 
                 override fun deserialize(decoder: Decoder): SourceType {
-                    return of(decoder.decodeString()) ?: UNKNOWN
+                    return of(decoder.decodeString())
                 }
             }
 

@@ -61,11 +61,15 @@ cd webapp && mvn test -pl mc-web         # Single module tests
 
 ## Worktree Database Isolation
 
-**Start new work in a git worktree, not the main checkout.** The main checkout
-(`master`) shares the production-backed dev database; worktrees each get their own
-isolated copy (below). Working in a worktree keeps `master` clean, lets features
-run in parallel without database or migration collisions, and matches how CI builds
-each PR. Use an agent's `isolation: "worktree"` or `git worktree add` to start.
+**Start new work in a git worktree, not the main checkout — check this BEFORE the
+first edit, not at commit time.** The main checkout (`master`) shares the
+production-backed dev database; worktrees each get their own isolated copy (below).
+Working in a worktree keeps `master` clean, lets features run in parallel without
+database or migration collisions, and matches how CI builds each PR. Use an agent's
+`isolation: "worktree"` or `git worktree add` to start. If you only realise mid-task
+that you are on `master`, immediately branch off (`git checkout -b <linear-branch>`)
+so the work leaves `master` clean — a branch is the fallback floor; a worktree is the
+default. Never edit or commit on `master` directly.
 
 Each git worktree gets its **own** database so migrations and data never collide
 with the main checkout or sibling worktrees. This mirrors what CI already does
@@ -116,6 +120,14 @@ the real ingested Minecraft data instantly (no re-ingestion) and matches CI exac
 Linear — workspace: evegul, team: Mcorg. Do NOT create GitHub issues.
 
 ## Critical Rules
+
+**Worktree first:** Before making ANY code change, confirm you are NOT in the `master`
+checkout. If `git rev-parse --abbrev-ref HEAD` is `master`, STOP and start a worktree
+(`git worktree add`, or an agent's `isolation: "worktree"`) before editing — do not edit
+files on `master`. If a worktree is impractical, at minimum create a feature branch first
+(`git checkout -b <linear-branch>`); never commit work directly onto `master`. See
+[Worktree Database Isolation](#worktree-database-isolation). This is the FIRST thing to
+check when work begins, not an afterthought at commit time.
 
 **Imports:** `import kotlinx.html.stream.createHTML` — NOT `import kotlinx.html.createHTML`
 
