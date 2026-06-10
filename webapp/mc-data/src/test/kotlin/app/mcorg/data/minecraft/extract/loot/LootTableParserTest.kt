@@ -23,12 +23,10 @@ class LootTableParserTest {
 
     @BeforeEach
     fun setup() {
-        val poolParser = PoolParser()
-        val entryParser = EntryParser(
+        parser = LootTableParser(
             path = Path.of("/tmp/test"),
             version = MinecraftVersion.Release(1, 21, 0)
         )
-        parser = LootTableParser(poolParser, entryParser)
     }
 
     private fun parse(jsonString: String): Result<*, ResourceSource> = runBlocking {

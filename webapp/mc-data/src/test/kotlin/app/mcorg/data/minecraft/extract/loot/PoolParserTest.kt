@@ -15,17 +15,14 @@ import kotlin.test.assertTrue
 
 class PoolParserTest {
 
-    private lateinit var poolParser: PoolParser
+    private lateinit var poolParser: LootTableParser
 
     @BeforeEach
     fun setup() {
-        poolParser = PoolParser()
-        val entryParser = EntryParser(
+        poolParser = LootTableParser(
             path = Path.of("/tmp/test"),
             version = MinecraftVersion.Release(1, 21, 0)
         )
-        poolParser.entryParser = entryParser
-        entryParser.poolParser = poolParser
     }
 
     private fun parsePools(jsonString: String): Result<*, Map<String, Double?>> = runBlocking {

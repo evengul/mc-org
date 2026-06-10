@@ -27,10 +27,7 @@ data object ExtractLootTables : ParseFilesRecursivelyStep<ResourceSource>() {
         val version = input.first
         val basePath = input.second
 
-        val entryParser = EntryParser(basePath, version)
-        val poolParser = PoolParser()
-
-        lootTableParser = LootTableParser(poolParser, entryParser)
+        lootTableParser = LootTableParser(basePath, version)
 
         // Pre-load names cache to avoid race conditions during concurrent file parsing
         ExtractNamesStep.getNames(input)
