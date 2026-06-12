@@ -20,6 +20,8 @@ import app.mcorg.pipeline.task.handleCreateActionTask
 import app.mcorg.pipeline.task.handleDeleteActionTask
 import app.mcorg.pipeline.project.handleGetProjectList
 import app.mcorg.pipeline.project.handleGetProjectListFragment
+import app.mcorg.pipeline.project.handleGetFieldLogRow
+import app.mcorg.pipeline.project.handleGetFieldLogSliceItems
 import app.mcorg.pipeline.project.handleGetResumeRows
 import app.mcorg.pipeline.project.handleUpdateProjectState
 import app.mcorg.pipeline.world.handleCreateWorld
@@ -105,6 +107,12 @@ class WorldHandler {
                         }
                         patch("/state") {
                             call.handleUpdateProjectState()
+                        }
+                        get("/field-log-row") {
+                            call.handleGetFieldLogRow()
+                        }
+                        get("/field-log-slice-items") {
+                            call.handleGetFieldLogSliceItems()
                         }
                         route("/resources") {
                             route("/gathering") {

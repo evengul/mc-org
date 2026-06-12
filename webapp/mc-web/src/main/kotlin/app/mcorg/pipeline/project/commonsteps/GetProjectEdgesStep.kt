@@ -20,6 +20,7 @@ data class GetProjectEdgesStep(val worldId: Int) : Step<Unit, AppFailure.Databas
                 SELECT
                   rg.project_id            AS consumer_id,
                   pc.name                  AS consumer_name,
+                  pc.state                 AS consumer_state,
                   rg.solved_by_project_id  AS producer_id,
                   pp.name                  AS producer_name,
                   rg.name                  AS item_name,
@@ -32,6 +33,7 @@ data class GetProjectEdgesStep(val worldId: Int) : Step<Unit, AppFailure.Databas
                 SELECT
                   pd.project_id            AS consumer_id,
                   pc.name                  AS consumer_name,
+                  pc.state                 AS consumer_state,
                   pd.depends_on_project_id AS producer_id,
                   pp.name                  AS producer_name,
                   NULL                     AS item_name,
@@ -52,6 +54,7 @@ data class GetProjectEdgesStep(val worldId: Int) : Step<Unit, AppFailure.Databas
                             ProjectResourceEdge(
                                 consumerId = resultSet.getInt("consumer_id"),
                                 consumerName = resultSet.getString("consumer_name"),
+                                consumerState = ProjectState.valueOf(resultSet.getString("consumer_state")),
                                 producerId = resultSet.getInt("producer_id"),
                                 producerName = resultSet.getString("producer_name"),
                                 itemName = resultSet.getString("item_name"),

@@ -37,6 +37,7 @@ class FieldLogModelTest {
     ) = ProjectResourceEdge(
         consumerId = consumer.id,
         consumerName = consumer.name,
+        consumerState = consumer.state,
         producerId = producer.id,
         producerName = producer.name,
         itemName = item,

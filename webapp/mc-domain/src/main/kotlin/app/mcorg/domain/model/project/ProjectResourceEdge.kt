@@ -9,6 +9,7 @@ package app.mcorg.domain.model.project
 data class ProjectResourceEdge(
     val consumerId: Int,
     val consumerName: String,
+    val consumerState: ProjectState,
     val producerId: Int,
     val producerName: String,
     val itemName: String?,
@@ -16,4 +17,8 @@ data class ProjectResourceEdge(
 ) {
     val isBlocking: Boolean
         get() = producerState != ProjectState.DONE
+
+    /** Edges toward terminal consumers are off the board — nobody is waiting. */
+    val isLive: Boolean
+        get() = !consumerState.isTerminal
 }

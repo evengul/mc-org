@@ -2,6 +2,7 @@ package app.mcorg.presentation.templated.dsl
 
 import app.mcorg.domain.model.project.ProjectListItem
 import app.mcorg.domain.model.project.ProjectResourceEdge
+import app.mcorg.domain.model.resources.ResourceGatheringItem
 import kotlinx.html.FlowContent
 import kotlinx.html.a
 import kotlinx.html.details
@@ -60,13 +61,26 @@ fun FlowContent.fieldLogSections(
 }
 
 fun FlowContent.fieldLogRow(worldId: Int, project: ProjectListItem, model: FieldLogModel) {
-    val blocked = model.isBlocked(project.id)
-    val blockedBy = model.blockedBy(project.id)
-    val feeds = model.feeds(project.id)
+    fieldLogRow(worldId, project, model.feeds(project.id), model.blockedBy(project.id))
+}
+
+fun FlowContent.fieldLogRow(
+    worldId: Int,
+    project: ProjectListItem,
+    feeds: List<ProjectResourceEdge>,
+    blockedBy: List<ProjectResourceEdge>,
+    expanded: Boolean = false,
+    sliceItems: List<ResourceGatheringItem> = emptyList(),
+) {
+    val blocked = blockedBy.isNotEmpty()
 
     div(if (blocked) "fl-row fl-row--blocked" else "fl-row") {
         attributes["id"] = "fl-row-${project.id}"
-        div("fl-row__head") {
+        div("fl-row__head fl-row__head--clickable") {
+            attributes["hx-get"] =
+                "/worlds/$worldId/projects/${project.id}/field-log-row?expanded=${!expanded}"
+            attributes["hx-target"] = "#fl-row-${project.id}"
+            attributes["hx-swap"] = "outerHTML"
             div("fl-row__main") {
                 div("fl-row__title") {
                     a(classes = "fl-row__name") {
@@ -106,10 +120,25 @@ fun FlowContent.fieldLogRow(worldId: Int, project: ProjectListItem, model: Field
                         progressBar(project.tasksDone, project.tasksTotal)
                     }
                 }
+                span("fl-row__chevron") { +if (expanded) "collapse ▲" else "expand ▾" }
             }
+        }
+        if (expanded) {
+            fieldLogSlice(worldId, project, sliceItems, blockedBy)
         }
     }
 }
+
+fun fieldLogRowFragment(
+    worldId: Int,
+    project: ProjectListItem,
+    feeds: List<ProjectResourceEdge>,
+    blockedBy: List<ProjectResourceEdge>,
+    expanded: Boolean,
+    sliceItems: List<ResourceGatheringItem> = emptyList(),
+): String = kotlinx.html.stream.createHTML().div {
+    fieldLogRow(worldId, project, feeds, blockedBy, expanded, sliceItems)
+}.removePrefix("<div>").removeSuffix("</div>")
 
 /** "Slime Farm · sticky piston  ·  Iron Farm · hopper" — one entry per counterpart project. */
 private fun List<ProjectResourceEdge>.toEdgeCaption(counterpart: (ProjectResourceEdge) -> String): String =

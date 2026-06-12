@@ -32,18 +32,13 @@ data class FieldLogModel(
 
             // A project's outgoing edges only matter while the consumer still wants them
             // (terminal consumers are off the board).
-            val terminalIds = projects
-                .filter { it.state.isTerminal }
-                .map { it.id }
-                .toSet()
-
             val feeds = relevant
-                .filter { it.consumerId !in terminalIds }
+                .filter { it.isLive }
                 .distinctBy { Triple(it.producerId, it.consumerId, it.itemName) }
                 .groupBy { it.producerId }
 
             val blocked = relevant
-                .filter { it.isBlocking && it.consumerId !in terminalIds }
+                .filter { it.isBlocking && it.isLive }
                 .distinctBy { Triple(it.producerId, it.consumerId, it.itemName) }
                 .groupBy { it.consumerId }
 
