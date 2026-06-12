@@ -134,8 +134,8 @@ data class CreateProjectStep(val worldId: Int) : Step<CreateProjectInput, AppFai
     override suspend fun process(input: CreateProjectInput): Result<AppFailure.DatabaseError, Int> {
         return DatabaseSteps.update<CreateProjectInput>(
             sql = SafeSQL.insert("""
-                INSERT INTO projects (world_id, name, description, type, stage, location_x, location_y, location_z, location_dimension)
-                VALUES (?, ?, ?, ?, 'IDEA', 0, 0, 0, 'OVERWORLD')
+                INSERT INTO projects (world_id, name, description, type, stage, state, location_x, location_y, location_z, location_dimension)
+                VALUES (?, ?, ?, ?, 'IDEA', 'PENDING', 0, 0, 0, 'OVERWORLD')
                 RETURNING id
             """.trimIndent()),
             parameterSetter = { statement, (name, description, type) ->

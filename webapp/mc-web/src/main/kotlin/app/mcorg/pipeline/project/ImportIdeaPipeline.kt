@@ -237,8 +237,8 @@ private data class CreateProjectFromIdeaStep(val worldId: Int, val taskId: Int?)
                 override suspend fun process(input: IdeaForImport): Result<AppFailure.DatabaseError, Int> {
                     val projectIdResult = DatabaseSteps.update<IdeaForImport>(
                         sql = SafeSQL.insert("""
-                            INSERT INTO projects (world_id, name, description, type, stage, location_x, location_y, location_z, location_dimension, project_idea_id)
-                            VALUES (?, ?, ?, ?, 'RESOURCE_GATHERING', 0, 0, 0, 'OVERWORLD', ?)
+                            INSERT INTO projects (world_id, name, description, type, stage, state, location_x, location_y, location_z, location_dimension, project_idea_id)
+                            VALUES (?, ?, ?, ?, 'RESOURCE_GATHERING', 'ACTIVE', 0, 0, 0, 'OVERWORLD', ?)
                             RETURNING id
                         """.trimIndent()),
                         parameterSetter = { statement, idea ->

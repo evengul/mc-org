@@ -4,6 +4,7 @@ import app.mcorg.domain.model.minecraft.Dimension
 import app.mcorg.domain.model.minecraft.MinecraftLocation
 import app.mcorg.domain.model.project.Project
 import app.mcorg.domain.model.project.ProjectStage
+import app.mcorg.domain.model.project.ProjectState
 import app.mcorg.domain.model.project.ProjectType
 import java.sql.ResultSet
 import java.time.ZoneOffset
@@ -21,6 +22,7 @@ fun ResultSet.toProject() = Project(
     description = getString("description") ?: "",
     type = ProjectType.valueOf(getString("type")),
     stage = ProjectStage.valueOf(getString("stage")),
+    state = ProjectState.valueOf(getString("state")),
     location = MinecraftLocation(
         dimension = Dimension.valueOf(getString("location_dimension")),
         x = getInt("location_x"),

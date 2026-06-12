@@ -19,6 +19,7 @@ object GetProjectByIdStep : Step<Int, AppFailure.DatabaseError, Project> {
                     p.description,
                     p.type,
                     p.stage,
+                    p.state,
                     p.location_x,
                     p.location_y,
                     p.location_z,

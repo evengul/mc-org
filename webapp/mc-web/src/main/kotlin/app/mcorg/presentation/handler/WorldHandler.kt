@@ -20,6 +20,7 @@ import app.mcorg.pipeline.task.handleCreateActionTask
 import app.mcorg.pipeline.task.handleDeleteActionTask
 import app.mcorg.pipeline.project.handleGetProjectList
 import app.mcorg.pipeline.project.handleGetProjectListFragment
+import app.mcorg.pipeline.project.handleUpdateProjectState
 import app.mcorg.pipeline.world.handleCreateWorld
 import app.mcorg.pipeline.world.handleDeleteWorld
 import app.mcorg.pipeline.world.handleSearchWorlds
@@ -97,6 +98,9 @@ class WorldHandler {
                         }
                         delete {
                             call.handleDeleteProject()
+                        }
+                        patch("/state") {
+                            call.handleUpdateProjectState()
                         }
                         route("/resources") {
                             route("/gathering") {
