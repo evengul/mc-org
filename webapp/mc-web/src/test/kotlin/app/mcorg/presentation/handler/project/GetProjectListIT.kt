@@ -90,7 +90,7 @@ class GetProjectListIT : WithUser() {
 
         assertEquals(HttpStatusCode.OK, response.status)
         val body = response.bodyAsText()
-        assertContains(body, "project-card-$projectId")
+        assertContains(body, "fl-pending-section")
         assertContains(body, "Integration Test Project")
     }
 
@@ -144,7 +144,7 @@ class GetProjectListIT : WithUser() {
 
         assertEquals(HttpStatusCode.OK, response.status)
         val body = response.bodyAsText()
-        assertContains(body, "project-card-$projectId")
+        assertContains(body, "fl-pending-section")
         assertContains(body, "Execute Default Project")
     }
 
@@ -169,15 +169,49 @@ class GetProjectListIT : WithUser() {
         assertEquals(HttpStatusCode.Found, response.status)
     }
 
-    private fun createProject(worldId: Int, name: String): Int = runBlocking {
+    @Test
+    fun `groups projects into field log sections by state`() = testApplication {
+        val worldId = createWorld("ProjectList IT Sections World")
+        val activeId = createProject(worldId, "Active Section Project", state = "ACTIVE")
+        createProject(worldId, "Paused Section Project", state = "PAUSED")
+        createProject(worldId, "Done Section Project", state = "DONE")
+        createProject(worldId, "Cancelled Section Project", state = "CANCELLED")
+
+        routing {
+            install(AuthPlugin)
+            route("/worlds/{worldId}") {
+                install(WorldParamPlugin)
+                install(UpdateActiveWorldPlugin)
+                route("/projects") {
+                    get { call.handleGetProjectList() }
+                }
+            }
+        }
+
+        val response = client.get("/worlds/$worldId/projects") {
+            addAuthCookie(this)
+        }
+
+        assertEquals(HttpStatusCode.OK, response.status)
+        val body = response.bodyAsText()
+        assertContains(body, "Active · 1")
+        assertContains(body, "fl-row-$activeId")
+        assertContains(body, "Paused · 1")
+        assertContains(body, "fl-paused-section")
+        assertContains(body, "fl-done-shelf")
+        assertContains(body, "1 done · 1 cancelled")
+    }
+
+    private fun createProject(worldId: Int, name: String, state: String = "PENDING"): Int = runBlocking {
         val result = DatabaseSteps.update<Unit>(
             sql = SafeSQL.insert(
-                "INSERT INTO projects (name, world_id, description, type, stage, location_x, location_y, location_z, location_dimension) " +
-                        "VALUES (?, ?, '', 'BUILDING', 'IDEA', 0, 0, 0, 'OVERWORLD') RETURNING id"
+                "INSERT INTO projects (name, world_id, description, type, stage, state, location_x, location_y, location_z, location_dimension) " +
+                        "VALUES (?, ?, '', 'BUILDING', 'IDEA', ?, 0, 0, 0, 'OVERWORLD') RETURNING id"
             ),
             parameterSetter = { stmt, _ ->
                 stmt.setString(1, name)
                 stmt.setInt(2, worldId)
+                stmt.setString(3, state)
             }
         ).process(Unit)
         (result as Result.Success).value

@@ -12,13 +12,16 @@ import app.mcorg.presentation.hxTargetError
 import app.mcorg.presentation.templated.dsl.appHeader
 import app.mcorg.presentation.templated.dsl.container
 import app.mcorg.presentation.templated.dsl.emptyStateCards
+import app.mcorg.presentation.templated.dsl.fieldLogSections
 import app.mcorg.presentation.templated.dsl.modalForm
 import app.mcorg.presentation.templated.dsl.planExecuteToggle
 import app.mcorg.presentation.templated.dsl.planProjectCard
 import app.mcorg.presentation.templated.dsl.planProjectCardList
-import app.mcorg.presentation.templated.dsl.projectCard
-import app.mcorg.presentation.templated.dsl.projectCardList
 import app.mcorg.presentation.templated.dsl.pageShell
+import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
+import java.util.Locale
+import kotlinx.html.h1
 import kotlinx.html.ButtonType
 import kotlinx.html.InputType
 import kotlinx.html.a
@@ -107,12 +110,24 @@ fun projectListPageWithPlanView(
     }
 }
 
+private val fieldLogDateFormat = DateTimeFormatter.ofPattern("EEE d MMM", Locale.ENGLISH)
+
+fun kotlinx.html.FlowContent.fieldLogTitle(world: World) {
+    div("fl-title") {
+        h1("fl-title__name") { +world.name }
+        div("fl-title__meta") {
+            +"Field log · ${ZonedDateTime.now().format(fieldLogDateFormat)} · MC ${world.version}"
+        }
+    }
+}
+
 fun kotlinx.html.FlowContent.projectsContent(
     user: TokenProfile,
     world: World,
     projects: List<ProjectListItem>,
     view: String = "execute"
 ) {
+    fieldLogTitle(world)
     div {
         id = "projects-view"
         projectsViewContent(world, projects, view)
@@ -125,6 +140,7 @@ fun kotlinx.html.FlowContent.projectsContentPlan(
     world: World,
     projects: List<ProjectPlanListItem>
 ) {
+    fieldLogTitle(world)
     div {
         id = "projects-view"
         projectsViewContentPlan(world, projects)
@@ -146,7 +162,7 @@ fun kotlinx.html.FlowContent.projectsViewContent(
         projectsEmptyState(world.id)
     }
 
-    projectCardList(world.id, projects)
+    fieldLogSections(world.id, projects)
 }
 
 fun kotlinx.html.FlowContent.projectsViewContentPlan(
@@ -301,12 +317,6 @@ private fun kotlinx.html.FlowContent.createProjectModal(worldId: Int, view: Stri
                 +"Cancel"
             }
         }
-    }
-}
-
-fun projectCardFragment(worldId: Int, project: ProjectListItem): String {
-    return kotlinx.html.stream.createHTML().div {
-        projectCard(worldId, project)
     }
 }
 

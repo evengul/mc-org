@@ -81,7 +81,7 @@ class GetProjectListFragmentIT : WithUser() {
         assertEquals(HttpStatusCode.OK, response.status)
         val body = response.bodyAsText()
         assertContains(body, "projects-view")
-        assertContains(body, "project-card-list")
+        assertContains(body, "fl-pending-section")
         assertContains(body, "Execute Fragment Project")
     }
 
@@ -140,7 +140,7 @@ class GetProjectListFragmentIT : WithUser() {
         assertEquals(HttpStatusCode.OK, response.status)
         val body = response.bodyAsText()
         assertContains(body, "projects-view")
-        assertContains(body, "project-card-list")
+        assertContains(body, "fl-pending-section")
         assertContains(body, "Default Fragment Project")
     }
 

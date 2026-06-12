@@ -11,13 +11,11 @@ import app.mcorg.pipeline.ValidationSteps
 import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.failure.ValidationFailure
 import app.mcorg.pipeline.project.commonsteps.GetProjectByIdStep
-import app.mcorg.pipeline.project.commonsteps.GetProjectListItemStep
 import app.mcorg.pipeline.project.commonsteps.GetProjectPlanListItemStep
 import app.mcorg.pipeline.world.ValidateWorldMemberRole
 import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.hxOutOfBands
 import app.mcorg.presentation.templated.dsl.pages.planProjectCardFragment
-import app.mcorg.presentation.templated.dsl.pages.projectCardFragment
 import app.mcorg.presentation.templated.dsl.pages.projectsToolbarOobFragment
 import app.mcorg.presentation.utils.getUser
 import app.mcorg.presentation.utils.getWorldId
@@ -63,14 +61,10 @@ suspend fun ApplicationCall.handleCreateProject() {
                         respondHtml("")
                     }
                 } else {
-                    val projectListItem = GetProjectListItemStep.process(projectId)
-                    if (projectListItem is Result.Success) {
-                        val cardHtml = projectCardFragment(worldId, projectListItem.value)
-                        respondHtml(cardHtml + oobDeleteEmptyState + oobToolbar)
-                    } else {
-                        response.headers.append("HX-Redirect", "/worlds/$worldId/projects")
-                        respondHtml("")
-                    }
+                    // Field Log groups projects by state; a full refresh places the
+                    // new project in the right section without fragment bookkeeping.
+                    response.headers.append("HX-Redirect", "/worlds/$worldId/projects")
+                    respondHtml("")
                 }
             } else {
                 response.headers.append("Location", "/worlds/$worldId/projects")
