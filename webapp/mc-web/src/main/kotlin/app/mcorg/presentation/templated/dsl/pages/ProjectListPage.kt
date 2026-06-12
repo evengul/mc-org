@@ -17,6 +17,7 @@ import app.mcorg.presentation.templated.dsl.ResumeHeroData
 import app.mcorg.presentation.templated.dsl.ResumeSort
 import app.mcorg.presentation.templated.dsl.fieldLogSections
 import app.mcorg.presentation.templated.dsl.modalForm
+import app.mcorg.presentation.templated.dsl.newProjectMenu
 import app.mcorg.presentation.templated.dsl.planExecuteToggle
 import app.mcorg.presentation.templated.dsl.planProjectCard
 import app.mcorg.presentation.templated.dsl.planProjectCardList
@@ -29,6 +30,8 @@ import kotlinx.html.ButtonType
 import kotlinx.html.InputType
 import kotlinx.html.a
 import kotlinx.html.button
+import kotlinx.html.dialog
+import kotlinx.html.form
 import kotlinx.html.classes
 import kotlinx.html.div
 import kotlinx.html.h2
@@ -57,9 +60,13 @@ fun projectListPage(
         "/static/styles/components/btn.css",
         "/static/styles/components/modal.css",
         "/static/styles/components/toggle.css",
+        "/static/styles/components/callout.css",
+        "/static/styles/components/resource-row.css",
+        "/static/styles/components/progress.css",
         "/static/styles/components/project-card.css",
         "/static/styles/pages/project-list.css",
-    )
+    ),
+    scripts = listOf("/static/scripts/np-menu.js")
 ) {
     appHeader(
         worldName = world.name,
@@ -94,7 +101,8 @@ fun projectListPageWithPlanView(
         "/static/styles/components/toggle.css",
         "/static/styles/components/project-card.css",
         "/static/styles/pages/project-list.css",
-    )
+    ),
+    scripts = listOf("/static/scripts/np-menu.js")
 ) {
     appHeader(
         worldName = world.name,
@@ -140,6 +148,7 @@ fun kotlinx.html.FlowContent.projectsContent(
         projectsViewContent(world, projects, view, edges, resume)
     }
     createProjectModal(world.id, view)
+    schematicProjectModal(world.id)
 }
 
 fun kotlinx.html.FlowContent.projectsContentPlan(
@@ -153,6 +162,7 @@ fun kotlinx.html.FlowContent.projectsContentPlan(
         projectsViewContentPlan(world, projects)
     }
     createProjectModal(world.id, "plan")
+    schematicProjectModal(world.id)
 }
 
 fun kotlinx.html.FlowContent.projectsViewContent(
@@ -237,6 +247,70 @@ fun kotlinx.html.FlowContent.projectsEmptyState(worldId: Int) {
                 }
             }
         }
+    }
+}
+
+private fun kotlinx.html.FlowContent.schematicProjectModal(worldId: Int) {
+    dialog {
+            id = "schematic-project-modal"
+            classes = setOf("modal-backdrop")
+            div("modal") {
+                div("modal__heading") { +"From a schematic" }
+                div("modal__body") {
+                    form {
+                        hxPost("/worlds/$worldId/projects/from-schematic")
+                        hxTargetError(".form-error")
+                        attributes["hx-encoding"] = "multipart/form-data"
+                        attributes["hx-on::after-request"] =
+                            "if(event.detail.successful) { this.reset(); this.closest('dialog')?.close() }"
+
+                        label {
+                            htmlFor = "schematic-project-file"
+                            +"Schematic file"
+                            span("required-indicator") { +"*" }
+                        }
+                        input(classes = "form-control") {
+                            id = "schematic-project-file"
+                            type = InputType.file
+                            name = "schematicFile"
+                            accept = ".litematic"
+                            required = true
+                        }
+                        p("form-error") {
+                            id = "validation-error-schematicFile"
+                        }
+
+                        label {
+                            htmlFor = "schematic-project-name"
+                            +"Project name"
+                        }
+                        input(classes = "form-control") {
+                            id = "schematic-project-name"
+                            type = InputType.text
+                            name = "name"
+                            placeholder = "Defaults to the schematic's name"
+                            maxLength = "100"
+                        }
+                        p("form-error") {
+                            id = "validation-error-name-schematic"
+                        }
+
+                        div("modal__actions") {
+                            button {
+                                classes = setOf("btn", "btn--primary")
+                                type = ButtonType.submit
+                                +"Create from schematic"
+                            }
+                            button {
+                                classes = setOf("btn", "btn--ghost")
+                                type = ButtonType.button
+                                attributes["onclick"] = "this.closest('dialog')?.close()"
+                                +"Cancel"
+                            }
+                        }
+                    }
+                }
+            }
     }
 }
 
@@ -339,12 +413,7 @@ fun planProjectCardFragment(worldId: Int, project: ProjectPlanListItem): String 
 
 fun kotlinx.html.FlowContent.projectsToolbar(worldId: Int, view: String = "execute") {
     div("projects-toolbar") {
-        button {
-            classes = setOf("btn", "btn--primary")
-            attributes["onclick"] =
-                "document.getElementById('first-project-flag').value=''; document.getElementById('create-project-modal')?.showModal()"
-            +"New Project"
-        }
+        newProjectMenu(worldId)
         planExecuteToggle(worldId, view)
     }
 }
