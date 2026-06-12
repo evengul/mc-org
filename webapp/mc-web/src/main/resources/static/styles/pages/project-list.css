@@ -314,3 +314,40 @@
         max-width: none;
     }
 }
+
+/* --- Field Log dependency captions & blocked state --- */
+
+.fl-section__head {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-3);
+    flex-wrap: wrap;
+}
+
+.fl-section__hint {
+    font-family: var(--font-body);
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+}
+
+.fl-row__main {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    align-items: flex-start;
+    min-width: 0;
+}
+
+.fl-row__caption {
+    font-family: var(--font-ui);
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+}
+
+.fl-row__caption--blocked {
+    color: var(--red);
+}
+
+.fl-row--blocked {
+    border-color: var(--red-bg);
+}

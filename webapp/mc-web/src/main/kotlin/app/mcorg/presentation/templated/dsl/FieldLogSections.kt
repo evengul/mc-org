@@ -1,7 +1,7 @@
 package app.mcorg.presentation.templated.dsl
 
 import app.mcorg.domain.model.project.ProjectListItem
-import app.mcorg.domain.model.project.ProjectState
+import app.mcorg.domain.model.project.ProjectResourceEdge
 import kotlinx.html.FlowContent
 import kotlinx.html.a
 import kotlinx.html.details
@@ -11,59 +11,78 @@ import kotlinx.html.summary
 
 /**
  * Field Log — state-sorted sections of the world's project list (execute view).
- * Active projects get full rows; pending/paused collapse to chips; terminal
- * states (done/cancelled/archived) share a single collapsed shelf.
+ * Active projects get full rows with dependency captions; pending/paused
+ * collapse to chips; terminal states (done/cancelled/archived) share a single
+ * collapsed shelf. Blocked projects sink to the bottom of Active.
  */
 
-fun FlowContent.fieldLogSections(worldId: Int, projects: List<ProjectListItem>) {
-    val byState = projects.groupBy { it.state }
-    val active = (byState[ProjectState.ACTIVE] ?: emptyList())
-        .sortedByDescending { it.progressFraction() }
-    val pending = byState[ProjectState.PENDING] ?: emptyList()
-    val paused = byState[ProjectState.PAUSED] ?: emptyList()
-    val done = byState[ProjectState.DONE] ?: emptyList()
-    val cancelled = byState[ProjectState.CANCELLED] ?: emptyList()
-    val archived = byState[ProjectState.ARCHIVED] ?: emptyList()
+fun FlowContent.fieldLogSections(
+    worldId: Int,
+    projects: List<ProjectListItem>,
+    edges: List<ProjectResourceEdge> = emptyList(),
+) {
+    val model = FieldLogModel.of(projects, edges)
 
-    if (active.isNotEmpty()) {
+    if (model.active.isNotEmpty()) {
         div("fl-section") {
             attributes["id"] = "fl-active-section"
-            span("section-label") { +"Active · ${active.size}" }
+            div("fl-section__head") {
+                span("section-label") { +"Active · ${model.active.size}" }
+                if (model.active.any { model.isBlocked(it.id) }) {
+                    span("fl-section__hint") { +"sorted: unblocked first · blocked sinks to the bottom" }
+                }
+            }
             div("fl-row-list") {
                 attributes["id"] = "fl-active-list"
-                active.forEach { fieldLogRow(worldId, it) }
+                model.active.forEach { fieldLogRow(worldId, it, model) }
             }
         }
     }
 
-    if (pending.isNotEmpty()) {
-        fieldLogChipSection("fl-pending-section", "Pending · ${pending.size}", worldId, pending, dimmed = false)
+    if (model.pending.isNotEmpty()) {
+        fieldLogChipSection("fl-pending-section", "Pending · ${model.pending.size}", worldId, model.pending, dimmed = false)
     }
 
-    if (paused.isNotEmpty()) {
-        fieldLogChipSection("fl-paused-section", "Paused · ${paused.size}", worldId, paused, dimmed = true)
+    if (model.paused.isNotEmpty()) {
+        fieldLogChipSection("fl-paused-section", "Paused · ${model.paused.size}", worldId, model.paused, dimmed = true)
     }
 
-    if (done.isNotEmpty() || cancelled.isNotEmpty() || archived.isNotEmpty()) {
-        fieldLogDoneShelf(worldId, done, cancelled, archived)
+    if (model.done.isNotEmpty() || model.cancelled.isNotEmpty() || model.archived.isNotEmpty()) {
+        fieldLogDoneShelf(worldId, model.done, model.cancelled, model.archived)
     }
 }
 
-private fun ProjectListItem.progressFraction(): Double =
-    if (resourcesRequired > 0) resourcesGathered.toDouble() / resourcesRequired else 0.0
+fun FlowContent.fieldLogRow(worldId: Int, project: ProjectListItem, model: FieldLogModel) {
+    val blocked = model.isBlocked(project.id)
+    val blockedBy = model.blockedBy(project.id)
+    val feeds = model.feeds(project.id)
 
-fun FlowContent.fieldLogRow(worldId: Int, project: ProjectListItem) {
-    div("fl-row") {
+    div(if (blocked) "fl-row fl-row--blocked" else "fl-row") {
         attributes["id"] = "fl-row-${project.id}"
         div("fl-row__head") {
-            div("fl-row__title") {
-                a(classes = "fl-row__name") {
-                    href = "/worlds/$worldId/projects/${project.id}"
-                    +project.name
+            div("fl-row__main") {
+                div("fl-row__title") {
+                    a(classes = "fl-row__name") {
+                        href = "/worlds/$worldId/projects/${project.id}"
+                        +project.name
+                    }
+                    if (blocked) {
+                        span("badge badge--blocked") { +"Blocked" }
+                    } else {
+                        projectStateBadge(project.id, project.state)
+                    }
+                    if (project.itemCount > 0) {
+                        span("fl-row__sub") { +"${project.itemCount} item${if (project.itemCount == 1) "" else "s"}" }
+                    }
                 }
-                projectStateBadge(project.id, project.state)
-                if (project.itemCount > 0) {
-                    span("fl-row__sub") { +"${project.itemCount} item${if (project.itemCount == 1) "" else "s"}" }
+                if (blocked) {
+                    span("fl-row__caption fl-row__caption--blocked") {
+                        +"Blocked by ← ${blockedBy.toEdgeCaption { it.producerName }}"
+                    }
+                } else if (feeds.isNotEmpty()) {
+                    span("fl-row__caption") {
+                        +"Feeds → ${feeds.toEdgeCaption { it.consumerName }}"
+                    }
                 }
             }
             div("fl-row__stats") {
@@ -84,6 +103,15 @@ fun FlowContent.fieldLogRow(worldId: Int, project: ProjectListItem) {
         }
     }
 }
+
+/** "Slime Farm · sticky piston  ·  Iron Farm · hopper" — one entry per counterpart project. */
+private fun List<ProjectResourceEdge>.toEdgeCaption(counterpart: (ProjectResourceEdge) -> String): String =
+    groupBy(counterpart)
+        .entries
+        .joinToString("  ·  ") { (name, projectEdges) ->
+            val items = projectEdges.mapNotNull { it.itemName }.distinct()
+            if (items.isEmpty()) name else "$name · ${items.joinToString(", ")}"
+        }
 
 private fun FlowContent.fieldLogChipSection(
     id: String,

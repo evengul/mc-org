@@ -2,6 +2,7 @@ package app.mcorg.presentation.templated.dsl.pages
 
 import app.mcorg.domain.model.project.ProjectListItem
 import app.mcorg.domain.model.project.ProjectPlanListItem
+import app.mcorg.domain.model.project.ProjectResourceEdge
 import app.mcorg.domain.model.project.ProjectType
 import app.mcorg.domain.model.user.TokenProfile
 import app.mcorg.domain.model.world.World
@@ -45,6 +46,7 @@ fun projectListPage(
     projects: List<ProjectListItem>,
     view: String = "execute",
     isWorldAdmin: Boolean = false,
+    edges: List<ProjectResourceEdge> = emptyList(),
 ): String = pageShell(
     pageTitle = "MC-ORG — ${world.name}",
     user = user,
@@ -69,7 +71,7 @@ fun projectListPage(
         container {
             div {
                 id = "projects-content"
-                projectsContent(user, world, projects, view)
+                projectsContent(user, world, projects, view, edges)
             }
         }
     }
@@ -125,12 +127,13 @@ fun kotlinx.html.FlowContent.projectsContent(
     user: TokenProfile,
     world: World,
     projects: List<ProjectListItem>,
-    view: String = "execute"
+    view: String = "execute",
+    edges: List<ProjectResourceEdge> = emptyList(),
 ) {
     fieldLogTitle(world)
     div {
         id = "projects-view"
-        projectsViewContent(world, projects, view)
+        projectsViewContent(world, projects, view, edges)
     }
     createProjectModal(world.id, view)
 }
@@ -151,7 +154,8 @@ fun kotlinx.html.FlowContent.projectsContentPlan(
 fun kotlinx.html.FlowContent.projectsViewContent(
     world: World,
     projects: List<ProjectListItem>,
-    view: String = "execute"
+    view: String = "execute",
+    edges: List<ProjectResourceEdge> = emptyList(),
 ) {
     div {
         id = "projects-toolbar-slot"
@@ -162,7 +166,7 @@ fun kotlinx.html.FlowContent.projectsViewContent(
         projectsEmptyState(world.id)
     }
 
-    fieldLogSections(world.id, projects)
+    fieldLogSections(world.id, projects, edges)
 }
 
 fun kotlinx.html.FlowContent.projectsViewContentPlan(
@@ -184,11 +188,12 @@ fun kotlinx.html.FlowContent.projectsViewContentPlan(
 fun projectsViewFragment(
     world: World,
     projects: List<ProjectListItem>,
-    view: String = "execute"
+    view: String = "execute",
+    edges: List<ProjectResourceEdge> = emptyList(),
 ): String {
     return kotlinx.html.stream.createHTML().div {
         id = "projects-view"
-        projectsViewContent(world, projects, view)
+        projectsViewContent(world, projects, view, edges)
     }
 }
 

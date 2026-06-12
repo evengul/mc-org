@@ -1,5 +1,6 @@
 package app.mcorg.pipeline.project
 
+import app.mcorg.pipeline.project.commonsteps.GetProjectEdgesStep
 import app.mcorg.pipeline.project.commonsteps.GetProjectListStep
 import app.mcorg.pipeline.project.commonsteps.GetProjectPlanListStep
 import app.mcorg.pipeline.world.commonsteps.GetWorldMemberStep
@@ -30,14 +31,15 @@ suspend fun ApplicationCall.handleGetProjectListFragment() {
         }
     } else {
         handlePipeline(
-            onSuccess = { (world, _, projects) ->
-                respondHtml(projectsViewFragment(world, projects, view))
+            onSuccess = { (world, _, projects, edges) ->
+                respondHtml(projectsViewFragment(world, projects, view, edges))
             }
         ) {
             val world = GetWorldStep.run(worldId)
             val worldMember = GetWorldMemberStep(worldId).run(user.id)
             val projects = GetProjectListStep(worldId).run(Unit)
-            Triple(world, worldMember, projects)
+            val edges = GetProjectEdgesStep(worldId).run(Unit)
+            ProjectListData(world, worldMember, projects, edges)
         }
     }
 }

@@ -202,6 +202,54 @@ class GetProjectListIT : WithUser() {
         assertContains(body, "1 done · 1 cancelled")
     }
 
+    @Test
+    fun `shows dependency captions and sinks blocked project last`() = testApplication {
+        val worldId = createWorld("ProjectList IT Dependency World")
+        val producerId = createProject(worldId, "Slime Farm", state = "ACTIVE")
+        val consumerId = createProject(worldId, "Sorting System", state = "ACTIVE")
+        createResourceGathering(consumerId, "Sticky Piston", solvedByProjectId = producerId)
+
+        routing {
+            install(AuthPlugin)
+            route("/worlds/{worldId}") {
+                install(WorldParamPlugin)
+                install(UpdateActiveWorldPlugin)
+                route("/projects") {
+                    get { call.handleGetProjectList() }
+                }
+            }
+        }
+
+        val response = client.get("/worlds/$worldId/projects") {
+            addAuthCookie(this)
+        }
+
+        assertEquals(HttpStatusCode.OK, response.status)
+        val body = response.bodyAsText()
+        assertContains(body, "Feeds → Sorting System · Sticky Piston")
+        assertContains(body, "Blocked by ← Slime Farm · Sticky Piston")
+        assertContains(body, "badge--blocked")
+        // Blocked project renders after the unblocked producer
+        val producerIndex = body.indexOf("fl-row-$producerId")
+        val consumerIndex = body.indexOf("fl-row-$consumerId")
+        assertEquals(true, producerIndex in 0 until consumerIndex)
+    }
+
+    private fun createResourceGathering(projectId: Int, itemName: String, solvedByProjectId: Int? = null): Int = runBlocking {
+        val result = DatabaseSteps.update<Unit>(
+            sql = SafeSQL.insert(
+                "INSERT INTO resource_gathering (project_id, item_id, name, required, collected, solved_by_project_id) " +
+                        "VALUES (?, 'minecraft:sticky_piston', ?, 64, 0, ?) RETURNING id"
+            ),
+            parameterSetter = { stmt, _ ->
+                stmt.setInt(1, projectId)
+                stmt.setString(2, itemName)
+                if (solvedByProjectId != null) stmt.setInt(3, solvedByProjectId) else stmt.setNull(3, java.sql.Types.INTEGER)
+            }
+        ).process(Unit)
+        (result as Result.Success).value
+    }
+
     private fun createProject(worldId: Int, name: String, state: String = "PENDING"): Int = runBlocking {
         val result = DatabaseSteps.update<Unit>(
             sql = SafeSQL.insert(
