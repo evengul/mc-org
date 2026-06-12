@@ -20,21 +20,28 @@ fun FlowContent.fieldLogSections(
     worldId: Int,
     projects: List<ProjectListItem>,
     edges: List<ProjectResourceEdge> = emptyList(),
+    resume: ResumeHeroData? = null,
+    resumeSort: ResumeSort = ResumeSort.NEEDED,
 ) {
     val model = FieldLogModel.of(projects, edges)
 
-    if (model.active.isNotEmpty()) {
+    if (resume != null) {
+        resumeHero(worldId, resume, feeds = model.feeds(resume.project.id), sort = resumeSort)
+    }
+
+    val activeRows = model.active.filter { it.id != resume?.project?.id }
+    if (activeRows.isNotEmpty()) {
         div("fl-section") {
             attributes["id"] = "fl-active-section"
             div("fl-section__head") {
                 span("section-label") { +"Active · ${model.active.size}" }
-                if (model.active.any { model.isBlocked(it.id) }) {
+                if (activeRows.any { model.isBlocked(it.id) }) {
                     span("fl-section__hint") { +"sorted: unblocked first · blocked sinks to the bottom" }
                 }
             }
             div("fl-row-list") {
                 attributes["id"] = "fl-active-list"
-                model.active.forEach { fieldLogRow(worldId, it, model) }
+                activeRows.forEach { fieldLogRow(worldId, it, model) }
             }
         }
     }

@@ -13,6 +13,8 @@ import app.mcorg.presentation.hxTargetError
 import app.mcorg.presentation.templated.dsl.appHeader
 import app.mcorg.presentation.templated.dsl.container
 import app.mcorg.presentation.templated.dsl.emptyStateCards
+import app.mcorg.presentation.templated.dsl.ResumeHeroData
+import app.mcorg.presentation.templated.dsl.ResumeSort
 import app.mcorg.presentation.templated.dsl.fieldLogSections
 import app.mcorg.presentation.templated.dsl.modalForm
 import app.mcorg.presentation.templated.dsl.planExecuteToggle
@@ -47,6 +49,7 @@ fun projectListPage(
     view: String = "execute",
     isWorldAdmin: Boolean = false,
     edges: List<ProjectResourceEdge> = emptyList(),
+    resume: ResumeHeroData? = null,
 ): String = pageShell(
     pageTitle = "MC-ORG — ${world.name}",
     user = user,
@@ -71,7 +74,7 @@ fun projectListPage(
         container {
             div {
                 id = "projects-content"
-                projectsContent(user, world, projects, view, edges)
+                projectsContent(user, world, projects, view, edges, resume)
             }
         }
     }
@@ -129,11 +132,12 @@ fun kotlinx.html.FlowContent.projectsContent(
     projects: List<ProjectListItem>,
     view: String = "execute",
     edges: List<ProjectResourceEdge> = emptyList(),
+    resume: ResumeHeroData? = null,
 ) {
     fieldLogTitle(world)
     div {
         id = "projects-view"
-        projectsViewContent(world, projects, view, edges)
+        projectsViewContent(world, projects, view, edges, resume)
     }
     createProjectModal(world.id, view)
 }
@@ -156,6 +160,7 @@ fun kotlinx.html.FlowContent.projectsViewContent(
     projects: List<ProjectListItem>,
     view: String = "execute",
     edges: List<ProjectResourceEdge> = emptyList(),
+    resume: ResumeHeroData? = null,
 ) {
     div {
         id = "projects-toolbar-slot"
@@ -166,7 +171,7 @@ fun kotlinx.html.FlowContent.projectsViewContent(
         projectsEmptyState(world.id)
     }
 
-    fieldLogSections(world.id, projects, edges)
+    fieldLogSections(world.id, projects, edges, resume)
 }
 
 fun kotlinx.html.FlowContent.projectsViewContentPlan(
@@ -190,10 +195,11 @@ fun projectsViewFragment(
     projects: List<ProjectListItem>,
     view: String = "execute",
     edges: List<ProjectResourceEdge> = emptyList(),
+    resume: ResumeHeroData? = null,
 ): String {
     return kotlinx.html.stream.createHTML().div {
         id = "projects-view"
-        projectsViewContent(world, projects, view, edges)
+        projectsViewContent(world, projects, view, edges, resume)
     }
 }
 

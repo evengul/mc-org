@@ -5,6 +5,7 @@ import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.Result
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.project.handleGetProjectList
+import app.mcorg.pipeline.project.handleGetResumeRows
 import app.mcorg.pipeline.world.CreateWorldInput
 import app.mcorg.pipeline.world.CreateWorldStep
 import app.mcorg.presentation.plugins.AuthPlugin
@@ -176,6 +177,8 @@ class GetProjectListIT : WithUser() {
         createProject(worldId, "Paused Section Project", state = "PAUSED")
         createProject(worldId, "Done Section Project", state = "DONE")
         createProject(worldId, "Cancelled Section Project", state = "CANCELLED")
+        // Newest active becomes the resume hero; activeId stays in the Active list
+        createProject(worldId, "Hero Absorber", state = "ACTIVE")
 
         routing {
             install(AuthPlugin)
@@ -194,7 +197,7 @@ class GetProjectListIT : WithUser() {
 
         assertEquals(HttpStatusCode.OK, response.status)
         val body = response.bodyAsText()
-        assertContains(body, "Active · 1")
+        assertContains(body, "Active · 2")
         assertContains(body, "fl-row-$activeId")
         assertContains(body, "Paused · 1")
         assertContains(body, "fl-paused-section")
@@ -208,6 +211,8 @@ class GetProjectListIT : WithUser() {
         val producerId = createProject(worldId, "Slime Farm", state = "ACTIVE")
         val consumerId = createProject(worldId, "Sorting System", state = "ACTIVE")
         createResourceGathering(consumerId, "Sticky Piston", solvedByProjectId = producerId)
+        // Newest active becomes the resume hero so producer/consumer stay in the list
+        createProject(worldId, "Dependency Hero Absorber", state = "ACTIVE")
 
         routing {
             install(AuthPlugin)
@@ -233,6 +238,92 @@ class GetProjectListIT : WithUser() {
         val producerIndex = body.indexOf("fl-row-$producerId")
         val consumerIndex = body.indexOf("fl-row-$consumerId")
         assertEquals(true, producerIndex in 0 until consumerIndex)
+    }
+
+    @Test
+    fun `shows resume hero for newest active project with counter rows`() = testApplication {
+        val worldId = createWorld("ProjectList IT Resume World")
+        createProject(worldId, "Older Active", state = "ACTIVE")
+        val resumeId = createProject(worldId, "Iron Farm", state = "ACTIVE")
+        val rgId = createResourceGathering(resumeId, "Hopper")
+
+        routing {
+            install(AuthPlugin)
+            route("/worlds/{worldId}") {
+                install(WorldParamPlugin)
+                install(UpdateActiveWorldPlugin)
+                route("/projects") {
+                    get { call.handleGetProjectList() }
+                }
+            }
+        }
+
+        val response = client.get("/worlds/$worldId/projects") {
+            addAuthCookie(this)
+        }
+
+        assertEquals(HttpStatusCode.OK, response.status)
+        val body = response.bodyAsText()
+        assertContains(body, "fl-resume-hero")
+        assertContains(body, "Iron Farm")
+        assertContains(body, "resource-row-$rgId")
+        assertContains(body, "fl-resume-rows")
+        // The resume project is not repeated in the Active list below the hero
+        assertEquals(false, body.contains("fl-row-$resumeId"))
+    }
+
+    @Test
+    fun `omits resume hero when world has no active projects`() = testApplication {
+        val worldId = createWorld("ProjectList IT No Active World")
+        createProject(worldId, "Only Pending")
+
+        routing {
+            install(AuthPlugin)
+            route("/worlds/{worldId}") {
+                install(WorldParamPlugin)
+                install(UpdateActiveWorldPlugin)
+                route("/projects") {
+                    get { call.handleGetProjectList() }
+                }
+            }
+        }
+
+        val response = client.get("/worlds/$worldId/projects") {
+            addAuthCookie(this)
+        }
+
+        assertEquals(HttpStatusCode.OK, response.status)
+        assertEquals(false, response.bodyAsText().contains("fl-resume-hero"))
+    }
+
+    @Test
+    fun `resume rows fragment sorts by requested order`() = testApplication {
+        val worldId = createWorld("ProjectList IT Resume Sort World")
+        val resumeId = createProject(worldId, "Sort Hero", state = "ACTIVE")
+        createResourceGathering(resumeId, "Zinc Block")
+        createResourceGathering(resumeId, "Anvil")
+
+        routing {
+            install(AuthPlugin)
+            route("/worlds/{worldId}") {
+                install(WorldParamPlugin)
+                install(UpdateActiveWorldPlugin)
+                route("/projects") {
+                    get("/resume-rows") { call.handleGetResumeRows() }
+                }
+            }
+        }
+
+        val response = client.get("/worlds/$worldId/projects/resume-rows?sort=az") {
+            addAuthCookie(this)
+        }
+
+        assertEquals(HttpStatusCode.OK, response.status)
+        val body = response.bodyAsText()
+        assertContains(body, "fl-resume-rows")
+        val anvilIndex = body.indexOf("Anvil")
+        val zincIndex = body.indexOf("Zinc Block")
+        assertEquals(true, anvilIndex in 0 until zincIndex)
     }
 
     private fun createResourceGathering(projectId: Int, itemName: String, solvedByProjectId: Int? = null): Int = runBlocking {

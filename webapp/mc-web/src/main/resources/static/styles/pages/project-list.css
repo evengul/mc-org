@@ -351,3 +351,103 @@
 .fl-row--blocked {
     border-color: var(--red-bg);
 }
+
+/* --- Resume hero --- */
+
+.fl-hero {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-card, none);
+    padding: var(--space-5);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    margin-bottom: var(--space-5);
+}
+
+.fl-hero__head {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    align-items: flex-start;
+}
+
+.fl-hero__title {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-3);
+    flex-wrap: wrap;
+}
+
+.fl-hero__name {
+    font-family: var(--font-ui);
+    font-size: var(--text-lg, 17px);
+    font-weight: 600;
+    color: var(--text-primary);
+    text-decoration: none;
+}
+
+.fl-hero__name:hover {
+    color: var(--accent);
+}
+
+.fl-hero__coords {
+    font-family: var(--font-ui);
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+}
+
+.fl-hero__toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+}
+
+.fl-sort-pills {
+    display: flex;
+    gap: var(--space-1);
+}
+
+.fl-sort-pill {
+    font-family: var(--font-ui);
+    font-size: 10px;
+    padding: 4px 10px;
+    border-radius: var(--radius-pill, 999px);
+    background: var(--bg-raised);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    cursor: pointer;
+}
+
+.fl-sort-pill--active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--on-accent, #fff);
+}
+
+.fl-hero__rows {
+    display: flex;
+    flex-direction: column;
+}
+
+.fl-hero__more {
+    font-family: var(--font-ui);
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+    padding: var(--space-2) var(--space-4);
+}
+
+.fl-hero__footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+}
+
+.fl-hero__hint {
+    font-family: var(--font-body);
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+}
