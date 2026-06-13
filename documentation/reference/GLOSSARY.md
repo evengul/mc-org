@@ -1,4 +1,4 @@
-# MC-ORG Glossary
+# Seam Glossary
 
 **Quick reference for technical and domain terminology**
 

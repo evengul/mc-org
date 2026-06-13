@@ -7,7 +7,7 @@ import kotlinx.html.p
 import kotlinx.html.stream.createHTML
 
 fun pageShell(
-    pageTitle: String = "MC-ORG",
+    pageTitle: String = "Seam",
     user: TokenProfile? = null,
     stylesheets: List<String> = emptyList(),
     scripts: List<String> = emptyList(),

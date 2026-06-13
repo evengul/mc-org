@@ -1,13 +1,13 @@
-# AI Documentation for MC-ORG
+# AI Documentation for Seam
 
-**Complete documentation for AI agents working on the MC-ORG project**
+**Complete documentation for AI agents working on the Seam project**
 
 ---
 
 ## 📚 Documentation Structure
 
 This directory contains comprehensive documentation designed for AI agents (like GitHub Copilot) to understand,
-maintain, and extend the MC-ORG codebase.
+maintain, and extend the Seam codebase.
 
 ### Core Documentation Files
 

@@ -1,4 +1,4 @@
-# MC-ORG Business Rules Reference
+# Seam Business Rules Reference
 
 **Domain rules, workflows, and business constraints**
 
@@ -26,7 +26,7 @@
 
 ## Executive Summary
 
-MC-ORG is a web-based Minecraft world collaboration platform designed to centralize project management, task tracking,
+Seam is a web-based Minecraft world collaboration platform designed to centralize project management, task tracking,
 and team coordination for Minecraft builders. The application solves the common problem of scattered project information
 across Discord channels, spreadsheets, and in-game communication by providing a structured, role-based platform for
 managing building projects from idea to completion.
@@ -65,7 +65,7 @@ managing building projects from idea to completion.
 - Inefficient resource planning and allocation
 
 **Solution Approach:**
-MC-ORG provides a one-stop platform for organizing Minecraft projects from idea through design, planning, resource
+Seam provides a one-stop platform for organizing Minecraft projects from idea through design, planning, resource
 gathering, and building completion, with integrated team collaboration and historical progress tracking.
 
 ## Domain Model & Core Concepts
@@ -598,5 +598,5 @@ Project A wants to depend on Project B
 **Maintained By**: Development Team
 
 This functional specification provides comprehensive guidance for development teams and AI agents to understand the
-business purpose, user workflows, and technical requirements necessary to build and maintain the MC-ORG platform
+business purpose, user workflows, and technical requirements necessary to build and maintain the Seam platform
 effectively.

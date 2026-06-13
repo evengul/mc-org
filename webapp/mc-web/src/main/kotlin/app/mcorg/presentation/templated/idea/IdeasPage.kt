@@ -15,7 +15,7 @@ fun ideasPage(
     result: PaginatedResult<Idea>,
     filters: IdeaSearchFilters = IdeaSearchFilters()
 ): String = pageShell(
-    pageTitle = "MC-ORG — Ideas",
+    pageTitle = "Seam — Ideas",
     user = user,
     stylesheets = listOf(
         "/static/styles/components/btn.css",

@@ -89,7 +89,7 @@ Mobile: stacked vertically, equal size.
 
 ### Breadcrumb / header
 
-Desktop: `[MC-ORG] Worlds › [World Name] ... Ideas ⚙`
+Desktop: `[Seam] Worlds › [World Name] ... Ideas ⚙`
 Mobile: `[World Name] ⚙`
 
 ### Mobile behaviour

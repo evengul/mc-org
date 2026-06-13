@@ -1,7 +1,7 @@
 # Theme Switcher Implementation
 
 ## Overview
-The MC-ORG application now supports three Minecraft-inspired themes that can be switched dynamically:
+The Seam application now supports three Minecraft-inspired themes that can be switched dynamically:
 
 ### 🌍 Overworld Theme (Light Mode - Default)
 - **Colors**: Grass greens, sky blues, and bright backgrounds

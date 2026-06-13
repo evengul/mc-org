@@ -1,4 +1,4 @@
-# MC-ORG Troubleshooting Guide
+# Seam Troubleshooting Guide
 
 **Solutions to common errors and issues**
 

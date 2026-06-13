@@ -62,7 +62,7 @@ fun draftWizardPage(
     stage: DraftWizardStage,
     supportedVersions: List<MinecraftVersion.Release>
 ): String = pageShell(
-    pageTitle = "MC-ORG — Edit Draft",
+    pageTitle = "Seam — Edit Draft",
     user = user,
     stylesheets = listOf(
         "/static/styles/components/btn.css",

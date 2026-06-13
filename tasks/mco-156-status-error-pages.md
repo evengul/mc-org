@@ -124,7 +124,7 @@ Triggered by `BannedPlugin` for any authenticated request from a user with
 `RolePlugins.kt`).
 
 - Heading: `Account Suspended`
-- Body: `Your account has been suspended from MC-ORG. If you believe this is in error,
+- Body: `Your account has been suspended from Seam. If you believe this is in error,
   contact support.`
 - **No CTA** — copy only
 - HTTP status: `403 Forbidden`, `Content-Type: text/html`

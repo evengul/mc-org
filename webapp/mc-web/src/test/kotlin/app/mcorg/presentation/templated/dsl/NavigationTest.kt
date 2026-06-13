@@ -30,7 +30,7 @@ class NavigationTest {
     fun `appHeader renders logo`() {
         val html = render { appHeader() }
         assertTrue(html.contains("app-header__logo"))
-        assertTrue(html.contains("MC-ORG"))
+        assertTrue(html.contains("Seam"))
     }
 
     @Test
@@ -94,13 +94,13 @@ class NavigationTest {
     }
 
     @Test
-    fun `mobile header shows MC-ORG when no world name`() {
+    fun `mobile header shows Seam when no world name`() {
         val html = render { appHeader() }
         assertTrue(html.contains("app-header__world-name"))
-        // The mobile section should contain MC-ORG as fallback
+        // The mobile section should contain Seam as fallback
         val mobileStart = html.indexOf("app-header__mobile")
         val mobileSection = html.substring(mobileStart)
-        assertTrue(mobileSection.contains("MC-ORG"))
+        assertTrue(mobileSection.contains("Seam"))
     }
 
     @Test

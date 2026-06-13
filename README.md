@@ -1,7 +1,9 @@
-# MC-ORG
+# Seam
+
+> **Naming:** The product is called **Seam**. The internal name `mc-org` (and derivatives `app.mcorg`, Maven module names `mc-*`, Fly app, Neon project, DB) remains unchanged and should NOT be renamed — these are infrastructure and package identifiers, not the product brand.
 
 ## Overview
-MC-ORG is a web-based application designed to manage Minecraft projects. This tool provides an intuitive interface for organizing and administrating your Minecraft-related projects.
+Seam is a web-based application designed to manage Minecraft projects. This tool provides an intuitive interface for organizing and administrating your Minecraft-related projects.
 
 ## Features
 - Web-based management interface
@@ -38,4 +40,4 @@ MC-ORG is a web-based application designed to manage Minecraft projects. This to
 This code is proprietary and confidential. Unauthorized copying, transferring, or reproduction of the contents of this repository, via any medium, is strictly prohibited.
 
 ## Contact
-Email: even@mcorg.app
+Email: even.gultvedt@gmail.com

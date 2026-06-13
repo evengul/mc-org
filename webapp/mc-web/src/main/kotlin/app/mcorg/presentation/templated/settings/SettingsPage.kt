@@ -28,7 +28,7 @@ data class SettingsPageData(
 )
 
 fun worldSettingsPage(user: TokenProfile, data: SettingsPageData): String = pageShell(
-    pageTitle = "MC-ORG — ${data.world.name} Settings",
+    pageTitle = "Seam — ${data.world.name} Settings",
     user = user,
     stylesheets = listOf(
         "/static/styles/components/form.css",

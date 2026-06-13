@@ -1,4 +1,4 @@
-# MC-ORG Architecture Reference
+# Seam Architecture Reference
 
 **Complete system architecture, technology stack, and domain model**
 
@@ -1073,7 +1073,7 @@ object ValidateAdminRoleStep : Step<Input, AppFailure.AuthError, Input> {
 
 ### Overview
 
-MC-ORG integrates with several external APIs for authentication and Minecraft-related data. All API calls use the `ApiProvider` pattern with built-in rate limiting, error handling, and testability.
+Seam integrates with several external APIs for authentication and Minecraft-related data. All API calls use the `ApiProvider` pattern with built-in rate limiting, error handling, and testability.
 
 ### Integrated APIs
 

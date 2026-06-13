@@ -27,7 +27,7 @@ fun ideaPage(
     idea: Idea,
     comments: List<Comment>,
 ): String = pageShell(
-    pageTitle = "MC-ORG — ${idea.name}",
+    pageTitle = "Seam — ${idea.name}",
     user = user,
     stylesheets = listOf(
         "/static/styles/components/btn.css",

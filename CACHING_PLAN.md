@@ -50,7 +50,7 @@ Additionally, `getUnreadNotificationsOrZero()` runs on nearly every page load (r
 | Complexity | One dependency | Connection management, serialization, another failure mode |
 | Memory | Bounded, configurable per cache | Separate memory budget |
 
-Caffeine is the right choice because MC-ORG runs as a single instance on Fly.io and the dataset is small (collaboration tool, not millions of users). If the app scales to multiple instances, a shared cache (Redis) or cache-aside with short TTLs can be revisited.
+Caffeine is the right choice because Seam runs as a single instance on Fly.io and the dataset is small (collaboration tool, not millions of users). If the app scales to multiple instances, a shared cache (Redis) or cache-aside with short TTLs can be revisited.
 
 ### Dependency
 

@@ -45,7 +45,7 @@ Replace the old `createPage()` / `TopBar` / `BreadcrumbComponent` navigation sta
 
 The `appHeader()` function renders a `<header class="app-header">` at 56px height containing:
 
-1. **Logo** — `<span class="app-header__logo">` displaying "MC-ORG" in IBM Plex Mono.
+1. **Logo** — `<span class="app-header__logo">` displaying "Seam" in IBM Plex Mono.
 2. **Breadcrumb nav** — `<nav class="breadcrumb">` with segments separated by `›` (`\u203A`) in `--text-disabled`. Prior segments are `<a class="breadcrumb__item">` links. Current segment is a `<span class="breadcrumb__item breadcrumb__item--current">` in `--text-primary`. Font: IBM Plex Mono, `--text-sm`. Separator spans use class `breadcrumb__sep`.
 3. **Actions** — right-aligned `<div class="app-header__actions">` containing:
    - "Ideas" link (`/ideas`) — always visible
@@ -69,7 +69,7 @@ The `Worlds` segment links to `/worlds`. World name links to `/worlds/:worldId/p
 
 The `appHeader()` function renders a second div `<div class="app-header__mobile">` containing:
 
-1. **World name** — `<span class="app-header__world-name">` showing the current world name (or "MC-ORG" if no world context), centered, IBM Plex Mono
+1. **World name** — `<span class="app-header__world-name">` showing the current world name (or "Seam" if no world context), centered, IBM Plex Mono
 2. **Gear** — `<a class="app-header__link">` with `⚙` (`\u2699`) and `aria-label="Settings"`, right-aligned — conditionally rendered (same rules as desktop)
 
 No hamburger button is rendered. The existing hamburger button from the MCO-130 stub must be removed. Mobile navigation for this phase relies on breadcrumb/back links and in-page contextual links.
@@ -153,7 +153,7 @@ pageShell(pageTitle = "Ideas - MC-ORG", user = user) {
 ### Empty states
 
 - When `breadcrumbBlock` is null, the `<nav class="breadcrumb">` element is not rendered.
-- When `worldName` is null, the mobile world name displays "MC-ORG".
+- When `worldName` is null, the mobile world name displays "Seam".
 
 ### Edge cases
 
@@ -200,7 +200,7 @@ pageShell(pageTitle = "Ideas - MC-ORG", user = user) {
 - [ ] Current breadcrumb segment is `<span class="breadcrumb__item breadcrumb__item--current">` in `--text-primary`
 - [ ] Prior breadcrumb segments are `<a class="breadcrumb__item">` links
 - [ ] When `breadcrumbBlock` is null, no `<nav class="breadcrumb">` rendered
-- [ ] When `worldName` is null, mobile displays "MC-ORG"
+- [ ] When `worldName` is null, mobile displays "Seam"
 - [ ] Gear links to `/profile` when `worldId` and `projectId` are both null
 - [ ] Gear links to `/worlds/:worldId/settings` when `worldId` is set and `projectId` is null
 - [ ] Gear is NOT rendered (desktop or mobile) when `projectId` is set

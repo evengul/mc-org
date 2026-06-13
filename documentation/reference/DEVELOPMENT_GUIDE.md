@@ -1,4 +1,4 @@
-# MC-ORG Development Guide
+# Seam Development Guide
 
 **Complete implementation patterns, best practices, and step-by-step guides**
 
@@ -1994,7 +1994,7 @@ object ValidateNoCyclesStep : Step<AddDependencyInput, AppFailure, AddDependency
 
 ### Overview
 
-Authentication and authorization in MC-ORG are handled **outside** of pipelines using Ktor plugins. This ensures
+Authentication and authorization in Seam are handled **outside** of pipelines using Ktor plugins. This ensures
 security checks happen before any business logic executes.
 
 ### Plugin-Based Authorization
@@ -2098,7 +2098,7 @@ suspend fun ApplicationCall.handleFeature() {
 
 ### Overview
 
-MC-ORG uses environment variables for configuration, managed through the `AppConfig` object. Configuration is loaded
+Seam uses environment variables for configuration, managed through the `AppConfig` object. Configuration is loaded
 once at application startup and validated before the server starts.
 
 ### Configuration Loading
@@ -2296,7 +2296,7 @@ flyctl secrets set RSA_PRIVATE_KEY=... RSA_PUBLIC_KEY=...
 
 ### Overview
 
-MC-ORG uses `ApiProvider` (defined in `config/ApiProvider.kt`) for making HTTP requests to external APIs. ApiProvider is
+Seam uses `ApiProvider` (defined in `config/ApiProvider.kt`) for making HTTP requests to external APIs. ApiProvider is
 a sealed class that provides type-safe, Step-based HTTP operations with built-in error handling, rate limiting, and JSON
 serialization.
 
@@ -2328,7 +2328,7 @@ object FetchMinecraftVersionsStep : Step<Unit, AppFailure.ApiError, List<Minecra
         val apiStep = FabricMcApiProvider.get<Unit, VersionsResponse>(
             url = "/versions",
             headerBuilder = { builder, _ ->
-                builder.header("User-Agent", "MC-ORG/1.0")
+                builder.header("User-Agent", "Seam/1.0")
             }
         )
 

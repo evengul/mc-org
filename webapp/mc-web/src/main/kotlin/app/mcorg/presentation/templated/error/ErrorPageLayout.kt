@@ -22,7 +22,7 @@ fun errorPageLayout(
     header("error-brand-bar") {
         a(classes = "error-brand-bar__logo") {
             href = "/"
-            +"MC-ORG"
+            +"Seam"
         }
     }
     main {

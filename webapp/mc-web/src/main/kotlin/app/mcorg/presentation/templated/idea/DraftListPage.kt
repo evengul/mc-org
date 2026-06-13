@@ -27,7 +27,7 @@ fun draftListPage(
     user: TokenProfile,
     drafts: List<IdeaDraft>
 ): String = pageShell(
-    pageTitle = "MC-ORG — My Drafts",
+    pageTitle = "Seam — My Drafts",
     user = user,
     stylesheets = listOf(
         "/static/styles/components/btn.css",

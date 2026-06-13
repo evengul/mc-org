@@ -54,7 +54,7 @@ fun projectListPage(
     edges: List<ProjectResourceEdge> = emptyList(),
     resume: ResumeHeroData? = null,
 ): String = pageShell(
-    pageTitle = "MC-ORG — ${world.name}",
+    pageTitle = "Seam — ${world.name}",
     user = user,
     stylesheets = listOf(
         "/static/styles/components/btn.css",
@@ -93,7 +93,7 @@ fun projectListPageWithPlanView(
     projects: List<ProjectPlanListItem>,
     isWorldAdmin: Boolean = false,
 ): String = pageShell(
-    pageTitle = "MC-ORG — ${world.name}",
+    pageTitle = "Seam — ${world.name}",
     user = user,
     stylesheets = listOf(
         "/static/styles/components/btn.css",

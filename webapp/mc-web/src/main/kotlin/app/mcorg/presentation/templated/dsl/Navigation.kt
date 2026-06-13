@@ -53,7 +53,7 @@ fun FlowContent.appHeader(
         div("app-header__desktop") {
             a(classes = "app-header__logo") {
                 href = "/"
-                +"MC-ORG"
+                +"Seam"
             }
 
             if (breadcrumbBlock != null) {
@@ -100,7 +100,7 @@ fun FlowContent.appHeader(
 
         div("app-header__mobile") {
             span("app-header__world-name") {
-                +(worldName ?: "MC-ORG")
+                +(worldName ?: "Seam")
             }
             if (showProfile) {
                 a(classes = "app-header__link") {

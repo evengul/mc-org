@@ -1,4 +1,4 @@
-# AI Agent Quickstart Guide for MC-ORG
+# AI Agent Quickstart Guide for Seam
 
 **Read This First** - 10 minute orientation guide
 
@@ -17,9 +17,9 @@ Before starting ANY task:
 
 ---
 
-## 🎯 What is MC-ORG?
+## 🎯 What is Seam?
 
-MC-ORG is a **Minecraft world collaboration platform** for managing building projects, tasks, and team coordination.
+Seam is a **Minecraft world collaboration platform** for managing building projects, tasks, and team coordination.
 It's a web application that helps Minecraft builders organize large-scale projects from idea to completion.
 
 **Technology**: Ktor (Kotlin) + PostgreSQL + HTMX + Server-side HTML

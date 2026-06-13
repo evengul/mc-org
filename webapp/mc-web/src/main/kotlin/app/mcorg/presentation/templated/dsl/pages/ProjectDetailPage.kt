@@ -34,7 +34,7 @@ fun projectDetailPage(
     view: String = "execute",
     isWorldAdmin: Boolean = false,
 ): String = pageShell(
-    pageTitle = "MC-ORG — ${project.name}",
+    pageTitle = "Seam — ${project.name}",
     user = user,
     stylesheets = listOf(
         "/static/styles/components/btn.css",

@@ -30,7 +30,7 @@ suspend fun ApplicationCall.handleGetSignOut() {
         .toMap()
         .map { it.key to it.value.first() }
 
-    respondHtml(pageShell(pageTitle = "MC-ORG — Error") {
+    respondHtml(pageShell(pageTitle = "Seam — Error") {
         h1 {
             + "An error occurred"
         }
