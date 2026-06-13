@@ -8,8 +8,10 @@ import app.mcorg.presentation.hxDelete
 import app.mcorg.presentation.hxGet
 import app.mcorg.presentation.hxOutOfBands
 import app.mcorg.presentation.hxPatch
+import app.mcorg.presentation.hxPost
 import app.mcorg.presentation.hxSwap
 import app.mcorg.presentation.hxTarget
+import app.mcorg.presentation.hxTargetError
 import app.mcorg.presentation.hxTrigger
 import app.mcorg.presentation.templated.dsl.BreadcrumbBuilder
 import app.mcorg.presentation.templated.dsl.addTaskInline
@@ -229,10 +231,19 @@ fun FlowContent.planViewContent(
     div("project-detail__section") {
         div("project-detail__section-header") {
             span("project-detail__section-title section-label") { +"Resources" }
-            button(classes = "btn btn--secondary btn--sm plan-add-resource-btn") {
-                id = "plan-add-resource-btn"
-                type = ButtonType.button
-                +"+ Add resource"
+            div("project-detail__section-actions") {
+                button(classes = "btn btn--ghost btn--sm") {
+                    id = "plan-upload-schematic-btn"
+                    type = ButtonType.button
+                    attributes["onclick"] =
+                        "document.getElementById('resource-schematic-modal')?.showModal()"
+                    +"Upload schematic"
+                }
+                button(classes = "btn btn--secondary btn--sm plan-add-resource-btn") {
+                    id = "plan-add-resource-btn"
+                    type = ButtonType.button
+                    +"+ Add resource"
+                }
             }
         }
 
@@ -305,28 +316,10 @@ fun FlowContent.planViewContent(
         }
 
         // Resource table (always render for HTMX swap target)
-        table("data-table plan-resource-table") {
-            id = "plan-resource-table"
-            if (filteredResources.isNotEmpty()) {
-                thead {
-                    tr {
-                        th { classes = setOf("plan-resource-table__col-status") }
-                        th { classes = setOf("plan-resource-table__col-item"); +"Item" }
-                        th { classes = setOf("plan-resource-table__col-qty"); +"Qty" }
-                        th { classes = setOf("plan-resource-table__col-source"); +"Source" }
-                        th { classes = setOf("plan-resource-table__col-action") }
-                    }
-                }
-            }
-            tbody {
-                id = "plan-resource-table-body"
-                filteredResources.forEach { item ->
-                    tr {
-                        planResourceRow(project.worldId, project.id, item)
-                    }
-                }
-            }
-        }
+        planResourceTable(project.worldId, project.id, resources)
+
+        // Schematic upload modal — replaces the project's resource list with a build's materials
+        resourceSchematicModal(project.worldId, project.id, filteredResources.size)
     }
 
     // Tasks section (collapsed)
@@ -405,6 +398,124 @@ fun TR.planResourceRow(worldId: Int, projectId: Int, item: ResourceGatheringItem
             hxTarget("#plan-row-${item.id}")
             hxSwap("outerHTML")
             +"\u00d7"
+        }
+    }
+}
+
+/**
+ * The plan-view resource table. Rendered both inline and as the HTMX swap target for
+ * the schematic-upload flow (`outerHTML` swap of `#plan-resource-table`).
+ */
+fun FlowContent.planResourceTable(worldId: Int, projectId: Int, resources: List<ResourceGatheringItem>) {
+    val filteredResources = resources.filter { it.required > 0 }
+    table("data-table plan-resource-table") {
+        id = "plan-resource-table"
+        if (filteredResources.isNotEmpty()) {
+            thead {
+                tr {
+                    th { classes = setOf("plan-resource-table__col-status") }
+                    th { classes = setOf("plan-resource-table__col-item"); +"Item" }
+                    th { classes = setOf("plan-resource-table__col-qty"); +"Qty" }
+                    th { classes = setOf("plan-resource-table__col-source"); +"Source" }
+                    th { classes = setOf("plan-resource-table__col-action") }
+                }
+            }
+        }
+        tbody {
+            id = "plan-resource-table-body"
+            filteredResources.forEach { item ->
+                tr {
+                    planResourceRow(worldId, projectId, item)
+                }
+            }
+        }
+    }
+}
+
+/** Renders the full plan-view resource table as a standalone HTML fragment (HTMX swap response). */
+fun planResourceTableFragment(worldId: Int, projectId: Int, resources: List<ResourceGatheringItem>): String =
+    createHTML().table("data-table plan-resource-table") {
+        id = "plan-resource-table"
+        val filteredResources = resources.filter { it.required > 0 }
+        if (filteredResources.isNotEmpty()) {
+            thead {
+                tr {
+                    th { classes = setOf("plan-resource-table__col-status") }
+                    th { classes = setOf("plan-resource-table__col-item"); +"Item" }
+                    th { classes = setOf("plan-resource-table__col-qty"); +"Qty" }
+                    th { classes = setOf("plan-resource-table__col-source"); +"Source" }
+                    th { classes = setOf("plan-resource-table__col-action") }
+                }
+            }
+        }
+        tbody {
+            id = "plan-resource-table-body"
+            filteredResources.forEach { item ->
+                tr {
+                    planResourceRow(worldId, projectId, item)
+                }
+            }
+        }
+    }
+
+/**
+ * Modal that uploads a Litematica file and replaces the project's resource list with the
+ * build's exact material counts. When the project already has resources it warns that
+ * the upload replaces them, since a schematic is the complete material list for a build.
+ */
+fun FlowContent.resourceSchematicModal(worldId: Int, projectId: Int, existingResourceCount: Int) {
+    dialog {
+        id = "resource-schematic-modal"
+        classes = setOf("modal-backdrop")
+        div("modal") {
+            div("modal__heading") { +"Upload schematic" }
+            div("modal__body") {
+                if (existingResourceCount > 0) {
+                    val noun = if (existingResourceCount == 1) "resource" else "resources"
+                    p("modal__warning") {
+                        +"This replaces the project's $existingResourceCount existing $noun."
+                    }
+                }
+                form {
+                    hxPost("/worlds/$worldId/projects/$projectId/resources/from-schematic")
+                    hxTarget("#plan-resource-table")
+                    hxSwap("outerHTML")
+                    hxTargetError(".form-error")
+                    attributes["hx-encoding"] = "multipart/form-data"
+                    attributes["hx-on::after-request"] =
+                        "if(event.detail.successful) { this.reset(); this.closest('dialog')?.close() }"
+
+                    label {
+                        htmlFor = "resource-schematic-file"
+                        +"Schematic file"
+                        span("required-indicator") { +"*" }
+                    }
+                    input(classes = "form-control") {
+                        id = "resource-schematic-file"
+                        type = InputType.file
+                        name = "schematicFile"
+                        accept = ".litematic"
+                        required = true
+                    }
+                    p("form-error") {
+                        id = "validation-error-schematicFile"
+                    }
+
+                    div("modal__actions") {
+                        button {
+                            classes = setOf("btn", "btn--primary")
+                            type = ButtonType.submit
+                            +"Replace resources"
+                        }
+                        button {
+                            classes = setOf("btn", "btn--ghost")
+                            type = ButtonType.button
+                            attributes["onclick"] = "this.closest('dialog')?.close()"
+                            +"Cancel"
+                        }
+                    }
+                }
+            }
         }
     }
 }

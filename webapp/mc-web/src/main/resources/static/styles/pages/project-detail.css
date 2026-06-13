@@ -63,6 +63,13 @@
     border-bottom: 1px solid var(--border);
 }
 
+.project-detail__section-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    margin-left: auto;
+}
+
 .project-detail__section-title {
     font-family: var(--font-ui);
     font-size: var(--text-xs);

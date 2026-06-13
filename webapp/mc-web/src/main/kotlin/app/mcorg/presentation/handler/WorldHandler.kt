@@ -8,6 +8,7 @@ import app.mcorg.pipeline.project.handleCreateProjectFromSchematic
 import app.mcorg.pipeline.project.handleDeleteProject
 import app.mcorg.pipeline.project.handleGetProject
 import app.mcorg.pipeline.project.handleGetDetailContent
+import app.mcorg.pipeline.project.resources.handleAddResourcesFromSchematic
 import app.mcorg.pipeline.resources.handleClearResourceSource
 import app.mcorg.pipeline.resources.handleCreateResourceGatheringItem
 import app.mcorg.pipeline.resources.handleDeleteResourceGatheringItem
@@ -133,6 +134,9 @@ class WorldHandler {
                             call.handleGetFieldLogSliceItems()
                         }
                         route("/resources") {
+                            post("/from-schematic") {
+                                call.handleAddResourcesFromSchematic()
+                            }
                             route("/gathering") {
                                 post {
                                     call.handleCreateResourceGatheringItem()
