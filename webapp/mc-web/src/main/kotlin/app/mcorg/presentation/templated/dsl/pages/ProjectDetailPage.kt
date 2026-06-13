@@ -1,7 +1,6 @@
 package app.mcorg.presentation.templated.dsl.pages
 
 import app.mcorg.domain.model.project.Project
-import app.mcorg.domain.model.project.ProjectStage
 import app.mcorg.domain.model.resources.ResourceGatheringItem
 import app.mcorg.domain.model.task.ActionTask
 import app.mcorg.domain.model.user.TokenProfile
@@ -12,7 +11,6 @@ import app.mcorg.presentation.hxPatch
 import app.mcorg.presentation.hxSwap
 import app.mcorg.presentation.hxTarget
 import app.mcorg.presentation.hxTrigger
-import app.mcorg.presentation.templated.dsl.BadgeStatus
 import app.mcorg.presentation.templated.dsl.BreadcrumbBuilder
 import app.mcorg.presentation.templated.dsl.addTaskInline
 import app.mcorg.presentation.templated.dsl.appHeader
@@ -20,8 +18,10 @@ import app.mcorg.presentation.templated.dsl.container
 import app.mcorg.presentation.templated.dsl.pageShell
 import app.mcorg.presentation.templated.dsl.progressBar
 import app.mcorg.presentation.templated.dsl.resourceRow
+import app.mcorg.presentation.templated.dsl.projectLocationField
+import app.mcorg.presentation.templated.dsl.projectNameField
+import app.mcorg.presentation.templated.dsl.projectStateField
 import app.mcorg.presentation.templated.dsl.resourceSearch
-import app.mcorg.presentation.templated.dsl.statusBadge
 import app.mcorg.presentation.templated.dsl.taskList
 import kotlinx.html.*
 import kotlinx.html.stream.createHTML
@@ -80,14 +80,10 @@ fun projectDetailPage(
             // Desktop header
             div("project-detail__header") {
                 div("project-detail__header-left") {
-                    h1("project-detail__name") { +project.name }
+                    projectNameField(project, isWorldAdmin)
                     div("project-detail__meta") {
-                        statusBadge(project.stage.toBadgeStatus())
-                        project.location?.let { loc ->
-                            span("project-detail__location") {
-                                +"X: ${loc.x}, Z: ${loc.z}"
-                            }
-                        }
+                        projectStateField(project, isWorldAdmin)
+                        projectLocationField(project, isWorldAdmin)
                     }
                     val filteredResources = resources.filter { it.required > 0 }
                     val totalRequired = filteredResources.sumOf { it.required }
@@ -410,12 +406,6 @@ fun TR.planResourceRow(worldId: Int, projectId: Int, item: ResourceGatheringItem
             +"\u00d7"
         }
     }
-}
-
-private fun ProjectStage.toBadgeStatus(): BadgeStatus = when (this) {
-    ProjectStage.IDEA, ProjectStage.DESIGN, ProjectStage.PLANNING -> BadgeStatus.NOT_STARTED
-    ProjectStage.RESOURCE_GATHERING, ProjectStage.BUILDING, ProjectStage.TESTING -> BadgeStatus.IN_PROGRESS
-    ProjectStage.COMPLETED -> BadgeStatus.DONE
 }
 
 // Fragment for detail-content endpoint response (inner content of #project-content)

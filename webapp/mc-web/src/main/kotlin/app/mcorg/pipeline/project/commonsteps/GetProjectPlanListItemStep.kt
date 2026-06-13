@@ -1,8 +1,7 @@
 package app.mcorg.pipeline.project.commonsteps
 
-import app.mcorg.domain.model.minecraft.Dimension
-import app.mcorg.domain.model.minecraft.MinecraftLocation
 import app.mcorg.domain.model.project.NamedProjectId
+import app.mcorg.pipeline.project.extractors.readNullableLocation
 import app.mcorg.domain.model.project.ProjectPlanListItem
 import app.mcorg.domain.model.project.ProjectStage
 import app.mcorg.domain.pipeline.Step
@@ -69,12 +68,7 @@ data class GetProjectPlanListItemStep(val worldId: Int) : Step<Int, AppFailure.D
                             resultSet.getArray("blocks_ids"),
                             resultSet.getArray("blocks_names")
                         ),
-                        location = MinecraftLocation(
-                            dimension = Dimension.valueOf(resultSet.getString("location_dimension")),
-                            x = resultSet.getInt("location_x"),
-                            y = resultSet.getInt("location_y"),
-                            z = resultSet.getInt("location_z")
-                        )
+                        location = resultSet.readNullableLocation()
                     )
                 } else null
             }

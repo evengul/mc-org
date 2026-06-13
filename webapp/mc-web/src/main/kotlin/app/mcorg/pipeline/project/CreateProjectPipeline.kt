@@ -129,7 +129,7 @@ data class CreateProjectStep(val worldId: Int) : Step<CreateProjectInput, AppFai
         return DatabaseSteps.update<CreateProjectInput>(
             sql = SafeSQL.insert("""
                 INSERT INTO projects (world_id, name, description, type, stage, state, location_x, location_y, location_z, location_dimension)
-                VALUES (?, ?, ?, ?, 'IDEA', 'PENDING', 0, 0, 0, 'OVERWORLD')
+                VALUES (?, ?, ?, ?, 'IDEA', 'PENDING', NULL, NULL, NULL, NULL)
                 RETURNING id
             """.trimIndent()),
             parameterSetter = { statement, (name, description, type) ->

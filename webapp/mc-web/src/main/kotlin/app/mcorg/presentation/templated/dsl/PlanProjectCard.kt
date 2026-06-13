@@ -50,8 +50,10 @@ fun FlowContent.planProjectCard(worldId: Int, project: ProjectPlanListItem) {
             }
             p("project-card__resources") { +resourceText }
 
-            p("project-card__location") {
-                +project.location.toDisplayString()
+            project.location?.let { loc ->
+                p("project-card__location") {
+                    +loc.toDisplayString()
+                }
             }
         }
 

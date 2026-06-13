@@ -159,7 +159,7 @@ private data class CreateProjectFromSchematicStep(val worldId: Int) : Step<Schem
                     val projectIdResult = DatabaseSteps.update<SchematicProject>(
                         sql = SafeSQL.insert("""
                             INSERT INTO projects (world_id, name, description, type, stage, state, location_x, location_y, location_z, location_dimension)
-                            VALUES (?, ?, '', 'BUILDING', 'RESOURCE_GATHERING', 'ACTIVE', 0, 0, 0, 'OVERWORLD')
+                            VALUES (?, ?, '', 'BUILDING', 'RESOURCE_GATHERING', 'ACTIVE', NULL, NULL, NULL, NULL)
                             RETURNING id
                         """.trimIndent()),
                         parameterSetter = { statement, project ->
