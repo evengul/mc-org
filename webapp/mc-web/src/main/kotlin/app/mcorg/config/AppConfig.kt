@@ -36,6 +36,10 @@ object AppConfig {
 
     var demoUser: String = "evegul"
 
+    // Shared secret for the TEST preview's HTTP Basic Auth gate. Required in TEST (fails closed
+    // if unset); unused in LOCAL and PRODUCTION. See PreviewGate.
+    var previewPassword: String? = null
+
     init {
         val errors = mutableListOf<String>()
         System.getenv("DB_URL")?.let { dbUrl = it } ?: errors.add("DB_URL is not set")
@@ -114,6 +118,11 @@ object AppConfig {
         System.getenv("LAUNCHER_META_BASE_URL")?.let { launcherMetaBaseUrl = it }
 
         System.getenv("DEMO_USER")?.let { demoUser = it }
+
+        System.getenv("PREVIEW_PASSWORD")?.let { previewPassword = it }
+        if (env == Test && previewPassword.isNullOrBlank()) {
+            errors.add("PREVIEW_PASSWORD is not set (required in TEST to gate the public preview)")
+        }
 
         if (errors.isNotEmpty()) {
             logger.error("Invalid configuration:\n${errors.joinToString("\n")}")

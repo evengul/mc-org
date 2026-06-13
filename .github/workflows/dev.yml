@@ -194,6 +194,7 @@ jobs:
             DB_USER=${{ env.DB_USERNAME }} \
             RSA_PUBLIC_KEY="${{ secrets.RSA_PUBLIC_KEY }}" \
             RSA_PRIVATE_KEY="${{ secrets.RSA_PRIVATE_KEY }}" \
+            PREVIEW_PASSWORD="${{ secrets.PREVIEW_PASSWORD }}" \
             --app mcorg-dev-${{ github.event.number }} --stage
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}

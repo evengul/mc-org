@@ -2,6 +2,7 @@ package app.mcorg
 
 import app.mcorg.presentation.plugins.configureHTTP
 import app.mcorg.presentation.plugins.configureMonitoring
+import app.mcorg.presentation.plugins.configurePreviewGate
 import app.mcorg.presentation.plugins.configureSessions
 import app.mcorg.presentation.plugins.configureStatusStaticRouter
 import app.mcorg.presentation.router.configureAppRouter
@@ -28,6 +29,7 @@ private fun defaultServer(module: Application.() -> Unit) =
     )
 
 private fun Application.module() {
+    configurePreviewGate()
     configureHTTP()
     configureMonitoring()
     configureAppRouter()
