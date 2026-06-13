@@ -65,7 +65,7 @@ suspend fun ApplicationCall.handleCreateProjectFromSchematic() {
     }
 }
 
-private object ReceiveSchematicStep : Step<MultiPartData, AppFailure, SchematicUpload> {
+object ReceiveSchematicStep : Step<MultiPartData, AppFailure, SchematicUpload> {
     override suspend fun process(input: MultiPartData): Result<AppFailure, SchematicUpload> {
         var content: ByteArray? = null
         var fileName: String? = null
@@ -98,7 +98,7 @@ private object ReceiveSchematicStep : Step<MultiPartData, AppFailure, SchematicU
     }
 }
 
-private object ParseSchematicStep : Step<SchematicUpload, AppFailure, Litematica> {
+object ParseSchematicStep : Step<SchematicUpload, AppFailure, Litematica> {
     override suspend fun process(input: SchematicUpload): Result<AppFailure, Litematica> {
         return when (val parsed = LitematicaReader.readLitematica(input.content)) {
             is Result.Failure -> Result.failure(
@@ -109,11 +109,14 @@ private object ParseSchematicStep : Step<SchematicUpload, AppFailure, Litematica
     }
 }
 
-private data class MapSchematicToProjectStep(
+/**
+ * Resolves a parsed [Litematica]'s materials against the world version's item catalog.
+ * Shared by the "create project from schematic" and "add resources from schematic" flows.
+ */
+data class MapSchematicToMaterialsStep(
     val availableItems: List<Item>,
-    val upload: SchematicUpload,
-) : Step<Litematica, AppFailure, SchematicProject> {
-    override suspend fun process(input: Litematica): Result<AppFailure, SchematicProject> {
+) : Step<Litematica, AppFailure, List<Pair<Item, Int>>> {
+    override suspend fun process(input: Litematica): Result<AppFailure, List<Pair<Item, Int>>> {
         if (input.items.isEmpty()) {
             return Result.failure(
                 AppFailure.customValidationError("schematicFile", "The schematic contains no materials")
@@ -121,12 +124,8 @@ private data class MapSchematicToProjectStep(
         }
 
         val byId = availableItems.associateBy { it.id }
-        val requirements = mutableMapOf<Item, Int>()
-        val unknown = mutableListOf<String>()
-
-        for ((itemId, amount) in input.items) {
-            val item = byId[itemId]
-            if (item == null) unknown.add(itemId) else requirements[item] = amount
+        val requirements = input.items.mapNotNull { (itemId, amount) ->
+            byId[itemId]?.let { it to amount }
         }
 
         if (requirements.isEmpty()) {
@@ -142,12 +141,26 @@ private data class MapSchematicToProjectStep(
             )
         }
 
+        return Result.success(requirements)
+    }
+}
+
+private data class MapSchematicToProjectStep(
+    val availableItems: List<Item>,
+    val upload: SchematicUpload,
+) : Step<Litematica, AppFailure, SchematicProject> {
+    override suspend fun process(input: Litematica): Result<AppFailure, SchematicProject> {
+        val requirements = when (val materials = MapSchematicToMaterialsStep(availableItems).process(input)) {
+            is Result.Failure -> return Result.Failure(materials.error)
+            is Result.Success -> materials.value
+        }
+
         val name = upload.providedName
             ?: input.name.takeIf { it.isNotBlank() && it != "Unnamed" }
             ?: upload.fileName?.removeSuffix(".litematic")
             ?: "Imported build"
 
-        return Result.success(SchematicProject(name.take(100), requirements))
+        return Result.success(SchematicProject(name.take(100), requirements.toMap()))
     }
 }
 
