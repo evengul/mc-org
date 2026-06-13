@@ -1,0 +1,26 @@
+/* ── SEAM spacing, layout & radius tokens ───────────────────────
+   4px grid. Always use tokens — never raw pixel values. */
+
+:root {
+  /* Spacing — 4px grid */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-8: 48px;
+
+  /* Layout */
+  --max-width: 1080px;
+  --breakpoint-mobile: 768px;
+
+  /* Radius — 6px everywhere; buttons are NEVER pill */
+  --radius: 6px;
+  --radius-sm: 4px;
+  --radius-pill: 999px;  /* reserved for the Plan/Execute toggle & badges only */
+
+  /* Elevation — paper, not glass. Shadows are warm + subtle. */
+  --shadow-card:  0 1px 2px rgba(42, 34, 24, 0.06);
+  --shadow-pop:   0 4px 16px rgba(42, 34, 24, 0.14);
+}

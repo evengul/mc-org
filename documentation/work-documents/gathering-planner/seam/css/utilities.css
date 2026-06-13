@@ -1,0 +1,74 @@
+/* ── SEAM layout & utility classes ──────────────────────────────
+   Prefer these for ad-hoc layout. Spacing always references tokens. */
+
+.container {
+  max-width: var(--max-width);
+  margin-inline: auto;
+  padding-inline: var(--space-5);
+  width: 100%;
+}
+
+.surface {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.divider { border-top: 1px solid var(--border); }
+
+/* Flex helpers */
+.flex { display: flex; }
+.flex-col { display: flex; flex-direction: column; }
+.items-center { align-items: center; }
+.items-start { align-items: flex-start; }
+.justify-between { justify-content: space-between; }
+.justify-center { justify-content: center; }
+.flex-1 { flex: 1; }
+.flex-wrap { flex-wrap: wrap; }
+
+/* Stacks (vertical) & clusters (horizontal) */
+.stack { display: flex; flex-direction: column; gap: var(--space-4); }
+.stack--xs { display: flex; flex-direction: column; gap: var(--space-2); }
+.cluster { display: flex; align-items: center; gap: var(--space-4); flex-wrap: wrap; }
+.cluster--xs { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+
+/* Gap scale */
+.gap-1 { gap: var(--space-1); }
+.gap-2 { gap: var(--space-2); }
+.gap-3 { gap: var(--space-3); }
+.gap-4 { gap: var(--space-4); }
+.gap-5 { gap: var(--space-5); }
+
+/* Width */
+.w-full { width: 100%; }
+
+/* Margin / padding */
+.mt-4 { margin-top: var(--space-4); }
+.mt-5 { margin-top: var(--space-5); }
+.mb-4 { margin-bottom: var(--space-4); }
+.mb-5 { margin-bottom: var(--space-5); }
+.p-4 { padding: var(--space-4); }
+.p-5 { padding: var(--space-5); }
+
+.is-hidden { display: none !important; }
+
+/* Responsive auto-fill card grid */
+.mc-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: var(--space-4);
+}
+
+/* ─── Field-notebook graph-paper texture ───
+   The signature SEAM background motif — faint sepia rules on paper.
+   Apply to large surfaces (app shell, empty states, hero panels). */
+.graph-paper {
+  background-color: var(--bg-base);
+  background-image:
+    linear-gradient(to right,  rgba(122, 107, 71, 0.10) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(122, 107, 71, 0.10) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+.graph-paper--fine {
+  background-size: 12px 12px;
+}
