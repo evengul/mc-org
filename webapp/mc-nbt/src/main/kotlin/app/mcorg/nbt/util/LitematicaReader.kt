@@ -32,6 +32,10 @@ object LitematicaReader {
         const val COUNT = "Count"
     }
 
+    // Air is empty space, not a material — it pads every schematic's palette and
+    // must never surface as a required block in the extracted material list.
+    private val AIR_BLOCKS = setOf("minecraft:air", "minecraft:cave_air", "minecraft:void_air")
+
     fun readLitematica(stream: InputStream): Result<NBTFailure, Litematica> {
         val content = stream.readBytes()
         return readLitematica(content)
@@ -181,7 +185,7 @@ object LitematicaReader {
 
         val blockCounts = mutableMapOf<String, Int>()
         counts.forEachIndexed { index, count ->
-            if (count > 0) {
+            if (count > 0 && palette[index] !in AIR_BLOCKS) {
                 blockCounts[palette[index]] = blockCounts.getOrDefault(palette[index], 0) + count
             }
         }

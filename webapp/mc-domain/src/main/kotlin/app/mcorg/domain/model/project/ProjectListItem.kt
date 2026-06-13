@@ -4,9 +4,11 @@ data class ProjectListItem(
     val id: Int,
     val name: String,
     val stage: ProjectStage,
+    val state: ProjectState,
     val tasksTotal: Int,
     val tasksDone: Int,
     val resourcesRequired: Int,
     val resourcesGathered: Int,
+    val itemCount: Int,
     val nextTaskName: String?
 )

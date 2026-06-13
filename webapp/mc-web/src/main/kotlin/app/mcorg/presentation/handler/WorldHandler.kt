@@ -4,6 +4,7 @@ import app.mcorg.pipeline.invitation.commonsteps.GetUserInvitationsStep
 import app.mcorg.pipeline.minecraftfiles.GetSupportedVersionsStep
 import app.mcorg.pipeline.project.viewpreference.handleSetViewPreference
 import app.mcorg.pipeline.project.handleCreateProject
+import app.mcorg.pipeline.project.handleCreateProjectFromSchematic
 import app.mcorg.pipeline.project.handleDeleteProject
 import app.mcorg.pipeline.project.handleGetProject
 import app.mcorg.pipeline.project.handleGetDetailContent
@@ -20,6 +21,10 @@ import app.mcorg.pipeline.task.handleCreateActionTask
 import app.mcorg.pipeline.task.handleDeleteActionTask
 import app.mcorg.pipeline.project.handleGetProjectList
 import app.mcorg.pipeline.project.handleGetProjectListFragment
+import app.mcorg.pipeline.project.handleGetFieldLogRow
+import app.mcorg.pipeline.project.handleGetFieldLogSliceItems
+import app.mcorg.pipeline.project.handleGetResumeRows
+import app.mcorg.pipeline.project.handleUpdateProjectState
 import app.mcorg.pipeline.world.handleCreateWorld
 import app.mcorg.pipeline.world.handleDeleteWorld
 import app.mcorg.pipeline.world.handleSearchWorlds
@@ -84,8 +89,14 @@ class WorldHandler {
                     get("/list-fragment") {
                         call.handleGetProjectListFragment()
                     }
+                    get("/resume-rows") {
+                        call.handleGetResumeRows()
+                    }
                     post {
                         call.handleCreateProject()
+                    }
+                    post("/from-schematic") {
+                        call.handleCreateProjectFromSchematic()
                     }
                     route("/{projectId}") {
                         install(ProjectParamPlugin)
@@ -97,6 +108,15 @@ class WorldHandler {
                         }
                         delete {
                             call.handleDeleteProject()
+                        }
+                        patch("/state") {
+                            call.handleUpdateProjectState()
+                        }
+                        get("/field-log-row") {
+                            call.handleGetFieldLogRow()
+                        }
+                        get("/field-log-slice-items") {
+                            call.handleGetFieldLogSliceItems()
                         }
                         route("/resources") {
                             route("/gathering") {

@@ -11,7 +11,7 @@
 
 set -euo pipefail
 
-NEON_PROJECT_ID="morning-fog-11467472"
+NEON_PROJECT_ID="sweet-dust-00910797"
 
 # Run git commands from the directory the script physically lives in (the main
 # checkout), so prune works even when the just-removed worktree was the cwd.

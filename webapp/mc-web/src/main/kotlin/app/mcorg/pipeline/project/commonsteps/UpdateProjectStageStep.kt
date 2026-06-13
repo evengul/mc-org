@@ -12,12 +12,17 @@ data class UpdateProjectStageStep(val projectId: Int) : Step<ProjectStage, AppFa
         return DatabaseSteps.update<ProjectStage>(
             sql = SafeSQL.update("""
                 UPDATE projects
-                SET stage = ?, updated_at = NOW()
+                SET stage = ?,
+                    state = CASE WHEN ? = 'COMPLETED' THEN 'DONE' ELSE state END,
+                    completed_at = CASE WHEN ? = 'COMPLETED' THEN NOW() ELSE completed_at END,
+                    updated_at = NOW()
                 WHERE id = ?
             """),
             parameterSetter = { statement, stage ->
                 statement.setString(1, stage.name)
-                statement.setInt(2, projectId)
+                statement.setString(2, stage.name)
+                statement.setString(3, stage.name)
+                statement.setInt(4, projectId)
             }
         ).process(input).map { input }
     }

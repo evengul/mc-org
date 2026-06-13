@@ -39,19 +39,76 @@ Multi-module Maven build under `webapp/`. Dependency flow: `mc-domain` and `mc-p
 
 ```bash
 mvn clean compile                   # Compile (must pass with zero errors)
-mvn test                            # Run all tests
+./webapp/scripts/test.sh            # Run tests — see "Running Tests" below (NOT bare `mvn test`)
 sudo service docker start           # Start Docker if not running (passwordless)
 ./webapp/scripts/start-db.sh        # Start the database
 ./webapp/scripts/migrate-locally.sh # Apply database migrations
 ./webapp/scripts/run.sh             # Start development server
+./webapp/scripts/ingest-locally.sh  # Ingest Minecraft data into the local/worktree DB
 ```
 
 Module-scoped builds:
 
 ```bash
 cd webapp && mvn compile -pl mc-engine   # Single module
-cd webapp && mvn test -pl mc-web         # Single module tests
 ```
+
+### Running Tests
+
+**Use `webapp/scripts/test.sh`. Do NOT reach for bare `mvn test`** — it runs the unit
+tier only. The mc-web database/integration tests carry the JUnit 5 tag `database`, and
+`pom.xml` sets `<surefire.excludedGroups>database</surefire.excludedGroups>`, so a plain
+`mvn test` (or `mvn test -Dtest=SomeIT`) **silently skips every `*IT` test and reports 0
+matches** — the name filter never overrides the excluded group. `test.sh` is the single
+entry point that knows how to run each tier:
+
+```bash
+./webapp/scripts/test.sh                       # Unit tests only (no Docker) — the default
+./webapp/scripts/test.sh --database            # + database-tagged tests (mc-web ITs; needs Docker)
+./webapp/scripts/test.sh --integration         # + failsafe integration tests (needs Docker + app running)
+./webapp/scripts/test.sh --database --exclude-unit-tests   # database tier only
+
+# Everything after a literal `--` is forwarded verbatim to the underlying `mvn` runs.
+# Narrow to one class (note the -pl, since passthrough targets the reactor):
+./webapp/scripts/test.sh --database -- -pl mc-web -Dtest=GetProjectListIT -Dsurefire.failIfNoSpecifiedTests=false
+```
+
+What each flag maps to (run these by hand only if you must bypass the script):
+
+| Tier        | test.sh flag    | Equivalent maven invocation                                                      |
+|-------------|-----------------|----------------------------------------------------------------------------------|
+| Unit        | *(default)*     | `mvn test`                                                                        |
+| Database    | `--database`    | `mvn test -pl mc-web -Dsurefire.excludedGroups= -Dgroups=database`                |
+| Integration | `--integration` | `mvn failsafe:integration-test failsafe:verify -pl mc-web`                        |
+
+This mirrors CI (`.github/workflows/dev.yml`): the `unit-tests` job runs the default
+tier; the `integration-tests` job runs `-Dgroups=database`.
+
+Notes:
+- `test.sh` invokes the ambient `mvn`, so the JDK-25 `JAVA_HOME` prefix from the build
+  environment still applies: `JAVA_HOME=~/.jdks/jdk-25.0.3+9 ./webapp/scripts/test.sh ...`.
+- It auto-generates JWT signing keys (`mc-web/create-keys.sh`) on first run if missing.
+- `--integration` (failsafe) expects a running server; the `--database` tier is
+  self-contained (Testcontainers spins up its own PostgreSQL).
+
+## Minecraft Data Ingestion
+
+The app's Minecraft data (items, recipes, loot tables, tags, villager trades) is
+extracted from Mojang server JARs by `mc-data` and stored in the DB. In production a
+daily Fly machine (`webapp/scripts/ingest-machine.sh`) runs the CLI entry point
+`app.mcorg.cli.IngestServerFilesKt`, which executes `GetServerFilesPipeline` once and
+exits — no Ktor server.
+
+To run the same ingestion **locally** against your local/worktree DB:
+
+```bash
+./webapp/scripts/ingest-locally.sh   # sources local.env, compiles, runs the ingest CLI
+```
+
+It is ledger-driven and idempotent (`minecraft_version_ingestion` table + server-JAR
+SHA check, guarded by a pg advisory lock): only new or changed versions are downloaded
+and stored, so re-runs are cheap. Note a worktree's Neon branch is forked from `master`
+and already carries production's ingested data, so a local run often mostly no-ops.
 
 ## CI / PR Previews
 
@@ -89,7 +146,7 @@ Each git worktree gets its **own** database so migrations and data never collide
 with the main checkout or sibling worktrees. This mirrors what CI already does
 per pull request (`.github/workflows/dev.yml` forks `dev/pr-<N>` Neon branches for
 `preview`-labelled PRs — see [CI / PR Previews](#ci--pr-previews)) — only locally, per
-worktree, using the same Neon project (`morning-fog-11467472`).
+worktree, using the same Neon project (`sweet-dust-00910797`).
 
 **Workflow:**
 
@@ -192,7 +249,9 @@ extraction steps are the intellectual core of the product. Rules for touching th
 **Always:**
 
 - Run `mvn clean compile` before considering any task complete
-- Run `mvn test` and ensure all tests pass before committing
+- Run `./webapp/scripts/test.sh` (add `--database` when the change touches mc-web routes,
+  handlers, or DB access) and ensure all tests pass before committing — bare `mvn test`
+  skips the `database`-tagged ITs (see [Running Tests](#running-tests))
 - Write tests for new functionality (see Test Expectations below)
 - Load the relevant skill before starting a task (see Skills table)
 
@@ -209,7 +268,8 @@ Tests are not optional. Minimum expectations per task type:
 | Template-only change | Compile passes, existing tests still pass — no new tests required |
 
 Integration tests in `mc-web` use Testcontainers PostgreSQL. Use `WithUser` for auth context and `TestDataFactory` for
-fixtures. The `docs-testing` skill is auto-loaded when writing or running tests.
+fixtures. They are tagged `database` and run via `./webapp/scripts/test.sh --database` — bare `mvn test` skips them (see
+[Running Tests](#running-tests)). The `docs-testing` skill is auto-loaded when writing or running tests.
 
 ## Skills
 
@@ -267,7 +327,7 @@ request clearly maps to the action).
 ## Before Committing
 
 - [ ] `mvn clean compile` passes with zero errors
-- [ ] `mvn test` passes with all tests
+- [ ] `./webapp/scripts/test.sh` passes (with `--database` if mc-web routes/handlers/DB changed) — not bare `mvn test`
 - [ ] Tests written for new functionality (see Test Expectations)
 - [ ] No inline styles — use CSS classes
 - [ ] Authorization in plugins, not pipelines

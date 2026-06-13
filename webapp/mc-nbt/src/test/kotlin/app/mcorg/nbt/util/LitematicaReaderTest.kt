@@ -65,6 +65,17 @@ class LitematicaReaderTest {
     }
 
     @Test
+    fun `excludes air blocks from the material list`() {
+        // The 8x8x2 region is mostly empty cells; air must never be a material.
+        val litematica = TestUtils.assertResultSuccess(LitematicaReader.readLitematica(getFileAsStream()))
+
+        assertEquals(null, litematica.items["minecraft:air"])
+        assertEquals(null, litematica.items["minecraft:cave_air"])
+        assertEquals(null, litematica.items["minecraft:void_air"])
+        assertTrue(litematica.items.isNotEmpty())
+    }
+
+    @Test
     fun `10x Shulker loader`() {
         val lit = TestUtils.assertResultSuccess(
             LitematicaReader.readLitematica(getFileAsStream("litematica/10x Shulker loader.litematic"))

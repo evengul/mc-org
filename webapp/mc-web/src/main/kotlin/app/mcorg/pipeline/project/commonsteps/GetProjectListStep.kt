@@ -2,6 +2,7 @@ package app.mcorg.pipeline.project.commonsteps
 
 import app.mcorg.domain.model.project.ProjectListItem
 import app.mcorg.domain.model.project.ProjectStage
+import app.mcorg.domain.model.project.ProjectState
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.Result
@@ -16,10 +17,12 @@ data class GetProjectListStep(val worldId: Int) : Step<Unit, AppFailure.Database
                   p.id,
                   p.name,
                   p.stage,
+                  p.state,
                   COUNT(DISTINCT t.id) FILTER (WHERE t.completed = false) AS tasks_remaining,
                   COUNT(DISTINCT t.id)                                      AS tasks_total,
                   COALESCE(SUM(rg.required), 0)                            AS resources_required,
                   COALESCE(SUM(rg.collected), 0)                           AS resources_gathered,
+                  COUNT(DISTINCT rg.id)                                    AS item_count,
                   (
                     SELECT t2.name FROM action_task t2
                     WHERE t2.project_id = p.id AND t2.completed = false
@@ -54,10 +57,12 @@ data class GetProjectListStep(val worldId: Int) : Step<Unit, AppFailure.Database
                                 id = resultSet.getInt("id"),
                                 name = resultSet.getString("name"),
                                 stage = ProjectStage.valueOf(resultSet.getString("stage")),
+                                state = ProjectState.valueOf(resultSet.getString("state")),
                                 tasksTotal = resultSet.getInt("tasks_total"),
                                 tasksDone = resultSet.getInt("tasks_total") - resultSet.getInt("tasks_remaining"),
                                 resourcesRequired = resultSet.getInt("resources_required"),
                                 resourcesGathered = resultSet.getInt("resources_gathered"),
+                                itemCount = resultSet.getInt("item_count"),
                                 nextTaskName = resultSet.getString("next_task_name")
                             )
                         )

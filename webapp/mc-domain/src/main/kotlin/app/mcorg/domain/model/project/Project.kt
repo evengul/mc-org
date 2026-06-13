@@ -10,6 +10,7 @@ data class Project(
     val description: String,
     val type: ProjectType,
     val stage: ProjectStage,
+    val state: ProjectState,
     val location: MinecraftLocation?,
     val tasksTotal: Int,
     val tasksCompleted: Int,

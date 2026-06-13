@@ -57,6 +57,7 @@ suspend fun <E : AppFailure> ApplicationCall.defaultHandleError(error: E) {
                     id = "not-authorized-error",
                     title = "Not Authorized",
                     message = "You do not have permission to perform this action.",
+                    statusCode = HttpStatusCode.Forbidden
                 )
             )
             is AppFailure.AuthError.CouldNotCreateToken -> handleErrorMessage(

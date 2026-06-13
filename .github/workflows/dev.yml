@@ -133,7 +133,7 @@ jobs:
         uses: neondatabase/create-branch-action@v6.4.0
         id: create-neon-branch
         with:
-          project_id: morning-fog-11467472
+          project_id: ${{ vars.NEON_PROJECT_ID }}
           database: mcorg
           branch_name: dev/pr-${{ github.event.number }}
           role: ${{ env.DB_USERNAME }}
