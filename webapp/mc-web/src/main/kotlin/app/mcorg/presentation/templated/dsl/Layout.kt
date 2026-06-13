@@ -21,7 +21,18 @@ fun pageShell(
                 name = "viewport"
                 content = "width=device-width, initial-scale=1"
             }
+            // The app is behind auth and not a marketing surface — keep it out
+            // of search indexes so seam.gg stays the canonical result.
+            meta {
+                name = "robots"
+                content = "noindex"
+            }
             title { +pageTitle }
+            link {
+                rel = "icon"
+                type = "image/svg+xml"
+                href = "/static/seam-favicon.svg"
+            }
             link {
                 rel = "stylesheet"
                 href = "/static/styles/reset.css"
