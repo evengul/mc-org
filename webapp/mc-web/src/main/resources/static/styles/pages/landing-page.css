@@ -74,10 +74,10 @@
     height: 41px;
     min-width: 215px;
     padding: 0 12px;
-    background: #2F2F2F;
-    border: none;
+    background: #FFFFFF;
+    border: 1px solid #8C8C8C;
     border-radius: 0;
-    color: #FFFFFF;
+    color: #5E5E5E;
     font-family: "Segoe UI", "Segoe UI Web (West European)", -apple-system, "Helvetica Neue", Arial, sans-serif;
     font-size: 15px;
     font-weight: 600;
@@ -88,8 +88,8 @@
 
 .btn-microsoft:hover,
 .btn-microsoft:focus-visible {
-    background: #1F1F1F;
-    color: #FFFFFF;
+    background: #F3F3F3;
+    color: #5E5E5E;
     text-decoration: none;
 }
 

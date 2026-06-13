@@ -29,6 +29,7 @@ import kotlinx.html.stream.createHTML
 fun projectDetailPage(
     user: TokenProfile,
     project: Project,
+    worldName: String,
     resources: List<ResourceGatheringItem>,
     tasks: List<ActionTask>,
     view: String = "execute",
@@ -62,7 +63,7 @@ fun projectDetailPage(
         isWorldAdmin = isWorldAdmin,
         breadcrumbBlock = {
             link("Worlds", "/worlds")
-                .link(project.name, "/worlds/${project.worldId}/projects")
+                .link(worldName, "/worlds/${project.worldId}/projects")
                 .current(project.name)
         }
     )

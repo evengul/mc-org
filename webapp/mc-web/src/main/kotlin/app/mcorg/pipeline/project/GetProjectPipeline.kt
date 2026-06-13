@@ -14,6 +14,7 @@ import app.mcorg.presentation.templated.dsl.pages.projectDetailPage
 import app.mcorg.presentation.utils.getProjectId
 import app.mcorg.presentation.utils.getUser
 import app.mcorg.presentation.utils.getWorldId
+import app.mcorg.presentation.utils.getWorldName
 import app.mcorg.presentation.utils.respondBadRequest
 import app.mcorg.presentation.utils.respondHtml
 import io.ktor.server.application.ApplicationCall
@@ -46,5 +47,7 @@ suspend fun ApplicationCall.handleGetProject() {
 
     val isAdmin = ValidateWorldMemberRole<Unit>(user, Role.ADMIN, worldId).process(Unit) is Result.Success
 
-    respondHtml(projectDetailPage(user, project, resources, tasks, view, isWorldAdmin = isAdmin))
+    val worldName = getWorldName(worldId)
+
+    respondHtml(projectDetailPage(user, project, worldName, resources, tasks, view, isWorldAdmin = isAdmin))
 }

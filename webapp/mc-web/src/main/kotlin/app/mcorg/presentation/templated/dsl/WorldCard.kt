@@ -28,6 +28,7 @@ fun FlowContent.worldCard(world: World) {
                 div("world-card__progress-fill${if (complete) " world-card__progress-fill--complete" else ""}") {
                     attributes["style"] = "width: ${progressPercent}%"
                     attributes["role"] = "progressbar"
+                    attributes["aria-label"] = "Projects completed in ${world.name}"
                     attributes["aria-valuenow"] = world.completedProjects.toString()
                     attributes["aria-valuemin"] = "0"
                     attributes["aria-valuemax"] = world.totalProjects.toString()
