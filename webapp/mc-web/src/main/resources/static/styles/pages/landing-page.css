@@ -1,6 +1,8 @@
 /* ==========================================================================
    LANDING PAGE
-   Unauthenticated marketing surface — brand bar + hero + feature cards
+   Unauthenticated sign-in surface — brand bar + hero + sign-in CTA. The
+   product pitch lives on the marketing site (seam.gg); this page only gets
+   people into the app, with a "learn more" link back to seam.gg.
    ========================================================================== */
 
 .landing-brand-bar {
@@ -61,6 +63,13 @@
     margin-top: var(--space-2);
 }
 
+.landing-hero__learn-more {
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    color: var(--text-muted);
+    margin: 0;
+}
+
 /*
    Microsoft "Sign in with Microsoft" button — branded per Microsoft's identity
    platform guidelines. Colors, typography, and dimensions are dictated by
@@ -104,47 +113,8 @@
     flex-shrink: 0;
 }
 
-.landing-features {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: var(--space-4);
-    list-style: none;
-    padding: 0;
-    margin: 0;
-}
-
-.landing-feature {
-    background: var(--bg-surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: var(--space-5);
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-2);
-}
-
-.landing-feature__title {
-    font-family: var(--font-ui);
-    font-size: var(--text-base);
-    font-weight: 600;
-    color: var(--text-primary);
-    margin: 0;
-}
-
-.landing-feature__body {
-    font-family: var(--font-body);
-    font-size: var(--text-sm);
-    color: var(--text-muted);
-    margin: 0;
-    line-height: 1.5;
-}
-
 @media (max-width: 768px) {
     .landing-hero__title {
         font-size: 24px;
-    }
-
-    .landing-features {
-        grid-template-columns: 1fr;
     }
 }
