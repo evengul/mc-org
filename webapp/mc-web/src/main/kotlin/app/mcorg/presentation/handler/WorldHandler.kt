@@ -25,6 +25,12 @@ import app.mcorg.pipeline.project.handleGetFieldLogRow
 import app.mcorg.pipeline.project.handleGetFieldLogSliceItems
 import app.mcorg.pipeline.project.handleGetResumeRows
 import app.mcorg.pipeline.project.handleUpdateProjectState
+import app.mcorg.pipeline.project.handleGetProjectNameField
+import app.mcorg.pipeline.project.handleUpdateProjectName
+import app.mcorg.pipeline.project.handleGetProjectStateField
+import app.mcorg.pipeline.project.handleUpdateProjectStateInline
+import app.mcorg.pipeline.project.handleGetProjectLocationField
+import app.mcorg.pipeline.project.handleUpdateProjectLocation
 import app.mcorg.pipeline.world.handleCreateWorld
 import app.mcorg.pipeline.world.handleDeleteWorld
 import app.mcorg.pipeline.world.handleSearchWorlds
@@ -111,6 +117,14 @@ class WorldHandler {
                         }
                         patch("/state") {
                             call.handleUpdateProjectState()
+                        }
+                        route("/meta") {
+                            get("/name") { call.handleGetProjectNameField() }
+                            patch("/name") { call.handleUpdateProjectName() }
+                            get("/state") { call.handleGetProjectStateField() }
+                            patch("/state") { call.handleUpdateProjectStateInline() }
+                            get("/location") { call.handleGetProjectLocationField() }
+                            patch("/location") { call.handleUpdateProjectLocation() }
                         }
                         get("/field-log-row") {
                             call.handleGetFieldLogRow()

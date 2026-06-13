@@ -15,6 +15,21 @@ fun ResultSet.toProjects() = buildList {
     }
 }
 
+/**
+ * Reads the project location columns as an optional [MinecraftLocation].
+ * The four `location_*` columns are written together (all set or all null),
+ * so a null `location_dimension` means the project has no location yet.
+ */
+fun ResultSet.readNullableLocation(): MinecraftLocation? {
+    val dimension = getString("location_dimension") ?: return null
+    return MinecraftLocation(
+        dimension = Dimension.valueOf(dimension),
+        x = getInt("location_x"),
+        y = getInt("location_y"),
+        z = getInt("location_z")
+    )
+}
+
 fun ResultSet.toProject() = Project(
     id = getInt("id"),
     worldId = getInt("world_id"),
@@ -23,12 +38,7 @@ fun ResultSet.toProject() = Project(
     type = ProjectType.valueOf(getString("type")),
     stage = ProjectStage.valueOf(getString("stage")),
     state = ProjectState.valueOf(getString("state")),
-    location = MinecraftLocation(
-        dimension = Dimension.valueOf(getString("location_dimension")),
-        x = getInt("location_x"),
-        y = getInt("location_y"),
-        z = getInt("location_z")
-    ),
+    location = readNullableLocation(),
     tasksTotal = getInt("tasks_total"),
     tasksCompleted = getInt("tasks_completed"),
     importedFromIdea = run {

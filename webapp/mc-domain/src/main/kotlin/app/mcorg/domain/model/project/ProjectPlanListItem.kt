@@ -9,7 +9,7 @@ data class ProjectPlanListItem(
     val resourceDefinitionCount: Int,
     val blockedByProjects: List<NamedProjectId>,
     val blocksProjects: List<NamedProjectId>,
-    val location: MinecraftLocation
+    val location: MinecraftLocation?
 ) {
     val blockedByCount: Int get() = blockedByProjects.size
     val blocksCount: Int get() = blocksProjects.size

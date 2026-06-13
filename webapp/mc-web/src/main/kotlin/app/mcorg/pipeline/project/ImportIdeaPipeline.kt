@@ -238,7 +238,7 @@ private data class CreateProjectFromIdeaStep(val worldId: Int, val taskId: Int?)
                     val projectIdResult = DatabaseSteps.update<IdeaForImport>(
                         sql = SafeSQL.insert("""
                             INSERT INTO projects (world_id, name, description, type, stage, state, location_x, location_y, location_z, location_dimension, project_idea_id)
-                            VALUES (?, ?, ?, ?, 'RESOURCE_GATHERING', 'ACTIVE', 0, 0, 0, 'OVERWORLD', ?)
+                            VALUES (?, ?, ?, ?, 'RESOURCE_GATHERING', 'ACTIVE', NULL, NULL, NULL, NULL, ?)
                             RETURNING id
                         """.trimIndent()),
                         parameterSetter = { statement, idea ->

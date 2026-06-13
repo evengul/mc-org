@@ -420,3 +420,54 @@
         display: none;
     }
 }
+
+/* Inline meta editors (name / state / location) */
+.project-meta-field {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.project-meta-field--name {
+    gap: var(--space-3);
+}
+
+.project-detail__location--unset {
+    font-style: italic;
+    color: var(--text-disabled);
+}
+
+.project-meta-edit {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    flex-wrap: wrap;
+}
+
+.project-meta-edit__input,
+.project-meta-edit__select {
+    padding: var(--space-1) var(--space-2);
+    background: var(--bg-raised);
+    border: 1px solid var(--accent);
+    border-radius: var(--radius);
+    color: var(--text-primary);
+    font-size: var(--text-sm);
+    font-family: var(--font-body);
+}
+
+.project-meta-edit__input--name {
+    font-family: var(--font-ui);
+    font-size: 20px;
+    font-weight: 600;
+    min-width: 16rem;
+}
+
+.project-meta-edit__input--coord {
+    width: 5rem;
+}
+
+.project-meta-edit__actions {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+}
