@@ -36,7 +36,7 @@ fun worldListPage(
     supportedVersions: List<MinecraftVersion.Release>,
     pendingInvitations: List<Invite> = emptyList()
 ): String = pageShell(
-    pageTitle = "MC-ORG — Worlds",
+    pageTitle = "Seam — Worlds",
     user = user,
     stylesheets = listOf(
         "/static/styles/components/common.css",

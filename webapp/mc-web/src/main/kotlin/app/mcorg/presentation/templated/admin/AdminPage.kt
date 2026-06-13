@@ -69,7 +69,7 @@ fun adminPage(
     totalUserCount: Int,
     totalWorldCount: Int,
 ): String = pageShell(
-    pageTitle = "MC-ORG — Admin",
+    pageTitle = "Seam — Admin",
     user = currentUser,
     stylesheets = listOf(
         "/static/styles/pages/admin-page.css",

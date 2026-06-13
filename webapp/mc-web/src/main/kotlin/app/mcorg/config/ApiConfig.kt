@@ -38,7 +38,7 @@ sealed class ApiConfig(
 }
 
 object ModrinthApiConfig : ApiConfig(AppConfig.modrinthBaseUrl) {
-    override fun getUserAgent() = "evegul/mcorg/main (even@mcorg.com)"
+    override fun getUserAgent() = "evegul/seam/main (even.gultvedt@gmail.com)"
 
     override fun getContentType() = ContentType.Application.FormUrlEncoded
 
@@ -79,5 +79,5 @@ object MojangLauncherMetaApiConfig : ApiConfig(AppConfig.launcherMetaBaseUrl) {
 class TestApiConfig : ApiConfig("https://api.example.com") {
     override fun getContentType(): ContentType = ContentType.Application.Json
     override fun acceptContentType(): ContentType = ContentType.Application.Json
-    override fun getUserAgent(): String = "MC-ORG-Test/1.0"
+    override fun getUserAgent(): String = "Seam-Test/1.0"
 }

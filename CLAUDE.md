@@ -1,4 +1,6 @@
-# MC-ORG Project Context
+# Seam Project Context
+
+> **Naming:** The product is called **Seam**. The internal name `mc-org` (and derivatives `app.mcorg`, Maven module names `mc-*`, Fly app, Neon project, DB) remains unchanged and should NOT be renamed — these are infrastructure and package identifiers, not the product brand.
 
 Minecraft resource planning tool — players define projects (builds, farms, contraptions),
 the app resolves their resource dependencies by traversing a graph built from Minecraft's crafting and loot data,

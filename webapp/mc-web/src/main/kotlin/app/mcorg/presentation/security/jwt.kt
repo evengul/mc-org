@@ -12,7 +12,7 @@ const val EIGHT_HOURS = 8 * 60 * 60 * 1000
 
 class JwtHelper {
     companion object {
-        const val AUDIENCE = "mcorg-webapp"
+        const val AUDIENCE = "seam-webapp"
     }
 }
 

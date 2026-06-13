@@ -4,6 +4,7 @@ import app.mcorg.domain.model.user.TokenProfile
 import app.mcorg.pipeline.Result
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.failure.AppFailure
+import app.mcorg.presentation.consts.ISSUER
 import app.mcorg.presentation.security.EIGHT_HOURS
 import app.mcorg.presentation.security.JwtHelper
 import app.mcorg.presentation.security.getKeys
@@ -20,7 +21,7 @@ data object CreateTokenStep : Step<TokenProfile, AppFailure.AuthError.CouldNotCr
         try {
             val builder = JWT.create()
                 .withAudience(JwtHelper.AUDIENCE)
-                .withIssuer("mcorg")
+                .withIssuer(ISSUER)
                 .withClaim("sub", input.id)
                 .withClaim("minecraft_username", input.minecraftUsername)
                 .withClaim("minecraft_uuid", input.uuid)

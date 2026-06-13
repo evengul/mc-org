@@ -16,7 +16,7 @@ import kotlinx.html.div
 import kotlinx.html.main
 
 fun profilePage(user: TokenProfile): String = pageShell(
-    pageTitle = "MC-ORG — Profile",
+    pageTitle = "Seam — Profile",
     user = user,
     stylesheets = listOf(
         "/static/styles/components/danger-zone.css",

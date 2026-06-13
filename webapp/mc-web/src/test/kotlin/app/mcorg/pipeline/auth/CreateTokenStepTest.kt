@@ -3,6 +3,7 @@ package app.mcorg.pipeline.auth
 import app.mcorg.pipeline.auth.commonsteps.CreateTokenStep
 import app.mcorg.test.fixtures.TestDataFactory
 import app.mcorg.pipeline.TestUtils
+import app.mcorg.presentation.consts.ISSUER
 import app.mcorg.presentation.security.JwtHelper
 import com.auth0.jwt.JWT
 import org.junit.jupiter.api.Test
@@ -36,7 +37,7 @@ class CreateTokenStepTest {
 
         // Verify JWT structure
         val decodedJWT = JWT.decode(result)
-        assertEquals("mcorg", decodedJWT.issuer)
+        assertEquals(ISSUER, decodedJWT.issuer)
         assertEquals(JwtHelper.AUDIENCE, decodedJWT.audience.first())
         assertEquals(123, decodedJWT.getClaim("sub").asInt())
         assertEquals("TestPlayer", decodedJWT.getClaim("minecraft_username").asString())
