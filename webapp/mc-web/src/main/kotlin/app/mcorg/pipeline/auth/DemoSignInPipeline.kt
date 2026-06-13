@@ -1,6 +1,7 @@
 package app.mcorg.pipeline.auth
 
 import app.mcorg.config.AppConfig
+import app.mcorg.domain.Env
 import app.mcorg.domain.Production
 import app.mcorg.domain.model.user.MinecraftProfile
 import app.mcorg.domain.pipeline.pipeline
@@ -14,14 +15,25 @@ import io.ktor.server.application.*
 import io.ktor.server.response.*
 import kotlin.random.Random
 
-suspend fun ApplicationCall.handleDemoSignIn() {
-    val demoUsername = if (AppConfig.env == Production) {
-        AppConfig.demoUser
-    } else when(val requestedUsername = request.queryParameters["username"]?.trim()) {
-        null, "" -> AppConfig.demoUser
-        "random" -> "DemoUser_${Random.nextInt(1000, 9999)}"
-        else -> requestedUsername
+// Fixed roster of demo identities selectable via ?username= in non-production environments.
+// A closed allowlist keeps the caller from steering the UUID lookup (uuid = "$username-uuid")
+// onto an arbitrary — or future privileged — existing account. Unknown values fall back to
+// the default demo user rather than being honoured.
+internal val TEST_DEMO_USERNAMES = setOf("alex", "steve", "lilpebblez")
+
+internal fun resolveDemoUsername(env: Env, requested: String?, defaultUser: String): String {
+    val name = requested?.trim()
+    return when {
+        env == Production -> defaultUser
+        name.isNullOrEmpty() -> defaultUser
+        name == "random" -> "DemoUser_${Random.nextInt(1000, 9999)}"
+        name == defaultUser || name in TEST_DEMO_USERNAMES -> name
+        else -> defaultUser
     }
+}
+
+suspend fun ApplicationCall.handleDemoSignIn() {
+    val demoUsername = resolveDemoUsername(AppConfig.env, request.queryParameters["username"], AppConfig.demoUser)
     val demoUuid = "${demoUsername}-uuid"
     val redirectPath = parameters["redirect_to"] ?: "/"
 
