@@ -89,7 +89,7 @@ Each git worktree gets its **own** database so migrations and data never collide
 with the main checkout or sibling worktrees. This mirrors what CI already does
 per pull request (`.github/workflows/dev.yml` forks `dev/pr-<N>` Neon branches for
 `preview`-labelled PRs — see [CI / PR Previews](#ci--pr-previews)) — only locally, per
-worktree, using the same Neon project (`morning-fog-11467472`).
+worktree, using the same Neon project (`sweet-dust-00910797`).
 
 **Workflow:**
 
