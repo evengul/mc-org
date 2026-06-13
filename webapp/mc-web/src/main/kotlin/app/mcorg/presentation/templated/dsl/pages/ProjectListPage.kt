@@ -315,11 +315,14 @@ private fun kotlinx.html.FlowContent.schematicProjectModal(worldId: Int) {
 }
 
 private fun kotlinx.html.FlowContent.createProjectModal(worldId: Int, view: String = "execute") {
+    // Plan view prepends the new card into #project-card-list; the Field Log (execute)
+    // view has no such element and reloads via HX-Redirect, so it only needs a target
+    // that exists. #projects-view is present in both.
     modalForm(
         id = "create-project-modal",
         title = "Create Project",
         action = "/worlds/$worldId/projects",
-        hxTarget = "#project-card-list",
+        hxTarget = if (view == "plan") "#project-card-list" else "#projects-view",
         hxSwap = "afterbegin",
         errorTarget = ".form-error"
     ) {

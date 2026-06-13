@@ -77,21 +77,10 @@ fun FlowContent.resumeHero(
         }
 
         if (data.resources.isNotEmpty()) {
-            div("fl-hero__toolbar") {
-                span("section-label") { +"Resources" }
-                div("fl-sort-pills") {
-                    ResumeSort.entries.forEach { option ->
-                        button(classes = if (option == sort) "fl-sort-pill fl-sort-pill--active" else "fl-sort-pill") {
-                            attributes["hx-get"] = "/worlds/$worldId/projects/resume-rows?sort=${option.param}"
-                            attributes["hx-target"] = "#fl-resume-rows"
-                            attributes["hx-swap"] = "outerHTML"
-                            +option.label
-                        }
-                    }
-                }
+            div("fl-hero__sort") {
+                attributes["id"] = "fl-resume-sort"
+                resumeSortBody(worldId, data, sort)
             }
-
-            resumeHeroRows(worldId, data, sort)
 
             div("fl-hero__footer") {
                 span("fl-hero__hint") { +"…or just keep counting right here." }
@@ -110,6 +99,29 @@ fun FlowContent.resumeHero(
             }
         }
     }
+}
+
+/**
+ * Sort pills + rows as one swappable region. Pills target the whole
+ * #fl-resume-sort container (innerHTML) so the active pill re-renders with the
+ * new sort — without it the highlight would never move and a no-op reorder
+ * (e.g. all rows tied at 0%) would look like a dead control.
+ */
+fun FlowContent.resumeSortBody(worldId: Int, data: ResumeHeroData, sort: ResumeSort) {
+    div("fl-hero__toolbar") {
+        span("section-label") { +"Resources" }
+        div("fl-sort-pills") {
+            ResumeSort.entries.forEach { option ->
+                button(classes = if (option == sort) "fl-sort-pill fl-sort-pill--active" else "fl-sort-pill") {
+                    attributes["hx-get"] = "/worlds/$worldId/projects/resume-rows?sort=${option.param}"
+                    attributes["hx-target"] = "#fl-resume-sort"
+                    attributes["hx-swap"] = "innerHTML"
+                    +option.label
+                }
+            }
+        }
+    }
+    resumeHeroRows(worldId, data, sort)
 }
 
 fun FlowContent.resumeHeroRows(worldId: Int, data: ResumeHeroData, sort: ResumeSort) {
@@ -135,7 +147,7 @@ fun FlowContent.resumeHeroRows(worldId: Int, data: ResumeHeroData, sort: ResumeS
 
 fun resumeHeroRowsFragment(worldId: Int, data: ResumeHeroData, sort: ResumeSort): String =
     kotlinx.html.stream.createHTML().div {
-        resumeHeroRows(worldId, data, sort)
+        resumeSortBody(worldId, data, sort)
     }.removePrefix("<div>").removeSuffix("</div>")
 
 private fun List<ProjectResourceEdge>.toFeedsCaption(): String =
