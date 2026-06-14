@@ -12,6 +12,8 @@ import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.Result
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.minecraft.StoreMinecraftDataStep
+import app.mcorg.pipeline.resources.commonsteps.UpsertProgressByRgIdInput
+import app.mcorg.pipeline.resources.commonsteps.UpsertProgressStep
 import app.mcorg.pipeline.world.CreateWorldInput
 import app.mcorg.pipeline.world.CreateWorldStep
 import app.mcorg.test.WithUser
@@ -91,12 +93,11 @@ class GenerateGatheringPlanStepTest : WithUser() {
     @Test
     fun `success path - targets build from rows and engine returns a plan`() {
         val projectId = createProject(worldId)
-        val rgId = createResourceGathering(projectId)
-        insertGatheringItem(projectId, chest.id, chest.name, required = 4, collected = 0)
+        insertGatheringItem(projectId, chest.id, chest.name, required = 4)
 
         val result = runBlocking {
             GenerateGatheringPlanStep.process(
-                GatheringPlanInput(projectId, worldId, rgId)
+                GatheringPlanInput(projectId, worldId)
             )
         }
 
@@ -120,11 +121,10 @@ class GenerateGatheringPlanStepTest : WithUser() {
     @Test
     fun `failure - world not found returns NotFound`() {
         val projectId = createProject(worldId)
-        val rgId = createResourceGathering(projectId)
 
         val result = runBlocking {
             GenerateGatheringPlanStep.process(
-                GatheringPlanInput(projectId, worldId = Int.MAX_VALUE, resourceGatheringId = rgId)
+                GatheringPlanInput(projectId, worldId = Int.MAX_VALUE)
             )
         }
 
@@ -145,12 +145,11 @@ class GenerateGatheringPlanStepTest : WithUser() {
         val uningestedVersion = MinecraftVersion.fromString("0.0.1")
         val uningestedWorldId = createWorld(uningestedVersion)
         val projectId = createProject(uningestedWorldId)
-        val rgId = createResourceGathering(projectId)
-        insertGatheringItem(projectId, chest.id, chest.name, required = 1, collected = 0)
+        insertGatheringItem(projectId, chest.id, chest.name, required = 1)
 
         val result = runBlocking {
             GenerateGatheringPlanStep.process(
-                GatheringPlanInput(projectId, uningestedWorldId, rgId)
+                GatheringPlanInput(projectId, uningestedWorldId)
             )
         }
 
@@ -168,13 +167,13 @@ class GenerateGatheringPlanStepTest : WithUser() {
     @Test
     fun `failure - all items fully collected returns ValidationError`() {
         val projectId = createProject(worldId)
-        val rgId = createResourceGathering(projectId)
-        // required == collected → net = 0 → no targets
-        insertGatheringItem(projectId, chest.id, chest.name, required = 4, collected = 4)
+        // Insert the item, then record progress = required (fully collected)
+        val rgId = insertGatheringItem(projectId, chest.id, chest.name, required = 4)
+        setProgress(rgId, 4)
 
         val result = runBlocking {
             GenerateGatheringPlanStep.process(
-                GatheringPlanInput(projectId, worldId, rgId)
+                GatheringPlanInput(projectId, worldId)
             )
         }
 
@@ -193,20 +192,19 @@ class GenerateGatheringPlanStepTest : WithUser() {
     fun `linked project item becomes SUPPLIED terminal in plan`() {
         val producerProjectId = createProject(worldId)
         val consumerProjectId = createProject(worldId)
-        val rgId = createResourceGathering(consumerProjectId)
 
         // chest is the main target (needs planning)
-        insertGatheringItem(consumerProjectId, chest.id, chest.name, required = 2, collected = 0)
+        insertGatheringItem(consumerProjectId, chest.id, chest.name, required = 2)
         // oak_planks is sourced from producerProjectId
         val rgItemId = insertGatheringItem(
-            consumerProjectId, oakPlanks.id, oakPlanks.name, required = 10, collected = 0
+            consumerProjectId, oakPlanks.id, oakPlanks.name, required = 10
         )
         // Mark oak_planks as supplied by the producer project
         linkResourceToProject(rgItemId, producerProjectId)
 
         val result = runBlocking {
             GenerateGatheringPlanStep.process(
-                GatheringPlanInput(consumerProjectId, worldId, rgId)
+                GatheringPlanInput(consumerProjectId, worldId)
             )
         }
 
@@ -243,38 +241,32 @@ class GenerateGatheringPlanStepTest : WithUser() {
         (result as Result.Success).value
     }
 
-    private fun createResourceGathering(projectId: Int): Int = runBlocking {
-        val result = DatabaseSteps.update<Unit>(
-            sql = SafeSQL.insert(
-                "INSERT INTO resource_gathering (project_id, item_id, name, required, collected) " +
-                    "VALUES (?, 'minecraft:placeholder', 'Placeholder', 1, 1) RETURNING id"
-            ),
-            parameterSetter = { stmt, _ -> stmt.setInt(1, projectId) }
-        ).process(Unit)
-        (result as Result.Success).value
-    }
-
     private fun insertGatheringItem(
         projectId: Int,
         itemId: String,
         name: String,
         required: Int,
-        collected: Int
     ): Int = runBlocking {
         val result = DatabaseSteps.update<Unit>(
             sql = SafeSQL.insert(
-                "INSERT INTO resource_gathering (project_id, item_id, name, required, collected) " +
-                    "VALUES (?, ?, ?, ?, ?) RETURNING id"
+                "INSERT INTO resource_gathering (project_id, item_id, name, required) " +
+                    "VALUES (?, ?, ?, ?) RETURNING id"
             ),
             parameterSetter = { stmt, _ ->
                 stmt.setInt(1, projectId)
                 stmt.setString(2, itemId)
                 stmt.setString(3, name)
                 stmt.setInt(4, required)
-                stmt.setInt(5, collected)
             }
         ).process(Unit)
         (result as Result.Success).value
+    }
+
+    /** Records collected progress for a resource_gathering row via the progress table. */
+    private fun setProgress(resourceGatheringId: Int, collected: Int) {
+        runBlocking {
+            UpsertProgressStep.process(UpsertProgressByRgIdInput(resourceGatheringId, collected))
+        }
     }
 
     private fun linkResourceToProject(resourceGatheringId: Int, solvedByProjectId: Int) {

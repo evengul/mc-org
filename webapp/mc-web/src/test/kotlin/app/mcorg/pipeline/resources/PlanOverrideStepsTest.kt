@@ -29,33 +29,32 @@ import kotlin.test.assertIs
 @ExtendWith(DatabaseTestExtension::class)
 class PlanOverrideStepsTest : WithUser() {
 
-    private var resourceGatheringId: Int = 0
+    private var projectId: Int = 0
 
     @BeforeAll
     fun setup() {
         val worldId = createWorld()
-        val projectId = createProject(worldId)
-        resourceGatheringId = createResourceGathering(projectId)
+        projectId = createProject(worldId)
     }
 
     @Test
     fun `overrides round-trip into engine-ready PlanOverrides`() {
-        val rgId = createResourceGathering(createProject(createWorld()))
+        val pid = createProject(createWorld())
 
         runBlocking {
             assertIs<Result.Success<*>>(
-                UpsertPlanOverrideStep(rgId).process(
+                UpsertPlanOverrideStep(pid).process(
                     PlanOverride.Source("minecraft:oak_planks", "minecraft:chest:chests/bonus_chest.json")
                 )
             )
             assertIs<Result.Success<*>>(
-                UpsertPlanOverrideStep(rgId).process(
+                UpsertPlanOverrideStep(pid).process(
                     PlanOverride.TagMember("#minecraft:planks", "minecraft:oak_planks")
                 )
             )
         }
 
-        val loaded = runBlocking { GetPlanOverridesStep.process(rgId) }
+        val loaded = runBlocking { GetPlanOverridesStep.process(pid) }
         assertIs<Result.Success<PlanOverrides>>(loaded)
         assertEquals(
             PlanOverrides(
@@ -69,34 +68,34 @@ class PlanOverrideStepsTest : WithUser() {
     @Test
     fun `upserting the same item replaces the previous choice`() {
         runBlocking {
-            UpsertPlanOverrideStep(resourceGatheringId)
+            UpsertPlanOverrideStep(projectId)
                 .process(PlanOverride.Source("minecraft:stick", "minecraft:entity:entities/witch.json"))
-            UpsertPlanOverrideStep(resourceGatheringId)
+            UpsertPlanOverrideStep(projectId)
                 .process(PlanOverride.Source("minecraft:stick", "minecraft:crafting_shaped:stick.json"))
         }
 
-        val loaded = runBlocking { GetPlanOverridesStep.process(resourceGatheringId) }
+        val loaded = runBlocking { GetPlanOverridesStep.process(projectId) }
         assertIs<Result.Success<PlanOverrides>>(loaded)
         assertEquals("minecraft:crafting_shaped:stick.json", loaded.value.sourceByItem["minecraft:stick"])
     }
 
     @Test
     fun `clearing an override removes it`() {
-        val rgId = createResourceGathering(createProject(createWorld()))
+        val pid = createProject(createWorld())
         runBlocking {
-            UpsertPlanOverrideStep(rgId)
+            UpsertPlanOverrideStep(pid)
                 .process(PlanOverride.Source("minecraft:glass", "minecraft:smelting:glass.json"))
-            ClearPlanOverrideStep(rgId).process("minecraft:glass")
+            ClearPlanOverrideStep(pid).process("minecraft:glass")
         }
 
-        val loaded = runBlocking { GetPlanOverridesStep.process(rgId) }
+        val loaded = runBlocking { GetPlanOverridesStep.process(pid) }
         assertIs<Result.Success<PlanOverrides>>(loaded)
         assertEquals(PlanOverrides.NONE, loaded.value)
     }
 
     @Test
     fun `a saved selection re-derives the identical plan`() {
-        val rgId = createResourceGathering(createProject(createWorld()))
+        val pid = createProject(createWorld())
         val graph = woodGraph()
         val targets = listOf(PlanTarget(Item("minecraft:chest", "Chest"), 4))
         val pinned = PlanOverrides(
@@ -110,11 +109,11 @@ class PlanOverrideStepsTest : WithUser() {
         )
 
         runBlocking {
-            UpsertPlanOverrideStep(rgId).process(
+            UpsertPlanOverrideStep(pid).process(
                 PlanOverride.Source("minecraft:oak_planks", "minecraft:chest:chests/bonus_chest.json")
             )
         }
-        val loaded = runBlocking { GetPlanOverridesStep.process(rgId) }
+        val loaded = runBlocking { GetPlanOverridesStep.process(pid) }
         assertIs<Result.Success<PlanOverrides>>(loaded)
 
         val rederived = GatheringPlanner.plan(graph, targets, overrides = loaded.value)
@@ -163,17 +162,6 @@ class PlanOverrideStepsTest : WithUser() {
                     "VALUES ('PlanOverride Project', ?, '', 'BUILDING', 'PLANNING', 0, 0, 0, 'OVERWORLD') RETURNING id"
             ),
             parameterSetter = { stmt, _ -> stmt.setInt(1, worldId) }
-        ).process(Unit)
-        (result as Result.Success).value
-    }
-
-    private fun createResourceGathering(projectId: Int): Int = runBlocking {
-        val result = DatabaseSteps.update<Unit>(
-            sql = SafeSQL.insert(
-                "INSERT INTO resource_gathering (project_id, item_id, name, required, collected) " +
-                    "VALUES (?, 'minecraft:chest', 'Chest', 4, 0) RETURNING id"
-            ),
-            parameterSetter = { stmt, _ -> stmt.setInt(1, projectId) }
         ).process(Unit)
         (result as Result.Success).value
     }

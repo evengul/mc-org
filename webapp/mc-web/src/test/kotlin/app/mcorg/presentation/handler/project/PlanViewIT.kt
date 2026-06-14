@@ -203,8 +203,8 @@ class PlanViewIT : WithUser() {
     private fun createResourceGathering(projectId: Int, required: Int): Int = runBlocking {
         val result = DatabaseSteps.update<Unit>(
             sql = SafeSQL.insert(
-                "INSERT INTO resource_gathering (project_id, item_id, name, required, collected) " +
-                        "VALUES (?, 'minecraft:iron_ingot', 'Iron Ingot', ?, 0) RETURNING id"
+                "INSERT INTO resource_gathering (project_id, item_id, name, required) " +
+                        "VALUES (?, 'minecraft:iron_ingot', 'Iron Ingot', ?) RETURNING id"
             ),
             parameterSetter = { stmt, _ ->
                 stmt.setInt(1, projectId)

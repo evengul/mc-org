@@ -19,16 +19,14 @@ import app.mcorg.pipeline.resources.commonsteps.GetAllResourceGatheringItemsStep
 /**
  * Input bundle for [GenerateGatheringPlanStep].
  *
- * @param projectId the project whose resource_gathering rows are the planning targets.
+ * @param projectId the project whose resource_gathering rows are the planning targets
+ *   and whose persisted [PlanOverrides] (source pins and tag-member choices) are loaded.
  * @param worldId the world that owns the project — used to resolve its Minecraft version,
  *   which drives the cached [ItemSourceGraph].
- * @param resourceGatheringId the resource_gathering record that holds the user's
- *   persisted [PlanOverrides] (source pins and tag-member choices).
  */
 data class GatheringPlanInput(
     val projectId: Int,
     val worldId: Int,
-    val resourceGatheringId: Int
 )
 
 /**
@@ -41,7 +39,7 @@ data class GatheringPlanInput(
  * 4. Build [PlanTarget]s: amount = max(0, required − collected); skip fully-collected rows.
  * 5. Build the [SupplySource] map: rows linked to another project become
  *    [SupplySource.LinkedProject] terminals.
- * 6. Load persisted [PlanOverrides] for the resource gathering record.
+ * 6. Load persisted [PlanOverrides] for the project.
  * 7. Run [GatheringPlanner.plan] and return the result.
  *
  * Fails with:
@@ -102,8 +100,8 @@ object GenerateGatheringPlanStep : Step<GatheringPlanInput, AppFailure, Gatherin
             }
             .toMap()
 
-        // 6. Load persisted overrides
-        val overrides: PlanOverrides = when (val r = GetPlanOverridesStep.process(input.resourceGatheringId)) {
+        // 6. Load persisted overrides for this project
+        val overrides: PlanOverrides = when (val r = GetPlanOverridesStep.process(input.projectId)) {
             is Result.Success -> r.value
             is Result.Failure -> return r
         }

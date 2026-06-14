@@ -329,8 +329,8 @@ class GetProjectListIT : WithUser() {
     private fun createResourceGathering(projectId: Int, itemName: String, solvedByProjectId: Int? = null): Int = runBlocking {
         val result = DatabaseSteps.update<Unit>(
             sql = SafeSQL.insert(
-                "INSERT INTO resource_gathering (project_id, item_id, name, required, collected, solved_by_project_id) " +
-                        "VALUES (?, 'minecraft:sticky_piston', ?, 64, 0, ?) RETURNING id"
+                "INSERT INTO resource_gathering (project_id, item_id, name, required, solved_by_project_id) " +
+                        "VALUES (?, 'minecraft:sticky_piston', ?, 64, ?) RETURNING id"
             ),
             parameterSetter = { stmt, _ ->
                 stmt.setInt(1, projectId)
