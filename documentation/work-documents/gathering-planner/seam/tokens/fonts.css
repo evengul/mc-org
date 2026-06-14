@@ -1,0 +1,9 @@
+/* ── SEAM webfonts ──────────────────────────────────────────────
+   Two faces only, per spec:
+   - IBM Plex Mono  → --font-ui   (chrome, headings, badges, labels, buttons)
+   - Inter          → --font-body (body text, table cells, prose)
+   Loaded from Google Fonts. Both are the genuine specified faces (no
+   substitution). If you ship offline, self-host the .woff2 binaries and
+   replace this @import with local @font-face rules. */
+
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap');

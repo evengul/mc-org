@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gathering Planner — flattened screen reference</title>
+
+<!-- ───────────────────────────────────────────────────────────────────────
+     SEAM design-system stylesheets (bundled under ./seam/).
+     In the real app these are already served from /static/styles/.
+     This file uses ONLY SEAM classes + var(--*) tokens — no framework,
+     no inline component logic. Every block below maps to one server-rendered
+     fragment for the Kotlin HTML DSL + HTMX rewrite. See README.md.
+──────────────────────────────────────────────────────────────────────── -->
+<link rel="stylesheet" href="seam/tokens/fonts.css">
+<link rel="stylesheet" href="seam/tokens/colors.css">
+<link rel="stylesheet" href="seam/tokens/typography.css">
+<link rel="stylesheet" href="seam/tokens/spacing.css">
+<link rel="stylesheet" href="seam/css/reset.css">
+<link rel="stylesheet" href="seam/css/utilities.css">
+<link rel="stylesheet" href="seam/css/components.css">
+
+<style>
+  /* Reference-page chrome only — NOT part of the app. */
+  body { margin: 0; background: #dfded7; font-family: var(--font-body); color: var(--text-primary); }
+  .ref-wrap { max-width: 1000px; margin: 0 auto; padding: 32px 20px 100px; }
+  .ref-title { font-family: var(--font-ui); font-size: 22px; font-weight: 600; color: var(--text-primary); margin: 0 0 6px; }
+  .ref-intro { font-size: 13px; color: var(--text-muted); line-height: 1.6; max-width: 66ch; margin: 0 0 8px; }
+  .ref-intro code { font-family: var(--font-ui); font-size: 12px; background: var(--bg-raised); border: 1px solid var(--border); border-radius: 4px; padding: 1px 5px; }
+  .ref-head { font-family: var(--font-ui); font-size: 13px; font-weight: 600; letter-spacing: .03em; color: var(--text-primary); margin: 40px 0 4px; display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+  .ref-head b { background: var(--accent); color: #fff; border-radius: 4px; padding: 2px 9px; font-size: 11px; flex: 0 0 auto; }
+  .ref-note { font-size: 12px; color: var(--text-muted); margin: 0 0 12px; line-height: 1.55; max-width: 70ch; }
+  .ref-note code { font-family: var(--font-ui); font-size: 11px; background: var(--bg-raised); border: 1px solid var(--border); border-radius: 4px; padding: 1px 5px; }
+  .ref-frame { border: 1px solid var(--border-strong); border-radius: 8px; overflow: hidden; box-shadow: var(--shadow-card); }
+  /* App shell paint inside each frame */
+  .app { background: var(--bg-base); }
+  .app__main { padding: var(--space-5); }
+  .app__header { display: flex; align-items: center; justify-content: space-between; padding: var(--space-3) var(--space-5); border-bottom: 1px solid var(--border); background: var(--bg-surface); }
+  .stage { max-width: 620px; margin: 0 auto; }
+  .stage--wide { max-width: 720px; }
+  .row { display: flex; align-items: center; }
+  .area-label { margin: var(--space-5) 0 var(--space-2); display: flex; align-items: center; gap: var(--space-2); }
+  .area-num { width: 22px; height: 22px; border-radius: 50%; background: var(--text-primary); color: var(--bg-surface); font-family: var(--font-ui); font-size: 11px; display: flex; align-items: center; justify-content: center; flex: 0 0 auto; }
+  .drill-row { display: flex; align-items: flex-start; gap: var(--space-2); }
+  .drill-row > .resource-row { flex: 1 1 auto; min-width: 0; }
+  .chain-node { border-bottom: 1px solid var(--border); }
+  .chain-node:last-child { border-bottom: 0; }
+  .chip { font-family: var(--font-ui); font-size: 11px; border: 1px solid var(--accent); color: var(--accent); background: var(--accent-muted); border-radius: var(--radius-sm); padding: 3px 9px; cursor: pointer; white-space: nowrap; }
+  .picker-opt { display: flex; align-items: center; gap: var(--space-2); border: 1px solid var(--border); background: var(--bg-surface); border-radius: var(--radius); padding: 8px 10px; cursor: pointer; }
+  .picker-opt--sel { border: 1.5px solid var(--accent); background: var(--accent-muted); }
+  .picker-search { display: flex; align-items: center; gap: var(--space-2); border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-surface); padding: 7px 10px; color: var(--text-disabled); font-size: var(--text-sm); }
+</style>
+</head>
+<body>
+<div class="ref-wrap">
+
+  <h1 class="ref-title">Gathering Planner — flattened screen reference</h1>
+  <p class="ref-intro">Pure static HTML using only SEAM classes and <code>var(--*)</code> tokens — the React/prototype framework has been removed so this maps directly onto the server-rendered <strong>Kotlin&nbsp;HTML&nbsp;DSL&nbsp;+&nbsp;HTMX</strong> app. Each numbered block is one render state / fragment. Interaction, persisted decisions, and HTMX swap targets are documented in <code>README.md</code>. The interactive originals are in <code>reference/</code>.</p>
+
+  <!-- =====================================================================
+       1 · IMPORT  →  fragment: GET /worlds/{id}/plan/new
+  ====================================================================== -->
+  <div class="ref-head"><b>1</b><span>Import — start a plan from a schematic</span></div>
+  <p class="ref-note">Entry point. The "Use sample" button is the demo shortcut; real flow is a file upload (<code>hx-post</code> multipart) that returns the Sharpen fragment (block 2).</p>
+  <div class="ref-frame">
+    <div class="app graph-paper">
+      <header class="app__header">
+        <div class="row" style="gap:var(--space-3);">
+          <span style="width:22px;height:22px;border-radius:5px;background:var(--accent);display:inline-block;"></span>
+          <span style="font-family:var(--font-ui);font-weight:600;font-size:15px;">SEAM</span>
+          <span style="font-family:var(--font-ui);font-size:12px;color:var(--text-muted);">/ New project</span>
+        </div>
+      </header>
+      <div class="app__main">
+        <div class="stage" style="max-width:540px;">
+          <div class="section-label" style="margin-bottom:var(--space-2);">NEW PROJECT</div>
+          <h1 style="font-family:var(--font-ui);font-weight:600;font-size:26px;margin:0 0 var(--space-2);">Plan a build</h1>
+          <p class="subtle" style="margin:0 0 var(--space-5);line-height:1.6;">Import a schematic and the path generator works out everything you need to gather — each item once, ingredients before what they build.</p>
+
+          <div class="card" style="border-style:dashed;border-color:var(--border-strong);padding:var(--space-6);text-align:center;background:var(--bg-raised);">
+            <div style="font-size:30px;color:var(--text-muted);line-height:1;">⭳</div>
+            <div style="font-family:var(--font-ui);font-size:13px;margin:var(--space-3) 0 var(--space-1);">Drop a .litematic / .schem / .nbt</div>
+            <div class="subtle" style="margin-bottom:var(--space-4);">or browse your files</div>
+            <button class="btn btn--secondary">Choose file</button>
+          </div>
+
+          <div style="text-align:center;margin:var(--space-4) 0;font-family:var(--font-ui);font-size:12px;color:var(--text-disabled);">— or try the sample —</div>
+          <div style="text-align:center;">
+            <button class="btn btn--primary">Use sample · greenhouse.litematic →</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- =====================================================================
+       2 · SHARPEN  →  fragment: POST /worlds/{id}/plan  (returns this)
+       Each answer: hx-post /plan/sharpen/{question} → re-renders this card
+       + the activity count. "See the plan" → block 3.
+  ====================================================================== -->
+  <div class="ref-head"><b>2</b><span>Sharpen — cold-start questions, ranked by plan impact</span></div>
+  <p class="ref-note">A plan already exists; these only refine it. Each question is independent and optional. Shown here AFTER answering iron = Yes and planks = Oak — note the success <code>callout</code>, the <code>badge</code> answers, and the count having dropped 24 → 22. Impact estimates ("−2,400 cobble") come from the engine; questions render in descending impact order.</p>
+  <div class="ref-frame">
+    <div class="app graph-paper">
+      <div class="app__main">
+        <div class="stage">
+          <div class="section-label" style="display:flex;gap:var(--space-2);margin-bottom:var(--space-4);">
+            <span>IMPORT</span><span style="color:var(--text-disabled);">›</span><span style="color:var(--accent);">SHARPEN</span><span style="color:var(--text-disabled);">›</span><span style="color:var(--text-disabled);">PLAN</span>
+          </div>
+          <h1 style="font-family:var(--font-ui);font-weight:600;font-size:24px;margin:0 0 var(--space-1);">Sharpen this plan</h1>
+          <p class="subtle" style="margin:0 0 var(--space-3);line-height:1.6;">A plan already exists. These questions are ranked by how much they change it — answer the ones that matter, skip the rest.</p>
+
+          <div class="cluster--xs" style="margin-bottom:var(--space-4);">
+            <span class="badge badge--neutral">greenhouse.litematic</span>
+            <span class="badge badge--neutral">1,284 blocks</span>
+            <span class="badge badge--neutral">6 targets</span>
+            <span class="badge badge--accent">⊕ 2 supplies detected</span>
+          </div>
+
+          <div class="card" style="overflow:hidden;padding:0;margin-bottom:var(--space-4);">
+            <!-- Q1 · answered -->
+            <div class="row" style="gap:var(--space-3);padding:var(--space-4);border-bottom:1px solid var(--border);">
+              <span style="font-family:var(--font-ui);font-size:11px;font-weight:500;color:var(--accent);background:var(--accent-muted);border-radius:var(--radius-sm);padding:3px 7px;white-space:nowrap;">−2,400 cobble</span>
+              <div style="flex:1;font-size:var(--text-sm);line-height:1.3;">Do you have an <b>Iron farm</b>?<div class="subtle" style="font-size:var(--text-xs);">links it, drops the whole smelting chain</div></div>
+              <span class="badge badge--accent">Farm linked ✓</span>
+            </div>
+            <!-- Q2 · answered -->
+            <div class="row" style="gap:var(--space-3);padding:var(--space-4);border-bottom:1px solid var(--border);">
+              <span style="font-family:var(--font-ui);font-size:11px;font-weight:500;color:var(--amber);background:#F2E6C9;border-radius:var(--radius-sm);padding:3px 7px;white-space:nowrap;">splits 40 chests</span>
+              <div style="flex:1;font-size:var(--text-sm);line-height:1.3;">◇ Which <b>planks</b>?<div class="subtle" style="font-size:var(--text-xs);">"any planks" needs a concrete variant</div></div>
+              <span class="badge badge--accent">Oak ✓</span>
+            </div>
+            <div style="padding:var(--space-3) var(--space-4);font-family:var(--font-ui);font-size:12px;color:var(--text-muted);">low impact · <span style="color:var(--accent);">2 more</span> — or leave them for the inline prompts</div>
+          </div>
+
+          <div class="callout callout--success" role="note" style="margin-bottom:var(--space-4);">
+            <span class="callout__icon" aria-hidden="true">✓</span>
+            <div class="callout__body">Iron farm linked — 2,400 cobblestone and 200 smelts removed from the plan.</div>
+          </div>
+
+          <div class="row" style="justify-content:space-between;gap:var(--space-3);flex-wrap:wrap;">
+            <span class="subtle">22 activities planned</span>
+            <div class="cluster--xs">
+              <button class="btn btn--ghost">Skip — decide on the way</button>
+              <button class="btn btn--primary">See the plan →</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- =====================================================================
+       3 · PLAN · LIST LENS  →  fragment: GET /worlds/{id}/plan
+       Lens tabs swap the body region only (hx-get ...?lens=list|next|sessions).
+       Each ResourceRow ± button: hx-post .../activity/{item}/progress.
+       Each ⇄ IconButton: hx-get .../chain/{item} → block 4.
+  ====================================================================== -->
+  <div class="ref-head"><b>3</b><span>Plan · List lens — geography areas, counters, per-row ⇄ drill</span></div>
+  <p class="ref-note">Default plan view. Gather rows grouped by world location; <code>resource-row</code> counters step 1/64/1728; the <strong>Supplied</strong> row (iron) has no counter; every row carries a trailing <code>⇄</code> <code>btn--icon-only</code> opening its chain. The two other lenses (Next up, Sessions) swap this same region. The warning callout holds the one open decision (planks) — resolvable inline.</p>
+  <div class="ref-frame">
+    <div class="app graph-paper">
+      <header class="app__header">
+        <div class="row" style="gap:var(--space-3);">
+          <span style="width:22px;height:22px;border-radius:5px;background:var(--accent);display:inline-block;"></span>
+          <span style="font-family:var(--font-ui);font-weight:600;font-size:15px;">SEAM</span>
+          <span style="font-family:var(--font-ui);font-size:12px;color:var(--text-muted);">/ Cherry Greenhouse</span>
+        </div>
+        <button class="btn btn--ghost btn--sm">↺ Start over</button>
+      </header>
+      <div class="app__main">
+        <div class="stage stage--wide">
+
+          <div class="row" style="align-items:flex-end;justify-content:space-between;gap:var(--space-4);flex-wrap:wrap;margin-bottom:var(--space-4);">
+            <div>
+              <div class="section-label">CONTRAPTION · PLAN</div>
+              <h1 style="font-family:var(--font-ui);font-weight:600;font-size:22px;margin:2px 0 0;">Cherry Greenhouse</h1>
+            </div>
+            <div style="min-width:200px;">
+              <div class="row" style="justify-content:space-between;font-family:var(--font-ui);font-size:12px;color:var(--text-muted);margin-bottom:4px;"><span>15% gathered</span><span>354 to go</span></div>
+              <div class="progress progress--lg" role="progressbar" aria-valuenow="64" aria-valuemin="0" aria-valuemax="418"><div class="progress__fill" style="width:15%;"></div></div>
+            </div>
+          </div>
+
+          <!-- Lens tabs (pills). hx-get swaps the region below. -->
+          <div class="tabs tabs--pills" role="tablist" style="margin-bottom:var(--space-4);">
+            <button type="button" role="tab" aria-selected="true" class="tab tab--active">List</button>
+            <button type="button" role="tab" aria-selected="false" class="tab">Next up</button>
+            <button type="button" role="tab" aria-selected="false" class="tab">Sessions</button>
+          </div>
+
+          <!-- Open decision (attention) -->
+          <div class="callout" role="note" style="margin-bottom:var(--space-4);">
+            <span class="callout__icon" aria-hidden="true">⚠</span>
+            <div class="callout__body">
+              <div class="row" style="gap:var(--space-3);flex-wrap:wrap;">
+                <span style="flex:1;min-width:200px;">1 decision before this plan is real — pick the planks for your 40 chests.</span>
+                <span class="cluster--xs">
+                  <button class="btn btn--primary btn--sm">Oak</button>
+                  <button class="btn btn--secondary btn--sm">Spruce</button>
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <!-- AREA 1 -->
+          <div class="area-label"><span class="area-num">1</span><span class="section-label">Copper cliffs ↔ Iron farm · ~120m E</span></div>
+          <div class="stack--xs">
+            <div class="drill-row">
+              <div class="resource-row">
+                <div class="resource-row__main">
+                  <div class="resource-row__head"><span class="resource-row__name">Raw Copper</span><span class="resource-row__count">0 / 162</span></div>
+                  <span class="resource-row__source">Copper cliffs</span>
+                  <div class="progress" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="162"><div class="progress__fill" style="width:0%;"></div></div>
+                </div>
+                <div class="counter-btns">
+                  <button class="counter-btn counter-btn--neg" aria-label="minus 1728">-1728</button>
+                  <button class="counter-btn counter-btn--neg" aria-label="minus 64">-64</button>
+                  <button class="counter-btn counter-btn--neg" aria-label="minus 1">-1</button>
+                  <button class="counter-btn counter-btn--pos" aria-label="plus 1">+1</button>
+                  <button class="counter-btn counter-btn--pos" aria-label="plus 64">+64</button>
+                  <button class="counter-btn counter-btn--pos" aria-label="plus 1728">+1728</button>
+                </div>
+              </div>
+              <button class="btn btn--ghost btn--icon-only" aria-label="View how Raw Copper is sourced">⇄</button>
+            </div>
+
+            <!-- Supplied row: no counter, badge instead -->
+            <div class="drill-row">
+              <div class="card" style="flex:1;display:flex;align-items:center;gap:var(--space-3);padding:var(--space-3) var(--space-4);">
+                <span style="flex:1;font-size:var(--text-base);">Iron Ingot <span class="subtle">· Iron Farm (east platform)</span></span>
+                <span style="font-family:var(--font-ui);font-size:12px;color:var(--text-muted);">200</span>
+                <span class="badge badge--accent">Supplied</span>
+              </div>
+              <button class="btn btn--ghost btn--icon-only" aria-label="View how Iron Ingot is sourced">⇄</button>
+            </div>
+          </div>
+
+          <!-- AREA 2 -->
+          <div class="area-label"><span class="area-num">2</span><span class="section-label">Amethyst geode · -210 64 880</span></div>
+          <div class="stack--xs">
+            <div class="drill-row">
+              <div class="resource-row">
+                <div class="resource-row__main">
+                  <div class="resource-row__head"><span class="resource-row__name">Amethyst Shard</span><span class="resource-row__count">0 / 256</span></div>
+                  <span class="resource-row__source">mine the geode</span>
+                  <div class="progress" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="256"><div class="progress__fill" style="width:0%;"></div></div>
+                </div>
+                <div class="counter-btns">
+                  <button class="counter-btn counter-btn--neg" aria-label="minus 1728">-1728</button>
+                  <button class="counter-btn counter-btn--neg" aria-label="minus 64">-64</button>
+                  <button class="counter-btn counter-btn--neg" aria-label="minus 1">-1</button>
+                  <button class="counter-btn counter-btn--pos" aria-label="plus 1">+1</button>
+                  <button class="counter-btn counter-btn--pos" aria-label="plus 64">+64</button>
+                  <button class="counter-btn counter-btn--pos" aria-label="plus 1728">+1728</button>
+                </div>
+              </div>
+              <button class="btn btn--ghost btn--icon-only" aria-label="View how Amethyst Shard is sourced">⇄</button>
+            </div>
+          </div>
+
+          <!-- BASE -->
+          <div class="area-label"><span class="area-num">⌂</span><span class="section-label">Base — smelt &amp; craft</span></div>
+          <div class="stack--xs">
+            <div class="drill-row">
+              <div class="resource-row">
+                <div class="resource-row__main">
+                  <div class="resource-row__head"><span class="resource-row__name">Hopper</span><span class="resource-row__count">0 / 40</span></div>
+                  <span class="resource-row__source">craft · 5 iron + 1 chest each</span>
+                  <div class="progress" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="40"><div class="progress__fill" style="width:0%;"></div></div>
+                </div>
+                <div class="counter-btns">
+                  <button class="counter-btn counter-btn--neg" aria-label="minus 1728">-1728</button>
+                  <button class="counter-btn counter-btn--neg" aria-label="minus 64">-64</button>
+                  <button class="counter-btn counter-btn--neg" aria-label="minus 1">-1</button>
+                  <button class="counter-btn counter-btn--pos" aria-label="plus 1">+1</button>
+                  <button class="counter-btn counter-btn--pos" aria-label="plus 64">+64</button>
+                  <button class="counter-btn counter-btn--pos" aria-label="plus 1728">+1728</button>
+                </div>
+              </div>
+              <button class="btn btn--ghost btn--icon-only" aria-label="View how Hopper is sourced">⇄</button>
+            </div>
+          </div>
+          <p class="subtle" style="margin-top:var(--space-3);font-size:var(--text-xs);">Tap <span style="color:var(--accent);font-family:var(--font-ui);">⇄</span> on any row to see how it's sourced — and re-pin a different source at any depth.</p>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- =====================================================================
+       4 · PLAN · DRILL  →  fragment: GET /worlds/{id}/plan/chain/{item}
+       The chosen chain for one target, collapsed to the picked source.
+       Node chip (multi-source): hx-get .../chain/{item}/sources/{node}
+       Pin a source: hx-post .../chain/{item}/pin {node, source}
+         → persists sourceByItem, re-derives + re-renders plan.
+  ====================================================================== -->
+  <div class="ref-head"><b>4</b><span>Plan · Drill — chosen chain, swap a node's source on demand</span></div>
+  <p class="ref-note">Reached from any row's <code>⇄</code>. Shows the target's chain collapsed to the engine-picked source per node. Forced (1-way) nodes show "· 1 way", no control. Multi-source nodes show a <code>⇄ {pick}</code> chip; tapping opens a picker that <strong>scales to fan-out</strong> — a short radio list for 2–3 sources, search&nbsp;+&nbsp;ranked top picks for high-fan-out items (e.g. ~1,000 ways to get sticks/planks). Pinning writes <code>sourceByItem</code> and re-derives. Shown here with the Any&nbsp;Planks picker open.</p>
+  <div class="ref-frame">
+    <div class="app graph-paper">
+      <div class="app__main">
+        <div class="stage stage--wide">
+          <div class="cluster--xs" style="margin-bottom:var(--space-3);">
+            <button class="btn btn--ghost btn--sm">‹ Back to plan</button>
+            <span class="section-label">Hopper · chain — if gathered alone · tap ⇄ to re-pin</span>
+          </div>
+          <div class="card" style="overflow:hidden;padding:0;">
+
+            <!-- node: Hopper (forced) -->
+            <div class="chain-node" style="padding:var(--space-3) var(--space-4) var(--space-3) var(--space-4);">
+              <div class="row" style="gap:var(--space-3);">
+                <span style="flex:1;font-size:var(--text-sm);">Hopper <span class="subtle" style="font-size:var(--text-xs);">craft · 5 iron + 1 chest</span></span>
+                <span style="font-family:var(--font-ui);font-size:11px;color:var(--text-muted);">40</span>
+                <span class="subtle" style="font-size:var(--text-xs);white-space:nowrap;">Craft (5 iron + 1 chest) · 1 way</span>
+              </div>
+            </div>
+
+            <!-- node: Iron Ingot (multi-source, collapsed) -->
+            <div class="chain-node" style="padding:var(--space-3) var(--space-4) var(--space-3) var(--space-6);">
+              <div class="row" style="gap:var(--space-3);">
+                <span style="flex:1;font-size:var(--text-sm);">Iron Ingot</span>
+                <span style="font-family:var(--font-ui);font-size:11px;color:var(--text-muted);">200</span>
+                <button class="chip">⇄ Iron Farm</button>
+              </div>
+            </div>
+
+            <!-- node: Chest (forced) -->
+            <div class="chain-node" style="padding:var(--space-3) var(--space-4) var(--space-3) var(--space-6);">
+              <div class="row" style="gap:var(--space-3);">
+                <span style="flex:1;font-size:var(--text-sm);">Chest <span class="subtle" style="font-size:var(--text-xs);">craft · 8 planks each</span></span>
+                <span style="font-family:var(--font-ui);font-size:11px;color:var(--text-muted);">40</span>
+                <span class="subtle" style="font-size:var(--text-xs);white-space:nowrap;">Craft (8 planks) · 1 way</span>
+              </div>
+            </div>
+
+            <!-- node: Any Planks (high fan-out, picker OPEN) -->
+            <div class="chain-node" style="padding:var(--space-3) var(--space-4) var(--space-3) var(--space-8);">
+              <div class="row" style="gap:var(--space-3);">
+                <span style="flex:1;font-size:var(--text-sm);">Any Planks <span class="subtle" style="font-size:var(--text-xs);">feeds 40 chests</span></span>
+                <span style="font-family:var(--font-ui);font-size:11px;color:var(--text-muted);">320</span>
+                <button class="chip">⇄ Oak Planks</button>
+              </div>
+              <div style="margin-top:var(--space-3);padding:var(--space-3);background:var(--bg-raised);border:1px solid var(--border);border-radius:var(--radius);">
+                <div class="picker-search" style="margin-bottom:var(--space-3);"><span>⌕</span><span>search all 1,000+ sources…</span></div>
+                <div class="section-label" style="margin-bottom:var(--space-2);">Ranked · top picks</div>
+                <div class="stack--xs">
+                  <div class="picker-opt picker-opt--sel"><span style="flex:1;font-size:var(--text-sm);font-weight:500;">Oak Planks → craft</span><span class="subtle" style="font-size:var(--text-xs);">best score ★</span></div>
+                  <div class="picker-opt"><span style="flex:1;font-size:var(--text-sm);font-weight:500;">Bamboo Planks → craft</span><span class="subtle" style="font-size:var(--text-xs);"></span></div>
+                  <div class="picker-opt"><span style="flex:1;font-size:var(--text-sm);font-weight:500;">Spruce Planks → craft</span><span class="subtle" style="font-size:var(--text-xs);"></span></div>
+                </div>
+                <div class="subtle" style="text-align:center;font-size:var(--text-xs);margin-top:var(--space-3);">997 more · search to narrow</div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

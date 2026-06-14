@@ -1,0 +1,48 @@
+/* ── SEAM color tokens ──────────────────────────────────────────
+   Palette: "Daylight Field Notebook" (Overworld) — a warm paper + sepia-ink
+   substrate drawn from the overworld's dirt/sand/wood, with accents borrowed
+   from overworld materials. Light theme only (no dark theme yet).
+
+   ONE HUE, ONE JOB:
+     sand/dirt/wood  → substrate (surfaces, rules, ink). Brown is NEVER an accent.
+     lapis           → ACT  (primary/CTA, links, active) + INFO (the quiet wash)
+     grass/emerald   → DONE (success, status, progress)
+     wheat-gold       → WARN
+     redstone         → DANGER
+   The primary user is red-green colour-blind: blue↔yellow is the only reliably
+   distinguishable axis. Never convey state by colour alone. */
+
+:root {
+  /* Substrate — sand / dirt / wood */
+  --bg-base:        #EBE1C8;  /* page edge / app background */
+  --bg-surface:     #F7F0DE;  /* cards, panels (paper) */
+  --bg-raised:      #FCF7EA;  /* inputs, row hover, badges */
+  --border:         #D6C6A2;  /* rule lines, dividers, borders */
+  --border-strong:  #C2AE82;  /* emphasized rule (hover/focus border) */
+
+  /* Ink — sepia */
+  --text-primary:   #2A2218;  /* body, headings */
+  --text-muted:     #7A6B47;  /* labels, metadata (faded ink) */
+  --text-disabled:  #A99B78;  /* done items, dimmed content */
+
+  /* Lapis — ACT + INFO */
+  --accent:         #2C6E9E;  /* CTA, active toggle, links */
+  --accent-hover:   #245C85;  /* CTA hover */
+  --accent-muted:   #D6E2EC;  /* info wash, badges, focus ring */
+  --on-accent:      #FCF7EA;  /* cream text/icon on an accent fill */
+
+  /* Grass — DONE */
+  --green:          #4F7A2B;  /* success / status / progress */
+  --green-bg:       #DEE8CB;  /* done badge background */
+  --progress:       #4F7A2B;  /* progress bar fill */
+
+  /* Wheat-gold — WARN */
+  --amber:          #B0791A;
+
+  /* Redstone — DANGER */
+  --red:            #A6321F;
+  --red-bg:         #F0DACF;  /* blocked badge background */
+
+  /* Focus ring (derived) */
+  --focus-ring:     0 0 0 3px var(--accent-muted);
+}
