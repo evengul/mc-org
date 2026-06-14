@@ -6,6 +6,8 @@ import app.mcorg.pipeline.Result
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.project.handleGetDetailContent
 import app.mcorg.pipeline.project.handleGetProject
+import app.mcorg.pipeline.resources.commonsteps.UpsertProgressByRgIdInput
+import app.mcorg.pipeline.resources.commonsteps.UpsertProgressStep
 import app.mcorg.pipeline.resources.handleSetCollectedValue
 import app.mcorg.pipeline.resources.handleUpdateRequirementProgress
 import app.mcorg.pipeline.task.handleCompleteActionTask
@@ -56,7 +58,8 @@ class ProjectDetailIT : WithUser() {
     fun setup() {
         worldId = createWorld()
         projectId = createProject(worldId)
-        resourceGatheringId = createResourceGathering(projectId, required = 10, collected = 2)
+        resourceGatheringId = createResourceGathering(projectId, required = 10)
+        seedProgress(resourceGatheringId, collected = 2)
         taskId = createTask(projectId, "Test Task")
     }
 
@@ -285,19 +288,22 @@ class ProjectDetailIT : WithUser() {
         (result as Result.Success).value
     }
 
-    private fun createResourceGathering(projectId: Int, required: Int, collected: Int): Int = runBlocking {
+    private fun createResourceGathering(projectId: Int, required: Int): Int = runBlocking {
         val result = DatabaseSteps.update<Unit>(
             sql = SafeSQL.insert(
-                "INSERT INTO resource_gathering (project_id, item_id, name, required, collected) " +
-                        "VALUES (?, 'minecraft:iron_ingot', 'Iron Ingot', ?, ?) RETURNING id"
+                "INSERT INTO resource_gathering (project_id, item_id, name, required) " +
+                        "VALUES (?, 'minecraft:iron_ingot', 'Iron Ingot', ?) RETURNING id"
             ),
             parameterSetter = { stmt, _ ->
                 stmt.setInt(1, projectId)
                 stmt.setInt(2, required)
-                stmt.setInt(3, collected)
             }
         ).process(Unit)
         (result as Result.Success).value
+    }
+
+    private fun seedProgress(resourceGatheringId: Int, collected: Int) = runBlocking {
+        UpsertProgressStep.process(UpsertProgressByRgIdInput(resourceGatheringId, collected))
     }
 
     private fun createTask(projectId: Int, name: String): Int = runBlocking {
@@ -331,9 +337,17 @@ class ProjectDetailIT : WithUser() {
 
     private fun getCollected(id: Int): Int = runBlocking {
         DatabaseSteps.query<Int, Int>(
-            sql = SafeSQL.select("SELECT collected FROM resource_gathering WHERE id = ?"),
+            sql = SafeSQL.select(
+                """
+                SELECT COALESCE(rgp.collected, 0)
+                FROM resource_gathering rg
+                LEFT JOIN resource_gathering_progress rgp
+                       ON rgp.project_id = rg.project_id AND rgp.item_id = rg.item_id
+                WHERE rg.id = ?
+                """.trimIndent()
+            ),
             parameterSetter = { stmt, inp -> stmt.setInt(1, inp) },
-            resultMapper = { rs -> if (rs.next()) rs.getInt("collected") else 0 }
+            resultMapper = { rs -> if (rs.next()) rs.getInt(1) else 0 }
         ).process(id).getOrNull() ?: 0
     }
 

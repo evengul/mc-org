@@ -3,14 +3,14 @@ package app.mcorg.pipeline.resources
 import app.mcorg.domain.model.resources.ResourceGatheringItem
 import app.mcorg.pipeline.Result
 import app.mcorg.domain.pipeline.Step
-import app.mcorg.pipeline.DatabaseSteps
-import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.ValidationSteps
 import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.failure.ValidationFailure
 import app.mcorg.pipeline.resources.commonsteps.CountCollectedResourcesInProjectWithItemIdStep
 import app.mcorg.pipeline.resources.commonsteps.CountTotalResourcesRequiredInProjectWithItemIdStep
 import app.mcorg.pipeline.resources.commonsteps.GetResourceGatheringItemStep
+import app.mcorg.pipeline.resources.commonsteps.UpsertProgressDeltaInput
+import app.mcorg.pipeline.resources.commonsteps.UpsertProgressDeltaStep
 import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.hxOutOfBands
 import app.mcorg.presentation.templated.dsl.progressBar
@@ -61,7 +61,7 @@ suspend fun ApplicationCall.handleUpdateRequirementProgress() {
         },
     ) {
         val amount = ValidateUpdateItemTaskRequirementsInputStep.run(parameters)
-        UpdateItemTaskRequirement(resourceGatheringId).run(amount)
+        UpsertProgressDeltaStep.run(UpsertProgressDeltaInput(resourceGatheringId, amount))
         GetUpdatedTaskCountsStep.run(resourceGatheringId)
     }
 }
@@ -82,18 +82,6 @@ private object ValidateUpdateItemTaskRequirementsInputStep : Step<Parameters, Ap
             is Result.Success -> Result.success(amount.value)
             is Result.Failure -> Result.failure(AppFailure.ValidationError(listOf(amount.error)))
         }
-    }
-}
-
-private data class UpdateItemTaskRequirement(val taskId: Int) : Step<Int, AppFailure.DatabaseError, Unit> {
-    override suspend fun process(input: Int): Result<AppFailure.DatabaseError, Unit> {
-        return DatabaseSteps.update<Int>(
-            sql = SafeSQL.update("UPDATE resource_gathering SET collected = GREATEST(LEAST(collected + ?, required), 0) WHERE id = ?"),
-            parameterSetter = { statement, amount ->
-                statement.setInt(1, amount)
-                statement.setInt(2, taskId)
-            }
-        ).process(input).map {  }
     }
 }
 

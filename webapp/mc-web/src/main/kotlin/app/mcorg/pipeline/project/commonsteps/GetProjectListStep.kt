@@ -21,7 +21,7 @@ data class GetProjectListStep(val worldId: Int) : Step<Unit, AppFailure.Database
                   COUNT(DISTINCT t.id) FILTER (WHERE t.completed = false) AS tasks_remaining,
                   COUNT(DISTINCT t.id)                                      AS tasks_total,
                   COALESCE(SUM(rg.required), 0)                            AS resources_required,
-                  COALESCE(SUM(rg.collected), 0)                           AS resources_gathered,
+                  COALESCE(SUM(rgp.collected), 0)                          AS resources_gathered,
                   COUNT(DISTINCT rg.id)                                    AS item_count,
                   (
                     SELECT t2.name FROM action_task t2
@@ -32,6 +32,11 @@ data class GetProjectListStep(val worldId: Int) : Step<Unit, AppFailure.Database
                 FROM projects p
                 LEFT JOIN action_task t  ON t.project_id  = p.id
                 LEFT JOIN resource_gathering rg ON rg.project_id = p.id
+                -- rgp is 1:1 with rg by (project_id, item_id) (rgp is unique on that pair),
+                -- so this join adds no fan-out and SUM(rgp.collected) matches the old
+                -- SUM(rg.collected) for the normal one-row-per-item case.
+                LEFT JOIN resource_gathering_progress rgp
+                       ON rgp.project_id = rg.project_id AND rgp.item_id = rg.item_id
                 WHERE p.world_id = ?
                 GROUP BY p.id
                 ORDER BY

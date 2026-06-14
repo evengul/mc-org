@@ -274,8 +274,8 @@ class ResourceDetailPanelIT : WithUser() {
     private fun createResourceGathering(projectId: Int): Int = runBlocking {
         val result = DatabaseSteps.update<Unit>(
             sql = SafeSQL.insert(
-                "INSERT INTO resource_gathering (project_id, item_id, name, required, collected) " +
-                        "VALUES (?, 'minecraft:iron_ingot', 'Iron Ingot', 10, 0) RETURNING id"
+                "INSERT INTO resource_gathering (project_id, item_id, name, required) " +
+                        "VALUES (?, 'minecraft:iron_ingot', 'Iron Ingot', 10) RETURNING id"
             ),
             parameterSetter = { stmt, _ -> stmt.setInt(1, projectId) }
         ).process(Unit)

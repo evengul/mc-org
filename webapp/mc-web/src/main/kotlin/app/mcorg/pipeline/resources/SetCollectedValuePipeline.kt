@@ -2,13 +2,13 @@ package app.mcorg.pipeline.resources
 
 import app.mcorg.pipeline.Result
 import app.mcorg.domain.pipeline.Step
-import app.mcorg.pipeline.DatabaseSteps
-import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.ValidationSteps
 import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.resources.commonsteps.CountCollectedResourcesInProjectWithItemIdStep
 import app.mcorg.pipeline.resources.commonsteps.CountTotalResourcesRequiredInProjectWithItemIdStep
 import app.mcorg.pipeline.resources.commonsteps.GetResourceGatheringItemStep
+import app.mcorg.pipeline.resources.commonsteps.UpsertProgressByRgIdInput
+import app.mcorg.pipeline.resources.commonsteps.UpsertProgressStep
 import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.hxOutOfBands
 import app.mcorg.presentation.templated.dsl.progressBar
@@ -53,7 +53,7 @@ suspend fun ApplicationCall.handleSetCollectedValue() {
         }
     ) {
         val value = ValidateSetCollectedValueStep.run(parameters)
-        SetCollectedValueStep(resourceGatheringId).run(value)
+        UpsertProgressStep.run(UpsertProgressByRgIdInput(resourceGatheringId, value))
         GetUpdatedCollectedCountsStep.run(resourceGatheringId)
     }
 }
@@ -62,20 +62,6 @@ private object ValidateSetCollectedValueStep : Step<Parameters, AppFailure.Valid
     override suspend fun process(input: Parameters): Result<AppFailure.ValidationError, Int> {
         return ValidationSteps.requiredInt("value") { AppFailure.ValidationError(listOf(it)) }
             .process(input)
-    }
-}
-
-private data class SetCollectedValueStep(val resourceGatheringId: Int) : Step<Int, AppFailure.DatabaseError, Unit> {
-    override suspend fun process(input: Int): Result<AppFailure.DatabaseError, Unit> {
-        return DatabaseSteps.update<Int>(
-            sql = SafeSQL.update(
-                "UPDATE resource_gathering SET collected = LEAST(GREATEST(?, 0), required) WHERE id = ?"
-            ),
-            parameterSetter = { stmt, value ->
-                stmt.setInt(1, value)
-                stmt.setInt(2, resourceGatheringId)
-            }
-        ).process(input).map { }
     }
 }
 
