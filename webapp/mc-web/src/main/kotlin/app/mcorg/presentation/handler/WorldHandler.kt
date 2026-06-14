@@ -9,6 +9,7 @@ import app.mcorg.pipeline.project.handleDeleteProject
 import app.mcorg.pipeline.project.handleGetProject
 import app.mcorg.pipeline.project.handleGetDetailContent
 import app.mcorg.pipeline.project.resources.handleAddResourcesFromSchematic
+import app.mcorg.pipeline.resources.handleUpdatePlanProgress
 import app.mcorg.pipeline.resources.handleClearResourceSource
 import app.mcorg.pipeline.resources.handleCreateResourceGatheringItem
 import app.mcorg.pipeline.resources.handleDeleteResourceGatheringItem
@@ -183,6 +184,11 @@ class WorldHandler {
                         }
                         post("/view-preference") {
                             call.handleSetViewPreference()
+                        }
+                        route("/plan") {
+                            patch("/progress") {
+                                call.handleUpdatePlanProgress()
+                            }
                         }
                     }
                 }

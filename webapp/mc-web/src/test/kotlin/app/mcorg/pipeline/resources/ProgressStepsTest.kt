@@ -6,6 +6,8 @@ import app.mcorg.pipeline.Result
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.resources.commonsteps.GetAllResourceGatheringItemsStep
 import app.mcorg.pipeline.resources.commonsteps.GetProgressForProjectStep
+import app.mcorg.pipeline.resources.commonsteps.UpsertProgressByItemInput
+import app.mcorg.pipeline.resources.commonsteps.UpsertProgressByItemStep
 import app.mcorg.pipeline.resources.commonsteps.UpsertProgressByRgIdInput
 import app.mcorg.pipeline.resources.commonsteps.UpsertProgressDeltaInput
 import app.mcorg.pipeline.resources.commonsteps.UpsertProgressDeltaStep
@@ -229,6 +231,94 @@ class ProgressStepsTest : WithUser() {
             .map { it as app.mcorg.domain.model.resources.ResourceGatheringItem }
             .single { it.itemId == "minecraft:redstone" }
         assertEquals(0, item.collected, "absent progress row should COALESCE to 0")
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // UpsertProgressByItemStep — item-keyed delta (for plan activities)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    @Test
+    fun `UpsertProgressByItemStep - creates progress row from scratch`() {
+        val pid = createProject(worldId)
+
+        val result = runBlocking {
+            UpsertProgressByItemStep.process(
+                UpsertProgressByItemInput(pid, "minecraft:netherite_ingot", delta = 5, required = 20)
+            )
+        }
+        assertIs<Result.Success<Unit>>(result)
+
+        val progress = runBlocking { GetProgressForProjectStep.process(pid) }
+        assertIs<Result.Success<Map<String, Int>>>(progress)
+        assertEquals(5, progress.value["minecraft:netherite_ingot"])
+    }
+
+    @Test
+    fun `UpsertProgressByItemStep - accumulates increments`() {
+        val pid = createProject(worldId)
+
+        runBlocking {
+            UpsertProgressByItemStep.process(
+                UpsertProgressByItemInput(pid, "minecraft:lapis_lazuli", delta = 10, required = 64)
+            )
+            UpsertProgressByItemStep.process(
+                UpsertProgressByItemInput(pid, "minecraft:lapis_lazuli", delta = 15, required = 64)
+            )
+        }
+
+        val progress = runBlocking { GetProgressForProjectStep.process(pid) }
+        assertIs<Result.Success<Map<String, Int>>>(progress)
+        assertEquals(25, progress.value["minecraft:lapis_lazuli"])
+    }
+
+    @Test
+    fun `UpsertProgressByItemStep - decrement clamps to 0`() {
+        val pid = createProject(worldId)
+
+        runBlocking {
+            UpsertProgressByItemStep.process(
+                UpsertProgressByItemInput(pid, "minecraft:quartz", delta = 5, required = 100)
+            )
+            UpsertProgressByItemStep.process(
+                UpsertProgressByItemInput(pid, "minecraft:quartz", delta = -1000, required = 100)
+            )
+        }
+
+        val progress = runBlocking { GetProgressForProjectStep.process(pid) }
+        assertIs<Result.Success<Map<String, Int>>>(progress)
+        assertEquals(0, progress.value.getOrDefault("minecraft:quartz", 0))
+    }
+
+    @Test
+    fun `UpsertProgressByItemStep - increment clamps to required`() {
+        val pid = createProject(worldId)
+
+        runBlocking {
+            UpsertProgressByItemStep.process(
+                UpsertProgressByItemInput(pid, "minecraft:blaze_rod", delta = 1728, required = 10)
+            )
+        }
+
+        val progress = runBlocking { GetProgressForProjectStep.process(pid) }
+        assertIs<Result.Success<Map<String, Int>>>(progress)
+        assertEquals(10, progress.value["minecraft:blaze_rod"], "should be clamped to required=10")
+    }
+
+    @Test
+    fun `UpsertProgressByItemStep - does not require a resource_gathering row`() {
+        val pid = createProject(worldId)
+        // No resource_gathering row inserted — derived plan activity
+
+        val result = runBlocking {
+            UpsertProgressByItemStep.process(
+                UpsertProgressByItemInput(pid, "minecraft:slime_ball", delta = 3, required = 64)
+            )
+        }
+        assertIs<Result.Success<Unit>>(result)
+
+        val progress = runBlocking { GetProgressForProjectStep.process(pid) }
+        assertIs<Result.Success<Map<String, Int>>>(progress)
+        assertEquals(3, progress.value["minecraft:slime_ball"])
     }
 
     // ─────────────────────────────────────────────────────────────────────────
