@@ -48,7 +48,7 @@
         <logback_version>1.5.34</logback_version>
         <caffeine.version>3.2.4</caffeine.version>
         <bcrypt.version>0.10.2</bcrypt.version>
-        <hikari.version>7.0.2</hikari.version>
+        <hikari.version>7.1.0</hikari.version>
         <postgresql.version>42.7.11</postgresql.version>
         <flyway.version>12.8.1</flyway.version>
         <wiremock.version>3.13.2</wiremock.version>
