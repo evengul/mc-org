@@ -89,7 +89,7 @@ suspend fun ApplicationCall.handleGetDrillChain() {
     val candidateCounts = buildCandidateCounts(targetTree, graph)
     val nodeIngredients = buildNodeIngredients(plan)
 
-    respondHtml(drillChainFragment(project, targetTree, candidateCounts, nodeIngredients))
+    respondHtml(drillChainFragment(project, targetTree, candidateCounts, nodeIngredients, highlightItemId = itemId))
 }
 
 /**
@@ -315,7 +315,7 @@ private suspend fun ApplicationCall.respondDrillRerender(
     val graph = getGraphForWorld(worldId)
     val candidateCounts = buildCandidateCounts(targetTree, graph)
     val nodeIngredients = buildNodeIngredients(plan)
-    respondHtml(drillChainFragment(project, targetTree, candidateCounts, nodeIngredients))
+    respondHtml(drillChainFragment(project, targetTree, candidateCounts, nodeIngredients, highlightItemId = targetItemId))
 }
 
 /**
@@ -370,14 +370,14 @@ internal fun findNodeById(root: TargetTree, nodeId: String): TargetTree? {
 }
 
 /**
- * Resolves the drill subtree for [itemId]. When the item is a defined target, that's its
- * own per-target chain. Otherwise — a derived intermediate like planks or iron ingot — it's
- * the item as it appears inside the first target whose chain contains it. This lets the ⇄
- * on ANY List-lens row open a drill, not just the project's targets.
+ * Resolves the drill chain to show for [itemId]: its own per-target chain when it's a
+ * defined target, otherwise the FULL chain of the first target that contains it (so a derived
+ * intermediate like raw iron is shown in context — the chain above and below it — rather than
+ * as an isolated node). The caller highlights [itemId] within the returned tree.
  */
 internal fun GatheringPlan.drillTreeFor(itemId: String): TargetTree? =
     perTarget(itemId)
-        ?: targets.firstNotNullOfOrNull { t -> perTarget(t.item.id)?.let { findNodeById(it, itemId) } }
+        ?: targets.firstNotNullOfOrNull { t -> perTarget(t.item.id)?.takeIf { findNodeById(it, itemId) != null } }
 
 /**
  * Obtains the [ItemSourceGraph] for the world's Minecraft version.

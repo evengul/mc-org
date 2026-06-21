@@ -31,9 +31,10 @@ fun drillChainFragment(
     target: TargetTree,
     candidateCounts: Map<String, Int>,
     nodeIngredients: Map<String, String> = emptyMap(),
+    highlightItemId: String? = null,
 ): String = createHTML().div {
     id = "project-content"
-    drillChainContent(project, target, candidateCounts, nodeIngredients)
+    drillChainContent(project, target, candidateCounts, nodeIngredients, highlightItemId)
 }
 
 /**
@@ -49,6 +50,7 @@ fun FlowContent.drillChainContent(
     target: TargetTree,
     candidateCounts: Map<String, Int>,
     nodeIngredients: Map<String, String> = emptyMap(),
+    highlightItemId: String? = null,
 ) {
     val worldId = project.worldId
     val projectId = project.id
@@ -71,7 +73,7 @@ fun FlowContent.drillChainContent(
     }
 
     div("drill-chain") {
-        renderTargetTree(target, candidateCounts, nodeIngredients, depth = 0, worldId = worldId, projectId = projectId, encodedTargetId = encodedTargetId)
+        renderTargetTree(target, candidateCounts, nodeIngredients, highlightItemId, depth = 0, worldId = worldId, projectId = projectId, encodedTargetId = encodedTargetId)
     }
 }
 
@@ -80,12 +82,14 @@ private fun DIV.renderTargetTree(
     node: TargetTree,
     candidateCounts: Map<String, Int>,
     nodeIngredients: Map<String, String>,
+    highlightItemId: String?,
     depth: Int,
     worldId: Int,
     projectId: Int,
     encodedTargetId: String,
 ) {
     val depthClass = "chain-node--depth-${depth.coerceAtMost(4)}"
+    val highlightClass = if (node.item.id == highlightItemId) " chain-node--current" else ""
     val isForced = isForced(node, candidateCounts)
     val isMultiSource = isMultiSource(node, candidateCounts)
     val nodeSlug = node.item.id.replace(Regex("[^a-zA-Z0-9]"), "-")
@@ -93,7 +97,7 @@ private fun DIV.renderTargetTree(
     val pickerSlotId = "picker-$nodeSlug"
     val pickerUrl = "/worlds/$worldId/projects/$projectId/plan/chain/$encodedTargetId/sources?node=$encodedNodeId"
 
-    div("chain-node $depthClass") {
+    div("chain-node $depthClass$highlightClass") {
         // Item name + optional method hint for RESOLVED nodes
         span("chain-node__name") {
             +node.item.name
@@ -157,7 +161,7 @@ private fun DIV.renderTargetTree(
 
     // Recurse into children
     for (child in node.children) {
-        renderTargetTree(child, candidateCounts, nodeIngredients, depth + 1, worldId, projectId, encodedTargetId)
+        renderTargetTree(child, candidateCounts, nodeIngredients, highlightItemId, depth + 1, worldId, projectId, encodedTargetId)
     }
 }
 

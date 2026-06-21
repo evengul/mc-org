@@ -34,6 +34,7 @@ import app.mcorg.presentation.templated.dsl.taskList
 import kotlinx.html.*
 import kotlinx.html.stream.createHTML
 import app.mcorg.engine.plan.TargetTree
+import app.mcorg.pipeline.resources.buildNodeIngredients
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
@@ -50,6 +51,7 @@ fun projectDetailPage(
     drillTarget: TargetTree? = null,
     drillCandidateCounts: Map<String, Int> = emptyMap(),
     drillNodeIngredients: Map<String, String> = emptyMap(),
+    drillHighlightItemId: String? = null,
 ): String = pageShell(
     pageTitle = "Seam — ${project.name}",
     user = user,
@@ -110,7 +112,7 @@ fun projectDetailPage(
                 id = "project-content"
                 if (drillTarget != null) {
                     // ?drill=<item> deep-links straight into a target's chain (reload/share-safe).
-                    drillChainContent(project, drillTarget, drillCandidateCounts, drillNodeIngredients)
+                    drillChainContent(project, drillTarget, drillCandidateCounts, drillNodeIngredients, drillHighlightItemId)
                 } else {
                     gatheringPlannerContent(project, resources, tasks, plan, lens, progressMap)
                 }
@@ -395,6 +397,7 @@ fun FlowContent.gatheringPlanSections(
 
     val byGroup = plan.activityList.groupBy { it.group }
     val groupOrder = ActivityGroup.values()
+    val nodeIngredients = buildNodeIngredients(plan)
 
     div {
         id = "gathering-plan-sections"
@@ -406,7 +409,7 @@ fun FlowContent.gatheringPlanSections(
                 span("section-label") { +groupLabel(group) }
                 div("resource-list") {
                     activities.forEach { activity ->
-                        planActivityRow(project.worldId, project.id, activity, progressMap)
+                        planActivityRow(project.worldId, project.id, activity, progressMap, nodeIngredients)
                     }
                 }
             }
@@ -420,13 +423,14 @@ private fun FlowContent.planActivityRow(
     projectId: Int,
     activity: Activity,
     progressMap: Map<String, Int> = emptyMap(),
+    nodeIngredients: Map<String, String> = emptyMap(),
 ) {
     when (activity.status) {
         PlanNodeStatus.SUPPLIED -> suppliedActivityRow(worldId, projectId, activity)
         PlanNodeStatus.OPEN_TAG -> openTagActivityRow(worldId, projectId, activity)
         PlanNodeStatus.BLOCKED -> blockedActivityRow(worldId, projectId, activity)
         PlanNodeStatus.RESOLVED, PlanNodeStatus.RAW_GATHER ->
-            counterActivityRow(worldId, projectId, activity, progressMap)
+            counterActivityRow(worldId, projectId, activity, progressMap, nodeIngredients)
     }
 }
 
@@ -497,13 +501,18 @@ fun FlowContent.counterActivityRow(
     projectId: Int,
     activity: Activity,
     progressMap: Map<String, Int> = emptyMap(),
+    nodeIngredients: Map<String, String> = emptyMap(),
 ) {
     val itemSlug = activity.item.id.replace(":", "-")
     val rowId = "plan-activity-$itemSlug"
     val required = activity.quantity
     val current = (progressMap[activity.item.id] ?: 0).toLong().coerceIn(0, required)
     val percent = if (required > 0) (current * 100 / required).toInt() else 0
-    val sourceLabel = activity.source?.getMethodLabel()
+    // Method + ingredients ("Smelting · 1 Raw Iron") so the row states how the item is made
+    // and what it consumes — the chain relationships, visible without drilling.
+    val sourceLabel = listOfNotNull(activity.source?.getMethodLabel(), nodeIngredients[activity.item.id])
+        .joinToString(" · ")
+        .ifEmpty { null }
     val encodedItemId = URLEncoder.encode(activity.item.id, StandardCharsets.UTF_8)
 
     div("resource-row") {

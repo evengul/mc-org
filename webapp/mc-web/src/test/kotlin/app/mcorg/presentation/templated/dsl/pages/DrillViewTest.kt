@@ -315,6 +315,29 @@ class DrillViewTest {
         assertContains(html, "/worlds/3/projects/7?lens=list")
     }
 
+    @Test
+    fun `drill marks the highlighted node as current and shows ingredient hints`() {
+        val tree = TargetTree(
+            item = item("hopper", "Hopper"),
+            quantityIfAlone = 40,
+            craftsIfAlone = 40,
+            status = PlanNodeStatus.RESOLVED,
+            source = craft,
+            children = listOf(
+                TargetTree(item("iron_ingot", "Iron Ingot"), 200, 200, PlanNodeStatus.RAW_GATHER, mine),
+            ),
+        )
+        val html = drillChainFragment(
+            testProject(), tree,
+            candidateCounts = mapOf("minecraft:iron_ingot" to 1),
+            nodeIngredients = mapOf("minecraft:hopper" to "1 Chest + 5 Iron Ingot"),
+            highlightItemId = "minecraft:iron_ingot",
+        )
+
+        assertContains(html, "chain-node--current")
+        assertContains(html, "1 Chest + 5 Iron Ingot") // ingredient hint rendered
+    }
+
     // -------------------------------------------------------------------------
     // OPEN_TAG nodes (⇄ chip — pick variant)
     // -------------------------------------------------------------------------

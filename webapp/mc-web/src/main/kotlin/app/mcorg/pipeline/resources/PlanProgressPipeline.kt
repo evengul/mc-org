@@ -84,13 +84,22 @@ suspend fun ApplicationCall.handleUpdatePlanProgress() {
         // Project-wide totals for the overall-progress OOB update
         val overallTotals: Pair<Long, Long>? = plan?.let { planProgressTotals(it, progressMap) }
 
+        // Re-derived plan lets us keep the "Smelting · 1 Raw Iron" source/ingredient label on
+        // the swapped row, matching the initial render.
+        val node = plan?.nodes?.get(input.itemId)
+        val sourceLabel = node?.let {
+            listOfNotNull(it.source?.getMethodLabel(), plan.let(::buildNodeIngredients)[input.itemId])
+                .joinToString(" · ")
+                .ifEmpty { null }
+        }
+
         PlanProgressResult(
             itemId = input.itemId,
             itemName = input.itemId.substringAfterLast(':').replace('_', ' ')
                 .replaceFirstChar { it.uppercaseChar() },
             collected = collected.toLong(),
             required = input.required,
-            sourceLabel = null, // source label not available without plan re-derive here
+            sourceLabel = sourceLabel,
             overallTotals = overallTotals,
         )
     }

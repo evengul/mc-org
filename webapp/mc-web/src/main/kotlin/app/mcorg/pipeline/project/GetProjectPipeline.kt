@@ -101,7 +101,7 @@ suspend fun ApplicationCall.handleGetProject() {
             user, project, worldName, resources, tasks, lens,
             isWorldAdmin = isAdmin, plan = plan, progressMap = progressMap,
             drillTarget = drillTarget, drillCandidateCounts = drillCandidateCounts,
-            drillNodeIngredients = drillNodeIngredients,
+            drillNodeIngredients = drillNodeIngredients, drillHighlightItemId = drillItemId,
         )
     )
 }

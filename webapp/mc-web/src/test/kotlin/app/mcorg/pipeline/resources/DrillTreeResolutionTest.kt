@@ -7,6 +7,7 @@ import app.mcorg.engine.plan.PlanNodeStatus
 import app.mcorg.engine.plan.PlanRequirement
 import app.mcorg.engine.plan.PlanTarget
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import org.junit.jupiter.api.Test
 
@@ -52,15 +53,18 @@ class DrillTreeResolutionTest {
     }
 
     @Test
-    fun `resolves a derived intermediate as a subtree of its target`() {
+    fun `derived intermediate resolves to the full chain of its target, containing the item`() {
         val tree = hopperPlan().drillTreeFor("minecraft:oak_planks")
-        assertEquals("minecraft:oak_planks", tree?.item?.id, "Derived planks should resolve via the hopper chain")
+        // Full containing chain (rooted at the target), not the isolated planks subtree.
+        assertEquals("minecraft:hopper", tree?.item?.id)
+        assertNotNull(tree?.let { findNodeById(it, "minecraft:oak_planks") }, "planks present within the chain")
     }
 
     @Test
-    fun `resolves a deeper derived node`() {
+    fun `deeper derived node resolves to its target chain`() {
         val tree = hopperPlan().drillTreeFor("minecraft:iron_ingot")
-        assertEquals("minecraft:iron_ingot", tree?.item?.id)
+        assertEquals("minecraft:hopper", tree?.item?.id)
+        assertNotNull(tree?.let { findNodeById(it, "minecraft:iron_ingot") })
     }
 
     @Test

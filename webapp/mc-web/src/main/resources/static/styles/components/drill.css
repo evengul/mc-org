@@ -32,6 +32,12 @@
     border-bottom: none;
 }
 
+/* The node the user drilled into — emphasised so it's findable in its chain. */
+.chain-node--current {
+    background: var(--accent-muted);
+    box-shadow: inset 3px 0 0 var(--accent);
+}
+
 /* Depth indentation — each level adds one unit of padding-left */
 .chain-node--depth-0 { padding-left: var(--space-4); }
 .chain-node--depth-1 { padding-left: var(--space-6); }
