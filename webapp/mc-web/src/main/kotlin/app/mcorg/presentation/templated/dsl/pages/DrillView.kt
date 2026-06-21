@@ -297,7 +297,7 @@ fun nodePickerFragment(
         } else {
             // Source picker — candidates ranked by SelectionScorer (read-only reuse).
             val ranked = graph?.let { SourceRanking.rankSources(it, node.item, demand) } ?: emptyList()
-            val filtered = if (q.isEmpty()) ranked else ranked.filter { it.source.getName().contains(q, ignoreCase = true) }
+            val filtered = if (q.isEmpty()) ranked else ranked.filter { sourceLabel(it.source, graph).contains(q, ignoreCase = true) }
             val displayed = filtered.take(PICKER_MAX_OPTIONS)
 
             span("section-label picker__label") { +"Choose source" }
@@ -348,7 +348,19 @@ fun nodePickerFragment(
  */
 private fun sourceLabel(source: SourceNode, graph: ItemSourceGraph?): String {
     val inputs = graph?.getRequiredItems(source)?.map { it.item.name }?.sorted().orEmpty()
-    return if (inputs.isNotEmpty()) "from ${inputs.joinToString(" + ")}" else source.getName()
+    if (inputs.isNotEmpty()) return "from ${inputs.joinToString(" + ")}"
+    // No inputs → a loot/gather source. getName() enriches block/entity sources with their
+    // file ("Break Block: Deepslate iron ore"), but loot types fall back to the bare method
+    // ("Chest"), so every chest reads alike. Name them by their loot-table file instead
+    // ("Simple dungeon", "Ancient city") — the distinguishing info is already in `filename`.
+    val name = source.getName()
+    if (name == source.sourceType.name) {
+        val pretty = source.filename.substringAfterLast('/').substringBeforeLast('.')
+            .replace('_', ' ').trim()
+            .replaceFirstChar { it.uppercaseChar() }
+        if (pretty.isNotBlank()) return pretty
+    }
+    return name
 }
 
 /** A tag member paired with its best source + that source's score, for ranking. */

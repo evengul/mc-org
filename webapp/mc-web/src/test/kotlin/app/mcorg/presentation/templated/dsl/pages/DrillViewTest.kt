@@ -601,6 +601,29 @@ class DrillViewTest {
     }
 
     @Test
+    fun `source picker names chest-loot sources by their loot table, not a bare Chest`() {
+        // Two chest-loot sources for iron ingot — distinguishable by their loot-table file.
+        val ironIngot = item("iron_ingot", "Iron Ingot")
+        val builder = ItemSourceGraph.builder()
+        val ingotNode = builder.addItemNode(ironIngot)
+        listOf("chests/simple_dungeon.json", "chests/ancient_city.json").forEach { file ->
+            val src = builder.addSourceNode(ResourceSource.SourceType.LootTypes.CHEST, file)
+            builder.addSourceToItemEdge(src, ingotNode)
+        }
+        val graph = builder.build()
+
+        val node = TargetTree(ironIngot, 200, 200, PlanNodeStatus.RESOLVED, mine)
+        val html = nodePickerFragment(
+            worldId = 1, projectId = 2, targetItemId = "minecraft:iron_ingot",
+            node = node, graph = graph, activeSourceKey = null, activeMemberId = null,
+            demand = node.quantityIfAlone,
+        )
+
+        assertContains(html, "Simple dungeon")
+        assertContains(html, "Ancient city")
+    }
+
+    @Test
     fun `source picker shows clear button when override is active`() {
         val ironIngotItem = item("iron_ingot", "Iron Ingot")
         val node = TargetTree(
