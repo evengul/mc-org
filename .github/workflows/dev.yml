@@ -20,6 +20,9 @@ on:
       - webapp/pom.xml
       - webapp/*/pom.xml
       - webapp/Dockerfile
+      # Workflow changes (incl. Dependabot github-actions bumps) self-test: the PR
+      # runs its own updated workflow, so a broken action bump fails CI before merge.
+      - .github/workflows/**
 jobs:
   compile:
     uses: ./.github/workflows/compile.yml
