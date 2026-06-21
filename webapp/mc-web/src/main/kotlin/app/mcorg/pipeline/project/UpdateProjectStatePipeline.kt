@@ -2,6 +2,9 @@ package app.mcorg.pipeline.project
 
 import app.mcorg.domain.model.project.ProjectState
 import app.mcorg.domain.model.user.Role
+import app.mcorg.event.ProjectStatusChanged
+import app.mcorg.event.eventBus
+import java.time.Instant
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.Result
@@ -25,6 +28,7 @@ suspend fun ApplicationCall.handleUpdateProjectState() {
     val user = this.getUser()
     val worldId = this.getWorldId()
     val projectId = this.getProjectId()
+    val bus = this.eventBus
 
     handlePipeline(
         onSuccess = { newState ->
@@ -35,7 +39,9 @@ suspend fun ApplicationCall.handleUpdateProjectState() {
         ValidateWorldMemberRole<ProjectState>(user, Role.ADMIN, worldId).run(target)
         val current = GetProjectStateStep.run(projectId)
         ValidateStateTransitionStep(current).run(target)
-        UpdateProjectStateStep(projectId).run(target)
+        val newState = UpdateProjectStateStep(projectId).run(target)
+        bus.publish(ProjectStatusChanged(worldId, user.id, Instant.now(), projectId, current, newState))
+        newState
     }
 }
 

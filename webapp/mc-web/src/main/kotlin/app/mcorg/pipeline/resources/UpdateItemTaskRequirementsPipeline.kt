@@ -1,6 +1,8 @@
 package app.mcorg.pipeline.resources
 
 import app.mcorg.domain.model.resources.ResourceGatheringItem
+import app.mcorg.event.ResourceCountUpdated
+import app.mcorg.event.eventBus
 import app.mcorg.pipeline.Result
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.ValidationSteps
@@ -17,11 +19,13 @@ import app.mcorg.presentation.templated.dsl.progressBar
 import app.mcorg.presentation.templated.dsl.resourceRow
 import app.mcorg.presentation.utils.getProjectId
 import app.mcorg.presentation.utils.getResourceGatheringId
+import app.mcorg.presentation.utils.getUser
 import app.mcorg.presentation.utils.getWorldId
 import app.mcorg.presentation.utils.respondHtml
 import io.ktor.http.Parameters
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.request.receiveParameters
+import java.time.Instant
 import kotlinx.html.div
 import kotlinx.html.id
 import kotlinx.html.stream.createHTML
@@ -37,6 +41,8 @@ suspend fun ApplicationCall.handleUpdateRequirementProgress() {
     val resourceGatheringId = this.getResourceGatheringId()
     val worldId = this.getWorldId()
     val projectId = this.getProjectId()
+    val user = this.getUser()
+    val bus = this.eventBus
 
     handlePipeline(
         onSuccess = { progress ->
@@ -61,8 +67,19 @@ suspend fun ApplicationCall.handleUpdateRequirementProgress() {
         },
     ) {
         val amount = ValidateUpdateItemTaskRequirementsInputStep.run(parameters)
+        val before = GetUpdatedTaskCountsStep.run(resourceGatheringId)
         UpsertProgressDeltaStep.run(UpsertProgressDeltaInput(resourceGatheringId, amount))
-        GetUpdatedTaskCountsStep.run(resourceGatheringId)
+        val after = GetUpdatedTaskCountsStep.run(resourceGatheringId)
+        bus.publish(
+            ResourceCountUpdated(
+                worldId = worldId, actorId = user.id, timestamp = Instant.now(),
+                projectId = projectId, itemId = after.item.itemId,
+                previousDone = before.item.collected, newDone = after.item.collected,
+                projectPreviousDone = before.totalCollected, projectNewDone = after.totalCollected,
+                projectRequired = after.totalRequired,
+            )
+        )
+        after
     }
 }
 

@@ -7,6 +7,8 @@ import app.mcorg.domain.model.minecraft.Item
 import app.mcorg.domain.model.minecraft.MinecraftVersion
 import app.mcorg.domain.model.minecraft.MinecraftVersionRange
 import app.mcorg.domain.model.project.ProjectType
+import app.mcorg.event.IdeaImported
+import app.mcorg.event.eventBus
 import app.mcorg.pipeline.Result
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.DatabaseSteps
@@ -19,9 +21,11 @@ import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.templated.dsl.Link
 import app.mcorg.presentation.utils.clientRedirect
 import app.mcorg.presentation.utils.getIdeaId
+import app.mcorg.presentation.utils.getUser
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.request.receiveParameters
 import kotlinx.serialization.json.Json
+import java.time.Instant
 
 data class IdeaForImport(
     val id: Int,
@@ -34,6 +38,8 @@ data class IdeaForImport(
 
 suspend fun ApplicationCall.handleImportIdea() {
     val ideaId = this.getIdeaId()
+    val user = this.getUser()
+    val bus = this.eventBus
 
     val worldId = (this.receiveParameters()["worldId"] ?: parameters["worldId"])?.toIntOrNull()
         ?: return run {
@@ -52,6 +58,7 @@ suspend fun ApplicationCall.handleImportIdea() {
         val validatedIdea = ValidateItemIdsStep(items).run(ideaData)
         val projectId = CreateProjectFromIdeaStep(worldId, taskId).run(validatedIdea)
         CacheManager.onProjectCreated(worldId, projectId)
+        bus.publish(IdeaImported(worldId, user.id, Instant.now(), ideaId, validatedIdea.name))
         projectId
     }
 }

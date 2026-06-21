@@ -2,6 +2,9 @@ package app.mcorg.pipeline.project
 
 import app.mcorg.config.CacheManager
 import app.mcorg.domain.model.project.ProjectType
+import app.mcorg.event.ProjectCreated
+import app.mcorg.event.eventBus
+import java.time.Instant
 import app.mcorg.domain.model.user.Role
 import app.mcorg.pipeline.Result
 import app.mcorg.domain.pipeline.Step
@@ -38,6 +41,7 @@ suspend fun ApplicationCall.handleCreateProject() {
     val parameters = this.receiveParameters()
     val user = this.getUser()
     val worldId = this.getWorldId()
+    val bus = this.eventBus
     val isHtmx = request.headers["HX-Request"] == "true"
     val isFirstProject = parameters["first_project"] == "true"
     val view = parameters["view"]?.takeIf { it == "plan" } ?: "execute"
@@ -76,6 +80,7 @@ suspend fun ApplicationCall.handleCreateProject() {
         ValidateWorldMemberRole<CreateProjectInput>(user, Role.ADMIN, worldId).run(input)
         val projectId = CreateProjectStep(worldId).run(input)
         CacheManager.onProjectCreated(worldId, projectId)
+        bus.publish(ProjectCreated(worldId, user.id, Instant.now(), projectId, input.name, input.type))
         projectId
     }
 }
