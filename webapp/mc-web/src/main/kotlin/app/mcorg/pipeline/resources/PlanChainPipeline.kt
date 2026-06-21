@@ -27,7 +27,6 @@ import io.ktor.server.application.ApplicationCall
 import io.ktor.server.request.receiveParameters
 import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
-import kotlin.math.roundToLong
 
 /**
  * GET /worlds/{worldId}/projects/{projectId}/plan/chain/{itemId}
@@ -420,20 +419,23 @@ internal fun buildCandidateCounts(
  */
 internal fun buildNodeIngredients(plan: GatheringPlan): Map<String, String> {
     fun nameOf(id: String): String = plan.nodes[id]?.item?.name ?: id
-    // Ingredients are shown per ONE output item, so normalise the per-craft amounts by the
-    // node's output count (a craft that yields N items divides its inputs across them). Drop a
-    // trailing ".0" so the common integer case reads cleanly ("5 Iron Ingot", not "5.0").
-    fun fmt(n: Double): String {
-        val r = (n * 100).roundToLong() / 100.0
-        return if (r % 1.0 == 0.0) r.toLong().toString() else r.toString()
-    }
+    fun gcd(a: Long, b: Long): Long = if (b == 0L) a else gcd(b, a % b)
     return plan.nodes.values
         .filter { it.requires.isNotEmpty() }
         .associate { node ->
-            val perCraftOutput = node.producedQuantity.coerceAtLeast(1)
-            node.item.id to node.requires
+            // Reduce inputs and the output count by their common factor so the recipe reads as
+            // a clean ratio. Recipes that yield one output drop the "→ N" ("1 Chest + 5 Iron
+            // Ingot"); multi-output recipes keep it so the ratio is exact, not a fraction
+            // ("1 Oak Log → 4" instead of "0.25 Oak Log").
+            val output = node.producedQuantity.toLong().coerceAtLeast(1)
+            val divisor = node.requires
+                .fold(output) { acc, r -> gcd(acc, r.quantityPerCraft.toLong()) }
+                .coerceAtLeast(1)
+            val inputs = node.requires
                 .sortedBy { nameOf(it.itemId) }
-                .joinToString(" + ") { "${fmt(it.quantityPerCraft.toDouble() / perCraftOutput)} ${nameOf(it.itemId)}" }
+                .joinToString(" + ") { "${it.quantityPerCraft / divisor} ${nameOf(it.itemId)}" }
+            val reducedOutput = output / divisor
+            node.item.id to if (reducedOutput > 1) "$inputs → $reducedOutput" else inputs
         }
 }
 

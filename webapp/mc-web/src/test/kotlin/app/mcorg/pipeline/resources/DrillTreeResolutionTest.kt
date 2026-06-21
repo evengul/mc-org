@@ -101,8 +101,9 @@ class DrillTreeResolutionTest {
     }
 
     @Test
-    fun `ingredients keep a clean decimal for sub-one ratios`() {
-        assertEquals("0.25 Oak Log", buildNodeIngredients(craftPlan())["minecraft:oak_planks"])
+    fun `multi-output recipes read as a reduced ratio, not a fraction`() {
+        // 2 logs → 8 planks reduces to 1 log → 4 planks.
+        assertEquals("1 Oak Log → 4", buildNodeIngredients(craftPlan())["minecraft:oak_planks"])
     }
 
     @Test
