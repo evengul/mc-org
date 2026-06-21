@@ -4,6 +4,10 @@ import app.mcorg.domain.model.project.Project
 import app.mcorg.domain.model.resources.ResourceGatheringItem
 import app.mcorg.domain.model.task.ActionTask
 import app.mcorg.domain.model.user.TokenProfile
+import app.mcorg.engine.plan.Activity
+import app.mcorg.engine.plan.ActivityGroup
+import app.mcorg.engine.plan.GatheringPlan
+import app.mcorg.engine.plan.PlanNodeStatus
 import app.mcorg.presentation.hxDelete
 import app.mcorg.presentation.hxGet
 import app.mcorg.presentation.hxOutOfBands
@@ -13,7 +17,8 @@ import app.mcorg.presentation.hxSwap
 import app.mcorg.presentation.hxTarget
 import app.mcorg.presentation.hxTargetError
 import app.mcorg.presentation.hxTrigger
-import app.mcorg.presentation.templated.dsl.BreadcrumbBuilder
+import app.mcorg.presentation.templated.dsl.TabItem
+import app.mcorg.presentation.templated.dsl.TabVariant
 import app.mcorg.presentation.templated.dsl.addTaskInline
 import app.mcorg.presentation.templated.dsl.appHeader
 import app.mcorg.presentation.templated.dsl.container
@@ -24,6 +29,7 @@ import app.mcorg.presentation.templated.dsl.projectLocationField
 import app.mcorg.presentation.templated.dsl.projectNameField
 import app.mcorg.presentation.templated.dsl.projectStateField
 import app.mcorg.presentation.templated.dsl.resourceSearch
+import app.mcorg.presentation.templated.dsl.tabStrip
 import app.mcorg.presentation.templated.dsl.taskList
 import kotlinx.html.*
 import kotlinx.html.stream.createHTML
@@ -34,8 +40,10 @@ fun projectDetailPage(
     worldName: String,
     resources: List<ResourceGatheringItem>,
     tasks: List<ActionTask>,
-    view: String = "execute",
+    lens: String = "list",
     isWorldAdmin: Boolean = false,
+    plan: GatheringPlan? = null,
+    progressMap: Map<String, Int> = emptyMap(),
 ): String = pageShell(
     pageTitle = "Seam — ${project.name}",
     user = user,
@@ -43,13 +51,13 @@ fun projectDetailPage(
         "/static/styles/components/btn.css",
         "/static/styles/components/form.css",
         "/static/styles/components/item-search.css",
-        "/static/styles/components/toggle.css",
         "/static/styles/components/badge.css",
         "/static/styles/components/progress.css",
         "/static/styles/components/resource-row.css",
         "/static/styles/components/task-list.css",
         "/static/styles/components/resource-search.css",
         "/static/styles/components/resource-panel.css",
+        "/static/styles/components/callout.css",
         "/static/styles/pages/project-detail.css",
     ),
     scripts = listOf(
@@ -69,14 +77,13 @@ fun projectDetailPage(
                 .current(project.name)
         }
     )
-    // Mobile header — separate toggle with distinct id
+    // Mobile header
     div("project-detail__mobile-header") {
         a(classes = "project-detail__back-btn") {
             href = "/worlds/${project.worldId}/projects"
-            +"\u2190"
+            +"←"
         }
         p("project-detail__mobile-name") { +project.name }
-        projectDetailToggleButtons(project.worldId, project.id, view, "project-detail-toggle-mobile")
     }
     main {
         container {
@@ -88,31 +95,13 @@ fun projectDetailPage(
                         projectStateField(project, isWorldAdmin)
                         projectLocationField(project, isWorldAdmin)
                     }
-                    val filteredResources = resources.filter { it.required > 0 }
-                    val totalRequired = filteredResources.sumOf { it.required }
-                    val totalCollected = filteredResources.sumOf { it.collected }
-                    if (totalRequired > 0) {
-                        div("project-detail__overall-progress") {
-                            p("project-detail__overall-progress-label") {
-                                +"$totalCollected / $totalRequired gathered"
-                            }
-                            div {
-                                id = "overall-progress"
-                                progressBar(totalCollected, totalRequired)
-                            }
-                        }
-                    }
+                    gatheringOverallProgress(project.id, project.worldId, resources, plan, progressMap)
                 }
-                projectDetailToggleButtons(project.worldId, project.id, view, "project-detail-toggle")
             }
 
             div {
                 id = "project-content"
-                if (view == "plan") {
-                    planViewContent(project, resources, tasks)
-                } else {
-                    executeViewContent(project, resources, tasks)
-                }
+                gatheringPlannerContent(project, resources, tasks, plan, lens, progressMap)
             }
         }
     }
@@ -124,110 +113,130 @@ fun projectDetailPage(
     }
 }
 
-fun FlowContent.projectDetailToggleButtons(worldId: Int, projectId: Int, active: String, toggleId: String) {
-    div("toggle") {
-        id = toggleId
-        button {
-            classes = buildSet {
-                add("toggle__btn")
-                if (active == "plan") add("toggle__btn--active")
-            }
-            hxGet("/worlds/$worldId/projects/$projectId/detail-content?view=plan")
-            hxTarget("#project-content")
-            hxSwap("innerHTML")
-            +"PLAN"
-        }
-        button {
-            classes = buildSet {
-                add("toggle__btn")
-                if (active == "execute") add("toggle__btn--active")
-            }
-            hxGet("/worlds/$worldId/projects/$projectId/detail-content?view=execute")
-            hxTarget("#project-content")
-            hxSwap("innerHTML")
-            +"EXEC"
-        }
-    }
-}
-
-fun FlowContent.executeViewContent(
-    project: Project,
+/**
+ * Overall gathering progress bar shown in the page header.
+ * When a plan is available, totals come from countable activities (RESOLVED/RAW_GATHER).
+ * Collected values come from [progressMap] (all persisted progress for the project),
+ * which covers both defined targets and engine-derived activities.
+ */
+private fun FlowContent.gatheringOverallProgress(
+    projectId: Int,
+    worldId: Int,
     resources: List<ResourceGatheringItem>,
-    tasks: List<ActionTask>
+    plan: GatheringPlan?,
+    progressMap: Map<String, Int> = emptyMap(),
 ) {
-    val filteredResources = resources.filter { it.required > 0 }
-
-    // Resources section
-    div("project-detail__section") {
-        div("project-detail__section-header") {
-            span("project-detail__section-title section-label") { +"Resources to gather" }
-        }
-        div("resource-list") {
-            id = "resource-list-container"
-            if (filteredResources.isEmpty()) {
-                div("resource-list__empty") {
-                    +"No resources defined yet."
-                }
-            } else {
-                resourceSearch()
-                div {
-                    id = "resource-list"
-                    filteredResources.forEach { item ->
-                        resourceRow(
-                            id = item.id,
-                            worldId = project.worldId,
-                            projectId = project.id,
-                            itemName = item.name,
-                            current = item.collected,
-                            required = item.required,
-                            source = item.solvedByProject?.second
-                        )
-                    }
-                    div("resource-list__no-match") { +"No resources match your search." }
-                }
-            }
-            if (tasks.isNotEmpty()) {
-                val done = tasks.count { it.completed }
-                a(classes = "resource-list__tasks-anchor") {
-                    href = "#task-section"
-                    +"↓ Tasks — $done of ${tasks.size} completed"
-                }
-            }
-        }
+    val (totalRequired, totalCollected) = if (plan != null) {
+        planProgressTotals(plan, progressMap)
+    } else {
+        val filtered = resources.filter { it.required > 0 }
+        filtered.sumOf { it.required }.toLong() to filtered.sumOf { it.collected }.toLong()
     }
 
-    // Tasks section
-    div("project-detail__section") {
-        id = "task-section"
-        div("project-detail__section-header") {
-            span("project-detail__section-title section-label") { +"Tasks" }
-        }
-        div("task-section") {
-            // OOB target for CompleteActionTask response
+    if (totalRequired > 0) {
+        div("project-detail__overall-progress") {
+            // Label lives INSIDE #overall-progress so the OOB swap after a counter update
+            // refreshes both the label and the bar together (it previously left a stale label).
             div {
-                id = "project-progress"
-                val done = tasks.count { it.completed }
-                if (tasks.isNotEmpty()) {
-                    progressBar(done, tasks.size)
-                    p("project-detail__overall-progress-label") {
-                        +"$done of ${tasks.size} tasks completed"
-                    }
-                }
+                id = "overall-progress"
+                overallProgressInner(totalRequired, totalCollected)
             }
-            taskList(project.worldId, project.id, tasks)
-            addTaskInline(project.worldId, project.id)
         }
     }
 }
 
-fun FlowContent.planViewContent(
+/** Inner content of #overall-progress: the "N% gathered · M to go" label + the bar. */
+fun FlowContent.overallProgressInner(totalRequired: Long, totalCollected: Long) {
+    val pct = if (totalRequired > 0) (totalCollected * 100 / totalRequired) else 0
+    val toGo = (totalRequired - totalCollected).coerceAtLeast(0)
+    p("project-detail__overall-progress-label") {
+        +"$pct% gathered · $toGo to go"
+    }
+    progressBar(totalCollected.toInt().coerceAtMost(totalRequired.toInt()), totalRequired.toInt())
+}
+
+/**
+ * Computes (totalRequired, totalCollected) from countable plan activities.
+ * Only RESOLVED and RAW_GATHER activities contribute to the progress counter.
+ * Collected is sourced from [progressMap] (resource_gathering_progress for the whole project),
+ * so derived activities that have persisted progress are counted correctly.
+ */
+internal fun planProgressTotals(plan: GatheringPlan, progressMap: Map<String, Int>): Pair<Long, Long> {
+    val countable = plan.activityList.filter {
+        it.status == PlanNodeStatus.RESOLVED || it.status == PlanNodeStatus.RAW_GATHER
+    }
+    val totalRequired = countable.sumOf { it.quantity }
+    val totalCollected = countable.sumOf { activity ->
+        (progressMap[activity.item.id] ?: 0).toLong()
+    }
+    return totalRequired to totalCollected
+}
+
+/**
+ * Unified gathering planner content — replaces the old PLAN/EXECUTE toggle.
+ * Shows lens pills (List / Next up / Sessions) and renders the active lens body.
+ */
+fun FlowContent.gatheringPlannerContent(
     project: Project,
     resources: List<ResourceGatheringItem>,
-    tasks: List<ActionTask>
+    tasks: List<ActionTask>,
+    plan: GatheringPlan?,
+    lens: String = "list",
+    progressMap: Map<String, Int> = emptyMap(),
 ) {
-    val filteredResources = resources.filter { it.required > 0 }
+    val activeLens = when (lens) {
+        "next", "sessions" -> lens
+        else -> "list"
+    }
 
-    // Resources section
+    // Fetch from the fragment endpoint (hx-get), but push the canonical page URL so a
+    // reload/share lands on the full page shell rather than the bare CSS-less fragment.
+    val fragmentBase = "/worlds/${project.worldId}/projects/${project.id}/detail-content"
+    val pageBase = "/worlds/${project.worldId}/projects/${project.id}"
+    val lensTabs = listOf(
+        TabItem("list", "List", "$fragmentBase?lens=list", pushUrl = "$pageBase?lens=list"),
+        TabItem("next", "Next up", "$fragmentBase?lens=next", pushUrl = "$pageBase?lens=next"),
+        TabItem("sessions", "Sessions", "$fragmentBase?lens=sessions", pushUrl = "$pageBase?lens=sessions"),
+    )
+
+    // Lens pills
+    tabStrip(
+        tabs = lensTabs,
+        activeValue = activeLens,
+        hxTarget = "#project-content",
+        variant = TabVariant.PILLS,
+        queryName = "lens",
+    )
+
+    // Active lens body
+    when (activeLens) {
+        "next", "sessions" -> lensComingSoon(project.worldId, project.id, activeLens)
+        else -> listLensContent(project, resources, tasks, plan, progressMap)
+    }
+}
+
+private fun FlowContent.lensComingSoon(worldId: Int, projectId: Int, lens: String) {
+    val label = if (lens == "next") "Next up" else "Sessions"
+    div("callout callout--info") {
+        id = "lens-content"
+        span("callout__icon") { +"i" }
+        div("callout__body") {
+            +"$label view is coming soon."
+        }
+    }
+}
+
+/**
+ * The List lens: definition controls + grouped activity list (or empty/error state).
+ */
+private fun FlowContent.listLensContent(
+    project: Project,
+    resources: List<ResourceGatheringItem>,
+    tasks: List<ActionTask>,
+    plan: GatheringPlan?,
+    progressMap: Map<String, Int> = emptyMap(),
+) {
+    // Resources / definition section
     div("project-detail__section") {
         div("project-detail__section-header") {
             span("project-detail__section-title section-label") { +"Resources" }
@@ -247,15 +256,7 @@ fun FlowContent.planViewContent(
             }
         }
 
-        if (filteredResources.isEmpty()) {
-            div("plan-empty-state") {
-                id = "plan-empty-state"
-                p("plan-empty-state__text") { +"No resources defined yet." }
-                p("plan-empty-state__hint") { +"Add resources to start planning." }
-            }
-        }
-
-        // Add resource form (hidden by default)
+        // Add resource form (hidden by default via JS)
         div("plan-add-resource-form") {
             id = "plan-add-resource-form"
             form {
@@ -315,12 +316,15 @@ fun FlowContent.planViewContent(
             }
         }
 
-        // Resource table (always render for HTMX swap target)
+        // Resource table — always rendered as HTMX swap target
         planResourceTable(project.worldId, project.id, resources)
 
-        // Schematic upload modal — replaces the project's resource list with a build's materials
-        resourceSchematicModal(project.worldId, project.id, filteredResources.size)
+        // Schematic upload modal
+        resourceSchematicModal(project.worldId, project.id, resources.filter { it.required > 0 }.size)
     }
+
+    // Gathering plan activity sections
+    gatheringPlanSections(project, plan, progressMap)
 
     // Tasks section (collapsed)
     div("project-detail__section") {
@@ -352,6 +356,214 @@ fun FlowContent.planViewContent(
             addTaskInline(project.worldId, project.id)
         }
     }
+}
+
+/**
+ * Renders the grouped activity list from the plan, or a fallback when the plan
+ * could not be derived.
+ *
+ * - null plan (nothing defined yet, all collected, or no ingested graph):
+ *   renders the empty/definition state.
+ * - plan provided: renders sections grouped by ActivityGroup.
+ */
+fun FlowContent.gatheringPlanSections(
+    project: Project,
+    plan: GatheringPlan?,
+    progressMap: Map<String, Int> = emptyMap(),
+) {
+    if (plan == null) {
+        // Empty state — no resources yet or all collected
+        div("plan-empty-state") {
+            id = "plan-empty-state"
+            p("plan-empty-state__text") { +"No gathering plan yet." }
+            p("plan-empty-state__hint") { +"Add resources above to start planning." }
+        }
+        return
+    }
+
+    val byGroup = plan.activityList.groupBy { it.group }
+    val groupOrder = ActivityGroup.values()
+
+    div {
+        id = "gathering-plan-sections"
+        groupOrder.forEach { group ->
+            val activities = byGroup[group] ?: return@forEach
+            if (activities.isEmpty()) return@forEach
+
+            div("project-detail__section") {
+                span("section-label") { +groupLabel(group) }
+                div("resource-list") {
+                    activities.forEach { activity ->
+                        planActivityRow(project.worldId, project.id, activity, progressMap)
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** Renders a single activity row. Presentation depends on status. */
+private fun FlowContent.planActivityRow(
+    worldId: Int,
+    projectId: Int,
+    activity: Activity,
+    progressMap: Map<String, Int> = emptyMap(),
+) {
+    when (activity.status) {
+        PlanNodeStatus.SUPPLIED -> suppliedActivityRow(activity)
+        PlanNodeStatus.OPEN_TAG -> openTagActivityRow(activity)
+        PlanNodeStatus.BLOCKED -> blockedActivityRow(activity)
+        PlanNodeStatus.RESOLVED, PlanNodeStatus.RAW_GATHER ->
+            counterActivityRow(worldId, projectId, activity, progressMap)
+    }
+}
+
+/** SUPPLIED row: badge + supply label, no counter. */
+private fun FlowContent.suppliedActivityRow(activity: Activity) {
+    val supplyLabel = activity.supply?.label ?: "Supplied"
+    div("resource-row") {
+        id = "plan-activity-${activity.item.id.replace(":", "-")}"
+        div("resource-row__desktop") {
+            div("resource-row__name") { +activity.item.name }
+            span("badge badge--accent") { +"Supplied" }
+            span("resource-row__source") { +"from $supplyLabel" }
+        }
+    }
+}
+
+/** OPEN_TAG row: amber callout, indicates variant pick needed. */
+private fun FlowContent.openTagActivityRow(activity: Activity) {
+    div("callout callout--warning") {
+        id = "plan-activity-${activity.item.id.replace(":", "-")}"
+        span("callout__icon") { +"!" }
+        div("callout__body") {
+            span { +activity.item.name }
+            +" — Pick a variant (open tag)"
+        }
+    }
+}
+
+/** BLOCKED row: warning callout. */
+private fun FlowContent.blockedActivityRow(activity: Activity) {
+    div("callout callout--warning") {
+        id = "plan-activity-${activity.item.id.replace(":", "-")}"
+        span("callout__icon") { +"!" }
+        div("callout__body") {
+            span { +"Blocked: " }
+            +activity.item.name
+            +" — no feasible source found"
+        }
+    }
+}
+
+/**
+ * RESOLVED / RAW_GATHER: counter row posting to the (projectId, itemId) progress endpoint.
+ * Mirrors the structure of resourceRow but targets the plan progress endpoint.
+ * [progressMap] carries persisted progress for all items in the project (including derived ones).
+ */
+fun FlowContent.counterActivityRow(
+    worldId: Int,
+    projectId: Int,
+    activity: Activity,
+    progressMap: Map<String, Int> = emptyMap(),
+) {
+    val itemSlug = activity.item.id.replace(":", "-")
+    val rowId = "plan-activity-$itemSlug"
+    val required = activity.quantity
+    val current = (progressMap[activity.item.id] ?: 0).toLong().coerceIn(0, required)
+    val percent = if (required > 0) (current * 100 / required).toInt() else 0
+    val sourceLabel = activity.source?.getMethodLabel()
+
+    div("resource-row") {
+        id = rowId
+        attributes["data-item-name"] = activity.item.name
+        attributes["data-progress-pct"] = percent.toString()
+        attributes["data-required"] = required.toString()
+
+        div("resource-row__desktop") {
+            div("resource-row__name") { +activity.item.name }
+
+            div("resource-row__progress") {
+                div("progress") {
+                    div("progress__fill") {
+                        attributes["style"] = "width: ${percent}%"
+                        attributes["role"] = "progressbar"
+                        attributes["aria-valuenow"] = current.toString()
+                        attributes["aria-valuemin"] = "0"
+                        attributes["aria-valuemax"] = required.toString()
+                    }
+                }
+            }
+
+            planActivityCount(activity.item.id, activity.item.name, itemSlug, current, required, complete = false)
+
+            if (sourceLabel != null) {
+                span("resource-row__source") { +sourceLabel }
+            }
+
+            div("resource-row__counters") {
+                intArrayOf(-1728, -64, -1, 1, 64, 1728).forEach { amount ->
+                    button(classes = "btn btn--ghost btn--sm resource-row__counter-btn") {
+                        attributes["hx-patch"] =
+                            "/worlds/$worldId/projects/$projectId/plan/progress"
+                        attributes["hx-vals"] =
+                            """{"itemId": "${activity.item.id}", "amount": $amount, "required": $required}"""
+                        attributes["hx-target"] = "#$rowId"
+                        attributes["hx-swap"] = "outerHTML"
+                        +if (amount > 0) "+$amount" else "$amount"
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * The "collected / required" count for a plan activity. The left number is click-to-edit
+ * (keyboard-activatable): clicking reveals an input that sets an absolute collected value,
+ * persisted via the same `/plan/progress` endpoint (plan-view.js computes the delta).
+ * Shared by the initial render and the post-update OOB-less row swap so they stay identical.
+ */
+fun FlowContent.planActivityCount(
+    itemId: String,
+    itemName: String,
+    itemSlug: String,
+    current: Long,
+    required: Long,
+    complete: Boolean,
+) {
+    span("resource-row__count${if (complete) " resource-row__count--complete" else ""}") {
+        id = "plan-count-$itemSlug"
+        attributes["data-item-id"] = itemId
+        attributes["data-current"] = current.toString()
+        attributes["data-required"] = required.toString()
+        span("resource-row__count-current") {
+            attributes["role"] = "button"
+            attributes["tabindex"] = "0"
+            attributes["title"] = "Click to set collected amount"
+            attributes["aria-label"] = "Set collected amount for $itemName"
+            +current.toString()
+        }
+        span("resource-row__count-sep") { +" / $required" }
+        input(type = InputType.number, classes = "resource-row__count-input") {
+            attributes["aria-label"] = "Collected amount for $itemName"
+            value = current.toString()
+            min = "0"
+            max = required.toString()
+        }
+    }
+}
+
+private fun groupLabel(group: ActivityGroup): String = when (group) {
+    ActivityGroup.NEEDS_ATTENTION -> "Needs attention"
+    ActivityGroup.COLLECT_SUPPLIED -> "Collect from farms"
+    ActivityGroup.GATHER -> "Gather"
+    ActivityGroup.HUNT -> "Hunt"
+    ActivityGroup.LOOT -> "Loot"
+    ActivityGroup.TRADE -> "Trade"
+    ActivityGroup.SMELT -> "Smelt"
+    ActivityGroup.CRAFT -> "Craft"
+    ActivityGroup.OTHER -> "Other"
 }
 
 fun TR.planResourceRow(worldId: Int, projectId: Int, item: ResourceGatheringItem) {
@@ -397,7 +609,7 @@ fun TR.planResourceRow(worldId: Int, projectId: Int, item: ResourceGatheringItem
             hxDelete("/worlds/$worldId/projects/$projectId/resources/gathering/${item.id}?context=plan")
             hxTarget("#plan-row-${item.id}")
             hxSwap("outerHTML")
-            +"\u00d7"
+            +"×"
         }
     }
 }
@@ -520,24 +732,19 @@ fun FlowContent.resourceSchematicModal(worldId: Int, projectId: Int, existingRes
     }
 }
 
-// Fragment for detail-content endpoint response (inner content of #project-content)
-fun executeViewFragment(project: Project, resources: List<ResourceGatheringItem>, tasks: List<ActionTask>): String =
-    createHTML().div {
-        executeViewContent(project, resources, tasks)
-    }
-
-fun planViewFragment(project: Project, resources: List<ResourceGatheringItem>, tasks: List<ActionTask>): String =
-    createHTML().div {
-        planViewContent(project, resources, tasks)
-    }
-
-// OOB fragments to update both toggle instances when switching views
-fun toggleOobFragments(worldId: Int, projectId: Int, active: String): String {
-    return buildToggleOob(worldId, projectId, active, "project-detail-toggle") +
-           buildToggleOob(worldId, projectId, active, "project-detail-toggle-mobile")
+/** Fragment for detail-content endpoint response (inner content of #project-content). */
+fun gatheringPlannerFragment(
+    project: Project,
+    resources: List<ResourceGatheringItem>,
+    tasks: List<ActionTask>,
+    plan: GatheringPlan?,
+    lens: String = "list",
+    progressMap: Map<String, Int> = emptyMap(),
+): String = createHTML().div {
+    gatheringPlannerContent(project, resources, tasks, plan, lens, progressMap)
 }
 
-// OOB fragment to update #project-progress after task create/complete
+/** OOB fragment to update #project-progress after task create/complete. */
 fun taskProgressOobFragment(completed: Int, total: Int): String =
     createHTML().div {
         id = "project-progress"
@@ -547,31 +754,5 @@ fun taskProgressOobFragment(completed: Int, total: Int): String =
             p("project-detail__overall-progress-label") {
                 +"$completed of $total tasks completed"
             }
-        }
-    }
-
-private fun buildToggleOob(worldId: Int, projectId: Int, active: String, toggleId: String): String =
-    createHTML().div("toggle") {
-        id = toggleId
-        hxOutOfBands("outerHTML:#$toggleId")
-        button {
-            classes = buildSet {
-                add("toggle__btn")
-                if (active == "plan") add("toggle__btn--active")
-            }
-            hxGet("/worlds/$worldId/projects/$projectId/detail-content?view=plan")
-            hxTarget("#project-content")
-            hxSwap("innerHTML")
-            +"PLAN"
-        }
-        button {
-            classes = buildSet {
-                add("toggle__btn")
-                if (active == "execute") add("toggle__btn--active")
-            }
-            hxGet("/worlds/$worldId/projects/$projectId/detail-content?view=execute")
-            hxTarget("#project-content")
-            hxSwap("innerHTML")
-            +"EXEC"
         }
     }

@@ -105,7 +105,7 @@ fun pageShell(
             }
             script {
                 src = "https://cdn.jsdelivr.net/npm/htmx-ext-response-targets@2.0.4/dist/response-targets.js"
-                integrity = "sha384-T41oglUPvXLGBVyRdZsVRxNWnOOqCynaPubjUVjxhsjFTKrFJGEMm3/0KGmNQ+Pg"
+                integrity = "sha384-NtTh9TBZ2X/pFpfsVvQOjSsYWmjmqG6h5ioQWVAe2/j3AuTHRmfqvoqp+iOed+I0"
                 crossorigin = ScriptCrossorigin.anonymous
             }
             script {

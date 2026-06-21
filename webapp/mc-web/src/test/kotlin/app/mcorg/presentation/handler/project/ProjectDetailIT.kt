@@ -64,11 +64,11 @@ class ProjectDetailIT : WithUser() {
     }
 
     // -------------------------------------------------------------------------
-    // Test 1: page load returns execute view by default
+    // Test 1: page load returns unified gathering planner (List lens)
     // -------------------------------------------------------------------------
 
     @Test
-    fun `returns 200 with execute view on page load`() = testApplication {
+    fun `returns 200 with gathering planner on page load`() = testApplication {
         setupRoutes()
 
         val response = client.get("/worlds/$worldId/projects/$projectId") {
@@ -77,16 +77,17 @@ class ProjectDetailIT : WithUser() {
 
         assertEquals(HttpStatusCode.OK, response.status)
         val body = response.bodyAsText()
-        assertContains(body, "resource-list-container")
-        assertContains(body, "task-section")
+        // Unified surface: always shows plan-resource-table (definition table) + lens pills
+        assertContains(body, "plan-resource-table")
+        assertContains(body, "plan-task-section")
     }
 
     // -------------------------------------------------------------------------
-    // Test 2: page load shows plan stub when preference is plan
+    // Test 2: page load with any stored view preference shows unified planner
     // -------------------------------------------------------------------------
 
     @Test
-    fun `returns 200 with plan view when view preference is plan`() = testApplication {
+    fun `returns 200 with unified planner regardless of stored view preference`() = testApplication {
         setViewPreference(user.id, projectId, "plan")
 
         setupRoutes()
@@ -184,11 +185,11 @@ class ProjectDetailIT : WithUser() {
     }
 
     // -------------------------------------------------------------------------
-    // Test 7: detail-content returns execute view and persists preference
+    // Test 7: detail-content with legacy ?view= param maps to list lens
     // -------------------------------------------------------------------------
 
     @Test
-    fun `detail-content returns execute view and persists preference`() = testApplication {
+    fun `detail-content with legacy view param returns unified gathering planner`() = testApplication {
         setupRoutes()
 
         val response = client.get(
@@ -198,20 +199,20 @@ class ProjectDetailIT : WithUser() {
         }
 
         assertEquals(HttpStatusCode.OK, response.status)
-        assertContains(response.bodyAsText(), "resource-list-container")
-        assertEquals("execute", getViewPreference(user.id, projectId))
+        // Returns unified planner (list lens) regardless of old view= param
+        assertContains(response.bodyAsText(), "plan-resource-table")
     }
 
     // -------------------------------------------------------------------------
-    // Test 8: detail-content returns plan stub
+    // Test 8: detail-content with lens=list returns list lens
     // -------------------------------------------------------------------------
 
     @Test
-    fun `detail-content returns plan view content`() = testApplication {
+    fun `detail-content with lens=list returns gathering planner list lens`() = testApplication {
         setupRoutes()
 
         val response = client.get(
-            "/worlds/$worldId/projects/$projectId/detail-content?view=plan"
+            "/worlds/$worldId/projects/$projectId/detail-content?lens=list"
         ) {
             addAuthCookie(this)
         }

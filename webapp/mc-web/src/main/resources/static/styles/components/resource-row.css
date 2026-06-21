@@ -59,27 +59,26 @@
     font-size: var(--text-sm);
     color: var(--text-muted);
     white-space: nowrap;
+}
+
+/* Only the collected number (left of the "/") is the click-to-edit target. */
+.resource-row__count-current {
     cursor: pointer;
     padding: 2px 4px;
     border-radius: 3px;
 }
 
-.resource-row__count:hover {
+.resource-row__count-current:hover {
     background: var(--bg-raised);
     color: var(--text-primary);
 }
 
-.resource-row__count--complete {
-    cursor: default;
-    color: var(--text-muted);
-}
-
-.resource-row__count--complete:hover {
-    background: transparent;
-    color: var(--text-muted);
+.resource-row__count--complete .resource-row__count-current {
+    cursor: pointer;
 }
 
 .resource-row__count-input {
+    display: none;
     font-family: var(--font-ui);
     font-size: var(--text-sm);
     background: var(--bg-raised);
@@ -88,6 +87,16 @@
     color: var(--text-primary);
     padding: 2px 4px;
     width: 80px;
+}
+
+/* Editing: swap the static number + separator for the input. */
+.resource-row__count--editing .resource-row__count-current,
+.resource-row__count--editing .resource-row__count-sep {
+    display: none;
+}
+
+.resource-row__count--editing .resource-row__count-input {
+    display: inline-block;
 }
 
 .resource-row__source {
