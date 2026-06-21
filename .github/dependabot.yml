@@ -6,6 +6,12 @@ updates:
       interval: weekly
       day: monday
     open-pull-requests-limit: 10
+    ignore:
+      # Kotlin is deliberately held at the latest CodeQL-analysable 2.3.x (see the
+      # rationale in webapp/mc-bom/pom.xml). 2.4.x breaks CodeQL's Kotlin extractor
+      # (github/codeql#21938). Drop this ignore once CodeQL supports 2.4.x.
+      - dependency-name: "org.jetbrains.kotlin:*"
+        versions: [ ">=2.4.0" ]
     # Versions are centralised in mc-bom (libraries) and webapp/pom.xml (build-plugin
     # versions), so most bumps land as a single property change. Grouping keeps a family
     # that spans several artifacts (Ktor, Kotlin, the test stack) in one PR.

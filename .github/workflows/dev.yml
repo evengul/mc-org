@@ -22,12 +22,10 @@ on:
       - webapp/Dockerfile
 jobs:
   compile:
-    if: github.actor != 'dependabot[bot]'
     uses: ./.github/workflows/compile.yml
 
   unit-tests:
     name: Unit Tests
-    if: github.actor != 'dependabot[bot]'
     needs: compile
     runs-on: ubuntu-latest
     defaults:
@@ -67,7 +65,6 @@ jobs:
 
   integration-tests:
     name: Integration Tests
-    if: github.actor != 'dependabot[bot]'
     needs: compile
     runs-on: ubuntu-latest
     defaults:
