@@ -40,6 +40,11 @@ object AppConfig {
     // if unset); unused in LOCAL and PRODUCTION. See PreviewGate.
     var previewPassword: String? = null
 
+    // Shared secret gating the machine-facing webhook admin endpoints (MCO-229). Optional: when
+    // unset the endpoints fail closed (reject every request), so the feature is inert until a
+    // WEBHOOK_ADMIN_SECRET is provided. See WebhookAdminAuthPlugin.
+    var webhookAdminSecret: String? = null
+
     init {
         val errors = mutableListOf<String>()
         System.getenv("DB_URL")?.let { dbUrl = it } ?: errors.add("DB_URL is not set")
@@ -118,6 +123,8 @@ object AppConfig {
         System.getenv("LAUNCHER_META_BASE_URL")?.let { launcherMetaBaseUrl = it }
 
         System.getenv("DEMO_USER")?.let { demoUser = it }
+
+        System.getenv("WEBHOOK_ADMIN_SECRET")?.let { webhookAdminSecret = it }
 
         System.getenv("PREVIEW_PASSWORD")?.let { previewPassword = it }
         if (env == Test && previewPassword.isNullOrBlank()) {

@@ -5,6 +5,7 @@ import app.mcorg.presentation.handler.handleGetLanding
 import app.mcorg.presentation.plugins.AuthPlugin
 import app.mcorg.presentation.plugins.BannedPlugin
 import app.mcorg.presentation.plugins.DemoUserPlugin
+import app.mcorg.webhook.webhookAdminRoutes
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.*
 import io.ktor.server.response.respond
@@ -30,6 +31,8 @@ fun Application.configureAppRouter() {
         route("/auth") {
             authRouter()
         }
+        // Machine-facing webhook admin surface — shared-secret gated, JWT-exempt (see AuthPlugin).
+        webhookAdminRoutes()
         route("") {
             install(BannedPlugin)
             appRouterV2()
