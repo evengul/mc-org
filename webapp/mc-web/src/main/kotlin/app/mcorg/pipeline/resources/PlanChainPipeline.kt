@@ -106,6 +106,9 @@ suspend fun ApplicationCall.handleGetNodePicker() {
         return
     }
 
+    // Optional search filter for high-fan-out pickers.
+    val query = request.queryParameters["q"]?.takeIf { it.isNotBlank() }
+
     // Re-derive plan
     val plan = deriveOrNull(projectId, worldId) ?: run {
         respondHtml(pickerNotFoundFragment("Plan not available — try refreshing."))
@@ -139,6 +142,8 @@ suspend fun ApplicationCall.handleGetNodePicker() {
             graph = graph,
             activeSourceKey = overrides?.sourceByItem?.get(nodeId),
             activeMemberId = overrides?.tagMember?.get(nodeId),
+            demand = node.quantityIfAlone,
+            query = query,
         )
     )
 }

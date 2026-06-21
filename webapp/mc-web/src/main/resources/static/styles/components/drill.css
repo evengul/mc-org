@@ -154,6 +154,16 @@
     white-space: nowrap;
 }
 
+/* Search box for high-fan-out pickers */
+.picker-search {
+    margin-bottom: var(--space-2);
+}
+
+.picker-search__input {
+    width: 100%;
+    font-size: var(--text-sm);
+}
+
 /* Truncation note when candidates exceed the cap */
 .picker__overflow-note {
     font-size: var(--text-xs);

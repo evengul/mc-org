@@ -1,10 +1,12 @@
 package app.mcorg.presentation.templated.dsl.pages
 
+import app.mcorg.domain.model.minecraft.MinecraftId
 import app.mcorg.domain.model.minecraft.MinecraftTag
 import app.mcorg.domain.model.project.Project
 import app.mcorg.engine.model.ItemSourceGraph
 import app.mcorg.engine.model.SourceNode
 import app.mcorg.engine.plan.PlanNodeStatus
+import app.mcorg.engine.plan.SourceRanking
 import app.mcorg.engine.plan.TargetTree
 import kotlinx.html.*
 import kotlinx.html.stream.createHTML
@@ -226,60 +228,70 @@ fun nodePickerFragment(
     graph: ItemSourceGraph?,
     activeSourceKey: String?,
     activeMemberId: String?,
+    demand: Long,
+    query: String? = null,
 ): String {
     val encodedTargetId = encodeId(targetItemId)
     val encodedNodeId = encodeId(node.item.id)
     val baseUrl = "/worlds/$worldId/projects/$projectId/plan/chain/$encodedTargetId"
     val clearUrl = "$baseUrl/override?node=$encodedNodeId"
+    val sourcesUrl = "$baseUrl/sources?node=$encodedNodeId"
+    val pickerSlotId = "picker-${node.item.id.replace(Regex("[^a-zA-Z0-9]"), "-")}"
     val isTag = node.status == PlanNodeStatus.OPEN_TAG && node.item is MinecraftTag
+    val q = query?.trim().orEmpty()
 
     return createHTML().div("picker") {
         if (isTag) {
-            // Tag-member picker
+            // Tag-member picker — members ranked by the score of their best source.
             val tag = node.item as MinecraftTag
-            val allMembers = tag.content.sortedBy { it.name }
-            val displayedMembers = allMembers.take(PICKER_MAX_OPTIONS)
-            val truncated = allMembers.size > PICKER_MAX_OPTIONS
+            val ranked = tag.content
+                .map { member ->
+                    val best = graph?.let { SourceRanking.rankSources(it, member, demand).firstOrNull() }
+                    RankedMember(member, best?.source, best?.score ?: Int.MIN_VALUE)
+                }
+                .sortedWith(compareByDescending<RankedMember> { it.score }.thenBy { it.member.name })
+            val topId = ranked.firstOrNull()?.member?.id
+            val filtered = if (q.isEmpty()) ranked else ranked.filter { it.member.name.contains(q, ignoreCase = true) }
+            val displayed = filtered.take(PICKER_MAX_OPTIONS)
 
             span("section-label picker__label") { +"Pick a variant" }
+            if (ranked.size > PICKER_MAX_OPTIONS) pickerSearch(sourcesUrl, pickerSlotId, q)
 
-            div("stack--xs") {
-                for (member in displayedMembers) {
-                    val isSelected = member.id == activeMemberId
-                    div("picker-opt${if (isSelected) " picker-opt--sel" else ""}") {
-                        attributes["hx-post"] = "$baseUrl/tag"
-                        attributes["hx-vals"] = """{"node":"${node.item.id}","memberItemId":"${member.id}"}"""
-                        attributes["hx-target"] = "#project-content"
-                        attributes["hx-swap"] = "outerHTML"
-                        span("picker-opt__name") { +member.name }
-                        if (isSelected) {
-                            span("picker-opt__hint") { +"selected" }
+            if (displayed.isEmpty()) {
+                p("picker__empty") { +(if (q.isEmpty()) "No variants available." else "No variants match \"$q\".") }
+            } else {
+                div("stack--xs") {
+                    for (rm in displayed) {
+                        val isSelected = rm.member.id == activeMemberId
+                        div("picker-opt${if (isSelected) " picker-opt--sel" else ""}") {
+                            attributes["hx-post"] = "$baseUrl/tag"
+                            attributes["hx-vals"] = """{"node":"${node.item.id}","memberItemId":"${rm.member.id}"}"""
+                            attributes["hx-target"] = "#project-content"
+                            attributes["hx-swap"] = "outerHTML"
+                            span("picker-opt__name") { +rm.member.name }
+                            pickerOptHint(rm.bestSource?.getMethodLabel(), isBest = rm.member.id == topId, isSelected = isSelected)
                         }
                     }
                 }
             }
-
-            if (truncated) {
-                p("picker__overflow-note") {
-                    +"Showing $PICKER_MAX_OPTIONS of ${allMembers.size} · ranked picks + search coming soon"
-                }
-            }
+            overflowNote(displayed.size, filtered.size, q)
         } else {
-            // Source picker
-            val candidates: List<SourceNode> = graph
-                ?.getSourcesForItem(node.item)
-                ?.sortedBy { it.getName() }
-                ?: emptyList()
-            val displayed = candidates.take(PICKER_MAX_OPTIONS)
-            val truncated = candidates.size > PICKER_MAX_OPTIONS
+            // Source picker — candidates ranked by SelectionScorer (read-only reuse).
+            val ranked = graph?.let { SourceRanking.rankSources(it, node.item, demand) } ?: emptyList()
+            val filtered = if (q.isEmpty()) ranked else ranked.filter { it.source.getName().contains(q, ignoreCase = true) }
+            val displayed = filtered.take(PICKER_MAX_OPTIONS)
 
             span("section-label picker__label") { +"Choose source" }
+            if (ranked.size > PICKER_MAX_OPTIONS) pickerSearch(sourcesUrl, pickerSlotId, q)
 
             if (displayed.isEmpty()) {
-                p("picker__empty") { +"No sources available for this item." }
+                p("picker__empty") {
+                    +(if (ranked.isEmpty()) "No sources available for this item." else "No sources match \"$q\".")
+                }
             } else {
                 div("stack--xs") {
-                    for (source in displayed) {
+                    for (rs in displayed) {
+                        val source = rs.source
                         val isSelected = source.getKey() == activeSourceKey
                         div("picker-opt${if (isSelected) " picker-opt--sel" else ""}") {
                             attributes["hx-post"] = "$baseUrl/pin"
@@ -287,17 +299,12 @@ fun nodePickerFragment(
                             attributes["hx-target"] = "#project-content"
                             attributes["hx-swap"] = "outerHTML"
                             span("picker-opt__name") { +source.getName() }
-                            span("picker-opt__hint") { +source.getMethodLabel() }
+                            pickerOptHint(source.getMethodLabel(), isBest = rs.rank == 0, isSelected = isSelected)
                         }
                     }
                 }
             }
-
-            if (truncated) {
-                p("picker__overflow-note") {
-                    +"Showing $PICKER_MAX_OPTIONS of ${candidates.size} · ranked picks + search coming soon"
-                }
-            }
+            overflowNote(displayed.size, filtered.size, q)
         }
 
         // Clear override control — shown when an override is currently active
@@ -310,6 +317,44 @@ fun nodePickerFragment(
                 attributes["hx-swap"] = "outerHTML"
                 +"Clear override"
             }
+        }
+    }
+}
+
+/** A tag member paired with its best source + that source's score, for ranking. */
+private data class RankedMember(val member: MinecraftId, val bestSource: SourceNode?, val score: Int)
+
+/** The per-option hint line: method label, a "best score ★" marker, and/or "selected". */
+private fun FlowContent.pickerOptHint(methodLabel: String?, isBest: Boolean, isSelected: Boolean) {
+    val parts = listOfNotNull(
+        methodLabel,
+        if (isBest) "best score ★" else null,
+        if (isSelected) "selected" else null,
+    )
+    if (parts.isNotEmpty()) span("picker-opt__hint") { +parts.joinToString(" · ") }
+}
+
+/** A search box that re-fetches the picker filtered by name (high fan-out nodes only). */
+private fun FlowContent.pickerSearch(sourcesUrl: String, pickerSlotId: String, q: String) {
+    div("picker-search") {
+        input(type = InputType.search, classes = "form-control picker-search__input") {
+            name = "q"
+            placeholder = "Search…"
+            value = q
+            attributes["hx-get"] = sourcesUrl
+            attributes["hx-trigger"] = "keyup changed delay:300ms"
+            attributes["hx-target"] = "#$pickerSlotId"
+            attributes["hx-swap"] = "innerHTML"
+            attributes["hx-vals"] = "js:{q: this.value}"
+        }
+    }
+}
+
+/** "Showing N of M" note when the (filtered) list is capped. */
+private fun FlowContent.overflowNote(shown: Int, matching: Int, q: String) {
+    if (matching > shown) {
+        p("picker__overflow-note") {
+            +("Showing $shown of $matching" + if (q.isEmpty()) " · search to narrow" else "")
         }
     }
 }

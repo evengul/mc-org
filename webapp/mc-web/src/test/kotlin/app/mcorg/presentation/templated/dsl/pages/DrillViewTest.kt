@@ -439,6 +439,7 @@ class DrillViewTest {
             graph = graph,
             activeSourceKey = null,
             activeMemberId = null,
+            demand = node.quantityIfAlone,
         )
 
         // "Choose source" label
@@ -471,10 +472,35 @@ class DrillViewTest {
             graph = graph,
             activeSourceKey = activeKey,
             activeMemberId = null,
+            demand = node.quantityIfAlone,
         )
 
         // Selected option has the --sel modifier class
         assertContains(html, "picker-opt--sel")
+    }
+
+    @Test
+    fun `source picker marks the top-ranked candidate with best score star`() {
+        val node = TargetTree(
+            item = item("iron_ingot", "Iron Ingot"),
+            quantityIfAlone = 200,
+            craftsIfAlone = 200,
+            status = PlanNodeStatus.RESOLVED,
+            source = mine,
+        )
+        val html = nodePickerFragment(
+            worldId = 1,
+            projectId = 2,
+            targetItemId = "minecraft:iron_ingot",
+            node = node,
+            graph = ironGraph(),
+            activeSourceKey = null,
+            activeMemberId = null,
+            demand = node.quantityIfAlone,
+        )
+
+        // Exactly the rank-0 candidate carries the marker.
+        assertContains(html, "best score ★")
     }
 
     @Test
@@ -497,6 +523,7 @@ class DrillViewTest {
             graph = graph,
             activeSourceKey = mine.getKey(),
             activeMemberId = null,
+            demand = node.quantityIfAlone,
         )
 
         assertContains(html, "Clear override")
@@ -524,6 +551,7 @@ class DrillViewTest {
             graph = graph,
             activeSourceKey = null,
             activeMemberId = null,
+            demand = node.quantityIfAlone,
         )
 
         assertFalse(html.contains("Clear override"), "Clear button should not appear when no override active")
@@ -548,6 +576,7 @@ class DrillViewTest {
             graph = null,
             activeSourceKey = null,
             activeMemberId = null,
+            demand = node.quantityIfAlone,
         )
 
         assertContains(html, "No sources available")
@@ -581,11 +610,13 @@ class DrillViewTest {
             graph = graph,
             activeSourceKey = null,
             activeMemberId = null,
+            demand = node.quantityIfAlone,
         )
 
-        // Truncation note present
+        // Truncation note present, with a search box for high fan-out
         assertContains(html, "Showing 30 of 35")
-        assertContains(html, "ranked picks + search coming soon")
+        assertContains(html, "search to narrow")
+        assertContains(html, "picker-search")
     }
 
     // -------------------------------------------------------------------------
@@ -614,6 +645,7 @@ class DrillViewTest {
             graph = null,
             activeSourceKey = null,
             activeMemberId = null,
+            demand = node.quantityIfAlone,
         )
 
         assertContains(html, "Pick a variant")
@@ -645,6 +677,7 @@ class DrillViewTest {
             graph = null,
             activeSourceKey = null,
             activeMemberId = "minecraft:oak_planks",
+            demand = node.quantityIfAlone,
         )
 
         assertContains(html, "picker-opt--sel")
@@ -672,6 +705,7 @@ class DrillViewTest {
             graph = null,
             activeSourceKey = null,
             activeMemberId = null,
+            demand = node.quantityIfAlone,
         )
 
         assertContains(html, "Showing 30 of 35")
@@ -698,6 +732,7 @@ class DrillViewTest {
             graph = null,
             activeSourceKey = null,
             activeMemberId = "minecraft:oak_planks",
+            demand = node.quantityIfAlone,
         )
 
         assertContains(html, "Clear override")
