@@ -7,8 +7,10 @@ import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.project.commonsteps.GetProjectByIdStep
 import app.mcorg.pipeline.project.commonsteps.GetViewPreferenceInput
 import app.mcorg.pipeline.project.commonsteps.GetViewPreferenceStep
+import app.mcorg.engine.plan.PlanOverrides
 import app.mcorg.pipeline.resources.GatheringPlanInput
 import app.mcorg.pipeline.resources.GenerateGatheringPlanStep
+import app.mcorg.pipeline.resources.GetPlanOverridesStep
 import app.mcorg.pipeline.resources.buildCandidateCounts
 import app.mcorg.pipeline.resources.buildNodeIngredients
 import app.mcorg.pipeline.resources.drillTreeFor
@@ -95,6 +97,7 @@ suspend fun ApplicationCall.handleGetProject() {
     val drillGraph = if (drillTarget != null) getGraphForWorld(worldId) else null
     val drillCandidateCounts = if (drillTarget != null) buildCandidateCounts(drillTarget, drillGraph) else emptyMap()
     val drillNodeIngredients = if (drillTarget != null && plan != null) buildNodeIngredients(plan) else emptyMap()
+    val drillOverrides = if (drillTarget != null) GetPlanOverridesStep.process(projectId).getOrNull() ?: PlanOverrides.NONE else PlanOverrides.NONE
 
     respondHtml(
         projectDetailPage(
@@ -102,6 +105,7 @@ suspend fun ApplicationCall.handleGetProject() {
             isWorldAdmin = isAdmin, plan = plan, progressMap = progressMap,
             drillTarget = drillTarget, drillCandidateCounts = drillCandidateCounts,
             drillNodeIngredients = drillNodeIngredients, drillHighlightItemId = drillItemId,
+            drillOverrides = drillOverrides, drillGraph = drillGraph,
         )
     )
 }

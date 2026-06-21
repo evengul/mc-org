@@ -210,6 +210,25 @@ class PlanChainIT : WithUser() {
         assertContains(body, "picker")
     }
 
+    @Test
+    fun `GET sources with a tag node id that is absent from plan returns graceful picker`() = testApplication {
+        setupAllRoutes()
+
+        // Tag node ("#minecraft:planks") may be absent from the derived tree when it has been
+        // resolved to a concrete member. In the Testcontainers DB there is no graph, so the
+        // synthesize path can't find the tag, but the endpoint must still respond gracefully.
+        val response = client.get(
+            "/worlds/$worldId/projects/$projectId/plan/chain/minecraft:iron_ingot/sources?node=%23minecraft:planks"
+        ) {
+            addAuthCookie(this)
+        }
+
+        assertEquals(HttpStatusCode.OK, response.status)
+        val body = response.bodyAsText()
+        // Must return a picker-family fragment, never a 500
+        assertContains(body, "picker")
+    }
+
     // -------------------------------------------------------------------------
     // POST /pin — source override persistence
     // -------------------------------------------------------------------------

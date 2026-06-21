@@ -6,8 +6,10 @@ import app.mcorg.domain.model.resources.ResourceSource
 import app.mcorg.engine.model.ItemSourceGraph
 import app.mcorg.engine.model.SourceNode
 import app.mcorg.engine.plan.PlanNodeStatus
+import app.mcorg.engine.plan.PlanOverrides
 import app.mcorg.engine.plan.TargetTree
 import app.mcorg.domain.model.project.Project
+import app.mcorg.pipeline.resources.synthesizeTagNode
 import kotlinx.html.div
 import kotlinx.html.stream.createHTML
 import app.mcorg.domain.model.project.ProjectStage
@@ -18,6 +20,7 @@ import java.time.ZonedDateTime
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -868,5 +871,317 @@ class DrillViewTest {
         assertContains(html, "Clear override")
         assertContains(html, "hx-delete")
         assertContains(html, "/override")
+    }
+
+    // -------------------------------------------------------------------------
+    // activeChoicesPanel — "Active choices" panel
+    // -------------------------------------------------------------------------
+
+    /** Builds a graph containing a MinecraftTag "#minecraft:planks" with two members. */
+    private fun planksTagGraph(): ItemSourceGraph {
+        val oakPlanks = Item("minecraft:oak_planks", "Oak Planks")
+        val sprucePlanks = Item("minecraft:spruce_planks", "Spruce Planks")
+        val tag = MinecraftTag("#minecraft:planks", "Any Planks", listOf(oakPlanks, sprucePlanks))
+        val builder = ItemSourceGraph.builder()
+        builder.addItemNode(tag)
+        return builder.build()
+    }
+
+    @Test
+    fun `active choices panel is absent when there are no overrides`() {
+        val tree = TargetTree(
+            item = item("iron_ingot", "Iron Ingot"),
+            quantityIfAlone = 64,
+            craftsIfAlone = 64,
+            status = PlanNodeStatus.RAW_GATHER,
+            source = mine,
+        )
+        val html = drillChainFragment(testProject(), tree, emptyMap(), overrides = PlanOverrides.NONE)
+
+        assertFalse(html.contains("active-choices"), "Panel should not render when no overrides: $html")
+    }
+
+    @Test
+    fun `active choices panel renders a row for a source pin override`() {
+        val tree = TargetTree(
+            item = item("iron_ingot", "Iron Ingot"),
+            quantityIfAlone = 64,
+            craftsIfAlone = 64,
+            status = PlanNodeStatus.RESOLVED,
+            source = mine,
+        )
+        val graph = ironGraph()
+        val sourceKey = mine.getKey()
+        val overrides = PlanOverrides(sourceByItem = mapOf("minecraft:iron_ingot" to sourceKey))
+
+        val html = drillChainFragment(testProject(), tree, emptyMap(), overrides = overrides, graph = graph)
+
+        assertContains(html, "active-choices")
+        assertContains(html, "Active choices")
+        // Item name appears in row label
+        assertContains(html, "Iron Ingot")
+    }
+
+    @Test
+    fun `active choices panel source pin row has edit and clear controls`() {
+        val tree = TargetTree(
+            item = item("iron_ingot", "Iron Ingot"),
+            quantityIfAlone = 64,
+            craftsIfAlone = 64,
+            status = PlanNodeStatus.RESOLVED,
+            source = mine,
+        )
+        val graph = ironGraph()
+        val sourceKey = mine.getKey()
+        val overrides = PlanOverrides(sourceByItem = mapOf("minecraft:iron_ingot" to sourceKey))
+
+        val html = drillChainFragment(testProject(worldId = 1, projectId = 2), tree, emptyMap(), overrides = overrides, graph = graph)
+
+        // Edit control: hx-get to /sources
+        assertContains(html, "/sources?node=")
+        assertContains(html, "active-choice__edit")
+        // Clear control: hx-delete to /override
+        assertContains(html, "hx-delete")
+        assertContains(html, "/override")
+        assertContains(html, "active-choice__clear")
+    }
+
+    @Test
+    fun `active choices panel renders a row for a tag member override`() {
+        val tree = TargetTree(
+            // Resolved tag: the chain now shows oak_planks, not the tag node
+            item = item("oak_planks", "Oak Planks"),
+            quantityIfAlone = 320,
+            craftsIfAlone = 320,
+            status = PlanNodeStatus.RESOLVED,
+            source = craft,
+        )
+        val graph = planksTagGraph()
+        val overrides = PlanOverrides(tagMember = mapOf("#minecraft:planks" to "minecraft:oak_planks"))
+
+        val html = drillChainFragment(testProject(), tree, emptyMap(), overrides = overrides, graph = graph)
+
+        assertContains(html, "active-choices")
+        // Tag name in label
+        assertContains(html, "Any Planks")
+        // Member name in label after arrow
+        assertContains(html, "Oak Planks")
+        assertContains(html, "→")
+    }
+
+    @Test
+    fun `active choices panel tag member row has edit and clear controls`() {
+        val tree = TargetTree(
+            item = item("oak_planks", "Oak Planks"),
+            quantityIfAlone = 320,
+            craftsIfAlone = 320,
+            status = PlanNodeStatus.RESOLVED,
+            source = craft,
+        )
+        val graph = planksTagGraph()
+        val overrides = PlanOverrides(tagMember = mapOf("#minecraft:planks" to "minecraft:oak_planks"))
+
+        val html = drillChainFragment(testProject(worldId = 1, projectId = 2), tree, emptyMap(), overrides = overrides, graph = graph)
+
+        // Edit control uses the tag id (not the member id) in the node param
+        assertContains(html, "sources?node=")
+        assertContains(html, "active-choice__edit")
+        // Clear control
+        assertContains(html, "hx-delete")
+        assertContains(html, "/override")
+        assertContains(html, "active-choice__clear")
+    }
+
+    @Test
+    fun `active choices panel renders both source and tag member rows`() {
+        val tree = TargetTree(
+            item = item("iron_pickaxe", "Iron Pickaxe"),
+            quantityIfAlone = 2,
+            craftsIfAlone = 2,
+            status = PlanNodeStatus.RESOLVED,
+            source = craft,
+        )
+        // Build a combined graph with iron ingot AND the planks tag
+        val ironIngot = item("iron_ingot", "Iron Ingot")
+        val oakPlanks = Item("minecraft:oak_planks", "Oak Planks")
+        val sprucePlanks = Item("minecraft:spruce_planks", "Spruce Planks")
+        val tag = MinecraftTag("#minecraft:planks", "Any Planks", listOf(oakPlanks, sprucePlanks))
+        val builder = ItemSourceGraph.builder()
+        builder.addItemNode(ironIngot)
+        builder.addItemNode(tag)
+        val graph = builder.build()
+
+        val overrides = PlanOverrides(
+            sourceByItem = mapOf("minecraft:iron_ingot" to mine.getKey()),
+            tagMember = mapOf("#minecraft:planks" to "minecraft:oak_planks"),
+        )
+
+        val html = drillChainFragment(testProject(), tree, emptyMap(), overrides = overrides, graph = graph)
+
+        assertContains(html, "active-choices")
+        assertContains(html, "Iron Ingot")
+        assertContains(html, "Any Planks")
+    }
+
+    @Test
+    fun `active choices panel picker slot has panel-specific id to avoid collision with chain slots`() {
+        val tree = TargetTree(
+            item = item("iron_ingot", "Iron Ingot"),
+            quantityIfAlone = 64,
+            craftsIfAlone = 64,
+            status = PlanNodeStatus.RESOLVED,
+            source = mine,
+        )
+        val overrides = PlanOverrides(sourceByItem = mapOf("minecraft:iron_ingot" to mine.getKey()))
+
+        val html = drillChainFragment(testProject(), tree, emptyMap(), overrides = overrides)
+
+        // Panel picker slot uses "panel-picker-" prefix, distinct from chain's "picker-" slots
+        assertContains(html, "panel-picker-minecraft-iron-ingot")
+    }
+
+    // -------------------------------------------------------------------------
+    // synthesizeTagNode — absent-tag picker path
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `synthesizeTagNode returns OPEN_TAG TargetTree for a known tag id`() {
+        val graph = planksTagGraph()
+        val node = synthesizeTagNode("#minecraft:planks", graph)
+
+        assertNotNull(node, "Expected a synthesized TargetTree for a known tag, got null")
+        assertEquals(PlanNodeStatus.OPEN_TAG, node.status)
+        // Item should be the MinecraftTag
+        assertTrue(node.item is MinecraftTag, "Expected item to be MinecraftTag, got: ${node.item}")
+        assertEquals("#minecraft:planks", node.item.id)
+    }
+
+    @Test
+    fun `synthesizeTagNode returns null for a non-tag item id`() {
+        val graph = ironGraph()
+        // "minecraft:iron_ingot" does not start with "#" — not a tag
+        val node = synthesizeTagNode("minecraft:iron_ingot", graph)
+
+        assertNull(node, "Expected null for a non-tag id")
+    }
+
+    @Test
+    fun `synthesizeTagNode returns null when graph is null`() {
+        val node = synthesizeTagNode("#minecraft:planks", graph = null)
+
+        assertNull(node, "Expected null when graph is null")
+    }
+
+    @Test
+    fun `synthesizeTagNode returns null when tag is not in the graph`() {
+        // Graph with no tags at all
+        val builder = ItemSourceGraph.builder()
+        builder.addItemNode(Item("minecraft:iron_ingot", "Iron Ingot"))
+        val graph = builder.build()
+
+        val node = synthesizeTagNode("#minecraft:unknown_tag", graph)
+
+        assertNull(node, "Expected null for an unknown tag id")
+    }
+
+    // -------------------------------------------------------------------------
+    // Fix 1: active choices panel present on full-page ?drill= deep-link render
+    // -------------------------------------------------------------------------
+
+    /**
+     * Regression: on a hard browser reload of a `?drill=` URL, `drillChainContent` is called
+     * directly in the page shell (not via the HTMX fragment path). Before the fix it was called
+     * without `overrides`/`graph` so the Active choices panel was silently absent even when
+     * the project had active overrides. This test verifies the panel is present when
+     * `drillChainContent` receives non-empty overrides — as it now does via the fixed
+     * `handleGetProject` path.
+     */
+    @Test
+    fun `drillChainContent renders active choices panel when overrides are passed (full-page deep-link path)`() {
+        val tree = TargetTree(
+            item = item("iron_ingot", "Iron Ingot"),
+            quantityIfAlone = 64,
+            craftsIfAlone = 64,
+            status = PlanNodeStatus.RESOLVED,
+            source = mine,
+        )
+        val graph = ironGraph()
+        val overrides = PlanOverrides(sourceByItem = mapOf("minecraft:iron_ingot" to mine.getKey()))
+
+        // Mimics the exact call in ProjectDetailPage.kt for the ?drill= deep-link path.
+        val html = createHTML().div {
+            drillChainContent(
+                project = testProject(worldId = 1, projectId = 2),
+                target = tree,
+                candidateCounts = emptyMap(),
+                overrides = overrides,
+                graph = graph,
+            )
+        }
+
+        // Panel must be present — this was the bug: on full-page load it was missing.
+        assertTrue(html.contains("active-choices"), "Active choices panel must render on full-page ?drill= load when overrides exist")
+        assertContains(html, "Active choices")
+        assertContains(html, "Iron Ingot")
+    }
+
+    @Test
+    fun `drillChainContent omits active choices panel when overrides are empty (full-page deep-link path)`() {
+        val tree = TargetTree(
+            item = item("iron_ingot", "Iron Ingot"),
+            quantityIfAlone = 64,
+            craftsIfAlone = 64,
+            status = PlanNodeStatus.RAW_GATHER,
+            source = mine,
+        )
+
+        val html = createHTML().div {
+            drillChainContent(
+                project = testProject(),
+                target = tree,
+                candidateCounts = emptyMap(),
+                overrides = PlanOverrides.NONE,
+                graph = null,
+            )
+        }
+
+        assertFalse(html.contains("active-choices"), "Panel must not render when overrides are empty on full-page load")
+    }
+
+    @Test
+    fun `nodePickerFragment with synthesized tag node renders tag member picker`() {
+        val oakPlanks = Item("minecraft:oak_planks", "Oak Planks")
+        val sprucePlanks = Item("minecraft:spruce_planks", "Spruce Planks")
+        val tag = MinecraftTag("#minecraft:planks", "Any Planks", listOf(oakPlanks, sprucePlanks))
+        val graph = planksTagGraph()
+
+        // Synthesize a TargetTree as the absent-node path would produce
+        val synthNode = TargetTree(
+            item = tag,
+            quantityIfAlone = 0L,
+            craftsIfAlone = 0L,
+            status = PlanNodeStatus.OPEN_TAG,
+            source = null,
+        )
+
+        val html = nodePickerFragment(
+            worldId = 1,
+            projectId = 2,
+            targetItemId = "minecraft:chest",
+            node = synthNode,
+            graph = graph,
+            activeSourceKey = null,
+            activeMemberId = "minecraft:oak_planks",
+            demand = synthNode.quantityIfAlone,
+        )
+
+        // Should render the tag-member picker with both planks options
+        assertContains(html, "Pick a variant")
+        assertContains(html, "Oak Planks")
+        assertContains(html, "Spruce Planks")
+        // Active member is marked selected
+        assertContains(html, "picker-opt--sel")
+        // Clear override shown because member override is active
+        assertContains(html, "Clear override")
     }
 }
