@@ -30,7 +30,19 @@ fun drillChainFragment(
     candidateCounts: Map<String, Int>,
 ): String = createHTML().div {
     id = "project-content"
+    drillChainContent(project, target, candidateCounts)
+}
 
+/**
+ * The drill body (back-header + chain), rendered into the caller's flow. Shared by
+ * [drillChainFragment] (the HTMX swap response) and the full page shell, so that a
+ * `?drill=` page load renders the same drill inside #project-content.
+ */
+fun FlowContent.drillChainContent(
+    project: Project,
+    target: TargetTree,
+    candidateCounts: Map<String, Int>,
+) {
     val worldId = project.worldId
     val projectId = project.id
     val listFragmentUrl = "/worlds/$worldId/projects/$projectId/detail-content?lens=list"

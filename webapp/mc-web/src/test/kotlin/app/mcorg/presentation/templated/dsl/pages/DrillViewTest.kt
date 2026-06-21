@@ -8,6 +8,8 @@ import app.mcorg.engine.model.SourceNode
 import app.mcorg.engine.plan.PlanNodeStatus
 import app.mcorg.engine.plan.TargetTree
 import app.mcorg.domain.model.project.Project
+import kotlinx.html.div
+import kotlinx.html.stream.createHTML
 import app.mcorg.domain.model.project.ProjectStage
 import app.mcorg.domain.model.project.ProjectState
 import app.mcorg.domain.model.project.ProjectType
@@ -290,6 +292,27 @@ class DrillViewTest {
         // Picker slot id = "picker-{slug}" where slug = id with every non-alphanumeric → '-'
         // (so "minecraft:iron_ingot" → "minecraft-iron-ingot"; also neutralises '#' in tag ids).
         assertContains(html, "picker-minecraft-iron-ingot")
+    }
+
+    @Test
+    fun `drillChainContent renders the chain body without the project-content wrapper`() {
+        // This is the body shared with the full page shell for ?drill= deep-links.
+        val tree = TargetTree(
+            item = item("iron_ingot", "Iron Ingot"),
+            quantityIfAlone = 200,
+            craftsIfAlone = 200,
+            status = PlanNodeStatus.RESOLVED,
+            source = mine,
+        )
+        val html = createHTML().div {
+            drillChainContent(testProject(worldId = 3, projectId = 7), tree, mapOf("minecraft:iron_ingot" to 1))
+        }
+
+        assertContains(html, "drill-chain")
+        assertContains(html, "Back to plan")
+        assertContains(html, "Iron Ingot")
+        // Back-to-plan returns to the list lens of this project.
+        assertContains(html, "/worlds/3/projects/7?lens=list")
     }
 
     // -------------------------------------------------------------------------

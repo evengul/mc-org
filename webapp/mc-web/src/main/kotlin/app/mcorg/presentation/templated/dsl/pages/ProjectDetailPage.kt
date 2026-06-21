@@ -33,6 +33,7 @@ import app.mcorg.presentation.templated.dsl.tabStrip
 import app.mcorg.presentation.templated.dsl.taskList
 import kotlinx.html.*
 import kotlinx.html.stream.createHTML
+import app.mcorg.engine.plan.TargetTree
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
@@ -46,6 +47,8 @@ fun projectDetailPage(
     isWorldAdmin: Boolean = false,
     plan: GatheringPlan? = null,
     progressMap: Map<String, Int> = emptyMap(),
+    drillTarget: TargetTree? = null,
+    drillCandidateCounts: Map<String, Int> = emptyMap(),
 ): String = pageShell(
     pageTitle = "Seam — ${project.name}",
     user = user,
@@ -104,7 +107,12 @@ fun projectDetailPage(
 
             div {
                 id = "project-content"
-                gatheringPlannerContent(project, resources, tasks, plan, lens, progressMap)
+                if (drillTarget != null) {
+                    // ?drill=<item> deep-links straight into a target's chain (reload/share-safe).
+                    drillChainContent(project, drillTarget, drillCandidateCounts)
+                } else {
+                    gatheringPlannerContent(project, resources, tasks, plan, lens, progressMap)
+                }
             }
         }
     }
