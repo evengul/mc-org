@@ -504,6 +504,31 @@ class DrillViewTest {
     }
 
     @Test
+    fun `source picker labels recipe sources by their ingredients`() {
+        // smeltSource consumes iron_ore (an ItemToSource edge in ironGraph), so its option
+        // is named "from Iron Ore" rather than the indistinguishable bare "Smelting".
+        val node = TargetTree(
+            item = item("iron_ingot", "Iron Ingot"),
+            quantityIfAlone = 200,
+            craftsIfAlone = 200,
+            status = PlanNodeStatus.RESOLVED,
+            source = mine,
+        )
+        val html = nodePickerFragment(
+            worldId = 1,
+            projectId = 2,
+            targetItemId = "minecraft:iron_ingot",
+            node = node,
+            graph = ironGraph(),
+            activeSourceKey = null,
+            activeMemberId = null,
+            demand = node.quantityIfAlone,
+        )
+
+        assertContains(html, "from Iron Ore")
+    }
+
+    @Test
     fun `source picker shows clear button when override is active`() {
         val ironIngotItem = item("iron_ingot", "Iron Ingot")
         val node = TargetTree(

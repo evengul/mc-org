@@ -298,7 +298,7 @@ fun nodePickerFragment(
                             attributes["hx-vals"] = """{"node":"${node.item.id}","sourceKey":"${source.getKey()}"}"""
                             attributes["hx-target"] = "#project-content"
                             attributes["hx-swap"] = "outerHTML"
-                            span("picker-opt__name") { +source.getName() }
+                            span("picker-opt__name") { +sourceLabel(source, graph) }
                             pickerOptHint(source.getMethodLabel(), isBest = rs.rank == 0, isSelected = isSelected)
                         }
                     }
@@ -319,6 +319,17 @@ fun nodePickerFragment(
             }
         }
     }
+}
+
+/**
+ * A distinguishing label for a source option. [SourceNode.getName] already carries the
+ * pretty filename for block/entity sources, but for recipes and chest loot it collapses to
+ * the bare type ("Crafting"/"Smelting"/"Chest"), making siblings indistinguishable. When the
+ * graph exposes ingredients, name the source by them ("from Iron Ore", "from Block of Iron").
+ */
+private fun sourceLabel(source: SourceNode, graph: ItemSourceGraph?): String {
+    val inputs = graph?.getRequiredItems(source)?.map { it.item.name }?.sorted().orEmpty()
+    return if (inputs.isNotEmpty()) "from ${inputs.joinToString(" + ")}" else source.getName()
 }
 
 /** A tag member paired with its best source + that source's score, for ranking. */
