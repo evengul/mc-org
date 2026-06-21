@@ -67,4 +67,42 @@ class DrillTreeResolutionTest {
     fun `returns null for an item not in the plan at all`() {
         assertNull(hopperPlan().drillTreeFor("minecraft:diamond"))
     }
+
+    // ── buildNodeIngredients ──────────────────────────────────────────────────
+
+    private fun craftPlan(): GatheringPlan = GatheringPlan(
+        nodes = mapOf(
+            // produces 2 hoppers per craft, consuming 10 iron + 2 chest → 5 iron + 1 chest each
+            "minecraft:hopper" to PlanNode(
+                item = Item("minecraft:hopper", "Hopper"),
+                quantity = 2, crafts = 1, leftover = 0, status = PlanNodeStatus.RESOLVED, producedQuantity = 2,
+                requires = listOf(PlanRequirement("minecraft:iron_ingot", 10), PlanRequirement("minecraft:chest", 2)),
+            ),
+            // produces 8 planks per craft from 2 logs → 0.25 log each
+            "minecraft:oak_planks" to PlanNode(
+                item = Item("minecraft:oak_planks", "Oak Planks"),
+                quantity = 8, crafts = 1, leftover = 0, status = PlanNodeStatus.RESOLVED, producedQuantity = 8,
+                requires = listOf(PlanRequirement("minecraft:oak_log", 2)),
+            ),
+            "minecraft:iron_ingot" to PlanNode(Item("minecraft:iron_ingot", "Iron Ingot"), 10, 10, 0, PlanNodeStatus.RAW_GATHER),
+            "minecraft:chest" to PlanNode(Item("minecraft:chest", "Chest"), 2, 2, 0, PlanNodeStatus.RAW_GATHER),
+            "minecraft:oak_log" to PlanNode(Item("minecraft:oak_log", "Oak Log"), 2, 2, 0, PlanNodeStatus.RAW_GATHER),
+        ),
+        targets = listOf(PlanTarget(Item("minecraft:hopper", "Hopper"), 2)),
+    )
+
+    @Test
+    fun `ingredients normalise per output and sort by name`() {
+        assertEquals("1 Chest + 5 Iron Ingot", buildNodeIngredients(craftPlan())["minecraft:hopper"])
+    }
+
+    @Test
+    fun `ingredients keep a clean decimal for sub-one ratios`() {
+        assertEquals("0.25 Oak Log", buildNodeIngredients(craftPlan())["minecraft:oak_planks"])
+    }
+
+    @Test
+    fun `terminals have no ingredient entry`() {
+        assertNull(buildNodeIngredients(craftPlan())["minecraft:iron_ingot"])
+    }
 }

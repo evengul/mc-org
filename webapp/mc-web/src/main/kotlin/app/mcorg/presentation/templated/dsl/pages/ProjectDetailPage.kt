@@ -49,6 +49,7 @@ fun projectDetailPage(
     progressMap: Map<String, Int> = emptyMap(),
     drillTarget: TargetTree? = null,
     drillCandidateCounts: Map<String, Int> = emptyMap(),
+    drillNodeIngredients: Map<String, String> = emptyMap(),
 ): String = pageShell(
     pageTitle = "Seam — ${project.name}",
     user = user,
@@ -109,7 +110,7 @@ fun projectDetailPage(
                 id = "project-content"
                 if (drillTarget != null) {
                     // ?drill=<item> deep-links straight into a target's chain (reload/share-safe).
-                    drillChainContent(project, drillTarget, drillCandidateCounts)
+                    drillChainContent(project, drillTarget, drillCandidateCounts, drillNodeIngredients)
                 } else {
                     gatheringPlannerContent(project, resources, tasks, plan, lens, progressMap)
                 }

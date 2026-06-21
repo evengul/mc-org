@@ -30,20 +30,25 @@ fun drillChainFragment(
     project: Project,
     target: TargetTree,
     candidateCounts: Map<String, Int>,
+    nodeIngredients: Map<String, String> = emptyMap(),
 ): String = createHTML().div {
     id = "project-content"
-    drillChainContent(project, target, candidateCounts)
+    drillChainContent(project, target, candidateCounts, nodeIngredients)
 }
 
 /**
  * The drill body (back-header + chain), rendered into the caller's flow. Shared by
  * [drillChainFragment] (the HTMX swap response) and the full page shell, so that a
  * `?drill=` page load renders the same drill inside #project-content.
+ *
+ * @param nodeIngredients item-id → its source's ingredient summary ("5 Iron Ingot + 1 Chest"),
+ *   shown in each node's hint so the indented children read as those exact inputs.
  */
 fun FlowContent.drillChainContent(
     project: Project,
     target: TargetTree,
     candidateCounts: Map<String, Int>,
+    nodeIngredients: Map<String, String> = emptyMap(),
 ) {
     val worldId = project.worldId
     val projectId = project.id
@@ -66,7 +71,7 @@ fun FlowContent.drillChainContent(
     }
 
     div("drill-chain") {
-        renderTargetTree(target, candidateCounts, depth = 0, worldId = worldId, projectId = projectId, encodedTargetId = encodedTargetId)
+        renderTargetTree(target, candidateCounts, nodeIngredients, depth = 0, worldId = worldId, projectId = projectId, encodedTargetId = encodedTargetId)
     }
 }
 
@@ -74,6 +79,7 @@ fun FlowContent.drillChainContent(
 private fun DIV.renderTargetTree(
     node: TargetTree,
     candidateCounts: Map<String, Int>,
+    nodeIngredients: Map<String, String>,
     depth: Int,
     worldId: Int,
     projectId: Int,
@@ -91,9 +97,13 @@ private fun DIV.renderTargetTree(
         // Item name + optional method hint for RESOLVED nodes
         span("chain-node__name") {
             +node.item.name
+            // Hint = method + ingredient summary ("Smelting · 1 Deepslate Iron Ore"), so the
+            // node states what it consumes and the indented children read as those inputs.
             val methodHint = node.source?.getMethodLabel()
-            if (methodHint != null && (node.status == PlanNodeStatus.RESOLVED || node.status == PlanNodeStatus.RAW_GATHER)) {
-                span("chain-node__method") { +"· $methodHint" }
+                ?.takeIf { node.status == PlanNodeStatus.RESOLVED || node.status == PlanNodeStatus.RAW_GATHER }
+            val hint = listOfNotNull(methodHint, nodeIngredients[node.item.id]).joinToString(" · ")
+            if (hint.isNotEmpty()) {
+                span("chain-node__method") { +"· $hint" }
             }
         }
 
@@ -147,7 +157,7 @@ private fun DIV.renderTargetTree(
 
     // Recurse into children
     for (child in node.children) {
-        renderTargetTree(child, candidateCounts, depth + 1, worldId, projectId, encodedTargetId)
+        renderTargetTree(child, candidateCounts, nodeIngredients, depth + 1, worldId, projectId, encodedTargetId)
     }
 }
 

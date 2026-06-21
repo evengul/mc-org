@@ -10,6 +10,7 @@ import app.mcorg.pipeline.project.commonsteps.GetViewPreferenceStep
 import app.mcorg.pipeline.resources.GatheringPlanInput
 import app.mcorg.pipeline.resources.GenerateGatheringPlanStep
 import app.mcorg.pipeline.resources.buildCandidateCounts
+import app.mcorg.pipeline.resources.buildNodeIngredients
 import app.mcorg.pipeline.resources.drillTreeFor
 import app.mcorg.pipeline.resources.getGraphForWorld
 import app.mcorg.pipeline.resources.commonsteps.GetAllResourceGatheringItemsStep
@@ -91,15 +92,16 @@ suspend fun ApplicationCall.handleGetProject() {
         ?.let { URLDecoder.decode(it, StandardCharsets.UTF_8) }
         ?.takeIf { it.isNotBlank() }
     val drillTarget: TargetTree? = drillItemId?.let { plan?.drillTreeFor(it) }
-    val drillCandidateCounts = if (drillTarget != null) {
-        buildCandidateCounts(drillTarget, getGraphForWorld(worldId))
-    } else emptyMap()
+    val drillGraph = if (drillTarget != null) getGraphForWorld(worldId) else null
+    val drillCandidateCounts = if (drillTarget != null) buildCandidateCounts(drillTarget, drillGraph) else emptyMap()
+    val drillNodeIngredients = if (drillTarget != null && plan != null) buildNodeIngredients(plan) else emptyMap()
 
     respondHtml(
         projectDetailPage(
             user, project, worldName, resources, tasks, lens,
             isWorldAdmin = isAdmin, plan = plan, progressMap = progressMap,
             drillTarget = drillTarget, drillCandidateCounts = drillCandidateCounts,
+            drillNodeIngredients = drillNodeIngredients,
         )
     )
 }

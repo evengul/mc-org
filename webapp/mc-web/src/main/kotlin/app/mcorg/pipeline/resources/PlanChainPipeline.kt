@@ -27,6 +27,7 @@ import io.ktor.server.application.ApplicationCall
 import io.ktor.server.request.receiveParameters
 import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
+import kotlin.math.roundToLong
 
 /**
  * GET /worlds/{worldId}/projects/{projectId}/plan/chain/{itemId}
@@ -86,8 +87,9 @@ suspend fun ApplicationCall.handleGetDrillChain() {
 
     // Build candidateCounts map: item-id → number of source candidates in the graph
     val candidateCounts = buildCandidateCounts(targetTree, graph)
+    val nodeIngredients = buildNodeIngredients(plan)
 
-    respondHtml(drillChainFragment(project, targetTree, candidateCounts))
+    respondHtml(drillChainFragment(project, targetTree, candidateCounts, nodeIngredients))
 }
 
 /**
@@ -312,7 +314,8 @@ private suspend fun ApplicationCall.respondDrillRerender(
 
     val graph = getGraphForWorld(worldId)
     val candidateCounts = buildCandidateCounts(targetTree, graph)
-    respondHtml(drillChainFragment(project, targetTree, candidateCounts))
+    val nodeIngredients = buildNodeIngredients(plan)
+    respondHtml(drillChainFragment(project, targetTree, candidateCounts, nodeIngredients))
 }
 
 /**
@@ -406,6 +409,32 @@ internal fun buildCandidateCounts(
     }
     walk(root)
     return result
+}
+
+/**
+ * Per-node ingredient summary ("5 Iron Ingot + 1 Chest", "1 Deepslate Iron Ore") keyed by
+ * item id, shown in each drill node's hint so the indented children read as those inputs.
+ * Built from the engine's own [PlanNode.requires] (per-craft quantities the planner used),
+ * which is authoritative — the graph's raw input quantities can be inflated by data quirks.
+ * Empty for nodes with no inputs (terminals, supplied, open tags).
+ */
+internal fun buildNodeIngredients(plan: GatheringPlan): Map<String, String> {
+    fun nameOf(id: String): String = plan.nodes[id]?.item?.name ?: id
+    // Ingredients are shown per ONE output item, so normalise the per-craft amounts by the
+    // node's output count (a craft that yields N items divides its inputs across them). Drop a
+    // trailing ".0" so the common integer case reads cleanly ("5 Iron Ingot", not "5.0").
+    fun fmt(n: Double): String {
+        val r = (n * 100).roundToLong() / 100.0
+        return if (r % 1.0 == 0.0) r.toLong().toString() else r.toString()
+    }
+    return plan.nodes.values
+        .filter { it.requires.isNotEmpty() }
+        .associate { node ->
+            val perCraftOutput = node.producedQuantity.coerceAtLeast(1)
+            node.item.id to node.requires
+                .sortedBy { nameOf(it.itemId) }
+                .joinToString(" + ") { "${fmt(it.quantityPerCraft.toDouble() / perCraftOutput)} ${nameOf(it.itemId)}" }
+        }
 }
 
 /** Builds a minimal validation error HTML string for respondBadRequest. */
