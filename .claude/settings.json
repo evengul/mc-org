@@ -14,26 +14,6 @@
     ],
     "PostToolUse": [
       {
-        "matcher": "Write",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/post-edit-compile.sh",
-            "statusMessage": "Compiling..."
-          }
-        ]
-      },
-      {
-        "matcher": "Edit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/post-edit-compile.sh",
-            "statusMessage": "Compiling..."
-          }
-        ]
-      },
-      {
         "matcher": "EnterWorktree",
         "hooks": [
           {
