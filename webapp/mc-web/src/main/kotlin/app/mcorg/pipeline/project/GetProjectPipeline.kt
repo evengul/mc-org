@@ -1,6 +1,7 @@
 package app.mcorg.pipeline.project
 
 import app.mcorg.domain.model.user.Role
+import app.mcorg.engine.plan.TargetTree
 import app.mcorg.pipeline.Result
 import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.project.commonsteps.GetProjectByIdStep
@@ -8,6 +9,10 @@ import app.mcorg.pipeline.project.commonsteps.GetViewPreferenceInput
 import app.mcorg.pipeline.project.commonsteps.GetViewPreferenceStep
 import app.mcorg.pipeline.resources.GatheringPlanInput
 import app.mcorg.pipeline.resources.GenerateGatheringPlanStep
+import app.mcorg.pipeline.resources.buildCandidateCounts
+import app.mcorg.pipeline.resources.buildNodeIngredients
+import app.mcorg.pipeline.resources.drillTreeFor
+import app.mcorg.pipeline.resources.getGraphForWorld
 import app.mcorg.pipeline.resources.commonsteps.GetAllResourceGatheringItemsStep
 import app.mcorg.pipeline.resources.commonsteps.GetProgressForProjectStep
 import app.mcorg.pipeline.task.SearchTasksInput
@@ -22,6 +27,8 @@ import app.mcorg.presentation.utils.getWorldName
 import app.mcorg.presentation.utils.respondBadRequest
 import app.mcorg.presentation.utils.respondHtml
 import io.ktor.server.application.ApplicationCall
+import java.net.URLDecoder
+import java.nio.charset.StandardCharsets
 
 suspend fun ApplicationCall.handleGetProject() {
     val user = getUser()
@@ -78,5 +85,23 @@ suspend fun ApplicationCall.handleGetProject() {
     // Load persisted progress for all items in the project (covers derived activities too)
     val progressMap = GetProgressForProjectStep.process(projectId).getOrNull() ?: emptyMap()
 
-    respondHtml(projectDetailPage(user, project, worldName, resources, tasks, lens, isWorldAdmin = isAdmin, plan = plan, progressMap = progressMap))
+    // ?drill=<item> deep-links into a target's chain so reload/share lands on the drill,
+    // not the plan. Resolves only when the plan derives and the item is an actual target;
+    // otherwise falls through to the normal lens render.
+    val drillItemId = request.queryParameters["drill"]
+        ?.let { URLDecoder.decode(it, StandardCharsets.UTF_8) }
+        ?.takeIf { it.isNotBlank() }
+    val drillTarget: TargetTree? = drillItemId?.let { plan?.drillTreeFor(it) }
+    val drillGraph = if (drillTarget != null) getGraphForWorld(worldId) else null
+    val drillCandidateCounts = if (drillTarget != null) buildCandidateCounts(drillTarget, drillGraph) else emptyMap()
+    val drillNodeIngredients = if (drillTarget != null && plan != null) buildNodeIngredients(plan) else emptyMap()
+
+    respondHtml(
+        projectDetailPage(
+            user, project, worldName, resources, tasks, lens,
+            isWorldAdmin = isAdmin, plan = plan, progressMap = progressMap,
+            drillTarget = drillTarget, drillCandidateCounts = drillCandidateCounts,
+            drillNodeIngredients = drillNodeIngredients, drillHighlightItemId = drillItemId,
+        )
+    )
 }

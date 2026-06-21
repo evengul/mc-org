@@ -33,6 +33,10 @@ import app.mcorg.presentation.templated.dsl.tabStrip
 import app.mcorg.presentation.templated.dsl.taskList
 import kotlinx.html.*
 import kotlinx.html.stream.createHTML
+import app.mcorg.engine.plan.TargetTree
+import app.mcorg.pipeline.resources.buildNodeIngredients
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
 
 fun projectDetailPage(
     user: TokenProfile,
@@ -44,6 +48,10 @@ fun projectDetailPage(
     isWorldAdmin: Boolean = false,
     plan: GatheringPlan? = null,
     progressMap: Map<String, Int> = emptyMap(),
+    drillTarget: TargetTree? = null,
+    drillCandidateCounts: Map<String, Int> = emptyMap(),
+    drillNodeIngredients: Map<String, String> = emptyMap(),
+    drillHighlightItemId: String? = null,
 ): String = pageShell(
     pageTitle = "Seam — ${project.name}",
     user = user,
@@ -58,6 +66,7 @@ fun projectDetailPage(
         "/static/styles/components/resource-search.css",
         "/static/styles/components/resource-panel.css",
         "/static/styles/components/callout.css",
+        "/static/styles/components/drill.css",
         "/static/styles/pages/project-detail.css",
     ),
     scripts = listOf(
@@ -101,7 +110,12 @@ fun projectDetailPage(
 
             div {
                 id = "project-content"
-                gatheringPlannerContent(project, resources, tasks, plan, lens, progressMap)
+                if (drillTarget != null) {
+                    // ?drill=<item> deep-links straight into a target's chain (reload/share-safe).
+                    drillChainContent(project, drillTarget, drillCandidateCounts, drillNodeIngredients, drillHighlightItemId)
+                } else {
+                    gatheringPlannerContent(project, resources, tasks, plan, lens, progressMap)
+                }
             }
         }
     }
@@ -383,6 +397,7 @@ fun FlowContent.gatheringPlanSections(
 
     val byGroup = plan.activityList.groupBy { it.group }
     val groupOrder = ActivityGroup.values()
+    val nodeIngredients = buildNodeIngredients(plan)
 
     div {
         id = "gathering-plan-sections"
@@ -394,7 +409,7 @@ fun FlowContent.gatheringPlanSections(
                 span("section-label") { +groupLabel(group) }
                 div("resource-list") {
                     activities.forEach { activity ->
-                        planActivityRow(project.worldId, project.id, activity, progressMap)
+                        planActivityRow(project.worldId, project.id, activity, progressMap, nodeIngredients)
                     }
                 }
             }
@@ -408,31 +423,36 @@ private fun FlowContent.planActivityRow(
     projectId: Int,
     activity: Activity,
     progressMap: Map<String, Int> = emptyMap(),
+    nodeIngredients: Map<String, String> = emptyMap(),
 ) {
     when (activity.status) {
-        PlanNodeStatus.SUPPLIED -> suppliedActivityRow(activity)
-        PlanNodeStatus.OPEN_TAG -> openTagActivityRow(activity)
-        PlanNodeStatus.BLOCKED -> blockedActivityRow(activity)
+        PlanNodeStatus.SUPPLIED -> suppliedActivityRow(worldId, projectId, activity)
+        PlanNodeStatus.OPEN_TAG -> openTagActivityRow(worldId, projectId, activity)
+        PlanNodeStatus.BLOCKED -> blockedActivityRow(worldId, projectId, activity)
         PlanNodeStatus.RESOLVED, PlanNodeStatus.RAW_GATHER ->
-            counterActivityRow(worldId, projectId, activity, progressMap)
+            counterActivityRow(worldId, projectId, activity, progressMap, nodeIngredients)
     }
 }
 
 /** SUPPLIED row: badge + supply label, no counter. */
-private fun FlowContent.suppliedActivityRow(activity: Activity) {
+private fun FlowContent.suppliedActivityRow(worldId: Int, projectId: Int, activity: Activity) {
     val supplyLabel = activity.supply?.label ?: "Supplied"
+    val encodedItemId = URLEncoder.encode(activity.item.id, StandardCharsets.UTF_8)
     div("resource-row") {
         id = "plan-activity-${activity.item.id.replace(":", "-")}"
         div("resource-row__desktop") {
             div("resource-row__name") { +activity.item.name }
             span("badge badge--accent") { +"Supplied" }
             span("resource-row__source") { +"from $supplyLabel" }
+            drillButton(worldId, projectId, encodedItemId)
         }
     }
 }
 
 /** OPEN_TAG row: amber callout, indicates variant pick needed. */
-private fun FlowContent.openTagActivityRow(activity: Activity) {
+private fun FlowContent.openTagActivityRow(worldId: Int, projectId: Int, activity: Activity) {
+    val encodedItemId = URLEncoder.encode(activity.item.id, StandardCharsets.UTF_8)
+    val pickerSlotId = "picker-${activity.item.id.replace(Regex("[^a-zA-Z0-9]"), "-")}"
     div("callout callout--warning") {
         id = "plan-activity-${activity.item.id.replace(":", "-")}"
         span("callout__icon") { +"!" }
@@ -440,11 +460,25 @@ private fun FlowContent.openTagActivityRow(activity: Activity) {
             span { +activity.item.name }
             +" — Pick a variant (open tag)"
         }
+        // Resolve inline: drops the tag-member picker below this row; a pick re-renders the
+        // List lens (origin=list) so the resolved tag leaves "Needs attention".
+        button(classes = "btn btn--primary btn--sm") {
+            type = ButtonType.button
+            attributes["hx-get"] =
+                "/worlds/$worldId/projects/$projectId/plan/chain/$encodedItemId/sources?node=$encodedItemId&origin=list"
+            attributes["hx-target"] = "#$pickerSlotId"
+            attributes["hx-swap"] = "innerHTML"
+            +"Pick variant"
+        }
+        // ⇄ still opens the full drill to explore/re-pin the whole chain.
+        drillButton(worldId, projectId, encodedItemId)
     }
+    div("chain-node__picker") { id = pickerSlotId }
 }
 
 /** BLOCKED row: warning callout. */
-private fun FlowContent.blockedActivityRow(activity: Activity) {
+private fun FlowContent.blockedActivityRow(worldId: Int, projectId: Int, activity: Activity) {
+    val encodedItemId = URLEncoder.encode(activity.item.id, StandardCharsets.UTF_8)
     div("callout callout--warning") {
         id = "plan-activity-${activity.item.id.replace(":", "-")}"
         span("callout__icon") { +"!" }
@@ -453,6 +487,7 @@ private fun FlowContent.blockedActivityRow(activity: Activity) {
             +activity.item.name
             +" — no feasible source found"
         }
+        drillButton(worldId, projectId, encodedItemId)
     }
 }
 
@@ -466,13 +501,21 @@ fun FlowContent.counterActivityRow(
     projectId: Int,
     activity: Activity,
     progressMap: Map<String, Int> = emptyMap(),
+    nodeIngredients: Map<String, String> = emptyMap(),
 ) {
     val itemSlug = activity.item.id.replace(":", "-")
     val rowId = "plan-activity-$itemSlug"
     val required = activity.quantity
     val current = (progressMap[activity.item.id] ?: 0).toLong().coerceIn(0, required)
     val percent = if (required > 0) (current * 100 / required).toInt() else 0
-    val sourceLabel = activity.source?.getMethodLabel()
+    // Method + detail: ingredients for recipes ("Smelting · 1 Raw Iron"), or the loot location
+    // for a pinned loot source ("Chest Loot · Desert pyramid") — the relationship/source,
+    // visible without drilling.
+    val detail = nodeIngredients[activity.item.id] ?: activity.source?.let { lootTableName(it) }
+    val sourceLabel = listOfNotNull(activity.source?.getMethodLabel(), detail)
+        .joinToString(" · ")
+        .ifEmpty { null }
+    val encodedItemId = URLEncoder.encode(activity.item.id, StandardCharsets.UTF_8)
 
     div("resource-row") {
         id = rowId
@@ -501,6 +544,8 @@ fun FlowContent.counterActivityRow(
                 span("resource-row__source") { +sourceLabel }
             }
 
+            drillButton(worldId, projectId, encodedItemId)
+
             div("resource-row__counters") {
                 intArrayOf(-1728, -64, -1, 1, 64, 1728).forEach { amount ->
                     button(classes = "btn btn--ghost btn--sm resource-row__counter-btn") {
@@ -515,6 +560,24 @@ fun FlowContent.counterActivityRow(
                 }
             }
         }
+    }
+}
+
+/**
+ * The ⇄ drill button that navigates to the chain drill view for an activity's item.
+ * [encodedItemId] must be URL-encoded (e.g. `%23minecraft:planks` for tag ids with `#`).
+ */
+private fun FlowContent.drillButton(worldId: Int, projectId: Int, encodedItemId: String) {
+    val drillUrl = "/worlds/$worldId/projects/$projectId/plan/chain/$encodedItemId"
+    val pushUrl = "/worlds/$worldId/projects/$projectId?drill=$encodedItemId"
+    button(classes = "btn btn--ghost btn--sm") {
+        type = ButtonType.button
+        attributes["hx-get"] = drillUrl
+        attributes["hx-target"] = "#project-content"
+        attributes["hx-swap"] = "outerHTML"
+        attributes["hx-push-url"] = pushUrl
+        attributes["aria-label"] = "View source chain"
+        +"⇄"
     }
 }
 
@@ -741,6 +804,7 @@ fun gatheringPlannerFragment(
     lens: String = "list",
     progressMap: Map<String, Int> = emptyMap(),
 ): String = createHTML().div {
+    id = "project-content"
     gatheringPlannerContent(project, resources, tasks, plan, lens, progressMap)
 }
 

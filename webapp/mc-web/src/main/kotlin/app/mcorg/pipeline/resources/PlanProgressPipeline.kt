@@ -10,6 +10,7 @@ import app.mcorg.pipeline.resources.commonsteps.UpsertProgressByItemInput
 import app.mcorg.pipeline.resources.commonsteps.UpsertProgressByItemStep
 import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.hxOutOfBands
+import app.mcorg.presentation.templated.dsl.pages.lootTableName
 import app.mcorg.presentation.templated.dsl.pages.overallProgressInner
 import app.mcorg.presentation.templated.dsl.pages.planActivityCount
 import app.mcorg.presentation.templated.dsl.pages.planProgressTotals
@@ -84,13 +85,23 @@ suspend fun ApplicationCall.handleUpdatePlanProgress() {
         // Project-wide totals for the overall-progress OOB update
         val overallTotals: Pair<Long, Long>? = plan?.let { planProgressTotals(it, progressMap) }
 
+        // Re-derived plan lets us keep the "Smelting · 1 Raw Iron" source/ingredient label on
+        // the swapped row, matching the initial render.
+        val node = plan?.nodes?.get(input.itemId)
+        val sourceLabel = node?.let {
+            val detail = plan.let(::buildNodeIngredients)[input.itemId] ?: it.source?.let(::lootTableName)
+            listOfNotNull(it.source?.getMethodLabel(), detail)
+                .joinToString(" · ")
+                .ifEmpty { null }
+        }
+
         PlanProgressResult(
             itemId = input.itemId,
             itemName = input.itemId.substringAfterLast(':').replace('_', ' ')
                 .replaceFirstChar { it.uppercaseChar() },
             collected = collected.toLong(),
             required = input.required,
-            sourceLabel = null, // source label not available without plan re-derive here
+            sourceLabel = sourceLabel,
             overallTotals = overallTotals,
         )
     }
