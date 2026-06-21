@@ -16,7 +16,9 @@ import app.mcorg.domain.model.project.ProjectType
 import org.junit.jupiter.api.Test
 import java.time.ZonedDateTime
 import kotlin.test.assertContains
+import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
@@ -621,6 +623,14 @@ class DrillViewTest {
 
         assertContains(html, "Simple dungeon")
         assertContains(html, "Ancient city")
+    }
+
+    @Test
+    fun `lootTableName names loot sources by their file and ignores non-loot`() {
+        val chest = SourceNode(ResourceSource.SourceType.LootTypes.CHEST, "chests/desert_pyramid.json")
+        assertEquals("Desert pyramid", lootTableName(chest))
+        assertNull(lootTableName(mine), "block source already named by getName()")
+        assertNull(lootTableName(craft), "recipe carries ingredients, not a loot table")
     }
 
     @Test

@@ -508,9 +508,11 @@ fun FlowContent.counterActivityRow(
     val required = activity.quantity
     val current = (progressMap[activity.item.id] ?: 0).toLong().coerceIn(0, required)
     val percent = if (required > 0) (current * 100 / required).toInt() else 0
-    // Method + ingredients ("Smelting · 1 Raw Iron") so the row states how the item is made
-    // and what it consumes — the chain relationships, visible without drilling.
-    val sourceLabel = listOfNotNull(activity.source?.getMethodLabel(), nodeIngredients[activity.item.id])
+    // Method + detail: ingredients for recipes ("Smelting · 1 Raw Iron"), or the loot location
+    // for a pinned loot source ("Chest Loot · Desert pyramid") — the relationship/source,
+    // visible without drilling.
+    val detail = nodeIngredients[activity.item.id] ?: activity.source?.let { lootTableName(it) }
+    val sourceLabel = listOfNotNull(activity.source?.getMethodLabel(), detail)
         .joinToString(" · ")
         .ifEmpty { null }
     val encodedItemId = URLEncoder.encode(activity.item.id, StandardCharsets.UTF_8)

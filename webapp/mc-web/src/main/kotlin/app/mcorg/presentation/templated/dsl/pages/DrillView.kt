@@ -349,18 +349,21 @@ fun nodePickerFragment(
 private fun sourceLabel(source: SourceNode, graph: ItemSourceGraph?): String {
     val inputs = graph?.getRequiredItems(source)?.map { it.item.name }?.sorted().orEmpty()
     if (inputs.isNotEmpty()) return "from ${inputs.joinToString(" + ")}"
-    // No inputs → a loot/gather source. getName() enriches block/entity sources with their
-    // file ("Break Block: Deepslate iron ore"), but loot types fall back to the bare method
-    // ("Chest"), so every chest reads alike. Name them by their loot-table file instead
-    // ("Simple dungeon", "Ancient city") — the distinguishing info is already in `filename`.
-    val name = source.getName()
-    if (name == source.sourceType.name) {
-        val pretty = source.filename.substringAfterLast('/').substringBeforeLast('.')
-            .replace('_', ' ').trim()
-            .replaceFirstChar { it.uppercaseChar() }
-        if (pretty.isNotBlank()) return pretty
-    }
-    return name
+    return lootTableName(source) ?: source.getName()
+}
+
+/**
+ * The looting location for a loot source, from its loot-table file ("Desert pyramid",
+ * "Simple dungeon"), or null for non-loot sources. getName() enriches block/entity loot with
+ * their file already; recipes carry ingredients — only the bare-typed loot tables (chest,
+ * gift, archaeology, barter) need this, and the distinguishing info is in `filename`.
+ */
+internal fun lootTableName(source: SourceNode): String? {
+    if (!source.sourceType.isLoot() || source.getName() != source.sourceType.name) return null
+    val pretty = source.filename.substringAfterLast('/').substringBeforeLast('.')
+        .replace('_', ' ').trim()
+        .replaceFirstChar { it.uppercaseChar() }
+    return pretty.ifBlank { null }
 }
 
 /** A tag member paired with its best source + that source's score, for ranking. */
