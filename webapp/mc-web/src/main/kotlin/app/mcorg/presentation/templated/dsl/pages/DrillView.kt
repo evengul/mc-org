@@ -1,10 +1,18 @@
 package app.mcorg.presentation.templated.dsl.pages
 
+import app.mcorg.domain.model.minecraft.MinecraftTag
 import app.mcorg.domain.model.project.Project
+import app.mcorg.engine.model.ItemSourceGraph
+import app.mcorg.engine.model.SourceNode
 import app.mcorg.engine.plan.PlanNodeStatus
 import app.mcorg.engine.plan.TargetTree
 import kotlinx.html.*
 import kotlinx.html.stream.createHTML
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
+
+// High fan-out cap: when a node has more than this many candidates we only show the first N.
+private const val PICKER_MAX_OPTIONS = 30
 
 /**
  * Drill-chain view fragment for one plan target.
@@ -28,6 +36,7 @@ fun drillChainFragment(
     val listFragmentUrl = "/worlds/$worldId/projects/$projectId/detail-content?lens=list"
     val listPageUrl = "/worlds/$worldId/projects/$projectId?lens=list"
     val targetName = target.item.name
+    val encodedTargetId = encodeId(target.item.id)
 
     div("drill-header") {
         button(classes = "btn btn--ghost btn--sm") {
@@ -43,7 +52,7 @@ fun drillChainFragment(
     }
 
     div("drill-chain") {
-        renderTargetTree(target, candidateCounts, depth = 0)
+        renderTargetTree(target, candidateCounts, depth = 0, worldId = worldId, projectId = projectId, encodedTargetId = encodedTargetId)
     }
 }
 
@@ -52,10 +61,17 @@ private fun DIV.renderTargetTree(
     node: TargetTree,
     candidateCounts: Map<String, Int>,
     depth: Int,
+    worldId: Int,
+    projectId: Int,
+    encodedTargetId: String,
 ) {
     val depthClass = "chain-node--depth-${depth.coerceAtMost(4)}"
     val isForced = isForced(node, candidateCounts)
     val isMultiSource = isMultiSource(node, candidateCounts)
+    val nodeSlug = node.item.id.replace(Regex("[^a-zA-Z0-9]"), "-")
+    val encodedNodeId = encodeId(node.item.id)
+    val pickerSlotId = "picker-$nodeSlug"
+    val pickerUrl = "/worlds/$worldId/projects/$projectId/plan/chain/$encodedTargetId/sources?node=$encodedNodeId"
 
     div("chain-node $depthClass") {
         // Item name + optional method hint for RESOLVED nodes
@@ -80,8 +96,8 @@ private fun DIV.renderTargetTree(
                 span("chain-node__forced") { +"Blocked — no source" }
             }
             node.status == PlanNodeStatus.OPEN_TAG || isMultiSource -> {
-                // Multi-source or open tag: render ⇄ chip (Phase 1: no-op placeholder)
-                val nodeSource = node.source  // local val to enable smart cast across module boundary
+                // Multi-source or open tag: render ⇄ chip that loads the picker
+                val nodeSource = node.source
                 val chipLabel = when {
                     nodeSource != null -> nodeSource.getName()
                     node.status == PlanNodeStatus.OPEN_TAG -> "Pick variant"
@@ -89,7 +105,9 @@ private fun DIV.renderTargetTree(
                 }
                 button(classes = "chip") {
                     type = ButtonType.button
-                    // Phase 1: no hx-* attributes — placeholder only
+                    attributes["hx-get"] = pickerUrl
+                    attributes["hx-target"] = "#$pickerSlotId"
+                    attributes["hx-swap"] = "innerHTML"
                     +"⇄ $chipLabel"
                 }
             }
@@ -105,9 +123,17 @@ private fun DIV.renderTargetTree(
         }
     }
 
+    // Picker slot: only rendered for chip nodes; starts empty, filled by hx-get
+    if (node.status == PlanNodeStatus.OPEN_TAG || isMultiSource) {
+        div("chain-node__picker") {
+            id = pickerSlotId
+            // empty — filled by HTMX on chip click
+        }
+    }
+
     // Recurse into children
     for (child in node.children) {
-        renderTargetTree(child, candidateCounts, depth + 1)
+        renderTargetTree(child, candidateCounts, depth + 1, worldId, projectId, encodedTargetId)
     }
 }
 
@@ -157,3 +183,135 @@ fun drillNotFoundFragment(project: Project, reason: String): String = createHTML
         div("callout__body") { +reason }
     }
 }
+
+/**
+ * Picker fragment for one node — source selector or tag-member selector.
+ *
+ * Rendered into `#picker-{nodeSlug}` via innerHTML swap.
+ *
+ * For source nodes (multi-source items): shows all candidate sources sorted by getName(),
+ * capped at [PICKER_MAX_OPTIONS] with a note when truncated. Each option POSTs to the
+ * `/pin` endpoint on click.
+ *
+ * For tag nodes (OPEN_TAG): shows all member items from the tag's .content list, sorted
+ * by name, same cap. Each option POSTs to the `/tag` endpoint.
+ *
+ * When an override is currently active, a "Clear override" control is shown.
+ *
+ * @param worldId  world id
+ * @param projectId  project id
+ * @param targetItemId  the drill target's item id (URL-encoded in HTMX attrs)
+ * @param node  the TargetTree node whose picker to show
+ * @param graph  the live item-source graph (may be null — renders graceful empty state)
+ * @param activeSourceKey  the currently active source override key, if any
+ * @param activeMemberId  the currently active tag-member override id, if any
+ */
+fun nodePickerFragment(
+    worldId: Int,
+    projectId: Int,
+    targetItemId: String,
+    node: TargetTree,
+    graph: ItemSourceGraph?,
+    activeSourceKey: String?,
+    activeMemberId: String?,
+): String {
+    val encodedTargetId = encodeId(targetItemId)
+    val encodedNodeId = encodeId(node.item.id)
+    val baseUrl = "/worlds/$worldId/projects/$projectId/plan/chain/$encodedTargetId"
+    val clearUrl = "$baseUrl/override?node=$encodedNodeId"
+    val isTag = node.status == PlanNodeStatus.OPEN_TAG && node.item is MinecraftTag
+
+    return createHTML().div("picker") {
+        if (isTag) {
+            // Tag-member picker
+            val tag = node.item as MinecraftTag
+            val allMembers = tag.content.sortedBy { it.name }
+            val displayedMembers = allMembers.take(PICKER_MAX_OPTIONS)
+            val truncated = allMembers.size > PICKER_MAX_OPTIONS
+
+            span("section-label picker__label") { +"Pick a variant" }
+
+            div("stack--xs") {
+                for (member in displayedMembers) {
+                    val isSelected = member.id == activeMemberId
+                    div("picker-opt${if (isSelected) " picker-opt--sel" else ""}") {
+                        attributes["hx-post"] = "$baseUrl/tag"
+                        attributes["hx-vals"] = """{"node":"${node.item.id}","memberItemId":"${member.id}"}"""
+                        attributes["hx-target"] = "#project-content"
+                        attributes["hx-swap"] = "outerHTML"
+                        span("picker-opt__name") { +member.name }
+                        if (isSelected) {
+                            span("picker-opt__hint") { +"selected" }
+                        }
+                    }
+                }
+            }
+
+            if (truncated) {
+                p("picker__overflow-note") {
+                    +"Showing $PICKER_MAX_OPTIONS of ${allMembers.size} · ranked picks + search coming soon"
+                }
+            }
+        } else {
+            // Source picker
+            val candidates: List<SourceNode> = graph
+                ?.getSourcesForItem(node.item)
+                ?.sortedBy { it.getName() }
+                ?: emptyList()
+            val displayed = candidates.take(PICKER_MAX_OPTIONS)
+            val truncated = candidates.size > PICKER_MAX_OPTIONS
+
+            span("section-label picker__label") { +"Choose source" }
+
+            if (displayed.isEmpty()) {
+                p("picker__empty") { +"No sources available for this item." }
+            } else {
+                div("stack--xs") {
+                    for (source in displayed) {
+                        val isSelected = source.getKey() == activeSourceKey
+                        div("picker-opt${if (isSelected) " picker-opt--sel" else ""}") {
+                            attributes["hx-post"] = "$baseUrl/pin"
+                            attributes["hx-vals"] = """{"node":"${node.item.id}","sourceKey":"${source.getKey()}"}"""
+                            attributes["hx-target"] = "#project-content"
+                            attributes["hx-swap"] = "outerHTML"
+                            span("picker-opt__name") { +source.getName() }
+                            span("picker-opt__hint") { +source.getMethodLabel() }
+                        }
+                    }
+                }
+            }
+
+            if (truncated) {
+                p("picker__overflow-note") {
+                    +"Showing $PICKER_MAX_OPTIONS of ${candidates.size} · ranked picks + search coming soon"
+                }
+            }
+        }
+
+        // Clear override control — shown when an override is currently active
+        val hasOverride = activeSourceKey != null || activeMemberId != null
+        if (hasOverride) {
+            button(classes = "btn btn--ghost btn--sm picker__clear") {
+                type = ButtonType.button
+                attributes["hx-delete"] = clearUrl
+                attributes["hx-target"] = "#project-content"
+                attributes["hx-swap"] = "outerHTML"
+                +"Clear override"
+            }
+        }
+    }
+}
+
+/**
+ * Graceful fallback fragment for the picker slot when node/plan lookup fails.
+ * Rendered into `#picker-{nodeSlug}` via innerHTML.
+ */
+fun pickerNotFoundFragment(reason: String): String = createHTML().p("picker__empty") { +reason }
+
+// ---------------------------------------------------------------------------
+// Private utilities
+// ---------------------------------------------------------------------------
+
+/** URL-encodes an item or tag id for use in URL path segments. */
+private fun encodeId(id: String): String =
+    URLEncoder.encode(id, StandardCharsets.UTF_8).replace("+", "%20")

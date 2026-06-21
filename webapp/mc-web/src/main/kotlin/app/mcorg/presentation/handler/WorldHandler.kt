@@ -9,7 +9,11 @@ import app.mcorg.pipeline.project.handleDeleteProject
 import app.mcorg.pipeline.project.handleGetProject
 import app.mcorg.pipeline.project.handleGetDetailContent
 import app.mcorg.pipeline.project.resources.handleAddResourcesFromSchematic
+import app.mcorg.pipeline.resources.handleClearOverride
 import app.mcorg.pipeline.resources.handleGetDrillChain
+import app.mcorg.pipeline.resources.handleGetNodePicker
+import app.mcorg.pipeline.resources.handlePinSource
+import app.mcorg.pipeline.resources.handleResolveTagMember
 import app.mcorg.pipeline.resources.handleUpdatePlanProgress
 import app.mcorg.pipeline.resources.handleClearResourceSource
 import app.mcorg.pipeline.resources.handleCreateResourceGatheringItem
@@ -190,8 +194,12 @@ class WorldHandler {
                             patch("/progress") {
                                 call.handleUpdatePlanProgress()
                             }
-                            get("/chain/{itemId}") {
-                                call.handleGetDrillChain()
+                            route("/chain/{itemId}") {
+                                get { call.handleGetDrillChain() }
+                                get("/sources") { call.handleGetNodePicker() }
+                                post("/pin") { call.handlePinSource() }
+                                post("/tag") { call.handleResolveTagMember() }
+                                delete("/override") { call.handleClearOverride() }
                             }
                         }
                     }

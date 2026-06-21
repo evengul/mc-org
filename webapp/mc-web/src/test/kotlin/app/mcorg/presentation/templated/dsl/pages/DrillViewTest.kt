@@ -1,7 +1,9 @@
 package app.mcorg.presentation.templated.dsl.pages
 
 import app.mcorg.domain.model.minecraft.Item
+import app.mcorg.domain.model.minecraft.MinecraftTag
 import app.mcorg.domain.model.resources.ResourceSource
+import app.mcorg.engine.model.ItemSourceGraph
 import app.mcorg.engine.model.SourceNode
 import app.mcorg.engine.plan.PlanNodeStatus
 import app.mcorg.engine.plan.TargetTree
@@ -16,21 +18,29 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 /**
- * Unit tests for [drillChainFragment].
+ * Unit tests for [drillChainFragment], [drillNotFoundFragment], and [nodePickerFragment].
  *
  * Verifies:
  * - The fragment wraps in #project-content for HTMX outerHTML swap
  * - Back-to-plan button targets the list lens
  * - Depth indentation via chain-node--depth-N classes
  * - Forced (1-way) nodes render a "· 1 way" label and no chip
- * - Multi-source nodes render a ⇄ chip (no-op placeholder)
+ * - Multi-source nodes render a ⇄ chip wired to the sources endpoint
  * - OPEN_TAG nodes render a ⇄ chip
+ * - The chip links to the /sources?node= endpoint
+ * - A picker slot div is emitted for chip nodes
+ * - nodePickerFragment: source picker renders options with hx-post to /pin
+ * - nodePickerFragment: tag picker renders members with hx-post to /tag
+ * - nodePickerFragment: selected option has picker-opt--sel
+ * - nodePickerFragment: >30 cap shows "Showing 30 of N" note
+ * - nodePickerFragment: clear control appears when override is active
  * - Fallback fragment renders gracefully with a callout
  */
 class DrillViewTest {
 
     private val mine = SourceNode(ResourceSource.SourceType.LootTypes.BLOCK, "blocks/iron_ore.json")
     private val craft = SourceNode(ResourceSource.SourceType.RecipeTypes.CRAFTING_SHAPED, "iron_pickaxe.json")
+    private val smelt = SourceNode(ResourceSource.SourceType.RecipeTypes.SMELTING, "smelting/iron_ingot.json")
 
     private fun item(id: String, name: String) = Item("minecraft:$id", name)
 
@@ -49,6 +59,23 @@ class DrillViewTest {
         createdAt = ZonedDateTime.now(),
         updatedAt = ZonedDateTime.now()
     )
+
+    /** Build a tiny ItemSourceGraph with two sources for iron ingot. */
+    private fun ironGraph(): ItemSourceGraph {
+        val ironIngot = item("iron_ingot", "Iron Ingot")
+        val ironOre = item("iron_ore", "Iron Ore")
+        val builder = ItemSourceGraph.builder()
+
+        val mineSource = builder.addSourceNode(ResourceSource.SourceType.LootTypes.BLOCK, "blocks/iron_ore.json")
+        builder.addSourceToItemEdge(mineSource, builder.addItemNode(ironIngot))
+        builder.addSourceToItemEdge(mineSource, builder.addItemNode(ironOre))
+
+        val smeltSource = builder.addSourceNode(ResourceSource.SourceType.RecipeTypes.SMELTING, "smelting/iron_ingot.json")
+        builder.addSourceToItemEdge(smeltSource, builder.addItemNode(ironIngot))
+        builder.addItemToSourceEdge(builder.addItemNode(ironOre), smeltSource)
+
+        return builder.build()
+    }
 
     // -------------------------------------------------------------------------
     // Fragment structure
@@ -231,6 +258,40 @@ class DrillViewTest {
         assertContains(html, "Break Block")
     }
 
+    @Test
+    fun `multi-source chip has hx-get wired to sources endpoint`() {
+        val tree = TargetTree(
+            item = item("iron_ingot", "Iron Ingot"),
+            quantityIfAlone = 200,
+            craftsIfAlone = 200,
+            status = PlanNodeStatus.RESOLVED,
+            source = mine,
+        )
+        val candidateCounts = mapOf("minecraft:iron_ingot" to 2)
+        val html = drillChainFragment(testProject(worldId = 5, projectId = 9), tree, candidateCounts)
+
+        // Chip must hx-get the /sources endpoint
+        assertContains(html, "/sources?node=")
+        assertContains(html, "hx-get")
+    }
+
+    @Test
+    fun `multi-source chip has a picker slot div with correct id`() {
+        val tree = TargetTree(
+            item = item("iron_ingot", "Iron Ingot"),
+            quantityIfAlone = 200,
+            craftsIfAlone = 200,
+            status = PlanNodeStatus.RESOLVED,
+            source = mine,
+        )
+        val candidateCounts = mapOf("minecraft:iron_ingot" to 2)
+        val html = drillChainFragment(testProject(), tree, candidateCounts)
+
+        // Picker slot id = "picker-{slug}" where slug = id with every non-alphanumeric → '-'
+        // (so "minecraft:iron_ingot" → "minecraft-iron-ingot"; also neutralises '#' in tag ids).
+        assertContains(html, "picker-minecraft-iron-ingot")
+    }
+
     // -------------------------------------------------------------------------
     // OPEN_TAG nodes (⇄ chip — pick variant)
     // -------------------------------------------------------------------------
@@ -249,6 +310,21 @@ class DrillViewTest {
         assertContains(html, "class=\"chip\"")
         assertContains(html, "⇄")
         assertContains(html, "Pick variant")
+    }
+
+    @Test
+    fun `OPEN_TAG chip has hx-get wired to sources endpoint`() {
+        val tree = TargetTree(
+            item = item("planks", "Any Planks"),
+            quantityIfAlone = 320,
+            craftsIfAlone = 320,
+            status = PlanNodeStatus.OPEN_TAG,
+            source = null,
+        )
+        val html = drillChainFragment(testProject(worldId = 3, projectId = 8), tree, emptyMap())
+
+        assertContains(html, "hx-get")
+        assertContains(html, "/sources?node=")
     }
 
     // -------------------------------------------------------------------------
@@ -314,5 +390,295 @@ class DrillViewTest {
         assertContains(html, "Back to plan")
         assertContains(html, "callout")
         assertContains(html, "Item not found in plan.")
+    }
+
+    // -------------------------------------------------------------------------
+    // nodePickerFragment — source picker
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `source picker renders options with hx-post to pin endpoint`() {
+        val ironIngotItem = item("iron_ingot", "Iron Ingot")
+        val node = TargetTree(
+            item = ironIngotItem,
+            quantityIfAlone = 200,
+            craftsIfAlone = 200,
+            status = PlanNodeStatus.RESOLVED,
+            source = mine,
+        )
+        val graph = ironGraph()
+
+        val html = nodePickerFragment(
+            worldId = 1,
+            projectId = 2,
+            targetItemId = "minecraft:iron_ingot",
+            node = node,
+            graph = graph,
+            activeSourceKey = null,
+            activeMemberId = null,
+        )
+
+        // "Choose source" label
+        assertContains(html, "Choose source")
+        // hx-post to /pin endpoint
+        assertContains(html, "hx-post")
+        assertContains(html, "/pin")
+        // contains source names from graph
+        assertContains(html, "Break Block")
+    }
+
+    @Test
+    fun `source picker marks active source as selected`() {
+        val ironIngotItem = item("iron_ingot", "Iron Ingot")
+        val node = TargetTree(
+            item = ironIngotItem,
+            quantityIfAlone = 200,
+            craftsIfAlone = 200,
+            status = PlanNodeStatus.RESOLVED,
+            source = mine,
+        )
+        val graph = ironGraph()
+        val activeKey = mine.getKey() // "minecraft:block:blocks/iron_ore.json"
+
+        val html = nodePickerFragment(
+            worldId = 1,
+            projectId = 2,
+            targetItemId = "minecraft:iron_ingot",
+            node = node,
+            graph = graph,
+            activeSourceKey = activeKey,
+            activeMemberId = null,
+        )
+
+        // Selected option has the --sel modifier class
+        assertContains(html, "picker-opt--sel")
+    }
+
+    @Test
+    fun `source picker shows clear button when override is active`() {
+        val ironIngotItem = item("iron_ingot", "Iron Ingot")
+        val node = TargetTree(
+            item = ironIngotItem,
+            quantityIfAlone = 200,
+            craftsIfAlone = 200,
+            status = PlanNodeStatus.RESOLVED,
+            source = mine,
+        )
+        val graph = ironGraph()
+
+        val html = nodePickerFragment(
+            worldId = 1,
+            projectId = 2,
+            targetItemId = "minecraft:iron_ingot",
+            node = node,
+            graph = graph,
+            activeSourceKey = mine.getKey(),
+            activeMemberId = null,
+        )
+
+        assertContains(html, "Clear override")
+        assertContains(html, "/override")
+        assertContains(html, "hx-delete")
+    }
+
+    @Test
+    fun `source picker does not show clear button when no override is active`() {
+        val ironIngotItem = item("iron_ingot", "Iron Ingot")
+        val node = TargetTree(
+            item = ironIngotItem,
+            quantityIfAlone = 200,
+            craftsIfAlone = 200,
+            status = PlanNodeStatus.RESOLVED,
+            source = mine,
+        )
+        val graph = ironGraph()
+
+        val html = nodePickerFragment(
+            worldId = 1,
+            projectId = 2,
+            targetItemId = "minecraft:iron_ingot",
+            node = node,
+            graph = graph,
+            activeSourceKey = null,
+            activeMemberId = null,
+        )
+
+        assertFalse(html.contains("Clear override"), "Clear button should not appear when no override active")
+    }
+
+    @Test
+    fun `source picker with empty graph shows no-sources message`() {
+        val ironIngotItem = item("iron_ingot", "Iron Ingot")
+        val node = TargetTree(
+            item = ironIngotItem,
+            quantityIfAlone = 200,
+            craftsIfAlone = 200,
+            status = PlanNodeStatus.RESOLVED,
+            source = mine,
+        )
+        // No graph (null) → no candidates
+        val html = nodePickerFragment(
+            worldId = 1,
+            projectId = 2,
+            targetItemId = "minecraft:iron_ingot",
+            node = node,
+            graph = null,
+            activeSourceKey = null,
+            activeMemberId = null,
+        )
+
+        assertContains(html, "No sources available")
+    }
+
+    @Test
+    fun `source picker with more than 30 candidates shows truncation note`() {
+        // Build a graph with 35 sources for one item
+        val ironIngotItem = item("iron_ingot", "Iron Ingot")
+        val builder = ItemSourceGraph.builder()
+        val itemNode = builder.addItemNode(ironIngotItem)
+        for (i in 1..35) {
+            val src = builder.addSourceNode(ResourceSource.SourceType.LootTypes.BLOCK, "blocks/ore_$i.json")
+            builder.addSourceToItemEdge(src, itemNode)
+        }
+        val graph = builder.build()
+
+        val node = TargetTree(
+            item = ironIngotItem,
+            quantityIfAlone = 100,
+            craftsIfAlone = 100,
+            status = PlanNodeStatus.RESOLVED,
+            source = mine,
+        )
+
+        val html = nodePickerFragment(
+            worldId = 1,
+            projectId = 2,
+            targetItemId = "minecraft:iron_ingot",
+            node = node,
+            graph = graph,
+            activeSourceKey = null,
+            activeMemberId = null,
+        )
+
+        // Truncation note present
+        assertContains(html, "Showing 30 of 35")
+        assertContains(html, "ranked picks + search coming soon")
+    }
+
+    // -------------------------------------------------------------------------
+    // nodePickerFragment — tag member picker
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `tag picker renders member options with hx-post to tag endpoint`() {
+        val oakPlanks = Item("minecraft:oak_planks", "Oak Planks")
+        val sprucePlanks = Item("minecraft:spruce_planks", "Spruce Planks")
+        val tag = MinecraftTag("#minecraft:planks", "Any Planks", listOf(oakPlanks, sprucePlanks))
+
+        val node = TargetTree(
+            item = tag,
+            quantityIfAlone = 320,
+            craftsIfAlone = 320,
+            status = PlanNodeStatus.OPEN_TAG,
+            source = null,
+        )
+
+        val html = nodePickerFragment(
+            worldId = 1,
+            projectId = 2,
+            targetItemId = "minecraft:chest",
+            node = node,
+            graph = null,
+            activeSourceKey = null,
+            activeMemberId = null,
+        )
+
+        assertContains(html, "Pick a variant")
+        assertContains(html, "hx-post")
+        assertContains(html, "/tag")
+        assertContains(html, "Oak Planks")
+        assertContains(html, "Spruce Planks")
+    }
+
+    @Test
+    fun `tag picker marks active member as selected`() {
+        val oakPlanks = Item("minecraft:oak_planks", "Oak Planks")
+        val sprucePlanks = Item("minecraft:spruce_planks", "Spruce Planks")
+        val tag = MinecraftTag("#minecraft:planks", "Any Planks", listOf(oakPlanks, sprucePlanks))
+
+        val node = TargetTree(
+            item = tag,
+            quantityIfAlone = 320,
+            craftsIfAlone = 320,
+            status = PlanNodeStatus.OPEN_TAG,
+            source = null,
+        )
+
+        val html = nodePickerFragment(
+            worldId = 1,
+            projectId = 2,
+            targetItemId = "minecraft:chest",
+            node = node,
+            graph = null,
+            activeSourceKey = null,
+            activeMemberId = "minecraft:oak_planks",
+        )
+
+        assertContains(html, "picker-opt--sel")
+        assertContains(html, "selected")
+    }
+
+    @Test
+    fun `tag picker with more than 30 members shows truncation note`() {
+        val members = (1..35).map { Item("minecraft:planks_$it", "Planks $it") }
+        val tag = MinecraftTag("#minecraft:planks", "Any Planks", members)
+
+        val node = TargetTree(
+            item = tag,
+            quantityIfAlone = 320,
+            craftsIfAlone = 320,
+            status = PlanNodeStatus.OPEN_TAG,
+            source = null,
+        )
+
+        val html = nodePickerFragment(
+            worldId = 1,
+            projectId = 2,
+            targetItemId = "minecraft:chest",
+            node = node,
+            graph = null,
+            activeSourceKey = null,
+            activeMemberId = null,
+        )
+
+        assertContains(html, "Showing 30 of 35")
+    }
+
+    @Test
+    fun `tag picker shows clear button when member override is active`() {
+        val oakPlanks = Item("minecraft:oak_planks", "Oak Planks")
+        val tag = MinecraftTag("#minecraft:planks", "Any Planks", listOf(oakPlanks))
+
+        val node = TargetTree(
+            item = tag,
+            quantityIfAlone = 320,
+            craftsIfAlone = 320,
+            status = PlanNodeStatus.OPEN_TAG,
+            source = null,
+        )
+
+        val html = nodePickerFragment(
+            worldId = 1,
+            projectId = 2,
+            targetItemId = "minecraft:chest",
+            node = node,
+            graph = null,
+            activeSourceKey = null,
+            activeMemberId = "minecraft:oak_planks",
+        )
+
+        assertContains(html, "Clear override")
+        assertContains(html, "hx-delete")
+        assertContains(html, "/override")
     }
 }
