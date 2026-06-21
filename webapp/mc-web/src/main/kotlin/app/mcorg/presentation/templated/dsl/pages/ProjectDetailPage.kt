@@ -135,17 +135,24 @@ private fun FlowContent.gatheringOverallProgress(
 
     if (totalRequired > 0) {
         div("project-detail__overall-progress") {
-            p("project-detail__overall-progress-label") {
-                val pct = if (totalRequired > 0) (totalCollected * 100 / totalRequired) else 0
-                val toGo = (totalRequired - totalCollected).coerceAtLeast(0)
-                +"$pct% gathered · $toGo to go"
-            }
+            // Label lives INSIDE #overall-progress so the OOB swap after a counter update
+            // refreshes both the label and the bar together (it previously left a stale label).
             div {
                 id = "overall-progress"
-                progressBar(totalCollected.toInt().coerceAtMost(totalRequired.toInt()), totalRequired.toInt())
+                overallProgressInner(totalRequired, totalCollected)
             }
         }
     }
+}
+
+/** Inner content of #overall-progress: the "N% gathered · M to go" label + the bar. */
+fun FlowContent.overallProgressInner(totalRequired: Long, totalCollected: Long) {
+    val pct = if (totalRequired > 0) (totalCollected * 100 / totalRequired) else 0
+    val toGo = (totalRequired - totalCollected).coerceAtLeast(0)
+    p("project-detail__overall-progress-label") {
+        +"$pct% gathered · $toGo to go"
+    }
+    progressBar(totalCollected.toInt().coerceAtMost(totalRequired.toInt()), totalRequired.toInt())
 }
 
 /**
@@ -182,11 +189,14 @@ fun FlowContent.gatheringPlannerContent(
         else -> "list"
     }
 
-    val lensBase = "/worlds/${project.worldId}/projects/${project.id}/detail-content"
+    // Fetch from the fragment endpoint (hx-get), but push the canonical page URL so a
+    // reload/share lands on the full page shell rather than the bare CSS-less fragment.
+    val fragmentBase = "/worlds/${project.worldId}/projects/${project.id}/detail-content"
+    val pageBase = "/worlds/${project.worldId}/projects/${project.id}"
     val lensTabs = listOf(
-        TabItem("list", "List", "$lensBase?lens=list"),
-        TabItem("next", "Next up", "$lensBase?lens=next"),
-        TabItem("sessions", "Sessions", "$lensBase?lens=sessions"),
+        TabItem("list", "List", "$fragmentBase?lens=list", pushUrl = "$pageBase?lens=list"),
+        TabItem("next", "Next up", "$fragmentBase?lens=next", pushUrl = "$pageBase?lens=next"),
+        TabItem("sessions", "Sessions", "$fragmentBase?lens=sessions", pushUrl = "$pageBase?lens=sessions"),
     )
 
     // Lens pills
@@ -485,10 +495,7 @@ fun FlowContent.counterActivityRow(
                 }
             }
 
-            span("resource-row__count") {
-                id = "plan-count-$itemSlug"
-                +"$current / $required"
-            }
+            planActivityCount(activity.item.id, activity.item.name, itemSlug, current, required, complete = false)
 
             if (sourceLabel != null) {
                 span("resource-row__source") { +sourceLabel }
@@ -507,6 +514,42 @@ fun FlowContent.counterActivityRow(
                     }
                 }
             }
+        }
+    }
+}
+
+/**
+ * The "collected / required" count for a plan activity. The left number is click-to-edit
+ * (keyboard-activatable): clicking reveals an input that sets an absolute collected value,
+ * persisted via the same `/plan/progress` endpoint (plan-view.js computes the delta).
+ * Shared by the initial render and the post-update OOB-less row swap so they stay identical.
+ */
+fun FlowContent.planActivityCount(
+    itemId: String,
+    itemName: String,
+    itemSlug: String,
+    current: Long,
+    required: Long,
+    complete: Boolean,
+) {
+    span("resource-row__count${if (complete) " resource-row__count--complete" else ""}") {
+        id = "plan-count-$itemSlug"
+        attributes["data-item-id"] = itemId
+        attributes["data-current"] = current.toString()
+        attributes["data-required"] = required.toString()
+        span("resource-row__count-current") {
+            attributes["role"] = "button"
+            attributes["tabindex"] = "0"
+            attributes["title"] = "Click to set collected amount"
+            attributes["aria-label"] = "Set collected amount for $itemName"
+            +current.toString()
+        }
+        span("resource-row__count-sep") { +" / $required" }
+        input(type = InputType.number, classes = "resource-row__count-input") {
+            attributes["aria-label"] = "Collected amount for $itemName"
+            value = current.toString()
+            min = "0"
+            max = required.toString()
         }
     }
 }

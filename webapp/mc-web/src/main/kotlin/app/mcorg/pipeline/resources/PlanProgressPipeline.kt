@@ -10,8 +10,9 @@ import app.mcorg.pipeline.resources.commonsteps.UpsertProgressByItemInput
 import app.mcorg.pipeline.resources.commonsteps.UpsertProgressByItemStep
 import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.hxOutOfBands
+import app.mcorg.presentation.templated.dsl.pages.overallProgressInner
+import app.mcorg.presentation.templated.dsl.pages.planActivityCount
 import app.mcorg.presentation.templated.dsl.pages.planProgressTotals
-import app.mcorg.presentation.templated.dsl.progressBar
 import app.mcorg.presentation.utils.getProjectId
 import app.mcorg.presentation.utils.getWorldId
 import app.mcorg.presentation.utils.respondHtml
@@ -134,12 +135,7 @@ private fun buildPlanProgressResponse(worldId: Int, projectId: Int, result: Plan
                 }
             }
 
-            span("resource-row__count${if (complete) " resource-row__count--complete" else ""}") {
-                id = "plan-count-$itemSlug"
-                attributes["data-current"] = result.collected.toString()
-                attributes["data-required"] = result.required.toString()
-                +"${result.collected} / ${result.required}"
-            }
+            planActivityCount(result.itemId, result.itemName, itemSlug, result.collected, result.required, complete)
 
             if (result.sourceLabel != null) {
                 span("resource-row__source") { +result.sourceLabel }
@@ -164,12 +160,13 @@ private fun buildPlanProgressResponse(worldId: Int, projectId: Int, result: Plan
 
     // OOB update for #overall-progress — project-wide totals from plan re-derive.
     // Emitted only when totals are available; if plan derivation failed, header is not updated.
+    // Mirrors the page render (label + bar) so the "N% gathered · M to go" label stays fresh.
     val oobHtml = result.overallTotals?.let { (totalRequired, totalCollected) ->
         createHTML().div {
             id = "overall-progress"
             hxOutOfBands("outerHTML:#overall-progress")
             if (totalRequired > 0) {
-                progressBar(totalCollected.toInt().coerceAtMost(totalRequired.toInt()), totalRequired.toInt())
+                overallProgressInner(totalRequired, totalCollected)
             }
         }
     } ?: ""

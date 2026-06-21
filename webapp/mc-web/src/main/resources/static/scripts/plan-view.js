@@ -167,6 +167,97 @@
     }
 
     // -------------------------------------------------------------------------
+    // Plan activity count: click-to-edit collected (left of the "/")
+    //
+    // The ".resource-row__count-current" span is keyboard-activatable. Activating it
+    // reveals a number input; committing sets an absolute collected value, sent to
+    // /plan/progress as a delta (new - current) so it reuses the counter endpoint.
+    // Bound once on document (events bubble) so it survives HTMX swaps.
+    // -------------------------------------------------------------------------
+
+    function initPlanCountEdit() {
+        if (document.body.dataset.planCountInit) return;
+        document.body.dataset.planCountInit = 'true';
+
+        document.addEventListener('click', function (e) {
+            var trigger = e.target.closest('.resource-row__count-current');
+            if (!trigger) return;
+            var wrap = trigger.closest('.resource-row__count');
+            if (wrap) beginCountEdit(wrap);
+        });
+
+        document.addEventListener('keydown', function (e) {
+            var t = e.target;
+            if (!t.classList) return;
+            if (t.classList.contains('resource-row__count-current')) {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    var w = t.closest('.resource-row__count');
+                    if (w) beginCountEdit(w);
+                }
+                return;
+            }
+            if (t.classList.contains('resource-row__count-input')) {
+                var wrap = t.closest('.resource-row__count');
+                if (!wrap) return;
+                if (e.key === 'Enter') { e.preventDefault(); commitCountEdit(wrap, t); }
+                else if (e.key === 'Escape') { e.preventDefault(); cancelCountEdit(wrap); }
+            }
+        });
+
+        // focusout bubbles (blur does not) — commit when the input loses focus.
+        document.addEventListener('focusout', function (e) {
+            var input = e.target;
+            if (!input.classList || !input.classList.contains('resource-row__count-input')) return;
+            var wrap = input.closest('.resource-row__count');
+            if (wrap) commitCountEdit(wrap, input);
+        });
+    }
+
+    function beginCountEdit(wrap) {
+        if (wrap.classList.contains('resource-row__count--editing')) return;
+        var input = wrap.querySelector('.resource-row__count-input');
+        if (!input) return;
+        input.value = wrap.dataset.current || '0';
+        wrap.classList.add('resource-row__count--editing');
+        input.focus();
+        input.select();
+    }
+
+    function cancelCountEdit(wrap) {
+        wrap.classList.remove('resource-row__count--editing');
+    }
+
+    function commitCountEdit(wrap, input) {
+        // Guard against the double-fire of Enter (keydown commit) + focusout commit.
+        if (wrap.dataset.committing === 'true') return;
+        wrap.classList.remove('resource-row__count--editing');
+
+        var required = parseInt(wrap.dataset.required, 10);
+        var current = parseInt(wrap.dataset.current, 10);
+        var next = parseInt(input.value, 10);
+        if (isNaN(required) || isNaN(current) || isNaN(next)) return;
+
+        if (next < 0) next = 0;
+        if (next > required) next = required;
+        var delta = next - current;
+        if (delta === 0) return; // unchanged — nothing to persist
+
+        var worldId = getWorldIdFromUrl();
+        var projectId = getProjectIdFromUrl();
+        var itemId = wrap.dataset.itemId;
+        var row = wrap.closest('.resource-row');
+        if (!worldId || !projectId || !itemId || !row || !row.id) return;
+
+        wrap.dataset.committing = 'true';
+        htmx.ajax('PATCH', '/worlds/' + worldId + '/projects/' + projectId + '/plan/progress', {
+            target: '#' + row.id,
+            swap: 'outerHTML',
+            values: { itemId: itemId, amount: delta, required: required }
+        });
+    }
+
+    // -------------------------------------------------------------------------
     // Item search selection (plan view)
     // -------------------------------------------------------------------------
 
@@ -247,6 +338,7 @@
         initTasksToggle();
         initAddResourceForm();
         initItemSearchKeyNav();
+        initPlanCountEdit();
     }
 
     document.addEventListener('DOMContentLoaded', init);

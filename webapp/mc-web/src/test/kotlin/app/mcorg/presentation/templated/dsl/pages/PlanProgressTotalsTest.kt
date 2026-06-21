@@ -123,8 +123,10 @@ class PlanProgressTotalsTest {
             counterActivityRow(worldId = 1, projectId = 2, activity = activity, progressMap = progressMap)
         }
 
-        // Row must show "42 / 136" — not "0 / 136"
-        assertTrue(html.contains("42 / 136"), "Expected '42 / 136' in rendered row but got: $html")
+        // Count markup is split (collected in count-current, " / required" in count-sep).
+        // Row must show collected 42 — not 0.
+        assertTrue(html.contains("data-current=\"42\""), "Expected collected '42' in rendered row but got: $html")
+        assertTrue(html.contains(" / 136"), "Expected ' / 136' separator in rendered row but got: $html")
     }
 
     @Test
@@ -135,6 +137,7 @@ class PlanProgressTotalsTest {
             counterActivityRow(worldId = 1, projectId = 2, activity = activity, progressMap = emptyMap())
         }
 
-        assertTrue(html.contains("0 / 136"), "Expected '0 / 136' in rendered row but got: $html")
+        assertTrue(html.contains("data-current=\"0\""), "Expected collected '0' in rendered row but got: $html")
+        assertTrue(html.contains(" / 136"), "Expected ' / 136' separator in rendered row but got: $html")
     }
 }

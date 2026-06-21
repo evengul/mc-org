@@ -36,14 +36,17 @@ suspend fun ApplicationCall.handleGetProject() {
         }
     }
 
-    // Resolve lens from saved view preference (old "plan"/"execute" values map to "list")
-    val savedView = GetViewPreferenceStep.process(GetViewPreferenceInput(user.id, projectId))
-        .getOrNull() ?: "list"
-    val lens = when (savedView) {
+    // Resolve lens. An explicit ?lens= query param wins (so reload/share of a pushed lens
+    // URL renders the right lens); otherwise fall back to the saved view preference.
+    // Old "plan"/"execute" values map to "list".
+    fun normalizeLens(value: String?): String? = when (value) {
         "plan", "execute", "list" -> "list"
-        "next", "sessions" -> savedView
-        else -> "list"
+        "next", "sessions" -> value
+        else -> null
     }
+    val lens = normalizeLens(request.queryParameters["lens"])
+        ?: normalizeLens(GetViewPreferenceStep.process(GetViewPreferenceInput(user.id, projectId)).getOrNull())
+        ?: "list"
 
     val resources = GetAllResourceGatheringItemsStep.process(projectId).getOrNull() ?: emptyList()
 

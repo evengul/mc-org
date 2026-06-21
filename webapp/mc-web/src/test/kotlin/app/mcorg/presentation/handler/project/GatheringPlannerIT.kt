@@ -193,8 +193,10 @@ class GatheringPlannerIT : WithUser() {
         val body = response.bodyAsText()
         // Updated row is returned
         assertContains(body, "plan-activity-minecraft-iron_ingot")
-        // The row shows the new collected value (not 0)
-        assertContains(body, "1 / $required")
+        // The row shows the new collected value (not 0). Count markup is split:
+        // collected in count-current (data-current), " / required" in count-sep.
+        assertContains(body, "data-current=\"1\"")
+        assertContains(body, " / $required")
         // Persisted to DB
         assertEquals(1, getProgressCollected(projectId, itemId))
         // Note: OOB overall-progress is only emitted when plan derivation succeeds.
@@ -327,8 +329,9 @@ class GatheringPlannerIT : WithUser() {
         val body = response.bodyAsText()
         // Row for derived item is returned
         assertContains(body, "plan-activity-minecraft-oak_planks")
-        // Row shows persisted value (7), not 0
-        assertContains(body, "7 / $required")
+        // Row shows persisted value (7), not 0 (count markup is split)
+        assertContains(body, "data-current=\"7\"")
+        assertContains(body, " / $required")
         // Persisted in DB (no resource_gathering row needed)
         assertEquals(7, getProgressCollected(projectId, derivedItemId))
     }
@@ -356,8 +359,9 @@ class GatheringPlannerIT : WithUser() {
 
         assertEquals(HttpStatusCode.OK, response.status)
         val body = response.bodyAsText()
-        // Row shows accumulated total (25), not just the last delta (15)
-        assertContains(body, "25 / $required")
+        // Row shows accumulated total (25), not just the last delta (15) (count markup is split)
+        assertContains(body, "data-current=\"25\"")
+        assertContains(body, " / $required")
         assertEquals(25, getProgressCollected(projectId, derivedItemId))
     }
 
