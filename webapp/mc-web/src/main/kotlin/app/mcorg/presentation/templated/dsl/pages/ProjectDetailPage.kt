@@ -33,6 +33,8 @@ import app.mcorg.presentation.templated.dsl.tabStrip
 import app.mcorg.presentation.templated.dsl.taskList
 import kotlinx.html.*
 import kotlinx.html.stream.createHTML
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
 
 fun projectDetailPage(
     user: TokenProfile,
@@ -58,6 +60,7 @@ fun projectDetailPage(
         "/static/styles/components/resource-search.css",
         "/static/styles/components/resource-panel.css",
         "/static/styles/components/callout.css",
+        "/static/styles/components/drill.css",
         "/static/styles/pages/project-detail.css",
     ),
     scripts = listOf(
@@ -410,29 +413,32 @@ private fun FlowContent.planActivityRow(
     progressMap: Map<String, Int> = emptyMap(),
 ) {
     when (activity.status) {
-        PlanNodeStatus.SUPPLIED -> suppliedActivityRow(activity)
-        PlanNodeStatus.OPEN_TAG -> openTagActivityRow(activity)
-        PlanNodeStatus.BLOCKED -> blockedActivityRow(activity)
+        PlanNodeStatus.SUPPLIED -> suppliedActivityRow(worldId, projectId, activity)
+        PlanNodeStatus.OPEN_TAG -> openTagActivityRow(worldId, projectId, activity)
+        PlanNodeStatus.BLOCKED -> blockedActivityRow(worldId, projectId, activity)
         PlanNodeStatus.RESOLVED, PlanNodeStatus.RAW_GATHER ->
             counterActivityRow(worldId, projectId, activity, progressMap)
     }
 }
 
 /** SUPPLIED row: badge + supply label, no counter. */
-private fun FlowContent.suppliedActivityRow(activity: Activity) {
+private fun FlowContent.suppliedActivityRow(worldId: Int, projectId: Int, activity: Activity) {
     val supplyLabel = activity.supply?.label ?: "Supplied"
+    val encodedItemId = URLEncoder.encode(activity.item.id, StandardCharsets.UTF_8)
     div("resource-row") {
         id = "plan-activity-${activity.item.id.replace(":", "-")}"
         div("resource-row__desktop") {
             div("resource-row__name") { +activity.item.name }
             span("badge badge--accent") { +"Supplied" }
             span("resource-row__source") { +"from $supplyLabel" }
+            drillButton(worldId, projectId, encodedItemId)
         }
     }
 }
 
 /** OPEN_TAG row: amber callout, indicates variant pick needed. */
-private fun FlowContent.openTagActivityRow(activity: Activity) {
+private fun FlowContent.openTagActivityRow(worldId: Int, projectId: Int, activity: Activity) {
+    val encodedItemId = URLEncoder.encode(activity.item.id, StandardCharsets.UTF_8)
     div("callout callout--warning") {
         id = "plan-activity-${activity.item.id.replace(":", "-")}"
         span("callout__icon") { +"!" }
@@ -440,11 +446,13 @@ private fun FlowContent.openTagActivityRow(activity: Activity) {
             span { +activity.item.name }
             +" — Pick a variant (open tag)"
         }
+        drillButton(worldId, projectId, encodedItemId)
     }
 }
 
 /** BLOCKED row: warning callout. */
-private fun FlowContent.blockedActivityRow(activity: Activity) {
+private fun FlowContent.blockedActivityRow(worldId: Int, projectId: Int, activity: Activity) {
+    val encodedItemId = URLEncoder.encode(activity.item.id, StandardCharsets.UTF_8)
     div("callout callout--warning") {
         id = "plan-activity-${activity.item.id.replace(":", "-")}"
         span("callout__icon") { +"!" }
@@ -453,6 +461,7 @@ private fun FlowContent.blockedActivityRow(activity: Activity) {
             +activity.item.name
             +" — no feasible source found"
         }
+        drillButton(worldId, projectId, encodedItemId)
     }
 }
 
@@ -473,6 +482,7 @@ fun FlowContent.counterActivityRow(
     val current = (progressMap[activity.item.id] ?: 0).toLong().coerceIn(0, required)
     val percent = if (required > 0) (current * 100 / required).toInt() else 0
     val sourceLabel = activity.source?.getMethodLabel()
+    val encodedItemId = URLEncoder.encode(activity.item.id, StandardCharsets.UTF_8)
 
     div("resource-row") {
         id = rowId
@@ -501,6 +511,8 @@ fun FlowContent.counterActivityRow(
                 span("resource-row__source") { +sourceLabel }
             }
 
+            drillButton(worldId, projectId, encodedItemId)
+
             div("resource-row__counters") {
                 intArrayOf(-1728, -64, -1, 1, 64, 1728).forEach { amount ->
                     button(classes = "btn btn--ghost btn--sm resource-row__counter-btn") {
@@ -515,6 +527,24 @@ fun FlowContent.counterActivityRow(
                 }
             }
         }
+    }
+}
+
+/**
+ * The ⇄ drill button that navigates to the chain drill view for an activity's item.
+ * [encodedItemId] must be URL-encoded (e.g. `%23minecraft:planks` for tag ids with `#`).
+ */
+private fun FlowContent.drillButton(worldId: Int, projectId: Int, encodedItemId: String) {
+    val drillUrl = "/worlds/$worldId/projects/$projectId/plan/chain/$encodedItemId"
+    val pushUrl = "/worlds/$worldId/projects/$projectId?drill=$encodedItemId"
+    button(classes = "btn btn--ghost btn--sm") {
+        type = ButtonType.button
+        attributes["hx-get"] = drillUrl
+        attributes["hx-target"] = "#project-content"
+        attributes["hx-swap"] = "outerHTML"
+        attributes["hx-push-url"] = pushUrl
+        attributes["aria-label"] = "View source chain"
+        +"⇄"
     }
 }
 
