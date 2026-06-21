@@ -14,14 +14,22 @@ import io.ktor.server.application.createRouteScopedPlugin
 import io.ktor.server.request.path
 import io.ktor.server.response.respondRedirect
 
+/**
+ * Path prefixes exempt from the JWT sign-in redirect. Static assets are served before auth, and
+ * `/integrations/` is the machine-facing surface that carries its own shared-secret gate (e.g.
+ * WebhookAdminAuthPlugin) and must not be bounced to the user sign-in flow.
+ */
+private val AUTH_EXEMPT_PREFIXES = listOf(
+    "/static/",
+    "/assets/",
+    "/favicon.ico",
+    "/integrations/",
+)
+
 val AuthPlugin = createRouteScopedPlugin("AuthPlugin") {
     onCall {
-        if (it.request.path().startsWith("/static/")
-            || it.request.path().startsWith("/assets/")
-            || it.request.path().startsWith("/favicon.ico")
-            // Machine-facing integration endpoints carry their own shared-secret gate
-            // (e.g. WebhookAdminAuthPlugin) and must not be redirected to the user sign-in flow.
-            || it.request.path().startsWith("/integrations/")) {
+        val path = it.request.path()
+        if (AUTH_EXEMPT_PREFIXES.any { prefix -> path.startsWith(prefix) }) {
             return@onCall
         }
         val result = pipelineResult<AppFailure, Unit> {

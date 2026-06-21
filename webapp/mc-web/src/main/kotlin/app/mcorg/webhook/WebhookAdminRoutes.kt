@@ -1,6 +1,7 @@
 package app.mcorg.webhook
 
 import app.mcorg.config.AppConfig
+import app.mcorg.domain.Production
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.Result
@@ -8,11 +9,11 @@ import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.ValidationSteps
 import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.presentation.handler.handlePipeline
+import app.mcorg.presentation.plugins.WebhookAdminAuthPlugin
 import app.mcorg.presentation.utils.respondHtml
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.Parameters
 import io.ktor.server.application.ApplicationCall
-import io.ktor.server.application.createRouteScopedPlugin
 import io.ktor.server.application.install
 import io.ktor.server.request.receiveParameters
 import io.ktor.server.response.respond
@@ -26,31 +27,8 @@ import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
-import java.security.MessageDigest
-
-/** Header carrying the shared secret for the webhook admin endpoints. */
-const val WEBHOOK_ADMIN_SECRET_HEADER = "X-Seam-Admin-Secret"
 
 private val adminJson = Json
-
-/**
- * Route-scoped gate for the machine-facing webhook admin endpoints. Fails closed: if no
- * `WEBHOOK_ADMIN_SECRET` is configured the endpoints are inert (503). Otherwise the request's
- * [WEBHOOK_ADMIN_SECRET_HEADER] must match it (constant-time compare) or the call is rejected 401.
- */
-val WebhookAdminAuthPlugin = createRouteScopedPlugin("WebhookAdminAuthPlugin") {
-    onCall { call ->
-        val configured = AppConfig.webhookAdminSecret
-        if (configured.isNullOrBlank()) {
-            call.respond(HttpStatusCode.ServiceUnavailable, "Webhook admin endpoint is not configured")
-            return@onCall
-        }
-        val provided = call.request.headers[WEBHOOK_ADMIN_SECRET_HEADER]
-        if (provided == null || !constantTimeEquals(provided, configured)) {
-            call.respond(HttpStatusCode.Unauthorized, "Invalid or missing admin secret")
-        }
-    }
-}
 
 /**
  * Registers the v1 webhook subscription management surface. Mounted at `/integrations/webhooks`
@@ -77,7 +55,11 @@ suspend fun ApplicationCall.handleCreateWebhookSubscription() {
     ) {
         val worldId = ValidationSteps.requiredInt("world_id", ::validationError).run(parameters)
         val callbackUrl = ValidationSteps.required("callback_url", ::validationError).run(parameters)
-        ValidationSteps.validateUrl("callback_url", ::validationError).run(callbackUrl)
+        ValidationSteps.validateCustom<AppFailure.ValidationError, String>(
+            "callback_url",
+            "Must be a public http(s) URL (no loopback, private, or link-local hosts)",
+            ::validationError,
+        ) { WebhookCallbackUrl.isSafe(it, requireHttps = AppConfig.env == Production) }.run(callbackUrl)
         val secret = ValidationSteps.required("secret", ::validationError).run(parameters)
         ValidationSteps.validateLength("secret", minLength = 8, maxLength = 256, errorMapper = ::validationError).run(secret)
 
@@ -160,6 +142,3 @@ private fun parsesAsStringList(raw: String): Boolean =
 
 private fun parsesAsJsonObject(raw: String): Boolean =
     runCatching { adminJson.decodeFromString(JsonObject.serializer(), raw) }.isSuccess
-
-private fun constantTimeEquals(a: String, b: String): Boolean =
-    MessageDigest.isEqual(a.toByteArray(Charsets.UTF_8), b.toByteArray(Charsets.UTF_8))

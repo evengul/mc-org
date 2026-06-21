@@ -7,6 +7,7 @@ import app.mcorg.pipeline.Result
 import app.mcorg.pipeline.world.CreateWorldInput
 import app.mcorg.pipeline.world.CreateWorldStep
 import app.mcorg.presentation.plugins.AuthPlugin
+import app.mcorg.presentation.plugins.WEBHOOK_ADMIN_SECRET_HEADER
 import app.mcorg.test.WithUser
 import app.mcorg.test.postgres.DatabaseTestExtension
 import io.ktor.client.request.header
