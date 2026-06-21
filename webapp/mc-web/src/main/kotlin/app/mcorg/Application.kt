@@ -1,6 +1,7 @@
 package app.mcorg
 
 import app.mcorg.event.configureEvents
+import app.mcorg.webhook.configureWebhooks
 import app.mcorg.presentation.plugins.configureHTTP
 import app.mcorg.presentation.plugins.configureMonitoring
 import app.mcorg.presentation.plugins.configurePreviewGate
@@ -31,6 +32,7 @@ private fun defaultServer(module: Application.() -> Unit) =
 
 private fun Application.module() {
     configureEvents()
+    configureWebhooks()
     configurePreviewGate()
     configureHTTP()
     configureMonitoring()

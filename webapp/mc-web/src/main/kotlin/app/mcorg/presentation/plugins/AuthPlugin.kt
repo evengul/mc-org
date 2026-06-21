@@ -18,7 +18,10 @@ val AuthPlugin = createRouteScopedPlugin("AuthPlugin") {
     onCall {
         if (it.request.path().startsWith("/static/")
             || it.request.path().startsWith("/assets/")
-            || it.request.path().startsWith("/favicon.ico")) {
+            || it.request.path().startsWith("/favicon.ico")
+            // Machine-facing integration endpoints carry their own shared-secret gate
+            // (e.g. WebhookAdminAuthPlugin) and must not be redirected to the user sign-in flow.
+            || it.request.path().startsWith("/integrations/")) {
             return@onCall
         }
         val result = pipelineResult<AppFailure, Unit> {
