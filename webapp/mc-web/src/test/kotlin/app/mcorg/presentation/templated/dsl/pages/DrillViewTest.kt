@@ -529,6 +529,55 @@ class DrillViewTest {
     }
 
     @Test
+    fun `picker threads origin=list into option posts and clear url`() {
+        val node = TargetTree(
+            item = item("iron_ingot", "Iron Ingot"),
+            quantityIfAlone = 200,
+            craftsIfAlone = 200,
+            status = PlanNodeStatus.RESOLVED,
+            source = mine,
+        )
+        val html = nodePickerFragment(
+            worldId = 1,
+            projectId = 2,
+            targetItemId = "minecraft:iron_ingot",
+            node = node,
+            graph = ironGraph(),
+            activeSourceKey = mine.getKey(), // forces the clear control to render
+            activeMemberId = null,
+            demand = node.quantityIfAlone,
+            origin = "list",
+        )
+
+        // hx-vals JSON quotes are HTML-escaped to &quot; in the rendered attribute.
+        assertContains(html, "origin&quot;:&quot;list&quot;") // carried in the pin hx-vals
+        assertContains(html, "origin=list")                  // carried on the clear url
+    }
+
+    @Test
+    fun `picker omits origin when not provided`() {
+        val node = TargetTree(
+            item = item("iron_ingot", "Iron Ingot"),
+            quantityIfAlone = 200,
+            craftsIfAlone = 200,
+            status = PlanNodeStatus.RESOLVED,
+            source = mine,
+        )
+        val html = nodePickerFragment(
+            worldId = 1,
+            projectId = 2,
+            targetItemId = "minecraft:iron_ingot",
+            node = node,
+            graph = ironGraph(),
+            activeSourceKey = null,
+            activeMemberId = null,
+            demand = node.quantityIfAlone,
+        )
+
+        assertFalse(html.contains("origin"), "origin should be absent for drill-origin pickers")
+    }
+
+    @Test
     fun `source picker shows clear button when override is active`() {
         val ironIngotItem = item("iron_ingot", "Iron Ingot")
         val node = TargetTree(

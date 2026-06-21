@@ -230,12 +230,17 @@ fun nodePickerFragment(
     activeMemberId: String?,
     demand: Long,
     query: String? = null,
+    origin: String? = null,
 ): String {
     val encodedTargetId = encodeId(targetItemId)
     val encodedNodeId = encodeId(node.item.id)
     val baseUrl = "/worlds/$worldId/projects/$projectId/plan/chain/$encodedTargetId"
-    val clearUrl = "$baseUrl/override?node=$encodedNodeId"
-    val sourcesUrl = "$baseUrl/sources?node=$encodedNodeId"
+    // Carry origin=list through so a resolution made inline from the List lens re-renders
+    // the list, not the drill.
+    val originQuery = if (origin != null) "&origin=$origin" else ""
+    val originJson = if (origin != null) ""","origin":"$origin"""" else ""
+    val clearUrl = "$baseUrl/override?node=$encodedNodeId$originQuery"
+    val sourcesUrl = "$baseUrl/sources?node=$encodedNodeId$originQuery"
     val pickerSlotId = "picker-${node.item.id.replace(Regex("[^a-zA-Z0-9]"), "-")}"
     val isTag = node.status == PlanNodeStatus.OPEN_TAG && node.item is MinecraftTag
     val q = query?.trim().orEmpty()
@@ -265,7 +270,7 @@ fun nodePickerFragment(
                         val isSelected = rm.member.id == activeMemberId
                         div("picker-opt${if (isSelected) " picker-opt--sel" else ""}") {
                             attributes["hx-post"] = "$baseUrl/tag"
-                            attributes["hx-vals"] = """{"node":"${node.item.id}","memberItemId":"${rm.member.id}"}"""
+                            attributes["hx-vals"] = """{"node":"${node.item.id}","memberItemId":"${rm.member.id}"$originJson}"""
                             attributes["hx-target"] = "#project-content"
                             attributes["hx-swap"] = "outerHTML"
                             span("picker-opt__name") { +rm.member.name }
@@ -295,7 +300,7 @@ fun nodePickerFragment(
                         val isSelected = source.getKey() == activeSourceKey
                         div("picker-opt${if (isSelected) " picker-opt--sel" else ""}") {
                             attributes["hx-post"] = "$baseUrl/pin"
-                            attributes["hx-vals"] = """{"node":"${node.item.id}","sourceKey":"${source.getKey()}"}"""
+                            attributes["hx-vals"] = """{"node":"${node.item.id}","sourceKey":"${source.getKey()}"$originJson}"""
                             attributes["hx-target"] = "#project-content"
                             attributes["hx-swap"] = "outerHTML"
                             span("picker-opt__name") { +sourceLabel(source, graph) }

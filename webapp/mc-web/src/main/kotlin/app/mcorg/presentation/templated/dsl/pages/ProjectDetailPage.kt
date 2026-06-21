@@ -447,6 +447,7 @@ private fun FlowContent.suppliedActivityRow(worldId: Int, projectId: Int, activi
 /** OPEN_TAG row: amber callout, indicates variant pick needed. */
 private fun FlowContent.openTagActivityRow(worldId: Int, projectId: Int, activity: Activity) {
     val encodedItemId = URLEncoder.encode(activity.item.id, StandardCharsets.UTF_8)
+    val pickerSlotId = "picker-${activity.item.id.replace(Regex("[^a-zA-Z0-9]"), "-")}"
     div("callout callout--warning") {
         id = "plan-activity-${activity.item.id.replace(":", "-")}"
         span("callout__icon") { +"!" }
@@ -454,8 +455,20 @@ private fun FlowContent.openTagActivityRow(worldId: Int, projectId: Int, activit
             span { +activity.item.name }
             +" — Pick a variant (open tag)"
         }
+        // Resolve inline: drops the tag-member picker below this row; a pick re-renders the
+        // List lens (origin=list) so the resolved tag leaves "Needs attention".
+        button(classes = "btn btn--primary btn--sm") {
+            type = ButtonType.button
+            attributes["hx-get"] =
+                "/worlds/$worldId/projects/$projectId/plan/chain/$encodedItemId/sources?node=$encodedItemId&origin=list"
+            attributes["hx-target"] = "#$pickerSlotId"
+            attributes["hx-swap"] = "innerHTML"
+            +"Pick variant"
+        }
+        // ⇄ still opens the full drill to explore/re-pin the whole chain.
         drillButton(worldId, projectId, encodedItemId)
     }
+    div("chain-node__picker") { id = pickerSlotId }
 }
 
 /** BLOCKED row: warning callout. */

@@ -9,9 +9,14 @@ import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.failure.ValidationFailure
 import app.mcorg.pipeline.minecraft.GetItemSourceGraphForVersionStep
 import app.mcorg.pipeline.project.commonsteps.GetProjectByIdStep
+import app.mcorg.pipeline.resources.commonsteps.GetAllResourceGatheringItemsStep
+import app.mcorg.pipeline.resources.commonsteps.GetProgressForProjectStep
+import app.mcorg.pipeline.task.SearchTasksInput
+import app.mcorg.pipeline.task.SearchTasksStep
 import app.mcorg.presentation.handler.defaultHandleError
 import app.mcorg.presentation.templated.dsl.pages.drillChainFragment
 import app.mcorg.presentation.templated.dsl.pages.drillNotFoundFragment
+import app.mcorg.presentation.templated.dsl.pages.gatheringPlannerFragment
 import app.mcorg.presentation.templated.dsl.pages.nodePickerFragment
 import app.mcorg.presentation.templated.dsl.pages.pickerNotFoundFragment
 import app.mcorg.presentation.utils.getProjectId
@@ -108,6 +113,9 @@ suspend fun ApplicationCall.handleGetNodePicker() {
 
     // Optional search filter for high-fan-out pickers.
     val query = request.queryParameters["q"]?.takeIf { it.isNotBlank() }
+    // "list" when the picker is opened inline from the List lens — resolutions then re-render
+    // the list instead of the drill.
+    val origin = request.queryParameters["origin"]?.takeIf { it.isNotBlank() }
 
     // Re-derive plan
     val plan = deriveOrNull(projectId, worldId) ?: run {
@@ -144,6 +152,7 @@ suspend fun ApplicationCall.handleGetNodePicker() {
             activeMemberId = overrides?.tagMember?.get(nodeId),
             demand = node.quantityIfAlone,
             query = query,
+            origin = origin,
         )
     )
 }
@@ -190,7 +199,7 @@ suspend fun ApplicationCall.handlePinSource() {
         is Result.Success -> { /* continue */ }
     }
 
-    respondDrillRerender(worldId, projectId, targetItemId)
+    respondAfterOverride(worldId, projectId, targetItemId, params["origin"])
 }
 
 /**
@@ -235,7 +244,7 @@ suspend fun ApplicationCall.handleResolveTagMember() {
         is Result.Success -> { /* continue */ }
     }
 
-    respondDrillRerender(worldId, projectId, targetItemId)
+    respondAfterOverride(worldId, projectId, targetItemId, params["origin"])
 }
 
 /**
@@ -265,7 +274,7 @@ suspend fun ApplicationCall.handleClearOverride() {
         is Result.Success -> { /* continue */ }
     }
 
-    respondDrillRerender(worldId, projectId, targetItemId)
+    respondAfterOverride(worldId, projectId, targetItemId, request.queryParameters["origin"])
 }
 
 // ---------------------------------------------------------------------------
@@ -304,6 +313,36 @@ private suspend fun ApplicationCall.respondDrillRerender(
     val graph = getGraphForWorld(worldId)
     val candidateCounts = buildCandidateCounts(targetTree, graph)
     respondHtml(drillChainFragment(project, targetTree, candidateCounts))
+}
+
+/**
+ * After persisting an override, re-render whichever surface the user is on: the inline List
+ * lens when the change came from there (origin=list), otherwise the full drill chain.
+ */
+private suspend fun ApplicationCall.respondAfterOverride(
+    worldId: Int,
+    projectId: Int,
+    targetItemId: String,
+    origin: String?,
+) {
+    if (origin == "list") respondListRerender(worldId, projectId)
+    else respondDrillRerender(worldId, projectId, targetItemId)
+}
+
+/** Re-renders the List-lens fragment (#project-content) — used after an inline resolution. */
+private suspend fun ApplicationCall.respondListRerender(worldId: Int, projectId: Int) {
+    val project = when (val r = GetProjectByIdStep.process(projectId)) {
+        is Result.Success -> r.value
+        is Result.Failure -> {
+            defaultHandleError(r.error)
+            return
+        }
+    }
+    val resources = GetAllResourceGatheringItemsStep.process(projectId).getOrNull() ?: emptyList()
+    val tasks = SearchTasksStep(projectId).process(SearchTasksInput(completionStatus = "ALL")).getOrNull() ?: emptyList()
+    val plan = deriveOrNull(projectId, worldId)
+    val progressMap = GetProgressForProjectStep.process(projectId).getOrNull() ?: emptyMap()
+    respondHtml(gatheringPlannerFragment(project, resources, tasks, plan, "list", progressMap))
 }
 
 /**
