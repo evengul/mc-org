@@ -67,9 +67,9 @@ full palette map and the load-bearing colour-blind constraint (never signal stat
 **Type scale:** `--text-xs` 11px · `--text-sm` 13px · `--text-base` 15px · `--text-ui` 13px · `--text-label` 11px
 
 **Spacing (4px grid):** `--space-1` 4 · `--space-2` 8 · `--space-3` 12 · `--space-4` 16 · `--space-5` 24 ·
-`--space-6` 32 · `--space-8` 48
+`--space-6` 32 · `--space-8` 48 · `--space-10` 80
 
-**Layout:** `--max-width` 1080px · `--breakpoint-mobile` 768px · `--radius` 6px
+**Layout:** `--max-width` 1080px · `--breakpoint-mobile` 768px · `--radius` 6px · `--transition-base` 150ms ease-in-out
 
 ---
 
