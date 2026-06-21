@@ -10,6 +10,7 @@ import app.mcorg.pipeline.project.commonsteps.GetViewPreferenceStep
 import app.mcorg.pipeline.resources.GatheringPlanInput
 import app.mcorg.pipeline.resources.GenerateGatheringPlanStep
 import app.mcorg.pipeline.resources.buildCandidateCounts
+import app.mcorg.pipeline.resources.drillTreeFor
 import app.mcorg.pipeline.resources.getGraphForWorld
 import app.mcorg.pipeline.resources.commonsteps.GetAllResourceGatheringItemsStep
 import app.mcorg.pipeline.resources.commonsteps.GetProgressForProjectStep
@@ -89,7 +90,7 @@ suspend fun ApplicationCall.handleGetProject() {
     val drillItemId = request.queryParameters["drill"]
         ?.let { URLDecoder.decode(it, StandardCharsets.UTF_8) }
         ?.takeIf { it.isNotBlank() }
-    val drillTarget: TargetTree? = drillItemId?.let { plan?.perTarget(it) }
+    val drillTarget: TargetTree? = drillItemId?.let { plan?.drillTreeFor(it) }
     val drillCandidateCounts = if (drillTarget != null) {
         buildCandidateCounts(drillTarget, getGraphForWorld(worldId))
     } else emptyMap()

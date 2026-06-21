@@ -70,7 +70,7 @@ suspend fun ApplicationCall.handleGetDrillChain() {
     }
 
     // Look up the target tree for this item
-    val targetTree = plan.perTarget(itemId)
+    val targetTree = plan.drillTreeFor(itemId)
     if (targetTree == null) {
         respondHtml(drillNotFoundFragment(project, "'$itemId' is not a target in this plan."))
         return
@@ -115,7 +115,7 @@ suspend fun ApplicationCall.handleGetNodePicker() {
         return
     }
 
-    val targetTree = plan.perTarget(targetItemId) ?: run {
+    val targetTree = plan.drillTreeFor(targetItemId) ?: run {
         respondHtml(pickerNotFoundFragment("Target '$targetItemId' not found in plan."))
         return
     }
@@ -290,7 +290,7 @@ private suspend fun ApplicationCall.respondDrillRerender(
     }
 
     val plan = deriveOrNull(projectId, worldId)
-    val targetTree = plan?.perTarget(targetItemId)
+    val targetTree = plan?.drillTreeFor(targetItemId)
 
     if (plan == null || targetTree == null) {
         val reason = if (plan == null)
@@ -326,6 +326,16 @@ internal fun findNodeById(root: TargetTree, nodeId: String): TargetTree? {
     }
     return null
 }
+
+/**
+ * Resolves the drill subtree for [itemId]. When the item is a defined target, that's its
+ * own per-target chain. Otherwise — a derived intermediate like planks or iron ingot — it's
+ * the item as it appears inside the first target whose chain contains it. This lets the ⇄
+ * on ANY List-lens row open a drill, not just the project's targets.
+ */
+internal fun GatheringPlan.drillTreeFor(itemId: String): TargetTree? =
+    perTarget(itemId)
+        ?: targets.firstNotNullOfOrNull { t -> perTarget(t.item.id)?.let { findNodeById(it, itemId) } }
 
 /**
  * Obtains the [ItemSourceGraph] for the world's Minecraft version.
