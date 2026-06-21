@@ -1,6 +1,8 @@
 package app.mcorg.pipeline.task
 
 import app.mcorg.domain.model.task.ActionTask
+import app.mcorg.event.TaskToggled
+import app.mcorg.event.eventBus
 import app.mcorg.pipeline.Result
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.DatabaseSteps
@@ -14,14 +16,18 @@ import app.mcorg.presentation.templated.dsl.taskRowFragment
 import app.mcorg.presentation.templated.dsl.pages.taskProgressOobFragment
 import app.mcorg.presentation.utils.getProjectId
 import app.mcorg.presentation.utils.getTaskId
+import app.mcorg.presentation.utils.getUser
 import app.mcorg.presentation.utils.getWorldId
 import app.mcorg.presentation.utils.respondHtml
 import io.ktor.server.application.ApplicationCall
+import java.time.Instant
 
 suspend fun ApplicationCall.handleCompleteActionTask() {
     val worldId = this.getWorldId()
     val projectId = this.getProjectId()
     val taskId = this.getTaskId()
+    val user = this.getUser()
+    val bus = this.eventBus
 
     handlePipeline(
         onSuccess = {
@@ -32,7 +38,9 @@ suspend fun ApplicationCall.handleCompleteActionTask() {
         },
     ) {
         ToggleTaskStep.run(taskId)
-        CheckTaskProgressStep.run(taskId)
+        val progress = CheckTaskProgressStep.run(taskId)
+        bus.publish(TaskToggled(worldId, user.id, Instant.now(), projectId, taskId, progress.first.completed))
+        progress
     }
 }
 
