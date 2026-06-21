@@ -779,6 +779,7 @@ fun gatheringPlannerFragment(
     lens: String = "list",
     progressMap: Map<String, Int> = emptyMap(),
 ): String = createHTML().div {
+    id = "project-content"
     gatheringPlannerContent(project, resources, tasks, plan, lens, progressMap)
 }
 
