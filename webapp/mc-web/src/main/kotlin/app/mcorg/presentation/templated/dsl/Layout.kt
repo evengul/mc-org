@@ -28,10 +28,25 @@ fun pageShell(
                 content = "noindex"
             }
             title { +pageTitle }
+            meta {
+                name = "theme-color"
+                content = "#EBE1C8"
+            }
             link {
                 rel = "icon"
                 type = "image/svg+xml"
                 href = "/static/seam-favicon.svg"
+            }
+            link {
+                rel = "icon"
+                type = "image/png"
+                href = "/static/favicon-32.png"
+                attributes["sizes"] = "32x32"
+            }
+            link {
+                rel = "apple-touch-icon"
+                href = "/static/seam-icon-180.png"
+                attributes["sizes"] = "180x180"
             }
             link {
                 rel = "stylesheet"

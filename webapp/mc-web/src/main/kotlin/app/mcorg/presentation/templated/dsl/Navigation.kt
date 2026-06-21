@@ -53,7 +53,11 @@ fun FlowContent.appHeader(
         div("app-header__desktop") {
             a(classes = "app-header__logo") {
                 href = "/"
-                +"Seam"
+                attributes["aria-label"] = "Seam — home"
+                img(alt = "Seam", src = "/static/seam-lockup-horizontal.svg", classes = "app-header__logo-img") {
+                    attributes["width"] = "111"
+                    attributes["height"] = "40"
+                }
             }
 
             if (breadcrumbBlock != null) {
