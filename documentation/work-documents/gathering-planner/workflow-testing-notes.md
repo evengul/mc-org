@@ -173,6 +173,12 @@ the scorer is correct: block-break 100 > stonecutting 75.)
     `PlanOverride.TagMember` machinery and the user picks. Scheduled as the **first synthetic-
     sources item** (touches both shaped+shapeless parsers and tag persistence). Same latent
     take-first bug exists in the shapeless path.
-- [ ] 3. Synthetic sources / indirect items design — inline-alternatives synthetic tag (above),
-  then honey/bees, concrete, water, piston head (the existing nether-star one folds in here too)
+- [~] 3. Synthetic sources / indirect items — **design done**:
+  [synthetic-sources-design.md](synthetic-sources-design.md). Two mechanisms — (A) synthetic
+  obtain-sources (nether star migrate, honey, concrete×16, water/lava) via a `SyntheticSources`
+  registry + two new SourceTypes `COLLECT`/`GAME_MECHANIC`; (B) inline-alternatives synthetic
+  tags (TNT). Build **A first, then B**. Two sign-offs pending: the new base scores (100/90) and
+  the ActivityGroup mapping.
+  - [ ] 3A. Synthetic obtain-sources
+  - [ ] 3B. Inline-alternatives synthetic tags (carries the TNT-sand fix from item 2)
 - [ ] 4. UI polish batch (notes 1, 2, 3, 4, 9)
