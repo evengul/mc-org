@@ -114,11 +114,17 @@ the scorer is correct: block-break 100 > stonecutting 75.)
   that must itself be gathered/looted". Fixes emerald, iron. Needs a design choice.
 - **R3 (recipe threshold):** withhold the bulk bonus when a raw-gather (BLOCK) source exists for
   the same item at comparable base. Fixes cobblestone.
+  **DONE (2026-06-22, signed off by Even).** `recipeThresholdBonus` returns 0 when
+  `hasMineableSource(item)` — the item drops from breaking a *different* block (self-block loot
+  excluded). Verified: cobblestone @1000 → stonecutting 75 (no thr), mine 100 wins; iron_ingot
+  @1000 still gets thr +50 on smelting (not mineable as an ingot), so no over-correction.
+  mc-engine tests 102 pass / 0 fail / 1 known skip. Not yet committed.
 
 ## Status
 
 - [x] 1. Score-dump diagnostic harness — **done** (`exec:java@score-diagnostics`)
-- [ ] 1b. Apply scoring fixes R1–R3 — **blocked on Even's sign-off** (restricted area)
+- [x] 1b. R1 (no efficiency on trades) — done. R3 (threshold withheld when mineable) — done.
+- [ ] 1c. R2 (storage-block unpack: emerald/iron) — pending design discussion (restricted area)
 - [ ] 2. Data bugs: TNT-sand extraction, wall/technical-block item mapping
 - [ ] 3. Synthetic sources / indirect items design (honey/bees, concrete, water, piston head)
 - [ ] 4. UI polish batch (notes 1, 2, 3, 4, 9)

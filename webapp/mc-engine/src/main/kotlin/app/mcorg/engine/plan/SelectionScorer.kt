@@ -74,7 +74,7 @@ internal class SelectionScorer(
 
         total += efficiencyBonus(item, source)
         total += suppliedBonus(source)
-        total += recipeThresholdBonus(source, demand)
+        total += recipeThresholdBonus(item, source, demand)
         total -= selfBlockLootPenalty(item, source, hasRecipeSibling)
         total -= lowYieldPenalty(item, source)
 
@@ -101,7 +101,7 @@ internal class SelectionScorer(
         val base = source.sourceType.score
         val efficiency = efficiencyBonus(item, source)
         val supplied = suppliedBonus(source)
-        val recipeThreshold = recipeThresholdBonus(source, demand)
+        val recipeThreshold = recipeThresholdBonus(item, source, demand)
         val selfBlockLoot = selfBlockLootPenalty(item, source, hasRecipeSibling)
         val lowYield = lowYieldPenalty(item, source)
         val requirementPenalty = requirements.size * REQUIREMENT_PENALTY
@@ -151,10 +151,23 @@ internal class SelectionScorer(
         return graph.getRequiredItems(source).count { it.itemId in supplied } * SUPPLIED_BONUS
     }
 
-    private fun recipeThresholdBonus(source: SourceNode, demand: Long): Int {
+    private fun recipeThresholdBonus(item: MinecraftId, source: SourceNode, demand: Long): Int {
         if (demand < context.recipeThreshold) return 0
-        return if (source.sourceType.isRecipe()) RECIPE_THRESHOLD_BONUS else 0
+        if (!source.sourceType.isRecipe()) return 0
+        // Withhold the bulk bonus when the item is simply mineable: a recipe that
+        // only converts one raw block into another (stone -> cobblestone via
+        // stonecutting) saves no effort over mining more, so it must not leapfrog
+        // the raw gather at bulk demand. Self-block loot (break what you placed)
+        // is not a real gather and does not count.
+        if (hasMineableSource(item)) return 0
+        return RECIPE_THRESHOLD_BONUS
     }
+
+    /** True when the item drops from breaking a *different* block (a real raw gather). */
+    private fun hasMineableSource(item: MinecraftId): Boolean =
+        graph.getSourcesForItem(item).any {
+            it.sourceType == ResourceSource.SourceType.LootTypes.BLOCK && !isSelfBlockLoot(item, it)
+        }
 
     private fun selfBlockLootPenalty(item: MinecraftId, source: SourceNode, hasRecipeSibling: Boolean): Int {
         if (!hasRecipeSibling) return 0
