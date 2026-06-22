@@ -11,7 +11,8 @@ import app.mcorg.domain.model.resources.ResourceSource
  *
  * Factors (additive):
  * 1. Source-type base score ([ResourceSource.SourceType.score]).
- * 2. Efficiency bonus — output/input ratio above 1.0.
+ * 2. Efficiency bonus — output/input ratio above 1.0. Not applied to trades,
+ *    whose output-per-emerald is an exchange rate, not saved effort.
  * 3. Supplied bonus — ingredients satisfied by the supplied map are nearly free.
  * 4. Recipe-threshold bonus — at bulk demand, recipes beat repeated gathering.
  * 5. Self-block-loot penalty — breaking a block that *is* the item (beacon,
@@ -133,6 +134,11 @@ internal class SelectionScorer(
     }
 
     private fun efficiencyBonus(item: MinecraftId, source: SourceNode): Int {
+        // Trades are not rewarded for output multiplicity: a trade's output per
+        // input is an emerald exchange rate, not a measure of saved effort, and a
+        // high one (8 sand or 4 gunpowder per emerald) would otherwise vault a
+        // wandering-trader source above mining the block or killing the mob.
+        if (source.sourceType.isTrade()) return 0
         val itemNode = graph.getItemNode(item) ?: return 0
         val totalInput = graph.getRequiredQuantities(source).values.sum()
         if (totalInput == 0) return 0
