@@ -2,6 +2,10 @@ package app.mcorg.event
 
 import app.mcorg.domain.model.project.ProjectState
 import app.mcorg.domain.model.project.ProjectType
+import app.mcorg.domain.model.user.Profile
+import app.mcorg.domain.model.user.TokenProfile
+import app.mcorg.domain.model.user.User
+import app.mcorg.domain.model.user.WorldMember
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -21,6 +25,10 @@ import java.time.Instant
  *
  * The wire contract for downstream consumers is the [EventEnvelope]; [eventType] and [data] define
  * each event's stable serialized shape. Event versioning is deferred until the first schema change.
+ *
+ * Display names ([actorName], `project_name`, `unblocked_by_name`) are optional enrichment (MCO-239)
+ * so downstream renderers can show "Iron Farm — even" instead of "Project #42"; consumers fall back
+ * to the ids when a name is absent, so populating them is purely additive.
  */
 sealed interface SeamEvent {
     /** World the event belongs to. */
@@ -28,6 +36,9 @@ sealed interface SeamEvent {
 
     /** User who triggered the event, or `null` when system-originated. */
     val actorId: Int?
+
+    /** Display name of the acting user, or `null` when system-originated or not populated (MCO-239). */
+    val actorName: String?
 
     /** When the event occurred. */
     val timestamp: Instant
@@ -37,6 +48,17 @@ sealed interface SeamEvent {
 
     /** Event-specific payload for the envelope's `data` field. */
     fun data(): JsonObject
+}
+
+/**
+ * The display name to attribute an event to, derived from the acting [User] (MCO-239). Used at every
+ * publish site so the `when` lives in one place. Member/token profiles expose a display name; a bare
+ * [Profile] falls back to its email.
+ */
+fun User.actorDisplayName(): String = when (this) {
+    is WorldMember -> displayName
+    is TokenProfile -> displayName
+    is Profile -> email
 }
 
 /**
@@ -62,10 +84,13 @@ data class ResourceCountUpdated(
     val projectPreviousDone: Int,
     val projectNewDone: Int,
     val projectRequired: Int,
+    override val actorName: String? = null,
+    val projectName: String? = null,
 ) : SeamEvent {
     override val eventType = "resource_count_updated"
     override fun data() = buildJsonObject {
         put("project_id", projectId)
+        put("project_name", projectName)
         put("item_id", itemId)
         put("previous_done", previousDone)
         put("new_done", newDone)
@@ -83,6 +108,7 @@ data class TaskToggled(
     val projectId: Int,
     val taskId: Int,
     val completed: Boolean,
+    override val actorName: String? = null,
 ) : SeamEvent {
     override val eventType = "task_toggled"
     override fun data() = buildJsonObject {
@@ -100,6 +126,7 @@ data class ProjectCreated(
     val projectId: Int,
     val name: String,
     val type: ProjectType,
+    override val actorName: String? = null,
 ) : SeamEvent {
     override val eventType = "project_created"
     override fun data() = buildJsonObject {
@@ -117,10 +144,13 @@ data class ProjectStatusChanged(
     val projectId: Int,
     val previousState: ProjectState,
     val newState: ProjectState,
+    override val actorName: String? = null,
+    val projectName: String? = null,
 ) : SeamEvent {
     override val eventType = "project_status_changed"
     override fun data() = buildJsonObject {
         put("project_id", projectId)
+        put("project_name", projectName)
         put("previous_state", previousState.name)
         put("new_state", newState.name)
     }
@@ -133,6 +163,7 @@ data class ProductionPathGenerated(
     override val timestamp: Instant,
     val projectId: Int,
     val itemId: String,
+    override val actorName: String? = null,
 ) : SeamEvent {
     override val eventType = "production_path_generated"
     override fun data() = buildJsonObject {
@@ -148,6 +179,7 @@ data class DependencyEdgeAdded(
     override val timestamp: Instant,
     val projectId: Int,
     val dependsOnProjectId: Int,
+    override val actorName: String? = null,
 ) : SeamEvent {
     override val eventType = "dependency_edge_added"
     override fun data() = buildJsonObject {
@@ -159,7 +191,9 @@ data class DependencyEdgeAdded(
 /**
  * A dependency edge was removed. [unblockedDependentProjectIds] lists projects that became unblocked
  * as a result (computed by the publishing handler, which has database access); the derived consumer
- * fans these out into [ProjectUnblocked] events without re-querying.
+ * fans these out into [ProjectUnblocked] events without re-querying. [projectName] is the name of the
+ * completing dependency (this event's [projectId]); the consumer copies it through as the unblocking
+ * project's name (MCO-239).
  */
 data class DependencyEdgeRemoved(
     override val worldId: Int,
@@ -168,10 +202,13 @@ data class DependencyEdgeRemoved(
     val projectId: Int,
     val dependsOnProjectId: Int,
     val unblockedDependentProjectIds: List<Int> = emptyList(),
+    override val actorName: String? = null,
+    val projectName: String? = null,
 ) : SeamEvent {
     override val eventType = "dependency_edge_removed"
     override fun data() = buildJsonObject {
         put("project_id", projectId)
+        put("project_name", projectName)
         put("depends_on_project_id", dependsOnProjectId)
     }
 }
@@ -183,6 +220,7 @@ data class IdeaImported(
     override val timestamp: Instant,
     val ideaId: Int,
     val name: String,
+    override val actorName: String? = null,
 ) : SeamEvent {
     override val eventType = "idea_imported"
     override fun data() = buildJsonObject {
@@ -200,10 +238,13 @@ data class ResourceMilestoneReached(
     override val timestamp: Instant,
     val projectId: Int,
     val milestone: Int,
+    override val actorName: String? = null,
+    val projectName: String? = null,
 ) : DerivedEvent {
     override val eventType = "resource_milestone_reached"
     override fun data() = buildJsonObject {
         put("project_id", projectId)
+        put("project_name", projectName)
         put("milestone", milestone)
     }
 }
@@ -214,10 +255,13 @@ data class ProjectResourcesComplete(
     override val actorId: Int?,
     override val timestamp: Instant,
     val projectId: Int,
+    override val actorName: String? = null,
+    val projectName: String? = null,
 ) : DerivedEvent {
     override val eventType = "project_resources_complete"
     override fun data() = buildJsonObject {
         put("project_id", projectId)
+        put("project_name", projectName)
     }
 }
 
@@ -228,10 +272,15 @@ data class ProjectUnblocked(
     override val timestamp: Instant,
     val projectId: Int,
     val unblockedByProjectId: Int,
+    override val actorName: String? = null,
+    val projectName: String? = null,
+    val unblockedByName: String? = null,
 ) : DerivedEvent {
     override val eventType = "project_unblocked"
     override fun data() = buildJsonObject {
         put("project_id", projectId)
+        put("project_name", projectName)
         put("unblocked_by_project_id", unblockedByProjectId)
+        put("unblocked_by_name", unblockedByName)
     }
 }

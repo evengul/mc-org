@@ -1,11 +1,13 @@
 package app.mcorg.pipeline.resources
 
 import app.mcorg.event.ResourceCountUpdated
+import app.mcorg.event.actorDisplayName
 import app.mcorg.event.eventBus
 import app.mcorg.pipeline.Result
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.ValidationSteps
 import app.mcorg.pipeline.failure.AppFailure
+import app.mcorg.pipeline.project.commonsteps.GetProjectByIdStep
 import app.mcorg.pipeline.resources.commonsteps.CountCollectedResourcesInProjectWithItemIdStep
 import app.mcorg.pipeline.resources.commonsteps.CountTotalResourcesRequiredInProjectWithItemIdStep
 import app.mcorg.pipeline.resources.commonsteps.GetResourceGatheringItemStep
@@ -62,6 +64,7 @@ suspend fun ApplicationCall.handleSetCollectedValue() {
         val before = GetUpdatedCollectedCountsStep.run(resourceGatheringId)
         UpsertProgressStep.run(UpsertProgressByRgIdInput(resourceGatheringId, value))
         val after = GetUpdatedCollectedCountsStep.run(resourceGatheringId)
+        val project = GetProjectByIdStep.run(projectId)
         bus.publish(
             ResourceCountUpdated(
                 worldId = worldId, actorId = user.id, timestamp = Instant.now(),
@@ -69,6 +72,7 @@ suspend fun ApplicationCall.handleSetCollectedValue() {
                 previousDone = before.item.collected, newDone = after.item.collected,
                 projectPreviousDone = before.totalCollected, projectNewDone = after.totalCollected,
                 projectRequired = after.totalRequired,
+                actorName = user.actorDisplayName(), projectName = project.name,
             )
         )
         after

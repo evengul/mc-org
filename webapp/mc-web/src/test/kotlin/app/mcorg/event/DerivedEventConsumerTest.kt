@@ -76,6 +76,26 @@ class DerivedEventConsumerTest {
     }
 
     @Test
+    fun `derived resource events inherit project_name and actor_name from the source (MCO-239)`() = runBlocking {
+        val bus = RecordingBus()
+        DerivedEventConsumer(bus).handle(
+            ResourceCountUpdated(
+                worldId = 1, actorId = 7, timestamp = ts, projectId = 9, itemId = "minecraft:stone",
+                previousDone = 5, newDone = 10,
+                projectPreviousDone = 90, projectNewDone = 100, projectRequired = 100,
+                actorName = "even", projectName = "Iron Farm",
+            )
+        )
+        assertEquals(
+            listOf<SeamEvent>(
+                ResourceMilestoneReached(1, 7, ts, 9, 100, actorName = "even", projectName = "Iron Farm"),
+                ProjectResourcesComplete(1, 7, ts, 9, actorName = "even", projectName = "Iron Farm"),
+            ),
+            bus.published,
+        )
+    }
+
+    @Test
     fun `dependency removal fans out one ProjectUnblocked per dependent`() = runBlocking {
         val bus = RecordingBus()
         DerivedEventConsumer(bus).handle(
@@ -86,6 +106,25 @@ class DerivedEventConsumerTest {
         )
         assertEquals(
             listOf<SeamEvent>(ProjectUnblocked(1, null, ts, 11, 4), ProjectUnblocked(1, null, ts, 12, 4)),
+            bus.published,
+        )
+    }
+
+    @Test
+    fun `ProjectUnblocked carries unblocked_by_name from the source and actor_name (MCO-239)`() = runBlocking {
+        val bus = RecordingBus()
+        DerivedEventConsumer(bus).handle(
+            DependencyEdgeRemoved(
+                worldId = 1, actorId = 7, timestamp = ts, projectId = 4, dependsOnProjectId = 2,
+                unblockedDependentProjectIds = listOf(11),
+                actorName = "even", projectName = "Iron Farm",
+            )
+        )
+        assertEquals(
+            // projectName (the dependent's own name) stays null — it needs a DB lookup the consumer avoids.
+            listOf<SeamEvent>(
+                ProjectUnblocked(1, 7, ts, 11, 4, actorName = "even", projectName = null, unblockedByName = "Iron Farm"),
+            ),
             bus.published,
         )
     }

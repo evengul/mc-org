@@ -3,6 +3,7 @@ package app.mcorg.pipeline.project
 import app.mcorg.config.CacheManager
 import app.mcorg.domain.model.project.ProjectType
 import app.mcorg.event.ProjectCreated
+import app.mcorg.event.actorDisplayName
 import app.mcorg.event.eventBus
 import java.time.Instant
 import app.mcorg.domain.model.user.Role
@@ -80,7 +81,7 @@ suspend fun ApplicationCall.handleCreateProject() {
         ValidateWorldMemberRole<CreateProjectInput>(user, Role.ADMIN, worldId).run(input)
         val projectId = CreateProjectStep(worldId).run(input)
         CacheManager.onProjectCreated(worldId, projectId)
-        bus.publish(ProjectCreated(worldId, user.id, Instant.now(), projectId, input.name, input.type))
+        bus.publish(ProjectCreated(worldId, user.id, Instant.now(), projectId, input.name, input.type, actorName = user.actorDisplayName()))
         projectId
     }
 }
