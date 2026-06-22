@@ -3,6 +3,7 @@ package app.mcorg.pipeline.project
 import app.mcorg.domain.model.project.ProjectState
 import app.mcorg.domain.model.user.Role
 import app.mcorg.event.ProjectStatusChanged
+import app.mcorg.event.actorDisplayName
 import app.mcorg.event.eventBus
 import java.time.Instant
 import app.mcorg.domain.pipeline.Step
@@ -12,6 +13,7 @@ import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.ValidationSteps
 import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.failure.ValidationFailure
+import app.mcorg.pipeline.project.commonsteps.GetProjectByIdStep
 import app.mcorg.pipeline.world.ValidateWorldMemberRole
 import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.templated.dsl.projectStateBadgeFragment
@@ -40,7 +42,13 @@ suspend fun ApplicationCall.handleUpdateProjectState() {
         val current = GetProjectStateStep.run(projectId)
         ValidateStateTransitionStep(current).run(target)
         val newState = UpdateProjectStateStep(projectId).run(target)
-        bus.publish(ProjectStatusChanged(worldId, user.id, Instant.now(), projectId, current, newState))
+        val project = GetProjectByIdStep.run(projectId)
+        bus.publish(
+            ProjectStatusChanged(
+                worldId, user.id, Instant.now(), projectId, current, newState,
+                actorName = user.actorDisplayName(), projectName = project.name,
+            )
+        )
         newState
     }
 }

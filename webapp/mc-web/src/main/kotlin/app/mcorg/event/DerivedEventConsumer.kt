@@ -48,6 +48,8 @@ class DerivedEventConsumer(private val bus: EventBus) : EventHandler {
                     timestamp = event.timestamp,
                     projectId = event.projectId,
                     milestone = milestone,
+                    actorName = event.actorName,
+                    projectName = event.projectName,
                 )
             )
         }
@@ -61,6 +63,8 @@ class DerivedEventConsumer(private val bus: EventBus) : EventHandler {
                     actorId = event.actorId,
                     timestamp = event.timestamp,
                     projectId = event.projectId,
+                    actorName = event.actorName,
+                    projectName = event.projectName,
                 )
             )
         }
@@ -75,6 +79,11 @@ class DerivedEventConsumer(private val bus: EventBus) : EventHandler {
                     timestamp = event.timestamp,
                     projectId = dependentId,
                     unblockedByProjectId = event.projectId,
+                    actorName = event.actorName,
+                    // The dependent's own name needs a DB lookup the consumer must avoid; leave null
+                    // (renderer falls back to "Project #id"). The completing dependency's name is the
+                    // source event's projectName (MCO-239).
+                    unblockedByName = event.projectName,
                 )
             )
         }
