@@ -1,6 +1,8 @@
 package app.mcorg.cli
 
 import app.mcorg.config.Database
+import app.mcorg.domain.model.minecraft.Item
+import app.mcorg.engine.model.ItemSourceGraph
 import app.mcorg.engine.plan.ScoreDiagnostics
 import app.mcorg.engine.plan.ScoreDiagnostics.ItemReport
 import app.mcorg.pipeline.DatabaseSteps
@@ -58,18 +60,19 @@ private suspend fun run(args: List<String>): Int {
     var worldId: Int? = null
     var demand = 64L
     val items = mutableListOf<String>()
+    var unobtainable = false
 
     for (arg in args) {
         when {
             arg.startsWith("version=") -> version = arg.substringAfter('=')
             arg.startsWith("world=") -> worldId = arg.substringAfter('=').toIntOrNull()
             arg.startsWith("demand=") -> demand = arg.substringAfter('=').toLongOrNull() ?: demand
+            arg == "unobtainable" -> unobtainable = true
             else -> items.add(normalizeId(arg))
         }
     }
 
     val resolvedVersion = version ?: resolveVersion(worldId) ?: return 1
-    val itemIds = items.ifEmpty { DEFAULT_ITEMS.map { normalizeId(it) } }
 
     val graph = when (val r = GetItemSourceGraphForVersionStep.process(resolvedVersion)) {
         is Result.Success -> r.value
@@ -81,11 +84,57 @@ private suspend fun run(args: List<String>): Int {
 
     println("Score diagnostics · version $resolvedVersion · demand $demand · recipe threshold 100")
     println("Sources: ${graph.getSourceCount()}, items: ${graph.getItemCount()}")
+
+    if (unobtainable) {
+        printUnobtainable(graph, resolvedVersion)
+        return 0
+    }
+
+    val itemIds = items.ifEmpty { DEFAULT_ITEMS.map { normalizeId(it) } }
     for (id in itemIds) {
         printReport(ScoreDiagnostics.report(graph, id, demand))
     }
     return 0
 }
+
+/**
+ * Lists every catalog item the version has no *producing* source for — the true set
+ * of ids that show BLOCKED when they appear in a build. The lang file can't answer
+ * this (items reuse the block translation key), but the graph can: an id no source
+ * produces is unobtainable. Lightly bucketed so block-state families stand out.
+ */
+private suspend fun printUnobtainable(graph: ItemSourceGraph, version: String) {
+    val catalog = (catalogQuery.process(version) as? Result.Success)?.value.orEmpty()
+    val unobtainable = catalog
+        .filter { (id, name) -> graph.getSourcesForItem(Item(id, name)).isEmpty() }
+        .map { it.first }
+        .sorted()
+
+    fun bucket(id: String): String = when {
+        "_wall_" in id -> "wall-variant (handled)"
+        id.endsWith("_spawn_egg") -> "spawn egg (ignore)"
+        "pottery_shard" in id || "pottery_sherd" in id -> "pottery shard (ignore)"
+        id.endsWith("candle_cake") -> "candle cake (drop)"
+        id.substringAfter(':').startsWith("infested_") -> "infested (drop)"
+        id.endsWith("_stem") || id in CROP_BLOCKS -> "crop / growth"
+        id in FLUID_BLOCKS -> "fluid (indirect)"
+        else -> "other / technical"
+    }
+
+    println("\n=== ${unobtainable.size} catalog items with NO producing source (version $version) ===")
+    unobtainable.groupBy { bucket(it) }.toSortedMap().forEach { (b, ids) ->
+        println("\n-- $b (${ids.size}) --")
+        ids.forEach { println("   $it") }
+    }
+}
+
+private val CROP_BLOCKS = setOf(
+    "minecraft:wheat", "minecraft:carrots", "minecraft:potatoes", "minecraft:beetroots",
+    "minecraft:cocoa", "minecraft:nether_wart", "minecraft:kelp_plant", "minecraft:bamboo_sapling",
+    "minecraft:sweet_berry_bush", "minecraft:cave_vines", "minecraft:cave_vines_plant",
+    "minecraft:twisting_vines_plant", "minecraft:weeping_vines_plant", "minecraft:tall_seagrass",
+)
+private val FLUID_BLOCKS = setOf("minecraft:water", "minecraft:lava", "minecraft:bubble_column")
 
 private fun normalizeId(raw: String): String = if (raw.contains(':')) raw else "minecraft:$raw"
 
@@ -114,6 +163,12 @@ private val distinctVersionsQuery = DatabaseSteps.query<Unit, List<String>>(
     sql = SafeSQL.select("SELECT DISTINCT version FROM resource_source ORDER BY version"),
     parameterSetter = { _, _ -> },
     resultMapper = { rs -> buildList { while (rs.next()) add(rs.getString("version")) } }
+)
+
+private val catalogQuery = DatabaseSteps.query<String, List<Pair<String, String>>>(
+    sql = SafeSQL.select("SELECT item_id, item_name FROM minecraft_items WHERE version = ? ORDER BY item_id"),
+    parameterSetter = { ps, version -> ps.setString(1, version) },
+    resultMapper = { rs -> buildList { while (rs.next()) add(rs.getString("item_id") to rs.getString("item_name")) } }
 )
 
 private fun printReport(report: ItemReport) {

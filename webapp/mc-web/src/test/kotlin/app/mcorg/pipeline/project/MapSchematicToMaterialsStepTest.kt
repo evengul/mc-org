@@ -19,6 +19,11 @@ class MapSchematicToMaterialsStepTest {
         "minecraft:piston",
         "minecraft:cobblestone_wall",
         "minecraft:oak_planks",
+        "minecraft:carrot",
+        "minecraft:dirt",
+        "minecraft:redstone",
+        "minecraft:string",
+        "minecraft:torch",
     ).map { Item(it, it.substringAfterLast(':')) }
 
     private fun litematica(items: Map<String, Int>) =
@@ -76,6 +81,43 @@ class MapSchematicToMaterialsStepTest {
         val byId = map(mapOf("minecraft:some_future_block" to 9, "minecraft:oak_planks" to 1))
         assertNull(byId["minecraft:some_future_block"])
         assertEquals(1, byId["minecraft:oak_planks"])
+    }
+
+    @Test
+    fun `crop blocks redirect to their produce item`() {
+        val byId = map(mapOf("minecraft:carrots" to 6))
+        assertEquals(6, byId["minecraft:carrot"])
+        assertNull(byId["minecraft:carrots"], "the crop block id must not survive")
+    }
+
+    @Test
+    fun `placed tool forms resolve to their material and merge`() {
+        val byId = map(mapOf("minecraft:dirt_path" to 8, "minecraft:farmland" to 4))
+        assertEquals(12, byId["minecraft:dirt"], "both resolve to dirt and sum")
+    }
+
+    @Test
+    fun `placed effect forms resolve to their material`() {
+        val byId = map(mapOf("minecraft:redstone_wire" to 3, "minecraft:tripwire" to 2, "minecraft:wall_torch" to 7))
+        assertEquals(3, byId["minecraft:redstone"])
+        assertEquals(2, byId["minecraft:string"])
+        assertEquals(7, byId["minecraft:torch"], "bare wall_torch has no _wall_ infix and needs the redirect")
+    }
+
+    @Test
+    fun `potted plants, candle cakes and infested blocks are dropped`() {
+        val byId = map(
+            mapOf(
+                "minecraft:potted_oak_sapling" to 2,
+                "minecraft:black_candle_cake" to 1,
+                "minecraft:infested_stone" to 5,
+                "minecraft:oak_planks" to 9,
+            )
+        )
+        assertNull(byId["minecraft:potted_oak_sapling"])
+        assertNull(byId["minecraft:black_candle_cake"])
+        assertNull(byId["minecraft:infested_stone"])
+        assertEquals(9, byId["minecraft:oak_planks"], "real materials still pass through")
     }
 
     @Test

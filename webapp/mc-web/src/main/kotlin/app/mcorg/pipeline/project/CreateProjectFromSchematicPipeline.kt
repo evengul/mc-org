@@ -150,22 +150,37 @@ data class MapSchematicToMaterialsStep(
     }
 
     /**
-     * Resolves a schematic block-state id to the item a player actually gathers.
+     * Resolves a schematic block-state id to the item a player actually gathers, or
+     * null when the cell is not a material (dropped).
      *
-     * Placed *wall* variants carry their own block id but are obtained as the base
-     * item — birch_wall_sign -> birch_sign, dead_horn_coral_wall_fan ->
-     * dead_horn_coral_fan, redstone_wall_torch -> redstone_torch — so the "_wall_"
-     * infix is dropped when that yields a real item. Technical blocks that are not a
-     * material on their own ([NON_MATERIAL_BLOCKS], e.g. an extended piston's head,
-     * already counted by the piston base) are dropped. Everything else resolves by
-     * its own id, or is dropped when the world's version has no such item.
+     * Order:
+     * 1. [isDropped] — placed forms that are not a material of their own (an extended
+     *    piston's head, potted plants counted as the pot+plant elsewhere, candle cakes,
+     *    silverfish-infested blocks).
+     * 2. [REDIRECTS] — explicit block -> item for placed forms whose gathered item has a
+     *    different id: crops to their seed/produce (carrots -> carrot, cocoa ->
+     *    cocoa_beans), and tool/effect placements to their material (dirt_path/farmland
+     *    -> dirt, redstone_wire -> redstone, wall_torch -> torch).
+     * 3. *wall* variants — drop the "_wall_" infix when that yields a real item
+     *    (birch_wall_sign -> birch_sign, dead_horn_coral_wall_fan -> dead_horn_coral_fan).
+     * 4. Otherwise resolve by the id itself, or drop when the version has no such item.
+     *
+     * Truly non-obtainable blocks (budding_amethyst, portals, fire) are intentionally
+     * left to resolve to nothing and surface as a BLOCKED row rather than a wrong guess.
      */
     private fun resolveMaterial(blockId: String, byId: Map<String, Item>): Item? {
-        if (blockId in NON_MATERIAL_BLOCKS) return null
+        if (isDropped(blockId)) return null
+        REDIRECTS[blockId]?.let { target -> byId[target]?.let { return it } }
         if ("_wall_" in blockId) {
             byId[blockId.replace("_wall_", "_")]?.let { return it }
         }
         return byId[blockId]
+    }
+
+    private fun isDropped(blockId: String): Boolean {
+        if (blockId in NON_MATERIAL_BLOCKS) return true
+        val name = blockId.substringAfter(':')
+        return name.startsWith("potted_") || name.startsWith("infested_") || name.endsWith("candle_cake")
     }
 
     companion object {
@@ -174,6 +189,43 @@ data class MapSchematicToMaterialsStep(
          * the piston already accounts for its extended head and the moving block.
          */
         private val NON_MATERIAL_BLOCKS = setOf("minecraft:piston_head", "minecraft:moving_piston")
+
+        /**
+         * Placed block-state ids whose gathered item has a *different* id. Crops resolve
+         * to the seed/produce you plant or harvest; tool/effect placements resolve to the
+         * material left behind. The target must still exist in the version's catalog to be
+         * used (else the block falls through to its own id / a BLOCKED row).
+         */
+        private val REDIRECTS = mapOf(
+            // crops / growth -> seed or produce item
+            "minecraft:carrots" to "minecraft:carrot",
+            "minecraft:potatoes" to "minecraft:potato",
+            "minecraft:beetroots" to "minecraft:beetroot_seeds",
+            "minecraft:cocoa" to "minecraft:cocoa_beans",
+            "minecraft:melon_stem" to "minecraft:melon_seeds",
+            "minecraft:attached_melon_stem" to "minecraft:melon_seeds",
+            "minecraft:pumpkin_stem" to "minecraft:pumpkin_seeds",
+            "minecraft:attached_pumpkin_stem" to "minecraft:pumpkin_seeds",
+            "minecraft:cave_vines" to "minecraft:glow_berries",
+            "minecraft:cave_vines_plant" to "minecraft:glow_berries",
+            "minecraft:kelp_plant" to "minecraft:kelp",
+            "minecraft:bamboo_sapling" to "minecraft:bamboo",
+            "minecraft:sweet_berry_bush" to "minecraft:sweet_berries",
+            "minecraft:tall_seagrass" to "minecraft:seagrass",
+            "minecraft:twisting_vines_plant" to "minecraft:twisting_vines",
+            "minecraft:weeping_vines_plant" to "minecraft:weeping_vines",
+            "minecraft:big_dripleaf_stem" to "minecraft:big_dripleaf",
+            "minecraft:pitcher_crop" to "minecraft:pitcher_pod",
+            "minecraft:torchflower_crop" to "minecraft:torchflower_seeds",
+            // placed tool/effect forms -> the material gathered
+            "minecraft:dirt_path" to "minecraft:dirt",
+            "minecraft:farmland" to "minecraft:dirt",
+            "minecraft:redstone_wire" to "minecraft:redstone",
+            "minecraft:tripwire" to "minecraft:string",
+            "minecraft:suspicious_sand" to "minecraft:sand",
+            "minecraft:suspicious_gravel" to "minecraft:gravel",
+            "minecraft:wall_torch" to "minecraft:torch",
+        )
     }
 }
 

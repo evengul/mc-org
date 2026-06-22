@@ -144,12 +144,27 @@ the scorer is correct: block-break 100 > stonecutting 75.)
     `MapSchematicToMaterialsStep` now normalizes: drop the `_wall_` infix when it yields a real
     item (→ `birch_sign`, `dead_horn_coral_fan`, `redstone_torch`), and drop genuine technical
     artifacts (`piston_head`, `moving_piston` — the piston base already counts the material).
-    Amounts merge when block ids collapse onto one item. mc-web unit test 7 pass.
+    Amounts merge when block ids collapse onto one item.
+    **Extended** after a graph-based survey of *all* unobtainable catalog items (see below):
+    `MapSchematicToMaterialsStep` now also redirects crops to their seed/produce
+    (`carrots`→`carrot`, `cocoa`→`cocoa_beans`, stems→seeds, ~19) and placed tool/effect forms
+    to their material (`dirt_path`/`farmland`→`dirt`, `redstone_wire`→`redstone`,
+    `tripwire`→`string`, `suspicious_*`→`sand`/`gravel`, and the `wall_torch` gap the `_wall_`
+    rule missed), and drops potted plants / candle cakes / silverfish-infested blocks. Truly
+    non-obtainable blocks (budding_amethyst, portals, fire) are left BLOCKED on purpose rather
+    than guessed. mc-web unit test 11 pass.
     **Caveat:** import-time fix — applies to newly imported schematics; existing projects (incl.
     project 38) keep their rows until re-import.
-    *Follow-ups (out of note-5 scope):* multi-cell structures double-count (a door/bed occupies
-    two cells but is one item) and placed forms differ for crops→seeds, `redstone_wire`→redstone,
-    `tripwire`→string. A broader block-state→material normalization, deferred.
+    **Survey tooling:** the score-dump CLI gained an `unobtainable` mode
+    (`exec:java@score-diagnostics -Dexec.args="world=<id> unobtainable"`) that lists every catalog
+    item with no producing source, lightly bucketed. The lang file is the *wrong* oracle here
+    (items reuse the block translation key, so "block key without item key" ≠ "no item"); the graph
+    is right. 316 unobtainable in 26.2.0: most are non-materials (88 spawn eggs, 27 pottery shards,
+    creative/technical, `_special_` recipe outputs); the build-relevant ones were the wall/crop/
+    placed sets now handled. Decisions (Even): drop potted plants; leave budding_amethyst/portals
+    BLOCKED; fluids (water/lava + buckets/cauldrons) deferred to synthetic-source layer.
+    *Deferred:* multi-cell structures still double-count (a door/bed occupies two cells but is one
+    item).
   - [ ] **TNT-sand extraction** (note 7.2) — root-caused: `ShapedRecipeParser` drops a key entry
     that is a *list of alternatives* (`#` = `[sand, red_sand]`) because `parseItemRef` returns
     null for a JSON array. **Decision (Even):** do NOT take-first — model an inline alternatives
