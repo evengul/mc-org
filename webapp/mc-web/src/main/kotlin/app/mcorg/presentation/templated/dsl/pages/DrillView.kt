@@ -6,6 +6,7 @@ import app.mcorg.domain.model.project.Project
 import app.mcorg.engine.model.ItemSourceGraph
 import app.mcorg.engine.model.SourceNode
 import app.mcorg.engine.plan.PlanNodeStatus
+import app.mcorg.engine.plan.PlanOverrides
 import app.mcorg.engine.plan.SourceRanking
 import app.mcorg.engine.plan.TargetTree
 import kotlinx.html.*
@@ -25,31 +26,41 @@ private const val PICKER_MAX_OPTIONS = 30
  * @param target the resolved [TargetTree] for the drill target.
  * @param candidateCounts item-id → number of source candidates in the graph. Used to decide
  *   whether a node is "forced" (≤ 1 candidate) or "multi-source" (≥ 2 candidates).
+ * @param overrides the current project overrides — when non-empty, the "Active choices" panel
+ *   is rendered below the chain so resolved tags and pinned sources remain reachable.
+ * @param graph the live item-source graph — used by the panel to resolve item names for labels.
  */
 fun drillChainFragment(
     project: Project,
     target: TargetTree,
     candidateCounts: Map<String, Int>,
     nodeIngredients: Map<String, String> = emptyMap(),
+    overrides: PlanOverrides = PlanOverrides.NONE,
+    graph: ItemSourceGraph? = null,
     highlightItemId: String? = null,
 ): String = createHTML().div {
     id = "project-content"
-    drillChainContent(project, target, candidateCounts, nodeIngredients, highlightItemId)
+    drillChainContent(project, target, candidateCounts, nodeIngredients, overrides, graph, highlightItemId)
 }
 
 /**
- * The drill body (back-header + chain), rendered into the caller's flow. Shared by
- * [drillChainFragment] (the HTMX swap response) and the full page shell, so that a
+ * The drill body (back-header + chain + active choices panel), rendered into the caller's flow.
+ * Shared by [drillChainFragment] (the HTMX swap response) and the full page shell, so that a
  * `?drill=` page load renders the same drill inside #project-content.
  *
  * @param nodeIngredients item-id → its source's ingredient summary ("5 Iron Ingot + 1 Chest"),
  *   shown in each node's hint so the indented children read as those exact inputs.
+ * @param overrides the current project overrides — when non-empty, renders the "Active choices"
+ *   panel below the chain so resolved tags and pinned sources remain reachable.
+ * @param graph the live item-source graph — used by the panel to resolve item names for labels.
  */
 fun FlowContent.drillChainContent(
     project: Project,
     target: TargetTree,
     candidateCounts: Map<String, Int>,
     nodeIngredients: Map<String, String> = emptyMap(),
+    overrides: PlanOverrides = PlanOverrides.NONE,
+    graph: ItemSourceGraph? = null,
     highlightItemId: String? = null,
 ) {
     val worldId = project.worldId
@@ -75,6 +86,8 @@ fun FlowContent.drillChainContent(
     div("drill-chain") {
         renderTargetTree(target, candidateCounts, nodeIngredients, highlightItemId, depth = 0, worldId = worldId, projectId = projectId, encodedTargetId = encodedTargetId)
     }
+
+    activeChoicesPanel(worldId, projectId, encodedTargetId, overrides, graph)
 }
 
 /** Renders a [TargetTree] node and recurses into children. */
@@ -409,6 +422,133 @@ private fun FlowContent.overflowNote(shown: Int, matching: Int, q: String) {
  * Rendered into `#picker-{nodeSlug}` via innerHTML.
  */
 fun pickerNotFoundFragment(reason: String): String = createHTML().p("picker__empty") { +reason }
+
+// ---------------------------------------------------------------------------
+// Active choices panel
+// ---------------------------------------------------------------------------
+
+/**
+ * "Active choices" panel: lists every active override (source pins and tag-member resolutions)
+ * so the user can edit or clear any of them — even when the overridden node is absent from the
+ * current derived tree (e.g. a resolved tag whose node was replaced by the concrete member).
+ *
+ * Renders nothing when there are no overrides.
+ *
+ * Each row shows a human-readable label and two controls:
+ * - **Edit**: reopens the source/tag picker in a slot inside the row (hx-get to /sources).
+ * - **Clear**: calls DELETE /override → re-renders #project-content (outerHTML).
+ *
+ * The picker slot per row uses id `panel-picker-{slug}` to avoid collisions with the
+ * `picker-{slug}` slots that live inside the chain itself.
+ *
+ * @param worldId world id
+ * @param projectId project id
+ * @param encodedTargetId URL-encoded id of the drill target (used in endpoint URLs)
+ * @param overrides the current set of active overrides
+ * @param graph the live item-source graph — used to resolve item/tag names for labels
+ */
+fun FlowContent.activeChoicesPanel(
+    worldId: Int,
+    projectId: Int,
+    encodedTargetId: String,
+    overrides: PlanOverrides,
+    graph: ItemSourceGraph?,
+) {
+    val hasSources = overrides.sourceByItem.isNotEmpty()
+    val hasTagMembers = overrides.tagMember.isNotEmpty()
+    if (!hasSources && !hasTagMembers) return
+
+    div("active-choices") {
+        id = "active-choices"
+        span("section-label active-choices__label") { +"Active choices" }
+
+        div("active-choices__list") {
+            // Source pins
+            for ((itemId, sourceKey) in overrides.sourceByItem) {
+                val itemName = resolveItemName(itemId, graph)
+                val sourceMethod = trySourceMethodLabel(sourceKey)
+                val label = "$itemName — $sourceMethod"
+                val slug = itemId.replace(Regex("[^a-zA-Z0-9]"), "-")
+                val encodedNodeId = encodeId(itemId)
+                val pickerSlotId = "panel-picker-$slug"
+                val pickerUrl = "/worlds/$worldId/projects/$projectId/plan/chain/$encodedTargetId/sources?node=$encodedNodeId"
+                val clearUrl = "/worlds/$worldId/projects/$projectId/plan/chain/$encodedTargetId/override?node=$encodedNodeId"
+
+                activeChoiceRow(label, pickerSlotId, pickerUrl, clearUrl)
+            }
+
+            // Tag member resolutions
+            for ((tagId, memberItemId) in overrides.tagMember) {
+                val tagName = resolveItemName(tagId, graph)
+                val memberName = resolveItemName(memberItemId, graph)
+                val label = "$tagName → $memberName"
+                val slug = tagId.replace(Regex("[^a-zA-Z0-9]"), "-")
+                val encodedNodeId = encodeId(tagId)
+                val pickerSlotId = "panel-picker-$slug"
+                val pickerUrl = "/worlds/$worldId/projects/$projectId/plan/chain/$encodedTargetId/sources?node=$encodedNodeId"
+                val clearUrl = "/worlds/$worldId/projects/$projectId/plan/chain/$encodedTargetId/override?node=$encodedNodeId"
+
+                activeChoiceRow(label, pickerSlotId, pickerUrl, clearUrl)
+            }
+        }
+    }
+}
+
+/** One row of the active-choices panel. */
+private fun FlowContent.activeChoiceRow(
+    label: String,
+    pickerSlotId: String,
+    pickerUrl: String,
+    clearUrl: String,
+) {
+    div("active-choice") {
+        span("active-choice__label") { +label }
+        div("active-choice__actions") {
+            button(classes = "btn btn--ghost btn--sm active-choice__edit") {
+                type = ButtonType.button
+                attributes["hx-get"] = pickerUrl
+                attributes["hx-target"] = "#$pickerSlotId"
+                attributes["hx-swap"] = "innerHTML"
+                +"⇄ Edit"
+            }
+            button(classes = "btn btn--ghost btn--sm active-choice__clear") {
+                type = ButtonType.button
+                attributes["hx-delete"] = clearUrl
+                attributes["hx-target"] = "#project-content"
+                attributes["hx-swap"] = "outerHTML"
+                +"× Clear"
+            }
+        }
+        // Picker slot for this row — filled by hx-get on Edit click
+        div("chain-node__picker") {
+            id = pickerSlotId
+        }
+    }
+}
+
+/**
+ * Resolves a human-readable item/tag name from [graph]. Falls back to prettifying
+ * the id when the graph is null or the id is not found (test environment, no graph).
+ */
+private fun resolveItemName(id: String, graph: ItemSourceGraph?): String {
+    if (graph != null) {
+        val node = graph.getItemNodesByStringId(id).firstOrNull()
+        if (node != null) return node.item.name
+    }
+    // Fallback: strip namespace prefix and prettify ("minecraft:oak_planks" → "Oak Planks")
+    val bare = id.removePrefix("#").substringAfter(":")
+    return bare.replace('_', ' ').trim().replaceFirstChar { it.uppercaseChar() }
+}
+
+/**
+ * Returns the method label for a source key ("Break Block", "Crafting", etc.),
+ * or a prettified fallback when parsing fails.
+ */
+private fun trySourceMethodLabel(sourceKey: String): String = try {
+    SourceNode.fromKey(sourceKey).getMethodLabel()
+} catch (_: Exception) {
+    sourceKey.substringAfterLast(':').replace('_', ' ').replaceFirstChar { it.uppercaseChar() }
+}
 
 // ---------------------------------------------------------------------------
 // Private utilities

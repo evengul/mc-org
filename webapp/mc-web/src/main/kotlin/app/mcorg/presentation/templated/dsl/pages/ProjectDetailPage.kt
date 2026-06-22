@@ -4,10 +4,12 @@ import app.mcorg.domain.model.project.Project
 import app.mcorg.domain.model.resources.ResourceGatheringItem
 import app.mcorg.domain.model.task.ActionTask
 import app.mcorg.domain.model.user.TokenProfile
+import app.mcorg.engine.model.ItemSourceGraph
 import app.mcorg.engine.plan.Activity
 import app.mcorg.engine.plan.ActivityGroup
 import app.mcorg.engine.plan.GatheringPlan
 import app.mcorg.engine.plan.PlanNodeStatus
+import app.mcorg.engine.plan.PlanOverrides
 import app.mcorg.presentation.hxDelete
 import app.mcorg.presentation.hxGet
 import app.mcorg.presentation.hxOutOfBands
@@ -52,6 +54,8 @@ fun projectDetailPage(
     drillCandidateCounts: Map<String, Int> = emptyMap(),
     drillNodeIngredients: Map<String, String> = emptyMap(),
     drillHighlightItemId: String? = null,
+    drillOverrides: PlanOverrides = PlanOverrides.NONE,
+    drillGraph: ItemSourceGraph? = null,
 ): String = pageShell(
     pageTitle = "Seam — ${project.name}",
     user = user,
@@ -112,7 +116,7 @@ fun projectDetailPage(
                 id = "project-content"
                 if (drillTarget != null) {
                     // ?drill=<item> deep-links straight into a target's chain (reload/share-safe).
-                    drillChainContent(project, drillTarget, drillCandidateCounts, drillNodeIngredients, drillHighlightItemId)
+                    drillChainContent(project, drillTarget, drillCandidateCounts, drillNodeIngredients, overrides = drillOverrides, graph = drillGraph, highlightItemId = drillHighlightItemId)
                 } else {
                     gatheringPlannerContent(project, resources, tasks, plan, lens, progressMap)
                 }

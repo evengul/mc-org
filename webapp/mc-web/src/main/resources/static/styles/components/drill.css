@@ -189,6 +189,48 @@
     margin-top: var(--space-2);
 }
 
+/* ==========================================================================
+   ACTIVE CHOICES PANEL — lists every active override (source pins + tag resolutions)
+   ========================================================================== */
+
+.active-choices {
+    margin-top: var(--space-4);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+}
+
+.active-choices__label {
+    display: block;
+    padding: var(--space-2) var(--space-4);
+    background: var(--bg-raised);
+    border-bottom: 1px solid var(--border);
+}
+
+/* One override row */
+.active-choice {
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-surface);
+}
+
+.active-choice:last-child {
+    border-bottom: none;
+}
+
+.active-choice__label {
+    display: block;
+    font-size: var(--text-sm);
+    color: var(--text-primary);
+    padding: var(--space-3) var(--space-4) var(--space-2);
+}
+
+.active-choice__actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: 0 var(--space-4) var(--space-3);
+}
+
 /* Mobile */
 @media (max-width: 768px) {
     .chain-node {
@@ -202,5 +244,9 @@
 
     .picker {
         padding: var(--space-2) var(--space-3);
+    }
+
+    .active-choice__actions {
+        flex-wrap: wrap;
     }
 }

@@ -3,6 +3,8 @@ package app.mcorg.pipeline.resources
 import app.mcorg.domain.model.minecraft.MinecraftTag
 import app.mcorg.engine.model.ItemSourceGraph
 import app.mcorg.engine.plan.GatheringPlan
+import app.mcorg.engine.plan.PlanNodeStatus
+import app.mcorg.engine.plan.PlanOverrides
 import app.mcorg.engine.plan.TargetTree
 import app.mcorg.pipeline.Result
 import app.mcorg.pipeline.failure.AppFailure
@@ -87,8 +89,9 @@ suspend fun ApplicationCall.handleGetDrillChain() {
     // Build candidateCounts map: item-id → number of source candidates in the graph
     val candidateCounts = buildCandidateCounts(targetTree, graph)
     val nodeIngredients = buildNodeIngredients(plan)
+    val overrides = GetPlanOverridesStep.process(projectId).getOrNull() ?: PlanOverrides.NONE
 
-    respondHtml(drillChainFragment(project, targetTree, candidateCounts, nodeIngredients, highlightItemId = itemId))
+    respondHtml(drillChainFragment(project, targetTree, candidateCounts, nodeIngredients, overrides = overrides, graph = graph, highlightItemId = itemId))
 }
 
 /**
@@ -129,11 +132,6 @@ suspend fun ApplicationCall.handleGetNodePicker() {
         return
     }
 
-    val node = findNodeById(targetTree, nodeId) ?: run {
-        respondHtml(pickerNotFoundFragment("Node '$nodeId' not found in chain."))
-        return
-    }
-
     val graph = getGraphForWorld(worldId)
 
     // Load current overrides so we can highlight the active selection
@@ -141,6 +139,16 @@ suspend fun ApplicationCall.handleGetNodePicker() {
         is Result.Success -> r.value
         is Result.Failure -> null
     }
+
+    // Primary: look up the node in the derived target tree.
+    // Fallback: for a resolved tag (node absent from tree because redirectTag replaced it),
+    // synthesize a TargetTree from the graph so the tag-member picker can still be opened.
+    val node = findNodeById(targetTree, nodeId)
+        ?: synthesizeTagNode(nodeId, graph)
+        ?: run {
+            respondHtml(pickerNotFoundFragment("Node '$nodeId' not found in chain."))
+            return
+        }
 
     respondHtml(
         nodePickerFragment(
@@ -314,7 +322,8 @@ private suspend fun ApplicationCall.respondDrillRerender(
     val graph = getGraphForWorld(worldId)
     val candidateCounts = buildCandidateCounts(targetTree, graph)
     val nodeIngredients = buildNodeIngredients(plan)
-    respondHtml(drillChainFragment(project, targetTree, candidateCounts, nodeIngredients, highlightItemId = targetItemId))
+    val overrides = GetPlanOverridesStep.process(projectId).getOrNull() ?: PlanOverrides.NONE
+    respondHtml(drillChainFragment(project, targetTree, candidateCounts, nodeIngredients, overrides = overrides, graph = graph, highlightItemId = targetItemId))
 }
 
 /**
@@ -437,6 +446,34 @@ internal fun buildNodeIngredients(plan: GatheringPlan): Map<String, String> {
             val reducedOutput = output / divisor
             node.item.id to if (reducedOutput > 1) "$inputs → $reducedOutput" else inputs
         }
+}
+
+/**
+ * Synthesizes a [TargetTree] for a tag id that is absent from the derived target tree
+ * (because [PlanOverrides.tagMember] redirected it to a concrete member). Only succeeds
+ * when the id starts with `#` (i.e. it is a tag id) and the graph contains the tag's
+ * item node — which carries the [MinecraftTag] with its full member list. Returns null
+ * when the graph is unavailable or the tag is not found.
+ *
+ * The synthesized node has status [PlanNodeStatus.OPEN_TAG] so [nodePickerFragment]
+ * opens the tag-member variant of the picker. Quantities are 0 (the tag itself is not in
+ * the derived plan — the member item holds the real demand). The active override is read
+ * from [overrides] so the picker can highlight the current choice.
+ */
+internal fun synthesizeTagNode(
+    nodeId: String,
+    graph: ItemSourceGraph?,
+): TargetTree? {
+    if (graph == null || !nodeId.startsWith("#")) return null
+    val tagItemNode = graph.getItemNodesByStringId(nodeId).firstOrNull() ?: return null
+    val tag = tagItemNode.item as? MinecraftTag ?: return null
+    return TargetTree(
+        item = tag,
+        quantityIfAlone = 0L,
+        craftsIfAlone = 0L,
+        status = PlanNodeStatus.OPEN_TAG,
+        source = null,
+    )
 }
 
 /** Builds a minimal validation error HTML string for respondBadRequest. */
