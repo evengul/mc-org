@@ -47,10 +47,10 @@ object SourceRanking {
         if (candidates.isEmpty()) return emptyList()
 
         val scorer = SelectionScorer(graph, supplied, context)
-        val hasRecipeSibling = candidates.any { it.sourceType.isRecipe() }
+        val hasConstructiveSibling = candidates.any { it.sourceType.isConstructive() }
 
         return candidates
-            .map { it to scorer.score(item, it, demand, hasRecipeSibling) }
+            .map { it to scorer.score(item, it, demand, hasConstructiveSibling) }
             .sortedWith(
                 compareByDescending<Pair<SourceNode, Int>> { it.second }
                     .thenByDescending { it.first.sourceType.isRecipe() }

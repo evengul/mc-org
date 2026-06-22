@@ -45,7 +45,7 @@ object ScoreDiagnostics {
         val itemName: String,
         val demand: Long,
         val found: Boolean,
-        val hasRecipeSibling: Boolean,
+        val hasConstructiveSibling: Boolean,
         val candidates: List<CandidateReport>
     )
 
@@ -63,16 +63,16 @@ object ScoreDiagnostics {
         context: PlanContext = PlanContext()
     ): ItemReport {
         val itemNode = pickItemNode(graph, itemId)
-            ?: return ItemReport(itemId, itemId.substringAfterLast(':'), demand, found = false, hasRecipeSibling = false, candidates = emptyList())
+            ?: return ItemReport(itemId, itemId.substringAfterLast(':'), demand, found = false, hasConstructiveSibling = false, candidates = emptyList())
 
         val item: MinecraftId = itemNode.item
         val candidates = graph.getSourcesForItem(item)
-        val hasRecipeSibling = candidates.any { it.sourceType.isRecipe() }
+        val hasConstructiveSibling = candidates.any { it.sourceType.isConstructive() }
         val scorer = SelectionScorer(graph, supplied, context)
 
         // Mirror PlanSelector.rank: total desc, then recipe-first, then key.
         val ranked = candidates
-            .map { source -> source to scorer.breakdown(item, source, demand, hasRecipeSibling) }
+            .map { source -> source to scorer.breakdown(item, source, demand, hasConstructiveSibling) }
             .sortedWith(
                 compareByDescending<Pair<SourceNode, ScoreBreakdown>> { it.second.total }
                     .thenByDescending { it.first.sourceType.isRecipe() }
@@ -107,7 +107,7 @@ object ScoreDiagnostics {
             itemName = item.name,
             demand = demand,
             found = true,
-            hasRecipeSibling = hasRecipeSibling,
+            hasConstructiveSibling = hasConstructiveSibling,
             candidates = reports
         )
     }

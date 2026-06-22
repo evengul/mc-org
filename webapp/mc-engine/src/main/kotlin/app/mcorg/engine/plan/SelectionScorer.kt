@@ -69,14 +69,14 @@ internal class SelectionScorer(
         item: MinecraftId,
         source: SourceNode,
         demand: Long,
-        hasRecipeSibling: Boolean
+        hasConstructiveSibling: Boolean
     ): Int {
         var total = source.sourceType.score
 
         total += efficiencyBonus(item, source)
         total += suppliedBonus(source)
         total += recipeThresholdBonus(item, source, demand)
-        total -= selfBlockLootPenalty(item, source, hasRecipeSibling)
+        total -= selfBlockLootPenalty(item, source, hasConstructiveSibling)
         total -= lowYieldPenalty(item, source)
 
         val requirements = graph.getRequiredItems(source)
@@ -96,14 +96,14 @@ internal class SelectionScorer(
         item: MinecraftId,
         source: SourceNode,
         demand: Long,
-        hasRecipeSibling: Boolean
+        hasConstructiveSibling: Boolean
     ): ScoreBreakdown {
         val requirements = graph.getRequiredItems(source)
         val base = source.sourceType.score
         val efficiency = efficiencyBonus(item, source)
         val supplied = suppliedBonus(source)
         val recipeThreshold = recipeThresholdBonus(item, source, demand)
-        val selfBlockLoot = selfBlockLootPenalty(item, source, hasRecipeSibling)
+        val selfBlockLoot = selfBlockLootPenalty(item, source, hasConstructiveSibling)
         val lowYield = lowYieldPenalty(item, source)
         val requirementPenalty = requirements.size * REQUIREMENT_PENALTY
         val chainDepth = chainDepth(requirements.map { it.item })
@@ -213,8 +213,8 @@ internal class SelectionScorer(
             it.sourceType == ResourceSource.SourceType.LootTypes.BLOCK && !isSelfBlockLoot(item, it)
         }
 
-    private fun selfBlockLootPenalty(item: MinecraftId, source: SourceNode, hasRecipeSibling: Boolean): Int {
-        if (!hasRecipeSibling) return 0
+    private fun selfBlockLootPenalty(item: MinecraftId, source: SourceNode, hasConstructiveSibling: Boolean): Int {
+        if (!hasConstructiveSibling) return 0
         return if (isSelfBlockLoot(item, source)) SELF_BLOCK_LOOT_PENALTY else 0
     }
 

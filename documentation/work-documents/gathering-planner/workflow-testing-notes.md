@@ -179,6 +179,14 @@ the scorer is correct: block-break 100 > stonecutting 75.)
   registry + two new SourceTypes `COLLECT`/`GAME_MECHANIC`; (B) inline-alternatives synthetic
   tags (TNT). Build **A first, then B**. Two sign-offs pending: the new base scores (100/90) and
   the ActivityGroup mapping.
-  - [ ] 3A. Synthetic obtain-sources
+  - [x] 3A. Synthetic obtain-sources — **done**. `SyntheticSources` registry (mc-data) appended in
+    `ExtractResourceSources`; nether star migrated out of `hardcodedLoot()`. Two new SourceTypes
+    `COLLECT`/`GAME_MECHANIC` (scores 100/90, groups GATHER/CRAFT) + `isConstructive()`; the
+    self-block-loot trigger now fires on a constructive sibling (recipe **or** GAME_MECHANIC) so
+    concrete stops "breaking placed concrete". Entries: nether_star, honeycomb (shear),
+    honey_bottle (bottle, needs glass_bottle), water (collect + break-ice), lava (collect),
+    16 concretes (powder→concrete). mc-data SyntheticSourcesTest + mc-engine CuratedSelectionTest
+    (concrete/honey/water) green; full mc-engine suite 105 pass. **Needs re-ingestion** to reach
+    the live graph.
   - [ ] 3B. Inline-alternatives synthetic tags (carries the TNT-sand fix from item 2)
 - [ ] 4. UI polish batch (notes 1, 2, 3, 4, 9)

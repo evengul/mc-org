@@ -24,6 +24,14 @@ data class ResourceSource(
 
         fun isTrade(): Boolean = this in TRADE_TYPES
 
+        /**
+         * A "constructive" source is a deliberate way to *make* the item — a recipe or a
+         * game mechanic (place concrete powder by water). Used by selection to decide
+         * whether breaking the item's own placed block is circular ("re-collect what you
+         * built"): when a constructive alternative exists, the self-block loot is penalized.
+         */
+        fun isConstructive(): Boolean = isRecipe() || this == MechanicTypes.GAME_MECHANIC
+
         private object TypeSets {
             val RECIPE_TYPES = setOf(
                 RecipeTypes.CRAFTING_SHAPED, RecipeTypes.CRAFTING_SHAPELESS, RecipeTypes.CRAFTING_TRANSMUTE,
@@ -96,6 +104,17 @@ data class ResourceSource(
             val IGNORED = SourceType("mcorg:ignored_recipe", "Ignored Recipe", 0)
         }
 
+        /**
+         * Synthetic source types for acquisitions Mojang's JSON doesn't describe — see
+         * the SyntheticSources registry in mc-data. [COLLECT] fills a bucket from a world
+         * fluid (or breaks ice for water); [GAME_MECHANIC] is a deliberate in-world
+         * transform such as placing concrete powder next to water.
+         */
+        data object MechanicTypes {
+            val COLLECT = SourceType("mcorg:collect", "Collect", 100)
+            val GAME_MECHANIC = SourceType("mcorg:game_mechanic", "Game Mechanic", 90)
+        }
+
         companion object {
             val UNKNOWN = SourceType("mcorg:unknown", "Unknown", 0)
 
@@ -129,6 +148,8 @@ data class ResourceSource(
                     RecipeTypes.CAMPFIRE_COOKING.id -> RecipeTypes.CAMPFIRE_COOKING
                     RecipeTypes.STONECUTTING.id -> RecipeTypes.STONECUTTING
                     RecipeTypes.IGNORED.id -> RecipeTypes.IGNORED
+                    MechanicTypes.COLLECT.id -> MechanicTypes.COLLECT
+                    MechanicTypes.GAME_MECHANIC.id -> MechanicTypes.GAME_MECHANIC
                     TradeTypes.ARMORER.id -> TradeTypes.ARMORER
                     TradeTypes.BUTCHER.id -> TradeTypes.BUTCHER
                     TradeTypes.CARTOGRAPHER.id -> TradeTypes.CARTOGRAPHER
@@ -171,6 +192,8 @@ data class ResourceSource(
                 RecipeTypes.CAMPFIRE_COOKING,
                 RecipeTypes.STONECUTTING,
                 RecipeTypes.IGNORED,
+                MechanicTypes.COLLECT,
+                MechanicTypes.GAME_MECHANIC,
                 TradeTypes.ARMORER,
                 TradeTypes.BUTCHER,
                 TradeTypes.CARTOGRAPHER,

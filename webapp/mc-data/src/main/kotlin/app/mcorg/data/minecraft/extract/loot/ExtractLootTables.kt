@@ -1,7 +1,5 @@
 package app.mcorg.data.minecraft.extract.loot
 
-import app.mcorg.domain.model.minecraft.Item
-import app.mcorg.domain.model.resources.ResourceQuantity
 import app.mcorg.domain.model.resources.ResourceSource
 import app.mcorg.pipeline.Result
 import app.mcorg.data.minecraft.ServerPathResolvers
@@ -27,7 +25,7 @@ data object ExtractLootTables : Step<ExtractionContext, ExtractionFailure, List<
         }
             .map { sources ->
                 sources.map { it.withNames(input) }
-                    .filter { it.type != ResourceSource.SourceType.RecipeTypes.IGNORED && it.producedItems.isNotEmpty() } + hardcodedLoot()
+                    .filter { it.type != ResourceSource.SourceType.RecipeTypes.IGNORED && it.producedItems.isNotEmpty() }
             }
     }
 
@@ -69,14 +67,4 @@ data object ExtractLootTables : Step<ExtractionContext, ExtractionFailure, List<
             }
         }
     }
-
-    private fun hardcodedLoot() = listOf(
-        ResourceSource(
-            type = ResourceSource.SourceType.LootTypes.ENTITY,
-            filename = "wither.json",
-            producedItems = listOf(
-                Item("minecraft:nether_star", "Nether Star (Item)") to ResourceQuantity.ExpectedYield(1.0)
-            )
-        )
-    )
 }

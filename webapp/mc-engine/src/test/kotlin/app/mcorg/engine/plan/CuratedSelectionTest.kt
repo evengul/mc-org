@@ -627,4 +627,81 @@ class CuratedSelectionTest {
         assertTrue(result.complete)
         assertTrue("minecraft:junk" !in result.nodes)
     }
+
+    // ── synthetic sources ───────────────────────────────────────────────────
+
+    @Test
+    fun `concrete prefers the powder-and-water mechanic over breaking the placed block`() {
+        val sources = listOf(
+            blockLoot("white_concrete", "minecraft:white_concrete"),
+            recipe(
+                "white_concrete.json",
+                inputs = listOf(item("minecraft:white_concrete_powder") to 1),
+                output = "minecraft:white_concrete" to 1,
+                type = ResourceSource.SourceType.MechanicTypes.GAME_MECHANIC
+            ),
+            recipe(
+                "white_concrete_powder.json",
+                inputs = listOf(
+                    item("minecraft:sand") to 4,
+                    item("minecraft:gravel") to 4,
+                    item("minecraft:white_dye") to 1
+                ),
+                output = "minecraft:white_concrete_powder" to 8,
+                type = ResourceSource.SourceType.RecipeTypes.CRAFTING_SHAPELESS
+            ),
+            blockLoot("sand", "minecraft:sand"),
+            blockLoot("gravel", "minecraft:gravel"),
+            blockLoot("dandelion", "minecraft:white_dye")
+        )
+
+        val result = plan(sources, "minecraft:white_concrete")
+
+        // The GAME_MECHANIC counts as a constructive sibling, so breaking the placed
+        // concrete is penalised as circular and the mechanic wins.
+        assertEquals("mcorg:game_mechanic:white_concrete.json", result.sourceKeyOf("minecraft:white_concrete"))
+        assertEquals(
+            ActivityGroup.CRAFT,
+            result.activityList.first { it.item.id == "minecraft:white_concrete" }.group
+        )
+    }
+
+    @Test
+    fun `honey bottle prefers bottling a beehive over chest loot`() {
+        val sources = listOf(
+            chestLoot("village_temple", "minecraft:honey_bottle"),
+            recipe(
+                "beehive_bottle.json",
+                inputs = listOf(item("minecraft:glass_bottle") to 1),
+                output = "minecraft:honey_bottle" to 1,
+                type = ResourceSource.SourceType.LootTypes.BLOCK_INTERACT
+            ),
+            blockLoot("glass_bottle_src", "minecraft:glass_bottle")
+        )
+
+        val result = plan(sources, "minecraft:honey_bottle")
+
+        assertEquals("minecraft:block_interact:beehive_bottle.json", result.sourceKeyOf("minecraft:honey_bottle"))
+    }
+
+    @Test
+    fun `water is obtainable by collecting or breaking ice and groups under gather`() {
+        val sources = listOf(
+            recipe(
+                "water.json",
+                inputs = emptyList(),
+                output = "minecraft:water" to 1,
+                type = ResourceSource.SourceType.MechanicTypes.COLLECT
+            ),
+            blockLoot("ice", "minecraft:water")
+        )
+
+        val result = plan(sources, "minecraft:water")
+
+        assertTrue(result.nodes.getValue("minecraft:water").status != PlanNodeStatus.BLOCKED, "water must be obtainable")
+        assertEquals(
+            ActivityGroup.GATHER,
+            result.activityList.first { it.item.id == "minecraft:water" }.group
+        )
+    }
 }

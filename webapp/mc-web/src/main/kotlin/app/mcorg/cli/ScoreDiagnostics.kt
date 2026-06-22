@@ -183,7 +183,7 @@ private fun printReport(report: ItemReport) {
     }
     println(
         "=== ${report.itemName} (${report.itemId}) · ${report.candidates.size} candidates · " +
-            "hasRecipeSibling=${report.hasRecipeSibling} ==="
+            "hasConstructiveSibling=${report.hasConstructiveSibling} ==="
     )
     for (c in report.candidates) {
         val marker = if (c.selected) "▶" else " "
