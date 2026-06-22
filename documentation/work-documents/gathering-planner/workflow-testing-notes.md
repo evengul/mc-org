@@ -137,6 +137,27 @@ the scorer is correct: block-break 100 > stonecutting 75.)
 - [x] 1. Score-dump diagnostic harness — **done** (`exec:java@score-diagnostics`)
 - [x] 1b. R1 (no efficiency on trades) — done. R3 (threshold withheld when mineable) — done.
 - [x] 1c. R2 (no efficiency on reciprocal/transitive storage-block unpacks) — done.
-- [ ] 2. Data bugs: TNT-sand extraction, wall/technical-block item mapping
-- [ ] 3. Synthetic sources / indirect items design (honey/bees, concrete, water, piston head)
+- [~] 2. Data bugs:
+  - [x] **Wall / technical-block import mapping** (note 5) — schematics store placed block-state
+    ids; the lang-derived catalog contains block-only names, so `birch_wall_sign` /
+    `dead_horn_coral_wall_fan` became resource rows with no graph source (BLOCKED).
+    `MapSchematicToMaterialsStep` now normalizes: drop the `_wall_` infix when it yields a real
+    item (→ `birch_sign`, `dead_horn_coral_fan`, `redstone_torch`), and drop genuine technical
+    artifacts (`piston_head`, `moving_piston` — the piston base already counts the material).
+    Amounts merge when block ids collapse onto one item. mc-web unit test 7 pass.
+    **Caveat:** import-time fix — applies to newly imported schematics; existing projects (incl.
+    project 38) keep their rows until re-import.
+    *Follow-ups (out of note-5 scope):* multi-cell structures double-count (a door/bed occupies
+    two cells but is one item) and placed forms differ for crops→seeds, `redstone_wire`→redstone,
+    `tripwire`→string. A broader block-state→material normalization, deferred.
+  - [ ] **TNT-sand extraction** (note 7.2) — root-caused: `ShapedRecipeParser` drops a key entry
+    that is a *list of alternatives* (`#` = `[sand, red_sand]`) because `parseItemRef` returns
+    null for a JSON array. **Decision (Even):** do NOT take-first — model an inline alternatives
+    list as a **synthetic anonymous tag** (members = the alternatives, deterministic id in an
+    `mcorg:` namespace, e.g. `#mcorg:choice/red_sand_sand`) so it rides the existing OPEN_TAG +
+    `PlanOverride.TagMember` machinery and the user picks. Scheduled as the **first synthetic-
+    sources item** (touches both shaped+shapeless parsers and tag persistence). Same latent
+    take-first bug exists in the shapeless path.
+- [ ] 3. Synthetic sources / indirect items design — inline-alternatives synthetic tag (above),
+  then honey/bees, concrete, water, piston head (the existing nether-star one folds in here too)
 - [ ] 4. UI polish batch (notes 1, 2, 3, 4, 9)

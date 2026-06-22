@@ -124,9 +124,14 @@ data class MapSchematicToMaterialsStep(
         }
 
         val byId = availableItems.associateBy { it.id }
-        val requirements = input.items.mapNotNull { (itemId, amount) ->
-            byId[itemId]?.let { it to amount }
-        }
+        // A schematic stores placed block-state ids; some are gathered as a different
+        // item (birch_wall_sign -> birch_sign) and some are not a material at all
+        // (an extended piston's head). Normalize, then merge amounts for block ids that
+        // collapse onto the same item (e.g. a build with both a sign and a wall sign).
+        val requirements = input.items.entries
+            .mapNotNull { (blockId, amount) -> resolveMaterial(blockId, byId)?.let { it to amount } }
+            .groupBy({ it.first }, { it.second })
+            .map { (item, amounts) -> item to amounts.sum() }
 
         if (requirements.isEmpty()) {
             return Result.failure(
@@ -142,6 +147,33 @@ data class MapSchematicToMaterialsStep(
         }
 
         return Result.success(requirements)
+    }
+
+    /**
+     * Resolves a schematic block-state id to the item a player actually gathers.
+     *
+     * Placed *wall* variants carry their own block id but are obtained as the base
+     * item — birch_wall_sign -> birch_sign, dead_horn_coral_wall_fan ->
+     * dead_horn_coral_fan, redstone_wall_torch -> redstone_torch — so the "_wall_"
+     * infix is dropped when that yields a real item. Technical blocks that are not a
+     * material on their own ([NON_MATERIAL_BLOCKS], e.g. an extended piston's head,
+     * already counted by the piston base) are dropped. Everything else resolves by
+     * its own id, or is dropped when the world's version has no such item.
+     */
+    private fun resolveMaterial(blockId: String, byId: Map<String, Item>): Item? {
+        if (blockId in NON_MATERIAL_BLOCKS) return null
+        if ("_wall_" in blockId) {
+            byId[blockId.replace("_wall_", "_")]?.let { return it }
+        }
+        return byId[blockId]
+    }
+
+    companion object {
+        /**
+         * Blocks that occupy a cell in a schematic but are not a material of their own —
+         * the piston already accounts for its extended head and the moving block.
+         */
+        private val NON_MATERIAL_BLOCKS = setOf("minecraft:piston_head", "minecraft:moving_piston")
     }
 }
 
