@@ -45,6 +45,17 @@ object AppConfig {
     // WEBHOOK_ADMIN_SECRET is provided. See WebhookAdminAuthPlugin.
     var webhookAdminSecret: String? = null
 
+    // Base URL of the seam-discord Cloudflare Worker (MCO-240). World admins connect a Discord
+    // channel from world settings; the resulting webhook callback URL is built from this base
+    // (`<SEAM_DISCORD_URL>/seam-events/<channelId>`). Optional: when unset the Discord settings
+    // section renders a "not configured" state instead of the connect form.
+    var seamDiscordUrl: String? = null
+
+    // Secret shared with the seam-discord bot (its `SEAM_WEBHOOK_SECRET`), used to sign deliveries
+    // to the Worker (MCO-240). Stored as the subscription's `secret`; never shown in the UI.
+    // Optional: when unset the Discord settings section fails closed (not-configured state).
+    var webhookSharedSecret: String? = null
+
     init {
         val errors = mutableListOf<String>()
         System.getenv("DB_URL")?.let { dbUrl = it } ?: errors.add("DB_URL is not set")
@@ -125,6 +136,9 @@ object AppConfig {
         System.getenv("DEMO_USER")?.let { demoUser = it }
 
         System.getenv("WEBHOOK_ADMIN_SECRET")?.let { webhookAdminSecret = it }
+
+        System.getenv("SEAM_DISCORD_URL")?.let { seamDiscordUrl = it }
+        System.getenv("SEAM_WEBHOOK_SHARED_SECRET")?.let { webhookSharedSecret = it }
 
         System.getenv("PREVIEW_PASSWORD")?.let { previewPassword = it }
         if (env == Test && previewPassword.isNullOrBlank()) {

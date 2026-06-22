@@ -44,6 +44,8 @@ import app.mcorg.pipeline.world.handleSearchWorlds
 import app.mcorg.pipeline.world.settings.general.handleUpdateWorldDescription
 import app.mcorg.pipeline.world.settings.general.handleUpdateWorldName
 import app.mcorg.pipeline.world.settings.general.handleUpdateWorldVersion
+import app.mcorg.pipeline.world.settings.handleConnectDiscord
+import app.mcorg.pipeline.world.settings.handleDisconnectDiscord
 import app.mcorg.pipeline.world.settings.handleGetWorldSettings
 import app.mcorg.pipeline.world.settings.invitations.handleCancelInvitation
 import app.mcorg.pipeline.world.settings.invitations.handleCreateInvitation
@@ -222,6 +224,14 @@ class WorldHandler {
                         install(WorldOwnerPlugin)
                         handle {
                             call.handleDeleteWorld()
+                        }
+                    }
+                    route("/discord") {
+                        post {
+                            call.handleConnectDiscord()
+                        }
+                        delete("/{subscriptionId}") {
+                            call.handleDisconnectDiscord()
                         }
                     }
                     route("/members") {
