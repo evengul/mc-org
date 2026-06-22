@@ -134,6 +134,24 @@ object DeleteWebhookSubscriptionStep : Step<Int, AppFailure.DatabaseError, Int> 
         ).process(input)
 }
 
+data class DeleteWorldWebhookSubscriptionInput(val subscriptionId: Int, val worldId: Int)
+
+/**
+ * World-scoped delete used by the world-settings Discord surface (MCO-240). Unlike the id-only
+ * [DeleteWebhookSubscriptionStep] (operator/shared-secret path), this also matches `world_id` so a
+ * world admin can never delete another world's subscription by guessing its id.
+ */
+object DeleteWorldWebhookSubscriptionStep : Step<DeleteWorldWebhookSubscriptionInput, AppFailure.DatabaseError, Int> {
+    override suspend fun process(input: DeleteWorldWebhookSubscriptionInput) =
+        DatabaseSteps.update<DeleteWorldWebhookSubscriptionInput>(
+            sql = SafeSQL.delete("DELETE FROM webhook_subscriptions WHERE id = ? AND world_id = ?"),
+            parameterSetter = { statement, i ->
+                statement.setInt(1, i.subscriptionId)
+                statement.setInt(2, i.worldId)
+            },
+        ).process(input)
+}
+
 private fun Parameters.orDefault(name: String, default: String): String =
     this[name]?.takeIf { it.isNotBlank() } ?: default
 

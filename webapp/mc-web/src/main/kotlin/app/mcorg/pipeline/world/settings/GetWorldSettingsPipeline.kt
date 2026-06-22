@@ -14,9 +14,12 @@ import app.mcorg.pipeline.world.extractors.toWorldMembers
 import app.mcorg.pipeline.world.invitations.CountWorldInvitationsStep
 import app.mcorg.pipeline.world.invitations.GetWorldInvitationsStep
 import app.mcorg.pipeline.world.invitations.InvitationStatusFilter
+import app.mcorg.config.AppConfig
 import app.mcorg.pipeline.world.settings.invitations.handleGetInvitationListFragment
 import app.mcorg.presentation.templated.settings.SettingsPageData
+import app.mcorg.presentation.templated.settings.discordConnections
 import app.mcorg.presentation.templated.settings.worldSettingsPage
+import app.mcorg.webhook.WebhookStore
 import app.mcorg.presentation.utils.getUser
 import app.mcorg.presentation.utils.getWorldId
 import app.mcorg.presentation.utils.respondHtml
@@ -60,6 +63,10 @@ suspend fun ApplicationCall.handleGetSettingsPageData(
     val isOwner = ValidateWorldMemberRole<Unit>(user, Role.OWNER, worldId).process(Unit) is Result.Success
     val currentUserRole = if (isOwner) Role.OWNER else Role.ADMIN
 
+    val discordConfigured = !AppConfig.seamDiscordUrl.isNullOrBlank() && !AppConfig.webhookSharedSecret.isNullOrBlank()
+    val subscriptions = WebhookStore.findActiveSubscriptions(worldId)
+    val connections = discordConnections(subscriptions, AppConfig.seamDiscordUrl)
+
     return pipelineResult {
         val (world, invitations, counts, members) = parallel(
             { GetWorldStep.run(worldId) },
@@ -76,6 +83,8 @@ suspend fun ApplicationCall.handleGetSettingsPageData(
             invitations = invitations,
             invitationCounts = counts,
             statusFilter = statusFilter,
+            discordConfigured = discordConfigured,
+            discordConnections = connections,
         )
     }
 }

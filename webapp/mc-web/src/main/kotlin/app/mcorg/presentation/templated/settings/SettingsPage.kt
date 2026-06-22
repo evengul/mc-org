@@ -25,6 +25,8 @@ data class SettingsPageData(
     val invitations: List<Invite>,
     val invitationCounts: CountWorldInvitationsResult,
     val statusFilter: InvitationStatusFilter,
+    val discordConfigured: Boolean,
+    val discordConnections: List<DiscordConnection>,
 )
 
 fun worldSettingsPage(user: TokenProfile, data: SettingsPageData): String = pageShell(
@@ -35,6 +37,7 @@ fun worldSettingsPage(user: TokenProfile, data: SettingsPageData): String = page
         "/static/styles/components/danger-zone.css",
         "/static/styles/components/avatar.css",
         "/static/styles/components/person-row.css",
+        "/static/styles/components/badge.css",
         "/static/styles/pages/settings-page.css",
     )
 ) {
@@ -60,6 +63,7 @@ fun worldSettingsPage(user: TokenProfile, data: SettingsPageData): String = page
                 generalSection(data)
                 invitationsSection(data)
                 membersSection(data.currentUser, data.members)
+                discordSection(data)
                 if (data.currentUserRole == Role.OWNER) {
                     dangerSection(data.world)
                 }
