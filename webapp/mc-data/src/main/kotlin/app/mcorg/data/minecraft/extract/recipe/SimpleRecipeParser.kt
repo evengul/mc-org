@@ -1,5 +1,6 @@
 package app.mcorg.data.minecraft.extract.recipe
 
+import app.mcorg.domain.model.minecraft.MinecraftId
 import app.mcorg.domain.model.resources.ResourceSource
 import app.mcorg.pipeline.Result
 import app.mcorg.data.minecraft.extract.getResult
@@ -17,16 +18,29 @@ object SimpleRecipeParser {
         sourceType: ResourceSource.SourceType,
         filename: String
     ): Result<ExtractionFailure, ResourceSource> {
-        val ingredient = json.objectResult(filename)
+        // A simple recipe (smelting, blasting, …) has a single ingredient slot. A list there is
+        // a set of alternatives ("any of"), not several required inputs — collapse it to one
+        // synthetic choice tag rather than requiring every alternative.
+        val ingredient: Result<ExtractionFailure, MinecraftId> = json.objectResult(filename)
             .flatMap { it.getResult("ingredient", filename) }
-            .flatMap { ingredient ->
-                when (ingredient) {
-                    is JsonArray -> Result.success(ingredient.mapNotNull { value ->
-                        parseItemRef(value).also {
-                            if (it == null) logger.warn("Unknown ingredient value in simple recipe: $value in file $filename")
+            .flatMap { element ->
+                when (element) {
+                    is JsonArray -> {
+                        val members = element.mapNotNull { value ->
+                            parseItemRef(value).also {
+                                if (it == null) logger.warn("Unknown ingredient value in simple recipe: $value in file $filename")
+                            }
                         }
-                    })
-                    else -> requireItemRef(ingredient, "ingredient", filename).mapSuccess { listOf(it) }
+                        when {
+                            members.isEmpty() -> Result.failure(
+                                ExtractionFailure.JsonFailure.UnknownValue(element.toString(), "ingredient", element, filename)
+                            )
+                            members.size == 1 -> Result.success(MinecraftIdFactory.minecraftIdFromId(members.single()))
+                            else -> Result.success(choiceTag(members))
+                        }
+                    }
+                    else -> requireItemRef(element, "ingredient", filename)
+                        .mapSuccess { MinecraftIdFactory.minecraftIdFromId(it) }
                 }
             }
 
@@ -50,7 +64,7 @@ object SimpleRecipeParser {
             ResourceSource(
                 type = sourceType,
                 filename = filename,
-                requiredItems = ingredient.getOrThrow().map { MinecraftIdFactory.minecraftIdFromId(it) to RecipeQuantityParser.ingredientQuantity() },
+                requiredItems = listOf(ingredient.getOrThrow() to RecipeQuantityParser.ingredientQuantity()),
                 producedItems = listOf(
                     MinecraftIdFactory.minecraftIdFromId(result.getOrThrow()) to resultQuantity
                 )

@@ -99,21 +99,27 @@ class SimpleRecipeParserTest {
     }
 
     @Test
-    fun `parses ingredient as array of primitives`() {
+    fun `parses ingredient as array of primitives into one choice tag`() {
         val json = """
         {
             "ingredient": ["minecraft:iron_ore", "minecraft:deepslate_iron_ore"],
             "result": "minecraft:iron_ingot"
         }
         """
+        // "smelt iron_ore OR deepslate_iron_ore" is one choice, not two required inputs.
         val source = assertResultSuccess(parse(json))
-        assertEquals(2, source.requiredItems.size)
-        val ids = source.requiredItems.map { it.first.id }.toSet()
-        assertEquals(setOf("minecraft:iron_ore", "minecraft:deepslate_iron_ore"), ids)
+        assertEquals(1, source.requiredItems.size)
+        val req = source.requiredItems.single().first
+        assertIs<MinecraftTag>(req)
+        assertEquals("#mcorg:choice/deepslate_iron_ore_iron_ore", req.id)
+        assertEquals(
+            setOf("minecraft:deepslate_iron_ore", "minecraft:iron_ore"),
+            req.content.map { it.id }.toSet()
+        )
     }
 
     @Test
-    fun `parses ingredient array with objects`() {
+    fun `parses ingredient array with objects into one choice tag`() {
         val json = """
         {
             "ingredient": [
@@ -124,7 +130,8 @@ class SimpleRecipeParserTest {
         }
         """
         val source = assertResultSuccess(parse(json))
-        assertEquals(2, source.requiredItems.size)
+        assertEquals(1, source.requiredItems.size)
+        assertIs<MinecraftTag>(source.requiredItems.single().first)
     }
 
     @Test

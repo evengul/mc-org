@@ -85,10 +85,20 @@ fun ResourceSource.withNames(context: ExtractionContext): ResourceSource = copy(
 
 private fun MinecraftId.withName(context: ExtractionContext): MinecraftId = when (this) {
     is Item -> copy(name = context.nameOf(id))
-    is MinecraftTag -> copy(
-        name = ExtractionContext.tagDisplayName(id),
-        content = context.contentOfTag(id).map { taggedItem -> Item(taggedItem, context.nameOf(taggedItem)) }
-    )
+    is MinecraftTag -> {
+        val fromRegistry = context.contentOfTag(id)
+        if (fromRegistry.isEmpty() && content.isNotEmpty()) {
+            // A synthetic tag (e.g. an inline-alternatives choice tag) is not in the version's
+            // tag registry but carries its own members and name — keep them, just resolve the
+            // members' display names from the catalog.
+            copy(content = content.map { Item(it.id, context.nameOf(it.id)) })
+        } else {
+            copy(
+                name = ExtractionContext.tagDisplayName(id),
+                content = fromRegistry.map { taggedItem -> Item(taggedItem, context.nameOf(taggedItem)) }
+            )
+        }
+    }
 }
 
 object ExtractionContextFactory {

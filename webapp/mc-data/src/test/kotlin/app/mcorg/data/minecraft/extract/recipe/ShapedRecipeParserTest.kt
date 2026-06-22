@@ -229,4 +229,31 @@ class ShapedRecipeParserTest {
         """
         assertResultFailure(parse(json))
     }
+
+    @Test
+    fun `key list of alternatives becomes a synthetic choice tag - TNT sand`() {
+        val json = """
+        {
+            "result": "minecraft:tnt",
+            "pattern": ["X#X", "#X#", "X#X"],
+            "key": {
+                "#": ["minecraft:sand", "minecraft:red_sand"],
+                "X": "minecraft:gunpowder"
+            }
+        }
+        """
+        val source = assertResultSuccess(parse(json))
+
+        // gunpowder stays a plain item (5); sand/red_sand collapse to one choice tag (4).
+        val gunpowder = source.requiredItems.single { it.first.id == "minecraft:gunpowder" }
+        assertEquals(ResourceQuantity.ItemQuantity(5), gunpowder.second)
+
+        val choice = source.requiredItems.single { it.first is MinecraftTag }
+        assertEquals("#mcorg:choice/red_sand_sand", choice.first.id)
+        assertEquals(ResourceQuantity.ItemQuantity(4), choice.second)
+        assertEquals(
+            setOf("minecraft:red_sand", "minecraft:sand"),
+            (choice.first as MinecraftTag).content.map { it.id }.toSet()
+        )
+    }
 }

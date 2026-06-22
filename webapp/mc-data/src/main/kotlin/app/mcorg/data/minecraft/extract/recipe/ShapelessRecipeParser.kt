@@ -1,6 +1,7 @@
 package app.mcorg.data.minecraft.extract.recipe
 
 import app.mcorg.data.minecraft.failure.ExtractionFailure
+import app.mcorg.domain.model.minecraft.MinecraftId
 import app.mcorg.domain.model.resources.ResourceQuantity
 import app.mcorg.domain.model.resources.ResourceSource
 import app.mcorg.pipeline.Result
@@ -25,12 +26,19 @@ object ShapelessRecipeParser {
 
         val resultQuantity = RecipeQuantityParser.parseResultQuantity(json, filename)
 
-        // Flatten the ingredient list (each inner list has only one item since tags aren't expanded)
-        val ingredients = ingredientList.map { it.first() }
+        // Resolve each ingredient slot: a single id -> that item/tag; a list of alternatives ->
+        // a synthetic choice tag the user resolves (previously the first was silently taken).
+        val ingredients: List<MinecraftId> = ingredientList.mapNotNull { alternatives ->
+            when {
+                alternatives.isEmpty() -> null
+                alternatives.size == 1 -> MinecraftIdFactory.minecraftIdFromId(alternatives.single())
+                else -> choiceTag(alternatives)
+            }
+        }
 
-        // Count occurrences of each ingredient
-        val ingredientCounts = ingredients.groupBy { it }.map { (ingredient, occurrences) ->
-            MinecraftIdFactory.minecraftIdFromId(ingredient) to ResourceQuantity.ItemQuantity(occurrences.size)
+        // Count repeated slots, keyed by id so a tag and an item never collide.
+        val ingredientCounts = ingredients.groupBy { it.id }.map { (_, occurrences) ->
+            occurrences.first() to ResourceQuantity.ItemQuantity(occurrences.size)
         }
 
         return Result.success(ResourceSource(

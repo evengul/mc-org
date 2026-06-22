@@ -1,5 +1,6 @@
 package app.mcorg.data.minecraft.extract.recipe
 
+import app.mcorg.domain.model.minecraft.MinecraftId
 import app.mcorg.domain.model.resources.ResourceQuantity
 import app.mcorg.domain.model.resources.ResourceSource
 import app.mcorg.pipeline.Result
@@ -41,13 +42,14 @@ object ShapedRecipeParser {
         }
         val symbolCounts = patternResult.getOrThrow()
 
-        // Parse the key to map symbols to ingredient IDs (tags stay as tags, not expanded)
+        // Parse the key to map symbols to ingredients (tags stay as tags; a list of
+        // alternatives becomes a synthetic choice tag).
         val keyResult = json.objectResult(filename)
             .flatMap { it.getResult("key", filename) }
             .flatMap { it.objectResult(filename) }
             .mapSuccess { keyObject ->
                 keyObject.entries.associate { (symbol, ingredientJson) ->
-                    symbol.single() to parseItemRef(ingredientJson)
+                    symbol.single() to parseKeyIngredient(ingredientJson)
                 }
             }
 
@@ -57,17 +59,17 @@ object ShapedRecipeParser {
         }
         val symbolToIngredient = keyResult.getOrThrow()
 
-        // Count occurrences of each ingredient based on pattern
-        val ingredientCounts = mutableMapOf<String, Int>()
+        // Count occurrences of each ingredient based on pattern, keyed by id so a tag and an
+        // item id never collide and the MinecraftId (with any tag members) is preserved.
+        val ingredientCounts = LinkedHashMap<String, Pair<MinecraftId, Int>>()
         symbolCounts.forEach { (symbol, count) ->
-            val ingredient = symbolToIngredient[symbol]
-            if (ingredient != null) {
-                ingredientCounts[ingredient] = (ingredientCounts[ingredient] ?: 0) + count
-            }
+            val ingredient = symbolToIngredient[symbol] ?: return@forEach
+            val existing = ingredientCounts[ingredient.id]
+            ingredientCounts[ingredient.id] = ingredient to ((existing?.second ?: 0) + count)
         }
 
-        val requiredItems = ingredientCounts.map { (ingredient, count) ->
-            MinecraftIdFactory.minecraftIdFromId(ingredient) to ResourceQuantity.ItemQuantity(count)
+        val requiredItems = ingredientCounts.values.map { (ingredient, count) ->
+            ingredient to ResourceQuantity.ItemQuantity(count)
         }
 
         return Result.success(
@@ -78,5 +80,23 @@ object ShapedRecipeParser {
                 requiredItems = requiredItems,
             )
         )
+    }
+
+    /**
+     * Resolves a key entry to a [MinecraftId]. Usually a single item or tag ref, but Minecraft
+     * allows a list of alternatives (TNT's `#` is `[sand, red_sand]`); two or more become a
+     * synthetic [choiceTag] the user resolves, a single-element list is just that item, and an
+     * unresolvable entry is dropped (null).
+     */
+    private fun parseKeyIngredient(element: JsonElement): MinecraftId? = when (element) {
+        is JsonArray -> {
+            val members = element.mapNotNull { parseItemRef(it) }
+            when {
+                members.isEmpty() -> null
+                members.size == 1 -> MinecraftIdFactory.minecraftIdFromId(members.single())
+                else -> choiceTag(members)
+            }
+        }
+        else -> parseItemRef(element)?.let { MinecraftIdFactory.minecraftIdFromId(it) }
     }
 }

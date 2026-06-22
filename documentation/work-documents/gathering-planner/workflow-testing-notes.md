@@ -165,14 +165,7 @@ the scorer is correct: block-break 100 > stonecutting 75.)
     BLOCKED; fluids (water/lava + buckets/cauldrons) deferred to synthetic-source layer.
     *Deferred:* multi-cell structures still double-count (a door/bed occupies two cells but is one
     item).
-  - [ ] **TNT-sand extraction** (note 7.2) — root-caused: `ShapedRecipeParser` drops a key entry
-    that is a *list of alternatives* (`#` = `[sand, red_sand]`) because `parseItemRef` returns
-    null for a JSON array. **Decision (Even):** do NOT take-first — model an inline alternatives
-    list as a **synthetic anonymous tag** (members = the alternatives, deterministic id in an
-    `mcorg:` namespace, e.g. `#mcorg:choice/red_sand_sand`) so it rides the existing OPEN_TAG +
-    `PlanOverride.TagMember` machinery and the user picks. Scheduled as the **first synthetic-
-    sources item** (touches both shaped+shapeless parsers and tag persistence). Same latent
-    take-first bug exists in the shapeless path.
+  - [x] **TNT-sand extraction** (note 7.2) — **done via 3B** (inline-alternatives synthetic tags).
 - [~] 3. Synthetic sources / indirect items — **design done**:
   [synthetic-sources-design.md](synthetic-sources-design.md). Two mechanisms — (A) synthetic
   obtain-sources (nether star migrate, honey, concrete×16, water/lava) via a `SyntheticSources`
@@ -188,5 +181,11 @@ the scorer is correct: block-break 100 > stonecutting 75.)
     16 concretes (powder→concrete). mc-data SyntheticSourcesTest + mc-engine CuratedSelectionTest
     (concrete/honey/water) green; full mc-engine suite 105 pass. **Needs re-ingestion** to reach
     the live graph.
-  - [ ] 3B. Inline-alternatives synthetic tags (carries the TNT-sand fix from item 2)
+  - [x] 3B. Inline-alternatives synthetic tags — **done**. A recipe ingredient that's a JSON array
+    of ≥2 items becomes a synthetic `#mcorg:choice/<sorted members>` tag (deterministic id, readable
+    name, members carried) via `choiceTag()`, wired into Shaped/Shapeless/Simple parsers (fixing the
+    shapeless take-first and the simple AND-required bugs too). `withNames` preserves synthetic-tag
+    content (not in the version registry). It rides the existing OPEN_TAG path — no engine change;
+    `ExtractMinecraftDataStep` already lifts source-referenced ids into `ServerData.items` so members
+    persist. mc-data suite 218 pass (incl. E2E). Carries the TNT-sand fix (note 7.2).
 - [ ] 4. UI polish batch (notes 1, 2, 3, 4, 9)
