@@ -435,6 +435,112 @@ class CuratedSelectionTest {
     }
 
     @Test
+    fun `emerald - mining beats unpacking a chest-looted emerald block`() {
+        // The real-graph case the self-block fixtures miss: the storage block is
+        // *independently* obtainable (chest loot), so the unpack chain is feasible
+        // and not structurally rejected. Its 9x output would earn a +160 efficiency
+        // bonus and win at 240 — except a reciprocal unpack earns no efficiency, so
+        // mining the ore (100) wins and the block never enters the plan.
+        val sources = listOf(
+            blockLoot("emerald_ore", "minecraft:emerald"),
+            recipe(
+                "emerald_from_emerald_block.json",
+                inputs = listOf(item("minecraft:emerald_block") to 1),
+                output = "minecraft:emerald" to 9,
+                type = ResourceSource.SourceType.RecipeTypes.CRAFTING_SHAPELESS
+            ),
+            recipe(
+                "emerald_block.json",
+                inputs = listOf(item("minecraft:emerald") to 9),
+                output = "minecraft:emerald_block" to 1
+            ),
+            chestLoot("village_temple", "minecraft:emerald_block")
+        )
+
+        val result = plan(sources, "minecraft:emerald")
+
+        assertEquals("minecraft:block:blocks/emerald_ore.json", result.sourceKeyOf("minecraft:emerald"))
+        assertTrue("minecraft:emerald_block" !in result.nodes, "the storage block must not enter the plan")
+    }
+
+    @Test
+    fun `iron_nugget - unpacking an ingot still wins when nuggets are otherwise only looted`() {
+        // Guards the asymmetry: dropping efficiency on reciprocal unpacks must not
+        // over-correct. A nugget has no "mine a nugget" path, so unpacking an ingot
+        // (no efficiency, but base crafting) must still beat chest loot — otherwise
+        // the plan would tell the player to loot nuggets from chests.
+        val sources = listOf(
+            recipe(
+                "iron_ingot_from_smelting.json",
+                inputs = listOf(item("minecraft:raw_iron") to 1),
+                output = "minecraft:iron_ingot" to 1,
+                type = ResourceSource.SourceType.RecipeTypes.SMELTING
+            ),
+            blockLoot("iron_ore", "minecraft:raw_iron"),
+            recipe(
+                "iron_nugget_from_ingot.json",
+                inputs = listOf(item("minecraft:iron_ingot") to 1),
+                output = "minecraft:iron_nugget" to 9
+            ),
+            recipe(
+                "iron_ingot_from_nuggets.json",
+                inputs = listOf(item("minecraft:iron_nugget") to 9),
+                output = "minecraft:iron_ingot" to 1
+            ),
+            chestLoot("bastion_other", "minecraft:iron_nugget")
+        )
+
+        val result = plan(sources, "minecraft:iron_nugget")
+
+        assertEquals(
+            "minecraft:crafting_shaped:iron_nugget_from_ingot.json",
+            result.sourceKeyOf("minecraft:iron_nugget")
+        )
+    }
+
+    @Test
+    fun `copper_ingot - unpacking a layered waxed block is still not efficient`() {
+        // The transitive case: copper_ingot can be unpacked from waxed_copper_block,
+        // which is not crafted from the ingot directly — it is copper_block + honeycomb,
+        // and copper_block is the 9-ingot pack. The reciprocal check must follow that
+        // chain, or the waxed unpack keeps its +160 and wins at 240. With containment
+        // transitive, the unpack drops to base and the entity drop (100) wins.
+        val sources = listOf(
+            entityLoot("drowned", "minecraft:copper_ingot"),
+            recipe(
+                "copper_ingot_from_smelting.json",
+                inputs = listOf(item("minecraft:raw_copper") to 1),
+                output = "minecraft:copper_ingot" to 1,
+                type = ResourceSource.SourceType.RecipeTypes.SMELTING
+            ),
+            blockLoot("copper_ore", "minecraft:raw_copper"),
+            recipe(
+                "copper_ingot_from_waxed_copper_block.json",
+                inputs = listOf(item("minecraft:waxed_copper_block") to 1),
+                output = "minecraft:copper_ingot" to 9,
+                type = ResourceSource.SourceType.RecipeTypes.CRAFTING_SHAPELESS
+            ),
+            recipe(
+                "waxed_copper_block.json",
+                inputs = listOf(item("minecraft:copper_block") to 1, item("minecraft:honeycomb") to 1),
+                output = "minecraft:waxed_copper_block" to 1
+            ),
+            recipe(
+                "copper_block.json",
+                inputs = listOf(item("minecraft:copper_ingot") to 9),
+                output = "minecraft:copper_block" to 1
+            ),
+            chestLoot("shipwreck_supply", "minecraft:waxed_copper_block"),
+            blockLoot("beehive", "minecraft:honeycomb")
+        )
+
+        val result = plan(sources, "minecraft:copper_ingot")
+
+        assertEquals("minecraft:entity:entities/drowned.json", result.sourceKeyOf("minecraft:copper_ingot"))
+        assertTrue("minecraft:waxed_copper_block" !in result.nodes, "the waxed block must not enter the plan")
+    }
+
+    @Test
     fun `own-block loot does not ground an unpack chain`() {
         // Without the self-block rule in the acquirability check, the planner
         // would happily plan "unpack iron blocks <- break placed iron blocks".

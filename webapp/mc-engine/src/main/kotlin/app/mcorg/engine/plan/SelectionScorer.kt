@@ -11,8 +11,9 @@ import app.mcorg.domain.model.resources.ResourceSource
  *
  * Factors (additive):
  * 1. Source-type base score ([ResourceSource.SourceType.score]).
- * 2. Efficiency bonus — output/input ratio above 1.0. Not applied to trades,
- *    whose output-per-emerald is an exchange rate, not saved effort.
+ * 2. Efficiency bonus — output/input ratio above 1.0. Not applied to trades
+ *    (output-per-emerald is an exchange rate, not saved effort) nor to reciprocal
+ *    unpack recipes (storage block -> item), whose input embeds N of the output.
  * 3. Supplied bonus — ingredients satisfied by the supplied map are nearly free.
  * 4. Recipe-threshold bonus — at bulk demand, recipes beat repeated gathering.
  * 5. Self-block-loot penalty — breaking a block that *is* the item (beacon,
@@ -139,11 +140,54 @@ internal class SelectionScorer(
         // high one (8 sand or 4 gunpowder per emerald) would otherwise vault a
         // wandering-trader source above mining the block or killing the mob.
         if (source.sourceType.isTrade()) return 0
+        // Unpacking a storage block is not efficient: its lone ingredient embeds
+        // nine of the output and must itself be obtained. See [isReciprocalUnpack].
+        if (isReciprocalUnpack(item, source)) return 0
         val itemNode = graph.getItemNode(item) ?: return 0
         val totalInput = graph.getRequiredQuantities(source).values.sum()
         if (totalInput == 0) return 0
         val ratio = graph.getProducedQuantity(source, itemNode).toDouble() / totalInput
         return ((ratio - 1.0) * EFFICIENCY_WEIGHT).toInt().coerceAtLeast(0)
+    }
+
+    /**
+     * A "reciprocal unpack" recipe turns a denser, packed form back into the item
+     * it is made from — iron_ingot from iron_block, where iron_block is in turn
+     * crafted from iron_ingot. Its 9x output triggers a large [efficiencyBonus],
+     * but the lone ingredient is not cheaper than the output: it embeds nine of
+     * them and must itself be obtained. Rewarding that fake efficiency made "loot
+     * a storage block from a chest and unpack it" outscore mining or smelting the
+     * item directly.
+     *
+     * Detected as a recipe whose single ingredient is, directly or transitively,
+     * crafted from this very item — the containment is transitive so a layered
+     * form is caught too (copper_ingot from waxed_copper_block <- copper_block <-
+     * copper_ingot). The pack direction (block from 9 items) already scores zero
+     * efficiency (ratio < 1), so only the unpack is affected; genuine high-yield
+     * crafts (log -> 4 planks) are not reciprocal and keep their bonus.
+     */
+    private fun isReciprocalUnpack(item: MinecraftId, source: SourceNode): Boolean {
+        if (!source.sourceType.isRecipe()) return false
+        val ingredient = graph.getRequiredItems(source).singleOrNull() ?: return false
+        if (ingredient.itemId == item.id) return false
+        return craftedFrom(ingredient.item, item.id, HashSet())
+    }
+
+    /**
+     * True when [candidate] is produced — directly or through a chain of recipes —
+     * by consuming [target]. Follows recipe edges only, bounded by [PlanContext.maxDepth]
+     * and guarded against cycles, so it identifies a packed form of [target]
+     * without walking the whole graph.
+     */
+    private fun craftedFrom(candidate: MinecraftId, target: String, visiting: MutableSet<String>): Boolean {
+        if (candidate.id == target) return true
+        if (visiting.size >= context.maxDepth || !visiting.add(candidate.id)) return false
+        val result = graph.getSourcesForItem(candidate).any { source ->
+            source.sourceType.isRecipe() &&
+                graph.getRequiredItems(source).any { craftedFrom(it.item, target, visiting) }
+        }
+        visiting.remove(candidate.id)
+        return result
     }
 
     private fun suppliedBonus(source: SourceNode): Int {

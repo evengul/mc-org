@@ -112,6 +112,18 @@ the scorer is correct: block-break 100 > stonecutting 75.)
   Not yet committed.
 - **R2 (storage-block unpack):** cap `efficiencyBonus`, and/or penalize "unpack a storage block
   that must itself be gathered/looted". Fixes emerald, iron. Needs a design choice.
+  **DONE (2026-06-22, signed off by Even).** Neither cap nor penalty: `efficiencyBonus` returns 0
+  for a *reciprocal unpack* — a recipe whose single ingredient is, transitively, crafted from the
+  output (`iron_ingot ← iron_block ← iron_ingot`; also the layered `copper_ingot ←
+  waxed_copper_block ← copper_block ← copper_ingot`). Data showed every storage metal/gem has a
+  mine/entity source at 100 above the zeroed unpack (80), so no penalty is needed; nuggets keep
+  unpacking (80 > chest 60) because there is no penalty dragging them under loot. Verified across
+  the family: emerald/diamond/coal → mine 100; iron/gold/copper → entity 100; iron_nugget →
+  unpack 80; oak_planks 145 / stick 105 keep their efficiency (not reciprocal). mc-engine tests
+  105 pass / 0 fail / 1 known skip. Not yet committed.
+  *Parked (separate, needs farms/ideas):* entity base score (100) means iron/gold/copper resolve
+  to golem/piglin/drowned rather than smelting at low demand — defensible (farmable), and the
+  bulk threshold restores smelting at demand ≥100. Not an R2 regression.
 - **R3 (recipe threshold):** withhold the bulk bonus when a raw-gather (BLOCK) source exists for
   the same item at comparable base. Fixes cobblestone.
   **DONE (2026-06-22, signed off by Even).** `recipeThresholdBonus` returns 0 when
@@ -124,7 +136,7 @@ the scorer is correct: block-break 100 > stonecutting 75.)
 
 - [x] 1. Score-dump diagnostic harness — **done** (`exec:java@score-diagnostics`)
 - [x] 1b. R1 (no efficiency on trades) — done. R3 (threshold withheld when mineable) — done.
-- [ ] 1c. R2 (storage-block unpack: emerald/iron) — pending design discussion (restricted area)
+- [x] 1c. R2 (no efficiency on reciprocal/transitive storage-block unpacks) — done.
 - [ ] 2. Data bugs: TNT-sand extraction, wall/technical-block item mapping
 - [ ] 3. Synthetic sources / indirect items design (honey/bees, concrete, water, piston head)
 - [ ] 4. UI polish batch (notes 1, 2, 3, 4, 9)
