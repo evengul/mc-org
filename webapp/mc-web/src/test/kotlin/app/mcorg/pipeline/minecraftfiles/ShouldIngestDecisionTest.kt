@@ -1,5 +1,6 @@
 package app.mcorg.pipeline.minecraftfiles
 
+import app.mcorg.data.minecraft.ExtractionVersion
 import app.mcorg.domain.model.minecraft.MinecraftVersion
 import java.net.URI
 import kotlin.test.Test
@@ -39,6 +40,19 @@ class ShouldIngestDecisionTest {
     @Test
     fun `skips only when completed and the stored SHA matches`() {
         assertFalse(FilterAlreadyStoredVersionsStep.shouldIngest(jar, IngestionLedgerEntry(IngestionStatus.COMPLETED, "sha-current")))
+    }
+
+    @Test
+    fun `re-ingests a completed matching-SHA version when the extraction code is newer`() {
+        // SHA still matches, but the version was ingested under an older extraction version.
+        val stale = IngestionLedgerEntry(IngestionStatus.COMPLETED, "sha-current", extractionVersion = ExtractionVersion.CURRENT - 1)
+        assertTrue(FilterAlreadyStoredVersionsStep.shouldIngest(jar, stale))
+    }
+
+    @Test
+    fun `does not re-ingest for extraction version once it is current`() {
+        val current = IngestionLedgerEntry(IngestionStatus.COMPLETED, "sha-current", extractionVersion = ExtractionVersion.CURRENT)
+        assertFalse(FilterAlreadyStoredVersionsStep.shouldIngest(jar, current))
     }
 
     @Test

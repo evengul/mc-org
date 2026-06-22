@@ -3,6 +3,7 @@ package app.mcorg.pipeline.minecraftfiles
 import app.mcorg.config.Database
 import app.mcorg.config.MojangLauncherMetaApiConfig
 import app.mcorg.data.minecraft.ExtractMinecraftDataStep
+import app.mcorg.data.minecraft.ExtractionVersion
 import app.mcorg.data.minecraft.extract.ExtractRelevantMinecraftFilesStep
 import app.mcorg.domain.model.minecraft.MinecraftVersion
 import app.mcorg.pipeline.Result
@@ -203,15 +204,18 @@ internal data object FilterAlreadyStoredVersionsStep : Step<List<ResolvedServerJ
     /**
      * Decide whether a resolved server.jar needs ingesting, given its current ledger entry (or null
      * if there is no row). Ingest when: there is no row (incl. post-truncate recreate), the previous
-     * run did not complete, or the SHA has changed. A completed row whose stored SHA is unknown
-     * (NULL) is NOT re-ingested — re-ingesting would duplicate resource_source rows, and the existing
-     * data already came from this immutable release jar. The pre-ledger versions had their SHAs
-     * backfilled by migration `V2_36_0`; any NULL that slips through (environment drift) is simply
-     * skipped. Skip when a completed row's stored SHA matches Mojang's advertised SHA (MCO-168).
+     * run did not complete, the **extraction code changed** since this version was ingested (stored
+     * extraction_version older than [ExtractionVersion.CURRENT]), or the SHA has changed. A completed,
+     * extraction-current row whose stored SHA is unknown (NULL) is NOT re-ingested — re-ingesting
+     * would duplicate resource_source rows, and the existing data already came from this immutable
+     * release jar. The pre-ledger versions had their SHAs backfilled by migration `V2_36_0`; any NULL
+     * that slips through (environment drift) is simply skipped. Skip when a completed row is on the
+     * current extraction version and its stored SHA matches Mojang's advertised SHA (MCO-168).
      */
     internal fun shouldIngest(jar: ResolvedServerJar, entry: IngestionLedgerEntry?): Boolean = when {
         entry == null -> true
         entry.status != IngestionStatus.COMPLETED -> true
+        entry.extractionVersion < ExtractionVersion.CURRENT -> true
         entry.serverJarSha == null -> false
         else -> entry.serverJarSha != jar.sha1
     }
@@ -322,8 +326,17 @@ object IngestionStatus {
     const val FAILED = "failed"
 }
 
-/** A row of the ingestion ledger relevant to the freshness decision (status + last-ingested SHA). */
-internal data class IngestionLedgerEntry(val status: String, val serverJarSha: String?)
+/**
+ * A row of the ingestion ledger relevant to the freshness decision: status, last-ingested SHA,
+ * and the extraction-code version it ran under. [extractionVersion] defaults to the current code
+ * version (used only by tests focused on the SHA path); [LoadIngestionStatusStep] always reads the
+ * real stored value.
+ */
+internal data class IngestionLedgerEntry(
+    val status: String,
+    val serverJarSha: String?,
+    val extractionVersion: Int = ExtractionVersion.CURRENT,
+)
 
 /**
  * Reads the ingestion ledger into a `version -> entry` map. A version absent from the map has no
@@ -336,7 +349,7 @@ internal data object LoadIngestionStatusStep : Step<Unit, AppFailure.DatabaseErr
 
     override suspend fun process(input: Unit): Result<AppFailure.DatabaseError, Map<MinecraftVersion.Release, IngestionLedgerEntry>> =
         DatabaseSteps.query<Unit, Map<MinecraftVersion.Release, IngestionLedgerEntry>>(
-            sql = SafeSQL.select("SELECT version, status, server_jar_sha FROM minecraft_version_ingestion"),
+            sql = SafeSQL.select("SELECT version, status, server_jar_sha, extraction_version FROM minecraft_version_ingestion"),
             resultMapper = { resultSet ->
                 buildMap {
                     while (resultSet.next()) {
@@ -344,7 +357,11 @@ internal data object LoadIngestionStatusStep : Step<Unit, AppFailure.DatabaseErr
                         try {
                             put(
                                 MinecraftVersion.Release.fromString(versionString),
-                                IngestionLedgerEntry(resultSet.getString("status"), resultSet.getString("server_jar_sha")),
+                                IngestionLedgerEntry(
+                                    resultSet.getString("status"),
+                                    resultSet.getString("server_jar_sha"),
+                                    resultSet.getInt("extraction_version"),
+                                ),
                             )
                         } catch (e: IllegalArgumentException) {
                             logger.error("Invalid version format in ingestion ledger: $versionString", e)
@@ -387,13 +404,14 @@ internal data object MarkIngestionCompletedStep : Step<ResolvedServerJar, AppFai
             sql = SafeSQL.update("""
                 UPDATE minecraft_version_ingestion
                 SET status = 'completed', completed_at = now(), last_error = NULL,
-                    server_jar_sha = ?, server_jar_url = ?
+                    server_jar_sha = ?, server_jar_url = ?, extraction_version = ?
                 WHERE version = ?
             """.trimIndent()),
             parameterSetter = { statement, jar ->
                 statement.setString(1, jar.sha1)
                 statement.setString(2, jar.url.toString())
-                statement.setString(3, jar.version.toString())
+                statement.setInt(3, ExtractionVersion.CURRENT)
+                statement.setString(4, jar.version.toString())
             }
         ).process(input).map { }
 }
