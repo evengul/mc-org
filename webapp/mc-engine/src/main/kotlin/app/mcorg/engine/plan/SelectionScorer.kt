@@ -27,6 +27,26 @@ import app.mcorg.domain.model.resources.ResourceSource
  * e.g. diamond <- diamond block <- 9 diamonds) is not a scoring concern: the
  * selector rejects such candidates structurally before they are scored.
  */
+/**
+ * The individual factors behind a candidate's [SelectionScorer.score], for
+ * diagnostics. Bonuses are positive; penalties are stored positive and were
+ * subtracted to reach [total].
+ */
+internal data class ScoreBreakdown(
+    val base: Int,
+    val efficiency: Int,
+    val supplied: Int,
+    val recipeThreshold: Int,
+    val selfBlockLoot: Int,
+    val lowYield: Int,
+    val requirementCount: Int,
+    val requirementPenalty: Int,
+    val chainDepth: Int,
+    val depthPenalty: Int,
+    val total: Int,
+    val requiredItemIds: List<String>
+)
+
 internal class SelectionScorer(
     private val graph: ItemSourceGraph,
     private val supplied: Map<String, SupplySource>,
@@ -62,6 +82,46 @@ internal class SelectionScorer(
         total -= chainDepth(requirements.map { it.item }) * DEPTH_PENALTY
 
         return total
+    }
+
+    /**
+     * Diagnostic-only: the same factors [score] sums, returned individually so a
+     * dump can show *why* a candidate ranks where it does. Reuses the identical
+     * helpers, so the [ScoreBreakdown.total] is byte-for-byte equal to [score];
+     * this method is read-only and changes no ranking behaviour.
+     */
+    internal fun breakdown(
+        item: MinecraftId,
+        source: SourceNode,
+        demand: Long,
+        hasRecipeSibling: Boolean
+    ): ScoreBreakdown {
+        val requirements = graph.getRequiredItems(source)
+        val base = source.sourceType.score
+        val efficiency = efficiencyBonus(item, source)
+        val supplied = suppliedBonus(source)
+        val recipeThreshold = recipeThresholdBonus(source, demand)
+        val selfBlockLoot = selfBlockLootPenalty(item, source, hasRecipeSibling)
+        val lowYield = lowYieldPenalty(item, source)
+        val requirementPenalty = requirements.size * REQUIREMENT_PENALTY
+        val chainDepth = chainDepth(requirements.map { it.item })
+        val depthPenalty = chainDepth * DEPTH_PENALTY
+        val total = base + efficiency + supplied + recipeThreshold -
+            selfBlockLoot - lowYield - requirementPenalty - depthPenalty
+        return ScoreBreakdown(
+            base = base,
+            efficiency = efficiency,
+            supplied = supplied,
+            recipeThreshold = recipeThreshold,
+            selfBlockLoot = selfBlockLoot,
+            lowYield = lowYield,
+            requirementCount = requirements.size,
+            requirementPenalty = requirementPenalty,
+            chainDepth = chainDepth,
+            depthPenalty = depthPenalty,
+            total = total,
+            requiredItemIds = requirements.map { it.itemId }.sorted()
+        )
     }
 
     private fun lowYieldPenalty(item: MinecraftId, source: SourceNode): Int {

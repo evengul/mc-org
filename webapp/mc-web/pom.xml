@@ -121,6 +121,20 @@
                             <mainClass>app.mcorg.cli.IngestServerFilesKt</mainClass>
                         </configuration>
                     </execution>
+                    <!--
+                      Read-only scoring diagnostic (gathering-planner review): dumps the
+                      SelectionScorer factor breakdown per item against the ingested graph.
+                        mvn -pl mc-web exec:java@score-diagnostics -Dexec.args="world=11 sand cobblestone"
+                    -->
+                    <execution>
+                        <id>score-diagnostics</id>
+                        <goals>
+                            <goal>java</goal>
+                        </goals>
+                        <configuration>
+                            <mainClass>app.mcorg.cli.ScoreDiagnosticsKt</mainClass>
+                        </configuration>
+                    </execution>
                 </executions>
             </plugin>
         </plugins>
