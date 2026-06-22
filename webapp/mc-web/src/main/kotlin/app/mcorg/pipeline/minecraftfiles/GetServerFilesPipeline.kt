@@ -160,18 +160,44 @@ internal data object FilterAlreadyStoredVersionsStep : Step<List<ResolvedServerJ
             return ledger
         }
         val byVersion = ledger.getOrNull().orEmpty()
+        val forced = forcedPredicate(System.getenv("FORCE_REINGEST"))
 
         return Result.success(
             input.filter { jar ->
-                val ingest = shouldIngest(jar, byVersion[jar.version])
-                if (ingest) {
-                    logger.info("Version ${jar.version} will be downloaded and processed (ledger=${byVersion[jar.version]}, manifest sha=${jar.sha1}).")
-                } else {
-                    logger.info("Version ${jar.version} already ingested, skipping download.")
+                val force = forced(jar.version)
+                val ingest = force || shouldIngest(jar, byVersion[jar.version])
+                when {
+                    force -> logger.info("Version ${jar.version} forced for re-ingest via FORCE_REINGEST (storage is idempotent: it deletes and re-inserts this version's sources).")
+                    ingest -> logger.info("Version ${jar.version} will be downloaded and processed (ledger=${byVersion[jar.version]}, manifest sha=${jar.sha1}).")
+                    else -> logger.info("Version ${jar.version} already ingested, skipping download.")
                 }
                 ingest
             }
         )
+    }
+
+    /**
+     * Parses the `FORCE_REINGEST` toggle into a per-version predicate. The freshness check
+     * skips a version whose stored SHA still matches Mojang's, which is correct in production
+     * but blocks re-running an unchanged version after an *extraction-code* change (new
+     * synthetic sources, parser fixes). Setting `FORCE_REINGEST` overrides the skip — re-ingest
+     * is safe because [app.mcorg.pipeline.minecraft.StoreMinecraftDataStep] deletes and
+     * re-inserts a version's sources rather than appending.
+     *
+     * - unset / `false` → force nothing (normal freshness behaviour);
+     * - `true` / `all` → force every resolved version;
+     * - a comma-separated version list (e.g. `26.2.0,1.21.8`) → force just those.
+     */
+    internal fun forcedPredicate(rawEnv: String?): (MinecraftVersion.Release) -> Boolean {
+        val raw = rawEnv?.trim().orEmpty()
+        return when {
+            raw.isEmpty() || raw.equals("false", ignoreCase = true) -> { _ -> false }
+            raw.equals("true", ignoreCase = true) || raw.equals("all", ignoreCase = true) -> { _ -> true }
+            else -> {
+                val versions = raw.split(',').map { it.trim() }.filter { it.isNotEmpty() }.toSet()
+                ({ version -> version.toString() in versions })
+            }
+        }
     }
 
     /**

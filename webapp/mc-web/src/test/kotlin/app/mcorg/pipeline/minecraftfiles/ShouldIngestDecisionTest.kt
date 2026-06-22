@@ -47,4 +47,28 @@ class ShouldIngestDecisionTest {
         assertEquals(false, FilterAlreadyStoredVersionsStep.shouldIngest(jar, entry))
         assertEquals(true, FilterAlreadyStoredVersionsStep.shouldIngest(jar.copy(sha1 = "sha-different"), entry))
     }
+
+    private val v = jar.version
+    private val other = MinecraftVersion.Release(1, 21, 8)
+
+    @Test
+    fun `FORCE_REINGEST unset or false forces nothing`() {
+        assertFalse(FilterAlreadyStoredVersionsStep.forcedPredicate(null)(v))
+        assertFalse(FilterAlreadyStoredVersionsStep.forcedPredicate("")(v))
+        assertFalse(FilterAlreadyStoredVersionsStep.forcedPredicate("false")(v))
+    }
+
+    @Test
+    fun `FORCE_REINGEST true or all forces every version`() {
+        assertTrue(FilterAlreadyStoredVersionsStep.forcedPredicate("true")(v))
+        assertTrue(FilterAlreadyStoredVersionsStep.forcedPredicate("ALL")(other))
+    }
+
+    @Test
+    fun `FORCE_REINGEST with a version list forces only those`() {
+        val predicate = FilterAlreadyStoredVersionsStep.forcedPredicate(" 1.21.4 , 1.21.8 ")
+        assertTrue(predicate(v))
+        assertTrue(predicate(other))
+        assertFalse(predicate(MinecraftVersion.Release(1, 20, 1)))
+    }
 }
