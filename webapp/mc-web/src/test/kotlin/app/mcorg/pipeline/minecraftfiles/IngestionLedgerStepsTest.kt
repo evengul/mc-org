@@ -1,5 +1,6 @@
 package app.mcorg.pipeline.minecraftfiles
 
+import app.mcorg.data.minecraft.ExtractionVersion
 import app.mcorg.domain.model.minecraft.MinecraftVersion
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.Result
@@ -149,6 +150,21 @@ class IngestionLedgerStepsTest {
         assertEquals(setOf(v1, v2), kept.map { it.version }.toSet())
     }
 
+    @Test
+    fun `Filter re-ingests a completed matching-SHA version ingested under an older extraction version`() {
+        // SHA still matches, but it was ingested under stale extraction code → re-ingest once.
+        seed(v1, IngestionStatus.COMPLETED, serverJarSha = "sha-same", extractionVersion = ExtractionVersion.CURRENT - 1)
+        seed(v2, IngestionStatus.COMPLETED, serverJarSha = "sha-same", extractionVersion = ExtractionVersion.CURRENT)
+
+        val input = listOf(jar(v1, "sha-same"), jar(v2, "sha-same"))
+
+        val result = runBlocking { FilterAlreadyStoredVersionsStep.process(input) }
+        val kept = assertIs<Result.Success<List<ResolvedServerJar>>>(result).value
+
+        // v1 is stale → re-ingested; v2 is current with a matching SHA → skipped.
+        assertEquals(setOf(v1), kept.map { it.version }.toSet())
+    }
+
     // --- helpers --------------------------------------------------------------------------------
 
     private fun jar(version: MinecraftVersion.Release, sha: String) =
@@ -170,10 +186,11 @@ class IngestionLedgerStepsTest {
         attemptCount: Int = 0,
         lastError: String? = null,
         serverJarSha: String? = null,
+        extractionVersion: Int = ExtractionVersion.CURRENT,
     ) = runBlocking {
         val result = DatabaseSteps.update<Unit>(
             sql = SafeSQL.insert(
-                "INSERT INTO minecraft_version_ingestion (version, status, attempt_count, last_error, server_jar_sha) VALUES (?, ?, ?, ?, ?)"
+                "INSERT INTO minecraft_version_ingestion (version, status, attempt_count, last_error, server_jar_sha, extraction_version) VALUES (?, ?, ?, ?, ?, ?)"
             ),
             parameterSetter = { stmt, _ ->
                 stmt.setString(1, version.toString())
@@ -181,6 +198,7 @@ class IngestionLedgerStepsTest {
                 stmt.setInt(3, attemptCount)
                 stmt.setString(4, lastError)
                 stmt.setString(5, serverJarSha)
+                stmt.setInt(6, extractionVersion)
             }
         ).process(Unit)
         assertIs<Result.Success<*>>(result)
