@@ -5,6 +5,7 @@ import app.mcorg.domain.model.minecraft.MinecraftTag
 import app.mcorg.domain.model.project.Project
 import app.mcorg.engine.model.ItemSourceGraph
 import app.mcorg.engine.model.SourceNode
+import app.mcorg.engine.plan.MemberPrior
 import app.mcorg.engine.plan.PlanNodeStatus
 import app.mcorg.engine.plan.PlanOverrides
 import app.mcorg.engine.plan.SourceRanking
@@ -281,7 +282,11 @@ fun nodePickerFragment(
                     val best = graph?.let { SourceRanking.rankSources(it, member, demand).firstOrNull() }
                     RankedMember(member, best?.source, best?.score ?: Int.MIN_VALUE)
                 }
-                .sortedWith(compareByDescending<RankedMember> { it.score }.thenBy { it.member.name })
+                .sortedWith(
+                    compareByDescending<RankedMember> { it.score }
+                        .then(MemberPrior.comparator { it.member })
+                        .thenBy { it.member.name }
+                )
             val topId = ranked.firstOrNull()?.member?.id
             val filtered = if (q.isEmpty()) ranked else ranked.filter { it.member.name.contains(q, ignoreCase = true) }
             val displayed = filtered.take(PICKER_MAX_OPTIONS)
