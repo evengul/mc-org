@@ -16,7 +16,7 @@ data object ExtractResourceSources : Step<ExtractionContext, ExtractionFailure, 
         return lootTablesResult.flatMap { lootTables ->
             recipesResult.flatMap { recipes ->
                 tradesResult.map { trades ->
-                    lootTables + recipes + trades
+                    lootTables + recipes + trades + SyntheticSources.all()
                 }
             }
         }

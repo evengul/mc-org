@@ -209,13 +209,14 @@ object PlanSelector {
             // Provisional false cuts graph cycles below this item on the current walk.
             memo[id] = false
             val sources = graph.getSourcesForItem(item)
-            val hasRecipeSibling = sources.any { it.sourceType.isRecipe() }
+            val hasConstructiveSibling = sources.any { it.sourceType.isConstructive() }
             val usable = sources.any { source ->
                 // Breaking the item's own placed block cannot ground a chain when a
-                // recipe exists — the placed block had to be obtained first. Without
+                // constructive alternative exists (a recipe, or a game mechanic like
+                // concrete-by-water) — the placed block had to be obtained first. Without
                 // this, "unpack iron block <- break a placed iron block" would count
                 // as a complete acquisition path.
-                if (hasRecipeSibling && SelectionScorer.isSelfBlockLoot(item, source)) return@any false
+                if (hasConstructiveSibling && SelectionScorer.isSelfBlockLoot(item, source)) return@any false
                 graph.getRequiredItems(source).all { requirement ->
                     val effective = redirectTag(requirement.item)
                     acquirable(effective, effective.id, resolvingId, memo)
@@ -226,10 +227,10 @@ object PlanSelector {
         }
 
         private fun rank(item: MinecraftId, candidates: Set<SourceNode>): List<SourceNode> {
-            val hasRecipeSibling = candidates.any { it.sourceType.isRecipe() }
+            val hasConstructiveSibling = candidates.any { it.sourceType.isConstructive() }
             val demand = demands.getValue(item.id)
             return candidates.sortedWith(
-                compareByDescending<SourceNode> { scorer.score(item, it, demand, hasRecipeSibling) }
+                compareByDescending<SourceNode> { scorer.score(item, it, demand, hasConstructiveSibling) }
                     .thenByDescending { it.sourceType.isRecipe() }
                     .thenBy { it.getKey() }
             )

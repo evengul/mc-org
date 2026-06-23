@@ -282,7 +282,8 @@ internal object ActivityOrdering {
         if (this == null) return ActivityGroup.OTHER
         return when {
             this == ResourceSource.SourceType.LootTypes.BLOCK ||
-                this == ResourceSource.SourceType.LootTypes.BLOCK_INTERACT -> ActivityGroup.GATHER
+                this == ResourceSource.SourceType.LootTypes.BLOCK_INTERACT ||
+                this == ResourceSource.SourceType.MechanicTypes.COLLECT -> ActivityGroup.GATHER
 
             this == ResourceSource.SourceType.LootTypes.ENTITY ||
                 this == ResourceSource.SourceType.LootTypes.ENTITY_INTERACT ||
@@ -297,7 +298,7 @@ internal object ActivityOrdering {
                 this == ResourceSource.SourceType.RecipeTypes.SMOKING ||
                 this == ResourceSource.SourceType.RecipeTypes.CAMPFIRE_COOKING -> ActivityGroup.SMELT
 
-            isRecipe() -> ActivityGroup.CRAFT
+            isConstructive() -> ActivityGroup.CRAFT
 
             else -> ActivityGroup.OTHER
         }

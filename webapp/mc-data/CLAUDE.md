@@ -63,6 +63,11 @@ failure/
   IGNORED instead.
 - Output is `ServerData` containing items + resource sources.
 - Temporary files are cleaned up via `DeleteFileStep` in a `finally` block.
+- **Changing extraction output for the same server jar** (new/changed synthetic sources, recipe/loot
+  parsers, item/tag mapping) must bump `ExtractionVersion.CURRENT` and add a matching `History:` line in
+  `ExtractionVersion.kt`. Ingestion re-ingests any version whose stored `extraction_version` is older than
+  `CURRENT`, so the bump triggers exactly one automatic re-ingest per version — without it, unchanged jars
+  keep their stale data.
 
 ## Build
 
