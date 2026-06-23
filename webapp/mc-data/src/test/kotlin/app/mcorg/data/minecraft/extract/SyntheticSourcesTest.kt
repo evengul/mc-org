@@ -53,14 +53,14 @@ class SyntheticSourcesTest {
     }
 
     @Test
-    fun `all sixteen concretes are a game mechanic consuming their powder`() {
+    fun `all sixteen concretes are an in-world transform consuming their powder`() {
         val colors = listOf(
             "white", "orange", "magenta", "light_blue", "yellow", "lime", "pink", "gray",
             "light_gray", "cyan", "purple", "blue", "brown", "green", "red", "black",
         )
         colors.forEach { color ->
             val concrete = producing("minecraft:${color}_concrete").single()
-            assertEquals(SourceType.MechanicTypes.GAME_MECHANIC, concrete.type, "$color concrete type")
+            assertEquals(SourceType.MechanicTypes.IN_WORLD_TRANSFORM, concrete.type, "$color concrete type")
             assertEquals("minecraft:${color}_concrete_powder", concrete.requiredItems.single().first.id)
         }
     }

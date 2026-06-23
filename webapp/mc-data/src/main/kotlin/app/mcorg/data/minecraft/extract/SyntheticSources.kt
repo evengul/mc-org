@@ -55,7 +55,7 @@ object SyntheticSources {
         DYE_COLORS.forEach { color ->
             add(
                 source(
-                    "synthetic/${color}_concrete.json", SourceType.MechanicTypes.GAME_MECHANIC,
+                    "synthetic/${color}_concrete.json", SourceType.MechanicTypes.IN_WORLD_TRANSFORM,
                     produces = produce("minecraft:${color}_concrete"),
                     requires = listOf(require("minecraft:${color}_concrete_powder")),
                 )

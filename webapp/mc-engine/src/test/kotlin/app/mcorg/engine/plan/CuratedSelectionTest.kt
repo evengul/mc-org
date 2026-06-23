@@ -638,7 +638,7 @@ class CuratedSelectionTest {
                 "white_concrete.json",
                 inputs = listOf(item("minecraft:white_concrete_powder") to 1),
                 output = "minecraft:white_concrete" to 1,
-                type = ResourceSource.SourceType.MechanicTypes.GAME_MECHANIC
+                type = ResourceSource.SourceType.MechanicTypes.IN_WORLD_TRANSFORM
             ),
             recipe(
                 "white_concrete_powder.json",
@@ -657,9 +657,9 @@ class CuratedSelectionTest {
 
         val result = plan(sources, "minecraft:white_concrete")
 
-        // The GAME_MECHANIC counts as a constructive sibling, so breaking the placed
-        // concrete is penalised as circular and the mechanic wins.
-        assertEquals("mcorg:game_mechanic:white_concrete.json", result.sourceKeyOf("minecraft:white_concrete"))
+        // The in-world transform counts as a constructive sibling, so breaking the placed
+        // concrete is penalised as circular and the transform wins.
+        assertEquals("mcorg:in_world_transform:white_concrete.json", result.sourceKeyOf("minecraft:white_concrete"))
         assertEquals(
             ActivityGroup.CRAFT,
             result.activityList.first { it.item.id == "minecraft:white_concrete" }.group
