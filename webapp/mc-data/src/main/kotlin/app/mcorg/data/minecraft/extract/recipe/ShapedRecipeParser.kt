@@ -89,14 +89,7 @@ object ShapedRecipeParser {
      * unresolvable entry is dropped (null).
      */
     private fun parseKeyIngredient(element: JsonElement): MinecraftId? = when (element) {
-        is JsonArray -> {
-            val members = element.mapNotNull { parseItemRef(it) }
-            when {
-                members.isEmpty() -> null
-                members.size == 1 -> MinecraftIdFactory.minecraftIdFromId(members.single())
-                else -> choiceTag(members)
-            }
-        }
+        is JsonArray -> choiceFrom(element.mapNotNull { parseItemRef(it) })
         else -> parseItemRef(element)?.let { MinecraftIdFactory.minecraftIdFromId(it) }
     }
 }

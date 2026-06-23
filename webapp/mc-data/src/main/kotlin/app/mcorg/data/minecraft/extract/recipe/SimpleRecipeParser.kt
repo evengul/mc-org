@@ -31,13 +31,11 @@ object SimpleRecipeParser {
                                 if (it == null) logger.warn("Unknown ingredient value in simple recipe: $value in file $filename")
                             }
                         }
-                        when {
-                            members.isEmpty() -> Result.failure(
-                                ExtractionFailure.JsonFailure.UnknownValue(element.toString(), "ingredient", element, filename)
-                            )
-                            members.size == 1 -> Result.success(MinecraftIdFactory.minecraftIdFromId(members.single()))
-                            else -> Result.success(choiceTag(members))
-                        }
+                        // A simple recipe must have an ingredient: an all-unresolvable list is a failure
+                        // (not a silently dropped slot), unlike the optional slots in shaped/shapeless.
+                        choiceFrom(members)?.let { Result.success(it) } ?: Result.failure(
+                            ExtractionFailure.JsonFailure.UnknownValue(element.toString(), "ingredient", element, filename)
+                        )
                     }
                     else -> requireItemRef(element, "ingredient", filename)
                         .mapSuccess { MinecraftIdFactory.minecraftIdFromId(it) }

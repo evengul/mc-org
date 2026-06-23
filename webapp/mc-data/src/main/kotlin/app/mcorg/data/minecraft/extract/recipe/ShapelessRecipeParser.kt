@@ -28,13 +28,7 @@ object ShapelessRecipeParser {
 
         // Resolve each ingredient slot: a single id -> that item/tag; a list of alternatives ->
         // a synthetic choice tag the user resolves (previously the first was silently taken).
-        val ingredients: List<MinecraftId> = ingredientList.mapNotNull { alternatives ->
-            when {
-                alternatives.isEmpty() -> null
-                alternatives.size == 1 -> MinecraftIdFactory.minecraftIdFromId(alternatives.single())
-                else -> choiceTag(alternatives)
-            }
-        }
+        val ingredients: List<MinecraftId> = ingredientList.mapNotNull { alternatives -> choiceFrom(alternatives) }
 
         // Count repeated slots, keyed by id so a tag and an item never collide.
         val ingredientCounts = ingredients.groupBy { it.id }.map { (_, occurrences) ->

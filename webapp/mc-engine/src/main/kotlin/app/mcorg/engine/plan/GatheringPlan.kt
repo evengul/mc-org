@@ -298,7 +298,7 @@ internal object ActivityOrdering {
                 this == ResourceSource.SourceType.RecipeTypes.SMOKING ||
                 this == ResourceSource.SourceType.RecipeTypes.CAMPFIRE_COOKING -> ActivityGroup.SMELT
 
-            this == ResourceSource.SourceType.MechanicTypes.GAME_MECHANIC || isRecipe() -> ActivityGroup.CRAFT
+            isConstructive() -> ActivityGroup.CRAFT
 
             else -> ActivityGroup.OTHER
         }
