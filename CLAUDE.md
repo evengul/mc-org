@@ -87,8 +87,6 @@ This mirrors CI (`.github/workflows/dev.yml`): the `unit-tests` job runs the def
 tier; the `integration-tests` job runs `-Dgroups=database`.
 
 Notes:
-- `test.sh` invokes the ambient `mvn`, so the JDK-25 `JAVA_HOME` prefix from the build
-  environment still applies: `JAVA_HOME=~/.jdks/jdk-25.0.3+9 ./webapp/scripts/test.sh ...`.
 - It auto-generates JWT signing keys (`mc-web/create-keys.sh`) on first run if missing.
 - `--integration` (failsafe) expects a running server; the `--database` tier is
   self-contained (Testcontainers spins up its own PostgreSQL).
