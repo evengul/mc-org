@@ -93,6 +93,48 @@ class GatheringPlannerIT : WithUser() {
     }
 
     @Test
+    fun `list lens renders the resolution toggle and both resolution views (MCO-226)`() = testApplication {
+        setupRoutes()
+
+        val response = client.get(
+            "/worlds/$worldId/projects/$projectId/detail-content?lens=list"
+        ) {
+            addAuthCookie(this)
+        }
+
+        assertEquals(HttpStatusCode.OK, response.status)
+        val body = response.bodyAsText()
+        // Segmented toggle with both resolutions
+        assertContains(body, "list-resolution")
+        assertContains(body, "What I need")
+        assertContains(body, "How to make it")
+        // Both resolution view containers are present (toggled client-side)
+        assertContains(body, "id=\"list-targets-view\"")
+        assertContains(body, "id=\"list-breakdown-view\"")
+        // Breakdown is hidden by default (targets is the default resolution)
+        assertContains(body, "list-resolution-view list-resolution-view--hidden")
+    }
+
+    @Test
+    fun `targets table no longer renders the stale Source column (MCO-244 #4)`() = testApplication {
+        setupRoutes()
+
+        val response = client.get(
+            "/worlds/$worldId/projects/$projectId/detail-content?lens=list"
+        ) {
+            addAuthCookie(this)
+        }
+
+        assertEquals(HttpStatusCode.OK, response.status)
+        val body = response.bodyAsText()
+        // The defined target still renders in the table...
+        assertContains(body, "plan-row-$resourceGatheringId")
+        // ...but the stale Source column (header + per-row badge) is gone.
+        assertFalse(body.contains("plan-resource-table__col-source"))
+        assertFalse(body.contains("plan-resource-table__source-badge"))
+    }
+
+    @Test
     fun `GET detail-content with lens=next returns coming-soon stub`() = testApplication {
         setupRoutes()
 
