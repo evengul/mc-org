@@ -258,6 +258,70 @@
     }
 
     // -------------------------------------------------------------------------
+    // List resolution toggle (MCO-226): "What I need" (targets) <-> "How to make
+    // it" (breakdown). Both views are already in the DOM; this just shows one and
+    // persists the choice per project so it survives #project-content re-renders
+    // (e.g. the inline variant pick, which re-renders the whole list).
+    // -------------------------------------------------------------------------
+
+    var RESOLUTION_DEFAULT = 'targets';
+
+    function resolutionStorageKey() {
+        var projectId = getProjectIdFromUrl();
+        return projectId ? 'planResolution:' + projectId : null;
+    }
+
+    function readResolution() {
+        var key = resolutionStorageKey();
+        if (!key) return RESOLUTION_DEFAULT;
+        try {
+            var stored = window.sessionStorage.getItem(key);
+            return stored === 'breakdown' ? 'breakdown' : RESOLUTION_DEFAULT;
+        } catch (e) {
+            return RESOLUTION_DEFAULT;
+        }
+    }
+
+    function writeResolution(value) {
+        var key = resolutionStorageKey();
+        if (!key) return;
+        try {
+            window.sessionStorage.setItem(key, value);
+        } catch (e) { /* storage unavailable — non-fatal, state just won't persist */ }
+    }
+
+    function applyResolution(value) {
+        document.querySelectorAll('.list-resolution-view').forEach(function (view) {
+            var active = view.dataset.resolutionView === value;
+            view.classList.toggle('list-resolution-view--hidden', !active);
+        });
+        document.querySelectorAll('.list-resolution__option').forEach(function (btn) {
+            var active = btn.dataset.resolution === value;
+            btn.classList.toggle('list-resolution__option--active', active);
+            btn.setAttribute('aria-selected', active ? 'true' : 'false');
+        });
+    }
+
+    function initResolutionToggle() {
+        var toggle = document.querySelector('.list-resolution');
+        if (!toggle) return;
+        // Re-apply the persisted choice on every settle (the toggle re-renders with
+        // #project-content), but only bind click handlers once.
+        applyResolution(readResolution());
+        if (toggle.dataset.initialized) return;
+        toggle.dataset.initialized = 'true';
+
+        toggle.addEventListener('click', function (e) {
+            var btn = e.target.closest('.list-resolution__option');
+            if (!btn) return;
+            var value = btn.dataset.resolution;
+            if (value !== 'targets' && value !== 'breakdown') return;
+            writeResolution(value);
+            applyResolution(value);
+        });
+    }
+
+    // -------------------------------------------------------------------------
     // Item search selection (plan view)
     // -------------------------------------------------------------------------
 
@@ -339,6 +403,7 @@
         initAddResourceForm();
         initItemSearchKeyNav();
         initPlanCountEdit();
+        initResolutionToggle();
     }
 
     document.addEventListener('DOMContentLoaded', init);

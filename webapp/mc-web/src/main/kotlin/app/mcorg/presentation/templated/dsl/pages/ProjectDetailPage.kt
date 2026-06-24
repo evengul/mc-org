@@ -245,7 +245,12 @@ private fun FlowContent.lensComingSoon(worldId: Int, projectId: Int, lens: Strin
 }
 
 /**
- * The List lens: definition controls + grouped activity list (or empty/error state).
+ * The List lens. Renders two resolutions of the same plan behind a client-side toggle
+ * (MCO-226): "What I need" (the targets the user defined) and "How to make it" (the engine's
+ * full dependency breakdown). Both bodies are rendered; the toggle shows one at a time and its
+ * choice is persisted in sessionStorage so it survives #project-content re-renders (e.g. the
+ * inline variant pick, which re-renders the whole list via origin=list). The Tasks section
+ * sits below both and is always visible.
  */
 private fun FlowContent.listLensContent(
     project: Project,
@@ -254,95 +259,110 @@ private fun FlowContent.listLensContent(
     plan: GatheringPlan?,
     progressMap: Map<String, Int> = emptyMap(),
 ) {
-    // Resources / definition section
-    div("project-detail__section") {
-        div("project-detail__section-header") {
-            span("project-detail__section-title section-label") { +"Resources" }
-            div("project-detail__section-actions") {
-                button(classes = "btn btn--ghost btn--sm") {
-                    id = "plan-upload-schematic-btn"
-                    type = ButtonType.button
-                    attributes["onclick"] =
-                        "document.getElementById('resource-schematic-modal')?.showModal()"
-                    +"Upload schematic"
-                }
-                button(classes = "btn btn--secondary btn--sm plan-add-resource-btn") {
-                    id = "plan-add-resource-btn"
-                    type = ButtonType.button
-                    +"+ Add resource"
-                }
-            }
-        }
+    // Resolution toggle (client-side; default "targets" applied by plan-view.js).
+    listResolutionToggle()
 
-        // Add resource form (hidden by default via JS)
-        div("plan-add-resource-form") {
-            id = "plan-add-resource-form"
-            form {
-                id = "plan-resource-form"
-                div("plan-add-resource-form__fields") {
-                    div("plan-add-resource-form__field plan-add-resource-form__field--item") {
-                        label("plan-add-resource-form__label") {
-                            htmlFor = "plan-item-search"
-                            +"Item"
-                        }
-                        div("item-search-field") {
-                            input(type = InputType.text, classes = "form-control") {
-                                id = "plan-item-search"
-                                placeholder = "Search items by name..."
-                                autoComplete = "off"
-                                hxGet("/items/search")
-                                hxTrigger("input changed delay:300ms")
-                                hxTarget("#plan-item-search-results")
-                                hxSwap("innerHTML")
-                                attributes["hx-vals"] = "js:{q: this.value}"
-                            }
-                            div("item-search-results") {
-                                id = "plan-item-search-results"
-                            }
-                        }
-                        hiddenInput {
-                            id = "plan-selected-item-id"
-                            name = "requiredItemId"
-                        }
+    // "What I need" — the defined targets, with the add/upload definition controls.
+    div("list-resolution-view") {
+        id = "list-targets-view"
+        attributes["data-resolution-view"] = "targets"
+
+        div("project-detail__section") {
+            div("project-detail__section-header") {
+                span("project-detail__section-title section-label") { +"Resources" }
+                div("project-detail__section-actions") {
+                    button(classes = "btn btn--ghost btn--sm") {
+                        id = "plan-upload-schematic-btn"
+                        type = ButtonType.button
+                        attributes["onclick"] =
+                            "document.getElementById('resource-schematic-modal')?.showModal()"
+                        +"Upload schematic"
                     }
-                    div("plan-add-resource-form__field plan-add-resource-form__field--qty") {
-                        label("plan-add-resource-form__label") {
-                            htmlFor = "plan-item-amount"
-                            +"Quantity"
-                        }
-                        input(type = InputType.number, classes = "form-control") {
-                            id = "plan-item-amount"
-                            name = "requiredAmount"
-                            min = "1"
-                            max = "2000000000"
-                            value = "1"
-                        }
-                    }
-                    div("plan-add-resource-form__actions") {
-                        button(classes = "btn btn--primary btn--sm") {
-                            id = "plan-add-resource-submit"
-                            type = ButtonType.button
-                            +"Add"
-                        }
-                        button(classes = "btn btn--ghost btn--sm") {
-                            id = "plan-add-resource-cancel"
-                            type = ButtonType.button
-                            +"Cancel"
-                        }
+                    button(classes = "btn btn--secondary btn--sm plan-add-resource-btn") {
+                        id = "plan-add-resource-btn"
+                        type = ButtonType.button
+                        +"+ Add resource"
                     }
                 }
             }
+
+            // Add resource form (hidden by default via JS)
+            div("plan-add-resource-form") {
+                id = "plan-add-resource-form"
+                form {
+                    id = "plan-resource-form"
+                    div("plan-add-resource-form__fields") {
+                        div("plan-add-resource-form__field plan-add-resource-form__field--item") {
+                            label("plan-add-resource-form__label") {
+                                htmlFor = "plan-item-search"
+                                +"Item"
+                            }
+                            div("item-search-field") {
+                                input(type = InputType.text, classes = "form-control") {
+                                    id = "plan-item-search"
+                                    placeholder = "Search items by name..."
+                                    autoComplete = "off"
+                                    hxGet("/items/search")
+                                    hxTrigger("input changed delay:300ms")
+                                    hxTarget("#plan-item-search-results")
+                                    hxSwap("innerHTML")
+                                    attributes["hx-vals"] = "js:{q: this.value}"
+                                }
+                                div("item-search-results") {
+                                    id = "plan-item-search-results"
+                                }
+                            }
+                            hiddenInput {
+                                id = "plan-selected-item-id"
+                                name = "requiredItemId"
+                            }
+                        }
+                        div("plan-add-resource-form__field plan-add-resource-form__field--qty") {
+                            label("plan-add-resource-form__label") {
+                                htmlFor = "plan-item-amount"
+                                +"Quantity"
+                            }
+                            input(type = InputType.number, classes = "form-control") {
+                                id = "plan-item-amount"
+                                name = "requiredAmount"
+                                min = "1"
+                                max = "2000000000"
+                                value = "1"
+                            }
+                        }
+                        div("plan-add-resource-form__actions") {
+                            button(classes = "btn btn--primary btn--sm") {
+                                id = "plan-add-resource-submit"
+                                type = ButtonType.button
+                                +"Add"
+                            }
+                            button(classes = "btn btn--ghost btn--sm") {
+                                id = "plan-add-resource-cancel"
+                                type = ButtonType.button
+                                +"Cancel"
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Resource table — always rendered as HTMX swap target
+            planResourceTable(project.worldId, project.id, resources)
+
+            // Schematic upload modal
+            resourceSchematicModal(project.worldId, project.id, resources.filter { it.required > 0 }.size)
         }
-
-        // Resource table — always rendered as HTMX swap target
-        planResourceTable(project.worldId, project.id, resources)
-
-        // Schematic upload modal
-        resourceSchematicModal(project.worldId, project.id, resources.filter { it.required > 0 }.size)
     }
 
-    // Gathering plan activity sections
-    gatheringPlanSections(project, plan, progressMap)
+    // "How to make it" — the engine's full dependency breakdown (grouped activities).
+    // Hidden by default (targets is the default resolution); plan-view.js reveals it when
+    // the persisted choice is "breakdown", avoiding a both-views flash before JS runs.
+    div("list-resolution-view list-resolution-view--hidden") {
+        id = "list-breakdown-view"
+        attributes["data-resolution-view"] = "breakdown"
+
+        gatheringPlanSections(project, plan, progressMap)
+    }
 
     // Tasks section (collapsed)
     div("project-detail__section") {
@@ -372,6 +392,33 @@ private fun FlowContent.listLensContent(
             }
             taskList(project.worldId, project.id, tasks)
             addTaskInline(project.worldId, project.id)
+        }
+    }
+}
+
+/**
+ * Segmented toggle between the two List-lens resolutions (MCO-226). Plain buttons wired by
+ * plan-view.js (no server round-trip — both views are already in the DOM). The active state
+ * and which view is shown are driven client-side and persisted per project in sessionStorage,
+ * so the choice survives #project-content re-renders. "What I need" is the default.
+ */
+private fun FlowContent.listResolutionToggle() {
+    div("list-resolution") {
+        attributes["role"] = "tablist"
+        attributes["aria-label"] = "Plan resolution"
+        button(classes = "list-resolution__option list-resolution__option--active") {
+            type = ButtonType.button
+            attributes["data-resolution"] = "targets"
+            attributes["role"] = "tab"
+            attributes["aria-selected"] = "true"
+            +"What I need"
+        }
+        button(classes = "list-resolution__option") {
+            type = ButtonType.button
+            attributes["data-resolution"] = "breakdown"
+            attributes["role"] = "tab"
+            attributes["aria-selected"] = "false"
+            +"How to make it"
         }
     }
 }
@@ -662,14 +709,6 @@ fun TR.planResourceRow(worldId: Int, projectId: Int, item: ResourceGatheringItem
             hxTrigger("change")
         }
     }
-    val sourceLabel = when (item.sourceType) {
-        "manual" -> "Manual gather"
-        "project" -> item.solvedByProject?.second ?: "Unknown project"
-        else -> "--"
-    }
-    td("plan-resource-table__source") {
-        span("plan-resource-table__source-badge") { +sourceLabel }
-    }
     td("plan-resource-table__action") {
         button(classes = "btn btn--ghost btn--sm plan-resource-table__delete-btn") {
             type = ButtonType.button
@@ -695,7 +734,6 @@ fun FlowContent.planResourceTable(worldId: Int, projectId: Int, resources: List<
                     th { classes = setOf("plan-resource-table__col-status") }
                     th { classes = setOf("plan-resource-table__col-item"); +"Item" }
                     th { classes = setOf("plan-resource-table__col-qty"); +"Qty" }
-                    th { classes = setOf("plan-resource-table__col-source"); +"Source" }
                     th { classes = setOf("plan-resource-table__col-action") }
                 }
             }
@@ -722,7 +760,6 @@ fun planResourceTableFragment(worldId: Int, projectId: Int, resources: List<Reso
                     th { classes = setOf("plan-resource-table__col-status") }
                     th { classes = setOf("plan-resource-table__col-item"); +"Item" }
                     th { classes = setOf("plan-resource-table__col-qty"); +"Qty" }
-                    th { classes = setOf("plan-resource-table__col-source"); +"Source" }
                     th { classes = setOf("plan-resource-table__col-action") }
                 }
             }
