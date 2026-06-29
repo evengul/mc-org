@@ -36,7 +36,7 @@
              (github/codeql#21938). -->
         <kotlin.version>2.3.21</kotlin.version>
         <kotlinx_coroutines_version>1.11.0</kotlinx_coroutines_version>
-        <ktor_version>3.5.0</ktor_version>
+        <ktor_version>3.5.1</ktor_version>
         <junit.version>6.1.0</junit.version>
         <testcontainers.version>2.0.5</testcontainers.version>
 
