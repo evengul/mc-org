@@ -51,7 +51,12 @@ class AddResourcesFromSchematicIT : WithUser() {
         litematicBytes = javaClass.getResourceAsStream("/litematica-test.litematic")!!.readBytes()
 
         val litematica = (LitematicaReader.readLitematica(litematicBytes) as Result.Success).value
-        expectedItemIds = litematica.items.keys.toSet()
+        // The mapping redirects placed-effect block ids to the item actually gathered
+        // (redstone_wall_torch -> redstone_torch, redstone_wire -> redstone). Both targets
+        // are themselves cells in this fixture, so the two source ids collapse onto them and
+        // do not survive as their own resources.
+        expectedItemIds = litematica.items.keys.toSet() -
+            setOf("minecraft:redstone_wall_torch", "minecraft:redstone_wire")
         runBlocking {
             DatabaseSteps.update<Unit>(
                 sql = SafeSQL.insert("INSERT INTO minecraft_version (version) VALUES ('1.21.4') ON CONFLICT DO NOTHING"),
