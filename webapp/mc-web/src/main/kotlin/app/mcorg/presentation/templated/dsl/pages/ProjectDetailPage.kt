@@ -36,6 +36,8 @@ import app.mcorg.presentation.templated.dsl.taskList
 import kotlinx.html.*
 import kotlinx.html.stream.createHTML
 import app.mcorg.engine.plan.TargetTree
+import app.mcorg.pipeline.resources.FeedsLabel
+import app.mcorg.pipeline.resources.buildFeedsLabels
 import app.mcorg.pipeline.resources.buildNodeIngredients
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
@@ -449,6 +451,7 @@ fun FlowContent.gatheringPlanSections(
     val byGroup = plan.activityList.groupBy { it.group }
     val groupOrder = ActivityGroup.values()
     val nodeIngredients = buildNodeIngredients(plan)
+    val feedsLabels = buildFeedsLabels(plan)
 
     div {
         id = "gathering-plan-sections"
@@ -456,17 +459,39 @@ fun FlowContent.gatheringPlanSections(
             val activities = byGroup[group] ?: return@forEach
             if (activities.isEmpty()) return@forEach
 
+            // Independent groups (raw activities with no intra-group ingredient edges) sort
+            // biggest-pile-first so gathering is prioritised by quantity. Smelt/Craft keep the
+            // engine's topological order so an ingredient still precedes what it builds.
+            val ordered = if (group in QUANTITY_SORTED_GROUPS) {
+                activities.sortedWith(compareByDescending<Activity> { it.quantity }.thenBy { it.item.name })
+            } else {
+                activities
+            }
+
             div("project-detail__section") {
                 span("section-label") { +groupLabel(group) }
                 div("resource-list") {
-                    activities.forEach { activity ->
-                        planActivityRow(project.worldId, project.id, activity, progressMap, nodeIngredients)
+                    ordered.forEach { activity ->
+                        planActivityRow(project.worldId, project.id, activity, progressMap, nodeIngredients, feedsLabels)
                     }
                 }
             }
         }
     }
 }
+
+/**
+ * Groups whose rows carry no ingredient edges between each other, so they can be sorted
+ * by quantity for prioritisation without breaking the "ingredients before consumers" reading
+ * that Smelt/Craft rely on.
+ */
+private val QUANTITY_SORTED_GROUPS = setOf(
+    ActivityGroup.COLLECT_SUPPLIED,
+    ActivityGroup.GATHER,
+    ActivityGroup.HUNT,
+    ActivityGroup.LOOT,
+    ActivityGroup.TRADE,
+)
 
 /** Renders a single activity row. Presentation depends on status. */
 private fun FlowContent.planActivityRow(
@@ -475,18 +500,33 @@ private fun FlowContent.planActivityRow(
     activity: Activity,
     progressMap: Map<String, Int> = emptyMap(),
     nodeIngredients: Map<String, String> = emptyMap(),
+    feedsLabels: Map<String, FeedsLabel> = emptyMap(),
 ) {
     when (activity.status) {
-        PlanNodeStatus.SUPPLIED -> suppliedActivityRow(worldId, projectId, activity)
+        PlanNodeStatus.SUPPLIED -> suppliedActivityRow(worldId, projectId, activity, feedsLabels[activity.item.id])
         PlanNodeStatus.OPEN_TAG -> openTagActivityRow(worldId, projectId, activity)
         PlanNodeStatus.BLOCKED -> blockedActivityRow(worldId, projectId, activity)
         PlanNodeStatus.RESOLVED, PlanNodeStatus.RAW_GATHER ->
-            counterActivityRow(worldId, projectId, activity, progressMap, nodeIngredients)
+            counterActivityRow(worldId, projectId, activity, progressMap, nodeIngredients, feedsLabels[activity.item.id])
+    }
+}
+
+/** Renders the "Feeds 24 Birch Door · 40 Chest" reverse-provenance line, when present. */
+internal fun FlowContent.feedsLine(label: FeedsLabel?) {
+    if (label == null) return
+    div("resource-row__feeds") {
+        label.title?.let { attributes["title"] = it }
+        +label.text
     }
 }
 
 /** SUPPLIED row: badge + supply label, no counter. */
-private fun FlowContent.suppliedActivityRow(worldId: Int, projectId: Int, activity: Activity) {
+private fun FlowContent.suppliedActivityRow(
+    worldId: Int,
+    projectId: Int,
+    activity: Activity,
+    feedsLabel: FeedsLabel? = null,
+) {
     val supplyLabel = activity.supply?.label ?: "Supplied"
     val encodedItemId = URLEncoder.encode(activity.item.id, StandardCharsets.UTF_8)
     div("resource-row") {
@@ -497,6 +537,7 @@ private fun FlowContent.suppliedActivityRow(worldId: Int, projectId: Int, activi
             span("resource-row__source") { +"from $supplyLabel" }
             drillButton(worldId, projectId, encodedItemId)
         }
+        feedsLine(feedsLabel)
     }
 }
 
@@ -553,6 +594,7 @@ fun FlowContent.counterActivityRow(
     activity: Activity,
     progressMap: Map<String, Int> = emptyMap(),
     nodeIngredients: Map<String, String> = emptyMap(),
+    feedsLabel: FeedsLabel? = null,
 ) {
     val itemSlug = activity.item.id.replace(":", "-")
     val rowId = "plan-activity-$itemSlug"
@@ -611,6 +653,7 @@ fun FlowContent.counterActivityRow(
                 }
             }
         }
+        feedsLine(feedsLabel)
     }
 }
 

@@ -170,6 +170,46 @@ class GatheringPlan(
     }
 
     /**
+     * Reverse-provenance: node id -> the set of target item ids whose selected chain
+     * transitively consumes that node — "what does gathering this go toward". Powers
+     * the "feeds 24 Birch Door · 40 Chest" annotation.
+     *
+     * - A node's own target id is not in its own set — a target does not feed itself.
+     * - A target that is also an ingredient of another target is attributed to that
+     *   other target (and its own id propagates to its ingredients).
+     * - A pure target nothing else consumes maps to an empty set (no annotation).
+     *
+     * Computed by seeding each target root with its target id and propagating down the
+     * [PlanNode.requires] edges in reverse-topological order (consumers before
+     * ingredients), so a single pass fills every node. O(nodes + edges).
+     */
+    val feeders: Map<String, Set<String>> by lazy {
+        val result = HashMap<String, MutableSet<String>>(nodes.size)
+        nodes.keys.forEach { result[it] = HashSet() }
+
+        // nodeId -> target item ids it directly fulfills (differs from the node id only
+        // for a tag target redirected to a concrete member via [roots]).
+        val ownTargets = HashMap<String, MutableSet<String>>()
+        for ((targetItemId, nodeId) in roots) {
+            ownTargets.getOrPut(nodeId) { HashSet() }.add(targetItemId)
+        }
+
+        // activityList is topological (ingredients before consumers); reversed gives
+        // consumers first, so a node's feeder set is complete before we push it down.
+        for (activity in activityList.asReversed()) {
+            val id = activity.item.id
+            val node = nodes[id] ?: continue
+            val attribution = HashSet(result.getValue(id))
+            ownTargets[id]?.let { attribution.addAll(it) }
+            if (attribution.isEmpty()) continue
+            for (req in node.requires) {
+                if (req.itemId != id) result[req.itemId]?.addAll(attribution)
+            }
+        }
+        result
+    }
+
+    /**
      * Drill-down tree for one target, or null if [targetItemId] is not a target.
      * Quantities are "if gathered alone" — see [TargetTree].
      */

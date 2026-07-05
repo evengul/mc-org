@@ -105,6 +105,26 @@
     flex: 0 0 auto;
 }
 
+/* Reverse-provenance line ("Feeds 24 Birch Door · 40 Chest") hung under a material row. */
+.resource-row__feeds {
+    font-family: var(--font-ui);
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+    padding-left: var(--space-4);
+}
+
+.resource-row__feeds::before {
+    content: "↳ ";
+    color: var(--border);
+}
+
+/* A truncated list ("+N more") exposes the full set via a title tooltip — hint it. */
+.resource-row__feeds[title] {
+    cursor: help;
+    text-decoration: underline dotted var(--border);
+    text-underline-offset: 2px;
+}
+
 .resource-row__counters {
     display: flex;
     gap: 2px;

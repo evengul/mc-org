@@ -284,6 +284,80 @@ class GatheringPlanTest {
         assertTrue(aAgain.children.isEmpty())
     }
 
+    // ── feeders (reverse-provenance) ─────────────────────────────────────────
+
+    @Test
+    fun `feeders attribute a shared material to every target that consumes it`() {
+        val feeders = chestAndStickPlan().feeders
+
+        assertEquals(setOf("minecraft:chest", "minecraft:stick"), feeders.getValue("minecraft:log"))
+        assertEquals(setOf("minecraft:chest", "minecraft:stick"), feeders.getValue("minecraft:planks"))
+    }
+
+    @Test
+    fun `a target that nothing else consumes has no feeders`() {
+        val feeders = chestAndStickPlan().feeders
+
+        assertTrue(feeders.getValue("minecraft:chest").isEmpty())
+        assertTrue(feeders.getValue("minecraft:stick").isEmpty())
+    }
+
+    @Test
+    fun `a target that is also an ingredient is attributed to the other target, not itself`() {
+        // targets: 4 chests and 10 planks; chest <- 8 planks; planks <- 1 log.
+        val nodes = mapOf(
+            "minecraft:chest" to PlanNode(
+                item = item("chest"), quantity = 4, crafts = 4, leftover = 0,
+                status = PlanNodeStatus.RESOLVED, source = craft,
+                requires = listOf(PlanRequirement("minecraft:planks", 8))
+            ),
+            "minecraft:planks" to PlanNode(
+                item = item("planks"), quantity = 42, crafts = 11, leftover = 2,
+                status = PlanNodeStatus.RESOLVED, source = craft, producedQuantity = 4,
+                requires = listOf(PlanRequirement("minecraft:log", 1))
+            ),
+            "minecraft:log" to PlanNode(
+                item = item("log"), quantity = 11, crafts = 11, leftover = 0,
+                status = PlanNodeStatus.RAW_GATHER, source = mine
+            )
+        )
+        val plan = GatheringPlan(
+            nodes = nodes,
+            targets = listOf(PlanTarget(item("chest"), 4), PlanTarget(item("planks"), 10))
+        )
+
+        // planks is itself a target but is consumed by chest -> feeds chest, never itself.
+        assertEquals(setOf("minecraft:chest"), plan.feeders.getValue("minecraft:planks"))
+        // the log feeds both the chest target and the planks target.
+        assertEquals(setOf("minecraft:chest", "minecraft:planks"), plan.feeders.getValue("minecraft:log"))
+        assertTrue(plan.feeders.getValue("minecraft:chest").isEmpty())
+    }
+
+    @Test
+    fun `feeders attribute to the target id even when the root is tag-redirected`() {
+        val tag = MinecraftTag("minecraft:planks_tag", "Planks", emptyList())
+        val nodes = mapOf(
+            "minecraft:oak_planks" to PlanNode(
+                item = item("oak_planks"), quantity = 12, crafts = 3, leftover = 0,
+                status = PlanNodeStatus.RESOLVED, source = craft, producedQuantity = 4,
+                requires = listOf(PlanRequirement("minecraft:log", 1))
+            ),
+            "minecraft:log" to PlanNode(
+                item = item("log"), quantity = 3, crafts = 3, leftover = 0,
+                status = PlanNodeStatus.RAW_GATHER, source = mine
+            )
+        )
+        val plan = GatheringPlan(
+            nodes = nodes,
+            targets = listOf(PlanTarget(tag, 12)),
+            roots = mapOf("minecraft:planks_tag" to "minecraft:oak_planks")
+        )
+
+        // the log is attributed to the tag target id, not the concrete member node.
+        assertEquals(setOf("minecraft:planks_tag"), plan.feeders.getValue("minecraft:log"))
+        assertTrue(plan.feeders.getValue("minecraft:oak_planks").isEmpty())
+    }
+
     // ── ceilDiv ─────────────────────────────────────────────────────────────
 
     @Test
