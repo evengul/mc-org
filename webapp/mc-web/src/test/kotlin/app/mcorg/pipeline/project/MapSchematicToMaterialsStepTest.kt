@@ -24,6 +24,9 @@ class MapSchematicToMaterialsStepTest {
         "minecraft:redstone",
         "minecraft:string",
         "minecraft:torch",
+        "minecraft:soul_fire",
+        "minecraft:bubble_column",
+        "minecraft:soul_sand",
     ).map { Item(it, it.substringAfterLast(':')) }
 
     private fun litematica(items: Map<String, Int>) =
@@ -118,6 +121,24 @@ class MapSchematicToMaterialsStepTest {
         assertNull(byId["minecraft:black_candle_cake"])
         assertNull(byId["minecraft:infested_stone"])
         assertEquals(9, byId["minecraft:oak_planks"], "real materials still pass through")
+    }
+
+    @Test
+    fun `placed effect blocks are dropped even when present in the catalog`() {
+        // soul_fire and bubble_column exist as block ids but carry no material of their own:
+        // the block they sit on (here soul_sand) is a separate, already-counted cell and the
+        // activation (flint & steel / water bucket) is a reusable tool. They must drop out
+        // rather than surface as a BLOCKED row with no feasible source.
+        val byId = map(
+            mapOf(
+                "minecraft:soul_fire" to 4,
+                "minecraft:bubble_column" to 6,
+                "minecraft:soul_sand" to 10,
+            )
+        )
+        assertNull(byId["minecraft:soul_fire"])
+        assertNull(byId["minecraft:bubble_column"])
+        assertEquals(10, byId["minecraft:soul_sand"], "the underlying block is still counted, not inflated")
     }
 
     @Test

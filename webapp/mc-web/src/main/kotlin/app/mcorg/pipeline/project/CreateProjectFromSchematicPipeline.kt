@@ -165,8 +165,10 @@ data class MapSchematicToMaterialsStep(
      *    (birch_wall_sign -> birch_sign, dead_horn_coral_wall_fan -> dead_horn_coral_fan).
      * 4. Otherwise resolve by the id itself, or drop when the version has no such item.
      *
-     * Truly non-obtainable blocks (budding_amethyst, portals, fire) are intentionally
-     * left to resolve to nothing and surface as a BLOCKED row rather than a wrong guess.
+     * Truly non-obtainable blocks (budding_amethyst, portals) are intentionally left to
+     * resolve to nothing and surface as a BLOCKED row rather than a wrong guess. Placed
+     * *effect* blocks whose material is a separate cell already counted plus a reusable
+     * tool (fire, soul_fire, bubble_column) are dropped as non-materials — see [isDropped].
      */
     private fun resolveMaterial(blockId: String, byId: Map<String, Item>): Item? {
         if (isDropped(blockId)) return null
@@ -186,9 +188,18 @@ data class MapSchematicToMaterialsStep(
     companion object {
         /**
          * Blocks that occupy a cell in a schematic but are not a material of their own —
-         * the piston already accounts for its extended head and the moving block.
+         * the piston already accounts for its extended head and the moving block; the
+         * placed-effect blocks (fire, soul_fire, bubble_column) are created in-world from
+         * the block below them (a separate, already-counted cell) plus a reusable tool
+         * (flint & steel / a water bucket), so they carry no material of their own.
          */
-        private val NON_MATERIAL_BLOCKS = setOf("minecraft:piston_head", "minecraft:moving_piston")
+        private val NON_MATERIAL_BLOCKS = setOf(
+            "minecraft:piston_head",
+            "minecraft:moving_piston",
+            "minecraft:fire",
+            "minecraft:soul_fire",
+            "minecraft:bubble_column",
+        )
 
         /**
          * Placed block-state ids whose gathered item has a *different* id. Crops resolve
