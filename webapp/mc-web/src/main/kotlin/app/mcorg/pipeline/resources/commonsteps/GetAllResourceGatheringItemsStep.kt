@@ -17,7 +17,7 @@ val GetAllResourceGatheringItemsStep = DatabaseSteps.query<Int, List<ResourceGat
                ON rgp.project_id = rg.project_id AND rgp.item_id = rg.item_id
         LEFT JOIN projects p ON p.id = rg.solved_by_project_id
         WHERE rg.project_id = ?
-        ORDER BY rg.required
+        ORDER BY rg.required DESC, rg.name
         """.trimIndent()
     ),
     parameterSetter = { statement, projectId -> statement.setInt(1, projectId) },
