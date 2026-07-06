@@ -37,7 +37,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - name: Cache Maven packages
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: ~/.m2/repository
           key: maven-${{ runner.os }}-${{ hashFiles('**/pom.xml') }}
@@ -54,7 +54,7 @@ jobs:
           name: maven-local-modules
           path: ~/.m2/repository/app/mcorg
       - name: Cache Minecraft server data
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: webapp/mc-data/src/test/resources/servers/extracted
           key: minecraft-server-data-${{ hashFiles('webapp/mc-data/src/test/kotlin/app/mcorg/data/minecraft/extract/ServerFileDownloader.kt') }}
@@ -76,7 +76,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - name: Cache Maven packages
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: ~/.m2/repository
           key: maven-${{ runner.os }}-${{ hashFiles('**/pom.xml') }}
@@ -117,7 +117,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - name: Cache Maven packages
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: ~/.m2/repository
           key: maven-${{ runner.os }}-${{ hashFiles('**/pom.xml') }}
@@ -231,13 +231,13 @@ jobs:
 #    steps:
 #      - uses: actions/checkout@v7
 #      - name: Cache Node modules
-#        uses: actions/cache@v5
+#        uses: actions/cache@v6
 #        with:
 #          path: ./webapp/src/test/javascript/node_modules
 #          key: ${{ runner.os }}-node-${{ hashFiles('./webapp/src/test/javascript/package-lock.json') }}
 #          restore-keys: ${{ runner.os }}-node-
 #      - name: Cache Playwright browsers
-#        uses: actions/cache@v5
+#        uses: actions/cache@v6
 #        id: playwright-cache
 #        with:
 #          path: |
