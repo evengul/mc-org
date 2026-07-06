@@ -36,7 +36,7 @@ Technical and domain terminology for MC-ORG.
 
 **Handler** — `suspend fun ApplicationCall.handleXxx()` function. Extracts params, executes pipeline, returns HTML.
 
-**respondHtml** — Extension on `ApplicationCall` to respond with HTML. Signature: `respondHtml(htmlString: String)`. Use `createHTML().div { ... }.toString()` or `createPage(user, title) { }`.
+**respondHtml** — Extension on `ApplicationCall` to respond with HTML. Signature: `respondHtml(htmlString: String)`. Use `createHTML().div { ... }.toString()` for fragments or `pageShell(pageTitle, user) { }` for full pages.
 
 **createHTML** — Must use `kotlinx.html.stream.createHTML` (NOT `kotlinx.html.createHTML`). Produces server-side HTML strings.
 
@@ -50,7 +50,7 @@ Technical and domain terminology for MC-ORG.
 
 **World** — A Minecraft server/save containing projects and members. Private by default (invitation-only). Has OWNER, ADMIN, MEMBER, BANNED roles.
 
-**Project** — A building task or system within a World. Types: BUILDING, CONTRAPTION, INFRASTRUCTURE, DECORATION, OTHER. Stages: PLANNING → DESIGN → RESOURCE_GATHERING → BUILDING → REVIEW → COMPLETE → ARCHIVED.
+**Project** — A building task or system within a World. Types: BUILDING, REDSTONE, MINING, FARMING, EXPLORATION, DECORATION, TECHNICAL. Stages: IDEA → DESIGN → PLANNING → RESOURCE_GATHERING → BUILDING → TESTING → COMPLETED. Also has an orthogonal `ProjectState` (PENDING/ACTIVE/PAUSED/DONE/CANCELLED/ARCHIVED) with a restricted transition machine.
 
 **ItemTask** — Task for collecting materials. Has `List<ItemRequirement>` (itemId, quantityRequired, quantityDone). Done when all quantities met.
 
@@ -58,7 +58,7 @@ Technical and domain terminology for MC-ORG.
 
 **TaskPriority** — CRITICAL / NORMAL / NICE_TO_HAVE.
 
-**Idea** — Global design template. Has category (FARM, CONTRAPTION, BUILDING, DECORATION, UTILITY, OTHER), difficulty (EASY, MEDIUM, HARD, EXPERT), `categoryData: Map<String, CategoryValue>` (JSONB).
+**Idea** — Global design template. Has category (BUILD, FARM, STORAGE, CART_TECH, TNT, SLIMESTONE, OTHER), difficulty (START_OF_GAME, MID_GAME, END_GAME, TECHNICAL_UNDERSTANDING_RECOMMENDED, TECHNICAL_UNDERSTANDING_REQUIRED), `categoryData: Map<String, CategoryValue>` (JSONB).
 
 **Invite** — World membership request. Status: PENDING → ACCEPTED / DECLINED / CANCELLED.
 

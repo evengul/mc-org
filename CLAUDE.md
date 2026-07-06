@@ -17,7 +17,7 @@ Implement directly for well-understood tasks — don't plan when you can act.
 
 | Layer    | Technology                 | Notes                                                          |
 |----------|----------------------------|----------------------------------------------------------------|
-| Backend  | Ktor 3.4.0 + Kotlin 2.2.21 | JVM 21, Netty, port 8080                                       |
+| Backend  | Ktor 3.5.0 + Kotlin 2.3.21 | JVM 25, Netty, port 8080 (versions pinned in `webapp/mc-bom/pom.xml` / `webapp/pom.xml`) |
 | Database | PostgreSQL + Flyway        | Migrations in `webapp/mc-web/src/main/resources/db/migration/` |
 | Frontend | Kotlin HTML DSL + HTMX     | Server-side rendering only                                     |
 | Build    | Maven                      | NOT Gradle                                                     |

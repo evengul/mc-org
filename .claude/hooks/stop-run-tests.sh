@@ -15,9 +15,11 @@ if [ "$MODIFIED_KT" -eq 0 ]; then
   exit 0
 fi
 
-echo "Running tests ($MODIFIED_KT modified .kt file(s))..."
-cd "$CLAUDE_PROJECT_DIR/webapp" || exit 0
-OUTPUT=$(mvn test 2>&1)
+echo "Running unit tests ($MODIFIED_KT modified .kt file(s))..."
+cd "$CLAUDE_PROJECT_DIR" || exit 0
+# Unit tier only — fast, no Docker. Database/integration tiers are run explicitly
+# (or by CI); bare `mvn test` is banned because it silently skips database-tagged ITs.
+OUTPUT=$(./webapp/scripts/test.sh 2>&1)
 EXIT_CODE=$?
 
 if [ $EXIT_CODE -ne 0 ]; then

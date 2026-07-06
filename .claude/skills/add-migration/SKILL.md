@@ -10,18 +10,19 @@ Template for creating a new Flyway database migration in MC-ORG.
 
 ## Step 1: Determine Version Number
 
-Current version: **V2_21_0**
+Never assume the current version — read it from the migration directory:
 
-Next version should be: **V2_22_0** (or increment appropriately)
-
-Check existing migrations:
 ```bash
-ls src/main/resources/db/migration/ | tail -5
+ls webapp/mc-web/src/main/resources/db/migration/ | sort -V | tail -5
 ```
+
+Pick the next free number after the highest existing one. Remember migration
+number collisions with in-flight branches are resolved at merge time by
+renumbering (see CLAUDE.md).
 
 ## Step 2: Create Migration File
 
-Location: `src/main/resources/db/migration/`
+Location: `webapp/mc-web/src/main/resources/db/migration/`
 
 File naming: `V{major}_{minor}_{patch}__{description}.sql`
 
@@ -155,7 +156,7 @@ DB_URL="jdbc:postgresql://localhost:5432/postgres" DB_USER="postgres" DB_PASSWOR
 
 ## Step 5: Create Kotlin Model (if new table)
 
-Location: `src/main/kotlin/app/mcorg/domain/model/{feature}/{Entity}.kt`
+Location: `webapp/mc-domain/src/main/kotlin/app/mcorg/domain/model/{feature}/{Entity}.kt`
 
 ```kotlin
 data class {Entity}(
@@ -240,4 +241,4 @@ ADD COLUMN status {enum_name} NOT NULL DEFAULT 'VALUE1';
 - [ ] Migration tested locally (`./webapp/scripts/migrate-locally.sh`)
 - [ ] Kotlin model created (if new table)
 - [ ] ResultSet mapper created (if new table)
-- [ ] `mvn test` passes
+- [ ] `./webapp/scripts/test.sh` passes (NOT bare `mvn test` — it skips database-tagged ITs)

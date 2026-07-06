@@ -324,9 +324,8 @@ Helpers (`hxGet/hxPost/hxPut/hxPatch/hxDelete`, `hxTarget`, `hxSwap`, `hxTrigger
 `hxOutOfBands`, `hxDeleteWithConfirm`, `hxTargetError`) and swap mechanics are catalogued in **docs-htmx** —
 load it for fragment/OOB/inline-edit patterns. Two new-system specifics:
 
-- Use `Link.*.to` for HTMX URLs (new `/worlds/...` routes), and the new button classes shown above. (The
-  example snippets inside docs-htmx still show legacy `/app/...` routes, `btn--action`, and `notice--*`
-  classes — translate them to the new system.)
+- Use `Link.*.to` for HTMX URLs (`/worlds/...` routes — no `/app/` prefix), and the button classes
+  shown above. docs-htmx examples use the current system.
 - Response element `id` must match the `hxTarget` selector; mutating handlers return fragments only.
 
 ---

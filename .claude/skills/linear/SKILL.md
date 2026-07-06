@@ -8,12 +8,17 @@ disable-model-invocation: false
 
 **Workspace:** evegul | **Team:** Mcorg
 
-Always use MCP Linear tools (`mcp__linear__*`). Never create GitHub issues.
+Always use MCP Linear tools. Never create GitHub issues.
+
+The tool namespace depends on how Linear is connected — currently the claude.ai
+connector exposes `mcp__claude_ai_Linear__*` (e.g. `mcp__claude_ai_Linear__save_issue`).
+If a tool name below doesn't resolve, find the current one via ToolSearch (search
+"linear save issue") rather than assuming the prefix.
 
 ## Creating an Issue
 
 ```
-mcp__linear__save_issue:
+mcp__claude_ai_Linear__save_issue:
   team: "Mcorg"
   title: "<concise imperative title>"
   description: "<markdown: context, acceptance criteria, relevant file paths>"
@@ -37,7 +42,7 @@ Good descriptions include:
 Pass the `id` field to update rather than create:
 
 ```
-mcp__linear__save_issue:
+mcp__claude_ai_Linear__save_issue:
   id: "<issue-id>"
   state: "In Progress"
 ```
@@ -45,7 +50,7 @@ mcp__linear__save_issue:
 ## Listing My Issues
 
 ```
-mcp__linear__list_issues:
+mcp__claude_ai_Linear__list_issues:
   team: "Mcorg"
   assignee: "me"
 ```
@@ -58,7 +63,7 @@ mcp__linear__list_issues:
 
 ## States Available
 
-Check with `mcp__linear__list_issue_statuses` (team: Mcorg) for the current list. Common states:
+Check with `mcp__claude_ai_Linear__list_issue_statuses` (team: Mcorg) for the current list. Common states:
 - `Todo` — planned but not started
 - `In Progress` — actively being worked on
 - `In Review` — PR open

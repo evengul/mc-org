@@ -20,19 +20,19 @@ Run the full test suite as part of every review. Integration tests require the a
 # Check if something is already listening on port 8080
 ss -tlnp | grep :8080
 ```
-If nothing is on :8080, start the app in the background before running tests:
+If nothing is on :8080, start the app in the background before running tests (from the repo root):
 ```bash
-cd /home/evengul/dev/mc-org/webapp && ./scripts/run.sh &
+./webapp/scripts/run.sh &
 # Wait ~15 seconds for startup, then verify
 sleep 15 && ss -tlnp | grep :8080
 ```
 
-**Step 2 — run the full test suite:**
+**Step 2 — run the full test suite (from the repo root):**
 ```bash
-cd /home/evengul/dev/mc-org/webapp && ./scripts/test.sh --database --integration
+./webapp/scripts/test.sh --database --integration
 ```
 
-Report the full output. Any test failures are blocking unless they are confirmed pre-existing on the branch (verify with `git stash && ./scripts/test.sh --database --integration && git stash pop` if unsure).
+Report the full output. Any test failures are blocking unless they are confirmed pre-existing on the branch (verify with `git stash && ./webapp/scripts/test.sh --database --integration && git stash pop` if unsure).
 
 ## What you're checking
 
@@ -81,9 +81,9 @@ Same format — specific, not vague.
 - [ ] Critical rules
 - [ ] Pattern compliance
 - [ ] Test coverage
-- [ ] Unit tests (`./scripts/test.sh`)
-- [ ] Database tests (`./scripts/test.sh --database`)
-- [ ] Integration tests (`./scripts/test.sh --integration`)
+- [ ] Unit tests (`./webapp/scripts/test.sh`)
+- [ ] Database tests (`./webapp/scripts/test.sh --database`)
+- [ ] Integration tests (`./webapp/scripts/test.sh --integration`)
 
 **Notes** (optional):
 Anything worth flagging that doesn't fit the above — edge cases not handled, future brittleness, etc. Keep it short.

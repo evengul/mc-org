@@ -102,8 +102,14 @@ enum class Role(val level: Int) {
 data class Project(val id: Int, val worldId: Int, val name: String, val description: String,
                    val type: ProjectType, val stage: ProjectStage, val ideaId: Int?, val createdBy: Int, ...)
 
-enum class ProjectType { BUILDING, CONTRAPTION, INFRASTRUCTURE, DECORATION, OTHER }
-enum class ProjectStage { PLANNING, DESIGN, RESOURCE_GATHERING, BUILDING, REVIEW, COMPLETE, ARCHIVED }
+enum class ProjectType { BUILDING, REDSTONE, MINING, FARMING, EXPLORATION, DECORATION, TECHNICAL }
+
+// Stage = where the project is in its build journey (ordered)
+enum class ProjectStage { IDEA, DESIGN, PLANNING, RESOURCE_GATHERING, BUILDING, TESTING, COMPLETED }
+
+// State = lifecycle/activity status, separate from stage. Has an allowedTransitions()
+// state machine — check ProjectState.kt before writing transition logic.
+enum class ProjectState { PENDING, ACTIVE, PAUSED, DONE, CANCELLED, ARCHIVED }
 ```
 
 ### Tasks
@@ -163,6 +169,8 @@ webapp/
 │       ├── Result.kt    # Result<E, V> sealed class (Success/Failure)
 │       ├── PipelineScope.kt
 │       └── MergeSteps.kt
+│   # NOTE: package is `app.mcorg.domain.pipeline` (not the directory name) —
+│   # import app.mcorg.domain.pipeline.Step / .Result
 │
 ├── mc-engine/           # Game logic — depends on mc-domain
 │   └── src/main/kotlin/app/mcorg/engine/
@@ -199,9 +207,12 @@ webapp/
             ├── router/                    # Route configuration (AppRouterV2.kt)
             ├── hx.kt                      # HTMX helper functions
             ├── templated/
-            │   ├── common/                # Reusable components
-            │   ├── pages/                 # Full page templates + createPage.kt
-            │   └── partials/              # Partial templates
+            │   ├── dsl/                   # Design-system components (Buttons, Badge, Modal,
+            │   │   │                      #   Layout.kt with pageShell, ProjectCard, ...)
+            │   │   ├── components/        # Composite components
+            │   │   └── pages/             # Full page templates (ProjectListPage, ...)
+            │   ├── idea/                  # Idea Hub templates (+ createwizard/)
+            │   ├── admin/ landing/ profile/ settings/ error/ utils/
             └── utils/                     # authUtils, htmlResponseUtils, paramUtils
     └── src/main/resources/
         ├── db/migration/                  # Flyway SQL migrations
@@ -222,8 +233,8 @@ webapp/
 | Handler               | `mc-web`       | `presentation/handler/{Feature}Handler.kt`      |
 | Pipeline step (app)   | `mc-web`       | `pipeline/{feature}/`                           |
 | Route                 | `mc-web`       | `presentation/router/AppRouterV2.kt`            |
-| Full page template    | `mc-web`       | `presentation/templated/pages/{feature}/`       |
-| Component             | `mc-web`       | `presentation/templated/common/`                |
+| Full page template    | `mc-web`       | `presentation/templated/dsl/pages/`             |
+| Component             | `mc-web`       | `presentation/templated/dsl/` (see /docs-frontend) |
 | DB migration          | `mc-web`       | `src/main/resources/db/migration/`              |
 
 ---

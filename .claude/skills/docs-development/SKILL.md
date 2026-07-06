@@ -24,7 +24,9 @@ suspend fun ApplicationCall.handleCreateProject() {
         onSuccess = { project ->
             respondHtml(createHTML().div {
                 id = "project-result"
-                div("notice notice--success") { +"Project created!" }
+                // Success feedback: use the dsl alert component (alert-dialog--success),
+                // see /docs-frontend — not ad-hoc classes
+                div("alert-dialog alert-dialog--success") { +"Project created!" }
             })
         }
         // onFailure optional — default handler logs and responds appropriately
@@ -41,7 +43,7 @@ suspend fun ApplicationCall.handleCreateProject() {
 ```kotlin
 handlePipeline(
     onSuccess = { (projects, notifications) ->
-        respondHtml(createPage(user, "Dashboard") {
+        respondHtml(pageShell(pageTitle = "Dashboard", user = user) {
             dashboardContent(projects, notifications)
         })
     }

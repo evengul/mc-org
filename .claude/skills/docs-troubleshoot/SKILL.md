@@ -162,11 +162,15 @@ DatabaseSteps.transaction {
 
 ### Tests fail with migration errors
 
+Database-tagged ITs use Testcontainers — each run gets a fresh PostgreSQL, so there is
+no persistent test database to recreate. Re-run the tier:
+
 ```bash
-# Recreate test database to sync migrations
-dropdb mc_org_test && createdb mc_org_test
-mvn test
+./webapp/scripts/test.sh --database
 ```
+
+If the *local dev* DB has migration drift, re-apply with `./webapp/scripts/migrate-locally.sh`
+(worktrees each have their own isolated Neon branch — see CLAUDE.md).
 
 ---
 
@@ -184,7 +188,8 @@ export MAVEN_OPTS="-Xmx2048m"
 mvn clean compile
 ```
 
-Check `pom.xml` for: `<kotlin.version>2.1.10</kotlin.version>`
+The Kotlin version is pinned in `webapp/pom.xml` (`<kotlin.version>`) — read it from there
+rather than assuming; version mismatches between IDE and Maven cause confusing compile errors.
 
 ### Flyway migration failure
 
