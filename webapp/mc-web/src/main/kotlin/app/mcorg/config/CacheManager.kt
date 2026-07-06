@@ -4,6 +4,7 @@ import app.mcorg.engine.model.ItemSourceGraph
 import com.github.benmanes.caffeine.cache.Cache
 import com.github.benmanes.caffeine.cache.Caffeine
 import org.slf4j.LoggerFactory
+import java.time.Instant
 import java.util.concurrent.TimeUnit
 
 /**
@@ -99,18 +100,36 @@ object CacheManager {
 
     /**
      * Item-source graph per Minecraft version, built on first use from the
-     * persisted resource_source tables. Versions are immutable, so entries have
-     * no TTL — only [onVersionIngested] replaces one. The LRU bound keeps a
-     * handful of active versions hot. Key: version string.
+     * persisted resource_source tables. Versions are immutable content-wise, but
+     * ingestion (which populates them) now runs in a separate JVM (MCO-171), so
+     * [onVersionIngested] in *that* process can never reach this cache. Entries
+     * therefore have no TTL of their own; instead every cache hit is checked for
+     * staleness against the DB via [versionIngestionEpoch] (MCO-252) — see
+     * [app.mcorg.pipeline.minecraft.GetItemSourceGraphForVersionStep]. The LRU
+     * bound keeps a handful of active versions hot. Key: version string.
      */
-    val itemSourceGraph: Cache<String, ItemSourceGraph> = Caffeine.newBuilder()
+    val itemSourceGraph: Cache<String, CachedItemSourceGraph> = Caffeine.newBuilder()
         .maximumSize(4)
+        .build()
+
+    /**
+     * Short-lived cache of each version's ingestion-completion epoch
+     * (`minecraft_version_ingestion.completed_at`), consulted on every
+     * [itemSourceGraph] hit to detect an out-of-process re-ingest (MCO-252).
+     * The TTL bounds the cost to at most one small indexed SELECT per version
+     * per minute — deliberately request-driven only (no background refresh),
+     * so the DB can still autosuspend between requests. Key: version string.
+     */
+    val versionIngestionEpoch: Cache<String, Instant> = Caffeine.newBuilder()
+        .maximumSize(50)
+        .expireAfterWrite(60, TimeUnit.SECONDS)
         .build()
 
     // ── Invalidation helpers ─────────────────────────────────────────────
 
     fun onVersionIngested(version: String) {
         itemSourceGraph.invalidate(version)
+        versionIngestionEpoch.invalidate(version)
         supportedVersions.invalidateAll()
         logger.debug("Cache: item-source graph for version {} invalidated after ingest", version)
     }
@@ -238,6 +257,15 @@ object CacheManager {
         projectDependencyExists.invalidateAll()
         supportedVersions.invalidateAll()
         itemSourceGraph.invalidateAll()
+        versionIngestionEpoch.invalidateAll()
         logger.info("All caches invalidated")
     }
 }
+
+/**
+ * [CacheManager.itemSourceGraph] cache value: the built graph plus the wall-clock instant it was
+ * built at. Compared against the version's current ingestion epoch on every cache hit (MCO-252) to
+ * detect a re-ingest that happened in another process. Lives in the web layer, not `mc-engine` —
+ * the graph/scoring core stays untouched.
+ */
+data class CachedItemSourceGraph(val graph: ItemSourceGraph, val builtAt: Instant)
