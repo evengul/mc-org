@@ -292,7 +292,6 @@ commands (they have `user-invocable: false`).
 | `docs-testing`      | Writing or running tests — unit, integration, pipeline step   |
 | `docs-business`     | Business rules, roles, project stages, workflows              |
 | `docs-troubleshoot` | Debugging errors, compile failures                            |
-| `docs-glossary`     | Technical/domain terminology                                  |
 
 ### Action commands — user-invocable slash commands
 

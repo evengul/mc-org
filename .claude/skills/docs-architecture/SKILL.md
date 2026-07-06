@@ -92,8 +92,8 @@ data class WorldMember(val worldId: Int, val userId: Int, val role: Role, val jo
 enum class Role(val level: Int) {
     OWNER(0), ADMIN(10), MEMBER(100), BANNED(1000)
 }
-// Lower number = higher authority
-// Check: role.isHigherThanOrEqualTo(Role.ADMIN)
+// Lower number = higher authority. Check: role.isHigherThanOrEqualTo(Role.ADMIN)
+// Per-role capabilities are owned by docs-business — load it for permission rules.
 ```
 
 ### Project
@@ -257,3 +257,12 @@ project_dependencies (id, dependent_project_id, dependency_project_id, created_b
 ```
 
 Migration files are in `mc-web/src/main/resources/db/migration/`.
+
+---
+
+## Acronyms
+
+**ADR** Architecture Decision Record · **BEM** Block Element Modifier (CSS naming) ·
+**CTE** Common Table Expression (SQL `WITH`) · **DSL** Domain-Specific Language ·
+**HTMX** HTML eXtensions library · **JWT** JSON Web Token ·
+**NBT** Named Binary Tag (Minecraft format) · **SSR** Server-Side Rendering

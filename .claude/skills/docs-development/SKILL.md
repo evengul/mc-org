@@ -316,10 +316,12 @@ import app.mcorg.domain.model.user.TokenProfile
 
 ## HTMX Swap Strategies
 
-| Value | Effect |
-|-------|--------|
-| `innerHTML` | Replace inner content (default) |
-| `outerHTML` | Replace entire element |
-| `beforeend` | Append to end |
-| `afterbegin` | Prepend to beginning |
-| `delete` | Remove element |
+Owned by **docs-htmx** — load it for the swap-strategy table, hx* helper signatures,
+and OOB/fragment patterns.
+
+## ApiProvider (external HTTP calls)
+
+`ApiProvider` (`config/ApiProvider.kt`) is the sealed class for all external HTTP calls —
+methods return Step types, with built-in rate limiting and error handling. Per-service
+config objects live in `config/ApiConfig.kt` (e.g. `ModrinthApiConfig`, `MinecraftApiConfig`).
+Never call external APIs with a raw HTTP client from a handler or step.

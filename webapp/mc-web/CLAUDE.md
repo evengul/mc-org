@@ -98,7 +98,6 @@ The action commands below are slash-invocable workflows.
 | `docs-htmx`        | HTMX helper functions, `hx*` attributes, HTMX patterns    |
 | `docs-business`    | Business rules, roles, project stages, workflows          |
 | `docs-troubleshoot`| Debugging errors, compile failures                        |
-| `docs-glossary`    | Technical/domain terminology                              |
 | `docs-testing`     | Writing or running tests (unit, integration, pipeline)    |
 
 **Action commands (slash-invocable):**
