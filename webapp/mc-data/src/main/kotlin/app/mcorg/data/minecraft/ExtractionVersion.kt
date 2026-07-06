@@ -14,7 +14,12 @@ package app.mcorg.data.minecraft
  *  - 1: synthetic obtain-sources (water/honey/concrete/nether star), wall + crop import
  *       mapping, and shaped/shapeless/simple alternative ingredients — from the
  *       gathering-planner review (2026-06).
+ *  - 2: drop infested blocks' `minecraft:block` loot tables (infested_stone,
+ *       infested_cobblestone, infested_stone_bricks, infested_mossy/cracked/chiseled_stone_bricks,
+ *       infested_deepslate) — their base-block Silk Touch drop is a phantom overridden by
+ *       InfestedBlock's code-level destroy handling and was winning over crafting as a fake
+ *       raw-gather source (MCO-248, 2026-07).
  */
 object ExtractionVersion {
-    const val CURRENT = 1
+    const val CURRENT = 2
 }

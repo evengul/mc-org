@@ -14,6 +14,20 @@ import app.mcorg.domain.pipeline.Step
 import kotlinx.serialization.json.Json
 import org.slf4j.LoggerFactory
 
+/**
+ * Infested blocks' `minecraft:block` loot tables list a Silk Touch drop of the *base* block
+ * (e.g. `infested_stone_bricks.json` drops `minecraft:stone_bricks`), but `InfestedBlock`
+ * overrides destroy handling in game code: without Silk Touch it drops nothing (spawns a
+ * silverfish instead), and with Silk Touch it drops the infested block itself, never the base
+ * block. The loot-table entry is a phantom the JSON data can't reveal, and its filename
+ * (`infested_stone_bricks`) doesn't match the item it phantom-drops (`stone_bricks`), so
+ * without this guard it reads as a legitimate raw-gather source and wins over crafting.
+ */
+internal fun isPhantomInfestedBlockLoot(filename: String): Boolean {
+    val stem = filename.substringAfterLast('/').substringBeforeLast('.')
+    return stem.startsWith("infested_")
+}
+
 data object ExtractLootTables : Step<ExtractionContext, ExtractionFailure, List<ResourceSource>> {
     private val logger = LoggerFactory.getLogger(this.javaClass)
 
@@ -48,9 +62,22 @@ data object ExtractLootTables : Step<ExtractionContext, ExtractionFailure, List<
         }
 
         return when (val stringType = type.getOrThrow()) {
+            "minecraft:block" -> {
+                if (isPhantomInfestedBlockLoot(filename)) {
+                    logger.debug("Dropping phantom infested-block loot table: $filename")
+                    Result.success(
+                        ResourceSource(
+                            type = ResourceSource.SourceType.LootTypes.BLOCK,
+                            filename = filename,
+                            producedItems = emptyList()
+                        )
+                    )
+                } else {
+                    lootTableParser.parse(json, filename)
+                }
+            }
             "minecraft:archaeology",
             "minecraft:fishing",
-            "minecraft:block",
             "minecraft:block_interact",
             "minecraft:barter",
             "minecraft:entity",
