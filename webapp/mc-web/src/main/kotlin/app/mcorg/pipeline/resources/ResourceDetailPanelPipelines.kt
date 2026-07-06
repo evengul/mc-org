@@ -26,13 +26,15 @@ suspend fun ApplicationCall.handleGetResourceDetailPanel() {
     val resourceGatheringId = getResourceGatheringId()
 
     handlePipeline(
-        onSuccess = { (resource, projects) ->
-            respondHtml(resourceDetailPanelFragment(worldId, projectId, resource, projects))
+        onSuccess = { (resource, projects, candidates) ->
+            respondHtml(resourceDetailPanelFragment(worldId, projectId, resource, projects, candidates))
         }
     ) {
         val resource = GetResourceGatheringItemStep.run(resourceGatheringId)
         val projects = GetProjectsInWorldStep(projectId).run(worldId)
-        resource to projects
+        val graph = getGraphForWorld(worldId)
+        val candidates = findVariantCandidates(graph, resource.itemId)
+        Triple(resource, projects, candidates)
     }
 }
 

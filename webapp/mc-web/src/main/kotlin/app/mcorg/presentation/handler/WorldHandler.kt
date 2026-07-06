@@ -20,6 +20,7 @@ import app.mcorg.pipeline.resources.handleCreateResourceGatheringItem
 import app.mcorg.pipeline.resources.handleDeleteResourceGatheringItem
 import app.mcorg.pipeline.resources.handleGetResourceDetailPanel
 import app.mcorg.pipeline.resources.handleSetResourceSource
+import app.mcorg.pipeline.resources.handleSwapResourceGatheringVariant
 import app.mcorg.pipeline.resources.handleToggleResourceGatheringIgnored
 import app.mcorg.pipeline.resources.handleUpdateResourceRequiredAmount
 import app.mcorg.pipeline.resources.handleSetCollectedValue
@@ -174,6 +175,9 @@ class WorldHandler {
                                     }
                                     patch("/ignore") {
                                         call.handleToggleResourceGatheringIgnored()
+                                    }
+                                    patch("/variant") {
+                                        call.handleSwapResourceGatheringVariant()
                                     }
                                     put("/collected") {
                                         call.handleSetCollectedValue()

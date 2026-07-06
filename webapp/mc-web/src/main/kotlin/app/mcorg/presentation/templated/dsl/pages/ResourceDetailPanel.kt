@@ -1,8 +1,10 @@
 package app.mcorg.presentation.templated.dsl.pages
 
+import app.mcorg.domain.model.minecraft.Item
 import app.mcorg.domain.model.resources.ResourceGatheringItem
 import app.mcorg.presentation.hxDelete
 import app.mcorg.presentation.hxDeleteWithConfirm
+import app.mcorg.presentation.hxOutOfBands
 import app.mcorg.presentation.hxPatch
 import app.mcorg.presentation.hxSwap
 import app.mcorg.presentation.hxTarget
@@ -33,6 +35,7 @@ fun FlowContent.resourceDetailPanel(
     projectId: Int,
     resource: ResourceGatheringItem,
     projectsInWorld: List<Pair<Int, String>>,
+    variantCandidates: List<Item> = emptyList(),
 ) {
     div("resource-panel__header") {
         button(classes = "resource-panel__close-btn") {
@@ -74,6 +77,11 @@ fun FlowContent.resourceDetailPanel(
     div("resource-panel__source") {
         id = "resource-panel-source"
         resourcePanelSourceSection(worldId, projectId, resource, projectsInWorld)
+    }
+    div("resource-panel__divider") { +"Variant" }
+    div("resource-panel__variant") {
+        id = "resource-panel-variant"
+        resourcePanelVariantSection(worldId, projectId, resource, variantCandidates)
     }
     div("resource-panel__footer") {
         button(classes = "btn btn--danger resource-panel__remove-btn") {
@@ -177,6 +185,37 @@ fun FlowContent.resourcePanelSourceSection(
 }
 
 /**
+ * Variant section (MCO-246): lists other members of any tag family [resource]'s item belongs
+ * to (see [app.mcorg.pipeline.resources.findVariantCandidates]), each a clickable option that
+ * PATCHes `/variant` to swap the target's item in place. Empty [variantCandidates] renders an
+ * explanatory empty state rather than hiding the section, since coverage is data-dependent
+ * (only tag families the recipe/loot data actually references are known) and a user shouldn't
+ * be left wondering whether the control is broken.
+ */
+fun FlowContent.resourcePanelVariantSection(
+    worldId: Int,
+    projectId: Int,
+    resource: ResourceGatheringItem,
+    variantCandidates: List<Item>,
+) {
+    if (variantCandidates.isEmpty()) {
+        p("resource-panel__source-empty") { +"No known variants for this item." }
+        return
+    }
+    div("stack--xs") {
+        for (candidate in variantCandidates) {
+            div("picker-opt") {
+                attributes["hx-patch"] = "/worlds/$worldId/projects/$projectId/resources/gathering/${resource.id}/variant"
+                attributes["hx-vals"] = """{"itemId":"${candidate.id}"}"""
+                attributes["hx-target"] = "#plan-resources-area"
+                attributes["hx-swap"] = "outerHTML"
+                span("picker-opt__name") { +candidate.name }
+            }
+        }
+    }
+}
+
+/**
  * Full-fragment response for GET .../detail-panel — returns the inner content of #resource-panel-content.
  */
 fun resourceDetailPanelFragment(
@@ -184,8 +223,26 @@ fun resourceDetailPanelFragment(
     projectId: Int,
     resource: ResourceGatheringItem,
     projectsInWorld: List<Pair<Int, String>>,
+    variantCandidates: List<Item> = emptyList(),
 ): String = createHTML().div {
-    resourceDetailPanel(worldId, projectId, resource, projectsInWorld)
+    resourceDetailPanel(worldId, projectId, resource, projectsInWorld, variantCandidates)
+}
+
+/**
+ * Out-of-band refresh of the whole panel (MCO-246) — used by the `/variant` swap response so an
+ * open resource-detail panel reflects the new item/name/variant list without needing to be
+ * reopened. The main response target for a swap is `#plan-resources-area` (the row's name/qty
+ * live there); this is the sidecar that keeps the panel in sync alongside it.
+ */
+fun resourceDetailPanelOobFragment(
+    worldId: Int,
+    projectId: Int,
+    resource: ResourceGatheringItem,
+    projectsInWorld: List<Pair<Int, String>>,
+    variantCandidates: List<Item> = emptyList(),
+): String = createHTML().div {
+    hxOutOfBands("innerHTML:#resource-panel-content")
+    resourceDetailPanel(worldId, projectId, resource, projectsInWorld, variantCandidates)
 }
 
 /**
