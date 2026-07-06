@@ -13,6 +13,7 @@ import app.mcorg.presentation.plugins.AuthPlugin
 import app.mcorg.presentation.plugins.ProjectParamPlugin
 import app.mcorg.presentation.plugins.UpdateActiveWorldPlugin
 import app.mcorg.presentation.plugins.WorldParamPlugin
+import app.mcorg.presentation.plugins.WorldParticipantPlugin
 import app.mcorg.test.WithUser
 import app.mcorg.test.postgres.DatabaseTestExtension
 import io.ktor.client.request.get
@@ -90,6 +91,20 @@ class GatheringPlannerIT : WithUser() {
         assertEquals(HttpStatusCode.OK, response.status)
         val body = response.bodyAsText()
         assertContains(body, "plan-resource-table")
+    }
+
+    @Test
+    fun `GET detail-content by a non-member of the world returns 403`() = testApplication {
+        setupRoutes()
+        val nonMember = createExtraUser()
+
+        val response = client.get(
+            "/worlds/$worldId/projects/$projectId/detail-content?lens=list"
+        ) {
+            addAuthCookie(this, nonMember)
+        }
+
+        assertEquals(HttpStatusCode.Forbidden, response.status)
     }
 
     @Test
@@ -346,6 +361,22 @@ class GatheringPlannerIT : WithUser() {
         assertEquals(HttpStatusCode.Found, response.status)
     }
 
+    @Test
+    fun `PATCH plan progress by a non-member of the world returns 403`() = testApplication {
+        setupRoutesWithProgress()
+        val nonMember = createExtraUser()
+
+        val response = client.patch(
+            "/worlds/$worldId/projects/$projectId/plan/progress"
+        ) {
+            addAuthCookie(this, nonMember)
+            contentType(ContentType.Application.FormUrlEncoded)
+            setBody("itemId=minecraft:iron_ingot&amount=1&required=64")
+        }
+
+        assertEquals(HttpStatusCode.Forbidden, response.status)
+    }
+
     // -------------------------------------------------------------------------
     // Fix 1 — derived activity progress persists and row reflects it
     // -------------------------------------------------------------------------
@@ -416,6 +447,7 @@ class GatheringPlannerIT : WithUser() {
             install(AuthPlugin)
             route("/worlds/{worldId}") {
                 install(WorldParamPlugin)
+                install(WorldParticipantPlugin)
                 install(UpdateActiveWorldPlugin)
                 route("/projects/{projectId}") {
                     install(ProjectParamPlugin)
@@ -431,6 +463,7 @@ class GatheringPlannerIT : WithUser() {
             install(AuthPlugin)
             route("/worlds/{worldId}") {
                 install(WorldParamPlugin)
+                install(WorldParticipantPlugin)
                 install(UpdateActiveWorldPlugin)
                 route("/projects/{projectId}") {
                     install(ProjectParamPlugin)

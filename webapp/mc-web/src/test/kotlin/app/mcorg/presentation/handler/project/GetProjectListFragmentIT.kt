@@ -10,6 +10,7 @@ import app.mcorg.pipeline.world.CreateWorldStep
 import app.mcorg.presentation.plugins.AuthPlugin
 import app.mcorg.presentation.plugins.UpdateActiveWorldPlugin
 import app.mcorg.presentation.plugins.WorldParamPlugin
+import app.mcorg.presentation.plugins.WorldParticipantPlugin
 import app.mcorg.test.WithUser
 import app.mcorg.test.postgres.DatabaseTestExtension
 import io.ktor.client.request.get
@@ -65,6 +66,7 @@ class GetProjectListFragmentIT : WithUser() {
             install(AuthPlugin)
             route("/worlds/{worldId}") {
                 install(WorldParamPlugin)
+                install(WorldParticipantPlugin)
                 install(UpdateActiveWorldPlugin)
                 route("/projects") {
                     get("/list-fragment") {
@@ -94,6 +96,7 @@ class GetProjectListFragmentIT : WithUser() {
             install(AuthPlugin)
             route("/worlds/{worldId}") {
                 install(WorldParamPlugin)
+                install(WorldParticipantPlugin)
                 install(UpdateActiveWorldPlugin)
                 route("/projects") {
                     get("/list-fragment") {
@@ -124,6 +127,7 @@ class GetProjectListFragmentIT : WithUser() {
             install(AuthPlugin)
             route("/worlds/{worldId}") {
                 install(WorldParamPlugin)
+                install(WorldParticipantPlugin)
                 install(UpdateActiveWorldPlugin)
                 route("/projects") {
                     get("/list-fragment") {
@@ -153,6 +157,7 @@ class GetProjectListFragmentIT : WithUser() {
             install(AuthPlugin)
             route("/worlds/{worldId}") {
                 install(WorldParamPlugin)
+                install(WorldParticipantPlugin)
                 install(UpdateActiveWorldPlugin)
                 route("/projects") {
                     get("/list-fragment") {
@@ -180,6 +185,7 @@ class GetProjectListFragmentIT : WithUser() {
             install(AuthPlugin)
             route("/worlds/{worldId}") {
                 install(WorldParamPlugin)
+                install(WorldParticipantPlugin)
                 install(UpdateActiveWorldPlugin)
                 route("/projects") {
                     get("/list-fragment") {
@@ -192,5 +198,32 @@ class GetProjectListFragmentIT : WithUser() {
         val response = client.get("/worlds/$worldId/projects/list-fragment")
 
         assertEquals(HttpStatusCode.Found, response.status)
+    }
+
+    @Test
+    fun `non-member of the world is rejected with 403`() = testApplication {
+        val worldId = createWorld("Fragment IT Non-member World")
+        createProject(worldId, "Non-member Fragment Project")
+        val nonMember = createExtraUser()
+
+        routing {
+            install(AuthPlugin)
+            route("/worlds/{worldId}") {
+                install(WorldParamPlugin)
+                install(WorldParticipantPlugin)
+                install(UpdateActiveWorldPlugin)
+                route("/projects") {
+                    get("/list-fragment") {
+                        call.handleGetProjectListFragment()
+                    }
+                }
+            }
+        }
+
+        val response = client.get("/worlds/$worldId/projects/list-fragment") {
+            addAuthCookie(this, nonMember)
+        }
+
+        assertEquals(HttpStatusCode.Forbidden, response.status)
     }
 }

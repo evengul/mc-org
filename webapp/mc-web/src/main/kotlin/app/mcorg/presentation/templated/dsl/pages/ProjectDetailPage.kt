@@ -375,11 +375,11 @@ private fun FlowContent.listLensContent(
                 }
             }
 
-            // Resource table — always rendered as HTMX swap target
-            planResourceTable(project.worldId, project.id, resources)
+            // Resource table + ignored section — always rendered as HTMX swap target
+            planResourcesArea(project.worldId, project.id, resources)
 
             // Schematic upload modal
-            resourceSchematicModal(project.worldId, project.id, resources.filter { it.required > 0 }.size)
+            resourceSchematicModal(project.worldId, project.id, resources.count { it.required > 0 && !it.ignored })
         }
     }
 
@@ -783,12 +783,51 @@ fun TR.planResourceRow(worldId: Int, projectId: Int, item: ResourceGatheringItem
         }
     }
     td("plan-resource-table__action") {
-        button(classes = "btn btn--ghost btn--sm plan-resource-table__delete-btn") {
+        div("plan-resource-table__action-group") {
+            button(classes = "btn btn--ghost btn--sm plan-resource-table__ignore-btn") {
+                type = ButtonType.button
+                attributes["title"] = "Ignore — exclude from the material list and gathering plan"
+                attributes["aria-label"] = "Ignore ${item.name}"
+                hxPatch("/worlds/$worldId/projects/$projectId/resources/gathering/${item.id}/ignore")
+                hxTarget("#plan-resources-area")
+                hxSwap("outerHTML")
+                +"⊘"
+            }
+            button(classes = "btn btn--ghost btn--sm plan-resource-table__delete-btn") {
+                type = ButtonType.button
+                hxDelete("/worlds/$worldId/projects/$projectId/resources/gathering/${item.id}?context=plan")
+                hxTarget("#plan-row-${item.id}")
+                hxSwap("outerHTML")
+                +"×"
+            }
+        }
+    }
+}
+
+/** Un-ignore action row: shown in the ignored section (MCO-247), reverses the ignore toggle. */
+fun TR.ignoredResourceRow(worldId: Int, projectId: Int, item: ResourceGatheringItem) {
+    id = "plan-ignored-row-${item.id}"
+    attributes["data-resource-id"] = item.id.toString()
+
+    td("plan-resource-table__status") {
+        span("status-dot status-dot--unset") {}
+    }
+    td("plan-resource-table__item") {
+        +item.name
+    }
+    td("plan-resource-table__qty") {
+        span("plan-resource-table__qty-display") {
+            +item.required.toString()
+        }
+    }
+    td("plan-resource-table__action") {
+        button(classes = "btn btn--ghost btn--sm plan-resource-table__unignore-btn") {
             type = ButtonType.button
-            hxDelete("/worlds/$worldId/projects/$projectId/resources/gathering/${item.id}?context=plan")
-            hxTarget("#plan-row-${item.id}")
+            attributes["title"] = "Un-ignore — include back in the material list and gathering plan"
+            hxPatch("/worlds/$worldId/projects/$projectId/resources/gathering/${item.id}/ignore")
+            hxTarget("#plan-resources-area")
             hxSwap("outerHTML")
-            +"×"
+            +"Un-ignore"
         }
     }
 }
@@ -798,7 +837,7 @@ fun TR.planResourceRow(worldId: Int, projectId: Int, item: ResourceGatheringItem
  * the schematic-upload flow (`outerHTML` swap of `#plan-resource-table`).
  */
 fun FlowContent.planResourceTable(worldId: Int, projectId: Int, resources: List<ResourceGatheringItem>) {
-    val filteredResources = resources.filter { it.required > 0 }
+    val filteredResources = resources.filter { it.required > 0 && !it.ignored }
     table("data-table plan-resource-table") {
         id = "plan-resource-table"
         if (filteredResources.isNotEmpty()) {
@@ -826,7 +865,7 @@ fun FlowContent.planResourceTable(worldId: Int, projectId: Int, resources: List<
 fun planResourceTableFragment(worldId: Int, projectId: Int, resources: List<ResourceGatheringItem>): String =
     createHTML().table("data-table plan-resource-table") {
         id = "plan-resource-table"
-        val filteredResources = resources.filter { it.required > 0 }
+        val filteredResources = resources.filter { it.required > 0 && !it.ignored }
         if (filteredResources.isNotEmpty()) {
             thead {
                 tr {
@@ -846,6 +885,55 @@ fun planResourceTableFragment(worldId: Int, projectId: Int, resources: List<Reso
             }
         }
     }
+
+/**
+ * Wraps the active resource table and the ignored-items section (MCO-247) in a single
+ * HTMX swap target — an ignore/un-ignore toggle moves a row between the two, so both
+ * are re-rendered together.
+ */
+fun FlowContent.planResourcesArea(worldId: Int, projectId: Int, resources: List<ResourceGatheringItem>) {
+    div {
+        id = "plan-resources-area"
+        planResourceTable(worldId, projectId, resources)
+        ignoredResourcesSection(worldId, projectId, resources)
+    }
+}
+
+/** Standalone HTML fragment version of [planResourcesArea] (HTMX swap response for the ignore toggle). */
+fun planResourcesAreaFragment(worldId: Int, projectId: Int, resources: List<ResourceGatheringItem>): String =
+    createHTML().div {
+        id = "plan-resources-area"
+        planResourceTable(worldId, projectId, resources)
+        ignoredResourcesSection(worldId, projectId, resources)
+    }
+
+/**
+ * Ignored-items section (MCO-247): items the user excluded from the material list and
+ * gathering plan, kept visible and reversible via an "Un-ignore" action. Renders nothing
+ * when there are no ignored items, so it doesn't clutter the page for the common case.
+ */
+fun FlowContent.ignoredResourcesSection(worldId: Int, projectId: Int, resources: List<ResourceGatheringItem>) {
+    val ignoredResources = resources.filter { it.ignored }
+    if (ignoredResources.isEmpty()) return
+
+    div("project-detail__section plan-ignored-section") {
+        id = "plan-ignored-section"
+        div("project-detail__section-header") {
+            span("project-detail__section-title section-label") { +"Ignored (${ignoredResources.size})" }
+        }
+        table("data-table plan-resource-table plan-resource-table--ignored") {
+            id = "plan-ignored-table"
+            tbody {
+                id = "plan-ignored-table-body"
+                ignoredResources.forEach { item ->
+                    tr {
+                        ignoredResourceRow(worldId, projectId, item)
+                    }
+                }
+            }
+        }
+    }
+}
 
 /**
  * Modal that uploads a Litematica file and replaces the project's resource list with the

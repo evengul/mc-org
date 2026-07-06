@@ -29,5 +29,6 @@ fun ResultSet.toResourceGatheringItem(): ResourceGatheringItem {
         collected = getInt("collected"),
         solvedByProject = solvedByProject,
         sourceType = sourceType,
+        ignored = getBoolean("ignored"),
     )
 }

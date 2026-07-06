@@ -47,7 +47,10 @@ suspend fun ApplicationCall.handleAddResourcesFromSchematic() {
         onSuccess = { resources ->
             respondHtml(
                 planResourceTableFragment(worldId, projectId, resources) +
-                    createHTML().div { hxOutOfBands("delete:#plan-empty-state") }
+                    createHTML().div { hxOutOfBands("delete:#plan-empty-state") } +
+                    // A schematic replace deletes every resource_gathering row (MCO-247: including
+                    // any previously ignored ones), so drop a stale ignored section from the DOM.
+                    createHTML().div { hxOutOfBands("delete:#plan-ignored-section") }
             )
         }
     ) {

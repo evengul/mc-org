@@ -20,6 +20,7 @@ import app.mcorg.pipeline.resources.handleCreateResourceGatheringItem
 import app.mcorg.pipeline.resources.handleDeleteResourceGatheringItem
 import app.mcorg.pipeline.resources.handleGetResourceDetailPanel
 import app.mcorg.pipeline.resources.handleSetResourceSource
+import app.mcorg.pipeline.resources.handleToggleResourceGatheringIgnored
 import app.mcorg.pipeline.resources.handleUpdateResourceRequiredAmount
 import app.mcorg.pipeline.resources.handleSetCollectedValue
 import app.mcorg.pipeline.resources.handleUpdateRequirementProgress
@@ -63,6 +64,7 @@ import app.mcorg.presentation.plugins.WorldAdminPlugin
 import app.mcorg.presentation.plugins.WorldMemberParamPlugin
 import app.mcorg.presentation.plugins.WorldOwnerPlugin
 import app.mcorg.presentation.plugins.WorldParamPlugin
+import app.mcorg.presentation.plugins.WorldParticipantPlugin
 import app.mcorg.presentation.templated.dsl.pages.worldListPage
 import app.mcorg.presentation.utils.getUser
 import app.mcorg.presentation.utils.respondHtml
@@ -92,6 +94,14 @@ class WorldHandler {
             }
             route("/{worldId}") {
                 install(WorldParamPlugin)
+                // World-membership gate (MCO-247): WorldParamPlugin above only checks the
+                // world *exists*, not that the caller belongs to it — closing that IDOR gap
+                // for the entire /{worldId} subtree (projects, resources, tasks, plan, meta,
+                // field-log, view-preference). Must run before UpdateActiveWorldPlugin so a
+                // non-member's session never gets its activeWorldId cookie pointed at a world
+                // they can't access. /settings below is already WorldAdmin/Owner-gated; this
+                // member check is just a harmless, correct precondition for it too.
+                install(WorldParticipantPlugin)
                 install(UpdateActiveWorldPlugin)
                 get {
                     val worldId = call.parameters["worldId"]!!.toInt()
@@ -145,6 +155,8 @@ class WorldHandler {
                             call.handleGetFieldLogSliceItems()
                         }
                         route("/resources") {
+                            // World-membership gate (MCO-247) now lives at the /{worldId}
+                            // level above, covering this whole resource-mutation family too.
                             post("/from-schematic") {
                                 call.handleAddResourcesFromSchematic()
                             }
@@ -159,6 +171,9 @@ class WorldHandler {
                                     }
                                     patch("/required") {
                                         call.handleUpdateResourceRequiredAmount()
+                                    }
+                                    patch("/ignore") {
+                                        call.handleToggleResourceGatheringIgnored()
                                     }
                                     put("/collected") {
                                         call.handleSetCollectedValue()

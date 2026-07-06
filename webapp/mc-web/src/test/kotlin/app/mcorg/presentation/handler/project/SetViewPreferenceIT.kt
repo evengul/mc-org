@@ -10,6 +10,7 @@ import app.mcorg.pipeline.world.CreateWorldStep
 import app.mcorg.presentation.plugins.AuthPlugin
 import app.mcorg.presentation.plugins.ProjectParamPlugin
 import app.mcorg.presentation.plugins.WorldParamPlugin
+import app.mcorg.presentation.plugins.WorldParticipantPlugin
 import app.mcorg.test.WithUser
 import app.mcorg.test.postgres.DatabaseTestExtension
 import io.ktor.client.request.post
@@ -65,6 +66,7 @@ class SetViewPreferenceIT : WithUser() {
             route("/worlds/{worldId}") {
                 install(AuthPlugin)
                 install(WorldParamPlugin)
+                install(WorldParticipantPlugin)
                 route("/projects/{projectId}") {
                     install(ProjectParamPlugin)
                     post("/view-preference") {
@@ -90,6 +92,7 @@ class SetViewPreferenceIT : WithUser() {
             route("/worlds/{worldId}") {
                 install(AuthPlugin)
                 install(WorldParamPlugin)
+                install(WorldParticipantPlugin)
                 route("/projects/{projectId}") {
                     install(ProjectParamPlugin)
                     post("/view-preference") {

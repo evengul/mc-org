@@ -8,6 +8,7 @@ import app.mcorg.pipeline.project.handleGetDetailContent
 import app.mcorg.pipeline.project.handleGetProject
 import app.mcorg.pipeline.resources.handleCreateResourceGatheringItem
 import app.mcorg.pipeline.resources.handleDeleteResourceGatheringItem
+import app.mcorg.pipeline.resources.handleToggleResourceGatheringIgnored
 import app.mcorg.pipeline.resources.handleUpdateResourceRequiredAmount
 import app.mcorg.pipeline.world.CreateWorldInput
 import app.mcorg.pipeline.world.CreateWorldStep
@@ -16,6 +17,7 @@ import app.mcorg.presentation.plugins.ProjectParamPlugin
 import app.mcorg.presentation.plugins.ResourceGatheringIdParamPlugin
 import app.mcorg.presentation.plugins.UpdateActiveWorldPlugin
 import app.mcorg.presentation.plugins.WorldParamPlugin
+import app.mcorg.presentation.plugins.WorldParticipantPlugin
 import app.mcorg.test.WithUser
 import app.mcorg.test.postgres.DatabaseTestExtension
 import io.ktor.client.request.get
@@ -38,6 +40,7 @@ import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.api.extension.ExtendWith
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 
 @Tag("database")
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -152,6 +155,100 @@ class PlanViewIT : WithUser() {
     }
 
     // -------------------------------------------------------------------------
+    // Test 6: PATCH ignore — toggles the ignored flag and re-renders the resources area
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `PATCH ignore moves the target into the ignored section`() = testApplication {
+        val rgId = createResourceGathering(projectId, required = 15)
+        setupRoutes()
+
+        val response = client.patch(
+            "/worlds/$worldId/projects/$projectId/resources/gathering/$rgId/ignore"
+        ) {
+            addAuthCookie(this)
+        }
+
+        assertEquals(HttpStatusCode.OK, response.status)
+        val body = response.bodyAsText()
+        assertContains(body, "id=\"plan-resources-area\"")
+        // Ignored row appears in the ignored section, not the active table.
+        assertContains(body, "plan-ignored-row-$rgId")
+        assertContains(body, "Ignored (1)")
+        assertFalse(body.contains("plan-row-$rgId\""))
+    }
+
+    @Test
+    fun `PATCH ignore twice restores the target to the active table`() = testApplication {
+        val rgId = createResourceGathering(projectId, required = 12)
+        setupRoutes()
+
+        client.patch("/worlds/$worldId/projects/$projectId/resources/gathering/$rgId/ignore") {
+            addAuthCookie(this)
+        }
+        val response = client.patch(
+            "/worlds/$worldId/projects/$projectId/resources/gathering/$rgId/ignore"
+        ) {
+            addAuthCookie(this)
+        }
+
+        assertEquals(HttpStatusCode.OK, response.status)
+        val body = response.bodyAsText()
+        // Back in the active table, no longer in the ignored section.
+        assertContains(body, "plan-row-$rgId")
+        assertFalse(body.contains("plan-ignored-row-$rgId"))
+    }
+
+    @Test
+    fun `PATCH ignore without auth returns redirect`() = testApplication {
+        val rgId = createResourceGathering(projectId, required = 8)
+        setupRoutes()
+
+        val unauthClient = createClient { followRedirects = false }
+        val response = unauthClient.patch(
+            "/worlds/$worldId/projects/$projectId/resources/gathering/$rgId/ignore"
+        ) {}
+
+        assertEquals(HttpStatusCode.Found, response.status)
+    }
+
+    // -------------------------------------------------------------------------
+    // Test 7: non-member (authenticated, but not a world_members row) is rejected
+    // by WorldParticipantPlugin — MCO-247 IDOR closure on the resource-mutation family.
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `PATCH ignore by a non-member of the world returns 403`() = testApplication {
+        val rgId = createResourceGathering(projectId, required = 9)
+        setupRoutes()
+
+        val nonMember = createExtraUser()
+        val response = client.patch(
+            "/worlds/$worldId/projects/$projectId/resources/gathering/$rgId/ignore"
+        ) {
+            addAuthCookie(this, nonMember)
+        }
+
+        assertEquals(HttpStatusCode.Forbidden, response.status)
+    }
+
+    @Test
+    fun `PATCH required by a non-member of the world returns 403`() = testApplication {
+        setupRoutes()
+
+        val nonMember = createExtraUser()
+        val response = client.patch(
+            "/worlds/$worldId/projects/$projectId/resources/gathering/$resourceGatheringId/required"
+        ) {
+            addAuthCookie(this, nonMember)
+            contentType(ContentType.Application.FormUrlEncoded)
+            setBody("required=5")
+        }
+
+        assertEquals(HttpStatusCode.Forbidden, response.status)
+    }
+
+    // -------------------------------------------------------------------------
     // Routing setup
     // -------------------------------------------------------------------------
 
@@ -160,6 +257,7 @@ class PlanViewIT : WithUser() {
             install(AuthPlugin)
             route("/worlds/{worldId}") {
                 install(WorldParamPlugin)
+                install(WorldParticipantPlugin)
                 install(UpdateActiveWorldPlugin)
                 route("/projects/{projectId}") {
                     install(ProjectParamPlugin)
@@ -168,6 +266,7 @@ class PlanViewIT : WithUser() {
                     route("/resources/gathering/{resourceGatheringId}") {
                         install(ResourceGatheringIdParamPlugin)
                         patch("/required") { call.handleUpdateResourceRequiredAmount() }
+                        patch("/ignore") { call.handleToggleResourceGatheringIgnored() }
                     }
                 }
             }

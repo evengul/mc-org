@@ -48,6 +48,7 @@ class GenerateGatheringPlanStepTest : WithUser() {
     private val oakPlanks = Item("minecraft:oak_planks", "Oak Planks")
     private val birchPlanks = Item("minecraft:birch_planks", "Birch Planks")
     private val chest = Item("minecraft:chest", "Chest")
+    private val door = Item("minecraft:oak_door", "Oak Door")
     private val planksTag = MinecraftTag("#minecraft:planks", "Planks", listOf(oakPlanks, birchPlanks))
 
     private var worldId: Int = 0
@@ -59,7 +60,7 @@ class GenerateGatheringPlanStepTest : WithUser() {
         // Store a small but realistic graph for version 1.99.0 (test-only)
         val serverData = ServerData(
             version = version,
-            items = listOf(log, oakPlanks, birchPlanks, chest, planksTag),
+            items = listOf(log, oakPlanks, birchPlanks, chest, door, planksTag),
             sources = listOf(
                 ResourceSource(
                     type = ResourceSource.SourceType.LootTypes.BLOCK,
@@ -77,6 +78,14 @@ class GenerateGatheringPlanStepTest : WithUser() {
                     filename = "chest.json",
                     requiredItems = listOf(planksTag to ResourceQuantity.ItemQuantity(8)),
                     producedItems = listOf(chest to ResourceQuantity.ItemQuantity(1))
+                ),
+                // Second consumer of the shared #minecraft:planks tag, used to prove an
+                // ignored target's share of the shared intermediate recomputes (MCO-247).
+                ResourceSource(
+                    type = ResourceSource.SourceType.RecipeTypes.CRAFTING_SHAPED,
+                    filename = "oak_door.json",
+                    requiredItems = listOf(planksTag to ResourceQuantity.ItemQuantity(6)),
+                    producedItems = listOf(door to ResourceQuantity.ItemQuantity(3))
                 )
             )
         )
@@ -216,6 +225,86 @@ class GenerateGatheringPlanStepTest : WithUser() {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
+    // MCO-247: ignored targets drop out of the derived plan, and a shared
+    // intermediate's quantity recomputes without them (reversible via un-ignore).
+    // ─────────────────────────────────────────────────────────────────────────
+
+    @Test
+    fun `ignored target is excluded from the derived plan`() {
+        val projectId = createProject(worldId)
+        val rgId = insertGatheringItem(projectId, chest.id, chest.name, required = 4)
+
+        // Baseline: chest is a target in the derived plan.
+        val before = runBlocking {
+            GenerateGatheringPlanStep.process(GatheringPlanInput(projectId, worldId))
+        }
+        assertIs<Result.Success<*>>(before)
+        assertNotNull((before as Result.Success).value.nodes[chest.id], "chest must be a target before ignoring")
+
+        // Ignore the row — it must be excluded from the derivation input entirely.
+        setIgnored(rgId, ignored = true)
+        val afterIgnore = runBlocking {
+            GenerateGatheringPlanStep.process(GatheringPlanInput(projectId, worldId))
+        }
+        // No other (non-ignored) targets remain, so derivation fails with ValidationError —
+        // exactly like "all items fully collected": nothing left to plan.
+        assertIs<Result.Failure<*>>(afterIgnore)
+        assertTrue(
+            (afterIgnore as Result.Failure).error is app.mcorg.pipeline.failure.AppFailure.ValidationError,
+            "Expected ValidationError once the only target is ignored"
+        )
+
+        // Un-ignore — the target (and its dependency chain) is restored.
+        setIgnored(rgId, ignored = false)
+        val afterUnignore = runBlocking {
+            GenerateGatheringPlanStep.process(GatheringPlanInput(projectId, worldId))
+        }
+        assertIs<Result.Success<*>>(afterUnignore)
+        val restoredChestNode = (afterUnignore as Result.Success).value.nodes[chest.id]
+        assertNotNull(restoredChestNode, "chest must be restored as a target after un-ignoring")
+        assertEquals(4L, restoredChestNode.quantity)
+    }
+
+    @Test
+    fun `ignoring one of two targets recomputes their shared intermediate's quantity`() {
+        val projectId = createProject(worldId)
+        insertGatheringItem(projectId, chest.id, chest.name, required = 4)
+        val doorRgId = insertGatheringItem(projectId, door.id, door.name, required = 3)
+
+        // Baseline: both chest (32 planks) and door (6 planks) feed the shared #minecraft:planks tag.
+        val before = runBlocking {
+            GenerateGatheringPlanStep.process(GatheringPlanInput(projectId, worldId))
+        }
+        assertIs<Result.Success<*>>(before)
+        val planksBefore = (before as Result.Success).value.nodes[planksTag.id]
+        assertNotNull(planksBefore, "#minecraft:planks must be in the plan")
+        assertEquals(38L, planksBefore.quantity, "32 (chest) + 6 (door) planks expected before ignoring")
+
+        // Ignore the door target — its share of the shared planks tag must disappear.
+        setIgnored(doorRgId, ignored = true)
+        val afterIgnore = runBlocking {
+            GenerateGatheringPlanStep.process(GatheringPlanInput(projectId, worldId))
+        }
+        assertIs<Result.Success<*>>(afterIgnore)
+        val planIgnored = (afterIgnore as Result.Success).value
+        assertNotNull(planIgnored.nodes[chest.id], "chest must still be a target")
+        assertEquals(null, planIgnored.nodes[door.id], "door must be excluded from the plan while ignored")
+        val planksAfterIgnore = planIgnored.nodes[planksTag.id]
+        assertNotNull(planksAfterIgnore, "#minecraft:planks must still be in the plan (chest still needs it)")
+        assertEquals(32L, planksAfterIgnore.quantity, "only chest's 32 planks remain once door is ignored")
+
+        // Un-ignore — the door's share of the shared intermediate is restored.
+        setIgnored(doorRgId, ignored = false)
+        val afterUnignore = runBlocking {
+            GenerateGatheringPlanStep.process(GatheringPlanInput(projectId, worldId))
+        }
+        assertIs<Result.Success<*>>(afterUnignore)
+        val planksRestored = (afterUnignore as Result.Success).value.nodes[planksTag.id]
+        assertNotNull(planksRestored)
+        assertEquals(38L, planksRestored.quantity, "planks quantity restored once door is un-ignored")
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
     // Fixture helpers
     // ─────────────────────────────────────────────────────────────────────────
 
@@ -266,6 +355,18 @@ class GenerateGatheringPlanStepTest : WithUser() {
     private fun setProgress(resourceGatheringId: Int, collected: Int) {
         runBlocking {
             UpsertProgressStep.process(UpsertProgressByRgIdInput(resourceGatheringId, collected))
+        }
+    }
+
+    private fun setIgnored(resourceGatheringId: Int, ignored: Boolean) {
+        runBlocking {
+            DatabaseSteps.update<Unit>(
+                sql = SafeSQL.update("UPDATE resource_gathering SET ignored = ? WHERE id = ?"),
+                parameterSetter = { stmt, _ ->
+                    stmt.setBoolean(1, ignored)
+                    stmt.setInt(2, resourceGatheringId)
+                }
+            ).process(Unit)
         }
     }
 

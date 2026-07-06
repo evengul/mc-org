@@ -9,4 +9,5 @@ data class ResourceGatheringItem(
     val collected: Int,
     val solvedByProject: Pair<Int, String>? = null,
     val sourceType: String? = null,
+    val ignored: Boolean = false,
 )
