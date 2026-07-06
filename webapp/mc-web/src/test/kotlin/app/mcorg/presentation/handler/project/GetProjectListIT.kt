@@ -11,6 +11,7 @@ import app.mcorg.pipeline.world.CreateWorldStep
 import app.mcorg.presentation.plugins.AuthPlugin
 import app.mcorg.presentation.plugins.UpdateActiveWorldPlugin
 import app.mcorg.presentation.plugins.WorldParamPlugin
+import app.mcorg.presentation.plugins.WorldParticipantPlugin
 import app.mcorg.test.WithUser
 import app.mcorg.test.postgres.DatabaseTestExtension
 import io.ktor.client.request.get
@@ -51,6 +52,7 @@ class GetProjectListIT : WithUser() {
             install(AuthPlugin)
             route("/worlds/{worldId}") {
                 install(WorldParamPlugin)
+                install(WorldParticipantPlugin)
                 install(UpdateActiveWorldPlugin)
                 route("/projects") {
                     get { call.handleGetProjectList() }
@@ -78,6 +80,7 @@ class GetProjectListIT : WithUser() {
             install(AuthPlugin)
             route("/worlds/{worldId}") {
                 install(WorldParamPlugin)
+                install(WorldParticipantPlugin)
                 install(UpdateActiveWorldPlugin)
                 route("/projects") {
                     get { call.handleGetProjectList() }
@@ -104,6 +107,7 @@ class GetProjectListIT : WithUser() {
             install(AuthPlugin)
             route("/worlds/{worldId}") {
                 install(WorldParamPlugin)
+                install(WorldParticipantPlugin)
                 install(UpdateActiveWorldPlugin)
                 route("/projects") {
                     get { call.handleGetProjectList() }
@@ -132,6 +136,7 @@ class GetProjectListIT : WithUser() {
             install(AuthPlugin)
             route("/worlds/{worldId}") {
                 install(WorldParamPlugin)
+                install(WorldParticipantPlugin)
                 install(UpdateActiveWorldPlugin)
                 route("/projects") {
                     get { call.handleGetProjectList() }
@@ -158,6 +163,7 @@ class GetProjectListIT : WithUser() {
             install(AuthPlugin)
             route("/worlds/{worldId}") {
                 install(WorldParamPlugin)
+                install(WorldParticipantPlugin)
                 install(UpdateActiveWorldPlugin)
                 route("/projects") {
                     get { call.handleGetProjectList() }
@@ -184,6 +190,7 @@ class GetProjectListIT : WithUser() {
             install(AuthPlugin)
             route("/worlds/{worldId}") {
                 install(WorldParamPlugin)
+                install(WorldParticipantPlugin)
                 install(UpdateActiveWorldPlugin)
                 route("/projects") {
                     get { call.handleGetProjectList() }
@@ -218,6 +225,7 @@ class GetProjectListIT : WithUser() {
             install(AuthPlugin)
             route("/worlds/{worldId}") {
                 install(WorldParamPlugin)
+                install(WorldParticipantPlugin)
                 install(UpdateActiveWorldPlugin)
                 route("/projects") {
                     get { call.handleGetProjectList() }
@@ -251,6 +259,7 @@ class GetProjectListIT : WithUser() {
             install(AuthPlugin)
             route("/worlds/{worldId}") {
                 install(WorldParamPlugin)
+                install(WorldParticipantPlugin)
                 install(UpdateActiveWorldPlugin)
                 route("/projects") {
                     get { call.handleGetProjectList() }
@@ -281,6 +290,7 @@ class GetProjectListIT : WithUser() {
             install(AuthPlugin)
             route("/worlds/{worldId}") {
                 install(WorldParamPlugin)
+                install(WorldParticipantPlugin)
                 install(UpdateActiveWorldPlugin)
                 route("/projects") {
                     get { call.handleGetProjectList() }
@@ -307,6 +317,7 @@ class GetProjectListIT : WithUser() {
             install(AuthPlugin)
             route("/worlds/{worldId}") {
                 install(WorldParamPlugin)
+                install(WorldParticipantPlugin)
                 install(UpdateActiveWorldPlugin)
                 route("/projects") {
                     get("/resume-rows") { call.handleGetResumeRows() }

@@ -186,6 +186,22 @@ class ProjectDetailIT : WithUser() {
     }
 
     // -------------------------------------------------------------------------
+    // Test 6b: a /tasks mutation by a non-member of the world is rejected
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `task complete by a non-member of the world returns 403`() = testApplication {
+        setupRoutes()
+        val nonMember = createExtraUser()
+
+        val response = client.patch("/worlds/$worldId/projects/$projectId/tasks/$taskId/complete") {
+            addAuthCookie(this, nonMember)
+        }
+
+        assertEquals(HttpStatusCode.Forbidden, response.status)
+    }
+
+    // -------------------------------------------------------------------------
     // Test 7: detail-content with legacy ?view= param maps to list lens
     // -------------------------------------------------------------------------
 
@@ -245,13 +261,13 @@ class ProjectDetailIT : WithUser() {
             install(AuthPlugin)
             route("/worlds/{worldId}") {
                 install(WorldParamPlugin)
+                install(WorldParticipantPlugin)
                 install(UpdateActiveWorldPlugin)
                 route("/projects/{projectId}") {
                     install(ProjectParamPlugin)
                     get { call.handleGetProject() }
                     get("/detail-content") { call.handleGetDetailContent() }
                     route("/resources/gathering/{resourceGatheringId}") {
-                        install(WorldParticipantPlugin)
                         install(ResourceGatheringIdParamPlugin)
                         patch("/edit-done") { call.handleUpdateRequirementProgress() }
                         put("/collected") { call.handleSetCollectedValue() }

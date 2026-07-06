@@ -257,13 +257,13 @@ class PlanViewIT : WithUser() {
             install(AuthPlugin)
             route("/worlds/{worldId}") {
                 install(WorldParamPlugin)
+                install(WorldParticipantPlugin)
                 install(UpdateActiveWorldPlugin)
                 route("/projects/{projectId}") {
                     install(ProjectParamPlugin)
                     get { call.handleGetProject() }
                     get("/detail-content") { call.handleGetDetailContent() }
                     route("/resources/gathering/{resourceGatheringId}") {
-                        install(WorldParticipantPlugin)
                         install(ResourceGatheringIdParamPlugin)
                         patch("/required") { call.handleUpdateResourceRequiredAmount() }
                         patch("/ignore") { call.handleToggleResourceGatheringIgnored() }

@@ -15,6 +15,7 @@ import app.mcorg.pipeline.world.settings.handleDisconnectDiscord
 import app.mcorg.presentation.plugins.AuthPlugin
 import app.mcorg.presentation.plugins.WorldAdminPlugin
 import app.mcorg.presentation.plugins.WorldParamPlugin
+import app.mcorg.presentation.plugins.WorldParticipantPlugin
 import app.mcorg.test.WithUser
 import app.mcorg.test.postgres.DatabaseTestExtension
 import app.mcorg.webhook.CreateWebhookSubscriptionInput
@@ -192,6 +193,7 @@ class ConnectDiscordIT : WithUser() {
             install(AuthPlugin)
             route("/worlds/{worldId}") {
                 install(WorldParamPlugin)
+                install(WorldParticipantPlugin)
                 route("/settings") {
                     install(WorldAdminPlugin)
                     route("/discord") {

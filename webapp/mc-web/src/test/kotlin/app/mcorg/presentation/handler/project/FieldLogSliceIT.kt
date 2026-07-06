@@ -12,6 +12,7 @@ import app.mcorg.presentation.plugins.AuthPlugin
 import app.mcorg.presentation.plugins.ProjectParamPlugin
 import app.mcorg.presentation.plugins.UpdateActiveWorldPlugin
 import app.mcorg.presentation.plugins.WorldParamPlugin
+import app.mcorg.presentation.plugins.WorldParticipantPlugin
 import app.mcorg.test.WithUser
 import app.mcorg.test.postgres.DatabaseTestExtension
 import io.ktor.client.request.get
@@ -128,11 +129,24 @@ class FieldLogSliceIT : WithUser() {
         assertEquals(HttpStatusCode.Found, response.status)
     }
 
+    @Test
+    fun `non-member of the world is rejected with 403`() = testApplication {
+        setupRoutes()
+        val nonMember = createExtraUser()
+
+        val response = client.get("/worlds/$worldId/projects/$blockedId/field-log-row?expanded=true") {
+            addAuthCookie(this, nonMember)
+        }
+
+        assertEquals(HttpStatusCode.Forbidden, response.status)
+    }
+
     private fun ApplicationTestBuilder.setupRoutes() {
         routing {
             install(AuthPlugin)
             route("/worlds/{worldId}") {
                 install(WorldParamPlugin)
+                install(WorldParticipantPlugin)
                 install(UpdateActiveWorldPlugin)
                 route("/projects/{projectId}") {
                     install(ProjectParamPlugin)

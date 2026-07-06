@@ -94,6 +94,14 @@ class WorldHandler {
             }
             route("/{worldId}") {
                 install(WorldParamPlugin)
+                // World-membership gate (MCO-247): WorldParamPlugin above only checks the
+                // world *exists*, not that the caller belongs to it — closing that IDOR gap
+                // for the entire /{worldId} subtree (projects, resources, tasks, plan, meta,
+                // field-log, view-preference). Must run before UpdateActiveWorldPlugin so a
+                // non-member's session never gets its activeWorldId cookie pointed at a world
+                // they can't access. /settings below is already WorldAdmin/Owner-gated; this
+                // member check is just a harmless, correct precondition for it too.
+                install(WorldParticipantPlugin)
                 install(UpdateActiveWorldPlugin)
                 get {
                     val worldId = call.parameters["worldId"]!!.toInt()
@@ -144,12 +152,8 @@ class WorldHandler {
                             call.handleGetFieldLogSliceItems()
                         }
                         route("/resources") {
-                            // World-membership gate (MCO-247): ParamPlugins above only check
-                            // world/project *existence*, not that the caller belongs to the
-                            // world — closing that IDOR gap for the whole resource-mutation
-                            // family (schematic upload, gathering create, and every
-                            // /{resourceGatheringId} mutation below, incl. ignore).
-                            install(WorldParticipantPlugin)
+                            // World-membership gate (MCO-247) now lives at the /{worldId}
+                            // level above, covering this whole resource-mutation family too.
                             post("/from-schematic") {
                                 call.handleAddResourcesFromSchematic()
                             }

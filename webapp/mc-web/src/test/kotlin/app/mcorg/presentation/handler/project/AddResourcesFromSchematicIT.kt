@@ -170,11 +170,11 @@ class AddResourcesFromSchematicIT : WithUser() {
             install(AuthPlugin)
             route("/worlds/{worldId}") {
                 install(WorldParamPlugin)
+                install(WorldParticipantPlugin)
                 install(UpdateActiveWorldPlugin)
                 route("/projects/{projectId}") {
                     install(ProjectParamPlugin)
                     route("/resources") {
-                        install(WorldParticipantPlugin)
                         post("/from-schematic") { call.handleAddResourcesFromSchematic() }
                     }
                 }

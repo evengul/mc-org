@@ -229,11 +229,11 @@ class ResourceDetailPanelIT : WithUser() {
             install(AuthPlugin)
             route("/worlds/{worldId}") {
                 install(WorldParamPlugin)
+                install(WorldParticipantPlugin)
                 install(UpdateActiveWorldPlugin)
                 route("/projects/{projectId}") {
                     install(ProjectParamPlugin)
                     route("/resources/gathering/{resourceGatheringId}") {
-                        install(WorldParticipantPlugin)
                         install(ResourceGatheringIdParamPlugin)
                         get("/detail-panel") { call.handleGetResourceDetailPanel() }
                         patch("/source") { call.handleSetResourceSource() }
