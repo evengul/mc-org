@@ -38,9 +38,8 @@ stash and test on main.
 
 Check if there is a target Linear issue (MCO-xxx) for this commit:
 1. If the user mentioned an issue number, use that.
-2. If a task spec file is open or referenced, look for a Linear issue ID in it.
-3. If the branch name contains an issue ID (e.g. `mco-123-...`), use that.
-4. Otherwise, ask the user: "Is there a Linear issue for this commit?"
+2. If the branch name contains an issue ID (e.g. `mco-123-...`), use that.
+3. Otherwise, ask the user: "Is there a Linear issue for this commit?"
 
 Store the issue ID (if any) for use in the commit message.
 

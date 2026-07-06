@@ -289,6 +289,8 @@ commands (they have `user-invocable: false`).
 | `docs-product`      | Design system tokens, component patterns, motion, mobile behaviour — UI review and design intent |
 | `docs-htmx`         | HTMX helper functions, `hx*` attributes, HTMX patterns        |
 | `docs-ia`           | Information architecture, URL structure, navigation, personas |
+| `docs-planning`     | Scoping features/epics, validating approach, decomposing large work |
+| `docs-review`       | Reviewing a diff or PR — pattern compliance, test coverage, restricted areas |
 | `docs-testing`      | Writing or running tests — unit, integration, pipeline step   |
 | `docs-business`     | Business rules, roles, project stages, workflows              |
 | `docs-troubleshoot` | Debugging errors, compile failures                            |
