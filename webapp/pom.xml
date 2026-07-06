@@ -31,7 +31,7 @@
         <!-- Held at 2.3.21 to keep CodeQL green; see mc-bom/pom.xml for the full rationale. -->
         <kotlin.version>2.3.21</kotlin.version>
         <junit.version>6.1.1</junit.version>
-        <flyway.version>12.9.0</flyway.version>
+        <flyway.version>12.10.0</flyway.version>
         <surefire.version>3.5.6</surefire.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <kotlin.compiler.incremental>true</kotlin.compiler.incremental>
