@@ -6,6 +6,7 @@ import app.mcorg.domain.model.project.ProjectResourceEdge
 import app.mcorg.domain.model.project.ProjectType
 import app.mcorg.domain.model.user.TokenProfile
 import app.mcorg.domain.model.world.World
+import app.mcorg.presentation.hxIndicator
 import app.mcorg.presentation.hxPost
 import app.mcorg.presentation.hxSwap
 import app.mcorg.presentation.hxTarget
@@ -228,12 +229,30 @@ fun kotlinx.html.FlowContent.projectsEmptyState(worldId: Int) {
         div("empty-state-card") {
             h2("empty-state-card__heading") { +"Plan your own project" }
             p("empty-state-card__body") { +"Create a new project and start tracking your builds and resources." }
-            div("empty-state-card__actions") {
-                button {
-                    classes = setOf("btn", "btn--primary")
+            // Same "pick a door" affordance as the populated state's "+ New project" menu
+            // (NewProjectMenu.kt) — reuses .np-menu__door so the empty and populated create
+            // entry points read as the same control, and adds the schematic door that was
+            // previously only reachable after creating an empty project.
+            div("empty-state-card__doors") {
+                button(classes = "np-menu__door") {
+                    type = ButtonType.button
+                    attributes["onclick"] =
+                        "document.getElementById('schematic-project-modal')?.showModal()"
+                    span("np-menu__door-glyph") { +"⤓" }
+                    span("np-menu__door-text") {
+                        span("np-menu__door-title") { +"From a schematic" }
+                        span("np-menu__door-sub") { +".litematic" }
+                    }
+                }
+                button(classes = "np-menu__door") {
+                    type = ButtonType.button
                     attributes["onclick"] =
                         "document.getElementById('first-project-flag').value='true'; document.getElementById('create-project-modal')?.showModal()"
-                    +"Create Project"
+                    span("np-menu__door-glyph") { +"+" }
+                    span("np-menu__door-text") {
+                        span("np-menu__door-title") { +"Blank project" }
+                        span("np-menu__door-sub") { +"name it, fill it later" }
+                    }
                 }
             }
         }
@@ -260,6 +279,7 @@ private fun kotlinx.html.FlowContent.schematicProjectModal(worldId: Int) {
                     form {
                         hxPost("/worlds/$worldId/projects/from-schematic")
                         hxTargetError(".form-error")
+                        hxIndicator("#schematic-project-progress")
                         attributes["hx-encoding"] = "multipart/form-data"
                         attributes["hx-on::after-request"] =
                             "if(event.detail.successful) { this.reset(); this.closest('dialog')?.close() }"
@@ -293,6 +313,15 @@ private fun kotlinx.html.FlowContent.schematicProjectModal(worldId: Int) {
                         }
                         p("form-error") {
                             id = "validation-error-name-schematic"
+                        }
+
+                        // Upload/parse feedback: hidden until the request is in flight
+                        // (see .htmx-indicator in modal.css) — large schematics can take a
+                        // while to parse and there's otherwise no visible sign of progress.
+                        div("modal__progress htmx-indicator") {
+                            id = "schematic-project-progress"
+                            div("modal__progress-spinner") {}
+                            span { +"Parsing schematic…" }
                         }
 
                         div("modal__actions") {

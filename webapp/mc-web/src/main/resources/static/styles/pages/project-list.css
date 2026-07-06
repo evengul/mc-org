@@ -60,6 +60,18 @@
     margin-top: var(--space-2);
 }
 
+/* Reuses .np-menu__door (see the "+ New project" door menu below) so the empty state's
+   create entry points look identical to the populated state's. Unlike .np-menu__panel this
+   sits inline in the card (no absolute positioning/box-shadow), just a bordered door list. */
+.empty-state-card__doors {
+    display: flex;
+    flex-direction: column;
+    margin-top: var(--space-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+}
+
 /* --- Mobile --- */
 
 @media (max-width: 768px) {
@@ -184,16 +196,21 @@
 
 /* --- Chips (pending / paused) --- */
 
+/* Full-width stacked rows, not a wrapped cluster of pills — an empty pending/paused
+   project should read as a project row (like .fl-row), just a simpler one. */
 .fl-chips {
     display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-3);
+    flex-direction: column;
+    gap: var(--space-2);
 }
 
 .fl-chip {
     display: flex;
     align-items: center;
+    justify-content: space-between;
     gap: var(--space-3);
+    width: 100%;
+    min-height: 44px;
     padding: var(--space-3) var(--space-4);
     background: var(--bg-surface);
     border: 1px solid var(--border);

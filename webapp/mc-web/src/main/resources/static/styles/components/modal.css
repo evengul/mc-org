@@ -146,3 +146,42 @@ dialog.modal-backdrop::backdrop {
     from { opacity: 0; }
     to   { opacity: 1; }
 }
+
+/* --- HTMX indicator (generic — hx-indicator="#id") ---
+   htmx toggles the "htmx-request" class on the indicator element while its request is
+   in flight; it does not ship default visibility CSS, so this is the one utility that
+   defines it. Hidden by default, faded in during the request. */
+.htmx-indicator {
+    opacity: 0;
+    transition: opacity 150ms ease-in-out;
+}
+
+.htmx-indicator.htmx-request,
+.htmx-request .htmx-indicator {
+    opacity: 1;
+}
+
+/* Schematic-upload progress affordance — spinner + label shown inside the modal
+   body while the upload/parse request is in flight (see .htmx-indicator above). */
+.modal__progress {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    color: var(--text-muted);
+    font-family: var(--font-ui);
+    font-size: var(--text-sm);
+}
+
+.modal__progress-spinner {
+    width: 16px;
+    height: 16px;
+    flex: none;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: modal-progress-spin 700ms linear infinite;
+}
+
+@keyframes modal-progress-spin {
+    to { transform: rotate(360deg); }
+}
