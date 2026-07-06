@@ -48,10 +48,13 @@ import kotlin.test.assertFalse
  * ingestion writes to (see `StoreServerDataSteps.kt`) — giving [GetItemSourceGraphForVersionStep]
  * real tag/member and recipe data to build a graph from, without depending on a real ingest.
  *
- * The fake graph models: a "planks" tag (birch/spruce) usable for sticks, birch planks crafted
- * from an oak log, spruce planks crafted from a spruce log, and raw (source-less-input) log
- * gathering — enough to prove a variant swap re-routes the derived "How to make it" breakdown
- * through a different raw material (oak log -> spruce log).
+ * The fake graph models:
+ * - a "planks" tag (birch/spruce) usable for sticks, birch planks crafted from an oak log,
+ *   spruce planks crafted from a spruce log — so a tag-family swap (birch -> spruce) re-routes
+ *   the derived "How to make it" breakdown through a different raw material (oak log -> spruce
+ *   log), and the tag siblings surface as "Suggested" quick-swap chips.
+ * - stone (raw gather) and white_concrete (crafted from white_concrete_powder) sharing NO tag —
+ *   so an any-item swap (stone -> concrete), the MCO-246 pivot, also succeeds and re-derives.
  */
 @Tag("database")
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -103,6 +106,38 @@ class SwapResourceGatheringVariantIT : WithUser() {
     }
 
     @Test
+    fun `swap to an item in no shared tag family (stone to concrete) succeeds and re-derives`() = testApplication {
+        val pid = createProject(worldId)
+        val rgId = createResourceGathering(pid, "minecraft:stone", "Stone", 4)
+        setupRoutes()
+
+        // Before: Stone is a raw-gather block — the breakdown has no White Concrete Powder.
+        val before = client.get("/worlds/$worldId/projects/$pid/detail-content?lens=list") {
+            addAuthCookie(this)
+        }.bodyAsText()
+        assertContains(before, "Stone")
+        assertFalse(before.contains("White Concrete Powder"))
+
+        // Stone and White Concrete share NO tag, so this is the any-item path (not a suggestion).
+        val response = client.patch("/worlds/$worldId/projects/$pid/resources/gathering/$rgId/variant") {
+            addAuthCookie(this)
+            contentType(ContentType.Application.FormUrlEncoded)
+            setBody("itemId=minecraft:white_concrete")
+        }
+        assertEquals(HttpStatusCode.OK, response.status)
+
+        val (itemId, name) = runBlocking { readResource(rgId) }
+        assertEquals("minecraft:white_concrete", itemId)
+        assertEquals("White Concrete", name)
+
+        // After: the breakdown re-derives White Concrete through its White Concrete Powder input.
+        val after = client.get("/worlds/$worldId/projects/$pid/detail-content?lens=list") {
+            addAuthCookie(this)
+        }.bodyAsText()
+        assertContains(after, "White Concrete Powder")
+    }
+
+    @Test
     fun `swap re-derives the plan through the new item's own dependencies`() = testApplication {
         val pid = createProject(worldId)
         val rgId = createResourceGathering(pid, "minecraft:birch_planks", "Birch Planks", 8)
@@ -130,7 +165,7 @@ class SwapResourceGatheringVariantIT : WithUser() {
     }
 
     @Test
-    fun `GET detail-panel lists the same-tag-family variant as a candidate`() = testApplication {
+    fun `GET detail-panel shows tag-family suggestions and the free-text search combo`() = testApplication {
         val pid = createProject(worldId)
         val rgId = createResourceGathering(pid, "minecraft:birch_planks", "Birch Planks", 8)
         setupRoutes()
@@ -140,15 +175,21 @@ class SwapResourceGatheringVariantIT : WithUser() {
         ) { addAuthCookie(this) }
 
         assertEquals(HttpStatusCode.OK, response.status)
-        assertContains(response.bodyAsText(), "Spruce Planks")
+        val body = response.bodyAsText()
+        // Tag-family sibling surfaces as a "Suggested" quick-swap chip.
+        assertContains(body, "Suggested")
+        assertContains(body, "Spruce Planks")
+        // The free-text search combo is present for any-item swaps (reuses /items/search).
+        assertContains(body, "resource-panel-variant-results")
+        assertContains(body, "/items/search")
     }
 
     // -------------------------------------------------------------------------
-    // Validation failure: swapping to a non-variant is rejected
+    // Validation failure: swapping to an unknown item is rejected
     // -------------------------------------------------------------------------
 
     @Test
-    fun `PATCH variant with an itemId outside the tag family returns 422`() = testApplication {
+    fun `PATCH variant with an unknown item id returns 422`() = testApplication {
         val pid = createProject(worldId)
         val rgId = createResourceGathering(pid, "minecraft:birch_planks", "Birch Planks", 8)
         setupRoutes()
@@ -158,7 +199,8 @@ class SwapResourceGatheringVariantIT : WithUser() {
         ) {
             addAuthCookie(this)
             contentType(ContentType.Application.FormUrlEncoded)
-            setBody("itemId=minecraft:oak_log")
+            // Not present in the version catalog — rejected even though it looks like a real id.
+            setBody("itemId=minecraft:does_not_exist")
         }
 
         assertEquals(HttpStatusCode.UnprocessableEntity, response.status)
@@ -439,5 +481,22 @@ class SwapResourceGatheringVariantIT : WithUser() {
         val sprucePlanksSource = source(version, "minecraft:crafting_shapeless", "spruce_planks_from_spruce_log.json")
         consumedItem(version, sprucePlanksSource, "minecraft:spruce_log", 1)
         producedItem(version, sprucePlanksSource, "minecraft:spruce_planks", 4)
+
+        // Stone and White Concrete share NO tag — the any-item swap (MCO-246 pivot). Stone is a
+        // raw-gather block; white concrete is crafted from white concrete powder (also raw), so a
+        // stone -> white_concrete swap re-derives the breakdown to a new dependency.
+        item(version, "minecraft:stone", "Stone")
+        item(version, "minecraft:white_concrete", "White Concrete")
+        item(version, "minecraft:white_concrete_powder", "White Concrete Powder")
+
+        val stoneSource = source(version, "minecraft:block", "blocks/stone.json")
+        producedItem(version, stoneSource, "minecraft:stone", 1)
+
+        val powderSource = source(version, "minecraft:block", "blocks/white_concrete_powder.json")
+        producedItem(version, powderSource, "minecraft:white_concrete_powder", 1)
+
+        val concreteSource = source(version, "minecraft:crafting_shapeless", "white_concrete_from_powder.json")
+        consumedItem(version, concreteSource, "minecraft:white_concrete_powder", 1)
+        producedItem(version, concreteSource, "minecraft:white_concrete", 1)
     }
 }

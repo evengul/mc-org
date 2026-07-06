@@ -175,6 +175,28 @@ dialog#resource-panel::backdrop {
     color: var(--text-primary);
 }
 
+/* "Replace item" section (MCO-246) — suggestions chips + free-text search */
+.resource-panel__variant {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    padding-top: var(--space-2);
+}
+
+.resource-panel__variant-label {
+    display: block;
+}
+
+.resource-panel__variant-suggestions {
+    margin-top: var(--space-1);
+}
+
+.resource-panel__variant-search {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
 .resource-panel__footer {
     margin-top: auto;
     padding-top: var(--space-5);
