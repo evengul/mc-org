@@ -13,6 +13,7 @@ import app.mcorg.engine.plan.PlanOverrides
 import app.mcorg.presentation.hxDelete
 import app.mcorg.presentation.hxDeleteWithConfirm
 import app.mcorg.presentation.hxGet
+import app.mcorg.presentation.hxIndicator
 import app.mcorg.presentation.hxOutOfBands
 import app.mcorg.presentation.hxPatch
 import app.mcorg.presentation.hxPost
@@ -697,6 +698,9 @@ private fun FlowContent.drillButton(worldId: Int, projectId: Int, encodedItemId:
         attributes["hx-swap"] = "outerHTML"
         attributes["hx-push-url"] = pushUrl
         attributes["aria-label"] = "View source chain"
+        // Marks the drill entry point so plan-view.js can remember the page's scroll
+        // position and restore it when "< Back to plan" (DrillView.kt) returns here.
+        attributes["data-drill-nav"] = "in"
         +"⇄"
     }
 }
@@ -866,6 +870,7 @@ fun FlowContent.resourceSchematicModal(worldId: Int, projectId: Int, existingRes
                     hxTarget("#plan-resource-table")
                     hxSwap("outerHTML")
                     hxTargetError(".form-error")
+                    hxIndicator("#resource-schematic-progress")
                     attributes["hx-encoding"] = "multipart/form-data"
                     attributes["hx-on::after-request"] =
                         "if(event.detail.successful) { this.reset(); this.closest('dialog')?.close() }"
@@ -884,6 +889,15 @@ fun FlowContent.resourceSchematicModal(worldId: Int, projectId: Int, existingRes
                     }
                     p("form-error") {
                         id = "validation-error-schematicFile"
+                    }
+
+                    // Upload/parse feedback: hidden until the request is in flight (see
+                    // .htmx-indicator in modal.css) — large schematics can take a while to
+                    // parse and there's otherwise no visible sign of progress.
+                    div("modal__progress htmx-indicator") {
+                        id = "resource-schematic-progress"
+                        div("modal__progress-spinner") {}
+                        span { +"Parsing schematic…" }
                     }
 
                     div("modal__actions") {

@@ -380,6 +380,50 @@
     }
 
     // -------------------------------------------------------------------------
+    // Drill scroll restoration (MCO-244): drilling into a target's source chain
+    // (DrillView.kt) and "< Back to plan" both outerHTML-swap #project-content, which
+    // otherwise leaves the page scrolled wherever the new (usually shorter) content
+    // happens to land. Remember the scroll position on the way in — via the
+    // `data-drill-nav="in"` marker on every drill trigger (ProjectDetailPage.kt) — and
+    // restore it once #project-content settles back on a non-drill view (no
+    // `.drill-header`, see DrillView.kt). Scoped per-project via sessionStorage so it
+    // survives the swap and multiple drill round-trips.
+    // -------------------------------------------------------------------------
+
+    function drillScrollKey() {
+        var projectId = getProjectIdFromUrl();
+        return projectId ? 'drillScroll:' + projectId : null;
+    }
+
+    function initDrillScrollRestore() {
+        if (document.body.dataset.drillScrollInit) return;
+        document.body.dataset.drillScrollInit = 'true';
+
+        document.body.addEventListener('click', function (e) {
+            var trigger = e.target.closest('[data-drill-nav="in"]');
+            if (!trigger) return;
+            var key = drillScrollKey();
+            if (!key) return;
+            try {
+                window.sessionStorage.setItem(key, String(window.scrollY));
+            } catch (err) { /* storage unavailable — non-fatal, scroll just won't restore */ }
+        });
+
+        document.body.addEventListener('htmx:afterSettle', function (e) {
+            if (!e.target || e.target.id !== 'project-content') return;
+            if (e.target.querySelector('.drill-header')) return; // still in the drill chain
+            var key = drillScrollKey();
+            if (!key) return;
+            try {
+                var saved = window.sessionStorage.getItem(key);
+                if (saved === null) return;
+                window.sessionStorage.removeItem(key);
+                window.scrollTo(0, parseInt(saved, 10));
+            } catch (err) { /* storage unavailable */ }
+        });
+    }
+
+    // -------------------------------------------------------------------------
     // URL parsing helpers
     // -------------------------------------------------------------------------
 
@@ -404,6 +448,7 @@
         initItemSearchKeyNav();
         initPlanCountEdit();
         initResolutionToggle();
+        initDrillScrollRestore();
     }
 
     document.addEventListener('DOMContentLoaded', init);
