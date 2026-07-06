@@ -49,7 +49,7 @@
         <caffeine.version>3.2.4</caffeine.version>
         <bcrypt.version>0.10.2</bcrypt.version>
         <hikari.version>7.1.0</hikari.version>
-        <postgresql.version>42.7.11</postgresql.version>
+        <postgresql.version>42.7.13</postgresql.version>
         <flyway.version>12.10.0</flyway.version>
         <wiremock.version>3.13.2</wiremock.version>
         <mockk.version>1.14.11</mockk.version>
