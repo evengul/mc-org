@@ -60,7 +60,7 @@ class WebhookDeliveryPollerTest {
     @Test
     fun `signalWork wakes an already-parked awaitNextWake almost immediately`() = runBlocking {
         primeCleanupClock()
-        // Nothing scheduled: absent a signal, awaitNextWake would otherwise wait out the (~1h)
+        // Nothing scheduled: absent a signal, awaitNextWake would otherwise wait out the (~24h)
         // cleanup deadline, so a fast wake here can only be explained by the signal.
         coEvery { WebhookStore.findNextScheduledDeliveryAt() } returns null
 
@@ -72,7 +72,7 @@ class WebhookDeliveryPollerTest {
 
         withTimeout(10_000) { wake.await() }
         val elapsed = elapsedMs(startNanos)
-        assertTrue(elapsed < 5_000, "expected a wake far short of the ~1h cleanup deadline, took ${elapsed}ms")
+        assertTrue(elapsed < 5_000, "expected a wake far short of the ~24h cleanup deadline, took ${elapsed}ms")
     }
 
     @Test

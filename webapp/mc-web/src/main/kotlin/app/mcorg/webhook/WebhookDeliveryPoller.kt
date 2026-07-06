@@ -40,9 +40,10 @@ class WebhookDeliveryPoller(
 ) {
     private val logger = LoggerFactory.getLogger(WebhookDeliveryPoller::class.java)
 
-    // Seeded one full cleanup window in the past (rather than epoch 0) so both `pollOnce` (cleanup
-    // always runs on the very first tick after (re)start) and `awaitNextWake` (a sane, real-clock
-    // cleanup deadline even if called before any `pollOnce`) agree on "now" as their reference point.
+    // Seeded one full cleanup window (24h) in the past (rather than epoch 0) so both `pollOnce`
+    // (cleanup always runs on the very first tick after (re)start) and `awaitNextWake` (a sane,
+    // real-clock cleanup deadline even if called before any `pollOnce`) agree on "now" as their
+    // reference point.
     @Volatile
     private var lastCleanupAtMs: Long = System.currentTimeMillis() - CLEANUP_INTERVAL_MS
 
@@ -83,7 +84,7 @@ class WebhookDeliveryPoller(
      *  - an enqueue [signalWork] wake,
      *  - the earliest scheduled retry ([WebhookStore.findNextScheduledDeliveryAt]), or
      *  - the cleanup throttle window elapsing (so `pruneOldDeliveries` still runs on a long
-     *    interval even while otherwise idle — this is a once-an-hour wake, not a heartbeat).
+     *    interval even while otherwise idle — this is a once-a-day wake, not a heartbeat).
      *
      * When the outbox holds no pending row at all, this parks on [wakeSignal] for up to
      * [CLEANUP_INTERVAL_MS] and issues no `webhook_deliveries` query in the meantime, letting the
@@ -127,7 +128,7 @@ class WebhookDeliveryPoller(
     companion object {
         const val MAX_ATTEMPTS = 3
         const val DEACTIVATE_THRESHOLD = 10
-        const val CLEANUP_INTERVAL_MS = 3_600_000L // 1 hour
+        const val CLEANUP_INTERVAL_MS = 86_400_000L // 24 hours
         private const val REQUEST_TIMEOUT_MS = 5_000L
 
         private fun defaultClient() = HttpClient(CIO) {
