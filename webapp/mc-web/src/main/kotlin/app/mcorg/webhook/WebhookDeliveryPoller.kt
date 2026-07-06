@@ -11,14 +11,17 @@ import io.ktor.http.contentType
 import io.ktor.http.isSuccess
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.withTimeoutOrNull
 import org.slf4j.LoggerFactory
 
 /**
  * Drains the `webhook_deliveries` outbox: each [pollOnce] picks up all due rows, groups them by
- * subscription, and delivers each subscription's batch concurrently as one signed POST. The poll
- * tick itself is the batching window — events that accrue between ticks for the same subscription
- * coalesce into a single payload (see [WebhookPayload]).
+ * subscription, and delivers each subscription's batch concurrently as one signed POST. Whatever
+ * span the caller's loop leaves between two [pollOnce] calls is the batching window — events that
+ * accrue in that span for the same subscription coalesce into a single payload (see
+ * [WebhookPayload]).
  *
  * Delivery outcome drives both the outbox row and subscription health:
  *  - success → rows marked `DELIVERED`, the subscription's failure streak reset;
@@ -26,16 +29,39 @@ import org.slf4j.LoggerFactory
  *    [MAX_ATTEMPTS]; the subscription's failure streak bumped, auto-deactivating it at
  *    [DEACTIVATE_THRESHOLD] consecutive failures.
  *
- * Started and stopped by `configureWebhooks` against the Ktor lifecycle. Stateless apart from the
- * shared [client] and the cleanup throttle, so it is safe to drive from a single polling loop.
+ * There is no fixed heartbeat: [awaitNextWake] is the wake/park mechanism the driving loop
+ * (`configureWebhooks`) uses between calls to [pollOnce], so an idle app issues zero
+ * `webhook_deliveries` queries and can autosuspend. Started and stopped by `configureWebhooks`
+ * against the Ktor lifecycle. Stateless apart from the shared [client] and the cleanup throttle, so
+ * it is safe to drive from a single polling loop.
  */
 class WebhookDeliveryPoller(
     private val client: HttpClient = defaultClient(),
 ) {
     private val logger = LoggerFactory.getLogger(WebhookDeliveryPoller::class.java)
 
+    // Seeded one full cleanup window (24h) in the past (rather than epoch 0) so both `pollOnce`
+    // (cleanup always runs on the very first tick after (re)start) and `awaitNextWake` (a sane,
+    // real-clock cleanup deadline even if called before any `pollOnce`) agree on "now" as their
+    // reference point.
     @Volatile
-    private var lastCleanupAtMs: Long = 0
+    private var lastCleanupAtMs: Long = System.currentTimeMillis() - CLEANUP_INTERVAL_MS
+
+    /**
+     * Conflated: at most one pending "wake up" is ever buffered, and a [signalWork] that fires
+     * while [pollOnce] is still running (or before anyone is awaiting) is not lost — the next
+     * [awaitNextWake] call observes it immediately instead of suspending.
+     */
+    private val wakeSignal = Channel<Unit>(Channel.CONFLATED)
+
+    /**
+     * Wake the poll loop promptly. Called by [WebhookFanoutConsumer] right after it enqueues an
+     * outbox row, so an active subscription is delivered to without waiting for a scheduled wake.
+     * Never suspends — safe to call from any coroutine.
+     */
+    fun signalWork() {
+        wakeSignal.trySend(Unit)
+    }
 
     /** One poll cycle: deliver every due batch, then run cleanup if the throttle window elapsed. */
     suspend fun pollOnce(nowMs: Long) {
@@ -51,6 +77,25 @@ class WebhookDeliveryPoller(
             lastCleanupAtMs = nowMs
             WebhookStore.pruneOldDeliveries()
         }
+    }
+
+    /**
+     * Wait for the next reason to run [pollOnce] again: whichever comes first of
+     *  - an enqueue [signalWork] wake,
+     *  - the earliest scheduled retry ([WebhookStore.findNextScheduledDeliveryAt]), or
+     *  - the cleanup throttle window elapsing (so `pruneOldDeliveries` still runs on a long
+     *    interval even while otherwise idle — this is a once-a-day wake, not a heartbeat).
+     *
+     * When the outbox holds no pending row at all, this parks on [wakeSignal] for up to
+     * [CLEANUP_INTERVAL_MS] and issues no `webhook_deliveries` query in the meantime, letting the
+     * database autosuspend.
+     */
+    suspend fun awaitNextWake(nowMs: Long = System.currentTimeMillis()) {
+        val nextScheduledAtMs = WebhookStore.findNextScheduledDeliveryAt()?.toEpochMilli()
+        val nextCleanupAtMs = lastCleanupAtMs + CLEANUP_INTERVAL_MS
+        val wakeAtMs = if (nextScheduledAtMs != null) minOf(nextScheduledAtMs, nextCleanupAtMs) else nextCleanupAtMs
+        val delayMs = (wakeAtMs - nowMs).coerceAtLeast(0)
+        withTimeoutOrNull(delayMs) { wakeSignal.receive() }
     }
 
     private suspend fun deliverBatch(subscriptionId: Int, rows: List<DueDelivery>) {
@@ -81,10 +126,9 @@ class WebhookDeliveryPoller(
     }
 
     companion object {
-        const val POLL_INTERVAL_MS = 5_000L
         const val MAX_ATTEMPTS = 3
         const val DEACTIVATE_THRESHOLD = 10
-        const val CLEANUP_INTERVAL_MS = 3_600_000L // 1 hour
+        const val CLEANUP_INTERVAL_MS = 86_400_000L // 24 hours
         private const val REQUEST_TIMEOUT_MS = 5_000L
 
         private fun defaultClient() = HttpClient(CIO) {

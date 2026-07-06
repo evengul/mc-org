@@ -11,8 +11,14 @@ import app.mcorg.event.SeamEvent
  * picks those up and performs the actual signed delivery, retry, and batching.
  *
  * Producers stay unaware of subscribers — this consumer is the only place subscriptions are matched.
+ *
+ * @param onEnqueued invoked once after at least one outbox row is written, so the poller can be
+ * woken promptly (see [WebhookDeliveryPoller.signalWork]) instead of waiting for its next scheduled
+ * wake. Defaults to a no-op so this class stays testable in isolation.
  */
-class WebhookFanoutConsumer : EventHandler {
+class WebhookFanoutConsumer(
+    private val onEnqueued: () -> Unit = {},
+) : EventHandler {
     override suspend fun handle(event: SeamEvent) {
         val matching = WebhookStore.findActiveSubscriptions(event.worldId)
             .filter { eventMatchesFilter(it.eventFilter, event.eventType) }
@@ -22,5 +28,6 @@ class WebhookFanoutConsumer : EventHandler {
         matching.forEach { subscription ->
             WebhookStore.enqueueDelivery(subscription.id, event.eventType, payload)
         }
+        onEnqueued()
     }
 }

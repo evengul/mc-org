@@ -19,6 +19,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
@@ -35,6 +36,19 @@ class WebhookDeliveryIT : WithUser() {
 
     private val consumer = WebhookFanoutConsumer()
     private val poller = WebhookDeliveryPoller()
+
+    /**
+     * [WebhookStore.findNextScheduledDeliveryAt] scans the whole outbox (by design: one poller
+     * loop drains every world's subscriptions), so the new tests that assert on its global
+     * null/non-null result need a clean outbox per test -- the pre-existing tests here only ever
+     * assert on rows scoped by an explicit id, so this is safe to add without touching them.
+     */
+    @BeforeEach
+    fun cleanWebhookState(): Unit = runBlocking {
+        DatabaseSteps.update<Unit>(sql = SafeSQL.delete("DELETE FROM webhook_deliveries"), parameterSetter = { _, _ -> }).process(Unit)
+        DatabaseSteps.update<Unit>(sql = SafeSQL.delete("DELETE FROM webhook_subscriptions"), parameterSetter = { _, _ -> }).process(Unit)
+        Unit
+    }
 
     @Test
     fun `delivers a matching event as a signed POST and marks it DELIVERED`(wm: WireMockRuntimeInfo) {
@@ -100,6 +114,70 @@ class WebhookDeliveryIT : WithUser() {
         assertTrue(active)
     }
 
+    @Test
+    fun `findNextScheduledDeliveryAt is null when the outbox is empty`() = runBlocking {
+        // Fresh world, no subscription, no deliveries at all.
+        createWorld("wh-empty")
+        assertEquals(null, WebhookStore.findNextScheduledDeliveryAt())
+    }
+
+    @Test
+    fun `findNextScheduledDeliveryAt is the earliest PENDING row across active subscriptions`(wm: WireMockRuntimeInfo) {
+        val worldId = createWorld("wh-schedule")
+        val laterSubId = insertSubscription(worldId, wm.httpBaseUrl + "/a", "x", """["*"]""")
+        val soonerSubId = insertSubscription(worldId, wm.httpBaseUrl + "/b", "x", """["*"]""")
+        setNextAttemptAt(insertDelivery(laterSubId), Instant.now().plusSeconds(300))
+        val soonerAt = Instant.now().plusSeconds(30)
+        setNextAttemptAt(insertDelivery(soonerSubId), soonerAt)
+
+        val next = runBlocking { WebhookStore.findNextScheduledDeliveryAt() }
+
+        assertTrue(next != null && next.isBefore(soonerAt.plusSeconds(1)) && next.isAfter(soonerAt.minusSeconds(1)))
+    }
+
+    @Test
+    fun `findNextScheduledDeliveryAt ignores rows whose subscription is inactive`(wm: WireMockRuntimeInfo) {
+        val worldId = createWorld("wh-inactive-sched")
+        val subId = insertSubscription(worldId, wm.httpBaseUrl + "/hook", "x", """["*"]""")
+        setNextAttemptAt(insertDelivery(subId), Instant.now().plusSeconds(30))
+        deactivateSubscription(subId)
+
+        assertEquals(null, runBlocking { WebhookStore.findNextScheduledDeliveryAt() })
+    }
+
+    @Test
+    fun `after a failed delivery the schedule reflects the backoff, then quiesces once FAILED`(wm: WireMockRuntimeInfo) {
+        val worldId = createWorld("wh-backoff")
+        val subId = insertSubscription(worldId, wm.httpBaseUrl + "/hook", "x", """["*"]""")
+        wm.wireMock.register(WireMock.post("/hook").willReturn(WireMock.aResponse().withStatus(500)))
+
+        fanOutAndPoll(ProjectCreated(worldId, user.id, Instant.now(), 1, "A", ProjectType.REDSTONE))
+
+        // One failure: rescheduled ~30s out (first-attempt backoff) -- this is the timestamp
+        // `awaitNextWake` would wake the loop on, not a fixed 5s tick.
+        assertEquals("PENDING" to 1, deliveryStatus(subId))
+        val afterFirstFailure = runBlocking { WebhookStore.findNextScheduledDeliveryAt() }
+        val expectedAt = Instant.now().plusSeconds(30)
+        assertTrue(
+            afterFirstFailure != null &&
+                afterFirstFailure.isAfter(expectedAt.minusSeconds(5)) &&
+                afterFirstFailure.isBefore(expectedAt.plusSeconds(5)),
+            "expected the next wake ~30s out, got $afterFirstFailure",
+        )
+
+        // Drive it to FAILED without waiting out the real backoff: two more failed attempts exhaust
+        // WebhookDeliveryPoller.MAX_ATTEMPTS.
+        val ids = listOf(deliveryIdFor(subId))
+        runBlocking {
+            WebhookStore.failOrReschedule(ids, WebhookDeliveryPoller.MAX_ATTEMPTS, "boom")
+            WebhookStore.failOrReschedule(ids, WebhookDeliveryPoller.MAX_ATTEMPTS, "boom")
+        }
+
+        assertEquals("FAILED" to 3, deliveryStatus(subId))
+        // Nothing left to schedule: the loop can now park indefinitely again.
+        assertEquals(null, runBlocking { WebhookStore.findNextScheduledDeliveryAt() })
+    }
+
     // --- helpers -------------------------------------------------------------
 
     private fun fanOutAndPoll(event: ProjectCreated) = runBlocking {
@@ -156,4 +234,53 @@ class WebhookDeliveryIT : WithUser() {
                 }
             }
         }
+
+    /** Inserts one PENDING outbox row (due immediately) for [subId] and returns its id. */
+    private fun insertDelivery(subId: Int): Long =
+        Database.getConnection().use { conn ->
+            conn.prepareStatement(
+                """
+                INSERT INTO webhook_deliveries (subscription_id, event_type, payload)
+                VALUES (?, 'project_created', '{}'::jsonb)
+                RETURNING id
+                """.trimIndent()
+            ).use { st ->
+                st.setInt(1, subId)
+                st.executeQuery().use { rs ->
+                    assertTrue(rs.next())
+                    rs.getLong("id")
+                }
+            }
+        }
+
+    /** The single delivery row id for [subId] (test setups in this file insert at most one). */
+    private fun deliveryIdFor(subId: Int): Long =
+        Database.getConnection().use { conn ->
+            conn.prepareStatement("SELECT id FROM webhook_deliveries WHERE subscription_id = ?").use { st ->
+                st.setInt(1, subId)
+                st.executeQuery().use { rs ->
+                    assertTrue(rs.next(), "expected a delivery row for subscription $subId")
+                    rs.getLong("id")
+                }
+            }
+        }
+
+    private fun setNextAttemptAt(deliveryId: Long, at: Instant) {
+        Database.getConnection().use { conn ->
+            conn.prepareStatement("UPDATE webhook_deliveries SET next_attempt_at = ? WHERE id = ?").use { st ->
+                st.setTimestamp(1, java.sql.Timestamp.from(at))
+                st.setLong(2, deliveryId)
+                st.executeUpdate()
+            }
+        }
+    }
+
+    private fun deactivateSubscription(subId: Int) {
+        Database.getConnection().use { conn ->
+            conn.prepareStatement("UPDATE webhook_subscriptions SET active = false WHERE id = ?").use { st ->
+                st.setInt(1, subId)
+                st.executeUpdate()
+            }
+        }
+    }
 }
