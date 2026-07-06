@@ -121,8 +121,11 @@ class WorldHandler {
                         get("/detail-content") {
                             call.handleGetDetailContent()
                         }
-                        delete {
-                            call.handleDeleteProject()
+                        method(HttpMethod.Delete) {
+                            install(WorldAdminPlugin)
+                            handle {
+                                call.handleDeleteProject()
+                            }
                         }
                         patch("/state") {
                             call.handleUpdateProjectState()

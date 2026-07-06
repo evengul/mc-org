@@ -11,6 +11,7 @@ import app.mcorg.engine.plan.GatheringPlan
 import app.mcorg.engine.plan.PlanNodeStatus
 import app.mcorg.engine.plan.PlanOverrides
 import app.mcorg.presentation.hxDelete
+import app.mcorg.presentation.hxDeleteWithConfirm
 import app.mcorg.presentation.hxGet
 import app.mcorg.presentation.hxOutOfBands
 import app.mcorg.presentation.hxPatch
@@ -19,6 +20,7 @@ import app.mcorg.presentation.hxSwap
 import app.mcorg.presentation.hxTarget
 import app.mcorg.presentation.hxTargetError
 import app.mcorg.presentation.hxTrigger
+import app.mcorg.presentation.templated.dsl.Link
 import app.mcorg.presentation.templated.dsl.TabItem
 import app.mcorg.presentation.templated.dsl.TabVariant
 import app.mcorg.presentation.templated.dsl.addTaskInline
@@ -112,6 +114,11 @@ fun projectDetailPage(
                     }
                     gatheringOverallProgress(project.id, project.worldId, resources, plan, progressMap)
                 }
+                if (isWorldAdmin) {
+                    div("project-detail__header-right") {
+                        projectDeleteButton(project)
+                    }
+                }
             }
 
             div {
@@ -130,6 +137,25 @@ fun projectDetailPage(
         div {
             id = "resource-panel-content"
         }
+    }
+}
+
+/**
+ * Delete-project affordance shown next to the edit fields (admins only — gated by the
+ * caller). Uses the shared type-to-confirm delete dialog (hxDeleteWithConfirm); the
+ * server redirects back to the world's project list on success.
+ */
+private fun FlowContent.projectDeleteButton(project: Project) {
+    button(classes = "btn btn--danger btn--sm") {
+        type = ButtonType.button
+        hxDeleteWithConfirm(
+            url = Link.Worlds.world(project.worldId).project(project.id).to,
+            title = "Delete project",
+            description = "This action cannot be undone. All tasks, resources, and progress for this project will be permanently deleted.",
+            warning = "Warning: This will permanently delete \"${project.name}\" and all associated data.",
+            confirmText = project.name,
+        )
+        +"Delete project"
     }
 }
 

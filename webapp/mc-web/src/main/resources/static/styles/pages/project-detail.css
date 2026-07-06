@@ -19,6 +19,12 @@
     flex: 1;
 }
 
+.project-detail__header-right {
+    display: flex;
+    align-items: flex-start;
+    flex-shrink: 0;
+}
+
 .project-detail__name {
     font-family: var(--font-ui);
     font-size: 20px;
