@@ -57,7 +57,7 @@
              which cannot instrument classes on JVM 21 — mockk then mocked Ktor calls as
              null). Force a current ByteBuddy. 1.18.10 covers Java 8-25, so the eventual
              JDK 25 move needs no further bump. -->
-        <bytebuddy.version>1.18.10</bytebuddy.version>
+        <bytebuddy.version>1.18.11</bytebuddy.version>
         <jackson.version>2.22</jackson.version>
     </properties>
 
