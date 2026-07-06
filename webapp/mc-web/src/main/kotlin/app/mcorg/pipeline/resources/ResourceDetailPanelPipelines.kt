@@ -25,14 +25,21 @@ suspend fun ApplicationCall.handleGetResourceDetailPanel() {
     val projectId = getProjectId()
     val resourceGatheringId = getResourceGatheringId()
 
+    // Version scopes the "Replace item" search combo (see resourcePanelVariantSection) to the
+    // project's Minecraft version; null falls back to an unscoped search (validation still
+    // enforces the version catalog server-side).
+    val version = GetWorldVersionStep.process(worldId).getOrNull()
+
     handlePipeline(
-        onSuccess = { (resource, projects) ->
-            respondHtml(resourceDetailPanelFragment(worldId, projectId, resource, projects))
+        onSuccess = { (resource, projects, suggestions) ->
+            respondHtml(resourceDetailPanelFragment(worldId, projectId, resource, projects, suggestions, version))
         }
     ) {
         val resource = GetResourceGatheringItemStep.run(resourceGatheringId)
         val projects = GetProjectsInWorldStep(projectId).run(worldId)
-        resource to projects
+        val graph = getGraphForWorld(worldId)
+        val suggestions = findVariantCandidates(graph, resource.itemId)
+        Triple(resource, projects, suggestions)
     }
 }
 

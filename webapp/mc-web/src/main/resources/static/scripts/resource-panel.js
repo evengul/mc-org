@@ -195,6 +195,46 @@
     }
 
     // -------------------------------------------------------------------------
+    // "Replace item" search selection (MCO-246)
+    //
+    // The /items/search results reused in the panel's "Replace item" section carry a
+    // hardcoded inline onclick="selectSearchedItem(this)" — but the page-global
+    // selectSearchedItem (plan-view.js) targets the ADD-resource form's fields, which is
+    // wrong here. We intercept clicks on options inside #resource-panel-variant-results in
+    // the CAPTURE phase and stopPropagation, which prevents the event from reaching the
+    // option's own inline onclick, then perform the swap PATCH ourselves. The swap URL is
+    // read from the results container's data-swap-url (rendered by resourcePanelVariantSection).
+    // -------------------------------------------------------------------------
+
+    function initVariantSearch() {
+        var dialog = getDialog();
+        if (!dialog) return;
+        if (dialog.dataset.variantSearchInitialized) return;
+        dialog.dataset.variantSearchInitialized = 'true';
+
+        dialog.addEventListener('click', function (e) {
+            var results = e.target.closest('#resource-panel-variant-results');
+            if (!results) return;
+            var option = e.target.closest('.item-search-option');
+            if (!option) return;
+
+            // Stop the option's inline onclick (plan-view's selectSearchedItem) from firing.
+            e.stopPropagation();
+            e.preventDefault();
+
+            var itemId = option.dataset.itemId;
+            var swapUrl = results.dataset.swapUrl;
+            if (!itemId || !swapUrl) return;
+
+            htmx.ajax('PATCH', swapUrl, {
+                target: '#plan-resources-area',
+                swap: 'outerHTML',
+                values: { itemId: itemId }
+            });
+        }, true); // capture phase — runs before the option's own inline handler
+    }
+
+    // -------------------------------------------------------------------------
     // Init
     // -------------------------------------------------------------------------
 
@@ -203,6 +243,7 @@
         initRowClicks();
         initViewToggleCleanup();
         initPanelQtyEdit();
+        initVariantSearch();
     }
 
     document.addEventListener('DOMContentLoaded', init);

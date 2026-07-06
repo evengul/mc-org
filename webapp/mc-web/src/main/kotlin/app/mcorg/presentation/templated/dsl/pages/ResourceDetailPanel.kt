@@ -1,8 +1,10 @@
 package app.mcorg.presentation.templated.dsl.pages
 
+import app.mcorg.domain.model.minecraft.Item
 import app.mcorg.domain.model.resources.ResourceGatheringItem
 import app.mcorg.presentation.hxDelete
 import app.mcorg.presentation.hxDeleteWithConfirm
+import app.mcorg.presentation.hxOutOfBands
 import app.mcorg.presentation.hxPatch
 import app.mcorg.presentation.hxSwap
 import app.mcorg.presentation.hxTarget
@@ -33,6 +35,8 @@ fun FlowContent.resourceDetailPanel(
     projectId: Int,
     resource: ResourceGatheringItem,
     projectsInWorld: List<Pair<Int, String>>,
+    variantSuggestions: List<Item> = emptyList(),
+    version: String? = null,
 ) {
     div("resource-panel__header") {
         button(classes = "resource-panel__close-btn") {
@@ -74,6 +78,11 @@ fun FlowContent.resourceDetailPanel(
     div("resource-panel__source") {
         id = "resource-panel-source"
         resourcePanelSourceSection(worldId, projectId, resource, projectsInWorld)
+    }
+    div("resource-panel__divider") { +"Replace item" }
+    div("resource-panel__variant") {
+        id = "resource-panel-variant"
+        resourcePanelVariantSection(worldId, projectId, resource, variantSuggestions, version)
     }
     div("resource-panel__footer") {
         button(classes = "btn btn--danger resource-panel__remove-btn") {
@@ -177,6 +186,76 @@ fun FlowContent.resourcePanelSourceSection(
 }
 
 /**
+ * "Replace item" section (MCO-246): swaps the target to ANY item valid for the project's
+ * Minecraft version. Two ways to pick:
+ *
+ * 1. **Suggested** quick-swap chips — the same-tag-family siblings from
+ *    [app.mcorg.pipeline.resources.findVariantCandidates] (wood/wool/log/colour families).
+ *    Each chip PATCHes `/variant` directly via HTMX. Omitted entirely when there are no
+ *    suggestions (coverage is data-dependent), so the section never shows a dead-end.
+ * 2. **Free-text search** over the whole version catalog via the shared `/items/search` combo
+ *    — for swaps with no shared tag (e.g. Stone -> Concrete). Selecting a result triggers the
+ *    swap; the wiring lives in `resource-panel.js` (a capture-phase click handler on
+ *    `#resource-panel-variant-results` options), which reuses the search endpoint without the
+ *    page-global `selectSearchedItem` (that one targets the add-resource form's fields).
+ *
+ * [version] scopes the search to the project's Minecraft version when known; the server
+ * validates the chosen id against that catalog regardless.
+ */
+fun FlowContent.resourcePanelVariantSection(
+    worldId: Int,
+    projectId: Int,
+    resource: ResourceGatheringItem,
+    variantSuggestions: List<Item>,
+    version: String?,
+) {
+    val swapUrl = "/worlds/$worldId/projects/$projectId/resources/gathering/${resource.id}/variant"
+
+    if (variantSuggestions.isNotEmpty()) {
+        span("section-label resource-panel__variant-label") { +"Suggested" }
+        div("stack--xs resource-panel__variant-suggestions") {
+            for (suggestion in variantSuggestions) {
+                div("picker-opt") {
+                    attributes["hx-patch"] = swapUrl
+                    attributes["hx-vals"] = """{"itemId":"${suggestion.id}"}"""
+                    attributes["hx-target"] = "#plan-resources-area"
+                    attributes["hx-swap"] = "outerHTML"
+                    span("picker-opt__name") { +suggestion.name }
+                }
+            }
+        }
+    }
+
+    // Free-text search over the whole version catalog. The results container carries the swap
+    // URL on a data attribute so resource-panel.js knows where to PATCH the selected item.
+    div("item-search-combo resource-panel__variant-search") {
+        span("section-label resource-panel__variant-label") {
+            +(if (variantSuggestions.isEmpty()) "Swap to any item" else "Or search any item")
+        }
+        div("item-search-field") {
+            input(type = InputType.text, classes = "form-control") {
+                id = "resource-panel-variant-input"
+                placeholder = "Search items by name..."
+                autoComplete = "off"
+                attributes["hx-get"] = "/items/search"
+                attributes["hx-trigger"] = "input changed delay:300ms"
+                attributes["hx-target"] = "#resource-panel-variant-results"
+                attributes["hx-swap"] = "innerHTML"
+                attributes["hx-vals"] = if (version != null) {
+                    "js:{q: this.value, versionRangeType: 'bounded', versionFrom: '$version', versionTo: '$version'}"
+                } else {
+                    "js:{q: this.value}"
+                }
+            }
+            div("item-search-results") {
+                id = "resource-panel-variant-results"
+                attributes["data-swap-url"] = swapUrl
+            }
+        }
+    }
+}
+
+/**
  * Full-fragment response for GET .../detail-panel — returns the inner content of #resource-panel-content.
  */
 fun resourceDetailPanelFragment(
@@ -184,8 +263,28 @@ fun resourceDetailPanelFragment(
     projectId: Int,
     resource: ResourceGatheringItem,
     projectsInWorld: List<Pair<Int, String>>,
+    variantSuggestions: List<Item> = emptyList(),
+    version: String? = null,
 ): String = createHTML().div {
-    resourceDetailPanel(worldId, projectId, resource, projectsInWorld)
+    resourceDetailPanel(worldId, projectId, resource, projectsInWorld, variantSuggestions, version)
+}
+
+/**
+ * Out-of-band refresh of the whole panel (MCO-246) — used by the `/variant` swap response so an
+ * open resource-detail panel reflects the new item/name and its refreshed suggestions without
+ * needing to be reopened. The main response target for a swap is `#plan-resources-area` (the
+ * row's name lives there); this is the sidecar that keeps the panel in sync alongside it.
+ */
+fun resourceDetailPanelOobFragment(
+    worldId: Int,
+    projectId: Int,
+    resource: ResourceGatheringItem,
+    projectsInWorld: List<Pair<Int, String>>,
+    variantSuggestions: List<Item> = emptyList(),
+    version: String? = null,
+): String = createHTML().div {
+    hxOutOfBands("innerHTML:#resource-panel-content")
+    resourceDetailPanel(worldId, projectId, resource, projectsInWorld, variantSuggestions, version)
 }
 
 /**
