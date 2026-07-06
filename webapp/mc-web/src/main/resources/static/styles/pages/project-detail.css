@@ -309,7 +309,13 @@
 }
 
 .plan-resource-table__col-action {
-    width: 40px;
+    width: 72px;
+}
+
+.plan-resource-table__action-group {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
 }
 
 /* Status dot */
@@ -372,6 +378,35 @@
 .plan-resource-table__delete-btn:hover {
     color: var(--red);
     background: var(--red-bg);
+}
+
+/* Ignore / un-ignore buttons (MCO-247) */
+.plan-resource-table__ignore-btn {
+    color: var(--text-muted);
+    border: none;
+    background: none;
+    cursor: pointer;
+    padding: var(--space-1) var(--space-2);
+    font-size: var(--text-sm);
+    border-radius: var(--radius);
+}
+
+.plan-resource-table__ignore-btn:hover {
+    color: var(--accent);
+    background: var(--accent-muted);
+}
+
+.plan-resource-table__unignore-btn {
+    font-size: var(--text-xs);
+}
+
+/* Ignored resources section (MCO-247) */
+.plan-ignored-section {
+    margin-top: var(--space-4);
+}
+
+.plan-resource-table--ignored .plan-resource-table__item {
+    color: var(--text-muted);
 }
 
 /* Add resource form */

@@ -10,7 +10,7 @@ val GetResourceGatheringItemStep = DatabaseSteps.query<Int, ResourceGatheringIte
         """
         SELECT rg.id, rg.project_id, rg.item_id, rg.name, rg.required,
                COALESCE(rgp.collected, 0) AS collected,
-               rg.source_type,
+               rg.source_type, rg.ignored,
                p.id AS solved_project_id, p.name AS solved_project_name
         FROM resource_gathering rg
         LEFT JOIN resource_gathering_progress rgp
