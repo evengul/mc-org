@@ -10,7 +10,7 @@ Follow these steps in order. Stop and report if any step fails.
 
 ## Step 1: Compile
 
-Only compile if the changes include Kotlin/Java source files (`webapp/src/main/**`). Skip this step for config-only or non-code changes (e.g. workflow files, docs).
+Only compile if the changes include Kotlin/Java source files (`webapp/*/src/main/**` — any of the `mc-*` modules). Skip this step for config-only or non-code changes (e.g. workflow files, docs).
 
 ```bash
 cd webapp && mvn clean compile
@@ -20,7 +20,7 @@ Zero errors required. If it fails, fix the errors before continuing.
 
 ## Step 2: Run Tests
 
-Only run tests if the changes include Kotlin/Java source files (`webapp/src/main/**`). Skip this step for config-only or non-code changes.
+Only run tests if the changes include Kotlin/Java source files (`webapp/*/src/**`). Skip this step for config-only or non-code changes.
 
 ```bash
 ./webapp/scripts/test.sh
@@ -38,9 +38,8 @@ stash and test on main.
 
 Check if there is a target Linear issue (MCO-xxx) for this commit:
 1. If the user mentioned an issue number, use that.
-2. If a task spec file is open or referenced, look for a Linear issue ID in it.
-3. If the branch name contains an issue ID (e.g. `mco-123-...`), use that.
-4. Otherwise, ask the user: "Is there a Linear issue for this commit?"
+2. If the branch name contains an issue ID (e.g. `mco-123-...`), use that.
+3. Otherwise, ask the user: "Is there a Linear issue for this commit?"
 
 Store the issue ID (if any) for use in the commit message.
 
@@ -72,7 +71,7 @@ Write the commit message in this format:
 
 MCO-XXX  ← REQUIRED if a Linear issue was identified in Step 3
 
-Co-Authored-By: Claude <current model> 4.6 <noreply@anthropic.com>  ← include if AI-assisted
+Co-Authored-By: <the current model's co-author line>  ← include if AI-assisted; use the exact line the harness instructs for the running model — do not hardcode a model name
 ```
 
 Type follows conventional commits: `feat`, `fix`, `refactor`, `chore`, `docs`, `test`, etc.
@@ -94,7 +93,7 @@ Send an email when a user is invited to a project.
 
 Closes MCO-123
 
-Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+Co-Authored-By: <current model's co-author line>
 EOF
 )"
 ```

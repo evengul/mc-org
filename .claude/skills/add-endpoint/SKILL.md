@@ -10,7 +10,7 @@ Template for creating a new HTTP endpoint in MC-ORG.
 
 ## Step 1: Create the Handler Function
 
-Location: `src/main/kotlin/app/mcorg/presentation/handler/{Feature}Handler.kt`
+Location: `webapp/mc-web/src/main/kotlin/app/mcorg/presentation/handler/{Feature}Handler.kt`
 
 **Standard Pattern (using handlePipeline):**
 
@@ -47,7 +47,7 @@ suspend fun ApplicationCall.handleGet{Feature}Page() {
 
     handlePipeline(
         onSuccess = { (feature, relatedItems) ->
-            respondHtml(createPage(user, "Feature Page") {
+            respondHtml(pageShell(pageTitle = "Feature Page", user = user) {
                 featurePage(feature, relatedItems)
             })
         }
@@ -111,7 +111,7 @@ class {Action}{Feature}Step(
 
 ## Step 4: Add Route
 
-Location: `src/main/kotlin/app/mcorg/presentation/router/AppRouterV2.kt` (or appropriate router)
+Location: `webapp/mc-web/src/main/kotlin/app/mcorg/presentation/router/AppRouterV2.kt` (or appropriate router)
 
 ```kotlin
 route("/{features}") {
@@ -158,31 +158,37 @@ route("/{features}") {
 
 ## Step 6: Write Tests
 
-Location: `src/test/kotlin/app/mcorg/presentation/handler/{Feature}HandlerTest.kt`
+Location: `webapp/mc-web/src/test/kotlin/app/mcorg/.../{Feature}IT.kt`
+
+New endpoints get integration tests: success, validation failure, auth failure.
+Extend `WithUser` for auth context, use `DatabaseTestExtension` + `@Tag("database")`,
+and `TestDataFactory` for fixtures. Load `/docs-testing` for the full patterns.
 
 ```kotlin
-class {Feature}HandlerTest {
+@Tag("database")
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
+@ExtendWith(DatabaseTestExtension::class)
+class {Feature}IT : WithUser() {
     @Test
     fun `should create {feature} with valid input`() = testApplication {
-        // Arrange
-        val input = Parameters.build {
-            append("name", "Test {Feature}")
+        configureRoutes()
+
+        val response = client.post("/worlds/$worldId/{features}") {
+            contentType(ContentType.Application.FormUrlEncoded)
+            setBody(listOf("name" to "Test {Feature}").formUrlEncode())
         }
 
-        // Act
-        val response = client.post("/app/worlds/1/{features}") {
-            header("Cookie", "jwt=test_token")
-            setBody(FormDataContent(input))
-        }
-
-        // Assert
         assertEquals(HttpStatusCode.OK, response.status)
-        assertTrue(response.bodyAsText().contains("notice--success"))
     }
 
     @Test
     fun `should reject {feature} with missing name`() = testApplication {
-        // Test validation failure
+        // Validation failure — expect 400 / error fragment
+    }
+
+    @Test
+    fun `should reject unauthenticated request`() = testApplication {
+        // Auth failure — expect redirect / 401
     }
 }
 ```
@@ -193,17 +199,17 @@ class {Feature}HandlerTest {
 // Form for creating
 form {
     id = "create-{feature}-form"
-    hxPost("/app/worlds/${worldId}/{features}")
+    hxPost("/worlds/${worldId}/{features}")
     hxTarget("#create-{feature}-form")
 
     input(classes = "form-control") { name = "name" }
-    button(classes = "btn btn--action") { +"Create" }
+    button(classes = "btn btn--primary") { +"Create" }
 }
 
 // Delete button
 button(classes = "btn btn--danger") {
     hxDeleteWithConfirm(
-        url = "/app/worlds/${worldId}/{features}/${featureId}",
+        url = "/worlds/${worldId}/{features}/${featureId}",
         title = "Delete {Feature}",
         description = "Are you sure?",
         warning = "This cannot be undone."
@@ -222,4 +228,4 @@ button(classes = "btn btn--danger") {
 - [ ] Tests written and passing
 - [ ] HTMX attributes added to templates
 - [ ] `mvn clean compile` passes
-- [ ] `mvn test` passes
+- [ ] `./webapp/scripts/test.sh --database` passes (NOT bare `mvn test` — it skips database-tagged ITs)

@@ -17,7 +17,7 @@ Implement directly for well-understood tasks — don't plan when you can act.
 
 | Layer    | Technology                 | Notes                                                          |
 |----------|----------------------------|----------------------------------------------------------------|
-| Backend  | Ktor 3.4.0 + Kotlin 2.2.21 | JVM 21, Netty, port 8080                                       |
+| Backend  | Ktor 3.5.0 + Kotlin 2.3.21 | JVM 25, Netty, port 8080 (versions pinned in `webapp/mc-bom/pom.xml` / `webapp/pom.xml`) |
 | Database | PostgreSQL + Flyway        | Migrations in `webapp/mc-web/src/main/resources/db/migration/` |
 | Frontend | Kotlin HTML DSL + HTMX     | Server-side rendering only                                     |
 | Build    | Maven                      | NOT Gradle                                                     |
@@ -289,10 +289,11 @@ commands (they have `user-invocable: false`).
 | `docs-product`      | Design system tokens, component patterns, motion, mobile behaviour — UI review and design intent |
 | `docs-htmx`         | HTMX helper functions, `hx*` attributes, HTMX patterns        |
 | `docs-ia`           | Information architecture, URL structure, navigation, personas |
+| `docs-planning`     | Scoping features/epics, validating approach, decomposing large work |
+| `docs-review`       | Reviewing a diff or PR — pattern compliance, test coverage, restricted areas |
 | `docs-testing`      | Writing or running tests — unit, integration, pipeline step   |
 | `docs-business`     | Business rules, roles, project stages, workflows              |
 | `docs-troubleshoot` | Debugging errors, compile failures                            |
-| `docs-glossary`     | Technical/domain terminology                                  |
 
 ### Action commands — user-invocable slash commands
 
@@ -305,11 +306,15 @@ request clearly maps to the action).
 | `/add-migration`| Adding a database migration                                |
 | `/add-step`     | Creating a new pipeline Step                               |
 | `/commit`       | Compile → test → stage → commit with a good message        |
-| `/linear`       | Create, update, or link Linear issues                      |
 | `/devstart`     | Full dev environment startup (Docker → DB → migrate → run) |
 | `/run`          | Start the application only (with optional flags)           |
 | `/migrate`      | Run Flyway migrations locally                              |
 | `/start-db`     | Start the PostgreSQL container                             |
+| `/verify`       | Drive the running app end-to-end to confirm a change works |
+
+The `linear` (issue management) and `playwright` (browser automation) skills are
+**user-level** (`~/.claude/skills/`) — available here and in the other Seam repos,
+not vendored per repo.
 
 ## Working Style
 

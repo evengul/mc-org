@@ -14,7 +14,7 @@ Domain rules, workflows, and constraints for MC-ORG.
 
 | Rule | Where Enforced |
 |------|----------------|
-| No circular project dependencies | `ValidateNoCyclesStep` |
+| No circular project dependencies | `GetAvailableProjectDependenciesStep` (recursive SQL excludes cycle-forming candidates from the picker) |
 | Only ADMIN+ can invite users | `WorldAdminPlugin` |
 | Demo users are read-only in production | `DemoUserPlugin` |
 | BANNED users have no world access | `BannedPlugin` |
@@ -40,17 +40,28 @@ Lower level number = higher authority. Check: `role.isHigherThanOrEqualTo(Role.A
 
 ---
 
-## Project Lifecycle (Stages)
+## Project Lifecycle (Stages and States)
+
+Stage — where the project is in its build journey (ordered):
 
 ```
-PLANNING → DESIGN → RESOURCE_GATHERING → BUILDING → REVIEW → COMPLETE → ARCHIVED
+IDEA → DESIGN → PLANNING → RESOURCE_GATHERING → BUILDING → TESTING → COMPLETED
 ```
 
-- Can skip stages (e.g., PLANNING → COMPLETE for simple projects)
+- Can skip stages (e.g., IDEA → COMPLETED for simple projects)
 - Can move backwards (e.g., BUILDING → PLANNING for redesigns)
-- ARCHIVED is a terminal reference state (not deleted)
 - All transitions logged in `project_stage_changes` table
 - Manual transitions by MEMBER+
+
+State — lifecycle/activity status, orthogonal to stage:
+
+```
+PENDING / ACTIVE / PAUSED / DONE / CANCELLED / ARCHIVED
+```
+
+- Transitions are restricted — `ProjectState.allowedTransitions()` is the state
+  machine (e.g. ACTIVE → PAUSED/DONE/CANCELLED; ARCHIVED → PENDING only)
+- DONE, CANCELLED, ARCHIVED are terminal (`isTerminal`)
 
 ---
 
@@ -72,7 +83,9 @@ Both have: `priority (CRITICAL/NORMAL/NICE_TO_HAVE)`, `assignedTo`, audit fields
 ## Dependency Rules
 
 - Projects can depend on other projects within the same world only
-- No circular dependencies — `ValidateNoCyclesStep` detects cycles with graph traversal
+- No circular dependencies — prevented at selection time: `GetAvailableProjectDependenciesStep`
+  excludes any project already in the dependency chain (or reverse chain) via recursive SQL,
+  so cycle-forming options are never offered
 - Deleting a project removes all its dependency records (both as dependent and as dependency)
 
 ---
@@ -128,8 +141,8 @@ Notifications persist even if related entity is deleted. Read/unread state track
 - User receives `ROLE_CHANGED` notification
 
 **Circular dependency attempt:**
-- `ValidateNoCyclesStep` rejects with `AppFailure.customValidationError`
-- Message: "Adding this dependency would create a circular dependency"
+- Not possible through the UI — the dependency picker only lists projects returned by
+  `GetAvailableProjectDependenciesStep`, which excludes cycle-forming candidates in SQL
 
 **Non-member tries to access world:**
 - `WorldParamPlugin` checks `world_members` table
@@ -144,5 +157,6 @@ Notifications persist even if related entity is deleted. Read/unread state track
 - Projects can reference their source idea via `ideaId`
 - Importing an idea creates a new project with idea data pre-filled
 - Category determines which custom `categoryData` fields are available (JSONB)
-- Categories: FARM, CONTRAPTION, BUILDING, DECORATION, UTILITY, OTHER
-- Difficulty: EASY, MEDIUM, HARD, EXPERT
+- Categories (`IdeaCategory`): BUILD, FARM, STORAGE, CART_TECH, TNT, SLIMESTONE, OTHER
+- Difficulty (`IdeaDifficulty`): START_OF_GAME, MID_GAME, END_GAME,
+  TECHNICAL_UNDERSTANDING_RECOMMENDED, TECHNICAL_UNDERSTANDING_REQUIRED

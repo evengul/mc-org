@@ -9,7 +9,7 @@ user-invocable: false
 ## File Organization
 
 ```
-src/test/kotlin/app/mcorg/
+webapp/mc-web/src/test/kotlin/app/mcorg/   (other modules have their own src/test/)
 ├── test/                          # Shared utilities
 │   ├── WithUser.kt                # Base class for auth — extend this
 │   ├── postgres/
@@ -93,12 +93,12 @@ client.get("/path") {
 
 ```kotlin
 // GET
-val response = client.get("/app/worlds/1") {
+val response = client.get("/worlds/1") {
     addAuthCookie(this)
 }
 
 // POST with form data
-val response = client.post("/app/worlds/1/projects") {
+val response = client.post("/worlds/1/projects") {
     addAuthCookie(this)
     contentType(ContentType.Application.FormUrlEncoded)
     setBody(Parameters.build {
@@ -108,7 +108,7 @@ val response = client.post("/app/worlds/1/projects") {
 }
 
 // DELETE
-val response = client.delete("/app/worlds/1/projects/42") {
+val response = client.delete("/worlds/1/projects/42") {
     addAuthCookie(this)
 }
 ```
@@ -126,11 +126,11 @@ assertEquals(HttpStatusCode.NotFound, response.status)    // 404
 
 // Body
 val body = response.bodyAsText()
-assertContains(body, "notice--success")
+assertContains(body, "alert-dialog--success")
 assertContains(body, "Project created")
 
 // Redirect location
-assertEquals("/app/worlds/1", response.headers["Location"])
+assertEquals("/worlds/1", response.headers["Location"])
 ```
 
 ---
