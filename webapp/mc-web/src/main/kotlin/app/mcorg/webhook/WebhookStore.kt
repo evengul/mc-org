@@ -195,6 +195,34 @@ object WebhookStore {
         ).process(Unit).logIfFailed("recordSubscriptionFailure(sub=$subscriptionId)")
     }
 
+    /**
+     * Earliest `next_attempt_at` among PENDING rows whose subscription is still active, or `null`
+     * if the outbox holds no such row. Drives [WebhookDeliveryPoller]'s timed wait: when this is
+     * `null` the loop parks on the enqueue signal indefinitely (zero `webhook_deliveries` queries)
+     * instead of polling on a fixed heartbeat.
+     */
+    suspend fun findNextScheduledDeliveryAt(): Instant? {
+        val result = DatabaseSteps.query<Unit, Instant?>(
+            sql = SafeSQL.select(
+                """
+                SELECT MIN(d.next_attempt_at) AS next_attempt_at
+                FROM webhook_deliveries d
+                JOIN webhook_subscriptions s ON s.id = d.subscription_id
+                WHERE d.status = 'PENDING' AND s.active = true
+                """.trimIndent()
+            ),
+            parameterSetter = { _, _ -> },
+            resultMapper = { rs -> if (rs.next()) rs.getTimestamp("next_attempt_at")?.toInstant() else null },
+        ).process(Unit)
+        return when (result) {
+            is Result.Success -> result.value
+            is Result.Failure -> {
+                logger.error("Webhook DB op failed: {} ({})", "findNextScheduledDeliveryAt", result.error)
+                null
+            }
+        }
+    }
+
     /** Prune delivered rows older than 7 days and failed rows older than 30 days. */
     suspend fun pruneOldDeliveries() {
         DatabaseSteps.update<Unit>(

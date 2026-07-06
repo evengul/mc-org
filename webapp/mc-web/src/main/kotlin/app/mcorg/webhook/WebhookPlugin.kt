@@ -9,7 +9,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import org.slf4j.LoggerFactory
@@ -29,10 +28,16 @@ object SeamWebhooks {
  * both to the Ktor lifecycle. The loop starts on `ApplicationStarted` (so it does not poll a
  * not-yet-ready app) and the scope is cancelled on `ApplicationStopping`. Call once from
  * `Application.module()`, after `configureEvents()`.
+ *
+ * The loop is wake-on-demand rather than a fixed heartbeat: [WebhookFanoutConsumer] signals
+ * [SeamWebhooks.poller] right after it enqueues an outbox row, and between poll cycles the loop
+ * parks on [WebhookDeliveryPoller.awaitNextWake] — which resolves on that signal, the next
+ * scheduled retry, or the cleanup throttle window elapsing, whichever comes first. An idle app
+ * therefore issues no `webhook_deliveries` queries, letting the database autosuspend.
  */
 fun Application.configureWebhooks() {
     val logger = LoggerFactory.getLogger("WebhookPlugin")
-    SeamEventBus.bus.subscribe(WebhookFanoutConsumer())
+    SeamEventBus.bus.subscribe(WebhookFanoutConsumer(onEnqueued = SeamWebhooks.poller::signalWork))
 
     monitor.subscribe(ApplicationStarted) {
         SeamWebhooks.scope.launch {
@@ -42,7 +47,7 @@ fun Application.configureWebhooks() {
                 } catch (e: Exception) {
                     logger.error("Webhook poll cycle failed", e)
                 }
-                delay(WebhookDeliveryPoller.POLL_INTERVAL_MS)
+                SeamWebhooks.poller.awaitNextWake()
             }
         }
     }
