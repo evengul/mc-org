@@ -306,11 +306,15 @@ request clearly maps to the action).
 | `/add-migration`| Adding a database migration                                |
 | `/add-step`     | Creating a new pipeline Step                               |
 | `/commit`       | Compile → test → stage → commit with a good message        |
-| `/linear`       | Create, update, or link Linear issues                      |
 | `/devstart`     | Full dev environment startup (Docker → DB → migrate → run) |
 | `/run`          | Start the application only (with optional flags)           |
 | `/migrate`      | Run Flyway migrations locally                              |
 | `/start-db`     | Start the PostgreSQL container                             |
+| `/verify`       | Drive the running app end-to-end to confirm a change works |
+
+The `linear` (issue management) and `playwright` (browser automation) skills are
+**user-level** (`~/.claude/skills/`) — available here and in the other Seam repos,
+not vendored per repo.
 
 ## Working Style
 
