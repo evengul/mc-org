@@ -5,6 +5,7 @@ import app.mcorg.engine.model.ItemSourceGraph
 import app.mcorg.engine.plan.GatheringPlan
 import app.mcorg.engine.plan.PlanNodeStatus
 import app.mcorg.engine.plan.PlanOverrides
+import app.mcorg.engine.plan.PlanTarget
 import app.mcorg.engine.plan.TargetTree
 import app.mcorg.pipeline.Result
 import app.mcorg.pipeline.failure.AppFailure
@@ -446,6 +447,38 @@ internal fun buildNodeIngredients(plan: GatheringPlan): Map<String, String> {
             val reducedOutput = output / divisor
             node.item.id to if (reducedOutput > 1) "$inputs → $reducedOutput" else inputs
         }
+}
+
+/**
+ * A reverse-provenance annotation for one material row: the capped [text] shown inline
+ * ("Feeds 64 Stick · 40 Chest · 24 Birch Door · +1 more") plus, when the list was
+ * truncated, the full uncapped list as a [title] tooltip so the hidden entries remain
+ * discoverable on hover. [title] is null when nothing was truncated.
+ */
+data class FeedsLabel(val text: String, val title: String?)
+
+/**
+ * Reverse-provenance labels: item id → the end-item target(s) whose chain consumes this
+ * material (from [GatheringPlan.feeders]). Each target renders as its name and its
+ * net-of-collected required amount, ordered by amount desc then name, capped at [cap] with
+ * a "+N more" tail (the full list surviving as a tooltip). Nodes that feed nothing (pure
+ * targets) are absent from the map.
+ */
+internal fun buildFeedsLabels(plan: GatheringPlan, cap: Int = 3): Map<String, FeedsLabel> {
+    val targetsById: Map<String, PlanTarget> = plan.targets.associateBy { it.item.id }
+    fun render(targets: List<PlanTarget>) = "Feeds " + targets.joinToString(" · ") { "${it.amount} ${it.item.name}" }
+    return plan.feeders.entries.mapNotNull { (nodeId, targetIds) ->
+        val targets = targetIds
+            .mapNotNull { targetsById[it] }
+            .sortedWith(compareByDescending<PlanTarget> { it.amount }.thenBy { it.item.name })
+        if (targets.isEmpty()) return@mapNotNull null
+        if (targets.size <= cap) {
+            nodeId to FeedsLabel(render(targets), null)
+        } else {
+            val text = render(targets.take(cap)) + " · +${targets.size - cap} more"
+            nodeId to FeedsLabel(text, render(targets))
+        }
+    }.toMap()
 }
 
 /**

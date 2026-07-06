@@ -10,6 +10,7 @@ import app.mcorg.pipeline.resources.commonsteps.UpsertProgressByItemInput
 import app.mcorg.pipeline.resources.commonsteps.UpsertProgressByItemStep
 import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.hxOutOfBands
+import app.mcorg.presentation.templated.dsl.pages.feedsLine
 import app.mcorg.presentation.templated.dsl.pages.lootTableName
 import app.mcorg.presentation.templated.dsl.pages.overallProgressInner
 import app.mcorg.presentation.templated.dsl.pages.planActivityCount
@@ -95,6 +96,9 @@ suspend fun ApplicationCall.handleUpdatePlanProgress() {
                 .ifEmpty { null }
         }
 
+        // Keep the "feeds …" reverse-provenance line on the swapped row, matching the initial render.
+        val feedsLabel = plan?.let { buildFeedsLabels(it)[input.itemId] }
+
         PlanProgressResult(
             itemId = input.itemId,
             itemName = input.itemId.substringAfterLast(':').replace('_', ' ')
@@ -102,6 +106,7 @@ suspend fun ApplicationCall.handleUpdatePlanProgress() {
             collected = collected.toLong(),
             required = input.required,
             sourceLabel = sourceLabel,
+            feedsLabel = feedsLabel,
             overallTotals = overallTotals,
         )
     }
@@ -113,6 +118,8 @@ data class PlanProgressResult(
     val collected: Long,
     val required: Long,
     val sourceLabel: String?,
+    /** "Feeds 24 Birch Door · 40 Chest" reverse-provenance line; null when this feeds nothing. */
+    val feedsLabel: FeedsLabel? = null,
     /** Project-wide (totalRequired, totalCollected) across countable activities; null if plan unavailable. */
     val overallTotals: Pair<Long, Long>? = null,
 )
@@ -167,6 +174,7 @@ private fun buildPlanProgressResponse(worldId: Int, projectId: Int, result: Plan
                 }
             }
         }
+        feedsLine(result.feedsLabel)
     }
 
     // OOB update for #overall-progress — project-wide totals from plan re-derive.
