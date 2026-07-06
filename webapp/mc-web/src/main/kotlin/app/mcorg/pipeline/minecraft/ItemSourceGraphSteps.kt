@@ -1,6 +1,7 @@
 package app.mcorg.pipeline.minecraft
 
 import app.mcorg.config.CacheManager
+import app.mcorg.config.CachedItemSourceGraph
 import app.mcorg.domain.model.minecraft.Item
 import app.mcorg.domain.model.minecraft.MinecraftId
 import app.mcorg.domain.model.minecraft.MinecraftTag
@@ -14,23 +15,69 @@ import app.mcorg.pipeline.Result
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.failure.AppFailure
 import org.slf4j.LoggerFactory
+import java.time.Instant
 
 /**
  * Runtime seam between the persisted Minecraft data and the pure planning
  * engine: loads a version's `resource_source_*` rows back into [ResourceSource]s
  * and builds the [ItemSourceGraph] the planner runs on, cached per version.
- * Versions are immutable, so a cached graph only ever changes on re-ingest
- * (which calls [CacheManager.onVersionIngested]).
+ *
+ * Ingestion runs in a separate Fly machine (MCO-171), so [CacheManager.onVersionIngested]
+ * fired from that JVM can never invalidate *this* JVM's cache — a re-ingest of an
+ * already-cached version would otherwise be served stale until the web app restarts. To
+ * self-invalidate, every cache hit is checked against `minecraft_version_ingestion.completed_at`
+ * (MCO-252): if the DB reports a completion strictly after the cached build, the entry is
+ * treated as a miss and rebuilt. [LoadVersionIngestionEpochStep] bounds that check to a single
+ * indexed SELECT, further capped by [CacheManager.versionIngestionEpoch]'s short TTL.
  */
 object GetItemSourceGraphForVersionStep : Step<String, AppFailure, ItemSourceGraph> {
 
     override suspend fun process(input: String): Result<AppFailure, ItemSourceGraph> {
-        CacheManager.itemSourceGraph.getIfPresent(input)?.let { return Result.success(it) }
+        CacheManager.itemSourceGraph.getIfPresent(input)?.let { cached ->
+            if (!isStale(cached.builtAt, currentEpoch(input))) return Result.success(cached.graph)
+        }
         return LoadResourceSourcesForVersionStep.process(input).map { sources ->
             ItemSourceGraphBuilder.buildFromResourceSources(sources)
+                .let { CachedItemSourceGraph(it, Instant.now()) }
                 .also { CacheManager.itemSourceGraph.put(input, it) }
+                .graph
         }
     }
+
+    /**
+     * A cached graph is stale once the DB reports a completion strictly after it was built.
+     * A `null` epoch (no ledger row yet, or the lookup failed) means "no fresher signal
+     * available" — not stale — so ledger-less versions (as in some test fixtures) still cache
+     * normally instead of rebuilding on every access.
+     */
+    internal fun isStale(builtAt: Instant, dbEpoch: Instant?): Boolean =
+        dbEpoch != null && dbEpoch.isAfter(builtAt)
+
+    /** The version's ingestion epoch, from the short-TTL cache when present, else one SELECT. */
+    internal suspend fun currentEpoch(version: String): Instant? {
+        CacheManager.versionIngestionEpoch.getIfPresent(version)?.let { return it }
+        return LoadVersionIngestionEpochStep.process(version).getOrNull()
+            ?.also { CacheManager.versionIngestionEpoch.put(version, it) }
+    }
+}
+
+/**
+ * Reads a version's ingestion-completion epoch (`completed_at`) straight from the ledger. Only
+ * `completed`-status rows count — an in-progress or failed re-ingest must not be treated as a
+ * fresher signal than what's already cached. Absent row, non-completed status, or a `NULL`
+ * `completed_at` all yield `null` (see [GetItemSourceGraphForVersionStep.isStale]).
+ */
+internal object LoadVersionIngestionEpochStep : Step<String, AppFailure.DatabaseError, Instant?> {
+
+    private val query = DatabaseSteps.query<String, Instant?>(
+        sql = SafeSQL.select(
+            "SELECT completed_at FROM minecraft_version_ingestion WHERE version = ? AND status = 'completed'"
+        ),
+        parameterSetter = { ps, version -> ps.setString(1, version) },
+        resultMapper = { rs -> if (rs.next()) rs.getTimestamp("completed_at")?.toInstant() else null }
+    )
+
+    override suspend fun process(input: String): Result<AppFailure.DatabaseError, Instant?> = query.process(input)
 }
 
 /**

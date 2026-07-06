@@ -11,7 +11,9 @@ import app.mcorg.engine.model.ItemSourceGraph
 import app.mcorg.engine.plan.GatheringPlanner
 import app.mcorg.engine.plan.PlanNodeStatus
 import app.mcorg.engine.plan.PlanTarget
+import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.Result
+import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.test.postgres.DatabaseTestExtension
 import kotlinx.coroutines.runBlocking
@@ -20,6 +22,8 @@ import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.api.extension.ExtendWith
+import java.sql.Timestamp
+import java.time.Instant
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertSame
@@ -133,5 +137,60 @@ class ItemSourceGraphStepsTest {
 
         assertIs<Result.Failure<*>>(result)
         assertTrue((result as Result.Failure).error is AppFailure.DatabaseError.NotFound)
+    }
+
+    // ── MCO-252: self-invalidation against the ingestion ledger's completed_at ──────────────
+
+    @Test
+    fun `a ledger completed_at strictly after the cached build forces a rebuild`() {
+        // Make sure something is cached for this version — a hit or a fresh build, doesn't matter,
+        // its builtAt stamp is always <= now().
+        val before = runBlocking { GetItemSourceGraphForVersionStep.process(version.toString()) }
+        assertIs<Result.Success<ItemSourceGraph>>(before)
+
+        // The ledger now reports a completion safely after any prior build. Invalidate the short-TTL
+        // epoch cache to simulate the TTL window having elapsed, rather than sleeping in the test.
+        seedCompletedLedgerRow(version.toString(), Instant.now().plusSeconds(120))
+        CacheManager.versionIngestionEpoch.invalidate(version.toString())
+
+        val after = runBlocking { GetItemSourceGraphForVersionStep.process(version.toString()) }
+        assertIs<Result.Success<ItemSourceGraph>>(after)
+        assertNotSame(before.value, after.value)
+    }
+
+    @Test
+    fun `a ledger completed_at at or before the cached build keeps serving the cache`() {
+        val first = runBlocking { GetItemSourceGraphForVersionStep.process(version.toString()) }
+        assertIs<Result.Success<ItemSourceGraph>>(first)
+
+        // A completion well before the cached build must not be treated as a fresher signal.
+        seedCompletedLedgerRow(version.toString(), Instant.now().minusSeconds(3600))
+        CacheManager.versionIngestionEpoch.invalidate(version.toString())
+
+        val second = runBlocking { GetItemSourceGraphForVersionStep.process(version.toString()) }
+        assertIs<Result.Success<ItemSourceGraph>>(second)
+        assertSame(first.value, second.value)
+    }
+
+    /** Upserts a `completed` ledger row for [versionString], stamping `completed_at` as [completedAt]. */
+    private fun seedCompletedLedgerRow(versionString: String, completedAt: Instant) {
+        val result = runBlocking {
+            DatabaseSteps.update<Unit>(
+                sql = SafeSQL.insert(
+                    """
+                    INSERT INTO minecraft_version_ingestion (version, status, completed_at, attempt_count)
+                    VALUES (?, 'completed', ?, 1)
+                    ON CONFLICT (version) DO UPDATE SET
+                        status = 'completed',
+                        completed_at = EXCLUDED.completed_at
+                    """.trimIndent()
+                ),
+                parameterSetter = { statement, _ ->
+                    statement.setString(1, versionString)
+                    statement.setTimestamp(2, Timestamp.from(completedAt))
+                }
+            ).process(Unit)
+        }
+        assertIs<Result.Success<*>>(result)
     }
 }
