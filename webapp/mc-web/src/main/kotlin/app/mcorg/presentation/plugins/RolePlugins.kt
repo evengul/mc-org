@@ -44,6 +44,26 @@ val WorldAdminPlugin = createRouteScopedPlugin("WorldAdminPlugin") {
     }
 }
 
+/**
+ * Verifies the authenticated user is a member of the path world — ANY role (owner, admin,
+ * or plain member), just not banned from it. `Role.MEMBER` is the lowest non-banned role
+ * level, so `world_role <= MEMBER.level` in [ValidateWorldMemberRole] admits every
+ * membership row and rejects both non-members and banned members. Use this to close IDOR
+ * gaps on routes that only need "is a participant in this world", not a specific privilege
+ * tier (compare [WorldAdminPlugin] / [WorldOwnerPlugin] for elevated-role gates).
+ */
+val WorldParticipantPlugin = createRouteScopedPlugin("WorldParticipantPlugin") {
+    onCall {
+        val user = it.getUser()
+        val worldId = it.getWorldId()
+
+        val result = ValidateWorldMemberRole<Unit>(user, Role.MEMBER, worldId).process(Unit)
+        if (result is Result.Failure && result.error is AppFailure.AuthError.NotAuthorized) {
+            it.respond(HttpStatusCode.Forbidden, "You don't have permission to access this world.")
+        }
+    }
+}
+
 val WorldOwnerPlugin = createRouteScopedPlugin("WorldOwnerPlugin") {
     onCall {
         val user = it.getUser()

@@ -14,6 +14,7 @@ import app.mcorg.presentation.plugins.ProjectParamPlugin
 import app.mcorg.presentation.plugins.ResourceGatheringIdParamPlugin
 import app.mcorg.presentation.plugins.UpdateActiveWorldPlugin
 import app.mcorg.presentation.plugins.WorldParamPlugin
+import app.mcorg.presentation.plugins.WorldParticipantPlugin
 import app.mcorg.test.WithUser
 import app.mcorg.test.postgres.DatabaseTestExtension
 import io.ktor.client.request.delete
@@ -232,6 +233,7 @@ class ResourceDetailPanelIT : WithUser() {
                 route("/projects/{projectId}") {
                     install(ProjectParamPlugin)
                     route("/resources/gathering/{resourceGatheringId}") {
+                        install(WorldParticipantPlugin)
                         install(ResourceGatheringIdParamPlugin)
                         get("/detail-panel") { call.handleGetResourceDetailPanel() }
                         patch("/source") { call.handleSetResourceSource() }

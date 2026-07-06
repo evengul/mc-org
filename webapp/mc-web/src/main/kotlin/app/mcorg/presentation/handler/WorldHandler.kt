@@ -64,6 +64,7 @@ import app.mcorg.presentation.plugins.WorldAdminPlugin
 import app.mcorg.presentation.plugins.WorldMemberParamPlugin
 import app.mcorg.presentation.plugins.WorldOwnerPlugin
 import app.mcorg.presentation.plugins.WorldParamPlugin
+import app.mcorg.presentation.plugins.WorldParticipantPlugin
 import app.mcorg.presentation.templated.dsl.pages.worldListPage
 import app.mcorg.presentation.utils.getUser
 import app.mcorg.presentation.utils.respondHtml
@@ -143,6 +144,12 @@ class WorldHandler {
                             call.handleGetFieldLogSliceItems()
                         }
                         route("/resources") {
+                            // World-membership gate (MCO-247): ParamPlugins above only check
+                            // world/project *existence*, not that the caller belongs to the
+                            // world — closing that IDOR gap for the whole resource-mutation
+                            // family (schematic upload, gathering create, and every
+                            // /{resourceGatheringId} mutation below, incl. ignore).
+                            install(WorldParticipantPlugin)
                             post("/from-schematic") {
                                 call.handleAddResourcesFromSchematic()
                             }

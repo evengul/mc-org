@@ -13,6 +13,7 @@ import app.mcorg.presentation.plugins.AuthPlugin
 import app.mcorg.presentation.plugins.ProjectParamPlugin
 import app.mcorg.presentation.plugins.UpdateActiveWorldPlugin
 import app.mcorg.presentation.plugins.WorldParamPlugin
+import app.mcorg.presentation.plugins.WorldParticipantPlugin
 import app.mcorg.test.WithUser
 import app.mcorg.test.postgres.DatabaseTestExtension
 import io.ktor.client.request.forms.MultiPartFormDataContent
@@ -172,7 +173,10 @@ class AddResourcesFromSchematicIT : WithUser() {
                 install(UpdateActiveWorldPlugin)
                 route("/projects/{projectId}") {
                     install(ProjectParamPlugin)
-                    post("/resources/from-schematic") { call.handleAddResourcesFromSchematic() }
+                    route("/resources") {
+                        install(WorldParticipantPlugin)
+                        post("/from-schematic") { call.handleAddResourcesFromSchematic() }
+                    }
                 }
             }
         }

@@ -17,6 +17,7 @@ import app.mcorg.presentation.plugins.ProjectParamPlugin
 import app.mcorg.presentation.plugins.ResourceGatheringIdParamPlugin
 import app.mcorg.presentation.plugins.UpdateActiveWorldPlugin
 import app.mcorg.presentation.plugins.WorldParamPlugin
+import app.mcorg.presentation.plugins.WorldParticipantPlugin
 import app.mcorg.test.WithUser
 import app.mcorg.test.postgres.DatabaseTestExtension
 import io.ktor.client.request.get
@@ -212,6 +213,42 @@ class PlanViewIT : WithUser() {
     }
 
     // -------------------------------------------------------------------------
+    // Test 7: non-member (authenticated, but not a world_members row) is rejected
+    // by WorldParticipantPlugin — MCO-247 IDOR closure on the resource-mutation family.
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `PATCH ignore by a non-member of the world returns 403`() = testApplication {
+        val rgId = createResourceGathering(projectId, required = 9)
+        setupRoutes()
+
+        val nonMember = createExtraUser()
+        val response = client.patch(
+            "/worlds/$worldId/projects/$projectId/resources/gathering/$rgId/ignore"
+        ) {
+            addAuthCookie(this, nonMember)
+        }
+
+        assertEquals(HttpStatusCode.Forbidden, response.status)
+    }
+
+    @Test
+    fun `PATCH required by a non-member of the world returns 403`() = testApplication {
+        setupRoutes()
+
+        val nonMember = createExtraUser()
+        val response = client.patch(
+            "/worlds/$worldId/projects/$projectId/resources/gathering/$resourceGatheringId/required"
+        ) {
+            addAuthCookie(this, nonMember)
+            contentType(ContentType.Application.FormUrlEncoded)
+            setBody("required=5")
+        }
+
+        assertEquals(HttpStatusCode.Forbidden, response.status)
+    }
+
+    // -------------------------------------------------------------------------
     // Routing setup
     // -------------------------------------------------------------------------
 
@@ -226,6 +263,7 @@ class PlanViewIT : WithUser() {
                     get { call.handleGetProject() }
                     get("/detail-content") { call.handleGetDetailContent() }
                     route("/resources/gathering/{resourceGatheringId}") {
+                        install(WorldParticipantPlugin)
                         install(ResourceGatheringIdParamPlugin)
                         patch("/required") { call.handleUpdateResourceRequiredAmount() }
                         patch("/ignore") { call.handleToggleResourceGatheringIgnored() }

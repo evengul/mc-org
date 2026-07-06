@@ -19,6 +19,7 @@ import app.mcorg.presentation.plugins.ProjectParamPlugin
 import app.mcorg.presentation.plugins.ResourceGatheringIdParamPlugin
 import app.mcorg.presentation.plugins.UpdateActiveWorldPlugin
 import app.mcorg.presentation.plugins.WorldParamPlugin
+import app.mcorg.presentation.plugins.WorldParticipantPlugin
 import app.mcorg.test.WithUser
 import app.mcorg.test.postgres.DatabaseTestExtension
 import io.ktor.client.request.get
@@ -250,6 +251,7 @@ class ProjectDetailIT : WithUser() {
                     get { call.handleGetProject() }
                     get("/detail-content") { call.handleGetDetailContent() }
                     route("/resources/gathering/{resourceGatheringId}") {
+                        install(WorldParticipantPlugin)
                         install(ResourceGatheringIdParamPlugin)
                         patch("/edit-done") { call.handleUpdateRequirementProgress() }
                         put("/collected") { call.handleSetCollectedValue() }
