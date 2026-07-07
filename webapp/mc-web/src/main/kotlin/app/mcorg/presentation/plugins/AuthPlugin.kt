@@ -24,6 +24,7 @@ private val AUTH_EXEMPT_PREFIXES = listOf(
     "/assets/",
     "/favicon.ico",
     "/integrations/",
+    "/api/v1",
 )
 
 val AuthPlugin = createRouteScopedPlugin("AuthPlugin") {
