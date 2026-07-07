@@ -1,0 +1,203 @@
+/* ══════════════════════════════════════════════════════════════════
+   WORLDS PAGE — page-specific layout (Seam)
+   Built on top of the design-system component layer. Ported from the
+   design handoff; tokens mapped to this app's design-tokens.css. Icon
+   rules are scoped to `svg.icon` so they never touch the app's own
+   `div.icon` (iconComponent) chrome in the header.
+   ══════════════════════════════════════════════════════════════════ */
+
+/* ── Lucide inline icons (2px stroke, inherit text colour) ── */
+svg.icon        { fill: none; stroke: currentColor; stroke-width: 2;
+                  stroke-linecap: round; stroke-linejoin: round;
+                  display: block; flex: none; }
+svg.icon--fill  { fill: currentColor; stroke: none; }
+
+/* ── App main column ── */
+.worlds-main { padding-block: var(--space-5) var(--space-8); }
+
+/* ── Page header row (title + New world) ── */
+.worlds-head { display: flex; align-items: flex-end; justify-content: space-between;
+               gap: var(--space-4); margin-bottom: var(--space-4); }
+.worlds-head .page-heading { margin-bottom: 0; }
+
+/* ── Buttons that carry a leading icon ── */
+.btn svg.icon { margin-right: 6px; }
+.btn--icon-lead { display: inline-flex; align-items: center; }
+
+/* ── Progress bar fill (base .progress lives in components/progress.css;
+      the design wants a slim filled track, so override here page-side) ── */
+.progress    { display: block; height: 4px; background: var(--bg-base);
+               border-radius: 2px; overflow: hidden; }
+.progress--lg { height: 6px; }
+.progress__fill { height: 100%; background: var(--progress); border-radius: 2px;
+                  transition: width 200ms ease; }
+.progress__fill--complete { background: var(--green); }
+
+/* ── Form label + optional control (design-system form.css lacks these) ── */
+/* Modal labels/controls get their base treatment from components/modal.css. These are
+   the extra cues from the new Worlds design that modal.css doesn't carry: a dimmed
+   "optional" label + dashed optional-field border. Scoped through .modal__body to
+   out-specify modal.css's own `.modal__body label` / `textarea` rules. */
+.modal__body .form-label--optional { color: var(--text-disabled); }
+/* Dashed cue for the optional field. Scoped through .modal__body to out-specify
+   components/modal.css's `.modal__body textarea` solid-border rule. */
+.modal__body .form-control--optional { border-style: dashed; }
+/* Create-modal intro line. A plain text class (not the DS .modal__body container,
+   which carries a 24px left padding that would misalign it past the form fields). */
+.worlds-modal-intro { font-family: var(--font-body); font-size: var(--text-sm);
+                      color: var(--text-muted); margin-bottom: var(--space-4); }
+
+/* ════════════════════════════ EMPTY STATE ════════════════════════════ */
+.worlds-empty        { display: flex; flex-direction: column; align-items: center;
+                       text-align: center; padding-block: var(--space-8); }
+.world-glyph         { width: 72px; height: 72px; border-radius: 12px;
+                       background: var(--accent-muted); color: var(--accent);
+                       display: flex; align-items: center; justify-content: center;
+                       margin-bottom: var(--space-4); }
+.world-glyph svg.icon { stroke-width: 1.6; }
+.worlds-empty__title { font-family: var(--font-ui); font-weight: 600; font-size: 22px;
+                       color: var(--text-primary); margin-bottom: var(--space-3); }
+.worlds-empty__text  { max-width: 440px; font-family: var(--font-body);
+                       font-size: var(--text-base); line-height: 1.55;
+                       color: var(--text-muted); margin-bottom: var(--space-5); }
+.worlds-empty__text b { color: var(--text-primary); font-weight: 500; }
+.worlds-demo-notice  { font-family: var(--font-body); font-size: var(--text-xs);
+                       color: var(--text-muted); margin-top: var(--space-3); }
+
+.worlds-features { display: flex; gap: var(--space-6); margin-top: var(--space-8);
+                   flex-wrap: wrap; justify-content: center; }
+.worlds-feature  { display: flex; flex-direction: column; align-items: center;
+                   gap: var(--space-2); width: 130px; color: var(--text-muted); }
+.worlds-feature span { font-family: var(--font-body); font-size: var(--text-xs);
+                       line-height: 1.4; text-align: center; }
+
+/* ════════════════════════ FIRST-RUN SUCCESS ════════════════════════ */
+.worlds-callout { margin-bottom: var(--space-5); }
+.callout__lead  { font-family: var(--font-ui); font-weight: 600; }
+
+/* ════════════════════════════ WORLD HERO ═════════════════════════════ */
+/* Wide lead card: identity + overall progress on the left, a live peek at
+   active projects (or first-run actions) on the right. */
+.world-hero          { display: flex; overflow: hidden;
+                       background: var(--bg-surface); border: 1px solid var(--border);
+                       border-radius: var(--radius);
+                       box-shadow: var(--shadow-card, 0 1px 2px rgba(42, 34, 24, 0.06)); }
+.world-hero__main    { flex: 1; padding: var(--space-5); }
+.world-hero__aside   { width: 300px; flex: none; border-left: 1px solid var(--border);
+                       background: var(--bg-raised); padding: var(--space-4) var(--space-5); }
+.world-hero__aside .section-label { margin-bottom: var(--space-3); }
+/* Just-created highlight ring (first-run only) */
+.world-hero--fresh   { box-shadow: 0 0 0 3px var(--accent-muted),
+                       var(--shadow-card, 0 1px 2px rgba(42, 34, 24, 0.06)); }
+
+.world-identity      { display: flex; align-items: center; gap: var(--space-2);
+                       margin-bottom: var(--space-1); }
+.world-name          { font-family: var(--font-ui); font-weight: 600;
+                       color: var(--text-primary); }
+.world-hero .world-name       { font-size: 22px; }
+.world-hero--lead .world-name { font-size: 20px; }
+.world-hero--fresh .world-name { font-size: 19px; }
+.world-meta          { font-family: var(--font-body); font-size: var(--text-sm);
+                       color: var(--text-muted); }
+/* indent the rows under the name, past the 26px pin + 8px gap */
+.world-hero__meta    { margin-left: 34px; margin-bottom: var(--space-5); }
+.world-hero__body    { margin-left: 34px; }
+/* fresh has no pin, so no indent */
+.world-hero__submeta { margin-bottom: var(--space-5); }
+
+.world-stat          { display: flex; align-items: baseline; gap: var(--space-2);
+                       margin-bottom: var(--space-2); }
+.world-stat__count   { font-family: var(--font-ui); font-size: var(--text-sm);
+                       color: var(--text-primary); }
+.world-stat__pct     { font-family: var(--font-body); font-size: var(--text-xs);
+                       color: var(--text-muted); }
+.world-progress      { max-width: 280px; margin-bottom: var(--space-5); }
+/* multi-world lead hero packs progress + button on one row */
+.world-hero__body--row       { display: flex; align-items: center; gap: var(--space-4); }
+.world-hero__progress-block  { min-width: 180px; }
+
+/* right-hand active-projects peek */
+.world-peek__row     { display: flex; align-items: center; justify-content: space-between;
+                       gap: var(--space-2); padding: var(--space-2) 0;
+                       border-bottom: 1px solid var(--border); }
+.world-peek__row:last-child { border-bottom: none; }
+.world-peek__name    { font-family: var(--font-body); font-size: var(--text-sm);
+                       color: var(--text-primary); }
+.world-hero__peek-empty { font-family: var(--font-body); font-size: var(--text-sm);
+                          color: var(--text-muted); }
+/* first-run: stacked actions instead of a peek */
+.world-hero__actions { display: flex; flex-direction: column; gap: var(--space-3);
+                       justify-content: center; height: 100%; }
+.world-hero__actions .btn { width: 100%; }
+.world-hero__empty   { display: flex; align-items: center; gap: var(--space-2);
+                       color: var(--text-muted); margin-bottom: var(--space-4); }
+.world-hero__empty span { font-family: var(--font-body); font-size: var(--text-sm); }
+
+/* ── Pin / favourite toggle ── */
+.pin-btn        { display: inline-flex; align-items: center; justify-content: center;
+                  width: 26px; height: 26px; border: none; background: transparent;
+                  border-radius: 4px; cursor: pointer;
+                  color: var(--text-disabled);
+                  transition: background 120ms ease, color 120ms ease; }
+.pin-btn:hover  { background: var(--bg-raised); color: var(--text-muted); }
+.pin-btn--on    { color: var(--amber); }
+
+/* ═══════════════════════════ WORLDS ROSTER ═══════════════════════════ */
+/* "Other worlds" — dense rows below the hero; scales toward many worlds. */
+.worlds-subsection   { margin-bottom: var(--space-3); }
+.worlds-roster       { background: var(--bg-surface); border: 1px solid var(--border);
+                       border-radius: var(--radius); overflow: hidden; }
+.world-row           { display: flex; align-items: center; gap: var(--space-4);
+                       padding: var(--space-3) var(--space-4);
+                       border-bottom: 1px solid var(--border);
+                       transition: background 120ms ease; }
+.world-row:last-child { border-bottom: none; }
+.world-row:hover     { background: var(--bg-raised); }
+.world-row__link     { flex: 1; display: flex; align-items: center; gap: var(--space-4);
+                       color: inherit; text-decoration: none; }
+.world-row__id       { width: 230px; flex: none; }
+.world-row__id .world-name { font-size: var(--text-sm); }
+.world-row__name     { display: flex; align-items: center; gap: 6px; }
+.world-row__id .world-meta { font-size: var(--text-xs); margin-top: 2px;
+                             display: flex; align-items: center; gap: 6px; }
+.world-row__progress { flex: 1; display: flex; align-items: center; gap: var(--space-3); }
+.world-row__progress .progress { flex: 1; max-width: 160px; }
+.world-row__pct      { font-family: var(--font-ui); font-size: var(--text-xs);
+                       color: var(--text-muted); white-space: nowrap; }
+.world-row__time     { font-family: var(--font-body); font-size: var(--text-xs);
+                       color: var(--text-muted); width: 64px; text-align: right; flex: none; }
+.world-row__go       { color: var(--text-disabled); flex: none; }
+
+/* ═════════════════════ CREATE MODAL — version select ═════════════════ */
+/* Custom dropdown over the fixed set of supported Minecraft versions. */
+.version-field       { position: relative; }
+.version-control     { position: relative; }
+.version-select      { display: flex; align-items: center; justify-content: space-between;
+                       cursor: pointer; }
+.version-select svg.icon { color: var(--text-muted); }
+.version-select--open { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-muted); }
+.version-menu        { position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+                       background: var(--bg-surface); border: 1px solid var(--border);
+                       border-radius: var(--radius);
+                       box-shadow: var(--shadow-pop, 0 4px 16px rgba(42, 34, 24, 0.16));
+                       padding: var(--space-1); z-index: 5; max-height: 240px; overflow-y: auto; }
+.version-menu[hidden] { display: none; }
+.version-menu__row   { display: flex; align-items: center; justify-content: space-between;
+                       padding: 7px 10px; border-radius: 4px;
+                       font-family: var(--font-ui); font-size: var(--text-sm);
+                       color: var(--text-primary); cursor: pointer; }
+.version-menu__row:hover { background: var(--bg-raised); }
+.version-menu__row--selected { background: var(--accent-muted); color: var(--accent); }
+
+/* ── Responsive: hero stacks under aside below the mobile breakpoint ── */
+@media (max-width: 768px) {
+    .world-hero        { flex-direction: column; }
+    .world-hero__aside { width: auto; border-left: none; border-top: 1px solid var(--border); }
+    /* Roster rows reflow instead of overflowing: identity takes the first line,
+       progress + time + arrow wrap onto the next so nothing is clipped off-canvas. */
+    .world-row__link     { flex-wrap: wrap; column-gap: var(--space-3); row-gap: var(--space-1); }
+    .world-row__id       { width: 100%; }
+    .world-row__progress { flex: 1 1 auto; }
+    .world-row__progress .progress { max-width: none; }
+    .world-row__time     { width: auto; text-align: left; }
+}

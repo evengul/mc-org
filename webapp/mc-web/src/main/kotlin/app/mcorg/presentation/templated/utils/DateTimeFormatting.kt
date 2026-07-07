@@ -42,3 +42,18 @@ fun ZonedDateTime.formatAsRelativeOrDate(): String {
     }
 }
 
+/**
+ * Compact relative time for tight UI (Worlds page hero/roster): "just now", "2h ago",
+ * "1d ago", or a short date past a week. Fits a narrow column where "2 hours ago" would wrap.
+ */
+fun ZonedDateTime.formatAsCompactRelative(): String {
+    val duration = Duration.between(this, ZonedDateTime.now())
+    return when {
+        duration.toDays() >= 7 -> this.formatAsDate()
+        duration.toDays() > 0 -> "${duration.toDays()}d ago"
+        duration.toHours() > 0 -> "${duration.toHours()}h ago"
+        duration.toMinutes() > 0 -> "${duration.toMinutes()}m ago"
+        else -> "just now"
+    }
+}
+

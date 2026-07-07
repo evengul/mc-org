@@ -11,9 +11,11 @@ import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.ValidationSteps
 import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.failure.ValidationFailure
+import app.mcorg.pipeline.invitation.commonsteps.GetUserInvitationsStep
 import app.mcorg.pipeline.minecraftfiles.GetSupportedVersionsStep
 import app.mcorg.pipeline.world.commonsteps.GetPermittedWorldsInput
 import app.mcorg.pipeline.world.commonsteps.GetPermittedWorldsStep
+import app.mcorg.pipeline.world.commonsteps.GetWorldProjectPeekStep
 import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.templated.dsl.pages.worldsContent
 import app.mcorg.presentation.utils.getUser
@@ -30,11 +32,18 @@ suspend fun ApplicationCall.handleCreateWorld() {
     val user = this.getUser()
 
     handlePipeline(
-        onSuccess = { worlds ->
+        onSuccess = { result ->
             val supportedVersions = GetSupportedVersionsStep.getSupportedVersions()
             respondHtml(createHTML().div {
                 id = "worlds-content"
-                worldsContent(user, worlds, supportedVersions)
+                worldsContent(
+                    user,
+                    result.worlds,
+                    supportedVersions,
+                    result.invitations,
+                    result.heroPeek,
+                    result.createdWorldId,
+                )
             })
         }
     ) {
@@ -42,9 +51,21 @@ suspend fun ApplicationCall.handleCreateWorld() {
         val worldId = CreateWorldStep(user).run(input)
         CacheManager.onWorldCreated(worldId)
         CacheManager.onMemberAdded(user.id, worldId)
-        GetPermittedWorldsStep.run(GetPermittedWorldsInput(userId = user.id))
+        val worlds = GetPermittedWorldsStep.run(GetPermittedWorldsInput(userId = user.id))
+        val invitations = GetUserInvitationsStep.run(user.id)
+        val heroPeek = worlds.firstOrNull()
+            ?.let { GetWorldProjectPeekStep().run(it.id) }
+            ?: emptyList()
+        CreatedWorldResult(worlds, worldId, invitations, heroPeek)
     }
 }
+
+private data class CreatedWorldResult(
+    val worlds: List<app.mcorg.domain.model.world.World>,
+    val createdWorldId: Int,
+    val invitations: List<app.mcorg.domain.model.invite.Invite>,
+    val heroPeek: List<app.mcorg.pipeline.world.commonsteps.WorldProjectPeek>,
+)
 
 object ValidateWorldInputStep : Step<Parameters, AppFailure.ValidationError, CreateWorldInput> {
     override suspend fun process(input: Parameters): Result<AppFailure.ValidationError, CreateWorldInput> {

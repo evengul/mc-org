@@ -43,6 +43,7 @@ import app.mcorg.pipeline.project.handleUpdateProjectLocation
 import app.mcorg.pipeline.world.handleCreateWorld
 import app.mcorg.pipeline.world.handleDeleteWorld
 import app.mcorg.pipeline.world.handleSearchWorlds
+import app.mcorg.pipeline.world.handleTogglePin
 import app.mcorg.pipeline.world.settings.general.handleUpdateWorldDescription
 import app.mcorg.pipeline.world.settings.general.handleUpdateWorldName
 import app.mcorg.pipeline.world.settings.general.handleUpdateWorldVersion
@@ -54,6 +55,7 @@ import app.mcorg.pipeline.world.settings.invitations.handleCreateInvitation
 import app.mcorg.pipeline.world.settings.invitations.handleGetInvitationListFragment
 import app.mcorg.pipeline.world.commonsteps.GetPermittedWorldsInput
 import app.mcorg.pipeline.world.commonsteps.GetPermittedWorldsStep
+import app.mcorg.pipeline.world.commonsteps.GetWorldProjectPeekStep
 import app.mcorg.pipeline.world.settings.members.handleRemoveWorldMember
 import app.mcorg.pipeline.world.settings.members.handleUpdateWorldMemberRole
 import app.mcorg.presentation.plugins.ActionTaskParamPlugin
@@ -92,6 +94,16 @@ class WorldHandler {
             }
             get("/search") {
                 call.handleSearchWorlds()
+            }
+            // Pin toggle lives on its own /pin/{worldId} subtree (static `pin` beats the
+            // `{worldId}` param branch) so it does NOT inherit UpdateActiveWorldPlugin —
+            // pinning a world must not hijack the user's active world. Still membership-gated.
+            route("/pin/{worldId}") {
+                install(WorldParamPlugin)
+                install(WorldParticipantPlugin)
+                post {
+                    call.handleTogglePin()
+                }
             }
             route("/{worldId}") {
                 install(WorldParamPlugin)
@@ -291,13 +303,16 @@ class WorldHandler {
         val supportedVersions = GetSupportedVersionsStep.getSupportedVersions()
 
         handlePipeline(
-            onSuccess = { (worlds, invitations) ->
-                respondHtml(worldListPage(user, worlds, supportedVersions, invitations))
+            onSuccess = { (worlds, invitations, heroPeek) ->
+                respondHtml(worldListPage(user, worlds, supportedVersions, invitations, heroPeek))
             }
         ) {
             val worlds = GetPermittedWorldsStep.run(GetPermittedWorldsInput(userId = user.id))
             val invitations = GetUserInvitationsStep.run(user.id)
-            worlds to invitations
+            val heroPeek = worlds.firstOrNull()
+                ?.let { GetWorldProjectPeekStep().run(it.id) }
+                ?: emptyList()
+            Triple(worlds, invitations, heroPeek)
         }
     }
 }
