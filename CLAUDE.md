@@ -44,7 +44,8 @@ mvn clean compile                   # Compile (must pass with zero errors)
 ./webapp/scripts/test.sh            # Run tests — see "Running Tests" below (NOT bare `mvn test`)
 sudo service docker start           # Start Docker if not running (passwordless)
 ./webapp/scripts/start-db.sh        # Start the database
-./webapp/scripts/migrate-locally.sh # Apply database migrations
+./webapp/scripts/migrate-locally.sh # Apply migrations to the localhost Docker DB (main checkout)
+./webapp/scripts/migrate-worktree.sh # Apply migrations to the DB local.env points at (worktree Neon branch)
 ./webapp/scripts/run.sh             # Start development server
 ./webapp/scripts/ingest-locally.sh  # Ingest Minecraft data into the local/worktree DB
 ```
@@ -186,6 +187,10 @@ the real ingested Minecraft data instantly (no re-ingestion) and matches CI exac
 - `webapp/scripts/worktree-db.sh` — fork Neon branch + point `local.env` at it + migrate
 - `webapp/scripts/worktree-db-cleanup.sh` — delete the current worktree's branch
 - `webapp/scripts/worktree-db-cleanup.sh --prune` — delete all orphaned `wt/*` branches
+- `webapp/scripts/migrate-worktree.sh` — apply Flyway migrations to the DB `local.env`
+  points at (the worktree's Neon branch), reading its `DB_*` creds. Use this after
+  adding a migration in a worktree — `migrate-locally.sh` hardcodes the localhost
+  Docker DB and will not touch the branch.
 
 ## Issue Tracking
 
