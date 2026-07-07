@@ -11,5 +11,7 @@ data class World(
     val completedProjects: Int,
     val totalProjects: Int,
     val createdAt: ZonedDateTime,
-    val updatedAt: ZonedDateTime
+    val updatedAt: ZonedDateTime,
+    val pinned: Boolean = false,
+    val lastOpenedAt: ZonedDateTime? = null
 )

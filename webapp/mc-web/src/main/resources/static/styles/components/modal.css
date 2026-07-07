@@ -42,10 +42,14 @@ dialog.modal-backdrop::backdrop {
 }
 
 .modal__body label {
+    display: block;
     font-family: var(--font-ui);
-    font-size: var(--text-ui);
+    font-size: var(--text-label);
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
     color: var(--text-muted);
-    margin-bottom: calc(var(--space-1) * -1);
+    margin-bottom: var(--space-2);
 }
 
 .modal__body label .required-indicator {

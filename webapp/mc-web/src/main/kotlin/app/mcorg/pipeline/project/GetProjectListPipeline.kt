@@ -9,6 +9,7 @@ import app.mcorg.pipeline.resources.commonsteps.GetAllResourceGatheringItemsStep
 import app.mcorg.pipeline.project.commonsteps.GetProjectPlanListStep
 import app.mcorg.pipeline.world.commonsteps.GetWorldMemberStep
 import app.mcorg.pipeline.world.commonsteps.GetWorldStep
+import app.mcorg.pipeline.world.commonsteps.UpdateWorldLastOpenedStep
 import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.templated.dsl.ResumeHeroData
 import app.mcorg.presentation.templated.dsl.pages.projectListPage
@@ -34,6 +35,10 @@ suspend fun ApplicationCall.handleGetProjectList() {
     val user = getUser()
     val worldId = getWorldId()
     val view = request.queryParameters["view"]?.takeIf { it == "plan" } ?: "execute"
+
+    // Best-effort: record that this user just opened the world (drives the Worlds-page
+    // "opened Xh ago" line and recency sort). Ignore failures — must not block the page.
+    UpdateWorldLastOpenedStep(user.id).process(worldId)
 
     if (view == "plan") {
         handlePipeline(
