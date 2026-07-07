@@ -1,5 +1,6 @@
 package app.mcorg.api
 
+import app.mcorg.config.CacheManager
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.Result
@@ -78,6 +79,33 @@ object RevokeApiTokenStep : Step<String, AppFailure.DatabaseError, Int> {
                 "UPDATE api_token SET revoked_at = CURRENT_TIMESTAMP WHERE token_hash = ? AND revoked_at IS NULL"
             ),
             parameterSetter = { st, hash -> st.setString(1, hash) },
+        ).process(input)
+}
+
+/**
+ * Whether a user is globally banned. Reuses the exact `global_user_roles` 'banned' lookup and the
+ * shared [CacheManager.bannedUsers] cache that BannedPlugin uses, so the API shares one ban truth.
+ */
+object IsUserBannedStep : Step<Int, AppFailure.DatabaseError, Boolean> {
+    override suspend fun process(input: Int): Result<AppFailure.DatabaseError, Boolean> {
+        CacheManager.bannedUsers.getIfPresent(input)?.let { return Result.success(it) }
+        val result = DatabaseSteps.query<Int, Boolean>(
+            sql = SafeSQL.select("SELECT 1 FROM global_user_roles WHERE user_id = ? AND role = 'banned'"),
+            parameterSetter = { st, id -> st.setInt(1, id) },
+            resultMapper = { it.next() },
+        ).process(input)
+        if (result is Result.Success) CacheManager.bannedUsers.put(input, result.value)
+        return result
+    }
+}
+
+/** Whether a user holds the demo role (mirrors the web app's demo-user detection). */
+object IsDemoUserStep : Step<Int, AppFailure.DatabaseError, Boolean> {
+    override suspend fun process(input: Int): Result<AppFailure.DatabaseError, Boolean> =
+        DatabaseSteps.query<Int, Boolean>(
+            sql = SafeSQL.select("SELECT 1 FROM global_user_roles WHERE user_id = ? AND role = 'demo_user'"),
+            parameterSetter = { st, id -> st.setInt(1, id) },
+            resultMapper = { it.next() },
         ).process(input)
 }
 

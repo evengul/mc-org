@@ -1,10 +1,14 @@
 package app.mcorg.api
 
+import app.mcorg.config.AppConfig
+import app.mcorg.domain.Production
 import app.mcorg.pipeline.Result
+import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.application.createRouteScopedPlugin
 import io.ktor.server.request.header
+import io.ktor.server.request.httpMethod
 import io.ktor.util.AttributeKey
 
 private val API_USER_ID_KEY = AttributeKey<Int>("apiUserId")
@@ -38,7 +42,14 @@ val ApiBearerAuthPlugin = createRouteScopedPlugin("ApiBearerAuthPlugin") {
         val hash = ApiCrypto.sha256Hex(token)
         when (val lookup = LookupApiTokenUserStep.process(hash)) {
             is Result.Success -> {
-                call.attributes.put(API_USER_ID_KEY, lookup.value)
+                val userId = lookup.value
+                // Ban gate: the API is mounted outside the HTML app's BannedPlugin, so enforce the
+                // same global ban here (shared lookup + cache). Banned accounts get 403, not 401.
+                if ((IsUserBannedStep.process(userId) as? Result.Success)?.value == true) {
+                    call.respondApiError(HttpStatusCode.Forbidden, "forbidden", "This account is banned")
+                    return@onCall
+                }
+                call.attributes.put(API_USER_ID_KEY, userId)
                 call.attributes.put(API_TOKEN_HASH_KEY, hash)
                 // Best-effort; a failed touch must not reject an otherwise valid request.
                 TouchApiTokenStep.process(hash)
@@ -46,6 +57,22 @@ val ApiBearerAuthPlugin = createRouteScopedPlugin("ApiBearerAuthPlugin") {
             is Result.Failure -> {
                 call.respondApiError(HttpStatusCode.Unauthorized, "invalid_token", "Invalid, expired, or revoked token")
             }
+        }
+    }
+}
+
+/**
+ * Mirrors the HTML app's [app.mcorg.presentation.plugins.DemoUserPlugin]: in Production, demo users
+ * may read but not mutate. Install on the write route group AFTER [ApiBearerAuthPlugin] (it reads the
+ * user id that plugin resolves). No-op outside Production and for GET/OPTIONS, matching the web app.
+ */
+val ApiDemoWriteBlockPlugin = createRouteScopedPlugin("ApiDemoWriteBlockPlugin") {
+    onCall { call ->
+        if (AppConfig.env != Production) return@onCall
+        if (call.request.httpMethod in listOf(HttpMethod.Get, HttpMethod.Options)) return@onCall
+        val userId = call.attributes.getOrNull(API_USER_ID_KEY) ?: return@onCall
+        if ((IsDemoUserStep.process(userId) as? Result.Success)?.value == true) {
+            call.respondApiError(HttpStatusCode.Forbidden, "forbidden", "Demo users cannot modify data")
         }
     }
 }

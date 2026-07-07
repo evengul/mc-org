@@ -1,6 +1,10 @@
 package app.mcorg.api
 
+import app.mcorg.config.AppConfig
+import app.mcorg.domain.Env
+import app.mcorg.domain.Production
 import app.mcorg.domain.model.minecraft.MinecraftVersion
+import app.mcorg.domain.model.user.Role
 import app.mcorg.domain.model.user.TokenProfile
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.Result
@@ -69,6 +73,18 @@ class ApiReadWriteIT : WithUser() {
                 st.setInt(1, projectId); st.setString(2, itemId); st.setString(3, name); st.setInt(4, required)
             }
         ).process(Unit) as Result.Success).value
+    }
+
+    private fun addWorldMember(worldId: Int, member: TokenProfile, role: Role = Role.MEMBER) = runBlocking {
+        DatabaseSteps.update<Unit>(
+            sql = SafeSQL.insert(
+                "INSERT INTO world_members (user_id, world_id, display_name, world_role) VALUES (?, ?, ?, ?)"
+            ),
+            parameterSetter = { st, _ ->
+                st.setInt(1, member.id); st.setInt(2, worldId)
+                st.setString(3, member.minecraftUsername); st.setInt(4, role.level)
+            }
+        ).process(Unit)
     }
 
     private fun createTask(projectId: Int, name: String): Int = runBlocking {
@@ -263,5 +279,52 @@ class ApiReadWriteIT : WithUser() {
             setBody("""{"completed":true}""")
         }
         assertEquals(HttpStatusCode.Unauthorized, response.status)
+    }
+
+    // ── Security hardening ───────────────────────────────────────────────────────
+
+    @Test
+    fun `a banned user's token is rejected on reads and writes`() = testApplication {
+        routing { install(AuthPlugin); apiV1Routes() }
+        val bannedToken = issueToken(createExtraUser("banned"))
+
+        assertEquals(HttpStatusCode.Forbidden, getJson("/api/v1/worlds", bannedToken).status)
+
+        val write = client.post("/api/v1/projects/1/resources/sync") {
+            header("Authorization", "Bearer $bannedToken")
+            contentType(ContentType.Application.Json)
+            setBody("""{"resources":[]}""")
+        }
+        assertEquals(HttpStatusCode.Forbidden, write.status)
+    }
+
+    @Test
+    fun `a demo user cannot write in production`() = testApplication {
+        routing { install(AuthPlugin); apiV1Routes() }
+        val demoToken = issueToken(createExtraUser("demo_user"))
+        val original: Env = AppConfig.env
+        try {
+            AppConfig.env = Production
+            val write = client.post("/api/v1/projects/1/resources/sync") {
+                header("Authorization", "Bearer $demoToken")
+                contentType(ContentType.Application.Json)
+                setBody("""{"resources":[]}""")
+            }
+            assertEquals(HttpStatusCode.Forbidden, write.status)
+        } finally {
+            AppConfig.env = original
+        }
+    }
+
+    @Test
+    fun `world projects admits a plain (non-owner) member`() = testApplication {
+        routing { install(AuthPlugin); apiV1Routes() }
+        val worldId = createWorld("API IT Member Gate")
+        val member = createExtraUser()
+        addWorldMember(worldId, member, Role.MEMBER)
+        val memberToken = issueToken(member)
+
+        val response = getJson("/api/v1/worlds/$worldId/projects", memberToken)
+        assertEquals(HttpStatusCode.OK, response.status)
     }
 }

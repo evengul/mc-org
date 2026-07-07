@@ -3,11 +3,16 @@ package app.mcorg.presentation.handler.link
 import app.mcorg.api.ApproveDeviceCodeInput
 import app.mcorg.api.ApproveDeviceCodeStep
 import app.mcorg.api.GetDeviceCodeByUserCodeStep
+import app.mcorg.config.AppConfig
 import app.mcorg.pipeline.Result
 import app.mcorg.presentation.templated.link.linkPage
 import app.mcorg.presentation.utils.getUser
 import app.mcorg.presentation.utils.respondHtml
+import io.ktor.http.HttpStatusCode
+import io.ktor.http.Url
 import io.ktor.server.application.ApplicationCall
+import io.ktor.server.request.header
+import io.ktor.server.request.host
 import io.ktor.server.request.receiveParameters
 import java.time.Instant
 
@@ -17,14 +22,45 @@ private fun normalizeUserCode(raw: String): String {
     return if (cleaned.length == 8) "${cleaned.substring(0, 4)}-${cleaned.substring(4)}" else cleaned
 }
 
+/** Deny framing so the code-prefill form can't be clickjacked. */
+private fun ApplicationCall.setLinkFramingHeaders() {
+    response.headers.append("Content-Security-Policy", "frame-ancestors 'none'")
+    response.headers.append("X-Frame-Options", "DENY")
+}
+
+/**
+ * CSRF gate for the state-changing POST (there is no CSRF-token infra). When an `Origin` (or, as a
+ * fallback, `Referer`) header is present, its host must match the request host or the configured
+ * APP_HOST; otherwise the request is treated as cross-origin. A malformed header is treated as
+ * cross-origin (fail closed). When neither header is present, allow (don't break legit same-origin).
+ */
+private fun ApplicationCall.isCrossOriginPost(): Boolean {
+    val header = request.header("Origin") ?: request.header("Referer") ?: return false
+    val originHost = runCatching { Url(header).host }.getOrNull()?.takeIf { it.isNotBlank() } ?: return true
+    val allowed = buildSet {
+        add(request.host())
+        AppConfig.appHost?.takeIf { it.isNotBlank() }?.let { add(it) }
+    }
+    return originHost !in allowed
+}
+
 suspend fun ApplicationCall.handleGetLinkPage() {
+    setLinkFramingHeaders()
     val user = getUser()
     val prefill = request.queryParameters["user_code"]?.let { normalizeUserCode(it) }
     respondHtml(linkPage(user = user, prefillCode = prefill))
 }
 
 suspend fun ApplicationCall.handleApproveLinkPage() {
+    setLinkFramingHeaders()
     val user = getUser()
+    if (isCrossOriginPost()) {
+        respondHtml(
+            linkPage(user = user, error = "This request could not be verified. Please open the link page directly and try again."),
+            HttpStatusCode.Forbidden,
+        )
+        return
+    }
     val params = receiveParameters()
     val rawCode = params["user_code"]?.trim().orEmpty()
     val userCode = normalizeUserCode(rawCode)

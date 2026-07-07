@@ -1,5 +1,6 @@
 package app.mcorg.api
 
+import app.mcorg.config.AppConfig
 import app.mcorg.presentation.handler.link.handleApproveLinkPage
 import app.mcorg.presentation.handler.link.handleGetLinkPage
 import app.mcorg.presentation.plugins.AuthPlugin
@@ -229,6 +230,59 @@ class ApiAuthIT : WithUser() {
             }
         }
         assertEquals(HttpStatusCode.Unauthorized, client.get("/api/v1/worlds").status)
+    }
+
+    @Test
+    fun `link approval rejects a cross-origin post`() = testApplication {
+        routing {
+            install(AuthPlugin)
+            apiV1Routes()
+            route("/link") {
+                get { call.handleGetLinkPage() }
+                post { call.handleApproveLinkPage() }
+            }
+        }
+        val dc = createDeviceCode()
+
+        val response = client.post("/link") {
+            addAuthCookie(this)
+            header("Origin", "https://evil.example")
+            contentType(ContentType.Application.FormUrlEncoded)
+            setBody(listOf("user_code" to dc.userCode).formUrlEncode())
+        }
+        assertEquals(HttpStatusCode.Forbidden, response.status)
+
+        // The code was NOT approved despite the request carrying a valid cookie + code.
+        val poll = poll(dc.deviceCode)
+        assertEquals("authorization_pending", apiJson.decodeFromString(PollPendingResponse.serializer(), poll.bodyAsText()).error)
+    }
+
+    @Test
+    fun `link approval accepts a same-origin post`() = testApplication {
+        routing {
+            install(AuthPlugin)
+            apiV1Routes()
+            route("/link") {
+                get { call.handleGetLinkPage() }
+                post { call.handleApproveLinkPage() }
+            }
+        }
+        val dc = createDeviceCode()
+
+        val originalHost = AppConfig.appHost
+        try {
+            AppConfig.appHost = "app.seam.gg"
+            val response = client.post("/link") {
+                addAuthCookie(this)
+                header("Origin", "https://app.seam.gg")
+                contentType(ContentType.Application.FormUrlEncoded)
+                setBody(listOf("user_code" to dc.userCode).formUrlEncode())
+            }
+            assertEquals(HttpStatusCode.OK, response.status)
+            assertTrue(response.bodyAsText().contains("Device linked"))
+        } finally {
+            AppConfig.appHost = originalHost
+        }
     }
 
     private fun <T> runCatchingBlocking(block: suspend () -> T): T =

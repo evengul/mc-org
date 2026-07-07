@@ -16,7 +16,7 @@ import org.junit.jupiter.api.AfterEach
  * Tests cookie setting behavior with different host configurations:
  * - Local development (host = "false")
  * - Production domains (host = actual domain)
- * - Cookie attributes (httpOnly, expires, path, domain)
+ * - Cookie attributes (httpOnly, expires, path, domain, SameSite, Secure)
  *
  * Priority: High (Critical for authentication flow)
  */
@@ -24,19 +24,13 @@ class AddCookieStepTest {
 
     private lateinit var mockCookies: ResponseCookies
     private val testToken = "test.jwt.token"
+    // SameSite=Lax is always applied (CSRF hardening); Secure is Production-only, so in the
+    // test env (LOCAL) secure is false.
+    private val sameSite = mapOf("SameSite" to "Lax")
 
     @BeforeEach
     fun setup() {
-        mockCookies = mockk<ResponseCookies>()
-
-        every { mockCookies.append(
-            name = any(),
-            value = any(),
-            httpOnly = any(),
-            expires = any<GMTDate>(),
-            path = any(),
-            domain = any()
-        ) } returns Unit
+        mockCookies = mockk<ResponseCookies>(relaxed = true)
     }
 
     @AfterEach
@@ -59,7 +53,9 @@ class AddCookieStepTest {
                 value = testToken,
                 httpOnly = true,
                 expires = any<GMTDate>(),
-                path = "/"
+                path = "/",
+                secure = false,
+                extensions = sameSite
             )
         }
         verify(exactly = 0) {
@@ -91,7 +87,9 @@ class AddCookieStepTest {
                 httpOnly = true,
                 expires = any<GMTDate>(),
                 path = "/",
-                domain = host
+                domain = host,
+                secure = false,
+                extensions = sameSite
             )
         }
     }
@@ -113,7 +111,9 @@ class AddCookieStepTest {
                 httpOnly = true,
                 expires = any<GMTDate>(),
                 path = "/",
-                domain = host
+                domain = host,
+                secure = false,
+                extensions = sameSite
             )
         }
     }
@@ -135,7 +135,9 @@ class AddCookieStepTest {
                 httpOnly = true,
                 expires = any<GMTDate>(),
                 path = "/",
-                domain = host
+                domain = host,
+                secure = false,
+                extensions = sameSite
             )
         }
     }
@@ -157,7 +159,9 @@ class AddCookieStepTest {
                 httpOnly = true,
                 expires = any<GMTDate>(),
                 path = "/",
-                domain = "example.com"
+                domain = "example.com",
+                secure = false,
+                extensions = sameSite
             )
         }
     }
@@ -179,7 +183,9 @@ class AddCookieStepTest {
                 httpOnly = true,
                 expires = any<GMTDate>(),
                 path = "/",
-                domain = "example.com"
+                domain = "example.com",
+                secure = false,
+                extensions = sameSite
             )
         }
     }

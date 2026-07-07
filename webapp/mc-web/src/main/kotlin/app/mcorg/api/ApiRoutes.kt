@@ -1,9 +1,12 @@
 package app.mcorg.api
 
 import app.mcorg.config.AppConfig
+import app.mcorg.domain.model.user.Role
+import app.mcorg.domain.model.user.TokenProfile
 import app.mcorg.event.ResourceCountUpdated
 import app.mcorg.event.eventBus
 import app.mcorg.pipeline.Result
+import app.mcorg.pipeline.world.ValidateWorldMemberRole
 import app.mcorg.pipeline.project.commonsteps.GetProjectByIdStep
 import app.mcorg.pipeline.project.commonsteps.GetProjectListStep
 import app.mcorg.pipeline.resources.commonsteps.GetAllResourceGatheringItemsStep
@@ -15,7 +18,6 @@ import app.mcorg.pipeline.task.commonsteps.SetTaskCompletedInput
 import app.mcorg.pipeline.task.commonsteps.SetTaskCompletedStep
 import app.mcorg.pipeline.world.commonsteps.GetPermittedWorldsInput
 import app.mcorg.pipeline.world.commonsteps.GetPermittedWorldsStep
-import app.mcorg.pipeline.world.commonsteps.GetWorldMemberStep
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.application.install
@@ -55,6 +57,8 @@ fun Route.apiV1Routes() {
         }
         route("/projects") {
             install(ApiBearerAuthPlugin)
+            // Block demo-user writes in Production (reads stay open) — mirrors DemoUserPlugin.
+            install(ApiDemoWriteBlockPlugin)
             post("/{projectId}/resources/sync") { call.handleSyncResources() }
             put("/{projectId}/tasks/{taskId}") { call.handleUpdateTask() }
         }
@@ -190,8 +194,9 @@ suspend fun ApplicationCall.handleGetWorldProjects() {
         respondApiError(HttpStatusCode.BadRequest, "invalid_request", "Invalid world id")
         return
     }
-    // Membership check: not a member (or world absent) → 403.
-    if (GetWorldMemberStep(worldId).process(userId) is Result.Failure) {
+    // Membership check: shares the web's participant definition (rejects non-members AND
+    // world-banned members; world_role <= MEMBER). Not a member (or world absent) → 403.
+    if (ValidateWorldMemberRole<Unit>(apiProfile(userId), Role.MEMBER, worldId).process(Unit) is Result.Failure) {
         respondApiError(HttpStatusCode.Forbidden, "forbidden", "Not a member of this world")
         return
     }
@@ -349,9 +354,16 @@ private suspend fun ApplicationCall.resolveProjectForUser(projectId: Int): Int? 
             return null
         }
     }
-    if (GetWorldMemberStep(worldId).process(userId) is Result.Failure) {
+    if (ValidateWorldMemberRole<Unit>(apiProfile(userId), Role.MEMBER, worldId).process(Unit) is Result.Failure) {
         respondApiError(HttpStatusCode.Forbidden, "forbidden", "Not a member of this project's world")
         return null
     }
     return worldId
 }
+
+/**
+ * Minimal [TokenProfile] carrying only the bearer user's id — enough for [ValidateWorldMemberRole],
+ * which keys solely off `user.id`. The API resolves an id (not a full profile) from the token.
+ */
+private fun apiProfile(userId: Int): TokenProfile =
+    TokenProfile(id = userId, uuid = "", minecraftUsername = "", displayName = "", roles = emptyList())
