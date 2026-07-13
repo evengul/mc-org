@@ -50,7 +50,7 @@
         <bcrypt.version>0.10.2</bcrypt.version>
         <hikari.version>7.1.0</hikari.version>
         <postgresql.version>42.7.13</postgresql.version>
-        <flyway.version>12.10.0</flyway.version>
+        <flyway.version>12.11.0</flyway.version>
         <wiremock.version>3.13.2</wiremock.version>
         <mockk.version>1.14.11</mockk.version>
         <!-- mockk's transitive ByteBuddy historically lagged (1.13.13 pinned 1.10.9,
