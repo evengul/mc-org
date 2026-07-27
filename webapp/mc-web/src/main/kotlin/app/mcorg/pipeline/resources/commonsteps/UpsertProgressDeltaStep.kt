@@ -38,21 +38,25 @@ object UpsertProgressDeltaStep : Step<UpsertProgressDeltaInput, AppFailure.Datab
                     FROM resource_gathering
                     WHERE id = ?
                 )
-                INSERT INTO resource_gathering_progress (project_id, item_id, collected, updated_at)
+                INSERT INTO resource_gathering_progress (project_id, item_id, collected, updated_at, progress_source)
                 -- First write: base is 0, so clamp(delta) is exactly clamp(0 + delta).
                 SELECT rg.project_id,
                        rg.item_id,
                        GREATEST(LEAST(?, rg.required), 0),
-                       CURRENT_TIMESTAMP
+                       CURRENT_TIMESTAMP,
+                       'manual'
                 FROM rg
                 ON CONFLICT (project_id, item_id) DO UPDATE
-                    SET collected  = GREATEST(
+                    SET collected       = GREATEST(
                             LEAST(resource_gathering_progress.collected + ?, (
                                 SELECT required FROM resource_gathering WHERE id = ?
                             )),
                             0
                         ),
-                        updated_at = CURRENT_TIMESTAMP
+                        updated_at      = CURRENT_TIMESTAMP,
+                        -- Explicit: the column DEFAULT only applies on INSERT, so without this a
+                        -- web edit following a mod sync would keep progress_source = 'mod'.
+                        progress_source = 'manual'
                 """.trimIndent()
             ),
             parameterSetter = { stmt, inp ->

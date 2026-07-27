@@ -9,6 +9,8 @@ import app.mcorg.domain.model.user.TokenProfile
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.Result
 import app.mcorg.pipeline.SafeSQL
+import app.mcorg.pipeline.resources.commonsteps.UpsertProgressByItemInput
+import app.mcorg.pipeline.resources.commonsteps.UpsertProgressByItemStep
 import app.mcorg.pipeline.world.CreateWorldInput
 import app.mcorg.pipeline.world.CreateWorldStep
 import app.mcorg.presentation.plugins.AuthPlugin
@@ -181,6 +183,81 @@ class ApiReadWriteIT : WithUser() {
         assertEquals(HttpStatusCode.OK, response.status)
         val body = apiJson.decodeFromString(ResourcesResponse.serializer(), response.bodyAsText())
         assertEquals(64, body.resources.single { it.itemId == "minecraft:iron_ingot" }.collected)
+    }
+
+    @Test
+    fun `sync stamps progress_source as mod, and it reads back on the project`() = testApplication {
+        routing { install(AuthPlugin); apiV1Routes() }
+        val token = issueToken()
+        val worldId = createWorld("API IT Sync Source")
+        val projectId = createProject(worldId, "Sync Source Project")
+        createResource(projectId, "minecraft:iron_ingot", "Iron Ingot", 64)
+
+        val response = client.post("/api/v1/projects/$projectId/resources/sync") {
+            header("Authorization", "Bearer $token")
+            contentType(ContentType.Application.Json)
+            setBody("""{"resources":[{"item_id":"minecraft:iron_ingot","collected":10}]}""")
+        }
+        assertEquals(HttpStatusCode.OK, response.status)
+        val synced = apiJson.decodeFromString(ResourcesResponse.serializer(), response.bodyAsText())
+        assertEquals("mod", synced.resources.single { it.itemId == "minecraft:iron_ingot" }.progressSource)
+
+        // And the read path projects the same value, not just the write path's response.
+        val projects = apiJson.decodeFromString(
+            ListSerializer(ProjectDto.serializer()),
+            getJson("/api/v1/worlds/$worldId/projects", token).bodyAsText(),
+        )
+        val resource = projects.single { it.id == projectId }.resources.single()
+        assertEquals("mod", resource.progressSource)
+    }
+
+    @Test
+    fun `a resource with no progress row reads as manual`() = testApplication {
+        routing { install(AuthPlugin); apiV1Routes() }
+        val token = issueToken()
+        val worldId = createWorld("API IT Untouched Source")
+        val projectId = createProject(worldId, "Untouched Project")
+        createResource(projectId, "minecraft:stone", "Stone", 10)
+
+        val projects = apiJson.decodeFromString(
+            ListSerializer(ProjectDto.serializer()),
+            getJson("/api/v1/worlds/$worldId/projects", token).bodyAsText(),
+        )
+
+        // No progress row exists, so the LEFT JOIN yields null — which must read as manual.
+        assertEquals("manual", projects.single { it.id == projectId }.resources.single().progressSource)
+    }
+
+    @Test
+    fun `a web-side write takes provenance back from the mod`() = testApplication {
+        routing { install(AuthPlugin); apiV1Routes() }
+        val token = issueToken()
+        val worldId = createWorld("API IT Source Handback")
+        val projectId = createProject(worldId, "Handback Project")
+        createResource(projectId, "minecraft:stone", "Stone", 100)
+
+        client.post("/api/v1/projects/$projectId/resources/sync") {
+            header("Authorization", "Bearer $token")
+            contentType(ContentType.Application.Json)
+            setBody("""{"resources":[{"item_id":"minecraft:stone","collected":5}]}""")
+        }
+
+        // The web app's write path. This is the regression that matters: the column DEFAULT only
+        // applies on INSERT, so an UPDATE that forgets progress_source would leave this row 'mod'
+        // forever and the mod would keep believing it owns the value.
+        runBlocking {
+            UpsertProgressByItemStep.process(
+                UpsertProgressByItemInput(projectId = projectId, itemId = "minecraft:stone", delta = 3, required = 100),
+            )
+        }
+
+        val projects = apiJson.decodeFromString(
+            ListSerializer(ProjectDto.serializer()),
+            getJson("/api/v1/worlds/$worldId/projects", token).bodyAsText(),
+        )
+        val resource = projects.single { it.id == projectId }.resources.single()
+        assertEquals("manual", resource.progressSource)
+        assertEquals(8, resource.collected)
     }
 
     @Test

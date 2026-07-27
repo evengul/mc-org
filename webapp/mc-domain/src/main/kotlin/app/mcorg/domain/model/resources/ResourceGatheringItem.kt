@@ -10,4 +10,6 @@ data class ResourceGatheringItem(
     val solvedByProject: Pair<Int, String>? = null,
     val sourceType: String? = null,
     val ignored: Boolean = false,
+    /** Which client last set [collected]. See [ProgressSource] — unrelated to [sourceType]. */
+    val progressSource: ProgressSource = ProgressSource.MANUAL,
 )

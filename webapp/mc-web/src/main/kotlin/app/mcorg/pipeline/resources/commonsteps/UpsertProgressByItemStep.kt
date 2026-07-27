@@ -37,14 +37,17 @@ object UpsertProgressByItemStep : Step<UpsertProgressByItemInput, AppFailure.Dat
         return DatabaseSteps.update<UpsertProgressByItemInput>(
             sql = SafeSQL.insert(
                 """
-                INSERT INTO resource_gathering_progress (project_id, item_id, collected, updated_at)
-                VALUES (?, ?, GREATEST(LEAST(?, ?), 0), CURRENT_TIMESTAMP)
+                INSERT INTO resource_gathering_progress (project_id, item_id, collected, updated_at, progress_source)
+                VALUES (?, ?, GREATEST(LEAST(?, ?), 0), CURRENT_TIMESTAMP, 'manual')
                 ON CONFLICT (project_id, item_id) DO UPDATE
-                    SET collected  = GREATEST(
+                    SET collected       = GREATEST(
                             LEAST(resource_gathering_progress.collected + ?, ?),
                             0
                         ),
-                        updated_at = CURRENT_TIMESTAMP
+                        updated_at      = CURRENT_TIMESTAMP,
+                        -- Explicit: the column DEFAULT only applies on INSERT, so without this a
+                        -- web edit following a mod sync would keep progress_source = 'mod'.
+                        progress_source = 'manual'
                 """.trimIndent()
             ),
             parameterSetter = { stmt, inp ->

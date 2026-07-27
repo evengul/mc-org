@@ -33,16 +33,20 @@ object UpsertProgressStep : Step<UpsertProgressByRgIdInput, AppFailure.DatabaseE
         return DatabaseSteps.update<UpsertProgressByRgIdInput>(
             sql = SafeSQL.insert(
                 """
-                INSERT INTO resource_gathering_progress (project_id, item_id, collected, updated_at)
+                INSERT INTO resource_gathering_progress (project_id, item_id, collected, updated_at, progress_source)
                 SELECT rg.project_id,
                        rg.item_id,
                        LEAST(GREATEST(?, 0), rg.required),
-                       CURRENT_TIMESTAMP
+                       CURRENT_TIMESTAMP,
+                       'manual'
                 FROM resource_gathering rg
                 WHERE rg.id = ?
                 ON CONFLICT (project_id, item_id) DO UPDATE
-                    SET collected  = EXCLUDED.collected,
-                        updated_at = EXCLUDED.updated_at
+                    SET collected       = EXCLUDED.collected,
+                        updated_at      = EXCLUDED.updated_at,
+                        -- Explicit: the column DEFAULT only applies on INSERT, so without this a
+                        -- web edit following a mod sync would keep progress_source = 'mod'.
+                        progress_source = EXCLUDED.progress_source
                 """.trimIndent()
             ),
             parameterSetter = { stmt, inp ->
