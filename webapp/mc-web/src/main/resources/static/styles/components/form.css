@@ -87,6 +87,19 @@ select.form-control option {
     margin-bottom: var(--space-1);
 }
 
+/* --- Standalone label ---
+   The scoped rules above only reach labels inside the idea wizard. `.form-label` is the
+   unscoped equivalent, for forms that aren't part of a wizard or a modal. */
+
+.form-label {
+    display: block;
+    font-family: var(--font-ui);
+    font-size: var(--text-sm);
+    font-weight: 500;
+    color: var(--text-muted);
+    margin-bottom: var(--space-1);
+}
+
 /* --- Required indicator --- */
 
 .required-indicator {
