@@ -224,6 +224,7 @@ suspend fun ApplicationCall.handleGetWorldProjects() {
                     required = it.required,
                     collected = it.collected,
                     sourceType = it.sourceType,
+                    progressSource = it.progressSource.value,
                 )
             },
             tasks = tasks.map { TaskDto(id = it.id, name = it.name, completed = it.completed) },
@@ -297,6 +298,7 @@ suspend fun ApplicationCall.handleSyncResources() {
                     required = it.required,
                     collected = it.collected,
                     sourceType = it.sourceType,
+                    progressSource = it.progressSource.value,
                 )
             }
         ),

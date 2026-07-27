@@ -1,5 +1,6 @@
 package app.mcorg.pipeline.resources.extractors
 
+import app.mcorg.domain.model.resources.ProgressSource
 import app.mcorg.domain.model.resources.ResourceGatheringItem
 import java.sql.ResultSet
 
@@ -30,5 +31,6 @@ fun ResultSet.toResourceGatheringItem(): ResourceGatheringItem {
         solvedByProject = solvedByProject,
         sourceType = sourceType,
         ignored = getBoolean("ignored"),
+        progressSource = ProgressSource.fromValue(getString("progress_source")),
     )
 }

@@ -1,5 +1,6 @@
 package app.mcorg.pipeline.resources.commonsteps
 
+import app.mcorg.domain.model.resources.ProgressSource
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.Result
@@ -13,11 +14,14 @@ import app.mcorg.pipeline.failure.AppFailure
  * @param projectId the project that owns this progress entry.
  * @param itemId the Minecraft item id (e.g. "minecraft:iron_ingot").
  * @param collected the absolute value to set (clamped to [0, required]).
+ * @param source which client is writing. Defaults to [ProgressSource.MOD] because this step exists
+ *   for the mod sync endpoint; the web app's write paths are the Upsert* steps.
  */
 data class SetProgressByItemInput(
     val projectId: Int,
     val itemId: String,
     val collected: Int,
+    val source: ProgressSource = ProgressSource.MOD,
 )
 
 /**
@@ -36,22 +40,25 @@ object SetProgressByItemStep : Step<SetProgressByItemInput, AppFailure.DatabaseE
         return DatabaseSteps.update<SetProgressByItemInput>(
             sql = SafeSQL.insert(
                 """
-                INSERT INTO resource_gathering_progress (project_id, item_id, collected, updated_at)
+                INSERT INTO resource_gathering_progress (project_id, item_id, collected, updated_at, progress_source)
                 SELECT rg.project_id,
                        rg.item_id,
                        LEAST(GREATEST(?, 0), rg.required),
-                       CURRENT_TIMESTAMP
+                       CURRENT_TIMESTAMP,
+                       ?
                 FROM resource_gathering rg
                 WHERE rg.project_id = ? AND rg.item_id = ?
                 ON CONFLICT (project_id, item_id) DO UPDATE
-                    SET collected  = EXCLUDED.collected,
-                        updated_at = EXCLUDED.updated_at
+                    SET collected       = EXCLUDED.collected,
+                        updated_at      = EXCLUDED.updated_at,
+                        progress_source = EXCLUDED.progress_source
                 """.trimIndent()
             ),
             parameterSetter = { stmt, inp ->
                 stmt.setInt(1, inp.collected)
-                stmt.setInt(2, inp.projectId)
-                stmt.setString(3, inp.itemId)
+                stmt.setString(2, inp.source.value)
+                stmt.setInt(3, inp.projectId)
+                stmt.setString(4, inp.itemId)
             }
         ).process(input)
     }
