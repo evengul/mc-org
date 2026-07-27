@@ -46,7 +46,7 @@ sudo service docker start           # Start Docker if not running (passwordless)
 ./webapp/scripts/start-db.sh        # Start the database
 ./webapp/scripts/migrate-locally.sh # Apply migrations to the localhost Docker DB (main checkout)
 ./webapp/scripts/migrate-worktree.sh # Apply migrations to the DB local.env points at (worktree Neon branch)
-./webapp/scripts/run.sh             # Start development server
+./webapp/scripts/run.sh             # Start development server (clean build; --fast to skip it)
 ./webapp/scripts/ingest-locally.sh  # Ingest Minecraft data into the local/worktree DB
 ```
 
@@ -91,6 +91,27 @@ Notes:
 - It auto-generates JWT signing keys (`mc-web/create-keys.sh`) on first run if missing.
 - `--integration` (failsafe) expects a running server; the `--database` tier is
   self-contained (Testcontainers spins up its own PostgreSQL).
+- `--clean` wipes `target/` first. Reach for it after an `mc-domain` change — see below.
+
+### Stale classes after an `mc-domain` change (MCO-285)
+
+**Symptom:** `NoSuchMethodError` or `NoClassDefFoundError` at *runtime*, naming a class or
+constructor that plainly exists in your working tree, from a file you did not touch. It looks
+like anything but a build problem. Two causes, both local-only (CI does a fresh full-reactor
+build and never sees them):
+
+1. **Kotlin's incremental compilation does not propagate an ABI change across module
+   boundaries.** Change a constructor in `mc-domain` and it rebuilds only the files that
+   textually changed, leaving stale callers in `mc-web/target/classes` — one was five weeks
+   old when this last bit us. `mvn compile` and even `mvn install` will not fix it. Only
+   `mvn clean` does.
+2. **`-pl <module>` resolves siblings from `~/.m2`**, not the reactor, so a module-scoped
+   build runs against the last *installed* jars. Add `-am` to pull the siblings into the
+   reactor.
+
+**Defaults now handle both:** `run.sh` does `mvn clean install -DskipTests` (pass `--fast` to
+reuse an existing build when only `mc-web` changed), and `test.sh`'s module-scoped tiers pass
+`-am`. If you bypass the scripts, remember the two rules yourself.
 
 ## Minecraft Data Ingestion
 

@@ -13,6 +13,8 @@ usage() {
     echo "  --database            Include database tests (requires Docker)"
     echo "  --integration         Include integration tests (requires Docker and the app running)"
     echo "  --exclude-unit-tests  Skip unit tests"
+    echo "  --clean               Wipe target/ first. Needed after an mc-domain change — Kotlin's"
+    echo "                        incremental compilation leaves stale classes across modules."
     echo ""
     echo "Anything after a literal '--' is forwarded verbatim to the underlying 'mvn test' runs,"
     echo "e.g. narrow to one class:  $0 --database -- -Dtest=IngestionLedgerStepsTest"
@@ -22,10 +24,15 @@ usage() {
 DATABASE=false
 INTEGRATION=false
 UNIT=true
+CLEAN=false
 PASSTHROUGH=()
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
+        --clean)
+            CLEAN=true
+            shift
+            ;;
         --database)
             DATABASE=true
             shift
@@ -60,6 +67,11 @@ if [[ ! -f mc-web/src/main/resources/keys/private_key.pem ]]; then
     (cd mc-web && bash create-keys.sh)
 fi
 
+if [[ "$CLEAN" == true ]]; then
+    echo "Cleaning..."
+    mvn clean -q -B
+fi
+
 echo "Compiling..."
 mvn test-compile -B
 
@@ -70,10 +82,10 @@ fi
 
 if [[ "$DATABASE" == true ]]; then
     echo "Running database tests..."
-    mvn test -pl mc-web -Dsurefire.excludedGroups= -Dgroups=database -B ${PASSTHROUGH[@]+"${PASSTHROUGH[@]}"}
+    mvn test -pl mc-web -am -Dsurefire.excludedGroups= -Dgroups=database -B ${PASSTHROUGH[@]+"${PASSTHROUGH[@]}"}
 fi
 
 if [[ "$INTEGRATION" == true ]]; then
     echo "Running integration tests..."
-    mvn failsafe:integration-test failsafe:verify -pl mc-web -B ${PASSTHROUGH[@]+"${PASSTHROUGH[@]}"}
+    mvn failsafe:integration-test failsafe:verify -pl mc-web -am -B ${PASSTHROUGH[@]+"${PASSTHROUGH[@]}"}
 fi
