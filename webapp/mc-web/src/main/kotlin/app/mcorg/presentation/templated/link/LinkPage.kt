@@ -10,6 +10,7 @@ import kotlinx.html.ButtonType
 import kotlinx.html.FlowContent
 import kotlinx.html.InputType
 import kotlinx.html.button
+import kotlinx.html.div
 import kotlinx.html.form
 import kotlinx.html.id
 import kotlinx.html.input
@@ -30,6 +31,9 @@ fun linkPage(
 ): String = pageShell(
     pageTitle = "Seam — Link a device",
     user = user,
+    // pageShell ships btn.css by default but not form.css — without this the .form-control and
+    // .form-error classes below are dead and the form renders as unstyled inline browser defaults.
+    stylesheets = listOf("/static/styles/components/form.css"),
 ) {
     appHeader(
         user = user,
@@ -55,24 +59,31 @@ fun linkPage(
 }
 
 private fun FlowContent.linkForm(prefillCode: String?) {
-    form {
+    // .stack gives the field and the action a column layout with real spacing; without it the
+    // label, input and button run together inline.
+    form(classes = "stack") {
         method = kotlinx.html.FormMethod.post
         action = "/link"
-        label {
-            htmlFor = "user_code"
-            +"Device code"
+        div {
+            label(classes = "form-label") {
+                htmlFor = "user_code"
+                +"Device code"
+            }
+            input(classes = "form-control") {
+                id = "user_code"
+                name = "user_code"
+                type = InputType.text
+                required = true
+                autoComplete = "off"
+                placeholder = "ABCD-EFGH"
+                value = prefillCode ?: ""
+            }
         }
-        input(classes = "form-control") {
-            id = "user_code"
-            name = "user_code"
-            type = InputType.text
-            required = true
-            autoComplete = "off"
-            placeholder = "ABCD-EFGH"
-            value = prefillCode ?: ""
-        }
-        button(classes = "btn btn--primary", type = ButtonType.submit) {
-            +"Link device"
+        // Wrapped so the button sizes to its content — a direct flex child would stretch full width.
+        div {
+            button(classes = "btn btn--primary", type = ButtonType.submit) {
+                +"Link device"
+            }
         }
     }
 }
