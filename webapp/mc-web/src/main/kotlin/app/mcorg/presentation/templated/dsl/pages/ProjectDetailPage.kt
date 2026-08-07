@@ -1,6 +1,7 @@
 package app.mcorg.presentation.templated.dsl.pages
 
 import app.mcorg.domain.model.project.Project
+import app.mcorg.domain.model.project.ProjectProduction
 import app.mcorg.domain.model.resources.ResourceGatheringItem
 import app.mcorg.domain.model.task.ActionTask
 import app.mcorg.domain.model.user.TokenProfile
@@ -55,6 +56,7 @@ fun projectDetailPage(
     isWorldAdmin: Boolean = false,
     plan: GatheringPlan? = null,
     progressMap: Map<String, Int> = emptyMap(),
+    productions: List<ProjectProduction> = emptyList(),
     drillTarget: TargetTree? = null,
     drillCandidateCounts: Map<String, Int> = emptyMap(),
     drillNodeIngredients: Map<String, String> = emptyMap(),
@@ -112,6 +114,7 @@ fun projectDetailPage(
                     div("project-detail__meta") {
                         projectStateField(project, isWorldAdmin)
                         projectLocationField(project, isWorldAdmin)
+                        projectProductionsField(project, productions, isWorldAdmin)
                     }
                     gatheringOverallProgress(project.id, project.worldId, resources, plan, progressMap)
                 }

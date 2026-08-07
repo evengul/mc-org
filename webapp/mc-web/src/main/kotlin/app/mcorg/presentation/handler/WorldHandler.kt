@@ -9,6 +9,9 @@ import app.mcorg.pipeline.project.handleDeleteProject
 import app.mcorg.pipeline.project.handleGetProject
 import app.mcorg.pipeline.project.handleGetDetailContent
 import app.mcorg.pipeline.project.resources.handleAddResourcesFromSchematic
+import app.mcorg.pipeline.project.resources.handleDeleteProjectProduction
+import app.mcorg.pipeline.project.resources.handleGetProductionsPanel
+import app.mcorg.pipeline.project.resources.handleUpsertProjectProduction
 import app.mcorg.pipeline.resources.handleClearOverride
 import app.mcorg.pipeline.resources.handleGetDrillChain
 import app.mcorg.pipeline.resources.handleGetNodePicker
@@ -61,6 +64,7 @@ import app.mcorg.pipeline.world.settings.members.handleUpdateWorldMemberRole
 import app.mcorg.presentation.plugins.ActionTaskParamPlugin
 import app.mcorg.presentation.plugins.InviteParamPlugin
 import app.mcorg.presentation.plugins.ProjectParamPlugin
+import app.mcorg.presentation.plugins.ProjectProductionItemParamPlugin
 import app.mcorg.presentation.plugins.ResourceGatheringIdParamPlugin
 import app.mcorg.presentation.plugins.UpdateActiveWorldPlugin
 import app.mcorg.presentation.plugins.WorldAdminPlugin
@@ -160,6 +164,20 @@ class WorldHandler {
                             patch("/state") { call.handleUpdateProjectStateInline() }
                             get("/location") { call.handleGetProjectLocationField() }
                             patch("/location") { call.handleUpdateProjectLocation() }
+                        }
+                        route("/productions") {
+                            get("/panel") {
+                                call.handleGetProductionsPanel()
+                            }
+                            post {
+                                call.handleUpsertProjectProduction()
+                            }
+                            route("/{productionId}") {
+                                install(ProjectProductionItemParamPlugin)
+                                delete {
+                                    call.handleDeleteProjectProduction()
+                                }
+                            }
                         }
                         get("/field-log-row") {
                             call.handleGetFieldLogRow()

@@ -181,6 +181,7 @@ private suspend fun ApplicationCall.handleErrorMessage(alertPopup: ErrorHandler.
 private fun AppFailure.toHttpStatusCode(): HttpStatusCode {
     return when (this) {
         is AppFailure.ValidationError -> this.errors.toHttpStatusCode()
+        is AppFailure.DatabaseError.NotFound -> HttpStatusCode.NotFound
         is AppFailure.DatabaseError -> HttpStatusCode.InternalServerError
         is AppFailure.ApiError -> HttpStatusCode.InternalServerError
         is AppFailure.FileError -> HttpStatusCode.InternalServerError
