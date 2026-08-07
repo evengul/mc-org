@@ -14,6 +14,7 @@ import io.ktor.http.setCookie
 import io.ktor.server.routing.route
 import io.ktor.server.testing.testApplication
 import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.api.extension.ExtendWith
@@ -23,6 +24,7 @@ import kotlin.test.assertNotNull
 @WireMockTest
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @ExtendWith(DatabaseTestExtension::class)
+@Tag("database")
 class MicrosoftSignInIT {
 
     private lateinit var wireMock: WireMock
