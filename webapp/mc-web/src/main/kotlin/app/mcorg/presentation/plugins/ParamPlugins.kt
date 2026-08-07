@@ -171,7 +171,7 @@ val WorldMemberParamPlugin = createRouteScopedPlugin("MemberParamPlugin") {
 val ProjectProductionItemParamPlugin = createRouteScopedPlugin("ProjectProductionItemParamPlugin") {
     onCall { call ->
         val projectId = call.getProjectId()
-        val itemId = call.parameters["resourceId"]?.toIntOrNull()
+        val itemId = call.parameters["productionId"]?.toIntOrNull()
         if (itemId == null) {
             call.respondBadRequest("Invalid or missing project production item ID")
         } else {

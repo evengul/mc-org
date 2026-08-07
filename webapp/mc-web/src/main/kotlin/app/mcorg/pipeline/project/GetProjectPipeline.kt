@@ -15,6 +15,7 @@ import app.mcorg.pipeline.resources.buildCandidateCounts
 import app.mcorg.pipeline.resources.buildNodeIngredients
 import app.mcorg.pipeline.resources.drillTreeFor
 import app.mcorg.pipeline.resources.getGraphForWorld
+import app.mcorg.pipeline.project.resources.GetResourceProductionStep
 import app.mcorg.pipeline.resources.commonsteps.GetAllResourceGatheringItemsStep
 import app.mcorg.pipeline.resources.commonsteps.GetProgressForProjectStep
 import app.mcorg.pipeline.task.SearchTasksInput
@@ -58,6 +59,8 @@ suspend fun ApplicationCall.handleGetProject() {
         ?: "list"
 
     val resources = GetAllResourceGatheringItemsStep.process(projectId).getOrNull() ?: emptyList()
+
+    val productions = GetResourceProductionStep.process(projectId).getOrNull() ?: emptyList()
 
     val tasks = when (val result = SearchTasksStep(projectId).process(SearchTasksInput(completionStatus = "ALL"))) {
         is Result.Success -> result.value
@@ -103,6 +106,7 @@ suspend fun ApplicationCall.handleGetProject() {
         projectDetailPage(
             user, project, worldName, resources, tasks, lens,
             isWorldAdmin = isAdmin, plan = plan, progressMap = progressMap,
+            productions = productions,
             drillTarget = drillTarget, drillCandidateCounts = drillCandidateCounts,
             drillNodeIngredients = drillNodeIngredients, drillHighlightItemId = drillItemId,
             drillOverrides = drillOverrides, drillGraph = drillGraph,

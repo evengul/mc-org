@@ -235,6 +235,60 @@
     }
 
     // -------------------------------------------------------------------------
+    // Produces panel (MCO-297)
+    //
+    // The meta-row chip (and its empty-state "+ Produces" variant) opens the shared
+    // <dialog> with the productions editor. The add-item search reuses /items/search
+    // like the variant search above, with its own results container.
+    // -------------------------------------------------------------------------
+
+    function initProductionPanel() {
+        if (!document.body.dataset.productionChipInitialized) {
+            document.body.dataset.productionChipInitialized = 'true';
+            document.body.addEventListener('click', function (e) {
+                var trigger = e.target.closest('[data-production-panel-url]');
+                if (!trigger) return;
+                var dialog = getDialog();
+                var content = getContent();
+                if (!dialog || !content) return;
+                htmx.ajax('GET', trigger.dataset.productionPanelUrl, {
+                    target: '#resource-panel-content',
+                    swap: 'innerHTML'
+                }).then(function () {
+                    if (!dialog.open) dialog.showModal();
+                    currentResourceId = null;
+                });
+            });
+        }
+
+        var dialog = getDialog();
+        if (!dialog) return;
+        if (dialog.dataset.productionSearchInitialized) return;
+        dialog.dataset.productionSearchInitialized = 'true';
+
+        dialog.addEventListener('click', function (e) {
+            var results = e.target.closest('#production-panel-item-results');
+            if (!results) return;
+            var option = e.target.closest('.item-search-option');
+            if (!option) return;
+
+            e.stopPropagation();
+            e.preventDefault();
+
+            var itemId = option.dataset.itemId;
+            var addUrl = results.dataset.productionAddUrl;
+            if (!itemId || !addUrl) return;
+            var rateInput = document.getElementById('production-panel-rate');
+
+            htmx.ajax('POST', addUrl, {
+                target: '#resource-panel-content',
+                swap: 'innerHTML',
+                values: { itemId: itemId, ratePerHour: (rateInput && rateInput.value) || '0' }
+            });
+        }, true); // capture phase — see variant search above
+    }
+
+    // -------------------------------------------------------------------------
     // Init
     // -------------------------------------------------------------------------
 
@@ -244,6 +298,7 @@
         initViewToggleCleanup();
         initPanelQtyEdit();
         initVariantSearch();
+        initProductionPanel();
     }
 
     document.addEventListener('DOMContentLoaded', init);

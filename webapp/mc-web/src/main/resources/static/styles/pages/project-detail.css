@@ -552,3 +552,29 @@
     align-items: center;
     gap: var(--space-2);
 }
+
+/* "Produces" meta chip (MCO-297) */
+.production-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    background: none;
+    border: none;
+    padding: 0;
+    font-family: var(--font-ui);
+    font-size: var(--text-ui);
+    color: var(--text-muted);
+    cursor: pointer;
+}
+
+.production-chip__item {
+    color: var(--text-primary);
+}
+
+.production-chip:hover .production-chip__item {
+    color: var(--accent);
+}
+
+.production-chip__more {
+    color: var(--text-muted);
+}

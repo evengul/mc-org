@@ -235,3 +235,57 @@ dialog#resource-panel::backdrop {
         border-top-right-radius: 12px;
     }
 }
+
+/* Produces panel (MCO-297) */
+.production-panel__hint {
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    color: var(--text-muted);
+    margin: 0;
+}
+
+.production-list {
+    display: flex;
+    flex-direction: column;
+}
+
+.production-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+    padding: var(--space-2) 0;
+    border-bottom: 1px solid var(--border);
+}
+
+.production-row__name {
+    font-family: var(--font-body);
+    font-size: var(--text-base);
+    color: var(--text-primary);
+}
+
+.production-row__controls {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+}
+
+.production-row__rate {
+    width: 6.5rem;
+}
+
+.production-row__unit {
+    font-family: var(--font-ui);
+    font-size: var(--text-sm);
+    color: var(--text-muted);
+}
+
+.production-panel__add-label {
+    margin-top: var(--space-2);
+}
+
+.production-panel__add {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
