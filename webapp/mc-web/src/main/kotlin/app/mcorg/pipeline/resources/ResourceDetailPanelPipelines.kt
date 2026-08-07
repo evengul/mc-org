@@ -1,5 +1,6 @@
 package app.mcorg.pipeline.resources
 
+import app.mcorg.domain.model.resources.ResourceSourceType
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.Result
 import app.mcorg.pipeline.failure.AppFailure
@@ -85,8 +86,8 @@ internal data class ValidateResourceSourceInputStep(
     override suspend fun process(input: Parameters): Result<AppFailure.ValidationError, ResourceSourceAssignment> {
         val type = input["type"]
         return when (type) {
-            "manual" -> Result.success(ResourceSourceAssignment.Manual)
-            "project" -> {
+            ResourceSourceType.MANUAL.value -> Result.success(ResourceSourceAssignment.Manual)
+            ResourceSourceType.PROJECT.value -> {
                 val projectIdRaw = input["projectId"]
                 val projectId = projectIdRaw?.toIntOrNull()
                     ?: return Result.failure(
@@ -113,7 +114,7 @@ internal data class ValidateResourceSourceInputStep(
             )
             else -> Result.failure(
                 AppFailure.ValidationError(
-                    listOf(ValidationFailure.InvalidValue("type", listOf("manual", "project")))
+                    listOf(ValidationFailure.InvalidValue("type", ResourceSourceType.entries.map { it.value }))
                 )
             )
         }

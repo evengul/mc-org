@@ -2,6 +2,7 @@ package app.mcorg.pipeline.resources
 
 import app.mcorg.domain.model.minecraft.Item
 import app.mcorg.domain.model.resources.ResourceGatheringItem
+import app.mcorg.domain.model.resources.ResourceSourceType
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.engine.model.ItemSourceGraph
 import app.mcorg.engine.plan.GatheringPlan
@@ -114,7 +115,7 @@ object GenerateGatheringPlanStep : Step<GatheringPlanInput, AppFailure, Gatherin
             is Result.Failure -> return r
         }
         val manualItems: Set<String> = activeItems
-            .filter { it.sourceType == "manual" }
+            .filter { it.sourceType == ResourceSourceType.MANUAL }
             .map { it.itemId }
             .toSet()
         val farmSupplied: Map<String, SupplySource> = farms

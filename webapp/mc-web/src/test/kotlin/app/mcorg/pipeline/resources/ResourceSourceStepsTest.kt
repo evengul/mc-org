@@ -1,6 +1,7 @@
 package app.mcorg.pipeline.resources
 
 import app.mcorg.domain.model.minecraft.MinecraftVersion
+import app.mcorg.domain.model.resources.ResourceSourceType
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.Result
 import app.mcorg.pipeline.SafeSQL
@@ -50,7 +51,7 @@ class ResourceSourceStepsTest : WithUser() {
         val stored = runBlocking { GetResourceGatheringItemStep.process(rgId) }
         assertIs<Result.Success<*>>(stored)
         val item = (stored as Result.Success).value
-        assertEquals("manual", item.sourceType)
+        assertEquals(ResourceSourceType.MANUAL, item.sourceType)
         assertNull(item.solvedByProject)
     }
 
@@ -66,7 +67,7 @@ class ResourceSourceStepsTest : WithUser() {
         val stored = runBlocking { GetResourceGatheringItemStep.process(rgId) }
         assertIs<Result.Success<*>>(stored)
         val item = (stored as Result.Success).value
-        assertEquals("project", item.sourceType)
+        assertEquals(ResourceSourceType.PROJECT, item.sourceType)
         assertEquals(otherProjectId, item.solvedByProject?.first)
         assertEquals("ResourceSource Sibling", item.solvedByProject?.second)
     }
