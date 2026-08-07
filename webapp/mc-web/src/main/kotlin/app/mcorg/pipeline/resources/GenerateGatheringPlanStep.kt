@@ -39,8 +39,11 @@ data class GatheringPlanInput(
  * 4. Exclude rows marked `ignored` (MCO-247) — kept in storage for reversibility, but
  *    excluded from the derivation input so shared intermediates recompute without them.
  * 5. Build [PlanTarget]s: amount = max(0, required − collected); skip fully-collected rows.
- * 6. Build the [SupplySource] map: rows linked to another project become
- *    [SupplySource.LinkedProject] terminals.
+ * 6. Build the [SupplySource] map (MCO-296): operational (DONE) projects' productions
+ *    supply the whole world as [SupplySource.Farm] terminals — targets and engine-derived
+ *    intermediates alike. Explicit row-level choices win over ambient farm supply: a
+ *    `manual` source pick opts that item out, and a project link overlays it as a
+ *    [SupplySource.LinkedProject] terminal.
  * 7. Load persisted [PlanOverrides] for the project.
  * 8. Run [GatheringPlanner.plan] and return the result.
  *
@@ -99,13 +102,32 @@ object GenerateGatheringPlanStep : Step<GatheringPlanInput, AppFailure, Gatherin
             )
         }
 
-        // 6. Build supplied map: rows linked to another project become supply terminals
-        val supplied: Map<String, SupplySource> = activeItems
+        // 6. Build supplied map — world farm supply first, explicit choices on top.
+        // Operational (DONE) projects' productions supply the whole world (MCO-296): any
+        // item they produce terminates as a SUPPLIED leaf wherever it appears in a chain.
+        // An explicit 'manual' source pick opts the item out of farm supply; an explicit
+        // project link replaces the farm entry via the map union below.
+        val farms = when (val r = GetWorldFarmSuppliesStep.process(
+            WorldFarmSuppliesInput(worldId = input.worldId, excludeProjectId = input.projectId)
+        )) {
+            is Result.Success -> r.value
+            is Result.Failure -> return r
+        }
+        val manualItems: Set<String> = activeItems
+            .filter { it.sourceType == "manual" }
+            .map { it.itemId }
+            .toSet()
+        val farmSupplied: Map<String, SupplySource> = farms
+            .filter { it.itemId !in manualItems }
+            .groupBy { it.itemId }
+            .mapValues { (_, producers) -> SupplySource.Farm(producers.first().projectName) }
+        val linkedSupplied: Map<String, SupplySource> = activeItems
             .mapNotNull { item ->
                 val (solvedId, solvedName) = item.solvedByProject ?: return@mapNotNull null
                 item.itemId to SupplySource.LinkedProject(solvedId, solvedName)
             }
             .toMap()
+        val supplied: Map<String, SupplySource> = farmSupplied + linkedSupplied
 
         // 7. Load persisted overrides for this project
         val overrides: PlanOverrides = when (val r = GetPlanOverridesStep.process(input.projectId)) {
