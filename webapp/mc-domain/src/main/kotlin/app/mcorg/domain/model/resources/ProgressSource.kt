@@ -7,8 +7,8 @@ package app.mcorg.domain.model.resources
  * counters are the fallback when it isn't. Last-write-wins needs both sides to be able to tell
  * which one wrote the value they're reading.
  *
- * Not to be confused with `ResourceGatheringItem.sourceType`, which is the item's *acquisition*
- * type from the graph (MINED, CRAFTED, …).
+ * Not to be confused with `ResourceGatheringItem.sourceType`, which is the row's explicitly
+ * chosen acquisition source ([ResourceSourceType]).
  */
 enum class ProgressSource(val value: String) {
     /** Set through the web app. */

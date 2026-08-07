@@ -2,6 +2,7 @@ package app.mcorg.presentation.templated.dsl.pages
 
 import app.mcorg.domain.model.minecraft.Item
 import app.mcorg.domain.model.resources.ResourceGatheringItem
+import app.mcorg.domain.model.resources.ResourceSourceType
 import app.mcorg.presentation.hxDelete
 import app.mcorg.presentation.hxDeleteWithConfirm
 import app.mcorg.presentation.hxOutOfBands
@@ -117,7 +118,7 @@ fun FlowContent.resourcePanelSourceSection(
             button(classes = "btn btn--secondary resource-panel__source-btn") {
                 type = ButtonType.button
                 hxPatch(sourceUrl)
-                attributes["hx-vals"] = """{"type":"manual"}"""
+                attributes["hx-vals"] = """{"type":"${ResourceSourceType.MANUAL.value}"}"""
                 hxTarget("#resource-panel-source")
                 hxSwap("innerHTML")
                 +"Manual gather"
@@ -132,7 +133,7 @@ fun FlowContent.resourcePanelSourceSection(
                         id = "resource-panel-project-select"
                         name = "projectId"
                         hxPatch(sourceUrl)
-                        attributes["hx-vals"] = """js:{type:"project",projectId:event.target.value}"""
+                        attributes["hx-vals"] = """js:{type:"${ResourceSourceType.PROJECT.value}",projectId:event.target.value}"""
                         hxTarget("#resource-panel-source")
                         hxSwap("innerHTML")
                         hxTrigger("change")
@@ -152,7 +153,7 @@ fun FlowContent.resourcePanelSourceSection(
                 }
             }
         }
-        "manual" -> {
+        ResourceSourceType.MANUAL -> {
             div("resource-panel__source-set") {
                 span("status-dot status-dot--set") {}
                 span("resource-panel__source-label") { +"Manual gather" }
@@ -165,7 +166,7 @@ fun FlowContent.resourcePanelSourceSection(
                 }
             }
         }
-        "project" -> {
+        ResourceSourceType.PROJECT -> {
             val label = resource.solvedByProject?.second ?: "Unknown project"
             div("resource-panel__source-set") {
                 span("status-dot status-dot--set") {}
@@ -178,9 +179,6 @@ fun FlowContent.resourcePanelSourceSection(
                     +"Change"
                 }
             }
-        }
-        else -> {
-            p("resource-panel__source-empty") { +"No source selected" }
         }
     }
 }

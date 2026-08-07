@@ -223,7 +223,7 @@ suspend fun ApplicationCall.handleGetWorldProjects() {
                     name = it.name,
                     required = it.required,
                     collected = it.collected,
-                    sourceType = it.sourceType,
+                    sourceType = it.sourceType?.value,
                     progressSource = it.progressSource.value,
                 )
             },
@@ -297,7 +297,7 @@ suspend fun ApplicationCall.handleSyncResources() {
                     name = it.name,
                     required = it.required,
                     collected = it.collected,
-                    sourceType = it.sourceType,
+                    sourceType = it.sourceType?.value,
                     progressSource = it.progressSource.value,
                 )
             }

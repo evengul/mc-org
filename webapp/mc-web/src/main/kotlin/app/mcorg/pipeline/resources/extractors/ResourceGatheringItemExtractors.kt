@@ -2,6 +2,7 @@ package app.mcorg.pipeline.resources.extractors
 
 import app.mcorg.domain.model.resources.ProgressSource
 import app.mcorg.domain.model.resources.ResourceGatheringItem
+import app.mcorg.domain.model.resources.ResourceSourceType
 import java.sql.ResultSet
 
 fun ResultSet.toResourceGatheringItems(): List<ResourceGatheringItem> {
@@ -13,7 +14,7 @@ fun ResultSet.toResourceGatheringItems(): List<ResourceGatheringItem> {
 }
 
 fun ResultSet.toResourceGatheringItem(): ResourceGatheringItem {
-    val sourceType = getString("source_type")
+    val sourceType = ResourceSourceType.fromValue(getString("source_type"))
     val solvedProjectId = getInt("solved_project_id").takeUnless { wasNull() }
     val solvedProjectName = getString("solved_project_name")
     val solvedByProject = if (solvedProjectId != null && solvedProjectName != null) {

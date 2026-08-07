@@ -1,5 +1,6 @@
 package app.mcorg.pipeline.resources.commonsteps
 
+import app.mcorg.domain.model.resources.ResourceSourceType
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.Result
@@ -25,11 +26,11 @@ data class SetResourceSourceStep(val resourceGatheringId: Int) : Step<ResourceSo
             parameterSetter = { stmt, assignment ->
                 when (assignment) {
                     is ResourceSourceAssignment.Manual -> {
-                        stmt.setString(1, "manual")
+                        stmt.setString(1, ResourceSourceType.MANUAL.value)
                         stmt.setNull(2, Types.INTEGER)
                     }
                     is ResourceSourceAssignment.LinkedProject -> {
-                        stmt.setString(1, "project")
+                        stmt.setString(1, ResourceSourceType.PROJECT.value)
                         stmt.setInt(2, assignment.projectId)
                     }
                 }

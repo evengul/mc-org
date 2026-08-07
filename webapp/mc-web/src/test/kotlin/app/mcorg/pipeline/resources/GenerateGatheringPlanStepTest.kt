@@ -8,6 +8,7 @@ import app.mcorg.domain.model.minecraft.ServerData
 import app.mcorg.domain.model.resources.ResourceQuantity
 import app.mcorg.domain.model.resources.ResourceSource
 import app.mcorg.engine.plan.PlanNodeStatus
+import app.mcorg.engine.plan.SupplySource
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.Result
 import app.mcorg.pipeline.SafeSQL
@@ -225,6 +226,149 @@ class GenerateGatheringPlanStepTest : WithUser() {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
+    // MCO-296: operational (DONE) projects' productions supply the whole world.
+    // Each test uses a fresh world — farm supply is world-scoped and would leak
+    // across tests sharing the class-level world.
+    // ─────────────────────────────────────────────────────────────────────────
+
+    @Test
+    fun `operational project production becomes a Farm SUPPLIED terminal`() {
+        val farmWorldId = createWorld(version)
+        val farmId = createProject(farmWorldId, name = "Oak Farm")
+        insertProduction(farmId, oakPlanks.id, oakPlanks.name)
+        setProjectState(farmId, "DONE")
+
+        val consumerId = createProject(farmWorldId)
+        insertGatheringItem(consumerId, oakPlanks.id, oakPlanks.name, required = 10)
+
+        val result = runBlocking {
+            GenerateGatheringPlanStep.process(GatheringPlanInput(consumerId, farmWorldId))
+        }
+
+        assertIs<Result.Success<*>>(result)
+        val node = (result as Result.Success).value.nodes[oakPlanks.id]
+        assertNotNull(node, "oak_planks must be in the plan")
+        assertEquals(PlanNodeStatus.SUPPLIED, node.status)
+        val supply = node.supply
+        assertIs<SupplySource.Farm>(supply, "supply must be a Farm, not a linked project")
+        assertEquals("Oak Farm", supply.label)
+    }
+
+    @Test
+    fun `farm supply terminates intermediates not just targets`() {
+        val farmWorldId = createWorld(version)
+        val farmId = createProject(farmWorldId, name = "Tree Farm")
+        insertProduction(farmId, log.id, log.name)
+        setProjectState(farmId, "DONE")
+
+        val consumerId = createProject(farmWorldId)
+        // oak_planks is the target; its recipe requires oak_log — the farm-supplied item
+        // only ever appears as an engine-derived intermediate, never as a target row.
+        insertGatheringItem(consumerId, oakPlanks.id, oakPlanks.name, required = 8)
+
+        val result = runBlocking {
+            GenerateGatheringPlanStep.process(GatheringPlanInput(consumerId, farmWorldId))
+        }
+
+        assertIs<Result.Success<*>>(result)
+        val plan = (result as Result.Success).value
+        assertEquals(PlanNodeStatus.RESOLVED, plan.nodes[oakPlanks.id]?.status, "planks still crafted")
+        val logNode = plan.nodes[log.id]
+        assertNotNull(logNode, "oak_log intermediate must be in the plan")
+        assertEquals(PlanNodeStatus.SUPPLIED, logNode.status)
+        assertIs<SupplySource.Farm>(logNode.supply)
+    }
+
+    @Test
+    fun `non-operational project productions do not supply`() {
+        val farmWorldId = createWorld(version)
+        val farmId = createProject(farmWorldId, name = "Unfinished Farm")
+        insertProduction(farmId, oakPlanks.id, oakPlanks.name)
+        // state stays at the default PENDING — declared productions, not yet operational
+
+        val consumerId = createProject(farmWorldId)
+        insertGatheringItem(consumerId, oakPlanks.id, oakPlanks.name, required = 10)
+
+        val result = runBlocking {
+            GenerateGatheringPlanStep.process(GatheringPlanInput(consumerId, farmWorldId))
+        }
+
+        assertIs<Result.Success<*>>(result)
+        val node = (result as Result.Success).value.nodes[oakPlanks.id]
+        assertNotNull(node)
+        assertEquals(PlanNodeStatus.RESOLVED, node.status, "not-yet-operational farm must not supply")
+        assertEquals(null, node.supply)
+    }
+
+    @Test
+    fun `explicit project link wins over ambient farm supply`() {
+        val farmWorldId = createWorld(version)
+        val farmId = createProject(farmWorldId, name = "Oak Farm")
+        insertProduction(farmId, oakPlanks.id, oakPlanks.name)
+        setProjectState(farmId, "DONE")
+        val producerId = createProject(farmWorldId, name = "Chosen Producer")
+
+        val consumerId = createProject(farmWorldId)
+        val rgId = insertGatheringItem(consumerId, oakPlanks.id, oakPlanks.name, required = 10)
+        linkResourceToProject(rgId, producerId)
+
+        val result = runBlocking {
+            GenerateGatheringPlanStep.process(GatheringPlanInput(consumerId, farmWorldId))
+        }
+
+        assertIs<Result.Success<*>>(result)
+        val node = (result as Result.Success).value.nodes[oakPlanks.id]
+        assertNotNull(node)
+        assertEquals(PlanNodeStatus.SUPPLIED, node.status)
+        val supply = node.supply
+        assertIs<SupplySource.LinkedProject>(supply, "explicit link must beat ambient farm supply")
+        assertEquals(producerId, supply.projectId)
+    }
+
+    @Test
+    fun `explicit manual source pick opts the item out of farm supply`() {
+        val farmWorldId = createWorld(version)
+        val farmId = createProject(farmWorldId, name = "Oak Farm")
+        insertProduction(farmId, oakPlanks.id, oakPlanks.name)
+        setProjectState(farmId, "DONE")
+
+        val consumerId = createProject(farmWorldId)
+        val rgId = insertGatheringItem(consumerId, oakPlanks.id, oakPlanks.name, required = 10)
+        markResourceManual(rgId)
+
+        val result = runBlocking {
+            GenerateGatheringPlanStep.process(GatheringPlanInput(consumerId, farmWorldId))
+        }
+
+        assertIs<Result.Success<*>>(result)
+        val node = (result as Result.Success).value.nodes[oakPlanks.id]
+        assertNotNull(node)
+        assertEquals(PlanNodeStatus.RESOLVED, node.status, "manual pick must opt out of farm supply")
+        assertEquals(null, node.supply)
+    }
+
+    @Test
+    fun `a project's own productions never supply its own plan`() {
+        val farmWorldId = createWorld(version)
+        // The planned project is itself a DONE farm producing oak_planks — its build
+        // materials must not be satisfied by its own output.
+        val selfId = createProject(farmWorldId, name = "Self Farm")
+        insertProduction(selfId, oakPlanks.id, oakPlanks.name)
+        setProjectState(selfId, "DONE")
+        insertGatheringItem(selfId, oakPlanks.id, oakPlanks.name, required = 10)
+
+        val result = runBlocking {
+            GenerateGatheringPlanStep.process(GatheringPlanInput(selfId, farmWorldId))
+        }
+
+        assertIs<Result.Success<*>>(result)
+        val node = (result as Result.Success).value.nodes[oakPlanks.id]
+        assertNotNull(node)
+        assertEquals(PlanNodeStatus.RESOLVED, node.status, "own productions must be excluded")
+        assertEquals(null, node.supply)
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
     // MCO-247: ignored targets drop out of the derived plan, and a shared
     // intermediate's quantity recomputes without them (reversible via un-ignore).
     // ─────────────────────────────────────────────────────────────────────────
@@ -319,15 +463,56 @@ class GenerateGatheringPlanStepTest : WithUser() {
         (result as Result.Success).value
     }
 
-    private fun createProject(worldId: Int): Int = runBlocking {
+    private fun createProject(worldId: Int, name: String = "GatheringPlanStep Project"): Int = runBlocking {
         val result = DatabaseSteps.update<Unit>(
             sql = SafeSQL.insert(
                 "INSERT INTO projects (name, world_id, description, type, stage, location_x, location_y, location_z, location_dimension) " +
-                    "VALUES ('GatheringPlanStep Project', ?, '', 'BUILDING', 'PLANNING', 0, 0, 0, 'OVERWORLD') RETURNING id"
+                    "VALUES (?, ?, '', 'BUILDING', 'PLANNING', 0, 0, 0, 'OVERWORLD') RETURNING id"
             ),
-            parameterSetter = { stmt, _ -> stmt.setInt(1, worldId) }
+            parameterSetter = { stmt, _ ->
+                stmt.setString(1, name)
+                stmt.setInt(2, worldId)
+            }
         ).process(Unit)
         (result as Result.Success).value
+    }
+
+    private fun setProjectState(projectId: Int, state: String) {
+        runBlocking {
+            DatabaseSteps.update<Unit>(
+                sql = SafeSQL.update("UPDATE projects SET state = ? WHERE id = ?"),
+                parameterSetter = { stmt, _ ->
+                    stmt.setString(1, state)
+                    stmt.setInt(2, projectId)
+                }
+            ).process(Unit)
+        }
+    }
+
+    private fun insertProduction(projectId: Int, itemId: String, name: String, ratePerHour: Int = 100) {
+        runBlocking {
+            DatabaseSteps.update<Unit>(
+                sql = SafeSQL.insert(
+                    "INSERT INTO project_productions (project_id, item_id, name, rate_per_hour) " +
+                        "VALUES (?, ?, ?, ?) RETURNING id"
+                ),
+                parameterSetter = { stmt, _ ->
+                    stmt.setInt(1, projectId)
+                    stmt.setString(2, itemId)
+                    stmt.setString(3, name)
+                    stmt.setInt(4, ratePerHour)
+                }
+            ).process(Unit)
+        }
+    }
+
+    private fun markResourceManual(resourceGatheringId: Int) {
+        runBlocking {
+            DatabaseSteps.update<Unit>(
+                sql = SafeSQL.update("UPDATE resource_gathering SET source_type = 'manual' WHERE id = ?"),
+                parameterSetter = { stmt, _ -> stmt.setInt(1, resourceGatheringId) }
+            ).process(Unit)
+        }
     }
 
     private fun insertGatheringItem(
