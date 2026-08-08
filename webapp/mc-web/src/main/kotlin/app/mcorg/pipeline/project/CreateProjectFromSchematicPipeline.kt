@@ -77,6 +77,7 @@ suspend fun ApplicationCall.handleReviewSchematic() {
                     projectName = project.name,
                     requirements = project.requirements,
                     families = findSubstitutionFamilies(items, project.requirements.map { it.key.id }),
+                    warnings = computeImportWarnings(worldId, project.requirements),
                 )
             )
         }
@@ -304,8 +305,11 @@ data class MapSchematicToMaterialsStep(
          * placed-effect blocks (fire, soul_fire, bubble_column) are created in-world from
          * the block below them (a separate, already-counted cell) plus a reusable tool
          * (flint & steel / a water bucket), so they carry no material of their own.
+         *
+         * Air (via [NON_MATERIAL_FILL]) is shared with the idea door, so both import paths
+         * agree that empty space is not a material — see MCO-305.
          */
-        private val NON_MATERIAL_BLOCKS = setOf(
+        private val NON_MATERIAL_BLOCKS = NON_MATERIAL_FILL + setOf(
             "minecraft:piston_head",
             "minecraft:moving_piston",
             "minecraft:fire",
