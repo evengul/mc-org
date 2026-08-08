@@ -1,5 +1,6 @@
 package app.mcorg.presentation.templated.dsl.pages
 
+import app.mcorg.domain.model.minecraft.Dimension
 import app.mcorg.domain.model.project.ProjectListItem
 import app.mcorg.domain.model.project.ProjectPlanListItem
 import app.mcorg.domain.model.project.ProjectResourceEdge
@@ -66,8 +67,10 @@ fun projectListPage(
         "/static/styles/components/progress.css",
         "/static/styles/components/project-card.css",
         "/static/styles/pages/project-list.css",
+        "/static/styles/components/form.css",
+        "/static/styles/components/item-search.css",
     ),
-    scripts = listOf("/static/scripts/np-menu.js")
+    scripts = listOf("/static/scripts/np-menu.js", "/static/scripts/farm-modal.js")
 ) {
     appHeader(
         worldName = world.name,
@@ -102,8 +105,10 @@ fun projectListPageWithPlanView(
         "/static/styles/components/toggle.css",
         "/static/styles/components/project-card.css",
         "/static/styles/pages/project-list.css",
+        "/static/styles/components/form.css",
+        "/static/styles/components/item-search.css",
     ),
-    scripts = listOf("/static/scripts/np-menu.js")
+    scripts = listOf("/static/scripts/np-menu.js", "/static/scripts/farm-modal.js")
 ) {
     appHeader(
         worldName = world.name,
@@ -150,6 +155,7 @@ fun kotlinx.html.FlowContent.projectsContent(
     }
     createProjectModal(world.id, view)
     schematicProjectModal(world.id)
+    recordFarmModal(world.id)
 }
 
 fun kotlinx.html.FlowContent.projectsContentPlan(
@@ -164,6 +170,7 @@ fun kotlinx.html.FlowContent.projectsContentPlan(
     }
     createProjectModal(world.id, "plan")
     schematicProjectModal(world.id)
+    recordFarmModal(world.id)
 }
 
 fun kotlinx.html.FlowContent.projectsViewContent(
@@ -254,6 +261,18 @@ fun kotlinx.html.FlowContent.projectsEmptyState(worldId: Int) {
                         span("np-menu__door-sub") { +"name it, fill it later" }
                     }
                 }
+                // A world usually starts with farms that already exist — the empty state
+                // is the most likely place to record them (MCO-298).
+                button(classes = "np-menu__door") {
+                    type = ButtonType.button
+                    attributes["onclick"] =
+                        "document.getElementById('record-farm-modal')?.showModal()"
+                    span("np-menu__door-glyph") { +"⚙" }
+                    span("np-menu__door-text") {
+                        span("np-menu__door-title") { +"Record an existing farm" }
+                        span("np-menu__door-sub") { +"already built, already producing" }
+                    }
+                }
             }
         }
         div("empty-state-card") {
@@ -340,6 +359,182 @@ private fun kotlinx.html.FlowContent.schematicProjectModal(worldId: Int) {
                     }
                 }
             }
+    }
+}
+
+/**
+ * MCO-298 — "record an existing farm". Its own door and its own modal because it does
+ * something the create-project form cannot: the project is created operational
+ * (`COMPLETED`/`DONE`) with its produced items, so it supplies every other project's
+ * gathering plan the moment it exists.
+ *
+ * Produced items are staged client-side (farm-modal.js) as `productions[<itemId>]`
+ * hidden inputs — the project has no id to post them against yet, so the productions
+ * panel from MCO-297 cannot be reused here; it takes over once the project exists.
+ *
+ * Field names are farm-prefixed: validation errors come back as out-of-band swaps keyed
+ * by `validation-error-<parameter>`, and the create-project modal on this same page
+ * already owns `validation-error-name`.
+ */
+private fun kotlinx.html.FlowContent.recordFarmModal(worldId: Int) {
+    dialog {
+        id = "record-farm-modal"
+        classes = setOf("modal-backdrop")
+        div("modal") {
+            div("modal__heading") { +"Record an existing farm" }
+            div("modal__body") {
+                p("modal__description") {
+                    +"A farm already standing in your world. It is recorded as done and producing, so its output counts as supply in every project's gathering plan."
+                }
+                form {
+                    id = "record-farm-form"
+                    hxPost("/worlds/$worldId/projects/farm")
+                    hxTarget("#projects-view")
+                    hxSwap("afterbegin")
+                    hxTargetError(".form-error")
+                    // htmx events bubble: the item search inside this form fires
+                    // afterRequest too, and without the target check every keystroke's
+                    // search response would close the modal.
+                    attributes["hx-on::after-request"] =
+                        "if(event.target === this && event.detail.successful) { window.resetFarmModal(this) }"
+
+                    label {
+                        htmlFor = "record-farm-name"
+                        +"Farm name"
+                        span("required-indicator") { +"*" }
+                    }
+                    input(classes = "form-control") {
+                        id = "record-farm-name"
+                        type = InputType.text
+                        name = "farmName"
+                        placeholder = "Iron farm"
+                        maxLength = "100"
+                        minLength = "3"
+                        required = true
+                    }
+                    p("form-error") { id = "validation-error-farmName" }
+
+                    label {
+                        htmlFor = "record-farm-description"
+                        +"Notes"
+                    }
+                    textArea(classes = "form-control") {
+                        id = "record-farm-description"
+                        name = "farmDescription"
+                        maxLength = "500"
+                        placeholder = "Anything worth remembering — design, quirks, who built it"
+                    }
+                    p("form-error") { id = "validation-error-farmDescription" }
+
+                    label {
+                        htmlFor = "record-farm-type"
+                        +"Type"
+                    }
+                    select(classes = "form-control") {
+                        id = "record-farm-type"
+                        name = "farmType"
+                        ProjectType.entries.forEach { type ->
+                            option {
+                                value = type.name
+                                selected = type == ProjectType.FARMING
+                                +type.name.lowercase().replaceFirstChar { it.uppercase() }
+                            }
+                        }
+                    }
+
+                    label { +"Location" }
+                    div("farm-location-row") {
+                        input(classes = "form-control") {
+                            id = "record-farm-x"
+                            type = InputType.number
+                            name = "farmX"
+                            placeholder = "X"
+                            attributes["aria-label"] = "X coordinate"
+                        }
+                        input(classes = "form-control") {
+                            id = "record-farm-y"
+                            type = InputType.number
+                            name = "farmY"
+                            placeholder = "Y"
+                            attributes["aria-label"] = "Y coordinate"
+                        }
+                        input(classes = "form-control") {
+                            id = "record-farm-z"
+                            type = InputType.number
+                            name = "farmZ"
+                            placeholder = "Z"
+                            attributes["aria-label"] = "Z coordinate"
+                        }
+                        select(classes = "form-control") {
+                            id = "record-farm-dimension"
+                            name = "farmDimension"
+                            attributes["aria-label"] = "Dimension"
+                            Dimension.entries.forEach { dimension ->
+                                option {
+                                    value = dimension.name
+                                    +dimension.name.lowercase().replaceFirstChar { it.uppercase() }
+                                }
+                            }
+                        }
+                    }
+                    p("form-help-text") { +"Optional — leave empty if you would rather not pin it down." }
+                    p("form-error") { id = "validation-error-farmLocation" }
+
+                    label {
+                        +"Produces"
+                        span("required-indicator") { +"*" }
+                    }
+                    div("item-search-combo") {
+                        div("item-search-field") {
+                            input(type = InputType.text, classes = "form-control") {
+                                id = "record-farm-item-input"
+                                placeholder = "Search items by name..."
+                                autoComplete = "off"
+                                attributes["hx-get"] = "/items/search"
+                                attributes["hx-trigger"] = "input changed delay:300ms"
+                                attributes["hx-target"] = "#record-farm-item-results"
+                                attributes["hx-swap"] = "innerHTML"
+                                attributes["hx-vals"] = "js:{q: this.value}"
+                            }
+                            div("item-search-results") { id = "record-farm-item-results" }
+                        }
+                        input(type = InputType.hidden) { id = "record-farm-selected-item-id" }
+                        span("item-selected-label") { id = "record-farm-selected-item-label" }
+                    }
+                    div("item-add-row") {
+                        div {
+                            label { htmlFor = "record-farm-rate"; +"Rate per hour" }
+                            input(type = InputType.number, classes = "form-control") {
+                                id = "record-farm-rate"
+                                min = "0"
+                                placeholder = "unknown"
+                            }
+                        }
+                        button(classes = "btn btn--secondary btn--sm") {
+                            type = ButtonType.button
+                            attributes["onclick"] = "window.addFarmProduction()"
+                            +"Add item"
+                        }
+                    }
+                    div("farm-production-list") { id = "farm-production-list" }
+                    p("form-error") { id = "validation-error-productions" }
+
+                    div("modal__actions") {
+                        button {
+                            classes = setOf("btn", "btn--primary")
+                            type = ButtonType.submit
+                            +"Record farm"
+                        }
+                        button {
+                            classes = setOf("btn", "btn--ghost")
+                            type = ButtonType.button
+                            attributes["onclick"] = "window.resetFarmModal(document.getElementById('record-farm-form'))"
+                            +"Cancel"
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 

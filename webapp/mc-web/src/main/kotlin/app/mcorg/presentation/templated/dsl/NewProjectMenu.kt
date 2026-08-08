@@ -50,6 +50,18 @@ fun FlowContent.newProjectMenu(worldId: Int) {
                     span("np-menu__door-sub") { +"name it, fill it later" }
                 }
             }
+            // MCO-298: farms that predate Seam enter the world already producing — a
+            // separate door because it creates the project Done, not pending.
+            button(classes = "np-menu__door") {
+                type = ButtonType.button
+                attributes["onclick"] =
+                    "document.getElementById('new-project-menu')?.removeAttribute('open'); document.getElementById('record-farm-modal')?.showModal()"
+                span("np-menu__door-glyph") { +"⚙" }
+                span("np-menu__door-text") {
+                    span("np-menu__door-title") { +"Record an existing farm" }
+                    span("np-menu__door-sub") { +"already built, already producing" }
+                }
+            }
         }
     }
 }

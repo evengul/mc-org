@@ -8,6 +8,7 @@ import app.mcorg.pipeline.project.handleCreateProjectFromSchematic
 import app.mcorg.pipeline.project.handleDeleteProject
 import app.mcorg.pipeline.project.handleGetProject
 import app.mcorg.pipeline.project.handleGetDetailContent
+import app.mcorg.pipeline.project.handleRecordExistingFarm
 import app.mcorg.pipeline.project.resources.handleAddResourcesFromSchematic
 import app.mcorg.pipeline.project.resources.handleDeleteProjectProduction
 import app.mcorg.pipeline.project.resources.handleGetProductionsPanel
@@ -139,6 +140,9 @@ class WorldHandler {
                     }
                     post("/from-schematic") {
                         call.handleCreateProjectFromSchematic()
+                    }
+                    post("/farm") {
+                        call.handleRecordExistingFarm()
                     }
                     route("/{projectId}") {
                         install(ProjectParamPlugin)
