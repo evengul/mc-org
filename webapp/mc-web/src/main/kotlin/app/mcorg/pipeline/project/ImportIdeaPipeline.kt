@@ -18,6 +18,14 @@ import app.mcorg.pipeline.failure.ValidationFailure
 import app.mcorg.pipeline.project.resources.GetItemsInWorldVersionStep
 import app.mcorg.presentation.handler.defaultHandleError
 import app.mcorg.presentation.handler.handlePipeline
+import io.ktor.server.response.respond
+import io.ktor.http.Parameters
+import io.ktor.http.HttpStatusCode
+import app.mcorg.presentation.utils.getWorldName
+import app.mcorg.presentation.utils.respondHtml
+import app.mcorg.presentation.templated.dsl.pages.importReviewPage
+import app.mcorg.pipeline.world.ValidateWorldMemberRole
+import app.mcorg.domain.model.user.Role
 import app.mcorg.presentation.templated.dsl.Link
 import app.mcorg.presentation.utils.clientRedirect
 import app.mcorg.presentation.utils.getIdeaId
@@ -36,30 +44,156 @@ data class IdeaForImport(
     val production: Map<Item, Int>
 )
 
+/**
+ * Step one of an idea import (MCO-306): show what the idea would create, before creating it.
+ *
+ * This matters more here than for a schematic. A schematic can be edited in Litematica and
+ * re-uploaded; an idea is someone else's list, and this screen is the only place to say
+ * "not that part" before it becomes a hundred resource rows.
+ *
+ * A GET, unlike the schematic flow's review — the material list comes from the database, so
+ * the page is reloadable and shareable rather than tied to one upload.
+ */
+suspend fun ApplicationCall.handleReviewIdeaImport() {
+    val ideaId = this.getIdeaId()
+    val user = this.getUser()
+
+    val worldId = request.queryParameters["worldId"]?.toIntOrNull()
+        ?: return defaultHandleError(
+            AppFailure.customValidationError("worldId", "Pick a world to import into")
+        )
+
+    val taskId = request.queryParameters["forTask"]?.toIntOrNull()
+    val items = GetItemsInWorldVersionStep.process(worldId).getOrNull() ?: emptyList()
+
+    handlePipeline(
+        onSuccess = { idea: IdeaForImport ->
+            respondHtml(
+                importReviewPage(
+                    user = user,
+                    worldId = worldId,
+                    worldName = getWorldName(worldId),
+                    projectName = idea.name,
+                    requirements = idea.requirements,
+                    action = Link.Ideas.single(ideaId) + "/import",
+                    hiddenFields = buildMap {
+                        put("worldId", worldId.toString())
+                        taskId?.let { put("forTask", it.toString()) }
+                    },
+                )
+            )
+        }
+    ) {
+        ValidateWorldMemberRole<Pair<Int, Int>>(user, Role.ADMIN, worldId).run(worldId to ideaId)
+        ValidateVersionRangeStep.run(worldId to ideaId)
+        val ideaData = GetIdeaForImportStep.run(ideaId)
+        ValidateItemIdsStep(items).run(ideaData)
+    }
+}
+
+/**
+ * Step two: create the project from the **reviewed** requirements.
+ *
+ * Only the requirements are reviewed. An idea's productions describe what the farm puts out
+ * (MCO-287's supply model) — they are not work you are agreeing to do, so they are not the
+ * user's to exclude here and carry through untouched, along with the idea link, the starter
+ * tasks and any `forTask` dependency.
+ */
 suspend fun ApplicationCall.handleImportIdea() {
     val ideaId = this.getIdeaId()
     val user = this.getUser()
     val bus = this.eventBus
 
-    val worldId = (this.receiveParameters()["worldId"] ?: parameters["worldId"])?.toIntOrNull()
+    val submitted = this.receiveParameters()
+    val worldId = (submitted["worldId"] ?: parameters["worldId"])?.toIntOrNull()
         ?: return run {
             defaultHandleError(AppFailure.customValidationError("worldId", "Invalid or missing worldId parameter"))
         }
 
-    val taskId = parameters["forTask"]?.toIntOrNull()
+    val taskId = (submitted["forTask"] ?: parameters["forTask"])?.toIntOrNull()
 
     val items = GetItemsInWorldVersionStep.process(worldId).getOrNull() ?: emptyList()
 
     handlePipeline(
-        onSuccess = { clientRedirect(Link.Worlds.world(worldId).project(it).to) }
+        onSuccess = { projectId: Int ->
+            val target = Link.Worlds.world(worldId).project(projectId).to
+            // The review page submits as a plain form, so a browser needs a real redirect;
+            // an HX-Redirect header would be silently ignored and leave a blank page.
+            if (request.headers["HX-Request"] == "true") {
+                clientRedirect(target)
+            } else {
+                response.headers.append("Location", target)
+                respond(HttpStatusCode.SeeOther, "")
+            }
+        }
     ) {
+        ValidateWorldMemberRole<Pair<Int, Int>>(user, Role.ADMIN, worldId).run(worldId to ideaId)
         ValidateVersionRangeStep.run(worldId to ideaId)
         val ideaData = GetIdeaForImportStep.run(ideaId)
         val validatedIdea = ValidateItemIdsStep(items).run(ideaData)
-        val projectId = CreateProjectFromIdeaStep(worldId, taskId).run(validatedIdea)
+        val reviewedIdea = ApplyReviewedRequirementsStep(submitted, items).run(validatedIdea)
+        val projectId = CreateProjectFromIdeaStep(worldId, taskId).run(reviewedIdea)
         CacheManager.onProjectCreated(worldId, projectId)
-        bus.publish(IdeaImported(worldId, user.id, Instant.now(), ideaId, validatedIdea.name))
+        bus.publish(IdeaImported(worldId, user.id, Instant.now(), ideaId, reviewedIdea.name))
         projectId
+    }
+}
+
+/**
+ * Replaces an idea's requirements with the ones the review page sent back.
+ *
+ * Rows arrive as `qty[<itemId>]=<amount>`; excluded rows are simply absent. Ids are checked
+ * against the world's catalog rather than against the idea, so a submission cannot smuggle
+ * in an item the idea never listed.
+ *
+ * There is deliberately no "not reviewed, use the idea's list" fallback. A form with every
+ * row unchecked and a bare direct post are byte-identical, so a fallback would silently
+ * import everything at exactly the moment the user asked for nothing. Import goes through
+ * the review screen; a submission with no rows is refused like any other empty one.
+ */
+internal data class ApplyReviewedRequirementsStep(
+    val submitted: Parameters,
+    val availableItems: List<Item>,
+) : Step<IdeaForImport, AppFailure, IdeaForImport> {
+
+    private val quantityParameter = Regex("""^qty\[(.+)]$""")
+
+    override suspend fun process(input: IdeaForImport): Result<AppFailure, IdeaForImport> {
+        val submittedRows = submitted.entries()
+            .mapNotNull { entry ->
+                val itemId = quantityParameter.find(entry.key)?.groupValues?.get(1) ?: return@mapNotNull null
+                itemId to entry.value.firstOrNull()
+            }
+
+        val byId = availableItems.associateBy { it.id }
+        val errors = mutableListOf<ValidationFailure>()
+        val requirements = mutableMapOf<Item, Int>()
+
+        submittedRows.forEach { (itemId, rawAmount) ->
+            val item = byId[itemId]
+            if (item == null) {
+                errors.add(ValidationFailure.CustomValidation("materials", "Unknown item: $itemId"))
+                return@forEach
+            }
+            val amount = rawAmount?.toIntOrNull()
+            if (amount == null || amount <= 0) {
+                errors.add(
+                    ValidationFailure.CustomValidation("materials", "${item.name} needs a positive amount")
+                )
+                return@forEach
+            }
+            requirements[item] = amount
+        }
+
+        if (errors.isNotEmpty()) return Result.failure(AppFailure.ValidationError(errors))
+        if (requirements.isEmpty()) {
+            return Result.failure(
+                AppFailure.customValidationError("materials", "Keep at least one material to import")
+            )
+        }
+
+        val name = submitted["name"]?.trim()?.takeIf { it.isNotBlank() }?.take(100) ?: input.name
+        return Result.success(input.copy(name = name, requirements = requirements))
     }
 }
 

@@ -36,6 +36,10 @@ import kotlinx.html.tr
  * a hidden quantity beside it. An unchecked box is simply not submitted, so excluding is
  * exclusion with no server-side concept behind it. Nothing is persisted until Create.
  *
+ * Shared by both import doors (MCO-306): the schematic upload posts its parsed list here,
+ * and an idea import arrives with the idea's requirements. [action] and [hiddenFields] are
+ * the only difference — what the screen *does* is identical either way.
+ *
  * Substitution (MCO-304) and the unobtainable/expensive warning strip (MCO-305) land on
  * this same screen.
  */
@@ -45,6 +49,8 @@ fun importReviewPage(
     worldName: String,
     projectName: String,
     requirements: Map<Item, Int>,
+    action: String = "/worlds/$worldId/projects/from-schematic",
+    hiddenFields: Map<String, String> = emptyMap(),
 ): String = pageShell(
     pageTitle = "Seam — review import",
     user = user,
@@ -76,7 +82,14 @@ fun importReviewPage(
             form(classes = "import-review__form") {
                 id = "import-review-form"
                 method = kotlinx.html.FormMethod.post
-                action = "/worlds/$worldId/projects/from-schematic"
+                this.action = action
+
+                hiddenFields.forEach { (field, fieldValue) ->
+                    hiddenInput {
+                        name = field
+                        value = fieldValue
+                    }
+                }
 
                 div("import-review__name-field") {
                     label {

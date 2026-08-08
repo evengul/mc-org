@@ -23,6 +23,7 @@ import app.mcorg.pipeline.idea.single.handleFavouriteIdea
 import app.mcorg.pipeline.idea.single.handleGetIdea
 import app.mcorg.pipeline.project.handleGetSelectWorldForIdeaImportFragment
 import app.mcorg.pipeline.project.handleImportIdea
+import app.mcorg.pipeline.project.handleReviewIdeaImport
 import app.mcorg.presentation.plugins.IdeaCommentParamPlugin
 import app.mcorg.presentation.plugins.IdeaCreatorPlugin
 import app.mcorg.presentation.plugins.IdeaParamPlugin
@@ -108,6 +109,9 @@ class IdeaHandler {
                 route("/import") {
                     get("/select") {
                         call.handleGetSelectWorldForIdeaImportFragment()
+                    }
+                    get("/review") {
+                        call.handleReviewIdeaImport()
                     }
                     post {
                         call.handleImportIdea()
