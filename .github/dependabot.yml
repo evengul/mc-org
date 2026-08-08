@@ -39,6 +39,13 @@ updates:
           - "org.slf4j:*"
           - "ch.qos.logback:*"
 
+  # Every action is pinned to a full commit SHA, with the human-readable version in a
+  # trailing comment (`uses: actions/checkout@3d3c42e... # v7.0.1`). Tags — including
+  # major tags like @v4 — are mutable: a compromised maintainer can repoint them at new
+  # code, which is how the tj-actions/changed-files compromise exfiltrated CI secrets
+  # from ~23k repos in March 2025. A SHA is the only immutable ref. Dependabot bumps the
+  # SHA and rewrites the comment, so this costs nothing to maintain — keep new actions
+  # pinned the same way, and never reintroduce a branch ref like @master.
   - package-ecosystem: github-actions
     directory: /
     schedule:
