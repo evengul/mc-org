@@ -13,7 +13,7 @@ object IdeaSqlBuilder {
      */
     private val ALLOWED_CATEGORY_FIELD_KEYS: Set<String> by lazy {
         IdeaCategorySchemas.getAllSchemas().values
-            .flatMap { schema -> schema.getAllFields().map { it.key } }
+            .flatMap { schema -> schema.fields.map { it.key } }
             .toSet()
     }
 

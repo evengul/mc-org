@@ -83,51 +83,53 @@ class IdeaFilterParserTest {
     }
 
     @Test
-    fun `parse number range category filter`() {
-        val params = parametersOf(
-            "category" to listOf("FARM"),
-            "categoryFilters[yLevel_min]" to listOf("-15"),
-            "categoryFilters[yLevel_max]" to listOf("120")
-        )
-        val filters = IdeaFilterParser.parse(params)
-
-        assertEquals(1, filters.categoryFilters.size)
-        val rateFilter = filters.categoryFilters["yLevel"]
-        assertTrue(rateFilter is FilterValue.NumberRange)
-        assertEquals(-15.0, rateFilter.min)
-        assertEquals(120.0, rateFilter.max)
-    }
-
-    @Test
     fun `parse select category filter`() {
         val params = parametersOf(
-            "category" to listOf("FARM"),
-            "categoryFilters[playersRequired]" to listOf("1")
+            "category" to listOf("STORAGE"),
+            "categoryFilters[storageType]" to listOf("chest_hall")
         )
         val filters = IdeaFilterParser.parse(params)
 
         assertEquals(1, filters.categoryFilters.size)
-        val playersFilter = filters.categoryFilters["playersRequired"]
-        assertTrue(playersFilter is FilterValue.SelectValue)
-        assertEquals("1", playersFilter.value)
+        val storageTypeFilter = filters.categoryFilters["storageType"]
+        assertTrue(storageTypeFilter is FilterValue.SelectValue)
+        assertEquals("chest_hall", storageTypeFilter.value)
     }
 
     @Test
     fun `parse multi-select category filter`() {
         val params = parametersOf(
-            "category" to listOf("FARM"),
-            "categoryFilters[biomes][]" to listOf("Plains", "Forest", "Desert")
+            "category" to listOf("BUILD"),
+            "categoryFilters[materials][]" to listOf("Stone", "Wood", "Glass")
         )
         val filters = IdeaFilterParser.parse(params)
 
         assertEquals(1, filters.categoryFilters.size)
-        val biomesFilter = filters.categoryFilters["biomes"]
-        assertTrue(biomesFilter is FilterValue.MultiSelectValue)
-        val values = biomesFilter.values
+        val materialsFilter = filters.categoryFilters["materials"]
+        assertTrue(materialsFilter is FilterValue.MultiSelectValue)
+        val values = materialsFilter.values
         assertEquals(3, values.size)
-        assertTrue(values.contains("Plains"))
-        assertTrue(values.contains("Forest"))
-        assertTrue(values.contains("Desert"))
+        assertTrue(values.contains("Stone"))
+        assertTrue(values.contains("Wood"))
+        assertTrue(values.contains("Glass"))
+    }
+
+    /**
+     * The slim schema (MCO-204) retired the speculative typed fields, so filters naming them
+     * must be dropped rather than passed through to the JSONB query.
+     */
+    @Test
+    fun `ignore filters for fields the schema no longer defines`() {
+        val params = parametersOf(
+            "category" to listOf("FARM"),
+            "categoryFilters[yLevel_min]" to listOf("-15"),
+            "categoryFilters[yLevel_max]" to listOf("120"),
+            "categoryFilters[playersRequired]" to listOf("1"),
+            "categoryFilters[biomes][]" to listOf("Plains")
+        )
+        val filters = IdeaFilterParser.parse(params)
+
+        assertTrue(filters.categoryFilters.isEmpty())
     }
 
     @Test
@@ -138,7 +140,7 @@ class IdeaFilterParserTest {
             "difficulty[]" to listOf("START_OF_GAME", "END_GAME"),
             "minRating" to listOf("4.0"),
             "categoryFilters[afkable]" to listOf("true"),
-            "categoryFilters[yLevel_min]" to listOf("64")
+            "categoryFilters[tileable]" to listOf("true")
         )
         val filters = IdeaFilterParser.parse(params)
 

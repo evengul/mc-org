@@ -12,10 +12,11 @@ import kotlinx.html.*
 import kotlinx.html.stream.createHTML
 
 suspend fun ApplicationCall.handleGetCreateCategoryFields() {
-    val categoryParam = request.queryParameters["category"]?.uppercase() ?: run {
+    // The category is a path parameter (/ideas/create/fields/{category}), so read it off the
+    // merged parameters — request.queryParameters never sees it.
+    val categoryParam = parameters["category"]?.uppercase() ?: run {
         respondHtml(createHTML().div {
-            p("subtle") {
-                style = "text-align: center;"
+            p("subtle wizard-field-placeholder") {
                 +"Select a category to see specific fields"
             }
         })
@@ -30,27 +31,25 @@ suspend fun ApplicationCall.handleGetCreateCategoryFields() {
         respondHtml(createHTML().div {
             classes += "stack stack--sm"
 
-            // Render all fields from the schema (not just filterable ones)
             schema.fields.forEach { field ->
                 renderCreateField(versionRange, field)
             }
 
-            // If no fields exist
             if (schema.fields.isEmpty()) {
-                p("subtle") {
-                    style = "text-align: center;"
+                p("subtle wizard-field-placeholder") {
                     +"No additional fields for this category"
                 }
             }
-        } + createHTML().p {
+        } + createHTML().p("form-error") {
+            // Clears any "Category is required" error now that one is picked. The id must match
+            // the paragraph draftCategoryFields renders, or HTMX drops the swap with oobErrorNoTarget.
             hxOutOfBands("true")
-            id = "validation-error-category"
+            id = "error-category"
         })
     } catch (_: IllegalArgumentException) {
         // Invalid category name
         respondHtml(createHTML().div {
-            p("subtle") {
-                style = "text-align: center;"
+            p("subtle wizard-field-placeholder") {
                 +"Invalid category"
             }
         })

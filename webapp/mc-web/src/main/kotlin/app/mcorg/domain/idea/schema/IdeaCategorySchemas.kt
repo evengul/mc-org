@@ -7,236 +7,99 @@ import app.mcorg.presentation.templated.dsl.SearchableSelectOption
 
 /**
  * Single Source of Truth for Idea Category Schemas.
- * All category-specific fields, filters, and validation rules are defined here.
  *
  * This configuration drives:
  * - Database JSONB structure
  * - Form generation and validation
  * - Search and filter UI generation
- * - API request/response handling
+ *
+ * **Deliberately loose (MCO-204).** Every category keeps only the handful of fields that are
+ * universal, genuinely filterable, or consumed by the product (item requirements, size, version).
+ * Everything else goes in the free-form [specs] block. Promote a spec to a first-class typed
+ * field when it shows up consistently in real submissions — not before. Designing a tight schema
+ * from a handful of hand-entered ideas is guessing, and guessing costs import speed.
+ *
+ * Note that name, description, author, labels, difficulty and version range live on the Idea
+ * itself — never duplicate them here.
  */
 object IdeaCategorySchemas {
 
-    fun IdeaCategorySchemaBuilder.sizeField(key: String = "size") = structField(key) {
-        label = "Size (X × Y × Z)"
-        required = true
-        fields {
-            numberField("x") {
-                label = "X Dimension"
-                required = true
+    /**
+     * Free-form label -> value block. Replaces the long tail of speculative typed fields.
+     * Not filterable by design: there is no fixed key set to filter on.
+     */
+    private fun IdeaCategorySchemaBuilder.specs() = typedMapField("specs") {
+        label = "Specs"
+        helpText = "Anything measurable about this design, e.g. \"TNT per piston: 10\" or \"Remaining fuse: 21gt\""
+        types {
+            textKey {
+                label = "Spec"
+                placeholder = "e.g., TNT per piston"
             }
-            numberField("y") {
-                label = "Y Dimension"
-                required = true
-            }
-            numberField("z") {
-                label = "Z Dimension"
-                required = true
+            textValue {
+                label = "Value"
+                placeholder = "e.g., 10"
             }
         }
     }
 
-    fun IdeaCategorySchemaBuilder.tileability(key: String = "tileability") = selectField(key) {
-        label = "Tileable Configuration"
+    /** Videos, schematic downloads, forum threads — wherever this design came from. */
+    private fun IdeaCategorySchemaBuilder.references() = listField("references") {
+        label = "Reference Links"
+        itemLabel = "Link"
+        helpText = "Comma-separated URLs"
+    }
+
+    /**
+     * Optional footprint. Sub-fields are optional too, so a partially known size still saves.
+     */
+    private fun IdeaCategorySchemaBuilder.sizeField() = structField("size") {
+        label = "Size (X × Y × Z)"
+        fields {
+            numberField("x") { label = "X Dimension" }
+            numberField("y") { label = "Y Dimension" }
+            numberField("z") { label = "Z Dimension" }
+        }
+    }
+
+    private fun IdeaCategorySchemaBuilder.tileable() = booleanField("tileable") {
+        label = "Tileable"
         filterable = true
-        options = listOf(
-            SearchableSelectOption(
-                value = "1",
-                label = "1",
-            ),
-            SearchableSelectOption(
-                value = "2",
-                label = "2",
-            ),
-            SearchableSelectOption(
-                value = "3",
-                label = "3",
-            ),
-            SearchableSelectOption(
-                value = "AB",
-                label = "AB",
-            ),
-            SearchableSelectOption(
-                value = "ABC",
-                label = "ABC",
-            ),
-            SearchableSelectOption(
-                value = "Not Tileable",
-                label = "Not Tileable",
-            )
-        )
+        defaultValue = false
+    }
+
+    private fun IdeaCategorySchemaBuilder.directional() = booleanField("directional") {
+        label = "Directional"
+        filterable = true
+        defaultValue = false
+        helpText = "Must face a specific direction"
     }
 
     val FARM = ideaCategory(IdeaCategory.FARM) {
-        // Farm version tracking
-        textField("farmVersion") {
-            label = "Farm Version"
-            searchable = true
-            helpText = "Version identifier for this farm design (e.g., v3.2, Mark-IV)"
-        }
-
-        typedMapField("productionRate") {
-            label = "Production Rate"
-            types {
-                textKey {
-                    label = "Mode"
-                    placeholder = "e.g., Normal, Fast, Eco"
-                }
-                typedMapValue {
-                    label = "Rate Details"
-                    types {
-                        selectKey {
-                            label = "Item"
-                            dynamicOptionsConfig = DynamicOptionsConfig.items()
-                        }
-                        rateValue {
-                            label = "Rate"
-                            min = 0.0
-                        }
-                    }
-                }
-            }
-        }
-
-        typedMapField("consumptionRate") {
-            label = "Consumption Rate"
-            types {
-                textKey {
-                    label = "Mode"
-                    placeholder = "e.g., Normal, Fast, Eco"
-                }
-                typedMapValue {
-                    label = "Rate Details"
-                    types {
-                        selectKey {
-                            label = "Item"
-                            dynamicOptionsConfig = DynamicOptionsConfig.items()
-                        }
-                        rateValue {
-                            label = "Rate"
-                            min = 0.0
-                        }
-                    }
-                }
-            }
-        }
-
         sizeField()
 
-        booleanField("stackable") {
-            label = "Stackable"
-            filterable = true
-            defaultValue = false
-        }
-
-        booleanField("tileable") {
-            label = "Tileable"
-            filterable = true
-            defaultValue = false
-        }
-
-        // Location requirements
-        numberField("yLevel") {
-            label = "Required Y-Level"
-            filterable = true
-            helpText = "Specific Y-level requirement (if any)"
-            min = -64.0
-            max = 320.0
-        }
-
-        booleanField("subChunkAligned") {
-            label = "Sub-chunk Aligned"
-            filterable = true
-            defaultValue = false
-            helpText = "Must be aligned to 16×16×16 sub-chunk boundaries"
-        }
-
-        multiSelectField("biomes") {
-            label = "Compatible Biomes"
-            filterable = true
-            options = listOf(
-                "Plains", "Forest", "Taiga", "Swamp", "Desert", "Savanna",
-                "Jungle", "Badlands", "Mushroom Fields", "Ocean", "River",
-                "Nether Wastes", "Crimson Forest", "Warped Forest", "Soul Sand Valley",
-                "Basalt Deltas", "The End", "Any"
-            )
-        }
-
-        typedMapField("mobRequirements") {
-            label = "Mob Requirements"
-            helpText = "Specific mobs required for farm operation"
+        /**
+         * The one structured field the engine will consume: MCO-294 matches bulk raw demand
+         * against farm output. Flat item -> rate; the old Mode -> (Item -> Rate) nesting was
+         * the single most tedious thing in the form and never got filled.
+         */
+        typedMapField("productionRate") {
+            label = "Production Rate"
+            helpText = "What this farm produces, per hour"
             types {
                 selectKey {
-                    label = "Mob Type"
-                    options = listOf(
-                        SearchableSelectOption(
-                            value = "zombie",
-                            label = "Zombie",
-                            searchTerms = listOf("zombie", "undead")
-                        ),
-                        SearchableSelectOption(
-                            value = "skeleton",
-                            label = "Skeleton",
-                            searchTerms = listOf("skeleton", "undead", "arrow")
-                        ),
-                        SearchableSelectOption(
-                            value = "creeper",
-                            label = "Creeper",
-                            searchTerms = listOf("creeper", "explosive")
-                        ),
-                        SearchableSelectOption(
-                            value = "spider",
-                            label = "Spider",
-                            searchTerms = listOf("spider", "arachnid")
-                        ),
-                        SearchableSelectOption(
-                            value = "witch",
-                            label = "Witch",
-                            searchTerms = listOf("witch", "potion", "alchemist")
-                        ),
-                        SearchableSelectOption(
-                            value = "any",
-                            label = "Any",
-                            searchTerms = listOf("any", "all", "generic")
-                        )
-                    )
+                    label = "Item"
+                    dynamicOptionsConfig = DynamicOptionsConfig.items()
                 }
-                numberValue {
-                    label = "Amount Required"
-                    min = 1.0
+                rateValue {
+                    label = "Rate"
+                    min = 0.0
                 }
             }
         }
 
-        // Player requirements
-        multiSelectField("playerSetup") {
-            label = "Player Setup Requirements"
-            options = listOf(
-                "Looting III Sword", "Fire Aspect II", "Sweeping Edge III",
-                "Strength II Potion", "Speed II Potion", "Regeneration",
-                "Full Diamond Armor", "Full Netherite Armor", "Elytra",
-                "Trident with Loyalty", "Bow with Power V", "Shield"
-            )
-        }
-
-        multiSelectField("beaconSetup") {
-            label = "Beacon Setup Requirements"
-            options = listOf(
-                "Speed I", "Speed II", "Haste I", "Haste II",
-                "Strength I", "Strength II", "Jump Boost I", "Jump Boost II",
-                "Regeneration I", "Regeneration II", "Resistance I", "Resistance II"
-            )
-        }
-
-        // Usage information
-        textField("howToUse") {
-            label = "How to Use"
-            searchable = true
-            multiline = true
-            required = true
-            maxLength = 1000
-            helpText = "Instructions for operating the farm"
-        }
+        tileable()
+        directional()
 
         booleanField("afkable") {
             label = "AFK-able"
@@ -245,330 +108,37 @@ object IdeaCategorySchemas {
             helpText = "Can be used while AFK"
         }
 
-        selectField("playersRequired") {
-            label = "Players Required"
-            filterable = true
-            required = true // listOf("0 (Automatic)", "1", "2", "3+")
-            options = listOf(
-                SearchableSelectOption(
-                    value = "0",
-                    label = "0 (Automatic)",
-                    searchTerms = listOf("0", "automatic", "auto")
-                ),
-                SearchableSelectOption(
-                    value = "1",
-                    label = "1",
-                    searchTerms = listOf("1", "one")
-                ),
-                SearchableSelectOption(
-                    value = "2",
-                    label = "2",
-                    searchTerms = listOf("2", "two")
-                ),
-                SearchableSelectOption(
-                    value = "3+",
-                    label = "3+",
-                    searchTerms = listOf("3+", "three or more", "three+", "many", "multiple")
-                )
-            )
-            defaultValue = "1"
-        }
-
-        listField("pros") {
-            label = "Pros"
-            itemLabel = "Advantage"
-            helpText = "List of advantages"
-        }
-
-        listField("cons") {
-            label = "Cons"
-            itemLabel = "Disadvantage"
-            helpText = "List of disadvantages"
-        }
-
-        booleanField("directional") {
-            label = "Directional"
-            filterable = true
-            defaultValue = false
-            helpText = "Must face a specific direction"
-        }
-
-        booleanField("locational") {
-            label = "Locational"
-            filterable = true
-            defaultValue = false
-            helpText = "Must be built in a specific location type"
-        }
-
-        // Tree farm subcategory
-        subcategory("treeFarm") {
-            multiSelectField("treeTypes") {
-                label = "Tree Types"
-                filterable = true
-                required = true
-                options = listOf(
-                    "Warped", "Crimson", "Birch", "Oak", "Dark Oak",
-                    "Spruce", "Cherry", "Azalea", "Jungle", "Acacia",
-                    "Brown Mushrooms", "Red Mushrooms", "Mangrove"
-                )
-            }
-        }
+        specs()
+        references()
     }
 
     val STORAGE = ideaCategory(IdeaCategory.STORAGE) {
-        // Complete storage systems
-        subcategory("completeSystem") {
-            percentageField("hopperLockPercentage") {
-                label = "Hopper Lock Percentage"
-                filterable = true
-            }
-
-            numberField("idleMspt") {
-                label = "Idle MSPT Usage"
-                filterable = true
-                min = 0.0
-                helpText = "Milliseconds per tick when idle"
-            }
-
-            numberField("activeMspt") {
-                label = "Active MSPT Usage"
-                filterable = true
-                min = 0.0
-                helpText = "Milliseconds per tick when active"
-            }
-
-            rateField("inputSpeed") {
-                label = "Input Speed"
-                filterable = true
-                unit = "items/hour"
-            }
-
-            numberField("inputBufferSize") {
-                label = "Input Buffer Size"
-                filterable = true
-                min = 0.0
-            }
-
-            numberField("chestHallSpaceItemAmount") {
-                label = "Chest Hall Space Item Amount"
-                filterable = true
-            }
-
-            numberField("chestHallSpacePerItem") {
-                label = "Chest Hall Space Per Item"
-                filterable = true
-            }
-
-            numberField("bulkItemAmount") {
-                label = "Bulk Item Amount"
-                filterable = true
-            }
-
-            numberField("bulkSpacePerItem") {
-                label = "Bulk Space Per Item"
-                filterable = true
-            }
-
-            numberField("multiItemCategories") {
-                label = "Multi Item Categories"
-                filterable = true
-            }
-
-            booleanField("unstackableSorter") {
-                label = "Unstackable Sorter"
-                filterable = true
-            }
-
-            booleanField("parallelUnloader") {
-                label = "Parallel Unloader"
-                filterable = true
-            }
-
-            multiSelectField("peripherals") {
-                label = "Peripherals"
-                filterable = true
-                options = listOf(
-                    "Furnace Array", "Crafting Station", "Nano Farms",
-                    "Auto-Smelting", "Auto-Crafting", "Potion Station"
-                )
-            }
-
-            booleanField("debugHelp") {
-                label = "Debug Help"
-                filterable = true
-                helpText = "Includes debugging features"
-            }
+        selectField("storageType") {
+            label = "Storage Type"
+            filterable = true
+            options = listOf(
+                SearchableSelectOption(value = "complete_system", label = "Complete System"),
+                SearchableSelectOption(value = "box_loader", label = "Box Loader"),
+                SearchableSelectOption(value = "box_unloader", label = "Box Unloader"),
+                SearchableSelectOption(value = "box_sorter", label = "Box Sorter"),
+                SearchableSelectOption(value = "item_transport", label = "Item Transport"),
+                SearchableSelectOption(value = "fixed_item_sorter", label = "Fixed Item Sorter"),
+                SearchableSelectOption(value = "multi_item_sorter", label = "Multi Item Sorter"),
+                SearchableSelectOption(value = "unstackable_sorter", label = "Unstackable Sorter"),
+                SearchableSelectOption(value = "chest_hall", label = "Chest Hall"),
+                SearchableSelectOption(value = "bulk_storage", label = "Bulk Storage"),
+                SearchableSelectOption(value = "temporary_storage", label = "Temporary Storage"),
+                SearchableSelectOption(value = "peripheral", label = "Peripheral"),
+                SearchableSelectOption(value = "other", label = "Other"),
+            )
         }
 
-        // Box loader
-        subcategory("boxLoader") {
+        sizeField()
+        tileable()
+        directional()
 
-
-            booleanField("noToggle") {
-                label = "No Toggle"
-                filterable = true
-            }
-
-            booleanField("noBuffer") {
-                label = "No Buffer"
-                filterable = true
-            }
-
-            numberField("prefillNeeded") {
-                label = "Prefill Needed"
-                filterable = true
-                min = 0.0
-            }
-
-            rateField("speed") {
-                label = "Speed"
-                filterable = true
-                unit = "items/hour"
-            }
-        }
-
-        // Box unloader
-        subcategory("boxUnloader") {
-            rateField("speed") {
-                label = "Speed"
-                filterable = true
-                unit = "items/hour"
-            }
-        }
-
-        // Box sorters
-        subcategory("boxSorter") {
-            tileability()
-
-            rateField("speed") {
-                label = "Speed"
-                filterable = true
-                unit = "items/hour"
-            }
-
-            percentageField("lockedHoppers") {
-                label = "Locked Hoppers Percentage"
-                filterable = true
-            }
-        }
-
-        // Item transport
-        subcategory("itemTransport") {
-            textField("type") {
-                label = "Transport Type"
-                searchable = true
-                required = true
-                helpText = "E.g., Aligner, Instant downward dropper, etc."
-            }
-        }
-
-        // Fixed item sorters
-        subcategory("fixedItemSorter") {
-            rateField("speed") {
-                label = "Speed"
-                filterable = true
-                unit = "items/hour"
-            }
-
-            tileability()
-        }
-
-        // Multi item sorter
-        subcategory("multiItemSorter") {
-            numberField("amountPerSlice") {
-                label = "Amount Per Slice"
-                filterable = true
-            }
-
-            booleanField("compatible64_16") {
-                label = "64/16 Compatible"
-                filterable = true
-            }
-
-            rateField("speed") {
-                label = "Speed"
-                filterable = true
-                unit = "items/hour"
-            }
-        }
-
-        // Unstackable sorter
-        subcategory("unstackableSorter") {
-            textField("whatItSorts") {
-                label = "What It Sorts"
-                searchable = true
-                required = true
-            }
-        }
-
-        // Chest hall
-        subcategory("chestHall") {
-            numberField("hoppersPerSlice") {
-                label = "Hoppers Per Slice"
-                filterable = true
-            }
-
-            percentageField("lockedPercentage") {
-                label = "Locked Percentage"
-                filterable = true
-            }
-
-            numberField("capacityForItemType") {
-                label = "Capacity For Item Type"
-                filterable = true
-            }
-
-            numberField("prefillAmount") {
-                label = "Prefill Amount"
-                filterable = true
-            }
-
-            numberField("itemTypesPerSlice") {
-                label = "Item Types Per Slice"
-                filterable = true
-            }
-        }
-
-        // Bulk storage
-        subcategory("bulkStorage") {
-            percentageField("hopperLock") {
-                label = "Hopper Lock Percentage"
-                filterable = true
-            }
-
-            numberField("capacity") {
-                label = "Capacity"
-                filterable = true
-            }
-
-            numberField("buffer") {
-                label = "Buffer"
-                filterable = true
-            }
-        }
-
-        // Temporary storage
-        subcategory("temporaryStorage") {
-            numberField("capacity") {
-                label = "Capacity"
-                filterable = true
-            }
-
-            percentageField("lockPercentage") {
-                label = "Lock Percentage"
-                filterable = true
-            }
-        }
-
-        // Peripherals
-        subcategory("peripheral") {
-            textField("type") {
-                label = "Peripheral Type"
-                searchable = true
-                required = true
-                helpText = "E.g., crafting, smelting, brewing, etc."
-            }
-        }
+        specs()
+        references()
     }
 
     val CART_TECH = ideaCategory(IdeaCategory.CART_TECH) {
@@ -577,316 +147,74 @@ object IdeaCategorySchemas {
             filterable = true
             required = true
             options = listOf(
-                SearchableSelectOption(
-                    value = "storage",
-                    label = "Storage",
-                ),
-                SearchableSelectOption(
-                    value = "transport",
-                    label = "Transport",
-                ),
-                SearchableSelectOption(
-                    value = "computational",
-                    label = "Computational",
-                ),
-                SearchableSelectOption(
-                    value = "farm_collection",
-                    label = "Farm Collection",
-                ),
-                SearchableSelectOption(
-                    value = "furnace_arrays",
-                    label = "Furnace Arrays",
-                ),
-                SearchableSelectOption(
-                    value = "item_whitelisters",
-                    label = "Item Whitelisters",
-                ),
-                SearchableSelectOption(
-                    value = "loading_unloading",
-                    label = "Loading/Unloading",
-                ),
-                SearchableSelectOption(
-                    value = "stackers_unstackers",
-                    label = "Stackers and Unstackers",
-                ),
-                SearchableSelectOption(
-                    value = "stationary",
-                    label = "Stationary",
-                ),
-                SearchableSelectOption(
-                    value = "villagers_plus_plus",
-                    label = "Villagers++",
-                ),
-                SearchableSelectOption(
-                    value = "other",
-                    label = "Other",
-                )
+                SearchableSelectOption(value = "storage", label = "Storage"),
+                SearchableSelectOption(value = "transport", label = "Transport"),
+                SearchableSelectOption(value = "computational", label = "Computational"),
+                SearchableSelectOption(value = "farm_collection", label = "Farm Collection"),
+                SearchableSelectOption(value = "furnace_arrays", label = "Furnace Arrays"),
+                SearchableSelectOption(value = "item_whitelisters", label = "Item Whitelisters"),
+                SearchableSelectOption(value = "loading_unloading", label = "Loading/Unloading"),
+                SearchableSelectOption(value = "stackers_unstackers", label = "Stackers and Unstackers"),
+                SearchableSelectOption(value = "stationary", label = "Stationary"),
+                SearchableSelectOption(value = "villagers_plus_plus", label = "Villagers++"),
+                SearchableSelectOption(value = "other", label = "Other"),
             )
         }
 
-        textField("description") {
-            label = "Description"
-            searchable = true
-            multiline = true
-            required = true
-        }
+        sizeField()
+        tileable()
+        directional()
+
+        specs()
+        references()
     }
 
     val TNT = ideaCategory(IdeaCategory.TNT) {
-        // TNT Dupers
-        subcategory("tntDuper") {
-            booleanField("movable") {
-                label = "Movable"
-                filterable = true
-            }
-
-            booleanField("flatNotYTileable") {
-                label = "Flat / Not Y Tileable"
-                filterable = true
-            }
-
-            numberField("amountOfTnt") {
-                label = "Amount of TNT"
-                filterable = true
-                min = 1.0
-            }
-
-            numberField("delayClock") {
-                label = "Delay Clock (ticks)"
-                filterable = true
-                min = 0.0
-            }
-
-            numberField("stackSize") {
-                label = "Stack Size"
-                filterable = true
-                min = 1.0
-            }
-        }
-
-        // TNT Compressors
-        subcategory("tntCompressor") {
-            numberField("amountOfTnt") {
-                label = "Amount of TNT"
-                filterable = true
-                required = true
-                min = 1.0
-            }
-        }
-
-        // Other TNT types
         selectField("tntType") {
             label = "TNT Type"
             filterable = true
             options = listOf(
-                SearchableSelectOption(
-                    value = "tnt_duper",
-                    label = "TNT Duper",
-                ),
-                SearchableSelectOption(
-                    value = "tnt_compressor",
-                    label = "TNT Compressor",
-                ),
-                SearchableSelectOption(
-                    value = "transport_cannon",
-                    label = "Transport Cannon",
-                ),
-                SearchableSelectOption(
-                    value = "digging_cannon",
-                    label = "Digging Cannon",
-                ),
-                SearchableSelectOption(
-                    value = "arrow_cannon",
-                    label = "Arrow Cannon",
-                ),
-                SearchableSelectOption(
-                    value = "weaponry",
-                    label = "Weaponry",
-                ),
-                SearchableSelectOption(
-                    value = "other",
-                    label = "Other",
-                )
+                SearchableSelectOption(value = "tnt_duper", label = "TNT Duper"),
+                SearchableSelectOption(value = "tnt_compressor", label = "TNT Compressor"),
+                SearchableSelectOption(value = "transport_cannon", label = "Transport Cannon"),
+                SearchableSelectOption(value = "digging_cannon", label = "Digging Cannon"),
+                SearchableSelectOption(value = "arrow_cannon", label = "Arrow Cannon"),
+                SearchableSelectOption(value = "weaponry", label = "Weaponry"),
+                SearchableSelectOption(value = "other", label = "Other"),
             )
         }
 
-        textField("description") {
-            label = "Description"
-            searchable = true
-            multiline = true
-        }
+        sizeField()
+        tileable()
+        directional()
+
+        specs()
+        references()
     }
 
     val SLIMESTONE = ideaCategory(IdeaCategory.SLIMESTONE) {
-        // Engine
-        subcategory("engine") {
-            numberField("directions") {
-                label = "Directions (1-4)"
-                filterable = true
-                min = 1.0
-                max = 4.0
-                helpText = "Number of directions the engine can move"
-            }
-
-            numberField("gtEngine") {
-                label = "GT Engine"
-                filterable = true
-                helpText = "Game tick engine count"
-            }
-        }
-
-        // 1-way extensions
-        subcategory("oneWayExtension") {
-            numberField("timings") {
-                label = "Timings"
-                filterable = true
-            }
-
-            numberField("gameTicks") {
-                label = "Game Ticks"
-                filterable = true
-            }
-        }
-
-        // 2-way extensions
-        subcategory("twoWayExtension") {
-            numberField("timings") {
-                label = "Timings"
-                filterable = true
-            }
-        }
-
-        // Return station
-        subcategory("returnStation") {
-            numberField("directions") {
-                label = "Directions (1-3)"
-                filterable = true
-                min = 1.0
-                max = 3.0
-            }
-        }
-
-        // Quarry
-        subcategory("quarry") {
-            numberField("speedPerSlice") {
-                label = "Speed Per Slice (minutes)"
-                filterable = true
-                min = 0.0
-                suffix = "minutes"
-            }
-
-            percentageField("collectionRate") {
-                label = "Collection Rate"
-                filterable = true
-                helpText = "Percentage of items collected"
-            }
-
-            numberField("trenchesUnder") {
-                label = "Trenches Under"
-                filterable = true
-            }
-
-            numberField("trenchesSide") {
-                label = "Trenches Side"
-                filterable = true
-            }
-
-            numberField("trenchesMain") {
-                label = "Trenches Main"
-                filterable = true
-            }
-        }
-
-        // Trenchers
-        subcategory("trencher") {
-            numberField("width") {
-                label = "Width"
-                filterable = true
-                required = true
-            }
-        }
-
-        // World Eater
-        subcategory("worldEater") {
-            numberField("mainTrenches") {
-                label = "Main Trenches"
-                filterable = true
-                required = true
-            }
-
-            numberField("sideTrenches") {
-                label = "Side Trenches"
-                filterable = true
-                required = true
-            }
-
-            booleanField("handlesAncientDebris") {
-                label = "Handles Ancient Debris"
-                filterable = true
-            }
-        }
-
-        // Bedrock breaker
-        subcategory("bedrockBreaker") {
-            booleanField("overhead") {
-                label = "Overhead"
-                filterable = true
-            }
-
-            booleanField("lossless") {
-                label = "Lossless"
-                filterable = true
-            }
-        }
-
         selectField("slimestoneType") {
             label = "Slimestone Type"
             filterable = true
             options = listOf(
-                SearchableSelectOption(
-                    value = "engine",
-                    label = "Engine",
-                ),
-                SearchableSelectOption(
-                    value = "one_way_extension",
-                    label = "1-Way Extension",
-                ),
-                SearchableSelectOption(
-                    value = "two_way_extension",
-                    label = "2-Way Extension",
-                ),
-                SearchableSelectOption(
-                    value = "return_station",
-                    label = "Return Station",
-                ),
-                SearchableSelectOption(
-                    value = "quarry",
-                    label = "Quarry",
-                ),
-                SearchableSelectOption(
-                    value = "trencher",
-                    label = "Trencher",
-                ),
-                SearchableSelectOption(
-                    value = "world_eater",
-                    label = "World Eater",
-                ),
-                SearchableSelectOption(
-                    value = "bedrock_breaker",
-                    label = "Bedrock Breaker",
-                ),
-                SearchableSelectOption(
-                    value = "other",
-                    label = "Other",
-                )
+                SearchableSelectOption(value = "engine", label = "Engine"),
+                SearchableSelectOption(value = "one_way_extension", label = "1-Way Extension"),
+                SearchableSelectOption(value = "two_way_extension", label = "2-Way Extension"),
+                SearchableSelectOption(value = "return_station", label = "Return Station"),
+                SearchableSelectOption(value = "quarry", label = "Quarry"),
+                SearchableSelectOption(value = "trencher", label = "Trencher"),
+                SearchableSelectOption(value = "world_eater", label = "World Eater"),
+                SearchableSelectOption(value = "bedrock_breaker", label = "Bedrock Breaker"),
+                SearchableSelectOption(value = "other", label = "Other"),
             )
         }
 
-        textField("description") {
-            label = "Description"
-            searchable = true
-            multiline = true
-        }
+        sizeField()
+        tileable()
+        directional()
+
+        specs()
+        references()
     }
 
     val OTHER = ideaCategory(IdeaCategory.OTHER) {
@@ -894,63 +222,21 @@ object IdeaCategorySchemas {
             label = "Contraption Type"
             filterable = true
             options = listOf(
-                SearchableSelectOption(
-                    value = "entity_transport",
-                    label = "Entity Transport",
-                ),
-                SearchableSelectOption(
-                    value = "furnaces",
-                    label = "Furnaces",
-                ),
-                SearchableSelectOption(
-                    value = "brewers",
-                    label = "Brewers",
-                ),
-                SearchableSelectOption(
-                    value = "instant_wires",
-                    label = "Instant Wires",
-                ),
-                SearchableSelectOption(
-                    value = "logic_computation",
-                    label = "Logic Computation",
-                ),
-                SearchableSelectOption(
-                    value = "other",
-                    label = "Other",
-                )
+                SearchableSelectOption(value = "entity_transport", label = "Entity Transport"),
+                SearchableSelectOption(value = "furnaces", label = "Furnaces"),
+                SearchableSelectOption(value = "brewers", label = "Brewers"),
+                SearchableSelectOption(value = "instant_wires", label = "Instant Wires"),
+                SearchableSelectOption(value = "logic_computation", label = "Logic Computation"),
+                SearchableSelectOption(value = "other", label = "Other"),
             )
         }
 
-        // Furnaces
-        numberField("furnaceAmount") {
-            label = "Amount of Furnaces"
-            filterable = true
-            min = 1.0
-        }
+        sizeField()
+        tileable()
+        directional()
 
-        // Brewers
-        numberField("brewingSpeed") {
-            label = "Brewing Speed"
-            filterable = true
-            helpText = "Potions per hour or similar metric"
-        }
-
-        textField("purpose") {
-            label = "Purpose"
-            searchable = true
-            required = true
-            multiline = true
-            helpText = "Describe what this contraption does"
-        }
-
-        multiSelectField("tags") {
-            label = "Custom Tags"
-            filterable = true
-            options = listOf(
-                "Decoration", "Redstone", "Command Blocks", "Data Packs",
-                "Aesthetics", "Utility", "Experiment", "Proof of Concept"
-            )
-        }
+        specs()
+        references()
     }
 
     val BUILD = ideaCategory(IdeaCategory.BUILD) {
@@ -960,30 +246,12 @@ object IdeaCategorySchemas {
             label = "Build Style"
             filterable = true
             options = listOf(
-                SearchableSelectOption(
-                    value = "modern",
-                    label = "Modern",
-                ),
-                SearchableSelectOption(
-                    value = "medieval",
-                    label = "Medieval",
-                ),
-                SearchableSelectOption(
-                    value = "fantasy",
-                    label = "Fantasy",
-                ),
-                SearchableSelectOption(
-                    value = "rustic",
-                    label = "Rustic",
-                ),
-                SearchableSelectOption(
-                    value = "industrial",
-                    label = "Industrial",
-                ),
-                SearchableSelectOption(
-                    value = "other",
-                    label = "Other",
-                )
+                SearchableSelectOption(value = "modern", label = "Modern"),
+                SearchableSelectOption(value = "medieval", label = "Medieval"),
+                SearchableSelectOption(value = "fantasy", label = "Fantasy"),
+                SearchableSelectOption(value = "rustic", label = "Rustic"),
+                SearchableSelectOption(value = "industrial", label = "Industrial"),
+                SearchableSelectOption(value = "other", label = "Other"),
             )
         }
 
@@ -995,6 +263,9 @@ object IdeaCategorySchemas {
                 "Metal", "Prismarine", "Nether Materials", "End Materials", "Other"
             )
         }
+
+        specs()
+        references()
     }
 
     // Schema registry
@@ -1013,4 +284,3 @@ object IdeaCategorySchemas {
 
     fun getAllSchemas(): Map<IdeaCategory, IdeaCategorySchema> = schemas
 }
-
