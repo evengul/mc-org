@@ -12,6 +12,7 @@ import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.failure.ValidationFailure
 import app.mcorg.pipeline.project.resources.GetItemsInWorldVersionStep
+import app.mcorg.pipeline.resources.findSubstitutionFamilies
 import app.mcorg.pipeline.world.ValidateWorldMemberRole
 import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.templated.dsl.Link
@@ -75,6 +76,7 @@ suspend fun ApplicationCall.handleReviewSchematic() {
                     worldName = getWorldName(worldId),
                     projectName = project.name,
                     requirements = project.requirements,
+                    families = findSubstitutionFamilies(items, project.requirements.map { it.key.id }),
                 )
             )
         }
