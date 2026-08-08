@@ -6,6 +6,7 @@ import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.Result
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.project.handleCreateProjectFromSchematic
+import app.mcorg.pipeline.project.handleReviewSchematic
 import app.mcorg.pipeline.world.CreateWorldInput
 import app.mcorg.pipeline.world.CreateWorldStep
 import app.mcorg.presentation.plugins.AuthPlugin
@@ -21,7 +22,9 @@ import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.Headers
 import io.ktor.http.HttpHeaders
+import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
+import io.ktor.http.contentType
 import io.ktor.server.routing.post
 import io.ktor.server.routing.route
 import io.ktor.server.testing.ApplicationTestBuilder
@@ -60,7 +63,9 @@ class CreateProjectFromSchematicIT : WithUser() {
                 parameterSetter = { _, _ -> }
             ).process(Unit)
         }
-        litematica.items.keys.forEach { itemId ->
+        // The reviewed-create tests post their own rows, so the catalog needs these two
+        // regardless of what the fixture happens to contain.
+        (litematica.items.keys + setOf("minecraft:stone", "minecraft:oak_planks")).forEach { itemId ->
             runBlocking {
                 DatabaseSteps.update<Unit>(
                     sql = SafeSQL.insert(
@@ -80,13 +85,21 @@ class CreateProjectFromSchematicIT : WithUser() {
     fun `valid litematic creates active project with full resource list`() = testApplication {
         setupRoutes()
 
-        val response = client.post("/worlds/$worldId/projects/from-schematic") {
+        // Two steps since MCO-303: review parses the file, create takes the reviewed list.
+        val review = client.post("/worlds/$worldId/projects/from-schematic/review") {
             addAuthCookie(this)
             setBody(multipart(fileName = "loader.litematic", bytes = litematicBytes, name = "Shulker Loader"))
         }
+        assertEquals(HttpStatusCode.OK, review.status, review.bodyAsText())
 
-        assertEquals(HttpStatusCode.OK, response.status, response.bodyAsText())
-        val redirect = response.headers["HX-Redirect"]
+        val response = client.post("/worlds/$worldId/projects/from-schematic") {
+            addAuthCookie(this)
+            contentType(ContentType.Application.FormUrlEncoded)
+            setBody(formBodyFrom(review.bodyAsText(), name = "Shulker Loader"))
+        }
+
+        assertEquals(HttpStatusCode.SeeOther, response.status, response.bodyAsText())
+        val redirect = response.headers["Location"]
         assertNotNull(redirect)
         assertTrue(redirect.startsWith("/worlds/$worldId/projects/"))
 
@@ -101,7 +114,7 @@ class CreateProjectFromSchematicIT : WithUser() {
         setupRoutes()
         val before = countProjects(worldId)
 
-        val response = client.post("/worlds/$worldId/projects/from-schematic") {
+        val response = client.post("/worlds/$worldId/projects/from-schematic/review") {
             addAuthCookie(this)
             setBody(multipart(fileName = "broken.litematic", bytes = byteArrayOf(1, 2, 3, 4)))
         }
@@ -114,7 +127,7 @@ class CreateProjectFromSchematicIT : WithUser() {
     fun `missing file returns validation error`() = testApplication {
         setupRoutes()
 
-        val response = client.post("/worlds/$worldId/projects/from-schematic") {
+        val response = client.post("/worlds/$worldId/projects/from-schematic/review") {
             addAuthCookie(this)
             setBody(MultiPartFormDataContent(formData { append("name", "No File") }))
         }
@@ -128,7 +141,7 @@ class CreateProjectFromSchematicIT : WithUser() {
         val outsider = createExtraUser("schematic-outsider")
         val before = countProjects(worldId)
 
-        val response = client.post("/worlds/$worldId/projects/from-schematic") {
+        val response = client.post("/worlds/$worldId/projects/from-schematic/review") {
             addAuthCookie(this, outsider)
             setBody(multipart(fileName = "loader.litematic", bytes = litematicBytes))
         }
@@ -142,7 +155,7 @@ class CreateProjectFromSchematicIT : WithUser() {
         setupRoutes()
 
         val unauthClient = createClient { followRedirects = false }
-        val response = unauthClient.post("/worlds/$worldId/projects/from-schematic") {
+        val response = unauthClient.post("/worlds/$worldId/projects/from-schematic/review") {
             setBody(multipart(fileName = "loader.litematic", bytes = litematicBytes))
         }
 
@@ -167,6 +180,7 @@ class CreateProjectFromSchematicIT : WithUser() {
                 install(WorldParticipantPlugin)
                 install(UpdateActiveWorldPlugin)
                 route("/projects") {
+                    post("/from-schematic/review") { call.handleReviewSchematic() }
                     post("/from-schematic") { call.handleCreateProjectFromSchematic() }
                 }
             }
@@ -218,5 +232,138 @@ class CreateProjectFromSchematicIT : WithUser() {
             resultMapper = { rs -> rs.next(); rs.getInt("c") }
         ).process(Unit)
         (result as Result.Success).value
+    }
+
+    // -------------------------------------------------------------------------
+    // Review step (MCO-303): parse → review → create
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `review renders the material list without creating anything`() = testApplication {
+        setupRoutes()
+        val before = countProjects(worldId)
+
+        val response = client.post("/worlds/$worldId/projects/from-schematic/review") {
+            addAuthCookie(this)
+            setBody(multipart(fileName = "loader.litematic", bytes = litematicBytes, name = "Shulker Loader"))
+        }
+
+        assertEquals(HttpStatusCode.OK, response.status)
+        val body = response.bodyAsText()
+        assertTrue(body.contains("Review this import"), "expected the review page")
+        assertTrue(body.contains("import-review-table"))
+        assertTrue(body.contains("Shulker Loader"), "the provided name is carried into the form")
+        assertTrue(body.contains("qty["), "rows round-trip as form fields")
+        assertEquals(before, countProjects(worldId), "review must not create anything")
+    }
+
+    @Test
+    fun `create builds the project from the reviewed list`() = testApplication {
+        setupRoutes()
+
+        val client = createClient { followRedirects = false }
+        val response = client.post("/worlds/$worldId/projects/from-schematic") {
+            addAuthCookie(this)
+            contentType(ContentType.Application.FormUrlEncoded)
+            setBody("name=Reviewed Build&qty[minecraft:stone]=64&qty[minecraft:oak_planks]=12")
+        }
+
+        // A plain form submit gets a real redirect, not an HX-Redirect header.
+        assertEquals(HttpStatusCode.SeeOther, response.status, response.bodyAsText())
+        val projectId = response.headers["Location"]!!.substringAfterLast("/").toInt()
+        assertEquals("Reviewed Build", getProjectName(projectId))
+        assertEquals("ACTIVE" to "RESOURCE_GATHERING", getProjectStateAndStage(projectId))
+        assertEquals(
+            listOf("minecraft:oak_planks" to 12, "minecraft:stone" to 64),
+            readRequirements(projectId),
+        )
+    }
+
+    @Test
+    fun `excluded rows never reach the project`() = testApplication {
+        setupRoutes()
+
+        // The review page submits only the checked rows; oak_planks was unchecked, so it
+        // is simply absent from the body.
+        val client = createClient { followRedirects = false }
+        val response = client.post("/worlds/$worldId/projects/from-schematic") {
+            addAuthCookie(this)
+            contentType(ContentType.Application.FormUrlEncoded)
+            setBody("name=Partial Build&qty[minecraft:stone]=64")
+        }
+
+        assertEquals(HttpStatusCode.SeeOther, response.status)
+        val projectId = response.headers["Location"]!!.substringAfterLast("/").toInt()
+        assertEquals(listOf("minecraft:stone" to 64), readRequirements(projectId))
+    }
+
+    @Test
+    fun `excluding everything is refused`() = testApplication {
+        setupRoutes()
+        val before = countProjects(worldId)
+
+        val response = client.post("/worlds/$worldId/projects/from-schematic") {
+            addAuthCookie(this)
+            contentType(ContentType.Application.FormUrlEncoded)
+            setBody("name=Nothing At All")
+        }
+
+        assertEquals(HttpStatusCode.UnprocessableEntity, response.status)
+        assertEquals(before, countProjects(worldId))
+    }
+
+    @Test
+    fun `an item outside the world's catalog is refused`() = testApplication {
+        setupRoutes()
+        val before = countProjects(worldId)
+
+        val response = client.post("/worlds/$worldId/projects/from-schematic") {
+            addAuthCookie(this)
+            contentType(ContentType.Application.FormUrlEncoded)
+            setBody("name=Smuggled&qty[minecraft:not_a_real_item]=1")
+        }
+
+        assertEquals(HttpStatusCode.UnprocessableEntity, response.status)
+        assertEquals(before, countProjects(worldId))
+    }
+
+    @Test
+    fun `a non-member cannot create from a reviewed list either`() = testApplication {
+        setupRoutes()
+        val outsider = createExtraUser("reviewed-create-outsider")
+        val before = countProjects(worldId)
+
+        val response = client.post("/worlds/$worldId/projects/from-schematic") {
+            addAuthCookie(this, outsider)
+            contentType(ContentType.Application.FormUrlEncoded)
+            setBody("name=Outsider Build&qty[minecraft:stone]=1")
+        }
+
+        assertEquals(HttpStatusCode.Forbidden, response.status)
+        assertEquals(before, countProjects(worldId))
+    }
+
+    private fun readRequirements(projectId: Int): List<Pair<String, Int>> = runBlocking {
+        val result = DatabaseSteps.query<Int, List<Pair<String, Int>>>(
+            sql = SafeSQL.select(
+                "SELECT item_id, required FROM resource_gathering WHERE project_id = ? ORDER BY item_id"
+            ),
+            parameterSetter = { stmt, id -> stmt.setInt(1, id) },
+            resultMapper = { rs ->
+                val rows = mutableListOf<Pair<String, Int>>()
+                while (rs.next()) rows.add(rs.getString("item_id") to rs.getInt("required"))
+                rows
+            }
+        ).process(projectId)
+        (result as Result.Success).value
+    }
+
+    /** Rebuilds a create-request body from the review page's rendered checkboxes. */
+    private fun formBodyFrom(reviewHtml: String, name: String): String {
+        val rows = Regex("""name="qty\[([^"]+)]" value="(\d+)"""")
+            .findAll(reviewHtml)
+            .map { "qty[${it.groupValues[1]}]=${it.groupValues[2]}" }
+            .toList()
+        return (listOf("name=$name") + rows).joinToString("&")
     }
 }

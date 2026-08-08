@@ -165,6 +165,13 @@ dialog.modal-backdrop::backdrop {
     opacity: 1;
 }
 
+/* The schematic upload is a plain form POST (MCO-303: it navigates to the review page),
+   so there is no htmx request class to hang the indicator off — the form sets this on
+   submit instead. */
+.htmx-indicator.is-uploading {
+    opacity: 1;
+}
+
 /* Schematic-upload progress affordance — spinner + label shown inside the modal
    body while the upload/parse request is in flight (see .htmx-indicator above). */
 .modal__progress {
