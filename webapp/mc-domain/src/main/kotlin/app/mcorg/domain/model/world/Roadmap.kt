@@ -1,6 +1,7 @@
 package app.mcorg.domain.model.world
 
 import app.mcorg.domain.model.project.ProjectStage
+import app.mcorg.domain.model.project.ProjectState
 import app.mcorg.domain.model.project.ProjectType
 
 /**
@@ -70,6 +71,12 @@ data class RoadmapNode(
     val projectName: String,
     val projectType: ProjectType,
     val stage: ProjectStage,
+    /**
+     * Lifecycle state — the axis the rest of the app blocks and groups on. [stage] tracks
+     * progress *within* a project; DONE vs not-DONE is what decides whether this node
+     * still blocks the ones downstream of it.
+     */
+    val state: ProjectState,
     val tasksTotal: Int,
     val tasksCompleted: Int,
     val isBlocked: Boolean,
@@ -122,7 +129,13 @@ data class RoadmapEdge(
     val fromNodeName: String,
     val toNodeId: Int,
     val toNodeName: String,
-    val isBlocking: Boolean
+    val isBlocking: Boolean,
+    /**
+     * The resource this edge is about, when it is a resource edge. Null for a manual
+     * project→project sequencing edge. The roadmap's "Blocked by" cell names the project
+     * *and* the resource, so the reader knows what to go and get.
+     */
+    val itemName: String? = null,
 ) {
     /**
      * Checks if this edge represents a blocking dependency

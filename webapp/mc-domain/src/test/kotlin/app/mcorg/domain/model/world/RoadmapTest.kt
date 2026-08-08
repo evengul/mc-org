@@ -1,6 +1,7 @@
 package app.mcorg.domain.model.world
 
 import app.mcorg.domain.model.project.ProjectStage
+import app.mcorg.domain.model.project.ProjectState
 import app.mcorg.domain.model.project.ProjectType
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
@@ -260,6 +261,7 @@ class RoadmapTest {
         projectName = name,
         projectType = type,
         stage = stage,
+        state = ProjectState.fromStage(stage),
         tasksTotal = tasksTotal,
         tasksCompleted = tasksCompleted,
         isBlocked = isBlocked,

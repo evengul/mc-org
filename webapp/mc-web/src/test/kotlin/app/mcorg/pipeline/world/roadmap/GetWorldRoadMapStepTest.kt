@@ -353,5 +353,184 @@ class GetWorldRoadMapStepTest : WithUser() {
             }
         ).process(Unit)
     }
-}
 
+    // -------------------------------------------------------------------------
+    // Derived edges (MCO-288): the roadmap reads resource relationships, not just
+    // the manual project_dependencies table.
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `an item-level solved-by link is a roadmap edge naming the resource`(): Unit = runBlocking {
+        val worldId = createTestWorld("Solved-by World")
+        val consumer = createTestProject(worldId, "Beacon", ProjectType.BUILDING, ProjectStage.PLANNING)
+        val producer = createTestProject(worldId, "Iron Farm", ProjectType.FARMING, ProjectStage.BUILDING)
+        val requirementId = createRequirement(consumer, "minecraft:iron_ingot", "Iron Ingot", 32)
+        solveRequirementBy(requirementId, producer)
+
+        val roadmap = (GetWorldRoadMapStep(worldId).process(Unit) as Result.Success).value
+
+        val edge = roadmap.edges.single()
+        assertEquals(consumer, edge.fromNodeId)
+        assertEquals(producer, edge.toNodeId)
+        assertEquals("Iron Ingot", edge.itemName, "the blocked-by cell needs the resource, not just the project")
+        assertTrue(edge.isBlocking, "the producer is not DONE")
+        assertEquals(1, roadmap.nodes.single { it.projectId == consumer }.layer)
+        assertTrue(roadmap.nodes.single { it.projectId == consumer }.isBlocked)
+
+        deleteTestWorld(worldId)
+    }
+
+    @Test
+    fun `a project that produces what another needs is an edge even with nothing declared`(): Unit = runBlocking {
+        // Nobody set solved_by_project_id and there is no project_dependencies row: the farm
+        // simply produces an item the other project requires (MCO-287).
+        val worldId = createTestWorld("Farm Supply World")
+        val consumer = createTestProject(worldId, "Beacon", ProjectType.BUILDING, ProjectStage.PLANNING)
+        val farm = createTestProject(worldId, "Iron Farm", ProjectType.FARMING, ProjectStage.BUILDING)
+        createRequirement(consumer, "minecraft:iron_ingot", "Iron Ingot", 32)
+        createProduction(farm, "minecraft:iron_ingot", "Iron Ingot")
+
+        val roadmap = (GetWorldRoadMapStep(worldId).process(Unit) as Result.Success).value
+
+        val edge = roadmap.edges.single()
+        assertEquals(farm, edge.toNodeId)
+        assertEquals("Iron Ingot", edge.itemName)
+        assertTrue(edge.isBlocking, "a farm that is not running yet still blocks")
+
+        deleteTestWorld(worldId)
+    }
+
+    @Test
+    fun `an operational farm supplies without blocking`(): Unit = runBlocking {
+        val worldId = createTestWorld("Operational Farm World")
+        val consumer = createTestProject(worldId, "Beacon", ProjectType.BUILDING, ProjectStage.PLANNING)
+        val farm = createTestProject(worldId, "Iron Farm", ProjectType.FARMING, ProjectStage.COMPLETED)
+        createRequirement(consumer, "minecraft:iron_ingot", "Iron Ingot", 32)
+        createProduction(farm, "minecraft:iron_ingot", "Iron Ingot")
+
+        val roadmap = (GetWorldRoadMapStep(worldId).process(Unit) as Result.Success).value
+
+        assertFalse(roadmap.edges.single().isBlocking, "DONE means producing (MCO-287)")
+        assertFalse(roadmap.nodes.single { it.projectId == consumer }.isBlocked)
+
+        deleteTestWorld(worldId)
+    }
+
+    @Test
+    fun `a requirement solved by the same farm produces one edge, not two`(): Unit = runBlocking {
+        val worldId = createTestWorld("Dedupe World")
+        val consumer = createTestProject(worldId, "Beacon", ProjectType.BUILDING, ProjectStage.PLANNING)
+        val farm = createTestProject(worldId, "Iron Farm", ProjectType.FARMING, ProjectStage.BUILDING)
+        val requirementId = createRequirement(consumer, "minecraft:iron_ingot", "Iron Ingot", 32)
+        solveRequirementBy(requirementId, farm)
+        createProduction(farm, "minecraft:iron_ingot", "Iron Ingot")
+
+        val roadmap = (GetWorldRoadMapStep(worldId).process(Unit) as Result.Success).value
+
+        assertEquals(1, roadmap.edges.size, "declared and derived describe the same relationship")
+
+        deleteTestWorld(worldId)
+    }
+
+    @Test
+    fun `an ignored requirement is not demand`(): Unit = runBlocking {
+        val worldId = createTestWorld("Ignored Requirement World")
+        val consumer = createTestProject(worldId, "Beacon", ProjectType.BUILDING, ProjectStage.PLANNING)
+        val farm = createTestProject(worldId, "Iron Farm", ProjectType.FARMING, ProjectStage.BUILDING)
+        val requirementId = createRequirement(consumer, "minecraft:iron_ingot", "Iron Ingot", 32)
+        ignoreRequirement(requirementId)
+        createProduction(farm, "minecraft:iron_ingot", "Iron Ingot")
+
+        val roadmap = (GetWorldRoadMapStep(worldId).process(Unit) as Result.Success).value
+
+        assertTrue(roadmap.edges.isEmpty(), "an ignored row (MCO-247) asks for nothing")
+
+        deleteTestWorld(worldId)
+    }
+
+    @Test
+    fun `the roadmap carries the world's real name`(): Unit = runBlocking {
+        val worldId = createTestWorld("Nether Hub Server")
+
+        val roadmap = (GetWorldRoadMapStep(worldId).process(Unit) as Result.Success).value
+
+        assertEquals("Nether Hub Server", roadmap.worldName)
+
+        deleteTestWorld(worldId)
+    }
+
+    @Test
+    fun `task counts distinguish completed from total`(): Unit = runBlocking {
+        val worldId = createTestWorld("Task Count World")
+        val projectId = createTestProject(worldId, "Beacon", ProjectType.BUILDING, ProjectStage.BUILDING)
+        createTask(projectId, "Dig out area", completed = true)
+        createTask(projectId, "Place hoppers", completed = false)
+        createTask(projectId, "Wire redstone", completed = false)
+
+        val roadmap = (GetWorldRoadMapStep(worldId).process(Unit) as Result.Success).value
+
+        val node = roadmap.nodes.single()
+        assertEquals(3, node.tasksTotal)
+        assertEquals(1, node.tasksCompleted)
+
+        deleteTestWorld(worldId)
+    }
+
+    private fun createRequirement(projectId: Int, itemId: String, name: String, required: Int): Int = runBlocking {
+        val result = DatabaseSteps.update<Unit>(
+            SafeSQL.insert(
+                "INSERT INTO resource_gathering (project_id, item_id, name, required) VALUES (?, ?, ?, ?) RETURNING id"
+            ),
+            parameterSetter = { statement, _ ->
+                statement.setInt(1, projectId)
+                statement.setString(2, itemId)
+                statement.setString(3, name)
+                statement.setInt(4, required)
+            }
+        ).process(Unit)
+        (result as Result.Success).value
+    }
+
+    private fun solveRequirementBy(requirementId: Int, producerId: Int) = runBlocking {
+        DatabaseSteps.update<Unit>(
+            SafeSQL.update("UPDATE resource_gathering SET solved_by_project_id = ? WHERE id = ?"),
+            parameterSetter = { statement, _ ->
+                statement.setInt(1, producerId)
+                statement.setInt(2, requirementId)
+            }
+        ).process(Unit)
+    }
+
+    private fun ignoreRequirement(requirementId: Int) = runBlocking {
+        DatabaseSteps.update<Unit>(
+            SafeSQL.update("UPDATE resource_gathering SET ignored = TRUE WHERE id = ?"),
+            parameterSetter = { statement, _ -> statement.setInt(1, requirementId) }
+        ).process(Unit)
+    }
+
+    private fun createProduction(projectId: Int, itemId: String, name: String) = runBlocking {
+        DatabaseSteps.update<Unit>(
+            SafeSQL.insert(
+                "INSERT INTO project_productions (project_id, item_id, name, rate_per_hour) VALUES (?, ?, ?, 0)"
+            ),
+            parameterSetter = { statement, _ ->
+                statement.setInt(1, projectId)
+                statement.setString(2, itemId)
+                statement.setString(3, name)
+            }
+        ).process(Unit)
+    }
+
+    private fun createTask(projectId: Int, name: String, completed: Boolean) = runBlocking {
+        DatabaseSteps.update<Unit>(
+            SafeSQL.insert(
+                "INSERT INTO action_task (project_id, name, completed) VALUES (?, ?, ?)"
+            ),
+            parameterSetter = { statement, _ ->
+                statement.setInt(1, projectId)
+                statement.setString(2, name)
+                statement.setBoolean(3, completed)
+            }
+        ).process(Unit)
+    }
+}
