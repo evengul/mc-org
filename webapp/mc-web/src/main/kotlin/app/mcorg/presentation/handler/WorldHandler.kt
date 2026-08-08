@@ -6,6 +6,7 @@ import app.mcorg.pipeline.project.viewpreference.handleSetViewPreference
 import app.mcorg.pipeline.project.handleCreateProject
 import app.mcorg.pipeline.project.handleCreateProjectFromSchematic
 import app.mcorg.pipeline.project.handleReviewSchematic
+import app.mcorg.pipeline.project.handleSubstituteInImportReview
 import app.mcorg.pipeline.project.handleDeleteProject
 import app.mcorg.pipeline.project.handleGetProject
 import app.mcorg.pipeline.project.handleGetDetailContent
@@ -148,6 +149,14 @@ class WorldHandler {
                     }
                     post("/from-schematic") {
                         call.handleCreateProjectFromSchematic()
+                    }
+                    // Shared by both import doors (MCO-304) — the idea review screen posts
+                    // here too, since a swap only needs the world's item catalog.
+                    route("/import-review/substitute") {
+                        install(WorldAdminPlugin)
+                        post {
+                            call.handleSubstituteInImportReview()
+                        }
                     }
                     post("/farm") {
                         call.handleRecordExistingFarm()
