@@ -34,11 +34,11 @@ suspend fun ApplicationCall.handleGetSelectWorldForIdeaImportFragment() {
                 id = "import-idea-selector"
                 name = "worldId"
 
-                hxPost(Link.Ideas.single(ideaId) + "/import")
-                hxTarget("#import-idea-selector")
-                hxSwap("outerHTML")
-                hxTrigger("change")
-                hxInclude("#import-idea-selector")
+                // Picking a world used to import immediately. It now opens the review
+                // screen (MCO-306) — a plain navigation, so the page is reloadable and the
+                // import only happens when the user says so there.
+                attributes["onchange"] =
+                    "if (this.value) window.location.assign('${Link.Ideas.single(ideaId)}/import/review?worldId=' + encodeURIComponent(this.value))"
 
                 option {
                     value = ""
