@@ -6,6 +6,7 @@ import app.mcorg.config.CacheManager
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.Result
 import app.mcorg.pipeline.SafeSQL
+import app.mcorg.pipeline.project.ImportWarningKind
 import app.mcorg.pipeline.project.handleImportIdea
 import app.mcorg.pipeline.project.handleReviewIdeaImport
 import app.mcorg.pipeline.world.CreateWorldInput
@@ -50,6 +51,7 @@ class ImportIdeaReviewIT : WithUser() {
 
     private var worldId: Int = 0
     private var ideaId: Int = 0
+    private var airyIdeaId: Int = 0
 
     @BeforeAll
     fun setup() {
@@ -57,10 +59,19 @@ class ImportIdeaReviewIT : WithUser() {
         seedItem("minecraft:iron_ingot", "Iron Ingot")
         seedItem("minecraft:oak_planks", "Oak Planks")
         seedItem("minecraft:redstone", "Redstone Dust")
+        seedItem("minecraft:air", "Air (Block)")
+        seedItem("minecraft:water", "Water")
         ideaId = createIdea("Iron Farm Idea")
         addRequirement(ideaId, "minecraft:iron_ingot", 64)
         addRequirement(ideaId, "minecraft:oak_planks", 32)
         addRequirement(ideaId, "minecraft:redstone", 8)
+
+        // The MCO-305 case, from a real idea: a schematic-derived idea whose largest row was
+        // nine million air blocks — 90% of the build's material total.
+        airyIdeaId = createIdea("Ghast Farm Roof")
+        addRequirement(airyIdeaId, "minecraft:air", 9_389_854)
+        addRequirement(airyIdeaId, "minecraft:water", 12)
+        addRequirement(airyIdeaId, "minecraft:oak_planks", 64)
     }
 
     // ---- review ------------------------------------------------------------------
@@ -102,6 +113,52 @@ class ImportIdeaReviewIT : WithUser() {
         }
 
         assertEquals(HttpStatusCode.Forbidden, response.status)
+    }
+
+    // ---- warn early (MCO-305) ------------------------------------------------------
+
+    @Test
+    fun `air never reaches the review screen`() = testApplication {
+        setupRoutes()
+
+        val response = client.get("/ideas/$airyIdeaId/import/review?worldId=$worldId") { addAuthCookie(this) }
+
+        assertEquals(HttpStatusCode.OK, response.status)
+        val body = response.bodyAsText()
+        assertFalse(body.contains("qty[minecraft:air]"), "air is filtered, not offered as a row")
+        assertFalse(body.contains("9389854"), "and its quantity goes with it")
+        assertContains(body, "qty[minecraft:oak_planks]", message = "the real materials still arrive")
+    }
+
+    @Test
+    fun `a non-material that is not air is flagged rather than removed`() = testApplication {
+        setupRoutes()
+
+        val response = client.get("/ideas/$airyIdeaId/import/review?worldId=$worldId") { addAuthCookie(this) }
+
+        val body = response.bodyAsText()
+        assertContains(body, "qty[minecraft:water]", message = "water stays on the list — striking it is the user's call")
+        assertContains(body, "Not really materials", message = "but the strip says what it is")
+        assertContains(body, ImportWarningKind.NON_MATERIAL.chip, message = "and so does the row")
+    }
+
+    @Test
+    fun `an import that includes air drops it instead of creating a resource row`() = testApplication {
+        setupRoutes()
+        val client = createClient { followRedirects = false }
+
+        // The review screen never renders an air row, so this is a hand-rolled post — the
+        // point being that "air is never a material" holds where the list becomes final too.
+        val response = client.post("/ideas/$airyIdeaId/import") {
+            addAuthCookie(this)
+            contentType(ContentType.Application.FormUrlEncoded)
+            setBody("worldId=$worldId&name=Roof&qty[minecraft:air]=9389854&qty[minecraft:oak_planks]=64")
+        }
+
+        assertEquals(HttpStatusCode.SeeOther, response.status, response.bodyAsText())
+        val projectId = response.headers["Location"]!!.substringAfterLast("/").toInt()
+
+        assertEquals(listOf("minecraft:oak_planks" to 64), readRequirements(projectId))
     }
 
     // ---- create ------------------------------------------------------------------

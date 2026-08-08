@@ -77,6 +77,7 @@ suspend fun ApplicationCall.handleReviewIdeaImport() {
                     projectName = idea.name,
                     requirements = idea.requirements,
                     families = findSubstitutionFamilies(items, idea.requirements.map { it.key.id }),
+                    warnings = computeImportWarnings(worldId, idea.requirements),
                     action = Link.Ideas.single(ideaId) + "/import",
                     hiddenFields = buildMap {
                         put("worldId", worldId.toString())
@@ -172,6 +173,10 @@ internal data class ApplyReviewedRequirementsStep(
         val requirements = mutableMapOf<Item, Int>()
 
         submittedRows.forEach { (itemId, rawAmount) ->
+            // The review screen never offers air, so this only catches a hand-rolled post —
+            // but "air is never a material" is worth enforcing where the list becomes final.
+            if (itemId in NON_MATERIAL_FILL) return@forEach
+
             val item = byId[itemId]
             if (item == null) {
                 errors.add(ValidationFailure.CustomValidation("materials", "Unknown item: $itemId"))
@@ -330,6 +335,10 @@ private data class ValidateItemIdsStep(val availableIds: List<Item>) : Step<Pair
         val errors = mutableListOf<ValidationFailure>()
 
         for ((itemId, amount) in requirements) {
+            // Air is dropped, not reported (MCO-305) — an idea recorded from a schematic can
+            // carry millions of air cells, and nobody has ever wanted them on a gathering list.
+            if (itemId in NON_MATERIAL_FILL) continue
+
             val item = availableIds.find { it.id == itemId }
 
             if (item == null) {

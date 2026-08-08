@@ -2,6 +2,9 @@ package app.mcorg.presentation.templated.dsl.pages
 
 import app.mcorg.domain.model.minecraft.Item
 import app.mcorg.domain.model.user.TokenProfile
+import app.mcorg.pipeline.project.ImportWarning
+import app.mcorg.pipeline.project.ImportWarningKind
+import app.mcorg.pipeline.project.ImportWarnings
 import app.mcorg.pipeline.resources.SubstitutionFamily
 import app.mcorg.presentation.hxInclude
 import app.mcorg.presentation.hxPost
@@ -52,8 +55,11 @@ import kotlinx.html.tr
  *
  * Batch substitution (MCO-304) rewrites the list in place: the swap controls post the
  * current form back and swap [importReviewMaterials] for a rewritten copy, so a swap is
- * just another edit to an unsaved form. The unobtainable/expensive warning strip (MCO-305)
- * lands on this same screen.
+ * just another edit to an unsaved form.
+ *
+ * [warnings] (MCO-305) name the painful rows without standing in their way: a strip above
+ * the list and a chip on the row itself. Advisory only — every warned row arrives checked.
+ * They live *inside* the swappable section, because a swap changes which rows are painful.
  */
 fun importReviewPage(
     user: TokenProfile,
@@ -64,11 +70,13 @@ fun importReviewPage(
     action: String = "/worlds/$worldId/projects/from-schematic",
     hiddenFields: Map<String, String> = emptyMap(),
     families: List<SubstitutionFamily> = emptyList(),
+    warnings: ImportWarnings = ImportWarnings(),
 ): String = pageShell(
     pageTitle = "Seam — review import",
     user = user,
     stylesheets = listOf(
         "/static/styles/components/btn.css",
+        "/static/styles/components/callout.css",
         "/static/styles/components/form.css",
         "/static/styles/pages/import-review.css",
     ),
@@ -119,7 +127,13 @@ fun importReviewPage(
                     }
                 }
 
-                materialsSection(worldId, requirements, excluded = emptySet(), families = families)
+                materialsSection(
+                    worldId,
+                    requirements,
+                    excluded = emptySet(),
+                    families = families,
+                    warnings = warnings,
+                )
 
                 div("import-review__actions") {
                     button(classes = "btn btn--primary") {
@@ -138,8 +152,9 @@ fun importReviewPage(
 
 /**
  * The swappable part of the screen, rendered standalone so a substitution can replace it
- * (MCO-304). Everything a swap can change lives in here — the controls, the row set and the
- * quantities; the project name and the hidden carry-through fields sit outside and survive
+ * (MCO-304). Everything a swap can change lives in here — the controls, the row set, the
+ * quantities and the warnings (MCO-305), since swapping oak for crimson changes which rows
+ * are painful. The project name and the hidden carry-through fields sit outside and survive
  * untouched.
  */
 fun importReviewMaterials(
@@ -147,8 +162,9 @@ fun importReviewMaterials(
     requirements: Map<Item, Int>,
     excluded: Set<String>,
     families: List<SubstitutionFamily>,
+    warnings: ImportWarnings,
 ): String = createHTML().div {
-    materialsSectionBody(worldId, requirements, excluded, families)
+    materialsSectionBody(worldId, requirements, excluded, families, warnings)
 }
 
 private fun FlowContent.materialsSection(
@@ -156,9 +172,10 @@ private fun FlowContent.materialsSection(
     requirements: Map<Item, Int>,
     excluded: Set<String>,
     families: List<SubstitutionFamily>,
+    warnings: ImportWarnings,
 ) {
     div {
-        materialsSectionBody(worldId, requirements, excluded, families)
+        materialsSectionBody(worldId, requirements, excluded, families, warnings)
     }
 }
 
@@ -167,11 +184,13 @@ private fun DIV.materialsSectionBody(
     requirements: Map<Item, Int>,
     excluded: Set<String>,
     families: List<SubstitutionFamily>,
+    warnings: ImportWarnings,
 ) {
     id = MATERIALS_ID
     classes = setOf("import-review__materials")
+    warningStrip(warnings)
     substitutionControls(worldId, families)
-    materialsTable(requirements, excluded)
+    materialsTable(requirements, excluded, warnings)
 }
 
 private const val MATERIALS_ID = "import-review-materials"
@@ -229,7 +248,45 @@ private fun FlowContent.substitutionControls(worldId: Int, families: List<Substi
     }
 }
 
-private fun FlowContent.materialsTable(requirements: Map<Item, Int>, excluded: Set<String>) {
+/**
+ * One low-weight strip, one paragraph per kind of pain (MCO-305). It never blocks the import
+ * and it never unchecks anything — it exists so that striking a row is a decision rather than
+ * a discovery. Long lists are truncated: the per-row chips carry the full detail.
+ */
+private fun FlowContent.warningStrip(warnings: ImportWarnings) {
+    if (warnings.isEmpty) return
+
+    div("callout import-review__warnings") {
+        span("callout__icon") {
+            attributes["aria-hidden"] = "true"
+            +"!"
+        }
+        div("callout__body") {
+            ImportWarningKind.entries.forEach { kind ->
+                val flagged = warnings.of(kind)
+                if (flagged.isEmpty()) return@forEach
+                p("import-review__warning") {
+                    span("import-review__warning-heading") { +"${kind.heading}: " }
+                    +namesOf(flagged)
+                    +". ${kind.explanation}"
+                }
+            }
+        }
+    }
+}
+
+/** Up to four names, then a count — a strip that lists thirty items is a wall, not a warning. */
+private fun namesOf(flagged: List<ImportWarning>): String {
+    val shown = flagged.take(4).joinToString(", ") { "${it.item.name} (${it.amount})" }
+    val rest = flagged.size - 4
+    return if (rest > 0) "$shown and $rest more" else shown
+}
+
+private fun FlowContent.materialsTable(
+    requirements: Map<Item, Int>,
+    excluded: Set<String>,
+    warnings: ImportWarnings,
+) {
     val rows = requirements.entries.sortedWith(
         compareByDescending<Map.Entry<Item, Int>> { it.value }.thenBy { it.key.name }
     )
@@ -278,6 +335,12 @@ private fun FlowContent.materialsTable(requirements: Map<Item, Int>, excluded: S
                             label("import-review__item-name") {
                                 htmlFor = "include-$rowId"
                                 +item.name
+                            }
+                            warnings.forItem(item.id)?.let { warning ->
+                                span("import-review__flag") {
+                                    attributes["title"] = warning.kind.explanation
+                                    +warning.kind.chip
+                                }
                             }
                         }
                         td {

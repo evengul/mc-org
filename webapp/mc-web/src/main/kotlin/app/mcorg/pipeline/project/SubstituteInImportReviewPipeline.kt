@@ -45,6 +45,10 @@ suspend fun ApplicationCall.handleSubstituteInImportReview() {
                         catalog = items,
                         requirements = reviewed.requirements.map { it.key.id },
                     ),
+                    // Recomputed, not carried over: a swap changes which rows are painful.
+                    // Trading oak for crimson can retire an unobtainable row or introduce one,
+                    // and a stale strip would describe the list the user just replaced.
+                    warnings = computeImportWarnings(worldId, reviewed.requirements),
                 )
             )
         }

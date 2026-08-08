@@ -89,6 +89,42 @@
     width: 100%;
 }
 
+/* MCO-305 — the warning strip. Informational, never blocking, so it sits at the weight of a
+   note rather than an error: no fill of its own beyond the callout's, and muted body text. */
+.import-review__warnings {
+    align-items: flex-start;
+}
+
+.import-review__warning {
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    color: var(--text-muted);
+    max-width: 80ch;
+}
+
+.import-review__warning-heading {
+    font-family: var(--font-ui);
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+/* The row-level echo of the strip. Small, uppercase, amber — readable next to the item name
+   without competing with it for the eye. */
+.import-review__flag {
+    display: inline-block;
+    margin-left: var(--space-2);
+    padding: 0 var(--space-2);
+    border: 1px solid var(--amber);
+    border-radius: var(--radius);
+    font-family: var(--font-ui);
+    font-size: var(--text-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--amber);
+    white-space: nowrap;
+    cursor: help;
+}
+
 .import-review__summary {
     display: flex;
     align-items: baseline;
