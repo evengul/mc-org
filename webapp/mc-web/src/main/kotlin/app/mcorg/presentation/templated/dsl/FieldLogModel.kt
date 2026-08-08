@@ -13,6 +13,12 @@ data class FieldLogModel(
     val active: List<ProjectListItem>,
     val pending: List<ProjectListItem>,
     val paused: List<ProjectListItem>,
+    /**
+     * DONE projects that declare produced items (MCO-299). Kept apart from [done]
+     * because they are running infrastructure, not finished work — shelving them with
+     * the completed builds hides the farms the whole supply model depends on.
+     */
+    val producing: List<ProjectListItem>,
     val done: List<ProjectListItem>,
     val cancelled: List<ProjectListItem>,
     val archived: List<ProjectListItem>,
@@ -51,11 +57,16 @@ data class FieldLogModel(
                         .thenBy { it.name }
                 )
 
+            val (producing, inertDone) = (byState[ProjectState.DONE] ?: emptyList())
+                .sortedBy { it.name }
+                .partition { it.isProducing }
+
             return FieldLogModel(
                 active = active,
                 pending = (byState[ProjectState.PENDING] ?: emptyList()).sortedBy { it.name },
                 paused = (byState[ProjectState.PAUSED] ?: emptyList()).sortedBy { it.name },
-                done = (byState[ProjectState.DONE] ?: emptyList()).sortedBy { it.name },
+                producing = producing,
+                done = inertDone,
                 cancelled = (byState[ProjectState.CANCELLED] ?: emptyList()).sortedBy { it.name },
                 archived = (byState[ProjectState.ARCHIVED] ?: emptyList()).sortedBy { it.name },
                 feedsByProject = feeds,

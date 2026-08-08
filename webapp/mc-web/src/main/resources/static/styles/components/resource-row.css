@@ -105,6 +105,17 @@
     flex: 0 0 auto;
 }
 
+/* Linked-project supply names the project and links to it (MCO-299); farm supply is
+   ambient and has nothing to link to. */
+.resource-row__source-link {
+    color: var(--accent);
+    text-decoration: none;
+}
+
+.resource-row__source-link:hover {
+    text-decoration: underline;
+}
+
 /* Reverse-provenance line ("Feeds 24 Birch Door · 40 Chest") hung under a material row. */
 .resource-row__feeds {
     font-family: var(--font-ui);

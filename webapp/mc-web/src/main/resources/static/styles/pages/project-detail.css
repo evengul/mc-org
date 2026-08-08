@@ -578,3 +578,34 @@
 .production-chip__more {
     color: var(--text-muted);
 }
+
+/* ==========================================================================
+   PARTIAL-DEPENDENCY NOTICE (MCO-299)
+   Farms promised but not running yet. Sits under the plan at low visual weight —
+   it does not change today's work, it only frames it as temporary.
+   ========================================================================== */
+
+.plan-pending-farms {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    margin-top: var(--space-4);
+    padding-top: var(--space-3);
+    border-top: 1px dashed var(--border);
+}
+
+.plan-pending-farms__line {
+    margin: 0;
+    font-family: var(--font-body);
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+}
+
+.plan-pending-farms__project {
+    color: var(--accent);
+    text-decoration: none;
+}
+
+.plan-pending-farms__project:hover {
+    text-decoration: underline;
+}

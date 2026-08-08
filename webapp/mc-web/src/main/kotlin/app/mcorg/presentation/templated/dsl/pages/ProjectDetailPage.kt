@@ -11,6 +11,7 @@ import app.mcorg.engine.plan.ActivityGroup
 import app.mcorg.engine.plan.GatheringPlan
 import app.mcorg.engine.plan.PlanNodeStatus
 import app.mcorg.engine.plan.PlanOverrides
+import app.mcorg.engine.plan.SupplySource
 import app.mcorg.presentation.hxDelete
 import app.mcorg.presentation.hxDeleteWithConfirm
 import app.mcorg.presentation.hxGet
@@ -42,6 +43,8 @@ import kotlinx.html.stream.createHTML
 import app.mcorg.engine.plan.TargetTree
 import app.mcorg.pipeline.resources.FeedsLabel
 import app.mcorg.pipeline.resources.buildFeedsLabels
+import app.mcorg.pipeline.resources.PendingFarmItem
+import app.mcorg.pipeline.resources.PendingFarmSupply
 import app.mcorg.pipeline.resources.buildNodeIngredients
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
@@ -57,6 +60,7 @@ fun projectDetailPage(
     plan: GatheringPlan? = null,
     progressMap: Map<String, Int> = emptyMap(),
     productions: List<ProjectProduction> = emptyList(),
+    pendingFarms: List<PendingFarmSupply> = emptyList(),
     drillTarget: TargetTree? = null,
     drillCandidateCounts: Map<String, Int> = emptyMap(),
     drillNodeIngredients: Map<String, String> = emptyMap(),
@@ -131,7 +135,7 @@ fun projectDetailPage(
                     // ?drill=<item> deep-links straight into a target's chain (reload/share-safe).
                     drillChainContent(project, drillTarget, drillCandidateCounts, drillNodeIngredients, overrides = drillOverrides, graph = drillGraph, highlightItemId = drillHighlightItemId)
                 } else {
-                    gatheringPlannerContent(project, resources, tasks, plan, lens, progressMap)
+                    gatheringPlannerContent(project, resources, tasks, plan, lens, progressMap, pendingFarms)
                 }
             }
         }
@@ -233,6 +237,7 @@ fun FlowContent.gatheringPlannerContent(
     plan: GatheringPlan?,
     lens: String = "list",
     progressMap: Map<String, Int> = emptyMap(),
+    pendingFarms: List<PendingFarmSupply> = emptyList(),
 ) {
     val activeLens = when (lens) {
         "next", "sessions" -> lens
@@ -261,7 +266,7 @@ fun FlowContent.gatheringPlannerContent(
     // Active lens body
     when (activeLens) {
         "next", "sessions" -> lensComingSoon(project.worldId, project.id, activeLens)
-        else -> listLensContent(project, resources, tasks, plan, progressMap)
+        else -> listLensContent(project, resources, tasks, plan, progressMap, pendingFarms)
     }
 }
 
@@ -290,6 +295,7 @@ private fun FlowContent.listLensContent(
     tasks: List<ActionTask>,
     plan: GatheringPlan?,
     progressMap: Map<String, Int> = emptyMap(),
+    pendingFarms: List<PendingFarmSupply> = emptyList(),
 ) {
     // Resolution toggle (client-side; default "targets" applied by plan-view.js).
     listResolutionToggle()
@@ -393,7 +399,7 @@ private fun FlowContent.listLensContent(
         id = "list-breakdown-view"
         attributes["data-resolution-view"] = "breakdown"
 
-        gatheringPlanSections(project, plan, progressMap)
+        gatheringPlanSections(project, plan, progressMap, pendingFarms)
     }
 
     // Tasks section (collapsed)
@@ -467,6 +473,7 @@ fun FlowContent.gatheringPlanSections(
     project: Project,
     plan: GatheringPlan?,
     progressMap: Map<String, Int> = emptyMap(),
+    pendingFarms: List<PendingFarmSupply> = emptyList(),
 ) {
     if (plan == null) {
         // Empty state — no resources yet or all collected
@@ -507,6 +514,48 @@ fun FlowContent.gatheringPlanSections(
                 }
             }
         }
+
+        pendingFarmNotice(project.worldId, pendingFarms)
+    }
+}
+
+/**
+ * The partial-dependency notice (MCO-299): items this plan still gathers by hand that a
+ * farm project in the world has promised but is not producing yet.
+ *
+ * Bottom of the plan, deliberately low visual weight — it changes nothing about what to do
+ * today, it only says the manual work is a stopgap. It appears solely for farms that are
+ * *not* operational; once one is Done, its items move into "Collect from farms" and the
+ * line for them disappears on its own.
+ */
+private fun FlowContent.pendingFarmNotice(worldId: Int, pendingFarms: List<PendingFarmSupply>) {
+    if (pendingFarms.isEmpty()) return
+
+    div("plan-pending-farms") {
+        id = "plan-pending-farms"
+        pendingFarms.forEach { farm ->
+            p("plan-pending-farms__line") {
+                +itemsPhrase(farm.items)
+                +" will come from "
+                a(classes = "plan-pending-farms__project") {
+                    href = "/worlds/$worldId/projects/${farm.projectId}"
+                    +farm.projectName
+                }
+                +" once it is running — gather "
+                +(if (farm.items.size == 1) "it" else "them")
+                +" manually meanwhile."
+            }
+        }
+    }
+}
+
+/** "32 Iron Ingot", "32 Iron Ingot and 12 Gold Ingot", "32 Iron Ingot, 12 Gold Ingot and 4 Diamond". */
+private fun itemsPhrase(items: List<PendingFarmItem>): String {
+    val parts = items.map { "${it.quantity} ${it.itemName}" }
+    return when (parts.size) {
+        1 -> parts.first()
+        2 -> "${parts[0]} and ${parts[1]}"
+        else -> parts.dropLast(1).joinToString(", ") + " and " + parts.last()
     }
 }
 
@@ -550,21 +599,43 @@ internal fun FlowContent.feedsLine(label: FeedsLabel?) {
     }
 }
 
-/** SUPPLIED row: badge + supply label, no counter. */
+/**
+ * SUPPLIED row: badge + supply label, no counter.
+ *
+ * Farm supply and linked-project supply share the group but are not the same promise
+ * (MCO-299): a farm keeps producing, a linked project hands over once. The badge says
+ * which, and a linked project's name is a link to it — the farm's name is not, because
+ * the supply is ambient (any operational producer of the item, resolved at plan time).
+ */
 private fun FlowContent.suppliedActivityRow(
     worldId: Int,
     projectId: Int,
     activity: Activity,
     feedsLabel: FeedsLabel? = null,
 ) {
-    val supplyLabel = activity.supply?.label ?: "Supplied"
+    val supply = activity.supply
     val encodedItemId = URLEncoder.encode(activity.item.id, StandardCharsets.UTF_8)
     div("resource-row") {
         id = "plan-activity-${activity.item.id.replace(":", "-")}"
         div("resource-row__desktop") {
             div("resource-row__name") { +activity.item.name }
-            span("badge badge--accent") { +"Supplied" }
-            span("resource-row__source") { +"from $supplyLabel" }
+            when (supply) {
+                is SupplySource.Farm -> {
+                    span("badge badge--accent") { +"Farm" }
+                    span("resource-row__source") { +"from ${supply.label}" }
+                }
+                is SupplySource.LinkedProject -> {
+                    span("badge badge--accent") { +"Project" }
+                    span("resource-row__source") {
+                        +"from "
+                        a(classes = "resource-row__source-link") {
+                            href = "/worlds/$worldId/projects/${supply.projectId}"
+                            +supply.label
+                        }
+                    }
+                }
+                null -> span("badge badge--accent") { +"Supplied" }
+            }
             drillButton(worldId, projectId, encodedItemId)
         }
         feedsLine(feedsLabel)
@@ -1018,9 +1089,10 @@ fun gatheringPlannerFragment(
     plan: GatheringPlan?,
     lens: String = "list",
     progressMap: Map<String, Int> = emptyMap(),
+    pendingFarms: List<PendingFarmSupply> = emptyList(),
 ): String = createHTML().div {
     id = "project-content"
-    gatheringPlannerContent(project, resources, tasks, plan, lens, progressMap)
+    gatheringPlannerContent(project, resources, tasks, plan, lens, progressMap, pendingFarms)
 }
 
 /** OOB fragment to update #project-progress after task create/complete. */

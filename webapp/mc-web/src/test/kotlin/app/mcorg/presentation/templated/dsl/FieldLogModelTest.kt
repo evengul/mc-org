@@ -17,6 +17,7 @@ class FieldLogModelTest {
         state: ProjectState = ProjectState.ACTIVE,
         gathered: Int = 0,
         required: Int = 100,
+        producesCount: Int = 0,
     ) = ProjectListItem(
         id = id,
         name = name,
@@ -28,6 +29,7 @@ class FieldLogModelTest {
         resourcesGathered = gathered,
         itemCount = 1,
         nextTaskName = null,
+        producesCount = producesCount,
     )
 
     private fun edge(
@@ -165,5 +167,30 @@ class FieldLogModelTest {
         assertEquals(listOf(4), model.paused.map { it.id })
         assertEquals(listOf(5), model.pending.map { it.id })
         assertTrue(model.active.isEmpty())
+    }
+
+    // --- Producing farms (MCO-299) ---------------------------------------------
+
+    @Test
+    fun `a DONE project with productions is producing, not shelved`() {
+        val farm = project(1, "Iron Farm", state = ProjectState.DONE, producesCount = 2)
+        val build = project(2, "Beacon", state = ProjectState.DONE)
+
+        val model = FieldLogModel.of(listOf(farm, build), emptyList())
+
+        assertEquals(listOf("Iron Farm"), model.producing.map { it.name })
+        assertEquals(listOf("Beacon"), model.done.map { it.name })
+    }
+
+    @Test
+    fun `productions on a project that is not DONE do not make it producing`() {
+        // The farm is built but not finished — it produces nothing yet, and the plan's
+        // partial-dependency notice, not this section, is what mentions it.
+        val plannedFarm = project(1, "Gold Farm", state = ProjectState.ACTIVE, producesCount = 1)
+
+        val model = FieldLogModel.of(listOf(plannedFarm), emptyList())
+
+        assertTrue(model.producing.isEmpty())
+        assertEquals(listOf("Gold Farm"), model.active.map { it.name })
     }
 }

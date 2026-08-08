@@ -5,6 +5,7 @@ import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.project.commonsteps.GetProjectByIdStep
 import app.mcorg.pipeline.resources.GatheringPlanInput
 import app.mcorg.pipeline.resources.GenerateGatheringPlanStep
+import app.mcorg.pipeline.resources.pendingFarmSuppliesFor
 import app.mcorg.pipeline.resources.commonsteps.GetAllResourceGatheringItemsStep
 import app.mcorg.pipeline.resources.commonsteps.GetProgressForProjectStep
 import app.mcorg.pipeline.task.SearchTasksInput
@@ -62,5 +63,7 @@ suspend fun ApplicationCall.handleGetDetailContent() {
     // Load persisted progress for all items in the project (covers derived activities too)
     val progressMap = GetProgressForProjectStep.process(projectId).getOrNull() ?: emptyMap()
 
-    respondHtml(gatheringPlannerFragment(project, resources, tasks, plan, lens, progressMap))
+    val pendingFarms = pendingFarmSuppliesFor(worldId, projectId, plan)
+
+    respondHtml(gatheringPlannerFragment(project, resources, tasks, plan, lens, progressMap, pendingFarms))
 }

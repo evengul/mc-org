@@ -55,6 +55,19 @@ fun FlowContent.fieldLogSections(
         fieldLogChipSection("fl-paused-section", "Paused · ${model.paused.size}", worldId, model.paused, dimmed = true)
     }
 
+    // Producing farms sit above the shelf, not in it (MCO-299): they are DONE, but DONE for
+    // a farm means "running", and every other project's plan depends on them being visible.
+    if (model.producing.isNotEmpty()) {
+        fieldLogChipSection(
+            id = "fl-producing-section",
+            label = "Producing · ${model.producing.size}",
+            worldId = worldId,
+            projects = model.producing,
+            dimmed = false,
+            glyph = "⚙",
+        )
+    }
+
     if (model.done.isNotEmpty() || model.cancelled.isNotEmpty() || model.archived.isNotEmpty()) {
         fieldLogDoneShelf(worldId, model.done, model.cancelled, model.archived)
     }
@@ -155,6 +168,7 @@ private fun FlowContent.fieldLogChipSection(
     worldId: Int,
     projects: List<ProjectListItem>,
     dimmed: Boolean,
+    glyph: String? = null,
 ) {
     div("fl-section") {
         attributes["id"] = id
@@ -163,6 +177,7 @@ private fun FlowContent.fieldLogChipSection(
             projects.forEach { project ->
                 a(classes = if (dimmed) "fl-chip fl-chip--dimmed" else "fl-chip") {
                     href = "/worlds/$worldId/projects/${project.id}"
+                    if (glyph != null) span("fl-chip__glyph") { +glyph }
                     span("fl-chip__name") { +project.name }
                     projectStateBadge(project.id, project.state)
                 }
