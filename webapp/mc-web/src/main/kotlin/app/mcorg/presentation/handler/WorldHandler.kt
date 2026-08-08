@@ -8,6 +8,7 @@ import app.mcorg.pipeline.project.handleCreateProjectFromSchematic
 import app.mcorg.pipeline.project.handleDeleteProject
 import app.mcorg.pipeline.project.handleGetProject
 import app.mcorg.pipeline.project.handleGetDetailContent
+import app.mcorg.pipeline.world.roadmap.handleGetWorldRoadmap
 import app.mcorg.pipeline.project.handleRecordExistingFarm
 import app.mcorg.pipeline.project.resources.handleAddResourcesFromSchematic
 import app.mcorg.pipeline.project.resources.handleDeleteProjectProduction
@@ -124,6 +125,9 @@ class WorldHandler {
                 get {
                     val worldId = call.parameters["worldId"]!!.toInt()
                     call.respondRedirect("/worlds/$worldId/projects", permanent = true)
+                }
+                get("/roadmap") {
+                    call.handleGetWorldRoadmap()
                 }
                 route("/projects") {
                     get {

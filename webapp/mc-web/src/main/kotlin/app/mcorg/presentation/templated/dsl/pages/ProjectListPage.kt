@@ -641,6 +641,12 @@ fun planProjectCardFragment(worldId: Int, project: ProjectPlanListItem): String 
 fun kotlinx.html.FlowContent.projectsToolbar(worldId: Int, view: String = "execute") {
     div("projects-toolbar") {
         newProjectMenu(worldId)
+        // Understated link, not a nav item (MCO-288): the roadmap is progressive disclosure —
+        // it means nothing until projects depend on each other.
+        a(classes = "projects-toolbar__roadmap-link") {
+            href = "/worlds/$worldId/roadmap"
+            +"View roadmap →"
+        }
         planExecuteToggle(worldId, view)
     }
 }
