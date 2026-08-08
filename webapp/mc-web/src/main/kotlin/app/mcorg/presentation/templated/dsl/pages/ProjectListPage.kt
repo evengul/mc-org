@@ -295,13 +295,15 @@ private fun kotlinx.html.FlowContent.schematicProjectModal(worldId: Int) {
             div("modal") {
                 div("modal__heading") { +"From a schematic" }
                 div("modal__body") {
+                    // A plain multipart POST, not an HTMX swap: the upload now leads to the
+                    // review page (MCO-303), which is a page of its own rather than a
+                    // fragment — the browser navigating there is the whole mechanism.
                     form {
-                        hxPost("/worlds/$worldId/projects/from-schematic")
-                        hxTargetError(".form-error")
-                        hxIndicator("#schematic-project-progress")
-                        attributes["hx-encoding"] = "multipart/form-data"
-                        attributes["hx-on::after-request"] =
-                            "if(event.detail.successful) { this.reset(); this.closest('dialog')?.close() }"
+                        method = kotlinx.html.FormMethod.post
+                        action = "/worlds/$worldId/projects/from-schematic/review"
+                        encType = kotlinx.html.FormEncType.multipartFormData
+                        attributes["onsubmit"] =
+                            "document.getElementById('schematic-project-progress')?.classList.add('is-uploading')"
 
                         label {
                             htmlFor = "schematic-project-file"
@@ -334,9 +336,9 @@ private fun kotlinx.html.FlowContent.schematicProjectModal(worldId: Int) {
                             id = "validation-error-name-schematic"
                         }
 
-                        // Upload/parse feedback: hidden until the request is in flight
-                        // (see .htmx-indicator in modal.css) — large schematics can take a
-                        // while to parse and there's otherwise no visible sign of progress.
+                        // Upload/parse feedback: revealed by the form's onsubmit (.is-uploading
+                        // in modal.css) — large schematics take a while to parse and the page
+                        // does not navigate until they have.
                         div("modal__progress htmx-indicator") {
                             id = "schematic-project-progress"
                             div("modal__progress-spinner") {}

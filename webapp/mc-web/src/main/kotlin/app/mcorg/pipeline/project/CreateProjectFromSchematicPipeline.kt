@@ -18,11 +18,18 @@ import app.mcorg.presentation.templated.dsl.Link
 import app.mcorg.presentation.utils.clientRedirect
 import app.mcorg.presentation.utils.getUser
 import app.mcorg.presentation.utils.getWorldId
+import app.mcorg.presentation.utils.getWorldName
+import app.mcorg.presentation.templated.dsl.pages.importReviewPage
+import app.mcorg.presentation.utils.respondHtml
+import io.ktor.http.HttpStatusCode
+import io.ktor.http.Parameters
 import io.ktor.http.content.MultiPartData
 import io.ktor.http.content.PartData
 import io.ktor.http.content.forEachPart
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.request.receiveMultipart
+import io.ktor.server.request.receiveParameters
+import io.ktor.server.response.respond
 import io.ktor.utils.io.readRemaining
 import kotlinx.io.readByteArray
 
@@ -43,7 +50,16 @@ data class SchematicProject(
     val requirements: Map<Item, Int>,
 )
 
-suspend fun ApplicationCall.handleCreateProjectFromSchematic() {
+/**
+ * Step one of the import (MCO-303): parse the upload and show what it would create,
+ * *before* creating it. Nothing is written here.
+ *
+ * The parsed list is not stored anywhere — the review page round-trips it as form fields
+ * and [handleCreateProjectFromSchematic] builds the project from what comes back. That
+ * keeps the flow free of draft rows to garbage-collect, at the cost of the list living
+ * only in that one page (a reload re-posts the file, which is the honest behaviour).
+ */
+suspend fun ApplicationCall.handleReviewSchematic() {
     val user = this.getUser()
     val worldId = this.getWorldId()
     val multipart = receiveMultipart()
@@ -51,17 +67,111 @@ suspend fun ApplicationCall.handleCreateProjectFromSchematic() {
     val items = GetItemsInWorldVersionStep.process(worldId).getOrNull() ?: emptyList()
 
     handlePipeline(
-        onSuccess = { projectId ->
-            clientRedirect(Link.Worlds.world(worldId).project(projectId).to)
+        onSuccess = { project: SchematicProject ->
+            respondHtml(
+                importReviewPage(
+                    user = user,
+                    worldId = worldId,
+                    worldName = getWorldName(worldId),
+                    projectName = project.name,
+                    requirements = project.requirements,
+                )
+            )
         }
     ) {
         val upload = ReceiveSchematicStep.run(multipart)
         ValidateWorldMemberRole<SchematicUpload>(user, Role.ADMIN, worldId).run(upload)
         val litematica = ParseSchematicStep.run(upload)
-        val project = MapSchematicToProjectStep(items, upload).run(litematica)
+        MapSchematicToProjectStep(items, upload).run(litematica)
+    }
+}
+
+/**
+ * Step two: create the project from the **reviewed** list.
+ *
+ * Takes the review page's fields rather than the file — excluded rows never arrive (an
+ * unchecked checkbox is not submitted), so exclusion needs no server-side concept beyond
+ * "build what you were sent".
+ */
+suspend fun ApplicationCall.handleCreateProjectFromSchematic() {
+    val user = this.getUser()
+    val worldId = this.getWorldId()
+    val parameters = receiveParameters()
+
+    val items = GetItemsInWorldVersionStep.process(worldId).getOrNull() ?: emptyList()
+
+    handlePipeline(
+        onSuccess = { projectId ->
+            val target = Link.Worlds.world(worldId).project(projectId).to
+            // The review page submits as a plain form (it is a page, not a fragment), so a
+            // browser here needs a real redirect — an HX-Redirect header would be ignored
+            // and leave a blank page.
+            if (request.headers["HX-Request"] == "true") {
+                clientRedirect(target)
+            } else {
+                response.headers.append("Location", target)
+                respond(HttpStatusCode.SeeOther, "")
+            }
+        }
+    ) {
+        val project = ValidateReviewedMaterialsStep(items).run(parameters)
+        ValidateWorldMemberRole<SchematicProject>(user, Role.ADMIN, worldId).run(project)
         val projectId = CreateProjectFromSchematicStep(worldId).run(project)
         CacheManager.onProjectCreated(worldId, projectId)
         projectId
+    }
+}
+
+/**
+ * Reads the review page's submission back into a [SchematicProject].
+ *
+ * Rows arrive as `qty[<itemId>]=<amount>`; excluded rows are simply absent. Every id is
+ * re-checked against the world's catalog — the review page is a form like any other, and
+ * what it sends is not trusted just because the server rendered it a moment ago.
+ */
+internal data class ValidateReviewedMaterialsStep(val availableItems: List<Item>) :
+    Step<Parameters, AppFailure, SchematicProject> {
+
+    private val quantityParameter = Regex("""^qty\[(.+)]$""")
+
+    override suspend fun process(input: Parameters): Result<AppFailure, SchematicProject> {
+        val name = input["name"]?.trim()?.takeIf { it.isNotBlank() }
+            ?: return Result.failure(
+                AppFailure.customValidationError("name", "Give the project a name")
+            )
+
+        val byId = availableItems.associateBy { it.id }
+        val errors = mutableListOf<ValidationFailure>()
+        val requirements = mutableMapOf<Item, Int>()
+
+        input.entries().forEach { entry ->
+            val itemId = quantityParameter.find(entry.key)?.groupValues?.get(1) ?: return@forEach
+            val item = byId[itemId]
+            if (item == null) {
+                errors.add(ValidationFailure.CustomValidation("materials", "Unknown item: $itemId"))
+                return@forEach
+            }
+            val amount = entry.value.firstOrNull()?.toIntOrNull()
+            if (amount == null || amount <= 0) {
+                errors.add(
+                    ValidationFailure.CustomValidation("materials", "${item.name} needs a positive amount")
+                )
+                return@forEach
+            }
+            requirements[item] = amount
+        }
+
+        if (errors.isNotEmpty()) return Result.failure(AppFailure.ValidationError(errors))
+
+        // Excluding every row leaves nothing to build — almost certainly a misclick, and a
+        // project with no materials is indistinguishable from a blank one.
+        if (requirements.isEmpty()) {
+            return Result.failure(
+                AppFailure.customValidationError("materials", "Keep at least one material to import")
+            )
+        }
+
+        return Result.success(SchematicProject(name.take(100), requirements))
     }
 }
 

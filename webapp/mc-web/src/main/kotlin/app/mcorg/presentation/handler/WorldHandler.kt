@@ -5,6 +5,7 @@ import app.mcorg.pipeline.minecraftfiles.GetSupportedVersionsStep
 import app.mcorg.pipeline.project.viewpreference.handleSetViewPreference
 import app.mcorg.pipeline.project.handleCreateProject
 import app.mcorg.pipeline.project.handleCreateProjectFromSchematic
+import app.mcorg.pipeline.project.handleReviewSchematic
 import app.mcorg.pipeline.project.handleDeleteProject
 import app.mcorg.pipeline.project.handleGetProject
 import app.mcorg.pipeline.project.handleGetDetailContent
@@ -141,6 +142,9 @@ class WorldHandler {
                     }
                     post {
                         call.handleCreateProject()
+                    }
+                    post("/from-schematic/review") {
+                        call.handleReviewSchematic()
                     }
                     post("/from-schematic") {
                         call.handleCreateProjectFromSchematic()
