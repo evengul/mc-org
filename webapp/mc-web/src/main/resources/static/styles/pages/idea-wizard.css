@@ -195,6 +195,35 @@
     margin-top: var(--space-4);
 }
 
+.wizard-field-placeholder {
+    text-align: center;
+}
+
+/* --- Free-form key/value fields (specs, production rate) --- */
+
+.map-field-container {
+    margin-top: var(--space-2);
+}
+
+.map-field-row {
+    align-items: flex-end;
+}
+
+.map-field-cell {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 0;
+    min-width: 0;
+}
+
+.map-field-row .btn--icon-only {
+    flex: 0 0 auto;
+}
+
+.map-field-actions {
+    margin-top: var(--space-2);
+}
+
 /* --- Review stage --- */
 
 .review-row {

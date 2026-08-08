@@ -357,7 +357,31 @@ private fun extractCategoryValue(field: CategoryField, params: Parameters, param
         }
         if (subMap.isNotEmpty()) CategoryValue.MapValue(subMap) else null
     }
-    is CategoryField.TypedMapField -> null
+    /**
+     * Rows arrive as parallel `key[]` / `value[]` arrays, matching the names
+     * [CategoryField.getCompleteKey] renders. A row is kept only when both sides are filled —
+     * the form always carries one blank row, and half a row is not an entry.
+     *
+     * Nested typed maps (a map whose value is itself a map) submit no `value[]` at this level,
+     * so they fall out as empty. No schema uses one today; reintroducing one means recursing here.
+     */
+    is CategoryField.TypedMapField -> {
+        val keys = params.getAll("$paramPrefix.key[]").orEmpty()
+        val values = params.getAll("$paramPrefix.value[]").orEmpty()
+        val entries = mutableMapOf<String, CategoryValue>()
+        keys.forEachIndexed { index, key ->
+            val raw = values.getOrNull(index)
+            if (key.isNotBlank() && !raw.isNullOrBlank()) {
+                val value = when (field.valueType) {
+                    is CategoryField.Number, is CategoryField.Rate, is CategoryField.Percentage ->
+                        raw.toIntOrNull()?.let { CategoryValue.IntValue(it) }
+                    else -> CategoryValue.TextValue(raw)
+                }
+                value?.let { entries[key] = it }
+            }
+        }
+        if (entries.isNotEmpty()) CategoryValue.MapValue(entries) else null
+    }
 }
 
 private fun mergeStageIntoDraft(draft: app.mcorg.domain.model.idea.IdeaDraft, stageJson: String): app.mcorg.domain.model.idea.IdeaDraft {

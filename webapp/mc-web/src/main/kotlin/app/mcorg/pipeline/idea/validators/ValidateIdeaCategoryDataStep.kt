@@ -206,7 +206,9 @@ data class ValidateIdeaCategoryDataStep(private val category: IdeaCategory): Ste
                 is Result.Success -> {
                     when (valueResult) {
                         is Result.Success -> {
-                            if (keyResult.value !is CategoryValue.IgnoredValue) {
+                            // A key with no value is not an entry — and IgnoredValue has no
+                            // serial form, so storing it would blow up on write.
+                            if (keyResult.value !is CategoryValue.IgnoredValue && valueResult.value !is CategoryValue.IgnoredValue) {
                                 map[keys[i]] = valueResult.value
                             }
                         }

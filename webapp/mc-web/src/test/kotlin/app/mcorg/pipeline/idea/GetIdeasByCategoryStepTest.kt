@@ -146,6 +146,11 @@ class GetIdeasByCategoryStepTest : WithUser() {
         assertEquals("AFK Iron Farm", result.value.items.first().name)
     }
 
+    /**
+     * The slim schema has no filterable numeric field yet — a numeric spec gets promoted to one
+     * once real submissions justify it. This covers the SQL builder's range branch in the
+     * meantime, using a schema key that holds a scalar here.
+     */
     @Test
     fun `should filter by number range in category field`() = runBlocking {
         // Given: Farm ideas with different production rates
@@ -180,85 +185,85 @@ class GetIdeasByCategoryStepTest : WithUser() {
 
     @Test
     fun `should filter by select field`() = runBlocking {
-        // Given: Farm ideas with different player requirements
+        // Given: Storage ideas of different types
         createTestIdea(
-            name = "Auto Farm",
-            category = IdeaCategory.FARM,
-            categoryData = """{"playersRequired": {"type": "app.mcorg.domain.model.idea.schema.CategoryValue.TextValue", "value": "0"}}"""
+            name = "Chest Hall",
+            category = IdeaCategory.STORAGE,
+            categoryData = """{"storageType": {"type": "app.mcorg.domain.model.idea.schema.CategoryValue.TextValue", "value": "chest_hall"}}"""
         )
         createTestIdea(
-            name = "Solo Farm",
-            category = IdeaCategory.FARM,
-            categoryData =  """{"playersRequired": {"type": "app.mcorg.domain.model.idea.schema.CategoryValue.TextValue", "value": "1"}}"""
+            name = "Box Loader",
+            category = IdeaCategory.STORAGE,
+            categoryData =  """{"storageType": {"type": "app.mcorg.domain.model.idea.schema.CategoryValue.TextValue", "value": "box_loader"}}"""
         )
         createTestIdea(
-            name = "Co-op Farm",
-            category = IdeaCategory.FARM,
-            categoryData = """{"playersRequired": {"type": "app.mcorg.domain.model.idea.schema.CategoryValue.TextValue", "value": "2"}}"""
+            name = "Bulk Storage",
+            category = IdeaCategory.STORAGE,
+            categoryData = """{"storageType": {"type": "app.mcorg.domain.model.idea.schema.CategoryValue.TextValue", "value": "bulk_storage"}}"""
         )
 
-        // When: Filtering for single player farms
+        // When: Filtering for chest halls
         val filters = IdeaSearchFilters(
-            category = IdeaCategory.FARM,
-            categoryFilters = mapOf("playersRequired" to FilterValue.SelectValue("1"))
+            category = IdeaCategory.STORAGE,
+            categoryFilters = mapOf("storageType" to FilterValue.SelectValue("chest_hall"))
         )
         val result = SearchIdeasStep.process(filters)
 
-        // Then: Only solo farm returned
+        // Then: Only the chest hall returned
         assertTrue(result is Result.Success)
         assertEquals(1, result.value.items.size)
-        assertEquals("Solo Farm", result.value.items.first().name)
+        assertEquals("Chest Hall", result.value.items.first().name)
     }
 
     @Test
     fun `should filter by multi-select field`() = runBlocking {
-        // Given: Farm ideas with different biome compatibility
+        // Given: Builds using different materials
         createTestIdea(
-            name = "Plains Farm",
-            category = IdeaCategory.FARM,
-            categoryData = """{"biomes": {"type": "app.mcorg.domain.model.idea.schema.CategoryValue.MultiSelectValue", "values": ["Plains", "Forest"]}}"""
+            name = "Stone Keep",
+            category = IdeaCategory.BUILD,
+            categoryData = """{"materials": {"type": "app.mcorg.domain.model.idea.schema.CategoryValue.MultiSelectValue", "values": ["Stone", "Wood"]}}"""
         )
         createTestIdea(
-            name = "Desert Farm",
-            category = IdeaCategory.FARM,
-            categoryData = """{"biomes": {"type": "app.mcorg.domain.model.idea.schema.CategoryValue.MultiSelectValue", "values": ["Desert", "Savanna"]}}"""
+            name = "Glass Tower",
+            category = IdeaCategory.BUILD,
+            categoryData = """{"materials": {"type": "app.mcorg.domain.model.idea.schema.CategoryValue.MultiSelectValue", "values": ["Glass", "Metal"]}}"""
         )
         createTestIdea(
-            name = "Universal Farm",
-            category = IdeaCategory.FARM,
-            categoryData = """{"biomes": {"type": "app.mcorg.domain.model.idea.schema.CategoryValue.MultiSelectValue", "values": ["Plains", "Desert", "Forest", "Savanna", "Jungle"]}}"""
+            name = "Mixed Villa",
+            category = IdeaCategory.BUILD,
+            categoryData = """{"materials": {"type": "app.mcorg.domain.model.idea.schema.CategoryValue.MultiSelectValue", "values": ["Stone", "Glass", "Wood", "Metal", "Concrete"]}}"""
         )
 
-        // When: Filtering for farms that work in Plains or Desert
+        // When: Filtering for builds using stone or glass
         val filters = IdeaSearchFilters(
-            category = IdeaCategory.FARM,
-            categoryFilters = mapOf("biomes" to FilterValue.MultiSelectValue(listOf("Plains", "Desert")))
+            category = IdeaCategory.BUILD,
+            categoryFilters = mapOf("materials" to FilterValue.MultiSelectValue(listOf("Stone", "Glass")))
         )
         val result = SearchIdeasStep.process(filters)
 
-        // Then: All three farms returned (each contains at least one matching biome)
+        // Then: All three builds returned (each contains at least one matching material)
         assertTrue(result is Result.Success)
         assertEquals(3, result.value.items.size)
     }
 
     @Test
     fun `should filter by text field with case-insensitive search`() = runBlocking {
-        // Given: Storage ideas with different types
+        // Given: Storage ideas of different types
         createTestIdea(
             name = "Item Sorter A",
             category = IdeaCategory.STORAGE,
-            categoryData = """{"type": {"type": "app.mcorg.domain.model.idea.schema.CategoryValue.TextValue", "value": "sorter"}}"""
+            categoryData = """{"storageType": {"type": "app.mcorg.domain.model.idea.schema.CategoryValue.TextValue", "value": "fixed_item_sorter"}}"""
         )
         createTestIdea(
             name = "Box Loader",
             category = IdeaCategory.STORAGE,
-            categoryData = """{"type": {"type": "app.mcorg.domain.model.idea.schema.CategoryValue.TextValue", "value": "loader"}}"""
+            categoryData = """{"storageType": {"type": "app.mcorg.domain.model.idea.schema.CategoryValue.TextValue", "value": "box_loader"}}"""
         )
 
-        // When: Searching for "SORTER" (case-insensitive)
+        // When: Searching for "SORTER" (case-insensitive substring)
         val filters = IdeaSearchFilters(
             category = IdeaCategory.STORAGE,
-            categoryFilters = mapOf("type" to FilterValue.TextValue("sorter"))
+            categoryFilters = mapOf("storageType" to FilterValue.TextValue("SORTER"))
         )
         val result = SearchIdeasStep.process(filters)
 

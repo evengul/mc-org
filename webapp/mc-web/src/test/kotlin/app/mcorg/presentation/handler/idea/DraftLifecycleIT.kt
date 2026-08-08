@@ -38,6 +38,9 @@ import io.ktor.server.routing.post
 import io.ktor.server.routing.route
 import io.ktor.server.testing.testApplication
 import kotlinx.coroutines.runBlocking
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
@@ -286,6 +289,50 @@ class DraftLifecycleIT : WithUser() {
         assertContains(body, "wizard-stage")
         // Should show AUTHOR_INFO stage content
         assertContains(body, "Author")
+    }
+
+    /**
+     * The specs block is the whole point of the slim schema (MCO-204), and it is a typed map —
+     * which the stage extractor used to drop on the floor, so nothing a user typed there ever
+     * reached the draft (and therefore never reached the published idea).
+     */
+    @Test
+    fun `POST drafts-draftId-stage persists typed map fields`() = testApplication {
+        val ideaCreator = createExtraUser("idea_creator")
+        val draftId = runBlocking { (CreateDraftStep(ideaCreator.id).process(Unit) as Result.Success).value }
+
+        routing {
+            install(AuthPlugin)
+            route("/ideas/drafts/{draftId}") {
+                install(IdeaCreatorPlugin)
+                post("/stage") { call.handleUpdateDraftStage() }
+            }
+        }
+
+        val response = client.submitForm(
+            url = "/ideas/drafts/$draftId/stage",
+            formParameters = Parameters.build {
+                append("currentStage", "CATEGORY_FIELDS")
+                append("category", "TNT")
+                append("categoryData.specs.key[]", "TNT per piston")
+                append("categoryData.specs.value[]", "10")
+                append("categoryData.specs.key[]", "Remaining fuse")
+                append("categoryData.specs.value[]", "21gt")
+                // The form always carries a trailing blank row — it must not become an entry.
+                append("categoryData.specs.key[]", "")
+                append("categoryData.specs.value[]", "")
+            }
+        ) { addAuthCookie(this, ideaCreator) }
+
+        assertEquals(HttpStatusCode.OK, response.status)
+
+        val draft = runBlocking { (GetDraftStep().process(GetDraftInput(draftId, ideaCreator.id)) as Result.Success).value }
+        val specs = Json.parseToJsonElement(draft.data)
+            .jsonObject["categoryData"]!!.jsonObject["specs"]!!.jsonObject["value"]!!.jsonObject
+
+        assertEquals(2, specs.size)
+        assertEquals("10", specs["TNT per piston"]!!.jsonObject["value"]!!.jsonPrimitive.content)
+        assertEquals("21gt", specs["Remaining fuse"]!!.jsonObject["value"]!!.jsonPrimitive.content)
     }
 
     @Test

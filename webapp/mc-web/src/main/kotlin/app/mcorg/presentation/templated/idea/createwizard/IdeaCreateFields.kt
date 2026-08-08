@@ -6,6 +6,7 @@ import app.mcorg.domain.model.minecraft.MinecraftVersionRange
 import app.mcorg.presentation.templated.dsl.iconButton
 import app.mcorg.presentation.templated.dsl.IconSize
 import app.mcorg.presentation.templated.dsl.Icons
+import kotlinx.html.ButtonType
 import kotlinx.html.DIV
 import kotlinx.html.InputType
 import kotlinx.html.classes
@@ -306,9 +307,15 @@ fun DIV.renderCreatePercentageField(field: CategoryField.Percentage, value: Cate
 }
 
 /**
- * Renders a map field (key-value pairs)
+ * Renders a map field (key-value pairs).
+ *
+ * Rows are added client-side by cloning the last row and blanking its inputs, rather than
+ * rendering a hidden `<template>` — a template would render every option of a dynamic select
+ * (e.g. the item list on a farm's production rate) a second time on every page load.
  */
 fun DIV.renderCreateTypedMapField(versionRange: MinecraftVersionRange, field: CategoryField.TypedMapField, values: CategoryValue.MapValue? = null) {
+    val containerId = "map-${field.key}"
+
     label {
         +field.label
         if (field.required) {
@@ -321,29 +328,52 @@ fun DIV.renderCreateTypedMapField(versionRange: MinecraftVersionRange, field: Ca
         }
     }
     div("map-field-container stack stack--xs") {
-        id = "map-${field.key}"
-        if (values != null && values.value.isNotEmpty()) {
-            values.value.forEach { (k, v) ->
-                div("cluster cluster--xs map-field-row") {
-                    renderCreateField(versionRange, field.keyType, CategoryValue.TextValue(k))
-                    renderCreateField(versionRange, field.valueType, v)
-                    iconButton(Icons.DELETE, "Remove Entry") {
-                        iconSize = IconSize.SMALL
-                        onClick = "this.closest('.map-field-row').remove(); return false;"
-                    }
-                }
-            }
+        id = containerId
+        values?.value?.forEach { (k, v) ->
+            mapFieldRow(versionRange, field, CategoryValue.TextValue(k), v)
         }
-        div("cluster cluster--xs map-field-row") {
-            renderCreateField(versionRange, field.keyType)
-            renderCreateField(versionRange, field.valueType)
-            iconButton(Icons.MENU_ADD, "Add Entry") {
-                iconSize = IconSize.SMALL
-                onClick = "alert('Not implemented yet'); return false;"
-            }
+        // Always leave one blank row so the field is usable without clicking "Add entry" first.
+        mapFieldRow(versionRange, field)
+    }
+    div("map-field-actions") {
+        iconButton(Icons.MENU_ADD, "Add Entry") {
+            iconSize = IconSize.SMALL
+            buttonBlock = { type = ButtonType.button }
+            onClick = addMapRowScript(containerId)
         }
     }
 }
+
+private fun DIV.mapFieldRow(
+    versionRange: MinecraftVersionRange,
+    field: CategoryField.TypedMapField,
+    key: CategoryValue? = null,
+    value: CategoryValue? = null,
+) {
+    div("cluster cluster--xs map-field-row") {
+        div("map-field-cell") { renderCreateField(versionRange, field.keyType, key) }
+        div("map-field-cell") { renderCreateField(versionRange, field.valueType, value) }
+        iconButton(Icons.DELETE, "Remove Entry") {
+            iconSize = IconSize.SMALL
+            buttonBlock = { type = ButtonType.button }
+            onClick = "this.closest('.map-field-row').remove(); return false;"
+        }
+    }
+}
+
+private fun addMapRowScript(containerId: String) = """
+    var container = document.getElementById('$containerId');
+    var last = container.lastElementChild;
+    if (!last) return false;
+    var row = last.cloneNode(true);
+    row.querySelectorAll('[id]').forEach(function (el) { el.removeAttribute('id'); });
+    row.querySelectorAll('input, textarea').forEach(function (el) {
+        if (el.type === 'checkbox' || el.type === 'radio') { el.checked = false; } else { el.value = ''; }
+    });
+    row.querySelectorAll('select').forEach(function (el) { el.selectedIndex = 0; });
+    container.appendChild(row);
+    return false;
+""".trimIndent().replace("\n", " ")
 
 fun DIV.renderCreateStructField(versionRange: MinecraftVersionRange, field: CategoryField.StructField, values: CategoryValue.MapValue? = null) {
     field.fields.forEach { subField ->
