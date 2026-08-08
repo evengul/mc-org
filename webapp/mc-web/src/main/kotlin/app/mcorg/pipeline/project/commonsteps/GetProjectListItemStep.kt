@@ -24,6 +24,10 @@ object GetProjectListItemStep : Step<Int, AppFailure.DatabaseError, ProjectListI
                   COALESCE(SUM(rgp.collected), 0)                          AS resources_gathered,
                   COUNT(DISTINCT rg.id)                                    AS item_count,
                   (
+                    SELECT COUNT(*) FROM project_productions pp
+                    WHERE pp.project_id = p.id
+                  ) AS produces_count,
+                  (
                     SELECT t2.name FROM action_task t2
                     WHERE t2.project_id = p.id AND t2.completed = false
                     ORDER BY t2.id ASC
@@ -55,7 +59,8 @@ object GetProjectListItemStep : Step<Int, AppFailure.DatabaseError, ProjectListI
                         resourcesRequired = resultSet.getInt("resources_required"),
                         resourcesGathered = resultSet.getInt("resources_gathered"),
                         itemCount = resultSet.getInt("item_count"),
-                        nextTaskName = resultSet.getString("next_task_name")
+                        nextTaskName = resultSet.getString("next_task_name"),
+                        producesCount = resultSet.getInt("produces_count")
                     )
                 } else null
             }

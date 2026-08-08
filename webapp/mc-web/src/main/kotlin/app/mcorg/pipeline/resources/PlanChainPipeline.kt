@@ -354,7 +354,8 @@ private suspend fun ApplicationCall.respondListRerender(worldId: Int, projectId:
     val tasks = SearchTasksStep(projectId).process(SearchTasksInput(completionStatus = "ALL")).getOrNull() ?: emptyList()
     val plan = deriveOrNull(projectId, worldId)
     val progressMap = GetProgressForProjectStep.process(projectId).getOrNull() ?: emptyMap()
-    respondHtml(gatheringPlannerFragment(project, resources, tasks, plan, "list", progressMap))
+    val pendingFarms = pendingFarmSuppliesFor(worldId, projectId, plan)
+    respondHtml(gatheringPlannerFragment(project, resources, tasks, plan, "list", progressMap, pendingFarms))
 }
 
 /**

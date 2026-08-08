@@ -230,7 +230,18 @@
     opacity: 1;
 }
 
+/* Producing-farm marker (MCO-299) */
+.fl-chip__glyph {
+    font-family: var(--font-ui);
+    font-size: var(--text-sm);
+    color: var(--accent);
+}
+
 .fl-chip__name {
+    /* Takes the slack so the state badge stays right-aligned whether or not the chip
+       carries a leading glyph (a third child would otherwise centre the name). */
+    flex: 1;
+    text-align: left;
     font-family: var(--font-ui);
     font-size: var(--text-sm);
     font-weight: 600;

@@ -10,6 +10,7 @@ import app.mcorg.pipeline.project.commonsteps.GetViewPreferenceStep
 import app.mcorg.engine.plan.PlanOverrides
 import app.mcorg.pipeline.resources.GatheringPlanInput
 import app.mcorg.pipeline.resources.GenerateGatheringPlanStep
+import app.mcorg.pipeline.resources.pendingFarmSuppliesFor
 import app.mcorg.pipeline.resources.GetPlanOverridesStep
 import app.mcorg.pipeline.resources.buildCandidateCounts
 import app.mcorg.pipeline.resources.buildNodeIngredients
@@ -90,6 +91,9 @@ suspend fun ApplicationCall.handleGetProject() {
     // Load persisted progress for all items in the project (covers derived activities too)
     val progressMap = GetProgressForProjectStep.process(projectId).getOrNull() ?: emptyMap()
 
+    // Farms promised but not running yet — the plan's partial-dependency notice (MCO-299)
+    val pendingFarms = pendingFarmSuppliesFor(worldId, projectId, plan)
+
     // ?drill=<item> deep-links into a target's chain so reload/share lands on the drill,
     // not the plan. Resolves only when the plan derives and the item is an actual target;
     // otherwise falls through to the normal lens render.
@@ -107,6 +111,7 @@ suspend fun ApplicationCall.handleGetProject() {
             user, project, worldName, resources, tasks, lens,
             isWorldAdmin = isAdmin, plan = plan, progressMap = progressMap,
             productions = productions,
+            pendingFarms = pendingFarms,
             drillTarget = drillTarget, drillCandidateCounts = drillCandidateCounts,
             drillNodeIngredients = drillNodeIngredients, drillHighlightItemId = drillItemId,
             drillOverrides = drillOverrides, drillGraph = drillGraph,
