@@ -29,8 +29,10 @@ import app.mcorg.test.postgres.DatabaseTestExtension
 import io.ktor.client.request.delete
 import io.ktor.client.request.forms.submitForm
 import io.ktor.client.request.get
+import io.ktor.client.request.header
 import io.ktor.client.request.post
 import io.ktor.client.statement.bodyAsText
+import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.Parameters
 import io.ktor.server.routing.delete
@@ -181,12 +183,35 @@ class DraftLifecycleIT : WithUser() {
             }
         }
 
+        // A real redirect, because "New Idea" on the hub is an ordinary link. Answering 200 with
+        // an HX-Redirect header rendered a blank page for anyone without drafts yet (MCO-310).
         val response = client.get("/ideas/create") { addAuthCookie(this, ideaCreator) }
+        assertEquals(HttpStatusCode.Found, response.status)
+        val location = response.headers[HttpHeaders.Location]
+        assertNotNull(location)
+        assertContains(location, "/ideas/drafts/")
+        assertContains(location, "/edit")
+    }
+
+    @Test
+    fun `GET ideas-create still answers HTMX with an HX-Redirect`() = testApplication {
+        val ideaCreator = createExtraUser("idea_creator")
+        val client = createClient { followRedirects = false }
+
+        routing {
+            install(AuthPlugin)
+            route("/ideas/create") {
+                get { call.handleGetDraftList() }
+            }
+        }
+
+        val response = client.get("/ideas/create") {
+            addAuthCookie(this, ideaCreator)
+            header("HX-Request", "true")
+        }
+
         assertEquals(HttpStatusCode.OK, response.status)
-        val hxRedirect = response.headers["HX-Redirect"]
-        assertNotNull(hxRedirect)
-        assertContains(hxRedirect, "/ideas/drafts/")
-        assertContains(hxRedirect, "/edit")
+        assertNotNull(response.headers["HX-Redirect"])
     }
 
     @Test
@@ -219,8 +244,8 @@ class DraftLifecycleIT : WithUser() {
 
         // Creating is open to everyone now; only putting a design on the hub is privileged.
         val response = client.get("/ideas/create") { addAuthCookie(this) }
-        assertEquals(HttpStatusCode.OK, response.status)
-        assertNotNull(response.headers["HX-Redirect"])
+        assertEquals(HttpStatusCode.Found, response.status)
+        assertNotNull(response.headers[HttpHeaders.Location])
     }
 
     @Test
@@ -243,7 +268,7 @@ class DraftLifecycleIT : WithUser() {
     }
 
     @Test
-    fun `GET drafts-draftId-edit shows wizard page`() = testApplication {
+    fun `GET drafts-draftId-edit shows every field on one page (MCO-310)`() = testApplication {
         val ideaCreator = createExtraUser("idea_creator")
         val draftId = runBlocking { (CreateDraftStep(ideaCreator.id).process(Unit) as Result.Success).value }
 
@@ -258,7 +283,18 @@ class DraftLifecycleIT : WithUser() {
         assertEquals(HttpStatusCode.OK, response.status)
         val body = response.bodyAsText()
         assertContains(body, "app-header")
-        assertContains(body, "wizard-stage")
+
+        // Required fields up front...
+        assertContains(body, "idea-form__required")
+        assertContains(body, """name="name"""")
+        assertContains(body, """name="category"""")
+        // ...and the optional ones present in the same form rather than on later screens.
+        assertContains(body, """name="versionRangeType"""")
+        assertContains(body, """name="authorName"""")
+
+        // A nested <form> here would make the parser close the outer one early and orphan the
+        // submit button — the fields would render but nothing could be submitted.
+        assertEquals(1, Regex("<form").findAll(body).count())
     }
 
     @Test

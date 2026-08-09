@@ -52,7 +52,7 @@ fun FlowContent.draftBasicInfoFields(draft: IdeaDraft) {
             id = "draft-description"
             name = "description"
             required = true
-            rows = "6"
+            rows = "4"
             minLength = "20"
             maxLength = "5000"
             placeholder = "Describe your contraption, how it works, and what makes it unique..."

@@ -96,19 +96,20 @@ fun FlowContent.draftItemRequirementFields(draft: IdeaDraft) {
     // --- Litematica upload ---
     div("wizard-litematica-upload") {
         p("form-help-text") { +"Or import items from a .litematic schematic file:" }
-        form {
-            encType = FormEncType.multipartFormData
+        // Deliberately NOT a nested <form>. These fields now live inside the single-page create
+        // form (MCO-310), and an inner <form> makes the HTML parser close the outer one early —
+        // silently orphaning every field and button that follows, including submit. HTMX can post
+        // multipart straight from the input instead.
+        input(type = InputType.file, classes = "form-control") {
+            name = "litematicFile"
+            accept = ".litematic"
             hxPost("/ideas/create/litematic")
             hxTarget("#draft-item-list")
             hxSwap("beforeend")
+            hxTrigger("change")
             attributes["hx-encoding"] = "multipart/form-data"
-            input(type = InputType.file, classes = "form-control") {
-                name = "litematicFile"
-                accept = ".litematic"
-                attributes["onchange"] = "this.closest('form').requestSubmit()"
-            }
-            p("form-error") { id = "error-litematicFile" }
         }
+        p("form-error") { id = "error-litematicFile" }
     }
 
     // --- Item list ---

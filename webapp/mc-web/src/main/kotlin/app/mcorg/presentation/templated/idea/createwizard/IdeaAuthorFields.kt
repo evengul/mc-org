@@ -17,19 +17,26 @@ import kotlinx.html.label
 import kotlinx.html.p
 import kotlinx.html.span
 
-fun DIV.singleAuthorFields(data: Author.SingleAuthor? = null) {
+/**
+ * [defaultName] pre-fills the field for a first-time author — almost always the signed-in user
+ * crediting themselves, which was a whole wizard stage's worth of typing for no information
+ * (MCO-310). Still editable, since a design can be someone else's.
+ */
+fun DIV.singleAuthorFields(data: Author.SingleAuthor? = null, defaultName: String = "") {
     label {
         htmlFor = "author-name"
         +"Author Name"
-        span("required-indicator") { +"*" }
     }
     input {
         id = "author-name"
         name = "authorName"
         type = InputType.text
         classes += "form-control"
-        required = true
-        value = data?.name ?: ""
+        // Deliberately NOT `required`. This field lives inside a collapsed <details> on the create
+        // form, and a required control the browser cannot focus blocks submission with no visible
+        // message at all — the form simply does nothing. Left empty it falls back to the signed-in
+        // user, which is what the section already promises (MCO-310).
+        value = data?.name ?: defaultName
         placeholder = "Your name or username"
     }
     p("validation-error-message") {

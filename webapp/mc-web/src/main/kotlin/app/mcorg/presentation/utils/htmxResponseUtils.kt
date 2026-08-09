@@ -9,6 +9,22 @@ suspend fun ApplicationCall.clientRedirect(path: String) {
     respond(HttpStatusCode.OK)
 }
 
+/**
+ * Redirect that survives an ordinary link click.
+ *
+ * [clientRedirect] answers `200` with an empty body and an `HX-Redirect` header, which only a
+ * running HTMX request knows how to follow. Reached by a plain `<a href>` it renders a blank page —
+ * exactly what a first-time user got from "New Idea" before MCO-310. Use this wherever the caller
+ * might be either.
+ */
+suspend fun ApplicationCall.redirectClientOrBrowser(path: String) {
+    if (request.headers["HX-Request"] == "true") {
+        clientRedirect(path)
+    } else {
+        respondRedirect(path)
+    }
+}
+
 suspend fun ApplicationCall.respondBadRequest(errorHtml: String = "An error occurred",
                                               target: String = "#error-message",
                                               swap: String = "innerHTML") {

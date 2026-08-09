@@ -118,6 +118,130 @@
 
 /* --- Stage container --- */
 
+/* ==========================================================================
+   SINGLE-PAGE CREATE FORM (MCO-310)
+   ========================================================================== */
+
+.idea-form-head {
+    margin-top: var(--space-5);
+    margin-bottom: var(--space-5);
+}
+
+.idea-form__title {
+    font-family: var(--font-ui);
+    font-size: var(--text-heading);
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0 0 var(--space-2) 0;
+}
+
+.idea-form__subtitle {
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    color: var(--text-muted);
+    max-width: 60ch;
+    margin: 0;
+}
+
+/* The only fields visible before any disclosure is opened. */
+.idea-form__required {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-5);
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: var(--space-5);
+}
+
+.idea-form__required > div {
+    display: flex;
+    flex-direction: column;
+}
+
+/* --- Optional sections --- */
+
+.idea-form__section {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    margin-top: var(--space-4);
+}
+
+.idea-form__section-summary {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    padding: var(--space-4) var(--space-5);
+    cursor: pointer;
+    list-style: none;
+    position: relative;
+}
+
+/* Replace the default triangle with a rotating chevron of our own. */
+.idea-form__section-summary::-webkit-details-marker {
+    display: none;
+}
+
+.idea-form__section-summary::after {
+    content: "›";
+    position: absolute;
+    right: var(--space-5);
+    top: 50%;
+    transform: translateY(-50%);
+    font-family: var(--font-ui);
+    font-size: var(--text-base);
+    color: var(--text-muted);
+    transition: transform var(--transition-base);
+}
+
+.idea-form__section[open] .idea-form__section-summary::after {
+    transform: translateY(-50%) rotate(90deg);
+}
+
+.idea-form__section-summary:hover .idea-form__section-title {
+    color: var(--accent);
+}
+
+.idea-form__section-title {
+    font-family: var(--font-ui);
+    font-size: var(--text-base);
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0;
+    transition: color var(--transition-base);
+}
+
+.idea-form__section-hint {
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    color: var(--text-muted);
+    padding-right: var(--space-5);
+}
+
+.idea-form__section-body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-5);
+    padding: 0 var(--space-5) var(--space-5);
+    border-top: 1px solid var(--border);
+    padding-top: var(--space-5);
+}
+
+.idea-form__section-body > div {
+    display: flex;
+    flex-direction: column;
+}
+
+/* --- Actions --- */
+
+.idea-form__actions {
+    display: flex;
+    gap: var(--space-3);
+    align-items: center;
+    margin-top: var(--space-5);
+}
+
 .wizard-stage-container {
     display: flex;
     flex-direction: column;
