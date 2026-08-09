@@ -22,7 +22,7 @@ import kotlinx.serialization.json.Json
 
 private val json = Json { ignoreUnknownKeys = true; isLenient = true }
 
-fun FlowContent.draftAuthorFields(draft: IdeaDraft) {
+fun FlowContent.draftAuthorFields(draft: IdeaDraft, defaultName: String = "") {
     val data = runCatching { json.decodeFromString(DraftData.serializer(), draft.data) }.getOrDefault(DraftData())
     val author = data.author
     val authorType = when (author) {
@@ -34,12 +34,10 @@ fun FlowContent.draftAuthorFields(draft: IdeaDraft) {
         label {
             htmlFor = "draft-author-type"
             +"Author Type"
-            span("required-indicator") { +"*" }
         }
         select(classes = "form-control") {
             id = "draft-author-type"
             name = "authorType"
-            required = true
             hxGet("/ideas/create/author-fields")
             hxTrigger("change")
             hxTarget("#author-fields-container")
@@ -63,8 +61,8 @@ fun FlowContent.draftAuthorFields(draft: IdeaDraft) {
         id = "author-fields-container"
         when (author) {
             is Author.Team -> teamAuthorFields(author)
-            is Author.SingleAuthor -> singleAuthorFields(author)
-            else -> singleAuthorFields()
+            is Author.SingleAuthor -> singleAuthorFields(author, defaultName)
+            else -> singleAuthorFields(defaultName = defaultName)
         }
     }
 }

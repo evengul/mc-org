@@ -7,14 +7,13 @@ import io.ktor.http.*
 
 object ValidateIdeaDescriptionStep : Step<Parameters, ValidationFailure, String> {
     override suspend fun process(input: Parameters): Result<ValidationFailure, String> {
-        val description = input["description"]?.trim()
+        val description = input["description"]?.trim().orEmpty()
 
-        if (description.isNullOrBlank()) {
-            return Result.Failure(ValidationFailure.MissingParameter("description"))
-        }
-
-        if (description.length !in 20..5000) {
-            return Result.Failure(ValidationFailure.InvalidLength("description", 20, 5000))
+        // Optional, and with no lower bound. A private design may be a name and a category; a
+        // twenty-character minimum is a rule about what deserves to be on the community hub, and
+        // that belongs to publishing rather than to saving your own note.
+        if (description.length > 5000) {
+            return Result.Failure(ValidationFailure.InvalidLength("description", 0, 5000))
         }
 
         return Result.Success(description)

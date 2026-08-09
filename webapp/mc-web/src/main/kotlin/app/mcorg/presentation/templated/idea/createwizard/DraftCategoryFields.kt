@@ -23,7 +23,18 @@ import kotlinx.serialization.json.Json
 
 private val json = Json { ignoreUnknownKeys = true; isLenient = true }
 
+/**
+ * Category picker plus its schema fields, together. Kept for callers that want both in one place;
+ * the single-page create form (MCO-310) uses the two halves separately, because the picker is
+ * required and belongs up front while the schema fields are optional detail.
+ */
 fun FlowContent.draftCategoryFields(draft: IdeaDraft) {
+    draftCategorySelect(draft)
+    draftCategorySchemaFields(draft)
+}
+
+/** The required "what kind of thing is this" picker. */
+fun FlowContent.draftCategorySelect(draft: IdeaDraft) {
     val data = runCatching { json.decodeFromString(DraftData.serializer(), draft.data) }.getOrDefault(DraftData())
     val selectedCategory = data.category
     val versionRange = data.versionRange ?: MinecraftVersionRange.Unbounded
@@ -70,14 +81,25 @@ fun FlowContent.draftCategoryFields(draft: IdeaDraft) {
         }
         p("form-error") { id = "error-category" }
     }
+}
 
-    val schema = selectedCategory?.let { IdeaCategorySchemas.getSchema(it) }
+/**
+ * The chosen category's own fields. Swapped in by the picker's `hx-get`, so the container id is
+ * global and this can live in a different part of the page from the picker.
+ */
+fun FlowContent.draftCategorySchemaFields(draft: IdeaDraft) {
+    val data = runCatching { json.decodeFromString(DraftData.serializer(), draft.data) }.getOrDefault(DraftData())
+    val versionRange = data.versionRange ?: MinecraftVersionRange.Unbounded
+    val schema = data.category?.let { IdeaCategorySchemas.getSchema(it) }
+
     div("wizard-category-fields") {
         id = "category-specific-fields"
         if (schema != null) {
             schema.fields.forEach { field ->
                 renderCreateField(versionRange, field, data.categoryData?.get(field.key))
             }
+        } else {
+            p("subtle") { +"Pick a category above to see the fields that fit it." }
         }
     }
 }

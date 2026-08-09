@@ -8,6 +8,8 @@ import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.minecraftfiles.GetSupportedVersionsStep
 import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.templated.idea.createwizard.DraftWizardStage
+import app.mcorg.presentation.templated.idea.createwizard.draftFormFragment
+import app.mcorg.presentation.templated.idea.createwizard.draftFormPage
 import app.mcorg.presentation.templated.idea.createwizard.draftWizardPage
 import app.mcorg.presentation.templated.idea.createwizard.wizardProgressHtml
 import app.mcorg.presentation.templated.idea.createwizard.wizardStageContent
@@ -16,9 +18,11 @@ import app.mcorg.pipeline.idea.commonsteps.GetIdeaStep
 import app.mcorg.presentation.utils.clientRedirect
 import app.mcorg.presentation.utils.getIdeaId
 import app.mcorg.presentation.utils.getUser
+import app.mcorg.presentation.utils.redirectClientOrBrowser
 import app.mcorg.presentation.utils.respondHtml
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.Parameters
+import io.ktor.http.ParametersBuilder
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.request.receiveParameters
 import kotlinx.html.div
@@ -54,17 +58,21 @@ suspend fun ApplicationCall.handleGetDraftList() {
     handlePipeline(
         onSuccess = { outcome ->
             when (outcome) {
-                is DraftListOutcome.Redirect -> clientRedirect(outcome.url)
+                // Reached by a plain link from the hub, so this must be a real redirect for a
+                // browser and an HX-Redirect for HTMX — not the HTMX-only form (MCO-310).
+                is DraftListOutcome.Redirect -> redirectClientOrBrowser(outcome.url)
                 is DraftListOutcome.ShowList -> respondHtml(draftListPage(user, outcome.drafts))
             }
         }
     ) {
         val draftList = GetDraftsStep(user.id).run(Unit)
-        if (draftList.isEmpty()) {
-            val draftId = CreateDraftStep(user.id).run(Unit)
-            DraftListOutcome.Redirect("/ideas/drafts/$draftId/edit")
-        } else {
-            DraftListOutcome.ShowList(draftList)
+        val untouched = draftList.firstOrNull { it.isUntouched }
+        when {
+            draftList.isEmpty() -> DraftListOutcome.Redirect("/ideas/drafts/${CreateDraftStep(user.id).run(Unit)}/edit")
+            // Every blank draft is the same blank draft — send them back to it rather than
+            // showing a list of indistinguishable "Untitled Draft" rows.
+            draftList.all { it.isUntouched } -> DraftListOutcome.Redirect("/ideas/drafts/${untouched!!.id}/edit")
+            else -> DraftListOutcome.ShowList(draftList)
         }
     }
 }
@@ -86,7 +94,10 @@ suspend fun ApplicationCall.handleCreateDraft() {
             clientRedirect("/ideas/drafts/$draftId/edit")
         }
     ) {
-        CreateDraftStep(user.id).run(Unit)
+        // Reuse a blank draft if one is already lying around, so repeated "New Draft" clicks do
+        // not stack up identical empty rows.
+        GetDraftsStep(user.id).run(Unit).firstOrNull { it.isUntouched }?.id
+            ?: CreateDraftStep(user.id).run(Unit)
     }
 }
 
@@ -99,17 +110,12 @@ suspend fun ApplicationCall.handleGetDraftWizard() {
     val draftId = parameters["draftId"]?.toIntOrNull() ?: run {
         respondHtml("<p>Invalid draft ID</p>"); return
     }
-    val stageParam = parameters["stage"]?.let {
-        runCatching { DraftWizardStage.valueOf(it) }.getOrNull()
-    }
 
     val supportedVersions = GetSupportedVersionsStep.getSupportedVersions()
 
     handlePipeline(
         onSuccess = { draft ->
-            val stage = stageParam
-                ?: runCatching { DraftWizardStage.valueOf(draft.currentStage) }.getOrDefault(DraftWizardStage.BASIC_INFO)
-            respondHtml(draftWizardPage(user, draft, stage, supportedVersions))
+            respondHtml(draftFormPage(user, draft, supportedVersions))
         }
     ) {
         GetDraftStep().run(GetDraftInput(draftId, user.id))
@@ -217,12 +223,55 @@ suspend fun ApplicationCall.handleDeleteDraft() {
 
 /**
  * POST /ideas/drafts/:draftId/publish
- * Validate + create idea + delete draft + redirect.
+ *
+ * The single-page form (MCO-310) posts every field at once, so this saves what was submitted before
+ * validating it — there is no longer a per-stage save that ran first. On failure it re-renders the
+ * form in place with the errors and the user's own input still in it.
+ *
+ * Despite the route name this produces a *private* idea; publishing to the hub is a separate,
+ * privileged step (MCO-291).
  */
 suspend fun ApplicationCall.handlePublishDraft() {
     val user = getUser()
     val draftId = parameters["draftId"]?.toIntOrNull() ?: run {
         respondHtml("<p>Invalid draft ID</p>"); return
+    }
+    // A bodyless POST means "publish what is already stored" — merging empty params would clobber
+    // fields the draft already holds, so only save when a form was actually submitted.
+    val params = runCatching { receiveParameters() }.getOrNull()
+
+    if (params != null) {
+        val saved = UpdateDraftStep().process(
+            UpdateDraftInput(draftId, user.id, buildFormJson(params, user.minecraftUsername), DraftWizardStage.REVIEW.name)
+        )
+        if (saved is Result.Failure) {
+            respondHtml("<p>Draft not found</p>", HttpStatusCode.NotFound)
+            return
+        }
+    }
+
+    val validationErrors = params?.let { submitted ->
+        DraftWizardStage.entries.flatMap { stage ->
+            (ValidateStageStep.process(ValidateStageInput(stage, submitted)) as? Result.Success)?.value ?: emptyList()
+        }
+    } ?: emptyList()
+
+    if (validationErrors.isNotEmpty()) {
+        val draft = GetDraftStep().process(GetDraftInput(draftId, user.id)).getOrNull()
+        if (draft == null) {
+            respondHtml("<p>Draft not found</p>", HttpStatusCode.NotFound)
+            return
+        }
+        respondHtml(
+            draftFormFragment(
+                draft = draft,
+                supportedVersions = GetSupportedVersionsStep.getSupportedVersions(),
+                errors = validationErrors,
+                defaultAuthorName = user.minecraftUsername,
+            ),
+            HttpStatusCode.UnprocessableEntity
+        )
+        return
     }
 
     handlePipeline(
@@ -233,6 +282,52 @@ suspend fun ApplicationCall.handlePublishDraft() {
         val draft = GetDraftStep().run(GetDraftInput(draftId, user.id))
         PublishDraftStep().run(PublishDraftInput(draft, user.id))
     }
+}
+
+/**
+ * POST /ideas/drafts/:draftId/save
+ *
+ * Keeps what has been typed without validating or turning it into an idea, so a half-finished
+ * design survives being interrupted. Nothing is required here — that is the point.
+ */
+suspend fun ApplicationCall.handleSaveDraftForm() {
+    val user = getUser()
+    val draftId = parameters["draftId"]?.toIntOrNull() ?: run {
+        respondHtml("<p>Invalid draft ID</p>"); return
+    }
+    val params = receiveParameters()
+
+    handlePipeline(
+        onSuccess = { redirectClientOrBrowser("/ideas/create") }
+    ) {
+        UpdateDraftStep().run(
+            UpdateDraftInput(draftId, user.id, buildFormJson(params, user.minecraftUsername), DraftWizardStage.REVIEW.name)
+        )
+    }
+}
+
+/**
+ * Every field on the single-page form, merged into one draft-shaped JSON object. Reuses the
+ * per-stage builders rather than duplicating their parsing — the stages are gone from the UI but
+ * remain a useful grouping for parsing and validation.
+ */
+private fun buildFormJson(params: Parameters, fallbackAuthorName: String): String {
+    val effective = if (params["authorName"].isNullOrBlank()) {
+        // "Credited to you" unless you say otherwise — the author field is optional on the form.
+        ParametersBuilder().apply {
+            params.names().filter { it != "authorName" }.forEach { name ->
+                params.getAll(name)?.forEach { append(name, it) }
+            }
+            append("authorName", fallbackAuthorName)
+        }.build()
+    } else {
+        params
+    }
+
+    val merged = DraftWizardStage.entries
+        .map { Json.parseToJsonElement(buildStageJson(it, effective)).jsonObject }
+        .fold(mutableMapOf<String, JsonElement>()) { acc, obj -> acc.apply { putAll(obj) } }
+    return JsonObject(merged).toString()
 }
 
 /**
@@ -341,8 +436,11 @@ private fun extractCategoryValue(field: CategoryField, params: Parameters, param
         params[paramPrefix]?.takeIf { it.isNotBlank() }?.let { CategoryValue.TextValue(it) }
     is CategoryField.Number, is CategoryField.Rate, is CategoryField.Percentage ->
         params[paramPrefix]?.toIntOrNull()?.let { CategoryValue.IntValue(it) }
+    // Only record a ticked box. An unticked one posts nothing, and storing that as an explicit
+    // "No" put three rows the author never asserted onto every minimally-filled idea's detail
+    // page. Absence already means false, since category data is rebuilt from the form on save.
     is CategoryField.BooleanField ->
-        CategoryValue.BooleanValue(params[paramPrefix] == "true")
+        CategoryValue.BooleanValue(true).takeIf { params[paramPrefix] == "true" }
     is CategoryField.MultiSelect ->
         params.getAll("$paramPrefix[]")?.toSet()?.takeIf { it.isNotEmpty() }
             ?.let { CategoryValue.MultiSelectValue(it) }

@@ -10,6 +10,7 @@ import app.mcorg.pipeline.idea.draft.handleDeleteDraft
 import app.mcorg.pipeline.idea.draft.handleGetDraftList
 import app.mcorg.pipeline.idea.draft.handleGetDraftWizard
 import app.mcorg.pipeline.idea.draft.handlePublishDraft
+import app.mcorg.pipeline.idea.draft.handleSaveDraftForm
 import app.mcorg.pipeline.idea.draft.handleRevertIdeaToDraft
 import app.mcorg.pipeline.idea.draft.handleUpdateDraftStage
 import app.mcorg.pipeline.idea.handleClearCategoryFilters
@@ -94,6 +95,9 @@ class IdeaHandler {
                     }
                     post("/stage") {
                         call.handleUpdateDraftStage()
+                    }
+                    post("/save") {
+                        call.handleSaveDraftForm()
                     }
                     post("/publish") {
                         call.handlePublishDraft()

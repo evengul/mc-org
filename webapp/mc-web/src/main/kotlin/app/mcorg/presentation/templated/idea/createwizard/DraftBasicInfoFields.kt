@@ -20,6 +20,22 @@ import kotlinx.serialization.json.Json
 
 private val json = Json { ignoreUnknownKeys = true; isLenient = true }
 
+/**
+ * Chip-sized labels. `toPrettyEnumName()` yields "Technical Understanding Recommended", which is
+ * wider than the three game-stage options put together and wraps the row into a mess.
+ *
+ * Laying these out side by side exposes something the dropdown hid: this enum is two axes in one —
+ * how far into the game you are, and how much redstone knowledge it takes. They are not mutually
+ * exclusive in reality, so a single-choice control cannot express "end game and technical".
+ */
+private fun IdeaDifficulty.shortLabel(): String = when (this) {
+    IdeaDifficulty.START_OF_GAME -> "Start of game"
+    IdeaDifficulty.MID_GAME -> "Mid game"
+    IdeaDifficulty.END_GAME -> "End game"
+    IdeaDifficulty.TECHNICAL_UNDERSTANDING_RECOMMENDED -> "Technical (recommended)"
+    IdeaDifficulty.TECHNICAL_UNDERSTANDING_REQUIRED -> "Technical (required)"
+}
+
 fun FlowContent.draftBasicInfoFields(draft: IdeaDraft) {
     val data = runCatching { json.decodeFromString(DraftData.serializer(), draft.data) }.getOrDefault(DraftData())
 
@@ -46,16 +62,15 @@ fun FlowContent.draftBasicInfoFields(draft: IdeaDraft) {
         label {
             htmlFor = "draft-description"
             +"Description"
-            span("required-indicator") { +"*" }
         }
+        // Optional, and no minimum length: a private design is allowed to be a name and a
+        // category. Requirements for putting one on the hub come later, and separately.
         textArea(classes = "form-control") {
             id = "draft-description"
             name = "description"
-            required = true
-            rows = "6"
-            minLength = "20"
+            rows = "4"
             maxLength = "5000"
-            placeholder = "Describe your contraption, how it works, and what makes it unique..."
+            placeholder = "How it works, what makes it good, anything you'd want to remember later…"
             +(data.description ?: "")
         }
         p("form-error") { id = "error-description" }
@@ -63,19 +78,23 @@ fun FlowContent.draftBasicInfoFields(draft: IdeaDraft) {
 
     div {
         label {
-            htmlFor = "draft-difficulty"
             +"Difficulty"
             span("required-indicator") { +"*" }
         }
-        select(classes = "form-control") {
-            id = "draft-difficulty"
-            name = "difficulty"
-            required = true
+        // Radios rather than a select: five options is few enough to show at once, it matches the
+        // category picker directly below, and it saves a click on a field that is always answered.
+        div("category-select") {
             IdeaDifficulty.entries.forEach { difficulty ->
-                option {
-                    value = difficulty.name
-                    selected = (data.difficulty == difficulty) || (data.difficulty == null && difficulty == IdeaDifficulty.MID_GAME)
-                    +difficulty.toPrettyEnumName()
+                label("filter-radio-label") {
+                    input(type = InputType.radio) {
+                        classes += "category-radio"
+                        name = "difficulty"
+                        value = difficulty.name
+                        checked = (data.difficulty == difficulty) ||
+                                (data.difficulty == null && difficulty == IdeaDifficulty.MID_GAME)
+                        required = true
+                    }
+                    +difficulty.shortLabel()
                 }
             }
         }
