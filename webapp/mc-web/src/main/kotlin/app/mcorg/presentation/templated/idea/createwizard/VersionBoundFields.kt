@@ -6,54 +6,6 @@ import app.mcorg.presentation.templated.dsl.RadioGroupOption
 import app.mcorg.presentation.templated.dsl.radioGroup
 import kotlinx.html.*
 
-fun FORM.versionFields(supportedVersions: List<MinecraftVersion.Release>, versionRange: MinecraftVersionRange? = null, ) {
-    div("form-section") {
-        h3 { +"Version Compatibility" }
-
-        // Version Range Type
-        label {
-            +"Works in Minecraft Version"
-            span("required-indicator") { +"*" }
-        }
-        div("version-range-type") {
-            radioGroup(
-                "versionRangeType",
-                listOf(
-                    RadioGroupOption("unbounded", "All Versions"),
-                    RadioGroupOption("lowerBounded", "From Version Onwards"),
-                    RadioGroupOption("upperBounded", "Up To Version"),
-                    RadioGroupOption("bounded", "Specific Range")
-                ),
-                selectedOption = when(versionRange) {
-                    is MinecraftVersionRange.Bounded -> "bounded"
-                    is MinecraftVersionRange.LowerBounded -> "lowerBounded"
-                    is MinecraftVersionRange.UpperBounded -> "upperBounded"
-                    is MinecraftVersionRange.Unbounded -> "unbounded"
-                    null -> "unbounded"
-                }
-            ) {
-                block = {
-                    attributes["hx-get"] = "/ideas/create/version-fields"
-                    attributes["hx-target"] = "#version-fields"
-                    attributes["hx-swap"] = "innerHTML"
-                    attributes["hx-trigger"] = "change"
-                    attributes["hx-include"] = "#version-from, #version-to"
-                    attributes["hx-vals"] = "js:{versionRangeType: event.target.value}"
-                }
-            }
-        }
-        p("validation-error-message") {
-            id = "validation-error-versionRangeType"
-        }
-
-        // Dynamic version fields
-        div {
-            id = "version-fields"
-            versionBoundFields(supportedVersions, versionRange)
-        }
-    }
-}
-
 fun DIV.versionBoundFields(supportedVersions: List<MinecraftVersion.Release>, versionRange: MinecraftVersionRange? = null) {
     when(versionRange) {
         null -> {}
