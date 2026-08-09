@@ -254,7 +254,9 @@ fun DIV.renderCreateRateField(field: CategoryField.Rate, value: CategoryValue.In
             if (field.required) required = true
             field.min?.let { attributes["min"] = it.toString() }
             field.max?.let { attributes["max"] = it.toString() }
-            placeholder = field.unit
+            // The unit is already shown as a suffix beside the input; repeating it as the
+            // placeholder printed "items/hour   items/hour" on every rate row.
+            placeholder = "e.g., 1200"
             value?.let {
                 this.value = it.value.toString()
             }
@@ -375,10 +377,19 @@ private fun addMapRowScript(containerId: String) = """
     return false;
 """.trimIndent().replace("\n", " ")
 
+/**
+ * Sub-fields side by side under one heading rather than as full-width rows of their own. The only
+ * struct in the schema is `size`, and X / Y / Z read as one measurement — three stacked rows made a
+ * footprint look like three unrelated questions.
+ */
 fun DIV.renderCreateStructField(versionRange: MinecraftVersionRange, field: CategoryField.StructField, values: CategoryValue.MapValue? = null) {
-    field.fields.forEach { subField ->
-        val value = values?.value?.get(subField.key)
-        renderCreateField(versionRange, subField, value)
+    label { +field.label }
+    div("struct-field-row") {
+        field.fields.forEach { subField ->
+            div("struct-field-cell") {
+                renderCreateField(versionRange, subField, values?.value?.get(subField.key))
+            }
+        }
     }
 }
 

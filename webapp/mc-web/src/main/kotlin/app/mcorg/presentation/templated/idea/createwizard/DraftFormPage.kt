@@ -66,7 +66,7 @@ fun draftFormPage(
             div("idea-form-head") {
                 h1("idea-form__title") { +(draft.name ?: "New idea") }
                 p("idea-form__subtitle") {
-                    +"Name, description and category are all you need. Everything else is optional, and it stays private until you publish it to the hub."
+                    +"A name and a category are all you need. Everything else is optional, and it stays private until you publish it to the hub."
                 }
             }
             div {

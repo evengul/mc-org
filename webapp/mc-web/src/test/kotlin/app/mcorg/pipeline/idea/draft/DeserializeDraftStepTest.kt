@@ -155,12 +155,12 @@ class DeserializeDraftStepTest {
     }
 
     @Test
-    fun `missing description returns validation error`() = runBlocking {
+    fun `a description is optional and becomes empty (MCO-310)`() = runBlocking {
+        // A private design may be a name and a category. Requiring twenty characters of prose is a
+        // rule about what belongs on the community hub, and that is a separate step.
         val result = DeserializeDraftStep.process(makeDraft(missingDescription()))
-        assertIs<Result.Failure<*>>(result)
-        val error = (result as Result.Failure).error
-        assertIs<AppFailure.ValidationError>(error)
-        assertTrue(error.errors.any { it is ValidationFailure.MissingParameter && it.parameterName == "description" })
+        assertIs<Result.Success<*>>(result)
+        assertTrue((result as Result.Success).value.description.isEmpty())
     }
 
     @Test
@@ -200,12 +200,12 @@ class DeserializeDraftStepTest {
     }
 
     @Test
-    fun `missing categoryData with category set returns validation error`() = runBlocking {
+    fun `category data is optional (MCO-310)`() = runBlocking {
+        // After the MCO-204 slimming nearly every category field is optional, so demanding a
+        // non-empty block meant a minimally-filled idea could never be saved at all.
         val result = DeserializeDraftStep.process(makeDraft(missingCategoryData()))
-        assertIs<Result.Failure<*>>(result)
-        val error = (result as Result.Failure).error
-        assertIs<AppFailure.ValidationError>(error)
-        assertTrue(error.errors.any { it is ValidationFailure.MissingParameter && it.parameterName == "categoryData" })
+        assertIs<Result.Success<*>>(result)
+        assertTrue((result as Result.Success).value.categoryData.isEmpty())
     }
 
     @Test
@@ -214,8 +214,8 @@ class DeserializeDraftStepTest {
         assertIs<Result.Failure<*>>(result)
         val error = (result as Result.Failure).error
         assertIs<AppFailure.ValidationError>(error)
-        // name, description, difficulty, category, author, versionRange all missing
-        assertTrue(error.errors.size >= 6)
+        // name, difficulty, category, author, versionRange — description is no longer required
+        assertTrue(error.errors.size >= 5)
     }
 
     @Test
@@ -226,7 +226,6 @@ class DeserializeDraftStepTest {
         assertIs<AppFailure.ValidationError>(error)
         val fieldNames = error.errors.filterIsInstance<ValidationFailure.MissingParameter>().map { it.parameterName }
         assertContains(fieldNames, "name")
-        assertContains(fieldNames, "description")
         assertContains(fieldNames, "difficulty")
         assertContains(fieldNames, "category")
         assertContains(fieldNames, "author")

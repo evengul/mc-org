@@ -55,17 +55,18 @@ object DeserializeDraftStep : Step<IdeaDraft, AppFailure.ValidationError, Create
 
         val errors = mutableListOf<ValidationFailure>()
 
+        // What a *private* design must have: a name, a kind, and a difficulty. Nothing else.
+        // A personal note is allowed to be a name and a category — quality bars belong to
+        // publishing to the hub, which is a separate step, not to storing your own design.
         if (data.name.isNullOrBlank()) errors.add(ValidationFailure.MissingParameter("name"))
-        if (data.description.isNullOrBlank()) errors.add(ValidationFailure.MissingParameter("description"))
         if (data.difficulty == null) errors.add(ValidationFailure.MissingParameter("difficulty"))
         if (data.category == null) errors.add(ValidationFailure.MissingParameter("category"))
         if (data.author == null) errors.add(ValidationFailure.MissingParameter("author"))
         if (data.versionRange == null) errors.add(ValidationFailure.MissingParameter("versionRange"))
 
+        // Not required: after the MCO-204 slimming almost every category field is optional, so
+        // demanding a non-empty block meant a minimal idea could never be saved.
         val categoryData = data.categoryData
-        if (data.category != null && (categoryData == null || categoryData.isEmpty())) {
-            errors.add(ValidationFailure.MissingParameter("categoryData"))
-        }
 
         if (errors.isNotEmpty()) {
             return Result.failure(AppFailure.ValidationError(errors))
@@ -74,7 +75,7 @@ object DeserializeDraftStep : Step<IdeaDraft, AppFailure.ValidationError, Create
         return Result.success(
             CreateIdeaInput(
                 name = data.name!!,
-                description = data.description!!,
+                description = data.description.orEmpty(),
                 category = data.category!!,
                 difficulty = data.difficulty!!,
                 labels = emptyList(),

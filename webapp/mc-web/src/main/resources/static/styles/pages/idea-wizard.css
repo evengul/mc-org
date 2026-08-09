@@ -233,6 +233,20 @@
     flex-direction: column;
 }
 
+/* Struct sub-fields (X / Y / Z) on one line — one measurement, not three questions. */
+.struct-field-row {
+    display: flex;
+    gap: var(--space-3);
+    flex-wrap: wrap;
+}
+
+.struct-field-cell {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 120px;
+    min-width: 0;
+}
+
 /* --- Actions --- */
 
 .idea-form__actions {
