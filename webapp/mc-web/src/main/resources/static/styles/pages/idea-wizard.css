@@ -343,6 +343,60 @@
     margin-top: var(--space-2);
 }
 
+/* Add-an-item is one gesture, so it sits on one line. */
+.item-add-line {
+    display: flex;
+    gap: var(--space-3);
+    align-items: flex-end;
+    flex-wrap: wrap;
+}
+
+.item-add-line__search {
+    flex: 1 1 260px;
+    min-width: 0;
+}
+
+.item-add-line__qty {
+    display: flex;
+    flex-direction: column;
+    flex: 0 0 110px;
+}
+
+.item-add-line__action {
+    flex: 0 0 auto;
+}
+
+.map-field-head {
+    display: flex;
+    gap: var(--space-2);
+    /* Leave room for the per-row remove button so the headings line up with their columns. */
+    padding-right: 44px;
+    margin-bottom: var(--space-1);
+}
+
+.map-field-head__cell {
+    flex: 1 1 0;
+    min-width: 0;
+    font-family: var(--font-ui);
+    font-size: var(--text-label);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+}
+
+/* The column headings above say this once; repeating it per row is noise. */
+.map-field-row label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+}
+
 .map-field-row {
     align-items: flex-end;
 }

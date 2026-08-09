@@ -51,8 +51,10 @@ fun FlowContent.draftItemRequirementFields(draft: IdeaDraft) {
     }
 
     // --- Manual item search ---
-    div("wizard-item-add") {
-        div("item-search-combo") {
+    // Search, quantity and the action on one line: they are one gesture ("add 64 iron"), and
+    // stacking them made a three-step ritual out of it.
+    div("wizard-item-add item-add-line") {
+        div("item-search-combo item-add-line__search") {
             label { htmlFor = "item-search"; +"Add Item" }
             div("item-search-field") {
                 input(type = InputType.text, classes = "form-control") {
@@ -75,27 +77,25 @@ fun FlowContent.draftItemRequirementFields(draft: IdeaDraft) {
             }
         }
 
-        div("item-add-row") {
-            div {
-                label { htmlFor = "item-amount"; +"Quantity" }
-                input(type = InputType.number, classes = "form-control") {
-                    id = "item-amount"
-                    min = "1"
-                    max = "2000000000"
-                    value = "1"
-                }
+        div("item-add-line__qty") {
+            label { htmlFor = "item-amount"; +"Quantity" }
+            input(type = InputType.number, classes = "form-control") {
+                id = "item-amount"
+                min = "1"
+                max = "2000000000"
+                value = "1"
             }
-            button(classes = "btn btn--secondary btn--sm") {
-                type = ButtonType.button
-                attributes["onclick"] = addItemScript()
-                +"Add Item"
-            }
+        }
+        button(classes = "btn btn--secondary item-add-line__action") {
+            type = ButtonType.button
+            attributes["onclick"] = addItemScript()
+            +"Add"
         }
     }
 
     // --- Litematica upload ---
     div("wizard-litematica-upload") {
-        p("form-help-text") { +"Or import items from a .litematic schematic file:" }
+        p("form-help-text") { +"Or drop in a .litematic and take the whole material list from it:" }
         // Deliberately NOT a nested <form>. These fields now live inside the single-page create
         // form (MCO-310), and an inner <form> makes the HTML parser close the outer one early —
         // silently orphaning every field and button that follows, including submit. HTMX can post

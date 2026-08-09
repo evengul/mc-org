@@ -41,6 +41,13 @@ val IdeaDraft.name: String?
         null
     }
 
+/**
+ * A draft nobody has typed anything into yet. Opening the create flow mints one of these, so
+ * without this check a few aborted visits leave a list of identical "Untitled Draft" rows.
+ */
+val IdeaDraft.isUntouched: Boolean
+    get() = data.isBlank() || data.trim() == "{}"
+
 object DeserializeDraftStep : Step<IdeaDraft, AppFailure.ValidationError, CreateIdeaInput> {
     override suspend fun process(input: IdeaDraft): Result<AppFailure.ValidationError, CreateIdeaInput> {
         val data = try {

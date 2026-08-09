@@ -217,7 +217,13 @@ class DraftLifecycleIT : WithUser() {
     @Test
     fun `GET ideas-create shows draft list when drafts exist`() = testApplication {
         val ideaCreator = createExtraUser("idea_creator")
-        runBlocking { CreateDraftStep(ideaCreator.id).process(Unit) }
+        val draftId = runBlocking { (CreateDraftStep(ideaCreator.id).process(Unit) as Result.Success).value }
+        // A draft only earns a place in the list once it holds something.
+        runBlocking {
+            UpdateDraftStep().process(
+                UpdateDraftInput(draftId, ideaCreator.id, """{"name":"Half-written farm"}""", "BASIC_INFO")
+            )
+        }
 
         routing {
             install(AuthPlugin)
@@ -229,6 +235,43 @@ class DraftLifecycleIT : WithUser() {
         val response = client.get("/ideas/create") { addAuthCookie(this, ideaCreator) }
         assertEquals(HttpStatusCode.OK, response.status)
         assertContains(response.bodyAsText(), "My Drafts")
+    }
+
+    @Test
+    fun `GET ideas-create reopens a blank draft instead of listing it (MCO-310)`() = testApplication {
+        val ideaCreator = createExtraUser("idea_creator")
+        val draftId = runBlocking { (CreateDraftStep(ideaCreator.id).process(Unit) as Result.Success).value }
+        val client = createClient { followRedirects = false }
+
+        routing {
+            install(AuthPlugin)
+            route("/ideas/create") {
+                get { call.handleGetDraftList() }
+            }
+        }
+
+        // Every blank draft is the same blank draft. Listing them produced a column of
+        // indistinguishable "Untitled Draft" rows after a couple of aborted visits.
+        val response = client.get("/ideas/create") { addAuthCookie(this, ideaCreator) }
+        assertEquals(HttpStatusCode.Found, response.status)
+        assertContains(response.headers[HttpHeaders.Location]!!, "/ideas/drafts/$draftId/edit")
+    }
+
+    @Test
+    fun `POST ideas-create reuses a blank draft rather than making another (MCO-310)`() = testApplication {
+        val ideaCreator = createExtraUser("idea_creator")
+        val draftId = runBlocking { (CreateDraftStep(ideaCreator.id).process(Unit) as Result.Success).value }
+
+        routing {
+            install(AuthPlugin)
+            route("/ideas/create") {
+                post { call.handleCreateDraft() }
+            }
+        }
+
+        val response = client.post("/ideas/create") { addAuthCookie(this, ideaCreator) }
+        assertContains(response.headers["HX-Redirect"]!!, "/ideas/drafts/$draftId/edit")
+        assertEquals(1, runBlocking { (GetDraftsStep(ideaCreator.id).process(Unit) as Result.Success).value.size })
     }
 
     @Test

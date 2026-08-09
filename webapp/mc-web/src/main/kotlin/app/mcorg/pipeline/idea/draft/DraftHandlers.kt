@@ -66,11 +66,13 @@ suspend fun ApplicationCall.handleGetDraftList() {
         }
     ) {
         val draftList = GetDraftsStep(user.id).run(Unit)
-        if (draftList.isEmpty()) {
-            val draftId = CreateDraftStep(user.id).run(Unit)
-            DraftListOutcome.Redirect("/ideas/drafts/$draftId/edit")
-        } else {
-            DraftListOutcome.ShowList(draftList)
+        val untouched = draftList.firstOrNull { it.isUntouched }
+        when {
+            draftList.isEmpty() -> DraftListOutcome.Redirect("/ideas/drafts/${CreateDraftStep(user.id).run(Unit)}/edit")
+            // Every blank draft is the same blank draft — send them back to it rather than
+            // showing a list of indistinguishable "Untitled Draft" rows.
+            draftList.all { it.isUntouched } -> DraftListOutcome.Redirect("/ideas/drafts/${untouched!!.id}/edit")
+            else -> DraftListOutcome.ShowList(draftList)
         }
     }
 }
@@ -92,7 +94,10 @@ suspend fun ApplicationCall.handleCreateDraft() {
             clientRedirect("/ideas/drafts/$draftId/edit")
         }
     ) {
-        CreateDraftStep(user.id).run(Unit)
+        // Reuse a blank draft if one is already lying around, so repeated "New Draft" clicks do
+        // not stack up identical empty rows.
+        GetDraftsStep(user.id).run(Unit).firstOrNull { it.isUntouched }?.id
+            ?: CreateDraftStep(user.id).run(Unit)
     }
 }
 

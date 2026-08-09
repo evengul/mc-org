@@ -9,7 +9,9 @@ import app.mcorg.presentation.templated.dsl.Icons
 import kotlinx.html.ButtonType
 import kotlinx.html.DIV
 import kotlinx.html.InputType
+import kotlinx.html.button
 import kotlinx.html.classes
+import kotlinx.html.onClick
 import kotlinx.html.div
 import kotlinx.html.id
 import kotlinx.html.input
@@ -115,7 +117,8 @@ fun DIV.renderCreateNumberField(field: CategoryField.Number, value: CategoryValu
             field.min?.let { attributes["min"] = it.toString() }
             field.max?.let { attributes["max"] = it.toString() }
             field.step?.let { attributes["step"] = it.toString() }
-            placeholder = field.label
+            // No placeholder: it was a copy of the label sitting directly above it, which read as
+            // "X Dimension" twice on every size field and told the reader nothing.
             value?.let {
                 this.value = it.value.toString()
             }
@@ -329,6 +332,12 @@ fun DIV.renderCreateTypedMapField(versionRange: MinecraftVersionRange, field: Ca
             }
         }
     }
+    // Column headings once, rather than the key/value labels repeating on every single row. The
+    // per-row labels still exist for screen readers, just visually hidden.
+    div("map-field-head") {
+        span("map-field-head__cell") { +field.keyType.label }
+        span("map-field-head__cell") { +field.valueType.label }
+    }
     div("map-field-container stack stack--xs") {
         id = containerId
         values?.value?.forEach { (k, v) ->
@@ -338,10 +347,10 @@ fun DIV.renderCreateTypedMapField(versionRange: MinecraftVersionRange, field: Ca
         mapFieldRow(versionRange, field)
     }
     div("map-field-actions") {
-        iconButton(Icons.MENU_ADD, "Add Entry") {
-            iconSize = IconSize.SMALL
-            buttonBlock = { type = ButtonType.button }
+        button(classes = "btn btn--ghost btn--sm") {
+            type = ButtonType.button
             onClick = addMapRowScript(containerId)
+            +"+ Add row"
         }
     }
 }
