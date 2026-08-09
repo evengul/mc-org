@@ -339,6 +339,18 @@ a.ideas-pagination__page:hover {
     flex-wrap: wrap;
 }
 
+/* Visibility control */
+.idea-visibility {
+    display: flex;
+    align-items: center;
+}
+
+.idea-visibility__state {
+    font-family: var(--font-ui);
+    font-size: var(--text-ui);
+    color: var(--text-muted);
+}
+
 /* Design details */
 .idea-fields {
     display: flex;

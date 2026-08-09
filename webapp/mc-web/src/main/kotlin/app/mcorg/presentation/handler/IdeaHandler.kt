@@ -21,12 +21,14 @@ import app.mcorg.pipeline.idea.single.handleDeleteIdea
 import app.mcorg.pipeline.idea.single.handleDeleteIdeaComment
 import app.mcorg.pipeline.idea.single.handleFavouriteIdea
 import app.mcorg.pipeline.idea.single.handleGetIdea
+import app.mcorg.pipeline.idea.single.handlePublishIdeaToHub
 import app.mcorg.pipeline.project.handleGetSelectWorldForIdeaImportFragment
 import app.mcorg.pipeline.project.handleImportIdea
 import app.mcorg.pipeline.project.handleReviewIdeaImport
 import app.mcorg.presentation.plugins.IdeaCommentParamPlugin
-import app.mcorg.presentation.plugins.IdeaCreatorPlugin
 import app.mcorg.presentation.plugins.IdeaParamPlugin
+import app.mcorg.presentation.plugins.IdeaPublisherPlugin
+import app.mcorg.presentation.plugins.IdeaVisibilityPlugin
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.delete
 import io.ktor.server.routing.get
@@ -55,9 +57,10 @@ class IdeaHandler {
                 }
             }
 
-            // Draft-based creation flow (replaces session-based wizard)
+            // Draft-based creation flow (replaces session-based wizard).
+            // Open to every signed-in user (MCO-291): a draft is personal, and gating creation is
+            // what kept the idea bank empty. Publishing to the hub is the privileged step instead.
             route("/create") {
-                install(IdeaCreatorPlugin)
                 get {
                     call.handleGetDraftList()
                 }
@@ -82,9 +85,9 @@ class IdeaHandler {
                 }
             }
 
-            // Draft wizard routes
+            // Draft wizard routes. Every handler here scopes its query by the calling user's id,
+            // so a draft is only ever reachable by its owner.
             route("/drafts") {
-                install(IdeaCreatorPlugin)
                 route("/{draftId}") {
                     get("/edit") {
                         call.handleGetDraftWizard()
@@ -103,6 +106,8 @@ class IdeaHandler {
 
             route("/{ideaId}") {
                 install(IdeaParamPlugin)
+                // Must come after IdeaParamPlugin — it reads the id that plugin resolves.
+                install(IdeaVisibilityPlugin)
                 get {
                     call.handleGetIdea()
                 }
@@ -120,8 +125,11 @@ class IdeaHandler {
                 put("/favourite") {
                     call.handleFavouriteIdea()
                 }
-                patch("/public") {
-                    // Make idea public
+                route("/public") {
+                    install(IdeaPublisherPlugin)
+                    patch {
+                        call.handlePublishIdeaToHub()
+                    }
                 }
                 patch("/archive") {
                     // Archive idea
@@ -130,8 +138,9 @@ class IdeaHandler {
                     call.handleDeleteIdea()
                 }
 
+                // Ownership is enforced inside the handler; no role needed to pull your own idea
+                // back to a draft.
                 route("/revert") {
-                    install(IdeaCreatorPlugin)
                     post {
                         call.handleRevertIdeaToDraft()
                     }

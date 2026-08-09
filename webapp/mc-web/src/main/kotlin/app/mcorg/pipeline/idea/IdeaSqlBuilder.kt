@@ -1,5 +1,6 @@
 package app.mcorg.pipeline.idea
 
+import app.mcorg.domain.model.idea.IdeaVisibility
 import app.mcorg.domain.model.idea.schema.IdeaCategorySchemas
 
 /**
@@ -26,6 +27,17 @@ object IdeaSqlBuilder {
 
         // Always filter ideas that are inactive (being edited)
         conditions.add("i.is_active = TRUE")
+
+        // Visibility (MCO-291): the hub is public ideas plus the viewer's own private designs.
+        // With no viewer we show only what is public — never fall open.
+        if (filters.viewerId != null) {
+            conditions.add("(i.visibility = ? OR i.created_by = ?)")
+            parameters.add(IdeaVisibility.PUBLIC.name)
+            parameters.add(filters.viewerId)
+        } else {
+            conditions.add("i.visibility = ?")
+            parameters.add(IdeaVisibility.PUBLIC.name)
+        }
 
         // Base filters
         filters.category?.let {

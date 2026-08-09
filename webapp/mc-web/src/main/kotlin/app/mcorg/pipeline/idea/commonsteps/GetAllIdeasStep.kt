@@ -13,7 +13,7 @@ val GetAllIdeasStep = DatabaseSteps.query<Unit, List<Idea>>(
                 SELECT 
                     i.id, i.name, i.description, i.category, i.author, i.sub_authors, i.labels,
                     i.favourites_count, i.rating_average, i.rating_count, i.difficulty,
-                    i.minecraft_version_range, i.category_data, i.created_by, i.created_at,
+                    i.minecraft_version_range, i.category_data, i.created_by, i.created_at, i.visibility,
                     COALESCE(
                         json_agg(
                             json_build_object(
@@ -28,7 +28,7 @@ val GetAllIdeasStep = DatabaseSteps.query<Unit, List<Idea>>(
                 LEFT JOIN idea_test_data t ON i.id = t.idea_id
                 GROUP BY i.id, i.name, i.description, i.category, i.author, i.sub_authors, i.labels,
                          i.favourites_count, i.rating_average, i.rating_count, i.difficulty,
-                         i.minecraft_version_range, i.category_data, i.created_by, i.created_at
+                         i.minecraft_version_range, i.category_data, i.created_by, i.created_at, i.visibility
                 ORDER BY i.created_at DESC
             """.trimIndent()),
     parameterSetter = { _, _ -> },

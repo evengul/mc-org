@@ -218,6 +218,8 @@ class GetIdeasIT : WithUser() {
 
     // --- Helper ---
 
+    // These tests exercise the hub listing, so fixtures are public. Visibility filtering has its
+    // own coverage in GetIdeasByCategoryStepTest; the production default is PRIVATE.
     private fun createIdea(name: String, category: IdeaCategory): Int = runBlocking {
         val result = DatabaseSteps.update<Unit>(
             sql = SafeSQL.insert(
@@ -225,8 +227,8 @@ class GetIdeasIT : WithUser() {
                 INSERT INTO ideas (
                     name, description, category, author, difficulty,
                     minecraft_version_range, category_data, created_by,
-                    rating_average, rating_count
-                ) VALUES (?, ?, ?, ?::jsonb, ?, ?::jsonb, '{}', ?, 0.0, 0)
+                    rating_average, rating_count, visibility
+                ) VALUES (?, ?, ?, ?::jsonb, ?, ?::jsonb, '{}', ?, 0.0, 0, 'PUBLIC')
                 RETURNING id
                 """.trimIndent()
             ),

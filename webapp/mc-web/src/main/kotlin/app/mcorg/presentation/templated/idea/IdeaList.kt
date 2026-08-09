@@ -1,6 +1,7 @@
 package app.mcorg.presentation.templated.idea
 
 import app.mcorg.domain.model.idea.Idea
+import app.mcorg.domain.model.idea.IdeaVisibility
 import app.mcorg.pipeline.idea.IdeaSearchFilters
 import app.mcorg.pipeline.idea.PaginatedResult
 import app.mcorg.presentation.hxGet
@@ -34,6 +35,11 @@ fun FlowContent.ideaCard(idea: Idea) {
         href = Link.Ideas.single(idea.id)
         div("idea-card__header") {
             h2("idea-card__name") { +idea.name }
+            // The hub mixes the viewer's own private designs in with public ones, so say which
+            // is which (MCO-291). Only the owner is ever shown a private card.
+            if (idea.visibility == IdeaVisibility.PRIVATE) {
+                span("badge badge--accent") { +"Private" }
+            }
             span("badge") { +idea.category.toPrettyEnumName() }
         }
         p("idea-card__meta") {
