@@ -352,6 +352,43 @@ a.ideas-pagination__page:hover {
     color: var(--text-muted);
 }
 
+/* Materials */
+.idea-materials {
+    display: flex;
+    flex-direction: column;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.idea-materials__row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: var(--space-4);
+    padding: var(--space-2) 0;
+    border-bottom: 1px dotted var(--border);
+    max-width: 420px;
+}
+
+.idea-materials__row:last-child {
+    border-bottom: none;
+}
+
+.idea-materials__name {
+    font-family: var(--font-body);
+    font-size: var(--text-base);
+    color: var(--text-primary);
+    overflow-wrap: anywhere;
+}
+
+.idea-materials__qty {
+    font-family: var(--font-ui);
+    font-size: var(--text-ui);
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+
 /* Design details */
 .idea-fields {
     display: flex;

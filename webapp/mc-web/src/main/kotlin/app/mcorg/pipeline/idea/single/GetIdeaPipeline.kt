@@ -24,17 +24,64 @@ suspend fun ApplicationCall.handleGetIdea() {
     val user = this.getUser()
 
     handlePipeline(
-        onSuccess = { (idea, comments) ->
-            respondHtml(ideaPage(user, idea, comments))
+        onSuccess = { (idea, comments, materials) ->
+            respondHtml(ideaPage(user, idea, comments, materials))
         }
     ) {
-        val (idea, comments) = parallel(
+        parallel(
             { GetIdeaStep.run(ideaId) },
             { GetIdeaCommentsStep.run(GetCommentsInput(ideaId, user.id)) },
+            { GetIdeaMaterialsStep.run(ideaId) },
         )
-        idea to comments
     }
 }
+
+/** One line of an idea's material list. [name] is null when the item is not in the ingested catalog. */
+data class IdeaMaterial(
+    val itemId: String,
+    val name: String?,
+    val quantity: Int,
+)
+
+/**
+ * What an idea costs to build. Written on create and read by the import pipeline, but never shown
+ * to the person deciding whether to import it — the whole point of the list.
+ *
+ * Item names come from the ingested catalog rather than the raw id, so "minecraft:tnt" reads
+ * "TNT" and not "Tnt". Names are per-version; any version's name will do for display, so this
+ * takes the highest one rather than joining on the idea's version range.
+ */
+private val GetIdeaMaterialsStep = DatabaseSteps.query<Int, List<IdeaMaterial>>(
+    sql = SafeSQL.select("""
+                SELECT
+                    r.item_id,
+                    r.quantity,
+                    (
+                        SELECT mi.item_name
+                        FROM minecraft_items mi
+                        WHERE mi.item_id = r.item_id
+                        ORDER BY mi.version DESC
+                        LIMIT 1
+                    ) AS item_name
+                FROM idea_item_requirements r
+                WHERE r.idea_id = ?
+                ORDER BY r.quantity DESC
+            """.trimIndent()),
+    parameterSetter = { statement, ideaId -> statement.setInt(1, ideaId) },
+    resultMapper = { rs ->
+        buildList {
+            while (rs.next()) {
+                add(
+                    IdeaMaterial(
+                        itemId = rs.getString("item_id"),
+                        name = rs.getString("item_name"),
+                        quantity = rs.getInt("quantity"),
+                    )
+                )
+            }
+        }
+    }
+)
 
 private val GetIdeaCommentsStep = DatabaseSteps.query<GetCommentsInput, List<Comment>>(
     sql = SafeSQL.select("""
