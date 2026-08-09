@@ -19,8 +19,8 @@ import app.mcorg.pipeline.idea.draft.handleDeleteDraft
 import app.mcorg.pipeline.idea.draft.handleGetDraftList
 import app.mcorg.pipeline.idea.draft.handleGetDraftWizard
 import app.mcorg.pipeline.idea.draft.handlePublishDraft
+import app.mcorg.pipeline.idea.draft.handleSaveDraftForm
 import app.mcorg.pipeline.idea.draft.handleRevertIdeaToDraft
-import app.mcorg.pipeline.idea.draft.handleUpdateDraftStage
 import app.mcorg.pipeline.idea.commonsteps.GetIdeaStep
 import app.mcorg.presentation.plugins.AuthPlugin
 import app.mcorg.presentation.plugins.IdeaParamPlugin
@@ -341,55 +341,22 @@ class DraftLifecycleIT : WithUser() {
     }
 
     @Test
-    fun `POST drafts-draftId-stage saves data and returns next stage fragment`() = testApplication {
+    fun `POST drafts-draftId-save persists typed map fields`() = testApplication {
+        // Ported from the deleted per-stage endpoint: the round trip it covered still matters, the
+        // route it used does not.
         val ideaCreator = createExtraUser("idea_creator")
         val draftId = runBlocking { (CreateDraftStep(ideaCreator.id).process(Unit) as Result.Success).value }
 
         routing {
             install(AuthPlugin)
             route("/ideas/drafts/{draftId}") {
-                post("/stage") { call.handleUpdateDraftStage() }
+                post("/save") { call.handleSaveDraftForm() }
             }
         }
 
         val response = client.submitForm(
-            url = "/ideas/drafts/$draftId/stage",
+            url = "/ideas/drafts/$draftId/save",
             formParameters = Parameters.build {
-                append("currentStage", "BASIC_INFO")
-                append("name", "Iron Farm")
-                append("description", "A fast iron farm using villagers")
-                append("difficulty", "MID_GAME")
-            }
-        ) { addAuthCookie(this, ideaCreator) }
-
-        assertEquals(HttpStatusCode.OK, response.status)
-        val body = response.bodyAsText()
-        assertContains(body, "wizard-stage")
-        // Should show AUTHOR_INFO stage content
-        assertContains(body, "Author")
-    }
-
-    /**
-     * The specs block is the whole point of the slim schema (MCO-204), and it is a typed map —
-     * which the stage extractor used to drop on the floor, so nothing a user typed there ever
-     * reached the draft (and therefore never reached the published idea).
-     */
-    @Test
-    fun `POST drafts-draftId-stage persists typed map fields`() = testApplication {
-        val ideaCreator = createExtraUser("idea_creator")
-        val draftId = runBlocking { (CreateDraftStep(ideaCreator.id).process(Unit) as Result.Success).value }
-
-        routing {
-            install(AuthPlugin)
-            route("/ideas/drafts/{draftId}") {
-                post("/stage") { call.handleUpdateDraftStage() }
-            }
-        }
-
-        val response = client.submitForm(
-            url = "/ideas/drafts/$draftId/stage",
-            formParameters = Parameters.build {
-                append("currentStage", "CATEGORY_FIELDS")
                 append("category", "TNT")
                 append("categoryData.specs.key[]", "TNT per piston")
                 append("categoryData.specs.value[]", "10")
@@ -399,7 +366,11 @@ class DraftLifecycleIT : WithUser() {
                 append("categoryData.specs.key[]", "")
                 append("categoryData.specs.value[]", "")
             }
-        ) { addAuthCookie(this, ideaCreator) }
+        ) {
+            addAuthCookie(this, ideaCreator)
+            // "Save for later" posts via HTMX, which gets an HX-Redirect rather than a 302.
+            header("HX-Request", "true")
+        }
 
         assertEquals(HttpStatusCode.OK, response.status)
 
