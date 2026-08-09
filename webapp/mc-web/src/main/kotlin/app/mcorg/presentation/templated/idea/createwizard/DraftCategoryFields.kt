@@ -23,16 +23,6 @@ import kotlinx.serialization.json.Json
 
 private val json = Json { ignoreUnknownKeys = true; isLenient = true }
 
-/**
- * Category picker plus its schema fields, together. Kept for callers that want both in one place;
- * the single-page create form (MCO-310) uses the two halves separately, because the picker is
- * required and belongs up front while the schema fields are optional detail.
- */
-fun FlowContent.draftCategoryFields(draft: IdeaDraft) {
-    draftCategorySelect(draft)
-    draftCategorySchemaFields(draft)
-}
-
 /** The required "what kind of thing is this" picker. */
 fun FlowContent.draftCategorySelect(draft: IdeaDraft) {
     val data = runCatching { json.decodeFromString(DraftData.serializer(), draft.data) }.getOrDefault(DraftData())

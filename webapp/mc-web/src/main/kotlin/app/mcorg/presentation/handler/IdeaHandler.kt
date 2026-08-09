@@ -12,7 +12,6 @@ import app.mcorg.pipeline.idea.draft.handleGetDraftWizard
 import app.mcorg.pipeline.idea.draft.handlePublishDraft
 import app.mcorg.pipeline.idea.draft.handleSaveDraftForm
 import app.mcorg.pipeline.idea.draft.handleRevertIdeaToDraft
-import app.mcorg.pipeline.idea.draft.handleUpdateDraftStage
 import app.mcorg.pipeline.idea.handleClearCategoryFilters
 import app.mcorg.pipeline.idea.handleGetCategoryFilters
 import app.mcorg.pipeline.idea.handleGetIdeas
@@ -68,7 +67,8 @@ class IdeaHandler {
                 post {
                     call.handleCreateDraft()
                 }
-                // Legacy fragment endpoints retained for now (used by old wizard fields)
+                // Fragment endpoints the create form swaps in as you change category, author type
+                // or version range. Not legacy — the single-page form drives all of these.
                 get("/fields/{category}") {
                     call.handleGetCreateCategoryFields()
                 }
@@ -86,15 +86,12 @@ class IdeaHandler {
                 }
             }
 
-            // Draft wizard routes. Every handler here scopes its query by the calling user's id,
-            // so a draft is only ever reachable by its owner.
+            // Draft routes. Every handler here scopes its query by the calling user's id, so a
+            // draft is only ever reachable by its owner.
             route("/drafts") {
                 route("/{draftId}") {
                     get("/edit") {
                         call.handleGetDraftWizard()
-                    }
-                    post("/stage") {
-                        call.handleUpdateDraftStage()
                     }
                     post("/save") {
                         call.handleSaveDraftForm()

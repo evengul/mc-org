@@ -10,9 +10,6 @@ import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.templated.idea.createwizard.DraftWizardStage
 import app.mcorg.presentation.templated.idea.createwizard.draftFormFragment
 import app.mcorg.presentation.templated.idea.createwizard.draftFormPage
-import app.mcorg.presentation.templated.idea.createwizard.draftWizardPage
-import app.mcorg.presentation.templated.idea.createwizard.wizardProgressHtml
-import app.mcorg.presentation.templated.idea.createwizard.wizardStageContent
 import app.mcorg.presentation.templated.idea.draftListPage
 import app.mcorg.pipeline.idea.commonsteps.GetIdeaStep
 import app.mcorg.presentation.utils.clientRedirect
@@ -118,72 +115,6 @@ suspend fun ApplicationCall.handleGetDraftWizard() {
             respondHtml(draftFormPage(user, draft, supportedVersions))
         }
     ) {
-        GetDraftStep().run(GetDraftInput(draftId, user.id))
-    }
-}
-
-/**
- * POST /ideas/drafts/:draftId/stage
- * Saves current stage data into JSONB, advances to next stage, returns fragment.
- */
-suspend fun ApplicationCall.handleUpdateDraftStage() {
-    val user = getUser()
-    val draftId = parameters["draftId"]?.toIntOrNull() ?: run {
-        respondHtml("<p>Invalid draft ID</p>"); return
-    }
-    val params = receiveParameters()
-    val currentStageName = params["currentStage"] ?: "BASIC_INFO"
-    val currentStage = runCatching { DraftWizardStage.valueOf(currentStageName) }
-        .getOrDefault(DraftWizardStage.BASIC_INFO)
-    val nextStage = params["targetStage"]
-        ?.let { runCatching { DraftWizardStage.valueOf(it) }.getOrNull() }
-        ?: (currentStage.next() ?: DraftWizardStage.REVIEW)
-
-    val supportedVersions = GetSupportedVersionsStep.getSupportedVersions()
-    val stageJson = buildStageJson(currentStage, params)
-    val movingForward = nextStage.ordinal > currentStage.ordinal
-    val validationErrors = if (movingForward) {
-        (ValidateStageStep.process(ValidateStageInput(currentStage, params)) as? Result.Success)?.value ?: emptyList()
-    } else {
-        emptyList()
-    }
-
-    if (validationErrors.isNotEmpty()) {
-        val draft = GetDraftStep().process(GetDraftInput(draftId, user.id)).getOrNull()
-        if (draft != null) {
-            val previewDraft = mergeStageIntoDraft(draft, stageJson)
-            response.headers.append("HX-Retarget", "#wizard-stage")
-            response.headers.append("HX-Reswap", "outerHTML")
-            respondHtml(
-                createHTML().div {
-                    id = "wizard-stage"
-                    wizardStageContent(previewDraft, currentStage, supportedVersions, validationErrors)
-                },
-                HttpStatusCode.UnprocessableEntity
-            )
-        } else {
-            respondHtml("<p>Draft not found</p>", HttpStatusCode.NotFound)
-        }
-        return
-    }
-
-    handlePipeline(
-        onSuccess = { draft ->
-            response.headers.append("HX-Push-Url", "/ideas/drafts/$draftId/edit?stage=${nextStage.name}")
-            val stageHtml = createHTML().div {
-                id = "wizard-stage"
-                wizardStageContent(draft, nextStage, supportedVersions)
-            }
-            val progressHtml = wizardProgressHtml(draftId, nextStage, oob = true)
-            val titleHtml = createHTML().h1("wizard-title") {
-                id = "wizard-title"
-                attributes["hx-swap-oob"] = "true"
-                +"${if (draft.name != null) "\"${draft.name}\"" else "New Draft"}"
-            }
-            respondHtml(stageHtml + progressHtml + titleHtml)
-        }
-    ) {
-        UpdateDraftStep().run(UpdateDraftInput(draftId, user.id, stageJson, nextStage.name))
         GetDraftStep().run(GetDraftInput(draftId, user.id))
     }
 }
@@ -480,13 +411,6 @@ private fun extractCategoryValue(field: CategoryField, params: Parameters, param
         }
         if (entries.isNotEmpty()) CategoryValue.MapValue(entries) else null
     }
-}
-
-private fun mergeStageIntoDraft(draft: app.mcorg.domain.model.idea.IdeaDraft, stageJson: String): app.mcorg.domain.model.idea.IdeaDraft {
-    val existing = runCatching { Json.parseToJsonElement(draft.data).jsonObject }.getOrDefault(JsonObject(emptyMap()))
-    val incoming = runCatching { Json.parseToJsonElement(stageJson).jsonObject }.getOrDefault(JsonObject(emptyMap()))
-    val merged = JsonObject(existing + incoming)
-    return draft.copy(data = merged.toString())
 }
 
 fun ValidationFailure.toMessage(): String {

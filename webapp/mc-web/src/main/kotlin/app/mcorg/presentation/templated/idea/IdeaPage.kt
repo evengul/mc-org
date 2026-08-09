@@ -4,6 +4,7 @@ import app.mcorg.domain.model.idea.Comment
 import app.mcorg.domain.model.idea.Idea
 import app.mcorg.domain.model.idea.IdeaVisibility
 import app.mcorg.domain.model.user.TokenProfile
+import app.mcorg.pipeline.idea.single.IdeaMaterial
 import app.mcorg.presentation.hxDeleteWithConfirm
 import app.mcorg.presentation.hxGet
 import app.mcorg.presentation.hxOutOfBands
@@ -27,6 +28,7 @@ fun ideaPage(
     user: TokenProfile,
     idea: Idea,
     comments: List<Comment>,
+    materials: List<IdeaMaterial> = emptyList(),
 ): String = pageShell(
     pageTitle = "Seam — ${idea.name}",
     user = user,
@@ -44,6 +46,7 @@ fun ideaPage(
             div("idea-detail") {
                 ideaDetailHeader(user, idea)
                 ideaDetailFields(idea)
+                ideaMaterialList(materials)
                 ideaRatingDistribution(idea, comments)
                 ideaCommentsSection(user.id, idea, comments)
             }
