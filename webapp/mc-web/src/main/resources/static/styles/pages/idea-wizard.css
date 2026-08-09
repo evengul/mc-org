@@ -343,9 +343,17 @@
     margin-top: var(--space-2);
 }
 
-/* Add-an-item is one gesture, so it sits on one line. */
+/*
+ * Add-an-item is one gesture, so it sits on one line.
+ *
+ * Selector has to out-specify `.idea-form__section-body > div`, which stacks every field group into
+ * a column. Losing that fight turns `align-items: flex-end` into right-alignment and makes each
+ * `flex-basis` a height, which is exactly as bad as it sounds.
+ */
+.idea-form__section-body > .item-add-line,
 .item-add-line {
     display: flex;
+    flex-direction: row;
     gap: var(--space-3);
     align-items: flex-end;
     flex-wrap: wrap;
