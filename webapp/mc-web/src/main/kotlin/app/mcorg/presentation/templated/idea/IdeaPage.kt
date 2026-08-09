@@ -42,6 +42,7 @@ fun ideaPage(
         container {
             div("idea-detail") {
                 ideaDetailHeader(user, idea)
+                ideaDetailFields(idea)
                 ideaRatingDistribution(idea, comments)
                 ideaCommentsSection(user.id, idea, comments)
             }

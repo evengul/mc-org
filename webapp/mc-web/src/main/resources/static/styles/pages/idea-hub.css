@@ -339,6 +339,87 @@ a.ideas-pagination__page:hover {
     flex-wrap: wrap;
 }
 
+/* Design details */
+.idea-fields {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+}
+
+.idea-fields__row {
+    display: grid;
+    grid-template-columns: 180px 1fr;
+    gap: var(--space-4);
+    align-items: baseline;
+    padding-bottom: var(--space-3);
+    border-bottom: 1px solid var(--border);
+}
+
+.idea-fields__row:last-child {
+    padding-bottom: 0;
+    border-bottom: none;
+}
+
+.idea-fields__label {
+    font-family: var(--font-ui);
+    font-size: var(--text-label);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+}
+
+.idea-fields__value {
+    font-family: var(--font-body);
+    font-size: var(--text-base);
+    color: var(--text-primary);
+    overflow-wrap: anywhere;
+}
+
+.idea-fields__pairs,
+.idea-fields__links {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.idea-fields__pair {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--space-4);
+    align-items: baseline;
+    /* Keep key and value within reading distance — full-width rows strand the value on the far right. */
+    max-width: 420px;
+    border-bottom: 1px dotted var(--border);
+}
+
+.idea-fields__pair-key {
+    font-family: var(--font-body);
+    font-size: var(--text-base);
+    color: var(--text-primary);
+    overflow-wrap: anywhere;
+}
+
+.idea-fields__pair-value {
+    font-family: var(--font-ui);
+    font-size: var(--text-ui);
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+
+.idea-fields__link {
+    font-family: var(--font-body);
+    font-size: var(--text-base);
+    color: var(--accent);
+    overflow-wrap: anywhere;
+}
+
+.idea-fields__link:hover {
+    color: var(--accent-hover);
+}
+
 /* Ratings */
 .idea-ratings-layout {
     display: flex;
@@ -580,5 +661,10 @@ a.ideas-pagination__page:hover {
 
     .idea-detail__title-row {
         flex-direction: column;
+    }
+
+    .idea-fields__row {
+        grid-template-columns: 1fr;
+        gap: var(--space-1);
     }
 }
