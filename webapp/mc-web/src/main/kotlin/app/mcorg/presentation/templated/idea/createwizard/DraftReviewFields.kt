@@ -18,7 +18,7 @@ private val json = Json { ignoreUnknownKeys = true; isLenient = true }
 fun FlowContent.draftReviewFields(draft: IdeaDraft) {
     val data = runCatching { json.decodeFromString(DraftData.serializer(), draft.data) }.getOrDefault(DraftData())
 
-    p { +"Review your idea before publishing." }
+    p { +"Review your idea before saving. It stays private until you publish it to the hub." }
     hr {}
 
     reviewRow("Name", data.name ?: "(not set)")

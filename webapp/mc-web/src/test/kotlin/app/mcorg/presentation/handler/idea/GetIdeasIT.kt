@@ -68,6 +68,24 @@ class GetIdeasIT : WithUser() {
     }
 
     @Test
+    fun `the create entry point is visible to a user without the publishing role (MCO-291)`() = testApplication {
+        routing {
+            install(AuthPlugin)
+            route("/ideas") {
+                get { call.handleGetIdeas() }
+            }
+        }
+
+        // `user` holds no roles. Opening the route is not enough — the button that leads to it
+        // must not be gated either, or creating stays unreachable in practice.
+        val response = client.get("/ideas") { addAuthCookie(this) }
+
+        val body = response.bodyAsText()
+        assertContains(body, "ideas-submit-btn")
+        assertContains(body, "/ideas/create")
+    }
+
+    @Test
     fun `GET ideas shows empty state when no ideas exist`() = testApplication {
         routing {
             install(AuthPlugin)

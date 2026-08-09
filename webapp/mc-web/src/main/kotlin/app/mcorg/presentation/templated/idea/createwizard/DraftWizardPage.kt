@@ -216,7 +216,9 @@ private fun FlowContent.wizardNavigation(draft: IdeaDraft, stage: DraftWizardSta
                 hxTarget("#wizard-stage")
                 hxSwap("outerHTML")
                 attributes["hx-include"] = "#wizard-fields-content"
-                +"Publish Idea"
+                // Not "Publish" — this finishes a *private* design (MCO-291). Publishing now means
+                // putting it on the community hub, a separate and privileged step.
+                +"Save Idea"
             }
         }
     }

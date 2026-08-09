@@ -12,9 +12,10 @@
     margin-top: var(--space-5);
 }
 
-/* Submit button (idea creators only) */
+/* Primary entry point — above the layout grid, so it is not buried under the filter sidebar. */
 .ideas-submit-btn {
-    margin-top: var(--space-4);
+    display: inline-flex;
+    margin-top: var(--space-5);
 }
 
 /* --- Filter sidebar --- */
