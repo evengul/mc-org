@@ -17,6 +17,12 @@ data class IdeaSearchFilters(
     // Category-specific filters (JSONB field queries)
     val categoryFilters: Map<String, FilterValue> = emptyMap(),
 
+    /**
+     * Who is looking (MCO-291). The hub shows public ideas plus the viewer's own private designs.
+     * Not parsed from query parameters — it comes from the authenticated call, never the client.
+     */
+    val viewerId: Int? = null,
+
     // Pagination
     val page: Int = 1,
     val pageSize: Int = 20

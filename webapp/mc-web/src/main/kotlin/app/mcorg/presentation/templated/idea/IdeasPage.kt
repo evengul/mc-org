@@ -27,6 +27,18 @@ fun ideasPage(
     }
     main {
         container {
+            // Open to everyone (MCO-291): creating a design is unprivileged and the result is
+            // private, so the entry point must not be gated on the publishing role. "New" rather
+            // than "Submit" — this no longer puts anything in front of the community.
+            //
+            // Sits above the layout grid, not inside it: as a grid child it landed in the second
+            // row *under* the filter sidebar, which was tolerable when only creators saw it and is
+            // not now that it is every user's way in.
+            a(classes = "btn btn--primary ideas-submit-btn") {
+                href = "${Link.Ideas.to}/create"
+                +"New Idea"
+            }
+
             div("ideas-layout") {
                 // Mobile: filter toggle button (hidden on desktop)
                 button(classes = "btn btn--ghost ideas-filter-toggle") {
@@ -61,14 +73,6 @@ fun ideasPage(
                 div {
                     id = "ideas-list-container"
                     ideasListContainerContent(result, filters)
-                }
-            }
-
-            // "Submit Idea" button for creators - header area
-            if (user.isIdeaCreator) {
-                a(classes = "btn btn--primary ideas-submit-btn") {
-                    href = "${Link.Ideas.to}/create"
-                    +"Submit Idea"
                 }
             }
         }

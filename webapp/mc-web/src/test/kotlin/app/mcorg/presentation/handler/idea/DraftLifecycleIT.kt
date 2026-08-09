@@ -2,6 +2,7 @@ package app.mcorg.presentation.handler.idea
 
 import app.mcorg.domain.model.idea.IdeaCategory
 import app.mcorg.domain.model.idea.IdeaDifficulty
+import app.mcorg.domain.model.idea.IdeaVisibility
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.Result
 import app.mcorg.pipeline.SafeSQL
@@ -20,8 +21,8 @@ import app.mcorg.pipeline.idea.draft.handleGetDraftWizard
 import app.mcorg.pipeline.idea.draft.handlePublishDraft
 import app.mcorg.pipeline.idea.draft.handleRevertIdeaToDraft
 import app.mcorg.pipeline.idea.draft.handleUpdateDraftStage
+import app.mcorg.pipeline.idea.commonsteps.GetIdeaStep
 import app.mcorg.presentation.plugins.AuthPlugin
-import app.mcorg.presentation.plugins.IdeaCreatorPlugin
 import app.mcorg.presentation.plugins.IdeaParamPlugin
 import app.mcorg.test.WithUser
 import app.mcorg.test.postgres.DatabaseTestExtension
@@ -176,7 +177,6 @@ class DraftLifecycleIT : WithUser() {
         routing {
             install(AuthPlugin)
             route("/ideas/create") {
-                install(IdeaCreatorPlugin)
                 get { call.handleGetDraftList() }
             }
         }
@@ -197,7 +197,6 @@ class DraftLifecycleIT : WithUser() {
         routing {
             install(AuthPlugin)
             route("/ideas/create") {
-                install(IdeaCreatorPlugin)
                 get { call.handleGetDraftList() }
             }
         }
@@ -208,17 +207,20 @@ class DraftLifecycleIT : WithUser() {
     }
 
     @Test
-    fun `GET ideas-create returns 403 for user without idea_creator role`() = testApplication {
+    fun `GET ideas-create is open to a user without the publishing role (MCO-291)`() = testApplication {
+        val client = createClient { followRedirects = false }
+
         routing {
             install(AuthPlugin)
             route("/ideas/create") {
-                install(IdeaCreatorPlugin)
                 get { call.handleGetDraftList() }
             }
         }
 
+        // Creating is open to everyone now; only putting a design on the hub is privileged.
         val response = client.get("/ideas/create") { addAuthCookie(this) }
-        assertEquals(HttpStatusCode.Forbidden, response.status)
+        assertEquals(HttpStatusCode.OK, response.status)
+        assertNotNull(response.headers["HX-Redirect"])
     }
 
     @Test
@@ -229,7 +231,6 @@ class DraftLifecycleIT : WithUser() {
         routing {
             install(AuthPlugin)
             route("/ideas/create") {
-                install(IdeaCreatorPlugin)
                 post { call.handleCreateDraft() }
             }
         }
@@ -249,7 +250,6 @@ class DraftLifecycleIT : WithUser() {
         routing {
             install(AuthPlugin)
             route("/ideas/drafts/{draftId}") {
-                install(IdeaCreatorPlugin)
                 get("/edit") { call.handleGetDraftWizard() }
             }
         }
@@ -269,7 +269,6 @@ class DraftLifecycleIT : WithUser() {
         routing {
             install(AuthPlugin)
             route("/ideas/drafts/{draftId}") {
-                install(IdeaCreatorPlugin)
                 post("/stage") { call.handleUpdateDraftStage() }
             }
         }
@@ -304,7 +303,6 @@ class DraftLifecycleIT : WithUser() {
         routing {
             install(AuthPlugin)
             route("/ideas/drafts/{draftId}") {
-                install(IdeaCreatorPlugin)
                 post("/stage") { call.handleUpdateDraftStage() }
             }
         }
@@ -343,7 +341,6 @@ class DraftLifecycleIT : WithUser() {
         routing {
             install(AuthPlugin)
             route("/ideas/drafts/{draftId}") {
-                install(IdeaCreatorPlugin)
                 delete { call.handleDeleteDraft() }
             }
         }
@@ -381,7 +378,6 @@ class DraftLifecycleIT : WithUser() {
         routing {
             install(AuthPlugin)
             route("/ideas/drafts/{draftId}") {
-                install(IdeaCreatorPlugin)
                 post("/publish") { call.handlePublishDraft() }
             }
         }
@@ -411,7 +407,6 @@ class DraftLifecycleIT : WithUser() {
         routing {
             install(AuthPlugin)
             route("/ideas/drafts/{draftId}") {
-                install(IdeaCreatorPlugin)
                 post("/publish") { call.handlePublishDraft() }
             }
         }
@@ -425,20 +420,25 @@ class DraftLifecycleIT : WithUser() {
     }
 
     @Test
-    fun `POST publish without idea_creator role returns 403`() = testApplication {
+    fun `POST publish without the publishing role yields a PRIVATE idea (MCO-291)`() = testApplication {
         val draftId = runBlocking { (CreateDraftStep(user.id).process(Unit) as Result.Success).value }
+        runBlocking { populateCompleteDraft(draftId, user.id) }
 
         routing {
             install(AuthPlugin)
             route("/ideas/drafts/{draftId}") {
-                install(IdeaCreatorPlugin)
                 post("/publish") { call.handlePublishDraft() }
             }
         }
 
-        // user does not have idea_creator role
+        // `user` has no publishing role — that no longer blocks turning a draft into an idea, it
+        // only keeps the result off the community hub.
         val response = client.post("/ideas/drafts/$draftId/publish") { addAuthCookie(this) }
-        assertEquals(HttpStatusCode.Forbidden, response.status)
+        assertEquals(HttpStatusCode.OK, response.status)
+
+        val ideaId = response.headers["HX-Redirect"]!!.substringAfterLast('/').toInt()
+        val idea = runBlocking { (GetIdeaStep.process(ideaId) as Result.Success).value }
+        assertEquals(IdeaVisibility.PRIVATE, idea.visibility)
     }
 
     @Test
@@ -446,7 +446,6 @@ class DraftLifecycleIT : WithUser() {
         routing {
             install(AuthPlugin)
             route("/ideas/drafts/{draftId}") {
-                install(IdeaCreatorPlugin)
                 post("/publish") { call.handlePublishDraft() }
             }
         }
@@ -468,7 +467,6 @@ class DraftLifecycleIT : WithUser() {
             route("/ideas/{ideaId}") {
                 install(IdeaParamPlugin)
                 route("/revert") {
-                    install(IdeaCreatorPlugin)
                     post { call.handleRevertIdeaToDraft() }
                 }
             }
@@ -493,7 +491,6 @@ class DraftLifecycleIT : WithUser() {
             route("/ideas/{ideaId}") {
                 install(IdeaParamPlugin)
                 route("/revert") {
-                    install(IdeaCreatorPlugin)
                     post { call.handleRevertIdeaToDraft() }
                 }
             }
@@ -513,7 +510,6 @@ class DraftLifecycleIT : WithUser() {
             route("/ideas/{ideaId}") {
                 install(IdeaParamPlugin)
                 route("/revert") {
-                    install(IdeaCreatorPlugin)
                     post { call.handleRevertIdeaToDraft() }
                 }
             }

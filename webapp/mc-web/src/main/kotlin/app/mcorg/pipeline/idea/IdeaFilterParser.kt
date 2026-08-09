@@ -12,9 +12,13 @@ import io.ktor.http.Parameters
 object IdeaFilterParser {
 
     /**
-     * Parses query parameters into structured IdeaSearchFilters
+     * Parses query parameters into structured IdeaSearchFilters.
+     *
+     * [viewerId] is supplied by the caller from the authenticated call — never read from the query
+     * string, or a client could ask to see someone else's private designs. Omitting it yields a
+     * public-only listing, so a caller that forgets fails closed.
      */
-    fun parse(parameters: Parameters): IdeaSearchFilters {
+    fun parse(parameters: Parameters, viewerId: Int? = null): IdeaSearchFilters {
         val query = parameters["query"]?.takeIf { it.isNotBlank() }
         val category = parseCategory(parameters)
         val difficulties = parseDifficulties(parameters)
@@ -30,7 +34,8 @@ object IdeaFilterParser {
             minRating = minRating,
             minecraftVersion = minecraftVersion,
             categoryFilters = categoryFilters,
-            page = page
+            page = page,
+            viewerId = viewerId
         )
     }
 

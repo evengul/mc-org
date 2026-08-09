@@ -9,6 +9,7 @@ import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.idea.extractors.toIdea
 import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.templated.idea.ideasListContainerContent
+import app.mcorg.presentation.utils.getUser
 import app.mcorg.presentation.utils.respondHtml
 import io.ktor.server.application.ApplicationCall
 import kotlinx.html.div
@@ -17,7 +18,7 @@ import kotlinx.html.stream.createHTML
 
 
 suspend fun ApplicationCall.handleSearchIdeas() {
-    val filters = IdeaFilterParser.parse(request.queryParameters)
+    val filters = IdeaFilterParser.parse(request.queryParameters, viewerId = getUser().id)
 
     handlePipeline(
         onSuccess = { result ->
@@ -39,7 +40,7 @@ object SearchIdeasStep : Step<IdeaSearchFilters, AppFailure.DatabaseError, Pagin
             SELECT
                 i.id, i.name, i.description, i.category, i.author, i.sub_authors, i.labels,
                 i.favourites_count, i.rating_average, i.rating_count, i.difficulty,
-                i.minecraft_version_range, i.category_data, i.created_by, i.created_at,
+                i.minecraft_version_range, i.category_data, i.created_by, i.created_at, i.visibility,
                 COUNT(*) OVER() AS total_count,
                 COALESCE(
                     json_agg(
@@ -56,7 +57,7 @@ object SearchIdeasStep : Step<IdeaSearchFilters, AppFailure.DatabaseError, Pagin
             ${sqlWhereClause.whereClause}
             GROUP BY i.id, i.name, i.description, i.category, i.author, i.sub_authors, i.labels,
                      i.favourites_count, i.rating_average, i.rating_count, i.difficulty,
-                     i.minecraft_version_range, i.category_data, i.created_by, i.created_at
+                     i.minecraft_version_range, i.category_data, i.created_by, i.created_at, i.visibility
             ORDER BY i.created_at DESC
             LIMIT ? OFFSET ?
         """.trimIndent()

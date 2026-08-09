@@ -196,5 +196,20 @@ class IdeaFilterParserTest {
 
         assertTrue(filters.categoryFilters.isEmpty())
     }
+
+    @Test
+    fun `carries the viewer through so the hub can include their own private designs`() {
+        val filters = IdeaFilterParser.parse(parametersOf(), viewerId = 42)
+
+        assertEquals(42, filters.viewerId)
+    }
+
+    @Test
+    fun `viewer is never taken from the query string`() {
+        // A client that asks to be someone else must not be believed.
+        val filters = IdeaFilterParser.parse(parametersOf("viewerId" to listOf("99")))
+
+        assertNull(filters.viewerId)
+    }
 }
 

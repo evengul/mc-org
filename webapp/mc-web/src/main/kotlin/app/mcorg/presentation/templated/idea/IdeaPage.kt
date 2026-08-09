@@ -2,6 +2,7 @@ package app.mcorg.presentation.templated.idea
 
 import app.mcorg.domain.model.idea.Comment
 import app.mcorg.domain.model.idea.Idea
+import app.mcorg.domain.model.idea.IdeaVisibility
 import app.mcorg.domain.model.user.TokenProfile
 import app.mcorg.presentation.hxDeleteWithConfirm
 import app.mcorg.presentation.hxGet
@@ -42,6 +43,7 @@ fun ideaPage(
         container {
             div("idea-detail") {
                 ideaDetailHeader(user, idea)
+                ideaDetailFields(idea)
                 ideaRatingDistribution(idea, comments)
                 ideaCommentsSection(user.id, idea, comments)
             }
@@ -85,6 +87,9 @@ private fun FlowContent.ideaDetailHeader(user: TokenProfile, idea: Idea) {
         }
 
         div("idea-detail__badges") {
+            if (idea.visibility == IdeaVisibility.PRIVATE) {
+                span("badge badge--accent") { +"Private" }
+            }
             span("badge") { +idea.category.toPrettyEnumName() }
             span("badge") { +idea.difficulty.toPrettyEnumName() }
             span("badge") { +idea.worksInVersionRange.toString() }
@@ -96,6 +101,7 @@ private fun FlowContent.ideaDetailHeader(user: TokenProfile, idea: Idea) {
         p("idea-detail__description") { +idea.description }
 
         div("idea-detail__actions") {
+            ideaVisibilityControl(idea, user)
             button(classes = "btn btn--ghost") {
                 id = "idea-favorite-button"
                 hxPut(Link.Ideas.single(idea.id) + "/favourite")

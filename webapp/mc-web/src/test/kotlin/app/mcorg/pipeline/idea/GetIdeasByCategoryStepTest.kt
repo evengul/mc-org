@@ -2,6 +2,7 @@ package app.mcorg.pipeline.idea
 
 import app.mcorg.domain.model.idea.IdeaCategory
 import app.mcorg.domain.model.idea.IdeaDifficulty
+import app.mcorg.domain.model.idea.IdeaVisibility
 import app.mcorg.pipeline.Result
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
@@ -333,6 +334,41 @@ class GetIdeasByCategoryStepTest : WithUser() {
         assertEquals(0, result.value.items.size)
     }
 
+    // --- Visibility (MCO-291) ---
+
+    @Test
+    fun `hub hides other people's private designs`() = runBlocking {
+        val someoneElse = createExtraUser("other")
+        createTestIdea(name = "Public Farm", visibility = IdeaVisibility.PUBLIC, createdBy = someoneElse.id)
+        createTestIdea(name = "Their Secret", visibility = IdeaVisibility.PRIVATE, createdBy = someoneElse.id)
+
+        val result = SearchIdeasStep.process(IdeaSearchFilters(viewerId = user.id))
+
+        assertTrue(result is Result.Success)
+        assertEquals(listOf("Public Farm"), result.value.items.map { it.name })
+    }
+
+    @Test
+    fun `hub shows the viewer their own private designs`() = runBlocking {
+        createTestIdea(name = "My Secret", visibility = IdeaVisibility.PRIVATE, createdBy = user.id)
+
+        val result = SearchIdeasStep.process(IdeaSearchFilters(viewerId = user.id))
+
+        assertTrue(result is Result.Success)
+        assertEquals(listOf("My Secret"), result.value.items.map { it.name })
+    }
+
+    @Test
+    fun `with no viewer the hub falls closed to public only`() = runBlocking {
+        createTestIdea(name = "Public Farm", visibility = IdeaVisibility.PUBLIC)
+        createTestIdea(name = "My Secret", visibility = IdeaVisibility.PRIVATE)
+
+        val result = SearchIdeasStep.process(IdeaSearchFilters(viewerId = null))
+
+        assertTrue(result is Result.Success)
+        assertEquals(listOf("Public Farm"), result.value.items.map { it.name })
+    }
+
     /**
      * Helper function to create test ideas
      */
@@ -342,14 +378,18 @@ class GetIdeasByCategoryStepTest : WithUser() {
         category: IdeaCategory = IdeaCategory.FARM,
         difficulty: IdeaDifficulty = IdeaDifficulty.MID_GAME,
         ratingAverage: Double = 0.0,
-        categoryData: String = "{}"
+        categoryData: String = "{}",
+        // These tests are about filtering, so the fixtures are hub content. Visibility has its own
+        // tests below; the production default is PRIVATE.
+        visibility: IdeaVisibility = IdeaVisibility.PUBLIC,
+        createdBy: Int = user.id
     ) {
         val sql = SafeSQL.insert("""
             INSERT INTO ideas (
-                name, description, category, author, difficulty, 
-                minecraft_version_range, category_data, created_by, 
-                rating_average, rating_count
-            ) VALUES (?, ?, ?, ?::jsonb, ?, ?::jsonb, ?::jsonb, ?, ?, 0)
+                name, description, category, author, difficulty,
+                minecraft_version_range, category_data, created_by,
+                rating_average, rating_count, visibility
+            ) VALUES (?, ?, ?, ?::jsonb, ?, ?::jsonb, ?::jsonb, ?, ?, 0, ?)
         """.trimIndent())
 
         DatabaseSteps.update<Unit>(
@@ -368,8 +408,9 @@ class GetIdeasByCategoryStepTest : WithUser() {
                     """{"type": "app.mcorg.domain.model.minecraft.MinecraftVersionRange.Unbounded"}"""
                 )
                 statement.setString(7, categoryData)
-                statement.setInt(8, user.id)
+                statement.setInt(8, createdBy)
                 statement.setDouble(9, ratingAverage)
+                statement.setString(10, visibility.name)
             }
         ).process(Unit).getOrNull() ?: error("Failed to create test idea")
     }

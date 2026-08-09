@@ -20,4 +20,6 @@ data class Idea(
     val categoryData: Map<String, CategoryValue>,
     val createdBy: Int,
     val createdAt: ZonedDateTime,
+    /** How widely this idea is visible. Private by default — see [IdeaVisibility] (MCO-291). */
+    val visibility: IdeaVisibility = IdeaVisibility.PRIVATE,
 )

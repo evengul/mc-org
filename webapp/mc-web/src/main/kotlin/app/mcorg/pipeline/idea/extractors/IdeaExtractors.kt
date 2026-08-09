@@ -4,6 +4,7 @@ import app.mcorg.domain.model.idea.Author
 import app.mcorg.domain.model.idea.Idea
 import app.mcorg.domain.model.idea.IdeaCategory
 import app.mcorg.domain.model.idea.IdeaDifficulty
+import app.mcorg.domain.model.idea.IdeaVisibility
 import app.mcorg.domain.model.idea.RatingSummary
 import app.mcorg.domain.model.idea.schema.CategoryValue
 import app.mcorg.domain.model.minecraft.MinecraftVersionRange
@@ -32,6 +33,7 @@ fun ResultSet.toIdea(): Idea {
         testData = emptyList(),
         categoryData = Json.decodeFromString(MapSerializer(String.serializer(), CategoryValue.serializer()), getString("category_data")),
         createdBy = getInt("created_by"),
-        createdAt = getTimestamp("created_at").toInstant().atZone(ZoneId.systemDefault())
+        createdAt = getTimestamp("created_at").toInstant().atZone(ZoneId.systemDefault()),
+        visibility = IdeaVisibility.valueOf(getString("visibility"))
     )
 }

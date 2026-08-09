@@ -8,7 +8,7 @@ import io.ktor.server.application.*
 
 suspend fun ApplicationCall.handleGetIdeas() {
     val user = this.getUser()
-    val filters = IdeaFilterParser.parse(request.queryParameters)
+    val filters = IdeaFilterParser.parse(request.queryParameters, viewerId = user.id)
 
     handlePipeline(
         onSuccess = {
