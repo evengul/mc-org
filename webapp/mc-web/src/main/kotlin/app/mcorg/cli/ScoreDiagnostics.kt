@@ -32,6 +32,12 @@ import kotlin.system.exitProcess
  * - `world=<id>` — resolve the version from a world row.
  * - `demand=<n>` — the requested amount fed to the scorer (default 64). Raise it
  *   above the recipe threshold (100) to see the bulk-crafting bonus kick in.
+ * - `unobtainable` — instead of scoring items, list every catalog item with no
+ *   producing source at all (the ids that show BLOCKED in a build).
+ * - `circular` — list every catalog item whose only producing source is breaking
+ *   its own placed block. These are *not* BLOCKED, so `unobtainable` misses them,
+ *   but the planner's advice for them is circular. The working list for new
+ *   synthetic sources.
  * - everything else — item ids; a bare `sand` becomes `minecraft:sand`. With no
  *   item ids, a default set covering the flagged notes is used.
  */
@@ -61,6 +67,7 @@ private suspend fun run(args: List<String>): Int {
     var demand = 64L
     val items = mutableListOf<String>()
     var unobtainable = false
+    var circular = false
 
     for (arg in args) {
         when {
@@ -68,6 +75,7 @@ private suspend fun run(args: List<String>): Int {
             arg.startsWith("world=") -> worldId = arg.substringAfter('=').toIntOrNull()
             arg.startsWith("demand=") -> demand = arg.substringAfter('=').toLongOrNull() ?: demand
             arg == "unobtainable" -> unobtainable = true
+            arg == "circular" -> circular = true
             else -> items.add(normalizeId(arg))
         }
     }
@@ -87,6 +95,11 @@ private suspend fun run(args: List<String>): Int {
 
     if (unobtainable) {
         printUnobtainable(graph, resolvedVersion)
+        return 0
+    }
+
+    if (circular) {
+        printCircular(graph, resolvedVersion)
         return 0
     }
 
@@ -164,6 +177,45 @@ private val distinctVersionsQuery = DatabaseSteps.query<Unit, List<String>>(
     parameterSetter = { _, _ -> },
     resultMapper = { rs -> buildList { while (rs.next()) add(rs.getString("version")) } }
 )
+
+/**
+ * Lists every catalog item whose *only* producing source is breaking its own placed block —
+ * "to get a stripped oak log, break a stripped oak log." These items are not BLOCKED, so
+ * [printUnobtainable] misses them entirely, but the advice the planner gives for them is
+ * circular and useless. They are the working list for new synthetic sources: each one needs
+ * a real acquisition (an in-world transform, a collect, an interaction) that Mojang's JSON
+ * doesn't describe.
+ *
+ * Items whose self-break is genuinely the only acquisition (natural stone, dirt, ores that
+ * drop themselves) are legitimate and appear here too — this is a review list, not a defect
+ * list. The signal is an item that *should* have a constructive path and doesn't.
+ */
+private suspend fun printCircular(graph: ItemSourceGraph, version: String) {
+    val catalog = (catalogQuery.process(version) as? Result.Success)?.value.orEmpty()
+    val circular = catalog
+        .map { (id, name) -> Item(id, name) }
+        .filter { item -> ScoreDiagnostics.hasOnlySelfBlockLoot(graph, item) }
+        .map { it.id }
+        .sorted()
+
+    fun bucket(id: String): String {
+        val stem = id.substringAfter(':')
+        return when {
+            stem.startsWith("stripped_") -> "stripped log/wood (axe strip)"
+            stem in IN_WORLD_TRANSFORM_CANDIDATES -> "in-world transform"
+            else -> "self-break only (review)"
+        }
+    }
+
+    println("\n=== ${circular.size} catalog items whose ONLY source is breaking themselves (version $version) ===")
+    circular.groupBy { bucket(it) }.toSortedMap().forEach { (b, ids) ->
+        println("\n-- $b (${ids.size}) --")
+        ids.forEach { println("   $it") }
+    }
+}
+
+/** Known in-world transforms Mojang's JSON doesn't describe — see mc-data's SyntheticSources. */
+private val IN_WORLD_TRANSFORM_CANDIDATES = setOf("mud", "dirt_path", "farmland")
 
 private val catalogQuery = DatabaseSteps.query<String, List<Pair<String, String>>>(
     sql = SafeSQL.select("SELECT item_id, item_name FROM minecraft_items WHERE version = ? ORDER BY item_id"),

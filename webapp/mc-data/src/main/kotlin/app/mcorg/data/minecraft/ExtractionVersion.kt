@@ -19,7 +19,13 @@ package app.mcorg.data.minecraft
  *       infested_deepslate) — their base-block Silk Touch drop is a phantom overridden by
  *       InfestedBlock's code-level destroy handling and was winning over crafting as a fake
  *       raw-gather source (MCO-248, 2026-07).
+ *  - 3: synthetic sources for the circular and missing acquisitions found by the
+ *       `circular`/`unobtainable` score diagnostics — axe-stripping (12 logs/stems), mud,
+ *       dirt_path, farmland, and the filled bucket *items* (water/lava/powder snow, the last
+ *       two of which had no source at all). Synthetic sources are now filtered against the
+ *       version's item registry, so older versions no longer receive entries for items they
+ *       don't have (2026-08).
  */
 object ExtractionVersion {
-    const val CURRENT = 2
+    const val CURRENT = 3
 }
