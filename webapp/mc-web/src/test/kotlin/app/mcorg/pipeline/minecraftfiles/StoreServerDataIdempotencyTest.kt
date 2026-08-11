@@ -65,6 +65,48 @@ class StoreServerDataIdempotencyTest {
         assertEquals(1, count("resource_source_produced_item"), "produced rows duplicated on re-ingest")
     }
 
+    /**
+     * The item insert is `ON CONFLICT DO NOTHING`, so without an explicit delete the catalog is
+     * append-only and no extraction change that *removes* an item can ever take effect — the
+     * pruned id sits in minecraft_items forever, permanently BLOCKED. This is what made the
+     * MCO-313 lang-key fix inert until storage was corrected.
+     */
+    @Test
+    fun `re-ingesting retires items the version no longer has`() {
+        val withLegacyId = data.copy(
+            items = data.items + Item("minecraft:chain", "Chain"),
+        )
+        runBlocking { assertIs<Result.Success<*>>(StoreMinecraftDataStep.process(withLegacyId)) }
+        assertEquals(2, count("minecraft_items"))
+
+        // Extraction now prunes the legacy id; the stored catalog must follow.
+        runBlocking { assertIs<Result.Success<*>>(StoreMinecraftDataStep.process(data)) }
+
+        assertEquals(1, count("minecraft_items"), "stale item survived re-ingest")
+        assertEquals(
+            listOf("minecraft:stone"),
+            itemIds(),
+            "the retired id must be the one extraction dropped"
+        )
+    }
+
+    @Test
+    fun `re-ingesting keeps items the version still has`() {
+        runBlocking { assertIs<Result.Success<*>>(StoreMinecraftDataStep.process(data)) }
+        runBlocking { assertIs<Result.Success<*>>(StoreMinecraftDataStep.process(data)) }
+
+        assertEquals(listOf("minecraft:stone"), itemIds())
+        assertEquals(1, count("resource_source"), "retirement must not cascade live sources away")
+    }
+
+    private fun itemIds(): List<String> = runBlocking {
+        DatabaseSteps.query<Unit, List<String>>(
+            sql = SafeSQL.select("SELECT item_id FROM minecraft_items WHERE version = ? ORDER BY item_id"),
+            parameterSetter = { stmt, _ -> stmt.setString(1, version.toString()) },
+            resultMapper = { rs -> buildList { while (rs.next()) add(rs.getString("item_id")) } }
+        ).process(Unit).getOrThrow()
+    }
+
     private fun count(table: String): Int = runBlocking {
         DatabaseSteps.query<Unit, Int>(
             sql = SafeSQL.select("SELECT count(*) AS c FROM $table WHERE version = ?"),

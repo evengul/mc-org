@@ -25,7 +25,12 @@ package app.mcorg.data.minecraft
  *       two of which had no source at all). Synthetic sources are now filtered against the
  *       version's item registry, so older versions no longer receive entries for items they
  *       don't have (2026-08).
+ *  - 4: prune the lang-derived item registry of legacy ids whose replacement is present
+ *       (chain/iron_chain, grass/short_grass, scute/turtle_scute, sign/oak_sign) and of
+ *       family-label keys that were never items (smithing_template, harness, set_spawn).
+ *       Mojang keeps the old lang key after a rename, so both spellings looked like registry
+ *       entries while only the new one is ever produced — MCO-313 (2026-08).
  */
 object ExtractionVersion {
-    const val CURRENT = 3
+    const val CURRENT = 4
 }

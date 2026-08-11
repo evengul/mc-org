@@ -60,6 +60,28 @@ private data class StoreMinecraftItemDataStep(val connection: TransactionConnect
             val tagItems = tags.flatMap { it.content }
             val allItems = (itemsAndTags.filterIsInstance<Item>() + tagItems).distinctBy { it.id }
 
+            // Retire ids this version no longer has. The insert below is ON CONFLICT DO NOTHING,
+            // so without this the catalog is append-only and *no* extraction change that removes
+            // an item can ever take effect — a pruned id would sit in minecraft_items forever,
+            // permanently BLOCKED (MCO-313).
+            //
+            // Deliberately surgical rather than delete-all-then-reinsert: the FKs from
+            // minecraft_tag_item and resource_source_* are ON DELETE CASCADE, so a blanket delete
+            // would churn every source row on every ingest. Only genuinely-absent ids are removed,
+            // and those have no sources to cascade to by construction.
+            DatabaseSteps.update<List<Item>>(
+                sql = SafeSQL.delete("DELETE FROM minecraft_items WHERE version = ? AND item_id <> ALL (?)"),
+                parameterSetter = { statement, items ->
+                    statement.setString(1, version.toString())
+                    statement.setArray(2, statement.connection.createArrayOf("text", items.map { it.id }.toTypedArray()))
+                },
+                transactionConnection = connection
+            ).process(allItems).map { removed ->
+                if (removed > 0) {
+                    logger.info("Retired $removed stale item(s) for minecraft version $version no longer in the registry.")
+                }
+            }
+
             DatabaseSteps.batchUpdate<Item>(
                 sql = SafeSQL.insert("""
                     INSERT INTO minecraft_items (version, item_id, item_name)
