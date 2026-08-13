@@ -50,6 +50,14 @@ sudo service docker start           # Start Docker if not running (passwordless)
 ./webapp/scripts/ingest-locally.sh  # Ingest Minecraft data into the local/worktree DB
 ```
 
+Read-only diagnostic for "why did the planner pick *that* source?" — prints the scorer's factor
+breakdown per candidate against the real ingested graph. Required reading before any
+`SelectionScorer` change; see `mc-engine/CLAUDE.md` for args and the `mvn install` prerequisite:
+
+```bash
+cd webapp && mvn -q -pl mc-web exec:java@score-diagnostics -Dexec.args="world=<id> demand=64 <item ids>"
+```
+
 Module-scoped builds:
 
 ```bash
@@ -168,6 +176,11 @@ when the PR carries the **`preview`** label.
   Sourcing `local.env` and building that URL in one shell command can trip the
   worktree-isolation guard. If it does, put the two lines in a throwaway script and run
   that instead — same result, and it keeps the password out of the transcript.
+- **A local run logs `HikariCP connection pool for PRODUCTION environment` even when
+  `ENV=LOCAL`.** That string is the pool *profile* name, not the database — it does not mean
+  you are pointed at production. To check which DB you actually have, compare the host in
+  `local.env`'s `DB_URL` against `neonctl connection-string <branch> --project-id
+  sweet-dust-00910797`; a worktree's host differs from `master`'s.
 
   **Writes:** free in a worktree — the Neon branch is a disposable fork. Against the main
   checkout's DB, treat `INSERT`/`UPDATE`/`DELETE`/DDL as you would any shared dev data:

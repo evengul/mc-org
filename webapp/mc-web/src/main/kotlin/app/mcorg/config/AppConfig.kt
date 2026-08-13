@@ -96,9 +96,12 @@ object AppConfig {
             }
         }
 
+        // LOCAL deliberately leaves these null: jwt.kt falls back to the generated PEM pair
+        // (`mc-web/create-keys.sh` -> resources/keys), which is the intended local path. Leaving
+        // them unset is correct there, not a misconfiguration.
         System.getenv("RSA_PRIVATE_KEY").let {
             if (env == Local) {
-                errors.add("RSA_PRIVATE_KEY must be set in LOCAL environment, should use generated key")
+                // no-op — generated key file is used
             } else if (it.isNullOrBlank()) {
                 errors.add("RSA_PRIVATE_KEY is not set")
             } else {
@@ -108,7 +111,7 @@ object AppConfig {
 
         System.getenv("RSA_PUBLIC_KEY").let {
             if (env == Local) {
-                errors.add("RSA_PUBLIC_KEY must be set in LOCAL environment, should use generated key")
+                // no-op — generated key file is used
             } else if (it.isNullOrBlank()) {
                 errors.add("RSA_PUBLIC_KEY is not set")
             } else {
