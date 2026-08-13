@@ -192,6 +192,7 @@ private fun printReport(report: ItemReport) {
             if (c.efficiency != 0) add("eff +${c.efficiency}")
             if (c.supplied != 0) add("sup +${c.supplied}")
             if (c.recipeThreshold != 0) add("thr +${c.recipeThreshold}")
+            if (c.reciprocal != 0) add("recip -${c.reciprocal}")
             if (c.selfBlockLoot != 0) add("selfBlock -${c.selfBlockLoot}")
             if (c.lowYield != 0) add("lowYield -${c.lowYield}")
             if (c.requirementPenalty != 0) add("req -${c.requirementPenalty} (${c.requirementCount})")

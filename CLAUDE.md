@@ -239,14 +239,16 @@ check when work begins, not an afterthought at commit time.
 
 ## Graph & Scoring — Restricted Area
 
-`mc-engine` (`ItemSourceGraph`, `ItemSourceGraphQueries`, `PathSuggestionScorer`, `PathSuggestionService`) and `mc-data`
+`mc-engine` (`ItemSourceGraph`, `PlanSelector`, `SelectionScorer`, `PlanQuantifier`) and `mc-data`
 extraction steps are the intellectual core of the product. Rules for touching these:
 
 - **Always read `mc-engine/CLAUDE.md` and `mc-data/CLAUDE.md` in full before making any changes.**
 - General agents (web layer, UI, pipeline steps) should not modify graph construction or scoring logic without explicit
   instruction.
-- `PathSuggestionScorer` in particular — scoring logic changes require a human checkpoint before committing. Flag
-  proposed changes and rationale; don't just apply them.
+- `SelectionScorer` in particular — scoring logic changes require a human checkpoint before committing. Flag
+  proposed changes and rationale; don't just apply them. Its weights were chosen by feel rather than derived, and
+  the windows between them are narrow: verify a change against `CuratedSelectionTest` (which pins real acquisition
+  chains) and the `score-diagnostics` CLI against real ingested data, not against reasoning alone.
 - Graph shape changes (new edge types, new node types) require reviewing `ItemSourceGraphBuilder` and all existing query
   code for impact.
 
@@ -267,7 +269,7 @@ extraction steps are the intellectual core of the product. Rules for touching th
 
 **Flag before acting (human checkpoint):**
 
-- `PathSuggestionScorer` — any scoring weight or ranking changes
+- `SelectionScorer` — any scoring weight or ranking changes
 - `ItemSourceGraph` structure changes — new edge or node types
 - Flyway migrations that drop columns or tables
 - Auth plugin changes

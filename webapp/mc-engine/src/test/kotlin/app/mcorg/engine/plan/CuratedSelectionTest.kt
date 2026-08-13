@@ -105,6 +105,18 @@ class CuratedSelectionTest {
     )
 
     /**
+     * The 16-option "smelt any iron equipment into a nugget" tag. Real ingested data
+     * has this, and it is what makes the nugget route *non*-circular: without it
+     * iron_nugget is only ever crafted from an ingot, the selector rejects
+     * iron_ingot_from_nuggets structurally, and the smelting expectations below pass
+     * for the wrong reason. See MCO-317.
+     */
+    private val ironEquipmentTag = MinecraftTag(
+        "minecraft:smelts_to_iron_nugget", "Smelts To Iron Nugget",
+        listOf(item("minecraft:chainmail_boots"), item("minecraft:iron_pickaxe"))
+    )
+
+    /**
      * iron_ingot with the realistic source set minus entity loot: smelting and
      * blasting raw iron, unpacking an iron block, crafting from nuggets (both
      * circular — block and nuggets are crafted from ingots), and chest loot.
@@ -143,6 +155,12 @@ class CuratedSelectionTest {
             "iron_nugget_from_ingot.json",
             inputs = listOf(item("minecraft:iron_ingot") to 1),
             output = "minecraft:iron_nugget" to 9
+        ),
+        ResourceSource(
+            type = ResourceSource.SourceType.RecipeTypes.SMELTING,
+            filename = "iron_nugget_from_smelting.json",
+            requiredItems = listOf(ironEquipmentTag to ResourceQuantity.ItemQuantity(1)),
+            producedItems = listOf(item("minecraft:iron_nugget") to ResourceQuantity.ItemQuantity(1))
         ),
         blockLoot("iron_ore", "minecraft:raw_iron")
     )
@@ -410,6 +428,61 @@ class CuratedSelectionTest {
         val result = plan(ironChain, "minecraft:iron_ingot", amount = 500)
 
         assertEquals("minecraft:smelting:iron_ingot_from_smelting.json", result.sourceKeyOf("minecraft:iron_ingot"))
+    }
+
+    /**
+     * The reciprocal penalty (MCO-317) demotes "9 nuggets -> 1 ingot" because for iron
+     * the nugget side has no real source. Gold is the case where that route is genuinely
+     * how players work: a zombified-piglin farm produces nuggets by the thousand, and you
+     * craft them up. That farm is expressed as a declared supply, and the supplied bonus
+     * (+30) has to outweigh the penalty (-15) or the planner would tell someone with a
+     * gold farm to go mining instead.
+     */
+    private val goldChain = listOf(
+        recipe(
+            "gold_ingot_from_smelting.json",
+            inputs = listOf(item("minecraft:raw_gold") to 1),
+            output = "minecraft:gold_ingot" to 1,
+            type = ResourceSource.SourceType.RecipeTypes.SMELTING
+        ),
+        recipe(
+            "gold_ingot_from_nuggets.json",
+            inputs = listOf(item("minecraft:gold_nugget") to 9),
+            output = "minecraft:gold_ingot" to 1,
+            type = ResourceSource.SourceType.RecipeTypes.CRAFTING_SHAPELESS
+        ),
+        recipe(
+            "gold_nugget_from_ingot.json",
+            inputs = listOf(item("minecraft:gold_ingot") to 1),
+            output = "minecraft:gold_nugget" to 9
+        ),
+        blockLoot("gold_ore", "minecraft:raw_gold"),
+        blockLoot("nether_gold_ore", "minecraft:gold_nugget", quantity = 4)
+    )
+
+    @Test
+    fun `gold_ingot - a declared nugget farm beats mining, despite the reciprocal penalty`() {
+        val result = plan(
+            goldChain,
+            "minecraft:gold_ingot",
+            amount = 811,
+            supplied = mapOf("minecraft:gold_nugget" to SupplySource.Farm("Gold farm"))
+        )
+
+        assertEquals(
+            "minecraft:crafting_shapeless:gold_ingot_from_nuggets.json",
+            result.sourceKeyOf("minecraft:gold_ingot")
+        )
+    }
+
+    @Test
+    fun `gold_ingot - without a nugget farm, smelting the ore wins`() {
+        val result = plan(goldChain, "minecraft:gold_ingot", amount = 811)
+
+        assertEquals(
+            "minecraft:smelting:gold_ingot_from_smelting.json",
+            result.sourceKeyOf("minecraft:gold_ingot")
+        )
     }
 
     @Test

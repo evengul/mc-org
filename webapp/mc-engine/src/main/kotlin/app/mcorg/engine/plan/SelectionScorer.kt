@@ -13,7 +13,10 @@ import app.mcorg.domain.model.resources.ResourceSource
  * 1. Source-type base score ([ResourceSource.SourceType.score]).
  * 2. Efficiency bonus — output/input ratio above 1.0. Not applied to trades
  *    (output-per-emerald is an exchange rate, not saved effort) nor to reciprocal
- *    unpack recipes (storage block -> item), whose input embeds N of the output.
+ *    recipes (storage block -> item), whose input embeds N of the output.
+ * 2b. Reciprocal penalty — a recipe whose ingredient is itself made *from* the
+ *    output (ingot <- 9 nuggets, ingot <- iron block) converts the item into
+ *    itself and cannot be a real acquisition. See [reciprocalPenalty].
  * 3. Supplied bonus — ingredients satisfied by the supplied map are nearly free.
  * 4. Recipe-threshold bonus — at bulk demand, recipes beat repeated gathering.
  * 5. Self-block-loot penalty — breaking a block that *is* the item (beacon,
@@ -39,6 +42,7 @@ internal data class ScoreBreakdown(
     val efficiency: Int,
     val supplied: Int,
     val recipeThreshold: Int,
+    val reciprocal: Int,
     val selfBlockLoot: Int,
     val lowYield: Int,
     val requirementCount: Int,
@@ -76,6 +80,7 @@ internal class SelectionScorer(
         total += efficiencyBonus(item, source)
         total += suppliedBonus(source)
         total += recipeThresholdBonus(item, source, demand)
+        total -= reciprocalPenalty(item, source)
         total -= selfBlockLootPenalty(item, source, hasConstructiveSibling)
         total -= lowYieldPenalty(item, source)
 
@@ -103,18 +108,20 @@ internal class SelectionScorer(
         val efficiency = efficiencyBonus(item, source)
         val supplied = suppliedBonus(source)
         val recipeThreshold = recipeThresholdBonus(item, source, demand)
+        val reciprocal = reciprocalPenalty(item, source)
         val selfBlockLoot = selfBlockLootPenalty(item, source, hasConstructiveSibling)
         val lowYield = lowYieldPenalty(item, source)
         val requirementPenalty = requirements.size * REQUIREMENT_PENALTY
         val chainDepth = chainDepth(requirements.map { it.item })
         val depthPenalty = chainDepth * DEPTH_PENALTY
         val total = base + efficiency + supplied + recipeThreshold -
-            selfBlockLoot - lowYield - requirementPenalty - depthPenalty
+            reciprocal - selfBlockLoot - lowYield - requirementPenalty - depthPenalty
         return ScoreBreakdown(
             base = base,
             efficiency = efficiency,
             supplied = supplied,
             recipeThreshold = recipeThreshold,
+            reciprocal = reciprocal,
             selfBlockLoot = selfBlockLoot,
             lowYield = lowYield,
             requirementCount = requirements.size,
@@ -190,6 +197,61 @@ internal class SelectionScorer(
         return result
     }
 
+    /**
+     * Penalizes a recipe that makes the item out of a form of *itself* — an iron
+     * ingot from 9 iron nuggets, or from an iron block. Both ingredients are
+     * themselves made from ingots, so neither recipe acquires iron; it only
+     * changes iron's shape.
+     *
+     * Zeroing the efficiency bonus ([isReciprocalUnpack]) was not enough. That only
+     * removes a bonus, and these recipes never earned one: 9 nuggets -> 1 ingot has
+     * a ratio below 1. So they kept the full crafting base (95) and beat smelting
+     * raw iron (85) on base score alone, with every other factor identical. The plan
+     * then routed a build's entire iron requirement through nuggets, whose only
+     * non-circular source is smelting iron equipment — 296,515 pieces of chainmail
+     * armour for one storage system (MCO-317).
+     *
+     * The size is bounded from both sides by curated expectations, and the window is
+     * narrow — the two constraints bite at different demands:
+     * - **Above 10.** At bulk demand both candidates take the recipe threshold, so
+     *   ingot-from-nuggets is 130 and smelting raw iron is 120. The penalty has to
+     *   clear that 10-point base gap for smelting to win.
+     * - **Below 20.** At small demand neither takes the threshold, so unpacking an
+     *   ingot into nuggets is only 80 against chest loot's 60. A nugget has no
+     *   "mine a nugget" path, so unpacking must stay ahead of looting one
+     *   (see `iron_nugget - unpacking an ingot still wins...`), which leaves 19.
+     *
+     * 15 sits mid-window. Both bounds are covered by tests; moving this value
+     * without re-running `CuratedSelectionTest` will silently break one of them.
+     *
+     * **Known limitation — the penalty is symmetric, and one direction deserves it less.**
+     * Crafting 9 nuggets *from* an ingot is how a player really gets nuggets, but it is
+     * reciprocal too, so it is demoted as well: at a small nugget demand it drops to 65
+     * and loses to smelting iron equipment (75). Restricting the penalty to the
+     * concentrating direction (output/input < 1) fixes that but lets
+     * `iron_ingot_from_iron_block` — which expands, 1 block to 9 ingots — escape and win
+     * outright, which is worse and fully circular. Both variants were measured against
+     * the real graph.
+     *
+     * The deeper cause is that the competing smelt-equipment source takes its input from
+     * an *open tag*, and [minDepth] scores a tag as depth 0 — so a route through an
+     * unresolved tag pays no depth penalty and looks cheaper than it is. Fixing tag cost
+     * is the real repair; this penalty is the bounded part. Tracked separately.
+     *
+     * **Gold is deliberately unaffected in the case that matters.** Crafting 9 gold
+     * nuggets into an ingot is the normal survival route when a zombified-piglin farm
+     * supplies the nuggets — and that farm is a declared supply, so [suppliedBonus] (+30)
+     * outweighs this penalty (-15) and the nugget recipe still wins. Without such a farm
+     * the planner falls back to smelting ore, which is correct. Both directions are
+     * pinned by `gold_ingot - a declared nugget farm beats mining...` and its sibling.
+     *
+     * The selector already rejects *structurally* circular candidates before
+     * scoring; this covers the case where the ingredient has some other, viable
+     * source, so the cycle is real but not structural.
+     */
+    private fun reciprocalPenalty(item: MinecraftId, source: SourceNode): Int =
+        if (isReciprocalUnpack(item, source)) RECIPROCAL_PENALTY else 0
+
     private fun suppliedBonus(source: SourceNode): Int {
         if (supplied.isEmpty()) return 0
         return graph.getRequiredItems(source).count { it.itemId in supplied } * SUPPLIED_BONUS
@@ -262,6 +324,7 @@ internal class SelectionScorer(
 
     companion object {
         private const val EFFICIENCY_WEIGHT = 20
+        private const val RECIPROCAL_PENALTY = 15
         private const val SUPPLIED_BONUS = 30
         private const val RECIPE_THRESHOLD_BONUS = 50
         private const val SELF_BLOCK_LOOT_PENALTY = 200
