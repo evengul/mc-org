@@ -40,8 +40,14 @@ import kotlin.test.assertFalse
 @ExtendWith(DatabaseTestExtension::class)
 class WorldRoadmapIT : WithUser() {
 
+    companion object {
+        /** The per-edge status labels the cells print (MCO-318), matched as element text. */
+        private const val STATUS_BLOCKING = ">blocking<"
+        private const val STATUS_SUPPLYING = ">supplying<"
+    }
+
     @Test
-    fun `the roadmap names the blocking project and the resource it owes`() = testApplication {
+    fun `an unfinished farm blocks, and both columns say so`() = testApplication {
         setupRoutes()
         val worldId = createWorld("Roadmap IT World")
         val consumer = createProject(worldId, "Beacon Build")
@@ -54,17 +60,26 @@ class WorldRoadmapIT : WithUser() {
         assertEquals(HttpStatusCode.OK, response.status)
         val body = response.bodyAsText()
         assertContains(body, "roadmap-table")
-        assertContains(body, "Beacon Build")
-        assertContains(body, "Iron Farm")
-        // The IA asks the blocked-by cell to name both halves.
-        assertContains(body, "Iron Ingot")
-        assertContains(body, "/worlds/$worldId/projects/$farm")
+
+        // The IA asks the upstream cell to name both halves: the project and the resource.
+        val consumerRow = roadmapRow(body, "Beacon Build")
+        assertContains(consumerRow.dependsOn, "Iron Farm")
+        assertContains(consumerRow.dependsOn, "Iron Ingot")
+        assertContains(consumerRow.dependsOn, "/worlds/$worldId/projects/$farm")
+        assertContains(consumerRow.dependsOn, STATUS_BLOCKING)
+
+        // MCO-318: the same edge, read from the other end, must make the same claim.
+        val farmRow = roadmapRow(body, "Iron Farm")
+        assertContains(farmRow.supplies, "Beacon Build")
+        assertContains(farmRow.supplies, "/worlds/$worldId/projects/$consumer")
+        assertContains(farmRow.supplies, STATUS_BLOCKING)
+        assertFalse(farmRow.dependsOn.contains("roadmap-edge"), "the farm depends on nothing")
 
         deleteWorld(worldId)
     }
 
     @Test
-    fun `an operational farm still appears, no longer blocking`() = testApplication {
+    fun `an operational farm supplies its consumer instead of blocking it`() = testApplication {
         setupRoutes()
         val worldId = createWorld("Operational Roadmap World")
         val consumer = createProject(worldId, "Beacon Build")
@@ -77,9 +92,21 @@ class WorldRoadmapIT : WithUser() {
 
         // The relationship is still on the roadmap — it just stopped being a blocker, which
         // the summary line reports (it only counts blocked projects when there are any).
-        assertContains(body, "Iron Farm")
         assertContains(body, "2 projects")
         assertFalse(body.contains("1 blocked"), "an operational farm blocks nobody")
+
+        // MCO-318: the consumer's own row used to show "—" here while the farm's row claimed
+        // to block it. Both cells now show the relationship, marked as supply, not blocking.
+        val consumerRow = roadmapRow(body, "Beacon Build")
+        assertContains(consumerRow.dependsOn, "Iron Farm")
+        assertContains(consumerRow.dependsOn, "Iron Ingot")
+        assertContains(consumerRow.dependsOn, STATUS_SUPPLYING)
+        assertFalse(consumerRow.dependsOn.contains(STATUS_BLOCKING), "a DONE farm blocks nothing")
+
+        val farmRow = roadmapRow(body, "Iron Farm")
+        assertContains(farmRow.supplies, "Beacon Build")
+        assertContains(farmRow.supplies, STATUS_SUPPLYING)
+        assertFalse(farmRow.supplies.contains(STATUS_BLOCKING), "a DONE farm blocks nothing")
 
         deleteWorld(worldId)
     }
@@ -124,6 +151,27 @@ class WorldRoadmapIT : WithUser() {
         assertEquals(HttpStatusCode.Found, response.status)
 
         deleteWorld(worldId)
+    }
+
+    // ---- reading the rendered table -------------------------------------------------
+
+    /** The two edge cells of one project's row, so an assertion can name which column it means. */
+    private data class RoadmapRowCells(val dependsOn: String, val supplies: String)
+
+    /**
+     * Slices the row belonging to [projectName] out of the rendered table. Cells are found by
+     * their `data-label` (which the mobile stacked-card layout needs anyway), so the assertions
+     * read one column at a time instead of searching the whole page and hoping.
+     */
+    private fun roadmapRow(body: String, projectName: String): RoadmapRowCells {
+        val row = body.split("data-label=\"Layer\"")
+            .drop(1)
+            .firstOrNull { it.substringBefore("data-label=\"State\"").contains(">$projectName<") }
+            ?: error("no roadmap row for $projectName")
+        return RoadmapRowCells(
+            dependsOn = row.substringAfter("data-label=\"Depends on\"").substringBefore("data-label=\"Supplies\""),
+            supplies = row.substringAfter("data-label=\"Supplies\"").substringBefore("</tr>"),
+        )
     }
 
     // ---- routing — mirrors WorldHandler ------------------------------------------

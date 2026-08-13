@@ -72,15 +72,35 @@
     font-size: var(--text-sm);
 }
 
-/* The resource is the actionable half of "blocked by" — present, but subordinate
+/* The resource is the actionable half of "depends on" — present, but subordinate
    to the project name it hangs off. */
 .roadmap-edge__item {
     color: var(--text-muted);
     font-size: var(--text-xs);
 }
 
-.roadmap-cell--blocked .roadmap-project-link {
+/* MCO-318: both columns list the same edges, so the state of each relationship is said
+   per edge. The word is the signal — colour only reinforces it (the primary user is
+   red-green colour-blind), so never drop the label and keep the state on colour alone. */
+.roadmap-edge__status {
+    margin-left: var(--space-2);
+    font-family: var(--font-ui);
+    font-size: var(--text-label);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+/* Still holding someone up: redstone, the danger role. */
+.roadmap-edge--blocking .roadmap-project-link,
+.roadmap-edge--blocking .roadmap-edge__status {
     color: var(--red);
+}
+
+/* Already flowing: grass, the done role. The project name stays ink — it is a link,
+   not a status — and only the label carries the colour. */
+.roadmap-edge--supplying .roadmap-edge__status {
+    color: var(--green);
 }
 
 .roadmap-muted {
