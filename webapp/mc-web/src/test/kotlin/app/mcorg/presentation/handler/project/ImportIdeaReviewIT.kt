@@ -7,6 +7,8 @@ import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.Result
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.project.ImportWarningKind
+import app.mcorg.pipeline.project.ReviewedMaterial
+import app.mcorg.pipeline.project.ReviewedMaterialsCodec
 import app.mcorg.pipeline.project.handleImportIdea
 import app.mcorg.pipeline.project.handleReviewIdeaImport
 import app.mcorg.pipeline.world.CreateWorldInput
@@ -52,6 +54,7 @@ class ImportIdeaReviewIT : WithUser() {
     private var worldId: Int = 0
     private var ideaId: Int = 0
     private var airyIdeaId: Int = 0
+    private var wideIdeaId: Int = 0
 
     @BeforeAll
     fun setup() {
@@ -72,6 +75,12 @@ class ImportIdeaReviewIT : WithUser() {
         addRequirement(airyIdeaId, "minecraft:air", 9_389_854)
         addRequirement(airyIdeaId, "minecraft:water", 12)
         addRequirement(airyIdeaId, "minecraft:oak_planks", 64)
+
+        // MCO-315: an idea whose list is far wider than the ~466 rows that used to fit in a
+        // request body. The idea door shares the review screen, so it shared the data loss.
+        wideIdeaId = createIdea("Very Wide Idea")
+        seedItems((1..BULK_ROWS).map { "minecraft:bulk_item_$it" to "Bulk Item $it" })
+        addRequirements(wideIdeaId, (1..BULK_ROWS).map { "minecraft:bulk_item_$it" to it })
     }
 
     // ---- review ------------------------------------------------------------------
@@ -87,8 +96,11 @@ class ImportIdeaReviewIT : WithUser() {
         val body = response.bodyAsText()
         assertContains(body, "Review this import")
         assertContains(body, "Iron Farm Idea")
-        assertContains(body, "qty[minecraft:iron_ingot]")
-        assertContains(body, "qty[minecraft:oak_planks]")
+        // One field for the whole list since MCO-315, not one parameter per row.
+        assertContains(body, """name="materials" value="v1;3;""")
+        assertContains(body, "minecraft:iron_ingot=64")
+        assertContains(body, "minecraft:oak_planks=32")
+        assertFalse(body.contains("qty["), "the per-row parameters are gone")
         // The form has to carry the world through — the action URL has no room for it.
         assertContains(body, "name=\"worldId\"")
         assertEquals(before, countProjects(), "review must not create anything")
@@ -125,9 +137,9 @@ class ImportIdeaReviewIT : WithUser() {
 
         assertEquals(HttpStatusCode.OK, response.status)
         val body = response.bodyAsText()
-        assertFalse(body.contains("qty[minecraft:air]"), "air is filtered, not offered as a row")
+        assertFalse(body.contains("minecraft:air"), "air is filtered, not offered as a row")
         assertFalse(body.contains("9389854"), "and its quantity goes with it")
-        assertContains(body, "qty[minecraft:oak_planks]", message = "the real materials still arrive")
+        assertContains(body, "minecraft:oak_planks=64", message = "the real materials still arrive")
     }
 
     @Test
@@ -137,7 +149,7 @@ class ImportIdeaReviewIT : WithUser() {
         val response = client.get("/ideas/$airyIdeaId/import/review?worldId=$worldId") { addAuthCookie(this) }
 
         val body = response.bodyAsText()
-        assertContains(body, "qty[minecraft:water]", message = "water stays on the list — striking it is the user's call")
+        assertContains(body, "minecraft:water=12", message = "water stays on the list — striking it is the user's call")
         assertContains(body, "Not really materials", message = "but the strip says what it is")
         assertContains(body, ImportWarningKind.NON_MATERIAL.chip, message = "and so does the row")
     }
@@ -152,7 +164,12 @@ class ImportIdeaReviewIT : WithUser() {
         val response = client.post("/ideas/$airyIdeaId/import") {
             addAuthCookie(this)
             contentType(ContentType.Application.FormUrlEncoded)
-            setBody("worldId=$worldId&name=Roof&qty[minecraft:air]=9389854&qty[minecraft:oak_planks]=64")
+            setBody(
+                "worldId=$worldId&name=Roof&" + materials(
+                    "minecraft:air" to 9389854,
+                    "minecraft:oak_planks" to 64,
+                )
+            )
         }
 
         assertEquals(HttpStatusCode.SeeOther, response.status, response.bodyAsText())
@@ -171,7 +188,13 @@ class ImportIdeaReviewIT : WithUser() {
         val response = client.post("/ideas/$ideaId/import") {
             addAuthCookie(this)
             contentType(ContentType.Application.FormUrlEncoded)
-            setBody("worldId=$worldId&name=Reviewed Iron Farm&qty[minecraft:iron_ingot]=64&qty[minecraft:redstone]=8")
+            setBody(
+                "worldId=$worldId&name=Reviewed Iron Farm&" + materials(
+                    "minecraft:iron_ingot" to 64,
+                    "!minecraft:oak_planks" to 32,
+                    "minecraft:redstone" to 8,
+                )
+            )
         }
 
         assertEquals(HttpStatusCode.SeeOther, response.status, response.bodyAsText())
@@ -191,13 +214,29 @@ class ImportIdeaReviewIT : WithUser() {
         setupRoutes()
         val before = countProjects()
 
-        // Unchecking every row submits no qty[...] fields at all, which is byte-identical to
-        // a bare direct post. Importing the idea's full list here would do the opposite of
-        // what the user just asked for.
+        // Unchecking every row sends a list where every row is struck. Importing the idea's
+        // full list here would do the opposite of what the user just asked for.
         val response = client.post("/ideas/$ideaId/import") {
             addAuthCookie(this)
             contentType(ContentType.Application.FormUrlEncoded)
-            setBody("worldId=$worldId")
+            setBody("worldId=$worldId&" + materials("!minecraft:iron_ingot" to 64))
+        }
+
+        assertEquals(HttpStatusCode.UnprocessableEntity, response.status)
+        assertEquals(before, countProjects())
+    }
+
+    @Test
+    fun `a submission with no material list at all is refused`() = testApplication {
+        setupRoutes()
+        val before = countProjects()
+
+        // Also the shape a review page rendered before MCO-315 would send. There is no
+        // "import the whole idea instead" fallback, by design.
+        val response = client.post("/ideas/$ideaId/import") {
+            addAuthCookie(this)
+            contentType(ContentType.Application.FormUrlEncoded)
+            setBody("worldId=$worldId&qty[minecraft:iron_ingot]=64")
         }
 
         assertEquals(HttpStatusCode.UnprocessableEntity, response.status)
@@ -212,7 +251,7 @@ class ImportIdeaReviewIT : WithUser() {
         val response = client.post("/ideas/$ideaId/import") {
             addAuthCookie(this)
             contentType(ContentType.Application.FormUrlEncoded)
-            setBody("worldId=$worldId&qty[minecraft:not_a_real_item]=1")
+            setBody("worldId=$worldId&" + materials("minecraft:not_a_real_item" to 1))
         }
 
         assertEquals(HttpStatusCode.UnprocessableEntity, response.status)
@@ -228,10 +267,65 @@ class ImportIdeaReviewIT : WithUser() {
         val response = client.post("/ideas/$ideaId/import") {
             addAuthCookie(this, outsider)
             contentType(ContentType.Application.FormUrlEncoded)
-            setBody("worldId=$worldId&qty[minecraft:iron_ingot]=1")
+            setBody("worldId=$worldId&" + materials("minecraft:iron_ingot" to 1))
         }
 
         assertEquals(HttpStatusCode.Forbidden, response.status)
+        assertEquals(before, countProjects())
+    }
+
+    // ---- MCO-315 — a list wider than the old request-parameter cap -------------------
+
+    @Test
+    fun `an idea list far past the old 466-row cutoff imports every included row`() = testApplication {
+        setupRoutes()
+        val client = createClient { followRedirects = false }
+
+        val struck = (1..BULK_ROWS).filter { it % 7 == 0 }.map { "minecraft:bulk_item_$it" }.toSet()
+        val rows = (1..BULK_ROWS).map { "minecraft:bulk_item_$it" to it }
+
+        val response = client.post("/ideas/$wideIdeaId/import") {
+            addAuthCookie(this)
+            contentType(ContentType.Application.FormUrlEncoded)
+            setBody(
+                "worldId=$worldId&name=Wide Import&" + materials(
+                    *rows.map { (id, amount) -> (if (id in struck) "!$id" else id) to amount }.toTypedArray()
+                )
+            )
+        }
+
+        assertEquals(HttpStatusCode.SeeOther, response.status, response.bodyAsText())
+        val projectId = response.headers["Location"]!!.substringAfterLast("/").toInt()
+
+        val persisted = readRequirements(projectId).toMap()
+        assertEquals(BULK_ROWS - struck.size, persisted.size, "every included row is persisted")
+        rows.forEach { (id, amount) ->
+            if (id in struck) {
+                assertFalse(id in persisted, "$id was struck and must not be persisted")
+            } else {
+                assertEquals(amount, persisted[id], "$id must survive the import")
+            }
+        }
+    }
+
+    @Test
+    fun `an idea list that arrives short is refused rather than partly imported`() = testApplication {
+        setupRoutes()
+        val before = countProjects()
+
+        val full = ReviewedMaterialsCodec.encode(
+            (1..BULK_ROWS).map { ReviewedMaterial("minecraft:bulk_item_$it", it, included = true) }
+        )
+        val truncated = full.split(";").take(2 + 466).joinToString(";")
+
+        val response = client.post("/ideas/$wideIdeaId/import") {
+            addAuthCookie(this)
+            contentType(ContentType.Application.FormUrlEncoded)
+            setBody("worldId=$worldId&name=Cut Short&${ReviewedMaterialsCodec.FIELD}=$truncated")
+        }
+
+        assertEquals(HttpStatusCode.UnprocessableEntity, response.status)
+        assertContains(response.bodyAsText(), "466 of $BULK_ROWS")
         assertEquals(before, countProjects())
     }
 
@@ -303,6 +397,33 @@ class ImportIdeaReviewIT : WithUser() {
         (result as Result.Success).value
     }
 
+    private fun seedItems(items: List<Pair<String, String>>) = runBlocking {
+        DatabaseSteps.update<Unit>(
+            SafeSQL.insert("INSERT INTO minecraft_version (version) VALUES ('1.21.4') ON CONFLICT DO NOTHING"),
+            parameterSetter = { _, _ -> }
+        ).process(Unit)
+        DatabaseSteps.batchUpdate<Pair<String, String>>(
+            SafeSQL.insert(
+                "INSERT INTO minecraft_items (version, item_id, item_name) VALUES ('1.21.4', ?, ?) ON CONFLICT DO NOTHING"
+            ),
+            parameterSetter = { stmt, (itemId, itemName) ->
+                stmt.setString(1, itemId)
+                stmt.setString(2, itemName)
+            }
+        ).process(items)
+    }
+
+    private fun addRequirements(ideaId: Int, requirements: List<Pair<String, Int>>) = runBlocking {
+        DatabaseSteps.batchUpdate<Pair<String, Int>>(
+            SafeSQL.insert("INSERT INTO idea_item_requirements (idea_id, item_id, quantity) VALUES (?, ?, ?)"),
+            parameterSetter = { stmt, (itemId, quantity) ->
+                stmt.setInt(1, ideaId)
+                stmt.setString(2, itemId)
+                stmt.setInt(3, quantity)
+            }
+        ).process(requirements)
+    }
+
     private fun addRequirement(ideaId: Int, itemId: String, quantity: Int) = runBlocking {
         DatabaseSteps.update<Unit>(
             SafeSQL.insert(
@@ -356,5 +477,23 @@ class ImportIdeaReviewIT : WithUser() {
             }
         ).process(projectId)
         (result as Result.Success).value
+    }
+
+    /**
+     * A request body carrying the whole list in one field, as the review page now sends it.
+     * Prefix an id with `!` to mark the row struck.
+     */
+    private fun materials(vararg rows: Pair<String, Int>): String {
+        val encoded = ReviewedMaterialsCodec.encode(
+            rows.map { (id, amount) ->
+                ReviewedMaterial(id.removePrefix("!"), amount, included = !id.startsWith("!"))
+            }
+        )
+        return "${ReviewedMaterialsCodec.FIELD}=$encoded"
+    }
+
+    private companion object {
+        /** Comfortably past the ~466 rows that used to fit in a request body. */
+        const val BULK_ROWS = 600
     }
 }

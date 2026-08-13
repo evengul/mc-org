@@ -5,6 +5,8 @@ import app.mcorg.nbt.util.LitematicaReader
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.Result
 import app.mcorg.pipeline.SafeSQL
+import app.mcorg.pipeline.project.ReviewedMaterial
+import app.mcorg.pipeline.project.ReviewedMaterialsCodec
 import app.mcorg.pipeline.project.handleCreateProjectFromSchematic
 import app.mcorg.pipeline.project.handleReviewSchematic
 import app.mcorg.pipeline.world.CreateWorldInput
@@ -37,6 +39,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.api.extension.ExtendWith
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
@@ -64,19 +67,20 @@ class CreateProjectFromSchematicIT : WithUser() {
             ).process(Unit)
         }
         // The reviewed-create tests post their own rows, so the catalog needs these two
-        // regardless of what the fixture happens to contain.
-        (litematica.items.keys + setOf("minecraft:stone", "minecraft:oak_planks")).forEach { itemId ->
-            runBlocking {
-                DatabaseSteps.update<Unit>(
-                    sql = SafeSQL.insert(
-                        "INSERT INTO minecraft_items (version, item_id, item_name) VALUES ('1.21.4', ?, ?) ON CONFLICT DO NOTHING"
-                    ),
-                    parameterSetter = { stmt, _ ->
-                        stmt.setString(1, itemId)
-                        stmt.setString(2, itemId.removePrefix("minecraft:").replace('_', ' '))
-                    }
-                ).process(Unit)
-            }
+        // regardless of what the fixture happens to contain. The bulk ids back the MCO-315
+        // regression: a list far wider than the old ~466-row cutoff.
+        val bulkIds = (1..BULK_ROWS).map { "minecraft:bulk_item_$it" }
+        val catalog = (litematica.items.keys + setOf("minecraft:stone", "minecraft:oak_planks") + bulkIds).toList()
+        runBlocking {
+            DatabaseSteps.batchUpdate<String>(
+                sql = SafeSQL.insert(
+                    "INSERT INTO minecraft_items (version, item_id, item_name) VALUES ('1.21.4', ?, ?) ON CONFLICT DO NOTHING"
+                ),
+                parameterSetter = { stmt, itemId ->
+                    stmt.setString(1, itemId)
+                    stmt.setString(2, itemId.removePrefix("minecraft:").replace('_', ' '))
+                }
+            ).process(catalog)
         }
     }
 
@@ -253,7 +257,11 @@ class CreateProjectFromSchematicIT : WithUser() {
         assertTrue(body.contains("Review this import"), "expected the review page")
         assertTrue(body.contains("import-review-table"))
         assertTrue(body.contains("Shulker Loader"), "the provided name is carried into the form")
-        assertTrue(body.contains("qty["), "rows round-trip as form fields")
+        assertTrue(
+            body.contains("""name="materials" value="v1;"""),
+            "the whole list round-trips as one field (MCO-315)",
+        )
+        assertFalse(body.contains("qty["), "and never as one parameter per row again")
         assertEquals(before, countProjects(worldId), "review must not create anything")
     }
 
@@ -265,7 +273,7 @@ class CreateProjectFromSchematicIT : WithUser() {
         val response = client.post("/worlds/$worldId/projects/from-schematic") {
             addAuthCookie(this)
             contentType(ContentType.Application.FormUrlEncoded)
-            setBody("name=Reviewed Build&qty[minecraft:stone]=64&qty[minecraft:oak_planks]=12")
+            setBody("name=Reviewed Build&" + materials("minecraft:stone" to 64, "minecraft:oak_planks" to 12))
         }
 
         // A plain form submit gets a real redirect, not an HX-Redirect header.
@@ -283,13 +291,18 @@ class CreateProjectFromSchematicIT : WithUser() {
     fun `excluded rows never reach the project`() = testApplication {
         setupRoutes()
 
-        // The review page submits only the checked rows; oak_planks was unchecked, so it
-        // is simply absent from the body.
+        // The list carries every row; oak_planks rides along marked struck and is dropped
+        // server-side rather than simply being absent from the body.
         val client = createClient { followRedirects = false }
         val response = client.post("/worlds/$worldId/projects/from-schematic") {
             addAuthCookie(this)
             contentType(ContentType.Application.FormUrlEncoded)
-            setBody("name=Partial Build&qty[minecraft:stone]=64")
+            setBody(
+                "name=Partial Build&" + materials(
+                    "minecraft:stone" to 64,
+                    "!minecraft:oak_planks" to 12,
+                )
+            )
         }
 
         assertEquals(HttpStatusCode.SeeOther, response.status)
@@ -305,7 +318,7 @@ class CreateProjectFromSchematicIT : WithUser() {
         val response = client.post("/worlds/$worldId/projects/from-schematic") {
             addAuthCookie(this)
             contentType(ContentType.Application.FormUrlEncoded)
-            setBody("name=Nothing At All")
+            setBody("name=Nothing At All&" + materials("!minecraft:stone" to 64))
         }
 
         assertEquals(HttpStatusCode.UnprocessableEntity, response.status)
@@ -320,7 +333,7 @@ class CreateProjectFromSchematicIT : WithUser() {
         val response = client.post("/worlds/$worldId/projects/from-schematic") {
             addAuthCookie(this)
             contentType(ContentType.Application.FormUrlEncoded)
-            setBody("name=Smuggled&qty[minecraft:not_a_real_item]=1")
+            setBody("name=Smuggled&" + materials("minecraft:not_a_real_item" to 1))
         }
 
         assertEquals(HttpStatusCode.UnprocessableEntity, response.status)
@@ -336,10 +349,91 @@ class CreateProjectFromSchematicIT : WithUser() {
         val response = client.post("/worlds/$worldId/projects/from-schematic") {
             addAuthCookie(this, outsider)
             contentType(ContentType.Application.FormUrlEncoded)
-            setBody("name=Outsider Build&qty[minecraft:stone]=1")
+            setBody("name=Outsider Build&" + materials("minecraft:stone" to 1))
         }
 
         assertEquals(HttpStatusCode.Forbidden, response.status)
+        assertEquals(before, countProjects(worldId))
+    }
+
+    // -------------------------------------------------------------------------
+    // MCO-315 — a list wider than the old request-parameter cap
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `a list far past the old 466-row cutoff persists every included row`() = testApplication {
+        setupRoutes()
+
+        // The bug in one assertion: 600 rows at two parameters each overflowed Ktor's
+        // 1000-pair body cap, which stops decoding instead of failing, so the project came
+        // out ~135 materials short with nothing said about it.
+        val rows = (1..BULK_ROWS).map { "minecraft:bulk_item_$it" to it }
+        val struck = rows.filterIndexed { index, _ -> index % 7 == 0 }.map { it.first }.toSet()
+
+        val client = createClient { followRedirects = false }
+        val response = client.post("/worlds/$worldId/projects/from-schematic") {
+            addAuthCookie(this)
+            contentType(ContentType.Application.FormUrlEncoded)
+            setBody(
+                "name=Wide Build&" + materials(
+                    *rows.map { (id, amount) ->
+                        (if (id in struck) "!$id" else id) to amount
+                    }.toTypedArray()
+                )
+            )
+        }
+
+        assertEquals(HttpStatusCode.SeeOther, response.status, response.bodyAsText())
+        val projectId = response.headers["Location"]!!.substringAfterLast("/").toInt()
+
+        val persisted = readRequirements(projectId).toMap()
+        assertEquals(BULK_ROWS - struck.size, persisted.size, "every included row is persisted")
+        rows.forEach { (id, amount) ->
+            if (id in struck) {
+                assertFalse(id in persisted, "$id was struck and must not be persisted")
+            } else {
+                assertEquals(amount, persisted[id], "$id must survive the import")
+            }
+        }
+    }
+
+    @Test
+    fun `a material list that arrives short is refused rather than partly imported`() = testApplication {
+        setupRoutes()
+        val before = countProjects(worldId)
+
+        // Exactly the shape a truncating transport produces: the payload still declares 600
+        // rows, only 466 of them arrive. Loud failure, no project.
+        val full = ReviewedMaterialsCodec.encode(
+            (1..BULK_ROWS).map { ReviewedMaterial("minecraft:bulk_item_$it", it, included = true) }
+        )
+        val truncated = full.split(";").take(2 + 466).joinToString(";")
+
+        val response = client.post("/worlds/$worldId/projects/from-schematic") {
+            addAuthCookie(this)
+            contentType(ContentType.Application.FormUrlEncoded)
+            setBody("name=Cut Short&${ReviewedMaterialsCodec.FIELD}=$truncated")
+        }
+
+        assertEquals(HttpStatusCode.UnprocessableEntity, response.status)
+        assertTrue(response.bodyAsText().contains("466 of $BULK_ROWS"), response.bodyAsText())
+        assertEquals(before, countProjects(worldId))
+    }
+
+    @Test
+    fun `a submission with no material list at all is refused`() = testApplication {
+        setupRoutes()
+        val before = countProjects(worldId)
+
+        // What a review page rendered before MCO-315 would send. Importing "whatever arrived"
+        // is the failure mode this whole change exists to remove.
+        val response = client.post("/worlds/$worldId/projects/from-schematic") {
+            addAuthCookie(this)
+            contentType(ContentType.Application.FormUrlEncoded)
+            setBody("name=Stale Page&qty[minecraft:stone]=64")
+        }
+
+        assertEquals(HttpStatusCode.UnprocessableEntity, response.status)
         assertEquals(before, countProjects(worldId))
     }
 
@@ -358,12 +452,28 @@ class CreateProjectFromSchematicIT : WithUser() {
         (result as Result.Success).value
     }
 
-    /** Rebuilds a create-request body from the review page's rendered checkboxes. */
+    /** Rebuilds a create-request body from the review page's single rendered materials field. */
     private fun formBodyFrom(reviewHtml: String, name: String): String {
-        val rows = Regex("""name="qty\[([^"]+)]" value="(\d+)"""")
-            .findAll(reviewHtml)
-            .map { "qty[${it.groupValues[1]}]=${it.groupValues[2]}" }
-            .toList()
-        return (listOf("name=$name") + rows).joinToString("&")
+        val field = Regex("""name="materials" value="([^"]+)"""").find(reviewHtml)
+        assertNotNull(field, "the review page must render the materials field")
+        return "name=$name&${ReviewedMaterialsCodec.FIELD}=${field.groupValues[1]}"
+    }
+
+    /**
+     * A request body carrying the whole list in one field, as the review page now sends it.
+     * Prefix an id with `!` to mark the row struck.
+     */
+    private fun materials(vararg rows: Pair<String, Int>): String {
+        val encoded = ReviewedMaterialsCodec.encode(
+            rows.map { (id, amount) ->
+                ReviewedMaterial(id.removePrefix("!"), amount, included = !id.startsWith("!"))
+            }
+        )
+        return "${ReviewedMaterialsCodec.FIELD}=$encoded"
+    }
+
+    private companion object {
+        /** Comfortably past the ~466 rows that used to fit in a request body. */
+        const val BULK_ROWS = 600
     }
 }

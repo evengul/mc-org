@@ -70,9 +70,11 @@ data class ReviewedList(
 /**
  * Reads the review form, applies one family swap, and hands back the rewritten list.
  *
- * The form sends each row twice: `row[<id>]` always, and `qty[<id>]` only while the row is
- * checked. Reading the list from `row[...]` is what lets an excluded row survive a swap —
- * from `qty[...]` alone, striking a row and then swapping would delete it for good.
+ * The form sends the whole list — struck rows included — in one `materials` field (MCO-315).
+ * Carrying the struck rows is what lets an excluded row survive a swap; from the kept rows
+ * alone, striking a row and then swapping would delete it for good. Before MCO-315 that
+ * guarantee was a second field per row, which is exactly what overflowed the request's
+ * parameter cap and made the tail of a large list vanish across a swap.
  *
  * Ids are re-checked against the world catalog. The review page is a form like any other and
  * what it sends is not trusted just because the server rendered it a moment ago.
@@ -80,31 +82,28 @@ data class ReviewedList(
 internal data class SubstituteReviewedListStep(val availableItems: List<Item>) :
     Step<Parameters, AppFailure, ReviewedList> {
 
-    private val rowParameter = Regex("""^row\[(.+)]$""")
-    private val quantityParameter = Regex("""^qty\[(.+)]$""")
-
     override suspend fun process(input: Parameters): Result<AppFailure, ReviewedList> {
         val fromToken = input["from"]?.takeIf { it.isNotBlank() }
             ?: return Result.failure(AppFailure.customValidationError("from", "Nothing to swap"))
-        val toToken = input["to[$fromToken]"]?.takeIf { it.isNotBlank() }
+        val toToken = input["to"]?.takeIf { it.isNotBlank() }
             ?: return Result.failure(AppFailure.customValidationError("to", "Pick what to swap to"))
+
+        val rows = when (val decoded = ReviewedMaterialsCodec.decode(input[ReviewedMaterialsCodec.FIELD])) {
+            is Result.Failure -> return Result.Failure(decoded.error)
+            is Result.Success -> decoded.value
+        }
 
         val byId = availableItems.associateBy { it.id }
         val requirements = LinkedHashMap<Item, Int>()
+        val checked = mutableSetOf<String>()
 
-        input.entries().forEach { entry ->
-            val itemId = rowParameter.find(entry.key)?.groupValues?.get(1) ?: return@forEach
-            val item = byId[itemId]
+        rows.forEach { row ->
+            val item = byId[row.itemId]
                 ?: return Result.failure(
-                    AppFailure.customValidationError("materials", "Unknown item: $itemId")
+                    AppFailure.customValidationError("materials", "Unknown item: ${row.itemId}")
                 )
-            val amount = entry.value.firstOrNull()?.toIntOrNull()
-            if (amount == null || amount <= 0) {
-                return Result.failure(
-                    AppFailure.customValidationError("materials", "${item.name} needs a positive amount")
-                )
-            }
-            requirements[item] = amount
+            requirements[item] = row.amount
+            if (row.included) checked.add(row.itemId)
         }
 
         if (requirements.isEmpty()) {
@@ -112,9 +111,6 @@ internal data class SubstituteReviewedListStep(val availableItems: List<Item>) :
                 AppFailure.customValidationError("materials", "There is nothing here to swap")
             )
         }
-
-        val checked = input.entries()
-            .mapNotNullTo(mutableSetOf()) { quantityParameter.find(it.key)?.groupValues?.get(1) }
 
         val tokens = variantTokens(availableItems)
         val catalogIds = availableItems.mapTo(HashSet()) { it.id }
