@@ -132,7 +132,7 @@ data class RoadmapEdge(
     val isBlocking: Boolean,
     /**
      * The resource this edge is about, when it is a resource edge. Null for a manual
-     * project→project sequencing edge. The roadmap's "Blocked by" cell names the project
+     * project→project sequencing edge. The roadmap's "Depends on" cell names the project
      * *and* the resource, so the reader knows what to go and get.
      */
     val itemName: String? = null,

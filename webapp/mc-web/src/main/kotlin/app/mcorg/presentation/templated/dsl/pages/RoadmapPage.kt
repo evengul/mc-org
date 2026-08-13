@@ -103,8 +103,12 @@ private fun FlowContent.roadmapEmptyState(worldId: Int) {
 }
 
 private fun FlowContent.roadmapTable(roadmap: Roadmap) {
-    val blockingByConsumer = roadmap.edges.filter { it.isBlocking }.groupBy { it.fromNodeId }
-    val consumersByProducer = roadmap.edges.groupBy { it.toNodeId }
+    // Both directions read the *same* edge set (MCO-318). Filtering one side to blocking edges
+    // and not the other made the table contradict itself: a DONE farm claimed to block a project
+    // whose own row said nothing blocked it. Every edge shows on both rows; whether it is still
+    // blocking or already supplying is said in the cell, not by omitting it from one column.
+    val upstreamByConsumer = roadmap.edges.groupBy { it.fromNodeId }
+    val downstreamByProducer = roadmap.edges.groupBy { it.toNodeId }
 
     // Depth first — that is the sequence. Blocked projects sink within their layer, and
     // names break the remaining ties so the order is stable between renders.
@@ -123,8 +127,8 @@ private fun FlowContent.roadmapTable(roadmap: Roadmap) {
                     th { +"Project" }
                     th { +"State" }
                     th { +"Tasks" }
-                    th { +"Blocked by" }
-                    th { +"Blocks" }
+                    th { +"Depends on" }
+                    th { +"Supplies" }
                 }
             }
             tbody {
@@ -153,13 +157,13 @@ private fun FlowContent.roadmapTable(roadmap: Roadmap) {
                                 +"${node.tasksCompleted} / ${node.tasksTotal}"
                             }
                         }
-                        td("roadmap-cell--blocked") {
-                            attributes["data-label"] = "Blocked by"
-                            blockedByCell(roadmap.worldId, blockingByConsumer[node.projectId].orEmpty())
+                        td {
+                            attributes["data-label"] = "Depends on"
+                            dependsOnCell(roadmap.worldId, upstreamByConsumer[node.projectId].orEmpty())
                         }
                         td {
-                            attributes["data-label"] = "Blocks"
-                            blocksCell(roadmap.worldId, consumersByProducer[node.projectId].orEmpty())
+                            attributes["data-label"] = "Supplies"
+                            suppliesCell(roadmap.worldId, downstreamByProducer[node.projectId].orEmpty())
                         }
                     }
                 }
@@ -169,49 +173,107 @@ private fun FlowContent.roadmapTable(roadmap: Roadmap) {
 }
 
 /**
- * Names the project *and* the resource, per the IA: "Iron Farm — Iron Ingot". Knowing which
- * project blocks you is only half an answer; the other half is what you are waiting for.
- * A manual sequencing edge has no resource, so it names the project alone.
+ * One line of an edge cell, in whichever direction it is read: the project at the other end,
+ * the resource when the cell names it, and what the relationship currently *is*.
+ *
+ * [itemName] is what the cell prints and is null wherever the cell doesn't name the resource.
+ * [isResourceEdge] is about the edge itself — false only for a manual project→project
+ * sequencing edge, which is about no resource at all. MCO-316 hangs demand quantities off this
+ * type, so keep it the single shape both directions are mapped into.
  */
-private fun FlowContent.blockedByCell(worldId: Int, edges: List<RoadmapEdge>) {
-    if (edges.isEmpty()) {
+private data class RoadmapEdgeEntry(
+    val projectId: Int,
+    val projectName: String,
+    val itemName: String?,
+    val isResourceEdge: Boolean,
+    val isBlocking: Boolean,
+)
+
+/**
+ * Upstream: what this project is waiting on, or already being fed by. Names the project *and*
+ * the resource, per the IA: "Iron Farm — Iron Ingot". Knowing which project you depend on is
+ * only half an answer; the other half is what you are getting from it. A manual sequencing edge
+ * has no resource, so it names the project alone.
+ */
+private fun FlowContent.dependsOnCell(worldId: Int, edges: List<RoadmapEdge>) {
+    roadmapEdgeCell(
+        worldId,
+        edges.map { edge ->
+            RoadmapEdgeEntry(
+                projectId = edge.toNodeId,
+                projectName = edge.toNodeName,
+                itemName = edge.itemName,
+                isResourceEdge = edge.itemName != null,
+                isBlocking = edge.isBlocking,
+            )
+        }
+    )
+}
+
+/**
+ * Downstream: who this project feeds. The same edges the consumers' own rows show, so the two
+ * columns cannot disagree — a DONE farm supplies its consumers here rather than claiming to
+ * block them. Names only; the resource detail lives on the consumer's row.
+ */
+private fun FlowContent.suppliesCell(worldId: Int, edges: List<RoadmapEdge>) {
+    roadmapEdgeCell(
+        worldId,
+        edges
+            .groupBy { it.fromNodeId }
+            .map { (consumerId, consumerEdges) ->
+                RoadmapEdgeEntry(
+                    projectId = consumerId,
+                    projectName = consumerEdges.first().fromNodeName,
+                    itemName = null,
+                    isResourceEdge = consumerEdges.any { it.itemName != null },
+                    // Several resources can run along the same pair of projects; the pair is
+                    // blocking if any one of them still is.
+                    isBlocking = consumerEdges.any { it.isBlocking },
+                )
+            }
+    )
+}
+
+/**
+ * Blocking is called out in words, not just colour — the primary user is red-green colour-blind,
+ * and "this is still holding you up" is the one thing in the cell that must not be missed.
+ */
+private fun FlowContent.roadmapEdgeCell(worldId: Int, entries: List<RoadmapEdgeEntry>) {
+    if (entries.isEmpty()) {
         span("roadmap-muted") { +"—" }
         return
     }
     div("roadmap-edge-list") {
-        edges
-            .sortedWith(compareBy({ it.toNodeName }, { it.itemName ?: "" }))
-            .forEach { edge ->
-                div("roadmap-edge") {
+        entries
+            // Blockers first — they are the actionable ones — then a stable alphabetical order.
+            .sortedWith(
+                compareByDescending<RoadmapEdgeEntry> { it.isBlocking }
+                    .thenBy { it.projectName }
+                    .thenBy { it.itemName ?: "" }
+            )
+            .forEach { entry ->
+                val modifier = if (entry.isBlocking) "roadmap-edge--blocking" else "roadmap-edge--supplying"
+                div("roadmap-edge $modifier") {
                     a(classes = "roadmap-project-link") {
-                        href = "/worlds/$worldId/projects/${edge.toNodeId}"
-                        +edge.toNodeName
+                        href = "/worlds/$worldId/projects/${entry.projectId}"
+                        +entry.projectName
                     }
-                    edge.itemName?.let { item ->
+                    entry.itemName?.let { item ->
                         span("roadmap-edge__item") { +" — $item" }
                     }
+                    span("roadmap-edge__status") { +entry.statusLabel() }
                 }
             }
     }
 }
 
-/** The other direction: who is waiting on this project. Names only — the detail is on their row. */
-private fun FlowContent.blocksCell(worldId: Int, edges: List<RoadmapEdge>) {
-    val consumers = edges
-        .distinctBy { it.fromNodeId }
-        .sortedBy { it.fromNodeName }
-    if (consumers.isEmpty()) {
-        span("roadmap-muted") { +"—" }
-        return
-    }
-    div("roadmap-edge-list") {
-        consumers.forEach { edge ->
-            div("roadmap-edge") {
-                a(classes = "roadmap-project-link") {
-                    href = "/worlds/$worldId/projects/${edge.fromNodeId}"
-                    +edge.fromNodeName
-                }
-            }
-        }
-    }
+/**
+ * "blocking" for a producer that is not DONE yet; otherwise the relationship is live —
+ * "supplying" when there is a resource flowing, and a plain "done" for a manual sequencing
+ * edge, where nothing is being supplied and the only news is that the prerequisite is met.
+ */
+private fun RoadmapEdgeEntry.statusLabel(): String = when {
+    isBlocking -> "blocking"
+    isResourceEdge -> "supplying"
+    else -> "done"
 }
