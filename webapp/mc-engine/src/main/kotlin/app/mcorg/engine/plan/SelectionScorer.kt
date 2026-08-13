@@ -14,9 +14,10 @@ import app.mcorg.domain.model.resources.ResourceSource
  * 2. Efficiency bonus — output/input ratio above 1.0. Not applied to trades
  *    (output-per-emerald is an exchange rate, not saved effort) nor to reciprocal
  *    recipes (storage block -> item), whose input embeds N of the output.
- * 2b. Reciprocal penalty — a recipe whose ingredient is itself made *from* the
- *    output (ingot <- 9 nuggets, ingot <- iron block) converts the item into
- *    itself and cannot be a real acquisition. See [reciprocalPenalty].
+ * 2b. Reciprocal penalty — a recipe that converts the item into a form of itself
+ *    rather than acquiring it (ingot <- 9 nuggets, ingot <- iron block). The test is
+ *    symmetric, so it also demotes the reverse (nuggets <- ingot), which is a real
+ *    acquisition route; see [reciprocalPenalty] for why that trade is taken.
  * 3. Supplied bonus — ingredients satisfied by the supplied map are nearly free.
  * 4. Recipe-threshold bonus — at bulk demand, recipes beat repeated gathering.
  * 5. Self-block-loot penalty — breaking a block that *is* the item (beacon,
@@ -29,8 +30,10 @@ import app.mcorg.domain.model.resources.ResourceSource
  * 7. Requirement-count and chain-depth penalties.
  *
  * Circular crafting (a recipe whose ingredient chain contains the item itself,
- * e.g. diamond <- diamond block <- 9 diamonds) is not a scoring concern: the
- * selector rejects such candidates structurally before they are scored.
+ * e.g. diamond <- diamond block <- 9 diamonds) is mostly settled before scoring:
+ * the selector rejects such candidates structurally. Factor 2b covers what is left
+ * — where the ingredient has some *other* viable source, so the cycle is real but
+ * not structural and scoring is the only thing that can catch it.
  */
 /**
  * The individual factors behind a candidate's [SelectionScorer.score], for
@@ -203,51 +206,25 @@ internal class SelectionScorer(
      * themselves made from ingots, so neither recipe acquires iron; it only
      * changes iron's shape.
      *
-     * Zeroing the efficiency bonus ([isReciprocalUnpack]) was not enough. That only
-     * removes a bonus, and these recipes never earned one: 9 nuggets -> 1 ingot has
-     * a ratio below 1. So they kept the full crafting base (95) and beat smelting
-     * raw iron (85) on base score alone, with every other factor identical. The plan
-     * then routed a build's entire iron requirement through nuggets, whose only
-     * non-circular source is smelting iron equipment — 296,515 pieces of chainmail
-     * armour for one storage system (MCO-317).
+     * Zeroing the efficiency bonus was not enough: these recipes never earned one
+     * (9 nuggets -> 1 ingot has a ratio below 1), so they kept the full crafting base
+     * and beat smelting on base score alone — routing a build's whole iron requirement
+     * through nuggets smelted from armour (MCO-317).
      *
-     * The size is bounded from both sides by curated expectations, and the window is
-     * narrow — the two constraints bite at different demands:
-     * - **Above 10.** At bulk demand both candidates take the recipe threshold, so
-     *   ingot-from-nuggets is 130 and smelting raw iron is 120. The penalty has to
-     *   clear that 10-point base gap for smelting to win.
-     * - **Below 20.** At small demand neither takes the threshold, so unpacking an
-     *   ingot into nuggets is only 80 against chest loot's 60. A nugget has no
-     *   "mine a nugget" path, so unpacking must stay ahead of looting one
-     *   (see `iron_nugget - unpacking an ingot still wins...`), which leaves 19.
+     * Scope: the selector rejects *structurally* circular candidates before scoring.
+     * This catches the rest — where the ingredient has some other viable source, so the
+     * cycle is real but not structural.
      *
-     * 15 sits mid-window. Both bounds are covered by tests; moving this value
-     * without re-running `CuratedSelectionTest` will silently break one of them.
+     * **The test is symmetric**, so crafting nuggets *from* an ingot is demoted too,
+     * even though that is how a player really gets nuggets — at small demand it loses to
+     * smelting iron equipment. Restricting the penalty to the concentrating direction
+     * (ratio < 1) was measured against the real graph and is worse: then
+     * `iron_ingot_from_iron_block` escapes and wins outright. The real repair is costing
+     * open tags, which currently score as free (MCO-320); this penalty is the bounded part.
      *
-     * **Known limitation — the penalty is symmetric, and one direction deserves it less.**
-     * Crafting 9 nuggets *from* an ingot is how a player really gets nuggets, but it is
-     * reciprocal too, so it is demoted as well: at a small nugget demand it drops to 65
-     * and loses to smelting iron equipment (75). Restricting the penalty to the
-     * concentrating direction (output/input < 1) fixes that but lets
-     * `iron_ingot_from_iron_block` — which expands, 1 block to 9 ingots — escape and win
-     * outright, which is worse and fully circular. Both variants were measured against
-     * the real graph.
-     *
-     * The deeper cause is that the competing smelt-equipment source takes its input from
-     * an *open tag*, and [minDepth] scores a tag as depth 0 — so a route through an
-     * unresolved tag pays no depth penalty and looks cheaper than it is. Fixing tag cost
-     * is the real repair; this penalty is the bounded part. Tracked separately.
-     *
-     * **Gold is deliberately unaffected in the case that matters.** Crafting 9 gold
-     * nuggets into an ingot is the normal survival route when a zombified-piglin farm
-     * supplies the nuggets — and that farm is a declared supply, so [suppliedBonus] (+30)
-     * outweighs this penalty (-15) and the nugget recipe still wins. Without such a farm
-     * the planner falls back to smelting ore, which is correct. Both directions are
-     * pinned by `gold_ingot - a declared nugget farm beats mining...` and its sibling.
-     *
-     * The selector already rejects *structurally* circular candidates before
-     * scoring; this covers the case where the ingredient has some other, viable
-     * source, so the cycle is real but not structural.
+     * Gold keeps its nugget route where it matters: with a piglin farm declared,
+     * [suppliedBonus] (+30) outweighs this penalty. Pinned by
+     * `gold_ingot - a declared nugget farm beats mining...` and its sibling.
      */
     private fun reciprocalPenalty(item: MinecraftId, source: SourceNode): Int =
         if (isReciprocalUnpack(item, source)) RECIPROCAL_PENALTY else 0
@@ -324,6 +301,19 @@ internal class SelectionScorer(
 
     companion object {
         private const val EFFICIENCY_WEIGHT = 20
+        /**
+         * Fits a 9-point window, and the two bounds bite at *different* demands — which
+         * is why a plausible-looking 20 passes the bulk case and still breaks the other:
+         * - **above 10**: at bulk both candidates take [RECIPE_THRESHOLD_BONUS], so
+         *   ingot-from-nuggets is 130 against smelting's 120; the penalty must clear
+         *   that base gap.
+         * - **below 20**: at small demand neither does, so unpacking an ingot is 80
+         *   against chest loot's 60, and unpacking must stay ahead — a nugget has no
+         *   "mine a nugget" path.
+         *
+         * Both bounds are pinned in `CuratedSelectionTest`. Changing this without
+         * re-running it will silently break one of them.
+         */
         private const val RECIPROCAL_PENALTY = 15
         private const val SUPPLIED_BONUS = 30
         private const val RECIPE_THRESHOLD_BONUS = 50
