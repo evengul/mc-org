@@ -99,6 +99,23 @@ class StoreServerDataIdempotencyTest {
         assertEquals(1, count("resource_source"), "retirement must not cascade live sources away")
     }
 
+    /**
+     * `item_id <> ALL ('{}')` is TRUE for every row, so an extraction that yields nothing would
+     * delete the version's entire catalog — and cascade its tags and sources away with it —
+     * silently, inside the ingest transaction. A version with no items is always an extraction
+     * fault, never a real registry, so the retirement is skipped rather than obeyed.
+     */
+    @Test
+    fun `an empty extraction does not wipe the catalog`() {
+        runBlocking { assertIs<Result.Success<*>>(StoreMinecraftDataStep.process(data)) }
+        assertEquals(listOf("minecraft:stone"), itemIds())
+
+        runBlocking { assertIs<Result.Success<*>>(StoreMinecraftDataStep.process(data.copy(items = emptyList()))) }
+
+        assertEquals(listOf("minecraft:stone"), itemIds(), "an empty extraction wiped the catalog")
+        assertEquals(1, count("resource_source"), "the wipe cascaded the version's sources away")
+    }
+
     private fun itemIds(): List<String> = runBlocking {
         DatabaseSteps.query<Unit, List<String>>(
             sql = SafeSQL.select("SELECT item_id FROM minecraft_items WHERE version = ? ORDER BY item_id"),

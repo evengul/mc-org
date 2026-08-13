@@ -69,17 +69,31 @@ private data class StoreMinecraftItemDataStep(val connection: TransactionConnect
             // minecraft_tag_item and resource_source_* are ON DELETE CASCADE, so a blanket delete
             // would churn every source row on every ingest. Only genuinely-absent ids are removed,
             // and those have no sources to cascade to by construction.
-            DatabaseSteps.update<List<Item>>(
-                sql = SafeSQL.delete("DELETE FROM minecraft_items WHERE version = ? AND item_id <> ALL (?)"),
-                parameterSetter = { statement, items ->
-                    statement.setString(1, version.toString())
-                    statement.setArray(2, statement.connection.createArrayOf("text", items.map { it.id }.toTypedArray()))
-                },
-                transactionConnection = connection
-            ).process(allItems).map { removed ->
-                if (removed > 0) {
-                    logger.info("Retired $removed stale item(s) for minecraft version $version no longer in the registry.")
-                }
+            //
+            // Skipped entirely when extraction produced nothing: `item_id <> ALL ('{}')` is TRUE for
+            // every row, so an empty list would delete the version's whole catalog — and cascade its
+            // tags and sources with it — silently, inside this transaction. A version with no items
+            // is always an extraction fault, never a real registry, so refuse rather than obey.
+            if (allItems.isEmpty()) {
+                logger.warn("Extraction produced no items for minecraft version $version; skipping retirement to avoid wiping the catalog.")
+            } else {
+                DatabaseSteps.update<List<Item>>(
+                    sql = SafeSQL.delete("DELETE FROM minecraft_items WHERE version = ? AND item_id <> ALL (?)"),
+                    parameterSetter = { statement, items ->
+                        statement.setString(1, version.toString())
+                        statement.setArray(2, statement.connection.createArrayOf("text", items.map { it.id }.toTypedArray()))
+                    },
+                    transactionConnection = connection
+                ).process(allItems)
+                    // Propagate rather than swallow: a failed retirement followed by a successful
+                    // ON CONFLICT DO NOTHING insert would report a clean ingest while leaving the
+                    // stale ids in place. Mirrors StoreResourceSourcesStep's delete.
+                    .also { if (it is Result.Failure) return it }
+                    .map { removed ->
+                        if (removed > 0) {
+                            logger.info("Retired $removed stale item(s) for minecraft version $version no longer in the registry.")
+                        }
+                    }
             }
 
             DatabaseSteps.batchUpdate<Item>(
