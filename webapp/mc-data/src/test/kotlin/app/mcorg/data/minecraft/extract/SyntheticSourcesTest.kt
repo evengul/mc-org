@@ -9,7 +9,16 @@ import kotlin.test.assertTrue
 
 class SyntheticSourcesTest {
 
-    private val sources = SyntheticSources.all()
+    /**
+     * An item registry containing every id the entries mention — i.e. "the newest version",
+     * where nothing is filtered out. Version filtering is exercised separately below.
+     */
+    private val allIds: Set<String> =
+        SyntheticSources.allUnfiltered().flatMap { s ->
+            (s.producedItems + s.requiredItems).map { it.first.id }
+        }.toSet()
+
+    private val sources = SyntheticSources.all(allIds)
 
     private fun producing(itemId: String) =
         sources.filter { s -> s.producedItems.any { it.first.id == itemId } }
@@ -63,5 +72,73 @@ class SyntheticSourcesTest {
             assertEquals(SourceType.MechanicTypes.IN_WORLD_TRANSFORM, concrete.type, "$color concrete type")
             assertEquals("minecraft:${color}_concrete_powder", concrete.requiredItems.single().first.id)
         }
+    }
+
+    @Test
+    fun `every strippable log has an in-world transform from its unstripped form`() {
+        val bases = listOf(
+            "oak_log", "birch_log", "spruce_log", "jungle_log", "acacia_log", "dark_oak_log",
+            "mangrove_log", "cherry_log", "pale_oak_log", "crimson_stem", "warped_stem",
+            "bamboo_block",
+        )
+        bases.forEach { base ->
+            val stripped = producing("minecraft:stripped_$base").single()
+            assertEquals(SourceType.MechanicTypes.IN_WORLD_TRANSFORM, stripped.type, "$base strip type")
+            assertEquals("minecraft:$base", stripped.requiredItems.single().first.id, "$base strip input")
+        }
+    }
+
+    @Test
+    fun `mud, dirt path and farmland transform dirt`() {
+        listOf("minecraft:mud", "minecraft:dirt_path", "minecraft:farmland").forEach { id ->
+            val transform = producing(id).single()
+            assertEquals(SourceType.MechanicTypes.IN_WORLD_TRANSFORM, transform.type, "$id type")
+            assertEquals("minecraft:dirt", transform.requiredItems.single().first.id, "$id input")
+        }
+    }
+
+    /**
+     * The bucket is returned empty on placement, so it is a reusable tool rather than a
+     * consumed material — requiring one per filled bucket would badly over-count iron on any
+     * build containing water. See the note in [SyntheticSources].
+     */
+    @Test
+    fun `filled buckets are collected and consume nothing`() {
+        listOf("water_bucket", "lava_bucket", "powder_snow_bucket").forEach { id ->
+            val bucket = producing("minecraft:$id").single()
+            assertEquals(SourceType.MechanicTypes.COLLECT, bucket.type, "$id type")
+            assertTrue(bucket.requiredItems.isEmpty(), "$id must not consume a bucket")
+        }
+    }
+
+    @Test
+    fun `entries naming an item the version lacks are dropped`() {
+        val withoutCherry = allIds - "minecraft:stripped_cherry_log"
+        val sources = SyntheticSources.all(withoutCherry)
+
+        assertTrue(
+            sources.none { s -> s.producedItems.any { it.first.id == "minecraft:stripped_cherry_log" } },
+            "a version without stripped cherry logs must not gain one"
+        )
+        assertTrue(
+            sources.any { s -> s.producedItems.any { it.first.id == "minecraft:stripped_oak_log" } },
+            "unrelated entries must survive the filter"
+        )
+    }
+
+    @Test
+    fun `an entry is dropped when its required input is missing, not just its output`() {
+        val withoutDirt = allIds - "minecraft:dirt"
+        val sources = SyntheticSources.all(withoutDirt)
+
+        assertTrue(
+            sources.none { s -> s.producedItems.any { it.first.id == "minecraft:mud" } },
+            "mud must not be producible from an ingredient the version lacks"
+        )
+    }
+
+    @Test
+    fun `an empty registry yields no sources`() {
+        assertTrue(SyntheticSources.all(emptySet()).isEmpty())
     }
 }

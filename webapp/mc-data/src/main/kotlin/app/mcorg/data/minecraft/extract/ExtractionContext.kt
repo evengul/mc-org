@@ -137,19 +137,59 @@ object ExtractionContextFactory {
      * The version's item registry, read off the lang file: every dot-free
      * `item.minecraft.X` / `block.minecraft.X` key is an id. Dotted suffixes
      * (`item.minecraft.splash_potion.effect.luck`) are auxiliary strings, not items.
+     *
+     * Then pruned of the two ways that heuristic over-reads — see [RENAMED_ITEMS] and
+     * [NON_ITEM_KEYS] (MCO-313).
      */
-    private fun registryIds(raw: Map<String, String>): Set<String> = buildSet {
-        raw.keys.forEach { key ->
-            for (prefix in listOf("item.minecraft.", "block.minecraft.")) {
-                if (key.startsWith(prefix)) {
-                    val id = key.removePrefix(prefix)
-                    if (!id.contains('.')) {
-                        add("minecraft:$id")
+    internal fun registryIds(raw: Map<String, String>): Set<String> {
+        val ids = buildSet {
+            raw.keys.forEach { key ->
+                for (prefix in listOf("item.minecraft.", "block.minecraft.")) {
+                    if (key.startsWith(prefix)) {
+                        val id = key.removePrefix(prefix)
+                        if (!id.contains('.')) {
+                            add("minecraft:$id")
+                        }
                     }
                 }
             }
         }
+
+        // Drop a legacy id only when its replacement is present. That makes the rule
+        // self-versioning with no version ranges to maintain: 1.18 has no short_grass, so it
+        // keeps `grass`; 26.2 has both, so `grass` goes.
+        val supersededLegacyIds = RENAMED_ITEMS
+            .filter { (_, current) -> current in ids }
+            .keys
+
+        return ids - supersededLegacyIds - NON_ITEM_KEYS
     }
+
+    /**
+     * Legacy id -> the id that replaced it. Mojang's lang file keeps the old key around long
+     * after a rename, so both spellings look like registry entries while only the new one is
+     * produced by any recipe or loot table — leaving the old one permanently BLOCKED.
+     *
+     * Only ever prunes the legacy id when the replacement exists in the same version, so
+     * versions predating a rename are untouched.
+     */
+    private val RENAMED_ITEMS = mapOf(
+        "minecraft:chain" to "minecraft:iron_chain",       // 1.21.9, when copper chains arrived
+        "minecraft:grass" to "minecraft:short_grass",      // 1.20.3
+        "minecraft:scute" to "minecraft:turtle_scute",     // 1.20.5
+        "minecraft:sign" to "minecraft:oak_sign",          // 1.14
+    )
+
+    /**
+     * Dot-free `item.`/`block.` lang keys that were never items — generic labels shared by a
+     * family (`item.minecraft.smithing_template` is the "Smithing Template" heading used by
+     * every template) or UI messages that happen to sit under the block namespace.
+     */
+    private val NON_ITEM_KEYS = setOf(
+        "minecraft:smithing_template",
+        "minecraft:harness",
+        "minecraft:set_spawn",
+    )
 
     private fun loadNames(version: MinecraftVersion.Release, root: Path): Result<ExtractionFailure, Map<String, String>> {
         try {

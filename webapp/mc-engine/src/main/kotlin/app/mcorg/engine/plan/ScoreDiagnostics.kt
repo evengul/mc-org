@@ -112,6 +112,23 @@ object ScoreDiagnostics {
         )
     }
 
+    /**
+     * True when the item's *only* producing source is breaking its own placed block —
+     * "to get a stripped oak log, break a stripped oak log."
+     *
+     * Such items are not BLOCKED (they have a source), so they are invisible to a
+     * no-sources scan, yet the acquisition the planner suggests for them is circular.
+     * That makes this the working list for new synthetic sources in mc-data: each hit
+     * either needs a real acquisition Mojang's JSON doesn't describe (an in-world
+     * transform, a collect, an interaction), or is a legitimate self-break-only block
+     * (natural stone, dirt). Exposed here rather than on the scorer so the restricted
+     * scoring surface stays internal.
+     */
+    fun hasOnlySelfBlockLoot(graph: ItemSourceGraph, item: MinecraftId): Boolean {
+        val sources = graph.getSourcesForItem(item)
+        return sources.isNotEmpty() && sources.all { SelectionScorer.isSelfBlockLoot(item, it) }
+    }
+
     /** Prefers the concrete item node over a same-id tag node (mirrors PlanSelector.graphItemFor). */
     private fun pickItemNode(graph: ItemSourceGraph, itemId: String) =
         graph.getItemNodesByStringId(itemId).let { nodes ->

@@ -75,4 +75,57 @@ class ExtractionContextTest {
     fun `tagDisplayName formats a tag id as title case words`() {
         assertEquals("Wooden Slabs", ExtractionContext.tagDisplayName("#minecraft:wooden_slabs"))
     }
+
+    // --- registryIds (MCO-313) ---
+
+    private fun langKeys(vararg keys: String) = keys.associateWith { "irrelevant" }
+
+    @Test
+    fun `registryIds reads dot-free item and block keys as ids`() {
+        val ids = ExtractionContextFactory.registryIds(
+            langKeys("item.minecraft.diamond", "block.minecraft.stone")
+        )
+        assertEquals(setOf("minecraft:diamond", "minecraft:stone"), ids)
+    }
+
+    @Test
+    fun `registryIds ignores dotted auxiliary keys`() {
+        val ids = ExtractionContextFactory.registryIds(
+            langKeys("item.minecraft.splash_potion.effect.luck")
+        )
+        assertEquals(emptySet(), ids)
+    }
+
+    @Test
+    fun `registryIds drops a legacy id when its replacement is present`() {
+        val ids = ExtractionContextFactory.registryIds(
+            langKeys("block.minecraft.chain", "block.minecraft.iron_chain")
+        )
+        assertEquals(setOf("minecraft:iron_chain"), ids)
+    }
+
+    /**
+     * The rule has to be self-versioning: `chain` is the real item before 1.21.9, `grass`
+     * before 1.20.3. Without the replacement present, the legacy id must survive.
+     */
+    @Test
+    fun `registryIds keeps a legacy id on versions predating the rename`() {
+        val ids = ExtractionContextFactory.registryIds(
+            langKeys("block.minecraft.chain", "block.minecraft.grass", "item.minecraft.scute")
+        )
+        assertEquals(setOf("minecraft:chain", "minecraft:grass", "minecraft:scute"), ids)
+    }
+
+    @Test
+    fun `registryIds drops family-label keys that were never items`() {
+        val ids = ExtractionContextFactory.registryIds(
+            langKeys(
+                "item.minecraft.smithing_template",
+                "item.minecraft.harness",
+                "block.minecraft.set_spawn",
+                "item.minecraft.white_harness",
+            )
+        )
+        assertEquals(setOf("minecraft:white_harness"), ids)
+    }
 }
