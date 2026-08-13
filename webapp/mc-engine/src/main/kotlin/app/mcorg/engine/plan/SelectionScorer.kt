@@ -13,7 +13,11 @@ import app.mcorg.domain.model.resources.ResourceSource
  * 1. Source-type base score ([ResourceSource.SourceType.score]).
  * 2. Efficiency bonus — output/input ratio above 1.0. Not applied to trades
  *    (output-per-emerald is an exchange rate, not saved effort) nor to reciprocal
- *    unpack recipes (storage block -> item), whose input embeds N of the output.
+ *    recipes (storage block -> item), whose input embeds N of the output.
+ * 2b. Reciprocal penalty — a recipe that converts the item into a form of itself
+ *    rather than acquiring it (ingot <- 9 nuggets, ingot <- iron block). The test is
+ *    symmetric, so it also demotes the reverse (nuggets <- ingot), which is a real
+ *    acquisition route; see [reciprocalPenalty] for why that trade is taken.
  * 3. Supplied bonus — ingredients satisfied by the supplied map are nearly free.
  * 4. Recipe-threshold bonus — at bulk demand, recipes beat repeated gathering.
  * 5. Self-block-loot penalty — breaking a block that *is* the item (beacon,
@@ -26,8 +30,10 @@ import app.mcorg.domain.model.resources.ResourceSource
  * 7. Requirement-count and chain-depth penalties.
  *
  * Circular crafting (a recipe whose ingredient chain contains the item itself,
- * e.g. diamond <- diamond block <- 9 diamonds) is not a scoring concern: the
- * selector rejects such candidates structurally before they are scored.
+ * e.g. diamond <- diamond block <- 9 diamonds) is mostly settled before scoring:
+ * the selector rejects such candidates structurally. Factor 2b covers what is left
+ * — where the ingredient has some *other* viable source, so the cycle is real but
+ * not structural and scoring is the only thing that can catch it.
  */
 /**
  * The individual factors behind a candidate's [SelectionScorer.score], for
@@ -39,6 +45,7 @@ internal data class ScoreBreakdown(
     val efficiency: Int,
     val supplied: Int,
     val recipeThreshold: Int,
+    val reciprocal: Int,
     val selfBlockLoot: Int,
     val lowYield: Int,
     val requirementCount: Int,
@@ -73,9 +80,14 @@ internal class SelectionScorer(
     ): Int {
         var total = source.sourceType.score
 
-        total += efficiencyBonus(item, source)
+        // Computed once: the craftedFrom walk behind it is unmemoized and both the
+        // efficiency bonus and the reciprocal penalty ask the same question.
+        val reciprocal = isReciprocalUnpack(item, source)
+
+        total += efficiencyBonus(item, source, reciprocal)
         total += suppliedBonus(source)
         total += recipeThresholdBonus(item, source, demand)
+        total -= reciprocalPenalty(reciprocal)
         total -= selfBlockLootPenalty(item, source, hasConstructiveSibling)
         total -= lowYieldPenalty(item, source)
 
@@ -100,21 +112,24 @@ internal class SelectionScorer(
     ): ScoreBreakdown {
         val requirements = graph.getRequiredItems(source)
         val base = source.sourceType.score
-        val efficiency = efficiencyBonus(item, source)
+        val isReciprocal = isReciprocalUnpack(item, source)
+        val efficiency = efficiencyBonus(item, source, isReciprocal)
         val supplied = suppliedBonus(source)
         val recipeThreshold = recipeThresholdBonus(item, source, demand)
+        val reciprocal = reciprocalPenalty(isReciprocal)
         val selfBlockLoot = selfBlockLootPenalty(item, source, hasConstructiveSibling)
         val lowYield = lowYieldPenalty(item, source)
         val requirementPenalty = requirements.size * REQUIREMENT_PENALTY
         val chainDepth = chainDepth(requirements.map { it.item })
         val depthPenalty = chainDepth * DEPTH_PENALTY
         val total = base + efficiency + supplied + recipeThreshold -
-            selfBlockLoot - lowYield - requirementPenalty - depthPenalty
+            reciprocal - selfBlockLoot - lowYield - requirementPenalty - depthPenalty
         return ScoreBreakdown(
             base = base,
             efficiency = efficiency,
             supplied = supplied,
             recipeThreshold = recipeThreshold,
+            reciprocal = reciprocal,
             selfBlockLoot = selfBlockLoot,
             lowYield = lowYield,
             requirementCount = requirements.size,
@@ -134,7 +149,7 @@ internal class SelectionScorer(
             .coerceAtMost(LOW_YIELD_PENALTY_CAP)
     }
 
-    private fun efficiencyBonus(item: MinecraftId, source: SourceNode): Int {
+    private fun efficiencyBonus(item: MinecraftId, source: SourceNode, isReciprocal: Boolean): Int {
         // Trades are not rewarded for output multiplicity: a trade's output per
         // input is an emerald exchange rate, not a measure of saved effort, and a
         // high one (8 sand or 4 gunpowder per emerald) would otherwise vault a
@@ -142,7 +157,7 @@ internal class SelectionScorer(
         if (source.sourceType.isTrade()) return 0
         // Unpacking a storage block is not efficient: its lone ingredient embeds
         // nine of the output and must itself be obtained. See [isReciprocalUnpack].
-        if (isReciprocalUnpack(item, source)) return 0
+        if (isReciprocal) return 0
         val itemNode = graph.getItemNode(item) ?: return 0
         val totalInput = graph.getRequiredQuantities(source).values.sum()
         if (totalInput == 0) return 0
@@ -163,7 +178,9 @@ internal class SelectionScorer(
      * crafted from this very item — the containment is transitive so a layered
      * form is caught too (copper_ingot from waxed_copper_block <- copper_block <-
      * copper_ingot). The pack direction (block from 9 items) already scores zero
-     * efficiency (ratio < 1), so only the unpack is affected; genuine high-yield
+     * efficiency (ratio < 1), so only the unpack is affected *for the efficiency bonus*
+     * — but [reciprocalPenalty] reuses this same predicate and is symmetric, so the pack
+     * direction does take that penalty. Genuine high-yield
      * crafts (log -> 4 planks) are not reciprocal and keep their bonus.
      */
     private fun isReciprocalUnpack(item: MinecraftId, source: SourceNode): Boolean {
@@ -189,6 +206,51 @@ internal class SelectionScorer(
         visiting.remove(candidate.id)
         return result
     }
+
+    /**
+     * Penalizes a recipe that makes the item out of a form of *itself* — an iron
+     * ingot from 9 iron nuggets, or from an iron block. Both ingredients are
+     * themselves made from ingots, so neither recipe acquires iron; it only
+     * changes iron's shape.
+     *
+     * Zeroing the efficiency bonus was not enough: these recipes never earned one
+     * (9 nuggets -> 1 ingot has a ratio below 1), so they kept the full crafting base
+     * and beat smelting on base score alone — routing a build's whole iron requirement
+     * through nuggets smelted from armour (MCO-317).
+     *
+     * Scope: the selector rejects *structurally* circular candidates before scoring.
+     * This catches the rest — where the ingredient has some other viable source, so the
+     * cycle is real but not structural.
+     *
+     * **The test is symmetric**, so crafting nuggets *from* an ingot is demoted too,
+     * even though that is how a player really gets nuggets — at small demand it loses to
+     * smelting iron equipment. Restricting the penalty to the concentrating direction
+     * (ratio < 1) was measured against the real graph and is worse: then
+     * `iron_ingot_from_iron_block` escapes and wins outright. The real repair is costing
+     * open tags, which currently score as free (MCO-320); this penalty is the bounded part.
+     *
+     * Gold keeps its nugget route where it matters: with a piglin farm declared,
+     * [suppliedBonus] (+30) outweighs this penalty. Pinned by
+     * `gold_ingot - a declared nugget farm beats mining...` and its sibling.
+     *
+     * **Over-match, measured across the whole graph and accepted.** Because the predicate
+     * is symmetric and keys on a *single* ingredient, it also touches cases with no
+     * reciprocal meaning. A sweep of all produced items found 54 carrying a penalised
+     * candidate, and **no decision changes anywhere** — but three groups lose margin:
+     * - the **pack** direction of all 18 storage blocks (craft a block of iron now leads
+     *   looting one from a bastion chest by 5 instead of 20);
+     * - 12 **armour** pieces, via `craft(helmet) <- ingot <- 9 nuggets <- smelt(helmet)`.
+     *   It catches armour and not tools only because armour recipes have one distinct
+     *   ingredient and tools have two — an artifact of `singleOrNull`, not a judgement;
+     * - `stone <-> cobblestone` and `deepslate <-> cobbled_deepslate`, which are genuine
+     *   2-cycles, so smelting cobblestone into stone is penalised. Block loot at 100
+     *   still wins, so nothing flips.
+     *
+     * All three are latent rather than active. If a future weight change narrows those
+     * gaps, they are the first places to break.
+     */
+    private fun reciprocalPenalty(isReciprocal: Boolean): Int =
+        if (isReciprocal) RECIPROCAL_PENALTY else 0
 
     private fun suppliedBonus(source: SourceNode): Int {
         if (supplied.isEmpty()) return 0
@@ -262,6 +324,25 @@ internal class SelectionScorer(
 
     companion object {
         private const val EFFICIENCY_WEIGHT = 20
+        /**
+         * The suite admits **[11, 15]**, verified by sweeping the value: 10 fails three
+         * tests, 11 through 15 pass, 16 fails the guard test. 13 is the midpoint. The
+         * two bounds bite at *different* demands, which is why a plausible-looking value
+         * can pass the bulk case and still break the other:
+         * - **at least 11**: at bulk both candidates take [RECIPE_THRESHOLD_BONUS], so
+         *   ingot-from-nuggets is 130 against smelting's 120; the penalty must clear
+         *   that base gap.
+         * - **at most 15**: at small demand neither does, and unpacking an ingot into
+         *   nuggets must stay ahead of looting them — a nugget has no "mine a nugget"
+         *   path. In the curated fixture that candidate scores 75 (its ingredient sits
+         *   at chain depth 2), so at 15 it lands exactly on chest loot's 60 and survives
+         *   only on the recipe-first tie-break, with zero score margin. 13 keeps a real
+         *   margin, which is why it is preferred over the top of the window.
+         *
+         * Both bounds are pinned in `CuratedSelectionTest`. Changing this without
+         * re-running it will silently break one of them.
+         */
+        private const val RECIPROCAL_PENALTY = 13
         private const val SUPPLIED_BONUS = 30
         private const val RECIPE_THRESHOLD_BONUS = 50
         private const val SELF_BLOCK_LOOT_PENALTY = 200
