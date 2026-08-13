@@ -149,8 +149,33 @@ when the PR carries the **`preview`** label.
 ## Environment (WSL2)
 
 - `localhost` in WSL2 ≠ Windows localhost.
-- **Database access:** Verify the postgres MCP server is available (`/mcp`) before any database read or query. Always
-  use MCP tools for database access — never `psql` or other CLI tools.
+- **Database access:** Use `psql`. There are two databases depending on where you are, and
+  one client reaches both:
+  - **Main checkout** — the localhost Docker postgres (`webapp/scripts/start-db.sh`).
+  - **Worktree** — that worktree's Neon branch (`wt/<git-branch>`), see
+    [Worktree Database Isolation](#worktree-database-isolation).
+
+  Either way, read the credentials from the `local.env` next to you rather than
+  hardcoding a host — that file is the single source of truth for which DB you are
+  pointed at, and it is what the app itself reads:
+
+  ```bash
+  set -a && . webapp/local.env && set +a
+  # DB_URL already ends in ?sslmode=require, so the credentials append with & (not ?).
+  psql "$(printf '%s' "$DB_URL" | sed 's|^jdbc:||')&user=$DB_USER&password=$DB_PASSWORD" -c '\dt'
+  ```
+
+  Sourcing `local.env` and building that URL in one shell command can trip the
+  worktree-isolation guard. If it does, put the two lines in a throwaway script and run
+  that instead — same result, and it keeps the password out of the transcript.
+
+  **Writes:** free in a worktree — the Neon branch is a disposable fork. Against the main
+  checkout's DB, treat `INSERT`/`UPDATE`/`DELETE`/DDL as you would any shared dev data:
+  prefer the app or a migration, and say what you are about to run before running it.
+
+  **Schema changes always go through a Flyway migration**, never a hand-typed `ALTER` —
+  a manual change drifts the DB from `db/migration/` and the next `flyway:migrate`
+  will not know about it.
 
 ## Worktree Database Isolation
 
