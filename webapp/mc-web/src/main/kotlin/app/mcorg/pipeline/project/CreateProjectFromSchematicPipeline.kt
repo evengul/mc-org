@@ -92,9 +92,9 @@ suspend fun ApplicationCall.handleReviewSchematic() {
 /**
  * Step two: create the project from the **reviewed** list.
  *
- * Takes the review page's fields rather than the file — excluded rows never arrive (an
- * unchecked checkbox is not submitted), so exclusion needs no server-side concept beyond
- * "build what you were sent".
+ * Takes the review page's fields rather than the file. The list arrives as one
+ * [ReviewedMaterialsCodec] payload carrying every row and whether the user struck it, so
+ * exclusion is still just "build the rows you were told to keep".
  */
 suspend fun ApplicationCall.handleCreateProjectFromSchematic() {
     val user = this.getUser()
@@ -128,14 +128,13 @@ suspend fun ApplicationCall.handleCreateProjectFromSchematic() {
 /**
  * Reads the review page's submission back into a [SchematicProject].
  *
- * Rows arrive as `qty[<itemId>]=<amount>`; excluded rows are simply absent. Every id is
- * re-checked against the world's catalog — the review page is a form like any other, and
- * what it sends is not trusted just because the server rendered it a moment ago.
+ * The whole list arrives in one `materials` field (MCO-315); rows the user struck are carried
+ * too and dropped here. Every id is re-checked against the world's catalog — the review page
+ * is a form like any other, and what it sends is not trusted just because the server rendered
+ * it a moment ago.
  */
 internal data class ValidateReviewedMaterialsStep(val availableItems: List<Item>) :
     Step<Parameters, AppFailure, SchematicProject> {
-
-    private val quantityParameter = Regex("""^qty\[(.+)]$""")
 
     override suspend fun process(input: Parameters): Result<AppFailure, SchematicProject> {
         val name = input["name"]?.trim()?.takeIf { it.isNotBlank() }
@@ -143,25 +142,23 @@ internal data class ValidateReviewedMaterialsStep(val availableItems: List<Item>
                 AppFailure.customValidationError("name", "Give the project a name")
             )
 
+        val rows = when (val decoded = ReviewedMaterialsCodec.decode(input[ReviewedMaterialsCodec.FIELD])) {
+            is Result.Failure -> return Result.Failure(decoded.error)
+            is Result.Success -> decoded.value
+        }
+
         val byId = availableItems.associateBy { it.id }
         val errors = mutableListOf<ValidationFailure>()
         val requirements = mutableMapOf<Item, Int>()
 
-        input.entries().forEach { entry ->
-            val itemId = quantityParameter.find(entry.key)?.groupValues?.get(1) ?: return@forEach
-            val item = byId[itemId]
+        rows.forEach { row ->
+            if (!row.included) return@forEach
+            val item = byId[row.itemId]
             if (item == null) {
-                errors.add(ValidationFailure.CustomValidation("materials", "Unknown item: $itemId"))
+                errors.add(ValidationFailure.CustomValidation("materials", "Unknown item: ${row.itemId}"))
                 return@forEach
             }
-            val amount = entry.value.firstOrNull()?.toIntOrNull()
-            if (amount == null || amount <= 0) {
-                errors.add(
-                    ValidationFailure.CustomValidation("materials", "${item.name} needs a positive amount")
-                )
-                return@forEach
-            }
-            requirements[item] = amount
+            requirements[item] = row.amount
         }
 
         if (errors.isNotEmpty()) return Result.failure(AppFailure.ValidationError(errors))

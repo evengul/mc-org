@@ -5,6 +5,8 @@ import app.mcorg.domain.model.user.TokenProfile
 import app.mcorg.pipeline.project.ImportWarning
 import app.mcorg.pipeline.project.ImportWarningKind
 import app.mcorg.pipeline.project.ImportWarnings
+import app.mcorg.pipeline.project.ReviewedMaterial
+import app.mcorg.pipeline.project.ReviewedMaterialsCodec
 import app.mcorg.pipeline.resources.SubstitutionFamily
 import app.mcorg.presentation.hxInclude
 import app.mcorg.presentation.hxPost
@@ -45,9 +47,12 @@ import kotlinx.html.tr
  * creates it. "Not building the decorative shell" is a decision worth making while the
  * list is still a form, not after it is a hundred resource rows in a project.
  *
- * The whole material list is in this page's form: a checkbox per row (checked = keep) and
- * a hidden quantity beside it. An unchecked box is simply not submitted, so excluding is
- * exclusion with no server-side concept behind it. Nothing is persisted until Create.
+ * The whole material list is in this page's form — as a *single* field (MCO-315). It used to
+ * be two fields per row, which walked straight into Ktor's 1000-parameter body cap and lost
+ * everything past row ~466 of a 560-material schematic without saying so. One field per list
+ * is flat in the number of rows; see [ReviewedMaterialsCodec] for the payload and for why
+ * raising the cap was the wrong fix. The checkboxes are now pure UI — `import-review.js`
+ * folds their state back into the field.
  *
  * Shared by both import doors (MCO-306): the schematic upload posts its parsed list here,
  * and an idea import arrives with the idea's requirements. [action] and [hiddenFields] are
@@ -80,6 +85,7 @@ fun importReviewPage(
         "/static/styles/components/form.css",
         "/static/styles/pages/import-review.css",
     ),
+    scripts = listOf("/static/scripts/import-review.js"),
 ) {
     appHeader(
         worldName = worldName,
@@ -188,22 +194,51 @@ private fun DIV.materialsSectionBody(
 ) {
     id = MATERIALS_ID
     classes = setOf("import-review__materials")
+
+    // One order for the whole section: the hidden field and the table must describe the same
+    // list in the same sequence, or a swap would reorder the rows under the user.
+    val rows = requirements.entries.sortedWith(
+        compareByDescending<Map.Entry<Item, Int>> { it.value }.thenBy { it.key.name }
+    )
+
+    materialsField(rows, excluded)
     warningStrip(warnings)
     substitutionControls(worldId, families)
-    materialsTable(requirements, excluded, warnings)
+    materialsTable(rows, excluded, warnings)
 }
 
 private const val MATERIALS_ID = "import-review-materials"
+private const val MATERIALS_FIELD_ID = "import-review-materials-field"
+
+/**
+ * The list itself — every row, its quantity and whether it is struck — in one field
+ * (MCO-315). Rendered first inside the swappable section so it is among the very first
+ * parameters in the body, and rewritten by `import-review.js` whenever a checkbox moves.
+ *
+ * Without JavaScript this still submits the list exactly as the server rendered it; only the
+ * exclusions would be missed, and the payload's declared row count means nothing can be lost
+ * without the server saying so.
+ */
+private fun FlowContent.materialsField(rows: List<Map.Entry<Item, Int>>, excluded: Set<String>) {
+    hiddenInput {
+        id = MATERIALS_FIELD_ID
+        name = ReviewedMaterialsCodec.FIELD
+        value = ReviewedMaterialsCodec.encode(
+            rows.map { (item, amount) -> ReviewedMaterial(item.id, amount, item.id !in excluded) }
+        )
+    }
+}
 
 /**
  * One control per family found in the list: "all Oak -> [ Spruce ]".
  *
- * The swap posts the *whole* form and swaps this section for the rewritten one, which is why
- * the rows carry a hidden `row[...]` mirror of their quantity — an unchecked checkbox submits
- * nothing, and a swap must not silently resurrect or delete the rows you struck.
+ * The swap posts the form back and replaces this section with the rewritten one, which is why
+ * the single materials field carries the struck rows too — a swap must not silently resurrect
+ * or delete the rows you struck.
  *
- * The target select is named per family (`to[<token>]`) so several controls can coexist in
- * one form; the button says which family it is via `hx-vals`.
+ * The selects are deliberately *not* form controls: they carry no `name`, so a create submit
+ * never drags a parameter per family along with it, and the swap button reads the one it needs
+ * by id through `hx-vals`. `hx-vals` also says which family is being swapped.
  */
 private fun FlowContent.substitutionControls(worldId: Int, families: List<SubstitutionFamily>) {
     if (families.isEmpty()) return
@@ -224,7 +259,6 @@ private fun FlowContent.substitutionControls(worldId: Int, families: List<Substi
                 }
                 select("form-control import-review__swap-to") {
                     id = "swap-to-${family.token}"
-                    name = "to[${family.token}]"
                     attributes["aria-label"] = "Swap all ${family.label} to"
                     family.targets.forEach { target ->
                         option {
@@ -240,7 +274,8 @@ private fun FlowContent.substitutionControls(worldId: Int, families: List<Substi
                     hxInclude("#import-review-form")
                     hxTarget("#$MATERIALS_ID")
                     hxSwap("outerHTML")
-                    attributes["hx-vals"] = """{"from": "${family.token}"}"""
+                    attributes["hx-vals"] =
+                        """js:{"from": "${family.token}", "to": document.getElementById("swap-to-${family.token}").value}"""
                     +"Swap"
                 }
             }
@@ -283,14 +318,10 @@ private fun namesOf(flagged: List<ImportWarning>): String {
 }
 
 private fun FlowContent.materialsTable(
-    requirements: Map<Item, Int>,
+    rows: List<Map.Entry<Item, Int>>,
     excluded: Set<String>,
     warnings: ImportWarnings,
 ) {
-    val rows = requirements.entries.sortedWith(
-        compareByDescending<Map.Entry<Item, Int>> { it.value }.thenBy { it.key.name }
-    )
-
     div("import-review__summary") {
         span("section-label") { +"Materials" }
         span("import-review__count") {
@@ -314,20 +345,16 @@ private fun FlowContent.materialsTable(
                     tr("import-review__row") {
                         td {
                             attributes["data-label"] = "Include"
+                            // Deliberately nameless: the box submits nothing of its own. It
+                            // describes one row of the single materials field, which
+                            // `import-review.js` rebuilds from these boxes (MCO-315). Two
+                            // fields per row is what overflowed the body's parameter cap.
                             input(type = InputType.checkBox, classes = "import-review__include") {
                                 id = "include-$rowId"
-                                // Unchecked boxes are not submitted — that *is* the exclusion.
-                                name = "qty[${item.id}]"
-                                value = amount.toString()
                                 checked = item.id !in excluded
+                                attributes["data-item-id"] = item.id
+                                attributes["data-amount"] = amount.toString()
                                 attributes["aria-label"] = "Include ${item.name}"
-                            }
-                            // The row's quantity again, always submitted. Create ignores it;
-                            // a substitution needs it, because the rows you struck are absent
-                            // from `qty[...]` and would otherwise vanish across the swap.
-                            hiddenInput {
-                                name = "row[${item.id}]"
-                                value = amount.toString()
                             }
                         }
                         td {
@@ -353,10 +380,9 @@ private fun FlowContent.materialsTable(
         }
     }
 
-    // Nothing to submit when every row is unchecked; the server says so too, but a form
-    // with no rows at all should not have reached this page in the first place.
+    // The server refuses an empty list too, but a form with no rows at all should not have
+    // reached this page in the first place.
     if (rows.isEmpty()) {
-        hiddenInput { name = "empty"; value = "true" }
         p("form-error") { +"This schematic contains no recognisable materials." }
     }
 }

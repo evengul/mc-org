@@ -145,51 +145,44 @@ suspend fun ApplicationCall.handleImportIdea() {
 /**
  * Replaces an idea's requirements with the ones the review page sent back.
  *
- * Rows arrive as `qty[<itemId>]=<amount>`; excluded rows are simply absent. Ids are checked
- * against the world's catalog rather than against the idea, so a submission cannot smuggle
- * in an item the idea never listed.
+ * The whole list arrives in one `materials` field (MCO-315); rows the user struck are carried
+ * too and dropped here. Ids are checked against the world's catalog rather than against the
+ * idea, so a submission cannot smuggle in an item the idea never listed.
  *
  * There is deliberately no "not reviewed, use the idea's list" fallback. A form with every
- * row unchecked and a bare direct post are byte-identical, so a fallback would silently
+ * row unchecked and a bare direct post are near-identical, so a fallback would silently
  * import everything at exactly the moment the user asked for nothing. Import goes through
- * the review screen; a submission with no rows is refused like any other empty one.
+ * the review screen; a submission with no rows — or with no list at all — is refused.
  */
 internal data class ApplyReviewedRequirementsStep(
     val submitted: Parameters,
     val availableItems: List<Item>,
 ) : Step<IdeaForImport, AppFailure, IdeaForImport> {
 
-    private val quantityParameter = Regex("""^qty\[(.+)]$""")
-
     override suspend fun process(input: IdeaForImport): Result<AppFailure, IdeaForImport> {
-        val submittedRows = submitted.entries()
-            .mapNotNull { entry ->
-                val itemId = quantityParameter.find(entry.key)?.groupValues?.get(1) ?: return@mapNotNull null
-                itemId to entry.value.firstOrNull()
-            }
+        val submittedRows = when (
+            val decoded = ReviewedMaterialsCodec.decode(submitted[ReviewedMaterialsCodec.FIELD])
+        ) {
+            is Result.Failure -> return Result.Failure(decoded.error)
+            is Result.Success -> decoded.value
+        }
 
         val byId = availableItems.associateBy { it.id }
         val errors = mutableListOf<ValidationFailure>()
         val requirements = mutableMapOf<Item, Int>()
 
-        submittedRows.forEach { (itemId, rawAmount) ->
+        submittedRows.forEach { row ->
+            if (!row.included) return@forEach
             // The review screen never offers air, so this only catches a hand-rolled post —
             // but "air is never a material" is worth enforcing where the list becomes final.
-            if (itemId in NON_MATERIAL_FILL) return@forEach
+            if (row.itemId in NON_MATERIAL_FILL) return@forEach
 
-            val item = byId[itemId]
+            val item = byId[row.itemId]
             if (item == null) {
-                errors.add(ValidationFailure.CustomValidation("materials", "Unknown item: $itemId"))
+                errors.add(ValidationFailure.CustomValidation("materials", "Unknown item: ${row.itemId}"))
                 return@forEach
             }
-            val amount = rawAmount?.toIntOrNull()
-            if (amount == null || amount <= 0) {
-                errors.add(
-                    ValidationFailure.CustomValidation("materials", "${item.name} needs a positive amount")
-                )
-                return@forEach
-            }
-            requirements[item] = amount
+            requirements[item] = row.amount
         }
 
         if (errors.isNotEmpty()) return Result.failure(AppFailure.ValidationError(errors))
