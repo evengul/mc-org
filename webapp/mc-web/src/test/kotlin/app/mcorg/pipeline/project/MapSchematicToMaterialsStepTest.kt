@@ -27,6 +27,13 @@ class MapSchematicToMaterialsStepTest {
         "minecraft:soul_fire",
         "minecraft:bubble_column",
         "minecraft:soul_sand",
+        "minecraft:cauldron",
+        // Extraction names the catalog from the lang file, so every *block* id is in it too —
+        // including the filled cauldron states and powder snow, which have no item form.
+        "minecraft:lava_cauldron",
+        "minecraft:water_cauldron",
+        "minecraft:powder_snow_cauldron",
+        "minecraft:powder_snow",
     ).map { Item(it, it.substringAfterLast(':')) }
 
     private fun litematica(items: Map<String, Int>) =
@@ -139,6 +146,40 @@ class MapSchematicToMaterialsStepTest {
         assertNull(byId["minecraft:soul_fire"])
         assertNull(byId["minecraft:bubble_column"])
         assertEquals(10, byId["minecraft:soul_sand"], "the underlying block is still counted, not inflated")
+    }
+
+    @Test
+    fun `filled cauldrons resolve to the cauldron item`() {
+        // MCO-319: a lava cauldron is a block *state* of cauldron plus a bucket of lava, and
+        // there is no lava_cauldron item. Without the redirect it resolves to its own catalog
+        // entry, which nothing produces, and the plan blocks it forever.
+        val byId = map(
+            mapOf(
+                "minecraft:lava_cauldron" to 2,
+                "minecraft:water_cauldron" to 3,
+                "minecraft:powder_snow_cauldron" to 1,
+            )
+        )
+        assertEquals(6, byId["minecraft:cauldron"], "all three states are one cauldron each and sum")
+        assertNull(byId["minecraft:lava_cauldron"], "the filled block-state id must not survive")
+        assertNull(byId["minecraft:water_cauldron"])
+        assertNull(byId["minecraft:powder_snow_cauldron"])
+    }
+
+    @Test
+    fun `filled cauldron amounts merge with empty cauldrons already present`() {
+        val byId = map(mapOf("minecraft:cauldron" to 4, "minecraft:lava_cauldron" to 2))
+        assertEquals(6, byId["minecraft:cauldron"])
+    }
+
+    @Test
+    fun `powder snow stays on the list as a material to review`() {
+        // MCO-319: unlike fire, powder snow is not dropped by the mapper — it survives as a row
+        // so the review screen can warn about it, exactly as water does. The reclassification
+        // from "creative only" to "not a material" happens in ImportWarnings, not here.
+        val byId = map(mapOf("minecraft:powder_snow" to 2, "minecraft:oak_planks" to 5))
+        assertEquals(2, byId["minecraft:powder_snow"])
+        assertEquals(5, byId["minecraft:oak_planks"])
     }
 
     @Test

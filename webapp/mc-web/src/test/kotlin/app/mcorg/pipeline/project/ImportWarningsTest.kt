@@ -77,6 +77,30 @@ class ImportWarningsTest {
     }
 
     @Test
+    fun `powder snow reads as a non-material, not as creative-only`() {
+        // MCO-319: powder_snow is a block-only id placed from a bucket, so no source produces
+        // it and the graph rule alone would call it creative-only — the wrong story for a
+        // block any player can place. It is the same shape as water and gets water's answer.
+        // The graph here produces nothing, which is exactly the real-world condition.
+        val powderSnow = item("powder_snow")
+
+        val warnings = classifyImportWarnings(mapOf(powderSnow to 2), graphProducing(item("stone")))
+
+        assertEquals(ImportWarningKind.NON_MATERIAL, warnings.forItem(powderSnow.id)?.kind)
+    }
+
+    @Test
+    fun `an empty cauldron is not warned about at all`() {
+        // The other half of MCO-319: filled cauldron states are redirected to minecraft:cauldron
+        // by the importers, and a cauldron has a recipe, so nothing should be said about it.
+        val cauldron = item("cauldron")
+
+        val warnings = classifyImportWarnings(mapOf(cauldron to 6), graphProducing(cauldron))
+
+        assertTrue(warnings.isEmpty)
+    }
+
+    @Test
     fun `a name mismatch between catalog and graph does not fake an unobtainable row`() {
         // The graph node carries one display name and the world catalog another. Matching on
         // Item equality (id *and* name) would report a perfectly craftable item as blocked.

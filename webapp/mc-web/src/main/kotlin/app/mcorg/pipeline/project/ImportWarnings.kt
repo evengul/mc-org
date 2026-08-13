@@ -125,12 +125,17 @@ val NON_MATERIAL_FILL = setOf(
  * placed effects (fire, portals) are created in-world from blocks counted elsewhere, and the
  * technical piston states belong to the piston. All warned rather than filtered — a build
  * really does contain them, and striking a row is the user's call.
+ *
+ * `powder_snow` belongs with the fluids (MCO-319): it is a block-only id placed from a
+ * powder snow bucket, so nothing produces it and the graph would otherwise call it
+ * creative-only. It is the same shape as water, and gets the same answer.
  */
 private val NON_MATERIAL_ITEM_IDS = NON_MATERIAL_FILL + setOf(
     "minecraft:water",
     "minecraft:flowing_water",
     "minecraft:lava",
     "minecraft:flowing_lava",
+    "minecraft:powder_snow",
     "minecraft:bubble_column",
     "minecraft:fire",
     "minecraft:soul_fire",
