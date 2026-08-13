@@ -272,8 +272,9 @@ data class MapSchematicToMaterialsStep(
      *    silverfish-infested blocks).
      * 2. [REDIRECTS] — explicit block -> item for placed forms whose gathered item has a
      *    different id: crops to their seed/produce (carrots -> carrot, cocoa ->
-     *    cocoa_beans), and tool/effect placements to their material (dirt_path/farmland
-     *    -> dirt, redstone_wire -> redstone, wall_torch -> torch).
+     *    cocoa_beans), tool/effect placements to their material (dirt_path/farmland
+     *    -> dirt, redstone_wire -> redstone, wall_torch -> torch), and filled block states
+     *    to the block you place (lava_cauldron -> cauldron).
      * 3. *wall* variants — drop the "_wall_" infix when that yields a real item
      *    (birch_wall_sign -> birch_sign, dead_horn_coral_wall_fan -> dead_horn_coral_fan).
      * 4. Otherwise resolve by the id itself, or drop when the version has no such item.
@@ -352,6 +353,12 @@ data class MapSchematicToMaterialsStep(
             "minecraft:suspicious_sand" to "minecraft:sand",
             "minecraft:suspicious_gravel" to "minecraft:gravel",
             "minecraft:wall_torch" to "minecraft:torch",
+            // A filled cauldron is a block *state* of the cauldron, not an item of its own
+            // (there is no lava_cauldron item). What you gather is the cauldron; the bucket
+            // that fills it is a reusable tool, like the flint & steel behind a fire cell.
+            "minecraft:lava_cauldron" to "minecraft:cauldron",
+            "minecraft:water_cauldron" to "minecraft:cauldron",
+            "minecraft:powder_snow_cauldron" to "minecraft:cauldron",
         )
     }
 }
