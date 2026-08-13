@@ -110,6 +110,10 @@ class CuratedSelectionTest {
      * iron_nugget is only ever crafted from an ingot, the selector rejects
      * iron_ingot_from_nuggets structurally, and the smelting expectations below pass
      * for the wrong reason. See MCO-317.
+     *
+     * Two members stand in for the real tag's 16; membership does not affect scoring
+     * (a tag is one requirement at depth 0 regardless of how many items it holds), so
+     * the short list keeps the fixture readable without changing what is measured.
      */
     private val ironEquipmentTag = MinecraftTag(
         "minecraft:smelts_to_iron_nugget", "Smelts To Iron Nugget",
@@ -473,6 +477,10 @@ class CuratedSelectionTest {
             "minecraft:crafting_shapeless:gold_ingot_from_nuggets.json",
             result.sourceKeyOf("minecraft:gold_ingot")
         )
+        // The farm has to be the reason, not a coincidence: the nuggets must terminate
+        // as supplied rather than being gathered on. Without this the assertion above
+        // would also hold if the supply were ignored entirely.
+        assertEquals(PlanNodeStatus.SUPPLIED, result.nodes.getValue("minecraft:gold_nugget").status)
     }
 
     @Test
