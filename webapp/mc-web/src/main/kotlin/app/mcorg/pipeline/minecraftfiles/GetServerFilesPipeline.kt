@@ -1,5 +1,6 @@
 package app.mcorg.pipeline.minecraftfiles
 
+import app.mcorg.config.AppConfig
 import app.mcorg.config.Database
 import app.mcorg.config.MojangLauncherMetaApiConfig
 import app.mcorg.data.minecraft.ExtractMinecraftDataStep
@@ -161,7 +162,7 @@ internal data object FilterAlreadyStoredVersionsStep : Step<List<ResolvedServerJ
             return ledger
         }
         val byVersion = ledger.getOrNull().orEmpty()
-        val forced = forcedPredicate(System.getenv("FORCE_REINGEST"))
+        val forced = forcedPredicate(AppConfig.forceReingest)
 
         return Result.success(
             input.filter { jar ->

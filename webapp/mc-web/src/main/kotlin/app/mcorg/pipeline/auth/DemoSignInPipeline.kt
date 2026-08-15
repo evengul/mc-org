@@ -21,7 +21,21 @@ import kotlin.random.Random
 // the default demo user rather than being honoured.
 internal val TEST_DEMO_USERNAMES = setOf("alex", "steve", "lilpebblez")
 
-internal fun resolveDemoUsername(env: Env, requested: String?, defaultUser: String): String {
+/**
+ * Resolves the demo identity to sign in as, or `null` when demo sign-in is not configured.
+ *
+ * [defaultUser] is nullable since MCO-333 removed the hardcoded `"evegul"` fallback: with no
+ * `DEMO_USER` set there is no identity to fall back *to*, and a sign-in bypass is the last thing
+ * that should invent one. Every branch that previously resolved to the default now resolves to
+ * null, so the handler fails closed.
+ */
+internal fun resolveDemoUsername(env: Env, requested: String?, defaultUser: String?): String? {
+    // A null defaultUser means DEMO_USER is unset, i.e. demo sign-in is not configured at all.
+    // Return before the persona and "random" branches: those mint an identity of their own, and
+    // letting them through would leave `?username=alex` working as a sign-in bypass on a
+    // deployment that never opted into demo sign-in.
+    if (defaultUser == null) return null
+
     val name = requested?.trim()
     return when {
         env == Production -> defaultUser
@@ -34,6 +48,11 @@ internal fun resolveDemoUsername(env: Env, requested: String?, defaultUser: Stri
 
 suspend fun ApplicationCall.handleDemoSignIn() {
     val demoUsername = resolveDemoUsername(AppConfig.env, request.queryParameters["username"], AppConfig.demoUser)
+    if (demoUsername == null) {
+        // DEMO_USER is unset — the feature is off, not misconfigured mid-request.
+        respondRedirect("/auth/sign-in?error=demo_sign_in_not_configured")
+        return
+    }
     val demoUuid = "${demoUsername}-uuid"
     val redirectPath = parameters["redirect_to"] ?: "/"
 

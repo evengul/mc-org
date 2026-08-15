@@ -5,6 +5,7 @@ import app.mcorg.domain.Production
 import app.mcorg.domain.Test as TestEnv
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class ResolveDemoUsernameTest {
@@ -37,7 +38,7 @@ class ResolveDemoUsernameTest {
 
     @Test
     fun `random yields a generated demo user`() {
-        assertTrue(resolveDemoUsername(TestEnv, "random", default).startsWith("DemoUser_"))
+        assertTrue(resolveDemoUsername(TestEnv, "random", default)!!.startsWith("DemoUser_"))
     }
 
     @Test
@@ -45,5 +46,31 @@ class ResolveDemoUsernameTest {
         assertEquals(default, resolveDemoUsername(Production, "alex", default))
         assertEquals(default, resolveDemoUsername(Production, "random", default))
         assertEquals(default, resolveDemoUsername(Production, "attacker", default))
+    }
+
+    // MCO-333: DEMO_USER lost its hardcoded "evegul" default, so "unset" is now reachable.
+    // Demo sign-in must fail closed rather than invent an identity.
+
+    @Test
+    fun `an unset DEMO_USER yields null rather than a fallback identity`() {
+        assertNull(resolveDemoUsername(Local, null, null))
+        assertNull(resolveDemoUsername(TestEnv, null, null))
+        assertNull(resolveDemoUsername(Production, null, null))
+    }
+
+    @Test
+    fun `an unset DEMO_USER cannot be bypassed by asking for a persona`() {
+        // The allowlisted personas are only reachable *alongside* a configured demo user.
+        assertNull(resolveDemoUsername(TestEnv, "alex", null))
+        assertNull(resolveDemoUsername(TestEnv, "attacker", null))
+        assertNull(resolveDemoUsername(Production, "alex", null))
+    }
+
+    @Test
+    fun `an unset DEMO_USER disables the random persona too`() {
+        // "random" mints its own throwaway identity, so it would otherwise stay reachable and
+        // keep the sign-in bypass alive on a deployment that never configured demo sign-in.
+        assertNull(resolveDemoUsername(TestEnv, "random", null))
+        assertNull(resolveDemoUsername(Local, "random", null))
     }
 }

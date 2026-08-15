@@ -2,16 +2,27 @@ package app.mcorg.config
 
 import app.mcorg.domain.Env
 import app.mcorg.domain.Local
-import app.mcorg.domain.Production
-import app.mcorg.domain.Test
 import org.slf4j.LoggerFactory
+import kotlin.system.exitProcess
 
+/**
+ * Holder for the resolved [Config] (MCO-332).
+ *
+ * The fields stay `var` deliberately: ~40 call sites read `AppConfig.x` statically, and the
+ * integration tests mutate a handful of them per test class. Immutability lives in [Config];
+ * this object is the mutable window onto it. Scoping the test mutation is MCO-379.
+ *
+ * Loading happens in [init] — best-effort, so a LOCAL developer with no env file still boots —
+ * and [initOrExit] is what turns problems into a non-zero exit. Call it first thing in `main()`:
+ * nothing else validates configuration, and before MCO-332 the error was emitted incidentally by
+ * whichever code happened to touch this object first.
+ */
 object AppConfig {
     private val logger = LoggerFactory.getLogger(AppConfig::class.java)
 
-    var dbUrl: String = "jdbc:postgresql://localhost:5432/postgres"
-    var dbUsername: String = "postgres"
-    var dbPassword: String = "supersecret"
+    var dbUrl: String = ""
+    var dbUsername: String = ""
+    var dbPassword: String = ""
 
     var env: Env = Local
 
@@ -27,14 +38,14 @@ object AppConfig {
     // Production defaults to "app.seam.gg"; override via APP_HOST. Required in TEST, unused in LOCAL.
     var appHost: String? = null
 
-    var modrinthBaseUrl: String = "https://api.modrinth.com/v2"
-    var microsoftLoginBaseUrl: String = "https://login.microsoftonline.com"
-    var xboxAuthBaseUrl: String = "https://user.auth.xboxlive.com"
-    var xstsAuthBaseUrl: String = "https://xsts.auth.xboxlive.com"
-    var minecraftBaseUrl: String = "https://api.minecraftservices.com"
-    var launcherMetaBaseUrl: String = "https://launchermeta.mojang.com"
+    var microsoftLoginBaseUrl: String = ""
+    var xboxAuthBaseUrl: String = ""
+    var xstsAuthBaseUrl: String = ""
+    var minecraftBaseUrl: String = ""
+    var launcherMetaBaseUrl: String = ""
 
-    var demoUser: String = "evegul"
+    // Username for the demo sign-in bypass. No default: when unset, demo sign-in fails closed.
+    var demoUser: String? = null
 
     // Shared secret for the TEST preview's HTTP Basic Auth gate. Required in TEST (fails closed
     // if unset); unused in LOCAL and PRODUCTION. See PreviewGate.
@@ -56,100 +67,74 @@ object AppConfig {
     // Optional: when unset the Discord settings section fails closed (not-configured state).
     var webhookSharedSecret: String? = null
 
+    // Comma-separated Minecraft versions (or `all`) to re-ingest regardless of the ledger.
+    // Read by GetServerFilesPipeline; storage is idempotent, so forcing is safe.
+    var forceReingest: String? = null
+
+    /** Problems found while reading the environment. Empty once configuration is valid. */
+    private var fatalProblems: List<String> = emptyList()
+    private var problems: List<String> = emptyList()
+
     init {
-        val errors = mutableListOf<String>()
-        System.getenv("DB_URL")?.let { dbUrl = it } ?: errors.add("DB_URL is not set")
-        System.getenv("DB_USER")?.let { dbUsername = it } ?: errors.add("DB_USER is not set")
-        System.getenv("DB_PASSWORD")?.let { dbPassword = it } ?: errors.add("DB_PASSWORD is not set")
+        load(readConfig())
+    }
 
-        System.getenv("ENV")?.let {
-            when(it) {
-                "LOCAL" -> Local
-                "TEST" -> Test
-                "PRODUCTION" -> Production
-                else -> {
-                    errors.add("ENV must be one of LOCAL, TEST, PRODUCTION")
-                    null
-                }
-            }
-        }?.let { env = it }
+    internal fun load(result: ConfigLoad) {
+        apply(result.config)
+        fatalProblems = result.fatal
+        problems = result.errors
+    }
 
-        System.getenv("SKIP_MICROSOFT_SIGN_IN")?.let { skipMicrosoftSignIn = it.toBoolean() }
+    internal fun apply(config: Config) {
+        dbUrl = config.dbUrl
+        dbUsername = config.dbUsername
+        dbPassword = config.dbPassword
+        env = config.env
+        microsoftClientId = config.microsoftClientId
+        microsoftClientSecret = config.microsoftClientSecret
+        skipMicrosoftSignIn = config.skipMicrosoftSignIn
+        rsaPrivateKey = config.rsaPrivateKey
+        rsaPublicKey = config.rsaPublicKey
+        appHost = config.appHost
+        microsoftLoginBaseUrl = config.microsoftLoginBaseUrl
+        xboxAuthBaseUrl = config.xboxAuthBaseUrl
+        xstsAuthBaseUrl = config.xstsAuthBaseUrl
+        minecraftBaseUrl = config.minecraftBaseUrl
+        launcherMetaBaseUrl = config.launcherMetaBaseUrl
+        demoUser = config.demoUser
+        previewPassword = config.previewPassword
+        webhookAdminSecret = config.webhookAdminSecret
+        seamDiscordUrl = config.seamDiscordUrl
+        webhookSharedSecret = config.webhookSharedSecret
+        forceReingest = config.forceReingest
+    }
 
-        System.getenv("MICROSOFT_CLIENT_ID").let {
-            if (!skipMicrosoftSignIn) {
-                if (it.isNullOrBlank()) {
-                    errors.add("MICROSOFT_CLIENT_ID is not set")
-                } else {
-                    microsoftClientId = it
-                }
-            }
+    /**
+     * Validates the configuration read at startup and terminates the process if it is unusable.
+     * Call as the first statement of `main()`, before anything binds a port or opens a pool.
+     *
+     * Exits on:
+     * - any fatal problem, in every environment (an unparseable `ENV` — see [ConfigLoad])
+     * - any other problem outside LOCAL
+     *
+     * In LOCAL, non-fatal problems are logged as warnings and the process continues, so running
+     * without a sourced env file still works.
+     */
+    fun initOrExit() {
+        if (fatalProblems.isNotEmpty()) {
+            logger.error("Invalid configuration:\n${fatalProblems.joinToString("\n") { "  - $it" }}")
+            exitProcess(1)
         }
+        if (problems.isEmpty()) return
 
-        System.getenv("MICROSOFT_CLIENT_SECRET").let {
-            if (!skipMicrosoftSignIn) {
-                if (it.isNullOrBlank()) {
-                    errors.add("MICROSOFT_CLIENT_SECRET is not set")
-                } else {
-                    microsoftClientSecret = it
-                }
-            }
-        }
-
-        // LOCAL deliberately leaves these null: jwt.kt falls back to the generated PEM pair
-        // (`mc-web/create-keys.sh` -> resources/keys), which is the intended local path. Leaving
-        // them unset is correct there, not a misconfiguration.
-        System.getenv("RSA_PRIVATE_KEY").let {
-            if (env == Local) {
-                // no-op — generated key file is used
-            } else if (it.isNullOrBlank()) {
-                errors.add("RSA_PRIVATE_KEY is not set")
-            } else {
-                rsaPrivateKey = it
-            }
-        }
-
-        System.getenv("RSA_PUBLIC_KEY").let {
-            if (env == Local) {
-                // no-op — generated key file is used
-            } else if (it.isNullOrBlank()) {
-                errors.add("RSA_PUBLIC_KEY is not set")
-            } else {
-                rsaPublicKey = it
-            }
-        }
-
-        System.getenv("APP_HOST").let {
-            when (env) {
-                Production -> appHost = if (it.isNullOrBlank()) "app.seam.gg" else it
-                Test -> {
-                    if (it.isNullOrBlank()) errors.add("APP_HOST is not set") else appHost = it
-                }
-                Local -> { /* host is not used in LOCAL — getHost() returns null */ }
-            }
-        }
-
-        System.getenv("MODRINTH_BASE_URL")?.let { modrinthBaseUrl = it }
-        System.getenv("MICROSOFT_LOGIN_BASE_URL")?.let { microsoftLoginBaseUrl = it }
-        System.getenv("XBOX_AUTH_BASE_URL")?.let { xboxAuthBaseUrl = it }
-        System.getenv("XSTS_AUTH_BASE_URL")?.let { xstsAuthBaseUrl = it }
-        System.getenv("MINECRAFT_BASE_URL")?.let { minecraftBaseUrl = it }
-        System.getenv("LAUNCHER_META_BASE_URL")?.let { launcherMetaBaseUrl = it }
-
-        System.getenv("DEMO_USER")?.let { demoUser = it }
-
-        System.getenv("WEBHOOK_ADMIN_SECRET")?.let { webhookAdminSecret = it }
-
-        System.getenv("SEAM_DISCORD_URL")?.let { seamDiscordUrl = it }
-        System.getenv("SEAM_WEBHOOK_SHARED_SECRET")?.let { webhookSharedSecret = it }
-
-        System.getenv("PREVIEW_PASSWORD")?.let { previewPassword = it }
-        if (env == Test && previewPassword.isNullOrBlank()) {
-            errors.add("PREVIEW_PASSWORD is not set (required in TEST to gate the public preview)")
-        }
-
-        if (errors.isNotEmpty()) {
-            logger.error("Invalid configuration:\n${errors.joinToString("\n")}")
+        if (env == Local) {
+            logger.warn(
+                "Incomplete configuration (continuing because ENV is LOCAL):\n" +
+                    problems.joinToString("\n") { "  - $it" }
+            )
+        } else {
+            logger.error("Invalid configuration:\n${problems.joinToString("\n") { "  - $it" }}")
+            exitProcess(1)
         }
     }
 }

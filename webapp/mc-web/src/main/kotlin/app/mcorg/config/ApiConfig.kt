@@ -37,14 +37,6 @@ sealed class ApiConfig(
     }
 }
 
-object ModrinthApiConfig : ApiConfig(AppConfig.modrinthBaseUrl) {
-    override fun getUserAgent() = "evegul/seam/main (even.gultvedt@gmail.com)"
-
-    override fun getContentType() = ContentType.Application.FormUrlEncoded
-
-    fun getVersionsUrl() ="${baseUrl}/tag/game_version"
-}
-
 object MicrosoftLoginApiConfig : ApiConfig(AppConfig.microsoftLoginBaseUrl) {
     override fun getContentType() = ContentType.Application.Json
 
