@@ -6,7 +6,6 @@ import app.mcorg.config.CacheManager
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.Result
 import app.mcorg.pipeline.SafeSQL
-import app.mcorg.pipeline.project.ImportWarningKind
 import app.mcorg.pipeline.project.ReviewedMaterial
 import app.mcorg.pipeline.project.ReviewedMaterialsCodec
 import app.mcorg.pipeline.project.handleImportIdea
@@ -64,6 +63,7 @@ class ImportIdeaReviewIT : WithUser() {
         seedItem("minecraft:redstone", "Redstone Dust")
         seedItem("minecraft:air", "Air (Block)")
         seedItem("minecraft:water", "Water")
+        seedItem("minecraft:water_bucket", "Water Bucket")
         ideaId = createIdea("Iron Farm Idea")
         addRequirement(ideaId, "minecraft:iron_ingot", 64)
         addRequirement(ideaId, "minecraft:oak_planks", 32)
@@ -143,15 +143,19 @@ class ImportIdeaReviewIT : WithUser() {
     }
 
     @Test
-    fun `a non-material that is not air is flagged rather than removed`() = testApplication {
+    fun `a fluid arrives as the bucket you carry, with the cell count as context`() = testApplication {
+        // MCO-396. This used to assert the opposite — water stayed as a row and was flagged
+        // "Not really materials". That reading is what put `Blocked: Water — no feasible
+        // source found` in the plan, because nothing produces water: it is not an item.
         setupRoutes()
 
         val response = client.get("/ideas/$airyIdeaId/import/review?worldId=$worldId") { addAuthCookie(this) }
 
         val body = response.bodyAsText()
-        assertContains(body, "minecraft:water=12", message = "water stays on the list — striking it is the user's call")
-        assertContains(body, "Not really materials", message = "but the strip says what it is")
-        assertContains(body, ImportWarningKind.NON_MATERIAL.chip, message = "and so does the row")
+        assertContains(body, "minecraft:water_bucket=1", message = "one bucket, however many cells")
+        assertFalse(body.contains("minecraft:water="), "the fluid id itself must not be a row")
+        assertContains(body, "placed 12×", message = "the schematic's own number stays visible")
+        assertFalse(body.contains("Not really materials"), "the warning kind is gone entirely")
     }
 
     @Test

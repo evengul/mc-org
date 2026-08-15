@@ -66,6 +66,7 @@ fun importReviewPage(
     requirements: Map<Item, Int>,
     action: String = "/worlds/$worldId/projects/from-schematic",
     hiddenFields: Map<String, String> = emptyMap(),
+    placedCounts: Map<String, Int> = emptyMap(),
     warnings: ImportWarnings = ImportWarnings(),
 ): String = pageShell(
     pageTitle = "Seam — review import",
@@ -124,7 +125,7 @@ fun importReviewPage(
                     }
                 }
 
-                materialsSection(requirements, excluded = emptySet(), warnings = warnings)
+                materialsSection(requirements, emptySet(), placedCounts, warnings)
 
                 div("import-review__actions") {
                     button(classes = "btn btn--primary") {
@@ -144,6 +145,7 @@ fun importReviewPage(
 private fun FlowContent.materialsSection(
     requirements: Map<Item, Int>,
     excluded: Set<String>,
+    placedCounts: Map<String, Int>,
     warnings: ImportWarnings,
 ) {
     div("import-review__materials") {
@@ -157,7 +159,7 @@ private fun FlowContent.materialsSection(
 
         materialsField(rows, excluded)
         warningStrip(warnings)
-        materialsTable(rows, excluded, warnings)
+        materialsTable(rows, excluded, placedCounts, warnings)
     }
 }
 
@@ -222,6 +224,7 @@ private fun namesOf(flagged: List<ImportWarning>): String {
 private fun FlowContent.materialsTable(
     rows: List<Map.Entry<Item, Int>>,
     excluded: Set<String>,
+    placedCounts: Map<String, Int>,
     warnings: ImportWarnings,
 ) {
     div("import-review__summary") {
@@ -269,6 +272,16 @@ private fun FlowContent.materialsTable(
                                 span("import-review__flag") {
                                     attributes["title"] = warning.kind.explanation
                                     +warning.kind.chip
+                                }
+                            }
+                            // One bucket, and the cell count it stands for (MCO-396). The
+                            // amount column is what you gather; this is what the schematic
+                            // holds, so the row still reconciles against Litematica's list.
+                            placedCounts[item.id]?.let { cells ->
+                                span("import-review__placed") {
+                                    attributes["title"] =
+                                        "The schematic places $cells of these. A bucket is reusable, so you only need to carry one."
+                                    +"placed ${"%,d".format(cells)}×"
                                 }
                             }
                         }

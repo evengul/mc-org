@@ -68,14 +68,21 @@ suspend fun ApplicationCall.handleReviewIdeaImport() {
 
     handlePipeline(
         onSuccess = { idea: IdeaForImport ->
+            // Same treatment as the schematic door for placed cells (MCO-396): drop the ones
+            // that are not a material, and turn a fluid into the bucket you carry. Without
+            // this the idea door would offer water as a row and the plan would call it
+            // creative-only, which is how it read before MCO-319.
+            val materials = normalizePlacedBlocks(idea.requirements, items)
+            val requirements = materials.requirements.toMap()
             respondHtml(
                 importReviewPage(
                     user = user,
                     worldId = worldId,
                     worldName = getWorldName(worldId),
                     projectName = idea.name,
-                    requirements = idea.requirements,
-                    warnings = computeImportWarnings(worldId, idea.requirements),
+                    requirements = requirements,
+                    placedCounts = materials.placedCounts,
+                    warnings = computeImportWarnings(worldId, requirements),
                     action = Link.Ideas.single(ideaId) + "/import",
                     hiddenFields = buildMap {
                         put("worldId", worldId.toString())

@@ -78,6 +78,19 @@
     cursor: help;
 }
 
+/* MCO-396 — the cell count behind a capped amount ("1 water bucket, placed 4,013×").
+   Deliberately not a flag: nothing is wrong with the row, so it carries no border and no
+   accent colour. It is context at the weight of a footnote, sitting where the eye already
+   is after the item name. */
+.import-review__placed {
+    margin-left: var(--space-2);
+    font-family: var(--font-ui);
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+    white-space: nowrap;
+    cursor: help;
+}
+
 .import-review__summary {
     display: flex;
     align-items: baseline;
