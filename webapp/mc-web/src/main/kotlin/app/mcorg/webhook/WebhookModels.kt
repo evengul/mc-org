@@ -1,5 +1,7 @@
 package app.mcorg.webhook
 
+import app.mcorg.logging.redacted
+
 /**
  * A registered consumer of [app.mcorg.event.SeamEvent]s for one world. Fan-out matches an event
  * against every active subscription in its world (see [eventMatchesFilter]) and enqueues a
@@ -14,7 +16,12 @@ data class WebhookSubscription(
     val eventFilter: List<String>,
     val active: Boolean,
     val consecutiveFailures: Int,
-)
+) {
+    // MCO-340: `secret` is the HMAC key deliveries to this subscription are signed with.
+    override fun toString() = "WebhookSubscription(id=$id, worldId=$worldId, " +
+        "callbackUrl=$callbackUrl, secret=${redacted(secret)}, eventFilter=$eventFilter, " +
+        "active=$active, consecutiveFailures=$consecutiveFailures)"
+}
 
 /** Lifecycle of an outbox row, mirrored by the `status` CHECK constraint on `webhook_deliveries`. */
 enum class DeliveryStatus { PENDING, DELIVERED, FAILED }
@@ -32,7 +39,13 @@ data class DueDelivery(
     val eventType: String,
     val payload: String,
     val attempts: Int,
-)
+) {
+    // MCO-340: the signing secret, plus `payload` — a serialised SeamEvent carrying
+    // user-authored project and idea names (see documentation/logging.md).
+    override fun toString() = "DueDelivery(id=$id, subscriptionId=$subscriptionId, " +
+        "callbackUrl=$callbackUrl, secret=${redacted(secret)}, eventType=$eventType, " +
+        "payload=<${payload.length} chars>, attempts=$attempts)"
+}
 
 /** Wildcard filter value that matches every event type. */
 const val WILDCARD_EVENT_FILTER = "*"

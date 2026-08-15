@@ -40,6 +40,19 @@ There is deliberately **no real email anywhere in the system** — see below.
    `ValidationSteps` logs raw request parameter values at DEBUG. Neither goes below INFO in
    production.
 
+7. **Secret-bearing types get a redacting `toString()`.** Any data class holding a token, a bearer
+   or HMAC secret, or a verbatim upstream body overrides `toString()` using
+   `app.mcorg.logging.redacted(...)`, which renders `<redacted:N>`. The generated `toString()` on a
+   data class prints every field, so a type without an override is one `logger.debug("$thing")`
+   from leaking. `RedactionTest` seeds a secret into each and asserts it does not survive.
+8. **MDC keys are an allowlist.** `ALLOWED_MDC_KEYS` in `Monitoring.kt` is the set permitted to
+   reach the encoder. Today's pattern renders only `%X{call-id}`, so anything else is silently
+   dropped — but a JSON encoder emits the *entire* MDC map, so adding a key is a decision to
+   publish it.
+9. **Caller-supplied input never lands in a log field unvalidated.** `X-Request-Id` becomes the
+   call id and is rendered on every line; `isAcceptableCallId` constrains it to a charset and 64
+   characters, so a caller cannot forge a log line or blow up field cardinality.
+
 ## Site-by-site decisions
 
 | Site | Contains | Decision |

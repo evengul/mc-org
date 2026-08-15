@@ -24,6 +24,9 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '25'
+      # Cheap, and runs before the build so a stdout write fails fast (MCO-342).
+      - name: Check for direct stdout writes in main source
+        run: bash scripts/check-no-stdout.sh
       - name: Compile and install modules
         run: mvn install -DskipTests -B
       - name: Upload local Maven artifacts

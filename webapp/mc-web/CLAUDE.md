@@ -61,6 +61,15 @@ presentation/
 
 **Styles:** Use CSS utility classes — NEVER inline `style =`
 
+**Logging:** NEVER `println` outside `cli/` (CI fails the build). NEVER pass an exception to a
+logger when its message can carry data — kotlinx-serialization appends the JSON input, PostgreSQL
+appends `DETAIL: Key (col)=(value)`. See [documentation/logging.md](../../documentation/logging.md).
+
+**Secret-bearing types:** any data class holding a token, a bearer or HMAC secret, or a verbatim
+upstream response body needs an explicit `toString()` using `app.mcorg.logging.redacted(...)`. The
+compiler-generated `toString()` prints every field, so a type without one is a single
+`logger.debug("$thing")` away from leaking. Add a case to `RedactionTest` when you add a type.
+
 ## Database
 
 - Migrations: `src/main/resources/db/migration/` (Flyway naming: `V{n}__{description}.sql`)
