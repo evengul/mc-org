@@ -136,6 +136,15 @@ data class RoadmapEdge(
      * *and* the resource, so the reader knows what to go and get.
      */
     val itemName: String? = null,
+    /**
+     * How much of [itemName] the consumer's derived plan needs (MCO-316).
+     *
+     * "Cobblestone Generator — 74,564 Cobblestone" is useful; the same cell without a number,
+     * next to a single decorative block, was actively misleading. Null wherever there is no
+     * number to show — a manual sequencing edge, or a declared link that names a row rather
+     * than a planned quantity — and never a stand-in for zero.
+     */
+    val quantity: Long? = null,
 ) {
     /**
      * Checks if this edge represents a blocking dependency

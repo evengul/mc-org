@@ -388,6 +388,7 @@ class GetWorldRoadMapStepTest : WithUser() {
         val consumer = createTestProject(worldId, "Beacon", ProjectType.BUILDING, ProjectStage.PLANNING)
         val farm = createTestProject(worldId, "Iron Farm", ProjectType.FARMING, ProjectStage.BUILDING)
         createRequirement(consumer, "minecraft:iron_ingot", "Iron Ingot", 32)
+        createDemand(consumer, "minecraft:iron_ingot", "Iron Ingot", 32)
         createProduction(farm, "minecraft:iron_ingot", "Iron Ingot")
 
         val roadmap = (GetWorldRoadMapStep(worldId).process(Unit) as Result.Success).value
@@ -395,6 +396,7 @@ class GetWorldRoadMapStepTest : WithUser() {
         val edge = roadmap.edges.single()
         assertEquals(farm, edge.toNodeId)
         assertEquals("Iron Ingot", edge.itemName)
+        assertEquals(32L, edge.quantity, "the edge carries the derived demand (MCO-316)")
         assertTrue(edge.isBlocking, "a farm that is not running yet still blocks")
 
         deleteTestWorld(worldId)
@@ -406,6 +408,7 @@ class GetWorldRoadMapStepTest : WithUser() {
         val consumer = createTestProject(worldId, "Beacon", ProjectType.BUILDING, ProjectStage.PLANNING)
         val farm = createTestProject(worldId, "Iron Farm", ProjectType.FARMING, ProjectStage.COMPLETED)
         createRequirement(consumer, "minecraft:iron_ingot", "Iron Ingot", 32)
+        createDemand(consumer, "minecraft:iron_ingot", "Iron Ingot", 32)
         createProduction(farm, "minecraft:iron_ingot", "Iron Ingot")
 
         val roadmap = (GetWorldRoadMapStep(worldId).process(Unit) as Result.Success).value
@@ -505,6 +508,38 @@ class GetWorldRoadMapStepTest : WithUser() {
         DatabaseSteps.update<Unit>(
             SafeSQL.update("UPDATE resource_gathering SET ignored = TRUE WHERE id = ?"),
             parameterSetter = { statement, _ -> statement.setInt(1, requirementId) }
+        ).process(Unit)
+    }
+
+    /**
+     * Seeds derived plan demand (MCO-316) — what farm edges now match, in place of the declared
+     * `resource_gathering` rows they used to. Deriving it for real needs an ingested
+     * item-source graph, which these tests do not have; the derivation is covered where it lives.
+     */
+    private fun createDemand(projectId: Int, itemId: String, name: String, quantity: Long) = runBlocking {
+        DatabaseSteps.update<Unit>(
+            SafeSQL.insert(
+                """
+                INSERT INTO project_demand
+                    (project_id, item_id, item_name, quantity, activity_group, node_status)
+                VALUES (?, ?, ?, ?, 'GATHER', 'RESOLVED')
+                """.trimIndent()
+            ),
+            parameterSetter = { statement, _ ->
+                statement.setInt(1, projectId)
+                statement.setString(2, itemId)
+                statement.setString(3, name)
+                statement.setLong(4, quantity)
+            }
+        ).process(Unit)
+        DatabaseSteps.update<Unit>(
+            SafeSQL.insert(
+                """
+                INSERT INTO project_demand_state (project_id, fingerprint)
+                VALUES (?, 'seeded') ON CONFLICT (project_id) DO NOTHING
+                """.trimIndent()
+            ),
+            parameterSetter = { statement, _ -> statement.setInt(1, projectId) }
         ).process(Unit)
     }
 

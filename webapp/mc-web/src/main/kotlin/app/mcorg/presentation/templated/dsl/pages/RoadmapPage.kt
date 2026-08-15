@@ -187,6 +187,8 @@ private data class RoadmapEdgeEntry(
     val itemName: String?,
     val isResourceEdge: Boolean,
     val isBlocking: Boolean,
+    /** Derived plan demand (MCO-316); null when the edge carries no number. */
+    val quantity: Long? = null,
 )
 
 /**
@@ -205,6 +207,7 @@ private fun FlowContent.dependsOnCell(worldId: Int, edges: List<RoadmapEdge>) {
                 itemName = edge.itemName,
                 isResourceEdge = edge.itemName != null,
                 isBlocking = edge.isBlocking,
+                quantity = edge.quantity,
             )
         }
     )
@@ -259,7 +262,11 @@ private fun FlowContent.roadmapEdgeCell(worldId: Int, entries: List<RoadmapEdgeE
                         +entry.projectName
                     }
                     entry.itemName?.let { item ->
-                        span("roadmap-edge__item") { +" — $item" }
+                        // MCO-316 — first pass, deliberately the plainest thing that stops the
+                        // cell misleading. "Cobblestone Generator — 74,564 Cobblestone" instead
+                        // of a bare item name that used to sit next to a single decorative block.
+                        val amount = entry.quantity?.let { "${"%,d".format(it)} " } ?: ""
+                        span("roadmap-edge__item") { +" — $amount$item" }
                     }
                     span("roadmap-edge__status") { +entry.statusLabel() }
                 }

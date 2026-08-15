@@ -15,6 +15,9 @@ import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.project.commonsteps.GetFarmSupplyEdgesStep
 import app.mcorg.pipeline.project.commonsteps.GetProjectEdgesStep
+import app.mcorg.pipeline.resources.GatheringPlanInput
+import app.mcorg.pipeline.resources.GenerateGatheringPlanStep
+import app.mcorg.pipeline.resources.GetWorldDemandCoverageStep
 import java.sql.ResultSet
 
 /**
@@ -48,6 +51,13 @@ data class GetWorldRoadMapStep(val worldId: Int) : Step<Unit, AppFailure, Roadma
             is Result.Failure -> return r
         }
 
+        // Farm edges read materialised demand (MCO-316), which is written wherever a plan is
+        // derived — the project page. A project nobody has opened has none, and would silently
+        // contribute no edges at all, which is the opposite of "import a build and the roadmap
+        // assembles itself". So derive the missing ones here, once each: the write-through in
+        // GenerateGatheringPlanStep means the next load finds them stored.
+        fillMissingDemand()
+
         val declaredEdges = when (val r = GetProjectEdgesStep(worldId).process(Unit)) {
             is Result.Success -> r.value
             is Result.Failure -> return r
@@ -64,6 +74,28 @@ data class GetWorldRoadMapStep(val worldId: Int) : Step<Unit, AppFailure, Roadma
             .distinctBy { Triple(it.consumerId, it.producerId, it.itemName) }
 
         return Result.success(buildRoadmap(worldName, projects, edges))
+    }
+
+    /**
+     * Derives and stores demand for projects that have none yet.
+     *
+     * Bounded and self-healing: each project costs one derivation *once*, after which the
+     * write-through keeps it current. A world where every project has been opened does no work
+     * here at all.
+     *
+     * Failures are swallowed on purpose, per project. A project can legitimately have no plan —
+     * everything already collected, or a world whose Minecraft version was never ingested, which
+     * is the normal state in tests — and none of that should stop the roadmap rendering. The
+     * consequence is a missing edge, not a wrong one.
+     */
+    private suspend fun fillMissingDemand() {
+        val uncovered = when (val r = GetWorldDemandCoverageStep(worldId).process(Unit)) {
+            is Result.Success -> r.value
+            is Result.Failure -> return
+        }
+        uncovered.forEach { projectId ->
+            GenerateGatheringPlanStep.process(GatheringPlanInput(projectId = projectId, worldId = worldId))
+        }
     }
 
     private suspend fun getWorldName(): Result<AppFailure.DatabaseError, String?> =
@@ -133,6 +165,7 @@ data class GetWorldRoadMapStep(val worldId: Int) : Step<Unit, AppFailure, Roadma
                 toNodeName = edge.producerName,
                 isBlocking = edge.isBlocking,
                 itemName = edge.itemName,
+                quantity = edge.quantity,
             )
         }
 
