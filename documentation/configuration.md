@@ -40,7 +40,7 @@ Legend: **S** = secret (never in a committed file; Fly secret or GitHub secret).
 | `RSA_PUBLIC_KEY` | S | unused² | required | required | — | Fly secret |
 | `APP_HOST` | | unused³ | required | optional | `app.seam.gg` in PRODUCTION | `test.env`, `fly.toml` |
 | `PREVIEW_PASSWORD` | S | unused | **required** | unused | — | `test.env`, `dev.yml` |
-| `DEMO_USER` | | optional | optional | optional | none⁴ | `local.env.example`, `test.env` |
+| `DEMO_USER` | | optional | **required⁷** | optional | none⁴ | `local.env.example`, `test.env`, `dev.fly.toml` |
 | `WEBHOOK_ADMIN_SECRET` | S | optional | optional | optional⁵ | — | Fly secret (currently unset) |
 | `SEAM_DISCORD_URL` | | optional | optional | optional | — | `fly.toml` |
 | `SEAM_WEBHOOK_SHARED_SECRET` | S | optional | optional | optional⁶ | — | Fly secret |
@@ -74,6 +74,16 @@ subscriptions carry their own separate per-delivery signing secret.
 
 ⁶ Set as a Fly secret and live in production. When absent, the Discord settings section renders a
 "not configured" state rather than failing.
+
+⁷ Not required by the config loader — the app boots fine without it — but a **PR preview is
+unreachable without it**, which is why the table says required for TEST. `SKIP_MICROSOFT_SIGN_IN`
+is `true` on previews, so demo sign-in is the only door; unset, it fails closed per ⁴ and the
+preview dead-ends at the sign-in page. This was the state of every preview between MCO-333 and
+MCO-396: the code default was removed without adding the corresponding deployment value.
+
+The preview's Neon branch is forked from production, so `DEMO_USER=evegul` lands in real worlds —
+the reason previews are worth looking at. It is not a secret and is not exposed: the whole preview
+sits behind `PREVIEW_PASSWORD` Basic Auth, and the fork is torn down with the app.
 
 ## Production database URLs: pooler vs direct
 
