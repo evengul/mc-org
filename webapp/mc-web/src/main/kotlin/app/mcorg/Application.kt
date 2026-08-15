@@ -1,5 +1,6 @@
 package app.mcorg
 
+import app.mcorg.config.AppConfig
 import app.mcorg.event.configureEvents
 import app.mcorg.webhook.configureWebhooks
 import app.mcorg.presentation.plugins.configureHTTP
@@ -15,6 +16,9 @@ import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
 
 fun main() {
+    // First, before anything binds a port or opens a pool: a bad configuration must fail here
+    // rather than surface later as a runtime mystery (MCO-332).
+    AppConfig.initOrExit()
     defaultServer { module() }.start(wait = true)
 }
 

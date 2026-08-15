@@ -33,11 +33,40 @@ REGION="arn"
 # dropped when we override it, so set it here. Ingestion parses server jars.
 ENTRYPOINT_CMD="java -Xmx768m -cp /app/mcorg.jar app.mcorg.cli.IngestServerFilesKt"
 
-# Non-secret env, mirrored from fly.toml's [env]. DB_PASSWORD is an app secret
-# and is injected automatically — do NOT put it here.
+# Non-secret env. DB_PASSWORD is an app secret and is injected automatically —
+# do NOT put it here.
+#
+# DB_URL and DB_USER are READ FROM fly.toml rather than restated (MCO-334). They
+# used to be hardcoded here, and had drifted to `ep-icy-wood-a2vogqwy-pooler`,
+# an endpoint that no longer exists — so `--once` was pointed at a dead host
+# while the web app ran against `ep-withered-truth-a2d65fv7-pooler`. A smoke test
+# against the wrong database is worse than no smoke test.
+FLY_TOML="$(dirname "$0")/../fly.toml"
+if [[ ! -f "$FLY_TOML" ]]; then
+  echo "Error: cannot find fly.toml at $FLY_TOML" >&2
+  exit 1
+fi
+
+# Pull `KEY = 'value'` out of fly.toml's [env] block. Deliberately strict: an
+# empty result is a hard error, so a renamed key fails loudly here instead of
+# silently sending the machine at AppConfig's localhost default.
+read_fly_env() {
+  local key="$1"
+  local value
+  value="$(sed -n "s/^[[:space:]]*${key}[[:space:]]*=[[:space:]]*['\"]\(.*\)['\"][[:space:]]*$/\1/p" "$FLY_TOML" | head -1)"
+  if [[ -z "$value" ]]; then
+    echo "Error: $key not found in $FLY_TOML" >&2
+    exit 1
+  fi
+  printf '%s' "$value"
+}
+
+DB_URL="$(read_fly_env DB_URL)"
+DB_USER="$(read_fly_env DB_USER)"
+
 ENV_ARGS=(
-  --env "DB_URL=jdbc:postgresql://ep-icy-wood-a2vogqwy-pooler.eu-central-1.aws.neon.tech/mcorg?sslmode=require"
-  --env "DB_USER=mcorg_owner"
+  --env "DB_URL=$DB_URL"
+  --env "DB_USER=$DB_USER"
   --env "ENV=PRODUCTION"
   --env "SKIP_MICROSOFT_SIGN_IN=true"
 )

@@ -1,5 +1,6 @@
 package app.mcorg.cli
 
+import app.mcorg.config.AppConfig
 import app.mcorg.config.Database
 import app.mcorg.pipeline.Result
 import app.mcorg.pipeline.failure.AppFailure
@@ -18,6 +19,9 @@ private val logger = LoggerFactory.getLogger("app.mcorg.cli.IngestServerFiles")
  * advisory-lock-guarded [executeServerFilesPipeline].
  */
 fun main() {
+    // Same gate as the web app (MCO-332): a nightly ingestion pointed at a half-configured
+    // database should fail loudly here, not write somewhere unexpected.
+    AppConfig.initOrExit()
     val exitCode = runBlocking {
         runIngestion(
             pipeline = { executeServerFilesPipeline() },

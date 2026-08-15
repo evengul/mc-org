@@ -25,6 +25,9 @@ class DemoSignInIT {
     @BeforeEach
     fun setup() {
         AppConfig.env = Local
+        // Explicit since MCO-333 removed the hardcoded "evegul" default: with DEMO_USER unset,
+        // demo sign-in correctly fails closed, which is a different test than this one.
+        AppConfig.demoUser = "demo-user"
     }
 
     @Test

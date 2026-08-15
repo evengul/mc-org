@@ -152,6 +152,10 @@ when the PR carries the **`preview`** label.
 
 ## Environment (WSL2)
 
+- **Every environment variable is listed in [documentation/configuration.md](documentation/configuration.md)**
+  — what it does, which environments require it, its default, and where it is set. `readConfig()`
+  in `mc-web/.../config/ConfigLoader.kt` is the only place in `src/main` that calls
+  `System.getenv`; a bad configuration exits at startup rather than surfacing later.
 - `localhost` in WSL2 ≠ Windows localhost.
 - **Database access:** Use `psql`. There are two databases depending on where you are, and
   one client reaches both:
@@ -172,11 +176,11 @@ when the PR carries the **`preview`** label.
   Sourcing `local.env` and building that URL in one shell command can trip the
   worktree-isolation guard. If it does, put the two lines in a throwaway script and run
   that instead — same result, and it keeps the password out of the transcript.
-- **A local run logs `HikariCP connection pool for PRODUCTION environment` even when
-  `ENV=LOCAL`.** That string is the pool *profile* name, not the database — it does not mean
-  you are pointed at production. To check which DB you actually have, compare the host in
-  `local.env`'s `DB_URL` against `neonctl connection-string <branch> --project-id
-  sweet-dust-00910797`; a worktree's host differs from `master`'s.
+- **To check which DB you actually have**, compare the host in `local.env`'s `DB_URL`
+  against `neonctl connection-string <branch> --project-id sweet-dust-00910797`; a
+  worktree's host differs from `master`'s. The startup log names the pool profile and the
+  environment (`... with the local profile (ENV=Local)`), which since MCO-335 is keyed off
+  `ENV` rather than a hostname substring.
 
   **Writes:** free in a worktree — the Neon branch is a disposable fork. Against the main
   checkout's DB, treat `INSERT`/`UPDATE`/`DELETE`/DDL as you would any shared dev data:

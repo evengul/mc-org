@@ -1,5 +1,6 @@
 package app.mcorg.config
 
+import app.mcorg.domain.Local
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
 import org.slf4j.LoggerFactory
@@ -46,7 +47,13 @@ class HikariDatabaseProvider(private val isProduction: Boolean) : DatabaseConnec
 
     private fun initializeDataSource() {
         val config = Database.Config.get()
-        logger.info("Initializing HikariCP connection pool for {} environment", if (isProduction) "PRODUCTION" else "LOCAL")
+        // Name the profile *and* the env: the old message said "for PRODUCTION environment" on
+        // every non-localhost run, which read as "you are connected to production" (MCO-335).
+        logger.info(
+            "Initializing HikariCP connection pool with the {} profile (ENV={})",
+            if (isProduction) "shared" else "local",
+            AppConfig.env,
+        )
 
         dataSource = HikariDataSource(HikariConfig().apply {
             jdbcUrl = config.url
@@ -73,7 +80,7 @@ class HikariDatabaseProvider(private val isProduction: Boolean) : DatabaseConnec
             }
 
             // Pool name for monitoring
-            poolName = if (isProduction) "MCOrg-Production-Pool" else "MCOrg-Local-Pool"
+            poolName = if (isProduction) "MCOrg-Shared-Pool" else "MCOrg-Local-Pool"
 
             // Additional performance settings
             isAutoCommit = true
@@ -128,7 +135,10 @@ object Database {
         return provider!!
     }
 
-    private fun isLocalEnvironment(): Boolean = AppConfig.dbUrl.contains("localhost")
+    // Keyed off ENV, not the JDBC host (MCO-335). The old `dbUrl.contains("localhost")` test meant
+    // every worktree — Neon host, ENV=LOCAL — silently got the PRODUCTION profile, disabling leak
+    // detection exactly where you develop.
+    private fun isLocalEnvironment(): Boolean = AppConfig.env == Local
 
     // Gracefully shutdown the connection pool
     fun shutdown() {
