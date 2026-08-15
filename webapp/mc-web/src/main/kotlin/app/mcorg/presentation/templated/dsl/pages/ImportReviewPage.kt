@@ -5,6 +5,7 @@ import app.mcorg.domain.model.user.TokenProfile
 import app.mcorg.pipeline.project.ImportWarning
 import app.mcorg.pipeline.project.ImportWarningKind
 import app.mcorg.pipeline.project.ImportWarnings
+import app.mcorg.pipeline.project.ResolvedRegion
 import app.mcorg.pipeline.project.ReviewedMaterial
 import app.mcorg.pipeline.project.ReviewedMaterialsCodec
 import app.mcorg.presentation.templated.dsl.appHeader
@@ -15,6 +16,7 @@ import kotlinx.html.FlowContent
 import kotlinx.html.InputType
 import kotlinx.html.a
 import kotlinx.html.button
+import kotlinx.html.details
 import kotlinx.html.div
 import kotlinx.html.form
 import kotlinx.html.h1
@@ -25,6 +27,7 @@ import kotlinx.html.label
 import kotlinx.html.main
 import kotlinx.html.p
 import kotlinx.html.span
+import kotlinx.html.summary
 import kotlinx.html.table
 import kotlinx.html.tbody
 import kotlinx.html.td
@@ -55,6 +58,12 @@ import kotlinx.html.tr
  * Litematica's own material-swap edits the schematic itself and keeps them in sync by
  * construction. That is the right door; this screen deliberately no longer offers a worse one.
  *
+ * [regions] (MCO-398) split the list into collapsible sections, one per Litematica subregion,
+ * each with a header checkbox that includes or excludes the whole thing. A 555-row flat table
+ * is a screen people skip; sections are what make "I am not building the decorative shell" a
+ * single click. Fewer than two regions renders with no group chrome at all — a lone region is
+ * named after the schematic or left "Unnamed", so a header would wrap the list in noise.
+ *
  * [warnings] (MCO-305) name the painful rows without standing in their way. Advisory only —
  * every warned row arrives checked. Since MCO-397 the strip above the list carries only
  * creative-only rows, the one kind worth interrupting for; everything else is a row chip.
@@ -68,6 +77,7 @@ fun importReviewPage(
     action: String = "/worlds/$worldId/projects/from-schematic",
     hiddenFields: Map<String, String> = emptyMap(),
     placedCounts: Map<String, Int> = emptyMap(),
+    regions: List<ResolvedRegion> = emptyList(),
     warnings: ImportWarnings = ImportWarnings(),
 ): String = pageShell(
     pageTitle = "Seam — review import",
@@ -126,7 +136,7 @@ fun importReviewPage(
                     }
                 }
 
-                materialsSection(requirements, emptySet(), placedCounts, warnings)
+                materialsSection(requirements, emptySet(), placedCounts, regions, warnings)
 
                 div("import-review__actions") {
                     button(classes = "btn btn--primary") {
@@ -143,25 +153,70 @@ fun importReviewPage(
     }
 }
 
+/**
+ * One group of rows. [name] is null for a schematic that has nothing worth grouping by, which
+ * is the common case and renders exactly as the screen did before MCO-398 — no group chrome.
+ */
+private data class MaterialGroup(val name: String?, val rows: List<Pair<Item, Int>>)
+
 private fun FlowContent.materialsSection(
     requirements: Map<Item, Int>,
     excluded: Set<String>,
     placedCounts: Map<String, Int>,
+    regions: List<ResolvedRegion>,
     warnings: ImportWarnings,
 ) {
     div("import-review__materials") {
-        // One order for the whole section: the hidden field and the table must describe the
-        // same list in the same sequence, since `import-review.js` folds the table's checkbox
-        // state back into the field by position-independent id but the two must agree on which
-        // rows exist at all.
-        val rows = requirements.entries.sortedWith(
-            compareByDescending<Map.Entry<Item, Int>> { it.value }.thenBy { it.key.name }
-        )
+        val groups = groupsFor(requirements, regions)
 
-        materialsField(rows, excluded)
+        // One order for the whole section: the hidden field and the tables must describe the
+        // same rows in the same sequence. `import-review.js` rebuilds the field from the
+        // checkboxes in DOM order, so the two only agree if this order is the render order.
+        val allRows = groups.flatMap { it.rows }
+
+        materialsField(allRows, excluded)
         warningStrip(warnings)
-        materialsTable(rows, excluded, placedCounts, warnings)
+        materialsSummary(groups, allRows)
+        groups.forEachIndexed { index, group ->
+            if (group.name == null) {
+                materialsTable(index, group.rows, excluded, placedCounts, warnings)
+            } else {
+                regionGroup(index, group, excluded, placedCounts, warnings)
+            }
+        }
+
+        // The server refuses an empty list too, but a form with no rows at all should not have
+        // reached this page in the first place.
+        if (allRows.isEmpty()) {
+            p("form-error") { +"This schematic contains no recognisable materials." }
+        }
     }
+}
+
+/**
+ * Splits the list into the groups the screen offers.
+ *
+ * Grouping needs **more than one** region to be worth anything. Litematica names a lone region
+ * after the schematic itself, or leaves it `"Unnamed"` — every real single-region fixture in
+ * `mc-nbt/src/test/resources` does one or the other — so a header there would be noise wrapped
+ * around the entire list. Those files render exactly as they did before MCO-398.
+ */
+private fun groupsFor(requirements: Map<Item, Int>, regions: List<ResolvedRegion>): List<MaterialGroup> {
+    val byQuantity = compareByDescending<Pair<Item, Int>> { it.second }.thenBy { it.first.name }
+
+    // The mapper already drops regions that resolve to nothing; this keeps the screen honest
+    // if one ever arrives anyway, rather than rendering a section with an empty table.
+    val populated = regions.filter { it.requirements.isNotEmpty() }
+
+    if (populated.size < 2) {
+        return listOf(MaterialGroup(null, requirements.toList().sortedWith(byQuantity)))
+    }
+
+    // Largest section first: on a build whose decorative shell is the thing you want to strike,
+    // the section worth a decision is usually the big one.
+    return populated
+        .map { MaterialGroup(it.name.ifBlank { "Unnamed section" }, it.requirements.sortedWith(byQuantity)) }
+        .sortedByDescending { group -> group.rows.sumOf { it.second.toLong() } }
 }
 
 private const val MATERIALS_FIELD_ID = "import-review-materials-field"
@@ -178,7 +233,7 @@ private const val MATERIALS_FIELD_ID = "import-review-materials-field"
  * exclusions would be missed, and the payload's declared row count means nothing can be lost
  * without the server saying so.
  */
-private fun FlowContent.materialsField(rows: List<Map.Entry<Item, Int>>, excluded: Set<String>) {
+private fun FlowContent.materialsField(rows: List<Pair<Item, Int>>, excluded: Set<String>) {
     hiddenInput {
         id = MATERIALS_FIELD_ID
         name = ReviewedMaterialsCodec.FIELD
@@ -228,22 +283,69 @@ private fun namesOf(flagged: List<ImportWarning>): String {
     return if (rest > 0) "$shown and $rest more" else shown
 }
 
-private fun FlowContent.materialsTable(
-    rows: List<Map.Entry<Item, Int>>,
+/**
+ * The count above the list. With sections it reports **distinct materials**, not rows: an item
+ * used in two sections is two rows but one thing to gather, and "580 items" for a 555-material
+ * build would be a quiet lie.
+ */
+private fun FlowContent.materialsSummary(groups: List<MaterialGroup>, allRows: List<Pair<Item, Int>>) {
+    val distinct = allRows.distinctBy { it.first.id }.size
+    div("import-review__summary") {
+        span("section-label") { +"Materials" }
+        span("import-review__count") {
+            +"$distinct ${if (distinct == 1) "item" else "items"}"
+            if (groups.size > 1) +" in ${groups.size} sections"
+        }
+    }
+}
+
+/**
+ * One section of a multi-region schematic (MCO-398), collapsed by default.
+ *
+ * Collapsed is the point: 555 rows in one flat table is a screen people skip, and the thing
+ * that makes it skippable is that nothing tells you where one part of the build ends and the
+ * next begins. The section header carries enough — name, material count, block total — to
+ * decide "not building that" without expanding it.
+ *
+ * The checkbox in the header includes or excludes everything inside. It is deliberately
+ * nameless like every other box on this screen: `import-review.js` folds it into the single
+ * materials field, and it submits nothing of its own.
+ */
+private fun FlowContent.regionGroup(
+    index: Int,
+    group: MaterialGroup,
     excluded: Set<String>,
     placedCounts: Map<String, Int>,
     warnings: ImportWarnings,
 ) {
-    div("import-review__summary") {
-        span("section-label") { +"Materials" }
-        span("import-review__count") {
-            +"${rows.size} ${if (rows.size == 1) "item" else "items"}"
+    val blocks = group.rows.sumOf { it.second.toLong() }
+    details("import-review__region") {
+        summary("import-review__region-summary") {
+            input(type = InputType.checkBox, classes = "import-review__region-include") {
+                id = "region-include-$index"
+                checked = true
+                attributes["aria-label"] = "Include everything in ${group.name}"
+            }
+            span("import-review__region-name") { +(group.name ?: "") }
+            span("import-review__region-meta") {
+                +"${group.rows.size} ${if (group.rows.size == 1) "material" else "materials"}"
+                +" · ${"%,d".format(blocks)} blocks"
+            }
         }
+        materialsTable(index, group.rows, excluded, placedCounts, warnings)
     }
+}
 
+private fun FlowContent.materialsTable(
+    groupIndex: Int,
+    rows: List<Pair<Item, Int>>,
+    excluded: Set<String>,
+    placedCounts: Map<String, Int>,
+    warnings: ImportWarnings,
+) {
     div("import-review__table-wrap") {
         table(classes = "data-table import-review__table") {
-            id = "import-review-table"
+            id = "import-review-table-$groupIndex"
             thead {
                 tr {
                     th { +"Include" }
@@ -253,7 +355,9 @@ private fun FlowContent.materialsTable(
             }
             tbody {
                 rows.forEach { (item, amount) ->
-                    val rowId = item.id.replace(Regex("[^a-zA-Z0-9]"), "-")
+                    // Scoped by group: the same item can legitimately appear in two sections,
+                    // and a duplicate DOM id would point every label at the first one's box.
+                    val rowId = "$groupIndex-" + item.id.replace(Regex("[^a-zA-Z0-9]"), "-")
                     tr("import-review__row") {
                         td {
                             attributes["data-label"] = "Include"
@@ -300,11 +404,5 @@ private fun FlowContent.materialsTable(
                 }
             }
         }
-    }
-
-    // The server refuses an empty list too, but a form with no rows at all should not have
-    // reached this page in the first place.
-    if (rows.isEmpty()) {
-        p("form-error") { +"This schematic contains no recognisable materials." }
     }
 }

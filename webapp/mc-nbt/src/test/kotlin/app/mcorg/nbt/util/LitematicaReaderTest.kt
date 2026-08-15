@@ -201,6 +201,125 @@ class LitematicaReaderTest {
         assertEquals(Triple(0, 0, 0), lit.size)
     }
 
+    // ---- subregions (MCO-398) ---------------------------------------------------------
+
+    /** A `BlockStatePalette` entry list: `[{Name: air}, {Name: <block>}]`, so index 1 is the block. */
+    private fun DataOutputStream.writePaletteEntry(block: String) {
+        writeByte(9)                 // ListTag
+        writeUTF("BlockStatePalette")
+        writeByte(10)                // of CompoundTag
+        writeInt(2)
+        writeStringEntry("Name", "minecraft:air")
+        writeByte(0)
+        writeStringEntry("Name", block)
+        writeByte(0)
+    }
+
+    /**
+     * One 1x1x1 region holding a single [block].
+     *
+     * A two-entry palette packs at 2 bits per block, so one block state of value `1` selects
+     * palette index 1 — the block rather than the air that pads index 0.
+     */
+    private fun DataOutputStream.writeSingleBlockRegion(name: String, block: String) {
+        writeCompoundEntry(name) {
+            writeCompoundEntry("Size") {
+                writeIntEntry("x", 1)
+                writeIntEntry("y", 1)
+                writeIntEntry("z", 1)
+            }
+            writePaletteEntry(block)
+            writeByte(12)            // LongListTag
+            writeUTF("BlockStates")
+            writeInt(1)
+            writeLong(1L)
+        }
+    }
+
+    private fun twoRegionFile() = buildRootCompound {
+        writeCompoundEntry("Metadata") {
+            writeStringEntry("Name", "Two parter")
+            writeStringEntry("Author", "tester")
+            writeCompoundEntry("EnclosingSize") {
+                writeIntEntry("x", 1)
+                writeIntEntry("y", 1)
+                writeIntEntry("z", 1)
+            }
+        }
+        writeCompoundEntry("Regions") {
+            writeSingleBlockRegion("Functional frame", "minecraft:oak_planks")
+            writeSingleBlockRegion("Display glass", "minecraft:glass")
+        }
+    }
+
+    @Test
+    fun `subregions are kept with their names`() {
+        val lit = TestUtils.assertResultSuccess(LitematicaReader.readLitematica(twoRegionFile()))
+
+        assertEquals(listOf("Functional frame", "Display glass"), lit.regions.map { it.name })
+        assertEquals(mapOf("minecraft:oak_planks" to 1), lit.regions[0].items)
+        assertEquals(mapOf("minecraft:glass" to 1), lit.regions[1].items)
+    }
+
+    @Test
+    fun `items stays the flattening of the regions`() {
+        // The documented invariant on Litematica. Callers that only want "what does this cost"
+        // must keep working untouched, which is the whole reason both are carried.
+        val lit = TestUtils.assertResultSuccess(LitematicaReader.readLitematica(twoRegionFile()))
+
+        val flattened = lit.regions
+            .flatMap { it.items.entries }
+            .groupBy({ it.key }, { it.value })
+            .mapValues { (_, counts) -> counts.sum() }
+        assertEquals(flattened, lit.items)
+    }
+
+    @Test
+    fun `a real single-region file reports its one region`() {
+        // Litematica names a lone region after the schematic itself — which is exactly why the
+        // review screen renders no section header for it.
+        val lit = TestUtils.assertResultSuccess(
+            LitematicaReader.readLitematica(getFileAsStream("litematica/WiskeProSorter.litematic"))
+        )
+
+        assertEquals(listOf("WiskeProSorter"), lit.regions.map { it.name })
+        assertEquals(lit.items, lit.regions.single().items)
+    }
+
+    @Test
+    fun `a region named Unnamed is carried as-is`() {
+        // The other thing real files do. Naming it is the review screen's problem, not the
+        // reader's — it reports what the file says.
+        val lit = TestUtils.assertResultSuccess(
+            LitematicaReader.readLitematica(getFileAsStream("litematica/Dig_Sort_III.litematic"))
+        )
+
+        assertEquals(listOf("Unnamed"), lit.regions.map { it.name })
+    }
+
+    @Test
+    fun `a region with no materials is not reported`() {
+        val bytes = buildRootCompound {
+            writeCompoundEntry("Metadata") {
+                writeStringEntry("Name", "test")
+                writeStringEntry("Author", "tester")
+                writeCompoundEntry("EnclosingSize") {
+                    writeIntEntry("x", 1)
+                    writeIntEntry("y", 1)
+                    writeIntEntry("z", 1)
+                }
+            }
+            writeCompoundEntry("Regions") {
+                writeSingleBlockRegion("Real", "minecraft:oak_planks")
+                writeCompoundEntry("Empty") {}
+            }
+        }
+
+        val lit = TestUtils.assertResultSuccess(LitematicaReader.readLitematica(bytes))
+
+        assertEquals(listOf("Real"), lit.regions.map { it.name })
+    }
+
     private val defaultFile = "litematica/Compact_AB_Tilable_2x_Shulker_Loader.litematic"
 
     fun getFileAsStream(filePath: String = defaultFile) =

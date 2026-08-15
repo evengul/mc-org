@@ -98,6 +98,62 @@
     gap: var(--space-3);
 }
 
+/* MCO-398 — one collapsible section per Litematica subregion. Follows the fl-shelf pattern
+   (project-list.css): a bordered <details> whose <summary> hides the native marker and lays
+   its parts out in a row. Collapsed by default — the header is meant to be enough to decide
+   on a section without expanding it. */
+.import-review__region {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--bg-surface);
+}
+
+.import-review__region + .import-review__region {
+    margin-top: var(--space-3);
+}
+
+.import-review__region-summary {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-4);
+    cursor: pointer;
+    list-style: none;
+}
+
+.import-review__region-summary::-webkit-details-marker {
+    display: none;
+}
+
+.import-review__region-name {
+    font-family: var(--font-ui);
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+/* Pushed right so the counts line up down the stack regardless of section-name length. */
+.import-review__region-meta {
+    margin-left: auto;
+    font-family: var(--font-ui);
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+}
+
+.import-review__region-summary::after {
+    content: "▾";
+    color: var(--text-muted);
+    font-size: var(--text-xs);
+}
+
+.import-review__region[open] > .import-review__region-summary::after {
+    content: "▴";
+}
+
+/* The table sits inside the section's border, so it does not need one of its own. */
+.import-review__region > .import-review__table-wrap {
+    padding: 0 var(--space-4) var(--space-4);
+}
+
 .import-review__count {
     font-family: var(--font-ui);
     font-size: var(--text-xs);

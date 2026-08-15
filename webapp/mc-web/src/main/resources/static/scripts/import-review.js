@@ -47,12 +47,64 @@
         return field.value;
     }
 
+    /** The row checkboxes inside one section (MCO-398). */
+    function rowsIn(regionBox) {
+        var section = regionBox.closest('.import-review__region');
+        return section ? section.querySelectorAll('.import-review__include') : [];
+    }
+
+    /**
+     * Reflects a section's rows back onto its header box: all on, all off, or indeterminate.
+     * Without this, unticking one row of a fully-included section would leave the header
+     * claiming the whole section is in.
+     */
+    function refreshRegion(regionBox) {
+        var rows = rowsIn(regionBox);
+        var checked = 0;
+        for (var i = 0; i < rows.length; i++) {
+            if (rows[i].checked) checked++;
+        }
+        regionBox.checked = rows.length > 0 && checked === rows.length;
+        regionBox.indeterminate = checked > 0 && checked < rows.length;
+    }
+
+    function refreshAllRegions() {
+        var boxes = form.querySelectorAll('.import-review__region-include');
+        for (var i = 0; i < boxes.length; i++) {
+            refreshRegion(boxes[i]);
+        }
+    }
+
     form.addEventListener('change', function (event) {
         var target = event.target;
-        if (target && target.classList && target.classList.contains('import-review__include')) {
+        if (!target || !target.classList) {
+            return;
+        }
+        if (target.classList.contains('import-review__region-include')) {
+            var rows = rowsIn(target);
+            for (var i = 0; i < rows.length; i++) {
+                rows[i].checked = target.checked;
+            }
+            target.indeterminate = false;
+            sync();
+            return;
+        }
+        if (target.classList.contains('import-review__include')) {
+            refreshAllRegions();
             sync();
         }
     });
+
+    // A click on the header checkbox must not also open or close the section — <summary>
+    // toggles the disclosure for any click inside it.
+    form.addEventListener('click', function (event) {
+        var target = event.target;
+        if (target && target.classList && target.classList.contains('import-review__region-include')) {
+            event.stopPropagation();
+        }
+    });
+
+    refreshAllRegions();
 
     form.addEventListener('submit', function () {
         sync();

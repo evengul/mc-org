@@ -1,6 +1,7 @@
 package app.mcorg.nbt.util
 
 import app.mcorg.domain.model.minecraft.Litematica
+import app.mcorg.domain.model.minecraft.LitematicaRegion
 import app.mcorg.nbt.failure.NBTFailure
 import app.mcorg.pipeline.Result
 import app.mcorg.nbt.io.BinaryNbtDeserializer
@@ -73,7 +74,8 @@ object LitematicaReader {
             author = metadata.author,
             description = metadata.description ?: "",
             size = metadata.size,
-            items = regionData.items
+            items = regionData.items,
+            regions = regionData.regions,
         )
 
         return Result.success(litematica)
@@ -87,7 +89,8 @@ object LitematicaReader {
     )
 
     data class LitematicaRegionData(
-        val items: Map<String, Int>
+        val items: Map<String, Int>,
+        val regions: List<LitematicaRegion>,
     )
 
     private fun CompoundTag.extractMetadata(): LitematicaMetadata {
@@ -110,12 +113,27 @@ object LitematicaReader {
         )
     }
 
+    /**
+     * Reads every subregion, keeping each one's name alongside the flattened total.
+     *
+     * The name is the compound's own key — Litematica stores regions as a map of name to
+     * region — and it used to be discarded here (MCO-398). A build routinely separates its
+     * functional part from a decorative shell, and dropping the names left the import review
+     * with one flat list of hundreds of rows and no way to strike a whole section.
+     *
+     * Regions keep file order; a region contributing nothing (empty, or all air) is skipped so
+     * the review does not offer an empty group.
+     */
     private fun CompoundTag.extractRegionData(): LitematicaRegionData {
         val items = mutableMapOf<String, Int>()
+        val regions = mutableListOf<LitematicaRegion>()
 
-        this.value.forEach { (_, tag) ->
+        this.value.forEach { (regionName, tag) ->
             if (tag is CompoundTag) {
                 val regionItems = tag.extractSingleRegionData()
+                if (regionItems.isNotEmpty()) {
+                    regions.add(LitematicaRegion(regionName, regionItems))
+                }
                 regionItems.forEach { (itemName, itemCount) ->
                     items[itemName] = items.getOrDefault(itemName, 0) + itemCount
                 }
@@ -123,7 +141,8 @@ object LitematicaReader {
         }
 
         return LitematicaRegionData(
-            items = items
+            items = items,
+            regions = regions,
         )
     }
 
