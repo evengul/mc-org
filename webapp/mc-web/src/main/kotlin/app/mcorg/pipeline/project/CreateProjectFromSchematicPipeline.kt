@@ -12,7 +12,6 @@ import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.failure.ValidationFailure
 import app.mcorg.pipeline.project.resources.GetItemsInWorldVersionStep
-import app.mcorg.pipeline.resources.findSubstitutionFamilies
 import app.mcorg.pipeline.world.ValidateWorldMemberRole
 import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.templated.dsl.Link
@@ -49,6 +48,20 @@ data class SchematicUpload(
 data class SchematicProject(
     val name: String,
     val requirements: Map<Item, Int>,
+    val placedCounts: Map<String, Int> = emptyMap(),
+)
+
+/**
+ * A schematic's material list, plus the cell counts that did not become amounts.
+ *
+ * [placedCounts] is keyed by item id and only carries fluids, whose amount is capped at one
+ * reusable bucket (MCO-396). It exists so the review screen can say "1 water bucket, placed
+ * 4,013×" — the gathering truth and the schematic's own number, neither one hiding the other.
+ * It is review-time context only and is not persisted with the project.
+ */
+data class SchematicMaterials(
+    val requirements: List<Pair<Item, Int>>,
+    val placedCounts: Map<String, Int> = emptyMap(),
 )
 
 /**
@@ -76,7 +89,7 @@ suspend fun ApplicationCall.handleReviewSchematic() {
                     worldName = getWorldName(worldId),
                     projectName = project.name,
                     requirements = project.requirements,
-                    families = findSubstitutionFamilies(items, project.requirements.map { it.key.id }),
+                    placedCounts = project.placedCounts,
                     warnings = computeImportWarnings(worldId, project.requirements),
                 )
             )
@@ -225,8 +238,8 @@ object ParseSchematicStep : Step<SchematicUpload, AppFailure, Litematica> {
  */
 data class MapSchematicToMaterialsStep(
     val availableItems: List<Item>,
-) : Step<Litematica, AppFailure, List<Pair<Item, Int>>> {
-    override suspend fun process(input: Litematica): Result<AppFailure, List<Pair<Item, Int>>> {
+) : Step<Litematica, AppFailure, SchematicMaterials> {
+    override suspend fun process(input: Litematica): Result<AppFailure, SchematicMaterials> {
         if (input.items.isEmpty()) {
             return Result.failure(
                 AppFailure.customValidationError("schematicFile", "The schematic contains no materials")
@@ -234,14 +247,34 @@ data class MapSchematicToMaterialsStep(
         }
 
         val byId = availableItems.associateBy { it.id }
+
+        // Fluids first, because they are the one case where the cell count is not the amount
+        // to gather: a bucket is reusable, so 4,013 water cells are one water bucket carried
+        // and refilled. The cell count is kept as [SchematicMaterials.placedCounts] so the
+        // review screen can still show it — see FLUID_PLACEMENTS.
+        val fluidCells = mutableMapOf<Item, Int>()
+        input.items.forEach { (blockId, amount) ->
+            val bucketId = FLUID_PLACEMENTS[blockId] ?: return@forEach
+            val bucket = byId[bucketId] ?: return@forEach
+            fluidCells[bucket] = (fluidCells[bucket] ?: 0) + amount
+        }
+
         // A schematic stores placed block-state ids; some are gathered as a different
         // item (birch_wall_sign -> birch_sign) and some are not a material at all
         // (an extended piston's head). Normalize, then merge amounts for block ids that
         // collapse onto the same item (e.g. a build with both a sign and a wall sign).
-        val requirements = input.items.entries
+        val resolved = input.items.entries
+            .filter { (blockId, _) -> blockId !in FLUID_PLACEMENTS }
             .mapNotNull { (blockId, amount) -> resolveMaterial(blockId, byId)?.let { it to amount } }
             .groupBy({ it.first }, { it.second })
             .map { (item, amounts) -> item to amounts.sum() }
+
+        // One bucket per fluid, on top of any the build stores as real items.
+        val byItem = LinkedHashMap<Item, Int>()
+        resolved.forEach { (item, amount) -> byItem[item] = (byItem[item] ?: 0) + amount }
+        fluidCells.keys.forEach { bucket -> byItem[bucket] = (byItem[bucket] ?: 0) + 1 }
+
+        val requirements = byItem.map { (item, amount) -> item to amount }
 
         if (requirements.isEmpty()) {
             return Result.failure(
@@ -256,7 +289,12 @@ data class MapSchematicToMaterialsStep(
             )
         }
 
-        return Result.success(requirements)
+        return Result.success(
+            SchematicMaterials(
+                requirements = requirements,
+                placedCounts = fluidCells.entries.associate { (bucket, cells) -> bucket.id to cells },
+            )
+        )
     }
 
     /**
@@ -276,10 +314,13 @@ data class MapSchematicToMaterialsStep(
      *    (birch_wall_sign -> birch_sign, dead_horn_coral_wall_fan -> dead_horn_coral_fan).
      * 4. Otherwise resolve by the id itself, or drop when the version has no such item.
      *
-     * Truly non-obtainable blocks (budding_amethyst, portals) are intentionally left to
-     * resolve to nothing and surface as a BLOCKED row rather than a wrong guess. Placed
-     * *effect* blocks whose material is a separate cell already counted plus a reusable
-     * tool (fire, soul_fire, bubble_column) are dropped as non-materials — see [isDropped].
+     * Fluids never reach here — they are handled ahead of it, since their amount is capped
+     * at one bucket rather than taken from the cell count (see [FLUID_PLACEMENTS]).
+     *
+     * Truly non-obtainable blocks (budding_amethyst) are intentionally left to resolve to
+     * nothing and surface as a BLOCKED row rather than a wrong guess. Placed *effect* blocks
+     * whose material is a separate cell already counted plus a reusable tool (fire,
+     * soul_fire, bubble_column, the portals) are dropped as non-materials — see [isDropped].
      */
     private fun resolveMaterial(blockId: String, byId: Map<String, Item>): Item? {
         if (isDropped(blockId)) return null
@@ -297,24 +338,6 @@ data class MapSchematicToMaterialsStep(
     }
 
     companion object {
-        /**
-         * Blocks that occupy a cell in a schematic but are not a material of their own —
-         * the piston already accounts for its extended head and the moving block; the
-         * placed-effect blocks (fire, soul_fire, bubble_column) are created in-world from
-         * the block below them (a separate, already-counted cell) plus a reusable tool
-         * (flint & steel / a water bucket), so they carry no material of their own.
-         *
-         * Air (via [NON_MATERIAL_FILL]) is shared with the idea door, so both import paths
-         * agree that empty space is not a material — see MCO-305.
-         */
-        private val NON_MATERIAL_BLOCKS = NON_MATERIAL_FILL + setOf(
-            "minecraft:piston_head",
-            "minecraft:moving_piston",
-            "minecraft:fire",
-            "minecraft:soul_fire",
-            "minecraft:bubble_column",
-        )
-
         /**
          * Placed block-state ids whose gathered item has a *different* id. Crops resolve
          * to the seed/produce you plant or harvest; tool/effect placements resolve to the
@@ -365,9 +388,9 @@ private data class MapSchematicToProjectStep(
     val upload: SchematicUpload,
 ) : Step<Litematica, AppFailure, SchematicProject> {
     override suspend fun process(input: Litematica): Result<AppFailure, SchematicProject> {
-        val requirements = when (val materials = MapSchematicToMaterialsStep(availableItems).process(input)) {
-            is Result.Failure -> return Result.Failure(materials.error)
-            is Result.Success -> materials.value
+        val materials = when (val mapped = MapSchematicToMaterialsStep(availableItems).process(input)) {
+            is Result.Failure -> return Result.Failure(mapped.error)
+            is Result.Success -> mapped.value
         }
 
         val name = upload.providedName
@@ -375,7 +398,9 @@ private data class MapSchematicToProjectStep(
             ?: upload.fileName?.removeSuffix(".litematic")
             ?: "Imported build"
 
-        return Result.success(SchematicProject(name.take(100), requirements.toMap()))
+        return Result.success(
+            SchematicProject(name.take(100), materials.requirements.toMap(), materials.placedCounts)
+        )
     }
 }
 

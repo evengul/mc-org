@@ -5,6 +5,16 @@ primary_region = 'arn'
 [env]
     ENV = 'TEST'
     SKIP_MICROSOFT_SIGN_IN = 'true'
+    # Demo sign-in identity for PR previews. Required since MCO-333 removed the hardcoded
+    # "evegul" fallback: without it resolveDemoUsername returns null and every preview dead-ends
+    # at /auth/sign-in?error=demo_sign_in_not_configured — there is no other way in, because
+    # Microsoft sign-in is skipped here.
+    #
+    # The preview's Neon branch is a copy-on-write fork of production, so this signs in as the
+    # real account and lands in real worlds — which is the point of a preview. Not a secret, and
+    # not exposed: the whole preview sits behind PREVIEW_PASSWORD Basic Auth (see PreviewGate)
+    # and the database is a disposable fork torn down with the app.
+    DEMO_USER = 'evegul'
     MICROSOFT_CLIENT_ID=''
     MICROSOFT_CLIENT_SECRET=''
     MICROSOFT_LOGIN_BASE_URL='https://login.microsoftonline.com'

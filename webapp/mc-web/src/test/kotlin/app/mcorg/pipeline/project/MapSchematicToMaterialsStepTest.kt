@@ -34,16 +34,26 @@ class MapSchematicToMaterialsStepTest {
         "minecraft:water_cauldron",
         "minecraft:powder_snow_cauldron",
         "minecraft:powder_snow",
+        "minecraft:water",
+        "minecraft:lava",
+        "minecraft:nether_portal",
+        // The buckets, which unlike the fluids are real items.
+        "minecraft:water_bucket",
+        "minecraft:lava_bucket",
+        "minecraft:powder_snow_bucket",
     ).map { Item(it, it.substringAfterLast(':')) }
 
     private fun litematica(items: Map<String, Int>) =
         Litematica("Build", "", "", Triple(1, 1, 1), items)
 
-    private fun map(items: Map<String, Int>): Map<String, Int> = runBlocking {
+    private fun materials(items: Map<String, Int>): SchematicMaterials = runBlocking {
         val result = MapSchematicToMaterialsStep(catalog).process(litematica(items))
-        assertIs<Result.Success<List<Pair<Item, Int>>>>(result)
-        result.value.associate { it.first.id to it.second }
+        assertIs<Result.Success<SchematicMaterials>>(result)
+        result.value
     }
+
+    private fun map(items: Map<String, Int>): Map<String, Int> =
+        materials(items).requirements.associate { it.first.id to it.second }
 
     @Test
     fun `wall sign resolves to the base sign item`() {
@@ -173,13 +183,65 @@ class MapSchematicToMaterialsStepTest {
     }
 
     @Test
-    fun `powder snow stays on the list as a material to review`() {
-        // MCO-319: unlike fire, powder snow is not dropped by the mapper — it survives as a row
-        // so the review screen can warn about it, exactly as water does. The reclassification
-        // from "creative only" to "not a material" happens in ImportWarnings, not here.
-        val byId = map(mapOf("minecraft:powder_snow" to 2, "minecraft:oak_planks" to 5))
-        assertEquals(2, byId["minecraft:powder_snow"])
+    fun `fluids resolve to the bucket you carry, never to the fluid`() {
+        // MCO-396: nothing produces minecraft:water, because water is not an item. Left as a
+        // row it reached the plan as "Blocked: Water — no feasible source found". Litematica's
+        // own list shows Bucket of Water, and so does this.
+        val byId = map(
+            mapOf(
+                "minecraft:water" to 4000,
+                "minecraft:lava" to 47,
+                "minecraft:powder_snow" to 2,
+            )
+        )
+        assertEquals(1, byId["minecraft:water_bucket"], "a bucket is reusable — one, not 4000")
+        assertEquals(1, byId["minecraft:lava_bucket"])
+        assertEquals(1, byId["minecraft:powder_snow_bucket"])
+        assertNull(byId["minecraft:water"], "the fluid block id must not survive")
+        assertNull(byId["minecraft:lava"])
+        assertNull(byId["minecraft:powder_snow"])
+    }
+
+    @Test
+    fun `the fluid cell count is kept as context, summed across its block states`() {
+        val result = materials(mapOf("minecraft:water" to 4000, "minecraft:flowing_water" to 13))
+        assertEquals(1, result.requirements.single().second, "still one bucket")
+        assertEquals(
+            mapOf("minecraft:water_bucket" to 4013),
+            result.placedCounts,
+            "source and flowing cells are the same fluid and count together",
+        )
+    }
+
+    @Test
+    fun `a build that also stores real buckets gets them on top of the placement bucket`() {
+        val byId = map(mapOf("minecraft:water" to 900, "minecraft:water_bucket" to 5))
+        assertEquals(6, byId["minecraft:water_bucket"], "5 stored buckets plus the one you place with")
+    }
+
+    @Test
+    fun `portals are dropped rather than blocked`() {
+        // MCO-396: a nether portal cell appears after lighting an obsidian frame the schematic
+        // already counts as its own cells. There is no material and no decision, so — like air
+        // — it is dropped. It used to survive and sit in the plan as permanently blocked.
+        val byId = map(mapOf("minecraft:nether_portal" to 24, "minecraft:oak_planks" to 5))
+        assertNull(byId["minecraft:nether_portal"])
         assertEquals(5, byId["minecraft:oak_planks"])
+    }
+
+    @Test
+    fun `fluids carry no placed count when the version has no bucket for them`() {
+        // A catalog without powder_snow_bucket (pre-1.17) must drop the cell rather than
+        // invent a bucket id the version does not have.
+        val narrow = MapSchematicToMaterialsStep(
+            catalog.filterNot { it.id == "minecraft:powder_snow_bucket" }
+        )
+        val result = runBlocking {
+            narrow.process(litematica(mapOf("minecraft:powder_snow" to 2, "minecraft:oak_planks" to 5)))
+        }
+        assertIs<Result.Success<SchematicMaterials>>(result)
+        assertEquals(listOf("minecraft:oak_planks"), result.value.requirements.map { it.first.id })
+        assertTrue(result.value.placedCounts.isEmpty())
     }
 
     @Test

@@ -63,30 +63,25 @@ class ImportWarningsTest {
     }
 
     @Test
-    fun `fluids and placed effects are flagged as non-materials, ahead of any graph verdict`() {
-        val water = item("water")
-        val fire = item("fire")
-
-        val warnings = classifyImportWarnings(
-            mapOf(water to 10, fire to 2),
-            graphProducing(water, fire),
+    fun `there is no non-material warning kind to fall back on`() {
+        // MCO-396: the placed-but-not-gathered ids (fluids, portals, effect blocks) are resolved
+        // or dropped in PlacedBlocks before anything reaches this classifier, so there is
+        // nothing left for a third kind to describe. Warning about a row *and* keeping it is
+        // what put water and nether portals in the plan as permanently blocked nodes.
+        assertEquals(
+            listOf(ImportWarningKind.UNOBTAINABLE, ImportWarningKind.EXPENSIVE),
+            ImportWarningKind.entries.toList(),
         )
-
-        assertEquals(ImportWarningKind.NON_MATERIAL, warnings.forItem(water.id)?.kind)
-        assertEquals(ImportWarningKind.NON_MATERIAL, warnings.forItem(fire.id)?.kind)
     }
 
     @Test
-    fun `powder snow reads as a non-material, not as creative-only`() {
-        // MCO-319: powder_snow is a block-only id placed from a bucket, so no source produces
-        // it and the graph rule alone would call it creative-only — the wrong story for a
-        // block any player can place. It is the same shape as water and gets water's answer.
-        // The graph here produces nothing, which is exactly the real-world condition.
-        val powderSnow = item("powder_snow")
+    fun `a bucket is an ordinary craftable row, warned about by nothing`() {
+        // What a fluid cell now arrives as. A bucket has a recipe, so the screen says nothing.
+        val bucket = item("water_bucket")
 
-        val warnings = classifyImportWarnings(mapOf(powderSnow to 2), graphProducing(item("stone")))
+        val warnings = classifyImportWarnings(mapOf(bucket to 1), graphProducing(bucket))
 
-        assertEquals(ImportWarningKind.NON_MATERIAL, warnings.forItem(powderSnow.id)?.kind)
+        assertTrue(warnings.isEmpty)
     }
 
     @Test
@@ -114,38 +109,26 @@ class ImportWarningsTest {
     @Test
     fun `no graph means no unobtainable claims`() {
         // A world whose version was never ingested. Silence beats guessing; the curated
-        // categories still apply, because they need no graph to be true.
+        // category still applies, because it needs no graph to be true.
         val warnings = classifyImportWarnings(
-            mapOf(item("command_block") to 1, item("water") to 1, item("elytra") to 1),
+            mapOf(item("command_block") to 1, item("elytra") to 1),
             null,
         )
 
         assertNull(warnings.forItem("minecraft:command_block"))
-        assertEquals(ImportWarningKind.NON_MATERIAL, warnings.forItem("minecraft:water")?.kind)
         assertEquals(ImportWarningKind.EXPENSIVE, warnings.forItem("minecraft:elytra")?.kind)
     }
 
     @Test
     fun `warnings of a kind come back largest first`() {
         val warnings = classifyImportWarnings(
-            mapOf(item("water") to 5, item("lava") to 900, item("fire") to 60),
+            mapOf(item("elytra") to 5, item("nether_star") to 900, item("trident") to 60),
             null,
         )
 
         assertEquals(
-            listOf("minecraft:lava", "minecraft:fire", "minecraft:water"),
-            warnings.of(ImportWarningKind.NON_MATERIAL).map { it.item.id },
-        )
-    }
-
-    @Test
-    fun `air is not classified here at all — it is filtered before the list is built`() {
-        // NON_MATERIAL_FILL exists so both import doors drop air outright; if it ever reached
-        // the review screen anyway, it should still read as a non-material rather than silently.
-        assertTrue("minecraft:air" in NON_MATERIAL_FILL)
-        assertEquals(
-            ImportWarningKind.NON_MATERIAL,
-            classifyImportWarnings(mapOf(item("air") to 9_389_854), null).forItem("minecraft:air")?.kind,
+            listOf("minecraft:nether_star", "minecraft:trident", "minecraft:elytra"),
+            warnings.of(ImportWarningKind.EXPENSIVE).map { it.item.id },
         )
     }
 }

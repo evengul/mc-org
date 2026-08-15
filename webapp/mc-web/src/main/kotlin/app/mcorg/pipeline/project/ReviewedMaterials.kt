@@ -6,8 +6,9 @@ import app.mcorg.pipeline.failure.AppFailure
 /**
  * One row of the import review list, as it travels between the browser and the server.
  *
- * [included] is the checkbox: an excluded row is still carried, because a family swap has to
- * rewrite the rows the user struck without resurrecting them (MCO-304).
+ * [included] is the checkbox. An excluded row is still carried rather than dropped, so the
+ * payload always describes the whole list the server rendered — which is what lets the
+ * declared row count below tell a user's exclusions apart from a truncated transport.
  */
 data class ReviewedMaterial(
     val itemId: String,

@@ -11,19 +11,14 @@ import app.mcorg.pipeline.resources.getGraphForWorld
  * command block or a stack of turtle eggs is an informed choice rather than a surprise
  * three hours into gathering. Every warning is advisory and every warned row is still
  * checked by default — we say what we know and leave the decision alone.
+ *
+ * There used to be a third kind, `NON_MATERIAL`, for rows that are placed rather than
+ * gathered. It is gone (MCO-396): warning about a row is the wrong answer when the row
+ * should not exist. Those ids are now dropped or resolved to the bucket you carry, in
+ * `PlacedBlocks.kt`, before anything gets classified here. Warning *and* keeping them was
+ * how water and nether portals reached the plan as permanently blocked nodes.
  */
 enum class ImportWarningKind(val chip: String, val heading: String, val explanation: String) {
-    /**
-     * Blocks that occupy space in a build but are not a thing you gather. Air is filtered
-     * outright (see [NON_MATERIAL_FILL]); what is left here is fluids, placed effects and
-     * portal blocks, which are real cells in a schematic but carry no material of their own.
-     */
-    NON_MATERIAL(
-        chip = "Not a material",
-        heading = "Not really materials",
-        explanation = "These are placed in-world rather than gathered — a fluid, a portal or an effect block. Excluding them changes nothing about the build."
-    ),
-
     /**
      * No source in the item-source graph produces this id, which is the same condition the
      * planner reports as its BLOCKED bucket and the `score-dump unobtainable` report lists.
@@ -89,7 +84,6 @@ internal fun classifyImportWarnings(requirements: Map<Item, Int>, graph: ItemSou
  * more useful thing to say about it than "slow to gather", whatever the curation thinks.
  */
 private fun classify(item: Item, graph: ItemSourceGraph?): ImportWarningKind? = when {
-    item.id in NON_MATERIAL_ITEM_IDS -> ImportWarningKind.NON_MATERIAL
     graph != null && !graph.produces(item.id) -> ImportWarningKind.UNOBTAINABLE
     item.id in EXPENSIVE_ITEM_IDS -> ImportWarningKind.EXPENSIVE
     else -> null
@@ -102,49 +96,6 @@ private fun classify(item: Item, graph: ItemSourceGraph?): ImportWarningKind? = 
  */
 private fun ItemSourceGraph.produces(itemId: String): Boolean =
     getItemNodesByStringId(itemId).any { getSourcesForItem(it.item).isNotEmpty() }
-
-/**
- * Air is not a material, in any list, ever — so it is filtered rather than flagged (MCO-305).
- *
- * This is not a hypothetical: importing idea #3 produced a review list whose largest row was
- * `Air (Block)` x 9,389,854, 90% of the build's entire material total. A warning would have
- * been the polite thing to do and the wrong one; there is no world in which a user wants nine
- * million air blocks on their gathering list, so the honest fix is to never offer them.
- *
- * Everything with any argument for keeping it stays in [NON_MATERIAL_ITEM_IDS] and is merely
- * warned about — we would rather not silently edit someone's list without a reason this strong.
- */
-val NON_MATERIAL_FILL = setOf(
-    "minecraft:air",
-    "minecraft:cave_air",
-    "minecraft:void_air",
-)
-
-/**
- * Cells that are not a material of their own. Fluids are placed from a reusable bucket, the
- * placed effects (fire, portals) are created in-world from blocks counted elsewhere, and the
- * technical piston states belong to the piston. All warned rather than filtered — a build
- * really does contain them, and striking a row is the user's call.
- *
- * `powder_snow` belongs with the fluids (MCO-319): it is a block-only id placed from a
- * powder snow bucket, so nothing produces it and the graph would otherwise call it
- * creative-only. It is the same shape as water, and gets the same answer.
- */
-private val NON_MATERIAL_ITEM_IDS = NON_MATERIAL_FILL + setOf(
-    "minecraft:water",
-    "minecraft:flowing_water",
-    "minecraft:lava",
-    "minecraft:flowing_lava",
-    "minecraft:powder_snow",
-    "minecraft:bubble_column",
-    "minecraft:fire",
-    "minecraft:soul_fire",
-    "minecraft:nether_portal",
-    "minecraft:end_portal",
-    "minecraft:end_gateway",
-    "minecraft:piston_head",
-    "minecraft:moving_piston",
-)
 
 /**
  * Obtainable, but each unit is an expedition rather than a mining trip. Curated on purpose —

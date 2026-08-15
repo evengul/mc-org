@@ -58,7 +58,7 @@ suspend fun ApplicationCall.handleAddResourcesFromSchematic() {
         ValidateWorldMemberRole<SchematicUpload>(user, Role.ADMIN, worldId).run(upload)
         val litematica = ParseSchematicStep.run(upload)
         val materials = MapSchematicToMaterialsStep(items).run(litematica)
-        ReplaceProjectResourcesStep(projectId).run(materials)
+        ReplaceProjectResourcesStep(projectId).run(materials.requirements)
 
         previousIds.forEach { CacheManager.onResourceGatheringDeleted(projectId, it) }
         val resources = GetAllResourceGatheringItemsStep.run(projectId)

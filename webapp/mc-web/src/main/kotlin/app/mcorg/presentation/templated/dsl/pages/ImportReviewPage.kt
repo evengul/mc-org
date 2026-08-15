@@ -7,21 +7,14 @@ import app.mcorg.pipeline.project.ImportWarningKind
 import app.mcorg.pipeline.project.ImportWarnings
 import app.mcorg.pipeline.project.ReviewedMaterial
 import app.mcorg.pipeline.project.ReviewedMaterialsCodec
-import app.mcorg.pipeline.resources.SubstitutionFamily
-import app.mcorg.presentation.hxInclude
-import app.mcorg.presentation.hxPost
-import app.mcorg.presentation.hxSwap
-import app.mcorg.presentation.hxTarget
 import app.mcorg.presentation.templated.dsl.appHeader
 import app.mcorg.presentation.templated.dsl.container
 import app.mcorg.presentation.templated.dsl.pageShell
 import kotlinx.html.ButtonType
-import kotlinx.html.DIV
 import kotlinx.html.FlowContent
 import kotlinx.html.InputType
 import kotlinx.html.a
 import kotlinx.html.button
-import kotlinx.html.classes
 import kotlinx.html.div
 import kotlinx.html.form
 import kotlinx.html.h1
@@ -30,11 +23,8 @@ import kotlinx.html.id
 import kotlinx.html.input
 import kotlinx.html.label
 import kotlinx.html.main
-import kotlinx.html.option
 import kotlinx.html.p
-import kotlinx.html.select
 import kotlinx.html.span
-import kotlinx.html.stream.createHTML
 import kotlinx.html.table
 import kotlinx.html.tbody
 import kotlinx.html.td
@@ -58,13 +48,16 @@ import kotlinx.html.tr
  * and an idea import arrives with the idea's requirements. [action] and [hiddenFields] are
  * the only difference — what the screen *does* is identical either way.
  *
- * Batch substitution (MCO-304) rewrites the list in place: the swap controls post the
- * current form back and swap [importReviewMaterials] for a rewritten copy, so a swap is
- * just another edit to an unsaved form.
+ * **This screen does not swap materials, and should not grow the ability again (MCO-399).**
+ * MCO-304 shipped batch substitution by family here and it was removed after one real use:
+ * the `.litematic` is what you place blocks from once gathering is done, so rewriting the
+ * gathering list without rewriting the file desyncs the two, and you find out at build time.
+ * Litematica's own material-swap edits the schematic itself and keeps them in sync by
+ * construction. That is the right door; this screen deliberately no longer offers a worse one.
  *
- * [warnings] (MCO-305) name the painful rows without standing in their way: a strip above
- * the list and a chip on the row itself. Advisory only — every warned row arrives checked.
- * They live *inside* the swappable section, because a swap changes which rows are painful.
+ * [warnings] (MCO-305) name the painful rows without standing in their way. Advisory only —
+ * every warned row arrives checked. Since MCO-397 the strip above the list carries only
+ * creative-only rows, the one kind worth interrupting for; everything else is a row chip.
  */
 fun importReviewPage(
     user: TokenProfile,
@@ -74,7 +67,7 @@ fun importReviewPage(
     requirements: Map<Item, Int>,
     action: String = "/worlds/$worldId/projects/from-schematic",
     hiddenFields: Map<String, String> = emptyMap(),
-    families: List<SubstitutionFamily> = emptyList(),
+    placedCounts: Map<String, Int> = emptyMap(),
     warnings: ImportWarnings = ImportWarnings(),
 ): String = pageShell(
     pageTitle = "Seam — review import",
@@ -133,13 +126,7 @@ fun importReviewPage(
                     }
                 }
 
-                materialsSection(
-                    worldId,
-                    requirements,
-                    excluded = emptySet(),
-                    families = families,
-                    warnings = warnings,
-                )
+                materialsSection(requirements, emptySet(), placedCounts, warnings)
 
                 div("import-review__actions") {
                     button(classes = "btn btn--primary") {
@@ -156,64 +143,36 @@ fun importReviewPage(
     }
 }
 
-/**
- * The swappable part of the screen, rendered standalone so a substitution can replace it
- * (MCO-304). Everything a swap can change lives in here — the controls, the row set, the
- * quantities and the warnings (MCO-305), since swapping oak for crimson changes which rows
- * are painful. The project name and the hidden carry-through fields sit outside and survive
- * untouched.
- */
-fun importReviewMaterials(
-    worldId: Int,
-    requirements: Map<Item, Int>,
-    excluded: Set<String>,
-    families: List<SubstitutionFamily>,
-    warnings: ImportWarnings,
-): String = createHTML().div {
-    materialsSectionBody(worldId, requirements, excluded, families, warnings)
-}
-
 private fun FlowContent.materialsSection(
-    worldId: Int,
     requirements: Map<Item, Int>,
     excluded: Set<String>,
-    families: List<SubstitutionFamily>,
+    placedCounts: Map<String, Int>,
     warnings: ImportWarnings,
 ) {
-    div {
-        materialsSectionBody(worldId, requirements, excluded, families, warnings)
+    div("import-review__materials") {
+        // One order for the whole section: the hidden field and the table must describe the
+        // same list in the same sequence, since `import-review.js` folds the table's checkbox
+        // state back into the field by position-independent id but the two must agree on which
+        // rows exist at all.
+        val rows = requirements.entries.sortedWith(
+            compareByDescending<Map.Entry<Item, Int>> { it.value }.thenBy { it.key.name }
+        )
+
+        materialsField(rows, excluded)
+        warningStrip(warnings)
+        materialsTable(rows, excluded, placedCounts, warnings)
     }
 }
 
-private fun DIV.materialsSectionBody(
-    worldId: Int,
-    requirements: Map<Item, Int>,
-    excluded: Set<String>,
-    families: List<SubstitutionFamily>,
-    warnings: ImportWarnings,
-) {
-    id = MATERIALS_ID
-    classes = setOf("import-review__materials")
-
-    // One order for the whole section: the hidden field and the table must describe the same
-    // list in the same sequence, or a swap would reorder the rows under the user.
-    val rows = requirements.entries.sortedWith(
-        compareByDescending<Map.Entry<Item, Int>> { it.value }.thenBy { it.key.name }
-    )
-
-    materialsField(rows, excluded)
-    warningStrip(warnings)
-    substitutionControls(worldId, families)
-    materialsTable(rows, excluded, warnings)
-}
-
-private const val MATERIALS_ID = "import-review-materials"
 private const val MATERIALS_FIELD_ID = "import-review-materials-field"
 
 /**
  * The list itself — every row, its quantity and whether it is struck — in one field
- * (MCO-315). Rendered first inside the swappable section so it is among the very first
- * parameters in the body, and rewritten by `import-review.js` whenever a checkbox moves.
+ * (MCO-315). Rewritten by `import-review.js` whenever a checkbox moves.
+ *
+ * Struck rows are carried rather than dropped, so the payload always describes the list the
+ * server rendered. That is what lets [ReviewedMaterialsCodec]'s declared row count tell a
+ * user's exclusions apart from a transport truncating the list — the failure MCO-315 fixed.
  *
  * Without JavaScript this still submits the list exactly as the server rendered it; only the
  * exclusions would be missed, and the payload's declared row count means nothing can be lost
@@ -230,66 +189,22 @@ private fun FlowContent.materialsField(rows: List<Map.Entry<Item, Int>>, exclude
 }
 
 /**
- * One control per family found in the list: "all Oak -> [ Spruce ]".
+ * The strip carries **creative-only rows and nothing else** (MCO-397).
  *
- * The swap posts the form back and replaces this section with the rewritten one, which is why
- * the single materials field carries the struck rows too — a swap must not silently resurrect
- * or delete the rows you struck.
+ * MCO-305 gave every warning kind a paragraph here, which put a `!` above the fold of every
+ * import. Two of the three did not earn it. "Not really materials" is gone entirely (MCO-396
+ * — those rows no longer exist). "Slow to gather" is now the row chip alone: a wither
+ * skeleton skull *is* a grind, but the user chose the build knowing that, and interrupting
+ * them with it reads as an error where there is none.
  *
- * The selects are deliberately *not* form controls: they carry no `name`, so a create submit
- * never drags a parameter per family along with it, and the swap button reads the one it needs
- * by id through `hx-vals`. `hx-vals` also says which family is being swapped.
- */
-private fun FlowContent.substitutionControls(worldId: Int, families: List<SubstitutionFamily>) {
-    if (families.isEmpty()) return
-
-    div("import-review__swaps") {
-        span("section-label") { +"Swap a family" }
-        p("import-review__swaps-lead") {
-            +"Change your mind about a material before it becomes a gathering list. Only targets that can take every row are offered."
-        }
-        families.forEach { family ->
-            div("import-review__swap") {
-                span("import-review__swap-from") {
-                    +"All ${family.label} (${family.itemIds.size} ${if (family.itemIds.size == 1) "row" else "rows"})"
-                }
-                span("import-review__swap-arrow") {
-                    attributes["aria-hidden"] = "true"
-                    +"→"
-                }
-                select("form-control import-review__swap-to") {
-                    id = "swap-to-${family.token}"
-                    attributes["aria-label"] = "Swap all ${family.label} to"
-                    family.targets.forEach { target ->
-                        option {
-                            value = target.token
-                            +target.label
-                        }
-                    }
-                }
-                button(classes = "btn btn--ghost import-review__swap-apply") {
-                    // Not a submit button — this edits the form, it does not send it.
-                    type = ButtonType.button
-                    hxPost("/worlds/$worldId/projects/import-review/substitute")
-                    hxInclude("#import-review-form")
-                    hxTarget("#$MATERIALS_ID")
-                    hxSwap("outerHTML")
-                    attributes["hx-vals"] =
-                        """js:{"from": "${family.token}", "to": document.getElementById("swap-to-${family.token}").value}"""
-                    +"Swap"
-                }
-            }
-        }
-    }
-}
-
-/**
- * One low-weight strip, one paragraph per kind of pain (MCO-305). It never blocks the import
- * and it never unchecks anything — it exists so that striking a row is a decision rather than
- * a discovery. Long lists are truncated: the per-row chips carry the full detail.
+ * What is left is the one kind that asks for a decision *now*: a creative-only row is one to
+ * strike before it becomes a permanently blocked plan node. A `!` is proportionate for that.
+ *
+ * Long lists are truncated — the per-row chips carry the full detail.
  */
 private fun FlowContent.warningStrip(warnings: ImportWarnings) {
-    if (warnings.isEmpty) return
+    val blocked = warnings.of(ImportWarningKind.UNOBTAINABLE)
+    if (blocked.isEmpty()) return
 
     div("callout import-review__warnings") {
         span("callout__icon") {
@@ -297,14 +212,10 @@ private fun FlowContent.warningStrip(warnings: ImportWarnings) {
             +"!"
         }
         div("callout__body") {
-            ImportWarningKind.entries.forEach { kind ->
-                val flagged = warnings.of(kind)
-                if (flagged.isEmpty()) return@forEach
-                p("import-review__warning") {
-                    span("import-review__warning-heading") { +"${kind.heading}: " }
-                    +namesOf(flagged)
-                    +". ${kind.explanation}"
-                }
+            p("import-review__warning") {
+                span("import-review__warning-heading") { +"${ImportWarningKind.UNOBTAINABLE.heading}: " }
+                +namesOf(blocked)
+                +". ${ImportWarningKind.UNOBTAINABLE.explanation}"
             }
         }
     }
@@ -320,6 +231,7 @@ private fun namesOf(flagged: List<ImportWarning>): String {
 private fun FlowContent.materialsTable(
     rows: List<Map.Entry<Item, Int>>,
     excluded: Set<String>,
+    placedCounts: Map<String, Int>,
     warnings: ImportWarnings,
 ) {
     div("import-review__summary") {
@@ -367,6 +279,16 @@ private fun FlowContent.materialsTable(
                                 span("import-review__flag") {
                                     attributes["title"] = warning.kind.explanation
                                     +warning.kind.chip
+                                }
+                            }
+                            // One bucket, and the cell count it stands for (MCO-396). The
+                            // amount column is what you gather; this is what the schematic
+                            // holds, so the row still reconciles against Litematica's list.
+                            placedCounts[item.id]?.let { cells ->
+                                span("import-review__placed") {
+                                    attributes["title"] =
+                                        "The schematic places $cells of these. A bucket is reusable, so you only need to carry one."
+                                    +"placed ${"%,d".format(cells)}×"
                                 }
                             }
                         }
