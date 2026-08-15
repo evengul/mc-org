@@ -49,6 +49,7 @@ data class SchematicProject(
     val name: String,
     val requirements: Map<Item, Int>,
     val placedCounts: Map<String, Int> = emptyMap(),
+    val regions: List<ResolvedRegion> = emptyList(),
 )
 
 /**
@@ -60,6 +61,20 @@ data class SchematicProject(
  * It is review-time context only and is not persisted with the project.
  */
 data class SchematicMaterials(
+    val requirements: List<Pair<Item, Int>>,
+    val placedCounts: Map<String, Int> = emptyMap(),
+    val regions: List<ResolvedRegion> = emptyList(),
+)
+
+/**
+ * One subregion's resolved material list (MCO-398).
+ *
+ * Empty for a schematic with no regions in it. A **single** region is still reported — the
+ * review screen is what decides that one group is not worth any group chrome, since
+ * Litematica names a lone region after the schematic itself or leaves it "Unnamed".
+ */
+data class ResolvedRegion(
+    val name: String,
     val requirements: List<Pair<Item, Int>>,
     val placedCounts: Map<String, Int> = emptyMap(),
 )
@@ -90,6 +105,7 @@ suspend fun ApplicationCall.handleReviewSchematic() {
                     projectName = project.name,
                     requirements = project.requirements,
                     placedCounts = project.placedCounts,
+                    regions = project.regions,
                     warnings = computeImportWarnings(worldId, project.requirements),
                 )
             )
@@ -171,7 +187,10 @@ internal data class ValidateReviewedMaterialsStep(val availableItems: List<Item>
                 errors.add(ValidationFailure.CustomValidation("materials", "Unknown item: ${row.itemId}"))
                 return@forEach
             }
-            requirements[item] = row.amount
+            // Summed, not assigned: with region groups (MCO-398) the same item legitimately
+            // arrives once per region it appears in, and the last row would otherwise silently
+            // replace the earlier ones — 200 oak planks in the shell erasing 500 in the frame.
+            requirements[item] = (requirements[item] ?: 0) + row.amount
         }
 
         if (errors.isNotEmpty()) return Result.failure(AppFailure.ValidationError(errors))
@@ -248,33 +267,36 @@ data class MapSchematicToMaterialsStep(
 
         val byId = availableItems.associateBy { it.id }
 
-        // Fluids first, because they are the one case where the cell count is not the amount
-        // to gather: a bucket is reusable, so 4,013 water cells are one water bucket carried
-        // and refilled. The cell count is kept as [SchematicMaterials.placedCounts] so the
-        // review screen can still show it — see FLUID_PLACEMENTS.
-        val fluidCells = mutableMapOf<Item, Int>()
-        input.items.forEach { (blockId, amount) ->
-            val bucketId = FLUID_PLACEMENTS[blockId] ?: return@forEach
-            val bucket = byId[bucketId] ?: return@forEach
-            fluidCells[bucket] = (fluidCells[bucket] ?: 0) + amount
+        // Per subregion where the file has them (MCO-398), so the review screen can offer a
+        // decorative shell as one group to strike. A region contributing nothing after
+        // resolution is dropped rather than shown as an empty group.
+        val regions = input.regions.mapNotNull { region ->
+            val resolved = resolve(region.items, byId)
+            resolved.takeIf { it.requirements.isNotEmpty() }
+                ?.let { ResolvedRegion(region.name, it.requirements, it.placedCounts) }
         }
 
-        // A schematic stores placed block-state ids; some are gathered as a different
-        // item (birch_wall_sign -> birch_sign) and some are not a material at all
-        // (an extended piston's head). Normalize, then merge amounts for block ids that
-        // collapse onto the same item (e.g. a build with both a sign and a wall sign).
-        val resolved = input.items.entries
-            .filter { (blockId, _) -> blockId !in FLUID_PLACEMENTS }
-            .mapNotNull { (blockId, amount) -> resolveMaterial(blockId, byId)?.let { it to amount } }
-            .groupBy({ it.first }, { it.second })
-            .map { (item, amounts) -> item to amounts.sum() }
+        // The flat list is the sum over regions, not a second resolution of the flattened
+        // file — otherwise the two would disagree about fluids. Resolving per region caps
+        // each region's water at one bucket, so a build whose pond spans two regions asks
+        // for two: one per section you actually build. Resolving the flattened file would
+        // say one, and the review screen (which totals the region rows) would say two.
+        // One bucket per section is the honest reading, and both paths now give it.
+        //
+        // A `Litematica` with no regions at all — the idea path, and directly constructed
+        // test data — still resolves the flattened map, which is the pre-MCO-398 behaviour.
+        val flat = if (regions.isEmpty()) {
+            resolve(input.items, byId)
+        } else {
+            ResolvedMaterials(
+                requirements = sumRequirements(regions.map { it.requirements }),
+                placedCounts = regions.map { it.placedCounts }.reduce { acc, next ->
+                    (acc.keys + next.keys).associateWith { (acc[it] ?: 0) + (next[it] ?: 0) }
+                },
+            )
+        }
 
-        // One bucket per fluid, on top of any the build stores as real items.
-        val byItem = LinkedHashMap<Item, Int>()
-        resolved.forEach { (item, amount) -> byItem[item] = (byItem[item] ?: 0) + amount }
-        fluidCells.keys.forEach { bucket -> byItem[bucket] = (byItem[bucket] ?: 0) + 1 }
-
-        val requirements = byItem.map { (item, amount) -> item to amount }
+        val requirements = flat.requirements
 
         if (requirements.isEmpty()) {
             return Result.failure(
@@ -292,10 +314,54 @@ data class MapSchematicToMaterialsStep(
         return Result.success(
             SchematicMaterials(
                 requirements = requirements,
-                placedCounts = fluidCells.entries.associate { (bucket, cells) -> bucket.id to cells },
+                placedCounts = flat.placedCounts,
+                regions = regions,
             )
         )
     }
+
+    /** One region's — or the whole file's — block counts, resolved to gathered items. */
+    private fun resolve(counts: Map<String, Int>, byId: Map<String, Item>): ResolvedMaterials {
+        // Fluids first, because they are the one case where the cell count is not the amount
+        // to gather: a bucket is reusable, so 4,013 water cells are one water bucket carried
+        // and refilled. The cell count is kept as [SchematicMaterials.placedCounts] so the
+        // review screen can still show it — see FLUID_PLACEMENTS.
+        val fluidCells = LinkedHashMap<Item, Int>()
+        counts.forEach { (blockId, amount) ->
+            val bucketId = FLUID_PLACEMENTS[blockId] ?: return@forEach
+            val bucket = byId[bucketId] ?: return@forEach
+            fluidCells[bucket] = (fluidCells[bucket] ?: 0) + amount
+        }
+
+        // A schematic stores placed block-state ids; some are gathered as a different
+        // item (birch_wall_sign -> birch_sign) and some are not a material at all
+        // (an extended piston's head). Normalize, then merge amounts for block ids that
+        // collapse onto the same item (e.g. a build with both a sign and a wall sign).
+        val resolved = counts.entries
+            .filter { (blockId, _) -> blockId !in FLUID_PLACEMENTS }
+            .mapNotNull { (blockId, amount) -> resolveMaterial(blockId, byId)?.let { it to amount } }
+
+        // One bucket per fluid, on top of any the build stores as real items.
+        val byItem = LinkedHashMap<Item, Int>()
+        resolved.forEach { (item, amount) -> byItem[item] = (byItem[item] ?: 0) + amount }
+        fluidCells.keys.forEach { bucket -> byItem[bucket] = (byItem[bucket] ?: 0) + 1 }
+
+        return ResolvedMaterials(
+            requirements = byItem.map { (item, amount) -> item to amount },
+            placedCounts = fluidCells.entries.associate { (bucket, cells) -> bucket.id to cells },
+        )
+    }
+
+    private fun sumRequirements(lists: List<List<Pair<Item, Int>>>): List<Pair<Item, Int>> {
+        val byItem = LinkedHashMap<Item, Int>()
+        lists.forEach { list -> list.forEach { (item, amount) -> byItem[item] = (byItem[item] ?: 0) + amount } }
+        return byItem.map { (item, amount) -> item to amount }
+    }
+
+    private data class ResolvedMaterials(
+        val requirements: List<Pair<Item, Int>>,
+        val placedCounts: Map<String, Int>,
+    )
 
     /**
      * Resolves a schematic block-state id to the item a player actually gathers, or
@@ -399,7 +465,12 @@ private data class MapSchematicToProjectStep(
             ?: "Imported build"
 
         return Result.success(
-            SchematicProject(name.take(100), materials.requirements.toMap(), materials.placedCounts)
+            SchematicProject(
+                name.take(100),
+                materials.requirements.toMap(),
+                materials.placedCounts,
+                materials.regions,
+            )
         )
     }
 }

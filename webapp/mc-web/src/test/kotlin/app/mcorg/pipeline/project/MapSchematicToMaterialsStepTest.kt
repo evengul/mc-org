@@ -2,6 +2,7 @@ package app.mcorg.pipeline.project
 
 import app.mcorg.domain.model.minecraft.Item
 import app.mcorg.domain.model.minecraft.Litematica
+import app.mcorg.domain.model.minecraft.LitematicaRegion
 import app.mcorg.pipeline.Result
 import kotlinx.coroutines.runBlocking
 import kotlin.test.Test
@@ -242,6 +243,104 @@ class MapSchematicToMaterialsStepTest {
         assertIs<Result.Success<SchematicMaterials>>(result)
         assertEquals(listOf("minecraft:oak_planks"), result.value.requirements.map { it.first.id })
         assertTrue(result.value.placedCounts.isEmpty())
+    }
+
+    // ---- subregions (MCO-398) ---------------------------------------------------------
+
+    private fun litematicaWithRegions(vararg regions: Pair<String, Map<String, Int>>): Litematica {
+        val flattened = mutableMapOf<String, Int>()
+        regions.forEach { (_, items) ->
+            items.forEach { (id, count) -> flattened[id] = (flattened[id] ?: 0) + count }
+        }
+        return Litematica(
+            "Build", "", "", Triple(1, 1, 1), flattened,
+            regions.map { (name, items) -> LitematicaRegion(name, items) },
+        )
+    }
+
+    @Test
+    fun `each region resolves to its own material list`() = runBlocking {
+        val result = MapSchematicToMaterialsStep(catalog).process(
+            litematicaWithRegions(
+                "Frame" to mapOf("minecraft:oak_planks" to 500),
+                "Shell" to mapOf("minecraft:birch_wall_sign" to 3),
+            )
+        )
+        assertIs<Result.Success<SchematicMaterials>>(result)
+
+        assertEquals(listOf("Frame", "Shell"), result.value.regions.map { it.name })
+        assertEquals(
+            listOf("minecraft:oak_planks" to 500),
+            result.value.regions[0].requirements.map { it.first.id to it.second },
+        )
+        assertEquals(
+            listOf("minecraft:birch_sign" to 3),
+            result.value.regions[1].requirements.map { it.first.id to it.second },
+            "block-state redirects apply inside a region, not just to the flattened file",
+        )
+    }
+
+    @Test
+    fun `an item in two regions is summed in the flat list and kept apart per region`() = runBlocking {
+        val result = MapSchematicToMaterialsStep(catalog).process(
+            litematicaWithRegions(
+                "Frame" to mapOf("minecraft:oak_planks" to 500),
+                "Shell" to mapOf("minecraft:oak_planks" to 200),
+            )
+        )
+        assertIs<Result.Success<SchematicMaterials>>(result)
+
+        assertEquals(
+            listOf("minecraft:oak_planks" to 700),
+            result.value.requirements.map { it.first.id to it.second },
+        )
+        assertEquals(listOf(500, 200), result.value.regions.map { it.requirements.single().second })
+    }
+
+    @Test
+    fun `a region resolving to nothing is dropped rather than offered as an empty section`() = runBlocking {
+        val result = MapSchematicToMaterialsStep(catalog).process(
+            litematicaWithRegions(
+                "Frame" to mapOf("minecraft:oak_planks" to 5),
+                "Air pocket" to mapOf("minecraft:piston_head" to 9),
+            )
+        )
+        assertIs<Result.Success<SchematicMaterials>>(result)
+
+        assertEquals(listOf("Frame"), result.value.regions.map { it.name })
+    }
+
+    @Test
+    fun `a fluid spanning two regions costs a bucket per region`() = runBlocking {
+        // One bucket per section you actually build. Resolving the flattened file instead would
+        // say one bucket total, and the review screen — which totals the section rows — would
+        // say two. Both paths agree on two so the screen and the create step cannot diverge.
+        val result = MapSchematicToMaterialsStep(catalog).process(
+            litematicaWithRegions(
+                "Pond" to mapOf("minecraft:water" to 900),
+                "Moat" to mapOf("minecraft:water" to 40),
+            )
+        )
+        assertIs<Result.Success<SchematicMaterials>>(result)
+
+        assertEquals(
+            listOf("minecraft:water_bucket" to 2),
+            result.value.requirements.map { it.first.id to it.second },
+        )
+        assertEquals(mapOf("minecraft:water_bucket" to 940), result.value.placedCounts)
+        assertEquals(
+            listOf(900, 40),
+            result.value.regions.map { it.placedCounts.getValue("minecraft:water_bucket") },
+            "each section keeps its own cell count for its own row",
+        )
+    }
+
+    @Test
+    fun `a file with no regions still resolves the flattened list`() {
+        // The pre-MCO-398 path, still taken by directly constructed Litematica and the idea door.
+        val byId = map(mapOf("minecraft:oak_planks" to 12))
+        assertEquals(12, byId["minecraft:oak_planks"])
+        assertTrue(materials(mapOf("minecraft:oak_planks" to 12)).regions.isEmpty())
     }
 
     @Test

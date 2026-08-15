@@ -187,7 +187,10 @@ internal data class ApplyReviewedRequirementsStep(
                 errors.add(ValidationFailure.CustomValidation("materials", "Unknown item: ${row.itemId}"))
                 return@forEach
             }
-            requirements[item] = row.amount
+            // Summed, not assigned — see the same note in ValidateReviewedMaterialsStep. The
+            // idea door has no regions today, but it posts to the same codec and the two
+            // readers must not disagree about what a repeated id means.
+            requirements[item] = (requirements[item] ?: 0) + row.amount
         }
 
         if (errors.isNotEmpty()) return Result.failure(AppFailure.ValidationError(errors))
