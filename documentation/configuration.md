@@ -41,7 +41,7 @@ Legend: **S** = secret (never in a committed file; Fly secret or GitHub secret).
 | `APP_HOST` | | unused³ | required | optional | `app.seam.gg` in PRODUCTION | `test.env`, `fly.toml` |
 | `PREVIEW_PASSWORD` | S | unused | **required** | unused | — | `test.env`, `dev.yml` |
 | `DEMO_USER` | | optional | optional | optional | none⁴ | `local.env.example`, `test.env` |
-| `WEBHOOK_ADMIN_SECRET` | S | optional | optional | required⁵ | — | Fly secret |
+| `WEBHOOK_ADMIN_SECRET` | S | optional | optional | optional⁵ | — | Fly secret (currently unset) |
 | `SEAM_DISCORD_URL` | | optional | optional | optional | — | `fly.toml` |
 | `SEAM_WEBHOOK_SHARED_SECRET` | S | optional | optional | optional⁶ | — | Fly secret |
 | `MICROSOFT_LOGIN_BASE_URL` | | optional | optional | optional | `https://login.microsoftonline.com` | `fly.toml`, overridden per-test by WireMock |
@@ -63,10 +63,14 @@ unused.
 ⁴ No default since MCO-333. It previously fell back to the literal `"evegul"`. With `DEMO_USER`
 unset, demo sign-in fails closed and redirects to `/auth/sign-in?error=demo_sign_in_not_configured`.
 
-⁵ Intended to be live in production (decision recorded 2026-08-15). The loader does **not** yet
-enforce it, because the endpoints already fail closed when it is absent and crashing the whole app
-over an optional admin surface is the worse failure. Once the Fly secret is set, promoting this to
-a loader-enforced requirement is a one-line change in `readConfig`.
+⁵ Deliberately unset in production (decision recorded 2026-08-15). It is the sole gate on the
+machine-facing `POST/DELETE /integrations/webhooks` routes, which are JWT-exempt — and which
+**nothing currently calls**. The in-app Discord connect flow in world settings goes through
+`CreateWebhookSubscriptionStep` directly, authenticated as a world admin, so the user-facing
+integration does not depend on this. Unset means those two routes answer 503; set it only when you
+want scripted subscription management. It is a machine-to-machine credential — generate it
+(`openssl rand -base64 32`), do not choose it. Rotating is safe: nothing persists it, and existing
+subscriptions carry their own separate per-delivery signing secret.
 
 ⁶ Set as a Fly secret and live in production. When absent, the Discord settings section renders a
 "not configured" state rather than failing.
