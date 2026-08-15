@@ -53,6 +53,7 @@ class ImportIdeaReviewIT : WithUser() {
     private var worldId: Int = 0
     private var ideaId: Int = 0
     private var airyIdeaId: Int = 0
+    private var expensiveIdeaId: Int = 0
     private var wideIdeaId: Int = 0
 
     @BeforeAll
@@ -75,6 +76,12 @@ class ImportIdeaReviewIT : WithUser() {
         addRequirement(airyIdeaId, "minecraft:air", 9_389_854)
         addRequirement(airyIdeaId, "minecraft:water", 12)
         addRequirement(airyIdeaId, "minecraft:oak_planks", 64)
+
+        // MCO-397: a curated "slow to gather" row, which must stay off the strip.
+        seedItem("minecraft:elytra", "Elytra")
+        expensiveIdeaId = createIdea("Elytra Wall")
+        addRequirement(expensiveIdeaId, "minecraft:elytra", 3)
+        addRequirement(expensiveIdeaId, "minecraft:oak_planks", 20)
 
         // MCO-315: an idea whose list is far wider than the ~466 rows that used to fit in a
         // request body. The idea door shares the review screen, so it shared the data loss.
@@ -156,6 +163,23 @@ class ImportIdeaReviewIT : WithUser() {
         assertFalse(body.contains("minecraft:water="), "the fluid id itself must not be a row")
         assertContains(body, "placed 12×", message = "the schematic's own number stays visible")
         assertFalse(body.contains("Not really materials"), "the warning kind is gone entirely")
+    }
+
+    @Test
+    fun `a slow-to-gather row keeps its chip but never reaches the strip`() = testApplication {
+        // MCO-397. An elytra is a real expedition and the row says so, but the user picked the
+        // build knowing that — it is not worth a "!" above the fold. The strip is reserved for
+        // creative-only rows, the one kind that asks for a decision before the import lands.
+        setupRoutes()
+
+        val response = client.get("/ideas/$expensiveIdeaId/import/review?worldId=$worldId") {
+            addAuthCookie(this)
+        }
+
+        val body = response.bodyAsText()
+        assertContains(body, "Slow to gather", message = "the row chip stays")
+        assertFalse(body.contains("Expensive to gather"), "but the strip heading is gone")
+        assertFalse(body.contains("callout__icon"), "and with nothing left to say, so is the whole strip")
     }
 
     @Test

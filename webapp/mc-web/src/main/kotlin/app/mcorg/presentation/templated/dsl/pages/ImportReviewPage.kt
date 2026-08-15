@@ -55,8 +55,9 @@ import kotlinx.html.tr
  * Litematica's own material-swap edits the schematic itself and keeps them in sync by
  * construction. That is the right door; this screen deliberately no longer offers a worse one.
  *
- * [warnings] (MCO-305) name the painful rows without standing in their way: a strip above
- * the list and a chip on the row itself. Advisory only — every warned row arrives checked.
+ * [warnings] (MCO-305) name the painful rows without standing in their way. Advisory only —
+ * every warned row arrives checked. Since MCO-397 the strip above the list carries only
+ * creative-only rows, the one kind worth interrupting for; everything else is a row chip.
  */
 fun importReviewPage(
     user: TokenProfile,
@@ -188,12 +189,22 @@ private fun FlowContent.materialsField(rows: List<Map.Entry<Item, Int>>, exclude
 }
 
 /**
- * One low-weight strip, one paragraph per kind of pain (MCO-305). It never blocks the import
- * and it never unchecks anything — it exists so that striking a row is a decision rather than
- * a discovery. Long lists are truncated: the per-row chips carry the full detail.
+ * The strip carries **creative-only rows and nothing else** (MCO-397).
+ *
+ * MCO-305 gave every warning kind a paragraph here, which put a `!` above the fold of every
+ * import. Two of the three did not earn it. "Not really materials" is gone entirely (MCO-396
+ * — those rows no longer exist). "Slow to gather" is now the row chip alone: a wither
+ * skeleton skull *is* a grind, but the user chose the build knowing that, and interrupting
+ * them with it reads as an error where there is none.
+ *
+ * What is left is the one kind that asks for a decision *now*: a creative-only row is one to
+ * strike before it becomes a permanently blocked plan node. A `!` is proportionate for that.
+ *
+ * Long lists are truncated — the per-row chips carry the full detail.
  */
 private fun FlowContent.warningStrip(warnings: ImportWarnings) {
-    if (warnings.isEmpty) return
+    val blocked = warnings.of(ImportWarningKind.UNOBTAINABLE)
+    if (blocked.isEmpty()) return
 
     div("callout import-review__warnings") {
         span("callout__icon") {
@@ -201,14 +212,10 @@ private fun FlowContent.warningStrip(warnings: ImportWarnings) {
             +"!"
         }
         div("callout__body") {
-            ImportWarningKind.entries.forEach { kind ->
-                val flagged = warnings.of(kind)
-                if (flagged.isEmpty()) return@forEach
-                p("import-review__warning") {
-                    span("import-review__warning-heading") { +"${kind.heading}: " }
-                    +namesOf(flagged)
-                    +". ${kind.explanation}"
-                }
+            p("import-review__warning") {
+                span("import-review__warning-heading") { +"${ImportWarningKind.UNOBTAINABLE.heading}: " }
+                +namesOf(blocked)
+                +". ${ImportWarningKind.UNOBTAINABLE.explanation}"
             }
         }
     }
