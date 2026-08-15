@@ -13,8 +13,6 @@ usage() {
     echo "  --database            Include database tests (requires Docker)"
     echo "  --integration         Include integration tests (requires Docker and the app running)"
     echo "  --exclude-unit-tests  Skip unit tests"
-    echo "  --clean               Wipe target/ first. Needed after an mc-domain change — Kotlin's"
-    echo "                        incremental compilation leaves stale classes across modules."
     echo ""
     echo "Anything after a literal '--' is forwarded verbatim to the underlying 'mvn test' runs,"
     echo "e.g. narrow to one class:  $0 --database -- -Dtest=IngestionLedgerStepsTest"
@@ -24,15 +22,10 @@ usage() {
 DATABASE=false
 INTEGRATION=false
 UNIT=true
-CLEAN=false
 PASSTHROUGH=()
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --clean)
-            CLEAN=true
-            shift
-            ;;
         --database)
             DATABASE=true
             shift
@@ -65,11 +58,6 @@ cd "$WEBAPP_DIR"
 if [[ ! -f mc-web/src/main/resources/keys/private_key.pem ]]; then
     echo "Generating JWT signing keys..."
     (cd mc-web && bash create-keys.sh)
-fi
-
-if [[ "$CLEAN" == true ]]; then
-    echo "Cleaning..."
-    mvn clean -q -B
 fi
 
 echo "Compiling..."
