@@ -82,8 +82,8 @@ measure stale jars and not notice:
 mvn -q install -DskipTests -pl mc-domain,mc-pipeline,mc-engine
 ```
 
-`-am` does **not** help here — that is the other half of the MCO-285 note and it applies to
-`-pl` test/compile runs, not to `exec:java`.
+`-am` does **not** help here — the MCO-285 note's `-am` fix applies to `-pl` test/compile runs,
+not to `exec:java`.
 
 ## Tests
 

@@ -34,7 +34,13 @@
         <flyway.version>13.2.0</flyway.version>
         <surefire.version>3.5.6</surefire.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <kotlin.compiler.incremental>true</kotlin.compiler.incremental>
+        <!--
+          Do NOT re-enable kotlin.compiler.incremental (MCO-378). kotlin-maven-plugin's
+          incremental compilation has no cross-module ABI tracking, so a changed signature
+          in mc-domain leaves stale callers in the other modules' target/classes and the
+          app fails at runtime with NoSuchMethodError. A full rebuild of all six modules
+          is ~13s — faster than the `mvn clean install` it forced us into anyway.
+        -->
         <main.class>app.mcorg.ApplicationKt</main.class>
         <surefire.excludedGroups>database</surefire.excludedGroups>
 
