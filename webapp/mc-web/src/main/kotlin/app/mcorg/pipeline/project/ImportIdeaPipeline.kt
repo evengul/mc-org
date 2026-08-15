@@ -16,7 +16,6 @@ import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.failure.ValidationFailure
 import app.mcorg.pipeline.project.resources.GetItemsInWorldVersionStep
-import app.mcorg.pipeline.resources.findSubstitutionFamilies
 import app.mcorg.presentation.handler.defaultHandleError
 import app.mcorg.presentation.handler.handlePipeline
 import io.ktor.server.response.respond
@@ -76,7 +75,6 @@ suspend fun ApplicationCall.handleReviewIdeaImport() {
                     worldName = getWorldName(worldId),
                     projectName = idea.name,
                     requirements = idea.requirements,
-                    families = findSubstitutionFamilies(items, idea.requirements.map { it.key.id }),
                     warnings = computeImportWarnings(worldId, idea.requirements),
                     action = Link.Ideas.single(ideaId) + "/import",
                     hiddenFields = buildMap {

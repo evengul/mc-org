@@ -36,57 +36,10 @@
     max-width: 420px;
 }
 
-/* MCO-304 — batch substitution. The swap block sits above the list because it rewrites it;
-   putting it below would read as an action on a decision already made. */
 .import-review__materials {
     display: flex;
     flex-direction: column;
     gap: var(--space-4);
-}
-
-/* One grid for the whole block, with the swap rows as `display: contents`, so the selects and
-   buttons line up in real columns — per-row flexbox only aligns within its own row, which
-   leaves the controls stepping raggedly wherever a family name is longer. */
-.import-review__swaps {
-    display: grid;
-    grid-template-columns: max-content max-content minmax(12ch, 20ch) max-content;
-    align-items: center;
-    gap: var(--space-2) var(--space-3);
-    padding: var(--space-3) var(--space-4);
-    background: var(--bg-raised);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-}
-
-.import-review__swaps > .section-label,
-.import-review__swaps-lead {
-    grid-column: 1 / -1;
-}
-
-.import-review__swap {
-    display: contents;
-}
-
-.import-review__swaps-lead {
-    font-family: var(--font-body);
-    font-size: var(--text-sm);
-    color: var(--text-muted);
-    margin: 0 0 var(--space-2);
-    max-width: 70ch;
-}
-
-.import-review__swap-from {
-    font-family: var(--font-ui);
-    font-size: var(--text-sm);
-    color: var(--text-primary);
-}
-
-.import-review__swap-arrow {
-    color: var(--text-muted);
-}
-
-.import-review__swap-to {
-    width: 100%;
 }
 
 /* MCO-305 — the warning strip. Informational, never blocking, so it sits at the weight of a
@@ -182,25 +135,4 @@
     .import-review__actions {
         flex-direction: column;
     }
-
-    /* The swap row is label + select + button; side by side it overflows on a phone, so the
-       grid collapses back to stacked blocks. */
-    .import-review__swaps {
-        display: flex;
-        flex-direction: column;
-        /* The grid centres items in their cell; in a column flex that reads as centred text. */
-        align-items: stretch;
-    }
-
-    .import-review__swap {
-        display: flex;
-        align-items: stretch;
-        flex-direction: column;
-        gap: var(--space-2);
-    }
-
-    .import-review__swap-arrow {
-        display: none;
-    }
-
 }

@@ -7,9 +7,8 @@
  * include checkboxes carry no name of their own — this file is what folds their state back
  * into that field.
  *
- * The DOM is the source of truth; the field is only transport. It is rebuilt on every change,
- * again on submit, and again when HTMX is about to send (the swap round-trip), so a missed
- * event can never turn into a wrong list on the wire.
+ * The DOM is the source of truth; the field is only transport. It is rebuilt on every change
+ * and again on submit, so a missed change event cannot turn into a wrong list on the wire.
  */
 (function () {
     var FORM_ID = 'import-review-form';
@@ -57,19 +56,5 @@
 
     form.addEventListener('submit', function () {
         sync();
-    });
-
-    // HTMX has already collected the parameters by the time it fires this, so the fresh value
-    // goes into the request rather than into the DOM. Only ever overwrites a field the request
-    // was already carrying, so unrelated requests bubbling through the form are left alone.
-    form.addEventListener('htmx:configRequest', function (event) {
-        var parameters = event.detail && event.detail.parameters;
-        if (!parameters || typeof parameters.has !== 'function') {
-            return;
-        }
-        var value = sync();
-        if (value !== null && parameters.has('materials')) {
-            parameters.set('materials', value);
-        }
     });
 })();
