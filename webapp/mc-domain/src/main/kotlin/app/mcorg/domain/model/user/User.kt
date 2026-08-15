@@ -15,9 +15,12 @@ data class WorldMember(
     val updatedAt: ZonedDateTime
 ) : User
 
+// No email field: the app never collected one. `users.email` held a synthetic
+// "<uuid>@minecraft.temp" placeholder for every account, which leaked into the admin page and into
+// event actor names. Dropped in V2_53_0 rather than backfilled — nothing needs an email, and
+// collecting one we do not use would turn a pseudonymous dataset into personal data (MCO-339).
 data class Profile(
     override val id: Int,
-    val email: String
 ) : User {
     val discordConnection: Boolean
         get() = false

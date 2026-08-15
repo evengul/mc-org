@@ -22,9 +22,9 @@ data object CreateUserIfNotExistsStep : Step<MinecraftProfile, AppFailure.Databa
         // First, check if a user with this UUID already exists
         val checkUserStep = DatabaseSteps.query(
             sql = SafeSQL.select("""
-                SELECT u.id, u.email, mp.uuid, mp.username 
-                FROM users u 
-                JOIN minecraft_profiles mp ON u.id = mp.user_id 
+                SELECT u.id, mp.uuid, mp.username
+                FROM users u
+                JOIN minecraft_profiles mp ON u.id = mp.user_id
                 WHERE mp.uuid = ?
             """.trimIndent()),
             parameterSetter = { statement, profile: MinecraftProfile ->
@@ -34,7 +34,6 @@ data object CreateUserIfNotExistsStep : Step<MinecraftProfile, AppFailure.Databa
                 if (resultSet.next()) {
                     ExistingUser(
                         id = resultSet.getInt("id"),
-                        email = resultSet.getString("email"),
                         uuid = resultSet.getString("uuid"),
                         currentUsername = resultSet.getString("username")
                     )
@@ -185,24 +184,21 @@ data object CreateUserIfNotExistsStep : Step<MinecraftProfile, AppFailure.Databa
 
     private data class ExistingUser(
         val id: Int,
-        val email: String,
         val uuid: String,
         val currentUsername: String
     )
 
     private data class CreateUserWithProfileStep(val connection: TransactionConnection) : Step<MinecraftProfile, AppFailure.DatabaseError, TokenProfile> {
         override suspend fun process(input: MinecraftProfile): Result<AppFailure.DatabaseError, TokenProfile> {
-            // First create the user record with a placeholder email
+            // The users row carries no attributes of its own — identity lives on the joined
+            // minecraft_profiles row. It used to be created with a synthetic
+            // "<uuid>@minecraft.temp" email because the column was NOT NULL; V2_53_0 dropped it.
             val createUserStep = DatabaseSteps.query(
                 sql = SafeSQL.insert("""
-                    INSERT INTO users (email) 
-                    VALUES (?) 
+                    INSERT INTO users DEFAULT VALUES
                     RETURNING id
                 """.trimIndent()),
-                parameterSetter = { statement, profile: MinecraftProfile ->
-                    // Use UUID as temporary email since we don't have email in MinecraftProfile
-                    statement.setString(1, "${profile.uuid}@minecraft.temp")
-                },
+                parameterSetter = { _, _: MinecraftProfile -> },
                 resultMapper = { resultSet: ResultSet ->
                     if (resultSet.next()) {
                         resultSet.getInt("id")

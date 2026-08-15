@@ -1,5 +1,7 @@
 package app.mcorg.webhook
 
+import app.mcorg.logging.redacted
+
 import app.mcorg.config.AppConfig
 import app.mcorg.domain.Production
 import app.mcorg.domain.pipeline.Step
@@ -104,7 +106,13 @@ data class CreateWebhookSubscriptionInput(
     val secret: String,
     val eventFilterJson: String,
     val metadataJson: String,
-)
+) {
+    // MCO-340: `secret` arrives as a raw request parameter and becomes the subscription's
+    // signing key.
+    override fun toString() = "CreateWebhookSubscriptionInput(worldId=$worldId, " +
+        "callbackUrl=$callbackUrl, secret=${redacted(secret)}, " +
+        "eventFilterJson=$eventFilterJson, metadataJson=$metadataJson)"
+}
 
 object CreateWebhookSubscriptionStep : Step<CreateWebhookSubscriptionInput, AppFailure.DatabaseError, Int> {
     override suspend fun process(input: CreateWebhookSubscriptionInput) =

@@ -152,6 +152,10 @@ when the PR carries the **`preview`** label.
 
 ## Environment (WSL2)
 
+- **What may go in a log line is governed by [documentation/logging.md](documentation/logging.md)**
+  — pseudonymous posture (Minecraft UUID/username fine; emails, query strings, raw driver
+  messages and user-authored content not), plus the two libraries whose exception messages carry
+  payloads. Read it before adding a `logger.error(..., e)`.
 - **Every environment variable is listed in [documentation/configuration.md](documentation/configuration.md)**
   — what it does, which environments require it, its default, and where it is set. `readConfig()`
   in `mc-web/.../config/ConfigLoader.kt` is the only place in `src/main` that calls

@@ -52,7 +52,15 @@ sealed interface AppFailure {
         data object NetworkError : ApiError
         data object TimeoutError : ApiError
         data object RateLimitExceeded : ApiError
-        data class HttpError(val statusCode: Int, val body: String? = null) : ApiError
+        data class HttpError(val statusCode: Int, val body: String? = null) : ApiError {
+            // MCO-340. `body` is a verbatim upstream response — for the auth pipeline that is
+            // Microsoft's token endpoint. This type is already interpolated into a log line by
+            // cli/IngestServerFiles ("ingestion failed: ${result.error}"), where the body is
+            // harmless Mojang manifest text; the point is that nothing stopped the same
+            // interpolation appearing on the auth path. Keep the body reachable as a property
+            // for callers that branch on it, but never let it render.
+            override fun toString() = "HttpError(statusCode=$statusCode, body=<${body?.length ?: 0} chars>)"
+        }
         data object SerializationError : ApiError
         data class ChecksumMismatch(val expected: String, val actual: String) : ApiError
         data object UnknownError : ApiError

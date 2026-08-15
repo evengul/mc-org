@@ -14,7 +14,7 @@ data class GetManagedUsersInput(
 
 val GetManagedUsersStep = DatabaseSteps.query<GetManagedUsersInput, List<ManagedUser>>(
     SafeSQL.select("""
-                SELECT users.id as id, minecraft_profiles.username as minecraft_username, users.email, minecraft_profiles.created_at as joined_at, minecraft_profiles.last_login as last_seen
+                SELECT users.id as id, minecraft_profiles.username as minecraft_username, minecraft_profiles.created_at as joined_at, minecraft_profiles.last_login as last_seen
                 FROM users
                 JOIN minecraft_profiles on users.id = minecraft_profiles.user_id
                 WHERE ? = '' OR LOWER(minecraft_profiles.username) LIKE '%' || ? || '%'
@@ -36,7 +36,6 @@ val GetManagedUsersStep = DatabaseSteps.query<GetManagedUsersInput, List<Managed
                 id = rs.getInt("id"),
                 displayName = rs.getString("minecraft_username"),
                 minecraftUsername = rs.getString("minecraft_username"),
-                email = rs.getString("email"),
                 globalRole = Role.MEMBER, // TODO: replace with list of global roles,
                 joinedAt = rs.getTimestamp("joined_at").toInstant().atZone(ZoneOffset.UTC),
                 lastSeen = rs.getTimestamp("last_seen")?.toInstant()?.atZone(ZoneOffset.UTC),

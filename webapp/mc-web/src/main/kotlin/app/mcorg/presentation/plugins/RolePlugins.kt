@@ -118,7 +118,8 @@ val DemoUserPlugin = createRouteScopedPlugin("DemoUserPlugin") {
                 }
             if (user !== null && user.isDemoUserInProduction() && it.request.httpMethod !in listOf(HttpMethod.Get, HttpMethod.Options)) {
                 val logger = LoggerFactory.getLogger("DemoUserPlugin")
-                logger.warn("Blocked ${it.request.httpMethod} request from demo user '${user.minecraftUsername}' to ${it.request.uri}")
+                // path(), not uri() (MCO-339): uri includes the query string, path does not.
+                logger.warn("Blocked ${it.request.httpMethod} request from demo user '${user.minecraftUsername}' to ${it.request.path()}")
                 it.respond(HttpStatusCode.Forbidden, "Demo users are not allowed to ${it.request.httpMethod} requests.")
             }
         }

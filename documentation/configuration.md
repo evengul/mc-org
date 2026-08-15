@@ -50,6 +50,8 @@ Legend: **S** = secret (never in a committed file; Fly secret or GitHub secret).
 | `MINECRAFT_BASE_URL` | | optional | optional | optional | `https://api.minecraftservices.com` | `fly.toml` |
 | `LAUNCHER_META_BASE_URL` | | optional | optional | optional | `https://launchermeta.mojang.com` | nowhere — default is the intended value |
 | `FORCE_REINGEST` | | optional | optional | optional | — | ad hoc, per ingestion run |
+| `LOG_LEVEL` | | optional | optional | optional | `INFO` | nowhere — set ad hoc for a verbose local run⁸ |
+| `APP_LOG_LEVEL` | | optional | optional | optional | `INFO` | nowhere — set ad hoc for a verbose local run⁸ |
 
 ¹ Not required when `SKIP_MICROSOFT_SIGN_IN=true`, which is the normal LOCAL and ingestion setting.
 
@@ -84,6 +86,12 @@ MCO-396: the code default was removed without adding the corresponding deploymen
 The preview's Neon branch is forked from production, so `DEMO_USER=evegul` lands in real worlds —
 the reason previews are worth looking at. It is not a secret and is not exposed: the whole preview
 sits behind `PREVIEW_PASSWORD` Basic Auth, and the fork is torn down with the app.
+
+⁸ The only two variables **not** read by `readConfig` — logback resolves them itself when it parses
+`logback.xml`, before any application code runs, so they cannot go through the loader. `LOG_LEVEL`
+sets the root level (mostly third-party noise); `APP_LOG_LEVEL` sets `app.mcorg` separately,
+because that is the one that turns on `ValidationSteps`' raw-parameter-value logging. Neither
+should be below `INFO` in production — see MCO-337 and the comments in `logback.xml`.
 
 ## Production database URLs: pooler vs direct
 

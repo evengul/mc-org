@@ -130,7 +130,6 @@ private fun FlowContent.userManagementTable(
             tr {
                 th { +"User" }
                 th { +"Username" }
-                th { +"Email" }
                 th { +"Status" }
                 th { +"Joined" }
                 th { +"Last Active" }
@@ -143,7 +142,7 @@ private fun FlowContent.userManagementTable(
         tfoot {
             tr {
                 td {
-                    attributes["colspan"] = "7"
+                    attributes["colspan"] = "6"
                     paginationInfo(totalUserCount, currentPage, AdminTable.USERS)
                 }
             }
@@ -156,7 +155,7 @@ fun TBODY.userRows(users: List<ManagedUser>) {
     if (users.isEmpty()) {
         tr("data-table__empty") {
             td {
-                attributes["colspan"] = "7"
+                attributes["colspan"] = "6"
                 +"No matches"
             }
         }
@@ -171,10 +170,6 @@ fun TBODY.userRows(users: List<ManagedUser>) {
             td {
                 attributes["data-label"] = "Username"
                 +user.minecraftUsername
-            }
-            td {
-                attributes["data-label"] = "Email"
-                +user.email
             }
             td {
                 attributes["data-label"] = "Status"

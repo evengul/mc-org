@@ -401,11 +401,10 @@ class AuthenticationPipelineTest {
     }
 
     private fun setupMockForExistingUser() {
-        every { mockConnection.prepareStatement(match { it.contains("SELECT u.id, u.email, mp.uuid, mp.username") }) } returns mockStatement
+        every { mockConnection.prepareStatement(match { it.contains("SELECT u.id, mp.uuid, mp.username") }) } returns mockStatement
         every { mockStatement.executeQuery() } returns mockResultSet
         every { mockResultSet.next() } returns true
         every { mockResultSet.getInt("id") } returns testTokenProfile.id
-        every { mockResultSet.getString("email") } returns "test@example.com"
         every { mockResultSet.getString("uuid") } returns testTokenProfile.uuid
         every { mockResultSet.getString("username") } returns testTokenProfile.minecraftUsername
 
@@ -422,7 +421,7 @@ class AuthenticationPipelineTest {
 
     private fun setupMockForNewUser() {
         // Mock check user query - no existing user
-        every { mockConnection.prepareStatement(match { it.contains("SELECT u.id, u.email, mp.uuid, mp.username") }) } returns mockStatement
+        every { mockConnection.prepareStatement(match { it.contains("SELECT u.id, mp.uuid, mp.username") }) } returns mockStatement
         every { mockStatement.executeQuery() } returns mockResultSet
         every { mockResultSet.next() } returns false
 
@@ -451,11 +450,10 @@ class AuthenticationPipelineTest {
 
     private fun setupMockForUsernameUpdate(oldUsername: String) {
         // Mock check user query - existing user with old username
-        every { mockConnection.prepareStatement(match { it.contains("SELECT u.id, u.email, mp.uuid, mp.username") }) } returns mockStatement
+        every { mockConnection.prepareStatement(match { it.contains("SELECT u.id, mp.uuid, mp.username") }) } returns mockStatement
         every { mockStatement.executeQuery() } returns mockResultSet
         every { mockResultSet.next() } returns true
         every { mockResultSet.getInt("id") } returns testTokenProfile.id
-        every { mockResultSet.getString("email") } returns "test@example.com"
         every { mockResultSet.getString("uuid") } returns testTokenProfile.uuid
         every { mockResultSet.getString("username") } returns oldUsername
 
