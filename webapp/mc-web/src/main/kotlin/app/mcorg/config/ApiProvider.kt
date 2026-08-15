@@ -29,6 +29,9 @@ private data class RateLimitInfo(
     val resetTime: Instant
 )
 
+/** Upper bound on how much of an upstream error body reaches the DEBUG log (MCO-338). */
+const val ERROR_BODY_LOG_LIMIT = 256
+
 sealed class ApiProvider(
     protected val config: ApiConfig
 ) {
@@ -53,7 +56,7 @@ sealed class ApiProvider(
                 ).process(input)
 
                 return when(result) {
-                    is Result.Success -> deserializeJson(result.value)
+                    is Result.Success -> deserializeJson(result.value, url)
                     is Result.Failure -> Result.failure(result.error)
                 }
             }
@@ -88,7 +91,7 @@ sealed class ApiProvider(
                 ).process(input)
 
                 return when(result) {
-                    is Result.Success -> deserializeJson(result.value)
+                    is Result.Success -> deserializeJson(result.value, url)
                     is Result.Failure -> Result.failure(result.error)
                 }
             }
@@ -97,17 +100,48 @@ sealed class ApiProvider(
 
     inline fun <reified T> deserializeJson(
         responseBody: String,
+        url: String? = null,
     ): Result<AppFailure.ApiError.SerializationError, T> {
         return try {
             val result = json.decodeFromString<T>(responseBody)
             Result.success(result)
-        } catch (e: SerializationException) {
-            println("Failed to deserialize JSON response: ${e.message}")
-            Result.failure(AppFailure.ApiError.SerializationError)
-        } catch (e: Exception) {
-            println("Failed to deserialize JSON response: ${e.message}")
+        } catch (_: Exception) {
+            // Deliberately no exception, no message, no body — see logDeserializationFailure.
+            // (SerializationException is an Exception, so one catch covers both cases; they
+            // previously did the same thing anyway.)
+            logDeserializationFailure(T::class.simpleName ?: "an unnamed type", url)
             Result.failure(AppFailure.ApiError.SerializationError)
         }
+    }
+
+    /**
+     * Logs a deserialization failure **without** the exception, its message, or the response body.
+     *
+     * This is not excessive caution (MCO-336). `MinecraftSignInPipeline` routes all four OAuth
+     * token exchanges through [deserializeJson] — the Microsoft, Xbox, XSTS and Minecraft
+     * responses, carrying `access_token`, `id_token` and `Token`. kotlinx-serialization's
+     * `formatDecodingException` appends `"\nJSON input: " + input` to the message, guarded by
+     * `JsonConfiguration.exceptionsWithDebugInfo`, which **defaults to true** and which this
+     * class's `Json { ignoreUnknownKeys; isLenient }` does not disable. So `e.message` on a
+     * decoding failure contains the token payload — and so does the stack trace, since that
+     * renders the same `getMessage()`. Passing `e` as a second argument to the logger leaks it
+     * just as thoroughly as interpolating it.
+     *
+     * The trigger is realistic rather than theoretical: `isLenient = true` means a non-JSON body
+     * — a CDN or proxy error page in front of `login.microsoftonline.com` — fails here *with the
+     * input attached*.
+     *
+     * `@PublishedApi internal` because a public inline function cannot touch the protected
+     * [logger].
+     */
+    @PublishedApi
+    internal fun logDeserializationFailure(targetType: String, url: String?) {
+        logger.warn(
+            "Failed to deserialize a response into {}{}. Body and exception omitted deliberately: " +
+                "they can carry OAuth tokens (MCO-336).",
+            targetType,
+            url?.let { " from $it" } ?: "",
+        )
     }
 
     fun <I> request(
@@ -206,7 +240,34 @@ class DefaultApiProvider(
                             logger.error("Failed to read error body for URL: $url", e)
                             null
                         }
-                        logger.warn("API request failed with status ${response.status.value}: $errorBody")
+                        // MCO-338. Two changes to what used to be one unbounded WARN line:
+                        //
+                        //  * The URL is logged. It was missing, so a production log could not
+                        //    distinguish Xbox from XSTS from Minecraft services — every one of
+                        //    them just said "API request failed with status 401".
+                        //  * The body is no longer in the WARN. It is unbounded and comes from
+                        //    auth endpoints: Microsoft 400s carry AADSTS text with trace and
+                        //    correlation ids, Xbox/XSTS 401s carry XErr codes tied to the
+                        //    account. At WARN no level policy suppresses it, so it would be
+                        //    retained verbatim once logs ship to Axiom.
+                        //
+                        // The body is still available: truncated at DEBUG (off in production by
+                        // B2's level policy, on locally), and in full on the HttpError failure
+                        // for callers that need to branch on it.
+                        logger.warn(
+                            "API request to {} failed with status {} ({} bytes of body, not logged)",
+                            url,
+                            response.status.value,
+                            errorBody?.length ?: 0,
+                        )
+                        if (errorBody != null && logger.isDebugEnabled) {
+                            logger.debug(
+                                "Error body from {} (truncated to {} chars): {}",
+                                url,
+                                ERROR_BODY_LOG_LIMIT,
+                                errorBody.take(ERROR_BODY_LOG_LIMIT),
+                            )
+                        }
                         Result.failure(AppFailure.ApiError.HttpError(response.status.value, errorBody))
                     }
                 } catch (e: HttpRequestTimeoutException) {

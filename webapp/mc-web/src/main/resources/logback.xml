@@ -1,21 +1,77 @@
 <configuration>
+    <!--
+      Log level policy (MCO-337).
+
+      This file is packaged into the fat jar and both Dockerfiles' ENTRYPOINT is a bare
+      `java -jar` with no -Dlogback.configurationFile, so whatever is here IS the production
+      configuration. Its root level used to be hardcoded to TRACE, so production ran at TRACE.
+
+      Root is now INFO by default and overridable per environment via LOG_LEVEL, so LOCAL can go
+      verbose without a rebuild:  LOG_LEVEL=debug ./webapp/scripts/run.sh
+
+      Two knobs, deliberately separate:
+        LOG_LEVEL      — root, i.e. mostly third-party noise. Default INFO.
+        APP_LOG_LEVEL  — our own app.mcorg loggers. Default INFO.
+      Separate because turning up third-party logging is the common local need, while app.mcorg
+      DEBUG is the one that prints raw request parameter values (see the app.mcorg pin below).
+      Neither should be set below INFO in production.
+    -->
     <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
             <pattern>%d{YYYY-MM-dd HH:mm:ss.SSS} [%thread] %X{call-id} %-5level %logger{36} - %msg%n</pattern>
         </encoder>
     </appender>
-    <root level="trace">
+
+    <root level="${LOG_LEVEL:-INFO}">
         <appender-ref ref="STDOUT"/>
     </root>
+
+    <!--
+      Pins below are floors that must hold even when LOG_LEVEL is turned down locally, because
+      each of these packages logs something that should not be retained. Each pin says why.
+    -->
+
+    <!--
+      Every io.ktor.client TRACE line interpolates ${request.url}, and Ktor's Url.toString()
+      returns the raw URL including the query string and any embedded user:password userinfo.
+      Latent today (all endpoints are path-only, secrets travel in POST bodies) — but one future
+      `?token=` would be retained forever with no code review touching the logging config.
+
+      io.ktor.server.engine.DefaultTransform logs call.request.uri at TRACE, which — unlike the
+      path() that CallLogging uses — DOES include the query string, and fires on every
+      receiveParameters()/receiveMultipart().
+
+      io.ktor.server.auth is dormant (dependency present, Authentication never installed) and
+      sits outside the io.ktor.server.plugins pin below; covering io.ktor wholesale closes it
+      pre-emptively.
+    -->
+    <logger name="io.ktor" level="INFO"/>
+
+    <!-- At TRACE this prints deserialized session objects. Never below INFO. -->
+    <logger name="io.ktor.server.sessions" level="INFO"/>
+    <logger name="io.ktor.server.plugins" level="WARN"/>
+    <logger name="io.ktor.server.routing.Routing" level="INFO"/>
+
+    <!--
+      app.mcorg debug logging includes ValidationSteps, which logs raw request parameter values.
+      Benign today only by luck: WebhookAdminRoutes runs a shared secret through
+      ValidationSteps.required + validateLength, which happen to log names and lengths only.
+      Route that same parameter through validateAllowedValues and the secret is in the log.
+
+      Kept on its own variable rather than inheriting root, so that raising third-party verbosity
+      locally does not silently switch on parameter-value logging too.
+    -->
+    <logger name="app.mcorg" level="${APP_LOG_LEVEL:-INFO}"/>
+
+    <!-- Ingest is extremely chatty at TRACE and dominates the log volume for no analytic value. -->
+    <logger name="app.mcorg.data.minecraft.extract.ExtractRelevantMinecraftFilesStep" level="INFO"/>
+
+    <!-- Third-party noise. -->
     <logger name="org.eclipse.jetty" level="INFO"/>
     <logger name="io.netty" level="INFO"/>
-    <logger name="org.flywaydb" level="INFO" />
-    <logger name="io.ktor.server.routing.Routing" level="INFO" />
-    <logger name="io.ktor.server.plugins" level="WARN" />
-    <logger name="io.ktor.server.sessions" level="INFO"/>
-    <logger name="com.zaxxer.hikari" level="WARN" />
-    <logger name="com.github.dockerjava" level="WARN" />
-    <logger name="org.testcontainers" level="WARN" />
-    <logger name="io.mockk" level="ERROR" />
-    <logger name="app.mcorg.data.minecraft.extract.ExtractRelevantMinecraftFilesStep" level="INFO" />
+    <logger name="org.flywaydb" level="INFO"/>
+    <logger name="com.zaxxer.hikari" level="WARN"/>
+    <logger name="com.github.dockerjava" level="WARN"/>
+    <logger name="org.testcontainers" level="WARN"/>
+    <logger name="io.mockk" level="ERROR"/>
 </configuration>
