@@ -118,6 +118,41 @@ class ImportReviewPageTest {
     }
 
     @Test
+    fun `each section carries a worded expand control, not just a chevron`() {
+        val html = render(
+            requirements = mapOf(item("glass") to 4000, item("oak_planks") to 700),
+            regions = listOf(frame, shell),
+        )
+
+        assertContains(html, "Show materials")
+        assertContains(html, "Hide materials")
+        assertEquals(
+            2,
+            Regex("import-review__region-toggle--closed").findAll(html).count(),
+            "one expand control per section",
+        )
+    }
+
+    @Test
+    fun `grouped lists say what the sections are`() {
+        // Subregions are a Litematica concept, not a Seam one — a stack of collapsed bars
+        // explains neither what they are nor that they open.
+        val html = render(
+            requirements = mapOf(item("glass") to 4000, item("oak_planks") to 700),
+            regions = listOf(frame, shell),
+        )
+
+        assertContains(html, "built from 2 sections")
+    }
+
+    @Test
+    fun `an ungrouped list gets no sections explainer`() {
+        val html = render(requirements = mapOf(item("oak_planks") to 500))
+
+        assertFalse(html.contains("import-review__sections-lead"))
+    }
+
+    @Test
     fun `a single region renders with no section chrome at all`() {
         // Litematica names a lone region after the schematic, or leaves it "Unnamed" — every
         // real fixture does one or the other, so a header would wrap the whole list in noise.

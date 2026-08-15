@@ -139,14 +139,37 @@
     color: var(--text-muted);
 }
 
-.import-review__region-summary::after {
-    content: "▾";
-    color: var(--text-muted);
-    font-size: var(--text-xs);
+/* A worded control, not a bare chevron. Next to a checkbox that is obviously interactive, a
+   small glyph reads as decoration — people were not finding the material list at all. Both
+   labels are in the markup and CSS swaps them, so the control is announced rather than being
+   generated content a screen reader may skip. Pointer events off: the click belongs to the
+   <summary>, which already toggles the section, so this must not become a second target. */
+.import-review__region-toggle {
+    pointer-events: none;
+    white-space: nowrap;
 }
 
-.import-review__region[open] > .import-review__region-summary::after {
-    content: "▴";
+.import-review__region-toggle--open,
+.import-review__region[open] .import-review__region-toggle--closed {
+    display: none;
+}
+
+.import-review__region[open] .import-review__region-toggle--open {
+    display: inline;
+}
+
+/* The header is one big target, so say so on hover rather than only under the button. */
+.import-review__region-summary:hover .import-review__region-toggle {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+.import-review__sections-lead {
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    color: var(--text-muted);
+    margin: 0;
+    max-width: 70ch;
 }
 
 /* The table sits inside the section's border, so it does not need one of its own. */
@@ -203,5 +226,19 @@
 
     .import-review__actions {
         flex-direction: column;
+    }
+
+    /* Checkbox + name, then counts + toggle on a second line. Four items in a row at 375px
+       squeezes the section name to a few characters, which is the one part that has to read. */
+    .import-review__region-summary {
+        flex-wrap: wrap;
+    }
+
+    .import-review__region-meta {
+        margin-left: 0;
+    }
+
+    .import-review__region-toggle {
+        margin-left: auto;
     }
 }

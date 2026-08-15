@@ -177,6 +177,7 @@ private fun FlowContent.materialsSection(
         materialsField(allRows, excluded)
         warningStrip(warnings)
         materialsSummary(groups, allRows)
+        sectionsLead(groups)
         groups.forEachIndexed { index, group ->
             if (group.name == null) {
                 materialsTable(index, group.rows, excluded, placedCounts, warnings)
@@ -190,6 +191,22 @@ private fun FlowContent.materialsSection(
         if (allRows.isEmpty()) {
             p("form-error") { +"This schematic contains no recognisable materials." }
         }
+    }
+}
+
+/**
+ * Says what the sections are before the user meets them.
+ *
+ * Subregions are a Litematica concept, not a Seam one, and a stack of collapsed bars explains
+ * neither what they are nor that they open. One line costs nothing and removes both questions;
+ * without it the sections read as an unexplained grouping the screen invented.
+ */
+private fun FlowContent.sectionsLead(groups: List<MaterialGroup>) {
+    if (groups.size < 2) return
+
+    p("import-review__sections-lead") {
+        +"This schematic is built from ${groups.size} sections. "
+        +"Untick one to leave it out of the import, or open it to choose materials one at a time."
     }
 }
 
@@ -310,6 +327,12 @@ private fun FlowContent.materialsSummary(groups: List<MaterialGroup>, allRows: L
  * The checkbox in the header includes or excludes everything inside. It is deliberately
  * nameless like every other box on this screen: `import-review.js` folds it into the single
  * materials field, and it submits nothing of its own.
+ *
+ * The disclosure is a **worded** control rather than a bare chevron. A small glyph reads as
+ * decoration next to a checkbox that is plainly interactive, so the section looks like
+ * something you tick rather than something you open — and the material list inside stays
+ * hidden from anyone who does not already know it is there. Both labels are rendered and CSS
+ * shows one, so the control announces itself rather than relying on generated content.
  */
 private fun FlowContent.regionGroup(
     index: Int,
@@ -330,6 +353,10 @@ private fun FlowContent.regionGroup(
             span("import-review__region-meta") {
                 +"${group.rows.size} ${if (group.rows.size == 1) "material" else "materials"}"
                 +" · ${"%,d".format(blocks)} blocks"
+            }
+            span("btn btn--ghost btn--sm import-review__region-toggle") {
+                span("import-review__region-toggle--closed") { +"Show materials ▾" }
+                span("import-review__region-toggle--open") { +"Hide materials ▴" }
             }
         }
         materialsTable(index, group.rows, excluded, placedCounts, warnings)
