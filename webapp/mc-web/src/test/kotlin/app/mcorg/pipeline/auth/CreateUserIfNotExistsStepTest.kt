@@ -82,7 +82,7 @@ class CreateUserIfNotExistsStepTest {
         val rolesStatement = mockk<PreparedStatement>()
         val rolesResultSet = mockk<ResultSet>()
 
-        every { mockConnection.prepareStatement(match { it.contains("SELECT u.id, u.email, mp.uuid, mp.username") }) } returns mockCheckUserStatement
+        every { mockConnection.prepareStatement(match { it.contains("SELECT u.id, mp.uuid, mp.username") }) } returns mockCheckUserStatement
         every { mockConnection.prepareStatement(match { it.contains("FROM global_user_roles") }) } returns rolesStatement
         every { mockCheckUserStatement.executeQuery() } returns mockResultSet
         every { rolesStatement.setInt(any(), any()) } just Runs
@@ -92,7 +92,6 @@ class CreateUserIfNotExistsStepTest {
         every { rolesResultSet.next() } returns false
         every { mockResultSet.next() } returns true
         every { mockResultSet.getInt("id") } returns 1
-        every { mockResultSet.getString("email") } returns "test@example.com"
         every { mockResultSet.getString("uuid") } returns "test-uuid-123"
         every { mockResultSet.getString("username") } returns "TestPlayer"
 
@@ -114,11 +113,10 @@ class CreateUserIfNotExistsStepTest {
         val profileWithNewUsername = testProfile.copy(username = newUsername)
 
         // Mock check user query - returns existing user with old username
-        every { mockConnection.prepareStatement(match { it.contains("SELECT u.id, u.email, mp.uuid, mp.username") }) } returns mockCheckUserStatement
+        every { mockConnection.prepareStatement(match { it.contains("SELECT u.id, mp.uuid, mp.username") }) } returns mockCheckUserStatement
         every { mockCheckUserStatement.executeQuery() } returns mockResultSet
         every { mockResultSet.next() } returns true
         every { mockResultSet.getInt("id") } returns 1
-        every { mockResultSet.getString("email") } returns "test@example.com"
         every { mockResultSet.getString("uuid") } returns "test-uuid-123"
         every { mockResultSet.getString("username") } returns "TestPlayer" // Old username
 
@@ -171,11 +169,10 @@ class CreateUserIfNotExistsStepTest {
         val profileWithNewUsername = testProfile.copy(username = newUsername)
 
         // Mock check user query - returns existing user with old username
-        every { mockConnection.prepareStatement(match { it.contains("SELECT u.id, u.email, mp.uuid, mp.username") }) } returns mockCheckUserStatement
+        every { mockConnection.prepareStatement(match { it.contains("SELECT u.id, mp.uuid, mp.username") }) } returns mockCheckUserStatement
         every { mockCheckUserStatement.executeQuery() } returns mockResultSet
         every { mockResultSet.next() } returns true
         every { mockResultSet.getInt("id") } returns 1
-        every { mockResultSet.getString("email") } returns "test@example.com"
         every { mockResultSet.getString("uuid") } returns "test-uuid-123"
         every { mockResultSet.getString("username") } returns "TestPlayer"
 
@@ -213,7 +210,7 @@ class CreateUserIfNotExistsStepTest {
     @Test
     fun `creates new user when UUID does not exist`() = runBlocking {
         // Arrange - no existing user
-        every { mockConnection.prepareStatement(match { it.contains("SELECT u.id, u.email, mp.uuid, mp.username") }) } returns mockCheckUserStatement
+        every { mockConnection.prepareStatement(match { it.contains("SELECT u.id, mp.uuid, mp.username") }) } returns mockCheckUserStatement
         every { mockCheckUserStatement.executeQuery() } returns mockResultSet
         every { mockResultSet.next() } returns false // No existing user found
 
@@ -240,7 +237,9 @@ class CreateUserIfNotExistsStepTest {
         assertEquals("TestPlayer", tokenProfile.minecraftUsername)
         assertEquals("TestPlayer", tokenProfile.displayName)
 
-        verify { mockCreateUserStatement.setString(1, "test-uuid-123@minecraft.temp") }
+        // No parameters on the users insert any more: the row has no columns of its own since
+        // V2_53_0 dropped the synthetic email placeholder (MCO-339).
+        verify(exactly = 0) { mockCreateUserStatement.setString(any(), any()) }
         verify { mockCreateUserStatement.executeQuery() }
         verify { mockCreateProfileStatement.setInt(1, 2) }
         verify { mockCreateProfileStatement.setString(2, "test-uuid-123") }
@@ -252,7 +251,7 @@ class CreateUserIfNotExistsStepTest {
     fun `returns failure when user check query fails`() = runBlocking {
         // Arrange
         val sqlException = SQLException("Database connection failed")
-        every { mockConnection.prepareStatement(match { it.contains("SELECT u.id, u.email, mp.uuid, mp.username") }) } throws sqlException
+        every { mockConnection.prepareStatement(match { it.contains("SELECT u.id, mp.uuid, mp.username") }) } throws sqlException
 
         // Act
         val result = CreateUserIfNotExistsStep.process(testProfile)
@@ -268,11 +267,10 @@ class CreateUserIfNotExistsStepTest {
         val profileWithNewUsername = testProfile.copy(username = newUsername)
 
         // Mock check user query - returns existing user with different username
-        every { mockConnection.prepareStatement(match { it.contains("SELECT u.id, u.email, mp.uuid, mp.username") }) } returns mockCheckUserStatement
+        every { mockConnection.prepareStatement(match { it.contains("SELECT u.id, mp.uuid, mp.username") }) } returns mockCheckUserStatement
         every { mockCheckUserStatement.executeQuery() } returns mockResultSet
         every { mockResultSet.next() } returns true
         every { mockResultSet.getInt("id") } returns 1
-        every { mockResultSet.getString("email") } returns "test@example.com"
         every { mockResultSet.getString("uuid") } returns "test-uuid-123"
         every { mockResultSet.getString("username") } returns "TestPlayer"
 
@@ -294,11 +292,10 @@ class CreateUserIfNotExistsStepTest {
         val profileWithNewUsername = testProfile.copy(username = newUsername)
 
         // Mock check user query
-        every { mockConnection.prepareStatement(match { it.contains("SELECT u.id, u.email, mp.uuid, mp.username") }) } returns mockCheckUserStatement
+        every { mockConnection.prepareStatement(match { it.contains("SELECT u.id, mp.uuid, mp.username") }) } returns mockCheckUserStatement
         every { mockCheckUserStatement.executeQuery() } returns mockResultSet
         every { mockResultSet.next() } returns true
         every { mockResultSet.getInt("id") } returns 1
-        every { mockResultSet.getString("email") } returns "test@example.com"
         every { mockResultSet.getString("uuid") } returns "test-uuid-123"
         every { mockResultSet.getString("username") } returns "TestPlayer"
 
@@ -316,7 +313,7 @@ class CreateUserIfNotExistsStepTest {
     @Test
     fun `returns failure when user creation fails`() = runBlocking {
         // Arrange - no existing user
-        every { mockConnection.prepareStatement(match { it.contains("SELECT u.id, u.email, mp.uuid, mp.username") }) } returns mockCheckUserStatement
+        every { mockConnection.prepareStatement(match { it.contains("SELECT u.id, mp.uuid, mp.username") }) } returns mockCheckUserStatement
         every { mockCheckUserStatement.executeQuery() } returns mockResultSet
         every { mockResultSet.next() } returns false
 
@@ -334,7 +331,7 @@ class CreateUserIfNotExistsStepTest {
     @Test
     fun `returns failure when minecraft profile creation fails`() = runBlocking {
         // Arrange - no existing user
-        every { mockConnection.prepareStatement(match { it.contains("SELECT u.id, u.email, mp.uuid, mp.username") }) } returns mockCheckUserStatement
+        every { mockConnection.prepareStatement(match { it.contains("SELECT u.id, mp.uuid, mp.username") }) } returns mockCheckUserStatement
         every { mockCheckUserStatement.executeQuery() } returns mockResultSet
         every { mockResultSet.next() } returns false
 
@@ -358,7 +355,7 @@ class CreateUserIfNotExistsStepTest {
     @Test
     fun `returns failure when minecraft profile creation returns zero affected rows`() = runBlocking {
         // Arrange - no existing user
-        every { mockConnection.prepareStatement(match { it.contains("SELECT u.id, u.email, mp.uuid, mp.username") }) } returns mockCheckUserStatement
+        every { mockConnection.prepareStatement(match { it.contains("SELECT u.id, mp.uuid, mp.username") }) } returns mockCheckUserStatement
         every { mockCheckUserStatement.executeQuery() } returns mockResultSet
         every { mockResultSet.next() } returns false
 

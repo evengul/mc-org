@@ -10,6 +10,38 @@ import java.sql.*
 
 private val logger = LoggerFactory.getLogger("DatabaseSteps")
 
+/**
+ * Logs a database failure without letting the driver's message into the log (MCO-339).
+ *
+ * PostgreSQL puts the offending *values* in the error: a unique violation carries a
+ * `DETAIL: Key (email)=(someone@example.com) already exists` line, and `PSQLException.getMessage()`
+ * concatenates that detail onto the primary message. For `api_token.token_hash` the same line is a
+ * token hash. Passing the exception to the logger leaks it exactly as thoroughly as interpolating
+ * the message, because the rendered stack trace begins with `getMessage()`.
+ *
+ * What survives is what you actually debug from — SQLState, constraint, table, routine — which is
+ * enough to identify *which* constraint failed without recording *which row* failed it.
+ *
+ * Non-SQL exceptions (a mapper NPE, say) keep their stack trace: it carries code locations, not row
+ * data. The cause chain is checked too, so a wrapper around a SQLException does not sneak through.
+ */
+private fun logDatabaseFailure(what: String, e: Exception) {
+    val sqlCause = generateSequence(e as Throwable?) { it.cause }.filterIsInstance<SQLException>().firstOrNull()
+    if (sqlCause == null) {
+        logger.error(what, e)
+        return
+    }
+    val server = (sqlCause as? PSQLException)?.serverErrorMessage
+    val description = buildString {
+        append(sqlCause.javaClass.simpleName)
+        append(" sqlState=").append(sqlCause.sqlState ?: "unknown")
+        server?.constraint?.let { append(" constraint=").append(it) }
+        server?.table?.let { append(" table=").append(it) }
+        server?.routine?.let { append(" routine=").append(it) }
+    }
+    logger.error("{}: {} (message withheld — it can carry row values)", what, description)
+}
+
 @Suppress("SqlSourceToSinkFlow")
 object DatabaseSteps {
     fun <I, S> query(
@@ -28,7 +60,7 @@ object DatabaseSteps {
                                 try {
                                     Result.success(resultMapper(resultSet))
                                 } catch (e: SQLException) {
-                                    logger.error("Error mapping result set", e)
+                                    logDatabaseFailure("Error mapping result set", e)
                                     Result.failure(AppFailure.DatabaseError.ResultMappingError)
                                 }
                             }
@@ -42,7 +74,7 @@ object DatabaseSteps {
                         }
                     }
                 } catch (e: Exception) {
-                    logger.error("Could not execute query", e)
+                    logDatabaseFailure("Could not execute query", e)
                     handleException(e)
                 }
             }
@@ -84,7 +116,7 @@ object DatabaseSteps {
                         }
                     }
                 } catch (e: Exception) {
-                    logger.error("Could not execute update", e)
+                    logDatabaseFailure("Could not execute update", e)
                     handleException(e)
                 }
             }
@@ -125,7 +157,7 @@ object DatabaseSteps {
                         }
                     }
                 } catch (e: Exception) {
-                    logger.error("Could not execute batch update", e)
+                    logDatabaseFailure("Could not execute batch update", e)
                     handleException(e)
                 }
             }
@@ -157,7 +189,7 @@ object DatabaseSteps {
                         }
                     }
                 } catch (e: Exception) {
-                    logger.error("Could not execute transaction", e)
+                    logDatabaseFailure("Could not execute transaction", e)
                     handleException(e)
                 }
             }

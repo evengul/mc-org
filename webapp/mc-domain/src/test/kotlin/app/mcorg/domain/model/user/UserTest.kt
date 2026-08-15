@@ -23,7 +23,6 @@ class UserTest {
         private const val TEST_USER_ID = 42
         private const val TEST_WORLD_ID = 100
         private const val TEST_DISPLAY_NAME = "Test Player"
-        private const val TEST_EMAIL = "test@example.com"
         private const val TEST_UUID = "550e8400-e29b-41d4-a716-446655440000"
         private const val TEST_MINECRAFT_USERNAME = "TestPlayer"
         private val TEST_TIMESTAMP = ZonedDateTime.now()
@@ -148,7 +147,6 @@ class UserTest {
 
         // Assert
         assertEquals(TEST_USER_ID, profile.id)
-        assertEquals(TEST_EMAIL, profile.email)
     }
 
     @Test
@@ -162,35 +160,15 @@ class UserTest {
         assertNull(profile.avatarUrl)
     }
 
-    @Test
-    fun `Profile should handle different email formats`() {
-        // Arrange
-        val emailFormats = listOf(
-            "simple@example.com",
-            "user.name@example.com",
-            "user+tag@example.com",
-            "user@subdomain.example.com",
-            "a@b.co"
-        )
-
-        emailFormats.forEach { email ->
-            // Act
-            val profile = Profile(
-                id = TEST_USER_ID,
-                email = email
-            )
-
-            // Assert
-            assertEquals(email, profile.email)
-        }
-    }
+    // The "different email formats" test that lived here is gone with the field (MCO-339):
+    // Profile never held a real address, only the synthetic "<uuid>@minecraft.temp" placeholder.
 
     @Test
     fun `Profile should support data class operations`() {
         // Arrange
         val profile1 = createTestProfile()
         val profile2 = createTestProfile()
-        val profile3 = profile1.copy(email = "different@example.com")
+        val profile3 = profile1.copy(id = TEST_USER_ID + 1)
 
         // Assert
         assertEquals(profile1, profile2)
@@ -198,9 +176,8 @@ class UserTest {
         assertEquals(profile1.hashCode(), profile2.hashCode())
 
         // Test copy functionality
-        assertEquals(TEST_USER_ID, profile3.id)
-        assertEquals("different@example.com", profile3.email)
-        assertEquals(TEST_EMAIL, profile1.email) // Original unchanged
+        assertEquals(TEST_USER_ID + 1, profile3.id)
+        assertEquals(TEST_USER_ID, profile1.id) // Original unchanged
     }
 
     // ===============================
@@ -270,7 +247,6 @@ class UserTest {
                     assertEquals(Role.MEMBER, user.worldRole)
                 }
                 is Profile -> {
-                    assertEquals(TEST_EMAIL, user.email)
                     assertTrue(user.microsoftConnection)
                 }
                 is TokenProfile -> {
@@ -294,7 +270,7 @@ class UserTest {
             // Act
             val users = listOf<User>(
                 WorldMember(id, TEST_WORLD_ID, TEST_DISPLAY_NAME, Role.MEMBER, TEST_TIMESTAMP, TEST_TIMESTAMP),
-                Profile(id, TEST_EMAIL),
+                Profile(id),
                 TokenProfile(id, TEST_UUID, TEST_MINECRAFT_USERNAME, TEST_DISPLAY_NAME, emptyList())
             )
 
@@ -398,7 +374,6 @@ class UserTest {
     private fun createTestProfile(): Profile {
         return Profile(
             id = TEST_USER_ID,
-            email = TEST_EMAIL
         )
     }
 

@@ -55,10 +55,14 @@ sealed interface SeamEvent {
  * publish site so the `when` lives in one place. Member/token profiles expose a display name; a bare
  * [Profile] falls back to its email.
  */
-fun User.actorDisplayName(): String = when (this) {
+fun User.actorDisplayName(): String? = when (this) {
     is WorldMember -> displayName
     is TokenProfile -> displayName
-    is Profile -> email
+    // A bare Profile carries no display name. It used to fall back to `email`, which was always
+    // the synthetic "<uuid>@minecraft.temp" placeholder — so a Discord message could read
+    // "f4a1…@minecraft.temp created a project". Null is the honest answer, and `actorName` is
+    // already nullable for exactly this "not populated" case (MCO-239, MCO-339).
+    is Profile -> null
 }
 
 /**

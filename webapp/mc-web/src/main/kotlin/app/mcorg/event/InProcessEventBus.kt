@@ -29,7 +29,18 @@ class InProcessEventBus(private val scope: CoroutineScope) : EventBus {
                 try {
                     handler.handle(event)
                 } catch (e: Exception) {
-                    logger.error("Event handler failed for {} ({})", event.eventType, event, e)
+                    // Identify the event, don't dump it (MCO-339). The whole SeamEvent renders its
+                    // payload, which carries user-authored content — project and idea names — plus
+                    // actorName. Type + world + actor id is enough to find the event; the payload
+                    // itself should not be retained in a log.
+                    logger.error(
+                        "Event handler {} failed for {} (worldId={}, actorId={})",
+                        handler.javaClass.simpleName,
+                        event.eventType,
+                        event.worldId,
+                        event.actorId,
+                        e,
+                    )
                 }
             }
         }
