@@ -14,6 +14,14 @@ data class ProjectResourceEdge(
     val producerName: String,
     val itemName: String?,
     val producerState: ProjectState,
+    /**
+     * How much of [itemName] the consumer's derived plan needs (MCO-316).
+     *
+     * Null where the edge does not come from derived demand — a manual `project_dependencies`
+     * row has no item, and a `solved_by_project_id` link names a declared row rather than a
+     * planned quantity. Null means "no number to show", never "zero".
+     */
+    val quantity: Long? = null,
 ) {
     val isBlocking: Boolean
         get() = producerState != ProjectState.DONE

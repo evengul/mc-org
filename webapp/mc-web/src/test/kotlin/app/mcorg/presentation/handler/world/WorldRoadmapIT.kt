@@ -53,6 +53,7 @@ class WorldRoadmapIT : WithUser() {
         val consumer = createProject(worldId, "Beacon Build")
         val farm = createProject(worldId, "Iron Farm")
         createRequirement(consumer, "minecraft:iron_ingot", "Iron Ingot")
+        createDemand(consumer, "minecraft:iron_ingot", "Iron Ingot", 32)
         createProduction(farm, "minecraft:iron_ingot", "Iron Ingot")
 
         val response = client.get("/worlds/$worldId/roadmap") { addAuthCookie(this) }
@@ -85,6 +86,7 @@ class WorldRoadmapIT : WithUser() {
         val consumer = createProject(worldId, "Beacon Build")
         val farm = createProject(worldId, "Iron Farm")
         createRequirement(consumer, "minecraft:iron_ingot", "Iron Ingot")
+        createDemand(consumer, "minecraft:iron_ingot", "Iron Ingot", 32)
         createProduction(farm, "minecraft:iron_ingot", "Iron Ingot")
         runBlocking { UpdateProjectStageStep(farm).process(ProjectStage.COMPLETED) }
 
@@ -107,6 +109,71 @@ class WorldRoadmapIT : WithUser() {
         assertContains(farmRow.supplies, "Beacon Build")
         assertContains(farmRow.supplies, STATUS_SUPPLYING)
         assertFalse(farmRow.supplies.contains(STATUS_BLOCKING), "a DONE farm blocks nothing")
+
+        deleteWorld(worldId)
+    }
+
+    @Test
+    fun `a farm supplying a material the build never places still gets an edge`() = testApplication {
+        // MCO-316's headline case, from the YAMS import. The build declares 5,630 hoppers and
+        // places no literal gold nugget, so matching declared rows found nothing and the Gold
+        // Farm — 7,299 units of real demand — produced no edge whatsoever. Matching derived
+        // demand finds it.
+        setupRoutes()
+        val worldId = createWorld("Derived Demand World")
+        val consumer = createProject(worldId, "YAMS")
+        val farm = createProject(worldId, "Gold Farm")
+        createRequirement(consumer, "minecraft:hopper", "Hopper")
+        createDemand(consumer, "minecraft:gold_nugget", "Gold Nugget", 7299)
+        createProduction(farm, "minecraft:gold_nugget", "Gold Nugget")
+
+        val body = client.get("/worlds/$worldId/roadmap") { addAuthCookie(this) }.bodyAsText()
+
+        val consumerRow = roadmapRow(body, "YAMS")
+        assertContains(consumerRow.dependsOn, "Gold Farm")
+        assertContains(consumerRow.dependsOn, "Gold Nugget")
+
+        deleteWorld(worldId)
+    }
+
+    @Test
+    fun `the edge says how much of the demand the farm covers`() = testApplication {
+        // "Cobblestone Generator — Cobblestone" next to a single decorative block was the
+        // misleading half of the same bug: the farm covered the largest line of gathering work
+        // in the project and the cell gave no way to tell.
+        setupRoutes()
+        val worldId = createWorld("Quantified Roadmap World")
+        val consumer = createProject(worldId, "YAMS")
+        val farm = createProject(worldId, "Cobblestone Generator")
+        createRequirement(consumer, "minecraft:cobblestone", "Cobblestone")
+        createDemand(consumer, "minecraft:cobblestone", "Cobblestone", 74564)
+        createProduction(farm, "minecraft:cobblestone", "Cobblestone")
+
+        val body = client.get("/worlds/$worldId/roadmap") { addAuthCookie(this) }.bodyAsText()
+
+        val consumerRow = roadmapRow(body, "YAMS")
+        assertContains(consumerRow.dependsOn, "74,564 Cobblestone")
+
+        deleteWorld(worldId)
+    }
+
+    @Test
+    fun `a project with no derived demand contributes no farm edges`() = testApplication {
+        // The honest consequence of matching derived demand: a project nobody has planned has
+        // nothing to match. The roadmap tries to fill it in (see GetWorldRoadMapStep), which
+        // needs an ingested graph these tests do not have — so here it stays empty rather than
+        // inventing an edge from the declared row.
+        setupRoutes()
+        val worldId = createWorld("Unplanned Roadmap World")
+        val consumer = createProject(worldId, "Unopened Build")
+        val farm = createProject(worldId, "Iron Farm")
+        createRequirement(consumer, "minecraft:iron_ingot", "Iron Ingot")
+        createProduction(farm, "minecraft:iron_ingot", "Iron Ingot")
+
+        val body = client.get("/worlds/$worldId/roadmap") { addAuthCookie(this) }.bodyAsText()
+
+        val consumerRow = roadmapRow(body, "Unopened Build")
+        assertFalse(consumerRow.dependsOn.contains("Iron Farm"))
 
         deleteWorld(worldId)
     }
@@ -228,6 +295,43 @@ class WorldRoadmapIT : WithUser() {
                 stmt.setString(2, itemId)
                 stmt.setString(3, name)
             }
+        ).process(Unit)
+    }
+
+    /**
+     * Seeds derived plan demand directly (MCO-316).
+     *
+     * Farm edges match this rather than `resource_gathering`, and deriving it for real needs an
+     * ingested item-source graph that these tests deliberately do not have. Seeding keeps the
+     * roadmap's own logic under test instead of the engine's — the derivation itself is covered
+     * where it lives.
+     */
+    private fun createDemand(projectId: Int, itemId: String, name: String, quantity: Long) = runBlocking {
+        DatabaseSteps.update<Unit>(
+            SafeSQL.insert(
+                """
+                INSERT INTO project_demand
+                    (project_id, item_id, item_name, quantity, activity_group, node_status)
+                VALUES (?, ?, ?, ?, 'GATHER', 'RESOLVED')
+                """.trimIndent()
+            ),
+            parameterSetter = { stmt, _ ->
+                stmt.setInt(1, projectId)
+                stmt.setString(2, itemId)
+                stmt.setString(3, name)
+                stmt.setLong(4, quantity)
+            }
+        ).process(Unit)
+        // Marking it derived stops the roadmap trying to fill this project in.
+        DatabaseSteps.update<Unit>(
+            SafeSQL.insert(
+                """
+                INSERT INTO project_demand_state (project_id, fingerprint)
+                VALUES (?, 'seeded')
+                ON CONFLICT (project_id) DO NOTHING
+                """.trimIndent()
+            ),
+            parameterSetter = { stmt, _ -> stmt.setInt(1, projectId) }
         ).process(Unit)
     }
 

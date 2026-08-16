@@ -16,6 +16,7 @@ import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.minecraft.GetItemSourceGraphForVersionStep
 import app.mcorg.pipeline.resources.commonsteps.GetAllResourceGatheringItemsStep
+import org.slf4j.LoggerFactory
 
 /**
  * Input bundle for [GenerateGatheringPlanStep].
@@ -137,6 +138,52 @@ object GenerateGatheringPlanStep : Step<GatheringPlanInput, AppFailure, Gatherin
         }
 
         // 8. Run the engine
-        return Result.success(GatheringPlanner.plan(graph, targets, supplied, overrides))
+        val plan = GatheringPlanner.plan(graph, targets, supplied, overrides)
+
+        // 9. Materialise the demand this plan implies (MCO-316), so the roadmap can match farms
+        // against what the build actually consumes without deriving a plan per project. Written
+        // here because this is the one place a plan already exists; skipped when nothing that
+        // feeds the derivation has changed since the last write.
+        storeDemand(input.projectId, versionString, activeItems, supplied, overrides, plan)
+
+        return Result.success(plan)
     }
+
+    /**
+     * Write-through of the derived demand. Deliberately best-effort.
+     *
+     * [project_demand] is a cache of something recomputable, and this runs on a read path — a
+     * page that renders a plan should not fail because a cache write did. A failure leaves the
+     * previous rows in place with their old fingerprint, so the next derivation retries.
+     */
+    private suspend fun storeDemand(
+        projectId: Int,
+        worldVersion: String,
+        activeItems: List<ResourceGatheringItem>,
+        supplied: Map<String, SupplySource>,
+        overrides: PlanOverrides,
+        plan: GatheringPlan,
+    ) {
+        val fingerprint = DemandFingerprint.of(
+            worldVersion = worldVersion,
+            targets = activeItems.map {
+                Triple(it.itemId, (it.required - it.collected).toLong(), it.sourceType?.name)
+            },
+            supplied = supplied.mapValues { (_, source) -> source.toString() },
+            overrides = overrides.sourceByItem.map { "src:${it.key}" to it.value } +
+                overrides.tagMember.map { "tag:${it.key}" to it.value },
+        )
+
+        val stored = GetStoredDemandFingerprintStep(projectId).process(Unit)
+        if (stored is Result.Success && stored.value == fingerprint) return
+
+        val saved = SaveProjectDemandStep(projectId, fingerprint).process(plan)
+        if (saved is Result.Failure) {
+            // No exception and no row data in the message: a PostgreSQL error appends
+            // `DETAIL: Key (col)=(value)`, which is user content. See documentation/logging.md.
+            logger.warn("Could not store derived demand for project {}", projectId)
+        }
+    }
+
+    private val logger = LoggerFactory.getLogger(GenerateGatheringPlanStep::class.java)
 }
