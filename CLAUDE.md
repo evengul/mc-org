@@ -156,6 +156,11 @@ when the PR carries the **`preview`** label.
   — pseudonymous posture (Minecraft UUID/username fine; emails, query strings, raw driver
   messages and user-authored content not), plus the two libraries whose exception messages carry
   payloads. Read it before adding a `logger.error(..., e)`.
+- **The outbound webhook wire contract is [documentation/webhook-contract.md](documentation/webhook-contract.md)**
+  — mc-org is the producer, so that file is canonical rather than the consumer's README. Covers the
+  signature's raw-bytes rule, the single-vs-batch body duality, the envelope, the retry schedule and
+  the 10-failure auto-deactivation. Read it before changing anything under `webhook/` or
+  `EventEnvelope`; a change there is a change to another repo's input.
 - **Every environment variable is listed in [documentation/configuration.md](documentation/configuration.md)**
   — what it does, which environments require it, its default, and where it is set. `readConfig()`
   in `mc-web/.../config/ConfigLoader.kt` is the only place in `src/main` that calls
