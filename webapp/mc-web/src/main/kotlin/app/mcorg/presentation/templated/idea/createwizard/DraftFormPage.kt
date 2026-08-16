@@ -122,6 +122,7 @@ private fun FlowContent.draftFormContent(
 
         optionalSection("Materials", "What it takes to build — or drop in a .litematic") {
             draftItemRequirementFields(draft)
+            draftProductionFields(draft)
         }
 
         optionalSection("Versions and credit", "Defaults to all versions, credited to you") {

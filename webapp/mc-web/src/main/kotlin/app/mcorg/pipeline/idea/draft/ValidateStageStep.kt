@@ -35,6 +35,9 @@ object ValidateStageStep : Step<ValidateStageInput, AppFailure, List<ValidationF
             DraftWizardStage.VERSION_COMPATIBILITY ->
                 (ValidateIdeaMinecraftVersionStep.process(input.params) as? Result.Failure)?.error ?: emptyList()
             DraftWizardStage.ITEM_REQUIREMENTS -> emptyList()
+            // Nothing to reject: a non-numeric or negative rate is dropped while the draft JSON is
+            // built, and an idea that produces nothing is the normal case rather than an error.
+            DraftWizardStage.PRODUCTIONS -> emptyList()
             DraftWizardStage.CATEGORY_FIELDS -> buildList {
                 val categoryResult = ValidateIdeaCategoryStep.process(input.params)
                 if (categoryResult is Result.Failure) {

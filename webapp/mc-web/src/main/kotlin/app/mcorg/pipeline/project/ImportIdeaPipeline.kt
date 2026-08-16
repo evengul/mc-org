@@ -321,12 +321,16 @@ private val GetIdeaForImportStep = DatabaseSteps.transaction { connection ->
 /**
  * The rates an imported farm project should record, chosen from the idea's modes.
  *
- * A farm in a world runs one way at a time, so the project stores a flat item -> rate set — the
- * shape `project_productions` has always had. The mode is a fact about how *you* run it rather
- * than about the design, so the project keeps the rates and not the modes (decision, 2026-08-16).
+ * **Interim, and known to be the wrong shape** (Even, 2026-08-16, reversing the same day's earlier
+ * call): which mode a farm runs in is a *runtime* choice, not a build-time one. You might run the
+ * fortress farm skeletons-only this week and everything-on next, and flattening the choice at
+ * import means re-typing rates to switch. The modes belong on the project, with one active —
+ * filed separately because it reaches into project_productions, the supply map and the
+ * production editor.
  *
- * With one mode there is nothing to choose. With several and no explicit choice, the mode
- * producing the most across its items wins: an import that silently picked the slowest would
+ * Until then the project records one mode's rates flat, which is what `project_productions` has
+ * always held. With one mode there is nothing to choose. With several and no explicit choice, the
+ * mode producing the most across its items wins: an import that silently picked the slowest would
  * under-promise supply for no reason the user could see.
  */
 internal fun ratesForImport(modes: List<IdeaProductionMode>, chosenModeName: String? = null): Map<String, Int> {

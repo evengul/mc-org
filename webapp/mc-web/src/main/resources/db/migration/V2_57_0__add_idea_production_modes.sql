@@ -4,8 +4,11 @@
 -- category. Three problems with that, and MCO-294 hits all of them: it cannot be joined against
 -- demand, it is category-gated (a mob farm inside a storage build produces nothing, as far as the
 -- schema is concerned), and its only reader has been broken since MCO-204 changed the shape under
--- it — no idea import has ever written a production row (MCO-411). So there is no data to
--- preserve here, only a shape to replace.
+-- it — no idea import has ever written a production row (MCO-411).
+--
+-- The JSON *was* being written, though, even while nothing could read it: authors have entered
+-- real farms through the form. Those rates are carried over at the bottom of this file rather
+-- than asking anyone to type them again.
 --
 -- ## Modes
 --
@@ -46,3 +49,39 @@ CREATE TABLE idea_production_rates
 
 -- MCO-294's lookup direction: "which ideas produce this item, and how fast at best?"
 CREATE INDEX idea_production_rates_item_id_idx ON idea_production_rates (item_id);
+
+-- ---------------------------------------------------------------------------------------------
+-- Carry over what the form already captured.
+--
+-- The stored shape is a CategoryValue tree:
+--
+--   category_data -> 'productionRate' -> 'value' -> { "<item id>": { "type": ..., "value": 71000 } }
+--
+-- Every such idea becomes one mode. It is named "Default" because these authors were never asked
+-- about modes — there was no such concept when they filled the form in — and calling it anything
+-- else would attribute a choice to them that they did not make.
+INSERT INTO idea_production_modes (idea_id, name, position)
+SELECT i.id, 'Default', 0
+FROM ideas i
+WHERE jsonb_typeof(i.category_data -> 'productionRate' -> 'value') = 'object'
+  AND EXISTS (
+      SELECT 1
+      FROM jsonb_each(i.category_data -> 'productionRate' -> 'value') AS entry(item_id, payload)
+      WHERE jsonb_typeof(payload -> 'value') = 'number'
+  );
+
+INSERT INTO idea_production_rates (mode_id, item_id, rate_per_hour)
+SELECT m.id, entry.item_id, round((entry.payload ->> 'value')::numeric)::int
+FROM idea_production_modes m
+         JOIN ideas i ON i.id = m.idea_id
+         CROSS JOIN LATERAL jsonb_each(i.category_data -> 'productionRate' -> 'value') AS entry(item_id, payload)
+WHERE m.name = 'Default'
+  AND m.position = 0
+  -- Anything non-numeric is a form artefact rather than a rate, and a negative rate is not a
+  -- thing a farm can do — the column's CHECK would reject it and take the whole migration with it.
+  AND jsonb_typeof(entry.payload -> 'value') = 'number'
+  AND (entry.payload ->> 'value')::numeric >= 0;
+
+-- The JSON is left in place. It is unread from here on (the FARM schema's productionRate field
+-- goes with the form work), and leaving it costs nothing while making this migration reversible
+-- by hand if the carried-over rates turn out wrong.

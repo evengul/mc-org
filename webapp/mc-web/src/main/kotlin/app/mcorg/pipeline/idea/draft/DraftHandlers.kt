@@ -39,7 +39,9 @@ import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.addJsonObject
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.encodeToJsonElement
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.put
@@ -264,7 +266,8 @@ private fun buildFormJson(params: Parameters, fallbackAuthorName: String): Strin
 /**
  * Converts form params for a given wizard stage into a JSON string suitable for JSONB merge.
  */
-private fun buildStageJson(stage: DraftWizardStage, params: Parameters): String {
+/** Internal rather than private so the per-stage parsing can be tested directly. */
+internal fun buildStageJson(stage: DraftWizardStage, params: Parameters): String {
     return when (stage) {
         DraftWizardStage.BASIC_INFO -> buildJsonObject {
             params["name"]?.let { put("name", it) }
@@ -326,6 +329,43 @@ private fun buildStageJson(stage: DraftWizardStage, params: Parameters): String 
             if (items.isNotEmpty()) {
                 putJsonObject("itemRequirements") {
                     items.forEach { (k, v) -> put(k, v) }
+                }
+            }
+        }.toString()
+
+        // productionMode[i][name] names a mode; productionRate[i][<item id>] is one of its rates.
+        // The index groups them and is positional only — it is the order the author added them in,
+        // and it is re-assigned on every save, so nothing may reference it.
+        DraftWizardStage.PRODUCTIONS -> buildJsonObject {
+            val names = params.names()
+                .filter { it.startsWith("productionMode[") && it.endsWith("][name]") }
+                .associate { key ->
+                    key.removePrefix("productionMode[").removeSuffix("][name]") to (params[key] ?: "")
+                }
+            val ratesByMode = params.names()
+                .filter { it.startsWith("productionRate[") }
+                .mapNotNull { key ->
+                    val body = key.removePrefix("productionRate[")
+                    val index = body.substringBefore("]", missingDelimiterValue = "")
+                    val itemId = body.substringAfter("][", missingDelimiterValue = "").removeSuffix("]")
+                    val rate = params[key]?.toIntOrNull()
+                    if (index.isBlank() || itemId.isBlank() || rate == null || rate < 0) null
+                    else Triple(index, itemId, rate)
+                }
+                .groupBy({ it.first }, { it.second to it.third })
+
+            // A mode with no rates says nothing about the farm, so it does not survive the form.
+            val modes = ratesByMode.keys.sortedBy { it.toIntOrNull() ?: Int.MAX_VALUE }
+            if (modes.isNotEmpty()) {
+                putJsonArray("productionModes") {
+                    modes.forEach { index ->
+                        addJsonObject {
+                            put("name", names[index] ?: "")
+                            putJsonObject("rates") {
+                                ratesByMode[index].orEmpty().forEach { (itemId, rate) -> put(itemId, rate) }
+                            }
+                        }
+                    }
                 }
             }
         }.toString()
