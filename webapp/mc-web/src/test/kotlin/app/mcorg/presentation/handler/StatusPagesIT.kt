@@ -1,9 +1,11 @@
 package app.mcorg.presentation.handler
 
+import app.mcorg.presentation.plugins.configureMonitoring
 import app.mcorg.presentation.plugins.configureStatusStaticRouter
 import app.mcorg.test.postgres.DatabaseTestExtension
 import io.ktor.client.request.get
 import io.ktor.client.statement.bodyAsText
+import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.routing.get
 import io.ktor.server.testing.testApplication
@@ -58,6 +60,32 @@ class StatusPagesIT {
             body.contains("super-secret-internal-detail"),
             "500 page must not leak the exception message",
         )
+    }
+
+    @Test
+    fun `the 500 page shows a reference the user can quote`() = testApplication {
+        // MCO-350. The page told the reader "the error has been logged" and gave them nothing to
+        // identify it by — so a report arrived as "it broke when I clicked the thing".
+        application {
+            configureMonitoring()
+            configureStatusStaticRouter()
+        }
+        routing {
+            get("/throws") { throw SecretLeakingException("super-secret-internal-detail") }
+        }
+
+        val response = createClient { followRedirects = false }.get("/throws")
+        val body = response.bodyAsText()
+
+        assertEquals(HttpStatusCode.InternalServerError, response.status)
+
+        // CallId echoes the id it settled on, so the header is the id the log line also carries.
+        val callId = response.headers[HttpHeaders.XRequestId]
+        assertFalse(callId.isNullOrBlank(), "the response should carry a call id")
+        assertTrue(body.contains(callId), "the 500 page should quote the call id $callId; was: $body")
+
+        // Still no leak — the reference is opaque and generated, unlike the cause.
+        assertFalse(body.contains("super-secret-internal-detail"), "must not leak the exception message")
     }
 
     private class SecretLeakingException(message: String) : RuntimeException(message)

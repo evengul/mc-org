@@ -63,6 +63,18 @@ There is deliberately **no real email anywhere in the system** — see below.
 | `DatabaseSteps` (5 sites) | raw `SQLException` | **Fixed.** SQLState + constraint + table + routine; message withheld. Non-SQL exceptions keep their stack trace — that is code locations, not row data. |
 | `ApiProvider` deserialization | previously `println(e.message)` with OAuth tokens | **Fixed** (MCO-336). Target type + URL only. |
 | `ApiProvider` non-2xx | previously an unbounded upstream error body | **Fixed** (MCO-338). Status + URL + byte count; truncated body at DEBUG only. |
+| `ErrorBoundary` (`defaultHandleError`) | previously nothing at all | **Added** (MCO-350). Failure type, method, `path()`, user id. No exception is attached — the `AppFailure` variants are `data object`s with no cause field, so there is nothing to leak. Levelled so ordinary outcomes stay quiet: validation, redirects and a missing token are silent, an expired token and a missing row are INFO, a refused authorization is WARN. |
+| `GetServerFileStep` timeout | version + elapsed budget | **Accepted** (MCO-346). No URL body, no exception on the timeout paths — a `SocketTimeoutException` message is "Read timed out" and carries nothing. |
+
+### The call id is user-visible
+
+Since MCO-350 the 500 page and the generic error alert print this request's call id, so a user can
+quote it in a report. That is safe *because* of the MCO-341 rules above: an inbound `X-Request-Id`
+is only adopted if it matches `[A-Za-z0-9+/=_-]{1,64}`, and anything else is replaced by a
+server-generated UUID. The id is opaque and says nothing about the user or the failure.
+
+Keep it that way. If a call id ever becomes derived from something meaningful — a user id, a
+session, a tenant — it stops being safe to render and this decision has to be revisited.
 
 ## On email
 
