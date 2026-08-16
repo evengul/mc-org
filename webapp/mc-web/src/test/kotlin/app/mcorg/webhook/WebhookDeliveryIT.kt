@@ -14,6 +14,7 @@ import app.mcorg.test.postgres.DatabaseTestExtension
 import com.github.tomakehurst.wiremock.client.WireMock
 import com.github.tomakehurst.wiremock.junit5.WireMockRuntimeInfo
 import com.github.tomakehurst.wiremock.junit5.WireMockTest
+import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonArray
@@ -112,6 +113,110 @@ class WebhookDeliveryIT : WithUser() {
         val (failures, active) = subscriptionHealth(subId)
         assertEquals(1, failures)
         assertTrue(active)
+    }
+
+    // --- MCO-357: claiming ---------------------------------------------------------------------
+
+    @Test
+    fun `two concurrent polls claim each row exactly once`(wm: WireMockRuntimeInfo) {
+        // The duplicate-webhook scenario. Before claiming, both scans returned the same PENDING
+        // rows and the row was only mutated after the POST returned, so every delivery would have
+        // gone out twice the moment Fly ran a second machine.
+        val worldId = createWorld("wh-concurrent")
+        val subId = insertSubscription(worldId, wm.httpBaseUrl + "/hook", "x", """["*"]""")
+        val ids = (1..20).map { insertDelivery(subId) }.toSet()
+
+        val (first, second) = runBlocking {
+            val a = async { WebhookStore.claimDueDeliveries() }
+            val b = async { WebhookStore.claimDueDeliveries() }
+            a.await() to b.await()
+        }
+
+        val firstIds = first.map { it.id }
+        val secondIds = second.map { it.id }
+
+        assertTrue(
+            firstIds.intersect(secondIds.toSet()).isEmpty(),
+            "the same row was claimed by both polls: ${firstIds.intersect(secondIds.toSet())}",
+        )
+        assertEquals(
+            ids, (firstIds + secondIds).toSet(),
+            "every row should be claimed exactly once between the two polls",
+        )
+    }
+
+    @Test
+    fun `a claimed row is invisible to the next poll`(wm: WireMockRuntimeInfo) {
+        val worldId = createWorld("wh-claimed-hidden")
+        val subId = insertSubscription(worldId, wm.httpBaseUrl + "/hook", "x", """["*"]""")
+        insertDelivery(subId)
+
+        val first = runBlocking { WebhookStore.claimDueDeliveries() }
+        val second = runBlocking { WebhookStore.claimDueDeliveries() }
+
+        assertEquals(1, first.size, "the first poll should claim the row")
+        assertTrue(second.isEmpty(), "a claimed row must not be handed out again inside the lease")
+    }
+
+    @Test
+    fun `a stranded claim is reclaimed once its lease expires`(wm: WireMockRuntimeInfo) {
+        // A poller killed between claiming and delivering leaves the row IN_FLIGHT with nobody
+        // coming back for it. Without reclaim that webhook is simply lost.
+        val worldId = createWorld("wh-stranded")
+        val subId = insertSubscription(worldId, wm.httpBaseUrl + "/hook", "x", """["*"]""")
+        val deliveryId = insertDelivery(subId)
+
+        runBlocking { WebhookStore.claimDueDeliveries() }
+        assertTrue(runBlocking { WebhookStore.claimDueDeliveries() }.isEmpty())
+
+        ageClaim(deliveryId, minutes = 10)
+
+        val reclaimed = runBlocking { WebhookStore.claimDueDeliveries() }
+        assertEquals(listOf(deliveryId), reclaimed.map { it.id })
+    }
+
+    @Test
+    fun `an expiring claim schedules a wake, so a stranded row is not left for the daily cleanup`(
+        wm: WireMockRuntimeInfo,
+    ) {
+        val worldId = createWorld("wh-stranded-wake")
+        val subId = insertSubscription(worldId, wm.httpBaseUrl + "/hook", "x", """["*"]""")
+        insertDelivery(subId)
+
+        runBlocking { WebhookStore.claimDueDeliveries() }
+
+        // No PENDING row remains, so the old query returned null here and the poller would have
+        // slept until the once-a-day cleanup — a 24 hour delay on a webhook.
+        val next = runBlocking { WebhookStore.findNextScheduledDeliveryAt() }
+        assertTrue(next != null, "an in-flight claim should still schedule a wake for its expiry")
+    }
+
+    @Test
+    fun `a delivery carries its outbox row ids so a receiver can dedup our retries`(wm: WireMockRuntimeInfo) {
+        val worldId = createWorld("wh-delivery-ids")
+        val subId = insertSubscription(worldId, wm.httpBaseUrl + "/hook", "x", """["*"]""")
+        val deliveryId = insertDelivery(subId)
+        wm.wireMock.register(WireMock.post("/hook").willReturn(WireMock.aResponse().withStatus(200)))
+
+        runBlocking { poller.pollOnce(System.currentTimeMillis()) }
+
+        wm.wireMock.verifyThat(
+            WireMock.postRequestedFor(WireMock.urlEqualTo("/hook"))
+                .withHeader(WebhookDeliveryPoller.DELIVERY_IDS_HEADER, WireMock.equalTo("$deliveryId"))
+        )
+    }
+
+    /** Backdates a claim so the lease looks expired, without sleeping through it. */
+    private fun ageClaim(deliveryId: Long, minutes: Long) {
+        Database.getConnection().use { conn ->
+            conn.prepareStatement(
+                "UPDATE webhook_deliveries SET claimed_at = CURRENT_TIMESTAMP - make_interval(mins => ?) WHERE id = ?"
+            ).use { st ->
+                st.setInt(1, minutes.toInt())
+                st.setLong(2, deliveryId)
+                st.executeUpdate()
+            }
+        }
     }
 
     @Test
