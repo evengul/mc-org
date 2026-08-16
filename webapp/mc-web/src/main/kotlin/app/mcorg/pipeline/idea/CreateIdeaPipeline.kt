@@ -11,6 +11,8 @@ import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.failure.AppFailure
+import app.mcorg.pipeline.idea.commonsteps.IdeaProductionModeInput
+import app.mcorg.pipeline.idea.commonsteps.replaceIdeaProductionModes
 import kotlinx.serialization.builtins.MapSerializer
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
@@ -26,6 +28,12 @@ data class CreateIdeaInput(
     val versionRange: MinecraftVersionRange,
     val testData: PerformanceTestData?,
     val itemRequirements: Map<String, Int>,
+    /**
+     * What the idea produces, by mode. Empty for anything that produces nothing — most builds.
+     * Relational rather than part of [categoryData] so demand can be matched against it and so a
+     * mob farm inside a storage build can declare output without being categorised as a farm.
+     */
+    val productionModes: List<IdeaProductionModeInput> = emptyList(),
     val categoryData: Map<String, CategoryValue>,
 )
 
@@ -117,6 +125,11 @@ data class CreateIdeaStep(val userId: Int) : Step<CreateIdeaInput, AppFailure.Da
                             if (requirementResult is Result.Failure) {
                                 return requirementResult
                             }
+                        }
+
+                        val productions = replaceIdeaProductionModes(ideaId, input.productionModes, connection)
+                        if (productions is Result.Failure) {
+                            return productions
                         }
 
                         return Result.success(ideaId)

@@ -7,6 +7,7 @@ import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.Result
 import app.mcorg.pipeline.SafeSQL
+import app.mcorg.pipeline.idea.commonsteps.replaceIdeaProductionModes
 import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.idea.CreateIdeaInput
 import kotlinx.serialization.builtins.MapSerializer
@@ -73,6 +74,13 @@ class UpdateExistingIdeaStep : Step<UpdateExistingIdeaInput, AppFailure.Database
 
                             if (requirementResult is Result.Failure) return requirementResult
                         }
+
+                        val productions = replaceIdeaProductionModes(
+                            input.ideaId,
+                            input.createInput.productionModes,
+                            connection,
+                        )
+                        if (productions is Result.Failure) return productions
 
                         return Result.success(input.ideaId)
                     }
