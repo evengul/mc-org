@@ -51,6 +51,7 @@ import app.mcorg.pipeline.resources.PendingFarmSupply
 import app.mcorg.pipeline.resources.buildNodeIngredients
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
+import kotlin.math.roundToInt
 
 fun projectDetailPage(
     user: TokenProfile,
@@ -524,17 +525,21 @@ fun FlowContent.gatheringPlanSections(
 
             div("project-detail__section") {
                 span("section-label") { +groupLabel(group) }
-                div("resource-list") {
-                    ordered.forEach { activity ->
-                        planActivityRow(
-                            project.worldId,
-                            project.id,
-                            activity,
-                            progressMap,
-                            nodeIngredients,
-                            feedsLabels,
-                            isFarmScale = activity.item.id in farmScaleIds,
-                        )
+                if (group == ActivityGroup.NEEDS_ATTENTION) {
+                    needsAttentionList(project, ordered)
+                } else {
+                    div("resource-list") {
+                        ordered.forEach { activity ->
+                            planActivityRow(
+                                project.worldId,
+                                project.id,
+                                activity,
+                                progressMap,
+                                nodeIngredients,
+                                feedsLabels,
+                                isFarmScale = activity.item.id in farmScaleIds,
+                            )
+                        }
                     }
                 }
             }
@@ -728,6 +733,112 @@ private fun FlowContent.suppliedActivityRow(
     }
 }
 
+/**
+ * "Needs attention", ordered and collapsed (MCO-400).
+ *
+ * The section used to render every unresolved question as an equal amber callout in id order.
+ * On the YAMS import that is 25 stacked warnings opening with "Charcoal or Coal" (2 items) and
+ * burying "Planks" (110,824 items — 96% of all the material behind these questions) at
+ * position 19. The count was never the real problem: the questions are already one per tag, not
+ * one per consumer. The problem is that a two-item decision and a hundred-thousand-item decision
+ * look exactly alike, in an order that has nothing to do with either.
+ *
+ * So: blocked rows first, since they cannot be answered by picking at all and no amount of
+ * variant-choosing moves them; then the questions by how much material each decides, with the
+ * tail folded away.
+ */
+private fun FlowContent.needsAttentionList(project: Project, activities: List<Activity>) {
+    val blocked = activities.filter { it.status == PlanNodeStatus.BLOCKED }
+    val questions = activities
+        .filter { it.status == PlanNodeStatus.OPEN_TAG }
+        .sortedWith(compareByDescending<Activity> { it.quantity }.thenBy { it.item.name })
+
+    div("resource-list") {
+        blocked.forEach { blockedActivityRow(project.worldId, project.id, it) }
+    }
+
+    if (questions.isEmpty()) return
+
+    val leadCount = leadingQuestionCount(questions)
+    val lead = questions.take(leadCount)
+    val rest = questions.drop(leadCount)
+
+    div("plan-attention") {
+        id = "plan-attention"
+        p("plan-attention__lead") { +attentionLead(questions, leadCount) }
+        div("resource-list") {
+            lead.forEach { openTagActivityRow(project.worldId, project.id, it) }
+        }
+        if (rest.isNotEmpty()) {
+            details("plan-attention__rest") {
+                summary {
+                    span("btn btn--ghost btn--sm plan-attention__toggle") {
+                        span("plan-attention__toggle--closed") { +"Show ${rest.size} smaller choices ▾" }
+                        span("plan-attention__toggle--open") { +"Hide smaller choices ▴" }
+                    }
+                }
+                div("resource-list") {
+                    rest.forEach { openTagActivityRow(project.worldId, project.id, it) }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * How many questions to show before folding the rest away.
+ *
+ * Enough to cover [ATTENTION_COVERAGE] of the material the questions decide, capped at
+ * [MAX_LEADING_QUESTIONS] — coverage alone would expand nearly everything when demand happens to
+ * be spread evenly, which is the wall again. Always at least one: a section whose every question
+ * is hidden behind a toggle reads as an empty section.
+ *
+ * A remainder of one or two is not worth a fold, so those stay open.
+ */
+private fun leadingQuestionCount(questionsByQuantityDesc: List<Activity>): Int {
+    val total = questionsByQuantityDesc.sumOf { it.quantity }
+    if (total <= 0) return questionsByQuantityDesc.size.coerceAtMost(MAX_LEADING_QUESTIONS)
+
+    var covered = 0L
+    var count = 0
+    for (activity in questionsByQuantityDesc) {
+        covered += activity.quantity
+        count++
+        if (count >= MAX_LEADING_QUESTIONS) break
+        if (covered.toDouble() / total >= ATTENTION_COVERAGE) break
+    }
+    return if (questionsByQuantityDesc.size - count < MIN_FOLDED) questionsByQuantityDesc.size else count
+}
+
+/**
+ * "25 variant choices — these 1 decide 96% of the material behind them."
+ *
+ * The percentage is the point: it is what tells you that answering the top question is most of
+ * the work, and that the twenty below it are detail. Stated only when something is actually
+ * folded away, and only when the quantities can support the claim.
+ */
+private fun attentionLead(questions: List<Activity>, leadCount: Int): String {
+    val plural = if (questions.size == 1) "variant choice" else "variant choices"
+    if (leadCount >= questions.size) return "${questions.size} $plural — pick to sharpen the plan."
+
+    val total = questions.sumOf { it.quantity }
+    if (total <= 0) return "${questions.size} $plural — largest first."
+
+    val covered = questions.take(leadCount).sumOf { it.quantity }
+    val percent = (covered * 100.0 / total).roundToInt()
+    val these = if (leadCount == 1) "the first decides" else "these $leadCount decide"
+    return "${questions.size} $plural — $these $percent% of the material behind them."
+}
+
+/** Show questions until they cover this share of the material the whole section decides. */
+private const val ATTENTION_COVERAGE = 0.9
+
+/** Never lead with more than this many, however flat the distribution. */
+private const val MAX_LEADING_QUESTIONS = 5
+
+/** A remainder smaller than this is not worth hiding behind a toggle. */
+private const val MIN_FOLDED = 3
+
 /** OPEN_TAG row: amber callout, indicates variant pick needed. */
 private fun FlowContent.openTagActivityRow(worldId: Int, projectId: Int, activity: Activity) {
     val encodedItemId = URLEncoder.encode(activity.item.id, StandardCharsets.UTF_8)
@@ -736,6 +847,11 @@ private fun FlowContent.openTagActivityRow(worldId: Int, projectId: Int, activit
         id = "plan-activity-${activity.item.id.replace(":", "-")}"
         span("callout__icon") { +"!" }
         div("callout__body") {
+            // The quantity leads (MCO-400). Without it every question looks alike, and on a real
+            // import they are not: on the YAMS build one choice carries 110,824 items and the
+            // next-but-three carries 2. Same words, four orders of magnitude apart.
+            span("plan-attention__quantity") { +"%,d".format(activity.quantity) }
+            +" "
             span { +activity.item.name }
             +" — Pick a variant (open tag)"
         }
