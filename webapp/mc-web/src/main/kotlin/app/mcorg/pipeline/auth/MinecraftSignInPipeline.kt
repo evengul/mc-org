@@ -124,6 +124,11 @@ object GetMicrosoftTokenStep : Step<GetMicrosoftTokenInput, AppFailure, String> 
                     }))
                     requestBuilder.contentType(ContentType.Application.FormUrlEncoded)
                 }
+                // No retrySafe here, deliberately (MCO-354). `code` is single-use: Microsoft has
+                // already consumed it by the time a 5xx comes back, so replaying it converts a
+                // recoverable upstream blip into a guaranteed failed sign-in. This is the one
+                // call in the chain that must not be retried, which is why the default is off
+                // and the other three opt in explicitly.
             )
 
         return step.process(input).map { response -> response.accessToken }
@@ -143,7 +148,10 @@ object GetXboxProfileStep : Step<String, AppFailure.ApiError, TokenData> {
                         "JWT"
                     )
                     requestBuilder.setBody(body)
-                }
+                },
+                // Safe to replay: this re-presents an access token we still hold rather than
+                // spending anything. Xbox Live is the flakiest hop in the chain (MCO-354).
+                retrySafe = true,
             )
 
         return step.process(input).map { response ->
@@ -164,7 +172,9 @@ object GetXstsToken : Step<TokenData, AppFailure.ApiError, TokenData> {
                         "JWT"
                     )
                     requestBuilder.setBody(body)
-                }
+                },
+                // Re-presents the Xbox token; consumes nothing (MCO-354).
+                retrySafe = true,
             )
 
         return step.process(input).map { response ->
@@ -181,7 +191,10 @@ object GetMinecraftToken : Step<TokenData, AppFailure.ApiError, String> {
                 bodyBuilder = { requestBuilder, tokenData ->
                     val body = MinecraftRequest(createMinecraftRequest(userHash = tokenData.hash, xstsToken = tokenData.token))
                     requestBuilder.setBody(body)
-                }
+                },
+                // Re-presents the XSTS token; consumes nothing. api.minecraftservices.com is the
+                // other historically flaky hop (MCO-354).
+                retrySafe = true,
             )
 
         return step.process(input).map { response -> response.accessToken }

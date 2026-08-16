@@ -5,19 +5,23 @@ import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.failure.AppFailure
 import io.ktor.client.*
 import io.ktor.client.engine.cio.*
+import io.ktor.client.network.sockets.ConnectTimeoutException
 import io.ktor.client.plugins.*
 import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
+import io.ktor.util.AttributeKey
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
+import java.io.IOException
 import java.net.ConnectException
+import java.net.SocketTimeoutException
 import java.net.UnknownHostException
 import java.time.Instant
 import java.util.concurrent.ConcurrentHashMap
@@ -30,6 +34,61 @@ private data class RateLimitInfo(
 
 /** Upper bound on how much of an upstream error body reaches the DEBUG log (MCO-338). */
 const val ERROR_BODY_LOG_LIMIT = 256
+
+/*
+ * Bounded retry with jittered backoff (MCO-354).
+ *
+ * Two attempts after the first, so three in total. The sign-in flow is five sequential upstream
+ * calls across four providers and any one of them returning 502/503 ends it at
+ * "?error=external_api_error", so the win is large — but it is five calls deep, and multiplying
+ * each one's worst case is how a slow sign-in becomes an abandoned one.
+ */
+private const val MAX_RETRIES = 2
+private const val RETRY_MAX_DELAY_MS = 2_000L
+
+/**
+ * Jitter width. Without it, a transient upstream blip makes every in-flight request retry in
+ * lockstep and arrive together — the retry becomes the second outage.
+ */
+private const val RETRY_JITTER_MS = 250L
+
+/**
+ * Marks a non-idempotent request as safe to replay.
+ *
+ * GETs are retried automatically. POSTs are not, because the default has to be the safe one: the
+ * Microsoft token exchange spends a single-use authorization `code`, and replaying it turns a
+ * recoverable upstream blip into a failed sign-in. Opting in is per call site, so adding a new
+ * POST cannot accidentally inherit retry.
+ */
+val RETRY_SAFE = AttributeKey<Boolean>("SeamRetrySafeRequest")
+
+/** GET/HEAD/OPTIONS are idempotent by definition; anything else must opt in via [RETRY_SAFE]. */
+private fun HttpRequest.isReplayable(): Boolean =
+    method == HttpMethod.Get ||
+        method == HttpMethod.Head ||
+        method == HttpMethod.Options ||
+        attributes.getOrNull(RETRY_SAFE) == true
+
+/** 5xx and 429 are "try again"; every 4xx is "this request is wrong" and will stay wrong. */
+private fun isTransientStatus(status: HttpStatusCode): Boolean =
+    status.value >= 500 || status == HttpStatusCode.TooManyRequests
+
+/**
+ * Retry a connection that failed, never one that timed out.
+ *
+ * A refused or reset connection fails in milliseconds, so replaying it is nearly free and fits
+ * inside the existing 30s request timeout several times over. A *timeout* has already spent that
+ * budget — retrying it would turn one 30s wait into ninety, on a sign-in path a user is actively
+ * waiting on. `HttpRequestTimeoutException` extends `IOException`, so it has to be excluded
+ * explicitly rather than by leaving it out.
+ */
+private fun isTransientCause(cause: Throwable): Boolean = when (cause) {
+    is HttpRequestTimeoutException -> false
+    is ConnectTimeoutException -> false
+    is SocketTimeoutException -> false
+    is IOException -> true
+    else -> false
+}
 
 sealed class ApiProvider(
     protected val config: ApiConfig
@@ -79,17 +138,28 @@ sealed class ApiProvider(
      * but a new outbound call should go through this class, not copy the download step.
      */
 
+    /**
+     * @param retrySafe opt this POST into the shared client's retry (MCO-354). Set it only when
+     * replaying the exact same body is harmless — a token *exchange* that consumes a single-use
+     * code is not, an auth handshake that re-presents a token it already holds is. Defaults to
+     * false so a new POST is never retried by accident.
+     */
     inline fun <I, reified S> post(
         url: String,
         noinline headerBuilder: (HttpRequestBuilder, I) -> Unit = { _, _ -> },
         noinline bodyBuilder: (HttpRequestBuilder, I) -> Unit = { _, _ -> },
+        retrySafe: Boolean = false,
     ) : Step<I, AppFailure.ApiError, S> {
+        val withRetryMarker: (HttpRequestBuilder, I) -> Unit = { builder, input ->
+            if (retrySafe) builder.attributes.put(RETRY_SAFE, true)
+            headerBuilder(builder, input)
+        }
         return object : Step<I, AppFailure.ApiError, S> {
             override suspend fun process(input: I): Result<AppFailure.ApiError, S> {
                 val result = request(
                     HttpMethod.Post,
                     url,
-                    headerBuilder,
+                    withRetryMarker,
                     bodyBuilder,
                 ).process(input)
 
@@ -187,6 +257,21 @@ class DefaultApiProvider(
                 requestTimeoutMillis = 30000
                 connectTimeoutMillis = 10000
                 socketTimeoutMillis = 30000
+            }
+            // MCO-354. Nothing outbound retried before this, so a single 502 from Xbox Live —
+            // historically flaky — ended a sign-in outright.
+            install(HttpRequestRetry) {
+                maxRetries = MAX_RETRIES
+                retryIf { _, response -> response.request.isReplayable() && isTransientStatus(response.status) }
+                retryOnExceptionIf { request, cause ->
+                    request.build().let { built ->
+                        (built.method == HttpMethod.Get ||
+                            built.method == HttpMethod.Head ||
+                            built.method == HttpMethod.Options ||
+                            built.attributes.getOrNull(RETRY_SAFE) == true) && isTransientCause(cause)
+                    }
+                }
+                exponentialDelay(maxDelayMs = RETRY_MAX_DELAY_MS, randomizationMs = RETRY_JITTER_MS)
             }
         }
 
