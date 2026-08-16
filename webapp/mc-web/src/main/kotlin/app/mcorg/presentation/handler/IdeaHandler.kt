@@ -25,13 +25,17 @@ import app.mcorg.pipeline.idea.single.handlePublishIdeaToHub
 import app.mcorg.pipeline.project.handleGetSelectWorldForIdeaImportFragment
 import app.mcorg.pipeline.project.handleImportIdea
 import app.mcorg.pipeline.project.handleReviewIdeaImport
+import app.mcorg.presentation.plugins.IdeaCommentAuthorPlugin
 import app.mcorg.presentation.plugins.IdeaCommentParamPlugin
 import app.mcorg.presentation.plugins.IdeaParamPlugin
 import app.mcorg.presentation.plugins.IdeaPublisherPlugin
 import app.mcorg.presentation.plugins.IdeaVisibilityPlugin
+import app.mcorg.presentation.plugins.SchematicUploadLimitPlugin
+import io.ktor.http.HttpMethod
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.delete
 import io.ktor.server.routing.get
+import io.ktor.server.routing.method
 import io.ktor.server.routing.patch
 import io.ktor.server.routing.post
 import io.ktor.server.routing.put
@@ -81,8 +85,11 @@ class IdeaHandler {
                 get("/item-requirement-field") {
                     call.handleGetItemRequirementFields()
                 }
-                post("/litematic") {
-                    call.handleParseLitematica()
+                route("/litematic") {
+                    install(SchematicUploadLimitPlugin)
+                    post {
+                        call.handleParseLitematica()
+                    }
                 }
             }
 
@@ -159,8 +166,14 @@ class IdeaHandler {
                         patch("/like") {
                             // Like comment
                         }
-                        delete {
-                            call.handleDeleteIdeaComment()
+                        // Author / idea-owner / superadmin only (MCO-351). Scoped to the delete
+                        // rather than the whole {commentId} route because a future "like" must
+                        // stay open to any reader — but an edit, when it lands, belongs in here.
+                        method(HttpMethod.Delete) {
+                            install(IdeaCommentAuthorPlugin)
+                            handle {
+                                call.handleDeleteIdeaComment()
+                            }
                         }
                     }
                 }

@@ -76,24 +76,54 @@ data class ListTag<T>(override val value: MutableList<T> = mutableListOf(), over
     }
 }
 
-data class ByteListTag(override val value: List<Byte>) : Tag<List<Byte>> {
+/*
+ * The three array tags hold primitive arrays rather than List<Byte>/List<Int>/List<Long>.
+ *
+ * Boxing them cost roughly sixteen bytes of object header and reference per element, which turned
+ * a bounded input into an unbounded heap cost — the amplification half of MCO-345. These are
+ * plain classes, not data classes: an array's generated equals() compares identity, which reads
+ * as a value comparison and silently is not one.
+ */
+
+class ByteListTag(override val value: ByteArray) : Tag<ByteArray> {
     override val id: Byte = ID
+
+    override fun equals(other: Any?): Boolean =
+        this === other || (other is ByteListTag && value.contentEquals(other.value))
+
+    override fun hashCode(): Int = value.contentHashCode()
+
+    override fun toString(): String = "ByteListTag(size=${value.size})"
 
     companion object {
         const val ID = 7.toByte()
     }
 }
 
-data class IntListTag(override val value: List<Int>) : Tag<List<Int>> {
+class IntListTag(override val value: IntArray) : Tag<IntArray> {
     override val id: Byte = ID
+
+    override fun equals(other: Any?): Boolean =
+        this === other || (other is IntListTag && value.contentEquals(other.value))
+
+    override fun hashCode(): Int = value.contentHashCode()
+
+    override fun toString(): String = "IntListTag(size=${value.size})"
 
     companion object {
         const val ID = 11.toByte()
     }
 }
 
-data class LongListTag(override val value: List<Long>) : Tag<List<Long>> {
+class LongListTag(override val value: LongArray) : Tag<LongArray> {
     override val id: Byte = ID
+
+    override fun equals(other: Any?): Boolean =
+        this === other || (other is LongListTag && value.contentEquals(other.value))
+
+    override fun hashCode(): Int = value.contentHashCode()
+
+    override fun toString(): String = "LongListTag(size=${value.size})"
 
     companion object {
         const val ID = 12.toByte()

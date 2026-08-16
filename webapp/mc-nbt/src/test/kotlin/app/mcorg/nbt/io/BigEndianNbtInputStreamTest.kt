@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.DataOutputStream
+import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 
 class BigEndianNbtInputStreamTest {
@@ -73,7 +74,7 @@ class BigEndianNbtInputStreamTest {
             writeByte(30)
         }
         val tag = assertResultSuccess(input.readByteListTag())
-        assertEquals(listOf(10.toByte(), 20.toByte(), 30.toByte()), (tag as ByteListTag).value)
+        assertContentEquals(byteArrayOf(10, 20, 30), (tag as ByteListTag).value)
     }
 
     @Test

@@ -14,6 +14,7 @@ import app.mcorg.pipeline.failure.ValidationFailure
 import app.mcorg.pipeline.project.resources.GetItemsInWorldVersionStep
 import app.mcorg.pipeline.world.ValidateWorldMemberRole
 import app.mcorg.presentation.handler.handlePipeline
+import app.mcorg.presentation.plugins.MAX_SCHEMATIC_UPLOAD_BYTES
 import app.mcorg.presentation.templated.dsl.Link
 import app.mcorg.presentation.utils.clientRedirect
 import app.mcorg.presentation.utils.getUser
@@ -31,6 +32,8 @@ import io.ktor.server.request.receiveMultipart
 import io.ktor.server.request.receiveParameters
 import io.ktor.server.response.respond
 import io.ktor.utils.io.readRemaining
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.io.readByteArray
 
 /**
@@ -212,12 +215,22 @@ object ReceiveSchematicStep : Step<MultiPartData, AppFailure, SchematicUpload> {
         var content: ByteArray? = null
         var fileName: String? = null
         var providedName: String? = null
+        var tooLarge = false
 
         input.forEachPart { part ->
             when {
                 part is PartData.FileItem && part.originalFileName?.endsWith(".litematic") == true -> {
-                    content = part.provider().readRemaining().readByteArray()
-                    fileName = part.originalFileName
+                    // Bounded at one byte past the limit so an oversized body is detected without
+                    // being buffered in full. SchematicUploadLimitPlugin rejects the honest case
+                    // ahead of this; this covers a chunked upload or a lying header (MCO-345).
+                    val bytes = part.provider().readRemaining(MAX_SCHEMATIC_UPLOAD_BYTES + 1).readByteArray()
+                    if (bytes.size > MAX_SCHEMATIC_UPLOAD_BYTES) {
+                        tooLarge = true
+                    } else {
+                        content = bytes
+                        fileName = part.originalFileName
+                    }
+                    part.release()
                 }
                 part is PartData.FormItem && part.name == "name" -> {
                     providedName = part.value.takeIf { it.isNotBlank() }
@@ -229,6 +242,12 @@ object ReceiveSchematicStep : Step<MultiPartData, AppFailure, SchematicUpload> {
 
         val bytes = content
         return when {
+            tooLarge -> Result.failure(
+                AppFailure.customValidationError(
+                    "schematicFile",
+                    "That file is too large. Schematics must be under ${MAX_SCHEMATIC_UPLOAD_BYTES / (1024 * 1024)} MB.",
+                )
+            )
             bytes == null -> Result.failure(
                 AppFailure.customValidationError("schematicFile", "Provide a .litematic file")
             )
@@ -242,7 +261,10 @@ object ReceiveSchematicStep : Step<MultiPartData, AppFailure, SchematicUpload> {
 
 object ParseSchematicStep : Step<SchematicUpload, AppFailure, Litematica> {
     override suspend fun process(input: SchematicUpload): Result<AppFailure, Litematica> {
-        return when (val parsed = LitematicaReader.readLitematica(input.content)) {
+        // Off the Netty event loop — see ParseLitematicaStep. Decompression and tree-walking of
+        // attacker-supplied bytes must not run where it can stall unrelated requests (MCO-345).
+        val parsed = withContext(Dispatchers.IO) { LitematicaReader.readLitematica(input.content) }
+        return when (parsed) {
             is Result.Failure -> Result.failure(
                 AppFailure.customValidationError("schematicFile", "Could not read the schematic file")
             )

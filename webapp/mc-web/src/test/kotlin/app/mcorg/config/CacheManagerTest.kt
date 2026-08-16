@@ -79,10 +79,13 @@ class CacheManagerTest {
 
     @Test
     fun `ideaCommentExists cache stores and retrieves values`() {
-        CacheManager.ideaCommentExists.put(42, true)
+        CacheManager.ideaCommentExists.put(7 to 42, true)
 
-        assertEquals(true, CacheManager.ideaCommentExists.getIfPresent(42))
-        assertNull(CacheManager.ideaCommentExists.getIfPresent(43))
+        assertEquals(true, CacheManager.ideaCommentExists.getIfPresent(7 to 42))
+        assertNull(CacheManager.ideaCommentExists.getIfPresent(7 to 43))
+        // The idea half of the key matters: comment 42 under a different idea is a cache miss,
+        // not a hit (MCO-351) — otherwise the cache hands back the IDOR the query now blocks.
+        assertNull(CacheManager.ideaCommentExists.getIfPresent(99 to 42))
     }
 
     @Test
@@ -258,18 +261,18 @@ class CacheManagerTest {
 
     @Test
     fun `onIdeaCommentCreated populates ideaCommentExists cache`() {
-        CacheManager.onIdeaCommentCreated(42)
+        CacheManager.onIdeaCommentCreated(7, 42)
 
-        assertEquals(true, CacheManager.ideaCommentExists.getIfPresent(42))
+        assertEquals(true, CacheManager.ideaCommentExists.getIfPresent(7 to 42))
     }
 
     @Test
     fun `onIdeaCommentDeleted removes from ideaCommentExists cache`() {
-        CacheManager.ideaCommentExists.put(42, true)
+        CacheManager.ideaCommentExists.put(7 to 42, true)
 
-        CacheManager.onIdeaCommentDeleted(42)
+        CacheManager.onIdeaCommentDeleted(7, 42)
 
-        assertNull(CacheManager.ideaCommentExists.getIfPresent(42))
+        assertNull(CacheManager.ideaCommentExists.getIfPresent(7 to 42))
     }
 
     @Test
@@ -354,7 +357,7 @@ class CacheManagerTest {
         CacheManager.resourceGatheringExists.put("1:1", true)
         CacheManager.worldMemberRole.put("1:1:10", true)
         CacheManager.ideaExists.put(1, true)
-        CacheManager.ideaCommentExists.put(1, true)
+        CacheManager.ideaCommentExists.put(1 to 1, true)
         CacheManager.inviteExists.put(1, true)
         CacheManager.worldMemberExists.put("1:1", true)
         CacheManager.projectProductionItemExists.put("1:1", true)
@@ -371,7 +374,7 @@ class CacheManagerTest {
         assertNull(CacheManager.resourceGatheringExists.getIfPresent("1:1"))
         assertNull(CacheManager.worldMemberRole.getIfPresent("1:1:10"))
         assertNull(CacheManager.ideaExists.getIfPresent(1))
-        assertNull(CacheManager.ideaCommentExists.getIfPresent(1))
+        assertNull(CacheManager.ideaCommentExists.getIfPresent(1 to 1))
         assertNull(CacheManager.inviteExists.getIfPresent(1))
         assertNull(CacheManager.worldMemberExists.getIfPresent("1:1"))
         assertNull(CacheManager.projectProductionItemExists.getIfPresent("1:1"))

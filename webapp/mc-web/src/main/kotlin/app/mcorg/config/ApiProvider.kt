@@ -17,7 +17,6 @@ import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
-import java.io.InputStream
 import java.net.ConnectException
 import java.net.UnknownHostException
 import java.time.Instant
@@ -63,18 +62,22 @@ sealed class ApiProvider(
         }
     }
 
-    fun <I> getRaw(
-        url: String,
-        headerBuilder: (HttpRequestBuilder, I) -> Unit = { _, _ -> },
-    ) : Step<I, AppFailure.ApiError, InputStream> {
-        return request(
-            HttpMethod.Get,
-            url,
-            headerBuilder,
-            { _, _ -> },
-            resultMapper = { response -> response.readRawBytes().inputStream() }
-        )
-    }
+    /*
+     * There is deliberately no raw-bytes fetch here (MCO-346).
+     *
+     * `getRaw()` used to be, with zero call sites and a `readRawBytes().inputStream()` body that
+     * buffered the whole response into the heap. The one caller it could ever have had is the
+     * Mojang server.jar download in GetServerFilesPipeline, and that call wants the opposite of
+     * everything this class provides: a multi-minute budget rather than the shared 30s
+     * HttpTimeout, a stream to a temp file rather than a value in memory, and a SHA-1 digest
+     * computed during the transfer. Fitting it to the `Step<I, E, S>` shape would have meant
+     * bypassing most of the class anyway.
+     *
+     * The cost of that boundary is real and worth stating: the Mojang download is outside the
+     * shared client, so it does not inherit HttpRequestRetry (MCO-354). It is a nightly,
+     * idempotent job that self-heals on the next run, which is why that is an acceptable trade —
+     * but a new outbound call should go through this class, not copy the download step.
+     */
 
     inline fun <I, reified S> post(
         url: String,

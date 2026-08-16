@@ -15,6 +15,8 @@ import app.mcorg.pipeline.world.ValidateWorldMemberRole
 import app.mcorg.presentation.consts.AUTH_COOKIE
 import app.mcorg.presentation.consts.ISSUER
 import app.mcorg.presentation.templated.error.bannedPage
+import app.mcorg.presentation.utils.getIdeaCommentId
+import app.mcorg.presentation.utils.getIdeaId
 import app.mcorg.presentation.utils.getUser
 import app.mcorg.presentation.utils.getWorldId
 import app.mcorg.presentation.utils.respondHtml
@@ -101,6 +103,53 @@ val BannedPlugin = createRouteScopedPlugin("BannedPlugin") {
             if (result.value) {
                 it.respondHtml(bannedPage(), HttpStatusCode.Forbidden)
             }
+        }
+    }
+}
+
+/**
+ * Gates mutation of an idea comment to the people entitled to it: its author, the owner of the
+ * idea it sits under, or a superadmin.
+ *
+ * Before MCO-351 there was no check at all — `DELETE FROM idea_comments WHERE id = ?` was the
+ * entire authorization story, and the Delete button being hidden unless `commenterId == userId`
+ * was the only thing standing between the hub and a loop that wiped its whole comment and rating
+ * history.
+ *
+ * Deliberately a plugin rather than a step inside the pipeline: mc-web's rule is that
+ * authorization is visible from the route tree. Install it after [IdeaCommentParamPlugin], which
+ * establishes that the comment is reachable under this idea in the first place.
+ */
+val IdeaCommentAuthorPlugin = createRouteScopedPlugin("IdeaCommentAuthorPlugin") {
+    onCall { call ->
+        val user = call.getUser()
+        if (user.isSuperAdmin) return@onCall
+
+        val commentId = call.getIdeaCommentId()
+        val ideaId = call.getIdeaId()
+
+        val permitted = DatabaseSteps.query<Unit, Boolean>(
+            sql = SafeSQL.select(
+                """
+                SELECT EXISTS(
+                    SELECT 1 FROM idea_comments c
+                    JOIN ideas i ON i.id = c.idea_id
+                    WHERE c.id = ? AND c.idea_id = ? AND (c.commenter_id = ? OR i.created_by = ?)
+                )
+                """.trimIndent()
+            ),
+            parameterSetter = { statement, _ ->
+                statement.setInt(1, commentId)
+                statement.setInt(2, ideaId)
+                statement.setInt(3, user.id)
+                statement.setInt(4, user.id)
+            },
+            resultMapper = { rs -> rs.next() && rs.getBoolean(1) },
+        ).process(Unit)
+
+        // Fails closed: a database error denies rather than admits.
+        if (permitted !is Result.Success || !permitted.value) {
+            call.respond(HttpStatusCode.Forbidden, "You can only delete your own comments.")
         }
     }
 }
