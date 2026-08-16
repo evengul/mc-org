@@ -11,20 +11,28 @@ import io.ktor.server.plugins.conditionalheaders.*
 /**
  * Content Security Policy (MCO-356).
  *
- * **Read the `'unsafe-inline'` before assuming this stops XSS.** The app emits inline `<script>`
- * blocks (`Alert.kt`), inline `onclick` handlers and HTMX `hx-on::` attributes, so a policy
- * without `'unsafe-inline'` would break the UI on the first page load. What this policy therefore
- * buys is control of *origins* — an injected `<script src>` cannot pull from an attacker's host,
- * `base-uri` cannot be repointed, forms cannot post off-site, and nothing can be framed. It does
- * **not** contain the two latent injection sinks this issue names; removing `'unsafe-inline'`
- * needs the inline handlers moved out to files first, which is its own piece of work.
+ * **Read the `'unsafe-inline'` and `'unsafe-eval'` before assuming this stops XSS.** The app emits
+ * inline `<script>` blocks (`Alert.kt`), 35 inline `on*` handlers, and htmx attributes that are
+ * eval'd — so a policy without both would break the UI on the first page load. What this policy
+ * therefore buys is control of *origins*: an injected `<script src>` cannot pull from an
+ * attacker's host, `base-uri` cannot be repointed, forms cannot post off-site, and nothing can be
+ * framed. It does **not** contain the two latent injection sinks MCO-356 names.
+ *
+ * Getting there means moving the inline JavaScript into files and setting
+ * `htmx.config.allowEval = false` — tracked as its own issue, with dropping these two keywords as
+ * the acceptance criterion. Until then this is origin control, and should be described as such.
  *
  * `cdn.jsdelivr.net` is here for the two SRI-pinned HTMX scripts in `Layout.kt`. Everything else
  * is served from this origin, including fonts and icons — icons are inline SVG, not fetched.
  */
 private val CONTENT_SECURITY_POLICY = listOf(
     "default-src 'self'",
-    "script-src 'self' https://cdn.jsdelivr.net 'unsafe-inline'",
+    // 'unsafe-eval' is here for htmx, not for us. Its `hx-on:` handlers and `hx-vals="js:..."`
+    // expressions are compiled with eval(), so a policy without it does not merely weaken the
+    // page — it silently breaks every modal, inline-edit and search-as-you-type in the app.
+    // Confirmed against htmx's own CSP documentation, which offers `htmx.config.allowEval =
+    // false` as the way out and is explicit that doing so disables exactly those features.
+    "script-src 'self' https://cdn.jsdelivr.net 'unsafe-inline' 'unsafe-eval'",
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data:",
     "font-src 'self'",

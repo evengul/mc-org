@@ -71,6 +71,18 @@ class SecurityHeadersIT {
     }
 
     @Test
+    fun `the CSP allows the eval htmx depends on`() {
+        // Not an endorsement — a reminder. htmx compiles hx-on: handlers and hx-vals="js:..."
+        // with eval(), so dropping 'unsafe-eval' without first moving that JavaScript out breaks
+        // every modal, inline edit and search-as-you-type, silently and only in the browser.
+        // When the follow-up work lands, this test should be inverted rather than deleted.
+        headersOf(Local) { headers ->
+            val csp = headers["Content-Security-Policy"]!!
+            assertTrue("'unsafe-eval'" in csp, "htmx needs eval until the inline JS moves out; was: $csp")
+        }
+    }
+
+    @Test
     fun `the CSP denies framing, off-site forms and plugins`() {
         headersOf(Local) { headers ->
             val csp = headers["Content-Security-Policy"]!!
