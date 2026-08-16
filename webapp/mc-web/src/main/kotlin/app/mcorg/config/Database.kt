@@ -6,6 +6,24 @@ import com.zaxxer.hikari.HikariDataSource
 import org.slf4j.LoggerFactory
 import java.sql.Connection
 
+/*
+ * Database timeouts, in seconds (MCO-347).
+ *
+ * Sized around the slowest thing that legitimately runs on this pool, which is not a web request
+ * but the nightly ingestion: its heaviest statement is the cascading
+ * `DELETE FROM resource_source WHERE version = ?`, measured at ~3s across 76k parent rows once
+ * MCO-353's foreign-key indexes are in place. 30s leaves an order of magnitude of headroom while
+ * still bounding a runaway.
+ *
+ * The ordering between the last two is load-bearing. STATEMENT_TIMEOUT must stay comfortably below
+ * SOCKET_TIMEOUT so the *server* cancels the query and returns a 57014 the pool can recover from;
+ * if the socket gave up first we would be back to discarding connections, just on a timer. Raise
+ * one and you must raise the other.
+ */
+private const val CONNECT_TIMEOUT_SECONDS = "10"
+private const val STATEMENT_TIMEOUT_SECONDS = "30"
+private const val SOCKET_TIMEOUT_SECONDS = "60"
+
 interface DatabaseConnectionProvider : AutoCloseable {
     fun getConnection(): Connection
 }
@@ -70,7 +88,43 @@ class HikariDatabaseProvider(private val isProduction: Boolean) : DatabaseConnec
             idleTimeout = poolConfig.idleTimeout
             maxLifetime = poolConfig.maxLifetime
 
-            // Connection testing
+            // Socket timeouts (MCO-347).
+            //
+            // Hikari's connectionTimeout above bounds only how long we wait for a connection from
+            // the *pool*. Nothing bounded the conversation with PostgreSQL once we had one:
+            // pgjdbc defaults socketTimeout to 0, meaning infinite, so a runaway query pinned a
+            // pooled connection permanently and ten of them exhausted production with no route
+            // back to health short of a restart.
+            //
+            // These three are handled entirely inside pgjdbc and never sent to the server, which
+            // is what makes them safe through Neon's pooler — see the statement_timeout note
+            // below for why that distinction cost a production outage.
+            addDataSourceProperty("connectTimeout", CONNECT_TIMEOUT_SECONDS)
+            addDataSourceProperty("socketTimeout", SOCKET_TIMEOUT_SECONDS)
+            addDataSourceProperty("tcpKeepAlive", "true")
+
+            // Server-side statement timeout, set per connection rather than as a startup option.
+            //
+            // The obvious spelling — `options=-c statement_timeout=30s` in dataSourceProperties —
+            // does not merely fail to apply through Neon's pooler, it makes the pooler *reject
+            // the connection*: "unsupported startup parameter in options: statement_timeout".
+            // Since fly.toml points at the -pooler endpoint, shipping that would have failed
+            // every connection in production. Verified against the real endpoint.
+            //
+            // `ALTER DATABASE ... SET statement_timeout` is no good either: it takes on the direct
+            // endpoint but the pooler reports 0 regardless, so the database default never reaches
+            // a pooled backend.
+            //
+            // What does work is a plain SET on each physical connection — verified to persist
+            // across later statements on the same pooled session. Best-effort rather than
+            // guaranteed, because a transaction-pooled backend can in principle be swapped
+            // underneath us (the same session-state question as MCO-348); socketTimeout above is
+            // the hard backstop that does not depend on it.
+            connectionInitSql = "SET statement_timeout = '${STATEMENT_TIMEOUT_SECONDS}s'"
+
+            // Connection testing. Left as an explicit query rather than Hikari's preferred
+            // isValid(): "SELECT 1" is bounded by the socket timeout set above like any other
+            // statement, and it re-runs through the same path the application uses.
             connectionTestQuery = "SELECT 1"
             validationTimeout = 5000
 

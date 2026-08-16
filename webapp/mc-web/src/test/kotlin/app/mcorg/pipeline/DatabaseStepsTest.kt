@@ -103,14 +103,24 @@ class DatabaseStepsTest {
         verify(exactly = 0) { mockPreparedStatement.setInt(any(), any()) }
     }
 
+    /*
+     * These used to mock SQLTimeoutException, SQLSyntaxErrorException and
+     * SQLIntegrityConstraintViolationException — the JDBC4 subclasses pgjdbc never throws
+     * (MCO-347). They passed, and proved nothing: the branches they exercised could not fire
+     * against a real driver, and every one of these failures actually became UnknownError in
+     * production. Mocking a shape your driver cannot produce is a test of the mock.
+     *
+     * Now they mock what pgjdbc does produce — a SQLException carrying a real SQLState — and
+     * DatabaseErrorMappingIT covers the same ground against a live PostgreSQL.
+     */
+
     @Test
-    fun `query handles SQLTimeoutException correctly`() = runBlocking {
-        // Arrange
+    fun `query maps a connection-failure SQLState to ConnectionError`() = runBlocking {
+        // Arrange — 08006, connection_failure.
         val safeSQL = SafeSQL.select("SELECT * FROM users")
         val input = Unit
-        val timeoutException = SQLTimeoutException("Connection timeout")
 
-        every { mockConnection.prepareStatement(safeSQL.query) } throws timeoutException
+        every { mockConnection.prepareStatement(safeSQL.query) } throws SQLException("gone", "08006")
 
         val resultMapper: (ResultSet) -> String = { "data" }
 
@@ -125,13 +135,34 @@ class DatabaseStepsTest {
     }
 
     @Test
-    fun `query handles SQLSyntaxErrorException correctly`() = runBlocking {
-        // Arrange
+    fun `query maps pool exhaustion to ConnectionError`() = runBlocking {
+        // Hikari raises SQLTransientConnectionException when the pool cannot hand over a
+        // connection in time. It is a sibling of SQLTimeoutException rather than a subtype, so
+        // the old `is SQLTimeoutException` branch missed it — and this is the most likely
+        // database failure in production, not an exotic one.
         val safeSQL = SafeSQL.select("SELECT * FROM users")
         val input = Unit
-        val syntaxException = SQLSyntaxErrorException("Invalid SQL syntax")
 
-        every { mockConnection.prepareStatement(safeSQL.query) } throws syntaxException
+        every { mockConnection.prepareStatement(safeSQL.query) } throws
+            SQLTransientConnectionException("Pool - Connection is not available, request timed out")
+
+        val resultMapper: (ResultSet) -> String = { "data" }
+
+        val result = TestUtils.executeAndAssertFailure(
+            DatabaseSteps.query(safeSQL, resultMapper = resultMapper),
+            input
+        )
+
+        assertEquals(AppFailure.DatabaseError.ConnectionError, result)
+    }
+
+    @Test
+    fun `query maps a syntax-error SQLState to StatementError`() = runBlocking {
+        // Arrange — 42601, syntax_error.
+        val safeSQL = SafeSQL.select("SELECT * FROM users")
+        val input = Unit
+
+        every { mockConnection.prepareStatement(safeSQL.query) } throws SQLException("bad sql", "42601")
 
         val resultMapper: (ResultSet) -> String = { "data" }
 
@@ -146,13 +177,13 @@ class DatabaseStepsTest {
     }
 
     @Test
-    fun `query handles SQLIntegrityConstraintViolationException correctly`() = runBlocking {
-        // Arrange
+    fun `query maps a constraint-violation SQLState to IntegrityConstraintError`() = runBlocking {
+        // Arrange — 23503, foreign_key_violation. Deliberately not 23505: the old mapping
+        // special-cased the unique violation and nothing else in class 23.
         val safeSQL = SafeSQL.select("SELECT * FROM users")
         val input = Unit
-        val constraintException = SQLIntegrityConstraintViolationException("Constraint violation")
 
-        every { mockConnection.prepareStatement(safeSQL.query) } throws constraintException
+        every { mockConnection.prepareStatement(safeSQL.query) } throws SQLException("fk", "23503")
 
         val resultMapper: (ResultSet) -> String = { "data" }
 
@@ -163,6 +194,25 @@ class DatabaseStepsTest {
         )
 
         // Assert
+        assertEquals(AppFailure.DatabaseError.IntegrityConstraintError, result)
+    }
+
+    @Test
+    fun `query maps a wrapped SQLException by walking the cause chain`() = runBlocking {
+        // Hikari and pgjdbc both wrap in places; a SQLState two levels down still counts.
+        val safeSQL = SafeSQL.select("SELECT * FROM users")
+        val input = Unit
+
+        every { mockConnection.prepareStatement(safeSQL.query) } throws
+            RuntimeException("wrapper", SQLException("fk", "23503"))
+
+        val resultMapper: (ResultSet) -> String = { "data" }
+
+        val result = TestUtils.executeAndAssertFailure(
+            DatabaseSteps.query(safeSQL, resultMapper = resultMapper),
+            input
+        )
+
         assertEquals(AppFailure.DatabaseError.IntegrityConstraintError, result)
     }
 
@@ -221,13 +271,12 @@ class DatabaseStepsTest {
     }
 
     @Test
-    fun `update handles SQLTimeoutException correctly`() = runBlocking {
-        // Arrange
+    fun `update maps a connection-failure SQLState to ConnectionError`() = runBlocking {
+        // Arrange — 08006, connection_failure. See the note above the query-side equivalents.
         val safeSQL = SafeSQL.insert("INSERT INTO users (name) VALUES (?)")
         val input = "John Doe"
-        val timeoutException = SQLTimeoutException("Connection timeout")
 
-        every { mockConnection.prepareStatement(safeSQL.query) } throws timeoutException
+        every { mockConnection.prepareStatement(safeSQL.query) } throws SQLException("gone", "08006")
 
         val parameterSetter: (PreparedStatement, String) -> Unit = { stmt, name ->
             stmt.setString(1, name)
@@ -244,13 +293,12 @@ class DatabaseStepsTest {
     }
 
     @Test
-    fun `update handles SQLSyntaxErrorException correctly`() {
-        // Arrange
+    fun `update maps a syntax-error SQLState to StatementError`() {
+        // Arrange — 42601, syntax_error.
         val safeSQL = SafeSQL.update("UPDATE users SET name = ?")
         val input = "John Doe"
-        val syntaxException = SQLSyntaxErrorException("Invalid SQL syntax")
 
-        every { mockConnection.prepareStatement(safeSQL.query) } throws syntaxException
+        every { mockConnection.prepareStatement(safeSQL.query) } throws SQLException("bad sql", "42601")
 
         val parameterSetter: (PreparedStatement, String) -> Unit = { stmt, name ->
             stmt.setString(1, name)
@@ -267,13 +315,12 @@ class DatabaseStepsTest {
     }
 
     @Test
-    fun `update handles SQLIntegrityConstraintViolationException correctly`() {
-        // Arrange
+    fun `update maps a constraint-violation SQLState to IntegrityConstraintError`() {
+        // Arrange — 23502, not_null_violation. Another class-23 state the old mapping missed.
         val safeSQL = SafeSQL.insert("INSERT INTO users (email) VALUES (?)")
         val input = "duplicate@example.com"
-        val constraintException = SQLIntegrityConstraintViolationException("Unique constraint violation")
 
-        every { mockConnection.prepareStatement(safeSQL.query) } throws constraintException
+        every { mockConnection.prepareStatement(safeSQL.query) } throws SQLException("not null", "23502")
 
         val parameterSetter: (PreparedStatement, String) -> Unit = { stmt, email ->
             stmt.setString(1, email)

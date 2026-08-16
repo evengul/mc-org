@@ -196,17 +196,59 @@ object DatabaseSteps {
         }
     }
 
-    private fun handleException(e: Exception): Result<AppFailure.DatabaseError, Nothing> {
-        return Result.failure(
-            when (e) {
-                is SQLTimeoutException -> AppFailure.DatabaseError.ConnectionError
-                is SQLSyntaxErrorException -> AppFailure.DatabaseError.StatementError
-                is SQLIntegrityConstraintViolationException -> AppFailure.DatabaseError.IntegrityConstraintError
-                is HikariPool.PoolInitializationException -> AppFailure.DatabaseError.ConnectionError
-                is PSQLException if e.sqlState == "23505" -> AppFailure.DatabaseError.IntegrityConstraintError
-                else -> AppFailure.DatabaseError.UnknownError
-            }
-        )
+    private fun handleException(e: Exception): Result<AppFailure.DatabaseError, Nothing> =
+        Result.failure(mapDatabaseException(e))
+}
+
+/**
+ * Maps a driver exception to a [AppFailure.DatabaseError] by **SQLState**, not by exception class
+ * (MCO-347).
+ *
+ * The previous mapping branched on `SQLTimeoutException`, `SQLSyntaxErrorException` and
+ * `SQLIntegrityConstraintViolationException`. pgjdbc does not use the JDBC4 subclass hierarchy —
+ * it raises a plain `PSQLException` for all of them — so those three branches were unreachable and
+ * everything except a unique violation became `UnknownError`. Verified against a real PostgreSQL
+ * in `DatabaseErrorMappingIT`, which failed 6 of 7 before this change.
+ *
+ * SQLState is the right key precisely because it is the driver-independent part: the codes are
+ * specified by SQL and by PostgreSQL's documented error table, and they do not depend on which
+ * exception class a driver author happened to pick.
+ */
+internal fun mapDatabaseException(e: Throwable): AppFailure.DatabaseError {
+    // Hikari raises SQLTransientConnectionException when the pool times out handing over a
+    // connection. It is a *sibling* of SQLTimeoutException, not a subtype, so the old
+    // `is SQLTimeoutException` branch never caught it — meaning pool exhaustion, the single most
+    // likely production database failure, reported as UnknownError.
+    val chain = generateSequence(e) { it.cause }
+    if (chain.any { it is SQLTransientConnectionException || it is HikariPool.PoolInitializationException }) {
+        return AppFailure.DatabaseError.ConnectionError
+    }
+
+    val sqlState = chain.filterIsInstance<SQLException>().firstOrNull()?.sqlState
+        ?: return AppFailure.DatabaseError.UnknownError
+
+    return when {
+        // Class 23 — integrity constraint violation: unique (23505), foreign key (23503),
+        // not null (23502), check (23514), exclusion (23P01).
+        sqlState.startsWith("23") -> AppFailure.DatabaseError.IntegrityConstraintError
+
+        // Class 42 — syntax error or access rule violation: malformed SQL, unknown column or
+        // table, wrong argument types. Always a bug in our SQL rather than in the data.
+        sqlState.startsWith("42") -> AppFailure.DatabaseError.StatementError
+
+        // Class 08 — connection exception, and class 53 — insufficient server resources
+        // (out of memory, too many connections, disk full). Both mean "not this connection's
+        // fault, and retrying later may work".
+        sqlState.startsWith("08") -> AppFailure.DatabaseError.ConnectionError
+        sqlState.startsWith("53") -> AppFailure.DatabaseError.ConnectionError
+
+        // 57014 — query cancelled, which is what both statement_timeout and JDBC queryTimeout
+        // produce. Reported as a statement problem because that is what it is: this query was too
+        // slow. The connection itself is healthy and goes straight back to the pool, which is the
+        // entire point of setting those timeouts.
+        sqlState == "57014" -> AppFailure.DatabaseError.StatementError
+
+        else -> AppFailure.DatabaseError.UnknownError
     }
 }
 
