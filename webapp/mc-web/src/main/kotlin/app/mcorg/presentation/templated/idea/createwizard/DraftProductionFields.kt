@@ -1,5 +1,6 @@
 package app.mcorg.presentation.templated.idea.createwizard
 
+import app.mcorg.domain.model.idea.IdeaCategory
 import app.mcorg.domain.model.idea.IdeaDraft
 import app.mcorg.pipeline.idea.draft.DraftData
 import app.mcorg.pipeline.idea.draft.DraftProductionMode
@@ -7,6 +8,7 @@ import kotlinx.html.ButtonType
 import kotlinx.html.FlowContent
 import kotlinx.html.InputType
 import kotlinx.html.button
+import kotlinx.html.classes
 import kotlinx.html.div
 import kotlinx.html.hiddenInput
 import kotlinx.html.id
@@ -43,6 +45,9 @@ fun FlowContent.draftProductionFields(draft: IdeaDraft) {
         .getOrDefault(DraftData())
     val modes = data.productionModes.orEmpty().ifEmpty { listOf(DraftProductionMode()) }
 
+    val isFarm = data.category == IdeaCategory.FARM
+    val hasRates = modes.any { it.rates.isNotEmpty() }
+
     div("wizard-section") {
         id = "draft-productions"
         attributes["data-mode-count"] = modes.size.toString()
@@ -51,6 +56,24 @@ fun FlowContent.draftProductionFields(draft: IdeaDraft) {
         p("form-help") {
             +"What this design makes, per hour. Leave empty for anything that produces nothing — "
             +"a storage system, a base, a decorative build."
+        }
+
+        // Recommended, not required (MCO-412). Requiring it would undo MCO-310, whose whole point
+        // was making capture fast enough that the bank fills up — and an author who has watched a
+        // video but not built the farm honestly does not know the rate yet. A gate would either
+        // block that capture or teach people to type a number they made up, and an invented rate
+        // is worse than a missing one.
+        //
+        // So state the consequence instead of nagging. It is a real one and it is specific: farm
+        // suggestions match demand against produced items (MCO-294), so a farm with nothing here
+        // is invisible to exactly the moment it was worth capturing for.
+        div("callout callout--info production-recommendation") {
+            id = "production-recommendation"
+            if (!isFarm || hasRates) classes = classes + "production-recommendation--hidden"
+            span("callout__body") {
+                +"Worth filling in for a farm: Seam suggests farms by what they produce, so one "
+                +"with no output here will not come up when a world needs that item."
+            }
         }
 
         div {
@@ -165,7 +188,28 @@ private fun productionScript() = """
         list.appendChild(li);
         itemInput.value = '';
         rateInput.value = '';
+        refreshProductionRecommendation();
     }
+
+    function refreshProductionRecommendation() {
+        var note = document.getElementById('production-recommendation');
+        if (!note) return;
+        var farm = document.querySelector('.category-radio[value="FARM"]');
+        var isFarm = farm && farm.checked;
+        var hasRates = document.querySelectorAll('#production-modes input[name^="productionRate["]').length > 0;
+        note.classList.toggle('production-recommendation--hidden', !isFarm || hasRates);
+    }
+
+    document.addEventListener('change', function (event) {
+        if (event.target && event.target.classList.contains('category-radio')) {
+            refreshProductionRecommendation();
+        }
+    });
+
+    document.addEventListener('click', function (event) {
+        // Removing the last rate should bring the note back.
+        if (event.target && event.target.tagName === 'BUTTON') setTimeout(refreshProductionRecommendation, 0);
+    });
 
     function addProductionMode() {
         var container = document.getElementById('production-modes');
