@@ -139,7 +139,7 @@ fun projectDetailPage(
                     // ?drill=<item> deep-links straight into a target's chain (reload/share-safe).
                     drillChainContent(project, drillTarget, drillCandidateCounts, drillNodeIngredients, overrides = drillOverrides, graph = drillGraph, highlightItemId = drillHighlightItemId)
                 } else {
-                    gatheringPlannerContent(project, resources, tasks, plan, lens, progressMap, pendingFarms, farmScaleThreshold)
+                    gatheringPlannerContent(project, resources, tasks, plan, lens, progressMap, pendingFarms, farmScaleThreshold, isWorldAdmin)
                 }
             }
         }
@@ -243,6 +243,7 @@ fun FlowContent.gatheringPlannerContent(
     progressMap: Map<String, Int> = emptyMap(),
     pendingFarms: List<PendingFarmSupply> = emptyList(),
     farmScaleThreshold: Int = World.DEFAULT_FARM_SCALE_THRESHOLD,
+    isWorldAdmin: Boolean = false,
 ) {
     val activeLens = when (lens) {
         "next", "sessions" -> lens
@@ -271,7 +272,7 @@ fun FlowContent.gatheringPlannerContent(
     // Active lens body
     when (activeLens) {
         "next", "sessions" -> lensComingSoon(project.worldId, project.id, activeLens)
-        else -> listLensContent(project, resources, tasks, plan, progressMap, pendingFarms, farmScaleThreshold)
+        else -> listLensContent(project, resources, tasks, plan, progressMap, pendingFarms, farmScaleThreshold, isWorldAdmin)
     }
 }
 
@@ -302,6 +303,7 @@ private fun FlowContent.listLensContent(
     progressMap: Map<String, Int> = emptyMap(),
     pendingFarms: List<PendingFarmSupply> = emptyList(),
     farmScaleThreshold: Int = World.DEFAULT_FARM_SCALE_THRESHOLD,
+    isWorldAdmin: Boolean = false,
 ) {
     // Resolution toggle (client-side; default "targets" applied by plan-view.js).
     listResolutionToggle()
@@ -405,7 +407,7 @@ private fun FlowContent.listLensContent(
         id = "list-breakdown-view"
         attributes["data-resolution-view"] = "breakdown"
 
-        gatheringPlanSections(project, plan, progressMap, pendingFarms, farmScaleThreshold)
+        gatheringPlanSections(project, plan, progressMap, pendingFarms, farmScaleThreshold, isWorldAdmin)
     }
 
     // Tasks section (collapsed)
@@ -481,6 +483,7 @@ fun FlowContent.gatheringPlanSections(
     progressMap: Map<String, Int> = emptyMap(),
     pendingFarms: List<PendingFarmSupply> = emptyList(),
     farmScaleThreshold: Int = World.DEFAULT_FARM_SCALE_THRESHOLD,
+    isWorldAdmin: Boolean = false,
 ) {
     if (plan == null) {
         // Empty state — no resources yet or all collected
@@ -504,7 +507,7 @@ fun FlowContent.gatheringPlanSections(
 
         // Above the work sections on purpose: this is not a step in the plan, it is the answer
         // to "what should I build first", and it is what turns one import into a roadmap.
-        farmScaleRollUp(farmScale, farmScaleThreshold)
+        farmScaleRollUp(farmScale, farmScaleThreshold, project.worldId, isWorldAdmin)
 
         groupOrder.forEach { group ->
             val activities = byGroup[group] ?: return@forEach
@@ -554,7 +557,12 @@ fun FlowContent.gatheringPlanSections(
  * apart. Items an operational farm already supplies never appear — they are solved, not
  * suggestions (see [FarmScaleDemands]).
  */
-private fun FlowContent.farmScaleRollUp(demands: List<FarmScaleDemand>, threshold: Int) {
+private fun FlowContent.farmScaleRollUp(
+    demands: List<FarmScaleDemand>,
+    threshold: Int,
+    worldId: Int,
+    canEditThreshold: Boolean,
+) {
     if (demands.isEmpty()) return
 
     div("plan-farm-scale") {
@@ -562,7 +570,19 @@ private fun FlowContent.farmScaleRollUp(demands: List<FarmScaleDemand>, threshol
         span("section-label") { +"Worth a farm" }
         p("plan-farm-scale__lead") {
             +"${demands.size} raw ${if (demands.size == 1) "material needs" else "materials need"} more than "
-            +"%,d".format(threshold)
+            // The number is the judgement this whole list rests on, so it is the thing to edit:
+            // disagreeing with the list means disagreeing with the threshold. Admin-only, matching
+            // how every other route to world settings is gated (settingsHref in Navigation.kt) —
+            // a link that 403s is worse than no link.
+            if (canEditThreshold) {
+                a(classes = "plan-farm-scale__threshold") {
+                    href = "/worlds/$worldId/settings"
+                    title = "Change this world's farm-scale threshold"
+                    +"%,d".format(threshold)
+                }
+            } else {
+                +"%,d".format(threshold)
+            }
             +" — each is a candidate for its own farm project."
         }
         div("plan-farm-scale__list") {
@@ -1168,9 +1188,12 @@ fun gatheringPlannerFragment(
     progressMap: Map<String, Int> = emptyMap(),
     pendingFarms: List<PendingFarmSupply> = emptyList(),
     farmScaleThreshold: Int = World.DEFAULT_FARM_SCALE_THRESHOLD,
+    isWorldAdmin: Boolean = false,
 ): String = createHTML().div {
     id = "project-content"
-    gatheringPlannerContent(project, resources, tasks, plan, lens, progressMap, pendingFarms, farmScaleThreshold)
+    gatheringPlannerContent(
+        project, resources, tasks, plan, lens, progressMap, pendingFarms, farmScaleThreshold, isWorldAdmin,
+    )
 }
 
 /** OOB fragment to update #project-progress after task create/complete. */

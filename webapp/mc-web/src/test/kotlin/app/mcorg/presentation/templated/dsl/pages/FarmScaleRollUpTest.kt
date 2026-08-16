@@ -61,14 +61,18 @@ class FarmScaleRollUpTest {
         supply: SupplySource? = null,
     ) = PlanNode(item = item, quantity = quantity, crafts = 0, leftover = 0, status = status, supply = supply)
 
-    private fun render(plan: GatheringPlan, threshold: Int = World.DEFAULT_FARM_SCALE_THRESHOLD) =
-        gatheringPlannerFragment(
-            project = project(),
-            resources = emptyList(),
-            tasks = emptyList(),
-            plan = plan,
-            farmScaleThreshold = threshold,
-        )
+    private fun render(
+        plan: GatheringPlan,
+        threshold: Int = World.DEFAULT_FARM_SCALE_THRESHOLD,
+        isWorldAdmin: Boolean = true,
+    ) = gatheringPlannerFragment(
+        project = project(),
+        resources = emptyList(),
+        tasks = emptyList(),
+        plan = plan,
+        farmScaleThreshold = threshold,
+        isWorldAdmin = isWorldAdmin,
+    )
 
     @Test
     fun `bulk raw demand is rolled up largest first`() {
@@ -85,14 +89,17 @@ class FarmScaleRollUpTest {
     fun `the lead line counts the materials and names the threshold`() {
         val html = render(plan(node(ice, 20_611), node(cobblestone, 74_557)))
 
-        assertContains(html, "2 raw materials need more than 1,728")
+        // The threshold sits in its own anchor, so assert the prose and the number separately.
+        assertContains(html, "2 raw materials need more than ")
+        assertContains(html, ">1,728<")
     }
 
     @Test
     fun `one material reads in the singular`() {
         val html = render(plan(node(ice, 20_611)))
 
-        assertContains(html, "1 raw material needs more than 1,728")
+        assertContains(html, "1 raw material needs more than ")
+        assertContains(html, ">1,728<")
     }
 
     @Test
@@ -128,12 +135,32 @@ class FarmScaleRollUpTest {
     }
 
     @Test
+    fun `an admin can click the threshold through to world settings`() {
+        // The number is the judgement the list rests on, so it is the thing to edit.
+        val html = render(plan(node(cobblestone, 74_557)))
+
+        assertContains(html, """href="/worlds/1/settings"""")
+        assertContains(html, "plan-farm-scale__threshold")
+    }
+
+    @Test
+    fun `a non-admin sees the threshold as plain text`() {
+        // World settings is admin-gated, and a link that 403s is worse than no link.
+        val html = render(plan(node(cobblestone, 74_557)), isWorldAdmin = false)
+
+        assertContains(html, "1,728")
+        assertFalse(html.contains("plan-farm-scale__threshold"))
+        assertFalse(html.contains("/worlds/1/settings"))
+    }
+
+    @Test
     fun `raising the world threshold shrinks the roll-up`() {
         val plan = plan(node(cobblestone, 74_557), node(ice, 20_611))
 
         val html = render(plan, threshold = 50_000)
 
-        assertContains(html, "1 raw material needs more than 50,000")
+        assertContains(html, "1 raw material needs more than ")
+        assertContains(html, ">50,000<")
         assertFalse(html.contains("20,611"))
     }
 }

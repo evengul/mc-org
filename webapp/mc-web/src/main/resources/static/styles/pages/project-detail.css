@@ -664,3 +664,16 @@
     border: 1px solid var(--accent);
     color: var(--accent);
 }
+
+/* The threshold is editable in place of being merely stated: disagreeing with the
+   roll-up means disagreeing with this number, so it links to where it is set. */
+.plan-farm-scale__threshold {
+    color: var(--accent);
+    text-decoration: underline;
+    text-decoration-style: dotted;
+    text-underline-offset: 2px;
+}
+
+.plan-farm-scale__threshold:hover {
+    text-decoration-style: solid;
+}
