@@ -1,5 +1,9 @@
 -- MCO-353: index the login write and the re-ingestion delete cascade.
 --
+-- Renumbered from V2_54_0: PR #396 (MCO-316) merged its own V2_54_0 and V2_55_0 while this branch
+-- was open, which is the git-level collision CLAUDE.md warns about — no amount of database
+-- branching prevents two branches picking the same number.
+--
 -- Purely additive: no column, constraint or row is touched, so this is safe to replay and safe to
 -- roll back by dropping the indexes.
 --
