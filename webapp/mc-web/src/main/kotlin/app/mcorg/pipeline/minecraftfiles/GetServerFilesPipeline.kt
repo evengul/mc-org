@@ -77,12 +77,26 @@ suspend fun executeServerFilesPipeline(): Result<AppFailure, Unit> = withIngesti
     }
 }
 
+/** Whether the lock was taken, and which PostgreSQL backend answered the question. */
+internal data class LockAttempt(val acquired: Boolean, val backendPid: Int)
+
 /**
  * Acquires the ingestion advisory lock on a dedicated connection and runs [block]. If another run
  * already holds the lock, logs and returns success without running [block] — overlapping triggers
  * become no-ops. The lock is released and the connection returned on every path; release runs under
  * [NonCancellable] so a cancelled run still frees the lock rather than leaking it on the pooled
  * session (a pg advisory lock is session-scoped and Hikari keeps sessions alive across checkouts).
+ *
+ * Both acquire and release record `pg_backend_pid()` (MCO-348). A pg advisory lock belongs to a
+ * *session*, and production connects through Neon's pooler, so the open question is whether the
+ * backend can change underneath a lock we believe we are holding. Comparing the two PIDs answers
+ * that directly for any run: equal means one backend held it throughout, different is the failure
+ * mode itself, caught in the act.
+ *
+ * Logged at INFO on the happy path deliberately. Before this the success path was silent, so a
+ * run's logs could only ever say "the warning did not appear" — and with Fly retaining roughly
+ * half an hour and no drain yet (MCO-343), absence of a warning in a window that short is very
+ * weak evidence. Two positive lines make a single run self-evidencing.
  */
 internal suspend fun withIngestionLock(block: suspend () -> Result<AppFailure, Unit>): Result<AppFailure, Unit> {
     val connection = try {
@@ -93,39 +107,77 @@ internal suspend fun withIngestionLock(block: suspend () -> Result<AppFailure, U
     }
 
     return connection.connection.use {
-        when (val acquired = tryAdvisoryLock(connection)) {
-            is Result.Failure -> acquired
-            is Result.Success -> if (!acquired.value) {
-                ingestionLogger.info("Another ingestion run is in progress, skipping.")
+        when (val attempt = tryAdvisoryLock(connection)) {
+            is Result.Failure -> attempt
+            is Result.Success -> if (!attempt.value.acquired) {
+                ingestionLogger.info(
+                    "Another ingestion run is in progress, skipping (lock {} held; asked backend pid {}).",
+                    INGESTION_ADVISORY_LOCK_KEY,
+                    attempt.value.backendPid,
+                )
                 Result.success()
             } else {
+                val acquiredPid = attempt.value.backendPid
+                val startedAt = System.nanoTime()
+                ingestionLogger.info(
+                    "Acquired ingestion advisory lock {} on backend pid {}.",
+                    INGESTION_ADVISORY_LOCK_KEY,
+                    acquiredPid,
+                )
                 try {
                     block()
                 } finally {
-                    withContext(NonCancellable) { releaseAdvisoryLock(connection) }
+                    withContext(NonCancellable) {
+                        releaseAdvisoryLock(connection, acquiredPid, startedAt)
+                    }
                 }
             }
         }
     }
 }
 
-private suspend fun tryAdvisoryLock(connection: TransactionConnection): Result<AppFailure.DatabaseError, Boolean> =
-    DatabaseSteps.query<Long, Boolean>(
-        sql = SafeSQL.select("SELECT pg_try_advisory_lock(?)"),
+private suspend fun tryAdvisoryLock(connection: TransactionConnection): Result<AppFailure.DatabaseError, LockAttempt> =
+    DatabaseSteps.query<Long, LockAttempt>(
+        sql = SafeSQL.select("SELECT pg_try_advisory_lock(?), pg_backend_pid()"),
         parameterSetter = { statement, key -> statement.setLong(1, key) },
-        resultMapper = { rs -> rs.next() && rs.getBoolean(1) },
+        resultMapper = { rs ->
+            if (rs.next()) LockAttempt(rs.getBoolean(1), rs.getInt(2)) else LockAttempt(false, -1)
+        },
         transactionConnection = connection,
     ).process(INGESTION_ADVISORY_LOCK_KEY)
 
-private suspend fun releaseAdvisoryLock(connection: TransactionConnection) {
-    DatabaseSteps.query<Long, Boolean>(
-        sql = SafeSQL.select("SELECT pg_advisory_unlock(?)"),
+private suspend fun releaseAdvisoryLock(
+    connection: TransactionConnection,
+    acquiredPid: Int,
+    startedAt: Long,
+) {
+    val heldMs = (System.nanoTime() - startedAt) / 1_000_000
+    DatabaseSteps.query<Long, LockAttempt>(
+        sql = SafeSQL.select("SELECT pg_advisory_unlock(?), pg_backend_pid()"),
         parameterSetter = { statement, key -> statement.setLong(1, key) },
-        resultMapper = { rs -> rs.next() && rs.getBoolean(1) },
+        resultMapper = { rs ->
+            if (rs.next()) LockAttempt(rs.getBoolean(1), rs.getInt(2)) else LockAttempt(false, -1)
+        },
         transactionConnection = connection,
     ).process(INGESTION_ADVISORY_LOCK_KEY).fold(
-        onSuccess = { released ->
-            if (!released) ingestionLogger.warn("Ingestion advisory lock $INGESTION_ADVISORY_LOCK_KEY was not held at release time.")
+        onSuccess = { release ->
+            when {
+                !release.acquired -> ingestionLogger.warn(
+                    "Ingestion advisory lock {} was not held at release time (acquired on backend pid {}, released from {}, held {} ms).",
+                    INGESTION_ADVISORY_LOCK_KEY, acquiredPid, release.backendPid, heldMs,
+                )
+                // Released fine, but from a different backend than acquired it. The unlock
+                // succeeding here would be surprising, so treat the mismatch itself as the
+                // finding — it is the exact mechanism MCO-348 hypothesises.
+                release.backendPid != acquiredPid -> ingestionLogger.warn(
+                    "Ingestion advisory lock {} changed backend mid-run: acquired on pid {}, released from pid {} after {} ms. The pooler swapped the session underneath a session-scoped lock (MCO-348).",
+                    INGESTION_ADVISORY_LOCK_KEY, acquiredPid, release.backendPid, heldMs,
+                )
+                else -> ingestionLogger.info(
+                    "Released ingestion advisory lock {} on backend pid {} after {} ms.",
+                    INGESTION_ADVISORY_LOCK_KEY, acquiredPid, heldMs,
+                )
+            }
         },
         onFailure = { ingestionLogger.error("Failed to release ingestion advisory lock: $it") },
     )
