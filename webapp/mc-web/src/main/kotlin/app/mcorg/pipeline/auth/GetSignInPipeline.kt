@@ -10,6 +10,7 @@ import app.mcorg.pipeline.auth.commonsteps.GetTokenStep
 import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.presentation.consts.AUTH_COOKIE
 import app.mcorg.presentation.consts.ISSUER
+import app.mcorg.presentation.security.safeRedirectPath
 import app.mcorg.presentation.templated.landing.landingPage
 import app.mcorg.presentation.utils.getHost
 import app.mcorg.presentation.utils.respondHtml
@@ -18,7 +19,11 @@ import io.ktor.server.response.*
 import java.net.URLEncoder
 
 suspend fun ApplicationCall.handleGetSignIn() {
-    val customRedirectPath = parameters["redirect_to"]
+    // Validated once here so every downstream use — the landing page's sign-in URL, the OAuth
+    // state, and the post-sign-in redirect below — carries the same same-origin guarantee
+    // (MCO-352). `null` rather than the default when absent, so the "/worlds" and "/" defaults
+    // each branch keeps below still apply.
+    val customRedirectPath = parameters["redirect_to"]?.let { safeRedirectPath(it) }
     val requestedUsername = when (AppConfig.env) {
         Production -> null
         else -> parameters["username"]
