@@ -10,7 +10,10 @@ import app.mcorg.pipeline.auth.commonsteps.GetTokenStep
 import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.presentation.consts.AUTH_COOKIE
 import app.mcorg.presentation.consts.ISSUER
+import app.mcorg.presentation.security.encodeOAuthState
+import app.mcorg.presentation.security.newOAuthNonce
 import app.mcorg.presentation.security.safeRedirectPath
+import app.mcorg.presentation.security.setOAuthNonce
 import app.mcorg.presentation.templated.landing.landingPage
 import app.mcorg.presentation.utils.getHost
 import app.mcorg.presentation.utils.respondHtml
@@ -62,5 +65,13 @@ private fun ApplicationCall.getMicrosoftSignInUrl(redirectPath: String): String 
     val redirectUrl =
         if (env == Local) "http://localhost:8080/auth/oidc/microsoft-redirect"
         else "https://$host/auth/oidc/microsoft-redirect"
-    return "${AppConfig.microsoftLoginBaseUrl}/consumers/oauth2/v2.0/authorize?response_type=code&scope=openid,XboxLive.signin&client_id=$clientId&redirect_uri=$redirectUrl&state=${URLEncoder.encode(redirectPath, "UTF-8")}"
+
+    // state now carries a nonce alongside the redirect path, with its twin in a short-lived
+    // cookie (MCO-355). The callback requires both and rejects a mismatch before spending the
+    // code, which is what stops an attacker feeding a victim their own authorization code.
+    val nonce = newOAuthNonce()
+    response.cookies.setOAuthNonce(nonce)
+    val state = encodeOAuthState(nonce, redirectPath)
+
+    return "${AppConfig.microsoftLoginBaseUrl}/consumers/oauth2/v2.0/authorize?response_type=code&scope=openid,XboxLive.signin&client_id=$clientId&redirect_uri=$redirectUrl&state=${URLEncoder.encode(state, "UTF-8")}"
 }

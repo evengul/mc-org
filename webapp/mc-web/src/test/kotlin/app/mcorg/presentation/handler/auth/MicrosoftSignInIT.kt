@@ -4,11 +4,15 @@ import app.mcorg.config.AppConfig
 import app.mcorg.domain.Production
 import app.mcorg.presentation.consts.AUTH_COOKIE
 import app.mcorg.presentation.router.authRouter
+import app.mcorg.presentation.security.OAUTH_STATE_COOKIE
 import app.mcorg.test.postgres.DatabaseTestExtension
 import com.github.tomakehurst.wiremock.client.WireMock
 import com.github.tomakehurst.wiremock.junit5.WireMockRuntimeInfo
 import com.github.tomakehurst.wiremock.junit5.WireMockTest
+import io.ktor.client.request.HttpRequestBuilder
+import io.ktor.client.request.cookie
 import io.ktor.client.request.get
+import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.setCookie
 import io.ktor.server.routing.route
@@ -18,8 +22,11 @@ import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.api.extension.ExtendWith
+import java.net.URLEncoder
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 @WireMockTest
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -61,7 +68,9 @@ class MicrosoftSignInIT {
         stubMinecraftTokenEndpoint()
         stubMinecraftProfileEndpoint()
 
-        val response = client.get("/auth/oidc/microsoft-redirect?code=$microsoftCode")
+        val response = client.get("/auth/oidc/microsoft-redirect?code=$microsoftCode&state=${state("/")}") {
+            withNonceCookie(this)
+        }
 
         assertEquals(HttpStatusCode.Found, response.status)
         assertEquals("/", response.headers["Location"])
@@ -88,7 +97,9 @@ class MicrosoftSignInIT {
         stubMinecraftTokenEndpoint()
         stubMinecraftProfileEndpoint()
 
-        val response = client.get("/auth/oidc/microsoft-redirect?code=$microsoftCode&state=/custom-path")
+        val response = client.get("/auth/oidc/microsoft-redirect?code=$microsoftCode&state=${state("/custom-path")}") {
+            withNonceCookie(this)
+        }
 
         assertEquals(HttpStatusCode.Found, response.status)
         assertEquals("/custom-path", response.headers["Location"])
@@ -104,10 +115,87 @@ class MicrosoftSignInIT {
             }
         }
 
-        val response = client.get("/auth/oidc/microsoft-redirect")
+        // Carries a valid nonce so the callback gets past the MCO-355 state check and reaches the
+        // missing-code branch this test is actually about.
+        val response = client.get("/auth/oidc/microsoft-redirect?state=${state("/")}") {
+            withNonceCookie(this)
+        }
 
         assertEquals(HttpStatusCode.Found, response.status)
         assertEquals("/auth/sign-out?error=missing_code", response.headers["Location"])
+    }
+
+    // --- MCO-355: login CSRF -----------------------------------------------------------------
+
+    @Test
+    fun `a callback with no state nonce is rejected before the code is exchanged`() = testApplication {
+        val client = createClient { followRedirects = false }
+
+        routing { route("/auth") { authRouter() } }
+
+        stubMicrosoftTokenEndpoint()
+
+        // The login-CSRF shape: the attacker sends the victim a callback URL carrying the
+        // attacker's own authorization code. They cannot set a cookie on the victim's browser for
+        // this origin, so the nonce half is missing.
+        val response = client.get("/auth/oidc/microsoft-redirect?code=attacker-code&state=/")
+
+        assertEquals(HttpStatusCode.Found, response.status)
+        assertEquals("/auth/sign-in?error=invalid_state", response.headers["Location"])
+        assertNull(
+            response.setCookie().find { it.name == AUTH_COOKIE },
+            "a rejected callback must not issue a session cookie",
+        )
+        // Rejected *before* the exchange — the whole point, since the code is single-use.
+        wireMock.verifyThat(0, WireMock.postRequestedFor(WireMock.urlEqualTo("/consumers/oauth2/v2.0/token")))
+    }
+
+    @Test
+    fun `a callback whose nonce does not match the cookie is rejected`() = testApplication {
+        val client = createClient { followRedirects = false }
+
+        routing { route("/auth") { authRouter() } }
+
+        stubMicrosoftTokenEndpoint()
+
+        val response = client.get("/auth/oidc/microsoft-redirect?code=attacker-code&state=someone-elses-nonce:/") {
+            withNonceCookie(this)
+        }
+
+        assertEquals(HttpStatusCode.Found, response.status)
+        assertEquals("/auth/sign-in?error=invalid_state", response.headers["Location"])
+        wireMock.verifyThat(0, WireMock.postRequestedFor(WireMock.urlEqualTo("/consumers/oauth2/v2.0/token")))
+    }
+
+    @Test
+    fun `the sign-in page issues a nonce cookie and puts its twin in the state`() = testApplication {
+        val client = createClient { followRedirects = false }
+
+        routing { route("/auth") { authRouter() } }
+
+        val response = client.get("/auth/sign-in")
+
+        val nonceCookie = response.setCookie().find { it.name == OAUTH_STATE_COOKIE }
+        assertNotNull(nonceCookie, "sign-in should issue the nonce cookie")
+        assertTrue(nonceCookie.value.isNotBlank(), "the nonce should not be empty")
+        assertTrue(nonceCookie.httpOnly, "the nonce cookie must not be readable from JavaScript")
+
+        // The same value has to reach Microsoft in `state`, or the callback can never match it.
+        val body = response.bodyAsText()
+        assertTrue(
+            body.contains(URLEncoder.encode("${nonceCookie.value}:", "UTF-8")),
+            "the sign-in URL should carry the cookie's nonce in its state parameter",
+        )
+    }
+
+    /** A fixed nonce for tests, paired with [withNonceCookie]. */
+    private val testNonce = "test-nonce-value"
+
+    private fun state(redirectPath: String) =
+        URLEncoder.encode("$testNonce:$redirectPath", "UTF-8")
+
+    private fun withNonceCookie(builder: HttpRequestBuilder) {
+        builder.cookie(OAUTH_STATE_COOKIE, testNonce)
     }
 
     fun stubMicrosoftTokenEndpoint() {
