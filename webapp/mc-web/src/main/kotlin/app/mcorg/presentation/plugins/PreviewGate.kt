@@ -19,8 +19,10 @@ private val logger = LoggerFactory.getLogger("PreviewGate")
 private const val REALM = "Seam Preview"
 private const val GATE_USERNAME = "admin"
 
-// Liveness probes must reach the app without credentials so the platform can tell it is up.
-private val UNGATED_PATHS = setOf("/test/ping")
+// Health probes must reach the app without credentials so the platform can tell it is up.
+// Readiness joined liveness here in MCO-349; it reports READY or NOT READY and nothing else, so
+// it is no more disclosive than the gate's own 401.
+private val UNGATED_PATHS = setOf("/test/ping", "/test/ready")
 
 /**
  * HTTP Basic Auth gate for the public preview deployment.

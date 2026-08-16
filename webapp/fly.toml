@@ -23,6 +23,21 @@ primary_region = 'arn'
   min_machines_running = 1
   processes = ['app']
 
+  # Fly ran zero health checks before MCO-349 — `fly status` showed an empty CHECKS column on
+  # every machine. The HEALTHCHECK in the Dockerfile looked like coverage but is a Docker
+  # directive Fly Machines does not execute.
+  #
+  # Points at /test/ping, which does NOT touch the database. That is deliberate: Neon suspends the
+  # compute after 300s idle and master runs ~530s active per day, so a database probe on a 30s
+  # interval would pin it awake permanently. /test/ready exists for the dependency check and is
+  # called on demand instead.
+  [[http_service.checks]]
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "20s"
+    method = "GET"
+    path = "/test/ping"
+
 [[vm]]
   memory = '1gb'
   cpu_kind = 'shared'
