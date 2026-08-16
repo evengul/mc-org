@@ -51,6 +51,7 @@ import app.mcorg.pipeline.world.handleDeleteWorld
 import app.mcorg.pipeline.world.handleSearchWorlds
 import app.mcorg.pipeline.world.handleTogglePin
 import app.mcorg.pipeline.world.settings.general.handleUpdateWorldDescription
+import app.mcorg.pipeline.world.settings.general.handleUpdateFarmScaleThreshold
 import app.mcorg.pipeline.world.settings.general.handleUpdateWorldName
 import app.mcorg.pipeline.world.settings.general.handleUpdateWorldVersion
 import app.mcorg.pipeline.world.settings.handleConnectDiscord
@@ -283,6 +284,9 @@ class WorldHandler {
                     }
                     patch("/version") {
                         call.handleUpdateWorldVersion()
+                    }
+                    patch("/farm-scale-threshold") {
+                        call.handleUpdateFarmScaleThreshold()
                     }
                     method(HttpMethod.Delete) {
                         install(WorldOwnerPlugin)

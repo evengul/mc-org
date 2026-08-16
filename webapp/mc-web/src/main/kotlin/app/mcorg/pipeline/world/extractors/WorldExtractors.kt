@@ -18,5 +18,6 @@ fun ResultSet.toWorld() = World(
     completedProjects = getInt("completed_projects"),
     totalProjects = getInt("total_projects"),
     createdAt = getTimestamp("created_at").toInstant().atZone(java.time.ZoneOffset.UTC),
-    updatedAt = getTimestamp("updated_at").toInstant().atZone(java.time.ZoneOffset.UTC)
+    updatedAt = getTimestamp("updated_at").toInstant().atZone(java.time.ZoneOffset.UTC),
+    farmScaleThreshold = getInt("farm_scale_threshold"),
 )

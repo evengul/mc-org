@@ -4,6 +4,8 @@ import app.mcorg.pipeline.Result
 import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.project.commonsteps.GetProjectByIdStep
 import app.mcorg.pipeline.resources.GatheringPlanInput
+import app.mcorg.domain.model.world.World
+import app.mcorg.pipeline.resources.GetFarmScaleThresholdStep
 import app.mcorg.pipeline.resources.GenerateGatheringPlanStep
 import app.mcorg.pipeline.resources.pendingFarmSuppliesFor
 import app.mcorg.pipeline.resources.commonsteps.GetAllResourceGatheringItemsStep
@@ -65,5 +67,14 @@ suspend fun ApplicationCall.handleGetDetailContent() {
 
     val pendingFarms = pendingFarmSuppliesFor(worldId, projectId, plan)
 
-    respondHtml(gatheringPlannerFragment(project, resources, tasks, plan, lens, progressMap, pendingFarms))
+    // Same fallback as the full page (MCO-401): the lens fragment must not silently drop the
+    // farm-scale roll-up, or switching lens would look like the markers disappeared.
+    val farmScaleThreshold = GetFarmScaleThresholdStep.process(worldId).getOrNull()
+        ?: World.DEFAULT_FARM_SCALE_THRESHOLD
+
+    respondHtml(
+        gatheringPlannerFragment(
+            project, resources, tasks, plan, lens, progressMap, pendingFarms, farmScaleThreshold,
+        )
+    )
 }

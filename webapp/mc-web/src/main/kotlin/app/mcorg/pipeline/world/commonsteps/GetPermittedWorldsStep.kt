@@ -34,13 +34,14 @@ object GetPermittedWorldsStep : Step<GetPermittedWorldsInput, AppFailure.Databas
                     w.updated_at,
                     wm.pinned,
                     wm.last_opened_at,
+                    w.farm_scale_threshold,
                     COALESCE(COUNT(DISTINCT p.id), 0) as total_projects,
                     COALESCE(COUNT(DISTINCT CASE WHEN p.stage = 'COMPLETED' THEN p.id END), 0) as completed_projects
                 FROM world w
                 INNER JOIN world_members wm ON w.id = wm.world_id
                 LEFT JOIN projects p ON w.id = p.world_id
                 WHERE wm.user_id = ? AND (? = '' OR LOWER(w.name) ILIKE '%' || ? || '%' OR LOWER(w.description) ILIKE '%' || ? || '%')
-                GROUP BY w.id, w.name, w.description, w.version, w.created_at, w.updated_at, wm.pinned, wm.last_opened_at
+                GROUP BY w.id, w.name, w.description, w.version, w.created_at, w.updated_at, wm.pinned, wm.last_opened_at, w.farm_scale_threshold
                 ORDER BY $sortByValue
             """.trimIndent()),
             parameterSetter = { statement, inputData ->

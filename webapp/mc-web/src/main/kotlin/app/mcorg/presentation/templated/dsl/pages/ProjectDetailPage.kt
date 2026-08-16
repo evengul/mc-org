@@ -5,6 +5,7 @@ import app.mcorg.domain.model.project.ProjectProduction
 import app.mcorg.domain.model.resources.ResourceGatheringItem
 import app.mcorg.domain.model.task.ActionTask
 import app.mcorg.domain.model.user.TokenProfile
+import app.mcorg.domain.model.world.World
 import app.mcorg.engine.model.ItemSourceGraph
 import app.mcorg.engine.plan.Activity
 import app.mcorg.engine.plan.ActivityGroup
@@ -12,6 +13,8 @@ import app.mcorg.engine.plan.GatheringPlan
 import app.mcorg.engine.plan.PlanNodeStatus
 import app.mcorg.engine.plan.PlanOverrides
 import app.mcorg.engine.plan.SupplySource
+import app.mcorg.pipeline.resources.FarmScaleDemand
+import app.mcorg.pipeline.resources.FarmScaleDemands
 import app.mcorg.presentation.hxDelete
 import app.mcorg.presentation.hxDeleteWithConfirm
 import app.mcorg.presentation.hxGet
@@ -67,6 +70,7 @@ fun projectDetailPage(
     drillHighlightItemId: String? = null,
     drillOverrides: PlanOverrides = PlanOverrides.NONE,
     drillGraph: ItemSourceGraph? = null,
+    farmScaleThreshold: Int = World.DEFAULT_FARM_SCALE_THRESHOLD,
 ): String = pageShell(
     pageTitle = "Seam — ${project.name}",
     user = user,
@@ -135,7 +139,7 @@ fun projectDetailPage(
                     // ?drill=<item> deep-links straight into a target's chain (reload/share-safe).
                     drillChainContent(project, drillTarget, drillCandidateCounts, drillNodeIngredients, overrides = drillOverrides, graph = drillGraph, highlightItemId = drillHighlightItemId)
                 } else {
-                    gatheringPlannerContent(project, resources, tasks, plan, lens, progressMap, pendingFarms)
+                    gatheringPlannerContent(project, resources, tasks, plan, lens, progressMap, pendingFarms, farmScaleThreshold)
                 }
             }
         }
@@ -238,6 +242,7 @@ fun FlowContent.gatheringPlannerContent(
     lens: String = "list",
     progressMap: Map<String, Int> = emptyMap(),
     pendingFarms: List<PendingFarmSupply> = emptyList(),
+    farmScaleThreshold: Int = World.DEFAULT_FARM_SCALE_THRESHOLD,
 ) {
     val activeLens = when (lens) {
         "next", "sessions" -> lens
@@ -266,7 +271,7 @@ fun FlowContent.gatheringPlannerContent(
     // Active lens body
     when (activeLens) {
         "next", "sessions" -> lensComingSoon(project.worldId, project.id, activeLens)
-        else -> listLensContent(project, resources, tasks, plan, progressMap, pendingFarms)
+        else -> listLensContent(project, resources, tasks, plan, progressMap, pendingFarms, farmScaleThreshold)
     }
 }
 
@@ -296,6 +301,7 @@ private fun FlowContent.listLensContent(
     plan: GatheringPlan?,
     progressMap: Map<String, Int> = emptyMap(),
     pendingFarms: List<PendingFarmSupply> = emptyList(),
+    farmScaleThreshold: Int = World.DEFAULT_FARM_SCALE_THRESHOLD,
 ) {
     // Resolution toggle (client-side; default "targets" applied by plan-view.js).
     listResolutionToggle()
@@ -399,7 +405,7 @@ private fun FlowContent.listLensContent(
         id = "list-breakdown-view"
         attributes["data-resolution-view"] = "breakdown"
 
-        gatheringPlanSections(project, plan, progressMap, pendingFarms)
+        gatheringPlanSections(project, plan, progressMap, pendingFarms, farmScaleThreshold)
     }
 
     // Tasks section (collapsed)
@@ -474,6 +480,7 @@ fun FlowContent.gatheringPlanSections(
     plan: GatheringPlan?,
     progressMap: Map<String, Int> = emptyMap(),
     pendingFarms: List<PendingFarmSupply> = emptyList(),
+    farmScaleThreshold: Int = World.DEFAULT_FARM_SCALE_THRESHOLD,
 ) {
     if (plan == null) {
         // Empty state — no resources yet or all collected
@@ -489,9 +496,16 @@ fun FlowContent.gatheringPlanSections(
     val groupOrder = ActivityGroup.values()
     val nodeIngredients = buildNodeIngredients(plan)
     val feedsLabels = buildFeedsLabels(plan)
+    val farmScale = FarmScaleDemands.of(plan, farmScaleThreshold)
+    val farmScaleIds = farmScale.mapTo(mutableSetOf()) { it.itemId }
 
     div {
         id = "gathering-plan-sections"
+
+        // Above the work sections on purpose: this is not a step in the plan, it is the answer
+        // to "what should I build first", and it is what turns one import into a roadmap.
+        farmScaleRollUp(farmScale, farmScaleThreshold)
+
         groupOrder.forEach { group ->
             val activities = byGroup[group] ?: return@forEach
             if (activities.isEmpty()) return@forEach
@@ -509,13 +523,56 @@ fun FlowContent.gatheringPlanSections(
                 span("section-label") { +groupLabel(group) }
                 div("resource-list") {
                     ordered.forEach { activity ->
-                        planActivityRow(project.worldId, project.id, activity, progressMap, nodeIngredients, feedsLabels)
+                        planActivityRow(
+                            project.worldId,
+                            project.id,
+                            activity,
+                            progressMap,
+                            nodeIngredients,
+                            feedsLabels,
+                            isFarmScale = activity.item.id in farmScaleIds,
+                        )
                     }
                 }
             }
         }
 
         pendingFarmNotice(project.worldId, pendingFarms)
+    }
+}
+
+/**
+ * The farm-scale roll-up (MCO-401): raw materials whose demand is large enough to be worth a
+ * farm, largest first.
+ *
+ * This list *is* the roadmap-building input — each line is a candidate prerequisite farm
+ * project — which is why it leads the plan rather than sitting at the bottom with the notices.
+ * Ordering carries the meaning: the top line is where to start.
+ *
+ * It names quantities and nothing else. Suggesting *which* farm to build is MCO-294 and needs
+ * an idea bank; saying "this is farm-scale" needs only the plan, which is why the two shipped
+ * apart. Items an operational farm already supplies never appear — they are solved, not
+ * suggestions (see [FarmScaleDemands]).
+ */
+private fun FlowContent.farmScaleRollUp(demands: List<FarmScaleDemand>, threshold: Int) {
+    if (demands.isEmpty()) return
+
+    div("plan-farm-scale") {
+        id = "plan-farm-scale"
+        span("section-label") { +"Worth a farm" }
+        p("plan-farm-scale__lead") {
+            +"${demands.size} raw ${if (demands.size == 1) "material needs" else "materials need"} more than "
+            +"%,d".format(threshold)
+            +" — each is a candidate for its own farm project."
+        }
+        div("plan-farm-scale__list") {
+            demands.forEach { demand ->
+                div("plan-farm-scale__item") {
+                    span("plan-farm-scale__quantity") { +"%,d".format(demand.quantity) }
+                    span("plan-farm-scale__name") { +demand.itemName }
+                }
+            }
+        }
     }
 }
 
@@ -580,13 +637,22 @@ private fun FlowContent.planActivityRow(
     progressMap: Map<String, Int> = emptyMap(),
     nodeIngredients: Map<String, String> = emptyMap(),
     feedsLabels: Map<String, FeedsLabel> = emptyMap(),
+    isFarmScale: Boolean = false,
 ) {
     when (activity.status) {
         PlanNodeStatus.SUPPLIED -> suppliedActivityRow(worldId, projectId, activity, feedsLabels[activity.item.id])
         PlanNodeStatus.OPEN_TAG -> openTagActivityRow(worldId, projectId, activity)
         PlanNodeStatus.BLOCKED -> blockedActivityRow(worldId, projectId, activity)
         PlanNodeStatus.RESOLVED, PlanNodeStatus.RAW_GATHER ->
-            counterActivityRow(worldId, projectId, activity, progressMap, nodeIngredients, feedsLabels[activity.item.id])
+            counterActivityRow(
+                worldId,
+                projectId,
+                activity,
+                progressMap,
+                nodeIngredients,
+                feedsLabels[activity.item.id],
+                isFarmScale = isFarmScale,
+            )
     }
 }
 
@@ -696,6 +762,7 @@ fun FlowContent.counterActivityRow(
     progressMap: Map<String, Int> = emptyMap(),
     nodeIngredients: Map<String, String> = emptyMap(),
     feedsLabel: FeedsLabel? = null,
+    isFarmScale: Boolean = false,
 ) {
     val itemSlug = activity.item.id.replace(":", "-")
     val rowId = "plan-activity-$itemSlug"
@@ -719,6 +786,16 @@ fun FlowContent.counterActivityRow(
 
         div("resource-row__desktop") {
             div("resource-row__name") { +activity.item.name }
+
+            // MCO-401: says the quantity is farm-scale, not which farm — that is MCO-294 and
+            // needs an idea bank. On the row rather than only in the roll-up, so the judgement
+            // is visible while reading the gathering work itself.
+            if (isFarmScale) {
+                span("badge plan-farm-scale__badge") {
+                    attributes["title"] = "More than this world's farm-scale threshold — worth a farm"
+                    +"Farm-scale"
+                }
+            }
 
             div("resource-row__progress") {
                 div("progress") {
@@ -1090,9 +1167,10 @@ fun gatheringPlannerFragment(
     lens: String = "list",
     progressMap: Map<String, Int> = emptyMap(),
     pendingFarms: List<PendingFarmSupply> = emptyList(),
+    farmScaleThreshold: Int = World.DEFAULT_FARM_SCALE_THRESHOLD,
 ): String = createHTML().div {
     id = "project-content"
-    gatheringPlannerContent(project, resources, tasks, plan, lens, progressMap, pendingFarms)
+    gatheringPlannerContent(project, resources, tasks, plan, lens, progressMap, pendingFarms, farmScaleThreshold)
 }
 
 /** OOB fragment to update #project-progress after task create/complete. */
