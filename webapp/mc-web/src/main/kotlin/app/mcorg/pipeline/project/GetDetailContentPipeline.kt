@@ -1,9 +1,12 @@
 package app.mcorg.pipeline.project
 
+import app.mcorg.domain.model.user.Role
 import app.mcorg.pipeline.Result
 import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.project.commonsteps.GetProjectByIdStep
 import app.mcorg.pipeline.resources.GatheringPlanInput
+import app.mcorg.domain.model.world.World
+import app.mcorg.pipeline.resources.GetFarmScaleThresholdStep
 import app.mcorg.pipeline.resources.GenerateGatheringPlanStep
 import app.mcorg.pipeline.resources.pendingFarmSuppliesFor
 import app.mcorg.pipeline.resources.commonsteps.GetAllResourceGatheringItemsStep
@@ -12,7 +15,9 @@ import app.mcorg.pipeline.task.SearchTasksInput
 import app.mcorg.pipeline.task.SearchTasksStep
 import app.mcorg.presentation.handler.defaultHandleError
 import app.mcorg.presentation.templated.dsl.pages.gatheringPlannerFragment
+import app.mcorg.pipeline.world.ValidateWorldMemberRole
 import app.mcorg.presentation.utils.getProjectId
+import app.mcorg.presentation.utils.getUser
 import app.mcorg.presentation.utils.getWorldId
 import app.mcorg.presentation.utils.respondBadRequest
 import app.mcorg.presentation.utils.respondHtml
@@ -65,5 +70,18 @@ suspend fun ApplicationCall.handleGetDetailContent() {
 
     val pendingFarms = pendingFarmSuppliesFor(worldId, projectId, plan)
 
-    respondHtml(gatheringPlannerFragment(project, resources, tasks, plan, lens, progressMap, pendingFarms))
+    // Same fallback as the full page (MCO-401): the lens fragment must not silently drop the
+    // farm-scale roll-up, or switching lens would look like the markers disappeared.
+    val farmScaleThreshold = GetFarmScaleThresholdStep.process(worldId).getOrNull()
+        ?: World.DEFAULT_FARM_SCALE_THRESHOLD
+
+    // The roll-up's threshold is a link to world settings for admins only, so the fragment
+    // needs the same role answer the full page computes.
+    val isAdmin = ValidateWorldMemberRole<Unit>(getUser(), Role.ADMIN, worldId).process(Unit) is Result.Success
+
+    respondHtml(
+        gatheringPlannerFragment(
+            project, resources, tasks, plan, lens, progressMap, pendingFarms, farmScaleThreshold, isAdmin,
+        )
+    )
 }

@@ -88,6 +88,47 @@ fun FORM.worldVersionForm(world: World, supportedVersions: List<MinecraftVersion
     }
 }
 
+/**
+ * The farm-scale threshold (MCO-401) — raw demand at or above this is marked "worth a farm"
+ * in every project's plan.
+ *
+ * Lives in General rather than a planning tab of its own because it is a fact about the world's
+ * scale, alongside its name and version: a superflat testing world and a megabase want different
+ * numbers, and the same number applies to every project in the world.
+ */
+fun FORM.farmScaleThresholdForm(world: World) {
+    id = "world-farm-scale-form"
+    classes += "settings-form"
+    hxTargetError(".validation-error-message")
+    encType = FormEncType.applicationXWwwFormUrlEncoded
+
+    hxTarget("#$ALERT_CONTAINER_ID")
+    hxSwap("afterbegin")
+    hxPatch("/worlds/${world.id}/settings/farm-scale-threshold")
+    hxTrigger("input changed delay:500ms from:#world-farm-scale-input, submit")
+
+    label {
+        htmlFor = "world-farm-scale-input"
+        +"Worth a farm above"
+    }
+    input(classes = "form-control") {
+        name = "farmScaleThreshold"
+        id = "world-farm-scale-input"
+        type = InputType.number
+        value = world.farmScaleThreshold.toString()
+        required = true
+        min = "1"
+        max = "10000000"
+    }
+    p("settings-form__helper subtle") {
+        +"Raw materials a project needs this many of are marked as worth building a farm for. "
+        +"The default, 1,728, is one shulker box."
+    }
+    p("validation-error-message") {
+        id = "validation-error-farm-scale-threshold"
+    }
+}
+
 fun DIV.generalSection(data: SettingsPageData) {
     section(
         title = "General Settings",
@@ -97,5 +138,6 @@ fun DIV.generalSection(data: SettingsPageData) {
         form { worldNameForm(data.world) }
         form { worldDescriptionForm(data.world) }
         form { worldVersionForm(data.world, data.supportedVersions) }
+        form { farmScaleThresholdForm(data.world) }
     }
 }

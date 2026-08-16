@@ -9,6 +9,8 @@ import app.mcorg.pipeline.project.commonsteps.GetViewPreferenceInput
 import app.mcorg.pipeline.project.commonsteps.GetViewPreferenceStep
 import app.mcorg.engine.plan.PlanOverrides
 import app.mcorg.pipeline.resources.GatheringPlanInput
+import app.mcorg.domain.model.world.World
+import app.mcorg.pipeline.resources.GetFarmScaleThresholdStep
 import app.mcorg.pipeline.resources.GenerateGatheringPlanStep
 import app.mcorg.pipeline.resources.pendingFarmSuppliesFor
 import app.mcorg.pipeline.resources.GetPlanOverridesStep
@@ -94,6 +96,11 @@ suspend fun ApplicationCall.handleGetProject() {
     // Farms promised but not running yet — the plan's partial-dependency notice (MCO-299)
     val pendingFarms = pendingFarmSuppliesFor(worldId, projectId, plan)
 
+    // The world's "worth a farm" line (MCO-401). Falls back to the default rather than
+    // failing the page: a missing marker beats a missing plan.
+    val farmScaleThreshold = GetFarmScaleThresholdStep.process(worldId).getOrNull()
+        ?: World.DEFAULT_FARM_SCALE_THRESHOLD
+
     // ?drill=<item> deep-links into a target's chain so reload/share lands on the drill,
     // not the plan. Resolves only when the plan derives and the item is an actual target;
     // otherwise falls through to the normal lens render.
@@ -115,6 +122,7 @@ suspend fun ApplicationCall.handleGetProject() {
             drillTarget = drillTarget, drillCandidateCounts = drillCandidateCounts,
             drillNodeIngredients = drillNodeIngredients, drillHighlightItemId = drillItemId,
             drillOverrides = drillOverrides, drillGraph = drillGraph,
+            farmScaleThreshold = farmScaleThreshold,
         )
     )
 }
