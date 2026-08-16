@@ -32,7 +32,12 @@ delete_branch() {
 
 prune() {
   local active nb wt orphans=0
-  active="$(git worktree list | sed -n 's/.*\[\(.*\)\]/\1/p')"
+  # --porcelain, not the human format. `git worktree list` appends annotations *after* the
+  # bracketed branch ("[branch] locked", "[branch] prunable"), which a bracket-stripping sed
+  # leaves on the line — so an exact-line match against the branch name fails and the worktree
+  # reads as an orphan. That deleted a live locked worktree's database once; the porcelain form
+  # emits one "branch refs/heads/<name>" line with nothing appended.
+  active="$(git worktree list --porcelain | sed -n 's|^branch refs/heads/||p')"
   while IFS= read -r nb; do
     [ -z "$nb" ] && continue
     wt="${nb#wt/}"
