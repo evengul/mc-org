@@ -88,6 +88,18 @@ class ProductionStageParsingTest {
     }
 
     @Test
+    fun `a blank rate keeps the item as unmeasured output`() {
+        // "I know it makes bamboo, I have never timed it" is information worth keeping. Requiring
+        // a number would either lose the design or invite an invented one.
+        val modes = parse(
+            "productionMode[0][name]" to "",
+            "productionRate[0][minecraft:bamboo]" to "",
+        )
+
+        assertEquals(mapOf("minecraft:bamboo" to null), modes.single().rates)
+    }
+
+    @Test
     fun `a non-numeric rate is dropped rather than stored as zero`() {
         val modes = parse(
             "productionMode[0][name]" to "",

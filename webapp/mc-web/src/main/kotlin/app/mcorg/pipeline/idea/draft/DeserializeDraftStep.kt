@@ -21,7 +21,7 @@ import kotlinx.serialization.json.Json
 @Serializable
 data class DraftProductionMode(
     val name: String = "",
-    val rates: Map<String, Int> = emptyMap(),
+    val rates: Map<String, Int?> = emptyMap(),
 )
 
 @Serializable

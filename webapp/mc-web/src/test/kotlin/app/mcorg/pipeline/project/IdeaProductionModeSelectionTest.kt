@@ -2,9 +2,11 @@ package app.mcorg.pipeline.project
 
 import app.mcorg.domain.model.idea.IdeaProductionMode
 import app.mcorg.domain.model.idea.bestRateFor
+import app.mcorg.domain.model.idea.produces
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 /**
  * MCO-412 — which mode's rates answer a question.
@@ -17,7 +19,7 @@ import kotlin.test.assertNull
  */
 class IdeaProductionModeSelectionTest {
 
-    private fun mode(name: String, position: Int, vararg rates: Pair<String, Int>) =
+    private fun mode(name: String, position: Int, vararg rates: Pair<String, Int?>) =
         IdeaProductionMode(id = position + 1, name = name, position = position, rates = rates.toMap())
 
     private val iceFarm = listOf(
@@ -91,6 +93,43 @@ class IdeaProductionModeSelectionTest {
     @Test
     fun `importing an idea with no modes produces nothing`() {
         assertEquals(emptyMap(), ratesForImport(emptyList()))
+    }
+
+    @Test
+    fun `a farm that produces something it never measured still produces it`() {
+        // A small private bamboo farm: the author knows what it makes, not how fast. Ignoring it
+        // because nobody timed it would hide the design for the wrong reason.
+        val bambooFarm = listOf(mode("Default", 0, "minecraft:bamboo" to null))
+
+        assertTrue(bambooFarm.produces("minecraft:bamboo"))
+        assertNull(bambooFarm.bestRateFor("minecraft:bamboo"))
+    }
+
+    @Test
+    fun `an unmeasured rate never wins the best-rate comparison`() {
+        val mixed = listOf(
+            mode("Measured", 0, "minecraft:ice" to 1_000),
+            mode("Unmeasured", 1, "minecraft:ice" to null),
+        )
+
+        assertEquals("Measured", mixed.bestRateFor("minecraft:ice")!!.first.name)
+    }
+
+    @Test
+    fun `an unmeasured rate imports as zero, which the project already reads as unknown`() {
+        val bambooFarm = listOf(mode("Default", 0, "minecraft:bamboo" to null))
+
+        assertEquals(mapOf("minecraft:bamboo" to 0), ratesForImport(bambooFarm))
+    }
+
+    @Test
+    fun `an unmeasured mode does not beat a measured one when picking for import`() {
+        val modes = listOf(
+            mode("Unmeasured", 0, "minecraft:ice" to null, "minecraft:packed_ice" to null),
+            mode("Measured", 1, "minecraft:ice" to 500),
+        )
+
+        assertEquals(mapOf("minecraft:ice" to 500), ratesForImport(modes))
     }
 
     @Test

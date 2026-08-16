@@ -125,7 +125,9 @@ private fun FlowContent.productionModeBlock(index: Int, mode: DraftProductionMod
                 attributes["data-mode-index"] = index.toString()
             }
             input(type = InputType.number, classes = "form-control production-item-rate") {
-                placeholder = "Per hour"
+                // Optional on purpose: knowing a farm makes bamboo is worth recording even when
+                // nobody has timed it, and an invented rate would be worse than none.
+                placeholder = "Per hour (optional)"
                 min = "0"
                 attributes["data-mode-index"] = index.toString()
             }
@@ -138,20 +140,22 @@ private fun FlowContent.productionModeBlock(index: Int, mode: DraftProductionMod
 
         ul("wizard-item-list production-mode__rates") {
             id = "production-rates-$index"
-            mode.rates.entries.sortedByDescending { it.value }.forEach { (itemId, rate) ->
-                li("item-req") {
-                    span { +"$itemId × $rate/h" }
-                    hiddenInput {
-                        name = "productionRate[$index][$itemId]"
-                        value = rate.toString()
-                    }
-                    button(classes = "btn btn--ghost btn--sm") {
-                        type = ButtonType.button
-                        attributes["onclick"] = "this.closest('li').remove()"
-                        +"Remove"
+            mode.rates.entries
+                .sortedWith(compareByDescending<Map.Entry<String, Int?>> { it.value ?: -1 }.thenBy { it.key })
+                .forEach { (itemId, rate) ->
+                    li("item-req") {
+                        span { +if (rate == null) "$itemId — rate unmeasured" else "$itemId × $rate/h" }
+                        hiddenInput {
+                            name = "productionRate[$index][$itemId]"
+                            value = rate?.toString() ?: ""
+                        }
+                        button(classes = "btn btn--ghost btn--sm") {
+                            type = ButtonType.button
+                            attributes["onclick"] = "this.closest('li').remove()"
+                            +"Remove"
+                        }
                     }
                 }
-            }
         }
     }
 }
@@ -171,8 +175,10 @@ private fun productionScript() = """
         var itemInput = block.querySelector('.production-item-search');
         var rateInput = block.querySelector('.production-item-rate');
         var itemId = itemInput.value.trim();
-        var rate = parseInt(rateInput.value, 10);
-        if (!itemId || isNaN(rate) || rate < 0) return;
+        var rawRate = rateInput.value.trim();
+        var rate = rawRate === '' ? null : parseInt(rawRate, 10);
+        if (!itemId) return;
+        if (rate !== null && (isNaN(rate) || rate < 0)) return;
         if (itemId.indexOf(':') === -1) itemId = 'minecraft:' + itemId;
 
         var list = document.getElementById('production-rates-' + index);
@@ -182,8 +188,9 @@ private fun productionScript() = """
         var li = document.createElement('li');
         li.className = 'item-req';
         li.dataset.itemId = itemId;
-        li.innerHTML = '<span>' + itemId + ' × ' + rate + '/h</span>' +
-            '<input type="hidden" name="productionRate[' + index + '][' + itemId + ']" value="' + rate + '">' +
+        var label = rate === null ? itemId + ' — rate unmeasured' : itemId + ' × ' + rate + '/h';
+        li.innerHTML = '<span>' + label + '</span>' +
+            '<input type="hidden" name="productionRate[' + index + '][' + itemId + ']" value="' + (rate === null ? '' : rate) + '">' +
             '<button type="button" class="btn btn--ghost btn--sm" onclick="this.closest(\'li\').remove()">Remove</button>';
         list.appendChild(li);
         itemInput.value = '';

@@ -17,7 +17,8 @@ import app.mcorg.pipeline.TransactionConnection
  */
 data class IdeaProductionModeInput(
     val name: String,
-    val rates: Map<String, Int>,
+    /** Item id -> rate, or null where the author knows what it makes but not how fast. */
+    val rates: Map<String, Int?>,
 )
 
 /**
@@ -66,14 +67,14 @@ suspend fun replaceIdeaProductionModes(
             is Result.Failure -> return modeIdResult
         }
 
-        val rates = DatabaseSteps.batchUpdate<Pair<String, Int>>(
+        val rates = DatabaseSteps.batchUpdate<Pair<String, Int?>>(
             SafeSQL.insert(
                 "INSERT INTO idea_production_rates (mode_id, item_id, rate_per_hour) VALUES (?, ?, ?)"
             ),
             parameterSetter = { statement, (itemId, rate) ->
                 statement.setInt(1, modeId)
                 statement.setString(2, itemId)
-                statement.setInt(3, rate)
+                if (rate == null) statement.setNull(3, java.sql.Types.INTEGER) else statement.setInt(3, rate)
             },
             transactionConnection = connection,
         ).process(mode.rates.toList())
@@ -115,7 +116,10 @@ data class GetIdeaProductionModesStep(val ideaId: Int) :
                     }
                     val itemId = rs.getString("item_id")
                     if (itemId != null) {
-                        byId[id] = mode.copy(rates = mode.rates + (itemId to rs.getInt("rate_per_hour")))
+                        // getInt returns 0 for SQL NULL, and 0 is not what a missing rate means —
+                        // wasNull is the only way to tell "unmeasured" from a real zero.
+                        val rate = rs.getInt("rate_per_hour").takeUnless { rs.wasNull() }
+                        byId[id] = mode.copy(rates = mode.rates + (itemId to rate))
                     }
                 }
                 byId.values.toList()

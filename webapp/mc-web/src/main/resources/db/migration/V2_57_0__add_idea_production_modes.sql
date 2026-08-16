@@ -41,9 +41,18 @@ CREATE TABLE idea_production_rates
 (
     mode_id       INT  NOT NULL REFERENCES idea_production_modes (id) ON DELETE CASCADE,
     item_id       TEXT NOT NULL,
-    -- Items per hour. Matches project_productions.rate_per_hour, which is what an import writes
-    -- into once a mode is chosen.
-    rate_per_hour INT  NOT NULL CHECK (rate_per_hour >= 0),
+    -- Items per hour, or NULL for "produces this, rate unmeasured".
+    --
+    -- Knowing *what* a design makes is worth capturing on its own: someone sharing a small bamboo
+    -- farm knows it makes bamboo without ever having timed it, and demanding a number would either
+    -- lose the design or invite an invented one.
+    --
+    -- NULL rather than 0, even though project_productions already reads 0 as "rate unknown"
+    -- (ProductionPanel prints exactly that). Following that convention here would make zero mean
+    -- two things in one column, and this feature already has one bug whose entire symptom was
+    -- rates silently being 0 (MCO-411). The project side keeps its convention until MCO-413
+    -- unifies the two; the mapping between them is one place, in the import.
+    rate_per_hour INT  NULL CHECK (rate_per_hour IS NULL OR rate_per_hour >= 0),
     PRIMARY KEY (mode_id, item_id)
 );
 
@@ -81,6 +90,9 @@ WHERE m.name = 'Default'
   -- thing a farm can do — the column's CHECK would reject it and take the whole migration with it.
   AND jsonb_typeof(entry.payload -> 'value') = 'number'
   AND (entry.payload ->> 'value')::numeric >= 0;
+
+-- Every carried-over rate is a number: the old form required one. Unmeasured output only becomes
+-- expressible from here on.
 
 -- The JSON is left in place. It is unread from here on (the FARM schema's productionRate field
 -- goes with the form work), and leaving it costs nothing while making this migration reversible

@@ -16,8 +16,11 @@ data class IdeaProductionMode(
     val id: Int,
     val name: String,
     val position: Int,
-    /** Item id -> items per hour. */
-    val rates: Map<String, Int>,
+    /**
+     * Item id -> items per hour, or null where the author knows *what* it makes but has never
+     * measured how fast. A missing rate is information; an invented one is not.
+     */
+    val rates: Map<String, Int?>,
 ) {
     val isImplicit: Boolean get() = name == DEFAULT_MODE_NAME
 
@@ -42,3 +45,14 @@ data class IdeaProductionMode(
 fun List<IdeaProductionMode>.bestRateFor(itemId: String): Pair<IdeaProductionMode, Int>? =
     mapNotNull { mode -> mode.rates[itemId]?.let { mode to it } }
         .maxByOrNull { (_, rate) -> rate }
+
+/**
+ * Whether any mode makes [itemId] at all, measured or not.
+ *
+ * Separate from [bestRateFor] because the two answer different questions and a farm can answer
+ * one without the other: an unmeasured bamboo farm plainly produces bamboo, and a suggestion that
+ * ignored it because no one timed it would be hiding the design for the wrong reason. Whether a
+ * *quantity* can be quoted is [bestRateFor]'s business.
+ */
+fun List<IdeaProductionMode>.produces(itemId: String): Boolean =
+    any { mode -> mode.rates.containsKey(itemId) }

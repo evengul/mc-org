@@ -336,8 +336,11 @@ private val GetIdeaForImportStep = DatabaseSteps.transaction { connection ->
 internal fun ratesForImport(modes: List<IdeaProductionMode>, chosenModeName: String? = null): Map<String, Int> {
     if (modes.isEmpty()) return emptyMap()
     val chosen = chosenModeName?.let { name -> modes.firstOrNull { it.name == name } }
-        ?: modes.maxByOrNull { mode -> mode.rates.values.sumOf { it.toLong() } }
-    return chosen?.rates ?: emptyMap()
+        ?: modes.maxByOrNull { mode -> mode.rates.values.sumOf { (it ?: 0).toLong() } }
+    // An unmeasured rate becomes 0, which is what project_productions already means by it —
+    // ProductionPanel prints "rate unknown" for exactly this. The two sides represent the same
+    // fact differently until MCO-413 unifies them, and this is the one place that maps between.
+    return chosen?.rates.orEmpty().mapValues { (_, rate) -> rate ?: 0 }
 }
 
 

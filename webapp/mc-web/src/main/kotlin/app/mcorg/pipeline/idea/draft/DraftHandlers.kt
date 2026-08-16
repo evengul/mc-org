@@ -38,6 +38,7 @@ import kotlinx.serialization.builtins.MapSerializer
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.addJsonObject
 import kotlinx.serialization.json.buildJsonObject
@@ -348,8 +349,13 @@ internal fun buildStageJson(stage: DraftWizardStage, params: Parameters): String
                     val body = key.removePrefix("productionRate[")
                     val index = body.substringBefore("]", missingDelimiterValue = "")
                     val itemId = body.substringAfter("][", missingDelimiterValue = "").removeSuffix("]")
-                    val rate = params[key]?.toIntOrNull()
-                    if (index.isBlank() || itemId.isBlank() || rate == null || rate < 0) null
+                    val raw = params[key]?.trim().orEmpty()
+                    // Blank is "produces this, never measured how fast" — a small private bamboo
+                    // farm still tells you it makes bamboo. Only a *malformed* rate is discarded,
+                    // and the item with it, since there is nothing to trust in the row.
+                    val rate = if (raw.isEmpty()) null else raw.toIntOrNull()
+                    val malformed = raw.isNotEmpty() && (rate == null || rate < 0)
+                    if (index.isBlank() || itemId.isBlank() || malformed) null
                     else Triple(index, itemId, rate)
                 }
                 .groupBy({ it.first }, { it.second to it.third })
@@ -362,7 +368,9 @@ internal fun buildStageJson(stage: DraftWizardStage, params: Parameters): String
                         addJsonObject {
                             put("name", names[index] ?: "")
                             putJsonObject("rates") {
-                                ratesByMode[index].orEmpty().forEach { (itemId, rate) -> put(itemId, rate) }
+                                ratesByMode[index].orEmpty().forEach { (itemId, rate) ->
+                                    if (rate == null) put(itemId, JsonNull) else put(itemId, rate)
+                                }
                             }
                         }
                     }

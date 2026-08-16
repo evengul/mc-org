@@ -30,13 +30,22 @@ fun FlowContent.ideaProductionModes(modes: List<IdeaProductionMode>) {
                     span("idea-productions__mode-name") { +mode.name }
                 }
                 ul("idea-productions__rates") {
-                    mode.rates.entries.sortedByDescending { it.value }.forEach { (itemId, rate) ->
-                        li("idea-productions__rate") {
-                            span("idea-productions__quantity") { +"%,d".format(rate) }
-                            +" / hour "
-                            span("idea-productions__item") { +itemId.removePrefix("minecraft:").replace('_', ' ') }
+                    // Measured output first; an unmeasured item is still output and still listed,
+                    // it just cannot claim a number.
+                    mode.rates.entries
+                        .sortedWith(compareByDescending<Map.Entry<String, Int?>> { it.value ?: -1 }.thenBy { it.key })
+                        .forEach { (itemId, rate) ->
+                            li("idea-productions__rate") {
+                                if (rate != null) {
+                                    span("idea-productions__quantity") { +"%,d".format(rate) }
+                                    +" / hour "
+                                }
+                                span("idea-productions__item") { +itemId.removePrefix("minecraft:").replace('_', ' ') }
+                                if (rate == null) {
+                                    span("idea-productions__unmeasured") { +" — rate unmeasured" }
+                                }
+                            }
                         }
-                    }
                 }
             }
         }
