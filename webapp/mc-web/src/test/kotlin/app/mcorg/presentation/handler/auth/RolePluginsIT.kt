@@ -20,6 +20,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.api.extension.ExtendWith
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -90,6 +91,41 @@ class RolePluginsIT : WithUser() {
     }
 
     // TODO: WorldAdmin role tests. Do when world routes tests are implemented.
+
+    /**
+     * MCO-356 — the control, not the status code.
+     *
+     * Every role plugin relies on `call.respond()` inside `onCall` suppressing the route handler.
+     * Ktor's routing does guard on `call.isHandled`, so this is almost certainly fine — but every
+     * existing test here asserts only the *status code*, and "almost certainly" is the wrong
+     * confidence level for the thing that stops a non-owner deleting a world. A refusal that
+     * returns 403 while still running the handler would pass all of them.
+     *
+     * So: a handler with an observable side effect, and an assertion that it did not happen.
+     */
+    @Test
+    fun `a plugin refusal actually suppresses the handler, not just the response`() = testApplication {
+        var handlerRan = false
+
+        routing {
+            install(AuthPlugin)
+            route("/admin-side-effect") {
+                install(AdminPlugin)
+                get {
+                    handlerRan = true
+                    call.respondText("should never be reached")
+                }
+            }
+        }
+        val client = createClient { followRedirects = false }
+
+        val response = client.get("/admin-side-effect") {
+            addAuthCookie(this, createExtraUser())
+        }
+
+        assertEquals(HttpStatusCode.NotFound, response.status)
+        assertFalse(handlerRan, "AdminPlugin returned 404 but the route handler still executed")
+    }
 
     private fun ApplicationTestBuilder.setup(): HttpClient {
         routing {
