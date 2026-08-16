@@ -293,38 +293,6 @@ class ValidateIdeaCategoryDataStepTest {
     // --- Production rate: item -> rate, the one field the engine consumes ---
 
     @Test
-    fun `production rate maps items to rates`() {
-        val params = createParameters(
-            "categoryData.productionRate.key[]" to listOf("minecraft:iron_ingot", "minecraft:diamond"),
-            "categoryData.productionRate.value[]" to listOf("2000", "500")
-        )
-        val step = ValidateIdeaCategoryDataStep(IdeaCategory.FARM)
-
-        val result = TestUtils.executeAndAssertSuccess(step, params)
-
-        val rates = assertIs<CategoryValue.MapValue>(result["productionRate"]).value
-        assertEquals(CategoryValue.IntValue(2000), rates["minecraft:iron_ingot"])
-        assertEquals(CategoryValue.IntValue(500), rates["minecraft:diamond"])
-    }
-
-    @Test
-    fun `production rate with an unknown item returns failure`() {
-        val params = createParameters(
-            "categoryData.productionRate.key[]" to listOf("minecraft:unobtanium"),
-            "categoryData.productionRate.value[]" to listOf("2000")
-        )
-        val step = ValidateIdeaCategoryDataStep(IdeaCategory.FARM)
-
-        val result = TestUtils.executeAndAssertFailure(step, params)
-
-        assertTrue(result.any {
-            it is ValidationFailure.InvalidFormat && it.message?.contains("Invalid option") == true
-        })
-    }
-
-    // --- Reference links ---
-
-    @Test
     fun `references parse as a comma-separated list`() {
         val params = createParameters(
             "categoryData.references" to listOf("https://youtu.be/abc, https://example.com/schematic")
@@ -418,8 +386,6 @@ class ValidateIdeaCategoryDataStepTest {
             append("categoryData.size.x", "")
             append("categoryData.size.y", "")
             append("categoryData.size.z", "")
-            append("categoryData.productionRate.key[]", "")
-            append("categoryData.productionRate.value[]", "")
             append("categoryData.tileable", "")
             append("categoryData.directional", "")
             append("categoryData.afkable", "")
@@ -454,8 +420,6 @@ class ValidateIdeaCategoryDataStepTest {
             "categoryData.size.x" to listOf("10"),
             "categoryData.size.y" to listOf("20"),
             "categoryData.size.z" to listOf("30"),
-            "categoryData.productionRate.key[]" to listOf("minecraft:iron_ingot"),
-            "categoryData.productionRate.value[]" to listOf("2000"),
             "categoryData.tileable" to listOf("true"),
             "categoryData.afkable" to listOf("true"),
             "categoryData.specs.key[]" to listOf("Villagers"),
@@ -467,13 +431,12 @@ class ValidateIdeaCategoryDataStepTest {
         val result = TestUtils.executeAndAssertSuccess(step, params)
 
         assertEquals(
-            setOf("size", "productionRate", "tileable", "afkable", "specs", "references"),
+            // productionRate left the schema in MCO-412 — production is relational now.
+            setOf("size", "tileable", "afkable", "specs", "references"),
             result.keys
         )
         val size = assertIs<CategoryValue.MapValue>(result["size"]).value
         assertEquals(CategoryValue.IntValue(20), size["y"])
-        val rates = assertIs<CategoryValue.MapValue>(result["productionRate"]).value
-        assertEquals(CategoryValue.IntValue(2000), rates["minecraft:iron_ingot"])
         val specs = assertIs<CategoryValue.MapValue>(result["specs"]).value
         assertEquals(CategoryValue.TextValue("3"), specs["Villagers"])
     }
