@@ -467,6 +467,25 @@ data object GetServerFileStep : Step<ResolvedServerJar, AppFailure, Pair<Minecra
                 withContext(Dispatchers.IO) {
                     val tempFile = Files.createTempFile("server-${input.version}", ".jar")
                     try {
+                        // SHA-1 is not a choice made here, and CodeQL's "use SHA-256 instead"
+                        // (alert 18) cannot be acted on: the digest we are checking against is
+                        // Mojang's, and their version manifest publishes only `sha1`. Verified
+                        // against the live manifest — `downloads.server` carries exactly
+                        // {sha1, size, url}, with no sha256 anywhere in the document. Hashing with
+                        // SHA-256 would leave nothing to compare the result to.
+                        //
+                        // It is also the right strength for what this defends against. Both the
+                        // JAR and the digest arrive from Mojang over TLS, so this is an integrity
+                        // check against a truncated or corrupted download, not a signature and not
+                        // a trust boundary we own. A collision attack needs an adversary who
+                        // authors *both* colliding files; here the honest one is authored by
+                        // Mojang. An attacker able to substitute the JAR could substitute the
+                        // manifest's digest with it, which defeats the check at any hash strength.
+                        //
+                        // Every algorithm this codebase does choose is already SHA-256 or
+                        // HmacSHA256 (ApiCrypto, WebhookSigner, ProjectDemandStore, ChoiceTag).
+                        // If Mojang ever publishes a stronger digest, switch to it here and in
+                        // MojangManifestModels.ServerDownload.
                         val digest = MessageDigest.getInstance("SHA-1")
                         // openConnection() rather than openStream(), purely to reach the timeout
                         // setters — openStream() is openConnection().getInputStream() with both
