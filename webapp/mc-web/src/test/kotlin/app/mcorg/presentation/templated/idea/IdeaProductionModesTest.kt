@@ -18,7 +18,7 @@ class IdeaProductionModesTest {
 
     private fun render(modes: List<IdeaProductionMode>) = createHTML().div { ideaProductionModes(modes) }
 
-    private fun mode(name: String, position: Int, vararg rates: Pair<String, Int>) =
+    private fun mode(name: String, position: Int, vararg rates: Pair<String, Int?>) =
         IdeaProductionMode(id = position + 1, name = name, position = position, rates = rates.toMap())
 
     @Test
@@ -27,8 +27,8 @@ class IdeaProductionModesTest {
         // attribute a choice they did not make.
         val html = render(listOf(mode(IdeaProductionMode.DEFAULT_MODE_NAME, 0, "minecraft:ice" to 71_000)))
 
-        assertContains(html, "71,000")
-        assertContains(html, "ice")
+        assertContains(html, "71${DIGIT_GROUP_SEPARATOR}000")
+        assertContains(html, "Ice")
         assertFalse(html.contains(IdeaProductionMode.DEFAULT_MODE_NAME))
     }
 
@@ -43,15 +43,29 @@ class IdeaProductionModesTest {
 
         assertContains(html, "Max speed")
         assertContains(html, "Slowed")
-        assertContains(html, "62,000")
-        assertContains(html, "18,000")
+        assertContains(html, "62${DIGIT_GROUP_SEPARATOR}000")
+        assertContains(html, "18${DIGIT_GROUP_SEPARATOR}000")
+    }
+
+    @Test
+    fun `a named mode is a heading, not a run of styled text`() {
+        // MCO-419: two modes are two sub-sections of "Produces", and a screen reader jumping by
+        // heading should land on each one.
+        val html = render(
+            listOf(
+                mode("Max speed", 0, "minecraft:ice" to 62_000),
+                mode("Slowed", 1, "minecraft:ice" to 18_000),
+            )
+        )
+
+        assertContains(html, "<h3 class=\"idea-productions__mode-name\">Max speed</h3>")
     }
 
     @Test
     fun `item ids are tidied for reading`() {
         val html = render(listOf(mode("Default", 0, "minecraft:wither_skeleton_skull" to 40)))
 
-        assertContains(html, "wither skeleton skull")
+        assertContains(html, "Wither Skeleton Skull")
         assertFalse(html.contains("minecraft:"))
     }
 
@@ -62,6 +76,17 @@ class IdeaProductionModesTest {
         )
 
         assertTrue(html.indexOf("900") < html.indexOf("500"))
+    }
+
+    @Test
+    fun `an unmeasured item keeps its row and is marked as such`() {
+        // MCO-419: the row carries a modifier class so "has a number" and "has no number" are
+        // distinguishable by sight, not only by reading the words.
+        val html = render(listOf(mode("Default", 0, "minecraft:bamboo" to null)))
+
+        assertContains(html, "idea-productions__rate--unmeasured")
+        assertContains(html, "Bamboo")
+        assertContains(html, "rate unmeasured")
     }
 
     @Test
