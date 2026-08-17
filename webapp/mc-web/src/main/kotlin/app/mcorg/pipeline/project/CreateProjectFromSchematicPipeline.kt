@@ -39,11 +39,28 @@ import kotlinx.io.readByteArray
  * .schem/.nbt parsing is not yet supported by mc-nbt.
  */
 
-data class SchematicUpload(
+/** One uploaded `.litematic`. */
+data class SchematicFile(
     val fileName: String?,
-    val providedName: String?,
     val content: ByteArray,
-)
+) {
+    /** The name a group is qualified with: the file without its extension. */
+    val stem: String get() = fileName?.removeSuffix(".litematic").orEmpty()
+}
+
+/**
+ * What arrived from the upload control — one or more files, and an optional name for the project.
+ *
+ * Several files, because Litematica saves a selection from **one** world: a build with a nether
+ * side cannot be a single file, and Seam used to model it as either several unrelated projects or
+ * one project missing part of its materials (MCO-414).
+ */
+data class SchematicUpload(
+    val files: List<SchematicFile>,
+    val providedName: String?,
+) {
+    val fileName: String? get() = files.firstOrNull()?.fileName
+}
 
 data class SchematicProject(
     val name: String,
@@ -77,6 +94,14 @@ data class ResolvedRegion(
     val name: String,
     val requirements: List<Pair<Item, Int>>,
     val placedCounts: Map<String, Int> = emptyMap(),
+    /**
+     * The file this region came from, or null when the import was a single file (MCO-414).
+     *
+     * Null rather than "the only file" so a one-file import renders exactly as it did before
+     * multi-file existed: the review screen qualifies a group by its file only when there is
+     * another file to tell it apart from.
+     */
+    val sourceFile: String? = null,
 )
 
 /**
@@ -208,16 +233,32 @@ internal data class ValidateReviewedMaterialsStep(val availableItems: List<Item>
 }
 
 object ReceiveSchematicStep : Step<MultiPartData, AppFailure, SchematicUpload> {
+
+    /**
+     * A sanity bound, not a product limit. The case this exists for is a build split by dimension,
+     * which is two or three files; the cap is well above that and only stops a hand-rolled post
+     * asking the server to parse an unbounded number of schematics. Related: MCO-421.
+     */
+    const val MAX_FILES = 12
+
     override suspend fun process(input: MultiPartData): Result<AppFailure, SchematicUpload> {
-        var content: ByteArray? = null
-        var fileName: String? = null
+        val files = mutableListOf<SchematicFile>()
         var providedName: String? = null
+        var tooMany = false
 
         input.forEachPart { part ->
             when {
                 part is PartData.FileItem && part.originalFileName?.endsWith(".litematic") == true -> {
-                    content = part.provider().readRemaining().readByteArray()
-                    fileName = part.originalFileName
+                    // Every matching part, not the last one: the control is `multiple` now, so a
+                    // build that spans dimensions arrives as several parts under one field name
+                    // (MCO-414). Overwriting here was the old single-file behaviour and would
+                    // silently import only the final file.
+                    if (files.size >= MAX_FILES) {
+                        tooMany = true
+                        part.release()
+                    } else {
+                        files.add(SchematicFile(part.originalFileName, part.provider().readRemaining().readByteArray()))
+                    }
                 }
                 part is PartData.FormItem && part.name == "name" -> {
                     providedName = part.value.takeIf { it.isNotBlank() }
@@ -227,27 +268,121 @@ object ReceiveSchematicStep : Step<MultiPartData, AppFailure, SchematicUpload> {
             }
         }
 
-        val bytes = content
         return when {
-            bytes == null -> Result.failure(
+            tooMany -> Result.failure(
+                AppFailure.customValidationError("schematicFile", "Import at most $MAX_FILES files at once")
+            )
+            files.isEmpty() -> Result.failure(
                 AppFailure.customValidationError("schematicFile", "Provide a .litematic file")
             )
-            bytes.isEmpty() -> Result.failure(
-                AppFailure.customValidationError("schematicFile", "Schematic file is empty")
+            // Named, because with several files "one of them is empty" is not actionable.
+            files.any { it.content.isEmpty() } -> Result.failure(
+                AppFailure.customValidationError(
+                    "schematicFile",
+                    files.filter { it.content.isEmpty() }
+                        .joinToString(prefix = "Empty schematic file: ") { it.fileName ?: "unnamed" },
+                )
             )
-            else -> Result.success(SchematicUpload(fileName, providedName, bytes))
+            else -> Result.success(SchematicUpload(files, providedName))
         }
     }
 }
 
-object ParseSchematicStep : Step<SchematicUpload, AppFailure, Litematica> {
-    override suspend fun process(input: SchematicUpload): Result<AppFailure, Litematica> {
-        return when (val parsed = LitematicaReader.readLitematica(input.content)) {
-            is Result.Failure -> Result.failure(
-                AppFailure.customValidationError("schematicFile", "Could not read the schematic file")
+/** A file and what was read out of it. */
+data class ParsedSchematic(val fileName: String?, val litematica: Litematica) {
+    val stem: String get() = fileName?.removeSuffix(".litematic").orEmpty()
+}
+
+private fun sumRequirementLists(lists: List<List<Pair<Item, Int>>>): List<Pair<Item, Int>> {
+    val byItem = LinkedHashMap<Item, Int>()
+    lists.forEach { list -> list.forEach { (item, amount) -> byItem[item] = (byItem[item] ?: 0) + amount } }
+    return byItem.map { (item, amount) -> item to amount }
+}
+
+private fun sumPlacedCounts(maps: List<Map<String, Int>>): Map<String, Int> {
+    val total = LinkedHashMap<String, Int>()
+    maps.forEach { map -> map.forEach { (id, count) -> total[id] = (total[id] ?: 0) + count } }
+    return total
+}
+
+/**
+ * Resolves every uploaded file and presents them as one material list (MCO-414).
+ *
+ * A build that spans dimensions is several files, and the review screen already has the concept
+ * that fits them: MCO-398's region groups. So a file contributes its regions as groups, tagged
+ * with the file they came from, and the flat list is the sum across all of them. Two files are
+ * more groups — not a new idea for the screen to explain.
+ *
+ * A file with no regions at all (test-constructed data; real Litematica files always have at
+ * least one) becomes a single group named after the file, so it is still strikeable rather than
+ * dissolving into the flat list.
+ *
+ * Fluids keep the "one bucket per section" reading from MCO-398: each region caps its own water
+ * at one bucket and the sum runs over regions, so a pond spanning the overworld and nether halves
+ * of a build asks for one bucket per half — one per section you actually go and build.
+ */
+data class MapSchematicFilesToMaterialsStep(
+    val availableItems: List<Item>,
+) : Step<List<ParsedSchematic>, AppFailure, SchematicMaterials> {
+
+    override suspend fun process(input: List<ParsedSchematic>): Result<AppFailure, SchematicMaterials> {
+        if (input.isEmpty()) {
+            return Result.failure(
+                AppFailure.customValidationError("schematicFile", "Provide a .litematic file")
             )
-            is Result.Success -> Result.success(parsed.value)
         }
+
+        val single = input.size == 1
+        val perFile = input.map { parsed ->
+            when (val mapped = MapSchematicToMaterialsStep(availableItems).process(parsed.litematica)) {
+                is Result.Failure -> return Result.Failure(mapped.error)
+                is Result.Success -> parsed to mapped.value
+            }
+        }
+
+        val regions = perFile.flatMap { (parsed, materials) ->
+            when {
+                // One file: leave the tag off entirely, so the screen renders exactly as it did
+                // before multi-file existed rather than qualifying groups against nothing.
+                single -> materials.regions
+                materials.regions.isEmpty() -> listOf(
+                    ResolvedRegion(
+                        name = parsed.stem,
+                        requirements = materials.requirements,
+                        placedCounts = materials.placedCounts,
+                        sourceFile = parsed.stem,
+                    )
+                )
+                else -> materials.regions.map { it.copy(sourceFile = parsed.stem) }
+            }
+        }
+
+        return Result.success(
+            SchematicMaterials(
+                requirements = sumRequirementLists(perFile.map { it.second.requirements }),
+                placedCounts = sumPlacedCounts(perFile.map { it.second.placedCounts }),
+                regions = regions,
+            )
+        )
+    }
+}
+
+object ParseSchematicStep : Step<SchematicUpload, AppFailure, List<ParsedSchematic>> {
+    override suspend fun process(input: SchematicUpload): Result<AppFailure, List<ParsedSchematic>> {
+        val parsed = input.files.map { file ->
+            when (val read = LitematicaReader.readLitematica(file.content)) {
+                // Named, since with several files "could not read the schematic file" leaves the
+                // user guessing which one to re-export.
+                is Result.Failure -> return Result.failure(
+                    AppFailure.customValidationError(
+                        "schematicFile",
+                        "Could not read ${file.fileName ?: "the schematic file"}",
+                    )
+                )
+                is Result.Success -> ParsedSchematic(file.fileName, read.value)
+            }
+        }
+        return Result.success(parsed)
     }
 }
 
@@ -352,11 +487,8 @@ data class MapSchematicToMaterialsStep(
         )
     }
 
-    private fun sumRequirements(lists: List<List<Pair<Item, Int>>>): List<Pair<Item, Int>> {
-        val byItem = LinkedHashMap<Item, Int>()
-        lists.forEach { list -> list.forEach { (item, amount) -> byItem[item] = (byItem[item] ?: 0) + amount } }
-        return byItem.map { (item, amount) -> item to amount }
-    }
+    private fun sumRequirements(lists: List<List<Pair<Item, Int>>>): List<Pair<Item, Int>> =
+        sumRequirementLists(lists)
 
     private data class ResolvedMaterials(
         val requirements: List<Pair<Item, Int>>,
@@ -452,16 +584,21 @@ data class MapSchematicToMaterialsStep(
 private data class MapSchematicToProjectStep(
     val availableItems: List<Item>,
     val upload: SchematicUpload,
-) : Step<Litematica, AppFailure, SchematicProject> {
-    override suspend fun process(input: Litematica): Result<AppFailure, SchematicProject> {
-        val materials = when (val mapped = MapSchematicToMaterialsStep(availableItems).process(input)) {
+) : Step<List<ParsedSchematic>, AppFailure, SchematicProject> {
+    override suspend fun process(input: List<ParsedSchematic>): Result<AppFailure, SchematicProject> {
+        val materials = when (val mapped = MapSchematicFilesToMaterialsStep(availableItems).process(input)) {
             is Result.Failure -> return Result.Failure(mapped.error)
             is Result.Success -> mapped.value
         }
 
+        // The first file names the project. With several files their internal names are things
+        // like "Sorter (nether)" — a fragment of the build, not the build — so the name is a
+        // starting point the user edits on the review screen, and picking the first is at least
+        // predictable. Whatever they typed still wins.
+        val first = input.first()
         val name = upload.providedName
-            ?: input.name.takeIf { it.isNotBlank() && it != "Unnamed" }
-            ?: upload.fileName?.removeSuffix(".litematic")
+            ?: first.litematica.name.takeIf { it.isNotBlank() && it != "Unnamed" }
+            ?: first.stem.takeIf { it.isNotBlank() }
             ?: "Imported build"
 
         return Result.success(

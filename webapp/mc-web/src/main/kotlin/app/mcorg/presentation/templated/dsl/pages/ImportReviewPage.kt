@@ -177,7 +177,7 @@ private fun FlowContent.materialsSection(
         materialsField(allRows, excluded)
         warningStrip(warnings)
         materialsSummary(groups, allRows)
-        sectionsLead(groups)
+        sectionsLead(groups, regions.mapNotNull { it.sourceFile }.distinct().size)
         groups.forEachIndexed { index, group ->
             if (group.name == null) {
                 materialsTable(index, group.rows, excluded, placedCounts, warnings)
@@ -201,11 +201,18 @@ private fun FlowContent.materialsSection(
  * neither what they are nor that they open. One line costs nothing and removes both questions;
  * without it the sections read as an unexplained grouping the screen invented.
  */
-private fun FlowContent.sectionsLead(groups: List<MaterialGroup>) {
+private fun FlowContent.sectionsLead(groups: List<MaterialGroup>, fileCount: Int) {
     if (groups.size < 2) return
 
     p("import-review__sections-lead") {
-        +"This schematic is built from ${groups.size} sections. "
+        // Naming the files matters when there are several: it is the confirmation that both
+        // halves of a build that spans dimensions actually arrived (MCO-414). "3 sections" alone
+        // would look identical whether the nether file was read or silently dropped.
+        if (fileCount > 1) {
+            +"These $fileCount files are being imported as one project, in ${groups.size} sections. "
+        } else {
+            +"This schematic is built from ${groups.size} sections. "
+        }
         +"Untick one to leave it out of the import, or open it to choose materials one at a time."
     }
 }
@@ -232,8 +239,35 @@ private fun groupsFor(requirements: Map<Item, Int>, regions: List<ResolvedRegion
     // Largest section first: on a build whose decorative shell is the thing you want to strike,
     // the section worth a decision is usually the big one.
     return populated
-        .map { MaterialGroup(it.name.ifBlank { "Unnamed section" }, it.requirements.sortedWith(byQuantity)) }
+        .map { MaterialGroup(groupName(it, populated), it.requirements.sortedWith(byQuantity)) }
         .sortedByDescending { group -> group.rows.sumOf { it.second.toLong() } }
+}
+
+/**
+ * What a section is called once several files can contribute them (MCO-414).
+ *
+ * The file is the part the user recognises — they named it, and for a build split by dimension
+ * the name usually says which half it is. The region name inside is Litematica's, and for a
+ * single-region file it merely repeats the schematic, so showing both would read as
+ * "Sorter (nether) — Sorter (nether)".
+ *
+ * So: the file alone when it contributed one section, and `file — region` when it contributed
+ * several and the region name actually adds something. Regions from a single-file import carry
+ * no file at all and keep their own names, exactly as before.
+ */
+private fun groupName(region: ResolvedRegion, all: List<ResolvedRegion>): String {
+    val fallback = region.name.ifBlank { "Unnamed section" }
+    val file = region.sourceFile?.takeIf { it.isNotBlank() } ?: return fallback
+
+    val siblings = all.count { it.sourceFile == region.sourceFile }
+    if (siblings < 2) return file
+
+    val regionName = region.name.trim()
+    val addsNothing = regionName.isBlank() ||
+        regionName.equals("Unnamed", ignoreCase = true) ||
+        regionName.equals(file, ignoreCase = true)
+
+    return if (addsNothing) file else "$file — $regionName"
 }
 
 private const val MATERIALS_FIELD_ID = "import-review-materials-field"

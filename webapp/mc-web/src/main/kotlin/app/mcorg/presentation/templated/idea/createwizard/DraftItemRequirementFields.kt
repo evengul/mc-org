@@ -72,6 +72,9 @@ fun FlowContent.draftItemRequirementFields(draft: IdeaDraft) {
         input(type = InputType.file, classes = "form-control") {
             name = "litematicFile"
             accept = ".litematic"
+            // A design that spans dimensions is several files (MCO-414); their material lists
+            // are summed into one list here.
+            multiple = true
             hxPost("/ideas/create/litematic")
             hxTarget("#draft-item-list")
             hxSwap("beforeend")

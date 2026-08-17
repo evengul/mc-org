@@ -1252,7 +1252,7 @@ fun FlowContent.resourceSchematicModal(worldId: Int, projectId: Int, existingRes
 
                     label {
                         htmlFor = "resource-schematic-file"
-                        +"Schematic file"
+                        +"Schematic files"
                         span("required-indicator") { +"*" }
                     }
                     input(classes = "form-control") {
@@ -1261,6 +1261,9 @@ fun FlowContent.resourceSchematicModal(worldId: Int, projectId: Int, existingRes
                         name = "schematicFile"
                         accept = ".litematic"
                         required = true
+                        // A build that spans dimensions is several files (MCO-414); replacing the
+                        // list from only one of them would drop the rest of the build.
+                        multiple = true
                     }
                     p("form-error") {
                         id = "validation-error-schematicFile"

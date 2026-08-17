@@ -307,7 +307,7 @@ private fun kotlinx.html.FlowContent.schematicProjectModal(worldId: Int) {
 
                         label {
                             htmlFor = "schematic-project-file"
-                            +"Schematic file"
+                            +"Schematic files"
                             span("required-indicator") { +"*" }
                         }
                         input(classes = "form-control") {
@@ -316,6 +316,12 @@ private fun kotlinx.html.FlowContent.schematicProjectModal(worldId: Int) {
                             name = "schematicFile"
                             accept = ".litematic"
                             required = true
+                            // Litematica saves a selection from one world, so a build with a
+                            // nether side is two files (MCO-414). They import as one project.
+                            multiple = true
+                        }
+                        p("form-help-text") {
+                            +"Pick several if the build spans dimensions — they become one project."
                         }
                         p("form-error") {
                             id = "validation-error-schematicFile"

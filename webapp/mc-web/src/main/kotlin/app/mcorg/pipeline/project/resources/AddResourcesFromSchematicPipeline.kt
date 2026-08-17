@@ -8,7 +8,7 @@ import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.Result
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.failure.AppFailure
-import app.mcorg.pipeline.project.MapSchematicToMaterialsStep
+import app.mcorg.pipeline.project.MapSchematicFilesToMaterialsStep
 import app.mcorg.pipeline.project.ParseSchematicStep
 import app.mcorg.pipeline.project.ReceiveSchematicStep
 import app.mcorg.pipeline.project.SchematicUpload
@@ -56,8 +56,11 @@ suspend fun ApplicationCall.handleAddResourcesFromSchematic() {
     ) {
         val upload = ReceiveSchematicStep.run(multipart)
         ValidateWorldMemberRole<SchematicUpload>(user, Role.ADMIN, worldId).run(upload)
-        val litematica = ParseSchematicStep.run(upload)
-        val materials = MapSchematicToMaterialsStep(items).run(litematica)
+        val parsed = ParseSchematicStep.run(upload)
+        // Multi-file here too (MCO-414): replacing a project's resource list from its schematics
+        // has the same problem as creating it from them — a build with a nether side would
+        // otherwise replace the whole list with only one dimension's worth of materials.
+        val materials = MapSchematicFilesToMaterialsStep(items).run(parsed)
         ReplaceProjectResourcesStep(projectId).run(materials.requirements)
 
         previousIds.forEach { CacheManager.onResourceGatheringDeleted(projectId, it) }
