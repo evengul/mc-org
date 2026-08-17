@@ -7,6 +7,9 @@ import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.Result
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.idea.draft.CreateDraftStep
+import app.mcorg.pipeline.idea.draft.DraftData
+import app.mcorg.pipeline.idea.draft.RevertIdeaToDraftInput
+import app.mcorg.pipeline.idea.draft.RevertIdeaToDraftStep
 import app.mcorg.pipeline.idea.draft.DeleteDraftInput
 import app.mcorg.pipeline.idea.draft.DeleteDraftStep
 import app.mcorg.pipeline.idea.draft.GetDraftInput
@@ -22,6 +25,9 @@ import app.mcorg.pipeline.idea.draft.handlePublishDraft
 import app.mcorg.pipeline.idea.draft.handleSaveDraftForm
 import app.mcorg.pipeline.idea.draft.handleRevertIdeaToDraft
 import app.mcorg.pipeline.idea.commonsteps.GetIdeaStep
+import app.mcorg.pipeline.idea.commonsteps.GetIdeaProductionModesStep
+import app.mcorg.pipeline.idea.draft.PublishDraftInput
+import app.mcorg.pipeline.idea.draft.PublishDraftStep
 import app.mcorg.presentation.plugins.AuthPlugin
 import app.mcorg.presentation.plugins.IdeaParamPlugin
 import app.mcorg.test.WithUser
@@ -53,6 +59,7 @@ import kotlin.test.assertContains
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 @Tag("database")
@@ -570,7 +577,94 @@ class DraftLifecycleIT : WithUser() {
         assertEquals(HttpStatusCode.Found, response.status)
     }
 
+    @Test
+    fun `reverting an idea to a draft carries its production modes (MCO-412)`() = runBlocking {
+        // Publishing the draft replaces the idea wholesale — replaceIdeaProductionModes opens with
+        // an unconditional DELETE — so anything missing from the draft is not "left alone", it is
+        // deleted. Editing a description used to wipe every rate the farm had, with no warning and
+        // nothing in the form to show it had happened.
+        val ideaId = createIdea("Ice Farm", IdeaCategory.FARM)
+        addProductionMode(ideaId, "Max speed", 0, "minecraft:ice" to 71000)
+        addProductionMode(ideaId, "Slowed", 1, "minecraft:ice" to 18000, "minecraft:packed_ice" to null)
+
+        val draftId = (RevertIdeaToDraftStep().process(RevertIdeaToDraftInput(ideaId, user.id)) as Result.Success).value
+        val draft = GetDraftStep().process(GetDraftInput(draftId, user.id)).getOrNull()
+        assertNotNull(draft)
+
+        val modes = Json { ignoreUnknownKeys = true; isLenient = true }
+            .decodeFromString(DraftData.serializer(), draft.data).productionModes.orEmpty()
+
+        assertEquals(listOf("Max speed", "Slowed"), modes.map { it.name }, "modes come back in the author's order")
+        assertEquals(mapOf("minecraft:ice" to 71000), modes[0].rates)
+        // An unmeasured rate has to survive as null: 0 means "makes none of it", and the whole
+        // point of MCO-412's nullable column was that those are different facts.
+        assertEquals(mapOf("minecraft:ice" to 18000, "minecraft:packed_ice" to null), modes[1].rates)
+    }
+
+    @Test
+    fun `reverting an idea that produces nothing leaves productionModes out`() = runBlocking {
+        val ideaId = createIdea("Storage Hall", IdeaCategory.STORAGE)
+
+        val draftId = (RevertIdeaToDraftStep().process(RevertIdeaToDraftInput(ideaId, user.id)) as Result.Success).value
+        val draft = GetDraftStep().process(GetDraftInput(draftId, user.id)).getOrNull()
+        assertNotNull(draft)
+
+        val modes = Json { ignoreUnknownKeys = true; isLenient = true }
+            .decodeFromString(DraftData.serializer(), draft.data).productionModes
+
+        assertNull(modes, "most builds produce nothing; the key should simply be absent")
+    }
+
+    @Test
+    fun `editing a published idea and publishing it again keeps what it produces (MCO-412)`() = runBlocking {
+        // The whole round trip, because the two halves fail independently: revert has to copy the
+        // modes into the draft, and publish has to write back what the draft carries. Miss either
+        // and a farm loses its rates to an unrelated edit.
+        val ideaId = createIdea("Ice Farm", IdeaCategory.FARM)
+        addProductionMode(ideaId, "Max speed", 0, "minecraft:ice" to 71000)
+        addProductionMode(ideaId, "Slowed", 1, "minecraft:packed_ice" to null)
+
+        val draftId = (RevertIdeaToDraftStep().process(RevertIdeaToDraftInput(ideaId, user.id)) as Result.Success).value
+        val draft = GetDraftStep().process(GetDraftInput(draftId, user.id)).getOrNull()
+        assertNotNull(draft)
+        val publishedId = (PublishDraftStep().process(PublishDraftInput(draft, user.id)) as Result.Success).value
+
+        val modes = GetIdeaProductionModesStep(publishedId).process(Unit).getOrNull()
+        assertNotNull(modes)
+        assertEquals(listOf("Max speed", "Slowed"), modes.map { it.name })
+        assertEquals(mapOf("minecraft:ice" to 71000), modes[0].rates)
+        assertEquals(mapOf("minecraft:packed_ice" to null), modes[1].rates)
+    }
+
     // --- Helpers ---
+
+    private suspend fun addProductionMode(ideaId: Int, name: String, position: Int, vararg rates: Pair<String, Int?>) {
+        val modeId = (
+            DatabaseSteps.update<Unit>(
+                sql = SafeSQL.insert(
+                    "INSERT INTO idea_production_modes (idea_id, name, position) VALUES (?, ?, ?) RETURNING id"
+                ),
+                parameterSetter = { stmt, _ ->
+                    stmt.setInt(1, ideaId)
+                    stmt.setString(2, name)
+                    stmt.setInt(3, position)
+                }
+            ).process(Unit) as Result.Success
+            ).value
+
+        rates.forEach { (itemId, rate) ->
+            DatabaseSteps.update<Unit>(
+                sql = SafeSQL.insert(
+                    "INSERT INTO idea_production_rates (mode_id, item_id, rate_per_hour) VALUES (?, ?, ?)"
+                ),
+                parameterSetter = { stmt, _ ->
+                    stmt.setInt(1, modeId)
+                    stmt.setString(2, itemId)
+                    if (rate == null) stmt.setNull(3, java.sql.Types.INTEGER) else stmt.setInt(3, rate)
+                }
+            ).process(Unit)
+        }
+    }
 
     private fun createIdea(name: String, category: IdeaCategory, createdBy: Int = user.id): Int = runBlocking {
         val result = DatabaseSteps.update<Unit>(

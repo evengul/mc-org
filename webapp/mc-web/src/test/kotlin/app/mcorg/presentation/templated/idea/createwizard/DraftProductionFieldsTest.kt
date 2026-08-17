@@ -77,6 +77,25 @@ class DraftProductionFieldsTest {
     }
 
     @Test
+    fun `a rate row carries the item id the add script de-duplicates on`() {
+        // Without it, re-adding an item that came back from a saved draft appends a second hidden
+        // input with the same name — and the parser takes the first, so the correction is lost.
+        val html = markup("""{"productionModes":[{"name":"","rates":{"minecraft:ice":71000}}]}""")
+
+        assertContains(html, "data-item-id=\"minecraft:ice\"")
+    }
+
+    @Test
+    fun `the only mode keeps a name it was given`() {
+        // Two modes, then the rates are deleted from one: the survivor is alone and loses its name
+        // field, but writing "" into the hidden input would rename it Default on the next save.
+        val html = markup("""{"productionModes":[{"name":"Max speed","rates":{"minecraft:ice":71000}}]}""")
+
+        assertFalse(html.contains("production-mode__name"), "one mode is still never called a mode")
+        assertContains(html, "value=\"Max speed\"")
+    }
+
+    @Test
     fun `a farm with no output is told what it costs them`() {
         // Recommended rather than required: an author who has seen a video but not built the farm
         // does not know the rate, and an invented number is worse than a missing one. So the note

@@ -113,9 +113,13 @@ private fun FlowContent.productionModeBlock(index: Int, mode: DraftProductionMod
                 placeholder = "How it is run — \"Max speed\", \"Skeletons only\""
             }
         } else {
+            // Carries the existing name rather than blanking it. A mode can be named and then
+            // become the only one — delete the rates from "Slowed" and "Max speed" is alone — and
+            // writing "" here would rename it to Default on the next save, silently discarding a
+            // name the author chose.
             hiddenInput {
                 name = "productionMode[$index][name]"
-                value = ""
+                value = mode.name
             }
         }
 
@@ -144,6 +148,12 @@ private fun FlowContent.productionModeBlock(index: Int, mode: DraftProductionMod
                 .sortedWith(compareByDescending<Map.Entry<String, Int?>> { it.value ?: -1 }.thenBy { it.key })
                 .forEach { (itemId, rate) ->
                     li("item-req") {
+                        // The add-a-rate script de-duplicates on this attribute. Without it a row
+                        // that came back from a saved draft is invisible to that lookup, so re-adding
+                        // the item appends a second hidden input with the same name and the *old*
+                        // value wins on parse — the correction disappears with no feedback.
+                        // Scoped per mode by the enclosing <ul>, since one item can appear in several.
+                        attributes["data-item-id"] = itemId
                         span { +if (rate == null) "$itemId — rate unmeasured" else "$itemId × $rate/h" }
                         hiddenInput {
                             name = "productionRate[$index][$itemId]"
@@ -232,7 +242,9 @@ private fun productionScript() = """
                 named.type = 'text';
                 named.className = 'form-control production-mode__name';
                 named.name = hidden.name;
-                named.value = '';
+                // Keep whatever the hidden input held — a mode that already has a name keeps it
+                // when it grows a visible field.
+                named.value = hidden.value;
                 named.placeholder = 'How it is run — "Max speed", "Skeletons only"';
                 hidden.replaceWith(named);
             }

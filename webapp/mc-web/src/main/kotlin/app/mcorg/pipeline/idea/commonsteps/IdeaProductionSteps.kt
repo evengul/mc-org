@@ -32,6 +32,14 @@ data class IdeaProductionModeInput(
  *
  * Modes with no rates are dropped: a named way of running a farm that produces nothing is a form
  * artefact, not a fact about the farm.
+ *
+ * Modes that resolve to the *same* name are merged rather than inserted twice, which would violate
+ * `UNIQUE (idea_id, name)` and roll the whole publish back. The form rejects this case with a
+ * field-level message (`ValidateIdeaProductionsStep`), but a bodyless publish re-publishes stored
+ * draft JSON without re-validating it, so the collision has to be survivable here too. Merging is
+ * the non-lossy reading: two modes claiming the same name claim to be the same way of running the
+ * farm, so their items combine, and the faster of two rates for one item wins — consistent with
+ * [app.mcorg.domain.model.idea.bestRateFor], which already answers "how fast, at best".
  */
 suspend fun replaceIdeaProductionModes(
     ideaId: Int,
@@ -45,7 +53,7 @@ suspend fun replaceIdeaProductionModes(
     ).process(ideaId)
     if (cleared is Result.Failure) return cleared
 
-    val populated = modes.filter { it.rates.isNotEmpty() }
+    val populated = modes.filter { it.rates.isNotEmpty() }.mergeByResolvedName()
     if (populated.isEmpty()) return Result.success(Unit)
 
     populated.forEachIndexed { index, mode ->
@@ -55,7 +63,8 @@ suspend fun replaceIdeaProductionModes(
             ),
             parameterSetter = { statement, _ ->
                 statement.setInt(1, ideaId)
-                statement.setString(2, mode.name.ifBlank { IdeaProductionMode.DEFAULT_MODE_NAME })
+                // Already resolved by mergeByResolvedName — blank became DEFAULT_MODE_NAME there.
+                statement.setString(2, mode.name)
                 statement.setInt(3, index)
             },
             resultMapper = { rs -> if (rs.next()) rs.getInt("id") else null },
@@ -83,6 +92,36 @@ suspend fun replaceIdeaProductionModes(
 
     return Result.success(Unit)
 }
+
+/**
+ * Collapses modes sharing a resolved name into one, preserving first-seen order.
+ *
+ * Blank resolves to [IdeaProductionMode.DEFAULT_MODE_NAME] first, so two unnamed modes are one
+ * collision rather than two rows the unique index would reject. Where both carry the same item, the
+ * higher rate wins and a measured rate beats an unmeasured one — a null here means "never timed",
+ * not "zero", so it must never displace a real number.
+ */
+internal fun List<IdeaProductionModeInput>.mergeByResolvedName(): List<IdeaProductionModeInput> =
+    fold(LinkedHashMap<String, IdeaProductionModeInput>()) { acc, mode ->
+        val name = mode.name.trim().ifBlank { IdeaProductionMode.DEFAULT_MODE_NAME }
+        val existing = acc[name]
+        acc[name] = if (existing == null) {
+            mode.copy(name = name)
+        } else {
+            val rates = existing.rates.toMutableMap()
+            mode.rates.forEach { (itemId, rate) ->
+                val current = rates[itemId]
+                rates[itemId] = when {
+                    !rates.containsKey(itemId) -> rate
+                    current == null -> rate
+                    rate == null -> current
+                    else -> maxOf(current, rate)
+                }
+            }
+            existing.copy(rates = rates)
+        }
+        acc
+    }.values.toList()
 
 /** An idea's production modes, in the author's order, each with its rates. */
 data class GetIdeaProductionModesStep(val ideaId: Int) :

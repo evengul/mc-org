@@ -11,6 +11,7 @@ import app.mcorg.pipeline.idea.validators.ValidateIdeaDescriptionStep
 import app.mcorg.pipeline.idea.validators.ValidateIdeaDifficultyStep
 import app.mcorg.pipeline.idea.validators.ValidateIdeaMinecraftVersionStep
 import app.mcorg.pipeline.idea.validators.ValidateIdeaNameStep
+import app.mcorg.pipeline.idea.validators.ValidateIdeaProductionsStep
 import app.mcorg.presentation.templated.idea.createwizard.DraftWizardStage
 import io.ktor.http.Parameters
 
@@ -35,9 +36,12 @@ object ValidateStageStep : Step<ValidateStageInput, AppFailure, List<ValidationF
             DraftWizardStage.VERSION_COMPATIBILITY ->
                 (ValidateIdeaMinecraftVersionStep.process(input.params) as? Result.Failure)?.error ?: emptyList()
             DraftWizardStage.ITEM_REQUIREMENTS -> emptyList()
-            // Nothing to reject: a non-numeric or negative rate is dropped while the draft JSON is
-            // built, and an idea that produces nothing is the normal case rather than an error.
-            DraftWizardStage.PRODUCTIONS -> emptyList()
+            // A non-numeric or negative rate is still dropped while the draft JSON is built, and an
+            // idea that produces nothing is the normal case rather than an error. What *is* rejected
+            // is a colliding mode name and an item id the catalog does not have — both of which
+            // used to surface as either a 23505 rollback or nothing at all. See the step's doc.
+            DraftWizardStage.PRODUCTIONS ->
+                (ValidateIdeaProductionsStep().process(input.params) as? Result.Success)?.value ?: emptyList()
             DraftWizardStage.CATEGORY_FIELDS -> buildList {
                 val categoryResult = ValidateIdeaCategoryStep.process(input.params)
                 if (categoryResult is Result.Failure) {
