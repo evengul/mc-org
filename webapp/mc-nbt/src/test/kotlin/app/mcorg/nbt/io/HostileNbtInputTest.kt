@@ -146,6 +146,72 @@ class HostileNbtInputTest {
     }
 
     @Test
+    fun `a TAG_List of empty compounds is refused on the heap budget, not the byte budget`() {
+        // The hole the wire-byte check did not cover, and the reason MAX_LIST_HEAP_BYTES exists.
+        //
+        // An empty compound is one wire byte — its terminating TAG_End — so 16 M of them fit
+        // inside MAX_DECOMPRESSED_BYTES and every existing guard waves them through. Each one then
+        // allocates a CompoundTag, a LinkedHashMap and a list slot: ~80 bytes of heap per byte of
+        // input. Measured before the fix, against the production -Xmx768m: OutOfMemoryError in
+        // 1.7s from a 15.5 kB gzip.
+        //
+        // Note this file must stay gzipped and the assertion on its size must stay. Uncompressed
+        // it is 16 MB, which the route-level upload cap would refuse first — and then this test
+        // would be proving the wrong layer.
+        val elements = 16_000_000
+        val payload = nbt {
+            writeByte(9)                 // root is a TAG_List
+            writeUTF("")
+            writeByte(10)                // of TAG_Compound
+            writeInt(elements)
+            repeat(elements) { writeByte(0) }   // each: immediately terminated, one byte
+        }
+
+        val raw = ByteArrayOutputStream()
+        GZIPOutputStream(raw).use { it.write(payload) }
+        val bomb = raw.toByteArray()
+
+        assertTrue(
+            payload.size < NbtLimits.MAX_DECOMPRESSED_BYTES,
+            "the payload must stay *under* the byte cap or it proves the wrong guard; " +
+                "it is ${payload.size} bytes",
+        )
+        assertTrue(bomb.size < 64 * 1024, "the bomb should be tiny on the wire; it is ${bomb.size} bytes")
+
+        assertRefused(bomb, "a compound-list heap bomb", because = "list heap budget")
+    }
+
+    @Test
+    fun `a compound full of unknown tags does not accumulate an unbounded error string`() {
+        // readCompoundTag records a failure per malformed child and keeps going, and
+        // LitematicaReader renders the result into a message. An unknown tag id costs three wire
+        // bytes, so the 16 MB budget bought ~5.5 M accumulated failures and a 143 MB String —
+        // measured — for a message that is then discarded.
+        //
+        // Asserts the *rendered length*, because that is the thing that allocated. Capping the
+        // accumulation without bounding toString, or vice versa, still fails this.
+        val unknownTags = 500_000
+        val bytes = nbt {
+            writeByte(10)                // root compound
+            writeUTF("")
+            repeat(unknownTags) {
+                writeByte(100)           // no such tag type
+                writeUTF("")
+            }
+            writeByte(0)
+        }
+
+        val result = parseWithin(bytes, "a compound of unknown tags")
+        assertTrue(result is Result.Failure<*>, "unknown tag types should fail the parse")
+
+        val message = ((result as Result.Failure<*>).error as NBTFailure.DeserializeError).cause
+        assertTrue(
+            message.length < 4096,
+            "the failure message should stay small; it is ${message.length} chars",
+        )
+    }
+
+    @Test
     fun `a region declaring two billion blocks reads only what its data addresses`() {
         // Size is attacker-declared and was iterated verbatim. 2000 x 2000 x 500 stays under
         // Int.MAX_VALUE, so it slipped past the only guard that existed, and the loop body's

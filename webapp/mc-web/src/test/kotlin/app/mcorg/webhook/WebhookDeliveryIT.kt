@@ -127,8 +127,8 @@ class WebhookDeliveryIT : WithUser() {
         val ids = (1..20).map { insertDelivery(subId) }.toSet()
 
         val (first, second) = runBlocking {
-            val a = async { WebhookStore.claimDueDeliveries() }
-            val b = async { WebhookStore.claimDueDeliveries() }
+            val a = async { WebhookStore.claimDueDeliveries(WebhookDeliveryPoller.MAX_ATTEMPTS) }
+            val b = async { WebhookStore.claimDueDeliveries(WebhookDeliveryPoller.MAX_ATTEMPTS) }
             a.await() to b.await()
         }
 
@@ -151,8 +151,8 @@ class WebhookDeliveryIT : WithUser() {
         val subId = insertSubscription(worldId, wm.httpBaseUrl + "/hook", "x", """["*"]""")
         insertDelivery(subId)
 
-        val first = runBlocking { WebhookStore.claimDueDeliveries() }
-        val second = runBlocking { WebhookStore.claimDueDeliveries() }
+        val first = runBlocking { WebhookStore.claimDueDeliveries(WebhookDeliveryPoller.MAX_ATTEMPTS) }
+        val second = runBlocking { WebhookStore.claimDueDeliveries(WebhookDeliveryPoller.MAX_ATTEMPTS) }
 
         assertEquals(1, first.size, "the first poll should claim the row")
         assertTrue(second.isEmpty(), "a claimed row must not be handed out again inside the lease")
@@ -166,13 +166,84 @@ class WebhookDeliveryIT : WithUser() {
         val subId = insertSubscription(worldId, wm.httpBaseUrl + "/hook", "x", """["*"]""")
         val deliveryId = insertDelivery(subId)
 
-        runBlocking { WebhookStore.claimDueDeliveries() }
-        assertTrue(runBlocking { WebhookStore.claimDueDeliveries() }.isEmpty())
+        runBlocking { WebhookStore.claimDueDeliveries(WebhookDeliveryPoller.MAX_ATTEMPTS) }
+        assertTrue(runBlocking { WebhookStore.claimDueDeliveries(WebhookDeliveryPoller.MAX_ATTEMPTS) }.isEmpty())
 
         ageClaim(deliveryId, minutes = 10)
 
-        val reclaimed = runBlocking { WebhookStore.claimDueDeliveries() }
+        val reclaimed = runBlocking { WebhookStore.claimDueDeliveries(WebhookDeliveryPoller.MAX_ATTEMPTS) }
         assertEquals(listOf(deliveryId), reclaimed.map { it.id })
+    }
+
+    @Test
+    fun `repeated stranding spends the retry budget instead of redelivering forever`(wm: WireMockRuntimeInfo) {
+        // The reclaim path used to be free: it set status and claimed_at but never touched
+        // attempts, and attempts is bumped only by failOrReschedule — which by definition does not
+        // run when the poller dies. So a row that stranded repeatedly was redelivered every lease
+        // period forever, MAX_ATTEMPTS never applying, and it was never eligible for pruning
+        // either because pruneOldDeliveries only sweeps terminal rows.
+        //
+        // The realistic trigger is not a dying machine: markDelivered swallows its own failures,
+        // so a database error after a *successful* POST strands the row too. That is a duplicate
+        // Discord message every five minutes, indefinitely.
+        val worldId = createWorld("wh-strand-budget")
+        val subId = insertSubscription(worldId, wm.httpBaseUrl + "/hook", "x", """["*"]""")
+        val deliveryId = insertDelivery(subId)
+
+        // The first claim comes off the PENDING arm — it is the delivery's first outing, not a
+        // strand, so it deliberately does not spend an attempt.
+        assertEquals(
+            listOf(deliveryId),
+            runBlocking { WebhookStore.claimDueDeliveries(WebhookDeliveryPoller.MAX_ATTEMPTS) }.map { it.id },
+        )
+
+        // Every reclaim after that does spend one.
+        repeat(WebhookDeliveryPoller.MAX_ATTEMPTS) { strand ->
+            ageClaim(deliveryId, minutes = 10)
+            val reclaimed = runBlocking { WebhookStore.claimDueDeliveries(WebhookDeliveryPoller.MAX_ATTEMPTS) }
+            assertEquals(listOf(deliveryId), reclaimed.map { it.id }, "strand #$strand should still be reclaimable")
+            assertEquals(strand + 1, deliveryStatus(subId).second, "strand #$strand should have spent an attempt")
+        }
+
+        ageClaim(deliveryId, minutes = 10)
+        assertTrue(
+            runBlocking { WebhookStore.claimDueDeliveries(WebhookDeliveryPoller.MAX_ATTEMPTS) }.isEmpty(),
+            "a row that has stranded MAX_ATTEMPTS times must stop being reclaimed",
+        )
+
+        // ...and must not be left IN_FLIGHT forever, which would leak the row and keep the poller
+        // waking for a claim expiry that never resolves.
+        runBlocking { WebhookStore.failAbandonedClaims(WebhookDeliveryPoller.MAX_ATTEMPTS) }
+        assertEquals("FAILED", deliveryStatus(subId).first)
+    }
+
+    @Test
+    fun `a poller whose lease lapsed cannot overwrite the outcome of the poller that superseded it`(
+        wm: WireMockRuntimeInfo,
+    ) {
+        // The lease expiring lets someone else take the row, but on its own it does not fence the
+        // original writer out. Poller A stalls past its lease; B reclaims, delivers and marks the
+        // row DELIVERED; A's delayed failOrReschedule then lands and rewrites it back to PENDING
+        // with an incremented attempt — and it is delivered a third time.
+        //
+        // Simulated by calling the store in that order, which is exactly what the two pollers do.
+        val worldId = createWorld("wh-fencing")
+        val subId = insertSubscription(worldId, wm.httpBaseUrl + "/hook", "x", """["*"]""")
+        val deliveryId = insertDelivery(subId)
+
+        runBlocking { WebhookStore.claimDueDeliveries(WebhookDeliveryPoller.MAX_ATTEMPTS) }   // poller A claims
+        ageClaim(deliveryId, minutes = 10)                                                    // A stalls past its lease
+        runBlocking { WebhookStore.claimDueDeliveries(WebhookDeliveryPoller.MAX_ATTEMPTS) }   // poller B reclaims
+        runBlocking { WebhookStore.markDelivered(listOf(deliveryId)) }                        // B succeeds
+        assertEquals("DELIVERED", deliveryStatus(subId).first)
+
+        // A finally comes back and reports its failure.
+        runBlocking { WebhookStore.failOrReschedule(listOf(deliveryId), WebhookDeliveryPoller.MAX_ATTEMPTS, "stale") }
+
+        assertEquals(
+            "DELIVERED", deliveryStatus(subId).first,
+            "a superseded write must be a no-op, not a resurrection of a finished delivery",
+        )
     }
 
     @Test
@@ -183,7 +254,7 @@ class WebhookDeliveryIT : WithUser() {
         val subId = insertSubscription(worldId, wm.httpBaseUrl + "/hook", "x", """["*"]""")
         insertDelivery(subId)
 
-        runBlocking { WebhookStore.claimDueDeliveries() }
+        runBlocking { WebhookStore.claimDueDeliveries(WebhookDeliveryPoller.MAX_ATTEMPTS) }
 
         // No PENDING row remains, so the old query returned null here and the poller would have
         // slept until the once-a-day cleanup — a 24 hour delay on a webhook.
@@ -272,10 +343,18 @@ class WebhookDeliveryIT : WithUser() {
 
         // Drive it to FAILED without waiting out the real backoff: two more failed attempts exhaust
         // WebhookDeliveryPoller.MAX_ATTEMPTS.
+        //
+        // Each attempt claims the row first. That is not ceremony — failOrReschedule is fenced on
+        // status = 'IN_FLIGHT', so a poller can only report an outcome for a row it actually
+        // holds. Reporting one without claiming is exactly the stale write the fence exists to
+        // suppress, and this test used to do it.
         val ids = listOf(deliveryIdFor(subId))
-        runBlocking {
-            WebhookStore.failOrReschedule(ids, WebhookDeliveryPoller.MAX_ATTEMPTS, "boom")
-            WebhookStore.failOrReschedule(ids, WebhookDeliveryPoller.MAX_ATTEMPTS, "boom")
+        repeat(2) {
+            setNextAttemptAt(ids.single(), Instant.now().minusSeconds(1))
+            runBlocking {
+                WebhookStore.claimDueDeliveries(WebhookDeliveryPoller.MAX_ATTEMPTS)
+                WebhookStore.failOrReschedule(ids, WebhookDeliveryPoller.MAX_ATTEMPTS, "boom")
+            }
         }
 
         assertEquals("FAILED" to 3, deliveryStatus(subId))

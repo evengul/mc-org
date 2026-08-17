@@ -99,6 +99,38 @@ class IngestionAdvisoryLockTest {
     }
 
     @Test
+    fun `the contention line names the session actually holding the lock`() {
+        // MCO-348's whole purpose is that one run's logs answer "who holds 7331". The line used to
+        // report `pg_backend_pid()` from the *acquire* query — this process's own backend, which by
+        // definition is not the holder — so it printed a fresh meaningless number every run and an
+        // operator had nothing to pg_terminate_backend.
+        //
+        // Asserts the pid matches the *other* session's, which is the only assertion that can tell
+        // the two apart: any check that a pid is merely present passed before the fix too.
+        val logger = LoggerFactory.getLogger(
+            "app.mcorg.pipeline.minecraftfiles.ServerFilesIngestion"
+        ) as Logger
+        val appender = ListAppender<ILoggingEvent>().also { it.start() }
+        logger.addAppender(appender)
+        logger.level = Level.INFO
+
+        try {
+            holdingLock { holderPid ->
+                runBlocking { withIngestionLock { Result.success() } }
+
+                val skip = appender.list.map { it.formattedMessage }
+                    .singleOrNull { it.startsWith("Another ingestion run is in progress") }
+                assertTrue(skip != null, "expected a contention line, got: ${appender.list.map { it.formattedMessage }}")
+
+                val loggedPid = Regex("backend pid (\\d+)").find(skip!!)?.groupValues?.get(1)?.toInt()
+                assertEquals(holderPid, loggedPid, "the contention line must name the holder, not the asker: $skip")
+            }
+        } finally {
+            logger.detachAppender(appender)
+        }
+    }
+
+    @Test
     fun `releases the lock even when the block fails`() {
         val failed = runBlocking { withIngestionLock { Result.failure(AppFailure.ApiError.UnknownError) } }
         assertIs<Result.Failure<*>>(failed)
@@ -135,14 +167,17 @@ class IngestionAdvisoryLockTest {
         }
 
     /** Holds the lock on a dedicated session for the duration of [block], then releases it. */
-    private fun holdingLock(block: () -> Unit) {
+    private fun holdingLock(block: (holderPid: Int) -> Unit) {
         val conn = Database.getConnection()
         try {
-            conn.prepareStatement("SELECT pg_try_advisory_lock(?)").use { stmt ->
+            val holderPid = conn.prepareStatement("SELECT pg_try_advisory_lock(?), pg_backend_pid()").use { stmt ->
                 stmt.setLong(1, key)
-                stmt.executeQuery().use { rs -> assertTrue(rs.next() && rs.getBoolean(1), "precondition: should acquire the lock") }
+                stmt.executeQuery().use { rs ->
+                    assertTrue(rs.next() && rs.getBoolean(1), "precondition: should acquire the lock")
+                    rs.getInt(2)
+                }
             }
-            block()
+            block(holderPid)
         } finally {
             conn.prepareStatement("SELECT pg_advisory_unlock(?)").use { stmt ->
                 stmt.setLong(1, key)

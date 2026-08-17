@@ -1,12 +1,16 @@
 package app.mcorg.presentation.handler
 
+import app.mcorg.config.AppConfig
 import app.mcorg.config.Database
 import app.mcorg.config.DatabaseConnectionProvider
+import app.mcorg.presentation.plugins.MACHINE_SECRET_HEADER
 import app.mcorg.presentation.router.configureAppRouter
 import app.mcorg.test.postgres.DatabaseTestExtension
 import io.ktor.client.request.get
+import io.ktor.client.request.header
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpStatusCode
+import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Tag
@@ -32,12 +36,21 @@ import kotlin.test.assertEquals
 @ExtendWith(DatabaseTestExtension::class)
 class PingIT {
 
+    private val secret = "readiness-shared-secret"
+
     @AfterEach
     fun restoreProvider() {
         // One test below swaps in a failing provider; the extension's real one must come back or
         // every later class in the reused surefire JVM inherits a dead database.
         DatabaseTestExtension.installProvider()
+        AppConfig.webhookAdminSecret = null
     }
+
+    /** Readiness is gated by the machine-endpoint secret; liveness deliberately is not. */
+    private suspend fun ApplicationTestBuilder.readiness(withSecret: String? = secret) =
+        createClient { followRedirects = false }.get("/test/ready") {
+            if (withSecret != null) header(MACHINE_SECRET_HEADER, withSecret)
+        }
 
     @Test
     fun `liveness returns OK through the real router`() = testApplication {
@@ -64,9 +77,10 @@ class PingIT {
 
     @Test
     fun `readiness returns OK when the database answers`() = testApplication {
+        AppConfig.webhookAdminSecret = secret
         application { configureAppRouter() }
 
-        val response = createClient { followRedirects = false }.get("/test/ready")
+        val response = readiness()
 
         assertEquals(HttpStatusCode.OK, response.status)
         assertEquals("READY", response.bodyAsText())
@@ -74,6 +88,7 @@ class PingIT {
 
     @Test
     fun `readiness returns 503 when the database is unreachable`() = testApplication {
+        AppConfig.webhookAdminSecret = secret
         application { configureAppRouter() }
 
         // What Hikari raises when it cannot hand over a connection.
@@ -84,10 +99,55 @@ class PingIT {
             override fun close() = Unit
         })
 
-        val response = createClient { followRedirects = false }.get("/test/ready")
+        val response = readiness()
 
         assertEquals(HttpStatusCode.ServiceUnavailable, response.status)
         assertEquals("NOT READY", response.bodyAsText())
+    }
+
+    @Test
+    fun `readiness refuses a caller with no secret, without touching the database`() = testApplication {
+        // The endpoint runs SELECT 1 on the real pool. While it was ungated, a stranger's curl
+        // loop could hold Neon's compute awake around the clock — the exact cost failure the
+        // liveness/readiness split exists to avoid — and exhaust the pool besides.
+        //
+        // The failing provider is the assertion that matters: if the gate ever stops
+        // short-circuiting, the handler runs, getConnection() throws, and this returns 503 with
+        // "NOT READY" instead of a bare 401. So this test distinguishes "refused" from "ran and
+        // failed", which a status-code-only check could not.
+        AppConfig.webhookAdminSecret = secret
+        application { configureAppRouter() }
+        Database.setProvider(object : DatabaseConnectionProvider {
+            override fun getConnection(): Connection = error("readiness must not reach the database")
+            override fun close() = Unit
+        })
+
+        val response = readiness(withSecret = null)
+
+        assertEquals(HttpStatusCode.Unauthorized, response.status)
+    }
+
+    @Test
+    fun `readiness refuses a caller with the wrong secret`() = testApplication {
+        AppConfig.webhookAdminSecret = secret
+        application { configureAppRouter() }
+
+        val response = readiness(withSecret = "not-the-secret")
+
+        assertEquals(HttpStatusCode.Unauthorized, response.status)
+    }
+
+    @Test
+    fun `readiness is inert when no secret is configured`() = testApplication {
+        // Fails closed. Production has no WEBHOOK_ADMIN_SECRET today and the probe has no caller
+        // yet, so 503-until-configured is the intended resting state rather than a gap.
+        AppConfig.webhookAdminSecret = null
+        application { configureAppRouter() }
+
+        val response = readiness(withSecret = null)
+
+        assertEquals(HttpStatusCode.ServiceUnavailable, response.status)
+        assertEquals("This endpoint is not configured", response.bodyAsText())
     }
 
     @Test

@@ -54,8 +54,21 @@ fun main() {
  * every subsequent nightly run logs "another ingestion run is in progress" and reports success.
  *
  * Uses `halt` rather than `exitProcess` because the thing being escaped may well be a shutdown
- * hook or a blocked pool thread. Postgres releases session-scoped advisory locks when the
- * connection drops, so killing the process is also what frees lock 7331.
+ * hook or a blocked pool thread.
+ *
+ * **This kills the process; it does not reliably free the lock.** An earlier version of this
+ * comment claimed it did, reasoning that Postgres drops session-scoped advisory locks when the
+ * connection drops. That holds on a *direct* connection — which is what the deployed
+ * `ingest-scheduler` uses, so the nightly run is fine. It does not hold through a transaction
+ * pooler: the lock lives on a server connection in PgBouncer's pool, and killing the client leaves
+ * that server connection to be returned to the pool with its session state intact. Per
+ * documentation/configuration.md the manual `ingest-machine.sh --once` smoke test goes through the
+ * pooler, so a watchdog kill *there* can strand lock 7331 on a backend nothing will come back for.
+ *
+ * That is the case `withIngestionLock` now detects rather than skipping past: a lock held longer
+ * than a healthy run can possibly last is logged as stuck, with the pid to
+ * `pg_terminate_backend`, and fails the run so the exit code shows it. Recovering it is still a
+ * manual step — see MCO-348, which is where closing the direct/pooled asymmetry belongs.
  */
 private fun startWallClockWatchdog() {
     val watchdog = Thread {
@@ -79,9 +92,12 @@ private fun startWallClockWatchdog() {
  * JVM via `exitProcess`.
  *
  * Exit codes:
- * - `0` — success, including the no-op case where another run already holds the advisory lock.
- * - `1` — the pipeline returned a [Result.Failure].
+ * - `0` — success, including the no-op case where another run legitimately holds the advisory lock.
+ * - `1` — the pipeline returned a [Result.Failure]. Since MCO-326's review this also covers a lock
+ *   that looks *stuck* rather than busy, which previously exited 0 and so was indistinguishable
+ *   from a healthy skip for as long as it lasted.
  * - `2` — an unexpected throwable escaped the pipeline.
+ * - `3` — killed by the wall-clock watchdog.
  */
 internal suspend fun runIngestion(
     pipeline: suspend () -> Result<AppFailure, Unit>,

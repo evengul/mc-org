@@ -15,6 +15,9 @@ import app.mcorg.presentation.plugins.IdeaParamPlugin
 import app.mcorg.presentation.plugins.IdeaVisibilityPlugin
 import app.mcorg.test.WithUser
 import app.mcorg.test.postgres.DatabaseTestExtension
+import ch.qos.logback.classic.Logger
+import ch.qos.logback.classic.spi.ILoggingEvent
+import ch.qos.logback.core.read.ListAppender
 import io.ktor.client.request.delete
 import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
@@ -24,6 +27,7 @@ import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.BeforeEach
+import org.slf4j.LoggerFactory
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
@@ -142,6 +146,45 @@ class DeleteIdeaCommentIT : WithUser() {
 
         assertEquals(HttpStatusCode.NotFound, response.status)
         assertTrue(!commentIsGone(commentId), "the comment must survive a mismatched idea id")
+    }
+
+    @Test
+    fun `a mismatched comment id is refused without an unhandled exception`() = testApplication {
+        // The status code above was always right; what it could not see is that the *author*
+        // plugin still ran after the param plugin had 404'd, because Ktor's isHandled guard covers
+        // the route handler but not sibling onCall interceptors. getIdeaCommentId() then threw
+        // `No instance for key AttributeKey: IdeaCommentParam` — a stack trace per request, free
+        // to any signed-in user, and invisible to a status-code assertion.
+        //
+        // Captured off the root logger rather than the app's error boundary: this test installs
+        // routes without StatusPages, so an escaping exception surfaces through Ktor's own engine
+        // logging, which is exactly where it was first observed.
+        val logger = LoggerFactory.getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME) as Logger
+        val appender = ListAppender<ILoggingEvent>().also { it.start() }
+        logger.addAppender(appender)
+        try {
+            val author = createExtraUser()
+            val theirIdea = createIdea(author)
+            val commentId = createComment(theirIdea, author)
+            val myIdea = createIdea(user)
+            installCommentRoutes()
+
+            val response = client.delete("/ideas/$myIdea/comments/$commentId") { addAuthCookie(this) }
+
+            assertEquals(HttpStatusCode.NotFound, response.status)
+
+            val thrown = appender.list.filter { event ->
+                event.throwableProxy?.className?.contains("IllegalStateException") == true ||
+                    event.formattedMessage.contains("No instance for key")
+            }
+            assertTrue(
+                thrown.isEmpty(),
+                "a mismatched id should be a clean 404, but the request threw: " +
+                    thrown.map { "${it.formattedMessage} / ${it.throwableProxy?.className}" },
+            )
+        } finally {
+            logger.detachAppender(appender)
+        }
     }
 
     private fun commentIsGone(commentId: Int): Boolean = runBlocking {

@@ -110,12 +110,7 @@ internal suspend fun withIngestionLock(block: suspend () -> Result<AppFailure, U
         when (val attempt = tryAdvisoryLock(connection)) {
             is Result.Failure -> attempt
             is Result.Success -> if (!attempt.value.acquired) {
-                ingestionLogger.info(
-                    "Another ingestion run is in progress, skipping (lock {} held; asked backend pid {}).",
-                    INGESTION_ADVISORY_LOCK_KEY,
-                    attempt.value.backendPid,
-                )
-                Result.success()
+                reportContention(connection)
             } else {
                 val acquiredPid = attempt.value.backendPid
                 val startedAt = System.nanoTime()
@@ -135,6 +130,96 @@ internal suspend fun withIngestionLock(block: suspend () -> Result<AppFailure, U
         }
     }
 }
+
+/**
+ * How long a held lock may plausibly represent a live run before it is treated as stuck.
+ *
+ * Deliberately longer than the CLI's 45 minute wall clock: past that ceiling a healthy run has
+ * already killed itself, so a lock still held is not "another run in progress".
+ */
+private val STUCK_LOCK_AFTER_MINUTES = 60
+
+/**
+ * Reports a lock we could not take, and decides whether that is routine or a fault.
+ *
+ * The previous version of this logged `pg_backend_pid()` from the *acquire* query — which is this
+ * process's own backend, by definition not the one holding the lock. It printed a different
+ * meaningless number every run, so an operator reading "lock 7331 held; asked backend pid 4711"
+ * had nothing to act on. The holder's pid comes from `pg_locks`, which is the only place it exists.
+ *
+ * The distinction this draws matters more than the pid. Skipping because a legitimate run is in
+ * progress is a success; skipping because a lock has been stranded — the exact failure MCO-346's
+ * post-mortem describes, where every nightly run afterwards logged "in progress" and exited 0 — is
+ * not, and until now the two were indistinguishable from the outside. A lock older than
+ * [STUCK_LOCK_AFTER_MINUTES] fails the run so the scheduled machine's exit code shows it.
+ */
+private suspend fun reportContention(connection: TransactionConnection): Result<AppFailure, Unit> {
+    val holder = DatabaseSteps.query<Long, LockHolder?>(
+        // classid/objid are the two halves of the 64-bit advisory key; objsubid = 1 marks the
+        // single-argument pg_advisory_lock(bigint) form.
+        sql = SafeSQL.select(
+            """
+            SELECT l.pid,
+                   EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - a.xact_start))::bigint AS xact_age_s,
+                   EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - a.backend_start))::bigint AS backend_age_s,
+                   a.state
+            FROM pg_locks l
+            LEFT JOIN pg_stat_activity a ON a.pid = l.pid
+            WHERE l.locktype = 'advisory'
+              AND l.granted
+              AND ((l.classid::bigint << 32) | l.objid::bigint) = ?
+            LIMIT 1
+            """.trimIndent()
+        ),
+        parameterSetter = { statement, key -> statement.setLong(1, key) },
+        resultMapper = { rs ->
+            if (rs.next()) {
+                LockHolder(
+                    pid = rs.getInt("pid"),
+                    ageSeconds = rs.getLong("backend_age_s"),
+                    state = rs.getString("state") ?: "unknown",
+                )
+            } else {
+                null
+            }
+        },
+        transactionConnection = connection,
+    ).process(INGESTION_ADVISORY_LOCK_KEY).getOrNull()
+
+    val ageMinutes = (holder?.ageSeconds ?: 0) / 60
+    return when {
+        holder == null -> {
+            // The lock was taken between our attempt and this query, or is held on a backend this
+            // session cannot see. Routine enough not to fail the run, odd enough to say so.
+            ingestionLogger.info(
+                "Another ingestion run is in progress, skipping (lock {} held; holder not visible in pg_locks).",
+                INGESTION_ADVISORY_LOCK_KEY,
+            )
+            Result.success()
+        }
+
+        ageMinutes >= STUCK_LOCK_AFTER_MINUTES -> {
+            ingestionLogger.error(
+                "Ingestion advisory lock {} looks stuck: held by backend pid {} (state {}) for {} minutes, " +
+                    "past the {} minute wall clock a healthy run cannot exceed. No ingestion has run since. " +
+                    "Recover with: SELECT pg_terminate_backend({}).",
+                INGESTION_ADVISORY_LOCK_KEY, holder.pid, holder.state, ageMinutes,
+                STUCK_LOCK_AFTER_MINUTES, holder.pid,
+            )
+            Result.failure(AppFailure.DatabaseError.UnknownError)
+        }
+
+        else -> {
+            ingestionLogger.info(
+                "Another ingestion run is in progress, skipping (lock {} held by backend pid {}, state {}, for {} minutes).",
+                INGESTION_ADVISORY_LOCK_KEY, holder.pid, holder.state, ageMinutes,
+            )
+            Result.success()
+        }
+    }
+}
+
+private data class LockHolder(val pid: Int, val ageSeconds: Long, val state: String)
 
 private suspend fun tryAdvisoryLock(connection: TransactionConnection): Result<AppFailure.DatabaseError, LockAttempt> =
     DatabaseSteps.query<Long, LockAttempt>(

@@ -27,13 +27,20 @@ import io.ktor.server.application.*
 import io.ktor.server.response.*
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
-import java.net.URLDecoder
 
 private val signInLogger: Logger = LoggerFactory.getLogger("app.mcorg.pipeline.auth.MinecraftSignIn")
 
 suspend fun ApplicationCall.handleSignIn() {
-    val decodedState = parameters["state"]?.let { URLDecoder.decode(it, Charsets.UTF_8) }
-    val state = decodeOAuthState(decodedState)
+    // `parameters` is already percent-decoded by Ktor. A second java.net.URLDecoder.decode() pass
+    // used to sit here, and it throws IllegalArgumentException on anything that decodes to a stray
+    // `%` — so `?state=%25zz` reached this line, threw before the nonce check and before any
+    // try/catch, and produced a 500 plus a stack trace from an unauthenticated, scriptable
+    // request. This handler is deliberately reachable without a session (AuthPlugin exempts
+    // `/oidc`), which is exactly why it has to fail closed on garbage rather than throw.
+    //
+    // Dropping the second decode does not weaken the redirect guard: safeRedirectPath below still
+    // runs on the decoded value, so `%2F%2Fevil.example` arrives as `//evil.example` and is caught.
+    val state = decodeOAuthState(parameters["state"])
 
     // Nonce check first, before anything spends the authorization code (MCO-355). An attacker can
     // choose the `state` on a URL they send a victim, but cannot set a cookie for this origin, so

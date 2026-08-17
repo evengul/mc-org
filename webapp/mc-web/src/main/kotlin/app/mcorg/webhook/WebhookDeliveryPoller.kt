@@ -9,6 +9,7 @@ import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.channels.Channel
@@ -65,7 +66,13 @@ class WebhookDeliveryPoller(
 
     /** One poll cycle: deliver every due batch, then run cleanup if the throttle window elapsed. */
     suspend fun pollOnce(nowMs: Long) {
-        val due = WebhookStore.claimDueDeliveries()
+        // Before claiming: retire anything whose lease expired with its retry budget spent. The
+        // claim's reclaim arm refuses those rows, so without this sweep they stay IN_FLIGHT
+        // forever — never delivered, never pruned, and keeping the poller awake indefinitely
+        // because an expiring claim always looks like scheduled work.
+        WebhookStore.failAbandonedClaims(MAX_ATTEMPTS)
+
+        val due = WebhookStore.claimDueDeliveries(MAX_ATTEMPTS)
         if (due.isNotEmpty()) {
             coroutineScope {
                 due.groupBy { it.subscriptionId }
@@ -140,6 +147,15 @@ class WebhookDeliveryPoller(
             setBody(body)
         }
         if (response.status.isSuccess()) null else "HTTP ${response.status.value}"
+    } catch (e: CancellationException) {
+        // Rethrow rather than report. kotlinx's CancellationException extends
+        // IllegalStateException and so is caught by `Exception` below — which meant a SIGTERM
+        // mid-batch was recorded as a *delivery failure*: it burned one of MAX_ATTEMPTS and
+        // incremented the subscription's consecutive_failures toward the 10-failure
+        // auto-deactivation, for a delivery that may well have reached the receiver. A run of
+        // deploys with no successful delivery in between could silently deactivate a working
+        // subscription.
+        throw e
     } catch (e: Exception) {
         e.message ?: e::class.simpleName ?: "delivery error"
     }

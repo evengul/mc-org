@@ -46,6 +46,46 @@ object NbtLimits {
         12 -> 4L     // LongArray  — the length prefix alone
         else -> 1L
     }
+
+    /**
+     * Ceiling on the heap a document's `TAG_List` elements may occupy, charged cumulatively across
+     * the whole parse.
+     *
+     * [MAX_DECOMPRESSED_BYTES] alone does not bound this, which was an out-of-memory hole rather
+     * than a theoretical gap. The wire-byte check asks only "could the stream supply this many
+     * elements", and for `TAG_Compound` the answer costs the attacker one byte per element — the
+     * terminating `TAG_End`. Each element then materialises a `CompoundTag`, a `LinkedHashMap` and
+     * a list slot, roughly eighty bytes of heap for that one byte of input, so a 16 MB budget
+     * authorises about 1.3 GB of allocation. Measured: a **15.5 kB** gzip declaring 16,000,000
+     * empty compounds reached `OutOfMemoryError` in 1.7s against the production `-Xmx768m`.
+     *
+     * Note which case the original reasoning covered. The KDoc on [MAX_DECOMPRESSED_BYTES] works
+     * through `TAG_List` of `TAG_Byte` — one reference per wire byte, a ratio of about 24:1, which
+     * survives. It is the 80:1 case it does not mention that is fatal. Both are now charged here.
+     *
+     * 64 MB permits ~800k compound elements in one document, far past any real Litematica file
+     * (that is more tile entities than most builds have blocks) while keeping the worst case to a
+     * fraction of the heap even with several uploads parsing at once.
+     */
+    const val MAX_LIST_HEAP_BYTES: Long = 64L * 1024 * 1024
+
+    /**
+     * Rough heap cost of one `TAG_List` element of [type], in bytes.
+     *
+     * Deliberately an estimate, and deliberately on the low side of a 64-bit JVM with compressed
+     * oops: the value only has to be the right order of magnitude for [MAX_LIST_HEAP_BYTES] to
+     * bound the damage, and understating it keeps legitimate files comfortable. Each figure is the
+     * tag object plus its payload plus the `ArrayList` slot that holds the reference.
+     */
+    fun estimatedHeapCost(type: Byte): Long = when (type.toInt()) {
+        1, 2, 3, 5 -> 24L    // Byte/Short/Int/Float — boxed tag object + slot
+        4, 6 -> 32L          // Long/Double          — same, wider payload
+        7, 11, 12 -> 48L     // ByteArray/IntArray/LongArray — tag + empty array header + slot
+        8 -> 48L             // String — StringTag + String + char[] header + slot
+        9 -> 80L             // List — ListTag + ArrayList + slot
+        10 -> 80L            // Compound — CompoundTag + LinkedHashMap + slot
+        else -> 24L
+    }
 }
 
 /** Raised when a document exceeds [NbtLimits.MAX_DECOMPRESSED_BYTES], or claims more than it can supply. */

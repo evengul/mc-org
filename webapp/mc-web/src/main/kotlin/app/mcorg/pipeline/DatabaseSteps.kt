@@ -246,7 +246,27 @@ internal fun mapDatabaseException(e: Throwable): AppFailure.DatabaseError {
         // produce. Reported as a statement problem because that is what it is: this query was too
         // slow. The connection itself is healthy and goes straight back to the pool, which is the
         // entire point of setting those timeouts.
+        //
+        // Kept ahead of the class-57 rule below, which would otherwise swallow it.
         sqlState == "57014" -> AppFailure.DatabaseError.StatementError
+
+        // Class 40 — serialization failure (40001) and deadlock detected (40P01). These are the
+        // canonical *retryable* errors: nothing is wrong with the statement or the connection, two
+        // transactions simply collided and one was chosen as the victim. Not hypothetical here —
+        // the webhook outbox claim (V2_59_0) and the ingestion cascade delete are both shapes that
+        // deadlock under concurrency, and before this they reported UnknownError, indistinguishable
+        // from a mapper bug.
+        //
+        // Mapped to ConnectionError rather than a variant of their own because that is the closest
+        // existing "transient, try again later" signal. A dedicated TransientError would be more
+        // honest; it is not worth widening the sealed hierarchy in this branch.
+        sqlState.startsWith("40") -> AppFailure.DatabaseError.ConnectionError
+
+        // Rest of class 57 — operator intervention: admin_shutdown (57P01), cannot_connect_now
+        // (57P03), crash_shutdown (57P02). This is exactly what a Neon compute emits when it
+        // suspends or restarts a backend, which with autosuspend at 300s is a routine event rather
+        // than an incident. The connection is gone; a new one will work.
+        sqlState.startsWith("57") -> AppFailure.DatabaseError.ConnectionError
 
         else -> AppFailure.DatabaseError.UnknownError
     }

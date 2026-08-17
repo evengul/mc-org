@@ -41,17 +41,23 @@ class ErrorBoundaryLoggingIT {
     private lateinit var appender: ListAppender<ILoggingEvent>
     private lateinit var logger: Logger
 
+    private var originalLevel: Level? = null
+
     @BeforeEach
     fun attachAppender() {
         logger = LoggerFactory.getLogger("app.mcorg.presentation.ErrorBoundary") as Logger
         appender = ListAppender<ILoggingEvent>().also { it.start() }
         logger.addAppender(appender)
+        originalLevel = logger.level
         logger.level = Level.TRACE
     }
 
     @AfterEach
     fun detachAppender() {
         logger.detachAppender(appender)
+        // Restore, rather than leaving TRACE set. Surefire reuses the JVM across test classes
+        // (MCO-379), so an unrestored level follows every later class in the same fork.
+        logger.level = originalLevel
     }
 
     private fun events() = appender.list

@@ -119,9 +119,22 @@ val BannedPlugin = createRouteScopedPlugin("BannedPlugin") {
  * Deliberately a plugin rather than a step inside the pipeline: mc-web's rule is that
  * authorization is visible from the route tree. Install it after [IdeaCommentParamPlugin], which
  * establishes that the comment is reachable under this idea in the first place.
+ *
+ * That ordering does *not* mean this body can assume the param plugin succeeded. Ktor's
+ * `call.isHandled` guard suppresses the route **handler** once something has responded, but not
+ * sibling route-scoped `onCall` interceptors — so when the param plugin 404s a mismatched comment
+ * id, this still runs. Before the guard below, `getIdeaCommentId()` then threw
+ * `IllegalStateException: No instance for key AttributeKey: IdeaCommentParam` on every such
+ * request: not an authorization bypass (the handler stays suppressed and the comment survives),
+ * but an unhandled exception and a stack trace per request, trivially driven by any signed-in
+ * user asking for a comment id that does not belong to the idea.
  */
 val IdeaCommentAuthorPlugin = createRouteScopedPlugin("IdeaCommentAuthorPlugin") {
     onCall { call ->
+        // Nothing to authorize if an earlier plugin already answered — and its attributes may
+        // never have been set.
+        if (call.isHandled) return@onCall
+
         val user = call.getUser()
         if (user.isSuperAdmin) return@onCall
 

@@ -11,9 +11,20 @@ import java.sql.Connection
  *
  * Sized around the slowest thing that legitimately runs on this pool, which is not a web request
  * but the nightly ingestion: its heaviest statement is the cascading
- * `DELETE FROM resource_source WHERE version = ?`, measured at ~3s across 76k parent rows once
- * MCO-353's foreign-key indexes are in place. 30s leaves an order of magnitude of headroom while
- * still bounding a runaway.
+ * `DELETE FROM resource_source WHERE version = ?`. Measured on a production fork at **171ms**
+ * for the largest version (3,269 parent rows) with V2_58_0's foreign-key indexes in place, so 30s
+ * is ~175x headroom.
+ *
+ * Two corrections to what this comment used to say, because the numbers matter if you ever retune
+ * it: the statement deletes at most ~3.3k rows, not 76k — 76k is the whole-table count and the
+ * `WHERE version = ?` predicate never touches it — and the old "~3s" was extrapolated from a
+ * 200-row sample rather than measured.
+ *
+ * The headroom is entirely conditional on those indexes. Without them the same statement takes
+ * 30.29s — 0.29s *over* this timeout. If V2_58_0 is ever rolled back or renumbered out, the
+ * nightly re-ingest starts failing with 57014 every night, and the failure will look like a
+ * timeout bug rather than a missing index. Raise this constant or restore the indexes; do not
+ * treat the two as independent.
  *
  * The ordering between the last two is load-bearing. STATEMENT_TIMEOUT must stay comfortably below
  * SOCKET_TIMEOUT so the *server* cancels the query and returns a 57014 the pool can recover from;
@@ -99,6 +110,11 @@ class HikariDatabaseProvider(private val isProduction: Boolean) : DatabaseConnec
             // These three are handled entirely inside pgjdbc and never sent to the server, which
             // is what makes them safe through Neon's pooler — see the statement_timeout note
             // below for why that distinction cost a production outage.
+            //
+            // What socketTimeout recovers is the *pool slot*, not the server. When it fires pgjdbc
+            // closes the client socket without sending a CancelRequest, so the backend keeps
+            // executing the runaway query to completion. That is why statement_timeout below
+            // exists as well: it is the only one of the two that stops the server doing work.
             addDataSourceProperty("connectTimeout", CONNECT_TIMEOUT_SECONDS)
             addDataSourceProperty("socketTimeout", SOCKET_TIMEOUT_SECONDS)
             addDataSourceProperty("tcpKeepAlive", "true")
@@ -119,12 +135,25 @@ class HikariDatabaseProvider(private val isProduction: Boolean) : DatabaseConnec
             // across later statements on the same pooled session. Best-effort rather than
             // guaranteed, because a transaction-pooled backend can in principle be swapped
             // underneath us (the same session-state question as MCO-348); socketTimeout above is
-            // the hard backstop that does not depend on it.
+            // the backstop that does not depend on it.
+            //
+            // This leaks outward, which is worth knowing before anyone reuses the trick. Neon's
+            // pooler reuses one server backend across unrelated client connections and does not
+            // issue DISCARD ALL, so this SET is inherited by whatever connects next as the same
+            // user on the *pooled* endpoint — verified: five fresh psql sessions all reported this
+            // value on the same backend pid. Production is unaffected where it matters, because
+            // Flyway and the ingest-scheduler both run on the *direct* endpoint (the production
+            // DB_URL variable has no -pooler; only fly.toml's app env does), so no migration can
+            // be cancelled by a timeout the app set. What does inherit it is
+            // `ingest-machine.sh --once`, which goes through the pooler. Harmless at 30s today.
+            // The robust fix, if this ever needs to be exact, is per-statement (SET LOCAL inside
+            // the transaction, or setQueryTimeout) since only that is transaction-scoped.
             connectionInitSql = "SET statement_timeout = '${STATEMENT_TIMEOUT_SECONDS}s'"
 
             // Connection testing. Left as an explicit query rather than Hikari's preferred
-            // isValid(): "SELECT 1" is bounded by the socket timeout set above like any other
-            // statement, and it re-runs through the same path the application uses.
+            // isValid() so validation re-runs through the same path the application uses.
+            // Note Hikari applies validationTimeout below (5s) to this query as both query and
+            // network timeout, so it is bounded tighter than socketTimeout, not by it.
             connectionTestQuery = "SELECT 1"
             validationTimeout = 5000
 

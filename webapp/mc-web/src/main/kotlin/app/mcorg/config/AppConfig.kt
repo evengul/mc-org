@@ -53,7 +53,7 @@ object AppConfig {
 
     // Shared secret gating the machine-facing webhook admin endpoints (MCO-229). Optional: when
     // unset the endpoints fail closed (reject every request), so the feature is inert until a
-    // WEBHOOK_ADMIN_SECRET is provided. See WebhookAdminAuthPlugin.
+    // WEBHOOK_ADMIN_SECRET is provided. See MachineEndpointAuthPlugin.
     var webhookAdminSecret: String? = null
 
     // Base URL of the seam-discord Cloudflare Worker (MCO-240). World admins connect a Discord

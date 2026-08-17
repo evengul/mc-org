@@ -132,12 +132,35 @@ Cloudflare Worker, `ctx.waitUntil`). The poller marks the row `DELIVERED` on any
 Anything else — non-2xx, a connection error, or exceeding the 5s timeout — counts as a failure:
 
 1. The row's attempt count increments and it is rescheduled: +30s, then +5min.
-2. After 3 attempts the row is marked `FAILED` and never retried.
+2. After 3 attempts the row is marked `FAILED` and is not delivered again.
 3. Independently, 10 **consecutive** failures deactivate the subscription entirely.
 
 That last one is the sharp edge: **a receiver that 500s on every event will be silently switched
 off upstream**, and reconnecting is a manual step. Returning 2xx for an event you do not care
 about is correct behaviour; returning an error is not.
+
+### Claiming, and why you may see a delivery twice
+
+A row is not simply read and posted. The poller **claims** it first — one atomic
+`UPDATE ... FOR UPDATE SKIP LOCKED` moves it to `IN_FLIGHT` and stamps `claimed_at` — so two
+pollers scanning concurrently take disjoint sets rather than both delivering the same row.
+
+A claim is a **lease, not a lock**: it is honoured for 5 minutes, after which another poller may
+take the row back on the assumption that whoever held it died mid-delivery. That reclaim is what
+stops a webhook being lost when a machine is killed between claiming and posting, and it is also
+the one path that can produce a **duplicate delivery** — if the original poller had in fact already
+posted successfully and merely failed to record it, the receiver sees the same event twice.
+
+Two bounds keep that from running away, both added after review of MCO-357:
+
+- a reclaim **spends an attempt**, so a row that strands repeatedly exhausts the same 3-attempt
+  budget as one that fails outright, rather than being redelivered every 5 minutes forever;
+- an outcome write is **fenced** on the row still being `IN_FLIGHT`, so a poller whose lease lapsed
+  cannot overwrite the result recorded by the poller that superseded it.
+
+**What this means for you:** deliveries are at-least-once, not exactly-once. Duplicates are rare
+but possible, and `X-Seam-Delivery-Ids` is how you recognise one — see [Headers](#headers). A
+receiver that cannot dedup should at minimum be idempotent per delivery id.
 
 ## Subscription filters
 
@@ -147,17 +170,31 @@ an explicit list of `event_type` values (`eventMatchesFilter`).
 **Decision (MCO-358): new Discord subscriptions are created with the five rendered types, not
 `["*"]`.**
 
-The reasoning is not primarily bandwidth. Every delivery is an outbox row, an HMAC, and a POST
-with a 5s timeout — and, more importantly, *a failure on an unrendered event counts toward the
-10-consecutive-failure auto-deactivation exactly as much as a failure on one that matters*. Under
-`["*"]`, the chattiest events in the system (`resource_count_updated`, `task_toggled`) were the
-ones the Worker discarded, so the majority of the deactivation budget was being spent on messages
-nobody would ever see.
+The reasoning is bandwidth and nothing more: every delivery is an outbox row, an HMAC, and a POST
+with a 5s timeout, and under `["*"]` the chattiest events in the system
+(`resource_count_updated`, `task_toggled`) were the ones the Worker discarded anyway.
+
+This paragraph used to make a stronger claim — that a failure on an unrendered event spends the
+10-consecutive-failure deactivation budget just like a failure on one that matters — and that
+claim was wrong in both directions. `seam-discord` returns 202 unconditionally once the signature
+verifies, and its renderer simply returns nothing for a type it does not handle, so an unrendered
+event never causes a failure *by virtue of being unrendered*; failures come from transport or
+Worker faults, which do not care about the event type. And because any 2xx resets
+`consecutive_failures` to zero, those chatty unrendered deliveries were in practice *protecting*
+the subscription. Narrowing the filter removes those resets along with the (nonexistent) risk, so
+the net effect on auto-deactivation is ambiguous and unmeasured. The decision stands on its actual
+merit; the mechanism it was justified with does not exist.
 
 The cost of this decision is a coupling that must be maintained by hand: when `seam-discord` learns
 to render a new type, `DISCORD_RENDERED_EVENTS` in `DiscordSettingsPipeline.kt` has to be widened,
-**and existing subscriptions must be reconnected** — a stored filter is not retroactively changed.
+**and existing subscriptions must be updated** — a stored filter is not retroactively changed.
 Other consumers are unaffected and may still subscribe with `["*"]`.
+
+> **Disconnect before reconnecting.** Connecting is a plain `INSERT` with no uniqueness constraint
+> on `(world_id, callback_url)`, so "reconnect the channel to pick up the new filter" taken
+> literally leaves **two** active subscriptions pointed at the same Discord channel — the old
+> `["*"]` one and the new narrow one — and every rendered event is then posted twice. Disconnect
+> first, then connect.
 
 ## Versioning
 

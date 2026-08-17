@@ -17,7 +17,7 @@ import io.ktor.server.response.respondRedirect
 /**
  * Path prefixes exempt from the JWT sign-in redirect. Static assets are served before auth, and
  * `/integrations/` is the machine-facing surface that carries its own shared-secret gate (e.g.
- * WebhookAdminAuthPlugin) and must not be bounced to the user sign-in flow.
+ * MachineEndpointAuthPlugin) and must not be bounced to the user sign-in flow.
  */
 private val AUTH_EXEMPT_PREFIXES = listOf(
     "/static/",

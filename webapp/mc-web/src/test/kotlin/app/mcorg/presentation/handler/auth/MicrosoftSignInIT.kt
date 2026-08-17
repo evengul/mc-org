@@ -168,6 +168,35 @@ class MicrosoftSignInIT {
     }
 
     @Test
+    fun `a malformed percent-escape in state is rejected, not thrown`() = testApplication {
+        // This handler is reachable without a session — AuthPlugin exempts /oidc so the callback
+        // can arrive before one exists — which makes every parse on this path internet-facing.
+        //
+        // `parameters` is already percent-decoded by Ktor, and a second URLDecoder.decode() pass
+        // used to run before the nonce check and outside any try/catch. URLDecoder throws
+        // IllegalArgumentException on a stray `%`, so `state=%25zz` — which decodes to the literal
+        // `%zz` — produced a 500 and a stack trace from an unauthenticated GET anyone could put in
+        // a loop.
+        val client = createClient { followRedirects = false }
+
+        routing { route("/auth") { authRouter() } }
+        stubMicrosoftTokenEndpoint()
+
+        listOf("%25zz", "%25", "abc%252").forEach { hostileState ->
+            val response = client.get("/auth/oidc/microsoft-redirect?code=attacker-code&state=$hostileState")
+
+            assertEquals(
+                HttpStatusCode.Found, response.status,
+                "state=$hostileState should be refused cleanly, not thrown on",
+            )
+            assertEquals("/auth/sign-in?error=invalid_state", response.headers["Location"])
+        }
+
+        // Still refused before the single-use code is spent.
+        wireMock.verifyThat(0, WireMock.postRequestedFor(WireMock.urlEqualTo("/consumers/oauth2/v2.0/token")))
+    }
+
+    @Test
     fun `the sign-in page issues a nonce cookie and puts its twin in the state`() = testApplication {
         val client = createClient { followRedirects = false }
 

@@ -97,7 +97,7 @@ object WebhookStore {
      * `SKIP LOCKED` means a second poller racing on the same rows takes the *next* ones instead of
      * blocking behind the first.
      */
-    suspend fun claimDueDeliveries(limit: Int = 200): List<DueDelivery> {
+    suspend fun claimDueDeliveries(maxAttempts: Int, limit: Int = 200): List<DueDelivery> {
         val result = DatabaseSteps.query<Unit, List<DueDelivery>>(
             sql = SafeSQL.with(
                 """
@@ -105,7 +105,12 @@ object WebhookStore {
                     UPDATE webhook_deliveries d
                     SET status = 'IN_FLIGHT',
                         claimed_at = CURRENT_TIMESTAMP,
-                        updated_at = CURRENT_TIMESTAMP
+                        updated_at = CURRENT_TIMESTAMP,
+                        -- A reclaim spends an attempt. Without this the retry budget is only ever
+                        -- charged by failOrReschedule, which by definition does not run when the
+                        -- poller dies — so a row that strands repeatedly was redelivered forever
+                        -- while attempts stayed at 0. See the reclaim predicate below.
+                        attempts = CASE WHEN d.status = 'IN_FLIGHT' THEN d.attempts + 1 ELSE d.attempts END
                     FROM (
                         SELECT d2.id
                         FROM webhook_deliveries d2
@@ -115,7 +120,15 @@ object WebhookStore {
                             (d2.status = 'PENDING' AND d2.next_attempt_at <= CURRENT_TIMESTAMP)
                             -- Reclaim: a poller that died mid-delivery left these behind, and
                             -- nobody else will ever come back for them.
+                            --
+                            -- Bounded by attempts, because the failure this recovers from is not
+                            -- always transient. If the row strands because markDelivered itself
+                            -- keeps failing — a database error after a successful POST, which is
+                            -- swallowed — then an unbounded reclaim redelivers the same webhook
+                            -- every lease period forever, and the row is never eligible for
+                            -- pruning either. failAbandonedClaims retires whatever exceeds this.
                             OR (d2.status = 'IN_FLIGHT'
+                                AND d2.attempts < ?
                                 AND d2.claimed_at < CURRENT_TIMESTAMP - INTERVAL '$CLAIM_LEASE_MINUTES minutes')
                           )
                         ORDER BY d2.subscription_id, d2.created_at, d2.id
@@ -132,7 +145,10 @@ object WebhookStore {
                 ORDER BY c.subscription_id, c.id
                 """.trimIndent()
             ),
-            parameterSetter = { statement, _ -> statement.setInt(1, limit) },
+            parameterSetter = { statement, _ ->
+                statement.setInt(1, maxAttempts)
+                statement.setInt(2, limit)
+            },
             resultMapper = { rs ->
                 buildList {
                     while (rs.next()) {
@@ -154,7 +170,15 @@ object WebhookStore {
         return result.orEmpty("claimDueDeliveries")
     }
 
-    /** Mark a batch delivered. */
+    /**
+     * Mark a batch delivered.
+     *
+     * `status = 'IN_FLIGHT'` in the WHERE clause is a fence, not a tidiness check. The lease
+     * expiring lets another poller take the row, but on its own it does not stop the *original*
+     * poller from still writing an outcome afterwards — so a stalled poller could overwrite a row
+     * that had since been reclaimed, redelivered and finished by someone else. Guarding on the
+     * status the writer believes it holds makes a superseded write a no-op instead.
+     */
     suspend fun markDelivered(ids: List<Long>) {
         if (ids.isEmpty()) return
         DatabaseSteps.update<Unit>(
@@ -163,7 +187,7 @@ object WebhookStore {
                 UPDATE webhook_deliveries
                 SET status = 'DELIVERED', delivered_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP,
                     last_error = NULL, claimed_at = NULL
-                WHERE id = ANY(?)
+                WHERE id = ANY(?) AND status = 'IN_FLIGHT'
                 """.trimIndent()
             ),
             parameterSetter = { statement, _ ->
@@ -195,7 +219,7 @@ object WebhookStore {
                         WHEN attempts + 1 = 1 THEN CURRENT_TIMESTAMP + INTERVAL '30 seconds'
                         ELSE CURRENT_TIMESTAMP + INTERVAL '5 minutes'
                     END
-                WHERE id = ANY(?)
+                WHERE id = ANY(?) AND status = 'IN_FLIGHT'
                 """.trimIndent()
             ),
             parameterSetter = { statement, _ ->
@@ -205,6 +229,37 @@ object WebhookStore {
                 statement.setArray(4, statement.connection.createArrayOf("bigint", ids.toTypedArray()))
             },
         ).process(Unit).logIfFailed("failOrReschedule(${ids.size})")
+    }
+
+    /**
+     * Retires claims that expired with their retry budget already spent.
+     *
+     * The reclaim arm of [claimDueDeliveries] deliberately refuses rows at [maxAttempts], which
+     * without this would leave them `IN_FLIGHT` forever: invisible to the claim, and skipped by
+     * [pruneOldDeliveries], which only sweeps terminal rows. That is a permanent leak, and worse,
+     * it keeps `findNextScheduledDeliveryAt` returning a wake time forever — so the poller never
+     * goes quiet and the database never autosuspends, which is the cost failure this project has
+     * already paid for once.
+     *
+     * Returns them to the same terminal state a live poller would have reached after the same
+     * number of attempts.
+     */
+    suspend fun failAbandonedClaims(maxAttempts: Int) {
+        DatabaseSteps.update<Unit>(
+            sql = SafeSQL.update(
+                """
+                UPDATE webhook_deliveries
+                SET status = 'FAILED',
+                    claimed_at = NULL,
+                    updated_at = CURRENT_TIMESTAMP,
+                    last_error = COALESCE(last_error, 'Abandoned in flight; claim expired with no attempts left')
+                WHERE status = 'IN_FLIGHT'
+                  AND attempts >= ?
+                  AND claimed_at < CURRENT_TIMESTAMP - INTERVAL '$CLAIM_LEASE_MINUTES minutes'
+                """.trimIndent()
+            ),
+            parameterSetter = { statement, _ -> statement.setInt(1, maxAttempts) },
+        ).process(Unit).logIfFailed("failAbandonedClaims")
     }
 
     /** Reset a subscription's failure streak after a successful delivery. */

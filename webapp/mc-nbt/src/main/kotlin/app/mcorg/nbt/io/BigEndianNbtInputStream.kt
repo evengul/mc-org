@@ -43,6 +43,31 @@ class BigEndianNbtInputStream private constructor(
         return declared
     }
 
+    /** Heap charged so far by `TAG_List` elements, against [NbtLimits.MAX_LIST_HEAP_BYTES]. */
+    private var listHeapCharged: Long = 0
+
+    /**
+     * Charges a declared list length against the document's heap budget.
+     *
+     * Separate from [checkedLength] because the two bound different resources and only one of them
+     * was covered. `checkedLength` asks whether the *stream* can supply the elements; this asks
+     * whether the *heap* can hold them, which for a list of compounds is roughly eighty times as
+     * much. See [NbtLimits.MAX_LIST_HEAP_BYTES].
+     *
+     * Charged cumulatively rather than per list, because per-list checks sum: every element costs
+     * at least one wire byte, so a 16 MB document can declare 16 M of them spread over as many
+     * lists as it likes, and a per-list ceiling would let each pass individually.
+     */
+    private fun chargeListHeap(declared: Int, type: Byte, what: String) {
+        listHeapCharged += declared.toLong() * NbtLimits.estimatedHeapCost(type)
+        if (listHeapCharged > NbtLimits.MAX_LIST_HEAP_BYTES) {
+            throw NbtSizeLimitExceeded(
+                "$what declared $declared elements, taking this document past the " +
+                    "${NbtLimits.MAX_LIST_HEAP_BYTES} byte list heap budget"
+            )
+        }
+    }
+
     override fun readTag(maxDepth: Int): Result<BinaryParseFailure, NamedTag<*>> {
         val id = Result.tryCatch(
             { BinaryParseFailure.ReadError(it.message ?: "Could not read tag id") },
@@ -131,6 +156,7 @@ class BigEndianNbtInputStream private constructor(
             throw NbtSizeLimitExceeded("TAG_List of TAG_End declared $length elements; TAG_End consumes no bytes")
         }
         checkedLength(length, NbtLimits.minimumEncodedSize(type), "TAG_List of tag type $type")
+        chargeListHeap(length, type, "TAG_List of tag type $type")
 
         repeat(length) {
             val newDepth = decrementMaxDepth(maxDepth)
@@ -156,6 +182,13 @@ class BigEndianNbtInputStream private constructor(
         val compoundTag = CompoundTag()
 
         while (true) {
+            // Bail out once the compound is clearly not recoverable, rather than reading the rest
+            // of a hostile document to build a list nobody will read. Without this an unknown tag
+            // id — three wire bytes — accumulated one failure per occurrence for the whole 16 MB
+            // budget. See BinaryParseFailure.Multiple.
+            if (errors.size >= BinaryParseFailure.Multiple.MAX_ACCUMULATED) {
+                return Result.failure(BinaryParseFailure.Multiple(errors))
+            }
             val idResult = readByteTag()
             if (idResult is Result.Failure) {
                 return Result.failure(idResult.error)
