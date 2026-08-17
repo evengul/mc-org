@@ -184,4 +184,70 @@ class ImportReviewPageTest {
 
         assertFalse(html.contains("Air pocket"))
     }
+
+    // --- Several files as one import (MCO-414) ---
+
+    @Test
+    fun `a file contributing one section is named by the file, not its region`() {
+        // Litematica names a lone region after the schematic, so showing both would read as
+        // "Sorter (nether) — Sorter (nether)". The file name is the part the user chose.
+        val html = render(
+            requirements = mapOf(item("oak_planks") to 700),
+            regions = listOf(
+                ResolvedRegion("Sorter", listOf(item("oak_planks") to 500), sourceFile = "Sorter"),
+                ResolvedRegion("Sorter (nether)", listOf(item("oak_planks") to 200), sourceFile = "Sorter (nether)"),
+            ),
+        )
+
+        assertContains(html, "Sorter (nether)")
+        assertFalse(
+            html.contains("Sorter (nether) — Sorter (nether)"),
+            "the file should not be printed twice",
+        )
+    }
+
+    @Test
+    fun `regions sharing a name across files are told apart by their file`() {
+        // The collision the issue calls out: two files can each hold a region called Main, and
+        // "Main" twice in the section list is unreadable.
+        val html = render(
+            requirements = mapOf(item("oak_planks") to 300, item("glass") to 90),
+            regions = listOf(
+                ResolvedRegion("Main", listOf(item("oak_planks") to 200), sourceFile = "Overworld"),
+                ResolvedRegion("Shell", listOf(item("oak_planks") to 100), sourceFile = "Overworld"),
+                ResolvedRegion("Main", listOf(item("glass") to 90), sourceFile = "Nether"),
+            ),
+        )
+
+        assertContains(html, "Overworld — Main")
+        assertContains(html, "Overworld — Shell")
+        // Nether contributed one section, so it is named by the file alone.
+        assertContains(html, "Nether")
+    }
+
+    @Test
+    fun `the lead says how many files were imported`() {
+        // "3 sections" alone reads the same whether the nether file arrived or was silently
+        // dropped; naming the file count is the confirmation that both halves are here.
+        val html = render(
+            requirements = mapOf(item("oak_planks") to 700),
+            regions = listOf(
+                ResolvedRegion("Sorter", listOf(item("oak_planks") to 500), sourceFile = "Overworld"),
+                ResolvedRegion("Sorter", listOf(item("oak_planks") to 200), sourceFile = "Nether"),
+            ),
+        )
+
+        assertContains(html, "These 2 files are being imported as one project")
+    }
+
+    @Test
+    fun `a single-file import still says schematic, not files`() {
+        val html = render(
+            requirements = mapOf(item("glass") to 4000, item("oak_planks") to 700, item("hopper") to 40),
+            regions = listOf(frame, shell),
+        )
+
+        assertContains(html, "This schematic is built from 2 sections")
+        assertFalse(html.contains("are being imported as one project"))
+    }
 }
