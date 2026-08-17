@@ -362,15 +362,17 @@ internal fun buildStageJson(stage: DraftWizardStage, params: Parameters): String
 
             // A mode with no rates says nothing about the farm, so it does not survive the form.
             val modes = ratesByMode.keys.sortedBy { it.toIntOrNull() ?: Int.MAX_VALUE }
-            if (modes.isNotEmpty()) {
-                putJsonArray("productionModes") {
-                    modes.forEach { index ->
-                        addJsonObject {
-                            put("name", names[index] ?: "")
-                            putJsonObject("rates") {
-                                ratesByMode[index].orEmpty().forEach { (itemId, rate) ->
-                                    if (rate == null) put(itemId, JsonNull) else put(itemId, rate)
-                                }
+            // Written even when empty (MCO-418). UpdateDraftStep merges with `data || ?::jsonb`, so
+            // an omitted key is not "no change", it is "keep what was there" — and clearing the last
+            // production row was therefore unsaveable: the rows came back on reload and published.
+            // An author correcting a rate they got wrong has to be able to remove it.
+            putJsonArray("productionModes") {
+                modes.forEach { index ->
+                    addJsonObject {
+                        put("name", names[index] ?: "")
+                        putJsonObject("rates") {
+                            ratesByMode[index].orEmpty().forEach { (itemId, rate) ->
+                                if (rate == null) put(itemId, JsonNull) else put(itemId, rate)
                             }
                         }
                     }

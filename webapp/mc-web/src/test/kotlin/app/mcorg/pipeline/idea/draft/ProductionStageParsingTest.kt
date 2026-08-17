@@ -138,4 +138,37 @@ class ProductionStageParsingTest {
 
         assertEquals(listOf("First", "Third", "Eleventh"), modes.map { it.name })
     }
+
+    @Test
+    fun `removing every row emits an empty array, not an absent key (MCO-418)`() {
+        // UpdateDraftStep merges with `data || ?::jsonb`, so an absent key means "keep what was
+        // there". Omitting it made clearing the last production row unsaveable: the rows came back
+        // on reload and published anyway. An author correcting a rate they got wrong has to be able
+        // to remove it.
+        val stageJson = buildStageJson(
+            DraftWizardStage.PRODUCTIONS,
+            parametersOf("productionMode[0][name]" to listOf("")),
+        )
+
+        assertTrue(
+            stageJson.contains("\"productionModes\""),
+            "the key has to be present for the merge to overwrite: $stageJson",
+        )
+        assertEquals(
+            emptyList(),
+            json.decodeFromString(DraftData.serializer(), stageJson).productionModes,
+        )
+    }
+
+    @Test
+    fun `a submission with no production fields at all still clears`() {
+        // The productions section always posts at least its mode-name inputs, but a form that
+        // somehow posts none must not be read as "leave the old rows alone" either.
+        val stageJson = buildStageJson(DraftWizardStage.PRODUCTIONS, Parameters.Empty)
+
+        assertEquals(
+            emptyList(),
+            json.decodeFromString(DraftData.serializer(), stageJson).productionModes,
+        )
+    }
 }
