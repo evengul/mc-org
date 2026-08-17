@@ -9,6 +9,8 @@ import app.mcorg.domain.model.minecraft.MinecraftVersionRange
 import app.mcorg.domain.model.project.ProjectType
 import app.mcorg.event.IdeaImported
 import app.mcorg.event.eventBus
+import app.mcorg.domain.model.idea.IdeaProductionMode
+import app.mcorg.pipeline.idea.commonsteps.GetIdeaProductionModesStep
 import app.mcorg.pipeline.Result
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.DatabaseSteps
@@ -258,7 +260,7 @@ private val GetIdeaForImportStep = DatabaseSteps.transaction { connection ->
         override suspend fun process(input: Int): Result<AppFailure.DatabaseError, Pair<BasicIdeaInfo, Map<String, Int>>> {
             val ideaInfo = DatabaseSteps.query<Int, BasicIdeaInfo>(
                 sql = SafeSQL.select("""
-                    SELECT id, name, description, category, category_data ->> 'productionRate' as production_rate
+                    SELECT id, name, description, category
                     FROM ideas
                     WHERE id = ?
                 """.trimIndent()),
@@ -272,11 +274,8 @@ private val GetIdeaForImportStep = DatabaseSteps.transaction { connection ->
                         resultSet.getString("name"),
                         resultSet.getString("description"),
                         IdeaCategory.valueOf(resultSet.getString("category")),
-                        extractProductionRates(
-                            resultSet.getString("production_rate")
-                                ?.let { Json.decodeFromString<CategoryValue>(it) as? CategoryValue.MapValue }?.value
-                                ?: emptyMap()
-                        )
+                        // Read from the idea's own production tables below, not from category JSON.
+                        emptyMap()
                     )
                 },
                 transactionConnection = connection
@@ -306,27 +305,44 @@ private val GetIdeaForImportStep = DatabaseSteps.transaction { connection ->
                 return Result.Failure(requirementInfo.error)
             }
 
-            return Result.Success(Pair(ideaInfo.getOrNull()!!, requirementInfo.getOrNull()!!))
-        }
-    }
-}
-
-private fun extractProductionRates(productionRateData: Map<String, CategoryValue>): Map<String, Int> {
-    val productionRates = mutableMapOf<String, Int>()
-    val modeMap = productionRateData["value"] as? CategoryValue.MapValue ?: return productionRates
-
-    for (mode in modeMap.value.values) {
-        if (mode is CategoryValue.MapValue) {
-            for ((itemId, amountValue) in mode.value) {
-                if (amountValue is CategoryValue.IntValue) {
-                    productionRates[itemId] = (productionRates[itemId] ?: 0) // TODO: Support multiple production entries?
-                }
+            // Productions live in their own tables now (MCO-412). The idea carries modes; the
+            // project records the rates of the one it will be run in.
+            val modes = GetIdeaProductionModesStep(input).process(Unit)
+            if (modes is Result.Failure) {
+                return Result.Failure(modes.error)
             }
+
+            val info = ideaInfo.getOrNull()!!.copy(productionRate = ratesForImport(modes.getOrNull()!!))
+            return Result.Success(Pair(info, requirementInfo.getOrNull()!!))
         }
     }
-
-    return productionRates
 }
+
+/**
+ * The rates an imported farm project should record, chosen from the idea's modes.
+ *
+ * **Interim, and known to be the wrong shape** (Even, 2026-08-16, reversing the same day's earlier
+ * call): which mode a farm runs in is a *runtime* choice, not a build-time one. You might run the
+ * fortress farm skeletons-only this week and everything-on next, and flattening the choice at
+ * import means re-typing rates to switch. The modes belong on the project, with one active —
+ * filed separately because it reaches into project_productions, the supply map and the
+ * production editor.
+ *
+ * Until then the project records one mode's rates flat, which is what `project_productions` has
+ * always held. With one mode there is nothing to choose. With several and no explicit choice, the
+ * mode producing the most across its items wins: an import that silently picked the slowest would
+ * under-promise supply for no reason the user could see.
+ */
+internal fun ratesForImport(modes: List<IdeaProductionMode>, chosenModeName: String? = null): Map<String, Int> {
+    if (modes.isEmpty()) return emptyMap()
+    val chosen = chosenModeName?.let { name -> modes.firstOrNull { it.name == name } }
+        ?: modes.maxByOrNull { mode -> mode.rates.values.sumOf { (it ?: 0).toLong() } }
+    // An unmeasured rate becomes 0, which is what project_productions already means by it —
+    // ProductionPanel prints "rate unknown" for exactly this. The two sides represent the same
+    // fact differently until MCO-413 unifies them, and this is the one place that maps between.
+    return chosen?.rates.orEmpty().mapValues { (_, rate) -> rate ?: 0 }
+}
+
 
 private data class ValidateItemIdsStep(val availableIds: List<Item>) : Step<Pair<BasicIdeaInfo, Map<String, Int>>, AppFailure, IdeaForImport> {
     override suspend fun process(input: Pair<BasicIdeaInfo, Map<String, Int>>): Result<AppFailure, IdeaForImport> {

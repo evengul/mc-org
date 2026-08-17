@@ -3,6 +3,7 @@ package app.mcorg.presentation.templated.idea
 import app.mcorg.domain.model.idea.Comment
 import app.mcorg.domain.model.idea.Idea
 import app.mcorg.domain.model.idea.IdeaVisibility
+import app.mcorg.domain.model.idea.IdeaProductionMode
 import app.mcorg.domain.model.user.TokenProfile
 import app.mcorg.pipeline.idea.single.IdeaMaterial
 import app.mcorg.presentation.hxDeleteWithConfirm
@@ -29,6 +30,7 @@ fun ideaPage(
     idea: Idea,
     comments: List<Comment>,
     materials: List<IdeaMaterial> = emptyList(),
+    productionModes: List<IdeaProductionMode> = emptyList(),
 ): String = pageShell(
     pageTitle = "Seam — ${idea.name}",
     user = user,
@@ -46,6 +48,7 @@ fun ideaPage(
             div("idea-detail") {
                 ideaDetailHeader(user, idea)
                 ideaDetailFields(idea)
+                ideaProductionModes(productionModes)
                 ideaMaterialList(materials)
                 ideaRatingDistribution(idea, comments)
                 ideaCommentsSection(user.id, idea, comments)

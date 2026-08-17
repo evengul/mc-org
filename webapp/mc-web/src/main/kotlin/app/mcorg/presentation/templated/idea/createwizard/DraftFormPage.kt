@@ -116,12 +116,15 @@ private fun FlowContent.draftFormContent(
             draftCategorySelect(draft)
         }
 
-        optionalSection("Design details", "Size, production rate, and anything else measurable") {
+        optionalSection("Design details", "Size, and anything else measurable") {
             draftCategorySchemaFields(draft)
         }
 
-        optionalSection("Materials", "What it takes to build — or drop in a .litematic") {
+        // "Materials" alone stopped covering this section when production moved in (MCO-412):
+        // it now holds both what the design consumes and what it makes.
+        optionalSection("Materials and output", "What it takes to build and what it produces — or drop in a .litematic") {
             draftItemRequirementFields(draft)
+            draftProductionFields(draft)
         }
 
         optionalSection("Versions and credit", "Defaults to all versions, credited to you") {

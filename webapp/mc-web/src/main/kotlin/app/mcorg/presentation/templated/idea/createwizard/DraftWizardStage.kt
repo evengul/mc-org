@@ -16,6 +16,7 @@ enum class DraftWizardStage(val displayName: String) {
     AUTHOR_INFO("Author"),
     VERSION_COMPATIBILITY("Version"),
     ITEM_REQUIREMENTS("Items"),
+    PRODUCTIONS("Produces"),
     CATEGORY_FIELDS("Category"),
     REVIEW("Review"),
 }

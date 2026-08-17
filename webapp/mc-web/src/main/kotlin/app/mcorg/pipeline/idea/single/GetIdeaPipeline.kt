@@ -1,6 +1,7 @@
 package app.mcorg.pipeline.idea.single
 
 import app.mcorg.domain.model.idea.Comment
+import app.mcorg.pipeline.idea.commonsteps.GetIdeaProductionModesStep
 import app.mcorg.pipeline.Result
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
@@ -25,7 +26,9 @@ suspend fun ApplicationCall.handleGetIdea() {
 
     handlePipeline(
         onSuccess = { (idea, comments, materials) ->
-            respondHtml(ideaPage(user, idea, comments, materials))
+            val productionModes = GetIdeaProductionModesStep(idea.id).process(Unit).getOrNull().orEmpty()
+
+            respondHtml(ideaPage(user, idea, comments, materials, productionModes))
         }
     ) {
         parallel(
