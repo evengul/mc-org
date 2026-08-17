@@ -25,9 +25,11 @@ import kotlinx.html.h2
 import kotlinx.html.id
 import kotlinx.html.main
 import kotlinx.html.p
+import kotlinx.html.script
 import kotlinx.html.span
 import kotlinx.html.stream.createHTML
 import kotlinx.html.summary
+import kotlinx.html.unsafe
 
 /**
  * The single-page create form (MCO-310).
@@ -144,6 +146,14 @@ private fun FlowContent.draftFormContent(
                 hxPost("/ideas/drafts/${draft.id}/save")
                 +"Save for later"
             }
+        }
+
+        // One definition for every item-search combo in this form — requirements and one per
+        // production mode. Emitted here rather than by either field group because `/items/search`
+        // hardcodes `selectSearchedItem` as a global, and whichever group rendered last would
+        // otherwise define the winner (MCO-417).
+        script {
+            unsafe { raw(draftItemSearchScript()) }
         }
     }
 }
