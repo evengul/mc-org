@@ -2,6 +2,7 @@ package app.mcorg.presentation.templated.idea.createwizard
 
 import app.mcorg.domain.model.idea.IdeaCategory
 import app.mcorg.domain.model.idea.IdeaDraft
+import app.mcorg.domain.model.minecraft.MinecraftVersionRange
 import app.mcorg.pipeline.idea.draft.DraftData
 import app.mcorg.pipeline.idea.draft.DraftProductionMode
 import kotlinx.html.ButtonType
@@ -18,11 +19,20 @@ import kotlinx.html.li
 import kotlinx.html.p
 import kotlinx.html.script
 import kotlinx.html.span
+import kotlinx.html.stream.createHTML
 import kotlinx.html.ul
 import kotlinx.html.unsafe
 import kotlinx.serialization.json.Json
 
 private val productionJson = Json { ignoreUnknownKeys = true; isLenient = true }
+
+/**
+ * Stands in for the mode index inside `#production-mode-template`, replaced when a mode is added.
+ *
+ * Chosen to survive HTML attribute escaping and to be findable — it appears in element ids, field
+ * names and the combo's scope, so a change here has to match [productionScript]'s substitution.
+ */
+private const val MODE_INDEX_TOKEN = "__MODE_INDEX__"
 
 /**
  * What this idea produces (MCO-412).
@@ -44,6 +54,7 @@ fun FlowContent.draftProductionFields(draft: IdeaDraft) {
     val data = runCatching { productionJson.decodeFromString(DraftData.serializer(), draft.data) }
         .getOrDefault(DraftData())
     val modes = data.productionModes.orEmpty().ifEmpty { listOf(DraftProductionMode()) }
+    val versionRange = data.versionRange ?: MinecraftVersionRange.Unbounded
 
     val isFarm = data.category == IdeaCategory.FARM
     val hasRates = modes.any { it.rates.isNotEmpty() }
@@ -79,8 +90,31 @@ fun FlowContent.draftProductionFields(draft: IdeaDraft) {
         div {
             id = "production-modes"
             modes.forEachIndexed { index, mode ->
-                productionModeBlock(index, mode, showName = modes.size > 1)
+                productionModeBlock(index.toString(), mode, showName = modes.size > 1, versionRange = versionRange)
             }
+        }
+
+        // The block a new mode is cloned from, rendered by the server so the search combo inside it
+        // is the real thing — same hx-vals, same version range. Building it in JS instead would mean
+        // maintaining the markup twice and interpolating server state into a string (MCO-417).
+        // MODE_INDEX_TOKEN is substituted for the real index on insert.
+        //
+        // Raw <template> because kotlinx.html only offers `template` on PhrasingContent, and this
+        // sits in flow content. The rendered fragment carries its own wrapping <div>, which is why
+        // the script picks the block out by class rather than taking firstElementChild.
+        unsafe {
+            raw(
+                "<template id=\"production-mode-template\">" +
+                    createHTML().div {
+                        productionModeBlock(
+                            index = MODE_INDEX_TOKEN,
+                            mode = DraftProductionMode(),
+                            showName = true,
+                            versionRange = versionRange,
+                        )
+                    } +
+                    "</template>"
+            )
         }
 
         button(classes = "btn btn--ghost btn--sm") {
@@ -102,9 +136,14 @@ fun FlowContent.draftProductionFields(draft: IdeaDraft) {
  * [showName] is false while there is only one mode — the name is stored as blank and becomes
  * "Default" on save, because an author who was never asked about modes has not chosen one.
  */
-private fun FlowContent.productionModeBlock(index: Int, mode: DraftProductionMode, showName: Boolean) {
+private fun FlowContent.productionModeBlock(
+    index: String,
+    mode: DraftProductionMode,
+    showName: Boolean,
+    versionRange: MinecraftVersionRange,
+) {
     div("production-mode") {
-        attributes["data-mode-index"] = index.toString()
+        attributes["data-mode-index"] = index
 
         if (showName) {
             input(type = InputType.text, classes = "form-control production-mode__name") {
@@ -124,10 +163,15 @@ private fun FlowContent.productionModeBlock(index: Int, mode: DraftProductionMod
         }
 
         div("production-mode__add") {
-            input(type = InputType.text, classes = "form-control production-item-search") {
-                placeholder = "Item"
-                attributes["data-mode-index"] = index.toString()
-            }
+            // A real catalog search, one per mode, scoped by the mode index (MCO-417). Before this
+            // the field took a raw id and the script prepended "minecraft:" to it, so "Blue Ice"
+            // became minecraft:Blue Ice — accepted here, matched nothing in MCO-294, and failed the
+            // whole import of the idea into every world.
+            draftItemSearchCombo(
+                scope = "production-$index",
+                versionRange = versionRange,
+                placeholder = "Search items by name...",
+            )
             input(type = InputType.number, classes = "form-control production-item-rate") {
                 // Optional on purpose: knowing a farm makes bamboo is worth recording even when
                 // nobody has timed it, and an invented rate would be worse than none.
@@ -173,23 +217,22 @@ private fun FlowContent.productionModeBlock(index: Int, mode: DraftProductionMod
 /**
  * Adding a rate row and adding a mode, client-side.
  *
- * The item field takes a raw id rather than reusing the requirement search: that search posts to a
- * fragment endpoint and owns a single set of element ids, so it cannot be repeated per mode
- * without reworking it. Deliberate V1 limit — noted on the issue, and the ids are validated on
- * import against the world's catalog either way.
+ * The item comes from a real catalog search now (MCO-417), one combo per mode, so an id that is not
+ * an item cannot be entered rather than being caught at publish. `ValidateIdeaProductionsStep`
+ * still checks ids server-side — drafts saved before this could carry anything.
  */
 private fun productionScript() = """
     function addProductionRate(btn) {
         var block = btn.closest('.production-mode');
         var index = block.dataset.modeIndex;
-        var itemInput = block.querySelector('.production-item-search');
+        var combo = block.querySelector('.item-search-combo');
         var rateInput = block.querySelector('.production-item-rate');
-        var itemId = itemInput.value.trim();
+        var itemId = selectedItemIn(combo);
         var rawRate = rateInput.value.trim();
         var rate = rawRate === '' ? null : parseInt(rawRate, 10);
+        // Nothing picked from the results yet — typing a name into the box is not a choice.
         if (!itemId) return;
         if (rate !== null && (isNaN(rate) || rate < 0)) return;
-        if (itemId.indexOf(':') === -1) itemId = 'minecraft:' + itemId;
 
         var list = document.getElementById('production-rates-' + index);
         var existing = list.querySelector('[data-item-id="' + itemId + '"]');
@@ -203,7 +246,7 @@ private fun productionScript() = """
             '<input type="hidden" name="productionRate[' + index + '][' + itemId + ']" value="' + (rate === null ? '' : rate) + '">' +
             '<button type="button" class="btn btn--ghost btn--sm" onclick="this.closest(\'li\').remove()">Remove</button>';
         list.appendChild(li);
-        itemInput.value = '';
+        clearSelectedItem(combo);
         rateInput.value = '';
         refreshProductionRecommendation();
     }
@@ -250,17 +293,17 @@ private fun productionScript() = """
             }
         });
 
-        var block = document.createElement('div');
-        block.className = 'production-mode';
-        block.dataset.modeIndex = index;
-        block.innerHTML =
-            '<input type="text" class="form-control production-mode__name" name="productionMode[' + index + '][name]" placeholder="How it is run — &quot;Max speed&quot;, &quot;Skeletons only&quot;">' +
-            '<div class="production-mode__add">' +
-            '<input type="text" class="form-control production-item-search" placeholder="Item" data-mode-index="' + index + '">' +
-            '<input type="number" class="form-control production-item-rate" placeholder="Per hour" min="0" data-mode-index="' + index + '">' +
-            '<button type="button" class="btn btn--secondary btn--sm" onclick="addProductionRate(this)">Add</button>' +
-            '</div>' +
-            '<ul class="wizard-item-list production-mode__rates" id="production-rates-' + index + '"></ul>';
+        // Cloned from the server-rendered template so the new mode's search combo is identical to
+        // the existing ones — including the hx-vals carrying this draft's version range.
+        var template = document.getElementById('production-mode-template');
+        var markup = template.innerHTML.split('$MODE_INDEX_TOKEN').join(index);
+        var holder = document.createElement('div');
+        holder.innerHTML = markup;
+        var block = holder.querySelector('.production-mode');
+        if (!block) return;
         container.appendChild(block);
+
+        // The combo's hx-get is inert until htmx is told about the new nodes.
+        if (window.htmx) htmx.process(block);
     }
 """.trimIndent()

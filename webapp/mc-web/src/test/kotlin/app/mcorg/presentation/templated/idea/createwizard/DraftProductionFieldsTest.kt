@@ -6,6 +6,7 @@ import kotlinx.html.stream.createHTML
 import org.junit.jupiter.api.Test
 import java.time.ZonedDateTime
 import kotlin.test.assertContains
+import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
@@ -30,11 +31,17 @@ class DraftProductionFieldsTest {
     private fun render(data: String) = createHTML().div { draftProductionFields(draft(data)) }
 
     /**
-     * Markup only. The section carries its own inline script, which mentions every class it
-     * manipulates — asserting a class is absent from the whole document would match the script
-     * and never fail.
+     * The markup a reader actually sees, with two things cut out.
+     *
+     * The inline script mentions every class it manipulates, so asserting a class is *absent* from
+     * the whole document would match the script and never fail. Since MCO-417 the section also
+     * carries a `<template>` holding the block a new mode is cloned from — inert markup that always
+     * has a name field, because a second mode always gets one. Leaving it in makes
+     * "one mode is never called a mode" unfalsifiable in the same way.
      */
-    private fun markup(data: String) = render(data).substringBefore("<script")
+    private fun markup(data: String) = render(data)
+        .substringBefore("<script")
+        .replace(Regex("<template[\\s\\S]*?</template>"), "")
 
     private fun isRecommendationVisible(html: String): Boolean {
         val marker = html.substringAfter("id=\"production-recommendation\"", "")
@@ -93,6 +100,58 @@ class DraftProductionFieldsTest {
 
         assertFalse(html.contains("production-mode__name"), "one mode is still never called a mode")
         assertContains(html, "value=\"Max speed\"")
+    }
+
+    @Test
+    fun `each mode gets its own catalog search, scoped so they cannot collide (MCO-417)`() {
+        // The whole reason productions shipped with a raw text field: /items/search hardcodes a
+        // global selectSearchedItem, and one set of element ids cannot serve two modes at once.
+        val html = markup(
+            """{"productionModes":[
+                {"name":"Max speed","rates":{"minecraft:ice":62000}},
+                {"name":"Slowed","rates":{"minecraft:ice":18000}}
+            ]}"""
+        )
+
+        assertContains(html, "item-search-results-production-0")
+        assertContains(html, "item-search-results-production-1")
+        assertEquals(2, html.split("hx-get=\"/items/search\"").size - 1, "one search per mode")
+    }
+
+    @Test
+    fun `the search respects the draft's version range`() {
+        // Otherwise it offers items the idea claims not to work with.
+        val html = markup(
+            """{"versionRange":{
+                    "type":"app.mcorg.domain.model.minecraft.MinecraftVersionRange.LowerBounded",
+                    "from":{"type":"app.mcorg.domain.model.minecraft.MinecraftVersion.Release","major":1,"minor":21,"patch":0}
+                },
+                "productionModes":[{"name":"","rates":{}}]}"""
+        )
+
+        assertContains(html, "versionRangeType: 'lowerBounded'")
+        assertContains(html, "versionFrom: '1.21.0'")
+    }
+
+    @Test
+    fun `a new mode is cloned from a server-rendered template, not built in JS`() {
+        // The template carries a real combo — same hx-vals, same version range — so a mode added
+        // client-side searches exactly like the ones rendered with the page.
+        val html = render("""{"productionModes":[{"name":"","rates":{}}]}""")
+
+        assertContains(html, "id=\"production-mode-template\"")
+        assertContains(html, "__MODE_INDEX__")
+        assertContains(html, "htmx.process(block)")
+    }
+
+    @Test
+    fun `the free-text item field and its minecraft prefix are gone`() {
+        // "Blue Ice" used to become minecraft:Blue Ice — accepted, matched nothing, and broke
+        // import of the idea into every world.
+        val html = render("""{"productionModes":[{"name":"","rates":{}}]}""")
+
+        assertFalse(html.contains("production-item-search"), "the raw id field should be gone")
+        assertFalse(html.contains("'minecraft:' +"), "nothing should be guessing a namespace")
     }
 
     @Test
