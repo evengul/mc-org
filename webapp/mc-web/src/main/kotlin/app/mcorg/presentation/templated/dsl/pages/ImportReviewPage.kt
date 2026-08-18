@@ -79,6 +79,7 @@ fun importReviewPage(
     placedCounts: Map<String, Int> = emptyMap(),
     regions: List<ResolvedRegion> = emptyList(),
     warnings: ImportWarnings = ImportWarnings(),
+    unrecordableProductions: List<String> = emptyList(),
 ): String = pageShell(
     pageTitle = "Seam — review import",
     user = user,
@@ -135,6 +136,8 @@ fun importReviewPage(
                         required = true
                     }
                 }
+
+                productionNotice(unrecordableProductions)
 
                 materialsSection(requirements, emptySet(), placedCounts, regions, warnings)
 
@@ -325,6 +328,54 @@ private fun FlowContent.warningStrip(warnings: ImportWarnings) {
             }
         }
     }
+}
+
+/**
+ * What the idea claims to produce that this world cannot record (MCO-456).
+ *
+ * Productions are not reviewable — they are the author's statement about their farm, not work
+ * this world is agreeing to do (MCO-306) — so this is a notice and not a control. It exists
+ * because the alternative is silence: the import succeeds, the farm supplies less than the idea
+ * page said it would, and nothing anywhere connects the two.
+ *
+ * Info rather than warning. Nothing is wrong with the import and nothing is lost that this
+ * version could have used; a full-weight warning here would outrank the creative-only strip,
+ * which is about materials the user is about to go and gather.
+ */
+private fun FlowContent.productionNotice(unrecordable: List<String>) {
+    if (unrecordable.isEmpty()) return
+
+    div("callout callout--info import-review__warnings") {
+        span("callout__icon") {
+            attributes["aria-hidden"] = "true"
+            +"i"
+        }
+        div("callout__body") {
+            p("import-review__warning") {
+                span("import-review__warning-heading") { +"Not recorded as production: " }
+                +itemNamesFromIds(unrecordable)
+                +". This idea says it produces these, but this world's Minecraft version has no "
+                +"such item — the project is created without them."
+            }
+        }
+    }
+}
+
+/**
+ * A readable name for an id the catalog cannot name.
+ *
+ * These ids resolve to nothing in this world's version, so there is no stored display name to
+ * look up — `minecraft:sculk_shrieker` becomes `Sculk Shrieker` here rather than being shown
+ * raw. Same four-then-a-count cutoff as [namesOf].
+ */
+private fun itemNamesFromIds(ids: List<String>): String {
+    val shown = ids.take(4).joinToString(", ") { id ->
+        id.substringAfter(':').split('_').joinToString(" ") { word ->
+            word.replaceFirstChar { it.uppercase() }
+        }
+    }
+    val rest = ids.size - 4
+    return if (rest > 0) "$shown and $rest more" else shown
 }
 
 /** Up to four names, then a count — a strip that lists thirty items is a wall, not a warning. */

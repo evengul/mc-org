@@ -56,6 +56,7 @@ class ImportIdeaReviewIT : WithUser() {
     private var expensiveIdeaId: Int = 0
     private var wideIdeaId: Int = 0
     private var multiModeIdeaId: Int = 0
+    private var unknownProductionIdeaId: Int = 0
 
     @BeforeAll
     fun setup() {
@@ -106,6 +107,18 @@ class ImportIdeaReviewIT : WithUser() {
             multiModeIdeaId,
             "Everything on",
             listOf("minecraft:bone" to 500, "minecraft:blaze_rod" to 400, "minecraft:blaze_powder" to null),
+        )
+
+        // MCO-456: an idea claiming to produce something this world's version has no item for.
+        // Never seeded into minecraft_items by any IT class — the container is shared, so an id
+        // used here has to stay unseeded suite-wide to keep meaning "this version has no such
+        // item".
+        unknownProductionIdeaId = createIdea("Shrieker Farm")
+        addRequirement(unknownProductionIdeaId, "minecraft:oak_planks", 12)
+        addProductionMode(
+            unknownProductionIdeaId,
+            "Default",
+            listOf("minecraft:iron_ingot" to 90, "minecraft:sculk_shrieker" to 30),
         )
     }
 
@@ -297,6 +310,41 @@ class ImportIdeaReviewIT : WithUser() {
             ),
             readProductions(projectId),
             "900/h across three items beats the skeletons-only mode's 700",
+        )
+    }
+
+    @Test
+    fun `a production this version has no item for is reported, not fatal`() = testApplication {
+        setupRoutes()
+        val client = createClient { followRedirects = false }
+
+        val review = client.get("/ideas/$unknownProductionIdeaId/import/review?worldId=$worldId") {
+            addAuthCookie(this)
+        }
+
+        // The whole of MCO-456: this GET used to fail outright, so the material list — the part
+        // the user was asked to review — was unreachable over a field this screen does not have.
+        assertEquals(HttpStatusCode.OK, review.status)
+        val body = review.bodyAsText()
+        assertContains(body, "Not recorded as production")
+        assertContains(body, "Sculk Shrieker")
+        // Ids, not display names: the container is shared across IT classes, so whichever class
+        // seeds an id first owns its name (MCO-361).
+        assertContains(body, "minecraft:oak_planks=12")
+
+        val response = client.post("/ideas/$unknownProductionIdeaId/import") {
+            addAuthCookie(this)
+            contentType(ContentType.Application.FormUrlEncoded)
+            setBody("worldId=$worldId&" + materials("minecraft:oak_planks" to 12))
+        }
+
+        assertEquals(HttpStatusCode.SeeOther, response.status, response.bodyAsText())
+        val projectId = response.headers["Location"]!!.substringAfterLast("/").toInt()
+
+        assertEquals(
+            listOf("minecraft:iron_ingot" to 90),
+            readProductions(projectId),
+            "the production this version does know about still supplies the world",
         )
     }
 
