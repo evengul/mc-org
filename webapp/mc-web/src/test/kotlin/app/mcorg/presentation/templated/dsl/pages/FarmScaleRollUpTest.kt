@@ -122,7 +122,10 @@ class FarmScaleRollUpTest {
         )
 
         assertContains(html, "1 raw material needs")
-        assertFalse(html.contains("32,967"))
+        // Scoped to the roll-up's own cell. A bare `contains("32,967")` used to stand in for
+        // this and stopped meaning it in MCO-403, which prints the demand on the supplied row
+        // itself — the number is now on the page on purpose, just not in the roll-up.
+        assertFalse(html.contains("""<span class="plan-farm-scale__quantity">32,967</span>"""))
     }
 
     @Test
