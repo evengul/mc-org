@@ -691,12 +691,34 @@ internal fun FlowContent.feedsLine(label: FeedsLabel?) {
 }
 
 /**
- * SUPPLIED row: badge + supply label, no counter.
+ * SUPPLIED row: quantity + badge + supply label, no counter.
  *
  * Farm supply and linked-project supply share the group but are not the same promise
  * (MCO-299): a farm keeps producing, a linked project hands over once. The badge says
  * which, and a linked project's name is a link to it — the farm's name is not, because
  * the supply is ambient (any operational producer of the item, resolved at plan time).
+ *
+ * ## The quantity shows; the counter does not (MCO-403)
+ *
+ * This row used to print no number at all, on the reasoning that a supplied item is handled.
+ * That drops the one fact the row exists to deliver: "Cobblestone — from Cobble farm" reads as
+ * solved, and **74,557** cobblestone is what tells you whether that farm is anywhere near
+ * adequate. It is also the number the roadmap prints on the same farm's edge (MCO-316), in the
+ * same `%,d` format — two surfaces disagreeing about whether a quantity is worth showing was
+ * never a decision anyone made.
+ *
+ * A **counter and progress bar** stay off, for both supply kinds:
+ *
+ * - The plan does not schedule this work. A supplied item terminates its chain — nothing
+ *   downstream re-derives as you haul it in — so a "collected" number here would count toward a
+ *   finish line the planner does not have, and would never mark the row complete.
+ * - Farm supply is unbounded in V1 (MCO-287): the farm *solves* the item. Progress against a
+ *   solved item is a number nothing reads and nothing updates.
+ * - Linked-project supply is a one-time handover, where a counter reads more naturally — but the
+ *   handover is the *producer's* completion, which its own project already tracks. A second
+ *   counter here would be a second place to record the same thing, and they would drift.
+ *
+ * If that changes, the two kinds diverge and this branch splits; today they agree, so it does not.
  */
 private fun FlowContent.suppliedActivityRow(
     worldId: Int,
@@ -710,6 +732,9 @@ private fun FlowContent.suppliedActivityRow(
         id = "plan-activity-${activity.item.id.replace(":", "-")}"
         div("resource-row__desktop") {
             div("resource-row__name") { +activity.item.name }
+            // Same position as the counter row's count, so the numbers line up down the page
+            // however a row is sourced, and the same format as the roadmap's edge.
+            span("resource-row__count") { +"%,d".format(activity.quantity) }
             when (supply) {
                 is SupplySource.Farm -> {
                     span("badge badge--accent") { +"Farm" }
