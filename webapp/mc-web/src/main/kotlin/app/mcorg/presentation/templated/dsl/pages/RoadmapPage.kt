@@ -110,10 +110,20 @@ private fun FlowContent.roadmapTable(roadmap: Roadmap) {
     val upstreamByConsumer = roadmap.edges.groupBy { it.fromNodeId }
     val downstreamByProducer = roadmap.edges.groupBy { it.toNodeId }
 
-    // Depth first — that is the sequence. Blocked projects sink within their layer, and
-    // names break the remaining ties so the order is stable between renders.
+    // Unfinished work first, then depth (MCO-405).
+    //
+    // Depth alone was the sequence, and it is the right sequence — but ascending depth answers
+    // "what came first", and the question at the top of a roadmap is "what do I do next". On the
+    // dev world that put 20-odd DONE farms above the one active build, alphabetically, because a
+    // finished prerequisite genuinely has depth 0.
+    //
+    // Terminal rather than DONE: cancelled and archived projects are not what to do next either,
+    // and they are not blocking anything downstream. Within each band the old rule is untouched —
+    // depth, then blocked sinks, then name for a stable order between renders — so the layer
+    // column still reads as the sequence it always did, and the Layer cell still prints it.
     val rows = roadmap.nodes.sortedWith(
-        compareBy<RoadmapNode> { it.layer }
+        compareBy<RoadmapNode> { it.state.isTerminal }
+            .thenBy { it.layer }
             .thenBy { it.isBlocked }
             .thenBy { it.projectName }
     )
