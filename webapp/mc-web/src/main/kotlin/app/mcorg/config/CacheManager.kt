@@ -60,8 +60,15 @@ object CacheManager {
         .expireAfterWrite(10, TimeUnit.MINUTES)
         .build()
 
-    /** Idea comment existence. Key: commentId */
-    val ideaCommentExists: Cache<Int, Boolean> = Caffeine.newBuilder()
+    /**
+     * Idea comment existence. Key: (ideaId, commentId).
+     *
+     * Keyed on the pair, not on commentId alone (MCO-351). The plugin behind this cache now
+     * verifies the comment belongs to the idea in the path, and a commentId-only key would have
+     * handed that check straight back: one legitimate visit to `/ideas/7/comments/12` would cache
+     * "12 exists", and `/ideas/99/comments/12` would then sail through on the cache hit.
+     */
+    val ideaCommentExists: Cache<Pair<Int, Int>, Boolean> = Caffeine.newBuilder()
         .maximumSize(2_000)
         .expireAfterWrite(10, TimeUnit.MINUTES)
         .build()
@@ -203,12 +210,12 @@ object CacheManager {
         logger.debug("Cache: idea {} invalidated", ideaId)
     }
 
-    fun onIdeaCommentCreated(commentId: Int) {
-        ideaCommentExists.put(commentId, true)
+    fun onIdeaCommentCreated(ideaId: Int, commentId: Int) {
+        ideaCommentExists.put(ideaId to commentId, true)
     }
 
-    fun onIdeaCommentDeleted(commentId: Int) {
-        ideaCommentExists.invalidate(commentId)
+    fun onIdeaCommentDeleted(ideaId: Int, commentId: Int) {
+        ideaCommentExists.invalidate(ideaId to commentId)
     }
 
     fun onInviteChanged(inviteId: Int) {

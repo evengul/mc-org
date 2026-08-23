@@ -16,8 +16,11 @@ import java.time.format.DateTimeFormatter
  * ```
  *
  * `actor` (and its optional display name `actor_name`) is `null` for system-originated events or when
- * the name is not populated. `data` is the event-specific payload from [SeamEvent.data]. Envelope
- * versioning is deferred until the first schema change.
+ * the name is not populated. `data` is the event-specific payload from [SeamEvent.data].
+ *
+ * **Versioning: additive changes only; anything breaking ships on a new callback path.** There is
+ * deliberately no `version` field — see `documentation/webhook-contract.md` for the reasoning and
+ * for the rest of the wire contract, which is canonical there rather than in the consumer.
  */
 object EventEnvelope {
     private val json = Json

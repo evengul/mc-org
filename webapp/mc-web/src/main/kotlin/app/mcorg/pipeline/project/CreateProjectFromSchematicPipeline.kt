@@ -14,6 +14,7 @@ import app.mcorg.pipeline.failure.ValidationFailure
 import app.mcorg.pipeline.project.resources.GetItemsInWorldVersionStep
 import app.mcorg.pipeline.world.ValidateWorldMemberRole
 import app.mcorg.presentation.handler.handlePipeline
+import app.mcorg.presentation.plugins.MAX_SCHEMATIC_UPLOAD_BYTES
 import app.mcorg.presentation.templated.dsl.Link
 import app.mcorg.presentation.utils.clientRedirect
 import app.mcorg.presentation.utils.getUser
@@ -31,6 +32,8 @@ import io.ktor.server.request.receiveMultipart
 import io.ktor.server.request.receiveParameters
 import io.ktor.server.response.respond
 import io.ktor.utils.io.readRemaining
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.io.readByteArray
 
 /**
@@ -245,6 +248,11 @@ object ReceiveSchematicStep : Step<MultiPartData, AppFailure, SchematicUpload> {
         val files = mutableListOf<SchematicFile>()
         var providedName: String? = null
         var tooMany = false
+        var tooLarge = false
+        // One budget for the whole upload rather than one per file: SchematicUploadLimitPlugin
+        // bounds the declared Content-Length of the entire body, and a per-file cap would let a
+        // chunked request spend that limit MAX_FILES times over (MCO-345).
+        var remaining = MAX_SCHEMATIC_UPLOAD_BYTES
 
         input.forEachPart { part ->
             when {
@@ -255,10 +263,19 @@ object ReceiveSchematicStep : Step<MultiPartData, AppFailure, SchematicUpload> {
                     // silently import only the final file.
                     if (files.size >= MAX_FILES) {
                         tooMany = true
-                        part.release()
                     } else {
-                        files.add(SchematicFile(part.originalFileName, part.provider().readRemaining().readByteArray()))
+                        // One byte past what is left of the budget, so an oversized body is
+                        // detected without ever being held in full. The plugin catches the honest
+                        // case ahead of this; this catches a chunked upload or a lying header.
+                        val bytes = part.provider().readRemaining(remaining + 1).readByteArray()
+                        if (bytes.size > remaining) {
+                            tooLarge = true
+                        } else {
+                            remaining -= bytes.size
+                            files.add(SchematicFile(part.originalFileName, bytes))
+                        }
                     }
+                    part.release()
                 }
                 part is PartData.FormItem && part.name == "name" -> {
                     providedName = part.value.takeIf { it.isNotBlank() }
@@ -269,6 +286,12 @@ object ReceiveSchematicStep : Step<MultiPartData, AppFailure, SchematicUpload> {
         }
 
         return when {
+            tooLarge -> Result.failure(
+                AppFailure.customValidationError(
+                    "schematicFile",
+                    "That file is too large. Schematics must be under ${MAX_SCHEMATIC_UPLOAD_BYTES / (1024 * 1024)} MB.",
+                )
+            )
             tooMany -> Result.failure(
                 AppFailure.customValidationError("schematicFile", "Import at most $MAX_FILES files at once")
             )
@@ -370,7 +393,11 @@ data class MapSchematicFilesToMaterialsStep(
 object ParseSchematicStep : Step<SchematicUpload, AppFailure, List<ParsedSchematic>> {
     override suspend fun process(input: SchematicUpload): Result<AppFailure, List<ParsedSchematic>> {
         val parsed = input.files.map { file ->
-            when (val read = LitematicaReader.readLitematica(file.content)) {
+            // Off the Netty event loop — see ParseLitematicaStep. Decompression and tree-walking
+            // of attacker-supplied bytes must not run where it can stall unrelated requests
+            // (MCO-345).
+            val read = withContext(Dispatchers.IO) { LitematicaReader.readLitematica(file.content) }
+            when (read) {
                 // Named, since with several files "could not read the schematic file" leaves the
                 // user guessing which one to re-export.
                 is Result.Failure -> return Result.failure(

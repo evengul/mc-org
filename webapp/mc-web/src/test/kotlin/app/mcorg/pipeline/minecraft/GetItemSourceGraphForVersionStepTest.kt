@@ -22,7 +22,7 @@ import org.junit.jupiter.api.Test
 import java.sql.Connection
 import java.sql.PreparedStatement
 import java.sql.ResultSet
-import java.sql.SQLTimeoutException
+import java.sql.SQLTransientConnectionException
 import java.sql.Timestamp
 import java.time.Instant
 import java.time.temporal.ChronoUnit
@@ -139,7 +139,9 @@ class GetItemSourceGraphForVersionStepTest {
 
     @Test
     fun `LoadVersionIngestionEpochStep maps a connection failure to a DatabaseError`() {
-        every { mockProvider.getConnection() } throws SQLTimeoutException("down")
+        // What Hikari raises on pool exhaustion, rather than the SQLTimeoutException pgjdbc never
+        // throws (MCO-347).
+        every { mockProvider.getConnection() } throws SQLTransientConnectionException("down")
 
         val error = TestUtils.executeAndAssertFailure(LoadVersionIngestionEpochStep, version)
 

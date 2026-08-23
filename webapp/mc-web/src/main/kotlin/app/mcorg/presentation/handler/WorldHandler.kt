@@ -70,6 +70,7 @@ import app.mcorg.presentation.plugins.InviteParamPlugin
 import app.mcorg.presentation.plugins.ProjectParamPlugin
 import app.mcorg.presentation.plugins.ProjectProductionItemParamPlugin
 import app.mcorg.presentation.plugins.ResourceGatheringIdParamPlugin
+import app.mcorg.presentation.plugins.SchematicUploadLimitPlugin
 import app.mcorg.presentation.plugins.UpdateActiveWorldPlugin
 import app.mcorg.presentation.plugins.WorldAdminPlugin
 import app.mcorg.presentation.plugins.WorldMemberParamPlugin
@@ -144,11 +145,18 @@ class WorldHandler {
                     post {
                         call.handleCreateProject()
                     }
-                    post("/from-schematic/review") {
-                        call.handleReviewSchematic()
-                    }
-                    post("/from-schematic") {
-                        call.handleCreateProjectFromSchematic()
+                    // Grouped so the upload cap runs as a plugin, ahead of the body read and
+                    // ahead of the Role.ADMIN check these two do inside their pipelines — an
+                    // unauthorized member could otherwise make the server buffer the file first
+                    // and only then be refused (MCO-345). The URLs are unchanged.
+                    route("/from-schematic") {
+                        install(SchematicUploadLimitPlugin)
+                        post("/review") {
+                            call.handleReviewSchematic()
+                        }
+                        post {
+                            call.handleCreateProjectFromSchematic()
+                        }
                     }
                     post("/farm") {
                         call.handleRecordExistingFarm()
@@ -201,8 +209,11 @@ class WorldHandler {
                         route("/resources") {
                             // World-membership gate (MCO-247) now lives at the /{worldId}
                             // level above, covering this whole resource-mutation family too.
-                            post("/from-schematic") {
-                                call.handleAddResourcesFromSchematic()
+                            route("/from-schematic") {
+                                install(SchematicUploadLimitPlugin)
+                                post {
+                                    call.handleAddResourcesFromSchematic()
+                                }
                             }
                             route("/gathering") {
                                 post {

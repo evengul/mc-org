@@ -241,17 +241,26 @@ val IdeaParamPlugin = createRouteScopedPlugin("IdeaParamPlugin") {
     }
 }
 
+/**
+ * Resolves `{commentId}` and verifies it belongs to the `{ideaId}` in the same path.
+ *
+ * The `AND idea_id = ?` is load-bearing (MCO-351). Without it any visible idea id paired with any
+ * comment id resolved, so `/ideas/1/comments/{n}` in a loop reached every comment in the hub. It
+ * only bounds *reachability* — who may act on a comment they can reach is [IdeaCommentAuthorPlugin].
+ */
 val IdeaCommentParamPlugin = createRouteScopedPlugin("IdeaCommentParamPlugin") {
     onCall { call ->
         val commentId = call.parameters["commentId"]?.toIntOrNull()
-        if (commentId == null) {
+        val ideaId = call.parameters["ideaId"]?.toIntOrNull()
+        if (commentId == null || ideaId == null) {
             call.respondBadRequest("Invalid or missing idea comment ID")
         } else {
             val checkResult = cachedEnsureExists(
                 CacheManager.ideaCommentExists,
+                ideaId to commentId,
+                SafeSQL.select("SELECT EXISTS(SELECT 1 FROM idea_comments WHERE id = ? AND idea_id = ?)"),
                 commentId,
-                SafeSQL.select("SELECT EXISTS(SELECT 1 FROM idea_comments WHERE id = ?)"),
-                commentId
+                ideaId,
             )
             if (checkResult is Result.Success && checkResult.value) {
                 call.setIdeaCommentId(commentId)

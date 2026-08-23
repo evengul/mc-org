@@ -18,14 +18,18 @@ import app.mcorg.pipeline.minecraft.GetAvailableVersionsStep
 import app.mcorg.pipeline.minecraft.StoreMinecraftDataStep
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import org.slf4j.LoggerFactory
 import org.slf4j.MDC
 import java.io.InputStream
+import java.net.SocketTimeoutException
 import java.net.URI
 import java.nio.file.Files
-import java.nio.file.StandardCopyOption
 import java.nio.file.StandardOpenOption
 import java.security.DigestInputStream
 import java.security.MessageDigest
@@ -36,6 +40,26 @@ import java.security.MessageDigest
  * they serialise against each other.
  */
 private const val INGESTION_ADVISORY_LOCK_KEY = 7331L
+
+/*
+ * Timeouts for the Mojang server.jar download (MCO-346).
+ *
+ * This is the one outbound call in the codebase that does not go through ApiProvider and its 30s
+ * HttpTimeout, and JDK URL streams default to no timeout at all. Because the download runs inside
+ * the ingestion advisory lock, a stalled CDN connection did not merely fail one run — it parked
+ * the Fly machine forever, and every later run then found the lock held and logged "another
+ * ingestion run is in progress, skipping". An indefinite outage that reads as success.
+ *
+ * The three bounds are layered: connect covers a dead endpoint, read covers a connection that
+ * goes quiet mid-transfer, and the wall clock covers one that dribbles bytes indefinitely without
+ * ever tripping the read timeout. Generous, because a server.jar is ~50 MB and the machine has no
+ * competing work — the point is a ceiling, not a tight SLA.
+ */
+internal data class DownloadTimeouts(
+    val connectMs: Int = 30_000,
+    val readMs: Int = 60_000,
+    val wallClockMs: Long = 10L * 60 * 1000,
+)
 
 private val ingestionLogger = LoggerFactory.getLogger("app.mcorg.pipeline.minecraftfiles.ServerFilesIngestion")
 
@@ -53,12 +77,26 @@ suspend fun executeServerFilesPipeline(): Result<AppFailure, Unit> = withIngesti
     }
 }
 
+/** Whether the lock was taken, and which PostgreSQL backend answered the question. */
+internal data class LockAttempt(val acquired: Boolean, val backendPid: Int)
+
 /**
  * Acquires the ingestion advisory lock on a dedicated connection and runs [block]. If another run
  * already holds the lock, logs and returns success without running [block] — overlapping triggers
  * become no-ops. The lock is released and the connection returned on every path; release runs under
  * [NonCancellable] so a cancelled run still frees the lock rather than leaking it on the pooled
  * session (a pg advisory lock is session-scoped and Hikari keeps sessions alive across checkouts).
+ *
+ * Both acquire and release record `pg_backend_pid()` (MCO-348). A pg advisory lock belongs to a
+ * *session*, and production connects through Neon's pooler, so the open question is whether the
+ * backend can change underneath a lock we believe we are holding. Comparing the two PIDs answers
+ * that directly for any run: equal means one backend held it throughout, different is the failure
+ * mode itself, caught in the act.
+ *
+ * Logged at INFO on the happy path deliberately. Before this the success path was silent, so a
+ * run's logs could only ever say "the warning did not appear" — and with Fly retaining roughly
+ * half an hour and no drain yet (MCO-343), absence of a warning in a window that short is very
+ * weak evidence. Two positive lines make a single run self-evidencing.
  */
 internal suspend fun withIngestionLock(block: suspend () -> Result<AppFailure, Unit>): Result<AppFailure, Unit> {
     val connection = try {
@@ -69,39 +107,162 @@ internal suspend fun withIngestionLock(block: suspend () -> Result<AppFailure, U
     }
 
     return connection.connection.use {
-        when (val acquired = tryAdvisoryLock(connection)) {
-            is Result.Failure -> acquired
-            is Result.Success -> if (!acquired.value) {
-                ingestionLogger.info("Another ingestion run is in progress, skipping.")
-                Result.success()
+        when (val attempt = tryAdvisoryLock(connection)) {
+            is Result.Failure -> attempt
+            is Result.Success -> if (!attempt.value.acquired) {
+                reportContention(connection)
             } else {
+                val acquiredPid = attempt.value.backendPid
+                val startedAt = System.nanoTime()
+                ingestionLogger.info(
+                    "Acquired ingestion advisory lock {} on backend pid {}.",
+                    INGESTION_ADVISORY_LOCK_KEY,
+                    acquiredPid,
+                )
                 try {
                     block()
                 } finally {
-                    withContext(NonCancellable) { releaseAdvisoryLock(connection) }
+                    withContext(NonCancellable) {
+                        releaseAdvisoryLock(connection, acquiredPid, startedAt)
+                    }
                 }
             }
         }
     }
 }
 
-private suspend fun tryAdvisoryLock(connection: TransactionConnection): Result<AppFailure.DatabaseError, Boolean> =
-    DatabaseSteps.query<Long, Boolean>(
-        sql = SafeSQL.select("SELECT pg_try_advisory_lock(?)"),
+/**
+ * How long a held lock may plausibly represent a live run before it is treated as stuck.
+ *
+ * Deliberately longer than the CLI's 45 minute wall clock: past that ceiling a healthy run has
+ * already killed itself, so a lock still held is not "another run in progress".
+ */
+private val STUCK_LOCK_AFTER_MINUTES = 60
+
+/**
+ * Reports a lock we could not take, and decides whether that is routine or a fault.
+ *
+ * The previous version of this logged `pg_backend_pid()` from the *acquire* query — which is this
+ * process's own backend, by definition not the one holding the lock. It printed a different
+ * meaningless number every run, so an operator reading "lock 7331 held; asked backend pid 4711"
+ * had nothing to act on. The holder's pid comes from `pg_locks`, which is the only place it exists.
+ *
+ * The distinction this draws matters more than the pid. Skipping because a legitimate run is in
+ * progress is a success; skipping because a lock has been stranded — the exact failure MCO-346's
+ * post-mortem describes, where every nightly run afterwards logged "in progress" and exited 0 — is
+ * not, and until now the two were indistinguishable from the outside. A lock older than
+ * [STUCK_LOCK_AFTER_MINUTES] fails the run so the scheduled machine's exit code shows it.
+ */
+private suspend fun reportContention(connection: TransactionConnection): Result<AppFailure, Unit> {
+    val holder = DatabaseSteps.query<Long, LockHolder?>(
+        // classid/objid are the two halves of the 64-bit advisory key; objsubid = 1 marks the
+        // single-argument pg_advisory_lock(bigint) form.
+        sql = SafeSQL.select(
+            """
+            SELECT l.pid,
+                   EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - a.xact_start))::bigint AS xact_age_s,
+                   EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - a.backend_start))::bigint AS backend_age_s,
+                   a.state
+            FROM pg_locks l
+            LEFT JOIN pg_stat_activity a ON a.pid = l.pid
+            WHERE l.locktype = 'advisory'
+              AND l.granted
+              AND ((l.classid::bigint << 32) | l.objid::bigint) = ?
+            LIMIT 1
+            """.trimIndent()
+        ),
         parameterSetter = { statement, key -> statement.setLong(1, key) },
-        resultMapper = { rs -> rs.next() && rs.getBoolean(1) },
+        resultMapper = { rs ->
+            if (rs.next()) {
+                LockHolder(
+                    pid = rs.getInt("pid"),
+                    ageSeconds = rs.getLong("backend_age_s"),
+                    state = rs.getString("state") ?: "unknown",
+                )
+            } else {
+                null
+            }
+        },
+        transactionConnection = connection,
+    ).process(INGESTION_ADVISORY_LOCK_KEY).getOrNull()
+
+    val ageMinutes = (holder?.ageSeconds ?: 0) / 60
+    return when {
+        holder == null -> {
+            // The lock was taken between our attempt and this query, or is held on a backend this
+            // session cannot see. Routine enough not to fail the run, odd enough to say so.
+            ingestionLogger.info(
+                "Another ingestion run is in progress, skipping (lock {} held; holder not visible in pg_locks).",
+                INGESTION_ADVISORY_LOCK_KEY,
+            )
+            Result.success()
+        }
+
+        ageMinutes >= STUCK_LOCK_AFTER_MINUTES -> {
+            ingestionLogger.error(
+                "Ingestion advisory lock {} looks stuck: held by backend pid {} (state {}) for {} minutes, " +
+                    "past the {} minute wall clock a healthy run cannot exceed. No ingestion has run since. " +
+                    "Recover with: SELECT pg_terminate_backend({}).",
+                INGESTION_ADVISORY_LOCK_KEY, holder.pid, holder.state, ageMinutes,
+                STUCK_LOCK_AFTER_MINUTES, holder.pid,
+            )
+            Result.failure(AppFailure.DatabaseError.UnknownError)
+        }
+
+        else -> {
+            ingestionLogger.info(
+                "Another ingestion run is in progress, skipping (lock {} held by backend pid {}, state {}, for {} minutes).",
+                INGESTION_ADVISORY_LOCK_KEY, holder.pid, holder.state, ageMinutes,
+            )
+            Result.success()
+        }
+    }
+}
+
+private data class LockHolder(val pid: Int, val ageSeconds: Long, val state: String)
+
+private suspend fun tryAdvisoryLock(connection: TransactionConnection): Result<AppFailure.DatabaseError, LockAttempt> =
+    DatabaseSteps.query<Long, LockAttempt>(
+        sql = SafeSQL.select("SELECT pg_try_advisory_lock(?), pg_backend_pid()"),
+        parameterSetter = { statement, key -> statement.setLong(1, key) },
+        resultMapper = { rs ->
+            if (rs.next()) LockAttempt(rs.getBoolean(1), rs.getInt(2)) else LockAttempt(false, -1)
+        },
         transactionConnection = connection,
     ).process(INGESTION_ADVISORY_LOCK_KEY)
 
-private suspend fun releaseAdvisoryLock(connection: TransactionConnection) {
-    DatabaseSteps.query<Long, Boolean>(
-        sql = SafeSQL.select("SELECT pg_advisory_unlock(?)"),
+private suspend fun releaseAdvisoryLock(
+    connection: TransactionConnection,
+    acquiredPid: Int,
+    startedAt: Long,
+) {
+    val heldMs = (System.nanoTime() - startedAt) / 1_000_000
+    DatabaseSteps.query<Long, LockAttempt>(
+        sql = SafeSQL.select("SELECT pg_advisory_unlock(?), pg_backend_pid()"),
         parameterSetter = { statement, key -> statement.setLong(1, key) },
-        resultMapper = { rs -> rs.next() && rs.getBoolean(1) },
+        resultMapper = { rs ->
+            if (rs.next()) LockAttempt(rs.getBoolean(1), rs.getInt(2)) else LockAttempt(false, -1)
+        },
         transactionConnection = connection,
     ).process(INGESTION_ADVISORY_LOCK_KEY).fold(
-        onSuccess = { released ->
-            if (!released) ingestionLogger.warn("Ingestion advisory lock $INGESTION_ADVISORY_LOCK_KEY was not held at release time.")
+        onSuccess = { release ->
+            when {
+                !release.acquired -> ingestionLogger.warn(
+                    "Ingestion advisory lock {} was not held at release time (acquired on backend pid {}, released from {}, held {} ms).",
+                    INGESTION_ADVISORY_LOCK_KEY, acquiredPid, release.backendPid, heldMs,
+                )
+                // Released fine, but from a different backend than acquired it. The unlock
+                // succeeding here would be surprising, so treat the mismatch itself as the
+                // finding — it is the exact mechanism MCO-348 hypothesises.
+                release.backendPid != acquiredPid -> ingestionLogger.warn(
+                    "Ingestion advisory lock {} changed backend mid-run: acquired on pid {}, released from pid {} after {} ms. The pooler swapped the session underneath a session-scoped lock (MCO-348).",
+                    INGESTION_ADVISORY_LOCK_KEY, acquiredPid, release.backendPid, heldMs,
+                )
+                else -> ingestionLogger.info(
+                    "Released ingestion advisory lock {} on backend pid {} after {} ms.",
+                    INGESTION_ADVISORY_LOCK_KEY, acquiredPid, heldMs,
+                )
+            }
         },
         onFailure = { ingestionLogger.error("Failed to release ingestion advisory lock: $it") },
     )
@@ -289,33 +450,106 @@ private data object ProcessServerFilesStep : Step<List<ResolvedServerJar>, AppFa
  */
 data object GetServerFileStep : Step<ResolvedServerJar, AppFailure, Pair<MinecraftVersion.Release, InputStream>> {
     private val logger = LoggerFactory.getLogger(GetServerFileStep::class.java)
-    override suspend fun process(input: ResolvedServerJar): Result<AppFailure, Pair<MinecraftVersion.Release, InputStream>> {
+
+    override suspend fun process(input: ResolvedServerJar): Result<AppFailure, Pair<MinecraftVersion.Release, InputStream>> =
+        download(input, DownloadTimeouts())
+
+    /**
+     * Timeouts are a parameter rather than a constant so the timeout branches are testable in
+     * milliseconds instead of minutes. Production always takes the defaults.
+     */
+    internal suspend fun download(
+        input: ResolvedServerJar,
+        timeouts: DownloadTimeouts,
+    ): Result<AppFailure, Pair<MinecraftVersion.Release, InputStream>> {
         return try {
-            withContext(Dispatchers.IO) {
-                val tempFile = Files.createTempFile("server-${input.version}", ".jar")
-                try {
-                    val digest = MessageDigest.getInstance("SHA-1")
-                    input.url.toURL().openStream().use { remote ->
-                        DigestInputStream(remote, digest).use { digested ->
-                            Files.copy(digested, tempFile, StandardCopyOption.REPLACE_EXISTING)
+            withTimeout(timeouts.wallClockMs) {
+                withContext(Dispatchers.IO) {
+                    val tempFile = Files.createTempFile("server-${input.version}", ".jar")
+                    try {
+                        // SHA-1 is not a choice made here, and CodeQL's "use SHA-256 instead"
+                        // (alert 18) cannot be acted on: the digest we are checking against is
+                        // Mojang's, and their version manifest publishes only `sha1`. Verified
+                        // against the live manifest — `downloads.server` carries exactly
+                        // {sha1, size, url}, with no sha256 anywhere in the document. Hashing with
+                        // SHA-256 would leave nothing to compare the result to.
+                        //
+                        // It is also the right strength for what this defends against. Both the
+                        // JAR and the digest arrive from Mojang over TLS, so this is an integrity
+                        // check against a truncated or corrupted download, not a signature and not
+                        // a trust boundary we own. A collision attack needs an adversary who
+                        // authors *both* colliding files; here the honest one is authored by
+                        // Mojang. An attacker able to substitute the JAR could substitute the
+                        // manifest's digest with it, which defeats the check at any hash strength.
+                        //
+                        // Every algorithm this codebase does choose is already SHA-256 or
+                        // HmacSHA256 (ApiCrypto, WebhookSigner, ProjectDemandStore, ChoiceTag).
+                        // If Mojang ever publishes a stronger digest, switch to it here and in
+                        // MojangManifestModels.ServerDownload.
+                        val digest = MessageDigest.getInstance("SHA-1")
+                        // openConnection() rather than openStream(), purely to reach the timeout
+                        // setters — openStream() is openConnection().getInputStream() with both
+                        // left at their default of 0, meaning infinite (MCO-346).
+                        val connection = input.url.toURL().openConnection().apply {
+                            connectTimeout = timeouts.connectMs
+                            readTimeout = timeouts.readMs
                         }
-                    }
-                    val actualSha = digest.digest().joinToString("") { "%02x".format(it) }
-                    if (!actualSha.equals(input.sha1, ignoreCase = true)) {
-                        logger.error("SHA-1 mismatch for ${input.version} server.jar from ${input.url}: expected ${input.sha1}, got $actualSha")
+                        connection.getInputStream().use { remote ->
+                            DigestInputStream(remote, digest).use { digested ->
+                                copyCancellably(digested, tempFile)
+                            }
+                        }
+                        val actualSha = digest.digest().joinToString("") { "%02x".format(it) }
+                        if (!actualSha.equals(input.sha1, ignoreCase = true)) {
+                            logger.error("SHA-1 mismatch for ${input.version} server.jar from ${input.url}: expected ${input.sha1}, got $actualSha")
+                            Files.deleteIfExists(tempFile)
+                            Result.failure(AppFailure.ApiError.ChecksumMismatch(expected = input.sha1, actual = actualSha))
+                        } else {
+                            Result.success(input.version to Files.newInputStream(tempFile, StandardOpenOption.DELETE_ON_CLOSE))
+                        }
+                    } catch (e: Exception) {
                         Files.deleteIfExists(tempFile)
-                        Result.failure(AppFailure.ApiError.ChecksumMismatch(expected = input.sha1, actual = actualSha))
-                    } else {
-                        Result.success(input.version to Files.newInputStream(tempFile, StandardOpenOption.DELETE_ON_CLOSE))
+                        throw e
                     }
-                } catch (e: Exception) {
-                    Files.deleteIfExists(tempFile)
-                    throw e
                 }
             }
+        } catch (e: TimeoutCancellationException) {
+            // Deliberately caught rather than propagated. This coroutine's cancellation must not
+            // escape into withIngestionLock, which needs to unwind normally so the advisory lock
+            // is released — an ingest that dies holding lock 7331 makes every subsequent nightly
+            // run a silent no-op.
+            logger.error(
+                "Timed out after {} ms downloading the {} server.jar; abandoning this version",
+                timeouts.wallClockMs,
+                input.version,
+            )
+            Result.failure(AppFailure.ApiError.TimeoutError)
+        } catch (e: SocketTimeoutException) {
+            logger.error("Connection to Mojang stalled while downloading the ${input.version} server.jar: ${e.message}")
+            Result.failure(AppFailure.ApiError.TimeoutError)
         } catch (e: Exception) {
             logger.error("Failed to download server file for version ${input.version} from ${input.url}: ${e.message}", e)
             Result.failure(AppFailure.ApiError.UnknownError)
+        }
+    }
+
+    /**
+     * Copies [source] to [target] a chunk at a time, checking for cancellation between chunks.
+     *
+     * `Files.copy` would be shorter but loops entirely inside one uninterruptible call, so the
+     * enclosing [withTimeout] could not fire until the whole transfer finished. The socket-level
+     * read timeout covers a connection that stops sending; this covers one that dribbles bytes
+     * slowly enough to stay under that timeout forever.
+     */
+    private suspend fun copyCancellably(source: InputStream, target: java.nio.file.Path) {
+        val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+        Files.newOutputStream(target, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING).use { out ->
+            while (true) {
+                currentCoroutineContext().ensureActive()
+                val read = source.read(buffer)
+                if (read < 0) break
+                out.write(buffer, 0, read)
+            }
         }
     }
 }

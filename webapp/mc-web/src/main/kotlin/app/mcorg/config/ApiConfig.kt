@@ -68,7 +68,13 @@ object MojangLauncherMetaApiConfig : ApiConfig(AppConfig.launcherMetaBaseUrl) {
     fun getVersionManifestUrl() = "${baseUrl}/mc/game/version_manifest_v2.json"
 }
 
-class TestApiConfig : ApiConfig("https://api.example.com") {
+/**
+ * @param baseUrl defaulted so existing `TestApiConfig()` call sites are unchanged. Overridable so
+ * a test can point the real [DefaultApiProvider] at a WireMock port and exercise the shared
+ * client's own behaviour — retry, timeouts, rate limiting — rather than a fake (MCO-354).
+ * [ApiConfig] is sealed, so a test source set cannot subclass it and needs this seam.
+ */
+class TestApiConfig(baseUrl: String = "https://api.example.com") : ApiConfig(baseUrl) {
     override fun getContentType(): ContentType = ContentType.Application.Json
     override fun acceptContentType(): ContentType = ContentType.Application.Json
     override fun getUserAgent(): String = "Seam-Test/1.0"

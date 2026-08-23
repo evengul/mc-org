@@ -66,6 +66,25 @@ class DatabaseTestExtension : BeforeAllCallback {
                 RESTART IDENTITY CASCADE
             """)
         }
+
+        /**
+         * Points [Database] back at the container.
+         *
+         * Extracted from [beforeAll] so a test that deliberately swaps in a failing provider can
+         * put the real one back afterwards (MCO-349's readiness-probe cases). Without a way to
+         * restore, a broken provider would leak into every later class in the reused surefire JVM.
+         */
+        fun installProvider() {
+            Database.setProvider(object : DatabaseConnectionProvider {
+                override fun getConnection(): Connection {
+                    return DriverManager.getConnection(getJdbcUrl(), getUsername(), getPassword())
+                }
+
+                override fun close() {
+                    postgres.close()
+                }
+            })
+        }
     }
 
     override fun beforeAll(context: ExtensionContext) {
@@ -82,14 +101,6 @@ class DatabaseTestExtension : BeforeAllCallback {
 
         flyway.migrate()
 
-        Database.setProvider(object : DatabaseConnectionProvider {
-            override fun getConnection(): Connection {
-                return DriverManager.getConnection(getJdbcUrl(), getUsername(), getPassword())
-            }
-
-            override fun close() {
-                postgres.close()
-            }
-        })
+        installProvider()
     }
 }

@@ -63,6 +63,19 @@ There is deliberately **no real email anywhere in the system** — see below.
 | `DatabaseSteps` (5 sites) | raw `SQLException` | **Fixed.** SQLState + constraint + table + routine; message withheld. Non-SQL exceptions keep their stack trace — that is code locations, not row data. |
 | `ApiProvider` deserialization | previously `println(e.message)` with OAuth tokens | **Fixed** (MCO-336). Target type + URL only. |
 | `ApiProvider` non-2xx | previously an unbounded upstream error body | **Fixed** (MCO-338). Status + URL + byte count; truncated body at DEBUG only. |
+| `ErrorBoundary` (`defaultHandleError`) | previously nothing at all | **Added** (MCO-350). Failure type, method, `path()`, user id. No exception object is attached. Levelled so ordinary outcomes stay quiet: validation, redirects and a missing token are silent, an expired token and a missing row are INFO, a refused authorization is WARN. **Caveat:** not every `AppFailure` variant is a `data object` — `FileError(source, filename)`, `IllegalConfigurationError(reason)`, `ConvertTokenError(errorCode, arguments)` and `ChecksumMismatch` carry free text that the generated `toString()` prints in full. `filename` exists to hold an uploaded schematic name and `arguments` can hold a JWT claim value. Both are unpopulated on today's `mc-web` paths, so this is latent rather than live — but do not populate them without giving the variant a redacting `toString()`. |
+| `StatusPages` boundary (`Routing.kt`) | every uncaught `Throwable` | **Fixed** (MCO-326 review). Previously Ktor's `logError(call, cause)`, which hands the throwable to slf4j — and the rendered trace starts with `getMessage()`, so both libraries in the section above leaked through it. Now an app-owned line: exception types, `httpMethod`, `path()`, call id, and a stack trace with messages stripped (`describeWithoutMessages`). Pinned by `StatusPagesIT`, which asserts against the captured **log line**, not just the rendered page — the page was always clean, which is why this went unnoticed. |
+| `GetServerFileStep` timeout | version + elapsed budget | **Accepted** (MCO-346). Logs `e.message`, which for a `SocketTimeoutException` is "Read timed out" and carries nothing. Bounded because the throwable itself is not attached. |
+
+### The call id is user-visible
+
+Since MCO-350 the 500 page and the generic error alert print this request's call id, so a user can
+quote it in a report. That is safe *because* of the MCO-341 rules above: an inbound `X-Request-Id`
+is only adopted if it matches `[A-Za-z0-9+/=_-]{1,64}`, and anything else is replaced by a
+server-generated UUID. The id is opaque and says nothing about the user or the failure.
+
+Keep it that way. If a call id ever becomes derived from something meaningful — a user id, a
+session, a tenant — it stops being safe to render and this decision has to be revisited.
 
 ## On email
 

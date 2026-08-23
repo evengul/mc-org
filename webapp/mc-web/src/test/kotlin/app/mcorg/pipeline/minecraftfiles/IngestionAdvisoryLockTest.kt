@@ -4,8 +4,13 @@ import app.mcorg.config.Database
 import app.mcorg.pipeline.Result
 import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.test.postgres.DatabaseTestExtension
+import ch.qos.logback.classic.Level
+import ch.qos.logback.classic.Logger
+import ch.qos.logback.classic.spi.ILoggingEvent
+import ch.qos.logback.core.read.ListAppender
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Tag
+import org.slf4j.LoggerFactory
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.api.extension.ExtendWith
@@ -25,6 +30,50 @@ class IngestionAdvisoryLockTest {
 
     /** Must match INGESTION_ADVISORY_LOCK_KEY in GetServerFilesPipeline.kt. */
     private val key = 7331L
+
+    /**
+     * The backend-pid pair the run logs (MCO-348).
+     *
+     * This establishes the *baseline*, and is honest about what it can prove: Testcontainers is a
+     * direct connection, so of course one backend serves the whole run. The value is that the two
+     * lines exist, carry a pid, and agree — which is what makes a production run's logs readable
+     * as evidence. Production goes through Neon's pooler, and only production can answer whether
+     * the backend changes there.
+     */
+    @Test
+    fun `logs the backend pid on acquire and release, and they agree on a direct connection`() {
+        val logger = LoggerFactory.getLogger(
+            "app.mcorg.pipeline.minecraftfiles.ServerFilesIngestion"
+        ) as Logger
+        val appender = ListAppender<ILoggingEvent>().also { it.start() }
+        logger.addAppender(appender)
+        logger.level = Level.INFO
+
+        try {
+            runBlocking { withIngestionLock { Result.success() } }
+
+            val messages = appender.list.map { it.formattedMessage }
+            val acquired = messages.singleOrNull { it.startsWith("Acquired ingestion advisory lock") }
+            val released = messages.singleOrNull { it.startsWith("Released ingestion advisory lock") }
+
+            assertTrue(acquired != null, "expected one acquire line, got: $messages")
+            assertTrue(released != null, "expected one release line, got: $messages")
+
+            val acquiredPid = Regex("backend pid (\\d+)").find(acquired!!)?.groupValues?.get(1)
+            val releasedPid = Regex("backend pid (\\d+)").find(released!!)?.groupValues?.get(1)
+
+            assertTrue(acquiredPid != null && acquiredPid.toInt() > 0, "acquire should name a pid: $acquired")
+            assertEquals(acquiredPid, releasedPid, "one backend should hold the lock start to finish")
+
+            // The mismatch warning is what production is being watched for; it must stay quiet here.
+            assertTrue(
+                messages.none { it.contains("changed backend mid-run") },
+                "a direct connection must not report a backend swap: $messages",
+            )
+        } finally {
+            logger.detachAppender(appender)
+        }
+    }
 
     @Test
     fun `runs the block and releases the lock when it is free`() {
@@ -46,6 +95,38 @@ class IngestionAdvisoryLockTest {
             val result = runBlocking { withIngestionLock { ran = true; Result.success() } }
             assertIs<Result.Success<*>>(result)
             assertFalse(ran, "block must not run while the lock is held by another session")
+        }
+    }
+
+    @Test
+    fun `the contention line names the session actually holding the lock`() {
+        // MCO-348's whole purpose is that one run's logs answer "who holds 7331". The line used to
+        // report `pg_backend_pid()` from the *acquire* query — this process's own backend, which by
+        // definition is not the holder — so it printed a fresh meaningless number every run and an
+        // operator had nothing to pg_terminate_backend.
+        //
+        // Asserts the pid matches the *other* session's, which is the only assertion that can tell
+        // the two apart: any check that a pid is merely present passed before the fix too.
+        val logger = LoggerFactory.getLogger(
+            "app.mcorg.pipeline.minecraftfiles.ServerFilesIngestion"
+        ) as Logger
+        val appender = ListAppender<ILoggingEvent>().also { it.start() }
+        logger.addAppender(appender)
+        logger.level = Level.INFO
+
+        try {
+            holdingLock { holderPid ->
+                runBlocking { withIngestionLock { Result.success() } }
+
+                val skip = appender.list.map { it.formattedMessage }
+                    .singleOrNull { it.startsWith("Another ingestion run is in progress") }
+                assertTrue(skip != null, "expected a contention line, got: ${appender.list.map { it.formattedMessage }}")
+
+                val loggedPid = Regex("backend pid (\\d+)").find(skip!!)?.groupValues?.get(1)?.toInt()
+                assertEquals(holderPid, loggedPid, "the contention line must name the holder, not the asker: $skip")
+            }
+        } finally {
+            logger.detachAppender(appender)
         }
     }
 
@@ -86,14 +167,17 @@ class IngestionAdvisoryLockTest {
         }
 
     /** Holds the lock on a dedicated session for the duration of [block], then releases it. */
-    private fun holdingLock(block: () -> Unit) {
+    private fun holdingLock(block: (holderPid: Int) -> Unit) {
         val conn = Database.getConnection()
         try {
-            conn.prepareStatement("SELECT pg_try_advisory_lock(?)").use { stmt ->
+            val holderPid = conn.prepareStatement("SELECT pg_try_advisory_lock(?), pg_backend_pid()").use { stmt ->
                 stmt.setLong(1, key)
-                stmt.executeQuery().use { rs -> assertTrue(rs.next() && rs.getBoolean(1), "precondition: should acquire the lock") }
+                stmt.executeQuery().use { rs ->
+                    assertTrue(rs.next() && rs.getBoolean(1), "precondition: should acquire the lock")
+                    rs.getInt(2)
+                }
             }
-            block()
+            block(holderPid)
         } finally {
             conn.prepareStatement("SELECT pg_advisory_unlock(?)").use { stmt ->
                 stmt.setLong(1, key)

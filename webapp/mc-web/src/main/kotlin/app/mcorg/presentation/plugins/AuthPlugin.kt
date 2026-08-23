@@ -17,7 +17,7 @@ import io.ktor.server.response.respondRedirect
 /**
  * Path prefixes exempt from the JWT sign-in redirect. Static assets are served before auth, and
  * `/integrations/` is the machine-facing surface that carries its own shared-secret gate (e.g.
- * WebhookAdminAuthPlugin) and must not be bounced to the user sign-in flow.
+ * MachineEndpointAuthPlugin) and must not be bounced to the user sign-in flow.
  */
 private val AUTH_EXEMPT_PREFIXES = listOf(
     "/static/",
@@ -27,10 +27,26 @@ private val AUTH_EXEMPT_PREFIXES = listOf(
     "/api/v1",
 )
 
+/**
+ * Health endpoints, exempt by **exact** match rather than prefix (MCO-349).
+ *
+ * A platform health check arrives with no cookie, so without this it is redirected to sign-in and
+ * Fly reads the 302 as unhealthy — every machine would be marked down by the very check meant to
+ * confirm it is up. Neither endpoint discloses anything: `/test/ping` is a constant, `/test/ready`
+ * is READY or NOT READY.
+ *
+ * Exact match, not a `/test/` prefix, so a future route under `/test` is authenticated by default
+ * rather than exempt by accident.
+ */
+private val AUTH_EXEMPT_PATHS = setOf(
+    "/test/ping",
+    "/test/ready",
+)
+
 val AuthPlugin = createRouteScopedPlugin("AuthPlugin") {
     onCall {
         val path = it.request.path()
-        if (AUTH_EXEMPT_PREFIXES.any { prefix -> path.startsWith(prefix) }) {
+        if (path in AUTH_EXEMPT_PATHS || AUTH_EXEMPT_PREFIXES.any { prefix -> path.startsWith(prefix) }) {
             return@onCall
         }
         val result = pipelineResult<AppFailure, Unit> {

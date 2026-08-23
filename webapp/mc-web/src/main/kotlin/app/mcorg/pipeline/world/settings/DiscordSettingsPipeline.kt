@@ -29,6 +29,29 @@ private val CHANNEL_ID_PATTERN = Regex("""^\d{15,21}$""")
 
 private fun validationError(failure: ValidationFailure) = AppFailure.ValidationError(listOf(failure))
 
+/**
+ * The event types `seam-discord` actually renders, and therefore the filter a new Discord
+ * subscription is created with (MCO-358).
+ *
+ * These were `["*"]`, which subscribed Discord to all eleven Seam event types while its Worker
+ * rendered five and silently discarded the rest. The argument for narrowing is not bandwidth: a
+ * failed delivery counts toward the ten-consecutive-failure auto-deactivation whether or not
+ * anyone would have seen the message, and the discarded types included the two chattiest in the
+ * system (`resource_count_updated`, `task_toggled`). Most of the deactivation budget was being
+ * spent on messages nobody would ever read.
+ *
+ * **This list is coupled to `seam-discord/src/render.ts` by hand.** When the Worker learns a new
+ * type, widen this — and note that existing subscriptions keep their stored filter, so they must
+ * be reconnected to pick it up. See `documentation/webhook-contract.md`.
+ */
+private val DISCORD_RENDERED_EVENTS = listOf(
+    "project_created",
+    "project_status_changed",
+    "project_resources_complete",
+    "project_unblocked",
+    "resource_milestone_reached",
+)
+
 /** Whether the Discord integration is wired up for this instance (Worker URL + shared secret set). */
 fun discordConfigured(): Boolean =
     !AppConfig.seamDiscordUrl.isNullOrBlank() && !AppConfig.webhookSharedSecret.isNullOrBlank()
@@ -89,7 +112,9 @@ suspend fun ApplicationCall.handleConnectDiscord() {
                 worldId = worldId,
                 callbackUrl = callbackUrl,
                 secret = sharedSecret,
-                eventFilterJson = """["*"]""",
+                eventFilterJson = DISCORD_RENDERED_EVENTS.joinToString(
+                    prefix = "[", postfix = "]", separator = ","
+                ) { "\"$it\"" },
                 metadataJson = metadataJson,
             )
         )

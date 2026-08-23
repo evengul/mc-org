@@ -1,5 +1,6 @@
 package app.mcorg.presentation.handler
 
+import app.mcorg.domain.model.user.TokenProfile
 import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.failure.ValidationFailure
 import app.mcorg.presentation.hxOutOfBands
@@ -12,10 +13,13 @@ import app.mcorg.presentation.utils.hxTarget
 import app.mcorg.presentation.utils.respondHtml
 import io.ktor.http.*
 import io.ktor.server.application.*
+import io.ktor.server.plugins.callid.callId
 import io.ktor.server.request.*
 import io.ktor.server.response.*
+import io.ktor.util.AttributeKey
 import kotlinx.html.*
 import kotlinx.html.stream.createHTML
+import org.slf4j.LoggerFactory
 
 sealed interface ErrorHandler {
     data class AlertPopup(
@@ -27,9 +31,85 @@ sealed interface ErrorHandler {
     ) : ErrorHandler
 }
 
+private val errorLogger = LoggerFactory.getLogger("app.mcorg.presentation.ErrorBoundary")
+
+/**
+ * How loudly a failure reaching the boundary deserves to be reported.
+ *
+ * Most of what arrives here is ordinary: a signed-out visitor, a stale link, a form filled in
+ * wrong. Logging all of it at ERROR would make the error log useless on the day it matters, which
+ * is the failure mode this issue is trying to avoid — not replace with a noisier one.
+ */
+private enum class FailureVolume { SILENT, INFO, WARN, ERROR }
+
+private fun AppFailure.volume(): FailureVolume = when (this) {
+    // Normal control flow. The user typed something wrong, or is not signed in yet.
+    is AppFailure.ValidationError -> FailureVolume.SILENT
+    is AppFailure.Redirect -> FailureVolume.SILENT
+    is AppFailure.AuthError.MissingToken -> FailureVolume.SILENT
+
+    // Expected but worth being able to count: an expired token, a link to something deleted.
+    is AppFailure.AuthError.ConvertTokenError -> FailureVolume.INFO
+    is AppFailure.DatabaseError.NotFound -> FailureVolume.INFO
+
+    // Someone reached for something that is not theirs. Rarely an attack, always worth seeing.
+    is AppFailure.AuthError.NotAuthorized -> FailureVolume.WARN
+
+    // Genuinely broken.
+    is AppFailure.AuthError.CouldNotCreateToken -> FailureVolume.ERROR
+    is AppFailure.DatabaseError -> FailureVolume.ERROR
+    is AppFailure.ApiError -> FailureVolume.ERROR
+    is AppFailure.FileError -> FailureVolume.ERROR
+    is AppFailure.IllegalConfigurationError -> FailureVolume.ERROR
+}
+
+/**
+ * Records a failure at the one place every `handlePipeline` failure passes through (MCO-350).
+ *
+ * `defaultHandleError` used to log nothing at all. Failures built without an exception —
+ * `MinecraftSignInPipeline`, `ItemSourceGraphSteps`, `GetDraftStep`, `ApiStore` — left no trace
+ * whatsoever, and the user was told "the error has been logged" while nothing had been.
+ *
+ * What goes in the line is governed by documentation/logging.md: the failure type, the method and
+ * **path** (never `uri`, which carries the query string), and the user id when one is established.
+ * The `AppFailure` variants are `data object`s with no cause field, so there is no exception here
+ * to leak even by accident — and the call id arrives on its own via MDC, which is what ties this
+ * line to the id printed on the user's error page.
+ */
+private fun ApplicationCall.logFailure(error: AppFailure) {
+    val volume = error.volume()
+    if (volume == FailureVolume.SILENT) return
+
+    val userId = attributes.getOrNull(AttributeKey<TokenProfile>("user"))?.id
+    val message = "Pipeline failure {} on {} {} (user {})"
+    val args = arrayOf<Any?>(error, request.httpMethod.value, request.path(), userId ?: "anonymous")
+
+    when (volume) {
+        FailureVolume.ERROR -> errorLogger.error(message, *args)
+        FailureVolume.WARN -> errorLogger.warn(message, *args)
+        FailureVolume.INFO -> errorLogger.info(message, *args)
+        FailureVolume.SILENT -> Unit
+    }
+}
+
 suspend fun <E : AppFailure> ApplicationCall.defaultHandleError(error: E) {
+    logFailure(error)
+
     when (error) {
         is AppFailure.ValidationError -> handleValidationMessage(error.errors)
+
+        // Split out of the generic branch (MCO-350). toHttpStatusCode already returned 404, but
+        // the copy said "an unexpected error occurred", so navigating to a deleted world read as
+        // a crash. Nothing is broken here and the page should not imply otherwise.
+        is AppFailure.DatabaseError.NotFound -> handleErrorMessage(
+            ErrorHandler.AlertPopup(
+                id = "not-found-error",
+                title = "Not found",
+                message = "That no longer exists. It may have been deleted.",
+                statusCode = HttpStatusCode.NotFound
+            )
+        )
+
         is AppFailure.DatabaseError,
         is AppFailure.ApiError,
         is AppFailure.FileError,
@@ -37,7 +117,9 @@ suspend fun <E : AppFailure> ApplicationCall.defaultHandleError(error: E) {
             ErrorHandler.AlertPopup(
                 id = "generic-error",
                 title = "An error occurred",
-                message = "An unexpected error occurred. Please try again later.",
+                // The call id is the whole point of the issue: it lets a user quote something we
+                // can search for, instead of describing what they were doing.
+                message = referenceSuffixed("An unexpected error occurred. Please try again later."),
                 statusCode = error.toHttpStatusCode()
             )
         )
@@ -71,6 +153,16 @@ suspend fun <E : AppFailure> ApplicationCall.defaultHandleError(error: E) {
         }
     }
 }
+
+/**
+ * Appends this call's id to a user-facing message, when there is one.
+ *
+ * The id is opaque and generated server-side (`Monitoring.kt`), so it is safe to show — it says
+ * nothing about the user or the failure, it is only a handle for finding the log line. Absent in
+ * tests that do not install `CallId`, hence the null branch rather than a fabricated value.
+ */
+private fun ApplicationCall.referenceSuffixed(message: String): String =
+    callId?.let { "$message (reference: $it)" } ?: message
 
 private suspend fun ApplicationCall.handleRedirect(url: String) {
     if (request.headers["HX-Request"] == "true") {

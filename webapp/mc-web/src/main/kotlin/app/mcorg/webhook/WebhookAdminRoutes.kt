@@ -11,7 +11,7 @@ import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.ValidationSteps
 import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.presentation.handler.handlePipeline
-import app.mcorg.presentation.plugins.WebhookAdminAuthPlugin
+import app.mcorg.presentation.plugins.MachineEndpointAuthPlugin
 import app.mcorg.presentation.utils.respondHtml
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.Parameters
@@ -40,7 +40,7 @@ private val adminJson = Json
  */
 fun Route.webhookAdminRoutes() {
     route("/integrations/webhooks") {
-        install(WebhookAdminAuthPlugin)
+        install(MachineEndpointAuthPlugin)
         post { call.handleCreateWebhookSubscription() }
         delete("/{subscriptionId}") { call.handleDeleteWebhookSubscription() }
     }

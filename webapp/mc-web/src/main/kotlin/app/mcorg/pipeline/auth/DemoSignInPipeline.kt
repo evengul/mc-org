@@ -10,10 +10,16 @@ import app.mcorg.pipeline.auth.commonsteps.CreateTokenStep
 import app.mcorg.pipeline.auth.commonsteps.CreateUserIfNotExistsStep
 import app.mcorg.pipeline.auth.commonsteps.UpdateLastSignInStep
 import app.mcorg.pipeline.failure.AppFailure
+import app.mcorg.presentation.security.safeRedirectPath
 import app.mcorg.presentation.utils.getHost
+import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.*
+import io.ktor.server.plugins.origin
 import io.ktor.server.response.*
+import org.slf4j.LoggerFactory
 import kotlin.random.Random
+
+private val logger = LoggerFactory.getLogger("app.mcorg.pipeline.auth.DemoSignIn")
 
 // Fixed roster of demo identities selectable via ?username= in non-production environments.
 // A closed allowlist keeps the caller from steering the UUID lookup (uuid = "$username-uuid")
@@ -47,6 +53,20 @@ internal fun resolveDemoUsername(env: Env, requested: String?, defaultUser: Stri
 }
 
 suspend fun ApplicationCall.handleDemoSignIn() {
+    // Enforced here, not only in the URL builder (MCO-352). getSignInUrl already refuses to
+    // *offer* this path in production and the landing page only renders the Microsoft URL — but
+    // the route is registered unconditionally and AuthPlugin lets /oidc through unauthenticated,
+    // so nothing stopped a direct GET. Anyone who typed the URL on app.seam.gg got an eight-hour
+    // cookie for the shared demo account, with only DemoUserPlugin's `httpMethod !in [Get,
+    // Options]` check standing between them and writes.
+    //
+    // 404 rather than 403: in production this endpoint should not appear to exist.
+    if (AppConfig.env == Production) {
+        logger.warn("Refused a demo sign-in attempt in production from ${request.origin.remoteHost}")
+        respond(HttpStatusCode.NotFound)
+        return
+    }
+
     val demoUsername = resolveDemoUsername(AppConfig.env, request.queryParameters["username"], AppConfig.demoUser)
     if (demoUsername == null) {
         // DEMO_USER is unset — the feature is off, not misconfigured mid-request.
@@ -54,7 +74,10 @@ suspend fun ApplicationCall.handleDemoSignIn() {
         return
     }
     val demoUuid = "${demoUsername}-uuid"
-    val redirectPath = parameters["redirect_to"] ?: "/"
+    // fallback "/" rather than the function's "/worlds" default: this endpoint already landed on
+    // "/" when no redirect was given, and MCO-352 is about refusing off-origin targets, not about
+    // moving where a demo sign-in ends up.
+    val redirectPath = safeRedirectPath(parameters["redirect_to"], fallback = "/")
 
     pipeline(
         onSuccess = { respondRedirect(redirectPath) },

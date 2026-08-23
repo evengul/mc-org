@@ -8,5 +8,5 @@ COPY *-with-dependencies.jar /app/mcorg.jar
 
 ENTRYPOINT ["java", "-Xms256m", "-Xmx768m", "-jar", "/app/mcorg.jar"]
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost:8080/test/ping || exit 1
+# No HEALTHCHECK here on purpose — Fly Machines does not run the Docker directive. See the note
+# in Dockerfile and `[[http_service.checks]]` in dev.fly.toml (MCO-349).

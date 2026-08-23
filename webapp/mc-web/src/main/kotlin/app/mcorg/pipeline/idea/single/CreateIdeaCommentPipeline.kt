@@ -44,7 +44,7 @@ suspend fun ApplicationCall.handleCreateIdeaComment() {
         val input = ValidateCommentInput.run(parameters)
         val validated = ValidateNoExistingCommentStep(ideaId, userId).run(input)
         val comment = CreateCommentStep(ideaId, userId).run(validated)
-        CacheManager.onIdeaCommentCreated(comment.id)
+        CacheManager.onIdeaCommentCreated(ideaId, comment.id)
         val distribution = FetchRatingDistributionStep(ideaId).run(Unit)
         comment to distribution
     }

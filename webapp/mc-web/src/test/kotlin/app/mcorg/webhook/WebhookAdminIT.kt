@@ -7,7 +7,7 @@ import app.mcorg.pipeline.Result
 import app.mcorg.pipeline.world.CreateWorldInput
 import app.mcorg.pipeline.world.CreateWorldStep
 import app.mcorg.presentation.plugins.AuthPlugin
-import app.mcorg.presentation.plugins.WEBHOOK_ADMIN_SECRET_HEADER
+import app.mcorg.presentation.plugins.MACHINE_SECRET_HEADER
 import app.mcorg.test.WithUser
 import app.mcorg.test.postgres.DatabaseTestExtension
 import io.ktor.client.request.header
@@ -150,7 +150,7 @@ class WebhookAdminIT : WithUser() {
 
     private suspend fun ApplicationTestBuilder.create(vararg params: Pair<String, String>, secret: String?): HttpResponse =
         client.post("/integrations/webhooks") {
-            if (secret != null) header(WEBHOOK_ADMIN_SECRET_HEADER, secret)
+            if (secret != null) header(MACHINE_SECRET_HEADER, secret)
             contentType(ContentType.Application.FormUrlEncoded)
             setBody(params.toList().formUrlEncode())
         }
@@ -158,7 +158,7 @@ class WebhookAdminIT : WithUser() {
     private suspend fun ApplicationTestBuilder.delete(id: Int, secret: String): HttpResponse =
         client.request("/integrations/webhooks/$id") {
             method = HttpMethod.Delete
-            header(WEBHOOK_ADMIN_SECRET_HEADER, secret)
+            header(MACHINE_SECRET_HEADER, secret)
         }
 
     private fun createWorld(name: String): Int = runBlocking {

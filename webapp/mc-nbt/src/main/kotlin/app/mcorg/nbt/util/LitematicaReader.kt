@@ -5,7 +5,10 @@ import app.mcorg.domain.model.minecraft.LitematicaRegion
 import app.mcorg.nbt.failure.NBTFailure
 import app.mcorg.pipeline.Result
 import app.mcorg.nbt.io.BinaryNbtDeserializer
+import app.mcorg.nbt.io.BoundedInputStream
 import app.mcorg.nbt.io.CompressionType
+import app.mcorg.nbt.io.NbtLimits
+import app.mcorg.nbt.io.NbtSizeLimitExceeded
 import app.mcorg.nbt.tag.ByteTag
 import app.mcorg.nbt.tag.CompoundTag
 import app.mcorg.nbt.tag.IntTag
@@ -37,8 +40,17 @@ object LitematicaReader {
     // must never surface as a required block in the extracted material list.
     private val AIR_BLOCKS = setOf("minecraft:air", "minecraft:cave_air", "minecraft:void_air")
 
+    /**
+     * Reads at most [NbtLimits.MAX_DECOMPRESSED_BYTES] from [stream]; a longer stream is refused
+     * rather than buffered (MCO-345). Callers that already hold the bytes should prefer the
+     * [ByteArray] overload and cap the upload before it reaches memory at all.
+     */
     fun readLitematica(stream: InputStream): Result<NBTFailure, Litematica> {
-        val content = stream.readBytes()
+        val content = try {
+            BoundedInputStream(stream).readBytes()
+        } catch (e: NbtSizeLimitExceeded) {
+            return Result.failure(NBTFailure.DeserializeError(e.message ?: "Litematica file is too large"))
+        }
         return readLitematica(content)
     }
 
@@ -172,11 +184,20 @@ object LitematicaReader {
         // palette.size >= 1 guaranteed by guard above
         val bitsPerBlock = maxOf(2, 32 - Integer.numberOfLeadingZeros(palette.size - 1))
 
-        // Decode the packed block states and count directly
+        // Decode the packed block states and count directly.
+        //
+        // Iterate over what the data can actually address, not over what Size claims (MCO-345).
+        // Size is attacker-declared: a ~200 byte file claiming 2000x2000x500 asks for two billion
+        // iterations, and the old `return@repeat` was a continue rather than a break, so every one
+        // of them ran and did nothing on a Netty worker thread. A block's index is only readable
+        // if its bits are present, so the packed array length is the real ceiling.
         val counts = IntArray(palette.size)
         var bitIndex = 0
 
-        repeat(totalBlocksInt) {
+        val addressableBlocks = (blockStates.size.toLong() * 64) / bitsPerBlock
+        val blocksToRead = minOf(totalBlocksInt.toLong(), addressableBlocks).toInt()
+
+        repeat(blocksToRead) {
             val longIndex = bitIndex / 64
             val bitOffset = bitIndex % 64
 

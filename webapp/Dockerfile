@@ -30,5 +30,9 @@ COPY --from=build /home/maven/src/mc-web/target/*-with-dependencies.jar /app/mco
 
 ENTRYPOINT ["java", "-Xms256m", "-Xmx768m", "-jar", "/app/mcorg.jar"]
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost:8080/test/ping || exit 1
+# No HEALTHCHECK here on purpose (MCO-349). There used to be one, and it read as coverage while
+# doing nothing: Fly Machines does not execute the Docker HEALTHCHECK directive, so `fly status`
+# showed an empty CHECKS column on every machine for as long as it existed.
+#
+# The real check is `[[http_service.checks]]` in fly.toml. Adding a directive back here would
+# reintroduce the same false reassurance rather than a second layer of safety.

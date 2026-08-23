@@ -30,6 +30,15 @@ primary_region = 'arn'
     min_machines_running = 1
     processes = ['app']
 
+    # Mirrors fly.toml (MCO-349). /test/ping is auth-exempt and ungated by PreviewGate, so the
+    # check works on a preview even though the rest of the app is behind basic auth.
+    [[http_service.checks]]
+      interval = "30s"
+      timeout = "5s"
+      grace_period = "20s"
+      method = "GET"
+      path = "/test/ping"
+
 [[vm]]
     size = 'shared-cpu-1x'
     memory = '1gb'

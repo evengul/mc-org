@@ -22,11 +22,13 @@ private fun normalizeUserCode(raw: String): String {
     return if (cleaned.length == 8) "${cleaned.substring(0, 4)}-${cleaned.substring(4)}" else cleaned
 }
 
-/** Deny framing so the code-prefill form can't be clickjacked. */
-private fun ApplicationCall.setLinkFramingHeaders() {
-    response.headers.append("Content-Security-Policy", "frame-ancestors 'none'")
-    response.headers.append("X-Frame-Options", "DENY")
-}
+/*
+ * setLinkFramingHeaders() lived here, setting `frame-ancestors 'none'` and `X-Frame-Options: DENY`
+ * on this route alone — the code-prefill form being the obvious clickjacking target. MCO-356 sends
+ * both on every response from configureHTTP, so keeping it would only emit duplicate headers
+ * (browsers intersect multiple CSPs, so it would not even be stricter). Removed rather than left
+ * as a no-op.
+ */
 
 /**
  * CSRF gate for the state-changing POST (there is no CSRF-token infra). When an `Origin` (or, as a
@@ -45,14 +47,12 @@ private fun ApplicationCall.isCrossOriginPost(): Boolean {
 }
 
 suspend fun ApplicationCall.handleGetLinkPage() {
-    setLinkFramingHeaders()
     val user = getUser()
     val prefill = request.queryParameters["user_code"]?.let { normalizeUserCode(it) }
     respondHtml(linkPage(user = user, prefillCode = prefill))
 }
 
 suspend fun ApplicationCall.handleApproveLinkPage() {
-    setLinkFramingHeaders()
     val user = getUser()
     if (isCrossOriginPost()) {
         respondHtml(

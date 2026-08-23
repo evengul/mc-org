@@ -26,7 +26,7 @@ fun ApplicationCall.getApiTokenHash(): String = attributes[API_TOKEN_HASH_KEY]
  * On success it stores the resolved user id (and token hash) on the call and best-effort bumps
  * `last_used_at`. Fails closed with a JSON 401 on any missing/invalid/expired/revoked token.
  *
- * Modelled on [app.mcorg.presentation.plugins.WebhookAdminAuthPlugin]; the `/api/v1` prefix is
+ * Modelled on [app.mcorg.presentation.plugins.MachineEndpointAuthPlugin]; the `/api/v1` prefix is
  * JWT-exempt (see AuthPlugin's allowlist) so this is the only gate on these routes.
  */
 val ApiBearerAuthPlugin = createRouteScopedPlugin("ApiBearerAuthPlugin") {

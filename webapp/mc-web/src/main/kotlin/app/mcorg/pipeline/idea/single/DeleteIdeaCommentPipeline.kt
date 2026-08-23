@@ -23,13 +23,23 @@ suspend fun ApplicationCall.handleDeleteIdeaComment() {
             )
         }
     ) {
-        deleteIdeaStep.run(ideaCommentId)
-        CacheManager.onIdeaCommentDeleted(ideaCommentId)
+        deleteIdeaCommentStep.run(ideaId to ideaCommentId)
+        CacheManager.onIdeaCommentDeleted(ideaId, ideaCommentId)
         FetchRatingDistributionStep(ideaId).run(Unit)
     }
 }
 
-private val deleteIdeaStep = DatabaseSteps.update<Int>(
-    sql = SafeSQL.delete("DELETE FROM idea_comments WHERE id = ?"),
-    parameterSetter = { ps, input -> ps.setInt(1, input) }
+/**
+ * Scoped by `idea_id` as well as `id` (MCO-351).
+ *
+ * [app.mcorg.presentation.plugins.IdeaCommentAuthorPlugin] on the route is the authorization;
+ * this is the belt to its braces, so a comment can never be deleted through the wrong idea even
+ * if that plugin is one day dropped from the route tree.
+ */
+private val deleteIdeaCommentStep = DatabaseSteps.update<Pair<Int, Int>>(
+    sql = SafeSQL.delete("DELETE FROM idea_comments WHERE id = ? AND idea_id = ?"),
+    parameterSetter = { ps, (ideaId, commentId) ->
+        ps.setInt(1, commentId)
+        ps.setInt(2, ideaId)
+    }
 )

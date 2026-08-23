@@ -5,9 +5,68 @@ import app.mcorg.nbt.tag.*
 import java.io.DataInputStream
 import java.io.InputStream
 
-class BigEndianNbtInputStream(
-    inputStream: InputStream
-) : DataInputStream(inputStream), NbtInput<Any>, MaxDepthIO {
+/**
+ * Reads NBT from an untrusted stream.
+ *
+ * Every declared length in NBT is attacker-controlled, so the stream is wrapped in a
+ * [BoundedInputStream] and each allocation is cross-checked against the bytes that stream can
+ * still supply (MCO-345). Without that check `ByteArray(readInt())` is an out-of-memory primitive
+ * costing the attacker five bytes.
+ */
+class BigEndianNbtInputStream private constructor(
+    private val bounded: BoundedInputStream,
+) : DataInputStream(bounded), NbtInput<Any>, MaxDepthIO {
+
+    constructor(
+        inputStream: InputStream,
+        limit: Long = NbtLimits.MAX_DECOMPRESSED_BYTES,
+    ) : this(BoundedInputStream(inputStream, limit))
+
+    /**
+     * Rejects a declared element count that the remaining input could not possibly satisfy.
+     *
+     * The check is deliberately about *bytes still readable*, not about a fixed element ceiling:
+     * a file may only claim what it is prepared to supply, which makes the bound self-scaling and
+     * leaves legitimate documents untouched.
+     */
+    private fun checkedLength(declared: Int, bytesPerElement: Long, what: String): Int {
+        if (declared < 0) {
+            throw NbtSizeLimitExceeded("$what declared a negative length ($declared)")
+        }
+        val needed = declared.toLong() * bytesPerElement
+        val available = bounded.remaining()
+        if (needed > available) {
+            throw NbtSizeLimitExceeded(
+                "$what declared $declared elements needing $needed bytes, but only $available remain"
+            )
+        }
+        return declared
+    }
+
+    /** Heap charged so far by `TAG_List` elements, against [NbtLimits.MAX_LIST_HEAP_BYTES]. */
+    private var listHeapCharged: Long = 0
+
+    /**
+     * Charges a declared list length against the document's heap budget.
+     *
+     * Separate from [checkedLength] because the two bound different resources and only one of them
+     * was covered. `checkedLength` asks whether the *stream* can supply the elements; this asks
+     * whether the *heap* can hold them, which for a list of compounds is roughly eighty times as
+     * much. See [NbtLimits.MAX_LIST_HEAP_BYTES].
+     *
+     * Charged cumulatively rather than per list, because per-list checks sum: every element costs
+     * at least one wire byte, so a 16 MB document can declare 16 M of them spread over as many
+     * lists as it likes, and a per-list ceiling would let each pass individually.
+     */
+    private fun chargeListHeap(declared: Int, type: Byte, what: String) {
+        listHeapCharged += declared.toLong() * NbtLimits.estimatedHeapCost(type)
+        if (listHeapCharged > NbtLimits.MAX_LIST_HEAP_BYTES) {
+            throw NbtSizeLimitExceeded(
+                "$what declared $declared elements, taking this document past the " +
+                    "${NbtLimits.MAX_LIST_HEAP_BYTES} byte list heap budget"
+            )
+        }
+    }
 
     override fun readTag(maxDepth: Int): Result<BinaryParseFailure, NamedTag<*>> {
         val id = Result.tryCatch(
@@ -60,25 +119,25 @@ class BigEndianNbtInputStream(
     fun readStringTag() = tryRead { StringTag(readUTF()) }
 
     fun readByteListTag() = tryRead {
-        val byteArray = ByteArray(readInt())
+        val byteArray = ByteArray(checkedLength(readInt(), 1, "TAG_Byte_Array"))
         readFully(byteArray)
-        ByteListTag(byteArray.toList())
+        ByteListTag(byteArray)
     }
 
     fun readIntListTag() = tryRead {
-        val intArray = IntArray(readInt())
+        val intArray = IntArray(checkedLength(readInt(), 4, "TAG_Int_Array"))
         for (i in intArray.indices) {
             intArray[i] = readInt()
         }
-        IntListTag(intArray.toList())
+        IntListTag(intArray)
     }
 
     fun readLongListTag() = tryRead {
-        val longArray = LongArray(readInt())
+        val longArray = LongArray(checkedLength(readInt(), 8, "TAG_Long_Array"))
         for (i in longArray.indices) {
             longArray[i] = readLong()
         }
-        LongListTag(longArray.toList())
+        LongListTag(longArray)
     }
 
     fun readUnknownListTag(maxDepth: Int) = tryRead {
@@ -88,6 +147,17 @@ class BigEndianNbtInputStream(
         val tag = ListTag<Any>(id = type)
 
         val length = readInt().coerceAtLeast(0)
+
+        // A TAG_End reader consumes zero bytes, so a list of them is the one case the
+        // bytes-remaining check below cannot bound — 0x7FFFFFFF no-op appends from a handful of
+        // bytes. An empty list is still written with element type 0, so only a non-zero length
+        // is rejected.
+        if (type == EndTag.id && length > 0) {
+            throw NbtSizeLimitExceeded("TAG_List of TAG_End declared $length elements; TAG_End consumes no bytes")
+        }
+        checkedLength(length, NbtLimits.minimumEncodedSize(type), "TAG_List of tag type $type")
+        chargeListHeap(length, type, "TAG_List of tag type $type")
+
         repeat(length) {
             val newDepth = decrementMaxDepth(maxDepth)
             if (newDepth is Result.Failure) {
@@ -112,6 +182,13 @@ class BigEndianNbtInputStream(
         val compoundTag = CompoundTag()
 
         while (true) {
+            // Bail out once the compound is clearly not recoverable, rather than reading the rest
+            // of a hostile document to build a list nobody will read. Without this an unknown tag
+            // id — three wire bytes — accumulated one failure per occurrence for the whole 16 MB
+            // budget. See BinaryParseFailure.Multiple.
+            if (errors.size >= BinaryParseFailure.Multiple.MAX_ACCUMULATED) {
+                return Result.failure(BinaryParseFailure.Multiple(errors))
+            }
             val idResult = readByteTag()
             if (idResult is Result.Failure) {
                 return Result.failure(idResult.error)

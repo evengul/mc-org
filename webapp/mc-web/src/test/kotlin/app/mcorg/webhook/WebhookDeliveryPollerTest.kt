@@ -39,7 +39,7 @@ class WebhookDeliveryPollerTest {
     fun setup() {
         mockkObject(WebhookStore)
         coEvery { WebhookStore.pruneOldDeliveries() } returns Unit
-        coEvery { WebhookStore.findDueDeliveries(any()) } returns emptyList()
+        coEvery { WebhookStore.claimDueDeliveries(any(), any()) } returns emptyList()
     }
 
     @AfterEach
@@ -111,7 +111,7 @@ class WebhookDeliveryPollerTest {
     @Test
     fun `idle loop with an empty outbox issues no further due-delivery polls until signalled`() = runBlocking {
         val dueCalls = AtomicInteger(0)
-        coEvery { WebhookStore.findDueDeliveries(any()) } coAnswers {
+        coEvery { WebhookStore.claimDueDeliveries(any(), any()) } coAnswers {
             dueCalls.incrementAndGet()
             emptyList()
         }

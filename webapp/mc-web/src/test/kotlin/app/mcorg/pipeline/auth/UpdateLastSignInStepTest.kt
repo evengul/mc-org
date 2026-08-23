@@ -11,7 +11,7 @@ import org.junit.jupiter.api.Test
 import java.sql.Connection
 import java.sql.PreparedStatement
 import java.sql.ResultSet
-import java.sql.SQLTimeoutException
+import java.sql.SQLTransientConnectionException
 import kotlin.test.assertTrue
 
 /**
@@ -85,8 +85,11 @@ class UpdateLastSignInStepTest {
         // Arrange
         val username = TEST_USERNAME
 
-        // Mock database unavailable scenario
-        every { mockProvider.getConnection() } throws SQLTimeoutException("Database down")
+        // Mock database unavailable scenario. SQLTransientConnectionException is what Hikari
+        // actually raises when it cannot hand over a connection; the SQLTimeoutException this
+        // used to throw is a shape pgjdbc never produces, so it tested the old mapping's
+        // unreachable branch rather than the real failure (MCO-347).
+        every { mockProvider.getConnection() } throws SQLTransientConnectionException("Database down")
 
         // Act & Assert
         val error = TestUtils.executeAndAssertFailure(
