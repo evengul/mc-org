@@ -1,6 +1,8 @@
 package app.mcorg.presentation.handler.project
 
 import app.mcorg.domain.model.minecraft.MinecraftVersion
+import app.mcorg.domain.model.project.ProjectStage
+import app.mcorg.domain.model.project.ProjectState
 import app.mcorg.domain.model.user.Role
 import app.mcorg.config.CacheManager
 import app.mcorg.pipeline.DatabaseSteps
@@ -10,6 +12,8 @@ import app.mcorg.pipeline.project.ReviewedMaterial
 import app.mcorg.pipeline.project.ReviewedMaterialsCodec
 import app.mcorg.pipeline.project.handleImportIdea
 import app.mcorg.pipeline.project.handleReviewIdeaImport
+import app.mcorg.pipeline.resources.GetWorldFarmSuppliesStep
+import app.mcorg.pipeline.resources.WorldFarmSuppliesInput
 import app.mcorg.pipeline.world.CreateWorldInput
 import app.mcorg.pipeline.world.CreateWorldStep
 import app.mcorg.presentation.plugins.AuthPlugin
@@ -37,6 +41,7 @@ import org.junit.jupiter.api.extension.ExtendWith
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertIs
 import kotlin.test.assertTrue
 
 /**
@@ -348,6 +353,134 @@ class ImportIdeaReviewIT : WithUser() {
         )
     }
 
+    // ---- already built (MCO-457) ---------------------------------------------------
+
+    @Test
+    fun `the review screen offers to record the idea as already built`() = testApplication {
+        setupRoutes()
+
+        val response = client.get("/ideas/$ideaId/import/review?worldId=$worldId") { addAuthCookie(this) }
+
+        val body = response.bodyAsText()
+        assertContains(body, "This is already built in my world")
+        assertContains(body, "name=\"alreadyBuilt\"")
+        // Both submit labels ship; CSS picks one, so the screen still says the right thing
+        // with scripting off.
+        assertContains(body, "Record as built")
+        assertContains(body, "Create project")
+    }
+
+    @Test
+    fun `an already-built import lands operational, producing, with nothing to gather`() = testApplication {
+        setupRoutes()
+        val client = createClient { followRedirects = false }
+
+        val response = client.post("/ideas/$ideaId/import") {
+            addAuthCookie(this)
+            contentType(ContentType.Application.FormUrlEncoded)
+            setBody(
+                "worldId=$worldId&name=Standing Iron Farm&alreadyBuilt=on&" + materials(
+                    "minecraft:iron_ingot" to 64,
+                    "minecraft:oak_planks" to 32,
+                )
+            )
+        }
+
+        assertEquals(HttpStatusCode.SeeOther, response.status, response.bodyAsText())
+        val projectId = response.headers["Location"]!!.substringAfterLast("/").toInt()
+
+        // MCO-298's lifecycle, reached through the idea door. DONE is the producing condition
+        // (MCO-287), so this is what makes it supply rather than promise.
+        assertEquals(
+            ProjectStage.COMPLETED.name to ProjectState.DONE.name,
+            readLifecycle(projectId),
+        )
+        assertEquals(
+            listOf("minecraft:iron_ingot" to 620),
+            readProductions(projectId),
+            "the idea's rates are the reason to come through this door rather than the MCO-298 form",
+        )
+        assertEquals(
+            emptyList(),
+            readRequirements(projectId),
+            "no invented gathering work for a build that already exists",
+        )
+        assertEquals(ideaId, getProjectIdeaId(projectId), "and the link back to the idea survives")
+    }
+
+    @Test
+    fun `an already-built import supplies the world immediately`() = testApplication {
+        setupRoutes()
+        val client = createClient { followRedirects = false }
+
+        val response = client.post("/ideas/$multiModeIdeaId/import") {
+            addAuthCookie(this)
+            contentType(ContentType.Application.FormUrlEncoded)
+            setBody(
+                "worldId=$worldId&name=Standing Fortress Farm&alreadyBuilt=on&" +
+                    materials("minecraft:oak_planks" to 10)
+            )
+        }
+
+        assertEquals(HttpStatusCode.SeeOther, response.status, response.bodyAsText())
+
+        // The whole of MCO-457: before it, this import arrived ACTIVE and showed up in
+        // GetWorldPlannedFarmsStep as supply that "will come" — for a farm already standing.
+        val supplies = runBlocking {
+            GetWorldFarmSuppliesStep.process(WorldFarmSuppliesInput(worldId, excludeProjectId = -1))
+        }
+        assertIs<Result.Success<*>>(supplies)
+        val supplied = (supplies as Result.Success).value.map { it.itemId to it.projectName }
+        assertTrue(
+            supplied.contains("minecraft:blaze_rod" to "Standing Fortress Farm"),
+            "got $supplied",
+        )
+    }
+
+    @Test
+    fun `an already-built import ignores the material list instead of refusing an empty one`() = testApplication {
+        setupRoutes()
+        val client = createClient { followRedirects = false }
+
+        // Striking every row is refused for an ordinary import — it would import everything at
+        // the moment the user asked for nothing. Here the list is moot either way, so the
+        // guard must not fire: the same post with the box ticked has to succeed.
+        val response = client.post("/ideas/$ideaId/import") {
+            addAuthCookie(this)
+            contentType(ContentType.Application.FormUrlEncoded)
+            setBody(
+                "worldId=$worldId&name=Struck But Built&alreadyBuilt=on&" +
+                    materials("!minecraft:iron_ingot" to 64)
+            )
+        }
+
+        assertEquals(HttpStatusCode.SeeOther, response.status, response.bodyAsText())
+        val projectId = response.headers["Location"]!!.substringAfterLast("/").toInt()
+        assertEquals(emptyList(), readRequirements(projectId))
+    }
+
+    @Test
+    fun `an ordinary import still lands as work to do`() = testApplication {
+        setupRoutes()
+        val client = createClient { followRedirects = false }
+
+        val response = client.post("/ideas/$ideaId/import") {
+            addAuthCookie(this)
+            contentType(ContentType.Application.FormUrlEncoded)
+            setBody("worldId=$worldId&name=Planned Iron Farm&" + materials("minecraft:iron_ingot" to 64))
+        }
+
+        assertEquals(HttpStatusCode.SeeOther, response.status, response.bodyAsText())
+        val projectId = response.headers["Location"]!!.substringAfterLast("/").toInt()
+
+        assertEquals(
+            ProjectStage.RESOURCE_GATHERING.name to ProjectState.ACTIVE.name,
+            readLifecycle(projectId),
+            "an unticked box must leave the common case exactly as it was",
+        )
+        assertEquals(listOf("minecraft:iron_ingot" to 64), readRequirements(projectId))
+    }
+
     @Test
     fun `a submission with no rows is refused rather than importing the whole idea`() = testApplication {
         setupRoutes()
@@ -590,6 +723,15 @@ class ImportIdeaReviewIT : WithUser() {
             sql = SafeSQL.select("SELECT name FROM projects WHERE id = ?"),
             parameterSetter = { stmt, id -> stmt.setInt(1, id) },
             resultMapper = { rs -> rs.next(); rs.getString("name") }
+        ).process(projectId)
+        (result as Result.Success).value
+    }
+
+    private fun readLifecycle(projectId: Int): Pair<String, String> = runBlocking {
+        val result = DatabaseSteps.query<Int, Pair<String, String>>(
+            sql = SafeSQL.select("SELECT stage, state FROM projects WHERE id = ?"),
+            parameterSetter = { stmt, id -> stmt.setInt(1, id) },
+            resultMapper = { rs -> rs.next(); rs.getString("stage") to rs.getString("state") }
         ).process(projectId)
         (result as Result.Success).value
     }
