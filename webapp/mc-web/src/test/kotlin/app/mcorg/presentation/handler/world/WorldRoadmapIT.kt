@@ -30,6 +30,7 @@ import org.junit.jupiter.api.extension.ExtendWith
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 
 /**
  * `GET /worlds/{worldId}/roadmap` (MCO-288): the derived dependency table, its empty state,
@@ -109,6 +110,30 @@ class WorldRoadmapIT : WithUser() {
         assertContains(farmRow.supplies, "Beacon Build")
         assertContains(farmRow.supplies, STATUS_SUPPLYING)
         assertFalse(farmRow.supplies.contains(STATUS_BLOCKING), "a DONE farm blocks nothing")
+
+        deleteWorld(worldId)
+    }
+
+    @Test
+    fun `finished projects sort below the work that is left`() = testApplication {
+        setupRoutes()
+        val worldId = createWorld("Roadmap Order World")
+        // Named so that every tiebreak the old rule had — depth 0 first, then name — puts the
+        // finished farm on top: it is layer 0 because nothing blocks it, and alphabetically first.
+        val farm = createProject(worldId, "Alpha Farm")
+        val consumer = createProject(worldId, "Zulu Build")
+        createRequirement(consumer, "minecraft:iron_ingot", "Iron Ingot")
+        createDemand(consumer, "minecraft:iron_ingot", "Iron Ingot", 32)
+        createProduction(farm, "minecraft:iron_ingot", "Iron Ingot")
+        runBlocking { UpdateProjectStageStep(farm).process(ProjectStage.COMPLETED) }
+
+        val body = client.get("/worlds/$worldId/roadmap") { addAuthCookie(this) }.bodyAsText()
+
+        // MCO-405: the dev world opened on 20-odd finished farms with the one active build
+        // underneath. Depth is still the sequence — it just no longer leads.
+        val buildAt = body.indexOf("Zulu Build")
+        val farmAt = body.indexOf("Alpha Farm")
+        assertTrue(buildAt in 1..<farmAt, "unfinished work comes first: $buildAt should precede $farmAt")
 
         deleteWorld(worldId)
     }
