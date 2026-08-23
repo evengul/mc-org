@@ -79,6 +79,7 @@ fun importReviewPage(
     placedCounts: Map<String, Int> = emptyMap(),
     regions: List<ResolvedRegion> = emptyList(),
     warnings: ImportWarnings = ImportWarnings(),
+    unrecordableProductions: List<String> = emptyList(),
 ): String = pageShell(
     pageTitle = "Seam — review import",
     user = user,
@@ -136,6 +137,8 @@ fun importReviewPage(
                     }
                 }
 
+                productionNotice(unrecordableProductions)
+
                 materialsSection(requirements, emptySet(), placedCounts, regions, warnings)
 
                 div("import-review__actions") {
@@ -177,7 +180,7 @@ private fun FlowContent.materialsSection(
         materialsField(allRows, excluded)
         warningStrip(warnings)
         materialsSummary(groups, allRows)
-        sectionsLead(groups)
+        sectionsLead(groups, regions.mapNotNull { it.sourceFile }.distinct().size)
         groups.forEachIndexed { index, group ->
             if (group.name == null) {
                 materialsTable(index, group.rows, excluded, placedCounts, warnings)
@@ -201,11 +204,18 @@ private fun FlowContent.materialsSection(
  * neither what they are nor that they open. One line costs nothing and removes both questions;
  * without it the sections read as an unexplained grouping the screen invented.
  */
-private fun FlowContent.sectionsLead(groups: List<MaterialGroup>) {
+private fun FlowContent.sectionsLead(groups: List<MaterialGroup>, fileCount: Int) {
     if (groups.size < 2) return
 
     p("import-review__sections-lead") {
-        +"This schematic is built from ${groups.size} sections. "
+        // Naming the files matters when there are several: it is the confirmation that both
+        // halves of a build that spans dimensions actually arrived (MCO-414). "3 sections" alone
+        // would look identical whether the nether file was read or silently dropped.
+        if (fileCount > 1) {
+            +"These $fileCount files are being imported as one project, in ${groups.size} sections. "
+        } else {
+            +"This schematic is built from ${groups.size} sections. "
+        }
         +"Untick one to leave it out of the import, or open it to choose materials one at a time."
     }
 }
@@ -232,8 +242,35 @@ private fun groupsFor(requirements: Map<Item, Int>, regions: List<ResolvedRegion
     // Largest section first: on a build whose decorative shell is the thing you want to strike,
     // the section worth a decision is usually the big one.
     return populated
-        .map { MaterialGroup(it.name.ifBlank { "Unnamed section" }, it.requirements.sortedWith(byQuantity)) }
+        .map { MaterialGroup(groupName(it, populated), it.requirements.sortedWith(byQuantity)) }
         .sortedByDescending { group -> group.rows.sumOf { it.second.toLong() } }
+}
+
+/**
+ * What a section is called once several files can contribute them (MCO-414).
+ *
+ * The file is the part the user recognises — they named it, and for a build split by dimension
+ * the name usually says which half it is. The region name inside is Litematica's, and for a
+ * single-region file it merely repeats the schematic, so showing both would read as
+ * "Sorter (nether) — Sorter (nether)".
+ *
+ * So: the file alone when it contributed one section, and `file — region` when it contributed
+ * several and the region name actually adds something. Regions from a single-file import carry
+ * no file at all and keep their own names, exactly as before.
+ */
+private fun groupName(region: ResolvedRegion, all: List<ResolvedRegion>): String {
+    val fallback = region.name.ifBlank { "Unnamed section" }
+    val file = region.sourceFile?.takeIf { it.isNotBlank() } ?: return fallback
+
+    val siblings = all.count { it.sourceFile == region.sourceFile }
+    if (siblings < 2) return file
+
+    val regionName = region.name.trim()
+    val addsNothing = regionName.isBlank() ||
+        regionName.equals("Unnamed", ignoreCase = true) ||
+        regionName.equals(file, ignoreCase = true)
+
+    return if (addsNothing) file else "$file — $regionName"
 }
 
 private const val MATERIALS_FIELD_ID = "import-review-materials-field"
@@ -291,6 +328,54 @@ private fun FlowContent.warningStrip(warnings: ImportWarnings) {
             }
         }
     }
+}
+
+/**
+ * What the idea claims to produce that this world cannot record (MCO-456).
+ *
+ * Productions are not reviewable — they are the author's statement about their farm, not work
+ * this world is agreeing to do (MCO-306) — so this is a notice and not a control. It exists
+ * because the alternative is silence: the import succeeds, the farm supplies less than the idea
+ * page said it would, and nothing anywhere connects the two.
+ *
+ * Info rather than warning. Nothing is wrong with the import and nothing is lost that this
+ * version could have used; a full-weight warning here would outrank the creative-only strip,
+ * which is about materials the user is about to go and gather.
+ */
+private fun FlowContent.productionNotice(unrecordable: List<String>) {
+    if (unrecordable.isEmpty()) return
+
+    div("callout callout--info import-review__warnings") {
+        span("callout__icon") {
+            attributes["aria-hidden"] = "true"
+            +"i"
+        }
+        div("callout__body") {
+            p("import-review__warning") {
+                span("import-review__warning-heading") { +"Not recorded as production: " }
+                +itemNamesFromIds(unrecordable)
+                +". This idea says it produces these, but this world's Minecraft version has no "
+                +"such item — the project is created without them."
+            }
+        }
+    }
+}
+
+/**
+ * A readable name for an id the catalog cannot name.
+ *
+ * These ids resolve to nothing in this world's version, so there is no stored display name to
+ * look up — `minecraft:sculk_shrieker` becomes `Sculk Shrieker` here rather than being shown
+ * raw. Same four-then-a-count cutoff as [namesOf].
+ */
+private fun itemNamesFromIds(ids: List<String>): String {
+    val shown = ids.take(4).joinToString(", ") { id ->
+        id.substringAfter(':').split('_').joinToString(" ") { word ->
+            word.replaceFirstChar { it.uppercase() }
+        }
+    }
+    val rest = ids.size - 4
+    return if (rest > 0) "$shown and $rest more" else shown
 }
 
 /** Up to four names, then a count — a strip that lists thirty items is a wall, not a warning. */

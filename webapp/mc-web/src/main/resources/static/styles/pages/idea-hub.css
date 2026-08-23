@@ -389,6 +389,71 @@ a.ideas-pagination__page:hover {
     white-space: nowrap;
 }
 
+/* Production rates — same row shape as the material list above it */
+.idea-productions__mode + .idea-productions__mode {
+    margin-top: var(--space-4);
+}
+
+.idea-productions__mode-name {
+    font-family: var(--font-ui);
+    font-size: var(--text-label);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+    margin: 0 0 var(--space-2) 0;
+}
+
+.idea-productions__rates {
+    display: flex;
+    flex-direction: column;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.idea-productions__rate {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: var(--space-4);
+    padding: var(--space-2) 0;
+    border-bottom: 1px dotted var(--border);
+    max-width: 420px;
+}
+
+.idea-productions__rate:last-child {
+    border-bottom: none;
+}
+
+.idea-productions__item {
+    font-family: var(--font-body);
+    font-size: var(--text-base);
+    color: var(--text-primary);
+    overflow-wrap: anywhere;
+}
+
+.idea-productions__quantity {
+    font-family: var(--font-ui);
+    font-size: var(--text-ui);
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+
+/* An unmeasured rate is still output, so it keeps its row — but it is greyed and italic so the
+   column reads as "has a number / has no number" before a word of it is read. */
+.idea-productions__rate--unmeasured .idea-productions__item {
+    color: var(--text-muted);
+}
+
+.idea-productions__unmeasured {
+    font-family: var(--font-body);
+    font-style: italic;
+    font-size: var(--text-sm);
+    color: var(--text-disabled);
+    white-space: nowrap;
+}
+
 /* Design details */
 .idea-fields {
     display: flex;

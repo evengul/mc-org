@@ -7,6 +7,7 @@ import app.mcorg.domain.pipeline.Step
 import app.mcorg.nbt.util.LitematicaReader
 import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.idea.commonsteps.GetItemsInVersionRangeStep
+import app.mcorg.pipeline.project.ReceiveSchematicStep
 import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.plugins.MAX_SCHEMATIC_UPLOAD_BYTES
 import app.mcorg.presentation.utils.respondHtml
@@ -63,23 +64,36 @@ suspend fun ApplicationCall.handleParseLitematica() {
     }
 }
 
-private object GetContentStep : Step<MultiPartData, AppFailure, Pair<String?, ByteArray>> {
-    override suspend fun process(input: MultiPartData): Result<AppFailure, Pair<String?, ByteArray>> {
-        var content: ByteArray? = null
-        var name: String? = null
+/**
+ * Every `.litematic` in the upload (MCO-414).
+ *
+ * Several, for the same reason the project import takes several: Litematica saves a selection
+ * from one world, so a design with a nether side is more than one file and capturing only one of
+ * them would record a material list for part of the build.
+ */
+private object GetContentStep : Step<MultiPartData, AppFailure, List<Pair<String?, ByteArray>>> {
+    override suspend fun process(input: MultiPartData): Result<AppFailure, List<Pair<String?, ByteArray>>> {
+        val files = mutableListOf<Pair<String?, ByteArray>>()
+        var tooMany = false
         var tooLarge = false
+        // One budget for the whole upload rather than one per file — see ReceiveSchematicStep.
+        // The Content-Length plugin on this route bounds the honest case ahead of this (MCO-345).
+        var remaining = MAX_SCHEMATIC_UPLOAD_BYTES
 
         input.forEachPart { part ->
             if (part is PartData.FileItem && part.originalFileName?.endsWith(".litematic") == true) {
-                // One byte past the limit, so an oversized body is detectable without ever being
-                // held in full. The Content-Length plugin on this route catches the honest case;
-                // this catches a chunked upload or a lying header (MCO-345).
-                val bytes = part.provider().readRemaining(MAX_SCHEMATIC_UPLOAD_BYTES + 1).readByteArray()
-                if (bytes.size > MAX_SCHEMATIC_UPLOAD_BYTES) {
-                    tooLarge = true
+                if (files.size >= ReceiveSchematicStep.MAX_FILES) {
+                    tooMany = true
                 } else {
-                    content = bytes
-                    name = part.originalFileName
+                    // One byte past what is left of the budget, so an oversized body is detected
+                    // without ever being held in full.
+                    val bytes = part.provider().readRemaining(remaining + 1).readByteArray()
+                    if (bytes.size > remaining) {
+                        tooLarge = true
+                    } else {
+                        remaining -= bytes.size
+                        files.add(part.originalFileName to bytes)
+                    }
                 }
                 part.release()
             } else {
@@ -87,7 +101,6 @@ private object GetContentStep : Step<MultiPartData, AppFailure, Pair<String?, By
             }
         }
 
-        val bytes = content
         return when {
             tooLarge -> Result.failure(
                 AppFailure.customValidationError(
@@ -95,27 +108,65 @@ private object GetContentStep : Step<MultiPartData, AppFailure, Pair<String?, By
                     "That file is too large. Schematics must be under ${MAX_SCHEMATIC_UPLOAD_BYTES / (1024 * 1024)} MB.",
                 )
             )
-            bytes == null -> Result.failure(
+            tooMany -> Result.failure(
+                AppFailure.customValidationError(
+                    "litematicFile",
+                    "Import at most ${ReceiveSchematicStep.MAX_FILES} files at once",
+                )
+            )
+            files.isEmpty() -> Result.failure(
                 AppFailure.customValidationError("litematicFile", "Litematica file not provided")
             )
-            // Previously computed and thrown away — the empty case fell through to success.
-            bytes.isEmpty() -> Result.failure(
+            // This used to build the failure and then fall through to success, so an empty file
+            // was read as a schematic with no materials rather than rejected.
+            files.any { it.second.isEmpty() } -> Result.failure(
                 AppFailure.customValidationError("litematicFile", "Litematica file is empty")
             )
-            else -> Result.success(name to bytes)
+            else -> Result.success(files)
         }
     }
 }
 
-private object ParseLitematicaStep : Step<Pair<String?, ByteArray>, AppFailure, Pair<String?, Litematica>> {
-    override suspend fun process(input: Pair<String?, ByteArray>): Result<AppFailure, Pair<String?, Litematica>> {
-        // Decompressing and walking an NBT tree is CPU- and allocation-heavy work on
-        // attacker-supplied input. Off the Netty event loop, so a slow file costs one IO thread
-        // rather than a worker that every other in-flight request is sharing (MCO-345).
-        val parsed = withContext(Dispatchers.IO) { LitematicaReader.readLitematica(input.second) }
-        return when (parsed) {
-            is Result.Failure -> parsed.mapError { AppFailure.customValidationError("litematicFile", "Could not read Litematica file") }
-            is Result.Success -> parsed.mapSuccess { input.first to it }
+/**
+ * Parses each file and presents them as one material list.
+ *
+ * Summed per item, not concatenated: the caller renders one `<li>` per id carrying the quantity
+ * in a hidden field, and the draft parser keys those by id — so two rows for the same item would
+ * mean the second silently replacing the first rather than adding to it.
+ */
+private object ParseLitematicaStep :
+    Step<List<Pair<String?, ByteArray>>, AppFailure, Pair<String?, Litematica>> {
+
+    override suspend fun process(
+        input: List<Pair<String?, ByteArray>>,
+    ): Result<AppFailure, Pair<String?, Litematica>> {
+        val parsed = input.map { (name, bytes) ->
+            // Decompressing and walking an NBT tree is CPU- and allocation-heavy work on
+            // attacker-supplied input. Off the Netty event loop, so a slow file costs one IO
+            // thread rather than a worker every other in-flight request is sharing (MCO-345).
+            val compound = withContext(Dispatchers.IO) { LitematicaReader.readLitematica(bytes) }
+            when (compound) {
+                is Result.Failure -> return Result.failure(
+                    AppFailure.customValidationError(
+                        "litematicFile",
+                        "Could not read ${name ?: "Litematica file"}",
+                    )
+                )
+                is Result.Success -> compound.value
+            }
         }
+
+        val first = parsed.first()
+        if (parsed.size == 1) return Result.success(input.first().first to first)
+
+        val items = LinkedHashMap<String, Int>()
+        parsed.forEach { file -> file.items.forEach { (id, count) -> items[id] = (items[id] ?: 0) + count } }
+
+        return Result.success(
+            input.first().first to first.copy(
+                items = items,
+                regions = parsed.flatMap { it.regions },
+            )
+        )
     }
 }

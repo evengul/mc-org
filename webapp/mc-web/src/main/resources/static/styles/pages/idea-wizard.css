@@ -491,3 +491,43 @@
         flex: 1;
     }
 }
+
+/* MCO-412 — production modes, and the recommendation for farms that declare none. */
+.production-mode {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    padding: var(--space-2) 0;
+}
+
+.production-mode + .production-mode {
+    border-top: 1px dashed var(--border);
+}
+
+.production-mode__add {
+    display: flex;
+    gap: var(--space-2);
+    align-items: flex-end;
+    /* Wraps like the requirements add-line: since MCO-417 the first control is a search combo with
+       a results dropdown, and holding all three on one row squeezed it to about 90px at 375. */
+    flex-wrap: wrap;
+}
+
+.production-mode__add .item-search-combo {
+    flex: 1 1 220px;
+    min-width: 0;
+}
+
+.production-mode__add .production-item-rate {
+    /* Wide enough for the "Per hour (optional)" placeholder — the word "optional" is the point of
+       it, and clipping it back to "Per hour (op" loses that. */
+    flex: 0 0 165px;
+}
+
+.production-mode__name {
+    font-family: var(--font-mono);
+}
+
+.production-recommendation--hidden {
+    display: none;
+}

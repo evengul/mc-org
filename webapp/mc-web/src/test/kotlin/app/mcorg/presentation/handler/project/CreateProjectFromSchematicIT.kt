@@ -168,6 +168,21 @@ class CreateProjectFromSchematicIT : WithUser() {
 
     // -------------------------------------------------------------------------
 
+    /** Several files under the one field name, as a `multiple` file input posts them (MCO-414). */
+    private fun multipart(files: List<Pair<String, ByteArray>>, name: String? = null) =
+        MultiPartFormDataContent(formData {
+            if (name != null) append("name", name)
+            files.forEach { (fileName, bytes) ->
+                append("schematicFile", bytes, Headers.build {
+                    append(
+                        HttpHeaders.ContentDisposition,
+                        "form-data; name=\"schematicFile\"; filename=\"$fileName\"",
+                    )
+                    append(HttpHeaders.ContentType, "application/octet-stream")
+                })
+            }
+        })
+
     private fun multipart(fileName: String, bytes: ByteArray, name: String? = null) =
         MultiPartFormDataContent(formData {
             if (name != null) append("name", name)
@@ -263,6 +278,112 @@ class CreateProjectFromSchematicIT : WithUser() {
         )
         assertFalse(body.contains("qty["), "and never as one parameter per row again")
         assertEquals(before, countProjects(worldId), "review must not create anything")
+    }
+
+    // -------------------------------------------------------------------------
+    // Several files as one import (MCO-414)
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `two files review as one import and every material is counted`() = testApplication {
+        // The bug this replaces: the receive step overwrote its buffer per part, so uploading a
+        // build's overworld and nether halves imported only whichever arrived last — a project
+        // silently missing a third of its materials.
+        setupRoutes()
+        val before = countProjects(worldId)
+
+        val response = client.post("/worlds/$worldId/projects/from-schematic/review") {
+            addAuthCookie(this)
+            setBody(
+                multipart(
+                    files = listOf(
+                        "Sorter.litematic" to litematicBytes,
+                        "Sorter (nether).litematic" to litematicBytes,
+                    ),
+                    name = "Split Build",
+                )
+            )
+        }
+
+        assertEquals(HttpStatusCode.OK, response.status, response.bodyAsText())
+        val body = response.bodyAsText()
+        assertTrue(body.contains("These 2 files are being imported as one project"), "the lead names both files")
+        assertTrue(body.contains("Sorter (nether)"), "the second file is a section of its own")
+        assertEquals(before, countProjects(worldId), "review must not create anything")
+    }
+
+    @Test
+    fun `the same file twice doubles the quantities rather than replacing them`() = testApplication {
+        // Uploading one file as both halves is not a real workflow, but it makes the sum
+        // checkable: every amount must be exactly twice the single-file import's.
+        setupRoutes()
+
+        val single = client.post("/worlds/$worldId/projects/from-schematic/review") {
+            addAuthCookie(this)
+            setBody(multipart(fileName = "Sorter.litematic", bytes = litematicBytes))
+        }
+        val double = client.post("/worlds/$worldId/projects/from-schematic/review") {
+            addAuthCookie(this)
+            setBody(
+                multipart(
+                    files = listOf("A.litematic" to litematicBytes, "B.litematic" to litematicBytes),
+                )
+            )
+        }
+
+        val singleRows = materialRowsOf(single.bodyAsText())
+        val doubleRows = materialRowsOf(double.bodyAsText())
+
+        assertTrue(singleRows.isNotEmpty(), "expected a parsed material list")
+        assertEquals(singleRows.keys, doubleRows.keys, "the same items, from the same file twice")
+        singleRows.forEach { (itemId, amount) ->
+            assertEquals(amount * 2, doubleRows[itemId], "$itemId should be doubled")
+        }
+    }
+
+    @Test
+    fun `an unreadable file names itself rather than failing anonymously`() = testApplication {
+        setupRoutes()
+
+        val response = client.post("/worlds/$worldId/projects/from-schematic/review") {
+            addAuthCookie(this)
+            setBody(
+                multipart(
+                    files = listOf(
+                        "Sorter.litematic" to litematicBytes,
+                        "Sorter (nether).litematic" to byteArrayOf(1, 2, 3, 4),
+                    )
+                )
+            )
+        }
+
+        assertEquals(HttpStatusCode.UnprocessableEntity, response.status)
+        assertTrue(
+            response.bodyAsText().contains("Sorter (nether).litematic"),
+            "with several files, the user has to be told which one to re-export",
+        )
+    }
+
+    /**
+     * Item id -> total amount, read back out of the review page's single `materials` field.
+     *
+     * Summed rather than keyed, because the payload carries one row **per section**: an item in
+     * three groups is three rows, and the server sums them the same way
+     * ([ValidateReviewedMaterialsStep]). Keying by id would keep only the last and read a
+     * correctly-doubled import as unchanged.
+     */
+    private fun materialRowsOf(html: String): Map<String, Int> {
+        val payload = Regex("""name="materials" value="([^"]*)"""").find(html)?.groupValues?.get(1)
+            ?: return emptyMap()
+        val totals = mutableMapOf<String, Int>()
+        payload.split(";")
+            .drop(2) // version marker and declared row count
+            .filter { it.isNotBlank() && !it.startsWith("!") }
+            .forEach { row ->
+                val id = row.substringBeforeLast('=')
+                totals[id] = (totals[id] ?: 0) + row.substringAfterLast('=').toInt()
+            }
+        return totals
     }
 
     @Test

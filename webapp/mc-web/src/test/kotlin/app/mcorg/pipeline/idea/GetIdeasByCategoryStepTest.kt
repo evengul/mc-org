@@ -126,12 +126,12 @@ class GetIdeasByCategoryStepTest : WithUser() {
         createTestIdea(
             name = "AFK Iron Farm",
             category = IdeaCategory.FARM,
-            categoryData = """{"afkable": {"type": "app.mcorg.domain.model.idea.schema.CategoryValue.BooleanValue", "value": true}, "productionRate": {"type": "app.mcorg.domain.model.idea.schema.CategoryValue.MapValue", "value": {"Normal": {"type": "app.mcorg.domain.model.idea.schema.CategoryValue.MapValue", "value": {"item.minecraft.golden_carrot": {"type": "app.mcorg.domain.model.idea.schema.CategoryValue.IntValue", "value": 5000}}}}}}"""
+            categoryData = """{"afkable": {"type": "app.mcorg.domain.model.idea.schema.CategoryValue.BooleanValue", "value": true}, "specs": {"type": "app.mcorg.domain.model.idea.schema.CategoryValue.MapValue", "value": {"Normal": {"type": "app.mcorg.domain.model.idea.schema.CategoryValue.MapValue", "value": {"item.minecraft.golden_carrot": {"type": "app.mcorg.domain.model.idea.schema.CategoryValue.IntValue", "value": 5000}}}}}}"""
         )
         createTestIdea(
             name = "Manual Iron Farm",
             category = IdeaCategory.FARM,
-            categoryData = """{"afkable": {"type": "app.mcorg.domain.model.idea.schema.CategoryValue.BooleanValue", "value": false}, "productionRate": {"type": "app.mcorg.domain.model.idea.schema.CategoryValue.MapValue", "value": {"Normal": {"type": "app.mcorg.domain.model.idea.schema.CategoryValue.MapValue", "value": {"item.minecraft.golden_carrot": {"type": "app.mcorg.domain.model.idea.schema.CategoryValue.IntValue", "value": 5000}}}}}}"""
+            categoryData = """{"afkable": {"type": "app.mcorg.domain.model.idea.schema.CategoryValue.BooleanValue", "value": false}, "specs": {"type": "app.mcorg.domain.model.idea.schema.CategoryValue.MapValue", "value": {"Normal": {"type": "app.mcorg.domain.model.idea.schema.CategoryValue.MapValue", "value": {"item.minecraft.golden_carrot": {"type": "app.mcorg.domain.model.idea.schema.CategoryValue.IntValue", "value": 5000}}}}}}"""
         )
 
         // When: Filtering for AFK-able farms
@@ -158,23 +158,23 @@ class GetIdeasByCategoryStepTest : WithUser() {
         createTestIdea(
             name = "Slow Farm",
             category = IdeaCategory.FARM,
-            categoryData = """{"productionRate": {"type": "app.mcorg.domain.model.idea.schema.CategoryValue.IntValue", "value": 500} }"""
+            categoryData = """{"specs": {"type": "app.mcorg.domain.model.idea.schema.CategoryValue.IntValue", "value": 500} }"""
         )
         createTestIdea(
             name = "Medium Farm",
             category = IdeaCategory.FARM,
-            categoryData = """{"productionRate": {"type": "app.mcorg.domain.model.idea.schema.CategoryValue.IntValue", "value": 5000} }"""
+            categoryData = """{"specs": {"type": "app.mcorg.domain.model.idea.schema.CategoryValue.IntValue", "value": 5000} }"""
         )
         createTestIdea(
             name = "Fast Farm",
             category = IdeaCategory.FARM,
-            categoryData = """{"productionRate": {"type": "app.mcorg.domain.model.idea.schema.CategoryValue.IntValue", "value": 15000} }"""
+            categoryData = """{"specs": {"type": "app.mcorg.domain.model.idea.schema.CategoryValue.IntValue", "value": 15000} }"""
         )
 
         // When: Filtering for production rate between 1000 and 10000
         val filters = IdeaSearchFilters(
             category = IdeaCategory.FARM,
-            categoryFilters = mapOf("productionRate" to FilterValue.NumberRange(1000.0, 10000.0))
+            categoryFilters = mapOf("specs" to FilterValue.NumberRange(1000.0, 10000.0))
         )
         val result = SearchIdeasStep.process(filters)
 
@@ -283,7 +283,7 @@ class GetIdeasByCategoryStepTest : WithUser() {
             difficulty = IdeaDifficulty.START_OF_GAME,
             ratingAverage = 4.8,
             // language=json
-            categoryData = """{"productionRate": {"type": "app.mcorg.domain.model.idea.schema.CategoryValue.IntValue", "value": 50}}"""
+            categoryData = """{"specs": {"type": "app.mcorg.domain.model.idea.schema.CategoryValue.IntValue", "value": 50}}"""
         )
         createTestIdea(
             name = "Better Carrot Farm",
@@ -291,7 +291,7 @@ class GetIdeasByCategoryStepTest : WithUser() {
             difficulty = IdeaDifficulty.START_OF_GAME,
             ratingAverage = 4.2,
             // language=json
-            categoryData =  """{"productionRate": {"type": "app.mcorg.domain.model.idea.schema.CategoryValue.IntValue", "value": 500}}"""
+            categoryData =  """{"specs": {"type": "app.mcorg.domain.model.idea.schema.CategoryValue.IntValue", "value": 500}}"""
         )
         createTestIdea(
             name = "Good Carrot Farm",
@@ -299,7 +299,7 @@ class GetIdeasByCategoryStepTest : WithUser() {
             difficulty = IdeaDifficulty.END_GAME,
             ratingAverage = 4.5,
             // language=json
-            categoryData =  """{"productionRate": {"type": "app.mcorg.domain.model.idea.schema.CategoryValue.IntValue", "value": 5000}, "afkable": {"type": "app.mcorg.domain.model.idea.schema.CategoryValue.BooleanValue", "value": true}}"""
+            categoryData =  """{"specs": {"type": "app.mcorg.domain.model.idea.schema.CategoryValue.IntValue", "value": 5000}, "afkable": {"type": "app.mcorg.domain.model.idea.schema.CategoryValue.BooleanValue", "value": true}}"""
         )
 
         // When: Applying multiple filters
@@ -309,7 +309,7 @@ class GetIdeasByCategoryStepTest : WithUser() {
             minRating = 4.5,
             categoryFilters = mapOf(
                 "afkable" to FilterValue.BooleanValue(true),
-                "productionRate" to FilterValue.NumberRange(1000.0, null)
+                "specs" to FilterValue.NumberRange(1000.0, null)
             )
         )
         val result = SearchIdeasStep.process(filters)

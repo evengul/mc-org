@@ -78,25 +78,10 @@ object IdeaCategorySchemas {
     val FARM = ideaCategory(IdeaCategory.FARM) {
         sizeField()
 
-        /**
-         * The one structured field the engine will consume: MCO-294 matches bulk raw demand
-         * against farm output. Flat item -> rate; the old Mode -> (Item -> Rate) nesting was
-         * the single most tedious thing in the form and never got filled.
-         */
-        typedMapField("productionRate") {
-            label = "Production Rate"
-            helpText = "What this farm produces, per hour"
-            types {
-                selectKey {
-                    label = "Item"
-                    dynamicOptionsConfig = DynamicOptionsConfig.items()
-                }
-                rateValue {
-                    label = "Rate"
-                    min = 0.0
-                }
-            }
-        }
+        // Production moved out of category data entirely (MCO-412): it is relational now, and it
+        // belongs to any idea rather than to the FARM category — a mob farm inside a storage build
+        // produces too. The form renders it from its own section; leaving the field here as well
+        // would offer two places to type the same number into two different stores.
 
         tileable()
         directional()

@@ -18,7 +18,8 @@ import kotlin.test.assertTrue
 /**
  * Covers MCO-309: the detail page renders `categoryData` against the category schema.
  * The interesting behaviour is what gets *skipped* — unknown keys and empty values —
- * and the map-valued fields (`specs`, `productionRate`, `size`) that carry the detail.
+ * and the map-valued fields (`specs`, `size`) that carry the detail. Production moved out of
+ * category data entirely in MCO-412 — see IdeaProductionModesTest.
  */
 class IdeaDetailFieldsTest {
 
@@ -93,25 +94,6 @@ class IdeaDetailFieldsTest {
         }
 
         assertTrue(html.contains("gt per cycle"))
-    }
-
-    @Test
-    fun `production rate item ids are tidied and carry their unit`() {
-        val html = render {
-            ideaDetailFields(
-                idea(
-                    categoryData = mapOf(
-                        "productionRate" to CategoryValue.MapValue(
-                            mapOf("minecraft:iron_ingot" to CategoryValue.IntValue(1200))
-                        )
-                    )
-                )
-            )
-        }
-
-        assertTrue(html.contains("Iron Ingot"))
-        assertFalse(html.contains("minecraft:iron_ingot"))
-        assertTrue(html.contains("1200 items/hour"))
     }
 
     @Test

@@ -55,6 +55,8 @@ class ImportIdeaReviewIT : WithUser() {
     private var airyIdeaId: Int = 0
     private var expensiveIdeaId: Int = 0
     private var wideIdeaId: Int = 0
+    private var multiModeIdeaId: Int = 0
+    private var unknownProductionIdeaId: Int = 0
 
     @BeforeAll
     fun setup() {
@@ -88,6 +90,36 @@ class ImportIdeaReviewIT : WithUser() {
         wideIdeaId = createIdea("Very Wide Idea")
         seedItems((1..BULK_ROWS).map { "minecraft:bulk_item_$it" to "Bulk Item $it" })
         addRequirements(wideIdeaId, (1..BULK_ROWS).map { "minecraft:bulk_item_$it" to it })
+
+        // MCO-411: what the idea produces has to survive the import, or the farm the user just
+        // imported supplies nothing and the roadmap draws no edge from it (MCO-287's model).
+        addProductionMode(ideaId, "Default", listOf("minecraft:iron_ingot" to 620))
+
+        // Two modes, no choice recorded anywhere yet: the import takes the highest-yield one
+        // (ratesForImport). An unmeasured rate arrives as project_productions' own 0.
+        seedItem("minecraft:bone", "Bone")
+        seedItem("minecraft:blaze_rod", "Blaze Rod")
+        seedItem("minecraft:blaze_powder", "Blaze Powder")
+        multiModeIdeaId = createIdea("Fortress Farm")
+        addRequirement(multiModeIdeaId, "minecraft:oak_planks", 10)
+        addProductionMode(multiModeIdeaId, "Skeletons only", listOf("minecraft:bone" to 700))
+        addProductionMode(
+            multiModeIdeaId,
+            "Everything on",
+            listOf("minecraft:bone" to 500, "minecraft:blaze_rod" to 400, "minecraft:blaze_powder" to null),
+        )
+
+        // MCO-456: an idea claiming to produce something this world's version has no item for.
+        // Never seeded into minecraft_items by any IT class — the container is shared, so an id
+        // used here has to stay unseeded suite-wide to keep meaning "this version has no such
+        // item".
+        unknownProductionIdeaId = createIdea("Shrieker Farm")
+        addRequirement(unknownProductionIdeaId, "minecraft:oak_planks", 12)
+        addProductionMode(
+            unknownProductionIdeaId,
+            "Default",
+            listOf("minecraft:iron_ingot" to 90, "minecraft:sculk_shrieker" to 30),
+        )
     }
 
     // ---- review ------------------------------------------------------------------
@@ -235,6 +267,85 @@ class ImportIdeaReviewIT : WithUser() {
             "oak planks were excluded on the review screen",
         )
         assertEquals(ideaId, getProjectIdeaId(projectId), "the idea link survives the review step")
+    }
+
+    @Test
+    fun `import records what the idea produces`() = testApplication {
+        setupRoutes()
+        val client = createClient { followRedirects = false }
+
+        val response = client.post("/ideas/$ideaId/import") {
+            addAuthCookie(this)
+            contentType(ContentType.Application.FormUrlEncoded)
+            setBody("worldId=$worldId&" + materials("minecraft:iron_ingot" to 64))
+        }
+
+        assertEquals(HttpStatusCode.SeeOther, response.status, response.bodyAsText())
+        val projectId = response.headers["Location"]!!.substringAfterLast("/").toInt()
+
+        // The whole of MCO-411: this list was empty for every import ever made, so no imported
+        // farm has ever supplied anything.
+        assertEquals(listOf("minecraft:iron_ingot" to 620), readProductions(projectId))
+    }
+
+    @Test
+    fun `an idea with several modes imports the highest-yield one`() = testApplication {
+        setupRoutes()
+        val client = createClient { followRedirects = false }
+
+        val response = client.post("/ideas/$multiModeIdeaId/import") {
+            addAuthCookie(this)
+            contentType(ContentType.Application.FormUrlEncoded)
+            setBody("worldId=$worldId&" + materials("minecraft:oak_planks" to 10))
+        }
+
+        assertEquals(HttpStatusCode.SeeOther, response.status, response.bodyAsText())
+        val projectId = response.headers["Location"]!!.substringAfterLast("/").toInt()
+
+        assertEquals(
+            listOf(
+                "minecraft:blaze_powder" to 0,
+                "minecraft:blaze_rod" to 400,
+                "minecraft:bone" to 500,
+            ),
+            readProductions(projectId),
+            "900/h across three items beats the skeletons-only mode's 700",
+        )
+    }
+
+    @Test
+    fun `a production this version has no item for is reported, not fatal`() = testApplication {
+        setupRoutes()
+        val client = createClient { followRedirects = false }
+
+        val review = client.get("/ideas/$unknownProductionIdeaId/import/review?worldId=$worldId") {
+            addAuthCookie(this)
+        }
+
+        // The whole of MCO-456: this GET used to fail outright, so the material list — the part
+        // the user was asked to review — was unreachable over a field this screen does not have.
+        assertEquals(HttpStatusCode.OK, review.status)
+        val body = review.bodyAsText()
+        assertContains(body, "Not recorded as production")
+        assertContains(body, "Sculk Shrieker")
+        // Ids, not display names: the container is shared across IT classes, so whichever class
+        // seeds an id first owns its name (MCO-361).
+        assertContains(body, "minecraft:oak_planks=12")
+
+        val response = client.post("/ideas/$unknownProductionIdeaId/import") {
+            addAuthCookie(this)
+            contentType(ContentType.Application.FormUrlEncoded)
+            setBody("worldId=$worldId&" + materials("minecraft:oak_planks" to 12))
+        }
+
+        assertEquals(HttpStatusCode.SeeOther, response.status, response.bodyAsText())
+        val projectId = response.headers["Location"]!!.substringAfterLast("/").toInt()
+
+        assertEquals(
+            listOf("minecraft:iron_ingot" to 90),
+            readProductions(projectId),
+            "the production this version does know about still supplies the world",
+        )
     }
 
     @Test
@@ -501,6 +612,45 @@ class ImportIdeaReviewIT : WithUser() {
             resultMapper = { rs ->
                 val rows = mutableListOf<Pair<String, Int>>()
                 while (rs.next()) rows.add(rs.getString("item_id") to rs.getInt("required"))
+                rows
+            }
+        ).process(projectId)
+        (result as Result.Success).value
+    }
+
+    private fun addProductionMode(ideaId: Int, name: String, rates: List<Pair<String, Int?>>) = runBlocking {
+        val modeId = DatabaseSteps.update<Unit>(
+            SafeSQL.insert(
+                "INSERT INTO idea_production_modes (idea_id, name, position) " +
+                    "VALUES (?, ?, (SELECT COALESCE(MAX(position) + 1, 0) FROM idea_production_modes WHERE idea_id = ?)) " +
+                    "RETURNING id"
+            ),
+            parameterSetter = { stmt, _ ->
+                stmt.setInt(1, ideaId)
+                stmt.setString(2, name)
+                stmt.setInt(3, ideaId)
+            }
+        ).process(Unit).let { (it as Result.Success).value }
+
+        DatabaseSteps.batchUpdate<Pair<String, Int?>>(
+            SafeSQL.insert("INSERT INTO idea_production_rates (mode_id, item_id, rate_per_hour) VALUES (?, ?, ?)"),
+            parameterSetter = { stmt, (itemId, rate) ->
+                stmt.setInt(1, modeId)
+                stmt.setString(2, itemId)
+                if (rate == null) stmt.setNull(3, java.sql.Types.INTEGER) else stmt.setInt(3, rate)
+            }
+        ).process(rates)
+    }
+
+    private fun readProductions(projectId: Int): List<Pair<String, Int>> = runBlocking {
+        val result = DatabaseSteps.query<Int, List<Pair<String, Int>>>(
+            sql = SafeSQL.select(
+                "SELECT item_id, rate_per_hour FROM project_productions WHERE project_id = ? ORDER BY item_id"
+            ),
+            parameterSetter = { stmt, id -> stmt.setInt(1, id) },
+            resultMapper = { rs ->
+                val rows = mutableListOf<Pair<String, Int>>()
+                while (rs.next()) rows.add(rs.getString("item_id") to rs.getInt("rate_per_hour"))
                 rows
             }
         ).process(projectId)

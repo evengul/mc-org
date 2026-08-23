@@ -15,7 +15,11 @@ import kotlinx.serialization.json.put
 
 data class RevertIdeaToDraftInput(val ideaId: Int, val userId: Int)
 
-private data class RawIdeaExtras(val categoryDataJson: String, val itemRequirementsJson: String)
+private data class RawIdeaExtras(
+    val categoryDataJson: String,
+    val itemRequirementsJson: String,
+    val productionModesJson: String,
+)
 
 class RevertIdeaToDraftStep : Step<RevertIdeaToDraftInput, AppFailure, Int> {
     override suspend fun process(input: RevertIdeaToDraftInput): Result<AppFailure, Int> {
@@ -35,7 +39,21 @@ class RevertIdeaToDraftStep : Step<RevertIdeaToDraftInput, AppFailure, Int> {
                         (SELECT json_object_agg(item_id, quantity)
                          FROM idea_item_requirements WHERE idea_id = i.id),
                         '{}'
-                    )::text AS item_requirements
+                    )::text AS item_requirements,
+                    COALESCE(
+                        (SELECT json_agg(
+                                    json_build_object('name', m.name, 'rates', COALESCE(m.rates, '{}'::json))
+                                    ORDER BY m.position, m.id
+                                )
+                         FROM (
+                             SELECT pm.id, pm.name, pm.position,
+                                    (SELECT json_object_agg(r.item_id, r.rate_per_hour)
+                                     FROM idea_production_rates r WHERE r.mode_id = pm.id) AS rates
+                             FROM idea_production_modes pm
+                             WHERE pm.idea_id = i.id
+                         ) m),
+                        '[]'
+                    )::text AS production_modes
                 FROM ideas i
                 WHERE i.id = ?
                 """.trimIndent()
@@ -44,12 +62,17 @@ class RevertIdeaToDraftStep : Step<RevertIdeaToDraftInput, AppFailure, Int> {
             resultMapper = { rs ->
                 if (rs.next()) RawIdeaExtras(
                     categoryDataJson = rs.getString("category_data") ?: "{}",
-                    itemRequirementsJson = rs.getString("item_requirements") ?: "{}"
-                ) else RawIdeaExtras("{}", "{}")
+                    itemRequirementsJson = rs.getString("item_requirements") ?: "{}",
+                    productionModesJson = rs.getString("production_modes") ?: "[]"
+                ) else RawIdeaExtras("{}", "{}", "[]")
             }
-        ).process(input.ideaId).getOrNull() ?: RawIdeaExtras("{}", "{}")
+        ).process(input.ideaId).getOrNull() ?: RawIdeaExtras("{}", "{}", "[]")
 
-        // Build draft JSON — categoryData and itemRequirements are copied verbatim from DB
+        // Build draft JSON — categoryData, itemRequirements and productionModes are copied verbatim
+        // from DB. Everything the idea holds has to come back, because publishing the draft replaces
+        // the idea wholesale: replaceIdeaProductionModes opens with an unconditional DELETE, so a
+        // key missing here is not "left alone", it is deleted on save. Editing a description used to
+        // silently wipe every rate the farm had.
         val draftData = buildJsonObject {
             put("name", idea.name)
             put("description", idea.description)
@@ -62,6 +85,9 @@ class RevertIdeaToDraftStep : Step<RevertIdeaToDraftInput, AppFailure, Int> {
             }
             if (extras.itemRequirementsJson != "{}") {
                 put("itemRequirements", Json.parseToJsonElement(extras.itemRequirementsJson))
+            }
+            if (extras.productionModesJson != "[]") {
+                put("productionModes", Json.parseToJsonElement(extras.productionModesJson))
             }
         }.toString()
 

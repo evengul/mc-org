@@ -11,10 +11,18 @@ import app.mcorg.pipeline.Result
 import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.failure.ValidationFailure
 import app.mcorg.pipeline.idea.CreateIdeaInput
+import app.mcorg.pipeline.idea.commonsteps.IdeaProductionModeInput
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.MapSerializer
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
+
+/** One mode as the draft holds it — named, with its item -> rate map. */
+@Serializable
+data class DraftProductionMode(
+    val name: String = "",
+    val rates: Map<String, Int?> = emptyMap(),
+)
 
 @Serializable
 data class DraftData(
@@ -25,6 +33,8 @@ data class DraftData(
     val author: Author? = null,
     val versionRange: MinecraftVersionRange? = null,
     val itemRequirements: Map<String, Int>? = null,
+    /** What the idea produces, by mode (MCO-412). Absent for anything that produces nothing. */
+    val productionModes: List<DraftProductionMode>? = null,
     val categoryData: Map<String, CategoryValue>? = null
 )
 
@@ -91,6 +101,8 @@ object DeserializeDraftStep : Step<IdeaDraft, AppFailure.ValidationError, Create
                 versionRange = data.versionRange!!,
                 testData = null,
                 itemRequirements = data.itemRequirements ?: emptyMap(),
+                productionModes = data.productionModes.orEmpty()
+                    .map { IdeaProductionModeInput(name = it.name, rates = it.rates) },
                 categoryData = categoryData ?: emptyMap()
             )
         )
