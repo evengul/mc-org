@@ -23,6 +23,10 @@ import app.mcorg.presentation.templated.dsl.pages.gatheringPlannerFragment
 import app.mcorg.presentation.templated.dsl.pages.nodePickerFragment
 import app.mcorg.presentation.templated.dsl.pages.pickerNotFoundFragment
 import app.mcorg.presentation.utils.getProjectId
+import app.mcorg.domain.model.user.Role
+import app.mcorg.domain.model.world.World
+import app.mcorg.pipeline.world.ValidateWorldMemberRole
+import app.mcorg.presentation.utils.getUser
 import app.mcorg.presentation.utils.getWorldId
 import app.mcorg.presentation.utils.respondBadRequest
 import app.mcorg.presentation.utils.respondHtml
@@ -355,7 +359,23 @@ private suspend fun ApplicationCall.respondListRerender(worldId: Int, projectId:
     val plan = deriveOrNull(projectId, worldId)
     val progressMap = GetProgressForProjectStep.process(projectId).getOrNull() ?: emptyMap()
     val pendingFarms = pendingFarmSuppliesFor(worldId, projectId, plan)
-    respondHtml(gatheringPlannerFragment(project, resources, tasks, plan, "list", progressMap, pendingFarms))
+
+    // The same three the full page computes. This re-render is the one place they change for a
+    // reason other than a page load: resolving an open tag turns a tag with no id anything can
+    // produce into real demand a design may well cover (MCO-294), and it was the moment the
+    // roll-up would otherwise silently fall back to the default threshold (MCO-401).
+    val farmScaleThreshold = GetFarmScaleThresholdStep.process(worldId).getOrNull()
+        ?: World.DEFAULT_FARM_SCALE_THRESHOLD
+    val user = getUser()
+    val farmSuggestions = farmSuggestionsFor(plan, farmScaleThreshold, user.id)
+    val isAdmin = ValidateWorldMemberRole<Unit>(user, Role.ADMIN, worldId).process(Unit) is Result.Success
+
+    respondHtml(
+        gatheringPlannerFragment(
+            project, resources, tasks, plan, "list", progressMap, pendingFarms, farmScaleThreshold,
+            farmSuggestions, isAdmin,
+        )
+    )
 }
 
 /**
