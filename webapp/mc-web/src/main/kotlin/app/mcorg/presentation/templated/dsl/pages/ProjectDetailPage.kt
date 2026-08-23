@@ -15,6 +15,7 @@ import app.mcorg.engine.plan.PlanOverrides
 import app.mcorg.engine.plan.SupplySource
 import app.mcorg.pipeline.resources.FarmScaleDemand
 import app.mcorg.pipeline.resources.FarmScaleDemands
+import app.mcorg.pipeline.resources.FarmSuggestion
 import app.mcorg.presentation.hxDelete
 import app.mcorg.presentation.hxDeleteWithConfirm
 import app.mcorg.presentation.hxGet
@@ -72,6 +73,7 @@ fun projectDetailPage(
     drillOverrides: PlanOverrides = PlanOverrides.NONE,
     drillGraph: ItemSourceGraph? = null,
     farmScaleThreshold: Int = World.DEFAULT_FARM_SCALE_THRESHOLD,
+    farmSuggestions: List<FarmSuggestion> = emptyList(),
 ): String = pageShell(
     pageTitle = "Seam — ${project.name}",
     user = user,
@@ -140,7 +142,7 @@ fun projectDetailPage(
                     // ?drill=<item> deep-links straight into a target's chain (reload/share-safe).
                     drillChainContent(project, drillTarget, drillCandidateCounts, drillNodeIngredients, overrides = drillOverrides, graph = drillGraph, highlightItemId = drillHighlightItemId)
                 } else {
-                    gatheringPlannerContent(project, resources, tasks, plan, lens, progressMap, pendingFarms, farmScaleThreshold, isWorldAdmin)
+                    gatheringPlannerContent(project, resources, tasks, plan, lens, progressMap, pendingFarms, farmScaleThreshold, farmSuggestions, isWorldAdmin)
                 }
             }
         }
@@ -244,6 +246,7 @@ fun FlowContent.gatheringPlannerContent(
     progressMap: Map<String, Int> = emptyMap(),
     pendingFarms: List<PendingFarmSupply> = emptyList(),
     farmScaleThreshold: Int = World.DEFAULT_FARM_SCALE_THRESHOLD,
+    farmSuggestions: List<FarmSuggestion> = emptyList(),
     isWorldAdmin: Boolean = false,
 ) {
     val activeLens = when (lens) {
@@ -273,7 +276,7 @@ fun FlowContent.gatheringPlannerContent(
     // Active lens body
     when (activeLens) {
         "next", "sessions" -> lensComingSoon(project.worldId, project.id, activeLens)
-        else -> listLensContent(project, resources, tasks, plan, progressMap, pendingFarms, farmScaleThreshold, isWorldAdmin)
+        else -> listLensContent(project, resources, tasks, plan, progressMap, pendingFarms, farmScaleThreshold, farmSuggestions, isWorldAdmin)
     }
 }
 
@@ -304,6 +307,7 @@ private fun FlowContent.listLensContent(
     progressMap: Map<String, Int> = emptyMap(),
     pendingFarms: List<PendingFarmSupply> = emptyList(),
     farmScaleThreshold: Int = World.DEFAULT_FARM_SCALE_THRESHOLD,
+    farmSuggestions: List<FarmSuggestion> = emptyList(),
     isWorldAdmin: Boolean = false,
 ) {
     // Resolution toggle (client-side; default "targets" applied by plan-view.js).
@@ -408,7 +412,7 @@ private fun FlowContent.listLensContent(
         id = "list-breakdown-view"
         attributes["data-resolution-view"] = "breakdown"
 
-        gatheringPlanSections(project, plan, progressMap, pendingFarms, farmScaleThreshold, isWorldAdmin)
+        gatheringPlanSections(project, plan, progressMap, pendingFarms, farmScaleThreshold, farmSuggestions, isWorldAdmin)
     }
 
     // Tasks section (collapsed)
@@ -484,6 +488,7 @@ fun FlowContent.gatheringPlanSections(
     progressMap: Map<String, Int> = emptyMap(),
     pendingFarms: List<PendingFarmSupply> = emptyList(),
     farmScaleThreshold: Int = World.DEFAULT_FARM_SCALE_THRESHOLD,
+    farmSuggestions: List<FarmSuggestion> = emptyList(),
     isWorldAdmin: Boolean = false,
 ) {
     if (plan == null) {
@@ -502,13 +507,24 @@ fun FlowContent.gatheringPlanSections(
     val feedsLabels = buildFeedsLabels(plan)
     val farmScale = FarmScaleDemands.of(plan, farmScaleThreshold)
     val farmScaleIds = farmScale.mapTo(mutableSetOf()) { it.itemId }
+    // itemId -> the design that accounts for it (MCO-294). First suggestion wins: they are
+    // ordered by work removed, so the row is attributed to the biggest reason to build it.
+    val coveredByDesign: Map<String, String> = buildMap {
+        farmSuggestions.forEach { suggestion ->
+            suggestion.itemIds.forEach { itemId -> putIfAbsent(itemId, suggestion.ideaName) }
+        }
+    }
 
     div {
         id = "gathering-plan-sections"
 
         // Above the work sections on purpose: this is not a step in the plan, it is the answer
         // to "what should I build first", and it is what turns one import into a roadmap.
-        farmScaleRollUp(farmScale, farmScaleThreshold, project.worldId, isWorldAdmin)
+        farmScaleRollUp(farmScale, farmScaleThreshold, project.worldId, isWorldAdmin, coveredByDesign)
+
+        // Directly under the roll-up, because it is the answer to it (MCO-294). A design listed
+        // here is why some of the lines above are already spoken for.
+        farmSuggestionList(farmSuggestions, project.worldId)
 
         groupOrder.forEach { group ->
             val activities = byGroup[group] ?: return@forEach
@@ -550,6 +566,80 @@ fun FlowContent.gatheringPlanSections(
 }
 
 /**
+ * Designs in the bank that answer this plan's demand (MCO-294) — the step that turns
+ * "7 materials are farm-scale" into "and here is what to build for them".
+ *
+ * **One line per design, not per item.** A farm makes several things: the bank's stick producer
+ * is the Witch Hut Farm, already the answer for 63,273 redstone. Listing per item would name
+ * that one design three times and invite building a witch hut "for sticks". See
+ * [app.mcorg.pipeline.resources.FarmSuggestions] for the matching rules and for why coverage
+ * deliberately under-claims.
+ *
+ * The hours figure is the one number that changes a decision. Most designs in a real bank cover
+ * their demand in minutes — it is the rare 7.6-hour line that tells you a farm is a project
+ * rather than an afternoon, so the rate is shown where it is known and quietly omitted where the
+ * author never measured it (nulls are meaningful here, not missing data).
+ *
+ * The action is the review screen, not a direct create: import decides what to gather and
+ * whether the farm already exists (MCO-457), and both of those are questions this list has no
+ * business answering on the user's behalf.
+ */
+private fun FlowContent.farmSuggestionList(suggestions: List<FarmSuggestion>, worldId: Int) {
+    if (suggestions.isEmpty()) return
+
+    div("plan-suggestions") {
+        id = "plan-suggestions"
+        span("section-label") { +"Designs that cover this" }
+        div("plan-suggestions__list") {
+            suggestions.forEach { suggestion ->
+                div("plan-suggestions__item") {
+                    div("plan-suggestions__head") {
+                        a(classes = "plan-suggestions__name") {
+                            href = Link.Ideas.single(suggestion.ideaId)
+                            +suggestion.ideaName
+                        }
+                        a(classes = "btn btn--sm btn--secondary plan-suggestions__import") {
+                            href = Link.Ideas.single(suggestion.ideaId) + "/import/review?worldId=$worldId"
+                            +"Import into this world"
+                        }
+                    }
+                    suggestion.produces.forEach { covered ->
+                        div("plan-suggestions__covers") {
+                            span("plan-suggestions__quantity") { +"%,d".format(covered.quantity) }
+                            span("plan-suggestions__item-name") { +covered.itemName }
+                            covered.hoursToCover?.let { hours ->
+                                span("plan-suggestions__rate") { +hoursOfRunning(hours) }
+                            }
+                        }
+                    }
+                    if (suggestion.alsoRemoves.isNotEmpty()) {
+                        p("plan-suggestions__knock-on") {
+                            +"Also removes "
+                            +suggestion.alsoRemoves.joinToString(", ") {
+                                "${"%,d".format(it.quantity)} ${it.itemName}"
+                            }
+                            +" — work that only exists to feed the above."
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * How long the farm has to run, in the unit a player would say it in.
+ *
+ * Sub-hour figures are the common case and "0.1 hours" is not how anyone thinks about ten
+ * minutes; past a day, minutes and hours both stop being the point.
+ */
+private fun hoursOfRunning(hours: Double): String = when {
+    hours < 1.0 -> "~${kotlin.math.max(1, kotlin.math.round(hours * 60).toInt())} min running"
+    hours < 24.0 -> "~%.1f h running".format(hours)
+    else -> "~%.1f days running".format(hours / 24)
+}
+
+/**
  * The farm-scale roll-up (MCO-401): raw materials whose demand is large enough to be worth a
  * farm, largest first.
  *
@@ -567,6 +657,7 @@ private fun FlowContent.farmScaleRollUp(
     threshold: Int,
     worldId: Int,
     canEditThreshold: Boolean,
+    coveredByDesign: Map<String, String> = emptyMap(),
 ) {
     if (demands.isEmpty()) return
 
@@ -595,6 +686,13 @@ private fun FlowContent.farmScaleRollUp(
                 div("plan-farm-scale__item") {
                     span("plan-farm-scale__quantity") { +"%,d".format(demand.quantity) }
                     span("plan-farm-scale__name") { +demand.itemName }
+                    // A line the bank answers says so here rather than being removed: the
+                    // quantity is still what you would gather by hand, and seeing which lines
+                    // are already spoken for is what makes the remainder meaningful. A line
+                    // with no design is the honest "you will have to farm this yourself".
+                    coveredByDesign[demand.itemId]?.let { designName ->
+                        span("plan-farm-scale__covered") { +"covered by $designName" }
+                    }
                 }
             }
         }
@@ -1332,11 +1430,12 @@ fun gatheringPlannerFragment(
     progressMap: Map<String, Int> = emptyMap(),
     pendingFarms: List<PendingFarmSupply> = emptyList(),
     farmScaleThreshold: Int = World.DEFAULT_FARM_SCALE_THRESHOLD,
+    farmSuggestions: List<FarmSuggestion> = emptyList(),
     isWorldAdmin: Boolean = false,
 ): String = createHTML().div {
     id = "project-content"
     gatheringPlannerContent(
-        project, resources, tasks, plan, lens, progressMap, pendingFarms, farmScaleThreshold, isWorldAdmin,
+        project, resources, tasks, plan, lens, progressMap, pendingFarms, farmScaleThreshold, farmSuggestions, isWorldAdmin,
     )
 }
 

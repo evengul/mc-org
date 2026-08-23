@@ -1,0 +1,269 @@
+package app.mcorg.presentation.handler.project
+
+import app.mcorg.domain.model.minecraft.Item
+import app.mcorg.domain.model.minecraft.MinecraftVersion
+import app.mcorg.domain.model.minecraft.ServerData
+import app.mcorg.domain.model.project.ProjectState
+import app.mcorg.domain.model.resources.ResourceQuantity
+import app.mcorg.domain.model.resources.ResourceSource
+import app.mcorg.pipeline.DatabaseSteps
+import app.mcorg.pipeline.Result
+import app.mcorg.pipeline.SafeSQL
+import app.mcorg.pipeline.minecraft.StoreMinecraftDataStep
+import app.mcorg.pipeline.project.handleGetProject
+import app.mcorg.pipeline.world.CreateWorldInput
+import app.mcorg.pipeline.world.CreateWorldStep
+import app.mcorg.presentation.plugins.AuthPlugin
+import app.mcorg.presentation.plugins.ProjectParamPlugin
+import app.mcorg.presentation.plugins.UpdateActiveWorldPlugin
+import app.mcorg.presentation.plugins.WorldParamPlugin
+import app.mcorg.presentation.plugins.WorldParticipantPlugin
+import app.mcorg.test.WithUser
+import app.mcorg.test.postgres.DatabaseTestExtension
+import io.ktor.client.request.get
+import io.ktor.client.statement.bodyAsText
+import io.ktor.http.HttpStatusCode
+import io.ktor.server.routing.get
+import io.ktor.server.routing.route
+import io.ktor.server.testing.ApplicationTestBuilder
+import io.ktor.server.testing.testApplication
+import kotlinx.coroutines.runBlocking
+import org.junit.jupiter.api.BeforeAll
+import org.junit.jupiter.api.Tag
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.TestInstance
+import org.junit.jupiter.api.extension.ExtendWith
+import kotlin.test.assertContains
+import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertIs
+
+/**
+ * MCO-294 — the plan suggests designs from the bank that cover its demand.
+ *
+ * The unit rules live in `FarmSuggestionsTest`; this covers the two things only the real door
+ * can answer: that the suggestion reaches the rendered plan at all, and that it obeys the hub's
+ * visibility rule rather than showing one user another's private designs.
+ */
+@Tag("database")
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
+@ExtendWith(DatabaseTestExtension::class)
+class FarmSuggestionIT : WithUser() {
+
+    private val version = MinecraftVersion.Release(1, 94, 0)
+    private val cobblestone = Item("minecraft:cobblestone", "Cobblestone")
+    private val glassBottle = Item("minecraft:glass_bottle", "Glass Bottle")
+
+    private var worldId: Int = 0
+    private var projectId: Int = 0
+    private var myFarmIdea: Int = 0
+    private var strangersIdea: Int = 0
+    private var smallIdea: Int = 0
+
+    @BeforeAll
+    fun setup() {
+        val stored = runBlocking {
+            StoreMinecraftDataStep.process(
+                ServerData(
+                    version = version,
+                    items = listOf(cobblestone, glassBottle),
+                    sources = listOf(
+                        ResourceSource(
+                            type = ResourceSource.SourceType.LootTypes.BLOCK,
+                            filename = "blocks/stone.json",
+                            producedItems = listOf(cobblestone to ResourceQuantity.ItemQuantity(1))
+                        ),
+                        ResourceSource(
+                            type = ResourceSource.SourceType.LootTypes.BLOCK,
+                            filename = "blocks/glass_bottle.json",
+                            producedItems = listOf(glassBottle to ResourceQuantity.ItemQuantity(1))
+                        ),
+                    )
+                )
+            )
+        }
+        assertIs<Result.Success<*>>(stored)
+
+        worldId = createWorld("FarmSuggestion IT World")
+        projectId = createProject(worldId, "Storage System")
+        // Comfortably farm-scale (the default threshold is 1,728).
+        createResourceGathering(projectId, cobblestone, required = 75_151)
+        createResourceGathering(projectId, glassBottle, required = 216)
+
+        myFarmIdea = createIdea("231k Cobblestone farm", ownerId = user.id, public = false)
+        addProduction(myFarmIdea, cobblestone.id, 924_000)
+
+        // Sub-threshold on its only output: the plan wants 216 bottles, which is no reason to
+        // build anything.
+        smallIdea = createIdea("Bottle trickle", ownerId = user.id, public = false)
+        addProduction(smallIdea, glassBottle.id, 785)
+    }
+
+    @Test
+    fun `a design covering farm-scale demand is suggested on the plan`() = testApplication {
+        setupRoutes()
+
+        val response = client.get("/worlds/$worldId/projects/$projectId") { addAuthCookie(this) }
+
+        assertEquals(HttpStatusCode.OK, response.status)
+        val body = response.bodyAsText()
+        assertContains(body, "plan-suggestions")
+        assertContains(body, "Designs that cover this")
+        assertContains(body, "231k Cobblestone farm")
+        assertContains(body, "75,151")
+        // The action is the review screen (MCO-457's door), not a direct create.
+        assertContains(body, "/ideas/$myFarmIdea/import/review?worldId=$worldId")
+    }
+
+    @Test
+    fun `the roll-up says which of its lines a design already answers`() = testApplication {
+        setupRoutes()
+
+        val body = client.get("/worlds/$worldId/projects/$projectId") { addAuthCookie(this) }.bodyAsText()
+
+        // The quantity stays — it is still what you would gather by hand — and the line says
+        // what accounts for it. A line with no design is the honest "you farm this yourself".
+        assertContains(body, "covered by 231k Cobblestone farm")
+    }
+
+    @Test
+    fun `a design whose only output is below the threshold is not suggested`() = testApplication {
+        setupRoutes()
+
+        val body = client.get("/worlds/$worldId/projects/$projectId") { addAuthCookie(this) }.bodyAsText()
+
+        assertFalse(body.contains("Bottle trickle"), "216 bottles is not a reason to build a farm")
+    }
+
+    @Test
+    fun `someone else's private design is never suggested`() = testApplication {
+        setupRoutes()
+        val stranger = createExtraUser("farm-suggestion-stranger")
+        strangersIdea = createIdea("Stranger's Cobble Farm", ownerId = stranger.id, public = false)
+        addProduction(strangersIdea, cobblestone.id, 500_000)
+
+        val body = client.get("/worlds/$worldId/projects/$projectId") { addAuthCookie(this) }.bodyAsText()
+
+        assertFalse(
+            body.contains("Stranger's Cobble Farm"),
+            "the bank is public designs plus your own — the hub's rule (MCO-291), shared not re-derived",
+        )
+    }
+
+    @Test
+    fun `published, the same design is suggested to everyone`() = testApplication {
+        setupRoutes()
+        val stranger = createExtraUser("farm-suggestion-publisher")
+        val published = createIdea("Published Cobble Farm", ownerId = stranger.id, public = true)
+        addProduction(published, cobblestone.id, 400_000)
+
+        val body = client.get("/worlds/$worldId/projects/$projectId") { addAuthCookie(this) }.bodyAsText()
+
+        assertContains(body, "Published Cobble Farm")
+
+        deleteIdea(published)
+    }
+
+    // ---- routing ----------------------------------------------------------------
+
+    private fun ApplicationTestBuilder.setupRoutes() {
+        routing {
+            install(AuthPlugin)
+            route("/worlds/{worldId}") {
+                install(WorldParamPlugin)
+                install(WorldParticipantPlugin)
+                install(UpdateActiveWorldPlugin)
+                route("/projects/{projectId}") {
+                    install(ProjectParamPlugin)
+                    get { call.handleGetProject() }
+                }
+            }
+        }
+    }
+
+    // ---- fixtures ----------------------------------------------------------------
+
+    private fun createWorld(name: String): Int = runBlocking {
+        val result = CreateWorldStep(user).process(
+            CreateWorldInput(name = name, description = "test", version = version)
+        )
+        (result as Result.Success).value
+    }
+
+    private fun createProject(worldId: Int, name: String): Int = runBlocking {
+        val result = DatabaseSteps.update<Unit>(
+            sql = SafeSQL.insert(
+                "INSERT INTO projects (name, world_id, description, type, stage, state, location_x, location_y, location_z, location_dimension) " +
+                    "VALUES (?, ?, '', 'BUILDING', 'PLANNING', ?, 0, 0, 0, 'OVERWORLD') RETURNING id"
+            ),
+            parameterSetter = { stmt, _ ->
+                stmt.setString(1, name)
+                stmt.setInt(2, worldId)
+                stmt.setString(3, ProjectState.ACTIVE.name)
+            }
+        ).process(Unit)
+        (result as Result.Success).value
+    }
+
+    private fun createResourceGathering(projectId: Int, item: Item, required: Int) = runBlocking {
+        DatabaseSteps.update<Unit>(
+            sql = SafeSQL.insert(
+                "INSERT INTO resource_gathering (project_id, item_id, name, required) VALUES (?, ?, ?, ?)"
+            ),
+            parameterSetter = { stmt, _ ->
+                stmt.setInt(1, projectId)
+                stmt.setString(2, item.id)
+                stmt.setString(3, item.name)
+                stmt.setInt(4, required)
+            }
+        ).process(Unit)
+    }
+
+    private fun createIdea(name: String, ownerId: Int, public: Boolean): Int = runBlocking {
+        val result = DatabaseSteps.update<Unit>(
+            sql = SafeSQL.insert(
+                """
+                INSERT INTO ideas (name, description, category, author, difficulty, minecraft_version_range,
+                                   category_data, created_by, visibility)
+                VALUES (?, 'test idea', 'FARM', '{"type":"single","name":"tester"}'::jsonb, 'EASY',
+                        '{"type":"app.mcorg.domain.model.minecraft.MinecraftVersionRange.Unbounded"}'::jsonb,
+                        '{}'::jsonb, ?, ?)
+                RETURNING id
+                """.trimIndent()
+            ),
+            parameterSetter = { stmt, _ ->
+                stmt.setString(1, name)
+                stmt.setInt(2, ownerId)
+                stmt.setString(3, if (public) "PUBLIC" else "PRIVATE")
+            }
+        ).process(Unit)
+        (result as Result.Success).value
+    }
+
+    private fun addProduction(ideaId: Int, itemId: String, rate: Int) = runBlocking {
+        val modeId = DatabaseSteps.update<Unit>(
+            sql = SafeSQL.insert(
+                "INSERT INTO idea_production_modes (idea_id, name, position) VALUES (?, 'Default', 0) RETURNING id"
+            ),
+            parameterSetter = { stmt, _ -> stmt.setInt(1, ideaId) }
+        ).process(Unit).let { (it as Result.Success).value }
+
+        DatabaseSteps.update<Unit>(
+            sql = SafeSQL.insert(
+                "INSERT INTO idea_production_rates (mode_id, item_id, rate_per_hour) VALUES (?, ?, ?)"
+            ),
+            parameterSetter = { stmt, _ ->
+                stmt.setInt(1, modeId)
+                stmt.setString(2, itemId)
+                stmt.setInt(3, rate)
+            }
+        ).process(Unit)
+    }
+
+    private fun deleteIdea(ideaId: Int) = runBlocking {
+        DatabaseSteps.update<Unit>(
+            sql = SafeSQL.delete("DELETE FROM ideas WHERE id = ?"),
+            parameterSetter = { stmt, _ -> stmt.setInt(1, ideaId) }
+        ).process(Unit)
+    }
+}
