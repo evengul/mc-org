@@ -78,7 +78,7 @@ suspend fun ApplicationCall.handleGetDetailContent() {
 
     // Same reason the threshold is here (MCO-401): switching lens must not look like the
     // suggestions disappeared.
-    val farmSuggestions = farmSuggestionsFor(plan, farmScaleThreshold, getUser().id)
+    val farmSuggestions = farmSuggestionsFor(plan, farmScaleThreshold, getUser().id, project.importedFromIdea?.first)
 
     // The roll-up's threshold is a link to world settings for admins only, so the fragment
     // needs the same role answer the full page computes.

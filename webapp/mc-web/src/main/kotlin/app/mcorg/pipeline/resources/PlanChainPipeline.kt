@@ -367,7 +367,7 @@ private suspend fun ApplicationCall.respondListRerender(worldId: Int, projectId:
     val farmScaleThreshold = GetFarmScaleThresholdStep.process(worldId).getOrNull()
         ?: World.DEFAULT_FARM_SCALE_THRESHOLD
     val user = getUser()
-    val farmSuggestions = farmSuggestionsFor(plan, farmScaleThreshold, user.id)
+    val farmSuggestions = farmSuggestionsFor(plan, farmScaleThreshold, user.id, project.importedFromIdea?.first)
     val isAdmin = ValidateWorldMemberRole<Unit>(user, Role.ADMIN, worldId).process(Unit) is Result.Success
 
     respondHtml(

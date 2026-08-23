@@ -54,6 +54,9 @@ class FarmSuggestionIT : WithUser() {
     private val cobblestone = Item("minecraft:cobblestone", "Cobblestone")
     private val glassBottle = Item("minecraft:glass_bottle", "Glass Bottle")
 
+    /** Farm-scale in the fixtures below, and produced by nothing in the bank. */
+    private val oakLog = Item("minecraft:oak_log", "Oak Log")
+
     private var worldId: Int = 0
     private var projectId: Int = 0
     private var myFarmIdea: Int = 0
@@ -66,7 +69,7 @@ class FarmSuggestionIT : WithUser() {
             StoreMinecraftDataStep.process(
                 ServerData(
                     version = version,
-                    items = listOf(cobblestone, glassBottle),
+                    items = listOf(cobblestone, glassBottle, oakLog),
                     sources = listOf(
                         ResourceSource(
                             type = ResourceSource.SourceType.LootTypes.BLOCK,
@@ -77,6 +80,11 @@ class FarmSuggestionIT : WithUser() {
                             type = ResourceSource.SourceType.LootTypes.BLOCK,
                             filename = "blocks/glass_bottle.json",
                             producedItems = listOf(glassBottle to ResourceQuantity.ItemQuantity(1))
+                        ),
+                        ResourceSource(
+                            type = ResourceSource.SourceType.LootTypes.BLOCK,
+                            filename = "blocks/oak_log.json",
+                            producedItems = listOf(oakLog to ResourceQuantity.ItemQuantity(1))
                         ),
                     )
                 )
@@ -107,8 +115,7 @@ class FarmSuggestionIT : WithUser() {
 
         assertEquals(HttpStatusCode.OK, response.status)
         val body = response.bodyAsText()
-        assertContains(body, "plan-suggestions")
-        assertContains(body, "Designs that cover this")
+        assertContains(body, "plan-farm-scale")
         assertContains(body, "231k Cobblestone farm")
         assertContains(body, "75,151")
         // The action is the review screen (MCO-457's door), not a direct create.
@@ -116,14 +123,53 @@ class FarmSuggestionIT : WithUser() {
     }
 
     @Test
-    fun `the roll-up says which of its lines a design already answers`() = testApplication {
+    fun `an answered line lives under its design, not in a second list`() = testApplication {
         setupRoutes()
 
         val body = client.get("/worlds/$worldId/projects/$projectId") { addAuthCookie(this) }.bodyAsText()
 
-        // The quantity stays — it is still what you would gather by hand — and the line says
-        // what accounts for it. A line with no design is the honest "you farm this yourself".
-        assertContains(body, "covered by 231k Cobblestone farm")
+        // These were briefly two sections that reprinted each other's numbers on a real plan.
+        // The quantity now belongs to the design that covers it, inside the one roll-up.
+        assertContains(body, "plan-farm-scale__design")
+        assertContains(body, "your designs cover 1 of them")
+        assertFalse(body.contains("plan-suggestions"), "designs are not a section of their own")
+        assertFalse(body.contains("No design yet"), "everything farm-scale here has a design")
+    }
+
+    @Test
+    fun `farm-scale demand no design answers is called out as such`() = testApplication {
+        setupRoutes()
+        val bare = createProject(worldId, "Bare Build")
+        createResourceGathering(bare, oakLog, required = 31_267)
+
+        val body = client.get("/worlds/$worldId/projects/$bare") { addAuthCookie(this) }.bodyAsText()
+
+        // Nothing in the bank makes oak logs. Not a gap in the feature — the honest answer that
+        // this one gets farmed by hand, and where the bank is worth growing. With nothing
+        // answered the section is exactly the roll-up MCO-401 shipped: quantities, no headings.
+        assertContains(body, "31,267")
+        assertContains(body, "Oak Log")
+        assertFalse(body.contains("plan-farm-scale__design"), "there is no design to show")
+        assertFalse(body.contains("No design yet"), "nothing to separate it from")
+    }
+
+    @Test
+    fun `a project built from a design is not suggested that design`() = testApplication {
+        setupRoutes()
+        // The farm itself costs cobblestone to build, so its own plan matched its own design
+        // and offered to import what you are standing in.
+        val theFarm = createProjectFromIdea(worldId, "231k Cobblestone farm", myFarmIdea)
+        createResourceGathering(theFarm, cobblestone, required = 4_000)
+
+        val body = client.get("/worlds/$worldId/projects/$theFarm") { addAuthCookie(this) }.bodyAsText()
+
+        assertFalse(
+            body.contains("Import into this world"),
+            "you cannot need the design you are building",
+        )
+        // The demand is still farm-scale and still listed — it just has no answer now.
+        assertContains(body, "4,000")
+        assertFalse(body.contains("plan-farm-scale__design"), "and no design row at all")
     }
 
     @Test
@@ -200,6 +246,21 @@ class FarmSuggestionIT : WithUser() {
                 stmt.setString(1, name)
                 stmt.setInt(2, worldId)
                 stmt.setString(3, ProjectState.ACTIVE.name)
+            }
+        ).process(Unit)
+        (result as Result.Success).value
+    }
+
+    private fun createProjectFromIdea(worldId: Int, name: String, ideaId: Int): Int = runBlocking {
+        val result = DatabaseSteps.update<Unit>(
+            sql = SafeSQL.insert(
+                "INSERT INTO projects (name, world_id, description, type, stage, state, location_x, location_y, location_z, location_dimension, project_idea_id) " +
+                    "VALUES (?, ?, '', 'FARMING', 'PLANNING', 'ACTIVE', 0, 0, 0, 'OVERWORLD', ?) RETURNING id"
+            ),
+            parameterSetter = { stmt, _ ->
+                stmt.setString(1, name)
+                stmt.setInt(2, worldId)
+                stmt.setInt(3, ideaId)
             }
         ).process(Unit)
         (result as Result.Success).value

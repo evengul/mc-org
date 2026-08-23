@@ -507,24 +507,13 @@ fun FlowContent.gatheringPlanSections(
     val feedsLabels = buildFeedsLabels(plan)
     val farmScale = FarmScaleDemands.of(plan, farmScaleThreshold)
     val farmScaleIds = farmScale.mapTo(mutableSetOf()) { it.itemId }
-    // itemId -> the design that accounts for it (MCO-294). First suggestion wins: they are
-    // ordered by work removed, so the row is attributed to the biggest reason to build it.
-    val coveredByDesign: Map<String, String> = buildMap {
-        farmSuggestions.forEach { suggestion ->
-            suggestion.itemIds.forEach { itemId -> putIfAbsent(itemId, suggestion.ideaName) }
-        }
-    }
 
     div {
         id = "gathering-plan-sections"
 
         // Above the work sections on purpose: this is not a step in the plan, it is the answer
         // to "what should I build first", and it is what turns one import into a roadmap.
-        farmScaleRollUp(farmScale, farmScaleThreshold, project.worldId, isWorldAdmin, coveredByDesign)
-
-        // Directly under the roll-up, because it is the answer to it (MCO-294). A design listed
-        // here is why some of the lines above are already spoken for.
-        farmSuggestionList(farmSuggestions, project.worldId)
+        farmScaleSection(farmScale, farmSuggestions, farmScaleThreshold, project.worldId, isWorldAdmin)
 
         groupOrder.forEach { group ->
             val activities = byGroup[group] ?: return@forEach
@@ -566,100 +555,38 @@ fun FlowContent.gatheringPlanSections(
 }
 
 /**
- * Designs in the bank that answer this plan's demand (MCO-294) — the step that turns
- * "7 materials are farm-scale" into "and here is what to build for them".
+ * "Worth a farm" — the farm-scale demand and what to build for it, as one list.
  *
- * **One line per design, not per item.** A farm makes several things: the bank's stick producer
- * is the Witch Hut Farm, already the answer for 63,273 redstone. Listing per item would name
- * that one design three times and invite building a witch hut "for sticks". See
- * [app.mcorg.pipeline.resources.FarmSuggestions] for the matching rules and for why coverage
- * deliberately under-claims.
+ * MCO-401 shipped the quantities; MCO-294 added the designs that cover them. They were briefly
+ * two sections and that was wrong: on a real plan the bank answered ten of ten lines, so the
+ * second section reprinted the first one's numbers under different headings. A design and the
+ * demand it covers are one fact, so they are one row.
  *
- * The hours figure is the one number that changes a decision. Most designs in a real bank cover
- * their demand in minutes — it is the rare 7.6-hour line that tells you a farm is a project
- * rather than an afternoon, so the rate is shown where it is known and quietly omitted where the
- * author never measured it (nulls are meaningful here, not missing data).
+ * The order is the message, as it was before: most work removed first, and the top line is
+ * where to start. Designs lead because a line you can answer by importing something is a
+ * cheaper decision than a line you cannot.
  *
- * The action is the review screen, not a direct create: import decides what to gather and
- * whether the farm already exists (MCO-457), and both of those are questions this list has no
- * business answering on the user's behalf.
+ * The tail is the point of the section as much as the head. A farm-scale material with no
+ * design is not a gap in the feature — it is the honest answer that you will be farming this
+ * one yourself, and it is where the bank is worth growing. It keeps the plain quantity-and-name
+ * shape the whole roll-up used to have.
+ *
+ * Coverage runs deeper than the roll-up's own lines: the roll-up is RAW_GATHER leaves, and a
+ * design that produces iron ingots removes the *ore* below them. That ore is a roll-up line, so
+ * it appears under the design that removes it rather than orphaned in the tail claiming nobody
+ * can help with it.
  */
-private fun FlowContent.farmSuggestionList(suggestions: List<FarmSuggestion>, worldId: Int) {
-    if (suggestions.isEmpty()) return
-
-    div("plan-suggestions") {
-        id = "plan-suggestions"
-        span("section-label") { +"Designs that cover this" }
-        div("plan-suggestions__list") {
-            suggestions.forEach { suggestion ->
-                div("plan-suggestions__item") {
-                    div("plan-suggestions__head") {
-                        a(classes = "plan-suggestions__name") {
-                            href = Link.Ideas.single(suggestion.ideaId)
-                            +suggestion.ideaName
-                        }
-                        a(classes = "btn btn--sm btn--secondary plan-suggestions__import") {
-                            href = Link.Ideas.single(suggestion.ideaId) + "/import/review?worldId=$worldId"
-                            +"Import into this world"
-                        }
-                    }
-                    suggestion.produces.forEach { covered ->
-                        div("plan-suggestions__covers") {
-                            span("plan-suggestions__quantity") { +"%,d".format(covered.quantity) }
-                            span("plan-suggestions__item-name") { +covered.itemName }
-                            covered.hoursToCover?.let { hours ->
-                                span("plan-suggestions__rate") { +hoursOfRunning(hours) }
-                            }
-                        }
-                    }
-                    if (suggestion.alsoRemoves.isNotEmpty()) {
-                        p("plan-suggestions__knock-on") {
-                            +"Also removes "
-                            +suggestion.alsoRemoves.joinToString(", ") {
-                                "${"%,d".format(it.quantity)} ${it.itemName}"
-                            }
-                            +" — work that only exists to feed the above."
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-/**
- * How long the farm has to run, in the unit a player would say it in.
- *
- * Sub-hour figures are the common case and "0.1 hours" is not how anyone thinks about ten
- * minutes; past a day, minutes and hours both stop being the point.
- */
-private fun hoursOfRunning(hours: Double): String = when {
-    hours < 1.0 -> "~${kotlin.math.max(1, kotlin.math.round(hours * 60).toInt())} min running"
-    hours < 24.0 -> "~%.1f h running".format(hours)
-    else -> "~%.1f days running".format(hours / 24)
-}
-
-/**
- * The farm-scale roll-up (MCO-401): raw materials whose demand is large enough to be worth a
- * farm, largest first.
- *
- * This list *is* the roadmap-building input — each line is a candidate prerequisite farm
- * project — which is why it leads the plan rather than sitting at the bottom with the notices.
- * Ordering carries the meaning: the top line is where to start.
- *
- * It names quantities and nothing else. Suggesting *which* farm to build is MCO-294 and needs
- * an idea bank; saying "this is farm-scale" needs only the plan, which is why the two shipped
- * apart. Items an operational farm already supplies never appear — they are solved, not
- * suggestions (see [FarmScaleDemands]).
- */
-private fun FlowContent.farmScaleRollUp(
+private fun FlowContent.farmScaleSection(
     demands: List<FarmScaleDemand>,
+    suggestions: List<FarmSuggestion>,
     threshold: Int,
     worldId: Int,
     canEditThreshold: Boolean,
-    coveredByDesign: Map<String, String> = emptyMap(),
 ) {
-    if (demands.isEmpty()) return
+    if (demands.isEmpty() && suggestions.isEmpty()) return
+
+    val answered = suggestions.flatMapTo(mutableSetOf()) { it.itemIds }
+    val unanswered = demands.filter { it.itemId !in answered }
 
     div("plan-farm-scale") {
         id = "plan-farm-scale"
@@ -679,24 +606,99 @@ private fun FlowContent.farmScaleRollUp(
             } else {
                 +"%,d".format(threshold)
             }
-            +" — each is a candidate for its own farm project."
+            if (suggestions.isEmpty()) {
+                +" — each is a candidate for its own farm project."
+            } else {
+                val covered = demands.size - unanswered.size
+                +" — your designs cover $covered of them."
+            }
         }
-        div("plan-farm-scale__list") {
-            demands.forEach { demand ->
-                div("plan-farm-scale__item") {
-                    span("plan-farm-scale__quantity") { +"%,d".format(demand.quantity) }
-                    span("plan-farm-scale__name") { +demand.itemName }
-                    // A line the bank answers says so here rather than being removed: the
-                    // quantity is still what you would gather by hand, and seeing which lines
-                    // are already spoken for is what makes the remainder meaningful. A line
-                    // with no design is the honest "you will have to farm this yourself".
-                    coveredByDesign[demand.itemId]?.let { designName ->
-                        span("plan-farm-scale__covered") { +"covered by $designName" }
+
+        suggestions.forEach { suggestion -> designRow(suggestion, worldId) }
+
+        if (unanswered.isNotEmpty()) {
+            div("plan-farm-scale__unanswered") {
+                // The label separates answered from unanswered. With nothing answered there is
+                // nothing to separate, and the section is exactly the roll-up MCO-401 shipped —
+                // so it says nothing rather than heading a list that is the whole list.
+                if (suggestions.isNotEmpty()) {
+                    span("plan-farm-scale__group-label") { +"No design yet" }
+                }
+                div("plan-farm-scale__list") {
+                    unanswered.forEach { demand ->
+                        div("plan-farm-scale__item") {
+                            span("plan-farm-scale__quantity") { +"%,d".format(demand.quantity) }
+                            span("plan-farm-scale__name") { +demand.itemName }
+                        }
                     }
                 }
             }
         }
     }
+}
+
+/**
+ * One design and everything it takes off the plan (MCO-294).
+ *
+ * **One row per design, not per item.** A farm makes several things: the bank's stick producer
+ * is the Witch Hut Farm, already the answer for 63,213 redstone. A row per item would name that
+ * one design three times and invite building a witch hut "for sticks". See
+ * [app.mcorg.pipeline.resources.FarmSuggestions] for the matching rules and for why coverage
+ * deliberately under-claims.
+ *
+ * The hours figure is the one number that changes a decision. Most designs cover their demand in
+ * minutes — it is the rare multi-hour line that says a farm is a project rather than an
+ * afternoon — so the rate shows where it is known and is quietly absent where the author never
+ * measured it (a null rate is meaningful here, not missing data).
+ *
+ * The action is the review screen, not a direct create: import decides what to gather and
+ * whether the farm already exists (MCO-457), and neither is this list's to answer for the user.
+ */
+private fun FlowContent.designRow(suggestion: FarmSuggestion, worldId: Int) {
+    div("plan-farm-scale__design") {
+        div("plan-farm-scale__design-head") {
+            a(classes = "plan-farm-scale__design-name") {
+                href = Link.Ideas.single(suggestion.ideaId)
+                +suggestion.ideaName
+            }
+            a(classes = "btn btn--sm btn--secondary plan-farm-scale__import") {
+                href = Link.Ideas.single(suggestion.ideaId) + "/import/review?worldId=$worldId"
+                +"Import into this world"
+            }
+        }
+        div("plan-farm-scale__list") {
+            suggestion.produces.forEach { covered ->
+                div("plan-farm-scale__item") {
+                    span("plan-farm-scale__quantity") { +"%,d".format(covered.quantity) }
+                    span("plan-farm-scale__name") { +covered.itemName }
+                    covered.hoursToCover?.let { hours ->
+                        span("plan-farm-scale__rate") { +hoursOfRunning(hours) }
+                    }
+                }
+            }
+        }
+        if (suggestion.alsoRemoves.isNotEmpty()) {
+            p("plan-farm-scale__knock-on") {
+                +"Also removes "
+                +suggestion.alsoRemoves.joinToString(", ") {
+                    "${"%,d".format(it.quantity)} ${it.itemName}"
+                }
+                +" — work that only exists to feed the above."
+            }
+        }
+    }
+}
+
+/**
+ * How long the farm has to run, in the unit a player would say it in.
+ *
+ * Sub-hour figures are the common case and "0.1 hours" is not how anyone thinks about ten
+ * minutes; past a day, minutes and hours both stop being the point.
+ */
+private fun hoursOfRunning(hours: Double): String = when {
+    hours < 1.0 -> "~${kotlin.math.max(1, kotlin.math.round(hours * 60).toInt())} min running"
+    hours < 24.0 -> "~%.1f h running".format(hours)
+    else -> "~%.1f days running".format(hours / 24)
 }
 
 /**

@@ -177,7 +177,21 @@ object FarmSuggestions {
  * rather than failing the page — same posture as [GetFarmScaleThresholdStep] and
  * [pendingFarmSuppliesFor]. A missing suggestion is a worse plan; a missing plan is no page.
  */
-suspend fun farmSuggestionsFor(plan: GatheringPlan?, threshold: Int, viewerId: Int): List<FarmSuggestion> {
+suspend fun farmSuggestionsFor(
+    plan: GatheringPlan?,
+    threshold: Int,
+    viewerId: Int,
+    /**
+     * The design this project was imported from, if any — never suggested back to it.
+     *
+     * A farm costs materials to build, and a cobblestone farm costs cobblestone. Without this
+     * the farm's own plan matches its own design and offers to import the thing you are
+     * standing in. The narrow rule is deliberate: a *different* design producing the same item
+     * is still a fair suggestion (a bigger farm is a real answer to demand a small one cannot
+     * meet), so only the project's own source idea is excluded.
+     */
+    excludeIdeaId: Int? = null,
+): List<FarmSuggestion> {
     if (plan == null) return emptyList()
 
     val demandedIds = plan.activityList
@@ -190,5 +204,5 @@ suspend fun farmSuggestionsFor(plan: GatheringPlan?, threshold: Int, viewerId: I
         .getOrNull()
         ?: return emptyList()
 
-    return FarmSuggestions.of(plan, threshold, producers)
+    return FarmSuggestions.of(plan, threshold, producers.filter { it.ideaId != excludeIdeaId })
 }
