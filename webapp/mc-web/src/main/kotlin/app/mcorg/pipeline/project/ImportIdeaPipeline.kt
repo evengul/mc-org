@@ -43,7 +43,12 @@ data class IdeaForImport(
     val description: String,
     val category: IdeaCategory,
     val requirements: Map<Item, Int>,
-    val production: Map<Item, Int>
+    val production: Map<Item, Int>,
+    /**
+     * Produced item ids this world's version does not have (MCO-456). Dropped from
+     * [production] and reported, never fatal — see [ValidateItemIdsStep].
+     */
+    val unrecordableProductions: List<String> = emptyList(),
 )
 
 /**
@@ -85,6 +90,7 @@ suspend fun ApplicationCall.handleReviewIdeaImport() {
                     requirements = requirements,
                     placedCounts = materials.placedCounts,
                     warnings = computeImportWarnings(worldId, requirements),
+                    unrecordableProductions = idea.unrecordableProductions,
                     action = Link.Ideas.single(ideaId) + "/import",
                     hiddenFields = buildMap {
                         put("worldId", worldId.toString())
@@ -344,11 +350,12 @@ internal fun ratesForImport(modes: List<IdeaProductionMode>, chosenModeName: Str
 }
 
 
-private data class ValidateItemIdsStep(val availableIds: List<Item>) : Step<Pair<BasicIdeaInfo, Map<String, Int>>, AppFailure, IdeaForImport> {
+internal data class ValidateItemIdsStep(val availableIds: List<Item>) : Step<Pair<BasicIdeaInfo, Map<String, Int>>, AppFailure, IdeaForImport> {
     override suspend fun process(input: Pair<BasicIdeaInfo, Map<String, Int>>): Result<AppFailure, IdeaForImport> {
         val (ideaInfo, requirements) = input
         val mappedRequirements = mutableMapOf<Item, Int>()
         val mappedProduction = mutableMapOf<Item, Int>()
+        val unrecordable = mutableListOf<String>()
         val errors = mutableListOf<ValidationFailure>()
 
         for ((itemId, amount) in requirements) {
@@ -365,12 +372,17 @@ private data class ValidateItemIdsStep(val availableIds: List<Item>) : Step<Pair
             }
         }
 
-        // TODO: Support multiple production entries?
+        // An unknown *production* id is reported, not refused (MCO-456). It used to be a
+        // validation error, which failed the whole import — and the review GET with it — over a
+        // field that screen does not have, so there was nothing the user could do but give up on
+        // the idea. What it produces is the author's claim about their farm, not work this world
+        // is agreeing to do: the honest handling is to record what this version knows about, say
+        // what was left out, and let the import through.
         for ((itemId, amount) in ideaInfo.productionRate) {
             val item = availableIds.find { it.id == itemId }
 
             if (item == null) {
-                errors.add(ValidationFailure.CustomValidation("productionRate", "Item ID $itemId is not available in the world version"))
+                unrecordable.add(itemId)
             } else {
                 mappedProduction[item] = amount
             }
@@ -384,7 +396,8 @@ private data class ValidateItemIdsStep(val availableIds: List<Item>) : Step<Pair
                     description = ideaInfo.description,
                     category = ideaInfo.category,
                     requirements = mappedRequirements,
-                    production = mappedProduction
+                    production = mappedProduction,
+                    unrecordableProductions = unrecordable.sorted(),
                 )
             )
         } else {
