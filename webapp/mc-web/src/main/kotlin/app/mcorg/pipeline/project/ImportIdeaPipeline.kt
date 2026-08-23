@@ -18,6 +18,7 @@ import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.failure.ValidationFailure
 import app.mcorg.pipeline.project.resources.GetItemsInWorldVersionStep
+import app.mcorg.pipeline.resources.invalidateDemandSuppliedBy
 import app.mcorg.presentation.handler.defaultHandleError
 import app.mcorg.presentation.handler.handlePipeline
 import io.ktor.server.response.respond
@@ -91,6 +92,11 @@ suspend fun ApplicationCall.handleReviewIdeaImport() {
                     placedCounts = materials.placedCounts,
                     warnings = computeImportWarnings(worldId, requirements),
                     unrecordableProductions = idea.unrecordableProductions,
+                    // Only the idea door offers this (MCO-457). A schematic is a file of blocks
+                    // to place, with nothing to say about what the thing produces; an idea
+                    // carries the rates, which is the whole reason to record a farm you already
+                    // built rather than re-typing them into the MCO-298 form.
+                    offerAlreadyBuilt = true,
                     action = Link.Ideas.single(ideaId) + "/import",
                     hiddenFields = buildMap {
                         put("worldId", worldId.toString())
@@ -128,6 +134,10 @@ suspend fun ApplicationCall.handleImportIdea() {
 
     val taskId = (submitted["forTask"] ?: parameters["forTask"])?.toIntOrNull()
 
+    // An unchecked checkbox posts nothing at all, so presence is the signal — the same
+    // reading every other checkbox on this screen gets.
+    val alreadyBuilt = submitted["alreadyBuilt"] != null
+
     val items = GetItemsInWorldVersionStep.process(worldId).getOrNull() ?: emptyList()
 
     handlePipeline(
@@ -147,8 +157,14 @@ suspend fun ApplicationCall.handleImportIdea() {
         ValidateVersionRangeStep.run(worldId to ideaId)
         val ideaData = GetIdeaForImportStep.run(ideaId)
         val validatedIdea = ValidateItemIdsStep(items).run(ideaData)
-        val reviewedIdea = ApplyReviewedRequirementsStep(submitted, items).run(validatedIdea)
-        val projectId = CreateProjectFromIdeaStep(worldId, taskId).run(reviewedIdea)
+        val reviewedIdea = ApplyReviewedRequirementsStep(submitted, items, alreadyBuilt).run(validatedIdea)
+        val projectId = CreateProjectFromIdeaStep(worldId, taskId, alreadyBuilt).run(reviewedIdea)
+        // An already-built import is DONE the moment it exists, so it is world supply now —
+        // every stored plan that gathers what it makes is already wrong (MCO-404). An ordinary
+        // import is ACTIVE and supplies nothing yet, so it has nothing to invalidate.
+        if (alreadyBuilt) {
+            invalidateDemandSuppliedBy(worldId, projectId)
+        }
         CacheManager.onProjectCreated(worldId, projectId)
         bus.publish(IdeaImported(worldId, user.id, Instant.now(), ideaId, reviewedIdea.name))
         projectId
@@ -166,13 +182,24 @@ suspend fun ApplicationCall.handleImportIdea() {
  * row unchecked and a bare direct post are near-identical, so a fallback would silently
  * import everything at exactly the moment the user asked for nothing. Import goes through
  * the review screen; a submission with no rows — or with no list at all — is refused.
+ *
+ * [alreadyBuilt] (MCO-457) drops the list instead of reading it: the farm is standing in the
+ * world already, so there is nothing to gather and the review screen said so. That is not the
+ * fallback this step refuses to have — the fallback would import *more* than was asked for,
+ * where this imports nothing at all, which is the direction it is safe to be wrong in. The
+ * name is still taken from the form, since renaming is orthogonal to whether it is built.
  */
 internal data class ApplyReviewedRequirementsStep(
     val submitted: Parameters,
     val availableItems: List<Item>,
+    val alreadyBuilt: Boolean = false,
 ) : Step<IdeaForImport, AppFailure, IdeaForImport> {
 
     override suspend fun process(input: IdeaForImport): Result<AppFailure, IdeaForImport> {
+        if (alreadyBuilt) {
+            return Result.success(input.copy(name = submittedName(input.name), requirements = emptyMap()))
+        }
+
         val submittedRows = when (
             val decoded = ReviewedMaterialsCodec.decode(submitted[ReviewedMaterialsCodec.FIELD])
         ) {
@@ -208,9 +235,11 @@ internal data class ApplyReviewedRequirementsStep(
             )
         }
 
-        val name = submitted["name"]?.trim()?.takeIf { it.isNotBlank() }?.take(100) ?: input.name
-        return Result.success(input.copy(name = name, requirements = requirements))
+        return Result.success(input.copy(name = submittedName(input.name), requirements = requirements))
     }
+
+    private fun submittedName(fallback: String): String =
+        submitted["name"]?.trim()?.takeIf { it.isNotBlank() }?.take(100) ?: fallback
 }
 
 private object ValidateVersionRangeStep : Step<Pair<Int, Int>, AppFailure, Pair<Int, Int>> {
@@ -412,17 +441,50 @@ data class CreateDependencyInput(
     val dependsOnProjectId: Int
 )
 
-private data class CreateProjectFromIdeaStep(val worldId: Int, val taskId: Int?) : Step<IdeaForImport, AppFailure.DatabaseError, Int> {
+/**
+ * Writes the project the idea becomes.
+ *
+ * [alreadyBuilt] (MCO-457) is the same fact MCO-298's `RecordExistingFarmPipeline` records for a
+ * farm with no idea behind it: the build is standing in the world, so it enters operational
+ * (`COMPLETED` + `DONE`) with its productions and **no gathering list at all**. Under MCO-287's
+ * anchor decision DONE *is* the producing condition, so that is what makes it supply other
+ * projects' plans ([app.mcorg.pipeline.resources.GetWorldFarmSuppliesStep]) instead of merely
+ * promising to via `GetWorldPlannedFarmsStep`. Like that pipeline, it bypasses
+ * [app.mcorg.domain.model.project.ProjectState.allowedTransitions] on purpose — there is no
+ * `PENDING -> DONE` edge because a pre-existing build was never planned here.
+ *
+ * It stays this step rather than routing through `CreateExistingFarmStep`: that one writes no
+ * `project_idea_id` and knows nothing about `forTask`, so reusing it would drop the link back to
+ * the idea — the thing that makes this door worth having over the MCO-298 form.
+ */
+private data class CreateProjectFromIdeaStep(
+    val worldId: Int,
+    val taskId: Int?,
+    val alreadyBuilt: Boolean = false,
+) : Step<IdeaForImport, AppFailure.DatabaseError, Int> {
+
+    // Two literals rather than a bound parameter: the lifecycle is this step's own choice, not
+    // anything the request carries, and SafeSQL takes a constant.
+    private val insertProject = if (alreadyBuilt) {
+        SafeSQL.insert("""
+            INSERT INTO projects (world_id, name, description, type, stage, state, location_x, location_y, location_z, location_dimension, project_idea_id)
+            VALUES (?, ?, ?, ?, 'COMPLETED', 'DONE', NULL, NULL, NULL, NULL, ?)
+            RETURNING id
+        """.trimIndent())
+    } else {
+        SafeSQL.insert("""
+            INSERT INTO projects (world_id, name, description, type, stage, state, location_x, location_y, location_z, location_dimension, project_idea_id)
+            VALUES (?, ?, ?, ?, 'RESOURCE_GATHERING', 'ACTIVE', NULL, NULL, NULL, NULL, ?)
+            RETURNING id
+        """.trimIndent())
+    }
+
     override suspend fun process(input: IdeaForImport): Result<AppFailure.DatabaseError, Int> {
         return DatabaseSteps.transaction { connection ->
             object : Step<IdeaForImport, AppFailure.DatabaseError, Int> {
                 override suspend fun process(input: IdeaForImport): Result<AppFailure.DatabaseError, Int> {
                     val projectIdResult = DatabaseSteps.update<IdeaForImport>(
-                        sql = SafeSQL.insert("""
-                            INSERT INTO projects (world_id, name, description, type, stage, state, location_x, location_y, location_z, location_dimension, project_idea_id)
-                            VALUES (?, ?, ?, ?, 'RESOURCE_GATHERING', 'ACTIVE', NULL, NULL, NULL, NULL, ?)
-                            RETURNING id
-                        """.trimIndent()),
+                        sql = insertProject,
                         parameterSetter = { statement, idea ->
                             statement.setInt(1, worldId)
                             statement.setString(2, idea.name)
@@ -439,23 +501,27 @@ private data class CreateProjectFromIdeaStep(val worldId: Int, val taskId: Int?)
 
                     val projectId = projectIdResult.getOrNull()!!
 
-                    val reqs = DatabaseSteps.batchUpdate<Pair<Item, Int>>(
-                        SafeSQL.insert("""
-                            INSERT INTO resource_gathering
-                                (project_id, name, required, item_id)
-                                values (?, ?, ?, ?)
-                        """.trimIndent()),
-                        parameterSetter = { statement, idea ->
-                            statement.setInt(1, projectId)
-                            statement.setString(2, idea.first.name)
-                            statement.setInt(3, idea.second)
-                            statement.setString(4, idea.first.id)
-                        },
-                        transactionConnection = connection
-                    ).process(input.requirements.toList())
+                    // Empty for an already-built import, and batching zero rows is a wasted
+                    // round trip either way.
+                    if (input.requirements.isNotEmpty()) {
+                        val reqs = DatabaseSteps.batchUpdate<Pair<Item, Int>>(
+                            SafeSQL.insert("""
+                                INSERT INTO resource_gathering
+                                    (project_id, name, required, item_id)
+                                    values (?, ?, ?, ?)
+                            """.trimIndent()),
+                            parameterSetter = { statement, idea ->
+                                statement.setInt(1, projectId)
+                                statement.setString(2, idea.first.name)
+                                statement.setInt(3, idea.second)
+                                statement.setString(4, idea.first.id)
+                            },
+                            transactionConnection = connection
+                        ).process(input.requirements.toList())
 
-                    if (reqs is Result.Failure) {
-                        return Result.Failure(reqs.error)
+                        if (reqs is Result.Failure) {
+                            return Result.Failure(reqs.error)
+                        }
                     }
 
                     val production = DatabaseSteps.batchUpdate<Pair<Item, Int>>(

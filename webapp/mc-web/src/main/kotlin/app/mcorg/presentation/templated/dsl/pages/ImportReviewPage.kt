@@ -80,6 +80,7 @@ fun importReviewPage(
     regions: List<ResolvedRegion> = emptyList(),
     warnings: ImportWarnings = ImportWarnings(),
     unrecordableProductions: List<String> = emptyList(),
+    offerAlreadyBuilt: Boolean = false,
 ): String = pageShell(
     pageTitle = "Seam — review import",
     user = user,
@@ -139,12 +140,18 @@ fun importReviewPage(
 
                 productionNotice(unrecordableProductions)
 
+                alreadyBuiltControl(offerAlreadyBuilt)
+
                 materialsSection(requirements, emptySet(), placedCounts, regions, warnings)
 
                 div("import-review__actions") {
                     button(classes = "btn btn--primary") {
                         type = ButtonType.submit
-                        +"Create project"
+                        // Both labels render and CSS shows one, as with the region toggle: the
+                        // button is the last thing read before committing, and "Create project"
+                        // above a struck-through list would be the wrong promise.
+                        span("import-review__submit--planned") { +"Create project" }
+                        span("import-review__submit--built") { +"Record as built" }
                     }
                     a(classes = "btn btn--ghost") {
                         href = "/worlds/$worldId/projects"
@@ -155,6 +162,47 @@ fun importReviewPage(
         }
     }
 }
+
+/**
+ * "This is already built in my world" (MCO-457) — the one control on this screen that changes
+ * what the import *is* rather than which rows it carries.
+ *
+ * Ticked, the project is created operational with its productions and no gathering list, so it
+ * supplies the world's other plans immediately (MCO-287's DONE-is-producing rule). That is the
+ * same fact MCO-298's "record an existing farm" records for a farm with no idea behind it; this
+ * is the door that also keeps the idea's rates and the link back to it.
+ *
+ * It sits above the material list rather than beside it because it makes the whole list moot,
+ * and the list is long. MCO-306's argument for reviewing — "not that part" — has no meaning for
+ * a build that already exists, so ticking this strikes the list through wholesale rather than
+ * hiding it: what the design cost is still worth seeing, it is just not work any more.
+ *
+ * No JavaScript. The label, the list and the submit button all key off `:has(:checked)` in CSS,
+ * so the screen reads correctly with scripting off — and the server ignores the material field
+ * entirely when the box is ticked, so nothing depends on the styling having happened.
+ */
+private fun FlowContent.alreadyBuiltControl(offer: Boolean) {
+    if (!offer) return
+
+    div("import-review__already-built") {
+        label("import-review__already-built-label") {
+            htmlFor = ALREADY_BUILT_ID
+            input(type = InputType.checkBox, classes = "import-review__already-built-box") {
+                id = ALREADY_BUILT_ID
+                name = "alreadyBuilt"
+            }
+            span("import-review__already-built-text") {
+                span("import-review__already-built-title") { +"This is already built in my world" }
+                span("import-review__already-built-hint") {
+                    +"Records it as a finished project that produces from now on, with nothing to gather. "
+                    +"Use this for a farm that was standing before you found the design."
+                }
+            }
+        }
+    }
+}
+
+private const val ALREADY_BUILT_ID = "import-review-already-built"
 
 /**
  * One group of rows. [name] is null for a schematic that has nothing worth grouping by, which

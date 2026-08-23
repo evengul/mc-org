@@ -218,6 +218,95 @@
     border-top: 1px solid var(--border);
 }
 
+/* ==========================================================================
+   ALREADY BUILT (MCO-457)
+   The one control here that changes what the import is, not which rows it carries.
+   ========================================================================== */
+
+/* Boxed and tinted, unlike the bare checkboxes in the table. Those pick rows out of a list;
+   this one decides whether the list means anything, so it has to read as a different kind of
+   thing before it is read as a checkbox. */
+.import-review__already-built {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--bg-raised);
+    padding: var(--space-3) var(--space-4);
+}
+
+.import-review__already-built-label {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-3);
+    cursor: pointer;
+}
+
+.import-review__already-built-box {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--accent);
+    cursor: pointer;
+    /* Line up with the cap-height of the title beside it rather than the top of its box. */
+    margin-top: 2px;
+    flex-shrink: 0;
+}
+
+.import-review__already-built-text {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+}
+
+.import-review__already-built-title {
+    font-family: var(--font-ui);
+    font-size: var(--text-ui);
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.import-review__already-built-hint {
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    color: var(--text-muted);
+    max-width: 70ch;
+}
+
+/* Ticked, the control is the active decision on the screen — say so, or a box this
+   consequential looks the same ticked as unticked. */
+.import-review__already-built:has(.import-review__already-built-box:checked) {
+    border-color: var(--accent);
+    background: var(--accent-muted);
+}
+
+/* The list is struck as a whole rather than hidden: what the design cost is still worth
+   seeing, it is just not work any more. Rows keep their own strike-through for exclusions,
+   which is now moot and reads as consistent rather than contradictory. */
+#import-review-form:has(.import-review__already-built-box:checked) .import-review__materials {
+    opacity: 0.45;
+}
+
+#import-review-form:has(.import-review__already-built-box:checked) .import-review__item-name {
+    text-decoration: line-through;
+}
+
+/* Nothing in the list is a decision any more, so nothing in it should invite one. The server
+   ignores the field outright in this case — this only stops the pointer from disagreeing. */
+#import-review-form:has(.import-review__already-built-box:checked) .import-review__materials {
+    pointer-events: none;
+}
+
+/* One of the two submit labels, never both. Default (unticked) shows "Create project". */
+.import-review__submit--built {
+    display: none;
+}
+
+#import-review-form:has(.import-review__already-built-box:checked) .import-review__submit--planned {
+    display: none;
+}
+
+#import-review-form:has(.import-review__already-built-box:checked) .import-review__submit--built {
+    display: inline;
+}
+
 @media (max-width: 768px) {
     /* data-table stacks rows into cards below this width; a scroll box would fight it. */
     .import-review__table-wrap {
@@ -232,6 +321,10 @@
        squeezes the section name to a few characters, which is the one part that has to read. */
     .import-review__region-summary {
         flex-wrap: wrap;
+    }
+
+    .import-review__already-built {
+        padding: var(--space-3);
     }
 
     .import-review__region-meta {
