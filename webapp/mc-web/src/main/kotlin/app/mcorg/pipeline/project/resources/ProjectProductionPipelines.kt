@@ -4,6 +4,9 @@ import app.mcorg.domain.model.minecraft.Item
 import app.mcorg.domain.model.project.ProjectProduction
 import app.mcorg.domain.model.user.Role
 import app.mcorg.domain.pipeline.Step
+import app.mcorg.domain.model.project.ProjectState
+import app.mcorg.pipeline.project.GetProjectStateStep
+import app.mcorg.pipeline.resources.invalidateDemandSuppliedBy
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.Result
 import app.mcorg.pipeline.SafeSQL
@@ -138,6 +141,11 @@ suspend fun ApplicationCall.handleUpsertProjectProduction() {
     ) {
         val input = ValidateProjectProductionInputStep(validItems).run(parameters)
         UpsertProjectProductionStep(projectId).run(input)
+        // A new produced item on an operational farm is new world supply (MCO-404). Editing a
+        // rate is not — V1 supply is unbounded (MCO-287), so the rate never reached the plan —
+        // but telling the two apart costs a read of what was there before, and the invalidation
+        // is a single DELETE against an action taken by hand.
+        invalidateDemandIfOperational(worldId, projectId)
         GetResourceProductionStep.run(projectId)
     }
 }
@@ -155,7 +163,22 @@ suspend fun ApplicationCall.handleDeleteProjectProduction() {
             )
         }
     ) {
+        // Before the delete: afterwards the row that says which item stopped being supplied is
+        // gone (MCO-404).
+        invalidateDemandIfOperational(worldId, projectId)
         DeleteProjectProductionStep(projectId).run(productionId)
         GetResourceProductionStep.run(projectId)
+    }
+}
+
+/**
+ * Invalidates stored demand for a production change, but only on a farm that is actually
+ * supplying — a project that is not DONE contributes nothing to anyone's plan
+ * (`GetWorldFarmSuppliesStep`), so editing its productions cannot have made a stored plan wrong.
+ */
+private suspend fun invalidateDemandIfOperational(worldId: Int, projectId: Int) {
+    val state = GetProjectStateStep.process(projectId)
+    if (state is Result.Success && state.value == ProjectState.DONE) {
+        invalidateDemandSuppliedBy(worldId, projectId)
     }
 }

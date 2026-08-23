@@ -3,6 +3,7 @@ package app.mcorg.pipeline.project
 import app.mcorg.domain.model.project.ProjectState
 import app.mcorg.domain.model.user.Role
 import app.mcorg.event.ProjectStatusChanged
+import app.mcorg.pipeline.resources.invalidateDemandOnStateChange
 import app.mcorg.event.actorDisplayName
 import app.mcorg.event.eventBus
 import java.time.Instant
@@ -42,6 +43,9 @@ suspend fun ApplicationCall.handleUpdateProjectState() {
         val current = GetProjectStateStep.run(projectId)
         ValidateStateTransitionStep(current).run(target)
         val newState = UpdateProjectStateStep(projectId).run(target)
+        // Crossing DONE is what adds or removes this project's output as world supply, so every
+        // other project's stored plan may now be wrong (MCO-404).
+        invalidateDemandOnStateChange(worldId, projectId, current, newState)
         val project = GetProjectByIdStep.run(projectId)
         bus.publish(
             ProjectStatusChanged(

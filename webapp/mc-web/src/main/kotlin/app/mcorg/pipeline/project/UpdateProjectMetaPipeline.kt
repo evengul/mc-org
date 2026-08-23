@@ -8,6 +8,7 @@ import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.Result
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.ValidationSteps
+import app.mcorg.pipeline.resources.invalidateDemandOnStateChange
 import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.failure.ValidationFailure
 import app.mcorg.pipeline.project.commonsteps.GetProjectByIdStep
@@ -118,7 +119,10 @@ suspend fun ApplicationCall.handleUpdateProjectStateInline() {
         ValidateWorldMemberRole<ProjectState>(user, Role.ADMIN, worldId).run(target)
         val current = GetProjectStateStep.run(projectId)
         ValidateStateTransitionStep(current).run(target)
-        UpdateProjectStateStep(projectId).run(target)
+        val newState = UpdateProjectStateStep(projectId).run(target)
+        // Same rule as the Field Log's badge — this is the project page's door to the same
+        // transition, and a farm reaching DONE here supplies the world just as much (MCO-404).
+        invalidateDemandOnStateChange(worldId, projectId, current, newState)
         GetProjectByIdStep.run(projectId)
     }
 }

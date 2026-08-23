@@ -1,6 +1,7 @@
 package app.mcorg.pipeline.project
 
 import app.mcorg.config.CacheManager
+import app.mcorg.pipeline.resources.invalidateDemandSuppliedBy
 import app.mcorg.domain.model.minecraft.Dimension
 import app.mcorg.domain.model.minecraft.Item
 import app.mcorg.domain.model.minecraft.MinecraftLocation
@@ -80,6 +81,9 @@ suspend fun ApplicationCall.handleRecordExistingFarm() {
         val input = ValidateRecordExistingFarmInputStep(validItems).run(parameters)
         ValidateWorldMemberRole<RecordExistingFarmInput>(user, Role.ADMIN, worldId).run(input)
         val projectId = CreateExistingFarmStep(worldId).run(input)
+        // A farm recorded straight into DONE is new world supply the moment it exists, so every
+        // stored plan that gathers what it makes is now wrong (MCO-404).
+        invalidateDemandSuppliedBy(worldId, projectId)
         CacheManager.onProjectCreated(worldId, projectId)
         bus.publish(
             ProjectCreated(
