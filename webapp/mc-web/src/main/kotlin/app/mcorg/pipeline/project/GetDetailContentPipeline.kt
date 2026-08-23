@@ -7,6 +7,7 @@ import app.mcorg.pipeline.project.commonsteps.GetProjectByIdStep
 import app.mcorg.pipeline.resources.GatheringPlanInput
 import app.mcorg.domain.model.world.World
 import app.mcorg.pipeline.resources.GetFarmScaleThresholdStep
+import app.mcorg.pipeline.resources.farmSuggestionsFor
 import app.mcorg.pipeline.resources.GenerateGatheringPlanStep
 import app.mcorg.pipeline.resources.pendingFarmSuppliesFor
 import app.mcorg.pipeline.resources.commonsteps.GetAllResourceGatheringItemsStep
@@ -75,13 +76,18 @@ suspend fun ApplicationCall.handleGetDetailContent() {
     val farmScaleThreshold = GetFarmScaleThresholdStep.process(worldId).getOrNull()
         ?: World.DEFAULT_FARM_SCALE_THRESHOLD
 
+    // Same reason the threshold is here (MCO-401): switching lens must not look like the
+    // suggestions disappeared.
+    val farmSuggestions = farmSuggestionsFor(plan, farmScaleThreshold, getUser().id, project.importedFromIdea?.first)
+
     // The roll-up's threshold is a link to world settings for admins only, so the fragment
     // needs the same role answer the full page computes.
     val isAdmin = ValidateWorldMemberRole<Unit>(getUser(), Role.ADMIN, worldId).process(Unit) is Result.Success
 
     respondHtml(
         gatheringPlannerFragment(
-            project, resources, tasks, plan, lens, progressMap, pendingFarms, farmScaleThreshold, isAdmin,
+            project, resources, tasks, plan, lens, progressMap, pendingFarms, farmScaleThreshold,
+            farmSuggestions, isAdmin,
         )
     )
 }

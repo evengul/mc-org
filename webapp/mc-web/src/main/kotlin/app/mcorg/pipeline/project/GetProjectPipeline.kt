@@ -11,6 +11,7 @@ import app.mcorg.engine.plan.PlanOverrides
 import app.mcorg.pipeline.resources.GatheringPlanInput
 import app.mcorg.domain.model.world.World
 import app.mcorg.pipeline.resources.GetFarmScaleThresholdStep
+import app.mcorg.pipeline.resources.farmSuggestionsFor
 import app.mcorg.pipeline.resources.GenerateGatheringPlanStep
 import app.mcorg.pipeline.resources.pendingFarmSuppliesFor
 import app.mcorg.pipeline.resources.GetPlanOverridesStep
@@ -101,6 +102,11 @@ suspend fun ApplicationCall.handleGetProject() {
     val farmScaleThreshold = GetFarmScaleThresholdStep.process(worldId).getOrNull()
         ?: World.DEFAULT_FARM_SCALE_THRESHOLD
 
+    // Designs in the bank that answer this plan's demand (MCO-294). Scoped to the viewer,
+    // because the bank is public ideas plus their own — a shared computation would show one
+    // user another's private designs.
+    val farmSuggestions = farmSuggestionsFor(plan, farmScaleThreshold, user.id, project.importedFromIdea?.first)
+
     // ?drill=<item> deep-links into a target's chain so reload/share lands on the drill,
     // not the plan. Resolves only when the plan derives and the item is an actual target;
     // otherwise falls through to the normal lens render.
@@ -123,6 +129,7 @@ suspend fun ApplicationCall.handleGetProject() {
             drillNodeIngredients = drillNodeIngredients, drillHighlightItemId = drillItemId,
             drillOverrides = drillOverrides, drillGraph = drillGraph,
             farmScaleThreshold = farmScaleThreshold,
+            farmSuggestions = farmSuggestions,
         )
     )
 }

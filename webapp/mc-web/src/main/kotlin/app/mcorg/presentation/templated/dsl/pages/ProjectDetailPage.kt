@@ -15,6 +15,7 @@ import app.mcorg.engine.plan.PlanOverrides
 import app.mcorg.engine.plan.SupplySource
 import app.mcorg.pipeline.resources.FarmScaleDemand
 import app.mcorg.pipeline.resources.FarmScaleDemands
+import app.mcorg.pipeline.resources.FarmSuggestion
 import app.mcorg.presentation.hxDelete
 import app.mcorg.presentation.hxDeleteWithConfirm
 import app.mcorg.presentation.hxGet
@@ -72,6 +73,7 @@ fun projectDetailPage(
     drillOverrides: PlanOverrides = PlanOverrides.NONE,
     drillGraph: ItemSourceGraph? = null,
     farmScaleThreshold: Int = World.DEFAULT_FARM_SCALE_THRESHOLD,
+    farmSuggestions: List<FarmSuggestion> = emptyList(),
 ): String = pageShell(
     pageTitle = "Seam — ${project.name}",
     user = user,
@@ -140,7 +142,7 @@ fun projectDetailPage(
                     // ?drill=<item> deep-links straight into a target's chain (reload/share-safe).
                     drillChainContent(project, drillTarget, drillCandidateCounts, drillNodeIngredients, overrides = drillOverrides, graph = drillGraph, highlightItemId = drillHighlightItemId)
                 } else {
-                    gatheringPlannerContent(project, resources, tasks, plan, lens, progressMap, pendingFarms, farmScaleThreshold, isWorldAdmin)
+                    gatheringPlannerContent(project, resources, tasks, plan, lens, progressMap, pendingFarms, farmScaleThreshold, farmSuggestions, isWorldAdmin)
                 }
             }
         }
@@ -244,6 +246,7 @@ fun FlowContent.gatheringPlannerContent(
     progressMap: Map<String, Int> = emptyMap(),
     pendingFarms: List<PendingFarmSupply> = emptyList(),
     farmScaleThreshold: Int = World.DEFAULT_FARM_SCALE_THRESHOLD,
+    farmSuggestions: List<FarmSuggestion> = emptyList(),
     isWorldAdmin: Boolean = false,
 ) {
     val activeLens = when (lens) {
@@ -273,7 +276,7 @@ fun FlowContent.gatheringPlannerContent(
     // Active lens body
     when (activeLens) {
         "next", "sessions" -> lensComingSoon(project.worldId, project.id, activeLens)
-        else -> listLensContent(project, resources, tasks, plan, progressMap, pendingFarms, farmScaleThreshold, isWorldAdmin)
+        else -> listLensContent(project, resources, tasks, plan, progressMap, pendingFarms, farmScaleThreshold, farmSuggestions, isWorldAdmin)
     }
 }
 
@@ -304,6 +307,7 @@ private fun FlowContent.listLensContent(
     progressMap: Map<String, Int> = emptyMap(),
     pendingFarms: List<PendingFarmSupply> = emptyList(),
     farmScaleThreshold: Int = World.DEFAULT_FARM_SCALE_THRESHOLD,
+    farmSuggestions: List<FarmSuggestion> = emptyList(),
     isWorldAdmin: Boolean = false,
 ) {
     // Resolution toggle (client-side; default "targets" applied by plan-view.js).
@@ -408,7 +412,7 @@ private fun FlowContent.listLensContent(
         id = "list-breakdown-view"
         attributes["data-resolution-view"] = "breakdown"
 
-        gatheringPlanSections(project, plan, progressMap, pendingFarms, farmScaleThreshold, isWorldAdmin)
+        gatheringPlanSections(project, plan, progressMap, pendingFarms, farmScaleThreshold, farmSuggestions, isWorldAdmin)
     }
 
     // Tasks section (collapsed)
@@ -484,6 +488,7 @@ fun FlowContent.gatheringPlanSections(
     progressMap: Map<String, Int> = emptyMap(),
     pendingFarms: List<PendingFarmSupply> = emptyList(),
     farmScaleThreshold: Int = World.DEFAULT_FARM_SCALE_THRESHOLD,
+    farmSuggestions: List<FarmSuggestion> = emptyList(),
     isWorldAdmin: Boolean = false,
 ) {
     if (plan == null) {
@@ -508,7 +513,7 @@ fun FlowContent.gatheringPlanSections(
 
         // Above the work sections on purpose: this is not a step in the plan, it is the answer
         // to "what should I build first", and it is what turns one import into a roadmap.
-        farmScaleRollUp(farmScale, farmScaleThreshold, project.worldId, isWorldAdmin)
+        farmScaleSection(farmScale, farmSuggestions, farmScaleThreshold, project.worldId, isWorldAdmin)
 
         groupOrder.forEach { group ->
             val activities = byGroup[group] ?: return@forEach
@@ -550,25 +555,38 @@ fun FlowContent.gatheringPlanSections(
 }
 
 /**
- * The farm-scale roll-up (MCO-401): raw materials whose demand is large enough to be worth a
- * farm, largest first.
+ * "Worth a farm" — the farm-scale demand and what to build for it, as one list.
  *
- * This list *is* the roadmap-building input — each line is a candidate prerequisite farm
- * project — which is why it leads the plan rather than sitting at the bottom with the notices.
- * Ordering carries the meaning: the top line is where to start.
+ * MCO-401 shipped the quantities; MCO-294 added the designs that cover them. They were briefly
+ * two sections and that was wrong: on a real plan the bank answered ten of ten lines, so the
+ * second section reprinted the first one's numbers under different headings. A design and the
+ * demand it covers are one fact, so they are one row.
  *
- * It names quantities and nothing else. Suggesting *which* farm to build is MCO-294 and needs
- * an idea bank; saying "this is farm-scale" needs only the plan, which is why the two shipped
- * apart. Items an operational farm already supplies never appear — they are solved, not
- * suggestions (see [FarmScaleDemands]).
+ * The order is the message, as it was before: most work removed first, and the top line is
+ * where to start. Designs lead because a line you can answer by importing something is a
+ * cheaper decision than a line you cannot.
+ *
+ * The tail is the point of the section as much as the head. A farm-scale material with no
+ * design is not a gap in the feature — it is the honest answer that you will be farming this
+ * one yourself, and it is where the bank is worth growing. It keeps the plain quantity-and-name
+ * shape the whole roll-up used to have.
+ *
+ * Coverage runs deeper than the roll-up's own lines: the roll-up is RAW_GATHER leaves, and a
+ * design that produces iron ingots removes the *ore* below them. That ore is a roll-up line, so
+ * it appears under the design that removes it rather than orphaned in the tail claiming nobody
+ * can help with it.
  */
-private fun FlowContent.farmScaleRollUp(
+private fun FlowContent.farmScaleSection(
     demands: List<FarmScaleDemand>,
+    suggestions: List<FarmSuggestion>,
     threshold: Int,
     worldId: Int,
     canEditThreshold: Boolean,
 ) {
-    if (demands.isEmpty()) return
+    if (demands.isEmpty() && suggestions.isEmpty()) return
+
+    val answered = suggestions.flatMapTo(mutableSetOf()) { it.itemIds }
+    val unanswered = demands.filter { it.itemId !in answered }
 
     div("plan-farm-scale") {
         id = "plan-farm-scale"
@@ -588,17 +606,99 @@ private fun FlowContent.farmScaleRollUp(
             } else {
                 +"%,d".format(threshold)
             }
-            +" — each is a candidate for its own farm project."
+            if (suggestions.isEmpty()) {
+                +" — each is a candidate for its own farm project."
+            } else {
+                val covered = demands.size - unanswered.size
+                +" — your designs cover $covered of them."
+            }
         }
-        div("plan-farm-scale__list") {
-            demands.forEach { demand ->
-                div("plan-farm-scale__item") {
-                    span("plan-farm-scale__quantity") { +"%,d".format(demand.quantity) }
-                    span("plan-farm-scale__name") { +demand.itemName }
+
+        suggestions.forEach { suggestion -> designRow(suggestion, worldId) }
+
+        if (unanswered.isNotEmpty()) {
+            div("plan-farm-scale__unanswered") {
+                // The label separates answered from unanswered. With nothing answered there is
+                // nothing to separate, and the section is exactly the roll-up MCO-401 shipped —
+                // so it says nothing rather than heading a list that is the whole list.
+                if (suggestions.isNotEmpty()) {
+                    span("plan-farm-scale__group-label") { +"No design yet" }
+                }
+                div("plan-farm-scale__list") {
+                    unanswered.forEach { demand ->
+                        div("plan-farm-scale__item") {
+                            span("plan-farm-scale__quantity") { +"%,d".format(demand.quantity) }
+                            span("plan-farm-scale__name") { +demand.itemName }
+                        }
+                    }
                 }
             }
         }
     }
+}
+
+/**
+ * One design and everything it takes off the plan (MCO-294).
+ *
+ * **One row per design, not per item.** A farm makes several things: the bank's stick producer
+ * is the Witch Hut Farm, already the answer for 63,213 redstone. A row per item would name that
+ * one design three times and invite building a witch hut "for sticks". See
+ * [app.mcorg.pipeline.resources.FarmSuggestions] for the matching rules and for why coverage
+ * deliberately under-claims.
+ *
+ * The hours figure is the one number that changes a decision. Most designs cover their demand in
+ * minutes — it is the rare multi-hour line that says a farm is a project rather than an
+ * afternoon — so the rate shows where it is known and is quietly absent where the author never
+ * measured it (a null rate is meaningful here, not missing data).
+ *
+ * The action is the review screen, not a direct create: import decides what to gather and
+ * whether the farm already exists (MCO-457), and neither is this list's to answer for the user.
+ */
+private fun FlowContent.designRow(suggestion: FarmSuggestion, worldId: Int) {
+    div("plan-farm-scale__design") {
+        div("plan-farm-scale__design-head") {
+            a(classes = "plan-farm-scale__design-name") {
+                href = Link.Ideas.single(suggestion.ideaId)
+                +suggestion.ideaName
+            }
+            a(classes = "btn btn--sm btn--secondary plan-farm-scale__import") {
+                href = Link.Ideas.single(suggestion.ideaId) + "/import/review?worldId=$worldId"
+                +"Import into this world"
+            }
+        }
+        div("plan-farm-scale__list") {
+            suggestion.produces.forEach { covered ->
+                div("plan-farm-scale__item") {
+                    span("plan-farm-scale__quantity") { +"%,d".format(covered.quantity) }
+                    span("plan-farm-scale__name") { +covered.itemName }
+                    covered.hoursToCover?.let { hours ->
+                        span("plan-farm-scale__rate") { +hoursOfRunning(hours) }
+                    }
+                }
+            }
+        }
+        if (suggestion.alsoRemoves.isNotEmpty()) {
+            p("plan-farm-scale__knock-on") {
+                +"Also removes "
+                +suggestion.alsoRemoves.joinToString(", ") {
+                    "${"%,d".format(it.quantity)} ${it.itemName}"
+                }
+                +" — work that only exists to feed the above."
+            }
+        }
+    }
+}
+
+/**
+ * How long the farm has to run, in the unit a player would say it in.
+ *
+ * Sub-hour figures are the common case and "0.1 hours" is not how anyone thinks about ten
+ * minutes; past a day, minutes and hours both stop being the point.
+ */
+private fun hoursOfRunning(hours: Double): String = when {
+    hours < 1.0 -> "~${kotlin.math.max(1, kotlin.math.round(hours * 60).toInt())} min running"
+    hours < 24.0 -> "~%.1f h running".format(hours)
+    else -> "~%.1f days running".format(hours / 24)
 }
 
 /**
@@ -1332,11 +1432,12 @@ fun gatheringPlannerFragment(
     progressMap: Map<String, Int> = emptyMap(),
     pendingFarms: List<PendingFarmSupply> = emptyList(),
     farmScaleThreshold: Int = World.DEFAULT_FARM_SCALE_THRESHOLD,
+    farmSuggestions: List<FarmSuggestion> = emptyList(),
     isWorldAdmin: Boolean = false,
 ): String = createHTML().div {
     id = "project-content"
     gatheringPlannerContent(
-        project, resources, tasks, plan, lens, progressMap, pendingFarms, farmScaleThreshold, isWorldAdmin,
+        project, resources, tasks, plan, lens, progressMap, pendingFarms, farmScaleThreshold, farmSuggestions, isWorldAdmin,
     )
 }
 
