@@ -112,6 +112,25 @@ class FarmSupplySurfacingIT : WithUser() {
     }
 
     @Test
+    fun `a supplied row prints the demand but no counter`() = testApplication {
+        setupRoutes()
+        setProjectState(farmId, ProjectState.DONE)
+
+        val body = client.get("/worlds/$worldId/projects/$consumerId") { addAuthCookie(this) }.bodyAsText()
+
+        // MCO-403: the row used to be name + badge + "from Iron Farm", which reads as solved.
+        // The quantity is the fact that says whether the farm is anywhere near adequate, and it
+        // is the same number the roadmap prints on that farm's edge.
+        assertContains(body, """<span class="resource-row__count">32</span>""")
+        assertFalse(
+            body.contains("plan-count-minecraft-iron_ingot"),
+            "supplied work is not scheduled by the plan, so it gets no collected/required counter",
+        )
+
+        setProjectState(farmId, ProjectState.ACTIVE)
+    }
+
+    @Test
     fun `a producing farm is listed as producing, not shelved with finished builds`() = testApplication {
         setupRoutes()
         setProjectState(farmId, ProjectState.DONE)
