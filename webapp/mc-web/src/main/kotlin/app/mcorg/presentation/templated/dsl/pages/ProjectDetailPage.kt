@@ -745,22 +745,35 @@ private fun hoursOfRunning(hours: Double): String = when {
  * *not* operational; once one is Done, its items move into "Collect from farms" and the
  * line for them disappears on its own.
  */
+/**
+ * The farms this project waits on (MCO-299, reframed by MCO-461).
+ *
+ * This shipped as a promise — "63,213 Redstone Dust will come from Witch Hut Farm once it is
+ * running". Every word true, but it read as a courtesy note rather than an ordering fact, so
+ * nothing on the page contradicted the suggestion list offering to import that same farm again.
+ *
+ * It now leads with the relationship — *Prerequisite* — and keeps the promise as the
+ * explanation underneath it. Same farm, same numbers, one claim instead of two: the list comes
+ * from [prerequisiteFarmsFor], which reads the roadmap's own edges, so this page and the
+ * roadmap cannot disagree about what blocks what.
+ */
 private fun FlowContent.pendingFarmNotice(worldId: Int, pendingFarms: List<PendingFarmSupply>) {
     if (pendingFarms.isEmpty()) return
 
     div("plan-pending-farms") {
         id = "plan-pending-farms"
+        span("section-label") { +"Prerequisites" }
         pendingFarms.forEach { farm ->
             p("plan-pending-farms__line") {
-                +itemsPhrase(farm.items)
-                +" will come from "
                 a(classes = "plan-pending-farms__project") {
                     href = "/worlds/$worldId/projects/${farm.projectId}"
                     +farm.projectName
                 }
-                +" once it is running — gather "
+                +" comes first — it makes "
+                +itemsPhrase(farm.items)
+                +" this build needs. Gather "
                 +(if (farm.items.size == 1) "it" else "them")
-                +" manually meanwhile."
+                +" by hand until it is running."
             }
         }
     }
@@ -768,7 +781,10 @@ private fun FlowContent.pendingFarmNotice(worldId: Int, pendingFarms: List<Pendi
 
 /** "32 Iron Ingot", "32 Iron Ingot and 12 Gold Ingot", "32 Iron Ingot, 12 Gold Ingot and 4 Diamond". */
 private fun itemsPhrase(items: List<PendingFarmItem>): String {
-    val parts = items.map { "${it.quantity} ${it.itemName}" }
+    // Separated, like every other quantity on this page. Unformatted was survivable while
+    // this read "32 Iron Ingot"; MCO-461 made it a prerequisite line carrying farm-scale
+    // numbers, and "2400" beside the roll-up's "2,400" reads as a different number.
+    val parts = items.map { "%,d %s".format(it.quantity, it.itemName) }
     return when (parts.size) {
         1 -> parts.first()
         2 -> "${parts[0]} and ${parts[1]}"

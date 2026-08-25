@@ -44,6 +44,24 @@ import app.mcorg.pipeline.failure.AppFailure
  * rather than deriving a plan per project here. A project nobody has planned yet contributes
  * no rows and therefore no edges; the roadmap says how many those are rather than quietly
  * drawing a thinner graph.
+ *
+ * ## Small edges are still edges (MCO-460)
+ *
+ * Two farms that each consume a little of the other's output close a loop, and both edges are
+ * true: the cobblestone farm really does need 20 gunpowder for TNT, and the witch farm really
+ * does need cobblestone. Drawn as equals they make the roadmap contradict itself.
+ *
+ * The farm-scale threshold is what tells those two claims apart — **20 gunpowder is not a
+ * prerequisite; 75,151 cobblestone is** — but it is applied by [RoadmapCycles], *only where a
+ * loop actually needs breaking*, and deliberately not here. A Beacon needing 32 iron from the
+ * Iron Farm is a perfectly good dependency and belongs on the roadmap; there is nothing
+ * contradictory about it, and thresholding every edge to solve a problem that only arises in
+ * loops would quietly delete most of the graph.
+ *
+ * What this query does carry is `roadmap_cycle_order`: a loop no principle could break, that a
+ * person then ordered by hand. That is a subtraction from the derived graph, and it lives here
+ * so both the roadmap and the project page inherit it from one place — two derivations of "is
+ * this a prerequisite" being the bug MCO-461 was filed for.
  */
 data class GetFarmSupplyEdgesStep(val worldId: Int) : Step<Unit, AppFailure.DatabaseError, List<ProjectResourceEdge>> {
     override suspend fun process(input: Unit): Result<AppFailure.DatabaseError, List<ProjectResourceEdge>> {
@@ -66,6 +84,13 @@ data class GetFarmSupplyEdgesStep(val worldId: Int) : Step<Unit, AppFailure.Data
                   AND prod.world_id = ?
                   AND prod.id <> d.project_id
                   AND prod.state NOT IN (?, ?)
+                  -- A pair a person has already ordered by hand: the edge that would make the
+                  -- winner wait is set aside. A subtraction, never an addition (MCO-460).
+                  AND NOT EXISTS (
+                      SELECT 1 FROM roadmap_cycle_order rco
+                      WHERE rco.consumer_project_id = d.project_id
+                        AND rco.producer_project_id = pp.project_id
+                  )
                   -- An explicitly solved requirement already produces an edge via
                   -- GetProjectEdgesStep; deriving a second one would double-count it.
                   AND NOT EXISTS (

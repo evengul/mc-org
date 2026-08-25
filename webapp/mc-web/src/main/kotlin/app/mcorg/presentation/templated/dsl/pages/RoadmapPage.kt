@@ -2,6 +2,9 @@ package app.mcorg.presentation.templated.dsl.pages
 
 import app.mcorg.domain.model.user.TokenProfile
 import app.mcorg.domain.model.world.Roadmap
+import app.mcorg.domain.model.world.RoadmapCycle
+import app.mcorg.domain.model.world.RoadmapCycleOption
+import app.mcorg.domain.model.world.RoadmapCycleOrder
 import app.mcorg.domain.model.world.RoadmapEdge
 import app.mcorg.domain.model.world.RoadmapNode
 import app.mcorg.presentation.templated.dsl.appHeader
@@ -9,13 +12,20 @@ import app.mcorg.presentation.templated.dsl.container
 import app.mcorg.presentation.templated.dsl.emptyState
 import app.mcorg.presentation.templated.dsl.pageShell
 import app.mcorg.presentation.templated.dsl.projectStateBadge
+import kotlinx.html.ButtonType
 import kotlinx.html.FlowContent
+import kotlinx.html.FormMethod
 import kotlinx.html.a
+import kotlinx.html.button
 import kotlinx.html.div
+import kotlinx.html.form
 import kotlinx.html.h1
+import kotlinx.html.hiddenInput
 import kotlinx.html.id
 import kotlinx.html.main
+import kotlinx.html.p
 import kotlinx.html.span
+import kotlinx.html.strong
 import kotlinx.html.table
 import kotlinx.html.tbody
 import kotlinx.html.td
@@ -28,8 +38,13 @@ import kotlinx.html.tr
  * sequence the world implies is readable top to bottom.
  *
  * Table form on purpose: the layered graph the model already computes is the follow-up, and
- * a table is the accessible, mobile-survivable, hundreds-of-rows form to lead with. Nothing
- * here is editable — the roadmap is derived from resource relationships, never curated.
+ * a table is the accessible, mobile-survivable, hundreds-of-rows form to lead with.
+ *
+ * **The roadmap is still derived, never curated** — with one exception that proves the rule.
+ * Where derivation produces a genuine tie, two farms each supplying the other (MCO-460), no
+ * amount of deriving picks a winner, so [cycleSection] asks. What that records is a
+ * *subtraction* — "set this edge aside" — never an ordering someone typed in. Asserting an
+ * order is `project_dependencies`, and that is MCO-302's editor, not this page.
  */
 fun roadmapPage(
     user: TokenProfile,
@@ -65,11 +80,104 @@ fun roadmapPage(
             if (roadmap.isEmpty()) {
                 roadmapEmptyState(roadmap.worldId)
             } else {
+                // Above the table: a loop makes the ordering below it a guess, so saying so
+                // after the fact would be the wrong way round (MCO-460).
+                cycleSection(roadmap)
                 roadmapTable(roadmap)
             }
         }
     }
 }
+
+/**
+ * The loops in this world, and the question only a person can answer (MCO-460).
+ *
+ * Two farms that each consume a farm-scale amount of the other's output is not bad data — both
+ * edges are derived from real demand and both are true. What it is, is a sequencing decision:
+ * which one do you build first, knowing you will hand-gather the other's input until it runs.
+ *
+ * The page has already broken each loop at its smallest claim so the table below never shows
+ * two projects each blocking the other. That guess is stated rather than hidden — a roadmap
+ * that quietly picked an order would be a roadmap you could not trust the rest of.
+ */
+private fun FlowContent.cycleSection(roadmap: Roadmap) {
+    if (roadmap.cycles.isEmpty() && roadmap.resolvedOrders.isEmpty()) return
+
+    div("roadmap-cycles") {
+        id = "roadmap-cycles"
+        span("section-label") { +"Circular supply" }
+
+        roadmap.cycles.forEach { cycle -> cyclePrompt(roadmap.worldId, cycle) }
+        roadmap.resolvedOrders.forEach { order -> resolvedOrderRow(roadmap.worldId, order) }
+    }
+}
+
+/** One unanswered loop: what it is, what was assumed, and the alternatives. */
+private fun FlowContent.cyclePrompt(worldId: Int, cycle: RoadmapCycle) {
+    div("roadmap-cycles__item") {
+        p("roadmap-cycles__lead") {
+            +cycle.projectNames.joinToString(" and ")
+            +" each supply the other. Which comes first?"
+        }
+        p("roadmap-cycles__assumed") {
+            +"Assuming "
+            strong { +cycle.breaking.firstProjectName }
+            +" for now — its "
+            +cycle.breaking.claimText()
+            +" is the smaller claim, so it is the easier one to cover by hand."
+        }
+        div("roadmap-cycles__options") {
+            cycle.options.forEach { option ->
+                form(classes = "roadmap-cycles__option") {
+                    method = FormMethod.post
+                    action = "/worlds/$worldId/roadmap/cycle-order"
+                    hiddenInput { name = "first"; value = option.firstProjectId.toString() }
+                    hiddenInput { name = "waiting"; value = option.waitingProjectId.toString() }
+                    button(classes = "btn btn--sm ${if (option == cycle.breaking) "btn--secondary" else "btn--ghost"}") {
+                        type = ButtonType.submit
+                        +"${option.firstProjectName} first"
+                    }
+                    span("roadmap-cycles__option-note") {
+                        +"sets aside ${option.claimText()} from ${option.waitingProjectName}"
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** A loop somebody has already settled — visible so it can be changed or undone. */
+private fun FlowContent.resolvedOrderRow(worldId: Int, order: RoadmapCycleOrder) {
+    div("roadmap-cycles__resolved") {
+        p("roadmap-cycles__resolved-text") {
+            +"You put "
+            strong { +order.firstProjectName }
+            +" before "
+            strong { +order.waitingProjectName }
+            +"."
+        }
+        form(classes = "roadmap-cycles__resolved-undo") {
+            method = FormMethod.post
+            action = "/worlds/$worldId/roadmap/cycle-order/clear"
+            hiddenInput { name = "first"; value = order.firstProjectId.toString() }
+            hiddenInput { name = "waiting"; value = order.waitingProjectId.toString() }
+            button(classes = "btn btn--sm btn--ghost") {
+                type = ButtonType.submit
+                +"Undo"
+            }
+        }
+    }
+}
+
+/**
+ * "2,400 Gunpowder", or "the dependency" when the edge is a declared row with no item.
+ *
+ * A declared `project_dependencies` edge carries no quantity by design, so this must not
+ * invent one — see [RoadmapCycleOption.quantity].
+ */
+private fun RoadmapCycleOption.claimText(): String =
+    if (quantity != null && itemName != null) "%,d %s".format(quantity, itemName)
+    else "the dependency"
 
 /** "12 projects · 3 blocked · 4 layers deep" — straight off the model's own statistics. */
 private fun roadmapSummary(roadmap: Roadmap): String {
