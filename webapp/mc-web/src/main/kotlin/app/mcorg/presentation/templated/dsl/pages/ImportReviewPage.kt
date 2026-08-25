@@ -5,6 +5,7 @@ import app.mcorg.domain.model.user.TokenProfile
 import app.mcorg.pipeline.project.ImportWarning
 import app.mcorg.pipeline.project.ImportWarningKind
 import app.mcorg.pipeline.project.ImportWarnings
+import app.mcorg.pipeline.project.ImportWizardStep
 import app.mcorg.pipeline.project.ResolvedRegion
 import app.mcorg.pipeline.project.ReviewedMaterial
 import app.mcorg.pipeline.project.ReviewedMaterialsCodec
@@ -67,6 +68,12 @@ import kotlinx.html.tr
  * [warnings] (MCO-305) name the painful rows without standing in their way. Advisory only —
  * every warned row arrives checked. Since MCO-397 the strip above the list carries only
  * creative-only rows, the one kind worth interrupting for; everything else is a row chip.
+ *
+ * [wizard] (MCO-459) makes this one step of a batch started from a plan's suggestion list.
+ * The screen itself is unchanged — the review is the point, and MCO-306 put it here on
+ * purpose — so the wizard adds only a position line, a Skip, a way out, and a submit that
+ * promises the next step rather than the end. Null for every other door in, which is what
+ * keeps a single import exactly what it was.
  */
 fun importReviewPage(
     user: TokenProfile,
@@ -81,6 +88,7 @@ fun importReviewPage(
     warnings: ImportWarnings = ImportWarnings(),
     unrecordableProductions: List<String> = emptyList(),
     offerAlreadyBuilt: Boolean = false,
+    wizard: ImportWizardStep? = null,
 ): String = pageShell(
     pageTitle = "Seam — review import",
     user = user,
@@ -105,6 +113,7 @@ fun importReviewPage(
     main {
         container {
             div("import-review__title") {
+                wizardProgress(wizard)
                 h1("import-review__heading") { +"Review this import" }
                 p("import-review__lead") {
                     +"Everything below will become a resource to gather. Uncheck what you are not building — you can add it back later from the project."
@@ -149,15 +158,59 @@ fun importReviewPage(
                         type = ButtonType.submit
                         // Both labels render and CSS shows one, as with the region toggle: the
                         // button is the last thing read before committing, and "Create project"
-                        // above a struck-through list would be the wrong promise.
-                        span("import-review__submit--planned") { +"Create project" }
-                        span("import-review__submit--built") { +"Record as built" }
+                        // above a struck-through list would be the wrong promise. Mid-batch
+                        // both gain "& next", for the same reason — the button should say where
+                        // it puts you (MCO-459).
+                        val next = if (wizard != null && !wizard.isLast) " & next" else ""
+                        span("import-review__submit--planned") { +"Create project$next" }
+                        span("import-review__submit--built") { +"Record as built$next" }
                     }
-                    a(classes = "btn btn--ghost") {
-                        href = "/worlds/$worldId/projects"
-                        +"Cancel"
+                    if (wizard != null) {
+                        // Skip is a link, not a form control: it must not submit. Passing on a
+                        // design is a real answer — the batch was selected against a plan, and
+                        // reading the list is when you find out one of them is wrong.
+                        wizard.nextHref?.let { href ->
+                            a(classes = "btn btn--ghost") {
+                                this.href = href
+                                +"Skip this one"
+                            }
+                        }
+                        a(classes = "btn btn--ghost") {
+                            href = wizard.returnHref
+                            +"Done, back to plan"
+                        }
+                    } else {
+                        a(classes = "btn btn--ghost") {
+                            href = "/worlds/$worldId/projects"
+                            +"Cancel"
+                        }
                     }
                 }
+            }
+        }
+    }
+}
+
+/**
+ * "Review 2 of 3", with a dot per design (MCO-459).
+ *
+ * The count is the whole point of the component: the complaint that opened MCO-459 was not
+ * that reviewing is slow, it was not knowing how much of it was left or how to get back. A
+ * bare review screen answers neither.
+ */
+private fun FlowContent.wizardProgress(wizard: ImportWizardStep?) {
+    if (wizard == null) return
+
+    div("import-review__wizard") {
+        span("import-review__wizard-count") { +"Review ${wizard.position} of ${wizard.total}" }
+        div("import-review__wizard-dots") {
+            repeat(wizard.total) { index ->
+                val state = when {
+                    index + 1 < wizard.position -> " import-review__wizard-dot--done"
+                    index + 1 == wizard.position -> " import-review__wizard-dot--current"
+                    else -> ""
+                }
+                span("import-review__wizard-dot$state") {}
             }
         }
     }

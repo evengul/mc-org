@@ -15,6 +15,7 @@ import app.mcorg.engine.plan.PlanOverrides
 import app.mcorg.engine.plan.SupplySource
 import app.mcorg.pipeline.resources.FarmScaleDemand
 import app.mcorg.pipeline.resources.FarmScaleDemands
+import app.mcorg.pipeline.project.SELECTED_DESIGN_FIELD
 import app.mcorg.pipeline.resources.FarmSuggestion
 import app.mcorg.presentation.hxDelete
 import app.mcorg.presentation.hxDeleteWithConfirm
@@ -513,7 +514,7 @@ fun FlowContent.gatheringPlanSections(
 
         // Above the work sections on purpose: this is not a step in the plan, it is the answer
         // to "what should I build first", and it is what turns one import into a roadmap.
-        farmScaleSection(farmScale, farmSuggestions, farmScaleThreshold, project.worldId, isWorldAdmin)
+        farmScaleSection(farmScale, farmSuggestions, farmScaleThreshold, project.worldId, project.id, isWorldAdmin)
 
         groupOrder.forEach { group ->
             val activities = byGroup[group] ?: return@forEach
@@ -581,6 +582,7 @@ private fun FlowContent.farmScaleSection(
     suggestions: List<FarmSuggestion>,
     threshold: Int,
     worldId: Int,
+    projectId: Int,
     canEditThreshold: Boolean,
 ) {
     if (demands.isEmpty() && suggestions.isEmpty()) return
@@ -614,7 +616,29 @@ private fun FlowContent.farmScaleSection(
             }
         }
 
-        suggestions.forEach { suggestion -> designRow(suggestion, worldId) }
+        // One form around every design so a batch is one submit (MCO-459). A plain POST, not
+        // HTMX: the wizard it opens is a sequence of full pages, and swapping a fragment in
+        // would leave the plan underneath claiming demand the first step is about to answer.
+        //
+        // Guarded on there being designs at all: this section also renders for a plan whose
+        // farm-scale demand nothing in the bank answers, and an empty form with a live submit
+        // is a button that does nothing.
+        if (suggestions.isNotEmpty()) form(classes = "plan-farm-scale__batch") {
+            method = FormMethod.post
+            action = "/worlds/$worldId/projects/$projectId/farm-suggestions/import"
+
+            suggestions.forEach { suggestion -> designRow(suggestion, worldId) }
+
+            div("plan-farm-scale__batch-actions") {
+                button(classes = "btn btn--sm btn--primary plan-farm-scale__batch-submit") {
+                    type = ButtonType.submit
+                    +"Review selected designs"
+                }
+                span("plan-farm-scale__batch-hint") {
+                    +"Reviewed one at a time, then back to this plan."
+                }
+            }
+        }
 
         if (unanswered.isNotEmpty()) {
             div("plan-farm-scale__unanswered") {
@@ -657,13 +681,24 @@ private fun FlowContent.farmScaleSection(
 private fun FlowContent.designRow(suggestion: FarmSuggestion, worldId: Int) {
     div("plan-farm-scale__design") {
         div("plan-farm-scale__design-head") {
-            a(classes = "plan-farm-scale__design-name") {
-                href = Link.Ideas.single(suggestion.ideaId)
-                +suggestion.ideaName
+            // The checkbox replaces the per-row "Import into this world" link rather than
+            // sitting beside it (MCO-459). Two doors to the same place on an already dense
+            // row is a choice nobody wants to make; selecting one design and submitting is
+            // the old flow exactly, one click longer, and every other route into the review
+            // screen still exists from the idea page itself.
+            label("plan-farm-scale__select") {
+                htmlFor = "design-select-${suggestion.ideaId}"
+                checkBoxInput(classes = "plan-farm-scale__select-box") {
+                    id = "design-select-${suggestion.ideaId}"
+                    name = SELECTED_DESIGN_FIELD
+                    value = suggestion.ideaId.toString()
+                }
+                span("plan-farm-scale__design-name") { +suggestion.ideaName }
             }
-            a(classes = "btn btn--sm btn--secondary plan-farm-scale__import") {
-                href = Link.Ideas.single(suggestion.ideaId) + "/import/review?worldId=$worldId"
-                +"Import into this world"
+            a(classes = "plan-farm-scale__design-link") {
+                href = Link.Ideas.single(suggestion.ideaId)
+                title = "Open ${suggestion.ideaName}"
+                +"View design"
             }
         }
         div("plan-farm-scale__list") {

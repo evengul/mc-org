@@ -74,6 +74,22 @@ suspend fun ApplicationCall.handleReviewIdeaImport() {
     val taskId = request.queryParameters["forTask"]?.toIntOrNull()
     val items = GetItemsInWorldVersionStep.process(worldId).getOrNull() ?: emptyList()
 
+    // A batch started from a plan's suggestion list (MCO-459), or null for every other door
+    // into this screen. Resolved here rather than in the template so a hand-edited URL naming
+    // a design the batch never selected degrades to a plain single import.
+    val queue = ImportQueue.from(
+        request.queryParameters[ImportQueue.QUEUE_PARAM],
+        request.queryParameters[ImportQueue.RETURN_PARAM],
+    )
+    val wizard = queue?.positionOf(ideaId)?.let { position ->
+        ImportWizardStep(
+            position = position,
+            total = queue.size,
+            nextHref = queue.nextAfter(ideaId)?.let { queue.reviewHref(it, worldId) },
+            returnHref = queue.returnHref(worldId),
+        )
+    }
+
     handlePipeline(
         onSuccess = { idea: IdeaForImport ->
             // Same treatment as the schematic door for placed cells (MCO-396): drop the ones
@@ -97,10 +113,14 @@ suspend fun ApplicationCall.handleReviewIdeaImport() {
                     // carries the rates, which is the whole reason to record a farm you already
                     // built rather than re-typing them into the MCO-298 form.
                     offerAlreadyBuilt = true,
+                    wizard = wizard,
                     action = Link.Ideas.single(ideaId) + "/import",
                     hiddenFields = buildMap {
                         put("worldId", worldId.toString())
                         taskId?.let { put("forTask", it.toString()) }
+                        // Carried so the POST can hand the user to the next step without
+                        // re-deriving the batch from anywhere but the form it came from.
+                        if (wizard != null) putAll(queue!!.hiddenFields())
                     },
                 )
             )
@@ -134,6 +154,11 @@ suspend fun ApplicationCall.handleImportIdea() {
 
     val taskId = (submitted["forTask"] ?: parameters["forTask"])?.toIntOrNull()
 
+    val queue = ImportQueue.from(
+        submitted[ImportQueue.QUEUE_PARAM] ?: request.queryParameters[ImportQueue.QUEUE_PARAM],
+        submitted[ImportQueue.RETURN_PARAM] ?: request.queryParameters[ImportQueue.RETURN_PARAM],
+    )
+
     // An unchecked checkbox posts nothing at all, so presence is the signal — the same
     // reading every other checkbox on this screen gets.
     val alreadyBuilt = submitted["alreadyBuilt"] != null
@@ -142,7 +167,12 @@ suspend fun ApplicationCall.handleImportIdea() {
 
     handlePipeline(
         onSuccess = { projectId: Int ->
-            val target = Link.Worlds.world(worldId).project(projectId).to
+            // Mid-batch, the next design is where you want to be; at the end of one, the plan
+            // you started from. Only a lone import lands on the project it just made, which is
+            // MCO-457's rule and still right for the single case (MCO-459).
+            val target = queue
+                ?.let { it.nextAfter(ideaId)?.let { next -> it.reviewHref(next, worldId) } ?: it.returnHref(worldId) }
+                ?: Link.Worlds.world(worldId).project(projectId).to
             // The review page submits as a plain form, so a browser needs a real redirect;
             // an HX-Redirect header would be silently ignored and leave a blank page.
             if (request.headers["HX-Request"] == "true") {
