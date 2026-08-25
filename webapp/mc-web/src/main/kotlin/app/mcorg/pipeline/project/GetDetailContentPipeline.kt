@@ -10,6 +10,7 @@ import app.mcorg.pipeline.resources.GetFarmScaleThresholdStep
 import app.mcorg.pipeline.resources.farmSuggestionsFor
 import app.mcorg.pipeline.resources.GenerateGatheringPlanStep
 import app.mcorg.pipeline.resources.pendingFarmSuppliesFor
+import app.mcorg.pipeline.resources.prerequisiteFarmsFor
 import app.mcorg.pipeline.resources.commonsteps.GetAllResourceGatheringItemsStep
 import app.mcorg.pipeline.resources.commonsteps.GetProgressForProjectStep
 import app.mcorg.pipeline.task.SearchTasksInput
@@ -69,7 +70,13 @@ suspend fun ApplicationCall.handleGetDetailContent() {
     // Load persisted progress for all items in the project (covers derived activities too)
     val progressMap = GetProgressForProjectStep.process(projectId).getOrNull() ?: emptyMap()
 
-    val pendingFarms = pendingFarmSuppliesFor(worldId, projectId, plan)
+    // Two different questions, deliberately two sources (MCO-461):
+    //  - what the world already covers, for suppressing a suggestion (#417) — no threshold,
+    //    because a farm that covers an item makes a second design for it pointless at any size
+    //  - what this project *waits on*, for the prerequisite line — thresholded and
+    //    cycle-ordered, because that is an ordering claim and shares the roadmap's rules
+    val coveredByPlannedFarms = pendingFarmSuppliesFor(worldId, projectId, plan)
+    val prerequisiteFarms = prerequisiteFarmsFor(worldId, projectId)
 
     // Same fallback as the full page (MCO-401): the lens fragment must not silently drop the
     // farm-scale roll-up, or switching lens would look like the markers disappeared.
@@ -79,7 +86,7 @@ suspend fun ApplicationCall.handleGetDetailContent() {
     // Same reason the threshold is here (MCO-401): switching lens must not look like the
     // suggestions disappeared.
     val farmSuggestions = farmSuggestionsFor(
-        plan, farmScaleThreshold, getUser().id, projectId, pendingFarms, project.importedFromIdea?.first,
+        plan, farmScaleThreshold, getUser().id, projectId, coveredByPlannedFarms, project.importedFromIdea?.first,
     )
 
     // The roll-up's threshold is a link to world settings for admins only, so the fragment
@@ -88,7 +95,7 @@ suspend fun ApplicationCall.handleGetDetailContent() {
 
     respondHtml(
         gatheringPlannerFragment(
-            project, resources, tasks, plan, lens, progressMap, pendingFarms, farmScaleThreshold,
+            project, resources, tasks, plan, lens, progressMap, prerequisiteFarms, farmScaleThreshold,
             farmSuggestions, isAdmin,
         )
     )

@@ -84,16 +84,21 @@ class FarmSupplySurfacingIT : WithUser() {
     }
 
     @Test
-    fun `a farm that is not running yet shows the partial-dependency notice, not a supplied row`() = testApplication {
+    fun `a farm that is not running yet reads as a prerequisite, not a supplied row`() = testApplication {
         setupRoutes()
         setProjectState(farmId, ProjectState.ACTIVE)
 
         val body = client.get("/worlds/$worldId/projects/$consumerId") { addAuthCookie(this) }.bodyAsText()
 
         assertContains(body, "plan-pending-farms")
-        assertContains(body, "32 Iron Ingot will come from")
         assertContains(body, "Iron Farm")
-        assertContains(body, "once it is running")
+        // MCO-461 turned MCO-299's promise into an ordering fact. The promise is still here as
+        // the explanation, but the relationship leads — a *notice* is what let MCO-294 offer to
+        // import this same farm again right beside it.
+        assertContains(body, "Prerequisites")
+        assertContains(body, "comes first")
+        assertContains(body, "32 Iron Ingot")
+        assertContains(body, "by hand until it is running")
         assertFalse(body.contains("Collect from farms"), "the item is still manual work")
     }
 

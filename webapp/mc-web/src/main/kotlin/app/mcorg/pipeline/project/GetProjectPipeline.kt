@@ -14,6 +14,7 @@ import app.mcorg.pipeline.resources.GetFarmScaleThresholdStep
 import app.mcorg.pipeline.resources.farmSuggestionsFor
 import app.mcorg.pipeline.resources.GenerateGatheringPlanStep
 import app.mcorg.pipeline.resources.pendingFarmSuppliesFor
+import app.mcorg.pipeline.resources.prerequisiteFarmsFor
 import app.mcorg.pipeline.resources.GetPlanOverridesStep
 import app.mcorg.pipeline.resources.buildCandidateCounts
 import app.mcorg.pipeline.resources.buildNodeIngredients
@@ -94,8 +95,13 @@ suspend fun ApplicationCall.handleGetProject() {
     // Load persisted progress for all items in the project (covers derived activities too)
     val progressMap = GetProgressForProjectStep.process(projectId).getOrNull() ?: emptyMap()
 
-    // Farms promised but not running yet — the plan's partial-dependency notice (MCO-299)
-    val pendingFarms = pendingFarmSuppliesFor(worldId, projectId, plan)
+    // Two different questions, deliberately two sources (MCO-461):
+    //  - what the world already covers, for suppressing a suggestion (#417) — no threshold,
+    //    because a farm that covers an item makes a second design for it pointless at any size
+    //  - what this project *waits on*, for the prerequisite line — thresholded and
+    //    cycle-ordered, because that is an ordering claim and shares the roadmap's rules
+    val coveredByPlannedFarms = pendingFarmSuppliesFor(worldId, projectId, plan)
+    val prerequisiteFarms = prerequisiteFarmsFor(worldId, projectId)
 
     // The world's "worth a farm" line (MCO-401). Falls back to the default rather than
     // failing the page: a missing marker beats a missing plan.
@@ -106,7 +112,7 @@ suspend fun ApplicationCall.handleGetProject() {
     // because the bank is public ideas plus their own — a shared computation would show one
     // user another's private designs.
     val farmSuggestions = farmSuggestionsFor(
-        plan, farmScaleThreshold, user.id, projectId, pendingFarms, project.importedFromIdea?.first,
+        plan, farmScaleThreshold, user.id, projectId, coveredByPlannedFarms, project.importedFromIdea?.first,
     )
 
     // ?drill=<item> deep-links into a target's chain so reload/share lands on the drill,
@@ -126,7 +132,7 @@ suspend fun ApplicationCall.handleGetProject() {
             user, project, worldName, resources, tasks, lens,
             isWorldAdmin = isAdmin, plan = plan, progressMap = progressMap,
             productions = productions,
-            pendingFarms = pendingFarms,
+            pendingFarms = prerequisiteFarms,
             drillTarget = drillTarget, drillCandidateCounts = drillCandidateCounts,
             drillNodeIngredients = drillNodeIngredients, drillHighlightItemId = drillItemId,
             drillOverrides = drillOverrides, drillGraph = drillGraph,

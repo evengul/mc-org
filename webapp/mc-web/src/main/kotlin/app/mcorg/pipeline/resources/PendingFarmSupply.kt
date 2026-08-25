@@ -2,6 +2,7 @@ package app.mcorg.pipeline.resources
 
 import app.mcorg.engine.plan.GatheringPlan
 import app.mcorg.engine.plan.PlanNodeStatus
+import app.mcorg.pipeline.project.commonsteps.GetFarmSupplyEdgesStep
 
 /** One item a not-yet-operational farm has promised, with the amount this plan still needs. */
 data class PendingFarmItem(
@@ -79,6 +80,58 @@ fun buildPendingFarmSupplies(
                 .sortedWith(compareByDescending<PendingFarmItem> { it.quantity }.thenBy { it.itemName })
             if (items.isEmpty()) null
             else PendingFarmSupply(projectId = project.first, projectName = project.second, items = items)
+        }
+        .sortedBy { it.projectName }
+}
+
+/**
+ * The farms this project is waiting on, as prerequisites rather than as a courtesy notice
+ * (MCO-461).
+ *
+ * MCO-299 shipped this as a promise — "63,213 Redstone Dust will come from Witch Hut Farm once
+ * it is running". True, and useful, but it is not an *ordering fact*: nothing on the page said
+ * the witch farm comes first, which is why MCO-294 could offer to import that same farm again
+ * right beside it. #417 stopped the contradiction; this is the other half — the page saying
+ * what the relationship actually is.
+ *
+ * ## Why this reads the roadmap's edges rather than the planned-farm list
+ *
+ * [pendingFarmSuppliesFor] answers "which planned farm will make this", which is the right
+ * question for suppressing a suggestion (#417's `alreadyCovered`) and the wrong one for
+ * claiming a prerequisite: it applies no threshold and knows nothing about loops. A cobblestone
+ * farm needing 20 gunpowder is not waiting on the witch farm in any sense worth sequencing, and
+ * where two farms supply each other the answer depends on an ordering the user chose.
+ *
+ * [GetFarmSupplyEdgesStep] already encodes both rules — the farm-scale threshold (MCO-460) and
+ * `roadmap_cycle_order` — because the roadmap needs them. Reading the same step here is what
+ * makes the project page and the roadmap incapable of disagreeing about what blocks what, which
+ * is the whole point of MCO-461. Two independent derivations of "is this a prerequisite" is the
+ * bug, not the fix.
+ *
+ * Soft-fails to none, like every other decoration on the plan: a missing prerequisite line is a
+ * worse page, a failed query is no page.
+ */
+suspend fun prerequisiteFarmsFor(worldId: Int, projectId: Int): List<PendingFarmSupply> {
+    val edges = GetFarmSupplyEdgesStep(worldId).process(Unit).getOrNull() ?: return emptyList()
+
+    return edges
+        // `isBlocking` is producerState != DONE (MCO-287): a farm already running supplies now
+        // and is nobody's prerequisite. That is the same rule the roadmap draws with.
+        .filter { it.consumerId == projectId && it.isBlocking }
+        .groupBy { it.producerId to it.producerName }
+        .mapNotNull { (producer, group) ->
+            val items = group
+                .mapNotNull { edge ->
+                    val name = edge.itemName ?: return@mapNotNull null
+                    val quantity = edge.quantity ?: return@mapNotNull null
+                    PendingFarmItem(itemId = name, itemName = name, quantity = quantity)
+                }
+                .distinctBy { it.itemId }
+                .sortedWith(compareByDescending<PendingFarmItem> { it.quantity }.thenBy { it.itemName })
+            // A declared `project_dependencies` row carries no item and no quantity, so it
+            // produces no line here — the roadmap is where non-resource sequencing shows up.
+            if (items.isEmpty()) null
+            else PendingFarmSupply(projectId = producer.first, projectName = producer.second, items = items)
         }
         .sortedBy { it.projectName }
 }

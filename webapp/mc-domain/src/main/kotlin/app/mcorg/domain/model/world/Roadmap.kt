@@ -10,16 +10,32 @@ import app.mcorg.domain.model.project.ProjectType
  * traversal and visualization of project relationships.
  *
  * Business Rules:
- * - No circular dependencies are allowed (enforced at creation time)
  * - All dependencies must be within the same world
  * - Projects can have multiple dependencies and dependents
+ *
+ * **Cycles exist and are not an error (MCO-460).** This said "no circular dependencies are
+ * allowed (enforced at creation time)" until 2026-08-25, and nothing enforced it — because
+ * nothing could. Edges are derived from real demand, so two farms that each consume a
+ * farm-scale amount of the other's output close a genuine loop out of two true facts. See
+ * [cycles] for what the roadmap does about it.
  */
 data class Roadmap(
     val worldId: Int,
     val worldName: String,
     val nodes: List<RoadmapNode>,
     val edges: List<RoadmapEdge>,
-    val layers: List<RoadmapLayer>
+    val layers: List<RoadmapLayer>,
+    /**
+     * Loops in the derived graph that no rule broke, each with the edge currently set aside
+     * so that [layers] stays consistent, and the alternatives a person can pick instead.
+     *
+     * Empty is the normal case: MCO-401's farm-scale threshold drops footnote-sized edges
+     * before they get here, which breaks most real loops. What lands here is two or more
+     * farms genuinely waiting on each other.
+     */
+    val cycles: List<RoadmapCycle> = emptyList(),
+    /** Pairs a person has already ordered by hand, so the choice can be seen and changed. */
+    val resolvedOrders: List<RoadmapCycleOrder> = emptyList(),
 ) {
     /**
      * Gets all root nodes (projects with no dependencies)
@@ -200,3 +216,63 @@ data class RoadmapStatistics(
     fun hasBlockedProjects(): Boolean = blockedProjects > 0
 }
 
+
+/**
+ * A loop in the derived dependency graph (MCO-460).
+ *
+ * Detected as a strongly connected component, not inferred from what the layering pass failed
+ * to place: "unplaced" also catches everything downstream of a loop, which would name innocent
+ * projects as part of a cycle they merely depend on.
+ *
+ * [breaking] is applied so [Roadmap.layers] is consistent the first time the page renders —
+ * a roadmap that showed two projects each claiming to block the other would be the bug this
+ * fixes. It is a guess, and the page says so; [options] is what the user picks from instead.
+ */
+data class RoadmapCycle(
+    val projectIds: List<Int>,
+    val projectNames: List<String>,
+    /** Every edge in the loop, each phrased as "set this aside and X comes first". */
+    val options: List<RoadmapCycleOption>,
+    /** The option in force until someone chooses — the smallest claim in the loop. */
+    val breaking: RoadmapCycleOption,
+    /**
+     * Whether this loop is worth interrupting someone for.
+     *
+     * False when [breaking] carries less than the world's farm-scale threshold: below that line
+     * the smallest claim is a footnote, giving way is the obvious answer rather than a judgement
+     * call, and the loop is broken silently. Such a cycle is still *broken* — it just never
+     * reaches the page. Only balanced loops, where both claims are farm-scale, are questions.
+     */
+    val needsAnAnswer: Boolean = true,
+)
+
+/**
+ * One way to break a cycle: set aside [firstProjectName]'s demand on [waitingProjectName],
+ * so the first no longer waits on the second.
+ *
+ * Phrased as "which comes first" rather than "which edge to delete" because that is the
+ * question a person can actually answer about their own world.
+ */
+data class RoadmapCycleOption(
+    /** The consumer of the set-aside edge — freed, so it comes first. */
+    val firstProjectId: Int,
+    val firstProjectName: String,
+    /** The producer of the set-aside edge — still waits on the first. */
+    val waitingProjectId: Int,
+    val waitingProjectName: String,
+    /**
+     * What the first project needs from the second, or null when the edge is a declared
+     * `project_dependencies` row rather than derived demand — see
+     * [ProjectResourceEdge.quantity][app.mcorg.domain.model.project.ProjectResourceEdge.quantity].
+     */
+    val itemName: String?,
+    val quantity: Long?,
+)
+
+/** A pair a person has ordered by hand, as stored in `roadmap_cycle_order` (MCO-460). */
+data class RoadmapCycleOrder(
+    val firstProjectId: Int,
+    val firstProjectName: String,
+    val waitingProjectId: Int,
+    val waitingProjectName: String,
+)

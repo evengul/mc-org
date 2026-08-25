@@ -358,7 +358,13 @@ private suspend fun ApplicationCall.respondListRerender(worldId: Int, projectId:
     val tasks = SearchTasksStep(projectId).process(SearchTasksInput(completionStatus = "ALL")).getOrNull() ?: emptyList()
     val plan = deriveOrNull(projectId, worldId)
     val progressMap = GetProgressForProjectStep.process(projectId).getOrNull() ?: emptyMap()
-    val pendingFarms = pendingFarmSuppliesFor(worldId, projectId, plan)
+    // Two different questions, deliberately two sources (MCO-461):
+    //  - what the world already covers, for suppressing a suggestion (#417) — no threshold,
+    //    because a farm that covers an item makes a second design for it pointless at any size
+    //  - what this project *waits on*, for the prerequisite line — thresholded and
+    //    cycle-ordered, because that is an ordering claim and shares the roadmap's rules
+    val coveredByPlannedFarms = pendingFarmSuppliesFor(worldId, projectId, plan)
+    val prerequisiteFarms = prerequisiteFarmsFor(worldId, projectId)
 
     // The same three the full page computes. This re-render is the one place they change for a
     // reason other than a page load: resolving an open tag turns a tag with no id anything can
@@ -368,13 +374,13 @@ private suspend fun ApplicationCall.respondListRerender(worldId: Int, projectId:
         ?: World.DEFAULT_FARM_SCALE_THRESHOLD
     val user = getUser()
     val farmSuggestions = farmSuggestionsFor(
-        plan, farmScaleThreshold, user.id, projectId, pendingFarms, project.importedFromIdea?.first,
+        plan, farmScaleThreshold, user.id, projectId, coveredByPlannedFarms, project.importedFromIdea?.first,
     )
     val isAdmin = ValidateWorldMemberRole<Unit>(user, Role.ADMIN, worldId).process(Unit) is Result.Success
 
     respondHtml(
         gatheringPlannerFragment(
-            project, resources, tasks, plan, "list", progressMap, pendingFarms, farmScaleThreshold,
+            project, resources, tasks, plan, "list", progressMap, prerequisiteFarms, farmScaleThreshold,
             farmSuggestions, isAdmin,
         )
     )

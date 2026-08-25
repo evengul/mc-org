@@ -9,7 +9,9 @@ import app.mcorg.pipeline.project.handleReviewSchematic
 import app.mcorg.pipeline.project.handleDeleteProject
 import app.mcorg.pipeline.project.handleGetProject
 import app.mcorg.pipeline.project.handleGetDetailContent
+import app.mcorg.pipeline.world.roadmap.handleClearRoadmapCycleOrder
 import app.mcorg.pipeline.world.roadmap.handleGetWorldRoadmap
+import app.mcorg.pipeline.world.roadmap.handleSaveRoadmapCycleOrder
 import app.mcorg.pipeline.project.handleRecordExistingFarm
 import app.mcorg.pipeline.project.resources.handleAddResourcesFromSchematic
 import app.mcorg.pipeline.project.resources.handleDeleteProjectProduction
@@ -132,6 +134,18 @@ class WorldHandler {
                 }
                 get("/roadmap") {
                     call.handleGetWorldRoadmap()
+                }
+                // Which of two mutually-supplying projects comes first (MCO-460). Admin-only:
+                // it sequences the world's projects for everyone who opens the roadmap, not
+                // just the viewer, so it is a world decision like the farm-scale threshold.
+                route("/roadmap/cycle-order") {
+                    install(WorldAdminPlugin)
+                    post {
+                        call.handleSaveRoadmapCycleOrder()
+                    }
+                    post("/clear") {
+                        call.handleClearRoadmapCycleOrder()
+                    }
                 }
                 route("/projects") {
                     get {
