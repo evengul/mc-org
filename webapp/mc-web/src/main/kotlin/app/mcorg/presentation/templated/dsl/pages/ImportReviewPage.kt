@@ -361,7 +361,10 @@ private fun FlowContent.stockedLead(allRows: List<Pair<Item, Int>>, containerCou
     if (percent < 20) return
 
     p("import-review__stocked-lead") {
-        +"$percent% of this list (${"%,d".format(stocked)} items) is what the build is stocked "
+        // "units", not "items" — [materialsSummary] renders "13 items" a line above this,
+        // meaning distinct materials. Using the same word for a quantity sum would put two
+        // different counts of "items" an inch apart on the same screen.
+        +"$percent% of this list (${"%,d".format(stocked)} units) is what the build is stocked "
         +"with — filter items, fuel, whatever it consumes — rather than blocks it places. That is "
         +"normal for a farm or a sorter, but the amount is the original builder's, so it is worth "
         +"a look before you gather it."

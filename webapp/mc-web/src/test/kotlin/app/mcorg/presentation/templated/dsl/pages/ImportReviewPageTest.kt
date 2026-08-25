@@ -296,6 +296,11 @@ class ImportReviewPageTest {
 
         assertContains(html, "import-review__stocked-lead")
         assertContains(html, "96% of this list")
+        assertContains(
+            html,
+            "3,165 units",
+            message = "units, not items — the summary above already uses 'items' for distinct materials",
+        )
         assertContains(html, "rather than blocks it places")
     }
 

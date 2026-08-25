@@ -399,4 +399,15 @@
     .import-review__region-toggle {
         margin-left: auto;
     }
+
+    /* The stacked card gives the item cell one narrow column, and a row carrying both the
+       amber flag and a container count overflows it — "125 in contai…" clipped at 375px.
+       Its own line, left-aligned with the name above it, rather than a nowrap span competing
+       for the same inch. Kept to the marker: the flag chip is short enough to sit inline. */
+    .import-review__stocked {
+        display: block;
+        margin-left: 0;
+        margin-top: var(--space-1);
+        white-space: normal;
+    }
 }
