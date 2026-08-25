@@ -2,6 +2,7 @@ package app.mcorg.pipeline.resources
 
 import app.mcorg.engine.plan.GatheringPlan
 import app.mcorg.engine.plan.PlanNodeStatus
+import app.mcorg.pipeline.project.resources.GetResourceProductionStep
 
 /**
  * An idea in the bank that produces something this plan demands (MCO-294).
@@ -67,6 +68,22 @@ data class IdeaProducer(
  * match on. [BLOCKED][PlanNodeStatus.BLOCKED] stays in: a farm for something the graph has no
  * source for is the *most* useful suggestion this can make.
  *
+ * ## What the world already covers is not demand (MCO-458, MCO-461)
+ *
+ * [PlanNodeStatus.SUPPLIED] catches only farms that are already `DONE` (MCO-287), which leaves two
+ * doors onto the same absurdity. A farm *under construction* — or one recorded through MCO-298
+ * with no source design at all — has its own build materials, so its plan would offer a design
+ * producing exactly what that farm produces. And a farm merely *planned* is matched too, so one
+ * page could carry MCO-299's notice ("63,213 Redstone Dust will come from Witch Hut Farm once it
+ * is running") beside a suggestion to import that same farm again.
+ *
+ * `alreadyCovered` closes both: an item some project in this world is already going to produce is
+ * not demand a design can answer, whatever state that project is in. The rule is deliberately
+ * blunt — a *bigger* design for a covered item is excluded too. A 924,000/h cobblestone farm is a
+ * real answer to demand a 231,000/h one cannot meet, but "your cobble farm needs 4,000 cobble,
+ * build this other cobble farm" is the wrong first read, and the upgrade case needs a rate
+ * comparison and UI copy that no real data has asked for yet. Even's call, 2026-08-25.
+ *
  * ## Why the unit is the idea, not the item
  *
  * A farm produces several things. The bank's stick producer **is** the Witch Hut Farm, which is
@@ -95,11 +112,19 @@ object FarmSuggestions {
      *
      * [producers] is the bank, already narrowed to what the viewer may see — this function is
      * pure and does no filtering of its own beyond the plan.
+     *
+     * [alreadyCovered] is every item this world is already going to produce; see the section
+     * above for why those are not demand at all rather than demand ranked lower.
      */
-    fun of(plan: GatheringPlan, threshold: Int, producers: List<IdeaProducer>): List<FarmSuggestion> {
+    fun of(
+        plan: GatheringPlan,
+        threshold: Int,
+        producers: List<IdeaProducer>,
+        alreadyCovered: Set<String> = emptySet(),
+    ): List<FarmSuggestion> {
         if (producers.isEmpty()) return emptyList()
 
-        val demand = matchableDemand(plan)
+        val demand = matchableDemand(plan, alreadyCovered)
         if (demand.isEmpty()) return emptyList()
 
         return producers
@@ -108,9 +133,10 @@ object FarmSuggestions {
     }
 
     /** itemId -> the demand a design could answer. */
-    private fun matchableDemand(plan: GatheringPlan): Map<String, DemandRow> =
+    private fun matchableDemand(plan: GatheringPlan, alreadyCovered: Set<String>): Map<String, DemandRow> =
         plan.activityList
             .filter { it.status != PlanNodeStatus.SUPPLIED && it.status != PlanNodeStatus.OPEN_TAG }
+            .filter { it.item.id !in alreadyCovered }
             .associate { it.item.id to DemandRow(it.item.id, it.item.name, it.quantity) }
 
     private data class DemandRow(val itemId: String, val itemName: String, val quantity: Long)
@@ -181,22 +207,30 @@ suspend fun farmSuggestionsFor(
     plan: GatheringPlan?,
     threshold: Int,
     viewerId: Int,
+    projectId: Int,
+    /**
+     * The not-yet-running farms MCO-299 is about to put a notice on this same page for.
+     *
+     * Taken as a parameter rather than re-queried on purpose — see [alreadyCoveredItems].
+     */
+    pendingFarms: List<PendingFarmSupply>,
     /**
      * The design this project was imported from, if any — never suggested back to it.
      *
-     * A farm costs materials to build, and a cobblestone farm costs cobblestone. Without this
-     * the farm's own plan matches its own design and offers to import the thing you are
-     * standing in. The narrow rule is deliberate: a *different* design producing the same item
-     * is still a fair suggestion (a bigger farm is a real answer to demand a small one cannot
-     * meet), so only the project's own source idea is excluded.
+     * Now largely subsumed by the project's own productions (MCO-458), since importing a design
+     * writes `project_productions`. It stays because it is the one exclusion that survives a
+     * project whose productions were edited away, and it costs nothing.
      */
     excludeIdeaId: Int? = null,
 ): List<FarmSuggestion> {
     if (plan == null) return emptyList()
 
+    val alreadyCovered = alreadyCoveredItems(projectId, pendingFarms)
+
     val demandedIds = plan.activityList
         .filter { it.status != PlanNodeStatus.SUPPLIED && it.status != PlanNodeStatus.OPEN_TAG }
         .map { it.item.id }
+        .filter { it !in alreadyCovered }
     if (demandedIds.isEmpty()) return emptyList()
 
     val producers = GetIdeaProducersStep
@@ -204,5 +238,39 @@ suspend fun farmSuggestionsFor(
         .getOrNull()
         ?: return emptyList()
 
-    return FarmSuggestions.of(plan, threshold, producers.filter { it.ideaId != excludeIdeaId })
+    return FarmSuggestions.of(
+        plan,
+        threshold,
+        producers.filter { it.ideaId != excludeIdeaId },
+        alreadyCovered,
+    )
+}
+
+/**
+ * Items this world is already going to produce, and so has no reason to be offered a design for.
+ *
+ * Two sources, one rule:
+ *
+ * * **This project's own productions** (MCO-458). A farm's build materials are demand like any
+ *   other, and a cobblestone farm costs cobblestone. Excluding the project's source design by id
+ *   closes the import door only: a farm recorded through MCO-298 has no `project_idea_id` to
+ *   exclude, and its productions are the thing that actually identifies what it makes.
+ * * **Farms planned but not running** (MCO-461), read off the notice MCO-299 already renders
+ *   rather than queried again. Sharing the value is the point — the notice and the suggestion
+ *   list cannot claim the same item while both are computed from one list, whereas two
+ *   independent reads of [GetWorldPlannedFarmsStep] could drift and put contradictory advice on
+ *   one page.
+ *
+ * Operational (`DONE`) farms need no entry here: MCO-287 already marks their items
+ * [PlanNodeStatus.SUPPLIED], which [FarmSuggestions] drops.
+ *
+ * A failed read of this project's productions degrades to excluding nothing — the same posture as
+ * every other decoration on the plan, and the reason this is not the only guard on the import.
+ */
+private suspend fun alreadyCoveredItems(
+    projectId: Int,
+    pendingFarms: List<PendingFarmSupply>,
+): Set<String> = buildSet {
+    GetResourceProductionStep.process(projectId).getOrNull().orEmpty().mapTo(this) { it.itemId }
+    pendingFarms.flatMapTo(this) { farm -> farm.items.map { it.itemId } }
 }
