@@ -27,6 +27,7 @@ class ImportReviewPageTest {
         requirements: Map<Item, Int>,
         regions: List<ResolvedRegion> = emptyList(),
         placedCounts: Map<String, Int> = emptyMap(),
+        containerCounts: Map<String, Int> = emptyMap(),
     ) = importReviewPage(
         user = user,
         worldId = 1,
@@ -35,6 +36,7 @@ class ImportReviewPageTest {
         requirements = requirements,
         placedCounts = placedCounts,
         regions = regions,
+        containerCounts = containerCounts,
     )
 
     private val frame = ResolvedRegion(
@@ -250,4 +252,76 @@ class ImportReviewPageTest {
         assertContains(html, "This schematic is built from 2 sections")
         assertFalse(html.contains("are being imported as one project"))
     }
+
+    // --- stock vs structure (MCO-322) ---
+
+    @Test
+    fun `a fully stocked row is marked as container contents`() {
+        val html = render(
+            requirements = mapOf(item("redstone") to 3165, item("oak_planks") to 40),
+            containerCounts = mapOf("minecraft:redstone" to 3165),
+        )
+
+        assertContains(html, "in containers")
+        // Marked, not struck: the row is still checked and still in the list.
+        assertContains(html, "minecraft:redstone=3165")
+    }
+
+    @Test
+    fun `a partly stocked row says how much of it is stock`() {
+        val html = render(
+            requirements = mapOf(item("hopper") to 40),
+            containerCounts = mapOf("minecraft:hopper" to 12),
+        )
+
+        assertContains(html, "12 in containers", message = "the count is what tells you the other 28 are structure")
+    }
+
+    @Test
+    fun `a row with nothing in containers carries no marker`() {
+        val html = render(requirements = mapOf(item("oak_planks") to 40))
+
+        assertFalse(html.contains("in containers"))
+        assertFalse(html.contains("import-review__stocked"))
+    }
+
+    @Test
+    fun `a mostly stocked list says so above the rows`() {
+        // The reported case in miniature: most of what looks like a build is what it is stocked
+        // with. The chip is on one row of many; this is the part that gets read.
+        val html = render(
+            requirements = mapOf(item("redstone") to 3165, item("oak_planks") to 100),
+            containerCounts = mapOf("minecraft:redstone" to 3165),
+        )
+
+        assertContains(html, "import-review__stocked-lead")
+        assertContains(html, "96% of this list")
+        assertContains(html, "rather than blocks it places")
+    }
+
+    @Test
+    fun `the lead reports a proportion rather than warning about one`() {
+        // A stocked container is normal — a shulker loader full of redstone is what a shulker
+        // loader is. The callout treatment stays reserved for creative-only rows (MCO-397).
+        val html = render(
+            requirements = mapOf(item("redstone") to 3165, item("oak_planks") to 100),
+            containerCounts = mapOf("minecraft:redstone" to 3165),
+        )
+
+        assertContains(html, "That is normal for a farm or a sorter")
+        assertFalse(html.contains("callout__icon"), "no warning icon for something that is not wrong")
+    }
+
+    @Test
+    fun `a build with only a few filter items says nothing at all`() {
+        // Every sorter has some. Announcing a 2% share would put this line on every import.
+        val html = render(
+            requirements = mapOf(item("oak_planks") to 1000, item("redstone") to 20),
+            containerCounts = mapOf("minecraft:redstone" to 20),
+        )
+
+        assertFalse(html.contains("import-review__stocked-lead"), "below the threshold, the lead is silent")
+        assertContains(html, "in containers", message = "but the row itself is still marked")
+    }
+
 }

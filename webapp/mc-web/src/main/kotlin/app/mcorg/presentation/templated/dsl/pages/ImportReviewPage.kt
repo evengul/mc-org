@@ -85,6 +85,7 @@ fun importReviewPage(
     hiddenFields: Map<String, String> = emptyMap(),
     placedCounts: Map<String, Int> = emptyMap(),
     regions: List<ResolvedRegion> = emptyList(),
+    containerCounts: Map<String, Int> = emptyMap(),
     warnings: ImportWarnings = ImportWarnings(),
     unrecordableProductions: List<String> = emptyList(),
     offerAlreadyBuilt: Boolean = false,
@@ -151,7 +152,7 @@ fun importReviewPage(
 
                 alreadyBuiltControl(offerAlreadyBuilt)
 
-                materialsSection(requirements, emptySet(), placedCounts, regions, warnings)
+                materialsSection(requirements, emptySet(), placedCounts, regions, containerCounts, warnings)
 
                 div("import-review__actions") {
                     button(classes = "btn btn--primary") {
@@ -268,6 +269,7 @@ private fun FlowContent.materialsSection(
     excluded: Set<String>,
     placedCounts: Map<String, Int>,
     regions: List<ResolvedRegion>,
+    containerCounts: Map<String, Int>,
     warnings: ImportWarnings,
 ) {
     div("import-review__materials") {
@@ -282,11 +284,12 @@ private fun FlowContent.materialsSection(
         warningStrip(warnings)
         materialsSummary(groups, allRows)
         sectionsLead(groups, regions.mapNotNull { it.sourceFile }.distinct().size)
+        stockedLead(allRows, containerCounts)
         groups.forEachIndexed { index, group ->
             if (group.name == null) {
-                materialsTable(index, group.rows, excluded, placedCounts, warnings)
+                materialsTable(index, group.rows, excluded, placedCounts, containerCounts, warnings)
             } else {
-                regionGroup(index, group, excluded, placedCounts, warnings)
+                regionGroup(index, group, excluded, placedCounts, containerCounts, warnings)
             }
         }
 
@@ -318,6 +321,50 @@ private fun FlowContent.sectionsLead(groups: List<MaterialGroup>, fileCount: Int
             +"This schematic is built from ${groups.size} sections. "
         }
         +"Untick one to leave it out of the import, or open it to choose materials one at a time."
+    }
+}
+
+/**
+ * Says, once and above the rows, how much of this list is stock rather than structure.
+ *
+ * The per-row chip is the detail; this is the part that is actually readable. The reported case
+ * was a 519,844-unit import whose largest row — 362,706 carved pumpkins, 70% of the total — was
+ * what that wither farm consumes, and a chip on one row of hundreds is not how anyone finds
+ * that out. The claim worth making up front is *most of this is not the building*.
+ *
+ * Deliberately not phrased as a problem. Stocked containers are normal and usually intended —
+ * the same fixture set has a shulker loader that is 96% redstone, which is simply what a shulker
+ * loader is for. The line reports a proportion and stops; the reader decides whether they want
+ * that much of it.
+ *
+ * A line, not the `!` strip. MCO-397 cut that strip back to creative-only rows — the one kind
+ * that asks for a decision before the import lands. Nothing here is wrong, so a warning icon
+ * would repeat exactly the mistake MCO-397 undid.
+ *
+ * Silent below a fifth of the list. A sorter's filter items are container contents too, and
+ * every redstone build has some; announcing a 2% share would turn a real distinction into
+ * chrome that appears on every import and is read on none.
+ */
+private fun FlowContent.stockedLead(allRows: List<Pair<Item, Int>>, containerCounts: Map<String, Int>) {
+    if (containerCounts.isEmpty()) return
+
+    val total = allRows.sumOf { it.second.toLong() }
+    if (total <= 0) return
+
+    // Against the rows actually on screen, so the share and the list agree. A container count
+    // for a row that resolution dropped is not part of what the user is being shown.
+    val shown = allRows.map { it.first.id }.toSet()
+    val stocked = containerCounts.filterKeys { it in shown }.values.sumOf { it.toLong() }
+    if (stocked <= 0) return
+
+    val percent = (stocked * 100 / total).toInt()
+    if (percent < 20) return
+
+    p("import-review__stocked-lead") {
+        +"$percent% of this list (${"%,d".format(stocked)} items) is what the build is stocked "
+        +"with — filter items, fuel, whatever it consumes — rather than blocks it places. That is "
+        +"normal for a farm or a sorter, but the amount is the original builder's, so it is worth "
+        +"a look before you gather it."
     }
 }
 
@@ -525,6 +572,7 @@ private fun FlowContent.regionGroup(
     group: MaterialGroup,
     excluded: Set<String>,
     placedCounts: Map<String, Int>,
+    containerCounts: Map<String, Int>,
     warnings: ImportWarnings,
 ) {
     val blocks = group.rows.sumOf { it.second.toLong() }
@@ -545,7 +593,47 @@ private fun FlowContent.regionGroup(
                 span("import-review__region-toggle--open") { +"Hide materials ▴" }
             }
         }
-        materialsTable(index, group.rows, excluded, placedCounts, warnings)
+        materialsTable(index, group.rows, excluded, placedCounts, containerCounts, warnings)
+    }
+}
+
+/**
+ * Says how much of a row is stock the build carries rather than blocks it places (MCO-322).
+ *
+ * Litematica saves chest, hopper, dispenser and dropper contents alongside the blocks, and the
+ * material list has always merged the two. What is in those containers is normally deliberate —
+ * the filter items a sorter needs, the redstone a shulker loader loads, the carved pumpkins that
+ * keep wither skeletons from despawning. This does not mark a mistake, and must not read as
+ * though it does.
+ *
+ * It is worth marking because the two are different kinds of ask. Placed blocks are structure
+ * and their count follows from its shape; stock is consumable, occupies no volume, and its
+ * quantity is whatever scale the original builder worked at — a fine thing to want less of. A
+ * real perimeter farm's list was 70% carved pumpkins and a shulker loader's 96% redstone, both
+ * entirely correct and both easy to mistake for structure at a glance.
+ *
+ * **Marked, never excluded.** A chip in the same register as MCO-396's `placed N×`: a fact about
+ * where a number came from, sitting next to the number, with no control attached and nothing
+ * unchecked on its behalf.
+ *
+ * Two shapes, because "all of it" and "some of it" are different facts. A row that is entirely
+ * stock says so plainly; a partly-stocked row gives the count, since "12 in containers" against
+ * a quantity of 40 is what tells you the other 28 are structure.
+ */
+private fun FlowContent.containerMarker(item: Item, amount: Int, fromContainers: Int?) {
+    if (fromContainers == null || fromContainers <= 0) return
+
+    val all = fromContainers >= amount
+    span("import-review__stocked") {
+        attributes["title"] = if (all) {
+            "Every ${item.name} here is container contents — what the build is stocked with " +
+                "rather than a block it places. Filter items, fuel and consumables normally " +
+                "arrive this way."
+        } else {
+            "${"%,d".format(fromContainers)} of these were in containers when the schematic was " +
+                "saved; the rest are placed blocks."
+        }
+        +if (all) "in containers" else "${"%,d".format(fromContainers)} in containers"
     }
 }
 
@@ -554,6 +642,7 @@ private fun FlowContent.materialsTable(
     rows: List<Pair<Item, Int>>,
     excluded: Set<String>,
     placedCounts: Map<String, Int>,
+    containerCounts: Map<String, Int>,
     warnings: ImportWarnings,
 ) {
     div("import-review__table-wrap") {
@@ -608,6 +697,7 @@ private fun FlowContent.materialsTable(
                                     +"placed ${"%,d".format(cells)}×"
                                 }
                             }
+                            containerMarker(item, amount, containerCounts[item.id])
                         }
                         td {
                             attributes["data-label"] = "Quantity"
