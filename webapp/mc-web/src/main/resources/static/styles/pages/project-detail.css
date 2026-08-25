@@ -714,6 +714,70 @@
     text-decoration: underline;
 }
 
+/* MCO-459 — the batch. Selecting designs is the primary action of this section now, so the
+   checkbox sits where the name was and the name rides with it: one target, not two. */
+.plan-farm-scale__batch {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+}
+
+.plan-farm-scale__select {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-2);
+    cursor: pointer;
+}
+
+.plan-farm-scale__select-box {
+    /* Nudged off the text baseline the label sets, so the box aligns with the name's cap
+       height rather than hanging below it. */
+    transform: translateY(2px);
+    cursor: pointer;
+}
+
+/* Demoted from a button to a quiet link (MCO-459): the row's action is now the checkbox, and
+   two buttons of equal weight on one row is a choice nobody asked to make. */
+.plan-farm-scale__design-link {
+    font-family: var(--font-ui);
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.plan-farm-scale__design-link:hover {
+    color: var(--text-primary);
+    text-decoration: underline;
+}
+
+.plan-farm-scale__batch-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    flex-wrap: wrap;
+    padding-left: var(--space-3);
+}
+
+/* Nothing ticked is the resting state of this section, and a live button there would invite a
+   submit that does nothing. Same :has(:checked) reading the import review uses for its own
+   submit, rather than JS keeping a disabled attribute in sync. */
+.plan-farm-scale__batch-submit {
+    opacity: 0.5;
+    pointer-events: none;
+}
+
+.plan-farm-scale__batch:has(.plan-farm-scale__select-box:checked) .plan-farm-scale__batch-submit {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.plan-farm-scale__batch-hint {
+    font-family: var(--font-body);
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+}
+
 /* The number that changes a decision: most designs cover their demand in minutes, and it is
    the rare multi-hour line that says a farm is a project rather than an afternoon. */
 .plan-farm-scale__rate {

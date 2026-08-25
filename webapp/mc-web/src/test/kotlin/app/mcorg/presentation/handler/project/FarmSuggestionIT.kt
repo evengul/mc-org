@@ -118,8 +118,11 @@ class FarmSuggestionIT : WithUser() {
         assertContains(body, "plan-farm-scale")
         assertContains(body, "231k Cobblestone farm")
         assertContains(body, "75,151")
-        // The action is the review screen (MCO-457's door), not a direct create.
-        assertContains(body, "/ideas/$myFarmIdea/import/review?worldId=$worldId")
+        // Since MCO-459 the row's action is a checkbox feeding the batch form, not a link
+        // straight to the review. The review is still where it leads — one step later, and
+        // for every design ticked at once (BatchImportWizardIT owns that flow).
+        assertContains(body, "design-select-$myFarmIdea")
+        assertContains(body, "/worlds/$worldId/projects/$projectId/farm-suggestions/import")
     }
 
     @Test
@@ -164,7 +167,7 @@ class FarmSuggestionIT : WithUser() {
         val body = client.get("/worlds/$worldId/projects/$theFarm") { addAuthCookie(this) }.bodyAsText()
 
         assertFalse(
-            body.contains("Import into this world"),
+            body.contains("design-select-$myFarmIdea"),
             "you cannot need the design you are building",
         )
         // The demand is still farm-scale and still listed — it just has no answer now.
@@ -260,8 +263,8 @@ class FarmSuggestionIT : WithUser() {
                 "the notice says it is coming; offering to import a second cobble farm contradicts it",
             )
             assertFalse(
-                body.contains("Import into this world"),
-                "nothing left on this plan to import",
+                body.contains("plan-farm-scale__batch"),
+                "with nothing to suggest there is no batch to open",
             )
         }
     }

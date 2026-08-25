@@ -39,6 +39,7 @@ import app.mcorg.pipeline.project.handleGetProjectListFragment
 import app.mcorg.pipeline.project.handleGetFieldLogRow
 import app.mcorg.pipeline.project.handleGetFieldLogSliceItems
 import app.mcorg.pipeline.project.handleGetResumeRows
+import app.mcorg.pipeline.project.handleStartFarmSuggestionImport
 import app.mcorg.pipeline.project.handleUpdateProjectState
 import app.mcorg.pipeline.project.handleGetProjectNameField
 import app.mcorg.pipeline.project.handleUpdateProjectName
@@ -177,6 +178,11 @@ class WorldHandler {
                         }
                         patch("/state") {
                             call.handleUpdateProjectState()
+                        }
+                        // Opens the batch review wizard for the designs ticked on the plan
+                        // (MCO-459). Creates nothing itself — see the handler.
+                        post("/farm-suggestions/import") {
+                            call.handleStartFarmSuggestionImport()
                         }
                         route("/meta") {
                             get("/name") { call.handleGetProjectNameField() }

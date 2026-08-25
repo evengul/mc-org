@@ -7,6 +7,48 @@
     margin-bottom: var(--space-5);
 }
 
+/* MCO-459 — where you are in a batch started from a plan's suggestion list. Sits above the
+   heading because "2 of 3" is the thing that was missing, not a decoration on the title. */
+.import-review__wizard {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    margin-bottom: var(--space-2);
+}
+
+.import-review__wizard-count {
+    font-family: var(--font-ui);
+    font-size: var(--text-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+}
+
+.import-review__wizard-dots {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+}
+
+.import-review__wizard-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--border);
+}
+
+/* Done and current are both "accounted for"; the current one is larger rather than a
+   different hue, so the row still reads at a glance in one colour. */
+.import-review__wizard-dot--done {
+    background: var(--text-muted);
+}
+
+.import-review__wizard-dot--current {
+    width: 8px;
+    height: 8px;
+    background: var(--accent);
+}
+
 .import-review__heading {
     font-family: var(--font-ui);
     font-size: var(--text-xl);
