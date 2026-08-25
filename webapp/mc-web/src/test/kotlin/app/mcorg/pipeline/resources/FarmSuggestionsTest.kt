@@ -251,6 +251,99 @@ class FarmSuggestionsTest {
         assertTrue(hours > 7.6 && hours < 7.7, "63,273 at 8,280/h is about 7.6 hours, got $hours")
     }
 
+    // ---- what the world already covers (MCO-458, MCO-461) ---------------------------
+
+    @Test
+    fun `a design for what this project itself produces is not suggested`() {
+        // The cobblestone farm costs 4,000 cobblestone to build, and was offered a cobblestone
+        // farm. Recorded by hand through MCO-298, it has no source design to exclude by id —
+        // its own productions are the only thing that says what it makes.
+        val theFarmsOwnPlan = plan(node(cobblestone, 4_000))
+
+        val result = FarmSuggestions.of(
+            theFarmsOwnPlan,
+            threshold,
+            listOf(producer(1, "231k Cobblestone farm", cobblestone to 231_000)),
+            alreadyCovered = setOf(cobblestone.id),
+        )
+
+        assertTrue(result.isEmpty(), "you cannot need what you produce")
+    }
+
+    @Test
+    fun `a bigger design for a covered item is excluded too`() {
+        // Deliberate, not an oversight: 924,000/h against your 231,000/h is a real answer to
+        // demand the small farm cannot meet, but not one worth reading as "build a second
+        // cobble farm". Excluded rather than ranked down - Even's call, 2026-08-25.
+        val cobblePlan = plan(node(cobblestone, 75_151))
+
+        val result = FarmSuggestions.of(
+            cobblePlan,
+            threshold,
+            listOf(producer(1, "924k Cobblestone farm", cobblestone to 924_000)),
+            alreadyCovered = setOf(cobblestone.id),
+        )
+
+        assertTrue(result.isEmpty(), "the upgrade case needs a rate comparison nobody has asked for")
+    }
+
+    @Test
+    fun `a design still qualifies on what the world does not cover`() {
+        val witchPlan = plan(node(redstone, 63_273), node(cobblestone, 75_151))
+
+        val suggestion = FarmSuggestions
+            .of(
+                witchPlan,
+                threshold,
+                listOf(producer(1, "Witch Hut Farm", redstone to 8280, cobblestone to 100)),
+                alreadyCovered = setOf(cobblestone.id),
+            )
+            .single()
+
+        assertEquals(listOf("minecraft:redstone"), suggestion.produces.map { it.itemId })
+        assertEquals(63_273, suggestion.unitsRemoved, "covered cobblestone is not work this removes")
+    }
+
+    @Test
+    fun `a covered item does not qualify a design on its own`() {
+        // Cobblestone is the only farm-scale line and the world already covers it, so the
+        // ride-along rule must not resurrect the design on the sub-threshold bottles.
+        val mixedPlan = plan(node(cobblestone, 75_151), node(glassBottle, 216))
+
+        val result = FarmSuggestions.of(
+            mixedPlan,
+            threshold,
+            listOf(producer(1, "Cobble and bottles", cobblestone to 924_000, glassBottle to 785)),
+            alreadyCovered = setOf(cobblestone.id),
+        )
+
+        assertTrue(result.isEmpty(), "216 bottles is still not a reason to build a farm")
+    }
+
+    @Test
+    fun `the mining under a covered item is not claimed either`() {
+        val ironPlan = plan(
+            node(ironIngot, 33_049, PlanNodeStatus.RESOLVED, listOf(PlanRequirement("minecraft:deepslate_iron_ore", 1))),
+            node(deepslateIronOre, 33_049),
+            node(redstone, 63_273),
+        )
+
+        val suggestion = FarmSuggestions
+            .of(
+                ironPlan,
+                threshold,
+                listOf(producer(1, "Iron and redstone", ironIngot to 3810, redstone to 8280)),
+                alreadyCovered = setOf(ironIngot.id),
+            )
+            .single()
+
+        assertEquals(listOf("minecraft:redstone"), suggestion.produces.map { it.itemId })
+        assertTrue(
+            suggestion.alsoRemoves.none { it.itemId == "minecraft:deepslate_iron_ore" },
+            "the ore feeds ingots the world already covers, so this design does not remove it: ${suggestion.alsoRemoves}",
+        )
+    }
+
     @Test
     fun `an empty bank suggests nothing`() {
         assertEquals(emptyList(), FarmSuggestions.of(plan(node(cobblestone, 75_151)), threshold, emptyList()))

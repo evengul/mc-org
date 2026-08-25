@@ -210,6 +210,62 @@ class FarmSuggestionIT : WithUser() {
         deleteIdea(published)
     }
 
+    @Test
+    fun `a farm recorded by hand is not suggested a design for what it produces`() {
+        // MCO-458's second door. `a project built from a design is not suggested that design`
+        // covers the import door, which excludes by project_idea_id; a farm recorded through
+        // MCO-298 has no such id, and used to be offered a design for its own output.
+        val world = createWorld("Recorded farm world")
+        val theFarm = createProject(world, "Hand-recorded Cobble Farm")
+        addProjectProduction(theFarm, cobblestone, rate = 231_000)
+        createResourceGathering(theFarm, cobblestone, required = 4_000)
+
+        testApplication {
+            setupRoutes()
+
+            val body = client.get("/worlds/$world/projects/$theFarm") { addAuthCookie(this) }.bodyAsText()
+
+            assertFalse(
+                body.contains("231k Cobblestone farm"),
+                "it produces cobblestone; a cobblestone design answers nothing it needs",
+            )
+            assertFalse(body.contains("plan-farm-scale__design"), "and so no design row at all")
+            // The demand itself is untouched — still farm-scale, still listed, just unanswered.
+            assertContains(body, "4,000")
+        }
+    }
+
+    @Test
+    fun `a farm already planned is not offered as an import`() {
+        // MCO-461. The identical fixture to `a design covering farm-scale demand is suggested
+        // on the plan` — which is the control showing the design *would* appear — plus a farm
+        // the world has already filed. MCO-299's notice and the suggestion cannot both claim
+        // the cobblestone.
+        val world = createWorld("Planned farm world")
+        val build = createProject(world, "Storage System")
+        createResourceGathering(build, cobblestone, required = 75_151)
+
+        val plannedFarm = createProject(world, "Filed Cobble Farm")
+        addProjectProduction(plannedFarm, cobblestone, rate = 231_000)
+
+        testApplication {
+            setupRoutes()
+
+            val body = client.get("/worlds/$world/projects/$build") { addAuthCookie(this) }.bodyAsText()
+
+            assertContains(body, "plan-pending-farms")
+            assertContains(body, "Filed Cobble Farm")
+            assertFalse(
+                body.contains("231k Cobblestone farm"),
+                "the notice says it is coming; offering to import a second cobble farm contradicts it",
+            )
+            assertFalse(
+                body.contains("Import into this world"),
+                "nothing left on this plan to import",
+            )
+        }
+    }
+
     // ---- routing ----------------------------------------------------------------
 
     private fun ApplicationTestBuilder.setupRoutes() {
@@ -276,6 +332,20 @@ class FarmSuggestionIT : WithUser() {
                 stmt.setString(2, item.id)
                 stmt.setString(3, item.name)
                 stmt.setInt(4, required)
+            }
+        ).process(Unit)
+    }
+
+    private fun addProjectProduction(projectId: Int, item: Item, rate: Int) = runBlocking {
+        DatabaseSteps.update<Unit>(
+            sql = SafeSQL.insert(
+                "INSERT INTO project_productions (project_id, item_id, name, rate_per_hour) VALUES (?, ?, ?, ?)"
+            ),
+            parameterSetter = { stmt, _ ->
+                stmt.setInt(1, projectId)
+                stmt.setString(2, item.id)
+                stmt.setString(3, item.name)
+                stmt.setInt(4, rate)
             }
         ).process(Unit)
     }
