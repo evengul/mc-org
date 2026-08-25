@@ -62,6 +62,7 @@ class ImportIdeaReviewIT : WithUser() {
     private var wideIdeaId: Int = 0
     private var multiModeIdeaId: Int = 0
     private var unknownProductionIdeaId: Int = 0
+    private var placedIdeaId: Int = 0
 
     @BeforeAll
     fun setup() {
@@ -83,6 +84,18 @@ class ImportIdeaReviewIT : WithUser() {
         addRequirement(airyIdeaId, "minecraft:air", 9_389_854)
         addRequirement(airyIdeaId, "minecraft:water", 12)
         addRequirement(airyIdeaId, "minecraft:oak_planks", 64)
+
+        // MCO-308, from the report: an idea captured from a schematic records *placed* ids.
+        // Both are real catalog entries, which is why they used to survive validation and
+        // land on the gathering list as rows no source produces.
+        seedItem("minecraft:redstone_wire", "Redstone Wire (Block)")
+        seedItem("minecraft:birch_sign", "Birch Sign")
+        seedItem("minecraft:birch_wall_sign", "Birch Wall Sign (Block)")
+        placedIdeaId = createIdea("Ghast Farm Wiring")
+        addRequirement(placedIdeaId, "minecraft:redstone_wire", 592)
+        addRequirement(placedIdeaId, "minecraft:birch_wall_sign", 1)
+        addRequirement(placedIdeaId, "minecraft:redstone", 8)
+        addRequirement(placedIdeaId, "minecraft:oak_planks", 64)
 
         // MCO-397: a curated "slow to gather" row, which must stay off the strip.
         seedItem("minecraft:elytra", "Elytra")
@@ -200,6 +213,57 @@ class ImportIdeaReviewIT : WithUser() {
         assertFalse(body.contains("minecraft:water="), "the fluid id itself must not be a row")
         assertContains(body, "placed 12×", message = "the schematic's own number stays visible")
         assertFalse(body.contains("Not really materials"), "the warning kind is gone entirely")
+    }
+
+    @Test
+    fun `placed block ids reach the review screen as the item you gather`() = testApplication {
+        // MCO-308. The idea door used to take recorded ids verbatim, so `Redstone Wire
+        // (Block)` x592 and `Birch Wall Sign (Block)` x1 arrived as rows — and MCO-305's strip
+        // correctly, uselessly, called them creative-only. Nothing produces redstone_wire; what
+        // the user needs is 592 redstone, which is an ordinary ask.
+        setupRoutes()
+
+        val response = client.get("/ideas/$placedIdeaId/import/review?worldId=$worldId") {
+            addAuthCookie(this)
+        }
+
+        assertEquals(HttpStatusCode.OK, response.status)
+        val body = response.bodyAsText()
+        // 592 placed + 8 already in item form: resolution sums onto the item, never overwrites.
+        assertContains(body, "minecraft:redstone=600", message = "placed dust and stored dust are one row")
+        assertContains(body, "minecraft:birch_sign=1", message = "a wall sign is a sign")
+        assertFalse(body.contains("minecraft:redstone_wire"), "the placed id must not survive")
+        assertFalse(body.contains("minecraft:birch_wall_sign"), "nor the wall variant")
+        assertFalse(
+            body.contains("not obtainable in survival"),
+            "and with them gone the strip has nothing left to warn about",
+        )
+    }
+
+    @Test
+    fun `a placed id resolved away is gathered under its real item on import`() = testApplication {
+        // The review screen posts back what it rendered, so the project gets the resolved rows.
+        setupRoutes()
+        val client = createClient { followRedirects = false }
+
+        val response = client.post("/ideas/$placedIdeaId/import") {
+            addAuthCookie(this)
+            contentType(ContentType.Application.FormUrlEncoded)
+            setBody(
+                "worldId=$worldId&name=Wiring&" + materials(
+                    "minecraft:redstone" to 600,
+                    "minecraft:birch_sign" to 1,
+                )
+            )
+        }
+
+        assertEquals(HttpStatusCode.SeeOther, response.status, response.bodyAsText())
+        val projectId = response.headers["Location"]!!.substringAfterLast("/").toInt()
+
+        assertEquals(
+            listOf("minecraft:birch_sign" to 1, "minecraft:redstone" to 600),
+            readRequirements(projectId).sortedBy { it.first },
+        )
     }
 
     @Test

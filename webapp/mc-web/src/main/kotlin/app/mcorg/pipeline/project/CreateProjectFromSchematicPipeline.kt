@@ -450,7 +450,7 @@ data class MapSchematicToMaterialsStep(
         val flat = if (regions.isEmpty()) {
             resolve(input.items, byId)
         } else {
-            ResolvedMaterials(
+            PlacedMaterials(
                 requirements = sumRequirements(regions.map { it.requirements }),
                 placedCounts = regions.map { it.placedCounts }.reduce { acc, next ->
                     (acc.keys + next.keys).associateWith { (acc[it] ?: 0) + (next[it] ?: 0) }
@@ -482,130 +482,20 @@ data class MapSchematicToMaterialsStep(
         )
     }
 
-    /** One region's — or the whole file's — block counts, resolved to gathered items. */
-    private fun resolve(counts: Map<String, Int>, byId: Map<String, Item>): ResolvedMaterials {
-        // Fluids first, because they are the one case where the cell count is not the amount
-        // to gather: a bucket is reusable, so 4,013 water cells are one water bucket carried
-        // and refilled. The cell count is kept as [SchematicMaterials.placedCounts] so the
-        // review screen can still show it — see FLUID_PLACEMENTS.
-        val fluidCells = LinkedHashMap<Item, Int>()
-        counts.forEach { (blockId, amount) ->
-            val bucketId = FLUID_PLACEMENTS[blockId] ?: return@forEach
-            val bucket = byId[bucketId] ?: return@forEach
-            fluidCells[bucket] = (fluidCells[bucket] ?: 0) + amount
-        }
-
-        // A schematic stores placed block-state ids; some are gathered as a different
-        // item (birch_wall_sign -> birch_sign) and some are not a material at all
-        // (an extended piston's head). Normalize, then merge amounts for block ids that
-        // collapse onto the same item (e.g. a build with both a sign and a wall sign).
-        val resolved = counts.entries
-            .filter { (blockId, _) -> blockId !in FLUID_PLACEMENTS }
-            .mapNotNull { (blockId, amount) -> resolveMaterial(blockId, byId)?.let { it to amount } }
-
-        // One bucket per fluid, on top of any the build stores as real items.
-        val byItem = LinkedHashMap<Item, Int>()
-        resolved.forEach { (item, amount) -> byItem[item] = (byItem[item] ?: 0) + amount }
-        fluidCells.keys.forEach { bucket -> byItem[bucket] = (byItem[bucket] ?: 0) + 1 }
-
-        return ResolvedMaterials(
-            requirements = byItem.map { (item, amount) -> item to amount },
-            placedCounts = fluidCells.entries.associate { (bucket, cells) -> bucket.id to cells },
-        )
-    }
+    /**
+     * One region's — or the whole file's — block counts, resolved to gathered items.
+     *
+     * The rules themselves live in `PlacedBlocks.kt`, shared with the idea door (MCO-308).
+     * The only thing this door decides for itself is what to do with an id the version's
+     * catalog does not have: drop it. A `.litematic` is often saved on a newer version than
+     * the world it is being imported into, and one unrecognised id is not a reason to refuse
+     * a file — the idea door, whose version range was already checked, reports it instead.
+     */
+    private fun resolve(counts: Map<String, Int>, byId: Map<String, Item>): PlacedMaterials =
+        resolvePlacedCells(counts, byId)
 
     private fun sumRequirements(lists: List<List<Pair<Item, Int>>>): List<Pair<Item, Int>> =
         sumRequirementLists(lists)
-
-    private data class ResolvedMaterials(
-        val requirements: List<Pair<Item, Int>>,
-        val placedCounts: Map<String, Int>,
-    )
-
-    /**
-     * Resolves a schematic block-state id to the item a player actually gathers, or
-     * null when the cell is not a material (dropped).
-     *
-     * Order:
-     * 1. [isDropped] — placed forms that are not a material of their own (an extended
-     *    piston's head, potted plants counted as the pot+plant elsewhere, candle cakes,
-     *    silverfish-infested blocks).
-     * 2. [REDIRECTS] — explicit block -> item for placed forms whose gathered item has a
-     *    different id: crops to their seed/produce (carrots -> carrot, cocoa ->
-     *    cocoa_beans), tool/effect placements to their material (dirt_path/farmland
-     *    -> dirt, redstone_wire -> redstone, wall_torch -> torch), and filled block states
-     *    to the block you place (lava_cauldron -> cauldron).
-     * 3. *wall* variants — drop the "_wall_" infix when that yields a real item
-     *    (birch_wall_sign -> birch_sign, dead_horn_coral_wall_fan -> dead_horn_coral_fan).
-     * 4. Otherwise resolve by the id itself, or drop when the version has no such item.
-     *
-     * Fluids never reach here — they are handled ahead of it, since their amount is capped
-     * at one bucket rather than taken from the cell count (see [FLUID_PLACEMENTS]).
-     *
-     * Truly non-obtainable blocks (budding_amethyst) are intentionally left to resolve to
-     * nothing and surface as a BLOCKED row rather than a wrong guess. Placed *effect* blocks
-     * whose material is a separate cell already counted plus a reusable tool (fire,
-     * soul_fire, bubble_column, the portals) are dropped as non-materials — see [isDropped].
-     */
-    private fun resolveMaterial(blockId: String, byId: Map<String, Item>): Item? {
-        if (isDropped(blockId)) return null
-        REDIRECTS[blockId]?.let { target -> byId[target]?.let { return it } }
-        if ("_wall_" in blockId) {
-            byId[blockId.replace("_wall_", "_")]?.let { return it }
-        }
-        return byId[blockId]
-    }
-
-    private fun isDropped(blockId: String): Boolean {
-        if (blockId in NON_MATERIAL_BLOCKS) return true
-        val name = blockId.substringAfter(':')
-        return name.startsWith("potted_") || name.startsWith("infested_") || name.endsWith("candle_cake")
-    }
-
-    companion object {
-        /**
-         * Placed block-state ids whose gathered item has a *different* id. Crops resolve
-         * to the seed/produce you plant or harvest; tool/effect placements resolve to the
-         * material left behind. The target must still exist in the version's catalog to be
-         * used (else the block falls through to its own id / a BLOCKED row).
-         */
-        private val REDIRECTS = mapOf(
-            // crops / growth -> seed or produce item
-            "minecraft:carrots" to "minecraft:carrot",
-            "minecraft:potatoes" to "minecraft:potato",
-            "minecraft:beetroots" to "minecraft:beetroot_seeds",
-            "minecraft:cocoa" to "minecraft:cocoa_beans",
-            "minecraft:melon_stem" to "minecraft:melon_seeds",
-            "minecraft:attached_melon_stem" to "minecraft:melon_seeds",
-            "minecraft:pumpkin_stem" to "minecraft:pumpkin_seeds",
-            "minecraft:attached_pumpkin_stem" to "minecraft:pumpkin_seeds",
-            "minecraft:cave_vines" to "minecraft:glow_berries",
-            "minecraft:cave_vines_plant" to "minecraft:glow_berries",
-            "minecraft:kelp_plant" to "minecraft:kelp",
-            "minecraft:bamboo_sapling" to "minecraft:bamboo",
-            "minecraft:sweet_berry_bush" to "minecraft:sweet_berries",
-            "minecraft:tall_seagrass" to "minecraft:seagrass",
-            "minecraft:twisting_vines_plant" to "minecraft:twisting_vines",
-            "minecraft:weeping_vines_plant" to "minecraft:weeping_vines",
-            "minecraft:big_dripleaf_stem" to "minecraft:big_dripleaf",
-            "minecraft:pitcher_crop" to "minecraft:pitcher_pod",
-            "minecraft:torchflower_crop" to "minecraft:torchflower_seeds",
-            // placed tool/effect forms -> the material gathered
-            "minecraft:dirt_path" to "minecraft:dirt",
-            "minecraft:farmland" to "minecraft:dirt",
-            "minecraft:redstone_wire" to "minecraft:redstone",
-            "minecraft:tripwire" to "minecraft:string",
-            "minecraft:suspicious_sand" to "minecraft:sand",
-            "minecraft:suspicious_gravel" to "minecraft:gravel",
-            "minecraft:wall_torch" to "minecraft:torch",
-            // A filled cauldron is a block *state* of the cauldron, not an item of its own
-            // (there is no lava_cauldron item). What you gather is the cauldron; the bucket
-            // that fills it is a reusable tool, like the flint & steel behind a fire cell.
-            "minecraft:lava_cauldron" to "minecraft:cauldron",
-            "minecraft:water_cauldron" to "minecraft:cauldron",
-            "minecraft:powder_snow_cauldron" to "minecraft:cauldron",
-        )
-    }
 }
 
 private data class MapSchematicToProjectStep(

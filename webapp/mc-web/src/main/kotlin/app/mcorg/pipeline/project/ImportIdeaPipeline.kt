@@ -43,8 +43,21 @@ data class IdeaForImport(
     val name: String,
     val description: String,
     val category: IdeaCategory,
+    /**
+     * What to gather — already resolved out of placed forms by [ValidateItemIdsStep].
+     *
+     * Not the ids the idea recorded. An idea captured from a schematic carries placed
+     * block-state ids, and every consumer past this point wants the gathered item (MCO-308).
+     */
     val requirements: Map<Item, Int>,
     val production: Map<Item, Int>,
+    /**
+     * Fluid cell counts, keyed by bucket id — review-time context, not persisted (MCO-396).
+     *
+     * The requirement is one reusable bucket; this is the number of cells it fills, so the
+     * review screen can say "1 water bucket, placed 4,013×" and stay reconcilable.
+     */
+    val placedCounts: Map<String, Int> = emptyMap(),
     /**
      * Produced item ids this world's version does not have (MCO-456). Dropped from
      * [production] and reported, never fatal — see [ValidateItemIdsStep].
@@ -92,12 +105,10 @@ suspend fun ApplicationCall.handleReviewIdeaImport() {
 
     handlePipeline(
         onSuccess = { idea: IdeaForImport ->
-            // Same treatment as the schematic door for placed cells (MCO-396): drop the ones
-            // that are not a material, and turn a fluid into the bucket you carry. Without
-            // this the idea door would offer water as a row and the plan would call it
-            // creative-only, which is how it read before MCO-319.
-            val materials = normalizePlacedBlocks(idea.requirements, items)
-            val requirements = materials.requirements.toMap()
+            // Already resolved by ValidateItemIdsStep, through the same tables the schematic
+            // door reads (MCO-396, MCO-308) — placed forms are the gathered item, fluids are
+            // one bucket, non-materials are gone. Nothing to normalize a second time here.
+            val requirements = idea.requirements
             respondHtml(
                 importReviewPage(
                     user = user,
@@ -105,7 +116,7 @@ suspend fun ApplicationCall.handleReviewIdeaImport() {
                     worldName = getWorldName(worldId),
                     projectName = idea.name,
                     requirements = requirements,
-                    placedCounts = materials.placedCounts,
+                    placedCounts = idea.placedCounts,
                     warnings = computeImportWarnings(worldId, requirements),
                     unrecordableProductions = idea.unrecordableProductions,
                     // Only the idea door offers this (MCO-457). A schematic is a file of blocks
@@ -409,26 +420,35 @@ internal fun ratesForImport(modes: List<IdeaProductionMode>, chosenModeName: Str
 }
 
 
+/**
+ * Turns an idea's recorded ids into the items this world would actually gather.
+ *
+ * The requirement side runs the **same** placed-cell resolution the schematic door does
+ * (MCO-308): an idea captured from a schematic records placed block-state ids, and taking
+ * them verbatim put rows on the gathering list that no source produces — 592 `Redstone Wire
+ * (Block)`, which MCO-305's warning strip then had to call creative-only. It is not; it is
+ * 592 redstone. Resolving here rather than at capture time is deliberate: the tables resolve
+ * *against a version catalog*, and an idea spans a version range, so the same idea honestly
+ * resolves differently in two worlds.
+ *
+ * An id nothing claims is still a validation error, unlike the schematic door which drops it.
+ * The version range was already checked by [ValidateVersionRangeStep], so reaching here with
+ * an id outside the catalog means the idea and the world genuinely disagree.
+ */
 internal data class ValidateItemIdsStep(val availableIds: List<Item>) : Step<Pair<BasicIdeaInfo, Map<String, Int>>, AppFailure, IdeaForImport> {
     override suspend fun process(input: Pair<BasicIdeaInfo, Map<String, Int>>): Result<AppFailure, IdeaForImport> {
         val (ideaInfo, requirements) = input
-        val mappedRequirements = mutableMapOf<Item, Int>()
         val mappedProduction = mutableMapOf<Item, Int>()
         val unrecordable = mutableListOf<String>()
         val errors = mutableListOf<ValidationFailure>()
 
-        for ((itemId, amount) in requirements) {
-            // Air is dropped, not reported (MCO-305) — an idea recorded from a schematic can
-            // carry millions of air cells, and nobody has ever wanted them on a gathering list.
-            if (itemId in NON_MATERIAL_FILL) continue
-
-            val item = availableIds.find { it.id == itemId }
-
-            if (item == null) {
-                errors.add(ValidationFailure.CustomValidation("requirements", "Item ID $itemId is not available in the world version"))
-            } else {
-                mappedRequirements[item] = amount
-            }
+        // Air and the other non-materials are dropped, not reported (MCO-305) — an idea
+        // recorded from a schematic can carry millions of air cells, and nobody has ever
+        // wanted them on a gathering list.
+        val resolved = resolvePlacedCells(requirements, availableIds.associateBy { it.id })
+        val mappedRequirements = resolved.requirements.toMap()
+        resolved.unknown.forEach { itemId ->
+            errors.add(ValidationFailure.CustomValidation("requirements", "Item ID $itemId is not available in the world version"))
         }
 
         // An unknown *production* id is reported, not refused (MCO-456). It used to be a
@@ -456,6 +476,7 @@ internal data class ValidateItemIdsStep(val availableIds: List<Item>) : Step<Pai
                     category = ideaInfo.category,
                     requirements = mappedRequirements,
                     production = mappedProduction,
+                    placedCounts = resolved.placedCounts,
                     unrecordableProductions = unrecordable.sorted(),
                 )
             )
