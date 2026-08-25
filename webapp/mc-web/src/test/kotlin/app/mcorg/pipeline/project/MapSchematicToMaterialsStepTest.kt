@@ -348,4 +348,81 @@ class MapSchematicToMaterialsStepTest {
         val result = MapSchematicToMaterialsStep(catalog).process(litematica(mapOf("minecraft:piston_head" to 1)))
         assertTrue(result is Result.Failure)
     }
+
+    // --- stock vs structure (MCO-322) ---
+
+    private fun stocked(
+        items: Map<String, Int>,
+        containerItems: Map<String, Int>,
+        regions: List<LitematicaRegion> = emptyList(),
+    ): SchematicMaterials = runBlocking {
+        val result = MapSchematicToMaterialsStep(catalog).process(
+            Litematica("Build", "", "", Triple(1, 1, 1), items, regions, containerItems)
+        )
+        assertIs<Result.Success<SchematicMaterials>>(result)
+        result.value
+    }
+
+    @Test
+    fun `container contents are reported as a share of the row, not a row of their own`() {
+        val result = stocked(
+            items = mapOf("minecraft:redstone" to 3165, "minecraft:oak_planks" to 40),
+            containerItems = mapOf("minecraft:redstone" to 3165),
+        )
+
+        assertEquals(
+            mapOf("minecraft:redstone" to 3165, "minecraft:oak_planks" to 40),
+            result.requirements.associate { it.first.id to it.second },
+            "the total is unchanged — stock is marked, never removed",
+        )
+        assertEquals(mapOf("minecraft:redstone" to 3165), result.containerCounts)
+    }
+
+    @Test
+    fun `a partly stocked row keeps the placed part out of the container count`() {
+        // One hopper placed, four more sitting in it. The row is five; only four are stock.
+        val result = stocked(
+            items = mapOf("minecraft:oak_planks" to 5),
+            containerItems = mapOf("minecraft:oak_planks" to 4),
+        )
+
+        assertEquals(5, result.requirements.single().second)
+        assertEquals(4, result.containerCounts["minecraft:oak_planks"])
+    }
+
+    @Test
+    fun `stored items resolve the same way placed ones do`() {
+        // A chest of carrots and a field of planted ones are the same row, so the container
+        // share is only meaningful if both halves went through the same resolution.
+        val result = stocked(
+            items = mapOf("minecraft:carrots" to 9, "minecraft:carrot" to 30),
+            containerItems = mapOf("minecraft:carrot" to 30),
+        )
+
+        assertEquals(mapOf("minecraft:carrot" to 39), result.requirements.associate { it.first.id to it.second })
+        assertEquals(mapOf("minecraft:carrot" to 30), result.containerCounts)
+    }
+
+    @Test
+    fun `container counts sum over regions like the flat list does`() {
+        val result = stocked(
+            items = mapOf("minecraft:redstone" to 30),
+            containerItems = mapOf("minecraft:redstone" to 30),
+            regions = listOf(
+                LitematicaRegion("North", mapOf("minecraft:redstone" to 20), mapOf("minecraft:redstone" to 20)),
+                LitematicaRegion("South", mapOf("minecraft:redstone" to 10), mapOf("minecraft:redstone" to 10)),
+            ),
+        )
+
+        assertEquals(mapOf("minecraft:redstone" to 30), result.containerCounts)
+        assertEquals(listOf(20, 10), result.regions.map { it.containerCounts.getValue("minecraft:redstone") })
+    }
+
+    @Test
+    fun `a schematic with empty containers reports no container counts`() {
+        val result = stocked(mapOf("minecraft:oak_planks" to 5), emptyMap())
+
+        assertTrue(result.containerCounts.isEmpty())
+    }
+
 }

@@ -70,6 +70,7 @@ data class SchematicProject(
     val requirements: Map<Item, Int>,
     val placedCounts: Map<String, Int> = emptyMap(),
     val regions: List<ResolvedRegion> = emptyList(),
+    val containerCounts: Map<String, Int> = emptyMap(),
 )
 
 /**
@@ -84,6 +85,15 @@ data class SchematicMaterials(
     val requirements: List<Pair<Item, Int>>,
     val placedCounts: Map<String, Int> = emptyMap(),
     val regions: List<ResolvedRegion> = emptyList(),
+    /**
+     * How much of each row is stock the build carries rather than blocks it places (MCO-322).
+     *
+     * Keyed by item id, and a **subset** of [requirements] — never a list of its own. Also
+     * review-time context only: what you gather is the total, and nothing here changes it.
+     * Stocked containers are normal and usually deliberate, so this marks rows, never filters
+     * them.
+     */
+    val containerCounts: Map<String, Int> = emptyMap(),
 )
 
 /**
@@ -97,6 +107,8 @@ data class ResolvedRegion(
     val name: String,
     val requirements: List<Pair<Item, Int>>,
     val placedCounts: Map<String, Int> = emptyMap(),
+    /** This region's share of [SchematicMaterials.containerCounts] (MCO-322). */
+    val containerCounts: Map<String, Int> = emptyMap(),
     /**
      * The file this region came from, or null when the import was a single file (MCO-414).
      *
@@ -134,6 +146,7 @@ suspend fun ApplicationCall.handleReviewSchematic() {
                     requirements = project.requirements,
                     placedCounts = project.placedCounts,
                     regions = project.regions,
+                    containerCounts = project.containerCounts,
                     warnings = computeImportWarnings(worldId, project.requirements),
                 )
             )
@@ -373,6 +386,7 @@ data class MapSchematicFilesToMaterialsStep(
                         name = parsed.stem,
                         requirements = materials.requirements,
                         placedCounts = materials.placedCounts,
+                        containerCounts = materials.containerCounts,
                         sourceFile = parsed.stem,
                     )
                 )
@@ -385,6 +399,7 @@ data class MapSchematicFilesToMaterialsStep(
                 requirements = sumRequirementLists(perFile.map { it.second.requirements }),
                 placedCounts = sumPlacedCounts(perFile.map { it.second.placedCounts }),
                 regions = regions,
+                containerCounts = sumPlacedCounts(perFile.map { it.second.containerCounts }),
             )
         )
     }
@@ -435,7 +450,14 @@ data class MapSchematicToMaterialsStep(
         val regions = input.regions.mapNotNull { region ->
             val resolved = resolve(region.items, byId)
             resolved.takeIf { it.requirements.isNotEmpty() }
-                ?.let { ResolvedRegion(region.name, it.requirements, it.placedCounts) }
+                ?.let {
+                    ResolvedRegion(
+                        name = region.name,
+                        requirements = it.requirements,
+                        placedCounts = it.placedCounts,
+                        containerCounts = containerCounts(region.containerItems, byId),
+                    )
+                }
         }
 
         // The flat list is the sum over regions, not a second resolution of the flattened
@@ -458,6 +480,15 @@ data class MapSchematicToMaterialsStep(
             )
         }
 
+        // Same sum-over-regions rule as the flat list, for the same reason: the review screen
+        // totals the region rows, so a container count derived any other way would disagree
+        // with the rows it is annotating.
+        val fromContainers = if (regions.isEmpty()) {
+            containerCounts(input.containerItems, byId)
+        } else {
+            sumPlacedCounts(regions.map { it.containerCounts })
+        }
+
         val requirements = flat.requirements
 
         if (requirements.isEmpty()) {
@@ -478,8 +509,26 @@ data class MapSchematicToMaterialsStep(
                 requirements = requirements,
                 placedCounts = flat.placedCounts,
                 regions = regions,
+                containerCounts = fromContainers,
             )
         )
+    }
+
+    /**
+     * The container half of a region, resolved to item ids (MCO-322).
+     *
+     * Run through the **same** resolution as the total rather than taken verbatim, because the
+     * two have to agree about what a row *is*. A region that places farmland and stocks dirt
+     * has one `dirt` row, and the container share of it is only meaningful if both halves
+     * resolved `farmland` to `dirt` the same way. For real container contents this is close to
+     * identity — a chest holds items, not block states — but "close to" is not a thing to build
+     * a subset relationship on.
+     */
+    private fun containerCounts(containerItems: Map<String, Int>, byId: Map<String, Item>): Map<String, Int> {
+        if (containerItems.isEmpty()) return emptyMap()
+        return resolvePlacedCells(containerItems, byId)
+            .requirements
+            .associate { (item, amount) -> item.id to amount }
     }
 
     /**
@@ -524,6 +573,7 @@ private data class MapSchematicToProjectStep(
                 materials.requirements.toMap(),
                 materials.placedCounts,
                 materials.regions,
+                materials.containerCounts,
             )
         )
     }

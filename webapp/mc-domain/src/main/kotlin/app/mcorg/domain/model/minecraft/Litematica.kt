@@ -20,6 +20,13 @@ data class Litematica(
     val size: Triple<Int, Int, Int>,
     val items: Map<String, Int>,
     val regions: List<LitematicaRegion> = emptyList(),
+    /**
+     * The part of [items] that the build is stocked with, per the same invariant (MCO-322).
+     *
+     * See [LitematicaRegion.containerItems] for what this is and why it is a *subset* of the
+     * total rather than a separate list.
+     */
+    val containerItems: Map<String, Int> = emptyMap(),
 )
 
 /**
@@ -34,4 +41,25 @@ data class Litematica(
 data class LitematicaRegion(
     val name: String,
     val items: Map<String, Int>,
+    /**
+     * How much of [items] came out of a container rather than the block palette (MCO-322).
+     *
+     * Litematica saves the contents of every chest, hopper, dispenser and dropper along with
+     * the blocks, and both used to land in [items] indistinguishable from each other. What is
+     * in those containers is normally **part of the build**, deliberately saved with it: the
+     * filter items a sorter needs, the redstone a shulker loader loads, the carved pumpkins
+     * that keep wither skeletons from despawning. A stocked container is the rule, not someone
+     * forgetting to empty a chest.
+     *
+     * The split is still worth keeping, because the two halves are different kinds of ask.
+     * Placed blocks are the structure and their count follows from its shape; container
+     * contents are consumables and stock, they occupy no volume, and their quantity is
+     * whatever scale the original builder worked at. A real perimeter farm's list was 70%
+     * carved pumpkins and a shulker loader's was 96% redstone — both correct, and both worth
+     * seeing as stock rather than reading as structure.
+     *
+     * A **subset of [items], not a sibling of it.** Nothing is excluded on this basis;
+     * reading it as a separate list would double-count every stocked chest.
+     */
+    val containerItems: Map<String, Int> = emptyMap(),
 )

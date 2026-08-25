@@ -133,6 +133,18 @@
     cursor: help;
 }
 
+/* MCO-322 — how much of a row is stock the build carries rather than blocks it places. Same
+   footnote weight as .import-review__placed, and for the same reason: nothing is wrong with
+   the row, it is included, and the only thing being said is where the number came from. */
+.import-review__stocked {
+    margin-left: var(--space-2);
+    font-family: var(--font-ui);
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+    white-space: nowrap;
+    cursor: help;
+}
+
 .import-review__summary {
     display: flex;
     align-items: baseline;
@@ -207,6 +219,17 @@
 }
 
 .import-review__sections-lead {
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    color: var(--text-muted);
+    margin: 0;
+    max-width: 70ch;
+}
+
+/* MCO-322 — the "most of this is stock, not structure" line. Reads as a lead, not a warning:
+   the callout treatment is reserved for creative-only rows (MCO-397), and a stocked container
+   is normal and usually intended, not something wrong with the file. */
+.import-review__stocked-lead {
     font-family: var(--font-body);
     font-size: var(--text-sm);
     color: var(--text-muted);
@@ -375,5 +398,16 @@
 
     .import-review__region-toggle {
         margin-left: auto;
+    }
+
+    /* The stacked card gives the item cell one narrow column, and a row carrying both the
+       amber flag and a container count overflows it — "125 in contai…" clipped at 375px.
+       Its own line, left-aligned with the name above it, rather than a nowrap span competing
+       for the same inch. Kept to the marker: the flag chip is short enough to sit inline. */
+    .import-review__stocked {
+        display: block;
+        margin-left: 0;
+        margin-top: var(--space-1);
+        white-space: normal;
     }
 }

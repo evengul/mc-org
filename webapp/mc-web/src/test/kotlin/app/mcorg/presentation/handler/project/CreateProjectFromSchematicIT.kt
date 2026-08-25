@@ -280,6 +280,60 @@ class CreateProjectFromSchematicIT : WithUser() {
         assertEquals(before, countProjects(worldId), "review must not create anything")
     }
 
+    @Test
+    fun `a stocked schematic marks what it is loaded with, all the way from the file`() = testApplication {
+        // MCO-322, end to end on a real file. `litematica-test.litematic` is a compact shulker
+        // loader whose containers hold 3,165 redstone and 125 shulker boxes — 96% of its list.
+        // That is not clutter: it is what a shulker loader loads. Before this, those quantities
+        // were indistinguishable from placed blocks the moment the reader merged the two maps.
+        setupRoutes()
+
+        val response = client.post("/worlds/$worldId/projects/from-schematic/review") {
+            addAuthCookie(this)
+            setBody(multipart(fileName = "loader.litematic", bytes = litematicBytes))
+        }
+
+        assertEquals(HttpStatusCode.OK, response.status)
+        val body = response.bodyAsText()
+        assertTrue(body.contains("in containers"), "the stocked rows are marked")
+        assertTrue(body.contains("import-review__stocked-lead"), "and the share is stated above the list")
+        assertTrue(
+            body.contains("rather than blocks it places"),
+            "phrased as what the build carries, not as a problem with the file",
+        )
+    }
+
+    @Test
+    fun `stocked rows are marked but never excluded`() = testApplication {
+        // The distinction is information, not a filter. Every row still arrives checked, and
+        // the material list still totals everything the build costs.
+        setupRoutes()
+
+        val response = client.post("/worlds/$worldId/projects/from-schematic/review") {
+            addAuthCookie(this)
+            setBody(multipart(fileName = "loader.litematic", bytes = litematicBytes))
+        }
+
+        val body = response.bodyAsText()
+        val litematica = (LitematicaReader.readLitematica(litematicBytes) as Result.Success).value
+        val stockedRedstone = litematica.containerItems.getValue("minecraft:redstone")
+        // Placed dust resolves onto the same row as stored dust (MCO-308), so the rendered
+        // amount is both halves — which is the point: one row, and the chip says how much of
+        // it is stock.
+        val expectedRedstone = litematica.items.getValue("minecraft:redstone") +
+            (litematica.items["minecraft:redstone_wire"] ?: 0)
+
+        assertTrue(stockedRedstone > 0, "fixture sanity: this file is stocked")
+        assertTrue(
+            body.contains("minecraft:redstone=$expectedRedstone"),
+            "the row carries the full amount, stock included",
+        )
+        assertTrue(
+            expectedRedstone >= stockedRedstone,
+            "the container count is a share of the row, never larger than it",
+        )
+    }
+
     // -------------------------------------------------------------------------
     // Several files as one import (MCO-414)
     // -------------------------------------------------------------------------

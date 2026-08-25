@@ -88,6 +88,7 @@ object LitematicaReader {
             size = metadata.size,
             items = regionData.items,
             regions = regionData.regions,
+            containerItems = regionData.containerItems,
         )
 
         return Result.success(litematica)
@@ -103,6 +104,7 @@ object LitematicaReader {
     data class LitematicaRegionData(
         val items: Map<String, Int>,
         val regions: List<LitematicaRegion>,
+        val containerItems: Map<String, Int> = emptyMap(),
     )
 
     private fun CompoundTag.extractMetadata(): LitematicaMetadata {
@@ -138,16 +140,20 @@ object LitematicaReader {
      */
     private fun CompoundTag.extractRegionData(): LitematicaRegionData {
         val items = mutableMapOf<String, Int>()
+        val containerItems = mutableMapOf<String, Int>()
         val regions = mutableListOf<LitematicaRegion>()
 
         this.value.forEach { (regionName, tag) ->
             if (tag is CompoundTag) {
-                val regionItems = tag.extractSingleRegionData()
-                if (regionItems.isNotEmpty()) {
-                    regions.add(LitematicaRegion(regionName, regionItems))
+                val region = tag.extractSingleRegionData()
+                if (region.items.isNotEmpty()) {
+                    regions.add(LitematicaRegion(regionName, region.items, region.containerItems))
                 }
-                regionItems.forEach { (itemName, itemCount) ->
+                region.items.forEach { (itemName, itemCount) ->
                     items[itemName] = items.getOrDefault(itemName, 0) + itemCount
+                }
+                region.containerItems.forEach { (itemName, itemCount) ->
+                    containerItems[itemName] = containerItems.getOrDefault(itemName, 0) + itemCount
                 }
             }
         }
@@ -155,27 +161,41 @@ object LitematicaReader {
         return LitematicaRegionData(
             items = items,
             regions = regions,
+            containerItems = containerItems,
         )
     }
 
-    private fun CompoundTag.extractSingleRegionData(): Map<String, Int> {
+    /**
+     * One region's counts, with the two sources kept apart (MCO-322).
+     *
+     * [items] is the total — placed blocks plus container contents — because that is what the
+     * material list has always meant and every caller already reads it that way. [containerItems]
+     * says how much of that total is what the build is stocked with rather than what it places,
+     * so the review screen can mark it. Both are wanted; they are just different kinds of ask.
+     */
+    private data class RegionCounts(
+        val items: Map<String, Int>,
+        val containerItems: Map<String, Int>,
+    )
+
+    private fun CompoundTag.extractSingleRegionData(): RegionCounts {
         // Get the palette (list of block types)
         val palette = this.getBlockStatePalette()
 
         // Get the size of the region
         // Litematica dimensions can be negative (indicating region direction); absolute value gives block count
         val size = this.value[Keys.SIZE] as? CompoundTag
-        val x = (size?.value?.get("x") as? IntTag)?.value?.absoluteValue ?: return emptyMap()
-        val y = (size?.value?.get("y") as? IntTag)?.value?.absoluteValue ?: return emptyMap()
-        val z = (size?.value?.get("z") as? IntTag)?.value?.absoluteValue ?: return emptyMap()
+        val x = (size?.value?.get("x") as? IntTag)?.value?.absoluteValue ?: return RegionCounts(emptyMap(), emptyMap())
+        val y = (size?.value?.get("y") as? IntTag)?.value?.absoluteValue ?: return RegionCounts(emptyMap(), emptyMap())
+        val z = (size?.value?.get("z") as? IntTag)?.value?.absoluteValue ?: return RegionCounts(emptyMap(), emptyMap())
         val totalBlocks = x.toLong() * y * z
-        if (totalBlocks > Int.MAX_VALUE) return emptyMap()
+        if (totalBlocks > Int.MAX_VALUE) return RegionCounts(emptyMap(), emptyMap())
         val totalBlocksInt = totalBlocks.toInt()
 
         // Get the packed block states
         val blockStatesTag = this.value[Keys.BLOCK_STATES] as? LongListTag
         if (blockStatesTag == null || palette.isEmpty()) {
-            return emptyMap()
+            return RegionCounts(emptyMap(), emptyMap())
         }
 
         val blockStates = blockStatesTag.value
@@ -230,12 +250,16 @@ object LitematicaReader {
             }
         }
 
-        getItemsInInventories()
-            .forEach { item ->
-                blockCounts[item.key] = blockCounts.getOrDefault(item.key, 0) + item.value
-            }
+        // Container contents are folded into the total — that is what the material list has
+        // always meant, and a stocked container is normally part of the build rather than
+        // clutter. The map is kept so the review screen can say which part of a row is stock
+        // the build carries rather than a block it places (MCO-322).
+        val containerItems = getItemsInInventories()
+        containerItems.forEach { (itemName, itemCount) ->
+            blockCounts[itemName] = blockCounts.getOrDefault(itemName, 0) + itemCount
+        }
 
-        return blockCounts
+        return RegionCounts(items = blockCounts, containerItems = containerItems)
     }
 
     private fun CompoundTag.getItemsInInventories(): Map<String, Int> {

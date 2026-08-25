@@ -236,6 +236,69 @@ class LitematicaReaderTest {
         }
     }
 
+    /**
+     * A one-block region whose block is also a container holding [stocked] (MCO-322).
+     *
+     * Litematica writes container contents as a `TileEntities` list of compounds, each with an
+     * `Items` list of `{id, Count}`. That is the shape being asserted against, so it is written
+     * by hand here rather than borrowed from a fixture.
+     */
+    private fun DataOutputStream.writeStockedRegion(
+        name: String,
+        block: String,
+        stocked: List<Pair<String, Int>>,
+    ) {
+        writeCompoundEntry(name) {
+            writeCompoundEntry("Size") {
+                writeIntEntry("x", 1)
+                writeIntEntry("y", 1)
+                writeIntEntry("z", 1)
+            }
+            writePaletteEntry(block)
+            writeByte(12)            // LongListTag
+            writeUTF("BlockStates")
+            writeInt(1)
+            writeLong(1L)
+            // TileEntities: ListTag of CompoundTag
+            writeByte(9)
+            writeUTF("TileEntities")
+            writeByte(10)
+            writeInt(1)
+            // one tile entity, holding an Items list
+            writeByte(9)
+            writeUTF("Items")
+            writeByte(10)
+            writeInt(stocked.size)
+            stocked.forEach { (id, count) ->
+                writeStringEntry("id", id)
+                writeByte(1)         // ByteTag
+                writeUTF("Count")
+                writeByte(count)
+                writeByte(0)         // end of this item compound
+            }
+            writeByte(0)             // end of the tile-entity compound
+        }
+    }
+
+    private fun stockedFile() = buildRootCompound {
+        writeCompoundEntry("Metadata") {
+            writeStringEntry("Name", "Stocked sorter")
+            writeStringEntry("Author", "tester")
+            writeCompoundEntry("EnclosingSize") {
+                writeIntEntry("x", 1)
+                writeIntEntry("y", 1)
+                writeIntEntry("z", 1)
+            }
+        }
+        writeCompoundEntry("Regions") {
+            writeStockedRegion(
+                "Sorter",
+                "minecraft:hopper",
+                listOf("minecraft:redstone" to 32, "minecraft:hopper" to 4),
+            )
+        }
+    }
+
     private fun twoRegionFile() = buildRootCompound {
         writeCompoundEntry("Metadata") {
             writeStringEntry("Name", "Two parter")
@@ -324,5 +387,76 @@ class LitematicaReaderTest {
 
     fun getFileAsStream(filePath: String = defaultFile) =
         this::class.java.classLoader.getResourceAsStream(filePath)!!
+
+
+    // --- container contents vs placed structure (MCO-322) ---
+
+    @Test
+    fun `container contents are reported apart from the blocks they sit in`() {
+        val lit = TestUtils.assertResultSuccess(LitematicaReader.readLitematica(stockedFile()))
+
+        assertEquals(mapOf("minecraft:redstone" to 32, "minecraft:hopper" to 4), lit.containerItems)
+    }
+
+    @Test
+    fun `container contents stay part of the total`() {
+        // The split marks rows; it does not remove them. A stocked container is normally part
+        // of the build — filter items, fuel, what a farm consumes — so the material list still
+        // means "everything this costs".
+        val lit = TestUtils.assertResultSuccess(LitematicaReader.readLitematica(stockedFile()))
+
+        // One hopper placed plus four in the container, and the stocked redstone.
+        assertEquals(5, lit.items["minecraft:hopper"])
+        assertEquals(32, lit.items["minecraft:redstone"])
+    }
+
+    @Test
+    fun `a region carries its own container contents`() {
+        val lit = TestUtils.assertResultSuccess(LitematicaReader.readLitematica(stockedFile()))
+
+        assertEquals(
+            mapOf("minecraft:redstone" to 32, "minecraft:hopper" to 4),
+            lit.regions.single().containerItems,
+        )
+    }
+
+    @Test
+    fun `a schematic with empty containers reports none`() {
+        val lit = TestUtils.assertResultSuccess(LitematicaReader.readLitematica(twoRegionFile()))
+
+        assertTrue(lit.containerItems.isEmpty())
+        assertTrue(lit.regions.all { it.containerItems.isEmpty() })
+    }
+
+    @Test
+    fun `a real stocked schematic reports what it is loaded with`() {
+        // Compact_AB_Tilable_2x_Shulker_Loader is 96% container contents — 3,165 redstone and
+        // 125 shulker boxes. That is not clutter someone forgot to clear: it is what a shulker
+        // loader loads, and it is exactly the case the review screen needs to be able to name.
+        val lit = TestUtils.assertResultSuccess(
+            LitematicaReader.readLitematica(
+                getFileAsStream("litematica/Compact_AB_Tilable_2x_Shulker_Loader.litematic")
+            )
+        )
+
+        assertEquals(3165, lit.containerItems["minecraft:redstone"])
+        assertEquals(125, lit.containerItems["minecraft:shulker_box"])
+        // A subset of the total, never a separate list.
+        lit.containerItems.forEach { (id, stocked) ->
+            assertTrue(
+                lit.items.getValue(id) >= stocked,
+                "$id: container count $stocked must not exceed the total ${lit.items[id]}",
+            )
+        }
+    }
+
+    @Test
+    fun `a real schematic with nothing stored reports no container contents`() {
+        val lit = TestUtils.assertResultSuccess(
+            LitematicaReader.readLitematica(getFileAsStream("litematica/WiskeProSorter.litematic"))
+        )
+
+        assertTrue(lit.containerItems.isEmpty())
+    }
 
 }
