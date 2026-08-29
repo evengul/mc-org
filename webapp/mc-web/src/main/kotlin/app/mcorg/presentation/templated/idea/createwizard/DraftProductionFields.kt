@@ -270,9 +270,12 @@ private fun FlowContent.productionModeBlock(
             div("production-mode__materials") {
                 p("form-help-text") { +"What building it this way costs — drop this variant's .litematic:" }
                 input(type = InputType.file, classes = "form-control") {
-                    // Not `name`d after the field the base list uses: this input posts on change
-                    // and is never part of the outer form's own submission, so a shared name would
-                    // only risk the two lists colliding on the server.
+                    // Named, and named the same as the base list's input. A control with no `name`
+                    // is not submitted at all, so HTMX posted an empty multipart and the endpoint
+                    // answered 422 — caught in a browser, invisible to a render test asserting the
+                    // hx-post URL. Sharing the name is safe because these are separate requests:
+                    // this input posts only itself, on change, and never rides the outer form.
+                    name = "litematicFile"
                     accept = ".litematic"
                     // Several, for the same reason the base list takes several: a design that
                     // spans dimensions is more than one file (MCO-414), and every one of them is

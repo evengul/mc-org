@@ -171,6 +171,18 @@ class DraftProductionFieldsTest {
     }
 
     @Test
+    fun `the variant's file input is named, or nothing is uploaded at all`() {
+        // Found in a browser, not here: the input first shipped with no `name`, and a form control
+        // without one is never submitted — so HTMX posted an empty multipart and the endpoint
+        // answered 422. A render test asserting only the hx-post URL passed the whole time.
+        val html = markup(fourVariants)
+        val uploads = Regex("""<input type="file"[^>]*>""").findAll(html).toList()
+
+        assertEquals(2, uploads.size, "one upload per build-time variant")
+        uploads.forEach { assertContains(it.value, "name=\"litematicFile\"") }
+    }
+
+    @Test
     fun `each variant's materials are submitted under its own index`() {
         val html = markup(fourVariants)
 
