@@ -143,19 +143,30 @@ class ImportIdeaReviewIT : WithUser() {
         // MCO-463, from MCO-439 finding 1: a cobblestone farm published as single/4 modules, both
         // chosen when you *build* it and costing roughly 4x apart. Before this the bank could hold
         // one material list for the pair, so one of the two was always wrong.
+        //
+        // It *produces* tuff rather than the cobblestone it is built from, which is a test-harness
+        // constraint and not a fact about the farm. The Testcontainers database is shared across IT
+        // classes, so an idea seeded here is in the idea bank every other suite queries — and
+        // FarmSuggestionIT asserts that a cobblestone plan has *no* design answering it once its
+        // own design is excluded. A second cobblestone producer here made that suite fail
+        // depending on class order, which is exactly the suite-wide collision this file already
+        // warns about for minecraft:sculk_shrieker. Requirements are unconstrained (nothing matches
+        // demand against them), so the 4x cobblestone relationship that makes this a build-time
+        // axis is kept where it matters.
         seedItem("minecraft:cobblestone", "Cobblestone")
         seedItem("minecraft:hopper", "Hopper")
+        seedItem("minecraft:tuff", "Tuff")
         cobbleIdeaId = createIdea("Cobblestone Farm")
         addBuildTimeMode(
             cobbleIdeaId,
             "1 module",
-            rates = listOf("minecraft:cobblestone" to 231_000),
+            rates = listOf("minecraft:tuff" to 231_000),
             requirements = listOf("minecraft:cobblestone" to 400),
         )
         addBuildTimeMode(
             cobbleIdeaId,
             "4 modules",
-            rates = listOf("minecraft:cobblestone" to 924_000),
+            rates = listOf("minecraft:tuff" to 924_000),
             requirements = listOf("minecraft:cobblestone" to 1_600, "minecraft:hopper" to 256),
         )
     }
@@ -775,7 +786,7 @@ class ImportIdeaReviewIT : WithUser() {
         )
         // The 4-module rate, because that is the build being made. Importing the single-module
         // list with the 4-module throughput would be the exact drift MCO-463 exists to stop.
-        assertEquals(listOf("minecraft:cobblestone" to 924_000), readProductions(projectId))
+        assertEquals(listOf("minecraft:tuff" to 924_000), readProductions(projectId))
     }
 
     @Test
