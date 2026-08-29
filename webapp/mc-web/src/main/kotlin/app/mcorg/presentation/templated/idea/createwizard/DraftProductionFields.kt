@@ -2,11 +2,18 @@ package app.mcorg.presentation.templated.idea.createwizard
 
 import app.mcorg.domain.model.idea.IdeaCategory
 import app.mcorg.domain.model.idea.IdeaDraft
+import app.mcorg.domain.model.idea.IdeaModeKind
 import app.mcorg.domain.model.minecraft.MinecraftVersionRange
 import app.mcorg.pipeline.idea.draft.DraftData
 import app.mcorg.pipeline.idea.draft.DraftProductionMode
+import app.mcorg.presentation.hxPost
+import app.mcorg.presentation.hxSwap
+import app.mcorg.presentation.hxTarget
+import app.mcorg.presentation.hxTrigger
 import kotlinx.html.ButtonType
 import kotlinx.html.FlowContent
+import kotlinx.html.details
+import kotlinx.html.summary
 import kotlinx.html.InputType
 import kotlinx.html.button
 import kotlinx.html.classes
@@ -102,26 +109,46 @@ fun FlowContent.draftProductionFields(draft: IdeaDraft) {
         // Raw <template> because kotlinx.html only offers `template` on PhrasingContent, and this
         // sits in flow content. The rendered fragment carries its own wrapping <div>, which is why
         // the script picks the block out by class rather than taking firstElementChild.
-        unsafe {
-            raw(
-                "<template id=\"production-mode-template\">" +
-                    createHTML().div {
-                        productionModeBlock(
-                            index = MODE_INDEX_TOKEN,
-                            mode = DraftProductionMode(),
-                            showName = true,
-                            versionRange = versionRange,
-                        )
-                    } +
-                    "</template>"
-            )
+        // One template per kind, both server-rendered, because they differ by more than a flag: the
+        // build-time block carries a whole materials upload whose hx-* attributes have to be the
+        // real ones. Building either in JS would mean maintaining the markup twice.
+        IdeaModeKind.entries.forEach { kind ->
+            unsafe {
+                raw(
+                    "<template id=\"production-mode-template-${kind.name}\">" +
+                        createHTML().div {
+                            productionModeBlock(
+                                index = MODE_INDEX_TOKEN,
+                                mode = DraftProductionMode(kind = kind),
+                                showName = true,
+                                versionRange = versionRange,
+                            )
+                        } +
+                        "</template>"
+                )
+            }
         }
 
-        button(classes = "btn btn--ghost btn--sm") {
-            type = ButtonType.button
-            id = "add-production-mode"
-            attributes["onclick"] = "addProductionMode()"
-            +"This farm can be run another way"
+        div("production-mode-actions") {
+            button(classes = "btn btn--ghost btn--sm") {
+                type = ButtonType.button
+                id = "add-production-mode"
+                attributes["onclick"] = "addProductionMode('RUNTIME')"
+                +"This farm can be run another way"
+            }
+            // The second door, and the one MCO-463 exists for. Phrased as a question about the
+            // design rather than about the schema — an author knows whether their farm has a
+            // bigger version; nobody knows what a "build-time mode" is until they are told.
+            button(classes = "btn btn--ghost btn--sm") {
+                type = ButtonType.button
+                id = "add-build-time-mode"
+                attributes["onclick"] = "addProductionMode('BUILD_TIME')"
+                +"…or built another way"
+            }
+        }
+        p("form-help") {
+            +"Built another way means it costs different materials — a 4-module farm against a "
+            +"single one. Each gets its own .litematic, and you pick one when you import it."
         }
 
         script {
@@ -142,14 +169,35 @@ private fun FlowContent.productionModeBlock(
     showName: Boolean,
     versionRange: MinecraftVersionRange,
 ) {
+    val isBuildTime = mode.kind == IdeaModeKind.BUILD_TIME
     div("production-mode") {
         attributes["data-mode-index"] = index
+        attributes["data-mode-kind"] = mode.kind.name
+
+        // Which kind this is, carried explicitly rather than inferred from whether a material list
+        // happens to be present. A build-time variant whose .litematic has not been dropped yet is
+        // still build-time, and inferring would silently demote it on save.
+        hiddenInput {
+            name = "productionMode[$index][kind]"
+            value = mode.kind.name
+        }
+
+        if (isBuildTime) {
+            // Only ever shown on build-time blocks. Runtime is the unmarked default — labelling
+            // both would put mode vocabulary in front of the single-mode author that MCO-204
+            // removed the form's nesting to protect.
+            span("badge badge--neutral production-mode__kind") { +"Built this way" }
+        }
 
         if (showName) {
             input(type = InputType.text, classes = "form-control production-mode__name") {
                 name = "productionMode[$index][name]"
                 value = mode.name
-                placeholder = "How it is run — \"Max speed\", \"Skeletons only\""
+                placeholder = if (isBuildTime) {
+                    "How it is built — \"4 modules\", \"With storage\""
+                } else {
+                    "How it is run — \"Max speed\", \"Skeletons only\""
+                }
             }
         } else {
             // Carries the existing name rather than blanking it. A mode can be named and then
@@ -211,7 +259,83 @@ private fun FlowContent.productionModeBlock(
                     }
                 }
         }
+
+        // A build-time variant costs different materials from its siblings, which is the whole
+        // reason it is a separate mode (MCO-463). Its list comes from its own `.litematic` — the
+        // 4-module farm is its own download — so the upload is per block rather than one batch at
+        // submit: each request stays inside ReceiveSchematicStep's whole-upload file and byte
+        // budget instead of multiplying it by the number of variants, and one unparseable file
+        // costs that variant rather than the whole design.
+        if (isBuildTime) {
+            div("production-mode__materials") {
+                p("form-help-text") { +"What building it this way costs — drop this variant's .litematic:" }
+                input(type = InputType.file, classes = "form-control") {
+                    // Not `name`d after the field the base list uses: this input posts on change
+                    // and is never part of the outer form's own submission, so a shared name would
+                    // only risk the two lists colliding on the server.
+                    accept = ".litematic"
+                    // Several, for the same reason the base list takes several: a design that
+                    // spans dimensions is more than one file (MCO-414), and every one of them is
+                    // part of what *this* variant costs.
+                    multiple = true
+                    hxPost("/ideas/create/litematic?mode=$index")
+                    hxTarget("#mode-materials-$index")
+                    hxSwap("beforeend")
+                    hxTrigger("change")
+                    attributes["hx-encoding"] = "multipart/form-data"
+                }
+
+                // Collapsed by default, and it has to be: four variants of a large farm is four
+                // three-hundred-row lists, and the comparison worth seeing — 400 cobblestone
+                // against 1,600 — is in the summary rather than the rows.
+                details("production-mode__materials-disclosure") {
+                    summary {
+                        span("production-mode__materials-count") {
+                            id = "mode-materials-summary-$index"
+                            +materialsSummary(mode.requirements)
+                        }
+                    }
+                    ul("wizard-item-list production-mode__materials-list") {
+                        id = "mode-materials-$index"
+                        mode.requirements.entries
+                            .sortedByDescending { it.value }
+                            .forEach { (itemId, quantity) ->
+                                li("item-req") {
+                                    id = "item-req-$index-$itemId"
+                                    attributes["data-item-id"] = itemId
+                                    +"$itemId × $quantity"
+                                    hiddenInput {
+                                        name = "modeRequirements[$index][$itemId]"
+                                        value = quantity.toString()
+                                    }
+                                    button(classes = "btn btn--ghost btn--sm") {
+                                        type = ButtonType.button
+                                        attributes["onclick"] = "this.closest('li').remove()"
+                                        +"Remove"
+                                    }
+                                }
+                            }
+                    }
+                }
+            }
+        }
     }
+}
+
+/**
+ * The one line an author reads to tell two variants apart without expanding either.
+ *
+ * Deliberately leads with the total rather than the item count: "1,600 cobblestone" next to
+ * "400 cobblestone" is the check that catches the likely mistake here, which is dropping the same
+ * file into two variants when four downloads have near-identical names.
+ */
+private fun materialsSummary(requirements: Map<String, Int>): String {
+    if (requirements.isEmpty()) return "No materials yet"
+    val largest = requirements.maxByOrNull { it.value }!!
+    val name = largest.key.substringAfter(':').replace('_', ' ')
+    val rest = requirements.size - 1
+    val total = "%,d".format(largest.value)
+    return if (rest == 0) "$total $name" else "$total $name, and $rest more"
 }
 
 /**
@@ -271,7 +395,56 @@ private fun productionScript() = """
         if (event.target && event.target.tagName === 'BUTTON') setTimeout(refreshProductionRecommendation, 0);
     });
 
-    function addProductionMode() {
+    /**
+     * Recomputes a build-time variant's one-line summary from the rows currently in its list.
+     *
+     * Runs after an upload swaps rows in and after a Remove, because the summary is the only part
+     * of a collapsed list anyone reads — a stale one would say 400 cobblestone next to a list
+     * holding 1,600, which is exactly the comparison it exists to support.
+     */
+    function refreshModeMaterials(index) {
+        var list = document.getElementById('mode-materials-' + index);
+        var summary = document.getElementById('mode-materials-summary-' + index);
+        if (!list || !summary) return;
+
+        var rows = list.querySelectorAll('input[type=hidden][name^="modeRequirements["]');
+        if (rows.length === 0) { summary.textContent = 'No materials yet'; return; }
+
+        var largestName = '';
+        var largest = -1;
+        rows.forEach(function (input) {
+            var qty = parseInt(input.value, 10);
+            if (isNaN(qty) || qty <= largest) return;
+            largest = qty;
+            var match = input.name.match(/\[([^\]]+)\]$/);
+            largestName = match ? match[1].split(':').pop().replace(/_/g, ' ') : '';
+        });
+        if (largest < 0) { summary.textContent = 'No materials yet'; return; }
+
+        var total = largest.toLocaleString('en-US');
+        var rest = rows.length - 1;
+        summary.textContent = rest === 0
+            ? total + ' ' + largestName
+            : total + ' ' + largestName + ', and ' + rest + ' more';
+    }
+
+    // An upload swaps rows into one variant's list; htmx tells us which.
+    document.body.addEventListener('htmx:afterSwap', function (event) {
+        var id = event.target && event.target.id;
+        if (id && id.indexOf('mode-materials-') === 0) {
+            refreshModeMaterials(id.substring('mode-materials-'.length));
+        }
+    });
+
+    document.addEventListener('click', function (event) {
+        if (!event.target || event.target.tagName !== 'BUTTON') return;
+        var block = event.target.closest('.production-mode');
+        if (!block) return;
+        // After the row is actually gone, not before.
+        setTimeout(function () { refreshModeMaterials(block.dataset.modeIndex); }, 0);
+    });
+
+    function addProductionMode(kind) {
         var container = document.getElementById('production-modes');
         var section = document.getElementById('draft-productions');
         var index = parseInt(section.dataset.modeCount, 10);
@@ -294,8 +467,10 @@ private fun productionScript() = """
         });
 
         // Cloned from the server-rendered template so the new mode's search combo is identical to
-        // the existing ones — including the hx-vals carrying this draft's version range.
-        var template = document.getElementById('production-mode-template');
+        // the existing ones — including the hx-vals carrying this draft's version range. One
+        // template per kind: the build-time one brings its own materials upload.
+        var template = document.getElementById('production-mode-template-' + (kind || 'RUNTIME'));
+        if (!template) return;
         var markup = template.innerHTML.split('$MODE_INDEX_TOKEN').join(index);
         var holder = document.createElement('div');
         holder.innerHTML = markup;

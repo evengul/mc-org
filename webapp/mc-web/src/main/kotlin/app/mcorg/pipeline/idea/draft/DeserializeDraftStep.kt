@@ -2,6 +2,7 @@ package app.mcorg.pipeline.idea.draft
 
 import app.mcorg.domain.model.idea.Author
 import app.mcorg.domain.model.idea.IdeaCategory
+import app.mcorg.domain.model.idea.IdeaModeKind
 import app.mcorg.domain.model.idea.IdeaDifficulty
 import app.mcorg.domain.model.idea.IdeaDraft
 import app.mcorg.domain.model.idea.schema.CategoryValue
@@ -22,6 +23,18 @@ import kotlinx.serialization.json.Json
 data class DraftProductionMode(
     val name: String = "",
     val rates: Map<String, Int?> = emptyMap(),
+    /**
+     * Whether this is a way of *running* the design or a way of *building* it (MCO-463).
+     *
+     * Defaults to runtime so a draft saved before this field existed deserialises to what its
+     * author meant — the form only ever asked about running a farm.
+     */
+    val kind: IdeaModeKind = IdeaModeKind.Default,
+    /**
+     * This variant's own material list, from its own `.litematic` upload(s). Build-time only; a
+     * runtime mode does not change what the build cost.
+     */
+    val requirements: Map<String, Int> = emptyMap(),
 )
 
 @Serializable
@@ -102,7 +115,14 @@ object DeserializeDraftStep : Step<IdeaDraft, AppFailure.ValidationError, Create
                 testData = null,
                 itemRequirements = data.itemRequirements ?: emptyMap(),
                 productionModes = data.productionModes.orEmpty()
-                    .map { IdeaProductionModeInput(name = it.name, rates = it.rates) },
+                    .map {
+                        IdeaProductionModeInput(
+                            name = it.name,
+                            rates = it.rates,
+                            kind = it.kind,
+                            requirements = it.requirements,
+                        )
+                    },
                 categoryData = categoryData ?: emptyMap()
             )
         )

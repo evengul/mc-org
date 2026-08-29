@@ -27,7 +27,24 @@ import kotlinx.coroutines.withContext
 import kotlinx.html.stream.createHTML
 import kotlinx.io.readByteArray
 
+/**
+ * Parses uploaded `.litematic` files into material rows for the create form.
+ *
+ * ## Whose list is being filled
+ *
+ * `?mode=<index>` names a **build-time** variant's own list (MCO-463) \u2014 the 4-module farm is its
+ * own download, so it gets its own upload and its own rows. Without the parameter the rows fill the
+ * idea's single base list, which is every idea that has no build-time variants and the only shape
+ * that existed before MCO-463.
+ *
+ * The index is positional and re-assigned on every save (see `buildStageJson`), so it is carried
+ * through here rather than interpreted: this handler only needs to know which block asked.
+ */
 suspend fun ApplicationCall.handleParseLitematica() {
+    // Whatever the block put in its URL, reduced to digits. The value ends up in a field name, so
+    // a hand-edited `?mode=x"><script>` must not reach the markup \u2014 and a non-numeric index would
+    // not match a mode block on parse anyway.
+    val modeIndex = request.queryParameters["mode"]?.takeIf { it.isNotBlank() && it.all(Char::isDigit) }
     val input = receiveMultipart()
 
     handlePipeline(
@@ -42,10 +59,17 @@ suspend fun ApplicationCall.handleParseLitematica() {
                 .joinToString("") { (itemId, qty) ->
                     val itemName = allItems[itemId]?.name ?: itemId
                     createHTML().li("item-req") {
-                        id = "item-req-$itemId"
+                        // Scoped by mode: the same item appears in several variants' lists, and
+                        // duplicate ids would make the de-duplication lookup pick the wrong row.
+                        id = if (modeIndex == null) "item-req-$itemId" else "item-req-$modeIndex-$itemId"
+                        attributes["data-item-id"] = itemId
                         +"$itemName \u00d7 $qty"
                         hiddenInput {
-                            name = "itemRequirements[$itemId]"
+                            name = if (modeIndex == null) {
+                                "itemRequirements[$itemId]"
+                            } else {
+                                "modeRequirements[$modeIndex][$itemId]"
+                            }
                             value = qty.toString()
                         }
                         button(classes = "btn btn--ghost btn--sm") {

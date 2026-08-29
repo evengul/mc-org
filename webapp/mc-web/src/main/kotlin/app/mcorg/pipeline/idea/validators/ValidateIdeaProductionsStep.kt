@@ -62,8 +62,25 @@ data class ValidateIdeaProductionsStep(
             }
             .groupBy({ it.first }, { it.second })
 
-        // Only modes that carry rates survive the save, so only those can collide or hold a bad id.
-        return itemsByMode.mapValues { (index, items) -> (names[index] ?: "") to items }
+        // A build-time variant survives the save on its material list alone, with no rates at all
+        // (MCO-463) — so it can collide on name, and leaving it out here would let two variants
+        // both called "4 modules" reach the unique index and roll back the publish.
+        //
+        // Its material ids are deliberately *not* added to the item check: they come from parsing a
+        // .litematic against the catalog, not from a text field someone typed, and an id that is in
+        // the file but not in this version range is MCO-305's warning to make at import, not a
+        // reason to refuse to save the design.
+        val requirementModes = params.names()
+            .filter { it.startsWith("modeRequirements[") }
+            .mapNotNull { key ->
+                key.removePrefix("modeRequirements[").substringBefore("]", missingDelimiterValue = "")
+                    .takeIf { it.isNotBlank() }
+            }
+            .toSet()
+
+        return (itemsByMode.keys + requirementModes).associateWith { index ->
+            (names[index] ?: "") to itemsByMode[index].orEmpty()
+        }
     }
 
     private fun duplicateNameErrors(modes: Map<String, Pair<String, List<String>>>): List<ValidationFailure> {

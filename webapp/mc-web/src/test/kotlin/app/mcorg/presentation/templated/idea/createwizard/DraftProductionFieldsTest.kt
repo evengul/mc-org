@@ -137,11 +137,91 @@ class DraftProductionFieldsTest {
     fun `a new mode is cloned from a server-rendered template, not built in JS`() {
         // The template carries a real combo — same hx-vals, same version range — so a mode added
         // client-side searches exactly like the ones rendered with the page.
+        //
+        // One template per kind since MCO-463: the build-time block brings a whole materials upload
+        // with its own hx-* attributes, so the two differ by more than a flag.
         val html = render("""{"productionModes":[{"name":"","rates":{}}]}""")
 
-        assertContains(html, "id=\"production-mode-template\"")
+        assertContains(html, "id=\"production-mode-template-RUNTIME\"")
+        assertContains(html, "id=\"production-mode-template-BUILD_TIME\"")
         assertContains(html, "__MODE_INDEX__")
         assertContains(html, "htmx.process(block)")
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // MCO-463 — the build-time variant block.
+
+    private val fourVariants = """{"productionModes":[
+        {"name":"1 module","kind":"BUILD_TIME","rates":{"minecraft:cobblestone":231000},
+         "requirements":{"minecraft:cobblestone":400}},
+        {"name":"4 modules","kind":"BUILD_TIME","rates":{"minecraft:cobblestone":924000},
+         "requirements":{"minecraft:cobblestone":1600,"minecraft:hopper":256}}
+    ]}"""
+
+    @Test
+    fun `a build-time variant gets its own litematic upload, scoped to that mode`() {
+        // Per mode rather than one batch at submit: each request stays inside the whole-upload file
+        // and byte budget instead of multiplying it by the variant count.
+        val html = markup(fourVariants)
+
+        assertContains(html, "/ideas/create/litematic?mode=0")
+        assertContains(html, "/ideas/create/litematic?mode=1")
+        assertContains(html, "#mode-materials-0")
+        assertContains(html, "#mode-materials-1")
+    }
+
+    @Test
+    fun `each variant's materials are submitted under its own index`() {
+        val html = markup(fourVariants)
+
+        assertContains(html, "modeRequirements[0][minecraft:cobblestone]")
+        assertContains(html, "modeRequirements[1][minecraft:cobblestone]")
+        assertContains(html, "modeRequirements[1][minecraft:hopper]")
+    }
+
+    @Test
+    fun `the kind is carried explicitly rather than inferred from having a list`() {
+        // A variant whose .litematic has not been dropped yet is still build-time; inferring from
+        // the list would silently demote it on save.
+        val html = markup("""{"productionModes":[{"name":"4 modules","kind":"BUILD_TIME","rates":{}}]}""")
+
+        assertContains(html, "name=\"productionMode[0][kind]\" value=\"BUILD_TIME\"")
+    }
+
+    @Test
+    fun `both variants stay on screen so their costs can be compared`() {
+        // The reason these are stacked rather than tabbed: 400 against 1,600 is the check that
+        // catches dropping the same file into two variants when four downloads look alike.
+        val html = markup(fourVariants)
+
+        assertContains(html, "1,600 cobblestone")
+        assertContains(html, "400 cobblestone")
+    }
+
+    @Test
+    fun `a variant with no materials yet says so rather than showing an empty disclosure`() {
+        val html = markup("""{"productionModes":[{"name":"4 modules","kind":"BUILD_TIME","rates":{}}]}""")
+
+        assertContains(html, "No materials yet")
+    }
+
+    @Test
+    fun `a runtime mode gets no materials upload and no kind badge`() {
+        // Runtime is the unmarked default — labelling it would put mode vocabulary in front of the
+        // single-mode author that MCO-204 removed the form's nesting to protect.
+        val html = markup("""{"productionModes":[{"name":"","rates":{"minecraft:ice":71000}}]}""")
+
+        assertFalse(html.contains("modeRequirements["), "a runtime mode owns no material list")
+        assertFalse(html.contains("production-mode__kind"), "runtime is the unmarked default")
+        assertFalse(html.contains("litematic?mode="), "only a build-time variant uploads its own")
+    }
+
+    @Test
+    fun `both ways of adding a mode are offered`() {
+        val html = markup("""{"productionModes":[{"name":"","rates":{"minecraft:ice":71000}}]}""")
+
+        assertContains(html, "This farm can be run another way")
+        assertContains(html, "\u2026or built another way")
     }
 
     @Test
