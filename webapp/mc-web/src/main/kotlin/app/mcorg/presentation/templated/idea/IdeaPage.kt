@@ -49,7 +49,7 @@ fun ideaPage(
                 ideaDetailHeader(user, idea)
                 ideaDetailFields(idea)
                 ideaProductionModes(productionModes)
-                ideaMaterialList(materials)
+                ideaMaterialList(materials, productionModes)
                 ideaRatingDistribution(idea, comments)
                 ideaCommentsSection(user.id, idea, comments)
             }

@@ -12,6 +12,7 @@ import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.idea.commonsteps.IdeaProductionModeInput
+import app.mcorg.pipeline.idea.commonsteps.replaceBaseRequirements
 import app.mcorg.pipeline.idea.commonsteps.replaceIdeaProductionModes
 import kotlinx.serialization.builtins.MapSerializer
 import kotlinx.serialization.builtins.serializer
@@ -108,7 +109,10 @@ data class CreateIdeaStep(val userId: Int) : Step<CreateIdeaInput, AppFailure.Da
                             }
                         }
 
-                        if (input.itemRequirements.isNotEmpty()) {
+                        // Skipped when build-time modes carry their own lists: those replace the
+                        // base list rather than adding to it (MCO-463), and keeping both would
+                        // leave a list belonging to none of the variants.
+                        if (input.itemRequirements.isNotEmpty() && !input.productionModes.replaceBaseRequirements()) {
                             val requirementResult = DatabaseSteps.batchUpdate<Pair<String, Int>>(
                                 SafeSQL.insert("""
                                     INSERT INTO idea_item_requirements (idea_id, item_id, quantity) VALUES (?, ?, ?)

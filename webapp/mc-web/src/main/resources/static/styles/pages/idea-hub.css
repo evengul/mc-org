@@ -783,3 +783,21 @@ a.ideas-pagination__page:hover {
         gap: var(--space-1);
     }
 }
+
+
+/* MCO-463 — a design whose materials live on its build-time variants shows one list per variant.
+   Stacked rather than tabbed, for the same reason as the create form: the variants exist because
+   they cost different amounts, so the lists have to be readable against each other. */
+.idea-materials__variant + .idea-materials__variant {
+    margin-top: var(--space-5);
+    padding-top: var(--space-4);
+    border-top: 1px dashed var(--border);
+}
+
+.idea-materials__variant-title {
+    font-family: var(--font-ui);
+    font-size: var(--text-base);
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0;
+}

@@ -10,6 +10,7 @@ import app.mcorg.domain.model.project.ProjectType
 import app.mcorg.event.IdeaImported
 import app.mcorg.event.eventBus
 import app.mcorg.domain.model.idea.IdeaProductionMode
+import app.mcorg.domain.model.idea.buildTimeModes
 import app.mcorg.pipeline.idea.commonsteps.GetIdeaProductionModesStep
 import app.mcorg.pipeline.Result
 import app.mcorg.domain.pipeline.Step
@@ -24,6 +25,7 @@ import app.mcorg.presentation.handler.handlePipeline
 import io.ktor.server.response.respond
 import io.ktor.http.Parameters
 import io.ktor.http.HttpStatusCode
+import io.ktor.http.encodeURLParameter
 import app.mcorg.presentation.utils.getWorldName
 import app.mcorg.presentation.utils.respondHtml
 import app.mcorg.presentation.templated.dsl.pages.importReviewPage
@@ -63,7 +65,53 @@ data class IdeaForImport(
      * [production] and reported, never fatal — see [ValidateItemIdsStep].
      */
     val unrecordableProductions: List<String> = emptyList(),
+    /**
+     * The ways this design can be *built*, in the author's order, when there is more than one
+     * (MCO-463). Empty for every idea with a single material list, which is most of them.
+     *
+     * A choice between these is a choice of what the project will cost, so it belongs on the
+     * review screen rather than being made silently.
+     */
+    val buildTimeModes: List<String> = emptyList(),
+    /** Which of [buildTimeModes] the requirements and rates above were read from. */
+    val chosenBuildTimeMode: String? = null,
 )
+
+/**
+ * Which idea to import, and — when it can be built more than one way — which way (MCO-463).
+ *
+ * [buildTimeMode] names a mode rather than carrying its id because the id is a surrogate nothing
+ * else references: `replaceIdeaProductionModes` deletes and re-inserts every mode on each save, so
+ * an id in a URL would go stale the next time the author edited the design. Names are unique per
+ * idea and stable across a save that did not rename them.
+ */
+internal data class ImportSelection(val ideaId: Int, val buildTimeMode: String? = null)
+
+/** Names the chosen build-time variant, on the review GET and on the import POST alike. */
+internal const val BUILD_TIME_MODE_PARAM = "buildTimeMode"
+
+/**
+ * The review URL for one build-time variant, carrying everything the current one carries.
+ *
+ * Every other parameter has to survive the switch — the world, a `forTask` dependency, and an
+ * MCO-459 batch queue — because picking a variant is a step *inside* a review, not a way out of
+ * one. Dropping the queue here would strand someone halfway through a seven-design batch.
+ */
+private fun reviewHrefFor(
+    ideaId: Int,
+    worldId: Int,
+    taskId: Int?,
+    queue: ImportQueue?,
+    mode: String,
+): String = buildString {
+    append(Link.Ideas.single(ideaId)).append("/import/review")
+    append("?worldId=").append(worldId)
+    taskId?.let { append("&forTask=").append(it) }
+    queue?.hiddenFields()?.forEach { (key, value) ->
+        append('&').append(key).append('=').append(value.encodeURLParameter())
+    }
+    append('&').append(BUILD_TIME_MODE_PARAM).append('=').append(mode.encodeURLParameter())
+}
 
 /**
  * Step one of an idea import (MCO-306): show what the idea would create, before creating it.
@@ -85,6 +133,7 @@ suspend fun ApplicationCall.handleReviewIdeaImport() {
         )
 
     val taskId = request.queryParameters["forTask"]?.toIntOrNull()
+    val chosenBuildTimeMode = request.queryParameters[BUILD_TIME_MODE_PARAM]?.takeIf { it.isNotBlank() }
     val items = GetItemsInWorldVersionStep.process(worldId).getOrNull() ?: emptyList()
 
     // A batch started from a plan's suggestion list (MCO-459), or null for every other door
@@ -125,10 +174,20 @@ suspend fun ApplicationCall.handleReviewIdeaImport() {
                     // built rather than re-typing them into the MCO-298 form.
                     offerAlreadyBuilt = true,
                     wizard = wizard,
+                    // Which way this design is being built, when there is more than one way
+                    // (MCO-463). Picking a different one re-runs this GET, so the material list,
+                    // the warnings and the totals below all move together — the list on screen is
+                    // always the list for the selected variant.
+                    buildTimeModes = idea.buildTimeModes,
+                    chosenBuildTimeMode = idea.chosenBuildTimeMode,
+                    reviewHref = { mode -> reviewHrefFor(ideaId, worldId, taskId, queue, mode) },
                     action = Link.Ideas.single(ideaId) + "/import",
                     hiddenFields = buildMap {
                         put("worldId", worldId.toString())
                         taskId?.let { put("forTask", it.toString()) }
+                        // The POST has to import the variant the user was looking at, not the
+                        // default one it would otherwise re-derive.
+                        idea.chosenBuildTimeMode?.let { put(BUILD_TIME_MODE_PARAM, it) }
                         // Carried so the POST can hand the user to the next step without
                         // re-deriving the batch from anywhere but the form it came from.
                         if (wizard != null) putAll(queue!!.hiddenFields())
@@ -139,7 +198,7 @@ suspend fun ApplicationCall.handleReviewIdeaImport() {
     ) {
         ValidateWorldMemberRole<Pair<Int, Int>>(user, Role.ADMIN, worldId).run(worldId to ideaId)
         ValidateVersionRangeStep.run(worldId to ideaId)
-        val ideaData = GetIdeaForImportStep.run(ideaId)
+        val ideaData = GetIdeaForImportStep.run(ImportSelection(ideaId, chosenBuildTimeMode))
         ValidateItemIdsStep(items).run(ideaData)
     }
 }
@@ -164,6 +223,7 @@ suspend fun ApplicationCall.handleImportIdea() {
         }
 
     val taskId = (submitted["forTask"] ?: parameters["forTask"])?.toIntOrNull()
+    val chosenBuildTimeMode = submitted[BUILD_TIME_MODE_PARAM]?.takeIf { it.isNotBlank() }
 
     val queue = ImportQueue.from(
         submitted[ImportQueue.QUEUE_PARAM] ?: request.queryParameters[ImportQueue.QUEUE_PARAM],
@@ -196,7 +256,11 @@ suspend fun ApplicationCall.handleImportIdea() {
     ) {
         ValidateWorldMemberRole<Pair<Int, Int>>(user, Role.ADMIN, worldId).run(worldId to ideaId)
         ValidateVersionRangeStep.run(worldId to ideaId)
-        val ideaData = GetIdeaForImportStep.run(ideaId)
+        // The variant the user was looking at when they submitted. Re-read rather than trusted
+        // blind: GetIdeaForImportStep falls back to the author's first if the name no longer
+        // matches a build-time mode, which is what happens when the design was edited between the
+        // review being rendered and this POST.
+        val ideaData = GetIdeaForImportStep.run(ImportSelection(ideaId, chosenBuildTimeMode))
         val validatedIdea = ValidateItemIdsStep(items).run(ideaData)
         val reviewedIdea = ApplyReviewedRequirementsStep(submitted, items, alreadyBuilt).run(validatedIdea)
         val projectId = CreateProjectFromIdeaStep(worldId, taskId, alreadyBuilt).run(reviewedIdea)
@@ -332,8 +396,11 @@ data class BasicIdeaInfo(
 )
 
 private val GetIdeaForImportStep = DatabaseSteps.transaction { connection ->
-    object : Step<Int, AppFailure.DatabaseError, Pair<BasicIdeaInfo, Map<String, Int>>> {
-        override suspend fun process(input: Int): Result<AppFailure.DatabaseError, Pair<BasicIdeaInfo, Map<String, Int>>> {
+    object : Step<ImportSelection, AppFailure.DatabaseError, Triple<BasicIdeaInfo, Map<String, Int>, BuildTimeChoice>> {
+        override suspend fun process(
+            selection: ImportSelection,
+        ): Result<AppFailure.DatabaseError, Triple<BasicIdeaInfo, Map<String, Int>, BuildTimeChoice>> {
+            val input = selection.ideaId
             val ideaInfo = DatabaseSteps.query<Int, BasicIdeaInfo>(
                 sql = SafeSQL.select("""
                     SELECT id, name, description, category
@@ -362,7 +429,12 @@ private val GetIdeaForImportStep = DatabaseSteps.transaction { connection ->
             }
 
             val requirementInfo = DatabaseSteps.query<Int, Map<String, Int>>(
-                sql = SafeSQL.select("SELECT item_id, quantity FROM idea_item_requirements WHERE idea_id = ?"),
+                // Base list only — a build-time mode's own list is chosen at import and read from
+                // the modes (MCO-463, V2_61_0). Without the filter an idea with variants would
+                // import the sum of all of them.
+                sql = SafeSQL.select(
+                    "SELECT item_id, quantity FROM idea_item_requirements WHERE idea_id = ? AND mode_id IS NULL"
+                ),
                 parameterSetter = { statement, ideaId ->
                     statement.setInt(1, ideaId)
                 },
@@ -387,27 +459,68 @@ private val GetIdeaForImportStep = DatabaseSteps.transaction { connection ->
             if (modes is Result.Failure) {
                 return Result.Failure(modes.error)
             }
+            val allModes = modes.getOrNull()!!
+            val buildTime = allModes.buildTimeModes()
 
-            val info = ideaInfo.getOrNull()!!.copy(productionRate = ratesForImport(modes.getOrNull()!!))
-            return Result.Success(Pair(info, requirementInfo.getOrNull()!!))
+            // Which variant is being imported. The author's first is the default rather than the
+            // fastest or the largest: `position` is explicitly the author's ordering and not a
+            // ranking, and defaulting to the biggest producer would quietly commit someone to the
+            // 4-module build and its 4x material bill. The review screen shows the choice either
+            // way, so a neutral, predictable default beats a clever one.
+            val chosen = buildTime.firstOrNull { it.name == selection.buildTimeMode }
+                ?: buildTime.firstOrNull()
+
+            // A build-time variant's own list *replaces* the base list (V2_61_0), so this is a
+            // choice between lists rather than a merge.
+            val requirements = if (chosen != null && chosen.requirements.isNotEmpty()) {
+                chosen.requirements
+            } else {
+                requirementInfo.getOrNull()!!
+            }
+
+            val info = ideaInfo.getOrNull()!!.copy(
+                productionRate = ratesForImport(allModes, chosen?.name),
+            )
+            return Result.Success(
+                Triple(
+                    info,
+                    requirements,
+                    BuildTimeChoice(buildTime.map { it.name }, chosen?.name),
+                )
+            )
         }
     }
 }
 
+/** The build-time variants an idea offers, and which one this import is reading. */
+internal data class BuildTimeChoice(
+    val available: List<String> = emptyList(),
+    val chosen: String? = null,
+)
+
 /**
  * The rates an imported farm project should record, chosen from the idea's modes.
  *
- * **Interim, and known to be the wrong shape** (Even, 2026-08-16, reversing the same day's earlier
- * call): which mode a farm runs in is a *runtime* choice, not a build-time one. You might run the
- * fortress farm skeletons-only this week and everything-on next, and flattening the choice at
- * import means re-typing rates to switch. The modes belong on the project, with one active —
- * filed separately because it reaches into project_productions, the supply map and the
- * production editor.
+ * ## Flattening is correct for a build-time mode, and wrong for a runtime one
  *
- * Until then the project records one mode's rates flat, which is what `project_productions` has
- * always held. With one mode there is nothing to choose. With several and no explicit choice, the
- * mode producing the most across its items wins: an import that silently picked the slowest would
- * under-promise supply for no reason the user could see.
+ * This was filed as wholly interim (Even, 2026-08-16) on the reading that a mode is always a
+ * *runtime* choice — you might run the fortress farm skeletons-only this week and everything-on
+ * next, and flattening means re-typing rates to switch. MCO-439 finding 1 showed both kinds exist,
+ * and split the issue in two:
+ *
+ *  - **Build-time** (MCO-463): flattening here is right. You pick 4-modules-with-storage once, and
+ *    the project's requirements and rates are both fixed from that one variant. Passing
+ *    [chosenModeName] is how the review screen's choice reaches the project.
+ *  - **Runtime** (MCO-413): still the wrong shape, and still to be fixed. Those modes belong on the
+ *    project with one active, so switching does not re-type anything.
+ *
+ * When [chosenModeName] names a mode, that mode's rates are used **even if it has none**. A
+ * build-time variant nobody timed honestly produces an unmeasured amount; falling back to a
+ * sibling's rate would attribute one variant's throughput to another, which is the drift this
+ * whole issue exists to stop.
+ *
+ * With no choice given, the mode producing the most across its items wins: an import that silently
+ * picked the slowest would under-promise supply for no reason the user could see.
  */
 internal fun ratesForImport(modes: List<IdeaProductionMode>, chosenModeName: String? = null): Map<String, Int> {
     if (modes.isEmpty()) return emptyMap()
@@ -435,9 +548,12 @@ internal fun ratesForImport(modes: List<IdeaProductionMode>, chosenModeName: Str
  * The version range was already checked by [ValidateVersionRangeStep], so reaching here with
  * an id outside the catalog means the idea and the world genuinely disagree.
  */
-internal data class ValidateItemIdsStep(val availableIds: List<Item>) : Step<Pair<BasicIdeaInfo, Map<String, Int>>, AppFailure, IdeaForImport> {
-    override suspend fun process(input: Pair<BasicIdeaInfo, Map<String, Int>>): Result<AppFailure, IdeaForImport> {
-        val (ideaInfo, requirements) = input
+internal data class ValidateItemIdsStep(val availableIds: List<Item>) :
+    Step<Triple<BasicIdeaInfo, Map<String, Int>, BuildTimeChoice>, AppFailure, IdeaForImport> {
+    override suspend fun process(
+        input: Triple<BasicIdeaInfo, Map<String, Int>, BuildTimeChoice>,
+    ): Result<AppFailure, IdeaForImport> {
+        val (ideaInfo, requirements, buildTime) = input
         val mappedProduction = mutableMapOf<Item, Int>()
         val unrecordable = mutableListOf<String>()
         val errors = mutableListOf<ValidationFailure>()
@@ -478,6 +594,8 @@ internal data class ValidateItemIdsStep(val availableIds: List<Item>) : Step<Pai
                     production = mappedProduction,
                     placedCounts = resolved.placedCounts,
                     unrecordableProductions = unrecordable.sorted(),
+                    buildTimeModes = buildTime.available,
+                    chosenBuildTimeMode = buildTime.chosen,
                 )
             )
         } else {

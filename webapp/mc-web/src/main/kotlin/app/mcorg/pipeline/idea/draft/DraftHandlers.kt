@@ -27,6 +27,7 @@ import kotlinx.html.h1
 import kotlinx.html.id
 import kotlinx.html.stream.createHTML
 import app.mcorg.domain.model.idea.Author
+import app.mcorg.domain.model.idea.IdeaModeKind
 import app.mcorg.domain.model.idea.IdeaCategory
 import app.mcorg.domain.model.idea.schema.CategoryField
 import app.mcorg.domain.model.idea.schema.CategoryValue
@@ -360,19 +361,58 @@ internal fun buildStageJson(stage: DraftWizardStage, params: Parameters): String
                 }
                 .groupBy({ it.first }, { it.second to it.third })
 
-            // A mode with no rates says nothing about the farm, so it does not survive the form.
-            val modes = ratesByMode.keys.sortedBy { it.toIntOrNull() ?: Int.MAX_VALUE }
+            // modeRequirements[i][<item id>] is one line of a *build-time* variant's own material
+            // list, parsed from that variant's own .litematic upload (MCO-463). Same index space as
+            // the rates above — one mode block owns both.
+            val requirementsByMode = params.names()
+                .filter { it.startsWith("modeRequirements[") }
+                .mapNotNull { key ->
+                    val body = key.removePrefix("modeRequirements[")
+                    val index = body.substringBefore("]", missingDelimiterValue = "")
+                    val itemId = body.substringAfter("][", missingDelimiterValue = "").removeSuffix("]")
+                    val quantity = params[key]?.trim()?.toIntOrNull()
+                    // Unlike a rate, a blank or malformed *quantity* carries no reading: "some
+                    // cobblestone" is not a material list. Drop the row rather than storing a zero.
+                    if (index.isBlank() || itemId.isBlank() || quantity == null || quantity <= 0) null
+                    else Triple(index, itemId, quantity)
+                }
+                .groupBy({ it.first }, { it.second to it.third })
+
+            val kinds = params.names()
+                .filter { it.startsWith("productionMode[") && it.endsWith("][kind]") }
+                .associate { key ->
+                    key.removePrefix("productionMode[").removeSuffix("][kind]") to
+                        IdeaModeKind.fromOrDefault(params[key])
+                }
+
+            // A mode with no rates says nothing about the farm, so it does not survive the form —
+            // unless it is a build-time variant carrying a material list, which says what building
+            // it costs even when nobody timed what it makes (MCO-463).
+            val modes = (ratesByMode.keys + requirementsByMode.keys)
+                .sortedBy { it.toIntOrNull() ?: Int.MAX_VALUE }
             // Written even when empty (MCO-418). UpdateDraftStep merges with `data || ?::jsonb`, so
             // an omitted key is not "no change", it is "keep what was there" — and clearing the last
             // production row was therefore unsaveable: the rows came back on reload and published.
             // An author correcting a rate they got wrong has to be able to remove it.
             putJsonArray("productionModes") {
                 modes.forEach { index ->
+                    val kind = kinds[index] ?: IdeaModeKind.Default
                     addJsonObject {
                         put("name", names[index] ?: "")
+                        put("kind", kind.name)
                         putJsonObject("rates") {
                             ratesByMode[index].orEmpty().forEach { (itemId, rate) ->
                                 if (rate == null) put(itemId, JsonNull) else put(itemId, rate)
+                            }
+                        }
+                        // Only a build-time mode owns a list. Dropping a runtime mode's stray rows
+                        // here as well as at the write path keeps the draft honest: a mode switched
+                        // from build-time back to runtime should not keep materials it no longer
+                        // claims, and reloading the form would otherwise show them again.
+                        val requirements = requirementsByMode[index].orEmpty()
+                        if (kind == IdeaModeKind.BUILD_TIME && requirements.isNotEmpty()) {
+                            putJsonObject("requirements") {
+                                requirements.forEach { (itemId, quantity) -> put(itemId, quantity) }
                             }
                         }
                     }

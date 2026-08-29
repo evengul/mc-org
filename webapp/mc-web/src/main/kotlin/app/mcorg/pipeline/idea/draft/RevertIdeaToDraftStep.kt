@@ -36,19 +36,33 @@ class RevertIdeaToDraftStep : Step<RevertIdeaToDraftInput, AppFailure, Int> {
                 SELECT
                     i.category_data::text AS category_data,
                     COALESCE(
+                        -- Base list only; build-time modes carry theirs alongside the mode
+                        -- (MCO-463, V2_61_0), and json_object_agg over both would collapse four
+                        -- variants onto one key per item.
                         (SELECT json_object_agg(item_id, quantity)
-                         FROM idea_item_requirements WHERE idea_id = i.id),
+                         FROM idea_item_requirements WHERE idea_id = i.id AND mode_id IS NULL),
                         '{}'
                     )::text AS item_requirements,
                     COALESCE(
+                        -- kind and requirements ride along for the same reason rates do: publishing
+                        -- the draft replaces the idea wholesale, so a key missing here is deleted
+                        -- rather than left alone. Reverting a four-variant farm to a draft and
+                        -- saving it would otherwise flatten it back to one nameless mode.
                         (SELECT json_agg(
-                                    json_build_object('name', m.name, 'rates', COALESCE(m.rates, '{}'::json))
+                                    json_build_object(
+                                        'name', m.name,
+                                        'kind', m.kind,
+                                        'rates', COALESCE(m.rates, '{}'::json),
+                                        'requirements', COALESCE(m.requirements, '{}'::json)
+                                    )
                                     ORDER BY m.position, m.id
                                 )
                          FROM (
-                             SELECT pm.id, pm.name, pm.position,
+                             SELECT pm.id, pm.name, pm.position, pm.kind,
                                     (SELECT json_object_agg(r.item_id, r.rate_per_hour)
-                                     FROM idea_production_rates r WHERE r.mode_id = pm.id) AS rates
+                                     FROM idea_production_rates r WHERE r.mode_id = pm.id) AS rates,
+                                    (SELECT json_object_agg(mr.item_id, mr.quantity)
+                                     FROM idea_item_requirements mr WHERE mr.mode_id = pm.id) AS requirements
                              FROM idea_production_modes pm
                              WHERE pm.idea_id = i.id
                          ) m),

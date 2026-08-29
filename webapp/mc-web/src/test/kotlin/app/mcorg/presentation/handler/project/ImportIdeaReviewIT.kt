@@ -63,6 +63,7 @@ class ImportIdeaReviewIT : WithUser() {
     private var multiModeIdeaId: Int = 0
     private var unknownProductionIdeaId: Int = 0
     private var placedIdeaId: Int = 0
+    private var cobbleIdeaId: Int = 0
 
     @BeforeAll
     fun setup() {
@@ -137,6 +138,36 @@ class ImportIdeaReviewIT : WithUser() {
             unknownProductionIdeaId,
             "Default",
             listOf("minecraft:iron_ingot" to 90, "minecraft:sculk_shrieker" to 30),
+        )
+
+        // MCO-463, from MCO-439 finding 1: a cobblestone farm published as single/4 modules, both
+        // chosen when you *build* it and costing roughly 4x apart. Before this the bank could hold
+        // one material list for the pair, so one of the two was always wrong.
+        //
+        // It *produces* tuff rather than the cobblestone it is built from, which is a test-harness
+        // constraint and not a fact about the farm. The Testcontainers database is shared across IT
+        // classes, so an idea seeded here is in the idea bank every other suite queries — and
+        // FarmSuggestionIT asserts that a cobblestone plan has *no* design answering it once its
+        // own design is excluded. A second cobblestone producer here made that suite fail
+        // depending on class order, which is exactly the suite-wide collision this file already
+        // warns about for minecraft:sculk_shrieker. Requirements are unconstrained (nothing matches
+        // demand against them), so the 4x cobblestone relationship that makes this a build-time
+        // axis is kept where it matters.
+        seedItem("minecraft:cobblestone", "Cobblestone")
+        seedItem("minecraft:hopper", "Hopper")
+        seedItem("minecraft:tuff", "Tuff")
+        cobbleIdeaId = createIdea("Cobblestone Farm")
+        addBuildTimeMode(
+            cobbleIdeaId,
+            "1 module",
+            rates = listOf("minecraft:tuff" to 231_000),
+            requirements = listOf("minecraft:cobblestone" to 400),
+        )
+        addBuildTimeMode(
+            cobbleIdeaId,
+            "4 modules",
+            rates = listOf("minecraft:tuff" to 924_000),
+            requirements = listOf("minecraft:cobblestone" to 1_600, "minecraft:hopper" to 256),
         )
     }
 
@@ -677,6 +708,112 @@ class ImportIdeaReviewIT : WithUser() {
 
     // ---- routing — mirrors IdeaHandler --------------------------------------------
 
+    // ---- build-time variants (MCO-463) -------------------------------------------
+
+    @Test
+    fun `a design with two ways of building it offers the choice on the review`() = testApplication {
+        setupRoutes()
+
+        val response = client.get("/ideas/$cobbleIdeaId/import/review?worldId=$worldId") { addAuthCookie(this) }
+
+        assertEquals(HttpStatusCode.OK, response.status)
+        val body = response.bodyAsText()
+        assertContains(body, "This design can be built more than one way")
+        assertContains(body, "1 module")
+        assertContains(body, "4 modules")
+    }
+
+    @Test
+    fun `the default is the author's first variant, not the largest build`() = testApplication {
+        setupRoutes()
+
+        val body = client.get("/ideas/$cobbleIdeaId/import/review?worldId=$worldId") { addAuthCookie(this) }
+            .bodyAsText()
+
+        // `position` is the author's ordering and explicitly not a ranking; defaulting to the
+        // biggest producer would quietly commit someone to the 4-module build's 4x bill.
+        assertContains(body, "minecraft:cobblestone=400")
+        assertFalse(body.contains("minecraft:cobblestone=1600"), "the 4-module list is not the default")
+        assertFalse(body.contains("minecraft:hopper=256"), "nor are its hoppers")
+    }
+
+    @Test
+    fun `choosing the other variant changes the material list`() = testApplication {
+        setupRoutes()
+
+        val body = client.get("/ideas/$cobbleIdeaId/import/review?worldId=$worldId&buildTimeMode=4+modules") {
+            addAuthCookie(this)
+        }.bodyAsText()
+
+        assertContains(body, "minecraft:cobblestone=1600")
+        assertContains(body, "minecraft:hopper=256")
+        assertFalse(body.contains("minecraft:cobblestone=400"), "the single-module list is gone")
+    }
+
+    @Test
+    fun `the chosen variant rides the form so the POST imports what was on screen`() = testApplication {
+        setupRoutes()
+
+        val body = client.get("/ideas/$cobbleIdeaId/import/review?worldId=$worldId&buildTimeMode=4+modules") {
+            addAuthCookie(this)
+        }.bodyAsText()
+
+        assertContains(body, "name=\"buildTimeMode\"")
+        assertContains(body, "value=\"4 modules\"")
+    }
+
+    @Test
+    fun `importing a variant records its materials and its rate, not a sibling's`() = testApplication {
+        setupRoutes()
+
+        val response = client.post("/ideas/$cobbleIdeaId/import") {
+            addAuthCookie(this)
+            contentType(ContentType.Application.FormUrlEncoded)
+            setBody(
+                "worldId=$worldId&name=Cobble&buildTimeMode=4+modules&" + materials(
+                    "minecraft:cobblestone" to 1600,
+                    "minecraft:hopper" to 256,
+                )
+            )
+        }
+
+        assertEquals(HttpStatusCode.SeeOther, response.status, response.bodyAsText())
+        val projectId = response.headers["Location"]!!.substringAfterLast("/").toInt()
+
+        assertEquals(
+            listOf("minecraft:cobblestone" to 1600, "minecraft:hopper" to 256),
+            readRequirements(projectId).sortedBy { it.first },
+        )
+        // The 4-module rate, because that is the build being made. Importing the single-module
+        // list with the 4-module throughput would be the exact drift MCO-463 exists to stop.
+        assertEquals(listOf("minecraft:tuff" to 924_000), readProductions(projectId))
+    }
+
+    @Test
+    fun `a design with one material list offers no choice at all`() = testApplication {
+        setupRoutes()
+
+        val body = client.get("/ideas/$ideaId/import/review?worldId=$worldId") { addAuthCookie(this) }
+            .bodyAsText()
+
+        // Every idea in the bank before MCO-463, and most after it. The screen must look exactly
+        // as it did.
+        assertFalse(body.contains("This design can be built more than one way"))
+        assertFalse(body.contains("name=\"buildTimeMode\""))
+    }
+
+    @Test
+    fun `a variant name that no longer exists falls back rather than importing nothing`() = testApplication {
+        setupRoutes()
+
+        val body = client.get("/ideas/$cobbleIdeaId/import/review?worldId=$worldId&buildTimeMode=8+modules") {
+            addAuthCookie(this)
+        }.bodyAsText()
+
+        // What a stale review URL looks like after the author renamed a variant.
+        assertEquals(true, body.contains("minecraft:cobblestone=400"), "falls back to the author's first")
+    }
+
     private fun ApplicationTestBuilder.setupRoutes() {
         routing {
             install(AuthPlugin)
@@ -846,6 +983,53 @@ class ImportIdeaReviewIT : WithUser() {
                 if (rate == null) stmt.setNull(3, java.sql.Types.INTEGER) else stmt.setInt(3, rate)
             }
         ).process(rates)
+    }
+
+    /**
+     * A build-time variant: its own rates *and* its own material list (MCO-463, V2_61_0).
+     *
+     * The requirement rows carry `mode_id`, which is what makes them this variant's list rather
+     * than the idea's base one. An idea with variants has no base rows at all.
+     */
+    private fun addBuildTimeMode(
+        ideaId: Int,
+        name: String,
+        rates: List<Pair<String, Int?>>,
+        requirements: List<Pair<String, Int>>,
+    ) = runBlocking {
+        val modeId = DatabaseSteps.update<Unit>(
+            SafeSQL.insert(
+                "INSERT INTO idea_production_modes (idea_id, name, position, kind) " +
+                    "VALUES (?, ?, (SELECT COALESCE(MAX(position) + 1, 0) FROM idea_production_modes WHERE idea_id = ?), 'BUILD_TIME') " +
+                    "RETURNING id"
+            ),
+            parameterSetter = { stmt, _ ->
+                stmt.setInt(1, ideaId)
+                stmt.setString(2, name)
+                stmt.setInt(3, ideaId)
+            }
+        ).process(Unit).let { (it as Result.Success).value }
+
+        DatabaseSteps.batchUpdate<Pair<String, Int?>>(
+            SafeSQL.insert("INSERT INTO idea_production_rates (mode_id, item_id, rate_per_hour) VALUES (?, ?, ?)"),
+            parameterSetter = { stmt, (itemId, rate) ->
+                stmt.setInt(1, modeId)
+                stmt.setString(2, itemId)
+                if (rate == null) stmt.setNull(3, java.sql.Types.INTEGER) else stmt.setInt(3, rate)
+            }
+        ).process(rates)
+
+        DatabaseSteps.batchUpdate<Pair<String, Int>>(
+            SafeSQL.insert(
+                "INSERT INTO idea_item_requirements (idea_id, item_id, quantity, mode_id) VALUES (?, ?, ?, ?)"
+            ),
+            parameterSetter = { stmt, (itemId, quantity) ->
+                stmt.setInt(1, ideaId)
+                stmt.setString(2, itemId)
+                stmt.setInt(3, quantity)
+                stmt.setInt(4, modeId)
+            }
+        ).process(requirements)
     }
 
     private fun readProductions(projectId: Int): List<Pair<String, Int>> = runBlocking {

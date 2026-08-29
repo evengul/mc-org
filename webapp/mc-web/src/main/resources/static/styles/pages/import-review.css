@@ -411,3 +411,65 @@
         white-space: normal;
     }
 }
+
+
+/* MCO-463 — which way this design is being built, when its author recorded more than one.
+   Sits above the material list because it decides what that list says. */
+.import-review__build-time {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    padding: var(--space-3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--bg-raised);
+    margin-bottom: var(--space-4);
+}
+
+.import-review__build-time-label {
+    font-family: var(--font-ui);
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+.import-review__build-time-hint {
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    color: var(--text-muted);
+    margin: 0;
+}
+
+.import-review__build-time-options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    margin-top: var(--space-2);
+}
+
+/* Segmented control rather than a select: with two to four variants, seeing every option at
+   once is the point — the author named them to be compared. */
+.import-review__build-time-option {
+    font-family: var(--font-ui);
+    font-size: var(--text-sm);
+    padding: var(--space-2) var(--space-3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--bg-surface);
+    color: var(--text-primary);
+    text-decoration: none;
+    transition: border-color var(--transition-base), color var(--transition-base);
+}
+
+a.import-review__build-time-option:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+.import-review__build-time-option--chosen {
+    border-color: var(--accent);
+    background: var(--accent-muted);
+    font-weight: 600;
+    /* Not a link, so it must not read as one to a pointer either. */
+    cursor: default;
+}

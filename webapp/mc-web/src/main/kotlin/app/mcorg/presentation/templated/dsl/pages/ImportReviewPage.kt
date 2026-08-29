@@ -90,6 +90,14 @@ fun importReviewPage(
     unrecordableProductions: List<String> = emptyList(),
     offerAlreadyBuilt: Boolean = false,
     wizard: ImportWizardStep? = null,
+    /**
+     * The ways this design can be built, when there is more than one (MCO-463). Empty for every
+     * idea with a single material list, and for the schematic door, which has no modes at all.
+     */
+    buildTimeModes: List<String> = emptyList(),
+    chosenBuildTimeMode: String? = null,
+    /** The review URL for another variant — see `reviewHrefFor`. */
+    reviewHref: (String) -> String = { "" },
 ): String = pageShell(
     pageTitle = "Seam — review import",
     user = user,
@@ -147,6 +155,8 @@ fun importReviewPage(
                         required = true
                     }
                 }
+
+                buildTimeChoice(buildTimeModes, chosenBuildTimeMode, reviewHref)
 
                 productionNotice(unrecordableProductions)
 
@@ -493,6 +503,61 @@ private fun FlowContent.warningStrip(warnings: ImportWarnings) {
  * version could have used; a full-weight warning here would outrank the creative-only strip,
  * which is about materials the user is about to go and gather.
  */
+/**
+ * Which way this design is being built (MCO-463), when its author recorded more than one.
+ *
+ * ## Why it is on this screen at all
+ *
+ * A build-time variant changes *what the project costs*: the 4-module cobblestone farm needs about
+ * four times the materials of the single-module one, and they are different `.litematic` files.
+ * That is the same class of decision as unchecking the decorative shell, so it belongs to the
+ * screen whose whole job is showing what the import will cost — made deliberately, not defaulted
+ * silently in a pipeline the user never sees.
+ *
+ * ## Links, not radios
+ *
+ * Choosing re-runs the review GET rather than toggling anything client-side. Everything on this
+ * page is derived from the chosen variant — the material list, MCO-305's warnings, the totals, the
+ * creative-only strip — so re-deriving all of it server-side is the only way they cannot disagree.
+ * A radio that swapped the table alone would leave the warnings describing a different build,
+ * which is exactly the two-answers-to-one-question shape that MCO-458/460/461 were all instances
+ * of. The chosen name also rides the form as a hidden field, so the POST imports what was on
+ * screen.
+ *
+ * Renders nothing at all below two variants, which is every idea that has no build-time axis.
+ */
+private fun FlowContent.buildTimeChoice(
+    available: List<String>,
+    chosen: String?,
+    reviewHref: (String) -> String,
+) {
+    if (available.size < 2) return
+
+    div("import-review__build-time") {
+        p("import-review__build-time-label") { +"This design can be built more than one way" }
+        p("import-review__build-time-hint") {
+            +"Each way costs different materials. The list below is for the one selected."
+        }
+        div("import-review__build-time-options") {
+            available.forEach { mode ->
+                val isChosen = mode == chosen
+                if (isChosen) {
+                    // The current one is not a link: it goes nowhere, and making it clickable
+                    // invites a reload that changes nothing.
+                    span("import-review__build-time-option import-review__build-time-option--chosen") {
+                        +mode
+                    }
+                } else {
+                    a(classes = "import-review__build-time-option") {
+                        href = reviewHref(mode)
+                        +mode
+                    }
+                }
+            }
+        }
+    }
+}
+
 private fun FlowContent.productionNotice(unrecordable: List<String>) {
     if (unrecordable.isEmpty()) return
 
