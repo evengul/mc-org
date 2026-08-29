@@ -68,6 +68,11 @@ private val GetIdeaMaterialsStep = DatabaseSteps.query<Int, List<IdeaMaterial>>(
                     ) AS item_name
                 FROM idea_item_requirements r
                 WHERE r.idea_id = ?
+                  -- The idea's base list only. Build-time modes own their own lists (MCO-463,
+                  -- V2_61_0) and reading both together would sum four variants of one farm into a
+                  -- material list describing none of them. Those lists arrive with the modes, on
+                  -- IdeaProductionMode.requirements.
+                  AND r.mode_id IS NULL
                 ORDER BY r.quantity DESC
             """.trimIndent()),
     parameterSetter = { statement, ideaId -> statement.setInt(1, ideaId) },

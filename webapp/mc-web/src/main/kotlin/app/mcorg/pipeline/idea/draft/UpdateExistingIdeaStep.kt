@@ -7,6 +7,7 @@ import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.Result
 import app.mcorg.pipeline.SafeSQL
+import app.mcorg.pipeline.idea.commonsteps.replaceBaseRequirements
 import app.mcorg.pipeline.idea.commonsteps.replaceIdeaProductionModes
 import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.idea.CreateIdeaInput
@@ -59,8 +60,11 @@ class UpdateExistingIdeaStep : Step<UpdateExistingIdeaInput, AppFailure.Database
                             connection
                         ).process(input.ideaId)
 
-                        // Insert new item requirements
-                        if (input.createInput.itemRequirements.isNotEmpty()) {
+                        // Insert new item requirements — the base list, and only when no build-time
+                        // mode carries one of its own (MCO-463: those replace the base list).
+                        if (input.createInput.itemRequirements.isNotEmpty() &&
+                            !input.createInput.productionModes.replaceBaseRequirements()
+                        ) {
                             val requirementResult = DatabaseSteps.batchUpdate<Pair<String, Int>>(
                                 SafeSQL.insert("INSERT INTO idea_item_requirements (idea_id, item_id, quantity) VALUES (?, ?, ?)"),
                                 parameterSetter = { stmt, (itemId, quantity) ->

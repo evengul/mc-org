@@ -36,8 +36,11 @@ class RevertIdeaToDraftStep : Step<RevertIdeaToDraftInput, AppFailure, Int> {
                 SELECT
                     i.category_data::text AS category_data,
                     COALESCE(
+                        -- Base list only; build-time modes carry theirs alongside the mode
+                        -- (MCO-463, V2_61_0), and json_object_agg over both would collapse four
+                        -- variants onto one key per item.
                         (SELECT json_object_agg(item_id, quantity)
-                         FROM idea_item_requirements WHERE idea_id = i.id),
+                         FROM idea_item_requirements WHERE idea_id = i.id AND mode_id IS NULL),
                         '{}'
                     )::text AS item_requirements,
                     COALESCE(

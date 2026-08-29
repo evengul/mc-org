@@ -362,7 +362,12 @@ private val GetIdeaForImportStep = DatabaseSteps.transaction { connection ->
             }
 
             val requirementInfo = DatabaseSteps.query<Int, Map<String, Int>>(
-                sql = SafeSQL.select("SELECT item_id, quantity FROM idea_item_requirements WHERE idea_id = ?"),
+                // Base list only — a build-time mode's own list is chosen at import and read from
+                // the modes (MCO-463, V2_61_0). Without the filter an idea with variants would
+                // import the sum of all of them.
+                sql = SafeSQL.select(
+                    "SELECT item_id, quantity FROM idea_item_requirements WHERE idea_id = ? AND mode_id IS NULL"
+                ),
                 parameterSetter = { statement, ideaId ->
                     statement.setInt(1, ideaId)
                 },
