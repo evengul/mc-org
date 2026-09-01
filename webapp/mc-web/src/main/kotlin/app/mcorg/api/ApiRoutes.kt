@@ -73,7 +73,7 @@ private const val DEVICE_CODE_INTERVAL_SECONDS = 5
 /** The browser page a player enters their user code on. Built from APP_HOST; local dev falls back. */
 private fun verificationUri(): String {
     val host = AppConfig.appHost
-    return if (host.isNullOrBlank()) "http://localhost:8080/link" else "https://$host/link"
+    return if (host.isNullOrBlank()) "${AppConfig.localBaseUrl}/link" else "https://$host/link"
 }
 
 suspend fun ApplicationCall.handleCreateDeviceCode() {

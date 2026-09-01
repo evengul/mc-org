@@ -125,16 +125,19 @@ data class GetMicrosoftTokenInput(
     val clientId: String,
     val clientSecret: String,
     val env: Env,
-    val host: String?
+    val host: String?,
+    // Defaulted rather than threaded through every construction site: only LOCAL uses it, and the
+    // step's other config already arrives as input so tests can vary it. See [microsoftRedirectUri].
+    val port: Int = AppConfig.port,
 )
 
 object GetMicrosoftTokenStep : Step<GetMicrosoftTokenInput, AppFailure, String> {
     override suspend fun process(input: GetMicrosoftTokenInput): Result<AppFailure, String> {
-        val (code, clientId, clientSecret, env, host) = input
-        val redirectUrl =
-            if (env == Local) "http://localhost:8080/auth/oidc/microsoft-redirect"
-            else if (host != null) "https://$host/auth/oidc/microsoft-redirect"
-            else return Result.failure(AppFailure.IllegalConfigurationError("No host provided for non-local environment."))
+        val (code, clientId, clientSecret, env, host, port) = input
+        if (env != Local && host == null) {
+            return Result.failure(AppFailure.IllegalConfigurationError("No host provided for non-local environment."))
+        }
+        val redirectUrl = microsoftRedirectUri(env, host, port)
 
         val step = MicrosoftLoginApiConfig.getProvider()
             .post<GetMicrosoftTokenInput, MicrosoftAccessTokenResponse>(

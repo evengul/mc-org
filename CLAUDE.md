@@ -17,7 +17,7 @@ Implement directly for well-understood tasks — don't plan when you can act.
 
 | Layer    | Technology                 | Notes                                                          |
 |----------|----------------------------|----------------------------------------------------------------|
-| Backend  | Ktor 3.5.0 + Kotlin 2.3.21 | JVM 25, Netty, port 8080 (versions pinned in `webapp/mc-bom/pom.xml` / `webapp/pom.xml`) |
+| Backend  | Ktor 3.5.0 + Kotlin 2.3.21 | JVM 25, Netty, port 8080 unless `PORT` says otherwise — see [Worktree Port Isolation](#worktree-port-isolation) (versions pinned in `webapp/mc-bom/pom.xml` / `webapp/pom.xml`) |
 | Database | PostgreSQL + Flyway        | Migrations in `webapp/mc-web/src/main/resources/db/migration/` |
 | Frontend | Kotlin HTML DSL + HTMX     | Server-side rendering only                                     |
 | Build    | Maven                      | NOT Gradle                                                     |
@@ -266,6 +266,29 @@ the real ingested Minecraft data instantly (no re-ingestion) and matches CI exac
 - `webapp/scripts/worktree-m2.sh` — give this worktree its own Maven repository
   (see [Worktree Maven Repository Isolation](#worktree-maven-repository-isolation))
 - `webapp/scripts/worktree-m2.sh --all` — retrofit every existing worktree
+
+## Worktree Port Isolation
+
+**A worktree's dev server binds its own HTTP port, not 8080.** Two worktrees could not both run
+`run.sh` before MCO-476 — the second died on bind, which is the last thing they shared after the
+database and the Maven repository.
+
+The port comes from `PORT`, read by `readConfig()` like every other variable and defaulting to
+8080. The main checkout, Docker, Fly and CI set nothing and stay on 8080.
+
+- **Allocated once, then stable** by `webapp/scripts/worktree-port.sh`, which writes `PORT=<n>`
+  into the worktree's `local.env` and picks from 8081–8179. Re-running returns the same port; a
+  port that moved between runs would break bookmarks. `worktree-db.sh` carries it across its
+  `local.env` rewrites.
+- **Run automatically** by `worktree-db.sh` on `EnterWorktree`, and by `run.sh` if `PORT` is still
+  unset (covers `claude -w` and hand-made worktrees). `run.sh` prints the URL on startup.
+- **The claim set is not just what is listening** — a stopped worktree still owns its port, so
+  allocation unions `ss -tln` with the `PORT=` lines of every worktree's `local.env`.
+- **The JVM debug port follows it** (`5005 + PORT - 8080`), since `run.sh --debug` collided the
+  same way. `--debug-port` still overrides.
+- **Real Microsoft sign-in stays on 8080.** Only `http://localhost:8080/...` is registered as a
+  `redirect_uri` in the Azure app registration, so `run.sh --env microsoft` needs the main
+  checkout. Demo sign-in — the local default — works on any port.
 
 ## Worktree Maven Repository Isolation
 

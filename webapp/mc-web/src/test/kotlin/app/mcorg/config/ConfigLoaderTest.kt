@@ -197,6 +197,55 @@ class ConfigLoaderTest {
     }
 
     @Nested
+    inner class Port {
+
+        @JUnitTest
+        fun `defaults to 8080 when PORT is unset`() {
+            assertEquals(8080, readConfig(envOf("ENV" to "LOCAL")).config.port)
+        }
+
+        @JUnitTest
+        fun `defaults to 8080 when PORT is blank`() {
+            val load = readConfig(envOf("ENV" to "LOCAL", "PORT" to "  "))
+            assertEquals(8080, load.config.port)
+            assertTrue(load.errors.none { it.startsWith("PORT") }, "got ${load.errors}")
+        }
+
+        @JUnitTest
+        fun `honours an explicit PORT`() {
+            assertEquals(8093, readConfig(envOf("ENV" to "LOCAL", "PORT" to "8093")).config.port)
+        }
+
+        @JUnitTest
+        fun `tolerates surrounding whitespace`() {
+            assertEquals(8093, readConfig(envOf("ENV" to "LOCAL", "PORT" to " 8093 ")).config.port)
+        }
+
+        @JUnitTest
+        fun `rejects a non-numeric PORT`() {
+            val load = readConfig(envOf("ENV" to "LOCAL", "PORT" to "eighty-eighty"))
+            assertContains(load.errors, "PORT must be a number between 1 and 65535 (got 'eighty-eighty')")
+            assertEquals(8080, load.config.port)
+        }
+
+        @JUnitTest
+        fun `rejects a PORT outside the valid range`() {
+            // 70000 parses as an Int but is not a port — the range check is what catches it, and
+            // without it Netty fails much later with an opaque bind error.
+            val load = readConfig(envOf("ENV" to "LOCAL", "PORT" to "70000"))
+            assertContains(load.errors, "PORT must be a number between 1 and 65535 (got '70000')")
+        }
+
+        @JUnitTest
+        fun `a bad PORT is fatal outside LOCAL`() {
+            // Not in `fatal` (that bucket is ENV alone), but in `errors`, which initOrExit treats
+            // as fatal everywhere except LOCAL.
+            val load = readConfig(envOf(*productionEnv, "PORT" to "0"))
+            assertTrue(load.errors.any { it.startsWith("PORT") }, "got ${load.errors}")
+        }
+    }
+
+    @Nested
     inner class PreviewPassword {
 
         @JUnitTest

@@ -19,14 +19,16 @@ usage() {
     echo "                     test       - test.env (test environment)"
     echo "  --debug          Enable JVM remote debug on port 5005"
     echo "  --suspend        Wait for debugger to attach before starting (requires --debug)"
-    echo "  --debug-port N   Set debug port (default: 5005)"
+    echo "  --debug-port N   Set debug port (default: derived from the HTTP port; 5005 on 8080)"
     exit 1
 }
 
 ENV_NAME="local"
 DEBUG=false
 SUSPEND=false
-DEBUG_PORT=5005
+# Empty, not 5005: an unset debug port is derived from the HTTP port below, so worktrees do not
+# all collide on 5005 the way they used to collide on 8080. An explicit --debug-port still wins.
+DEBUG_PORT=""
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -86,14 +88,32 @@ if [[ ! -f "$ENV_FILE" ]]; then
     exit 1
 fi
 
+# A worktree gets its own HTTP port so two dev servers can run at once (MCO-476). The
+# EnterWorktree hook normally allocates it; a hand-made worktree (`claude -w`, `git worktree add`)
+# has no hook, so allocate here rather than silently colliding on 8080. The main checkout gets
+# nothing back and stays on the default.
+#
+# Exported BEFORE sourcing so an env file can interpolate it — test.env's APP_HOST does.
+if [[ -z "${PORT:-}" ]]; then
+    ALLOCATED_PORT="$(bash "$SCRIPT_DIR/worktree-port.sh" "$WEBAPP_DIR" 2>/dev/null || true)"
+    if [[ -n "$ALLOCATED_PORT" ]]; then
+        export PORT="$ALLOCATED_PORT"
+    fi
+fi
+
 set -a
 source "$ENV_FILE"
 set +a
+
+PORT="${PORT:-8080}"
 
 if [[ "$SUSPEND" == true && "$DEBUG" == false ]]; then
     echo "Error: --suspend requires --debug"
     exit 1
 fi
+
+# Derived from the HTTP port, so each worktree's debugger port is as distinct as its server port.
+DEBUG_PORT="${DEBUG_PORT:-$((5005 + PORT - 8080))}"
 
 MAVEN_OPTS=""
 if [[ "$DEBUG" == true ]]; then
@@ -117,5 +137,5 @@ cd "$WEBAPP_DIR"
 echo "Building..."
 mvn install -DskipTests -q
 
-echo "Starting application with $ENV_NAME environment..."
+echo "Starting application with $ENV_NAME environment on http://localhost:$PORT"
 MAVEN_OPTS="$MAVEN_OPTS" exec mvn exec:java -pl mc-web

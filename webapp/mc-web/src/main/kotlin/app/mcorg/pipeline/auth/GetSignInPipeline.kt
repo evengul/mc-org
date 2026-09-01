@@ -62,9 +62,7 @@ private fun ApplicationCall.getMicrosoftSignInUrl(redirectPath: String): String 
     val clientId = AppConfig.microsoftClientId
     val env = AppConfig.env
     val host = getHost()
-    val redirectUrl =
-        if (env == Local) "http://localhost:8080/auth/oidc/microsoft-redirect"
-        else "https://$host/auth/oidc/microsoft-redirect"
+    val redirectUrl = microsoftRedirectUri(env, host, AppConfig.port)
 
     // state now carries a nonce alongside the redirect path, with its twin in a short-lived
     // cookie (MCO-355). The callback requires both and rejects a mismatch before spending the

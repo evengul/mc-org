@@ -19,6 +19,8 @@
 
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
 NEON_PROJECT_ID="sweet-dust-00910797"
 NEON_PARENT="master"        # the production / default Neon branch
 DB_NAME="mcorg"
@@ -82,8 +84,17 @@ JDBC_URL="jdbc:postgresql://${DB_HOST}/${DB_NAME}?sslmode=require"
 
 # --- Build this worktree's local.env ---------------------------------------
 # local.env is gitignored, so a fresh worktree starts without one. Derive it
-# from the main checkout (every line except the DB_ ones), then append the
-# branch's Neon credentials. The script fully owns the worktree's local.env.
+# from the main checkout (every line except the DB_ and PORT ones), then append
+# the branch's Neon credentials. The script fully owns the worktree's local.env.
+#
+# PORT is stripped for the same reason as DB_*: it is per-worktree, so inheriting
+# the main checkout's would hand every worktree the same one. But this script is
+# re-runnable, so carry over the port this worktree was already allocated before
+# the rewrite — see worktree-port.sh on why the port must not move (MCO-476).
+PREV_PORT=""
+if [ -f "$ENV_FILE" ]; then
+  PREV_PORT="$(grep -E '^PORT=[0-9]+$' "$ENV_FILE" | tail -n1 | cut -d= -f2 || true)"
+fi
 MAIN_ENV="$MAIN_REPO/webapp/local.env"
 if [ ! -f "$MAIN_ENV" ]; then
   # Fresh clone with no local.env yet — fall back to the committed template so
@@ -95,11 +106,17 @@ if [ ! -f "$MAIN_ENV" ]; then
   exit 1
 fi
 {
-  grep -vE '^(DB_URL|DB_USER|DB_PASSWORD)=' "$MAIN_ENV" || true
+  grep -vE '^(DB_URL|DB_USER|DB_PASSWORD|PORT)=' "$MAIN_ENV" || true
   printf 'DB_URL=%s\nDB_USER=%s\nDB_PASSWORD=%s\n' "$JDBC_URL" "$DB_ROLE" "$DB_PASSWORD"
+  # Not `[ -n "$PREV_PORT" ] && printf ...`: an empty PREV_PORT makes that the group's last
+  # command with status 1, and `set -e` would kill the script on the common fresh-worktree path.
+  if [ -n "$PREV_PORT" ]; then printf 'PORT=%s\n' "$PREV_PORT"; fi
 } > "$ENV_FILE"
 
-echo "worktree-db: wrote local.env (inherited from main checkout) pointing at ${DB_HOST}"
+# Allocates and appends PORT only when the block above did not carry one over.
+WORKTREE_PORT="$(bash "$SCRIPT_DIR/worktree-port.sh" "$WORKTREE_ROOT")"
+
+echo "worktree-db: wrote local.env (inherited from main checkout) pointing at ${DB_HOST}, port ${WORKTREE_PORT}"
 
 # --- Migrate ----------------------------------------------------------------
 echo "worktree-db: running Flyway migrations against the worktree branch..."
