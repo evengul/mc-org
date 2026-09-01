@@ -8,6 +8,7 @@ import app.mcorg.pipeline.SafeSQL
 import app.mcorg.domain.model.project.ProjectType
 import app.mcorg.pipeline.project.CreateProjectInput
 import app.mcorg.pipeline.project.CreateProjectStep
+import app.mcorg.pipeline.minecraftfiles.GetSupportedVersionsStep
 import app.mcorg.pipeline.world.CreateWorldInput
 import app.mcorg.pipeline.world.CreateWorldStep
 import app.mcorg.pipeline.world.settings.general.handleGetWorldVersionImpact
@@ -89,7 +90,7 @@ class UpdateWorldVersionIT : WithUser() {
             val response = client.patch("/worlds/$worldId/settings/version") {
                 addAuthCookie(this)
                 contentType(ContentType.Application.FormUrlEncoded)
-                setBody("version=1.99.0")
+                setBody("version=${uningestedVersion()}")
             }
 
             assertEquals(HttpStatusCode.UnprocessableEntity, response.status)
@@ -209,7 +210,7 @@ class UpdateWorldVersionIT : WithUser() {
         setupRoutes()
         val worldId = createWorld("Version Impact Bad World")
 
-        val response = client.get("/worlds/$worldId/settings/version/impact?version=1.99.0") {
+        val response = client.get("/worlds/$worldId/settings/version/impact?version=${uningestedVersion()}") {
             addAuthCookie(this)
         }
 
@@ -298,6 +299,20 @@ class UpdateWorldVersionIT : WithUser() {
             ).process(Unit)
         }
         Unit
+    }
+
+    /**
+     * A version that is provably not ingested *right now*, rather than a literal.
+     *
+     * Do not replace this with a hardcoded version. The database tier shares one PostgreSQL across
+     * every test class, and `minecraft_version` is global reference data rather than world-scoped,
+     * so any class can make a given version real for every other class — `GenerateGatheringPlanStepTest`
+     * seeds `1.99.0` for its own graph, which is exactly what a hardcoded `1.99.0` here collided with.
+     * Asking the same step the validator asks cannot drift from what the validator will see.
+     */
+    private fun uningestedVersion(): String = runBlocking {
+        val supported = GetSupportedVersionsStep.getSupportedVersions().mapTo(mutableSetOf()) { it.toString() }
+        generateSequence(90) { it + 1 }.map { "1.$it.0" }.first { it !in supported }
     }
 
     private fun insertTag(version: String, tag: String) = runBlocking {
