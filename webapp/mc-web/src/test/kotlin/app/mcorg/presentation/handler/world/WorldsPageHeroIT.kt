@@ -15,6 +15,7 @@ import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.testing.testApplication
 import kotlinx.coroutines.runBlocking
+import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
@@ -33,11 +34,18 @@ import kotlin.test.assertFalse
 @ExtendWith(DatabaseTestExtension::class)
 class WorldsPageHeroIT : WithUser() {
 
+    // Every IT signs in as the same MinecraftProfile and the Testcontainer is shared across
+    // classes without truncation between them, so /worlds otherwise lists every world an
+    // earlier class left behind -- and the hero is whichever of those was opened last.
+    @BeforeAll
+    fun clearOtherClassesWorlds() = DatabaseTestExtension.cleanDatabase()
+
     @Test
     fun `each active-projects peek row links straight to its project`() = testApplication {
         val worldId = createWorld("Hero IT Peek World")
         val activeId = createProject(worldId, "Peek Active Project", state = "ACTIVE")
         val pendingId = createProject(worldId, "Peek Pending Project", state = "PENDING")
+        makeHero(worldId)
 
         installWorldRoutes()
 
@@ -58,6 +66,7 @@ class WorldsPageHeroIT : WithUser() {
         // Shelved: counted nowhere, so the parts still sum to the total.
         createProject(worldId, "Tally Cancelled", state = "CANCELLED")
         createProject(worldId, "Tally Archived", state = "ARCHIVED")
+        makeHero(worldId)
 
         installWorldRoutes()
 
@@ -70,6 +79,7 @@ class WorldsPageHeroIT : WithUser() {
     fun `hero shows no completion percentage or progress bar`() = testApplication {
         val worldId = createWorld("Hero IT No Percent World")
         createProject(worldId, "No Percent Project", state = "ACTIVE")
+        makeHero(worldId)
 
         installWorldRoutes()
 
@@ -83,6 +93,7 @@ class WorldsPageHeroIT : WithUser() {
     fun `hero offers a new-project nudge aimed at the pick-a-door menu`() = testApplication {
         val worldId = createWorld("Hero IT Nudge World")
         createProject(worldId, "Nudge Project", state = "ACTIVE")
+        makeHero(worldId)
 
         installWorldRoutes()
 
@@ -90,6 +101,20 @@ class WorldsPageHeroIT : WithUser() {
 
         assertContains(body, """href="/worlds/$worldId/projects#new"""")
         assertContains(body, "New project")
+    }
+
+    /**
+     * Puts [worldId] in the hero slot. The page sorts `pinned DESC, last_opened_at DESC`, so a
+     * pinned, just-opened world outranks anything an earlier test in this class left behind.
+     */
+    private fun makeHero(worldId: Int): Unit = runBlocking {
+        DatabaseSteps.update<Unit>(
+            sql = SafeSQL.update(
+                "UPDATE world_members SET pinned = true, last_opened_at = now() WHERE world_id = ?"
+            ),
+            parameterSetter = { stmt, _ -> stmt.setInt(1, worldId) }
+        ).process(Unit)
+        Unit
     }
 
     /** The tally's own text, tags stripped and whitespace collapsed. */

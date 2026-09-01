@@ -59,7 +59,7 @@ class CreateWorldStepTest : WithUser() {
     }
 
     private fun getWorlds() = runBlocking {
-        GetPermittedWorldsStep.process(GetPermittedWorldsInput(user.id, query = "")).getOrNull() ?: emptyList()
+        GetPermittedWorldsStep.process(GetPermittedWorldsInput(user.id)).getOrNull() ?: emptyList()
     }
 
 }
