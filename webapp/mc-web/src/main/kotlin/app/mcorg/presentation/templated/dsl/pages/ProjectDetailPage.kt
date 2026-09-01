@@ -75,6 +75,8 @@ fun projectDetailPage(
     drillGraph: ItemSourceGraph? = null,
     farmScaleThreshold: Int = World.DEFAULT_FARM_SCALE_THRESHOLD,
     farmSuggestions: List<FarmSuggestion> = emptyList(),
+    /** Stored ids this world's Minecraft version has no catalog entry for (MCO-157). */
+    versionGaps: Set<String> = emptySet(),
 ): String = pageShell(
     pageTitle = "Seam — ${project.name}",
     user = user,
@@ -143,7 +145,7 @@ fun projectDetailPage(
                     // ?drill=<item> deep-links straight into a target's chain (reload/share-safe).
                     drillChainContent(project, drillTarget, drillCandidateCounts, drillNodeIngredients, overrides = drillOverrides, graph = drillGraph, highlightItemId = drillHighlightItemId)
                 } else {
-                    gatheringPlannerContent(project, resources, tasks, plan, lens, progressMap, pendingFarms, farmScaleThreshold, farmSuggestions, isWorldAdmin)
+                    gatheringPlannerContent(project, resources, tasks, plan, lens, progressMap, pendingFarms, farmScaleThreshold, farmSuggestions, versionGaps, isWorldAdmin)
                 }
             }
         }
@@ -248,6 +250,8 @@ fun FlowContent.gatheringPlannerContent(
     pendingFarms: List<PendingFarmSupply> = emptyList(),
     farmScaleThreshold: Int = World.DEFAULT_FARM_SCALE_THRESHOLD,
     farmSuggestions: List<FarmSuggestion> = emptyList(),
+    /** Stored ids this world's Minecraft version has no catalog entry for (MCO-157). */
+    versionGaps: Set<String> = emptySet(),
     isWorldAdmin: Boolean = false,
 ) {
     val activeLens = when (lens) {
@@ -277,7 +281,7 @@ fun FlowContent.gatheringPlannerContent(
     // Active lens body
     when (activeLens) {
         "next", "sessions" -> lensComingSoon(project.worldId, project.id, activeLens)
-        else -> listLensContent(project, resources, tasks, plan, progressMap, pendingFarms, farmScaleThreshold, farmSuggestions, isWorldAdmin)
+        else -> listLensContent(project, resources, tasks, plan, progressMap, pendingFarms, farmScaleThreshold, farmSuggestions, versionGaps, isWorldAdmin)
     }
 }
 
@@ -309,6 +313,8 @@ private fun FlowContent.listLensContent(
     pendingFarms: List<PendingFarmSupply> = emptyList(),
     farmScaleThreshold: Int = World.DEFAULT_FARM_SCALE_THRESHOLD,
     farmSuggestions: List<FarmSuggestion> = emptyList(),
+    /** Stored ids this world's Minecraft version has no catalog entry for (MCO-157). */
+    versionGaps: Set<String> = emptySet(),
     isWorldAdmin: Boolean = false,
 ) {
     // Resolution toggle (client-side; default "targets" applied by plan-view.js).
@@ -413,7 +419,7 @@ private fun FlowContent.listLensContent(
         id = "list-breakdown-view"
         attributes["data-resolution-view"] = "breakdown"
 
-        gatheringPlanSections(project, plan, progressMap, pendingFarms, farmScaleThreshold, farmSuggestions, isWorldAdmin)
+        gatheringPlanSections(project, plan, progressMap, pendingFarms, farmScaleThreshold, farmSuggestions, versionGaps, isWorldAdmin)
     }
 
     // Tasks section (collapsed)
@@ -490,6 +496,8 @@ fun FlowContent.gatheringPlanSections(
     pendingFarms: List<PendingFarmSupply> = emptyList(),
     farmScaleThreshold: Int = World.DEFAULT_FARM_SCALE_THRESHOLD,
     farmSuggestions: List<FarmSuggestion> = emptyList(),
+    /** Stored ids this world's Minecraft version has no catalog entry for (MCO-157). */
+    versionGaps: Set<String> = emptySet(),
     isWorldAdmin: Boolean = false,
 ) {
     if (plan == null) {
@@ -532,7 +540,7 @@ fun FlowContent.gatheringPlanSections(
             div("project-detail__section") {
                 span("section-label") { +groupLabel(group) }
                 if (group == ActivityGroup.NEEDS_ATTENTION) {
-                    needsAttentionList(project, ordered)
+                    needsAttentionList(project, ordered, versionGaps)
                 } else {
                     div("resource-list") {
                         ordered.forEach { activity ->
@@ -923,14 +931,18 @@ private fun FlowContent.suppliedActivityRow(
  * variant-choosing moves them; then the questions by how much material each decides, with the
  * tail folded away.
  */
-private fun FlowContent.needsAttentionList(project: Project, activities: List<Activity>) {
+private fun FlowContent.needsAttentionList(
+    project: Project,
+    activities: List<Activity>,
+    versionGaps: Set<String> = emptySet(),
+) {
     val blocked = activities.filter { it.status == PlanNodeStatus.BLOCKED }
     val questions = activities
         .filter { it.status == PlanNodeStatus.OPEN_TAG }
         .sortedWith(compareByDescending<Activity> { it.quantity }.thenBy { it.item.name })
 
     div("resource-list") {
-        blocked.forEach { blockedActivityRow(project.worldId, project.id, it) }
+        blocked.forEach { blockedActivityRow(project.worldId, project.id, it, it.item.id in versionGaps) }
     }
 
     if (questions.isEmpty()) return
@@ -1047,8 +1059,22 @@ private fun FlowContent.openTagActivityRow(worldId: Int, projectId: Int, activit
     div("chain-node__picker") { id = pickerSlotId }
 }
 
-/** BLOCKED row: warning callout. */
-private fun FlowContent.blockedActivityRow(worldId: Int, projectId: Int, activity: Activity) {
+/**
+ * BLOCKED row: warning callout.
+ *
+ * [missingFromVersion] separates the two reasons a row blocks, which want different actions of the
+ * reader. "No feasible source" is a fact about this Minecraft version — a command block is not
+ * obtainable and no amount of editing changes that. An id the version's catalog does not contain
+ * at all is a fact about *the row*: it survived a version switch that removed the item, and the fix
+ * is to swap it for whatever replaced it. Saying "no feasible source found" for the second case
+ * sends the reader looking for a recipe that was never the problem.
+ */
+private fun FlowContent.blockedActivityRow(
+    worldId: Int,
+    projectId: Int,
+    activity: Activity,
+    missingFromVersion: Boolean = false,
+) {
     val encodedItemId = URLEncoder.encode(activity.item.id, StandardCharsets.UTF_8)
     div("callout callout--warning") {
         id = "plan-activity-${activity.item.id.replace(":", "-")}"
@@ -1056,7 +1082,11 @@ private fun FlowContent.blockedActivityRow(worldId: Int, projectId: Int, activit
         div("callout__body") {
             span { +"Blocked: " }
             +activity.item.name
-            +" — no feasible source found"
+            if (missingFromVersion) {
+                +" — not in this world's Minecraft version"
+            } else {
+                +" — no feasible source found"
+            }
         }
         drillButton(worldId, projectId, encodedItemId)
     }
@@ -1484,11 +1514,13 @@ fun gatheringPlannerFragment(
     pendingFarms: List<PendingFarmSupply> = emptyList(),
     farmScaleThreshold: Int = World.DEFAULT_FARM_SCALE_THRESHOLD,
     farmSuggestions: List<FarmSuggestion> = emptyList(),
+    /** Stored ids this world's Minecraft version has no catalog entry for (MCO-157). */
+    versionGaps: Set<String> = emptySet(),
     isWorldAdmin: Boolean = false,
 ): String = createHTML().div {
     id = "project-content"
     gatheringPlannerContent(
-        project, resources, tasks, plan, lens, progressMap, pendingFarms, farmScaleThreshold, farmSuggestions, isWorldAdmin,
+        project, resources, tasks, plan, lens, progressMap, pendingFarms, farmScaleThreshold, farmSuggestions, versionGaps, isWorldAdmin,
     )
 }
 

@@ -15,6 +15,7 @@ import app.mcorg.pipeline.world.invitations.CountWorldInvitationsStep
 import app.mcorg.pipeline.world.invitations.GetWorldInvitationsStep
 import app.mcorg.pipeline.world.invitations.InvitationStatusFilter
 import app.mcorg.config.AppConfig
+import app.mcorg.pipeline.world.settings.general.worldVersionImpact
 import app.mcorg.pipeline.world.settings.invitations.handleGetInvitationListFragment
 import app.mcorg.presentation.templated.settings.SettingsPageData
 import app.mcorg.presentation.templated.settings.discordConnections
@@ -85,6 +86,9 @@ suspend fun ApplicationCall.handleGetSettingsPageData(
             statusFilter = statusFilter,
             discordConfigured = discordConfigured,
             discordConnections = connections,
+            // Against the version the world is already on, so the General tab can say what is
+            // stranded right now rather than only what a pending switch would strand (MCO-157).
+            currentVersionImpact = worldVersionImpact(worldId, world.version.toString()).getOrNull(),
         )
     }
 }
