@@ -27,7 +27,7 @@ import app.mcorg.pipeline.failure.AppFailure
  *    found". Same question, one version later.
  *
  * Nothing here writes. A stranded row is kept and named, never rewritten or deleted: the id that
- * replaces `minecraft:grass` is a curated fact this code does not have (MCO-462), and guessing it
+ * replaces `minecraft:grass` is a curated fact this code does not have (MCO-470), and guessing it
  * would quietly change what a user asked for.
  */
 enum class VersionImpactUsage(val label: String) {
