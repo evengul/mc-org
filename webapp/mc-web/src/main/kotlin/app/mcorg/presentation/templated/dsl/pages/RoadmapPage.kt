@@ -59,6 +59,7 @@ fun roadmapPage(
         "/static/styles/components/btn.css",
         "/static/styles/components/badge.css",
         "/static/styles/pages/roadmap.css",
+        "/static/styles/pages/roadmap-graph.css",
     ),
 ) {
     appHeader(
@@ -75,8 +76,20 @@ fun roadmapPage(
     main {
         container {
             div("roadmap-title") {
-                h1("roadmap-title__name") { +"Roadmap" }
-                div("roadmap-title__meta") { +roadmapSummary(roadmap) }
+                div {
+                    h1("roadmap-title__name") { +"Roadmap" }
+                    div("roadmap-title__meta") { +roadmapSummary(roadmap) }
+                }
+                // The way back to the graph (MCO-469). The table is no longer the default
+                // view, so it has to offer the return trip or it is a dead end.
+                div("rmg-viewswitch") {
+                    span("rmg-viewswitch__label") { +"VIEW" }
+                    a(classes = "rmg-viewswitch__seg") {
+                        href = "/worlds/${roadmap.worldId}/roadmap"
+                        +"Graph"
+                    }
+                    span("rmg-viewswitch__seg rmg-viewswitch__seg--active") { +"Table" }
+                }
             }
 
             if (roadmap.isEmpty()) {

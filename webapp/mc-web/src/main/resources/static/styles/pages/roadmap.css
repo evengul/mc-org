@@ -6,6 +6,11 @@
 
 .roadmap-title {
     margin-bottom: var(--space-5);
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: var(--space-4);
+    flex-wrap: wrap;
 }
 
 /* MCO-460 — circular supply. Sits above the table because a loop makes the ordering below it
