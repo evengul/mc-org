@@ -112,6 +112,10 @@ or `mvn install` the whole thing first. Local-only — CI always builds the full
 `run.sh` installs before it runs, and `test.sh`'s module-scoped tiers pass `-am`. If you bypass
 the scripts, remember the rule yourself.
 
+In a worktree those installs go to the worktree's **own** Maven repository, so a sibling
+worktree's build can't swap the jars underneath you — see
+[Worktree Maven Repository Isolation](#worktree-maven-repository-isolation).
+
 There used to be a second cause here — Kotlin incremental compilation dropping cross-module ABI
 changes — which is why `run.sh` forced `mvn clean` and `test.sh` had a `--clean` flag. MCO-378
 turned incremental compilation off (`webapp/pom.xml`) and removed both workarounds. A full
@@ -259,6 +263,41 @@ the real ingested Minecraft data instantly (no re-ingestion) and matches CI exac
   points at (the worktree's Neon branch), reading its `DB_*` creds. Use this after
   adding a migration in a worktree — `migrate-locally.sh` hardcodes the localhost
   Docker DB and will not touch the branch.
+- `webapp/scripts/worktree-m2.sh` — give this worktree its own Maven repository
+  (see [Worktree Maven Repository Isolation](#worktree-maven-repository-isolation))
+- `webapp/scripts/worktree-m2.sh --all` — retrofit every existing worktree
+
+## Worktree Maven Repository Isolation
+
+**A worktree installs the `app.mcorg` modules into its own Maven repository, not
+into `~/.m2`.** Concurrent worktrees otherwise overwrite each other: the project
+version is a fixed `0.0.1` (not a per-branch SNAPSHOT), so every worktree's `mvn
+install` writes the same `~/.m2/repository/app/mcorg/mc-domain/0.0.1/...` path.
+Worktree B's build replaces the jars worktree A is about to run against — the
+MCO-285 symptom, except `-am` does not save you, because the jar was correct
+when it was written and wrong a second later.
+
+The isolated repository lives at `webapp/.m2/repository` and is a **symlink farm
+over `~/.m2/repository`**: every third-party groupId is a symlink back to the
+shared cache (release artifacts are immutable — sharing them is the point, and
+nothing is re-downloaded or duplicated on disk; a fresh worktree costs ~16 KB).
+Only `app/mcorg` is a real directory, private to the worktree.
+
+Maven is pointed at it by `webapp/.mvn/maven.config` (gitignored, written per
+worktree), so a bare `mvn` typed by hand gets the isolation too — no script
+needs a flag, and `score-diagnostics` and friends are covered automatically.
+
+- **Set up automatically** by the `EnterWorktree` hook, and by `run.sh` /
+  `test.sh` if `webapp/.mvn/maven.config` is missing (covers `claude -w` and
+  hand-made worktrees). Idempotent — re-run it any time.
+- **The main checkout deliberately keeps the shared `~/.m2`**, as does CI (which
+  caches `~/.m2/repository` and restores the module jars into it). The script
+  refuses to touch the main checkout.
+- **No teardown** — the repository dies with the worktree, and deleting a
+  symlink never touches what it points at.
+- **Maven 3.8 caveat:** `maven.config` is fed straight to the CLI parser, so a
+  `#` comment line makes every `mvn` exit 1. The file holds nothing but the flag.
+  (Maven 3.9's `maven.repo.local.tail` would do this natively; we are on 3.8.7.)
 
 ## Issue Tracking
 

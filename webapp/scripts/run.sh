@@ -56,6 +56,14 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+# A worktree builds against its own Maven repository so a sibling worktree's
+# `install` cannot replace the app.mcorg jars underneath this one. The hook sets
+# this up on EnterWorktree; a hand-made worktree (`claude -w`, `git worktree
+# add`) has no hook, so provision it here rather than silently sharing ~/.m2.
+if [[ ! -f "$WEBAPP_DIR/.mvn/maven.config" ]]; then
+    bash "$SCRIPT_DIR/worktree-m2.sh" "$WEBAPP_DIR" >/dev/null 2>&1 || true
+fi
+
 case "$ENV_NAME" in
     local)      ENV_FILE="$WEBAPP_DIR/local.env" ;;
     microsoft)  ENV_FILE="$WEBAPP_DIR/local_microsoft.env" ;;
