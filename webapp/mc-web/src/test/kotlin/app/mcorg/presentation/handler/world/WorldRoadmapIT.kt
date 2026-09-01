@@ -114,6 +114,77 @@ class WorldRoadmapIT : WithUser() {
         deleteWorld(worldId)
     }
 
+    /**
+     * MCO-466 — the Forever world case: a witch farm that has run for months and a ghast farm
+     * still being built both make gunpowder. Judged on its own the ghast farm looks like a
+     * prerequisite, and the roadmap said the storage system was blocked for 5 gunpowder while
+     * the witch farm supplied that same gunpowder one line above.
+     */
+    @Test
+    fun `a planned farm does not block for an item an operational farm already supplies`() = testApplication {
+        setupRoutes()
+        val worldId = createWorld("Two Producer World")
+        val consumer = createProject(worldId, "Storage System")
+        val running = createProject(worldId, "Witch Farm")
+        val planned = createProject(worldId, "Ghast Farm")
+        createRequirement(consumer, "minecraft:gunpowder", "Gunpowder")
+        createDemand(consumer, "minecraft:gunpowder", "Gunpowder", 5)
+        createProduction(running, "minecraft:gunpowder", "Gunpowder")
+        createProduction(planned, "minecraft:gunpowder", "Gunpowder")
+        runBlocking { UpdateProjectStageStep(running).process(ProjectStage.COMPLETED) }
+
+        val body = client.get("/worlds/$worldId/roadmap") { addAuthCookie(this) }.bodyAsText()
+
+        // Both relationships stay on the roadmap — the ghast farm really will make gunpowder,
+        // and MCO-318 needs both directions reading the same edge set. What changes is blocking.
+        val consumerRow = roadmapRow(body, "Storage System")
+        assertContains(consumerRow.dependsOn, "Witch Farm")
+        assertContains(consumerRow.dependsOn, "Ghast Farm")
+        assertFalse(
+            consumerRow.dependsOn.contains(STATUS_BLOCKING),
+            "nothing blocks: an operational farm already makes the gunpowder",
+        )
+        assertFalse(body.contains("blocked"), "the summary must not count this project as blocked")
+
+        // Read from the other end, the planned farm must make the same claim.
+        assertFalse(
+            roadmapRow(body, "Ghast Farm").supplies.contains(STATUS_BLOCKING),
+            "the producer's own row must agree it is not blocking",
+        )
+
+        deleteWorld(worldId)
+    }
+
+    /**
+     * The other half of MCO-466: coverage is per item, so an unfinished farm still blocks for
+     * whatever nothing operational makes. Without this the fix would silently unblock a world.
+     */
+    @Test
+    fun `a planned farm still blocks for an item nothing operational makes`() = testApplication {
+        setupRoutes()
+        val worldId = createWorld("Partial Coverage World")
+        val consumer = createProject(worldId, "Storage System")
+        val running = createProject(worldId, "Witch Farm")
+        val planned = createProject(worldId, "Iron Farm")
+        createRequirement(consumer, "minecraft:gunpowder", "Gunpowder")
+        createRequirement(consumer, "minecraft:iron_ingot", "Iron Ingot")
+        createDemand(consumer, "minecraft:gunpowder", "Gunpowder", 5)
+        createDemand(consumer, "minecraft:iron_ingot", "Iron Ingot", 32)
+        createProduction(running, "minecraft:gunpowder", "Gunpowder")
+        createProduction(planned, "minecraft:iron_ingot", "Iron Ingot")
+        runBlocking { UpdateProjectStageStep(running).process(ProjectStage.COMPLETED) }
+
+        val body = client.get("/worlds/$worldId/roadmap") { addAuthCookie(this) }.bodyAsText()
+
+        val consumerRow = roadmapRow(body, "Storage System")
+        assertContains(consumerRow.dependsOn, STATUS_BLOCKING)
+        assertContains(consumerRow.dependsOn, "Iron Farm")
+        assertContains(body, "1 blocked")
+        assertContains(roadmapRow(body, "Iron Farm").supplies, STATUS_BLOCKING)
+
+        deleteWorld(worldId)
+    }
+
     @Test
     fun `finished projects sort below the work that is left`() = testApplication {
         setupRoutes()
