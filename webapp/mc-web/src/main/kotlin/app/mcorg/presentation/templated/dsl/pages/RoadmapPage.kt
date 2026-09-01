@@ -17,6 +17,7 @@ import kotlinx.html.FlowContent
 import kotlinx.html.FormMethod
 import kotlinx.html.a
 import kotlinx.html.button
+import kotlinx.html.details
 import kotlinx.html.div
 import kotlinx.html.form
 import kotlinx.html.h1
@@ -26,6 +27,7 @@ import kotlinx.html.main
 import kotlinx.html.p
 import kotlinx.html.span
 import kotlinx.html.strong
+import kotlinx.html.summary
 import kotlinx.html.table
 import kotlinx.html.tbody
 import kotlinx.html.td
@@ -307,6 +309,13 @@ private data class RoadmapEdgeEntry(
     val isBlocking: Boolean,
     /** Derived plan demand (MCO-316); null when the edge carries no number. */
     val quantity: Long? = null,
+    /**
+     * How many *other* resources run along this same pair of projects (MCO-465).
+     *
+     * The line names one — the largest, the one worth going after — and counts the rest. Zero
+     * where the pair is about a single resource, which is every pair in a small world.
+     */
+    val extraItemCount: Int = 0,
 )
 
 /**
@@ -314,20 +323,37 @@ private data class RoadmapEdgeEntry(
  * the resource, per the IA: "Iron Farm — Iron Ingot". Knowing which project you depend on is
  * only half an answer; the other half is what you are getting from it. A manual sequencing edge
  * has no resource, so it names the project alone.
+ *
+ * **One line per producer, not per edge** (MCO-465). A trading hall that supplies forty single
+ * blocks is one relationship, not forty; printing it as forty made the YAMS row 800px tall and
+ * buried the one edge that was actually blocking. The line names the largest resource — the one
+ * that decides whether you go there — and counts the others.
  */
 private fun FlowContent.dependsOnCell(worldId: Int, edges: List<RoadmapEdge>) {
     roadmapEdgeCell(
         worldId,
-        edges.map { edge ->
-            RoadmapEdgeEntry(
-                projectId = edge.toNodeId,
-                projectName = edge.toNodeName,
-                itemName = edge.itemName,
-                isResourceEdge = edge.itemName != null,
-                isBlocking = edge.isBlocking,
-                quantity = edge.quantity,
-            )
-        }
+        edges
+            .groupBy { it.toNodeId }
+            .map { (producerId, producerEdges) ->
+                // Only edges that name a resource can headline; a manual sequencing edge has no
+                // resource to print and must not out-rank one that does.
+                val named = producerEdges.filter { it.itemName != null }
+                val headline = named.maxWithOrNull(
+                    compareBy<RoadmapEdge> { it.quantity ?: Long.MIN_VALUE }.thenBy { it.itemName }
+                )
+                RoadmapEdgeEntry(
+                    projectId = producerId,
+                    projectName = producerEdges.first().toNodeName,
+                    itemName = headline?.itemName,
+                    isResourceEdge = named.isNotEmpty(),
+                    // Several resources can run along the same pair of projects; the pair is
+                    // blocking if any one of them still is.
+                    isBlocking = producerEdges.any { it.isBlocking },
+                    quantity = headline?.quantity,
+                    extraItemCount = (named.mapTo(mutableSetOf()) { it.itemName }.size - 1)
+                        .coerceAtLeast(0),
+                )
+            }
     )
 }
 
@@ -356,39 +382,75 @@ private fun FlowContent.suppliesCell(worldId: Int, edges: List<RoadmapEdge>) {
 }
 
 /**
+ * Past this many *supplying* relationships the cell folds them away (MCO-465). Below it, a cell
+ * that used to render flat still does — a world with a handful of projects never meets a
+ * disclosure, and the fold only appears where the flat list was the problem.
+ *
+ * Blockers are never counted against it and never folded: see [roadmapEdgeCell].
+ */
+private const val INLINE_SUPPLY_LIMIT = 4
+
+/**
  * Blocking is called out in words, not just colour — the primary user is red-green colour-blind,
  * and "this is still holding you up" is the one thing in the cell that must not be missed.
+ *
+ * The same principle decides what folds (MCO-465): a blocker is what the row is *for*, so it
+ * stays on the page however many there are, and only the settled, already-flowing half collapses
+ * behind a count. A cell that hid a blocker to save space would be hiding the one thing worth
+ * reading.
  */
 private fun FlowContent.roadmapEdgeCell(worldId: Int, entries: List<RoadmapEdgeEntry>) {
     if (entries.isEmpty()) {
         span("roadmap-muted") { +"—" }
         return
     }
+    // Blockers first — they are the actionable ones — then a stable alphabetical order.
+    val ordered = entries.sortedWith(
+        compareByDescending<RoadmapEdgeEntry> { it.isBlocking }
+            .thenBy { it.projectName }
+            .thenBy { it.itemName ?: "" }
+    )
+    val (blocking, supplying) = ordered.partition { it.isBlocking }
+
     div("roadmap-edge-list") {
-        entries
-            // Blockers first — they are the actionable ones — then a stable alphabetical order.
-            .sortedWith(
-                compareByDescending<RoadmapEdgeEntry> { it.isBlocking }
-                    .thenBy { it.projectName }
-                    .thenBy { it.itemName ?: "" }
-            )
-            .forEach { entry ->
-                val modifier = if (entry.isBlocking) "roadmap-edge--blocking" else "roadmap-edge--supplying"
-                div("roadmap-edge $modifier") {
-                    a(classes = "roadmap-project-link") {
-                        href = "/worlds/$worldId/projects/${entry.projectId}"
-                        +entry.projectName
-                    }
-                    entry.itemName?.let { item ->
-                        // MCO-316 — first pass, deliberately the plainest thing that stops the
-                        // cell misleading. "Cobblestone Generator — 74,564 Cobblestone" instead
-                        // of a bare item name that used to sit next to a single decorative block.
-                        val amount = entry.quantity?.let { "${"%,d".format(it)} " } ?: ""
-                        span("roadmap-edge__item") { +" — $amount$item" }
-                    }
-                    span("roadmap-edge__status") { +entry.statusLabel() }
+        blocking.forEach { roadmapEdgeLine(worldId, it) }
+
+        when {
+            supplying.isEmpty() -> Unit
+            supplying.size <= INLINE_SUPPLY_LIMIT -> supplying.forEach { roadmapEdgeLine(worldId, it) }
+            else -> details("roadmap-edge-fold") {
+                summary("roadmap-edge-fold__summary") {
+                    +"${supplying.size} projects supplying"
+                }
+                div("roadmap-edge-list") {
+                    supplying.forEach { roadmapEdgeLine(worldId, it) }
                 }
             }
+        }
+    }
+}
+
+/** One relationship: the project at the other end, what runs along it, and what it currently is. */
+private fun FlowContent.roadmapEdgeLine(worldId: Int, entry: RoadmapEdgeEntry) {
+    val modifier = if (entry.isBlocking) "roadmap-edge--blocking" else "roadmap-edge--supplying"
+    div("roadmap-edge $modifier") {
+        a(classes = "roadmap-project-link") {
+            href = "/worlds/$worldId/projects/${entry.projectId}"
+            +entry.projectName
+        }
+        entry.itemName?.let { item ->
+            // MCO-316 — first pass, deliberately the plainest thing that stops the
+            // cell misleading. "Cobblestone Generator — 74,564 Cobblestone" instead
+            // of a bare item name that used to sit next to a single decorative block.
+            val amount = entry.quantity?.let { "${"%,d".format(it)} " } ?: ""
+            span("roadmap-edge__item") { +" — $amount$item" }
+            if (entry.extraItemCount > 0) {
+                // The count, not the names (MCO-465). Naming forty single blocks is what this
+                // cell used to do; the number is what tells you there is more behind the link.
+                span("roadmap-edge__more") { +" +${entry.extraItemCount} more" }
+            }
+        }
+        span("roadmap-edge__status") { +entry.statusLabel() }
     }
 }
 
