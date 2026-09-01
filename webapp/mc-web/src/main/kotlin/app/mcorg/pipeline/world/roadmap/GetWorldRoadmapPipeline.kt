@@ -194,5 +194,5 @@ private fun manualEdgeNoteFor(roadmap: Roadmap): String? {
     } else {
         "${pairs.size} orderings here were set by hand: ${pairs.joinToString("; ")}."
     }
-    return "$lead Every other edge is derived from what your projects actually need."
+    return "$lead Everything else here is derived from what your projects actually need."
 }

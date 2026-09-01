@@ -12,6 +12,8 @@ import app.mcorg.presentation.templated.dsl.container
 import app.mcorg.presentation.templated.dsl.emptyState
 import app.mcorg.presentation.templated.dsl.pageShell
 import app.mcorg.presentation.templated.dsl.projectStateBadge
+import app.mcorg.presentation.templated.dsl.WorldTab
+import app.mcorg.presentation.templated.dsl.worldBar
 import kotlinx.html.ButtonType
 import kotlinx.html.FlowContent
 import kotlinx.html.FormMethod
@@ -60,21 +62,30 @@ fun roadmapPage(
         "/static/styles/components/badge.css",
         "/static/styles/pages/roadmap.css",
         "/static/styles/pages/roadmap-graph.css",
+        "/static/styles/components/world-tabs.css",
+        "/static/styles/components/np-menu.css",
+        "/static/styles/components/modal.css",
+        "/static/styles/components/form.css",
+        "/static/styles/components/item-search.css",
     ),
+    scripts = listOf("/static/scripts/np-menu.js", "/static/scripts/farm-modal.js"),
 ) {
     appHeader(
         worldName = roadmap.worldName,
         worldId = roadmap.worldId,
         user = user,
         isWorldAdmin = isWorldAdmin,
+        // The breadcrumb locates the *world*; which section of it you are in is the tab
+        // bar's job (MCO-474). Naming both said the same thing twice.
         breadcrumbBlock = {
-            link("Worlds", "/worlds")
-                .link(roadmap.worldName, "/worlds/${roadmap.worldId}/projects")
-                .current("Roadmap")
+            link("Worlds", "/worlds").current(roadmap.worldName)
         }
     )
     main {
         container {
+            worldBar(roadmap.worldId, WorldTab.ROADMAP) {
+                newProjectAffordance(roadmap.worldId)
+            }
             div("roadmap-title") {
                 div {
                     h1("roadmap-title__name") { +"Roadmap" }
@@ -215,7 +226,7 @@ private fun FlowContent.roadmapEmptyState(worldId: Int) {
     emptyState(
         heading = "Nothing to sequence yet",
         body = "The roadmap draws itself from your projects' resources: when one project's " +
-            "requirement is produced or solved by another, an edge appears here and the order " +
+            "requirement is produced or solved by another, a link appears here and the order " +
             "follows. Define some resources to see it fill in.",
     ) {
         a(classes = "btn btn--primary") {

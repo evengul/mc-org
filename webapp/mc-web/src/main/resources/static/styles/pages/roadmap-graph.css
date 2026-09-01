@@ -112,7 +112,7 @@
 
 .rmg-start {
     display: grid;
-    grid-template-columns: 1fr 320px;
+    grid-template-columns: 1fr 340px;
     gap: var(--space-5);
     align-items: start;
 }
@@ -207,14 +207,20 @@
 
 .rmg-deflist {
     display: grid;
-    grid-template-columns: 1fr auto;
+    grid-template-columns: max-content 1fr;
     gap: var(--space-1) var(--space-3);
     font-family: var(--font-ui);
     font-size: 12px;
     font-variant-numeric: tabular-nums;
 }
 
-.rmg-deflist__key { color: var(--text-muted); }
+.rmg-deflist__key {
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+
+/* Pairs are emitted key, value, key, value — so every even child is a value. */
+.rmg-deflist > span:nth-child(even) { text-align: right; }
 
 /* 3. The graph ---------------------------------------------------------------------- */
 

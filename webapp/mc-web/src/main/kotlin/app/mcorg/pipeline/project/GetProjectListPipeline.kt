@@ -6,14 +6,12 @@ import app.mcorg.pipeline.project.commonsteps.GetProjectEdgesStep
 import app.mcorg.pipeline.project.commonsteps.GetProjectListStep
 import app.mcorg.pipeline.project.commonsteps.GetResumeProjectIdStep
 import app.mcorg.pipeline.resources.commonsteps.GetAllResourceGatheringItemsStep
-import app.mcorg.pipeline.project.commonsteps.GetProjectPlanListStep
 import app.mcorg.pipeline.world.commonsteps.GetWorldMemberStep
 import app.mcorg.pipeline.world.commonsteps.GetWorldStep
 import app.mcorg.pipeline.world.commonsteps.UpdateWorldLastOpenedStep
 import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.templated.dsl.ResumeHeroData
 import app.mcorg.presentation.templated.dsl.pages.projectListPage
-import app.mcorg.presentation.templated.dsl.pages.projectListPageWithPlanView
 import app.mcorg.presentation.utils.getUser
 import app.mcorg.presentation.utils.getWorldId
 import app.mcorg.presentation.utils.respondHtml
@@ -34,42 +32,26 @@ data class ProjectListData(
 suspend fun ApplicationCall.handleGetProjectList() {
     val user = getUser()
     val worldId = getWorldId()
-    val view = request.queryParameters["view"]?.takeIf { it == "plan" } ?: "execute"
-
     // Best-effort: record that this user just opened the world (drives the Worlds-page
     // "opened Xh ago" line and recency sort). Ignore failures — must not block the page.
     UpdateWorldLastOpenedStep(user.id).process(worldId)
 
-    if (view == "plan") {
-        handlePipeline(
-            onSuccess = { (world, member, projects) ->
-                val isAdmin = member.worldRole.isHigherThanOrEqualTo(Role.ADMIN)
-                respondHtml(projectListPageWithPlanView(user, world, projects, isWorldAdmin = isAdmin))
-            }
-        ) {
-            val world = GetWorldStep.run(worldId)
-            val worldMember = GetWorldMemberStep(worldId).run(user.id)
-            val projects = GetProjectPlanListStep(worldId).run(Unit)
-            Triple(world, worldMember, projects)
+    handlePipeline(
+        onSuccess = { (world, member, projects, edges, resume) ->
+            val isAdmin = member.worldRole.isHigherThanOrEqualTo(Role.ADMIN)
+            respondHtml(projectListPage(user, world, projects, isWorldAdmin = isAdmin, edges = edges, resume = resume))
         }
-    } else {
-        handlePipeline(
-            onSuccess = { (world, member, projects, edges, resume) ->
-                val isAdmin = member.worldRole.isHigherThanOrEqualTo(Role.ADMIN)
-                respondHtml(projectListPage(user, world, projects, view, isWorldAdmin = isAdmin, edges = edges, resume = resume))
-            }
-        ) {
-            val world = GetWorldStep.run(worldId)
-            val worldMember = GetWorldMemberStep(worldId).run(user.id)
-            val projects = GetProjectListStep(worldId).run(Unit)
-            val edges = GetProjectEdgesStep(worldId).run(Unit)
-            val resumeId = GetResumeProjectIdStep(worldId).run(Unit)
-            val resume = if (resumeId != null) {
-                val project = GetProjectByIdStep.run(resumeId)
-                val resources = GetAllResourceGatheringItemsStep.run(resumeId)
-                ResumeHeroData(project, resources)
-            } else null
-            ProjectListData(world, worldMember, projects, edges, resume)
-        }
+    ) {
+        val world = GetWorldStep.run(worldId)
+        val worldMember = GetWorldMemberStep(worldId).run(user.id)
+        val projects = GetProjectListStep(worldId).run(Unit)
+        val edges = GetProjectEdgesStep(worldId).run(Unit)
+        val resumeId = GetResumeProjectIdStep(worldId).run(Unit)
+        val resume = if (resumeId != null) {
+            val project = GetProjectByIdStep.run(resumeId)
+            val resources = GetAllResourceGatheringItemsStep.run(resumeId)
+            ResumeHeroData(project, resources)
+        } else null
+        ProjectListData(world, worldMember, projects, edges, resume)
     }
 }

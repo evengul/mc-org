@@ -43,7 +43,7 @@ fun FlowContent.newProjectMenu(worldId: Int) {
             button(classes = "np-menu__door") {
                 type = ButtonType.button
                 attributes["onclick"] =
-                    "document.getElementById('new-project-menu')?.removeAttribute('open'); document.getElementById('first-project-flag').value=''; document.getElementById('create-project-modal')?.showModal()"
+                    "document.getElementById('new-project-menu')?.removeAttribute('open'); document.getElementById('create-project-modal')?.showModal()"
                 span("np-menu__door-glyph") { +"+" }
                 span("np-menu__door-text") {
                     span("np-menu__door-title") { +"Blank project" }

@@ -115,7 +115,7 @@ fun importReviewPage(
         user = user,
         breadcrumbBlock = {
             link("Worlds", "/worlds")
-                .link(worldName, "/worlds/$worldId/projects")
+                .link(worldName, "/worlds/$worldId/roadmap")
                 .current("Review import")
         }
     )

@@ -220,7 +220,7 @@ private fun FlowContent.worldHero(world: World, peek: List<WorldProjectPeek>, fr
         div("world-hero__aside") {
             if (fresh) {
                 div("world-hero__actions") {
-                    a(href = Link.Worlds.world(world.id).projects().to, classes = "btn btn--primary") {
+                    a(href = Link.Worlds.world(world.id).roadmap().to, classes = "btn btn--primary") {
                         lucide("arrow-right", 15)
                         +"Open & add first project"
                     }
@@ -247,7 +247,7 @@ private fun FlowContent.worldHero(world: World, peek: List<WorldProjectPeek>, fr
 private fun FlowContent.worldRow(world: World) {
     div("world-row") {
         pinButton(world)
-        a(href = Link.Worlds.world(world.id).projects().to, classes = "world-row__link") {
+        a(href = Link.Worlds.world(world.id).roadmap().to, classes = "world-row__link") {
             div("world-row__id") {
                 div("world-name") { +world.name }
                 div("world-meta") { +world.version.toString() }
@@ -286,7 +286,7 @@ private fun FlowContent.newProjectLink(world: World) {
 }
 
 private fun FlowContent.openWorldButton(world: World) {
-    a(href = Link.Worlds.world(world.id).projects().to, classes = "btn btn--primary") {
+    a(href = Link.Worlds.world(world.id).roadmap().to, classes = "btn btn--primary") {
         lucide("arrow-right", 15)
         +"Open world"
     }

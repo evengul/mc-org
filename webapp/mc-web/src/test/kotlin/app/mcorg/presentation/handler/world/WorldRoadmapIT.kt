@@ -18,6 +18,7 @@ import app.mcorg.test.postgres.DatabaseTestExtension
 import io.ktor.client.request.get
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpStatusCode
+import io.ktor.server.response.respondRedirect
 import io.ktor.server.routing.get
 import io.ktor.server.routing.route
 import io.ktor.server.testing.ApplicationTestBuilder
@@ -312,6 +313,76 @@ class WorldRoadmapIT : WithUser() {
         val response = unauth.get("/worlds/$worldId/roadmap")
 
         assertEquals(HttpStatusCode.Found, response.status)
+
+        deleteWorld(worldId)
+    }
+
+    /**
+     * Opening a world lands on its roadmap (MCO-474).
+     *
+     * The status assertion is the point, not a formality: this used to be a **301**, which
+     * browsers cache indefinitely, so the previous target outlives any change to it. A 302
+     * keeps the next change to this route actually deliverable.
+     */
+    @Test
+    fun `a world lands on its roadmap, and not permanently`() = testApplication {
+        routing {
+            install(AuthPlugin)
+            route("/worlds/{worldId}") {
+                install(WorldParamPlugin)
+                install(WorldParticipantPlugin)
+                install(UpdateActiveWorldPlugin)
+                get {
+                    val id = call.parameters["worldId"]!!.toInt()
+                    call.respondRedirect("/worlds/$id/roadmap", permanent = false)
+                }
+            }
+        }
+        val worldId = createWorld("Landing World")
+        val noFollow = createClient { followRedirects = false }
+
+        val response = noFollow.get("/worlds/$worldId") { addAuthCookie(this) }
+
+        assertEquals(HttpStatusCode.Found, response.status)
+        assertEquals("/worlds/$worldId/roadmap", response.headers["Location"])
+
+        deleteWorld(worldId)
+    }
+
+    /** The tab pair is the way back out of the roadmap, on both of the world's pages. */
+    @Test
+    fun `the roadmap renders the world tabs with roadmap marked current`() = testApplication {
+        setupRoutes()
+        val worldId = createWorld("Tabs Roadmap World")
+
+        val body = client.get("/worlds/$worldId/roadmap") { addAuthCookie(this) }.bodyAsText()
+
+        assertContains(body, "/worlds/$worldId/projects")
+        assertContains(body, "world-tabs__tab--active")
+        assertContains(body, "aria-current=\"page\"")
+
+        deleteWorld(worldId)
+    }
+
+    /**
+     * The roadmap is what a world opens to, so it carries the world's primary action too
+     * (MCO-474) — it was previously the one view with no way to add anything.
+     *
+     * Asserting the dialogs, not just the trigger, is the point: every door calls `showModal()`
+     * on a specific `<dialog>`, so a menu rendered without them gives you doors that silently
+     * do nothing — and a test that only looked for the button would pass.
+     */
+    @Test
+    fun `the roadmap offers the new project menu, with the dialogs its doors open`() = testApplication {
+        setupRoutes()
+        val worldId = createWorld("New Project Roadmap World")
+
+        val body = client.get("/worlds/$worldId/roadmap") { addAuthCookie(this) }.bodyAsText()
+
+        assertContains(body, "new-project-menu")
+        assertContains(body, "+ New project")
+        assertContains(body, "create-project-modal")
+        assertContains(body, "schematic-project-modal")
 
         deleteWorld(worldId)
     }

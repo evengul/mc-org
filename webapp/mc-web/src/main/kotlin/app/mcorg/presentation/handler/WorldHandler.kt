@@ -37,7 +37,6 @@ import app.mcorg.pipeline.task.handleCompleteActionTask
 import app.mcorg.pipeline.task.handleCreateActionTask
 import app.mcorg.pipeline.task.handleDeleteActionTask
 import app.mcorg.pipeline.project.handleGetProjectList
-import app.mcorg.pipeline.project.handleGetProjectListFragment
 import app.mcorg.pipeline.project.handleGetFieldLogRow
 import app.mcorg.pipeline.project.handleGetFieldLogSliceItems
 import app.mcorg.pipeline.project.handleGetResumeRows
@@ -128,7 +127,11 @@ class WorldHandler {
                 install(UpdateActiveWorldPlugin)
                 get {
                     val worldId = call.parameters["worldId"]!!.toInt()
-                    call.respondRedirect("/worlds/$worldId/projects", permanent = true)
+                    // A world opens on its roadmap (MCO-474). Deliberately NOT permanent: the
+                    // previous 301 to /projects is cached indefinitely in every browser that
+                    // ever opened a world, and a second permanent redirect would make the next
+                    // change just as unreachable.
+                    call.respondRedirect("/worlds/$worldId/roadmap", permanent = false)
                 }
                 get("/roadmap") {
                     call.handleGetWorldRoadmap()
@@ -148,9 +151,6 @@ class WorldHandler {
                 route("/projects") {
                     get {
                         call.handleGetProjectList()
-                    }
-                    get("/list-fragment") {
-                        call.handleGetProjectListFragment()
                     }
                     get("/resume-rows") {
                         call.handleGetResumeRows()

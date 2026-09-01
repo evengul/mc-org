@@ -26,6 +26,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.api.extension.ExtendWith
 import kotlin.test.assertContains
+import kotlin.test.assertFalse
 import kotlin.test.assertEquals
 
 @Tag("database")
@@ -98,10 +99,14 @@ class GetProjectListIT : WithUser() {
         assertContains(body, "Integration Test Project")
     }
 
+    /**
+     * The PLAN/EXEC modes are gone (MCO-474) and the parameter that selected them was never
+     * persisted, so a stale bookmark carrying `?view=plan` must simply render the Field Log.
+     */
     @Test
-    fun `returns 200 with plan view cards when view=plan`() = testApplication {
+    fun `a leftover view=plan parameter is ignored and renders the field log`() = testApplication {
         val worldId = createWorld("ProjectList IT Plan World")
-        val projectId = createProject(worldId, "Plan View Test Project")
+        createProject(worldId, "Plan View Test Project")
 
         routing {
             install(AuthPlugin)
@@ -121,10 +126,39 @@ class GetProjectListIT : WithUser() {
 
         assertEquals(HttpStatusCode.OK, response.status)
         val body = response.bodyAsText()
-        assertContains(body, "project-card-$projectId")
         assertContains(body, "Plan View Test Project")
-        // Plan view shows resource definition count, not task progress bar
-        assertContains(body, "No resources defined")
+        assertContains(body, "fl-pending-section")
+        assertFalse(body.contains("toggle__btn"), "the PLAN/EXEC toggle must not come back")
+        assertFalse(body.contains("No resources defined"), "the plan card list must not come back")
+    }
+
+    /** The world tab pair replaced the toggle as the way between roadmap and projects. */
+    @Test
+    fun `renders the world tabs with projects marked current`() = testApplication {
+        val worldId = createWorld("ProjectList IT Tabs World")
+        createProject(worldId, "Tabs Test Project")
+
+        routing {
+            install(AuthPlugin)
+            route("/worlds/{worldId}") {
+                install(WorldParamPlugin)
+                install(WorldParticipantPlugin)
+                install(UpdateActiveWorldPlugin)
+                route("/projects") {
+                    get { call.handleGetProjectList() }
+                }
+            }
+        }
+
+        val response = client.get("/worlds/$worldId/projects") {
+            addAuthCookie(this)
+        }
+
+        assertEquals(HttpStatusCode.OK, response.status)
+        val body = response.bodyAsText()
+        assertContains(body, "/worlds/$worldId/roadmap")
+        assertContains(body, "world-tabs__tab--active")
+        assertContains(body, "aria-current=\"page\"")
     }
 
     @Test

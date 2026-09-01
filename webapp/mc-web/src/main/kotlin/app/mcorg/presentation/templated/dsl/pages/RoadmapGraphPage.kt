@@ -14,6 +14,9 @@ import app.mcorg.presentation.templated.dsl.container
 import app.mcorg.presentation.templated.dsl.pageShell
 import app.mcorg.presentation.templated.dsl.progressBar
 import app.mcorg.presentation.templated.dsl.statusBadge
+import app.mcorg.presentation.templated.dsl.WorldTab
+import app.mcorg.presentation.templated.dsl.worldBar
+import app.mcorg.presentation.templated.dsl.pages.newProjectAffordance
 import kotlinx.html.FlowContent
 import kotlinx.html.a
 import kotlinx.html.div
@@ -76,21 +79,30 @@ fun roadmapGraphPage(
         "/static/styles/components/callout.css",
         "/static/styles/pages/roadmap.css",
         "/static/styles/pages/roadmap-graph.css",
+        "/static/styles/components/world-tabs.css",
+        "/static/styles/components/np-menu.css",
+        "/static/styles/components/modal.css",
+        "/static/styles/components/form.css",
+        "/static/styles/components/item-search.css",
     ),
+    scripts = listOf("/static/scripts/np-menu.js", "/static/scripts/farm-modal.js"),
 ) {
     appHeader(
         worldName = view.roadmap.worldName,
         worldId = view.roadmap.worldId,
         user = user,
         isWorldAdmin = isWorldAdmin,
+        // The breadcrumb locates the *world*; which section of it you are in is the tab
+        // bar's job (MCO-474).
         breadcrumbBlock = {
-            link("Worlds", "/worlds")
-                .link(view.roadmap.worldName, "/worlds/${view.roadmap.worldId}/projects")
-                .current("Roadmap")
+            link("Worlds", "/worlds").current(view.roadmap.worldName)
         }
     )
     main {
         container {
+            worldBar(view.roadmap.worldId, WorldTab.ROADMAP) {
+                newProjectAffordance(view.roadmap.worldId)
+            }
             div("rmg-card") {
                 id = "roadmap-graph"
                 pageHeaderSection(view)
@@ -170,7 +182,7 @@ private fun FlowContent.startHereSection(view: RoadmapGraphView) {
             }
         }
         div("rmg-start__aside") {
-            span("rmg-label") { +"GRAPH SHAPE" }
+            span("rmg-label") { +"AT A GLANCE" }
             div("rmg-deflist") {
                 shapeRows(view).forEach { (key, value) ->
                     span("rmg-deflist__key") { +key }
@@ -181,31 +193,45 @@ private fun FlowContent.startHereSection(view: RoadmapGraphView) {
     }
 }
 
+/**
+ * Facts about the *world*, not about the graph that draws it.
+ *
+ * This used to report "layer 0 / layers 1–3" — the topological sort's own vocabulary, which
+ * describes how the ordering is computed rather than anything the reader owns. Depth is the one
+ * genuinely useful thing inside it, so it survives as "longest chain", which answers a question
+ * somebody actually has: how many projects stand between me and the far end.
+ */
 private fun shapeRows(view: RoadmapGraphView): List<Pair<String, String>> {
     val stats = view.roadmap.getStatistics()
-    val byLayer = view.roadmap.nodes.groupingBy { it.layer }.eachCount()
-    val terminalFanIn = view.terminal?.let { terminal ->
-        view.roadmap.edges.count { it.fromNodeId == terminal.projectId }
-    } ?: 0
+    val remaining = stats.totalProjects - stats.completedProjects
 
     return buildList {
-        byLayer[0]?.let { add("layer 0" to "$it projects") }
+        if (remaining > 0) {
+            add("still to build" to "$remaining of ${stats.totalProjects} projects")
+        }
         if (stats.maxDepth > 1) {
-            val rest = (1 until stats.maxDepth).mapNotNull { byLayer[it] }.distinct()
-            val label = if (stats.maxDepth == 2) "layer 1" else "layers 1–${stats.maxDepth - 1}"
-            add(label to if (rest.size == 1) "${rest.first()} each" else "${rest.sum()} projects")
+            add("longest chain" to "${stats.maxDepth} projects deep")
         }
-        view.terminal?.let {
-            add("edges into ${shortName(it.projectName)}" to "$terminalFanIn from ${view.producerCount} farms")
+        view.terminal?.let { terminal ->
+            // Items, not edge count. The old row said "86 from 22 farms", where 86 was the
+            // number of supply relationships — and it read as a quantity of items.
+            val items = view.roadmap.edges
+                .filter { it.fromNodeId == terminal.projectId }
+                .sumOf { it.quantity ?: 0L }
+            if (items > 0) {
+                val farms = if (view.producerCount == 1) "farm" else "farms"
+                // Not "feeding <name>": the name had to be shortened to fit a 320px aside, and
+                // the only cheap way to do that was to take the last word — which gives "YAMS"
+                // for "Storage System YAMS" but "North" for "Iron Farm North". The graph names
+                // the destination a few centimetres away; this row does not need to.
+                add(
+                    "feeding" to
+                        "${RoadmapGraphLayout.format(items)} items from ${view.producerCount} $farms"
+                )
+            }
         }
-        val demandRows = view.terminalStats.craftRows + view.terminalStats.openQuestions
-        if (demandRows > 0) add("craft + open rows" to RoadmapGraphLayout.format(demandRows.toLong()))
     }
 }
-
-/** "Storage System YAMS" is too long for a 320px aside; the last word carries the identity. */
-private fun shortName(name: String): String =
-    if (name.length <= 12) name else name.split(" ").last()
 
 // ---- 3. the graph -----------------------------------------------------------------------
 
@@ -213,11 +239,11 @@ private fun FlowContent.graphSection(view: RoadmapGraphView) {
     val graph = view.graph
     div("rmg-section rmg-graph") {
         div("rmg-graph__head") {
-            span("rmg-label") { +"DEPENDENCY GRAPH · EDGE WEIGHT = ITEMS MOVED" }
+            span("rmg-label") { +"DEPENDENCY GRAPH · LINE WEIGHT = ITEMS MOVED" }
             span("rmg-legend") {
                 span { +"▬ GENERATED" }
                 span { +"┄ MANUAL / BY HAND" }
-                span { +"▸ TAP A NODE TO FOCUS" }
+                span { +"▸ TAP A PROJECT TO OPEN IT" }
             }
         }
 
@@ -366,7 +392,7 @@ private fun FlowContent.unchainedSection(view: RoadmapGraphView) {
     div("rmg-section rmg-unchained") {
         div("rmg-unchained__head") {
             span("rmg-label") { +"NOT IN ANY CHAIN · ${view.unchained.size}" }
-            span("rmg-note") { +"no generated or manual edges — do them whenever" }
+            span("rmg-note") { +"nothing supplies them, they supply nothing — do them whenever" }
         }
         div("rmg-chips") {
             view.unchained.forEach { row ->
@@ -389,7 +415,7 @@ private fun FlowContent.producingSection(view: RoadmapGraphView) {
             span("rmg-label") {
                 +"PRODUCING · ${view.producerCount} ${if (view.producerCount == 1) "FARM" else "FARMS"}"
             }
-            span("rmg-note") { +"done, and still feeding the roadmap · items · edges" }
+            span("rmg-note") { +"done, and still feeding the roadmap · items · supply lines" }
         }
         div("rmg-grid") {
             view.producerRows.forEachIndexed { index, row ->
