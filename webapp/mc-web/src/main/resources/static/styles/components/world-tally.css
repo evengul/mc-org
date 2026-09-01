@@ -1,0 +1,17 @@
+/* ═══════════════════════════ WORLD TALLY ═══════════════════════════ */
+/* A world's projects counted by lifecycle state, in place of the old completion bar
+   (MCO-468): a world is never finished, so a percentage measured nothing but how
+   recently you had added a project. Numbers read loud, captions quiet. */
+.world-tally         { display: flex; align-items: baseline; flex-wrap: wrap;
+                       gap: var(--space-2); font-family: var(--font-ui); }
+.world-tally__part   { font-size: var(--text-sm); color: var(--text-primary);
+                       white-space: nowrap; }
+.world-tally__count  { font-weight: 600; }
+.world-tally__label  { color: var(--text-muted); }
+.world-tally__sep    { color: var(--text-disabled); }
+.world-tally__total  { font-size: var(--text-xs); color: var(--text-muted);
+                       white-space: nowrap; }
+.world-tally--compact              { gap: 6px; }
+.world-tally--compact .world-tally__part { font-size: var(--text-xs); }
+.world-tally--empty  { font-size: var(--text-sm); color: var(--text-muted); }
+.world-tally--compact.world-tally--empty { font-size: var(--text-xs); }

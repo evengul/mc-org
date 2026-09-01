@@ -51,7 +51,6 @@ import app.mcorg.pipeline.project.handleGetProjectLocationField
 import app.mcorg.pipeline.project.handleUpdateProjectLocation
 import app.mcorg.pipeline.world.handleCreateWorld
 import app.mcorg.pipeline.world.handleDeleteWorld
-import app.mcorg.pipeline.world.handleSearchWorlds
 import app.mcorg.pipeline.world.handleTogglePin
 import app.mcorg.pipeline.world.settings.general.handleUpdateWorldDescription
 import app.mcorg.pipeline.world.settings.general.handleUpdateFarmScaleThreshold
@@ -104,9 +103,6 @@ class WorldHandler {
             }
             post {
                 call.handleCreateWorld()
-            }
-            get("/search") {
-                call.handleSearchWorlds()
             }
             // Pin toggle lives on its own /pin/{worldId} subtree (static `pin` beats the
             // `{worldId}` param branch) so it does NOT inherit UpdateActiveWorldPlugin —

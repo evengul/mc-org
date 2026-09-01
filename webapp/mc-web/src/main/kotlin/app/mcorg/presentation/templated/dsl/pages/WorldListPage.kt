@@ -15,7 +15,7 @@ import app.mcorg.presentation.templated.dsl.lucide
 import app.mcorg.presentation.templated.dsl.modalForm
 import app.mcorg.presentation.templated.dsl.pageHeading
 import app.mcorg.presentation.templated.dsl.pageShell
-import app.mcorg.presentation.templated.dsl.progressBar
+import app.mcorg.presentation.templated.dsl.worldTally
 import app.mcorg.presentation.templated.dsl.components.pendingInvitationsSection
 import app.mcorg.presentation.templated.utils.formatAsCompactRelative
 import kotlinx.html.ButtonType
@@ -36,9 +36,6 @@ import kotlinx.html.span
 import kotlinx.html.textArea
 import kotlinx.html.ul
 
-private fun World.progressPercent(): Int =
-    if (totalProjects > 0) (completedProjects.coerceAtMost(totalProjects) * 100) / totalProjects else 0
-
 fun worldListPage(
     user: TokenProfile,
     worlds: List<World>,
@@ -51,7 +48,7 @@ fun worldListPage(
     stylesheets = listOf(
         "/static/styles/components/common.css",
         "/static/styles/components/callout.css",
-        "/static/styles/components/progress.css",
+        "/static/styles/components/world-tally.css",
         "/static/styles/components/form.css",
         "/static/styles/components/pending-invitations.css",
         "/static/styles/pages/worlds.css",
@@ -199,31 +196,23 @@ private fun FlowContent.worldHero(world: World, peek: List<WorldProjectPeek>, fr
                     +(if (opened != null) "opened $opened" else "not opened yet")
                 }
                 div("world-hero__body") {
-                    if (world.totalProjects == 0) {
+                    if (world.projectTally.isEmpty) {
                         div("world-hero__empty") {
                             lucide("clock", 15)
                             span { +"No projects yet — plan your first build." }
                         }
-                        openWorldButton(world)
-                    } else if (lead) {
-                        div("world-hero__body--row") {
-                            div("world-hero__progress-block") {
-                                div("world-stat") {
-                                    span("world-stat__count") { +"${world.totalProjects} projects · ${world.progressPercent()}%" }
-                                }
-                                progressBar(world.completedProjects, world.totalProjects, large = true)
-                            }
+                        div("world-hero__cta") {
                             openWorldButton(world)
+                            newProjectLink(world)
                         }
                     } else {
-                        div("world-stat") {
-                            span("world-stat__count") { +"${world.totalProjects} project${if (world.totalProjects == 1) "" else "s"}" }
-                            span("world-stat__pct") { +"· ${world.progressPercent()}% overall" }
+                        div("world-hero__body--row") {
+                            worldTally(world.projectTally)
+                            div("world-hero__cta") {
+                                openWorldButton(world)
+                                newProjectLink(world)
+                            }
                         }
-                        div("world-progress") {
-                            progressBar(world.completedProjects, world.totalProjects, large = true)
-                        }
-                        openWorldButton(world)
                     }
                 }
             }
@@ -243,9 +232,10 @@ private fun FlowContent.worldHero(world: World, peek: List<WorldProjectPeek>, fr
                     div("world-hero__peek-empty") { +"No active projects" }
                 } else {
                     peek.forEach { item ->
-                        div("world-peek__row") {
+                        a(href = Link.Worlds.world(world.id).project(item.id).to, classes = "world-peek__row") {
                             span("world-peek__name") { +item.name }
                             span("badge ${item.state.badgeModifier}") { +item.state.label }
+                            lucide("arrow-right", 14, false, "world-peek__go")
                         }
                     }
                 }
@@ -262,9 +252,8 @@ private fun FlowContent.worldRow(world: World) {
                 div("world-name") { +world.name }
                 div("world-meta") { +world.version.toString() }
             }
-            div("world-row__progress") {
-                progressBar(world.completedProjects, world.totalProjects, large = false)
-                span("world-row__pct") { +"${world.totalProjects} proj · ${world.progressPercent()}%" }
+            div("world-row__tally") {
+                worldTally(world.projectTally, compact = true)
             }
             span("world-row__time") { +(world.lastOpenedAt?.formatAsCompactRelative() ?: "never") }
             lucide("arrow-right", 16, false, "world-row__go")
@@ -281,6 +270,18 @@ private fun FlowContent.pinButton(world: World) {
         attributes["aria-pressed"] = world.pinned.toString()
         attributes["aria-label"] = if (world.pinned) "Unpin ${world.name}" else "Pin ${world.name}"
         lucide("star", 16, filled = world.pinned)
+    }
+}
+
+/**
+ * The nudge that took the progress bar's place. The Worlds page is a launcher, and
+ * "start another one" is what you came to do — so link straight at the project list's
+ * "pick a door" menu, which np-menu.js opens on the #new fragment.
+ */
+private fun FlowContent.newProjectLink(world: World) {
+    a(href = "${Link.Worlds.world(world.id).projects().to}#new", classes = "btn btn--secondary") {
+        lucide("plus", 15)
+        +"New project"
     }
 }
 
