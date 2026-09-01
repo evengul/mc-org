@@ -551,24 +551,76 @@ fun FlowContent.gatheringPlanSections(
                 if (group == ActivityGroup.NEEDS_ATTENTION) {
                     needsAttentionList(project, ordered, versionGaps)
                 } else {
-                    div("resource-list") {
-                        ordered.forEach { activity ->
-                            planActivityRow(
-                                project.worldId,
-                                project.id,
-                                activity,
-                                progressMap,
-                                nodeIngredients,
-                                feedsLabels,
-                                isFarmScale = activity.item.id in farmScaleIds,
-                            )
-                        }
-                    }
+                    workSection(
+                        project,
+                        ordered,
+                        progressMap,
+                        nodeIngredients,
+                        feedsLabels,
+                        farmScaleIds,
+                    )
                 }
             }
         }
 
         pendingFarmNotice(project.worldId, pendingFarms)
+    }
+}
+
+
+/**
+ * One work section, with its long tail folded away (MCO-480).
+ *
+ * The Craft section alone was 440 rows and 32,252px — two thirds of this whole resolution —
+ * while seventeen of its rows carried 90% of the material. [ActivitySectionLayout] decides the
+ * split; this only renders it, and renders both halves in the order they arrived so Smelt and
+ * Craft keep ingredients ahead of what consumes them.
+ */
+private fun FlowContent.workSection(
+    project: Project,
+    ordered: List<Activity>,
+    progressMap: Map<String, Int>,
+    nodeIngredients: Map<String, String>,
+    feedsLabels: Map<String, FeedsLabel>,
+    farmScaleIds: Set<String>,
+) {
+    val split = ActivitySectionLayout.of(ordered)
+
+    fun FlowContent.rows(activities: List<Activity>) {
+        div("resource-list") {
+            activities.forEach { activity ->
+                planActivityRow(
+                    project.worldId,
+                    project.id,
+                    activity,
+                    progressMap,
+                    nodeIngredients,
+                    feedsLabels,
+                    isFarmScale = activity.item.id in farmScaleIds,
+                )
+            }
+        }
+    }
+
+    rows(split.lead)
+    if (split.folded.isEmpty()) return
+
+    // Says what is behind the toggle in the same shape Needs attention uses: how much of the
+    // work you are already looking at, so the fold reads as "the rest is small", not "the rest
+    // is hidden".
+    p("plan-attention__lead") {
+        +"These ${split.lead.size} of ${ordered.size} are ${split.leadShareOfItems}% of the material."
+    }
+    details("plan-attention__rest") {
+        summary {
+            span("btn btn--ghost btn--sm plan-attention__toggle") {
+                span("plan-attention__toggle--closed") {
+                    +"Show ${split.folded.size} smaller ▾"
+                }
+                span("plan-attention__toggle--open") { +"Hide smaller ▴" }
+            }
+        }
+        rows(split.folded)
     }
 }
 
