@@ -19,6 +19,11 @@ data class World(
      * [DEFAULT_FARM_SCALE_THRESHOLD]; editable per world in settings.
      */
     val farmScaleThreshold: Int = DEFAULT_FARM_SCALE_THRESHOLD,
+    /**
+     * Projects split by lifecycle state (MCO-468). [completedProjects] / [totalProjects]
+     * stay for the public API's sake; this is what the Worlds page renders.
+     */
+    val projectTally: WorldProjectTally = WorldProjectTally.EMPTY,
 ) {
     companion object {
         /** One shulker box — the unit players already judge bulk in. */

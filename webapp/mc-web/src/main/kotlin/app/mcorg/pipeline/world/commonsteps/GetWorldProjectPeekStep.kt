@@ -9,6 +9,7 @@ import app.mcorg.domain.pipeline.Step
 
 /** A single project in the Worlds-page hero "active projects" peek. */
 data class WorldProjectPeek(
+    val id: Int,
     val name: String,
     val state: ProjectState
 )
@@ -23,7 +24,7 @@ data class GetWorldProjectPeekStep(val limit: Int = 3) : Step<Int, AppFailure.Da
         return DatabaseSteps.query<Int, List<WorldProjectPeek>>(
             sql = SafeSQL.select(
                 """
-                SELECT name, state
+                SELECT id, name, state
                 FROM projects
                 WHERE world_id = ? AND state IN ('ACTIVE', 'PAUSED', 'PENDING')
                 ORDER BY
@@ -41,6 +42,7 @@ data class GetWorldProjectPeekStep(val limit: Int = 3) : Step<Int, AppFailure.Da
                     while (resultSet.next()) {
                         add(
                             WorldProjectPeek(
+                                id = resultSet.getInt("id"),
                                 name = resultSet.getString("name"),
                                 state = ProjectState.valueOf(resultSet.getString("state"))
                             )

@@ -36,7 +36,8 @@ object GetPermittedWorldsStep : Step<GetPermittedWorldsInput, AppFailure.Databas
                     wm.last_opened_at,
                     w.farm_scale_threshold,
                     COALESCE(COUNT(DISTINCT p.id), 0) as total_projects,
-                    COALESCE(COUNT(DISTINCT CASE WHEN p.stage = 'COMPLETED' THEN p.id END), 0) as completed_projects
+                    COALESCE(COUNT(DISTINCT CASE WHEN p.stage = 'COMPLETED' THEN p.id END), 0) as completed_projects,
+                    ${projectTallyColumns("p")}
                 FROM world w
                 INNER JOIN world_members wm ON w.id = wm.world_id
                 LEFT JOIN projects p ON w.id = p.world_id

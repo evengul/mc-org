@@ -106,39 +106,13 @@
     line-height: 1.5;
 }
 
-/* --- Progress section --- */
+/* --- Tally section --- */
+/* Counts by lifecycle state, not a completion bar (MCO-468) — see .world-tally
+   in components/world-tally.css for the shared part/label styling. */
 
-.world-card__progress {
+.world-card__tally {
     display: flex;
-    flex-direction: column;
-    gap: var(--space-1);
-}
-
-.world-card__progress-bar {
-    position: relative;
-    height: 6px;
-    background: var(--bg-raised);
-    border-radius: 2px;
-    overflow: hidden;
-    width: 100%;
-}
-
-.world-card__progress-fill {
-    height: 100%;
-    background: var(--progress);
-    border-radius: 2px;
-    transition: width 200ms ease;
-    min-width: 0;
-}
-
-.world-card__progress-fill--complete {
-    background: var(--green);
-}
-
-.world-card__progress-label {
-    font-family: var(--font-ui);
-    font-size: var(--text-xs);
-    color: var(--text-muted);
+    align-items: center;
 }
 
 /* --- Mobile: full-width, minimum 44px tap target --- */

@@ -4,13 +4,6 @@ import app.mcorg.domain.model.world.World
 import kotlinx.html.*
 
 fun FlowContent.worldCard(world: World) {
-    val progressPercent = if (world.totalProjects > 0) {
-        (world.completedProjects.coerceAtMost(world.totalProjects) * 100) / world.totalProjects
-    } else {
-        0
-    }
-    val complete = world.completedProjects >= world.totalProjects && world.totalProjects > 0
-
     a(classes = "world-card") {
         href = "/worlds/${world.id}/projects"
 
@@ -23,24 +16,8 @@ fun FlowContent.worldCard(world: World) {
             p("world-card__description") { +world.description }
         }
 
-        div("world-card__progress") {
-            div("world-card__progress-bar") {
-                div("world-card__progress-fill${if (complete) " world-card__progress-fill--complete" else ""}") {
-                    attributes["style"] = "width: ${progressPercent}%"
-                    attributes["role"] = "progressbar"
-                    attributes["aria-label"] = "Projects completed in ${world.name}"
-                    attributes["aria-valuenow"] = world.completedProjects.toString()
-                    attributes["aria-valuemin"] = "0"
-                    attributes["aria-valuemax"] = world.totalProjects.toString()
-                }
-            }
-            span("world-card__progress-label") {
-                if (world.totalProjects == 0) {
-                    +"No projects yet"
-                } else {
-                    +"${world.completedProjects} of ${world.totalProjects} project${if (world.totalProjects == 1) "" else "s"} completed"
-                }
-            }
+        div("world-card__tally") {
+            worldTally(world.projectTally, compact = true)
         }
     }
 }

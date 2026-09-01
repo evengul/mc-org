@@ -39,7 +39,8 @@ object GetWorldStep : Step<Int, AppFailure.DatabaseError, World> {
             world.updated_at,
             world.farm_scale_threshold,
             COALESCE(COUNT(projects.id), 0) as total_projects,
-            COALESCE(SUM(CASE WHEN projects.stage = 'COMPLETED' THEN 1 ELSE 0 END), 0) as completed_projects
+            COALESCE(SUM(CASE WHEN projects.stage = 'COMPLETED' THEN 1 ELSE 0 END), 0) as completed_projects,
+            ${projectTallyColumns("projects")}
         FROM world 
         LEFT JOIN projects ON world.id = projects.world_id
         WHERE world.id = ?

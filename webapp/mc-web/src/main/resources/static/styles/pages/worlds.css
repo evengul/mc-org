@@ -24,15 +24,6 @@ svg.icon--fill  { fill: currentColor; stroke: none; }
 .btn svg.icon { margin-right: 6px; }
 .btn--icon-lead { display: inline-flex; align-items: center; }
 
-/* ── Progress bar fill (base .progress lives in components/progress.css;
-      the design wants a slim filled track, so override here page-side) ── */
-.progress    { display: block; height: 4px; background: var(--bg-base);
-               border-radius: 2px; overflow: hidden; }
-.progress--lg { height: 6px; }
-.progress__fill { height: 100%; background: var(--progress); border-radius: 2px;
-                  transition: width 200ms ease; }
-.progress__fill--complete { background: var(--green); }
-
 /* ── Form label + optional control (design-system form.css lacks these) ── */
 /* Modal labels/controls get their base treatment from components/modal.css. These are
    the extra cues from the new Worlds design that modal.css doesn't carry: a dimmed
@@ -76,7 +67,7 @@ svg.icon--fill  { fill: currentColor; stroke: none; }
 .callout__lead  { font-family: var(--font-ui); font-weight: 600; }
 
 /* ════════════════════════════ WORLD HERO ═════════════════════════════ */
-/* Wide lead card: identity + overall progress on the left, a live peek at
+/* Wide lead card: identity + the project tally on the left, a live peek at
    active projects (or first-run actions) on the right. */
 .world-hero          { display: flex; overflow: hidden;
                        background: var(--bg-surface); border: 1px solid var(--border);
@@ -105,24 +96,28 @@ svg.icon--fill  { fill: currentColor; stroke: none; }
 /* fresh has no pin, so no indent */
 .world-hero__submeta { margin-bottom: var(--space-5); }
 
-.world-stat          { display: flex; align-items: baseline; gap: var(--space-2);
-                       margin-bottom: var(--space-2); }
-.world-stat__count   { font-family: var(--font-ui); font-size: var(--text-sm);
-                       color: var(--text-primary); }
-.world-stat__pct     { font-family: var(--font-body); font-size: var(--text-xs);
-                       color: var(--text-muted); }
-.world-progress      { max-width: 280px; margin-bottom: var(--space-5); }
-/* multi-world lead hero packs progress + button on one row */
-.world-hero__body--row       { display: flex; align-items: center; gap: var(--space-4); }
-.world-hero__progress-block  { min-width: 180px; }
+/* multi-world lead hero packs the tally + actions on one row */
+.world-hero__body--row { display: flex; align-items: center; justify-content: space-between;
+                         gap: var(--space-4); flex-wrap: wrap; }
+.world-hero__cta       { display: flex; align-items: center; gap: var(--space-2); }
 
 /* right-hand active-projects peek */
 .world-peek__row     { display: flex; align-items: center; justify-content: space-between;
                        gap: var(--space-2); padding: var(--space-2) 0;
-                       border-bottom: 1px solid var(--border); }
+                       border-bottom: 1px solid var(--border);
+                       color: inherit; text-decoration: none;
+                       transition: color 120ms ease; }
 .world-peek__row:last-child { border-bottom: none; }
 .world-peek__name    { font-family: var(--font-body); font-size: var(--text-sm);
-                       color: var(--text-primary); }
+                       color: var(--text-primary); overflow: hidden;
+                       text-overflow: ellipsis; white-space: nowrap; }
+/* the arrow only surfaces on hover/focus — three of them stacked would be noise */
+.world-peek__go      { color: var(--accent); flex: none; opacity: 0;
+                       transition: opacity 120ms ease; }
+.world-peek__row:hover .world-peek__name,
+.world-peek__row:focus-visible .world-peek__name { color: var(--accent); }
+.world-peek__row:hover .world-peek__go,
+.world-peek__row:focus-visible .world-peek__go { opacity: 1; }
 .world-hero__peek-empty { font-family: var(--font-body); font-size: var(--text-sm);
                           color: var(--text-muted); }
 /* first-run: stacked actions instead of a peek */
@@ -160,10 +155,7 @@ svg.icon--fill  { fill: currentColor; stroke: none; }
 .world-row__name     { display: flex; align-items: center; gap: 6px; }
 .world-row__id .world-meta { font-size: var(--text-xs); margin-top: 2px;
                              display: flex; align-items: center; gap: 6px; }
-.world-row__progress { flex: 1; display: flex; align-items: center; gap: var(--space-3); }
-.world-row__progress .progress { flex: 1; max-width: 160px; }
-.world-row__pct      { font-family: var(--font-ui); font-size: var(--text-xs);
-                       color: var(--text-muted); white-space: nowrap; }
+.world-row__tally    { flex: 1; display: flex; align-items: center; min-width: 0; }
 .world-row__time     { font-family: var(--font-body); font-size: var(--text-xs);
                        color: var(--text-muted); width: 64px; text-align: right; flex: none; }
 .world-row__go       { color: var(--text-disabled); flex: none; }
@@ -194,10 +186,9 @@ svg.icon--fill  { fill: currentColor; stroke: none; }
     .world-hero        { flex-direction: column; }
     .world-hero__aside { width: auto; border-left: none; border-top: 1px solid var(--border); }
     /* Roster rows reflow instead of overflowing: identity takes the first line,
-       progress + time + arrow wrap onto the next so nothing is clipped off-canvas. */
+       tally + time + arrow wrap onto the next so nothing is clipped off-canvas. */
     .world-row__link     { flex-wrap: wrap; column-gap: var(--space-3); row-gap: var(--space-1); }
     .world-row__id       { width: 100%; }
-    .world-row__progress { flex: 1 1 auto; }
-    .world-row__progress .progress { max-width: none; }
+    .world-row__tally    { flex: 1 1 auto; }
     .world-row__time     { width: auto; text-align: left; }
 }
