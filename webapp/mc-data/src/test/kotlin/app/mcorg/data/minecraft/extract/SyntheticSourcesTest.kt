@@ -111,6 +111,38 @@ class SyntheticSourcesTest {
         }
     }
 
+    /**
+     * MCO-467 — the *placed* powder snow block, distinct from the bucket item. It had no source
+     * at all, so any build containing it reported "no feasible source found". Pouring empties
+     * the bucket rather than consuming it, so the bucket is the input and nothing else is.
+     */
+    @Test
+    fun `placed powder snow is poured from its bucket`() {
+        val snow = producing("minecraft:powder_snow").single()
+
+        assertEquals(SourceType.MechanicTypes.IN_WORLD_TRANSFORM, snow.type)
+        assertEquals(
+            listOf("minecraft:powder_snow_bucket"),
+            snow.requiredItems.map { it.first.id },
+        )
+    }
+
+    /**
+     * MCO-467 — 54 nether portal blocks on the YAMS import read as unobtainable. Lighting the
+     * frame costs no material of its own: the obsidian is placed blocks the schematic counts
+     * separately, and flint and steel is a tool.
+     */
+    @Test
+    fun `nether portal is lit and costs no material`() {
+        val portal = producing("minecraft:nether_portal").single()
+
+        assertEquals(SourceType.MechanicTypes.IN_WORLD_TRANSFORM, portal.type)
+        assertTrue(
+            portal.requiredItems.isEmpty(),
+            "the frame's obsidian is counted as its own blocks, and the lighter is a tool",
+        )
+    }
+
     @Test
     fun `entries naming an item the version lacks are dropped`() {
         val withoutCherry = allIds - "minecraft:stripped_cherry_log"
