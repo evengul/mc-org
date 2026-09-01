@@ -20,6 +20,10 @@
 # by hand in the worktree gets the isolation too — no script needs a flag. The
 # main checkout is deliberately left alone on ~/.m2 (as is CI, which caches it).
 #
+# That same maven.config shortens the Kotlin compile daemon's idle shutdown to
+# 900s, because the isolation below has the side effect of giving every worktree
+# its own daemon. See the comment on the writer for why.
+#
 # Runs automatically via the EnterWorktree PostToolUse hook. Manually:
 #   bash webapp/scripts/worktree-m2.sh          # this worktree
 #   bash webapp/scripts/worktree-m2.sh --all    # every existing worktree
@@ -94,12 +98,23 @@ setup_worktree() {
   # Drop links whose shared-repo target has since disappeared.
   find "$local_repo" -maxdepth 2 -type l ! -exec test -e {} \; -delete 2>/dev/null || true
 
-  # Point Maven at it. maven.config is read for any `mvn` whose project root is
-  # webapp/, which every documented command uses. NOTE: Maven 3.8 feeds this
-  # file straight to the CLI parser — a `#` comment line makes it exit 1, so
-  # this file holds nothing but the flag.
+  # Point Maven at it, and shorten the Kotlin daemon's idle life. maven.config is
+  # read for any `mvn` whose project root is webapp/, which every documented
+  # command uses. NOTE: Maven 3.8 feeds this file straight to the CLI parser — a
+  # `#` comment line makes it exit 1, so this file holds nothing but the flags.
+  #
+  # kotlin.daemon.options only works as a system property (a pom <properties>
+  # entry is ignored), and it belongs here rather than in the pom because it is a
+  # worktree problem: the isolated repo above gives each worktree a distinct
+  # compiler classpath, so each gets its OWN Kotlin daemon instead of sharing the
+  # main checkout's. At the 7200s default, the daemons of worktrees you finished
+  # with hours ago are still resident. 900s reaps them; the main checkout, which
+  # has no maven.config, keeps the default.
   mkdir -p "$mvn_dir"
-  printf -- '-Dmaven.repo.local=%s\n' "$local_repo" > "$mvn_dir/maven.config"
+  {
+    printf -- '-Dmaven.repo.local=%s\n' "$local_repo"
+    printf -- '-Dkotlin.daemon.options=autoshutdownIdleSeconds=900\n'
+  } > "$mvn_dir/maven.config"
 
   echo "worktree-m2: $worktree_root -> $local_repo (isolating $ISOLATED_GROUP_PATH)"
 }

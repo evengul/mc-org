@@ -41,6 +41,26 @@
           app fails at runtime with NoSuchMethodError. A full rebuild of all six modules
           is ~13s — faster than the `mvn clean install` it forced us into anyway.
         -->
+        <!--
+          Cap the Kotlin compile daemon's heap (MCO-477). By default the daemon inherits
+          the launching JVM's -Xmx, which on a 16 GB box is Maven's default quarter of RAM
+          (~3990m). That was harmless while every worktree shared ~/.m2 — the compiler
+          classpath was identical, so all builds reused ONE daemon. Since MCO-471 each
+          worktree resolves kotlin-compiler-embeddable from its own webapp/.m2/repository,
+          so the classpath — and with it the daemon's identity — differs per worktree and
+          each gets its own ~4 GB daemon. Four of them exhausted a 16 GB WSL2 box. 1500m
+          is ample: a six-module clean test-compile peaks near 820m committed.
+
+          NO LEADING DASH on the value. The plugin prepends one itself, so a value
+          written as "-Xmx1500m" reaches the JVM with two dashes and every build fails
+          with "Unrecognized option". (And no double dash may appear in this comment
+          either — XML forbids it, which is a Non-parseable POM, not a build error.)
+
+          The daemon's other half — how long an idle one survives — is set per worktree in
+          webapp/scripts/worktree-m2.sh, because it is only read as a system property.
+        -->
+        <kotlin.compiler.daemon.jvmArgs>Xmx1500m</kotlin.compiler.daemon.jvmArgs>
+
         <main.class>app.mcorg.ApplicationKt</main.class>
         <surefire.excludedGroups>database</surefire.excludedGroups>
 
