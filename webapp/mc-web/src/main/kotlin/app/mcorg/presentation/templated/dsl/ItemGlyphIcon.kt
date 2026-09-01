@@ -44,23 +44,6 @@ fun FlowContent.itemGlyph(
     renderGlyphSvg(classes, size, body ?: UNMAPPED_BODY, ItemGlyph.bare(itemId))
 }
 
-/**
- * Renders a glyph by name and explicit tint, bypassing id resolution. For the glyph gallery, which
- * shows combinations no single item id produces.
- */
-fun FlowContent.itemGlyphByName(
-    name: String,
-    tint: String? = null,
-    size: Int = 16,
-) {
-    val body = ItemGlyphSprites.body(name)
-    val classes = buildList {
-        add("item-glyph")
-        if (body == null) add("item-glyph--unmapped") else tint?.let { add("item-glyph--${it.replace('_', '-')}") }
-    }.joinToString(" ")
-    renderGlyphSvg(classes, size, body ?: UNMAPPED_BODY, name)
-}
-
 private fun FlowContent.renderGlyphSvg(classes: String, size: Int, body: String, label: String) {
     // Built before the unaryPlus: inside onTagContentUnsafe, `+"a" + "b"` parses as
     // unaryPlus("a").plus("b"), not as string concatenation.

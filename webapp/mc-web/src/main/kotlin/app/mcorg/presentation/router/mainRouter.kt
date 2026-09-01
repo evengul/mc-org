@@ -3,7 +3,6 @@ package app.mcorg.presentation.router
 import app.mcorg.api.apiV1Routes
 import app.mcorg.pipeline.auth.handleDeleteAccount
 import app.mcorg.presentation.handler.handleGetLanding
-import app.mcorg.presentation.handler.handleGlyphGallery
 import app.mcorg.presentation.handler.handleReadinessProbe
 import app.mcorg.presentation.handler.link.handleApproveLinkPage
 import app.mcorg.presentation.handler.link.handleGetLinkPage
@@ -52,12 +51,6 @@ fun Application.configureAppRouter() {
                 get {
                     call.handleReadinessProbe()
                 }
-            }
-            // TEMPORARY: item-glyph review page. Authenticated like any normal page — deliberately
-            // NOT added to AUTH_EXEMPT_PATHS, per the note there that new /test routes should be
-            // authenticated by default. Delete with GlyphGalleryHandler once the set is signed off.
-            get("/glyphs") {
-                call.handleGlyphGallery()
             }
         }
         route("/account") {
