@@ -177,11 +177,31 @@ jobs:
           cache-from: type=registry,ref=ghcr.io/${{ github.repository }}:buildcache
           cache-to: type=registry,ref=ghcr.io/${{ github.repository }}:buildcache,mode=max
 
+      # Pinned deliberately. The action defaults to `version: latest`, so the binary floated on
+      # every run — which is how MCO-473 arrived without this file changing: flyctl 0.4.96 broke
+      # the IP allocation `deploy` does implicitly on an app's first deploy, and previews went out
+      # with no address behind a green job. 0.4.96 is the version we have actually observed here;
+      # its one defect is worked around by the explicit allocation below, so pin to the known
+      # quantity rather than guessing at an older release.
       - name: Setup flyctl
         uses: superfly/flyctl-actions/setup-flyctl@ed8efb33836e8b2096c7fd3ba1c8afe303ebbff1 # 1.6
+        with:
+          version: 0.4.96
 
       - name: Create Fly preview app
         run: flyctl apps create mcorg-dev-${{ github.event.number }} --org mc-org || true
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+      # Do not leave this to `flyctl deploy`, which allocates on first deploy and treats a failed
+      # allocation as a warning — it exits 0 and still prints "Visit your newly deployed app at",
+      # so the job stays green over an app with no address and no DNS record at all.
+      #
+      # A shared v4 is free, is enough to serve HTTP (Fly routes it by SNI), and never touches the
+      # public-v6 path that 0.4.96 gets wrong. `|| true` because re-running a deploy on an app that
+      # already holds an IP must stay a no-op rather than a failure.
+      - name: Allocate preview IP
+        run: flyctl ips allocate-v4 --shared --yes --app mcorg-dev-${{ github.event.number }} || true
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
@@ -205,6 +225,21 @@ jobs:
             --image ghcr.io/${{ github.repository }}:pr-${{ github.event.number }} \
             --app mcorg-dev-${{ github.event.number }} \
             --config ./dev.fly.toml
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+      # The point of MCO-473: the failure mode was silent, not loud. Deploy reports success while
+      # the app is unreachable, and the bot then comments a URL that does not resolve — a green
+      # lie is worse than a red job, because it is believed. Assert the address exists before we
+      # advertise it. Not a curl of the URL: the preview is password-gated and DNS propagation is
+      # asynchronous, so that would be flaky for reasons unrelated to what we are checking.
+      - name: Verify the preview has a public address
+        run: |
+          if ! flyctl ips list --app mcorg-dev-${{ github.event.number }} | grep -q public; then
+            echo "::error::No public IP on mcorg-dev-${{ github.event.number }} — the preview URL will not resolve."
+            flyctl ips list --app mcorg-dev-${{ github.event.number }}
+            exit 1
+          fi
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
