@@ -19,7 +19,25 @@ import app.mcorg.pipeline.failure.AppFailure
  *
  * Blocking follows the same rule as every other edge ([ProjectResourceEdge.isBlocking]):
  * an operational (DONE) farm supplies now and blocks nothing; a farm still being built
- * blocks its consumers. That falls straight out of the producer's state — no special case.
+ * blocks its consumers.
+ *
+ * ## Except where something already makes the item (MCO-466)
+ *
+ * That rule read the producer's state alone, which is right until a world has *two* producers
+ * of one item. Forever world has a witch farm that has been running for months and a ghast
+ * farm still being built, both making gunpowder; judged on its own the ghast farm looked like
+ * a prerequisite, so the roadmap said the storage system was blocked for 5 gunpowder while the
+ * witch farm supplied that same gunpowder one line above. Worse, MCO-287 had already marked it
+ * `SUPPLIED` in the plan — so the roadmap and the project page disagreed about one number.
+ *
+ * The `superseded` flag is computed here rather than at either call site, for the reason the
+ * cycle-order subtraction is: two derivations of "is this a prerequisite" is exactly the bug
+ * MCO-461 was filed for, and the roadmap, the Field Log and MCO-299's prerequisite notice all
+ * read this one step.
+ *
+ * It is a flag and not a filter. The relationship is real — the ghast farm genuinely will make
+ * gunpowder — and MCO-318 requires both directions to read the same edge set, so dropping the
+ * row would make the two columns contradict each other again. It simply stops blocking.
  *
  * ## Matching is on derived demand (MCO-316)
  *
@@ -75,7 +93,20 @@ data class GetFarmSupplyEdgesStep(val worldId: Int) : Step<Unit, AppFailure.Data
                   prod.name      AS producer_name,
                   d.item_name    AS item_name,
                   d.quantity     AS quantity,
-                  prod.state     AS producer_state
+                  prod.state     AS producer_state,
+                  -- MCO-466: is something already running making this same item? If so this
+                  -- producer is a second source, not a prerequisite. Kept as a flag on the
+                  -- edge rather than a filter: the relationship is real and both directions
+                  -- must keep reading the same edge set (MCO-318) — it just is not blocking.
+                  EXISTS (
+                      SELECT 1
+                      FROM project_productions op_prod
+                      JOIN projects op ON op.id = op_prod.project_id
+                      WHERE op_prod.item_id = d.item_id
+                        AND op.world_id = pc.world_id
+                        AND op.id <> d.project_id
+                        AND op.state = ?
+                  )              AS superseded
                 FROM project_demand d
                 JOIN projects pc            ON pc.id = d.project_id
                 JOIN project_productions pp ON pp.item_id = d.item_id
@@ -100,11 +131,14 @@ data class GetFarmSupplyEdgesStep(val worldId: Int) : Step<Unit, AppFailure.Data
                         AND rg.solved_by_project_id IS NOT NULL
                   )
             """.trimIndent()),
+            // Ordinals follow the text of the whole statement, so the superseded EXISTS in the
+            // SELECT list takes 1 and everything in the WHERE clause shifts up by one.
             parameterSetter = { statement, _ ->
-                statement.setInt(1, worldId)
+                statement.setString(1, ProjectState.DONE.name)
                 statement.setInt(2, worldId)
-                statement.setString(3, ProjectState.CANCELLED.name)
-                statement.setString(4, ProjectState.ARCHIVED.name)
+                statement.setInt(3, worldId)
+                statement.setString(4, ProjectState.CANCELLED.name)
+                statement.setString(5, ProjectState.ARCHIVED.name)
             },
             resultMapper = { resultSet ->
                 buildList {
@@ -119,6 +153,7 @@ data class GetFarmSupplyEdgesStep(val worldId: Int) : Step<Unit, AppFailure.Data
                                 itemName = resultSet.getString("item_name"),
                                 producerState = ProjectState.valueOf(resultSet.getString("producer_state")),
                                 quantity = resultSet.getLong("quantity"),
+                                supersededBySupplier = resultSet.getBoolean("superseded"),
                             )
                         )
                     }
