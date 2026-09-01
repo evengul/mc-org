@@ -249,3 +249,48 @@
         width: 100%;
     }
 }
+
+/* --- Version change preflight (MCO-157) --- */
+
+.version-impact:empty {
+    display: none;
+}
+
+.version-impact > * + * {
+    margin-top: var(--space-3);
+}
+
+.version-impact__project + .version-impact__project {
+    margin-top: var(--space-3);
+}
+
+.version-impact__project .section-label {
+    display: block;
+    margin-bottom: var(--space-1);
+}
+
+.version-impact__items {
+    margin: 0;
+    padding-left: var(--space-4);
+    list-style: disc;
+}
+
+.version-impact__items li {
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    color: var(--text-primary);
+}
+
+.version-impact__item-name {
+    font-family: var(--font-ui);
+}
+
+.version-impact__actions {
+    display: flex;
+    justify-content: flex-end;
+}
+
+/* The current-version gap notice sits between two settings forms; give it its own rhythm. */
+#world-version-gap-notice {
+    margin-bottom: var(--space-4);
+}

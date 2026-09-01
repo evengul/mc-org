@@ -8,6 +8,7 @@ import app.mcorg.pipeline.project.commonsteps.GetProjectByIdStep
 import app.mcorg.pipeline.project.commonsteps.GetViewPreferenceInput
 import app.mcorg.pipeline.project.commonsteps.GetViewPreferenceStep
 import app.mcorg.engine.plan.PlanOverrides
+import app.mcorg.pipeline.world.settings.general.versionGapsForPlan
 import app.mcorg.pipeline.resources.GatheringPlanInput
 import app.mcorg.domain.model.world.World
 import app.mcorg.pipeline.resources.GetFarmScaleThresholdStep
@@ -127,6 +128,8 @@ suspend fun ApplicationCall.handleGetProject() {
     val drillNodeIngredients = if (drillTarget != null && plan != null) buildNodeIngredients(plan) else emptyMap()
     val drillOverrides = if (drillTarget != null) GetPlanOverridesStep.process(projectId).getOrNull() ?: PlanOverrides.NONE else PlanOverrides.NONE
 
+    val versionGaps = versionGapsForPlan(projectId, plan)
+
     respondHtml(
         projectDetailPage(
             user, project, worldName, resources, tasks, lens,
@@ -138,6 +141,7 @@ suspend fun ApplicationCall.handleGetProject() {
             drillOverrides = drillOverrides, drillGraph = drillGraph,
             farmScaleThreshold = farmScaleThreshold,
             farmSuggestions = farmSuggestions,
+            versionGaps = versionGaps,
         )
     )
 }

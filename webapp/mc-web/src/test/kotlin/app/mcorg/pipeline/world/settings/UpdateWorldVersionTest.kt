@@ -13,6 +13,16 @@ import org.junit.jupiter.params.provider.ValueSource
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
+/**
+ * MCO-157 changed what this step means. It used to ask only "does this string parse as a Minecraft
+ * version", which accepted any well-formed string — including one this instance has never ingested,
+ * leaving the world pointing at an empty item catalog with nothing to say why. It now accepts only
+ * a version we actually hold data for.
+ *
+ * With no database these tests run against [MinecraftVersion.supportedVersions_backup], the same
+ * fallback the step itself lands on, which is why the accepted set here is 1.20.0 / 1.21.0 / 1.21.4
+ * rather than a list of everything Mojang has shipped.
+ */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class UpdateWorldVersionTest {
 
@@ -22,143 +32,114 @@ class UpdateWorldVersionTest {
         return builder.build()
     }
 
-    @Test
-    fun `ValidateWorldVersionInputStep should succeed with valid release version`() = runBlocking {
-        // Given
-        val parameters = createParameters("version" to "1.20.1")
+    @ParameterizedTest
+    @ValueSource(strings = ["1.20.0", "1.21.0", "1.21.4"])
+    fun `an ingested release is accepted`(version: String) {
+        runBlocking {
+            val result = TestUtils.executeAndAssertSuccess(
+                ValidateWorldVersionInputStep,
+                createParameters("version" to version),
+            )
 
-        // When
-        val result = TestUtils.executeAndAssertSuccess(
-            ValidateWorldVersionInputStep,
-            parameters
-        )
-
-        // Then
-        assertEquals(MinecraftVersion.fromString("1.20.1"), result)
+            assertEquals(MinecraftVersion.fromString(version), result)
+        }
     }
 
     @Test
-    fun `ValidateWorldVersionInputStep should succeed with valid snapshot version`() = runBlocking {
-        // Given
-        val parameters = createParameters("version" to "23w31a")
+    fun `surrounding whitespace is trimmed rather than failing the match`() {
+        runBlocking {
+            val result = TestUtils.executeAndAssertSuccess(
+                ValidateWorldVersionInputStep,
+                createParameters("version" to "  1.21.4  "),
+            )
 
-        // When
-        val result = TestUtils.executeAndAssertSuccess(
-            ValidateWorldVersionInputStep,
-            parameters
-        )
-
-        // Then
-        assertEquals(MinecraftVersion.fromString("23w31a"), result)
-    }
-
-    @Test
-    fun `ValidateWorldVersionInputStep should trim whitespace from version`() = runBlocking {
-        // Given
-        val parameters = createParameters("version" to "  1.19.4  ")
-
-        // When
-        val result = TestUtils.executeAndAssertSuccess(
-            ValidateWorldVersionInputStep,
-            parameters
-        )
-
-        // Then
-        assertEquals(MinecraftVersion.fromString("1.19.4"), result)
-    }
-
-    @Test
-    fun `ValidateWorldVersionInputStep should fail with missing version`() = runBlocking {
-        // Given
-        val parameters = createParameters()
-
-        // When
-        val result = TestUtils.executeAndAssertFailure(
-            ValidateWorldVersionInputStep,
-            parameters
-        )
-
-        // Then
-        assertTrue(result.errors.any { it is ValidationFailure.MissingParameter && it.parameterName == "version" })
-    }
-
-    @Test
-    fun `ValidateWorldVersionInputStep should fail with empty version`() = runBlocking {
-        // Given
-        val parameters = createParameters("version" to "")
-
-        // When
-        val result = TestUtils.executeAndAssertFailure(
-            ValidateWorldVersionInputStep,
-            parameters
-        )
-
-        // Then
-        assertTrue(result.errors.isNotEmpty())
+            assertEquals(MinecraftVersion.fromString("1.21.4"), result)
+        }
     }
 
     @ParameterizedTest
-    @ValueSource(strings = [
-        "invalid.version",
-        "not-a-version",
-        "1.2.3.4",
-        "snapshot-invalid",
-        "99w99z"
-    ]) // Invalid version formats
-    fun `ValidateWorldVersionInputStep should fail with invalid version formats`(invalidVersion: String) = runBlocking {
-        // Given
-        val parameters = createParameters("version" to invalidVersion)
+    @ValueSource(strings = ["1.19.4", "1.17.1", "1.99.0"])
+    fun `a well-formed release we have not ingested is rejected`(version: String) {
+        // The whole point of the change: these parse perfectly and are still not usable, because
+        // there are no items, recipes or loot tables behind them.
+        runBlocking {
+            val result = TestUtils.executeAndAssertFailure(
+                ValidateWorldVersionInputStep,
+                createParameters("version" to version),
+            )
 
-        // When
-        val result = TestUtils.executeAndAssertFailure(
-            ValidateWorldVersionInputStep,
-            parameters
-        )
-
-        // Then
-        assertTrue(result.errors.any {
-            it is ValidationFailure.CustomValidation && it.message.contains("Invalid Minecraft version format")
-        })
+            assertTrue(
+                result.errors.any { it is ValidationFailure.InvalidValue && it.parameterName == "version" },
+                "expected an InvalidValue for an uningested version, got ${result.errors}",
+            )
+        }
     }
 
     @ParameterizedTest
-    @ValueSource(strings = [
-        "1.20.1",
-        "1.19.4",
-        "1.18.2",
-        "1.17.1",
-        "23w31a",
-        "23w07a",
-        "22w46a"
-    ]) // Valid version formats
-    fun `ValidateWorldVersionInputStep should succeed with valid version formats`(validVersion: String) = runBlocking {
-        // Given
-        val parameters = createParameters("version" to validVersion)
+    @ValueSource(strings = ["23w31a", "23w07a", "22w46a"])
+    fun `a snapshot is rejected because worlds plan against ingested releases`(version: String) {
+        // Ingestion produces releases only, so a snapshot could never have a catalog to plan
+        // against — it is now refused at the door rather than accepted and then found empty.
+        runBlocking {
+            val result = TestUtils.executeAndAssertFailure(
+                ValidateWorldVersionInputStep,
+                createParameters("version" to version),
+            )
 
-        // When
-        val result = TestUtils.executeAndAssertSuccess(
-            ValidateWorldVersionInputStep,
-            parameters
-        )
+            assertTrue(
+                result.errors.any { it is ValidationFailure.InvalidValue && it.parameterName == "version" },
+                "expected an InvalidValue for a snapshot, got ${result.errors}",
+            )
+        }
+    }
 
-        // Then
-        assertEquals(MinecraftVersion.fromString(validVersion), result)
+    @ParameterizedTest
+    @ValueSource(strings = ["invalid.version", "not-a-version", "1.2.3.4", "snapshot-invalid", "99w99z", "null"])
+    fun `a malformed version is rejected`(version: String) {
+        runBlocking {
+            val result = TestUtils.executeAndAssertFailure(
+                ValidateWorldVersionInputStep,
+                createParameters("version" to version),
+            )
+
+            assertTrue(
+                result.errors.any { it is ValidationFailure.InvalidValue && it.parameterName == "version" },
+                "expected an InvalidValue for a malformed version, got ${result.errors}",
+            )
+        }
     }
 
     @Test
-    fun `ValidateWorldVersionInputStep should fail gracefully with null-like inputs`() = runBlocking {
-        // Given
-        val parameters = createParameters("version" to "null")
+    fun `a missing version is a missing parameter, not an invalid one`() {
+        runBlocking {
+            val result = TestUtils.executeAndAssertFailure(
+                ValidateWorldVersionInputStep,
+                createParameters(),
+            )
 
-        // When
-        val result = TestUtils.executeAndAssertFailure(
-            ValidateWorldVersionInputStep,
-            parameters
-        )
+            assertTrue(
+                result.errors.any {
+                    it is ValidationFailure.MissingParameter && it.parameterName == "version"
+                },
+                "expected a MissingParameter, got ${result.errors}",
+            )
+        }
+    }
 
-        // Then
-        assertTrue(result.errors.any {
-            it is ValidationFailure.CustomValidation && it.message.contains("Invalid Minecraft version format")
-        })
+    @Test
+    fun `an empty version is a missing parameter`() {
+        runBlocking {
+            val result = TestUtils.executeAndAssertFailure(
+                ValidateWorldVersionInputStep,
+                createParameters("version" to ""),
+            )
+
+            assertTrue(
+                result.errors.any {
+                    it is ValidationFailure.MissingParameter && it.parameterName == "version"
+                },
+                "expected a MissingParameter, got ${result.errors}",
+            )
+        }
     }
 }

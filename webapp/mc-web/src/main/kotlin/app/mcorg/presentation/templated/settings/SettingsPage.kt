@@ -7,6 +7,7 @@ import app.mcorg.domain.model.user.TokenProfile
 import app.mcorg.domain.model.user.WorldMember
 import app.mcorg.domain.model.world.World
 import app.mcorg.pipeline.world.invitations.CountWorldInvitationsResult
+import app.mcorg.pipeline.world.settings.general.WorldVersionImpact
 import app.mcorg.pipeline.world.invitations.InvitationStatusFilter
 import app.mcorg.presentation.templated.dsl.appHeader
 import app.mcorg.presentation.templated.dsl.container
@@ -27,6 +28,11 @@ data class SettingsPageData(
     val statusFilter: InvitationStatusFilter,
     val discordConfigured: Boolean,
     val discordConnections: List<DiscordConnection>,
+    /**
+     * Stored item ids the world's *current* version has no catalog entry for (MCO-157). Null when
+     * the lookup failed — the settings page is worth rendering without the notice.
+     */
+    val currentVersionImpact: WorldVersionImpact? = null,
 )
 
 fun worldSettingsPage(user: TokenProfile, data: SettingsPageData): String = pageShell(
@@ -38,6 +44,7 @@ fun worldSettingsPage(user: TokenProfile, data: SettingsPageData): String = page
         "/static/styles/components/avatar.css",
         "/static/styles/components/person-row.css",
         "/static/styles/components/badge.css",
+        "/static/styles/components/callout.css",
         "/static/styles/pages/settings-page.css",
     )
 ) {

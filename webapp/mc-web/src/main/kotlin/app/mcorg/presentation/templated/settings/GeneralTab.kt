@@ -2,10 +2,12 @@ package app.mcorg.presentation.templated.settings
 
 import app.mcorg.domain.model.minecraft.MinecraftVersion
 import app.mcorg.domain.model.world.World
+import app.mcorg.pipeline.world.settings.general.WorldVersionImpact
 import app.mcorg.presentation.*
 import app.mcorg.presentation.templated.dsl.ALERT_CONTAINER_ID
 import app.mcorg.presentation.templated.dsl.section
 import kotlinx.html.*
+import kotlinx.html.stream.createHTML
 
 fun FORM.worldNameForm(world: World) {
     id = "world-name-form"
@@ -63,10 +65,20 @@ fun FORM.worldDescriptionForm(world: World) {
     }
 }
 
-@Suppress("UNUSED_PARAMETER")
+const val VERSION_IMPACT_ID = "world-version-impact"
+
+/**
+ * MCO-157: the Game Version selector, and the preflight that stands between it and the switch.
+ *
+ * Changing the select does *not* switch the version — it asks the server what switching would
+ * cost, and renders the answer into [VERSION_IMPACT_ID]. Only the confirm button in that fragment
+ * PATCHes. The two-step shape is the whole point: a world's stored item ids are the one thing a
+ * version change can strand (see `WorldVersionImpact`), and the moment to see that list is before
+ * the change, not after.
+ */
 fun FORM.worldVersionForm(world: World, supportedVersions: List<MinecraftVersion.Release>) {
     id = "world-version-form"
-    classes += "settings-form settings-form--disabled"
+    classes += "settings-form"
     encType = FormEncType.applicationXWwwFormUrlEncoded
 
     label {
@@ -76,15 +88,108 @@ fun FORM.worldVersionForm(world: World, supportedVersions: List<MinecraftVersion
     select(classes = "form-control") {
         name = "version"
         id = "world-version-select"
-        disabled = true
-        option {
-            value = world.version.toString()
-            selected = true
-            +"${world.version}"
+        hxGet("/worlds/${world.id}/settings/version/impact")
+        hxTarget("#$VERSION_IMPACT_ID")
+        hxSwap("innerHTML")
+        hxTrigger("change")
+
+        // Only versions this instance has ingested: anything else has an empty item catalog,
+        // which the endpoint rejects for the same reason.
+        supportedVersions.forEach { version ->
+            option {
+                value = version.toString()
+                selected = version.toString() == world.version.toString()
+                +version.toString()
+            }
         }
     }
     p("settings-form__helper subtle") {
-        +"Upgrade possibility coming soon — switching versions safely requires migrating projects, recipes, and resource graphs."
+        +"Pick a version to see what changes before switching. Projects, plans and progress are kept."
+    }
+    div { id = VERSION_IMPACT_ID }
+}
+
+/**
+ * The preflight answer, swapped in under the selector.
+ *
+ * A null [impact] means the selection is the version the world is already on — say nothing and
+ * offer nothing, so re-picking the current version quietly clears a previous preview.
+ */
+fun versionImpactFragment(worldId: Int, impact: WorldVersionImpact?): String =
+    createHTML().div("version-impact") {
+        if (impact != null) versionImpactBody(worldId, impact)
+    }
+
+private fun FlowContent.versionImpactBody(worldId: Int, impact: WorldVersionImpact) {
+    if (impact.isEmpty) {
+        div("callout callout--success") {
+            span("callout__icon") { +"✓" }
+            div("callout__body") {
+                +"Nothing in this world is lost by switching to ${impact.version}."
+            }
+        }
+    } else {
+        div("callout") {
+            span("callout__icon") { +"!" }
+            div("callout__body") {
+                p {
+                    +"Minecraft ${impact.version} does not have "
+                    +countPhrase(impact.itemCount, "item")
+                    +" this world still refers to, across "
+                    +countPhrase(impact.projectCount, "project")
+                    +". They are kept, not deleted — the plan will show them as missing so you can swap them."
+                }
+                impact.projects.forEach { project ->
+                    div("version-impact__project") {
+                        span("section-label") { +project.projectName }
+                        ul("version-impact__items") {
+                            project.items.forEach { item ->
+                                li {
+                                    span("version-impact__item-name") { +item.name }
+                                    span("subtle") {
+                                        +" — ${item.usages.joinToString(", ") { it.label }}"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    div("version-impact__actions") {
+        button(classes = "btn btn--primary btn--sm") {
+            type = ButtonType.button
+            hxPatch("/worlds/$worldId/settings/version")
+            // The select is the single source for which version is being switched to, so the
+            // button cannot drift from the preview the user just read.
+            hxInclude("#world-version-select")
+            hxTarget("#$ALERT_CONTAINER_ID")
+            hxSwap("afterbegin")
+            +"Switch to ${impact.version}"
+        }
+    }
+}
+
+private fun countPhrase(count: Int, noun: String): String =
+    if (count == 1) "1 $noun" else "$count ${noun}s"
+
+/**
+ * The same gap list, shown unprompted when the world's *current* version already strands ids —
+ * a world can arrive here by a switch made earlier, and the notice should not depend on having
+ * just used the selector.
+ */
+fun FlowContent.currentVersionGapNotice(impact: WorldVersionImpact) {
+    if (impact.isEmpty) return
+    div("callout") {
+        id = "world-version-gap-notice"
+        span("callout__icon") { +"!" }
+        div("callout__body") {
+            +"This world refers to "
+            +countPhrase(impact.itemCount, "item")
+            +" that Minecraft ${impact.version} does not have. They show as missing in the affected plans."
+        }
     }
 }
 
@@ -137,6 +242,7 @@ fun DIV.generalSection(data: SettingsPageData) {
     ) {
         form { worldNameForm(data.world) }
         form { worldDescriptionForm(data.world) }
+        data.currentVersionImpact?.let { currentVersionGapNotice(it) }
         form { worldVersionForm(data.world, data.supportedVersions) }
         form { farmScaleThresholdForm(data.world) }
     }

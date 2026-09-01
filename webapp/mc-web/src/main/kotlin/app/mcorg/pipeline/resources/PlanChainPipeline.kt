@@ -25,6 +25,7 @@ import app.mcorg.presentation.templated.dsl.pages.pickerNotFoundFragment
 import app.mcorg.presentation.utils.getProjectId
 import app.mcorg.domain.model.user.Role
 import app.mcorg.domain.model.world.World
+import app.mcorg.pipeline.world.settings.general.versionGapsForPlan
 import app.mcorg.pipeline.world.ValidateWorldMemberRole
 import app.mcorg.presentation.utils.getUser
 import app.mcorg.presentation.utils.getWorldId
@@ -381,7 +382,7 @@ private suspend fun ApplicationCall.respondListRerender(worldId: Int, projectId:
     respondHtml(
         gatheringPlannerFragment(
             project, resources, tasks, plan, "list", progressMap, prerequisiteFarms, farmScaleThreshold,
-            farmSuggestions, isAdmin,
+            farmSuggestions, versionGapsForPlan(projectId, plan), isAdmin,
         )
     )
 }

@@ -17,6 +17,7 @@ import app.mcorg.pipeline.task.SearchTasksInput
 import app.mcorg.pipeline.task.SearchTasksStep
 import app.mcorg.presentation.handler.defaultHandleError
 import app.mcorg.presentation.templated.dsl.pages.gatheringPlannerFragment
+import app.mcorg.pipeline.world.settings.general.versionGapsForPlan
 import app.mcorg.pipeline.world.ValidateWorldMemberRole
 import app.mcorg.presentation.utils.getProjectId
 import app.mcorg.presentation.utils.getUser
@@ -96,7 +97,7 @@ suspend fun ApplicationCall.handleGetDetailContent() {
     respondHtml(
         gatheringPlannerFragment(
             project, resources, tasks, plan, lens, progressMap, prerequisiteFarms, farmScaleThreshold,
-            farmSuggestions, isAdmin,
+            farmSuggestions, versionGapsForPlan(projectId, plan), isAdmin,
         )
     )
 }
