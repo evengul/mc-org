@@ -6,6 +6,9 @@ import app.mcorg.domain.Production
 import app.mcorg.domain.Test
 import app.mcorg.pipeline.Result
 
+/** Port Netty binds when `PORT` is unset. Matches Dockerfile `EXPOSE` and fly.toml `internal_port`. */
+const val DEFAULT_PORT = 8080
+
 /**
  * The application's configuration, resolved once from the environment (MCO-332).
  *
@@ -19,6 +22,7 @@ data class Config(
     val dbUsername: String,
     val dbPassword: String,
     val env: Env,
+    val port: Int,
     val microsoftClientId: String,
     val microsoftClientSecret: String,
     val skipMicrosoftSignIn: Boolean,
@@ -112,6 +116,20 @@ internal fun readConfig(getenv: (String) -> String? = System::getenv): ConfigLoa
         }
     }
 
+    // The HTTP port Netty binds (MCO-476). Defaults to 8080 — what the Dockerfile's EXPOSE and both
+    // fly.toml `internal_port` values assume, so production sets nothing. Worktrees set it so two
+    // `run.sh` invocations can hold a server at once; see webapp/scripts/worktree-port.sh.
+    //
+    // An unparseable value is an error rather than a silent fall back to 8080: outside LOCAL that
+    // would bind a port the platform is not routing to, which reads as "the deploy is down".
+    val rawPort = getenv("PORT")
+    val port: Int = if (rawPort.isNullOrBlank()) DEFAULT_PORT else {
+        rawPort.trim().toIntOrNull()?.takeIf { it in 1..65535 } ?: run {
+            errors.add("PORT must be a number between 1 and 65535 (got '$rawPort')")
+            DEFAULT_PORT
+        }
+    }
+
     val dbUrl = required("DB_URL", "jdbc:postgresql://localhost:5432/postgres")
     val dbUsername = required("DB_USER", "postgres")
     val dbPassword = required("DB_PASSWORD", "supersecret")
@@ -157,6 +175,7 @@ internal fun readConfig(getenv: (String) -> String? = System::getenv): ConfigLoa
             dbUsername = dbUsername,
             dbPassword = dbPassword,
             env = env,
+            port = port,
             microsoftClientId = microsoftClientId,
             microsoftClientSecret = microsoftClientSecret,
             skipMicrosoftSignIn = skipMicrosoftSignIn,

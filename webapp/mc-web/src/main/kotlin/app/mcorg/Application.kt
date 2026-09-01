@@ -28,7 +28,9 @@ private fun defaultServer(module: Application.() -> Unit) =
         environment = applicationEnvironment { },
         configure = {
             connector {
-                port = 8080
+                // PORT, defaulting to 8080 (MCO-476). Set per worktree so several dev servers can
+                // run at once; unset everywhere else, which is what Docker and Fly expect.
+                port = AppConfig.port
             }
         },
         module

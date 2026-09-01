@@ -26,6 +26,14 @@ object AppConfig {
 
     var env: Env = Local
 
+    // The HTTP port Netty binds. 8080 unless PORT says otherwise — worktrees set it so several dev
+    // servers can run at once (MCO-476). Everything that needs a LOCAL absolute URL goes through
+    // [localBaseUrl] rather than reading this, so the two OAuth redirect_uri strings cannot drift.
+    var port: Int = DEFAULT_PORT
+
+    /** Absolute base URL of this instance in LOCAL, where there is no [appHost]. Follows [port]. */
+    val localBaseUrl: String get() = "http://localhost:$port"
+
     var microsoftClientId: String = ""
     var microsoftClientSecret: String = ""
 
@@ -90,6 +98,7 @@ object AppConfig {
         dbUsername = config.dbUsername
         dbPassword = config.dbPassword
         env = config.env
+        port = config.port
         microsoftClientId = config.microsoftClientId
         microsoftClientSecret = config.microsoftClientSecret
         skipMicrosoftSignIn = config.skipMicrosoftSignIn

@@ -18,9 +18,14 @@ is verified when you have *seen* the new behaviour, not when tests pass.
 
 ## 2. Start it (skip if already up)
 
+A worktree runs on its **own port**, not 8080 (MCO-476) — read it from the
+`PORT` line in this worktree's `webapp/local.env`; the main checkout has no
+such line and uses 8080. `run.sh` prints the URL on startup.
+
 ```bash
-ss -tlnp | grep :8080 || (./webapp/scripts/run.sh > /tmp/seam-run.log 2>&1 &)
-sleep 15 && curl -s -o /dev/null -w '%{http_code}' localhost:8080
+PORT=$(grep -E '^PORT=' webapp/local.env | cut -d= -f2 || true); PORT=${PORT:-8080}
+ss -tlnp | grep ":$PORT" || (./webapp/scripts/run.sh > /tmp/seam-run.log 2>&1 &)
+sleep 15 && curl -s -o /dev/null -w '%{http_code}' localhost:$PORT
 ```
 
 The default `--env local` **skips Microsoft sign-in** — the sign-in page
@@ -31,7 +36,7 @@ authenticate without real OAuth.
 
 Use the `/playwright` skill:
 
-1. Open `localhost:8080`, sign in via the demo sign-in.
+1. Open `localhost:$PORT`, sign in via the demo sign-in.
 2. Navigate to the page the change affects (URL scheme: `/worlds/:worldId/...`).
 3. Exercise the actual interaction — submit the form, toggle the toggle,
    trigger the HTMX swap. Verify the DOM updated (fragment landed in the
@@ -39,7 +44,7 @@ Use the `/playwright` skill:
 4. For UI changes, screenshot at 375 and 1440 widths.
 
 For backend-only changes with no page to click: hit the endpoint with
-`curl -s localhost:8080/...` (responses are HTML fragments — check the
+`curl -s localhost:$PORT/...` (responses are HTML fragments — check the
 markup, and remember auth is cookie-based, so unauthenticated curl gets a
 redirect; verifying through the browser flow is usually easier).
 

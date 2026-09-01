@@ -30,6 +30,7 @@ Legend: **S** = secret (never in a committed file; Fly secret or GitHub secret).
 | Variable | S | LOCAL | TEST | PRODUCTION | Default | Set in |
 | --- | --- | --- | --- | --- | --- | --- |
 | `ENV` | | optional | required | required | `LOCAL` when absent | `local.env`, `test.env`, `fly.toml`, `dev.fly.toml`, `ingest-machine.sh`, `prod.yml` |
+| `PORT` | | optional | optional | optional | `8080` | `local.env` (per-worktree, allocated by `worktree-port.sh`) — unset everywhere else⁹ |
 | `DB_URL` | | required | required | required | — | `local.env` (per-worktree), `test.env`, `fly.toml`, GitHub `production` var |
 | `DB_USER` | | required | required | required | — | as `DB_URL` |
 | `DB_PASSWORD` | S | required | required | required | — | `local.env`, `test.env`, Fly secret, GitHub secret |
@@ -92,6 +93,13 @@ sits behind `PREVIEW_PASSWORD` Basic Auth, and the fork is torn down with the ap
 sets the root level (mostly third-party noise); `APP_LOG_LEVEL` sets `app.mcorg` separately,
 because that is the one that turns on `ValidationSteps`' raw-parameter-value logging. Neither
 should be below `INFO` in production — see MCO-337 and the comments in `logback.xml`.
+
+⁹ Deliberately unset outside a worktree (MCO-476). The Dockerfile's `EXPOSE`, both `fly.toml`
+`internal_port` values, the docs and the `verify` skill all assume 8080, and the Microsoft OAuth
+`redirect_uri` registered in Azure is `http://localhost:8080/...` — so a worktree on another port
+can only sign in through the demo bypass, which is the normal local path anyway. An unparseable
+value is an error rather than a silent fall back to 8080: outside LOCAL that would bind a port the
+platform is not routing to, which reads as "the deploy is down".
 
 ## Production database URLs: pooler vs direct
 
