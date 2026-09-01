@@ -866,3 +866,94 @@
 .plan-attention__rest:not([open]) .plan-attention__toggle--open {
     display: none;
 }
+
+/* ==========================================================================
+   GROUPED RESOURCE LIST + FOLDED TAIL (MCO-478)
+   555 flat rows made this page 25,000px, 84% of it single-item trivia.
+   ========================================================================== */
+
+/* Same specificity as the zebra rules above, declared later, so it wins the tie
+   and the heading never gets striped like a data row. */
+.plan-resource-table tbody tr.plan-resource-table__group {
+    background: var(--bg-raised);
+    border-bottom: 1px solid var(--border-strong);
+}
+
+/* Deliberately no `display: flex` here — that would take the cell out of the table
+   layout, colspan would stop applying, and the band would end at the first column. */
+.plan-resource-table__group th {
+    padding: var(--space-2) var(--space-3);
+    text-align: left;
+    font-weight: 500;
+    background: var(--bg-raised);
+}
+
+.plan-resource-table__group-name {
+    font-family: var(--font-ui);
+    font-size: var(--text-label);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-primary);
+}
+
+.plan-resource-table__group-count {
+    font-family: var(--font-ui);
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    float: right;
+}
+
+.plan-resource-fold {
+    margin-top: var(--space-3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--bg-surface);
+}
+
+.plan-resource-fold__summary {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-3);
+    padding: var(--space-3);
+    cursor: pointer;
+    list-style: none;
+    font-family: var(--font-ui);
+    font-size: var(--text-sm);
+}
+
+.plan-resource-fold__summary::-webkit-details-marker {
+    display: none;
+}
+
+/* A word, not a rotated triangle alone — open/closed has to be readable without
+   relying on telling two similar glyph orientations apart. */
+.plan-resource-fold__summary::after {
+    content: "Show";
+    font-size: var(--text-xs);
+    color: var(--accent);
+    white-space: nowrap;
+}
+
+.plan-resource-fold[open] .plan-resource-fold__summary::after {
+    content: "Hide";
+}
+
+.plan-resource-fold__label {
+    color: var(--text-primary);
+}
+
+.plan-resource-fold__note {
+    color: var(--text-muted);
+    font-size: var(--text-xs);
+    font-variant-numeric: tabular-nums;
+    margin-left: auto;
+}
+
+.plan-resource-table--folded {
+    margin-top: 0;
+    border: none;
+    border-top: 1px solid var(--border);
+    border-radius: 0;
+}

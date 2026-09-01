@@ -17,6 +17,7 @@ import app.mcorg.pipeline.resources.FarmScaleDemand
 import app.mcorg.pipeline.resources.FarmScaleDemands
 import app.mcorg.pipeline.project.SELECTED_DESIGN_FIELD
 import app.mcorg.pipeline.resources.FarmSuggestion
+import app.mcorg.presentation.templated.dsl.formatPlainCount
 import app.mcorg.presentation.hxDelete
 import app.mcorg.presentation.hxDeleteWithConfirm
 import app.mcorg.presentation.hxGet
@@ -43,6 +44,10 @@ import app.mcorg.presentation.templated.dsl.projectStateField
 import app.mcorg.presentation.templated.dsl.resourceSearch
 import app.mcorg.presentation.templated.dsl.tabStrip
 import app.mcorg.presentation.templated.dsl.taskList
+import kotlinx.html.tbody
+import kotlinx.html.summary
+import kotlinx.html.details
+import kotlinx.html.TABLE
 import kotlinx.html.*
 import kotlinx.html.stream.createHTML
 import app.mcorg.engine.plan.TargetTree
@@ -101,6 +106,10 @@ fun projectDetailPage(
     )
 ) {
     appHeader(
+        // Without this the mobile header falls back to "Seam" — and since MCO-474 made that
+        // name the only way back out of a project on a phone, it was a link labelled with the
+        // product name that went to a world.
+        worldName = worldName,
         worldId = project.worldId,
         projectId = project.id,
         user = user,
@@ -405,7 +414,7 @@ private fun FlowContent.listLensContent(
             }
 
             // Resource table + ignored section — always rendered as HTMX swap target
-            planResourcesArea(project.worldId, project.id, resources)
+            planResourcesArea(project.worldId, project.id, resources, plan)
 
             // Schematic upload modal
             resourceSchematicModal(project.worldId, project.id, resources.count { it.required > 0 && !it.ignored })
@@ -1329,74 +1338,169 @@ fun TR.ignoredResourceRow(worldId: Int, projectId: Int, item: ResourceGatheringI
  * The plan-view resource table. Rendered both inline and as the HTMX swap target for
  * the schematic-upload flow (`outerHTML` swap of `#plan-resource-table`).
  */
-fun FlowContent.planResourceTable(worldId: Int, projectId: Int, resources: List<ResourceGatheringItem>) {
-    val filteredResources = resources.filter { it.required > 0 && !it.ignored }
+/**
+ * The resource table, grouped by how you get each item and with its single-item tail folded
+ * away (MCO-478). See [ResourceListLayout] for the arithmetic and why the thresholds are what
+ * they are.
+ *
+ * One `<table>` with a `<tbody>` per group, rather than a table per group, so the columns stay
+ * aligned down the whole list.
+ */
+fun FlowContent.planResourceTable(
+    worldId: Int,
+    projectId: Int,
+    resources: List<ResourceGatheringItem>,
+    plan: GatheringPlan? = null,
+) {
+    val layout = ResourceListLayout.of(resources, plan)
     table("data-table plan-resource-table") {
         id = "plan-resource-table"
-        if (filteredResources.isNotEmpty()) {
-            thead {
+        if (layout.visibleCount > 0) planResourceTableHead()
+        planResourceGroups(worldId, projectId, layout)
+    }
+    planFoldedTail(worldId, projectId, layout)
+}
+
+/** Renders the full plan-view resource table as a standalone HTML fragment (HTMX swap response). */
+fun planResourceTableFragment(
+    worldId: Int,
+    projectId: Int,
+    resources: List<ResourceGatheringItem>,
+    plan: GatheringPlan? = null,
+): String = createHTML().div {
+    val layout = ResourceListLayout.of(resources, plan)
+    table("data-table plan-resource-table") {
+        id = "plan-resource-table"
+        if (layout.visibleCount > 0) planResourceTableHead()
+        planResourceGroups(worldId, projectId, layout)
+    }
+    planFoldedTail(worldId, projectId, layout)
+}
+
+private fun TABLE.planResourceTableHead() {
+    thead {
+        tr {
+            th { classes = setOf("plan-resource-table__col-status") }
+            th { classes = setOf("plan-resource-table__col-item"); +"Item" }
+            th { classes = setOf("plan-resource-table__col-qty"); +"Qty" }
+            th { classes = setOf("plan-resource-table__col-action") }
+        }
+    }
+}
+
+/**
+ * A `<tbody>` per group, each with a header row naming it.
+ *
+ * `#plan-resource-table-body` — which plan-view.js appends a newly added resource to — lands on
+ * the "not in the plan yet" group, which is exactly where a resource added by hand belongs
+ * until the plan is next derived. That group's tbody is therefore rendered even when empty, so
+ * the append target always exists.
+ */
+private fun TABLE.planResourceGroups(
+    worldId: Int,
+    projectId: Int,
+    layout: ResourceListLayout.Layout,
+) {
+    layout.groups.forEach { group ->
+        val isUnplanned = group.group == null
+        tbody {
+            if (isUnplanned) id = "plan-resource-table-body"
+            // With no plan there is nothing to group *by*, and a single "not in the plan yet"
+            // heading over the whole list would be noise rather than information.
+            if (layout.isGrouped) {
+                tr("plan-resource-table__group") {
+                    th {
+                        attributes["colspan"] = "4"
+                        // Two inline spans, laid out by a float rather than flex. The cell
+                        // has to keep `display: table-cell` or colspan stops applying and the
+                        // heading band ends at the first column instead of spanning the table.
+                        span("plan-resource-table__group-name") {
+                            // The same namer the breakdown resolution uses, so one group is
+                            // never called two things on one page.
+                            +(group.group?.let { groupLabel(it) } ?: ResourceListLayout.UNPLANNED_LABEL)
+                        }
+                        span("plan-resource-table__group-count") {
+                            +"${group.rows.size} · ${formatPlainCount(group.items)} items"
+                        }
+                    }
+                }
+            }
+            group.rows.forEach { item ->
                 tr {
-                    th { classes = setOf("plan-resource-table__col-status") }
-                    th { classes = setOf("plan-resource-table__col-item"); +"Item" }
-                    th { classes = setOf("plan-resource-table__col-qty"); +"Qty" }
-                    th { classes = setOf("plan-resource-table__col-action") }
+                    planResourceRow(worldId, projectId, item)
                 }
             }
         }
-        tbody {
-            id = "plan-resource-table-body"
-            filteredResources.forEach { item ->
-                tr {
-                    planResourceRow(worldId, projectId, item)
+    }
+    if (layout.groups.none { it.group == null }) {
+        tbody { id = "plan-resource-table-body" }
+    }
+}
+
+/**
+ * The folded tail. A `<details>` cannot live inside a table, so this is a second table beside
+ * the first — the same shape [ignoredResourcesSection] already uses.
+ */
+private fun FlowContent.planFoldedTail(
+    worldId: Int,
+    projectId: Int,
+    layout: ResourceListLayout.Layout,
+) {
+    if (layout.folded.isEmpty()) return
+    details("plan-resource-fold") {
+        summary("plan-resource-fold__summary") {
+            span("plan-resource-fold__label") {
+                +"${layout.folded.size} single-item odds and ends"
+            }
+            span("plan-resource-fold__note") {
+                +"${formatPlainCount(layout.foldedItems)} of ${formatPlainCount(layout.totalItems)} items"
+            }
+        }
+        table("data-table plan-resource-table plan-resource-table--folded") {
+            tbody {
+                id = "plan-resource-folded-body"
+                layout.folded.forEach { item ->
+                    tr {
+                        planResourceRow(worldId, projectId, item)
+                    }
                 }
             }
         }
     }
 }
-
-/** Renders the full plan-view resource table as a standalone HTML fragment (HTMX swap response). */
-fun planResourceTableFragment(worldId: Int, projectId: Int, resources: List<ResourceGatheringItem>): String =
-    createHTML().table("data-table plan-resource-table") {
-        id = "plan-resource-table"
-        val filteredResources = resources.filter { it.required > 0 && !it.ignored }
-        if (filteredResources.isNotEmpty()) {
-            thead {
-                tr {
-                    th { classes = setOf("plan-resource-table__col-status") }
-                    th { classes = setOf("plan-resource-table__col-item"); +"Item" }
-                    th { classes = setOf("plan-resource-table__col-qty"); +"Qty" }
-                    th { classes = setOf("plan-resource-table__col-action") }
-                }
-            }
-        }
-        tbody {
-            id = "plan-resource-table-body"
-            filteredResources.forEach { item ->
-                tr {
-                    planResourceRow(worldId, projectId, item)
-                }
-            }
-        }
-    }
 
 /**
  * Wraps the active resource table and the ignored-items section (MCO-247) in a single
  * HTMX swap target — an ignore/un-ignore toggle moves a row between the two, so both
  * are re-rendered together.
  */
-fun FlowContent.planResourcesArea(worldId: Int, projectId: Int, resources: List<ResourceGatheringItem>) {
+fun FlowContent.planResourcesArea(
+    worldId: Int,
+    projectId: Int,
+    resources: List<ResourceGatheringItem>,
+    plan: GatheringPlan? = null,
+) {
     div {
         id = "plan-resources-area"
-        planResourceTable(worldId, projectId, resources)
+        planResourceTable(worldId, projectId, resources, plan)
         ignoredResourcesSection(worldId, projectId, resources)
     }
 }
 
-/** Standalone HTML fragment version of [planResourcesArea] (HTMX swap response for the ignore toggle). */
-fun planResourcesAreaFragment(worldId: Int, projectId: Int, resources: List<ResourceGatheringItem>): String =
+/**
+ * Standalone HTML fragment version of [planResourcesArea] (HTMX swap response for the ignore
+ * toggle). Takes the plan for the same reason the page does: replacing this fragment without
+ * one would silently drop the grouping the reader is looking at.
+ */
+fun planResourcesAreaFragment(
+    worldId: Int,
+    projectId: Int,
+    resources: List<ResourceGatheringItem>,
+    plan: GatheringPlan? = null,
+): String =
     createHTML().div {
         id = "plan-resources-area"
-        planResourceTable(worldId, projectId, resources)
+        planResourceTable(worldId, projectId, resources, plan)
         ignoredResourcesSection(worldId, projectId, resources)
     }
 

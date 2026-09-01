@@ -11,6 +11,7 @@ import app.mcorg.pipeline.failure.ValidationFailure
 import app.mcorg.pipeline.project.commonsteps.GetProjectsInWorldStep
 import app.mcorg.pipeline.project.resources.GetItemsInWorldVersionStep
 import app.mcorg.pipeline.resources.commonsteps.GetAllResourceGatheringItemsStep
+import app.mcorg.engine.plan.GatheringPlan
 import app.mcorg.pipeline.resources.commonsteps.GetResourceGatheringItemStep
 import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.templated.dsl.pages.planResourcesAreaFragment
@@ -50,9 +51,9 @@ suspend fun ApplicationCall.handleSwapResourceGatheringVariant() {
     val version = GetWorldVersionStep.process(worldId).getOrNull()
 
     handlePipeline(
-        onSuccess = { (resources, panelResource, projectsInWorld, panelSuggestions) ->
+        onSuccess = { (resources, panelResource, projectsInWorld, panelSuggestions, plan) ->
             respondHtml(
-                planResourcesAreaFragment(worldId, projectId, resources) +
+                planResourcesAreaFragment(worldId, projectId, resources, plan) +
                     resourceDetailPanelOobFragment(worldId, projectId, panelResource, projectsInWorld, panelSuggestions, version)
             )
         }
@@ -66,7 +67,11 @@ suspend fun ApplicationCall.handleSwapResourceGatheringVariant() {
         val suggestions = findVariantCandidates(graph, updated.itemId)
         val resources = GetAllResourceGatheringItemsStep.run(projectId)
         val projectsInWorld = GetProjectsInWorldStep(projectId).run(worldId)
-        SwapResult(resources, updated, projectsInWorld, suggestions)
+        // Re-derived rather than carried over: the swap changed which chain the plan selects,
+        // and the fragment below groups the table by it. Non-fatal — an ungrouped table is a
+        // worse table, not a broken one.
+        val plan = GenerateGatheringPlanStep.process(GatheringPlanInput(projectId, worldId)).getOrNull()
+        SwapResult(resources, updated, projectsInWorld, suggestions, plan)
     }
 }
 
@@ -75,6 +80,7 @@ private data class SwapResult(
     val updated: ResourceGatheringItem,
     val projectsInWorld: List<Pair<Int, String>>,
     val suggestions: List<Item>,
+    val plan: GatheringPlan?,
 )
 
 /**
