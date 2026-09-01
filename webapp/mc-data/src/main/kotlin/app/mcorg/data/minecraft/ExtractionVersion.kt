@@ -30,7 +30,11 @@ package app.mcorg.data.minecraft
  *       family-label keys that were never items (smithing_template, harness, set_spawn).
  *       Mojang keeps the old lang key after a rename, so both spellings looked like registry
  *       entries while only the new one is ever produced — MCO-313 (2026-08).
+ *  - 5: synthetic sources for the two placed blocks a schematic can name that no data file
+ *       describes — `powder_snow` (pour the bucket) and `nether_portal` (light the frame,
+ *       which costs no material of its own). Both reported "no feasible source found" on the
+ *       YAMS import; `nether_portal` at 54 blocks was the larger of the two — MCO-467 (2026-09).
  */
 object ExtractionVersion {
-    const val CURRENT = 4
+    const val CURRENT = 5
 }

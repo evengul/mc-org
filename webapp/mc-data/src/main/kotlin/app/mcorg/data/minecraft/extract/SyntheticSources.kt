@@ -97,6 +97,30 @@ object SyntheticSources {
         add(source("synthetic/lava_bucket.json", SourceType.MechanicTypes.COLLECT, produces = produce("minecraft:lava_bucket")))
         add(source("synthetic/powder_snow_bucket.json", SourceType.MechanicTypes.COLLECT, produces = produce("minecraft:powder_snow_bucket")))
 
+        // The *placed* powder snow block, which is what a schematic names — distinct from the
+        // bucket item above, and until now sourceless, so any build containing it reported
+        // "no feasible source found" (MCO-467). Pour the bucket out; the bucket empties rather
+        // than being consumed, so it is the input and nothing else is.
+        add(
+            source(
+                "synthetic/powder_snow.json", SourceType.MechanicTypes.IN_WORLD_TRANSFORM,
+                produces = produce("minecraft:powder_snow"),
+                requires = listOf(require("minecraft:powder_snow_bucket")),
+            )
+        )
+
+        // Nether portal blocks: light an obsidian frame. The frame's obsidian is placed blocks
+        // in its own right and the schematic already counts it; the portal blocks themselves
+        // consume nothing, and flint and steel is a tool. So this genuinely requires no
+        // material — same "tools are not materials" rule as the bucket. Without it, 54 portal
+        // blocks on the YAMS import read as unobtainable.
+        add(
+            source(
+                "synthetic/nether_portal.json", SourceType.MechanicTypes.IN_WORLD_TRANSFORM,
+                produces = produce("minecraft:nether_portal"),
+            )
+        )
+
         // Strip a log with an axe. Until now the only source for every `stripped_*` was breaking
         // one — perfectly circular advice. The axe is a tool, so the log is the only input.
         STRIPPABLE.forEach { base ->
