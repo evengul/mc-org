@@ -57,7 +57,7 @@ class WorldRoadmapIT : WithUser() {
         createDemand(consumer, "minecraft:iron_ingot", "Iron Ingot", 32)
         createProduction(farm, "minecraft:iron_ingot", "Iron Ingot")
 
-        val response = client.get("/worlds/$worldId/roadmap") { addAuthCookie(this) }
+        val response = client.get("/worlds/$worldId/roadmap?view=table") { addAuthCookie(this) }
 
         assertEquals(HttpStatusCode.OK, response.status)
         val body = response.bodyAsText()
@@ -91,7 +91,7 @@ class WorldRoadmapIT : WithUser() {
         createProduction(farm, "minecraft:iron_ingot", "Iron Ingot")
         runBlocking { UpdateProjectStageStep(farm).process(ProjectStage.COMPLETED) }
 
-        val body = client.get("/worlds/$worldId/roadmap") { addAuthCookie(this) }.bodyAsText()
+        val body = client.get("/worlds/$worldId/roadmap?view=table") { addAuthCookie(this) }.bodyAsText()
 
         // The relationship is still on the roadmap — it just stopped being a blocker, which
         // the summary line reports (it only counts blocked projects when there are any).
@@ -133,7 +133,7 @@ class WorldRoadmapIT : WithUser() {
         createProduction(planned, "minecraft:gunpowder", "Gunpowder")
         runBlocking { UpdateProjectStageStep(running).process(ProjectStage.COMPLETED) }
 
-        val body = client.get("/worlds/$worldId/roadmap") { addAuthCookie(this) }.bodyAsText()
+        val body = client.get("/worlds/$worldId/roadmap?view=table") { addAuthCookie(this) }.bodyAsText()
 
         // Both relationships stay on the roadmap — the ghast farm really will make gunpowder,
         // and MCO-318 needs both directions reading the same edge set. What changes is blocking.
@@ -174,7 +174,7 @@ class WorldRoadmapIT : WithUser() {
         createProduction(planned, "minecraft:iron_ingot", "Iron Ingot")
         runBlocking { UpdateProjectStageStep(running).process(ProjectStage.COMPLETED) }
 
-        val body = client.get("/worlds/$worldId/roadmap") { addAuthCookie(this) }.bodyAsText()
+        val body = client.get("/worlds/$worldId/roadmap?view=table") { addAuthCookie(this) }.bodyAsText()
 
         val consumerRow = roadmapRow(body, "Storage System")
         assertContains(consumerRow.dependsOn, STATUS_BLOCKING)
@@ -198,7 +198,7 @@ class WorldRoadmapIT : WithUser() {
         createProduction(farm, "minecraft:iron_ingot", "Iron Ingot")
         runBlocking { UpdateProjectStageStep(farm).process(ProjectStage.COMPLETED) }
 
-        val body = client.get("/worlds/$worldId/roadmap") { addAuthCookie(this) }.bodyAsText()
+        val body = client.get("/worlds/$worldId/roadmap?view=table") { addAuthCookie(this) }.bodyAsText()
 
         // MCO-405: the dev world opened on 20-odd finished farms with the one active build
         // underneath. Depth is still the sequence — it just no longer leads.
@@ -223,7 +223,7 @@ class WorldRoadmapIT : WithUser() {
         createDemand(consumer, "minecraft:gold_nugget", "Gold Nugget", 7299)
         createProduction(farm, "minecraft:gold_nugget", "Gold Nugget")
 
-        val body = client.get("/worlds/$worldId/roadmap") { addAuthCookie(this) }.bodyAsText()
+        val body = client.get("/worlds/$worldId/roadmap?view=table") { addAuthCookie(this) }.bodyAsText()
 
         val consumerRow = roadmapRow(body, "YAMS")
         assertContains(consumerRow.dependsOn, "Gold Farm")
@@ -245,7 +245,7 @@ class WorldRoadmapIT : WithUser() {
         createDemand(consumer, "minecraft:cobblestone", "Cobblestone", 74564)
         createProduction(farm, "minecraft:cobblestone", "Cobblestone")
 
-        val body = client.get("/worlds/$worldId/roadmap") { addAuthCookie(this) }.bodyAsText()
+        val body = client.get("/worlds/$worldId/roadmap?view=table") { addAuthCookie(this) }.bodyAsText()
 
         val consumerRow = roadmapRow(body, "YAMS")
         assertContains(consumerRow.dependsOn, "74,564 Cobblestone")
@@ -266,7 +266,7 @@ class WorldRoadmapIT : WithUser() {
         createRequirement(consumer, "minecraft:iron_ingot", "Iron Ingot")
         createProduction(farm, "minecraft:iron_ingot", "Iron Ingot")
 
-        val body = client.get("/worlds/$worldId/roadmap") { addAuthCookie(this) }.bodyAsText()
+        val body = client.get("/worlds/$worldId/roadmap?view=table") { addAuthCookie(this) }.bodyAsText()
 
         val consumerRow = roadmapRow(body, "Unopened Build")
         assertFalse(consumerRow.dependsOn.contains("Iron Farm"))
@@ -279,7 +279,7 @@ class WorldRoadmapIT : WithUser() {
         setupRoutes()
         val worldId = createWorld("Empty Roadmap World")
 
-        val response = client.get("/worlds/$worldId/roadmap") { addAuthCookie(this) }
+        val response = client.get("/worlds/$worldId/roadmap?view=table") { addAuthCookie(this) }
 
         assertEquals(HttpStatusCode.OK, response.status)
         val body = response.bodyAsText()
