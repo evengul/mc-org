@@ -296,8 +296,54 @@ needs a flag, and `score-diagnostics` and friends are covered automatically.
 - **No teardown** — the repository dies with the worktree, and deleting a
   symlink never touches what it points at.
 - **Maven 3.8 caveat:** `maven.config` is fed straight to the CLI parser, so a
-  `#` comment line makes every `mvn` exit 1. The file holds nothing but the flag.
-  (Maven 3.9's `maven.repo.local.tail` would do this natively; we are on 3.8.7.)
+  `#` comment line makes every `mvn` exit 1. The file holds nothing but the two
+  flags. (Maven 3.9's `maven.repo.local.tail` would do the repo half natively; we
+  are on 3.8.7.)
+
+### Kotlin daemon fan-out (MCO-477)
+
+**The isolation above costs you one Kotlin compile daemon per worktree, and each
+one is capped for that reason.** The daemon is reused by *compiler classpath
+identity*. While every worktree resolved `kotlin-compiler-embeddable` from the
+shared `~/.m2`, the classpath was identical and all builds shared one daemon.
+Each worktree now resolves it from its own `webapp/.m2/repository/...`, so the
+paths differ, and so does the daemon. Daemons scale with worktrees.
+
+That would be harmless if they were small and short-lived. Uncapped they are
+neither: a daemon inherits the launching JVM's `-Xmx` — Maven's default quarter
+of RAM, `-Xmx3990m` on a 16 GB box — and survives 7200s of idle. Four worktrees
+built and left alone is ~12 GB resident doing nothing, which is enough to OOM a
+16 GB WSL2 box. Measured before the cap: 3930 + 3107 + 2867 MB across three idle
+worktree daemons.
+
+Two settings hold it down, and they live apart because Maven reads them
+differently:
+
+- **Heap** — `<kotlin.compiler.daemon.jvmArgs>` in `webapp/pom.xml`, currently
+  `Xmx1500m`. **No leading dash**: the plugin prepends one, so `-Xmx1500m` here
+  becomes `--Xmx1500m` and the daemon dies at startup with "Unrecognized option".
+  Beware writing that doubled form into the surrounding XML comment to warn the
+  next person — XML forbids `--` inside a comment, and Maven then rejects the file
+  outright as a Non-parseable POM before any module compiles.
+- **Idle life** — `-Dkotlin.daemon.options=autoshutdownIdleSeconds=900`, written
+  into each worktree's `maven.config` by `worktree-m2.sh`. This one is **only**
+  read as a system property; a pom `<properties>` entry is silently ignored (it
+  looks like it worked — the build passes and the daemon keeps the old value). It
+  is also the right scope: the main checkout has no `maven.config`, one daemon,
+  and no reason to reap it early.
+
+**Daemon reuse hides changes to both.** An already-running daemon is accepted as
+compatible, so editing either setting and rebuilding tells you nothing. Kill the
+worktree's daemon first, then rebuild and read the new process's arguments:
+
+```bash
+pgrep -af KotlinCompileDaemon        # one per worktree; the classpath names it
+kill <pid>                           # only if no build is running in that worktree
+```
+
+**If the box is thrashing**, that list is the first thing to look at — idle
+daemons from worktrees you finished with hours ago are the usual answer, not the
+app or the editor.
 
 ## Issue Tracking
 
