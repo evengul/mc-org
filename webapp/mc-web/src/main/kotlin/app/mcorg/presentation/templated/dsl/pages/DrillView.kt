@@ -248,6 +248,9 @@ fun drillNotFoundFragment(project: Project, reason: String): String = createHTML
  * @param activeSourceKey  the currently active source override key, if any
  * @param activeMemberId  the currently active tag-member override id, if any
  */
+/** One picker is open at a time, so a fixed id is enough for the options to include it. */
+private const val WORLD_WOOD_INPUT_ID = "picker-world-wood"
+
 fun nodePickerFragment(
     worldId: Int,
     projectId: Int,
@@ -259,6 +262,12 @@ fun nodePickerFragment(
     demand: Long,
     query: String? = null,
     origin: String? = null,
+    /**
+     * Offer to answer this once for the whole world (MCO-487). Decided by the caller, which is
+     * the only place that knows whether the world has already said, and whether this user may
+     * say it — the preference lives behind the world-admin gate.
+     */
+    offerWorldWood: Boolean = false,
 ): String {
     val encodedTargetId = encodeId(targetItemId)
     val encodedNodeId = encodeId(node.item.id)
@@ -294,6 +303,23 @@ fun nodePickerFragment(
             span("section-label picker__label") { +"Pick a variant" }
             if (ranked.size > PICKER_MAX_OPTIONS) pickerSearch(sourcesUrl, pickerSlotId, q)
 
+            // MCO-487: answering "which tree" here answers it for `#planks`, `#wooden_slabs` and
+            // `#logs` at once. Checked by default, because two clicks means nobody finds it and
+            // the preference is one dropdown in world settings to change. Deliberately not
+            // promising to settle *every* wood question: bamboo is a plank wood and not a log
+            // wood, so it answers two of the three and correctly leaves the last asking.
+            if (offerWorldWood) {
+                label("picker__world-wood") {
+                    htmlFor = WORLD_WOOD_INPUT_ID
+                    input(type = InputType.checkBox, name = "setWorldWood") {
+                        id = WORLD_WOOD_INPUT_ID
+                        value = "true"
+                        checked = true
+                    }
+                    +"Use this wood everywhere this world needs wood"
+                }
+            }
+
             if (displayed.isEmpty()) {
                 p("picker__empty") { +(if (q.isEmpty()) "No variants available." else "No variants match \"$q\".") }
             } else {
@@ -303,6 +329,9 @@ fun nodePickerFragment(
                         div("picker-opt${if (isSelected) " picker-opt--sel" else ""}") {
                             attributes["hx-post"] = "$baseUrl/tag"
                             attributes["hx-vals"] = """{"node":"${node.item.id}","memberItemId":"${rm.member.id}"$originJson}"""
+                            // An unchecked box submits nothing, so the server sees the opt-out
+                            // as an absent parameter rather than needing a second value.
+                            if (offerWorldWood) attributes["hx-include"] = "#$WORLD_WOOD_INPUT_ID"
                             attributes["hx-target"] = "#project-content"
                             attributes["hx-swap"] = "outerHTML"
                             span("picker-opt__name") { +rm.member.name }

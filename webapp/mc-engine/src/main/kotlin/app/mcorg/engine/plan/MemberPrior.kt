@@ -118,6 +118,27 @@ object MemberPrior {
             .minWithOrNull(byForm)
     }
 
+    /**
+     * Whether this choice is "which tree", rather than something else that happens to involve
+     * wood (MCO-487).
+     *
+     * The same test [speciesMember] applies before it will answer: every member must name a
+     * species, so a set mixing woods with non-woods is not a wood question — and more than one
+     * species must actually appear, or the choice is about form and [canonicalFormMember] has
+     * already settled it.
+     *
+     * Exists so the picker can offer to answer the question *once for the world* at the moment it
+     * is asked. Sharing the predicate with the rule that consumes the preference is the point: a
+     * UI that offered the world-wide answer on a set the selector would then ignore would be
+     * offering nothing.
+     */
+    fun isSpeciesChoice(members: List<MinecraftId>): Boolean {
+        if (members.size < 2) return false
+        val species = members.map { woodSpeciesOf(localOf(it.id)) }
+        if (species.any { it == null }) return false
+        return species.distinct().size > 1
+    }
+
     /** Within one material, only appearance is left to rank. Shared by both rules above. */
     private val byForm: Comparator<MinecraftId> =
         compareBy({ woodFormRank(tokensOf(it.id)) }, { decorFormRank(tokensOf(it.id)) }, { it.id })
@@ -219,6 +240,16 @@ object MemberPrior {
         val match = woodSpeciesOf(local) ?: return UNRANKED
         return WOOD_SPECIES.indexOf(match)
     }
+
+    /**
+     * The wood species an item id names, or null when it names none — `dark_oak_planks` is
+     * dark_oak, not oak.
+     *
+     * Public because callers outside the engine need the same answer, and the obvious hand-rolled
+     * version (`SPECIES.firstOrNull { id.contains(it) }`) gets `dark_oak` and `pale_oak` wrong:
+     * the match has to be longest-first, which is what [WOOD_SPECIES_BY_MATCH_LENGTH] is for.
+     */
+    fun speciesOf(id: String): String? = woodSpeciesOf(localOf(id))
 
     /** The wood species named in an id, or null when it names none. */
     private fun woodSpeciesOf(local: String): String? =
