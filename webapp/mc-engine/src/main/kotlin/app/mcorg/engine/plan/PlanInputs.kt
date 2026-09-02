@@ -41,7 +41,9 @@ sealed interface SupplySource {
  *   should see that.
  * @param tagMember tagId -> member itemId. Disambiguates an [PlanNodeStatus.OPEN_TAG]
  *   node ("any planks" -> oak_planks). The member item replaces the tag in the DAG,
- *   so its demand accumulates with any other demand for the same item.
+ *   so its demand accumulates with any other demand for the same item. Keyed by tag id,
+ *   but read by member set: an entry under any id naming that set answers the question
+ *   for all of them ([TagIdentity], MCO-486).
  */
 data class PlanOverrides(
     val sourceByItem: Map<String, String> = emptyMap(),

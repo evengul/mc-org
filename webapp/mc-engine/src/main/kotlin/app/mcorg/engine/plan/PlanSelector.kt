@@ -25,6 +25,8 @@ import app.mcorg.engine.model.SourceNode
  * - Tags are not silently expanded: without a [PlanOverrides.tagMember] choice
  *   they stay [PlanNodeStatus.OPEN_TAG]; with one, the member item takes the
  *   tag's place in the DAG (so its demand merges with other demand for it).
+ * - Tags with identical members are one question, whatever they are called
+ *   ([TagIdentity]).
  *
  * Selection is amount-aware: the demand seen while expanding feeds the
  * recipe-threshold bonus. Demands computed here are provisional (first-encounter,
@@ -48,6 +50,7 @@ object PlanSelector {
         private val context: PlanContext
     ) {
         private val scorer = SelectionScorer(graph, supplied, context)
+        private val tagIdentity = TagIdentity.of(graph)
         private val nodes = LinkedHashMap<String, SelectedNode>()
 
         /** itemId -> every itemId reachable through its chosen chain (incl. itself). */
@@ -247,11 +250,16 @@ object PlanSelector {
          * Turns a tag into the member that stands in for it, or leaves it a tag (and therefore an
          * [PlanNodeStatus.OPEN_TAG] question) when there is nothing to stand in for it.
          *
+         * The tag is first replaced by the representative of its member set ([TagIdentity]), so
+         * `#planks` and `#wooden_tool_materials` — the same twelve planks under two names — become
+         * one node and one question rather than two of each (MCO-486).
+         *
          * Three ways a tag gets answered, most specific first:
          *
          * 1. **The user picked a member** ([PlanOverrides.tagMember]), validated against the tag's
-         *    contents. An explicit pick always wins — that is what makes the two silent answers
-         *    below safe.
+         *    contents and read across every id that names this set, so an answer given under one
+         *    of the names settles all of them. An explicit pick always wins — that is what makes
+         *    the two silent answers below safe.
          * 2. **The world declared which wood it farms** ([PlanContext.woodSpecies]). `#planks`,
          *    `#wooden_slabs` and `#logs` are three askings of one question, and this answers all
          *    of them — see [MemberPrior.speciesMember].
@@ -270,14 +278,15 @@ object PlanSelector {
          */
         private fun redirectTag(item: MinecraftId): MinecraftId {
             if (item !is MinecraftTag) return item
-            val memberId = overrides.tagMember[item.id]
+            val tag = tagIdentity.representative(item)
+            val memberId = tagIdentity.equivalentIds(tag).firstNotNullOfOrNull { overrides.tagMember[it] }
             if (memberId != null) {
-                val member = item.content.firstOrNull { it.id == memberId } ?: return item
+                val member = tag.content.firstOrNull { it.id == memberId } ?: return tag
                 return graphItemFor(member)
             }
-            MemberPrior.speciesMember(item.content, context.woodSpecies)
+            MemberPrior.speciesMember(tag.content, context.woodSpecies)
                 ?.let { return graphItemFor(it) }
-            val assumed = MemberPrior.canonicalFormMember(item.content) ?: return item
+            val assumed = MemberPrior.canonicalFormMember(tag.content) ?: return tag
             return graphItemFor(assumed)
         }
 
