@@ -206,6 +206,29 @@ object SyntheticSources {
             )
         )
 
+        // Obsidian: pour a water bucket onto still lava and mine what forms (MCO-495). Without
+        // this, the graph's only routes are finding it and breaking an *ender chest*, which
+        // drops eight — and an ender chest is made of obsidian and never generates naturally,
+        // so that route is circular in fact while looking like ordinary block loot in the data.
+        //
+        // The bucket is the input and the lava is not: the lava is the world's, and the bucket
+        // comes back empty, so one serves an arbitrary number of pours. That is the same rule
+        // the filled buckets and `powder_snow` above already carry, and the same one mc-web's
+        // `FLUID_PLACEMENTS` states at the import door — what you carry is the bucket, not the
+        // litre.
+        //
+        // Deliberately obsidian alone. Cobblestone, stone and basalt form the same way in
+        // principle, but for each of those you either build a farm — which is a project, and
+        // farm supply already covers it — or simply mine the ordinary block. Obsidian is the
+        // only one where the in-world interaction is genuinely how it is got.
+        add(
+            source(
+                "synthetic/obsidian.json", SourceType.MechanicTypes.IN_WORLD_TRANSFORM,
+                produces = produce("minecraft:obsidian"),
+                requires = listOf(require("minecraft:water_bucket")),
+            )
+        )
+
         // Plant it and wait. See [GROWN_CROPS] for why these consume nothing and why growth
         // time is not priced here.
         GROWN_CROPS.forEach { crop ->

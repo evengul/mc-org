@@ -50,6 +50,11 @@ package app.mcorg.data.minecraft
  *       a crop's only route was breaking its own block — which is why wheat, the most farmed
  *       item in the game, and bread after it were being planned through chest loot — MCO-492
  *       (2026-09).
+ *
+ *       And a synthetic in-world source for `obsidian`: pour a water bucket onto still lava.
+ *       Its only routes were finding it and breaking an *ender chest*, which drops eight and is
+ *       itself made of obsidian — circular in fact, ordinary block loot in the data — MCO-495
+ *       (2026-09).
  */
 object ExtractionVersion {
     const val CURRENT = 7

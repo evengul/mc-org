@@ -196,6 +196,41 @@ class SyntheticSourcesTest {
         )
     }
 
+    /**
+     * MCO-495 — obsidian's only routes were finding it and breaking an *ender chest*, which
+     * drops eight and is itself made of obsidian. Pouring water on still lava is what a player
+     * actually does, and it is the same shape as the concrete mechanic above: the bucket comes
+     * back empty, so it is the input and the lava — the world's — is not.
+     */
+    @Test
+    fun `obsidian is poured from a water bucket onto lava`() {
+        val obsidian = producing("minecraft:obsidian").single()
+
+        assertEquals(SourceType.MechanicTypes.IN_WORLD_TRANSFORM, obsidian.type)
+        assertEquals("synthetic/obsidian.json", obsidian.filename)
+        assertEquals(
+            listOf("minecraft:water_bucket"),
+            obsidian.requiredItems.map { it.first.id },
+            "the bucket is the input; the lava is the world's and costs nothing",
+        )
+    }
+
+    /**
+     * Cobblestone, stone and basalt form the same way in principle and are deliberately left
+     * out — for each you either build a farm (a project, already covered by farm supply) or
+     * just mine the ordinary block. MCO-495's acceptance criteria say so explicitly, so this
+     * pins the boundary rather than trusting it to stay put.
+     */
+    @Test
+    fun `no in-world source is invented for the other lava-formed blocks`() {
+        listOf("minecraft:cobblestone", "minecraft:stone", "minecraft:basalt").forEach { id ->
+            assertTrue(
+                producing(id).isEmpty(),
+                "$id must keep its ordinary mined/farmed route, not gain a synthetic one",
+            )
+        }
+    }
+
     @Test
     fun `entries naming an item the version lacks are dropped`() {
         val withoutCherry = allIds - "minecraft:stripped_cherry_log"
