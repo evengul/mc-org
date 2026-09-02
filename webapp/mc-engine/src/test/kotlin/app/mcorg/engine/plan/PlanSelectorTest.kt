@@ -235,6 +235,83 @@ class PlanSelectorTest {
         assertEquals(PlanNodeStatus.OPEN_TAG, dag.nodes.getValue("minecraft:planks").status)
     }
 
+    // ── form-only tags answer themselves (MCO-409) ───────────────────
+
+    private val oakWood = item("oak_wood")
+    private val strippedOakLog = item("stripped_oak_log")
+    private val logsTag = MinecraftTag(
+        "minecraft:oak_logs",
+        "Oak Logs",
+        listOf(log, oakWood, strippedOakLog),
+    )
+
+    /**
+     * `#oak_logs` is one wood in three appearances. The recipe consuming it cannot tell them
+     * apart — and every open tag in a plan *is* a recipe ingredient, because a target is never a
+     * tag — so this was a question about nothing. On the YAMS import it was eleven of them.
+     */
+    private fun formOnlyTagGraph(): ItemSourceGraph = GraphFixture().apply {
+        item(logsTag)
+        source(block, "blocks/oak_log.json", log to 1)
+        source(block, "blocks/oak_wood.json", oakWood to 1)
+        source(block, "blocks/stripped_oak_log.json", strippedOakLog to 1)
+        recipe("oak_planks.json", oakPlanks to 4, logsTag to 1)
+    }.build()
+
+    @Test
+    fun `a tag whose members differ only in form resolves itself to the plain one`() {
+        val dag = PlanSelector.select(formOnlyTagGraph(), listOf(PlanTarget(oakPlanks, 4)))
+
+        assertNull(dag.nodes["minecraft:oak_logs"], "no question should be left standing")
+        val planksRequires = dag.nodes.getValue("minecraft:oak_planks").requires.single()
+        assertEquals("minecraft:oak_log", planksRequires.itemId)
+        assertEquals(PlanNodeStatus.RAW_GATHER, dag.nodes.getValue("minecraft:oak_log").status)
+        assertNull(dag.nodes["minecraft:oak_wood"])
+        assertNull(dag.nodes["minecraft:stripped_oak_log"])
+    }
+
+    /** The assumption is only safe to make silently because saying otherwise still wins. */
+    @Test
+    fun `an explicit pick beats the assumed form`() {
+        val dag = PlanSelector.select(
+            formOnlyTagGraph(),
+            listOf(PlanTarget(oakPlanks, 4)),
+            overrides = PlanOverrides(tagMember = mapOf("minecraft:oak_logs" to "minecraft:oak_wood"))
+        )
+
+        assertEquals(
+            "minecraft:oak_wood",
+            dag.nodes.getValue("minecraft:oak_planks").requires.single().itemId,
+        )
+        assertNull(dag.nodes["minecraft:oak_log"])
+    }
+
+    /**
+     * An impossible pin stays visible rather than falling through to the assumption — the same
+     * rule the selector already applies to `sourceByItem`.
+     */
+    @Test
+    fun `a pick naming a non-member leaves the tag open rather than assuming`() {
+        val dag = PlanSelector.select(
+            formOnlyTagGraph(),
+            listOf(PlanTarget(oakPlanks, 4)),
+            overrides = PlanOverrides(tagMember = mapOf("minecraft:oak_logs" to "minecraft:diamond"))
+        )
+
+        assertEquals(PlanNodeStatus.OPEN_TAG, dag.nodes.getValue("minecraft:oak_logs").status)
+    }
+
+    /**
+     * The counterpart: `#planks` names different woods, which is a real preference and stays a
+     * question. Folding that one is MCO-409's *other* half.
+     */
+    @Test
+    fun `a tag whose members are different materials is still asked`() {
+        val dag = PlanSelector.select(tagGraph(), listOf(PlanTarget(chest, 1)))
+
+        assertEquals(PlanNodeStatus.OPEN_TAG, dag.nodes.getValue("minecraft:planks").status)
+    }
+
     // ── cycles and dead ends ────────────────────────────────────────────────
 
     private val diamond = item("diamond")

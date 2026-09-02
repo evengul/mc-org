@@ -194,4 +194,87 @@ class MemberPriorTest {
         ).sortedBy { it.id.name }.map { it.id.id }
         assertTrue(byNameOnly.first() == mc("red_sand"))
     }
+
+    // --- canonicalFormMember (MCO-409) -------------------------------------------------------
+    //
+    // Member sets below are the real ones, read from minecraft_tag_item at 1.21.4 rather than
+    // typed from memory — the sandstone and log sets in particular are the ones the rule has to
+    // get right, and an invented set would prove nothing about the real corpus.
+
+    private fun members(vararg locals: String): List<MinecraftId> =
+        locals.map { Item(mc(it), it) }
+
+    private fun assume(vararg locals: String): String? =
+        MemberPrior.canonicalFormMember(members(*locals))?.id
+
+    @Test
+    fun `a log tag is four appearances of one wood, and resolves to the plain log`() {
+        assertEquals(
+            mc("oak_log"),
+            assume("oak_log", "oak_wood", "stripped_oak_log", "stripped_oak_wood"),
+        )
+    }
+
+    @Test
+    fun `nether stems work the same way, with hyphae standing in for wood`() {
+        assertEquals(
+            mc("crimson_stem"),
+            assume("crimson_hyphae", "crimson_stem", "stripped_crimson_hyphae", "stripped_crimson_stem"),
+        )
+    }
+
+    /**
+     * The set that breaks the obvious implementation. `colourRank` is a prefix match, so
+     * `red_sandstone` reads as colour-red while `chiseled_red_sandstone` does not — a rule that
+     * asked "which RankKey axes vary" would see the colour axis vary and decline to fold, and one
+     * that ranked with the full RankKey picks `cut_red_sandstone` — verified by flipping the
+     * comparator, which fails exactly this test.
+     */
+    @Test
+    fun `red sandstone folds to the plain block despite the colour prefix`() {
+        assertEquals(
+            mc("red_sandstone"),
+            assume("chiseled_red_sandstone", "cut_red_sandstone", "red_sandstone"),
+        )
+    }
+
+    @Test
+    fun `purpur folds to the block, not the pillar`() {
+        assertEquals(mc("purpur_block"), assume("purpur_block", "purpur_pillar"))
+    }
+
+    @Test
+    fun `a species choice is a real question and is never assumed`() {
+        assertEquals(null, assume("oak_planks", "spruce_planks", "birch_planks"))
+        assertEquals(null, assume("oak_slab", "spruce_slab", "birch_slab"))
+    }
+
+    /**
+     * `#minecraft:logs` varies along species *and* form. Form-only folding must not touch it —
+     * "which tree am I farming" is exactly the question MCO-409 wants asked once, not answered.
+     */
+    @Test
+    fun `the all-species log tag stays a question`() {
+        assertEquals(null, assume("oak_log", "oak_wood", "spruce_log", "stripped_spruce_wood"))
+    }
+
+    @Test
+    fun `choices that name different materials or colours stay questions`() {
+        assertEquals(null, assume("coal", "charcoal"))
+        assertEquals(null, assume("soul_sand", "soul_soil"))
+        assertEquals(null, assume("cobblestone", "cobbled_deepslate", "blackstone"))
+        assertEquals(null, assume("sand", "red_sand"))
+        assertEquals(null, assume("shulker_box", "white_shulker_box", "black_shulker_box"))
+    }
+
+    @Test
+    fun `a single member is not a choice`() {
+        assertEquals(null, assume("oak_log"))
+    }
+
+    /** An id that is nothing but form tokens names no material, so two of them are not "the same". */
+    @Test
+    fun `ids made only of form tokens are never folded together`() {
+        assertEquals(null, assume("log", "wood"))
+    }
 }

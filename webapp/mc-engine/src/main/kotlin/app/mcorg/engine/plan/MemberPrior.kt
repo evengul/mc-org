@@ -12,10 +12,16 @@ import app.mcorg.domain.model.minecraft.MinecraftId
  * white, acacia before oak). This prior fixes that by encoding the obvious default.
  *
  * It is **not** an abundance metric and reads no world data; the defaults are human judgments about
- * which variant a player reaches for first. It is intentionally a tiebreak only: callers compare by
- * source score first and fall back to this when scores tie (see [comparator]). At bulk demand, where
- * the scorer genuinely separates members (e.g. charcoal's smelt recipe earning the recipe-threshold
- * bonus over mined coal), the score decides and this prior never fires.
+ * which variant a player reaches for first.
+ *
+ * It has two jobs, and they are different in kind:
+ *
+ * - **[comparator] orders the options in a picker** — a tiebreak, chained after the source score, so
+ *   it only decides between members the scorer rates equally. At bulk demand, where the scorer
+ *   genuinely separates members (e.g. charcoal's smelt recipe earning the recipe-threshold bonus
+ *   over mined coal), the score decides and the prior never fires.
+ * - **[canonicalFormMember] answers outright** (MCO-409), for the narrow case where the members are
+ *   one material in different appearances and the choice is therefore not a choice at all.
  *
  * The ordering is **axis-based**, not per-tag: a handful of controlled vocabularies parsed from the
  * item id (wood species, wood form, dye colour, stone base, decorative form) cover ~80 distinct
@@ -29,6 +35,68 @@ object MemberPrior {
 
     /** Compares two ids by their [RankKey]; more-canonical first. */
     fun compare(a: String, b: String): Int = rankKey(a).compareTo(rankKey(b))
+
+    /**
+     * The member to assume for a choice whose members are **the same material in different
+     * appearances**, or `null` when the choice names genuinely different things (MCO-409).
+     *
+     * This is the one place the prior *answers* rather than merely orders. It is sound only
+     * because of a structural fact established in MCO-409: a plan target is never a tag — every
+     * target is built as `PlanTarget(Item(...))` and tag ids carry a `#` prefix item ids never
+     * have — so **every open tag in a plan is a recipe ingredient**. A recipe cannot see the
+     * difference between an oak log and a stripped oak log, or between plain and chiseled
+     * sandstone; only a placed block can, and a placed block is a target.
+     *
+     * "Same material" is decided by stripping the form tokens and comparing what is left, not by
+     * asking which [RankKey] axes vary. The axis test looks equivalent and is not: `colourRank`
+     * is a prefix match, so `red_sandstone` reads as colour-red while `chiseled_red_sandstone`
+     * does not, and the colour axis appears to vary across a set that is purely decorative. The
+     * remainder test has no such blind spot — all three strip to `red_sandstone`.
+     *
+     * For the same reason the winner is chosen on the form axes alone. Ranking a form-only set
+     * with the full [RankKey] would let that same colour misfire pick `cut_red_sandstone` over
+     * `red_sandstone` (measured, not predicted — the temporary flip fails the test below). Within a set that is one material by construction, every axis except
+     * form is noise.
+     *
+     * Deliberately *not* form-only, and still questions: `#planks` and `#wooden_slabs` (species),
+     * `#shulker_boxes` and `red_sand_sand` (colour), `#coals` and `#soul_fire_base_blocks`
+     * (different materials), `#stone_crafting_materials` (different stone). Whether those should
+     * be auto-resolved on impact grounds is MCO-410's question, not this one's.
+     */
+    fun canonicalFormMember(members: List<MinecraftId>): MinecraftId? {
+        if (members.size < 2) return null
+
+        val material = materialOf(members.first().id) ?: return null
+        if (members.any { materialOf(it.id) != material }) return null
+
+        return members.minWithOrNull(
+            compareBy({ woodFormRank(tokensOf(it.id)) }, { decorFormRank(tokensOf(it.id)) }, { it.id })
+        )
+    }
+
+    private fun tokensOf(id: String): List<String> = id.substringAfterLast(':').split('_')
+
+    /**
+     * What is left of an id once every token naming a *form* is removed — the material the
+     * member is made of. `stripped_oak_log`, `oak_wood` and `oak_log` all reduce to `oak`;
+     * `chiseled_red_sandstone` and `red_sandstone` both to `red_sandstone`; `oak_planks` and
+     * `spruce_planks` stay distinct, because `planks` is not a form.
+     *
+     * Null when nothing survives the strip: an id that is *only* form tokens names no material,
+     * and two of those would compare equal for the wrong reason.
+     */
+    private fun materialOf(id: String): List<String>? =
+        tokensOf(id).filterNot { it in FORM_TOKENS }.ifEmpty { null }
+
+    /**
+     * Tokens that describe how a block looks rather than what it is — exactly the vocabulary
+     * [woodFormRank] and [decorFormRank] rank. Keep the two in step: a token ranked as a form
+     * but not stripped here would make a form-only set look like a material difference.
+     */
+    private val FORM_TOKENS: Set<String> = setOf(
+        "stripped", "wood", "hyphae", "log", "stem", "block",
+        "chiseled", "pillar", "cut",
+    )
 
     /**
      * A [Comparator] over [MinecraftId] for use as a tiebreak. Chain it *after* the primary
