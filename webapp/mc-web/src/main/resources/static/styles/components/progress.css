@@ -5,14 +5,37 @@
    appearance.
    ========================================================================== */
 
-/* Track colour is --bg-raised: it is what every surviving definition of this bar
-   already used, and it holds the most contrast under the green fill (4.73:1). */
+/* The track is --bg-raised with a --border outline, and it needs both.
+   No single flat fill satisfies the two constraints at once — measured against the
+   three surfaces a bar actually sits on (base / surface / raised), and against the
+   green fill that has to read on top of it:
+
+       track            vs surface            fill on track
+       --bg-raised      1.22 / 1.06 / 1.00    4.73
+       --border         1.30 / 1.48 / 1.58    3.00
+       --border-strong  1.67 / 1.91 / 2.03    2.33
+
+   A raised track is invisible on --bg-surface (1.06:1), which is what project cards
+   and roadmap-graph nodes are: an empty bar there renders as nothing at all. Darkening
+   the track to fix that spends the fill's contrast instead. The outline buys the
+   visibility without paying for it — the track stays light, so the fill keeps 4.73:1,
+   and the border draws the empty portion on any surface.
+
+   roadmap-graph.css worked this out first and kept a scoped copy; it belongs here, for
+   the same reason the rest of this file does.
+
+   The outline is an inset shadow rather than a real border on purpose: a border joins
+   the box model, so `border: 1px` on a 4px bar leaves a 2px content box and every fill
+   in the app gets half as heavy. An inset shadow costs no geometry — the bar keeps the
+   exact dimensions it has today — and the fill, being a child, paints over it, so the
+   outline shows on the empty portion and disappears under the filled one. */
 .progress {
     display: block;
     position: relative;
     width: 100%;
     height: 4px;
     background: var(--bg-raised);
+    box-shadow: inset 0 0 0 1px var(--border);
     border-radius: 2px;
     overflow: hidden;
 }
