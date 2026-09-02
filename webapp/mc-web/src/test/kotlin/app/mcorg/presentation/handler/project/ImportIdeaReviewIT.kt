@@ -59,6 +59,7 @@ class ImportIdeaReviewIT : WithUser() {
     private var ideaId: Int = 0
     private var airyIdeaId: Int = 0
     private var expensiveIdeaId: Int = 0
+    private var cappedIdeaId: Int = 0
     private var wideIdeaId: Int = 0
     private var multiModeIdeaId: Int = 0
     private var unknownProductionIdeaId: Int = 0
@@ -103,6 +104,14 @@ class ImportIdeaReviewIT : WithUser() {
         expensiveIdeaId = createIdea("Elytra Wall")
         addRequirement(expensiveIdeaId, "minecraft:elytra", 3)
         addRequirement(expensiveIdeaId, "minecraft:oak_planks", 20)
+
+        // MCO-321, from a real world-eater schematic: 55 dragon eggs, one per TNT duper. A
+        // dragon egg has an ordinary block loot table, so the graph produced a source and the
+        // review screen said nothing — the plan then read "0 / 55 — Break Block".
+        seedItem("minecraft:dragon_egg", "Dragon Egg")
+        cappedIdeaId = createIdea("World Eater")
+        addRequirement(cappedIdeaId, "minecraft:dragon_egg", 55)
+        addRequirement(cappedIdeaId, "minecraft:oak_planks", 20)
 
         // MCO-315: an idea whose list is far wider than the ~466 rows that used to fit in a
         // request body. The idea door shares the review screen, so it shared the data loss.
@@ -312,6 +321,31 @@ class ImportIdeaReviewIT : WithUser() {
         assertContains(body, "Slow to gather", message = "the row chip stays")
         assertFalse(body.contains("Expensive to gather"), "but the strip heading is gone")
         assertFalse(body.contains("callout__icon"), "and with nothing left to say, so is the whole strip")
+    }
+
+    @Test
+    fun `a hard-capped row is warned about before the project exists, and stays included`() = testApplication {
+        // MCO-321. A world contains exactly one dragon egg, and only the first dragon drops it,
+        // so 55 is unobtainable by any amount of gathering — but the row is a real requirement
+        // (one egg per TNT duper), so there is nothing useful to offer beyond saying what kind
+        // of problem this is. The warning informs; the checkbox stays ticked.
+        setupRoutes()
+
+        val response = client.get("/ideas/$cappedIdeaId/import/review?worldId=$worldId") {
+            addAuthCookie(this)
+        }
+
+        val body = response.bodyAsText()
+        assertEquals(HttpStatusCode.OK, response.status, body)
+        assertContains(body, "Hard limit in a world", message = "this one earns a place on the strip")
+        assertContains(body, "Dragon Egg (55)")
+        assertContains(body, "only from the first dragon")
+        assertContains(body, "egg duplication")
+        assertContains(body, "Limited supply", message = "and the row carries the chip too")
+        assertFalse(
+            body.contains("!minecraft:dragon_egg"),
+            "the row must arrive included — an excluded one carries the codec's ! mark",
+        )
     }
 
     @Test

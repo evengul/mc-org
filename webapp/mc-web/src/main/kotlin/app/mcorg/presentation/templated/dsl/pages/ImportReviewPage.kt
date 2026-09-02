@@ -66,8 +66,9 @@ import kotlinx.html.tr
  * named after the schematic or left "Unnamed", so a header would wrap the list in noise.
  *
  * [warnings] (MCO-305) name the painful rows without standing in their way. Advisory only —
- * every warned row arrives checked. Since MCO-397 the strip above the list carries only
- * creative-only rows, the one kind worth interrupting for; everything else is a row chip.
+ * every warned row arrives checked. Since MCO-397 the strip above the list carries only the
+ * kinds worth interrupting for — creative-only rows, and since MCO-321 hard-capped ones;
+ * everything else is a row chip.
  *
  * [wizard] (MCO-459) makes this one step of a batch started from a plan's suggestion list.
  * The screen itself is unchanged — the review is the point, and MCO-306 put it here on
@@ -459,22 +460,31 @@ private fun FlowContent.materialsField(rows: List<Pair<Item, Int>>, excluded: Se
 }
 
 /**
- * The strip carries **creative-only rows and nothing else** (MCO-397).
+ * The strip carries the kinds that change what the build *is* — creative-only rows (MCO-397)
+ * and hard-capped ones (MCO-321) — and nothing else.
  *
  * MCO-305 gave every warning kind a paragraph here, which put a `!` above the fold of every
- * import. Two of the three did not earn it. "Not really materials" is gone entirely (MCO-396
- * — those rows no longer exist). "Slow to gather" is now the row chip alone: a wither
- * skeleton skull *is* a grind, but the user chose the build knowing that, and interrupting
- * them with it reads as an error where there is none.
+ * import. Most did not earn it. "Not really materials" is gone entirely (MCO-396 — those rows
+ * no longer exist). "Slow to gather" is the row chip alone: a wither skeleton skull *is* a
+ * grind, but the user chose the build knowing that, and interrupting them with it reads as an
+ * error where there is none.
  *
- * What is left is the one kind that asks for a decision *now*: a creative-only row is one to
- * strike before it becomes a permanently blocked plan node. A `!` is proportionate for that.
+ * What is left are the kinds a user cannot act on later. A creative-only row is one to strike
+ * now, before it becomes a permanently blocked plan node. A limited-supply row is not one to
+ * strike at all — it is genuinely required — but "there is one of these in your world and the
+ * design wants 55" is the single most important thing to know before the gathering starts, and
+ * a chip's hover text is not where that belongs. A `!` is proportionate for both.
  *
- * Long lists are truncated — the per-row chips carry the full detail.
+ * Creative-only comes first: it is the one asking for a decision on this screen.
+ *
+ * Long creative-only lists are truncated — the per-row chips carry the full detail. Capped rows
+ * are listed one per line with their own reason, because the cap differs per item and the set
+ * is deliberately tiny (see `LIMITED_SUPPLY_NOTES`).
  */
 private fun FlowContent.warningStrip(warnings: ImportWarnings) {
     val blocked = warnings.of(ImportWarningKind.UNOBTAINABLE)
-    if (blocked.isEmpty()) return
+    val capped = warnings.of(ImportWarningKind.LIMITED_SUPPLY)
+    if (blocked.isEmpty() && capped.isEmpty()) return
 
     div("callout import-review__warnings") {
         span("callout__icon") {
@@ -482,10 +492,20 @@ private fun FlowContent.warningStrip(warnings: ImportWarnings) {
             +"!"
         }
         div("callout__body") {
-            p("import-review__warning") {
-                span("import-review__warning-heading") { +"${ImportWarningKind.UNOBTAINABLE.heading}: " }
-                +namesOf(blocked)
-                +". ${ImportWarningKind.UNOBTAINABLE.explanation}"
+            if (blocked.isNotEmpty()) {
+                p("import-review__warning") {
+                    span("import-review__warning-heading") { +"${ImportWarningKind.UNOBTAINABLE.heading}: " }
+                    +namesOf(blocked)
+                    +". ${ImportWarningKind.UNOBTAINABLE.explanation}"
+                }
+            }
+            capped.forEach { warning ->
+                p("import-review__warning") {
+                    span("import-review__warning-heading") { +"${ImportWarningKind.LIMITED_SUPPLY.heading}: " }
+                    // Kept included on purpose — these rows are functional, not decorative, so
+                    // the useful thing to say is what kind of problem this is, not "uncheck it".
+                    +"${warning.item.name} (${warning.amount}) — ${warning.message}"
+                }
             }
         }
     }
@@ -751,7 +771,9 @@ private fun FlowContent.materialsTable(
                             }
                             warnings.forItem(item.id)?.let { warning ->
                                 span("import-review__flag") {
-                                    attributes["title"] = warning.kind.explanation
+                                    // The item's own reason where it has one (MCO-321), so the
+                                    // dragon egg's chip explains the cap rather than the category.
+                                    attributes["title"] = warning.message
                                     +warning.kind.chip
                                 }
                             }
