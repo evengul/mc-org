@@ -106,6 +106,19 @@
     }
 }
 
+/* Hovering the control strikes the line it would remove.
+   The button sits at `margin-left: auto`, so on a wide viewport it is a long way from the
+   quantity and name it acts on, with no rule between them — "Dismiss" alone leaves you to
+   infer which row you are pointing at. Striking the row says it.
+   Everything except the button, so a line gained later is struck without touching this.
+   The focus half is not a nicety: keyboard reaches the button by focus and never by hover,
+   so without it the preview does not exist for anyone tabbing through the panel. */
+.plan-farm-scale__item:has(.plan-farm-scale__dismiss:hover) > :not(.plan-farm-scale__dismiss),
+.plan-farm-scale__item:has(.plan-farm-scale__dismiss:focus-visible) > :not(.plan-farm-scale__dismiss) {
+    text-decoration: line-through;
+    color: var(--text-muted);
+}
+
 /* The undo list. Folded because a dismissal is meant to be out of the way — but present,
    because a dismissal you cannot find is a dismissal you cannot take back. */
 .plan-farm-scale__dismissed {
