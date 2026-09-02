@@ -18,6 +18,7 @@ import app.mcorg.test.postgres.DatabaseTestExtension
 import io.ktor.client.request.get
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpStatusCode
+import io.ktor.server.response.respondRedirect
 import io.ktor.server.routing.get
 import io.ktor.server.routing.route
 import io.ktor.server.testing.ApplicationTestBuilder
@@ -57,7 +58,7 @@ class WorldRoadmapIT : WithUser() {
         createDemand(consumer, "minecraft:iron_ingot", "Iron Ingot", 32)
         createProduction(farm, "minecraft:iron_ingot", "Iron Ingot")
 
-        val response = client.get("/worlds/$worldId/roadmap") { addAuthCookie(this) }
+        val response = client.get("/worlds/$worldId/roadmap?view=table") { addAuthCookie(this) }
 
         assertEquals(HttpStatusCode.OK, response.status)
         val body = response.bodyAsText()
@@ -91,7 +92,7 @@ class WorldRoadmapIT : WithUser() {
         createProduction(farm, "minecraft:iron_ingot", "Iron Ingot")
         runBlocking { UpdateProjectStageStep(farm).process(ProjectStage.COMPLETED) }
 
-        val body = client.get("/worlds/$worldId/roadmap") { addAuthCookie(this) }.bodyAsText()
+        val body = client.get("/worlds/$worldId/roadmap?view=table") { addAuthCookie(this) }.bodyAsText()
 
         // The relationship is still on the roadmap — it just stopped being a blocker, which
         // the summary line reports (it only counts blocked projects when there are any).
@@ -114,6 +115,77 @@ class WorldRoadmapIT : WithUser() {
         deleteWorld(worldId)
     }
 
+    /**
+     * MCO-466 — the Forever world case: a witch farm that has run for months and a ghast farm
+     * still being built both make gunpowder. Judged on its own the ghast farm looks like a
+     * prerequisite, and the roadmap said the storage system was blocked for 5 gunpowder while
+     * the witch farm supplied that same gunpowder one line above.
+     */
+    @Test
+    fun `a planned farm does not block for an item an operational farm already supplies`() = testApplication {
+        setupRoutes()
+        val worldId = createWorld("Two Producer World")
+        val consumer = createProject(worldId, "Storage System")
+        val running = createProject(worldId, "Witch Farm")
+        val planned = createProject(worldId, "Ghast Farm")
+        createRequirement(consumer, "minecraft:gunpowder", "Gunpowder")
+        createDemand(consumer, "minecraft:gunpowder", "Gunpowder", 5)
+        createProduction(running, "minecraft:gunpowder", "Gunpowder")
+        createProduction(planned, "minecraft:gunpowder", "Gunpowder")
+        runBlocking { UpdateProjectStageStep(running).process(ProjectStage.COMPLETED) }
+
+        val body = client.get("/worlds/$worldId/roadmap?view=table") { addAuthCookie(this) }.bodyAsText()
+
+        // Both relationships stay on the roadmap — the ghast farm really will make gunpowder,
+        // and MCO-318 needs both directions reading the same edge set. What changes is blocking.
+        val consumerRow = roadmapRow(body, "Storage System")
+        assertContains(consumerRow.dependsOn, "Witch Farm")
+        assertContains(consumerRow.dependsOn, "Ghast Farm")
+        assertFalse(
+            consumerRow.dependsOn.contains(STATUS_BLOCKING),
+            "nothing blocks: an operational farm already makes the gunpowder",
+        )
+        assertFalse(body.contains("blocked"), "the summary must not count this project as blocked")
+
+        // Read from the other end, the planned farm must make the same claim.
+        assertFalse(
+            roadmapRow(body, "Ghast Farm").supplies.contains(STATUS_BLOCKING),
+            "the producer's own row must agree it is not blocking",
+        )
+
+        deleteWorld(worldId)
+    }
+
+    /**
+     * The other half of MCO-466: coverage is per item, so an unfinished farm still blocks for
+     * whatever nothing operational makes. Without this the fix would silently unblock a world.
+     */
+    @Test
+    fun `a planned farm still blocks for an item nothing operational makes`() = testApplication {
+        setupRoutes()
+        val worldId = createWorld("Partial Coverage World")
+        val consumer = createProject(worldId, "Storage System")
+        val running = createProject(worldId, "Witch Farm")
+        val planned = createProject(worldId, "Iron Farm")
+        createRequirement(consumer, "minecraft:gunpowder", "Gunpowder")
+        createRequirement(consumer, "minecraft:iron_ingot", "Iron Ingot")
+        createDemand(consumer, "minecraft:gunpowder", "Gunpowder", 5)
+        createDemand(consumer, "minecraft:iron_ingot", "Iron Ingot", 32)
+        createProduction(running, "minecraft:gunpowder", "Gunpowder")
+        createProduction(planned, "minecraft:iron_ingot", "Iron Ingot")
+        runBlocking { UpdateProjectStageStep(running).process(ProjectStage.COMPLETED) }
+
+        val body = client.get("/worlds/$worldId/roadmap?view=table") { addAuthCookie(this) }.bodyAsText()
+
+        val consumerRow = roadmapRow(body, "Storage System")
+        assertContains(consumerRow.dependsOn, STATUS_BLOCKING)
+        assertContains(consumerRow.dependsOn, "Iron Farm")
+        assertContains(body, "1 blocked")
+        assertContains(roadmapRow(body, "Iron Farm").supplies, STATUS_BLOCKING)
+
+        deleteWorld(worldId)
+    }
+
     @Test
     fun `finished projects sort below the work that is left`() = testApplication {
         setupRoutes()
@@ -127,7 +199,7 @@ class WorldRoadmapIT : WithUser() {
         createProduction(farm, "minecraft:iron_ingot", "Iron Ingot")
         runBlocking { UpdateProjectStageStep(farm).process(ProjectStage.COMPLETED) }
 
-        val body = client.get("/worlds/$worldId/roadmap") { addAuthCookie(this) }.bodyAsText()
+        val body = client.get("/worlds/$worldId/roadmap?view=table") { addAuthCookie(this) }.bodyAsText()
 
         // MCO-405: the dev world opened on 20-odd finished farms with the one active build
         // underneath. Depth is still the sequence — it just no longer leads.
@@ -152,7 +224,7 @@ class WorldRoadmapIT : WithUser() {
         createDemand(consumer, "minecraft:gold_nugget", "Gold Nugget", 7299)
         createProduction(farm, "minecraft:gold_nugget", "Gold Nugget")
 
-        val body = client.get("/worlds/$worldId/roadmap") { addAuthCookie(this) }.bodyAsText()
+        val body = client.get("/worlds/$worldId/roadmap?view=table") { addAuthCookie(this) }.bodyAsText()
 
         val consumerRow = roadmapRow(body, "YAMS")
         assertContains(consumerRow.dependsOn, "Gold Farm")
@@ -174,7 +246,7 @@ class WorldRoadmapIT : WithUser() {
         createDemand(consumer, "minecraft:cobblestone", "Cobblestone", 74564)
         createProduction(farm, "minecraft:cobblestone", "Cobblestone")
 
-        val body = client.get("/worlds/$worldId/roadmap") { addAuthCookie(this) }.bodyAsText()
+        val body = client.get("/worlds/$worldId/roadmap?view=table") { addAuthCookie(this) }.bodyAsText()
 
         val consumerRow = roadmapRow(body, "YAMS")
         assertContains(consumerRow.dependsOn, "74,564 Cobblestone")
@@ -195,7 +267,7 @@ class WorldRoadmapIT : WithUser() {
         createRequirement(consumer, "minecraft:iron_ingot", "Iron Ingot")
         createProduction(farm, "minecraft:iron_ingot", "Iron Ingot")
 
-        val body = client.get("/worlds/$worldId/roadmap") { addAuthCookie(this) }.bodyAsText()
+        val body = client.get("/worlds/$worldId/roadmap?view=table") { addAuthCookie(this) }.bodyAsText()
 
         val consumerRow = roadmapRow(body, "Unopened Build")
         assertFalse(consumerRow.dependsOn.contains("Iron Farm"))
@@ -208,7 +280,7 @@ class WorldRoadmapIT : WithUser() {
         setupRoutes()
         val worldId = createWorld("Empty Roadmap World")
 
-        val response = client.get("/worlds/$worldId/roadmap") { addAuthCookie(this) }
+        val response = client.get("/worlds/$worldId/roadmap?view=table") { addAuthCookie(this) }
 
         assertEquals(HttpStatusCode.OK, response.status)
         val body = response.bodyAsText()
@@ -241,6 +313,76 @@ class WorldRoadmapIT : WithUser() {
         val response = unauth.get("/worlds/$worldId/roadmap")
 
         assertEquals(HttpStatusCode.Found, response.status)
+
+        deleteWorld(worldId)
+    }
+
+    /**
+     * Opening a world lands on its roadmap (MCO-474).
+     *
+     * The status assertion is the point, not a formality: this used to be a **301**, which
+     * browsers cache indefinitely, so the previous target outlives any change to it. A 302
+     * keeps the next change to this route actually deliverable.
+     */
+    @Test
+    fun `a world lands on its roadmap, and not permanently`() = testApplication {
+        routing {
+            install(AuthPlugin)
+            route("/worlds/{worldId}") {
+                install(WorldParamPlugin)
+                install(WorldParticipantPlugin)
+                install(UpdateActiveWorldPlugin)
+                get {
+                    val id = call.parameters["worldId"]!!.toInt()
+                    call.respondRedirect("/worlds/$id/roadmap", permanent = false)
+                }
+            }
+        }
+        val worldId = createWorld("Landing World")
+        val noFollow = createClient { followRedirects = false }
+
+        val response = noFollow.get("/worlds/$worldId") { addAuthCookie(this) }
+
+        assertEquals(HttpStatusCode.Found, response.status)
+        assertEquals("/worlds/$worldId/roadmap", response.headers["Location"])
+
+        deleteWorld(worldId)
+    }
+
+    /** The tab pair is the way back out of the roadmap, on both of the world's pages. */
+    @Test
+    fun `the roadmap renders the world tabs with roadmap marked current`() = testApplication {
+        setupRoutes()
+        val worldId = createWorld("Tabs Roadmap World")
+
+        val body = client.get("/worlds/$worldId/roadmap") { addAuthCookie(this) }.bodyAsText()
+
+        assertContains(body, "/worlds/$worldId/projects")
+        assertContains(body, "world-tabs__tab--active")
+        assertContains(body, "aria-current=\"page\"")
+
+        deleteWorld(worldId)
+    }
+
+    /**
+     * The roadmap is what a world opens to, so it carries the world's primary action too
+     * (MCO-474) — it was previously the one view with no way to add anything.
+     *
+     * Asserting the dialogs, not just the trigger, is the point: every door calls `showModal()`
+     * on a specific `<dialog>`, so a menu rendered without them gives you doors that silently
+     * do nothing — and a test that only looked for the button would pass.
+     */
+    @Test
+    fun `the roadmap offers the new project menu, with the dialogs its doors open`() = testApplication {
+        setupRoutes()
+        val worldId = createWorld("New Project Roadmap World")
+
+        val body = client.get("/worlds/$worldId/roadmap") { addAuthCookie(this) }.bodyAsText()
+
+        assertContains(body, "new-project-menu")
+        assertContains(body, "+ New project")
+        assertContains(body, "create-project-modal")
+        assertContains(body, "schematic-project-modal")
 
         deleteWorld(worldId)
     }

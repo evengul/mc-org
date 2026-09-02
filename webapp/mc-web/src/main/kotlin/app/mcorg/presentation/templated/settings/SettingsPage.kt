@@ -55,7 +55,7 @@ fun worldSettingsPage(user: TokenProfile, data: SettingsPageData): String = page
         isWorldAdmin = true,
         breadcrumbBlock = {
             link("Worlds", "/worlds")
-                .link(data.world.name, "/worlds/${data.world.id}/projects")
+                .link(data.world.name, "/worlds/${data.world.id}/roadmap")
                 .current("Settings")
         }
     )

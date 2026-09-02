@@ -5,7 +5,9 @@ import app.mcorg.domain.model.project.Project
 import app.mcorg.domain.model.project.ProjectStage
 import app.mcorg.domain.model.project.ProjectState
 import app.mcorg.domain.model.project.ProjectType
+import app.mcorg.domain.model.resources.ResourceSource
 import app.mcorg.domain.model.world.World
+import app.mcorg.engine.model.SourceNode
 import app.mcorg.engine.plan.GatheringPlan
 import app.mcorg.engine.plan.PlanNode
 import app.mcorg.engine.plan.PlanNodeStatus
@@ -32,6 +34,8 @@ class FarmScaleRollUpTest {
     private val ice = Item("minecraft:ice", "Ice")
     private val ironIngot = Item("minecraft:iron_ingot", "Iron Ingot")
     private val torch = Item("minecraft:torch", "Torch")
+    private val water = Item("minecraft:water", "Water")
+    private val lava = Item("minecraft:lava", "Lava")
 
     private fun project() = Project(
         id = 2,
@@ -59,7 +63,24 @@ class FarmScaleRollUpTest {
         quantity: Long,
         status: PlanNodeStatus = PlanNodeStatus.RAW_GATHER,
         supply: SupplySource? = null,
-    ) = PlanNode(item = item, quantity = quantity, crafts = 0, leftover = 0, status = status, supply = supply)
+        source: SourceNode? = null,
+    ) = PlanNode(
+        item = item,
+        quantity = quantity,
+        crafts = 0,
+        leftover = 0,
+        status = status,
+        source = source,
+        supply = supply,
+    )
+
+    /** Fill a bucket from the world — water, lava (MCO-467). */
+    private fun collect(filename: String) =
+        SourceNode(ResourceSource.SourceType.MechanicTypes.COLLECT, filename)
+
+    /** Break a block for its drop — how ice is actually obtained, and why ice stays farmable. */
+    private fun breakBlock(filename: String) =
+        SourceNode(ResourceSource.SourceType.LootTypes.BLOCK, filename)
 
     private fun render(
         plan: GatheringPlan,
@@ -128,6 +149,47 @@ class FarmScaleRollUpTest {
         assertFalse(html.contains("""<span class="plan-farm-scale__quantity">32,967</span>"""))
     }
 
+    /**
+     * MCO-467 — water is unbounded at the source. On the YAMS import it cleared the threshold at
+     * 2,413 and led the roll-up, offering a farm that cannot exist.
+     */
+    @Test
+    fun `a material you fill from the world is never farm-scale`() {
+        val html = render(
+            plan(
+                node(cobblestone, 74_557),
+                node(water, 2_413, source = collect("synthetic/water.json")),
+                node(lava, 9_999, source = collect("synthetic/lava.json")),
+            )
+        )
+
+        assertContains(html, "1 raw material needs")
+        assertFalse(html.contains("""<span class="plan-farm-scale__quantity">2,413</span>"""))
+        assertFalse(html.contains("""<span class="plan-farm-scale__quantity">9,999</span>"""))
+    }
+
+    /**
+     * The other side of the same line. Ice is broken out of the world, is genuinely farmable,
+     * and two ice farm designs sit in the bank — a rule that caught it would be worse than the
+     * bug it fixed.
+     */
+    @Test
+    fun `a material you break out of the world is still farm-scale`() {
+        val html = render(plan(node(ice, 20_611, source = breakBlock("blocks/ice.json"))))
+
+        assertContains(html, "1 raw material needs")
+        assertContains(html, """<span class="plan-farm-scale__quantity">20,611</span>""")
+    }
+
+    /** A plan whose only bulk demand is water has no farm question left to ask. */
+    @Test
+    fun `water alone produces no roll-up`() {
+        val html = render(plan(node(water, 2_413, source = collect("synthetic/water.json"))))
+
+        assertFalse(html.contains("plan-farm-scale"))
+        assertFalse(html.contains("Worth a farm"))
+    }
+
     @Test
     fun `farm-scale rows carry the badge and others do not`() {
         val html = render(plan(node(cobblestone, 74_557), node(ice, 12)))
@@ -164,6 +226,20 @@ class FarmScaleRollUpTest {
 
         assertContains(html, "1 raw material needs more than ")
         assertContains(html, ">50,000<")
-        assertFalse(html.contains("20,611"))
+        // Scoped to the roll-up rather than the whole fragment: the Next up widget (MCO-481)
+        // sits above it and names an outstanding activity, which may well be the very material
+        // the roll-up drops for being under the threshold. Both are right.
+        assertFalse(rollUpOf(html).contains("20,611"))
+    }
+
+    /**
+     * The roll-up section alone. It is emitted first, and the activity sections follow, so the
+     * first `project-detail__section` after it marks the end.
+     */
+    private fun rollUpOf(html: String): String {
+        val start = html.indexOf("id=\"plan-farm-scale\"")
+        if (start < 0) return ""
+        val end = html.indexOf("project-detail__section", start)
+        return if (end < 0) html.substring(start) else html.substring(start, end)
     }
 }

@@ -1,0 +1,68 @@
+/* ==========================================================================
+   WORLD TABS
+   World-level navigation: Roadmap · Projects (MCO-474).
+
+   Deliberately an underlined tab bar rather than a segmented control. The
+   roadmap page already carries a Graph/Table segmented switch directly below
+   this, and two segmented controls stacked read as one nested control — the
+   reader cannot tell which one scopes the other.
+
+   The active tab is marked by weight and a 2px rule, never by colour alone.
+   ========================================================================== */
+
+.world-tabs {
+    display: flex;
+    gap: var(--space-5);
+    border-bottom: 1px solid var(--border);
+    margin-bottom: var(--space-5);
+}
+
+.world-tabs__tab {
+    font-family: var(--font-ui);
+    font-size: var(--text-sm);
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    color: var(--text-muted);
+    text-decoration: none;
+    padding: var(--space-3) 2px;
+    /* Sits the tab's own rule on top of the bar's, rather than above it. */
+    margin-bottom: -1px;
+    border-bottom: 2px solid transparent;
+    transition: color 0.1s ease, border-color 0.1s ease;
+}
+
+.world-tabs__tab:hover {
+    color: var(--text-primary);
+    border-bottom-color: var(--border-strong);
+}
+
+.world-tabs__tab--active {
+    color: var(--text-primary);
+    font-weight: 600;
+    border-bottom-color: var(--accent);
+}
+
+/* --------------------------------------------------------------------------
+   The bar the tabs sit in: sections on the left, the world's primary action
+   on the right (MCO-474). The rule belongs to the bar rather than the tab
+   list so the action sits *on* the line instead of floating above it.
+   -------------------------------------------------------------------------- */
+
+.world-bar {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: var(--space-4);
+    flex-wrap: wrap;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: var(--space-5);
+}
+
+.world-bar .world-tabs {
+    border-bottom: none;
+    margin-bottom: 0;
+}
+
+.world-bar__actions {
+    padding-bottom: var(--space-2);
+}

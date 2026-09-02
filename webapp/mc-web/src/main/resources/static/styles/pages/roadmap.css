@@ -6,6 +6,11 @@
 
 .roadmap-title {
     margin-bottom: var(--space-5);
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: var(--space-4);
+    flex-wrap: wrap;
 }
 
 /* MCO-460 — circular supply. Sits above the table because a loop makes the ordering below it
@@ -116,8 +121,32 @@
     overflow-x: auto;
 }
 
+/* Column widths are the table's, not the content's (MCO-465).
+ *
+ * By default a table measures its columns from what is in them, so opening one cell's
+ * disclosure re-measured every column and the whole table changed shape underneath the
+ * click. Fixed layout pins the widths up front, and the fold then only grows downwards.
+ *
+ * Below 768px data-table switches every element to `display: block`, which takes the
+ * table formatting context away entirely — these widths simply stop applying, and the
+ * stacked cards are unaffected. */
 .roadmap-table {
     min-width: 720px;
+    table-layout: fixed;
+}
+
+.roadmap-table th:nth-child(1) { width: 4.5rem; }  /* Layer */
+.roadmap-table th:nth-child(2) { width: 16%; }     /* Project */
+.roadmap-table th:nth-child(3) { width: 7rem; }    /* State */
+.roadmap-table th:nth-child(4) { width: 5rem; }    /* Tasks */
+.roadmap-table th:nth-child(5) { width: 36%; }     /* Depends on */
+.roadmap-table th:nth-child(6) { width: 20%; }     /* Supplies */
+
+/* A fixed column will not widen for a long item name, so names wrap instead of spilling
+   past the cell. `break-word` rather than `anywhere`: it breaks only when a word cannot
+   fit, leaving "Storage System YAMS" to wrap between its words like prose. */
+.roadmap-table td {
+    overflow-wrap: break-word;
 }
 
 .roadmap-layer {
@@ -176,6 +205,54 @@
     letter-spacing: 0.08em;
     text-transform: uppercase;
     white-space: nowrap;
+}
+
+/* MCO-465 — the other resources running along the same pair. A count, not a list: the names
+   are what made this cell 800px tall. Quieter than the item it follows, since it is a hint
+   that there is more behind the link rather than something to read. */
+.roadmap-edge__more {
+    color: var(--text-disabled);
+    font-size: var(--text-xs);
+    /* "+38" and "more" are one phrase; broken across a line it reads as a stray number
+       followed by a word belonging to the status label after it. */
+    white-space: nowrap;
+}
+
+/* MCO-465 — the settled half of the cell, folded away. Only ever wraps SUPPLYING edges;
+   a blocker is what the row is for and is never behind a disclosure. */
+.roadmap-edge-fold {
+    margin-top: var(--space-1);
+}
+
+.roadmap-edge-fold__summary {
+    cursor: pointer;
+    font-family: var(--font-ui);
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+    list-style: none;
+}
+
+/* The marker is drawn by hand so it can sit after the text and flip on open — Safari and
+   Chrome disagree about styling the native one. */
+.roadmap-edge-fold__summary::-webkit-details-marker {
+    display: none;
+}
+
+.roadmap-edge-fold__summary::after {
+    content: " ▸";
+    color: var(--text-disabled);
+}
+
+.roadmap-edge-fold[open] > .roadmap-edge-fold__summary::after {
+    content: " ▾";
+}
+
+.roadmap-edge-fold__summary:hover {
+    color: var(--accent);
+}
+
+.roadmap-edge-fold > .roadmap-edge-list {
+    margin-top: var(--space-1);
 }
 
 /* Still holding someone up: redstone, the danger role. */

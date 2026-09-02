@@ -17,6 +17,7 @@ import app.mcorg.pipeline.resources.FarmScaleDemand
 import app.mcorg.pipeline.resources.FarmScaleDemands
 import app.mcorg.pipeline.project.SELECTED_DESIGN_FIELD
 import app.mcorg.pipeline.resources.FarmSuggestion
+import app.mcorg.presentation.templated.dsl.formatPlainCount
 import app.mcorg.presentation.hxDelete
 import app.mcorg.presentation.hxDeleteWithConfirm
 import app.mcorg.presentation.hxGet
@@ -43,6 +44,10 @@ import app.mcorg.presentation.templated.dsl.projectStateField
 import app.mcorg.presentation.templated.dsl.resourceSearch
 import app.mcorg.presentation.templated.dsl.tabStrip
 import app.mcorg.presentation.templated.dsl.taskList
+import kotlinx.html.tbody
+import kotlinx.html.summary
+import kotlinx.html.details
+import kotlinx.html.TABLE
 import kotlinx.html.*
 import kotlinx.html.stream.createHTML
 import app.mcorg.engine.plan.TargetTree
@@ -61,7 +66,6 @@ fun projectDetailPage(
     worldName: String,
     resources: List<ResourceGatheringItem>,
     tasks: List<ActionTask>,
-    lens: String = "list",
     isWorldAdmin: Boolean = false,
     plan: GatheringPlan? = null,
     progressMap: Map<String, Int> = emptyMap(),
@@ -87,6 +91,7 @@ fun projectDetailPage(
         "/static/styles/components/badge.css",
         "/static/styles/components/progress.css",
         "/static/styles/components/resource-row.css",
+        "/static/styles/components/work-row.css",
         "/static/styles/components/task-list.css",
         "/static/styles/components/resource-search.css",
         "/static/styles/components/resource-panel.css",
@@ -101,13 +106,17 @@ fun projectDetailPage(
     )
 ) {
     appHeader(
+        // Without this the mobile header falls back to "Seam" — and since MCO-474 made that
+        // name the only way back out of a project on a phone, it was a link labelled with the
+        // product name that went to a world.
+        worldName = worldName,
         worldId = project.worldId,
         projectId = project.id,
         user = user,
         isWorldAdmin = isWorldAdmin,
         breadcrumbBlock = {
             link("Worlds", "/worlds")
-                .link(worldName, "/worlds/${project.worldId}/projects")
+                .link(worldName, "/worlds/${project.worldId}/roadmap")
                 .current(project.name)
         }
     )
@@ -145,7 +154,7 @@ fun projectDetailPage(
                     // ?drill=<item> deep-links straight into a target's chain (reload/share-safe).
                     drillChainContent(project, drillTarget, drillCandidateCounts, drillNodeIngredients, overrides = drillOverrides, graph = drillGraph, highlightItemId = drillHighlightItemId)
                 } else {
-                    gatheringPlannerContent(project, resources, tasks, plan, lens, progressMap, pendingFarms, farmScaleThreshold, farmSuggestions, versionGaps, isWorldAdmin)
+                    gatheringPlannerContent(project, resources, tasks, plan, progressMap, pendingFarms, farmScaleThreshold, farmSuggestions, versionGaps, isWorldAdmin)
                 }
             }
         }
@@ -226,8 +235,13 @@ fun FlowContent.overallProgressInner(totalRequired: Long, totalCollected: Long) 
  * so derived activities that have persisted progress are counted correctly.
  */
 internal fun planProgressTotals(plan: GatheringPlan, progressMap: Map<String, Int>): Pair<Long, Long> {
+    // SUPPLIED counts: emptying a farm is work with a quantity, and leaving it out meant the
+    // header read 0% while you hauled 74,557 cobblestone. OPEN_TAG and BLOCKED still do not —
+    // their quantities are provisional until the question is answered.
     val countable = plan.activityList.filter {
-        it.status == PlanNodeStatus.RESOLVED || it.status == PlanNodeStatus.RAW_GATHER
+        it.status == PlanNodeStatus.RESOLVED ||
+            it.status == PlanNodeStatus.RAW_GATHER ||
+            it.status == PlanNodeStatus.SUPPLIED
     }
     val totalRequired = countable.sumOf { it.quantity }
     val totalCollected = countable.sumOf { activity ->
@@ -237,15 +251,19 @@ internal fun planProgressTotals(plan: GatheringPlan, progressMap: Map<String, In
 }
 
 /**
- * Unified gathering planner content — replaces the old PLAN/EXECUTE toggle.
- * Shows lens pills (List / Next up / Sessions) and renders the active lens body.
+ * The gathering planner.
+ *
+ * The lens pills (List / Next up / Sessions) are gone (MCO-481). Two of the three were stubs
+ * rendering "coming soon", so the strip was a whole level of navigation carrying one real
+ * destination. Next up is a widget below instead — the answer is worth having *while* you work,
+ * not somewhere you have to go. Sessions stays unbuilt: MCO-224 specs it as geography trips and
+ * MCO-225 says that data does not exist yet, so it would render its own fallback.
  */
 fun FlowContent.gatheringPlannerContent(
     project: Project,
     resources: List<ResourceGatheringItem>,
     tasks: List<ActionTask>,
     plan: GatheringPlan?,
-    lens: String = "list",
     progressMap: Map<String, Int> = emptyMap(),
     pendingFarms: List<PendingFarmSupply> = emptyList(),
     farmScaleThreshold: Int = World.DEFAULT_FARM_SCALE_THRESHOLD,
@@ -254,44 +272,73 @@ fun FlowContent.gatheringPlannerContent(
     versionGaps: Set<String> = emptySet(),
     isWorldAdmin: Boolean = false,
 ) {
-    val activeLens = when (lens) {
-        "next", "sessions" -> lens
-        else -> "list"
-    }
-
-    // Fetch from the fragment endpoint (hx-get), but push the canonical page URL so a
-    // reload/share lands on the full page shell rather than the bare CSS-less fragment.
-    val fragmentBase = "/worlds/${project.worldId}/projects/${project.id}/detail-content"
-    val pageBase = "/worlds/${project.worldId}/projects/${project.id}"
-    val lensTabs = listOf(
-        TabItem("list", "List", "$fragmentBase?lens=list", pushUrl = "$pageBase?lens=list"),
-        TabItem("next", "Next up", "$fragmentBase?lens=next", pushUrl = "$pageBase?lens=next"),
-        TabItem("sessions", "Sessions", "$fragmentBase?lens=sessions", pushUrl = "$pageBase?lens=sessions"),
-    )
-
-    // Lens pills
-    tabStrip(
-        tabs = lensTabs,
-        activeValue = activeLens,
-        hxTarget = "#project-content",
-        variant = TabVariant.PILLS,
-        queryName = "lens",
-    )
-
-    // Active lens body
-    when (activeLens) {
-        "next", "sessions" -> lensComingSoon(project.worldId, project.id, activeLens)
-        else -> listLensContent(project, resources, tasks, plan, progressMap, pendingFarms, farmScaleThreshold, farmSuggestions, versionGaps, isWorldAdmin)
-    }
+    nextUpWidget(project, plan, progressMap)
+    listLensContent(project, resources, tasks, plan, progressMap, pendingFarms, farmScaleThreshold, farmSuggestions, versionGaps, isWorldAdmin)
 }
 
-private fun FlowContent.lensComingSoon(worldId: Int, projectId: Int, lens: String) {
-    val label = if (lens == "next") "Next up" else "Sessions"
-    div("callout callout--info") {
-        id = "lens-content"
-        span("callout__icon") { +"i" }
-        div("callout__body") {
-            +"$label view is coming soon."
+/**
+ * "Next up" — one move, with a way to ask for another.
+ *
+ * Every candidate is rendered and all but one hidden, so cycling is a class swap rather than a
+ * round trip; there is no server state to keep and nothing to lose on a re-render. See
+ * [NextUpPick] for why the order is what it is.
+ */
+private fun FlowContent.nextUpWidget(
+    project: Project,
+    plan: GatheringPlan?,
+    progressMap: Map<String, Int>,
+) {
+    val candidates = NextUpPick.of(plan, progressMap)
+    if (candidates.isEmpty()) return
+
+    div("next-up") {
+        id = "next-up"
+        div("next-up__head") {
+            span("section-label") { +"NEXT UP" }
+            if (candidates.size > 1) {
+                button(classes = "btn btn--ghost btn--sm next-up__shuffle") {
+                    id = "next-up-shuffle"
+                    type = ButtonType.button
+                    +"Something else ↻"
+                }
+            }
+        }
+        candidates.forEachIndexed { index, activity ->
+            div(if (index == 0) "next-up__card" else "next-up__card next-up__card--hidden") {
+                attributes["data-next-up-index"] = index.toString()
+                div("next-up__what") {
+                    span("next-up__qty") { +formatPlainCount(activity.quantity) }
+                    a(classes = "next-up__item") {
+                        href = "/worlds/${project.worldId}/projects/${project.id}" +
+                            "?drill=" + URLEncoder.encode(activity.item.id, StandardCharsets.UTF_8)
+                        +activity.item.name
+                    }
+                }
+                div("next-up__why") { +NextUpPick.reasonFor(activity, index == 0) }
+
+                // MCO-482: a decision is answerable here, not merely announced here.
+                //
+                // The widget used to say "3,540 Wooden Slabs — the plan below this is
+                // provisional until you choose" and stop, leaving you to scroll to Needs
+                // attention and press the same button there. A widget whose whole purpose is
+                // "what do I do right now" should not answer with "go and find the control".
+                //
+                // It loads the *same* picker Needs attention loads, from the same endpoint —
+                // one derivation, two surfaces — rather than hosting a second copy that would
+                // drift. `origin=list` makes a pick re-render the list, so the answered tag
+                // leaves both this widget and that section together.
+                if (activity.group == ActivityGroup.NEEDS_ATTENTION) {
+                    val encoded = URLEncoder.encode(activity.item.id, StandardCharsets.UTF_8)
+                    div("next-up__picker chain-node__picker") {
+                        // Loaded eagerly because there are at most MAX_DECISIONS of these, and a
+                        // choice you have to click twice to see is the thing being fixed.
+                        attributes["hx-get"] = "/worlds/${project.worldId}/projects/${project.id}" +
+                            "/plan/chain/$encoded/sources?node=$encoded&origin=list"
+                        attributes["hx-trigger"] = "load"
+                        attributes["hx-swap"] = "innerHTML"
+                    }
+                }
+            }
         }
     }
 }
@@ -405,7 +452,7 @@ private fun FlowContent.listLensContent(
             }
 
             // Resource table + ignored section — always rendered as HTMX swap target
-            planResourcesArea(project.worldId, project.id, resources)
+            planResourcesArea(project.worldId, project.id, resources, plan)
 
             // Schematic upload modal
             resourceSchematicModal(project.worldId, project.id, resources.count { it.required > 0 && !it.ignored })
@@ -516,6 +563,7 @@ fun FlowContent.gatheringPlanSections(
     val feedsLabels = buildFeedsLabels(plan)
     val farmScale = FarmScaleDemands.of(plan, farmScaleThreshold)
     val farmScaleIds = farmScale.mapTo(mutableSetOf()) { it.itemId }
+    val planTotal = plan.activityList.sumOf { it.quantity }
 
     div {
         id = "gathering-plan-sections"
@@ -542,19 +590,15 @@ fun FlowContent.gatheringPlanSections(
                 if (group == ActivityGroup.NEEDS_ATTENTION) {
                     needsAttentionList(project, ordered, versionGaps)
                 } else {
-                    div("resource-list") {
-                        ordered.forEach { activity ->
-                            planActivityRow(
-                                project.worldId,
-                                project.id,
-                                activity,
-                                progressMap,
-                                nodeIngredients,
-                                feedsLabels,
-                                isFarmScale = activity.item.id in farmScaleIds,
-                            )
-                        }
-                    }
+                    workSection(
+                        project,
+                        ordered,
+                        progressMap,
+                        nodeIngredients,
+                        feedsLabels,
+                        farmScaleIds,
+                        planTotal,
+                    )
                 }
             }
         }
@@ -562,6 +606,75 @@ fun FlowContent.gatheringPlanSections(
         pendingFarmNotice(project.worldId, pendingFarms)
     }
 }
+
+
+/**
+ * One work section: a panel of 40px lines, with the small jobs as chips in its footer.
+ *
+ * Two folds do different jobs here and both are needed. [ActivitySectionLayout] decides *which*
+ * lines are worth a row — the Craft section is 440 rows and seventeen of them carry 90% of the
+ * material. The tail it folds away is not hidden behind a toggle any more but rendered as
+ * tick-off chips, because "1 Black Terracotta" is a real errand that wants ticking and not a row
+ * with six steppers on it.
+ *
+ * Both halves keep the order they arrived in, so Smelt and Craft still read ingredients-first.
+ */
+private fun FlowContent.workSection(
+    project: Project,
+    ordered: List<Activity>,
+    progressMap: Map<String, Int>,
+    nodeIngredients: Map<String, String>,
+    feedsLabels: Map<String, FeedsLabel>,
+    farmScaleIds: Set<String>,
+    planTotal: Long,
+) {
+    val split = ActivitySectionLayout.of(ordered, planTotal)
+    fun stateOf(activity: Activity) =
+        workRowStateOf(activity, progressMap, nodeIngredients, feedsLabels, farmScaleIds)
+
+    div("work-panel") {
+        split.lead.forEach { activity ->
+            workRowCollapsed(project.worldId, project.id, stateOf(activity))
+        }
+
+        if (split.folded.isNotEmpty()) {
+            smallJobsStrip(project.worldId, project.id, split.folded.map(::stateOf))
+        }
+    }
+}
+
+/** How many chips before the strip itself becomes the wall it is replacing. */
+private const val SMALL_JOB_CHIPS = 24
+
+/**
+ * The footer band: everything too small to deserve a line, as chips you tick as you pass.
+ *
+ * A chip is the whole tick target — no steppers, because a job of three wool has no use for
+ * `-1728`. Craft's tail is 439 of these, so the strip caps itself and says how many it is not
+ * showing rather than becoming a second wall.
+ */
+private fun FlowContent.smallJobsStrip(worldId: Int, projectId: Int, jobs: List<WorkRowState>) {
+    val shown = jobs.take(SMALL_JOB_CHIPS)
+    val hidden = jobs.size - shown.size
+
+    div("small-jobs") {
+        span("small-jobs__label") { +"Small jobs · tick off as you go" }
+        div("small-jobs__chips") {
+            shown.forEach { smallJobChip(worldId, projectId, it) }
+            if (hidden > 0) {
+                details("small-jobs__rest") {
+                    summary {
+                        span("btn btn--ghost btn--sm") { +"$hidden more" }
+                    }
+                    div("small-jobs__chips") {
+                        jobs.drop(SMALL_JOB_CHIPS).forEach { smallJobChip(worldId, projectId, it) }
+                    }
+                }
+            }
+        }
+    }
+}
+
 
 /**
  * "Worth a farm" — the farm-scale demand and what to build for it, as one list.
@@ -813,32 +926,6 @@ private val QUANTITY_SORTED_GROUPS = setOf(
     ActivityGroup.TRADE,
 )
 
-/** Renders a single activity row. Presentation depends on status. */
-private fun FlowContent.planActivityRow(
-    worldId: Int,
-    projectId: Int,
-    activity: Activity,
-    progressMap: Map<String, Int> = emptyMap(),
-    nodeIngredients: Map<String, String> = emptyMap(),
-    feedsLabels: Map<String, FeedsLabel> = emptyMap(),
-    isFarmScale: Boolean = false,
-) {
-    when (activity.status) {
-        PlanNodeStatus.SUPPLIED -> suppliedActivityRow(worldId, projectId, activity, feedsLabels[activity.item.id])
-        PlanNodeStatus.OPEN_TAG -> openTagActivityRow(worldId, projectId, activity)
-        PlanNodeStatus.BLOCKED -> blockedActivityRow(worldId, projectId, activity)
-        PlanNodeStatus.RESOLVED, PlanNodeStatus.RAW_GATHER ->
-            counterActivityRow(
-                worldId,
-                projectId,
-                activity,
-                progressMap,
-                nodeIngredients,
-                feedsLabels[activity.item.id],
-                isFarmScale = isFarmScale,
-            )
-    }
-}
 
 /** Renders the "Feeds 24 Birch Door · 40 Chest" reverse-provenance line, when present. */
 internal fun FlowContent.feedsLine(label: FeedsLabel?) {
@@ -849,73 +936,6 @@ internal fun FlowContent.feedsLine(label: FeedsLabel?) {
     }
 }
 
-/**
- * SUPPLIED row: quantity + badge + supply label, no counter.
- *
- * Farm supply and linked-project supply share the group but are not the same promise
- * (MCO-299): a farm keeps producing, a linked project hands over once. The badge says
- * which, and a linked project's name is a link to it — the farm's name is not, because
- * the supply is ambient (any operational producer of the item, resolved at plan time).
- *
- * ## The quantity shows; the counter does not (MCO-403)
- *
- * This row used to print no number at all, on the reasoning that a supplied item is handled.
- * That drops the one fact the row exists to deliver: "Cobblestone — from Cobble farm" reads as
- * solved, and **74,557** cobblestone is what tells you whether that farm is anywhere near
- * adequate. It is also the number the roadmap prints on the same farm's edge (MCO-316), in the
- * same `%,d` format — two surfaces disagreeing about whether a quantity is worth showing was
- * never a decision anyone made.
- *
- * A **counter and progress bar** stay off, for both supply kinds:
- *
- * - The plan does not schedule this work. A supplied item terminates its chain — nothing
- *   downstream re-derives as you haul it in — so a "collected" number here would count toward a
- *   finish line the planner does not have, and would never mark the row complete.
- * - Farm supply is unbounded in V1 (MCO-287): the farm *solves* the item. Progress against a
- *   solved item is a number nothing reads and nothing updates.
- * - Linked-project supply is a one-time handover, where a counter reads more naturally — but the
- *   handover is the *producer's* completion, which its own project already tracks. A second
- *   counter here would be a second place to record the same thing, and they would drift.
- *
- * If that changes, the two kinds diverge and this branch splits; today they agree, so it does not.
- */
-private fun FlowContent.suppliedActivityRow(
-    worldId: Int,
-    projectId: Int,
-    activity: Activity,
-    feedsLabel: FeedsLabel? = null,
-) {
-    val supply = activity.supply
-    val encodedItemId = URLEncoder.encode(activity.item.id, StandardCharsets.UTF_8)
-    div("resource-row") {
-        id = "plan-activity-${activity.item.id.replace(":", "-")}"
-        div("resource-row__desktop") {
-            div("resource-row__name") { +activity.item.name }
-            // Same position as the counter row's count, so the numbers line up down the page
-            // however a row is sourced, and the same format as the roadmap's edge.
-            span("resource-row__count") { +"%,d".format(activity.quantity) }
-            when (supply) {
-                is SupplySource.Farm -> {
-                    span("badge badge--accent") { +"Farm" }
-                    span("resource-row__source") { +"from ${supply.label}" }
-                }
-                is SupplySource.LinkedProject -> {
-                    span("badge badge--accent") { +"Project" }
-                    span("resource-row__source") {
-                        +"from "
-                        a(classes = "resource-row__source-link") {
-                            href = "/worlds/$worldId/projects/${supply.projectId}"
-                            +supply.label
-                        }
-                    }
-                }
-                null -> span("badge badge--accent") { +"Supplied" }
-            }
-            drillButton(worldId, projectId, encodedItemId)
-        }
-        feedsLine(feedsLabel)
-    }
-}
 
 /**
  * "Needs attention", ordered and collapsed (MCO-400).
@@ -1097,85 +1117,6 @@ private fun FlowContent.blockedActivityRow(
  * Mirrors the structure of resourceRow but targets the plan progress endpoint.
  * [progressMap] carries persisted progress for all items in the project (including derived ones).
  */
-fun FlowContent.counterActivityRow(
-    worldId: Int,
-    projectId: Int,
-    activity: Activity,
-    progressMap: Map<String, Int> = emptyMap(),
-    nodeIngredients: Map<String, String> = emptyMap(),
-    feedsLabel: FeedsLabel? = null,
-    isFarmScale: Boolean = false,
-) {
-    val itemSlug = activity.item.id.replace(":", "-")
-    val rowId = "plan-activity-$itemSlug"
-    val required = activity.quantity
-    val current = (progressMap[activity.item.id] ?: 0).toLong().coerceIn(0, required)
-    val percent = if (required > 0) (current * 100 / required).toInt() else 0
-    // Method + detail: ingredients for recipes ("Smelting · 1 Raw Iron"), or the loot location
-    // for a pinned loot source ("Chest Loot · Desert pyramid") — the relationship/source,
-    // visible without drilling.
-    val detail = nodeIngredients[activity.item.id] ?: activity.source?.let { lootTableName(it) }
-    val sourceLabel = listOfNotNull(activity.source?.getMethodLabel(), detail)
-        .joinToString(" · ")
-        .ifEmpty { null }
-    val encodedItemId = URLEncoder.encode(activity.item.id, StandardCharsets.UTF_8)
-
-    div("resource-row") {
-        id = rowId
-        attributes["data-item-name"] = activity.item.name
-        attributes["data-progress-pct"] = percent.toString()
-        attributes["data-required"] = required.toString()
-
-        div("resource-row__desktop") {
-            div("resource-row__name") { +activity.item.name }
-
-            // MCO-401: says the quantity is farm-scale, not which farm — that is MCO-294 and
-            // needs an idea bank. On the row rather than only in the roll-up, so the judgement
-            // is visible while reading the gathering work itself.
-            if (isFarmScale) {
-                span("badge plan-farm-scale__badge") {
-                    attributes["title"] = "More than this world's farm-scale threshold — worth a farm"
-                    +"Farm-scale"
-                }
-            }
-
-            div("resource-row__progress") {
-                div("progress") {
-                    div("progress__fill") {
-                        attributes["style"] = "width: ${percent}%"
-                        attributes["role"] = "progressbar"
-                        attributes["aria-valuenow"] = current.toString()
-                        attributes["aria-valuemin"] = "0"
-                        attributes["aria-valuemax"] = required.toString()
-                    }
-                }
-            }
-
-            planActivityCount(activity.item.id, activity.item.name, itemSlug, current, required, complete = false)
-
-            if (sourceLabel != null) {
-                span("resource-row__source") { +sourceLabel }
-            }
-
-            drillButton(worldId, projectId, encodedItemId)
-
-            div("resource-row__counters") {
-                intArrayOf(-1728, -64, -1, 1, 64, 1728).forEach { amount ->
-                    button(classes = "btn btn--ghost btn--sm resource-row__counter-btn") {
-                        attributes["hx-patch"] =
-                            "/worlds/$worldId/projects/$projectId/plan/progress"
-                        attributes["hx-vals"] =
-                            """{"itemId": "${activity.item.id}", "amount": $amount, "required": $required}"""
-                        attributes["hx-target"] = "#$rowId"
-                        attributes["hx-swap"] = "outerHTML"
-                        +if (amount > 0) "+$amount" else "$amount"
-                    }
-                }
-            }
-        }
-        feedsLine(feedsLabel)
-    }
-}
 
 /**
  * The ⇄ drill button that navigates to the chain drill view for an activity's item.
@@ -1329,74 +1270,169 @@ fun TR.ignoredResourceRow(worldId: Int, projectId: Int, item: ResourceGatheringI
  * The plan-view resource table. Rendered both inline and as the HTMX swap target for
  * the schematic-upload flow (`outerHTML` swap of `#plan-resource-table`).
  */
-fun FlowContent.planResourceTable(worldId: Int, projectId: Int, resources: List<ResourceGatheringItem>) {
-    val filteredResources = resources.filter { it.required > 0 && !it.ignored }
+/**
+ * The resource table, grouped by how you get each item and with its single-item tail folded
+ * away (MCO-478). See [ResourceListLayout] for the arithmetic and why the thresholds are what
+ * they are.
+ *
+ * One `<table>` with a `<tbody>` per group, rather than a table per group, so the columns stay
+ * aligned down the whole list.
+ */
+fun FlowContent.planResourceTable(
+    worldId: Int,
+    projectId: Int,
+    resources: List<ResourceGatheringItem>,
+    plan: GatheringPlan? = null,
+) {
+    val layout = ResourceListLayout.of(resources, plan)
     table("data-table plan-resource-table") {
         id = "plan-resource-table"
-        if (filteredResources.isNotEmpty()) {
-            thead {
+        if (layout.visibleCount > 0) planResourceTableHead()
+        planResourceGroups(worldId, projectId, layout)
+    }
+    planFoldedTail(worldId, projectId, layout)
+}
+
+/** Renders the full plan-view resource table as a standalone HTML fragment (HTMX swap response). */
+fun planResourceTableFragment(
+    worldId: Int,
+    projectId: Int,
+    resources: List<ResourceGatheringItem>,
+    plan: GatheringPlan? = null,
+): String = createHTML().div {
+    val layout = ResourceListLayout.of(resources, plan)
+    table("data-table plan-resource-table") {
+        id = "plan-resource-table"
+        if (layout.visibleCount > 0) planResourceTableHead()
+        planResourceGroups(worldId, projectId, layout)
+    }
+    planFoldedTail(worldId, projectId, layout)
+}
+
+private fun TABLE.planResourceTableHead() {
+    thead {
+        tr {
+            th { classes = setOf("plan-resource-table__col-status") }
+            th { classes = setOf("plan-resource-table__col-item"); +"Item" }
+            th { classes = setOf("plan-resource-table__col-qty"); +"Qty" }
+            th { classes = setOf("plan-resource-table__col-action") }
+        }
+    }
+}
+
+/**
+ * A `<tbody>` per group, each with a header row naming it.
+ *
+ * `#plan-resource-table-body` — which plan-view.js appends a newly added resource to — lands on
+ * the "not in the plan yet" group, which is exactly where a resource added by hand belongs
+ * until the plan is next derived. That group's tbody is therefore rendered even when empty, so
+ * the append target always exists.
+ */
+private fun TABLE.planResourceGroups(
+    worldId: Int,
+    projectId: Int,
+    layout: ResourceListLayout.Layout,
+) {
+    layout.groups.forEach { group ->
+        val isUnplanned = group.group == null
+        tbody {
+            if (isUnplanned) id = "plan-resource-table-body"
+            // With no plan there is nothing to group *by*, and a single "not in the plan yet"
+            // heading over the whole list would be noise rather than information.
+            if (layout.isGrouped) {
+                tr("plan-resource-table__group") {
+                    th {
+                        attributes["colspan"] = "4"
+                        // Two inline spans, laid out by a float rather than flex. The cell
+                        // has to keep `display: table-cell` or colspan stops applying and the
+                        // heading band ends at the first column instead of spanning the table.
+                        span("plan-resource-table__group-name") {
+                            // The same namer the breakdown resolution uses, so one group is
+                            // never called two things on one page.
+                            +(group.group?.let { groupLabel(it) } ?: ResourceListLayout.UNPLANNED_LABEL)
+                        }
+                        span("plan-resource-table__group-count") {
+                            +"${group.rows.size} · ${formatPlainCount(group.items)} items"
+                        }
+                    }
+                }
+            }
+            group.rows.forEach { item ->
                 tr {
-                    th { classes = setOf("plan-resource-table__col-status") }
-                    th { classes = setOf("plan-resource-table__col-item"); +"Item" }
-                    th { classes = setOf("plan-resource-table__col-qty"); +"Qty" }
-                    th { classes = setOf("plan-resource-table__col-action") }
+                    planResourceRow(worldId, projectId, item)
                 }
             }
         }
-        tbody {
-            id = "plan-resource-table-body"
-            filteredResources.forEach { item ->
-                tr {
-                    planResourceRow(worldId, projectId, item)
+    }
+    if (layout.groups.none { it.group == null }) {
+        tbody { id = "plan-resource-table-body" }
+    }
+}
+
+/**
+ * The folded tail. A `<details>` cannot live inside a table, so this is a second table beside
+ * the first — the same shape [ignoredResourcesSection] already uses.
+ */
+private fun FlowContent.planFoldedTail(
+    worldId: Int,
+    projectId: Int,
+    layout: ResourceListLayout.Layout,
+) {
+    if (layout.folded.isEmpty()) return
+    details("plan-resource-fold") {
+        summary("plan-resource-fold__summary") {
+            span("plan-resource-fold__label") {
+                +"${layout.folded.size} single-item odds and ends"
+            }
+            span("plan-resource-fold__note") {
+                +"${formatPlainCount(layout.foldedItems)} of ${formatPlainCount(layout.totalItems)} items"
+            }
+        }
+        table("data-table plan-resource-table plan-resource-table--folded") {
+            tbody {
+                id = "plan-resource-folded-body"
+                layout.folded.forEach { item ->
+                    tr {
+                        planResourceRow(worldId, projectId, item)
+                    }
                 }
             }
         }
     }
 }
-
-/** Renders the full plan-view resource table as a standalone HTML fragment (HTMX swap response). */
-fun planResourceTableFragment(worldId: Int, projectId: Int, resources: List<ResourceGatheringItem>): String =
-    createHTML().table("data-table plan-resource-table") {
-        id = "plan-resource-table"
-        val filteredResources = resources.filter { it.required > 0 && !it.ignored }
-        if (filteredResources.isNotEmpty()) {
-            thead {
-                tr {
-                    th { classes = setOf("plan-resource-table__col-status") }
-                    th { classes = setOf("plan-resource-table__col-item"); +"Item" }
-                    th { classes = setOf("plan-resource-table__col-qty"); +"Qty" }
-                    th { classes = setOf("plan-resource-table__col-action") }
-                }
-            }
-        }
-        tbody {
-            id = "plan-resource-table-body"
-            filteredResources.forEach { item ->
-                tr {
-                    planResourceRow(worldId, projectId, item)
-                }
-            }
-        }
-    }
 
 /**
  * Wraps the active resource table and the ignored-items section (MCO-247) in a single
  * HTMX swap target — an ignore/un-ignore toggle moves a row between the two, so both
  * are re-rendered together.
  */
-fun FlowContent.planResourcesArea(worldId: Int, projectId: Int, resources: List<ResourceGatheringItem>) {
+fun FlowContent.planResourcesArea(
+    worldId: Int,
+    projectId: Int,
+    resources: List<ResourceGatheringItem>,
+    plan: GatheringPlan? = null,
+) {
     div {
         id = "plan-resources-area"
-        planResourceTable(worldId, projectId, resources)
+        planResourceTable(worldId, projectId, resources, plan)
         ignoredResourcesSection(worldId, projectId, resources)
     }
 }
 
-/** Standalone HTML fragment version of [planResourcesArea] (HTMX swap response for the ignore toggle). */
-fun planResourcesAreaFragment(worldId: Int, projectId: Int, resources: List<ResourceGatheringItem>): String =
+/**
+ * Standalone HTML fragment version of [planResourcesArea] (HTMX swap response for the ignore
+ * toggle). Takes the plan for the same reason the page does: replacing this fragment without
+ * one would silently drop the grouping the reader is looking at.
+ */
+fun planResourcesAreaFragment(
+    worldId: Int,
+    projectId: Int,
+    resources: List<ResourceGatheringItem>,
+    plan: GatheringPlan? = null,
+): String =
     createHTML().div {
         id = "plan-resources-area"
-        planResourceTable(worldId, projectId, resources)
+        planResourceTable(worldId, projectId, resources, plan)
         ignoredResourcesSection(worldId, projectId, resources)
     }
 
@@ -1509,7 +1545,6 @@ fun gatheringPlannerFragment(
     resources: List<ResourceGatheringItem>,
     tasks: List<ActionTask>,
     plan: GatheringPlan?,
-    lens: String = "list",
     progressMap: Map<String, Int> = emptyMap(),
     pendingFarms: List<PendingFarmSupply> = emptyList(),
     farmScaleThreshold: Int = World.DEFAULT_FARM_SCALE_THRESHOLD,
@@ -1520,7 +1555,7 @@ fun gatheringPlannerFragment(
 ): String = createHTML().div {
     id = "project-content"
     gatheringPlannerContent(
-        project, resources, tasks, plan, lens, progressMap, pendingFarms, farmScaleThreshold, farmSuggestions, versionGaps, isWorldAdmin,
+        project, resources, tasks, plan, progressMap, pendingFarms, farmScaleThreshold, farmSuggestions, versionGaps, isWorldAdmin,
     )
 }
 

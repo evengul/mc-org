@@ -264,7 +264,9 @@
     // (e.g. the inline variant pick, which re-renders the whole list).
     // -------------------------------------------------------------------------
 
-    var RESOLUTION_DEFAULT = 'targets';
+    // 'breakdown' since MCO-481: the plan is what the page is for, and opening on the
+    // targets list meant clicking through to it every single time.
+    var RESOLUTION_DEFAULT = 'breakdown';
 
     function resolutionStorageKey() {
         var projectId = getProjectIdFromUrl();
@@ -276,7 +278,12 @@
         if (!key) return RESOLUTION_DEFAULT;
         try {
             var stored = window.sessionStorage.getItem(key);
-            return stored === 'breakdown' ? 'breakdown' : RESOLUTION_DEFAULT;
+            // Both values are checked explicitly. The old code returned the default for
+            // anything that was not 'breakdown', which was harmless while the default *was*
+            // 'targets' — flipping it (MCO-481) would otherwise have silently ignored an
+            // explicit choice of the targets view.
+            if (stored === 'breakdown' || stored === 'targets') return stored;
+            return RESOLUTION_DEFAULT;
         } catch (e) {
             return RESOLUTION_DEFAULT;
         }
@@ -438,6 +445,84 @@
     }
 
     // -------------------------------------------------------------------------
+    // Next up (MCO-481)
+    // -------------------------------------------------------------------------
+
+    // Every candidate is already in the DOM with all but one hidden, so cycling is a class
+    // swap. No round trip, no server state, and nothing to restore after an HTMX re-render.
+    function initNextUp() {
+        var widget = document.getElementById('next-up');
+        if (!widget || widget.dataset.nextUpBound === 'true') return;
+        var button = document.getElementById('next-up-shuffle');
+        if (!button) return;
+
+        var cards = widget.querySelectorAll('.next-up__card');
+        if (cards.length < 2) return;
+
+        widget.dataset.nextUpBound = 'true';
+        var shown = 0;
+        button.addEventListener('click', function () {
+            cards[shown].classList.add('next-up__card--hidden');
+            shown = (shown + 1) % cards.length;
+            cards[shown].classList.remove('next-up__card--hidden');
+        });
+    }
+
+
+    // -------------------------------------------------------------------------
+    // Work strip: the logged-amount field
+    //
+    // The steppers post a delta; this field posts an absolute amount, so it sends
+    // the difference between what you typed and what is stored. Committing on
+    // Enter or blur rather than on every keystroke — a plan re-derives on each
+    // write, and doing that per character would be absurd.
+    // -------------------------------------------------------------------------
+
+    function initLoggedInputs() {
+        document.querySelectorAll('.work-strip__logged-input').forEach(function (input) {
+            if (input.dataset.bound === 'true') return;
+            input.dataset.bound = 'true';
+
+            function commit() {
+                var required = parseInt(input.dataset.required, 10) || 0;
+                var have = parseInt(input.dataset.have, 10) || 0;
+                // Strip anything that is not a digit, then clamp. An unparseable
+                // value reverts rather than being guessed at.
+                var digits = String(input.value).replace(/[^0-9]/g, '');
+                if (digits === '') {
+                    input.value = String(have);
+                    return;
+                }
+                var next = Math.max(0, Math.min(required, parseInt(digits, 10)));
+                input.value = String(next);
+                var delta = next - have;
+                if (delta === 0) return;
+
+                if (window.htmx) {
+                    window.htmx.ajax('PATCH', input.dataset.post, {
+                        target: '#' + input.dataset.row,
+                        swap: 'outerHTML',
+                        values: {
+                            itemId: input.dataset.itemId,
+                            amount: delta,
+                            required: required,
+                            working: true
+                        }
+                    });
+                }
+            }
+
+            input.addEventListener('keydown', function (event) {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    input.blur();
+                }
+            });
+            input.addEventListener('blur', commit);
+        });
+    }
+
+    // -------------------------------------------------------------------------
     // Init
     // -------------------------------------------------------------------------
 
@@ -448,6 +533,8 @@
         initItemSearchKeyNav();
         initPlanCountEdit();
         initResolutionToggle();
+        initNextUp();
+        initLoggedInputs();
         initDrillScrollRestore();
     }
 

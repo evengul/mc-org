@@ -2,7 +2,6 @@ package app.mcorg.presentation.templated.dsl.pages
 
 import app.mcorg.domain.model.minecraft.Dimension
 import app.mcorg.domain.model.project.ProjectListItem
-import app.mcorg.domain.model.project.ProjectPlanListItem
 import app.mcorg.domain.model.project.ProjectResourceEdge
 import app.mcorg.domain.model.project.ProjectType
 import app.mcorg.domain.model.user.TokenProfile
@@ -20,10 +19,9 @@ import app.mcorg.presentation.templated.dsl.ResumeSort
 import app.mcorg.presentation.templated.dsl.fieldLogSections
 import app.mcorg.presentation.templated.dsl.modalForm
 import app.mcorg.presentation.templated.dsl.newProjectMenu
-import app.mcorg.presentation.templated.dsl.planExecuteToggle
-import app.mcorg.presentation.templated.dsl.planProjectCard
-import app.mcorg.presentation.templated.dsl.planProjectCardList
 import app.mcorg.presentation.templated.dsl.pageShell
+import app.mcorg.presentation.templated.dsl.WorldTab
+import app.mcorg.presentation.templated.dsl.worldBar
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -51,7 +49,6 @@ fun projectListPage(
     user: TokenProfile,
     world: World,
     projects: List<ProjectListItem>,
-    view: String = "execute",
     isWorldAdmin: Boolean = false,
     edges: List<ProjectResourceEdge> = emptyList(),
     resume: ResumeHeroData? = null,
@@ -61,7 +58,6 @@ fun projectListPage(
     stylesheets = listOf(
         "/static/styles/components/btn.css",
         "/static/styles/components/modal.css",
-        "/static/styles/components/toggle.css",
         "/static/styles/components/callout.css",
         "/static/styles/components/resource-row.css",
         "/static/styles/components/progress.css",
@@ -69,6 +65,7 @@ fun projectListPage(
         "/static/styles/pages/project-list.css",
         "/static/styles/components/form.css",
         "/static/styles/components/item-search.css",
+        "/static/styles/components/world-tabs.css",
     ),
     scripts = listOf("/static/scripts/np-menu.js", "/static/scripts/farm-modal.js")
 ) {
@@ -83,47 +80,14 @@ fun projectListPage(
     )
     main {
         container {
-            div {
-                id = "projects-content"
-                projectsContent(user, world, projects, view, edges, resume)
+            // An empty world has nothing to add *to* yet, and its own empty state already
+            // carries the same doors — so the menu appears only once there is a list.
+            worldBar(world.id, WorldTab.PROJECTS) {
+                newProjectAffordance(world.id, showMenu = projects.isNotEmpty())
             }
-        }
-    }
-}
-
-fun projectListPageWithPlanView(
-    user: TokenProfile,
-    world: World,
-    projects: List<ProjectPlanListItem>,
-    isWorldAdmin: Boolean = false,
-): String = pageShell(
-    pageTitle = "Seam — ${world.name}",
-    user = user,
-    stylesheets = listOf(
-        "/static/styles/components/btn.css",
-        "/static/styles/components/modal.css",
-        "/static/styles/components/toggle.css",
-        "/static/styles/components/project-card.css",
-        "/static/styles/pages/project-list.css",
-        "/static/styles/components/form.css",
-        "/static/styles/components/item-search.css",
-    ),
-    scripts = listOf("/static/scripts/np-menu.js", "/static/scripts/farm-modal.js")
-) {
-    appHeader(
-        worldName = world.name,
-        worldId = world.id,
-        user = user,
-        isWorldAdmin = isWorldAdmin,
-        breadcrumbBlock = {
-            link("Worlds", "/worlds").current(world.name)
-        }
-    )
-    main {
-        container {
             div {
                 id = "projects-content"
-                projectsContentPlan(user, world, projects)
+                projectsContent(user, world, projects, edges, resume)
             }
         }
     }
@@ -144,91 +108,27 @@ fun kotlinx.html.FlowContent.projectsContent(
     user: TokenProfile,
     world: World,
     projects: List<ProjectListItem>,
-    view: String = "execute",
     edges: List<ProjectResourceEdge> = emptyList(),
     resume: ResumeHeroData? = null,
 ) {
     fieldLogTitle(world)
     div {
         id = "projects-view"
-        projectsViewContent(world, projects, view, edges, resume)
+        projectsViewContent(world, projects, edges, resume)
     }
-    createProjectModal(world.id, view)
-    schematicProjectModal(world.id)
-    recordFarmModal(world.id)
-}
-
-fun kotlinx.html.FlowContent.projectsContentPlan(
-    user: TokenProfile,
-    world: World,
-    projects: List<ProjectPlanListItem>
-) {
-    fieldLogTitle(world)
-    div {
-        id = "projects-view"
-        projectsViewContentPlan(world, projects)
-    }
-    createProjectModal(world.id, "plan")
-    schematicProjectModal(world.id)
-    recordFarmModal(world.id)
 }
 
 fun kotlinx.html.FlowContent.projectsViewContent(
     world: World,
     projects: List<ProjectListItem>,
-    view: String = "execute",
     edges: List<ProjectResourceEdge> = emptyList(),
     resume: ResumeHeroData? = null,
 ) {
-    div {
-        id = "projects-toolbar-slot"
-        if (projects.isNotEmpty()) { projectsToolbar(world.id, view) }
-    }
-
     if (projects.isEmpty()) {
         projectsEmptyState(world.id)
     }
 
     fieldLogSections(world.id, projects, edges, resume)
-}
-
-fun kotlinx.html.FlowContent.projectsViewContentPlan(
-    world: World,
-    projects: List<ProjectPlanListItem>
-) {
-    div {
-        id = "projects-toolbar-slot"
-        if (projects.isNotEmpty()) { projectsToolbar(world.id, "plan") }
-    }
-
-    if (projects.isEmpty()) {
-        projectsEmptyState(world.id)
-    }
-
-    planProjectCardList(world.id, projects)
-}
-
-fun projectsViewFragment(
-    world: World,
-    projects: List<ProjectListItem>,
-    view: String = "execute",
-    edges: List<ProjectResourceEdge> = emptyList(),
-    resume: ResumeHeroData? = null,
-): String {
-    return kotlinx.html.stream.createHTML().div {
-        id = "projects-view"
-        projectsViewContent(world, projects, view, edges, resume)
-    }
-}
-
-fun projectsViewFragmentPlan(
-    world: World,
-    projects: List<ProjectPlanListItem>
-): String {
-    return kotlinx.html.stream.createHTML().div {
-        id = "projects-view"
-        projectsViewContentPlan(world, projects)
-    }
 }
 
 fun kotlinx.html.FlowContent.projectsEmptyState(worldId: Int) {
@@ -254,7 +154,7 @@ fun kotlinx.html.FlowContent.projectsEmptyState(worldId: Int) {
                 button(classes = "np-menu__door") {
                     type = ButtonType.button
                     attributes["onclick"] =
-                        "document.getElementById('first-project-flag').value='true'; document.getElementById('create-project-modal')?.showModal()"
+                        "document.getElementById('create-project-modal')?.showModal()"
                     span("np-menu__door-glyph") { +"+" }
                     span("np-menu__door-text") {
                         span("np-menu__door-title") { +"Blank project" }
@@ -546,30 +446,17 @@ private fun kotlinx.html.FlowContent.recordFarmModal(worldId: Int) {
     }
 }
 
-private fun kotlinx.html.FlowContent.createProjectModal(worldId: Int, view: String = "execute") {
-    // Plan view prepends the new card into #project-card-list; the Field Log (execute)
-    // view has no such element and reloads via HX-Redirect, so it only needs a target
-    // that exists. #projects-view is present in both.
+private fun kotlinx.html.FlowContent.createProjectModal(worldId: Int) {
+    // The Field Log groups projects by state and reloads via HX-Redirect, so this only
+    // needs a target that exists.
     modalForm(
         id = "create-project-modal",
         title = "Create Project",
         action = "/worlds/$worldId/projects",
-        hxTarget = if (view == "plan") "#project-card-list" else "#projects-view",
+        hxTarget = "#projects-view",
         hxSwap = "afterbegin",
         errorTarget = ".form-error"
     ) {
-        input {
-            id = "first-project-flag"
-            type = InputType.hidden
-            name = "first_project"
-            value = ""
-        }
-        input {
-            id = "create-project-view"
-            type = InputType.hidden
-            name = "view"
-            value = view
-        }
         label {
             htmlFor = "create-project-name"
             +"Project Name"
@@ -626,8 +513,6 @@ private fun kotlinx.html.FlowContent.createProjectModal(worldId: Int, view: Stri
             button {
                 classes = setOf("btn", "btn--primary")
                 type = ButtonType.submit
-                attributes["onclick"] =
-                    "document.getElementById('create-project-view').value = new URLSearchParams(window.location.search).get('view') || 'execute'"
                 +"Create Project"
             }
             button {
@@ -640,29 +525,17 @@ private fun kotlinx.html.FlowContent.createProjectModal(worldId: Int, view: Stri
     }
 }
 
-fun planProjectCardFragment(worldId: Int, project: ProjectPlanListItem): String {
-    return kotlinx.html.stream.createHTML().div {
-        planProjectCard(worldId, project)
-    }
+/**
+ * The "+ New project" menu together with the three dialogs its doors open.
+ *
+ * They travel as one unit: each door calls `showModal()` on a specific `<dialog>`, so rendering
+ * the menu on a page without them gives you doors that silently do nothing. The empty state's
+ * cards open the same dialogs, which is why they are rendered unconditionally.
+ */
+fun kotlinx.html.FlowContent.newProjectAffordance(worldId: Int, showMenu: Boolean = true) {
+    if (showMenu) newProjectMenu(worldId)
+    createProjectModal(worldId)
+    schematicProjectModal(worldId)
+    recordFarmModal(worldId)
 }
 
-fun kotlinx.html.FlowContent.projectsToolbar(worldId: Int, view: String = "execute") {
-    div("projects-toolbar") {
-        newProjectMenu(worldId)
-        // Understated link, not a nav item (MCO-288): the roadmap is progressive disclosure —
-        // it means nothing until projects depend on each other.
-        a(classes = "projects-toolbar__roadmap-link") {
-            href = "/worlds/$worldId/roadmap"
-            +"View roadmap →"
-        }
-        planExecuteToggle(worldId, view)
-    }
-}
-
-fun projectsToolbarOobFragment(worldId: Int, view: String = "execute"): String {
-    return kotlinx.html.stream.createHTML().div {
-        id = "projects-toolbar-slot"
-        attributes["hx-swap-oob"] = "innerHTML"
-        projectsToolbar(worldId, view)
-    }
-}

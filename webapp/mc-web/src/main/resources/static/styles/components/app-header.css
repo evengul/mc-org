@@ -134,6 +134,12 @@ a.breadcrumb__item:hover {
     transform: translateX(-50%);
 }
 
+/* Underlined so it reads as the way back; the mobile header carries no breadcrumb. */
+.app-header__world-name--link {
+    text-decoration: none;
+    border-bottom: 1px dotted var(--border-strong);
+}
+
 .app-header__mobile .app-header__link {
     margin-left: auto;
     font-size: var(--text-base);

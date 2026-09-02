@@ -23,6 +23,16 @@ sealed interface Link {
                 return Projects(id)
             }
 
+            /**
+             * Where a world opens (MCO-474). Points at /roadmap directly rather than at the
+             * world root: /worlds/{id} used to be a **permanent** redirect to /projects, and a
+             * cached 301 outlives the change, so a returning browser would still land on the
+             * list.
+             */
+            fun roadmap(): Roadmap {
+                return Roadmap(id)
+            }
+
             @Suppress("unused")
             fun resourceMaps(): ResourceMaps {
                 return ResourceMaps(id)
@@ -34,6 +44,10 @@ sealed interface Link {
 
             data class Projects(val worldId: Int) : Link {
                 override val to: String = "/worlds/$worldId/projects"
+            }
+
+            data class Roadmap(val worldId: Int) : Link {
+                override val to: String = "/worlds/$worldId/roadmap"
             }
 
             data class Project(val worldId: Int, val projectId: Int) : Link {

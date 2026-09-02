@@ -15,12 +15,9 @@ import app.mcorg.pipeline.ValidationSteps
 import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.failure.ValidationFailure
 import app.mcorg.pipeline.project.commonsteps.GetProjectByIdStep
-import app.mcorg.pipeline.project.commonsteps.GetProjectPlanListItemStep
 import app.mcorg.pipeline.world.ValidateWorldMemberRole
 import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.hxOutOfBands
-import app.mcorg.presentation.templated.dsl.pages.planProjectCardFragment
-import app.mcorg.presentation.templated.dsl.pages.projectsToolbarOobFragment
 import app.mcorg.presentation.utils.getUser
 import app.mcorg.presentation.utils.getWorldId
 import app.mcorg.presentation.utils.respondHtml
@@ -44,33 +41,16 @@ suspend fun ApplicationCall.handleCreateProject() {
     val worldId = this.getWorldId()
     val bus = this.eventBus
     val isHtmx = request.headers["HX-Request"] == "true"
-    val isFirstProject = parameters["first_project"] == "true"
-    val view = parameters["view"]?.takeIf { it == "plan" } ?: "execute"
 
     handlePipeline(
-        onSuccess = { projectId ->
+        onSuccess = { _ ->
             if (isHtmx) {
-                val oobDeleteEmptyState = if (isFirstProject) createHTML().div {
-                    attributes["id"] = "projects-empty-state"
-                    hxOutOfBands("delete")
-                } else ""
-                val oobToolbar = projectsToolbarOobFragment(worldId, view)
-
-                if (view == "plan") {
-                    val planItem = GetProjectPlanListItemStep(worldId).process(projectId)
-                    if (planItem is Result.Success) {
-                        val cardHtml = planProjectCardFragment(worldId, planItem.value)
-                        respondHtml(cardHtml + oobDeleteEmptyState + oobToolbar)
-                    } else {
-                        response.headers.append("HX-Redirect", "/worlds/$worldId/projects")
-                        respondHtml("")
-                    }
-                } else {
-                    // Field Log groups projects by state; a full refresh places the
-                    // new project in the right section without fragment bookkeeping.
-                    response.headers.append("HX-Redirect", "/worlds/$worldId/projects")
-                    respondHtml("")
-                }
+                // The Field Log groups projects by state; a full refresh places the new
+                // project in the right section without fragment bookkeeping. This used to be
+                // one of two branches, paired with OOB swaps that kept the plan view's card
+                // list in step; the plan view is gone (MCO-474) and the reload does both.
+                response.headers.append("HX-Redirect", "/worlds/$worldId/projects")
+                respondHtml("")
             } else {
                 response.headers.append("Location", "/worlds/$worldId/projects")
                 respond(HttpStatusCode.SeeOther, "")

@@ -38,6 +38,50 @@ private fun settingsHref(worldId: Int?, projectId: Int?, isWorldAdmin: Boolean):
     else -> null
 }
 
+/**
+ * World-level sections. A world opens on its roadmap — "what do I do next" — and the project
+ * list is the reference view you go to deliberately (MCO-474).
+ *
+ * Rendered on *both* pages on purpose. `/worlds/{id}` was a **permanent** redirect to
+ * `/projects` for a long time, and browsers cache a 301 indefinitely, so a browser that has
+ * visited a world before will keep landing on the project list no matter what the server now
+ * says. Putting the tabs on both leaves that browser one click from the roadmap.
+ */
+fun FlowContent.worldTabs(worldId: Int, active: WorldTab) {
+    nav("world-tabs") {
+        attributes["aria-label"] = "World sections"
+        for (tab in WorldTab.entries) {
+            val isActive = tab == active
+            a(classes = if (isActive) "world-tabs__tab world-tabs__tab--active" else "world-tabs__tab") {
+                href = "/worlds/$worldId${tab.path}"
+                if (isActive) attributes["aria-current"] = "page"
+                +tab.label
+            }
+        }
+    }
+}
+
+/**
+ * The world bar: sections on the left, the world's primary action on the right.
+ *
+ * "+ New project" lives here rather than in the project list's own toolbar (MCO-474) so it is
+ * reachable from the roadmap — which is now what a world opens to, and was the one view with no
+ * way to add anything.
+ */
+fun FlowContent.worldBar(worldId: Int, active: WorldTab, actions: (FlowContent.() -> Unit)? = null) {
+    div("world-bar") {
+        worldTabs(worldId, active)
+        if (actions != null) {
+            div("world-bar__actions") { actions() }
+        }
+    }
+}
+
+enum class WorldTab(val label: String, val path: String) {
+    ROADMAP("Roadmap", "/roadmap"),
+    PROJECTS("Projects", "/projects"),
+}
+
 fun FlowContent.appHeader(
     worldName: String? = null,
     worldId: Int? = null,
@@ -103,8 +147,18 @@ fun FlowContent.appHeader(
         }
 
         div("app-header__mobile") {
-            span("app-header__world-name") {
-                +(worldName ?: "Seam")
+            // The mobile header has no breadcrumb, so without this there is no way back out
+            // of a world's sub-pages at all. Linking the world name is the only anchor the
+            // narrow layout has room for.
+            if (worldId != null) {
+                a(classes = "app-header__world-name app-header__world-name--link") {
+                    href = "/worlds/$worldId"
+                    +(worldName ?: "Seam")
+                }
+            } else {
+                span("app-header__world-name") {
+                    +(worldName ?: "Seam")
+                }
             }
             if (showProfile) {
                 a(classes = "app-header__link") {

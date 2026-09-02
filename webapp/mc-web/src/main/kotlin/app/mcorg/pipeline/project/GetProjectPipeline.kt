@@ -52,17 +52,9 @@ suspend fun ApplicationCall.handleGetProject() {
         }
     }
 
-    // Resolve lens. An explicit ?lens= query param wins (so reload/share of a pushed lens
-    // URL renders the right lens); otherwise fall back to the saved view preference.
-    // Old "plan"/"execute" values map to "list".
-    fun normalizeLens(value: String?): String? = when (value) {
-        "plan", "execute", "list" -> "list"
-        "next", "sessions" -> value
-        else -> null
-    }
-    val lens = normalizeLens(request.queryParameters["lens"])
-        ?: normalizeLens(GetViewPreferenceStep.process(GetViewPreferenceInput(user.id, projectId)).getOrNull())
-        ?: "list"
+    // There is one lens now (MCO-481), so `?lens=` is deliberately not read: a stale link
+    // carrying ?lens=next or a saved "plan" preference is inert rather than an error.
+    // `user_project_view_preference` is left in place — dropping a table is its own decision.
 
     val resources = GetAllResourceGatheringItemsStep.process(projectId).getOrNull() ?: emptyList()
 
@@ -132,7 +124,7 @@ suspend fun ApplicationCall.handleGetProject() {
 
     respondHtml(
         projectDetailPage(
-            user, project, worldName, resources, tasks, lens,
+            user, project, worldName, resources, tasks,
             isWorldAdmin = isAdmin, plan = plan, progressMap = progressMap,
             productions = productions,
             pendingFarms = prerequisiteFarms,

@@ -7,6 +7,9 @@ import app.mcorg.engine.plan.PlanNodeStatus
 import app.mcorg.engine.plan.PlanOverrides
 import app.mcorg.engine.plan.PlanTarget
 import app.mcorg.engine.plan.TargetTree
+import app.mcorg.domain.model.minecraft.MinecraftId
+import app.mcorg.engine.plan.MemberPrior
+import app.mcorg.pipeline.world.settings.general.UpdatePreferredWoodSpeciesStep
 import app.mcorg.pipeline.Result
 import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.failure.ValidationFailure
@@ -108,6 +111,31 @@ suspend fun ApplicationCall.handleGetDrillChain() {
  *
  * Responds with an innerHTML fragment for `#picker-{nodeSlug}`.
  */
+/**
+ * Whether to offer "and use this wood everywhere" alongside a variant pick (MCO-487).
+ *
+ * Two conditions, and both are the server's to check rather than the client's to assert: the
+ * world must not already have said which tree it farms — an offer to answer a settled question is
+ * noise — and the user must be able to say it, since `preferred_wood_species` lives behind the
+ * world-admin gate with the rest of world settings. A member who cannot set it sees the ordinary
+ * per-tag picker, which is exactly what they had before.
+ *
+ * Re-checked on the pick as well as on the render, because the two are separate requests and only
+ * the second one writes anything.
+ */
+private suspend fun ApplicationCall.worldWoodOfferable(worldId: Int): Boolean {
+    val alreadySet = when (val r = GetPreferredWoodSpeciesStep.process(worldId)) {
+        is Result.Success -> r.value != null
+        is Result.Failure -> return false
+    }
+    if (alreadySet) return false
+    return ValidateWorldMemberRole<Unit>(getUser(), Role.ADMIN, worldId).process(Unit) is Result.Success
+}
+
+/** A tag node's members, or empty for a node that is not an open tag. */
+private fun tagMembersOf(node: TargetTree): List<MinecraftId> =
+    (node.item as? MinecraftTag)?.content.orEmpty()
+
 suspend fun ApplicationCall.handleGetNodePicker() {
     val worldId = getWorldId()
     val projectId = getProjectId()
@@ -123,6 +151,9 @@ suspend fun ApplicationCall.handleGetNodePicker() {
 
     // Optional search filter for high-fan-out pickers.
     val query = request.queryParameters["q"]?.takeIf { it.isNotBlank() }
+    // MCO-487: decided here rather than by each caller, so the offer appears wherever the picker
+    // does — the Next up widget, Needs attention, the drill — and cannot drift between them.
+    val canOfferWorldWood = worldWoodOfferable(worldId)
     // "list" when the picker is opened inline from the List lens — resolutions then re-render
     // the list instead of the drill.
     val origin = request.queryParameters["origin"]?.takeIf { it.isNotBlank() }
@@ -168,6 +199,9 @@ suspend fun ApplicationCall.handleGetNodePicker() {
             demand = node.quantityIfAlone,
             query = query,
             origin = origin,
+            // Only a species set — "which tree" — is answerable world-wide. A form choice is
+            // already settled by the selector, and colour or material sets are not wood.
+            offerWorldWood = canOfferWorldWood && MemberPrior.isSpeciesChoice(tagMembersOf(node)),
         )
     )
 }
@@ -257,6 +291,15 @@ suspend fun ApplicationCall.handleResolveTagMember() {
             return
         }
         is Result.Success -> { /* continue */ }
+    }
+
+    // MCO-487: "and use it everywhere". An unchecked box submits nothing, so its absence is the
+    // opt-out. The species comes from MemberPrior rather than a substring match here, because
+    // `dark_oak_planks` contains "oak" and is not oak.
+    if (params["setWorldWood"] != null && worldWoodOfferable(worldId)) {
+        MemberPrior.speciesOf(memberItemId)?.let { species ->
+            UpdatePreferredWoodSpeciesStep(worldId).process(species)
+        }
     }
 
     respondAfterOverride(worldId, projectId, targetItemId, params["origin"])
@@ -381,7 +424,7 @@ private suspend fun ApplicationCall.respondListRerender(worldId: Int, projectId:
 
     respondHtml(
         gatheringPlannerFragment(
-            project, resources, tasks, plan, "list", progressMap, prerequisiteFarms, farmScaleThreshold,
+            project, resources, tasks, plan, progressMap, prerequisiteFarms, farmScaleThreshold,
             farmSuggestions, versionGapsForPlan(projectId, plan), isAdmin,
         )
     )

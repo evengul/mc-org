@@ -358,4 +358,66 @@ class MemberPriorTest {
         assertFalse(MemberPrior.isKnownSpecies("mahogany"))
         MemberPrior.SPECIES.forEach { assertTrue(MemberPrior.isKnownSpecies(it)) }
     }
+
+    // --- isSpeciesChoice / speciesOf (MCO-487) ------------------------------------------------
+    //
+    // The picker offers "use this wood everywhere" only on a set that is genuinely "which tree",
+    // and stores the species it resolves. Both have to agree with the rule that later *consumes*
+    // the preference, or the offer answers a question the selector will ignore.
+
+    private fun isSpecies(vararg locals: String): Boolean =
+        MemberPrior.isSpeciesChoice(members(*locals))
+
+    @Test
+    fun `the three wood questions are species choices`() {
+        assertTrue(isSpecies(*planks.toTypedArray()))
+        assertTrue(isSpecies("oak_slab", "spruce_slab", "birch_slab"))
+        // #logs varies by species *and* form; species varying is what matters here.
+        assertTrue(isSpecies("oak_log", "oak_wood", "spruce_log", "stripped_birch_wood"))
+    }
+
+    @Test
+    fun `a form-only set is not a species choice`() {
+        // One tree in four appearances — canonicalFormMember has already answered this, and
+        // offering a world-wide wood on it would be offering to decide nothing.
+        assertFalse(isSpecies("oak_log", "oak_wood", "stripped_oak_log", "stripped_oak_wood"))
+    }
+
+    @Test
+    fun `sets that are not about wood are not species choices`() {
+        assertFalse(isSpecies("coal", "charcoal"))
+        assertFalse(isSpecies("cobblestone", "cobbled_deepslate", "blackstone"))
+        assertFalse(isSpecies("sand", "red_sand"))
+        assertFalse(isSpecies("shulker_box", "white_shulker_box"))
+    }
+
+    /** A set mixing wood with non-wood is not a wood question, whatever else it is. */
+    @Test
+    fun `a mixed set is not a species choice`() {
+        assertFalse(isSpecies("oak_planks", "coal"))
+    }
+
+    @Test
+    fun `a single member is not a choice at all`() {
+        assertFalse(isSpecies("oak_planks"))
+    }
+
+    /**
+     * The reason `speciesOf` is public rather than reimplemented by callers: the obvious version,
+     * `SPECIES.firstOrNull { id.contains(it) }`, answers "oak" for both of these, and the world
+     * would silently store the wrong tree.
+     */
+    @Test
+    fun `the species of a compound name is the longest match, not the first`() {
+        assertEquals("dark_oak", MemberPrior.speciesOf(mc("dark_oak_planks")))
+        assertEquals("pale_oak", MemberPrior.speciesOf(mc("pale_oak_log")))
+        assertEquals("oak", MemberPrior.speciesOf(mc("oak_planks")))
+        assertEquals("oak", MemberPrior.speciesOf(mc("stripped_oak_wood")))
+    }
+
+    @Test
+    fun `an id naming no wood has no species`() {
+        assertEquals(null, MemberPrior.speciesOf(mc("cobblestone")))
+        assertEquals(null, MemberPrior.speciesOf(mc("iron_ingot")))
+    }
 }

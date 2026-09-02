@@ -1,5 +1,6 @@
 package app.mcorg.pipeline.resources
 
+import app.mcorg.domain.model.resources.ResourceSource
 import app.mcorg.engine.plan.Activity
 import app.mcorg.engine.plan.GatheringPlan
 import app.mcorg.engine.plan.PlanNodeStatus
@@ -63,7 +64,31 @@ object FarmScaleDemands {
     /**
      * At or above the threshold, not merely past it: a threshold of 1,728 is read as "a shulker
      * box is enough to want a farm", and exactly one shulker box should qualify.
+     *
+     * Tool-collected materials are excluded however large the number (MCO-467). See
+     * [isToolCollected].
      */
     private fun Activity.isFarmScale(threshold: Int): Boolean =
-        status == PlanNodeStatus.RAW_GATHER && quantity >= threshold
+        status == PlanNodeStatus.RAW_GATHER && quantity >= threshold && !isToolCollected()
+
+    /**
+     * Filled from the world with a tool, rather than gathered — water, lava, and the three
+     * filled buckets ([ResourceSource.SourceType.MechanicTypes.COLLECT], see `SyntheticSources`).
+     *
+     * These are unbounded at the source. You do not need 2,413 water; you need *a bucket*, and
+     * then you place it 2,413 times. No farm can produce them and none ever will, so offering
+     * one is advice that cannot be taken — and "2,413 Water" sat at the top of the YAMS plan's
+     * "Worth a farm" list precisely because the quantity is real while the scarcity is not.
+     *
+     * **COLLECT specifically, not "a leaf with no inputs".** The wider rule would catch
+     * `synthetic/wither.json`, which also requires nothing and produces a nether star — and a
+     * wither star farm is a real thing somebody builds. Ice is the other near-miss: it is
+     * `minecraft:block` (you break it), it is genuinely farmable, and two ice farm designs sit
+     * in the bank. The line is *how* the item leaves the world, and COLLECT draws it exactly.
+     *
+     * A null source keeps the old answer rather than guessing — an activity with no selected
+     * source is not something this rule has an opinion about.
+     */
+    private fun Activity.isToolCollected(): Boolean =
+        source?.sourceType == ResourceSource.SourceType.MechanicTypes.COLLECT
 }

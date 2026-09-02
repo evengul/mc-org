@@ -37,6 +37,7 @@ import org.junit.jupiter.api.extension.ExtendWith
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 import kotlin.test.assertIs
 
 /**
@@ -110,27 +111,42 @@ class FarmSupplySurfacingIT : WithUser() {
         val body = client.get("/worlds/$worldId/projects/$consumerId") { addAuthCookie(this) }.bodyAsText()
 
         assertContains(body, "Collect from farms")
-        assertContains(body, "from Iron Farm")
+        // The supply is named on the line itself, in the source slot every other line uses:
+        // "Farm · Iron Farm" rather than a separate "from …" label beside a badge.
+        assertContains(body, "Farm · Iron Farm")
         assertFalse(body.contains("plan-pending-farms"), "nothing is pending once the farm runs")
 
         setProjectState(farmId, ProjectState.ACTIVE)
     }
 
+    /**
+     * A farm line is an ordinary line: it prints what is left, and it can be logged against.
+     *
+     * MCO-403 gave supplied rows the quantity but no counter, reasoning that a supplied item
+     * terminates its chain so a collected number "would never mark the row complete". The first
+     * half is true; the second does not follow. The row prints a demand — 32 here, 50,000
+     * gunpowder in a real world — and that is the finish line. Hauling it out of the farm is the
+     * work, and it is what the counter is for.
+     */
     @Test
-    fun `a supplied row prints the demand but no counter`() = testApplication {
+    fun `a supplied row prints the demand and can be logged against`() = testApplication {
         setupRoutes()
         setProjectState(farmId, ProjectState.DONE)
 
         val body = client.get("/worlds/$worldId/projects/$consumerId") { addAuthCookie(this) }.bodyAsText()
 
-        // MCO-403: the row used to be name + badge + "from Iron Farm", which reads as solved.
-        // The quantity is the fact that says whether the farm is anywhere near adequate, and it
-        // is the same number the roadmap prints on that farm's edge.
-        assertContains(body, """<span class="resource-row__count">32</span>""")
-        assertFalse(
-            body.contains("plan-count-minecraft-iron_ingot"),
-            "supplied work is not scheduled by the plan, so it gets no collected/required counter",
-        )
+        // The quantity says whether the farm is anywhere near adequate, and it is the same number
+        // the roadmap prints on that farm's edge.
+        assertContains(body, """<span class="work-row__left">32</span>""")
+        // Where it comes from is named on the line, in the slot every other line uses.
+        assertContains(body, "Farm · Iron Farm")
+
+        // Log asks for this line's work strip, so the affordance is the row endpoint carrying
+        // this item id — a precise fact, rather than a class name found somewhere in the page.
+        assertContains(body, "plan/row/minecraft%3Airon_ingot?working=true")
+        // And the tick posts against the same progress endpoint every line uses. hx-vals is a
+        // JSON attribute, so its quotes arrive escaped.
+        assertContains(body, "&quot;itemId&quot;: &quot;minecraft:iron_ingot&quot;")
 
         setProjectState(farmId, ProjectState.ACTIVE)
     }

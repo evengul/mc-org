@@ -32,3 +32,10 @@ fun formatItemCount(n: Int): String = when {
     }
     else -> "$n"
 }
+
+/**
+ * A plain thousands-separated count, for places where the shulker/stack breakdown above would
+ * be noise rather than information — a group header saying "24 · 101,121" reads at a glance,
+ * where "24 · 58 sb + 3 stacks + 9" does not (MCO-478).
+ */
+fun formatPlainCount(n: Long): String = "%,d".format(n)

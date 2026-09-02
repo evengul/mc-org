@@ -1,0 +1,545 @@
+/* ==========================================================================
+   WORLD ROADMAP — GRAPH VIEW (MCO-469)
+
+   The roadmap as a weighted dependency graph. Two bands carry the whole idea:
+   the top band is sequence (what is left, in order), the left column is supply
+   (finished farms, waiting on nothing). Nothing done enters the band; nothing
+   unbuilt enters the column.
+
+   Node geometry is computed per world and arrives as inline left/top/width —
+   the same split ProgressBar uses for its width. Everything else lives here.
+   ========================================================================== */
+
+.rmg-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: 0 1px 0 var(--border);
+}
+
+.rmg-section {
+    padding: var(--space-5) var(--space-5);
+    border-bottom: 1px solid var(--border);
+}
+
+.rmg-section:last-child { border-bottom: none; }
+
+/* Shared label + note vocabulary --------------------------------------------------- */
+
+.rmg-label {
+    font-family: var(--font-ui);
+    font-size: var(--text-label);
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+}
+
+.rmg-note {
+    font-family: var(--font-ui);
+    font-size: var(--text-label);
+    color: var(--text-disabled);
+}
+
+/* Tone classes carry the state colour. Every one of them sits beside a glyph or a
+   word in the markup — the primary user is red-green colour-blind, so colour is
+   never the only cue. */
+.rmg-tone-muted { color: var(--text-muted); }
+.rmg-tone-green { color: var(--green); }
+.rmg-tone-red { color: var(--red); }
+.rmg-tone-amber { color: var(--amber); }
+.rmg-tone-accent { color: var(--accent); }
+.rmg-tone-disabled { color: var(--text-disabled); }
+
+/* 1. Page header -------------------------------------------------------------------- */
+
+.rmg-head {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: var(--space-5);
+    padding-bottom: var(--space-4);
+}
+
+.rmg-head__titles { display: flex; flex-direction: column; gap: var(--space-1); }
+
+.rmg-head__title {
+    margin: 0;
+    font-family: var(--font-ui);
+    font-size: 22px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--text-primary);
+}
+
+.rmg-head__meta {
+    font-family: var(--font-ui);
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+/* 6px radius, not pill: Seam reserves pill radius for badges and the Plan/Execute
+   toggle, and this is neither. */
+.rmg-viewswitch { display: flex; align-items: center; gap: var(--space-2); }
+
+.rmg-viewswitch__label {
+    font-family: var(--font-ui);
+    font-size: var(--text-label);
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    padding-right: var(--space-1);
+}
+
+.rmg-viewswitch__seg {
+    font-family: var(--font-ui);
+    font-size: 12px;
+    padding: 6px var(--space-3);
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    text-decoration: none;
+}
+
+.rmg-viewswitch__seg:hover { border-color: var(--border-strong); background: var(--bg-raised); }
+
+.rmg-viewswitch__seg--active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--on-accent);
+}
+
+/* 2. Start here + graph shape ------------------------------------------------------- */
+
+.rmg-start {
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    gap: var(--space-5);
+    align-items: start;
+}
+
+.rmg-start__main { display: flex; flex-direction: column; gap: 10px; }
+
+.rmg-start__name-row { display: flex; align-items: baseline; gap: 10px; }
+
+.rmg-start__name {
+    font-family: var(--font-ui);
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--accent);
+    text-decoration: none;
+}
+
+.rmg-start__name:hover { color: var(--accent-hover); text-decoration: underline; }
+
+.rmg-start__note {
+    margin: 0;
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    color: var(--text-muted);
+    max-width: 52ch;
+    text-wrap: pretty;
+}
+
+.rmg-start__tasks {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    max-width: 360px;
+    padding-top: var(--space-1);
+}
+
+.rmg-start__tasks-label { min-width: 44px; flex: none; }
+
+/* The bar is the flexible half of both rows: as a plain flex child it has no basis and
+   collapses to zero width, which reads as a missing component rather than a full one.
+ *
+ * The appearance is restated here rather than inherited, and that is deliberate. `.progress`
+ * has three definitions in this codebase — components/progress.css sets only a flex column
+ * (which fights a horizontal bar), while components/project-card.css and pages/worlds.css
+ * each define the real thing with *different* track colours. Loading either of those page
+ * stylesheets to borrow a bar would drag their unrelated rules onto this page, and editing
+ * the shared base would change every page currently relying on its own override. Scoped
+ * here, this cannot regress anything. The duplication is worth a cleanup of its own. */
+.rmg-start__tasks .progress,
+.rmg-terminal__progress .progress {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: block;
+    position: relative;
+    height: 6px;
+    background: var(--bg-raised);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.rmg-start__tasks .progress__fill,
+.rmg-terminal__progress .progress__fill {
+    display: block;
+    height: 100%;
+    background: var(--progress);
+    border-radius: 2px;
+    transition: width 200ms ease;
+}
+
+.rmg-start__tasks .progress__fill--complete,
+.rmg-terminal__progress .progress__fill--complete { background: var(--green); }
+
+@media (prefers-reduced-motion: reduce) {
+    .rmg-start__tasks .progress__fill,
+    .rmg-terminal__progress .progress__fill { transition: none; }
+}
+
+.rmg-start__tasks-count {
+    font-family: var(--font-ui);
+    font-size: 12px;
+    color: var(--text-primary);
+    white-space: nowrap;
+}
+
+.rmg-start__aside {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    border-left: 1px solid var(--border);
+    padding-left: var(--space-5);
+}
+
+.rmg-deflist {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: var(--space-1) var(--space-3);
+    font-family: var(--font-ui);
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+}
+
+.rmg-deflist__key {
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+
+/* Pairs are emitted key, value, key, value — so every even child is a value. */
+.rmg-deflist > span:nth-child(even) { text-align: right; }
+
+/* 3. The graph ---------------------------------------------------------------------- */
+
+.rmg-graph { display: flex; flex-direction: column; gap: var(--space-3); }
+
+.rmg-graph__head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-4);
+}
+
+.rmg-legend {
+    display: flex;
+    gap: 14px;
+    font-family: var(--font-ui);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+}
+
+.rmg-graph__empty {
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    color: var(--text-muted);
+    max-width: 65ch;
+}
+
+/* The graph-paper motif is the app background's own idiom, at the 24px grid the
+   design specifies. */
+.rmg-panel {
+    position: relative;
+    background-color: var(--bg-raised);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background-image:
+        linear-gradient(var(--border) 1px, transparent 1px),
+        linear-gradient(90deg, var(--border) 1px, transparent 1px);
+    background-size: 24px 24px;
+}
+
+.rmg-panel__edges { position: absolute; left: 0; top: 0; }
+
+.rmg-edge { fill: none; stroke: var(--border-strong); }
+.rmg-edge__head { fill: var(--border-strong); }
+
+.rmg-edge__label {
+    font-family: var(--font-ui);
+    font-size: 10px;
+    fill: var(--text-muted);
+}
+
+.rmg-group {
+    position: absolute;
+    left: 0;
+    width: 340px;
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-2);
+    font-family: var(--font-ui);
+}
+
+.rmg-group__text {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    color: inherit;
+}
+
+.rmg-group__note { font-size: 10px; color: var(--text-disabled); }
+
+.rmg-group__rule {
+    position: absolute;
+    left: 0;
+    width: 216px;
+    border-top: 1px solid var(--green);
+}
+
+.rmg-group__rule--dashed { border-top: 1px dashed var(--border-strong); }
+
+/* Nodes paint above the SVG — that stacking is what the label collision check in
+   RoadmapGraphLayout exists to survive. */
+.rmg-node {
+    position: absolute;
+    box-sizing: border-box;
+    border-radius: var(--radius);
+    padding: var(--space-2) 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    font-family: var(--font-ui);
+    text-decoration: none;
+    color: var(--text-primary);
+}
+
+a.rmg-node:hover { border-color: var(--border-strong); }
+a.rmg-node:active { transform: translateY(0.5px); }
+a.rmg-node:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-muted); }
+
+.rmg-node__eyebrow { font-size: 10px; letter-spacing: 0.08em; }
+.rmg-node__title { font-size: 13px; font-weight: 600; }
+.rmg-node__sub { font-size: 11px; }
+
+.rmg-node--supply,
+.rmg-node--bundle {
+    background: var(--green-bg);
+    border: 1px solid var(--green);
+}
+
+.rmg-node--bundle { border-left: 4px solid var(--green); }
+
+.rmg-node--hand {
+    background: var(--bg-surface);
+    border: 1px dashed var(--border-strong);
+}
+
+.rmg-node--sequence {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+}
+
+.rmg-node--start {
+    background: var(--bg-surface);
+    border: 1.5px solid var(--accent);
+    box-shadow: 0 1px 0 var(--border);
+}
+
+.rmg-node--terminal {
+    background: var(--bg-surface);
+    border: 1.5px solid var(--border-strong);
+    box-shadow: 0 1px 0 var(--border);
+    padding: var(--space-3) 14px;
+    gap: 10px;
+}
+
+.rmg-node--terminal .rmg-node__title { font-size: 15px; line-height: 1.25; }
+
+.rmg-terminal__progress { display: flex; align-items: center; gap: var(--space-2); }
+
+.rmg-terminal__percent {
+    font-size: 11px;
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+
+.rmg-terminal__facts {
+    font-size: 11px;
+    border-top: 1px solid var(--border);
+    padding-top: var(--space-2);
+}
+
+.rmg-band-caption {
+    position: absolute;
+    font-family: var(--font-ui);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    color: var(--text-disabled);
+}
+
+/* 4. Not in any chain ---------------------------------------------------------------- */
+
+.rmg-unchained { display: flex; flex-direction: column; gap: var(--space-3); }
+
+.rmg-unchained__head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+
+.rmg-chips { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+
+.rmg-chip {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: var(--space-2) var(--space-3);
+    background: var(--bg-raised);
+    text-decoration: none;
+    color: var(--text-primary);
+}
+
+.rmg-chip:hover { border-color: var(--border-strong); background: var(--bg-raised); }
+.rmg-chip:active { transform: translateY(0.5px); }
+.rmg-chip:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-muted); }
+
+.rmg-chip__name { font-family: var(--font-ui); font-size: 13px; }
+.rmg-chip__note { font-family: var(--font-ui); font-size: 11px; }
+
+/* 5. Producing ------------------------------------------------------------------------ */
+
+.rmg-producing { display: flex; flex-direction: column; gap: var(--space-3); }
+
+.rmg-producing__head {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.rmg-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+}
+
+/* Rules on the cells, never as a gap over a tinted container: with a cell count that
+   is not a multiple of three, the trailing empty grid areas expose the container
+   colour as a solid slab. The design system also forbids vertical column dividers. */
+.rmg-grid__cell {
+    padding: var(--space-2) var(--space-3);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    gap: var(--space-3);
+    font-family: var(--font-ui);
+    font-size: 12px;
+    background: var(--bg-surface);
+    text-decoration: none;
+    color: var(--text-primary);
+}
+
+.rmg-grid__cell--band { background: var(--bg-raised); }
+
+.rmg-grid__cell:hover { background: var(--bg-raised); color: var(--accent); }
+.rmg-grid__cell:focus-visible { outline: none; box-shadow: inset 0 0 0 3px var(--accent-muted); }
+
+.rmg-grid__meta { color: var(--text-muted); font-variant-numeric: tabular-nums; }
+
+.rmg-datagap {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: var(--space-3);
+    padding: 10px var(--space-3);
+    border: 1px dashed var(--border);
+    border-radius: var(--radius);
+}
+
+.rmg-datagap__text {
+    font-family: var(--font-ui);
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+.rmg-datagap__fix {
+    font-family: var(--font-ui);
+    font-size: 12px;
+    color: var(--accent);
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.rmg-datagap__fix:hover { text-decoration: underline; }
+
+/* Motion — progress bars only. Nothing else on this page animates. */
+@media (prefers-reduced-motion: reduce) {
+    .rmg-chip:active,
+    a.rmg-node:active { transform: none; }
+}
+
+/* Responsive ------------------------------------------------------------------------
+   The panel is authored at 1032px and does not shrink: an absolutely-positioned graph
+   scaled to 375px is unreadable, not compact. Below the breakpoint it is replaced by
+   the linear queue list the markup already carries — sequence first, then supply. */
+
+@media (max-width: 1080px) {
+    .rmg-panel { overflow-x: auto; }
+}
+
+@media (max-width: 768px) {
+    .rmg-section { padding: var(--space-4); }
+
+    .rmg-head { flex-direction: column; align-items: flex-start; gap: var(--space-3); }
+
+    .rmg-start { grid-template-columns: 1fr; }
+
+    .rmg-start__aside {
+        border-left: none;
+        padding-left: 0;
+        border-top: 1px solid var(--border);
+        padding-top: var(--space-3);
+    }
+
+    /* The graph panel becomes a plain vertical list: absolute positioning is dropped,
+       the SVG is hidden, and the nodes fall back into document order — which is
+       already sequence-then-supply. */
+    .rmg-panel {
+        width: 100% !important;
+        height: auto !important;
+        background-image: none;
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-2);
+        padding: var(--space-3);
+        overflow-x: visible;
+    }
+
+    .rmg-panel__edges,
+    .rmg-group__rule,
+    .rmg-band-caption { display: none; }
+
+    .rmg-group {
+        position: static;
+        width: auto;
+        padding-top: var(--space-2);
+    }
+
+    .rmg-node {
+        position: static !important;
+        left: auto !important;
+        top: auto !important;
+        width: 100% !important;
+        height: auto !important;
+        min-height: 44px;
+    }
+
+    .rmg-grid { grid-template-columns: 1fr; }
+
+    .rmg-datagap { flex-direction: column; align-items: flex-start; gap: var(--space-2); }
+}
