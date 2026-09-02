@@ -73,17 +73,17 @@ internal data class WorkRowState(
     val need: Long get() = activity.quantity
 
     /**
-     * Whether this line is worked, or merely collected from something that already makes it.
+     * Whether the material comes from something that already makes it, rather than from a trip
+     * you plan yourself. Changes the *label* on the line and nothing else.
      *
-     * The design brought farm-supplied lines into the list — "collecting from a farm is still work
-     * that takes time" — and that part is right: they are the same shape, in the same panel, in
-     * the same order. But it also gave them counters, and MCO-403 turned those off for reasons
-     * that still hold: a supplied item terminates its chain, so nothing downstream re-derives as
-     * you haul it in, and the plan has no finish line for it to count toward. A counter that can
-     * never complete is worse than none.
-     *
-     * So the two halves are separated: supplied lines get the layout and not the counter. If farm
-     * supply ever becomes bounded (MCO-287), this is the flag to flip.
+     * It used to suppress the counter as well, on MCO-403's reasoning that "a supplied item
+     * terminates its chain, so a collected number would count toward a finish line the planner
+     * does not have and would never mark the row complete". The first half is true and the second
+     * does not follow: the row already prints a demand — 74,557 Cobblestone, 50,000 Gunpowder —
+     * and that *is* the finish line. Hauling fifty thousand gunpowder out of a farm is a dozen
+     * trips, and it is exactly the work a counter exists to track. What MCO-403 actually
+     * described is the planner having nothing to re-derive as you haul, which was never a reason
+     * to stop counting.
      */
     val isSupplied: Boolean get() = activity.status == PlanNodeStatus.SUPPLIED
     val remaining: Long get() = (need - have).coerceAtLeast(0)
@@ -159,7 +159,7 @@ private fun DIV.collapsedBody(worldId: Int, projectId: Int, state: WorkRowState)
         id = state.rowId
         attributes["data-item-name"] = state.activity.item.name
 
-        if (state.isSupplied) span("work-row__tick work-row__tick--none") else workTickBox(worldId, projectId, state)
+        workTickBox(worldId, projectId, state)
 
         val (itemName, itemKind) = splitKind(state.activity.item.name)
         span("work-row__name") {
@@ -192,9 +192,7 @@ private fun DIV.collapsedBody(worldId: Int, projectId: Int, state: WorkRowState)
             }
         }
 
-        // No Log on a supplied line: there is nothing to log against (see [WorkRowState.isSupplied]).
-        if (state.isSupplied) span("work-row__action work-row__action--none") { +"" }
-        else workRowAction(worldId, projectId, state, working = false)
+        workRowAction(worldId, projectId, state, working = false)
     }
 }
 

@@ -547,10 +547,3 @@
         height: 20px;
     }
 }
-
-/* A supplied line keeps the grid so its columns line up with the lines around
-   it, but has no tick and no Log — see WorkRowState.isSupplied. */
-.work-row__tick--none,
-.work-row__action--none {
-    visibility: hidden;
-}

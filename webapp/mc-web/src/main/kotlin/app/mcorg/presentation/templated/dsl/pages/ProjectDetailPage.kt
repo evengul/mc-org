@@ -235,8 +235,13 @@ fun FlowContent.overallProgressInner(totalRequired: Long, totalCollected: Long) 
  * so derived activities that have persisted progress are counted correctly.
  */
 internal fun planProgressTotals(plan: GatheringPlan, progressMap: Map<String, Int>): Pair<Long, Long> {
+    // SUPPLIED counts: emptying a farm is work with a quantity, and leaving it out meant the
+    // header read 0% while you hauled 74,557 cobblestone. OPEN_TAG and BLOCKED still do not —
+    // their quantities are provisional until the question is answered.
     val countable = plan.activityList.filter {
-        it.status == PlanNodeStatus.RESOLVED || it.status == PlanNodeStatus.RAW_GATHER
+        it.status == PlanNodeStatus.RESOLVED ||
+            it.status == PlanNodeStatus.RAW_GATHER ||
+            it.status == PlanNodeStatus.SUPPLIED
     }
     val totalRequired = countable.sumOf { it.quantity }
     val totalCollected = countable.sumOf { activity ->
@@ -898,32 +903,6 @@ private val QUANTITY_SORTED_GROUPS = setOf(
     ActivityGroup.TRADE,
 )
 
-/** Renders a single activity row. Presentation depends on status. */
-private fun FlowContent.planActivityRow(
-    worldId: Int,
-    projectId: Int,
-    activity: Activity,
-    progressMap: Map<String, Int> = emptyMap(),
-    nodeIngredients: Map<String, String> = emptyMap(),
-    feedsLabels: Map<String, FeedsLabel> = emptyMap(),
-    isFarmScale: Boolean = false,
-) {
-    when (activity.status) {
-        PlanNodeStatus.SUPPLIED -> suppliedActivityRow(worldId, projectId, activity, feedsLabels[activity.item.id])
-        PlanNodeStatus.OPEN_TAG -> openTagActivityRow(worldId, projectId, activity)
-        PlanNodeStatus.BLOCKED -> blockedActivityRow(worldId, projectId, activity)
-        PlanNodeStatus.RESOLVED, PlanNodeStatus.RAW_GATHER ->
-            counterActivityRow(
-                worldId,
-                projectId,
-                activity,
-                progressMap,
-                nodeIngredients,
-                feedsLabels[activity.item.id],
-                isFarmScale = isFarmScale,
-            )
-    }
-}
 
 /** Renders the "Feeds 24 Birch Door · 40 Chest" reverse-provenance line, when present. */
 internal fun FlowContent.feedsLine(label: FeedsLabel?) {
@@ -934,73 +913,6 @@ internal fun FlowContent.feedsLine(label: FeedsLabel?) {
     }
 }
 
-/**
- * SUPPLIED row: quantity + badge + supply label, no counter.
- *
- * Farm supply and linked-project supply share the group but are not the same promise
- * (MCO-299): a farm keeps producing, a linked project hands over once. The badge says
- * which, and a linked project's name is a link to it — the farm's name is not, because
- * the supply is ambient (any operational producer of the item, resolved at plan time).
- *
- * ## The quantity shows; the counter does not (MCO-403)
- *
- * This row used to print no number at all, on the reasoning that a supplied item is handled.
- * That drops the one fact the row exists to deliver: "Cobblestone — from Cobble farm" reads as
- * solved, and **74,557** cobblestone is what tells you whether that farm is anywhere near
- * adequate. It is also the number the roadmap prints on the same farm's edge (MCO-316), in the
- * same `%,d` format — two surfaces disagreeing about whether a quantity is worth showing was
- * never a decision anyone made.
- *
- * A **counter and progress bar** stay off, for both supply kinds:
- *
- * - The plan does not schedule this work. A supplied item terminates its chain — nothing
- *   downstream re-derives as you haul it in — so a "collected" number here would count toward a
- *   finish line the planner does not have, and would never mark the row complete.
- * - Farm supply is unbounded in V1 (MCO-287): the farm *solves* the item. Progress against a
- *   solved item is a number nothing reads and nothing updates.
- * - Linked-project supply is a one-time handover, where a counter reads more naturally — but the
- *   handover is the *producer's* completion, which its own project already tracks. A second
- *   counter here would be a second place to record the same thing, and they would drift.
- *
- * If that changes, the two kinds diverge and this branch splits; today they agree, so it does not.
- */
-private fun FlowContent.suppliedActivityRow(
-    worldId: Int,
-    projectId: Int,
-    activity: Activity,
-    feedsLabel: FeedsLabel? = null,
-) {
-    val supply = activity.supply
-    val encodedItemId = URLEncoder.encode(activity.item.id, StandardCharsets.UTF_8)
-    div("resource-row") {
-        id = "plan-activity-${activity.item.id.replace(":", "-")}"
-        div("resource-row__desktop") {
-            div("resource-row__name") { +activity.item.name }
-            // Same position as the counter row's count, so the numbers line up down the page
-            // however a row is sourced, and the same format as the roadmap's edge.
-            span("resource-row__count") { +"%,d".format(activity.quantity) }
-            when (supply) {
-                is SupplySource.Farm -> {
-                    span("badge badge--accent") { +"Farm" }
-                    span("resource-row__source") { +"from ${supply.label}" }
-                }
-                is SupplySource.LinkedProject -> {
-                    span("badge badge--accent") { +"Project" }
-                    span("resource-row__source") {
-                        +"from "
-                        a(classes = "resource-row__source-link") {
-                            href = "/worlds/$worldId/projects/${supply.projectId}"
-                            +supply.label
-                        }
-                    }
-                }
-                null -> span("badge badge--accent") { +"Supplied" }
-            }
-            drillButton(worldId, projectId, encodedItemId)
-        }
-        feedsLine(feedsLabel)
-    }
-}
 
 /**
  * "Needs attention", ordered and collapsed (MCO-400).
@@ -1182,85 +1094,6 @@ private fun FlowContent.blockedActivityRow(
  * Mirrors the structure of resourceRow but targets the plan progress endpoint.
  * [progressMap] carries persisted progress for all items in the project (including derived ones).
  */
-fun FlowContent.counterActivityRow(
-    worldId: Int,
-    projectId: Int,
-    activity: Activity,
-    progressMap: Map<String, Int> = emptyMap(),
-    nodeIngredients: Map<String, String> = emptyMap(),
-    feedsLabel: FeedsLabel? = null,
-    isFarmScale: Boolean = false,
-) {
-    val itemSlug = activity.item.id.replace(":", "-")
-    val rowId = "plan-activity-$itemSlug"
-    val required = activity.quantity
-    val current = (progressMap[activity.item.id] ?: 0).toLong().coerceIn(0, required)
-    val percent = if (required > 0) (current * 100 / required).toInt() else 0
-    // Method + detail: ingredients for recipes ("Smelting · 1 Raw Iron"), or the loot location
-    // for a pinned loot source ("Chest Loot · Desert pyramid") — the relationship/source,
-    // visible without drilling.
-    val detail = nodeIngredients[activity.item.id] ?: activity.source?.let { lootTableName(it) }
-    val sourceLabel = listOfNotNull(activity.source?.getMethodLabel(), detail)
-        .joinToString(" · ")
-        .ifEmpty { null }
-    val encodedItemId = URLEncoder.encode(activity.item.id, StandardCharsets.UTF_8)
-
-    div("resource-row") {
-        id = rowId
-        attributes["data-item-name"] = activity.item.name
-        attributes["data-progress-pct"] = percent.toString()
-        attributes["data-required"] = required.toString()
-
-        div("resource-row__desktop") {
-            div("resource-row__name") { +activity.item.name }
-
-            // MCO-401: says the quantity is farm-scale, not which farm — that is MCO-294 and
-            // needs an idea bank. On the row rather than only in the roll-up, so the judgement
-            // is visible while reading the gathering work itself.
-            if (isFarmScale) {
-                span("badge plan-farm-scale__badge") {
-                    attributes["title"] = "More than this world's farm-scale threshold — worth a farm"
-                    +"Farm-scale"
-                }
-            }
-
-            div("resource-row__progress") {
-                div("progress") {
-                    div("progress__fill") {
-                        attributes["style"] = "width: ${percent}%"
-                        attributes["role"] = "progressbar"
-                        attributes["aria-valuenow"] = current.toString()
-                        attributes["aria-valuemin"] = "0"
-                        attributes["aria-valuemax"] = required.toString()
-                    }
-                }
-            }
-
-            planActivityCount(activity.item.id, activity.item.name, itemSlug, current, required, complete = false)
-
-            if (sourceLabel != null) {
-                span("resource-row__source") { +sourceLabel }
-            }
-
-            drillButton(worldId, projectId, encodedItemId)
-
-            div("resource-row__counters") {
-                intArrayOf(-1728, -64, -1, 1, 64, 1728).forEach { amount ->
-                    button(classes = "btn btn--ghost btn--sm resource-row__counter-btn") {
-                        attributes["hx-patch"] =
-                            "/worlds/$worldId/projects/$projectId/plan/progress"
-                        attributes["hx-vals"] =
-                            """{"itemId": "${activity.item.id}", "amount": $amount, "required": $required}"""
-                        attributes["hx-target"] = "#$rowId"
-                        attributes["hx-swap"] = "outerHTML"
-                        +if (amount > 0) "+$amount" else "$amount"
-                    }
-                }
-            }
-        }
-        feedsLine(feedsLabel)
-    }
-}
 
 /**
  * The ⇄ drill button that navigates to the chain drill view for an activity's item.

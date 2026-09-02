@@ -89,8 +89,15 @@ class PlanProgressTotalsTest {
         assertEquals(400L, collected)
     }
 
+    /**
+     * Emptying a farm is work with a quantity, so SUPPLIED counts toward the header.
+     *
+     * It did not until the work-row redesign, on MCO-403's reasoning that a supplied item
+     * terminates its chain. True, and not a reason to leave it out: hauling 50,000 gunpowder out
+     * of a farm is a dozen trips, and a header reading 0% throughout is simply wrong.
+     */
     @Test
-    fun `non-countable activities do not contribute to totals`() {
+    fun `supplied activities count toward the totals`() {
         val nodes = mapOf(
             "minecraft:log" to PlanNode(
                 item = item("log"), quantity = 10, crafts = 10, leftover = 0,
@@ -107,37 +114,58 @@ class PlanProgressTotalsTest {
             "minecraft:planks" to 3,
         )
         val (required, collected) = planProgressTotals(plan, progressMap)
-        // SUPPLIED is not countable — only log (RAW_GATHER) counts
+        assertEquals(18L, required, "10 mined + 8 hauled from the farm")
+        assertEquals(8L, collected, "5 mined + 3 hauled")
+    }
+
+    /** A question's quantity is provisional, so it still stays out of the totals. */
+    @Test
+    fun `open and blocked activities do not contribute to totals`() {
+        val nodes = mapOf(
+            "minecraft:log" to PlanNode(
+                item = item("log"), quantity = 10, crafts = 10, leftover = 0,
+                status = PlanNodeStatus.RAW_GATHER, source = mine
+            ),
+            "#minecraft:planks" to PlanNode(
+                item = item("planks"), quantity = 8, crafts = 8, leftover = 0,
+                status = PlanNodeStatus.OPEN_TAG
+            ),
+            "minecraft:impossible" to PlanNode(
+                item = item("impossible"), quantity = 4, crafts = 4, leftover = 0,
+                status = PlanNodeStatus.BLOCKED
+            ),
+        )
+        val plan = GatheringPlan(nodes = nodes, targets = listOf(PlanTarget(item("log"), 10)))
+        val (required, collected) = planProgressTotals(plan, mapOf("minecraft:log" to 5))
         assertEquals(10L, required)
         assertEquals(5L, collected)
     }
 
-    // ── counterActivityRow renders persisted current ─────────────────────────
+    // ── the collapsed line reflects persisted progress ───────────────────────
+    //
+    // The row leads with what is *left* rather than what is collected — that is the number
+    // answering "am I done yet" — so these read the remainder.
 
     @Test
-    fun `counterActivityRow renders persisted current from progressMap`() {
+    fun `a line shows the remainder after persisted progress`() {
         val activity = simplePlan().activityList.first { it.item.id == "minecraft:log" }
-        val progressMap = mapOf("minecraft:log" to 42)
 
         val html = createHTML().div {
-            counterActivityRow(worldId = 1, projectId = 2, activity = activity, progressMap = progressMap)
+            workRowCollapsed(1, 2, workRowStateOf(activity, mapOf("minecraft:log" to 42)))
         }
 
-        // Count markup is split (collected in count-current, " / required" in count-sep).
-        // Row must show collected 42 — not 0.
-        assertTrue(html.contains("data-current=\"42\""), "Expected collected '42' in rendered row but got: $html")
-        assertTrue(html.contains(" / 136"), "Expected ' / 136' separator in rendered row but got: $html")
+        assertTrue(html.contains("work-row__left\">94<"), "136 needed less 42 logged; got: $html")
+        assertTrue(html.contains("of 136"), "Expected the need alongside it; got: $html")
     }
 
     @Test
-    fun `counterActivityRow renders 0 when item has no progress`() {
+    fun `a line with no progress shows the whole need as remaining`() {
         val activity = simplePlan().activityList.first { it.item.id == "minecraft:log" }
 
         val html = createHTML().div {
-            counterActivityRow(worldId = 1, projectId = 2, activity = activity, progressMap = emptyMap())
+            workRowCollapsed(1, 2, workRowStateOf(activity, emptyMap()))
         }
 
-        assertTrue(html.contains("data-current=\"0\""), "Expected collected '0' in rendered row but got: $html")
-        assertTrue(html.contains(" / 136"), "Expected ' / 136' separator in rendered row but got: $html")
+        assertTrue(html.contains("work-row__left\">136<"), "Expected 136 remaining; got: $html")
     }
 }
