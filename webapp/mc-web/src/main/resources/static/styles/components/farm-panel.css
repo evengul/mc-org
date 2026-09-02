@@ -1,0 +1,173 @@
+/* ==========================================================================
+   "WORTH A FARM" PANEL — grouped alternatives (MCO-483) and dismissals (MCO-407)
+
+   The panel's base styles live with the rest of the plan in pages/project-detail.css
+   (.plan-farm-scale and friends). Everything the two issues above added lives here, in
+   one file that is only about this panel.
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   MCO-483 — designs covering the same demand are a choice, not a list.
+   -------------------------------------------------------------------------- */
+
+/* Why this design leads the others. Sits directly under the name because it is a claim
+   about the name, and it is the whole reason the row can be trusted to have picked. */
+.plan-farm-scale__why {
+    margin: 0;
+    padding-left: var(--space-5);
+    font-family: var(--font-body);
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+}
+
+/* Ticking a design has to settle the demand visibly. Hidden until something in the group is
+   checked — the same :has() reading the batch submit uses, rather than JS keeping a class
+   in sync. Scoped to the group so ticking one choice says nothing about another. */
+.plan-farm-scale__chosen {
+    display: none;
+    padding-left: var(--space-5);
+    font-family: var(--font-ui);
+    font-size: var(--text-xs);
+    color: var(--green);
+}
+
+[data-farm-choice]:has(.plan-farm-scale__select-box:checked) .plan-farm-scale__chosen {
+    display: block;
+}
+
+/* A settled choice reads as decided at a glance, without moving anything on the page. */
+[data-farm-choice]:has(.plan-farm-scale__select-box:checked) {
+    border-left-color: var(--green);
+}
+
+/* The fold. Same shape as .plan-attention__rest (MCO-400): a summary that is a ghost button
+   saying what it will do, with the marker removed. */
+.plan-farm-scale__alternatives {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
+.plan-farm-scale__alternatives > summary {
+    list-style: none;
+    cursor: pointer;
+}
+
+.plan-farm-scale__alternatives > summary::-webkit-details-marker {
+    display: none;
+}
+
+.plan-farm-scale__alternatives-toggle {
+    display: inline-flex;
+}
+
+.plan-farm-scale__alternatives[open] .plan-farm-scale__alternatives-toggle--closed,
+.plan-farm-scale__alternatives:not([open]) .plan-farm-scale__alternatives-toggle--open {
+    display: none;
+}
+
+.plan-farm-scale__alternative-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    padding-left: var(--space-3);
+    border-left: 2px solid var(--border);
+}
+
+.plan-farm-scale__alternative {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-3);
+    flex-wrap: wrap;
+}
+
+/* --------------------------------------------------------------------------
+   MCO-407 — dismissing a suggestion this world has decided against.
+   -------------------------------------------------------------------------- */
+
+/* The control rides on the demand line it removes. Quiet by default and only legible on
+   hover or focus: it is an escape hatch, not an action the panel is asking for. */
+.plan-farm-scale__dismiss {
+    margin-left: auto;
+    opacity: 0;
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+}
+
+.plan-farm-scale__item:hover .plan-farm-scale__dismiss,
+.plan-farm-scale__dismiss:focus-visible {
+    opacity: 1;
+}
+
+/* Touch has no hover, and an invisible control is no control. */
+@media (hover: none) {
+    .plan-farm-scale__dismiss {
+        opacity: 1;
+    }
+}
+
+/* The undo list. Folded because a dismissal is meant to be out of the way — but present,
+   because a dismissal you cannot find is a dismissal you cannot take back. */
+.plan-farm-scale__dismissed {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    padding-top: var(--space-2);
+    border-top: 1px solid var(--border);
+}
+
+.plan-farm-scale__dismissed > summary {
+    list-style: none;
+    cursor: pointer;
+}
+
+.plan-farm-scale__dismissed > summary::-webkit-details-marker {
+    display: none;
+}
+
+.plan-farm-scale__dismissed-toggle {
+    display: inline-flex;
+}
+
+.plan-farm-scale__dismissed[open] .plan-farm-scale__dismissed-toggle--closed,
+.plan-farm-scale__dismissed:not([open]) .plan-farm-scale__dismissed-toggle--open {
+    display: none;
+}
+
+.plan-farm-scale__dismissed-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    padding-left: var(--space-3);
+}
+
+.plan-farm-scale__dismissed-item {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-2);
+    flex-wrap: wrap;
+}
+
+/* The item's name, struck through: this is demand the roll-up is no longer counting. */
+.plan-farm-scale__dismissed-name {
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    color: var(--text-muted);
+    text-decoration: line-through;
+}
+
+/* What it was when it was dismissed, and what it is now. The pair is the whole reason a
+   dismissal can be permanent: growth is shown here rather than resurrecting the row. */
+.plan-farm-scale__dismissed-note {
+    font-family: var(--font-ui);
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+}
+
+.plan-farm-scale__dismissed-note--grown {
+    color: var(--amber);
+}
+
+.plan-farm-scale__restore {
+    margin-left: auto;
+}

@@ -17,6 +17,9 @@ import app.mcorg.pipeline.resources.FarmScaleDemand
 import app.mcorg.pipeline.resources.FarmScaleDemands
 import app.mcorg.pipeline.project.SELECTED_DESIGN_FIELD
 import app.mcorg.pipeline.resources.FarmSuggestion
+import app.mcorg.pipeline.resources.FarmSuggestionChoice
+import app.mcorg.pipeline.resources.FarmSuggestionChoices
+import app.mcorg.pipeline.resources.RecommendationReason
 import app.mcorg.presentation.templated.dsl.formatPlainCount
 import app.mcorg.presentation.hxDelete
 import app.mcorg.presentation.hxDeleteWithConfirm
@@ -98,11 +101,13 @@ fun projectDetailPage(
         "/static/styles/components/callout.css",
         "/static/styles/components/drill.css",
         "/static/styles/pages/project-detail.css",
+        "/static/styles/components/farm-panel.css",
     ),
     scripts = listOf(
         "/static/scripts/resource-search.js",
         "/static/scripts/plan-view.js",
-        "/static/scripts/resource-panel.js"
+        "/static/scripts/resource-panel.js",
+        "/static/scripts/farm-suggestions.js"
     )
 ) {
     appHeader(
@@ -748,7 +753,8 @@ private fun FlowContent.farmScaleSection(
             method = FormMethod.post
             action = "/worlds/$worldId/projects/$projectId/farm-suggestions/import"
 
-            suggestions.forEach { suggestion -> designRow(suggestion, worldId) }
+            // Grouped, not listed (MCO-483): designs covering the same demand are a choice.
+            FarmSuggestionChoices.of(suggestions).forEach { choice -> designChoice(choice, worldId) }
 
             div("plan-farm-scale__batch-actions") {
                 button(classes = "btn btn--sm btn--primary plan-farm-scale__batch-submit") {
@@ -783,13 +789,19 @@ private fun FlowContent.farmScaleSection(
 }
 
 /**
- * One design and everything it takes off the plan (MCO-294).
+ * One demand, the design to build for it, and the designs that would do instead (MCO-294, MCO-483).
  *
  * **One row per design, not per item.** A farm makes several things: the bank's stick producer
  * is the Witch Hut Farm, already the answer for 63,213 redstone. A row per item would name that
  * one design three times and invite building a witch hut "for sticks". See
  * [app.mcorg.pipeline.resources.FarmSuggestions] for the matching rules and for why coverage
  * deliberately under-claims.
+ *
+ * **And one row per demand, not per design.** Two ice farms covering the same 20,611 Ice were two
+ * peer rows with two checkboxes under "Review selected designs", which reads as "build both".
+ * They are one job with two answers, so the recommendation takes the row and the rest sit behind
+ * a fold that says what they are. [app.mcorg.pipeline.resources.FarmSuggestionChoices] owns the
+ * grouping key and the ranking; this only renders the reason it produced.
  *
  * The hours figure is the one number that changes a decision. Most designs cover their demand in
  * minutes — it is the rare multi-hour line that says a farm is a project rather than an
@@ -799,31 +811,34 @@ private fun FlowContent.farmScaleSection(
  * The action is the review screen, not a direct create: import decides what to gather and
  * whether the farm already exists (MCO-457), and neither is this list's to answer for the user.
  */
-private fun FlowContent.designRow(suggestion: FarmSuggestion, worldId: Int) {
+private fun FlowContent.designChoice(choice: FarmSuggestionChoice, worldId: Int) {
+    val recommended = choice.recommended
+
     div("plan-farm-scale__design") {
+        // Scopes the one-of-N rule to this demand. The value is never used as a selector — see
+        // farm-suggestions.js, which walks up to the nearest wrapper carrying the attribute.
+        attributes["data-farm-choice"] = choice.key
+
         div("plan-farm-scale__design-head") {
-            // The checkbox replaces the per-row "Import into this world" link rather than
-            // sitting beside it (MCO-459). Two doors to the same place on an already dense
-            // row is a choice nobody wants to make; selecting one design and submitting is
-            // the old flow exactly, one click longer, and every other route into the review
-            // screen still exists from the idea page itself.
-            label("plan-farm-scale__select") {
-                htmlFor = "design-select-${suggestion.ideaId}"
-                checkBoxInput(classes = "plan-farm-scale__select-box") {
-                    id = "design-select-${suggestion.ideaId}"
-                    name = SELECTED_DESIGN_FIELD
-                    value = suggestion.ideaId.toString()
-                }
-                span("plan-farm-scale__design-name") { +suggestion.ideaName }
-            }
+            designSelect(recommended)
             a(classes = "plan-farm-scale__design-link") {
-                href = Link.Ideas.single(suggestion.ideaId)
-                title = "Open ${suggestion.ideaName}"
+                href = Link.Ideas.single(recommended.ideaId)
+                title = "Open ${recommended.ideaName}"
                 +"View design"
             }
         }
+
+        // Why this one leads, in the row rather than in the ranking code. A 1.4% rate difference
+        // decided the ice farms; unstated, that is an arbitrary answer dressed as advice.
+        recommendationNote(choice)?.let { note -> p("plan-farm-scale__why") { +note } }
+
+        // Rendered always, revealed by CSS when anything in this group is ticked (:has). Ticking
+        // a design has to *settle* the demand visibly, or the alternatives keep inviting a
+        // second tick for a job that is already answered.
+        span("plan-farm-scale__chosen") { +"Chosen — this demand is settled." }
+
         div("plan-farm-scale__list") {
-            suggestion.produces.forEach { covered ->
+            recommended.produces.forEach { covered ->
                 div("plan-farm-scale__item") {
                     span("plan-farm-scale__quantity") { +"%,d".format(covered.quantity) }
                     span("plan-farm-scale__name") { +covered.itemName }
@@ -833,17 +848,117 @@ private fun FlowContent.designRow(suggestion: FarmSuggestion, worldId: Int) {
                 }
             }
         }
-        if (suggestion.alsoRemoves.isNotEmpty()) {
+
+        if (recommended.alsoRemoves.isNotEmpty()) {
             p("plan-farm-scale__knock-on") {
                 +"Also removes "
-                +suggestion.alsoRemoves.joinToString(", ") {
+                +recommended.alsoRemoves.joinToString(", ") {
                     "${"%,d".format(it.quantity)} ${it.itemName}"
                 }
                 +" — work that only exists to feed the above."
             }
         }
+
+        if (choice.alternatives.isNotEmpty()) {
+            // Same fold shape as "Needs attention" (MCO-400) and the folded resource tail
+            // (MCO-478): a `details` whose summary is a ghost button that says what it will do.
+            details("plan-farm-scale__alternatives") {
+                summary {
+                    span("btn btn--ghost btn--sm plan-farm-scale__alternatives-toggle") {
+                        span("plan-farm-scale__alternatives-toggle--closed") {
+                            +"${choice.alternatives.size} other ${designWord(choice.alternatives.size)} ${coverVerb(choice.alternatives.size)} this ▾"
+                        }
+                        span("plan-farm-scale__alternatives-toggle--open") {
+                            +"Hide the other ${designWord(choice.alternatives.size)} ▴"
+                        }
+                    }
+                }
+                div("plan-farm-scale__alternative-list") {
+                    choice.alternatives.forEach { alternative -> alternativeDesign(alternative) }
+                }
+            }
+        }
     }
 }
+
+/**
+ * One alternative inside a choice: the name, its own coverage time, and the link.
+ *
+ * It does **not** reprint the quantities. They are identical to the recommendation's by
+ * construction — that is what put these designs in one group — and printing them again is the
+ * duplication MCO-483 is removing, one level further in.
+ */
+private fun FlowContent.alternativeDesign(suggestion: FarmSuggestion) {
+    div("plan-farm-scale__alternative") {
+        designSelect(suggestion)
+        suggestion.coverageHours?.let { hours ->
+            span("plan-farm-scale__rate") { +hoursOfRunning(hours) }
+        }
+        a(classes = "plan-farm-scale__design-link") {
+            href = Link.Ideas.single(suggestion.ideaId)
+            title = "Open ${suggestion.ideaName}"
+            +"View design"
+        }
+    }
+}
+
+/**
+ * The checkbox and the name, as one target.
+ *
+ * The checkbox replaced the per-row "Import into this world" link rather than sitting beside it
+ * (MCO-459). Two doors to the same place on an already dense row is a choice nobody wants to
+ * make; selecting a design and submitting is the old flow exactly, one click longer, and every
+ * other route into the review screen still exists from the idea page itself.
+ *
+ * Still a checkbox and not a radio, though a choice is one-of-N: the batch form carries every
+ * choice on the page, and one radio group per choice would need a field name per group — a wire
+ * format change to [SELECTED_DESIGN_FIELD] for a rule the same form can hold with a data
+ * attribute. Exclusivity within a group is enforced in `farm-suggestions.js`, and the fold means
+ * the second tick is not even reachable without opening it.
+ */
+private fun FlowContent.designSelect(suggestion: FarmSuggestion) {
+    label("plan-farm-scale__select") {
+        htmlFor = "design-select-${suggestion.ideaId}"
+        checkBoxInput(classes = "plan-farm-scale__select-box") {
+            id = "design-select-${suggestion.ideaId}"
+            name = SELECTED_DESIGN_FIELD
+            value = suggestion.ideaId.toString()
+        }
+        span("plan-farm-scale__design-name") { +suggestion.ideaName }
+    }
+}
+
+/**
+ * What ranked the designs in this choice, as a sentence — null when there is nothing to explain.
+ *
+ * Every branch names the evidence rather than asserting a winner: the runner-up's time is printed
+ * beside the leader's precisely because 5.7h against 5.8h is a coin toss and should read as one.
+ */
+private fun recommendationNote(choice: FarmSuggestionChoice): String? {
+    val total = choice.designs.size
+    return when (val reason = choice.reason) {
+        is RecommendationReason.Sole -> null
+        is RecommendationReason.Fastest -> {
+            val mine = runningTime(reason.hours)
+            val next = runningTime(reason.runnerUpHours)
+            // The ice farms differ by 1.4%, which at this precision is no difference at all:
+            // "~17 min against ~17 min for the next" states a gap the reader cannot see and
+            // reads as a bug. Say that it is a hair rather than printing the same figure twice.
+            if (mine == next) "Fastest of $total designs that cover this, though only just — both cover it in about $mine."
+            else "Fastest of $total designs that cover this — $mine against $next for the next."
+        }
+        is RecommendationReason.OnlyMeasured ->
+            "The only one of $total designs here with a measured rate — ${runningTime(reason.hours)}."
+        is RecommendationReason.NoFasterOption -> when (val hours = reason.hours) {
+            null -> "$total designs cover this, none with a measured rate — listed by name."
+            else -> "$total designs cover this in the same ${runningTime(hours)} — listed by name."
+        }
+    }
+}
+
+private fun designWord(count: Int): String = if (count == 1) "design" else "designs"
+
+private fun coverVerb(count: Int): String = if (count == 1) "covers" else "cover"
 
 /**
  * How long the farm has to run, in the unit a player would say it in.
@@ -851,10 +966,16 @@ private fun FlowContent.designRow(suggestion: FarmSuggestion, worldId: Int) {
  * Sub-hour figures are the common case and "0.1 hours" is not how anyone thinks about ten
  * minutes; past a day, minutes and hours both stop being the point.
  */
-private fun hoursOfRunning(hours: Double): String = when {
-    hours < 1.0 -> "~${kotlin.math.max(1, kotlin.math.round(hours * 60).toInt())} min running"
-    hours < 24.0 -> "~%.1f h running".format(hours)
-    else -> "~%.1f days running".format(hours / 24)
+private fun hoursOfRunning(hours: Double): String = "${runningTime(hours)} running"
+
+/**
+ * The same figure without the "running" suffix, for the sentence that compares two of them
+ * (MCO-483) — "~5.7 h against ~5.8 h running for the next" reads as one farm, not two.
+ */
+private fun runningTime(hours: Double): String = when {
+    hours < 1.0 -> "~${kotlin.math.max(1, kotlin.math.round(hours * 60).toInt())} min"
+    hours < 24.0 -> "~%.1f h".format(hours)
+    else -> "~%.1f days".format(hours / 24)
 }
 
 /**
