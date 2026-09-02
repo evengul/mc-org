@@ -229,6 +229,7 @@ worktree, using the same Neon project (`sweet-dust-00910797`).
    - Writes the worktree's `webapp/local.env` (main checkout's non-DB config + the
      branch's `DB_*` credentials)
    - Runs `flyway:migrate` against the isolated branch
+   - Seeds the local sign-in user (`DEMO_USER`) as an owner of every world
 3. The worktree's app and tests now target the worktree's own branch — never the
    shared dev DB — and any migrations you run land on the isolated branch.
 4. On `ExitWorktree`, `webapp/scripts/worktree-db-cleanup.sh --prune` reconciles
@@ -248,6 +249,15 @@ the real ingested Minecraft data instantly (no re-ingestion) and matches CI exac
   (the committed template) to create it; `run.sh` seeds it for you on first run, and
   `worktree-db.sh` falls back to the template so worktrees provision even before the
   main checkout's `local.env` exists.
+- **The local sign-in user is seeded, so you are not locked out of your own fork.**
+  The Neon branch inherits production's worlds and their `world_members`, but not
+  your local user — `DemoSignInPipeline` mints one on first sign-in, and a brand-new
+  user belongs to no world, so every world reads "You don't have permission". The
+  role check is cached per process too, so granting access afterwards needs a server
+  restart. `worktree-db.sh` avoids both by seeding the row up front: the demo profile
+  is deterministic (`"${DEMO_USER}-uuid"`, looked up by `minecraft_profiles.uuid`), so
+  the first sign-in finds this user rather than creating another. Idempotent — re-run
+  the script to pick up a world added later.
 - **Migration number collisions are orthogonal to DB isolation.** If two branches
   each add `V{n}__*.sql` with the same `{n}`, Flyway errors on merge (out-of-order
   / checksum). Fix: renumber the later-merged migration to the next free number and
