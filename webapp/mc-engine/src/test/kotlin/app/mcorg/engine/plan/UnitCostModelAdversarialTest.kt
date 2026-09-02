@@ -64,7 +64,7 @@ class UnitCostModelAdversarialTest {
      * can.
      */
     @Test
-    fun `a duplication recipe makes its own output arbitrarily cheap`() {
+    fun `a duplication recipe is rejected rather than costed`() {
         val template = item("silence_armor_trim_smithing_template")
         val diamond = item("diamond")
         val deepslate = item("cobbled_deepslate")
@@ -81,16 +81,22 @@ class UnitCostModelAdversarialTest {
 
         val model = UnitCostModel(graph)
 
-        assertEquals(0.45, model.cost.getValue(template.id), 1e-9)
+        // The duplication recipe is not costed at all: a source requiring its own output cannot
+        // ground a chain, whatever the arithmetic says about it. Before the guard this settled at
+        // 0.45 min and beat the chest by ~2700x.
         assertEquals(
-            "minecraft:crafting_shaped:silence_armor_trim_smithing_template.json",
+            "minecraft:chest:chests/ancient_city.json",
             model.best(template)?.getKey(),
-            "the model picks a recipe that needs the item it is trying to acquire"
+            "the only real source wins, because the duplication recipe is structurally rejected"
+        )
+        assertTrue(
+            model.cost.getValue(template.id) > 1.0,
+            "and the template costs what a 1-in-80 chest drop costs, not what a loop converges to"
         )
     }
 
     /**
-     * **Defect 2 — `maxPasses = 64` is not "far above anything real".**
+     * **Defect 2, now fixed by the same guard — `maxPasses = 64` was not "far above anything real".**
      *
      * The constructor doc says convergence needs one pass per link in the longest still-improving
      * chain and that "the deepest measured chain is 3". Against world 3 the relaxation needs
@@ -100,7 +106,7 @@ class UnitCostModelAdversarialTest {
      * a cost that is arbitrarily too high (+33320% at four passes, measured).
      */
     @Test
-    fun `a self-consuming cycle converges geometrically, so a short pass budget silently overcharges`() {
+    fun `removing the self-consuming cycle removes the slow series that outran the pass budget`() {
         val template = item("template")
         val diamond = item("diamond")
         val graph = Fixture().apply {
@@ -109,16 +115,21 @@ class UnitCostModelAdversarialTest {
             source(chestLoot, "chests/ancient_city.json", template to 1)
         }.build()
 
+        // Rejecting the self-consuming recipe removes the geometric series along with it, so the
+        // relaxation now settles in a handful of sweeps instead of the 67 it needed on world 3.
         val settled = UnitCostModel(graph, maxPasses = 4096)
-        assertEquals(0.4, settled.cost.getValue(template.id), 1e-9, "the value it is heading for")
-        assertTrue(settled.converged, "given enough sweeps it does settle — the budget is the problem")
+        assertTrue(settled.converged, "it settles")
 
-        val truncated = UnitCostModel(graph, maxPasses = 2)
-        assertTrue(!truncated.converged, "two passes is not a fixpoint either, and nothing says so")
-        assertTrue(
-            truncated.cost.getValue(template.id) > settled.cost.getValue(template.id) * 2,
-            "the truncated answer is several times the settled one, with no signal to the caller"
+        val tight = UnitCostModel(graph, maxPasses = 4)
+        assertTrue(tight.converged, "and it settles inside a small budget, which is the actual fix")
+        assertEquals(
+            settled.cost.getValue(template.id),
+            tight.cost.getValue(template.id),
+            1e-12,
+            "a short budget no longer silently overcharges, because there is no slow series left"
         )
+        // `converged` stays on the model regardless: the guard removes today's slow series, not
+        // the possibility of one, and a silent non-fixpoint is the failure worth keeping a flag for.
     }
 
     /**

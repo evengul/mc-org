@@ -103,13 +103,21 @@ class UnitCostModel(
     /** Minutes per unit for every item and tag in the graph. [UNREACHABLE] where nothing produces it. */
     val cost: Map<String, Double> by lazy { relax() }
 
-    /** Diagnostics: how many sweeps [relax] needed. Equal to [maxPasses] means it never settled. */
-    var passesUsed: Int = -1
-        private set
+    private var passes: Int = -1
+    private var settled: Boolean = false
+
+    /**
+     * Diagnostics: how many sweeps [relax] needed. Equal to [maxPasses] means it never settled.
+     *
+     * Reading this realises [cost] first. Without that the flag answers for a relaxation that has
+     * not happened — a caller who asks before touching any cost is told `-1` and `false`, which
+     * reads as "did not converge" rather than "did not run". That is exactly how it was misread
+     * the first time.
+     */
+    val passesUsed: Int get() { cost; return passes }
 
     /** Diagnostics: true when a sweep changed nothing, i.e. the answer is a real fixpoint. */
-    var converged: Boolean = false
-        private set
+    val converged: Boolean get() { cost; return settled }
 
     /**
      * The cheapest source for [item], or null when nothing produces it at a finite cost.
@@ -124,7 +132,7 @@ class UnitCostModel(
      * stone and the same click.
      */
     fun best(item: MinecraftId): SourceNode? {
-        val candidates = graph.getSourcesForItem(item)
+        val candidates = feasibleSources(item)
             .map { it to costOf(it, item) }
             .filter { it.second < UNREACHABLE }
         val cheapest = candidates.minOfOrNull { it.second } ?: return null
@@ -136,6 +144,86 @@ class UnitCostModel(
                     .thenBy { it.getKey() }
             )
             .first()
+    }
+
+    /**
+     * The sources for [item] that could actually ground a chain — the structural half of the
+     * decision, taken before any arithmetic.
+     *
+     * ## Why a cost model still needs this
+     *
+     * The model's own documentation used to claim that relaxing from +∞ meant "cycles never
+     * improve anything and need no visiting-set guard". That is true only when a source
+     * consumes at least as many of the item as it produces. It does not hold for a recipe with
+     * **loop gain below 1**, and Minecraft ships nineteen of them: an armour-trim duplication
+     * recipe takes one template and gives two, so
+     *
+     * ```
+     * c = (small ingredient cost) + c/2   ->   c = 2 * (small ingredient cost)
+     * ```
+     *
+     * converges perfectly well, to a number that beat the only real source (an ancient-city
+     * chest) by a factor of 2700. The model was recommending "to obtain an ancient-city trim
+     * template, take an ancient-city trim template and seven diamonds". Relaxation converges on
+     * such a cycle; it does not reject it, because a fixpoint is a fixpoint whether or not it
+     * describes anything a player can do.
+     *
+     * That is why this is a guard and not a penalty. No arithmetic makes a self-referential
+     * derivation *expensive enough* — it has to be unavailable. [PlanSelector.feasible] and
+     * [PlanSelector.acquirable] already ask this question for the shipped planner; this asks the
+     * same one, so the two models agree on what is possible and disagree only about what is
+     * cheap.
+     *
+     * ## The two conditions
+     *
+     * 1. **A source requiring the item it produces is rejected outright.** This is the
+     *    duplication case, and it also removes the slow geometric series that made the
+     *    relaxation need 67 passes when it was budgeted 64 and silently did not converge.
+     * 2. **A requirement that cannot be obtained while avoiding the item is rejected.** Reaching
+     *    the item somewhere below is not disqualifying on its own — `iron_nugget` from an ingot
+     *    is legitimate even though `iron_ingot` also has a nine-nugget recipe, because the ingot
+     *    has another route (smelting raw iron). The question is existential over chains, not
+     *    universal: is there *some* way to get this ingredient that does not come back here.
+     *
+     * Computed once per item and cached: it is a property of the graph, not of the costs, so it
+     * cannot change as the relaxation settles.
+     */
+    private fun feasibleSources(item: MinecraftId): Set<SourceNode> =
+        feasibilityMemo.getOrPut(item.id) {
+            graph.getSourcesForItem(item).filterTo(LinkedHashSet()) { source ->
+                val requirements = graph.getRequiredItems(source)
+                requirements.none { it.itemId == item.id } &&
+                    requirements.all { acquirableAvoiding(it.item, item.id, HashMap()) }
+            }
+        }
+
+    private val feasibilityMemo = HashMap<String, Set<SourceNode>>()
+
+    /**
+     * Is there any chain that produces [candidate] without passing through [avoidId]?
+     *
+     * Mirrors [PlanSelector.acquirable]. A tag answers true — it stands for a decision not yet
+     * made, and the selector treats it the same way, so rejecting a candidate for depending on
+     * an unanswered question would make the two models disagree about possibility rather than
+     * cost. The provisional `false` written before recursing is what cuts cycles below this
+     * item on the current walk.
+     */
+    private fun acquirableAvoiding(
+        candidate: MinecraftId,
+        avoidId: String,
+        memo: MutableMap<String, Boolean>,
+    ): Boolean {
+        if (candidate.id == avoidId) return false
+        if (candidate.id in supplied) return true
+        if (candidate is MinecraftTag) return true
+        memo[candidate.id]?.let { return it }
+
+        memo[candidate.id] = false
+        val usable = graph.getSourcesForItem(candidate).any { source ->
+            graph.getRequiredItems(source).all { acquirableAvoiding(it.item, avoidId, memo) }
+        }
+        memo[candidate.id] = usable
+        return usable
     }
 
     /** Minutes per unit of [item] obtained through [source], given the settled costs. */
@@ -201,7 +289,7 @@ class UnitCostModel(
         for (node in items) c[node.item.id] = if (node.item.id in supplied) 0.0 else UNREACHABLE
 
         repeat(maxPasses) { pass ->
-            passesUsed = pass + 1
+            passes = pass + 1
             var changed = false
             for (node in items) {
                 val item = node.item
@@ -212,7 +300,7 @@ class UnitCostModel(
                     // user would pick costs, which is the cheapest one.
                     item.content.minOfOrNull { c[it.id] ?: UNREACHABLE } ?: UNREACHABLE
                 } else {
-                    graph.getSourcesForItem(item)
+                    feasibleSources(item)
                         .minOfOrNull { costOf(it, item, c) } ?: UNREACHABLE
                 }
 
@@ -222,7 +310,7 @@ class UnitCostModel(
                 }
             }
             if (!changed) {
-                converged = true
+                settled = true
                 return c
             }
         }

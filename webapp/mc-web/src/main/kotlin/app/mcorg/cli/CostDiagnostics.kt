@@ -7,6 +7,8 @@ import app.mcorg.domain.model.resources.ResourceSource.SourceType
 import app.mcorg.engine.model.ItemSourceGraph
 import app.mcorg.engine.model.SourceNode
 import app.mcorg.engine.plan.EffortTable
+import app.mcorg.engine.plan.PlanSelector
+import app.mcorg.engine.plan.PlanTarget
 import app.mcorg.engine.plan.ScoreDiagnostics
 import app.mcorg.engine.plan.UnitCostModel
 import app.mcorg.pipeline.DatabaseSteps
@@ -184,28 +186,45 @@ private suspend fun run(args: List<String>): Int {
     val disagreements = mutableListOf<Disagreement>()
     var unreachable = 0
 
+    // The baseline is what PlanSelector actually commits to, not what the scorer ranks first.
+    // Those differ: the selector rejects candidates structurally before scoring ever runs, and
+    // ScoreDiagnostics says so in its own file ("the scorer's favourite, not a guarantee the
+    // planner committed to it"). Measured against 1.21.4 they disagree on 20 of 992 items -- the
+    // 19 armour-trim duplication recipes and wheat -- and on every one of those the scorer's
+    // favourite is a derivation the planner would never emit. Reading the ranking as the baseline
+    // scored those as agreement and hid 19 regressions.
+    fun shippedPick(item: MinecraftId): String? =
+        PlanSelector.select(graph, listOf(PlanTarget(item, demand))).nodes[item.id]?.source?.getKey()
+
+    var selectorDifferedFromScorer = 0
     for (item in subjects) {
+        val shippedKey = shippedPick(item) ?: continue
+        if (ScoreDiagnostics.report(graph, item.id, demand).candidates.firstOrNull()?.sourceKey != shippedKey) {
+            selectorDifferedFromScorer++
+        }
         val shipped = ScoreDiagnostics.report(graph, item.id, demand)
-            .candidates.firstOrNull() ?: continue
+            .candidates.firstOrNull { it.sourceKey == shippedKey }
+            ?: ScoreDiagnostics.report(graph, item.id, demand).candidates.firstOrNull()
+            ?: continue
         val proposed = model.best(item)
         if (proposed == null) {
             unreachable++
             continue
         }
-        if (proposed.getKey() == shipped.sourceKey) {
+        if (proposed.getKey() == shippedKey) {
             agree++
         } else {
             disagreements += Disagreement(
                 itemId = item.id,
-                shippedKey = shipped.sourceKey,
+                shippedKey = shippedKey,
                 shippedMethod = shipped.method,
                 shippedScore = shipped.total,
                 proposedKey = proposed.getKey(),
                 proposedMethod = proposed.getMethodLabel(),
                 proposedCost = model.costOf(proposed, item),
                 shippedCost = graph.getSourceNode(
-                    shipped.sourceKey.substringBeforeLast(':'),
-                    shipped.sourceKey.substringAfterLast(':')
+                    shippedKey.substringBeforeLast(':'),
+                    shippedKey.substringAfterLast(':')
                 )?.let { model.costOf(it, item) } ?: Double.NaN,
             )
         }
@@ -214,6 +233,7 @@ private suspend fun run(args: List<String>): Int {
     val compared = agree + disagreements.size
     println()
     println("Compared $compared items with more than one source.")
+    println("  baseline check: PlanSelector.select() differs from the scorer's top-ranked candidate on $selectorDifferedFromScorer items")
     println("  agree      ${agree.pct(compared)}")
     println("  disagree   ${disagreements.size.pct(compared)}")
     if (unreachable > 0) println("  no finite cost under the new model: $unreachable (see note below)")
