@@ -7,6 +7,7 @@ import app.mcorg.domain.pipeline.Step
 import app.mcorg.engine.model.ItemSourceGraph
 import app.mcorg.engine.plan.GatheringPlan
 import app.mcorg.engine.plan.GatheringPlanner
+import app.mcorg.engine.plan.PlanContext
 import app.mcorg.engine.plan.PlanOverrides
 import app.mcorg.engine.plan.PlanTarget
 import app.mcorg.engine.plan.SupplySource
@@ -137,14 +138,23 @@ object GenerateGatheringPlanStep : Step<GatheringPlanInput, AppFailure, Gatherin
             is Result.Failure -> return r
         }
 
-        // 8. Run the engine
-        val plan = GatheringPlanner.plan(graph, targets, supplied, overrides)
+        // 8. Run the engine, told which tree this world farms (MCO-409). That one answer settles
+        // `#planks`, `#wooden_slabs` and `#logs` — three askings of one question — instead of
+        // three separate variant prompts. It defaults recipe *ingredients* only: targets are
+        // concrete items, so a build that asked for oak planks still gets oak planks.
+        val woodSpecies = when (val r = GetPreferredWoodSpeciesStep.process(input.worldId)) {
+            is Result.Success -> r.value
+            is Result.Failure -> return r
+        }
+        val plan = GatheringPlanner.plan(
+            graph, targets, supplied, overrides, PlanContext(woodSpecies = woodSpecies)
+        )
 
         // 9. Materialise the demand this plan implies (MCO-316), so the roadmap can match farms
         // against what the build actually consumes without deriving a plan per project. Written
         // here because this is the one place a plan already exists; skipped when nothing that
         // feeds the derivation has changed since the last write.
-        storeDemand(input.projectId, versionString, activeItems, supplied, overrides, plan)
+        storeDemand(input.projectId, versionString, activeItems, supplied, overrides, plan, woodSpecies)
 
         return Result.success(plan)
     }
@@ -163,6 +173,7 @@ object GenerateGatheringPlanStep : Step<GatheringPlanInput, AppFailure, Gatherin
         supplied: Map<String, SupplySource>,
         overrides: PlanOverrides,
         plan: GatheringPlan,
+        woodSpecies: String?,
     ) {
         val fingerprint = DemandFingerprint.of(
             worldVersion = worldVersion,
@@ -172,6 +183,7 @@ object GenerateGatheringPlanStep : Step<GatheringPlanInput, AppFailure, Gatherin
             supplied = supplied.mapValues { (_, source) -> source.toString() },
             overrides = overrides.sourceByItem.map { "src:${it.key}" to it.value } +
                 overrides.tagMember.map { "tag:${it.key}" to it.value },
+            woodSpecies = woodSpecies,
         )
 
         val stored = GetStoredDemandFingerprintStep(projectId).process(Unit)

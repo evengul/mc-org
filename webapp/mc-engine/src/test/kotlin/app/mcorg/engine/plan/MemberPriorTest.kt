@@ -4,6 +4,7 @@ import app.mcorg.domain.model.minecraft.Item
 import app.mcorg.domain.model.minecraft.MinecraftId
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 /**
@@ -276,5 +277,85 @@ class MemberPriorTest {
     @Test
     fun `ids made only of form tokens are never folded together`() {
         assertEquals(null, assume("log", "wood"))
+    }
+
+    // --- speciesMember (MCO-409, level 1) ----------------------------------------------------
+
+    private fun pick(species: String?, vararg locals: String): String? =
+        MemberPrior.speciesMember(members(*locals), species)?.id
+
+    private val planks = listOf(
+        "oak_planks", "spruce_planks", "birch_planks", "jungle_planks", "acacia_planks",
+        "dark_oak_planks", "pale_oak_planks", "crimson_planks", "warped_planks",
+        "mangrove_planks", "bamboo_planks", "cherry_planks",
+    )
+
+    /** The point of the whole issue: one answer, three tags. */
+    @Test
+    fun `one species answers planks, slabs and logs alike`() {
+        assertEquals(mc("birch_planks"), pick("birch", *planks.toTypedArray()))
+        assertEquals(mc("birch_slab"), pick("birch", "oak_slab", "birch_slab", "spruce_slab"))
+        assertEquals(
+            mc("birch_log"),
+            pick("birch", "oak_log", "birch_log", "birch_wood", "stripped_birch_log"),
+        )
+    }
+
+    /** Within the matching species, form still decides — level 2 composes with level 1. */
+    @Test
+    fun `the species narrows and the form picks the plain one`() {
+        assertEquals(
+            mc("oak_log"),
+            pick("oak", "oak_log", "oak_wood", "stripped_oak_log", "stripped_oak_wood",
+                 "spruce_log", "stripped_spruce_wood"),
+        )
+    }
+
+    /**
+     * Bamboo is a plank wood but not a log wood — a member of `#planks` and `#wooden_slabs`,
+     * absent from `#logs` entirely. It must answer what it can and leave the rest asked, rather
+     * than quietly falling back to another tree for the log.
+     */
+    @Test
+    fun `bamboo answers planks and slabs but cannot answer a log`() {
+        assertEquals(mc("bamboo_planks"), pick("bamboo", *planks.toTypedArray()))
+        assertEquals(mc("bamboo_slab"), pick("bamboo", "oak_slab", "bamboo_slab", "spruce_slab"))
+        assertEquals(null, pick("bamboo", "oak_log", "spruce_log", "birch_log"))
+    }
+
+    /** A tag already specific to one tree is not forced to a different one. */
+    @Test
+    fun `a species-specific tag ignores a preference it cannot satisfy`() {
+        assertEquals(
+            null,
+            pick("spruce", "oak_log", "oak_wood", "stripped_oak_log", "stripped_oak_wood"),
+        )
+    }
+
+    /**
+     * The guard that keeps this safe. A set mixing woods with non-woods is not a wood choice,
+     * and answering it from a wood preference would decide something else entirely — a fuel
+     * choice would silently become planks.
+     */
+    @Test
+    fun `a choice that is not wholly about wood is never answered from a wood preference`() {
+        assertEquals(null, pick("oak", "oak_planks", "coal"))
+        assertEquals(null, pick("oak", "cobblestone", "cobbled_deepslate", "blackstone"))
+        assertEquals(null, pick("oak", "sand", "red_sand"))
+    }
+
+    @Test
+    fun `no preference means no answer`() {
+        assertEquals(null, pick(null, *planks.toTypedArray()))
+    }
+
+    @Test
+    fun `the species vocabulary is the one the rule matches against`() {
+        assertTrue(MemberPrior.isKnownSpecies("oak"))
+        assertTrue(MemberPrior.isKnownSpecies("pale_oak"))
+        assertTrue(MemberPrior.isKnownSpecies("bamboo"))
+        assertFalse(MemberPrior.isKnownSpecies("Oak"))
+        assertFalse(MemberPrior.isKnownSpecies("mahogany"))
+        MemberPrior.SPECIES.forEach { assertTrue(MemberPrior.isKnownSpecies(it)) }
     }
 }

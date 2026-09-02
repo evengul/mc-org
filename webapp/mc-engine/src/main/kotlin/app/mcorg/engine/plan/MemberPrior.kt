@@ -69,12 +69,62 @@ object MemberPrior {
         val material = materialOf(members.first().id) ?: return null
         if (members.any { materialOf(it.id) != material }) return null
 
-        return members.minWithOrNull(
-            compareBy({ woodFormRank(tokensOf(it.id)) }, { decorFormRank(tokensOf(it.id)) }, { it.id })
-        )
+        return members.minWithOrNull(byForm)
     }
 
-    private fun tokensOf(id: String): List<String> = id.substringAfterLast(':').split('_')
+    /**
+     * The member of a wood choice that matches the species the player is farming, or null when
+     * this choice is not about wood or does not offer that species (MCO-409).
+     *
+     * This is the level-1 half: `#planks`, `#wooden_slabs` and `#logs` are three separate
+     * questions in the plan, and one answer — *which tree am I farming* — settles all three.
+     * Nobody holds three independent opinions about it.
+     *
+     * **Every member must name a species**, not merely some. A tag that mixes woods with
+     * non-woods is not a wood choice, and answering it from a wood preference would quietly
+     * decide something else — a fuel choice offering planks alongside coal would silently become
+     * planks. Requiring all members keeps the rule to sets that are wholly about which tree.
+     *
+     * A tag already specific to one species is untouched: asked for spruce, `#oak_logs` offers no
+     * spruce member and returns null, leaving [canonicalFormMember] to pick the plain oak log.
+     * Among the members that *do* match, form decides — so `#logs` under oak yields `oak_log`,
+     * not `stripped_oak_wood`.
+     *
+     * **Bamboo answers what it can and no more.** It is a plank wood without being a log wood —
+     * a member of `#planks`, `#wooden_slabs` and `#wooden_tool_materials`, but of `#logs` not at
+     * all. Under a bamboo preference the first three resolve and `#logs` stays open and asked,
+     * which is the truthful outcome: bamboo genuinely cannot satisfy a recipe that wants a log,
+     * and quietly substituting oak there would be worse than asking. (`#bamboo_blocks` is
+     * `{bamboo_block, stripped_bamboo_block}` — one material, two appearances — so
+     * [canonicalFormMember] already folds it without any of this.)
+     *
+     * **Why this is about wood specifically, and not a general "preferred member of axis X".**
+     * Species is the axis where one opinion demonstrably repeats: `#planks`, `#wooden_slabs` and
+     * `#logs` are three askings of one question. The other axes left after
+     * [canonicalFormMember] — colour, stone base, explicit pairs — are one or two tags each, and
+     * more importantly they do not share this one's soundness argument. What makes this safe is
+     * the "every member names a species" guard; the colour equivalent fails on the very tag it
+     * would be for, since `#shulker_boxes` contains an uncoloured `shulker_box`. Parameterising
+     * over an axis would produce a uniform-looking rule whose safety has to be re-argued per
+     * axis anyway. If a second preference earns its place, generalise then, with two real cases
+     * in hand rather than one and a guess.
+     */
+    fun speciesMember(members: List<MinecraftId>, species: String?): MinecraftId? {
+        if (species == null || members.size < 2) return null
+        if (members.any { woodSpeciesOf(localOf(it.id)) == null }) return null
+
+        return members
+            .filter { woodSpeciesOf(localOf(it.id)) == species }
+            .minWithOrNull(byForm)
+    }
+
+    /** Within one material, only appearance is left to rank. Shared by both rules above. */
+    private val byForm: Comparator<MinecraftId> =
+        compareBy({ woodFormRank(tokensOf(it.id)) }, { decorFormRank(tokensOf(it.id)) }, { it.id })
+
+    private fun localOf(id: String): String = id.substringAfterLast(':')
+
+    private fun tokensOf(id: String): List<String> = localOf(id).split('_')
 
     /**
      * What is left of an id once every token naming a *form* is removed — the material the
@@ -166,9 +216,24 @@ object MemberPrior {
     private val WOOD_SPECIES_BY_MATCH_LENGTH: List<String> = WOOD_SPECIES.sortedByDescending { it.length }
 
     private fun woodSpeciesRank(local: String): Int {
-        val match = WOOD_SPECIES_BY_MATCH_LENGTH.firstOrNull { local.contains(it) } ?: return UNRANKED
+        val match = woodSpeciesOf(local) ?: return UNRANKED
         return WOOD_SPECIES.indexOf(match)
     }
+
+    /** The wood species named in an id, or null when it names none. */
+    private fun woodSpeciesOf(local: String): String? =
+        WOOD_SPECIES_BY_MATCH_LENGTH.firstOrNull { local.contains(it) }
+
+    /**
+     * The species a world can declare it is farming, most canonical first — the vocabulary
+     * [speciesMember] matches against, and the list any UI offering the choice should render, so
+     * the two cannot drift. A version adding a thirteenth wood needs one entry here and nothing
+     * else.
+     */
+    val SPECIES: List<String> get() = WOOD_SPECIES
+
+    /** Whether [species] is one this prior knows — the validation for a stored preference. */
+    fun isKnownSpecies(species: String): Boolean = species in WOOD_SPECIES
 
     /**
      * Form of a log-family block: plain log/stem/block beats wood/hyphae, and unstripped beats

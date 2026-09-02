@@ -58,8 +58,15 @@ data class PlanOverrides(
  * @param recipeThreshold at or above this demand, recipe sources get a strong
  *   preference over loot sources (bulk crafting beats repeated gathering).
  * @param maxDepth recursion bound for chain expansion.
+ * @param woodSpecies which tree the player is farming, e.g. `"birch"` (MCO-409). Settles every
+ *   wood choice in the plan at once — `#planks`, `#wooden_slabs` and `#logs` are three askings
+ *   of one question. Null means unanswered, and those tags stay
+ *   [PlanNodeStatus.OPEN_TAG]; there is deliberately no default, because which wood you farm is
+ *   a real preference rather than something to assume. Validate against
+ *   [MemberPrior.isKnownSpecies] before storing one.
  */
 data class PlanContext(
     val recipeThreshold: Int = 100,
-    val maxDepth: Int = 16
+    val maxDepth: Int = 16,
+    val woodSpecies: String? = null
 )

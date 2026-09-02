@@ -26,6 +26,7 @@ object GetPermittedWorldsStep : Step<GetPermittedWorldsInput, AppFailure.Databas
                     wm.pinned,
                     wm.last_opened_at,
                     w.farm_scale_threshold,
+                    w.preferred_wood_species,
                     COALESCE(COUNT(DISTINCT p.id), 0) as total_projects,
                     COALESCE(COUNT(DISTINCT CASE WHEN p.stage = 'COMPLETED' THEN p.id END), 0) as completed_projects,
                     ${projectTallyColumns("p")}
@@ -33,7 +34,7 @@ object GetPermittedWorldsStep : Step<GetPermittedWorldsInput, AppFailure.Databas
                 INNER JOIN world_members wm ON w.id = wm.world_id
                 LEFT JOIN projects p ON w.id = p.world_id
                 WHERE wm.user_id = ?
-                GROUP BY w.id, w.name, w.description, w.version, w.created_at, w.updated_at, wm.pinned, wm.last_opened_at, w.farm_scale_threshold
+                GROUP BY w.id, w.name, w.description, w.version, w.created_at, w.updated_at, wm.pinned, wm.last_opened_at, w.farm_scale_threshold, w.preferred_wood_species
                 -- Worlds page ordering: a user's pinned worlds first, then the most-recently-opened.
                 ORDER BY wm.pinned DESC, wm.last_opened_at DESC NULLS LAST, w.updated_at DESC, w.name ASC
             """.trimIndent()),

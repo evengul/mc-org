@@ -247,19 +247,26 @@ object PlanSelector {
          * Turns a tag into the member that stands in for it, or leaves it a tag (and therefore an
          * [PlanNodeStatus.OPEN_TAG] question) when there is nothing to stand in for it.
          *
-         * Two ways a tag gets answered, in this order:
+         * Three ways a tag gets answered, most specific first:
          *
          * 1. **The user picked a member** ([PlanOverrides.tagMember]), validated against the tag's
-         *    contents. An explicit pick always wins — that is what makes the assumption below safe
-         *    to make silently.
-         * 2. **The members are one material in different appearances** — `oak_log` / `oak_wood` /
+         *    contents. An explicit pick always wins — that is what makes the two silent answers
+         *    below safe.
+         * 2. **The world declared which wood it farms** ([PlanContext.woodSpecies]). `#planks`,
+         *    `#wooden_slabs` and `#logs` are three askings of one question, and this answers all
+         *    of them — see [MemberPrior.speciesMember].
+         * 3. **The members are one material in different appearances** — `oak_log` / `oak_wood` /
          *    `stripped_oak_log` / `stripped_oak_wood`, or plain / cut / chiseled sandstone. Every
          *    open tag in a plan is a recipe ingredient (see [MemberPrior.canonicalFormMember]),
-         *    and a recipe cannot tell those apart, so asking is asking about nothing. MCO-409:
-         *    this is 16 of the 25 questions a YAMS import used to open with.
+         *    and a recipe cannot tell those apart, so asking is asking about nothing.
+         *
+         * The order matters where a tag is both: `#logs` varies by species *and* form, so a
+         * declared species narrows it to one tree and form then picks the plain log. A tag
+         * already specific to one species — `#oak_logs` — offers no match for a spruce
+         * preference, and correctly falls through to the form answer rather than being forced.
          *
          * A pick naming a member the tag does not contain still returns the tag unchanged rather
-         * than falling through to the assumption: an impossible pin should stay visible.
+         * than falling through to either assumption: an impossible pin should stay visible.
          */
         private fun redirectTag(item: MinecraftId): MinecraftId {
             if (item !is MinecraftTag) return item
@@ -268,6 +275,8 @@ object PlanSelector {
                 val member = item.content.firstOrNull { it.id == memberId } ?: return item
                 return graphItemFor(member)
             }
+            MemberPrior.speciesMember(item.content, context.woodSpecies)
+                ?.let { return graphItemFor(it) }
             val assumed = MemberPrior.canonicalFormMember(item.content) ?: return item
             return graphItemFor(assumed)
         }

@@ -8,6 +8,7 @@ import app.mcorg.presentation.templated.dsl.ALERT_CONTAINER_ID
 import app.mcorg.presentation.templated.dsl.section
 import kotlinx.html.*
 import kotlinx.html.stream.createHTML
+import app.mcorg.engine.plan.MemberPrior
 
 fun FORM.worldNameForm(world: World) {
     id = "world-name-form"
@@ -234,6 +235,60 @@ fun FORM.farmScaleThresholdForm(world: World) {
     }
 }
 
+/**
+ * Which tree this world farms (MCO-409).
+ *
+ * Beside the farm-scale threshold because it is the same kind of fact — one answer about the
+ * world's infrastructure that every project's plan reads. Without it, a large import asks
+ * "which planks?", "which wooden slab?" and "which log?" separately, and nobody holds three
+ * independent opinions about that.
+ *
+ * A select rather than free text: the vocabulary is the engine's ([MemberPrior.SPECIES]), so
+ * the options here cannot drift from what the planner will match against.
+ */
+fun FORM.preferredWoodSpeciesForm(world: World) {
+    id = "world-wood-species-form"
+    classes += "settings-form"
+    hxTargetError(".validation-error-message")
+    encType = FormEncType.applicationXWwwFormUrlEncoded
+
+    hxTarget("#$ALERT_CONTAINER_ID")
+    hxSwap("afterbegin")
+    hxPatch("/worlds/${world.id}/settings/preferred-wood-species")
+    hxTrigger("change from:#world-wood-species-select")
+
+    label {
+        htmlFor = "world-wood-species-select"
+        +"Wood you farm"
+    }
+    select(classes = "form-control") {
+        name = "preferredWoodSpecies"
+        id = "world-wood-species-select"
+
+        // Empty is a real answer, and the default one: it means "keep asking me".
+        option {
+            value = ""
+            selected = world.preferredWoodSpecies == null
+            +"Ask me each time"
+        }
+        MemberPrior.SPECIES.forEach { species ->
+            option {
+                value = species
+                selected = species == world.preferredWoodSpecies
+                +species.split('_').joinToString(" ") { it.replaceFirstChar(Char::uppercase) }
+            }
+        }
+    }
+    p("settings-form__helper subtle") {
+        +"Used wherever a recipe accepts any wood, so the plan stops asking once per tag. "
+        +"It never changes what a project asked for \u2014 a build that needs oak planks still needs oak planks. "
+        +"Bamboo answers plank and slab recipes but not ones needing a log, so those keep asking."
+    }
+    p("validation-error-message") {
+        id = "validation-error-preferred-wood-species"
+    }
+}
+
 fun DIV.generalSection(data: SettingsPageData) {
     section(
         title = "General Settings",
@@ -245,5 +300,6 @@ fun DIV.generalSection(data: SettingsPageData) {
         data.currentVersionImpact?.let { currentVersionGapNotice(it) }
         form { worldVersionForm(data.world, data.supportedVersions) }
         form { farmScaleThresholdForm(data.world) }
+        form { preferredWoodSpeciesForm(data.world) }
     }
 }

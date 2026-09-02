@@ -20,6 +20,19 @@ data class World(
      */
     val farmScaleThreshold: Int = DEFAULT_FARM_SCALE_THRESHOLD,
     /**
+     * Which tree this world farms, e.g. `"birch"` (MCO-409) — the one answer that settles
+     * `#planks`, `#wooden_slabs` and `#logs` instead of asking three times.
+     *
+     * **A default for recipe ingredients, never for the goal list.** Every tag it settles is
+     * something a recipe consumes; a build that asked for oak planks still gets oak planks,
+     * because a target is always a concrete item. Null means unanswered — those tags stay open
+     * and asked, since which wood you farm is a real preference rather than something to assume.
+     *
+     * Values come from `MemberPrior.SPECIES`; a project wanting a different wood overrides per
+     * tag, which still wins over this.
+     */
+    val preferredWoodSpecies: String? = null,
+    /**
      * Projects split by lifecycle state (MCO-468). [completedProjects] / [totalProjects]
      * stay for the public API's sake; this is what the Worlds page renders.
      */
