@@ -43,7 +43,7 @@ overworld materials. It is a **light** theme (there is currently no dark theme).
 | Accent wash — info callout, badges, focus ring | `--accent-muted` | `#D6E2EC` |
 | Text/icon on an accent fill (cream) | `--on-accent` | `#FCF7EA` |
 | **Success / status / progress — "done" (grass)** | `--green` | `#4F7A2B` |
-| **Warning (wheat-gold)** | `--amber` | `#B0791A` |
+| **Warning (wheat-gold)** | `--amber` | `#855A10` |
 | **Danger / destructive (redstone)** | `--red` | `#A6321F` |
 | Progress bar fill (grass) | `--progress` | `#4F7A2B` |
 | Done badge background | `--green-bg` | `#DEE8CB` |
