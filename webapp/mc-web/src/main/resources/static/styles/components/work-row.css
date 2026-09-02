@@ -1,0 +1,556 @@
+/* ==========================================================================
+   WORK ROW — a project's gathering lines
+
+   The row you scan is 40px and has no controls on it. The controls live in the
+   work strip, which replaces one row when you press Log. That split is the whole
+   point: six steppers on every one of 634 rows is what made this page 48,000px.
+   ========================================================================== */
+
+.work-panel {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+}
+
+/* --- the collapsed line ------------------------------------------------- */
+
+.work-row {
+    border-top: 1px solid var(--border);
+}
+
+.work-row:first-child {
+    border-top: none;
+}
+
+/* Grid, not flex: the numbers must line up down the section however long a name
+   is, because "is this one bigger than that one" is read down the column. */
+.work-row:not(.work-row--working) {
+    display: grid;
+    grid-template-columns: 20px minmax(0, 1fr) 190px 130px auto 96px;
+    align-items: center;
+    gap: var(--space-3);
+    padding: 0 14px;
+    height: 40px;
+}
+
+.work-row--done {
+    background: var(--bg-raised);
+}
+
+.work-row__tick {
+    width: 18px;
+    height: 18px;
+    display: grid;
+    place-items: center;
+    padding: 0;
+    border: 1px solid var(--border-strong);
+    border-radius: 3px;
+    background: var(--bg-raised);
+    color: transparent;
+    font-family: var(--font-ui);
+    font-size: 11px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.work-row__tick:hover {
+    border-color: var(--accent);
+}
+
+.work-row__tick--done {
+    background: var(--green-bg);
+    border-color: var(--green);
+    color: var(--green);
+}
+
+.work-row__name {
+    display: flex;
+    align-items: baseline;
+    gap: 7px;
+    min-width: 0;
+}
+
+.work-row__item {
+    font-family: var(--font-ui);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.work-row--done .work-row__item {
+    color: var(--text-disabled);
+    text-decoration: line-through;
+}
+
+.work-row__kind {
+    font-family: var(--font-ui);
+    font-size: 11px;
+    color: var(--text-disabled);
+    white-space: nowrap;
+}
+
+/* Demoted to a ghost chip — a fact you check, not a control you use every row. */
+.work-row__source {
+    justify-self: start;
+    max-width: 100%;
+    gap: 6px;
+    font-size: 11px;
+    padding: 3px 8px;
+    overflow: hidden;
+}
+
+.work-row__swap {
+    color: var(--accent);
+}
+
+.work-row__method {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.work-row__remaining {
+    display: flex;
+    align-items: baseline;
+    justify-content: flex-end;
+    gap: var(--space-2);
+}
+
+/* The loud number: what is left is the question a row answers. */
+.work-row__left {
+    font-family: var(--font-ui);
+    font-size: 15px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-primary);
+}
+
+.work-row--done .work-row__left {
+    color: var(--text-disabled);
+}
+
+.work-row__of {
+    font-family: var(--font-ui);
+    font-size: 11px;
+    color: var(--text-disabled);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.work-row__farm-scale {
+    justify-self: start;
+}
+
+.work-row__action {
+    justify-self: end;
+    min-width: 84px;
+    justify-content: center;
+}
+
+/* --- the work strip ----------------------------------------------------- */
+
+.work-row--working {
+    background: var(--accent-muted);
+}
+
+.work-strip {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    padding: 14px 16px 16px;
+    border-left: 3px solid var(--accent);
+}
+
+.work-strip__head {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: var(--space-6);
+}
+
+.work-strip__identity {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    min-width: 0;
+}
+
+.work-strip__title {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-2);
+    flex-wrap: wrap;
+}
+
+.work-strip__name {
+    font-family: var(--font-ui);
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.work-strip__source {
+    align-self: flex-start;
+    gap: 6px;
+    font-size: 11px;
+    padding: 3px 8px;
+}
+
+.work-strip__figure {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-2);
+    white-space: nowrap;
+}
+
+.work-strip__remaining {
+    font-family: var(--font-ui);
+    font-size: 34px;
+    font-weight: 600;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-primary);
+}
+
+.work-strip__unit {
+    font-family: var(--font-ui);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+}
+
+.work-strip__progress {
+    height: 6px;
+    background: var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.work-strip__actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-4);
+    flex-wrap: wrap;
+}
+
+.work-strip__logged {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.work-strip__logged-label {
+    font-family: var(--font-ui);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+}
+
+/* Typing an exact amount is also how you correct a mis-tap, so it is a real
+   input rather than a click-to-edit affordance. */
+.work-strip__logged-input {
+    width: 92px;
+    height: 32px;
+    padding: 0 var(--space-2);
+    text-align: right;
+    font-family: var(--font-ui);
+    font-size: 14px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-primary);
+    background: var(--bg-raised);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius);
+}
+
+.work-strip__logged-input:hover {
+    border-color: var(--border-strong);
+}
+
+.work-strip__logged-input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-muted); /* matches .form-control:focus — there is no --focus-ring token */
+    outline: none;
+}
+
+.work-strip__need {
+    font-family: var(--font-ui);
+    font-size: 11px;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+.work-strip__divider {
+    width: 1px;
+    height: 24px;
+    background: var(--border);
+}
+
+.work-strip__steps {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.work-strip__step {
+    min-width: 54px;
+    justify-content: center;
+    font-variant-numeric: tabular-nums;
+}
+
+.work-strip__done {
+    display: flex;
+    gap: var(--space-2);
+}
+
+.work-strip__feeds {
+    font-family: var(--font-body);
+    font-size: 12px;
+    color: var(--text-muted);
+    text-wrap: pretty;
+}
+
+/* --- small jobs --------------------------------------------------------- */
+
+.small-jobs {
+    border-top: 1px solid var(--border);
+    background: var(--bg-raised);
+    padding: var(--space-3) var(--space-4);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.small-jobs__label {
+    font-family: var(--font-ui);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+}
+
+.small-jobs__chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    align-items: center;
+}
+
+.small-jobs__rest > summary {
+    list-style: none;
+    cursor: pointer;
+}
+
+.small-jobs__rest > summary::-webkit-details-marker {
+    display: none;
+}
+
+.small-jobs__rest[open] > summary {
+    margin-bottom: var(--space-2);
+}
+
+/* The whole chip is the tick target — a job of three wool has no use for -1728. */
+.small-job {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: 5px 12px 5px 8px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--bg-surface);
+    cursor: pointer;
+}
+
+.small-job:hover {
+    border-color: var(--accent);
+}
+
+.small-job--done {
+    background: var(--green-bg);
+}
+
+.small-job__tick {
+    width: 16px;
+    height: 16px;
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--border-strong);
+    border-radius: 3px;
+    background: var(--bg-surface);
+    color: transparent;
+    font-family: var(--font-ui);
+    font-size: 10px;
+    line-height: 1;
+}
+
+.small-job--done .small-job__tick {
+    border-color: var(--green);
+    color: var(--green);
+}
+
+.small-job__name {
+    font-family: var(--font-ui);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.small-job--done .small-job__name {
+    color: var(--text-disabled);
+    text-decoration: line-through;
+}
+
+.small-job__count {
+    font-family: var(--font-ui);
+    font-size: 12px;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+/* --- 3a: the same model, one-handed ------------------------------------- */
+
+@media (max-width: 640px) {
+    /* Method and downstream go; what is left and how far along stay. Every
+       target is 44px, because this is used while playing. */
+    .work-row:not(.work-row--working) {
+        grid-template-columns: 44px minmax(0, 1fr) auto;
+        gap: var(--space-3);
+        padding: 0 12px 0 6px;
+        height: auto;
+        min-height: 56px;
+    }
+
+    .work-row__tick {
+        width: 22px;
+        height: 22px;
+        justify-self: center;
+        font-size: 13px;
+    }
+
+    .work-row__source,
+    .work-row__farm-scale,
+    .work-row__action {
+        display: none;
+    }
+
+    .work-row__item {
+        font-size: 14px;
+    }
+
+    .work-row__remaining {
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 0;
+    }
+
+    .work-row__left {
+        font-size: 17px;
+    }
+
+    .work-row__of {
+        font-size: 10px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+    }
+
+    .work-strip__head {
+        gap: var(--space-3);
+    }
+
+    .work-strip__name {
+        font-size: 15px;
+    }
+
+    .work-strip__remaining {
+        font-size: 28px;
+    }
+
+    .work-strip__actions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .work-strip__logged {
+        display: grid;
+        grid-template-columns: auto 1fr auto;
+        align-items: center;
+    }
+
+    .work-strip__logged-input {
+        width: auto;
+        height: 44px;
+        font-size: 16px;
+    }
+
+    .work-strip__divider {
+        display: none;
+    }
+
+    /* No minus steps: that space is the count field, and typing the number is
+       how you correct a mis-tap. */
+    .work-strip__steps {
+        grid-column: 1 / -1;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: var(--space-2);
+    }
+
+    .work-strip__step {
+        height: 44px;
+        font-size: 15px;
+    }
+
+    .work-strip__step--minus {
+        display: none;
+    }
+
+    .work-strip__done {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: var(--space-2);
+    }
+
+    .work-strip__done > .btn {
+        height: 44px;
+    }
+
+    /* Prose is the first thing to go on a 390px screen. */
+    .work-strip__feeds {
+        display: none;
+    }
+
+    .small-jobs__chips {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .small-job {
+        min-height: 44px;
+        padding: 0 12px;
+    }
+
+    .small-job__name {
+        flex: 1;
+        font-size: 13px;
+    }
+
+    .small-job__tick {
+        width: 20px;
+        height: 20px;
+    }
+}
+
+/* A supplied line keeps the grid so its columns line up with the lines around
+   it, but has no tick and no Log — see WorkRowState.isSupplied. */
+.work-row__tick--none,
+.work-row__action--none {
+    visibility: hidden;
+}

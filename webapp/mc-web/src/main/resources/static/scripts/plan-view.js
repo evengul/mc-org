@@ -468,6 +468,60 @@
         });
     }
 
+
+    // -------------------------------------------------------------------------
+    // Work strip: the logged-amount field
+    //
+    // The steppers post a delta; this field posts an absolute amount, so it sends
+    // the difference between what you typed and what is stored. Committing on
+    // Enter or blur rather than on every keystroke — a plan re-derives on each
+    // write, and doing that per character would be absurd.
+    // -------------------------------------------------------------------------
+
+    function initLoggedInputs() {
+        document.querySelectorAll('.work-strip__logged-input').forEach(function (input) {
+            if (input.dataset.bound === 'true') return;
+            input.dataset.bound = 'true';
+
+            function commit() {
+                var required = parseInt(input.dataset.required, 10) || 0;
+                var have = parseInt(input.dataset.have, 10) || 0;
+                // Strip anything that is not a digit, then clamp. An unparseable
+                // value reverts rather than being guessed at.
+                var digits = String(input.value).replace(/[^0-9]/g, '');
+                if (digits === '') {
+                    input.value = String(have);
+                    return;
+                }
+                var next = Math.max(0, Math.min(required, parseInt(digits, 10)));
+                input.value = String(next);
+                var delta = next - have;
+                if (delta === 0) return;
+
+                if (window.htmx) {
+                    window.htmx.ajax('PATCH', input.dataset.post, {
+                        target: '#' + input.dataset.row,
+                        swap: 'outerHTML',
+                        values: {
+                            itemId: input.dataset.itemId,
+                            amount: delta,
+                            required: required,
+                            working: true
+                        }
+                    });
+                }
+            }
+
+            input.addEventListener('keydown', function (event) {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    input.blur();
+                }
+            });
+            input.addEventListener('blur', commit);
+        });
+    }
+
     // -------------------------------------------------------------------------
     // Init
     // -------------------------------------------------------------------------
@@ -480,6 +534,7 @@
         initPlanCountEdit();
         initResolutionToggle();
         initNextUp();
+        initLoggedInputs();
         initDrillScrollRestore();
     }
 

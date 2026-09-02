@@ -1,5 +1,6 @@
 package app.mcorg.pipeline.resources
 
+import app.mcorg.domain.model.world.World
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.engine.plan.GatheringPlan
 import app.mcorg.pipeline.Result
@@ -14,6 +15,11 @@ import app.mcorg.presentation.templated.dsl.pages.feedsLine
 import app.mcorg.presentation.templated.dsl.pages.lootTableName
 import app.mcorg.presentation.templated.dsl.pages.overallProgressInner
 import app.mcorg.presentation.templated.dsl.pages.planActivityCount
+import app.mcorg.presentation.templated.dsl.pages.workRowCollapsedHtml
+import app.mcorg.presentation.templated.dsl.pages.workRowStateOf
+import app.mcorg.presentation.templated.dsl.pages.workRowStripHtml
+import app.mcorg.presentation.templated.dsl.pages.completedActivity
+import app.mcorg.presentation.templated.dsl.pages.smallJobChipHtml
 import app.mcorg.presentation.templated.dsl.pages.planProgressTotals
 import app.mcorg.presentation.utils.getProjectId
 import app.mcorg.presentation.utils.getWorldId
@@ -99,13 +105,40 @@ suspend fun ApplicationCall.handleUpdatePlanProgress() {
         // Keep the "feeds …" reverse-provenance line on the swapped row, matching the initial render.
         val feedsLabel = plan?.let { buildFeedsLabels(it)[input.itemId] }
 
+        // Which form the row was in when it was pressed, so it swaps back into the same one
+        // rather than collapsing under the user mid-edit.
+        val working = params["working"]?.toBooleanStrictOrNull() ?: false
+        val chip = params["chip"]?.toBooleanStrictOrNull() ?: false
+        val activity = plan?.activityList?.firstOrNull { it.item.id == input.itemId }
+        // Only looked up when the line has left the plan, which is the only time it is needed.
+        val catalogName = if (activity != null) null else {
+            when (val r = GetItemNameStep.process(ItemNameInput(worldId, input.itemId))) {
+                is Result.Success -> r.value
+                is Result.Failure -> null
+            }
+        }
+        val farmScaleThreshold = when (val r = GetFarmScaleThresholdStep.process(worldId)) {
+            is Result.Success -> r.value
+            is Result.Failure -> World.DEFAULT_FARM_SCALE_THRESHOLD
+        }
+        val isFarmScale = plan != null &&
+            FarmScaleDemands.of(plan, farmScaleThreshold).any { it.itemId == input.itemId }
+
         PlanProgressResult(
             itemId = input.itemId,
-            itemName = input.itemId.substringAfterLast(':').replace('_', ' ')
-                .replaceFirstChar { it.uppercaseChar() },
+            // The plan's name first; then the catalog, for a line that has just finished and so
+            // left the plan; the id only if both are unavailable.
+            itemName = activity?.item?.name
+                ?: catalogName
+                ?: input.itemId.substringAfterLast(':').replace('_', ' ')
+                    .replaceFirstChar { it.uppercaseChar() },
             collected = collected.toLong(),
             required = input.required,
             sourceLabel = sourceLabel,
+            activity = activity,
+            working = working,
+            chip = chip,
+            isFarmScale = isFarmScale,
             feedsLabel = feedsLabel,
             overallTotals = overallTotals,
         )
@@ -118,63 +151,50 @@ data class PlanProgressResult(
     val collected: Long,
     val required: Long,
     val sourceLabel: String?,
+    /**
+     * The plan node this row is, when the plan re-derived. Carried so the swapped row is built by
+     * the same code as the first render — the old response rebuilt a lookalike from the item id,
+     * which is why a row's name lost its "(Block)" the moment you pressed a counter.
+     */
+    val activity: app.mcorg.engine.plan.Activity? = null,
+    /** Whether the caller was in the expanded work strip, so it swaps back into the same form. */
+    val working: Boolean = false,
+    /** Whether the caller was a small-jobs chip, which swaps back as a chip. */
+    val chip: Boolean = false,
+    val isFarmScale: Boolean = false,
     /** "Feeds 24 Birch Door · 40 Chest" reverse-provenance line; null when this feeds nothing. */
     val feedsLabel: FeedsLabel? = null,
     /** Project-wide (totalRequired, totalCollected) across countable activities; null if plan unavailable. */
     val overallTotals: Pair<Long, Long>? = null,
 )
 
+/**
+ * The swapped row plus the out-of-band header update.
+ *
+ * The row is rendered by the same three functions the page uses, in whichever form the caller was
+ * in — a chip stays a chip, a work strip stays a work strip, everything else is a collapsed line.
+ * This used to be a fourth, hand-rolled copy of the row markup, which drifted: it rebuilt the name
+ * from the item id, so pressing a counter silently renamed "Oak Log (Block)" to "Oak Log".
+ */
 private fun buildPlanProgressResponse(worldId: Int, projectId: Int, result: PlanProgressResult): String {
-    val itemSlug = result.itemId.replace(":", "-")
-    val rowId = "plan-activity-$itemSlug"
-    val percent = if (result.required > 0) (result.collected.coerceAtMost(result.required) * 100 / result.required).toInt() else 0
-    val complete = result.required > 0 && result.collected >= result.required
+    // A finished line is no longer in the plan, so it is rebuilt rather than dropped — rendering
+    // nothing here deleted the row out from under whoever had just ticked it.
+    val activity = result.activity
+        ?: completedActivity(result.itemId, result.itemName, result.required)
 
-    val rowHtml = createHTML().div("resource-row${if (complete) " resource-row--complete" else ""}") {
-        id = rowId
-        attributes["data-item-name"] = result.itemName
-        attributes["data-progress-pct"] = percent.toString()
-        attributes["data-required"] = result.required.toString()
+    val rowHtml = activity.let { activity ->
+        val state = workRowStateOf(
+            activity = activity,
+            progress = mapOf(activity.item.id to result.collected.toInt()),
+            feedsLabels = result.feedsLabel?.let { mapOf(activity.item.id to it) } ?: emptyMap(),
+            farmScaleIds = if (result.isFarmScale) setOf(activity.item.id) else emptySet(),
+        ).copy(sourceLabel = result.sourceLabel)
 
-        div("resource-row__desktop") {
-            div("resource-row__name${if (complete) " resource-row__name--complete" else ""}") {
-                +result.itemName
-            }
-
-            div("resource-row__progress") {
-                div("progress") {
-                    div("progress__fill${if (complete) " progress__fill--complete" else ""}") {
-                        attributes["style"] = "width: ${percent}%"
-                        attributes["role"] = "progressbar"
-                        attributes["aria-valuenow"] = result.collected.toString()
-                        attributes["aria-valuemin"] = "0"
-                        attributes["aria-valuemax"] = result.required.toString()
-                    }
-                }
-            }
-
-            planActivityCount(result.itemId, result.itemName, itemSlug, result.collected, result.required, complete)
-
-            if (result.sourceLabel != null) {
-                span("resource-row__source") { +result.sourceLabel }
-            }
-
-            if (!complete) {
-                div("resource-row__counters") {
-                    intArrayOf(-1728, -64, -1, 1, 64, 1728).forEach { amount ->
-                        button(classes = "btn btn--ghost btn--sm resource-row__counter-btn") {
-                            attributes["hx-patch"] = "/worlds/$worldId/projects/$projectId/plan/progress"
-                            attributes["hx-vals"] =
-                                """{"itemId": "${result.itemId}", "amount": $amount, "required": ${result.required}}"""
-                            attributes["hx-target"] = "#$rowId"
-                            attributes["hx-swap"] = "outerHTML"
-                            +if (amount > 0) "+$amount" else "$amount"
-                        }
-                    }
-                }
-            }
+        when {
+            result.chip -> smallJobChipHtml(worldId, projectId, state)
+            result.working -> workRowStripHtml(worldId, projectId, state)
+            else -> workRowCollapsedHtml(worldId, projectId, state)
         }
-        feedsLine(result.feedsLabel)
     }
 
     // OOB update for #overall-progress — project-wide totals from plan re-derive.

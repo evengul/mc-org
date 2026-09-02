@@ -22,6 +22,7 @@ import app.mcorg.pipeline.resources.handleGetDrillChain
 import app.mcorg.pipeline.resources.handleGetNodePicker
 import app.mcorg.pipeline.resources.handlePinSource
 import app.mcorg.pipeline.resources.handleResolveTagMember
+import app.mcorg.pipeline.resources.handleGetPlanRow
 import app.mcorg.pipeline.resources.handleUpdatePlanProgress
 import app.mcorg.pipeline.resources.handleClearResourceSource
 import app.mcorg.pipeline.resources.handleCreateResourceGatheringItem
@@ -289,6 +290,11 @@ class WorldHandler {
                         route("/plan") {
                             patch("/progress") {
                                 call.handleUpdatePlanProgress()
+                            }
+                            // Log / Stop working: the same line in its other form. No write —
+                            // the working set is view state (see handleGetPlanRow).
+                            get("/row/{itemId}") {
+                                call.handleGetPlanRow()
                             }
                             route("/chain/{itemId}") {
                                 get { call.handleGetDrillChain() }

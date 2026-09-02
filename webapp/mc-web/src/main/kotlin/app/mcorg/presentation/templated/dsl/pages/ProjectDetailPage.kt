@@ -91,6 +91,7 @@ fun projectDetailPage(
         "/static/styles/components/badge.css",
         "/static/styles/components/progress.css",
         "/static/styles/components/resource-row.css",
+        "/static/styles/components/work-row.css",
         "/static/styles/components/task-list.css",
         "/static/styles/components/resource-search.css",
         "/static/styles/components/resource-panel.css",
@@ -580,12 +581,15 @@ fun FlowContent.gatheringPlanSections(
 
 
 /**
- * One work section, with its long tail folded away (MCO-480).
+ * One work section: a panel of 40px lines, with the small jobs as chips in its footer.
  *
- * The Craft section alone was 440 rows and 32,252px — two thirds of this whole resolution —
- * while seventeen of its rows carried 90% of the material. [ActivitySectionLayout] decides the
- * split; this only renders it, and renders both halves in the order they arrived so Smelt and
- * Craft keep ingredients ahead of what consumes them.
+ * Two folds do different jobs here and both are needed. [ActivitySectionLayout] decides *which*
+ * lines are worth a row — the Craft section is 440 rows and seventeen of them carry 90% of the
+ * material. The tail it folds away is not hidden behind a toggle any more but rendered as
+ * tick-off chips, because "1 Black Terracotta" is a real errand that wants ticking and not a row
+ * with six steppers on it.
+ *
+ * Both halves keep the order they arrived in, so Smelt and Craft still read ingredients-first.
  */
 private fun FlowContent.workSection(
     project: Project,
@@ -597,52 +601,52 @@ private fun FlowContent.workSection(
     planTotal: Long,
 ) {
     val split = ActivitySectionLayout.of(ordered, planTotal)
+    fun stateOf(activity: Activity) =
+        workRowStateOf(activity, progressMap, nodeIngredients, feedsLabels, farmScaleIds)
 
-    fun FlowContent.rows(activities: List<Activity>) {
-        div("resource-list") {
-            activities.forEach { activity ->
-                planActivityRow(
-                    project.worldId,
-                    project.id,
-                    activity,
-                    progressMap,
-                    nodeIngredients,
-                    feedsLabels,
-                    isFarmScale = activity.item.id in farmScaleIds,
-                )
-            }
+    div("work-panel") {
+        split.lead.forEach { activity ->
+            workRowCollapsed(project.worldId, project.id, stateOf(activity))
         }
-    }
 
-    rows(split.lead)
-    if (split.folded.isEmpty()) return
-
-    // Says what is behind the toggle in the same shape Needs attention uses: how much of the
-    // work you are already looking at, so the fold reads as "the rest is small", not "the rest
-    // is hidden". A section that folds whole has no lead to measure, so it says its own size
-    // instead — "0 of 17 are 0% of the material" would read as a bug.
-    val foldsWhole = split.lead.isEmpty()
-    p("plan-attention__lead") {
-        if (foldsWhole) {
-            +"${ordered.size} small jobs, ${"%,d".format(split.foldedItems)} items between them."
-        } else {
-            +"These ${split.lead.size} of ${ordered.size} are ${split.leadShareOfItems}% of the material."
+        if (split.folded.isNotEmpty()) {
+            smallJobsStrip(project.worldId, project.id, split.folded.map(::stateOf))
         }
-    }
-    details("plan-attention__rest") {
-        summary {
-            span("btn btn--ghost btn--sm plan-attention__toggle") {
-                span("plan-attention__toggle--closed") {
-                    if (foldsWhole) +"Show all ${split.folded.size} ▾" else +"Show ${split.folded.size} smaller ▾"
-                }
-                span("plan-attention__toggle--open") {
-                    if (foldsWhole) +"Hide ▴" else +"Hide smaller ▴"
-                }
-            }
-        }
-        rows(split.folded)
     }
 }
+
+/** How many chips before the strip itself becomes the wall it is replacing. */
+private const val SMALL_JOB_CHIPS = 24
+
+/**
+ * The footer band: everything too small to deserve a line, as chips you tick as you pass.
+ *
+ * A chip is the whole tick target — no steppers, because a job of three wool has no use for
+ * `-1728`. Craft's tail is 439 of these, so the strip caps itself and says how many it is not
+ * showing rather than becoming a second wall.
+ */
+private fun FlowContent.smallJobsStrip(worldId: Int, projectId: Int, jobs: List<WorkRowState>) {
+    val shown = jobs.take(SMALL_JOB_CHIPS)
+    val hidden = jobs.size - shown.size
+
+    div("small-jobs") {
+        span("small-jobs__label") { +"Small jobs · tick off as you go" }
+        div("small-jobs__chips") {
+            shown.forEach { smallJobChip(worldId, projectId, it) }
+            if (hidden > 0) {
+                details("small-jobs__rest") {
+                    summary {
+                        span("btn btn--ghost btn--sm") { +"$hidden more" }
+                    }
+                    div("small-jobs__chips") {
+                        jobs.drop(SMALL_JOB_CHIPS).forEach { smallJobChip(worldId, projectId, it) }
+                    }
+                }
+            }
+        }
+    }
+}
+
 
 /**
  * "Worth a farm" — the farm-scale demand and what to build for it, as one list.

@@ -110,7 +110,9 @@ class FarmSupplySurfacingIT : WithUser() {
         val body = client.get("/worlds/$worldId/projects/$consumerId") { addAuthCookie(this) }.bodyAsText()
 
         assertContains(body, "Collect from farms")
-        assertContains(body, "from Iron Farm")
+        // The supply is named on the line itself, in the source slot every other line uses:
+        // "Farm · Iron Farm" rather than a separate "from …" label beside a badge.
+        assertContains(body, "Farm · Iron Farm")
         assertFalse(body.contains("plan-pending-farms"), "nothing is pending once the farm runs")
 
         setProjectState(farmId, ProjectState.ACTIVE)
@@ -126,11 +128,16 @@ class FarmSupplySurfacingIT : WithUser() {
         // MCO-403: the row used to be name + badge + "from Iron Farm", which reads as solved.
         // The quantity is the fact that says whether the farm is anywhere near adequate, and it
         // is the same number the roadmap prints on that farm's edge.
-        assertContains(body, """<span class="resource-row__count">32</span>""")
+        assertContains(body, """<span class="work-row__left">32</span>""")
         assertFalse(
             body.contains("plan-count-minecraft-iron_ingot"),
             "supplied work is not scheduled by the plan, so it gets no collected/required counter",
         )
+        // The redesign put supplied lines in the same list as worked ones, which is right —
+        // emptying a farm is a trip. It does not follow that they get a counter: MCO-403's
+        // reasoning holds, so the line has no Log button and no steppers.
+        val suppliedRow = body.substringAfter("plan-activity-minecraft-iron_ingot").substringBefore("</div>")
+        assertFalse(suppliedRow.contains("work-strip__step"), "no steppers on a supplied line")
 
         setProjectState(farmId, ProjectState.ACTIVE)
     }
