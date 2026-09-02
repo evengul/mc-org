@@ -13,6 +13,7 @@ import app.mcorg.engine.plan.GatheringPlan
 import app.mcorg.engine.plan.PlanNodeStatus
 import app.mcorg.engine.plan.PlanOverrides
 import app.mcorg.engine.plan.SupplySource
+import app.mcorg.pipeline.resources.FarmDismissal
 import app.mcorg.pipeline.resources.FarmScaleDemand
 import app.mcorg.pipeline.resources.FarmScaleDemands
 import app.mcorg.pipeline.project.SELECTED_DESIGN_FIELD
@@ -84,6 +85,8 @@ fun projectDetailPage(
     farmSuggestions: List<FarmSuggestion> = emptyList(),
     /** Stored ids this world's Minecraft version has no catalog entry for (MCO-157). */
     versionGaps: Set<String> = emptySet(),
+    /** Farm-scale demand this world has decided against (MCO-407). */
+    farmDismissals: List<FarmDismissal> = emptyList(),
 ): String = pageShell(
     pageTitle = "Seam — ${project.name}",
     user = user,
@@ -159,7 +162,7 @@ fun projectDetailPage(
                     // ?drill=<item> deep-links straight into a target's chain (reload/share-safe).
                     drillChainContent(project, drillTarget, drillCandidateCounts, drillNodeIngredients, overrides = drillOverrides, graph = drillGraph, highlightItemId = drillHighlightItemId)
                 } else {
-                    gatheringPlannerContent(project, resources, tasks, plan, progressMap, pendingFarms, farmScaleThreshold, farmSuggestions, versionGaps, isWorldAdmin)
+                    gatheringPlannerContent(project, resources, tasks, plan, progressMap, pendingFarms, farmScaleThreshold, farmSuggestions, versionGaps, isWorldAdmin, farmDismissals)
                 }
             }
         }
@@ -276,9 +279,11 @@ fun FlowContent.gatheringPlannerContent(
     /** Stored ids this world's Minecraft version has no catalog entry for (MCO-157). */
     versionGaps: Set<String> = emptySet(),
     isWorldAdmin: Boolean = false,
+    /** Farm-scale demand this world has decided against (MCO-407). */
+    farmDismissals: List<FarmDismissal> = emptyList(),
 ) {
     nextUpWidget(project, plan, progressMap)
-    listLensContent(project, resources, tasks, plan, progressMap, pendingFarms, farmScaleThreshold, farmSuggestions, versionGaps, isWorldAdmin)
+    listLensContent(project, resources, tasks, plan, progressMap, pendingFarms, farmScaleThreshold, farmSuggestions, versionGaps, isWorldAdmin, farmDismissals)
 }
 
 /**
@@ -368,6 +373,8 @@ private fun FlowContent.listLensContent(
     /** Stored ids this world's Minecraft version has no catalog entry for (MCO-157). */
     versionGaps: Set<String> = emptySet(),
     isWorldAdmin: Boolean = false,
+    /** Farm-scale demand this world has decided against (MCO-407). */
+    farmDismissals: List<FarmDismissal> = emptyList(),
 ) {
     // Resolution toggle (client-side; default "targets" applied by plan-view.js).
     listResolutionToggle()
@@ -471,7 +478,7 @@ private fun FlowContent.listLensContent(
         id = "list-breakdown-view"
         attributes["data-resolution-view"] = "breakdown"
 
-        gatheringPlanSections(project, plan, progressMap, pendingFarms, farmScaleThreshold, farmSuggestions, versionGaps, isWorldAdmin)
+        gatheringPlanSections(project, plan, progressMap, pendingFarms, farmScaleThreshold, farmSuggestions, versionGaps, isWorldAdmin, farmDismissals)
     }
 
     // Tasks section (collapsed)
@@ -551,6 +558,8 @@ fun FlowContent.gatheringPlanSections(
     /** Stored ids this world's Minecraft version has no catalog entry for (MCO-157). */
     versionGaps: Set<String> = emptySet(),
     isWorldAdmin: Boolean = false,
+    /** Farm-scale demand this world has decided against (MCO-407). */
+    farmDismissals: List<FarmDismissal> = emptyList(),
 ) {
     if (plan == null) {
         // Empty state — no resources yet or all collected
@@ -566,8 +575,13 @@ fun FlowContent.gatheringPlanSections(
     val groupOrder = ActivityGroup.values()
     val nodeIngredients = buildNodeIngredients(plan)
     val feedsLabels = buildFeedsLabels(plan)
-    val farmScale = FarmScaleDemands.of(plan, farmScaleThreshold)
+    // One rule, three readings: the roll-up's lines, the badge on every work row, and what the
+    // ignored fold is currently suppressing. A dismissed item is not classified at all, so none
+    // of the three can disagree about it (MCO-407).
+    val dismissedIds = farmDismissals.mapTo(mutableSetOf()) { it.itemId }
+    val farmScale = FarmScaleDemands.of(plan, farmScaleThreshold, dismissedIds)
     val farmScaleIds = farmScale.mapTo(mutableSetOf()) { it.itemId }
+    val suppressed = FarmScaleDemands.dismissedIn(plan, farmScaleThreshold, dismissedIds)
     val planTotal = plan.activityList.sumOf { it.quantity }
 
     div {
@@ -575,7 +589,10 @@ fun FlowContent.gatheringPlanSections(
 
         // Above the work sections on purpose: this is not a step in the plan, it is the answer
         // to "what should I build first", and it is what turns one import into a roadmap.
-        farmScaleSection(farmScale, farmSuggestions, farmScaleThreshold, project.worldId, project.id, isWorldAdmin)
+        farmScaleSection(
+            farmScale, farmSuggestions, farmScaleThreshold, project.worldId, project.id, isWorldAdmin,
+            farmDismissals, suppressed,
+        )
 
         groupOrder.forEach { group ->
             val activities = byGroup[group] ?: return@forEach
@@ -709,9 +726,15 @@ private fun FlowContent.farmScaleSection(
     threshold: Int,
     worldId: Int,
     projectId: Int,
-    canEditThreshold: Boolean,
+    /** Gates both routes into world-level judgement here: the threshold link and dismissal. */
+    isWorldAdmin: Boolean,
+    dismissals: List<FarmDismissal> = emptyList(),
+    /** The dismissed lines this plan would otherwise be showing, for the ignored fold. */
+    suppressed: List<FarmScaleDemand> = emptyList(),
 ) {
-    if (demands.isEmpty() && suggestions.isEmpty()) return
+    // The dismissals keep the section alive on their own: a panel with nothing left to say is
+    // still the only place the decision can be taken back.
+    if (demands.isEmpty() && suggestions.isEmpty() && dismissals.isEmpty()) return
 
     val answered = suggestions.flatMapTo(mutableSetOf()) { it.itemIds }
     val unanswered = demands.filter { it.itemId !in answered }
@@ -720,12 +743,16 @@ private fun FlowContent.farmScaleSection(
         id = "plan-farm-scale"
         span("section-label") { +"Worth a farm" }
         p("plan-farm-scale__lead") {
-            +"${demands.size} raw ${if (demands.size == 1) "material needs" else "materials need"} more than "
+            if (demands.isEmpty() && suggestions.isEmpty()) {
+                +"Nothing in this plan is above "
+            } else {
+                +"${demands.size} raw ${if (demands.size == 1) "material needs" else "materials need"} more than "
+            }
             // The number is the judgement this whole list rests on, so it is the thing to edit:
             // disagreeing with the list means disagreeing with the threshold. Admin-only, matching
             // how every other route to world settings is gated (settingsHref in Navigation.kt) —
             // a link that 403s is worse than no link.
-            if (canEditThreshold) {
+            if (isWorldAdmin) {
                 a(classes = "plan-farm-scale__threshold") {
                     href = "/worlds/$worldId/settings"
                     title = "Change this world's farm-scale threshold"
@@ -734,11 +761,13 @@ private fun FlowContent.farmScaleSection(
             } else {
                 +"%,d".format(threshold)
             }
-            if (suggestions.isEmpty()) {
-                +" — each is a candidate for its own farm project."
-            } else {
-                val covered = demands.size - unanswered.size
-                +" — your designs cover $covered of them."
+            when {
+                demands.isEmpty() && suggestions.isEmpty() -> +"."
+                suggestions.isEmpty() -> +" — each is a candidate for its own farm project."
+                else -> {
+                    val covered = demands.size - unanswered.size
+                    +" — your designs cover $covered of them."
+                }
             }
         }
 
@@ -754,7 +783,9 @@ private fun FlowContent.farmScaleSection(
             action = "/worlds/$worldId/projects/$projectId/farm-suggestions/import"
 
             // Grouped, not listed (MCO-483): designs covering the same demand are a choice.
-            FarmSuggestionChoices.of(suggestions).forEach { choice -> designChoice(choice, worldId) }
+            FarmSuggestionChoices.of(suggestions).forEach { choice ->
+                designChoice(choice, worldId, projectId, isWorldAdmin)
+            }
 
             div("plan-farm-scale__batch-actions") {
                 button(classes = "btn btn--sm btn--primary plan-farm-scale__batch-submit") {
@@ -777,9 +808,102 @@ private fun FlowContent.farmScaleSection(
                 }
                 div("plan-farm-scale__list") {
                     unanswered.forEach { demand ->
-                        div("plan-farm-scale__item") {
-                            span("plan-farm-scale__quantity") { +"%,d".format(demand.quantity) }
-                            span("plan-farm-scale__name") { +demand.itemName }
+                        farmScaleDemandLine(
+                            worldId, projectId, demand.itemId, demand.itemName, demand.quantity,
+                            canDismiss = isWorldAdmin,
+                        )
+                    }
+                }
+            }
+        }
+
+        dismissedFarmDemands(worldId, projectId, dismissals, suppressed, canRestore = isWorldAdmin)
+    }
+}
+
+/**
+ * One line of the roll-up: how much, of what, and the way out of being asked about it (MCO-407).
+ *
+ * Every line in the panel is rendered by this — the ones with a design under them and the ones
+ * without — because "I have decided against this" applies to both, and a control that only some
+ * lines carry reads as a control that means something different on each.
+ */
+private fun FlowContent.farmScaleDemandLine(
+    worldId: Int,
+    projectId: Int,
+    itemId: String,
+    itemName: String,
+    quantity: Long,
+    rateLabel: String? = null,
+    canDismiss: Boolean = false,
+) {
+    div("plan-farm-scale__item") {
+        span("plan-farm-scale__quantity") { +"%,d".format(quantity) }
+        span("plan-farm-scale__name") { +itemName }
+        rateLabel?.let { label -> span("plan-farm-scale__rate") { +label } }
+        if (canDismiss) {
+            button(classes = "btn btn--ghost btn--sm plan-farm-scale__dismiss") {
+                // type=button, because half of these lines sit inside the batch import form and
+                // a default submit would open the review wizard instead.
+                type = ButtonType.button
+                hxPost(farmDismissalHref(worldId, projectId, itemId))
+                // The enclosing form's ticked designs are not part of this decision. htmx would
+                // include them by default for a POST from inside a form.
+                attributes["hx-params"] = "none"
+                // The whole plan, not this line: a dismissal takes a roll-up line, possibly a
+                // design row with it, and a badge on a work row several sections down — one
+                // decision, so one swap. Matches the id gatheringPlannerFragment renders.
+                hxTarget("#project-content")
+                hxSwap("outerHTML")
+                title = "Stop suggesting a farm for $itemName in this world"
+                +"Dismiss"
+            }
+        }
+    }
+}
+
+/**
+ * The dismissed items, folded away but never gone (MCO-407).
+ *
+ * A dismissal is permanent until it is taken back, which is only defensible if taking it back is
+ * findable — so this lists **every** dismissal the world holds, not only the ones this plan
+ * would be showing. The one it shows against each is today's demand beside the demand it was
+ * dismissed at: an item whose demand has since multiplied says so here, where the undo is,
+ * rather than reappearing in the roll-up on its own and needing to be dismissed twice.
+ */
+private fun FlowContent.dismissedFarmDemands(
+    worldId: Int,
+    projectId: Int,
+    dismissals: List<FarmDismissal>,
+    suppressed: List<FarmScaleDemand>,
+    canRestore: Boolean,
+) {
+    if (dismissals.isEmpty()) return
+    val stillDemanded = suppressed.associate { it.itemId to it.quantity }
+
+    details("plan-farm-scale__dismissed") {
+        summary {
+            span("btn btn--ghost btn--sm plan-farm-scale__dismissed-toggle") {
+                span("plan-farm-scale__dismissed-toggle--closed") {
+                    +"${dismissals.size} dismissed ▾"
+                }
+                span("plan-farm-scale__dismissed-toggle--open") { +"Hide dismissed ▴" }
+            }
+        }
+        div("plan-farm-scale__dismissed-list") {
+            dismissals.forEach { dismissal ->
+                div("plan-farm-scale__dismissed-item") {
+                    span("plan-farm-scale__dismissed-name") { +dismissal.itemName }
+                    dismissalNote(dismissal, stillDemanded[dismissal.itemId])
+                    if (canRestore) {
+                        button(classes = "btn btn--ghost btn--sm plan-farm-scale__restore") {
+                            type = ButtonType.button
+                            hxDelete(farmDismissalHref(worldId, projectId, dismissal.itemId))
+                            attributes["hx-params"] = "none"
+                            hxTarget("#project-content")
+                            hxSwap("outerHTML")
+                            title = "Suggest a farm for ${dismissal.itemName} again"
+                            +"Restore"
                         }
                     }
                 }
@@ -787,6 +911,35 @@ private fun FlowContent.farmScaleSection(
         }
     }
 }
+
+/** How much this world still wants of a dismissed item, against how much it wanted then. */
+private fun FlowContent.dismissalNote(dismissal: FarmDismissal, currentQuantity: Long?) {
+    val at = dismissal.quantityAtDismissal
+    when {
+        currentQuantity == null ->
+            span("plan-farm-scale__dismissed-note") { +"not farm-scale in this plan" }
+
+        currentQuantity == at ->
+            span("plan-farm-scale__dismissed-note") { +"%,d here".format(currentQuantity) }
+
+        // Ten times the demand is a different decision from the one that was made; two times is
+        // already worth a glance. Marked rather than acted on — nothing here un-dismisses itself.
+        at > 0 && currentQuantity >= at * 2 ->
+            span("plan-farm-scale__dismissed-note plan-farm-scale__dismissed-note--grown") {
+                +"%,d here now, dismissed at %,d".format(currentQuantity, at)
+            }
+
+        else ->
+            span("plan-farm-scale__dismissed-note") {
+                +"%,d here, dismissed at %,d".format(currentQuantity, at)
+            }
+    }
+}
+
+/** The dismissal endpoint for one item — POST to dismiss, DELETE to take it back. */
+private fun farmDismissalHref(worldId: Int, projectId: Int, itemId: String): String =
+    "/worlds/$worldId/projects/$projectId/farm-suggestions/dismissals/" +
+        URLEncoder.encode(itemId, StandardCharsets.UTF_8).replace("+", "%20")
 
 /**
  * One demand, the design to build for it, and the designs that would do instead (MCO-294, MCO-483).
@@ -811,7 +964,12 @@ private fun FlowContent.farmScaleSection(
  * The action is the review screen, not a direct create: import decides what to gather and
  * whether the farm already exists (MCO-457), and neither is this list's to answer for the user.
  */
-private fun FlowContent.designChoice(choice: FarmSuggestionChoice, worldId: Int) {
+private fun FlowContent.designChoice(
+    choice: FarmSuggestionChoice,
+    worldId: Int,
+    projectId: Int,
+    isWorldAdmin: Boolean,
+) {
     val recommended = choice.recommended
 
     div("plan-farm-scale__design") {
@@ -839,13 +997,18 @@ private fun FlowContent.designChoice(choice: FarmSuggestionChoice, worldId: Int)
 
         div("plan-farm-scale__list") {
             recommended.produces.forEach { covered ->
-                div("plan-farm-scale__item") {
-                    span("plan-farm-scale__quantity") { +"%,d".format(covered.quantity) }
-                    span("plan-farm-scale__name") { +covered.itemName }
-                    covered.hoursToCover?.let { hours ->
-                        span("plan-farm-scale__rate") { +hoursOfRunning(hours) }
-                    }
-                }
+                farmScaleDemandLine(
+                    worldId,
+                    projectId,
+                    covered.itemId,
+                    covered.itemName,
+                    covered.quantity,
+                    rateLabel = covered.hoursToCover?.let { hoursOfRunning(it) },
+                    // Dismissible like any other line: "I am buying this from a villager" is an
+                    // answer to a demand that happens to have a design, too. Dismissing the last
+                    // line a design covers takes the design with it, which is the point.
+                    canDismiss = isWorldAdmin,
+                )
             }
         }
 
@@ -1673,10 +1836,13 @@ fun gatheringPlannerFragment(
     /** Stored ids this world's Minecraft version has no catalog entry for (MCO-157). */
     versionGaps: Set<String> = emptySet(),
     isWorldAdmin: Boolean = false,
+    /** Farm-scale demand this world has decided against (MCO-407). */
+    farmDismissals: List<FarmDismissal> = emptyList(),
 ): String = createHTML().div {
     id = "project-content"
     gatheringPlannerContent(
         project, resources, tasks, plan, progressMap, pendingFarms, farmScaleThreshold, farmSuggestions, versionGaps, isWorldAdmin,
+        farmDismissals,
     )
 }
 

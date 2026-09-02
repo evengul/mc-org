@@ -74,7 +74,9 @@ suspend fun ApplicationCall.handleGetPlanRow() {
         is Result.Success -> r.value
         is Result.Failure -> World.DEFAULT_FARM_SCALE_THRESHOLD
     }
-    val farmScaleIds = FarmScaleDemands.of(plan, farmScaleThreshold).mapTo(mutableSetOf()) { it.itemId }
+    // A dismissed item carries no badge (MCO-407), and this endpoint re-renders one row at a
+    // time — miss it here and the badge comes back the first time the row is swapped.
+    val farmScaleIds = FarmScaleDemands.itemIdsIn(plan, farmScaleThreshold, farmDismissalsFor(worldId).itemIds())
 
     val state = workRowStateOf(
         activity = activity,

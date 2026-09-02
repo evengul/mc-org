@@ -344,6 +344,42 @@ class FarmSuggestionsTest {
         )
     }
 
+    // ---- what the world has decided against (MCO-407) ------------------------------
+
+    @Test
+    fun `no design is offered for an item the world has dismissed`() {
+        // Dismissal is not a claim that something else supplies the item — it is "we are not
+        // farming this". Either way a design for it answers nothing, and offering one is the
+        // suggestion the dismissal was made to stop.
+        val icePlan = plan(node(cobblestone, 75_151))
+
+        val result = FarmSuggestions.of(
+            icePlan,
+            threshold,
+            listOf(producer(1, "231k Cobblestone farm", cobblestone to 924_000)),
+            dismissed = setOf(cobblestone.id),
+        )
+
+        assertTrue(result.isEmpty())
+    }
+
+    @Test
+    fun `a design still qualifies on demand the world has not dismissed`() {
+        val witchPlan = plan(node(redstone, 63_273), node(cobblestone, 75_151))
+
+        val suggestion = FarmSuggestions
+            .of(
+                witchPlan,
+                threshold,
+                listOf(producer(1, "Witch Hut Farm", redstone to 8280, cobblestone to 100)),
+                dismissed = setOf(cobblestone.id),
+            )
+            .single()
+
+        assertEquals(listOf("minecraft:redstone"), suggestion.produces.map { it.itemId })
+        assertEquals(63_273, suggestion.unitsRemoved, "dismissed cobblestone is not work this removes")
+    }
+
     @Test
     fun `an empty bank suggests nothing`() {
         assertEquals(emptyList(), FarmSuggestions.of(plan(node(cobblestone, 75_151)), threshold, emptyList()))

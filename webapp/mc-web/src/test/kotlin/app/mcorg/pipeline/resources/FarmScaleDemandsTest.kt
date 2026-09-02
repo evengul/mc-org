@@ -136,4 +136,64 @@ class FarmScaleDemandsTest {
     fun `an empty plan yields nothing`() {
         assertTrue(FarmScaleDemands.of(plan(), threshold).isEmpty())
     }
+
+    // ---- what the world has decided against (MCO-407) --------------------------------
+
+    @Test
+    fun `a dismissed item leaves the roll-up`() {
+        val plan = plan(node(cobblestone, 74_557), node(ice, 20_611))
+
+        val result = FarmScaleDemands.of(plan, threshold, dismissed = setOf("minecraft:ice"))
+
+        assertEquals(listOf("minecraft:cobblestone"), result.map { it.itemId })
+    }
+
+    @Test
+    fun `a dismissed item loses its row badge too`() {
+        // The badge and the roll-up are one rule in one place, and a dismissal that cleared the
+        // list but left "Farm-scale" on the row would be the contradiction MCO-407 is removing.
+        val plan = plan(node(cobblestone, 74_557), node(ice, 20_611))
+
+        assertEquals(
+            setOf("minecraft:cobblestone"),
+            FarmScaleDemands.itemIdsIn(plan, threshold, dismissed = setOf("minecraft:ice")),
+        )
+    }
+
+    @Test
+    fun `a dismissal survives the threshold moving`() {
+        // The whole point: raising the threshold is the blunt instrument dismissal replaces, so
+        // a dismissal that a threshold change undid would be a slower way of raising it.
+        val plan = plan(node(cobblestone, 74_557), node(ice, 20_611))
+        val dismissed = setOf("minecraft:ice")
+
+        assertTrue(FarmScaleDemands.of(plan, 10_000, dismissed).none { it.itemId == "minecraft:ice" })
+        assertTrue(FarmScaleDemands.of(plan, 100, dismissed).none { it.itemId == "minecraft:ice" })
+        assertTrue(FarmScaleDemands.of(plan, 20_611, dismissed).none { it.itemId == "minecraft:ice" })
+    }
+
+    @Test
+    fun `dismissing something that was never farm-scale changes nothing`() {
+        val plan = plan(node(cobblestone, 74_557), node(ice, 12))
+
+        assertEquals(
+            FarmScaleDemands.of(plan, threshold).map { it.itemId },
+            FarmScaleDemands.of(plan, threshold, dismissed = setOf("minecraft:ice")).map { it.itemId },
+        )
+        assertTrue(
+            FarmScaleDemands.dismissedIn(plan, threshold, setOf("minecraft:ice")).isEmpty(),
+            "12 ice was never a line, so nothing is being suppressed and the fold says nothing",
+        )
+    }
+
+    @Test
+    fun `what a dismissal is suppressing is still readable`() {
+        // The undo list prints today's demand beside the demand it was dismissed at, which is
+        // the reason a dismissal can be permanent without becoming a trap.
+        val plan = plan(node(cobblestone, 74_557), node(ice, 20_611))
+
+        val suppressed = FarmScaleDemands.dismissedIn(plan, threshold, setOf("minecraft:ice"))
+
+        assertEquals(listOf(FarmScaleDemand("minecraft:ice", "Ice", 20_611)), suppressed)
+    }
 }

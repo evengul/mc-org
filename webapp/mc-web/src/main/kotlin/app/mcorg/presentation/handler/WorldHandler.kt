@@ -42,6 +42,8 @@ import app.mcorg.pipeline.project.handleGetFieldLogRow
 import app.mcorg.pipeline.project.handleGetFieldLogSliceItems
 import app.mcorg.pipeline.project.handleGetResumeRows
 import app.mcorg.pipeline.project.handleStartFarmSuggestionImport
+import app.mcorg.pipeline.resources.handleDismissFarmSuggestion
+import app.mcorg.pipeline.resources.handleRestoreFarmSuggestion
 import app.mcorg.pipeline.project.handleUpdateProjectState
 import app.mcorg.pipeline.project.handleGetProjectNameField
 import app.mcorg.pipeline.project.handleUpdateProjectName
@@ -196,6 +198,19 @@ class WorldHandler {
                         // (MCO-459). Creates nothing itself — see the handler.
                         post("/farm-suggestions/import") {
                             call.handleStartFarmSuggestionImport()
+                        }
+                        // Taking an item out of the "Worth a farm" panel for the whole world
+                        // (MCO-407). Admin-gated here rather than in the handler, and admin
+                        // rather than member because it overrides the world's farm-scale
+                        // threshold, which is admin-only to edit for the same reason.
+                        route("/farm-suggestions/dismissals/{itemId}") {
+                            install(WorldAdminPlugin)
+                            post {
+                                call.handleDismissFarmSuggestion()
+                            }
+                            delete {
+                                call.handleRestoreFarmSuggestion()
+                            }
                         }
                         route("/meta") {
                             get("/name") { call.handleGetProjectNameField() }

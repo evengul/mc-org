@@ -127,16 +127,24 @@ object FarmSuggestions {
      *
      * [alreadyCovered] is every item this world is already going to produce; see the section
      * above for why those are not demand at all rather than demand ranked lower.
+     *
+     * [dismissed] is what the world has decided against (MCO-407). It is unioned with
+     * `alreadyCovered` here and kept a separate parameter at the call site because the two say
+     * different things — "something will make this" against "we are not farming this" — and only
+     * one of them is a claim about supply. The effect on matching is the same: a design for an
+     * item nobody intends to farm is not an answer to anything, and offering one is the failure
+     * dismissal exists to fix, one level up.
      */
     fun of(
         plan: GatheringPlan,
         threshold: Int,
         producers: List<IdeaProducer>,
         alreadyCovered: Set<String> = emptySet(),
+        dismissed: Set<String> = emptySet(),
     ): List<FarmSuggestion> {
         if (producers.isEmpty()) return emptyList()
 
-        val demand = matchableDemand(plan, alreadyCovered)
+        val demand = matchableDemand(plan, alreadyCovered + dismissed)
         if (demand.isEmpty()) return emptyList()
 
         return producers
@@ -358,15 +366,22 @@ suspend fun farmSuggestionsFor(
      * project whose productions were edited away, and it costs nothing.
      */
     excludeIdeaId: Int? = null,
+    /**
+     * Items this world has decided against farming (MCO-407) — read once by the caller and
+     * shared with the roll-up, so the panel cannot suppress a line and still offer a design
+     * for it.
+     */
+    dismissed: Set<String> = emptySet(),
 ): List<FarmSuggestion> {
     if (plan == null) return emptyList()
 
     val alreadyCovered = alreadyCoveredItems(projectId, pendingFarms)
+    val notDemand = alreadyCovered + dismissed
 
     val demandedIds = plan.activityList
         .filter { it.status != PlanNodeStatus.SUPPLIED && it.status != PlanNodeStatus.OPEN_TAG }
         .map { it.item.id }
-        .filter { it !in alreadyCovered }
+        .filter { it !in notDemand }
     if (demandedIds.isEmpty()) return emptyList()
 
     val producers = GetIdeaProducersStep
@@ -379,6 +394,7 @@ suspend fun farmSuggestionsFor(
         threshold,
         producers.filter { it.ideaId != excludeIdeaId },
         alreadyCovered,
+        dismissed,
     )
 }
 

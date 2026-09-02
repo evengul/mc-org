@@ -417,15 +417,20 @@ private suspend fun ApplicationCall.respondListRerender(worldId: Int, projectId:
     val farmScaleThreshold = GetFarmScaleThresholdStep.process(worldId).getOrNull()
         ?: World.DEFAULT_FARM_SCALE_THRESHOLD
     val user = getUser()
+    // MCO-407, and the same reason as the rest of this block: resolving a tag can turn a
+    // dismissed item into new demand, and the roll-up and the suggestions must read the same
+    // dismissal list when it does.
+    val farmDismissals = farmDismissalsFor(worldId)
     val farmSuggestions = farmSuggestionsFor(
-        plan, farmScaleThreshold, user.id, projectId, coveredByPlannedFarms, project.importedFromIdea?.first,
+        plan, farmScaleThreshold, user.id, projectId, coveredByPlannedFarms,
+        project.importedFromIdea?.first, farmDismissals.itemIds(),
     )
     val isAdmin = ValidateWorldMemberRole<Unit>(user, Role.ADMIN, worldId).process(Unit) is Result.Success
 
     respondHtml(
         gatheringPlannerFragment(
             project, resources, tasks, plan, progressMap, prerequisiteFarms, farmScaleThreshold,
-            farmSuggestions, versionGapsForPlan(projectId, plan), isAdmin,
+            farmSuggestions, versionGapsForPlan(projectId, plan), isAdmin, farmDismissals,
         )
     )
 }
