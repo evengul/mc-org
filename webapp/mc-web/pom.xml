@@ -135,6 +135,20 @@
                             <mainClass>app.mcorg.cli.ScoreDiagnosticsKt</mainClass>
                         </configuration>
                     </execution>
+                    <!--
+                        Read-only: runs the proposed unit-cost model beside the shipped scorer
+                        over the whole graph and reports where they disagree. Changes nothing.
+                        mvn -pl mc-web exec:java@cost-diagnostics -Dexec.args="world=3 demand=64"
+                    -->
+                    <execution>
+                        <id>cost-diagnostics</id>
+                        <goals>
+                            <goal>java</goal>
+                        </goals>
+                        <configuration>
+                            <mainClass>app.mcorg.cli.CostDiagnosticsKt</mainClass>
+                        </configuration>
+                    </execution>
                 </executions>
             </plugin>
         </plugins>
