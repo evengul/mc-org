@@ -69,7 +69,11 @@
     --accent-muted: #D6E2EC;   /* pale lapis wash */
     --on-accent: #FCF7EA;      /* cream text/icon on a lapis fill */
     --green: #4F7A2B;          /* grass — success / status / growth (done) */
-    --amber: #B0791A;          /* wheat-gold — warning */
+    /* Warning. Darkened from #B0791A (MCO-402), which sat at 2.88:1 on --bg-base and
+       failed 4.5:1 on all three surfaces; amber is the warning hue and is almost
+       always set at 10-11px, the smallest type in the system. Same hue (38deg), so
+       it still reads as wheat-gold: 4.65 / 5.33 / 5.66 on base / surface / raised. */
+    --amber: #855A10;          /* wheat-gold — warning */
     --red: #A6321F;            /* redstone — danger */
     --progress: #4F7A2B;       /* grass — completion is status, not brand */
     --green-bg: #DEE8CB;
