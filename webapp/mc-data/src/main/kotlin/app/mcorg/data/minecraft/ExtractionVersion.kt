@@ -34,7 +34,12 @@ package app.mcorg.data.minecraft
  *       describes — `powder_snow` (pour the bucket) and `nether_portal` (light the frame,
  *       which costs no material of its own). Both reported "no feasible source found" on the
  *       YAMS import; `nether_portal` at 54 blocks was the larger of the two — MCO-467 (2026-09).
+ *  - 6: a recipe's inline alternative list now reuses the vanilla tag that already has exactly
+ *       those members instead of minting a second `#mcorg:choice/…` name for it. At 1.21.4 that
+ *       folds torch/soul_torch/fire_charge onto `#minecraft:coals` and TNT onto
+ *       `#minecraft:smelts_to_glass`, so the plan stops asking "coal or charcoal" twice under
+ *       two names — MCO-486 (2026-09).
  */
 object ExtractionVersion {
-    const val CURRENT = 5
+    const val CURRENT = 6
 }
