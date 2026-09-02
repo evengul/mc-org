@@ -21,6 +21,18 @@ data class FarmSuggestion(
 
     /** Every item this suggestion accounts for, for marking the roll-up. */
     val itemIds: Set<String> = (produces + alsoRemoves).mapTo(mutableSetOf()) { it.itemId }
+
+    /**
+     * How long this design runs before the plan's demand for it is covered — the longest of its
+     * measured lines, since one farm makes all of its outputs at once.
+     *
+     * Null when no produced line has a rate, and **under-stated when only some do**: a design
+     * with a measured bone rate and an unmeasured blaze rod rate reports the bones' time. That
+     * is the same posture as everything else here — claim the part that was measured, never
+     * invent the part that was not — and it is why [FarmSuggestionChoices] ranks a measured
+     * design above an unmeasured one rather than treating "unknown" as "instant".
+     */
+    val coverageHours: Double? = produces.mapNotNull { it.hoursToCover }.maxOrNull()
 }
 
 /**
@@ -115,16 +127,24 @@ object FarmSuggestions {
      *
      * [alreadyCovered] is every item this world is already going to produce; see the section
      * above for why those are not demand at all rather than demand ranked lower.
+     *
+     * [dismissed] is what the world has decided against (MCO-407). It is unioned with
+     * `alreadyCovered` here and kept a separate parameter at the call site because the two say
+     * different things — "something will make this" against "we are not farming this" — and only
+     * one of them is a claim about supply. The effect on matching is the same: a design for an
+     * item nobody intends to farm is not an answer to anything, and offering one is the failure
+     * dismissal exists to fix, one level up.
      */
     fun of(
         plan: GatheringPlan,
         threshold: Int,
         producers: List<IdeaProducer>,
         alreadyCovered: Set<String> = emptySet(),
+        dismissed: Set<String> = emptySet(),
     ): List<FarmSuggestion> {
         if (producers.isEmpty()) return emptyList()
 
-        val demand = matchableDemand(plan, alreadyCovered)
+        val demand = matchableDemand(plan, alreadyCovered + dismissed)
         if (demand.isEmpty()) return emptyList()
 
         return producers
@@ -197,6 +217,130 @@ object FarmSuggestions {
 }
 
 /**
+ * Why one design in a choice leads the others (MCO-483).
+ *
+ * The recommendation has to be *stated on the row*: `71k Ice Farm` against `72k Ice Farm` is a
+ * 1.4% difference, and a user who cannot see what ranked them has been given an arbitrary answer
+ * dressed as advice.
+ */
+sealed interface RecommendationReason {
+
+    /** One design covers this demand. There is no choice, and nothing to explain. */
+    data object Sole : RecommendationReason
+
+    /**
+     * Covers the demand soonest. [runnerUpHours] is the next best time, so the row can show the
+     * gap rather than assert a winner — 5.7h against 5.8h is a coin toss and should look like one.
+     */
+    data class Fastest(val hours: Double, val runnerUpHours: Double) : RecommendationReason
+
+    /** The only design here whose author measured a rate. Not "the best" — the only comparable. */
+    data class OnlyMeasured(val hours: Double) : RecommendationReason
+
+    /**
+     * Nothing separates them on speed: either no design here has a measured rate ([hours] null)
+     * or they all cover it in the same time. The order is then alphabetical, and the row says so
+     * instead of implying a judgement it did not make.
+     */
+    data class NoFasterOption(val hours: Double?) : RecommendationReason
+}
+
+/**
+ * Designs that answer the same demand, as one choice rather than several rows (MCO-483).
+ *
+ * The YAMS plan listed a *71k Ice Farm* and a *72k Ice Farm* as peer rows with a checkbox each,
+ * both claiming the same 20,611 Ice, under a button reading "Review selected designs". Nothing on
+ * screen said they were the same job, so a panel showing three farms and a choice read as a
+ * shopping list of four farms to build.
+ *
+ * ## The grouping key is the set of demanded items a design directly produces
+ *
+ * Two designs are the same job when they answer exactly the same demand lines. Ice against Ice is
+ * the easy case and the one that shipped this. The key is a **set**, not a single item id, so the
+ * harder case has somewhere to go: a design covering Ice *and* Packed Ice keys differently from
+ * one covering only Ice, and today those stay separate rows — the honest answer while nothing here
+ * can rank partial coverage against total coverage. When that case lands it lands as a *merge of
+ * intersecting keys* (connected components over these sets), not as a different key, and neither
+ * the row shape nor the one-of-N selection rule changes.
+ *
+ * [FarmSuggestion.alsoRemoves] is deliberately not part of the key. It is derived from the direct
+ * set and the plan, so two designs with the same key always have the same knock-on; folding it in
+ * could only invent a way for identical designs to key apart.
+ *
+ * ## The ranking signal is time to cover, and it is rendered
+ *
+ * Within a group every design removes the same units — [FarmSuggestion.unitsRemoved], which ranks
+ * the groups, cannot separate them by construction. What differs is how fast: the recommendation
+ * is the design that covers the demand soonest ([FarmSuggestion.coverageHours]), measured rates
+ * ahead of unmeasured ones, ties broken by name so the order is stable across reloads.
+ * [RecommendationReason] carries that judgement to the row, because a ranking the user cannot see
+ * is a ranking they cannot disagree with.
+ */
+data class FarmSuggestionChoice(
+    /** The demand every design here answers — the group's identity. */
+    val coveredItemIds: Set<String>,
+    val recommended: FarmSuggestion,
+    /** The rest, best first. Empty for a demand only one design covers. */
+    val alternatives: List<FarmSuggestion>,
+    val reason: RecommendationReason,
+) {
+    /** Every design in this choice, recommendation first. */
+    val designs: List<FarmSuggestion> = listOf(recommended) + alternatives
+
+    /**
+     * A stable handle for the group, so the page can scope "pick one of these" to it.
+     *
+     * Derived from the covered items rather than from a position in the list: the same choice
+     * keeps the same handle when a design joins the bank or the plan's quantities move.
+     */
+    val key: String = coveredItemIds.sorted().joinToString("+")
+}
+
+/** Groups [FarmSuggestions] output into choices — see [FarmSuggestionChoice]. */
+object FarmSuggestionChoices {
+
+    /**
+     * [suggestions] grouped by the demand they cover, most work removed first.
+     *
+     * Group order is the order [FarmSuggestions.of] already produces — units removed descending,
+     * then name — read off each group's recommendation. Grouping changes which design speaks for a
+     * demand; it does not reorder the demands.
+     */
+    fun of(suggestions: List<FarmSuggestion>): List<FarmSuggestionChoice> =
+        suggestions
+            .groupBy { design -> design.produces.mapTo(LinkedHashSet()) { it.itemId } as Set<String> }
+            .map { (covered, designs) -> choiceOf(covered, designs) }
+            .sortedWith(
+                compareByDescending<FarmSuggestionChoice> { it.recommended.unitsRemoved }
+                    .thenBy { it.recommended.ideaName }
+            )
+
+    private fun choiceOf(covered: Set<String>, designs: List<FarmSuggestion>): FarmSuggestionChoice {
+        // Nulls last: an unmeasured design is not the fastest, it is the one nobody timed, and
+        // sorting it first would recommend the design with the least evidence behind it.
+        val ranked = designs.sortedWith(
+            compareBy<FarmSuggestion, Double?>(nullsLast()) { it.coverageHours }.thenBy { it.ideaName }
+        )
+        val recommended = ranked.first()
+        val alternatives = ranked.drop(1)
+        return FarmSuggestionChoice(covered, recommended, alternatives, reasonFor(recommended, alternatives))
+    }
+
+    private fun reasonFor(
+        recommended: FarmSuggestion,
+        alternatives: List<FarmSuggestion>,
+    ): RecommendationReason {
+        if (alternatives.isEmpty()) return RecommendationReason.Sole
+        val hours = recommended.coverageHours ?: return RecommendationReason.NoFasterOption(null)
+        // Already sorted nulls-last, so the first measured alternative is the best one.
+        val runnerUp = alternatives.firstNotNullOfOrNull { it.coverageHours }
+            ?: return RecommendationReason.OnlyMeasured(hours)
+        return if (runnerUp > hours) RecommendationReason.Fastest(hours, runnerUp)
+        else RecommendationReason.NoFasterOption(hours)
+    }
+}
+
+/**
  * The designs worth building for [plan], or an empty list if there is nothing to suggest.
  *
  * Decorates a plan that has already rendered, so every failure degrades to "no suggestions"
@@ -222,15 +366,22 @@ suspend fun farmSuggestionsFor(
      * project whose productions were edited away, and it costs nothing.
      */
     excludeIdeaId: Int? = null,
+    /**
+     * Items this world has decided against farming (MCO-407) — read once by the caller and
+     * shared with the roll-up, so the panel cannot suppress a line and still offer a design
+     * for it.
+     */
+    dismissed: Set<String> = emptySet(),
 ): List<FarmSuggestion> {
     if (plan == null) return emptyList()
 
     val alreadyCovered = alreadyCoveredItems(projectId, pendingFarms)
+    val notDemand = alreadyCovered + dismissed
 
     val demandedIds = plan.activityList
         .filter { it.status != PlanNodeStatus.SUPPLIED && it.status != PlanNodeStatus.OPEN_TAG }
         .map { it.item.id }
-        .filter { it !in alreadyCovered }
+        .filter { it !in notDemand }
     if (demandedIds.isEmpty()) return emptyList()
 
     val producers = GetIdeaProducersStep
@@ -243,6 +394,7 @@ suspend fun farmSuggestionsFor(
         threshold,
         producers.filter { it.ideaId != excludeIdeaId },
         alreadyCovered,
+        dismissed,
     )
 }
 

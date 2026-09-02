@@ -50,16 +50,41 @@ data class FarmScaleDemand(
  */
 object FarmScaleDemands {
 
-    /** Farm-scale raw demand in [plan], largest first. */
-    fun of(plan: GatheringPlan, threshold: Int): List<FarmScaleDemand> =
+    /**
+     * Farm-scale raw demand in [plan], largest first.
+     *
+     * [dismissed] is what this world has decided against (MCO-407) — those items are not
+     * classified at all rather than classified and hidden, so the same call answers the roll-up,
+     * the row badge and the section's own count with one rule. A dismissal is independent of
+     * [threshold] on purpose: it exists precisely because the threshold could not express it,
+     * and it must survive the threshold being changed or it is only a slower way of raising it.
+     */
+    fun of(
+        plan: GatheringPlan,
+        threshold: Int,
+        dismissed: Set<String> = emptySet(),
+    ): List<FarmScaleDemand> =
         plan.activityList
-            .filter { it.isFarmScale(threshold) }
+            .filter { it.isFarmScale(threshold) && it.item.id !in dismissed }
             .map { FarmScaleDemand(itemId = it.item.id, itemName = it.item.name, quantity = it.quantity) }
             .sortedByDescending { it.quantity }
 
     /** Item ids in [plan] that are farm-scale — for marking rows without re-deriving the rule. */
-    fun itemIdsIn(plan: GatheringPlan, threshold: Int): Set<String> =
-        plan.activityList.filter { it.isFarmScale(threshold) }.mapTo(mutableSetOf()) { it.item.id }
+    fun itemIdsIn(plan: GatheringPlan, threshold: Int, dismissed: Set<String> = emptySet()): Set<String> =
+        of(plan, threshold, dismissed).mapTo(mutableSetOf()) { it.itemId }
+
+    /**
+     * The lines [dismissed] is currently suppressing, largest first — what the undo list shows.
+     *
+     * Only lines this plan actually has: a world dismissal covers every project, and printing
+     * "0 Water" against a build that never wanted water would be noise. The undo list names the
+     * rest from the dismissal's own stored label.
+     */
+    fun dismissedIn(plan: GatheringPlan, threshold: Int, dismissed: Set<String>): List<FarmScaleDemand> =
+        plan.activityList
+            .filter { it.isFarmScale(threshold) && it.item.id in dismissed }
+            .map { FarmScaleDemand(itemId = it.item.id, itemName = it.item.name, quantity = it.quantity) }
+            .sortedByDescending { it.quantity }
 
     /**
      * At or above the threshold, not merely past it: a threshold of 1,728 is read as "a shulker
