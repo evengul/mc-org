@@ -59,6 +59,28 @@ import app.mcorg.engine.model.SourceNode
  * that there is **one** table of interpretable numbers to argue about, in minutes, rather
  * than eight interacting constants in points; and that it can be swept against
  * `CuratedSelectionTest` as a calibration set rather than tuned until the suite goes green.
+ *
+ * ## What the calibration sweep found (1.21.4, world 3, 992 multi-source items)
+ *
+ * Every entry in [EffortTable.DEFAULT] was swept across its plausible range with
+ * `cost-diagnostics sweep`. Three results are about the *model*, not its constants, and are
+ * worth more than the table:
+ *
+ * - **Most of the table decides nothing.** Nine of the twenty-one entries — smithing,
+ *   campfire, block-interact, in-world transform, entity-interact, archaeology, equipment, and
+ *   both trade rows — move not one selection anywhere in their range. They are not calibrated
+ *   numbers; they are placeholders, and should be read as such.
+ * - **Effort per source *type* is the wrong grain for the cases that matter.** One number
+ *   covers all 995 block sources, so mining an emerald costs what mining dirt costs, and on
+ *   26.x that mispricing is the only reason villager trades need a brake at all. `GIFT` lumps
+ *   a chicken laying an egg in with winning a raid. Trade level (`cleric/5/...`) is in the
+ *   source filename and would separate a novice trade from a master one. The next real gain
+ *   in this model is per-source effort, not a better per-type number.
+ * - **Two things it prices are artefacts of the ingested data, and no constant fixes them.**
+ *   The fishing loot sub-tables (`gameplay/fishing/treasure.json`, `junk.json`) are ingested
+ *   as standalone sources alongside their parent, so a name tag reads as 1-in-6 per cast
+ *   rather than 1-in-6 of a 5% roll; and nothing in the graph *grows a crop*, so wheat's only
+ *   priced route is a village chest, at any chest value.
  */
 class UnitCostModel(
     private val graph: ItemSourceGraph,
@@ -75,11 +97,32 @@ class UnitCostModel(
     /** Minutes per unit for every item and tag in the graph. [UNREACHABLE] where nothing produces it. */
     val cost: Map<String, Double> by lazy { relax() }
 
-    /** The cheapest source for [item], or null when nothing produces it at a finite cost. */
-    fun best(item: MinecraftId): SourceNode? =
-        graph.getSourcesForItem(item)
-            .filter { costOf(it, item) < UNREACHABLE }
-            .minByOrNull { costOf(it, item) }
+    /**
+     * The cheapest source for [item], or null when nothing produces it at a finite cost.
+     *
+     * **Equal costs are broken the way [PlanSelector] breaks them** — recipe first, then by
+     * source key — rather than by whichever source the graph's iteration order happened to
+     * hand over first. This is not a preference smuggled in as a tie-break: when two routes
+     * cost the same the model has, by construction, no opinion, and an arbitrary answer there
+     * is noise that reads as disagreement. Measured on 1.21.4 it is a third of the gap — 53 of
+     * the 158 disagreements with the shipped scorer were exact-cost ties, most of them
+     * `chiseled_*` blocks where crafting from two slabs and cutting one brick are the same
+     * stone and the same click.
+     */
+    fun best(item: MinecraftId): SourceNode? {
+        val candidates = graph.getSourcesForItem(item)
+            .map { it to costOf(it, item) }
+            .filter { it.second < UNREACHABLE }
+        val cheapest = candidates.minOfOrNull { it.second } ?: return null
+        return candidates
+            .filter { it.second <= cheapest + TIE_EPSILON * kotlin.math.max(1.0, cheapest) }
+            .map { it.first }
+            .sortedWith(
+                compareByDescending<SourceNode> { it.sourceType.isRecipe() }
+                    .thenBy { it.getKey() }
+            )
+            .first()
+    }
 
     /** Minutes per unit of [item] obtained through [source], given the settled costs. */
     fun costOf(source: SourceNode, item: MinecraftId): Double = costOf(source, item, cost)
@@ -171,6 +214,16 @@ class UnitCostModel(
     companion object {
         /** Not "expensive" — genuinely no finite chain. Kept well below MAX so sums cannot overflow. */
         const val UNREACHABLE = 1e9
+
+        /**
+         * How close two costs must be to count as the same. Floating-point summation over a
+         * chain does not give bit-identical results for two genuinely equal routes, so an
+         * exact `==` would leave the tie-break unreachable for the cases that need it. Kept
+         * relative and tiny — a 1e-9 window cannot swallow a real difference, since the
+         * smallest one in the table (0.05/6 against 0.05/4) is seven orders of magnitude
+         * larger.
+         */
+        private const val TIE_EPSILON = 1e-9
     }
 }
 
@@ -196,9 +249,30 @@ class EffortTable(
     companion object {
         /**
          * Villager trading: curing or breeding a villager, getting the profession, restocking.
-         * One number for all fifteen professions until there is evidence they differ — the old
-         * model gave them one base score too (70, and 65 for the wandering trader), so this
-         * keeps the same claim without pretending to more precision.
+         * Three minutes per transaction, amortising the villager you had to set up.
+         *
+         * **One number per profession is defensible; one number per *level* is not.** Sweeping
+         * all fourteen professions together over [0.25, 30] against 26.2.0 moves 98 selections
+         * at the bottom and 11 at the top, so the constant is far from inert — but nothing in
+         * the sweep distinguishes an armorer from a shepherd, and nothing about the game does
+         * either. What does differ is trade *level*: `armorer/3/...`, `cleric/5/...` — the tier
+         * is right there in the source filename, and a master-level trade costs a great deal
+         * of trading to unlock while a novice trade costs nothing. Level-5 trades win items
+         * today (experience bottles, tipped arrows) at the same price as level-1 ones. Effort
+         * keyed by [SourceType] cannot express that; it is the clearest case in the table for
+         * per-source effort rather than per-type.
+         *
+         * **And it decides nothing on the data anyone is planning against.** No version before
+         * 26.1.0 has a single trade source ingested — 1.21.4, the version world 3 runs, has
+         * zero of 2571 — so on every real project today this number and the shipped scorer's
+         * untested trade rules are both dead code. Admissible [2, 5] on 26.2.0; the whole
+         * range is inert on 1.21.4.
+         *
+         * Note what the brake actually is on 26.x: a trade's emerald input is priced through
+         * `c(emerald)`, and emerald ore is a block like any other, so an emerald costs 0.05
+         * minutes. This constant is the only thing standing between the planner and "buy
+         * everything". It is compensating for a price the model gets wrong, which is exactly
+         * the kind of load the eight-constant scorer was full of.
          */
         private val TRADE_MINUTES: Map<String, Double> = listOf(
             SourceType.TradeTypes.ARMORER, SourceType.TradeTypes.BUTCHER,
@@ -210,7 +284,12 @@ class EffortTable(
             SourceType.TradeTypes.TOOLSMITH, SourceType.TradeTypes.WEAPONSMITH,
         ).associate { it.id to 3.0 } + (SourceType.TradeTypes.WANDERING_TRADER.id to 8.0)
 
-        val DEFAULT = EffortTable(
+        /**
+         * The first-guess table, written in one sitting before anything was measured. Kept
+         * so the calibration can be read as a diff and re-measured against what it replaced
+         * (`cost-diagnostics table=sketch`), not so anything should use it.
+         */
+        val SKETCH = EffortTable(
             mapOf(
                 // Bench work: the action is instant, the cost is walking to the station.
                 SourceType.RecipeTypes.CRAFTING_SHAPED.id to 0.05,
@@ -251,5 +330,127 @@ class EffortTable(
             ) + TRADE_MINUTES,
         )
 
+        /**
+         * The calibrated table. Every value below was swept across its plausible range against
+         * the real 1.21.4 graph (992 items with more than one source, world 3) with
+         * `cost-diagnostics sweep`, and carries the range over which the graph's selections do
+         * not change — the "admissible region". Where a value is inert (no selection anywhere
+         * turns on it at any plausible value) it says so, because an inert number must not be
+         * mistaken for a calibrated one.
+         *
+         * Three values moved from [SKETCH]: chest 15 -> 10, gift 30 -> 10, fishing 2 -> 1.
+         * Everything else survived its own sweep unchanged.
+         *
+         * The rationale on each line is the point. A number a player can call wrong is worth
+         * more than a number nobody can argue with.
+         */
+        val DEFAULT = EffortTable(
+            mapOf(
+                // --- Bench work: one operation at a station you walked to. ---
+                // 3 seconds: open the table, place the pattern, take the output. LOAD-BEARING
+                // through its *ratio* to stonecutting and to block loot, not on its own.
+                // Admissible [0.01, 0.10]; above that agreement falls away fast (0.20 ->
+                // 83.6%, 0.50 -> 80.6%) as stone variants go to the stonecutter wholesale, and
+                // at 2.0 the `bowl` fix is lost. Agreement is *higher* at 0.01-0.02 (91.4%),
+                // but lowering it is the same lever as raising stonecutting, and is declined
+                // for the same reason — see the next entry.
+                SourceType.RecipeTypes.CRAFTING_SHAPED.id to 0.05,
+                SourceType.RecipeTypes.CRAFTING_SHAPELESS.id to 0.05,
+                SourceType.RecipeTypes.CRAFTING_TRANSMUTE.id to 0.05,
+                SourceType.RecipeTypes.CRAFTING_IMBUE.id to 0.05,
+                // Deliberately equal to crafting: both are one shift-click at a block you
+                // placed. THE most load-bearing number in the table — the largest single group
+                // of disagreements with the shipped scorer (45 items) is decided here, and
+                // agreement climbs to 92.3% at 0.20. It is left equal anyway: raising it buys
+                // that agreement by telling a *resource planner* to craft stairs 6-in-4-out
+                // instead of cutting them 1-in-1-out, which wastes a third of the stone. The
+                // shipped scorer prefers crafting because a recipe's base is 95 and
+                // stonecutting's is 90; agreeing with it here means agreeing with that bias,
+                // not with the game. There is no plateau: every step over [0.01, 1.0] moves
+                // 5-70 selections, so nothing here is safe to nudge unmeasured.
+                SourceType.RecipeTypes.STONECUTTING.id to 0.05,
+                // Inert: swept [0.05, 3.0], not one selection changes. Netherite upgrades are
+                // the only smithing recipes and nothing else produces those items.
+                SourceType.RecipeTypes.SMITHING_TRANSFORM.id to 0.2,
+
+                // --- Furnaces: the only three numbers here taken from the game rather than
+                // felt. Smelting is 10s per item, blasting and smoking exactly half that, and
+                // campfire cooking 30s. LOAD-BEARING only as an *ordering*: blasting must not
+                // cost more than smelting or `copper_ingot` stops blasting (holds at 0.17,
+                // lost at 0.30; also lost if smelting drops to 0.05). Their absolute size is
+                // inert — smelting moves at most 3 selections anywhere over [0.02, 2.0].
+                SourceType.RecipeTypes.SMELTING.id to 0.17,
+                SourceType.RecipeTypes.BLASTING.id to 0.08,
+                SourceType.RecipeTypes.SMOKING.id to 0.08,
+                SourceType.RecipeTypes.CAMPFIRE_COOKING.id to 0.5,
+
+                // --- Mining and collecting: a block you have already found. ---
+                // 3 seconds: swing, pick up, step to the next one. LOAD-BEARING, and with no
+                // plateau: every step over [0.02, 2.0] moves 8-64 selections. The fixes hold
+                // over [0.02, 1.0] — 0.01 loses the wool fix, 2.0 loses copper — and from 0.5
+                // upward raw materials start arriving by mob drop and bartering instead of
+                // being mined, which is the wrong way round.
+                // Note this one number covers all 995 block sources, so dirt and ancient
+                // debris cost the same to mine — see the class docs on what that misses.
+                SourceType.LootTypes.BLOCK.id to 0.05,
+                // Inert: swept [0.01, 2.0]. One source in the whole graph (honey bottles).
+                SourceType.LootTypes.BLOCK_INTERACT.id to 0.05,
+                // Inert: swept [0.01, 2.0], one item moves at 0.10 (water, bucket vs ice).
+                SourceType.MechanicTypes.COLLECT.id to 0.05,
+                // Inert: swept [0.02, 2.0], nothing moves.
+                SourceType.MechanicTypes.IN_WORLD_TRANSFORM.id to 0.1,
+
+                // --- Mobs: find it, fight it, pick the drops up. ---
+                // 30 seconds a kill. Admissible [0.25, 2.0]: at 0.10 killing sheep undercuts
+                // shearing them and the 16-colour wool fix is lost, and from 5 upward mob
+                // drops lose to structure loot, which is the wrong way round for anything
+                // farmable. The flat middle is one point wide — [0.25, 1.0] moves one item.
+                SourceType.LootTypes.ENTITY.id to 0.5,
+                // Inert: swept [0.05, 5.0], nothing moves (no such sources in 1.21.4).
+                SourceType.LootTypes.ENTITY_INTERACT.id to 0.3,
+                // 12 seconds: walk up to the sheep, shear, collect. LOAD-BEARING at the top —
+                // at 0.6 white wool goes back to crafting from string and the 16-colour fix
+                // starts unravelling. Admissible [0.02, 0.40].
+                SourceType.LootTypes.SHEARING.id to 0.2,
+
+                // --- Structure loot: the number that decides how far a chest reaches. ---
+                // Ten minutes to *reach* a chest: find the structure, travel, clear it. Sweep
+                // (0.25 -> 120) says the flat region is [8, 10] and the region within one
+                // selection of it is [5, 20]: below 5 the model starts
+                // looting things you would make or mine (tnt, lodestone, arrows, paper, iron,
+                // even coal and emerald at 0.5); above 25 it starts pushing genuinely
+                // chest-shaped items onto worse routes (potions to fishing, splash potions to
+                // bartering). It can never remove chests: 18 items — horse armour, banner
+                // patterns, music discs, trial keys, enchanted golden apples — have no other
+                // route at any price, so "never chosen" is not on the dial.
+                SourceType.LootTypes.CHEST.id to 10.0,
+                // Inert: swept [1, 90], nothing moves — the 0.04-0.25 expected yields already
+                // multiply any value into last place. 20 minutes is one brushing expedition.
+                SourceType.LootTypes.ARCHAEOLOGY.id to 20.0,
+                // Inert: swept [0.5, 20]. Trial-chamber mob equipment; a fight, not a chest.
+                SourceType.LootTypes.EQUIPMENT.id to 5.0,
+                // Was 30. At 30 an egg costs more than looting one from a chest, which no
+                // player would do — a chicken lays one for free. The type mixes a raid you
+                // fight (hero-of-the-village gifts) with an animal you keep (chicken_lay,
+                // armadillo_shed), and one number cannot be right for both; 10 prices the raid
+                // roughly and the chicken far too dear. Admissible [5, 19]: below 5 a second
+                // group of items starts arriving as gifts, above ~19 the egg goes back to a
+                // chest. The real repair is per-source effort, not a better single value.
+                SourceType.LootTypes.GIFT.id to 10.0,
+                // Was 2. One minute of attention per catch — cast, wait 5-30s, reel, recast.
+                // Nearly inert (flat over [1, 2], one item either side out to 20), and the
+                // items it does decide are
+                // distorted by an extraction bug rather than by this number: the fishing
+                // sub-tables (treasure.json, junk.json) are ingested as standalone sources, so
+                // a name tag reads as 1-in-6 per cast instead of 1-in-6 of the 5% treasure
+                // roll. No value of this constant fixes that.
+                SourceType.LootTypes.FISHING.id to 1.0,
+                // One minute per barter: build the drop spot, toss the ingot, wait. The gold
+                // you throw is not modelled as an input (loot sources consume nothing), so
+                // this number carries it. Stable over [1, 10]; below 1 a few nether blocks
+                // start arriving by barter.
+                SourceType.LootTypes.BARTER.id to 1.0,
+            ) + TRADE_MINUTES,
+        )
     }
 }

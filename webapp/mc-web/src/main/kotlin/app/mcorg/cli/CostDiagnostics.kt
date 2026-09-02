@@ -1,8 +1,11 @@
 package app.mcorg.cli
 
 import app.mcorg.config.Database
+import app.mcorg.domain.model.minecraft.MinecraftId
 import app.mcorg.domain.model.minecraft.MinecraftTag
+import app.mcorg.domain.model.resources.ResourceSource.SourceType
 import app.mcorg.engine.model.ItemSourceGraph
+import app.mcorg.engine.model.SourceNode
 import app.mcorg.engine.plan.EffortTable
 import app.mcorg.engine.plan.ScoreDiagnostics
 import app.mcorg.engine.plan.UnitCostModel
@@ -28,12 +31,25 @@ import kotlin.system.exitProcess
  * mvn -pl mc-web exec:java@cost-diagnostics -Dexec.args="world=3 demand=64"
  * mvn -pl mc-web exec:java@cost-diagnostics -Dexec.args="world=3 demand=64 verbose"
  * mvn -pl mc-web exec:java@cost-diagnostics -Dexec.args="world=3 iron_nugget stick crossbow"
+ *
+ * # calibration: move every effort value across its range and see what each one decides
+ * mvn -pl mc-web exec:java@cost-diagnostics -Dexec.args="world=3 projects=43 sweep"
+ * mvn -pl mc-web exec:java@cost-diagnostics -Dexec.args="world=3 sweep=chest verbose"
+ * mvn -pl mc-web exec:java@cost-diagnostics -Dexec.args="world=3 sweep=chest values=6,8,12"
+ *
+ * # try a table by hand, or ask who a source type actually wins
+ * mvn -pl mc-web exec:java@cost-diagnostics -Dexec.args="world=3 set=chest:30 picks=chest"
+ * mvn -pl mc-web exec:java@cost-diagnostics -Dexec.args="world=3 table=sketch"
  * ```
  *
  * Args: `world=<id>` / `version=<v>` to pick the graph, `demand=<n>` (the shipped scorer is
  * demand-sensitive through its recipe threshold; the cost model is not, which is itself one
  * of the differences worth seeing), `verbose` to print every disagreement rather than a
- * sample, and any bare item ids to compare only those.
+ * sample, and any bare item ids to compare only those. For calibration: `sweep[=<group>]`
+ * with optional `values=`, `set=<type>:<minutes>` to override the table without rebuilding,
+ * `table=sketch|calibrated`, `picks=<type>` to list what a source type wins and by how much,
+ * and `projects=<ids>` to carry a real project's item set through every row — the whole-graph
+ * agreement rate can improve while the plan someone is actually building gets worse.
  */
 fun main(args: Array<String>) {
     val exitCode = runBlocking {
@@ -55,6 +71,14 @@ private suspend fun run(args: List<String>): Int {
     var worldId: Int? = null
     var demand = 64L
     var verbose = false
+    var sweep = false
+    var sweepFilter: String? = null
+    var picksOf: String? = null
+    var customValues: List<Double>? = null
+    val overrides = mutableListOf<Pair<String, Double>>()
+    var table = EffortTable.DEFAULT
+    var tableName = "calibrated"
+    val projectIds = mutableListOf<Int>()
     val only = mutableListOf<String>()
 
     for (arg in args) {
@@ -63,8 +87,40 @@ private suspend fun run(args: List<String>): Int {
             arg.startsWith("world=") -> worldId = arg.substringAfter('=').toIntOrNull()
             arg.startsWith("demand=") -> demand = arg.substringAfter('=').toLongOrNull() ?: demand
             arg == "verbose" -> verbose = true
+            arg == "sweep" -> sweep = true
+            arg.startsWith("sweep=") -> { sweep = true; sweepFilter = arg.substringAfter('=') }
+            arg.startsWith("picks=") -> picksOf = arg.substringAfter('=')
+            arg.startsWith("set=") -> {
+                val (t, v) = arg.substringAfter('=').split(':').let { it[0] to it.getOrNull(1)?.toDoubleOrNull() }
+                if (v == null) { System.err.println("set= wants <type>:<minutes>, got '$arg'"); return 1 }
+                overrides += t to v
+            }
+            arg.startsWith("values=") ->
+                customValues = arg.substringAfter('=').split(',').mapNotNull { it.trim().toDoubleOrNull() }
+            arg.startsWith("projects=") ->
+                projectIds += arg.substringAfter('=').split(',').mapNotNull { it.trim().toIntOrNull() }
+            arg.startsWith("table=") -> {
+                tableName = arg.substringAfter('=')
+                table = when (tableName) {
+                    "sketch" -> EffortTable.SKETCH
+                    "calibrated", "default" -> EffortTable.DEFAULT
+                    else -> { System.err.println("Unknown table '$tableName'"); return 1 }
+                }
+            }
             else -> only.add(if (':' in arg) arg else "minecraft:$arg")
         }
+    }
+
+    // `set=chest:30 set=trade:8` — try a table by hand without editing and reinstalling the
+    // engine, which is the loop this whole calibration is made of.
+    for ((typeFilter, minutes) in overrides) {
+        val matches = SourceType.all().filter { it.id.contains(typeFilter) }
+        if (matches.isEmpty()) {
+            System.err.println("No source type matches '$typeFilter'")
+            return 1
+        }
+        for (type in matches) table = table.with(type, minutes)
+        tableName = "$tableName+${typeFilter}=$minutes"
     }
 
     val resolvedVersion = version ?: resolveVersionForCost(worldId) ?: return 1
@@ -76,9 +132,9 @@ private suspend fun run(args: List<String>): Int {
         }
     }
 
-    val model = UnitCostModel(graph, effort = EffortTable.DEFAULT)
+    val model = UnitCostModel(graph, effort = table)
 
-    println("Cost model vs SelectionScorer · version $resolvedVersion · demand $demand")
+    println("Cost model ($tableName) vs SelectionScorer · version $resolvedVersion · demand $demand")
     println("Sources: ${graph.getSourceCount()}, items: ${graph.getItemCount()}")
 
     val subjects = graph.getAllItems()
@@ -87,6 +143,42 @@ private suspend fun run(args: List<String>): Int {
         .filter { graph.getSourcesForItem(it).size > 1 }
         .filter { only.isEmpty() || it.id in only }
         .sortedBy { it.id }
+
+    if (sweep) {
+        val shippedPicks = subjects.associate { item ->
+            item.id to (ScoreDiagnostics.report(graph, item.id, demand).candidates.firstOrNull()?.sourceKey ?: "")
+        }
+        val projects = projectIds.associateWith { loadProjectItems(it) }
+            .mapValues { (_, ids) -> subjects.map { it.id }.filter { it in ids }.toSet() }
+            .filterValues { it.isNotEmpty() }
+        runSweep(graph, subjects, shippedPicks, projects, sweepFilter, customValues, table, verbose)
+        return 0
+    }
+
+    if (picksOf != null) {
+        // Which items does this source type actually win, and by how much over the runner-up?
+        // "Chest is a last resort" is a claim about this list, not about the constant.
+        println()
+        println("Items whose cheapest route is a source matching '$picksOf' (margin = next-best / this):")
+        var n = 0
+        for (item in subjects) {
+            val pick = model.best(item) ?: continue
+            if (!pick.sourceType.id.contains(picksOf)) continue
+            val mine = model.costOf(pick, item)
+            val runnerUp = graph.getSourcesForItem(item)
+                .filter { it != pick }
+                .minOfOrNull { model.costOf(it, item) } ?: UnitCostModel.UNREACHABLE
+            n++
+            println(
+                "  %-34s %-16s %8s   next %s".format(
+                    item.id.substringAfter(':'), pick.getMethodLabel(), fmt(mine),
+                    if (runnerUp >= UnitCostModel.UNREACHABLE) "only route" else fmt(runnerUp)
+                )
+            )
+        }
+        println("  $n items")
+        return 0
+    }
 
     var agree = 0
     val disagreements = mutableListOf<Disagreement>()
@@ -235,4 +327,202 @@ private val distinctVersionsQuery = DatabaseSteps.query<Unit, List<String>>(
     sql = SafeSQL.select("SELECT DISTINCT version FROM resource_source ORDER BY version"),
     parameterSetter = { _, _ -> },
     resultMapper = { rs -> buildList { while (rs.next()) add(rs.getString("version")) } }
+)
+
+// ---------------------------------------------------------------------------
+// Calibration sweep
+//
+// `mc-engine/CLAUDE.md` asks for the same discipline the shipped constants got: move each
+// number across its plausible range and record where behaviour changes, rather than asserting
+// a value is right because the suite is green. Doing that one CLI run per value would be one
+// Neon round trip and one JVM start per value, so the sweep loads the graph and the shipped
+// picks *once* and then rebuilds only the cost model — sweeping every entry then costs about
+// as much as a single comparison run.
+// ---------------------------------------------------------------------------
+
+private typealias Picks = Map<String, SourceNode>
+
+/**
+ * The selections that must survive any calibration — the ones a player recognises and the
+ * ones an issue was filed about. `iron_nugget` is MCO-320's acceptance criterion; the rest
+ * were fixes the sketch produced on its first run against real data.
+ */
+private data class KnownGood(val name: String, val items: List<String>, val method: String)
+
+private val WOOL_COLOURS = listOf(
+    "white", "orange", "magenta", "light_blue", "yellow", "lime", "pink", "gray",
+    "light_gray", "cyan", "purple", "blue", "brown", "green", "red", "black",
+)
+
+private val KNOWN_GOOD = listOf(
+    KnownGood("iron_nugget", listOf("minecraft:iron_nugget"), "Crafting"),
+    KnownGood("wool", WOOL_COLOURS.map { "minecraft:${it}_wool" }, "Shearing"),
+    KnownGood("bowl", listOf("minecraft:bowl"), "Crafting"),
+    KnownGood("fire_charge", listOf("minecraft:fire_charge"), "Crafting"),
+    KnownGood("susp_stew", listOf("minecraft:suspicious_stew"), "Crafting"),
+    KnownGood("copper_ingot", listOf("minecraft:copper_ingot"), "Blasting"),
+)
+
+private data class SweepGroup(val label: String, val types: List<SourceType>, val values: List<Double>)
+
+private val CRAFTING_TYPES = listOf(
+    SourceType.RecipeTypes.CRAFTING_SHAPED, SourceType.RecipeTypes.CRAFTING_SHAPELESS,
+    SourceType.RecipeTypes.CRAFTING_TRANSMUTE, SourceType.RecipeTypes.CRAFTING_IMBUE,
+)
+
+private val TRADE_PROFESSIONS = listOf(
+    SourceType.TradeTypes.ARMORER, SourceType.TradeTypes.BUTCHER, SourceType.TradeTypes.CARTOGRAPHER,
+    SourceType.TradeTypes.CLERIC, SourceType.TradeTypes.FARMER, SourceType.TradeTypes.FISHERMAN,
+    SourceType.TradeTypes.FLETCHER, SourceType.TradeTypes.LEATHERWORKER, SourceType.TradeTypes.LIBRARIAN,
+    SourceType.TradeTypes.MASON, SourceType.TradeTypes.SHEPHERD, SourceType.TradeTypes.SMITH,
+    SourceType.TradeTypes.TOOLSMITH, SourceType.TradeTypes.WEAPONSMITH,
+)
+
+private val SWEEP_GROUPS: List<SweepGroup> = listOf(
+    SweepGroup("crafting", CRAFTING_TYPES, listOf(0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1.0, 2.0)),
+    SweepGroup("stonecutting", listOf(SourceType.RecipeTypes.STONECUTTING), listOf(0.01, 0.03, 0.05, 0.06, 0.1, 0.2, 0.5, 1.0)),
+    SweepGroup("smithing", listOf(SourceType.RecipeTypes.SMITHING_TRANSFORM), listOf(0.05, 0.1, 0.2, 0.5, 1.0, 3.0)),
+    SweepGroup("smelting", listOf(SourceType.RecipeTypes.SMELTING), listOf(0.02, 0.05, 0.1, 0.17, 0.3, 0.5, 1.0, 2.0)),
+    SweepGroup("blasting", listOf(SourceType.RecipeTypes.BLASTING), listOf(0.02, 0.05, 0.08, 0.12, 0.17, 0.3, 0.5, 1.0)),
+    SweepGroup("smoking", listOf(SourceType.RecipeTypes.SMOKING), listOf(0.02, 0.05, 0.08, 0.12, 0.17, 0.3, 0.5, 1.0)),
+    SweepGroup("campfire", listOf(SourceType.RecipeTypes.CAMPFIRE_COOKING), listOf(0.1, 0.25, 0.5, 1.0, 2.0, 5.0)),
+    SweepGroup("block", listOf(SourceType.LootTypes.BLOCK), listOf(0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1.0, 2.0)),
+    SweepGroup("block_interact", listOf(SourceType.LootTypes.BLOCK_INTERACT), listOf(0.01, 0.05, 0.1, 0.3, 0.5, 1.0, 2.0)),
+    SweepGroup("collect", listOf(SourceType.MechanicTypes.COLLECT), listOf(0.01, 0.05, 0.1, 0.3, 0.5, 1.0, 2.0)),
+    SweepGroup("in_world_transform", listOf(SourceType.MechanicTypes.IN_WORLD_TRANSFORM), listOf(0.02, 0.05, 0.1, 0.3, 0.5, 1.0, 2.0)),
+    SweepGroup("entity", listOf(SourceType.LootTypes.ENTITY), listOf(0.1, 0.25, 0.5, 1.0, 2.0, 5.0, 10.0)),
+    SweepGroup("entity_interact", listOf(SourceType.LootTypes.ENTITY_INTERACT), listOf(0.05, 0.1, 0.3, 0.5, 1.0, 2.0, 5.0)),
+    SweepGroup("shearing", listOf(SourceType.LootTypes.SHEARING), listOf(0.02, 0.05, 0.1, 0.2, 0.4, 0.6, 1.0, 2.0)),
+    SweepGroup("chest", listOf(SourceType.LootTypes.CHEST), listOf(0.25, 0.5, 1.0, 2.0, 3.0, 5.0, 8.0, 10.0, 15.0, 20.0, 30.0, 60.0, 120.0)),
+    SweepGroup("archaeology", listOf(SourceType.LootTypes.ARCHAEOLOGY), listOf(1.0, 5.0, 10.0, 20.0, 40.0, 90.0)),
+    SweepGroup("equipment", listOf(SourceType.LootTypes.EQUIPMENT), listOf(0.5, 1.0, 2.0, 5.0, 10.0, 20.0, 60.0)),
+    SweepGroup("gift", listOf(SourceType.LootTypes.GIFT), listOf(1.0, 5.0, 10.0, 20.0, 30.0, 60.0, 120.0)),
+    SweepGroup("fishing", listOf(SourceType.LootTypes.FISHING), listOf(0.25, 0.5, 1.0, 2.0, 5.0, 10.0, 20.0)),
+    SweepGroup("barter", listOf(SourceType.LootTypes.BARTER), listOf(0.1, 0.25, 0.5, 1.0, 2.0, 5.0, 10.0)),
+    SweepGroup("trades", TRADE_PROFESSIONS, listOf(0.25, 0.5, 1.0, 2.0, 3.0, 5.0, 8.0, 15.0, 30.0)),
+    SweepGroup("wandering_trader", listOf(SourceType.TradeTypes.WANDERING_TRADER), listOf(0.5, 1.0, 3.0, 5.0, 8.0, 15.0, 30.0, 60.0)),
+)
+
+private fun pickAll(graph: ItemSourceGraph, subjects: List<MinecraftId>, table: EffortTable): Pair<UnitCostModel, Picks> {
+    val model = UnitCostModel(graph, effort = table)
+    val picks = LinkedHashMap<String, SourceNode>()
+    for (item in subjects) model.best(item)?.let { picks[item.id] = it }
+    return model to picks
+}
+
+private fun nodeFor(graph: ItemSourceGraph, key: String): SourceNode? =
+    if (key.isEmpty()) null
+    else graph.getSourceNode(key.substringBeforeLast(':'), key.substringAfterLast(':'))
+
+private fun runSweep(
+    graph: ItemSourceGraph,
+    subjects: List<MinecraftId>,
+    shipped: Map<String, String>,
+    projects: Map<Int, Set<String>>,
+    filter: String?,
+    customValues: List<Double>?,
+    baseTable: EffortTable,
+    detail: Boolean,
+) {
+    val (_, basePicks) = pickAll(graph, subjects, baseTable)
+
+    println()
+    println("Sweeping ${subjects.size} multi-source items. Columns:")
+    println("  agree   selections matching the shipped scorer")
+    println("  tie     disagreements where both picks cost the same — only the tie-break differs")
+    println("  moved   selections that differ from the current table's own picks")
+    println("  chest   items whose cheapest route is structure loot")
+    println("  trade   items whose cheapest route is a villager or wandering trade")
+    println("  fixes   known-good selections lost at this value (ok = all held)")
+    projects.forEach { (id, ids) -> println("  p$id     agreement over project $id's ${ids.size} multi-source items") }
+
+    val groups = SWEEP_GROUPS.filter { g ->
+        filter == null || g.label.contains(filter) || g.types.any { it.id.contains(filter) }
+    }
+    if (groups.isEmpty()) {
+        System.err.println("No sweep group matches '$filter'. Known: ${SWEEP_GROUPS.joinToString { it.label }}")
+        return
+    }
+
+    for (group in groups) {
+        val current = baseTable.of(group.types.first())
+        println()
+        println("=== ${group.label}  (current ${fmtValue(current)} min/attempt) ===")
+        var previous: Picks? = null
+        for (value in (customValues ?: group.values).sorted()) {
+            var table = baseTable
+            for (type in group.types) table = table.with(type, value)
+            val (model, picks) = pickAll(graph, subjects, table)
+            val label = fmtValue(value) + if (value == current) " *" else "  "
+            println(sweepRow(label, graph, subjects, shipped, projects, basePicks, model, picks))
+            // The decisions that actually turn on this number, named. A row that reports
+            // "moved 3" without saying which three is a number you cannot argue with.
+            if (detail && previous != null) {
+                val changed = subjects.filter { picks[it.id]?.getKey() != previous!![it.id]?.getKey() }
+                changed.take(24).forEach { item ->
+                    println(
+                        "        %-30s %s -> %s".format(
+                            item.id.substringAfter(':'),
+                            previous!![item.id]?.getMethodLabel() ?: "none",
+                            picks[item.id]?.getMethodLabel() ?: "none",
+                        )
+                    )
+                }
+                if (changed.size > 24) println("        ... and ${changed.size - 24} more")
+            }
+            previous = picks
+        }
+    }
+}
+
+private fun sweepRow(
+    label: String,
+    graph: ItemSourceGraph,
+    subjects: List<MinecraftId>,
+    shipped: Map<String, String>,
+    projects: Map<Int, Set<String>>,
+    base: Picks,
+    model: UnitCostModel,
+    picks: Picks,
+): String {
+    val agree = subjects.count { picks[it.id]?.getKey() == shipped[it.id] }
+    val moved = subjects.count { picks[it.id]?.getKey() != base[it.id]?.getKey() }
+    val chest = picks.values.count { it.sourceType == SourceType.LootTypes.CHEST }
+    val trade = picks.values.count { it.sourceType.isTrade() }
+
+    // A disagreement where both picks cost the same is not a disagreement about cost — the
+    // two models are breaking a tie differently. Counted separately so a sweep cannot look
+    // like it moved a decision when all it did was nudge a tie one way.
+    val tied = subjects.count { item ->
+        val mine = picks[item.id] ?: return@count false
+        if (mine.getKey() == shipped[item.id]) return@count false
+        val theirs = nodeFor(graph, shipped[item.id] ?: "") ?: return@count false
+        val a = model.costOf(mine, item)
+        val b = model.costOf(theirs, item)
+        b < UnitCostModel.UNREACHABLE && kotlin.math.abs(a - b) <= 1e-9 + 1e-6 * kotlin.math.max(a, b)
+    }
+
+    val broken = KNOWN_GOOD.filter { good ->
+        good.items.any { id -> picks[id]?.getMethodLabel()?.let { it != good.method } == true }
+    }.joinToString(",") { it.name }
+
+    val projectCols = projects.entries.joinToString("  ") { (id, ids) ->
+        "p$id %3d/%3d".format(ids.count { picks[it]?.getKey() == shipped[it] }, ids.size)
+    }
+
+    return "  %-8s agree %4d (%5.1f%%)  tie %3d  moved %4d  chest %3d  trade %3d  %s  fixes %s".format(
+        label, agree, 100.0 * agree / subjects.size, tied, moved, chest, trade, projectCols,
+        if (broken.isEmpty()) "ok" else broken
+    )
+}
+
+private fun fmtValue(v: Double): String = if (v >= 1) "%.0f".format(v) else "%.2f".format(v)
+
+private suspend fun loadProjectItems(projectId: Int): Set<String> =
+    (projectItemsQuery.process(projectId) as? Result.Success)?.value?.toSet().orEmpty()
+
+private val projectItemsQuery = DatabaseSteps.query<Int, List<String>>(
+    sql = SafeSQL.select("SELECT DISTINCT item_id FROM resource_gathering WHERE project_id = ?"),
+    parameterSetter = { ps, id -> ps.setInt(1, id) },
+    resultMapper = { rs -> buildList { while (rs.next()) add(rs.getString("item_id")) } }
 )
