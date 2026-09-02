@@ -2,8 +2,12 @@ package app.mcorg.cli
 
 import app.mcorg.config.Database
 import app.mcorg.domain.model.minecraft.MinecraftTag
+import app.mcorg.domain.model.resources.ResourceSource
 import app.mcorg.engine.model.ItemSourceGraph
+import app.mcorg.engine.model.SourceNode
 import app.mcorg.engine.plan.EffortTable
+import app.mcorg.engine.plan.PlanSelector
+import app.mcorg.engine.plan.PlanTarget
 import app.mcorg.engine.plan.ScoreDiagnostics
 import app.mcorg.engine.plan.UnitCostModel
 import app.mcorg.pipeline.DatabaseSteps
@@ -55,6 +59,7 @@ private suspend fun run(args: List<String>): Int {
     var worldId: Int? = null
     var demand = 64L
     var verbose = false
+    val modes = mutableSetOf<String>()
     val only = mutableListOf<String>()
 
     for (arg in args) {
@@ -63,6 +68,7 @@ private suspend fun run(args: List<String>): Int {
             arg.startsWith("world=") -> worldId = arg.substringAfter('=').toIntOrNull()
             arg.startsWith("demand=") -> demand = arg.substringAfter('=').toLongOrNull() ?: demand
             arg == "verbose" -> verbose = true
+            arg in AUDIT_MODES -> modes.add(arg)
             else -> only.add(if (':' in arg) arg else "minecraft:$arg")
         }
     }
@@ -80,6 +86,18 @@ private suspend fun run(args: List<String>): Int {
 
     println("Cost model vs SelectionScorer · version $resolvedVersion · demand $demand")
     println("Sources: ${graph.getSourceCount()}, items: ${graph.getItemCount()}")
+
+    if (modes.isNotEmpty()) {
+        if ("dist" in modes) distribution(graph, model)
+        if ("audit" in modes) audit(graph, model)
+        if ("shuffle" in modes) shuffle(graph, model)
+        if ("why" in modes) why(graph, model, only)
+        if ("gate" in modes) gate(graph, model)
+        if ("placed" in modes) placed(graph, model)
+        if ("converge" in modes) converge(graph, model)
+        if ("selector" in modes) selectorGap(graph, model, demand, only, verbose)
+        return 0
+    }
 
     val subjects = graph.getAllItems()
         .map { it.item }
@@ -236,3 +254,305 @@ private val distinctVersionsQuery = DatabaseSteps.query<Unit, List<String>>(
     parameterSetter = { _, _ -> },
     resultMapper = { rs -> buildList { while (rs.next()) add(rs.getString("version")) } }
 )
+
+// ---------------------------------------------------------------------------
+// Audit modes (read-only), added while adversarially reviewing the sketch. Each
+// answers one "is the model — or this harness — lying?" question.
+// ---------------------------------------------------------------------------
+
+private val AUDIT_MODES = setOf("dist", "audit", "shuffle", "why", "selector", "gate", "placed", "converge")
+
+/** Local copy of the engine's internal predicate — mc-web cannot see `SelectionScorer`. */
+private fun isSelfBlockLootHere(item: app.mcorg.domain.model.minecraft.MinecraftId, source: SourceNode): Boolean {
+    if (source.sourceType != ResourceSource.SourceType.LootTypes.BLOCK) return false
+    return source.filename.substringAfterLast('/').substringBeforeLast('.') == item.id.substringAfterLast(':')
+}
+
+/**
+ * Attack on the self-block-loot gate. For every item whose own block drop is suppressed
+ * because *some* recipe exists, what would breaking the block have cost, and what is the
+ * model charging instead? A big gap is the gate doing the acacia_log mistake in reverse.
+ */
+private fun gate(graph: ItemSourceGraph, model: UnitCostModel) {
+    println("\n=== items the self-block-loot gate overcharges ===")
+    println("  (gate fires => own block drop suppressed; 'raw' is what breaking it would have cost)")
+    val rows = mutableListOf<Triple<Double, String, String>>()
+    for (node in graph.getAllItems()) {
+        val item = node.item
+        if (item is MinecraftTag) continue
+        val sources = graph.getSourcesForItem(item)
+        val constructive = sources.filter { it.sourceType.isConstructive() }
+        if (constructive.isEmpty()) continue
+        val self = sources.filter { isSelfBlockLootHere(item, it) }
+        if (self.isEmpty()) continue
+        val raw = self.minOf { s ->
+            val y = graph.getExpectedYield(s, node)?.takeIf { it > 0.0 }
+                ?: graph.getProducedQuantity(s, node).coerceAtLeast(1).toDouble()
+            EffortTable.DEFAULT.of(s.sourceType) / y
+        }
+        val settled = model.cost[item.id] ?: Double.NaN
+        if (settled.isNaN() || settled <= raw * 1.0000001) continue
+        val via = model.best(item)?.let { "${it.sourceType.id.substringAfter(':')} ${it.filename}" } ?: "nothing"
+        rows += Triple(
+            if (settled >= UnitCostModel.UNREACHABLE) Double.MAX_VALUE else settled / raw,
+            item.id,
+            "raw %s -> charged %s, via %s; constructive siblings: %s".format(
+                fmt(raw), fmt(settled), via,
+                constructive.joinToString(", ") { it.sourceType.id.substringAfter(':') + " " + it.filename.substringAfterLast('/') }.take(110)
+            )
+        )
+    }
+    println("  ${rows.size} items")
+    rows.sortedByDescending { it.first }.forEach { println("  %6.1fx  %-36s %s".format(it.first, it.second, it.third)) }
+}
+
+/**
+ * The other half of the same hole: block loot from a block the player had to *build*, where
+ * the name test cannot see it (break an ender chest for obsidian, a bookshelf for books).
+ * Lists every item whose chosen source is block loot from a block that is itself craftable.
+ */
+private fun placed(graph: ItemSourceGraph, model: UnitCostModel) {
+    println("\n=== chosen source is 'break a block that is itself crafted' ===")
+    val craftable = graph.getAllItems().map { it.item }
+        .filter { it !is MinecraftTag }
+        .filter { i -> graph.getSourcesForItem(i).any { it.sourceType.isRecipe() } }
+        .associateBy { it.id.substringAfterLast(':') }
+
+    for (node in graph.getAllItems().sortedBy { it.itemId }) {
+        val item = node.item
+        if (item is MinecraftTag) continue
+        val best = model.best(item) ?: continue
+        if (best.sourceType != ResourceSource.SourceType.LootTypes.BLOCK) continue
+        val stem = best.filename.substringAfterLast('/').substringBeforeLast('.')
+        if (stem == item.id.substringAfterLast(':')) continue // already the gate's business
+        val block = craftable[stem] ?: continue
+        println(
+            "  %-34s %s  (breaking %s, itself craftable at %s)".format(
+                item.id.substringAfter(':'), fmt(model.cost[item.id] ?: Double.NaN), stem,
+                fmt(model.cost[block.id] ?: Double.NaN)
+            )
+        )
+    }
+}
+
+/** Does the relaxation actually settle, and does the pass budget change any answer? */
+private fun converge(graph: ItemSourceGraph, model: UnitCostModel) {
+    println("\n=== convergence ===")
+    val reference = UnitCostModel(graph, maxPasses = 20000)
+    println("  maxPasses=20000: passes ${reference.passesUsed}, converged=${reference.converged}")
+    for (budget in listOf(4, 8, 16, 32, 64, 128, 512, 4096)) {
+        val m = UnitCostModel(graph, maxPasses = budget)
+        var moved = 0
+        var worstRel = 0.0
+        var worst = ""
+        var picks = 0
+        for (node in graph.getAllItems()) {
+            val a = m.cost[node.item.id] ?: continue
+            val b = reference.cost[node.item.id] ?: continue
+            if (kotlin.math.abs(a - b) > 1e-9 * kotlin.math.max(1.0, b)) {
+                moved++
+                val rel = (a - b) / kotlin.math.max(1e-12, b)
+                if (rel > worstRel) { worstRel = rel; worst = node.item.id }
+            }
+            if (node.item !is MinecraftTag && m.best(node.item)?.getKey() != reference.best(node.item)?.getKey()) picks++
+        }
+        println(
+            "  budget %5d: passes %5d converged=%-5b  costs differing from reference %4d (worst +%.3f%% on %s), picks differing %d"
+                .format(budget, m.passesUsed, m.converged, moved, 100 * worstRel, worst, picks)
+        )
+    }
+}
+
+/** Cost distribution plus the extremes, where modelling bugs surface as absurd numbers. */
+private fun distribution(graph: ItemSourceGraph, model: UnitCostModel) {
+    val priced = model.cost.filterValues { it < UnitCostModel.UNREACHABLE }
+    val unreachable = model.cost.filterValues { it >= UnitCostModel.UNREACHABLE }.keys.sorted()
+    println("\n=== cost distribution ===")
+    println("  priced ${priced.size}, unreachable ${unreachable.size} of ${model.cost.size}")
+    val buckets = listOf(0.0, 0.02, 0.05, 0.1, 0.25, 0.5, 1.0, 2.0, 5.0, 15.0, 60.0, 240.0, 1e6)
+    for (i in 0 until buckets.size - 1) {
+        val n = priced.values.count { it >= buckets[i] && it < buckets[i + 1] }
+        if (n > 0) println("  %8.2f .. %-8.2f  %4d".format(buckets[i], buckets[i + 1], n))
+    }
+    println("\n  --- 40 cheapest ---")
+    priced.entries.sortedBy { it.value }.take(40)
+        .forEach { println("    %-44s %s".format(it.key, fmt(it.value))) }
+    println("\n  --- 40 dearest ---")
+    priced.entries.sortedByDescending { it.value }.take(40)
+        .forEach { println("    %-44s %s".format(it.key, fmt(it.value))) }
+    println("\n  --- unreachable, though the graph does have sources for them ---")
+    unreachable.filter { id ->
+        graph.getItemNodesByStringId(id).any { graph.getSourcesForItem(it.item).isNotEmpty() }
+    }.forEach { id ->
+        val kinds = graph.getItemNodesByStringId(id)
+            .flatMap { graph.getSourcesForItem(it.item) }
+            .joinToString(", ") { it.getKey() }
+        println("    %-44s %s".format(id, kinds.take(150)))
+    }
+}
+
+/** Convergence, fixpoint consistency between the relaxation and the public accessor, ties. */
+private fun audit(graph: ItemSourceGraph, model: UnitCostModel) {
+    model.cost // force the lazy relaxation
+    println("\n=== relaxation audit ===")
+    println("  passes used ${model.passesUsed}, converged=${model.converged}")
+
+    var inconsistent = 0
+    var tied = 0
+    for (node in graph.getAllItems()) {
+        val item = node.item
+        if (item is MinecraftTag) continue
+        val settled = model.cost[item.id] ?: continue
+        val sources = graph.getSourcesForItem(item)
+        if (sources.isEmpty()) continue
+        val recomputed = sources.minOf { model.costOf(it, item) }
+        if (kotlin.math.abs(recomputed - settled) > 1e-9 * kotlin.math.max(1.0, settled)) {
+            if (inconsistent < 25) {
+                println("  MISMATCH %-34s settled %s, min-over-sources %s".format(item.id, fmt(settled), fmt(recomputed)))
+            }
+            inconsistent++
+        }
+        val finite = sources.filter { model.costOf(it, item) < UnitCostModel.UNREACHABLE }
+        if (finite.size > 1) {
+            val lo = finite.minOf { model.costOf(it, item) }
+            if (finite.count { kotlin.math.abs(model.costOf(it, item) - lo) <= 1e-12 } > 1) tied++
+        }
+    }
+    println("  items whose settled cost != min over their own sources: $inconsistent")
+    println("  items whose cheapest source is an exact tie between >=2 sources: $tied")
+    println("    (best() breaks those by graph iteration order — the model declares no tie-break)")
+
+    val allTags = graph.getAllItems().map { it.item }.filterIsInstance<MinecraftTag>()
+    val tagsWithSources = allTags.filter { graph.getSourcesForItem(it).isNotEmpty() }
+    println("  tag nodes that also carry producing sources: ${tagsWithSources.size}")
+    tagsWithSources.take(10).forEach { println("    ${it.id}") }
+
+    val nested = allTags.filter { tag -> tag.content.any { it is MinecraftTag } }
+    println("  tags with a nested tag member: ${nested.size}")
+    val missingMembers = allTags.filter { tag -> tag.content.any { m -> model.cost[m.id] == null } }
+    println("  tags with a member absent from the cost map (silently unreachable): ${missingMembers.size}")
+    missingMembers.take(10).forEach { tag ->
+        println("    ${tag.id} -> ${tag.content.filter { model.cost[it.id] == null }.take(4).map { it.id }}")
+    }
+}
+
+/** Does any answer depend on the order [UnitCostModel] happens to sweep items in? */
+private fun shuffle(graph: ItemSourceGraph, model: UnitCostModel) {
+    println("\n=== order sensitivity ===")
+    val baseCost = model.cost
+    val items = graph.getAllItems().toList()
+    val baseBest = items.map { it.item }.filter { it !is MinecraftTag }
+        .associate { it.id to model.best(it)?.getKey() }
+    println("  base: passes ${model.passesUsed}, converged=${model.converged}")
+
+    var costDrift = 0
+    var pickDrift = 0
+    val examples = mutableListOf<String>()
+    repeat(5) { seed ->
+        val permuted = UnitCostModel(graph, itemOrder = items.shuffled(kotlin.random.Random(seed.toLong())))
+        for (node in items) {
+            val a = baseCost[node.item.id] ?: continue
+            val b = permuted.cost[node.item.id] ?: continue
+            if (kotlin.math.abs(a - b) > 1e-9 * kotlin.math.max(1.0, a)) {
+                costDrift++
+                if (examples.size < 25) examples += "cost ${node.item.id}: ${fmt(a)} vs ${fmt(b)} (seed $seed)"
+            }
+        }
+        for (node in items) {
+            val item = node.item
+            if (item is MinecraftTag) continue
+            val a = baseBest[item.id] ?: continue
+            val b = permuted.best(item)?.getKey() ?: continue
+            if (a != b) {
+                pickDrift++
+                if (examples.size < 25) examples += "pick ${item.id}: $a vs $b (seed $seed)"
+            }
+        }
+        println("  seed $seed: passes ${permuted.passesUsed}, converged=${permuted.converged}")
+    }
+    println("  cost values that moved under a permuted sweep: $costDrift")
+    println("  best() picks that moved under a permuted sweep: $pickDrift")
+    examples.forEach { println("    $it") }
+}
+
+/** Per-source cost breakdown for the named items — the "why is it that number" view. */
+private fun why(graph: ItemSourceGraph, model: UnitCostModel, only: List<String>) {
+    println("\n=== per-source costs ===")
+    for (id in only) {
+        val node = graph.getItemNodesByStringId(id).firstOrNull { it.item !is MinecraftTag }
+            ?: graph.getItemNodesByStringId(id).firstOrNull()
+        if (node == null) { println("  $id: not in graph"); continue }
+        val item = node.item
+        println("  $id  settled ${fmt(model.cost[id] ?: Double.NaN)}  (tag=${item is MinecraftTag})")
+        if (item is MinecraftTag) {
+            item.content.sortedBy { model.cost[it.id] ?: Double.MAX_VALUE }.take(8).forEach {
+                println("      member %-40s %s".format(it.id, fmt(model.cost[it.id] ?: Double.NaN)))
+            }
+        }
+        graph.getSourcesForItem(item).sortedBy { model.costOf(it, item) }.forEach { s ->
+            val req = graph.getRequiredItems(s).joinToString(", ") {
+                "${graph.getRequiredQuantity(s, it)}x${it.itemId.substringAfter(':')}@${fmt(model.cost[it.itemId] ?: Double.NaN)}"
+            }
+            println(
+                "      %-14s q=%d ey=%-7s cost %-13s <- %s".format(
+                    s.sourceType.id.substringAfter(':').take(14),
+                    graph.getProducedQuantity(s, node),
+                    graph.getExpectedYield(s, node)?.let { "%.4f".format(it) } ?: "-",
+                    fmt(model.costOf(s, item)),
+                    req.ifEmpty { "(terminal)" }
+                )
+            )
+            println("          ${s.filename}")
+        }
+    }
+}
+
+/**
+ * The harness's own baseline, checked. [ScoreDiagnostics.report].candidates.first() is
+ * documented as "the scorer's favourite", not what the planner commits to — [PlanSelector]
+ * applies structural feasibility rejection and its own demand propagation afterwards. This
+ * runs the real selector, one target at a time, and reports how often the two differ.
+ */
+private fun selectorGap(
+    graph: ItemSourceGraph,
+    model: UnitCostModel,
+    demand: Long,
+    only: List<String>,
+    verbose: Boolean,
+) {
+    println("\n=== ScoreDiagnostics.first() vs what PlanSelector actually picks ===")
+    val subjects = graph.getAllItems().map { it.item }
+        .filter { it !is MinecraftTag }
+        .filter { graph.getSourcesForItem(it).size > 1 }
+        .filter { only.isEmpty() || it.id in only }
+        .sortedBy { it.id }
+
+    var same = 0
+    var differ = 0
+    var noPick = 0
+    var flipsVerdict = 0
+    val rows = mutableListOf<String>()
+    for (item in subjects) {
+        val scorerPick = ScoreDiagnostics.report(graph, item.id, demand).candidates.firstOrNull()?.sourceKey ?: continue
+        val dag = PlanSelector.select(graph, listOf(PlanTarget(item, demand)))
+        val selected = dag.nodes[dag.roots[item.id] ?: item.id]
+        val realPick = selected?.source?.getKey()
+        if (realPick == null) {
+            noPick++
+            rows += "  NO PICK   %-34s status=%s (scorer said %s)".format(item.id, selected?.status, scorerPick)
+            continue
+        }
+        if (realPick == scorerPick) { same++; continue }
+        differ++
+        val proposed = model.best(item)?.getKey()
+        val verdictFlip = (proposed == realPick) != (proposed == scorerPick)
+        if (verdictFlip) flipsVerdict++
+        rows += "  %-30s scorer=%-44s selector=%-44s cost=%s%s".format(
+            item.id.substringAfter(':'), scorerPick, realPick, proposed,
+            if (verdictFlip) "   <-- harness verdict FLIPS" else ""
+        )
+    }
+    println("  compared ${same + differ + noPick}: same $same, differ $differ, selector picked nothing $noPick")
+    println("  disagreements whose agree/disagree verdict FLIPS with the real selector as baseline: $flipsVerdict")
+    rows.take(if (verbose) rows.size else 80).forEach { println(it) }
+}

@@ -70,10 +70,24 @@ class UnitCostModel(
      * the loop exits early the moment a pass changes nothing.
      */
     private val maxPasses: Int = 64,
+    /**
+     * Diagnostics only: fixes the order [relax] sweeps items in. Null uses the graph's own
+     * order, which is what production would do. Supplying a permutation is how the audit
+     * checks whether any answer depends on that order.
+     */
+    private val itemOrder: List<app.mcorg.engine.model.ItemNode>? = null,
 ) {
 
     /** Minutes per unit for every item and tag in the graph. [UNREACHABLE] where nothing produces it. */
     val cost: Map<String, Double> by lazy { relax() }
+
+    /** Diagnostics: how many sweeps [relax] needed. Equal to [maxPasses] means it never settled. */
+    var passesUsed: Int = -1
+        private set
+
+    /** Diagnostics: true when a sweep changed nothing, i.e. the answer is a real fixpoint. */
+    var converged: Boolean = false
+        private set
 
     /** The cheapest source for [item], or null when nothing produces it at a finite cost. */
     fun best(item: MinecraftId): SourceNode? =
@@ -140,10 +154,11 @@ class UnitCostModel(
 
     private fun relax(): Map<String, Double> {
         val c = HashMap<String, Double>()
-        val items = graph.getAllItems()
+        val items = itemOrder ?: graph.getAllItems().toList()
         for (node in items) c[node.item.id] = if (node.item.id in supplied) 0.0 else UNREACHABLE
 
-        repeat(maxPasses) {
+        repeat(maxPasses) { pass ->
+            passesUsed = pass + 1
             var changed = false
             for (node in items) {
                 val item = node.item
@@ -163,7 +178,10 @@ class UnitCostModel(
                     changed = true
                 }
             }
-            if (!changed) return c
+            if (!changed) {
+                converged = true
+                return c
+            }
         }
         return c
     }
