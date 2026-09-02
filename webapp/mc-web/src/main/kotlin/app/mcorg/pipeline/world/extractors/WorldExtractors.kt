@@ -21,6 +21,7 @@ fun ResultSet.toWorld() = World(
     createdAt = getTimestamp("created_at").toInstant().atZone(java.time.ZoneOffset.UTC),
     updatedAt = getTimestamp("updated_at").toInstant().atZone(java.time.ZoneOffset.UTC),
     farmScaleThreshold = getInt("farm_scale_threshold"),
+    preferredWoodSpecies = getString("preferred_wood_species"),
     projectTally = toProjectTally(),
 )
 

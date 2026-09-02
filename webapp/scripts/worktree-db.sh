@@ -126,4 +126,55 @@ echo "worktree-db: running Flyway migrations against the worktree branch..."
     mvn -q flyway:migrate -pl mc-web
 )
 
+
+# --- Seed the demo sign-in user, with access to every world -----------------
+# Without this, the first local sign-in in a fresh worktree lands you on "You
+# don't have permission to access this world" for every world in the fork.
+#
+# Why it happens: the Neon branch inherits production's worlds and their
+# world_members rows, but not *your* local user — DemoSignInPipeline mints one
+# on first sign-in, and a brand-new user is a member of nothing. Worse, the
+# role check is cached per process, so granting access afterwards needs a
+# server restart to take effect.
+#
+# Why it can be done up front: the demo profile is deterministic.
+# DemoSignInPipeline derives its uuid as "${DEMO_USER}-uuid", and
+# CreateUserIfNotExistsStep looks the user up by minecraft_profiles.uuid — so
+# seeding that row now means the first sign-in *finds* this user rather than
+# creating another, with membership already in place and nothing stale cached.
+#
+# Both statements are idempotent (minecraft_profiles.uuid is UNIQUE), so a
+# re-run is a no-op, and a world added later is picked up by re-running.
+DEMO_USER="$(grep -E '^DEMO_USER=' "$ENV_FILE" | tail -n1 | cut -d= -f2- || true)"
+if [ -z "$DEMO_USER" ]; then
+  echo "worktree-db: DEMO_USER unset in local.env — skipping demo-user seeding."
+elif ! command -v psql >/dev/null 2>&1; then
+  echo "worktree-db: psql not found — skipping demo-user seeding (sign-in will have no world access)."
+else
+  PSQL_URL="postgresql://${DB_ROLE}:${DB_PASSWORD}@${DB_HOST}/${DB_NAME}?sslmode=require"
+  psql "$PSQL_URL" -q -v ON_ERROR_STOP=1 \
+    -v uuid="${DEMO_USER}-uuid" -v name="$DEMO_USER" <<'SQL'
+WITH new_user AS (
+    INSERT INTO users (created_at, updated_at)
+    SELECT now(), now()
+    WHERE NOT EXISTS (SELECT 1 FROM minecraft_profiles WHERE uuid = :'uuid')
+    RETURNING id
+)
+INSERT INTO minecraft_profiles (user_id, uuid, username)
+SELECT id, :'uuid', :'name' FROM new_user;
+
+-- world_role 0 is Role.OWNER (mc-domain/user/Role.kt) — a worktree DB is a
+-- disposable fork, so the useful default is "can touch everything".
+INSERT INTO world_members (user_id, world_id, display_name, world_role, pinned)
+SELECT p.user_id, w.id, :'name', 0, false
+FROM minecraft_profiles p
+CROSS JOIN world w
+WHERE p.uuid = :'uuid'
+  AND NOT EXISTS (
+      SELECT 1 FROM world_members m WHERE m.world_id = w.id AND m.user_id = p.user_id
+  );
+SQL
+  echo "worktree-db: demo user '${DEMO_USER}' seeded with owner access to every world."
+fi
+
 echo "worktree-db: ready. Neon branch '${NEON_BRANCH}' is isolated to this worktree."

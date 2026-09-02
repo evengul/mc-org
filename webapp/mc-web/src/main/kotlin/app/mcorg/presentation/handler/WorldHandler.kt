@@ -54,6 +54,7 @@ import app.mcorg.pipeline.world.handleDeleteWorld
 import app.mcorg.pipeline.world.handleTogglePin
 import app.mcorg.pipeline.world.settings.general.handleUpdateWorldDescription
 import app.mcorg.pipeline.world.settings.general.handleUpdateFarmScaleThreshold
+import app.mcorg.pipeline.world.settings.general.handleUpdatePreferredWoodSpecies
 import app.mcorg.pipeline.world.settings.general.handleGetWorldVersionImpact
 import app.mcorg.pipeline.world.settings.general.handleUpdateWorldName
 import app.mcorg.pipeline.world.settings.general.handleUpdateWorldVersion
@@ -318,6 +319,9 @@ class WorldHandler {
                     }
                     patch("/farm-scale-threshold") {
                         call.handleUpdateFarmScaleThreshold()
+                    }
+                    patch("/preferred-wood-species") {
+                        call.handleUpdatePreferredWoodSpecies()
                     }
                     method(HttpMethod.Delete) {
                         install(WorldOwnerPlugin)

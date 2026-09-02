@@ -26,16 +26,21 @@ data class DemandFingerprint(val value: String) {
          * Order is normalised so two runs over the same state agree. The world's farm supply is
          * in here as well as the project's own rows, which means marking any farm DONE
          * invalidates every other project's stored demand — correct, since that is exactly when
-         * their chains stop expanding past the supplied item.
+         * their chains stop expanding past the supplied item. The world's wood species is in for
+         * the same reason: changing which tree you farm changes what every wood tag resolves to.
          */
         fun of(
             worldVersion: String,
             targets: List<Triple<String, Long, String?>>,
             supplied: Map<String, String>,
             overrides: List<Pair<String, String>>,
+            woodSpecies: String? = null,
         ): DemandFingerprint {
             val payload = buildString {
-                append("v1|").append(worldVersion).append('\n')
+                // v2: the world's wood species joined the inputs (MCO-409). Bumped rather than
+                // appended silently — every stored fingerprint predating it was derived without
+                // one, and should re-derive rather than compare equal to a v2 run that has one.
+                append("v2|").append(worldVersion).append('|').append(woodSpecies ?: "-").append('\n')
                 targets.sortedBy { it.first }.forEach { (id, amount, source) ->
                     append(id).append('=').append(amount).append(':').append(source ?: "-").append('\n')
                 }

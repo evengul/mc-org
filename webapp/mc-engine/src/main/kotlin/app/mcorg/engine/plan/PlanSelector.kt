@@ -243,12 +243,42 @@ object PlanSelector {
             return (sameKind ?: matches.first()).item
         }
 
-        /** Applies a [PlanOverrides.tagMember] choice, validated against the tag's members. */
+        /**
+         * Turns a tag into the member that stands in for it, or leaves it a tag (and therefore an
+         * [PlanNodeStatus.OPEN_TAG] question) when there is nothing to stand in for it.
+         *
+         * Three ways a tag gets answered, most specific first:
+         *
+         * 1. **The user picked a member** ([PlanOverrides.tagMember]), validated against the tag's
+         *    contents. An explicit pick always wins — that is what makes the two silent answers
+         *    below safe.
+         * 2. **The world declared which wood it farms** ([PlanContext.woodSpecies]). `#planks`,
+         *    `#wooden_slabs` and `#logs` are three askings of one question, and this answers all
+         *    of them — see [MemberPrior.speciesMember].
+         * 3. **The members are one material in different appearances** — `oak_log` / `oak_wood` /
+         *    `stripped_oak_log` / `stripped_oak_wood`, or plain / cut / chiseled sandstone. Every
+         *    open tag in a plan is a recipe ingredient (see [MemberPrior.canonicalFormMember]),
+         *    and a recipe cannot tell those apart, so asking is asking about nothing.
+         *
+         * The order matters where a tag is both: `#logs` varies by species *and* form, so a
+         * declared species narrows it to one tree and form then picks the plain log. A tag
+         * already specific to one species — `#oak_logs` — offers no match for a spruce
+         * preference, and correctly falls through to the form answer rather than being forced.
+         *
+         * A pick naming a member the tag does not contain still returns the tag unchanged rather
+         * than falling through to either assumption: an impossible pin should stay visible.
+         */
         private fun redirectTag(item: MinecraftId): MinecraftId {
             if (item !is MinecraftTag) return item
-            val memberId = overrides.tagMember[item.id] ?: return item
-            val member = item.content.firstOrNull { it.id == memberId } ?: return item
-            return graphItemFor(member)
+            val memberId = overrides.tagMember[item.id]
+            if (memberId != null) {
+                val member = item.content.firstOrNull { it.id == memberId } ?: return item
+                return graphItemFor(member)
+            }
+            MemberPrior.speciesMember(item.content, context.woodSpecies)
+                ?.let { return graphItemFor(it) }
+            val assumed = MemberPrior.canonicalFormMember(item.content) ?: return item
+            return graphItemFor(assumed)
         }
 
         private fun terminal(item: MinecraftId, status: PlanNodeStatus, supply: SupplySource? = null) {

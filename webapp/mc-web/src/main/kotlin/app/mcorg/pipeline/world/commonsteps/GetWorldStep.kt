@@ -38,6 +38,7 @@ object GetWorldStep : Step<Int, AppFailure.DatabaseError, World> {
             world.created_at,
             world.updated_at,
             world.farm_scale_threshold,
+            world.preferred_wood_species,
             COALESCE(COUNT(projects.id), 0) as total_projects,
             COALESCE(SUM(CASE WHEN projects.stage = 'COMPLETED' THEN 1 ELSE 0 END), 0) as completed_projects,
             ${projectTallyColumns("projects")}
