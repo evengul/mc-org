@@ -73,6 +73,7 @@ private suspend fun run(args: List<String>): Int {
     var worldId: Int? = null
     var demand = 64L
     var verbose = false
+    var grain = false
     var sweep = false
     var sweepFilter: String? = null
     var picksOf: String? = null
@@ -89,6 +90,7 @@ private suspend fun run(args: List<String>): Int {
             arg.startsWith("world=") -> worldId = arg.substringAfter('=').toIntOrNull()
             arg.startsWith("demand=") -> demand = arg.substringAfter('=').toLongOrNull() ?: demand
             arg == "verbose" -> verbose = true
+            arg == "grain" -> grain = true
             arg == "sweep" -> sweep = true
             arg.startsWith("sweep=") -> { sweep = true; sweepFilter = arg.substringAfter('=') }
             arg.startsWith("picks=") -> picksOf = arg.substringAfter('=')
@@ -145,6 +147,22 @@ private suspend fun run(args: List<String>): Int {
         .filter { graph.getSourcesForItem(it).size > 1 }
         .filter { only.isEmpty() || it.id in only }
         .sortedBy { it.id }
+    // `grain`: what did per-source effort actually change? Not the net agreement figure -- the
+    // items. A net of -7 is equally consistent with seven items moving and with twenty-seven
+    // moving one way while twenty moved the other, and those are different facts.
+    if (grain) {
+        val coarse = UnitCostModel(graph, effort = model.effortTable.typeOnly())
+        val moved = subjects.mapNotNull { item ->
+            val a = coarse.best(item)?.getKey()
+            val b = model.best(item)?.getKey()
+            if (a != null && b != null && a != b) Triple(item.id, a, b) else null
+        }
+        println("\nper-source effort moved ${moved.size} of ${subjects.size} picks")
+        moved.sortedBy { it.first }.forEach { (id, a, b) ->
+            println("  %-34s %s".format(id.substringAfter(':'), "$a  ->  $b"))
+        }
+        return 0
+    }
 
     if (sweep) {
         val shippedPicks = subjects.associate { item ->

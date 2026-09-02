@@ -100,6 +100,9 @@ class UnitCostModel(
     private val itemOrder: List<app.mcorg.engine.model.ItemNode>? = null,
 ) {
 
+    /** Diagnostics: the table this model was built with, so a caller can vary its grain. */
+    val effortTable: EffortTable get() = effort
+
     /** Minutes per unit for every item and tag in the graph. [UNREACHABLE] where nothing produces it. */
     val cost: Map<String, Double> by lazy { relax() }
 
@@ -248,10 +251,10 @@ class UnitCostModel(
         // graph, and it survives the change of model.
         if (SelectionScorer.isSelfBlockLoot(item, source) && hasConstructiveSibling(item)) {
             val own = c[item.id] ?: UNREACHABLE
-            return if (own >= UNREACHABLE) UNREACHABLE else own + effort.of(source.sourceType)
+            return if (own >= UNREACHABLE) UNREACHABLE else own + effort.of(source)
         }
 
-        var total = effort.of(source.sourceType) / out
+        var total = effort.of(source) / out
         for (requirement in graph.getRequiredItems(source)) {
             val each = c[requirement.itemId] ?: UNREACHABLE
             if (each >= UNREACHABLE) return UNREACHABLE
@@ -346,13 +349,183 @@ class EffortTable(
     private val minutes: Map<String, Double>,
     /** For a type not named below — treated as ordinary manual work rather than free. */
     val default: Double = 1.0,
+    /**
+     * False prices every source of a type alike, as this table did before MCO-494. Kept so the
+     * two grains can be diffed against each other in one run: a net change in agreement hides
+     * how many items actually moved, and in both directions.
+     */
+    private val perSource: Boolean = true,
 ) {
+    /**
+     * Minutes per attempt at this particular source.
+     *
+     * **The type sets the price of the action; the source sets the price of reaching it**
+     * (MCO-494). Both halves are real and only the first was modelled: one number covered 995
+     * block-loot sources on 1.21.4, so mining dirt, emerald ore and ancient debris all cost
+     * 0.05 minutes. The model then reasoned impeccably from a premise that is plainly false.
+     *
+     * The symptom in the calibration sweep was that the load-bearing values had **no plateau** —
+     * every one of block, crafting, chest and entity moved 5–12 selections for ±0.01, with no
+     * stable region anywhere in their range. A parameter with no plateau is one being asked to
+     * stand for something it cannot represent: there is no correct value for "the cost of mining
+     * a block", because that is not one quantity.
+     *
+     * Splitting it does not make the table bigger in the way that matters. [FINDING] is short
+     * enough to read in one screen and every line is a claim about the game a player can call
+     * wrong, which is the property the whole cost model exists to have. What it must not become
+     * is a constant per item — that is the eight-constant scorer again, wearing minutes.
+     */
+    fun of(source: SourceNode): Double =
+        of(source.sourceType) * (if (perSource) findFactor(source) else 1.0)
+
+    /** The action alone, with nothing said about reaching it. Kept for sweeps and tests. */
     fun of(type: SourceType): Double = minutes[type.id] ?: default
 
     fun with(type: SourceType, value: Double): EffortTable =
-        EffortTable(minutes + (type.id to value), default)
+        EffortTable(minutes + (type.id to value), default, perSource)
+
+    /** The same numbers at the old grain — one price per source type. */
+    fun typeOnly(): EffortTable = EffortTable(minutes, default, perSource = false)
 
     companion object {
+
+        /**
+         * How much dearer this particular source is than the bare action, because of what it
+         * takes to *reach* it. 1.0 means the type's number already tells the truth.
+         *
+         * Three things are keyed here, and nothing else is:
+         *
+         * 1. **Ore and debris.** Mining is quick; finding is not. `blocks/dirt.json` and
+         *    `blocks/ancient_debris.json` are the same swing of the same pickaxe and nothing in
+         *    Mojang's data separates them — hardness and tool tier are not ingested, and the
+         *    thing that actually matters here is *availability*, which is not in the data at
+         *    all. So this half is curated rather than derived, deliberately, and it is the part
+         *    to distrust first. Every entry is a claim about how long a vein takes to find.
+         * 2. **Chest tier.** A village chest and an ancient-city chest are not the same errand.
+         *    The base chest number is an ordinary structure; this scales the two ends.
+         * 3. **Trade level**, read from the source filename (`cleric/5/…`). A master trade costs
+         *    a great deal of trading to unlock and a novice trade costs nothing, and the level
+         *    is the one distinguishing fact the data *does* carry — no curation needed, which
+         *    is why it is the most trustworthy line here.
+         *
+         * Everything else is 1.0. That is the point: the list is short enough to argue with.
+         */
+        internal fun findFactor(source: SourceNode): Double {
+            val stem = source.filename.substringAfterLast('/').substringBeforeLast('.')
+            return when {
+                source.sourceType.isTrade() -> tradeLevelFactor(source.filename)
+                source.sourceType == SourceType.LootTypes.CHEST ->
+                    CHEST_FINDING.firstOrNull { source.filename.contains(it.first) }?.second ?: 1.0
+                source.sourceType == SourceType.LootTypes.BLOCK -> BLOCK_FINDING[stem] ?: 1.0
+                source.sourceType == SourceType.LootTypes.ENTITY -> ENTITY_FINDING[stem] ?: 1.0
+                source.sourceType == SourceType.LootTypes.GIFT -> GIFT_FINDING[stem] ?: 1.0
+                else -> 1.0
+            }
+        }
+
+        /**
+         * Minutes of searching per block mined, expressed as a multiple of the 3-second swing.
+         * Numbers are deliberately round: they are estimates of an unmodelled quantity, and
+         * false precision would only invite tuning them until the suite went green.
+         */
+        private val BLOCK_FINDING: Map<String, Double> = buildMap {
+            // Strip-mining the nether roof for a handful of debris a session.
+            put("ancient_debris", 160.0)          // ~8 min a block
+            // Rare, biome-locked, single-block veins.
+            for (ore in listOf("emerald_ore", "deepslate_emerald_ore")) put(ore, 60.0)   // ~3 min
+            for (ore in listOf("diamond_ore", "deepslate_diamond_ore")) put(ore, 40.0)   // ~2 min
+            // Common enough to meet while caving, but you are still looking for them.
+            for (ore in listOf(
+                "gold_ore", "deepslate_gold_ore", "nether_gold_ore",
+                "lapis_ore", "deepslate_lapis_ore",
+            )) put(ore, 8.0)                                                             // ~24 s
+            for (ore in listOf(
+                "iron_ore", "deepslate_iron_ore", "coal_ore", "deepslate_coal_ore",
+                "copper_ore", "deepslate_copper_ore", "redstone_ore", "deepslate_redstone_ore",
+            )) put(ore, 6.0)                                                             // ~18 s
+            // Not scarce, but a diamond pickaxe and a slow break, at a lava pool you made.
+            put("obsidian", 4.0)                                                         // ~12 s
+        }
+
+        /**
+         * The same correction on the other side of the graph, and it is not optional.
+         *
+         * Pricing block *finding* while leaving every mob at a flat half-minute made the model
+         * say "kill vindicators" for emeralds, because emerald ore had just become honest about
+         * being rare while a raid mob was still priced like a cow standing in a field. Fixing
+         * one side of an asymmetry turns the other side's falsehood into the deciding one — so
+         * the two halves have to land together or not at all.
+         *
+         * Passive animals are the baseline: they are what the type's number was written for.
+         */
+        private val ENTITY_FINDING: Map<String, Double> = buildMap {
+            // Common hostiles: they come to you, but you fight them.
+            for (m in listOf("zombie", "skeleton", "creeper", "spider", "husk", "drowned")) put(m, 1.5)
+            put("enderman", 3.0)
+            // Nether structures — a journey, then a fortress or a bastion.
+            for (m in listOf("blaze", "wither_skeleton", "ghast", "piglin", "hoglin", "magma_cube")) put(m, 10.0)
+            // Raids, mansions, ocean monuments: an event or a structure, not an encounter.
+            for (m in listOf(
+                "vindicator", "evoker", "pillager", "ravager", "witch", "illusioner",
+                "guardian", "elder_guardian",
+            )) put(m, 20.0)
+            put("shulker", 30.0)
+            put("ender_dragon", 200.0)
+        }
+
+        /**
+         * A chest is priced by the journey, and the journey is the **structure** — so this keys
+         * on the path, not the filename.
+         *
+         * Keying on the exact stem was the first attempt and it was wrong in an instructive way:
+         * pricing `reward_ominous` pushed five items onto `reward_ominous_unique`, a sibling
+         * chest in the same room that had no entry. That is whack-a-mole, and a table that grows
+         * one line per loot file is the per-item tuning this whole model exists to avoid. A
+         * structure is one errand however many chests are in it.
+         *
+         * Ordered: the first path fragment that matches wins, so narrower entries lead.
+         */
+        private val CHEST_FINDING: List<Pair<String, Double>> = listOf(
+            "ancient_city" to 3.0,
+            "woodland_mansion" to 2.5,
+            "end_city" to 2.5,
+            "trial_chambers" to 2.5,
+            "bastion" to 2.0,
+            "stronghold" to 2.0,
+            "buried_treasure" to 2.0,
+            "shipwreck" to 1.5,
+            // A village is the one structure you are probably already standing in.
+            "village" to 0.5,
+        )
+
+        /**
+         * `GIFT` is the clearest case in the table for this split: it covers a villager's
+         * post-raid present *and* a chicken laying an egg. Calibrated to ten minutes, which is
+         * about right for the raid and absurd for the chicken — and the chicken is the one a
+         * plan actually depends on. Priced back down to what standing near a chicken costs.
+         */
+        private val GIFT_FINDING: Map<String, Double> = mapOf(
+            "chicken_lay" to 0.02,
+        )
+
+        /**
+         * `…/cleric/5/emerald_to_bottle_o_enchanting.json` -> level 5. Unlocking a master
+         * villager is most of what a master trade costs, and it is the only part of this the
+         * data states outright rather than us guessing.
+         */
+        private fun tradeLevelFactor(filename: String): Double {
+            val level = LEVEL_IN_PATH.find(filename)?.groupValues?.get(1)?.toIntOrNull() ?: return 1.0
+            return when (level) {
+                1 -> 1.0
+                2 -> 1.5
+                3 -> 2.0
+                4 -> 3.0
+                else -> 4.0
+            }
+        }
+
+        private val LEVEL_IN_PATH = Regex("""/([1-5])/""")
+
         /**
          * Villager trading: curing or breeding a villager, getting the profession, restocking.
          * Three minutes per transaction, amortising the villager you had to set up.
