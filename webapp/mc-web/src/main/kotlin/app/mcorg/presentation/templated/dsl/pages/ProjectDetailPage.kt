@@ -315,6 +315,29 @@ private fun FlowContent.nextUpWidget(
                     }
                 }
                 div("next-up__why") { +NextUpPick.reasonFor(activity, index == 0) }
+
+                // MCO-482: a decision is answerable here, not merely announced here.
+                //
+                // The widget used to say "3,540 Wooden Slabs — the plan below this is
+                // provisional until you choose" and stop, leaving you to scroll to Needs
+                // attention and press the same button there. A widget whose whole purpose is
+                // "what do I do right now" should not answer with "go and find the control".
+                //
+                // It loads the *same* picker Needs attention loads, from the same endpoint —
+                // one derivation, two surfaces — rather than hosting a second copy that would
+                // drift. `origin=list` makes a pick re-render the list, so the answered tag
+                // leaves both this widget and that section together.
+                if (activity.group == ActivityGroup.NEEDS_ATTENTION) {
+                    val encoded = URLEncoder.encode(activity.item.id, StandardCharsets.UTF_8)
+                    div("next-up__picker chain-node__picker") {
+                        // Loaded eagerly because there are at most MAX_DECISIONS of these, and a
+                        // choice you have to click twice to see is the thing being fixed.
+                        attributes["hx-get"] = "/worlds/${project.worldId}/projects/${project.id}" +
+                            "/plan/chain/$encoded/sources?node=$encoded&origin=list"
+                        attributes["hx-trigger"] = "load"
+                        attributes["hx-swap"] = "innerHTML"
+                    }
+                }
             }
         }
     }

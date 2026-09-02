@@ -1017,3 +1017,13 @@
     color: var(--text-muted);
     margin-top: 2px;
 }
+
+/* MCO-482: the variant picker, inline in the Next up widget. Same component as
+   the one Needs attention drops below a row; only its surroundings differ. */
+.next-up__picker:empty {
+    display: none;
+}
+
+.next-up__picker {
+    margin-top: var(--space-3);
+}
