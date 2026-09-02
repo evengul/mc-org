@@ -39,7 +39,12 @@ package app.mcorg.data.minecraft
  *       folds torch/soul_torch/fire_charge onto `#minecraft:coals` and TNT onto
  *       `#minecraft:smelts_to_glass`, so the plan stops asking "coal or charcoal" twice under
  *       two names — MCO-486 (2026-09).
+ *  - 7: a loot table that another table rolls as part of a pool is no longer stored as a source
+ *       of its own. Its numbers are conditional on the parent selecting it, so
+ *       `gameplay/fishing/treasure.json` read as 1-in-6 per cast for a nautilus shell where the
+ *       composed truth already in `gameplay/fishing.json` is 0.0083 — a 20x overstatement to
+ *       any consumer taking the best source per item — MCO-491 (2026-09).
  */
 object ExtractionVersion {
-    const val CURRENT = 6
+    const val CURRENT = 7
 }
