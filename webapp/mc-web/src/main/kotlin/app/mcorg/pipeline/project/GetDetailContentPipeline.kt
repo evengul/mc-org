@@ -29,10 +29,8 @@ import io.ktor.server.application.ApplicationCall
 suspend fun ApplicationCall.handleGetDetailContent() {
     val worldId = getWorldId()
     val projectId = getProjectId()
-    // The retired PLAN/EXECUTE toggle's old ?view= links resolve to the default List lens.
-    val lens = request.queryParameters["lens"]
-        ?.takeIf { it == "list" || it == "next" || it == "sessions" }
-        ?: "list"
+    // There is one lens now (MCO-481). DrillView still returns here with ?lens=list, and old
+    // links may carry ?lens=next — both are inert rather than an error.
 
     val project = when (val result = GetProjectByIdStep.process(projectId)) {
         is Result.Success -> result.value
@@ -96,7 +94,7 @@ suspend fun ApplicationCall.handleGetDetailContent() {
 
     respondHtml(
         gatheringPlannerFragment(
-            project, resources, tasks, plan, lens, progressMap, prerequisiteFarms, farmScaleThreshold,
+            project, resources, tasks, plan, progressMap, prerequisiteFarms, farmScaleThreshold,
             farmSuggestions, versionGapsForPlan(projectId, plan), isAdmin,
         )
     )

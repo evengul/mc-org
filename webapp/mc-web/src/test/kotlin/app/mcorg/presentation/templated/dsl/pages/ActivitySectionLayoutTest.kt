@@ -73,21 +73,81 @@ class ActivitySectionLayoutTest {
         )
     }
 
-    /** Smelt and Hunt are ~1,400px and already scannable; folding them is motion without benefit. */
+    /**
+     * There used to be a 24-row floor below which nothing folded, and Smelt sat just under it —
+     * 18 rows, ten of which need a single item, 1,386px of page. `MIN_LEAD` and `MIN_FOLDED`
+     * are the only length guards now.
+     */
     @Test
-    fun `leaves a short section whole`() {
+    fun `folds a section that is short but still mostly trivia`() {
         val smeltShaped = listOf(activity("Smooth Stone", 23_479)) + (1..17).map { activity("Bit $it", 5) }
 
         val split = ActivitySectionLayout.of(smeltShaped)
 
+        assertEquals(ActivitySectionLayout.MIN_LEAD, split.lead.size)
+        assertEquals(13, split.folded.size)
+    }
+
+    /** Below MIN_LEAD + MIN_FOLDED there is nothing a toggle could usefully hide. */
+    @Test
+    fun `leaves a genuinely short section whole`() {
+        val split = ActivitySectionLayout.of((1..7).map { activity("Bit $it", it.toLong()) })
+
         assertTrue(split.folded.isEmpty())
-        assertEquals(18, split.lead.size)
+        assertEquals(7, split.lead.size)
     }
 
     /**
-     * The honesty check. Hunt's real distribution is flat — 16 of its 17 rows are needed to
-     * cover 90% — so a rule that folded it would be hiding work, not trivia. Scaled past the
-     * length guard so it is the *distribution* being tested, not the row count.
+     * Hunt: 16 wools needing 3, plus 9 and 5 — 62 items of the plan's 338,121, one shearing
+     * trip, 1,478px of page. Coverage cannot fold it because the curve is flat; the question
+     * coverage asks is which rows carry the material, not whether the section carries any.
+     */
+    @Test
+    fun `folds away a section that is a rounding error in the plan`() {
+        val hunt = listOf(activity("Copper Ingot", 9), activity("Honeycomb", 5)) +
+            (1..16).map { activity("$it Wool", 3) }
+
+        val split = ActivitySectionLayout.of(hunt, planTotal = 338_121)
+
+        assertTrue(split.lead.isEmpty(), "nothing here is worth a row")
+        assertEquals(18, split.folded.size)
+        assertEquals(62L, split.foldedItems)
+    }
+
+    /** Small share, but one row is a real job — so the section keeps its rows. */
+    @Test
+    fun `a section carrying one substantial row is never all noise`() {
+        val trade = listOf(activity("Emerald", 1_000)) + (1..16).map { activity("Trinket $it", 1) }
+
+        val split = ActivitySectionLayout.of(trade, planTotal = 10_000_000)
+
+        assertTrue(split.lead.isNotEmpty())
+        assertEquals("Emerald", split.lead.first().item.name)
+    }
+
+    /** Every row tiny, but together they are real work — the share test refuses. */
+    @Test
+    fun `a thousand small rows are not noise just because each row is`() {
+        val many = (1..1_000).map { activity("Bit $it", 10) }
+
+        val split = ActivitySectionLayout.of(many, planTotal = 20_000)
+
+        assertTrue(split.lead.isNotEmpty())
+    }
+
+    /** Without a plan total there is nothing to be a rounding error *of*. */
+    @Test
+    fun `no plan total means no whole-section fold`() {
+        val hunt = (1..16).map { activity("$it Wool", 3) }
+
+        assertTrue(ActivitySectionLayout.of(hunt).lead.isNotEmpty())
+    }
+
+    /**
+     * The honesty check. Where a section's work really is spread evenly *and* substantial, the
+     * coverage fold must not pretend otherwise — it caps out and admits it hides little. (Hunt
+     * looks like this but is caught earlier, by the rounding-error rule; this is the case where
+     * the flat rows matter.)
      */
     @Test
     fun `does not fold a section whose work is spread evenly`() {

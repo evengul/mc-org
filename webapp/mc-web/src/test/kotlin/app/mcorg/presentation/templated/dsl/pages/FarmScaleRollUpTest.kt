@@ -226,6 +226,20 @@ class FarmScaleRollUpTest {
 
         assertContains(html, "1 raw material needs more than ")
         assertContains(html, ">50,000<")
-        assertFalse(html.contains("20,611"))
+        // Scoped to the roll-up rather than the whole fragment: the Next up widget (MCO-481)
+        // sits above it and names an outstanding activity, which may well be the very material
+        // the roll-up drops for being under the threshold. Both are right.
+        assertFalse(rollUpOf(html).contains("20,611"))
+    }
+
+    /**
+     * The roll-up section alone. It is emitted first, and the activity sections follow, so the
+     * first `project-detail__section` after it marks the end.
+     */
+    private fun rollUpOf(html: String): String {
+        val start = html.indexOf("id=\"plan-farm-scale\"")
+        if (start < 0) return ""
+        val end = html.indexOf("project-detail__section", start)
+        return if (end < 0) html.substring(start) else html.substring(start, end)
     }
 }

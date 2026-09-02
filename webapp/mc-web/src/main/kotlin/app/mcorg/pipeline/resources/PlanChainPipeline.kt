@@ -381,7 +381,7 @@ private suspend fun ApplicationCall.respondListRerender(worldId: Int, projectId:
 
     respondHtml(
         gatheringPlannerFragment(
-            project, resources, tasks, plan, "list", progressMap, prerequisiteFarms, farmScaleThreshold,
+            project, resources, tasks, plan, progressMap, prerequisiteFarms, farmScaleThreshold,
             farmSuggestions, versionGapsForPlan(projectId, plan), isAdmin,
         )
     )

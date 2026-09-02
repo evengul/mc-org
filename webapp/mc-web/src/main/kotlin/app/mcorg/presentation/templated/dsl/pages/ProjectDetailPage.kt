@@ -66,7 +66,6 @@ fun projectDetailPage(
     worldName: String,
     resources: List<ResourceGatheringItem>,
     tasks: List<ActionTask>,
-    lens: String = "list",
     isWorldAdmin: Boolean = false,
     plan: GatheringPlan? = null,
     progressMap: Map<String, Int> = emptyMap(),
@@ -154,7 +153,7 @@ fun projectDetailPage(
                     // ?drill=<item> deep-links straight into a target's chain (reload/share-safe).
                     drillChainContent(project, drillTarget, drillCandidateCounts, drillNodeIngredients, overrides = drillOverrides, graph = drillGraph, highlightItemId = drillHighlightItemId)
                 } else {
-                    gatheringPlannerContent(project, resources, tasks, plan, lens, progressMap, pendingFarms, farmScaleThreshold, farmSuggestions, versionGaps, isWorldAdmin)
+                    gatheringPlannerContent(project, resources, tasks, plan, progressMap, pendingFarms, farmScaleThreshold, farmSuggestions, versionGaps, isWorldAdmin)
                 }
             }
         }
@@ -246,15 +245,19 @@ internal fun planProgressTotals(plan: GatheringPlan, progressMap: Map<String, In
 }
 
 /**
- * Unified gathering planner content — replaces the old PLAN/EXECUTE toggle.
- * Shows lens pills (List / Next up / Sessions) and renders the active lens body.
+ * The gathering planner.
+ *
+ * The lens pills (List / Next up / Sessions) are gone (MCO-481). Two of the three were stubs
+ * rendering "coming soon", so the strip was a whole level of navigation carrying one real
+ * destination. Next up is a widget below instead — the answer is worth having *while* you work,
+ * not somewhere you have to go. Sessions stays unbuilt: MCO-224 specs it as geography trips and
+ * MCO-225 says that data does not exist yet, so it would render its own fallback.
  */
 fun FlowContent.gatheringPlannerContent(
     project: Project,
     resources: List<ResourceGatheringItem>,
     tasks: List<ActionTask>,
     plan: GatheringPlan?,
-    lens: String = "list",
     progressMap: Map<String, Int> = emptyMap(),
     pendingFarms: List<PendingFarmSupply> = emptyList(),
     farmScaleThreshold: Int = World.DEFAULT_FARM_SCALE_THRESHOLD,
@@ -263,44 +266,50 @@ fun FlowContent.gatheringPlannerContent(
     versionGaps: Set<String> = emptySet(),
     isWorldAdmin: Boolean = false,
 ) {
-    val activeLens = when (lens) {
-        "next", "sessions" -> lens
-        else -> "list"
-    }
-
-    // Fetch from the fragment endpoint (hx-get), but push the canonical page URL so a
-    // reload/share lands on the full page shell rather than the bare CSS-less fragment.
-    val fragmentBase = "/worlds/${project.worldId}/projects/${project.id}/detail-content"
-    val pageBase = "/worlds/${project.worldId}/projects/${project.id}"
-    val lensTabs = listOf(
-        TabItem("list", "List", "$fragmentBase?lens=list", pushUrl = "$pageBase?lens=list"),
-        TabItem("next", "Next up", "$fragmentBase?lens=next", pushUrl = "$pageBase?lens=next"),
-        TabItem("sessions", "Sessions", "$fragmentBase?lens=sessions", pushUrl = "$pageBase?lens=sessions"),
-    )
-
-    // Lens pills
-    tabStrip(
-        tabs = lensTabs,
-        activeValue = activeLens,
-        hxTarget = "#project-content",
-        variant = TabVariant.PILLS,
-        queryName = "lens",
-    )
-
-    // Active lens body
-    when (activeLens) {
-        "next", "sessions" -> lensComingSoon(project.worldId, project.id, activeLens)
-        else -> listLensContent(project, resources, tasks, plan, progressMap, pendingFarms, farmScaleThreshold, farmSuggestions, versionGaps, isWorldAdmin)
-    }
+    nextUpWidget(project, plan, progressMap)
+    listLensContent(project, resources, tasks, plan, progressMap, pendingFarms, farmScaleThreshold, farmSuggestions, versionGaps, isWorldAdmin)
 }
 
-private fun FlowContent.lensComingSoon(worldId: Int, projectId: Int, lens: String) {
-    val label = if (lens == "next") "Next up" else "Sessions"
-    div("callout callout--info") {
-        id = "lens-content"
-        span("callout__icon") { +"i" }
-        div("callout__body") {
-            +"$label view is coming soon."
+/**
+ * "Next up" — one move, with a way to ask for another.
+ *
+ * Every candidate is rendered and all but one hidden, so cycling is a class swap rather than a
+ * round trip; there is no server state to keep and nothing to lose on a re-render. See
+ * [NextUpPick] for why the order is what it is.
+ */
+private fun FlowContent.nextUpWidget(
+    project: Project,
+    plan: GatheringPlan?,
+    progressMap: Map<String, Int>,
+) {
+    val candidates = NextUpPick.of(plan, progressMap)
+    if (candidates.isEmpty()) return
+
+    div("next-up") {
+        id = "next-up"
+        div("next-up__head") {
+            span("section-label") { +"NEXT UP" }
+            if (candidates.size > 1) {
+                button(classes = "btn btn--ghost btn--sm next-up__shuffle") {
+                    id = "next-up-shuffle"
+                    type = ButtonType.button
+                    +"Something else ↻"
+                }
+            }
+        }
+        candidates.forEachIndexed { index, activity ->
+            div(if (index == 0) "next-up__card" else "next-up__card next-up__card--hidden") {
+                attributes["data-next-up-index"] = index.toString()
+                div("next-up__what") {
+                    span("next-up__qty") { +formatPlainCount(activity.quantity) }
+                    a(classes = "next-up__item") {
+                        href = "/worlds/${project.worldId}/projects/${project.id}" +
+                            "?drill=" + URLEncoder.encode(activity.item.id, StandardCharsets.UTF_8)
+                        +activity.item.name
+                    }
+                }
+                div("next-up__why") { +NextUpPick.reasonFor(activity, index == 0) }
+            }
         }
     }
 }
@@ -525,6 +534,7 @@ fun FlowContent.gatheringPlanSections(
     val feedsLabels = buildFeedsLabels(plan)
     val farmScale = FarmScaleDemands.of(plan, farmScaleThreshold)
     val farmScaleIds = farmScale.mapTo(mutableSetOf()) { it.itemId }
+    val planTotal = plan.activityList.sumOf { it.quantity }
 
     div {
         id = "gathering-plan-sections"
@@ -558,6 +568,7 @@ fun FlowContent.gatheringPlanSections(
                         nodeIngredients,
                         feedsLabels,
                         farmScaleIds,
+                        planTotal,
                     )
                 }
             }
@@ -583,8 +594,9 @@ private fun FlowContent.workSection(
     nodeIngredients: Map<String, String>,
     feedsLabels: Map<String, FeedsLabel>,
     farmScaleIds: Set<String>,
+    planTotal: Long,
 ) {
-    val split = ActivitySectionLayout.of(ordered)
+    val split = ActivitySectionLayout.of(ordered, planTotal)
 
     fun FlowContent.rows(activities: List<Activity>) {
         div("resource-list") {
@@ -607,17 +619,25 @@ private fun FlowContent.workSection(
 
     // Says what is behind the toggle in the same shape Needs attention uses: how much of the
     // work you are already looking at, so the fold reads as "the rest is small", not "the rest
-    // is hidden".
+    // is hidden". A section that folds whole has no lead to measure, so it says its own size
+    // instead — "0 of 17 are 0% of the material" would read as a bug.
+    val foldsWhole = split.lead.isEmpty()
     p("plan-attention__lead") {
-        +"These ${split.lead.size} of ${ordered.size} are ${split.leadShareOfItems}% of the material."
+        if (foldsWhole) {
+            +"${ordered.size} small jobs, ${"%,d".format(split.foldedItems)} items between them."
+        } else {
+            +"These ${split.lead.size} of ${ordered.size} are ${split.leadShareOfItems}% of the material."
+        }
     }
     details("plan-attention__rest") {
         summary {
             span("btn btn--ghost btn--sm plan-attention__toggle") {
                 span("plan-attention__toggle--closed") {
-                    +"Show ${split.folded.size} smaller ▾"
+                    if (foldsWhole) +"Show all ${split.folded.size} ▾" else +"Show ${split.folded.size} smaller ▾"
                 }
-                span("plan-attention__toggle--open") { +"Hide smaller ▴" }
+                span("plan-attention__toggle--open") {
+                    if (foldsWhole) +"Hide ▴" else +"Hide smaller ▴"
+                }
             }
         }
         rows(split.folded)
@@ -1665,7 +1685,6 @@ fun gatheringPlannerFragment(
     resources: List<ResourceGatheringItem>,
     tasks: List<ActionTask>,
     plan: GatheringPlan?,
-    lens: String = "list",
     progressMap: Map<String, Int> = emptyMap(),
     pendingFarms: List<PendingFarmSupply> = emptyList(),
     farmScaleThreshold: Int = World.DEFAULT_FARM_SCALE_THRESHOLD,
@@ -1676,7 +1695,7 @@ fun gatheringPlannerFragment(
 ): String = createHTML().div {
     id = "project-content"
     gatheringPlannerContent(
-        project, resources, tasks, plan, lens, progressMap, pendingFarms, farmScaleThreshold, farmSuggestions, versionGaps, isWorldAdmin,
+        project, resources, tasks, plan, progressMap, pendingFarms, farmScaleThreshold, farmSuggestions, versionGaps, isWorldAdmin,
     )
 }
 

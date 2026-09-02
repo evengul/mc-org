@@ -23,11 +23,18 @@ object ActivitySectionLayout {
     const val COVERAGE = 0.9
 
     /**
-     * Sections shorter than this are left whole. Smelt (18 rows) and Hunt (17) are ~1,400px and
-     * already scannable; folding them would be motion without benefit, and Smelt's top row alone
-     * is 94% of its material so coverage would otherwise collapse it to one line.
+     * A section is *all* noise when it is a rounding error in the plan **and** no single row in
+     * it is worth a trip. Both halves are required: the share alone would fold a 1,000-emerald
+     * Trade section on a large project, and the row cap alone would fold a section of a thousand
+     * one-off rows.
+     *
+     * Hunt is the case. Its 17 rows are 16 wools needing 3 each plus two rows of 9 and 5 — 62
+     * items out of the plan's 338,121, one shearing trip, and 1,478px of page. Coverage cannot
+     * fold it (the curve is flat, so 90% takes 15 of the 17 rows) because coverage asks which
+     * rows carry the material, not whether the section carries any.
      */
-    const val MIN_ROWS_TO_FOLD = 24
+    const val NOISE_SHARE_OF_PLAN = 0.001
+    const val NOISE_MAX_ROW = 64L
 
     /** Never show fewer than this, however skewed the distribution. */
     const val MIN_LEAD = 5
@@ -54,9 +61,16 @@ object ActivitySectionLayout {
     /**
      * [ordered] is the section's rows in the order they should render — quantity-desc for the
      * independent groups, topological for Smelt and Craft. Both output lists preserve it.
+     *
+     * [planTotal] is every activity in the plan, used only to judge whether this section is
+     * worth any rows at all. Zero disables that test.
+     *
+     * There is no row-count floor. `MIN_LEAD` and `MIN_FOLDED` already mean a section under
+     * eight rows has nothing to fold, so a floor on top of them only ever suppressed folds that
+     * were wanted — Smelt is 18 rows, ten of which need a single item.
      */
-    fun of(ordered: List<Activity>): Split {
-        if (ordered.size < MIN_ROWS_TO_FOLD) return Split(ordered, emptyList())
+    fun of(ordered: List<Activity>, planTotal: Long = 0L): Split {
+        if (isAllNoise(ordered, planTotal)) return Split(emptyList(), ordered)
 
         val leadCount = leadCountFor(ordered)
         if (ordered.size - leadCount < MIN_FOLDED) return Split(ordered, emptyList())
@@ -94,5 +108,12 @@ object ActivitySectionLayout {
             if (covered.toDouble() / total >= COVERAGE) break
         }
         return count.coerceIn(MIN_LEAD, MAX_LEAD).coerceAtMost(ordered.size)
+    }
+
+    /** See [NOISE_SHARE_OF_PLAN] — both tests must hold, and there must be a fold worth making. */
+    private fun isAllNoise(ordered: List<Activity>, planTotal: Long): Boolean {
+        if (planTotal <= 0L || ordered.size < MIN_FOLDED) return false
+        if (ordered.any { it.quantity > NOISE_MAX_ROW }) return false
+        return ordered.sumOf { it.quantity } <= planTotal * NOISE_SHARE_OF_PLAN
     }
 }

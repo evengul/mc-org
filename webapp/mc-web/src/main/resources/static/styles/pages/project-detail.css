@@ -957,3 +957,63 @@
     border-top: 1px solid var(--border);
     border-radius: 0;
 }
+
+/* ==========================================================================
+   NEXT UP (MCO-481)
+   One move, with a way to ask for another. Was specced as a lens; it is a
+   widget because the answer is worth having while you work.
+   ========================================================================== */
+
+.next-up {
+    border: 1px solid var(--border-strong);
+    border-left: 3px solid var(--accent);
+    border-radius: var(--radius);
+    background: var(--bg-surface);
+    padding: var(--space-3) var(--space-4);
+    margin-bottom: var(--space-5);
+}
+
+.next-up__head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-3);
+    margin-bottom: var(--space-2);
+}
+
+.next-up__card--hidden {
+    display: none;
+}
+
+.next-up__what {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-3);
+    flex-wrap: wrap;
+}
+
+.next-up__qty {
+    font-family: var(--font-ui);
+    font-size: var(--text-lg, 18px);
+    font-weight: 600;
+    color: var(--text-primary);
+    font-variant-numeric: tabular-nums;
+}
+
+.next-up__item {
+    font-family: var(--font-ui);
+    font-size: var(--text-lg, 18px);
+    color: var(--accent);
+    text-decoration: none;
+}
+
+.next-up__item:hover {
+    text-decoration: underline;
+}
+
+.next-up__why {
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    color: var(--text-muted);
+    margin-top: 2px;
+}

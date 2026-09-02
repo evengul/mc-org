@@ -59,7 +59,7 @@ class GatheringPlannerIT : WithUser() {
     // -------------------------------------------------------------------------
 
     @Test
-    fun `GET project detail always shows unified planner with lens pills`() = testApplication {
+    fun `GET project detail shows the planner with no lens pills`() = testApplication {
         setupRoutes()
 
         val response = client.get("/worlds/$worldId/projects/$projectId") {
@@ -70,10 +70,10 @@ class GatheringPlannerIT : WithUser() {
         val body = response.bodyAsText()
         // Unified surface: definition table always rendered
         assertContains(body, "plan-resource-table")
-        // Lens tabs rendered (tabStrip with lens query name)
-        assertContains(body, "lens=list")
-        assertContains(body, "lens=next")
-        assertContains(body, "lens=sessions")
+        // The pills are gone (MCO-481): two of the three were "coming soon" stubs, so the
+        // strip was a level of navigation carrying one real destination.
+        assertFalse(body.contains("lens=next"), "the Next up pill is a widget now")
+        assertFalse(body.contains("lens=sessions"), "Sessions is unbuilt, not advertised")
         // No old toggle
         assertFalse(body.contains("toggle__btn"))
     }
@@ -149,34 +149,26 @@ class GatheringPlannerIT : WithUser() {
         assertFalse(body.contains("plan-resource-table__source-badge"))
     }
 
+    /**
+     * A bookmark or an old pushed URL can still carry a retired lens. It has to render the
+     * planner rather than 404 or a stub — the parameter is simply not read any more (MCO-481).
+     */
     @Test
-    fun `GET detail-content with lens=next returns coming-soon stub`() = testApplication {
+    fun `a retired lens parameter is inert`() = testApplication {
         setupRoutes()
 
-        val response = client.get(
-            "/worlds/$worldId/projects/$projectId/detail-content?lens=next"
-        ) {
-            addAuthCookie(this)
+        for (lens in listOf("next", "sessions")) {
+            val response = client.get(
+                "/worlds/$worldId/projects/$projectId/detail-content?lens=$lens"
+            ) {
+                addAuthCookie(this)
+            }
+
+            assertEquals(HttpStatusCode.OK, response.status)
+            val body = response.bodyAsText()
+            assertContains(body, "plan-resource-table")
+            assertFalse(body.contains("coming soon"), "the stub is gone, not resurrected")
         }
-
-        assertEquals(HttpStatusCode.OK, response.status)
-        val body = response.bodyAsText()
-        assertContains(body, "coming soon")
-    }
-
-    @Test
-    fun `GET detail-content with lens=sessions returns coming-soon stub`() = testApplication {
-        setupRoutes()
-
-        val response = client.get(
-            "/worlds/$worldId/projects/$projectId/detail-content?lens=sessions"
-        ) {
-            addAuthCookie(this)
-        }
-
-        assertEquals(HttpStatusCode.OK, response.status)
-        val body = response.bodyAsText()
-        assertContains(body, "coming soon")
     }
 
     @Test
