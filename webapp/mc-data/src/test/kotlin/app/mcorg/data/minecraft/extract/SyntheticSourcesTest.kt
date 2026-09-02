@@ -143,6 +143,59 @@ class SyntheticSourcesTest {
         )
     }
 
+    /**
+     * MCO-492 — nothing in Mojang's data grows a crop, so every item here had exactly one
+     * route in the graph: break its own block. Wheat and bread were being planned through
+     * chest loot as a result.
+     */
+    @Test
+    fun `every grown crop has a plant-and-wait source`() {
+        val crops = listOf(
+            "wheat", "carrot", "potato", "beetroot", "melon", "pumpkin", "sugar_cane",
+            "bamboo", "cocoa_beans", "nether_wart", "sweet_berries", "kelp", "cactus",
+        )
+        crops.forEach { crop ->
+            val growth = producing("minecraft:$crop").single { it.filename == "synthetic/grow_$crop.json" }
+            assertEquals(SourceType.MechanicTypes.IN_WORLD_TRANSFORM, growth.type, "$crop type")
+        }
+    }
+
+    /**
+     * The planting stock comes back with the harvest — wheat drops seeds, a carrot yields
+     * several carrots, cane and bamboo and berry bushes regrow — so one starting unit serves
+     * an arbitrary quantity, exactly like the bucket above. Requiring one per unit would
+     * over-count the input by the whole harvest, and for the self-seeding crops it would be a
+     * pure self-cycle the selector rejects outright.
+     */
+    @Test
+    fun `growing a crop consumes nothing`() {
+        val growth = sources.filter { it.filename.startsWith("synthetic/grow_") }
+
+        assertEquals(13, growth.size, "expected one entry per grown crop, got ${growth.map { it.filename }}")
+        growth.forEach { source ->
+            assertTrue(source.requiredItems.isEmpty(), "${source.filename} must consume no material")
+        }
+    }
+
+    /**
+     * The defect this fixes is specifically that a crop's *only* route is breaking itself, so
+     * the growth source has to name the crop the block loot names — otherwise it leaves the
+     * circle intact and only adds noise.
+     */
+    @Test
+    fun `wheat is grown rather than only broken out of its own block`() {
+        val wheat = producing("minecraft:wheat")
+
+        assertEquals(1, wheat.size)
+        assertEquals("synthetic/grow_wheat.json", wheat.single().filename)
+        assertEquals(SourceType.MechanicTypes.IN_WORLD_TRANSFORM, wheat.single().type)
+        assertTrue(
+            wheat.single().type.isConstructive(),
+            "growth must count as constructive, or the self-block loot it competes with is " +
+                "never penalised and the plan keeps routing wheat through a chest",
+        )
+    }
+
     @Test
     fun `entries naming an item the version lacks are dropped`() {
         val withoutCherry = allIds - "minecraft:stripped_cherry_log"

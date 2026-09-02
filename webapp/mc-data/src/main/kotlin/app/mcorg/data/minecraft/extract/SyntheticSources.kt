@@ -7,8 +7,9 @@ import app.mcorg.domain.model.resources.ResourceSource.SourceType
 
 /**
  * Hardcoded acquisition sources for items Mojang's data files don't describe — in-world
- * transforms (place concrete powder next to water, strip a log, make mud), tool-based world
- * collection (fill a bucket, break ice), bee harvesting, and the wither's nether star.
+ * transforms (place concrete powder next to water, strip a log, make mud), growing a crop,
+ * tool-based world collection (fill a bucket, break ice), bee harvesting, and the wither's
+ * nether star.
  *
  * These are plain [ResourceSource]s appended to the extracted recipe/loot/trade sources in
  * [ExtractResourceSources]; they are stored and graph-built exactly like real ones, so the
@@ -48,6 +49,51 @@ object SyntheticSources {
         "mangrove_log", "cherry_log", "pale_oak_log",
         "crimson_stem", "warped_stem",
         "bamboo_block",
+    )
+
+    /**
+     * Crops: plant one, wait, harvest (MCO-492).
+     *
+     * Nothing in Mojang's data grows anything. A crop's block loot table is the only route to
+     * it, and it names the crop itself — `blocks/wheat.json` produces `wheat` — so the graph's
+     * whole answer to "how do I get wheat" is "break wheat". A consumer that discounts circular
+     * self-block loot then prices the most farmed item in the game through a shipwreck supply
+     * chest, and `bread` follows it into a village temple.
+     *
+     * **These consume nothing**, which is the same rule the filled buckets above already state:
+     * every crop in this list returns at least its planting stock on harvest — wheat drops seeds,
+     * a carrot yields 2–5 carrots, a sugar cane or bamboo or berry bush regrows from its base,
+     * a melon or pumpkin stem keeps producing. One starting unit therefore serves an arbitrary
+     * quantity, so requiring one per unit would over-count the input by the entire harvest. It
+     * would also make the self-seeding half of the family (`carrot`, `potato`, `sugar_cane`,
+     * `bamboo`, `cocoa_beans`, `nether_wart`, `sweet_berries`, `kelp`, `cactus`, whose seed *is*
+     * the crop) a pure self-cycle, which the selector rejects structurally — the fix would do
+     * nothing at all for nine of the thirteen.
+     *
+     * **Growth time is deliberately not represented**, and that is the honest limit of this
+     * entry rather than an oversight. The cost model prices a source as minutes *per unit*, and
+     * growth is not per-unit: a field of 64 wheat ripens in the same wall-clock time as one
+     * plant, so the marginal cost of the 64th is the harvest swing, not another growth cycle.
+     * Encoding "one Minecraft day" as per-unit effort would read as 64 days for a stack and push
+     * the planner straight back to the chest it just came out of — a worse answer arrived at by
+     * a more elaborate route. The shape growth actually needs is a fixed setup cost plus a
+     * throughput, which is a cost-model change (a farm is a *project*, and the app already has
+     * farm-as-project), not a number that can be invented here. Until then these carry
+     * [SourceType.MechanicTypes.IN_WORLD_TRANSFORM]'s ordinary per-attempt effort, which reads
+     * as "harvesting is about as quick as breaking a block" — true, and the part the data can
+     * support.
+     *
+     * `wheat_seeds` and `beetroot_seeds` are not listed: they already have a non-circular route
+     * (breaking grass, and the crop's own loot table, which names a different item than its
+     * file), so they are not part of the defect.
+     */
+    private val GROWN_CROPS = listOf(
+        "wheat", "carrot", "potato", "beetroot",
+        "melon", "pumpkin", "sugar_cane", "bamboo",
+        "cocoa_beans", "nether_wart", "sweet_berries", "kelp",
+        // Cactus is not in MCO-492's list but is the identical shape — planted, grown, and
+        // sourced in the graph only by breaking itself. Called out so it is a one-line revert.
+        "cactus",
     )
 
     /**
@@ -159,6 +205,17 @@ object SyntheticSources {
                 requires = listOf(require("minecraft:dirt")),
             )
         )
+
+        // Plant it and wait. See [GROWN_CROPS] for why these consume nothing and why growth
+        // time is not priced here.
+        GROWN_CROPS.forEach { crop ->
+            add(
+                source(
+                    "synthetic/grow_$crop.json", SourceType.MechanicTypes.IN_WORLD_TRANSFORM,
+                    produces = produce("minecraft:$crop"),
+                )
+            )
+        }
 
         // Concrete: place the matching powder next to water to harden it.
         DYE_COLORS.forEach { color ->

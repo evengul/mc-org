@@ -44,6 +44,12 @@ package app.mcorg.data.minecraft
  *       `gameplay/fishing/treasure.json` read as 1-in-6 per cast for a nautilus shell where the
  *       composed truth already in `gameplay/fishing.json` is 0.0083 — a 20x overstatement to
  *       any consumer taking the best source per item — MCO-491 (2026-09).
+ *
+ *       Also at 7, sharing the bump and the one re-ingest it triggers: synthetic "plant it and
+ *       wait" sources for the thirteen grown crops. Nothing in Mojang's data grows anything, so
+ *       a crop's only route was breaking its own block — which is why wheat, the most farmed
+ *       item in the game, and bread after it were being planned through chest loot — MCO-492
+ *       (2026-09).
  */
 object ExtractionVersion {
     const val CURRENT = 7
