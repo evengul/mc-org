@@ -2,6 +2,7 @@ package app.mcorg.engine.plan
 
 import app.mcorg.domain.model.minecraft.MinecraftId
 import app.mcorg.domain.model.minecraft.MinecraftTag
+import app.mcorg.domain.model.minecraft.PlacedForms
 import app.mcorg.engine.model.ItemSourceGraph
 import app.mcorg.engine.model.SourceNode
 import app.mcorg.domain.model.resources.ResourceSource
@@ -361,7 +362,14 @@ internal class SelectionScorer(
         internal fun isSelfBlockLoot(item: MinecraftId, source: SourceNode): Boolean {
             if (source.sourceType != ResourceSource.SourceType.LootTypes.BLOCK) return false
             val stem = source.filename.substringAfterLast('/').substringBeforeLast('.')
-            return stem == item.id.substringAfterLast(':')
+            if (stem == item.id.substringAfterLast(':')) return true
+            // A block is not always named after the item you placed to make it: you put down
+            // `minecraft:redstone` and the world holds `minecraft:redstone_wire`. Comparing
+            // names caught `blocks/beacon.json` and missed that one, so the planner offered
+            // "break placed redstone dust" as a way to obtain redstone dust. Only the
+            // reversible forms count — a crop yields more than was planted, and farmland needs
+            // a hoe standing between the dirt and the block, so neither is re-collection.
+            return PlacedForms.isReversibleFormOf("minecraft:$stem", item.id)
         }
     }
 }
