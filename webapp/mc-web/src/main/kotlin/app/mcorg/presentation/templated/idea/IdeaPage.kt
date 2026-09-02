@@ -37,6 +37,7 @@ fun ideaPage(
     stylesheets = listOf(
         "/static/styles/components/btn.css",
         "/static/styles/components/form.css",
+        "/static/styles/components/progress.css",
         "/static/styles/pages/idea-hub.css",
     )
 ) {

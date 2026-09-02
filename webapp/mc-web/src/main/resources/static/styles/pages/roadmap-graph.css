@@ -152,42 +152,12 @@
 
 /* The bar is the flexible half of both rows: as a plain flex child it has no basis and
    collapses to zero width, which reads as a missing component rather than a full one.
- *
- * The appearance is restated here rather than inherited, and that is deliberate. `.progress`
- * has three definitions in this codebase — components/progress.css sets only a flex column
- * (which fights a horizontal bar), while components/project-card.css and pages/worlds.css
- * each define the real thing with *different* track colours. Loading either of those page
- * stylesheets to borrow a bar would drag their unrelated rules onto this page, and editing
- * the shared base would change every page currently relying on its own override. Scoped
- * here, this cannot regress anything. The duplication is worth a cleanup of its own. */
+   Layout only — the bar's appearance comes from components/progress.css, which this
+   page loads. (Both call sites pass large = true, so the height is `.progress--lg`.) */
 .rmg-start__tasks .progress,
 .rmg-terminal__progress .progress {
     flex: 1 1 auto;
     min-width: 0;
-    display: block;
-    position: relative;
-    height: 6px;
-    background: var(--bg-raised);
-    border: 1px solid var(--border);
-    border-radius: 2px;
-    overflow: hidden;
-}
-
-.rmg-start__tasks .progress__fill,
-.rmg-terminal__progress .progress__fill {
-    display: block;
-    height: 100%;
-    background: var(--progress);
-    border-radius: 2px;
-    transition: width 200ms ease;
-}
-
-.rmg-start__tasks .progress__fill--complete,
-.rmg-terminal__progress .progress__fill--complete { background: var(--green); }
-
-@media (prefers-reduced-motion: reduce) {
-    .rmg-start__tasks .progress__fill,
-    .rmg-terminal__progress .progress__fill { transition: none; }
 }
 
 .rmg-start__tasks-count {
