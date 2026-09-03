@@ -36,7 +36,17 @@ object GetPermittedWorldsStep : Step<GetPermittedWorldsInput, AppFailure.Databas
                 WHERE wm.user_id = ?
                 GROUP BY w.id, w.name, w.description, w.version, w.created_at, w.updated_at, wm.pinned, wm.last_opened_at, w.farm_scale_threshold, w.preferred_wood_species
                 -- Worlds page ordering: a user's pinned worlds first, then the most-recently-opened.
-                ORDER BY wm.pinned DESC, wm.last_opened_at DESC NULLS LAST, w.updated_at DESC, w.name ASC
+                --
+                -- `w.id DESC` is a tiebreaker, not a preference (MCO-500). Every column before it
+                -- can tie: `pinned` is a boolean, `last_opened_at` is NULL for every world the user
+                -- has not opened yet, `updated_at` defaults to CURRENT_TIMESTAMP — which is the
+                -- *transaction* timestamp, identical for worlds created in one transaction — and
+                -- `name` has no unique constraint, only an index, so two worlds may share it. Two
+                -- never-opened worlds with the same name therefore tied on every key, and which one
+                -- the page put in the hero slot was down to whatever order the plan happened to
+                -- return. Ordering on the primary key last makes it total, and picks the newer
+                -- world, which matches the recency the keys before it are reaching for.
+                ORDER BY wm.pinned DESC, wm.last_opened_at DESC NULLS LAST, w.updated_at DESC, w.name ASC, w.id DESC
             """.trimIndent()),
             parameterSetter = { statement, inputData ->
                 statement.setInt(1, inputData.userId)

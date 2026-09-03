@@ -68,7 +68,7 @@ class StoreServerDataIdempotencyTest {
     }
 
     /**
-     * The item insert is `ON CONFLICT DO NOTHING`, so without an explicit delete the catalog is
+     * The item insert can only add or correct rows, so without an explicit delete the catalog is
      * append-only and no extraction change that *removes* an item can ever take effect — the
      * pruned id sits in minecraft_items forever, permanently BLOCKED. This is what made the
      * MCO-313 lang-key fix inert until storage was corrected.
@@ -119,6 +119,42 @@ class StoreServerDataIdempotencyTest {
     }
 
     /**
+     * An item's display name is extraction output, so an extraction change that renames one has to
+     * be able to land (MCO-502). `ON CONFLICT DO NOTHING` made `item_name` write-once per version:
+     * the re-ingest ran, logged its row count, wrote nothing, and the app kept showing the old name
+     * — which reads as "the change didn't work" rather than "the write was skipped". Same bug the
+     * tag insert had, on the table that is 19x larger (45,821 items against 2,427 tags).
+     */
+    @Test
+    fun `re-ingesting updates an item whose name extraction changed`() {
+        runBlocking { assertIs<Result.Success<*>>(StoreMinecraftDataStep.process(data)) }
+        assertEquals(listOf("Stone"), itemNames())
+
+        val renamed = data.copy(items = listOf(Item("minecraft:stone", "Stone (Block)")))
+        runBlocking { assertIs<Result.Success<*>>(StoreMinecraftDataStep.process(renamed)) }
+
+        assertEquals(listOf("Stone (Block)"), itemNames(), "the renamed item did not survive re-ingest")
+        assertEquals(1, count("minecraft_items"), "the rename inserted a second row instead of updating")
+    }
+
+    /**
+     * The `IS DISTINCT FROM` guard on that upsert is what keeps the nightly ingest from rewriting
+     * every one of the catalog's rows for nothing, so it is worth pinning that an unchanged name
+     * is a genuine no-op rather than an update that happens to land the same value.
+     */
+    @Test
+    fun `re-ingesting an unchanged item name updates no rows`() {
+        runBlocking { assertIs<Result.Success<*>>(StoreMinecraftDataStep.process(data)) }
+        val idBefore = itemRowId("minecraft:stone")
+        val xminBefore = itemXmin("minecraft:stone")
+
+        runBlocking { assertIs<Result.Success<*>>(StoreMinecraftDataStep.process(data)) }
+
+        assertEquals(idBefore, itemRowId("minecraft:stone"), "the row was replaced, not left alone")
+        assertEquals(xminBefore, itemXmin("minecraft:stone"), "an unchanged name still wrote a new row version")
+    }
+
+    /**
      * A tag's name is extraction output too, so an extraction change that renames one has to be
      * able to land. `ON CONFLICT DO NOTHING` meant it could not: MCO-489 renamed every tag and
      * bumped ExtractionVersion to force the re-ingest, which then wrote nothing at all because
@@ -161,6 +197,37 @@ class StoreServerDataIdempotencyTest {
             sql = SafeSQL.select("SELECT name FROM minecraft_tag WHERE version = ? ORDER BY tag"),
             parameterSetter = { stmt, _ -> stmt.setString(1, version.toString()) },
             resultMapper = { rs -> buildList { while (rs.next()) add(rs.getString("name")) } }
+        ).process(Unit).getOrThrow()
+    }
+
+    private fun itemNames(): List<String> = runBlocking {
+        DatabaseSteps.query<Unit, List<String>>(
+            sql = SafeSQL.select("SELECT item_name FROM minecraft_items WHERE version = ? ORDER BY item_id"),
+            parameterSetter = { stmt, _ -> stmt.setString(1, version.toString()) },
+            resultMapper = { rs -> buildList { while (rs.next()) add(rs.getString("item_name")) } }
+        ).process(Unit).getOrThrow()
+    }
+
+    private fun itemRowId(itemId: String): Int = runBlocking {
+        DatabaseSteps.query<Unit, Int>(
+            sql = SafeSQL.select("SELECT id FROM minecraft_items WHERE version = ? AND item_id = ?"),
+            parameterSetter = { stmt, _ ->
+                stmt.setString(1, version.toString())
+                stmt.setString(2, itemId)
+            },
+            resultMapper = { rs -> if (rs.next()) rs.getInt("id") else -1 }
+        ).process(Unit).getOrThrow()
+    }
+
+    /** `xmin` is the transaction that last wrote the row — it moves if, and only if, the row was rewritten. */
+    private fun itemXmin(itemId: String): Long = runBlocking {
+        DatabaseSteps.query<Unit, Long>(
+            sql = SafeSQL.select("SELECT xmin::text::bigint AS row_version FROM minecraft_items WHERE version = ? AND item_id = ?"),
+            parameterSetter = { stmt, _ ->
+                stmt.setString(1, version.toString())
+                stmt.setString(2, itemId)
+            },
+            resultMapper = { rs -> if (rs.next()) rs.getLong("row_version") else -1L }
         ).process(Unit).getOrThrow()
     }
 

@@ -38,6 +38,8 @@ data object StoreMinecraftDataStep : Step<ServerData, AppFailure.DatabaseError, 
 private data class StoreMinecraftVersionStep(val connection: TransactionConnection) : Step<MinecraftVersion.Release, AppFailure.DatabaseError, Unit> {
     override suspend fun process(input: MinecraftVersion.Release): Result<AppFailure.DatabaseError, Unit> {
         val logger = LoggerFactory.getLogger(this.javaClass)
+        // DO NOTHING is right here: `version` is the row's only column besides its surrogate id,
+        // so a conflicting row carries no extraction output that could go stale (MCO-502 sweep).
         return DatabaseSteps.update<MinecraftVersion.Release>(
             sql = SafeSQL.insert("INSERT INTO minecraft_version (version) VALUES (?) ON CONFLICT (version) DO NOTHING"),
             parameterSetter = { statement, version ->
@@ -60,10 +62,10 @@ private data class StoreMinecraftItemDataStep(val connection: TransactionConnect
             val tagItems = tags.flatMap { it.content }
             val allItems = (itemsAndTags.filterIsInstance<Item>() + tagItems).distinctBy { it.id }
 
-            // Retire ids this version no longer has. The insert below is ON CONFLICT DO NOTHING,
-            // so without this the catalog is append-only and *no* extraction change that removes
-            // an item can ever take effect — a pruned id would sit in minecraft_items forever,
-            // permanently BLOCKED (MCO-313).
+            // Retire ids this version no longer has. The insert below is an upsert and can only
+            // add or correct rows, so without this the catalog is append-only and *no* extraction
+            // change that removes an item can ever take effect — a pruned id would sit in
+            // minecraft_items forever, permanently BLOCKED (MCO-313).
             //
             // Deliberately surgical rather than delete-all-then-reinsert: the FKs from
             // minecraft_tag_item and resource_source_* are ON DELETE CASCADE, so a blanket delete
@@ -96,11 +98,28 @@ private data class StoreMinecraftItemDataStep(val connection: TransactionConnect
                     }
             }
 
+            // DO UPDATE, not DO NOTHING, for the same reason as the tag insert below (MCO-502):
+            // item_name is extraction output, so an extraction change that renames an item has to
+            // be able to land. With DO NOTHING the name was write-once per version — the re-ingest
+            // ran to completion, logged its row count, and changed nothing.
+            //
+            // The WHERE is what makes that safe at item scale, and it was measured there rather
+            // than inferred from the tag table, which is 19x smaller (2,427 rows). Against the catalog
+            // (45,821 items over 31 versions), re-storing identical names:
+            //   guarded (this)     0 rows updated, 0 pages dirtied, 0 dead tuples, 7.2 MB WAL, 217 ms
+            //   unguarded (no WHERE)  45,821 rows updated, 514 pages dirtied, 31.0 MB WAL, 822 ms
+            //   old DO NOTHING     0 rows updated, 4.5 MB WAL, 171 ms
+            // So the guard holds steady-state churn at exactly zero; the residual 2.7 MB over
+            // DO NOTHING is the per-conflict row lock DO UPDATE takes before it can evaluate the
+            // filter, and it buys the ability to ever correct a name. It is not a nightly cost
+            // either: an unchanged version is skipped in GetServerFilesPipeline long before this
+            // statement, so this only runs on the forced re-ingest a rename needs anyway.
             DatabaseSteps.batchUpdate<Item>(
                 sql = SafeSQL.insert("""
                     INSERT INTO minecraft_items (version, item_id, item_name)
                     VALUES (?, ?, ?)
-                    ON CONFLICT (version, item_id) DO NOTHING
+                    ON CONFLICT (version, item_id) DO UPDATE SET item_name = EXCLUDED.item_name
+                    WHERE minecraft_items.item_name IS DISTINCT FROM EXCLUDED.item_name
                 """.trimIndent()),
                 parameterSetter = { statement, item ->
                     statement.setString(1, version.toString())
@@ -136,9 +155,13 @@ private data class StoreMinecraftItemDataStep(val connection: TransactionConnect
                 logger.info("Stored ${tags.size} tags for minecraft version $version in the database.")
             }
 
+            // DO NOTHING is right here, and stays: minecraft_tag_item is a pure join row whose
+            // only non-key column is `created_at`, a first-seen stamp that must not be rewritten.
+            // The membership fact is entirely in the key, so a conflicting row is already correct
+            // and there is nothing an upsert could carry (checked when MCO-502 swept this file).
             DatabaseSteps.batchUpdate<Pair<MinecraftTag, Item>>(
                 sql = SafeSQL.insert("""
-                    INSERT INTO minecraft_tag_item (version, tag, item) 
+                    INSERT INTO minecraft_tag_item (version, tag, item)
                     VALUES (?, ?, ?)
                     ON CONFLICT (version, tag, item) DO NOTHING
                 """.trimIndent()),
