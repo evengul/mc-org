@@ -180,4 +180,79 @@ class ActivityDiagnosticsTest {
         val expected = EffortTable.DEFAULT.of(entity) - EffortTable.DEFAULT.of(block)
         assertEquals(expected, gather.exitCost!!, 1e-9, "leaving GATHER means killing instead")
     }
+
+    // ── stability(): the cheap half the calibration sweep reads (MCO-520) ───────────────────
+
+    private fun stability(sources: List<ResourceSource>, items: List<MinecraftId>) =
+        ItemSourceGraphBuilder.buildFromResourceSources(sources).let { graph ->
+            ActivityDiagnostics.stability(UnitCostModel(graph), items)
+        }
+
+    /**
+     * The invariant that matters: the sweep's per-row numbers and the activity report's must be
+     * the same numbers. They are computed by different code — `stability` skips the escape prices
+     * and the greedy pass — and a sweep whose tie count disagreed with the activity report would
+     * be two answers to one question, which is exactly the failure MCO-520 is about.
+     */
+    @Test
+    fun `stability agrees with report on the facts they both compute`() {
+        val chiseled = item("chiseled_stone_bricks")
+        val brick = item("stone_bricks")
+        val gem = item("gem")
+        val sources = listOf(
+            source(block, "blocks/stone_bricks.json", brick to 1),
+            source(crafting, "chiseled_from_slabs.json", chiseled to 1, brick to 1),
+            source(stonecutting, "chiseled_from_bricks.json", chiseled to 1, brick to 1),
+            source(entity, "entities/gem.json", gem to 1),
+        )
+        val items = listOf(chiseled, brick, gem)
+
+        val r = report(sources, items)
+        val s = stability(sources, items)
+
+        assertEquals(r.ties, s.ties)
+        assertEquals(r.before, s.kinds.size, "the same count of kinds of work")
+        assertEquals(
+            r.groups.map { it.group }.toSet(),
+            s.kinds,
+            "and the same kinds, not merely as many",
+        )
+    }
+
+    /**
+     * An item nothing produces must be *counted*, not priced at zero.
+     *
+     * This is what keeps the sweep's `Smin` column honest. Two effort tables are only comparable
+     * by their summed cost while the same items are priced under both — an item falling out of
+     * the priced set drops the sum by its whole cost, which reads as "the plan got cheaper" and
+     * is the opposite of what happened.
+     */
+    @Test
+    fun `an unproduced item is counted as unpriced rather than summed as free`() {
+        val gem = item("gem")
+        val ghost = item("ghost")
+        val sources = listOf(source(block, "blocks/gem.json", gem to 1))
+
+        val s = stability(sources, listOf(gem, ghost))
+
+        assertEquals(1, s.unpriced)
+        assertEquals(1, s.picks.size, "the ghost gets no pick")
+        assertEquals(EffortTable.DEFAULT.of(block), s.totalMinutes, 1e-9, "and adds nothing to the sum")
+        assertEquals(setOf(ActivityGroup.GATHER), s.kinds, "nor a kind of work")
+    }
+
+    /** The sum is over each item's own cheapest route, so a dearer alternative does not enter it. */
+    @Test
+    fun `total minutes sums the cheapest route per item`() {
+        val gem = item("gem")
+        val sources = listOf(
+            source(block, "blocks/gem.json", gem to 1),
+            source(entity, "entities/gem.json", gem to 1),
+        )
+
+        val s = stability(sources, listOf(gem))
+
+        assertEquals(EffortTable.DEFAULT.of(block), s.totalMinutes, 1e-9)
+        assertEquals(0, s.ties, "mining and killing are not the same price")
+    }
 }
