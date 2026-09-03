@@ -48,7 +48,7 @@
 
 .wizard-progress__step--active:hover .wizard-progress__num {
     background: var(--accent);
-    color: #fff;
+    color: var(--on-accent);
 }
 
 .wizard-progress__step--done:hover .wizard-progress__num {
@@ -97,7 +97,7 @@
 .wizard-progress__step--active .wizard-progress__num {
     background: var(--accent);
     border-color: var(--accent);
-    color: #fff;
+    color: var(--on-accent);
 }
 
 .wizard-progress__step--active .wizard-progress__label {
@@ -129,7 +129,7 @@
 
 .idea-form__title {
     font-family: var(--font-ui);
-    font-size: var(--text-heading);
+    font-size: var(--text-xl);
     font-weight: 600;
     color: var(--text-primary);
     margin: 0 0 var(--space-2) 0;
@@ -525,7 +525,7 @@
 }
 
 .production-mode__name {
-    font-family: var(--font-mono);
+    font-family: var(--font-ui);
 }
 
 .production-recommendation--hidden {

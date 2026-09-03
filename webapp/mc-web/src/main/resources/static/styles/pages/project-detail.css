@@ -620,7 +620,7 @@
     padding: var(--space-3);
     border: 1px solid var(--border);
     border-left: 3px solid var(--accent);
-    background: var(--surface-raised);
+    background: var(--bg-raised);
 }
 
 .plan-farm-scale__lead {
@@ -647,20 +647,20 @@
 .plan-farm-scale__quantity {
     min-width: 6ch;
     text-align: right;
-    font-family: var(--font-mono);
+    font-family: var(--font-ui);
     font-size: var(--text-sm);
     font-variant-numeric: tabular-nums;
-    color: var(--text);
+    color: var(--text-primary);
 }
 
 .plan-farm-scale__name {
     font-family: var(--font-body);
     font-size: var(--text-sm);
-    color: var(--text);
+    color: var(--text-primary);
 }
 
 .plan-farm-scale__badge {
-    background: var(--accent-subtle, transparent);
+    background: var(--accent-muted);
     border: 1px solid var(--accent);
     color: var(--accent);
 }
@@ -837,9 +837,9 @@
 
 /* The number is why the ordering is trustworthy, so it reads as data, not prose. */
 .plan-attention__quantity {
-    font-family: var(--font-mono);
+    font-family: var(--font-ui);
     font-variant-numeric: tabular-nums;
-    color: var(--text);
+    color: var(--text-primary);
 }
 
 .plan-attention__rest {
@@ -994,7 +994,7 @@
 
 .next-up__qty {
     font-family: var(--font-ui);
-    font-size: var(--text-lg, 18px);
+    font-size: var(--text-lg);
     font-weight: 600;
     color: var(--text-primary);
     font-variant-numeric: tabular-nums;
@@ -1002,7 +1002,7 @@
 
 .next-up__item {
     font-family: var(--font-ui);
-    font-size: var(--text-lg, 18px);
+    font-size: var(--text-lg);
     color: var(--accent);
     text-decoration: none;
 }

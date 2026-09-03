@@ -253,7 +253,7 @@ a.ideas-pagination__page:hover {
 
 .ideas-pagination__page--current {
     background: var(--accent);
-    color: #fff;
+    color: var(--on-accent);
     border-color: var(--accent);
     cursor: default;
 }
@@ -307,7 +307,7 @@ a.ideas-pagination__page:hover {
 
 .idea-detail__name {
     font-family: var(--font-ui);
-    font-size: var(--text-heading);
+    font-size: var(--text-xl);
     font-weight: 600;
     color: var(--text-primary);
     margin: 0 0 var(--space-1) 0;

@@ -288,7 +288,7 @@
 .fl-shelf__counts {
     font-family: var(--font-ui);
     font-size: var(--text-xs);
-    color: var(--text-disabled, var(--text-muted));
+    color: var(--text-disabled);
 }
 
 .fl-shelf__toggle {
@@ -400,7 +400,7 @@
     background: var(--bg-surface);
     border: 1px solid var(--border);
     border-radius: var(--radius);
-    box-shadow: var(--shadow-card, none);
+    box-shadow: var(--shadow-card);
     padding: var(--space-5);
     display: flex;
     flex-direction: column;
@@ -424,7 +424,7 @@
 
 .fl-hero__name {
     font-family: var(--font-ui);
-    font-size: var(--text-lg, 17px);
+    font-size: var(--text-lg);
     font-weight: 600;
     color: var(--text-primary);
     text-decoration: none;
@@ -456,7 +456,7 @@
     font-family: var(--font-ui);
     font-size: 10px;
     padding: 4px 10px;
-    border-radius: var(--radius-pill, 999px);
+    border-radius: var(--radius-pill);
     background: var(--bg-raised);
     border: 1px solid var(--border);
     color: var(--text-muted);
@@ -466,7 +466,7 @@
 .fl-sort-pill--active {
     background: var(--accent);
     border-color: var(--accent);
-    color: var(--on-accent, #fff);
+    color: var(--on-accent);
 }
 
 .fl-hero__rows {

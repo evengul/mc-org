@@ -45,6 +45,7 @@ overworld materials. It is a **light** theme (there is currently no dark theme).
 | **Success / status / progress — "done" (grass)** | `--green` | `#4F7A2B` |
 | **Warning (wheat-gold)** | `--amber` | `#855A10` |
 | **Danger / destructive (redstone)** | `--red` | `#A6321F` |
+| Danger hover (darker redstone) | `--red-hover` | `#8B2A1A` |
 | Progress bar fill (grass) | `--progress` | `#4F7A2B` |
 | Done badge background | `--green-bg` | `#DEE8CB` |
 | Blocked badge background | `--red-bg` | `#F0DACF` |
@@ -97,7 +98,16 @@ Two fonts only. Never use other fonts.
 | Base | `--text-base` | Inter | 15px | 400 | Body text |
 | UI | `--text-ui` | IBM Plex Mono | 13px | 500 | Badges, tags, code-like labels |
 | Label | `--text-label` | IBM Plex Mono | 11px | 500 | Section headers (uppercase, tracked) |
-| Heading | `--text-heading` | IBM Plex Mono | 18–24px | 600 | Page titles, project names |
+| LG | `--text-lg` | IBM Plex Mono | 18px | 600 | Prominent inline figures — "next up" qty/item, hero card names |
+| XL | `--text-xl` | IBM Plex Mono | 20px | 600 | In-page view titles — roadmap, import review, idea detail, wizard |
+
+The page-level `h1` (`.page-heading__title`) sits one step above `--text-xl` at 24px and is
+set on the class, not a token.
+
+> There is **no `--text-heading`**. This table used to list one at "18–24px" — a range, not a
+> value — and it was never defined in `design-tokens.css`, so the two call sites that trusted
+> it rendered at the *inherited* size. MCO-388 folded them into `--text-xl`. Don't reintroduce
+> the name; `--text-lg` / `--text-xl` are the two heading steps.
 
 **Section headers** render as: uppercase, letter-spacing 0.08em, muted color. CSS class: `.section-label`. Example: `RESOURCES TO GATHER`.
 
@@ -118,6 +128,28 @@ Base unit: 4px. Always use tokens — never raw pixel values.
 | `--space-8` | 48px |
 
 Max content width: `1080px`. Mobile breakpoint: `768px`.
+
+---
+
+## Radius & Elevation
+
+| Token | Value | Use |
+|-------|-------|-----|
+| `--radius` | 6px | Everything by default — **buttons always**, cards, inputs, panels |
+| `--radius-pill` | 999px | Badges, chips, sort pills, the plan/execute toggle. **Never buttons.** |
+
+Shadows are **ink-coloured** — `rgba(42, 34, 24, …)`, i.e. `--text-primary` at low alpha. A
+shadow on warm paper is a smudge of the same ink, never a neutral grey halo. Two levels only:
+
+| Token | Value | Use |
+|-------|-------|-----|
+| `--shadow-card` | `0 1px 2px rgba(42,34,24,0.06)` | A resting card — hero cards on worlds / project list |
+| `--shadow-pop` | `0 4px 16px rgba(42,34,24,0.18)` | A layer floating above the page — dropdown, popover |
+
+Do not invent a third level, and do not write a raw `box-shadow` for these two roles. Both
+tokens exist because the values had already forked across inline `var(--x, fallback)` call
+sites (MCO-388). The one sanctioned raw `box-shadow` is a focus/selection ring
+(`0 0 0 3px var(--accent-muted)`), which is a ring, not elevation.
 
 ---
 
