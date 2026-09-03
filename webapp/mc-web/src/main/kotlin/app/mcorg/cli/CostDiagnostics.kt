@@ -192,8 +192,21 @@ private suspend fun run(args: List<String>): Int {
     // and saying which requires no knowledge of the model at all. So this prints the arithmetic
     // in the same unit the argument has to happen in.
     if (why) {
-        val roots = if (only.isEmpty()) graph.getAllItems().map { it.item }.filter { it.id in DEFAULT_WHY }
-        else subjects.ifEmpty { graph.getAllItems().map { it.item }.filter { it.id in only } }
+        // Named items are looked up in the graph directly, NOT through `subjects` — that list is
+        // filtered to items with more than one source, for the comparison this CLI mostly does.
+        // A single-source item is precisely one you might want priced (it is the whole answer for
+        // that item), and asking for `red_sand` and silently getting nothing back is worse than
+        // an error. Found by asking for exactly that.
+        val roots = if (only.isEmpty()) {
+            graph.getAllItems().map { it.item }.filter { it.id in DEFAULT_WHY }
+        } else {
+            graph.getAllItems().map { it.item }.filter { it.id in only && it !is MinecraftTag }
+        }
+        val missing = only.filterNot { id -> roots.any { it.id == id } }
+        if (missing.isNotEmpty()) {
+            println()
+            println("  not in this graph: ${missing.joinToString(", ") { it.substringAfter(':') }}")
+        }
 
         println()
         println("What each price is made of - $resolvedVersion, table '$tableName'")
