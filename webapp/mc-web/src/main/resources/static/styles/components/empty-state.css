@@ -2,6 +2,11 @@
    EMPTY STATE COMPONENT
    ========================================================================== */
 
+/* The heading and body rules were missing here for as long as the file has existed, so
+   `emptyState()` rendered two elements nothing styled. They lived in pages/idea-hub.css
+   instead — a page stylesheet, so the one page that linked it looked right and every other
+   caller got unstyled text. The padding below comes from that copy too. */
+
 .empty-state {
     display: flex;
     flex-direction: column;
@@ -9,12 +14,31 @@
     text-align: center;
     max-width: 600px;
     margin: 0 auto;
+    padding: var(--space-8) var(--space-5);
+    gap: var(--space-2);
+}
+
+.empty-state__heading {
+    font-family: var(--font-ui);
+    font-size: var(--text-base);
+    color: var(--text-muted);
+    margin: 0;
+}
+
+.empty-state__body {
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    color: var(--text-muted);
+    margin: 0;
+    line-height: 1.5;
 }
 
 .empty-state__actions {
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
+    gap: var(--space-3);
+    margin-top: var(--space-3);
 }
 
 /* --- Cards ---

@@ -7,6 +7,7 @@ import app.mcorg.presentation.hxSwap
 import app.mcorg.presentation.hxTarget
 import app.mcorg.presentation.templated.dsl.appHeader
 import app.mcorg.presentation.templated.dsl.container
+import app.mcorg.presentation.templated.dsl.emptyState
 import app.mcorg.presentation.templated.dsl.pageShell
 import kotlinx.html.ButtonType
 import kotlinx.html.a
@@ -32,6 +33,7 @@ fun draftListPage(
     stylesheets = listOf(
         "/static/styles/components/btn.css",
         "/static/styles/components/project-card.css",
+        "/static/styles/components/empty-state.css",
         "/static/styles/pages/draft-list.css",
     )
 ) {
@@ -56,9 +58,14 @@ fun draftListPage(
             div {
                 id = "draft-list"
                 if (drafts.isEmpty()) {
-                    div("empty-state") {
-                        p("empty-state__body") { +"You have no drafts. Start a new draft to submit an idea." }
-                    }
+                    // A fallback, not a state you can navigate to: `handleGetDraftList`
+                    // redirects to a fresh draft's editor when the list is empty, so this
+                    // page is only rendered with rows. Kept because the function's contract
+                    // takes any list, and styled because it was not.
+                    emptyState(
+                        heading = "No drafts yet",
+                        body = "Start a new draft to submit an idea.",
+                    )
                 } else {
                     drafts.forEach { draft ->
                         draftCard(draft)
