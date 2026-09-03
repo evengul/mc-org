@@ -19,6 +19,7 @@ fun ideasPage(
     user = user,
     stylesheets = listOf(
         "/static/styles/components/btn.css",
+        "/static/styles/components/empty-state.css",
         "/static/styles/pages/idea-hub.css",
     )
 ) {

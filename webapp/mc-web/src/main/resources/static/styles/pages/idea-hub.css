@@ -210,19 +210,8 @@
     flex-shrink: 0;
 }
 
-/* --- Empty state --- */
-
-.empty-state {
-    text-align: center;
-    padding: var(--space-8) var(--space-5);
-}
-
-.empty-state__heading {
-    font-family: var(--font-ui);
-    font-size: var(--text-base);
-    color: var(--text-muted);
-    margin: 0;
-}
+/* The empty state used to be defined here, which is why it only looked right on this page.
+   It is components/empty-state.css's now — link that instead of redefining it. */
 
 /* --- Pagination --- */
 

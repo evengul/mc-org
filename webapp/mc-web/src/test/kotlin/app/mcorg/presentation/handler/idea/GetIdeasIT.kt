@@ -97,7 +97,11 @@ class GetIdeasIT : WithUser() {
         val response = client.get("/ideas") { addAuthCookie(this) }
 
         assertEquals(HttpStatusCode.OK, response.status)
-        assertContains(response.bodyAsText(), "No ideas match your filters")
+        val body = response.bodyAsText()
+        assertContains(body, "No ideas match your filters")
+        // The rules moved out of pages/idea-hub.css, which is the only reason this page ever
+        // looked right — the class alone proves nothing about whether it is styled.
+        assertContains(body, "/static/styles/components/empty-state.css")
     }
 
     @Test

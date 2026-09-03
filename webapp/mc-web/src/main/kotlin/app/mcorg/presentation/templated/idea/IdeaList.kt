@@ -9,6 +9,7 @@ import app.mcorg.presentation.hxInclude
 import app.mcorg.presentation.hxSwap
 import app.mcorg.presentation.hxTarget
 import app.mcorg.presentation.templated.dsl.Link
+import app.mcorg.presentation.templated.dsl.emptyState
 import app.mcorg.presentation.templated.utils.formatAsRelativeOrDate
 import app.mcorg.presentation.templated.utils.toPrettyEnumName
 import kotlinx.html.*
@@ -17,9 +18,7 @@ import java.net.URLEncoder
 
 fun FlowContent.ideasListContainerContent(result: PaginatedResult<Idea>, filters: IdeaSearchFilters) {
     if (result.items.isEmpty()) {
-        div("empty-state") {
-            p("empty-state__heading") { +"No ideas match your filters" }
-        }
+        emptyState(heading = "No ideas match your filters")
     } else {
         div("ideas-card-grid") {
             result.items.forEach { idea ->
