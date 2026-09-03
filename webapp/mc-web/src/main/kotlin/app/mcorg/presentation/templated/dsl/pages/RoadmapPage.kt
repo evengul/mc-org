@@ -90,12 +90,15 @@ fun roadmapPage(
                 newProjectAffordance(roadmap.worldId, showMenu = !roadmap.isEmpty())
             }
 
+            // The title stays on an empty world: the Projects tab heads itself in both states,
+            // so a Roadmap tab that dropped its heading when empty made the two tabs look like
+            // two different kinds of page. One definition for both views, empty or not
+            // (MCO-505) — the switcher travels with it, and both destinations agree.
+            roadmapTitle(roadmap.worldId, roadmapSummary(roadmap), graphActive = false)
+
             if (roadmap.isEmpty()) {
-                // No title and no view switcher: there is nothing to switch between, and the
-                // two views of an empty world are the same page.
                 worldEmptyState(roadmap.worldId)
             } else {
-                roadmapTitle(roadmap.worldId, roadmapSummary(roadmap), graphActive = false)
                 // Above the table: a loop makes the ordering below it a guess, so saying so
                 // after the fact would be the wrong way round (MCO-460).
                 cycleSection(roadmap)
@@ -195,7 +198,6 @@ private fun RoadmapCycleOption.claimText(): String =
     if (quantity != null && itemName != null) "%,d %s".format(quantity, itemName)
     else "the dependency"
 
-/** "12 projects · 3 blocked · 4 layers deep" — straight off the model's own statistics. */
 /**
  * The roadmap's title, meta line and view switcher — **one definition for both views** (MCO-505).
  *
@@ -237,9 +239,17 @@ internal fun FlowContent.roadmapTitle(worldId: Int, meta: String, graphActive: B
     }
 }
 
+/**
+ * "Fresh World · 12 projects · 3 blocked · 4 layers deep" — straight off the model's own
+ * statistics, and never a count of nothing: an empty world reads "Fresh World · 0 projects".
+ *
+ * Leads with the world's name because the graph view's meta does (`headerMeta`), and one page
+ * with two subtitles is the drift MCO-505 spent its time undoing.
+ */
 private fun roadmapSummary(roadmap: Roadmap): String {
     val stats = roadmap.getStatistics()
     val parts = buildList {
+        add(roadmap.worldName)
         add("${stats.totalProjects} ${if (stats.totalProjects == 1) "project" else "projects"}")
         if (stats.blockedProjects > 0) add("${stats.blockedProjects} blocked")
         if (stats.totalDependencies > 0) {

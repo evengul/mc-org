@@ -308,6 +308,25 @@ class WorldRoadmapIT : WithUser() {
             deleteWorld(worldId)
         }
 
+    @Test
+    fun `both roadmap views head an empty world, as the projects tab does`() = testApplication {
+        // The Projects tab titles itself whether or not it has projects. A Roadmap tab that
+        // dropped its heading when empty made the two tabs read as different kinds of page.
+        setupRoutes()
+        val worldId = createWorld("Headed Empty World")
+
+        for (url in listOf("/worlds/$worldId/roadmap", "/worlds/$worldId/roadmap?view=table")) {
+            val body = client.get(url) { addAuthCookie(this) }.bodyAsText()
+
+            assertContains(body, "roadmap-title__name", message = "$url: no heading on an empty world")
+            assertContains(body, "Headed Empty World", message = "$url: the meta line names the world")
+            assertContains(body, "0 projects")
+            assertFalse(body.contains("0 layers"), "$url: nothing to measure, so no measurement")
+        }
+
+        deleteWorld(worldId)
+    }
+
     /**
      * The world's one empty state (`worldEmptyState`): the same three doors the project list
      * offers, styled — `.np-menu__door` needs np-menu.css, and the cards need empty-state.css.
