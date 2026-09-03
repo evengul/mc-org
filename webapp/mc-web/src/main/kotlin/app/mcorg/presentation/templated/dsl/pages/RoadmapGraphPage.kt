@@ -79,6 +79,7 @@ fun roadmapGraphPage(
         "/static/styles/pages/roadmap-graph.css",
         "/static/styles/components/world-tabs.css",
         "/static/styles/components/np-menu.css",
+        "/static/styles/components/empty-state.css",
         "/static/styles/components/modal.css",
         "/static/styles/components/form.css",
         "/static/styles/components/item-search.css",
@@ -99,17 +100,26 @@ fun roadmapGraphPage(
     main {
         container {
             worldBar(view.roadmap.worldId, WorldTab.ROADMAP) {
-                newProjectAffordance(view.roadmap.worldId)
+                newProjectAffordance(view.roadmap.worldId, showMenu = !view.roadmap.isEmpty())
             }
             // The title sits outside the card, as on the table view and every other page
-            // (MCO-505). It used to be an `.rmg-section` within it.
+            // (MCO-505). It used to be an `.rmg-section` within it. It heads an empty world
+            // too — the Projects tab heads itself in both states, and a Roadmap tab that
+            // dropped its heading when empty made the two tabs look like different pages.
             roadmapTitle(view.roadmap.worldId, headerMeta(view), graphActive = true)
-            div("rmg-card") {
-                id = "roadmap-graph"
-                startHereSection(view)
-                graphSection(view)
-                unchainedSection(view)
-                producingSection(view)
+            if (view.roadmap.isEmpty()) {
+                // This is the view a world opens on, so it is the first thing a new world
+                // shows — and it used to be an empty card with four empty sections in it.
+                // The world's one empty state answers it instead (see [worldEmptyState]).
+                worldEmptyState(view.roadmap.worldId)
+            } else {
+                div("rmg-card") {
+                    id = "roadmap-graph"
+                    startHereSection(view)
+                    graphSection(view)
+                    unchainedSection(view)
+                    producingSection(view)
+                }
             }
         }
     }
@@ -123,7 +133,13 @@ private fun headerMeta(view: RoadmapGraphView): String {
         if (view.producerCount > 0) {
             add("${view.producerCount} producing ${if (view.producerCount == 1) "farm" else "farms"}")
         }
-        add("${stats.maxDepth} ${if (stats.maxDepth == 1) "layer" else "layers"}")
+        // Guarded on dependencies, exactly as the table's `roadmapSummary` guards it: depth is
+        // a fact about links, and a world whose projects link to nothing is one layer only in
+        // the sense that everything is in it. Unguarded this said "0 layers" on an empty world
+        // and "1 layer" on an unlinked one, neither of which measures anything.
+        if (stats.totalDependencies > 0) {
+            add("${stats.maxDepth} ${if (stats.maxDepth == 1) "layer" else "layers"}")
+        }
     }.joinToString(" · ")
 }
 

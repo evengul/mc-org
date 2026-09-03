@@ -9,7 +9,6 @@ import app.mcorg.domain.model.world.RoadmapEdge
 import app.mcorg.domain.model.world.RoadmapNode
 import app.mcorg.presentation.templated.dsl.appHeader
 import app.mcorg.presentation.templated.dsl.container
-import app.mcorg.presentation.templated.dsl.emptyState
 import app.mcorg.presentation.templated.dsl.pageShell
 import app.mcorg.presentation.templated.dsl.projectStateBadge
 import app.mcorg.presentation.templated.dsl.WorldTab
@@ -64,6 +63,7 @@ fun roadmapPage(
         "/static/styles/pages/roadmap-graph.css",
         "/static/styles/components/world-tabs.css",
         "/static/styles/components/np-menu.css",
+        "/static/styles/components/empty-state.css",
         "/static/styles/components/modal.css",
         "/static/styles/components/form.css",
         "/static/styles/components/item-search.css",
@@ -83,13 +83,21 @@ fun roadmapPage(
     )
     main {
         container {
+            // An empty world has nothing to add *to* yet, and [worldEmptyState] carries the same
+            // doors — so the menu appears only once there is something to sequence, exactly as
+            // on the project list.
             worldBar(roadmap.worldId, WorldTab.ROADMAP) {
-                newProjectAffordance(roadmap.worldId)
+                newProjectAffordance(roadmap.worldId, showMenu = !roadmap.isEmpty())
             }
+
+            // The title stays on an empty world: the Projects tab heads itself in both states,
+            // so a Roadmap tab that dropped its heading when empty made the two tabs look like
+            // two different kinds of page. One definition for both views, empty or not
+            // (MCO-505) — the switcher travels with it, and both destinations agree.
             roadmapTitle(roadmap.worldId, roadmapSummary(roadmap), graphActive = false)
 
             if (roadmap.isEmpty()) {
-                roadmapEmptyState(roadmap.worldId)
+                worldEmptyState(roadmap.worldId)
             } else {
                 // Above the table: a loop makes the ordering below it a guess, so saying so
                 // after the fact would be the wrong way round (MCO-460).
@@ -190,7 +198,6 @@ private fun RoadmapCycleOption.claimText(): String =
     if (quantity != null && itemName != null) "%,d %s".format(quantity, itemName)
     else "the dependency"
 
-/** "12 projects · 3 blocked · 4 layers deep" — straight off the model's own statistics. */
 /**
  * The roadmap's title, meta line and view switcher — **one definition for both views** (MCO-505).
  *
@@ -232,9 +239,17 @@ internal fun FlowContent.roadmapTitle(worldId: Int, meta: String, graphActive: B
     }
 }
 
+/**
+ * "Fresh World · 12 projects · 3 blocked · 4 layers deep" — straight off the model's own
+ * statistics, and never a count of nothing: an empty world reads "Fresh World · 0 projects".
+ *
+ * Leads with the world's name because the graph view's meta does (`headerMeta`), and one page
+ * with two subtitles is the drift MCO-505 spent its time undoing.
+ */
 private fun roadmapSummary(roadmap: Roadmap): String {
     val stats = roadmap.getStatistics()
     val parts = buildList {
+        add(roadmap.worldName)
         add("${stats.totalProjects} ${if (stats.totalProjects == 1) "project" else "projects"}")
         if (stats.blockedProjects > 0) add("${stats.blockedProjects} blocked")
         if (stats.totalDependencies > 0) {
@@ -242,24 +257,6 @@ private fun roadmapSummary(roadmap: Roadmap): String {
         }
     }
     return parts.joinToString(" · ")
-}
-
-/**
- * Shown when the world has no projects at all. A full page with a way forward, not a hidden
- * feature — someone who followed the roadmap link wants to know what would fill it.
- */
-private fun FlowContent.roadmapEmptyState(worldId: Int) {
-    emptyState(
-        heading = "Nothing to sequence yet",
-        body = "The roadmap draws itself from your projects' resources: when one project's " +
-            "requirement is produced or solved by another, a link appears here and the order " +
-            "follows. Define some resources to see it fill in.",
-    ) {
-        a(classes = "btn btn--primary") {
-            href = "/worlds/$worldId/projects"
-            +"Back to projects"
-        }
-    }
 }
 
 private fun FlowContent.roadmapTable(roadmap: Roadmap) {
