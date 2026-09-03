@@ -40,7 +40,9 @@ class ChoiceTagCanonicaliserTest {
         val canonical = canonicaliser.canonicalise(choiceTag(listOf("minecraft:coal", "minecraft:charcoal")))
 
         assertEquals("#minecraft:coals", canonical.id)
-        assertEquals("Coals", canonical.name)
+        // Only the id changes. The vanilla tag's own name ("Coals") describes what Mojang uses it
+        // for and names neither option; the question keeps the label its members gave it (MCO-489).
+        assertEquals("Charcoal or Coal", canonical.name)
         assertEquals(
             listOf("minecraft:charcoal", "minecraft:coal"),
             (canonical as MinecraftTag).content.map { it.id },

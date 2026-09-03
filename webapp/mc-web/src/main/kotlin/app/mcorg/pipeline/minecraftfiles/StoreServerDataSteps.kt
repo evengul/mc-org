@@ -112,11 +112,19 @@ private data class StoreMinecraftItemDataStep(val connection: TransactionConnect
                 logger.info("Stored ${itemsAndTags.size} items for minecraft version $version in the database.")
             }
 
+            // DO UPDATE, not DO NOTHING: a tag's name is extraction output like everything else,
+            // and an extraction change that renames one has to be able to land. MCO-489 renamed
+            // every tag ("Smelts To Glass" -> "Red Sand or Sand") and bumped ExtractionVersion to
+            // trigger the re-ingest — which then wrote nothing, because the row already existed.
+            //
+            // The WHERE keeps it a genuine no-op when the name is unchanged, so the daily ingest
+            // does not rewrite every row of every version for nothing.
             DatabaseSteps.batchUpdate<MinecraftTag>(
                 sql = SafeSQL.insert("""
-                    INSERT INTO minecraft_tag (version, tag, name) 
+                    INSERT INTO minecraft_tag (version, tag, name)
                     VALUES (?, ?, ?)
-                    ON CONFLICT (version, tag) DO NOTHING
+                    ON CONFLICT (version, tag) DO UPDATE SET name = EXCLUDED.name
+                    WHERE minecraft_tag.name IS DISTINCT FROM EXCLUDED.name
                 """.trimIndent()),
                 parameterSetter = { statement, tag ->
                     statement.setString(1, version.toString())

@@ -86,7 +86,12 @@ data class ExtractionContext(
             to = MinecraftVersion.release(20, 1)
         )
 
-        /** Human-readable name for a tag id: `#minecraft:wooden_slabs` -> `Wooden Slabs`. */
+        /**
+         * Human-readable name for a tag *id*: `#minecraft:wooden_slabs` -> `Wooden Slabs`.
+         *
+         * The last-resort label only. A tag with members is named by them — see [tagChoiceName],
+         * and MCO-489 for why an id makes a bad question.
+         */
         fun tagDisplayName(tag: String): String {
             val cleaned = tag.replace("_", " ").replace("#minecraft:", "")
 
@@ -106,18 +111,19 @@ fun ResourceSource.withNames(context: ExtractionContext): ResourceSource = copy(
 private fun MinecraftId.withName(context: ExtractionContext): MinecraftId = when (this) {
     is Item -> copy(name = context.nameOf(id))
     is MinecraftTag -> {
+        // A synthetic tag (e.g. an inline-alternatives choice tag) is not in the version's tag
+        // registry but carries its own members — those are the truth for it, the registry's for
+        // everything else.
         val fromRegistry = context.contentOfTag(id)
-        if (fromRegistry.isEmpty() && content.isNotEmpty()) {
-            // A synthetic tag (e.g. an inline-alternatives choice tag) is not in the version's
-            // tag registry but carries its own members and name — keep them, just resolve the
-            // members' display names from the catalog.
-            copy(content = content.map { Item(it.id, context.nameOf(it.id)) })
-        } else {
-            copy(
-                name = ExtractionContext.tagDisplayName(id),
-                content = fromRegistry.map { taggedItem -> Item(taggedItem, context.nameOf(taggedItem)) }
-            )
-        }
+        val memberIds = if (fromRegistry.isEmpty() && content.isNotEmpty()) content.map { it.id } else fromRegistry
+
+        copy(
+            // Named by its members wherever it has any, so the same set reads the same under
+            // every id it is known by, and a question names the things it asks you to choose
+            // between (MCO-489). The id is the fallback for a tag with no members at all.
+            name = tagChoiceName(memberIds) ?: ExtractionContext.tagDisplayName(id),
+            content = memberIds.map { memberId -> Item(memberId, context.nameOf(memberId)) },
+        )
     }
 }
 

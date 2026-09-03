@@ -35,14 +35,15 @@ internal class ChoiceTagCanonicaliser private constructor(
 ) {
 
     /**
-     * [id] with any synthetic choice tag swapped for its vanilla equivalent. Display name and
-     * members are left for `withNames` to resolve from the registry, as for any vanilla tag.
+     * [id] with any synthetic choice tag swapped for its vanilla equivalent. Members are left for
+     * `withNames` to resolve from the registry, as for any vanilla tag — and the name survives the
+     * swap, because it was never the tag id's to give (MCO-489). Only the id changes here.
      */
     fun canonicalise(id: MinecraftId): MinecraftId {
         if (id !is MinecraftTag) return id
         if (!id.id.startsWith(SYNTHETIC_PREFIX)) return id
         val vanilla = vanillaTagsByMembers[id.content.map(Item::id).toSet()] ?: return id
-        return MinecraftTag(vanilla, ExtractionContext.tagDisplayName(vanilla), id.content)
+        return MinecraftTag(vanilla, id.name, id.content)
     }
 
     /**

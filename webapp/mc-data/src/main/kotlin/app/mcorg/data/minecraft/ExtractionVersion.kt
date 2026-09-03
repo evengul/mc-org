@@ -61,6 +61,13 @@ package app.mcorg.data.minecraft
  *       that move are behavioural tags no source references — but the canonicaliser's view of
  *       the registry does, so a recipe's inline alternative list can now fold onto a vanilla tag
  *       whose members were previously unreadable — MCO-488 (2026-09).
+ *
+ *       Also at 8, sharing the bump and the one re-ingest it triggers: a tag is named by the
+ *       members it asks you to choose between, not by its id. "Smelts To Glass" names what Mojang
+ *       uses the tag for and neither of the two blocks the user is picking between; it reads "Red
+ *       Sand or Sand" now, as do its neighbours ("Soul Fire Base Blocks", "Coals"). Folding a
+ *       synthetic set onto a vanilla id at 6 dragged the vanilla name along with it, which is what
+ *       surfaced this — MCO-489 (2026-09).
  */
 object ExtractionVersion {
     const val CURRENT = 8
