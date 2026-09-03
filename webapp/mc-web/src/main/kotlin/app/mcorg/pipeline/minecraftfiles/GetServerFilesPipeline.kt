@@ -7,6 +7,7 @@ import app.mcorg.data.minecraft.ExtractMinecraftDataStep
 import app.mcorg.data.minecraft.ExtractionVersion
 import app.mcorg.data.minecraft.extract.ExtractRelevantMinecraftFilesStep
 import app.mcorg.domain.model.minecraft.MinecraftVersion
+import app.mcorg.item.ItemGlyph
 import app.mcorg.pipeline.Result
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.domain.pipeline.pipelineResult
@@ -420,7 +421,12 @@ private data object ProcessServerFilesStep : Step<List<ResolvedServerJar>, AppFa
             return marked
         }
 
-        val result: Result<AppFailure, Unit> = pipelineResult {
+        // Ends on the glyph-gap check rather than on the store, so the ledger update below carries
+        // it. Reading the catalog back out of `minecraft_items` rather than checking the in-memory
+        // extraction result is deliberate: the report should describe what the app will actually
+        // render, and `StoreMinecraftDataStep` folds tag contents in and retires absent ids, so the
+        // stored set is not the list that went in.
+        val result: Result<AppFailure, List<String>> = pipelineResult {
             val file = GetServerFileStep.run(jar)
             val extracted = ExtractRelevantMinecraftFilesStep().process(file)
                 .mapError { AppFailure.FileError(ProcessServerFilesStep.javaClass) }
@@ -429,16 +435,45 @@ private data object ProcessServerFilesStep : Step<List<ResolvedServerJar>, AppFa
                 .mapError { AppFailure.FileError(ProcessServerFilesStep.javaClass) }
                 .bind()
             StoreMinecraftDataStep.run(data)
+            ComputeUnmappedItemsStep.run(version)
         }
 
         return when (result) {
-            is Result.Success -> MarkIngestionCompletedStep.process(jar)
+            is Result.Success -> {
+                reportUnmappedItems(version, result.value)
+                MarkIngestionCompletedStep.process(CompletedIngestion(jar, result.value))
+            }
             is Result.Failure -> {
                 // Best-effort: record the failure so a rerun retries this version only. If the ledger
                 // write itself fails we still surface the original, more informative error.
                 MarkIngestionFailedStep.process(version to result.error.toString())
                 result
             }
+        }
+    }
+
+    /**
+     * The ingestion summary line for one version, carrying `unmappedItemCount` (MCO-475).
+     *
+     * The count is written as a `key=value` token inside the message rather than pushed into the
+     * MDC, because logback's text encoder renders only `%X{call-id}` today — an MDC entry would go
+     * nowhere, and adding a key to `ALLOWED_MDC_KEYS` is a publish decision that belongs with the
+     * log-drain work, not here. As a token it is already matchable (`unmappedItemCount=(\d+)`), so
+     * MCO-343 can build the monitor on it and promote it to a real field at the same time.
+     *
+     * Item ids are Minecraft registry names — public game data, not user-authored content — so
+     * naming them in full is within documentation/logging.md's posture.
+     */
+    private fun reportUnmappedItems(version: MinecraftVersion.Release, unmapped: List<String>) {
+        logger.info("Ingestion summary for {}: unmappedItemCount={}.", version, unmapped.size)
+        if (unmapped.isNotEmpty()) {
+            logger.warn(
+                "Minecraft {} has {} item(s) with no Seam glyph; they render as the unmapped mark " +
+                    "until a rule is added to ItemGlyph: {}",
+                version,
+                unmapped.size,
+                unmapped.joinToString(", "),
+            )
         }
     }
 }
@@ -629,24 +664,64 @@ internal data object MarkIngestionInProgressStep : Step<MinecraftVersion.Release
 }
 
 /**
- * Marks a version's ingestion as completed, records the server.jar SHA + URL it was ingested from,
- * and clears any prior error. The stored SHA is what the next run's freshness check compares against
- * (MCO-167 set status; MCO-168 adds the SHA/URL).
+ * A version's stored item ids that no [ItemGlyph] rule covers (MCO-475).
+ *
+ * Reads the catalog back from `minecraft_items` — the resolver is a pure function over the id, so
+ * the check itself costs nothing beyond this one indexed SELECT. Technical ids (block-states,
+ * `air`, potted variants) are filtered out by [ItemGlyph.unmapped], so a non-empty result is always
+ * a genuine gap rather than noise.
+ *
+ * A DB failure here fails the version's ingestion rather than being swallowed. That is not the
+ * "never fail a run over a cosmetic icon" case: a SELECT that fails immediately after the store
+ * transaction committed means the database is gone, and the ledger update on the next line would
+ * fail anyway. Swallowing it would write `'{}'` — an all-clear the run did not actually establish.
  */
-internal data object MarkIngestionCompletedStep : Step<ResolvedServerJar, AppFailure.DatabaseError, Unit> {
-    override suspend fun process(input: ResolvedServerJar): Result<AppFailure.DatabaseError, Unit> =
-        DatabaseSteps.update<ResolvedServerJar>(
+internal data object ComputeUnmappedItemsStep : Step<MinecraftVersion.Release, AppFailure.DatabaseError, List<String>> {
+    override suspend fun process(input: MinecraftVersion.Release): Result<AppFailure.DatabaseError, List<String>> =
+        DatabaseSteps.query<MinecraftVersion.Release, List<String>>(
+            sql = SafeSQL.select("SELECT item_id FROM minecraft_items WHERE version = ?"),
+            parameterSetter = { statement, version -> statement.setString(1, version.toString()) },
+            resultMapper = { resultSet ->
+                buildList { while (resultSet.next()) add(resultSet.getString("item_id")) }
+            },
+        ).process(input).map { ItemGlyph.unmapped(it) }
+}
+
+/** A finished version plus the glyph gaps found in it, the two halves of the completed ledger row. */
+internal data class CompletedIngestion(
+    val jar: ResolvedServerJar,
+    val unmappedItems: List<String>,
+)
+
+/**
+ * Marks a version's ingestion as completed, records the server.jar SHA + URL it was ingested from,
+ * the item ids no glyph rule covers, and clears any prior error. The stored SHA is what the next
+ * run's freshness check compares against (MCO-167 set status; MCO-168 adds the SHA/URL; MCO-475
+ * adds `unmapped_items`).
+ *
+ * `unmapped_items` is written unconditionally, including as an empty array. That overwrite is the
+ * whole self-healing property: adding a rule to [ItemGlyph] clears the gap on the next completed
+ * ingestion of that version, with no separate resolution step and nothing to remember to tidy up.
+ */
+internal data object MarkIngestionCompletedStep : Step<CompletedIngestion, AppFailure.DatabaseError, Unit> {
+    override suspend fun process(input: CompletedIngestion): Result<AppFailure.DatabaseError, Unit> =
+        DatabaseSteps.update<CompletedIngestion>(
             sql = SafeSQL.update("""
                 UPDATE minecraft_version_ingestion
                 SET status = 'completed', completed_at = now(), last_error = NULL,
-                    server_jar_sha = ?, server_jar_url = ?, extraction_version = ?
+                    server_jar_sha = ?, server_jar_url = ?, extraction_version = ?,
+                    unmapped_items = ?
                 WHERE version = ?
             """.trimIndent()),
-            parameterSetter = { statement, jar ->
-                statement.setString(1, jar.sha1)
-                statement.setString(2, jar.url.toString())
+            parameterSetter = { statement, completed ->
+                statement.setString(1, completed.jar.sha1)
+                statement.setString(2, completed.jar.url.toString())
                 statement.setInt(3, ExtractionVersion.CURRENT)
-                statement.setString(4, jar.version.toString())
+                statement.setArray(
+                    4,
+                    statement.connection.createArrayOf("text", completed.unmappedItems.toTypedArray()),
+                )
+                statement.setString(5, completed.jar.version.toString())
             }
         ).process(input).map { }
 }

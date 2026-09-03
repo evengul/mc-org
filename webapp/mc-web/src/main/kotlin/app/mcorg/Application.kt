@@ -2,6 +2,7 @@ package app.mcorg
 
 import app.mcorg.config.AppConfig
 import app.mcorg.event.configureEvents
+import app.mcorg.pipeline.minecraftfiles.configureUnmappedItemWarning
 import app.mcorg.webhook.configureWebhooks
 import app.mcorg.presentation.plugins.configureHTTP
 import app.mcorg.presentation.plugins.configureMonitoring
@@ -45,4 +46,5 @@ private fun Application.module() {
     configureAppRouter()
     configureStatusStaticRouter()
     configureSessions()
+    configureUnmappedItemWarning()
 }

@@ -57,6 +57,21 @@ class ItemGlyphTest {
         assertTrue(orphans.isEmpty(), "SVGs no rule can ever select: $orphans")
     }
 
+    /**
+     * The detection MCO-475's ingestion check is built on: an id no rule covers has to come back as
+     * a gap, namespace stripped and sorted, and has to do so *alongside* ids that do resolve — the
+     * ingestion check runs `unmapped` over a whole 1,500-id registry, so a version that adds two new
+     * items must yield those two and nothing else.
+     */
+    @Test
+    fun `ids no rule covers are reported as gaps, and only those`() {
+        val nextVersionRegistry = itemIds + listOf("minecraft:zorkmid", "frobnicator", "minecraft:air")
+
+        assertEquals(listOf("frobnicator", "zorkmid"), ItemGlyph.unmapped(nextVersionRegistry))
+        assertNull(ItemGlyph.resolve("zorkmid"))
+        assertTrue(ItemGlyph.isRenderable("minecraft:zorkmid"), "an unknown id is still a real item")
+    }
+
     @Test
     fun `technical ids are excluded rather than reported as gaps`() {
         listOf("minecraft:air", "minecraft:water", "potted_cactus", "minecraft:piston_head")
