@@ -396,6 +396,78 @@ kill <pid>                           # only if no build is running in that workt
 daemons from worktrees you finished with hours ago are the usual answer, not the
 app or the editor.
 
+## Worktree Browser Isolation (MCO-515)
+
+**A worktree drives its own browser, not the one every other worktree is using.**
+Before this, `/verify` in one worktree could navigate, click through and screenshot
+*another* worktree's app — and look entirely plausible doing it, which is the
+worst property a verification tool can have.
+
+`playwright-cli` derives **both** the daemon socket and the browser profile from a
+single session name:
+
+```
+/tmp/playwright-cli/<installHash>/<session>.sock
+~/.cache/ms-playwright/daemon/<installHash>/ud-<session>-<browser>
+```
+
+resolved as `--session=X` → `$PLAYWRIGHT_CLI_SESSION` → `"default"`. Nothing set
+either, so every worktree fell through to `default` and shared one Chromium —
+one cookie jar, one set of tabs. (The daemon is also spawned with
+`cwd: process.cwd() // Will be used as root`, so a shared one is *rooted* in
+whichever worktree opened it first.)
+
+- **A PATH shim sets the session name per call.** `~/.local/bin/playwright-cli`
+  is a symlink to `webapp/scripts/playwright-cli-shim.sh`; `~/.local/bin` is
+  already first on `PATH` via `.bashrc`, so no profile edit. Names are
+  `<repo>` for a main checkout and `<repo>--<worktree>` for a worktree —
+  `mc-org`, `mc-org--mco-515-playwright-session-isolation`. Outside a git repo
+  nothing is set and playwright-cli's own `default` applies.
+- **The symlink targets the MAIN CHECKOUT's copy**, never a worktree's — a
+  worktree gets deleted and a dangling shim would break `playwright-cli`
+  everywhere on the box, in every repo.
+- **It is on PATH for every repo**, not just this one, which is why names carry
+  the repo prefix: worktree basenames collide across repos.
+- **`--session=X` is NOT a substitute, and documenting it was not the fix.** It
+  was already documented in the user-level playwright skill and the worktrees
+  collided anyway, because the flag only works for the *first* command against a
+  session: `session` is one of program.js's `globalArgs`, and `SessionManager.run`
+  exits 1 with "The session is already configured" if any global arg reaches a
+  session that already exists. `PLAYWRIGHT_CLI_SESSION` does not populate
+  `args.session`, so the env var is the only mechanism that survives repeated use.
+- **The shim also sets `PLAYWRIGHT_MCP_BROWSER=chromium`.** playwright-cli's
+  default is `browserName: "chromium"` with `launchOptions.channel: "chrome"`, and
+  Google Chrome is not installed here — that is what the playwright skill's "run
+  `config --browser=chromium` once per session" step worked around, and with a
+  session per worktree it would have become once per *worktree*. Don't run that
+  step; on an existing session it restarts the daemon and loses your page.
+- **You get one Chromium per worktree** — the [Kotlin daemon fan-out](#kotlin-daemon-fan-out-mco-477)
+  shape again. `ExitWorktree` prunes sessions whose worktree is gone; if the box
+  is thrashing, `pgrep -af ud-mc-org` is worth a look alongside the Kotlin daemons.
+
+Overrides, both respected: `PLAYWRIGHT_CLI_SESSION=foo playwright-cli ...` pins a
+name by hand, and an explicit `--session=` flag still wins.
+
+**Scripts:**
+
+- `webapp/scripts/playwright-cli-shim.sh` — the shim itself (not run directly)
+- `webapp/scripts/worktree-playwright.sh` — install/refresh the symlink; idempotent
+- `webapp/scripts/worktree-playwright.sh --prune` — stop + delete sessions whose
+  worktree is gone (only ever inside this repo's `mc-org*` namespace)
+- `webapp/scripts/worktree-playwright.sh --status` — the shim, this directory's
+  session name, and every live session
+
+Installed automatically by the `EnterWorktree` hook. On a fresh machine, or the
+first time after this merged, run it once by hand from the main checkout:
+
+```bash
+bash webapp/scripts/worktree-playwright.sh
+```
+
+It warns if `~/.local/bin` is not ahead of the real `playwright-cli` on `PATH` —
+worth heeding, because the failure is silent: every worktree quietly shares one
+browser again.
+
 ## Issue Tracking
 
 Linear — workspace: evegul, team: Mcorg. Do NOT create GitHub issues.
