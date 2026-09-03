@@ -76,13 +76,16 @@ class CuratedSelectionTest {
         )
     )
 
+    private fun graphOf(sources: List<ResourceSource>) =
+        ItemSourceGraphBuilder.buildFromResourceSources(sources)
+
     private fun plan(
         sources: List<ResourceSource>,
         target: String,
         amount: Long = 10,
         supplied: Map<String, SupplySource> = emptyMap()
     ): GatheringPlan {
-        val graph = ItemSourceGraphBuilder.buildFromResourceSources(sources)
+        val graph = graphOf(sources)
         return GatheringPlanner.plan(graph, listOf(PlanTarget(item(target), amount)), supplied)
     }
 
@@ -286,14 +289,83 @@ class CuratedSelectionTest {
         )
     }
 
+    /**
+     * Renamed 2026-09-03 (MCO-496). This was called *"bulk amount is crafted thanks to the
+     * recipe threshold bonus"* and the bonus it named **never fired** in this fixture.
+     *
+     * `recipeThresholdBonus` withholds itself for an item you could simply mine, and
+     * `stickChain` gained `blockLoot("oak_leaves", "minecraft:stick")` on 2026-09-02 — a real
+     * `BLOCK` source whose stem is not `stick` and which is not a reversible placed form, so
+     * `hasMineableSource("minecraft:stick")` is true and the bonus returns 0. The expectation
+     * passed on the recipe-first tie-break at zero margin, which is the exact hazard the test
+     * above it documents, in the file `mc-engine/CLAUDE.md` warns about.
+     *
+     * The fixture is **not** changed to make the old name true: the leaf source is load-bearing
+     * for the zero-margin test above, and removing it would hide the production tie again. The
+     * bonus is covered instead by the two tests below, which pin both of its branches.
+     */
     @Test
-    fun `stick - bulk amount is crafted thanks to the recipe threshold bonus`() {
+    fun `stick - bulk amount is still crafted, on the tie-break rather than the bonus`() {
         val result = plan(stickChain, "minecraft:stick", amount = 256)
 
+        assertEquals(
+            0,
+            ScoreDiagnostics.report(graphOf(stickChain), "minecraft:stick", demand = 256)
+                .candidates.first { it.sourceKey == "minecraft:crafting_shaped:stick.json" }
+                .recipeThreshold,
+            "the bonus this test used to be named for scores zero — leaves drop sticks",
+        )
         assertEquals("minecraft:crafting_shaped:stick.json", result.sourceKeyOf("minecraft:stick"))
         assertEquals("minecraft:crafting_shapeless:oak_planks.json", result.sourceKeyOf("minecraft:oak_planks"))
         assertEquals("minecraft:block:blocks/oak_log.json", result.sourceKeyOf("minecraft:oak_log"))
         assertTrue(result.complete)
+    }
+
+    /**
+     * The recipe-threshold bonus **firing** — the branch nothing covered before MCO-496.
+     *
+     * `oak_planks` is the case the bonus was written for: it has a recipe, and its only
+     * block-loot source is its own placed form, which `hasMineableSource` excludes because
+     * breaking what you placed is not a gather. So above the threshold, crafting is rewarded.
+     *
+     * Fails if `RECIPE_THRESHOLD_BONUS` is removed or zeroed.
+     */
+    @Test
+    fun `oak_planks - the recipe threshold bonus fires when the item cannot simply be mined`() {
+        val bulk = ScoreDiagnostics.report(graphOf(stickChain), "minecraft:oak_planks", demand = 256)
+            .candidates.first { it.sourceKey == "minecraft:crafting_shapeless:oak_planks.json" }
+
+        assertTrue(
+            bulk.recipeThreshold > 0,
+            "above the threshold, an unmineable item's recipe gets the bonus",
+        )
+
+        val small = ScoreDiagnostics.report(graphOf(stickChain), "minecraft:oak_planks", demand = 10)
+            .candidates.first { it.sourceKey == "minecraft:crafting_shapeless:oak_planks.json" }
+
+        assertEquals(0, small.recipeThreshold, "and below it, nothing — it is a bulk bonus")
+    }
+
+    /**
+     * The recipe-threshold bonus being **withheld**, which is the branch that actually decides
+     * things: measured against real data it settles 30 items on 1.21.4 — coal, charcoal,
+     * diamond, emerald, redstone, quartz, book, and every candle among them.
+     *
+     * Same chain, same demand, one source removed. With leaves dropping sticks the bonus is
+     * withheld; without them it fires. That difference *is* the guard, so this fails if
+     * `hasMineableSource` is dropped from `recipeThresholdBonus`.
+     */
+    @Test
+    fun `stick - the bonus is withheld precisely because a block drops sticks`() {
+        val withLeaves = ScoreDiagnostics.report(graphOf(stickChain), "minecraft:stick", demand = 256)
+            .candidates.first { it.sourceKey == "minecraft:crafting_shaped:stick.json" }
+
+        val noLeaves = stickChain.filterNot { it.filename == "blocks/oak_leaves.json" }
+        val withoutLeaves = ScoreDiagnostics.report(graphOf(noLeaves), "minecraft:stick", demand = 256)
+            .candidates.first { it.sourceKey == "minecraft:crafting_shaped:stick.json" }
+
+        assertEquals(0, withLeaves.recipeThreshold, "withheld: a stick is mineable here")
+        assertTrue(withoutLeaves.recipeThreshold > 0, "fires once nothing drops sticks")
     }
 
     // ── torch ───────────────────────────────────────────────────────────────
