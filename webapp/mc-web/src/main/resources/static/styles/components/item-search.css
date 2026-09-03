@@ -27,11 +27,26 @@
 }
 
 .item-search-option {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
     padding: var(--space-2) var(--space-3);
     font-family: var(--font-body);
     font-size: var(--text-sm);
     color: var(--text-primary);
     cursor: pointer;
+}
+
+/* MCO-499. Two things this rule is load-bearing for:
+   - `pointer-events: none` keeps the click's `e.target` on the option itself. The inline
+     `onclick="selectSearchedItem(this)"` would cope either way, but resource-panel.js
+     resolves its two capture-phase handlers from `e.target`, and this removes the question.
+   - the glyph is `currentColor`-tinted, so it must not inherit the option's hover colour
+     change; it doesn't, because the tint classes set `color` themselves.
+   Any page rendering this file must also load components/item-glyph.css — StylesheetPairingTest
+   pins that, because the glyph markup arrives from /items/search, not from the page. */
+.item-search-option .item-glyph {
+    pointer-events: none;
 }
 
 .item-search-option:hover,

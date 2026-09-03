@@ -97,8 +97,14 @@ class SwapResourceGatheringVariantIT : WithUser() {
         // The row's own item cell now reads the new name. (The OOB variant panel legitimately
         // still mentions "Birch Planks" as the swap-back candidate, so we assert on the row
         // cell specifically rather than the whole body's absence of the old name.)
-        assertContains(body, "<td class=\"plan-resource-table__item\">Spruce Planks</td>")
-        assertFalse(body.contains("<td class=\"plan-resource-table__item\">Birch Planks</td>"))
+        //
+        // The cell is matched by its trailing `Name</td>` rather than the whole tag, because
+        // MCO-499 put an item glyph in front of the name — the cell is no longer text-only.
+        // The glyph's own `aria-label` carries the id, which is the tighter assertion anyway:
+        // it pins that the *icon* swapped with the row, not just the label.
+        assertContains(body, "aria-label=\"spruce_planks\"")
+        assertContains(body, "Spruce Planks</td>")
+        assertFalse(body.contains("Birch Planks</td>"))
 
         val (itemId, name) = runBlocking { readResource(rgId) }
         assertEquals("minecraft:spruce_planks", itemId)

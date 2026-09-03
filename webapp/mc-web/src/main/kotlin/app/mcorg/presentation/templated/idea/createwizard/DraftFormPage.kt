@@ -54,6 +54,7 @@ fun draftFormPage(
         "/static/styles/components/callout.css",
         "/static/styles/components/form.css",
         "/static/styles/components/item-search.css",
+        "/static/styles/components/item-glyph.css",
         "/static/styles/pages/idea-wizard.css",
     )
 ) {

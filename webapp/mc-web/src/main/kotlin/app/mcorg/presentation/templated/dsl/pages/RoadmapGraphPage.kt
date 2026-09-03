@@ -83,6 +83,7 @@ fun roadmapGraphPage(
         "/static/styles/components/modal.css",
         "/static/styles/components/form.css",
         "/static/styles/components/item-search.css",
+        "/static/styles/components/item-glyph.css",
     ),
     scripts = listOf("/static/scripts/np-menu.js", "/static/scripts/farm-modal.js"),
 ) {

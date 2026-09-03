@@ -65,6 +65,7 @@ fun projectListPage(
         "/static/styles/pages/project-list.css",
         "/static/styles/components/form.css",
         "/static/styles/components/item-search.css",
+        "/static/styles/components/item-glyph.css",
         "/static/styles/components/world-tabs.css",
         // Both the "+ New project" menu and the empty state's doors are .np-menu__door; the
         // menu moved out of this page's own stylesheet with MCO-474 and the link did not
