@@ -41,6 +41,12 @@
           },
           {
             "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/webapp/scripts/worktree-playwright.sh\"",
+            "statusMessage": "Installing the per-worktree playwright-cli shim...",
+            "timeout": 60
+          },
+          {
+            "type": "command",
             "command": "bash \"$CLAUDE_PROJECT_DIR/webapp/scripts/worktree-db.sh\"",
             "statusMessage": "Provisioning isolated Neon branch for worktree...",
             "timeout": 600
@@ -54,6 +60,12 @@
             "type": "command",
             "command": "bash \"$CLAUDE_PROJECT_DIR/webapp/scripts/worktree-db-cleanup.sh\" --prune",
             "statusMessage": "Pruning orphaned Neon worktree branches...",
+            "timeout": 60
+          },
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/webapp/scripts/worktree-playwright.sh\" --prune",
+            "statusMessage": "Stopping browser sessions for removed worktrees...",
             "timeout": 60
           }
         ]

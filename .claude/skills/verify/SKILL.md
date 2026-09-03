@@ -34,7 +34,11 @@ authenticate without real OAuth.
 
 ## 3. Drive the affected flow
 
-Use the `/playwright` skill:
+Use the `/playwright` skill. This worktree drives **its own browser** (MCO-515) —
+the session name comes from the worktree, so the page you see is yours and not a
+sibling worktree's. Skip the skill's `config --browser=chromium` setup step: the
+browser is already set, and re-running `config` restarts the daemon and loses
+your page.
 
 1. Open `localhost:$PORT`, sign in via the demo sign-in.
 2. Navigate to the page the change affects (URL scheme: `/worlds/:worldId/...`).

@@ -16,7 +16,7 @@ These skills own the specs. Your job is comparing the implementation against the
 
 ## Review the rendered app, not just the source
 
-If the app is running (start it with `./webapp/scripts/run.sh` if needed), use the `/playwright` skill to look at the affected pages. A worktree runs on its own port — read the `PORT` line from that worktree's `webapp/local.env`, or take the URL `run.sh` prints; the main checkout is `localhost:8080`:
+If the app is running (start it with `./webapp/scripts/run.sh` if needed), use the `/playwright` skill to look at the affected pages. A worktree runs on its own port — read the `PORT` line from that worktree's `webapp/local.env`, or take the URL `run.sh` prints; the main checkout is `localhost:8080`. It also drives its own browser (MCO-515), so the page is this worktree's, not a sibling's; skip the playwright skill's `config --browser=chromium` step:
 
 - Screenshot at mobile (375), tablet (768), and desktop (1440) widths
 - Exercise the interaction you're reviewing (toggle, form, modal), not just the initial render
