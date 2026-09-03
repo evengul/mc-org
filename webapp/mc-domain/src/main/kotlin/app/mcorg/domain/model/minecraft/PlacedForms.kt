@@ -99,6 +99,24 @@ object PlacedForms {
         grows("pitcher_crop", "pitcher_pod")
         grows("torchflower_crop", "torchflower_seeds")
 
+        // The crops whose block and item share a name (MCO-501). Every entry above was written
+        // because the two names *differ* and a name comparison would miss the pair — which
+        // quietly made this list the set of crops the planner happened to get right. The ones
+        // below were caught by that name match instead and penalised as "breaking what you
+        // placed", so harvesting wheat scored -100 while harvesting carrots scored 100, on the
+        // strength of Mojang pluralising one block and not the other.
+        //
+        // They belong here for exactly the reason the others do: planting yields more than was
+        // planted, which is production, not re-collection.
+        grows("wheat", "wheat")
+        grows("melon", "melon")
+        grows("pumpkin", "pumpkin")
+        grows("sugar_cane", "sugar_cane")
+        grows("bamboo", "bamboo")
+        grows("nether_wart", "nether_wart")
+        grows("kelp", "kelp")
+        grows("cactus", "cactus")
+
         // ── Placed forms you can put down and pick straight back up ──────────────
         fun reversible(block: String, item: String) =
             add(PlacedForm("minecraft:$block", "minecraft:$item", PlacedForm.Relation.REVERSIBLE))
@@ -118,6 +136,37 @@ object PlacedForms {
         harvestOnly("lava_cauldron", "cauldron")   // a bucket
         harvestOnly("water_cauldron", "cauldron")
         harvestOnly("powder_snow_cauldron", "cauldron")
+
+        // Obsidian is the one entry here that *can* be placed, so the name match called breaking
+        // it re-collection and scored mining it -100 — below four chests, for a block you find
+        // in lava lakes, ruined portals and every End island (MCO-501). Placing obsidian is
+        // possible and is not how anyone obtains it; finding it, or making it with a water
+        // bucket, is. So the planner's question — "is breaking this a way of *getting* it" —
+        // answers yes, which is what everything other than REVERSIBLE means here.
+        harvestOnly("obsidian", "obsidian")
+
+        // The rest of the same family: blocks that occur in the world *in bulk* and also have a
+        // recipe. `UnitCostModelAdversarialTest`'s Defect 3 named these when it recorded the
+        // wheat case, and they fail identically — the name match called each one re-collection,
+        // so the planner would rather craft prismarine out of guardian drops than swim into the
+        // ocean monument that is built from it.
+        //
+        // An ocean monument is prismarine, an iceberg is packed and blue ice, a mangrove swamp
+        // is mud. Breaking those is how anyone obtains them, which is the question this table
+        // answers. That they *also* craft is not a reason to call the mining circular.
+        harvestOnly("prismarine", "prismarine")
+        harvestOnly("sea_lantern", "sea_lantern")
+        harvestOnly("magma_block", "magma_block")
+        harvestOnly("blue_ice", "blue_ice")
+        harvestOnly("packed_ice", "packed_ice")
+        harvestOnly("mud", "mud")
+        harvestOnly("mossy_stone_bricks", "mossy_stone_bricks")
+        harvestOnly("mossy_cobblestone", "mossy_cobblestone")
+
+        // `mud_bricks` is deliberately NOT here, though it sits beside `mud` in the same defect
+        // note and does appear in trail-ruins templates. It appears there as decoration; nobody
+        // travels to a trail ruin to collect mud bricks, and they craft from mud in fours. It
+        // stays penalised, which is the honest answer for a manufactured building block.
     }
 
     /**
@@ -137,4 +186,21 @@ object PlacedForms {
     /** True when breaking [blockId] only ever returns an item you must already have had. */
     fun isReversibleFormOf(blockId: String, itemId: String): Boolean =
         reversible[blockId] == itemId
+
+    private val byPair: Map<Pair<String, String>, PlacedForm.Relation> =
+        ALL.associate { (it.blockId to it.itemId) to it.relation }
+
+    /**
+     * The stated relation between [blockId] and [itemId], or null when this table says nothing
+     * about the pair.
+     *
+     * The distinction between "null" and "not REVERSIBLE" is the point, and [isReversibleFormOf]
+     * cannot express it. A caller that falls back to comparing *names* when this table is silent
+     * — which is what the planner does, because the table lists only the exceptions and the
+     * common case really is "placed `minecraft:beacon` is the beacon you carried" — needs to know
+     * whether silence means "no opinion" or "an opinion that is not REVERSIBLE". Collapsing the
+     * two is what made harvesting wheat score -100 while harvesting carrots scored 100: `wheat`
+     * matched on name before this table was ever consulted, and `carrots` did not (MCO-501).
+     */
+    fun relationOf(blockId: String, itemId: String): PlacedForm.Relation? = byPair[blockId to itemId]
 }

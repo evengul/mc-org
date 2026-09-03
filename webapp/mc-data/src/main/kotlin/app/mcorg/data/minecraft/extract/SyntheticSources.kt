@@ -240,6 +240,48 @@ object SyntheticSources {
             )
         }
 
+        // Right-click an animal and take something off it (MCO-497). `ENTITY_INTERACT` has been
+        // in the effort table since it was written, priced at 0.3 minutes and marked "inert:
+        // no such sources in 1.21.4" — inert because nothing produced any, not because the
+        // mechanic does not matter.
+        //
+        // Milking is the one that bit. `milk_bucket` had **exactly one** source in the graph, a
+        // trial-chamber supply chest, so milk cost 113 minutes a bucket and `cake` — which needs
+        // three — was planned as a raid on a trial chamber. Everything downstream of milk
+        // inherited it.
+        //
+        // **The bucket is not charged**, which is a deliberate choice and the same one the
+        // filled buckets above already make: `synthetic/water_bucket.json` is a Collect with no
+        // ingredients, because what you carry is the bucket and it comes back empty. Milk is
+        // the case where that matters most — a cake hands all three buckets straight back, so
+        // charging three buckets' worth of iron would be wrong by nine ingots. Recipe
+        // *remainders* are still not modelled anywhere in the graph; not charging the tool is
+        // how the two ends of that gap stay consistent rather than compounding.
+        //
+        // The other two change no selection today — mushroom stew and suspicious stew already
+        // craft for less than a mooshroom costs to find — and are here because the issue asked
+        // for the family enumerated rather than discovered one absurd plan at a time.
+        add(
+            source(
+                "synthetic/milk_cow.json", SourceType.LootTypes.ENTITY_INTERACT,
+                produces = produce("minecraft:milk_bucket"),
+            )
+        )
+        add(
+            source(
+                "synthetic/mooshroom_stew.json", SourceType.LootTypes.ENTITY_INTERACT,
+                produces = produce("minecraft:mushroom_stew"),
+                requires = listOf(require("minecraft:bowl")),
+            )
+        )
+        add(
+            source(
+                "synthetic/mooshroom_suspicious_stew.json", SourceType.LootTypes.ENTITY_INTERACT,
+                produces = produce("minecraft:suspicious_stew"),
+                requires = listOf(require("minecraft:bowl")),
+            )
+        )
+
         // Concrete: place the matching powder next to water to harden it.
         DYE_COLORS.forEach { color ->
             add(

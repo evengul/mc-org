@@ -2,6 +2,8 @@ package app.mcorg.engine.plan
 
 import app.mcorg.domain.model.minecraft.MinecraftId
 import app.mcorg.domain.model.minecraft.MinecraftTag
+import app.mcorg.domain.model.minecraft.PlacedForm
+import app.mcorg.domain.model.minecraft.PlacedForms
 import app.mcorg.domain.model.resources.ResourceSource.SourceType
 import app.mcorg.engine.model.ItemSourceGraph
 import app.mcorg.engine.model.SourceNode
@@ -155,8 +157,27 @@ class UnitCostModel(
         graph.getAllItems()
             .map { it.itemId }
             .filterTo(HashSet()) { id ->
-                StructureDensity.setsContaining(id).isNotEmpty() && isBuiltOnly(id)
+                StructureDensity.setsContaining(id).isNotEmpty() &&
+                    isBuiltOnly(id) &&
+                    !isPlanted(id)
             }
+
+    /**
+     * Does the graph's own curated table say this block is *planted*?
+     *
+     * A crop defeats the craftable gate on a technicality: `wheat` is placed by village farm
+     * templates and it does have a recipe (nine of it unpacks from a hay block), so it looked
+     * like a craftable structure block and was priced at a village trip — 0.625 min against the
+     * 0.05 of swinging at your own field. Which is the cobblestone error again, arriving by a
+     * different door.
+     *
+     * [PlacedForm.Relation.GROWS] is the fact that settles it, and it is already written down:
+     * you plant these, and a village happening to contain some has nothing to do with what one
+     * costs you. Note this asks about the *block*, keyed by the same id — the structure snapshot
+     * and this table both speak block ids.
+     */
+    private fun isPlanted(blockId: String): Boolean =
+        PlacedForms.relationOf(blockId, blockId) == PlacedForm.Relation.GROWS
 
     /** Minutes per unit for every item and tag in the graph. [UNREACHABLE] where nothing produces it. */
     val cost: Map<String, Double> by lazy { relax() }
@@ -689,20 +710,99 @@ class EffortTable(
          * the two halves have to land together or not at all.
          *
          * Passive animals are the baseline: they are what the type's number was written for.
+         *
+         * ## The tiers are named, and that is load-bearing
+         *
+         * Every entry picks one of the constants below rather than spelling a number. Six mobs
+         * priced at 10.0 are not six coincidences — they share a *reason*, and naming it means
+         * revising the reason moves all of them, which is the only way this stays coherent as
+         * entries are added. It also stops the drift where someone nudges `blaze` to 12 and
+         * leaves `strider` at 10 for no reason anybody wrote down.
+         *
+         * They are deliberately **not** shared with [STRUCTURE_ACCESS], though the temptation is
+         * obvious: reaching a blaze and reaching a bastion chest really are the same portal. The
+         * two scales do not decompose into a common base — nether mobs are 10.0 here against the
+         * Nether's 4.0 there, and raid mobs are 20.0 because a raid is an *event* rather than a
+         * place. Forcing one multiplier would state a relationship that is not true.
          */
+        /** They come to you; the cost is the fight, not the journey. */
+        private const val COMMON_HOSTILE = 1.5
+
+        /** Everywhere, but it takes a while and it teleports. */
+        private const val ENDERMAN = 3.0
+
+        /** A biome you pass through anyway, or a structure you meet while caving. */
+        private const val NEARBY = 5.0
+
+        /** A biome or dimension you have to set out for: a jungle, or a portal. */
+        private const val DISTANT = 10.0
+
+        /** An event or a built structure — a raid, a mansion, a monument, a trial chamber. */
+        private const val EVENT_OR_STRUCTURE = 20.0
+
+        /** Somewhere you make an expedition to, and one of the rarest biomes in the game. */
+        private const val EXPEDITION = 30.0
+
+        /** Not a fight anyone takes for loot. */
+        private const val LETHAL = 100.0
+
+        /** Summoned or fought once, at the cost of everything it took to get there. */
+        private const val BOSS = 200.0
+
         private val ENTITY_FINDING: Map<String, Double> = buildMap {
             // Common hostiles: they come to you, but you fight them.
-            for (m in listOf("zombie", "skeleton", "creeper", "spider", "husk", "drowned")) put(m, 1.5)
-            put("enderman", 3.0)
+            for (m in listOf("zombie", "skeleton", "creeper", "spider", "husk", "drowned")) put(m, COMMON_HOSTILE)
+            put("enderman", ENDERMAN)
             // Nether structures — a journey, then a fortress or a bastion.
-            for (m in listOf("blaze", "wither_skeleton", "ghast", "piglin", "hoglin", "magma_cube")) put(m, 10.0)
+            for (m in listOf("blaze", "wither_skeleton", "ghast", "piglin", "hoglin", "magma_cube")) put(m, DISTANT)
             // Raids, mansions, ocean monuments: an event or a structure, not an encounter.
             for (m in listOf(
                 "vindicator", "evoker", "pillager", "ravager", "witch", "illusioner",
                 "guardian", "elder_guardian",
-            )) put(m, 20.0)
-            put("shulker", 30.0)
-            put("ender_dragon", 200.0)
+            )) put(m, EVENT_OR_STRUCTURE)
+            put("shulker", EXPEDITION)
+            put("ender_dragon", BOSS)
+
+            // ── MCO-498: the half of this table that was never populated ────────────
+            //
+            // Everything above was written for *hostiles*, and the entries stop there — so
+            // every mob that is hard to reach for some other reason sat at the passive-animal
+            // baseline, which is the number written for a chicken. The question to ask down
+            // the list is "would you meet this by walking around where you already are?", not
+            // "is it hostile?". Swept against the 74 entity sources ingested for 1.21.4.
+
+            // Mobs you had to *build*. An iron golem is a village or a farm you constructed;
+            // it is not an encounter. Priced at 1.0 it won iron by 7% against smelting raw
+            // iron — the planner's advice for iron being to go and kill the golems made of it.
+            // A wither costs three wither-skeleton skulls at ~2.5% each, which is why it sits
+            // with the dragon rather than with the raid mobs.
+            put("iron_golem", EVENT_OR_STRUCTURE)
+            put("snow_golem", NEARBY)
+            put("wither", BOSS)
+
+            // Structure-gated hostiles, the same errand as the chest tables in CHEST_FINDING.
+            // The warden is not a fight anyone wins for loot; it is priced to say so.
+            put("warden", LETHAL)
+            put("breeze", EVENT_OR_STRUCTURE)  // trial chambers only
+            put("cave_spider", NEARBY)         // mineshafts
+
+            // The Nether, for the mobs the block above missed.
+            for (m in listOf("strider", "zombified_piglin", "zoglin")) put(m, DISTANT)
+
+            // Biome-gated animals. Common where they live and absent everywhere else, which
+            // is exactly what ENTITY_FINDING exists to express and did not.
+            //
+            // `parrot` is the reason this group exists: feather resolved to parrots over
+            // chickens at 0.33 against 0.50, purely on expected yield (1.5 against 1.0). Both
+            // scored a flat 100 in the shipped scorer too, and "chicken" only won there
+            // because it sorts before "parrot" — a correct answer produced by an alphabetical
+            // tie-break rather than by anything either model knew.
+            put("mooshroom", EXPEDITION)   // mushroom fields, one of the rarest biomes in the game
+            put("parrot", DISTANT)         // jungle
+            put("panda", DISTANT)          // bamboo jungle — a sub-biome, but the same journey
+            put("polar_bear", NEARBY)      // frozen ocean, snowy
+            put("llama", NEARBY)           // windswept hills, savanna plateau
+            put("phantom", NEARBY)         // three nights without sleeping, not a place you go
         }
 
         /**
