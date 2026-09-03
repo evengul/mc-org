@@ -367,6 +367,11 @@ built and left alone is ~12 GB resident doing nothing, which is enough to OOM a
 16 GB WSL2 box. Measured before the cap: 3930 + 3107 + 2867 MB across three idle
 worktree daemons.
 
+*(Those figures are from a 16 GB box and stay as measured. **The box is 23.5 GB
+now** — size a new cap against that, not against the 16 GB the paragraph above
+argues from. With the cap in force a daemon measures ~2.1 GB RSS, above the
+1500m heap because RSS also carries metaspace, code cache and thread stacks.)*
+
 Two settings hold it down, and they live apart because Maven reads them
 differently:
 
@@ -420,9 +425,19 @@ whichever worktree opened it first.)
 - **A PATH shim sets the session name per call.** `~/.local/bin/playwright-cli`
   is a symlink to `webapp/scripts/playwright-cli-shim.sh`; `~/.local/bin` is
   already first on `PATH` via `.bashrc`, so no profile edit. Names are
-  `<repo>` for a main checkout and `<repo>--<worktree>` for a worktree —
-  `mc-org`, `mc-org--mco-515-playwright-session-isolation`. Outside a git repo
+  `<repo>` for a main checkout and `<repo>__<worktree>` for a worktree —
+  `mc_org`, `mc_org__mco_515_playwright_session_isolation`. Outside a git repo
   nothing is set and playwright-cli's own `default` applies.
+- **Session names carry no hyphen, and that is load-bearing (MCO-517).** Two
+  playwright-cli bugs make one dangerous. `SessionManager.create` recovers names
+  from profile directories with `file.split("-")[1]`, so a hyphenated
+  `ud-mc-org--foo-chromium` invents a phantom session called `mc` in every
+  `session-list`. `Session.delete` then matches
+  `file.startsWith("ud-" + name + "-")` — so deleting that phantom, which looks
+  exactly like cruft worth tidying, matches `ud-mc-org--*` and wipes **every**
+  mc-org worktree's browser profile. Underscores make both impossible: the split
+  returns the whole real name, and no name can be a hyphen-delimited prefix of
+  another. Don't "tidy" the naming back.
 - **The symlink targets the MAIN CHECKOUT's copy**, never a worktree's — a
   worktree gets deleted and a dangling shim would break `playwright-cli`
   everywhere on the box, in every repo.
@@ -442,8 +457,8 @@ whichever worktree opened it first.)
   session per worktree it would have become once per *worktree*. Don't run that
   step; on an existing session it restarts the daemon and loses your page.
 - **You get one Chromium per worktree** — the [Kotlin daemon fan-out](#kotlin-daemon-fan-out-mco-477)
-  shape again. `ExitWorktree` prunes sessions whose worktree is gone; if the box
-  is thrashing, `pgrep -af ud-mc-org` is worth a look alongside the Kotlin daemons.
+  shape again, and see [Reaping idle browsers](#reaping-idle-browsers-mco-517)
+  for what holds it down.
 
 Overrides, both respected: `PLAYWRIGHT_CLI_SESSION=foo playwright-cli ...` pins a
 name by hand, and an explicit `--session=` flag still wins.
@@ -453,7 +468,7 @@ name by hand, and an explicit `--session=` flag still wins.
 - `webapp/scripts/playwright-cli-shim.sh` — the shim itself (not run directly)
 - `webapp/scripts/worktree-playwright.sh` — install/refresh the symlink; idempotent
 - `webapp/scripts/worktree-playwright.sh --prune` — stop + delete sessions whose
-  worktree is gone (only ever inside this repo's `mc-org*` namespace)
+  worktree is gone (only ever inside this repo's `mc_org*` namespace)
 - `webapp/scripts/worktree-playwright.sh --status` — the shim, this directory's
   session name, and every live session
 
@@ -467,6 +482,47 @@ bash webapp/scripts/worktree-playwright.sh
 It warns if `~/.local/bin` is not ahead of the real `playwright-cli` on `PATH` —
 worth heeding, because the failure is silent: every worktree quietly shares one
 browser again.
+
+### Reaping idle browsers (MCO-517)
+
+**A browser you have stopped using is the most expensive idle thing on the box
+after a Kotlin daemon, and unlike one it never reaps itself.** Measured: **~960
+MB per session** — 789 MB of Chromium across 10 processes, plus a 170 MB node
+daemon. The compile daemon has `autoshutdownIdleSeconds`; a playwright daemon
+runs until something stops it.
+
+`--prune` does **not** cover this. It only reaps sessions whose *worktree is
+gone*; a live worktree you last looked at three hours ago keeps its browser.
+
+```bash
+webapp/scripts/worktree-playwright.sh --reap-idle        # stop browsers idle >30m
+webapp/scripts/worktree-playwright.sh --reap-idle 5      # stricter
+webapp/scripts/worktree-playwright.sh --status           # what is running, and how idle
+```
+
+- **Runs from a `Stop` hook**, so it happens without anyone remembering it. It
+  prints nothing unless it actually reaps something.
+- **Stop, never delete.** The profile is that worktree's cookie jar and page
+  state, and a stopped session restarts from it in ~2s. `--prune` deletes
+  because there is no worktree left to sign back in to; `--reap-idle` does not.
+- **Idleness comes from a stamp the shim writes** on every real command, under
+  `~/.cache/seam/playwright-sessions/`. Housekeeping (`session-*`, `close`,
+  `config`) deliberately does not stamp — otherwise the reaper would refresh the
+  stamps it is about to read. A session with no stamp is stamped, not reaped:
+  never reap something whose age is unknown.
+- **Same namespace guarantee as `--prune`** — only `mc_org*` sessions.
+
+**When you finish verifying, close the browser yourself** — that frees the full
+~960 MB now instead of up to 30 minutes from now:
+
+```bash
+playwright-cli close        # closes THIS worktree's session
+```
+
+That is a hint, not the guarantee; the reaper is the guarantee. If the box is
+thrashing, `--status` and `pgrep -af KotlinCompileDaemon` are the two lists to
+look at, and note that closing finished worktrees entirely beats both — an
+active worktree is ~3 GB all in (2.1 GB daemon + ~1 GB browser).
 
 ## Issue Tracking
 

@@ -39,11 +39,14 @@ cli() {
 }
 
 usage() {
-  echo "Usage: $0 [--prune|--status]"
+  echo "Usage: $0 [--prune|--reap-idle [minutes]|--status]"
   echo ""
-  echo "  (no args)  Install or refresh the ~/.local/bin/playwright-cli shim."
-  echo "  --prune    Stop and delete browser sessions whose worktree is gone."
-  echo "  --status   Report the shim, this directory's session, and live sessions."
+  echo "  (no args)     Install or refresh the ~/.local/bin/playwright-cli shim."
+  echo "  --prune       Stop and DELETE sessions whose worktree is gone."
+  echo "  --reap-idle   Stop (keep) sessions nobody has driven for N minutes"
+  echo "                (default 30). Frees ~960 MB per browser."
+  echo "  --status      Report the shim, this directory's session, live sessions"
+  echo "                and how long each has been idle."
   exit 1
 }
 
@@ -57,8 +60,12 @@ main_checkout() {
   dirname "$common"
 }
 
+# The session-name prefix that marks a session as this repo's. Deliberately the
+# MAIN CHECKOUT's own derived name rather than `basename` of the repo root: the
+# shim sanitises names (mc-org -> mc_org), and a prefix computed a second way
+# would drift from it and either miss this repo's sessions or match another's.
 repo_name() {
-  basename "$(main_checkout)"
+  session_in_dir "$(main_checkout)"
 }
 
 # The symlink target. Always the main checkout's copy, never a worktree's — a
@@ -153,13 +160,34 @@ prune_sessions() {
 
   echo "Live worktrees: ${#live_dirs[@]}; sessions to keep: ${expected[*]:-(none)}"
 
+  # Sessions from before MCO-517's underscore rename. They can never match a
+  # live worktree (the shim cannot produce a hyphenated name any more), they are
+  # what spawns the phantom `mc` entry in session-list, and left alone they would
+  # sit in the cache forever — --prune's namespace moved out from under them.
+  # Always prunable, so the rename cleans up after itself.
+  local legacy
+  legacy=$(basename "$(main_checkout)")
+  [ "$legacy" = "$repo" ] && legacy=""
+
   local pruned=0
   while IFS= read -r name; do
     [ -n "$name" ] || continue
-    # Only ever touch this repo's own namespace.
+    # Only ever touch this repo's own namespace — current or legacy.
     case "$name" in
-      "$repo"|"$repo"--*) ;;
-      *) continue ;;
+      "$repo"|"$repo"__*) ;;
+      *)
+        if [ -n "$legacy" ]; then
+          case "$name" in
+            "$legacy"|"$legacy"--*)
+              echo "  pruning pre-MCO-517 session: $name"
+              "$(cli)" session-stop "$name" >/dev/null 2>&1 || true
+              "$(cli)" session-delete "$name" >/dev/null 2>&1 || true
+              pruned=$((pruned + 1))
+              ;;
+          esac
+        fi
+        continue
+        ;;
     esac
 
     local keep=0
@@ -185,6 +213,66 @@ list_session_names() {
     | sed -n 's/^ *\[\(running\|stopped\)\] \([^ ]*\).*$/\2/p'
 }
 
+list_running_session_names() {
+  "$(cli)" session-list 2>/dev/null \
+    | sed -n 's/^ *\[running\] \([^ ]*\).*$/\1/p'
+}
+
+# --- Reap idle ---------------------------------------------------------------
+# Stop browsers nobody has driven for a while. The Kotlin compile daemon reaps
+# itself after 900s (MCO-477); a playwright daemon never does, and each one
+# holds ~960 MB — 789 MB of Chromium across 10 processes plus a 170 MB node
+# daemon. --prune does not cover this: it only reaps sessions whose WORKTREE IS
+# GONE, never one that is merely idle.
+#
+# Idleness comes from the stamps the shim writes on every real command. Stop
+# only, never delete: the profile is the worktree's cookie jar and page state,
+# and a stopped session restarts from it in about two seconds. Deleting would
+# sign you out of a worktree you are still using to save nothing.
+STAMP_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/seam/playwright-sessions"
+
+reap_idle_sessions() {
+  local minutes="${1:-30}" repo now cutoff stamp mtime reaped=0
+
+  case "$minutes" in
+    ''|*[!0-9]*) echo "ERROR: --reap-idle takes minutes, got '$minutes'" >&2; exit 1 ;;
+  esac
+
+  repo=$(repo_name)
+  mkdir -p "$STAMP_DIR"
+  now=$(date +%s)
+  cutoff=$((now - minutes * 60))
+
+  while IFS= read -r name; do
+    [ -n "$name" ] || continue
+    # Same guarantee as --prune: only ever this repo's own namespace.
+    case "$name" in
+      "$repo"|"$repo"__*) ;;
+      *) continue ;;
+    esac
+
+    stamp="$STAMP_DIR/$name.lastuse"
+    if [ ! -f "$stamp" ]; then
+      # Age unknown — a session started before the shim learned to stamp, or
+      # driven around it. Start the clock instead of reaping blind.
+      : > "$stamp" 2>/dev/null || true
+      continue
+    fi
+
+    mtime=$(stat -c %Y "$stamp" 2>/dev/null || echo "$now")
+    if [ "$mtime" -lt "$cutoff" ]; then
+      echo "  reaping browser idle >${minutes}m: $name"
+      "$(cli)" session-stop "$name" >/dev/null 2>&1 || true
+      reaped=$((reaped + 1))
+    fi
+  done < <(list_running_session_names)
+
+  # Quiet when there is nothing to say — this runs from a Stop hook on every
+  # response, and a line per turn saying "reaped 0" is just noise.
+  [ "$reaped" -gt 0 ] && echo "Reaped $reaped idle browser(s)."
+  return 0
+}
+
 # --- Status ------------------------------------------------------------------
 show_status() {
   local resolved
@@ -195,12 +283,30 @@ show_status() {
   echo "this directory  : $(PLAYWRIGHT_CLI_SHIM_PRINT_SESSION=1 bash "$(shim_source)")"
   echo ""
   "$(cli)" session-list 2>/dev/null || echo "(could not list sessions)"
+
+  local now name stamp mtime idle any=0
+  now=$(date +%s)
+  while IFS= read -r name; do
+    [ -n "$name" ] || continue
+    [ "$any" = 0 ] && echo "" && echo "Running browsers (~960 MB each):" && any=1
+    stamp="$STAMP_DIR/$name.lastuse"
+    if [ -f "$stamp" ]; then
+      mtime=$(stat -c %Y "$stamp" 2>/dev/null || echo "$now")
+      idle="$(( (now - mtime) / 60 ))m idle"
+    else
+      idle="idle time unknown (no stamp yet)"
+    fi
+    echo "  $name — $idle"
+  done < <(list_running_session_names)
+  [ "$any" = 0 ] && echo "" && echo "No browsers running."
+  return 0
 }
 
 case "${1:-}" in
-  "")        install_shim ;;
-  --prune)   prune_sessions ;;
-  --status)  show_status ;;
-  -h|--help) usage ;;
-  *)         usage ;;
+  "")           install_shim ;;
+  --prune)      prune_sessions ;;
+  --reap-idle)  reap_idle_sessions "${2:-30}" ;;
+  --status)     show_status ;;
+  -h|--help)    usage ;;
+  *)            usage ;;
 esac
