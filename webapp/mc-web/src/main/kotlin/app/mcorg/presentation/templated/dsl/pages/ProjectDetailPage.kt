@@ -298,12 +298,35 @@ fun FlowContent.gatheringPlannerContent(
     // simply has no source — so a plan that is merely blocked somewhere still has real work to
     // point at.
     //
-    // The strictness is deliberate and temporary: every open question suppresses the widget,
-    // including a two-item tail like "Charcoal or Coal". MCO-410 is the right fix for that —
-    // auto-resolving questions that barely affect the plan — rather than a second materiality
-    // threshold invented here to paper over the first one's absence.
-    val openQuestions = plan?.activityList?.count { it.status == PlanNodeStatus.OPEN_TAG } ?: 0
-    if (openQuestions == 0) nextUpWidget(project, plan, progressMap)
+    // Which questions count as making it provisional: the ones that could actually change the
+    // answer, and no felt constant is needed to say which those are.
+    //
+    // The first cut suppressed the widget for *any* open question. On the real YAMS plan that
+    // meant a 4-item choice between red sand and sand hid the whole widget on a build of
+    // 400,000 items, which is not caution, it is noise. The obvious repair — "ignore questions
+    // below N% of the plan" — invents exactly the kind of threshold MCO-490 exists to remove.
+    //
+    // There is a derived test instead. Next up claims one thing: the largest outstanding piece
+    // of work. Answering a question redirects its tag to a member and merges that demand into
+    // whatever else needs the member, so a question can only change that claim if the material
+    // it decides could exceed the current top pick. Compare the two directly:
+    //
+    //     largest open question >= what Next up is currently pointing at   ->  provisional
+    //
+    // On YAMS the remaining questions are 4, 3 and 2 items against a top pick of 74,692, so the
+    // widget speaks. Before the two large ones were answered, `#planks` at 110,824 would have
+    // exceeded it and it would have stayed quiet. Conservative in the right direction — it
+    // compares against the *unmerged* question quantity, so it errs towards silence — and it
+    // needs no number anyone has to defend.
+    //
+    // MCO-410 (auto-resolving questions that barely affect the plan) is still worth doing; this
+    // stops the tail being a UI problem in the meantime, without pre-empting how it answers.
+    val candidates = NextUpPick.of(plan, progressMap)
+    val largestQuestion = plan?.activityList
+        ?.filter { it.status == PlanNodeStatus.OPEN_TAG }
+        ?.maxOfOrNull { it.quantity } ?: 0L
+    val topPick = candidates.firstOrNull()?.quantity ?: 0L
+    if (largestQuestion < topPick) nextUpWidget(project, candidates)
     listLensContent(project, resources, tasks, plan, progressMap, pendingFarms, farmScaleThreshold, farmSuggestions, versionGaps, isWorldAdmin, farmDismissals)
 }
 
@@ -316,10 +339,8 @@ fun FlowContent.gatheringPlannerContent(
  */
 private fun FlowContent.nextUpWidget(
     project: Project,
-    plan: GatheringPlan?,
-    progressMap: Map<String, Int>,
+    candidates: List<Activity>,
 ) {
-    val candidates = NextUpPick.of(plan, progressMap)
     if (candidates.isEmpty()) return
 
     div("next-up") {

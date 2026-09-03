@@ -216,10 +216,26 @@ class NeedsAttentionSectionTest {
      * remaining pile can change under it.
      */
     @Test
-    fun `Next up is silent while a question is open`() {
+    fun `Next up is silent while a question could change its answer`() {
+        // 110,824 planks against 27,763 logs: answering the question merges that demand and can
+        // dethrone the top pick, so the widget has nothing trustworthy to say yet.
         val html = render(plan(question(planks, 110_824), gather(oakLog, 27_763)))
 
         assertFalse(html.contains("NEXT UP"), "the questions are the page's business until answered")
+        assertContains(html, "Which should the plan use in recipes?")
+    }
+
+    /**
+     * The first cut of the gate suppressed the widget for *any* open question, and on the real
+     * YAMS plan that meant a 4-item choice between red sand and sand hid it on a build of
+     * 400,000 items. The test is not a threshold: a question can only change what Next up claims
+     * — the largest outstanding work — if the material it decides could exceed it.
+     */
+    @Test
+    fun `a question far smaller than the top pick does not silence Next up`() {
+        val html = render(plan(question(coals, 3), gather(oakLog, 27_763)))
+
+        assertContains(html, "NEXT UP")
         assertContains(html, "Which should the plan use in recipes?")
     }
 
