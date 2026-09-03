@@ -76,6 +76,12 @@ fun main(args: Array<String>) {
     exitProcess(exitCode)
 }
 
+/** Items whose price a player has strong intuitions about - the useful ones to argue over. */
+private val DEFAULT_WHY = listOf(
+    "diamond", "iron_ingot", "obsidian", "gold_ingot", "emerald", "coal",
+    "oak_planks", "stick", "torch", "glass", "white_wool", "arrow",
+).map { "minecraft:$it" }.toSet()
+
 private suspend fun run(args: List<String>): Int {
     var version: String? = null
     var worldId: Int? = null
@@ -83,6 +89,7 @@ private suspend fun run(args: List<String>): Int {
     var verbose = false
     var grain = false
     var factors = false
+    var why = false
     var demandSpread: List<Long>? = null
     var sweep = false
     var sweepFilter: String? = null
@@ -102,6 +109,7 @@ private suspend fun run(args: List<String>): Int {
             arg == "verbose" -> verbose = true
             arg == "grain" -> grain = true
             arg == "factors" -> factors = true
+            arg == "why" -> why = true
             arg.startsWith("demands=") ->
                 demandSpread = arg.substringAfter('=').split(',').mapNotNull { it.trim().toLongOrNull() }
             arg == "sweep" -> sweep = true
@@ -174,6 +182,81 @@ private suspend fun run(args: List<String>): Int {
         moved.sortedBy { it.first }.forEach { (id, a, b) ->
             println("  %-34s %s".format(id.substringAfter(':'), "$a  ->  $b"))
         }
+        return 0
+    }
+
+    // `why <item...>`: the price, broken into the things it is made of. The effort table is the
+    // model's only felt input, and no one can say whether "0.05 minutes per block" is right --
+    // that is not a claim about anything a player has ever noticed. What a player CAN judge is
+    // the number it produces: "a diamond costs 2.1 minutes" is either true or obviously false,
+    // and saying which requires no knowledge of the model at all. So this prints the arithmetic
+    // in the same unit the argument has to happen in.
+    if (why) {
+        val roots = if (only.isEmpty()) graph.getAllItems().map { it.item }.filter { it.id in DEFAULT_WHY }
+        else subjects.ifEmpty { graph.getAllItems().map { it.item }.filter { it.id in only } }
+
+        println()
+        println("What each price is made of - $resolvedVersion, table '$tableName'")
+        println("Every line is minutes of player time. Argue with the ones that look wrong.")
+
+        fun explain(item: MinecraftId, depth: Int, seen: MutableSet<String>) {
+            val pad = "  ".repeat(depth + 1)
+            val total = model.cost[item.id] ?: UnitCostModel.UNREACHABLE
+            if (total >= UnitCostModel.UNREACHABLE) {
+                println("$pad${item.id.substringAfter(':')}  no finite route")
+                return
+            }
+            val source = model.best(item)
+            if (source == null) {
+                println("$pad${item.id.substringAfter(':')}  ${fmt(total)}  (supplied or terminal)")
+                return
+            }
+
+            val perAttempt = model.effortTable.of(source)
+            val bareAction = model.effortTable.of(source.sourceType)
+            val factor = if (bareAction > 0) perAttempt / bareAction else 1.0
+            val out = graph.getItemNode(item)?.let { node ->
+                graph.getExpectedYield(source, node)?.takeIf { it > 0.0 }
+                    ?: graph.getProducedQuantity(source, node).coerceAtLeast(1).toDouble()
+            } ?: 1.0
+
+            println("$pad${item.id.substringAfter(':')}  ${fmt(total)}  via ${source.getMethodLabel()}  ${source.filename}")
+            val factorNote = if (kotlin.math.abs(factor - 1.0) < 0.001) ""
+            else "  x %.4g (how hard this one is to reach)".format(factor)
+            val yieldNote = if (kotlin.math.abs(out - 1.0) < 0.001) "" else "  / %.4g per attempt".format(out)
+            println("$pad  the action: %.4g min$factorNote$yieldNote  =  %s".format(bareAction, fmt(perAttempt / out)))
+
+            val requirements = graph.getRequiredItems(source)
+            for (requirement in requirements) {
+                val each = model.cost[requirement.itemId] ?: UnitCostModel.UNREACHABLE
+                val needed = graph.getRequiredQuantity(source, requirement).coerceAtLeast(1)
+                val share = if (each >= UnitCostModel.UNREACHABLE) Double.NaN else (needed / out) * each
+                println(
+                    "$pad  needs %d %s at %s each  =  %s".format(
+                        needed, requirement.itemId.substringAfter(':'), fmt(each), fmt(share)
+                    )
+                )
+                // Expand each ingredient once. Deeper than that and the chain stops being
+                // readable, which defeats the point of printing it at all.
+                if (depth < 1 && seen.add(requirement.itemId)) explain(requirement.item, depth + 2, seen)
+            }
+        }
+
+        for (item in roots.sortedBy { it.id }) {
+            println()
+            explain(item, 0, HashSet())
+        }
+        println()
+        println(
+            """
+            How to use this. Read the totals first and find one you disagree with, then read the
+            lines under it to see which number produced it. The "how hard this one is to reach"
+            multiplier is the curated half of the table -- availability is not in Mojang's data at
+            all, so every one of those is a guess someone wrote down and you can overrule. The
+            per-attempt yields and the ingredient quantities are not guesses; they come from the
+            game's own files.
+            """.trimIndent()
+        )
         return 0
     }
 
