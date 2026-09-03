@@ -210,11 +210,37 @@ class UnitCostModel(
      * `chiseled_*` blocks where crafting from two slabs and cutting one brick are the same
      * stone and the same click.
      */
-    fun best(item: MinecraftId): SourceNode? {
+    fun best(item: MinecraftId): SourceNode? = tiedBest(item).firstOrNull()
+
+    /**
+     * Every source that could actually ground a chain for [item], with its cost, cheapest first.
+     *
+     * Diagnostics only, and read-only. [best] answers "what should I do"; this answers "what
+     * would the alternatives have cost", which is the question behind any rule that trades
+     * minutes for something else — MCO-493's dominance rule needs exactly this to be given a
+     * number instead of a guess.
+     */
+    fun rankedFeasible(item: MinecraftId): List<Pair<SourceNode, Double>> =
+        feasibleSources(item)
+            .map { it to costOf(it, item) }
+            .filter { it.second < UNREACHABLE }
+            .sortedBy { it.second }
+
+    /**
+     * Every source that ties for cheapest, in the order [best] would take them.
+     *
+     * A list of one is the ordinary case: the model has an opinion and this is it. A longer
+     * list is the model saying it has **no** opinion — the routes cost the same, and the order
+     * is the declared tie-break rather than a judgement. That distinction is invisible through
+     * [best] alone, which is why measuring how much of the plan rests on a tie needs this.
+     *
+     * Read-only, and it changes no ranking: [best] is defined as this list's head.
+     */
+    fun tiedBest(item: MinecraftId): List<SourceNode> {
         val candidates = feasibleSources(item)
             .map { it to costOf(it, item) }
             .filter { it.second < UNREACHABLE }
-        val cheapest = candidates.minOfOrNull { it.second } ?: return null
+        val cheapest = candidates.minOfOrNull { it.second } ?: return emptyList()
         return candidates
             .filter { it.second <= cheapest + TIE_EPSILON * kotlin.math.max(1.0, cheapest) }
             .map { it.first }
@@ -222,7 +248,6 @@ class UnitCostModel(
                 compareByDescending<SourceNode> { it.sourceType.isRecipe() }
                     .thenBy { it.getKey() }
             )
-            .first()
     }
 
     /**

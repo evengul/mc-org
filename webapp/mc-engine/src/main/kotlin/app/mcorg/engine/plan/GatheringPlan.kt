@@ -101,6 +101,41 @@ enum class ActivityGroup {
 }
 
 /**
+ * Which kind of work a source is — the same mapping [GatheringPlan.activityList] groups by, and
+ * therefore the same one the roadmap and the project page render.
+ *
+ * Top-level and `internal` rather than private to [GatheringPlan] because MCO-493 asks a
+ * question *about* the grouping — how many distinct kinds of work does a plan need, and does a
+ * different choice among equal-cost sources reduce that — and answering it from a second copy of
+ * this `when` is how the placed-form table came to disagree with itself twice.
+ */
+internal fun ResourceSource.SourceType?.activityGroup(): ActivityGroup {
+    if (this == null) return ActivityGroup.OTHER
+    return when {
+        this == ResourceSource.SourceType.LootTypes.BLOCK ||
+            this == ResourceSource.SourceType.LootTypes.BLOCK_INTERACT ||
+            this == ResourceSource.SourceType.MechanicTypes.COLLECT -> ActivityGroup.GATHER
+
+        this == ResourceSource.SourceType.LootTypes.ENTITY ||
+            this == ResourceSource.SourceType.LootTypes.ENTITY_INTERACT ||
+            this == ResourceSource.SourceType.LootTypes.SHEARING -> ActivityGroup.HUNT
+
+        this == ResourceSource.SourceType.LootTypes.BARTER || isTrade() -> ActivityGroup.TRADE
+
+        isLoot() -> ActivityGroup.LOOT
+
+        this == ResourceSource.SourceType.RecipeTypes.SMELTING ||
+            this == ResourceSource.SourceType.RecipeTypes.BLASTING ||
+            this == ResourceSource.SourceType.RecipeTypes.SMOKING ||
+            this == ResourceSource.SourceType.RecipeTypes.CAMPFIRE_COOKING -> ActivityGroup.SMELT
+
+        isConstructive() -> ActivityGroup.CRAFT
+
+        else -> ActivityGroup.OTHER
+    }
+}
+
+/**
  * One row of the consolidated activity list — a [PlanNode] flattened for display,
  * ordered so that every ingredient appears before the activity consuming it.
  */
@@ -315,33 +350,7 @@ internal object ActivityOrdering {
     private fun PlanNode.group(): ActivityGroup = when (status) {
         PlanNodeStatus.OPEN_TAG, PlanNodeStatus.BLOCKED -> ActivityGroup.NEEDS_ATTENTION
         PlanNodeStatus.SUPPLIED -> ActivityGroup.COLLECT_SUPPLIED
-        PlanNodeStatus.RESOLVED, PlanNodeStatus.RAW_GATHER -> source?.sourceType.toGroup()
-    }
-
-    private fun ResourceSource.SourceType?.toGroup(): ActivityGroup {
-        if (this == null) return ActivityGroup.OTHER
-        return when {
-            this == ResourceSource.SourceType.LootTypes.BLOCK ||
-                this == ResourceSource.SourceType.LootTypes.BLOCK_INTERACT ||
-                this == ResourceSource.SourceType.MechanicTypes.COLLECT -> ActivityGroup.GATHER
-
-            this == ResourceSource.SourceType.LootTypes.ENTITY ||
-                this == ResourceSource.SourceType.LootTypes.ENTITY_INTERACT ||
-                this == ResourceSource.SourceType.LootTypes.SHEARING -> ActivityGroup.HUNT
-
-            this == ResourceSource.SourceType.LootTypes.BARTER || isTrade() -> ActivityGroup.TRADE
-
-            isLoot() -> ActivityGroup.LOOT
-
-            this == ResourceSource.SourceType.RecipeTypes.SMELTING ||
-                this == ResourceSource.SourceType.RecipeTypes.BLASTING ||
-                this == ResourceSource.SourceType.RecipeTypes.SMOKING ||
-                this == ResourceSource.SourceType.RecipeTypes.CAMPFIRE_COOKING -> ActivityGroup.SMELT
-
-            isConstructive() -> ActivityGroup.CRAFT
-
-            else -> ActivityGroup.OTHER
-        }
+        PlanNodeStatus.RESOLVED, PlanNodeStatus.RAW_GATHER -> source?.sourceType.activityGroup()
     }
 
     private fun PlanNode.toActivity() = Activity(
