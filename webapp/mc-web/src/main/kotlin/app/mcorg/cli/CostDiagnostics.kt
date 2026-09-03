@@ -7,6 +7,7 @@ import app.mcorg.domain.model.resources.ResourceSource.SourceType
 import app.mcorg.engine.model.ItemSourceGraph
 import app.mcorg.engine.model.SourceNode
 import app.mcorg.engine.plan.EffortTable
+import app.mcorg.engine.plan.PlanContext
 import app.mcorg.engine.plan.PlanSelector
 import app.mcorg.engine.plan.ScorerFactor
 import app.mcorg.engine.plan.PlanTarget
@@ -82,6 +83,7 @@ private suspend fun run(args: List<String>): Int {
     var verbose = false
     var grain = false
     var factors = false
+    var demandSpread: List<Long>? = null
     var sweep = false
     var sweepFilter: String? = null
     var picksOf: String? = null
@@ -100,6 +102,8 @@ private suspend fun run(args: List<String>): Int {
             arg == "verbose" -> verbose = true
             arg == "grain" -> grain = true
             arg == "factors" -> factors = true
+            arg.startsWith("demands=") ->
+                demandSpread = arg.substringAfter('=').split(',').mapNotNull { it.trim().toLongOrNull() }
             arg == "sweep" -> sweep = true
             arg.startsWith("sweep=") -> { sweep = true; sweepFilter = arg.substringAfter('=') }
             arg.startsWith("picks=") -> picksOf = arg.substringAfter('=')
@@ -170,6 +174,72 @@ private suspend fun run(args: List<String>): Int {
         moved.sortedBy { it.first }.forEach { (id, a, b) ->
             println("  %-34s %s".format(id.substringAfter(':'), "$a  ->  $b"))
         }
+        return 0
+    }
+
+    // `demands=10,64,256,1000`: how much of the shipped planner's answer actually turns on
+    // demand? The scorer is demand-sensitive through RECIPE_THRESHOLD_BONUS and the cost model
+    // is not, so swapping models drops that sensitivity entirely. Whether that matters is a
+    // question about how many real items move across the threshold -- which nothing had counted.
+    val spread = demandSpread
+    if (spread != null) {
+        val levels = spread.sorted()
+        fun committedAt(item: MinecraftId, d: Long): String? =
+            PlanSelector.select(graph, listOf(PlanTarget(item, d))).nodes[item.id]?.source?.getKey()
+
+        fun label(key: String?): String = key
+            ?.let { graph.getSourceNode(it.substringBeforeLast(':'), it.substringAfterLast(':')) }
+            ?.getMethodLabel() ?: "none"
+
+        val perItem = subjects.associateWith { item -> levels.map { committedAt(item, it) } }
+        val movers = perItem.filterValues { picks -> picks.distinct().size > 1 }
+
+        println()
+        println("Demand sensitivity of the SHIPPED scorer on $resolvedVersion")
+        println("Demands: ${levels.joinToString(", ")} - recipeThreshold ${PlanContext().recipeThreshold}")
+        println()
+        println("  ${movers.size} of ${subjects.size} items change their committed source with demand")
+        println()
+        var matchesLow = 0
+        var matchesHigh = 0
+        var matchesNeither = 0
+        for (item in movers.keys.sortedBy { it.id }) {
+            val picks = perItem.getValue(item)
+            val steps = levels.zip(picks)
+                .fold(mutableListOf<Pair<Long, String?>>()) { acc, cur ->
+                    if (acc.isEmpty() || acc.last().second != cur.second) acc.add(cur)
+                    acc
+                }
+                .joinToString("  ->  ") { (d, key) -> "d$d ${label(key)}" }
+            // The cost model has one answer at every demand. Which end of the shipped swing is
+            // it? If it is the bulk end, the threshold was correcting a wrong small-demand
+            // default rather than modelling an effect of demand, and dropping the sensitivity
+            // costs nothing -- it keeps the answer the threshold was reaching for, at every size.
+            val costPick = model.best(item)?.getKey()
+            val verdict = when (costPick) {
+                picks.first() -> { matchesLow++; "cost model = the SMALL-demand answer" }
+                picks.last() -> { matchesHigh++; "cost model = the BULK answer" }
+                else -> { matchesNeither++; "cost model = ${label(costPick)}, neither end" }
+            }
+            println("  %-28s %-46s %s".format(item.id.substringAfter(':'), steps, verdict))
+        }
+        println()
+        println(
+            "  of the ${movers.size} movers: $matchesHigh land on the bulk answer, " +
+                "$matchesLow on the small-demand answer, $matchesNeither on neither"
+        )
+        println()
+        println(
+            """
+            What this costs if the cost model replaces the scorer. Every item listed above is one
+            whose advice currently changes as a project grows, and would stop changing. Whether
+            that is a loss depends on whether the change was right: the recipe-threshold bonus
+            says "at bulk, craft rather than gather repeatedly", which is a real effect, but it
+            is applied as one step at one hard-coded demand rather than as a cost that varies.
+            An item that is NOT listed here is one where demand-sensitivity is already costing
+            nothing and buying nothing.
+            """.trimIndent()
+        )
         return 0
     }
 
