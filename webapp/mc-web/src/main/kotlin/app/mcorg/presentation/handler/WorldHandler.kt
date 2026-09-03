@@ -21,7 +21,10 @@ import app.mcorg.pipeline.resources.handleClearOverride
 import app.mcorg.pipeline.resources.handleGetDrillChain
 import app.mcorg.pipeline.resources.handleGetNodePicker
 import app.mcorg.pipeline.resources.handlePinSource
+import app.mcorg.pipeline.resources.handleBulkAnswerFoldedQuestions
+import app.mcorg.pipeline.resources.handleGetBulkAnswerControl
 import app.mcorg.pipeline.resources.handleResolveTagMember
+import app.mcorg.pipeline.resources.handleUndoBulkAnswer
 import app.mcorg.pipeline.resources.handleGetPlanRow
 import app.mcorg.pipeline.resources.handleUpdatePlanProgress
 import app.mcorg.pipeline.resources.handleClearResourceSource
@@ -317,6 +320,15 @@ class WorldHandler {
                                 post("/pin") { call.handlePinSource() }
                                 post("/tag") { call.handleResolveTagMember() }
                                 delete("/override") { call.handleClearOverride() }
+                            }
+                            // MCO-507: the folded tail of small questions, answered in one
+                            // action. Ordinary tag-member overrides — the same writes /chain's
+                            // /tag makes, which is the point — so the same world-participant
+                            // gate above covers them.
+                            route("/attention/bulk") {
+                                get { call.handleGetBulkAnswerControl() }
+                                post { call.handleBulkAnswerFoldedQuestions() }
+                                delete { call.handleUndoBulkAnswer() }
                             }
                         }
                     }
