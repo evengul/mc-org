@@ -313,10 +313,16 @@ Minimal. Functional tool.
 | Element | Animation |
 |---------|-----------|
 | Plan/Execute toggle | 150ms ease-in-out on background + text color |
-| Resource counter increment | Scale flash: 1 → 1.1 → 1, 100ms |
 | Progress bar fill | 200ms ease on width change |
 | Modal | 150ms fade-in + scale 0.97 → 1.0 |
 | Page transitions | None |
+
+This table used to carry a fifth row — "Resource counter increment: scale flash 1 → 1.1 → 1,
+100ms". The `.counter-flash` class and its `@keyframes` existed in `resource-row.css`, but
+**nothing ever applied the class** — no template, no JS — so the flash never shipped. It was
+deleted in MCO-394 and the row removed with it. If the counter should flash on increment, that
+is a feature to build (the class has to be added by JS on the htmx swap), not a spec to
+re-document as though it were live.
 
 ---
 
@@ -326,15 +332,20 @@ Minimal. Functional tool.
 .container     /* max-width 1080px, centered, horizontal padding */
 .surface       /* bg-surface + border + border-radius */
 .divider       /* 1px border-top in --border color */
-.flex          /* display: flex */
-.flex-col      /* flex-direction: column */
-.items-center  /* align-items: center */
-.justify-between /* justify-content: space-between */
-.gap-1 through .gap-5  /* gap using --space tokens */
-.w-full        /* width: 100% */
-.mt-4, .mt-5, .mb-4, .mb-5  /* margin utilities */
-.p-4, .p-5    /* padding utilities */
+.section-label /* uppercase, tracked, muted section header */
+.subtle        /* muted small text */
+.is-hidden     /* display: none */
+.stack, .stack--xs      /* vertical flex + gap */
+.cluster, .cluster--xs  /* horizontal flex + gap */
+.mt-4          /* margin-top: var(--space-4) */
 ```
+
+**There is no Tailwind-style utility layer.** `.flex`, `.flex-col`, `.items-center`,
+`.justify-between`, `.gap-1`–`.gap-5`, `.w-full`, `.mt-5`, `.mb-4`, `.mb-5`, `.p-4` and `.p-5`
+were listed here for a long time but had **zero users** in the whole codebase, and were deleted
+in MCO-394. Layout is done by the component's own class; `.stack` / `.cluster` cover the
+genuinely ad-hoc cases. Don't reach for a utility class that isn't in the list above, and don't
+re-add the set — write the component's own rule instead.
 
 ---
 

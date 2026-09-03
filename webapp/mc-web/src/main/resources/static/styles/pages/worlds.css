@@ -22,7 +22,6 @@ svg.icon--fill  { fill: currentColor; stroke: none; }
 
 /* ── Buttons that carry a leading icon ── */
 .btn svg.icon { margin-right: 6px; }
-.btn--icon-lead { display: inline-flex; align-items: center; }
 
 /* ── Form label + optional control (design-system form.css lacks these) ── */
 /* Modal labels/controls get their base treatment from components/modal.css. These are
@@ -152,7 +151,6 @@ svg.icon--fill  { fill: currentColor; stroke: none; }
                        color: inherit; text-decoration: none; }
 .world-row__id       { width: 230px; flex: none; }
 .world-row__id .world-name { font-size: var(--text-sm); }
-.world-row__name     { display: flex; align-items: center; gap: 6px; }
 .world-row__id .world-meta { font-size: var(--text-xs); margin-top: 2px;
                              display: flex; align-items: center; gap: 6px; }
 .world-row__tally    { flex: 1; display: flex; align-items: center; min-width: 0; }

@@ -141,17 +141,6 @@
     opacity: 0.85;
 }
 
-/* Counter flash animation */
-@keyframes counter-flash {
-    0% { transform: scale(1); }
-    50% { transform: scale(1.1); }
-    100% { transform: scale(1); }
-}
-
-.counter-flash {
-    animation: counter-flash 100ms ease;
-}
-
 /* Mobile layout */
 @media (max-width: 768px) {
     .resource-row {

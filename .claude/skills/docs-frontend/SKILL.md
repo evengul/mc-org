@@ -91,10 +91,13 @@ From `design-tokens.css`. Prefer the DSL wrappers; drop to raw classes for ad-ho
 | `divider()` | `.divider` | 1px top border in `--border` |
 | `pageHeading(title, subtitle?)` | `.page-heading` | `h1` title + optional subtitle |
 
-Utility classes (use directly): `.flex` `.flex-col` `.items-center` `.justify-between` ·
-`.gap-1`–`.gap-5` · `.w-full` · `.mt-4 .mt-5 .mb-4 .mb-5 .p-4 .p-5` · `.section-label` (uppercase tracked
-muted label) · `.subtle` (muted small text) · `.is-hidden` (display:none) · `.stack` / `.stack--xs`
-(vertical flex gap) · `.cluster` / `.cluster--xs` (horizontal flex gap).
+Utility classes (use directly): `.section-label` (uppercase tracked muted label) · `.subtle` (muted
+small text) · `.is-hidden` (display:none) · `.stack` / `.stack--xs` (vertical flex gap) · `.cluster` /
+`.cluster--xs` (horizontal flex gap) · `.mt-4`.
+
+That is the whole list. The Tailwind-style set (`.flex`, `.gap-*`, `.w-full`, `.p-4`, …) was documented
+here but had zero users anywhere in the codebase and was deleted in MCO-394 — layout goes in the
+component's own class. Don't re-add it.
 
 ---
 

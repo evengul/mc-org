@@ -92,13 +92,6 @@
     overflow: hidden;
 }
 
-.resource-list__empty {
-    padding: var(--space-5);
-    text-align: center;
-    color: var(--text-muted);
-    font-size: var(--text-sm);
-}
-
 .resource-list__no-match {
     padding: var(--space-4);
     color: var(--text-muted);
@@ -170,24 +163,6 @@
     text-align: center;
     flex: 1;
     margin: 0 var(--space-2);
-}
-
-/* Plan view stub */
-.plan-view-stub {
-    padding: var(--space-8) var(--space-4);
-    text-align: center;
-}
-
-.plan-view-stub__title {
-    font-family: var(--font-ui);
-    font-size: 18px;
-    color: var(--text-primary);
-    margin-bottom: var(--space-3);
-}
-
-.plan-view-stub__body {
-    color: var(--text-muted);
-    font-size: var(--text-sm);
 }
 
 /* Plan view empty state */
