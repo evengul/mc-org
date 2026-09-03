@@ -860,6 +860,75 @@
     display: none;
 }
 
+/* MCO-507 — "answer the remaining N with the recommended pick".
+   Same disclosure shape as the fold above, one step quieter: it is an offer about the tail, not
+   the tail itself. The picks live inside it, so the button cannot be pressed unread. */
+.plan-attention__bulk {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
+.plan-attention__bulk > summary {
+    list-style: none;
+    cursor: pointer;
+}
+
+.plan-attention__bulk > summary::-webkit-details-marker {
+    display: none;
+}
+
+.plan-attention__bulk[open] .plan-attention__toggle--closed,
+.plan-attention__bulk:not([open]) .plan-attention__toggle--open {
+    display: none;
+}
+
+.plan-attention__picks {
+    list-style: none;
+    margin: 0;
+    padding: 0 0 0 var(--space-3);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+}
+
+/* One line per pick: the question, then the answer it will get. Reads as a diff, deliberately. */
+.plan-attention__pick {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-2);
+    flex-wrap: wrap;
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+}
+
+.plan-attention__pick-question {
+    color: var(--text-muted);
+}
+
+.plan-attention__pick-arrow {
+    color: var(--text-disabled);
+}
+
+.plan-attention__pick-answer {
+    font-family: var(--font-ui);
+    color: var(--text-primary);
+}
+
+.plan-attention__bulk-note {
+    margin: 0;
+    padding-left: var(--space-3);
+    font-family: var(--font-body);
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+}
+
+/* The button sits under the picks it is about to apply, indented with them. */
+.plan-attention__bulk > .btn {
+    align-self: flex-start;
+    margin-left: var(--space-3);
+}
+
 /* ==========================================================================
    GROUPED RESOURCE LIST + FOLDED TAIL (MCO-478)
    555 flat rows made this page 25,000px, 84% of it single-item trivia.

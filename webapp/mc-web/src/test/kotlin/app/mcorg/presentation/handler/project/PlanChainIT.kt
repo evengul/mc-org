@@ -550,7 +550,7 @@ class PlanChainIT : WithUser() {
                 """
                 INSERT INTO resource_gathering_plan_override (project_id, item_id, source_key, tag_member)
                 VALUES (?, ?, ?, NULL)
-                ON CONFLICT (project_id, item_id)
+                ON CONFLICT (project_id, item_id) WHERE superseded_at IS NULL
                 DO UPDATE SET source_key = EXCLUDED.source_key, tag_member = NULL, updated_at = CURRENT_TIMESTAMP
                 """.trimIndent()
             ),
@@ -567,7 +567,7 @@ class PlanChainIT : WithUser() {
     private fun getOverrideRow(projectId: Int, itemId: String): OverrideRow? = runBlocking {
         DatabaseSteps.query<Pair<Int, String>, OverrideRow?>(
             sql = SafeSQL.select(
-                "SELECT source_key, tag_member FROM resource_gathering_plan_override WHERE project_id = ? AND item_id = ?"
+                "SELECT source_key, tag_member FROM resource_gathering_plan_override WHERE project_id = ? AND item_id = ? AND superseded_at IS NULL"
             ),
             parameterSetter = { stmt, inp ->
                 stmt.setInt(1, inp.first)

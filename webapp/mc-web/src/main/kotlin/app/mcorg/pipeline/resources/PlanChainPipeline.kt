@@ -239,8 +239,13 @@ suspend fun ApplicationCall.handlePinSource() {
         return
     }
 
+    // MCO-506: what the planner had chosen for this node *before* the pin, so the row records
+    // the disagreement and not just the answer. Read from the plan as it stands now — after the
+    // write it is unrecoverable.
+    val plannerPick = deriveOrNull(projectId, worldId)?.nodes?.get(nodeId)?.source?.getKey()
+
     // Persist the override
-    when (val r = UpsertPlanOverrideStep(projectId).process(PlanOverride.Source(nodeId, sourceKey))) {
+    when (val r = UpsertPlanOverrideStep(projectId).process(PlanOverride.Source(nodeId, sourceKey, plannerPick))) {
         is Result.Failure -> {
             defaultHandleError(r.error)
             return
@@ -284,8 +289,14 @@ suspend fun ApplicationCall.handleResolveTagMember() {
         return
     }
 
+    // MCO-506: an open tag is the case where the planner declined to choose, so what is worth
+    // recording is the member the picker ranked first — the answer the user would have got for
+    // free. Equal to memberItemId means "agreed with the recommendation"; different means the
+    // recommendation was wrong here, which is the whole signal.
+    val plannerPick = recommendedMemberFor(projectId, worldId, nodeId)
+
     // Persist the override
-    when (val r = UpsertPlanOverrideStep(projectId).process(PlanOverride.TagMember(nodeId, memberItemId))) {
+    when (val r = UpsertPlanOverrideStep(projectId).process(PlanOverride.TagMember(nodeId, memberItemId, plannerPick))) {
         is Result.Failure -> {
             defaultHandleError(r.error)
             return
@@ -391,11 +402,23 @@ private suspend fun ApplicationCall.respondAfterOverride(
 
 /** Re-renders the List-lens fragment (#project-content) — used after an inline resolution. */
 private suspend fun ApplicationCall.respondListRerender(worldId: Int, projectId: Int) {
+    respondHtml(listRerenderFragment(worldId, projectId) ?: return)
+}
+
+/**
+ * The List-lens fragment as a string, or null when the project could not be loaded (in which case
+ * the error response has already been sent).
+ *
+ * Split out from [respondListRerender] so a caller that needs to say something *alongside* the
+ * re-render — MCO-507's undo toast, swapped out-of-band — can concatenate rather than respond
+ * twice.
+ */
+internal suspend fun ApplicationCall.listRerenderFragment(worldId: Int, projectId: Int): String? {
     val project = when (val r = GetProjectByIdStep.process(projectId)) {
         is Result.Success -> r.value
         is Result.Failure -> {
             defaultHandleError(r.error)
-            return
+            return null
         }
     }
     val resources = GetAllResourceGatheringItemsStep.process(projectId).getOrNull() ?: emptyList()
@@ -427,18 +450,39 @@ private suspend fun ApplicationCall.respondListRerender(worldId: Int, projectId:
     )
     val isAdmin = ValidateWorldMemberRole<Unit>(user, Role.ADMIN, worldId).process(Unit) is Result.Success
 
-    respondHtml(
-        gatheringPlannerFragment(
-            project, resources, tasks, plan, progressMap, prerequisiteFarms, farmScaleThreshold,
-            farmSuggestions, versionGapsForPlan(projectId, plan), isAdmin, farmDismissals,
-        )
+    return gatheringPlannerFragment(
+        project, resources, tasks, plan, progressMap, prerequisiteFarms, farmScaleThreshold,
+        farmSuggestions, versionGapsForPlan(projectId, plan), isAdmin, farmDismissals,
     )
+}
+
+/**
+ * The member the picker would put first for [nodeId] — MCO-506's `planner_pick` for an open tag.
+ *
+ * An open tag is exactly the case where the planner declined to choose, so there is no "selected
+ * source" to record. What is worth recording instead is the recommendation the user was looking at
+ * when they answered: equal to their answer means they agreed with the ranking, different means the
+ * ranking was wrong here.
+ *
+ * Resolved through the same node lookup and the same demand ([TargetTree.quantityIfAlone]) that
+ * [handleGetNodePicker] renders from, so the recorded pick is the option the picker marked
+ * "best score ★". Null when the plan or graph is unavailable, or the node is not a tag — never
+ * guessed.
+ */
+internal suspend fun recommendedMemberFor(projectId: Int, worldId: Int, nodeId: String): String? {
+    val graph = getGraphForWorld(worldId) ?: return null
+    val plan = deriveOrNull(projectId, worldId) ?: return null
+    val node = plan.drillTreeFor(nodeId)?.let { findNodeById(it, nodeId) }
+        ?: synthesizeTagNode(nodeId, graph)
+        ?: return null
+    val tag = node.item as? MinecraftTag ?: return null
+    return TagMemberRanking.recommended(graph, tag.content, node.quantityIfAlone)?.id
 }
 
 /**
  * Derives the gathering plan and returns it, or null on any failure (graceful).
  */
-private suspend fun deriveOrNull(projectId: Int, worldId: Int): GatheringPlan? =
+internal suspend fun deriveOrNull(projectId: Int, worldId: Int): GatheringPlan? =
     when (val r = GenerateGatheringPlanStep.process(GatheringPlanInput(projectId, worldId))) {
         is Result.Success -> r.value
         is Result.Failure -> null
@@ -588,5 +632,5 @@ internal fun synthesizeTagNode(
 }
 
 /** Builds a minimal validation error HTML string for respondBadRequest. */
-private fun buildValidationError(param: String, message: String): String =
+internal fun buildValidationError(param: String, message: String): String =
     "<p class=\"validation-error-message\" id=\"validation-error-$param\">$message</p>"

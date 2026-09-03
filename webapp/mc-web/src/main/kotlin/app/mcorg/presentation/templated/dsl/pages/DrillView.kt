@@ -1,15 +1,14 @@
 package app.mcorg.presentation.templated.dsl.pages
 
-import app.mcorg.domain.model.minecraft.MinecraftId
 import app.mcorg.domain.model.minecraft.MinecraftTag
 import app.mcorg.domain.model.project.Project
 import app.mcorg.engine.model.ItemSourceGraph
 import app.mcorg.engine.model.SourceNode
-import app.mcorg.engine.plan.MemberPrior
 import app.mcorg.engine.plan.PlanNodeStatus
 import app.mcorg.engine.plan.PlanOverrides
 import app.mcorg.engine.plan.SourceRanking
 import app.mcorg.engine.plan.TargetTree
+import app.mcorg.pipeline.resources.TagMemberRanking
 import kotlinx.html.*
 import kotlinx.html.stream.createHTML
 import java.net.URLEncoder
@@ -284,18 +283,11 @@ fun nodePickerFragment(
 
     return createHTML().div("picker") {
         if (isTag) {
-            // Tag-member picker — members ranked by the score of their best source.
+            // Tag-member picker — members ranked by the score of their best source. The order
+            // comes from TagMemberRanking, which is also what the bulk "answer the remaining N"
+            // action reads (MCO-507); the two must not have separate ideas of "best".
             val tag = node.item as MinecraftTag
-            val ranked = tag.content
-                .map { member ->
-                    val best = graph?.let { SourceRanking.rankSources(it, member, demand).firstOrNull() }
-                    RankedMember(member, best?.source, best?.score ?: Int.MIN_VALUE)
-                }
-                .sortedWith(
-                    compareByDescending<RankedMember> { it.score }
-                        .then(MemberPrior.comparator { it.member })
-                        .thenBy { it.member.name }
-                )
+            val ranked = TagMemberRanking.rank(graph, tag.content, demand)
             val topId = ranked.firstOrNull()?.member?.id
             val filtered = if (q.isEmpty()) ranked else ranked.filter { it.member.name.contains(q, ignoreCase = true) }
             val displayed = filtered.take(PICKER_MAX_OPTIONS)
@@ -412,9 +404,6 @@ internal fun lootTableName(source: SourceNode): String? {
         .replaceFirstChar { it.uppercaseChar() }
     return pretty.ifBlank { null }
 }
-
-/** A tag member paired with its best source + that source's score, for ranking. */
-private data class RankedMember(val member: MinecraftId, val bestSource: SourceNode?, val score: Int)
 
 /** The per-option hint line: method label, a "best score ★" marker, and/or "selected". */
 private fun FlowContent.pickerOptHint(methodLabel: String?, isBest: Boolean, isSelected: Boolean) {

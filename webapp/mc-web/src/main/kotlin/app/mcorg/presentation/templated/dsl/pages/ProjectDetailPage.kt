@@ -1261,9 +1261,7 @@ private fun FlowContent.needsAttentionList(
     versionGaps: Set<String> = emptySet(),
 ) {
     val blocked = activities.filter { it.status == PlanNodeStatus.BLOCKED }
-    val questions = activities
-        .filter { it.status == PlanNodeStatus.OPEN_TAG }
-        .sortedWith(compareByDescending<Activity> { it.quantity }.thenBy { it.item.name })
+    val questions = attentionQuestions(activities)
 
     div("resource-list") {
         blocked.forEach { blockedActivityRow(project.worldId, project.id, it, it.item.id in versionGaps) }
@@ -1282,6 +1280,24 @@ private fun FlowContent.needsAttentionList(
             lead.forEach { openTagActivityRow(project.worldId, project.id, it) }
         }
         if (rest.isNotEmpty()) {
+            // MCO-507: "answer the remaining N with the recommended pick", loaded on demand.
+            //
+            // Lazy rather than rendered inline because the picks need the item-source graph to
+            // rank, and the ranking that this control *shows* must be the same computation that
+            // the POST then *applies* — a preview built here from a threaded-in graph would be a
+            // second implementation of "recommended", free to drift from the one that writes.
+            // One request, on a section that only exists when there is a tail to fold.
+            //
+            // Empty response when there is nothing to offer (fewer than two folded questions, or
+            // no graph), so the slot just stays empty.
+            div("plan-attention__bulk-slot") {
+                id = BULK_ANSWER_SLOT_ID
+                attributes["hx-get"] =
+                    "/worlds/${project.worldId}/projects/${project.id}/plan/attention/bulk"
+                attributes["hx-trigger"] = "load"
+                attributes["hx-target"] = "this"
+                attributes["hx-swap"] = "innerHTML"
+            }
             details("plan-attention__rest") {
                 summary {
                     span("btn btn--ghost btn--sm plan-attention__toggle") {
@@ -1296,6 +1312,26 @@ private fun FlowContent.needsAttentionList(
         }
     }
 }
+
+/**
+ * The questions "Needs attention" folds away — the small tail, and the exact set MCO-507's bulk
+ * action is allowed to answer.
+ *
+ * Exposed because the action must cover precisely what the section hid and nothing else: offering
+ * to answer a *lead* question would be offering to answer the ones worth reading. One definition,
+ * read by the renderer below and by `PlanAttentionBulkPipeline` on the server.
+ */
+internal fun foldedAttentionQuestions(activities: List<Activity>): List<Activity> {
+    val questions = attentionQuestions(activities)
+    if (questions.isEmpty()) return emptyList()
+    return questions.drop(leadingQuestionCount(questions))
+}
+
+/** The open questions in the order the section asks them: biggest decision first. */
+private fun attentionQuestions(activities: List<Activity>): List<Activity> =
+    activities
+        .filter { it.status == PlanNodeStatus.OPEN_TAG }
+        .sortedWith(compareByDescending<Activity> { it.quantity }.thenBy { it.item.name })
 
 /**
  * How many questions to show before folding the rest away.
