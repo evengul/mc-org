@@ -68,7 +68,13 @@ package app.mcorg.data.minecraft
  *       Sand or Sand" now, as do its neighbours ("Soul Fire Base Blocks", "Coals"). Folding a
  *       synthetic set onto a vanilla id at 6 dragged the vanilla name along with it, which is what
  *       surfaced this — MCO-489 (2026-09).
+ *  - 9: right-click-an-animal sources (MCO-497). `milk_bucket` had exactly one source in the
+ *       whole graph — a trial-chamber supply chest — so milk priced at 113 minutes a bucket and
+ *       `cake`, which needs three, was planned as a raid on a trial chamber. `ENTITY_INTERACT`
+ *       had been in the effort table since it was written, marked inert because nothing produced
+ *       any such source. Mushroom stew and suspicious stew from a mooshroom come along for the
+ *       family; neither changes a selection, since both already craft for less.
  */
 object ExtractionVersion {
-    const val CURRENT = 8
+    const val CURRENT = 9
 }

@@ -133,21 +133,38 @@ class UnitCostModelAdversarialTest {
     }
 
     /**
-     * **Defect 3 — the self-block-loot gate suppresses genuine harvests.**
+     * **Defect 3, now fixed — the self-block-loot gate suppressed genuine harvests.**
      *
      * `wheat` has exactly two constructive-looking routes in real data: harvest the crop
-     * (`blocks/wheat.json`) and unpack a hay block (9 wheat from 1). The gate fires because a
-     * recipe exists, so harvesting is priced as `c(wheat) + effort` and can never win; the hay
-     * block is itself 9 wheat, so it cannot win either — and wheat falls through to chest loot
-     * at 1.9 min a unit, with bread and everything else downstream inheriting it.
+     * (`blocks/wheat.json`) and unpack a hay block (9 wheat from 1). The gate fired because a
+     * recipe existed, so harvesting was priced as `c(wheat) + effort` and could never win; the
+     * hay block is itself 9 wheat, so it could not win either — and wheat fell through to chest
+     * loot at 1.9 min a unit, with bread and everything downstream inheriting it.
      *
-     * The same shape hits `prismarine`, `sea_lantern`, `magma_block`, `blue_ice`, `packed_ice`,
-     * `mud`, `mud_bricks` and `mossy_stone_bricks` — every block that both occurs naturally and
-     * has a recipe. The gate's condition is "does any recipe exist", which is not the same
-     * question as "is breaking this block circular".
+     * ## What the gate was actually keying on
+     *
+     * `isSelfBlockLoot` compared the loot-table stem to the item id *before* consulting
+     * [PlacedForms], the curated table that exists to answer exactly this question. That table
+     * mostly lists pairs whose names **differ** — `carrots`/`carrot`, `redstone_wire`/`redstone`
+     * — because those are the ones a name comparison misses. So a pair it had an opinion about
+     * never reached it when the names happened to match.
+     *
+     * The result was one family splitting on spelling. Measured on world 3 / 1.21.4, nine items
+     * were demoted to -100 (`wheat`, `melon`, `pumpkin`, `sugar_cane`, `bamboo`, `nether_wart`,
+     * `kelp`, `cactus`, `obsidian`) and five escaped untouched (`carrot`, `potato`, `beetroot`,
+     * `cocoa_beans`, `sweet_berries`) — the second group only because Mojang pluralised those
+     * block ids. Harvesting wheat scored -100 and harvesting carrots scored 100, for no reason
+     * a player could name.
+     *
+     * The fix asks the table first and keeps the name match as the fallback it should always
+     * have been — the table lists exceptions, and the ordinary case really is that placed
+     * `minecraft:beacon` is the beacon you carried. The same change covers the rest of the
+     * family this note originally named: `prismarine`, `sea_lantern`, `magma_block`, `blue_ice`,
+     * `packed_ice`, `mud`, `mossy_stone_bricks`. `mud_bricks` deliberately stays penalised — it
+     * appears in trail ruins as decoration, and nobody goes there to collect mud bricks.
      */
     @Test
-    fun `the gate suppresses harvesting wheat because a hay-block recipe exists`() {
+    fun `a genuine harvest is no longer suppressed by an unpacking recipe`() {
         val wheat = item("wheat")
         val hayBlock = item("hay_block")
         val graph = Fixture().apply {
@@ -160,11 +177,64 @@ class UnitCostModelAdversarialTest {
         val model = UnitCostModel(graph)
 
         assertEquals(
-            "minecraft:chest:chests/shipwreck_supply.json",
+            "minecraft:block:blocks/wheat.json",
             model.best(wheat)?.getKey(),
-            "harvesting a wheat crop is banned, so wheat comes from shipwrecks"
+            "you harvest wheat; you do not sail to a shipwreck for it"
         )
-        assertTrue(model.cost.getValue(wheat.id) > 1.0, "at 1.9 min a unit, against 0.05 for the harvest")
+        assertEquals(
+            EffortTable.DEFAULT.of(block),
+            model.cost.getValue(wheat.id),
+            1e-9,
+            "and it costs one harvest swing, not the 1.9 min the chest route charged",
+        )
+    }
+
+    /**
+     * The other half of the same fix: a pair the table calls REVERSIBLE stays circular, and a
+     * pair it says nothing about still falls back to the name match.
+     *
+     * Without the fallback the fix would be far worse than the bug — [PlacedForms] lists only
+     * exceptions, so every ordinary placed building block (a beacon, a block of concrete) would
+     * stop being recognised as re-collection at once.
+     */
+    @Test
+    fun `breaking what you placed is still circular, listed or not`() {
+        val redstone = item("redstone")
+        val redstoneBlock = item("redstone_block")
+        val beacon = item("beacon")
+        val glass = item("glass")
+        val graph = Fixture().apply {
+            // Named differently, and REVERSIBLE in the table.
+            source(block, "blocks/redstone_wire.json", redstone to 1)
+            source(block, "blocks/deepslate_redstone_ore.json", redstone to 1, expectedYield = 4.0)
+            // The self-cost branch is gated on a constructive sibling existing, so the fixture
+            // has to give redstone one or it proves nothing — the first draft of this test left
+            // it out and the wire won on a branch that had never run.
+            source(crafting, "redstone.json", redstone to 9, redstoneBlock to 1)
+            source(crafting, "redstone_block.json", redstoneBlock to 1, redstone to 9)
+            // Named identically, and absent from the table — the fallback's job.
+            source(block, "blocks/beacon.json", beacon to 1)
+            source(crafting, "beacon.json", beacon to 1, glass to 5)
+            source(block, "blocks/glass.json", glass to 1)
+        }.build()
+
+        assertTrue(
+            SelectionScorer.isSelfBlockLoot(
+                redstone, graph.getSourceNode(block.id, "blocks/redstone_wire.json")!!
+            ),
+            "REVERSIBLE in the table beats the differing names",
+        )
+        assertTrue(
+            SelectionScorer.isSelfBlockLoot(
+                beacon, graph.getSourceNode(block.id, "blocks/beacon.json")!!
+            ),
+            "and silence from the table still falls back to the name match",
+        )
+        assertEquals(
+            "minecraft:block:blocks/deepslate_redstone_ore.json",
+            UnitCostModel(graph).best(redstone)?.getKey(),
+            "so redstone is mined rather than picked back up off the floor",
+        )
     }
 
     /**

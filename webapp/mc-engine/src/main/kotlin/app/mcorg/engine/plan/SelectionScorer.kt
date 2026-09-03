@@ -2,6 +2,7 @@ package app.mcorg.engine.plan
 
 import app.mcorg.domain.model.minecraft.MinecraftId
 import app.mcorg.domain.model.minecraft.MinecraftTag
+import app.mcorg.domain.model.minecraft.PlacedForm
 import app.mcorg.domain.model.minecraft.PlacedForms
 import app.mcorg.engine.model.ItemSourceGraph
 import app.mcorg.engine.model.SourceNode
@@ -379,14 +380,30 @@ internal class SelectionScorer(
         internal fun isSelfBlockLoot(item: MinecraftId, source: SourceNode): Boolean {
             if (source.sourceType != ResourceSource.SourceType.LootTypes.BLOCK) return false
             val stem = source.filename.substringAfterLast('/').substringBeforeLast('.')
-            if (stem == item.id.substringAfterLast(':')) return true
+
             // A block is not always named after the item you placed to make it: you put down
             // `minecraft:redstone` and the world holds `minecraft:redstone_wire`. Comparing
             // names caught `blocks/beacon.json` and missed that one, so the planner offered
-            // "break placed redstone dust" as a way to obtain redstone dust. Only the
-            // reversible forms count — a crop yields more than was planted, and farmland needs
-            // a hoe standing between the dirt and the block, so neither is re-collection.
-            return PlacedForms.isReversibleFormOf("minecraft:$stem", item.id)
+            // "break placed redstone dust" as a way to obtain redstone dust. `PlacedForms` is
+            // the curated record of which pairs are actually circular, and **it wins**: a crop
+            // yields more than was planted, and farmland needs a hoe standing between the dirt
+            // and the block, so neither is re-collection.
+            //
+            // Asking it *first* is the fix in MCO-501. This used to compare names before
+            // consulting the table, so a pair the table had an opinion about never reached it
+            // when the two names happened to match — and the table lists mostly pairs whose
+            // names differ, because those are the ones a name comparison misses. The result was
+            // that the table silently governed only half of its own subject: harvesting carrots
+            // scored 100 and harvesting wheat scored -100, on nothing but Mojang pluralising one
+            // block id. Nine items were demoted and five escaped, from one family.
+            PlacedForms.relationOf("minecraft:$stem", item.id)?.let {
+                return it == PlacedForm.Relation.REVERSIBLE
+            }
+
+            // Silence from the table is not "not circular" — it lists exceptions, and the
+            // ordinary case genuinely is that placed `minecraft:beacon` is the beacon you
+            // carried. So the name match stays, as the fallback it should always have been.
+            return stem == item.id.substringAfterLast(':')
         }
     }
 }

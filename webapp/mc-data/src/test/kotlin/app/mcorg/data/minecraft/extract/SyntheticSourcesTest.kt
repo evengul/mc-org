@@ -231,6 +231,61 @@ class SyntheticSourcesTest {
         }
     }
 
+    /**
+     * Milking a cow (MCO-497). `milk_bucket` had exactly one source in the whole 1.21.4 graph —
+     * `chests/trial_chambers/supply.json` — so milk priced at 113 minutes a bucket and `cake`,
+     * which needs three, was planned as a raid on a trial chamber.
+     */
+    @Test
+    fun `milk comes from an animal rather than a chest`() {
+        val milk = producing("minecraft:milk_bucket").single()
+
+        assertEquals(SourceType.LootTypes.ENTITY_INTERACT, milk.type)
+        assertEquals("synthetic/milk_cow.json", milk.filename)
+    }
+
+    /**
+     * The bucket is a carried tool, not a consumed ingredient, and this is the case where that
+     * matters most: a cake needs three milk buckets and hands all three back, so charging the
+     * iron would be wrong by nine ingots.
+     *
+     * It is also the same choice the filled buckets already make a few entries up — see
+     * `filled buckets are collected and consume nothing`. Recipe *remainders* are not modelled
+     * anywhere in the graph; not charging the tool is what keeps the two ends of that gap
+     * consistent instead of compounding.
+     */
+    @Test
+    fun `milking consumes nothing, because the bucket comes back`() {
+        val milk = producing("minecraft:milk_bucket").single()
+
+        assertTrue(
+            milk.requiredItems.isEmpty(),
+            "the bucket is carried, not spent: ${milk.requiredItems.map { it.first.id }}",
+        )
+    }
+
+    /**
+     * The rest of the right-click-an-animal family, enumerated rather than discovered one
+     * absurd plan at a time. Neither changes a selection today — both stews already craft for
+     * less than finding a mooshroom costs — which is the point of adding them now.
+     */
+    @Test
+    fun `both mooshroom stews are entity interactions that spend a bowl`() {
+        listOf(
+            "minecraft:mushroom_stew" to "synthetic/mooshroom_stew.json",
+            "minecraft:suspicious_stew" to "synthetic/mooshroom_suspicious_stew.json",
+        ).forEach { (item, filename) ->
+            val stew = producing(item).single()
+            assertEquals(SourceType.LootTypes.ENTITY_INTERACT, stew.type)
+            assertEquals(filename, stew.filename)
+            assertEquals(
+                listOf("minecraft:bowl"),
+                stew.requiredItems.map { it.first.id },
+                "unlike the bucket, the bowl really is consumed",
+            )
+        }
+    }
+
     @Test
     fun `entries naming an item the version lacks are dropped`() {
         val withoutCherry = allIds - "minecraft:stripped_cherry_log"
