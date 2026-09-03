@@ -277,6 +277,13 @@
     height: 40px;
 }
 
+/* MCO-499. The item cell stays `display: table-cell` — the glyph is inline-block with its own
+   baseline shift, so a gap is all it needs. `--space-2` rather than `--space-3` on purpose: at
+   the table's 40px row height the glyph reads as a prefix to the name, not as a sixth column. */
+.plan-resource-table__item .item-glyph {
+    margin-right: var(--space-2);
+}
+
 .plan-resource-table__col-status {
     width: 24px;
 }

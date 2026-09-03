@@ -91,6 +91,7 @@ fun projectDetailPage(
         "/static/styles/components/btn.css",
         "/static/styles/components/form.css",
         "/static/styles/components/item-search.css",
+        "/static/styles/components/item-glyph.css",
         "/static/styles/components/badge.css",
         "/static/styles/components/progress.css",
         "/static/styles/components/resource-row.css",

@@ -65,6 +65,7 @@ fun projectListPage(
         "/static/styles/pages/project-list.css",
         "/static/styles/components/form.css",
         "/static/styles/components/item-search.css",
+        "/static/styles/components/item-glyph.css",
         "/static/styles/components/world-tabs.css",
     ),
     scripts = listOf("/static/scripts/np-menu.js", "/static/scripts/farm-modal.js")

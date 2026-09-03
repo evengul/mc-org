@@ -8,6 +8,7 @@ import app.mcorg.presentation.hxSwap
 import app.mcorg.presentation.hxTarget
 import app.mcorg.presentation.hxTrigger
 import app.mcorg.presentation.templated.dsl.formatPlainCount
+import app.mcorg.presentation.templated.dsl.itemGlyph
 import kotlinx.html.ButtonType
 import kotlinx.html.FlowContent
 import kotlinx.html.InputType
@@ -38,6 +39,10 @@ fun TR.planResourceRow(worldId: Int, projectId: Int, item: ResourceGatheringItem
         span("status-dot $dotModifier") {}
     }
     td("plan-resource-table__item") {
+        // One of the two glyph surfaces chosen for MCO-499 (the other is the /items/search
+        // option). Row level, not group level: a group header names an ActivityGroup —
+        // "Craft", "Loot" — which is not an item and has no glyph to draw.
+        itemGlyph(item.itemId)
         +item.name
     }
     td("plan-resource-table__qty") {
@@ -89,6 +94,7 @@ fun TR.ignoredResourceRow(worldId: Int, projectId: Int, item: ResourceGatheringI
         span("status-dot status-dot--unset") {}
     }
     td("plan-resource-table__item") {
+        itemGlyph(item.itemId)
         +item.name
     }
     td("plan-resource-table__qty") {
