@@ -64,5 +64,16 @@ redirect; verifying through the browser flow is usually easier).
 State what you drove, what you observed, and anything that did not behave
 as expected. "Started app, created a project via the form, saw it appear in
 the list with the new badge, no log errors" is verification; "tests pass"
-is not. Kill the app afterwards only if you started it
-(`pkill -f mcorg` — don't kill a server the user was already running).
+is not.
+
+Then clean up what you started:
+
+```bash
+playwright-cli close   # this worktree's browser — frees ~960 MB immediately
+pkill -f mcorg         # ONLY if you started the app; not one the user was running
+```
+
+`close` stops the browser but keeps its profile, so signing in again is not
+needed — the next `open` restarts from the same cookie jar in ~2s. Skipping it
+is not fatal (a `Stop` hook reaps browsers idle over 30 minutes), but that is
+up to 30 minutes of ~960 MB you did not need to hold.

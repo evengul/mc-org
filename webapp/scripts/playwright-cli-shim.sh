@@ -88,12 +88,25 @@ derive_session_name() {
   if [ "$top" = "$repo_root" ]; then
     name="$repo"
   else
-    name="$repo--$(basename "$top")"
+    name="${repo}__$(basename "$top")"
   fi
 
   # Session names land in a filename (<name>.sock) and a directory name
-  # (ud-<name>-<browser>), so keep them to characters that are safe in both.
-  name=$(printf '%s' "$name" | tr -c 'A-Za-z0-9._-' '-')
+  # (ud-<name>-<browser>), so keep them to characters safe in both — and
+  # deliberately EXCLUDE the hyphen, mapping it to an underscore. Two bugs in
+  # playwright-cli make a hyphen in a session name actively dangerous:
+  #
+  #   1. SessionManager.create recovers session names from profile directories
+  #      with `file.split("-")[1]`. With hyphens, ud-mc-org--foo-chromium yields
+  #      "mc" — a phantom session in every `session-list`, inviting cleanup.
+  #   2. Session.delete matches `file.startsWith("ud-" + name + "-")`. Deleting
+  #      that phantom "mc" matches ud-mc-org--foo-chromium and wipes EVERY
+  #      mc-org worktree's browser profile.
+  #
+  # With no hyphen, split("-")[1] returns the whole real name (so no phantom is
+  # ever invented) and no session name can be a hyphen-delimited prefix of
+  # another (so delete cannot over-match).
+  name=$(printf '%s' "$name" | tr -c 'A-Za-z0-9._' '_')
 
   # The socket lives at /tmp/playwright-cli/<16 hex>/<name>.sock and a unix
   # socket path is capped at 108 bytes; that leaves ~65 for the name. Cap well
@@ -102,7 +115,7 @@ derive_session_name() {
   if [ "${#name}" -gt 48 ]; then
     local digest
     digest=$(printf '%s' "$top" | sha1sum | cut -c1-6)
-    name="${name:0:41}-${digest}"
+    name="${name:0:41}_${digest}"
   fi
 
   printf '%s' "$name"
@@ -132,6 +145,33 @@ if [ -z "${PLAYWRIGHT_CLI_SESSION:-}" ]; then
   session=$(derive_session_name) || session=""
   [ -n "$session" ] && export PLAYWRIGHT_CLI_SESSION="$session"
 fi
+
+# --- Stamp last use, for the idle reaper (MCO-517) -------------------------
+# The Kotlin compile daemon reaps itself after 900s idle; a playwright daemon
+# never does, and holds ~960 MB (789 MB of Chromium across 10 processes plus a
+# 170 MB node daemon). worktree-playwright.sh --reap-idle closes the gap, and
+# this is where it learns what "idle" means: the shim is already in every call
+# path, so one stamp per invocation is exact.
+#
+# The alternatives are both wrong. A Chromium profile's mtime keeps moving
+# while the browser sits doing nothing, and the .session file is written once
+# at daemon start and never again.
+stamp_last_use() {
+  local sess="${PLAYWRIGHT_CLI_SESSION:-}"
+  [ -n "$sess" ] || return 0
+
+  # Housekeeping is not page usage. Without this the reaper refreshes the very
+  # stamps it is about to read — `session-stop <other>` run from the main
+  # checkout would keep the main checkout's own session alive forever.
+  case "${1:-}" in
+    session-*|close|config) return 0 ;;
+  esac
+
+  local dir="${XDG_CACHE_HOME:-$HOME/.cache}/seam/playwright-sessions"
+  mkdir -p "$dir" 2>/dev/null || return 0
+  : > "$dir/$sess.lastuse" 2>/dev/null || true
+}
+stamp_last_use "${1:-}"
 
 # Google Chrome is not installed on this machine, but playwright-cli's
 # defaultConfig is browserName "chromium" with launchOptions.channel "chrome" —
