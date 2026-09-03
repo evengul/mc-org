@@ -83,6 +83,35 @@ import app.mcorg.engine.model.SourceNode
  *   as standalone sources alongside their parent, so a name tag reads as 1-in-6 per cast
  *   rather than 1-in-6 of a 5% roll; and nothing in the graph *grows a crop*, so wheat's only
  *   priced route is a village chest, at any chest value.
+ *
+ * ## Structure loot is priced by the structure (MCO-501)
+ *
+ * The sweep's second finding above — that per-*type* effort is the wrong grain — had a sharper
+ * consequence than mispriced ore. A block-loot source that happens to be a **crafted** block
+ * cost one bare block-break, and its ingredients cost nothing, because a loot source consumes
+ * nothing. So the cheapest way to obtain obsidian was to break an ender chest (0.01 min, eight
+ * obsidian a swing) — the 8.2-minute item you need eight obsidian to build. `charcoal` from a
+ * campfire and `soul_soil` from a soul campfire were the same shape.
+ *
+ * The fix is not a rule against the route. It is that the route was **free**:
+ *
+ * - [StructureDensity] derives, from the server jar, how rare each structure is and which
+ *   blocks its templates place. An ender chest is `end_cities` only, one per 400 chunks.
+ * - [EffortTable.STRUCTURE_ACCESS] adds the half the jar does not have — what it costs to
+ *   *reach* a dimension — as five curated numbers rather than one per structure.
+ * - Where no structure places the block at all, [manufacturedBlockCost] charges what building
+ *   it cost, because building it is then the only way to have one.
+ *
+ * Two things this deliberately does not do, both measured rather than assumed:
+ *
+ * - **It does not price a block merely because a structure contains one.** Villages are built
+ *   out of cobblestone, sand, dirt and oak logs. Gating on those moved cobblestone 0.05 -> 0.43
+ *   min and rerouted dirt through mycelium, so the factor applies only to blocks that can be
+ *   *made* — where finding one is an alternative to making it.
+ * - **It says nothing about how many you need.** A structure's blocks are not consumed by
+ *   finding it, so `BLOCKS_PER_VISIT` is a flat eight. One lectern for a trading hall, fifteen
+ *   bookshelves for an enchanting setup and five hundred for a library are three different
+ *   answers and this model gives one. Deriving the count per template is the follow-up.
  */
 class UnitCostModel(
     private val graph: ItemSourceGraph,
@@ -102,8 +131,32 @@ class UnitCostModel(
     private val itemOrder: List<app.mcorg.engine.model.ItemNode>? = null,
 ) {
 
+    /**
+     * The caller's table, bound to the blocks *this graph* says can be made.
+     *
+     * The structure half of [EffortTable.findFactor] needs a fact the table cannot hold —
+     * whether a block has a recipe — so it is supplied here, once, from the graph. Every
+     * price and every diagnostic reads this rather than the constructor argument, so the
+     * "how hard this one is to reach" line a caller prints cannot drift from the number
+     * that actually produced the cost.
+     */
+    private val boundEffort: EffortTable by lazy { effort.withCraftableBlocks(craftableBlocks()) }
+
     /** Diagnostics: the table this model was built with, so a caller can vary its grain. */
-    val effortTable: EffortTable get() = effort
+    val effortTable: EffortTable get() = boundEffort
+
+    /**
+     * Blocks the graph knows a deliberate way to make, restricted to those a structure
+     * template actually places — the only ones [EffortTable] asks about, and small enough
+     * (a few dozen on 1.21.4) that the restriction keeps the set honest rather than a
+     * second copy of the item registry.
+     */
+    private fun craftableBlocks(): Set<String> =
+        graph.getAllItems()
+            .map { it.itemId }
+            .filterTo(HashSet()) { id ->
+                StructureDensity.setsContaining(id).isNotEmpty() && isBuiltOnly(id)
+            }
 
     /** Minutes per unit for every item and tag in the graph. [UNREACHABLE] where nothing produces it. */
     val cost: Map<String, Double> by lazy { relax() }
@@ -253,10 +306,12 @@ class UnitCostModel(
         // graph, and it survives the change of model.
         if (SelectionScorer.isSelfBlockLoot(item, source) && hasConstructiveSibling(item)) {
             val own = c[item.id] ?: UNREACHABLE
-            return if (own >= UNREACHABLE) UNREACHABLE else own + effort.of(source)
+            return if (own >= UNREACHABLE) UNREACHABLE else own + boundEffort.of(source)
         }
 
-        var total = effort.of(source) / out
+        manufacturedBlockCost(source, item, out, c)?.let { return it }
+
+        var total = boundEffort.of(source) / out
         for (requirement in graph.getRequiredItems(source)) {
             val each = c[requirement.itemId] ?: UNREACHABLE
             if (each >= UNREACHABLE) return UNREACHABLE
@@ -273,6 +328,68 @@ class UnitCostModel(
      */
     private fun hasConstructiveSibling(item: MinecraftId): Boolean =
         graph.getSourcesForItem(item).any { it.sourceType.isConstructive() }
+
+    /**
+     * Breaking a block that had to be **built**, to get an ingredient back out of it —
+     * priced as the block, because that is what it cost.
+     *
+     * The self-block-loot branch above catches breaking the item's own placed form. This
+     * catches the other shape, where the block and the item are different things:
+     *
+     * ```
+     * soul_soil  0.05 min  via Break Block  blocks/soul_campfire.json
+     * ```
+     *
+     * A loot source consumes nothing, so the model paid nothing for the soul campfire —
+     * and a soul campfire costs a soul sand, three sticks and three logs. Breaking one for
+     * the soul soil back is a real if pointless thing to do; doing it *for free* is what
+     * made it win.
+     *
+     * ## Why the structure snapshot decides this and a "is it craftable" test alone cannot
+     *
+     * Most craftable blocks also generate: campfires are in villages, bookshelves in
+     * village libraries. Breaking one you *found* is free of its recipe, and that is a
+     * genuine route — so charging construction whenever a recipe exists would price the
+     * village campfire as though you had built it. The block must be craftable **and**
+     * placed by no structure template for its construction to be the only way to have one.
+     *
+     * The converse error is the one MCO-501 opened with. An ender chest is craftable and
+     * generates (End city ships), so this branch leaves it alone and its price comes from
+     * the End city instead — which is the honest reason it loses, rather than a rule
+     * asserting the route does not exist.
+     *
+     * Returns null when the source is not that shape, leaving the ordinary sum in charge.
+     */
+    private fun manufacturedBlockCost(
+        source: SourceNode,
+        item: MinecraftId,
+        out: Double,
+        c: Map<String, Double>,
+    ): Double? {
+        if (source.sourceType != SourceType.LootTypes.BLOCK) return null
+        val blockId = "minecraft:" + source.filename.substringAfterLast('/').substringBeforeLast('.')
+        // The item's own placed form is the branch above; this is only the other case.
+        if (blockId == item.id) return null
+        if (StructureDensity.setsContaining(blockId).isNotEmpty()) return null
+        if (!isBuiltOnly(blockId)) return null
+
+        val blockCost = c[blockId] ?: UNREACHABLE
+        if (blockCost >= UNREACHABLE) return UNREACHABLE
+        return (blockCost + boundEffort.of(source)) / out
+    }
+
+    /**
+     * Can this block only be had by making it? Cached — [ItemSourceGraph.getItemNodesByStringId]
+     * is a linear scan over every node, and this is asked inside the relaxation.
+     */
+    private fun isBuiltOnly(blockId: String): Boolean = builtOnlyMemo.getOrPut(blockId) {
+        val nodes = graph.getItemNodesByStringId(blockId)
+        if (nodes.isEmpty()) return@getOrPut false
+        val sources = nodes.flatMap { graph.getSourcesForItem(it.item) }
+        sources.isNotEmpty() && sources.any { it.sourceType.isConstructive() }
+    }
+
+    private val builtOnlyMemo = HashMap<String, Boolean>()
 
     /**
      * Units of [item] produced per attempt at [source].
@@ -357,6 +474,22 @@ class EffortTable(
      * how many items actually moved, and in both directions.
      */
     private val perSource: Boolean = true,
+    /**
+     * Block ids that a player could *make* — supplied by [UnitCostModel] from the graph,
+     * because the table itself knows nothing about recipes.
+     *
+     * This is the gate on the structure half of [findFactor], and it is load-bearing. A
+     * structure template names every block it places, which is not the same as the blocks
+     * it *gates*: a village is built out of cobblestone, sand, dirt and oak logs. Pricing
+     * a block by the village that contains it is only right when finding one there is an
+     * alternative to making it. When you cannot make it, it is terrain, and terrain is
+     * what the type's own number and `BLOCK_FINDING` already price.
+     *
+     * Measured, without this gate: cobblestone 0.05 -> 0.43 min, sand 0.05 -> 0.43, oak_log
+     * 0.05 -> 0.62, and dirt rerouted to breaking mycelium. Empty means "ask no structure
+     * questions", which is the pre-MCO-501 behaviour and what every test fixture gets.
+     */
+    private val craftableBlocks: Set<String> = emptySet(),
 ) {
     /**
      * Minutes per attempt at this particular source.
@@ -383,19 +516,44 @@ class EffortTable(
     /** The action alone, with nothing said about reaching it. Kept for sweeps and tests. */
     fun of(type: SourceType): Double = minutes[type.id] ?: default
 
+    /**
+     * How much dearer this particular source is than the bare action — see the companion's
+     * curated tables, and [craftableBlocks] for the one part that needs the graph.
+     */
+    internal fun findFactor(source: SourceNode): Double {
+        val stem = source.filename.substringAfterLast('/').substringBeforeLast('.')
+        return when {
+            source.sourceType.isTrade() -> tradeLevelFactor(source.filename)
+            source.sourceType == SourceType.LootTypes.CHEST ->
+                CHEST_FINDING.firstOrNull { source.filename.contains(it.first) }?.second ?: 1.0
+            source.sourceType == SourceType.LootTypes.BLOCK ->
+                BLOCK_FINDING[stem]
+                    ?: structureFindFactor(stem).takeIf { "minecraft:$stem" in craftableBlocks }
+                    ?: 1.0
+            source.sourceType == SourceType.LootTypes.ENTITY -> ENTITY_FINDING[stem] ?: 1.0
+            source.sourceType == SourceType.LootTypes.GIFT -> GIFT_FINDING[stem] ?: 1.0
+            else -> 1.0
+        }
+    }
+
+    /** A copy that knows which blocks can be made — see [craftableBlocks]. */
+    fun withCraftableBlocks(blocks: Set<String>): EffortTable =
+        EffortTable(minutes, default, perSource, blocks)
+
     fun with(type: SourceType, value: Double): EffortTable =
-        EffortTable(minutes + (type.id to value), default, perSource)
+        EffortTable(minutes + (type.id to value), default, perSource, craftableBlocks)
 
     /** The same numbers at the old grain — one price per source type. */
-    fun typeOnly(): EffortTable = EffortTable(minutes, default, perSource = false)
+    fun typeOnly(): EffortTable = EffortTable(minutes, default, perSource = false, craftableBlocks)
 
     companion object {
 
-        /**
-         * How much dearer this particular source is than the bare action, because of what it
-         * takes to *reach* it. 1.0 means the type's number already tells the truth.
+        /*
+         * How much dearer a particular source is than the bare action, because of what it
+         * takes to *reach* it — the tables below, read by [EffortTable.findFactor]. 1.0
+         * means the type's number already tells the truth.
          *
-         * Three things are keyed here, and nothing else is:
+         * Four things are keyed here, and nothing else is:
          *
          * 1. **Ore and debris.** Mining is quick; finding is not. `blocks/dirt.json` and
          *    `blocks/ancient_debris.json` are the same swing of the same pickaxe and nothing in
@@ -409,26 +567,98 @@ class EffortTable(
          *    a great deal of trading to unlock and a novice trade costs nothing, and the level
          *    is the one distinguishing fact the data *does* carry — no curation needed, which
          *    is why it is the most trustworthy line here.
+         * 4. **Structure gating** (MCO-501), the only *derived* entry: how rare the structure
+         *    a craftable block is found in happens to be. See [structureFindFactor].
          *
          * Everything else is 1.0. That is the point: the list is short enough to argue with.
          */
-        internal fun findFactor(source: SourceNode): Double {
-            val stem = source.filename.substringAfterLast('/').substringBeforeLast('.')
-            return when {
-                source.sourceType.isTrade() -> tradeLevelFactor(source.filename)
-                source.sourceType == SourceType.LootTypes.CHEST ->
-                    CHEST_FINDING.firstOrNull { source.filename.contains(it.first) }?.second ?: 1.0
-                source.sourceType == SourceType.LootTypes.BLOCK -> BLOCK_FINDING[stem] ?: 1.0
-                source.sourceType == SourceType.LootTypes.ENTITY -> ENTITY_FINDING[stem] ?: 1.0
-                source.sourceType == SourceType.LootTypes.GIFT -> GIFT_FINDING[stem] ?: 1.0
-                else -> 1.0
-            }
+
+        /**
+         * What it costs to reach a block that only exists inside a structure — derived from
+         * [StructureDensity], not curated per block.
+         *
+         * Returns null for a block no structure template places, which leaves the caller's
+         * `?: 1.0` in charge and is exactly the behaviour every block had before MCO-501.
+         *
+         * ```
+         * factor = densityRatio(set) * ACCESS[set] * VILLAGE_TRIP / BLOCKS_PER_VISIT
+         * ```
+         *
+         * taking the **cheapest** structure that places the block, because a player takes the
+         * easiest route and this is a min over routes like every other cost here.
+         *
+         * The three curated inputs are named separately on purpose: each is a different kind
+         * of claim, and lumping them into one tuned constant is how the old scorer's eight
+         * constants came to be uninterpretable.
+         */
+        internal fun structureFindFactor(blockStem: String): Double? =
+            StructureDensity.setsContaining("minecraft:$blockStem")
+                .minOfOrNull { set ->
+                    StructureDensity.densityRatio(set) * (STRUCTURE_ACCESS[set] ?: 1.0) *
+                        VILLAGE_TRIP / BLOCKS_PER_VISIT
+                }
+
+        /**
+         * How many 3-second block swings a trip to a village is worth. Five minutes, which
+         * is the one number here a player can check against their own experience.
+         *
+         * This is the scale of the whole structure half of the table: every structure is
+         * priced as a multiple of "go and find a village".
+         */
+        private const val VILLAGE_TRIP = 100.0
+
+        /**
+         * How many of a given block one visit to a structure yields.
+         *
+         * **The crudest number in this file, and the one to replace first.** A structure's
+         * blocks are not consumed by finding it — one village has several campfires and a
+         * library has a wall of bookshelves — so charging a whole trip per block would say
+         * the second bookshelf costs another village, which is plainly false. Eight is a flat
+         * stand-in for a quantity the templates actually contain: counting a block's
+         * placements per template would derive it, and that is the follow-up this constant
+         * exists to be replaced by.
+         *
+         * It is also why this model still has nothing to say about *demand*. One lectern for
+         * a trading hall, fifteen bookshelves for an enchanting setup and five hundred for a
+         * library project are three different answers, and a single per-unit cost gives one.
+         */
+        private const val BLOCKS_PER_VISIT = 8.0
+
+        /**
+         * How much dearer than a village trip it is to *reach* a structure, by class.
+         *
+         * Density says how rare a structure is and this says how hard it is to get to; only
+         * the first is in Mojang's data. The split matters because the two disagree sharply —
+         * buried treasure is the densest structure in the game (100 chunks against a
+         * village's 1156) and needs a map from a shipwreck before it can be found at all.
+         *
+         * Five classes rather than twenty entries, so each line is a question with an
+         * arguable answer ("is the Nether worth four village trips?") instead of a per-
+         * structure feel. Anything unlisted is 1.0 — an ordinary overworld surface errand.
+         */
+        private val STRUCTURE_ACCESS: Map<String, Double> = buildMap {
+            // Overworld, underground: a descent, and in the ancient city's case to y-50.
+            for (s in listOf("ancient_cities", "mineshafts", "strongholds")) put(s, 2.0)
+            // Ocean: a boat, and then holding your breath.
+            for (s in listOf("shipwrecks", "ocean_ruins", "ocean_monuments")) put(s, 2.0)
+            // The map comes from a shipwreck, so the treasure costs the shipwreck too.
+            put("buried_treasures", 3.0)
+            // Nether: a portal's worth of obsidian, then a hostile dimension.
+            for (s in listOf("nether_complexes", "nether_fossils")) put(s, 4.0)
+            // The End: the dragon, then a void crossing to the outer islands.
+            put("end_cities", 20.0)
         }
 
         /**
          * Minutes of searching per block mined, expressed as a multiple of the 3-second swing.
          * Numbers are deliberately round: they are estimates of an unmodelled quantity, and
          * false precision would only invite tuning them until the suite went green.
+         *
+         * **Curated, and it wins over the derived structure factor above.** Not an oversight:
+         * this table is about blocks that occur as *terrain* — ore veins, and obsidian at a
+         * lava lake — which no structure template mentions and no worldgen JSON describes. A
+         * block in both is one you can find without the structure, so the cheaper route is
+         * the honest one.
          */
         private val BLOCK_FINDING: Map<String, Double> = buildMap {
             // Strip-mining the nether roof for a handful of debris a session.
