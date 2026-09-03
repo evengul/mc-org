@@ -57,10 +57,13 @@ import kotlin.system.exitProcess
  * sample, and any bare item ids to compare only those. For calibration: `sweep[=<group>]`
  * with optional `values=`, `set=<type>:<minutes>` to override the table without rebuilding,
  * `table=sketch|calibrated`, `picks=<type>` to list what a source type wins and by how much,
- * and `projects=<ids>` to carry a real project's item set through every row — the whole-graph
- * agreement rate can improve while the plan someone is actually building gets worse. And
+ * and `projects=<ids>` to carry a real project's item set through every row — a value can look
+ * harmless over the whole graph while moving the plan someone is actually building. And
  * `factors` for the knowledge-versus-tuning differential over the four unpinned behaviours
  * (see [app.mcorg.engine.plan.ScorerMutation]).
+ *
+ * **`sweep` is the one mode with no second model in it** — see [runSweep] for why its columns
+ * changed and which two of these tools are expected to die with `SelectionScorer`.
  */
 fun main(args: Array<String>) {
     val exitCode = runBlocking {
@@ -162,7 +165,11 @@ private suspend fun run(args: List<String>): Int {
 
     val model = UnitCostModel(graph, effort = table)
 
-    println("Cost model ($tableName) vs SelectionScorer · version $resolvedVersion · demand $demand")
+    // The banner names the reference honestly per mode. `sweep` no longer has a second model in
+    // it (MCO-520), and a header still claiming one is how a reader would go on believing the
+    // numbers underneath mean agreement.
+    val reference = if (sweep) "self-referential" else "vs SelectionScorer"
+    println("Cost model ($tableName) $reference · version $resolvedVersion · demand $demand")
     println("Sources: ${graph.getSourceCount()}, items: ${graph.getItemCount()}")
 
     val subjects = graph.getAllItems()
@@ -420,13 +427,10 @@ private suspend fun run(args: List<String>): Int {
     }
 
     if (sweep) {
-        val shippedPicks = subjects.associate { item ->
-            item.id to (ScoreDiagnostics.report(graph, item.id, demand).candidates.firstOrNull()?.sourceKey ?: "")
-        }
         val projects = projectIds.associateWith { loadProjectItems(it) }
-            .mapValues { (_, ids) -> subjects.map { it.id }.filter { it in ids }.toSet() }
+            .mapValues { (_, ids) -> subjects.filter { it.id in ids } }
             .filterValues { it.isNotEmpty() }
-        runSweep(graph, subjects, shippedPicks, projects, sweepFilter, customValues, table, verbose)
+        runSweep(graph, subjects, projects, sweepFilter, customValues, table, verbose)
         return 0
     }
 
@@ -696,38 +700,106 @@ private val SWEEP_GROUPS: List<SweepGroup> = listOf(
     SweepGroup("wandering_trader", listOf(SourceType.TradeTypes.WANDERING_TRADER), listOf(0.5, 1.0, 3.0, 5.0, 8.0, 15.0, 30.0, 60.0)),
 )
 
-private fun pickAll(graph: ItemSourceGraph, subjects: List<MinecraftId>, table: EffortTable): Pair<UnitCostModel, Picks> {
-    val model = UnitCostModel(graph, effort = table)
-    val picks = LinkedHashMap<String, SourceNode>()
-    for (item in subjects) model.best(item)?.let { picks[item.id] = it }
-    return model to picks
+/** One effort table's answers, over the whole graph and over each project scope in turn. */
+private class SweepAnswers(
+    /** Whole graph first, then one entry per project scope, in the order the columns print. */
+    val scopes: List<Pair<String, ActivityDiagnostics.Stability>>,
+) {
+    val whole: ActivityDiagnostics.Stability get() = scopes.first().second
 }
 
-private fun nodeFor(graph: ItemSourceGraph, key: String): SourceNode? =
-    if (key.isEmpty()) null
-    else graph.getSourceNode(key.substringBeforeLast(':'), key.substringAfterLast(':'))
+private fun answersFor(
+    graph: ItemSourceGraph,
+    subjects: List<MinecraftId>,
+    projects: Map<Int, List<MinecraftId>>,
+    table: EffortTable,
+): SweepAnswers {
+    val model = UnitCostModel(graph, effort = table)
+    val scopes = buildList {
+        add("all" to ActivityDiagnostics.stability(model, subjects))
+        projects.forEach { (id, items) -> add("p$id" to ActivityDiagnostics.stability(model, items)) }
+    }
+    return SweepAnswers(scopes)
+}
 
+/** Items whose pick differs between two scopes' answers. Order-independent, so it is symmetric. */
+private fun movedBetween(a: Picks, b: Picks): List<String> =
+    (a.keys + b.keys).filter { a[it]?.getKey() != b[it]?.getKey() }.sorted()
+
+/**
+ * Move every effort value across its range and report what each one decides — **without asking a
+ * second model whether it approves** (MCO-520).
+ *
+ * ## Why this changed shape
+ *
+ * Every column here used to be measured against `SelectionScorer`: `agree`, the tie count, and
+ * the per-project columns all took the shipped picks as their reference. That was reasonable
+ * while the shipped model was the only debugged one in the tree, and it has two problems now.
+ *
+ * The first is that agreement with a model being deleted **because it is wrong** was never a
+ * quality signal — optimising it is the thing MCO-490 exists to stop. The second is worse and is
+ * why this is a ticket rather than a cleanup: delete the scorer and the old sweep still runs,
+ * still prints numbers, and they silently stop meaning anything. A measurement tool that fails by
+ * going quietly wrong is the shape MCO-499's never-drawn glyphs and MCO-496's never-firing bonus
+ * both had, and both went unnoticed for months.
+ *
+ * ## What the columns answer instead
+ *
+ * The real question was never "does this value keep the old answers". It is **"is this value
+ * load-bearing, and is it on a plateau or on a cliff?"** — which is self-referential and needs no
+ * reference model at all:
+ *
+ * - `moved` — against the calibrated table's own picks. What choosing this value would change.
+ * - `churn` — against the **previous row**. This is the plateau signal, and it is not the same
+ *   fact as `moved`: a run of rows all reading `moved 9` looks like movement and is one step
+ *   followed by four values that agree with each other exactly.
+ * - `ties` — items where the model has no unique cheapest source, so the answer rests on the
+ *   declared tie-break rather than on this number.
+ * - `kinds` — distinct kinds of work, which is the plan-level version and the one that matters:
+ *   a value that reorders twelve items but changes no kind of work is inert where a player
+ *   would notice.
+ * - `fixes` — the frozen reference that survives, below.
+ *
+ * ## Two decisions MCO-520 asked to be made deliberately
+ *
+ * **1. No frozen snapshot of today's picks.** It was worth considering — a golden file answers
+ * "what did this session change" without keeping dead code alive — and it is the wrong trade
+ * here. A 996-row pick table goes stale the way `item-ids.txt` and `structure-density.txt` do,
+ * needs a documented refresh nobody will do, and re-creates "agreement with a model we no longer
+ * believe", only frozen and undated. [KNOWN_GOOD] is the reference that survives instead, and it
+ * is a better one: six named *behaviours* with the method each should resolve to, small enough
+ * to read, and each one traceable to the issue that established it.
+ *
+ * **2. `factors` and `ScorerMutation` die with the scorer, on purpose.** They are defined
+ * entirely in terms of the shipped scorer's four unpinned behaviours; once those constants are
+ * gone there is nothing for them to mutate. Deleting them silently would lose the record, so:
+ * what they measured is written down in MCO-490's description (the four-row table of behaviours
+ * nothing pins) and in MCO-496, and it stays there. The tool has finished its job.
+ */
 private fun runSweep(
     graph: ItemSourceGraph,
     subjects: List<MinecraftId>,
-    shipped: Map<String, String>,
-    projects: Map<Int, Set<String>>,
+    projects: Map<Int, List<MinecraftId>>,
     filter: String?,
     customValues: List<Double>?,
     baseTable: EffortTable,
     detail: Boolean,
 ) {
-    val (_, basePicks) = pickAll(graph, subjects, baseTable)
+    val base = answersFor(graph, subjects, projects, baseTable)
 
     println()
-    println("Sweeping ${subjects.size} multi-source items. Columns:")
-    println("  agree   selections matching the shipped scorer")
-    println("  tie     disagreements where both picks cost the same — only the tie-break differs")
-    println("  moved   selections that differ from the current table's own picks")
+    println("Sweeping ${subjects.size} multi-source items. Every column is measured against this")
+    println("model's own answers — no second model is consulted, so a row still means something")
+    println("with no SelectionScorer in the tree. Columns:")
+    println("  moved   selections differing from the calibrated table's picks — what this value changes")
+    println("  churn   selections differing from the PREVIOUS row — zero means a plateau")
+    println("  ties    items with no unique cheapest source: the tie-break decided, not this value")
+    println("  kinds   distinct kinds of work the picks add up to — the plan-level number")
+    println("  Smin    summed unit cost over priced items (comparable only while unpriced holds)")
     println("  chest   items whose cheapest route is structure loot")
     println("  trade   items whose cheapest route is a villager or wandering trade")
     println("  fixes   known-good selections lost at this value (ok = all held)")
-    projects.forEach { (id, ids) -> println("  p$id     agreement over project $id's ${ids.size} multi-source items") }
+    projects.forEach { (id, items) -> println("  p$id     the same, over project $id's ${items.size} multi-source items") }
 
     val groups = SWEEP_GROUPS.filter { g ->
         filter == null || g.label.contains(filter) || g.types.any { it.id.contains(filter) }
@@ -741,72 +813,123 @@ private fun runSweep(
         val current = baseTable.of(group.types.first())
         println()
         println("=== ${group.label}  (current ${fmtValue(current)} min/attempt) ===")
-        var previous: Picks? = null
-        for (value in (customValues ?: group.values).sorted()) {
+
+        val values = (customValues ?: group.values).sorted()
+        // churn[i] counts what changed between values[i-1] and values[i]; churn[0] has no
+        // predecessor and stays null, which prints as a dot rather than as a misleading zero.
+        val churn = arrayOfNulls<Int>(values.size)
+        var previous: SweepAnswers? = null
+
+        for ((i, value) in values.withIndex()) {
             var table = baseTable
             for (type in group.types) table = table.with(type, value)
-            val (model, picks) = pickAll(graph, subjects, table)
+            val answers = answersFor(graph, subjects, projects, table)
+            val changed = previous?.let { movedBetween(it.whole.picks, answers.whole.picks) }
+            churn[i] = changed?.size
+
             val label = fmtValue(value) + if (value == current) " *" else "  "
-            println(sweepRow(label, graph, subjects, shipped, projects, basePicks, model, picks))
+            println(sweepRow(label, base, answers, churn[i]))
+
             // The decisions that actually turn on this number, named. A row that reports
-            // "moved 3" without saying which three is a number you cannot argue with.
-            if (detail && previous != null) {
-                val changed = subjects.filter { picks[it.id]?.getKey() != previous!![it.id]?.getKey() }
-                changed.take(24).forEach { item ->
+            // "churn 3" without saying which three is a number you cannot argue with.
+            if (detail && changed != null) {
+                changed.take(24).forEach { id ->
                     println(
                         "        %-30s %s -> %s".format(
-                            item.id.substringAfter(':'),
-                            previous!![item.id]?.getMethodLabel() ?: "none",
-                            picks[item.id]?.getMethodLabel() ?: "none",
+                            id.substringAfter(':'),
+                            previous!!.whole.picks[id]?.getMethodLabel() ?: "none",
+                            answers.whole.picks[id]?.getMethodLabel() ?: "none",
                         )
                     )
                 }
                 if (changed.size > 24) println("        ... and ${changed.size - 24} more")
             }
-            previous = picks
+            previous = answers
         }
+
+        println(plateauVerdict(values, churn, current))
     }
 }
 
-private fun sweepRow(
-    label: String,
-    graph: ItemSourceGraph,
-    subjects: List<MinecraftId>,
-    shipped: Map<String, String>,
-    projects: Map<Int, Set<String>>,
-    base: Picks,
-    model: UnitCostModel,
-    picks: Picks,
-): String {
-    val agree = subjects.count { picks[it.id]?.getKey() == shipped[it.id] }
-    val moved = subjects.count { picks[it.id]?.getKey() != base[it.id]?.getKey() }
-    val chest = picks.values.count { it.sourceType == SourceType.LootTypes.CHEST }
-    val trade = picks.values.count { it.sourceType.isTrade() }
+/**
+ * The sentence MCO-494's last acceptance criterion asks for: does this value sit on a range over
+ * which behaviour is stable, and how wide is it?
+ *
+ * A plateau is a maximal run of consecutive swept values that all produce identical picks — i.e.
+ * a run whose interior churn is zero. The one reported is the run **containing the current
+ * value**, because that is the question ("is what we ship stable?") rather than "is there a flat
+ * spot somewhere".
+ *
+ * The three verdicts are deliberately distinct, and the first two are the pair MCO-520 asks the
+ * output to tell apart. "Inert" is a positive finding — this number decides nothing anywhere in
+ * its plausible range, so it is a placeholder rather than a calibrated value. It is not the same
+ * statement as "there was nothing to compare against", which this tool can no longer produce.
+ */
+private fun plateauVerdict(values: List<Double>, churn: Array<Int?>, current: Double): String {
+    val idx = values.indexOfFirst { it == current }
+    val range = "[${fmtValue(values.first())}, ${fmtValue(values.last())}]"
 
-    // A disagreement where both picks cost the same is not a disagreement about cost — the
-    // two models are breaking a tie differently. Counted separately so a sweep cannot look
-    // like it moved a decision when all it did was nudge a tie one way.
-    val tied = subjects.count { item ->
-        val mine = picks[item.id] ?: return@count false
-        if (mine.getKey() == shipped[item.id]) return@count false
-        val theirs = nodeFor(graph, shipped[item.id] ?: "") ?: return@count false
-        val a = model.costOf(mine, item)
-        val b = model.costOf(theirs, item)
-        b < UnitCostModel.UNREACHABLE && kotlin.math.abs(a - b) <= 1e-9 + 1e-6 * kotlin.math.max(a, b)
+    // One value has no neighbour to be stable against. Saying INERT here would be the exact
+    // confusion this line exists to prevent: "nothing moved" because nothing was compared.
+    if (values.size < 2) {
+        return "  plateau: not assessed — a single swept value cannot show one (pass values=a,b,c)"
     }
+    if (churn.drop(1).all { it == 0 }) {
+        return "  INERT: nothing moves anywhere in $range — a placeholder, not a calibrated value"
+    }
+    if (idx < 0) {
+        return "  plateau: not assessed — the shipped value ${fmtValue(current)} is not among the swept values"
+    }
+
+    var lo = idx
+    while (lo > 0 && churn[lo] == 0) lo--
+    var hi = idx
+    while (hi < values.lastIndex && churn[hi + 1] == 0) hi++
+
+    val width = hi - lo + 1
+    if (width > 1) {
+        return "  plateau: identical picks over [${fmtValue(values[lo])}, ${fmtValue(values[hi])}]" +
+            " — $width of ${values.size} swept values, shipped ${fmtValue(current)} inside it"
+    }
+
+    // Name only the sides that exist. At either end of the swept range there is no step in one
+    // direction, and printing "0 down" for a step nobody took reads as stability.
+    val steps = listOfNotNull(
+        churn[idx]?.let { "$it down" },
+        churn.getOrNull(idx + 1)?.let { "$it up" },
+    ).joinToString(", ")
+    return "  plateau: NONE — every step away from ${fmtValue(current)} moves selections ($steps)." +
+        " This value is standing in for something it cannot represent"
+}
+
+private fun sweepRow(label: String, base: SweepAnswers, answers: SweepAnswers, churn: Int?): String {
+    val whole = answers.whole
+    val moved = movedBetween(base.whole.picks, whole.picks).size
+    val chest = whole.picks.values.count { it.sourceType == SourceType.LootTypes.CHEST }
+    val trade = whole.picks.values.count { it.sourceType.isTrade() }
 
     val broken = KNOWN_GOOD.filter { good ->
-        good.items.any { id -> picks[id]?.getMethodLabel()?.let { it != good.method } == true }
+        good.items.any { id -> whole.picks[id]?.getMethodLabel()?.let { it != good.method } == true }
     }.joinToString(",") { it.name }
 
-    val projectCols = projects.entries.joinToString("  ") { (id, ids) ->
-        "p$id %3d/%3d".format(ids.count { picks[it]?.getKey() == shipped[it] }, ids.size)
-    }
+    // Project scopes carry the same two numbers that decide anything: what moved, and whether a
+    // kind of work appeared or vanished. The whole-graph rate can improve while the plan someone
+    // is actually building gets worse, which is the only reason these columns exist.
+    val projectCols = answers.scopes.drop(1).mapIndexed { i, (name, scope) ->
+        val baseScope = base.scopes[i + 1].second
+        "$name[moved %3d kinds %d]".format(movedBetween(baseScope.picks, scope.picks).size, scope.kinds.size)
+    }.joinToString("  ")
 
-    return "  %-8s agree %4d (%5.1f%%)  tie %3d  moved %4d  chest %3d  trade %3d  %s  fixes %s".format(
-        label, agree, 100.0 * agree / subjects.size, tied, moved, chest, trade, projectCols,
-        if (broken.isEmpty()) "ok" else broken
-    )
+    // Smin only compares like with like. Say so on the row itself when it does not, rather than
+    // leaving a reader to notice that the sum fell because an item stopped being priced at all.
+    val unpriced = if (whole.unpriced > 0) "  unpriced %3d".format(whole.unpriced) else ""
+
+    return ("  %-8s moved %4d  churn %4s  ties %3d  kinds %d  Smin %8.1f%s  chest %3d  trade %3d  %s  fixes %s")
+        .format(
+            label, moved, churn?.toString() ?: "·", whole.ties, whole.kinds.size,
+            whole.totalMinutes, unpriced, chest, trade, projectCols,
+            if (broken.isEmpty()) "ok" else broken,
+        )
 }
 
 private fun fmtValue(v: Double): String = if (v >= 1) "%.0f".format(v) else "%.2f".format(v)

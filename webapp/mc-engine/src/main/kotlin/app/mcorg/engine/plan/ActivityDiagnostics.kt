@@ -2,6 +2,7 @@ package app.mcorg.engine.plan
 
 import app.mcorg.domain.model.minecraft.MinecraftId
 import app.mcorg.engine.model.ItemSourceGraph
+import app.mcorg.engine.model.SourceNode
 
 /**
  * How many *kinds of work* a plan asks for, and how many of those an activity-aware tie-break
@@ -46,6 +47,71 @@ import app.mcorg.engine.model.ItemSourceGraph
  * rule — which is building the feature, and is the thing this measurement exists to price.
  */
 object ActivityDiagnostics {
+
+    /**
+     * What a scope's picks add up to under one effort table — the cheap half of [report].
+     *
+     * [report] answers "could an activity-aware tie-break remove an errand", and pays a
+     * `rankedFeasible` plus a greedy pass per scope to do it. A calibration sweep asks something
+     * much smaller of the same picks, but asks it a couple of hundred times — once per swept
+     * value per group. So it gets this: one [UnitCostModel.tiedBest] per item, which is what
+     * choosing a source costs anyway.
+     *
+     * Everything here is measured against the model's **own** answers. Nothing is compared to a
+     * second model, which is the whole point (MCO-520) — these numbers still mean something once
+     * `SelectionScorer` is gone.
+     */
+    data class Stability(
+        /** The cheapest source per item, by the same tie-break [UnitCostModel.best] uses. */
+        val picks: Map<String, SourceNode>,
+        /**
+         * Items where more than one source ties for cheapest.
+         *
+         * Not a defect and not a disagreement: it is the model saying it has no opinion, and the
+         * answer resting on the declared tie-break instead. A row where this is large is a row
+         * where the effort value is deciding less than it appears to.
+         */
+        val ties: Int,
+        /** The distinct kinds of work these picks add up to — the plan-level number. */
+        val kinds: Set<ActivityGroup>,
+        /** Items in the scope that nothing produces at a finite cost. */
+        val unpriced: Int,
+        /**
+         * Summed unit cost over the priced items.
+         *
+         * Comparable between two tables only while [unpriced] is equal — an item entering or
+         * leaving the priced set moves this by its whole cost, which is not the same thing as
+         * the plan getting cheaper.
+         */
+        val totalMinutes: Double,
+    )
+
+    /**
+     * @param items the scope to measure — a project's item set, or every produced item.
+     */
+    fun stability(model: UnitCostModel, items: List<MinecraftId>): Stability {
+        val picks = LinkedHashMap<String, SourceNode>()
+        val kinds = LinkedHashSet<ActivityGroup>()
+        var ties = 0
+        var unpriced = 0
+        var total = 0.0
+
+        for (item in items) {
+            val tied = model.tiedBest(item)
+            val best = tied.firstOrNull()
+            if (best == null) {
+                unpriced++
+                continue
+            }
+            picks[item.id] = best
+            kinds += best.sourceType.activityGroup()
+            if (tied.size > 1) ties++
+            // tiedBest already dropped anything at UNREACHABLE, so this is finite by construction.
+            total += model.cost[item.id] ?: 0.0
+        }
+
+        return Stability(picks, ties, kinds, unpriced, total)
+    }
 
     /** One activity group's standing in a scope: who is in it, and what leaving would cost. */
     data class GroupReport(
