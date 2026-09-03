@@ -40,7 +40,9 @@ class ChoiceTagCanonicaliserTest {
         val canonical = canonicaliser.canonicalise(choiceTag(listOf("minecraft:coal", "minecraft:charcoal")))
 
         assertEquals("#minecraft:coals", canonical.id)
-        assertEquals("Coals", canonical.name)
+        // Only the id changes. The vanilla tag's own name ("Coals") describes what Mojang uses it
+        // for and names neither option; the question keeps the label its members gave it (MCO-489).
+        assertEquals("Charcoal or Coal", canonical.name)
         assertEquals(
             listOf("minecraft:charcoal", "minecraft:coal"),
             (canonical as MinecraftTag).content.map { it.id },
@@ -101,6 +103,49 @@ class ChoiceTagCanonicaliserTest {
 
         // Both vanilla tags resolve to the same two members; the smaller id wins, deterministically.
         assertEquals("#minecraft:coals", canonical.id)
+    }
+
+    /**
+     * MCO-488: `#minecraft:swords` and `#minecraft:enchantable/sword` hold the same items from
+     * 1.20.5 on, and the nested one sorts first alphabetically. It names an enchantment slot, not
+     * the set, so the top-level tag has to win — five such pairs exist per version.
+     */
+    @Test
+    fun `a top-level tag beats a nested one holding the same set`() {
+        val canonicaliser = ChoiceTagCanonicaliser.from(
+            context(
+                mapOf(
+                    "#minecraft:swords" to listOf("minecraft:iron_sword", "minecraft:stone_sword"),
+                    "#minecraft:enchantable/sword" to listOf("#minecraft:swords"),
+                )
+            )
+        )
+
+        val canonical = canonicaliser.canonicalise(choiceTag(listOf("minecraft:iron_sword", "minecraft:stone_sword")))
+
+        assertEquals("#minecraft:swords", canonical.id)
+    }
+
+    /**
+     * The registry-wide walk is what found MCO-488: `enchantable/foot_armor.json`'s only value is
+     * `#minecraft:foot_armor`, and keyed by base filename that entry was itself. Building the
+     * canonicaliser over such a registry used to blow the stack.
+     */
+    @Test
+    fun `building over a self-referential tag terminates`() {
+        val canonicaliser = ChoiceTagCanonicaliser.from(
+            context(
+                mapOf(
+                    "#minecraft:foot_armor" to listOf("#minecraft:foot_armor"),
+                    "#minecraft:coals" to listOf("minecraft:coal", "minecraft:charcoal"),
+                )
+            )
+        )
+
+        assertEquals(
+            "#minecraft:coals",
+            canonicaliser.canonicalise(choiceTag(listOf("minecraft:coal", "minecraft:charcoal"))).id,
+        )
     }
 
     @Test

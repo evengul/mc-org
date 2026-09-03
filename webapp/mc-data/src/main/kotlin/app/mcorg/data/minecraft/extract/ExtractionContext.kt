@@ -53,11 +53,31 @@ data class ExtractionContext(
         return names[id] ?: id
     }
 
-    /** Recursively resolves a tag (`#minecraft:planks`) to the item ids it contains. */
-    fun contentOfTag(tag: String): List<String> {
-        return tags[tag]?.flatMap {
-            if (it.startsWith("#")) contentOfTag(it) else listOf(it)
+    /**
+     * Recursively resolves a tag (`#minecraft:planks`) to the item ids it contains.
+     *
+     * A tag already being resolved further up the recursion contributes **nothing** the second
+     * time — the repeated edge is dropped, not the tag. That is the deliberate half of the
+     * choice: a self-referential tag with no other members resolves to nothing (there is no
+     * member to name), while a tag that reaches itself *and* lists real items keeps those items.
+     * Resolving to empty wholesale would silently blank a tag over one bad edge, and Mojang's
+     * data has no cycle whose members we would want to discard. It also matches how a subset
+     * relation already behaves: the second mention adds no new information either way.
+     *
+     * Without this a self-referential tag recursed until the stack went (MCO-488). With it,
+     * depth is bounded by the number of distinct tags, so resolving every tag in the registry
+     * terminates for any version — including a future one that ships a cycle we have not seen.
+     */
+    fun contentOfTag(tag: String): List<String> = contentOfTag(tag, HashSet())
+
+    /** [resolving] is the path currently being expanded, so diamonds still expand twice — only cycles break. */
+    private fun contentOfTag(tag: String, resolving: MutableSet<String>): List<String> {
+        if (!resolving.add(tag)) return emptyList()
+        val content = tags[tag]?.flatMap {
+            if (it.startsWith("#")) contentOfTag(it, resolving) else listOf(it)
         } ?: emptyList()
+        resolving.remove(tag)
+        return content
     }
 
     companion object {
@@ -66,7 +86,12 @@ data class ExtractionContext(
             to = MinecraftVersion.release(20, 1)
         )
 
-        /** Human-readable name for a tag id: `#minecraft:wooden_slabs` -> `Wooden Slabs`. */
+        /**
+         * Human-readable name for a tag *id*: `#minecraft:wooden_slabs` -> `Wooden Slabs`.
+         *
+         * The last-resort label only. A tag with members is named by them — see [tagChoiceName],
+         * and MCO-489 for why an id makes a bad question.
+         */
         fun tagDisplayName(tag: String): String {
             val cleaned = tag.replace("_", " ").replace("#minecraft:", "")
 
@@ -86,18 +111,19 @@ fun ResourceSource.withNames(context: ExtractionContext): ResourceSource = copy(
 private fun MinecraftId.withName(context: ExtractionContext): MinecraftId = when (this) {
     is Item -> copy(name = context.nameOf(id))
     is MinecraftTag -> {
+        // A synthetic tag (e.g. an inline-alternatives choice tag) is not in the version's tag
+        // registry but carries its own members — those are the truth for it, the registry's for
+        // everything else.
         val fromRegistry = context.contentOfTag(id)
-        if (fromRegistry.isEmpty() && content.isNotEmpty()) {
-            // A synthetic tag (e.g. an inline-alternatives choice tag) is not in the version's
-            // tag registry but carries its own members and name — keep them, just resolve the
-            // members' display names from the catalog.
-            copy(content = content.map { Item(it.id, context.nameOf(it.id)) })
-        } else {
-            copy(
-                name = ExtractionContext.tagDisplayName(id),
-                content = fromRegistry.map { taggedItem -> Item(taggedItem, context.nameOf(taggedItem)) }
-            )
-        }
+        val memberIds = if (fromRegistry.isEmpty() && content.isNotEmpty()) content.map { it.id } else fromRegistry
+
+        copy(
+            // Named by its members wherever it has any, so the same set reads the same under
+            // every id it is known by, and a question names the things it asks you to choose
+            // between (MCO-489). The id is the fallback for a tag with no members at all.
+            name = tagChoiceName(memberIds) ?: ExtractionContext.tagDisplayName(id),
+            content = memberIds.map { memberId -> Item(memberId, context.nameOf(memberId)) },
+        )
     }
 }
 
@@ -242,9 +268,10 @@ object ExtractionContextFactory {
 
     /**
      * Loads item tags, then fills in block tags whose names no item tag uses. Item and block
-     * tags share a name namespace here (`#minecraft:<basename>`) but can have different
-     * contents (e.g. `banners` in 26.1+); recipes and loot reference item tags, so those win
-     * deterministically instead of racing on parse order.
+     * tags share a name namespace here (`#minecraft:<path below tags/item|block>`) but can have
+     * different contents (e.g. `banners` in 26.1+); recipes and loot reference item tags, so
+     * those win deterministically instead of racing on parse order. Within one namespace the ids
+     * are unique — see [filenameToTagId], which is what makes that true.
      */
     private suspend fun loadTags(version: MinecraftVersion.Release, root: Path): Result<ExtractionFailure, Map<String, List<String>>> {
         val itemTags = loadTagDirectory(version, ServerPathResolvers.resolveItemTagsPath(root, version))
@@ -286,5 +313,19 @@ object ExtractionContextFactory {
         return Result.success(filenameToTagId(filename) to values)
     }
 
-    private fun filenameToTagId(filename: String) = "#minecraft:${filename.substringAfterLast('/').substringBeforeLast('.')}"
+    /**
+     * A tag's id is its **whole path** below `tags/<item|block>/`, not its base filename.
+     *
+     * Vanilla ships `foot_armor.json` and `enchantable/foot_armor.json` as two different tags
+     * with two different member lists (1.20.5+, 18 of the 31 ingested versions). Keyed by base
+     * filename they collapsed into one entry that whichever file parsed last decided — and since
+     * the enchantable one's single member is `#minecraft:foot_armor`, the survivor was often a
+     * tag whose only member was itself. 34 ids move as a result, all of them behavioural tags
+     * under `enchantable` and `mineable` that no recipe or loot table in any version references and
+     * that ingestion therefore never stored (MCO-488).
+     *
+     * The path is also Mojang's own spelling — `minecraft:enchantable/foot_armor` is the id the
+     * game uses — so this is the correct key, not a disambiguating invention.
+     */
+    internal fun filenameToTagId(filename: String) = "#minecraft:${filename.removeSuffix(".json")}"
 }
