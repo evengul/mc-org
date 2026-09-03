@@ -43,7 +43,7 @@
             "type": "command",
             "command": "bash \"$CLAUDE_PROJECT_DIR/webapp/scripts/worktree-db.sh\"",
             "statusMessage": "Provisioning isolated Neon branch for worktree...",
-            "timeout": 180
+            "timeout": 600
           }
         ]
       },

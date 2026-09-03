@@ -30,6 +30,18 @@ set +a
 : "${DB_USER:?DB_USER missing from $ENV_FILE}"
 : "${DB_PASSWORD:?DB_PASSWORD missing from $ENV_FILE}"
 
+# `-pl` resolves the sibling modules from the Maven repository rather than the
+# reactor, and a worktree's repository holds no app.mcorg jars until something has
+# been installed into it. worktree-db.sh does that at provisioning time (MCO-510),
+# so this normally just works — but say so plainly if it hasn't, instead of letting
+# Maven report six unresolvable artifacts.
+if [[ -f .mvn/maven.config ]] && [[ -z "$(find .m2/repository/app/mcorg -name '*.jar' 2>/dev/null | head -1)" ]]; then
+    echo "Error: this worktree's Maven repository has no app.mcorg jars yet, so"
+    echo "       'flyway:migrate -pl mc-web' cannot resolve mc-domain and friends."
+    echo "       Run 'mvn -DskipTests install' (or bash scripts/worktree-db.sh) first."
+    exit 1
+fi
+
 # Redacted host echo so it's obvious which branch is being migrated.
 echo "Migrating: ${DB_URL%%\?*}"
 mvn flyway:migrate -pl mc-web
