@@ -6,6 +6,7 @@ import app.mcorg.domain.model.minecraft.MinecraftTag
 import app.mcorg.domain.model.resources.ResourceSource.SourceType
 import app.mcorg.engine.model.ItemSourceGraph
 import app.mcorg.engine.model.SourceNode
+import app.mcorg.engine.plan.ActivityDiagnostics
 import app.mcorg.engine.plan.EffortTable
 import app.mcorg.engine.plan.PlanContext
 import app.mcorg.engine.plan.PlanSelector
@@ -94,6 +95,7 @@ private suspend fun run(args: List<String>): Int {
     var sweep = false
     var sweepFilter: String? = null
     var picksOf: String? = null
+    var activities = false
     var customValues: List<Double>? = null
     val overrides = mutableListOf<Pair<String, Double>>()
     var table = EffortTable.DEFAULT
@@ -110,6 +112,7 @@ private suspend fun run(args: List<String>): Int {
             arg == "grain" -> grain = true
             arg == "factors" -> factors = true
             arg == "why" -> why = true
+            arg == "activities" -> activities = true
             arg.startsWith("demands=") ->
                 demandSpread = arg.substringAfter('=').split(',').mapNotNull { it.trim().toLongOrNull() }
             arg == "sweep" -> sweep = true
@@ -399,6 +402,20 @@ private suspend fun run(args: List<String>): Int {
             column in the main report is what to judge it on.
             """.trimIndent()
         )
+        return 0
+    }
+
+    if (activities) {
+        val scopes = buildList {
+            add("whole graph" to subjects)
+            projectIds.forEach { id ->
+                val ids = loadProjectItems(id)
+                add("project $id" to subjects.filter { it.id in ids })
+            }
+        }.filter { it.second.isNotEmpty() }
+        printActivityReports(scopes.map { (label, items) ->
+            ActivityDiagnostics.report(graph, model, items, label)
+        })
         return 0
     }
 
@@ -802,3 +819,58 @@ private val projectItemsQuery = DatabaseSteps.query<Int, List<String>>(
     parameterSetter = { ps, id -> ps.setInt(1, id) },
     resultMapper = { rs -> buildList { while (rs.next()) add(rs.getString("item_id")) } }
 )
+
+/**
+ * Prints [ActivityDiagnostics] reports. The measurement lives in mc-engine beside
+ * [ScoreDiagnostics]; this is the driver, which is the only place allowed to print.
+ */
+private fun printActivityReports(reports: List<ActivityDiagnostics.ScopeReport>) {
+    for (r in reports) {
+        println()
+        println("=== ${r.label} · ${r.itemCount} items ===")
+        println("  ties: ${r.ties}  (of which ${r.tiesAcrossGroups} span more than one kind of work)")
+        println()
+        println("  kinds of work needed: ${r.before}")
+        for (g in r.groups) {
+            val exit = when {
+                g.exitCost == null -> "unavoidable"
+                else -> "%.2f min to leave".format(g.exitCost)
+            }
+            val dearest = g.dearestEscape?.let { (id, price) ->
+                "  dearest: ${id.substringAfterLast(':')} +%.2f".format(price)
+            } ?: ""
+            println(
+                "    %-18s %4d items   %4d tie-movable   %-18s%s".format(
+                    g.group.name, g.items.size, g.escapable.size, exit, dearest
+                )
+            )
+        }
+        println()
+        if (r.removed.isEmpty()) {
+            println("  the tie-break alone removes NO kind of work: ${r.before} -> ${r.after}")
+        } else {
+            println("  the tie-break alone removes ${r.removed.size}: ${r.before} -> ${r.after}")
+            println("    gone: ${r.removed.joinToString(", ") { it.name }}")
+        }
+    }
+
+    println()
+    println(
+        """
+        Reading this. The left number is what a plan asks of you today; the right is what it would
+        ask if every equal-cost choice preferred work the plan already involves. Every move counted
+        is between routes the model prices the same, so nothing here trades minutes for errands --
+        that trade is MCO-493's step 4, and it needs a number in minutes before it is worth
+        building.
+
+        If the two numbers are equal the tie-break is not the lever, and step 5 -- simply telling
+        the user how many kinds of work a plan needs -- is the honest remaining option.
+
+        "min to leave" is what a dominance rule would have to be willing to pay to remove that
+        kind of work entirely, and "dearest" is the single item that sets the price. Both IGNORE
+        the chain: an item can leave HUNT by being crafted from something that is itself hunted,
+        and this does not notice. They are therefore lower bounds -- an expensive verdict is
+        trustworthy, a cheap one needs re-deriving the plan before you believe it.
+        """.trimIndent()
+    )
+}
