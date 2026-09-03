@@ -70,31 +70,33 @@ class NextUpPickTest {
     }
 
     /**
-     * An unpicked variant means everything below it is provisional, so answering it comes before
-     * gathering for a chain that might change.
+     * MCO-504 reversed this. The widget used to lead with unanswered variant questions, because
+     * an unpicked variant makes everything below it provisional — right reasoning, wrong
+     * conclusion: it asked the same question the "Needs attention" section was already asking,
+     * in two places at once.
+     *
+     * A decision is not a move. It is not offered here at all, and while one is open the caller
+     * suppresses the whole widget rather than letting it give provisional advice.
      */
     @Test
-    fun `a decision outranks work even when the work is far bigger`() {
+    fun `a decision is not offered as a move, however much it settles`() {
         val plan = planOf(
             activity("Oak Planks", 111_005),
             activity("Wooden Slabs", 3_540, ActivityGroup.NEEDS_ATTENTION, PlanNodeStatus.OPEN_TAG),
         )
 
-        assertEquals("Wooden Slabs", NextUpPick.of(plan).first().item.name)
+        assertEquals(listOf("Oak Planks"), NextUpPick.of(plan).map { it.item.name })
     }
 
-    /** Among decisions, the one settling the most material is the one worth answering. */
+    /** A plan with nothing but questions has no move to offer, rather than offering a question. */
     @Test
-    fun `ranks decisions by how much they settle`() {
+    fun `a plan of only decisions offers nothing`() {
         val plan = planOf(
             activity("Stone Materials", 435, ActivityGroup.NEEDS_ATTENTION, PlanNodeStatus.OPEN_TAG),
             activity("Wooden Slabs", 3_540, ActivityGroup.NEEDS_ATTENTION, PlanNodeStatus.OPEN_TAG),
         )
 
-        assertEquals(
-            listOf("Wooden Slabs", "Stone Materials"),
-            NextUpPick.of(plan).map { it.item.name },
-        )
+        assertTrue(NextUpPick.of(plan).isEmpty(), "decisions are not moves")
     }
 
     @Test
@@ -127,12 +129,13 @@ class NextUpPickTest {
     }
 
     /**
-     * Found by driving the widget against the real plan: YAMS has 23 open variant choices, so
-     * every candidate slot filled with decisions and "Something else" only ever offered another
-     * question. There must always be something you can go and do.
+     * This used to pin a cap of two decisions among the candidates, added because YAMS' 23 open
+     * variant choices filled every slot and "Something else" only ever offered another question.
+     * MCO-504 removed the cap by removing decisions, so the invariant it protected — every
+     * candidate is something you can go and do — is now structural rather than budgeted.
      */
     @Test
-    fun `does not fill every slot with decisions`() {
+    fun `every candidate is something you can go and do`() {
         val decisions = (1..10).map {
             activity("Choice $it", it.toLong(), ActivityGroup.NEEDS_ATTENTION, PlanNodeStatus.OPEN_TAG)
         }
@@ -141,8 +144,11 @@ class NextUpPickTest {
 
         val next = NextUpPick.of(plan)
 
-        assertEquals(NextUpPick.MAX_DECISIONS, next.count { it.group == ActivityGroup.NEEDS_ATTENTION })
-        assertTrue(next.any { it.group != ActivityGroup.NEEDS_ATTENTION }, "always something to do")
+        assertTrue(next.isNotEmpty(), "always something to do")
+        assertTrue(
+            next.none { it.group == ActivityGroup.NEEDS_ATTENTION },
+            "no candidate needs the user rather than the world",
+        )
     }
 
     @Test
@@ -161,12 +167,12 @@ class NextUpPickTest {
 
     @Test
     fun `the reason says why this one, in the vocabulary of the pick`() {
-        val decision = activity("Wooden Slabs", 3_540, ActivityGroup.NEEDS_ATTENTION, PlanNodeStatus.OPEN_TAG)
         val farmed = activity("Cobblestone", 74_557, ActivityGroup.COLLECT_SUPPLIED, PlanNodeStatus.SUPPLIED)
         val raw = activity("Oak Log", 27_763, ActivityGroup.GATHER, PlanNodeStatus.RAW_GATHER)
         val craft = activity("Chest", 50)
 
-        assertTrue(NextUpPick.reasonFor(decision, isFirst = true).contains("provisional"))
+        // No decision case: MCO-504 removed it. The "provisional" sentence it used to carry now
+        // lives on the questions section's lead line, which is the only place asking.
         assertTrue(NextUpPick.reasonFor(farmed, isFirst = true).contains("farm already makes this"))
         assertTrue(NextUpPick.reasonFor(raw, isFirst = false).contains("Nothing has to happen first"))
         assertTrue(NextUpPick.reasonFor(craft, isFirst = true).contains("largest thing left"))

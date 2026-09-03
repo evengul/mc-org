@@ -811,6 +811,24 @@
 }
 
 /* The number is why the ordering is trustworthy, so it reads as data, not prose. */
+/* The question row is two lines now (MCO-504): what is being decided, then the question. The
+   quantity and the option list belong together on the first — a question's size is part of
+   reading it — and the question sits under them in muted body text, so the eye lands on the
+   material first and the prompt second. */
+.plan-attention__line {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-1);
+    flex-wrap: wrap;
+}
+
+.plan-attention__question {
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    color: var(--text-muted);
+    margin-top: 2px;
+}
+
 .plan-attention__quantity {
     font-family: var(--font-ui);
     font-variant-numeric: tabular-nums;

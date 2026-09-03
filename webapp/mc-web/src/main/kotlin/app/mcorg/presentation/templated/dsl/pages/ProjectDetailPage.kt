@@ -282,7 +282,28 @@ fun FlowContent.gatheringPlannerContent(
     /** Farm-scale demand this world has decided against (MCO-407). */
     farmDismissals: List<FarmDismissal> = emptyList(),
 ) {
-    nextUpWidget(project, plan, progressMap)
+    // Next up only speaks once the questions are answered (MCO-504).
+    //
+    // Even's framing: "what's next is mostly relevant AFTER the questions have been answered.
+    // When those questions are there, they are the most important thing, and now they're asked
+    // in two different places." Both halves matter. The duplication was the visible problem —
+    // the same variant question rendered here and in "Needs attention" — but the reason to
+    // sequence them rather than just de-duplicate is that this widget's advice is *provisional*
+    // while a question is open: answering one redirects the tag to a member and merges its
+    // demand, so the largest remaining pile can genuinely change. "Mine 64 cobblestone" is
+    // advice about a plan that may not survive the next click.
+    //
+    // Gated on OPEN_TAG alone, not the whole NEEDS_ATTENTION group. A BLOCKED node also needs
+    // the user, but it does not make the rest of the plan provisional — its chain is known, it
+    // simply has no source — so a plan that is merely blocked somewhere still has real work to
+    // point at.
+    //
+    // The strictness is deliberate and temporary: every open question suppresses the widget,
+    // including a two-item tail like "Charcoal or Coal". MCO-410 is the right fix for that —
+    // auto-resolving questions that barely affect the plan — rather than a second materiality
+    // threshold invented here to paper over the first one's absence.
+    val openQuestions = plan?.activityList?.count { it.status == PlanNodeStatus.OPEN_TAG } ?: 0
+    if (openQuestions == 0) nextUpWidget(project, plan, progressMap)
     listLensContent(project, resources, tasks, plan, progressMap, pendingFarms, farmScaleThreshold, farmSuggestions, versionGaps, isWorldAdmin, farmDismissals)
 }
 
@@ -326,28 +347,6 @@ private fun FlowContent.nextUpWidget(
                 }
                 div("next-up__why") { +NextUpPick.reasonFor(activity, index == 0) }
 
-                // MCO-482: a decision is answerable here, not merely announced here.
-                //
-                // The widget used to say "3,540 Wooden Slabs — the plan below this is
-                // provisional until you choose" and stop, leaving you to scroll to Needs
-                // attention and press the same button there. A widget whose whole purpose is
-                // "what do I do right now" should not answer with "go and find the control".
-                //
-                // It loads the *same* picker Needs attention loads, from the same endpoint —
-                // one derivation, two surfaces — rather than hosting a second copy that would
-                // drift. `origin=list` makes a pick re-render the list, so the answered tag
-                // leaves both this widget and that section together.
-                if (activity.group == ActivityGroup.NEEDS_ATTENTION) {
-                    val encoded = URLEncoder.encode(activity.item.id, StandardCharsets.UTF_8)
-                    div("next-up__picker chain-node__picker") {
-                        // Loaded eagerly because there are at most MAX_DECISIONS of these, and a
-                        // choice you have to click twice to see is the thing being fixed.
-                        attributes["hx-get"] = "/worlds/${project.worldId}/projects/${project.id}" +
-                            "/plan/chain/$encoded/sources?node=$encoded&origin=list"
-                        attributes["hx-trigger"] = "load"
-                        attributes["hx-swap"] = "innerHTML"
-                    }
-                }
             }
         }
     }
@@ -1309,18 +1308,48 @@ private fun leadingQuestionCount(questionsByQuantityDesc: List<Activity>): Int {
  * the work, and that the twenty below it are detail. Stated only when something is actually
  * folded away, and only when the quantities can support the claim.
  */
+/**
+ * The line above the questions.
+ *
+ * It carries the "provisional" warning that used to live in the Next up widget (MCO-482, moved
+ * by MCO-504). Next up is now suppressed entirely while a question is open, so this is the only
+ * place that can say why the plan below is not yet final — and it is the right place, because it
+ * is where the questions are.
+ */
 private fun attentionLead(questions: List<Activity>, leadCount: Int): String {
-    val plural = if (questions.size == 1) "variant choice" else "variant choices"
-    if (leadCount >= questions.size) return "${questions.size} $plural — pick to sharpen the plan."
+    val noun = if (questions.size == 1) "question" else "questions"
+    val provisional = if (questions.size == 1) {
+        "The plan below is provisional until it is answered."
+    } else {
+        "The plan below is provisional until they are answered."
+    }
+
+    if (leadCount >= questions.size) {
+        return "${questions.size} $noun to answer. $provisional"
+    }
 
     val total = questions.sumOf { it.quantity }
-    if (total <= 0) return "${questions.size} $plural — largest first."
+    if (total <= 0) return "${questions.size} $noun to answer, largest first. $provisional"
 
     val covered = questions.take(leadCount).sumOf { it.quantity }
     val percent = (covered * 100.0 / total).roundToInt()
     val these = if (leadCount == 1) "the first decides" else "these $leadCount decide"
-    return "${questions.size} $plural — $these $percent% of the material behind them."
+    return "${questions.size} $noun to answer — $these $percent% of the material behind them. " +
+        provisional
 }
+
+/**
+ * What a variant question is asking, in one sentence.
+ *
+ * One constant, because the question must read identically wherever it is asked. It is asked in
+ * one place today (MCO-504 withdrew the Next up copy), and a constant is what keeps a second
+ * surface from inventing its own wording the next time one is added.
+ *
+ * "Recipes" is the load-bearing word: these blocks are interchangeable *to a crafting recipe*,
+ * which is not deducible from a list of block names. Neither "variant" nor "open tag" appears —
+ * the reader is choosing a material, not a variant, and "open tag" was ours.
+ */
+private const val VARIANT_QUESTION = "Which should the plan use in recipes?"
 
 /** Show questions until they cover this share of the material the whole section decides. */
 private const val ATTENTION_COVERAGE = 0.9
@@ -1342,10 +1371,16 @@ private fun FlowContent.openTagActivityRow(worldId: Int, projectId: Int, activit
             // The quantity leads (MCO-400). Without it every question looks alike, and on a real
             // import they are not: on the YAMS build one choice carries 110,824 items and the
             // next-but-three carries 2. Same words, four orders of magnitude apart.
-            span("plan-attention__quantity") { +"%,d".format(activity.quantity) }
-            +" "
-            span { +activity.item.name }
-            +" — Pick a variant (open tag)"
+            div("plan-attention__line") {
+                span("plan-attention__quantity") { +"%,d".format(activity.quantity) }
+                +" "
+                span { +activity.item.name }
+            }
+            // And then the question itself (MCO-504). MCO-489 made the label name the options
+            // — "Red Sand or Sand" rather than "Smelts To Glass" — but the row still never said
+            // what picking one *does*, and ended in "(open tag)", which is a PlanNodeStatus enum
+            // name that had leaked from the engine onto the page.
+            div("plan-attention__question") { +VARIANT_QUESTION }
         }
         // Resolve inline: drops the tag-member picker below this row; a pick re-renders the
         // List lens (origin=list) so the resolved tag leaves "Needs attention".
@@ -1355,7 +1390,7 @@ private fun FlowContent.openTagActivityRow(worldId: Int, projectId: Int, activit
                 "/worlds/$worldId/projects/$projectId/plan/chain/$encodedItemId/sources?node=$encodedItemId&origin=list"
             attributes["hx-target"] = "#$pickerSlotId"
             attributes["hx-swap"] = "innerHTML"
-            +"Pick variant"
+            +"Choose"
         }
         // ⇄ still opens the full drill to explore/re-pin the whole chain.
         drillButton(worldId, projectId, encodedItemId)

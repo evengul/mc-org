@@ -35,6 +35,7 @@ class NeedsAttentionSectionTest {
     private val oakLogs = tag("oak_logs", "Oak Logs")
     private val logs = tag("logs", "Logs")
     private val netherPortal = Item("minecraft:nether_portal", "Nether Portal")
+    private val oakLog = Item("minecraft:oak_log", "Oak Log")
 
     private fun project() = Project(
         id = 2,
@@ -59,6 +60,9 @@ class NeedsAttentionSectionTest {
 
     private fun question(item: MinecraftId, quantity: Long) =
         PlanNode(item = item, quantity = quantity, crafts = 0, leftover = 0, status = PlanNodeStatus.OPEN_TAG)
+
+    private fun gather(item: MinecraftId, quantity: Long) =
+        PlanNode(item = item, quantity = quantity, crafts = 0, leftover = 0, status = PlanNodeStatus.RAW_GATHER)
 
     private fun blocked(item: MinecraftId, quantity: Long) =
         PlanNode(item = item, quantity = quantity, crafts = 0, leftover = 0, status = PlanNodeStatus.BLOCKED)
@@ -118,7 +122,11 @@ class NeedsAttentionSectionTest {
             )
         )
 
-        assertContains(html, "5 variant choices — the first decides 97% of the material behind them.")
+        assertContains(
+            html,
+            "5 questions to answer — the first decides 97% of the material behind them. " +
+                "The plan below is provisional until they are answered.",
+        )
     }
 
     @Test
@@ -126,7 +134,10 @@ class NeedsAttentionSectionTest {
         // Hiding one or two questions behind a toggle costs a click and saves nothing.
         val html = render(plan(question(planks, 110_824), question(coals, 1)))
 
-        assertContains(html, "2 variant choices — pick to sharpen the plan.")
+        assertContains(
+            html,
+            "2 questions to answer. The plan below is provisional until they are answered.",
+        )
         assertFalse(html.contains("plan-attention__rest"))
     }
 
@@ -177,5 +188,57 @@ class NeedsAttentionSectionTest {
             assertContains(html, it)
         }
         assertTrue(html.contains("Show 4 smaller choices"))
+    }
+
+    // ---- MCO-504: the question, and when Next up is allowed to speak --------------------
+
+    /**
+     * The row used to end in "- Pick a variant (open tag)". `open tag` is a `PlanNodeStatus`
+     * name; it had leaked from the engine onto the page and meant nothing to a player. MCO-489
+     * made the label name the options; this makes the row name the question.
+     */
+    @Test
+    fun `a question states what it is asking, without engine vocabulary`() {
+        val html = render(plan(question(planks, 110_824)))
+
+        assertContains(html, "Which should the plan use in recipes?")
+        assertFalse(html.contains("open tag"), "PlanNodeStatus vocabulary must not reach the page")
+        assertFalse(html.contains("Pick a variant"), "the row states a question, not an instruction")
+    }
+
+    /**
+     * Even, reviewing round 3: "what's next is mostly relevant AFTER the questions have been
+     * answered. When those questions are there, they are the most important thing, and now
+     * they're asked in two different places."
+     *
+     * Not only duplication - the widget's advice is provisional while a question is open, since
+     * answering one redirects the tag to a member and merges its demand, so the largest
+     * remaining pile can change under it.
+     */
+    @Test
+    fun `Next up is silent while a question is open`() {
+        val html = render(plan(question(planks, 110_824), gather(oakLog, 27_763)))
+
+        assertFalse(html.contains("NEXT UP"), "the questions are the page's business until answered")
+        assertContains(html, "Which should the plan use in recipes?")
+    }
+
+    @Test
+    fun `Next up speaks once every question is answered`() {
+        val html = render(plan(gather(oakLog, 27_763)))
+
+        assertContains(html, "NEXT UP")
+        assertContains(html, "Oak Log")
+    }
+
+    /**
+     * A BLOCKED node also needs the user, but it does not make the rest of the plan provisional
+     * - its chain is known, it simply has no source at any price. So work still gets pointed at.
+     */
+    @Test
+    fun `a blocked row does not silence Next up`() {
+        val html = render(plan(blocked(netherPortal, 1), gather(oakLog, 27_763)))
+
+        assertContains(html, "NEXT UP")
     }
 }

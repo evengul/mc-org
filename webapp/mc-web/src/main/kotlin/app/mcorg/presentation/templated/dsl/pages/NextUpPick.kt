@@ -11,31 +11,38 @@ import app.mcorg.engine.plan.PlanNodeStatus
  * MCO-224 specced this as a lens; it is a widget instead, because the answer is worth having
  * *while* you work rather than somewhere you have to navigate to.
  *
- * Ordering, in the order it was arrived at:
+ * Ordering:
  *
- * 1. **Decisions first**, capped. An unpicked variant makes everything below it provisional.
- * 2. **Then leaves, biggest first.** A RAW_GATHER or SUPPLIED node has no inputs, so it is
- *    always something you can go and do right now — a trip to a farm or out into the world.
- * 3. **Then the rest, biggest first.**
+ * 1. **Leaves, biggest first.** A RAW_GATHER or SUPPLIED node has no inputs, so it is always
+ *    something you can go and do right now — a trip to a farm or out into the world.
+ * 2. **Then the rest, biggest first.**
  *
- * The engine's own list order was the obvious candidate for (2) and is wrong: it is topological
+ * The engine's own list order was the obvious candidate for (1) and is wrong: it is topological
  * with ties broken by name, so its head is whatever sorts first alphabetically. Driven against
  * the real plan it suggested "1 Black Terracotta" and "2 Azure Bluet" — technically actionable,
  * useless as an answer to "what now".
+ *
+ * ## Decisions are not moves (MCO-504)
+ *
+ * This used to lead with up to two unanswered variant questions, on the reasoning that an
+ * unpicked variant makes everything below it provisional. The reasoning is right and the
+ * conclusion was wrong: it made the plan ask the same question in two places at once — here and
+ * in "Needs attention", which lists every question ranked by the material it settles.
+ *
+ * Even's framing is the one that resolves it: *"what's next is mostly relevant AFTER the
+ * questions have been answered. When those questions are there, they are the most important
+ * thing."* So the two are sequential rather than parallel. While a question is open the page
+ * shows the questions and nothing else claims to know what is next; the widget is suppressed by
+ * its caller (see `gatheringPlannerContent`), which is also why nothing here needs to render a
+ * picker any more.
+ *
+ * That withdraws MCO-482's inline picker, and keeps what MCO-482 was actually for: a decision is
+ * answerable where it is named. It is now named in exactly one place.
  */
 object NextUpPick {
 
     /** Enough alternatives that "something else" is useful, few enough to render inline. */
     const val CANDIDATES = 5
-
-    /**
-     * At most this many decisions among the candidates.
-     *
-     * Without the cap a plan like YAMS — 23 open variant choices — fills every slot with
-     * decisions, so "something else" only ever offers another question. The point of the widget
-     * is that there is always something you can go and *do*.
-     */
-    const val MAX_DECISIONS = 2
 
     /**
      * Ordered candidates, best first. Empty when there is nothing left to do.
@@ -50,15 +57,13 @@ object NextUpPick {
             (progress[activity.item.id]?.toLong() ?: 0L) < activity.quantity
         }
 
-        // Decisions first, and not as a matter of taste: an unpicked variant means the plan
-        // below it is provisional, so acting on anything downstream risks gathering for a chain
-        // that changes. BLOCKED sorts in with them — it is the other kind of "this needs you".
-        val (decisions, work) = outstanding.partition { it.group == ActivityGroup.NEEDS_ATTENTION }
-
-        // Within decisions, the one that settles the most material is the one worth answering.
-        val rankedDecisions = decisions.sortedWith(
-            compareByDescending<Activity> { it.quantity }.thenBy { it.item.name }
-        )
+        // Only things you can actually go and do. NEEDS_ATTENTION covers both kinds of "this
+        // needs you" — an unanswered variant question and a BLOCKED node — and neither is a
+        // move: one is a decision, which the questions section owns, and the other has no
+        // source at any price. The BLOCKED filter below is kept even though the group check
+        // already covers today's data, because "blocked" is a status and could appear under
+        // another group without this being revisited.
+        val work = outstanding.filter { it.group != ActivityGroup.NEEDS_ATTENTION }
 
         val biggestFirst = compareByDescending<Activity> { it.quantity }.thenBy { it.item.name }
 
@@ -68,15 +73,11 @@ object NextUpPick {
             .filter { it.status != PlanNodeStatus.BLOCKED }
             .partition { it.status == PlanNodeStatus.RAW_GATHER || it.status == PlanNodeStatus.SUPPLIED }
 
-        val actionableWork = leaves.sortedWith(biggestFirst) + downstream.sortedWith(biggestFirst)
-
-        return (rankedDecisions.take(MAX_DECISIONS) + actionableWork).take(CANDIDATES)
+        return (leaves.sortedWith(biggestFirst) + downstream.sortedWith(biggestFirst)).take(CANDIDATES)
     }
 
     /** A short reason the pick is the pick, shown under it. */
     fun reasonFor(activity: Activity, isFirst: Boolean): String = when {
-        activity.group == ActivityGroup.NEEDS_ATTENTION ->
-            "The plan below this is provisional until you choose."
         activity.status == PlanNodeStatus.SUPPLIED -> "A farm already makes this — go and empty it."
         activity.status == PlanNodeStatus.RAW_GATHER -> "Nothing has to happen first."
         isFirst -> "The largest thing left."
