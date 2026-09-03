@@ -70,6 +70,11 @@ class GetProjectListIT : WithUser() {
         assertContains(body, "projects-empty-state")
         assertContains(body, "Plan your own project")
         assertContains(body, "Browse community ideas")
+        // The doors are `.np-menu__door` and the cards `.empty-state-card`; both moved out of
+        // this page's own stylesheet, and the page rendered them unstyled until it linked the
+        // files they moved to.
+        assertContains(body, "/static/styles/components/np-menu.css")
+        assertContains(body, "/static/styles/components/empty-state.css")
     }
 
     @Test

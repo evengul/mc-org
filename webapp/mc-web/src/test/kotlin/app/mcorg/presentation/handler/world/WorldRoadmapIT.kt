@@ -284,11 +284,40 @@ class WorldRoadmapIT : WithUser() {
 
         assertEquals(HttpStatusCode.OK, response.status)
         val body = response.bodyAsText()
-        assertContains(body, "Nothing to sequence yet")
-        assertContains(body, "/worlds/$worldId/projects")
+        assertEmptyWorldState(body)
         assertFalse(body.contains("roadmap-table"), "no table until there is something to sequence")
 
         deleteWorld(worldId)
+    }
+
+    @Test
+    fun `the graph view of a world with no projects gets the same empty state, not an empty card`() =
+        testApplication {
+            // The graph is the default view, so this is the first page a new world shows. It used
+            // to render `.rmg-card` with four empty sections inside it.
+            setupRoutes()
+            val worldId = createWorld("Empty Graph Roadmap World")
+
+            val response = client.get("/worlds/$worldId/roadmap") { addAuthCookie(this) }
+
+            assertEquals(HttpStatusCode.OK, response.status)
+            val body = response.bodyAsText()
+            assertEmptyWorldState(body)
+            assertFalse(body.contains("rmg-card"), "no graph card until there is something to draw")
+
+            deleteWorld(worldId)
+        }
+
+    /**
+     * The world's one empty state (`worldEmptyState`): the same three doors the project list
+     * offers, styled — `.np-menu__door` needs np-menu.css, and the cards need empty-state.css.
+     */
+    private fun assertEmptyWorldState(body: String) {
+        assertContains(body, "projects-empty-state")
+        assertContains(body, "Plan your own project")
+        assertContains(body, "record-farm-modal")
+        assertContains(body, "/static/styles/components/np-menu.css")
+        assertContains(body, "/static/styles/components/empty-state.css")
     }
 
     @Test
@@ -371,11 +400,15 @@ class WorldRoadmapIT : WithUser() {
      * Asserting the dialogs, not just the trigger, is the point: every door calls `showModal()`
      * on a specific `<dialog>`, so a menu rendered without them gives you doors that silently
      * do nothing — and a test that only looked for the button would pass.
+     *
+     * The world needs a project for the *menu* half: an empty world hides it, because
+     * `worldEmptyState` already offers the same doors (see the empty-state tests above).
      */
     @Test
     fun `the roadmap offers the new project menu, with the dialogs its doors open`() = testApplication {
         setupRoutes()
         val worldId = createWorld("New Project Roadmap World")
+        createProject(worldId, "Something To Sequence")
 
         val body = client.get("/worlds/$worldId/roadmap") { addAuthCookie(this) }.bodyAsText()
 

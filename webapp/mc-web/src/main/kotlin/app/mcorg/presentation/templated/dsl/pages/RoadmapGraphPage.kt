@@ -79,6 +79,7 @@ fun roadmapGraphPage(
         "/static/styles/pages/roadmap-graph.css",
         "/static/styles/components/world-tabs.css",
         "/static/styles/components/np-menu.css",
+        "/static/styles/components/empty-state.css",
         "/static/styles/components/modal.css",
         "/static/styles/components/form.css",
         "/static/styles/components/item-search.css",
@@ -99,17 +100,24 @@ fun roadmapGraphPage(
     main {
         container {
             worldBar(view.roadmap.worldId, WorldTab.ROADMAP) {
-                newProjectAffordance(view.roadmap.worldId)
+                newProjectAffordance(view.roadmap.worldId, showMenu = !view.roadmap.isEmpty())
             }
-            // The title sits outside the card, as on the table view and every other page
-            // (MCO-505). It used to be an `.rmg-section` within it.
-            roadmapTitle(view.roadmap.worldId, headerMeta(view), graphActive = true)
-            div("rmg-card") {
-                id = "roadmap-graph"
-                startHereSection(view)
-                graphSection(view)
-                unchainedSection(view)
-                producingSection(view)
+            if (view.roadmap.isEmpty()) {
+                // This is the view a world opens on, so it is the first thing a new world
+                // shows — and it used to be an empty card with four empty sections in it.
+                // The world's one empty state answers it instead (see [worldEmptyState]).
+                worldEmptyState(view.roadmap.worldId)
+            } else {
+                // The title sits outside the card, as on the table view and every other page
+                // (MCO-505). It used to be an `.rmg-section` within it.
+                roadmapTitle(view.roadmap.worldId, headerMeta(view), graphActive = true)
+                div("rmg-card") {
+                    id = "roadmap-graph"
+                    startHereSection(view)
+                    graphSection(view)
+                    unchainedSection(view)
+                    producingSection(view)
+                }
             }
         }
     }

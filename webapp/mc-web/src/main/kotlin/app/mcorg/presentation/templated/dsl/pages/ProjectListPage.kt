@@ -66,6 +66,11 @@ fun projectListPage(
         "/static/styles/components/form.css",
         "/static/styles/components/item-search.css",
         "/static/styles/components/world-tabs.css",
+        // Both the "+ New project" menu and the empty state's doors are .np-menu__door; the
+        // menu moved out of this page's own stylesheet with MCO-474 and the link did not
+        // follow it, which left every create affordance here unstyled.
+        "/static/styles/components/np-menu.css",
+        "/static/styles/components/empty-state.css",
     ),
     scripts = listOf("/static/scripts/np-menu.js", "/static/scripts/farm-modal.js")
 ) {
@@ -125,13 +130,23 @@ fun kotlinx.html.FlowContent.projectsViewContent(
     resume: ResumeHeroData? = null,
 ) {
     if (projects.isEmpty()) {
-        projectsEmptyState(world.id)
+        worldEmptyState(world.id)
     }
 
     fieldLogSections(world.id, projects, edges, resume)
 }
 
-fun kotlinx.html.FlowContent.projectsEmptyState(worldId: Int) {
+/**
+ * What a world with no projects shows — **on every one of its tabs**, not just this one.
+ *
+ * A world is empty in exactly one way, so it should answer the question in exactly one way. The
+ * roadmap used to carry an empty state of its own whose only offer was a link back here, which
+ * made the page a world opens on a waiting room for the page with the doors. Both roadmap views
+ * now render this block instead (`roadmapPage`, `roadmapGraphPage`) — which is why it lives next
+ * to [newProjectAffordance]: the doors below open that function's dialogs, so a page rendering
+ * one must render the other, and link `np-menu.css` for `.np-menu__door`.
+ */
+fun kotlinx.html.FlowContent.worldEmptyState(worldId: Int) {
     emptyStateCards(id = "projects-empty-state") {
         div("empty-state-card") {
             h2("empty-state-card__heading") { +"Plan your own project" }

@@ -9,7 +9,6 @@ import app.mcorg.domain.model.world.RoadmapEdge
 import app.mcorg.domain.model.world.RoadmapNode
 import app.mcorg.presentation.templated.dsl.appHeader
 import app.mcorg.presentation.templated.dsl.container
-import app.mcorg.presentation.templated.dsl.emptyState
 import app.mcorg.presentation.templated.dsl.pageShell
 import app.mcorg.presentation.templated.dsl.projectStateBadge
 import app.mcorg.presentation.templated.dsl.WorldTab
@@ -64,6 +63,7 @@ fun roadmapPage(
         "/static/styles/pages/roadmap-graph.css",
         "/static/styles/components/world-tabs.css",
         "/static/styles/components/np-menu.css",
+        "/static/styles/components/empty-state.css",
         "/static/styles/components/modal.css",
         "/static/styles/components/form.css",
         "/static/styles/components/item-search.css",
@@ -83,14 +83,19 @@ fun roadmapPage(
     )
     main {
         container {
+            // An empty world has nothing to add *to* yet, and [worldEmptyState] carries the same
+            // doors — so the menu appears only once there is something to sequence, exactly as
+            // on the project list.
             worldBar(roadmap.worldId, WorldTab.ROADMAP) {
-                newProjectAffordance(roadmap.worldId)
+                newProjectAffordance(roadmap.worldId, showMenu = !roadmap.isEmpty())
             }
-            roadmapTitle(roadmap.worldId, roadmapSummary(roadmap), graphActive = false)
 
             if (roadmap.isEmpty()) {
-                roadmapEmptyState(roadmap.worldId)
+                // No title and no view switcher: there is nothing to switch between, and the
+                // two views of an empty world are the same page.
+                worldEmptyState(roadmap.worldId)
             } else {
+                roadmapTitle(roadmap.worldId, roadmapSummary(roadmap), graphActive = false)
                 // Above the table: a loop makes the ordering below it a guess, so saying so
                 // after the fact would be the wrong way round (MCO-460).
                 cycleSection(roadmap)
@@ -242,24 +247,6 @@ private fun roadmapSummary(roadmap: Roadmap): String {
         }
     }
     return parts.joinToString(" · ")
-}
-
-/**
- * Shown when the world has no projects at all. A full page with a way forward, not a hidden
- * feature — someone who followed the roadmap link wants to know what would fill it.
- */
-private fun FlowContent.roadmapEmptyState(worldId: Int) {
-    emptyState(
-        heading = "Nothing to sequence yet",
-        body = "The roadmap draws itself from your projects' resources: when one project's " +
-            "requirement is produced or solved by another, a link appears here and the order " +
-            "follows. Define some resources to see it fill in.",
-    ) {
-        a(classes = "btn btn--primary") {
-            href = "/worlds/$worldId/projects"
-            +"Back to projects"
-        }
-    }
 }
 
 private fun FlowContent.roadmapTable(roadmap: Roadmap) {
