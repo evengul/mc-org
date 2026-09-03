@@ -60,6 +60,14 @@ Legend: **S** = secret (never in a committed file; Fly secret or GitHub secret).
 `mc-web/create-keys.sh` into `resources/keys`. That is the intended local path, not a
 misconfiguration.
 
+Since MCO-508 that pair is generated **once per machine**, into `~/.config/seam/keys`
+(`$SEAM_KEY_HOME` overrides, `$XDG_CONFIG_HOME` is honoured), and copied into each checkout —
+so every worktree signs with the same key and a session survives switching between them.
+Sharing it is the point, and the one thing worktrees deliberately do *not* isolate: it is a
+throwaway local signing key, not per-branch state. Deleting `~/.config/seam/keys` rotates it
+for the whole machine and signs you out everywhere; deleting a checkout's copy costs nothing,
+since the next `create-keys.sh` run restores it from the machine pair.
+
 ³ `getHost()` returns null in LOCAL, so the auth cookie is host-less and the OAuth redirect is
 unused.
 

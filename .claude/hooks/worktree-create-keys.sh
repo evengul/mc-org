@@ -6,6 +6,9 @@
 # worktree never has them — without this, auth tests (and CreateTokenStep) fail with
 # "Could not read key file private_key.pem".
 #
+# Since MCO-508 create-keys.sh copies the machine's one pair (~/.config/seam/keys) rather
+# than generating a per-worktree one, so this also carries your signed-in session in.
+#
 # Defensive: scans the tool result for the worktree root (the directory that contains
 # webapp/mc-web/create-keys.sh) and no-ops cleanly if it can't be determined. Only the
 # tool_response/tool_input are scanned, never the top-level cwd, so it targets the NEW
