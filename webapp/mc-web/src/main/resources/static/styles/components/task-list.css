@@ -83,7 +83,7 @@
 }
 
 .task-row__delete-btn:hover {
-    color: var(--danger, #e53e3e);
+    color: var(--red);
 }
 
 .add-task-inline {

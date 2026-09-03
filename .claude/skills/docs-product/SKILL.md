@@ -45,6 +45,7 @@ overworld materials. It is a **light** theme (there is currently no dark theme).
 | **Success / status / progress — "done" (grass)** | `--green` | `#4F7A2B` |
 | **Warning (wheat-gold)** | `--amber` | `#855A10` |
 | **Danger / destructive (redstone)** | `--red` | `#A6321F` |
+| Danger hover (darker redstone) | `--red-hover` | `#8B2A1A` |
 | Progress bar fill (grass) | `--progress` | `#4F7A2B` |
 | Done badge background | `--green-bg` | `#DEE8CB` |
 | Blocked badge background | `--red-bg` | `#F0DACF` |
@@ -97,7 +98,16 @@ Two fonts only. Never use other fonts.
 | Base | `--text-base` | Inter | 15px | 400 | Body text |
 | UI | `--text-ui` | IBM Plex Mono | 13px | 500 | Badges, tags, code-like labels |
 | Label | `--text-label` | IBM Plex Mono | 11px | 500 | Section headers (uppercase, tracked) |
-| Heading | `--text-heading` | IBM Plex Mono | 18–24px | 600 | Page titles, project names |
+| LG | `--text-lg` | IBM Plex Mono | 18px | 600 | Prominent inline figures — "next up" qty/item, hero card names |
+| XL | `--text-xl` | IBM Plex Mono | 20px | 600 | In-page view titles — roadmap, import review, idea detail, wizard |
+
+The page-level `h1` (`.page-heading__title`) sits one step above `--text-xl` at 24px and is
+set on the class, not a token.
+
+> There is **no `--text-heading`**. This table used to list one at "18–24px" — a range, not a
+> value — and it was never defined in `design-tokens.css`, so the two call sites that trusted
+> it rendered at the *inherited* size. MCO-388 folded them into `--text-xl`. Don't reintroduce
+> the name; `--text-lg` / `--text-xl` are the two heading steps.
 
 **Section headers** render as: uppercase, letter-spacing 0.08em, muted color. CSS class: `.section-label`. Example: `RESOURCES TO GATHER`.
 
@@ -118,6 +128,28 @@ Base unit: 4px. Always use tokens — never raw pixel values.
 | `--space-8` | 48px |
 
 Max content width: `1080px`. Mobile breakpoint: `768px`.
+
+---
+
+## Radius & Elevation
+
+| Token | Value | Use |
+|-------|-------|-----|
+| `--radius` | 6px | Everything by default — **buttons always**, cards, inputs, panels |
+| `--radius-pill` | 999px | Badges, chips, sort pills, the plan/execute toggle. **Never buttons.** |
+
+Shadows are **ink-coloured** — `rgba(42, 34, 24, …)`, i.e. `--text-primary` at low alpha. A
+shadow on warm paper is a smudge of the same ink, never a neutral grey halo. Two levels only:
+
+| Token | Value | Use |
+|-------|-------|-----|
+| `--shadow-card` | `0 1px 2px rgba(42,34,24,0.06)` | A resting card — hero cards on worlds / project list |
+| `--shadow-pop` | `0 4px 16px rgba(42,34,24,0.18)` | A layer floating above the page — dropdown, popover |
+
+Do not invent a third level, and do not write a raw `box-shadow` for these two roles. Both
+tokens exist because the values had already forked across inline `var(--x, fallback)` call
+sites (MCO-388). The one sanctioned raw `box-shadow` is a focus/selection ring
+(`0 0 0 3px var(--accent-muted)`), which is a ring, not elevation.
 
 ---
 
@@ -281,10 +313,16 @@ Minimal. Functional tool.
 | Element | Animation |
 |---------|-----------|
 | Plan/Execute toggle | 150ms ease-in-out on background + text color |
-| Resource counter increment | Scale flash: 1 → 1.1 → 1, 100ms |
 | Progress bar fill | 200ms ease on width change |
 | Modal | 150ms fade-in + scale 0.97 → 1.0 |
 | Page transitions | None |
+
+This table used to carry a fifth row — "Resource counter increment: scale flash 1 → 1.1 → 1,
+100ms". The `.counter-flash` class and its `@keyframes` existed in `resource-row.css`, but
+**nothing ever applied the class** — no template, no JS — so the flash never shipped. It was
+deleted in MCO-394 and the row removed with it. If the counter should flash on increment, that
+is a feature to build (the class has to be added by JS on the htmx swap), not a spec to
+re-document as though it were live.
 
 ---
 
@@ -294,15 +332,20 @@ Minimal. Functional tool.
 .container     /* max-width 1080px, centered, horizontal padding */
 .surface       /* bg-surface + border + border-radius */
 .divider       /* 1px border-top in --border color */
-.flex          /* display: flex */
-.flex-col      /* flex-direction: column */
-.items-center  /* align-items: center */
-.justify-between /* justify-content: space-between */
-.gap-1 through .gap-5  /* gap using --space tokens */
-.w-full        /* width: 100% */
-.mt-4, .mt-5, .mb-4, .mb-5  /* margin utilities */
-.p-4, .p-5    /* padding utilities */
+.section-label /* uppercase, tracked, muted section header */
+.subtle        /* muted small text */
+.is-hidden     /* display: none */
+.stack, .stack--xs      /* vertical flex + gap */
+.cluster, .cluster--xs  /* horizontal flex + gap */
+.mt-4          /* margin-top: var(--space-4) */
 ```
+
+**There is no Tailwind-style utility layer.** `.flex`, `.flex-col`, `.items-center`,
+`.justify-between`, `.gap-1`–`.gap-5`, `.w-full`, `.mt-5`, `.mb-4`, `.mb-5`, `.p-4` and `.p-5`
+were listed here for a long time but had **zero users** in the whole codebase, and were deleted
+in MCO-394. Layout is done by the component's own class; `.stack` / `.cluster` cover the
+genuinely ad-hoc cases. Don't reach for a utility class that isn't in the list above, and don't
+re-add the set — write the component's own rule instead.
 
 ---
 

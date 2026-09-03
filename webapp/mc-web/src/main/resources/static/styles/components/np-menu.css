@@ -27,7 +27,7 @@
     background: var(--bg-surface);
     border: 1px solid var(--border-strong);
     border-radius: var(--radius);
-    box-shadow: var(--shadow-pop, 0 4px 16px rgba(42, 34, 24, 0.18));
+    box-shadow: var(--shadow-pop);
     overflow: hidden;
     z-index: 20;
 }

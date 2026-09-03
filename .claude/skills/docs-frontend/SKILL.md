@@ -58,18 +58,25 @@ Defined in `design-tokens.css`. Never hardcode hex, px, or font names — always
 **Color:** `--bg-base` `--bg-surface` `--bg-raised` `--border` `--border-strong` · `--text-primary`
 `--text-muted` `--text-disabled` · `--accent` (lapis — act/links) `--accent-hover` `--accent-muted` (info
 wash + badges + focus ring) `--on-accent` (cream text on an accent fill) · `--green` (done) `--amber` (warn)
-`--red` (danger) · `--progress` `--green-bg` `--red-bg`. **One hue, one role** — see `docs-product` for the
-full palette map and the load-bearing colour-blind constraint (never signal state by colour alone).
+`--red` (danger) `--red-hover` · `--progress` `--green-bg` `--red-bg`. **One hue, one role** — see
+`docs-product` for the full palette map and the load-bearing colour-blind constraint (never signal state by
+colour alone).
 
 **Fonts:** `--font-ui` (IBM Plex Mono — chrome, headings, badges, labels, buttons) ·
 `--font-body` (Inter — body text, table cells, prose)
 
-**Type scale:** `--text-xs` 11px · `--text-sm` 13px · `--text-base` 15px · `--text-ui` 13px · `--text-label` 11px
+**Type scale:** `--text-xs` 11px · `--text-sm` 13px · `--text-base` 15px · `--text-ui` 13px ·
+`--text-label` 11px · `--text-lg` 18px · `--text-xl` 20px (in-page view titles). There is **no**
+`--text-heading` — it was a documented-but-undefined phantom, folded into `--text-xl` by MCO-388.
 
 **Spacing (4px grid):** `--space-1` 4 · `--space-2` 8 · `--space-3` 12 · `--space-4` 16 · `--space-5` 24 ·
 `--space-6` 32 · `--space-8` 48 · `--space-10` 80
 
-**Layout:** `--max-width` 1080px · `--breakpoint-mobile` 768px · `--radius` 6px · `--transition-base` 150ms ease-in-out
+**Layout:** `--max-width` 1080px · `--breakpoint-mobile` 768px · `--radius` 6px · `--radius-pill` 999px
+(badges/chips only, never buttons) · `--transition-base` 150ms ease-in-out
+
+**Elevation:** `--shadow-card` (resting card) · `--shadow-pop` (dropdown/popover). Ink-coloured, two
+levels only — don't write a raw `box-shadow` for either role.
 
 ---
 
@@ -84,10 +91,13 @@ From `design-tokens.css`. Prefer the DSL wrappers; drop to raw classes for ad-ho
 | `divider()` | `.divider` | 1px top border in `--border` |
 | `pageHeading(title, subtitle?)` | `.page-heading` | `h1` title + optional subtitle |
 
-Utility classes (use directly): `.flex` `.flex-col` `.items-center` `.justify-between` ·
-`.gap-1`–`.gap-5` · `.w-full` · `.mt-4 .mt-5 .mb-4 .mb-5 .p-4 .p-5` · `.section-label` (uppercase tracked
-muted label) · `.subtle` (muted small text) · `.is-hidden` (display:none) · `.stack` / `.stack--xs`
-(vertical flex gap) · `.cluster` / `.cluster--xs` (horizontal flex gap).
+Utility classes (use directly): `.section-label` (uppercase tracked muted label) · `.subtle` (muted
+small text) · `.is-hidden` (display:none) · `.stack` / `.stack--xs` (vertical flex gap) · `.cluster` /
+`.cluster--xs` (horizontal flex gap) · `.mt-4`.
+
+That is the whole list. The Tailwind-style set (`.flex`, `.gap-*`, `.w-full`, `.p-4`, …) was documented
+here but had zero users anywhere in the codebase and was deleted in MCO-394 — layout goes in the
+component's own class. Don't re-add it.
 
 ---
 
