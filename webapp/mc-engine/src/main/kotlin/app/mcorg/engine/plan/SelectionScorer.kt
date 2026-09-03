@@ -146,8 +146,8 @@ internal class SelectionScorer(
         val itemNode = graph.getItemNode(item) ?: return 0
         val expectedYield = graph.getExpectedYield(source, itemNode) ?: return 0
         if (expectedYield >= 1.0) return 0
-        return ((1.0 / expectedYield - 1.0) * LOW_YIELD_PENALTY_WEIGHT).toInt()
-            .coerceAtMost(LOW_YIELD_PENALTY_CAP)
+        return ((1.0 / expectedYield - 1.0) * context.scorerMutation.lowYieldWeight).toInt()
+            .coerceAtMost(context.scorerMutation.lowYieldCap)
     }
 
     private fun efficiencyBonus(item: MinecraftId, source: SourceNode, isReciprocal: Boolean): Int {
@@ -155,7 +155,7 @@ internal class SelectionScorer(
         // input is an emerald exchange rate, not a measure of saved effort, and a
         // high one (8 sand or 4 gunpowder per emerald) would otherwise vault a
         // wandering-trader source above mining the block or killing the mob.
-        if (source.sourceType.isTrade()) return 0
+        if (context.scorerMutation.tradeEfficiencyGuard && source.sourceType.isTrade()) return 0
         // Unpacking a storage block is not efficient: its lone ingredient embeds
         // nine of the output and must itself be obtained. See [isReciprocalUnpack].
         if (isReciprocal) return 0
@@ -266,7 +266,7 @@ internal class SelectionScorer(
         // stonecutting) saves no effort over mining more, so it must not leapfrog
         // the raw gather at bulk demand. Self-block loot (break what you placed)
         // is not a real gather and does not count.
-        if (hasMineableSource(item)) return 0
+        if (context.scorerMutation.mineableThresholdGuard && hasMineableSource(item)) return 0
         return RECIPE_THRESHOLD_BONUS
     }
 
@@ -347,8 +347,9 @@ internal class SelectionScorer(
         private const val SUPPLIED_BONUS = 30
         private const val RECIPE_THRESHOLD_BONUS = 50
         private const val SELF_BLOCK_LOOT_PENALTY = 200
-        private const val LOW_YIELD_PENALTY_WEIGHT = 20
-        private const val LOW_YIELD_PENALTY_CAP = 60
+        // The low-yield weight and cap live on [ScorerMutation], not here: they are the two
+        // constants a differential varies, and one definition cannot drift from the other.
+        // Their shipped values are ScorerMutation.DEFAULT_LOW_YIELD_WEIGHT / _CAP.
         private const val DEPTH_PENALTY = 5
         private const val REQUIREMENT_PENALTY = 10
         private const val UNREACHABLE_DEPTH = Int.MAX_VALUE / 2

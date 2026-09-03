@@ -8,6 +8,7 @@ import app.mcorg.engine.model.ItemSourceGraph
 import app.mcorg.engine.model.SourceNode
 import app.mcorg.engine.plan.EffortTable
 import app.mcorg.engine.plan.PlanSelector
+import app.mcorg.engine.plan.ScorerFactor
 import app.mcorg.engine.plan.PlanTarget
 import app.mcorg.engine.plan.ScoreDiagnostics
 import app.mcorg.engine.plan.UnitCostModel
@@ -42,6 +43,10 @@ import kotlin.system.exitProcess
  * # try a table by hand, or ask who a source type actually wins
  * mvn -pl mc-web exec:java@cost-diagnostics -Dexec.args="world=3 set=chest:30 picks=chest"
  * mvn -pl mc-web exec:java@cost-diagnostics -Dexec.args="world=3 table=sketch"
+ *
+ * # what do the four *unpinned* scorer behaviours actually decide, and does the cost model
+ * # reach the same answer without them?
+ * mvn -pl mc-web exec:java@cost-diagnostics -Dexec.args="world=3 demand=64 factors"
  * ```
  *
  * Args: `world=<id>` / `version=<v>` to pick the graph, `demand=<n>` (the shipped scorer is
@@ -51,7 +56,9 @@ import kotlin.system.exitProcess
  * with optional `values=`, `set=<type>:<minutes>` to override the table without rebuilding,
  * `table=sketch|calibrated`, `picks=<type>` to list what a source type wins and by how much,
  * and `projects=<ids>` to carry a real project's item set through every row — the whole-graph
- * agreement rate can improve while the plan someone is actually building gets worse.
+ * agreement rate can improve while the plan someone is actually building gets worse. And
+ * `factors` for the knowledge-versus-tuning differential over the four unpinned behaviours
+ * (see [app.mcorg.engine.plan.ScorerMutation]).
  */
 fun main(args: Array<String>) {
     val exitCode = runBlocking {
@@ -74,6 +81,7 @@ private suspend fun run(args: List<String>): Int {
     var demand = 64L
     var verbose = false
     var grain = false
+    var factors = false
     var sweep = false
     var sweepFilter: String? = null
     var picksOf: String? = null
@@ -91,6 +99,7 @@ private suspend fun run(args: List<String>): Int {
             arg.startsWith("demand=") -> demand = arg.substringAfter('=').toLongOrNull() ?: demand
             arg == "verbose" -> verbose = true
             arg == "grain" -> grain = true
+            arg == "factors" -> factors = true
             arg == "sweep" -> sweep = true
             arg.startsWith("sweep=") -> { sweep = true; sweepFilter = arg.substringAfter('=') }
             arg.startsWith("picks=") -> picksOf = arg.substringAfter('=')
@@ -161,6 +170,69 @@ private suspend fun run(args: List<String>): Int {
         moved.sortedBy { it.first }.forEach { (id, a, b) ->
             println("  %-34s %s".format(id.substringAfter(':'), "$a  ->  $b"))
         }
+        return 0
+    }
+
+    // `factors`: what do the four *unpinned* scorer behaviours actually decide, and does the
+    // cost model reach the same answer without them? This is the knowledge-versus-tuning test
+    // MCO-490 needs before a constant is deleted. A behaviour that moves nothing was tuning.
+    // A behaviour that moves items the cost model then agrees with was tuning too — the
+    // arithmetic gets there on its own. Only the third column, where the cost model lands
+    // somewhere else, is a fact about the game that would be lost.
+    if (factors) {
+        val impact = ScoreDiagnostics.factorImpact(graph, subjects, demand)
+        println()
+        println("The four unpinned scorer behaviours, measured on $resolvedVersion at demand $demand")
+        println("(${subjects.size} items with more than one source)")
+        for (factor in ScorerFactor.entries) {
+            val moves = impact[factor].orEmpty()
+            println()
+            println("── ${factor.label} — ${moves.size} item${if (moves.size == 1) "" else "s"} move")
+            println("   ${factor.describe}")
+            if (moves.isEmpty()) {
+                println("   INERT on this graph: switching it off changes no committed source.")
+                continue
+            }
+            var costAgreesWithShipped = 0
+            var costAgreesWithMutant = 0
+            var costSaysNeither = 0
+            for (move in moves.sortedBy { it.itemId }) {
+                val item = subjects.first { it.id == move.itemId }
+                val costPick = model.best(item)?.getKey()
+                val verdict = when (costPick) {
+                    move.with -> { costAgreesWithShipped++; "cost model agrees with the guard" }
+                    move.without -> { costAgreesWithMutant++; "not reproduced — cost model lands where the guard is off" }
+                    else -> { costSaysNeither++; "not reproduced — cost model picks a third source" }
+                }
+                println(
+                    "   %-30s %-16s -> %-16s  %s".format(
+                        move.itemId.substringAfter(':'), move.withMethod, move.withoutMethod, verdict
+                    )
+                )
+            }
+            println(
+                "   verdict: $costAgreesWithShipped of ${moves.size} reproduced by arithmetic; " +
+                    "${costAgreesWithMutant + costSaysNeither} not reproduced " +
+                    "($costAgreesWithMutant land where the guard is off, $costSaysNeither elsewhere)"
+            )
+        }
+        println()
+        println(
+            """
+            How to read this. INERT means the behaviour decides nothing *on this graph at this
+            demand* — which is a fact about the run, not about the behaviour. Two of the four are
+            inert only because of how they were asked: the mineable guard sits behind a demand
+            check, so it can decide nothing below recipeThreshold; and 1.21.4 has no trade sources
+            at all, so the trade guard cannot bite there. Run both demands and both a 1.21.x and a
+            26.x version before calling anything inert.
+
+            "Reproduced by arithmetic" means the cost model reaches the shipped answer without the
+            rule: the constant was tuning, and deleting it costs nothing. "Not reproduced" is the
+            column to argue about — but it is not automatically a regression. It says only that the
+            two models differ there; which one is right is a judgement about the game, and the cost
+            column in the main report is what to judge it on.
+            """.trimIndent()
+        )
         return 0
     }
 

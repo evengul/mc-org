@@ -115,6 +115,67 @@ object ScoreDiagnostics {
     }
 
     /**
+     * One item whose committed source moves when a scorer behaviour is switched off.
+     *
+     * [with] is what ships today; [without] is what the planner commits to when the behaviour
+     * is gone. Both are `PlanSelector.select` results rather than the scorer's top-ranked
+     * candidate, because the selector rejects candidates structurally before scoring runs and
+     * the two differ on real data — reading the ranking would credit a behaviour with
+     * decisions the planner would never have emitted.
+     */
+    data class FactorMove(
+        val itemId: String,
+        val with: String,
+        val withMethod: String,
+        val without: String,
+        val withoutMethod: String,
+    )
+
+    /**
+     * What each of the four unpinned [SelectionScorer] behaviours actually decides on this
+     * graph: the items whose committed source changes when it is switched off.
+     *
+     * This is the measurement MCO-490 needs before any constant is deleted. An empty list for
+     * a factor means it is inert here and its deletion costs nothing observable. A non-empty
+     * one is a list of decisions that have to be re-made — by the cost model's arithmetic if
+     * it reaches the same answer, or by a ported rule if it does not.
+     *
+     * Read-only: every run constructs its own [PlanSelector] state and nothing is cached
+     * across calls, so no ranking anywhere else is affected.
+     */
+    fun factorImpact(
+        graph: ItemSourceGraph,
+        items: List<MinecraftId>,
+        demand: Long,
+        context: PlanContext = PlanContext(),
+    ): Map<ScorerFactor, List<FactorMove>> {
+        fun committed(item: MinecraftId, mutation: ScorerMutation): SourceNode? =
+            PlanSelector.select(
+                graph,
+                listOf(PlanTarget(item, demand)),
+                context = context.copy(scorerMutation = mutation),
+            ).nodes[item.id]?.source
+
+        val shipped = items.associate { it.id to committed(it, ScorerMutation.NONE) }
+
+        return ScorerFactor.entries.associateWith { factor ->
+            val mutation = factor.mutate(context.scorerMutation)
+            items.mapNotNull { item ->
+                val before = shipped[item.id] ?: return@mapNotNull null
+                val after = committed(item, mutation) ?: return@mapNotNull null
+                if (before.getKey() == after.getKey()) null
+                else FactorMove(
+                    itemId = item.id,
+                    with = before.getKey(),
+                    withMethod = before.getMethodLabel(),
+                    without = after.getKey(),
+                    withoutMethod = after.getMethodLabel(),
+                )
+            }
+        }
+    }
+
+    /**
      * True when the item's *only* producing source is breaking its own placed block —
      * "to get a stripped oak log, break a stripped oak log."
      *
