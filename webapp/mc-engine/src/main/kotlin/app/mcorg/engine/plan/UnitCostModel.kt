@@ -46,8 +46,10 @@ import app.mcorg.engine.model.SourceNode
  *   the effort of breaking it, which is strictly worse than any other route to the item.
  *   `SELF_BLOCK_LOOT_PENALTY = 200` is not needed.
  * - **Low-yield drops.** Dividing by expected yield *is* the penalty: 0.33 sticks per witch
- *   kill costs three kills. `LOW_YIELD_PENALTY_WEIGHT` and its cap are not needed — and both
- *   turned out to be unpinned by any test, so nothing records what they were meant to do.
+ *   kill costs three kills. `LOW_YIELD_PENALTY_WEIGHT` is not needed — and it turned out to be
+ *   unpinned by any test, so nothing records what it was meant to do. Its ceiling is already
+ *   gone: it saturated three items' candidates to a dead tie and the pick fell through to the
+ *   alphabetical source key, which is how a music disc came to be sourced from an ancient city.
  * - **Depth and ingredient count.** Both are crude proxies for the summed cost of the chain,
  *   which this sums directly. Neither is needed, which matters because depth was measured to
  *   be a flat `d1` on 96 of 98 real candidates — a constant wearing a metric's clothes.

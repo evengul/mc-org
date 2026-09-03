@@ -92,13 +92,6 @@
     overflow: hidden;
 }
 
-.resource-list__empty {
-    padding: var(--space-5);
-    text-align: center;
-    color: var(--text-muted);
-    font-size: var(--text-sm);
-}
-
 .resource-list__no-match {
     padding: var(--space-4);
     color: var(--text-muted);
@@ -170,24 +163,6 @@
     text-align: center;
     flex: 1;
     margin: 0 var(--space-2);
-}
-
-/* Plan view stub */
-.plan-view-stub {
-    padding: var(--space-8) var(--space-4);
-    text-align: center;
-}
-
-.plan-view-stub__title {
-    font-family: var(--font-ui);
-    font-size: 18px;
-    color: var(--text-primary);
-    margin-bottom: var(--space-3);
-}
-
-.plan-view-stub__body {
-    color: var(--text-muted);
-    font-size: var(--text-sm);
 }
 
 /* Plan view empty state */
@@ -620,7 +595,7 @@
     padding: var(--space-3);
     border: 1px solid var(--border);
     border-left: 3px solid var(--accent);
-    background: var(--surface-raised);
+    background: var(--bg-raised);
 }
 
 .plan-farm-scale__lead {
@@ -647,20 +622,20 @@
 .plan-farm-scale__quantity {
     min-width: 6ch;
     text-align: right;
-    font-family: var(--font-mono);
+    font-family: var(--font-ui);
     font-size: var(--text-sm);
     font-variant-numeric: tabular-nums;
-    color: var(--text);
+    color: var(--text-primary);
 }
 
 .plan-farm-scale__name {
     font-family: var(--font-body);
     font-size: var(--text-sm);
-    color: var(--text);
+    color: var(--text-primary);
 }
 
 .plan-farm-scale__badge {
-    background: var(--accent-subtle, transparent);
+    background: var(--accent-muted);
     border: 1px solid var(--accent);
     color: var(--accent);
 }
@@ -836,10 +811,28 @@
 }
 
 /* The number is why the ordering is trustworthy, so it reads as data, not prose. */
+/* The question row is two lines now (MCO-504): what is being decided, then the question. The
+   quantity and the option list belong together on the first — a question's size is part of
+   reading it — and the question sits under them in muted body text, so the eye lands on the
+   material first and the prompt second. */
+.plan-attention__line {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-1);
+    flex-wrap: wrap;
+}
+
+.plan-attention__question {
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    color: var(--text-muted);
+    margin-top: 2px;
+}
+
 .plan-attention__quantity {
-    font-family: var(--font-mono);
+    font-family: var(--font-ui);
     font-variant-numeric: tabular-nums;
-    color: var(--text);
+    color: var(--text-primary);
 }
 
 .plan-attention__rest {
@@ -994,7 +987,7 @@
 
 .next-up__qty {
     font-family: var(--font-ui);
-    font-size: var(--text-lg, 18px);
+    font-size: var(--text-lg);
     font-weight: 600;
     color: var(--text-primary);
     font-variant-numeric: tabular-nums;
@@ -1002,7 +995,7 @@
 
 .next-up__item {
     font-family: var(--font-ui);
-    font-size: var(--text-lg, 18px);
+    font-size: var(--text-lg);
     color: var(--accent);
     text-decoration: none;
 }

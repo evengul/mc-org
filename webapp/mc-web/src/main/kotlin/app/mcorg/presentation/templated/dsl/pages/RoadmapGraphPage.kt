@@ -20,12 +20,10 @@ import app.mcorg.presentation.templated.dsl.pages.newProjectAffordance
 import kotlinx.html.FlowContent
 import kotlinx.html.a
 import kotlinx.html.div
-import kotlinx.html.h1
 import kotlinx.html.id
 import kotlinx.html.main
 import kotlinx.html.p
 import kotlinx.html.span
-import kotlinx.html.stream.createHTML
 
 /**
  * Everything the graph view renders, assembled by the handler so the template stays pure.
@@ -103,42 +101,15 @@ fun roadmapGraphPage(
             worldBar(view.roadmap.worldId, WorldTab.ROADMAP) {
                 newProjectAffordance(view.roadmap.worldId)
             }
+            // The title sits outside the card, as on the table view and every other page
+            // (MCO-505). It used to be an `.rmg-section` within it.
+            roadmapTitle(view.roadmap.worldId, headerMeta(view), graphActive = true)
             div("rmg-card") {
                 id = "roadmap-graph"
-                pageHeaderSection(view)
                 startHereSection(view)
                 graphSection(view)
                 unchainedSection(view)
                 producingSection(view)
-            }
-        }
-    }
-}
-
-/** The graph card alone, for the view switch's HTMX swap. */
-fun roadmapGraphFragment(view: RoadmapGraphView): String = createHTML().div("rmg-card") {
-    id = "roadmap-graph"
-    pageHeaderSection(view)
-    startHereSection(view)
-    graphSection(view)
-    unchainedSection(view)
-    producingSection(view)
-}
-
-// ---- 1. page header --------------------------------------------------------------------
-
-private fun FlowContent.pageHeaderSection(view: RoadmapGraphView) {
-    div("rmg-section rmg-head") {
-        div("rmg-head__titles") {
-            h1("rmg-head__title") { +"Roadmap" }
-            div("rmg-head__meta") { +headerMeta(view) }
-        }
-        div("rmg-viewswitch") {
-            span("rmg-viewswitch__label") { +"VIEW" }
-            span("rmg-viewswitch__seg rmg-viewswitch__seg--active") { +"Graph" }
-            a(classes = "rmg-viewswitch__seg") {
-                href = "/worlds/${view.roadmap.worldId}/roadmap?view=table"
-                +"Table"
             }
         }
     }

@@ -77,7 +77,6 @@ select.form-control option {
 
 /* --- Labels (scoped to avoid global override) --- */
 
-.wizard-stage-form label:not(.filter-radio-label):not(.filter-checkbox-label),
 .wizard-fields label:not(.filter-radio-label):not(.filter-checkbox-label),
 .idea-form__required label:not(.filter-radio-label):not(.filter-checkbox-label),
 .idea-form__section-body label:not(.filter-radio-label):not(.filter-checkbox-label) {

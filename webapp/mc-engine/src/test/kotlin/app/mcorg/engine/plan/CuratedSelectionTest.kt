@@ -62,10 +62,18 @@ class CuratedSelectionTest {
         )
     )
 
-    private fun chestLoot(path: String, produces: String, quantity: Int = 1) = ResourceSource(
+    private fun chestLoot(
+        path: String,
+        produces: String,
+        quantity: Int = 1,
+        expectedYield: Double? = null
+    ) = ResourceSource(
         type = ResourceSource.SourceType.LootTypes.CHEST,
         filename = "chests/$path.json",
-        producedItems = listOf(item(produces) to ResourceQuantity.ItemQuantity(quantity))
+        producedItems = listOf(
+            item(produces) to (expectedYield?.let { ResourceQuantity.ExpectedYield(it) }
+                ?: ResourceQuantity.ItemQuantity(quantity))
+        )
     )
 
     private fun plan(
@@ -865,6 +873,37 @@ class CuratedSelectionTest {
         assertEquals(
             ActivityGroup.GATHER,
             result.activityList.first { it.item.id == "minecraft:water" }.group
+        )
+    }
+
+    /**
+     * MCO-490. A rare drop is rare *by how much*, and the planner has to keep that.
+     *
+     * `LOW_YIELD_PENALTY_CAP = 60` used to clamp the sub-one-yield penalty at exactly the loot
+     * base score, so every candidate below a 0.25 yield landed on a score of 0 — not expensive,
+     * indistinguishable. On real 1.21.4 data three items had *every* candidate flattened that
+     * way (`base 60  lowYield -60`), and the pick then fell through to the alphabetical
+     * source-key tie-break. That is how `music_disc_13` came to be sourced from
+     * `chests/ancient_city.json` ahead of `simple_dungeon` and `woodland_mansion`: "a" sorts
+     * first, and the ancient city is the most expensive chest in the game to reach.
+     *
+     * The fixture is that shape reduced: two chests, one 25x rarer, alphabetically ordered so
+     * the rare one wins any tie. Nothing in the suite reached the clamp before this — the only
+     * expected yields anywhere were 0.33, 0.5 and 1.0, none of which bind it.
+     */
+    @Test
+    fun `a much rarer chest loses to a common one, rather than tying at the cap`() {
+        val sources = listOf(
+            chestLoot("ancient_city", "minecraft:music_disc_13", expectedYield = 0.008),
+            chestLoot("simple_dungeon", "minecraft:music_disc_13", expectedYield = 0.2),
+        )
+
+        val result = plan(sources, "minecraft:music_disc_13")
+
+        assertEquals(
+            "minecraft:chest:chests/simple_dungeon.json",
+            result.sourceKeyOf("minecraft:music_disc_13"),
+            "the 1-in-5 chest must beat the 1-in-125 one; tying them hands the pick to the id sort"
         )
     }
 }

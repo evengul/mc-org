@@ -7,7 +7,9 @@ import app.mcorg.domain.model.resources.ResourceSource.SourceType
 import app.mcorg.engine.model.ItemSourceGraph
 import app.mcorg.engine.model.SourceNode
 import app.mcorg.engine.plan.EffortTable
+import app.mcorg.engine.plan.PlanContext
 import app.mcorg.engine.plan.PlanSelector
+import app.mcorg.engine.plan.ScorerFactor
 import app.mcorg.engine.plan.PlanTarget
 import app.mcorg.engine.plan.ScoreDiagnostics
 import app.mcorg.engine.plan.UnitCostModel
@@ -42,6 +44,10 @@ import kotlin.system.exitProcess
  * # try a table by hand, or ask who a source type actually wins
  * mvn -pl mc-web exec:java@cost-diagnostics -Dexec.args="world=3 set=chest:30 picks=chest"
  * mvn -pl mc-web exec:java@cost-diagnostics -Dexec.args="world=3 table=sketch"
+ *
+ * # what do the four *unpinned* scorer behaviours actually decide, and does the cost model
+ * # reach the same answer without them?
+ * mvn -pl mc-web exec:java@cost-diagnostics -Dexec.args="world=3 demand=64 factors"
  * ```
  *
  * Args: `world=<id>` / `version=<v>` to pick the graph, `demand=<n>` (the shipped scorer is
@@ -51,7 +57,9 @@ import kotlin.system.exitProcess
  * with optional `values=`, `set=<type>:<minutes>` to override the table without rebuilding,
  * `table=sketch|calibrated`, `picks=<type>` to list what a source type wins and by how much,
  * and `projects=<ids>` to carry a real project's item set through every row — the whole-graph
- * agreement rate can improve while the plan someone is actually building gets worse.
+ * agreement rate can improve while the plan someone is actually building gets worse. And
+ * `factors` for the knowledge-versus-tuning differential over the four unpinned behaviours
+ * (see [app.mcorg.engine.plan.ScorerMutation]).
  */
 fun main(args: Array<String>) {
     val exitCode = runBlocking {
@@ -68,12 +76,21 @@ fun main(args: Array<String>) {
     exitProcess(exitCode)
 }
 
+/** Items whose price a player has strong intuitions about - the useful ones to argue over. */
+private val DEFAULT_WHY = listOf(
+    "diamond", "iron_ingot", "obsidian", "gold_ingot", "emerald", "coal",
+    "oak_planks", "stick", "torch", "glass", "white_wool", "arrow",
+).map { "minecraft:$it" }.toSet()
+
 private suspend fun run(args: List<String>): Int {
     var version: String? = null
     var worldId: Int? = null
     var demand = 64L
     var verbose = false
     var grain = false
+    var factors = false
+    var why = false
+    var demandSpread: List<Long>? = null
     var sweep = false
     var sweepFilter: String? = null
     var picksOf: String? = null
@@ -91,6 +108,10 @@ private suspend fun run(args: List<String>): Int {
             arg.startsWith("demand=") -> demand = arg.substringAfter('=').toLongOrNull() ?: demand
             arg == "verbose" -> verbose = true
             arg == "grain" -> grain = true
+            arg == "factors" -> factors = true
+            arg == "why" -> why = true
+            arg.startsWith("demands=") ->
+                demandSpread = arg.substringAfter('=').split(',').mapNotNull { it.trim().toLongOrNull() }
             arg == "sweep" -> sweep = true
             arg.startsWith("sweep=") -> { sweep = true; sweepFilter = arg.substringAfter('=') }
             arg.startsWith("picks=") -> picksOf = arg.substringAfter('=')
@@ -161,6 +182,223 @@ private suspend fun run(args: List<String>): Int {
         moved.sortedBy { it.first }.forEach { (id, a, b) ->
             println("  %-34s %s".format(id.substringAfter(':'), "$a  ->  $b"))
         }
+        return 0
+    }
+
+    // `why <item...>`: the price, broken into the things it is made of. The effort table is the
+    // model's only felt input, and no one can say whether "0.05 minutes per block" is right --
+    // that is not a claim about anything a player has ever noticed. What a player CAN judge is
+    // the number it produces: "a diamond costs 2.1 minutes" is either true or obviously false,
+    // and saying which requires no knowledge of the model at all. So this prints the arithmetic
+    // in the same unit the argument has to happen in.
+    if (why) {
+        // Named items are looked up in the graph directly, NOT through `subjects` — that list is
+        // filtered to items with more than one source, for the comparison this CLI mostly does.
+        // A single-source item is precisely one you might want priced (it is the whole answer for
+        // that item), and asking for `red_sand` and silently getting nothing back is worse than
+        // an error. Found by asking for exactly that.
+        val roots = if (only.isEmpty()) {
+            graph.getAllItems().map { it.item }.filter { it.id in DEFAULT_WHY }
+        } else {
+            graph.getAllItems().map { it.item }.filter { it.id in only && it !is MinecraftTag }
+        }
+        val missing = only.filterNot { id -> roots.any { it.id == id } }
+        if (missing.isNotEmpty()) {
+            println()
+            println("  not in this graph: ${missing.joinToString(", ") { it.substringAfter(':') }}")
+        }
+
+        println()
+        println("What each price is made of - $resolvedVersion, table '$tableName'")
+        println("Every line is minutes of player time. Argue with the ones that look wrong.")
+
+        fun explain(item: MinecraftId, depth: Int, seen: MutableSet<String>) {
+            val pad = "  ".repeat(depth + 1)
+            val total = model.cost[item.id] ?: UnitCostModel.UNREACHABLE
+            if (total >= UnitCostModel.UNREACHABLE) {
+                println("$pad${item.id.substringAfter(':')}  no finite route")
+                return
+            }
+            val source = model.best(item)
+            if (source == null) {
+                println("$pad${item.id.substringAfter(':')}  ${fmt(total)}  (supplied or terminal)")
+                return
+            }
+
+            val perAttempt = model.effortTable.of(source)
+            val bareAction = model.effortTable.of(source.sourceType)
+            val factor = if (bareAction > 0) perAttempt / bareAction else 1.0
+            val out = graph.getItemNode(item)?.let { node ->
+                graph.getExpectedYield(source, node)?.takeIf { it > 0.0 }
+                    ?: graph.getProducedQuantity(source, node).coerceAtLeast(1).toDouble()
+            } ?: 1.0
+
+            println("$pad${item.id.substringAfter(':')}  ${fmt(total)}  via ${source.getMethodLabel()}  ${source.filename}")
+            val factorNote = if (kotlin.math.abs(factor - 1.0) < 0.001) ""
+            else "  x %.4g (how hard this one is to reach)".format(factor)
+            val yieldNote = if (kotlin.math.abs(out - 1.0) < 0.001) "" else "  / %.4g per attempt".format(out)
+            println("$pad  the action: %.4g min$factorNote$yieldNote  =  %s".format(bareAction, fmt(perAttempt / out)))
+
+            val requirements = graph.getRequiredItems(source)
+            for (requirement in requirements) {
+                val each = model.cost[requirement.itemId] ?: UnitCostModel.UNREACHABLE
+                val needed = graph.getRequiredQuantity(source, requirement).coerceAtLeast(1)
+                val share = if (each >= UnitCostModel.UNREACHABLE) Double.NaN else (needed / out) * each
+                println(
+                    "$pad  needs %d %s at %s each  =  %s".format(
+                        needed, requirement.itemId.substringAfter(':'), fmt(each), fmt(share)
+                    )
+                )
+                // Expand each ingredient once. Deeper than that and the chain stops being
+                // readable, which defeats the point of printing it at all.
+                if (depth < 1 && seen.add(requirement.itemId)) explain(requirement.item, depth + 2, seen)
+            }
+        }
+
+        for (item in roots.sortedBy { it.id }) {
+            println()
+            explain(item, 0, HashSet())
+        }
+        println()
+        println(
+            """
+            How to use this. Read the totals first and find one you disagree with, then read the
+            lines under it to see which number produced it. The "how hard this one is to reach"
+            multiplier is the curated half of the table -- availability is not in Mojang's data at
+            all, so every one of those is a guess someone wrote down and you can overrule. The
+            per-attempt yields and the ingredient quantities are not guesses; they come from the
+            game's own files.
+            """.trimIndent()
+        )
+        return 0
+    }
+
+    // `demands=10,64,256,1000`: how much of the shipped planner's answer actually turns on
+    // demand? The scorer is demand-sensitive through RECIPE_THRESHOLD_BONUS and the cost model
+    // is not, so swapping models drops that sensitivity entirely. Whether that matters is a
+    // question about how many real items move across the threshold -- which nothing had counted.
+    val spread = demandSpread
+    if (spread != null) {
+        val levels = spread.sorted()
+        fun committedAt(item: MinecraftId, d: Long): String? =
+            PlanSelector.select(graph, listOf(PlanTarget(item, d))).nodes[item.id]?.source?.getKey()
+
+        fun label(key: String?): String = key
+            ?.let { graph.getSourceNode(it.substringBeforeLast(':'), it.substringAfterLast(':')) }
+            ?.getMethodLabel() ?: "none"
+
+        val perItem = subjects.associateWith { item -> levels.map { committedAt(item, it) } }
+        val movers = perItem.filterValues { picks -> picks.distinct().size > 1 }
+
+        println()
+        println("Demand sensitivity of the SHIPPED scorer on $resolvedVersion")
+        println("Demands: ${levels.joinToString(", ")} - recipeThreshold ${PlanContext().recipeThreshold}")
+        println()
+        println("  ${movers.size} of ${subjects.size} items change their committed source with demand")
+        println()
+        var matchesLow = 0
+        var matchesHigh = 0
+        var matchesNeither = 0
+        for (item in movers.keys.sortedBy { it.id }) {
+            val picks = perItem.getValue(item)
+            val steps = levels.zip(picks)
+                .fold(mutableListOf<Pair<Long, String?>>()) { acc, cur ->
+                    if (acc.isEmpty() || acc.last().second != cur.second) acc.add(cur)
+                    acc
+                }
+                .joinToString("  ->  ") { (d, key) -> "d$d ${label(key)}" }
+            // The cost model has one answer at every demand. Which end of the shipped swing is
+            // it? If it is the bulk end, the threshold was correcting a wrong small-demand
+            // default rather than modelling an effect of demand, and dropping the sensitivity
+            // costs nothing -- it keeps the answer the threshold was reaching for, at every size.
+            val costPick = model.best(item)?.getKey()
+            val verdict = when (costPick) {
+                picks.first() -> { matchesLow++; "cost model = the SMALL-demand answer" }
+                picks.last() -> { matchesHigh++; "cost model = the BULK answer" }
+                else -> { matchesNeither++; "cost model = ${label(costPick)}, neither end" }
+            }
+            println("  %-28s %-46s %s".format(item.id.substringAfter(':'), steps, verdict))
+        }
+        println()
+        println(
+            "  of the ${movers.size} movers: $matchesHigh land on the bulk answer, " +
+                "$matchesLow on the small-demand answer, $matchesNeither on neither"
+        )
+        println()
+        println(
+            """
+            What this costs if the cost model replaces the scorer. Every item listed above is one
+            whose advice currently changes as a project grows, and would stop changing. Whether
+            that is a loss depends on whether the change was right: the recipe-threshold bonus
+            says "at bulk, craft rather than gather repeatedly", which is a real effect, but it
+            is applied as one step at one hard-coded demand rather than as a cost that varies.
+            An item that is NOT listed here is one where demand-sensitivity is already costing
+            nothing and buying nothing.
+            """.trimIndent()
+        )
+        return 0
+    }
+
+    // `factors`: what do the four *unpinned* scorer behaviours actually decide, and does the
+    // cost model reach the same answer without them? This is the knowledge-versus-tuning test
+    // MCO-490 needs before a constant is deleted. A behaviour that moves nothing was tuning.
+    // A behaviour that moves items the cost model then agrees with was tuning too — the
+    // arithmetic gets there on its own. Only the third column, where the cost model lands
+    // somewhere else, is a fact about the game that would be lost.
+    if (factors) {
+        val impact = ScoreDiagnostics.factorImpact(graph, subjects, demand)
+        println()
+        println("The four unpinned scorer behaviours, measured on $resolvedVersion at demand $demand")
+        println("(${subjects.size} items with more than one source)")
+        for (factor in ScorerFactor.entries) {
+            val moves = impact[factor].orEmpty()
+            println()
+            println("── ${factor.label} — ${moves.size} item${if (moves.size == 1) "" else "s"} move")
+            println("   ${factor.describe}")
+            if (moves.isEmpty()) {
+                println("   INERT on this graph: switching it off changes no committed source.")
+                continue
+            }
+            var costAgreesWithShipped = 0
+            var costAgreesWithMutant = 0
+            var costSaysNeither = 0
+            for (move in moves.sortedBy { it.itemId }) {
+                val item = subjects.first { it.id == move.itemId }
+                val costPick = model.best(item)?.getKey()
+                val verdict = when (costPick) {
+                    move.with -> { costAgreesWithShipped++; "cost model agrees with the guard" }
+                    move.without -> { costAgreesWithMutant++; "not reproduced — cost model lands where the guard is off" }
+                    else -> { costSaysNeither++; "not reproduced — cost model picks a third source" }
+                }
+                println(
+                    "   %-30s %-16s -> %-16s  %s".format(
+                        move.itemId.substringAfter(':'), move.withMethod, move.withoutMethod, verdict
+                    )
+                )
+            }
+            println(
+                "   verdict: $costAgreesWithShipped of ${moves.size} reproduced by arithmetic; " +
+                    "${costAgreesWithMutant + costSaysNeither} not reproduced " +
+                    "($costAgreesWithMutant land where the guard is off, $costSaysNeither elsewhere)"
+            )
+        }
+        println()
+        println(
+            """
+            How to read this. INERT means the behaviour decides nothing *on this graph at this
+            demand* — which is a fact about the run, not about the behaviour. Two of the four are
+            inert only because of how they were asked: the mineable guard sits behind a demand
+            check, so it can decide nothing below recipeThreshold; and 1.21.4 has no trade sources
+            at all, so the trade guard cannot bite there. Run both demands and both a 1.21.x and a
+            26.x version before calling anything inert.
+
+            "Reproduced by arithmetic" means the cost model reaches the shipped answer without the
+            rule: the constant was tuning, and deleting it costs nothing. "Not reproduced" is the
+            column to argue about — but it is not automatically a regression. It says only that the
+            two models differ there; which one is right is a judgement about the game, and the cost
+            column in the main report is what to judge it on.
+            """.trimIndent()
+        )
         return 0
     }
 

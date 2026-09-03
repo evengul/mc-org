@@ -53,30 +53,10 @@
 
 /* 1. Page header -------------------------------------------------------------------- */
 
-.rmg-head {
-    display: flex;
-    align-items: flex-end;
-    justify-content: space-between;
-    gap: var(--space-5);
-    padding-bottom: var(--space-4);
-}
-
-.rmg-head__titles { display: flex; flex-direction: column; gap: var(--space-1); }
-
-.rmg-head__title {
-    margin: 0;
-    font-family: var(--font-ui);
-    font-size: 22px;
-    font-weight: 600;
-    letter-spacing: -0.01em;
-    color: var(--text-primary);
-}
-
-.rmg-head__meta {
-    font-family: var(--font-ui);
-    font-size: 12px;
-    color: var(--text-muted);
-}
+/* .rmg-head / __titles / __title / __meta are gone (MCO-505). The roadmap's title, meta line
+   and view switcher are now one definition shared by both views -- `.roadmap-title` in
+   roadmap.css, on the page above this card rather than inside it. These four also carried
+   hardcoded 22px and 12px where the shared one uses --text-xl and --text-xs. */
 
 /* 6px radius, not pill: Seam reserves pill radius for badges and the Plan/Execute
    toggle, and this is neither. */
@@ -464,8 +444,6 @@ a.rmg-node:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-mut
 
 @media (max-width: 768px) {
     .rmg-section { padding: var(--space-4); }
-
-    .rmg-head { flex-direction: column; align-items: flex-start; gap: var(--space-3); }
 
     .rmg-start { grid-template-columns: 1fr; }
 

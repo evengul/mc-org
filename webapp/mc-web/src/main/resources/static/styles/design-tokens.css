@@ -75,6 +75,11 @@
        it still reads as wheat-gold: 4.65 / 5.33 / 5.66 on base / surface / raised. */
     --amber: #855A10;          /* wheat-gold — warning */
     --red: #A6321F;            /* redstone — danger */
+    /* Danger hover. Darker than --red, mirroring --accent -> --accent-hover; replaces a
+       hardcoded #cc4545 (MCO-388) that was *lighter* than the rest state and dropped
+       cream-on-red from 6.34:1 to 4.66:1 on hover — contrast fell exactly when the
+       control was being pointed at. This is 8.03:1. */
+    --red-hover: #8B2A1A;
     --progress: #4F7A2B;       /* grass — completion is status, not brand */
     --green-bg: #DEE8CB;
     --red-bg: #F0DACF;
@@ -85,6 +90,20 @@
     --text-base: 15px;
     --text-ui: 13px;
     --text-label: 11px;
+    /* The two heading steps. Both were referenced before they existed (MCO-388), so the
+       call sites rendered at the *inherited* size, not the intended one — a silent bug,
+       not a missing nicety.
+       --text-lg had forked in its inline fallbacks: 18px (project-detail .next-up__qty /
+       __item) vs 17px (project-list .fl-hero__name). 18px wins — it is a real step in the
+       de-facto scale (5 hardcoded uses) where 17px had 2, and the 1px shift is invisible.
+       --text-xl absorbs the former --text-heading, which was a third name for the same
+       step: all four call sites (.roadmap-title__name, .import-review__heading,
+       .idea-form__title, .idea-detail__name) are --font-ui / 600 / --text-primary page
+       titles. One step, one name. --text-heading is deliberately NOT defined; it was
+       documented in docs-product but never existed, and reviving it would restock the
+       synonym. The page-level h1 (.page-heading__title) stays a step above at 24px. */
+    --text-lg: 18px;
+    --text-xl: 20px;
 
     /* Spacing (4px base) */
     --space-1: 4px;
@@ -100,7 +119,26 @@
     --max-width: 1080px;
     --breakpoint-mobile: 768px;
     --radius: 6px;
+    /* Fully-round, for badges/chips/tabs only. Buttons keep --radius — "no pill
+       border-radius on buttons" is a standing rule (docs-product). Five sites still
+       hardcode 999px (badge, drill, tabs, project-detail x2); they are a follow-up. */
+    --radius-pill: 999px;
     --transition-base: 150ms ease-in-out;
+
+    /* Elevation. Ink-coloured (rgba of --text-primary #2A2218), never neutral grey —
+       a shadow on warm paper reads as a smudge of the same ink, not a grey halo.
+       Two levels only: --shadow-card for a resting card, --shadow-pop for a layer
+       floating above the page (dropdown, popover).
+       Both had forked across their inline fallbacks (MCO-388):
+       - card: 0 1px 2px /0.06 (worlds .world-hero) vs `none` (project-list .fl-hero).
+         The real value wins. `none` was a placeholder from the oldest of the two files
+         (PR #307, 2026-06-13) written before the token was conceived, and the two
+         selectors are the same component role — the page-leading hero card.
+       - pop:  /0.18 (np-menu) vs /0.16 (worlds .version-menu). 0.18 wins as the more
+         recent deliberate value (PR #434, 2026-09-02); both are dropdown panels and
+         the 0.02 delta is below the perceptual threshold either way. */
+    --shadow-card: 0 1px 2px rgba(42, 34, 24, 0.06);
+    --shadow-pop: 0 4px 16px rgba(42, 34, 24, 0.18);
 }
 
 /* --- Base body styles --- */
@@ -126,7 +164,33 @@ main {
     color: var(--text-muted);
 }
 
-/* --- Layout utilities (Tailwind-style) --- */
+/*
+ * Hidden on screen, still announced by screen readers. For labels that a visible column heading
+ * already covers — `display: none` would remove them from the accessibility tree entirely.
+ *
+ * MCO-394 deleted this as dead: zero call sites in mc-org, verified by grep. That was true and
+ * still is. It is restored because this file is not mc-org's — it is the *shared* design-system
+ * contract, vendored verbatim by `seam-server-dashboard` (`npm run sync-tokens`) and inlined by
+ * `seam-landing`. The dashboard uses `.visually-hidden` in three places, and `dashboard.css`
+ * says so in a comment: its skip-link "rides .visually-hidden until focused, then un-clips".
+ * Syncing the deletion downstream would have unhidden a skip link and two form labels.
+ *
+ * So the rule for this file is not "delete what mc-org does not call" but "delete what no Seam
+ * surface calls" — and for an accessibility affordance, prefer keeping it over proving that.
+ */
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* --- Layout primitives --- */
 .container {
     max-width: var(--max-width);
     margin-inline: auto;
@@ -152,82 +216,12 @@ main {
     display: none;
 }
 
-/*
- * Hidden on screen, still announced by screen readers. For labels that a visible column heading
- * already covers — `display: none` would remove them from the accessibility tree entirely.
- */
-.visually-hidden {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    margin: -1px;
-    padding: 0;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
-    border: 0;
-}
-
-.flex {
-    display: flex;
-}
-
-.flex-col {
-    flex-direction: column;
-}
-
-.items-center {
-    align-items: center;
-}
-
-.justify-between {
-    justify-content: space-between;
-}
-
-.gap-1 {
-    gap: var(--space-1);
-}
-
-.gap-2 {
-    gap: var(--space-2);
-}
-
-.gap-3 {
-    gap: var(--space-3);
-}
-
-.gap-4 {
-    gap: var(--space-4);
-}
-
-.gap-5 {
-    gap: var(--space-5);
-}
-
-.w-full {
-    width: 100%;
-}
+/* The Tailwind-style utility set that used to live here (.flex, .flex-col, .items-center,
+   .justify-between, .gap-1..5, .w-full, .mt-5, .mb-4, .mb-5, .p-4, .p-5) was deleted in
+   MCO-394 with zero users. Layout in this codebase is done by the component's own class,
+   not composed from utilities, so they never caught on. .mt-4 survives — styleguide.html
+   uses it. .stack / .cluster (common.css) are the sanctioned ad-hoc layout helpers. */
 
 .mt-4 {
     margin-top: var(--space-4);
-}
-
-.mt-5 {
-    margin-top: var(--space-5);
-}
-
-.mb-4 {
-    margin-bottom: var(--space-4);
-}
-
-.mb-5 {
-    margin-bottom: var(--space-5);
-}
-
-.p-4 {
-    padding: var(--space-4);
-}
-
-.p-5 {
-    padding: var(--space-5);
 }

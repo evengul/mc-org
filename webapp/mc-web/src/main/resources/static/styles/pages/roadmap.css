@@ -115,6 +115,14 @@
     margin-top: var(--space-1);
 }
 
+/* Stack rather than wrap on narrow screens. `flex-wrap` alone drops the view switcher onto its
+   own line already, but leaves it right-aligned under a left-aligned title, which reads as two
+   unrelated things. The graph view's old `.rmg-head` stacked explicitly (MCO-505); keeping that
+   here is what makes one definition safe for both. */
+@media (max-width: 768px) {
+    .roadmap-title { flex-direction: column; align-items: flex-start; gap: var(--space-3); }
+}
+
 /* The table can outgrow the viewport sideways; it scrolls in its own box rather
    than making the page scroll horizontally. */
 .roadmap-table-wrap {

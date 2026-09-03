@@ -86,22 +86,7 @@ fun roadmapPage(
             worldBar(roadmap.worldId, WorldTab.ROADMAP) {
                 newProjectAffordance(roadmap.worldId)
             }
-            div("roadmap-title") {
-                div {
-                    h1("roadmap-title__name") { +"Roadmap" }
-                    div("roadmap-title__meta") { +roadmapSummary(roadmap) }
-                }
-                // The way back to the graph (MCO-469). The table is no longer the default
-                // view, so it has to offer the return trip or it is a dead end.
-                div("rmg-viewswitch") {
-                    span("rmg-viewswitch__label") { +"VIEW" }
-                    a(classes = "rmg-viewswitch__seg") {
-                        href = "/worlds/${roadmap.worldId}/roadmap"
-                        +"Graph"
-                    }
-                    span("rmg-viewswitch__seg rmg-viewswitch__seg--active") { +"Table" }
-                }
-            }
+            roadmapTitle(roadmap.worldId, roadmapSummary(roadmap), graphActive = false)
 
             if (roadmap.isEmpty()) {
                 roadmapEmptyState(roadmap.worldId)
@@ -206,6 +191,47 @@ private fun RoadmapCycleOption.claimText(): String =
     else "the dependency"
 
 /** "12 projects · 3 blocked · 4 layers deep" — straight off the model's own statistics. */
+/**
+ * The roadmap's title, meta line and view switcher — **one definition for both views** (MCO-505).
+ *
+ * These had drifted into two. The table view put this block on the page above its card; the graph
+ * view (MCO-469) made it a section *inside* `.rmg-card`, with its own `rmg-head*` classes, its own
+ * 22px/12px hardcoded sizes, and a `border-bottom` that drew a rule directly above the graph. The
+ * view switcher then moved the reader between two different page shapes for one page, and the
+ * header visibly jumped.
+ *
+ * Outside the card is the version that survives, for the reason the switcher itself gives: it acts
+ * on the whole page, and nesting a control inside the thing it replaces reads as though it scopes
+ * to that thing. It also matches every other page — `.page-heading__title` sits above its content,
+ * not within it.
+ */
+internal fun FlowContent.roadmapTitle(worldId: Int, meta: String, graphActive: Boolean) {
+    div("roadmap-title") {
+        div {
+            h1("roadmap-title__name") { +"Roadmap" }
+            div("roadmap-title__meta") { +meta }
+        }
+        // Both segments are plain links doing a full navigation, in both directions. The table is
+        // no longer the default view, so it has to offer the return trip or it is a dead end.
+        div("rmg-viewswitch") {
+            span("rmg-viewswitch__label") { +"VIEW" }
+            if (graphActive) {
+                span("rmg-viewswitch__seg rmg-viewswitch__seg--active") { +"Graph" }
+                a(classes = "rmg-viewswitch__seg") {
+                    href = "/worlds/$worldId/roadmap?view=table"
+                    +"Table"
+                }
+            } else {
+                a(classes = "rmg-viewswitch__seg") {
+                    href = "/worlds/$worldId/roadmap"
+                    +"Graph"
+                }
+                span("rmg-viewswitch__seg rmg-viewswitch__seg--active") { +"Table" }
+            }
+        }
+    }
+}
+
 private fun roadmapSummary(roadmap: Roadmap): String {
     val stats = roadmap.getStatistics()
     val parts = buildList {

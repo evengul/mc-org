@@ -1,6 +1,7 @@
 package app.mcorg.pipeline.minecraftfiles
 
 import app.mcorg.domain.model.minecraft.Item
+import app.mcorg.domain.model.minecraft.MinecraftTag
 import app.mcorg.domain.model.minecraft.MinecraftVersion
 import app.mcorg.domain.model.minecraft.ServerData
 import app.mcorg.domain.model.resources.ResourceQuantity
@@ -46,6 +47,7 @@ class StoreServerDataIdempotencyTest {
     fun clean() {
         // Reverse dependency order; resource_source children cascade with their parent.
         DatabaseTestExtension.executeSQL("DELETE FROM resource_source WHERE version = '$version'")
+        DatabaseTestExtension.executeSQL("DELETE FROM minecraft_tag WHERE version = '$version'")
         DatabaseTestExtension.executeSQL("DELETE FROM minecraft_items WHERE version = '$version'")
         DatabaseTestExtension.executeSQL("DELETE FROM minecraft_version WHERE version = '$version'")
     }
@@ -114,6 +116,52 @@ class StoreServerDataIdempotencyTest {
 
         assertEquals(listOf("minecraft:stone"), itemIds(), "an empty extraction wiped the catalog")
         assertEquals(1, count("resource_source"), "the wipe cascaded the version's sources away")
+    }
+
+    /**
+     * A tag's name is extraction output too, so an extraction change that renames one has to be
+     * able to land. `ON CONFLICT DO NOTHING` meant it could not: MCO-489 renamed every tag and
+     * bumped ExtractionVersion to force the re-ingest, which then wrote nothing at all because
+     * the rows already existed.
+     */
+    @Test
+    fun `re-ingesting updates a tag whose name extraction changed`() {
+        runBlocking { assertIs<Result.Success<*>>(StoreMinecraftDataStep.process(withTag("Smelts To Glass"))) }
+        assertEquals(listOf("Smelts To Glass"), tagNames())
+
+        runBlocking { assertIs<Result.Success<*>>(StoreMinecraftDataStep.process(withTag("Red Sand or Sand"))) }
+
+        assertEquals(listOf("Red Sand or Sand"), tagNames(), "the renamed tag did not survive re-ingest")
+        assertEquals(1, count("minecraft_tag"), "the rename inserted a second row instead of updating")
+    }
+
+    /**
+     * ExtractMinecraftDataStep lifts every id a source references into `items`, tags included —
+     * that list is what the store step reads, so the tag goes there as well as in the source.
+     */
+    private fun withTag(tagName: String): ServerData {
+        val tag = MinecraftTag(
+            "#minecraft:smelts_to_glass",
+            tagName,
+            listOf(Item("minecraft:sand", "Sand (Block)")),
+        )
+        return data.copy(
+            items = data.items + tag,
+            sources = data.sources + ResourceSource(
+                type = ResourceSource.SourceType.RecipeTypes.SMELTING,
+                filename = "glass.json",
+                producedItems = listOf(Item("minecraft:stone", "Stone") to ResourceQuantity.ItemQuantity(1)),
+                requiredItems = listOf(tag to ResourceQuantity.ItemQuantity(1)),
+            ),
+        )
+    }
+
+    private fun tagNames(): List<String> = runBlocking {
+        DatabaseSteps.query<Unit, List<String>>(
+            sql = SafeSQL.select("SELECT name FROM minecraft_tag WHERE version = ? ORDER BY tag"),
+            parameterSetter = { stmt, _ -> stmt.setString(1, version.toString()) },
+            resultMapper = { rs -> buildList { while (rs.next()) add(rs.getString("name")) } }
+        ).process(Unit).getOrThrow()
     }
 
     private fun itemIds(): List<String> = runBlocking {

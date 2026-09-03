@@ -66,9 +66,15 @@ data class PlanOverrides(
  *   [PlanNodeStatus.OPEN_TAG]; there is deliberately no default, because which wood you farm is
  *   a real preference rather than something to assume. Validate against
  *   [MemberPrior.isKnownSpecies] before storing one.
+ * @param scorerMutation **diagnostics only.** Turns off one of the [SelectionScorer]
+ *   behaviours no test pins, so a differential can measure what it actually decides on the
+ *   real graph (MCO-490). [ScorerMutation.NONE] is the shipped behaviour and the default;
+ *   nothing in production ever passes anything else. See [ScorerMutation] for why this is a
+ *   measurement tool rather than a tuning surface.
  */
 data class PlanContext(
     val recipeThreshold: Int = 100,
     val maxDepth: Int = 16,
-    val woodSpecies: String? = null
+    val woodSpecies: String? = null,
+    val scorerMutation: ScorerMutation = ScorerMutation.NONE
 )
