@@ -168,22 +168,35 @@ class UnitCostModelAdversarialTest {
     }
 
     /**
-     * **Defect 4 — "breaking what you placed can never win" only holds for an exact name match.**
+     * **Defect 4, now fixed — "breaking what you placed can never win" only held for an exact
+     * name match.**
      *
-     * [SelectionScorer.isSelfBlockLoot] compares the loot-table stem to the item id, so it sees
+     * [SelectionScorer.isSelfBlockLoot] compares the loot-table stem to the item id, so it saw
      * `blocks/obsidian.json` for obsidian but not `blocks/ender_chest.json`, which also drops
      * obsidian — eight of it. An ender chest is 8 obsidian plus an eye of ender, so the model
-     * prices obsidian at one eighth of a block-break: 0.01 min, against 0.05 for mining it and
-     * 1.7 min for the chest it comes out of.
+     * priced obsidian at one eighth of a block-break: 0.01 min, against 0.05 for mining it and
+     * 1.7 min for the chest it comes out of. `book` from `blocks/bookshelf.json`, `charcoal`
+     * from a campfire and `soul_soil` from a soul campfire all failed the same way.
      *
-     * The class doc's pack/unpack argument ("the block costs effort + 9*c(ingot), so the route
-     * is always dearer") assumes the packed form has no terminal of its own. Every placed block's
-     * loot table is exactly such a terminal. `book` from `blocks/bookshelf.json` (0.02 min),
-     * `charcoal` from a campfire, `prismarine_crystals` from a sea lantern and `bone_meal` from
-     * a composter all fail the same way.
+     * ## What fixed it, and what did not
+     *
+     * MCO-501 opened proposing a curated "does this block generate naturally?" flag, and that
+     * would **not** have fixed this case: an ender chest does generate, in End city ships. So
+     * would a rule banning the route, which would then have to answer for the bookshelf — where
+     * breaking one you find in a village library is a perfectly ordinary thing to do.
+     *
+     * What was actually wrong is narrower: the route was **free**. `blocks/ender_chest.json` had
+     * a finding factor of 1.0, priced as though ender chests lie about at the rate dirt does.
+     * [StructureDensity] now derives from the server jar that an ender chest is placed only by
+     * `end_cities`, one per 400 chunks and behind a dead dragon, so the route is priced rather
+     * than forbidden — and loses on its merits, by 3.6x.
+     *
+     * Kept and inverted, like Defect 5 below: this is now the regression test for that pricing,
+     * and it still asserts the fact that made the defect findable, which is that breaking the
+     * chest yields eight obsidian for one swing.
      */
     @Test
-    fun `breaking a crafted block undercuts the item it was made from`() {
+    fun `breaking a crafted block no longer undercuts the item it was made from`() {
         val obsidian = item("obsidian")
         val enderChest = item("ender_chest")
         val eye = item("ender_eye")
@@ -197,13 +210,83 @@ class UnitCostModelAdversarialTest {
         val model = UnitCostModel(graph)
 
         assertEquals(
-            "minecraft:block:blocks/ender_chest.json",
+            "minecraft:block:blocks/obsidian.json",
             model.best(obsidian)?.getKey(),
-            "the model mines ender chests for obsidian"
+            "obsidian is mined, not extracted from the chest it is an ingredient of"
         )
         assertTrue(
-            model.cost.getValue(obsidian.id) < model.cost.getValue(enderChest.id) / 8,
-            "and so prices obsidian below one eighth of the chest that contains eight of it"
+            model.cost.getValue(obsidian.id) <
+                UnitCostModel(graph).costOf(
+                    graph.getSourceNode(block.id, "blocks/ender_chest.json")!!, obsidian
+                ),
+            "and the End city route is dearer, rather than unavailable"
+        )
+    }
+
+    /**
+     * The other half of the same fix, and the one that says why it is keyed on *craftable*.
+     *
+     * A structure template names every block it places, which is not the same as the blocks it
+     * gates. A village is built out of cobblestone, sand, dirt and oak logs, all of which are in
+     * `structure-density.txt`'s membership. Pricing a block by the village that contains it is
+     * only right when finding one there is an alternative to *making* it.
+     *
+     * Measured on world 3 when this gate was missing: cobblestone went 0.05 -> 0.43 min, sand
+     * 0.05 -> 0.43, oak_log 0.05 -> 0.62, and dirt rerouted to breaking mycelium — the model
+     * telling a player to find a mushroom island for dirt. Terrain has no recipe, so the gate
+     * excludes exactly that population.
+     */
+    @Test
+    fun `a structure's ordinary building blocks are not priced as structure loot`() {
+        val cobblestone = item("cobblestone")
+        val graph = Fixture().apply {
+            source(block, "blocks/cobblestone.json", cobblestone to 1)
+        }.build()
+
+        val model = UnitCostModel(graph)
+
+        assertEquals(
+            EffortTable.DEFAULT.of(block),
+            model.cost.getValue(cobblestone.id),
+            1e-9,
+            "cobblestone is in villages and is still just a block you break",
+        )
+    }
+
+    /**
+     * The shape MCO-501's structure pricing cannot reach, and why it needed its own branch.
+     *
+     * `soul_soil` was sourced from `blocks/soul_campfire.json` at 0.05 min. A loot source
+     * consumes nothing, so the model paid nothing for the soul campfire — which costs a soul
+     * sand, three sticks and three logs to make. Unlike the ender chest there is no structure to
+     * price the route by: no template in the game places a soul campfire, so the only way to
+     * have one is to build it, and breaking it must therefore cost building it.
+     */
+    @Test
+    fun `breaking a block that only exists because you built it charges what it cost`() {
+        val soulSoil = item("soul_soil")
+        val soulCampfire = item("soul_campfire")
+        val stick = item("stick")
+        val graph = Fixture().apply {
+            source(block, "blocks/soul_sand.json", soulSoil to 1, expectedYield = 0.1)
+            source(crafting, "soul_campfire.json", soulCampfire to 1, soulSoil to 1, stick to 3)
+            source(block, "blocks/stick.json", stick to 1)
+            source(block, "blocks/soul_campfire.json", soulSoil to 1)
+        }.build()
+
+        val model = UnitCostModel(graph)
+        val viaCampfire = model.costOf(
+            graph.getSourceNode(block.id, "blocks/soul_campfire.json")!!, soulSoil
+        )
+
+        assertTrue(
+            viaCampfire > model.cost.getValue(soulCampfire.id),
+            "breaking the campfire costs at least the campfire, not one free block-break",
+        )
+        assertEquals(
+            "minecraft:block:blocks/soul_sand.json",
+            model.best(soulSoil)?.getKey(),
+            "so even a one-in-ten drop beats dismantling something you had to build",
         )
     }
 
