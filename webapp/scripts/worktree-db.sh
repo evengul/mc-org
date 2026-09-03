@@ -118,13 +118,52 @@ WORKTREE_PORT="$(bash "$SCRIPT_DIR/worktree-port.sh" "$WORKTREE_ROOT")"
 
 echo "worktree-db: wrote local.env (inherited from main checkout) pointing at ${DB_HOST}, port ${WORKTREE_PORT}"
 
-# --- Migrate ----------------------------------------------------------------
-echo "worktree-db: running Flyway migrations against the worktree branch..."
+# --- Install the module jars into this worktree's Maven repository ----------
+# The worktree's Maven repository (worktree-m2.sh) symlinks every third-party
+# groupId back to ~/.m2 but keeps app/mcorg as a real, EMPTY directory. Until
+# something installs into it, every `-pl <module>` command in this worktree fails
+# to resolve its siblings — the MCO-285 rule, with an empty repository rather than
+# a stale one. That included the flyway step below, which used to abort this whole
+# script and take the demo-user seeding with it (MCO-510).
+#
+# No `clean`: a fresh worktree has nothing to clean, and Kotlin incremental
+# compilation is off since MCO-378, so an ordinary install is already a full
+# rebuild (~13s for six modules).
+#
+# `-DskipTests` rather than `-Dmaven.test.skip=true`: mc-web depends on
+# app.mcorg:mc-pipeline:jar:tests, so the test jar still has to be built — just
+# not run.
+echo "worktree-db: installing module jars into the worktree's Maven repository..."
+BUILD_OK=1
 (
   cd "$WORKTREE_ROOT/webapp"
-  DB_URL="$JDBC_URL" DB_USER="$DB_ROLE" DB_PASSWORD="$DB_PASSWORD" \
-    mvn -q flyway:migrate -pl mc-web
-)
+  mvn -q -DskipTests install
+) || BUILD_OK=0
+if [ "$BUILD_OK" = 0 ]; then
+  echo "worktree-db: build failed — skipping migrations, but continuing to the seeding below." >&2
+fi
+
+# --- Migrate ----------------------------------------------------------------
+# Deliberately non-fatal, and deliberately ABOVE the seeding rather than fatal
+# before it. The fork is a copy of an already-migrated production branch, so this
+# step is normally a no-op; the seeding is the part a fresh worktree actually
+# cannot do without. Letting a build or migration problem abort the script is what
+# left two worktrees silently unseeded (MCO-510) — the hook discards output, so it
+# looked like provisioning had worked. Failures are reported at the end instead.
+MIGRATE_OK=1
+if [ "$BUILD_OK" = 1 ]; then
+  echo "worktree-db: running Flyway migrations against the worktree branch..."
+  (
+    cd "$WORKTREE_ROOT/webapp"
+    DB_URL="$JDBC_URL" DB_USER="$DB_ROLE" DB_PASSWORD="$DB_PASSWORD" \
+      mvn -q flyway:migrate -pl mc-web
+  ) || MIGRATE_OK=0
+  if [ "$MIGRATE_OK" = 0 ]; then
+    echo "worktree-db: flyway:migrate failed — continuing to the seeding below." >&2
+  fi
+else
+  MIGRATE_OK=0
+fi
 
 
 # --- Seed the demo sign-in user, with access to every world -----------------
@@ -146,14 +185,18 @@ echo "worktree-db: running Flyway migrations against the worktree branch..."
 # Both statements are idempotent (minecraft_profiles.uuid is UNIQUE), so a
 # re-run is a no-op, and a world added later is picked up by re-running.
 DEMO_USER="$(grep -E '^DEMO_USER=' "$ENV_FILE" | tail -n1 | cut -d= -f2- || true)"
+SEED_OK=1
 if [ -z "$DEMO_USER" ]; then
+  # Not a failure: DEMO_USER is optional (documentation/configuration.md), and unset
+  # means demo sign-in is deliberately off. Nothing to seed for.
   echo "worktree-db: DEMO_USER unset in local.env — skipping demo-user seeding."
 elif ! command -v psql >/dev/null 2>&1; then
+  SEED_OK=0
   echo "worktree-db: psql not found — skipping demo-user seeding (sign-in will have no world access)."
 else
   PSQL_URL="postgresql://${DB_ROLE}:${DB_PASSWORD}@${DB_HOST}/${DB_NAME}?sslmode=require"
   psql "$PSQL_URL" -q -v ON_ERROR_STOP=1 \
-    -v uuid="${DEMO_USER}-uuid" -v name="$DEMO_USER" <<'SQL'
+    -v uuid="${DEMO_USER}-uuid" -v name="$DEMO_USER" <<'SQL' || SEED_OK=0
 WITH new_user AS (
     INSERT INTO users (created_at, updated_at)
     SELECT now(), now()
@@ -195,7 +238,37 @@ WHERE p.uuid = :'uuid'
   AND ideas.visibility = 'PRIVATE'
   AND ideas.created_by <> p.user_id;
 SQL
-  echo "worktree-db: demo user '${DEMO_USER}' seeded with owner access to every world and the idea bank."
+  # Check the rows are actually there rather than trusting psql's exit code. This is
+  # the assertion that would have caught MCO-510 on the day it started: the seeding
+  # never ran at all, and every other signal (local.env, PORT, an exit-0 hook) said
+  # provisioning had succeeded.
+  HAS_PROFILE="$(psql "$PSQL_URL" -tAc \
+    "SELECT count(*) FROM minecraft_profiles WHERE uuid = '${DEMO_USER}-uuid'" 2>/dev/null || echo 0)"
+  SEEDED_WORLDS="$(psql "$PSQL_URL" -tAc \
+    "SELECT count(*) FROM world_members m
+       JOIN minecraft_profiles p ON p.user_id = m.user_id
+      WHERE p.uuid = '${DEMO_USER}-uuid'" 2>/dev/null || echo 0)"
+  # A fork with no worlds at all is fine — the profile is what must exist; the
+  # membership count is only required to keep up with however many worlds there are.
+  TOTAL_WORLDS="$(psql "$PSQL_URL" -tAc "SELECT count(*) FROM world" 2>/dev/null || echo 0)"
+  if [ "$SEED_OK" = 1 ] && [ "$HAS_PROFILE" = "1" ] && [ "$SEEDED_WORLDS" = "$TOTAL_WORLDS" ]; then
+    echo "worktree-db: demo user '${DEMO_USER}' seeded with owner access to all ${TOTAL_WORLDS} worlds and the idea bank."
+  else
+    SEED_OK=0
+    echo "worktree-db: demo-user seeding did NOT take (profile=${HAS_PROFILE}, ${SEEDED_WORLDS}/${TOTAL_WORLDS} worlds)." >&2
+    echo "worktree-db: sign-in here will report 'You don't have permission' — re-run this script." >&2
+  fi
 fi
 
-echo "worktree-db: ready. Neon branch '${NEON_BRANCH}' is isolated to this worktree."
+# --- Report -----------------------------------------------------------------
+# Exit non-zero if anything failed, but only after the seeding has had its turn.
+# The order is the whole point: the steps that can fail run around the one that
+# must not be skipped, and the bad news arrives at the end rather than as an early
+# exit (MCO-510).
+if [ "$BUILD_OK" = 1 ] && [ "$MIGRATE_OK" = 1 ] && [ "$SEED_OK" = 1 ]; then
+  echo "worktree-db: ready. Neon branch '${NEON_BRANCH}' is isolated to this worktree."
+else
+  echo "worktree-db: FINISHED WITH PROBLEMS — build=$BUILD_OK migrate=$MIGRATE_OK seed=$SEED_OK" >&2
+  echo "worktree-db: branch '${NEON_BRANCH}' exists and local.env points at it; re-run this script after fixing the build." >&2
+  exit 1
+fi

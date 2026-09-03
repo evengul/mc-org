@@ -230,8 +230,13 @@ worktree, using the same Neon project (`sweet-dust-00910797`).
    - Forks a copy-on-write Neon branch `wt/<git-branch>` from production (`master`)
    - Writes the worktree's `webapp/local.env` (main checkout's non-DB config + the
      branch's `DB_*` credentials)
+   - Runs `mvn -DskipTests install` over the whole reactor, so the worktree's own
+     Maven repository actually holds the `app.mcorg` jars (without this, the very
+     next `-pl` command fails to resolve them — see MCO-510 below)
    - Runs `flyway:migrate` against the isolated branch
-   - Seeds the local sign-in user (`DEMO_USER`) as an owner of every world
+   - Seeds the local sign-in user (`DEMO_USER`) as an owner of every world, then
+     **verifies the rows landed** and reports failures at the end rather than
+     aborting partway
 3. The worktree's app and tests now target the worktree's own branch — never the
    shared dev DB — and any migrations you run land on the isolated branch.
 4. On `ExitWorktree`, `webapp/scripts/worktree-db-cleanup.sh --prune` reconciles
@@ -244,6 +249,17 @@ the real ingested Minecraft data instantly (no re-ingestion) and matches CI exac
 
 **Caveats:**
 
+- **Provisioning builds the project, and that is load-bearing (MCO-510).** The
+  worktree's Maven repository starts with an *empty* `app/mcorg`, so until something
+  installs into it every `-pl <module>` command fails to resolve its siblings. The
+  `flyway:migrate -pl mc-web` step used to hit that, and because the script is
+  `set -euo pipefail` it exited there — **before** the demo-user seeding. Everything
+  else looked fine (`local.env` written, `PORT` allocated, hook output discarded),
+  so two worktrees ran for days with no demo user and "You don't have permission" on
+  every world. The install step is what stops that; the seeding no longer depends on
+  the build or migration succeeding, and the script verifies the rows before
+  claiming success. Provisioning now takes ~86s on a fresh worktree with a cold
+  Kotlin daemon, which is why the hook's timeout is 600s and not 180s.
 - `webapp/local.env` is **gitignored**. The main checkout's copy is the single
   source for non-DB local config (Microsoft, Modrinth, `ENV`, …); the setup script
   writes each worktree's `local.env` fresh from it, swapping in the branch's Neon
