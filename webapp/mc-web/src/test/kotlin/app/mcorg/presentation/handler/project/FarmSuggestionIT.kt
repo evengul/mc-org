@@ -269,6 +269,52 @@ class FarmSuggestionIT : WithUser() {
         }
     }
 
+    @Test
+    fun `two designs covering the same demand are one choice, not two rows`() {
+        // MCO-483, the shape that filed it: the YAMS panel offered a 71k and a 72k Ice Farm as
+        // peer checkboxes for the same 20,611 Ice, under a button reading "Review selected
+        // designs". Same shape here on oak logs — created and deleted inside this test, so the
+        // class fixture keeps its "nothing in the bank makes oak logs" meaning.
+        val world = createWorld("Two designs world")
+        val build = createProject(world, "Log Cabin")
+        // Oak logs, because nothing else in this class's bank makes them — the cobblestone
+        // fixtures would join the group and turn a pair into a trio.
+        createResourceGathering(build, oakLog, required = 20_611)
+
+        val slower = createIdea("71k Tree Farm", ownerId = user.id, public = false)
+        addProduction(slower, oakLog.id, 71_000)
+        val faster = createIdea("72k Tree Farm", ownerId = user.id, public = false)
+        addProduction(faster, oakLog.id, 72_000)
+
+        try {
+            testApplication {
+                setupRoutes()
+
+                val body = client.get("/worlds/$world/projects/$build") { addAuthCookie(this) }.bodyAsText()
+
+                assertEquals(
+                    1,
+                    body.split("data-farm-choice").size - 1,
+                    "one demand is one row, whatever the bank offers for it",
+                )
+                assertContains(body, "1 other design covers this")
+                // The recommendation is stated, not merely picked — a 1.4% rate gap is not
+                // something a reader can infer from two names.
+                // 20,611 at 71k/h and at 72k/h both round to ~17 min, so the sentence says the
+                // gap is a hair rather than printing the same figure on both sides of "against".
+                assertContains(body, "Fastest of 2 designs that cover this, though only just")
+                assertContains(body, "72k Tree Farm")
+                assertContains(body, "71k Tree Farm")
+                // Both are still selectable: the alternative is folded away, not dropped.
+                assertContains(body, "design-select-$faster")
+                assertContains(body, "design-select-$slower")
+            }
+        } finally {
+            deleteIdea(slower)
+            deleteIdea(faster)
+        }
+    }
+
     // ---- routing ----------------------------------------------------------------
 
     private fun ApplicationTestBuilder.setupRoutes() {

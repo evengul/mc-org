@@ -34,7 +34,28 @@ package app.mcorg.data.minecraft
  *       describes — `powder_snow` (pour the bucket) and `nether_portal` (light the frame,
  *       which costs no material of its own). Both reported "no feasible source found" on the
  *       YAMS import; `nether_portal` at 54 blocks was the larger of the two — MCO-467 (2026-09).
+ *  - 6: a recipe's inline alternative list now reuses the vanilla tag that already has exactly
+ *       those members instead of minting a second `#mcorg:choice/…` name for it. At 1.21.4 that
+ *       folds torch/soul_torch/fire_charge onto `#minecraft:coals` and TNT onto
+ *       `#minecraft:smelts_to_glass`, so the plan stops asking "coal or charcoal" twice under
+ *       two names — MCO-486 (2026-09).
+ *  - 7: a loot table that another table rolls as part of a pool is no longer stored as a source
+ *       of its own. Its numbers are conditional on the parent selecting it, so
+ *       `gameplay/fishing/treasure.json` read as 1-in-6 per cast for a nautilus shell where the
+ *       composed truth already in `gameplay/fishing.json` is 0.0083 — a 20x overstatement to
+ *       any consumer taking the best source per item — MCO-491 (2026-09).
+ *
+ *       Also at 7, sharing the bump and the one re-ingest it triggers: synthetic "plant it and
+ *       wait" sources for the thirteen grown crops. Nothing in Mojang's data grows anything, so
+ *       a crop's only route was breaking its own block — which is why wheat, the most farmed
+ *       item in the game, and bread after it were being planned through chest loot — MCO-492
+ *       (2026-09).
+ *
+ *       And a synthetic in-world source for `obsidian`: pour a water bucket onto still lava.
+ *       Its only routes were finding it and breaking an *ender chest*, which drops eight and is
+ *       itself made of obsidian — circular in fact, ordinary block loot in the data — MCO-495
+ *       (2026-09).
  */
 object ExtractionVersion {
-    const val CURRENT = 5
+    const val CURRENT = 7
 }

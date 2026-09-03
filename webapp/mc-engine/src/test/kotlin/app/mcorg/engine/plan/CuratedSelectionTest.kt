@@ -94,14 +94,25 @@ class CuratedSelectionTest {
         blockLoot("oak_planks", "minecraft:oak_planks")
     )
 
-    /** stick crafted from planks (2 -> 4); witches also drop sticks. */
+    /**
+     * stick crafted from planks (2 -> 4); witches drop sticks; **and so do leaves**.
+     *
+     * The leaf source was missing until 2026-09-02, and its absence hid a real result: in
+     * ingested 1.21.4 data twelve leaf blocks drop sticks with no recorded expected yield, so
+     * they score a flat 100 — exactly what crafting scores once its efficiency bonus and
+     * penalties net out. `stick`, the most common intermediate in the game, is a **zero-margin
+     * tie** in production, decided only by the recipe-first tie-break. Without a leaf source
+     * here the suite could not see that, and any future change worth one point would silently
+     * turn "craft sticks" into "go break leaves".
+     */
     private val stickChain = plankChain + listOf(
         recipe(
             "stick.json",
             inputs = listOf(item("minecraft:oak_planks") to 2),
             output = "minecraft:stick" to 4
         ),
-        entityLoot("witch", "minecraft:stick")
+        entityLoot("witch", "minecraft:stick"),
+        blockLoot("oak_leaves", "minecraft:stick")
     )
 
     /**
@@ -111,9 +122,13 @@ class CuratedSelectionTest {
      * iron_ingot_from_nuggets structurally, and the smelting expectations below pass
      * for the wrong reason. See MCO-317.
      *
-     * Two members stand in for the real tag's 16; membership does not affect scoring
-     * (a tag is one requirement at depth 0 regardless of how many items it holds), so
-     * the short list keeps the fixture readable without changing what is measured.
+     * Two members stand in for the real tag's 16, and **at least one of them must have a
+     * source of its own**. Until 2026-09-02 neither did: `chainmail_boots` and `iron_pickaxe`
+     * appeared only in this declaration, so the tag was a dead end here while being a live
+     * two-step chain in production. The comment that used to sit in this spot — "membership
+     * does not affect scoring, a tag is one requirement at depth 0 regardless" — was true of
+     * the fixture and false of the graph, which is the definition of a test passing for the
+     * wrong reason.
      */
     private val ironEquipmentTag = MinecraftTag(
         "minecraft:smelts_to_iron_nugget", "Smelts To Iron Nugget",
@@ -166,7 +181,14 @@ class CuratedSelectionTest {
             requiredItems = listOf(ironEquipmentTag to ResourceQuantity.ItemQuantity(1)),
             producedItems = listOf(item("minecraft:iron_nugget") to ResourceQuantity.ItemQuantity(1))
         ),
-        blockLoot("iron_ore", "minecraft:raw_iron")
+        blockLoot("iron_ore", "minecraft:raw_iron"),
+        // What makes the smelt-equipment route reachable at all, and therefore what makes the
+        // expectations below test the scorer rather than the selector's structural rejection.
+        recipe(
+            "iron_pickaxe.json",
+            inputs = listOf(item("minecraft:iron_ingot") to 3, item("minecraft:stick") to 2),
+            output = "minecraft:iron_pickaxe" to 1
+        )
     )
 
     // ── planks / sticks ─────────────────────────────────────────────────────
@@ -223,6 +245,37 @@ class CuratedSelectionTest {
         val result = plan(sources, "minecraft:leather")
 
         assertEquals("minecraft:entity:entities/cow.json", result.sourceKeyOf("minecraft:leather"))
+    }
+
+    /**
+     * The leaf source exists in this fixture to make *this* assertion possible, and this
+     * assertion exists because the outcome it guards has **no margin at all**.
+     *
+     * Crafting sticks and breaking leaves score identically in ingested 1.21.4 data. The
+     * planner picks crafting only because `rank()` breaks a tie recipe-first — not because the
+     * scorer prefers it. Every other stick expectation in this file would keep passing if that
+     * margin quietly became -1 and the answer flipped to "go break leaves"; this one would not.
+     *
+     * If this fails, do not adjust it. It means a weight change has moved the most common
+     * intermediate in the game, and the question is whether that was intended.
+     */
+    @Test
+    fun `stick - crafting and breaking leaves score the same, so only the tie-break decides`() {
+        val graph = ItemSourceGraphBuilder.buildFromResourceSources(stickChain)
+        val candidates = ScoreDiagnostics.report(graph, "minecraft:stick", demand = 10).candidates
+
+        val crafting = candidates.first { it.sourceKey == "minecraft:crafting_shaped:stick.json" }
+        val leaves = candidates.first { it.sourceKey == "minecraft:block:blocks/oak_leaves.json" }
+
+        assertEquals(
+            crafting.total, leaves.total,
+            "a zero-margin tie: if these ever differ, the tie-break stopped being what decides"
+        )
+        assertEquals(
+            "minecraft:crafting_shaped:stick.json",
+            plan(stickChain, "minecraft:stick").sourceKeyOf("minecraft:stick"),
+            "and recipe-first is what resolves it"
+        )
     }
 
     @Test
@@ -461,7 +514,10 @@ class CuratedSelectionTest {
             output = "minecraft:gold_nugget" to 9
         ),
         blockLoot("gold_ore", "minecraft:raw_gold"),
-        blockLoot("nether_gold_ore", "minecraft:gold_nugget", quantity = 4)
+        blockLoot("nether_gold_ore", "minecraft:gold_nugget", quantity = 4),
+        // Zombified piglins drop gold ingots, and leaving them out of this fixture hid what
+        // production actually does with them. See the disabled expectation below.
+        entityLoot("zombified_piglin", "minecraft:gold_ingot")
     )
 
     @Test
@@ -483,7 +539,22 @@ class CuratedSelectionTest {
         assertEquals(PlanNodeStatus.SUPPLIED, result.nodes.getValue("minecraft:gold_nugget").status)
     }
 
+    /**
+     * **KNOWN MIS-RANK — this is what production does, and it is wrong.**
+     *
+     * Measured against real 1.21.4 data: `gold_ingot` resolves to
+     * `entity:entities/zombified_piglin.json` at **100**, beating smelting the ore at 70,
+     * because an entity drop scores a flat base and nothing prices how hard the mob is to
+     * find. This fixture could not see it until the piglin drop was added, so the expectation
+     * below passed for the wrong reason for as long as it has existed.
+     *
+     * Kept and disabled rather than rewritten to match production: smelting the ore *is* the
+     * right answer for a player without a gold farm, so this records intent. It is the same
+     * family as `bowl` from turtles and `cake` from a chest — an availability cost the shipped
+     * scorer has no way to express, which is one of the arguments for MCO-490.
+     */
     @Test
+    @Disabled("KNOWN MIS-RANK: production picks the zombified-piglin drop. MCO-490.")
     fun `gold_ingot - without a nugget farm, smelting the ore wins`() {
         val result = plan(goldChain, "minecraft:gold_ingot", amount = 811)
 
@@ -654,9 +725,20 @@ class CuratedSelectionTest {
         entityLoot("chicken", "minecraft:feather")
     )
 
+    /**
+     * Reviewed 2026-09-02 and left as it is.
+     *
+     * The cost model prefers crafting here, at 4x cheaper, and for a moment this expectation was
+     * changed to match. Even's call on seeing it: **arrows from skeletons is fine.** Arrows are
+     * rarely the point of a build, so which of two defensible answers the planner gives is not
+     * worth moving, and a player who owns a skeleton farm gets arrows through production data
+     * either way.
+     *
+     * Recorded rather than silently kept, because "the two models disagree here and it does not
+     * matter" is a different fact from "the two models agree", and only one of them is true.
+     */
     @Test
     fun `arrow - without ingredient farms, a skeleton farm is suggested`() {
-        // Both answers are defensible for a player; this pins the current choice.
         val result = plan(arrowChain, "minecraft:arrow")
 
         assertEquals("minecraft:entity:entities/skeleton.json", result.sourceKeyOf("minecraft:arrow"))

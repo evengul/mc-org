@@ -173,8 +173,29 @@ WHERE p.uuid = :'uuid'
   AND NOT EXISTS (
       SELECT 1 FROM world_members m WHERE m.world_id = w.id AND m.user_id = p.user_id
   );
+
+-- Hand the forked idea bank to the demo user as well, or it is invisible here.
+--
+-- GetIdeaProducersStep gates on `i.visibility = 'PUBLIC' OR i.created_by = <viewer>`,
+-- and production's bank is overwhelmingly PRIVATE and authored by the real account
+-- (11 of 12 entries at the time of writing). The fork inherits those rows verbatim, so
+-- a worktree's demo user — a different id — sees only the public ones. The visible
+-- symptom is not an error: "Worth a farm" simply renders its demand lines with no
+-- designs under them, which reads exactly like an idea bank that has nothing to offer.
+-- That cost two separate agents an afternoon of debugging a feature that was working.
+--
+-- Repointing authorship is safe precisely here: a wt/* branch is a disposable fork that
+-- is never merged back, and its whole purpose is to be driven by this one user. Only
+-- PRIVATE rows are touched — public ones are already visible, so moving them would
+-- change authorship for no gain. Idempotent: the second run matches nothing.
+UPDATE ideas
+SET created_by = p.user_id
+FROM minecraft_profiles p
+WHERE p.uuid = :'uuid'
+  AND ideas.visibility = 'PRIVATE'
+  AND ideas.created_by <> p.user_id;
 SQL
-  echo "worktree-db: demo user '${DEMO_USER}' seeded with owner access to every world."
+  echo "worktree-db: demo user '${DEMO_USER}' seeded with owner access to every world and the idea bank."
 fi
 
 echo "worktree-db: ready. Neon branch '${NEON_BRANCH}' is isolated to this worktree."

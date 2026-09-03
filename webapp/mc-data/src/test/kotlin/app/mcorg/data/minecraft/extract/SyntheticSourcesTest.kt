@@ -143,6 +143,94 @@ class SyntheticSourcesTest {
         )
     }
 
+    /**
+     * MCO-492 — nothing in Mojang's data grows a crop, so every item here had exactly one
+     * route in the graph: break its own block. Wheat and bread were being planned through
+     * chest loot as a result.
+     */
+    @Test
+    fun `every grown crop has a plant-and-wait source`() {
+        val crops = listOf(
+            "wheat", "carrot", "potato", "beetroot", "melon", "pumpkin", "sugar_cane",
+            "bamboo", "cocoa_beans", "nether_wart", "sweet_berries", "kelp", "cactus",
+        )
+        crops.forEach { crop ->
+            val growth = producing("minecraft:$crop").single { it.filename == "synthetic/grow_$crop.json" }
+            assertEquals(SourceType.MechanicTypes.IN_WORLD_TRANSFORM, growth.type, "$crop type")
+        }
+    }
+
+    /**
+     * The planting stock comes back with the harvest — wheat drops seeds, a carrot yields
+     * several carrots, cane and bamboo and berry bushes regrow — so one starting unit serves
+     * an arbitrary quantity, exactly like the bucket above. Requiring one per unit would
+     * over-count the input by the whole harvest, and for the self-seeding crops it would be a
+     * pure self-cycle the selector rejects outright.
+     */
+    @Test
+    fun `growing a crop consumes nothing`() {
+        val growth = sources.filter { it.filename.startsWith("synthetic/grow_") }
+
+        assertEquals(13, growth.size, "expected one entry per grown crop, got ${growth.map { it.filename }}")
+        growth.forEach { source ->
+            assertTrue(source.requiredItems.isEmpty(), "${source.filename} must consume no material")
+        }
+    }
+
+    /**
+     * The defect this fixes is specifically that a crop's *only* route is breaking itself, so
+     * the growth source has to name the crop the block loot names — otherwise it leaves the
+     * circle intact and only adds noise.
+     */
+    @Test
+    fun `wheat is grown rather than only broken out of its own block`() {
+        val wheat = producing("minecraft:wheat")
+
+        assertEquals(1, wheat.size)
+        assertEquals("synthetic/grow_wheat.json", wheat.single().filename)
+        assertEquals(SourceType.MechanicTypes.IN_WORLD_TRANSFORM, wheat.single().type)
+        assertTrue(
+            wheat.single().type.isConstructive(),
+            "growth must count as constructive, or the self-block loot it competes with is " +
+                "never penalised and the plan keeps routing wheat through a chest",
+        )
+    }
+
+    /**
+     * MCO-495 — obsidian's only routes were finding it and breaking an *ender chest*, which
+     * drops eight and is itself made of obsidian. Pouring water on still lava is what a player
+     * actually does, and it is the same shape as the concrete mechanic above: the bucket comes
+     * back empty, so it is the input and the lava — the world's — is not.
+     */
+    @Test
+    fun `obsidian is poured from a water bucket onto lava`() {
+        val obsidian = producing("minecraft:obsidian").single()
+
+        assertEquals(SourceType.MechanicTypes.IN_WORLD_TRANSFORM, obsidian.type)
+        assertEquals("synthetic/obsidian.json", obsidian.filename)
+        assertEquals(
+            listOf("minecraft:water_bucket"),
+            obsidian.requiredItems.map { it.first.id },
+            "the bucket is the input; the lava is the world's and costs nothing",
+        )
+    }
+
+    /**
+     * Cobblestone, stone and basalt form the same way in principle and are deliberately left
+     * out — for each you either build a farm (a project, already covered by farm supply) or
+     * just mine the ordinary block. MCO-495's acceptance criteria say so explicitly, so this
+     * pins the boundary rather than trusting it to stay put.
+     */
+    @Test
+    fun `no in-world source is invented for the other lava-formed blocks`() {
+        listOf("minecraft:cobblestone", "minecraft:stone", "minecraft:basalt").forEach { id ->
+            assertTrue(
+                producing(id).isEmpty(),
+                "$id must keep its ordinary mined/farmed route, not gain a synthetic one",
+            )
+        }
+    }
+
     @Test
     fun `entries naming an item the version lacks are dropped`() {
         val withoutCherry = allIds - "minecraft:stripped_cherry_log"

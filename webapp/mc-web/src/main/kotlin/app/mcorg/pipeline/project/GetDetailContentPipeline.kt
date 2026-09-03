@@ -7,7 +7,9 @@ import app.mcorg.pipeline.project.commonsteps.GetProjectByIdStep
 import app.mcorg.pipeline.resources.GatheringPlanInput
 import app.mcorg.domain.model.world.World
 import app.mcorg.pipeline.resources.GetFarmScaleThresholdStep
+import app.mcorg.pipeline.resources.farmDismissalsFor
 import app.mcorg.pipeline.resources.farmSuggestionsFor
+import app.mcorg.pipeline.resources.itemIds
 import app.mcorg.pipeline.resources.GenerateGatheringPlanStep
 import app.mcorg.pipeline.resources.pendingFarmSuppliesFor
 import app.mcorg.pipeline.resources.prerequisiteFarmsFor
@@ -26,7 +28,17 @@ import app.mcorg.presentation.utils.respondBadRequest
 import app.mcorg.presentation.utils.respondHtml
 import io.ktor.server.application.ApplicationCall
 
-suspend fun ApplicationCall.handleGetDetailContent() {
+suspend fun ApplicationCall.handleGetDetailContent() = respondGatheringPlannerContent()
+
+/**
+ * Renders `#project-content` for the current project and sends it.
+ *
+ * Extracted from [handleGetDetailContent] so a mutation that changes what the *whole* plan says
+ * can answer with the plan rather than with a patch of it — the farm-suggestion dismissal
+ * (MCO-407) removes a roll-up line, a design row and a row badge in three different places at
+ * once, and three out-of-band swaps of one decision is three chances to disagree.
+ */
+suspend fun ApplicationCall.respondGatheringPlannerContent() {
     val worldId = getWorldId()
     val projectId = getProjectId()
     // There is one lens now (MCO-481). DrillView still returns here with ?lens=list, and old
@@ -82,10 +94,16 @@ suspend fun ApplicationCall.handleGetDetailContent() {
     val farmScaleThreshold = GetFarmScaleThresholdStep.process(worldId).getOrNull()
         ?: World.DEFAULT_FARM_SCALE_THRESHOLD
 
+    // What this world has decided against farming (MCO-407). Read once and handed to both the
+    // suggestion match and the roll-up, so the panel cannot hide a line and still offer a design
+    // for it.
+    val dismissals = farmDismissalsFor(worldId)
+
     // Same reason the threshold is here (MCO-401): switching lens must not look like the
     // suggestions disappeared.
     val farmSuggestions = farmSuggestionsFor(
-        plan, farmScaleThreshold, getUser().id, projectId, coveredByPlannedFarms, project.importedFromIdea?.first,
+        plan, farmScaleThreshold, getUser().id, projectId, coveredByPlannedFarms,
+        project.importedFromIdea?.first, dismissals.itemIds(),
     )
 
     // The roll-up's threshold is a link to world settings for admins only, so the fragment
@@ -95,7 +113,7 @@ suspend fun ApplicationCall.handleGetDetailContent() {
     respondHtml(
         gatheringPlannerFragment(
             project, resources, tasks, plan, progressMap, prerequisiteFarms, farmScaleThreshold,
-            farmSuggestions, versionGapsForPlan(projectId, plan), isAdmin,
+            farmSuggestions, versionGapsForPlan(projectId, plan), isAdmin, dismissals,
         )
     )
 }

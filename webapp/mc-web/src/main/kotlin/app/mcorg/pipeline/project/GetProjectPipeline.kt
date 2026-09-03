@@ -12,7 +12,9 @@ import app.mcorg.pipeline.world.settings.general.versionGapsForPlan
 import app.mcorg.pipeline.resources.GatheringPlanInput
 import app.mcorg.domain.model.world.World
 import app.mcorg.pipeline.resources.GetFarmScaleThresholdStep
+import app.mcorg.pipeline.resources.farmDismissalsFor
 import app.mcorg.pipeline.resources.farmSuggestionsFor
+import app.mcorg.pipeline.resources.itemIds
 import app.mcorg.pipeline.resources.GenerateGatheringPlanStep
 import app.mcorg.pipeline.resources.pendingFarmSuppliesFor
 import app.mcorg.pipeline.resources.prerequisiteFarmsFor
@@ -104,8 +106,13 @@ suspend fun ApplicationCall.handleGetProject() {
     // Designs in the bank that answer this plan's demand (MCO-294). Scoped to the viewer,
     // because the bank is public ideas plus their own — a shared computation would show one
     // user another's private designs.
+    // What this world has decided against farming (MCO-407), shared by the suggestion match and
+    // the roll-up so the two cannot contradict each other on one page.
+    val farmDismissals = farmDismissalsFor(worldId)
+
     val farmSuggestions = farmSuggestionsFor(
-        plan, farmScaleThreshold, user.id, projectId, coveredByPlannedFarms, project.importedFromIdea?.first,
+        plan, farmScaleThreshold, user.id, projectId, coveredByPlannedFarms,
+        project.importedFromIdea?.first, farmDismissals.itemIds(),
     )
 
     // ?drill=<item> deep-links into a target's chain so reload/share lands on the drill,
@@ -134,6 +141,7 @@ suspend fun ApplicationCall.handleGetProject() {
             farmScaleThreshold = farmScaleThreshold,
             farmSuggestions = farmSuggestions,
             versionGaps = versionGaps,
+            farmDismissals = farmDismissals,
         )
     )
 }

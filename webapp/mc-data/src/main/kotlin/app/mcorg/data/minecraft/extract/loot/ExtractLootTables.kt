@@ -28,6 +28,42 @@ internal fun isPhantomInfestedBlockLoot(filename: String): Boolean {
     return stem.startsWith("infested_")
 }
 
+/** One walked loot-table file: what it produces, and the tables it scales down (see [LootTableReferences]). */
+internal data class ParsedLootTable(val source: ResourceSource, val dilutedReferences: Set<String>)
+
+/**
+ * Drops every table that another table rolls as *part* of a pool, keeping only the ones a
+ * player can actually attempt directly (MCO-491).
+ *
+ * Such a sub-table's numbers are **conditional probabilities stored as though they were
+ * unconditional**. `gameplay/fishing/treasure.json` says a nautilus shell is 1-in-6, and that
+ * is true — of the 5% of casts that roll the treasure pool at all. The parent already carries
+ * the composed truth (0.0083 per cast, from `parseLootTable` multiplying the child's yields by
+ * the referring entry's pool share), so with both stored, any consumer taking the best source
+ * per item reads the sub-table's number and overstates the drop by 20x.
+ *
+ * **Dropping the child rather than restating it with the composed number**, for three reasons:
+ *  - Nothing becomes unobtainable. Every dropped table is composed into at least one parent at
+ *    the correct rate, so its file adds no reachability and no information.
+ *  - There is not always *one* composed probability. `gameplay/fishing/fish.json` is pulled in
+ *    by `gameplay/fishing.json` (weight 85 of 100), `entities/guardian.json` and
+ *    `entities/elder_guardian.json` — three different compositions of the same file, in every
+ *    version from 1.18 on. A restated child would have to pick one arbitrarily.
+ *  - A restated child would be an exact numeric duplicate of what the parent already stores,
+ *    under a second filename: two candidates the scorer must tie-break, for no new information.
+ *
+ * What is dropped is decided by [LootTableReferences] and turns on the *scaling*, not on the
+ * reference or the directory nesting. A colour dispatch (`shearing/sheep/white.json`) and a
+ * whole-pool inclusion (`equipment/trial_chamber.json`, and pre-1.21.2's shared
+ * `entities/sheep.json`) survive; measuring the first draft of this against the real graph is
+ * how that came out, because dropping the dispatch children replaced fifteen exact wool yields
+ * with fifteen unknowns and doubled the modelled cost of coloured wool.
+ */
+internal fun dropInlinedSubTables(parsed: List<ParsedLootTable>): List<ResourceSource> {
+    val diluted = parsed.flatMapTo(mutableSetOf()) { it.dilutedReferences }
+    return parsed.filterNot { it.source.filename in diluted }.map { it.source }
+}
+
 data object ExtractLootTables : Step<ExtractionContext, ExtractionFailure, List<ResourceSource>> {
     private val logger = LoggerFactory.getLogger(this.javaClass)
 
@@ -37,13 +73,14 @@ data object ExtractLootTables : Step<ExtractionContext, ExtractionFailure, List<
         return parseJsonFilesRecursively(input.version, ServerPathResolvers.resolveLootTablesPath(input.root, input.version)) { content, filename ->
             parseFile(lootTableParser, content, filename)
         }
-            .map { sources ->
-                sources.map { it.withNames(input) }
+            .map { parsed ->
+                dropInlinedSubTables(parsed)
+                    .map { it.withNames(input) }
                     .filter { it.type != ResourceSource.SourceType.RecipeTypes.IGNORED && it.producedItems.isNotEmpty() }
             }
     }
 
-    private suspend fun parseFile(lootTableParser: LootTableParser, content: String, filename: String): Result<ExtractionFailure, ResourceSource> {
+    private suspend fun parseFile(lootTableParser: LootTableParser, content: String, filename: String): Result<ExtractionFailure, ParsedLootTable> {
         val json = try {
             Json.parseToJsonElement(content)
         } catch (e: Exception) {
@@ -61,7 +98,7 @@ data object ExtractLootTables : Step<ExtractionContext, ExtractionFailure, List<
             return type
         }
 
-        return when (val stringType = type.getOrThrow()) {
+        val source = when (val stringType = type.getOrThrow()) {
             "minecraft:block" -> {
                 if (isPhantomInfestedBlockLoot(filename)) {
                     logger.debug("Dropping phantom infested-block loot table: $filename")
@@ -93,5 +130,10 @@ data object ExtractLootTables : Step<ExtractionContext, ExtractionFailure, List<
                 Result.failure(ExtractionFailure.JsonFailure.UnknownValue(stringType, "type", json, filename))
             }
         }
+
+        // Collected from the raw JSON rather than from the parsed source: the phantom-infested
+        // branch above never reaches the parser, and a table's references have to be known even
+        // when it produces nothing.
+        return source.mapSuccess { ParsedLootTable(it, LootTableReferences.dilutedIn(json)) }
     }
 }

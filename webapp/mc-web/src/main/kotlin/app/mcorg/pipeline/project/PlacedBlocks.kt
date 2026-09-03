@@ -1,6 +1,7 @@
 package app.mcorg.pipeline.project
 
 import app.mcorg.domain.model.minecraft.Item
+import app.mcorg.domain.model.minecraft.PlacedForms
 
 /**
  * What a *placed* cell costs, for both import doors (MCO-396, MCO-308).
@@ -79,47 +80,17 @@ val FLUID_PLACEMENTS = mapOf(
 /**
  * Placed block-state ids whose gathered item has a *different* id.
  *
+ * The table itself now lives in `mc-domain` as [PlacedForms], because the planner needs the
+ * same facts and cannot see `mc-web`. This door wants every entry regardless of direction —
+ * a cell costs its item whether or not you could have placed it. The planner wants only the
+ * reversible ones. Same table, two readers, which is what stopped it drifting before.
+ *
  * Crops resolve to the seed/produce you plant or harvest; tool/effect placements resolve to
  * the material left behind. The target must still exist in the version's catalog to be used —
  * otherwise the block falls through to its own id, and from there to a BLOCKED row, which is
  * a truthful "you cannot get this here" rather than a promise of an item the version lacks.
  */
-private val REDIRECTS = mapOf(
-    // crops / growth -> seed or produce item
-    "minecraft:carrots" to "minecraft:carrot",
-    "minecraft:potatoes" to "minecraft:potato",
-    "minecraft:beetroots" to "minecraft:beetroot_seeds",
-    "minecraft:cocoa" to "minecraft:cocoa_beans",
-    "minecraft:melon_stem" to "minecraft:melon_seeds",
-    "minecraft:attached_melon_stem" to "minecraft:melon_seeds",
-    "minecraft:pumpkin_stem" to "minecraft:pumpkin_seeds",
-    "minecraft:attached_pumpkin_stem" to "minecraft:pumpkin_seeds",
-    "minecraft:cave_vines" to "minecraft:glow_berries",
-    "minecraft:cave_vines_plant" to "minecraft:glow_berries",
-    "minecraft:kelp_plant" to "minecraft:kelp",
-    "minecraft:bamboo_sapling" to "minecraft:bamboo",
-    "minecraft:sweet_berry_bush" to "minecraft:sweet_berries",
-    "minecraft:tall_seagrass" to "minecraft:seagrass",
-    "minecraft:twisting_vines_plant" to "minecraft:twisting_vines",
-    "minecraft:weeping_vines_plant" to "minecraft:weeping_vines",
-    "minecraft:big_dripleaf_stem" to "minecraft:big_dripleaf",
-    "minecraft:pitcher_crop" to "minecraft:pitcher_pod",
-    "minecraft:torchflower_crop" to "minecraft:torchflower_seeds",
-    // placed tool/effect forms -> the material gathered
-    "minecraft:dirt_path" to "minecraft:dirt",
-    "minecraft:farmland" to "minecraft:dirt",
-    "minecraft:redstone_wire" to "minecraft:redstone",
-    "minecraft:tripwire" to "minecraft:string",
-    "minecraft:suspicious_sand" to "minecraft:sand",
-    "minecraft:suspicious_gravel" to "minecraft:gravel",
-    "minecraft:wall_torch" to "minecraft:torch",
-    // A filled cauldron is a block *state* of the cauldron, not an item of its own (there is
-    // no lava_cauldron item). What you gather is the cauldron; the bucket that fills it is a
-    // reusable tool, like the flint & steel behind a fire cell.
-    "minecraft:lava_cauldron" to "minecraft:cauldron",
-    "minecraft:water_cauldron" to "minecraft:cauldron",
-    "minecraft:powder_snow_cauldron" to "minecraft:cauldron",
-)
+private val REDIRECTS = PlacedForms.gatheredItem
 
 /** What one placed cell costs — the four answers [resolvePlacedCell] can give. */
 sealed interface PlacedCell {

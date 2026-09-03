@@ -121,8 +121,11 @@ suspend fun ApplicationCall.handleUpdatePlanProgress() {
             is Result.Success -> r.value
             is Result.Failure -> World.DEFAULT_FARM_SCALE_THRESHOLD
         }
+        // Same rule as the page, dismissals included (MCO-407) — the badge must not reappear
+        // because a counter was pressed.
         val isFarmScale = plan != null &&
-            FarmScaleDemands.of(plan, farmScaleThreshold).any { it.itemId == input.itemId }
+            FarmScaleDemands.of(plan, farmScaleThreshold, farmDismissalsFor(worldId).itemIds())
+                .any { it.itemId == input.itemId }
 
         PlanProgressResult(
             itemId = input.itemId,

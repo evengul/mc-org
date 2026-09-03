@@ -1,7 +1,9 @@
 package app.mcorg.presentation.templated.dsl.pages
 
 import app.mcorg.domain.model.minecraft.Item
+import app.mcorg.pipeline.project.ImportWarnings
 import app.mcorg.pipeline.project.ResolvedRegion
+import app.mcorg.pipeline.project.classifyImportWarnings
 import app.mcorg.test.fixtures.TestDataFactory
 import org.junit.jupiter.api.Test
 import kotlin.test.assertContains
@@ -28,6 +30,7 @@ class ImportReviewPageTest {
         regions: List<ResolvedRegion> = emptyList(),
         placedCounts: Map<String, Int> = emptyMap(),
         containerCounts: Map<String, Int> = emptyMap(),
+        warnings: ImportWarnings = ImportWarnings(),
     ) = importReviewPage(
         user = user,
         worldId = 1,
@@ -37,6 +40,7 @@ class ImportReviewPageTest {
         placedCounts = placedCounts,
         regions = regions,
         containerCounts = containerCounts,
+        warnings = warnings,
     )
 
     private val frame = ResolvedRegion(
@@ -175,6 +179,55 @@ class ImportReviewPageTest {
         assertFalse(html.contains("import-review__region"))
         assertContains(html, "2 items")
         assertContains(html, """value="v1;2;""")
+    }
+
+    // --- Hard-capped rows (MCO-321) ---
+
+    private val dragonEgg = Item("minecraft:dragon_egg", "Dragon Egg")
+
+    @Test
+    fun `a hard-capped row reaches the strip with its cap spelled out`() {
+        // The world-eater case: 55 dragon eggs, one per TNT duper. The graph produces the item,
+        // so nothing was said at all before — the plan simply told the user to break 55 of them.
+        // A chip's hover text is not where "your world contains one of these" belongs.
+        val html = render(
+            requirements = mapOf(dragonEgg to 55, item("oak_planks") to 500),
+            warnings = classifyImportWarnings(mapOf(dragonEgg to 55, item("oak_planks") to 500), null),
+        )
+
+        assertContains(html, "Hard limit in a world")
+        assertContains(html, "Dragon Egg (55)")
+        assertContains(html, "only from the first dragon")
+        assertContains(html, "egg duplication")
+        assertContains(html, "Limited supply", message = "and the row keeps its chip")
+    }
+
+    @Test
+    fun `a hard-capped row is still included by default`() {
+        // Unlike a creative-only row, this one is genuinely required — it is a duper component,
+        // not decoration. Striking it would not give the user a build that works, so the warning
+        // informs and nothing more.
+        val html = render(
+            requirements = mapOf(dragonEgg to 55),
+            warnings = classifyImportWarnings(mapOf(dragonEgg to 55), null),
+        )
+
+        assertContains(html, "v1;1;minecraft:dragon_egg=55")
+        assertFalse(html.contains("!minecraft:dragon_egg"), "an excluded row would carry the ! mark")
+        assertContains(html, "checked=\"checked\"")
+    }
+
+    @Test
+    fun `a capped row with nothing creative-only alongside it still gets a strip`() {
+        // The reported import had zero blocked nodes, which is exactly why it went unnoticed:
+        // the strip used to render only when there was something creative-only to say.
+        val html = render(
+            requirements = mapOf(dragonEgg to 50),
+            warnings = classifyImportWarnings(mapOf(dragonEgg to 50), null),
+        )
+
+        assertContains(html, "callout__icon")
+        assertFalse(html.contains("Not obtainable in survival"), "and says nothing it has no basis for")
     }
 
     @Test

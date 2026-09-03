@@ -17,11 +17,16 @@ import org.slf4j.LoggerFactory
 data object ExtractRecipesStep : Step<ExtractionContext, ExtractionFailure, List<ResourceSource>> {
     private val logger = LoggerFactory.getLogger(javaClass)
     override suspend fun process(input: ExtractionContext): Result<ExtractionFailure, List<ResourceSource>> {
+        // Built once per version, off the same tag registry withNames reads: a recipe's inline
+        // alternative list is spelled as a `#mcorg:choice/…` tag by the parsers, and any such set
+        // that vanilla already names becomes that vanilla tag here rather than a second name for
+        // the same question (MCO-486).
+        val canonicaliser = ChoiceTagCanonicaliser.from(input)
         return parseJsonFilesRecursively(input.version, ServerPathResolvers.resolveRecipesPath(input.root, input.version)) { content, filename ->
             parseFile(content, filename)
         }
             .map { sources ->
-                sources.map { it.withNames(input) }
+                sources.map { canonicaliser.canonicalise(it).withNames(input) }
                     .filter { it.producedItems.isNotEmpty() }
             }
     }
