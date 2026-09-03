@@ -55,7 +55,13 @@ package app.mcorg.data.minecraft
  *       Its only routes were finding it and breaking an *ender chest*, which drops eight and is
  *       itself made of obsidian — circular in fact, ordinary block loot in the data — MCO-495
  *       (2026-09).
+ *  - 8: tag ids are keyed by their path below `tags/item|block/` rather than by base filename,
+ *       so `enchantable/foot_armor` stops overwriting `foot_armor` (and, since it references it,
+ *       stops leaving a tag whose only member is itself). No stored tag changes id — the 34 ids
+ *       that move are behavioural tags no source references — but the canonicaliser's view of
+ *       the registry does, so a recipe's inline alternative list can now fold onto a vanilla tag
+ *       whose members were previously unreadable — MCO-488 (2026-09).
  */
 object ExtractionVersion {
-    const val CURRENT = 7
+    const val CURRENT = 8
 }
