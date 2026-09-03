@@ -142,12 +142,28 @@ internal class SelectionScorer(
         )
     }
 
+    /**
+     * Attempts needed per item, priced. A witch drops 0.33 sticks, so a stick is three witches.
+     *
+     * **Uncapped, deliberately** (MCO-490). There was a `LOW_YIELD_PENALTY_CAP = 60` here, and
+     * because a loot base is also 60 it drove every sufficiently rare drop to a score of exactly
+     * zero — not "expensive", but *indistinguishable*. Measured on 1.21.4, three items had every
+     * one of their candidates flattened to 0 (`base 60  lowYield -60`), so the pick fell through
+     * to the alphabetical source-key tie-break: a music disc was sourced from
+     * `chests/ancient_city.json` over `simple_dungeon` and `woodland_mansion` because "a" sorts
+     * first, and the ancient city is the most expensive chest in the game to reach.
+     *
+     * No test pinned the cap, and nothing was lost by removing it: the differential
+     * (`cost-diagnostics ... factors`) moves 3 items on 1.21.4 and 2 on 26.2.0, all of them
+     * chest-versus-chest, and on none of them did the cost model reach the capped answer. What
+     * the cap saturated away is exactly the information that separates these candidates — how
+     * often the drop actually happens.
+     */
     private fun lowYieldPenalty(item: MinecraftId, source: SourceNode): Int {
         val itemNode = graph.getItemNode(item) ?: return 0
         val expectedYield = graph.getExpectedYield(source, itemNode) ?: return 0
         if (expectedYield >= 1.0) return 0
         return ((1.0 / expectedYield - 1.0) * context.scorerMutation.lowYieldWeight).toInt()
-            .coerceAtMost(context.scorerMutation.lowYieldCap)
     }
 
     private fun efficiencyBonus(item: MinecraftId, source: SourceNode, isReciprocal: Boolean): Int {

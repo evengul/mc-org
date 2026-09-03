@@ -6,18 +6,22 @@ package app.mcorg.engine.plan
  * ## Why this exists
  *
  * Mutation-testing every scoring constant against all mc-engine tests (MCO-490) found four
- * behaviours that can be deleted or wrecked with the suite staying green. Nothing records
- * what they were meant to do, so nothing can say whether removing them loses knowledge or
- * only loses tuning — and telling those two apart is the whole job before
- * [SelectionScorer] is replaced by [UnitCostModel].
+ * behaviours that can be deleted or wrecked with the suite staying green. Nothing records what
+ * they were meant to do, so nothing can say whether removing one loses knowledge or only loses
+ * tuning — and telling those two apart is the whole job before [SelectionScorer] is replaced
+ * by [UnitCostModel].
  *
- * The way to find out is not to write a test pinning each one: three of the four are
- * behaviours the cost model deliberately *replaces with arithmetic*, so pinning them would
- * be writing tests to delete. It is to turn each one off against the **real** graph, see
- * which items actually move, and ask what the cost model says about those same items.
+ * The way to find out is not to write a test pinning each one: most of them are behaviours the
+ * cost model deliberately *replaces with arithmetic*, so pinning them would be writing tests to
+ * delete. It is to turn each one off against the **real** graph, see which items actually move,
+ * and ask what the cost model says about those same items.
  * Where it reaches the shipped answer by arithmetic, the constant was tuning and can go.
  * Where it does not, the constant was carrying a fact about the game — the way
  * `hasConstructiveSibling` turned out to be — and that fact has to be ported, not deleted.
+ *
+ * Three of the original four are still switchable here. The fourth, a ceiling on the low-yield
+ * penalty, is gone: this differential showed it decided nothing the cost model wanted kept, so
+ * it was deleted rather than left as a knob.
  *
  * ## What it is not
  *
@@ -34,20 +38,18 @@ package app.mcorg.engine.plan
  * @param mineableThresholdGuard when false, the bulk recipe-threshold bonus is granted even
  *   to an item you could simply mine. Shipped behaviour withholds it, so a recipe that only
  *   converts one raw block into another cannot leapfrog the raw gather at bulk demand.
- * @param lowYieldWeight minutes-equivalent slope of the sub-one-yield penalty.
- * @param lowYieldCap ceiling on that penalty. Binds only at an expected yield of 0.25 or
- *   below, which no fixture in the suite reaches.
+ * @param lowYieldWeight slope of the sub-one-yield penalty. The ceiling that used to sit
+ *   beside it was deleted on this differential's own evidence — see
+ *   [SelectionScorer.lowYieldPenalty].
  */
 data class ScorerMutation(
     val tradeEfficiencyGuard: Boolean = true,
     val mineableThresholdGuard: Boolean = true,
     val lowYieldWeight: Int = DEFAULT_LOW_YIELD_WEIGHT,
-    val lowYieldCap: Int = DEFAULT_LOW_YIELD_CAP,
 ) {
     companion object {
-        /** The shipped constants. Kept here so the scorer and the mutations cannot drift apart. */
+        /** The shipped constant. Kept here so the scorer and the mutations cannot drift apart. */
         const val DEFAULT_LOW_YIELD_WEIGHT = 20
-        const val DEFAULT_LOW_YIELD_CAP = 60
 
         /** Shipped behaviour, byte for byte. The default for every production call. */
         val NONE = ScorerMutation()
@@ -55,7 +57,7 @@ data class ScorerMutation(
 }
 
 /**
- * The four unpinned behaviours, each as one switch a differential can flip.
+ * The unpinned behaviours, each as one switch a differential can flip.
  *
  * A factor's [mutate] returns the scorer *without* that behaviour, so the items whose
  * selection changes between [ScorerMutation.NONE] and it are exactly the items the
@@ -80,12 +82,6 @@ enum class ScorerFactor(val label: String, val describe: String) {
         "a 0.33-per-kill drop costs three kills, so cheap recipes win even at small demand",
     ) {
         override fun mutate(base: ScorerMutation) = base.copy(lowYieldWeight = 0)
-    },
-    LOW_YIELD_CAP(
-        "low-yield penalty cap",
-        "ceiling on that penalty; binds only at an expected yield of 0.25 or below",
-    ) {
-        override fun mutate(base: ScorerMutation) = base.copy(lowYieldCap = Int.MAX_VALUE / 2)
     };
 
     /** The mutation that removes this behaviour, leaving the other three as they are. */
