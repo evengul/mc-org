@@ -96,7 +96,9 @@ This mirrors CI (`.github/workflows/dev.yml`): the `unit-tests` job runs the def
 tier; the `integration-tests` job runs `-Dgroups=database`.
 
 Notes:
-- It auto-generates JWT signing keys (`mc-web/create-keys.sh`) on first run if missing.
+- It auto-generates JWT signing keys (`mc-web/create-keys.sh`) on first run if missing. They are
+  one pair per *machine* (`~/.config/seam/keys`), copied into each checkout — see footnote ² in
+  [documentation/configuration.md](documentation/configuration.md).
 - `--integration` (failsafe) expects a running server; the `--database` tier is
   self-contained (Testcontainers spins up its own PostgreSQL).
 
