@@ -475,43 +475,53 @@ object RoadmapGraphLayout {
     ): List<GraphEdge> = buildList {
         // Between consecutive sequence nodes: a short hop, dashed when the ordering is a
         // hand-made one rather than a derived supply edge.
+        //
+        // **Only where an edge actually exists** (MCO-302). The band is *sorted* by layer, and
+        // two projects sharing a layer are not sequenced relative to each other at all — an
+        // arrow between them asserts an ordering nobody stated. This used to draw the hop
+        // unconditionally and fall back to `dashed = edge?.itemName == null`, which for a
+        // missing edge is `true`: a relationship that did not exist was painted in the exact
+        // style reserved for a hand-made one. It only became visible once orderings could be
+        // *removed* — before that the band's neighbours were always genuinely chained, so the
+        // fallback never fired. Even caught it on the first delete: the graph still showed the
+        // ordering he had just taken away.
         sequence.zipWithNext().forEachIndexed { index, (from, to) ->
-            val fromRight = SEQUENCE_LEFT + index * (seqWidth + SEQUENCE_GAP) + seqWidth
-            val toLeft = fromRight + SEQUENCE_GAP
             val edge = roadmap.edges.firstOrNull {
                 it.fromNodeId == to.projectId && it.toNodeId == from.projectId
-            }
+            } ?: return@forEachIndexed
+            val fromRight = SEQUENCE_LEFT + index * (seqWidth + SEQUENCE_GAP) + seqWidth
+            val toLeft = fromRight + SEQUENCE_GAP
             add(
                 GraphEdge(
                     key = "seq-${from.projectId}-${to.projectId}",
                     path = "M $fromRight 47 L $toLeft 47",
-                    strokeWidth = strokeWidthFor(edge?.quantity),
-                    dashed = edge?.itemName == null,
+                    strokeWidth = strokeWidthFor(edge.quantity),
+                    dashed = edge.itemName == null,
                 )
             )
         }
 
-        // The last sequence node curves down into the terminal panel.
+        // The last sequence node curves down into the terminal panel — again only if it really
+        // feeds it. Same defect, same fix: a solid line into the terminal project is the
+        // strongest claim on the page, and it was being drawn whether or not anything flowed.
         sequence.lastOrNull()?.let { last ->
             val index = sequence.lastIndex
             val right = SEQUENCE_LEFT + index * (seqWidth + SEQUENCE_GAP) + seqWidth
             val edge = roadmap.edges.firstOrNull {
                 it.fromNodeId == terminal.projectId && it.toNodeId == last.projectId
-            }
+            } ?: return@let
             add(
                 GraphEdge(
                     key = "seq-terminal",
                     path = "M $right 47 C ${right + 32} 47 ${TERMINAL_LEFT - 4} 96 ${TERMINAL_LEFT - 4} $TERMINAL_TOP",
-                    strokeWidth = strokeWidthFor(edge?.quantity),
+                    strokeWidth = strokeWidthFor(edge.quantity),
                     dashed = false,
-                    label = edge?.let {
-                        EdgeLabel(
-                            text = "${format(it.quantity ?: 0)} ${it.itemName ?: ""} · already covered".trim(),
-                            x = right - 8,
-                            y = TERMINAL_TOP + 2,
-                            anchor = "end",
-                        )
-                    },
+                    label = EdgeLabel(
+                        text = "${format(edge.quantity ?: 0)} ${edge.itemName ?: ""} · already covered".trim(),
+                        x = right - 8,
+                        y = TERMINAL_TOP + 2,
+                        anchor = "end",
+                    ),
                 )
             )
         }
