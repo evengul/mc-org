@@ -189,7 +189,7 @@ object ScoreDiagnostics {
      */
     fun hasOnlySelfBlockLoot(graph: ItemSourceGraph, item: MinecraftId): Boolean {
         val sources = graph.getSourcesForItem(item)
-        return sources.isNotEmpty() && sources.all { SelectionScorer.isSelfBlockLoot(item, it) }
+        return sources.isNotEmpty() && sources.all { isSelfBlockLoot(item, it) }
     }
 
     /** Prefers the concrete item node over a same-id tag node (mirrors PlanSelector.graphItemFor). */

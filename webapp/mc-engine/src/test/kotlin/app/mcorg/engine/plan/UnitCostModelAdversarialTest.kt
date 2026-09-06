@@ -219,13 +219,13 @@ class UnitCostModelAdversarialTest {
         }.build()
 
         assertTrue(
-            SelectionScorer.isSelfBlockLoot(
+            isSelfBlockLoot(
                 redstone, graph.getSourceNode(block.id, "blocks/redstone_wire.json")!!
             ),
             "REVERSIBLE in the table beats the differing names",
         )
         assertTrue(
-            SelectionScorer.isSelfBlockLoot(
+            isSelfBlockLoot(
                 beacon, graph.getSourceNode(block.id, "blocks/beacon.json")!!
             ),
             "and silence from the table still falls back to the name match",
@@ -241,7 +241,7 @@ class UnitCostModelAdversarialTest {
      * **Defect 4, now fixed — "breaking what you placed can never win" only held for an exact
      * name match.**
      *
-     * [SelectionScorer.isSelfBlockLoot] compares the loot-table stem to the item id, so it saw
+     * [isSelfBlockLoot] compares the loot-table stem to the item id, so it saw
      * `blocks/obsidian.json` for obsidian but not `blocks/ender_chest.json`, which also drops
      * obsidian — eight of it. An ender chest is 8 obsidian plus an eye of ender, so the model
      * priced obsidian at one eighth of a block-break: 0.01 min, against 0.05 for mining it and

@@ -30,29 +30,29 @@ class PlacedFormCircularityTest {
 
     @Test
     fun `breaking placed redstone dust is not a way to obtain redstone`() {
-        assertTrue(SelectionScorer.isSelfBlockLoot(item("redstone"), block("redstone_wire")))
+        assertTrue(isSelfBlockLoot(item("redstone"), block("redstone_wire")))
     }
 
     @Test
     fun `the name-matched case still works`() {
-        assertTrue(SelectionScorer.isSelfBlockLoot(item("beacon"), block("beacon")))
+        assertTrue(isSelfBlockLoot(item("beacon"), block("beacon")))
     }
 
     @Test
     fun `harvesting a crop is production, not re-collection`() {
         // A seed goes in and more than a seed comes out. Treating this as circular is how a
         // planner ends up sourcing wheat from a shipwreck.
-        assertFalse(SelectionScorer.isSelfBlockLoot(item("carrot"), block("carrots")))
-        assertFalse(SelectionScorer.isSelfBlockLoot(item("sweet_berries"), block("sweet_berry_bush")))
+        assertFalse(isSelfBlockLoot(item("carrot"), block("carrots")))
+        assertFalse(isSelfBlockLoot(item("sweet_berries"), block("sweet_berry_bush")))
     }
 
     @Test
     fun `a block needing a tool between item and placement is not re-collection`() {
         // Dirt cannot become farmland without a hoe, so breaking farmland really is a way to
         // end up holding dirt — even though farmland is plainly "a placed form of" it.
-        assertFalse(SelectionScorer.isSelfBlockLoot(item("dirt"), block("farmland")))
-        assertFalse(SelectionScorer.isSelfBlockLoot(item("cauldron"), block("water_cauldron")))
-        assertFalse(SelectionScorer.isSelfBlockLoot(item("sand"), block("suspicious_sand")))
+        assertFalse(isSelfBlockLoot(item("dirt"), block("farmland")))
+        assertFalse(isSelfBlockLoot(item("cauldron"), block("water_cauldron")))
+        assertFalse(isSelfBlockLoot(item("sand"), block("suspicious_sand")))
     }
 
     @Test
@@ -61,8 +61,8 @@ class PlacedFormCircularityTest {
         // relation entirely — the ingredient closure, not the placed form. Keeping them out of
         // this table is deliberate: books from a naturally generated bookshelf are a normal way
         // to get books, and obsidian's real answer is a lava-and-water source the graph lacks.
-        assertFalse(SelectionScorer.isSelfBlockLoot(item("obsidian"), block("ender_chest")))
-        assertFalse(SelectionScorer.isSelfBlockLoot(item("book"), block("bookshelf")))
+        assertFalse(isSelfBlockLoot(item("obsidian"), block("ender_chest")))
+        assertFalse(isSelfBlockLoot(item("book"), block("bookshelf")))
     }
 
     @Test

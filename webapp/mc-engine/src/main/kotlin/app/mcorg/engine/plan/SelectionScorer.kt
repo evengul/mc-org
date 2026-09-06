@@ -371,39 +371,5 @@ internal class SelectionScorer(
         private const val REQUIREMENT_PENALTY = 10
         private const val UNREACHABLE_DEPTH = Int.MAX_VALUE / 2
 
-        /**
-         * Breaking a block that *is* the item ("blocks/beacon.json" for
-         * minecraft:beacon) only re-collects something already placed — never a
-         * natural acquisition. Mining a different block that drops the item
-         * (diamond ore for diamonds) does not match.
-         */
-        internal fun isSelfBlockLoot(item: MinecraftId, source: SourceNode): Boolean {
-            if (source.sourceType != ResourceSource.SourceType.LootTypes.BLOCK) return false
-            val stem = source.filename.substringAfterLast('/').substringBeforeLast('.')
-
-            // A block is not always named after the item you placed to make it: you put down
-            // `minecraft:redstone` and the world holds `minecraft:redstone_wire`. Comparing
-            // names caught `blocks/beacon.json` and missed that one, so the planner offered
-            // "break placed redstone dust" as a way to obtain redstone dust. `PlacedForms` is
-            // the curated record of which pairs are actually circular, and **it wins**: a crop
-            // yields more than was planted, and farmland needs a hoe standing between the dirt
-            // and the block, so neither is re-collection.
-            //
-            // Asking it *first* is the fix in MCO-501. This used to compare names before
-            // consulting the table, so a pair the table had an opinion about never reached it
-            // when the two names happened to match — and the table lists mostly pairs whose
-            // names differ, because those are the ones a name comparison misses. The result was
-            // that the table silently governed only half of its own subject: harvesting carrots
-            // scored 100 and harvesting wheat scored -100, on nothing but Mojang pluralising one
-            // block id. Nine items were demoted and five escaped, from one family.
-            PlacedForms.relationOf("minecraft:$stem", item.id)?.let {
-                return it == PlacedForm.Relation.REVERSIBLE
-            }
-
-            // Silence from the table is not "not circular" — it lists exceptions, and the
-            // ordinary case genuinely is that placed `minecraft:beacon` is the beacon you
-            // carried. So the name match stays, as the fallback it should always have been.
-            return stem == item.id.substringAfterLast(':')
-        }
     }
 }

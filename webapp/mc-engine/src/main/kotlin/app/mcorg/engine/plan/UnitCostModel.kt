@@ -413,7 +413,7 @@ class UnitCostModel(
         // this model without the gate proved why: acacia_log came out at 25.7 minutes and lost
         // to a chest. The gate is not scaffolding around a weak score — it is a fact about the
         // graph, and it survives the change of model.
-        if (SelectionScorer.isSelfBlockLoot(item, source) && hasConstructiveSibling(item)) {
+        if (isSelfBlockLoot(item, source) && hasConstructiveSibling(item)) {
             val own = c[item.id] ?: UNREACHABLE
             return if (own >= UNREACHABLE) UNREACHABLE else own + boundEffort.of(source)
         }
