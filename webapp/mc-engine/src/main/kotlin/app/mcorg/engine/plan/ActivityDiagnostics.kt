@@ -8,7 +8,7 @@ import app.mcorg.engine.model.SourceNode
  * How many *kinds of work* a plan asks for, and how many of those an activity-aware tie-break
  * would remove — MCO-493's step 3, which that issue insists comes before any implementation.
  *
- * **Read-only. Changes no ranking.** Like [ScoreDiagnostics], this computes and returns; the CLI
+ * **Read-only. Changes no ranking.** This computes and returns; the CLI
  * in mc-web prints. It lives here rather than in the CLI because it reads [activityGroup], which
  * is the same mapping [GatheringPlan.activityList] groups by — asking this question from a second
  * copy of that `when` is how the placed-form table came to disagree with itself twice.
@@ -58,8 +58,8 @@ object ActivityDiagnostics {
      * choosing a source costs anyway.
      *
      * Everything here is measured against the model's **own** answers. Nothing is compared to a
-     * second model, which is the whole point (MCO-520) — these numbers still mean something once
-     * `SelectionScorer` is gone.
+     * second model, which is the whole point (MCO-520) — and it is why these numbers still mean
+     * something now that `SelectionScorer` is gone.
      */
     data class Stability(
         /** The cheapest source per item, by the same tie-break [UnitCostModel.best] uses. */

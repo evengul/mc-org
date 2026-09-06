@@ -30,9 +30,8 @@ import app.mcorg.engine.model.SourceNode
  *
  * Source choice is ranked by [UnitCostModel] — minutes to acquire a unit, cheapest
  * first — and is **not** amount-aware. It used to be: the demand seen while expanding
- * fed the scorer's recipe-threshold bonus. MCO-522 measured that bonus and it decided
- * nothing worth keeping, so it left with [SelectionScorer]; see
- * [PlanContext.recipeThreshold].
+ * fed the retired scorer's recipe-threshold bonus, which MCO-522 measured and found to
+ * decide nothing worth keeping (MCO-490).
  *
  * Demand is still tracked, because quantities still depend on it. Demands computed here
  * are provisional (first-encounter, propagated through provisional craft counts) —
@@ -233,7 +232,7 @@ object PlanSelector {
                 // concrete-by-water) — the placed block had to be obtained first. Without
                 // this, "unpack iron block <- break a placed iron block" would count
                 // as a complete acquisition path.
-                if (hasConstructiveSibling && SelectionScorer.isSelfBlockLoot(item, source)) return@any false
+                if (hasConstructiveSibling && isSelfBlockLoot(item, source)) return@any false
                 graph.getRequiredItems(source).all { requirement ->
                     val effective = redirectTag(requirement.item)
                     acquirable(effective, effective.id, resolvingId, memo)
@@ -251,29 +250,10 @@ object PlanSelector {
          * No longer demand-aware. The scorer's recipe-threshold bonus was the only demand-
          * sensitive thing in planning, and MCO-522 measured what dropping it costs: of the 28
          * items whose committed source moved with demand, 25 are a strict improvement under this
-         * model, 3 are ties and none is a loss. See [PlanContext.recipeThreshold].
+         * model, 3 are ties and none is a loss.
          */
         private fun rank(item: MinecraftId, candidates: Set<SourceNode>): List<SourceNode> =
-            when (context.rankBy) {
-                RankingModel.COST -> model.ranked(item).map { it.first }.filter { it in candidates }
-                RankingModel.LEGACY_SCORE -> legacyRank(item, candidates)
-            }
-
-        /**
-         * The retired [SelectionScorer] ordering, kept only so the switchover can be audited
-         * against what the old model actually committed to. See [RankingModel.LEGACY_SCORE];
-         * this goes when the scorer does.
-         */
-        private fun legacyRank(item: MinecraftId, candidates: Set<SourceNode>): List<SourceNode> {
-            val scorer = SelectionScorer(graph, supplied, context)
-            val hasConstructiveSibling = candidates.any { it.sourceType.isConstructive() }
-            val demand = demands.getValue(item.id)
-            return candidates.sortedWith(
-                compareByDescending<SourceNode> { scorer.score(item, it, demand, hasConstructiveSibling) }
-                    .thenByDescending { it.sourceType.isRecipe() }
-                    .thenBy { it.getKey() }
-            )
-        }
+            model.ranked(item).map { it.first }.filter { it in candidates }
 
         /** Swaps a caller-provided id for the graph's own node of the same kind, when present. */
         private fun graphItemFor(item: MinecraftId): MinecraftId {

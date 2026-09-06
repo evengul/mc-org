@@ -40,8 +40,7 @@ data class RankedSource(
  * There is no `demand` parameter. There was one, because the scorer's recipe-threshold bonus was
  * demand-sensitive and the drill passed `TargetTree.quantityIfAlone`. The cost model has one
  * answer at every demand — measured, not assumed — so a demand argument here would be a
- * parameter that changes nothing, which is worse than none at all. See MCO-522 and
- * [PlanContext.recipeThreshold].
+ * parameter that changes nothing, which is worse than none at all. See MCO-522.
  *
  * [supplied] defaults to "nothing supplied", which yields the intrinsic ranking of a source;
  * pass the project's real supplied map — and, better, the [costModel] the plan was built with —
