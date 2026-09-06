@@ -56,6 +56,29 @@ import app.mcorg.engine.model.SourceNode
  *   which this sums directly. Neither is needed, which matters because depth was measured to
  *   be a flat `d1` on 96 of 98 real candidates — a constant wearing a metric's clothes.
  *
+ * ## One answer at every demand, and that is decided rather than defaulted
+ *
+ * This model has no demand term, where [SelectionScorer] has one: a recipe-threshold bonus that
+ * fires at [PlanContext.recipeThreshold]. Swapping models therefore drops demand-sensitivity
+ * entirely, so MCO-522 measured what that costs before it could happen by nobody noticing.
+ *
+ * On 1.21.4 / world 3, 28 of 996 items change their committed source with demand. Priced against
+ * the end each one drops — not against the cheaper end, which scores a matched end against itself
+ * — **25 are a strict improvement, 3 are ties, and none is a loss.** The threshold was never
+ * modelling size: on 19 items it swung between two answers that a third source beats outright
+ * (wool is sheared rather than killed or crafted; iron, gold and copper are blasted), on 7 it
+ * corrected a bad small-demand default this model reaches at every size, and on `leather` it
+ * introduced an error — crafting from four rabbit hides at 0.5 hide per kill is 4.05 min against
+ * 0.50 min for a cow.
+ *
+ * So the `effort = setup/demand + per_unit` alternative from MCO-490 is **not** taken: it would
+ * double every entry in [EffortTable] into two hand-set numbers to buy behaviour that measures as
+ * worthless. A fixed cost that genuinely does not divide per item — one trip to the mine buying
+ * cobblestone, coal and iron at once — is real, but it belongs to the assembled plan rather than
+ * to unit cost, which is MCO-493's conclusion and `PlanQuantifier`'s job. Re-run
+ * `cost-diagnostics demands=10,100,1000` before reopening this; the reason the question needed
+ * asking twice is that the first measurement went stale behind MCO-497/498/501.
+ *
  * ## What it does not decide
  *
  * Effort per source type is the one felt input left, and it stays felt — Mojang's data has
