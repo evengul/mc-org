@@ -50,7 +50,7 @@ private const val MIN_BULK_QUESTIONS = 2
  */
 private suspend fun bulkRecommendations(worldId: Int, projectId: Int): List<RecommendedAnswer> {
     val plan = deriveOrNull(projectId, worldId) ?: return emptyList()
-    val (graph, costModel) = graphAndCostModel(worldId) ?: return emptyList()
+    val (graph, costModel) = graphAndCostModel(worldId, projectId) ?: return emptyList()
 
     return foldedAttentionQuestions(plan.activityList).mapNotNull { activity ->
         val tag = activity.item as? MinecraftTag ?: return@mapNotNull null

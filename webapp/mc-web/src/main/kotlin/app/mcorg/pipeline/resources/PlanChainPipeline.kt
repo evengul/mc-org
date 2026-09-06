@@ -172,7 +172,7 @@ suspend fun ApplicationCall.handleGetNodePicker() {
 
     // Graph and the model that ranks over it, from one entry — the picker must rank with the
     // same model the plan was selected with (MCO-521).
-    val (graph, costModel) = graphAndCostModel(worldId) ?: (null to null)
+    val (graph, costModel) = graphAndCostModel(worldId, projectId) ?: (null to null)
 
     // Load current overrides so we can highlight the active selection
     val overrides = when (val r = GetPlanOverridesStep.process(projectId)) {
@@ -472,7 +472,7 @@ internal suspend fun ApplicationCall.listRerenderFragment(worldId: Int, projectI
  * or graph is unavailable, or the node is not a tag — never guessed.
  */
 internal suspend fun recommendedMemberFor(projectId: Int, worldId: Int, nodeId: String): String? {
-    val (graph, costModel) = graphAndCostModel(worldId) ?: return null
+    val (graph, costModel) = graphAndCostModel(worldId, projectId) ?: return null
     val plan = deriveOrNull(projectId, worldId) ?: return null
     val node = plan.drillTreeFor(nodeId)?.let { findNodeById(it, nodeId) }
         ?: synthesizeTagNode(nodeId, graph)
@@ -516,8 +516,10 @@ internal fun GatheringPlan.drillTreeFor(itemId: String): TargetTree? =
  * Obtains the [ItemSourceGraph] for the world's Minecraft version.
  * Returns null when the version or graph is not found (graceful — callers treat it as empty).
  */
-internal suspend fun getGraphForWorld(worldId: Int): ItemSourceGraph? =
-    graphAndCostModel(worldId)?.first
+internal suspend fun getGraphForWorld(worldId: Int): ItemSourceGraph? {
+    val versionString = GetWorldVersionStep.process(worldId).getOrNull() ?: return null
+    return GetItemSourceGraphForVersionStep.process(versionString).getOrNull()
+}
 
 /**
  * The world's graph together with the [UnitCostModel] that ranks sources over it (MCO-521).
@@ -525,18 +527,26 @@ internal suspend fun getGraphForWorld(worldId: Int): ItemSourceGraph? =
  * Taken as a pair from one cache entry, because the model is keyed by the graph's build instant
  * and fetching the two separately could pair an old graph with a new instant across a re-ingest.
  *
- * **Built with nothing supplied**, which is the intrinsic ranking of a source and is exactly what
- * this path did before the model swap — `SourceRanking.rankSources` was called without a supplied
- * map here too. It is a real, pre-existing gap: the plan is derived *with* the project's farms and
- * linked projects, so a picker and a plan can differ on an item whose price changes downstream of
- * something supplied. Closing it needs the project's supplied map plumbed to the picker, which is
- * a change to what the picker means rather than to which model it reads, so it is deliberately not
- * folded into the model switchover.
+ * **Built with the project's own supply** (MCO-523). It used to be built with nothing supplied —
+ * the intrinsic ranking of a source, which is what this path did before the model swap too. That
+ * was survivable under a score and is not under a cost: a supplied item costs 0 and that
+ * propagates to everything downstream of it, so a picker that does not know about the project's
+ * iron farm quotes unsupplied prices and can order two candidates the other way round. It would
+ * then mark "quickest ★" on a source the plan did not choose — the exact drift MCO-521 exists to
+ * prevent, arriving through the back door.
+ *
+ * Because `PlanCostModel` keys on `(graph, supplied)`, passing the same map the plan built means
+ * the two now share **one cached model instance** rather than two that happen to agree.
  */
-internal suspend fun graphAndCostModel(worldId: Int): Pair<ItemSourceGraph, UnitCostModel>? {
+internal suspend fun graphAndCostModel(
+    worldId: Int,
+    projectId: Int,
+): Pair<ItemSourceGraph, UnitCostModel>? {
     val versionString = GetWorldVersionStep.process(worldId).getOrNull() ?: return null
     val cached = GetItemSourceGraphForVersionStep.cached(versionString).getOrNull() ?: return null
-    return cached.graph to PlanCostModel.of(versionString, cached.builtAt, cached.graph)
+    val supplied = ProjectSupply.load(projectId, worldId).getOrNull() ?: emptyMap()
+    return cached.graph to
+        PlanCostModel.of(versionString, cached.builtAt, cached.graph, supplied)
 }
 
 /**

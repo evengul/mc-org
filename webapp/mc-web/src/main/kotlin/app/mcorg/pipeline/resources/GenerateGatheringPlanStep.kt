@@ -107,32 +107,16 @@ object GenerateGatheringPlanStep : Step<GatheringPlanInput, AppFailure, Gatherin
             )
         }
 
-        // 6. Build supplied map — world farm supply first, explicit choices on top.
-        // Operational (DONE) projects' productions supply the whole world (MCO-296): any
-        // item they produce terminates as a SUPPLIED leaf wherever it appears in a chain.
-        // An explicit 'manual' source pick opts the item out of farm supply; an explicit
-        // project link replaces the farm entry via the map union below.
+        // 6. Build supplied map. The rule lives in ProjectSupply so the drill's picker can reach
+        // the same answer (MCO-523) — folded from the rows already loaded here rather than
+        // re-queried.
         val farms = when (val r = GetWorldFarmSuppliesStep.process(
             WorldFarmSuppliesInput(worldId = input.worldId, excludeProjectId = input.projectId)
         )) {
             is Result.Success -> r.value
             is Result.Failure -> return r
         }
-        val manualItems: Set<String> = activeItems
-            .filter { it.sourceType == ResourceSourceType.MANUAL }
-            .map { it.itemId }
-            .toSet()
-        val farmSupplied: Map<String, SupplySource> = farms
-            .filter { it.itemId !in manualItems }
-            .groupBy { it.itemId }
-            .mapValues { (_, producers) -> SupplySource.Farm(producers.first().projectName) }
-        val linkedSupplied: Map<String, SupplySource> = activeItems
-            .mapNotNull { item ->
-                val (solvedId, solvedName) = item.solvedByProject ?: return@mapNotNull null
-                item.itemId to SupplySource.LinkedProject(solvedId, solvedName)
-            }
-            .toMap()
-        val supplied: Map<String, SupplySource> = farmSupplied + linkedSupplied
+        val supplied: Map<String, SupplySource> = ProjectSupply.fold(activeItems, farms)
 
         // 7. Load persisted overrides for this project
         val overrides: PlanOverrides = when (val r = GetPlanOverridesStep.process(input.projectId)) {
