@@ -250,7 +250,7 @@ object PlanSelector {
          * No longer demand-aware. The scorer's recipe-threshold bonus was the only demand-
          * sensitive thing in planning, and MCO-522 measured what dropping it costs: of the 28
          * items whose committed source moved with demand, 25 are a strict improvement under this
-         * model, 3 are ties and none is a loss. See [PlanContext.recipeThreshold].
+         * model, 3 are ties and none is a loss.
          */
         private fun rank(item: MinecraftId, candidates: Set<SourceNode>): List<SourceNode> =
             model.ranked(item).map { it.first }.filter { it in candidates }

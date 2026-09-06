@@ -720,8 +720,8 @@ private val projectItemsQuery = DatabaseSteps.query<Int, List<String>>(
 )
 
 /**
- * Prints [ActivityDiagnostics] reports. The measurement lives in mc-engine beside
- * [ScoreDiagnostics]; this is the driver, which is the only place allowed to print.
+ * Prints [ActivityDiagnostics] reports. The measurement lives in mc-engine, next to the model it
+ * measures; this is the driver, which is the only place allowed to print.
  */
 private fun printActivityReports(reports: List<ActivityDiagnostics.ScopeReport>) {
     for (r in reports) {

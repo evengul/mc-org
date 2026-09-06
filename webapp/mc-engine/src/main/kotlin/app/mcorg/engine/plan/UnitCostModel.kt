@@ -9,10 +9,15 @@ import app.mcorg.engine.model.ItemSourceGraph
 import app.mcorg.engine.model.SourceNode
 
 /**
- * A sketch of the acquisition-cost model proposed as a replacement for [SelectionScorer]
- * (MCO-320's follow-up). **Nothing calls this in production.** It exists so the two models
- * can be run side by side against the real ingested graph and their disagreements read,
- * before anything is ripped out.
+ * **How the planner decides where everything comes from.** [PlanSelector] ranks candidate
+ * sources by this, and so does the drill's source picker through [SourceRanking] — one model,
+ * one ordering, so the plan and the picker cannot disagree about what "best" means.
+ *
+ * It was a read-only sketch until MCO-521, proposed as a replacement for the additive
+ * `SelectionScorer` and run beside it so the disagreements could be read before anything was
+ * ripped out. That comparison is over: the scorer is deleted (MCO-490 step 4), so the passages
+ * below that argue *against* it are the record of why this shape was chosen, not a live
+ * comparison you can re-run.
  *
  * ## What it is
  *
@@ -32,7 +37,7 @@ import app.mcorg.engine.model.SourceNode
  *
  * ## Why this shape
  *
- * [SelectionScorer] adds eight constants in incommensurable units — a base score in points,
+ * The retired `SelectionScorer` added eight constants in incommensurable units — a base score in points,
  * a count of ingredients, a hop count, a yield ratio, a demand step. None of them is weighted
  * by **quantity**, which is what acquisition cost actually turns on: one ingot makes nine
  * nuggets, and three ingots plus two sticks make one pickaxe. That is why each fix has had to
@@ -58,8 +63,8 @@ import app.mcorg.engine.model.SourceNode
  *
  * ## One answer at every demand, and that is decided rather than defaulted
  *
- * This model has no demand term, where [SelectionScorer] has one: a recipe-threshold bonus that
- * fires at [PlanContext.recipeThreshold]. Swapping models therefore drops demand-sensitivity
+ * This model has no demand term, where the retired scorer had one: a recipe-threshold bonus
+ * that fired at a hard-coded demand of 100. Swapping models therefore drops demand-sensitivity
  * entirely, so MCO-522 measured what that costs before it could happen by nobody noticing.
  *
  * On 1.21.4 / world 3, 28 of 996 items change their committed source with demand. Priced against
