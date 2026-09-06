@@ -4,6 +4,7 @@ import app.mcorg.domain.model.user.Role
 import app.mcorg.engine.plan.TargetTree
 import app.mcorg.pipeline.Result
 import app.mcorg.pipeline.failure.AppFailure
+import app.mcorg.pipeline.project.dependencies.GetProjectDependenciesStep
 import app.mcorg.pipeline.project.commonsteps.GetProjectByIdStep
 import app.mcorg.pipeline.project.commonsteps.GetViewPreferenceInput
 import app.mcorg.pipeline.project.commonsteps.GetViewPreferenceStep
@@ -61,6 +62,10 @@ suspend fun ApplicationCall.handleGetProject() {
     val resources = GetAllResourceGatheringItemsStep.process(projectId).getOrNull() ?: emptyList()
 
     val productions = GetResourceProductionStep.process(projectId).getOrNull() ?: emptyList()
+
+    // Declared orderings (MCO-302). Falls back to empty like productions above: a missing
+    // "waits on" chip beats a missing project page.
+    val dependencies = GetProjectDependenciesStep(projectId).process(Unit).getOrNull() ?: emptyList()
 
     val tasks = when (val result = SearchTasksStep(projectId).process(SearchTasksInput(completionStatus = "ALL"))) {
         is Result.Success -> result.value
@@ -134,6 +139,7 @@ suspend fun ApplicationCall.handleGetProject() {
             user, project, worldName, resources, tasks,
             isWorldAdmin = isAdmin, plan = plan, progressMap = progressMap,
             productions = productions,
+            dependencies = dependencies,
             pendingFarms = prerequisiteFarms,
             drillTarget = drillTarget, drillCandidateCounts = drillCandidateCounts,
             drillNodeIngredients = drillNodeIngredients, drillHighlightItemId = drillItemId,

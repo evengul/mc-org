@@ -1,5 +1,6 @@
 package app.mcorg.pipeline.project.dependencies
 
+import app.mcorg.domain.model.project.DependencyOrigin
 import app.mcorg.domain.model.project.ProjectDependency
 import app.mcorg.pipeline.Result
 import app.mcorg.domain.pipeline.Step
@@ -18,7 +19,8 @@ data class GetProjectDependenciesStep(val projectId: Int) : Step<Unit, AppFailur
                     p1.stage as dependent_stage,
                     p2.id as dependency_id,
                     p2.name as dependency_name,
-                    p2.stage as dependency_stage
+                    p2.stage as dependency_stage,
+                    pd.origin as origin
                 FROM project_dependencies pd
                 JOIN projects p1 ON pd.project_id = p1.id
                 JOIN projects p2 ON pd.depends_on_project_id = p2.id
@@ -41,7 +43,10 @@ data class GetProjectDependenciesStep(val projectId: Int) : Step<Unit, AppFailur
                     dependentStage = app.mcorg.domain.model.project.ProjectStage.valueOf(getString("dependent_stage")),
                     dependencyId = getInt("dependency_id"),
                     dependencyName = getString("dependency_name"),
-                    dependencyStage = app.mcorg.domain.model.project.ProjectStage.valueOf(getString("dependency_stage"))
+                    dependencyStage = app.mcorg.domain.model.project.ProjectStage.valueOf(getString("dependency_stage")),
+                    // The CHECK constraint (V2_66_0) is what keeps this total; a value outside
+                    // the enum is a schema bug, not a row to drop silently.
+                    origin = DependencyOrigin.valueOf(getString("origin"))
                 )
             )
         }

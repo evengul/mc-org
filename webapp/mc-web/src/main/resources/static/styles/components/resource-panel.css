@@ -289,3 +289,10 @@ dialog#resource-panel::backdrop {
     flex-direction: column;
     gap: var(--space-2);
 }
+
+/* Dependency editor panel (MCO-302). Reuses .production-list / .production-row for the list
+   itself — one row-with-a-delete-button is one pattern, and duplicating the rules would let the
+   two drift. Only the origin badge is new. */
+.dependency-row__origin {
+    margin-left: var(--space-2);
+}

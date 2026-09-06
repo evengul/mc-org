@@ -15,6 +15,9 @@ import app.mcorg.pipeline.world.roadmap.handleSaveRoadmapCycleOrder
 import app.mcorg.pipeline.project.handleRecordExistingFarm
 import app.mcorg.pipeline.project.resources.handleAddResourcesFromSchematic
 import app.mcorg.pipeline.project.resources.handleDeleteProjectProduction
+import app.mcorg.pipeline.project.dependencies.handleAddProjectDependency
+import app.mcorg.pipeline.project.dependencies.handleDeleteProjectDependency
+import app.mcorg.pipeline.project.dependencies.handleGetDependenciesPanel
 import app.mcorg.pipeline.project.resources.handleGetProductionsPanel
 import app.mcorg.pipeline.project.resources.handleUpsertProjectProduction
 import app.mcorg.pipeline.resources.handleClearOverride
@@ -77,6 +80,7 @@ import app.mcorg.pipeline.world.settings.members.handleUpdateWorldMemberRole
 import app.mcorg.presentation.plugins.ActionTaskParamPlugin
 import app.mcorg.presentation.plugins.InviteParamPlugin
 import app.mcorg.presentation.plugins.ProjectParamPlugin
+import app.mcorg.presentation.plugins.ProjectDependencyItemPlugin
 import app.mcorg.presentation.plugins.ProjectProductionItemParamPlugin
 import app.mcorg.presentation.plugins.ResourceGatheringIdParamPlugin
 import app.mcorg.presentation.plugins.SchematicUploadLimitPlugin
@@ -222,6 +226,25 @@ class WorldHandler {
                             patch("/state") { call.handleUpdateProjectStateInline() }
                             get("/location") { call.handleGetProjectLocationField() }
                             patch("/location") { call.handleUpdateProjectLocation() }
+                        }
+                        // The manual dependency editor (MCO-302). Not admin-gated, matching the
+                        // other project-identity editors on this page (productions, meta/*) —
+                        // the world-membership gate at /{worldId} is what keeps strangers out.
+                        route("/dependencies") {
+                            get("/panel") {
+                                call.handleGetDependenciesPanel()
+                            }
+                            post {
+                                call.handleAddProjectDependency()
+                            }
+                            // {dependencyId} is the depended-on PROJECT id, not the row id —
+                            // that is the pair ProjectDependencyItemPlugin verifies.
+                            route("/{dependencyId}") {
+                                install(ProjectDependencyItemPlugin)
+                                delete {
+                                    call.handleDeleteProjectDependency()
+                                }
+                            }
                         }
                         route("/productions") {
                             get("/panel") {

@@ -1,6 +1,7 @@
 package app.mcorg.presentation.templated.dsl.pages
 
 import app.mcorg.domain.model.project.Project
+import app.mcorg.domain.model.project.ProjectDependency
 import app.mcorg.domain.model.project.ProjectProduction
 import app.mcorg.domain.model.resources.ResourceGatheringItem
 import app.mcorg.domain.model.task.ActionTask
@@ -72,6 +73,8 @@ fun projectDetailPage(
     plan: GatheringPlan? = null,
     progressMap: Map<String, Int> = emptyMap(),
     productions: List<ProjectProduction> = emptyList(),
+    /** Declared orderings this project waits on (MCO-302). */
+    dependencies: List<ProjectDependency> = emptyList(),
     pendingFarms: List<PendingFarmSupply> = emptyList(),
     drillTarget: TargetTree? = null,
     drillCandidateCounts: Map<String, Int> = emptyMap(),
@@ -145,6 +148,7 @@ fun projectDetailPage(
                         projectStateField(project, isWorldAdmin)
                         projectLocationField(project, isWorldAdmin)
                         projectProductionsField(project, productions, isWorldAdmin)
+                        projectDependenciesField(project, dependencies)
                     }
                     gatheringOverallProgress(project.id, project.worldId, resources, plan, progressMap)
                 }
