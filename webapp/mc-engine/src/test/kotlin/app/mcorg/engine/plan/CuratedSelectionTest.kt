@@ -551,20 +551,33 @@ class CuratedSelectionTest {
     }
 
     @Test
-    fun `iron_ingot - smelting raw iron beats unpacking blocks, packing nuggets, and chest loot`() {
+    fun `iron_ingot - blasting raw iron beats unpacking blocks, packing nuggets, and chest loot`() {
+        // Blasting rather than smelting since MCO-521: a blast furnace does ores and raw metals in
+        // half the time (0.08 min against 0.17), which is a fact about the game the scorer had no
+        // way to express — it scored both as "a recipe" and the alphabetically earlier file won.
+        // The expectation this test is actually named for is unchanged: raw iron beats the block,
+        // the nugget and the chest, and neither of the first two enters the plan.
         val result = plan(ironChain, "minecraft:iron_ingot")
 
-        assertEquals("minecraft:smelting:iron_ingot_from_smelting.json", result.sourceKeyOf("minecraft:iron_ingot"))
+        assertEquals("minecraft:blasting:iron_ingot_from_blasting.json", result.sourceKeyOf("minecraft:iron_ingot"))
         assertEquals("minecraft:block:blocks/iron_ore.json", result.sourceKeyOf("minecraft:raw_iron"))
         assertTrue("minecraft:iron_block" !in result.nodes)
         assertTrue("minecraft:iron_nugget" !in result.nodes)
     }
 
     @Test
-    fun `iron_ingot - bulk amount still smelts, with the recipe threshold reinforcing it`() {
+    fun `iron_ingot - a bulk amount does not change the answer`() {
+        // Was "bulk amount still smelts, with the recipe threshold reinforcing it". The threshold
+        // is gone (MCO-522 measured it and it decided nothing worth keeping), so "reinforcing it"
+        // no longer names anything. What remains is worth more: the answer must be the *same* at
+        // 500 as at the default, because the cost model has one answer at every demand.
         val result = plan(ironChain, "minecraft:iron_ingot", amount = 500)
 
-        assertEquals("minecraft:smelting:iron_ingot_from_smelting.json", result.sourceKeyOf("minecraft:iron_ingot"))
+        assertEquals("minecraft:blasting:iron_ingot_from_blasting.json", result.sourceKeyOf("minecraft:iron_ingot"))
+        assertEquals(
+            plan(ironChain, "minecraft:iron_ingot").sourceKeyOf("minecraft:iron_ingot"),
+            result.sourceKeyOf("minecraft:iron_ingot"),
+        )
     }
 
     /**
@@ -670,9 +683,33 @@ class CuratedSelectionTest {
     fun `emerald - mining beats unpacking a chest-looted emerald block`() {
         // The real-graph case the self-block fixtures miss: the storage block is
         // *independently* obtainable (chest loot), so the unpack chain is feasible
-        // and not structurally rejected. Its 9x output would earn a +160 efficiency
-        // bonus and win at 240 — except a reciprocal unpack earns no efficiency, so
-        // mining the ore (100) wins and the block never enters the plan.
+        // and not structurally rejected. Mining the ore must still win, and the block
+        // must never enter the plan.
+        //
+        // The rationale used to be the scorer's ("a +160 efficiency bonus would win at 240, except
+        // a reciprocal unpack earns no efficiency, so mining at 100 wins"). Under a cost model
+        // there is no rule to appeal to — only arithmetic — and the arithmetic exposed that this
+        // fixture was lying: `chestLoot(...)` with no yield means **a guaranteed emerald block per
+        // temple chest**, i.e. nine emeralds for one chest visit. Against deepslate emerald ore at
+        // a ×60 availability factor, unpacking that is genuinely cheaper (1.7 min against 3.0),
+        // and the model said so. It was reasoning correctly from a false premise: nothing in
+        // vanilla puts an emerald block in a chest, let alone reliably.
+        //
+        // So the yield is now stated rather than implied. This is the fixture hazard
+        // `mc-engine/CLAUDE.md` documents under "a curated expectation is only as good as the
+        // source set it models".
+        //
+        // Note what this test does NOT claim. Mining is not how a player actually gets emeralds —
+        // trading is, and then loot. It reads as the answer here only because the fixture holds
+        // three sources, and on 1.21.4 (where the real-data check was run) it reads as the answer
+        // because **no 1.x version ingests villager trades at all**: 0 trade sources on every
+        // version through 1.21.11, against 388 on 26.2.0. So "real data mines emerald" is a fact
+        // about missing data, not a vindication of mining.
+        //
+        // What survives either way is the guard this test is named for: an independently
+        // obtainable storage block must not be unpacked to make its own contents. A *cheaper*
+        // primary source makes the block lose by more, not less, so the expectation holds on
+        // 26.x too — where emerald is a trade. Emerald's own price is MCO-524's problem.
         val sources = listOf(
             blockLoot("emerald_ore", "minecraft:emerald"),
             recipe(
@@ -686,7 +723,7 @@ class CuratedSelectionTest {
                 inputs = listOf(item("minecraft:emerald") to 9),
                 output = "minecraft:emerald_block" to 1
             ),
-            chestLoot("village_temple", "minecraft:emerald_block")
+            chestLoot("village_temple", "minecraft:emerald_block", expectedYield = 0.05)
         )
 
         val result = plan(sources, "minecraft:emerald")
@@ -768,7 +805,11 @@ class CuratedSelectionTest {
 
         val result = plan(sources, "minecraft:copper_ingot")
 
-        assertEquals("minecraft:entity:entities/drowned.json", result.sourceKeyOf("minecraft:copper_ingot"))
+        // Smelting rather than the drowned drop since MCO-521 — a furnace and some raw copper is
+        // plainly less work than hunting drowned, and pricing it says so (0.17 + raw copper,
+        // against half a minute per kill). The claim in this test's name is untouched: whatever
+        // wins, it is not unpacking the layered waxed block.
+        assertEquals("minecraft:smelting:copper_ingot_from_smelting.json", result.sourceKeyOf("minecraft:copper_ingot"))
         assertTrue("minecraft:waxed_copper_block" !in result.nodes, "the waxed block must not enter the plan")
     }
 

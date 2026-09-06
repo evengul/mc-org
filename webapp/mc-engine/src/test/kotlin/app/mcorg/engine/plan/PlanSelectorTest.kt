@@ -535,8 +535,22 @@ class PlanSelectorTest {
     }
 
     @Test
-    fun `bulk demand flips loot to recipe at the threshold`() {
-        val witchDrop = sourceKey(entity, "entities/witch.json")
+    fun `demand does not change the committed source`() {
+        // Was `bulk demand flips loot to recipe at the threshold`, and both halves of that test
+        // are gone for different reasons (MCO-521/MCO-522).
+        //
+        // Its small-demand half asserted a *known limitation* it named in a comment: "entity loot
+        // currently outranks the recipe (until drop-rate data exists — see MCO-196)". Killing a
+        // witch for one stick beat crafting four from two planks. The cost model prices that
+        // honestly — 0.05/4 + planks, against half a minute per witch — so the limitation is
+        // fixed and the recipe wins at *every* size, which is what the second half needed a
+        // demand threshold to reach.
+        //
+        // What is worth pinning now is the opposite of the old name: the answer must not move
+        // with demand at all. That is a decision (MCO-522), not an accident — measured on real
+        // data, of the 28 items whose committed source moved with demand under the scorer, 25
+        // improve under this model, 3 tie and none regresses. A demand term reappearing in
+        // selection should fail here.
         val craftKey = sourceKey(crafting, "stick.json")
         val graph = GraphFixture().apply {
             source(block, "blocks/oak_log.json", log to 1)
@@ -545,18 +559,28 @@ class PlanSelectorTest {
             source(entity, "entities/witch.json", stick to 1)
         }.build()
 
-        // Small demand: entity loot currently outranks the recipe (known limitation
-        // until drop-rate data exists — see MCO-196).
-        val small = PlanSelector.select(graph, listOf(PlanTarget(stick, 10)))
-        assertEquals(witchDrop, small.nodes.getValue("minecraft:stick").source?.getKey())
-
-        // Bulk demand: the recipe-threshold bonus flips it to crafting.
-        val bulk = PlanSelector.select(graph, listOf(PlanTarget(stick, 256)))
-        assertEquals(craftKey, bulk.nodes.getValue("minecraft:stick").source?.getKey())
+        for (amount in listOf(1L, 10L, 99L, 100L, 101L, 256L, 10_000L)) {
+            val dag = PlanSelector.select(graph, listOf(PlanTarget(stick, amount)))
+            assertEquals(
+                craftKey,
+                dag.nodes.getValue("minecraft:stick").source?.getKey(),
+                "demand $amount changed the committed source",
+            )
+        }
     }
 
     @Test
     fun `supplied ingredients pull selection toward the recipe that uses them`() {
+        // The contrast this test is named for needs the *unsupplied* answer to be the loot drop,
+        // and with a cheap recipe it no longer is: crafting four arrows from gravel, a stick and
+        // a chicken feather beats killing skeletons at every size, which is the call recorded in
+        // MCO-490 ("crafting is right by default; a player with a skeleton farm gets arrows
+        // through production data anyway"). Asserting the drop here would be pinning a
+        // mispricing.
+        //
+        // So the expensive ingredient is now explicit: a feather that can only be found in a
+        // chest makes the recipe genuinely dearer than the drop, and supplying it is what flips
+        // the choice. That is the claim in the test's name, tested.
         val arrow = item("arrow")
         val flint = item("flint")
         val feather = item("feather")
@@ -564,7 +588,7 @@ class PlanSelectorTest {
             source(entity, "entities/skeleton.json", arrow to 1)
             recipe("arrow.json", arrow to 4, flint to 1, stick to 1, feather to 1)
             source(block, "blocks/gravel.json", flint to 1)
-            source(entity, "entities/chicken.json", feather to 1)
+            source(chestLoot, "chests/pillager_outpost.json", feather to 1)
             source(block, "blocks/oak_log.json", log to 1)
             recipe("oak_planks.json", planks to 4, log to 1)
             recipe("stick.json", stick to 4, planks to 2)

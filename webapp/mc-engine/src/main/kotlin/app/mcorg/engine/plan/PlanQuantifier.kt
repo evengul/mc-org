@@ -130,14 +130,21 @@ object PlanQuantifier {
  */
 object GatheringPlanner {
 
+    /**
+     * @param costModel the model source choice is ranked by. Building one is a whole-graph
+     *   relaxation (~100 ms on 1.21.4), so pass a cached instance per `(graph, supplied)` — and
+     *   pass that *same* instance to [SourceRanking] so the picker cannot recommend a source
+     *   this plan did not choose.
+     */
     fun plan(
         graph: ItemSourceGraph,
         targets: List<PlanTarget>,
         supplied: Map<String, SupplySource> = emptyMap(),
         overrides: PlanOverrides = PlanOverrides.NONE,
-        context: PlanContext = PlanContext()
+        context: PlanContext = PlanContext(),
+        costModel: UnitCostModel? = null,
     ): GatheringPlan {
-        val dag = PlanSelector.select(graph, targets, supplied, overrides, context)
+        val dag = PlanSelector.select(graph, targets, supplied, overrides, context, costModel)
         return PlanQuantifier.quantify(dag, targets)
     }
 }

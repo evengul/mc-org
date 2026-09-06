@@ -60,10 +60,12 @@ class TagMemberRankingTest {
 
     @Test
     fun `every member is ranked, best first, with its best source attached`() {
-        val ranked = TagMemberRanking.rank(minedAgainstCrafted(), listOf(charcoal, coal), demand = 8)
+        val ranked = TagMemberRanking.rank(minedAgainstCrafted(), listOf(charcoal, coal))
 
         assertEquals(2, ranked.size)
-        assertTrue(ranked[0].score >= ranked[1].score, "rank() must return descending score")
+        // Ascending, and that inversion is the point of MCO-521: this is a cost in minutes now,
+        // so the *lowest* number wins where the highest used to.
+        assertTrue(ranked[0].cost <= ranked[1].cost, "rank() must return ascending cost")
         ranked.forEach { assertTrue(it.bestSource != null, "${it.member.id} should have a source") }
     }
 
@@ -72,12 +74,12 @@ class TagMemberRankingTest {
      * the less canonical answer to a question nobody wants to be asked in the first place.
      */
     @Test
-    fun `MemberPrior decides members the scorer rates equally`() {
+    fun `MemberPrior decides members the model prices equally`() {
         val graph = twoIdenticalBlocks(sand, redSand)
 
-        assertEquals(sand.id, TagMemberRanking.recommended(graph, listOf(redSand, sand), demand = 4)?.id)
+        assertEquals(sand.id, TagMemberRanking.recommended(graph, listOf(redSand, sand))?.id)
         // Input order must not matter — it is a ranking, not a pick-the-first.
-        assertEquals(sand.id, TagMemberRanking.recommended(graph, listOf(sand, redSand), demand = 4)?.id)
+        assertEquals(sand.id, TagMemberRanking.recommended(graph, listOf(sand, redSand))?.id)
     }
 
     @Test
@@ -85,22 +87,26 @@ class TagMemberRankingTest {
         val graph = twoIdenticalBlocks(sand, redSand)
         val unknown = Item("minecraft:unobtainable", "Unobtainable")
 
-        val ranked = TagMemberRanking.rank(graph, listOf(unknown, sand, redSand), demand = 4)
+        val ranked = TagMemberRanking.rank(graph, listOf(unknown, sand, redSand))
 
         assertEquals(3, ranked.size, "the picker still has to offer an unsourced member")
         assertEquals(unknown.id, ranked.last().member.id)
         assertNull(ranked.last().bestSource)
+        // The sentinel inverted with the ordering (MCO-521). It sorted last at Int.MIN_VALUE, the
+        // smallest value; it now sorts last at UNREACHABLE, the largest. Reusing the old sentinel
+        // under an ascending sort would have put every unobtainable member first.
+        assertTrue(ranked.last().unpriceable, "an unsourced member must be unpriceable, not cheap")
     }
 
     @Test
     fun `no graph means no recommendation, never a guess`() {
-        assertNull(TagMemberRanking.recommended(null, listOf(sand, redSand), demand = 4))
+        assertNull(TagMemberRanking.recommended(null, listOf(sand, redSand)))
     }
 
     @Test
     fun `a set of one is not a question`() {
-        assertNull(TagMemberRanking.recommended(twoIdenticalBlocks(sand, redSand), listOf(sand), demand = 4))
-        assertNull(TagMemberRanking.recommended(twoIdenticalBlocks(sand, redSand), emptyList(), demand = 4))
+        assertNull(TagMemberRanking.recommended(twoIdenticalBlocks(sand, redSand), listOf(sand)))
+        assertNull(TagMemberRanking.recommended(twoIdenticalBlocks(sand, redSand), emptyList()))
     }
 
     @Test
@@ -109,6 +115,6 @@ class TagMemberRankingTest {
         val empty = ItemSourceGraph.builder().build()
         val ghosts = listOf(Item("minecraft:ghost_a", "Ghost A"), Item("minecraft:ghost_b", "Ghost B"))
 
-        assertNull(TagMemberRanking.recommended(empty, ghosts, demand = 4))
+        assertNull(TagMemberRanking.recommended(empty, ghosts))
     }
 }

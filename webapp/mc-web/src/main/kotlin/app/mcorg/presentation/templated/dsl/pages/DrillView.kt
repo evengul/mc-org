@@ -7,6 +7,7 @@ import app.mcorg.engine.model.SourceNode
 import app.mcorg.engine.plan.PlanNodeStatus
 import app.mcorg.engine.plan.PlanOverrides
 import app.mcorg.engine.plan.SourceRanking
+import app.mcorg.engine.plan.UnitCostModel
 import app.mcorg.engine.plan.TargetTree
 import app.mcorg.pipeline.resources.TagMemberRanking
 import kotlinx.html.*
@@ -258,7 +259,12 @@ fun nodePickerFragment(
     graph: ItemSourceGraph?,
     activeSourceKey: String?,
     activeMemberId: String?,
-    demand: Long,
+    /**
+     * The model that ranks the options, shared with the plan (MCO-521). Null builds one per
+     * render — a whole-graph relaxation, ~100 ms, and this renders a picker per node — so
+     * production must pass the cached instance.
+     */
+    costModel: UnitCostModel? = null,
     query: String? = null,
     origin: String? = null,
     /**
@@ -287,7 +293,7 @@ fun nodePickerFragment(
             // comes from TagMemberRanking, which is also what the bulk "answer the remaining N"
             // action reads (MCO-507); the two must not have separate ideas of "best".
             val tag = node.item as MinecraftTag
-            val ranked = TagMemberRanking.rank(graph, tag.content, demand)
+            val ranked = TagMemberRanking.rank(graph, tag.content, costModel = costModel)
             val topId = ranked.firstOrNull()?.member?.id
             val filtered = if (q.isEmpty()) ranked else ranked.filter { it.member.name.contains(q, ignoreCase = true) }
             val displayed = filtered.take(PICKER_MAX_OPTIONS)
@@ -334,8 +340,10 @@ fun nodePickerFragment(
             }
             overflowNote(displayed.size, filtered.size, q)
         } else {
-            // Source picker — candidates ranked by SelectionScorer (read-only reuse).
-            val ranked = graph?.let { SourceRanking.rankSources(it, node.item, demand) } ?: emptyList()
+            // Source picker — candidates cheapest first, by the same UnitCostModel the plan was
+            // selected with (read-only reuse). Unpriceable candidates are still offered, last.
+            val ranked = graph?.let { SourceRanking.rankSources(it, node.item, costModel = costModel) }
+                ?: emptyList()
             val filtered = if (q.isEmpty()) ranked else ranked.filter { sourceLabel(it.source, graph).contains(q, ignoreCase = true) }
             val displayed = filtered.take(PICKER_MAX_OPTIONS)
 
@@ -405,11 +413,18 @@ internal fun lootTableName(source: SourceNode): String? {
     return pretty.ifBlank { null }
 }
 
-/** The per-option hint line: method label, a "best score ★" marker, and/or "selected". */
+/**
+ * The per-option hint line: method label, a "quickest ★" marker, and/or "selected".
+ *
+ * Said "best score ★" until MCO-521, when the ranking stopped being a higher-is-better score and
+ * became a cost in minutes. "Score" would have been actively misleading then — the winning option
+ * is now the one with the *lowest* number — and the word was never doing any work for a player,
+ * who is choosing between ways to get an item rather than reading a leaderboard.
+ */
 private fun FlowContent.pickerOptHint(methodLabel: String?, isBest: Boolean, isSelected: Boolean) {
     val parts = listOfNotNull(
         methodLabel,
-        if (isBest) "best score ★" else null,
+        if (isBest) "quickest ★" else null,
         if (isSelected) "selected" else null,
     )
     if (parts.isNotEmpty()) span("picker-opt__hint") { +parts.joinToString(" · ") }

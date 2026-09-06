@@ -175,7 +175,7 @@ class PlanAttentionBulkIT : WithUser() {
      * than against a hardcoded member, so it stays true if the scorer changes.
      */
     @Test
-    fun `each pick is the option the picker marks best score`() = testApplication {
+    fun `each pick is the option the picker marks quickest`() = testApplication {
         val pid = questionProject()
         setupRoutes()
 
@@ -189,7 +189,7 @@ class PlanAttentionBulkIT : WithUser() {
                 "/worlds/$worldId/projects/$pid/plan/chain/$encoded/sources?node=$encoded&origin=list"
             ) { addAuthCookie(this) }.bodyAsText()
 
-            val best = Regex("""picker-opt__name">([^<]+)</span><span class="picker-opt__hint">[^<]*best score""")
+            val best = Regex("""picker-opt__name">([^<]+)</span><span class="picker-opt__hint">[^<]*quickest""")
                 .find(picker)
                 ?.groupValues
                 ?.get(1)

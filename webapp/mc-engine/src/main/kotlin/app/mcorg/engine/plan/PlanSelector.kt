@@ -10,7 +10,7 @@ import app.mcorg.engine.model.SourceNode
  * Stage 1 of the planning engine: decide *how* each item is obtained.
  *
  * Walks the item-source graph from the targets and chooses exactly one source
- * per item (scorer-driven by default, [PlanOverrides] pins win), producing a
+ * per item (cost-driven by default, [PlanOverrides] pins win), producing a
  * [SelectedDag]. Shared ingredients resolve to a single node regardless of how
  * many targets need them.
  *
@@ -28,28 +28,42 @@ import app.mcorg.engine.model.SourceNode
  * - Tags with identical members are one question, whatever they are called
  *   ([TagIdentity]).
  *
- * Selection is amount-aware: the demand seen while expanding feeds the
- * recipe-threshold bonus. Demands computed here are provisional (first-encounter,
- * propagated through provisional craft counts) — quantify() computes the exact
- * totals on the final DAG.
+ * Source choice is ranked by [UnitCostModel] — minutes to acquire a unit, cheapest
+ * first — and is **not** amount-aware. It used to be: the demand seen while expanding
+ * fed the scorer's recipe-threshold bonus. MCO-522 measured that bonus and it decided
+ * nothing worth keeping, so it left with [SelectionScorer]; see
+ * [PlanContext.recipeThreshold].
+ *
+ * Demand is still tracked, because quantities still depend on it. Demands computed here
+ * are provisional (first-encounter, propagated through provisional craft counts) —
+ * quantify() computes the exact totals on the final DAG.
  */
 object PlanSelector {
 
+    /**
+     * @param costModel the model that ranks candidate sources. Defaults to building one, which
+     *   costs a whole-graph relaxation (~100 ms on 1.21.4) — so a caller that plans repeatedly,
+     *   or that also renders a source picker, should build one per `(graph, supplied)` and pass
+     *   it here rather than paying that per call. The picker **must** be given the same instance
+     *   the plan was made with, or it will recommend something the plan did not choose.
+     */
     fun select(
         graph: ItemSourceGraph,
         targets: List<PlanTarget>,
         supplied: Map<String, SupplySource> = emptyMap(),
         overrides: PlanOverrides = PlanOverrides.NONE,
-        context: PlanContext = PlanContext()
-    ): SelectedDag = Selection(graph, supplied, overrides, context).run(targets)
+        context: PlanContext = PlanContext(),
+        costModel: UnitCostModel? = null,
+    ): SelectedDag = Selection(graph, supplied, overrides, context, costModel).run(targets)
 
     private class Selection(
         private val graph: ItemSourceGraph,
         private val supplied: Map<String, SupplySource>,
         private val overrides: PlanOverrides,
-        private val context: PlanContext
+        private val context: PlanContext,
+        costModel: UnitCostModel?,
     ) {
-        private val scorer = SelectionScorer(graph, supplied, context)
+        private val model = costModel ?: UnitCostModel(graph, supplied.keys)
         private val tagIdentity = TagIdentity.of(graph)
         private val nodes = LinkedHashMap<String, SelectedNode>()
 
@@ -229,7 +243,29 @@ object PlanSelector {
             return usable
         }
 
-        private fun rank(item: MinecraftId, candidates: Set<SourceNode>): List<SourceNode> {
+        /**
+         * Candidates cheapest first, unpriceable last — [UnitCostModel.ranked] is the single
+         * definition of that order, shared with the drill's picker so the two cannot disagree
+         * about what "best" means (MCO-521).
+         *
+         * No longer demand-aware. The scorer's recipe-threshold bonus was the only demand-
+         * sensitive thing in planning, and MCO-522 measured what dropping it costs: of the 28
+         * items whose committed source moved with demand, 25 are a strict improvement under this
+         * model, 3 are ties and none is a loss. See [PlanContext.recipeThreshold].
+         */
+        private fun rank(item: MinecraftId, candidates: Set<SourceNode>): List<SourceNode> =
+            when (context.rankBy) {
+                RankingModel.COST -> model.ranked(item).map { it.first }.filter { it in candidates }
+                RankingModel.LEGACY_SCORE -> legacyRank(item, candidates)
+            }
+
+        /**
+         * The retired [SelectionScorer] ordering, kept only so the switchover can be audited
+         * against what the old model actually committed to. See [RankingModel.LEGACY_SCORE];
+         * this goes when the scorer does.
+         */
+        private fun legacyRank(item: MinecraftId, candidates: Set<SourceNode>): List<SourceNode> {
+            val scorer = SelectionScorer(graph, supplied, context)
             val hasConstructiveSibling = candidates.any { it.sourceType.isConstructive() }
             val demand = demands.getValue(item.id)
             return candidates.sortedWith(

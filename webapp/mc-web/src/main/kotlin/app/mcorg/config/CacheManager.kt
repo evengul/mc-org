@@ -1,6 +1,7 @@
 package app.mcorg.config
 
 import app.mcorg.engine.model.ItemSourceGraph
+import app.mcorg.engine.plan.UnitCostModel
 import com.github.benmanes.caffeine.cache.Cache
 import com.github.benmanes.caffeine.cache.Caffeine
 import org.slf4j.LoggerFactory
@@ -117,6 +118,27 @@ object CacheManager {
      */
     val itemSourceGraph: Cache<String, CachedItemSourceGraph> = Caffeine.newBuilder()
         .maximumSize(4)
+        .build()
+
+    /**
+     * The [app.mcorg.engine.plan.UnitCostModel] that ranks sources, per `(graph, supplied)`.
+     *
+     * Building one is a **whole-graph relaxation** — 1353 items, 6 passes, ~100 ms measured on
+     * 1.21.4 — where the `SelectionScorer` it replaced (MCO-521) was free to construct and scored
+     * one candidate per call. Two read paths would have paid that repeatedly: plans are re-derived
+     * on every read, and the drill renders a source picker *per node*, so an uncached model turns
+     * one page load into seconds of relaxation.
+     *
+     * Keyed by version **and the graph's build instant**, so a re-ingest that rebuilds the graph
+     * (MCO-252) cannot leave a model priced against the old one behind; and by the supplied set,
+     * because a farm or linked project makes an item free and changes every cost downstream of it.
+     *
+     * Lives in the web layer for the same reason [CachedItemSourceGraph] does — the engine stays
+     * pure and holds no global state; it takes the model as a parameter.
+     */
+    val unitCostModel: Cache<String, UnitCostModel> = Caffeine.newBuilder()
+        .maximumSize(32)
+        .expireAfterAccess(30, TimeUnit.MINUTES)
         .build()
 
     /**

@@ -12,6 +12,7 @@ import app.mcorg.engine.plan.PlanContext
 import app.mcorg.engine.plan.PlanSelector
 import app.mcorg.engine.plan.ScorerFactor
 import app.mcorg.engine.plan.PlanTarget
+import app.mcorg.engine.plan.RankingModel
 import app.mcorg.engine.plan.ScoreDiagnostics
 import app.mcorg.engine.plan.UnitCostModel
 import app.mcorg.pipeline.DatabaseSteps
@@ -49,6 +50,9 @@ import kotlin.system.exitProcess
  * # what do the four *unpinned* scorer behaviours actually decide, and does the cost model
  * # reach the same answer without them?
  * mvn -pl mc-web exec:java@cost-diagnostics -Dexec.args="world=3 demand=64 factors"
+ *
+ * # what does dropping the scorer's demand-sensitivity actually cost? (MCO-522)
+ * mvn -pl mc-web exec:java@cost-diagnostics -Dexec.args="world=3 demands=10,100,1000"
  * ```
  *
  * Args: `world=<id>` / `version=<v>` to pick the graph, `demand=<n>` (the shipped scorer is
@@ -60,7 +64,10 @@ import kotlin.system.exitProcess
  * and `projects=<ids>` to carry a real project's item set through every row — a value can look
  * harmless over the whole graph while moving the plan someone is actually building. And
  * `factors` for the knowledge-versus-tuning differential over the four unpinned behaviours
- * (see [app.mcorg.engine.plan.ScorerMutation]).
+ * (see [app.mcorg.engine.plan.ScorerMutation]), and `demands=<a,b,c>` for what the shipped
+ * scorer's demand-sensitivity is buying — each item that moves, priced against the end the cost
+ * model drops, since the cost model has one answer at every demand
+ * ([app.mcorg.engine.plan.PlanContext.recipeThreshold] records what that measured).
  *
  * **`sweep` is the one mode with no second model in it** — see [runSweep] for why its columns
  * changed and which two of these tools are expected to die with `SelectionScorer`.
@@ -79,6 +86,15 @@ fun main(args: Array<String>) {
     }
     exitProcess(exitCode)
 }
+
+/**
+ * How far apart two costs must be before the difference is worth reading as a disagreement.
+ * Within it the models are not disagreeing about anything — they are breaking a tie differently,
+ * and the shipped tie-break is as defensible as ours. One definition, because the disagreement
+ * report and the demand sweep have to mean the same thing by "a tie" for their counts to be
+ * comparable.
+ */
+private const val TIE_BAND = 1.2
 
 /** Items whose price a player has strong intuitions about - the useful ones to argue over. */
 private val DEFAULT_WHY = listOf(
@@ -171,6 +187,18 @@ private suspend fun run(args: List<String>): Int {
     val reference = if (sweep) "self-referential" else "vs SelectionScorer"
     println("Cost model ($tableName) $reference · version $resolvedVersion · demand $demand")
     println("Sources: ${graph.getSourceCount()}, items: ${graph.getItemCount()}")
+
+    // What one model costs to build. `cost` is a lazy whole-graph relaxation, so this forces it
+    // and times the thing a caller actually pays for. Printed because MCO-521 turns on it: the
+    // drill renders a picker per node, and a model built per render would be a performance
+    // regression wearing a model change's clothes. Measure, don't assume.
+    val relaxStart = System.nanoTime()
+    val relaxedItems = model.cost.size
+    val relaxMillis = (System.nanoTime() - relaxStart) / 1_000_000.0
+    println(
+        "Model: %d items relaxed in %.0f ms, %d passes, converged=%s — build once per (graph, supplied)"
+            .format(relaxedItems, relaxMillis, model.passesUsed, model.converged)
+    )
 
     val subjects = graph.getAllItems()
         .map { it.item }
@@ -293,9 +321,20 @@ private suspend fun run(args: List<String>): Int {
         fun committedAt(item: MinecraftId, d: Long): String? =
             PlanSelector.select(graph, listOf(PlanTarget(item, d))).nodes[item.id]?.source?.getKey()
 
-        fun label(key: String?): String = key
+        fun node(key: String?): SourceNode? = key
             ?.let { graph.getSourceNode(it.substringBeforeLast(':'), it.substringAfterLast(':')) }
-            ?.getMethodLabel() ?: "none"
+
+        fun label(key: String?): String = node(key)?.getMethodLabel() ?: "none"
+
+        // Naming a pick is not judging it. "Neither end" was the largest bucket the first time
+        // this ran and it says nothing on its own: a third source is only good news if it is
+        // *cheaper* than both ends, and the tool could not tell you that -- all 19 had to be
+        // priced by hand through `why`. So price every pick here (MCO-522).
+        fun price(key: String?, item: MinecraftId): Double =
+            node(key)?.let { model.costOf(it, item) } ?: UnitCostModel.UNREACHABLE
+
+        fun minutes(cost: Double): String =
+            if (cost >= UnitCostModel.UNREACHABLE) "unreachable" else "%.2f".format(cost)
 
         val perItem = subjects.associateWith { item -> levels.map { committedAt(item, it) } }
         val movers = perItem.filterValues { picks -> picks.distinct().size > 1 }
@@ -309,6 +348,10 @@ private suspend fun run(args: List<String>): Int {
         var matchesLow = 0
         var matchesHigh = 0
         var matchesNeither = 0
+        // The three buckets that actually decide the question, independent of which end was matched.
+        var modelCheapest = 0
+        var shippedTie = 0
+        var shippedCheaper = 0
         for (item in movers.keys.sortedBy { it.id }) {
             val picks = perItem.getValue(item)
             val steps = levels.zip(picks)
@@ -322,17 +365,43 @@ private suspend fun run(args: List<String>): Int {
             // default rather than modelling an effect of demand, and dropping the sensitivity
             // costs nothing -- it keeps the answer the threshold was reaching for, at every size.
             val costPick = model.best(item)?.getKey()
-            val verdict = when (costPick) {
-                picks.first() -> { matchesLow++; "cost model = the SMALL-demand answer" }
-                picks.last() -> { matchesHigh++; "cost model = the BULK answer" }
-                else -> { matchesNeither++; "cost model = ${label(costPick)}, neither end" }
+            val end = when (costPick) {
+                picks.first() -> { matchesLow++; "the SMALL-demand answer" }
+                picks.last() -> { matchesHigh++; "the BULK answer" }
+                else -> { matchesNeither++; "${label(costPick)}, neither end" }
             }
-            println("  %-28s %-46s %s".format(item.id.substringAfter(':'), steps, verdict))
+            // Priced against the ends the model *rejected*, never against its own pick. Dropping
+            // demand-sensitivity means taking the model's answer at every size, so the loss (if
+            // there is one) is whatever the scorer would have committed to at some demand and the
+            // model will not. Comparing against the cheaper of both ends instead scores a matched
+            // end against itself and reports a tautological tie for every one of them.
+            // TIE_BAND is the same 20% the disagreement report uses -- inside it the threshold was
+            // flipping a coin rather than modelling size.
+            val costModel = price(costPick, item)
+            val rival = picks.distinct()
+                .filter { it != costPick }
+                .minOfOrNull { price(it, item) }
+                ?: UnitCostModel.UNREACHABLE
+            val ratio = if (costModel <= 0.0) Double.POSITIVE_INFINITY else rival / costModel
+            val judgement = when {
+                ratio >= TIE_BAND -> { modelCheapest++; "%.1fx cheaper than the end it drops".format(ratio) }
+                ratio > 1.0 / TIE_BAND -> { shippedTie++; "a tie with the end it drops" }
+                else -> { shippedCheaper++; "COSTS %.1fx MORE than the end it drops".format(1.0 / ratio) }
+            }
+            println(
+                "  %-24s %-42s %-28s %5s min, %s".format(
+                    item.id.substringAfter(':'), steps, end, minutes(costModel), judgement
+                )
+            )
         }
         println()
         println(
             "  of the ${movers.size} movers: $matchesHigh land on the bulk answer, " +
                 "$matchesLow on the small-demand answer, $matchesNeither on neither"
+        )
+        println(
+            "  priced against the end each one drops: $modelCheapest are a strict " +
+                "improvement, $shippedTie are ties, $shippedCheaper are a real loss"
         )
         println()
         println(
@@ -344,6 +413,12 @@ private suspend fun run(args: List<String>): Int {
             is applied as one step at one hard-coded demand rather than as a cost that varies.
             An item that is NOT listed here is one where demand-sensitivity is already costing
             nothing and buying nothing.
+
+            Read the last column, not the third. Matching an end of the swing is not the test --
+            an item can match the bulk answer and still be mispriced, and an item can match
+            neither end because the model found something better than both. Only a mover whose
+            last column says it COSTS MORE is a case where demand-sensitivity was buying
+            something real, and only those need a demand-dependent model to keep.
             """.trimIndent()
         )
         return 0
@@ -470,8 +545,16 @@ private suspend fun run(args: List<String>): Int {
     // 19 armour-trim duplication recipes and wheat -- and on every one of those the scorer's
     // favourite is a derivation the planner would never emit. Reading the ranking as the baseline
     // scored those as agreement and hid 19 regressions.
+    // RankingModel.LEGACY_SCORE is load-bearing here: PlanSelector now ranks by the cost model
+    // (MCO-521), so selecting with the default context would compare the new model against
+    // itself and report ~100% agreement. That is MCO-520's lesson repeating -- a diagnostic
+    // whose reference point is the thing being changed goes blind exactly when it is needed.
     fun shippedPick(item: MinecraftId): String? =
-        PlanSelector.select(graph, listOf(PlanTarget(item, demand))).nodes[item.id]?.source?.getKey()
+        PlanSelector.select(
+            graph,
+            listOf(PlanTarget(item, demand)),
+            context = PlanContext(rankBy = RankingModel.LEGACY_SCORE),
+        ).nodes[item.id]?.source?.getKey()
 
     var selectorDifferedFromScorer = 0
     for (item in subjects) {
@@ -510,7 +593,7 @@ private suspend fun run(args: List<String>): Int {
     val compared = agree + disagreements.size
     println()
     println("Compared $compared items with more than one source.")
-    println("  baseline check: PlanSelector.select() differs from the scorer's top-ranked candidate on $selectorDifferedFromScorer items")
+    println("  baseline check: the scorer-driven selector differs from the scorer's own top-ranked candidate on $selectorDifferedFromScorer items")
     println("  agree      ${agree.pct(compared)}")
     println("  disagree   ${disagreements.size.pct(compared)}")
     if (unreachable > 0) println("  no finite cost under the new model: $unreachable (see note below)")
@@ -518,8 +601,8 @@ private suspend fun run(args: List<String>): Int {
     // A disagreement is only interesting if the two picks cost materially different amounts.
     // Where they cost the same the models are not disagreeing about anything — they are
     // breaking a tie differently, and the shipped tie-break is as defensible as ours.
-    val tie = disagreements.filter { !it.shippedCost.isNaN() && ratio(it) < 1.2 }
-    val cheaper = disagreements.filter { !it.shippedCost.isNaN() && ratio(it) >= 1.2 }
+    val tie = disagreements.filter { !it.shippedCost.isNaN() && ratio(it) < TIE_BAND }
+    val cheaper = disagreements.filter { !it.shippedCost.isNaN() && ratio(it) >= TIE_BAND }
     val unknown = disagreements.filter { it.shippedCost.isNaN() }
     println()
     println("Of the ${disagreements.size} disagreements:")
