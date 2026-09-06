@@ -12,6 +12,7 @@ import app.mcorg.engine.plan.PlanContext
 import app.mcorg.engine.plan.PlanSelector
 import app.mcorg.engine.plan.ScorerFactor
 import app.mcorg.engine.plan.PlanTarget
+import app.mcorg.engine.plan.RankingModel
 import app.mcorg.engine.plan.ScoreDiagnostics
 import app.mcorg.engine.plan.UnitCostModel
 import app.mcorg.pipeline.DatabaseSteps
@@ -186,6 +187,18 @@ private suspend fun run(args: List<String>): Int {
     val reference = if (sweep) "self-referential" else "vs SelectionScorer"
     println("Cost model ($tableName) $reference · version $resolvedVersion · demand $demand")
     println("Sources: ${graph.getSourceCount()}, items: ${graph.getItemCount()}")
+
+    // What one model costs to build. `cost` is a lazy whole-graph relaxation, so this forces it
+    // and times the thing a caller actually pays for. Printed because MCO-521 turns on it: the
+    // drill renders a picker per node, and a model built per render would be a performance
+    // regression wearing a model change's clothes. Measure, don't assume.
+    val relaxStart = System.nanoTime()
+    val relaxedItems = model.cost.size
+    val relaxMillis = (System.nanoTime() - relaxStart) / 1_000_000.0
+    println(
+        "Model: %d items relaxed in %.0f ms, %d passes, converged=%s — build once per (graph, supplied)"
+            .format(relaxedItems, relaxMillis, model.passesUsed, model.converged)
+    )
 
     val subjects = graph.getAllItems()
         .map { it.item }
@@ -532,8 +545,16 @@ private suspend fun run(args: List<String>): Int {
     // 19 armour-trim duplication recipes and wheat -- and on every one of those the scorer's
     // favourite is a derivation the planner would never emit. Reading the ranking as the baseline
     // scored those as agreement and hid 19 regressions.
+    // RankingModel.LEGACY_SCORE is load-bearing here: PlanSelector now ranks by the cost model
+    // (MCO-521), so selecting with the default context would compare the new model against
+    // itself and report ~100% agreement. That is MCO-520's lesson repeating -- a diagnostic
+    // whose reference point is the thing being changed goes blind exactly when it is needed.
     fun shippedPick(item: MinecraftId): String? =
-        PlanSelector.select(graph, listOf(PlanTarget(item, demand))).nodes[item.id]?.source?.getKey()
+        PlanSelector.select(
+            graph,
+            listOf(PlanTarget(item, demand)),
+            context = PlanContext(rankBy = RankingModel.LEGACY_SCORE),
+        ).nodes[item.id]?.source?.getKey()
 
     var selectorDifferedFromScorer = 0
     for (item in subjects) {
@@ -572,7 +593,7 @@ private suspend fun run(args: List<String>): Int {
     val compared = agree + disagreements.size
     println()
     println("Compared $compared items with more than one source.")
-    println("  baseline check: PlanSelector.select() differs from the scorer's top-ranked candidate on $selectorDifferedFromScorer items")
+    println("  baseline check: the scorer-driven selector differs from the scorer's own top-ranked candidate on $selectorDifferedFromScorer items")
     println("  agree      ${agree.pct(compared)}")
     println("  disagree   ${disagreements.size.pct(compared)}")
     if (unreachable > 0) println("  no finite cost under the new model: $unreachable (see note below)")

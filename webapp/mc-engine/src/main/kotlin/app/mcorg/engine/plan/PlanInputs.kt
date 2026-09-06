@@ -89,5 +89,35 @@ data class PlanContext(
     val recipeThreshold: Int = 100,
     val maxDepth: Int = 16,
     val woodSpecies: String? = null,
-    val scorerMutation: ScorerMutation = ScorerMutation.NONE
+    val scorerMutation: ScorerMutation = ScorerMutation.NONE,
+    val rankBy: RankingModel = RankingModel.COST,
 )
+
+/**
+ * Which model [PlanSelector] ranks candidate sources by.
+ *
+ * [COST] is the shipped behaviour and the default; nothing in production passes anything else.
+ *
+ * [LEGACY_SCORE] exists for **one** reason: the tool that audits the switchover measures the
+ * cost model against what the old model would have committed to, and its baseline was
+ * `PlanSelector.select()`. The moment the selector itself moved to the cost model, that baseline
+ * started measuring the new model against itself and reported 99.9% agreement — a number that
+ * means nothing and reads like reassurance.
+ *
+ * This is the same failure MCO-520 fixed for the calibration sweep, arriving one issue later by a
+ * different door: a diagnostic whose reference point is the thing being changed goes blind exactly
+ * when you need it. Reading the scorer's *ranking* instead is not a substitute — the selector
+ * rejects candidates structurally before ranking runs, and on 1.21.4 the scorer's favourite is a
+ * derivation the planner would never emit on 20 items (the 19 armour-trim duplication recipes, and
+ * wheat). Scoring those as agreement is what hid 19 regressions the first time.
+ *
+ * **Dies with [SelectionScorer]** — MCO-490's step 4, along with this whole parameter. It is a
+ * measurement path, not a tuning surface or a way to keep the old behaviour available.
+ */
+enum class RankingModel {
+    /** [UnitCostModel]: minutes to acquire a unit, cheapest first. */
+    COST,
+
+    /** Diagnostics only: the retired [SelectionScorer], higher score first. */
+    LEGACY_SCORE,
+}

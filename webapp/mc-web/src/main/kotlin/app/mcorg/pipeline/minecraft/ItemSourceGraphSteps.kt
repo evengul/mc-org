@@ -32,15 +32,26 @@ import java.time.Instant
  */
 object GetItemSourceGraphForVersionStep : Step<String, AppFailure, ItemSourceGraph> {
 
-    override suspend fun process(input: String): Result<AppFailure, ItemSourceGraph> {
-        CacheManager.itemSourceGraph.getIfPresent(input)?.let { cached ->
-            if (!isStale(cached.builtAt, currentEpoch(input))) return Result.success(cached.graph)
+    override suspend fun process(input: String): Result<AppFailure, ItemSourceGraph> =
+        cached(input).map { it.graph }
+
+    /**
+     * The graph **with the instant it was built**, which is what keys the cost-model cache
+     * ([app.mcorg.pipeline.resources.PlanCostModel]).
+     *
+     * A caller that needs both must take them from one entry rather than fetching the graph here
+     * and the instant from the cache separately: a re-ingest landing between the two reads would
+     * pair an old graph with a new instant, and cache a model priced against the wrong data under
+     * a key that looks current.
+     */
+    suspend fun cached(version: String): Result<AppFailure, CachedItemSourceGraph> {
+        CacheManager.itemSourceGraph.getIfPresent(version)?.let { hit ->
+            if (!isStale(hit.builtAt, currentEpoch(version))) return Result.success(hit)
         }
-        return LoadResourceSourcesForVersionStep.process(input).map { sources ->
+        return LoadResourceSourcesForVersionStep.process(version).map { sources ->
             ItemSourceGraphBuilder.buildFromResourceSources(sources)
                 .let { CachedItemSourceGraph(it, Instant.now()) }
-                .also { CacheManager.itemSourceGraph.put(input, it) }
-                .graph
+                .also { CacheManager.itemSourceGraph.put(version, it) }
         }
     }
 

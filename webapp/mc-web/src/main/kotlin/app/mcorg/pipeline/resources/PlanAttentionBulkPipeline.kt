@@ -50,15 +50,16 @@ private const val MIN_BULK_QUESTIONS = 2
  */
 private suspend fun bulkRecommendations(worldId: Int, projectId: Int): List<RecommendedAnswer> {
     val plan = deriveOrNull(projectId, worldId) ?: return emptyList()
-    val graph = getGraphForWorld(worldId) ?: return emptyList()
+    val (graph, costModel) = graphAndCostModel(worldId) ?: return emptyList()
 
     return foldedAttentionQuestions(plan.activityList).mapNotNull { activity ->
         val tag = activity.item as? MinecraftTag ?: return@mapNotNull null
-        // The same demand the picker scores against, found the same way, so the button's pick is
-        // the option the picker marks "best score ★".
-        val demand = plan.drillTreeFor(tag.id)?.let { findNodeById(it, tag.id) }?.quantityIfAlone
-            ?: activity.quantity
-        val member = TagMemberRanking.recommended(graph, tag.content, demand) ?: return@mapNotNull null
+        // The same model the picker ranks with, so this button's pick is the option the picker
+        // marks "quickest ★". It no longer needs a demand to say that: the cost model has one
+        // answer at every size (MCO-522), which also removes the risk that the button and the
+        // picker found *different* demands for the same question and diverged on that alone.
+        val member = TagMemberRanking.recommended(graph, tag.content, costModel = costModel)
+            ?: return@mapNotNull null
         RecommendedAnswer(
             tagId = tag.id,
             tagName = tag.name,

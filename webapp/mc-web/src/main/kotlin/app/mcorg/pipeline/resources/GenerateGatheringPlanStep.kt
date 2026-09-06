@@ -71,11 +71,13 @@ object GenerateGatheringPlanStep : Step<GatheringPlanInput, AppFailure, Gatherin
             is Result.Failure -> return r
         }
 
-        // 2. Get (or build and cache) the item-source graph for that version
-        val graph: ItemSourceGraph = when (val r = GetItemSourceGraphForVersionStep.process(versionString)) {
+        // 2. Get (or build and cache) the item-source graph for that version. Taken as the cached
+        // entry rather than the bare graph because the cost model is keyed by its build instant.
+        val cachedGraph = when (val r = GetItemSourceGraphForVersionStep.cached(versionString)) {
             is Result.Success -> r.value
             is Result.Failure -> return r
         }
+        val graph: ItemSourceGraph = cachedGraph.graph
 
         // 3. Load all resource_gathering rows for this project
         val items: List<ResourceGatheringItem> =
@@ -146,8 +148,13 @@ object GenerateGatheringPlanStep : Step<GatheringPlanInput, AppFailure, Gatherin
             is Result.Success -> r.value
             is Result.Failure -> return r
         }
+        // The cost model is shared with the drill's source picker through PlanCostModel, so the
+        // picker's "best" is the same call the plan ranked with (MCO-521). Building one is a
+        // whole-graph relaxation (~100 ms) and plans are re-derived on every read, so it is cached
+        // per (graph, supplied) rather than constructed here.
         val plan = GatheringPlanner.plan(
-            graph, targets, supplied, overrides, PlanContext(woodSpecies = woodSpecies)
+            graph, targets, supplied, overrides, PlanContext(woodSpecies = woodSpecies),
+            costModel = PlanCostModel.of(versionString, cachedGraph.builtAt, graph, supplied),
         )
 
         // 9. Materialise the demand this plan implies (MCO-316), so the roadmap can match farms

@@ -23,6 +23,7 @@ import app.mcorg.presentation.handler.defaultHandleError
 import app.mcorg.presentation.templated.dsl.pages.drillChainFragment
 import app.mcorg.presentation.templated.dsl.pages.drillNotFoundFragment
 import app.mcorg.presentation.templated.dsl.pages.gatheringPlannerFragment
+import app.mcorg.engine.plan.UnitCostModel
 import app.mcorg.presentation.templated.dsl.pages.nodePickerFragment
 import app.mcorg.presentation.templated.dsl.pages.pickerNotFoundFragment
 import app.mcorg.presentation.utils.getProjectId
@@ -169,7 +170,9 @@ suspend fun ApplicationCall.handleGetNodePicker() {
         return
     }
 
-    val graph = getGraphForWorld(worldId)
+    // Graph and the model that ranks over it, from one entry — the picker must rank with the
+    // same model the plan was selected with (MCO-521).
+    val (graph, costModel) = graphAndCostModel(worldId) ?: (null to null)
 
     // Load current overrides so we can highlight the active selection
     val overrides = when (val r = GetPlanOverridesStep.process(projectId)) {
@@ -196,7 +199,7 @@ suspend fun ApplicationCall.handleGetNodePicker() {
             graph = graph,
             activeSourceKey = overrides?.sourceByItem?.get(nodeId),
             activeMemberId = overrides?.tagMember?.get(nodeId),
-            demand = node.quantityIfAlone,
+            costModel = costModel,
             query = query,
             origin = origin,
             // Only a species set — "which tree" — is answerable world-wide. A form choice is
@@ -464,19 +467,18 @@ internal suspend fun ApplicationCall.listRerenderFragment(worldId: Int, projectI
  * when they answered: equal to their answer means they agreed with the ranking, different means the
  * ranking was wrong here.
  *
- * Resolved through the same node lookup and the same demand ([TargetTree.quantityIfAlone]) that
- * [handleGetNodePicker] renders from, so the recorded pick is the option the picker marked
- * "best score ★". Null when the plan or graph is unavailable, or the node is not a tag — never
- * guessed.
+ * Resolved through the same node lookup and the same [UnitCostModel] that [handleGetNodePicker]
+ * renders from, so the recorded pick is the option the picker marked as best. Null when the plan
+ * or graph is unavailable, or the node is not a tag — never guessed.
  */
 internal suspend fun recommendedMemberFor(projectId: Int, worldId: Int, nodeId: String): String? {
-    val graph = getGraphForWorld(worldId) ?: return null
+    val (graph, costModel) = graphAndCostModel(worldId) ?: return null
     val plan = deriveOrNull(projectId, worldId) ?: return null
     val node = plan.drillTreeFor(nodeId)?.let { findNodeById(it, nodeId) }
         ?: synthesizeTagNode(nodeId, graph)
         ?: return null
     val tag = node.item as? MinecraftTag ?: return null
-    return TagMemberRanking.recommended(graph, tag.content, node.quantityIfAlone)?.id
+    return TagMemberRanking.recommended(graph, tag.content, costModel = costModel)?.id
 }
 
 /**
@@ -514,9 +516,27 @@ internal fun GatheringPlan.drillTreeFor(itemId: String): TargetTree? =
  * Obtains the [ItemSourceGraph] for the world's Minecraft version.
  * Returns null when the version or graph is not found (graceful — callers treat it as empty).
  */
-internal suspend fun getGraphForWorld(worldId: Int): ItemSourceGraph? {
+internal suspend fun getGraphForWorld(worldId: Int): ItemSourceGraph? =
+    graphAndCostModel(worldId)?.first
+
+/**
+ * The world's graph together with the [UnitCostModel] that ranks sources over it (MCO-521).
+ *
+ * Taken as a pair from one cache entry, because the model is keyed by the graph's build instant
+ * and fetching the two separately could pair an old graph with a new instant across a re-ingest.
+ *
+ * **Built with nothing supplied**, which is the intrinsic ranking of a source and is exactly what
+ * this path did before the model swap — `SourceRanking.rankSources` was called without a supplied
+ * map here too. It is a real, pre-existing gap: the plan is derived *with* the project's farms and
+ * linked projects, so a picker and a plan can differ on an item whose price changes downstream of
+ * something supplied. Closing it needs the project's supplied map plumbed to the picker, which is
+ * a change to what the picker means rather than to which model it reads, so it is deliberately not
+ * folded into the model switchover.
+ */
+internal suspend fun graphAndCostModel(worldId: Int): Pair<ItemSourceGraph, UnitCostModel>? {
     val versionString = GetWorldVersionStep.process(worldId).getOrNull() ?: return null
-    return GetItemSourceGraphForVersionStep.process(versionString).getOrNull()
+    val cached = GetItemSourceGraphForVersionStep.cached(versionString).getOrNull() ?: return null
+    return cached.graph to PlanCostModel.of(versionString, cached.builtAt, cached.graph)
 }
 
 /**
