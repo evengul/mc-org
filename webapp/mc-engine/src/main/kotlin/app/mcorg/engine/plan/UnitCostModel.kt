@@ -102,10 +102,16 @@ import app.mcorg.engine.model.SourceNode
  * - **Most of the table decides nothing.** Nine of the twenty-one entries — smithing,
  *   campfire, block-interact, in-world transform, entity-interact, archaeology, equipment, and
  *   both trade rows — move not one selection anywhere in their range. They are not calibrated
- *   numbers; they are placeholders, and should be read as such.
+ *   numbers; they are placeholders, and should be read as such. *(The trade rows are no longer
+ *   among them, and never were: they read inert because this sweep is 1.21.4, which ingests no
+ *   trades at all. Swept on 26.2.0 they move 27 selections at the bottom of the range and 2 at
+ *   the top — MCO-524. A row reading "inert" is a claim about the version, not the constant.)*
  * - **Effort per source *type* is the wrong grain for the cases that matter.** One number
- *   covers all 995 block sources, so mining an emerald costs what mining dirt costs, and on
- *   26.x that mispricing is the only reason villager trades need a brake at all. `GIFT` lumps
+ *   covers all 995 block sources, so mining an emerald costs what mining dirt costs. *(That
+ *   particular case is fixed — emerald ore carries a x60 availability factor — which is why
+ *   trades no longer need a brake to stop the planner buying everything: 11 of 1127 items are
+ *   won by a trade at an honest transaction price, and what holds the line is a correctly
+ *   priced emerald.)* `GIFT` lumps
  *   a chicken laying an egg in with winning a raid. Trade level (`cleric/5/...`) is in the
  *   source filename and would separate a novice trade from a master one. The next real gain
  *   in this model is per-source effort, not a better per-type number.
@@ -941,8 +947,35 @@ class EffortTable(
         private val LEVEL_IN_PATH = Regex("""/([1-5])/""")
 
         /**
-         * Villager trading: curing or breeding a villager, getting the profession, restocking.
-         * Three minutes per transaction, amortising the villager you had to set up.
+         * Villager trading: **one minute per transaction**, and deliberately *not* the villager.
+         *
+         * It was three, described as "amortising the villager you had to set up" — and that is
+         * the bug, not the rationale (MCO-524). Setting a villager up is a fixed cost paid once
+         * per villager; amortising it over exactly one trade charges a trading hall's worth of
+         * work to every single item bought from it. The consequence was that trades won **4
+         * items in a 1522-item graph**, in a game where trading is one of the main ways players
+         * get anything — `emerald` itself only tied with mining the rarest ore in the game.
+         *
+         * At one minute, trades win 11, and the list reads like Minecraft: chainmail and diamond
+         * armour from an armorer, enchanted books from a librarian, experience bottles from a
+         * cleric, bricks and chiselled stone from a mason, cooked chicken from a butcher, and
+         * `emerald` from selling carrots to a level-1 farmer — which is how a player actually
+         * gets emeralds. `fixes ok` at every swept value, so nothing known-good was being held up
+         * by the old number.
+         *
+         * **The villager's setup is now simply unmodelled**, which is the same treatment every
+         * other one-off setup gets today: nothing prices building a super smelter or a mob farm
+         * either. That is a known gap, not an oversight — a fixed cost that does not divide per
+         * item belongs to the assembled plan (MCO-493's conclusion), and there is no plan-level
+         * fixed-cost concept yet. Do not re-amortise it into this number to compensate.
+         *
+         * **[WANDERING_TRADER] is left at eight and is a different animal.** Its number is not a
+         * transaction price at all — it is *waiting for a random trader to turn up*, which no
+         * amount of setup makes cheaper. Pricing it as a transaction let `emerald` win by selling
+         * a water bucket to a passing trader at 0.53 min, a route that is real in the data and a
+         * fluke in practice. Note the sweep reports **no plateau** anywhere in its range, i.e.
+         * this value is standing in for availability that the effort table cannot express; that
+         * is unfinished, and it belongs with the availability multipliers rather than here.
          *
          * **One number per profession is defensible; one number per *level* is not.** Sweeping
          * all fourteen professions together over [0.25, 30] against 26.2.0 moves 98 selections
@@ -961,11 +994,13 @@ class EffortTable(
          * untested trade rules are both dead code. Admissible [2, 5] on 26.2.0; the whole
          * range is inert on 1.21.4.
          *
-         * Note what the brake actually is on 26.x: a trade's emerald input is priced through
-         * `c(emerald)`, and emerald ore is a block like any other, so an emerald costs 0.05
-         * minutes. This constant is the only thing standing between the planner and "buy
-         * everything". It is compensating for a price the model gets wrong, which is exactly
-         * the kind of load the eight-constant scorer was full of.
+         * That paragraph used to end by naming this constant "the only thing standing between
+         * the planner and 'buy everything'", on the grounds that an emerald cost 0.05 minutes
+         * because emerald ore was a block like any other. **Both halves are now stale.** Emerald
+         * ore carries a x60 availability factor, so an emerald is priced in minutes rather than
+         * seconds, and that is what brakes buying — not this number. Measured: at one minute per
+         * transaction only 11 of 1127 items are won by a trade, so pricing a transaction
+         * honestly does not open the floodgates. The brake is a correctly priced emerald.
          */
         private val TRADE_MINUTES: Map<String, Double> = listOf(
             SourceType.TradeTypes.ARMORER, SourceType.TradeTypes.BUTCHER,
@@ -975,7 +1010,7 @@ class EffortTable(
             SourceType.TradeTypes.LIBRARIAN, SourceType.TradeTypes.MASON,
             SourceType.TradeTypes.SHEPHERD, SourceType.TradeTypes.SMITH,
             SourceType.TradeTypes.TOOLSMITH, SourceType.TradeTypes.WEAPONSMITH,
-        ).associate { it.id to 3.0 } + (SourceType.TradeTypes.WANDERING_TRADER.id to 8.0)
+        ).associate { it.id to 1.0 } + (SourceType.TradeTypes.WANDERING_TRADER.id to 8.0)
 
         /**
          * The first-guess table, written in one sitting before anything was measured. Kept
