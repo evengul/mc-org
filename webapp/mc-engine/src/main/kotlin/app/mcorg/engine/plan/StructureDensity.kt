@@ -55,6 +55,9 @@ object StructureDensity {
 
     private val membership: Map<String, Set<String>>
 
+    /** `(blockId, set)` -> how many of that block one visit to that structure yields. */
+    private val blocksPerVisit: Map<Pair<String, String>, Int>
+
     /**
      * The density every other structure is expressed as a multiple of. Villages are the
      * natural baseline: the one structure a player is likely to already be standing in,
@@ -70,6 +73,7 @@ object StructureDensity {
         var readVersion: String? = null
         val parsedPlacements = LinkedHashMap<String, Placement>()
         val parsedMembership = LinkedHashMap<String, Set<String>>()
+        val parsedCounts = LinkedHashMap<Pair<String, String>, Int>()
         var section = ""
 
         for (raw in text.lineSequence()) {
@@ -95,12 +99,24 @@ object StructureDensity {
                         parsedMembership[parts[0]] = parts[1].split(',').toSet()
                     }
                 }
+
+                "counts" -> {
+                    val parts = line.split('|')
+                    if (parts.size == 2 && parts[1].isNotEmpty()) {
+                        for (pair in parts[1].split(',')) {
+                            val set = pair.substringBefore(':')
+                            val n = pair.substringAfter(':', "").toIntOrNull() ?: continue
+                            if (n > 0) parsedCounts[parts[0] to set] = n
+                        }
+                    }
+                }
             }
         }
 
         version = readVersion ?: error("$RESOURCE has no version= line")
         placements = parsedPlacements
         membership = parsedMembership
+        blocksPerVisit = parsedCounts
         baselineChunks = parsedPlacements["villages"]?.chunksPerOccurrence
             ?: error("$RESOURCE has no villages placement to normalise against")
     }
@@ -128,4 +144,19 @@ object StructureDensity {
         val chunks = placements[set]?.chunksPerOccurrence ?: return 1.0
         return chunks / baselineChunks
     }
+
+    /**
+     * How many of [blockId] one visit to [set] yields, or null when the templates do not say.
+     *
+     * Derived (MCO-513): the most of that block any single template of the set places. It
+     * replaced a flat eight for every block in every structure, which said a village hands you
+     * eight campfires (it has one) and that an End city hands you eight ender chests (it has
+     * one), while a woodland mansion's library — 180 bookshelves — was worth the same eight.
+     *
+     * **Null is common and means "keep the default".** The seven structure sets that are
+     * generated in code rather than from templates place nothing here, so a stronghold library's
+     * bookshelves are not counted and cannot be from this source. Blocks in those keep the
+     * behaviour they had before.
+     */
+    fun blocksPerVisit(blockId: String, set: String): Int? = blocksPerVisit[blockId to set]
 }

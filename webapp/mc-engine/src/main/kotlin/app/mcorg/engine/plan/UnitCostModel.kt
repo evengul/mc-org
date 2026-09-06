@@ -705,12 +705,16 @@ class EffortTable(
          * of claim, and lumping them into one tuned constant is how the old scorer's eight
          * constants came to be uninterpretable.
          */
-        internal fun structureFindFactor(blockStem: String): Double? =
-            StructureDensity.setsContaining("minecraft:$blockStem")
+        internal fun structureFindFactor(blockStem: String): Double? {
+            val blockId = "minecraft:$blockStem"
+            return StructureDensity.setsContaining(blockId)
                 .minOfOrNull { set ->
+                    val perVisit = StructureDensity.blocksPerVisit(blockId, set)
+                        ?.toDouble() ?: DEFAULT_BLOCKS_PER_VISIT
                     StructureDensity.densityRatio(set) * (STRUCTURE_ACCESS[set] ?: 1.0) *
-                        VILLAGE_TRIP / BLOCKS_PER_VISIT
+                        VILLAGE_TRIP / perVisit
                 }
+        }
 
         /**
          * How many 3-second block swings a trip to a village is worth. Five minutes, which
@@ -722,21 +726,28 @@ class EffortTable(
         private const val VILLAGE_TRIP = 100.0
 
         /**
-         * How many of a given block one visit to a structure yields.
+         * How many of a block one visit yields, when the templates do not say (MCO-513).
          *
-         * **The crudest number in this file, and the one to replace first.** A structure's
-         * blocks are not consumed by finding it — one village has several campfires and a
-         * library has a wall of bookshelves — so charging a whole trip per block would say
-         * the second bookshelf costs another village, which is plainly false. Eight is a flat
-         * stand-in for a quantity the templates actually contain: counting a block's
-         * placements per template would derive it, and that is the follow-up this constant
-         * exists to be replaced by.
+         * This was a flat eight for **every** block in every structure, and was described here
+         * as the crudest number in the file. It is now the fallback rather than the rule:
+         * [StructureDensity.blocksPerVisit] counts the block's placements in the templates, so
+         * a village campfire is 1, an End city's ender chest is 1, a village library's
+         * bookshelves are 11 and a woodland mansion's are 180 — where all four used to be 8.
          *
-         * It is also why this model still has nothing to say about *demand*. One lectern for
-         * a trading hall, fifteen bookshelves for an enchanting setup and five hundred for a
-         * library project are three different answers, and a single per-unit cost gives one.
+         * The eight still applies to blocks the templates cannot count, which is not a small
+         * set: the seven structures generated in code rather than from templates place nothing
+         * countable, so a stronghold library's bookshelves — the case a reader most expects
+         * this to fix — keep the default.
+         *
+         * **It does not address demand, and counting did not change that.** One lectern for a
+         * trading hall, fifteen bookshelves for an enchanting setup and five hundred for a
+         * library are three different answers, and a per-unit cost still gives one. A plan
+         * needing 500 bookshelves now prices each at a 180th of a mansion trip instead of an
+         * eighth of one, and still says "go to a mansion". That is the amortised-setup shape
+         * MCO-490 measured and left alone; counting makes the small case right and leaves the
+         * large case exactly as wrong as it was.
          */
-        private const val BLOCKS_PER_VISIT = 8.0
+        private const val DEFAULT_BLOCKS_PER_VISIT = 8.0
 
         /**
          * How much dearer than a village trip it is to *reach* a structure, by class.
