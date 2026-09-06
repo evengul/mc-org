@@ -730,7 +730,7 @@ private data class CreateProjectFromIdeaStep(
                         }
                         val dependencyResult = DatabaseSteps.update<CreateDependencyInput>(
                             sql = SafeSQL.insert("""
-                                INSERT INTO project_dependencies (project_id, depends_on_project_id, tasks_depending_on_dependency_project) VALUES (?, ?, ?)
+                                INSERT INTO project_dependencies (project_id, depends_on_project_id, tasks_depending_on_dependency_project, declared_by) VALUES (?, ?, ?, 'IDEA_IMPORT')
                             """.trimIndent()),
                             parameterSetter = { statement, input ->
                                 statement.setInt(1, input.projectId)

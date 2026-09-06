@@ -170,6 +170,77 @@ class RoadmapGraphLayoutTest {
         assertEquals(listOf("Slime farm"), band.map { it.projectName })
     }
 
+    /**
+     * MCO-302 — the band is *sorted* by layer, not chained by it.
+     *
+     * Two unfinished projects that share a layer have no ordering between them, and an arrow
+     * joining them asserts one. The hop used to be drawn for every consecutive pair whether or
+     * not an edge existed, with `dashed = edge?.itemName == null` falling through to `true` for
+     * a missing edge — so a relationship that did not exist was painted in the very style
+     * reserved for a hand-made ordering.
+     *
+     * It stayed invisible until orderings could be removed: before that, the band's neighbours
+     * were always genuinely chained. The first delete on the real world drew the ordering that
+     * had just been taken away.
+     */
+    @Test
+    fun `two projects on the same layer are not joined by an invented arrow`() {
+        val farm = node(1, "Cobble farm", ProjectState.DONE)
+        val left = node(2, "Ghast farm")
+        val right = node(3, "Slime farm")
+        val terminal = node(4, "Storage", layer = 1)
+        // Both unfinished projects hang off the same finished farm, and neither feeds the
+        // other or the terminal — so nothing sequences them.
+        val edges = listOf(
+            edge(left, farm, "Cobblestone", 100),
+            edge(right, farm, "Cobblestone", 100),
+            edge(terminal, farm, "Cobblestone", 100),
+        )
+
+        val graph = RoadmapGraphLayout.of(
+            roadmap(listOf(farm, left, right, terminal), edges),
+            listOf(producer(1, "Cobble farm", 100)),
+            null,
+            noStats,
+        )
+
+        assertNotNull(graph)
+        assertTrue(
+            graph.edges.none { it.key == "seq-2-3" },
+            "nothing orders Ghast farm before Slime farm: ${graph.edges.map { it.key }}",
+        )
+        assertTrue(
+            graph.edges.none { it.key == "seq-terminal" },
+            "and neither of them feeds the terminal: ${graph.edges.map { it.key }}",
+        )
+    }
+
+    @Test
+    fun `a real ordering between band neighbours is still drawn, and dashed`() {
+        val farm = node(1, "Cobble farm", ProjectState.DONE)
+        val first = node(2, "Perimeter")
+        val second = node(3, "Walls", layer = 1)
+        val terminal = node(4, "Storage", layer = 2)
+        val edges = listOf(
+            edge(first, farm, "Cobblestone", 100),
+            // A hand-made ordering: no item, no quantity. This is the one the band must draw.
+            edge(second, first, null, null),
+            edge(terminal, second, "Stone", 10),
+        )
+
+        val graph = RoadmapGraphLayout.of(
+            roadmap(listOf(farm, first, second, terminal), edges),
+            listOf(producer(1, "Cobble farm", 100)),
+            null,
+            noStats,
+        )
+
+        assertNotNull(graph)
+        val hop = graph.edges.single { it.key == "seq-2-3" }
+        assertTrue(hop.dashed, "a hand-made ordering reads as the legend's ┄, not as supply")
+        assertNotNull(graph.edges.singleOrNull { it.key == "seq-terminal" })
+    }
+
     // ---- edge weight -------------------------------------------------------------------
 
     @Test

@@ -200,7 +200,9 @@ class DeleteProjectIT : WithUser() {
     private fun createProjectDependency(dependentProjectId: Int, dependsOnProjectId: Int) = runBlocking {
         DatabaseSteps.update<Unit>(
             sql = SafeSQL.insert(
-                "INSERT INTO project_dependencies (project_id, depends_on_project_id) VALUES (?, ?)"
+                // `declared_by` has no default (V2_66_0) so every writer names itself, and a
+                // row with no reason is only legal for the import provenance.
+                "INSERT INTO project_dependencies (project_id, depends_on_project_id, declared_by) VALUES (?, ?, 'IDEA_IMPORT')"
             ),
             parameterSetter = { stmt, _ ->
                 stmt.setInt(1, dependentProjectId)

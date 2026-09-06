@@ -1,6 +1,7 @@
 package app.mcorg.presentation.templated.dsl.pages
 
 import app.mcorg.domain.model.user.TokenProfile
+import app.mcorg.domain.model.world.ManualOrdering
 import app.mcorg.domain.model.world.Roadmap
 import app.mcorg.domain.model.world.RoadmapNode
 import app.mcorg.pipeline.world.roadmap.RoadmapGraphLayout
@@ -43,6 +44,10 @@ data class RoadmapGraphView(
     val terminalStats: RoadmapGraphLayout.TerminalStats,
     val manualEdgeNote: String?,
     val dataGaps: List<DataGap>,
+    /** The world's hand-made orderings, for § 4's roster — see [manualOrderingSection]. */
+    val manualOrderings: List<ManualOrdering> = emptyList(),
+    /** Edges the app derived rather than anybody typing, for the roster's "these are yours" line. */
+    val generatedEdgeCount: Int = 0,
 ) {
     data class ProducerRow(val projectId: Int, val name: String, val items: Long, val edges: Int)
 
@@ -118,6 +123,16 @@ fun roadmapGraphPage(
                     id = "roadmap-graph"
                     startHereSection(view)
                     graphSection(view)
+                    // Between the graph and the lists, as the design orders it: the graph is
+                    // where you *see* that one hand-made edge sets the world's depth, and this
+                    // is where you do something about it (MCO-302).
+                    manualOrderingSection(
+                        worldId = view.roadmap.worldId,
+                        orderings = view.manualOrderings,
+                        generatedEdgeCount = view.generatedEdgeCount,
+                        projectCount = view.roadmap.nodes.size,
+                        canEdit = isWorldAdmin,
+                    )
                     unchainedSection(view)
                     producingSection(view)
                 }

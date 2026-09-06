@@ -302,8 +302,8 @@ class GetAvailableProjectDependenciesStepTest : WithUser() {
         val result = DatabaseSteps.update<Unit>(
             SafeSQL.insert(
                 """
-                INSERT INTO project_dependencies (project_id, depends_on_project_id)
-                VALUES (?, ?)
+                INSERT INTO project_dependencies (project_id, depends_on_project_id, declared_by)
+                VALUES (?, ?, 'IDEA_IMPORT')
                 """.trimIndent()
             ),
             parameterSetter = { statement, _ ->

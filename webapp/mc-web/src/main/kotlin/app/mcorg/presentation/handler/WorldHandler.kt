@@ -12,6 +12,13 @@ import app.mcorg.pipeline.project.handleGetDetailContent
 import app.mcorg.pipeline.world.roadmap.handleClearRoadmapCycleOrder
 import app.mcorg.pipeline.world.roadmap.handleGetWorldRoadmap
 import app.mcorg.pipeline.world.roadmap.handleSaveRoadmapCycleOrder
+import app.mcorg.pipeline.world.roadmap.ordering.handleAddManualOrdering
+import app.mcorg.pipeline.world.roadmap.ordering.handleDeleteManualOrdering
+import app.mcorg.pipeline.world.roadmap.ordering.handleGetOrderingEditForm
+import app.mcorg.pipeline.world.roadmap.ordering.handleGetOrderingForm
+import app.mcorg.pipeline.world.roadmap.ordering.handlePickOrderingProject
+import app.mcorg.pipeline.world.roadmap.ordering.handleSearchOrderingCandidates
+import app.mcorg.pipeline.world.roadmap.ordering.handleUpdateManualOrdering
 import app.mcorg.pipeline.project.handleRecordExistingFarm
 import app.mcorg.pipeline.project.resources.handleAddResourcesFromSchematic
 import app.mcorg.pipeline.project.resources.handleDeleteProjectProduction
@@ -152,6 +159,42 @@ class WorldHandler {
                     }
                     post("/clear") {
                         call.handleClearRoadmapCycleOrder()
+                    }
+                }
+                // The manual ordering editor (MCO-302). Admin-only for the reason above it:
+                // an ordering somebody asserts sequences the world's projects for everyone who
+                // opens the roadmap. The GETs are behind the same gate because they are the
+                // editor's own fragments — a member who cannot write has no use for the form.
+                route("/roadmap/ordering") {
+                    install(WorldAdminPlugin)
+                    post {
+                        call.handleAddManualOrdering()
+                    }
+                    get("/form") {
+                        call.handleGetOrderingForm()
+                    }
+                    get("/search") {
+                        call.handleSearchOrderingCandidates()
+                    }
+                    get("/pick") {
+                        call.handlePickOrderingProject()
+                    }
+                    // Keyed by the row's own id rather than by the project pair, because this
+                    // is the world's roster: it is reached without a {projectId} in the path,
+                    // so ProjectDependencyItemPlugin's (project, dependency) lookup has nothing
+                    // to work from. Both writes scope to the world in SQL instead.
+                    route("/{orderingId}") {
+                        get("/edit") {
+                            call.handleGetOrderingEditForm()
+                        }
+                        post {
+                            call.handleUpdateManualOrdering()
+                        }
+                        method(HttpMethod.Delete) {
+                            handle {
+                                call.handleDeleteManualOrdering()
+                            }
+                        }
                     }
                 }
                 route("/projects") {

@@ -491,3 +491,249 @@ a.rmg-node:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-mut
 
     .rmg-datagap { flex-direction: column; align-items: flex-start; gap: var(--space-2); }
 }
+
+/* 4. Manual ordering (MCO-302) ------------------------------------------------------
+   The roster of orderings somebody asserted by hand, and the form that writes them.
+   Sizes are the design's own (10/11/12px), matching the rest of this file — the graph
+   sections are specified to the pixel and the token scale has no 10px step. */
+
+.rmg-ordering {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+}
+
+.rmg-ordering__head {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: var(--space-3);
+}
+
+/* Pushed right rather than wrapped in a spacer div: the label and the note are one
+   reading unit and should stay adjacent when the row wraps. */
+.rmg-ordering__add { margin-left: auto; }
+
+/* The form ------------------------------------------------------------------------ */
+
+.rmg-ordering__form {
+    display: grid;
+    grid-template-columns: 1fr 1.1fr 92px;
+    gap: var(--space-4);
+    align-items: start;
+    padding: var(--space-3) 14px;
+    background: var(--bg-raised);
+    /* Dashed, like the graph's own hand-gathered node: this is the part of the page
+       nothing derived. */
+    border: 1px dashed var(--border-strong);
+    border-radius: var(--radius);
+}
+
+/* The collapsed state is an empty anchor for the swap; it must occupy no space. */
+.rmg-ordering__slot { display: contents; }
+
+.rmg-ordering__col {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    min-width: 0;
+}
+
+.rmg-ordering__actions { align-items: stretch; }
+
+.rmg-ordering__field-label {
+    font-family: var(--font-ui);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+}
+
+.rmg-ordering__help {
+    font-family: var(--font-ui);
+    font-size: 11px;
+    color: var(--text-muted);
+    margin: 0;
+}
+
+.rmg-ordering__error {
+    grid-column: 1 / -1;
+    font-family: var(--font-ui);
+    font-size: 12px;
+    color: var(--red);
+    margin: 0;
+}
+
+.rmg-ordering__reason {
+    min-height: 62px;
+    font-family: var(--font-body);
+    font-size: 12px;
+    resize: vertical;
+}
+
+/* --text-muted, not --text-disabled: required-field guidance is substantive content,
+   and the disabled ink fails contrast at 2.42:1. */
+.rmg-ordering__reason::placeholder { color: var(--text-muted); }
+
+.rmg-ordering__fixed-pair {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-family: var(--font-ui);
+    font-size: 12px;
+    color: var(--text-primary);
+}
+
+/* The combobox -------------------------------------------------------------------- */
+
+.rmg-combo { position: relative; }
+
+.rmg-combo__results {
+    position: absolute;
+    left: 0;
+    top: calc(100% + 2px);
+    width: 100%;
+    /* Above the field below it, and above the list further down the section. */
+    z-index: 5;
+}
+
+.rmg-combo__panel {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-pop);
+    overflow: hidden auto;
+    max-height: 260px;
+}
+
+.rmg-combo__row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: var(--space-3);
+    width: 100%;
+    padding: var(--space-2) 10px;
+    border: none;
+    border-bottom: 1px solid var(--border);
+    background: none;
+    font-family: var(--font-ui);
+    text-align: left;
+    color: var(--text-primary);
+}
+
+.rmg-combo__row:last-child { border-bottom: none; }
+
+.rmg-combo__row--pick { cursor: pointer; }
+
+.rmg-combo__row--pick:hover,
+.rmg-combo__row--pick:focus-visible {
+    background: var(--accent-muted);
+}
+
+/* Shown and unpickable, never hidden: a search that silently drops the project you
+   typed sends you round the same loop again. The row says why instead. */
+.rmg-combo__row--blocked { cursor: default; }
+.rmg-combo__row--blocked .rmg-combo__name { color: var(--text-muted); }
+
+.rmg-combo__row--note {
+    font-size: 11px;
+    color: var(--text-muted);
+    border-bottom: none;
+}
+
+.rmg-combo__name { font-size: 12px; }
+.rmg-combo__state { font-size: 11px; white-space: nowrap; }
+
+/* The list ------------------------------------------------------------------------ */
+
+.rmg-ordering__list {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    background: var(--bg-surface);
+}
+
+.rmg-ordering__row {
+    display: grid;
+    grid-template-columns: 1fr 1.1fr 92px;
+    gap: var(--space-4);
+    align-items: center;
+    padding: 10px 14px;
+    background: var(--bg-raised);
+}
+
+.rmg-ordering__row--alt { background: var(--bg-surface); }
+.rmg-ordering__row + .rmg-ordering__row { border-top: 1px solid var(--border); }
+
+.rmg-ordering__pair {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    font-family: var(--font-ui);
+    font-size: 12px;
+}
+
+.rmg-ordering__project {
+    color: var(--accent);
+    text-decoration: none;
+}
+
+.rmg-ordering__project:hover {
+    color: var(--accent-hover);
+    text-decoration: underline;
+}
+
+/* The graph legend's mark for a hand-made ordering, so the row and the picture agree. */
+.rmg-ordering__arrow { color: var(--border-strong); }
+
+.rmg-ordering__reason-text {
+    font-family: var(--font-body);
+    font-size: 12px;
+    color: var(--text-muted);
+    text-wrap: pretty;
+}
+
+.rmg-ordering__row-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--space-3);
+}
+
+.rmg-ordering__action {
+    border: none;
+    background: none;
+    padding: 0;
+    font-family: var(--font-ui);
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.rmg-ordering__action:hover { text-decoration: underline; }
+.rmg-ordering__action--edit { color: var(--accent); }
+.rmg-ordering__action--remove { color: var(--red); }
+
+.rmg-ordering__empty,
+.rmg-ordering__footer {
+    font-family: var(--font-ui);
+    font-size: 11px;
+    color: var(--text-muted);
+    margin: 0;
+}
+
+@media (max-width: 768px) {
+    .rmg-ordering__form,
+    .rmg-ordering__row {
+        grid-template-columns: 1fr;
+    }
+
+    .rmg-ordering__row-actions { justify-content: flex-start; }
+
+    /* A popover positioned over a one-column form covers the reason field, and there is
+       no width to spare — the panel becomes part of the flow instead. */
+    .rmg-combo__results {
+        position: static;
+        width: auto;
+    }
+}
