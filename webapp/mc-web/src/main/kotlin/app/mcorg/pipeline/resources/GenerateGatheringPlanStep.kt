@@ -74,11 +74,18 @@ data class GatheringPlanInput(
  * ```
  *
  * `stone_crafting_materials` is what pins it. By share it is trivial — a twentieth of a percent —
- * but it is one of only **two** questions any real user has ever answered, and the two projects
- * answered it *differently* (`cobblestone` in 42, `cobbled_deepslate` in 43). So the one piece of
- * evidence about what users care about says a plausible-looking 1% threshold would have silently
- * decided a question they demonstrably wanted. The threshold has to sit below it, and this leaves
- * fifty times the margin.
+ * but it is among the questions real users have actually answered, so a plausible-looking 1%
+ * threshold would have decided it for them. This leaves fifty times the margin.
+ *
+ * Two honest caveats on that reasoning, both worth knowing before anyone raises the number:
+ *
+ * - The override rows behind "users answered this" were read from MCO-410's write-up, not from
+ *   the database in front of you. Live overrides move; check before leaning on them again.
+ * - In world 3 the question is answered anyway, because cobblestone is farm-supplied and a tag
+ *   with a supplied member costs *nothing*, which is below every threshold rather than below this
+ *   one. That is deliberate and safe for a reason unrelated to this number — see [TagAssumptions]:
+ *   an open tag is always a recipe ingredient, so no assumption can change what the build ends up
+ *   containing, only which pile is gathered on the way.
  *
  * What is left below the line is exactly the tail MCO-410 named when it was filed —
  * `soul_fire_base_blocks` and `coals` — which is the strongest evidence available that the metric

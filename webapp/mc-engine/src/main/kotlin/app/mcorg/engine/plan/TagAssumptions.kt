@@ -34,6 +34,24 @@ import app.mcorg.engine.model.ItemSourceGraph
  * "s". MCO-410's own argument is why that would be worse than asking: *a wrong visible answer
  * gets corrected and a wrong invisible one does not.*
  *
+ * ## A supplied member makes a question free, and that is fine
+ *
+ * `c(tag)` is the minimum over its members, so a tag with one **supplied** member costs zero and
+ * falls below *every* threshold — the share is not small, it is nil, and the number above never
+ * gets consulted. On world 3 that is what settles "Blackstone, Cobbled Deepslate or Cobblestone":
+ * cobblestone comes from a farm, so the choice is free and is answered rather than asked.
+ *
+ * That looks alarming and is not, for a structural reason (Even, 2026-09-06): **an open tag is
+ * always a recipe ingredient, never a target.** MCO-409 established that — every target is built
+ * as `PlanTarget(Item(...))` and tag ids carry a `#` prefix item ids never have — so answering one
+ * cannot change what the build ends up containing. It changes an intermediate node and nothing
+ * else. A player asking for a hopper gets a hopper whether its stone came from cobblestone or
+ * blackstone; the only thing at stake is which pile they gather, and a supplied pile is no work at
+ * all.
+ *
+ * So the threshold is not the only thing keeping this honest, and it does not have to be. The
+ * guarantee underneath it is that no assumption is capable of changing the output.
+ *
  * ## Never persisted
  *
  * Nothing is written down. Every derivation recomputes this, so an assumption that stops being
