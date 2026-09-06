@@ -144,7 +144,26 @@ object GatheringPlanner {
         context: PlanContext = PlanContext(),
         costModel: UnitCostModel? = null,
     ): GatheringPlan {
-        val dag = PlanSelector.select(graph, targets, supplied, overrides, context, costModel)
-        return PlanQuantifier.quantify(dag, targets)
+        val model = costModel ?: UnitCostModel(graph, supplied.keys)
+        val first = PlanQuantifier.quantify(
+            PlanSelector.select(graph, targets, supplied, overrides, context, model), targets
+        )
+
+        // MCO-410: a question worth less than [PlanContext.assumeTagBelowShare] of the plan's
+        // minutes is answered rather than asked. Deciding it needs the tag's *exact* quantity,
+        // which only exists once the plan is quantified — so the plan is derived, the trivial
+        // questions are settled, and it is derived once more with them answered. That second
+        // pass is a graph walk over a model that is already relaxed and cached; the expensive
+        // half is not repeated.
+        val assumptions = TagAssumptions.of(first, graph, model, context.assumeTagBelowShare)
+        if (assumptions.isEmpty()) return first
+
+        val withAssumed = overrides.copy(
+            tagMember = overrides.tagMember + assumptions.associate { it.tagId to it.memberId }
+        )
+        val second = PlanSelector.select(graph, targets, supplied, withAssumed, context, model)
+        return PlanQuantifier.quantify(second, targets).let {
+            GatheringPlan(it.nodes, it.targets, it.roots, assumptions)
+        }
     }
 }

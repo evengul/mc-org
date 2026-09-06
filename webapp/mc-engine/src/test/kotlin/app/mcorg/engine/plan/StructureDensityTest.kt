@@ -3,6 +3,7 @@ package app.mcorg.engine.plan
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
@@ -108,6 +109,60 @@ class StructureDensityTest {
         for (set in referenced) {
             assertNotNull(StructureDensity.placements[set], "membership names unknown set '$set'")
             assertTrue(set in known)
+        }
+    }
+
+    // ── blocks per visit (MCO-513) ───────────────────────────────────────────
+
+    @Test
+    fun `a block's count is what one visit yields, not a flat eight`() {
+        // The four cases MCO-513 was filed on, and the reason a single number could not serve
+        // them: a village has one campfire and an End city one ender chest, while a village
+        // library has eleven bookshelves and a woodland mansion has a hundred and eighty.
+        assertEquals(1, StructureDensity.blocksPerVisit("minecraft:campfire", "villages"))
+        assertEquals(1, StructureDensity.blocksPerVisit("minecraft:ender_chest", "end_cities"))
+        assertEquals(11, StructureDensity.blocksPerVisit("minecraft:bookshelf", "villages"))
+        assertEquals(180, StructureDensity.blocksPerVisit("minecraft:bookshelf", "woodland_mansions"))
+    }
+
+    @Test
+    fun `an uncounted block falls back rather than reading as zero`() {
+        // Null and 0 are very different to the caller: null keeps the default, 0 would divide
+        // the trip by nothing. The generator never writes a 0, and the parser drops one if it
+        // ever appears.
+        assertNull(StructureDensity.blocksPerVisit("minecraft:diamond_ore", "villages"))
+        assertNull(StructureDensity.blocksPerVisit("minecraft:campfire", "end_cities"))
+    }
+
+    @Test
+    fun `the seven code-generated structures contribute no counts`() {
+        // Stated in the snapshot header and worth pinning: a stronghold's bookshelves are the
+        // case a reader most expects counting to fix, and it cannot be fixed from templates
+        // because strongholds ship no templates.
+        val codeGenerated = listOf(
+            "buried_treasures", "desert_pyramids", "jungle_temples",
+            "mineshafts", "ocean_monuments", "strongholds", "swamp_huts",
+        )
+        for (set in codeGenerated) {
+            assertNull(
+                StructureDensity.blocksPerVisit("minecraft:bookshelf", set),
+                "$set is generated in code and can contribute no template counts",
+            )
+        }
+    }
+
+    @Test
+    fun `every counted pair is one the membership section also knows`() {
+        // The two sections are written from the same walk, so a block with a count but no
+        // membership would mean the generator's two passes had diverged — and the count would
+        // be unreachable, since structureFindFactor only looks at sets from membership.
+        for (block in listOf("minecraft:bookshelf", "minecraft:campfire", "minecraft:snow_block")) {
+            val sets = StructureDensity.setsContaining(block)
+            assertTrue(sets.isNotEmpty(), "$block should have membership")
+            assertTrue(
+                sets.any { StructureDensity.blocksPerVisit(block, it) != null },
+                "$block has membership but no count in any of $sets",
+            )
         }
     }
 }

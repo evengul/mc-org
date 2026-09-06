@@ -1,5 +1,6 @@
 package app.mcorg.pipeline.resources
 
+import app.mcorg.engine.plan.TagMemberRanking
 import app.mcorg.domain.model.minecraft.Item
 import app.mcorg.domain.model.minecraft.MinecraftId
 import app.mcorg.domain.model.resources.ResourceSource

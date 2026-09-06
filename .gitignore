@@ -23,3 +23,7 @@ node_modules/
 
 # mc-data symlink to mc-web test data
 webapp/mc-data/src/test/resources/servers/extracted
+
+# Python bytecode from running the snapshot generators
+__pycache__/
+*.pyc

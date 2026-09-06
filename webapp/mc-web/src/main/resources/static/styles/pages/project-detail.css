@@ -1096,3 +1096,57 @@
 .next-up__picker {
     margin-top: var(--space-3);
 }
+
+/* ── Answered for you (MCO-410) ──────────────────────────────────────────────
+   Disclosure, not a task list: the questions the planner settled because they were
+   too small to be worth interrupting for. Sits under Needs attention and reads
+   quieter than it, because nothing here needs doing — but it is *present*, since a
+   plan that quietly contains decisions with no author is the failure this avoids. */
+.assumed-choices {
+    margin-top: var(--space-3);
+    padding-top: var(--space-2);
+    border-top: 1px solid var(--border);
+}
+
+.assumed-choices__label {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: var(--text-label);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+}
+
+.assumed-choices__list {
+    margin: var(--space-1) 0 0;
+    padding: 0;
+    list-style: none;
+}
+
+.assumed-choices__item {
+    font-family: var(--font-body);
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+    line-height: 1.7;
+}
+
+/* The tag name is the way back to the picker, so it has to look like a way back. */
+.assumed-choices__link {
+    color: var(--text-primary);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+.assumed-choices__link:hover {
+    color: var(--accent);
+}
+
+.assumed-choices__answer {
+    color: var(--text-primary);
+}
+
+/* The share is the justification for not asking, so it is shown rather than asserted. */
+.assumed-choices__share {
+    font-family: var(--font-mono);
+    font-size: var(--text-label);
+}

@@ -10,6 +10,7 @@ import app.mcorg.engine.model.ItemSourceGraph
 import app.mcorg.engine.plan.Activity
 import app.mcorg.engine.plan.ActivityGroup
 import app.mcorg.engine.plan.GatheringPlan
+import app.mcorg.engine.plan.TagAssumption
 import app.mcorg.engine.plan.PlanNodeStatus
 import app.mcorg.engine.plan.PlanOverrides
 import app.mcorg.engine.plan.SupplySource
@@ -645,6 +646,13 @@ fun FlowContent.gatheringPlanSections(
 
         pendingFarmNotice(project.worldId, pendingFarms)
     }
+
+    // Outside the group loop on purpose. It was first rendered inside the NEEDS_ATTENTION
+    // section, which only exists when that group has activities — so the moment assumptions
+    // cleared the *last* open question the disclosure vanished with it. That is precisely the
+    // case it exists for: a plan with no questions left because several were answered for you is
+    // the one where "answered for you" most needs saying.
+    assumedChoices(project, plan.assumptions)
 }
 
 
@@ -1319,6 +1327,56 @@ private fun FlowContent.needsAttentionList(
  * to answer a *lead* question would be offering to answer the ones worth reading. One definition,
  * read by the renderer below and by `PlanAttentionBulkPipeline` on the server.
  */
+/**
+ * The questions the planner answered for you (MCO-410), listed rather than hidden.
+ *
+ * An auto-resolved choice is still a decision, and a plan that quietly contains decisions with no
+ * author is worse than one that asks too much — MCO-410's own argument is that *a wrong visible
+ * answer gets corrected and a wrong invisible one does not*. So each is shown with the share of
+ * the plan that justified not asking, and links to the same drill picker an unanswered question
+ * would have. Overriding one writes an ordinary override, which then beats the assumption on
+ * every later derivation.
+ *
+ * Rendered after the activity groups rather than inside Needs attention, which is where it was
+ * first put: that section only exists while questions remain, so the disclosure disappeared in
+ * the exact case it is for — every remaining question answered for you.
+ */
+private fun FlowContent.assumedChoices(project: Project, assumptions: List<TagAssumption>) {
+    if (assumptions.isEmpty()) return
+
+    div("assumed-choices") {
+        span("assumed-choices__label") {
+            +("Answered for you — ${assumptions.size} " +
+                (if (assumptions.size == 1) "choice" else "choices") + " too small to ask about")
+        }
+        ul("assumed-choices__list") {
+            for (assumption in assumptions) {
+                li("assumed-choices__item") {
+                    a(
+                        href = "/worlds/${project.worldId}/projects/${project.id}?drill=" +
+                            URLEncoder.encode(assumption.tagId, StandardCharsets.UTF_8),
+                        classes = "assumed-choices__link",
+                    ) { +assumption.tagName }
+                    span("assumed-choices__answer") { +" → ${assumption.memberName}" }
+                    span("assumed-choices__share") {
+                        +" (${shareLabel(assumption.shareOfPlan)} of the plan)"
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** A share this small reads as "0.0%" at one decimal, which says nothing. */
+private fun shareLabel(share: Double): String {
+    val pct = share * 100
+    return when {
+        pct >= 1 -> "%.0f%%".format(pct)
+        pct >= 0.01 -> "%.2f%%".format(pct)
+        else -> "under 0.01%"
+    }
+}
+
 internal fun foldedAttentionQuestions(activities: List<Activity>): List<Activity> {
     val questions = attentionQuestions(activities)
     if (questions.isEmpty()) return emptyList()

@@ -8,6 +8,7 @@ import app.mcorg.engine.model.ItemSourceGraph
 import app.mcorg.engine.model.SourceNode
 import app.mcorg.engine.plan.ActivityDiagnostics
 import app.mcorg.engine.plan.EffortTable
+import app.mcorg.engine.plan.GatheringPlanner
 import app.mcorg.engine.plan.PlanContext
 import app.mcorg.engine.plan.PlanSelector
 import app.mcorg.engine.plan.PlanTarget
@@ -42,30 +43,25 @@ import kotlin.system.exitProcess
  * mvn -pl mc-web exec:java@cost-diagnostics -Dexec.args="world=3 set=chest:30 picks=chest"
  * mvn -pl mc-web exec:java@cost-diagnostics -Dexec.args="world=3 table=sketch"
  *
- * # what do the four *unpinned* scorer behaviours actually decide, and does the cost model
- * # reach the same answer without them?
- * mvn -pl mc-web exec:java@cost-diagnostics -Dexec.args="world=3 demand=64 factors"
- *
- * # what does dropping the scorer's demand-sensitivity actually cost? (MCO-522)
- * mvn -pl mc-web exec:java@cost-diagnostics -Dexec.args="world=3 demands=10,100,1000"
+ * # every open question in a real plan, with the share of the plan it accounts for (MCO-410)
+ * mvn -pl mc-web exec:java@cost-diagnostics -Dexec.args="world=3 tags projects=43"
+ * mvn -pl mc-web exec:java@cost-diagnostics -Dexec.args="world=3 tags projects=43 assume=0.0001"
  * ```
  *
- * Args: `world=<id>` / `version=<v>` to pick the graph, `demand=<n>` (the shipped scorer is
- * demand-sensitive through its recipe threshold; the cost model is not, which is itself one
- * of the differences worth seeing), `verbose` to print every disagreement rather than a
- * sample, and any bare item ids to compare only those. For calibration: `sweep[=<group>]`
- * with optional `values=`, `set=<type>:<minutes>` to override the table without rebuilding,
+ * Args: `world=<id>` / `version=<v>` to pick the graph, `demand=<n>` for the amount targets are
+ * planned at, and any bare item ids to price only those. For calibration: `sweep[=<group>]` with
+ * optional `values=`, `set=<type>:<minutes>` to override the table without rebuilding,
  * `table=sketch|calibrated`, `picks=<type>` to list what a source type wins and by how much,
- * and `projects=<ids>` to carry a real project's item set through every row — a value can look
- * harmless over the whole graph while moving the plan someone is actually building. And
- * `factors` for the knowledge-versus-tuning differential over the four unpinned behaviours
- * (see [app.mcorg.engine.plan.ScorerMutation]), and `demands=<a,b,c>` for what the shipped
- * scorer's demand-sensitivity is buying — each item that moves, priced against the end the cost
- * model drops, since the cost model has one answer at every demand
- * ([app.mcorg.engine.plan.PlanContext.recipeThreshold] records what that measured).
+ * `grain` for where per-type effort is too coarse, `activities` for how many kinds of work a plan
+ * needs, and `projects=<ids>` to carry a real project's item set through every row — a value can
+ * look harmless over the whole graph while moving the plan someone is actually building. And
+ * `tags projects=<ids>` for the open questions in a real plan and what each is worth, with
+ * `assume=<share>` to see which of them MCO-410's threshold would answer for the user.
  *
- * **`sweep` is the one mode with no second model in it** — see [runSweep] for why its columns
- * changed and which two of these tools are expected to die with `SelectionScorer`.
+ * **No mode has a second model in it.** `sweep` was given that shape first (MCO-520) so it would
+ * survive the scorer's deletion; the rest followed when the scorer actually went, and the default
+ * mode became `why` because a comparison had nothing left to compare against. The `factors` and
+ * `demands=` modes went with it — what they measured is recorded in MCO-490 and MCO-522.
  */
 fun main(args: Array<String>) {
     val exitCode = runBlocking {
@@ -110,6 +106,8 @@ private suspend fun run(args: List<String>): Int {
     var sweepFilter: String? = null
     var picksOf: String? = null
     var activities = false
+    var tags = false
+    var assumeShare = 0.0
     var customValues: List<Double>? = null
     val overrides = mutableListOf<Pair<String, Double>>()
     var table = EffortTable.DEFAULT
@@ -127,6 +125,8 @@ private suspend fun run(args: List<String>): Int {
             arg == "factors" -> factors = true
             arg == "why" -> why = true
             arg == "activities" -> activities = true
+            arg == "tags" -> tags = true
+            arg.startsWith("assume=") -> assumeShare = arg.substringAfter('=').toDoubleOrNull() ?: 0.0
             arg.startsWith("demands=") ->
                 demandSpread = arg.substringAfter('=').split(',').mapNotNull { it.trim().toLongOrNull() }
             arg == "sweep" -> sweep = true
@@ -157,7 +157,7 @@ private suspend fun run(args: List<String>): Int {
     // and with that model deleted there is no second opinion left to diff against — so the
     // default becomes the one question that never needed one: what does this cost, and what is
     // the price made of. DEFAULT_WHY was already the item set written for exactly that.
-    if (!grain && !why && !activities && !sweep && picksOf == null) why = true
+    if (!grain && !why && !activities && !sweep && !tags && picksOf == null) why = true
 
     // `set=chest:30 set=trade:8` — try a table by hand without editing and reinstalling the
     // engine, which is the loop this whole calibration is made of.
@@ -312,6 +312,51 @@ private suspend fun run(args: List<String>): Int {
         return 0
     }
 
+
+    // `tags projects=43`: every open question in a real plan, with the share of the plan's
+    // minutes it accounts for. This is the number MCO-410's threshold is compared against, so
+    // the threshold can be chosen by looking at real questions rather than guessed.
+    if (tags) {
+        if (projectIds.isEmpty()) {
+            System.err.println("tags needs projects=<ids> — an open question only exists inside a plan")
+            return 1
+        }
+        // Real required amounts, not a flat 64 per item. A share of the plan is meaningless
+        // against a synthetic uniform plan: it was measured that way first and both projects
+        // collapsed to identical output, because they are the same build imported twice and
+        // only their quantities differ.
+        for ((projectId, amounts) in projectIds.associateWith { loadProjectAmounts(it) }) {
+            val targets = amounts.mapNotNull { (id, amount) ->
+                graph.getItemNodesByStringId(id).firstOrNull()?.item?.let { PlanTarget(it, amount) }
+            }
+            if (targets.isEmpty()) continue
+            val plan = GatheringPlanner.plan(
+                graph, targets, context = PlanContext(assumeTagBelowShare = assumeShare), costModel = model
+            )
+            if (plan.assumptions.isNotEmpty()) {
+                println()
+                println("  ASSUMED at share < $assumeShare:")
+                plan.assumptions.forEach {
+                    println("    %-40s -> %-24s %.5f%%".format(it.tagName, it.memberName, it.shareOfPlan * 100))
+                }
+            }
+            val planMinutes = targets.sumOf { (model.cost[it.item.id] ?: 0.0) * it.amount }
+            println()
+            println("Open questions in project $projectId — plan is %.0f min over ${targets.size} targets".format(planMinutes))
+            val open = plan.nodes.values.filter { it.status == app.mcorg.engine.plan.PlanNodeStatus.OPEN_TAG }
+            if (open.isEmpty()) { println("  none"); continue }
+            open.sortedByDescending { (model.cost[it.item.id] ?: 0.0) * it.quantity }.forEach { node ->
+                val unit = model.cost[node.item.id] ?: 0.0
+                val share = if (planMinutes > 0) (unit * node.quantity) / planMinutes else 0.0
+                println(
+                    "  %-46s qty %7d  unit %6s  %8.4f%% of plan".format(
+                        node.item.id.substringAfterLast(':').take(44), node.quantity, fmt(unit), share * 100
+                    )
+                )
+            }
+        }
+        return 0
+    }
 
     if (activities) {
         val scopes = buildList {
@@ -709,6 +754,26 @@ private fun sweepRow(label: String, base: SweepAnswers, answers: SweepAnswers, c
 }
 
 private fun fmtValue(v: Double): String = if (v >= 1) "%.0f".format(v) else "%.2f".format(v)
+
+/**
+ * item id -> required, for a plan whose shares are supposed to mean something.
+ *
+ * Gross required, not net of collected: progress lives in its own table and this is a shape
+ * measurement, not a work estimate. A half-finished project's shares are the same shares.
+ */
+private suspend fun loadProjectAmounts(projectId: Int): Map<String, Long> =
+    (projectAmountsQuery.process(projectId) as? Result.Success)?.value.orEmpty()
+
+private val projectAmountsQuery = DatabaseSteps.query<Int, Map<String, Long>>(
+    sql = SafeSQL.select(
+        "SELECT item_id, SUM(required) AS net FROM resource_gathering " +
+            "WHERE project_id = ? AND NOT ignored GROUP BY item_id HAVING SUM(required) > 0"
+    ),
+    parameterSetter = { ps, id -> ps.setInt(1, id) },
+    resultMapper = { rs ->
+        buildMap { while (rs.next()) put(rs.getString("item_id"), rs.getLong("net")) }
+    }
+)
 
 private suspend fun loadProjectItems(projectId: Int): Set<String> =
     (projectItemsQuery.process(projectId) as? Result.Success)?.value?.toSet().orEmpty()

@@ -57,6 +57,10 @@ data class PlanOverrides(
 /**
  * Tunables for a planning run. The graph itself is passed separately.
  *
+ * @param assumeTagBelowShare an open tag worth less than this share of the plan's total minutes
+ *   is answered rather than asked (MCO-410) — see [TagAssumptions] for why the threshold is a
+ *   share rather than a count, and why the answer is never written down. **Zero disables it**,
+ *   which is how a caller turns the whole mechanism off without a branch.
  * @param maxDepth recursion bound for chain expansion.
  * @param woodSpecies which tree the player is farming, e.g. `"birch"` (MCO-409). Settles every
  *   wood choice in the plan at once — `#planks`, `#wooden_slabs` and `#logs` are three askings
@@ -66,6 +70,7 @@ data class PlanOverrides(
  *   [MemberPrior.isKnownSpecies] before storing one.
  */
 data class PlanContext(
+    val assumeTagBelowShare: Double = 0.0,
     val maxDepth: Int = 16,
     val woodSpecies: String? = null,
 )
