@@ -697,8 +697,19 @@ class CuratedSelectionTest {
         //
         // So the yield is now stated rather than implied. This is the fixture hazard
         // `mc-engine/CLAUDE.md` documents under "a curated expectation is only as good as the
-        // source set it models" — checked against real data, where emerald mines at 3.0 min and
-        // the unpack route never appears.
+        // source set it models".
+        //
+        // Note what this test does NOT claim. Mining is not how a player actually gets emeralds —
+        // trading is, and then loot. It reads as the answer here only because the fixture holds
+        // three sources, and on 1.21.4 (where the real-data check was run) it reads as the answer
+        // because **no 1.x version ingests villager trades at all**: 0 trade sources on every
+        // version through 1.21.11, against 388 on 26.2.0. So "real data mines emerald" is a fact
+        // about missing data, not a vindication of mining.
+        //
+        // What survives either way is the guard this test is named for: an independently
+        // obtainable storage block must not be unpacked to make its own contents. A *cheaper*
+        // primary source makes the block lose by more, not less, so the expectation holds on
+        // 26.x too — where emerald is a trade. Emerald's own price is MCO-524's problem.
         val sources = listOf(
             blockLoot("emerald_ore", "minecraft:emerald"),
             recipe(

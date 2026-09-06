@@ -71,6 +71,12 @@ import app.mcorg.engine.model.SourceNode
  * introduced an error — crafting from four rabbit hides at 0.5 hide per kill is 4.05 min against
  * 0.50 min for a cow.
  *
+ * Re-run on 26.2.0, which matters because **no 1.x version ingests villager trades at all** (0
+ * trade sources through 1.21.11, against 388 on 26.2.0) — so 1.21.4 could not see the one source
+ * type shaped like a big setup amortised over many units, which is the case for a demand term at
+ * its strongest. There, **0 of 1127 items move with demand**. The case is weaker on that version,
+ * not stronger.
+ *
  * So the `effort = setup/demand + per_unit` alternative from MCO-490 is **not** taken: it would
  * double every entry in [EffortTable] into two hand-set numbers to buy behaviour that measures as
  * worthless. A fixed cost that genuinely does not divide per item — one trip to the mine buying

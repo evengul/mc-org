@@ -64,7 +64,10 @@ data class PlanOverrides(
  *   `setup/demand + per_unit` effort term. Measured on 1.21.4 / world 3 with
  *   `cost-diagnostics demands=10,100,1000`: 28 of 996 items change their committed source with
  *   demand, and priced against the end each one drops, **25 are a strict improvement, 3 are ties
- *   and none is a loss**. So the threshold was never modelling an effect of size — on 19 items it
+ *   and none is a loss**. Re-run on 26.2.0 — the only line of versions that ingests villager
+ *   trades, and therefore the one where amortising a setup cost would pay if it ever did — **0 of
+ *   1127 items move with demand at all**. So the threshold was never modelling an effect of size
+ *   — on 19 items it
  *   was swinging between two answers that a third source beats outright (16 wool colours are
  *   sheared, not killed or crafted; iron/gold/copper are blasted), on 7 it was correcting a bad
  *   small-demand default the cost model reaches at every size, and on `leather` it *introduced*
