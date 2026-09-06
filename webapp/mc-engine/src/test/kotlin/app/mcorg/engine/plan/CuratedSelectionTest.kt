@@ -202,6 +202,52 @@ class CuratedSelectionTest {
         )
     )
 
+    // ── unresolved tags ─────────────────────────────────────────────────────
+
+    /**
+     * MCO-320: **a route through an unresolved tag must not win by being unresolved.**
+     *
+     * The scorer returned depth 0 for any tag, so a candidate whose ingredient was an open tag
+     * paid no depth penalty and the whole subtree beneath it was invisible. Measured on world 11,
+     * `iron_nugget` picked `Smelting <- #smelts_to_iron_nugget` over `Crafting <- iron_ingot` by
+     * ten points — and won *because* the sixteen options behind the tag (chainmail boots, iron
+     * tools, each itself several ingots) were free. The plan told players to smelt their iron
+     * equipment for nuggets.
+     *
+     * `UnitCostModel` prices a tag as `min over members` — the option the user would actually
+     * pick — so the subtree is no longer invisible and this cannot recur by the same mechanism.
+     * `ironChain` already models the case: an ingot crafts into nine nuggets, and the tag route
+     * smelts one piece of equipment into one nugget.
+     *
+     * Both halves are asserted, because only the second one localises a regression: the pick, and
+     * the reason for it. If the tag ever prices at zero again the second assertion says so
+     * directly, rather than leaving someone to infer it from a changed selection.
+     */
+    @Test
+    fun `iron_nugget - an unresolved tag is priced by its members, not free`() {
+        val graph = ItemSourceGraphBuilder.buildFromResourceSources(ironChain)
+        val model = UnitCostModel(graph)
+
+        val tagCost = model.cost.getValue(ironEquipmentTag.id)
+        assertTrue(
+            tagCost > 0.0,
+            "an open tag must cost what its cheapest member costs, not nothing (was $tagCost)",
+        )
+
+        val ranked = model.ranked(item("minecraft:iron_nugget"))
+        val fromIngot = ranked.first { it.first.getKey().endsWith("iron_nugget_from_ingot.json") }
+        val fromEquipment = ranked.first { it.first.getKey().endsWith("iron_nugget_from_smelting.json") }
+
+        assertTrue(
+            fromIngot.second < fromEquipment.second,
+            "smelting equipment must lose on cost: ingot=${fromIngot.second} equipment=${fromEquipment.second}",
+        )
+        assertEquals(
+            "minecraft:crafting_shaped:iron_nugget_from_ingot.json",
+            plan(ironChain, "minecraft:iron_nugget", amount = 10).sourceKeyOf("minecraft:iron_nugget"),
+        )
+    }
+
     // ── planks / sticks ─────────────────────────────────────────────────────
 
     @Test
@@ -212,11 +258,17 @@ class CuratedSelectionTest {
         assertEquals("minecraft:block:blocks/oak_log.json", result.sourceKeyOf("minecraft:oak_log"))
     }
 
+    /**
+     * Was `@Disabled` as a **known mis-rank**: "ENTITY base score (100) outranks the stick recipe
+     * (~95) below the recipe threshold, so 'kill witches' is suggested for a handful of sticks",
+     * parked pending drop-rate data (MCO-196).
+     *
+     * It passes now, and not because of drop rates. The scorer compared a mob to a recipe by two
+     * base scores four points apart; the cost model compares half a minute per witch against
+     * 0.05/4 plus two planks, and the recipe wins by an order of magnitude at every demand. The
+     * limitation was the model, not the missing data (MCO-490).
+     */
     @Test
-    @Disabled(
-        "KNOWN MIS-RANK pending drop-rate data (MCO-196) — ENTITY base score (100) outranks the stick " +
-            "recipe (~95) below the recipe threshold, so 'kill witches' is suggested for a handful of sticks."
-    )
     fun `stick - small amount should be crafted from planks, not farmed from witches`() {
         val result = plan(stickChain, "minecraft:stick", amount = 10)
 
@@ -592,10 +644,14 @@ class CuratedSelectionTest {
      * Kept and disabled rather than rewritten to match production: smelting the ore *is* the
      * right answer for a player without a gold farm, so this records intent. It is the same
      * family as `bowl` from turtles and `cake` from a chest — an availability cost the shipped
-     * scorer has no way to express, which is one of the arguments for MCO-490.
+     * scorer had no way to express, which was one of the arguments for MCO-490.
+     *
+     * It was `@Disabled` with "KNOWN MIS-RANK: production picks the zombified-piglin drop.
+     * MCO-490." That is now fixed and the test is live: pricing a piglin honestly is exactly what
+     * the availability multipliers do, so the drop loses to smelting the ore on cost rather than
+     * needing a rule.
      */
     @Test
-    @Disabled("KNOWN MIS-RANK: production picks the zombified-piglin drop. MCO-490.")
     fun `gold_ingot - without a nugget farm, smelting the ore wins`() {
         val result = plan(goldChain, "minecraft:gold_ingot", amount = 811)
 
