@@ -1,12 +1,8 @@
-package app.mcorg.pipeline.resources
+package app.mcorg.engine.plan
 
 import app.mcorg.domain.model.minecraft.MinecraftId
 import app.mcorg.engine.model.ItemSourceGraph
 import app.mcorg.engine.model.SourceNode
-import app.mcorg.engine.plan.MemberPrior
-import app.mcorg.engine.plan.SourceRanking
-import app.mcorg.engine.plan.SupplySource
-import app.mcorg.engine.plan.UnitCostModel
 
 /**
  * Ranks the members of an open tag — "Red Sand or Sand", "Charcoal or Coal" — so that a picker
@@ -19,7 +15,9 @@ import app.mcorg.engine.plan.UnitCostModel
  * nothing about which a player reaches for. Nothing here scores anything itself.
  *
  * This lived inline in `DrillView.nodePickerFragment` until MCO-507 needed the same answer on the
- * server, to apply the whole folded tail of small questions in one action. A second copy would
+ * server, and moved from mc-web into the engine for MCO-410, which needs it a third time: the
+ * planner itself resolves a low-impact tag, and it must resolve it to the member the picker would
+ * have marked. Three callers, one rule — the same argument as [SourceRanking]'s. A second copy would
  * have let the button and the picker disagree about what "recommended" means, which is the one
  * failure that would make the action untrustworthy — it does not need to be right, but it does
  * need to be the same thing the picker marks as best.

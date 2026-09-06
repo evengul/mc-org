@@ -181,10 +181,37 @@ data class TargetTree(
  * @param roots target itemId -> fulfilling node id (differs only for tag targets
  *   redirected to a member item via [PlanOverrides.tagMember]).
  */
+/**
+ * A choice the planner made **on the user's behalf** because answering it would not have changed
+ * the plan enough to be worth an interruption (MCO-410).
+ *
+ * It is derived, never stored: every derivation recomputes it, so an assumption that stops being
+ * justified — because demand grew past the threshold — comes back as a question on its own. That
+ * is the point. An assumption is only ever warranted by the thing being small.
+ *
+ * @param tagId the question that was not asked.
+ * @param memberId what was assumed, which is what the picker would have marked as best.
+ * @param shareOfPlan the fraction of the plan's minutes this choice accounts for — the number
+ *   that justified not asking, kept so the UI can show it rather than assert it.
+ */
+data class TagAssumption(
+    val tagId: String,
+    val tagName: String,
+    val memberId: String,
+    val memberName: String,
+    val shareOfPlan: Double,
+)
+
 class GatheringPlan(
     val nodes: Map<String, PlanNode>,
     val targets: List<PlanTarget>,
-    val roots: Map<String, String> = targets.associate { it.item.id to it.item.id }
+    val roots: Map<String, String> = targets.associate { it.item.id to it.item.id },
+    /**
+     * Questions answered by assumption rather than by the user (MCO-410). Empty unless the
+     * planner resolved something; never contains a tag the user has an override for, because an
+     * explicit answer is applied first and an assumed one is only offered where none exists.
+     */
+    val assumptions: List<TagAssumption> = emptyList(),
 ) {
 
     /** A plan is complete exactly when nothing awaits a user choice or attention. */

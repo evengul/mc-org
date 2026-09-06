@@ -56,6 +56,39 @@ data class GatheringPlanInput(
  * - [AppFailure.ValidationError] when there are no positive-amount targets (all items
  *   are already fully collected).
  */
+/**
+ * A question worth less than this share of the plan's minutes is answered rather than asked
+ * (MCO-410). **0.01%**, and the number is measured rather than felt.
+ *
+ * Measured on the only two real projects that exist, world 3:
+ *
+ * ```
+ *   shulker_boxes             9.65%   <- ask
+ *   planks                    6.60%   <- ask
+ *   smelts_to_glass           1.81%   <- ask
+ *   wooden_slabs              0.16%   <- ask
+ *   stone_crafting_materials  0.047%  <- ASK, and this is the constraint
+ *   coals                     0.0014% <- assume
+ *   logs                      0.0011% <- assume
+ *   soul_fire_base_blocks     0.0002% <- assume
+ * ```
+ *
+ * `stone_crafting_materials` is what pins it. By share it is trivial — a twentieth of a percent —
+ * but it is one of only **two** questions any real user has ever answered, and the two projects
+ * answered it *differently* (`cobblestone` in 42, `cobbled_deepslate` in 43). So the one piece of
+ * evidence about what users care about says a plausible-looking 1% threshold would have silently
+ * decided a question they demonstrably wanted. The threshold has to sit below it, and this leaves
+ * fifty times the margin.
+ *
+ * What is left below the line is exactly the tail MCO-410 named when it was filed —
+ * `soul_fire_base_blocks` and `coals` — which is the strongest evidence available that the metric
+ * and the number agree with the intent.
+ *
+ * It is a share rather than a count on purpose: three coal is nothing here and everything in a
+ * starter base, and only a share means the same thing in both.
+ */
+private const val ASSUME_TAG_BELOW_SHARE = 0.0001
+
 object GenerateGatheringPlanStep : Step<GatheringPlanInput, AppFailure, GatheringPlan> {
 
     private val worldVersionQuery = DatabaseSteps.query<Int, String?>(
@@ -137,7 +170,7 @@ object GenerateGatheringPlanStep : Step<GatheringPlanInput, AppFailure, Gatherin
         // whole-graph relaxation (~100 ms) and plans are re-derived on every read, so it is cached
         // per (graph, supplied) rather than constructed here.
         val plan = GatheringPlanner.plan(
-            graph, targets, supplied, overrides, PlanContext(woodSpecies = woodSpecies),
+            graph, targets, supplied, overrides, PlanContext(woodSpecies = woodSpecies, assumeTagBelowShare = ASSUME_TAG_BELOW_SHARE),
             costModel = PlanCostModel.of(versionString, cachedGraph.builtAt, graph, supplied),
         )
 

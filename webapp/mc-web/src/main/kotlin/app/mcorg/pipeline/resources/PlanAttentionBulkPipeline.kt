@@ -1,5 +1,6 @@
 package app.mcorg.pipeline.resources
 
+import app.mcorg.engine.plan.TagMemberRanking
 import app.mcorg.domain.model.minecraft.MinecraftTag
 import app.mcorg.pipeline.Result
 import app.mcorg.presentation.handler.defaultHandleError

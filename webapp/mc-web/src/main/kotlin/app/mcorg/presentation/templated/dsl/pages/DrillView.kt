@@ -9,7 +9,7 @@ import app.mcorg.engine.plan.PlanOverrides
 import app.mcorg.engine.plan.SourceRanking
 import app.mcorg.engine.plan.UnitCostModel
 import app.mcorg.engine.plan.TargetTree
-import app.mcorg.pipeline.resources.TagMemberRanking
+import app.mcorg.engine.plan.TagMemberRanking
 import kotlinx.html.*
 import kotlinx.html.stream.createHTML
 import java.net.URLEncoder
