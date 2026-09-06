@@ -260,6 +260,88 @@ class RoadmapCyclesTest {
         )
     }
 
+    // ---- dense components need more than one cut -------------------------------------
+
+    /**
+     * Six farms that each need a little of the others' output — the shape of every world where
+     * somebody imports a batch of designs at once, and the one that broke the roadmap.
+     *
+     * Quantities are Even's, off Roadmap Testing World: the four cross-farm claims worth
+     * sequencing are in the thousands, and everything else is a footnote.
+     */
+    private fun theTangle() = listOf(
+        edge(45, "Witch", 46, "Iron", "Iron", 175),
+        edge(45, "Witch", 47, "Cobble", "Cobblestone", 260),
+        edge(45, "Witch", 48, "Bartering", "Blackstone", 87),
+        edge(46, "Iron", 45, "Witch", "Redstone", 1_119),
+        edge(46, "Iron", 47, "Cobble", "Cobblestone", 3_787),
+        edge(46, "Iron", 48, "Bartering", "Gravel", 290),
+        edge(47, "Cobble", 45, "Witch", "Redstone", 1_095),
+        edge(47, "Cobble", 46, "Iron", "Iron", 1_856),
+        edge(47, "Cobble", 48, "Bartering", "Obsidian", 288),
+        edge(48, "Bartering", 45, "Witch", "Redstone", 1_660),
+        edge(48, "Bartering", 46, "Iron", "Iron", 2_080),
+        edge(48, "Bartering", 47, "Cobble", "Cobblestone", 3_177),
+        edge(48, "Bartering", 49, "NanoCrop", "Wheat", 9),
+        edge(49, "NanoCrop", 45, "Witch", "Sugar", 12),
+        edge(49, "NanoCrop", 46, "Iron", "Iron", 1),
+        edge(49, "NanoCrop", 47, "Cobble", "Cobblestone", 26),
+        edge(49, "NanoCrop", 48, "Bartering", "Gravel", 9),
+    )
+
+    /** Applies every `breaking` edge, exactly as `buildRoadmap` does before layering. */
+    private fun remaining(edges: List<ProjectResourceEdge>): List<ProjectResourceEdge> {
+        val setAside = detect(edges).mapTo(mutableSetOf()) {
+            it.breaking.firstProjectId to it.breaking.waitingProjectId
+        }
+        return edges.filterNot { (it.consumerId to it.producerId) in setAside }
+    }
+
+    private fun hasCycle(edges: List<ProjectResourceEdge>): Boolean =
+        detect(edges).isNotEmpty()
+
+    @Test
+    fun `a dense component is cut until it is actually acyclic`() {
+        // The regression. One cut per component left this loop every bit as connected as
+        // before, so nothing could be layered and the whole world sat at depth 0.
+        assertTrue(hasCycle(theTangle()), "the fixture is a real tangle to begin with")
+        assertTrue(!hasCycle(remaining(theTangle())), "and nothing loops once the cuts are applied")
+    }
+
+    @Test
+    fun `cutting a dense component leaves a real order behind`() {
+        val ordered = remaining(theTangle())
+
+        // Witch is the only farm whose own claims are all footnotes, so it is what everything
+        // else ends up waiting on — it depends on nobody left in the graph.
+        assertTrue(
+            ordered.none { it.consumerId == 45 },
+            "the farm with only footnote claims comes first",
+        )
+        assertTrue(
+            ordered.any { it.consumerId == 48 && it.producerId == 47 },
+            "and the farm-scale claims that were never in question survive the cutting",
+        )
+    }
+
+    @Test
+    fun `the footnotes are cut silently and only the balanced pair is asked about`() {
+        val cycles = detect(theTangle())
+
+        val asked = cycles.filter { it.needsAnAnswer }
+
+        assertEquals(
+            1,
+            asked.size,
+            "seven footnote cuts settle themselves; one farm-scale pair is a judgement call",
+        )
+        assertEquals(47 to 46, asked.single().let { it.breaking.firstProjectId to it.breaking.waitingProjectId })
+        assertTrue(
+            cycles.filterNot { it.needsAnAnswer }.all { (it.breaking.quantity ?: 0) < threshold },
+            "nothing farm-scale is ever dropped without asking",
+        )
+    }
+
     @Test
     fun `a self-supplying project is not a cycle`() {
         // Excluded upstream in SQL, but the detector must not invent one either.

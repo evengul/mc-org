@@ -53,11 +53,33 @@ import app.mcorg.domain.model.world.RoadmapCycleOption
  * (MCO-302), which carries no quantity because a person wrote it rather than a plan deriving it.
  * Overriding somebody's explicit "dig the perimeter first" to tidy up a loop they did not create
  * would be the wrong way round.
+ *
+ * ## One edge per loop is not one edge per component
+ *
+ * A two-farm loop has one edge to cut and is done. A component of five farms that each need a
+ * little of the other four's output has eighteen internal edges, and removing the single
+ * smallest leaves it every bit as strongly connected as before. This used to detect once and
+ * break once, which meant that on any world denser than a pair the loop survived, `calculateLayers`
+ * placed nobody, and every project fell through to its depth-0 floor — a roadmap reading
+ * "1 layer" with its sequence band ordered by project *name*, and "START HERE" pointing at a
+ * project the same page called blocked. Even hit it on the first world he imported six farms
+ * into: the order was there in the data the whole time.
+ *
+ * So this breaks, re-detects, and repeats until the graph is acyclic. Terminating is free —
+ * every round removes at least one pair from a finite set — and the smallest-claim rule does the
+ * right thing cumulatively: the footnote-sized edges go first and silently, and what is left to
+ * ask about is the handful of genuinely balanced pairs. On that world it cut eight edges, seven
+ * of them under the threshold, and turned one flat layer into a seven-deep chain with a single
+ * question left for a person.
  */
 object RoadmapCycles {
 
     /**
      * Every loop in [edges], each with its alternatives and the edge set aside to break it.
+     *
+     * A dense component appears once per cut it takes, since each cut is a separate ordering
+     * fact: the same five farms can be named by several entries, each naming the pair it
+     * separated and offering the alternatives that were still live at that point.
      *
      * **All** loops are returned, including the ones the threshold settles on its own — the
      * caller needs every `breaking` edge to lay the graph out, and only shows the subset where
@@ -75,16 +97,29 @@ object RoadmapCycles {
         // producer is one dependency, and would otherwise produce three identical options.
         // The largest claim represents the pair, and a derived edge beats a declared one
         // (null quantity) so the pair keeps a number to show wherever it has one.
-        val byPair = edges
+        var byPair = edges
             .groupBy { it.consumerId to it.producerId }
             .mapValues { (_, group) -> group.maxBy { it.quantity ?: -1L } }
 
-        val dependencies = byPair.values.groupBy({ it.consumerId }, { it.producerId })
+        val found = mutableListOf<RoadmapCycle>()
 
-        return stronglyConnectedComponents(dependencies)
-            .filter { it.size >= 2 }
-            .map { component -> component.toCycle(byPair, farmScaleThreshold) }
-            .sortedBy { it.projectNames.firstOrNull() ?: "" }
+        // Break, re-detect, repeat — see the class note on why one pass is not enough.
+        while (true) {
+            val dependencies = byPair.values.groupBy({ it.consumerId }, { it.producerId })
+            val components = stronglyConnectedComponents(dependencies).filter { it.size >= 2 }
+            if (components.isEmpty()) break
+
+            val round = components.map { component -> component.toCycle(byPair, farmScaleThreshold) }
+            found += round
+
+            // Each round removes at least one pair from a finite set, so this terminates.
+            val setAside = round.mapTo(mutableSetOf()) {
+                it.breaking.firstProjectId to it.breaking.waitingProjectId
+            }
+            byPair = byPair.filterKeys { it !in setAside }
+        }
+
+        return found.sortedBy { it.projectNames.firstOrNull() ?: "" }
     }
 
     private fun Set<Int>.toCycle(
