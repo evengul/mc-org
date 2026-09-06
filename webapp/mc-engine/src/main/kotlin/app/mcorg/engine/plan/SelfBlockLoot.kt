@@ -35,6 +35,26 @@ internal fun isSelfBlockLoot(item: MinecraftId, source: SourceNode): Boolean {
     if (source.sourceType != ResourceSource.SourceType.LootTypes.BLOCK) return false
     val stem = source.filename.substringAfterLast('/').substringBeforeLast('.')
 
+    // Asked before anything else, because everything below is a question about *crafting* and
+    // this is the question about the *world* (MCO-527). If world generation makes the ground out
+    // of this block, breaking it is mining and cannot be re-collection, whatever its name or its
+    // recipe say.
+    //
+    // Without this the gate decided by asking "does it have a recipe", which is right for a
+    // beacon and wrong for terracotta — a badlands is made of the stuff, and smelting clay is a
+    // way to make it rather than evidence that finding it is cheating. The result was that
+    // mining terracotta was removed as an option entirely, so "should I mine a badlands or trade
+    // with a mason" was a comparison the model could not hold.
+    //
+    // Most terrain escaped by luck rather than by rule before this, which is why the bug looked
+    // rare: `sand`, `gravel` and `dirt` have no recipe so the gate never fired on them, and
+    // `snow_block`'s loot table is `blocks/snow.json` so its stem did not match. Terracotta had
+    // both a matching stem and a recipe, and was caught.
+    //
+    // Structure-only blocks are deliberately *not* covered — see [NaturalBlocks]. A bookshelf is
+    // findable in a mansion, not natural, and "go and find one" is priced elsewhere.
+    if (NaturalBlocks.isNatural("minecraft:$stem")) return false
+
     // A block is not always named after the item you placed to make it: you put down
     // `minecraft:redstone` and the world holds `minecraft:redstone_wire`. Comparing names caught
     // `blocks/beacon.json` and missed that one, so the planner offered "break placed redstone
