@@ -50,13 +50,16 @@ sudo service docker start           # Start Docker if not running (passwordless)
 ./webapp/scripts/ingest-locally.sh  # Ingest Minecraft data into the local/worktree DB
 ```
 
-Read-only diagnostic for "why did the planner pick *that* source?" — prints the scorer's factor
-breakdown per candidate against the real ingested graph. Required reading before any
-`SelectionScorer` change; see `mc-engine/CLAUDE.md` for args and the `mvn install` prerequisite:
+Read-only diagnostic for "why did the planner pick *that* source?" — prints what each price is
+made of, in minutes, against the real ingested graph. Required reading before any change to
+`UnitCostModel` or its effort table; see `mc-engine/CLAUDE.md` for the other modes and the
+`mvn install` prerequisite:
 
 ```bash
-cd webapp && mvn -q -pl mc-web exec:java@score-diagnostics -Dexec.args="world=<id> demand=64 <item ids>"
+cd webapp && mvn -q -pl mc-web exec:java@cost-diagnostics -Dexec.args="world=<id> why <item ids>"
 ```
+
+*(`score-diagnostics` was its predecessor and is gone with `SelectionScorer` — MCO-490.)*
 
 Module-scoped builds:
 
@@ -336,7 +339,7 @@ Only `app/mcorg` is a real directory, private to the worktree.
 
 Maven is pointed at it by `webapp/.mvn/maven.config` (gitignored, written per
 worktree), so a bare `mvn` typed by hand gets the isolation too — no script
-needs a flag, and `score-diagnostics` and friends are covered automatically.
+needs a flag, and `cost-diagnostics` and friends are covered automatically.
 
 - **Set up automatically** by the `EnterWorktree` hook, and by `run.sh` /
   `test.sh` if `webapp/.mvn/maven.config` is missing (covers `claude -w` and
@@ -550,16 +553,19 @@ check when work begins, not an afterthought at commit time.
 
 ## Graph & Scoring — Restricted Area
 
-`mc-engine` (`ItemSourceGraph`, `PlanSelector`, `SelectionScorer`, `PlanQuantifier`) and `mc-data`
+`mc-engine` (`ItemSourceGraph`, `PlanSelector`, `UnitCostModel`, `PlanQuantifier`) and `mc-data`
 extraction steps are the intellectual core of the product. Rules for touching these:
 
 - **Always read `mc-engine/CLAUDE.md` and `mc-data/CLAUDE.md` in full before making any changes.**
 - General agents (web layer, UI, pipeline steps) should not modify graph construction or scoring logic without explicit
   instruction.
-- `SelectionScorer` in particular — scoring logic changes require a human checkpoint before committing. Flag
-  proposed changes and rationale; don't just apply them. Its weights were chosen by feel rather than derived, and
-  the windows between them are narrow: verify a change against `CuratedSelectionTest` (which pins real acquisition
-  chains) and the `score-diagnostics` CLI against real ingested data, not against reasoning alone.
+- `UnitCostModel` and its `EffortTable` in particular — a change to what a source *costs* changes what the
+  planner tells a player to do, so it requires a human checkpoint before committing. Flag proposed changes and
+  rationale; don't just apply them. The effort numbers are estimates of an unmodelled quantity ("how long does
+  this take a player"), so verify against `CuratedSelectionTest` (which pins real acquisition chains) and the
+  `cost-diagnostics` CLI on real ingested data, not against reasoning alone. **Check the version carries the
+  source type you are reasoning about** — no 1.x version ingests villager trades, which is how a trade constant
+  read as inert for months (MCO-524).
 - Graph shape changes (new edge types, new node types) require reviewing `ItemSourceGraphBuilder` and all existing query
   code for impact.
 
@@ -580,7 +586,7 @@ extraction steps are the intellectual core of the product. Rules for touching th
 
 **Flag before acting (human checkpoint):**
 
-- `SelectionScorer` — any scoring weight or ranking changes
+- `UnitCostModel` / `EffortTable` — any cost or ranking changes
 - `ItemSourceGraph` structure changes — new edge or node types
 - Flyway migrations that drop columns or tables
 - Auth plugin changes
@@ -678,4 +684,4 @@ not vendored per repo.
 - [ ] HTMX targets match response element IDs
 - [ ] Correct import: `stream.createHTML`
 - [ ] Linear issue linked if applicable
-- [ ] Graph/scoring changes flagged if `mc-engine` was touched
+- [ ] Graph/cost changes flagged if `mc-engine` was touched

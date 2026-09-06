@@ -28,9 +28,13 @@ plan/
   SelectedDag.kt           — Output of select(): one source decision per item, acyclic
   GatheringPlan.kt         — Quantified plan DAG + derived views (activityList, perTarget),
                              PlanNodeStatus, ActivityGroup ordering rule
-  PlanSelector.kt          — select(): scorer-driven source choice, supplied terminals,
+  PlanSelector.kt          — select(): cost-driven source choice, supplied terminals,
                              override pins, open tags, structural cycle rejection
-  SelectionScorer.kt       — Candidate scoring (restricted area — human checkpoint for changes)
+  UnitCostModel.kt         — Minutes-to-acquire per item + EffortTable
+                             (restricted area — human checkpoint for changes)
+  SourceRanking.kt         — Read-only view of UnitCostModel.ranked() for the web layer, so
+                             the drill's picker and the planner cannot rank differently
+  SelfBlockLoot.kt         — "is breaking this block just re-collecting what you placed?"
   PlanQuantifier.kt        — quantify(): accumulate-then-ceil demand propagation, leftover
                              bank, SurplusPolicy hook; GatheringPlanner facade
 ```
@@ -58,22 +62,44 @@ cd webapp && mvn compile -pl mc-engine
 mvn test -pl mc-engine
 ```
 
-## Score diagnostics — read this before touching `SelectionScorer`
+## Cost diagnostics — read this before touching `UnitCostModel` or `EffortTable`
 
-The root CLAUDE.md's restricted-area rule says to verify scoring changes against real ingested
-data rather than reasoning. This is the tool. It is **read-only** and changes no ranking:
+The root CLAUDE.md's restricted-area rule says to verify cost changes against real ingested data
+rather than reasoning. This is the tool. It is **read-only** and changes no ranking:
 
 ```bash
 cd webapp && set -a && . ./local.env && set +a
-mvn -q -pl mc-web exec:java@score-diagnostics \
-  -Dexec.args="world=11 demand=64 iron_ingot iron_nugget cobblestone"
+mvn -q -pl mc-web exec:java@cost-diagnostics \
+  -Dexec.args="world=3 why iron_ingot iron_nugget cobblestone"
 ```
 
-It prints, per item, every candidate source in the order `PlanSelector` would rank them, with
-the factor breakdown that produced each total (`base 95  thr +50  recip -13  req -10  depth -5`)
-and the selected one marked `▶`. Args: `world=<id>` or `version=<mc version>` to pick the graph,
-`demand=<n>` (default 64 — raise above the recipe threshold of 100 to see the bulk bonus), then
-item ids (`sand` expands to `minecraft:sand`).
+`why` (the default) prints what each price is *made of*, in minutes, down the chain — the action,
+the availability multiplier, the per-attempt yield and every ingredient. Read the total, find one
+you disagree with, then read the lines under it to see which number produced it.
+
+Other modes, all against the same model:
+
+| mode | question it answers |
+|------|---------------------|
+| `sweep[=<group>]` | move each effort value across its range: what does this number decide? Ends in a plateau verdict per group |
+| `picks=<type>` | which items does this source type win, and by how much over the runner-up? |
+| `set=<type>:<minutes>` | try a table by hand without rebuilding the engine |
+| `grain` | per-source vs per-type effort — where the grain is too coarse |
+| `activities` | how many distinct kinds of work the plan adds up to |
+| `projects=<ids>` | carry a real project's item set through every row |
+
+**An `INERT` or "no plateau" verdict is a claim about the *version*, not the constant.** No 1.x
+version ingests villager trades, so the trade rows read inert on 1.21.4 for months while moving
+27 selections on 26.2.0 (MCO-524). Check the version carries the source type before believing a
+row decides nothing:
+
+```bash
+psql ... -c "SELECT version, count(*) FROM resource_source GROUP BY 1"
+```
+
+*(This section described `score-diagnostics` and the `SelectionScorer` factor breakdown until
+MCO-490 deleted that model. The additive scorer is gone; there is no second model to diff
+against, which is why every mode above measures one model on its own terms.)*
 
 **`exec:java` resolves siblings from `~/.m2`, not the reactor**, so install first or you will
 measure stale jars and not notice:

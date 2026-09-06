@@ -57,24 +57,6 @@ data class PlanOverrides(
 /**
  * Tunables for a planning run. The graph itself is passed separately.
  *
- * @param recipeThreshold at or above this demand, recipe sources get a strong
- *   preference over loot sources (bulk crafting beats repeated gathering). **This is the only
- *   demand-sensitive thing in planning, and it dies with [SelectionScorer]** — MCO-522 decided
- *   the replacement cost model stays demand-independent rather than growing an amortised
- *   `setup/demand + per_unit` effort term. Measured on 1.21.4 / world 3 with
- *   `cost-diagnostics demands=10,100,1000`: 28 of 996 items change their committed source with
- *   demand, and priced against the end each one drops, **25 are a strict improvement, 3 are ties
- *   and none is a loss**. Re-run on 26.2.0 — the only line of versions that ingests villager
- *   trades, and therefore the one where amortising a setup cost would pay if it ever did — **0 of
- *   1127 items move with demand at all**. So the threshold was never modelling an effect of size
- *   — on 19 items it
- *   was swinging between two answers that a third source beats outright (16 wool colours are
- *   sheared, not killed or crafted; iron/gold/copper are blasted), on 7 it was correcting a bad
- *   small-demand default the cost model reaches at every size, and on `leather` it *introduced*
- *   an error (crafting from 4 rabbit hides at 0.5 hide/kill costs 4.05 min against 0.50 min for a
- *   cow). A fixed cost that genuinely does not divide per item — one trip to the mine buying
- *   cobblestone, coal and iron — belongs to the assembled plan rather than to unit cost; that is
- *   MCO-493's finding and its home is `PlanQuantifier`.
  * @param maxDepth recursion bound for chain expansion.
  * @param woodSpecies which tree the player is farming, e.g. `"birch"` (MCO-409). Settles every
  *   wood choice in the plan at once — `#planks`, `#wooden_slabs` and `#logs` are three askings
@@ -82,45 +64,8 @@ data class PlanOverrides(
  *   [PlanNodeStatus.OPEN_TAG]; there is deliberately no default, because which wood you farm is
  *   a real preference rather than something to assume. Validate against
  *   [MemberPrior.isKnownSpecies] before storing one.
- * @param scorerMutation **diagnostics only.** Turns off one of the [SelectionScorer]
- *   behaviours no test pins, so a differential can measure what it actually decides on the
- *   real graph (MCO-490). [ScorerMutation.NONE] is the shipped behaviour and the default;
- *   nothing in production ever passes anything else. See [ScorerMutation] for why this is a
- *   measurement tool rather than a tuning surface.
  */
 data class PlanContext(
-    val recipeThreshold: Int = 100,
     val maxDepth: Int = 16,
     val woodSpecies: String? = null,
-    val scorerMutation: ScorerMutation = ScorerMutation.NONE,
-    val rankBy: RankingModel = RankingModel.COST,
 )
-
-/**
- * Which model [PlanSelector] ranks candidate sources by.
- *
- * [COST] is the shipped behaviour and the default; nothing in production passes anything else.
- *
- * [LEGACY_SCORE] exists for **one** reason: the tool that audits the switchover measures the
- * cost model against what the old model would have committed to, and its baseline was
- * `PlanSelector.select()`. The moment the selector itself moved to the cost model, that baseline
- * started measuring the new model against itself and reported 99.9% agreement — a number that
- * means nothing and reads like reassurance.
- *
- * This is the same failure MCO-520 fixed for the calibration sweep, arriving one issue later by a
- * different door: a diagnostic whose reference point is the thing being changed goes blind exactly
- * when you need it. Reading the scorer's *ranking* instead is not a substitute — the selector
- * rejects candidates structurally before ranking runs, and on 1.21.4 the scorer's favourite is a
- * derivation the planner would never emit on 20 items (the 19 armour-trim duplication recipes, and
- * wheat). Scoring those as agreement is what hid 19 regressions the first time.
- *
- * **Dies with [SelectionScorer]** — MCO-490's step 4, along with this whole parameter. It is a
- * measurement path, not a tuning surface or a way to keep the old behaviour available.
- */
-enum class RankingModel {
-    /** [UnitCostModel]: minutes to acquire a unit, cheapest first. */
-    COST,
-
-    /** Diagnostics only: the retired [SelectionScorer], higher score first. */
-    LEGACY_SCORE,
-}

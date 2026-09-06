@@ -122,23 +122,10 @@
                         </configuration>
                     </execution>
                     <!--
-                      Read-only scoring diagnostic (gathering-planner review): dumps the
-                      SelectionScorer factor breakdown per item against the ingested graph.
-                        mvn -pl mc-web exec:java@score-diagnostics -Dexec.args="world=11 sand cobblestone"
-                    -->
-                    <execution>
-                        <id>score-diagnostics</id>
-                        <goals>
-                            <goal>java</goal>
-                        </goals>
-                        <configuration>
-                            <mainClass>app.mcorg.cli.ScoreDiagnosticsKt</mainClass>
-                        </configuration>
-                    </execution>
-                    <!--
-                        Read-only: runs the proposed unit-cost model beside the shipped scorer
-                        over the whole graph and reports where they disagree. Changes nothing.
-                        mvn -pl mc-web exec:java@cost-diagnostics -Dexec.args="world=3 demand=64"
+                        Read-only: inspects the unit-cost model against the ingested graph —
+                        what things cost, what each price is made of, and what the effort table
+                        decides. Changes nothing.
+                        mvn -pl mc-web exec:java@cost-diagnostics -Dexec.args="world=3 why iron_ingot"
                     -->
                     <execution>
                         <id>cost-diagnostics</id>
