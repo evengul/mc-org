@@ -6,6 +6,7 @@ import app.mcorg.domain.model.world.Roadmap
 import app.mcorg.domain.model.world.RoadmapNode
 import app.mcorg.pipeline.Result
 import app.mcorg.pipeline.world.ValidateWorldMemberRole
+import app.mcorg.pipeline.world.roadmap.ordering.GetManualOrderingsStep
 import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.templated.dsl.pages.RoadmapGraphView
 import app.mcorg.presentation.templated.dsl.pages.roadmapGraphPage
@@ -57,6 +58,11 @@ suspend fun ApplicationCall.handleGetWorldRoadmap() {
  */
 internal suspend fun graphViewOf(roadmap: Roadmap): RoadmapGraphView {
     val terminal = RoadmapGraphLayout.terminalOf(roadmap)
+    // The roster reads `project_dependencies` directly rather than filtering [roadmap.edges]:
+    // the derived edge set carries no row ids and no reasons, so it can say that a hand-made
+    // ordering exists but not which row to remove. Degrades to an empty roster rather than
+    // failing the page, exactly as the terminal project's totals do.
+    val manualOrderings = GetManualOrderingsStep(roadmap.worldId).process(Unit).getOrNull().orEmpty()
     // The column is about one terminal project; the grid below is about the whole world, so a
     // world with two independent chains does not lose the farms feeding the one not drawn.
     val columnProducers = terminal?.let { producersOf(roadmap, it.projectId) }.orEmpty()
@@ -136,6 +142,11 @@ internal suspend fun graphViewOf(roadmap: Roadmap): RoadmapGraphView {
         terminal = terminal,
         terminalStats = terminalStats,
         manualEdgeNote = manualEdgeNoteFor(roadmap),
+        manualOrderings = manualOrderings,
+        // What the roster contrasts itself against. An edge that names a resource was derived
+        // from a farm's output meeting a project's demand; nobody typed it, and it cannot be
+        // deleted from the roster — which is what the section's footer note says.
+        generatedEdgeCount = roadmap.edges.count { it.itemName != null },
         // Every one of them, not just the first: the design was drawn against a world with
         // exactly one such farm, and silently hiding the second would be the same class of bug
         // the design set out to fix.
