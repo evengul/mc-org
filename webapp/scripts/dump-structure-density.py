@@ -41,10 +41,19 @@ from collections import defaultdict
 
 MANIFEST = "https://launchermeta.mojang.com/mc/game/version_manifest_v2.json"
 
-DEST = os.path.join(
-    os.path.dirname(os.path.abspath(__file__)),
-    "..", "mc-engine", "src", "main", "resources", "minecraft", "structure-density.txt",
-)
+def _resource(name):
+    return os.path.join(
+        os.path.dirname(os.path.abspath(__file__)),
+        "..", "mc-engine", "src", "main", "resources", "minecraft", name,
+    )
+
+
+DEST = _resource("structure-density.txt")
+
+# Second snapshot, same jar, same run (MCO-527). The script's name is narrower than what it
+# now does; it keeps it because one download and one drift check serve both, and splitting
+# would mean fetching 60 MB twice to answer two questions about the same file.
+NATURAL_DEST = _resource("natural-blocks.txt")
 
 # A template directory is not always spelled like the structure_set that places it. Three
 # of these are a judgement rather than a plural: a bastion and a fortress share the
@@ -98,7 +107,7 @@ def read_jar(jar_bytes):
     `structures/` was singularised to `structure/` at 1.21, the same rename that already
     forced fallbacks in ExtractRelevantMinecraftFilesStep, so both spellings are accepted.
     """
-    sets, templates = {}, {}
+    sets, templates, worldgen = {}, {}, {}
     for z in readers(jar_bytes):
         for name in z.namelist():
             m = re.match(r"data/minecraft/worldgen/structure_set/(.+)\.json$", name)
@@ -107,7 +116,13 @@ def read_jar(jar_bytes):
             m = re.match(r"data/minecraft/structures?/(.+)\.nbt$", name)
             if m and m.group(1) not in templates:
                 templates[m.group(1)] = z.read(name)
-    return sets, templates
+            m = re.match(
+                r"data/minecraft/worldgen/(noise_settings|configured_feature|placed_feature|biome)/(.+)\.json$",
+                name,
+            )
+            if m and name not in worldgen:
+                worldgen[name] = json.loads(z.read(name))
+    return sets, templates, worldgen
 
 
 def chunks_per_occurrence(placement):
@@ -236,8 +251,92 @@ def palette_blocks(raw):
             if b"/" not in m}
 
 
+def block_state_names(node, out):
+    """Every block id sitting in a block-state `Name` field, anywhere in the tree.
+
+    Deliberately keyed on `Name` rather than scanning for `minecraft:` strings: worldgen JSON
+    is full of ids that are not blocks — rule types (`minecraft:bandlands`), noise ids, biome
+    ids, feature references. A regex over the raw text finds 129 "blocks" in noise_settings
+    where there are 37.
+    """
+    if isinstance(node, dict):
+        name = node.get("Name")
+        if isinstance(name, str) and name.startswith("minecraft:"):
+            out.add(name)
+        for value in node.values():
+            block_state_names(value, out)
+    elif isinstance(node, list):
+        for value in node:
+            block_state_names(value, out)
+
+
+def natural_blocks(worldgen):
+    """-> ({terrain block ids}, {feature block ids})
+
+    Two different claims, kept apart because they answer different questions:
+
+      * **terrain** -- what the ground is *made of*, from the surface rules in
+        `noise_settings`. This is where a badlands' terracotta lives, and it is the half
+        MCO-527 needs: breaking it is mining, not re-collecting something placed.
+      * **features** -- what worldgen scatters into it: ores, disks, vegetation, trees.
+
+    ## Only features a biome actually asks for
+
+    `configured_feature/` holds more than the wild world. It also holds the decoration that
+    *structures* place -- `pile_hay` and `pile_pumpkin` are village dressing, not something
+    growing in a field. Taking the directory wholesale said hay bales lie around for free,
+    which made wheat cost 0.01 min by breaking one and unpacking it: MCO-317's "route a
+    common item through an unpack chain" in a new place.
+
+    The discriminator is derived rather than a list of exceptions. **A feature is wild when
+    some biome lists it.** Every `biome/*.json` carries a `features` array of placed-feature
+    ids; a placed feature names the configured feature it places. Anything not reachable that
+    way is only ever put down by a structure, and belongs to structure membership instead --
+    where it is priced as "go and find one" rather than "it is lying about".
+
+    On 26.2 that is 208 of 262 placed features, reaching 159 of 227 configured features.
+
+    ## Known gap
+
+    One rule rather than a general failure: `minecraft:bandlands` is a surface-rule type whose
+    terracotta palette lives in code, not in the JSON. So plain, white and orange terracotta
+    appear here and the four banded colours (red, yellow, brown, light gray) do not. It does
+    not block MCO-527's case -- dyed terracotta is crafted from plain terracotta, so pricing
+    the plain block prices the rest through the chain.
+    """
+    biomes = {k: v for k, v in worldgen.items() if "/biome/" in k}
+    placed = {k.split("/")[-1][:-5]: v for k, v in worldgen.items() if "/placed_feature/" in k}
+
+    wild_placed = set()
+    for biome in biomes.values():
+        for step in biome.get("features", []) or []:
+            for feature in step:
+                if isinstance(feature, str):
+                    wild_placed.add(feature.split(":")[-1])
+
+    wild_configured = set()
+    for name in wild_placed:
+        feature = (placed.get(name) or {}).get("feature")
+        if isinstance(feature, str):
+            wild_configured.add(feature.split(":")[-1])
+
+    terrain, features = set(), set()
+    for path, doc in worldgen.items():
+        if "/noise_settings/" in path:
+            block_state_names(doc, terrain)
+        elif "/configured_feature/" in path:
+            if path.split("/")[-1][:-5] in wild_configured:
+                block_state_names(doc, features)
+
+    # Air is a block state in the format and a block in no useful sense.
+    return (
+        {b for b in terrain if not b.endswith("air")},
+        {b for b in features if not b.endswith("air")},
+    )
+
+
 def build(version, manifest):
-    sets, templates = read_jar(server_jar(version, manifest))
+    sets, templates, worldgen = read_jar(server_jar(version, manifest))
     if not sets:
         raise SystemExit(f"{version} ships no worldgen/structure_set data (pre-1.20?)")
 
@@ -277,7 +376,7 @@ def build(version, manifest):
             if n > counts[key]:
                 counts[key] = n
 
-    return version, placement, membership, counts, len(templates)
+    return version, placement, membership, counts, len(templates), natural_blocks(worldgen)
 
 
 def write(version, placement, membership, counts, template_count):
@@ -333,6 +432,46 @@ def write(version, placement, membership, counts, template_count):
     return DEST
 
 
+def write_natural(version, terrain, features):
+    """Write the natural-blocks snapshot (MCO-527)."""
+    os.makedirs(os.path.dirname(NATURAL_DEST), exist_ok=True)
+    with open(NATURAL_DEST, "w") as f:
+        f.write(
+            "# Blocks that world generation places, derived from the Minecraft server jar.\n"
+            "# Regenerate with webapp/scripts/dump-structure-density.py -- do not hand-edit.\n"
+            "#\n"
+            "# Answers one question: is breaking this block *mining*, or is it re-collecting\n"
+            "# something a player put down? A beacon is only ever placed. Terracotta is what a\n"
+            "# badlands is made of. Before this file the model could not tell them apart and\n"
+            "# treated any craftable block as re-collection, which removed mining terracotta as\n"
+            "# an option entirely (MCO-527).\n"
+            "#\n"
+            "# [terrain]  the surface rules -- what the ground is made of.\n"
+            "# [feature]  what worldgen puts into it: ores, disks, vegetation, trees.\n"
+            "# Both count as natural; they are kept apart because they are different claims and\n"
+            "# a later reader may want only one.\n"
+            "#\n"
+            "# KNOWN GAP, and it is one rule rather than a general failure: `minecraft:bandlands`\n"
+            "# is a surface-rule type whose terracotta palette lives in code, not in the JSON. So\n"
+            "# plain, white and orange terracotta are listed and the four banded colours (red,\n"
+            "# yellow, brown, light gray) are not. Dyed terracotta is crafted from plain, so the\n"
+            "# chain prices them correctly anyway -- but a reader looking for red_terracotta here\n"
+            "# and not finding it is seeing a limit of the data, not a bug in the extraction.\n"
+            "#\n"
+            "# Structure-placed blocks are NOT here: they are membership in structure-density.txt,\n"
+            "# where they carry a rarity as well. A block in a structure and nowhere else is\n"
+            "# findable but not natural, and the two are priced differently.\n"
+            f"version={version}\n"
+        )
+        f.write("\n[terrain]\n")
+        for block in sorted(terrain):
+            f.write(f"{block}\n")
+        f.write("\n[feature]\n")
+        for block in sorted(features - terrain):
+            f.write(f"{block}\n")
+    return NATURAL_DEST
+
+
 def committed_placements():
     """The [placement] section of the snapshot on disk, as {set: (chunks, kind)}."""
     out, section = {}, ""
@@ -358,7 +497,7 @@ def check(version, manifest):
     the real maintenance risk, since no placement has changed since 1.20 but trial chambers
     did appear at 1.21.
     """
-    _, fresh, _, _, _ = build(version, manifest)
+    _, fresh, _, _, _, _ = build(version, manifest)
     old = committed_placements()
 
     added = sorted(set(fresh) - set(old))
@@ -392,11 +531,16 @@ if __name__ == "__main__":
     if checking:
         raise SystemExit(check(version, manifest))
 
-    version, placement, membership, counts, templates = build(version, manifest)
+    version, placement, membership, counts, templates, natural = build(version, manifest)
     path = write(version, placement, membership, counts, templates)
+    natural_path = write_natural(version, *natural)
     derived = sum(1 for c, _ in placement.values() if c is not None)
     counted = len({block for block, _ in counts})
     print(f"version {version}: {len(placement)} structure sets ({derived} with a derived density), "
           f"{len(membership)} blocks from {templates} templates, {counted} with a counted "
           f"blocks-per-visit")
+    terrain, features = natural
+    print(f"natural blocks: {len(terrain)} terrain, {len(features)} from features, "
+          f"{len(terrain | features)} distinct")
     print(f"wrote {os.path.relpath(path)}")
+    print(f"wrote {os.path.relpath(natural_path)}")

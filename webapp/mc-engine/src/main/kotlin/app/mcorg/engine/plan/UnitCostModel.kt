@@ -192,6 +192,24 @@ class UnitCostModel(
      * template actually places — the only ones [EffortTable] asks about, and small enough
      * (a few dozen on 1.21.4) that the restriction keeps the set honest rather than a
      * second copy of the item registry.
+     *
+     * Two exclusions, and they are the same argument twice. A structure containing a block is
+     * only evidence about its cost when the structure is *how you get it*:
+     *
+     * - [isPlanted] — you plant a crop, and a village farm happening to contain wheat has
+     *   nothing to do with what wheat costs you.
+     * - [NaturalBlocks.isNatural] — you mine terrain, and a desert village happening to be built
+     *   out of terracotta has nothing to do with what terracotta costs you. A badlands is made
+     *   of it (MCO-527).
+     *
+     * Without the second, terracotta was charged 5.9x a plain block for a structure trip it does
+     * not need — the same category error [isPlanted] was added to fix, arriving through terrain
+     * instead of through crops.
+     *
+     * What it costs to reach a *biome* is a real question and is not this one. It is per-world
+     * rather than per-version, so nothing here can answer it; MCO-525 is where it lives. Until
+     * then natural terrain is priced as terrain, which understates a badlands and overstates
+     * nothing.
      */
     private fun craftableBlocks(): Set<String> =
         graph.getAllItems()
@@ -199,7 +217,8 @@ class UnitCostModel(
             .filterTo(HashSet()) { id ->
                 StructureDensity.setsContaining(id).isNotEmpty() &&
                     isBuiltOnly(id) &&
-                    !isPlanted(id)
+                    !isPlanted(id) &&
+                    !NaturalBlocks.isNatural(id)
             }
 
     /**

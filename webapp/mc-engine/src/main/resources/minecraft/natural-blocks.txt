@@ -1,0 +1,164 @@
+# Blocks that world generation places, derived from the Minecraft server jar.
+# Regenerate with webapp/scripts/dump-structure-density.py -- do not hand-edit.
+#
+# Answers one question: is breaking this block *mining*, or is it re-collecting
+# something a player put down? A beacon is only ever placed. Terracotta is what a
+# badlands is made of. Before this file the model could not tell them apart and
+# treated any craftable block as re-collection, which removed mining terracotta as
+# an option entirely (MCO-527).
+#
+# [terrain]  the surface rules -- what the ground is made of.
+# [feature]  what worldgen puts into it: ores, disks, vegetation, trees.
+# Both count as natural; they are kept apart because they are different claims and
+# a later reader may want only one.
+#
+# KNOWN GAP, and it is one rule rather than a general failure: `minecraft:bandlands`
+# is a surface-rule type whose terracotta palette lives in code, not in the JSON. So
+# plain, white and orange terracotta are listed and the four banded colours (red,
+# yellow, brown, light gray) are not. Dyed terracotta is crafted from plain, so the
+# chain prices them correctly anyway -- but a reader looking for red_terracotta here
+# and not finding it is seeing a limit of the data, not a bug in the extraction.
+#
+# Structure-placed blocks are NOT here: they are membership in structure-density.txt,
+# where they carry a rarity as well. A block in a structure and nowhere else is
+# findable but not natural, and the two are priced differently.
+version=26.2
+
+[terrain]
+minecraft:basalt
+minecraft:bedrock
+minecraft:blackstone
+minecraft:calcite
+minecraft:cinnabar
+minecraft:coarse_dirt
+minecraft:crimson_nylium
+minecraft:deepslate
+minecraft:dirt
+minecraft:end_stone
+minecraft:grass_block
+minecraft:gravel
+minecraft:ice
+minecraft:lava
+minecraft:mud
+minecraft:mycelium
+minecraft:nether_wart_block
+minecraft:netherrack
+minecraft:orange_terracotta
+minecraft:packed_ice
+minecraft:podzol
+minecraft:powder_snow
+minecraft:red_sand
+minecraft:red_sandstone
+minecraft:sand
+minecraft:sandstone
+minecraft:snow_block
+minecraft:soul_sand
+minecraft:soul_soil
+minecraft:stone
+minecraft:sulfur
+minecraft:terracotta
+minecraft:warped_nylium
+minecraft:warped_wart_block
+minecraft:water
+minecraft:white_terracotta
+
+[feature]
+minecraft:allium
+minecraft:amethyst_block
+minecraft:amethyst_cluster
+minecraft:ancient_debris
+minecraft:andesite
+minecraft:azure_bluet
+minecraft:blue_ice
+minecraft:blue_orchid
+minecraft:brown_mushroom
+minecraft:budding_amethyst
+minecraft:bush
+minecraft:cactus
+minecraft:cactus_flower
+minecraft:cave_vines
+minecraft:cave_vines_plant
+minecraft:cherry_leaves
+minecraft:cherry_log
+minecraft:clay
+minecraft:closed_eyeblossom
+minecraft:coal_ore
+minecraft:copper_ore
+minecraft:cornflower
+minecraft:crimson_fungus
+minecraft:crimson_roots
+minecraft:crimson_stem
+minecraft:dandelion
+minecraft:dead_bush
+minecraft:deepslate_coal_ore
+minecraft:deepslate_copper_ore
+minecraft:deepslate_diamond_ore
+minecraft:deepslate_emerald_ore
+minecraft:deepslate_gold_ore
+minecraft:deepslate_iron_ore
+minecraft:deepslate_lapis_ore
+minecraft:deepslate_redstone_ore
+minecraft:diamond_ore
+minecraft:diorite
+minecraft:dripstone_block
+minecraft:emerald_ore
+minecraft:fern
+minecraft:fire
+minecraft:firefly_bush
+minecraft:gold_ore
+minecraft:granite
+minecraft:hanging_roots
+minecraft:infested_deepslate
+minecraft:infested_stone
+minecraft:iron_ore
+minecraft:lapis_ore
+minecraft:large_amethyst_bud
+minecraft:large_fern
+minecraft:leaf_litter
+minecraft:lilac
+minecraft:lily_of_the_valley
+minecraft:lily_pad
+minecraft:magma_block
+minecraft:medium_amethyst_bud
+minecraft:melon
+minecraft:moss_block
+minecraft:mossy_cobblestone
+minecraft:nether_gold_ore
+minecraft:nether_quartz_ore
+minecraft:nether_sprouts
+minecraft:oak_leaves
+minecraft:oak_log
+minecraft:orange_tulip
+minecraft:oxeye_daisy
+minecraft:pale_moss_block
+minecraft:peony
+minecraft:pink_petals
+minecraft:pink_tulip
+minecraft:pointed_dripstone
+minecraft:poppy
+minecraft:potent_sulfur
+minecraft:pumpkin
+minecraft:red_mushroom
+minecraft:red_tulip
+minecraft:redstone_ore
+minecraft:rooted_dirt
+minecraft:rose_bush
+minecraft:short_dry_grass
+minecraft:short_grass
+minecraft:shroomlight
+minecraft:small_amethyst_bud
+minecraft:smooth_basalt
+minecraft:soul_fire
+minecraft:spore_blossom
+minecraft:sugar_cane
+minecraft:sulfur_spike
+minecraft:sunflower
+minecraft:sweet_berry_bush
+minecraft:tall_dry_grass
+minecraft:tall_grass
+minecraft:tuff
+minecraft:warped_fungus
+minecraft:warped_roots
+minecraft:warped_stem
+minecraft:white_tulip
+minecraft:wildflowers
