@@ -1,6 +1,7 @@
 package app.mcorg.webhook
 
 import app.mcorg.config.Database
+import app.mcorg.config.OutboundHttp
 import app.mcorg.domain.model.minecraft.MinecraftVersion
 import app.mcorg.domain.model.project.ProjectType
 import app.mcorg.event.ProjectCreated
@@ -66,6 +67,8 @@ class WebhookDeliveryIT : WithUser() {
         assertEquals("project_created", Json.parseToJsonElement(body).jsonObject["event_type"]!!.jsonPrimitive.content)
         // Signature is computed over the exact bytes POSTed.
         assertEquals(WebhookSigner.sign(secret, body), requests[0].getHeader(WebhookSigner.HEADER))
+        // Every outbound path identifies itself the same way (MCO-552).
+        assertEquals(OutboundHttp.USER_AGENT, requests[0].getHeader("User-Agent"))
 
         assertEquals("DELIVERED" to 0, deliveryStatus(subId))
     }
@@ -107,6 +110,10 @@ class WebhookDeliveryIT : WithUser() {
 
         fanOutAndPoll(ProjectCreated(worldId, user.id, Instant.now(), 1, "A", ProjectType.REDSTONE))
 
+        // Exactly one POST: the outbox is the retry, and the webhook client must carry no
+        // transport-level retry underneath it (MCO-552) — that would double-deliver on a 5xx and
+        // burn attempts the contract promises are spaced 30s and 5min apart.
+        assertEquals(1, wm.wireMock.find(WireMock.postRequestedFor(WireMock.urlEqualTo("/hook"))).size)
         // One failed attempt: still PENDING for retry, attempt count bumped.
         assertEquals("PENDING" to 1, deliveryStatus(subId))
         // Subscription health: one consecutive failure, well below the deactivation threshold.

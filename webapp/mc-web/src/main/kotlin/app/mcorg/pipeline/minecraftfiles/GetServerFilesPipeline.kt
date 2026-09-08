@@ -3,6 +3,7 @@ package app.mcorg.pipeline.minecraftfiles
 import app.mcorg.config.AppConfig
 import app.mcorg.config.Database
 import app.mcorg.config.MojangLauncherMetaApiConfig
+import app.mcorg.config.OutboundHttp
 import app.mcorg.data.minecraft.ExtractMinecraftDataStep
 import app.mcorg.data.minecraft.ExtractionVersion
 import app.mcorg.data.minecraft.extract.ExtractRelevantMinecraftFilesStep
@@ -17,12 +18,21 @@ import app.mcorg.pipeline.TransactionConnection
 import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.minecraft.GetAvailableVersionsStep
 import app.mcorg.pipeline.minecraft.StoreMinecraftDataStep
+import io.ktor.client.network.sockets.ConnectTimeoutException
+import io.ktor.client.plugins.HttpTimeoutConfig
+import io.ktor.client.plugins.timeout
+import io.ktor.client.request.header
+import io.ktor.client.request.prepareGet
+import io.ktor.client.statement.bodyAsChannel
+import io.ktor.http.HttpHeaders
+import io.ktor.http.isSuccess
+import io.ktor.utils.io.ByteReadChannel
+import io.ktor.utils.io.readAvailable
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.TimeoutCancellationException
-import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import org.slf4j.LoggerFactory
@@ -31,34 +41,43 @@ import java.io.InputStream
 import java.net.SocketTimeoutException
 import java.net.URI
 import java.nio.file.Files
+import java.nio.file.Path
 import java.nio.file.StandardOpenOption
-import java.security.DigestInputStream
 import java.security.MessageDigest
 
 /**
  * Fixed advisory-lock key guarding a whole ingestion run. Any stable bigint works; this value is
- * arbitrary and shared by every invocation path (app boot, manual run, the future cron machine) so
- * they serialise against each other.
+ * arbitrary and shared by every invocation path so they serialise against each other. Today that
+ * is exactly one path — `cli/IngestServerFiles.kt` — which is what makes its wall-clock watchdog a
+ * complete bound on the lock's lifetime; a second caller must take this lock too, and gets no
+ * watchdog for free.
  */
 private const val INGESTION_ADVISORY_LOCK_KEY = 7331L
 
 /*
  * Timeouts for the Mojang server.jar download (MCO-346).
  *
- * This is the one outbound call in the codebase that does not go through ApiProvider and its 30s
- * HttpTimeout, and JDK URL streams default to no timeout at all. Because the download runs inside
- * the ingestion advisory lock, a stalled CDN connection did not merely fail one run — it parked
- * the Fly machine forever, and every later run then found the lock held and logged "another
- * ingestion run is in progress, skipping". An indefinite outage that reads as success.
+ * The download runs inside the ingestion advisory lock, so before these existed a stalled CDN
+ * connection did not merely fail one run — it parked the Fly machine forever, and every later run
+ * then found the lock held and logged "another ingestion run is in progress, skipping". An
+ * indefinite outage that reads as success.
  *
- * The three bounds are layered: connect covers a dead endpoint, read covers a connection that
- * goes quiet mid-transfer, and the wall clock covers one that dribbles bytes indefinitely without
- * ever tripping the read timeout. Generous, because a server.jar is ~50 MB and the machine has no
- * competing work — the point is a ceiling, not a tight SLA.
+ * Since MCO-552 the transfer streams through the shared client (`OutboundHttp.api`), and these
+ * override that client's 30s per request: a server.jar is ~50 MB. The three bounds are layered:
+ * connect covers a dead endpoint (the shared constant — a dead endpoint is dead in 10s as much as
+ * in 30s), read covers a connection that goes quiet mid-transfer, and the wall clock covers one
+ * that dribbles bytes indefinitely without ever tripping the read timeout. Generous, because the
+ * machine has no competing work — the point is a ceiling, not a tight SLA.
+ *
+ * What the wall clock can and cannot preempt (MCO-434). Every read is a suspending channel read,
+ * so cancellation lands mid-transfer, not at a chunk boundary, and CIO's connect is suspending
+ * too. Hostname resolution is not: it is the JDK's blocking lookup on the I/O thread, so a hung
+ * resolver holds `withTimeout` until it returns. The ingest CLI's 45-minute watchdog is the bound
+ * on that case, and it is why the watchdog exists alongside these three.
  */
 internal data class DownloadTimeouts(
-    val connectMs: Int = 30_000,
-    val readMs: Int = 60_000,
+    val connectMs: Long = OutboundHttp.CONNECT_TIMEOUT_MS,
+    val readMs: Long = 60_000,
     val wallClockMs: Long = 10L * 60 * 1000,
 )
 
@@ -522,25 +541,38 @@ data object GetServerFileStep : Step<ResolvedServerJar, AppFailure, Pair<Minecra
                         // If Mojang ever publishes a stronger digest, switch to it here and in
                         // MojangManifestModels.ServerDownload.
                         val digest = MessageDigest.getInstance("SHA-1")
-                        // openConnection() rather than openStream(), purely to reach the timeout
-                        // setters — openStream() is openConnection().getInputStream() with both
-                        // left at their default of 0, meaning infinite (MCO-346).
-                        val connection = input.url.toURL().openConnection().apply {
-                            connectTimeout = timeouts.connectMs
-                            readTimeout = timeouts.readMs
-                        }
-                        connection.getInputStream().use { remote ->
-                            DigestInputStream(remote, digest).use { digested ->
-                                copyCancellably(digested, tempFile)
+                        // The shared client, called directly (MCO-552): what this wants from it is
+                        // the engine and the bounded retry on a 5xx or a refused connection, not
+                        // ApiProvider's JSON-in-memory shape. The timeouts are per request because
+                        // a ~50 MB transfer does not fit the client's 30s; the request timeout is
+                        // left infinite because the wall clock above is the total ceiling and one
+                        // owner for it is enough.
+                        val status = OutboundHttp.api.prepareGet(input.url.toString()) {
+                            header(HttpHeaders.UserAgent, OutboundHttp.USER_AGENT)
+                            timeout {
+                                requestTimeoutMillis = HttpTimeoutConfig.INFINITE_TIMEOUT_MS
+                                connectTimeoutMillis = timeouts.connectMs
+                                socketTimeoutMillis = timeouts.readMs
                             }
+                        }.execute { response ->
+                            if (response.status.isSuccess()) {
+                                copyDigesting(response.bodyAsChannel(), digest, tempFile)
+                            }
+                            response.status
                         }
                         val actualSha = digest.digest().joinToString("") { "%02x".format(it) }
-                        if (!actualSha.equals(input.sha1, ignoreCase = true)) {
-                            logger.error("SHA-1 mismatch for ${input.version} server.jar from ${input.url}: expected ${input.sha1}, got $actualSha")
-                            Files.deleteIfExists(tempFile)
-                            Result.failure(AppFailure.ApiError.ChecksumMismatch(expected = input.sha1, actual = actualSha))
-                        } else {
-                            Result.success(input.version to Files.newInputStream(tempFile, StandardOpenOption.DELETE_ON_CLOSE))
+                        when {
+                            !status.isSuccess() -> {
+                                logger.error("Mojang answered {} for the {} server.jar at {}", status.value, input.version, input.url)
+                                Files.deleteIfExists(tempFile)
+                                Result.failure(AppFailure.ApiError.HttpError(status.value))
+                            }
+                            !actualSha.equals(input.sha1, ignoreCase = true) -> {
+                                logger.error("SHA-1 mismatch for ${input.version} server.jar from ${input.url}: expected ${input.sha1}, got $actualSha")
+                                Files.deleteIfExists(tempFile)
+                                Result.failure(AppFailure.ApiError.ChecksumMismatch(expected = input.sha1, actual = actualSha))
+                            }
+                            else -> Result.success(input.version to Files.newInputStream(tempFile, StandardOpenOption.DELETE_ON_CLOSE))
                         }
                     } catch (e: Exception) {
                         Files.deleteIfExists(tempFile)
@@ -559,30 +591,47 @@ data object GetServerFileStep : Step<ResolvedServerJar, AppFailure, Pair<Minecra
                 input.version,
             )
             Result.failure(AppFailure.ApiError.TimeoutError)
-        } catch (e: SocketTimeoutException) {
-            logger.error("Connection to Mojang stalled while downloading the ${input.version} server.jar: ${e.message}")
-            Result.failure(AppFailure.ApiError.TimeoutError)
+        } catch (e: CancellationException) {
+            // Anything else cancelling this coroutine is structured concurrency asking it to stop,
+            // not a download outcome (MCO-434): recording it as a failure and moving on to the
+            // next version is how a cancelled run would keep downloading. Rethrow.
+            throw e
         } catch (e: Exception) {
-            logger.error("Failed to download server file for version ${input.version} from ${input.url}: ${e.message}", e)
-            Result.failure(AppFailure.ApiError.UnknownError)
+            if (e.isTimeout()) {
+                logger.error("Connection to Mojang stalled while downloading the ${input.version} server.jar (connect ${timeouts.connectMs} ms, read ${timeouts.readMs} ms)")
+                Result.failure(AppFailure.ApiError.TimeoutError)
+            } else {
+                logger.error("Failed to download server file for version ${input.version} from ${input.url}: ${e.message}", e)
+                Result.failure(AppFailure.ApiError.UnknownError)
+            }
         }
     }
 
     /**
-     * Copies [source] to [target] a chunk at a time, checking for cancellation between chunks.
-     *
-     * `Files.copy` would be shorter but loops entirely inside one uninterruptible call, so the
-     * enclosing [withTimeout] could not fire until the whole transfer finished. The socket-level
-     * read timeout covers a connection that stops sending; this covers one that dribbles bytes
-     * slowly enough to stay under that timeout forever.
+     * A socket timeout mid-body does not arrive as a `SocketTimeoutException`: CIO cancels the
+     * body channel with it, and what the read throws is a `ClosedByteChannelException` wrapping
+     * another, six deep, with the `java.net.SocketTimeoutException` at the root (measured on
+     * Ktor 3.5.2). A connect timeout arrives directly. Walking the chain covers both without
+     * pinning the depth.
      */
-    private suspend fun copyCancellably(source: InputStream, target: java.nio.file.Path) {
+    private fun Throwable.isTimeout(): Boolean =
+        generateSequence(this) { it.cause }.any { it is SocketTimeoutException || it is ConnectTimeoutException }
+
+    /**
+     * Copies [source] to [target] a chunk at a time, feeding [digest] as it goes.
+     *
+     * Every read is a suspension point, so the enclosing [withTimeout] can fire mid-transfer
+     * rather than only between chunks — a connection that dribbles bytes slowly enough to stay
+     * under the socket timeout forever is cut off by the wall clock. `Files.copy` would loop
+     * entirely inside one uninterruptible call.
+     */
+    private suspend fun copyDigesting(source: ByteReadChannel, digest: MessageDigest, target: Path) {
         val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
         Files.newOutputStream(target, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING).use { out ->
             while (true) {
-                currentCoroutineContext().ensureActive()
-                val read = source.read(buffer)
+                val read = source.readAvailable(buffer)
                 if (read < 0) break
+                digest.update(buffer, 0, read)
                 out.write(buffer, 0, read)
             }
         }

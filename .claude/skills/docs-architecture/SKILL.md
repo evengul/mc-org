@@ -194,7 +194,7 @@ webapp/
 └── mc-web/              # HTTP layer — depends on all modules
     └── src/main/kotlin/app/mcorg/
         ├── Application.kt
-        ├── config/                        # AppConfig, ApiProvider
+        ├── config/                        # AppConfig, OutboundHttp (every outbound client), ApiProvider
         ├── pipeline/
         │   ├── SafeSQL.kt
         │   ├── DatabaseSteps.kt

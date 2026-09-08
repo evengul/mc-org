@@ -9,7 +9,8 @@ sealed class ApiConfig(
 ) {
     abstract fun getContentType(): ContentType
     open fun acceptContentType(): ContentType = ContentType.Application.Json
-    open fun getUserAgent(): String? = null
+    /** Sent on every request. Overridden by [TestApiConfig] so a WireMock test can tell the two apart. */
+    open fun getUserAgent(): String = OutboundHttp.USER_AGENT
 
     enum class ProviderType {
         DEFAULT,

@@ -3,25 +3,16 @@ package app.mcorg.config
 import app.mcorg.pipeline.Result
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.failure.AppFailure
-import io.ktor.client.*
-import io.ktor.client.engine.cio.*
-import io.ktor.client.network.sockets.ConnectTimeoutException
 import io.ktor.client.plugins.*
-import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.http.*
-import io.ktor.serialization.kotlinx.json.*
-import io.ktor.util.AttributeKey
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
-import java.io.IOException
 import java.net.ConnectException
-import java.net.SocketTimeoutException
 import java.net.UnknownHostException
 import java.time.Instant
 import java.util.concurrent.ConcurrentHashMap
@@ -35,61 +26,18 @@ private data class RateLimitInfo(
 /** Upper bound on how much of an upstream error body reaches the DEBUG log (MCO-338). */
 const val ERROR_BODY_LOG_LIMIT = 256
 
-/*
- * Bounded retry with jittered backoff (MCO-354).
- *
- * Two attempts after the first, so three in total. The sign-in flow is five sequential upstream
- * calls across four providers and any one of them returning 502/503 ends it at
- * "?error=external_api_error", so the win is large — but it is five calls deep, and multiplying
- * each one's worst case is how a slow sign-in becomes an abandoned one.
- */
-private const val MAX_RETRIES = 2
-private const val RETRY_MAX_DELAY_MS = 2_000L
-
 /**
- * Jitter width. Without it, a transient upstream blip makes every in-flight request retry in
- * lockstep and arrive together — the retry becomes the second outage.
- */
-private const val RETRY_JITTER_MS = 250L
-
-/**
- * Marks a non-idempotent request as safe to replay.
+ * The `Step`-shaped face of the JSON APIs: a request becomes a `Step<I, ApiError, S>` with the
+ * response deserialized, a rate limiter keyed by the service's base URL, and the failure taxonomy
+ * every sign-in and ingestion step branches on. The client underneath is [OutboundHttp.api] —
+ * timeouts, retry (MCO-354) and the engine live there, and that file is the inventory of *every*
+ * outbound path, including the two that do not come through this class (the server.jar download
+ * and webhook delivery) and why.
  *
- * GETs are retried automatically. POSTs are not, because the default has to be the safe one: the
- * Microsoft token exchange spends a single-use authorization `code`, and replaying it turns a
- * recoverable upstream blip into a failed sign-in. Opting in is per call site, so adding a new
- * POST cannot accidentally inherit retry.
+ * A new outbound call to a JSON service goes through this class. A new call that is not JSON, or
+ * not a single value in memory, goes through [OutboundHttp.api] directly — the way
+ * `GetServerFileStep` does — never through a client of its own.
  */
-val RETRY_SAFE = AttributeKey<Boolean>("SeamRetrySafeRequest")
-
-/** GET/HEAD/OPTIONS are idempotent by definition; anything else must opt in via [RETRY_SAFE]. */
-private fun HttpRequest.isReplayable(): Boolean =
-    method == HttpMethod.Get ||
-        method == HttpMethod.Head ||
-        method == HttpMethod.Options ||
-        attributes.getOrNull(RETRY_SAFE) == true
-
-/** 5xx and 429 are "try again"; every 4xx is "this request is wrong" and will stay wrong. */
-private fun isTransientStatus(status: HttpStatusCode): Boolean =
-    status.value >= 500 || status == HttpStatusCode.TooManyRequests
-
-/**
- * Retry a connection that failed, never one that timed out.
- *
- * A refused or reset connection fails in milliseconds, so replaying it is nearly free and fits
- * inside the existing 30s request timeout several times over. A *timeout* has already spent that
- * budget — retrying it would turn one 30s wait into ninety, on a sign-in path a user is actively
- * waiting on. `HttpRequestTimeoutException` extends `IOException`, so it has to be excluded
- * explicitly rather than by leaving it out.
- */
-private fun isTransientCause(cause: Throwable): Boolean = when (cause) {
-    is HttpRequestTimeoutException -> false
-    is ConnectTimeoutException -> false
-    is SocketTimeoutException -> false
-    is IOException -> true
-    else -> false
-}
-
 sealed class ApiProvider(
     protected val config: ApiConfig
 ) {
@@ -126,16 +74,10 @@ sealed class ApiProvider(
      *
      * `getRaw()` used to be, with zero call sites and a `readRawBytes().inputStream()` body that
      * buffered the whole response into the heap. The one caller it could ever have had is the
-     * Mojang server.jar download in GetServerFilesPipeline, and that call wants the opposite of
-     * everything this class provides: a multi-minute budget rather than the shared 30s
-     * HttpTimeout, a stream to a temp file rather than a value in memory, and a SHA-1 digest
-     * computed during the transfer. Fitting it to the `Step<I, E, S>` shape would have meant
-     * bypassing most of the class anyway.
-     *
-     * The cost of that boundary is real and worth stating: the Mojang download is outside the
-     * shared client, so it does not inherit HttpRequestRetry (MCO-354). It is a nightly,
-     * idempotent job that self-heals on the next run, which is why that is an acceptable trade —
-     * but a new outbound call should go through this class, not copy the download step.
+     * Mojang server.jar download in GetServerFilesPipeline, which wants a stream to a temp file
+     * with a SHA-1 digest computed during the transfer and a multi-minute budget — nothing the
+     * `Step<I, E, S>` shape offers. Since MCO-552 that step streams through [OutboundHttp.api]
+     * directly, so it shares the engine and the retry without being forced into this shape.
      */
 
     /**
@@ -244,36 +186,9 @@ class DefaultApiProvider(
     config: ApiConfig
 ) : ApiProvider(config) {
     companion object {
-        // A single HttpClient shared across all providers: one connection pool + TLS-session
-        // cache reused app-wide, instead of constructing (and leaking) a new client per call.
-        private val httpClient = HttpClient(CIO) {
-            install(ContentNegotiation) {
-                json(Json {
-                    ignoreUnknownKeys = true
-                    isLenient = true
-                })
-            }
-            install(HttpTimeout) {
-                requestTimeoutMillis = 30000
-                connectTimeoutMillis = 10000
-                socketTimeoutMillis = 30000
-            }
-            // MCO-354. Nothing outbound retried before this, so a single 502 from Xbox Live —
-            // historically flaky — ended a sign-in outright.
-            install(HttpRequestRetry) {
-                maxRetries = MAX_RETRIES
-                retryIf { _, response -> response.request.isReplayable() && isTransientStatus(response.status) }
-                retryOnExceptionIf { request, cause ->
-                    request.build().let { built ->
-                        (built.method == HttpMethod.Get ||
-                            built.method == HttpMethod.Head ||
-                            built.method == HttpMethod.Options ||
-                            built.attributes.getOrNull(RETRY_SAFE) == true) && isTransientCause(cause)
-                    }
-                }
-                exponentialDelay(maxDelayMs = RETRY_MAX_DELAY_MS, randomizationMs = RETRY_JITTER_MS)
-            }
-        }
+        // One client for every provider (MCO-173): a connection pool and TLS-session cache reused
+        // app-wide instead of a client constructed — and leaked — per call. Owned by OutboundHttp.
+        private val httpClient get() = OutboundHttp.api
 
         // Rate limiting state, keyed by baseUrl and shared so the window persists across
         // calls (each getProvider() previously returned a fresh instance with empty state).
@@ -302,10 +217,7 @@ class DefaultApiProvider(
                         contentType(config.getContentType())
                         accept(config.acceptContentType())
 
-                        // Set User-Agent if provided
-                        config.getUserAgent()?.let { userAgent ->
-                            header(HttpHeaders.UserAgent, userAgent)
-                        }
+                        header(HttpHeaders.UserAgent, config.getUserAgent())
 
                         // Apply custom headers
                         headerBuilder(this, input)
@@ -419,9 +331,7 @@ class FakeApiProvider<S>(
                     this.method = method
                     contentType(config.getContentType())
                     accept(config.acceptContentType())
-                    config.getUserAgent()?.let { userAgent ->
-                        header(HttpHeaders.UserAgent, userAgent)
-                    }
+                    header(HttpHeaders.UserAgent, config.getUserAgent())
                 }
                 headerBuilder(requestBuilder, input)
                 bodyBuilder(requestBuilder, input)
