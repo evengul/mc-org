@@ -84,9 +84,13 @@ private fun FlowContent.mintedTokenReveal(worldId: Int, minted: MintedReporterTo
             +" It is shown once and is not stored — if you lose it, revoke it and generate another."
             code("reporter-reveal__token") { +minted.token }
             p("settings-form__helper subtle") {
-                +"Put it in the server's config/seam-notebook-server.json, together with this world's id ("
-                code("reporter-reveal__world-id") { +worldId.toString() }
-                +")."
+                // The command, not the file. Seam Notebook 0.3.0 ships `/seam connect`, which
+                // writes the config itself and starts reporting without a restart — telling an
+                // admin to hand-write JSON and bounce their server instead is a worse instruction
+                // for the same outcome.
+                +"On the server, run "
+                code("reporter-reveal__command") { +"/seam connect $worldId <token>" }
+                +" from the console — a command typed in-game lands in the server log."
             }
         }
     }
@@ -146,8 +150,8 @@ private fun FlowContent.reporterStatus(tokens: List<ReporterTokenRow>?) {
             div("callout__body") {
                 span("callout__lead") { +"No server has used this token yet." }
                 +(
-                    " Check that the token is in the server's config and that the server has been " +
-                        "restarted since."
+                    " Run /seam connect on the server, then /seam status there to see what it " +
+                        "makes of it."
                     )
             }
         }
