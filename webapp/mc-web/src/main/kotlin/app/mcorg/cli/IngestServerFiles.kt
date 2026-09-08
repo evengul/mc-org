@@ -2,6 +2,7 @@ package app.mcorg.cli
 
 import app.mcorg.config.AppConfig
 import app.mcorg.config.Database
+import app.mcorg.config.OutboundHttp
 import app.mcorg.pipeline.Result
 import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.minecraftfiles.executeServerFilesPipeline
@@ -38,7 +39,11 @@ fun main() {
     val exitCode = runBlocking {
         runIngestion(
             pipeline = { executeServerFilesPipeline() },
-            shutdown = { Database.shutdown() },
+            // No Ktor lifecycle here, so the outbound clients are closed by hand, like the pool.
+            shutdown = {
+                OutboundHttp.shutdown()
+                Database.shutdown()
+            },
         )
     }
     exitProcess(exitCode)

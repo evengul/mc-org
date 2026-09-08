@@ -334,9 +334,27 @@ import app.mcorg.domain.model.user.TokenProfile
 Owned by **docs-htmx** — load it for the swap-strategy table, hx* helper signatures,
 and OOB/fragment patterns.
 
-## ApiProvider (external HTTP calls)
+## Outbound HTTP (external calls)
 
-`ApiProvider` (`config/ApiProvider.kt`) is the sealed class for all external HTTP calls —
-methods return Step types, with built-in rate limiting and error handling. Per-service
-config objects live in `config/ApiConfig.kt` (e.g. `ModrinthApiConfig`, `MinecraftApiConfig`).
-Never call external APIs with a raw HTTP client from a handler or step.
+Every outbound call runs on one CIO engine owned by `OutboundHttp` (`config/OutboundHttp.kt`),
+which is also where the timeouts, the retry policy and the shutdown live. It exposes two clients,
+and there are exactly three paths out of the app (MCO-552):
+
+| Path | Client | Policy |
+|------|--------|--------|
+| JSON services — Microsoft, Xbox, XSTS, Minecraft services, Mojang piston-meta | `OutboundHttp.api` via `ApiProvider` | 30s request / 10s connect / 30s socket; bounded retry (MCO-354): GETs and `retrySafe = true` POSTs on 5xx/429 or a refused connection, never on a timeout; rate limiter keyed by `ApiConfig.baseUrl` |
+| Mojang server.jar download (`GetServerFileStep`) | `OutboundHttp.api` **directly** — streams to a temp file with a SHA-1 digest, which the `Step` shape cannot express | Same engine and retry; timeouts overridden per request (`DownloadTimeouts`) |
+| Webhook delivery (`WebhookDeliveryPoller`) | `OutboundHttp.webhook` | 5s everything, **no** transport retry (the outbox is the retry), no rate limiter, no content negotiation — see `OutboundHttp`'s class comment for why that is a second client and not four per-request overrides |
+
+`ApiProvider` (`config/ApiProvider.kt`) is the `Step`-shaped face of the first row: `get`/`post`
+return `Step<I, ApiError, S>` with the response deserialized and the failure taxonomy every
+sign-in and ingestion step branches on. Per-service config objects live in `config/ApiConfig.kt`
+(`MicrosoftLoginApiConfig`, `XboxAuthApiConfig`, `XstsAuthorizationApiConfig`, `MinecraftApiConfig`,
+`MojangLauncherMetaApiConfig`).
+
+Rules: a new call to a JSON service goes through `ApiProvider`. A new call that is not JSON, or
+not a single value in memory, calls `OutboundHttp.api` directly the way `GetServerFileStep` does.
+**Never construct an `HttpClient`** — the count in `src/main` is the two in `OutboundHttp`, and
+each has a stated owner and shutdown path. A POST is only retried if its call site passes
+`retrySafe = true`, and only when replaying the exact body is harmless (the Microsoft token
+exchange spends a single-use code and must not).

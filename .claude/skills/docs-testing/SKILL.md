@@ -151,6 +151,29 @@ when (val result = MyStep.process(input)) {
 
 ---
 
+## Faking Outbound HTTP
+
+Two mechanisms, chosen by what the test is about (MCO-552):
+
+- **`useFakeProvider`** — for a *step's own logic*: how it maps a response body into a domain
+  value and which `ApiError` each branch produces. `XboxAuthApiConfig.useFakeProvider { _, _ ->
+  Result.success(json) }` swaps in `FakeApiProvider`, which never opens a socket; the body still
+  goes through `deserializeJson`, so parsing is exercised, but nothing about the client is —
+  retry, timeouts, headers, rate limiting. It mutates a global config `object`, so
+  **`resetProvider()` in `@AfterEach`** or the next test class inherits the fake.
+- **WireMock** (`@WireMockTest`) — for anything that lives on the client or on the wire: retry
+  counts, timeout behaviour, the headers actually sent, the webhook POST's body and signature, a
+  whole sign-in chain end to end. Point the real client at the WireMock port either with
+  `DefaultApiProvider(TestApiConfig(info.httpBaseUrl))` (unit-level, `ApiRetryIT`) or by setting
+  the `AppConfig.*BaseUrl` the step reads (`MicrosoftSignInIT`); a webhook test puts
+  `info.httpBaseUrl` in the subscription's callback URL (`WebhookDeliveryIT`). A test that
+  asserts "was retried twice" or "sent `User-Agent`" with a fake provider proves nothing — the
+  fake has no client.
+
+Neither mocks `HttpClient` itself, and there is no `MockEngine` in the tree; keep it that way.
+
+---
+
 ## Database in Tests
 
 Tests use **TestContainers** (PostgreSQL). Flyway migrations run automatically before tests.

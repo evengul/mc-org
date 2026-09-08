@@ -2,6 +2,7 @@ package app.mcorg
 
 import app.mcorg.config.AppConfig
 import app.mcorg.config.SchemaValidation
+import app.mcorg.config.configureOutboundHttp
 import app.mcorg.event.configureEvents
 import app.mcorg.pipeline.minecraftfiles.configureUnmappedItemWarning
 import app.mcorg.webhook.configureWebhooks
@@ -44,6 +45,9 @@ private fun defaultServer(module: Application.() -> Unit) =
 private fun Application.module() {
     configureEvents()
     configureWebhooks()
+    // After the two above: they cancel their scopes on ApplicationStopping, this closes the
+    // clients on ApplicationStopped, so nothing in flight meets a closed client (MCO-552).
+    configureOutboundHttp()
     configurePreviewGate()
     configureHTTP()
     configureMonitoring()

@@ -20,6 +20,7 @@ or more event envelopes as JSON.
 | Content-Type | `application/json` |
 | Signature header | `X-Seam-Signature: sha256=<lowercase hex>` |
 | Delivery ids header | `X-Seam-Delivery-Ids: <comma-separated outbox row ids>` |
+| User-Agent | `Seam (+https://app.seam.gg)` — informational, do not gate on it (was Ktor's default `Ktor client` before 2026-09-08) |
 | Request timeout | 5s |
 | Attempts | 3 — immediate, then +30s, then +5min |
 | Auto-deactivation | after 10 consecutive failures for a subscription |

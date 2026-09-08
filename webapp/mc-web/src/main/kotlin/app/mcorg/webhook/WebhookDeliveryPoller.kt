@@ -1,12 +1,12 @@
 package app.mcorg.webhook
 
+import app.mcorg.config.OutboundHttp
 import io.ktor.client.HttpClient
-import io.ktor.client.engine.cio.CIO
-import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.request.header
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
+import io.ktor.http.HttpHeaders
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
 import kotlinx.coroutines.CancellationException
@@ -35,9 +35,13 @@ import org.slf4j.LoggerFactory
  * `webhook_deliveries` queries and can autosuspend. Started and stopped by `configureWebhooks`
  * against the Ktor lifecycle. Stateless apart from the shared [client] and the cleanup throttle, so
  * it is safe to drive from a single polling loop.
+ *
+ * [client] defaults to [OutboundHttp.webhook] — 5s timeouts and no transport retry, because the
+ * outbox below is the retry. Why that is a separate client from the API one is written on
+ * [OutboundHttp]; the parameter exists so a test can hand in a client of its own.
  */
 class WebhookDeliveryPoller(
-    private val client: HttpClient = defaultClient(),
+    private val client: HttpClient = OutboundHttp.webhook,
 ) {
     private val logger = LoggerFactory.getLogger(WebhookDeliveryPoller::class.java)
 
@@ -142,6 +146,7 @@ class WebhookDeliveryPoller(
     private suspend fun post(url: String, body: String, signature: String, deliveryIds: List<Long>): String? = try {
         val response = client.post(url) {
             contentType(ContentType.Application.Json)
+            header(HttpHeaders.UserAgent, OutboundHttp.USER_AGENT)
             header(WebhookSigner.HEADER, signature)
             header(DELIVERY_IDS_HEADER, deliveryIds.joinToString(","))
             setBody(body)
@@ -166,14 +171,5 @@ class WebhookDeliveryPoller(
         const val MAX_ATTEMPTS = 3
         const val DEACTIVATE_THRESHOLD = 10
         const val CLEANUP_INTERVAL_MS = 86_400_000L // 24 hours
-        private const val REQUEST_TIMEOUT_MS = 5_000L
-
-        private fun defaultClient() = HttpClient(CIO) {
-            install(HttpTimeout) {
-                requestTimeoutMillis = REQUEST_TIMEOUT_MS
-                connectTimeoutMillis = REQUEST_TIMEOUT_MS
-                socketTimeoutMillis = REQUEST_TIMEOUT_MS
-            }
-        }
     }
 }
