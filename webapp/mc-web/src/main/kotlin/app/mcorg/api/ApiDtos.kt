@@ -115,3 +115,45 @@ data class ResourcesResponse(
 data class TaskUpdateRequest(
     @SerialName("completed") val completed: Boolean,
 )
+
+// ── Container tags (MCO-530) ───────────────────────────────────────────────────
+
+/**
+ * A tagged container. [groupKey] is shared by both halves of a double chest (the position itself
+ * otherwise) — the sweep dedupes on it so a joined chest is not counted twice.
+ *
+ * [lastSeenAt] and [state] are written only by the reporter (phase B): `unreadable` until a sweep
+ * has read the position, then `ok`, or `missing` once the block is gone. Timestamps are ISO-8601.
+ */
+@Serializable
+data class ContainerTagDto(
+    @SerialName("id") val id: Long,
+    @SerialName("project_id") val projectId: Int,
+    @SerialName("dimension") val dimension: String,
+    @SerialName("x") val x: Int,
+    @SerialName("y") val y: Int,
+    @SerialName("z") val z: Int,
+    @SerialName("group_key") val groupKey: String,
+    @SerialName("kind") val kind: String,
+    @SerialName("tagged_by") val taggedBy: String? = null,
+    @SerialName("tagged_at") val taggedAt: String,
+    @SerialName("last_seen_at") val lastSeenAt: String? = null,
+    @SerialName("state") val state: String,
+)
+
+/** Tag a position, or move an existing tag there to another project. [groupKey] defaults to the position. */
+@Serializable
+data class ContainerTagRequest(
+    @SerialName("dimension") val dimension: String,
+    @SerialName("x") val x: Int,
+    @SerialName("y") val y: Int,
+    @SerialName("z") val z: Int,
+    @SerialName("project_id") val projectId: Int,
+    @SerialName("kind") val kind: String,
+    @SerialName("group_key") val groupKey: String? = null,
+)
+
+@Serializable
+data class ContainerTagsResponse(
+    @SerialName("containers") val containers: List<ContainerTagDto>,
+)
