@@ -1,5 +1,6 @@
 package app.mcorg.presentation.templated.settings
 
+import app.mcorg.api.ReporterTokenRow
 import app.mcorg.domain.model.invite.Invite
 import app.mcorg.domain.model.minecraft.MinecraftVersion
 import app.mcorg.domain.model.user.Role
@@ -28,6 +29,13 @@ data class SettingsPageData(
     val statusFilter: InvitationStatusFilter,
     val discordConfigured: Boolean,
     val discordConnections: List<DiscordConnection>,
+    /**
+     * Live reporter tokens for this world (MCO-531). Empty is the loud "no server connected" case;
+     * **null means the lookup failed**, which is a different thing and must not be rendered as
+     * "no server connected" — that would tell an admin an actionable falsehood and send them off to
+     * mint a second credential.
+     */
+    val reporterTokens: List<ReporterTokenRow>?,
     /**
      * Stored item ids the world's *current* version has no catalog entry for (MCO-157). Null when
      * the lookup failed — the settings page is worth rendering without the notice.
@@ -71,6 +79,7 @@ fun worldSettingsPage(user: TokenProfile, data: SettingsPageData): String = page
                 invitationsSection(data)
                 membersSection(data.currentUser, data.members)
                 discordSection(data)
+                reporterSection(data)
                 if (data.currentUserRole == Role.OWNER) {
                     dangerSection(data.world)
                 }

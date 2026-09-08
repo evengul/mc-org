@@ -1,5 +1,6 @@
 package app.mcorg.pipeline.world.settings
 
+import app.mcorg.api.ListReporterTokensStep
 import app.mcorg.domain.model.user.Role
 import app.mcorg.domain.model.user.WorldMember
 import app.mcorg.pipeline.Result
@@ -68,6 +69,11 @@ suspend fun ApplicationCall.handleGetSettingsPageData(
     val subscriptions = WebhookStore.findActiveSubscriptions(worldId)
     val connections = discordConnections(subscriptions, AppConfig.seamDiscordUrl)
 
+    // Empty is a real, renderable state — the loud "no server connected" case — so a failure here
+    // must not cost the whole settings page. It must not be *mistaken* for that state either, so a
+    // failure stays distinguishable as null rather than collapsing to an empty list.
+    val reporterTokens = (ListReporterTokensStep.process(worldId) as? Result.Success)?.value
+
     return pipelineResult {
         val (world, invitations, counts, members) = parallel(
             { GetWorldStep.run(worldId) },
@@ -86,6 +92,7 @@ suspend fun ApplicationCall.handleGetSettingsPageData(
             statusFilter = statusFilter,
             discordConfigured = discordConfigured,
             discordConnections = connections,
+            reporterTokens = reporterTokens,
             // Against the version the world is already on, so the General tab can say what is
             // stranded right now rather than only what a pending switch would strand (MCO-157).
             currentVersionImpact = worldVersionImpact(worldId, world.version.toString()).getOrNull(),
