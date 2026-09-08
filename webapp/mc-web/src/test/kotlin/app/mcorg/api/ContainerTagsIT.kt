@@ -1,5 +1,8 @@
 package app.mcorg.api
 
+import app.mcorg.config.AppConfig
+import app.mcorg.domain.Env
+import app.mcorg.domain.Production
 import app.mcorg.domain.model.minecraft.MinecraftVersion
 import app.mcorg.domain.model.user.Role
 import app.mcorg.domain.model.user.TokenProfile
@@ -67,6 +70,16 @@ class ContainerTagsIT : WithUser() {
             ),
             parameterSetter = { st, _ -> st.setString(1, name); st.setInt(2, worldId) }
         ).process(Unit) as Result.Success).value
+    }
+
+    /** Stand in for a sweep having read the container, which is the reporter's job in phase B. */
+    private fun markSwept(tagId: Long) = runBlocking {
+        DatabaseSteps.update<Unit>(
+            sql = SafeSQL.update(
+                "UPDATE container_tags SET state = 'ok', last_seen_at = CURRENT_TIMESTAMP WHERE id = ?"
+            ),
+            parameterSetter = { st, _ -> st.setLong(1, tagId) }
+        ).process(Unit)
     }
 
     private fun addWorldMember(worldId: Int, member: TokenProfile, role: Role = Role.MEMBER) = runBlocking {
@@ -185,6 +198,33 @@ class ContainerTagsIT : WithUser() {
         assertEquals(1, listTags(worldId, token).size)
     }
 
+    @Test
+    fun `re-tagging the same kind keeps the reading, changing kind discards it`() = testApplication {
+        routing { install(AuthPlugin); apiV1Routes() }
+        val token = issueToken()
+        val worldId = createWorld("Tags IT Kind Change")
+        val projectId = createProject(worldId, "Kind Change Project")
+        tag(worldId, token, tagBody(projectId, 3, 64, 3, kind = "chest"))
+        val id = listTags(worldId, token).single().id
+        markSwept(id)
+
+        // Same kind: the physical container is unchanged, so its last reading is still valid.
+        tag(worldId, token, tagBody(projectId, 3, 64, 3, kind = "chest"))
+        val kept = listTags(worldId, token).single()
+        assertEquals("ok", kept.state)
+        assertNotNull(kept.lastSeenAt)
+
+        // Different kind: someone broke the chest and put a barrel there. The old reading describes
+        // a container that no longer exists, and phase B's contents hang off this row id — so
+        // presenting it as current would keep counting stock that is gone.
+        tag(worldId, token, tagBody(projectId, 3, 64, 3, kind = "barrel"))
+        val reset = listTags(worldId, token).single()
+        assertEquals(id, reset.id, "still one row — this is a re-tag, not a new tag")
+        assertEquals("barrel", reset.kind)
+        assertEquals("unreadable", reset.state)
+        assertNull(reset.lastSeenAt)
+    }
+
     // ── Double chests ──────────────────────────────────────────────────────────
 
     @Test
@@ -205,6 +245,28 @@ class ContainerTagsIT : WithUser() {
     }
 
     // ── Validation ─────────────────────────────────────────────────────────────
+
+    @Test
+    fun `a group key naming an unrelated container is rejected`() = testApplication {
+        routing { install(AuthPlugin); apiV1Routes() }
+        val token = issueToken()
+        val worldId = createWorld("Tags IT Group Abuse")
+        val projectId = createProject(worldId, "Group Abuse Project")
+
+        // group_key is the sweep's dedupe key. Left as free text, one client could give a hundred
+        // unrelated chests the same key and the sweep would count one of them — silently erasing
+        // the rest from the measurement. Only this position or the one next door is legitimate.
+        val faraway = tag(worldId, token, tagBody(projectId, 0, 64, 0, groupKey = "9999,64,9999"))
+        assertEquals(HttpStatusCode.BadRequest, faraway.status)
+
+        val notAPosition = tag(worldId, token, tagBody(projectId, 0, 64, 0, groupKey = "shared"))
+        assertEquals(HttpStatusCode.BadRequest, notAPosition.status)
+
+        val differentY = tag(worldId, token, tagBody(projectId, 0, 64, 0, groupKey = "0,65,0"))
+        assertEquals(HttpStatusCode.BadRequest, differentY.status)
+
+        assertTrue(listTags(worldId, token).isEmpty())
+    }
 
     @Test
     fun `a furnace is not a taggable kind`() = testApplication {
@@ -270,6 +332,34 @@ class ContainerTagsIT : WithUser() {
 
         val response = tag(worldId, issueToken(member), tagBody(projectId, 7, 7, 7))
         assertEquals(HttpStatusCode.OK, response.status)
+    }
+
+    @Test
+    fun `a demo user can read tags but not write them in Production`() = testApplication {
+        routing { install(AuthPlugin); apiV1Routes() }
+        val worldId = createWorld("Tags IT Demo")
+        val projectId = createProject(worldId, "Demo Project")
+        val demoUser = createExtraUser("demo_user")
+        addWorldMember(worldId, demoUser, Role.MEMBER)
+        val demoToken = issueToken(demoUser)
+
+        // The /worlds group had no demo gate before container tagging, because it had no writes.
+        val original: Env = AppConfig.env
+        try {
+            AppConfig.env = Production
+            assertEquals(
+                HttpStatusCode.Forbidden,
+                tag(worldId, demoToken, tagBody(projectId, 1, 1, 1)).status,
+            )
+            // Reads stay open, matching the web app.
+            val read = client.get("/api/v1/worlds/$worldId/containers") {
+                header("Authorization", "Bearer $demoToken")
+            }
+            assertEquals(HttpStatusCode.OK, read.status)
+        } finally {
+            AppConfig.env = original
+        }
+        assertTrue(listTags(worldId, issueToken()).isEmpty())
     }
 
     @Test

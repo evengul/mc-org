@@ -351,6 +351,27 @@ private val TAGGABLE_KINDS = setOf(
 private const val MAX_DIMENSION_LENGTH = 64
 private const val MAX_GROUP_KEY_LENGTH = 128
 
+/** A container's identity when it stands alone: its own block position. */
+private fun positionKey(x: Int, y: Int, z: Int) = "$x,$y,$z"
+
+/**
+ * Whether [groupKey] names this position or one orthogonally adjacent to it.
+ *
+ * A joined chest's two halves differ by one block on X or Z, and the client posts both with the
+ * lower half's position as the shared key — so "own or adjacent" is exactly the set of legitimate
+ * keys, and everything else is either a client bug or an attempt to collapse unrelated containers
+ * into one dedupe group.
+ */
+private fun isOwnOrAdjacentPosition(groupKey: String, x: Int, y: Int, z: Int): Boolean {
+    val parts = groupKey.split(',')
+    if (parts.size != 3) return false
+    val (kx, ky, kz) = parts.map { it.toIntOrNull() ?: return false }
+    if (ky != y) return false
+    val dx = Math.abs(kx.toLong() - x.toLong())
+    val dz = Math.abs(kz.toLong() - z.toLong())
+    return dx + dz <= 1
+}
+
 private fun ContainerTagRow.toDto() = ContainerTagDto(
     id = id,
     projectId = projectId,
@@ -396,9 +417,22 @@ suspend fun ApplicationCall.handleTagContainer() {
     }
     // Default the group key to the position, which is what an unjoined container's identity is.
     // Both halves of a double chest are posted with the same explicit key by the client.
-    val groupKey = body.groupKey?.takeIf { it.isNotBlank() } ?: "${body.x},${body.y},${body.z}"
+    val groupKey = body.groupKey?.takeIf { it.isNotBlank() } ?: positionKey(body.x, body.y, body.z)
     if (groupKey.length > MAX_GROUP_KEY_LENGTH) {
         respondApiError(HttpStatusCode.BadRequest, "invalid_request", "group_key is too long")
+        return
+    }
+    // The key is the sweep's dedupe key, so it cannot be free text. Unchecked, one client could
+    // send the same key for a hundred unrelated chests and the sweep would count one of them —
+    // silently erasing the rest from the measurement. Constraining it to this position or the one
+    // next door admits exactly the case it exists for (a joined chest, whose halves are adjacent)
+    // and nothing else.
+    if (!isOwnOrAdjacentPosition(groupKey, body.x, body.y, body.z)) {
+        respondApiError(
+            HttpStatusCode.BadRequest,
+            "invalid_request",
+            "group_key must be this container's position or an adjacent one",
+        )
         return
     }
 

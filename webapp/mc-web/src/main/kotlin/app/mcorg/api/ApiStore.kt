@@ -322,29 +322,8 @@ object ListContainerTagsStep : Step<Int, AppFailure.DatabaseError, List<Containe
         ).process(input)
 }
 
+/** Addresses one tag within its world, so a member of world A cannot reach world B's rows. */
 data class ContainerTagKey(val worldId: Int, val id: Long)
-
-/** One tag, scoped to its world so a member of world A cannot address world B's rows. */
-object GetContainerTagStep : Step<ContainerTagKey, AppFailure.DatabaseError, ContainerTagRow> {
-    override suspend fun process(input: ContainerTagKey): Result<AppFailure.DatabaseError, ContainerTagRow> =
-        DatabaseSteps.query<ContainerTagKey, ContainerTagRow?>(
-            sql = SafeSQL.select(
-                """
-                SELECT $CONTAINER_TAG_COLUMNS
-                FROM container_tags ct
-                LEFT JOIN minecraft_profiles mp ON mp.user_id = ct.tagged_by
-                WHERE ct.world_id = ? AND ct.id = ?
-                """.trimIndent()
-            ),
-            parameterSetter = { st, key ->
-                st.setInt(1, key.worldId)
-                st.setLong(2, key.id)
-            },
-            resultMapper = { if (it.next()) it.mapToContainerTag() else null },
-        ).process(input).flatMap {
-            if (it == null) Result.failure(AppFailure.DatabaseError.NotFound) else Result.success(it)
-        }
-}
 
 data class UpsertContainerTagInput(
     val worldId: Int,
@@ -362,25 +341,44 @@ data class UpsertContainerTagInput(
  * Creates a tag, or moves the one already at that position to the new project. Keyed on the
  * `(world_id, dimension, x, y, z)` unique constraint, so re-tagging is one row, not two.
  *
- * `state` and `last_seen_at` are deliberately **not** touched on conflict: the physical container
- * is the same one, so its last reading stays valid. Its contents now count toward the new project,
- * which is what re-tagging means; the next sweep re-filters them to that project's items.
+ * **Re-tagging the same kind keeps the reading; changing kind discards it.** Re-tagging is normally
+ * the same physical container being pointed at a different project, so its last reading stays valid
+ * and simply counts toward the new project — the next sweep re-filters it to that project's items.
+ * But if the `kind` changed, the block itself changed: someone broke the chest and put a barrel
+ * there. Keeping `state = 'ok'` then would present a reading of a container that no longer exists
+ * as current, and phase B's contents hang off this row id, so those stale contents would keep
+ * counting. So the two columns follow `kind`, and only `kind`.
+ *
+ * The insert and the read-back are one statement. Split in two they race: a concurrent DELETE
+ * between them makes a successful write report a 500. A data-modifying CTE closes the window, and
+ * the join is the only reason a read-back was needed at all.
  */
 object UpsertContainerTagStep : Step<UpsertContainerTagInput, AppFailure.DatabaseError, ContainerTagRow> {
     override suspend fun process(input: UpsertContainerTagInput): Result<AppFailure.DatabaseError, ContainerTagRow> =
-        DatabaseSteps.query<UpsertContainerTagInput, Long?>(
-            sql = SafeSQL.insert(
+        DatabaseSteps.query<UpsertContainerTagInput, ContainerTagRow?>(
+            sql = SafeSQL.with(
                 """
-                INSERT INTO container_tags
-                    (world_id, project_id, dimension, x, y, z, group_key, kind, tagged_by)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT (world_id, dimension, x, y, z) DO UPDATE
-                SET project_id = EXCLUDED.project_id,
-                    kind       = EXCLUDED.kind,
-                    group_key  = EXCLUDED.group_key,
-                    tagged_by  = EXCLUDED.tagged_by,
-                    tagged_at  = CURRENT_TIMESTAMP
-                RETURNING id
+                WITH upserted AS (
+                    INSERT INTO container_tags
+                        (world_id, project_id, dimension, x, y, z, group_key, kind, tagged_by)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT (world_id, dimension, x, y, z) DO UPDATE
+                    SET project_id   = EXCLUDED.project_id,
+                        kind         = EXCLUDED.kind,
+                        group_key    = EXCLUDED.group_key,
+                        tagged_by    = EXCLUDED.tagged_by,
+                        tagged_at    = CURRENT_TIMESTAMP,
+                        state        = CASE WHEN container_tags.kind IS DISTINCT FROM EXCLUDED.kind
+                                            THEN 'unreadable' ELSE container_tags.state END,
+                        last_seen_at = CASE WHEN container_tags.kind IS DISTINCT FROM EXCLUDED.kind
+                                            THEN NULL ELSE container_tags.last_seen_at END
+                    RETURNING id, project_id, dimension, x, y, z, group_key, kind,
+                              tagged_by, tagged_at, last_seen_at, state
+                )
+                SELECT ct.id, ct.project_id, ct.dimension, ct.x, ct.y, ct.z, ct.group_key, ct.kind,
+                       ct.tagged_at, ct.last_seen_at, ct.state, mp.username AS tagged_by_name
+                FROM upserted ct
+                LEFT JOIN minecraft_profiles mp ON mp.user_id = ct.tagged_by
                 """.trimIndent()
             ),
             parameterSetter = { st, i ->
@@ -394,17 +392,19 @@ object UpsertContainerTagStep : Step<UpsertContainerTagInput, AppFailure.Databas
                 st.setString(8, i.kind)
                 st.setInt(9, i.taggedBy)
             },
-            resultMapper = { if (it.next()) it.getLong(1) else null },
-        ).process(input).flatMap { id ->
-            if (id == null) Result.failure(AppFailure.DatabaseError.NoIdReturned)
-            else GetContainerTagStep.process(ContainerTagKey(input.worldId, id))
+            resultMapper = { if (it.next()) it.mapToContainerTag() else null },
+        ).process(input).flatMap {
+            if (it == null) Result.failure(AppFailure.DatabaseError.NoIdReturned) else Result.success(it)
         }
 }
 
 /**
  * Untags a container. Returns affected-row count (0 when the tag is absent or belongs to another
- * world). `container_contents` cascades from the tag row, so the chest's contribution to the
- * measurement disappears with it — the reporter never has to be told (MCO-532 re-rolls the total).
+ * world).
+ *
+ * MCO-532's `container_contents` will hang off this row with `ON DELETE CASCADE`, so once that
+ * table exists the chest's contribution to the measurement disappears with the tag and the reporter
+ * never has to be told. That table does not exist yet; nothing cascades today.
  */
 object DeleteContainerTagStep : Step<ContainerTagKey, AppFailure.DatabaseError, Int> {
     override suspend fun process(input: ContainerTagKey) =
