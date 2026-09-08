@@ -144,9 +144,20 @@ SafeSQL.with("WITH ranked AS (SELECT * FROM ...) SELECT * FROM ranked")
 
 **NEVER:** `SafeSQL("...")` (constructor is private) or string interpolation in SQL.
 
+The text is safe because it is a constant and every value is a `?` bind — `SafeSQL` itself only
+checks the statement kind and that there is one statement. `SafeSqlSourceScanTest` scans
+`src/main` and fails on any `SafeSQL.*(...)` argument that is not a single literal or that
+interpolates. If a value genuinely cannot be bound (a `const val` column list, a `when` over fixed
+`ORDER BY` clauses), add the identifier to that test's allowlist with the reason; a stale entry
+fails the test too.
+
 ---
 
 ## DatabaseSteps Patterns
+
+Every `DatabaseSteps` step runs its JDBC work on `Dispatchers.IO`, so `process()` is safe to call
+from a Ktor handler. Never call JDBC yourself from a step: the handler runs on Netty's call
+thread, of which production has exactly one (MCO-551).
 
 ### query (SELECT — multiple rows)
 
@@ -212,6 +223,10 @@ val step = DatabaseSteps.transaction<InputType, OutputType> { txConn ->
 ```
 
 ### ResultSet mapping
+
+A row shape read by more than one query gets a named `ResultSet.toX()` extension in the feature's
+`extractors/` file (`pipeline/<feature>/extractors/`). An inline `resultMapper` lambda is fine for
+a shape read in exactly one place.
 
 ```kotlin
 fun ResultSet.mapToProject(): Project = Project(

@@ -5,349 +5,129 @@ import org.junit.jupiter.api.assertThrows
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 
+/**
+ * `SafeSQL` checks *shape*: the factory's statement kind, and one statement per instance. It does
+ * not — cannot — check for interpolation; that is `SafeSqlSourceScanTest`'s job (MCO-551).
+ */
 class SafeSQLTest {
 
+    private val factories = mapOf(
+        "select" to SafeSQL::select,
+        "with" to SafeSQL::with,
+        "insert" to SafeSQL::insert,
+        "update" to SafeSQL::update,
+        "delete" to SafeSQL::delete,
+    )
+
+    private fun build(query: String): SafeSQL {
+        val kind = factories.keys.first { query.trim().lowercase().startsWith(it) }
+        return factories.getValue(kind)(query)
+    }
+
     @Test
-    fun `select creates valid SafeSQL for SELECT statements`() {
-        val validSelectQueries = listOf(
+    fun `each factory accepts its own statement kind, whitespace and case included`() {
+        val accepted = listOf(
             "SELECT * FROM users",
             "select id, name from products",
-            "SELECT COUNT(*) FROM orders WHERE status = ?",
-            "   SELECT * FROM table   ", // with whitespace
-            "SELECT DISTINCT category FROM items"
-        )
-
-        validSelectQueries.forEach { query ->
-            val safeSQL = SafeSQL.select(query)
-            assertNotNull(safeSQL)
-            assertEquals(query, safeSQL.query)
-        }
-    }
-
-    @Test
-    fun `select throws exception for non-SELECT statements`() {
-        val invalidQueries = listOf(
-            "INSERT INTO users VALUES (1, 'test')",
-            "UPDATE users SET name = 'test'",
-            "DELETE FROM users",
-            "CREATE TABLE test (id INT)",
-            "DROP TABLE users",
-            ""
-        )
-
-        invalidQueries.forEach { query ->
-            val exception = assertThrows<IllegalArgumentException> {
-                SafeSQL.select(query)
-            }
-            assertEquals("Query must be a SELECT statement", exception.message)
-        }
-    }
-
-    @Test
-    fun `insert creates valid SafeSQL for INSERT statements`() {
-        val validInsertQueries = listOf(
+            "   SELECT * FROM table   ",
+            "\nSELECT * FROM users\n",
+            "WITH ranked AS (SELECT 1) SELECT * FROM ranked",
             "INSERT INTO users (name, email) VALUES (?, ?)",
-            "insert into products values (1, 'test')",
             "INSERT INTO orders SELECT * FROM temp_orders",
-            "   INSERT INTO table VALUES (1)   " // with whitespace
-        )
-
-        validInsertQueries.forEach { query ->
-            val safeSQL = SafeSQL.insert(query)
-            assertNotNull(safeSQL)
-            assertEquals(query, safeSQL.query)
-        }
-    }
-
-    @Test
-    fun `insert throws exception for non-INSERT statements`() {
-        val invalidQueries = listOf(
-            "SELECT * FROM users",
-            "UPDATE users SET name = 'test'",
-            "DELETE FROM users",
-            "CREATE TABLE test (id INT)",
-            ""
-        )
-
-        invalidQueries.forEach { query ->
-            val exception = assertThrows<IllegalArgumentException> {
-                SafeSQL.insert(query)
-            }
-            assertEquals("Query must be an INSERT statement", exception.message)
-        }
-    }
-
-    @Test
-    fun `update creates valid SafeSQL for UPDATE statements`() {
-        val validUpdateQueries = listOf(
+            "\t\tINSERT INTO users VALUES (1, 'test')\t\t",
             "UPDATE users SET name = ? WHERE id = ?",
-            "update products set price = 100",
-            "UPDATE orders SET status = 'shipped' WHERE id IN (1, 2, 3)",
-            "   UPDATE table SET col = 'value'   " // with whitespace
-        )
-
-        validUpdateQueries.forEach { query ->
-            val safeSQL = SafeSQL.update(query)
-            assertNotNull(safeSQL)
-            assertEquals(query, safeSQL.query)
-        }
-    }
-
-    @Test
-    fun `update throws exception for non-UPDATE statements`() {
-        val invalidQueries = listOf(
-            "SELECT * FROM users",
-            "INSERT INTO users VALUES (1, 'test')",
-            "DELETE FROM users",
-            "CREATE TABLE test (id INT)",
-            ""
-        )
-
-        invalidQueries.forEach { query ->
-            val exception = assertThrows<IllegalArgumentException> {
-                SafeSQL.update(query)
-            }
-            assertEquals("Query must be an UPDATE statement", exception.message)
-        }
-    }
-
-    @Test
-    fun `delete creates valid SafeSQL for DELETE statements`() {
-        val validDeleteQueries = listOf(
+            "Update users set name = 'test'",
             "DELETE FROM users WHERE id = ?",
-            "DELETE FROM products WHERE price < 10",
-            "DELETE FROM orders WHERE created_at < ?",
-            "   DELETE FROM table WHERE condition   " // with whitespace
+            "Delete from users where id = 1",
         )
-
-        validDeleteQueries.forEach { query ->
-            val safeSQL = SafeSQL.delete(query)
+        accepted.forEach { query ->
+            val safeSQL = build(query)
             assertNotNull(safeSQL)
             assertEquals(query, safeSQL.query)
         }
     }
 
     @Test
-    fun `delete throws exception for non-DELETE statements`() {
-        val invalidQueries = listOf(
+    fun `a factory refuses another kind of statement, naming the kind it wanted`() {
+        val expectations = listOf(
+            Triple(SafeSQL::select, "SELECT", "Query must be a SELECT statement"),
+            Triple(SafeSQL::with, "WITH", "Query must be a WITH statement"),
+            Triple(SafeSQL::insert, "INSERT", "Query must be an INSERT statement"),
+            Triple(SafeSQL::update, "UPDATE", "Query must be an UPDATE statement"),
+            Triple(SafeSQL::delete, "DELETE", "Query must be a DELETE statement"),
+        )
+        val everyKind = listOf(
             "SELECT * FROM users",
+            "WITH x AS (SELECT 1) SELECT * FROM x",
             "INSERT INTO users VALUES (1, 'test')",
             "UPDATE users SET name = 'test'",
+            "DELETE FROM users",
             "CREATE TABLE test (id INT)",
-            ""
+            "",
         )
-
-        invalidQueries.forEach { query ->
-            val exception = assertThrows<IllegalArgumentException> {
-                SafeSQL.delete(query)
+        expectations.forEach { (factory, ownKeyword, message) ->
+            everyKind.filterNot { it.trim().uppercase().startsWith(ownKeyword) }.forEach { query ->
+                val exception = assertThrows<IllegalArgumentException> { factory(query) }
+                assertEquals(message, exception.message, "for query '$query'")
             }
-            assertEquals("Query must be a DELETE statement", exception.message)
         }
     }
 
     @Test
-    fun `dangerous patterns are rejected - semicolon injection`() {
-        val dangerousQueries = listOf(
-            "SELECT * FROM users; DROP TABLE users;",
-            "SELECT * FROM users;; SELECT * FROM passwords;",
-            "INSERT INTO users VALUES (1, 'test'); DELETE FROM users;"
-        )
-
-        dangerousQueries.forEach { query ->
-            val exception = assertThrows<IllegalArgumentException> {
-                when {
-                    query.lowercase().startsWith("select") -> SafeSQL.select(query)
-                    query.lowercase().startsWith("insert") -> SafeSQL.insert(query)
-                    else -> SafeSQL.select(query)
-                }
-            }
-            assertEquals("SQL query contains potentially unsafe patterns", exception.message)
-        }
-    }
-
-    @Test
-    fun `single semicolon at end is allowed`() {
-        val safeQueries = listOf(
+    fun `a trailing semicolon, or one inside a quoted literal or a line comment, is allowed`() {
+        listOf(
             "SELECT * FROM users;",
             "INSERT INTO users VALUES (1, 'test');",
             "UPDATE users SET name = 'test';",
-            "DELETE FROM users WHERE id = 1;"
-        )
-
-        safeQueries.forEach { query ->
-            val safeSQL = when {
-                query.lowercase().startsWith("select") -> SafeSQL.select(query)
-                query.lowercase().startsWith("insert") -> SafeSQL.insert(query)
-                query.lowercase().startsWith("update") -> SafeSQL.update(query)
-                query.lowercase().startsWith("delete") -> SafeSQL.delete(query)
-                else -> throw IllegalArgumentException("Unknown query type")
-            }
-            assertNotNull(safeSQL)
-            assertEquals(query, safeSQL.query)
+            "DELETE FROM users WHERE id = 1;",
+            "SELECT * FROM users;   ",
+            "UPDATE d SET last_error = COALESCE(last_error, 'Abandoned in flight; claim expired')",
+            "SELECT 'it''s; quoted' FROM t;",
+            "SELECT id\n  -- Base list only; build-time modes carry theirs alongside\nFROM ideas",
+        ).forEach { query ->
+            assertEquals(query, build(query).query)
         }
     }
 
     @Test
-    fun `dangerous patterns are rejected - stored procedures`() {
-        val dangerousQueries = listOf(
+    fun `a second statement after a semicolon is refused`() {
+        listOf(
+            "SELECT * FROM users; DROP TABLE users;",
+            "SELECT * FROM users; DROP TABLE users",
+            "SELECT * FROM users;; SELECT * FROM passwords;",
+            "INSERT INTO users VALUES (1, 'test'); DELETE FROM users;",
             "SELECT * FROM users; EXEC xp_cmdshell 'dir'",
-            "SELECT * FROM users; EXECUTE sp_configure",
-            "SELECT xp_fileexist('c:\\test.txt')",
-            "INSERT INTO users VALUES (1, 'test'); sp_adduser 'hacker'"
-        )
-
-        dangerousQueries.forEach { query ->
-            val exception = assertThrows<IllegalArgumentException> {
-                when {
-                    query.lowercase().startsWith("select") -> SafeSQL.select(query)
-                    query.lowercase().startsWith("insert") -> SafeSQL.insert(query)
-                    else -> SafeSQL.select(query)
-                }
-            }
-            assertEquals("SQL query contains potentially unsafe patterns", exception.message)
+        ).forEach { query ->
+            val exception = assertThrows<IllegalArgumentException> { build(query) }
+            assertEquals("SafeSQL holds a single statement; a ';' may only end it", exception.message, "for query '$query'")
         }
     }
 
     @Test
-    fun `dangerous patterns are rejected - DDL statements`() {
-        val dangerousQueries = listOf(
-            "SELECT * FROM users; DROP TABLE passwords",
-            "SELECT * FROM users; CREATE USER hacker",
-            "SELECT * FROM users; ALTER TABLE users ADD password VARCHAR(100)",
-            "SELECT * FROM users; TRUNCATE TABLE logs",
-            "SELECT * FROM users; GRANT ALL ON users TO hacker",
-            "SELECT * FROM users; REVOKE SELECT ON users FROM user1"
-        )
-
-        dangerousQueries.forEach { query ->
-            val exception = assertThrows<IllegalArgumentException> {
-                SafeSQL.select(query)
-            }
-            assertEquals("SQL query contains potentially unsafe patterns", exception.message)
-        }
-    }
-
-    @Test
-    fun `case insensitive pattern matching`() {
-        val dangerousQueries = listOf(
-            "SELECT * FROM users; DROP table passwords",
-            "SELECT * FROM users; drop TABLE passwords",
-            "SELECT * FROM users; DROP TABLE passwords",
-            "SELECT * FROM users WHERE name = 'test' EXEC xp_cmdshell",
-            "SELECT * FROM USERS; EXECUTE SP_CONFIGURE"
-        )
-
-        dangerousQueries.forEach { query ->
-            val exception = assertThrows<IllegalArgumentException> {
-                SafeSQL.select(query)
-            }
-            assertEquals("SQL query contains potentially unsafe patterns", exception.message)
-        }
-    }
-
-    @Test
-    fun `valid complex queries are accepted`() {
-        val validQueries = mapOf(
-            "SELECT u.name, p.title FROM users u JOIN projects p ON u.id = p.user_id WHERE u.active = ?" to SafeSQL::select,
-            "INSERT INTO audit_log (user_id, action, timestamp) VALUES (?, 'login', NOW())" to SafeSQL::insert,
-            "UPDATE users SET last_login = NOW(), login_count = login_count + 1 WHERE id = ?" to SafeSQL::update,
-            "DELETE FROM sessions WHERE expires_at < NOW() AND user_id = ?" to SafeSQL::delete
-        )
-
-        validQueries.forEach { (query, factory) ->
-            val safeSQL = factory(query)
-            assertNotNull(safeSQL)
-            assertEquals(query, safeSQL.query)
-        }
-    }
-
-    @Test
-    fun `edge cases with whitespace and mixed case`() {
-        val testCases = listOf(
-            "  SELECT  *  FROM  users  " to SafeSQL::select,
-            "\nSELECT * FROM users\n" to SafeSQL::select,
-            "\t\tINSERT INTO users VALUES (1, 'test')\t\t" to SafeSQL::insert,
-            "Update users set name = 'test'" to SafeSQL::update,
-            "Delete from users where id = 1" to SafeSQL::delete
-        )
-
-        testCases.forEach { (query, factory) ->
-            val safeSQL = factory(query)
-            assertNotNull(safeSQL)
-            assertEquals(query, safeSQL.query)
-        }
-    }
-
-    @Test
-    fun `query property returns original query`() {
-        val originalQuery = "SELECT id, name FROM users WHERE active = true"
-        val safeSQL = SafeSQL.select(originalQuery)
-        assertEquals(originalQuery, safeSQL.query)
-    }
-
-    @Test
-    fun `value class behavior - equals and hashCode`() {
-        val query = "SELECT * FROM users"
-        val safeSQL1 = SafeSQL.select(query)
-        val safeSQL2 = SafeSQL.select(query)
-
-        assertEquals(safeSQL1, safeSQL2)
-        assertEquals(safeSQL1.hashCode(), safeSQL2.hashCode())
-        assertEquals(safeSQL1.toString(), safeSQL2.toString())
-    }
-
-    @Test
-    fun `parameters in queries are safe`() {
-        val queriesWithParams = listOf(
-            "SELECT * FROM users WHERE id = ? AND name = ?",
-            "INSERT INTO users (name, email, age) VALUES (?, ?, ?)",
-            "UPDATE users SET name = ?, email = ? WHERE id = ?",
-            "DELETE FROM users WHERE id = ? AND status = ?"
-        )
-
-        val factories = listOf(SafeSQL::select, SafeSQL::insert, SafeSQL::update, SafeSQL::delete)
-
-        queriesWithParams.zip(factories).forEach { (query, factory) ->
-            val safeSQL = factory(query)
-            assertNotNull(safeSQL)
-            assertEquals(query, safeSQL.query)
-        }
-    }
-
-    @Test
-    fun `column names containing dangerous keywords as substrings are allowed`() {
-        val validQueries = listOf(
-            "SELECT created_at FROM users WHERE updated_at > ?",
+    fun `words that a denylist would have flagged are none of SafeSQL's business`() {
+        // Until MCO-551 a substring denylist (`exec`, `sp_`, `xp_`, whole-word DDL keywords) rejected
+        // some of these. It guarded nothing — the text is a constant either way — and would have
+        // refused a legitimate column such as executed_at.
+        listOf(
+            "SELECT created_at, executed_at FROM users WHERE updated_at > ?",
             "INSERT INTO logs (created_at, dropped_items) VALUES (?, ?)",
             "UPDATE users SET created_at = NOW() WHERE altered_by = ?",
-            "DELETE FROM audit WHERE created_at < ? AND truncated_data IS NULL"
-        )
-
-        val factories = listOf(SafeSQL::select, SafeSQL::insert, SafeSQL::update, SafeSQL::delete)
-
-        validQueries.zip(factories).forEach { (query, factory) ->
-            val safeSQL = factory(query)
-            assertNotNull(safeSQL)
-            assertEquals(query, safeSQL.query)
+            "DELETE FROM audit WHERE created_at < ? AND truncated_data IS NULL",
+            "SELECT regexp_replace(name, 'x', 'y') FROM crisp_things",
+            "SELECT * FROM users WHERE role = 'create'",
+        ).forEach { query ->
+            assertEquals(query, build(query).query)
         }
     }
 
     @Test
-    fun `dangerous DDL keywords as whole words are still rejected`() {
-        val dangerousQueries = listOf(
-            "SELECT * FROM users; CREATE TABLE hacker (id INT)",
-            "SELECT * FROM users; DROP TABLE passwords",
-            "SELECT * FROM users; ALTER TABLE users ADD column password VARCHAR(100)",
-            "SELECT * FROM users; TRUNCATE TABLE logs",
-            "SELECT * FROM users; GRANT ALL PRIVILEGES ON users TO hacker",
-            "SELECT * FROM users; REVOKE SELECT ON users FROM user"
-        )
-
-        dangerousQueries.forEach { query ->
-            val exception = assertThrows<IllegalArgumentException> {
-                SafeSQL.select(query)
-            }
-            assertEquals("SQL query contains potentially unsafe patterns", exception.message)
-        }
+    fun `value class behaviour - equals, hashCode and the original text`() {
+        val query = "SELECT id, name FROM users WHERE active = true"
+        val one = SafeSQL.select(query)
+        val two = SafeSQL.select(query)
+        assertEquals(query, one.query)
+        assertEquals(one, two)
+        assertEquals(one.hashCode(), two.hashCode())
+        assertEquals(one.toString(), two.toString())
     }
 }

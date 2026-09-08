@@ -39,6 +39,10 @@ class WebhookDeliveryPollerTest {
     fun setup() {
         mockkObject(WebhookStore)
         coEvery { WebhookStore.pruneOldDeliveries() } returns Unit
+        // Added to pollOnce under MCO-326 without a mock here, so every test was reaching for a real
+        // database through it. Since MCO-551 that call runs on Dispatchers.IO and no longer blocks the
+        // runBlocking thread, which is what had been (accidentally) serialising the idle-loop test.
+        coEvery { WebhookStore.failAbandonedClaims(any()) } returns Unit
         coEvery { WebhookStore.claimDueDeliveries(any(), any()) } returns emptyList()
     }
 
@@ -127,6 +131,9 @@ class WebhookDeliveryPollerTest {
         }
 
         // Let the loop run its first (unavoidable) pollOnce, then sit idle for a while.
+        withTimeout(10_000) {
+            while (dueCalls.get() < 1) delay(10)
+        }
         delay(300)
         assertEquals(1, dueCalls.get(), "idle loop must not re-poll on its own")
 

@@ -4,6 +4,9 @@ import app.mcorg.config.Database
 import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.failure.AppFailure
 import com.zaxxer.hikari.pool.HikariPool
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import org.postgresql.util.PSQLException
 import org.slf4j.LoggerFactory
 import java.sql.*
@@ -42,6 +45,45 @@ private fun logDatabaseFailure(what: String, e: Exception) {
     logger.error("{}: {} (message withheld — it can carry row values)", what, description)
 }
 
+/**
+ * Runs one JDBC interaction off the caller's thread (MCO-551).
+ *
+ * JDBC blocks, and Ktor's Netty engine runs the application call on its call event-loop group,
+ * which defaults to `availableProcessors()` threads — **one** on production's 1-vCPU Fly machine:
+ * every request line in the production log carries `[eventLoopGroupProxy-4-1]`. Until this
+ * helper existed every statement ran on that thread for its whole duration, so one slow query
+ * stalled every other request, static assets included. Measured locally with the JVM pinned to a
+ * single processor: a favicon that serves in 39ms took 9.4s while one `/worlds` request sat
+ * behind a table lock.
+ *
+ * `Dispatchers.IO` is the documented home for blocking calls. Its thread count (64) exceeding the
+ * pool's ten connections is deliberate: a burst beyond the pool now queues on Hikari's
+ * `connectionTimeout` on an IO thread, which is backpressure, rather than on the event loop,
+ * which is an outage.
+ *
+ * Cancellation is rethrown, not mapped. A cancelled request is not a database failure; turning it
+ * into one hid the cancellation and let the pipeline carry on after its caller was gone (the
+ * same shape as the webhook-poller bug fixed under MCO-326).
+ */
+private suspend fun <S> jdbc(
+    what: String,
+    transactionConnection: TransactionConnection?,
+    block: (Connection) -> Result<AppFailure.DatabaseError, S>,
+): Result<AppFailure.DatabaseError, S> = withContext(Dispatchers.IO) {
+    try {
+        if (transactionConnection != null) {
+            block(transactionConnection.connection)
+        } else {
+            Database.getConnection().use { block(it) }
+        }
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        logDatabaseFailure(what, e)
+        Result.failure(mapDatabaseException(e))
+    }
+}
+
 @Suppress("SqlSourceToSinkFlow")
 object DatabaseSteps {
     fun <I, S> query(
@@ -51,33 +93,20 @@ object DatabaseSteps {
         transactionConnection: TransactionConnection? = null,
     ): Step<I, AppFailure.DatabaseError, S> {
         return object : Step<I, AppFailure.DatabaseError, S> {
-            override suspend fun process(input: I): Result<AppFailure.DatabaseError, S> {
-                return try {
-                    val block = { conn: Connection ->
-                        conn.prepareStatement(sql.query).use { statement ->
-                            parameterSetter(statement, input)
-                            statement.executeQuery().use { resultSet ->
-                                try {
-                                    Result.success(resultMapper(resultSet))
-                                } catch (e: SQLException) {
-                                    logDatabaseFailure("Error mapping result set", e)
-                                    Result.failure(AppFailure.DatabaseError.ResultMappingError)
-                                }
+            override suspend fun process(input: I): Result<AppFailure.DatabaseError, S> =
+                jdbc("Could not execute query", transactionConnection) { conn ->
+                    conn.prepareStatement(sql.query).use { statement ->
+                        parameterSetter(statement, input)
+                        statement.executeQuery().use { resultSet ->
+                            try {
+                                Result.success(resultMapper(resultSet))
+                            } catch (e: SQLException) {
+                                logDatabaseFailure("Error mapping result set", e)
+                                Result.failure(AppFailure.DatabaseError.ResultMappingError)
                             }
                         }
                     }
-                    if (transactionConnection != null) {
-                        block(transactionConnection.connection)
-                    } else {
-                        Database.getConnection().use { connection ->
-                            block(connection)
-                        }
-                    }
-                } catch (e: Exception) {
-                    logDatabaseFailure("Could not execute query", e)
-                    handleException(e)
                 }
-            }
         }
     }
 
@@ -87,39 +116,24 @@ object DatabaseSteps {
         transactionConnection: TransactionConnection? = null,
     ): Step<I, AppFailure.DatabaseError, Int> {
         return object : Step<I, AppFailure.DatabaseError, Int> {
-            override suspend fun process(input: I): Result<AppFailure.DatabaseError, Int> {
-                return try {
-                    val block = { conn: Connection ->
-                        conn.prepareStatement(sql.query).use { statement ->
-                            parameterSetter(statement, input)
-                            if (sql.query.contains("RETURNING", ignoreCase = false)) {
-                                statement.executeQuery().use { resultSet ->
-                                    if (resultSet.next()) {
-                                        val id = resultSet.getInt(1)
-                                        Result.success(id)
-                                    } else {
-                                        Result.failure(AppFailure.DatabaseError.NoIdReturned)
-                                    }
+            override suspend fun process(input: I): Result<AppFailure.DatabaseError, Int> =
+                jdbc("Could not execute update", transactionConnection) { conn ->
+                    conn.prepareStatement(sql.query).use { statement ->
+                        parameterSetter(statement, input)
+                        if (sql.query.contains("RETURNING", ignoreCase = false)) {
+                            statement.executeQuery().use { resultSet ->
+                                if (resultSet.next()) {
+                                    Result.success(resultSet.getInt(1))
+                                } else {
+                                    Result.failure(AppFailure.DatabaseError.NoIdReturned)
                                 }
-                            } else {
-                                // For non-RETURNING queries, we just return the number of affected rows
-                                val affectedRows = statement.executeUpdate()
-                                Result.success(affectedRows)
                             }
+                        } else {
+                            // For non-RETURNING queries, we just return the number of affected rows
+                            Result.success(statement.executeUpdate())
                         }
                     }
-                    if (transactionConnection != null) {
-                        block(transactionConnection.connection)
-                    } else {
-                        Database.getConnection().use { connection ->
-                            block(connection)
-                        }
-                    }
-                } catch (e: Exception) {
-                    logDatabaseFailure("Could not execute update", e)
-                    handleException(e)
                 }
-            }
         }
     }
 
@@ -130,46 +144,39 @@ object DatabaseSteps {
         transactionConnection: TransactionConnection? = null,
     ): Step<List<I>, AppFailure.DatabaseError, Unit> {
         return object : Step<List<I>, AppFailure.DatabaseError, Unit> {
-            override suspend fun process(input: List<I>): Result<AppFailure.DatabaseError, Unit> {
-                return try {
-                    val block = { conn: Connection ->
-                        conn.prepareStatement(sql.query).use { statement ->
-                            input.chunked(chunkSize).forEach { chunk ->
-                                statement.clearBatch()
-                                chunk.forEach { item ->
-                                    parameterSetter(statement, item)
-                                    statement.addBatch()
-                                }
-                                val results = statement.executeBatch()
-                                val successCount = results.count { it > 0 }
-                                if (successCount != chunk.size) {
-                                    logger.warn("Expected to affect ${chunk.size} rows, but only $successCount were affected.")
-                                }
+            override suspend fun process(input: List<I>): Result<AppFailure.DatabaseError, Unit> =
+                jdbc("Could not execute batch update", transactionConnection) { conn ->
+                    conn.prepareStatement(sql.query).use { statement ->
+                        input.chunked(chunkSize).forEach { chunk ->
+                            statement.clearBatch()
+                            chunk.forEach { item ->
+                                parameterSetter(statement, item)
+                                statement.addBatch()
                             }
-                            Result.success<AppFailure.DatabaseError>()
+                            val results = statement.executeBatch()
+                            val successCount = results.count { it > 0 }
+                            if (successCount != chunk.size) {
+                                logger.warn("Expected to affect ${chunk.size} rows, but only $successCount were affected.")
+                            }
                         }
+                        Result.success<AppFailure.DatabaseError>()
                     }
-                    if (transactionConnection != null) {
-                        block(transactionConnection.connection)
-                    } else {
-                        Database.getConnection().use { connection ->
-                            block(connection)
-                        }
-                    }
-                } catch (e: Exception) {
-                    logDatabaseFailure("Could not execute batch update", e)
-                    handleException(e)
                 }
-            }
         }
     }
 
+    /**
+     * Runs [step] inside one transaction. The inner step must thread the [TransactionConnection]
+     * into every `DatabaseSteps` call it makes: a call without it opens its own pooled connection
+     * and silently runs *outside* the transaction. As of MCO-551 all sixteen inner calls in the
+     * tree pass it — keep it that way.
+     */
     fun <I, S> transaction(
         step: (connection: TransactionConnection) -> Step<I, AppFailure.DatabaseError, S>
     ): Step<I, AppFailure.DatabaseError, S> {
         return object : Step<I, AppFailure.DatabaseError, S> {
-            override suspend fun process(input: I): Result<AppFailure.DatabaseError, S> {
-                return try {
+            override suspend fun process(input: I): Result<AppFailure.DatabaseError, S> = withContext(Dispatchers.IO) {
+                try {
                     Database.getConnection().use { connection ->
                         connection.autoCommit = false
                         try {
@@ -188,16 +195,15 @@ object DatabaseSteps {
                             throw e
                         }
                     }
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (e: Exception) {
                     logDatabaseFailure("Could not execute transaction", e)
-                    handleException(e)
+                    Result.failure(mapDatabaseException(e))
                 }
             }
         }
     }
-
-    private fun handleException(e: Exception): Result<AppFailure.DatabaseError, Nothing> =
-        Result.failure(mapDatabaseException(e))
 }
 
 /**
@@ -272,8 +278,4 @@ internal fun mapDatabaseException(e: Throwable): AppFailure.DatabaseError {
     }
 }
 
-data class TransactionConnection(val connection: Connection) {
-    fun use(block: (Connection) -> Unit) {
-        block(connection)
-    }
-}
+data class TransactionConnection(val connection: Connection)

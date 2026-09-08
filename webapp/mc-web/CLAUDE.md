@@ -9,7 +9,7 @@ Wires everything together: HTTP routing, authentication, database access, server
 ## Tech
 
 - Depends on: all other modules (`mc-domain`, `mc-pipeline`, `mc-data`, `mc-nbt`, `mc-engine`)
-- Ktor 3.4.0 (Netty), Kotlin HTML DSL, HTMX
+- Ktor 3.5.2 (Netty), Kotlin HTML DSL, HTMX
 - PostgreSQL (HikariCP connection pool), Flyway migrations
 - Auth: JWT + Microsoft OAuth
 - Test: Testcontainers (PostgreSQL), WireMock, MockK, Ktor test host
@@ -57,7 +57,9 @@ presentation/
 
 **Auth:** Authorization via Ktor plugins at route level — NEVER inside pipelines
 
-**SQL:** Use `SafeSQL.select/insert/update/delete/with()` — NEVER constructor or string interpolation
+**SQL:** Use `SafeSQL.select/insert/update/delete/with()` — NEVER constructor or string interpolation.
+`SafeSqlSourceScanTest` fails the build on an interpolated or non-literal SQL text; the only way
+past it is an allowlist entry stating why the spliced value cannot carry request input.
 
 **Styles:** Use CSS utility classes — NEVER inline `style =`
 
@@ -72,9 +74,17 @@ compiler-generated `toString()` prints every field, so a type without one is a s
 
 ## Database
 
-- Migrations: `src/main/resources/db/migration/` (Flyway naming: `V{n}__{description}.sql`)
-- Access via `SafeSQL` and `DatabaseSteps` — type-safe query builder
-- Connection pool: HikariCP
+- Migrations: `src/main/resources/db/migration/` (Flyway naming: `V{n}__{description}.sql`).
+  They run out of band (`migrate-*.sh`, `mvn flyway:migrate` in CI); the app **validates** the
+  schema at boot (`config/SchemaValidation.kt`) and refuses to start when a migration on the
+  classpath has not been applied.
+- Access via `SafeSQL` and `DatabaseSteps` only. `DatabaseSteps` runs every JDBC call on
+  `Dispatchers.IO` — never touch a `Connection` from a handler or step yourself. Ktor's call
+  thread is the one thread production has, and JDBC blocks it (MCO-551).
+- Row mapping: a row shape read by more than one query gets a named `ResultSet.toX()` extension
+  in the feature's `extractors/` file; an inline `resultMapper` lambda is fine for a shape read
+  in one place.
+- Connection pool: HikariCP (`config/Database.kt`; the timeouts are documented in place)
 
 ## Build
 

@@ -9,8 +9,11 @@ import java.sql.Connection
 /*
  * Database timeouts, in seconds (MCO-347).
  *
- * Sized around the slowest thing that legitimately runs on this pool, which is not a web request
- * but the nightly ingestion: its heaviest statement is the cascading
+ * Sized around the slowest thing that legitimately runs under this configuration, which is not
+ * a web request but the nightly ingestion. Since MCO-165 that is a separate process — the ingest
+ * CLI builds its own pool from this same class — so the web pool never carries it, but the
+ * *timeout* still has to fit it because both pools share these constants. Its heaviest
+ * statement is the cascading
  * `DELETE FROM resource_source WHERE version = ?`. Measured on a production fork at **171ms**
  * for the largest version (3,269 parent rows) with V2_58_0's foreign-key indexes in place, so 30s
  * is ~175x headroom.
