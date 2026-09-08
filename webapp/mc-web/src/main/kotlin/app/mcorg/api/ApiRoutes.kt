@@ -52,8 +52,14 @@ fun Route.apiV1Routes() {
         }
         route("/worlds") {
             install(ApiBearerAuthPlugin)
+            // Container tagging (MCO-530) put writes under this node, so it needs the same demo
+            // block the /projects group has. No-op for the GETs above it.
+            install(ApiDemoWriteBlockPlugin)
             get { call.handleGetWorlds() }
             get("/{worldId}/projects") { call.handleGetWorldProjects() }
+            get("/{worldId}/containers") { call.handleGetContainerTags() }
+            post("/{worldId}/containers") { call.handleTagContainer() }
+            delete("/{worldId}/containers/{containerId}") { call.handleUntagContainer() }
         }
         route("/projects") {
             install(ApiBearerAuthPlugin)
@@ -188,18 +194,7 @@ suspend fun ApplicationCall.handleGetWorlds() {
 }
 
 suspend fun ApplicationCall.handleGetWorldProjects() {
-    val userId = getApiUserId()
-    val worldId = parameters["worldId"]?.toIntOrNull()
-    if (worldId == null) {
-        respondApiError(HttpStatusCode.BadRequest, "invalid_request", "Invalid world id")
-        return
-    }
-    // Membership check: shares the web's participant definition (rejects non-members AND
-    // world-banned members; world_role <= MEMBER). Not a member (or world absent) → 403.
-    if (ValidateWorldMemberRole<Unit>(apiProfile(userId), Role.MEMBER, worldId).process(Unit) is Result.Failure) {
-        respondApiError(HttpStatusCode.Forbidden, "forbidden", "Not a member of this world")
-        return
-    }
+    val worldId = resolveWorldForUser() ?: return
 
     val projects = when (val r = GetProjectListStep(worldId).process(Unit)) {
         is Result.Success -> r.value
@@ -340,6 +335,173 @@ suspend fun ApplicationCall.handleUpdateTask() {
         )
         is Result.Failure -> respondApiError(HttpStatusCode.InternalServerError, "server_error", "Could not update task")
     }
+}
+
+// ── Container tags (MCO-530) ───────────────────────────────────────────────────
+
+/**
+ * Which blocks may be tagged — a whitelist, not "anything that is an `Inventory`". A furnace is an
+ * `Inventory`, and tagging one would count its fuel and input, which is not what anyone means.
+ * Mirrors the CHECK constraint on `container_tags.kind`; change both together.
+ */
+private val TAGGABLE_KINDS = setOf(
+    "chest", "trapped_chest", "barrel", "shulker_box", "hopper", "dropper", "dispenser",
+)
+
+private const val MAX_DIMENSION_LENGTH = 64
+private const val MAX_GROUP_KEY_LENGTH = 128
+
+/** A container's identity when it stands alone: its own block position. */
+private fun positionKey(x: Int, y: Int, z: Int) = "$x,$y,$z"
+
+/**
+ * Whether [groupKey] names this position or one orthogonally adjacent to it.
+ *
+ * A joined chest's two halves differ by one block on X or Z, and the client posts both with the
+ * lower half's position as the shared key — so "own or adjacent" is exactly the set of legitimate
+ * keys, and everything else is either a client bug or an attempt to collapse unrelated containers
+ * into one dedupe group.
+ */
+private fun isOwnOrAdjacentPosition(groupKey: String, x: Int, y: Int, z: Int): Boolean {
+    val parts = groupKey.split(',')
+    if (parts.size != 3) return false
+    val (kx, ky, kz) = parts.map { it.toIntOrNull() ?: return false }
+    if (ky != y) return false
+    val dx = Math.abs(kx.toLong() - x.toLong())
+    val dz = Math.abs(kz.toLong() - z.toLong())
+    return dx + dz <= 1
+}
+
+private fun ContainerTagRow.toDto() = ContainerTagDto(
+    id = id,
+    projectId = projectId,
+    dimension = dimension,
+    x = x,
+    y = y,
+    z = z,
+    groupKey = groupKey,
+    kind = kind,
+    taggedBy = taggedByName,
+    taggedAt = taggedAt.toString(),
+    lastSeenAt = lastSeenAt?.toString(),
+    state = state,
+)
+
+suspend fun ApplicationCall.handleGetContainerTags() {
+    val worldId = resolveWorldForUser() ?: return
+    when (val r = ListContainerTagsStep.process(worldId)) {
+        is Result.Success -> respondJson(HttpStatusCode.OK, ContainerTagsResponse(r.value.map { it.toDto() }))
+        is Result.Failure -> respondApiError(HttpStatusCode.InternalServerError, "server_error", "Could not load container tags")
+    }
+}
+
+suspend fun ApplicationCall.handleTagContainer() {
+    val worldId = resolveWorldForUser() ?: return
+
+    val body = receiveJsonOrNull<ContainerTagRequest>()
+    if (body == null) {
+        respondApiError(HttpStatusCode.BadRequest, "invalid_request", "Malformed request body")
+        return
+    }
+    if (body.dimension.isBlank() || body.dimension.length > MAX_DIMENSION_LENGTH) {
+        respondApiError(HttpStatusCode.BadRequest, "invalid_request", "Invalid dimension")
+        return
+    }
+    if (body.kind !in TAGGABLE_KINDS) {
+        respondApiError(
+            HttpStatusCode.BadRequest,
+            "invalid_request",
+            "Not a taggable container kind: ${body.kind}",
+        )
+        return
+    }
+    // Default the group key to the position, which is what an unjoined container's identity is.
+    // Both halves of a double chest are posted with the same explicit key by the client.
+    val groupKey = body.groupKey?.takeIf { it.isNotBlank() } ?: positionKey(body.x, body.y, body.z)
+    if (groupKey.length > MAX_GROUP_KEY_LENGTH) {
+        respondApiError(HttpStatusCode.BadRequest, "invalid_request", "group_key is too long")
+        return
+    }
+    // The key is the sweep's dedupe key, so it cannot be free text. Unchecked, one client could
+    // send the same key for a hundred unrelated chests and the sweep would count one of them —
+    // silently erasing the rest from the measurement. Constraining it to this position or the one
+    // next door admits exactly the case it exists for (a joined chest, whose halves are adjacent)
+    // and nothing else.
+    if (!isOwnOrAdjacentPosition(groupKey, body.x, body.y, body.z)) {
+        respondApiError(
+            HttpStatusCode.BadRequest,
+            "invalid_request",
+            "group_key must be this container's position or an adjacent one",
+        )
+        return
+    }
+
+    // The project must live in the world from the URL — otherwise membership of any world would be
+    // enough to tag a container into someone else's project.
+    val projectWorldId = when (val r = GetProjectWorldIdStep.process(body.projectId)) {
+        is Result.Success -> r.value
+        is Result.Failure -> {
+            respondApiError(HttpStatusCode.NotFound, "not_found", "Project not found")
+            return
+        }
+    }
+    if (projectWorldId != worldId) {
+        respondApiError(HttpStatusCode.BadRequest, "invalid_request", "Project does not belong to this world")
+        return
+    }
+
+    val input = UpsertContainerTagInput(
+        worldId = worldId,
+        projectId = body.projectId,
+        dimension = body.dimension,
+        x = body.x,
+        y = body.y,
+        z = body.z,
+        groupKey = groupKey,
+        kind = body.kind,
+        taggedBy = getApiUserId(),
+    )
+    when (val r = UpsertContainerTagStep.process(input)) {
+        is Result.Success -> respondJson(HttpStatusCode.OK, r.value.toDto())
+        is Result.Failure -> respondApiError(HttpStatusCode.InternalServerError, "server_error", "Could not tag container")
+    }
+}
+
+suspend fun ApplicationCall.handleUntagContainer() {
+    val worldId = resolveWorldForUser() ?: return
+    val containerId = parameters["containerId"]?.toLongOrNull()
+    if (containerId == null) {
+        respondApiError(HttpStatusCode.BadRequest, "invalid_request", "Invalid container id")
+        return
+    }
+    // Scoped by world, so a tag in another world reads as absent rather than as someone else's.
+    when (val r = DeleteContainerTagStep.process(ContainerTagKey(worldId, containerId))) {
+        is Result.Success ->
+            if (r.value == 0) respondApiError(HttpStatusCode.NotFound, "not_found", "Container tag not found")
+            else respondJson(HttpStatusCode.OK, OkResponse())
+        is Result.Failure -> respondApiError(HttpStatusCode.InternalServerError, "server_error", "Could not untag container")
+    }
+}
+
+/**
+ * Parses `{worldId}` and verifies the bearer user is a member of that world. Responds 400 (bad id)
+ * or 403 (not a member) and returns null on failure; otherwise returns the world id.
+ *
+ * The membership check shares the web's participant definition (rejects non-members AND
+ * world-banned members; `world_role <= MEMBER`). Not a member, or world absent → 403, never a
+ * 404 that would leak whether the world exists.
+ */
+private suspend fun ApplicationCall.resolveWorldForUser(): Int? {
+    val worldId = parameters["worldId"]?.toIntOrNull()
+    if (worldId == null) {
+        respondApiError(HttpStatusCode.BadRequest, "invalid_request", "Invalid world id")
+        return null
+    }
+    if (ValidateWorldMemberRole<Unit>(apiProfile(getApiUserId()), Role.MEMBER, worldId).process(Unit) is Result.Failure) {
+        respondApiError(HttpStatusCode.Forbidden, "forbidden", "Not a member of this world")
+        return null
+    }
+    return worldId
 }
 
 /**

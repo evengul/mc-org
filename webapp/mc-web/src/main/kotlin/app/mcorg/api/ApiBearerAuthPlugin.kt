@@ -65,14 +65,32 @@ val ApiBearerAuthPlugin = createRouteScopedPlugin("ApiBearerAuthPlugin") {
  * Mirrors the HTML app's [app.mcorg.presentation.plugins.DemoUserPlugin]: in Production, demo users
  * may read but not mutate. Install on the write route group AFTER [ApiBearerAuthPlugin] (it reads the
  * user id that plugin resolves). No-op outside Production and for GET/OPTIONS, matching the web app.
+ *
+ * **Fails closed on a database error.** This gate used to read
+ * `(IsDemoUserStep.process(userId) as? Result.Success)?.value == true`, so a `Result.Failure` — pool
+ * exhaustion, a Neon compute suspending, any transient error `DatabaseSteps` explicitly expects —
+ * yielded null, which is not `true`, and the write proceeded. The HTML `DemoUserPlugin` it mirrors
+ * cannot fail that way because it reads the flag off the JWT, and
+ * [app.mcorg.pipeline.world.ValidateWorldMemberRole] is deliberately written to deny on failure.
+ * This was the one gate in the app that opened when the database wobbled.
  */
 val ApiDemoWriteBlockPlugin = createRouteScopedPlugin("ApiDemoWriteBlockPlugin") {
     onCall { call ->
         if (AppConfig.env != Production) return@onCall
         if (call.request.httpMethod in listOf(HttpMethod.Get, HttpMethod.Options)) return@onCall
         val userId = call.attributes.getOrNull(API_USER_ID_KEY) ?: return@onCall
-        if ((IsDemoUserStep.process(userId) as? Result.Success)?.value == true) {
-            call.respondApiError(HttpStatusCode.Forbidden, "forbidden", "Demo users cannot modify data")
+        when (val demo = IsDemoUserStep.process(userId)) {
+            is Result.Success ->
+                if (demo.value) {
+                    call.respondApiError(HttpStatusCode.Forbidden, "forbidden", "Demo users cannot modify data")
+                }
+            // Cannot tell whether this is a demo user, so refuse the write rather than allow it.
+            is Result.Failure ->
+                call.respondApiError(
+                    HttpStatusCode.ServiceUnavailable,
+                    "unavailable",
+                    "Could not verify account status; try again",
+                )
         }
     }
 }
