@@ -56,19 +56,6 @@ fun roadmapPage(
 ): String = pageShell(
     pageTitle = "Seam — ${roadmap.worldName} roadmap",
     user = user,
-    stylesheets = listOf(
-        "/static/styles/components/btn.css",
-        "/static/styles/components/badge.css",
-        "/static/styles/pages/roadmap.css",
-        "/static/styles/pages/roadmap-graph.css",
-        "/static/styles/components/world-tabs.css",
-        "/static/styles/components/np-menu.css",
-        "/static/styles/components/empty-state.css",
-        "/static/styles/components/modal.css",
-        "/static/styles/components/form.css",
-        "/static/styles/components/item-search.css",
-        "/static/styles/components/item-glyph.css",
-    ),
     scripts = listOf("/static/scripts/np-menu.js", "/static/scripts/farm-modal.js"),
 ) {
     appHeader(

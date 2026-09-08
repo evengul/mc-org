@@ -9,6 +9,9 @@ import app.mcorg.pipeline.Result
 import app.mcorg.pipeline.world.ValidateWorldMemberRole
 import app.mcorg.pipeline.project.commonsteps.GetProjectByIdStep
 import app.mcorg.pipeline.project.commonsteps.GetProjectListStep
+import app.mcorg.pipeline.failure.AppFailure
+import app.mcorg.pipeline.resources.GatheringPlanInput
+import app.mcorg.pipeline.resources.GenerateGatheringPlanStep
 import app.mcorg.pipeline.resources.commonsteps.GetAllResourceGatheringItemsStep
 import app.mcorg.pipeline.resources.commonsteps.SetProgressByItemInput
 import app.mcorg.pipeline.resources.commonsteps.SetProgressByItemStep
@@ -74,6 +77,7 @@ fun Route.apiV1Routes() {
             install(ApiBearerAuthPlugin)
             // Block demo-user writes in Production (reads stay open) — mirrors DemoUserPlugin.
             install(ApiDemoWriteBlockPlugin)
+            get("/{projectId}/plan") { call.handleGetProjectPlan() }
             post("/{projectId}/resources/sync") { call.handleSyncResources() }
             put("/{projectId}/tasks/{taskId}") { call.handleUpdateTask() }
         }
@@ -343,6 +347,49 @@ suspend fun ApplicationCall.handleUpdateTask() {
             TaskDto(id = task.id, name = task.name, completed = body.completed),
         )
         is Result.Failure -> respondApiError(HttpStatusCode.InternalServerError, "server_error", "Could not update task")
+    }
+}
+
+// ── Gathering plan (MCO-533) ───────────────────────────────────────────────────
+
+/**
+ * The project's gathering plan as a flat activity list — the HUD's "graph items" mode.
+ *
+ * **This is the expensive endpoint, and it is deliberately off the frequent-poll path.** The mod
+ * pulls structure (this, and `/worlds/{id}/projects`) on project switch and every ~5 minutes;
+ * counts come from `GET /worlds/{id}/storage` every ~10s. Keep it that way — `GenerateGatheringPlanStep`
+ * re-derives the plan from the item-source graph on every call.
+ */
+suspend fun ApplicationCall.handleGetProjectPlan() {
+    val projectId = parameters["projectId"]?.toIntOrNull()
+    if (projectId == null) {
+        respondApiError(HttpStatusCode.BadRequest, "invalid_request", "Invalid project id")
+        return
+    }
+    val worldId = resolveProjectForUser(projectId) ?: return
+
+    when (val r = GenerateGatheringPlanStep.process(GatheringPlanInput(projectId, worldId))) {
+        is Result.Success -> respondJson(
+            HttpStatusCode.OK,
+            r.value.activityList.map {
+                PlanActivityDto(
+                    itemId = it.item.id,
+                    name = it.item.name,
+                    quantity = it.quantity,
+                    activityGroup = it.group.name,
+                    status = it.status.name,
+                )
+            },
+        )
+        is Result.Failure -> when (r.error) {
+            // Every target is fully collected, so there is no work left. That is an empty plan,
+            // not a failure — the mod would otherwise show an error for a finished project.
+            is AppFailure.ValidationError -> respondJson(HttpStatusCode.OK, emptyList<PlanActivityDto>())
+            is AppFailure.DatabaseError.NotFound ->
+                respondApiError(HttpStatusCode.NotFound, "not_found", "Project or world not found")
+            else ->
+                respondApiError(HttpStatusCode.InternalServerError, "server_error", "Could not derive the plan")
+        }
     }
 }
 

@@ -13,9 +13,6 @@ import kotlinx.html.span
 
 fun landingPage(microsoftUrl: String): String = pageShell(
     pageTitle = "Seam — Minecraft Resource Planner",
-    stylesheets = listOf(
-        "/static/styles/pages/landing-page.css",
-    )
 ) {
     header("landing-brand-bar") {
         a(classes = "landing-brand-bar__logo") {

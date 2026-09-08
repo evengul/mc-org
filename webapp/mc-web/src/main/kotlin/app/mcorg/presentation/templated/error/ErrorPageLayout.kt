@@ -17,7 +17,6 @@ fun errorPageLayout(
     ctaHref: String? = null,
 ): String = pageShell(
     pageTitle = pageTitle,
-    stylesheets = listOf("/static/styles/components/error-page.css"),
 ) {
     header("error-brand-bar") {
         a(classes = "error-brand-bar__logo") {

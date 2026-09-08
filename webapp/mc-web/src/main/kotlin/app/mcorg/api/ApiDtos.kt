@@ -116,6 +116,32 @@ data class TaskUpdateRequest(
     @SerialName("completed") val completed: Boolean,
 )
 
+// ── Gathering plan (MCO-533) ───────────────────────────────────────────────────
+
+/**
+ * One node of a project's gathering plan — the raw-gather / smelt / craft work expanded from its
+ * requirements, as opposed to the `resource_gathering` **target** items [ProjectDto] carries.
+ *
+ * That distinction is the point of the endpoint: a project asks for 64 hoppers, and the plan says
+ * go mine iron and chop wood. Target mode answers "what does the build need", this answers "what am
+ * I doing this afternoon".
+ *
+ * [quantity] is a `Long` in the engine and stays one on the wire — the mod formats it with
+ * thousands separators, and clamping to Int here would silently corrupt a large plan.
+ *
+ * [activityGroup] is `ActivityGroup` (`GATHER`, `SMELT`, `CRAFT`, `NEEDS_ATTENTION`, …) and
+ * [status] is `PlanNodeStatus` (`RESOLVED`, `RAW_GATHER`, `SUPPLIED`, `OPEN_TAG`, `BLOCKED`), both
+ * as their enum names. A plan full of `NEEDS_ATTENTION` is a normal answer, not an error.
+ */
+@Serializable
+data class PlanActivityDto(
+    @SerialName("item_id") val itemId: String,
+    @SerialName("name") val name: String,
+    @SerialName("quantity") val quantity: Long,
+    @SerialName("activity_group") val activityGroup: String,
+    @SerialName("status") val status: String,
+)
+
 // ── Container tags (MCO-530) ───────────────────────────────────────────────────
 
 /**

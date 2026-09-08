@@ -55,24 +55,6 @@ fun projectListPage(
 ): String = pageShell(
     pageTitle = "Seam — ${world.name}",
     user = user,
-    stylesheets = listOf(
-        "/static/styles/components/btn.css",
-        "/static/styles/components/modal.css",
-        "/static/styles/components/callout.css",
-        "/static/styles/components/resource-row.css",
-        "/static/styles/components/progress.css",
-        "/static/styles/components/project-card.css",
-        "/static/styles/pages/project-list.css",
-        "/static/styles/components/form.css",
-        "/static/styles/components/item-search.css",
-        "/static/styles/components/item-glyph.css",
-        "/static/styles/components/world-tabs.css",
-        // Both the "+ New project" menu and the empty state's doors are .np-menu__door; the
-        // menu moved out of this page's own stylesheet with MCO-474 and the link did not
-        // follow it, which left every create affordance here unstyled.
-        "/static/styles/components/np-menu.css",
-        "/static/styles/components/empty-state.css",
-    ),
     scripts = listOf("/static/scripts/np-menu.js", "/static/scripts/farm-modal.js")
 ) {
     appHeader(

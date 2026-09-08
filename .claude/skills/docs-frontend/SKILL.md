@@ -20,15 +20,14 @@ CSS lives in `webapp/mc-web/src/main/resources/static/styles/`.
 
 ## Page shell
 
-`pageShell()` replaces the old `createPage()`. It emits the full HTML document, loads `reset.css` +
-`design-tokens.css` + a core set of component stylesheets, loads HTMX from CDN, and auto-injects the
-shared confirm-delete modal and the toast/alert container.
+`pageShell()` replaces the old `createPage()`. It emits the full HTML document, links the one
+stylesheet bundle, loads HTMX from CDN, and auto-injects the shared confirm-delete modal and the
+toast/alert container.
 
 ```kotlin
 pageShell(
     pageTitle = "Projects",
     user = user,                                   // TokenProfile? — gates Profile link in header
-    stylesheets = listOf("/static/styles/pages/project-list.css"),  // extra page/component CSS
     scripts = listOf("/static/scripts/foo.js"),    // extra deferred scripts
 ) {
     appHeader(worldName = "Survival", worldId = 1, user = user, isWorldAdmin = true) {
@@ -42,9 +41,16 @@ pageShell(
 }
 ```
 
-Always loaded by the shell (do NOT re-list in `stylesheets`): `app-header`, `btn`, `modal`, `alert`,
-`badge`, `page-heading`, `section`, `tabs`, `data-table`. Any other component CSS the page uses must be
-passed via `stylesheets`.
+**There is no per-page stylesheet list** (MCO-514). Every sheet under `static/styles/` is in one
+bundle, `StylesheetBundle.kt`, served at `/static/seam.<hash>.css` — so a component's CSS travels
+with its markup to every page, including htmx fragments from shared endpoints. Adding a sheet
+means adding the file *and* its name to `StylesheetBundle`; `StylesheetBundleTest` fails until
+the two agree. Two rules the bundle imposes, both test-enforced:
+
+- **Never link a stylesheet by hand** — no `"/static/styles/..."` in a template.
+- **A page sheet must not re-declare a component's bare class** (`.badge { }` in `idea-hub.css`).
+  It used to override only on that page; in one bundle it overrides everywhere. Scope it to the
+  page's own markup (`.idea-card__badges .badge { }`) or change the component.
 
 GET handlers return a full `pageShell { }`. Mutating handlers (POST/PUT/PATCH/DELETE) return HTML
 **fragments**, never a full page.

@@ -1,6 +1,7 @@
 package app.mcorg.presentation.plugins
 
 import app.mcorg.logging.describeWithoutMessages
+import app.mcorg.presentation.templated.dsl.StylesheetBundle
 import app.mcorg.presentation.templated.error.notFoundPage
 import app.mcorg.presentation.templated.error.serverErrorPage
 import app.mcorg.presentation.utils.respondHtml
@@ -11,6 +12,7 @@ import io.ktor.server.plugins.callid.callId
 import io.ktor.server.plugins.statuspages.*
 import io.ktor.server.request.httpMethod
 import io.ktor.server.request.path
+import io.ktor.server.response.respondText
 import io.ktor.server.routing.*
 import org.slf4j.LoggerFactory
 
@@ -43,6 +45,19 @@ fun Application.configureStatusStaticRouter() {
         }
     }
     routing {
+        stylesheetBundle()
         staticResources("/static", "static")
+    }
+}
+
+/**
+ * `/static/seam.<version>.css` — the whole of [StylesheetBundle], whatever version the URL names.
+ * The version is a cache key, not a lookup: a client whose HTML predates a deploy already holds
+ * its old sheet immutably, and `styleguide.html` links `seam.latest.css` because a static file
+ * cannot know the hash. Caching is decided in `HTTP.kt` from the same version.
+ */
+fun Route.stylesheetBundle() {
+    get("${StylesheetBundle.HREF_PREFIX}{version}.css") {
+        call.respondText(StylesheetBundle.current().css, ContentType.Text.CSS)
     }
 }

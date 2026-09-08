@@ -327,16 +327,11 @@ class WorldRoadmapIT : WithUser() {
         deleteWorld(worldId)
     }
 
-    /**
-     * The world's one empty state (`worldEmptyState`): the same three doors the project list
-     * offers, styled — `.np-menu__door` needs np-menu.css, and the cards need empty-state.css.
-     */
+    /** The world's one empty state (`worldEmptyState`): the same three doors the project list offers. */
     private fun assertEmptyWorldState(body: String) {
         assertContains(body, "projects-empty-state")
         assertContains(body, "Plan your own project")
         assertContains(body, "record-farm-modal")
-        assertContains(body, "/static/styles/components/np-menu.css")
-        assertContains(body, "/static/styles/components/empty-state.css")
     }
 
     @Test
