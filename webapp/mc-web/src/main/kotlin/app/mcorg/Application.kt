@@ -1,6 +1,7 @@
 package app.mcorg
 
 import app.mcorg.config.AppConfig
+import app.mcorg.config.SchemaValidation
 import app.mcorg.event.configureEvents
 import app.mcorg.pipeline.minecraftfiles.configureUnmappedItemWarning
 import app.mcorg.webhook.configureWebhooks
@@ -20,6 +21,9 @@ fun main() {
     // First, before anything binds a port or opens a pool: a bad configuration must fail here
     // rather than surface later as a runtime mystery (MCO-332).
     AppConfig.initOrExit()
+    // Then the schema: a build whose migrations have not been applied must refuse to start
+    // rather than fail one query at a time (MCO-551).
+    SchemaValidation.validateOrExit()
     defaultServer { module() }.start(wait = true)
 }
 
