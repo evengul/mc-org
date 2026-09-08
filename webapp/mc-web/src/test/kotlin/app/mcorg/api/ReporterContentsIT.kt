@@ -146,6 +146,61 @@ class ReporterContentsIT : WithUser() {
         assertEquals(30, storage(worldId).single { it.itemId == iron }.measured)
     }
 
+    @Test
+    fun `breaking a chest and refilling it counts once, not twice`() = testApplication {
+        routing { install(AuthPlugin); apiV1Routes() }
+        val worldId = createWorld("break-refill")
+        val projectId = createProject(worldId)
+        val token = mintReporterToken(worldId)
+        val chest = tagContainer(worldId, projectId, 0, 64, 0)
+
+        push(token, container(chest, iron to 12L))
+        assertEquals(12, storage(worldId).single { it.itemId == iron }.measured)
+
+        // The chest is broken. The block is gone, so the sweep finds nothing at the position.
+        push(token, containerInState(chest, "missing"))
+        assertTrue(storage(worldId).none { it.itemId == iron }, "the stock went with the chest")
+
+        // A new chest goes down at the same spot and the same twelve go back in. Because a push is
+        // an absolute set per container and never a delta, the count returns to 12 — it does not
+        // accumulate to 24. Nothing has to identify individual items or stacks for this to hold.
+        push(token, container(chest, iron to 12L))
+
+        val storage = storage(worldId).single { it.itemId == iron }
+        assertEquals(12, storage.measured)
+        assertEquals(1, storage.containerCount)
+    }
+
+    @Test
+    fun `re-tagging a container to another project moves its stock immediately`() = testApplication {
+        routing { install(AuthPlugin); apiV1Routes() }
+        val worldId = createWorld("retag-move")
+        val from = createProject(worldId)
+        val to = createProject(worldId)
+        val reporterToken = mintReporterToken(worldId)
+        val playerToken = issueToken()
+        val chest = tagContainer(worldId, from, 0, 64, 0)
+        push(reporterToken, container(chest, iron to 12L))
+        assertEquals(12, storage(worldId).single { it.projectId == from }.measured)
+
+        // Re-tagging keeps the row — the position is the identity — so the container's stored
+        // contents come along. Both rollups are stale the instant that happens, and waiting for the
+        // next sweep to fix it means a world with no reporter stays wrong forever.
+        val response = client.post("/api/v1/worlds/$worldId/containers") {
+            header("Authorization", "Bearer $playerToken")
+            contentType(ContentType.Application.Json)
+            setBody(
+                """{"dimension":"minecraft:overworld","x":0,"y":64,"z":0,
+                    "project_id":$to,"kind":"chest"}""".trimIndent()
+            )
+        }
+        assertEquals(HttpStatusCode.OK, response.status, response.bodyAsText())
+
+        val rows = storage(worldId)
+        assertTrue(rows.none { it.projectId == from }, "the old project must stop claiming it")
+        assertEquals(12, rows.single { it.projectId == to }.measured)
+    }
+
     // ── The line that must not be crossed ──────────────────────────────────────
 
     @Test

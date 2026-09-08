@@ -367,6 +367,43 @@ object GetWorldStorageStep : Step<Int, AppFailure.DatabaseError, List<WorldStora
         ).process(input)
 }
 
+data class ContainerPositionKey(
+    val worldId: Int,
+    val dimension: String,
+    val x: Int,
+    val y: Int,
+    val z: Int,
+)
+
+/**
+ * The project currently tagged at a position, or NotFound if none is. Read *before* an upsert, so
+ * the caller knows whether a re-tag is moving the container's stored contents to a new project and
+ * therefore which rollups have gone stale.
+ */
+object FindContainerTagProjectByPositionStep :
+    Step<ContainerPositionKey, AppFailure.DatabaseError, Int> {
+    override suspend fun process(input: ContainerPositionKey): Result<AppFailure.DatabaseError, Int> =
+        DatabaseSteps.query<ContainerPositionKey, Int?>(
+            sql = SafeSQL.select(
+                """
+                SELECT project_id
+                FROM container_tags
+                WHERE world_id = ? AND dimension = ? AND x = ? AND y = ? AND z = ?
+                """.trimIndent()
+            ),
+            parameterSetter = { st, k ->
+                st.setInt(1, k.worldId)
+                st.setString(2, k.dimension)
+                st.setInt(3, k.x)
+                st.setInt(4, k.y)
+                st.setInt(5, k.z)
+            },
+            resultMapper = { if (it.next()) it.getInt("project_id") else null },
+        ).process(input).flatMap {
+            if (it == null) Result.failure(AppFailure.DatabaseError.NotFound) else Result.success(it)
+        }
+}
+
 /** The project a tag belongs to, for re-rolling its measurement after the tag is deleted. */
 object GetContainerTagProjectStep : Step<ContainerTagKey, AppFailure.DatabaseError, Int> {
     override suspend fun process(input: ContainerTagKey): Result<AppFailure.DatabaseError, Int> =

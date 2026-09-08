@@ -470,8 +470,23 @@ suspend fun ApplicationCall.handleTagContainer() {
         kind = body.kind,
         taggedBy = getApiUserId(),
     )
+    // Which project held this position before, if any. Re-tagging carries the container's stored
+    // contents across to the new project, so BOTH rollups are wrong the moment the row moves: the
+    // old one still claims stock it no longer has, and the new one does not yet show it. The next
+    // sweep would fix it, but "wrong until something else happens" is not a state to ship — and
+    // with no reporter running, nothing else happens.
+    val priorProject = (FindContainerTagProjectByPositionStep.process(
+        ContainerPositionKey(worldId, body.dimension, body.x, body.y, body.z)
+    ) as? Result.Success)?.value
+
     when (val r = UpsertContainerTagStep.process(input)) {
-        is Result.Success -> respondJson(HttpStatusCode.OK, r.value.toDto())
+        is Result.Success -> {
+            if (priorProject != null && priorProject != body.projectId) {
+                RecomputeMeasurementStep.process(priorProject)
+            }
+            RecomputeMeasurementStep.process(body.projectId)
+            respondJson(HttpStatusCode.OK, r.value.toDto())
+        }
         is Result.Failure -> respondApiError(HttpStatusCode.InternalServerError, "server_error", "Could not tag container")
     }
 }
