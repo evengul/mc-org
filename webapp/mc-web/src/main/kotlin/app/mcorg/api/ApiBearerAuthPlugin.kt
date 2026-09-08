@@ -61,6 +61,73 @@ val ApiBearerAuthPlugin = createRouteScopedPlugin("ApiBearerAuthPlugin") {
     }
 }
 
+private val REPORTER_WORLD_ID_KEY = AttributeKey<Int>("reporterWorldId")
+private val REPORTER_TOKEN_ID_KEY = AttributeKey<Long>("reporterTokenId")
+
+/** The world a reporter token speaks for, or null when the caller authenticated as a player. */
+fun ApplicationCall.getReporterWorldId(): Int? = attributes.getOrNull(REPORTER_WORLD_ID_KEY)
+
+/** The reporter token's row id, for stamping last-seen and version after a push. */
+fun ApplicationCall.getReporterTokenId(): Long? = attributes.getOrNull(REPORTER_TOKEN_ID_KEY)
+
+/** The authenticated user id, or null when the caller authenticated as a reporter. */
+fun ApplicationCall.getApiUserIdOrNull(): Int? = attributes.getOrNull(API_USER_ID_KEY)
+
+/**
+ * Gate for the reporter endpoints (MCO-532). Accepts **either** kind of credential, because two
+ * genuinely different things sweep containers:
+ *
+ * - a **reporter token**, which a dedicated server's operator holds. It is world-scoped and
+ *   least-privilege by construction (see `V2_68_0`), and its world is fixed by the token.
+ * - a **player token**, which is the singleplayer path. There is no server operator in
+ *   singleplayer, so the integrated server's sweep pushes as the player. That caller must name the
+ *   world and must be a member of it — checked by the handler, which is where world membership can
+ *   be checked at all.
+ *
+ * A reporter token still authenticates *nothing else*: [ApiBearerAuthPlugin] resolves hashes
+ * against `api_token`, and a reporter's hash is in `reporter_token`, so every player route rejects
+ * it without having to know this plugin exists.
+ */
+val ApiReporterAuthPlugin = createRouteScopedPlugin("ApiReporterAuthPlugin") {
+    onCall { call ->
+        val header = call.request.header("Authorization")
+        val token = header?.takeIf { it.startsWith("Bearer ", ignoreCase = true) }
+            ?.substring(7)?.trim()
+            ?.takeIf { it.isNotEmpty() }
+        if (token == null) {
+            call.respondApiError(HttpStatusCode.Unauthorized, "invalid_token", "Missing or malformed bearer token")
+            return@onCall
+        }
+        val hash = ApiCrypto.sha256Hex(token)
+
+        // Reporter first: it is the common case, and it settles the world without a lookup.
+        when (val reporter = LookupReporterTokenStep.process(hash)) {
+            is Result.Success -> {
+                call.attributes.put(REPORTER_WORLD_ID_KEY, reporter.value.worldId)
+                call.attributes.put(REPORTER_TOKEN_ID_KEY, reporter.value.tokenId)
+                return@onCall
+            }
+            is Result.Failure -> Unit
+        }
+
+        // Otherwise a player token, with the same ban gate the player routes apply.
+        when (val lookup = LookupApiTokenUserStep.process(hash)) {
+            is Result.Success -> {
+                val userId = lookup.value
+                if ((IsUserBannedStep.process(userId) as? Result.Success)?.value == true) {
+                    call.respondApiError(HttpStatusCode.Forbidden, "forbidden", "This account is banned")
+                    return@onCall
+                }
+                call.attributes.put(API_USER_ID_KEY, userId)
+                call.attributes.put(API_TOKEN_HASH_KEY, hash)
+                TouchApiTokenStep.process(hash)
+            }
+            is Result.Failure ->
+                call.respondApiError(HttpStatusCode.Unauthorized, "invalid_token", "Invalid, expired, or revoked token")
+        }
+    }
+}
+
 /**
  * Mirrors the HTML app's [app.mcorg.presentation.plugins.DemoUserPlugin]: in Production, demo users
  * may read but not mutate. Install on the write route group AFTER [ApiBearerAuthPlugin] (it reads the
