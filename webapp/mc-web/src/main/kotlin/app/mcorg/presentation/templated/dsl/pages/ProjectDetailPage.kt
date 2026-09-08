@@ -88,23 +88,6 @@ fun projectDetailPage(
 ): String = pageShell(
     pageTitle = "Seam — ${project.name}",
     user = user,
-    stylesheets = listOf(
-        "/static/styles/components/btn.css",
-        "/static/styles/components/form.css",
-        "/static/styles/components/item-search.css",
-        "/static/styles/components/item-glyph.css",
-        "/static/styles/components/badge.css",
-        "/static/styles/components/progress.css",
-        "/static/styles/components/resource-row.css",
-        "/static/styles/components/work-row.css",
-        "/static/styles/components/task-list.css",
-        "/static/styles/components/resource-search.css",
-        "/static/styles/components/resource-panel.css",
-        "/static/styles/components/callout.css",
-        "/static/styles/components/drill.css",
-        "/static/styles/pages/project-detail.css",
-        "/static/styles/components/farm-panel.css",
-    ),
     scripts = listOf(
         "/static/scripts/resource-search.js",
         "/static/scripts/plan-view.js",

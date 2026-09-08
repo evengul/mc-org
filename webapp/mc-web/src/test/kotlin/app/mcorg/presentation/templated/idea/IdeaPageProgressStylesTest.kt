@@ -13,12 +13,9 @@ import java.time.ZonedDateTime
 import kotlin.test.assertTrue
 
 /**
- * MCO-472 — the rating distribution renders `progressBar()`, so the page has to load the
- * stylesheet that gives `.progress` its height and track. It did not, and because the bar
- * has no intrinsic size the row rendered as "5 ★ ⟨nothing⟩ 40%".
- *
- * The bug was a missing `<link>`, not bad markup, so the assertion is on the stylesheet
- * list — the markup was already correct while the page was visibly broken.
+ * MCO-472 — the rating distribution renders `progressBar()`. It used to assert that the page
+ * also linked `components/progress.css`, because the bar rendered as "5 ★ ⟨nothing⟩ 40%" when
+ * it did not; since MCO-514 every sheet is in the one bundle and only the markup is left to check.
  */
 class IdeaPageProgressStylesTest {
 
@@ -57,16 +54,6 @@ class IdeaPageProgressStylesTest {
         likes = 0,
         rating = rating,
     )
-
-    @Test
-    fun `loads the progress stylesheet whenever it can render a progress bar`() {
-        val html = render(listOf(comment(1, 5), comment(2, 3)))
-
-        assertTrue(
-            html.contains("/static/styles/components/progress.css"),
-            "idea page renders progressBar() but never loads components/progress.css",
-        )
-    }
 
     @Test
     fun `renders the rating bars as progress components`() {

@@ -17,11 +17,6 @@ fun ideasPage(
 ): String = pageShell(
     pageTitle = "Seam — Ideas",
     user = user,
-    stylesheets = listOf(
-        "/static/styles/components/btn.css",
-        "/static/styles/components/empty-state.css",
-        "/static/styles/pages/idea-hub.css",
-    )
 ) {
     appHeader(user = user) {
         current("Ideas")

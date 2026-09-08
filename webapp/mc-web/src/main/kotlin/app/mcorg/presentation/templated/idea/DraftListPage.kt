@@ -30,12 +30,6 @@ fun draftListPage(
 ): String = pageShell(
     pageTitle = "Seam — My Drafts",
     user = user,
-    stylesheets = listOf(
-        "/static/styles/components/btn.css",
-        "/static/styles/components/project-card.css",
-        "/static/styles/components/empty-state.css",
-        "/static/styles/pages/draft-list.css",
-    )
 ) {
     appHeader(
         user = user,

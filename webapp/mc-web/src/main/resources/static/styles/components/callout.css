@@ -55,3 +55,10 @@
 .callout__body p {
     margin: 0;
 }
+
+/* The bold first line of a multi-line callout. Lived in pages/worlds.css until MCO-514, so the
+   settings page's "No server is connected" callout rendered it as plain text. */
+.callout__lead {
+    font-family: var(--font-ui);
+    font-weight: 600;
+}

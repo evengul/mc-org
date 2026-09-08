@@ -71,9 +71,6 @@ fun adminPage(
 ): String = pageShell(
     pageTitle = "Seam — Admin",
     user = currentUser,
-    stylesheets = listOf(
-        "/static/styles/pages/admin-page.css",
-    )
 ) {
     appHeader(
         user = currentUser,

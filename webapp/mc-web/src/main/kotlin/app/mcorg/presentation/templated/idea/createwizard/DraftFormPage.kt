@@ -49,14 +49,6 @@ fun draftFormPage(
 ): String = pageShell(
     pageTitle = "Seam — New Idea",
     user = user,
-    stylesheets = listOf(
-        "/static/styles/components/btn.css",
-        "/static/styles/components/callout.css",
-        "/static/styles/components/form.css",
-        "/static/styles/components/item-search.css",
-        "/static/styles/components/item-glyph.css",
-        "/static/styles/pages/idea-wizard.css",
-    )
 ) {
     appHeader(
         user = user,

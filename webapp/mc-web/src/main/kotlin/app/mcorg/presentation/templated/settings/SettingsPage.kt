@@ -46,15 +46,6 @@ data class SettingsPageData(
 fun worldSettingsPage(user: TokenProfile, data: SettingsPageData): String = pageShell(
     pageTitle = "Seam — ${data.world.name} Settings",
     user = user,
-    stylesheets = listOf(
-        "/static/styles/components/form.css",
-        "/static/styles/components/danger-zone.css",
-        "/static/styles/components/avatar.css",
-        "/static/styles/components/person-row.css",
-        "/static/styles/components/badge.css",
-        "/static/styles/components/callout.css",
-        "/static/styles/pages/settings-page.css",
-    )
 ) {
     appHeader(
         worldName = data.world.name,

@@ -42,15 +42,15 @@ class LayoutTest {
     }
 
     @Test
-    fun `pageShell includes self-hosted fonts via design-tokens css`() {
+    fun `pageShell links the one stylesheet bundle`() {
         val html = pageShell { div { } }
-        assertTrue(html.contains("/static/styles/design-tokens.css"))
+        assertTrue(html.contains("href=\"${StylesheetBundle.href()}\""))
     }
 
     @Test
-    fun `pageShell includes reset css`() {
+    fun `pageShell links no stylesheet individually`() {
         val html = pageShell { div { } }
-        assertTrue(html.contains("/static/styles/reset.css"))
+        assertFalse(html.contains("/static/styles/"), "a per-page stylesheet link is back: $html")
     }
 
     @Test
