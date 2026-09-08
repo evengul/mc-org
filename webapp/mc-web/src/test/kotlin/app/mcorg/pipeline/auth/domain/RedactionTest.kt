@@ -1,11 +1,14 @@
 package app.mcorg.pipeline.auth.domain
 
+import app.mcorg.api.MintedReporterToken
+import app.mcorg.api.ReporterTokenRow
 import app.mcorg.logging.redacted
 import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.webhook.CreateWebhookSubscriptionInput
 import app.mcorg.webhook.DueDelivery
 import app.mcorg.webhook.WebhookSubscription
 import org.junit.jupiter.api.Test
+import java.time.Instant
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -153,5 +156,27 @@ class RedactionTest {
     @Test
     fun `HttpError with no body renders zero length rather than null`() {
         assertContains(AppFailure.ApiError.HttpError(statusCode = 500).toString(), "<0 chars>")
+    }
+
+    @Test
+    fun `MintedReporterToken hides the token but keeps the row`() {
+        // MCO-531. This type exists for exactly one HTTP response — the mint that created it — and
+        // carries the only plaintext copy of a credential that will live in a server's config file.
+        val rendered = MintedReporterToken(
+            row = ReporterTokenRow(
+                id = 7,
+                worldId = 3,
+                name = "Mac Mini",
+                createdByName = "Even",
+                createdAt = Instant.parse("2026-09-08T07:30:00Z"),
+                lastUsedAt = null,
+                reporterVersion = null,
+            ),
+            token = secret,
+        ).toString()
+
+        assertRedacted(rendered)
+        // The row is the debuggable half and should survive.
+        assertContains(rendered, "Mac Mini")
     }
 }

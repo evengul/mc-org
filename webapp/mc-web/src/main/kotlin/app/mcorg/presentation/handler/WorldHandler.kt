@@ -72,6 +72,8 @@ import app.mcorg.pipeline.world.settings.general.handleUpdateWorldName
 import app.mcorg.pipeline.world.settings.general.handleUpdateWorldVersion
 import app.mcorg.pipeline.world.settings.handleConnectDiscord
 import app.mcorg.pipeline.world.settings.handleDisconnectDiscord
+import app.mcorg.pipeline.world.settings.handleMintReporterToken
+import app.mcorg.pipeline.world.settings.handleRevokeReporterToken
 import app.mcorg.pipeline.world.settings.handleGetWorldSettings
 import app.mcorg.pipeline.world.settings.invitations.handleCancelInvitation
 import app.mcorg.pipeline.world.settings.invitations.handleCreateInvitation
@@ -411,6 +413,14 @@ class WorldHandler {
                         }
                         delete("/{subscriptionId}") {
                             call.handleDisconnectDiscord()
+                        }
+                    }
+                    route("/reporter") {
+                        post {
+                            call.handleMintReporterToken()
+                        }
+                        delete("/{tokenId}") {
+                            call.handleRevokeReporterToken()
                         }
                     }
                     route("/members") {

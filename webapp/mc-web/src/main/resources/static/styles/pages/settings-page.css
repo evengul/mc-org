@@ -146,22 +146,29 @@
     font-size: var(--text-sm);
 }
 
-/* --- Discord section --- */
+/* --- Discord & connected-server sections ---
+   The two share a shape: a titled form that connects one thing, above a list of what is already
+   connected. The selectors are shared rather than duplicated; only the token reveal below is
+   unique to the server section. */
 
-.discord-section {
+.discord-section,
+.reporter-section {
     display: flex;
     flex-direction: column;
     gap: var(--space-5);
 }
 
-.connect-discord {
+.connect-discord,
+.connect-server {
     display: flex;
     flex-direction: column;
     gap: var(--space-3);
 }
 
 .connect-discord h3,
-.discord-connections h3 {
+.discord-connections h3,
+.connect-server h3,
+.reporter-tokens h3 {
     margin: 0;
     font-family: var(--font-ui);
     font-size: 15px;
@@ -169,25 +176,29 @@
     color: var(--text-primary);
 }
 
-.connect-discord__form {
+.connect-discord__form,
+.connect-server__form {
     display: flex;
     flex-direction: column;
     gap: var(--space-4);
 }
 
-.connect-discord__inputs {
+.connect-discord__inputs,
+.connect-server__inputs {
     display: flex;
     flex-direction: column;
     gap: var(--space-4);
 }
 
-.connect-discord__inputs .input-group {
+.connect-discord__inputs .input-group,
+.connect-server__inputs .input-group {
     display: flex;
     flex-direction: column;
     gap: var(--space-1);
 }
 
-.connect-discord__inputs .input-group label {
+.connect-discord__inputs .input-group label,
+.connect-server__inputs .input-group label {
     font-size: var(--text-sm);
     color: var(--text-primary);
     font-weight: 500;
@@ -205,24 +216,49 @@
     margin: 0;
 }
 
-.connect-discord__actions {
+.connect-discord__actions,
+.connect-server__actions {
     display: flex;
     justify-content: flex-end;
     margin-top: var(--space-2);
 }
 
-.discord-connections {
+.discord-connections,
+.reporter-tokens {
     display: flex;
     flex-direction: column;
     gap: var(--space-3);
 }
 
+/* The minted token, shown exactly once. Monospace and selectable as a whole, because it is going
+   to be copied into a config file and a half-selected bearer token fails in a confusing way. */
+.reporter-reveal__token {
+    display: block;
+    margin-top: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+    background: var(--bg-base);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    font-family: var(--font-ui);
+    font-size: var(--text-sm);
+    color: var(--text-primary);
+    overflow-wrap: anywhere;
+    user-select: all;
+}
+
+.reporter-reveal__world-id {
+    font-family: var(--font-ui);
+    user-select: all;
+}
+
 @media (max-width: 768px) {
-    .connect-discord__actions {
+    .connect-discord__actions,
+    .connect-server__actions {
         justify-content: stretch;
     }
 
-    .connect-discord__actions .btn {
+    .connect-discord__actions .btn,
+    .connect-server__actions .btn {
         width: 100%;
     }
 }
