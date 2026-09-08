@@ -6,6 +6,7 @@ import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.Result
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.failure.AppFailure
+import java.sql.ResultSet
 import java.time.Instant
 import java.time.OffsetDateTime
 import java.time.ZoneOffset
@@ -260,5 +261,158 @@ object ClaimDeviceCodeTokenStep : Step<String, AppFailure.DatabaseError, Int> {
                 "UPDATE device_code SET token_issued = TRUE WHERE device_code = ? AND status = 'approved' AND token_issued = FALSE"
             ),
             parameterSetter = { st, code -> st.setString(1, code) },
+        ).process(input)
+}
+
+// ── container_tags ───────────────────────────────────────────────────────────
+
+/**
+ * A tagged container as the API renders it. [taggedByName] is the tagger's Minecraft username
+ * (null when the profile is gone); [lastSeenAt] and [state] are the reporter's to write.
+ */
+data class ContainerTagRow(
+    val id: Long,
+    val projectId: Int,
+    val dimension: String,
+    val x: Int,
+    val y: Int,
+    val z: Int,
+    val groupKey: String,
+    val kind: String,
+    val taggedByName: String?,
+    val taggedAt: Instant,
+    val lastSeenAt: Instant?,
+    val state: String,
+)
+
+private fun ResultSet.mapToContainerTag() = ContainerTagRow(
+    id = getLong("id"),
+    projectId = getInt("project_id"),
+    dimension = getString("dimension"),
+    x = getInt("x"),
+    y = getInt("y"),
+    z = getInt("z"),
+    groupKey = getString("group_key"),
+    kind = getString("kind"),
+    taggedByName = getString("tagged_by_name"),
+    taggedAt = getTimestamp("tagged_at").toInstant(),
+    lastSeenAt = getTimestamp("last_seen_at")?.toInstant(),
+    state = getString("state"),
+)
+
+private const val CONTAINER_TAG_COLUMNS =
+    "ct.id, ct.project_id, ct.dimension, ct.x, ct.y, ct.z, ct.group_key, ct.kind, " +
+        "ct.tagged_at, ct.last_seen_at, ct.state, mp.username AS tagged_by_name"
+
+/** Every tagged container in a world, oldest first. */
+object ListContainerTagsStep : Step<Int, AppFailure.DatabaseError, List<ContainerTagRow>> {
+    override suspend fun process(input: Int) =
+        DatabaseSteps.query<Int, List<ContainerTagRow>>(
+            sql = SafeSQL.select(
+                """
+                SELECT $CONTAINER_TAG_COLUMNS
+                FROM container_tags ct
+                LEFT JOIN minecraft_profiles mp ON mp.user_id = ct.tagged_by
+                WHERE ct.world_id = ?
+                ORDER BY ct.tagged_at, ct.id
+                """.trimIndent()
+            ),
+            parameterSetter = { st, worldId -> st.setInt(1, worldId) },
+            resultMapper = { rs -> buildList { while (rs.next()) add(rs.mapToContainerTag()) } },
+        ).process(input)
+}
+
+data class ContainerTagKey(val worldId: Int, val id: Long)
+
+/** One tag, scoped to its world so a member of world A cannot address world B's rows. */
+object GetContainerTagStep : Step<ContainerTagKey, AppFailure.DatabaseError, ContainerTagRow> {
+    override suspend fun process(input: ContainerTagKey): Result<AppFailure.DatabaseError, ContainerTagRow> =
+        DatabaseSteps.query<ContainerTagKey, ContainerTagRow?>(
+            sql = SafeSQL.select(
+                """
+                SELECT $CONTAINER_TAG_COLUMNS
+                FROM container_tags ct
+                LEFT JOIN minecraft_profiles mp ON mp.user_id = ct.tagged_by
+                WHERE ct.world_id = ? AND ct.id = ?
+                """.trimIndent()
+            ),
+            parameterSetter = { st, key ->
+                st.setInt(1, key.worldId)
+                st.setLong(2, key.id)
+            },
+            resultMapper = { if (it.next()) it.mapToContainerTag() else null },
+        ).process(input).flatMap {
+            if (it == null) Result.failure(AppFailure.DatabaseError.NotFound) else Result.success(it)
+        }
+}
+
+data class UpsertContainerTagInput(
+    val worldId: Int,
+    val projectId: Int,
+    val dimension: String,
+    val x: Int,
+    val y: Int,
+    val z: Int,
+    val groupKey: String,
+    val kind: String,
+    val taggedBy: Int,
+)
+
+/**
+ * Creates a tag, or moves the one already at that position to the new project. Keyed on the
+ * `(world_id, dimension, x, y, z)` unique constraint, so re-tagging is one row, not two.
+ *
+ * `state` and `last_seen_at` are deliberately **not** touched on conflict: the physical container
+ * is the same one, so its last reading stays valid. Its contents now count toward the new project,
+ * which is what re-tagging means; the next sweep re-filters them to that project's items.
+ */
+object UpsertContainerTagStep : Step<UpsertContainerTagInput, AppFailure.DatabaseError, ContainerTagRow> {
+    override suspend fun process(input: UpsertContainerTagInput): Result<AppFailure.DatabaseError, ContainerTagRow> =
+        DatabaseSteps.query<UpsertContainerTagInput, Long?>(
+            sql = SafeSQL.insert(
+                """
+                INSERT INTO container_tags
+                    (world_id, project_id, dimension, x, y, z, group_key, kind, tagged_by)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT (world_id, dimension, x, y, z) DO UPDATE
+                SET project_id = EXCLUDED.project_id,
+                    kind       = EXCLUDED.kind,
+                    group_key  = EXCLUDED.group_key,
+                    tagged_by  = EXCLUDED.tagged_by,
+                    tagged_at  = CURRENT_TIMESTAMP
+                RETURNING id
+                """.trimIndent()
+            ),
+            parameterSetter = { st, i ->
+                st.setInt(1, i.worldId)
+                st.setInt(2, i.projectId)
+                st.setString(3, i.dimension)
+                st.setInt(4, i.x)
+                st.setInt(5, i.y)
+                st.setInt(6, i.z)
+                st.setString(7, i.groupKey)
+                st.setString(8, i.kind)
+                st.setInt(9, i.taggedBy)
+            },
+            resultMapper = { if (it.next()) it.getLong(1) else null },
+        ).process(input).flatMap { id ->
+            if (id == null) Result.failure(AppFailure.DatabaseError.NoIdReturned)
+            else GetContainerTagStep.process(ContainerTagKey(input.worldId, id))
+        }
+}
+
+/**
+ * Untags a container. Returns affected-row count (0 when the tag is absent or belongs to another
+ * world). `container_contents` cascades from the tag row, so the chest's contribution to the
+ * measurement disappears with it — the reporter never has to be told (MCO-532 re-rolls the total).
+ */
+object DeleteContainerTagStep : Step<ContainerTagKey, AppFailure.DatabaseError, Int> {
+    override suspend fun process(input: ContainerTagKey) =
+        DatabaseSteps.update<ContainerTagKey>(
+            sql = SafeSQL.delete("DELETE FROM container_tags WHERE world_id = ? AND id = ?"),
+            parameterSetter = { st, key ->
+                st.setInt(1, key.worldId)
+                st.setLong(2, key.id)
+            },
         ).process(input)
 }
