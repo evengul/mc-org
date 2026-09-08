@@ -9,7 +9,6 @@ import kotlinx.html.stream.createHTML
 fun pageShell(
     pageTitle: String = "Seam",
     user: TokenProfile? = null,
-    stylesheets: List<String> = emptyList(),
     scripts: List<String> = emptyList(),
     body: BODY.() -> Unit
 ): String {
@@ -48,55 +47,11 @@ fun pageShell(
                 href = "/static/seam-icon-180.png"
                 attributes["sizes"] = "180x180"
             }
+            // One bundle at one content-hashed URL. There is deliberately no per-page list any
+            // more — see StylesheetBundle for what that list cost.
             link {
                 rel = "stylesheet"
-                href = "/static/styles/reset.css"
-            }
-            link {
-                rel = "stylesheet"
-                href = "/static/styles/design-tokens.css"
-            }
-            link {
-                rel = "stylesheet"
-                href = "/static/styles/components/app-header.css"
-            }
-            link {
-                rel = "stylesheet"
-                href = "/static/styles/components/btn.css"
-            }
-            link {
-                rel = "stylesheet"
-                href = "/static/styles/components/modal.css"
-            }
-            link {
-                rel = "stylesheet"
-                href = "/static/styles/components/alert.css"
-            }
-            link {
-                rel = "stylesheet"
-                href = "/static/styles/components/badge.css"
-            }
-            link {
-                rel = "stylesheet"
-                href = "/static/styles/components/page-heading.css"
-            }
-            link {
-                rel = "stylesheet"
-                href = "/static/styles/components/section.css"
-            }
-            link {
-                rel = "stylesheet"
-                href = "/static/styles/components/tabs.css"
-            }
-            link {
-                rel = "stylesheet"
-                href = "/static/styles/components/data-table.css"
-            }
-            for (stylesheet in stylesheets) {
-                link {
-                    rel = "stylesheet"
-                    href = stylesheet
-                }
+                href = StylesheetBundle.href()
             }
             script {
                 src = "https://cdn.jsdelivr.net/npm/htmx.org@2.0.8/dist/htmx.min.js"

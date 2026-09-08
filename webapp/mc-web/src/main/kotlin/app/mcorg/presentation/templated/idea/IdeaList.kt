@@ -37,7 +37,7 @@ fun FlowContent.ideaCard(idea: Idea) {
             // The hub mixes the viewer's own private designs in with public ones, so say which
             // is which (MCO-291). Only the owner is ever shown a private card.
             if (idea.visibility == IdeaVisibility.PRIVATE) {
-                span("badge badge--accent") { +"Private" }
+                span("badge badge--status") { +"Private" }
             }
             span("badge") { +idea.category.toPrettyEnumName() }
         }

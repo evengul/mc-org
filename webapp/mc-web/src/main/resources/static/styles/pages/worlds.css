@@ -63,7 +63,6 @@ svg.icon--fill  { fill: currentColor; stroke: none; }
 
 /* ════════════════════════ FIRST-RUN SUCCESS ════════════════════════ */
 .worlds-callout { margin-bottom: var(--space-5); }
-.callout__lead  { font-family: var(--font-ui); font-weight: 600; }
 
 /* ════════════════════════════ WORLD HERO ═════════════════════════════ */
 /* Wide lead card: identity + the project tally on the left, a live peek at

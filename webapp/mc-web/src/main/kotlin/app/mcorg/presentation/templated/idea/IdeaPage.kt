@@ -34,12 +34,6 @@ fun ideaPage(
 ): String = pageShell(
     pageTitle = "Seam — ${idea.name}",
     user = user,
-    stylesheets = listOf(
-        "/static/styles/components/btn.css",
-        "/static/styles/components/form.css",
-        "/static/styles/components/progress.css",
-        "/static/styles/pages/idea-hub.css",
-    )
 ) {
     appHeader(user = user) {
         link("Ideas", "/ideas").current(idea.name)
@@ -95,7 +89,7 @@ private fun FlowContent.ideaDetailHeader(user: TokenProfile, idea: Idea) {
 
         div("idea-detail__badges") {
             if (idea.visibility == IdeaVisibility.PRIVATE) {
-                span("badge badge--accent") { +"Private" }
+                span("badge badge--status") { +"Private" }
             }
             span("badge") { +idea.category.toPrettyEnumName() }
             span("badge") { +idea.difficulty.toPrettyEnumName() }

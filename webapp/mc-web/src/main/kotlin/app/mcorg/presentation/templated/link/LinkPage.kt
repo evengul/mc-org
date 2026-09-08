@@ -33,7 +33,6 @@ fun linkPage(
     user = user,
     // pageShell ships btn.css by default but not form.css — without this the .form-control and
     // .form-error classes below are dead and the form renders as unstyled inline browser defaults.
-    stylesheets = listOf("/static/styles/components/form.css"),
 ) {
     appHeader(
         user = user,

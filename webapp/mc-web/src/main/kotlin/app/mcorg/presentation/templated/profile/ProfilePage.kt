@@ -18,10 +18,6 @@ import kotlinx.html.main
 fun profilePage(user: TokenProfile): String = pageShell(
     pageTitle = "Seam — Profile",
     user = user,
-    stylesheets = listOf(
-        "/static/styles/components/danger-zone.css",
-        "/static/styles/pages/profile-page.css",
-    )
 ) {
     appHeader(
         user = user,
