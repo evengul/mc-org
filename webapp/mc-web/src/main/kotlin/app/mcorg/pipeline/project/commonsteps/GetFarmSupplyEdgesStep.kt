@@ -2,7 +2,7 @@ package app.mcorg.pipeline.project.commonsteps
 
 import app.mcorg.domain.model.project.ProjectResourceEdge
 import app.mcorg.domain.model.project.ProjectState
-import app.mcorg.domain.pipeline.Step
+import app.mcorg.pipeline.Step
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.Result
 import app.mcorg.pipeline.SafeSQL

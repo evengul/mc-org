@@ -2,7 +2,7 @@ package app.mcorg.pipeline.world.settings.general
 
 import app.mcorg.domain.model.minecraft.MinecraftVersion
 import app.mcorg.pipeline.Result
-import app.mcorg.domain.pipeline.Step
+import app.mcorg.pipeline.Step
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.failure.AppFailure

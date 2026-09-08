@@ -2,7 +2,7 @@ package app.mcorg.pipeline.world.settings
 
 import app.mcorg.config.AppConfig
 import app.mcorg.domain.Production
-import app.mcorg.domain.pipeline.Step
+import app.mcorg.pipeline.Step
 import app.mcorg.pipeline.Result
 import app.mcorg.pipeline.ValidationSteps
 import app.mcorg.pipeline.failure.AppFailure

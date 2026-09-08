@@ -1,6 +1,6 @@
 package app.mcorg.pipeline.failure
 
-import app.mcorg.domain.pipeline.Step
+import app.mcorg.pipeline.Step
 import java.net.URLEncoder
 
 sealed interface AppFailure {

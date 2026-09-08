@@ -2,7 +2,7 @@ package app.mcorg.pipeline.world.roadmap.ordering
 
 import app.mcorg.domain.model.world.ManualOrdering
 import app.mcorg.domain.model.world.OrderingSource
-import app.mcorg.domain.pipeline.Step
+import app.mcorg.pipeline.Step
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.Result
 import app.mcorg.pipeline.SafeSQL

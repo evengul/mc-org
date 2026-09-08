@@ -4,7 +4,7 @@ import app.mcorg.config.CacheManager
 import app.mcorg.domain.model.minecraft.Item
 import app.mcorg.domain.model.minecraft.Litematica
 import app.mcorg.domain.model.user.Role
-import app.mcorg.domain.pipeline.Step
+import app.mcorg.pipeline.Step
 import app.mcorg.nbt.util.LitematicaReader
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.Result

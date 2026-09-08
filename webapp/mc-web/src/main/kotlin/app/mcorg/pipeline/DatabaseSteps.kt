@@ -1,7 +1,6 @@
 package app.mcorg.pipeline
 
 import app.mcorg.config.Database
-import app.mcorg.domain.pipeline.Step
 import app.mcorg.pipeline.failure.AppFailure
 import com.zaxxer.hikari.pool.HikariPool
 import kotlinx.coroutines.CancellationException

@@ -3,7 +3,7 @@ package app.mcorg.pipeline.auth.commonsteps
 import app.mcorg.domain.model.user.MinecraftProfile
 import app.mcorg.domain.model.user.TokenProfile
 import app.mcorg.pipeline.Result
-import app.mcorg.domain.pipeline.Step
+import app.mcorg.pipeline.Step
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.TransactionConnection

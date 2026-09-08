@@ -1,6 +1,6 @@
 package app.mcorg.presentation.plugins
 
-import app.mcorg.domain.pipeline.pipelineResult
+import app.mcorg.pipeline.pipelineResult
 import app.mcorg.pipeline.auth.commonsteps.AddCookieStep
 import app.mcorg.pipeline.auth.commonsteps.CreateTokenStep
 import app.mcorg.pipeline.failure.AppFailure

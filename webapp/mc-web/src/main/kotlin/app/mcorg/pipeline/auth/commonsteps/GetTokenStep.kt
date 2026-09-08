@@ -1,7 +1,7 @@
 package app.mcorg.pipeline.auth.commonsteps
 
 import app.mcorg.pipeline.Result
-import app.mcorg.domain.pipeline.Step
+import app.mcorg.pipeline.Step
 import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.presentation.consts.AUTH_COOKIE
 import io.ktor.server.request.*

@@ -2,7 +2,7 @@ package app.mcorg.data.minecraft.extract
 
 import app.mcorg.data.minecraft.failure.ExtractionFailure
 import app.mcorg.domain.model.minecraft.MinecraftVersion
-import app.mcorg.domain.pipeline.Step
+import app.mcorg.pipeline.Step
 import app.mcorg.pipeline.Result
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext

@@ -5,7 +5,7 @@ import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.Result
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.failure.AppFailure
-import app.mcorg.domain.pipeline.Step
+import app.mcorg.pipeline.Step
 
 /** A single project in the Worlds-page hero "active projects" peek. */
 data class WorldProjectPeek(

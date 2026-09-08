@@ -1,6 +1,5 @@
 package app.mcorg.pipeline
 
-import app.mcorg.domain.pipeline.Step
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.fail
 import kotlin.test.assertIs

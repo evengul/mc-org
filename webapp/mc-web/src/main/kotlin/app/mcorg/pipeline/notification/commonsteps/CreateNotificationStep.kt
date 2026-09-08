@@ -2,7 +2,7 @@ package app.mcorg.pipeline.notification.commonsteps
 
 import app.mcorg.domain.model.notification.Notification
 import app.mcorg.pipeline.Result
-import app.mcorg.domain.pipeline.Step
+import app.mcorg.pipeline.Step
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.failure.AppFailure

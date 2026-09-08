@@ -1,6 +1,6 @@
 package app.mcorg.api
 
-import app.mcorg.domain.pipeline.Step
+import app.mcorg.pipeline.Step
 import app.mcorg.logging.redacted
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.Result

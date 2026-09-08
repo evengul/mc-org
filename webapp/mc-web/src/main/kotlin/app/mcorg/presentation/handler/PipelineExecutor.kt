@@ -1,6 +1,6 @@
 package app.mcorg.presentation.handler
 
-import app.mcorg.domain.pipeline.*
+import app.mcorg.pipeline.*
 import app.mcorg.pipeline.Result
 import app.mcorg.pipeline.failure.AppFailure
 import io.ktor.server.application.*

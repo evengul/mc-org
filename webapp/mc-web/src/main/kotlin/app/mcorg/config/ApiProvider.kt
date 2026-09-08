@@ -1,7 +1,7 @@
 package app.mcorg.config
 
 import app.mcorg.pipeline.Result
-import app.mcorg.domain.pipeline.Step
+import app.mcorg.pipeline.Step
 import app.mcorg.pipeline.failure.AppFailure
 import io.ktor.client.plugins.*
 import io.ktor.client.request.*

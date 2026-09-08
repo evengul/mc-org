@@ -4,7 +4,7 @@ import app.mcorg.domain.model.idea.schema.DynamicOptionsConfig
 import app.mcorg.domain.model.idea.schema.DynamicOptionsSource
 import app.mcorg.domain.model.minecraft.MinecraftVersionRange
 import app.mcorg.pipeline.Result
-import app.mcorg.domain.pipeline.Step
+import app.mcorg.pipeline.Step
 import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.presentation.templated.dsl.SearchableSelectOption
 

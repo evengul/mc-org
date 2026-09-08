@@ -7,7 +7,7 @@ import app.mcorg.domain.model.minecraft.Item
 import app.mcorg.domain.model.minecraft.MinecraftLocation
 import app.mcorg.domain.model.project.ProjectType
 import app.mcorg.domain.model.user.Role
-import app.mcorg.domain.pipeline.Step
+import app.mcorg.pipeline.Step
 import app.mcorg.event.ProjectCreated
 import app.mcorg.event.actorDisplayName
 import app.mcorg.event.eventBus

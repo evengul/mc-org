@@ -1,6 +1,6 @@
 package app.mcorg.pipeline.world.settings.general
 
-import app.mcorg.domain.pipeline.Step
+import app.mcorg.pipeline.Step
 import app.mcorg.engine.plan.MemberPrior
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.Result

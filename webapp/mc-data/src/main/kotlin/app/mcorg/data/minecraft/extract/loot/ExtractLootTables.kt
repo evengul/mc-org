@@ -10,7 +10,7 @@ import app.mcorg.data.minecraft.extract.parseJsonFilesRecursively
 import app.mcorg.data.minecraft.extract.primitiveResult
 import app.mcorg.data.minecraft.extract.withNames
 import app.mcorg.data.minecraft.failure.ExtractionFailure
-import app.mcorg.domain.pipeline.Step
+import app.mcorg.pipeline.Step
 import kotlinx.serialization.json.Json
 import org.slf4j.LoggerFactory
 

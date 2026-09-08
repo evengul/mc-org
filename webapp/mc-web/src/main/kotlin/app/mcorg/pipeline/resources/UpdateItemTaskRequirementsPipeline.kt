@@ -5,7 +5,7 @@ import app.mcorg.event.ResourceCountUpdated
 import app.mcorg.event.actorDisplayName
 import app.mcorg.event.eventBus
 import app.mcorg.pipeline.Result
-import app.mcorg.domain.pipeline.Step
+import app.mcorg.pipeline.Step
 import app.mcorg.pipeline.ValidationSteps
 import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.failure.ValidationFailure

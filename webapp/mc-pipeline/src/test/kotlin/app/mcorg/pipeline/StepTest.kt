@@ -1,21 +1,15 @@
-package app.mcorg.domain.pipeline
+package app.mcorg.pipeline
 
-import app.mcorg.pipeline.Result
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.assertThrows
-import org.junit.jupiter.params.ParameterizedTest
-import org.junit.jupiter.params.provider.ValueSource
 import kotlin.test.assertEquals
-import kotlin.test.assertIs
-import kotlin.test.assertTrue
 import kotlin.test.assertFalse
+import kotlin.test.assertIs
 
 class StepTest {
 
-    // Test data classes
     data class TestError(val message: String)
-    data class ValidationError(val field: String, val reason: String)
 
     @Test
     fun `Step interface should define process method`() {
@@ -51,179 +45,47 @@ class StepTest {
         }
     }
 
-    @Test
-    fun `value factory method should create Step that returns constant value`() {
-        val constantValue = "Hello, World!"
-        val step = Step.value<TestError, String>(constantValue)
-
-        runBlocking {
-            val result = step.process(42) // Input can be anything
-            assertIs<Result.Success<String>>(result)
-            assertEquals(constantValue, result.value)
-        }
-    }
+    // MCO-553: Step is a fun interface, so the anonymous-object ceremony is optional.
 
     @Test
-    fun `value factory method should work with different value types`() {
-        val intStep = Step.value<TestError, Int>(42)
-        val listStep = Step.value<TestError, List<String>>(listOf("a", "b", "c"))
-        val boolStep = Step.value<TestError, Boolean>(true)
+    fun `a Step can be a lambda`() {
+        val step = Step<String, TestError, Int> { input -> Result.success(input.length) }
 
         runBlocking {
-            val intResult = intStep.process("ignored")
-            assertIs<Result.Success<Int>>(intResult)
-            assertEquals(42, intResult.value)
-
-            val listResult = listStep.process("not null") // Fixed: use non-null value
-            assertIs<Result.Success<List<String>>>(listResult)
-            assertEquals(listOf("a", "b", "c"), listResult.value)
-
-            val boolResult = boolStep.process(100)
-            assertIs<Result.Success<Boolean>>(boolResult)
-            assertTrue(boolResult.value)
-        }
-    }
-
-    @Test
-    fun `value factory method should accept Any input type`() {
-        val step = Step.value<TestError, String>("test")
-
-        runBlocking {
-            // Should work with any input type
-            assertEquals("test", step.process("string input").getOrNull())
-            assertEquals("test", step.process(123).getOrNull())
-            assertEquals("test", step.process(listOf(1, 2, 3)).getOrNull())
-            assertEquals("test", step.process("non-null").getOrNull()) // Fixed: use non-null value
-        }
-    }
-
-    @Test
-    fun `validate factory method should return Success when predicate is true`() {
-        val error = ValidationError("age", "must be positive")
-        val step = Step.validate(error) { age: Int -> age > 0 }
-
-        runBlocking {
-            val result = step.process(25)
+            val result = step.process("hello")
             assertIs<Result.Success<Int>>(result)
-            assertEquals(25, result.value)
+            assertEquals(5, result.value)
         }
     }
 
     @Test
-    fun `validate factory method should return Failure when predicate is false`() {
-        val error = ValidationError("age", "must be positive")
-        val step = Step.validate(error) { age: Int -> age > 0 }
-
-        runBlocking {
-            val result = step.process(-5)
-            assertIs<Result.Failure<ValidationError>>(result)
-            assertEquals(error, result.error)
-        }
-    }
-
-    @Test
-    fun `validate factory method should work with string validation`() {
-        val error = TestError("String cannot be empty")
-        val step = Step.validate(error) { text: String -> text.isNotEmpty() }
-
-        runBlocking {
-            val validResult = step.process("Hello")
-            assertIs<Result.Success<String>>(validResult)
-            assertEquals("Hello", validResult.value)
-
-            val invalidResult = step.process("")
-            assertIs<Result.Failure<TestError>>(invalidResult)
-            assertEquals("String cannot be empty", invalidResult.error.message)
-        }
-    }
-
-    @Test
-    fun `validate factory method should work with complex predicates`() {
-        val error = TestError("Email is invalid")
-        val step = Step.validate(error) { email: String ->
-            email.contains("@") && email.contains(".")
+    fun `a lambda Step can suspend`() {
+        val step = Step<Int, TestError, Int> { input ->
+            delay(1)
+            if (input % 2 == 0) Result.success(input) else Result.failure(TestError("odd"))
         }
 
         runBlocking {
-            val validResult = step.process("user@example.com")
-            assertIs<Result.Success<String>>(validResult)
-            assertEquals("user@example.com", validResult.value)
-
-            val invalidResult = step.process("invalid-email")
-            assertIs<Result.Failure<TestError>>(invalidResult)
-            assertEquals("Email is invalid", invalidResult.error.message)
-        }
-    }
-
-    @Test
-    fun `validate factory method should handle suspend predicates`() {
-        val error = TestError("Async validation failed")
-        val step = Step.validate(error) { value: Int ->
-            // Simulate async operation
-            kotlinx.coroutines.delay(1)
-            value % 2 == 0 // Only even numbers are valid
-        }
-
-        runBlocking {
-            val validResult = step.process(4)
-            assertIs<Result.Success<Int>>(validResult)
-            assertEquals(4, validResult.value)
-
-            val invalidResult = step.process(3)
-            assertIs<Result.Failure<TestError>>(invalidResult)
-            assertEquals("Async validation failed", invalidResult.error.message)
-        }
-    }
-
-    @ParameterizedTest
-    @ValueSource(ints = [1, 2, 10, 100, 1000])
-    fun `validate should work with various valid positive numbers`(number: Int) {
-        val error = TestError("Number must be positive")
-        val step = Step.validate(error) { n: Int -> n > 0 }
-
-        runBlocking {
-            val result = step.process(number)
-            assertIs<Result.Success<Int>>(result)
-            assertEquals(number, result.value)
-        }
-    }
-
-    @ParameterizedTest
-    @ValueSource(ints = [-1, -2, -10, 0])
-    fun `validate should fail with non-positive numbers`(number: Int) {
-        val error = TestError("Number must be positive")
-        val step = Step.validate(error) { n: Int -> n > 0 }
-
-        runBlocking {
-            val result = step.process(number)
-            assertIs<Result.Failure<TestError>>(result)
-            assertEquals("Number must be positive", result.error.message)
+            assertEquals(4, step.process(4).getOrNull())
+            val odd = step.process(3)
+            assertIs<Result.Failure<TestError>>(odd)
+            assertEquals("odd", odd.error.message)
         }
     }
 
     @Test
     fun `Steps can be chained using Result operations`() {
-        val parseStep = object : Step<String, TestError, Int> {
-            override suspend fun process(input: String): Result<TestError, Int> {
-                return try {
-                    Result.Success(input.toInt())
-                } catch (_: NumberFormatException) { // Fixed: use underscore for unused parameter
-                    Result.Failure(TestError("Cannot parse '$input' as integer"))
-                }
-            }
+        val parseStep = Step<String, TestError, Int> { input ->
+            input.toIntOrNull()?.let { Result.success(it) }
+                ?: Result.failure(TestError("Cannot parse '$input' as integer"))
         }
-
-        val validateStep = Step.validate(TestError("Number must be positive")) { n: Int -> n > 0 }
-        val doubleStep = object : Step<Int, TestError, Int> {
-            override suspend fun process(input: Int): Result<TestError, Int> {
-                return Result.Success(input * 2)
-            }
+        val validateStep = Step<Int, TestError, Int> { n ->
+            if (n > 0) Result.success(n) else Result.failure(TestError("Number must be positive"))
         }
+        val doubleStep = Step<Int, TestError, Int> { n -> Result.success(n * 2) }
 
         runBlocking {
-            val input = "42"
-
-            val result = parseStep.process(input)
+            val result = parseStep.process("42")
                 .flatMap { validateStep.process(it) }
                 .flatMap { doubleStep.process(it) }
 
@@ -234,75 +96,41 @@ class StepTest {
 
     @Test
     fun `Step chaining should short-circuit on failure`() {
-        val parseStep = object : Step<String, TestError, Int> {
-            override suspend fun process(input: String): Result<TestError, Int> {
-                return try {
-                    Result.Success(input.toInt())
-                } catch (_: NumberFormatException) { // Fixed: use underscore for unused parameter
-                    Result.Failure(TestError("Cannot parse '$input' as integer"))
-                }
-            }
+        val parseStep = Step<String, TestError, Int> { input ->
+            input.toIntOrNull()?.let { Result.success(it) }
+                ?: Result.failure(TestError("Cannot parse '$input' as integer"))
         }
-
-        val validateStep = Step.validate(TestError("Number must be positive")) { n: Int -> n > 0 }
+        val validateStep = Step<Int, TestError, Int> { n ->
+            if (n > 0) Result.success(n) else Result.failure(TestError("Number must be positive"))
+        }
         var doubleStepCalled = false
-        val doubleStep = object : Step<Int, TestError, Int> {
-            override suspend fun process(input: Int): Result<TestError, Int> {
-                doubleStepCalled = true
-                return Result.Success(input * 2)
-            }
+        val doubleStep = Step<Int, TestError, Int> { n ->
+            doubleStepCalled = true
+            Result.success(n * 2)
         }
 
         runBlocking {
-            val input = "-5"
-
-            val result = parseStep.process(input)
+            val result = parseStep.process("-5")
                 .flatMap { validateStep.process(it) }
                 .flatMap { doubleStep.process(it) }
 
             assertIs<Result.Failure<TestError>>(result)
             assertEquals("Number must be positive", result.error.message)
-            assertFalse(doubleStepCalled) // Should not be called due to short-circuiting
-        }
-    }
-
-    @Test
-    fun `validate predicate exceptions should be propagated`() {
-        val error = TestError("Validation error")
-        val step = Step.validate(error) { _: String ->
-            throw RuntimeException("Predicate failed")
-        }
-
-        assertThrows<RuntimeException> {
-            runBlocking {
-                step.process("test")
-            }
+            assertFalse(doubleStepCalled)
         }
     }
 
     @Test
     fun `multiple Steps can have different input and output types`() {
-        val stringToIntStep = object : Step<String, TestError, Int> {
-            override suspend fun process(input: String): Result<TestError, Int> {
-                return Result.Success(input.length)
-            }
-        }
-
-        val intToListStep = object : Step<Int, TestError, List<String>> {
-            override suspend fun process(input: Int): Result<TestError, List<String>> {
-                return Result.Success((1..input).map { "item$it" })
-            }
-        }
+        val stringToIntStep = Step<String, TestError, Int> { Result.success(it.length) }
+        val intToListStep = Step<Int, TestError, List<String>> { n -> Result.success((1..n).map { "item$it" }) }
 
         runBlocking {
-            // Declare the initial result with explicit error type
             val stringResult: Result<TestError, Int> = stringToIntStep.process("hello")
             assertIs<Result.Success<Int>>(stringResult)
             assertEquals(5, stringResult.value)
 
-            // Process the chaining step by step to avoid type inference issues
-            val intValue = stringResult.getOrNull()!!
-            val listResult = intToListStep.process(intValue)
+            val listResult = intToListStep.process(stringResult.getOrNull()!!)
             assertIs<Result.Success<List<String>>>(listResult)
             assertEquals(listOf("item1", "item2", "item3", "item4", "item5"), listResult.value)
         }
@@ -310,34 +138,30 @@ class StepTest {
 
     @Test
     fun `Step generic constraints should work correctly`() {
-        // Test contravariance of input type (in I)
-        val genericStep: Step<Any, TestError, String> = Step.value("test")
-        val specificStep: Step<String, TestError, String> = genericStep // Should compile
+        // Contravariant input (in I)
+        val genericStep: Step<Any, TestError, String> = Step { Result.success("test") }
+        val specificStep: Step<String, TestError, String> = genericStep
 
-        // Test covariance of error type (out E)
-        val specificErrorStep: Step<String, TestError, String> = Step.validate(TestError("error")) { true }
-        val genericErrorStep: Step<String, Any, String> = specificErrorStep // Should compile
+        // Covariant error (out E)
+        val specificErrorStep: Step<String, TestError, String> = Step { Result.success(it) }
+        val genericErrorStep: Step<String, Any, String> = specificErrorStep
 
-        // Test covariance of success type (out S)
-        val stringStep: Step<String, TestError, String> = Step.value("test")
-        val anyStep: Step<String, TestError, Any> = stringStep // Should compile
+        // Covariant success (out S)
+        val stringStep: Step<String, TestError, String> = Step { Result.success(it) }
+        val anyStep: Step<String, TestError, Any> = stringStep
 
         runBlocking {
-            val result1 = specificStep.process("input")
-            val result2 = genericErrorStep.process("input")
-            val result3 = anyStep.process("input")
-
-            assertIs<Result.Success<String>>(result1)
-            assertIs<Result.Success<String>>(result2)
-            assertIs<Result.Success<Any>>(result3)
+            assertIs<Result.Success<String>>(specificStep.process("input"))
+            assertIs<Result.Success<String>>(genericErrorStep.process("input"))
+            assertIs<Result.Success<Any>>(anyStep.process("input"))
         }
     }
 
     @Test
     fun `Steps should work with null values`() {
-        val nullStep = Step.value<TestError, String?>(null)
-        val nullValidationStep = Step.validate(TestError("Cannot be null")) { input: String? ->
-            input != null
+        val nullStep = Step<Any, TestError, String?> { Result.success(null) }
+        val nullValidationStep = Step<String?, TestError, String?> { input ->
+            if (input != null) Result.success(input) else Result.failure(TestError("Cannot be null"))
         }
 
         runBlocking {

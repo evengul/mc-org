@@ -1,12 +1,15 @@
-package app.mcorg.domain.pipeline
+package app.mcorg.pipeline
 
-import app.mcorg.pipeline.Result
-import app.mcorg.pipeline.getOrElse
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
+import kotlin.test.assertTrue
 
 class PipelineScopeTest {
 
@@ -194,6 +197,74 @@ class PipelineScopeTest {
         }
 
         assertEquals("first failed", failureError?.message)
+    }
+
+    @Test
+    fun `parallel cancels the other branch when one fails`() = runBlocking {
+        // MCO-553 question 4. The failing branch throws PipelineFailure inside `async`; because
+        // that is not a CancellationException, `coroutineScope` treats it as a failure, cancels
+        // the sibling and rethrows. The sibling here never completes on its own, so the only way
+        // the pipeline can finish inside the timeout is by cancelling it.
+        val siblingStarted = CompletableDeferred<Unit>()
+        var siblingCancelled = false
+        var failureError: TestError? = null
+
+        withTimeout(5_000) {
+            pipeline<TestError, Pair<Int, String>>(
+                onSuccess = { },
+                onFailure = { failureError = it }
+            ) {
+                parallel(
+                    {
+                        siblingStarted.await()
+                        Result.failure<TestError>(TestError("first failed")).bind<Int>()
+                    },
+                    {
+                        siblingStarted.complete(Unit)
+                        try {
+                            awaitCancellation()
+                        } catch (e: CancellationException) {
+                            siblingCancelled = true
+                            throw e
+                        }
+                    }
+                )
+            }
+        }
+
+        assertEquals("first failed", failureError?.message)
+        assertTrue(siblingCancelled, "the non-failing branch should have been cancelled")
+    }
+
+    @Test
+    fun `a catch of Exception inside the block cannot swallow the short-circuit`() = runBlocking {
+        // MCO-553 question 4 (cousin of MCO-434 item 2). PipelineFailure extends Throwable, not
+        // Exception, so the idiomatic defensive catch inside a pipeline block lets it through.
+        var swallowed = false
+        var reachedAfter = false
+
+        val result = pipelineResult<TestError, Int> {
+            try {
+                Result.failure<TestError>(TestError("short-circuit")).bind<Int>()
+            } catch (e: Exception) {
+                swallowed = true
+            }
+            reachedAfter = true
+            1
+        }
+
+        assertFalse(swallowed, "catch (e: Exception) must not see the short-circuit")
+        assertFalse(reachedAfter, "the block must not continue past the failing bind")
+        assertIs<Result.Failure<TestError>>(result)
+        assertEquals("short-circuit", result.error.message)
+    }
+
+    @Test
+    fun `the short-circuit carries no stack trace`() {
+        // Thrown on every validation failure of every form; filling a trace nobody reads is the
+        // only cost of exception-as-control-flow worth measuring, and it is switched off.
+        val failure = PipelineScope.PipelineFailure("x")
+        assertEquals(0, failure.stackTrace.size)
     }
 
     @Test

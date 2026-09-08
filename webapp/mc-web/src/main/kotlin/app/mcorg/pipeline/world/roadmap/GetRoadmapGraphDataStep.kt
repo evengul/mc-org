@@ -2,7 +2,7 @@ package app.mcorg.pipeline.world.roadmap
 
 import app.mcorg.domain.model.project.ProjectState
 import app.mcorg.domain.model.world.Roadmap
-import app.mcorg.domain.pipeline.Step
+import app.mcorg.pipeline.Step
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.Result
 import app.mcorg.pipeline.SafeSQL

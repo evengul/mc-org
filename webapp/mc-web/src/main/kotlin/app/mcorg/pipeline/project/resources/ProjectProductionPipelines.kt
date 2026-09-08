@@ -3,7 +3,7 @@ package app.mcorg.pipeline.project.resources
 import app.mcorg.domain.model.minecraft.Item
 import app.mcorg.domain.model.project.ProjectProduction
 import app.mcorg.domain.model.user.Role
-import app.mcorg.domain.pipeline.Step
+import app.mcorg.pipeline.Step
 import app.mcorg.domain.model.project.ProjectState
 import app.mcorg.pipeline.project.GetProjectStateStep
 import app.mcorg.pipeline.resources.invalidateDemandSuppliedBy

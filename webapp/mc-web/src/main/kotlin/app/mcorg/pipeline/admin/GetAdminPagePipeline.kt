@@ -1,6 +1,6 @@
 package app.mcorg.pipeline.admin
 
-import app.mcorg.domain.pipeline.Quadruple
+import app.mcorg.pipeline.Quadruple
 import app.mcorg.pipeline.admin.commonsteps.*
 import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.templated.admin.adminPage

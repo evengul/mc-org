@@ -1,7 +1,7 @@
 package app.mcorg.pipeline.minecraftfiles
 
 import app.mcorg.domain.model.minecraft.MinecraftVersion
-import app.mcorg.domain.pipeline.Step
+import app.mcorg.pipeline.Step
 import app.mcorg.item.ItemGlyph
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.Result

@@ -3,7 +3,7 @@ package app.mcorg.pipeline.resources
 import app.mcorg.domain.model.minecraft.Item
 import app.mcorg.domain.model.resources.ResourceGatheringItem
 import app.mcorg.domain.model.resources.ResourceSourceType
-import app.mcorg.domain.pipeline.Step
+import app.mcorg.pipeline.Step
 import app.mcorg.engine.model.ItemSourceGraph
 import app.mcorg.engine.plan.GatheringPlan
 import app.mcorg.engine.plan.GatheringPlanner

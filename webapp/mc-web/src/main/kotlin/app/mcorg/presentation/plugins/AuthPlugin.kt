@@ -1,7 +1,7 @@
 package app.mcorg.presentation.plugins
 
 import app.mcorg.pipeline.Result
-import app.mcorg.domain.pipeline.pipelineResult
+import app.mcorg.pipeline.pipelineResult
 import app.mcorg.pipeline.auth.commonsteps.ConvertTokenStep
 import app.mcorg.pipeline.auth.commonsteps.GetTokenStep
 import app.mcorg.pipeline.failure.AppFailure

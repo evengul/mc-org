@@ -21,16 +21,6 @@ import kotlinx.html.*
 import kotlinx.html.stream.createHTML
 import org.slf4j.LoggerFactory
 
-sealed interface ErrorHandler {
-    data class AlertPopup(
-        val id: String,
-        val title: String,
-        val message: String? = null,
-        val type: AlertType = AlertType.ERROR,
-        val statusCode : HttpStatusCode = HttpStatusCode.InternalServerError
-    ) : ErrorHandler
-}
-
 private val errorLogger = LoggerFactory.getLogger("app.mcorg.presentation.ErrorBoundary")
 
 /**
@@ -40,27 +30,108 @@ private val errorLogger = LoggerFactory.getLogger("app.mcorg.presentation.ErrorB
  * wrong. Logging all of it at ERROR would make the error log useless on the day it matters, which
  * is the failure mode this issue is trying to avoid — not replace with a noisier one.
  */
-private enum class FailureVolume { SILENT, INFO, WARN, ERROR }
+internal enum class FailureVolume { SILENT, INFO, WARN, ERROR }
 
-private fun AppFailure.volume(): FailureVolume = when (this) {
-    // Normal control flow. The user typed something wrong, or is not signed in yet.
-    is AppFailure.ValidationError -> FailureVolume.SILENT
-    is AppFailure.Redirect -> FailureVolume.SILENT
-    is AppFailure.AuthError.MissingToken -> FailureVolume.SILENT
+/**
+ * Everything the error boundary does with one [AppFailure]: how loudly to log it, what status to
+ * answer with, and what to send.
+ *
+ * Until MCO-553 those were three separate exhaustive `when` tables over `AppFailure` in this file
+ * — `volume()`, `defaultHandleError()` and `toHttpStatusCode()` — kept in step by hand. The
+ * compiler made each one exhaustive on its own, but nothing tied them together, and the status
+ * table had already drifted: it said `MissingToken` was a 401 while the response actually sent
+ * was a 302 to the sign-in page. Now [toFailureResponse] is the one table, and
+ * `FailureResponseTest` walks the sealed hierarchy so a new variant fails a test until it has a
+ * row.
+ *
+ * [status] is the status of a plain (non-HTMX) response. A [RedirectTo] under HTMX is sent as a
+ * 200 carrying `HX-Redirect`, since a browser follows a 302 inside the fetch and htmx would swap
+ * the sign-in page into a fragment target.
+ */
+internal sealed interface FailureResponse {
+    val volume: FailureVolume
+    val status: HttpStatusCode
 
-    // Expected but worth being able to count: an expired token, a link to something deleted.
-    is AppFailure.AuthError.ConvertTokenError -> FailureVolume.INFO
-    is AppFailure.DatabaseError.NotFound -> FailureVolume.INFO
+    /** An alert prepended to the page's alert container. */
+    data class Alert(
+        val id: String,
+        val title: String,
+        val message: String,
+        override val status: HttpStatusCode,
+        override val volume: FailureVolume,
+    ) : FailureResponse
 
-    // Someone reached for something that is not theirs. Rarely an attack, always worth seeing.
-    is AppFailure.AuthError.NotAuthorized -> FailureVolume.WARN
+    /** A redirect: 302 for a plain request, `HX-Redirect` for an HTMX one. */
+    data class RedirectTo(
+        val url: String,
+        override val volume: FailureVolume,
+    ) : FailureResponse {
+        override val status: HttpStatusCode get() = HttpStatusCode.Found
+    }
 
-    // Genuinely broken.
-    is AppFailure.AuthError.CouldNotCreateToken -> FailureVolume.ERROR
-    is AppFailure.DatabaseError -> FailureVolume.ERROR
-    is AppFailure.ApiError -> FailureVolume.ERROR
-    is AppFailure.FileError -> FailureVolume.ERROR
-    is AppFailure.IllegalConfigurationError -> FailureVolume.ERROR
+    /** One out-of-band `<p>` per failed field, swapped next to the input that failed. */
+    data class ValidationMessages(val errors: List<ValidationFailure>) : FailureResponse {
+        override val volume: FailureVolume get() = FailureVolume.SILENT
+        override val status: HttpStatusCode get() = errors.toHttpStatusCode()
+    }
+}
+
+/**
+ * The one table. Pure so that it can be pinned without a Ktor call: [requestUri] is where
+ * `MissingToken` sends the user back to after sign-in, [reference] the call id quoted on the
+ * generic error so a user can name something we can search for (`Monitoring.kt`).
+ */
+internal fun AppFailure.toFailureResponse(requestUri: String, reference: String?): FailureResponse {
+    fun referenced(message: String) = reference?.let { "$message (reference: $it)" } ?: message
+
+    return when (this) {
+        // Normal control flow. The user typed something wrong, or is not signed in yet.
+        is AppFailure.ValidationError -> FailureResponse.ValidationMessages(errors)
+        is AppFailure.Redirect -> FailureResponse.RedirectTo(toUrl(), FailureVolume.SILENT)
+        is AppFailure.AuthError.MissingToken -> FailureResponse.RedirectTo(
+            "/auth/sign-in?redirect_to=$requestUri", FailureVolume.SILENT
+        )
+
+        // Expected but worth being able to count: an expired token, a link to something deleted.
+        is AppFailure.AuthError.ConvertTokenError -> FailureResponse.RedirectTo(toRedirect().toUrl(), FailureVolume.INFO)
+        // Split out of the generic branch (MCO-350): the copy used to say "an unexpected error
+        // occurred", so navigating to a deleted world read as a crash. Nothing is broken here.
+        is AppFailure.DatabaseError.NotFound -> FailureResponse.Alert(
+            id = "not-found-error",
+            title = "Not found",
+            message = "That no longer exists. It may have been deleted.",
+            status = HttpStatusCode.NotFound,
+            volume = FailureVolume.INFO,
+        )
+
+        // Someone reached for something that is not theirs. Rarely an attack, always worth seeing.
+        is AppFailure.AuthError.NotAuthorized -> FailureResponse.Alert(
+            id = "not-authorized-error",
+            title = "Not Authorized",
+            message = "You do not have permission to perform this action.",
+            status = HttpStatusCode.Forbidden,
+            volume = FailureVolume.WARN,
+        )
+
+        // Genuinely broken.
+        is AppFailure.AuthError.CouldNotCreateToken -> FailureResponse.Alert(
+            id = "token-creation-error",
+            title = "Authentication Error",
+            message = "An error occurred while creating your authentication token. Please try signing in again.",
+            status = HttpStatusCode.InternalServerError,
+            volume = FailureVolume.ERROR,
+        )
+        is AppFailure.DatabaseError,
+        is AppFailure.ApiError,
+        is AppFailure.FileError,
+        is AppFailure.IllegalConfigurationError -> FailureResponse.Alert(
+            id = "generic-error",
+            title = "An error occurred",
+            message = referenced("An unexpected error occurred. Please try again later."),
+            status = HttpStatusCode.InternalServerError,
+            volume = FailureVolume.ERROR,
+        )
+    }
 }
 
 /**
@@ -76,8 +147,7 @@ private fun AppFailure.volume(): FailureVolume = when (this) {
  * to leak even by accident — and the call id arrives on its own via MDC, which is what ties this
  * line to the id printed on the user's error page.
  */
-private fun ApplicationCall.logFailure(error: AppFailure) {
-    val volume = error.volume()
+private fun ApplicationCall.logFailure(error: AppFailure, volume: FailureVolume) {
     if (volume == FailureVolume.SILENT) return
 
     val userId = attributes.getOrNull(AttributeKey<TokenProfile>("user"))?.id
@@ -93,78 +163,17 @@ private fun ApplicationCall.logFailure(error: AppFailure) {
 }
 
 suspend fun <E : AppFailure> ApplicationCall.defaultHandleError(error: E) {
-    logFailure(error)
+    val response = error.toFailureResponse(requestUri = request.uri, reference = callId)
+    logFailure(error, response.volume)
 
-    when (error) {
-        is AppFailure.ValidationError -> handleValidationMessage(error.errors)
-
-        // Split out of the generic branch (MCO-350). toHttpStatusCode already returned 404, but
-        // the copy said "an unexpected error occurred", so navigating to a deleted world read as
-        // a crash. Nothing is broken here and the page should not imply otherwise.
-        is AppFailure.DatabaseError.NotFound -> handleErrorMessage(
-            ErrorHandler.AlertPopup(
-                id = "not-found-error",
-                title = "Not found",
-                message = "That no longer exists. It may have been deleted.",
-                statusCode = HttpStatusCode.NotFound
-            )
-        )
-
-        is AppFailure.DatabaseError,
-        is AppFailure.ApiError,
-        is AppFailure.FileError,
-        is AppFailure.IllegalConfigurationError -> handleErrorMessage(
-            ErrorHandler.AlertPopup(
-                id = "generic-error",
-                title = "An error occurred",
-                // The call id is the whole point of the issue: it lets a user quote something we
-                // can search for, instead of describing what they were doing.
-                message = referenceSuffixed("An unexpected error occurred. Please try again later."),
-                statusCode = error.toHttpStatusCode()
-            )
-        )
-
-        is AppFailure.Redirect -> {
-            if (request.headers["HX-Request"] == "true") {
-                clientRedirect(error.toUrl())
-            } else {
-                respondRedirect(error.toUrl())
-            }
-        }
-
-        is AppFailure.AuthError -> when (error) {
-            is AppFailure.AuthError.MissingToken -> respondRedirect("/auth/sign-in?redirect_to=${request.uri}")
-            is AppFailure.AuthError.NotAuthorized -> handleErrorMessage(
-                ErrorHandler.AlertPopup(
-                    id = "not-authorized-error",
-                    title = "Not Authorized",
-                    message = "You do not have permission to perform this action.",
-                    statusCode = HttpStatusCode.Forbidden
-                )
-            )
-            is AppFailure.AuthError.CouldNotCreateToken -> handleErrorMessage(
-                ErrorHandler.AlertPopup(
-                    id = "token-creation-error",
-                    title = "Authentication Error",
-                    message = "An error occurred while creating your authentication token. Please try signing in again.",
-                )
-            )
-            is AppFailure.AuthError.ConvertTokenError -> handleRedirect(error.toRedirect().toUrl())
-        }
+    when (response) {
+        is FailureResponse.Alert -> respondAlert(response)
+        is FailureResponse.RedirectTo -> respondRedirectFor(response.url)
+        is FailureResponse.ValidationMessages -> respondValidationMessages(response)
     }
 }
 
-/**
- * Appends this call's id to a user-facing message, when there is one.
- *
- * The id is opaque and generated server-side (`Monitoring.kt`), so it is safe to show — it says
- * nothing about the user or the failure, it is only a handle for finding the log line. Absent in
- * tests that do not install `CallId`, hence the null branch rather than a fabricated value.
- */
-private fun ApplicationCall.referenceSuffixed(message: String): String =
-    callId?.let { "$message (reference: $it)" } ?: message
-
-private suspend fun ApplicationCall.handleRedirect(url: String) {
+private suspend fun ApplicationCall.respondRedirectFor(url: String) {
     if (request.headers["HX-Request"] == "true") {
         clientRedirect(url)
     } else {
@@ -172,72 +181,41 @@ private suspend fun ApplicationCall.handleRedirect(url: String) {
     }
 }
 
-private suspend fun ApplicationCall.handleValidationMessage(errors: List<ValidationFailure>) {
-    respondHtml(statusCode = errors.toHttpStatusCode(), html = createHTML().div {
-        errors.forEach {
+private suspend fun ApplicationCall.respondValidationMessages(response: FailureResponse.ValidationMessages) {
+    respondHtml(statusCode = response.status, html = createHTML().div {
+        response.errors.forEach {
             p {
                 hxOutOfBands("true")
                 classes += "validation-error-message"
                 id = "validation-error-${it.parameterName.replace("[]", "")}"
-
-                when (it) {
-                    is ValidationFailure.CustomValidation -> (+it.message)
-                    is ValidationFailure.InvalidFormat -> it.message?.let { msg -> +(msg) }
-                    is ValidationFailure.InvalidLength -> {
-                        when {
-                            it.minLength != null && it.maxLength != null -> {
-                                +"The length of '${it.parameterName}' must be between ${it.minLength} and ${it.maxLength} characters."
-                            }
-
-                            it.minLength != null -> {
-                                +"The length of '${it.parameterName}' must be at least ${it.minLength} characters."
-                            }
-
-                            it.maxLength != null -> {
-                                +"The length of '${it.parameterName}' must be at most ${it.maxLength} characters."
-                            }
-                        }
-                    }
-
-                    is ValidationFailure.InvalidValue -> {
-                        when {
-                            it.allowedValues != null -> {
-                                +"The value of '${it.parameterName}' must be one of the following: ${
-                                    it.allowedValues.joinToString(
-                                        ", "
-                                    )
-                                }."
-                            }
-
-                            else -> {
-                                +"The value of '${it.parameterName}' is invalid."
-                            }
-                        }
-                    }
-
-                    is ValidationFailure.MissingParameter -> {
-                        +"The parameter '${it.parameterName}' is required."
-                    }
-
-                    is ValidationFailure.OutOfRange -> {
-                        when {
-                            it.min != null && it.max != null -> {
-                                +"The value of '${it.parameterName}' must be between ${it.min} and ${it.max}."
-                            }
-
-                            it.min != null -> {
-                                +"The value of '${it.parameterName}' must be at least ${it.min}."
-                            }
-
-                            it.max != null -> {
-                                +"The value of '${it.parameterName}' must be at most ${it.max}."
-                            }
-                        }
-                    }
-                }
+                +it.userMessage()
             }
         }
     })
+}
+
+private fun ValidationFailure.userMessage(): String = when (this) {
+    is ValidationFailure.CustomValidation -> message
+    is ValidationFailure.InvalidFormat -> message ?: ""
+    is ValidationFailure.InvalidLength -> when {
+        minLength != null && maxLength != null ->
+            "The length of '$parameterName' must be between $minLength and $maxLength characters."
+        minLength != null -> "The length of '$parameterName' must be at least $minLength characters."
+        maxLength != null -> "The length of '$parameterName' must be at most $maxLength characters."
+        else -> ""
+    }
+    is ValidationFailure.InvalidValue -> when {
+        allowedValues != null ->
+            "The value of '$parameterName' must be one of the following: ${allowedValues.joinToString(", ")}."
+        else -> "The value of '$parameterName' is invalid."
+    }
+    is ValidationFailure.MissingParameter -> "The parameter '$parameterName' is required."
+    is ValidationFailure.OutOfRange -> when {
+        min != null && max != null -> "The value of '$parameterName' must be between $min and $max."
+        min != null -> "The value of '$parameterName' must be at least $min."
+        max != null -> "The value of '$parameterName' must be at most $max."
+        else -> ""
+    }
 }
 
 private fun List<ValidationFailure>.toHttpStatusCode(): HttpStatusCode {
@@ -257,34 +235,15 @@ private fun List<ValidationFailure>.toHttpStatusCode(): HttpStatusCode {
     return HttpStatusCode.BadRequest
 }
 
-private suspend fun ApplicationCall.handleErrorMessage(alertPopup: ErrorHandler.AlertPopup) {
+private suspend fun ApplicationCall.respondAlert(alert: FailureResponse.Alert) {
     hxTarget("#$ALERT_CONTAINER_ID")
     hxSwap("afterbegin")
     respondHtml(createHTML().li {
         createAlert(
-            id = alertPopup.id,
-            title = alertPopup.title,
-            message = alertPopup.message,
-            type = alertPopup.type
+            id = alert.id,
+            title = alert.title,
+            message = alert.message,
+            type = AlertType.ERROR
         )
-    }, statusCode = alertPopup.statusCode)
+    }, statusCode = alert.status)
 }
-
-private fun AppFailure.toHttpStatusCode(): HttpStatusCode {
-    return when (this) {
-        is AppFailure.ValidationError -> this.errors.toHttpStatusCode()
-        is AppFailure.DatabaseError.NotFound -> HttpStatusCode.NotFound
-        is AppFailure.DatabaseError -> HttpStatusCode.InternalServerError
-        is AppFailure.ApiError -> HttpStatusCode.InternalServerError
-        is AppFailure.FileError -> HttpStatusCode.InternalServerError
-        is AppFailure.IllegalConfigurationError -> HttpStatusCode.InternalServerError
-        is AppFailure.Redirect -> HttpStatusCode.Found
-        is AppFailure.AuthError -> when (this) {
-            is AppFailure.AuthError.MissingToken -> HttpStatusCode.Unauthorized
-            is AppFailure.AuthError.NotAuthorized -> HttpStatusCode.Forbidden
-            is AppFailure.AuthError.CouldNotCreateToken -> HttpStatusCode.InternalServerError
-            is AppFailure.AuthError.ConvertTokenError -> HttpStatusCode.Found
-        }
-    }
-}
-
