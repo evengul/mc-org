@@ -63,6 +63,15 @@ fun Route.apiV1Routes() {
             get("/{worldId}/containers") { call.handleGetContainerTags() }
             post("/{worldId}/containers") { call.handleTagContainer() }
             delete("/{worldId}/containers/{containerId}") { call.handleUntagContainer() }
+            // The HUD's frequent poll (~10s per player). Deliberately cheap — one indexed read.
+            get("/{worldId}/storage") { call.handleGetWorldStorage() }
+        }
+        // The reporter's own surface (MCO-532). Gated by a plugin that accepts a world-scoped
+        // reporter token OR a player token (the singleplayer path), never the player plugin.
+        route("/reporter") {
+            install(ApiReporterAuthPlugin)
+            get("/tags") { call.handleGetReporterTags() }
+            post("/contents") { call.handlePushReporterContents() }
         }
         route("/projects") {
             install(ApiBearerAuthPlugin)
@@ -508,8 +517,23 @@ suspend fun ApplicationCall.handleTagContainer() {
         kind = body.kind,
         taggedBy = getApiUserId(),
     )
+    // Which project held this position before, if any. Re-tagging carries the container's stored
+    // contents across to the new project, so BOTH rollups are wrong the moment the row moves: the
+    // old one still claims stock it no longer has, and the new one does not yet show it. The next
+    // sweep would fix it, but "wrong until something else happens" is not a state to ship — and
+    // with no reporter running, nothing else happens.
+    val priorProject = (FindContainerTagProjectByPositionStep.process(
+        ContainerPositionKey(worldId, body.dimension, body.x, body.y, body.z)
+    ) as? Result.Success)?.value
+
     when (val r = UpsertContainerTagStep.process(input)) {
-        is Result.Success -> respondJson(HttpStatusCode.OK, r.value.toDto())
+        is Result.Success -> {
+            if (priorProject != null && priorProject != body.projectId) {
+                RecomputeMeasurementStep.process(priorProject)
+            }
+            RecomputeMeasurementStep.process(body.projectId)
+            respondJson(HttpStatusCode.OK, r.value.toDto())
+        }
         is Result.Failure -> respondApiError(HttpStatusCode.InternalServerError, "server_error", "Could not tag container")
     }
 }
@@ -521,11 +545,24 @@ suspend fun ApplicationCall.handleUntagContainer() {
         respondApiError(HttpStatusCode.BadRequest, "invalid_request", "Invalid container id")
         return
     }
+    val key = ContainerTagKey(worldId, containerId)
+    // Read the project before the delete takes the row away — the measurement has to be re-rolled
+    // for it afterwards, and afterwards there is nothing left to ask.
+    val projectId = (GetContainerTagProjectStep.process(key) as? Result.Success)?.value
+
     // Scoped by world, so a tag in another world reads as absent rather than as someone else's.
-    when (val r = DeleteContainerTagStep.process(ContainerTagKey(worldId, containerId))) {
+    when (val r = DeleteContainerTagStep.process(key)) {
         is Result.Success ->
-            if (r.value == 0) respondApiError(HttpStatusCode.NotFound, "not_found", "Container tag not found")
-            else respondJson(HttpStatusCode.OK, OkResponse())
+            if (r.value == 0) {
+                respondApiError(HttpStatusCode.NotFound, "not_found", "Container tag not found")
+            } else {
+                // `container_contents` cascades with the tag, so the chest's contribution is
+                // already gone from the raw data — but the materialised rollup still claims it
+                // until this runs. Untagging must drop the count immediately, without the reporter
+                // needing to be told anything happened.
+                projectId?.let { RecomputeMeasurementStep.process(it) }
+                respondJson(HttpStatusCode.OK, OkResponse())
+            }
         is Result.Failure -> respondApiError(HttpStatusCode.InternalServerError, "server_error", "Could not untag container")
     }
 }
@@ -549,6 +586,157 @@ private suspend fun ApplicationCall.resolveWorldForUser(): Int? {
         return null
     }
     return worldId
+}
+
+// ── Reporter endpoints and the count poll (MCO-532) ────────────────────────────
+
+/**
+ * Settles which world a reporter-gated call speaks for, and proves the caller may speak for it.
+ *
+ * A reporter token fixes its own world; naming a different one is a 403 rather than a silent
+ * substitution, because a mismatch means the server is misconfigured and saying so is the whole
+ * point of the diagnosable-failure design. A player token must name a world and be a member of it —
+ * that is the singleplayer path, where the integrated server sweeps as the player.
+ */
+private suspend fun ApplicationCall.resolveReporterWorld(requestedWorldId: Int?): Int? {
+    val reporterWorldId = getReporterWorldId()
+    if (reporterWorldId != null) {
+        if (requestedWorldId != null && requestedWorldId != reporterWorldId) {
+            respondApiError(
+                HttpStatusCode.Forbidden,
+                "forbidden",
+                "This token reports for world $reporterWorldId, not $requestedWorldId",
+            )
+            return null
+        }
+        return reporterWorldId
+    }
+
+    // Player token — the singleplayer path.
+    val userId = getApiUserIdOrNull()
+    if (userId == null) {
+        respondApiError(HttpStatusCode.Unauthorized, "invalid_token", "Not authenticated")
+        return null
+    }
+    if (requestedWorldId == null) {
+        respondApiError(
+            HttpStatusCode.BadRequest,
+            "invalid_request",
+            "world_id is required when reporting with a player token",
+        )
+        return null
+    }
+    if (ValidateWorldMemberRole<Unit>(apiProfile(userId), Role.MEMBER, requestedWorldId).process(Unit) is Result.Failure) {
+        respondApiError(HttpStatusCode.Forbidden, "forbidden", "Not a member of this world")
+        return null
+    }
+    return requestedWorldId
+}
+
+suspend fun ApplicationCall.handleGetReporterTags() {
+    val worldId = resolveReporterWorld(request.queryParameters["world_id"]?.toIntOrNull()) ?: return
+
+    val tags = when (val r = ListContainerTagsStep.process(worldId)) {
+        is Result.Success -> r.value
+        is Result.Failure -> {
+            respondApiError(HttpStatusCode.InternalServerError, "server_error", "Could not load container tags")
+            return
+        }
+    }
+    val interest = when (val r = GetItemsOfInterestStep.process(worldId)) {
+        is Result.Success -> r.value
+        is Result.Failure -> {
+            respondApiError(HttpStatusCode.InternalServerError, "server_error", "Could not load items of interest")
+            return
+        }
+    }
+
+    respondJson(
+        HttpStatusCode.OK,
+        ReporterTagsResponse(
+            worldId = worldId,
+            containers = tags.map { it.toDto() },
+            itemsOfInterest = interest.map { (projectId, items) ->
+                ItemsOfInterestDto(projectId = projectId, itemIds = items.sorted())
+            }.sortedBy { it.projectId },
+        ),
+    )
+}
+
+suspend fun ApplicationCall.handlePushReporterContents() {
+    val body = receiveJsonOrNull<ReporterContentsRequest>()
+    if (body == null) {
+        respondApiError(HttpStatusCode.BadRequest, "invalid_request", "Malformed request body")
+        return
+    }
+    val worldId = resolveReporterWorld(body.worldId) ?: return
+
+    // A sweep with nothing to report still pushes, and that empty payload is the heartbeat — so an
+    // empty container list is a valid request, not a rejected one.
+    val containers = mutableListOf<ReportedContainer>()
+    for (c in body.containers) {
+        if (c.state !in REPORTABLE_STATES) {
+            respondApiError(HttpStatusCode.BadRequest, "invalid_request", "Unknown container state: ${c.state}")
+            return
+        }
+        val seenAt = runCatching { Instant.parse(c.seenAt) }.getOrNull()
+        if (seenAt == null) {
+            respondApiError(HttpStatusCode.BadRequest, "invalid_request", "seen_at must be an ISO-8601 instant")
+            return
+        }
+        if (c.items.any { it.count < 0 }) {
+            respondApiError(HttpStatusCode.BadRequest, "invalid_request", "Item counts cannot be negative")
+            return
+        }
+        containers += ReportedContainer(
+            id = c.id,
+            state = c.state,
+            seenAt = seenAt,
+            items = c.items.map { ReportedItem(it.itemId, it.count) },
+        )
+    }
+
+    when (val r = PushContainerContentsStep.process(PushContentsInput(worldId, containers))) {
+        is Result.Success -> {
+            // Best-effort: the push succeeded, and a failed stamp must not turn that into an error.
+            getReporterTokenId()?.let {
+                TouchReporterTokenStep.process(TouchReporterTokenInput(it, body.reporterVersion))
+            }
+            respondJson(
+                HttpStatusCode.OK,
+                ReporterContentsResponse(
+                    accepted = r.value.accepted,
+                    rejected = r.value.rejected,
+                    projectsRecomputed = r.value.projectsRecomputed,
+                ),
+            )
+        }
+        is Result.Failure ->
+            respondApiError(HttpStatusCode.InternalServerError, "server_error", "Could not store container contents")
+    }
+}
+
+/** The states a sweep may report. Mirrors `container_tags.state`'s CHECK constraint. */
+private val REPORTABLE_STATES = setOf("ok", "unreadable", "missing")
+
+suspend fun ApplicationCall.handleGetWorldStorage() {
+    val worldId = resolveWorldForUser() ?: return
+    when (val r = GetWorldStorageStep.process(worldId)) {
+        is Result.Success -> respondJson(
+            HttpStatusCode.OK,
+            r.value.map {
+                WorldStorageDto(
+                    projectId = it.projectId,
+                    itemId = it.itemId,
+                    measured = it.measured,
+                    containerCount = it.containerCount,
+                    oldestSeenAt = it.oldestSeenAt?.toString(),
+                )
+            },
+        )
+        is Result.Failure ->
+            respondApiError(HttpStatusCode.InternalServerError, "server_error", "Could not load storage counts")
+    }
 }
 
 /**

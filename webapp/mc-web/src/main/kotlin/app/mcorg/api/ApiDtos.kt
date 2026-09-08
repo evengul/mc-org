@@ -183,3 +183,90 @@ data class ContainerTagRequest(
 data class ContainerTagsResponse(
     @SerialName("containers") val containers: List<ContainerTagDto>,
 )
+
+// ── Reporter: tags and contents (MCO-532) ──────────────────────────────────────
+
+/** The items one project's reporter should bother reporting — its targets plus its plan items. */
+@Serializable
+data class ItemsOfInterestDto(
+    @SerialName("project_id") val projectId: Int,
+    @SerialName("item_ids") val itemIds: List<String>,
+)
+
+/**
+ * What the sweep needs to do its job: which containers to read, and which items are worth
+ * reporting from them.
+ *
+ * `items_of_interest` is what keeps the push bounded. Without it the API would receive an inventory
+ * of somebody's junk drawer, and the webapp would quietly become a whole-world item census —
+ * interesting, but MCO-526's business, not this one's.
+ */
+@Serializable
+data class ReporterTagsResponse(
+    @SerialName("world_id") val worldId: Int,
+    @SerialName("containers") val containers: List<ContainerTagDto>,
+    @SerialName("items_of_interest") val itemsOfInterest: List<ItemsOfInterestDto>,
+)
+
+@Serializable
+data class ReportedItemDto(
+    @SerialName("item_id") val itemId: String,
+    @SerialName("count") val count: Long,
+)
+
+/**
+ * One container as the sweep found it. [state] is `ok`, `unreadable` (the chunk has not been loaded
+ * since tagging) or `missing` (the block is gone); only `ok` carries items worth storing.
+ */
+@Serializable
+data class ReportedContainerDto(
+    @SerialName("id") val id: Long,
+    @SerialName("state") val state: String,
+    @SerialName("seen_at") val seenAt: String,
+    @SerialName("items") val items: List<ReportedItemDto> = emptyList(),
+)
+
+/**
+ * A sweep's report. **Absolute for the containers it names**, and it names only those whose
+ * contents changed since the last push; everything unnamed keeps what it had. One writer means
+ * absolute is correct and self-healing — nothing to merge, no ordering hazard.
+ *
+ * [worldId] is optional for a reporter token, whose world is fixed by the token itself, and
+ * required for a player token (the singleplayer path, where there is no server operator to hold a
+ * reporter token). [reporterVersion] is stamped onto the token so world settings can say which
+ * build is talking.
+ */
+@Serializable
+data class ReporterContentsRequest(
+    @SerialName("world_id") val worldId: Int? = null,
+    @SerialName("swept_at") val sweptAt: String? = null,
+    @SerialName("reporter_version") val reporterVersion: String? = null,
+    @SerialName("containers") val containers: List<ReportedContainerDto> = emptyList(),
+)
+
+@Serializable
+data class ReporterContentsResponse(
+    @SerialName("accepted") val accepted: Int,
+    /** Named containers that are not this world's. Reported back rather than silently ignored. */
+    @SerialName("rejected") val rejected: Int,
+    @SerialName("projects_recomputed") val projectsRecomputed: Int,
+)
+
+// ── The HUD's count poll (MCO-532) ─────────────────────────────────────────────
+
+/**
+ * One measured count. [measured] is evidence from tagged containers and is **not**
+ * `ResourceDto.collected`, which stays the human's number — the two are kept apart on purpose, and
+ * showing their disagreement is phase E's job.
+ *
+ * [oldestSeenAt] is the oldest contributing reading, which is what tells a player how much to trust
+ * the number.
+ */
+@Serializable
+data class WorldStorageDto(
+    @SerialName("project_id") val projectId: Int,
+    @SerialName("item_id") val itemId: String,
+    @SerialName("measured") val measured: Long,
+    @SerialName("container_count") val containerCount: Int,
+    @SerialName("oldest_seen_at") val oldestSeenAt: String? = null,
+)
