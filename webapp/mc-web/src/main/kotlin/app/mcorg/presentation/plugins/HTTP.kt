@@ -2,6 +2,8 @@ package app.mcorg.presentation.plugins
 
 import app.mcorg.config.AppConfig
 import app.mcorg.domain.Production
+import app.mcorg.presentation.templated.dsl.AssetBundle
+import app.mcorg.presentation.templated.dsl.ScriptBundle
 import app.mcorg.presentation.templated.dsl.StylesheetBundle
 import io.ktor.http.*
 import io.ktor.http.content.*
@@ -83,8 +85,8 @@ fun Application.configureHTTP() {
         install(CachingHeaders) {
             options { call, outgoingContent ->
                 when (outgoingContent.contentType?.withoutParameters()) {
-                    ContentType.Text.CSS -> cssCaching(call.request.path())
-                    ContentType.Text.JavaScript -> CachingOptions(CacheControl.MaxAge(maxAgeSeconds = 15 * 60))
+                    ContentType.Text.CSS -> bundleCaching(StylesheetBundle, call.request.path(), unbundledMaxAge = ONE_DAY)
+                    ContentType.Text.JavaScript -> bundleCaching(ScriptBundle, call.request.path(), unbundledMaxAge = 15 * 60)
                     ContentType.Text.Xml -> CachingOptions(CacheControl.MaxAge(maxAgeSeconds = 24 * 60 * 60))
                     ContentType.Font.Any -> CachingOptions(CacheControl.MaxAge(maxAgeSeconds = 24 * 60 * 60))
                     else -> null
@@ -109,14 +111,15 @@ private const val ONE_DAY = 24 * 60 * 60
 private const val ONE_YEAR = 365 * ONE_DAY
 
 /**
- * The stylesheet bundle is content-addressed, so the URL that names the current version can be
- * held for a year: a deploy changes the hash and with it the URL. Any other version — a stale
- * hash, or `styleguide.html`'s `seam.latest.css` — is served but must be re-asked for. Sheets
- * fetched one by one keep the day they always had; only the styleguide links those now.
+ * A bundle is content-addressed, so the URL that names the current version can be held for a
+ * year: a deploy changes the hash and with it the URL. Any other version — a stale hash, or
+ * `styleguide.html`'s `seam.latest.css` — is served but must be re-asked for. A file fetched one
+ * by one keeps the max-age it always had; only the styleguide links those now.
  */
-private fun cssCaching(path: String): CachingOptions = when (StylesheetBundle.versionOf(path)) {
-    null -> CachingOptions(CacheControl.MaxAge(maxAgeSeconds = ONE_DAY))
-    StylesheetBundle.current().version ->
-        CachingOptions(CacheControl.MaxAge(maxAgeSeconds = ONE_YEAR, visibility = CacheControl.Visibility.Public))
-    else -> CachingOptions(CacheControl.NoCache(null))
-}
+private fun bundleCaching(bundle: AssetBundle, path: String, unbundledMaxAge: Int): CachingOptions =
+    when (bundle.versionOf(path)) {
+        null -> CachingOptions(CacheControl.MaxAge(maxAgeSeconds = unbundledMaxAge))
+        bundle.current().version ->
+            CachingOptions(CacheControl.MaxAge(maxAgeSeconds = ONE_YEAR, visibility = CacheControl.Visibility.Public))
+        else -> CachingOptions(CacheControl.NoCache(null))
+    }

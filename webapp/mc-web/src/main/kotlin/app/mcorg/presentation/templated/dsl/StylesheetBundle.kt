@@ -1,9 +1,5 @@
 package app.mcorg.presentation.templated.dsl
 
-import app.mcorg.config.AppConfig
-import app.mcorg.domain.Local
-import java.security.MessageDigest
-
 /**
  * Every stylesheet the app has, served as one file at one content-addressed URL (MCO-514).
  *
@@ -23,17 +19,9 @@ import java.security.MessageDigest
  * just on the page that used to link it last. `StylesheetBundleTest` fails on both a file missing
  * from this list and a bare class declared in two files.
  *
- * The URL carries a hash of the content, so production caches it for a year and a deploy is
- * never paired with a stale sheet — which the per-file 24h max-age with no cache-busting allowed.
- * In LOCAL the bundle is rebuilt per call, so editing a sheet and refreshing keeps working.
+ * Delivery — the hashed URL, the LOCAL rebuild — is [AssetBundle]'s.
  */
-object StylesheetBundle {
-
-    /** Classpath directory the sheets live in; `staticResources` still serves them one by one too. */
-    const val DIR = "/static/styles"
-
-    /** `/static/seam.<version>.css`. The route and the caching rule both key off this prefix. */
-    const val HREF_PREFIX = "/static/seam."
+object StylesheetBundle : AssetBundle(dir = "/static/styles", extension = "css") {
 
     val BASE = listOf("reset", "design-tokens")
 
@@ -57,46 +45,9 @@ object StylesheetBundle {
      */
     val NOT_BUNDLED = setOf("pages/styleguide")
 
-    /** Paths relative to [DIR], without `.css`, in cascade order. */
-    val FILES: List<String> =
+    override val files: List<String> =
         BASE + COMPONENTS.map { "components/$it" } + PAGES.map { "pages/$it" }
 
-    class Bundle(val css: String, val version: String) {
-        val href: String get() = "$HREF_PREFIX$version.css"
-    }
-
-    private val built: Bundle by lazy { build() }
-
-    /** The bundle to serve now. Memoised outside LOCAL, where the sheets cannot change under a running JVM. */
-    fun current(): Bundle = if (AppConfig.env is Local) build() else built
-
-    fun href(): String = current().href
-
-    /** The version in a bundle URL, or null when [path] is not one. `/static/seam.latest.css` → `latest`. */
-    fun versionOf(path: String): String? {
-        if (!path.startsWith(HREF_PREFIX) || !path.endsWith(".css")) return null
-        return path.removePrefix(HREF_PREFIX).removeSuffix(".css").takeIf { it.isNotEmpty() }
-    }
-
-    fun build(): Bundle {
-        val css = buildString {
-            for (file in FILES) {
-                append("/* ==== ").append(file).append(".css ==== */\n")
-                append(read(file))
-                append('\n')
-            }
-        }
-        return Bundle(css, sha256Prefix(css))
-    }
-
-    private fun read(file: String): String {
-        val path = "$DIR/$file.css"
-        return javaClass.getResourceAsStream(path)?.bufferedReader()?.use { it.readText() }
-            ?: throw IllegalStateException("$path is listed in StylesheetBundle but is not on the classpath")
-    }
-
-    private fun sha256Prefix(text: String): String =
-        MessageDigest.getInstance("SHA-256").digest(text.toByteArray())
-            .joinToString("") { "%02x".format(it) }
-            .take(12)
+    /** Kept for the tests and the route; [files] is the abstract one. */
+    val FILES: List<String> get() = files
 }

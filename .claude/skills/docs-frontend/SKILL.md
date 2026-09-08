@@ -28,7 +28,6 @@ toast/alert container.
 pageShell(
     pageTitle = "Projects",
     user = user,                                   // TokenProfile? — gates Profile link in header
-    scripts = listOf("/static/scripts/foo.js"),    // extra deferred scripts
 ) {
     appHeader(worldName = "Survival", worldId = 1, user = user, isWorldAdmin = true) {
         breadcrumb("Worlds", "/worlds") / current("Survival")
@@ -41,16 +40,23 @@ pageShell(
 }
 ```
 
-**There is no per-page stylesheet list** (MCO-514). Every sheet under `static/styles/` is in one
-bundle, `StylesheetBundle.kt`, served at `/static/seam.<hash>.css` — so a component's CSS travels
-with its markup to every page, including htmx fragments from shared endpoints. Adding a sheet
-means adding the file *and* its name to `StylesheetBundle`; `StylesheetBundleTest` fails until
-the two agree. Two rules the bundle imposes, both test-enforced:
+**There is no per-page stylesheet or script list** (MCO-514, MCO-547). Every sheet under
+`static/styles/` is in one bundle, `StylesheetBundle.kt`, served at `/static/seam.<hash>.css`,
+and every script under `static/scripts/` is in `ScriptBundle.kt` at `/static/seam.<hash>.js`,
+deferred — so a component's CSS and JS travel with its markup to every page, including htmx
+fragments from shared endpoints. Adding a file means adding it *and* its name to the bundle
+object; `StylesheetBundleTest` / `ScriptBundleTest` fail until the two agree. Rules, all
+test-enforced:
 
-- **Never link a stylesheet by hand** — no `"/static/styles/..."` in a template.
+- **Never link a stylesheet or script by hand** — no `"/static/styles/..."` or
+  `"/static/scripts/..."` in a template.
 - **A page sheet must not re-declare a component's bare class** (`.badge { }` in `idea-hub.css`).
   It used to override only on that page; in one bundle it overrides everywhere. Scope it to the
   page's own markup (`.idea-card__badges .badge { }`) or change the component.
+- **A script runs on every page**, so it delegates from the document or looks its element up and
+  returns when it is missing. It exposes behaviour only by assigning to `window.<name>`, and each
+  such name is defined in exactly one file. Item-search results call `selectSearchedItem`, which
+  is `item-search.js`'s; a new combo renders the `.item-search-combo` class hooks, not a handler.
 
 GET handlers return a full `pageShell { }`. Mutating handlers (POST/PUT/PATCH/DELETE) return HTML
 **fragments**, never a full page.

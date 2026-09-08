@@ -45,7 +45,6 @@ fun worldListPage(
 ): String = pageShell(
     pageTitle = "Seam — Worlds",
     user = user,
-    scripts = listOf("/static/scripts/worlds.js"),
 ) {
     appHeader(user = user)
     main {

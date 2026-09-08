@@ -54,6 +54,18 @@ class LayoutTest {
     }
 
     @Test
+    fun `pageShell links the one script bundle, deferred`() {
+        val html = pageShell { div { } }
+        assertTrue(html.contains("src=\"${ScriptBundle.href()}\" defer"), html)
+    }
+
+    @Test
+    fun `pageShell links no script individually`() {
+        val html = pageShell { div { } }
+        assertFalse(html.contains("/static/scripts/"), "a per-page script link is back: $html")
+    }
+
+    @Test
     fun `pageShell does not include Google Fonts`() {
         val html = pageShell { div { } }
         assertFalse(html.contains("fonts.googleapis.com"))
@@ -75,10 +87,10 @@ class LayoutTest {
     }
 
     @Test
-    fun `pageShell includes confirmation modal script and dialog`() {
+    fun `pageShell includes the confirmation modal dialog, and its script via the bundle`() {
         val html = pageShell { div { } }
-        assertTrue(html.contains("confirmation-modal.js"))
         assertTrue(html.contains("confirm-delete-modal"))
+        assertTrue(ScriptBundle.current().content.contains("/* ==== confirmation-modal.js ==== */"))
     }
 
     @Test

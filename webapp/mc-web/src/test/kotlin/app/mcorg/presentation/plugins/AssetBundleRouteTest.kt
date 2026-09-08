@@ -1,5 +1,6 @@
 package app.mcorg.presentation.plugins
 
+import app.mcorg.presentation.templated.dsl.ScriptBundle
 import app.mcorg.presentation.templated.dsl.StylesheetBundle
 import app.mcorg.test.postgres.DatabaseTestExtension
 import io.ktor.client.request.get
@@ -18,18 +19,18 @@ import kotlin.test.assertContains
 import kotlin.test.assertEquals
 
 /**
- * The bundle route answers the URL `pageShell` emits, and `styleguide.html`'s hash-less one.
+ * The bundle routes answer the URLs `pageShell` emits, and `styleguide.html`'s hash-less one.
  * Same harness as [app.mcorg.presentation.handler.ConfirmDeleteModalTest]: `testApplication`
- * boots the app module, which needs the database extension even for a route that never touches it.
+ * boots the app module, which needs the database extension even for routes that never touch it.
  */
 @Tag("database")
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @ExtendWith(DatabaseTestExtension::class)
-class StylesheetBundleRouteTest {
+class AssetBundleRouteTest {
 
     @Test
-    fun `serves the bundle at the URL pageShell links`() = testApplication {
-        routing { stylesheetBundle() }
+    fun `serves the stylesheet bundle at the URL pageShell links`() = testApplication {
+        routing { assetBundles() }
 
         val response = client.get(StylesheetBundle.href())
 
@@ -42,20 +43,35 @@ class StylesheetBundleRouteTest {
     }
 
     @Test
+    fun `serves the script bundle at the URL pageShell links`() = testApplication {
+        routing { assetBundles() }
+
+        val response = client.get(ScriptBundle.href())
+
+        assertEquals(HttpStatusCode.OK, response.status)
+        assertEquals(ContentType.Text.JavaScript.withCharset(Charsets.UTF_8), response.contentType())
+        val js = response.bodyAsText()
+        assertContains(js, "/* ==== confirmation-modal.js ==== */")
+        assertContains(js, "window.selectSearchedItem = function")
+        assertContains(js, "/* ==== worlds.js ==== */")
+    }
+
+    @Test
     fun `serves the current bundle for any version, so a static page can link it without the hash`() = testApplication {
-        routing { stylesheetBundle() }
+        routing { assetBundles() }
 
         val response = client.get("/static/seam.latest.css")
 
         assertEquals(HttpStatusCode.OK, response.status)
-        assertEquals(StylesheetBundle.current().css, response.bodyAsText())
+        assertEquals(StylesheetBundle.current().content, response.bodyAsText())
     }
 
     @Test
-    fun `a sheet by any other name is not the bundle`() = testApplication {
-        routing { stylesheetBundle() }
+    fun `a file by any other name is not a bundle`() = testApplication {
+        routing { assetBundles() }
 
         assertEquals(HttpStatusCode.NotFound, client.get("/static/seam.css").status)
+        assertEquals(HttpStatusCode.NotFound, client.get("/static/seam.js").status)
         assertEquals(HttpStatusCode.NotFound, client.get("/static/styles/reset.css").status)
     }
 }
