@@ -9,7 +9,6 @@ import kotlinx.html.stream.createHTML
 fun pageShell(
     pageTitle: String = "Seam",
     user: TokenProfile? = null,
-    scripts: List<String> = emptyList(),
     body: BODY.() -> Unit
 ): String {
     return "<!DOCTYPE html>\n" + createHTML().html {
@@ -64,14 +63,8 @@ fun pageShell(
                 crossorigin = ScriptCrossorigin.anonymous
             }
             script {
-                src = "/static/scripts/confirmation-modal.js"
+                src = ScriptBundle.href()
                 defer = true
-            }
-            for (scriptSrc in scripts) {
-                script {
-                    src = scriptSrc
-                    defer = true
-                }
             }
         }
         body {

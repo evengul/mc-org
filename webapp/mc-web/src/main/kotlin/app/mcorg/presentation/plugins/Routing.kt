@@ -1,6 +1,8 @@
 package app.mcorg.presentation.plugins
 
 import app.mcorg.logging.describeWithoutMessages
+import app.mcorg.presentation.templated.dsl.AssetBundle
+import app.mcorg.presentation.templated.dsl.ScriptBundle
 import app.mcorg.presentation.templated.dsl.StylesheetBundle
 import app.mcorg.presentation.templated.error.notFoundPage
 import app.mcorg.presentation.templated.error.serverErrorPage
@@ -45,19 +47,23 @@ fun Application.configureStatusStaticRouter() {
         }
     }
     routing {
-        stylesheetBundle()
+        assetBundles()
         staticResources("/static", "static")
     }
 }
 
 /**
- * `/static/seam.<version>.css` — the whole of [StylesheetBundle], whatever version the URL names.
- * The version is a cache key, not a lookup: a client whose HTML predates a deploy already holds
- * its old sheet immutably, and `styleguide.html` links `seam.latest.css` because a static file
- * cannot know the hash. Caching is decided in `HTTP.kt` from the same version.
+ * `/static/seam.<version>.css` and `.js` — the whole of [StylesheetBundle] / [ScriptBundle],
+ * whatever version the URL names. The version is a cache key, not a lookup: a client whose HTML
+ * predates a deploy already holds its old file immutably, and `styleguide.html` links
+ * `seam.latest.css` because a static file cannot know the hash. Caching is decided in `HTTP.kt`
+ * from the same version.
  */
-fun Route.stylesheetBundle() {
-    get("${StylesheetBundle.HREF_PREFIX}{version}.css") {
-        call.respondText(StylesheetBundle.current().css, ContentType.Text.CSS)
+fun Route.assetBundles() {
+    get("${AssetBundle.HREF_PREFIX}{version}.css") {
+        call.respondText(StylesheetBundle.current().content, ContentType.Text.CSS)
+    }
+    get("${AssetBundle.HREF_PREFIX}{version}.js") {
+        call.respondText(ScriptBundle.current().content, ContentType.Text.JavaScript)
     }
 }

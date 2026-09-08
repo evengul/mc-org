@@ -55,7 +55,6 @@ fun projectListPage(
 ): String = pageShell(
     pageTitle = "Seam — ${world.name}",
     user = user,
-    scripts = listOf("/static/scripts/np-menu.js", "/static/scripts/farm-modal.js")
 ) {
     appHeader(
         worldName = world.name,
@@ -392,7 +391,7 @@ private fun kotlinx.html.FlowContent.recordFarmModal(worldId: Int) {
                     }
                     div("item-search-combo") {
                         div("item-search-field") {
-                            input(type = InputType.text, classes = "form-control") {
+                            input(type = InputType.text, classes = "form-control item-search-input") {
                                 id = "record-farm-item-input"
                                 placeholder = "Search items by name..."
                                 autoComplete = "off"
@@ -404,8 +403,8 @@ private fun kotlinx.html.FlowContent.recordFarmModal(worldId: Int) {
                             }
                             div("item-search-results") { id = "record-farm-item-results" }
                         }
-                        input(type = InputType.hidden) { id = "record-farm-selected-item-id" }
-                        span("item-selected-label") { id = "record-farm-selected-item-label" }
+                        input(type = InputType.hidden, classes = "item-search-selected-id") { id = "record-farm-selected-item-id" }
+                        span("item-selected-label item-search-selected-label") { id = "record-farm-selected-item-label" }
                     }
                     div("item-add-row") {
                         div {

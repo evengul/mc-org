@@ -9,7 +9,6 @@ window.addEventListener('htmx:confirm', function(event) {
 
   if (deleteButton && deleteButton.hasAttribute('data-hx-delete-confirm')) {
     event.preventDefault();
-    console.log(handleDelete);
 
     const config = {
       title: deleteButton.attributes["data-hx-delete-confirm-title"]?.value,

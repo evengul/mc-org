@@ -15,8 +15,8 @@ class StylesheetBundleTest {
 
     /** `src/main/resources/static/styles`, via the classpath copy — tests read from a directory. */
     private val stylesDir: File by lazy {
-        val url = javaClass.getResource(StylesheetBundle.DIR)
-            ?: error("${StylesheetBundle.DIR} is not on the classpath")
+        val url = javaClass.getResource(StylesheetBundle.dir)
+            ?: error("${StylesheetBundle.dir} is not on the classpath")
         assertEquals("file", url.protocol, "expected the styles directory on disk, not in a jar")
         File(url.toURI())
     }
@@ -62,7 +62,7 @@ class StylesheetBundleTest {
         val bundle = StylesheetBundle.build()
         var at = -1
         for (file in StylesheetBundle.FILES) {
-            val marker = bundle.css.indexOf("/* ==== $file.css ==== */")
+            val marker = bundle.content.indexOf("/* ==== $file.css ==== */")
             assertTrue(marker > at, "$file.css is missing from the bundle or out of order")
             at = marker
         }
@@ -116,7 +116,7 @@ class StylesheetBundleTest {
     fun `no template links a stylesheet by hand`() {
         val offenders = sourceRoot.walkTopDown()
             .filter { it.isFile && it.extension == "kt" && it.name != "StylesheetBundle.kt" }
-            .filter { it.readText().contains("\"${StylesheetBundle.DIR}/") }
+            .filter { it.readText().contains("\"${StylesheetBundle.dir}/") }
             .map { it.relativeTo(sourceRoot).path }
             .toList()
         assertTrue(

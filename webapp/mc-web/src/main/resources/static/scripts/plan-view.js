@@ -4,7 +4,7 @@
  * - Qty inline edit: click qty cell to edit inline, Enter/blur triggers HTMX PATCH, Escape reverts
  * - Tasks section expand/collapse
  * - Add resource form show/hide
- * - Item search selection handler (sets hidden input + label)
+ * - Item search keyboard navigation (selection itself is item-search.js's)
  */
 
 (function () {
@@ -327,18 +327,6 @@
             applyResolution(value);
         });
     }
-
-    // -------------------------------------------------------------------------
-    // Item search selection (plan view)
-    // -------------------------------------------------------------------------
-
-    // Called from search result items via onclick="selectSearchedItem(this)"
-    window.selectSearchedItem = function (el) {
-        document.getElementById('plan-selected-item-id').value = el.dataset.itemId;
-        document.getElementById('plan-item-search').value = el.dataset.itemName;
-        var results = document.getElementById('plan-item-search-results');
-        if (results) results.innerHTML = '';
-    };
 
     // -------------------------------------------------------------------------
     // Item search keyboard navigation

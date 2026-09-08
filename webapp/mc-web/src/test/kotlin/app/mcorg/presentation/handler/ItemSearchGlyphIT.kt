@@ -30,9 +30,8 @@ import kotlin.test.assertTrue
  * Two things are under test, and the second is the one that actually breaks pages. The first is
  * that a glyph is emitted at all. The second is that adding a child element to the option did not
  * cost the option its click contract — `data-item-id`, `data-item-name` and the inline
- * `onclick="selectSearchedItem(this)"` are what four separate handlers (plan-view.js,
- * farm-modal.js, the draft form's inline script, and the two capture-phase listeners in
- * resource-panel.js) read to resolve a selection.
+ * `onclick="selectSearchedItem(this)"` are what the one `selectSearchedItem` (item-search.js)
+ * and the two capture-phase listeners in resource-panel.js read to resolve a selection.
  *
  * The Testcontainers DB carries no ingested Minecraft data, so this class seeds its own items.
  * The names are deliberately outlandish: the container is shared across IT classes with no

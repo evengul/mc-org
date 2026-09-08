@@ -13,23 +13,6 @@
         return document.getElementById(id);
     }
 
-    /**
-     * Called by the /items/search result rows (they render onclick="selectSearchedItem(this)").
-     * This page has exactly one item search — the farm modal's.
-     */
-    window.selectSearchedItem = function (option) {
-        var idField = el('record-farm-selected-item-id');
-        var label = el('record-farm-selected-item-label');
-        var input = el('record-farm-item-input');
-        var results = el('record-farm-item-results');
-        if (!idField || !label || !input) return;
-
-        idField.value = option.dataset.itemId;
-        label.textContent = option.dataset.itemName;
-        input.value = option.dataset.itemName;
-        if (results) results.innerHTML = '';
-    };
-
     window.addFarmProduction = function () {
         var idField = el('record-farm-selected-item-id');
         var label = el('record-farm-selected-item-label');

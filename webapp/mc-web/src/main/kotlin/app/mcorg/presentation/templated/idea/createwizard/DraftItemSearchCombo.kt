@@ -13,18 +13,16 @@ import kotlinx.html.span
 /**
  * The item-search combo, scoped to its own container so a page can carry several (MCO-417).
  *
- * `/items/search` renders each option with a fixed `onclick="selectSearchedItem(this)"`, so every
- * consumer of that endpoint has to supply a global of that name. The draft form has two consumers
- * in one `<form>` — item requirements and, since MCO-412, one per production mode — and two globals
- * of the same name means the later definition silently wins. That collision is why productions
- * shipped with a raw text field instead of a search.
+ * `/items/search` renders each option with a fixed `onclick="selectSearchedItem(this)"`. The
+ * draft form has two consumers in one `<form>` — item requirements and, since MCO-412, one per
+ * production mode — which is what forced the handler to resolve the fields from the clicked
+ * option's own combo rather than from ids it knows in advance: two id-addressed globals of one
+ * name, and the later definition silently wins. That collision is why productions shipped with a
+ * raw text field instead of a search.
  *
- * The fix is one definition that works out *which* combo was used from the clicked option's
- * position, rather than from element ids it has to know in advance. Every combo carries the same
- * class hooks; ids remain only where other scripts already address a specific field by id.
- *
- * Other pages (`ProductionPanel`, `ResourceDetailPanel`, the project pages) keep their own
- * `selectSearchedItem`; they render one combo each, on pages this file has nothing to do with.
+ * Since MCO-547 that container-scoped handler is the only one, in `scripts/item-search.js`, and
+ * every combo in the app renders these class hooks. Ids remain only where other scripts address
+ * a specific field by id.
  */
 fun FlowContent.draftItemSearchCombo(
     scope: String,
@@ -97,23 +95,10 @@ fun MinecraftVersionRange.toSearchVals(): String {
 }
 
 /**
- * The single `selectSearchedItem` for the draft form.
- *
- * Resolves the fields to write from the clicked option's own container rather than by id, so it
- * serves any number of combos on the page. Rendered once, by the page shell — not by either field
- * group, since whichever rendered last would otherwise define the winner.
+ * The draft form's combo helpers. Rendered once, by the page shell — not by either field group.
+ * `selectSearchedItem` itself is `scripts/item-search.js`'s, shared with every other host.
  */
 fun draftItemSearchScript() = """
-    function selectSearchedItem(el) {
-        var results = el.closest('.item-search-results');
-        var combo = el.closest('.item-search-combo');
-        if (!combo) return;
-        combo.querySelector('.item-search-selected-id').value = el.dataset.itemId;
-        combo.querySelector('.item-search-selected-label').textContent = el.dataset.itemName;
-        combo.querySelector('.item-search-input').value = el.dataset.itemName;
-        if (results) results.innerHTML = '';
-    }
-
     /** The id the combo currently holds, or '' — the only way anything should read a picked item. */
     function selectedItemIn(combo) {
         var field = combo && combo.querySelector('.item-search-selected-id');

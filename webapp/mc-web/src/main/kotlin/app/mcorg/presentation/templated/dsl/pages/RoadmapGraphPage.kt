@@ -75,7 +75,6 @@ fun roadmapGraphPage(
 ): String = pageShell(
     pageTitle = "Seam — ${view.roadmap.worldName} roadmap",
     user = user,
-    scripts = listOf("/static/scripts/np-menu.js", "/static/scripts/farm-modal.js"),
 ) {
     appHeader(
         worldName = view.roadmap.worldName,

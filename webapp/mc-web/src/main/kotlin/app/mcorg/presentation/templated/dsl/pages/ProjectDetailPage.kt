@@ -88,12 +88,6 @@ fun projectDetailPage(
 ): String = pageShell(
     pageTitle = "Seam — ${project.name}",
     user = user,
-    scripts = listOf(
-        "/static/scripts/resource-search.js",
-        "/static/scripts/plan-view.js",
-        "/static/scripts/resource-panel.js",
-        "/static/scripts/farm-suggestions.js"
-    )
 ) {
     appHeader(
         // Without this the mobile header falls back to "Seam" — and since MCO-474 made that
@@ -411,13 +405,13 @@ private fun FlowContent.listLensContent(
                 form {
                     id = "plan-resource-form"
                     div("plan-add-resource-form__fields") {
-                        div("plan-add-resource-form__field plan-add-resource-form__field--item") {
+                        div("plan-add-resource-form__field plan-add-resource-form__field--item item-search-combo") {
                             label("plan-add-resource-form__label") {
                                 htmlFor = "plan-item-search"
                                 +"Item"
                             }
                             div("item-search-field") {
-                                input(type = InputType.text, classes = "form-control") {
+                                input(type = InputType.text, classes = "form-control item-search-input") {
                                     id = "plan-item-search"
                                     placeholder = "Search items by name..."
                                     autoComplete = "off"
@@ -431,7 +425,7 @@ private fun FlowContent.listLensContent(
                                     id = "plan-item-search-results"
                                 }
                             }
-                            hiddenInput {
+                            hiddenInput(classes = "item-search-selected-id") {
                                 id = "plan-selected-item-id"
                                 name = "requiredItemId"
                             }

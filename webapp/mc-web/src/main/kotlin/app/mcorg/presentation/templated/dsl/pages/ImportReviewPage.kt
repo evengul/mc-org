@@ -102,7 +102,6 @@ fun importReviewPage(
 ): String = pageShell(
     pageTitle = "Seam — review import",
     user = user,
-    scripts = listOf("/static/scripts/import-review.js"),
 ) {
     appHeader(
         worldName = worldName,
