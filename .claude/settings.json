@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/session-start.sh",
+            "command": "bash -c 'r=\"$CLAUDE_PROJECT_DIR\"; [ -d \"$r/webapp\" ] || r=\"$r/mc-org\"; exec \"$r/.claude/hooks/session-start.sh\"'",
             "statusMessage": "Restoring session context..."
           }
         ]
@@ -17,13 +17,13 @@
         "hooks": [
           {
             "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/stop-run-tests.sh",
+            "command": "bash -c 'r=\"$CLAUDE_PROJECT_DIR\"; [ -d \"$r/webapp\" ] || r=\"$r/mc-org\"; exec \"$r/.claude/hooks/stop-run-tests.sh\"'",
             "statusMessage": "Running unit tests on modified Kotlin files...",
             "timeout": 300
           },
           {
             "type": "command",
-            "command": "bash \"$CLAUDE_PROJECT_DIR/webapp/scripts/worktree-playwright.sh\" --reap-idle",
+            "command": "bash -c 'r=\"$CLAUDE_PROJECT_DIR\"; [ -d \"$r/webapp\" ] || r=\"$r/mc-org\"; exec bash \"$r/webapp/scripts/worktree-playwright.sh\" --reap-idle'",
             "statusMessage": "Reaping idle worktree browsers...",
             "timeout": 30
           }
@@ -36,24 +36,24 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"$CLAUDE_PROJECT_DIR/webapp/scripts/worktree-m2.sh\"",
+            "command": "bash -c 'r=\"$CLAUDE_PROJECT_DIR\"; [ -d \"$r/webapp\" ] || r=\"$r/mc-org\"; exec bash \"$r/webapp/scripts/worktree-m2.sh\"'",
             "statusMessage": "Setting up worktree-local Maven repository...",
             "timeout": 60
           },
           {
             "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/worktree-create-keys.sh",
+            "command": "bash -c 'r=\"$CLAUDE_PROJECT_DIR\"; [ -d \"$r/webapp\" ] || r=\"$r/mc-org\"; exec \"$r/.claude/hooks/worktree-create-keys.sh\"'",
             "statusMessage": "Generating JWT signing keys..."
           },
           {
             "type": "command",
-            "command": "bash \"$CLAUDE_PROJECT_DIR/webapp/scripts/worktree-playwright.sh\"",
+            "command": "bash -c 'r=\"$CLAUDE_PROJECT_DIR\"; [ -d \"$r/webapp\" ] || r=\"$r/mc-org\"; exec bash \"$r/webapp/scripts/worktree-playwright.sh\"'",
             "statusMessage": "Installing the per-worktree playwright-cli shim...",
             "timeout": 60
           },
           {
             "type": "command",
-            "command": "bash \"$CLAUDE_PROJECT_DIR/webapp/scripts/worktree-db.sh\"",
+            "command": "bash -c 'r=\"$CLAUDE_PROJECT_DIR\"; [ -d \"$r/webapp\" ] || r=\"$r/mc-org\"; exec bash \"$r/webapp/scripts/worktree-db.sh\"'",
             "statusMessage": "Provisioning isolated Neon branch for worktree...",
             "timeout": 600
           }
@@ -64,13 +64,13 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"$CLAUDE_PROJECT_DIR/webapp/scripts/worktree-db-cleanup.sh\" --prune",
+            "command": "bash -c 'r=\"$CLAUDE_PROJECT_DIR\"; [ -d \"$r/webapp\" ] || r=\"$r/mc-org\"; exec bash \"$r/webapp/scripts/worktree-db-cleanup.sh\" --prune'",
             "statusMessage": "Pruning orphaned Neon worktree branches...",
             "timeout": 60
           },
           {
             "type": "command",
-            "command": "bash \"$CLAUDE_PROJECT_DIR/webapp/scripts/worktree-playwright.sh\" --prune",
+            "command": "bash -c 'r=\"$CLAUDE_PROJECT_DIR\"; [ -d \"$r/webapp\" ] || r=\"$r/mc-org\"; exec bash \"$r/webapp/scripts/worktree-playwright.sh\" --prune'",
             "statusMessage": "Stopping browser sessions for removed worktrees...",
             "timeout": 60
           }
@@ -83,7 +83,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/guard-neon-master.sh",
+            "command": "bash -c 'r=\"$CLAUDE_PROJECT_DIR\"; [ -d \"$r/webapp\" ] || r=\"$r/mc-org\"; exec \"$r/.claude/hooks/guard-neon-master.sh\"'",
             "statusMessage": "Checking the command does not touch Neon master..."
           }
         ]
