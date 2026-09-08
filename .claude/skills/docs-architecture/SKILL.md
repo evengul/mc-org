@@ -165,12 +165,10 @@ webapp/
 │
 ├── mc-pipeline/         # Generic pipeline framework, no dependencies
 │   └── src/main/kotlin/app/mcorg/pipeline/
-│       ├── Step.kt      # Step<I, E, S> interface
+│       ├── Step.kt      # Step<I, E, S> fun interface
 │       ├── Result.kt    # Result<E, V> sealed class (Success/Failure)
-│       ├── PipelineScope.kt
-│       └── MergeSteps.kt
-│   # NOTE: package is `app.mcorg.domain.pipeline` (not the directory name) —
-│   # import app.mcorg.domain.pipeline.Step / .Result
+│       └── PipelineScope.kt
+│   # One package, `app.mcorg.pipeline` — import app.mcorg.pipeline.Step / .Result
 │
 ├── mc-engine/           # Game logic — depends on mc-domain
 │   └── src/main/kotlin/app/mcorg/engine/

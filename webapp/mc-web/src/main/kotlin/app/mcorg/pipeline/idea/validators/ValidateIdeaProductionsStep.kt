@@ -2,7 +2,7 @@ package app.mcorg.pipeline.idea.validators
 
 import app.mcorg.domain.model.idea.IdeaProductionMode
 import app.mcorg.domain.model.minecraft.MinecraftVersionRange
-import app.mcorg.domain.pipeline.Step
+import app.mcorg.pipeline.Step
 import app.mcorg.pipeline.Result
 import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.failure.ValidationFailure

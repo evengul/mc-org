@@ -3,7 +3,7 @@ package app.mcorg.pipeline.idea.validators
 import app.mcorg.domain.model.minecraft.Item
 import app.mcorg.domain.model.minecraft.MinecraftVersionRange
 import app.mcorg.pipeline.Result
-import app.mcorg.domain.pipeline.Step
+import app.mcorg.pipeline.Step
 import app.mcorg.pipeline.failure.ValidationFailure
 import app.mcorg.pipeline.idea.commonsteps.GetItemsInVersionRangeStep
 import io.ktor.http.*

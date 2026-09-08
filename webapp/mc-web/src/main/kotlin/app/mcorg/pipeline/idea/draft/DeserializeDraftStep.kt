@@ -7,7 +7,7 @@ import app.mcorg.domain.model.idea.IdeaDifficulty
 import app.mcorg.domain.model.idea.IdeaDraft
 import app.mcorg.domain.model.idea.schema.CategoryValue
 import app.mcorg.domain.model.minecraft.MinecraftVersionRange
-import app.mcorg.domain.pipeline.Step
+import app.mcorg.pipeline.Step
 import app.mcorg.pipeline.Result
 import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.failure.ValidationFailure

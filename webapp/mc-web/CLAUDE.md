@@ -24,7 +24,7 @@ domain/idea/         — Idea-specific domain extensions
 pipeline/
   admin/             — Admin pipeline steps
   auth/              — Authentication pipeline (Microsoft OAuth -> Minecraft profile)
-  failure/           — Shared failure types (PipelineFailure)
+  failure/           — Shared failure types (AppFailure, ValidationFailure)
   idea/              — Idea CRUD pipelines (create, read, filter, rate, comment)
   invitation/        — Invitation pipeline steps
   minecraftfiles/    — File upload processing (litematica parsing)

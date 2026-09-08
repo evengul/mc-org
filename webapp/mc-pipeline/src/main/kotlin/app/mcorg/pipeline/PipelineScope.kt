@@ -1,13 +1,12 @@
-package app.mcorg.domain.pipeline
+package app.mcorg.pipeline
 
-import app.mcorg.pipeline.Result
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 
 /**
  * A scoped DSL for railway-oriented programming with short-circuit semantics.
  *
- * Inside a [pipeline] block, call [bind] on any [app.mcorg.pipeline.Result] to extract the success value.
+ * Inside a [pipeline] block, call [bind] on any [Result] to extract the success value.
  * If the Result is a Failure, the pipeline short-circuits immediately and the failure
  * is passed to the onFailure handler.
  *
@@ -21,6 +20,13 @@ import kotlinx.coroutines.coroutineScope
  *     GetProjectByIdStep.process(projectId).bind()
  * }
  * ```
+ *
+ * The short-circuit is a thrown [PipelineFailure]. That is safe for two structural reasons:
+ * [bind] is a member of this scope, so it can only be called lexically inside a `pipeline` /
+ * `pipelineResult` block (a `Step.process` body has no scope receiver and cannot throw it); and
+ * [PipelineFailure] extends [Throwable] directly, so a `catch (e: Exception)` inside the block
+ * cannot swallow it. Only a `catch (e: Throwable)` or `runCatching` wrapped around a `.run()` /
+ * `.bind()` could, and there is none — `PipelineScopeTest` pins the first property.
  */
 class PipelineScope<E> {
 
@@ -40,7 +46,8 @@ class PipelineScope<E> {
 
     /**
      * Runs two independent operations in parallel and returns both results.
-     * If either fails, the pipeline short-circuits with the first failure.
+     * If either fails, the pipeline short-circuits with the first failure and the other branch
+     * is cancelled — [coroutineScope] fails as soon as one child does.
      */
     suspend fun <A, B> parallel(
         blockA: suspend PipelineScope<E>.() -> A,
@@ -93,10 +100,19 @@ class PipelineScope<E> {
     }
 
     /**
-     * Internal exception used for short-circuit control flow.
-     * Not meant to propagate outside of [pipeline] blocks.
+     * Internal control-flow signal used by [bind] to unwind to the enclosing [pipeline] block.
+     *
+     * Extends [Throwable] rather than [Exception] on purpose: it must pass through any
+     * `catch (e: Exception)` a block might contain (MCO-553). It is not a
+     * [kotlinx.coroutines.CancellationException] either, so a failing `parallel` branch is a
+     * real failure to `coroutineScope`, which is what cancels the sibling branch.
+     *
+     * No stack trace and no suppression: every validation failure on every form submission
+     * throws one of these, and nothing ever reads the trace — [pipeline] catches it and hands
+     * `error` on.
      */
-    internal class PipelineFailure(val error: Any?) : Exception("Pipeline short-circuit (not a real error)")
+    internal class PipelineFailure(val error: Any?) :
+        Throwable("Pipeline short-circuit (not a real error)", null, false, false)
 }
 
 data class Quadruple<A, B, C, D>(val first: A, val second: B, val third: C, val fourth: D)

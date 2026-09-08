@@ -4,7 +4,7 @@ import app.mcorg.api.ListReporterTokensStep
 import app.mcorg.domain.model.user.Role
 import app.mcorg.domain.model.user.WorldMember
 import app.mcorg.pipeline.Result
-import app.mcorg.domain.pipeline.pipelineResult
+import app.mcorg.pipeline.pipelineResult
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.failure.AppFailure

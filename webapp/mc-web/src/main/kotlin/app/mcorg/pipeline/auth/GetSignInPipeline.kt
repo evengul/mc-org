@@ -4,7 +4,7 @@ import app.mcorg.config.AppConfig
 import app.mcorg.domain.Local
 import app.mcorg.domain.Production
 import app.mcorg.domain.Test
-import app.mcorg.domain.pipeline.pipeline
+import app.mcorg.pipeline.pipeline
 import app.mcorg.pipeline.auth.commonsteps.ConvertTokenStep
 import app.mcorg.pipeline.auth.commonsteps.GetTokenStep
 import app.mcorg.pipeline.failure.AppFailure

@@ -2,7 +2,7 @@ package app.mcorg.data.minecraft.extract
 
 import app.mcorg.domain.model.minecraft.Item
 import app.mcorg.pipeline.Result
-import app.mcorg.domain.pipeline.Step
+import app.mcorg.pipeline.Step
 import app.mcorg.data.minecraft.failure.ExtractionFailure
 import org.slf4j.LoggerFactory
 

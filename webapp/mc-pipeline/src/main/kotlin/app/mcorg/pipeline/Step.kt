@@ -1,35 +1,18 @@
-package app.mcorg.domain.pipeline
+package app.mcorg.pipeline
 
-import app.mcorg.pipeline.Result
-
-interface Step<in I, out E, out S> {
+/**
+ * The unit of work in a pipeline: one input in, one [Result] out.
+ *
+ * A `fun interface`, so the class ceremony is optional. A step that needs no constructor state
+ * is a lambda:
+ * ```
+ * val lengthStep = Step<String, Nothing, Int> { input -> Result.success(input.length) }
+ * ```
+ * and a step that carries state (a user, a world id, a transaction connection) or that a test
+ * wants to name is a class or object implementing [process]. Both shapes are the same type, so
+ * `DatabaseSteps.query(...)`, `ValidationSteps.required(...)` and a hand-written class compose
+ * identically inside a pipeline (MCO-553).
+ */
+fun interface Step<in I, out E, out S> {
     suspend fun process(input: I): Result<E, S>
-
-    companion object {
-        fun <E, V> value(value: V) = object : Step<Any, E, V> {
-            override suspend fun process(input: Any): Result<E, V> {
-                return Result.success(value)
-            }
-        }
-
-        fun <I, E, V> value(value: (i: I) -> V) = object : Step<I, E, V> {
-            override suspend fun process(input: I): Result<E, V> {
-                return Result.success(value(input))
-            }
-        }
-
-        fun <I, E> validate(
-            error: E,
-            predicate: suspend (I) -> Boolean,
-        ): Step<I, E, I> {
-            return object : Step<I, E, I> {
-                override suspend fun process(input: I): Result<E, I> {
-                    return when(predicate(input)) {
-                        true -> Result.success(input)
-                        false -> Result.failure(error)
-                    }
-                }
-            }
-        }
-    }
 }

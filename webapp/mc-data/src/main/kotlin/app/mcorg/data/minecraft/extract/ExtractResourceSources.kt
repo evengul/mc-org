@@ -3,7 +3,7 @@ package app.mcorg.data.minecraft.extract
 import app.mcorg.data.minecraft.failure.ExtractionFailure
 import app.mcorg.domain.model.resources.ResourceSource
 import app.mcorg.pipeline.Result
-import app.mcorg.domain.pipeline.Step
+import app.mcorg.pipeline.Step
 import app.mcorg.data.minecraft.extract.loot.ExtractLootTables
 import app.mcorg.data.minecraft.extract.recipe.ExtractRecipesStep
 

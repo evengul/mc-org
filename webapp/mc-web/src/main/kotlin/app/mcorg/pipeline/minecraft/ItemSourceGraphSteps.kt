@@ -7,7 +7,7 @@ import app.mcorg.domain.model.minecraft.MinecraftId
 import app.mcorg.domain.model.minecraft.MinecraftTag
 import app.mcorg.domain.model.resources.ResourceQuantity
 import app.mcorg.domain.model.resources.ResourceSource
-import app.mcorg.domain.pipeline.Step
+import app.mcorg.pipeline.Step
 import app.mcorg.domain.services.ItemSourceGraphBuilder
 import app.mcorg.engine.model.ItemSourceGraph
 import app.mcorg.pipeline.DatabaseSteps

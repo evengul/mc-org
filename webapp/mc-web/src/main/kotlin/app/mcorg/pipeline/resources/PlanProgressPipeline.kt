@@ -1,7 +1,7 @@
 package app.mcorg.pipeline.resources
 
 import app.mcorg.domain.model.world.World
-import app.mcorg.domain.pipeline.Step
+import app.mcorg.pipeline.Step
 import app.mcorg.engine.plan.GatheringPlan
 import app.mcorg.pipeline.Result
 import app.mcorg.pipeline.failure.AppFailure

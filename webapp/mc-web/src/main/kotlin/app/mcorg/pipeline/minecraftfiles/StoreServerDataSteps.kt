@@ -5,7 +5,7 @@ import app.mcorg.domain.model.minecraft.*
 import app.mcorg.domain.model.resources.ResourceQuantity
 import app.mcorg.domain.model.resources.ResourceSource
 import app.mcorg.pipeline.Result
-import app.mcorg.domain.pipeline.Step
+import app.mcorg.pipeline.Step
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.TransactionConnection

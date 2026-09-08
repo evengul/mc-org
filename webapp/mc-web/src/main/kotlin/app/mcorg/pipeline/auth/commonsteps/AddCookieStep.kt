@@ -3,7 +3,7 @@ package app.mcorg.pipeline.auth.commonsteps
 import app.mcorg.config.AppConfig
 import app.mcorg.domain.Local
 import app.mcorg.pipeline.Result
-import app.mcorg.domain.pipeline.Step
+import app.mcorg.pipeline.Step
 import app.mcorg.presentation.consts.AUTH_COOKIE
 import io.ktor.server.response.*
 import io.ktor.util.date.*

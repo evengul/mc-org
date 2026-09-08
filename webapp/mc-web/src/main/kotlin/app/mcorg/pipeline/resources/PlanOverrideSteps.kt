@@ -1,6 +1,6 @@
 package app.mcorg.pipeline.resources
 
-import app.mcorg.domain.pipeline.Step
+import app.mcorg.pipeline.Step
 import app.mcorg.engine.plan.PlanOverrides
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.Result

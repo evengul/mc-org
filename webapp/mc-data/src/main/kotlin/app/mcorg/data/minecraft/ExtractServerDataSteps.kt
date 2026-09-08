@@ -3,7 +3,7 @@ package app.mcorg.data.minecraft
 import app.mcorg.domain.model.minecraft.MinecraftVersion
 import app.mcorg.domain.model.minecraft.ServerData
 import app.mcorg.pipeline.Result
-import app.mcorg.domain.pipeline.Step
+import app.mcorg.pipeline.Step
 import app.mcorg.data.minecraft.extract.ExtractItemsStep
 import app.mcorg.data.minecraft.extract.ExtractResourceSources
 import app.mcorg.data.minecraft.extract.ExtractionContextFactory

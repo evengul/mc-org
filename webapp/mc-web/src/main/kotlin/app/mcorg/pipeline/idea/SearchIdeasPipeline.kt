@@ -2,7 +2,7 @@ package app.mcorg.pipeline.idea
 
 import app.mcorg.domain.model.idea.Idea
 import app.mcorg.pipeline.Result
-import app.mcorg.domain.pipeline.Step
+import app.mcorg.pipeline.Step
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.failure.AppFailure

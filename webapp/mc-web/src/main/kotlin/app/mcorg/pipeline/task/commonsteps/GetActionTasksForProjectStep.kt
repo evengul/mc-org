@@ -1,7 +1,7 @@
 package app.mcorg.pipeline.task.commonsteps
 
 import app.mcorg.domain.model.task.ActionTask
-import app.mcorg.domain.pipeline.Step
+import app.mcorg.pipeline.Step
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.failure.AppFailure

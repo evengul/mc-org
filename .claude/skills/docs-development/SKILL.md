@@ -84,10 +84,26 @@ handlePipeline(onSuccess = { ... }) {
 ## Step Interface
 
 ```kotlin
-interface Step<I, E, S> {
+fun interface Step<in I, out E, out S> {
     suspend fun process(input: I): Result<E, S>
 }
 ```
+
+Everything in `mc-pipeline` — `Step`, `Result`, `PipelineScope`, `pipelineResult`, `getOrElse` —
+is in the one package `app.mcorg.pipeline` (MCO-553; the old `app.mcorg.domain.pipeline` is gone).
+
+`Step` is the unit of work, and it is a `fun interface`: the class ceremony is optional. Pick the
+shape by what the step carries, not by habit:
+
+- **Lambda** — stateless, one expression, not something a test names:
+  `val trimmed = Step<String, AppFailure, String> { Result.success(it.trim()) }`.
+  `DatabaseSteps.query(...)`, `DatabaseSteps.update(...)` and `ValidationSteps.*` already return
+  steps built this way; a `val` holding one is the normal shape for a one-query step.
+- **Object** — stateless but named, so tests and pipelines can refer to it.
+- **Class** — carries constructor state (a user, a world id, a transaction connection).
+
+Existing steps are not to be rewritten from one shape to another; apply the choice where the next
+change lands.
 
 ### Object step (no constructor params)
 
@@ -127,7 +143,7 @@ result.getOrElse { return Result.failure(it) }  // Early return pattern
 result.map { v -> transform(v) }
 result.mapError { e -> transform(e) }
 result.flatMap { v -> anotherStep.process(v) }
-result.isSuccess / result.isFailure
+result is Result.Success / result is Result.Failure   // no isSuccess/isFailure on this Result
 ```
 
 ---
@@ -284,10 +300,11 @@ import app.mcorg.presentation.utils.getUser
 import app.mcorg.presentation.utils.getWorldId
 import app.mcorg.presentation.utils.getProjectId
 import app.mcorg.presentation.utils.clientRedirect
-import app.mcorg.domain.pipeline.Step
-import app.mcorg.domain.pipeline.Result
+import app.mcorg.pipeline.Step
+import app.mcorg.pipeline.Result
+import app.mcorg.pipeline.getOrElse
 import app.mcorg.presentation.handler.handlePipeline
-import app.mcorg.presentation.handler.pipelineResult
+import app.mcorg.pipeline.pipelineResult
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.ValidationSteps

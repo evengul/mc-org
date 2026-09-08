@@ -1,6 +1,5 @@
-package app.mcorg.domain.pipeline
+package app.mcorg.pipeline
 
-import app.mcorg.pipeline.Result
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows

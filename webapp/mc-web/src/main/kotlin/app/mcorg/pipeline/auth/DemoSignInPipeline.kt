@@ -4,7 +4,7 @@ import app.mcorg.config.AppConfig
 import app.mcorg.domain.Env
 import app.mcorg.domain.Production
 import app.mcorg.domain.model.user.MinecraftProfile
-import app.mcorg.domain.pipeline.pipeline
+import app.mcorg.pipeline.pipeline
 import app.mcorg.pipeline.auth.commonsteps.AddCookieStep
 import app.mcorg.pipeline.auth.commonsteps.CreateTokenStep
 import app.mcorg.pipeline.auth.commonsteps.CreateUserIfNotExistsStep

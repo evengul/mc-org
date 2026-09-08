@@ -1,6 +1,6 @@
 package app.mcorg.data.minecraft
 
-import app.mcorg.domain.pipeline.Step
+import app.mcorg.pipeline.Step
 import app.mcorg.pipeline.Result
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.fail

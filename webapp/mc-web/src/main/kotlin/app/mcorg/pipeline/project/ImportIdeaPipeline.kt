@@ -13,7 +13,7 @@ import app.mcorg.domain.model.idea.IdeaProductionMode
 import app.mcorg.domain.model.idea.buildTimeModes
 import app.mcorg.pipeline.idea.commonsteps.GetIdeaProductionModesStep
 import app.mcorg.pipeline.Result
-import app.mcorg.domain.pipeline.Step
+import app.mcorg.pipeline.Step
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.failure.AppFailure

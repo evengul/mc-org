@@ -10,8 +10,8 @@ import app.mcorg.data.minecraft.extract.ExtractRelevantMinecraftFilesStep
 import app.mcorg.domain.model.minecraft.MinecraftVersion
 import app.mcorg.item.ItemGlyph
 import app.mcorg.pipeline.Result
-import app.mcorg.domain.pipeline.Step
-import app.mcorg.domain.pipeline.pipelineResult
+import app.mcorg.pipeline.Step
+import app.mcorg.pipeline.pipelineResult
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.TransactionConnection
@@ -414,11 +414,9 @@ private data object ProcessServerFilesStep : Step<List<ResolvedServerJar>, AppFa
         val result = input.map { jar ->
             MDC.put("minecraftVersion", jar.version.toString())
             val stepResult = processServerFile(jar)
-            try {
-                delay(500)
-            } catch (e: Exception) {
-                logger.warn("Delay interrupted: ${e.message}", e)
-            }
+            // The only thing delay() can throw is CancellationException; catching it here (as this
+            // did until MCO-553) swallowed a cancelled run for one more iteration.
+            delay(500)
             stepResult
         }
 

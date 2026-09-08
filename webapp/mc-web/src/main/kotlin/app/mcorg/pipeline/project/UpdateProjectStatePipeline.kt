@@ -7,7 +7,7 @@ import app.mcorg.pipeline.resources.invalidateDemandOnStateChange
 import app.mcorg.event.actorDisplayName
 import app.mcorg.event.eventBus
 import java.time.Instant
-import app.mcorg.domain.pipeline.Step
+import app.mcorg.pipeline.Step
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.Result
 import app.mcorg.pipeline.SafeSQL

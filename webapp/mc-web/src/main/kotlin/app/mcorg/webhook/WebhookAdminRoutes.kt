@@ -4,7 +4,7 @@ import app.mcorg.logging.redacted
 
 import app.mcorg.config.AppConfig
 import app.mcorg.domain.Production
-import app.mcorg.domain.pipeline.Step
+import app.mcorg.pipeline.Step
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.Result
 import app.mcorg.pipeline.SafeSQL

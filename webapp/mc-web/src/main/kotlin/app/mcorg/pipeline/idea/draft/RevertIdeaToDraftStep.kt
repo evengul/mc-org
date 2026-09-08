@@ -2,7 +2,7 @@ package app.mcorg.pipeline.idea.draft
 
 import app.mcorg.domain.model.idea.Author
 import app.mcorg.domain.model.minecraft.MinecraftVersionRange
-import app.mcorg.domain.pipeline.Step
+import app.mcorg.pipeline.Step
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.Result
 import app.mcorg.pipeline.SafeSQL

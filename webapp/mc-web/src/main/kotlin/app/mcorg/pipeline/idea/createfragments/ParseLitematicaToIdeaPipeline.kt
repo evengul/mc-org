@@ -3,7 +3,7 @@ package app.mcorg.pipeline.idea.createfragments
 import app.mcorg.domain.model.minecraft.Litematica
 import app.mcorg.domain.model.minecraft.MinecraftVersionRange
 import app.mcorg.pipeline.Result
-import app.mcorg.domain.pipeline.Step
+import app.mcorg.pipeline.Step
 import app.mcorg.nbt.util.LitematicaReader
 import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.idea.commonsteps.GetItemsInVersionRangeStep

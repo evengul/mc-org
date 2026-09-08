@@ -1,7 +1,7 @@
 package app.mcorg.pipeline.resources.commonsteps
 
 import app.mcorg.domain.model.resources.ResourceSourceType
-import app.mcorg.domain.pipeline.Step
+import app.mcorg.pipeline.Step
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.Result
 import app.mcorg.pipeline.SafeSQL

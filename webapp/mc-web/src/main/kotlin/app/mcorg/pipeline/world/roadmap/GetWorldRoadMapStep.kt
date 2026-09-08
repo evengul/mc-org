@@ -11,7 +11,7 @@ import app.mcorg.domain.model.world.RoadmapCycleOrder
 import app.mcorg.domain.model.world.RoadmapEdge
 import app.mcorg.domain.model.world.RoadmapLayer
 import app.mcorg.domain.model.world.RoadmapNode
-import app.mcorg.domain.pipeline.Step
+import app.mcorg.pipeline.Step
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.Result
 import app.mcorg.pipeline.SafeSQL

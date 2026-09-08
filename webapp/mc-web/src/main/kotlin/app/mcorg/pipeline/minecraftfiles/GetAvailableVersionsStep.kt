@@ -2,7 +2,7 @@ package app.mcorg.pipeline.minecraft
 
 import app.mcorg.config.MojangLauncherMetaApiConfig
 import app.mcorg.domain.model.minecraft.MinecraftVersion
-import app.mcorg.domain.pipeline.Step
+import app.mcorg.pipeline.Step
 import app.mcorg.pipeline.Result
 import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.minecraftfiles.VersionManifest

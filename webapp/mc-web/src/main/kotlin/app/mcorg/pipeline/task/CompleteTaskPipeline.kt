@@ -4,7 +4,7 @@ import app.mcorg.domain.model.task.ActionTask
 import app.mcorg.event.TaskToggled
 import app.mcorg.event.eventBus
 import app.mcorg.pipeline.Result
-import app.mcorg.domain.pipeline.Step
+import app.mcorg.pipeline.Step
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.failure.AppFailure

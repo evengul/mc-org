@@ -3,7 +3,7 @@ package app.mcorg.pipeline.project.resources
 import app.mcorg.config.CacheManager
 import app.mcorg.domain.model.minecraft.Item
 import app.mcorg.domain.model.user.Role
-import app.mcorg.domain.pipeline.Step
+import app.mcorg.pipeline.Step
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.Result
 import app.mcorg.pipeline.SafeSQL
