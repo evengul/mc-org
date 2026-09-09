@@ -65,6 +65,8 @@ fun Route.apiV1Routes() {
             delete("/{worldId}/containers/{containerId}") { call.handleUntagContainer() }
             // The HUD's frequent poll (~10s per player). Deliberately cheap — one indexed read.
             get("/{worldId}/storage") { call.handleGetWorldStorage() }
+            // "Is anything reading my chests?" (MCO-536). Structure cadence, never the count poll.
+            get("/{worldId}/reporter") { call.handleGetReporterStatus() }
         }
         // The reporter's own surface (MCO-532). Gated by a plugin that accepts a world-scoped
         // reporter token OR a player token (the singleplayer path), never the player plugin.
@@ -718,6 +720,51 @@ suspend fun ApplicationCall.handlePushReporterContents() {
 
 /** The states a sweep may report. Mirrors `container_tags.state`'s CHECK constraint. */
 private val REPORTABLE_STATES = setOf("ok", "unreadable", "missing")
+
+/**
+ * `GET /worlds/{id}/reporter` — whether a server is reading this world's tagged containers.
+ *
+ * Aggregated from the world's live reporter tokens rather than from container readings, and that
+ * choice is the whole point: a container in an unloaded chunk is deliberately not re-read, so
+ * `container_tags.last_seen_at` goes stale while the reporter is fine. `reporter_token.last_used_at`
+ * is stamped by every push including the empty heartbeat, which goes out on cadence no matter what
+ * is loaded.
+ *
+ * Reuses [ListReporterTokensStep] rather than adding SQL: a world has one or two of these, and the
+ * aggregation is a max over a list world settings already reads the same way.
+ */
+suspend fun ApplicationCall.handleGetReporterStatus() {
+    val worldId = resolveWorldForUser() ?: return
+    when (val r = ListReporterTokensStep.process(worldId)) {
+        is Result.Success -> {
+            val tokens = r.value
+            // The most recently *used* token speaks for the world. With several servers reporting,
+            // the freshest is the honest answer to "is anything watching" — one live reporter is
+            // enough for the counts to move, and naming the stalest would read as broken.
+            val connected = tokens.filter { it.lastUsedAt != null }.maxByOrNull { it.lastUsedAt!! }
+            // Nothing has connected yet, so name the newest token anyway: "«the survival server»
+            // has never connected" tells an operator which server to go and look at, where a
+            // nameless "no server has connected" leaves them guessing which one they set up.
+            val named = connected ?: tokens.maxByOrNull { it.createdAt }
+            respondJson(
+                HttpStatusCode.OK,
+                ReporterStatusDto(
+                    configured = tokens.isNotEmpty(),
+                    connected = connected != null,
+                    // Both only exist once something has actually pushed — an unused token has no
+                    // last-seen and no version, and inventing either would be a claim about a
+                    // server that has never spoken.
+                    lastSeenAt = connected?.lastUsedAt?.toString(),
+                    reporterVersion = connected?.reporterVersion,
+                    serverName = named?.name,
+                    serverCount = tokens.size,
+                ),
+            )
+        }
+        is Result.Failure ->
+            respondApiError(HttpStatusCode.InternalServerError, "server_error", "Could not load reporter status")
+    }
+}
 
 suspend fun ApplicationCall.handleGetWorldStorage() {
     val worldId = resolveWorldForUser() ?: return

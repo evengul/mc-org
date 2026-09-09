@@ -270,3 +270,39 @@ data class WorldStorageDto(
     @SerialName("container_count") val containerCount: Int,
     @SerialName("oldest_seen_at") val oldestSeenAt: String? = null,
 )
+
+// ── Is anything reading these containers? (MCO-536) ────────────────────────────
+
+/**
+ * The state of this world's reporter, for the player standing in front of a chest.
+ *
+ * Tagging a chest and watching nothing happen is the feature's worst failure, and its two causes
+ * are indistinguishable from inside the game: nobody has connected a server, or a server is
+ * connected to a *different* Seam world. Both leave tags piling up and numbers never moving. World
+ * settings already answers this for whoever configures the server; this answers it for whoever is
+ * holding the shulker box, who is usually not the same person and is definitely not holding a
+ * browser.
+ *
+ * The three states are deliberately separate, because they have different fixes:
+ * - `configured = false` — nobody has minted a token. Mint one in world settings.
+ * - `configured = true, connected = false` — a token exists but no server has ever used it. It is
+ *   not in a server's config, or the server has not run `/seam connect`.
+ * - `connected = true` — a reporter has pushed. [lastSeenAt] says when, which is the only way to
+ *   tell a live reporter from one that stopped an hour ago.
+ *
+ * [lastSeenAt] is the **token's** last use, not a container's last reading — deliberately. A
+ * container in an unloaded chunk is not re-read, so per-container timestamps go stale while the
+ * reporter is perfectly healthy; the empty heartbeat that stamps this one goes out on cadence
+ * regardless of what is loaded. Deriving liveness from container readings would announce that
+ * nothing is watching every time a player walks away from their storage room.
+ */
+@Serializable
+data class ReporterStatusDto(
+    @SerialName("configured") val configured: Boolean,
+    @SerialName("connected") val connected: Boolean,
+    @SerialName("last_seen_at") val lastSeenAt: String? = null,
+    @SerialName("reporter_version") val reporterVersion: String? = null,
+    @SerialName("server_name") val serverName: String? = null,
+    /** Live tokens for this world. More than one means more than one server may be reporting. */
+    @SerialName("server_count") val serverCount: Int = 0,
+)
