@@ -220,7 +220,8 @@
 }
 
 /* The minted token, shown exactly once. Monospace and selectable as a whole, because it is going
-   to be copied into a config file and a half-selected bearer token fails in a confusing way. */
+   to be pasted into a /seam connect command and a half-selected bearer token fails in a confusing
+   way. */
 .reporter-reveal__token {
     display: block;
     margin-top: var(--space-2);
@@ -235,7 +236,9 @@
     user-select: all;
 }
 
-.reporter-reveal__world-id {
+/* The command to run, inline in the sentence. Selectable as a whole for the same reason as the
+   token above — it is there to be copied, not read. */
+.reporter-reveal__command {
     font-family: var(--font-ui);
     user-select: all;
 }
