@@ -29,6 +29,13 @@ jobs:
         run: bash scripts/check-no-stdout.sh
       - name: Compile and install modules
         run: mvn install -DskipTests -B
+      # The jar uploaded below is the one that ships — prod.yml downloads this artifact and
+      # Dockerfile.ci copies it straight in, so nothing rebuilds it later. Packaging bugs are
+      # therefore invisible to every other job: the test tiers run on a normal classpath, not on
+      # this artifact. MCO-560 crashlooped production for a day on a META-INF/services entry that
+      # the assembly had silently overwritten, with all tests green. Needs no database.
+      - name: Smoke-test the assembled jar
+        run: java -cp "$(echo mc-web/target/*-with-dependencies.jar)" mc-web/src/assembly/VerifyFatJar.java
       - name: Upload local Maven artifacts
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
