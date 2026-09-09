@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  The stock `jar-with-dependencies` descriptor, plus one line: the `metaInf-services`
+  container descriptor handler (MCO-560).
+
+  Without it the assembly copies dependency jars over each other file by file, so when two
+  jars ship the same `META-INF/services/<interface>` the last one written wins and the
+  others' entries are gone. Nothing warns; the jar builds clean and the missing service is
+  only discovered when something asks a ServiceLoader for it at runtime.
+
+  That is how production came to crashloop: flyway-core and flyway-database-postgresql both
+  ship `META-INF/services/org.flywaydb.core.extensibility.Plugin`, the postgres one won, and
+  flyway-core lost all 36 of its own plugins — including the applied-migration reader. The
+  first thing to touch the resulting half-empty PluginRegister was `Flyway.configure()
+  .dataSource(...)` in SchemaValidation, which threw NPE on every boot. Tests never saw it:
+  they run on a normal classpath where both files still exist side by side.
+
+  Keep the `<id>`: it is the jar's classifier, and webapp/Dockerfile copies
+  `target/*-with-dependencies.jar`.
+-->
+<assembly xmlns="http://maven.apache.org/ASSEMBLY/2.2.0"
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:schemaLocation="http://maven.apache.org/ASSEMBLY/2.2.0 http://maven.apache.org/xsd/assembly-2.2.0.xsd">
+    <id>jar-with-dependencies</id>
+    <formats>
+        <format>jar</format>
+    </formats>
+    <includeBaseDirectory>false</includeBaseDirectory>
+
+    <containerDescriptorHandlers>
+        <containerDescriptorHandler>
+            <handlerName>metaInf-services</handlerName>
+        </containerDescriptorHandler>
+    </containerDescriptorHandlers>
+
+    <dependencySets>
+        <dependencySet>
+            <outputDirectory>/</outputDirectory>
+            <useProjectArtifact>true</useProjectArtifact>
+            <unpack>true</unpack>
+            <scope>runtime</scope>
+        </dependencySet>
+    </dependencySets>
+</assembly>

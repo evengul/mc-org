@@ -1,5 +1,6 @@
 package app.mcorg.config
 
+import app.mcorg.logging.describeWithoutMessages
 import org.flywaydb.core.Flyway
 import org.slf4j.LoggerFactory
 import kotlin.system.exitProcess
@@ -45,9 +46,11 @@ object SchemaValidation {
         val problems = try {
             problems(config.url, config.user, config.password)
         } catch (e: Exception) {
-            // The class name, not the message: a driver's connection error names the host and can
-            // carry the URL it was given (documentation/logging.md).
-            logger.error("Could not validate the database schema ({}); refusing to start.", e.javaClass.name)
+            // Types and code locations, no messages: a driver's connection error names the host and
+            // can carry the URL it was given (documentation/logging.md). The class name alone was
+            // not enough — MCO-560 spent a day on a log line that said `NullPointerException` and
+            // nothing else, when the one frame it withheld named the cause outright.
+            logger.error("Could not validate the database schema; refusing to start.\n{}", e.describeWithoutMessages())
             exitProcess(1)
         }
         if (problems.isEmpty()) {

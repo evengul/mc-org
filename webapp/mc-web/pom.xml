@@ -77,9 +77,15 @@
                 <artifactId>maven-assembly-plugin</artifactId>
                 <version>3.8.0</version>
                 <configuration>
-                    <descriptorRefs>
-                        <descriptorRef>jar-with-dependencies</descriptorRef>
-                    </descriptorRefs>
+                    <!--
+                      A local copy of the stock `jar-with-dependencies` descriptor that merges
+                      META-INF/services instead of overwriting it (MCO-560). The `descriptorRef`
+                      this replaces does not merge, which silently emptied flyway-core's plugin
+                      registry and crashlooped production. Do not go back to the ref.
+                    -->
+                    <descriptors>
+                        <descriptor>src/assembly/jar-with-dependencies.xml</descriptor>
+                    </descriptors>
                     <archive>
                         <manifest>
                             <addClasspath>true</addClasspath>
