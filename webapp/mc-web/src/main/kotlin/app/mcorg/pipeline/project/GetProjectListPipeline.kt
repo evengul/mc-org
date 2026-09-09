@@ -14,6 +14,7 @@ import app.mcorg.presentation.templated.dsl.ResumeHeroData
 import app.mcorg.presentation.templated.dsl.pages.projectListPage
 import app.mcorg.presentation.utils.getUser
 import app.mcorg.presentation.utils.getWorldId
+import app.mcorg.pipeline.resources.GetProjectMeasurementsStep
 import app.mcorg.presentation.utils.respondHtml
 import app.mcorg.domain.model.project.ProjectListItem
 import app.mcorg.domain.model.project.ProjectResourceEdge
@@ -39,7 +40,19 @@ suspend fun ApplicationCall.handleGetProjectList() {
     handlePipeline(
         onSuccess = { (world, member, projects, edges, resume) ->
             val isAdmin = member.worldRole.isHigherThanOrEqualTo(Role.ADMIN)
-            respondHtml(projectListPage(user, world, projects, isWorldAdmin = isAdmin, edges = edges, resume = resume))
+            // Only the resume project's measurements: it is the only project on this page that
+            // renders resource rows, so loading every project's would be one query per row of a
+            // list that mostly shows headline numbers (MCO-539).
+            val measurements = resume
+                ?.let { GetProjectMeasurementsStep.process(it.project.id).getOrNull() }
+                .orEmpty()
+            respondHtml(
+                projectListPage(
+                    user, world, projects,
+                    isWorldAdmin = isAdmin, edges = edges, resume = resume,
+                    measurements = measurements,
+                )
+            )
         }
     ) {
         val world = GetWorldStep.run(worldId)

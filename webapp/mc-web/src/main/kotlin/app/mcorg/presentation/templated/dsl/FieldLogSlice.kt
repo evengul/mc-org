@@ -149,7 +149,7 @@ fun FlowContent.fieldLogSliceRows(
                 attributes["hx-swap"] = "outerHTML"
                 attributes["hx-confirm"] =
                     "Set $drifting item(s) to what the tagged chests hold? This replaces the counts you typed."
-                +"Adopt all $drifting from chests"
+                +"Use chest counts for $drifting item(s)"
             }
         }
 

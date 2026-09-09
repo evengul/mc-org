@@ -89,7 +89,7 @@ fun FlowContent.resourceRow(
  * The sign is never the only signal — the number and the word both carry it — because colour alone
  * fails a colour-blind reader. See docs-product.
  */
-private fun FlowContent.driftChip(
+fun FlowContent.driftChip(
     worldId: Int,
     projectId: Int,
     resourceId: Int,
@@ -112,7 +112,9 @@ private fun FlowContent.driftChip(
         attributes["hx-target"] = "#resource-row-$resourceId"
         attributes["hx-swap"] = "outerHTML"
         attributes["aria-label"] = "Set $itemName to ${measured.measured}, what the chests hold"
-        +"Adopt"
+        // Not "Adopt". That is the issue's word for the mechanism, and it tells a player nothing
+        // about what pressing it does — the label names the outcome instead.
+        +"Set to ${measured.measured}"
     }
 }
 

@@ -9,6 +9,7 @@ import app.mcorg.pipeline.project.commonsteps.GetViewPreferenceInput
 import app.mcorg.pipeline.project.commonsteps.GetViewPreferenceStep
 import app.mcorg.engine.plan.PlanOverrides
 import app.mcorg.pipeline.world.settings.general.versionGapsForPlan
+import app.mcorg.pipeline.resources.GetProjectMeasurementsStep
 import app.mcorg.pipeline.resources.GatheringPlanInput
 import app.mcorg.domain.model.world.World
 import app.mcorg.pipeline.resources.GetFarmScaleThresholdStep
@@ -128,11 +129,15 @@ suspend fun ApplicationCall.handleGetProject() {
     val drillOverrides = if (drillTarget != null) GetPlanOverridesStep.process(projectId).getOrNull() ?: PlanOverrides.NONE else PlanOverrides.NONE
 
     val versionGaps = versionGapsForPlan(projectId, plan)
+    // What the tagged chests hold (MCO-539). One indexed read of the materialised rollup; empty
+    // where nothing is tagged, which is what keeps the column blank rather than apologetic.
+    val measurements = GetProjectMeasurementsStep.process(projectId).getOrNull().orEmpty()
 
     respondHtml(
         projectDetailPage(
             user, project, worldName, resources, tasks,
             isWorldAdmin = isAdmin, plan = plan, progressMap = progressMap,
+            measurements = measurements,
             productions = productions,
             pendingFarms = prerequisiteFarms,
             drillTarget = drillTarget, drillCandidateCounts = drillCandidateCounts,

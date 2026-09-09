@@ -1150,3 +1150,13 @@
     font-family: var(--font-mono);
     font-size: var(--text-label);
 }
+
+/* Where the chest numbers come from (MCO-539). Said once above the section rather than on every
+   row: the rows have no space for it, and a reader who has never installed the mod has no way to
+   guess that "chests 140" is a measurement of their actual world. */
+.work-panel__provenance {
+    margin: 0 0 var(--space-2);
+    font-family: var(--font-ui);
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+}

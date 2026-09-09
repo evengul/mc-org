@@ -76,7 +76,18 @@ suspend fun ApplicationCall.handleUpdatePlanProgress() {
         val input = ValidatePlanProgressInputStep.run(params).let {
             PlanProgressInput(projectId, it.itemId, it.delta, it.required)
         }
-        UpsertProgressByItemStep.run(UpsertProgressByItemInput(input.projectId, input.itemId, input.delta, input.required))
+        // `adopt` takes the chests' number instead of applying a delta (MCO-539). Same endpoint
+        // because everything after the write — reload progress, re-derive the plan, swap the row,
+        // update the OOB total — is identical, and duplicating it would be two things to keep in
+        // step. It cannot reuse the delta path: that stamps `progress_source = 'manual'`, which
+        // would claim a human typed what the sweep measured.
+        if (params["adopt"]?.toBooleanStrictOrNull() == true) {
+            AdoptMeasurementStep.run(AdoptMeasurementInput(input.projectId, input.itemId))
+        } else {
+            UpsertProgressByItemStep.run(
+                UpsertProgressByItemInput(input.projectId, input.itemId, input.delta, input.required)
+            )
+        }
 
         // Reload full project progress map after upsert — covers derived items too
         val progressMap = GetProgressForProjectStep.run(projectId)
@@ -239,7 +250,11 @@ private object ValidatePlanProgressInputStep : Step<Parameters, AppFailure.Valid
                 AppFailure.ValidationError(listOf(ValidationFailure.MissingParameter("amount")))
             )
         }
-        if (amount == 0) {
+        // An adopt carries no delta — it takes the measurement wholesale — so zero is the correct
+        // thing for it to send, and sending a fake non-zero amount to satisfy this check would be
+        // a lie the handler then has to ignore. A stepper press is still required to move something.
+        val isAdopt = input["adopt"]?.toBooleanStrictOrNull() == true
+        if (amount == 0 && !isAdopt) {
             return Result.failure(
                 AppFailure.ValidationError(
                     listOf(ValidationFailure.InvalidValue("amount", listOf("any non-zero integer")))

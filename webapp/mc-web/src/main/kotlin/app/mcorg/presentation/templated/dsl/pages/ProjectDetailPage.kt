@@ -34,6 +34,7 @@ import app.mcorg.presentation.hxTarget
 import app.mcorg.presentation.hxTargetError
 import app.mcorg.presentation.hxTrigger
 import app.mcorg.presentation.templated.dsl.Link
+import app.mcorg.pipeline.resources.MeasuredStock
 import app.mcorg.presentation.templated.dsl.TabItem
 import app.mcorg.presentation.templated.dsl.TabVariant
 import app.mcorg.presentation.templated.dsl.addTaskInline
@@ -71,6 +72,8 @@ fun projectDetailPage(
     isWorldAdmin: Boolean = false,
     plan: GatheringPlan? = null,
     progressMap: Map<String, Int> = emptyMap(),
+    /** What tagged chests hold, by item id (MCO-539). Empty where nothing is tagged. */
+    measurements: Map<String, MeasuredStock> = emptyMap(),
     productions: List<ProjectProduction> = emptyList(),
     pendingFarms: List<PendingFarmSupply> = emptyList(),
     drillTarget: TargetTree? = null,
@@ -138,7 +141,7 @@ fun projectDetailPage(
                     // ?drill=<item> deep-links straight into a target's chain (reload/share-safe).
                     drillChainContent(project, drillTarget, drillCandidateCounts, drillNodeIngredients, overrides = drillOverrides, graph = drillGraph, highlightItemId = drillHighlightItemId)
                 } else {
-                    gatheringPlannerContent(project, resources, tasks, plan, progressMap, pendingFarms, farmScaleThreshold, farmSuggestions, versionGaps, isWorldAdmin, farmDismissals)
+                    gatheringPlannerContent(project, resources, tasks, plan, progressMap, measurements, pendingFarms, farmScaleThreshold, farmSuggestions, versionGaps, isWorldAdmin, farmDismissals)
                 }
             }
         }
@@ -182,6 +185,8 @@ private fun FlowContent.gatheringOverallProgress(
     resources: List<ResourceGatheringItem>,
     plan: GatheringPlan?,
     progressMap: Map<String, Int> = emptyMap(),
+    /** What tagged chests hold, by item id (MCO-539). Empty where nothing is tagged. */
+    measurements: Map<String, MeasuredStock> = emptyMap(),
 ) {
     val (totalRequired, totalCollected) = if (plan != null) {
         planProgressTotals(plan, progressMap)
@@ -249,6 +254,8 @@ fun FlowContent.gatheringPlannerContent(
     tasks: List<ActionTask>,
     plan: GatheringPlan?,
     progressMap: Map<String, Int> = emptyMap(),
+    /** What tagged chests hold, by item id (MCO-539). Empty where nothing is tagged. */
+    measurements: Map<String, MeasuredStock> = emptyMap(),
     pendingFarms: List<PendingFarmSupply> = emptyList(),
     farmScaleThreshold: Int = World.DEFAULT_FARM_SCALE_THRESHOLD,
     farmSuggestions: List<FarmSuggestion> = emptyList(),
@@ -303,7 +310,7 @@ fun FlowContent.gatheringPlannerContent(
         ?.maxOfOrNull { it.quantity } ?: 0L
     val topPick = candidates.firstOrNull()?.quantity ?: 0L
     if (largestQuestion < topPick) nextUpWidget(project, candidates)
-    listLensContent(project, resources, tasks, plan, progressMap, pendingFarms, farmScaleThreshold, farmSuggestions, versionGaps, isWorldAdmin, farmDismissals)
+    listLensContent(project, resources, tasks, plan, progressMap, measurements, pendingFarms, farmScaleThreshold, farmSuggestions, versionGaps, isWorldAdmin, farmDismissals)
 }
 
 /**
@@ -363,6 +370,8 @@ private fun FlowContent.listLensContent(
     tasks: List<ActionTask>,
     plan: GatheringPlan?,
     progressMap: Map<String, Int> = emptyMap(),
+    /** What tagged chests hold, by item id (MCO-539). Empty where nothing is tagged. */
+    measurements: Map<String, MeasuredStock> = emptyMap(),
     pendingFarms: List<PendingFarmSupply> = emptyList(),
     farmScaleThreshold: Int = World.DEFAULT_FARM_SCALE_THRESHOLD,
     farmSuggestions: List<FarmSuggestion> = emptyList(),
@@ -460,7 +469,7 @@ private fun FlowContent.listLensContent(
             }
 
             // Resource table + ignored section — always rendered as HTMX swap target
-            planResourcesArea(project.worldId, project.id, resources, plan)
+            planResourcesArea(project.worldId, project.id, resources, plan, measurements)
 
             // Schematic upload modal
             resourceSchematicModal(project.worldId, project.id, resources.count { it.required > 0 && !it.ignored })
@@ -474,7 +483,13 @@ private fun FlowContent.listLensContent(
         id = "list-breakdown-view"
         attributes["data-resolution-view"] = "breakdown"
 
-        gatheringPlanSections(project, plan, progressMap, pendingFarms, farmScaleThreshold, farmSuggestions, versionGaps, isWorldAdmin, farmDismissals)
+        gatheringPlanSections(
+            project, plan, progressMap,
+            measurements = measurements,
+            pendingFarms = pendingFarms, farmScaleThreshold = farmScaleThreshold,
+            farmSuggestions = farmSuggestions, versionGaps = versionGaps,
+            isWorldAdmin = isWorldAdmin, farmDismissals = farmDismissals,
+        )
     }
 
     // Tasks section (collapsed)
@@ -548,6 +563,8 @@ fun FlowContent.gatheringPlanSections(
     project: Project,
     plan: GatheringPlan?,
     progressMap: Map<String, Int> = emptyMap(),
+    /** What tagged chests hold, by item id (MCO-539). */
+    measurements: Map<String, MeasuredStock> = emptyMap(),
     pendingFarms: List<PendingFarmSupply> = emptyList(),
     farmScaleThreshold: Int = World.DEFAULT_FARM_SCALE_THRESHOLD,
     farmSuggestions: List<FarmSuggestion> = emptyList(),
@@ -583,6 +600,14 @@ fun FlowContent.gatheringPlanSections(
     div {
         id = "gathering-plan-sections"
 
+        // Once for the page, not once per section. GATHER and SMELT both carrying chest counts is
+        // normal, and repeating the sentence does not make it two different facts.
+        if (plan.activityList.any { (measurements[it.item.id]?.containerCount ?: 0) > 0 }) {
+            p("work-panel__provenance") {
+                +"Chest counts come from containers tagged in game with the Seam mod."
+            }
+        }
+
         // Above the work sections on purpose: this is not a step in the plan, it is the answer
         // to "what should I build first", and it is what turns one import into a roadmap.
         farmScaleSection(
@@ -616,6 +641,7 @@ fun FlowContent.gatheringPlanSections(
                         feedsLabels,
                         farmScaleIds,
                         planTotal,
+                        measurements,
                     )
                 }
             }
@@ -652,12 +678,19 @@ private fun FlowContent.workSection(
     feedsLabels: Map<String, FeedsLabel>,
     farmScaleIds: Set<String>,
     planTotal: Long,
+    measurements: Map<String, MeasuredStock> = emptyMap(),
 ) {
     val split = ActivitySectionLayout.of(ordered, planTotal)
     fun stateOf(activity: Activity) =
-        workRowStateOf(activity, progressMap, nodeIngredients, feedsLabels, farmScaleIds)
+        workRowStateOf(activity, progressMap, nodeIngredients, feedsLabels, farmScaleIds, measurements)
 
-    div("work-panel") {
+    // Each work row is its own grid, so an `auto` column is sized per row — a chip on one line
+    // shrinks that line's name column and drags every column after it left. The chests column is
+    // therefore a fixed width, and reserved only when this section has something to put in it, so
+    // a project with nothing tagged does not pay 165px of name for an empty column.
+    val hasChests = ordered.any { (measurements[it.item.id]?.containerCount ?: 0) > 0 }
+
+    div("work-panel" + if (hasChests) " work-panel--chests" else "") {
         split.lead.forEach { activity ->
             workRowCollapsed(project.worldId, project.id, stateOf(activity))
         }
@@ -1678,6 +1711,8 @@ fun gatheringPlannerFragment(
     tasks: List<ActionTask>,
     plan: GatheringPlan?,
     progressMap: Map<String, Int> = emptyMap(),
+    /** What tagged chests hold, by item id (MCO-539). Empty where nothing is tagged. */
+    measurements: Map<String, MeasuredStock> = emptyMap(),
     pendingFarms: List<PendingFarmSupply> = emptyList(),
     farmScaleThreshold: Int = World.DEFAULT_FARM_SCALE_THRESHOLD,
     farmSuggestions: List<FarmSuggestion> = emptyList(),
@@ -1689,8 +1724,8 @@ fun gatheringPlannerFragment(
 ): String = createHTML().div {
     id = "project-content"
     gatheringPlannerContent(
-        project, resources, tasks, plan, progressMap, pendingFarms, farmScaleThreshold, farmSuggestions, versionGaps, isWorldAdmin,
-        farmDismissals,
+        project, resources, tasks, plan, progressMap, measurements, pendingFarms, farmScaleThreshold, farmSuggestions,
+        versionGaps, isWorldAdmin, farmDismissals,
     )
 }
 

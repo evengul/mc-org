@@ -24,11 +24,18 @@ fun FlowContent.fieldLogSections(
     edges: List<ProjectResourceEdge> = emptyList(),
     resume: ResumeHeroData? = null,
     resumeSort: ResumeSort = ResumeSort.NEEDED,
+    measurements: Map<String, MeasuredStock> = emptyMap(),
 ) {
     val model = FieldLogModel.of(projects, edges)
 
     if (resume != null) {
-        resumeHero(worldId, resume, feeds = model.feeds(resume.project.id), sort = resumeSort)
+        resumeHero(
+            worldId,
+            resume,
+            feeds = model.feeds(resume.project.id),
+            sort = resumeSort,
+            measurements = measurements,
+        )
     }
 
     val activeRows = model.active.filter { it.id != resume?.project?.id }
