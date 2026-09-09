@@ -3,6 +3,7 @@ package app.mcorg.presentation.templated.dsl
 import app.mcorg.domain.model.project.ProjectListItem
 import app.mcorg.domain.model.project.ProjectResourceEdge
 import app.mcorg.domain.model.resources.ResourceGatheringItem
+import app.mcorg.pipeline.resources.MeasuredStock
 import kotlinx.html.FlowContent
 import kotlinx.html.a
 import kotlinx.html.details
@@ -84,6 +85,7 @@ fun FlowContent.fieldLogRow(
     blockedBy: List<ProjectResourceEdge>,
     expanded: Boolean = false,
     sliceItems: List<ResourceGatheringItem> = emptyList(),
+    measurements: Map<String, MeasuredStock> = emptyMap(),
 ) {
     val blocked = blockedBy.isNotEmpty()
 
@@ -137,7 +139,7 @@ fun FlowContent.fieldLogRow(
             }
         }
         if (expanded) {
-            fieldLogSlice(worldId, project, sliceItems, blockedBy)
+            fieldLogSlice(worldId, project, sliceItems, blockedBy, measurements)
         }
     }
 }
@@ -149,8 +151,9 @@ fun fieldLogRowFragment(
     blockedBy: List<ProjectResourceEdge>,
     expanded: Boolean,
     sliceItems: List<ResourceGatheringItem> = emptyList(),
+    measurements: Map<String, MeasuredStock> = emptyMap(),
 ): String = kotlinx.html.stream.createHTML().div {
-    fieldLogRow(worldId, project, feeds, blockedBy, expanded, sliceItems)
+    fieldLogRow(worldId, project, feeds, blockedBy, expanded, sliceItems, measurements)
 }.removePrefix("<div>").removeSuffix("</div>")
 
 /** "Slime Farm · sticky piston  ·  Iron Farm · hopper" — one entry per counterpart project. */
