@@ -24,6 +24,8 @@ import app.mcorg.pipeline.project.resources.handleAddResourcesFromSchematic
 import app.mcorg.pipeline.project.resources.handleDeleteProjectProduction
 import app.mcorg.pipeline.project.resources.handleGetProductionsPanel
 import app.mcorg.pipeline.project.resources.handleUpsertProjectProduction
+import app.mcorg.pipeline.resources.handleAdoptAllMeasurements
+import app.mcorg.pipeline.resources.handleAdoptMeasurement
 import app.mcorg.pipeline.resources.handleClearOverride
 import app.mcorg.pipeline.resources.handleGetDrillChain
 import app.mcorg.pipeline.resources.handleGetNodePicker
@@ -301,8 +303,16 @@ class WorldHandler {
                                 post {
                                     call.handleCreateResourceGatheringItem()
                                 }
+                                // "I have finished tagging, take the lot" (MCO-539) — outside the
+                                // per-resource node because it is about the project, not one row.
+                                post("/adopt-all") {
+                                    call.handleAdoptAllMeasurements()
+                                }
                                 route("/{resourceGatheringId}") {
                                     install(ResourceGatheringIdParamPlugin)
+                                    post("/adopt") {
+                                        call.handleAdoptMeasurement()
+                                    }
                                     patch("/edit-done") {
                                         call.handleUpdateRequirementProgress()
                                     }

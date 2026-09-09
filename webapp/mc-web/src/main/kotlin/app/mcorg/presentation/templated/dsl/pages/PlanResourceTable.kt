@@ -22,6 +22,8 @@ import kotlinx.html.id
 import kotlinx.html.input
 import kotlinx.html.span
 import kotlinx.html.stream.createHTML
+import app.mcorg.pipeline.resources.MeasuredStock
+import app.mcorg.presentation.templated.dsl.driftChip
 import kotlinx.html.summary
 import kotlinx.html.table
 import kotlinx.html.tbody
@@ -30,7 +32,12 @@ import kotlinx.html.th
 import kotlinx.html.thead
 import kotlinx.html.tr
 
-fun TR.planResourceRow(worldId: Int, projectId: Int, item: ResourceGatheringItem) {
+fun TR.planResourceRow(
+    worldId: Int,
+    projectId: Int,
+    item: ResourceGatheringItem,
+    measured: MeasuredStock? = null,
+) {
     id = "plan-row-${item.id}"
     attributes["data-resource-id"] = item.id.toString()
 
@@ -62,6 +69,9 @@ fun TR.planResourceRow(worldId: Int, projectId: Int, item: ResourceGatheringItem
             hxSwap("outerHTML")
             hxTrigger("change")
         }
+    }
+    td("plan-resource-table__chests") {
+        driftCell(worldId, projectId, item, measured)
     }
     td("plan-resource-table__action") {
         div("plan-resource-table__action-group") {
@@ -102,6 +112,7 @@ fun TR.ignoredResourceRow(worldId: Int, projectId: Int, item: ResourceGatheringI
             +item.required.toString()
         }
     }
+    td("plan-resource-table__chests") {}
     td("plan-resource-table__action") {
         button(classes = "btn btn--ghost btn--sm plan-resource-table__unignore-btn") {
             type = ButtonType.button
@@ -131,14 +142,15 @@ fun FlowContent.planResourceTable(
     projectId: Int,
     resources: List<ResourceGatheringItem>,
     plan: GatheringPlan? = null,
+    measurements: Map<String, MeasuredStock> = emptyMap(),
 ) {
     val layout = ResourceListLayout.of(resources, plan)
     table("data-table plan-resource-table") {
         id = "plan-resource-table"
         if (layout.visibleCount > 0) planResourceTableHead()
-        planResourceGroups(worldId, projectId, layout)
+        planResourceGroups(worldId, projectId, layout, measurements)
     }
-    planFoldedTail(worldId, projectId, layout)
+    planFoldedTail(worldId, projectId, layout, measurements)
 }
 
 /** Renders the full plan-view resource table as a standalone HTML fragment (HTMX swap response). */
@@ -147,14 +159,15 @@ fun planResourceTableFragment(
     projectId: Int,
     resources: List<ResourceGatheringItem>,
     plan: GatheringPlan? = null,
+    measurements: Map<String, MeasuredStock> = emptyMap(),
 ): String = createHTML().div {
     val layout = ResourceListLayout.of(resources, plan)
     table("data-table plan-resource-table") {
         id = "plan-resource-table"
         if (layout.visibleCount > 0) planResourceTableHead()
-        planResourceGroups(worldId, projectId, layout)
+        planResourceGroups(worldId, projectId, layout, measurements)
     }
-    planFoldedTail(worldId, projectId, layout)
+    planFoldedTail(worldId, projectId, layout, measurements)
 }
 
 private fun TABLE.planResourceTableHead() {
@@ -163,6 +176,7 @@ private fun TABLE.planResourceTableHead() {
             th { classes = setOf("plan-resource-table__col-status") }
             th { classes = setOf("plan-resource-table__col-item"); +"Item" }
             th { classes = setOf("plan-resource-table__col-qty"); +"Qty" }
+            th { classes = setOf("plan-resource-table__col-chests"); +"Chests" }
             th { classes = setOf("plan-resource-table__col-action") }
         }
     }
@@ -180,6 +194,7 @@ private fun TABLE.planResourceGroups(
     worldId: Int,
     projectId: Int,
     layout: ResourceListLayout.Layout,
+    measurements: Map<String, MeasuredStock> = emptyMap(),
 ) {
     layout.groups.forEach { group ->
         val isUnplanned = group.group == null
@@ -190,7 +205,7 @@ private fun TABLE.planResourceGroups(
             if (layout.isGrouped) {
                 tr("plan-resource-table__group") {
                     th {
-                        attributes["colspan"] = "4"
+                        attributes["colspan"] = "5"
                         // Two inline spans, laid out by a float rather than flex. The cell
                         // has to keep `display: table-cell` or colspan stops applying and the
                         // heading band ends at the first column instead of spanning the table.
@@ -207,7 +222,7 @@ private fun TABLE.planResourceGroups(
             }
             group.rows.forEach { item ->
                 tr {
-                    planResourceRow(worldId, projectId, item)
+                    planResourceRow(worldId, projectId, item, measurements[item.itemId])
                 }
             }
         }
@@ -225,6 +240,7 @@ private fun FlowContent.planFoldedTail(
     worldId: Int,
     projectId: Int,
     layout: ResourceListLayout.Layout,
+    measurements: Map<String, MeasuredStock> = emptyMap(),
 ) {
     if (layout.folded.isEmpty()) return
     details("plan-resource-fold") {
@@ -241,7 +257,7 @@ private fun FlowContent.planFoldedTail(
                 id = "plan-resource-folded-body"
                 layout.folded.forEach { item ->
                     tr {
-                        planResourceRow(worldId, projectId, item)
+                        planResourceRow(worldId, projectId, item, measurements[item.itemId])
                     }
                 }
             }
@@ -259,10 +275,11 @@ fun FlowContent.planResourcesArea(
     projectId: Int,
     resources: List<ResourceGatheringItem>,
     plan: GatheringPlan? = null,
+    measurements: Map<String, MeasuredStock> = emptyMap(),
 ) {
     div {
         id = "plan-resources-area"
-        planResourceTable(worldId, projectId, resources, plan)
+        planResourceTable(worldId, projectId, resources, plan, measurements)
         ignoredResourcesSection(worldId, projectId, resources)
     }
 }
@@ -310,4 +327,32 @@ fun FlowContent.ignoredResourcesSection(worldId: Int, projectId: Int, resources:
             }
         }
     }
+}
+
+/**
+ * The drift, in the project page's own table (MCO-539).
+ *
+ * The field log answers "what am I gathering right now"; this page answers "what does this project
+ * need", and the two get read by different people at different moments. A measurement visible only
+ * on one of them is a measurement half the audience never sees — which was the whole complaint
+ * about it being visible nowhere.
+ *
+ * Same chip, same rules, one implementation: absent when nothing is tagged and absent when the
+ * numbers agree, so this column is empty on a project nobody has tagged rather than a column of
+ * apologies.
+ */
+private fun FlowContent.driftCell(
+    worldId: Int,
+    projectId: Int,
+    item: ResourceGatheringItem,
+    measured: MeasuredStock?,
+) {
+    driftChip(
+        worldId = worldId,
+        projectId = projectId,
+        resourceId = item.id,
+        itemName = item.name,
+        current = item.collected,
+        measured = measured,
+    )
 }

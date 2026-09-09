@@ -455,7 +455,11 @@ internal suspend fun ApplicationCall.listRerenderFragment(worldId: Int, projectI
     val isAdmin = ValidateWorldMemberRole<Unit>(user, Role.ADMIN, worldId).process(Unit) is Result.Success
 
     return gatheringPlannerFragment(
-        project, resources, tasks, plan, progressMap, prerequisiteFarms, farmScaleThreshold,
+        project, resources, tasks, plan, progressMap,
+        // Same table, so the same measurements — a re-render that dropped them would blank the
+        // Chests column every time the plan chain swapped.
+        GetProjectMeasurementsStep.process(projectId).getOrNull().orEmpty(),
+        prerequisiteFarms, farmScaleThreshold,
         farmSuggestions, versionGapsForPlan(projectId, plan), isAdmin, farmDismissals,
     )
 }

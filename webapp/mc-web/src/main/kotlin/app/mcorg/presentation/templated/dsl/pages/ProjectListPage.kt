@@ -16,6 +16,7 @@ import app.mcorg.presentation.templated.dsl.container
 import app.mcorg.presentation.templated.dsl.emptyStateCards
 import app.mcorg.presentation.templated.dsl.ResumeHeroData
 import app.mcorg.presentation.templated.dsl.ResumeSort
+import app.mcorg.pipeline.resources.MeasuredStock
 import app.mcorg.presentation.templated.dsl.fieldLogSections
 import app.mcorg.presentation.templated.dsl.modalForm
 import app.mcorg.presentation.templated.dsl.newProjectMenu
@@ -52,6 +53,7 @@ fun projectListPage(
     isWorldAdmin: Boolean = false,
     edges: List<ProjectResourceEdge> = emptyList(),
     resume: ResumeHeroData? = null,
+    measurements: Map<String, MeasuredStock> = emptyMap(),
 ): String = pageShell(
     pageTitle = "Seam — ${world.name}",
     user = user,
@@ -74,7 +76,7 @@ fun projectListPage(
             }
             div {
                 id = "projects-content"
-                projectsContent(user, world, projects, edges, resume)
+                projectsContent(user, world, projects, edges, resume, measurements)
             }
         }
     }
@@ -97,11 +99,12 @@ fun kotlinx.html.FlowContent.projectsContent(
     projects: List<ProjectListItem>,
     edges: List<ProjectResourceEdge> = emptyList(),
     resume: ResumeHeroData? = null,
+    measurements: Map<String, MeasuredStock> = emptyMap(),
 ) {
     fieldLogTitle(world)
     div {
         id = "projects-view"
-        projectsViewContent(world, projects, edges, resume)
+        projectsViewContent(world, projects, edges, resume, measurements)
     }
 }
 
@@ -110,12 +113,13 @@ fun kotlinx.html.FlowContent.projectsViewContent(
     projects: List<ProjectListItem>,
     edges: List<ProjectResourceEdge> = emptyList(),
     resume: ResumeHeroData? = null,
+    measurements: Map<String, MeasuredStock> = emptyMap(),
 ) {
     if (projects.isEmpty()) {
         worldEmptyState(world.id)
     }
 
-    fieldLogSections(world.id, projects, edges, resume)
+    fieldLogSections(world.id, projects, edges, resume, measurements = measurements)
 }
 
 /**

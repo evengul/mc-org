@@ -18,6 +18,7 @@ import kotlinx.html.id
 import kotlinx.html.input
 import kotlinx.html.label
 import kotlinx.html.span
+import app.mcorg.pipeline.resources.MeasuredStock
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
@@ -69,6 +70,8 @@ internal data class WorkRowState(
     val isFarmScale: Boolean,
     val sourceLabel: String?,
     val feeds: FeedsLabel?,
+    /** What the tagged chests hold for this item, when anything is tagged (MCO-539). */
+    val measured: MeasuredStock? = null,
 ) {
     val need: Long get() = activity.quantity
 
@@ -115,6 +118,7 @@ internal fun workRowStateOf(
     nodeIngredients: Map<String, String> = emptyMap(),
     feedsLabels: Map<String, FeedsLabel> = emptyMap(),
     farmScaleIds: Set<String> = emptySet(),
+    measurements: Map<String, MeasuredStock> = emptyMap(),
 ): WorkRowState {
     val need = activity.quantity
     val have = (progress[activity.item.id] ?: 0).toLong().coerceIn(0, maxOf(need, 0))
@@ -129,6 +133,7 @@ internal fun workRowStateOf(
         isFarmScale = activity.item.id in farmScaleIds,
         sourceLabel = sourceLabel,
         feeds = feedsLabels[activity.item.id],
+        measured = measurements[activity.item.id],
     )
 }
 
@@ -184,6 +189,8 @@ private fun DIV.collapsedBody(worldId: Int, projectId: Int, state: WorkRowState)
             span("work-row__left") { +"%,d".format(state.remaining) }
             span("work-row__of") { +"of ${"%,d".format(state.need)}" }
         }
+
+        workRowDrift(worldId, projectId, state)
 
         if (state.isFarmScale) {
             span("badge plan-farm-scale__badge work-row__farm-scale") {
@@ -447,5 +454,46 @@ private fun BUTTON.chipBody(worldId: Int, projectId: Int, state: WorkRowState) {
         span("small-job__tick") { if (state.done) +"✓" }
         span("small-job__name") { +splitKind(state.activity.item.name).first }
         span("small-job__count") { +"%,d".format(state.remaining) }
+    }
+}
+
+/**
+ * What the tagged chests hold for this line (MCO-539).
+ *
+ * This is the view people actually work from, so the measurement has to be here and not only on
+ * the plan table — a number on a tab nobody opens is the same as no number.
+ *
+ * Adopting posts to the row's own progress endpoint with `adopt=true` rather than a delta. The
+ * delta path stamps `progress_source = 'manual'`, which would claim a human typed what the sweep
+ * measured; and a plan item may have no `resource_gathering` row at all, so the row-id adopt the
+ * plan table uses cannot address it.
+ */
+private fun DIV.workRowDrift(worldId: Int, projectId: Int, state: WorkRowState) {
+    // ⚠ Exactly one child, always — the row is a grid with a declared column count, so an element
+    // that appears on some rows and not others pushes everything after it into the next column and
+    // then out of the row entirely. That is what a conditional pair of children did here: the rows
+    // with a measurement grew wider than the rest and the grid overflowed its container.
+    span("work-row__chests") {
+        val measured = state.measured ?: return@span
+        if (measured.containerCount == 0) return@span
+        val delta = measured.measured - state.have
+        if (delta == 0L) return@span
+
+        // One element, not two. A "chests 9" label beside a "Set to 9" button says nine twice and
+        // explains neither; the button carries the number, and where it comes from is said once at
+        // the top of the page rather than on every row that has no width for it.
+        button(classes = "btn btn--ghost btn--sm work-row__adopt") {
+            type = ButtonType.button
+            attributes["hx-patch"] = "/worlds/$worldId/projects/$projectId/plan/progress"
+            attributes["hx-vals"] =
+                """{"itemId": "${state.activity.item.id}", "amount": 0, "required": ${state.need}, "adopt": true, "working": false}"""
+            attributes["hx-target"] = "#${state.rowId}"
+            attributes["hx-swap"] = "outerHTML"
+            attributes["title"] =
+                "In ${measured.containerCount} tagged container(s). This counts them as gathered."
+            attributes["aria-label"] =
+                "Set ${state.activity.item.name} to ${measured.measured}, what the tagged chests hold"
+            +("Sync with mod: " + "%,d".format(measured.measured))
+        }
     }
 }

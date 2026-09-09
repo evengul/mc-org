@@ -190,3 +190,41 @@
         min-width: 44px;
     }
 }
+
+/* ── Drift: what the tagged chests say, when it differs from the typed number (MCO-539) ──
+   Only rendered on disagreement, so its presence is itself the signal and it must read as
+   information rather than as an error — a negative drift is the expected state while tagging is
+   still in progress, not a fault. */
+.resource-row__drift {
+    display: inline-flex;
+    align-items: baseline;
+    gap: var(--space-1);
+    padding: 0 var(--space-2);
+    border-radius: var(--radius-pill);
+    background: var(--bg-raised);
+    border: 1px solid var(--border);
+    font-family: var(--font-ui);
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+    white-space: nowrap;
+    flex: 0 0 auto;
+    cursor: help;
+}
+
+/* The colour is a second signal, never the only one: the sign travels in the delta text itself,
+   because signalling state by colour alone fails a colour-blind reader. */
+.resource-row__drift-delta {
+    font-weight: 600;
+}
+
+.resource-row__drift--under .resource-row__drift-delta {
+    color: var(--text-muted);
+}
+
+.resource-row__drift--over .resource-row__drift-delta {
+    color: var(--green);
+}
+
+.resource-row__adopt {
+    flex: 0 0 auto;
+}

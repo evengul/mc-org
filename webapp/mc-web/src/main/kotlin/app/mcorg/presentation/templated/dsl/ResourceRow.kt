@@ -1,6 +1,9 @@
 package app.mcorg.presentation.templated.dsl
 
+import app.mcorg.pipeline.resources.MeasuredStock
 import kotlinx.html.*
+import java.time.Duration
+import java.time.Instant
 
 fun FlowContent.resourceRow(
     id: Int,
@@ -9,7 +12,8 @@ fun FlowContent.resourceRow(
     itemName: String,
     current: Int,
     required: Int,
-    source: String? = null
+    source: String? = null,
+    measured: MeasuredStock? = null,
 ) {
     val percent = if (required > 0) (current.coerceAtMost(required) * 100 / required) else 0
     val complete = required > 0 && current >= required
@@ -53,6 +57,8 @@ fun FlowContent.resourceRow(
                 }
             }
 
+            driftChip(worldId, projectId, id, itemName, current, measured)
+
             div("resource-row__counters") {
                 intArrayOf(-1728, -64, -1, 1, 64, 1728).forEach { amount ->
                     button(classes = "btn btn--ghost btn--sm resource-row__counter-btn") {
@@ -67,4 +73,66 @@ fun FlowContent.resourceRow(
             }
         }
     }
+}
+
+/**
+ * What the chests say, when it differs from what someone typed (MCO-539).
+ *
+ * Rendered **only** on disagreement, and only where there are tagged containers at all. A project
+ * mid-tagging would otherwise grow a column of `-everything` chips saying nothing except that the
+ * work is not finished, which is both noise and a lie about the data.
+ *
+ * The delta is signed because the direction is the whole message, and negative is the *expected*
+ * state rather than an error: it means storage exists that has not been tagged yet. Positive means
+ * there is more than anyone thought.
+ *
+ * The sign is never the only signal — the number and the word both carry it — because colour alone
+ * fails a colour-blind reader. See docs-product.
+ */
+fun FlowContent.driftChip(
+    worldId: Int,
+    projectId: Int,
+    resourceId: Int,
+    itemName: String,
+    current: Int,
+    measured: MeasuredStock?,
+) {
+    if (measured == null || measured.containerCount == 0) return
+    val delta = measured.measured - current
+    if (delta == 0L) return
+
+    span("resource-row__drift ${if (delta < 0) "resource-row__drift--under" else "resource-row__drift--over"}") {
+        attributes["title"] = driftTitle(measured)
+        +"${measured.measured} in ${measured.containerCount} ${if (measured.containerCount == 1) "chest" else "chests"}"
+        span("resource-row__drift-delta") { +(if (delta > 0) "+$delta" else "$delta") }
+    }
+    button(classes = "btn btn--ghost btn--sm resource-row__adopt") {
+        attributes["hx-post"] =
+            "/worlds/$worldId/projects/$projectId/resources/gathering/$resourceId/adopt"
+        attributes["hx-target"] = "#resource-row-$resourceId"
+        attributes["hx-swap"] = "outerHTML"
+        attributes["aria-label"] = "Set $itemName to ${measured.measured}, what the chests hold"
+        // Not "Adopt". That is the issue's word for the mechanism, and it tells a player nothing
+        // about what pressing it does — the label names the outcome instead.
+        +"Set to ${measured.measured}"
+    }
+}
+
+/**
+ * How much to trust the number, which is the question a drift chip provokes.
+ *
+ * The age is of the *oldest* contributing reading: one chest nobody has walked past in a week is
+ * what makes a total stale, and an average would hide exactly that.
+ */
+private fun driftTitle(measured: MeasuredStock): String {
+    val seen = measured.oldestSeenAt ?: return "Measured in ${measured.containerCount} tagged container(s)."
+    val age = Duration.between(seen, Instant.now())
+    val ago = when {
+        age.toMinutes() < 1 -> "just now"
+        age.toHours() < 1 -> "${age.toMinutes()}m ago"
+        age.toDays() < 1 -> "${age.toHours()}h ago"
+        else -> "${age.toDays()}d ago"
+    }
+    return "Measured in ${measured.containerCount} tagged container(s). " +
+        "Oldest reading $ago — a container nobody has been near is not re-read."
 }

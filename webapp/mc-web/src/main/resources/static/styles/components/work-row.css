@@ -27,7 +27,10 @@
    is, because "is this one bigger than that one" is read down the column. */
 .work-row:not(.work-row--working) {
     display: grid;
-    grid-template-columns: 20px minmax(0, 1fr) 190px 130px auto 96px;
+    /* Seven columns, and the chests one (MCO-539) is FIXED rather than auto. Each row is its own
+       grid, so an auto column is measured per row: a chip on one line would shrink that line's
+       name column and shift every column after it, which reads as the section losing its grid. */
+    grid-template-columns: 20px minmax(0, 1fr) 190px 130px 0 auto 96px;
     align-items: center;
     gap: var(--space-3);
     padding: 0 14px;
@@ -546,4 +549,24 @@
         width: 20px;
         height: 20px;
     }
+}
+
+/* Width only where the section has chest counts — otherwise every project without a tagged
+   container would give up name space to an empty column. */
+.work-panel--chests .work-row:not(.work-row--working) {
+    grid-template-columns: 20px minmax(0, 1fr) 190px 130px 150px auto 96px;
+}
+
+/* The always-present cell. Empty on a row with no measurement, which is what keeps the columns
+   after it — the farm-scale badge and the action — lined up down the section. */
+.work-row__chests {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    justify-content: flex-end;
+    white-space: nowrap;
+}
+
+.work-row__adopt {
+    flex: 0 0 auto;
 }

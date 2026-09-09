@@ -8,6 +8,8 @@ import app.mcorg.pipeline.project.commonsteps.GetProjectListItemStep
 import app.mcorg.pipeline.resources.commonsteps.GetAllResourceGatheringItemsStep
 import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.templated.dsl.fieldLogRowFragment
+import app.mcorg.pipeline.resources.GetProjectMeasurementsStep
+import app.mcorg.pipeline.resources.MeasuredStock
 import app.mcorg.presentation.templated.dsl.fieldLogSliceRowsFragment
 import app.mcorg.presentation.templated.dsl.sliceNextToGather
 import app.mcorg.presentation.utils.getProjectId
@@ -20,6 +22,7 @@ private data class FieldLogRowData(
     val feeds: List<ProjectResourceEdge>,
     val blockedBy: List<ProjectResourceEdge>,
     val items: List<ResourceGatheringItem>,
+    val measurements: Map<String, MeasuredStock>,
 )
 
 /**
@@ -32,8 +35,10 @@ suspend fun ApplicationCall.handleGetFieldLogRow() {
     val expanded = request.queryParameters["expanded"] == "true"
 
     handlePipeline(
-        onSuccess = { (project, feeds, blockedBy, items) ->
-            respondHtml(fieldLogRowFragment(worldId, project, feeds, blockedBy, expanded, items))
+        onSuccess = { (project, feeds, blockedBy, items, measurements) ->
+            respondHtml(
+                fieldLogRowFragment(worldId, project, feeds, blockedBy, expanded, items, measurements),
+            )
         }
     ) {
         val project = GetProjectListItemStep.run(projectId)
@@ -43,7 +48,11 @@ suspend fun ApplicationCall.handleGetFieldLogRow() {
         val blockedBy = edges.filter { it.consumerId == projectId && it.isBlocking }
             .distinctBy { Triple(it.producerId, it.consumerId, it.itemName) }
         val items = if (expanded) GetAllResourceGatheringItemsStep.run(projectId) else emptyList()
-        FieldLogRowData(project, feeds, blockedBy, items)
+        // Only when the slice is actually open: a collapsed row draws no resource rows, so the
+        // query would be paid for on every project in the list and shown for none of them.
+        val measurements =
+            if (expanded) GetProjectMeasurementsStep.process(projectId).getOrNull().orEmpty() else emptyMap()
+        FieldLogRowData(project, feeds, blockedBy, items, measurements)
     }
 }
 
@@ -55,7 +64,7 @@ suspend fun ApplicationCall.handleGetFieldLogSliceItems() {
 
     handlePipeline(
         onSuccess = { rows ->
-            respondHtml(fieldLogSliceRowsFragment(worldId, projectId, rows))
+            respondHtml(fieldLogSliceRowsFragment(worldId, projectId, rows.first, rows.second))
         }
     ) {
         val edges = GetProjectEdgesStep(worldId).run(Unit)
@@ -64,6 +73,7 @@ suspend fun ApplicationCall.handleGetFieldLogSliceItems() {
             .map { it.producerId }
             .toSet()
         val items = GetAllResourceGatheringItemsStep.run(projectId)
-        sliceNextToGather(items, blockedProducerIds, query)
+        val measurements = GetProjectMeasurementsStep.process(projectId).getOrNull().orEmpty()
+        sliceNextToGather(items, blockedProducerIds, query) to measurements
     }
 }

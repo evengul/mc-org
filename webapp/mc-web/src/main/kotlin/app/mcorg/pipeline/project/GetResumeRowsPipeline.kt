@@ -2,6 +2,7 @@ package app.mcorg.pipeline.project
 
 import app.mcorg.pipeline.project.commonsteps.GetProjectByIdStep
 import app.mcorg.pipeline.project.commonsteps.GetResumeProjectIdStep
+import app.mcorg.pipeline.resources.GetProjectMeasurementsStep
 import app.mcorg.pipeline.resources.commonsteps.GetAllResourceGatheringItemsStep
 import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.templated.dsl.ResumeHeroData
@@ -25,7 +26,11 @@ suspend fun ApplicationCall.handleGetResumeRows() {
     handlePipeline(
         onSuccess = { resume ->
             if (resume != null) {
-                respondHtml(resumeHeroRowsFragment(worldId, resume, sort))
+                // Same rows, so the same measurements — a sort that dropped them would blank
+                // the chest counts every time someone reordered the hero (MCO-539).
+                val measurements = GetProjectMeasurementsStep.process(resume.project.id)
+                    .getOrNull().orEmpty()
+                respondHtml(resumeHeroRowsFragment(worldId, resume, sort, measurements))
             } else {
                 respondHtml(createHTML().div { id = "fl-resume-rows" })
             }

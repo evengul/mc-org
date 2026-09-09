@@ -3,6 +3,7 @@ package app.mcorg.presentation.templated.dsl
 import app.mcorg.domain.model.project.Project
 import app.mcorg.domain.model.project.ProjectResourceEdge
 import app.mcorg.domain.model.resources.ResourceGatheringItem
+import app.mcorg.pipeline.resources.MeasuredStock
 import kotlinx.html.FlowContent
 import kotlinx.html.a
 import kotlinx.html.button
@@ -52,6 +53,7 @@ fun FlowContent.resumeHero(
     data: ResumeHeroData,
     feeds: List<ProjectResourceEdge> = emptyList(),
     sort: ResumeSort = ResumeSort.NEEDED,
+    measurements: Map<String, MeasuredStock> = emptyMap(),
 ) {
     val project = data.project
     div("fl-hero") {
@@ -79,7 +81,7 @@ fun FlowContent.resumeHero(
         if (data.resources.isNotEmpty()) {
             div("fl-hero__sort") {
                 attributes["id"] = "fl-resume-sort"
-                resumeSortBody(worldId, data, sort)
+                resumeSortBody(worldId, data, sort, measurements)
             }
 
             div("fl-hero__footer") {
@@ -107,7 +109,12 @@ fun FlowContent.resumeHero(
  * new sort — without it the highlight would never move and a no-op reorder
  * (e.g. all rows tied at 0%) would look like a dead control.
  */
-fun FlowContent.resumeSortBody(worldId: Int, data: ResumeHeroData, sort: ResumeSort) {
+fun FlowContent.resumeSortBody(
+    worldId: Int,
+    data: ResumeHeroData,
+    sort: ResumeSort,
+    measurements: Map<String, MeasuredStock> = emptyMap(),
+) {
     div("fl-hero__toolbar") {
         span("section-label") { +"Resources" }
         div("fl-sort-pills") {
@@ -121,10 +128,15 @@ fun FlowContent.resumeSortBody(worldId: Int, data: ResumeHeroData, sort: ResumeS
             }
         }
     }
-    resumeHeroRows(worldId, data, sort)
+    resumeHeroRows(worldId, data, sort, measurements)
 }
 
-fun FlowContent.resumeHeroRows(worldId: Int, data: ResumeHeroData, sort: ResumeSort) {
+fun FlowContent.resumeHeroRows(
+    worldId: Int,
+    data: ResumeHeroData,
+    sort: ResumeSort,
+    measurements: Map<String, MeasuredStock> = emptyMap(),
+) {
     val sorted = sortResumeResources(data.resources, sort)
     div("fl-hero__rows") {
         attributes["id"] = "fl-resume-rows"
@@ -136,7 +148,8 @@ fun FlowContent.resumeHeroRows(worldId: Int, data: ResumeHeroData, sort: ResumeS
                 itemName = item.name,
                 current = item.collected,
                 required = item.required,
-                source = item.solvedByProject?.second
+                source = item.solvedByProject?.second,
+                measured = measurements[item.itemId],
             )
         }
         if (sorted.size > RESUME_HERO_MAX_ROWS) {
@@ -145,9 +158,14 @@ fun FlowContent.resumeHeroRows(worldId: Int, data: ResumeHeroData, sort: ResumeS
     }
 }
 
-fun resumeHeroRowsFragment(worldId: Int, data: ResumeHeroData, sort: ResumeSort): String =
+fun resumeHeroRowsFragment(
+    worldId: Int,
+    data: ResumeHeroData,
+    sort: ResumeSort,
+    measurements: Map<String, MeasuredStock> = emptyMap(),
+): String =
     kotlinx.html.stream.createHTML().div {
-        resumeSortBody(worldId, data, sort)
+        resumeSortBody(worldId, data, sort, measurements)
     }.removePrefix("<div>").removeSuffix("</div>")
 
 private fun List<ProjectResourceEdge>.toFeedsCaption(): String =

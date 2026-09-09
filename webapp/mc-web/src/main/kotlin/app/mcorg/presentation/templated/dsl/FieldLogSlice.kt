@@ -3,6 +3,8 @@ package app.mcorg.presentation.templated.dsl
 import app.mcorg.domain.model.project.ProjectListItem
 import app.mcorg.domain.model.project.ProjectResourceEdge
 import app.mcorg.domain.model.resources.ResourceGatheringItem
+import app.mcorg.pipeline.resources.MeasuredStock
+import kotlinx.html.button
 import kotlinx.html.FlowContent
 import kotlinx.html.InputType
 import kotlinx.html.a
@@ -49,6 +51,7 @@ fun FlowContent.fieldLogSlice(
     project: ProjectListItem,
     items: List<ResourceGatheringItem>,
     blockedBy: List<ProjectResourceEdge>,
+    measurements: Map<String, MeasuredStock> = emptyMap(),
 ) {
     val blockedProducerIds = blockedBy.map { it.producerId }.toSet()
 
@@ -71,7 +74,7 @@ fun FlowContent.fieldLogSlice(
                     attributes["hx-swap"] = "outerHTML"
                 }
             }
-            fieldLogSliceRows(worldId, project.id, shown)
+            fieldLogSliceRows(worldId, project.id, shown, measurements)
             div("fl-slice__footer") {
                 span("fl-hero__hint") { +"gather the upstream farms first, or open the project —" }
                 a(classes = "btn btn--secondary btn--sm") {
@@ -123,9 +126,33 @@ private fun FlowContent.fieldLogBlockerCallout(
     }
 }
 
-fun FlowContent.fieldLogSliceRows(worldId: Int, projectId: Int, rows: List<ResourceGatheringItem>) {
+fun FlowContent.fieldLogSliceRows(
+    worldId: Int,
+    projectId: Int,
+    rows: List<ResourceGatheringItem>,
+    measurements: Map<String, MeasuredStock> = emptyMap(),
+) {
     div("fl-slice__rows") {
         attributes["id"] = "fl-slice-rows-$projectId"
+
+        // "I have finished tagging, take the lot" (MCO-539). Only when there is something to
+        // adopt, and it names the number — an "Adopt all" that will not say how many rows it
+        // rewrites is a destructive button pretending to be a convenience.
+        val drifting = rows.count { item ->
+            val stock = measurements[item.itemId]
+            stock != null && stock.containerCount > 0 && stock.measured != item.collected.toLong()
+        }
+        if (drifting > 0) {
+            button(classes = "btn btn--ghost btn--sm fl-slice__adopt-all") {
+                attributes["hx-post"] = "/worlds/$worldId/projects/$projectId/resources/gathering/adopt-all"
+                attributes["hx-target"] = "#fl-slice-rows-$projectId"
+                attributes["hx-swap"] = "outerHTML"
+                attributes["hx-confirm"] =
+                    "Set $drifting item(s) to what the tagged chests hold? This replaces the counts you typed."
+                +"Use chest counts for $drifting item(s)"
+            }
+        }
+
         rows.forEach { item ->
             resourceRow(
                 id = item.id,
@@ -134,7 +161,8 @@ fun FlowContent.fieldLogSliceRows(worldId: Int, projectId: Int, rows: List<Resou
                 itemName = item.name,
                 current = item.collected,
                 required = item.required,
-                source = item.solvedByProject?.second
+                source = item.solvedByProject?.second,
+                measured = measurements[item.itemId],
             )
         }
         if (rows.isEmpty()) {
@@ -143,7 +171,12 @@ fun FlowContent.fieldLogSliceRows(worldId: Int, projectId: Int, rows: List<Resou
     }
 }
 
-fun fieldLogSliceRowsFragment(worldId: Int, projectId: Int, rows: List<ResourceGatheringItem>): String =
+fun fieldLogSliceRowsFragment(
+    worldId: Int,
+    projectId: Int,
+    rows: List<ResourceGatheringItem>,
+    measurements: Map<String, MeasuredStock> = emptyMap(),
+): String =
     kotlinx.html.stream.createHTML().div {
-        fieldLogSliceRows(worldId, projectId, rows)
+        fieldLogSliceRows(worldId, projectId, rows, measurements)
     }.removePrefix("<div>").removeSuffix("</div>")
