@@ -65,8 +65,6 @@ class RoadmapGraphLayoutTest {
         layers = listOf(RoadmapLayer(0, nodes.map { it.projectId }, nodes.size)),
     )
 
-    private val noStats = RoadmapGraphLayout.TerminalStats(0, 0, 0, 0, 0)
-
     private fun producer(id: Int, name: String, items: Long, edges: Int = 1) =
         RoadmapGraphLayout.Producer(id, name, items, edges)
 
@@ -75,7 +73,7 @@ class RoadmapGraphLayoutTest {
     @Test
     fun `a world with no edges has no graph to draw`() {
         val only = node(1, "Lonely build")
-        val graph = RoadmapGraphLayout.of(roadmap(listOf(only), emptyList()), emptyList(), null, noStats)
+        val graph = RoadmapGraphLayout.of(roadmap(listOf(only), emptyList()), emptyList(), null)
 
         assertNull(graph, "no chain means the page falls back to its list sections")
     }
@@ -100,7 +98,7 @@ class RoadmapGraphLayoutTest {
         val queue = (1..9).map { node(it, "Build $it", layer = it) }
         val edges = queue.map { edge(terminal, it, "Thing", 10) }
 
-        val graph = RoadmapGraphLayout.of(roadmap(queue + terminal, edges), emptyList(), null, noStats)
+        val graph = RoadmapGraphLayout.of(roadmap(queue + terminal, edges), emptyList(), null)
         assertNotNull(graph)
 
         val band = graph.nodes.filter {
@@ -164,7 +162,7 @@ class RoadmapGraphLayoutTest {
 
         val band = RoadmapGraphLayout.sequenceNodesOf(
             roadmap(listOf(farm, cancelled, active, terminal), edges),
-            terminal,
+            listOf(terminal),
         )
 
         assertEquals(listOf("Slime farm"), band.map { it.projectName })
@@ -201,7 +199,6 @@ class RoadmapGraphLayoutTest {
             roadmap(listOf(farm, left, right, terminal), edges),
             listOf(producer(1, "Cobble farm", 100)),
             null,
-            noStats,
         )
 
         assertNotNull(graph)
@@ -232,13 +229,202 @@ class RoadmapGraphLayoutTest {
             roadmap(listOf(farm, first, second, terminal), edges),
             listOf(producer(1, "Cobble farm", 100)),
             null,
-            noStats,
         )
 
         assertNotNull(graph)
         val hop = graph.edges.single { it.key == "seq-2-3" }
         assertTrue(hop.dashed, "a hand-made ordering reads as the legend's ┄, not as supply")
         assertNotNull(graph.edges.singleOrNull { it.key == "seq-terminal" })
+    }
+
+    // ---- more than one final project (MCO-563) ------------------------------------------
+
+    /**
+     * Forever world's shape, cut down: YAMS and Copper Library, both fed by finished farms,
+     * neither by the other. Copper Library used to lose the tie-break and read "Start here".
+     */
+    private fun twoFinalProjects(): Roadmap {
+        val cobble = node(1, "Cobble farm", ProjectState.DONE)
+        val trading = node(2, "First trading setup", ProjectState.DONE)
+        val yams = node(3, "Storage System YAMS", layer = 1)
+        val copper = node(4, "Copper Library", layer = 1)
+        return roadmap(
+            listOf(cobble, trading, yams, copper),
+            listOf(
+                edge(yams, cobble, "Cobblestone", 51_575),
+                edge(yams, trading, "Glass", 16_509),
+                edge(copper, trading, "Glass", 17_376),
+            ),
+        )
+    }
+
+    private val producersOfTwo = listOf(
+        RoadmapGraphLayout.Producer(1, "Cobble farm", 51_575, 1, itemsByTerminal = mapOf(3 to 51_575L)),
+        RoadmapGraphLayout.Producer(
+            2, "First trading setup", 33_885, 2, itemsByTerminal = mapOf(3 to 16_509L, 4 to 17_376L),
+        ),
+    )
+
+    @Test
+    fun `a second project that only consumes is a final project, not the start of the band`() {
+        val world = twoFinalProjects()
+        val terminals = RoadmapGraphLayout.terminalsOf(world)
+
+        assertEquals(listOf(3, 4), terminals.map { it.projectId }, "largest demand first")
+        assertTrue(
+            RoadmapGraphLayout.sequenceNodesOf(world, terminals).isEmpty(),
+            "nothing is left to build before either of them",
+        )
+
+        val graph = assertNotNull(RoadmapGraphLayout.of(world, producersOfTwo, null))
+        assertTrue(
+            graph.nodes.none {
+                it.kind == RoadmapGraphLayout.NodeKind.START || it.kind == RoadmapGraphLayout.NodeKind.SEQUENCE
+            },
+            "Copper Library is not a step on the way to YAMS",
+        )
+        val panels = graph.nodes.filter { it.kind == RoadmapGraphLayout.NodeKind.TERMINAL }
+        assertEquals(listOf("Storage System YAMS", "Copper Library"), panels.map { it.title })
+        assertTrue(panels[1].y >= panels[0].y + panels[0].height, "the second panel sits below the first")
+        panels.forEach { assertTrue(it.y + it.height <= graph.height, "${it.title} escapes the bottom") }
+    }
+
+    @Test
+    fun `each farm draws a line to each final project it feeds, and only those`() {
+        val graph = assertNotNull(RoadmapGraphLayout.of(twoFinalProjects(), producersOfTwo, null))
+
+        assertEquals(
+            setOf("supply-supply-1-3", "supply-supply-2-3", "supply-supply-2-4"),
+            graph.edges.map { it.key }.filter { it.startsWith("supply-") }.toSet(),
+            "Cobble farm feeds YAMS alone; First trading setup feeds both",
+        )
+    }
+
+    @Test
+    fun `an unfinished project upstream of one final project is still in the band`() {
+        val farm = node(1, "Cobble farm", ProjectState.DONE)
+        val ghast = node(2, "Ghast farm")
+        val yams = node(3, "Storage", layer = 1)
+        val copper = node(4, "Copper Library", layer = 1)
+        val world = roadmap(
+            listOf(farm, ghast, yams, copper),
+            listOf(
+                edge(yams, ghast, "Gunpowder", 5),
+                edge(yams, farm, "Cobblestone", 1_000),
+                edge(copper, farm, "Cobblestone", 100),
+            ),
+        )
+
+        assertEquals(
+            listOf("Ghast farm"),
+            RoadmapGraphLayout.sequenceNodesOf(world, RoadmapGraphLayout.terminalsOf(world)).map { it.projectName },
+        )
+    }
+
+    @Test
+    fun `final projects past the cap are counted, not dropped`() {
+        val farm = node(1, "Cobble farm", ProjectState.DONE)
+        val builds = (2..6).map { node(it, "Build $it", layer = 1) }
+        val edges = builds.map { edge(it, farm, "Cobblestone", 100L * it.projectId) }
+
+        val graph = assertNotNull(
+            RoadmapGraphLayout.of(roadmap(listOf(farm) + builds, edges), listOf(producer(1, "Cobble farm", 2_000)), null)
+        )
+
+        val panels = graph.nodes.filter { it.kind == RoadmapGraphLayout.NodeKind.TERMINAL }
+        assertEquals(RoadmapGraphLayout.MAX_TERMINALS, panels.count { it.projectId != null })
+        assertEquals("+2 more final projects", panels.single { it.projectId == null }.title)
+        panels.forEach { assertTrue(it.y + it.height <= graph.height, "${it.title} escapes the bottom") }
+    }
+
+    @Test
+    fun `a world where every sink is finished still draws toward its deepest project`() {
+        val farm = node(1, "Cobble farm", ProjectState.DONE)
+        val build = node(2, "Old storage", ProjectState.DONE, layer = 1)
+        val world = roadmap(listOf(farm, build), listOf(edge(build, farm, "Cobblestone", 100)))
+
+        assertEquals(listOf(2), RoadmapGraphLayout.terminalsOf(world).map { it.projectId })
+    }
+
+    // ---- final projects no farm feeds -------------------------------------------------
+
+    /** Fixture 3b: a castle whose every material is gathered by hand, beside a farm-fed YAMS. */
+    @Test
+    fun `a project with nothing but hand work is a final project`() {
+        val farm = node(1, "Cobble farm", ProjectState.DONE)
+        val yams = node(2, "Storage System YAMS", layer = 1)
+        val castle = node(3, "Deepslate castle")
+        val idea = node(4, "Redstone Crafting Area")
+        val world = roadmap(listOf(farm, yams, castle, idea), listOf(edge(yams, farm, "Cobblestone", 51_575)))
+
+        val terminals = RoadmapGraphLayout.terminalsOf(world, demand = mapOf(2 to 274_154L, 3 to 23_000L))
+
+        assertEquals(listOf("Storage System YAMS", "Deepslate castle"), terminals.map { it.projectName })
+        assertTrue(idea !in terminals, "nothing to gather is not somewhere the world is heading")
+    }
+
+    /** Forever world's New slime farm: 100,000 by hand, and no farm could help with any of it. */
+    @Test
+    fun `final projects rank by all their demand, so hand work can outrank a farm-fed project`() {
+        val trading = node(1, "First trading setup", ProjectState.DONE)
+        val yams = node(2, "Storage System YAMS", layer = 1)
+        val copper = node(3, "Copper Library", layer = 1)
+        val slime = node(4, "New slime farm")
+        val world = roadmap(
+            listOf(trading, yams, copper, slime),
+            listOf(edge(yams, trading, "Glass", 16_509), edge(copper, trading, "Glass", 17_376)),
+        )
+
+        val terminals = RoadmapGraphLayout.terminalsOf(
+            world,
+            demand = mapOf(2 to 274_154L, 3 to 63_199L, 4 to 100_000L),
+        )
+
+        assertEquals(listOf("Storage System YAMS", "New slime farm", "Copper Library"), terminals.map { it.projectName })
+    }
+
+    @Test
+    fun `a world with no supply lines has no graph, whatever is left to gather`() {
+        val castle = node(1, "Deepslate castle")
+
+        assertTrue(RoadmapGraphLayout.terminalsOf(roadmap(listOf(castle), emptyList()), mapOf(1 to 23_000L)).isEmpty())
+    }
+
+    // ---- the line into a final project -------------------------------------------------
+
+    @Test
+    fun `the band's line into a final project says already covered only when it does not block`() {
+        val slime = node(1, "Slime farm")
+        val yams = node(2, "Storage System YAMS", layer = 1)
+
+        assertEquals("50 Slimeball", RoadmapGraphLayout.seqTerminalLabel(edge(yams, slime, "Slimeball", 50)))
+        assertEquals(
+            "5 Gunpowder · already covered",
+            RoadmapGraphLayout.seqTerminalLabel(edge(yams, slime, "Gunpowder", 5).copy(isBlocking = false)),
+        )
+        assertNull(RoadmapGraphLayout.seqTerminalLabel(edge(yams, slime, null, null)), "an ordering has no material")
+    }
+
+    /** Fixture 6: "YAMS before Copper Library" was drawn solid and labelled "0 · already covered". */
+    @Test
+    fun `a hand-made ordering into a final project is dashed and unlabelled`() {
+        val trading = node(1, "First trading setup", ProjectState.DONE)
+        val yams = node(2, "Storage System YAMS", layer = 1)
+        val copper = node(3, "Copper Library", layer = 2)
+        val world = roadmap(
+            listOf(trading, yams, copper),
+            listOf(
+                edge(copper, yams, null, null),
+                edge(copper, trading, "Glass", 17_376),
+                edge(yams, trading, "Glass", 16_509),
+            ),
+        )
+
+        val graph = assertNotNull(RoadmapGraphLayout.of(world, listOf(producer(1, "First trading setup", 17_376)), null))
+
+        val line = assertNotNull(graph.edges.singleOrNull { it.key == "seq-terminal" })
+        assertTrue(line.dashed, "a manual ordering is dashed, as the legend says")
+        assertNull(line.label)
     }
 
     // ---- edge weight -------------------------------------------------------------------
@@ -273,7 +459,7 @@ class RoadmapGraphLayoutTest {
         val producers = farms.map { producer(it.projectId, it.projectName, 5_000) }
         val hand = RoadmapGraphLayout.HandGathered(57_336, 94, "Oak Log + Ice = 84%")
 
-        val graph = RoadmapGraphLayout.of(roadmap(farms + terminal, edges), producers, hand, noStats)
+        val graph = RoadmapGraphLayout.of(roadmap(farms + terminal, edges), producers, hand)
         assertNotNull(graph)
 
         graph.nodes.forEach {
@@ -298,7 +484,7 @@ class RoadmapGraphLayoutTest {
         val producers = farms.map { producer(it.projectId, it.projectName, 500) }
         val hand = RoadmapGraphLayout.HandGathered(1_000, 12, null)
 
-        val graph = RoadmapGraphLayout.of(roadmap(farms + terminal, edges), producers, hand, noStats)
+        val graph = RoadmapGraphLayout.of(roadmap(farms + terminal, edges), producers, hand)
         assertNotNull(graph)
 
         assertTrue(graph.groups.isNotEmpty())
