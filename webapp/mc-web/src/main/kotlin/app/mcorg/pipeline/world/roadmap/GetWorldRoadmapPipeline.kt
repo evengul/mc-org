@@ -53,55 +53,47 @@ suspend fun ApplicationCall.handleGetWorldRoadmap() {
  *
  * Producers, the sequence band and both list sections all come out of the roadmap's own
  * edges — one derivation, so the graph cannot disagree with the table about what blocks
- * what. Only the terminal project's plan totals need a read of their own, and those degrade
- * to zeroes rather than failing the page.
+ * what. Only each final project's plan totals need reads of their own, and those degrade to
+ * zeroes rather than failing the page.
  */
 internal suspend fun graphViewOf(roadmap: Roadmap): RoadmapGraphView {
-    val terminal = RoadmapGraphLayout.terminalOf(roadmap)
+    // Every project the world drains into, not the one that won a tie-break (MCO-563). Only the
+    // ones drawn as panels need numbers of their own.
+    val terminals = RoadmapGraphLayout.terminalsOf(roadmap)
+    val drawn = terminals.take(RoadmapGraphLayout.MAX_TERMINALS)
+    val drawnIds = drawn.mapTo(mutableSetOf()) { it.projectId }
     // The roster reads `project_dependencies` directly rather than filtering [roadmap.edges]:
     // the derived edge set carries no row ids and no reasons, so it can say that a hand-made
     // ordering exists but not which row to remove. Degrades to an empty roster rather than
-    // failing the page, exactly as the terminal project's totals do.
+    // failing the page, exactly as the final projects' totals do.
     val manualOrderings = GetManualOrderingsStep(roadmap.worldId).process(Unit).getOrNull().orEmpty()
-    // The column is about one terminal project; the grid below is about the whole world, so a
-    // world with two independent chains does not lose the farms feeding the one not drawn.
-    val columnProducers = terminal?.let { producersOf(roadmap, it.projectId) }.orEmpty()
+    // The column is about the final projects drawn; the grid below is about the whole world, so a
+    // farm feeding nothing drawn still appears in some section.
+    val columnProducers = producersOf(roadmap, drawnIds)
     val allProducers = allProducersOf(roadmap)
 
-    val data = terminal
-        ?.let { GetRoadmapGraphDataStep(it.projectId).process(Unit).getOrNull() }
-        ?: RoadmapGraphData.EMPTY
-    val percent = terminal
-        ?.let { GetTerminalProgressStep(it.projectId).process(Unit).getOrNull() }
-        ?: 0
-    val topMaterials = terminal
-        ?.let { GetTopHandMaterialsStep(it.projectId).process(Unit).getOrNull() }
-        .orEmpty()
-
-    val handGathered = if (data.byHand > 0) {
-        RoadmapGraphLayout.HandGathered(
-            items = data.byHand,
-            materials = data.handMaterials,
-            concentration = concentrationOf(topMaterials, data.byHand),
+    val terminalStats = drawn.associate { terminal ->
+        val data = GetRoadmapGraphDataStep(terminal.projectId).process(Unit).getOrNull()
+            ?: RoadmapGraphData.EMPTY
+        val percent = GetTerminalProgressStep(terminal.projectId).process(Unit).getOrNull() ?: 0
+        terminal.projectId to RoadmapGraphLayout.TerminalStats(
+            fromFarms = data.fromFarms,
+            byHand = data.byHand,
+            craftRows = data.craftRows,
+            openQuestions = data.openQuestions,
+            percentComplete = percent,
         )
-    } else {
-        null
     }
-
-    val terminalStats = RoadmapGraphLayout.TerminalStats(
-        fromFarms = data.fromFarms,
-        byHand = data.byHand,
-        craftRows = data.craftRows,
-        openQuestions = data.openQuestions,
-        percentComplete = percent,
+    val handGathered = handGatheredOf(
+        drawn.associate { it.projectId to GetHandMaterialsStep(it.projectId).process(Unit).getOrNull().orEmpty() }
     )
 
-    val graph = terminal?.let {
-        RoadmapGraphLayout.of(roadmap, columnProducers, handGathered, terminalStats)
-    }
+    val graph = RoadmapGraphLayout.of(roadmap, columnProducers, handGathered)
 
-    val sequence = terminal?.let { RoadmapGraphLayout.sequenceNodesOf(roadmap, it) }.orEmpty()
-    val start = sequence.firstOrNull()
+    val sequence = RoadmapGraphLayout.sequenceNodesOf(roadmap, terminals)
+    // With nothing left to build before them, the final projects themselves are what to do
+    // next. The section keeps answering that rather than disappearing (MCO-563).
+    val start = sequence.firstOrNull() ?: terminals.firstOrNull()
 
     // A project with no edge in either direction is in nobody's chain. Split by state:
     // an unfinished one is work you can do whenever, a *finished* one that supplies
@@ -113,7 +105,9 @@ internal suspend fun graphViewOf(roadmap: Roadmap): RoadmapGraphView {
         roadmap = roadmap,
         graph = graph,
         startHere = start,
-        startHereNote = start?.let { startNoteFor(roadmap, it, sequence.size) },
+        startHereNote = start?.let {
+            if (sequence.isEmpty()) readyNoteFor(terminals) else startNoteFor(roadmap, it, sequence.size)
+        },
         producerCount = allProducers.size,
         producerRows = allProducers
             .sortedWith(compareByDescending<RoadmapGraphLayout.Producer> { it.items }.thenBy { it.name })
@@ -139,7 +133,7 @@ internal suspend fun graphViewOf(roadmap: Roadmap): RoadmapGraphView {
                     },
                 )
             },
-        terminal = terminal,
+        terminals = drawn,
         terminalStats = terminalStats,
         manualEdgeNote = manualEdgeNoteFor(roadmap),
         manualOrderings = manualOrderings,
@@ -163,9 +157,12 @@ internal suspend fun graphViewOf(roadmap: Roadmap): RoadmapGraphView {
 }
 
 /** "The only project with anything waiting on it. Waits on Cobble farm for 100,000 X." */
-private fun startNoteFor(roadmap: Roadmap, start: RoadmapNode, sequenceSize: Int): String {
+internal fun startNoteFor(roadmap: Roadmap, start: RoadmapNode, sequenceSize: Int): String {
+    // Only a blocking edge is something to wait on. A finished farm supplying the project is the
+    // opposite, and reading every edge printed "waits on First trading setup for 14,976 Glass"
+    // about a farm that had been running for months (MCO-563).
     val waitsOn = roadmap.edges
-        .filter { it.fromNodeId == start.projectId }
+        .filter { it.fromNodeId == start.projectId && it.isBlocking }
         .maxByOrNull { it.quantity ?: Long.MIN_VALUE }
 
     val lead = if (sequenceSize == 1) {
@@ -181,6 +178,20 @@ private fun startNoteFor(roadmap: Roadmap, start: RoadmapNode, sequenceSize: Int
     } ?: ""
 
     return lead + tail
+}
+
+/**
+ * "Nothing is left to build before it. Copper Library is ready too." — the note when every
+ * project feeding the final projects is already done, so the first of them is where to start.
+ */
+internal fun readyNoteFor(terminals: List<RoadmapNode>): String {
+    val others = terminals.drop(1)
+    val tail = when (others.size) {
+        0 -> ""
+        1 -> " ${others.single().projectName} is ready too."
+        else -> " ${others.size} more final projects are ready too."
+    }
+    return "Nothing is left to build before it.$tail"
 }
 
 private fun taskNoteFor(node: RoadmapNode): String = when {

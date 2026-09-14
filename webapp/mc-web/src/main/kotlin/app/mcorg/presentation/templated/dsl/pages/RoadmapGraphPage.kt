@@ -40,8 +40,10 @@ data class RoadmapGraphView(
     val producerCount: Int,
     val producerRows: List<ProducerRow>,
     val unchained: List<UnchainedRow>,
-    val terminal: RoadmapNode?,
-    val terminalStats: RoadmapGraphLayout.TerminalStats,
+    /** The final projects drawn as panels, largest demand first (MCO-563). */
+    val terminals: List<RoadmapNode>,
+    /** Each drawn final project's plan totals, by project id. */
+    val terminalStats: Map<Int, RoadmapGraphLayout.TerminalStats>,
     val manualEdgeNote: String?,
     val dataGaps: List<DataGap>,
     /** The world's hand-made orderings, for § 4's roster — see [manualOrderingSection]. */
@@ -199,11 +201,13 @@ private fun shapeRows(view: RoadmapGraphView): List<Pair<String, String>> {
         if (stats.maxDepth > 1) {
             add("longest chain" to "${stats.maxDepth} projects deep")
         }
-        view.terminal?.let { terminal ->
+        if (view.terminals.isNotEmpty()) {
             // Items, not edge count. The old row said "86 from 22 farms", where 86 was the
-            // number of supply relationships — and it read as a quantity of items.
+            // number of supply relationships — and it read as a quantity of items. Summed over
+            // every drawn final project (MCO-563): a farm feeding two of them does both jobs.
+            val terminalIds = view.terminals.mapTo(mutableSetOf()) { it.projectId }
             val items = view.roadmap.edges
-                .filter { it.fromNodeId == terminal.projectId }
+                .filter { it.fromNodeId in terminalIds }
                 .sumOf { it.quantity ?: 0L }
             if (items > 0) {
                 val farms = if (view.producerCount == 1) "farm" else "farms"
@@ -337,7 +341,8 @@ private fun FlowContent.graphNode(view: RoadmapGraphView, node: GraphNode) {
         node.subLines.forEach { line ->
             div("rmg-node__sub ${toneClass(line.tone)}") { +line.text }
         }
-        if (node.kind == NodeKind.TERMINAL) terminalBody(view)
+        // A final project's panel carries its own numbers; the "+N more" node carries none.
+        if (node.kind == NodeKind.TERMINAL && node.projectId != null) terminalBody(view, node.projectId)
     }
 
     if (node.projectId != null) {
@@ -354,8 +359,8 @@ private fun FlowContent.graphNode(view: RoadmapGraphView, node: GraphNode) {
     }
 }
 
-private fun FlowContent.terminalBody(view: RoadmapGraphView) {
-    val stats = view.terminalStats
+private fun FlowContent.terminalBody(view: RoadmapGraphView, projectId: Int) {
+    val stats = view.terminalStats[projectId] ?: return
     div("rmg-terminal__progress") {
         progressBar(stats.percentComplete, 100, large = true)
         span("rmg-terminal__percent") { +"${stats.percentComplete}%" }

@@ -75,8 +75,20 @@ object RoadmapGraphLayout {
     const val FAN_IN_TOP = 150
     const val FAN_IN_SPAN = 190
 
-    /** Nominal height for the content-sized terminal panel, used for label collisions. */
-    private const val TERMINAL_NOMINAL_HEIGHT = 210
+    /**
+     * A final project's panel height. A single panel grows with its content, as 2A draws it, and
+     * this is only its nominal height for label collisions. Stacked panels (MCO-563) are placed
+     * one below the other, so each gets exactly this height.
+     */
+    const val TERMINAL_HEIGHT = 210
+    const val TERMINAL_GAP = 12
+
+    /**
+     * Final projects drawn as panels. The right column is a fixed strip, bounded for the same
+     * reason as the band and the producer column: any past this are counted in one node.
+     */
+    const val MAX_TERMINALS = 3
+    private const val TERMINAL_MORE_HEIGHT = 72
 
     /** Producers kept as their own node; everything past this collapses into the bundle. */
     const val TOP_PRODUCERS = 5
@@ -124,6 +136,11 @@ object RoadmapGraphLayout {
         /** The single largest material, for the node's sub-line. Null when nothing is named. */
         val largestItemName: String? = null,
         val largestItemQuantity: Long? = null,
+        /**
+         * What this producer sends to each final project, by project id (MCO-563). Empty means
+         * no split was recorded, and the producer feeds whatever it is drawn against.
+         */
+        val itemsByTerminal: Map<Int, Long> = emptyMap(),
     )
 
     /** Raw material nobody's farm covers — a synthetic node, never a project. */
@@ -132,6 +149,8 @@ object RoadmapGraphLayout {
         val materials: Int,
         /** "Oak Log + Ice = 84%" — the concentration warning, or null when there is no tail. */
         val concentration: String? = null,
+        /** What is left to gather by hand for each final project, as on [Producer.itemsByTerminal]. */
+        val itemsByTerminal: Map<Int, Long> = emptyMap(),
     )
 
     /** The numbers on the terminal panel, which come from the plan rather than the graph. */
@@ -220,11 +239,13 @@ object RoadmapGraphLayout {
         roadmap: Roadmap,
         producers: List<Producer>,
         handGathered: HandGathered?,
-        terminalStats: TerminalStats,
     ): Graph? {
-        val terminal = terminalOf(roadmap) ?: return null
+        val terminals = terminalsOf(roadmap)
+        if (terminals.isEmpty()) return null
+        val drawnTerminals = terminals.take(MAX_TERMINALS)
+        val hiddenTerminals = terminals.size - drawnTerminals.size
 
-        val sequenceNodes = sequenceNodesOf(roadmap, terminal)
+        val sequenceNodes = sequenceNodesOf(roadmap, terminals)
         val (topProducers, bundled) = splitProducers(producers)
 
         val nodes = mutableListOf<GraphNode>()
@@ -344,28 +365,50 @@ object RoadmapGraphLayout {
             )
         }
 
-        // --- terminal panel ---------------------------------------------------------------
-        nodes += GraphNode(
-            key = "terminal-${terminal.projectId}",
-            kind = NodeKind.TERMINAL,
-            projectId = terminal.projectId,
-            title = terminal.projectName,
-            subLines = emptyList(),
-            x = TERMINAL_LEFT, y = TERMINAL_TOP, width = TERMINAL_WIDTH,
-            height = 0, // grows with its content; the template does not position its bottom
-            eyebrow = "TERMINAL · LAYER ${terminal.layer}",
-        )
+        // --- final project panels ------------------------------------------------------------
+        // One per project the world drains into, largest demand first (MCO-563). A single panel
+        // grows with its content, as 2A draws it; stacked panels need a known height, because
+        // each is placed below the last.
+        val stacked = drawnTerminals.size > 1
+        val terminalTops = drawnTerminals.withIndex().associate { (index, terminal) ->
+            terminal.projectId to TERMINAL_TOP + index * (TERMINAL_HEIGHT + TERMINAL_GAP)
+        }
+        drawnTerminals.forEach { terminal ->
+            nodes += GraphNode(
+                key = "terminal-${terminal.projectId}",
+                kind = NodeKind.TERMINAL,
+                projectId = terminal.projectId,
+                title = terminal.projectName,
+                subLines = emptyList(),
+                x = TERMINAL_LEFT, y = terminalTops.getValue(terminal.projectId), width = TERMINAL_WIDTH,
+                height = if (stacked) TERMINAL_HEIGHT else 0,
+                eyebrow = "TERMINAL · LAYER ${terminal.layer}",
+            )
+        }
+        var rightBottom = TERMINAL_TOP + drawnTerminals.size * (TERMINAL_HEIGHT + TERMINAL_GAP) - TERMINAL_GAP
+        if (hiddenTerminals > 0) {
+            val moreY = rightBottom + TERMINAL_GAP
+            nodes += GraphNode(
+                key = "terminal-more",
+                kind = NodeKind.TERMINAL,
+                projectId = null,
+                title = "+$hiddenTerminals more final ${if (hiddenTerminals == 1) "project" else "projects"}",
+                subLines = listOf(SubLine("see the table view for all of them", Tone.MUTED)),
+                x = TERMINAL_LEFT, y = moreY, width = TERMINAL_WIDTH, height = TERMINAL_MORE_HEIGHT,
+            )
+            rightBottom = moreY + TERMINAL_MORE_HEIGHT
+        }
 
         // --- edges -------------------------------------------------------------------------
-        edges += sequenceEdges(drawnSequence, seqWidth, roadmap, terminal)
-        edges += supplyEdges(nodes, topProducers, bundled, handGathered)
+        edges += sequenceEdges(drawnSequence, seqWidth, roadmap, drawnTerminals, terminalTops)
+        edges += supplyEdges(nodes, topProducers, bundled, handGathered, drawnTerminals, terminalTops, stacked)
 
         // The caption needs a line of its own below the column — computing the panel height
         // first and then placing the caption inside it put the text on top of the last node.
         val showCaption = topProducers.isNotEmpty()
         val captionY = columnBottom + CAPTION_GAP
         val contentBottom = if (showCaption) captionY + CAPTION_HEIGHT else columnBottom
-        val height = maxOf(contentBottom, TERMINAL_TOP + TERMINAL_NOMINAL_HEIGHT) + PANEL_BOTTOM_PADDING
+        val height = maxOf(contentBottom, rightBottom) + PANEL_BOTTOM_PADDING
         val caption = if (showCaption) {
             BandCaption(
                 "SUPPLY, NOT SEQUENCE — NOTHING HERE IS WAITING ON ANYTHING",
@@ -406,18 +449,57 @@ object RoadmapGraphLayout {
     }
 
     /**
-     * Unfinished projects between the roots and the terminal, in the order to build them.
+     * Every project the world drains into, largest demand first (MCO-563).
+     *
+     * A final project consumes, nothing consumes from it, and it is still to do: a finished build
+     * at the end of a chain is history, not somewhere the world is heading. This used to be
+     * [terminalOf] alone, which picks one. A second project fed by the same farms then lost the
+     * tie-break, fell into the sequence band as "Start here", and had its supply drawn into
+     * another project's panel.
+     *
+     * Falls back to [terminalOf] when nothing unfinished is a sink, so a world where everything
+     * is built still draws its graph.
+     */
+    internal fun terminalsOf(roadmap: Roadmap): List<RoadmapNode> {
+        if (roadmap.edges.isEmpty()) return emptyList()
+        val producers = roadmap.edges.mapTo(mutableSetOf()) { it.toNodeId }
+        val demand = roadmap.edges
+            .groupBy { it.fromNodeId }
+            .mapValues { (_, edges) -> edges.sumOf { it.quantity ?: 0L } }
+        val sinks = roadmap.nodes
+            .filter { it.projectId in demand && it.projectId !in producers }
+            .filter { !it.state.isTerminal }
+            .sortedWith(
+                compareByDescending<RoadmapNode> { demand[it.projectId] ?: 0L }
+                    .thenByDescending { it.layer }
+                    .thenBy { it.projectName }
+            )
+        return sinks.ifEmpty { listOfNotNull(terminalOf(roadmap)) }
+    }
+
+    /**
+     * Unfinished projects upstream of a final project, in the order to build them.
+     *
+     * *Upstream* is the rule that matters (MCO-563); connected to something is not enough. A
+     * project that leads into no final project is not a step towards one, however many farms
+     * feed it, and putting it first in the band called it "Start here".
      *
      * Terminal-state projects are excluded by [ProjectState.isTerminal] rather than by
      * checking DONE alone — a cancelled project is not work either, and it must not take a
      * slot in a band whose whole claim is "these are the things left to do".
      */
-    internal fun sequenceNodesOf(roadmap: Roadmap, terminal: RoadmapNode): List<RoadmapNode> {
-        val connected = roadmap.edges.flatMapTo(mutableSetOf()) { listOf(it.fromNodeId, it.toNodeId) }
+    internal fun sequenceNodesOf(roadmap: Roadmap, terminals: List<RoadmapNode>): List<RoadmapNode> {
+        val terminalIds = terminals.mapTo(mutableSetOf()) { it.projectId }
+        val producersOf = roadmap.edges.groupBy({ it.fromNodeId }, { it.toNodeId })
+        val upstream = mutableSetOf<Int>()
+        val queue = ArrayDeque(terminalIds)
+        while (queue.isNotEmpty()) {
+            producersOf[queue.removeFirst()].orEmpty().forEach { if (upstream.add(it)) queue.add(it) }
+        }
         return roadmap.nodes
-            .filter { it.projectId != terminal.projectId }
+            .filter { it.projectId !in terminalIds }
             .filter { !it.state.isTerminal }
-            .filter { it.projectId in connected }
+            .filter { it.projectId in upstream }
             .sortedWith(compareBy({ it.layer }, { it.projectName }))
     }
 
@@ -442,14 +524,28 @@ object RoadmapGraphLayout {
         return (span / count).coerceAtLeast(MIN_SEQUENCE_WIDTH)
     }
 
-    internal data class Bundle(val count: Int, val items: Long, val edges: Int)
+    internal data class Bundle(
+        val count: Int,
+        val items: Long,
+        val edges: Int,
+        /** Summed over the bundled producers, so the bundle feeds every final project any of them does. */
+        val itemsByTerminal: Map<Int, Long> = emptyMap(),
+    )
 
     internal fun splitProducers(producers: List<Producer>): Pair<List<Producer>, Bundle?> {
         val sorted = producers.sortedWith(compareByDescending<Producer> { it.items }.thenBy { it.name })
         if (sorted.size <= TOP_PRODUCERS + 1) return sorted to null
         val top = sorted.take(TOP_PRODUCERS)
         val rest = sorted.drop(TOP_PRODUCERS)
-        return top to Bundle(rest.size, rest.sumOf { it.items }, rest.sumOf { it.edges })
+        return top to Bundle(
+            count = rest.size,
+            items = rest.sumOf { it.items },
+            edges = rest.sumOf { it.edges },
+            itemsByTerminal = rest
+                .flatMap { it.itemsByTerminal.entries }
+                .groupBy({ it.key }, { it.value })
+                .mapValues { (_, amounts) -> amounts.sum() },
+        )
     }
 
     /**
@@ -471,7 +567,8 @@ object RoadmapGraphLayout {
         sequence: List<RoadmapNode>,
         seqWidth: Int,
         roadmap: Roadmap,
-        terminal: RoadmapNode,
+        terminals: List<RoadmapNode>,
+        terminalTops: Map<Int, Int>,
     ): List<GraphEdge> = buildList {
         // Between consecutive sequence nodes: a short hop, dashed when the ordering is a
         // hand-made one rather than a derived supply edge.
@@ -507,13 +604,24 @@ object RoadmapGraphLayout {
         sequence.lastOrNull()?.let { last ->
             val index = sequence.lastIndex
             val right = SEQUENCE_LEFT + index * (seqWidth + SEQUENCE_GAP) + seqWidth
-            val edge = roadmap.edges.firstOrNull {
-                it.fromNodeId == terminal.projectId && it.toNodeId == last.projectId
+            // Into the first panel it feeds, in stack order (MCO-563). The top panel takes the
+            // line on its top edge, as 2A draws it; a lower one takes it on its left edge, so the
+            // line does not cross the panels above.
+            val (terminalId, edge) = terminals.firstNotNullOfOrNull { terminal ->
+                roadmap.edges
+                    .firstOrNull { it.fromNodeId == terminal.projectId && it.toNodeId == last.projectId }
+                    ?.let { terminal.projectId to it }
             } ?: return@let
+            val top = terminalTops.getValue(terminalId)
+            val path = if (top == TERMINAL_TOP) {
+                "M $right 47 C ${right + 32} 47 ${TERMINAL_LEFT - 4} 96 ${TERMINAL_LEFT - 4} $TERMINAL_TOP"
+            } else {
+                "M $right 47 C ${right + 32} 47 ${FAN_IN_X - 40} ${top + 24} $FAN_IN_X ${top + 24}"
+            }
             add(
                 GraphEdge(
                     key = "seq-terminal",
-                    path = "M $right 47 C ${right + 32} 47 ${TERMINAL_LEFT - 4} 96 ${TERMINAL_LEFT - 4} $TERMINAL_TOP",
+                    path = path,
                     strokeWidth = strokeWidthFor(edge.quantity),
                     dashed = false,
                     label = EdgeLabel(
@@ -527,35 +635,61 @@ object RoadmapGraphLayout {
         }
     }
 
-    /** Every supply-column node fans into the terminal panel's left edge. */
+    /**
+     * Every supply-column node fans into the panel of each final project it feeds.
+     *
+     * With one final project that is every column node, spread down [FAN_IN_SPAN] as 2A draws it.
+     * Stacked panels (MCO-563) take only the nodes that actually feed them, spread down their own
+     * left edge, each line weighted by what that node sends to *that* project.
+     */
     private fun supplyEdges(
         nodes: List<GraphNode>,
         topProducers: List<Producer>,
         bundle: Bundle?,
         hand: HandGathered?,
+        terminals: List<RoadmapNode>,
+        terminalTops: Map<Int, Int>,
+        stacked: Boolean,
     ): List<GraphEdge> = buildList {
         val columnNodes = nodes.filter {
             it.kind == NodeKind.SUPPLY || it.kind == NodeKind.BUNDLE || it.kind == NodeKind.HAND
         }
-        val lastIndex = (columnNodes.size - 1).coerceAtLeast(1)
-        columnNodes.forEachIndexed { index, node ->
-            val fromY = node.y + node.height / 2
-            val toY = FAN_IN_TOP + (index * FAN_IN_SPAN) / lastIndex
-            val items = when (node.kind) {
-                NodeKind.SUPPLY -> topProducers.firstOrNull { "supply-${it.projectId}" == node.key }?.items
-                NodeKind.BUNDLE -> bundle?.items
-                else -> hand?.items
+        terminals.forEach { terminal ->
+            val terminalId = terminal.projectId
+            val feeding = columnNodes.mapNotNull { node ->
+                val items = when (node.kind) {
+                    NodeKind.SUPPLY -> topProducers
+                        .firstOrNull { "supply-${it.projectId}" == node.key }
+                        ?.let { it.itemsByTerminal.into(terminalId, it.items) }
+                    NodeKind.BUNDLE -> bundle?.let { it.itemsByTerminal.into(terminalId, it.items) }
+                    else -> hand?.let { it.itemsByTerminal.into(terminalId, it.items) }
+                }
+                items?.let { node to it }
             }
-            add(
-                GraphEdge(
-                    key = "supply-${node.key}",
-                    path = "M $COLUMN_WIDTH $fromY C 420 $fromY 560 $toY $FAN_IN_X $toY",
-                    strokeWidth = strokeWidthFor(items),
-                    dashed = node.kind == NodeKind.HAND,
+            val fanTop = if (stacked) terminalTops.getValue(terminalId) + 40 else FAN_IN_TOP
+            val span = if (stacked) TERMINAL_HEIGHT - 60 else FAN_IN_SPAN
+            val lastIndex = (feeding.size - 1).coerceAtLeast(1)
+            feeding.forEachIndexed { index, (node, items) ->
+                val fromY = node.y + node.height / 2
+                val toY = fanTop + (index * span) / lastIndex
+                add(
+                    GraphEdge(
+                        key = if (stacked) "supply-${node.key}-$terminalId" else "supply-${node.key}",
+                        path = "M $COLUMN_WIDTH $fromY C 420 $fromY 560 $toY $FAN_IN_X $toY",
+                        strokeWidth = strokeWidthFor(items),
+                        dashed = node.kind == NodeKind.HAND,
+                    )
                 )
-            )
+            }
         }
     }
+
+    /**
+     * What a column node sends into [terminalId], or null when it sends nothing there. An empty
+     * map is a node that never recorded a split, so it feeds whatever it is drawn against.
+     */
+    private fun Map<Int, Long>.into(terminalId: Int, total: Long): Long? =
+        if (isEmpty()) total else this[terminalId]?.takeIf { it > 0 }
 
     /**
      * Stroke width encodes items moved: `1 + 0.32·ln(items)`, clamped to `[1, 4.5]`.
@@ -577,7 +711,7 @@ object RoadmapGraphLayout {
      */
     internal fun dropCollidingLabels(edges: List<GraphEdge>, nodes: List<GraphNode>): List<GraphEdge> {
         val boxes = nodes.map {
-            val height = if (it.height > 0) it.height else TERMINAL_NOMINAL_HEIGHT
+            val height = if (it.height > 0) it.height else TERMINAL_HEIGHT
             intArrayOf(it.x, it.y, it.x + it.width, it.y + height)
         }
         return edges.map { edge ->

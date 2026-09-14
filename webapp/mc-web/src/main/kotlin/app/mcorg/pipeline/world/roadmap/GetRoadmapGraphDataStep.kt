@@ -30,7 +30,6 @@ data class GetRoadmapGraphDataStep(val terminalProjectId: Int) :
                 SELECT
                   COALESCE(SUM(d.quantity) FILTER (WHERE d.node_status = 'SUPPLIED'), 0)    AS from_farms,
                   COALESCE(SUM(d.quantity) FILTER (WHERE d.node_status = 'RAW_GATHER'), 0)  AS by_hand,
-                  COUNT(*) FILTER (WHERE d.node_status = 'RAW_GATHER')                      AS hand_materials,
                   COUNT(*) FILTER (WHERE d.activity_group = 'CRAFT')                        AS craft_rows,
                   COUNT(*) FILTER (WHERE d.activity_group = 'NEEDS_ATTENTION')              AS open_questions
                 FROM project_demand d
@@ -43,7 +42,6 @@ data class GetRoadmapGraphDataStep(val terminalProjectId: Int) :
                     RoadmapGraphData(
                         fromFarms = rs.getLong("from_farms"),
                         byHand = rs.getLong("by_hand"),
-                        handMaterials = rs.getInt("hand_materials"),
                         craftRows = rs.getInt("craft_rows"),
                         openQuestions = rs.getInt("open_questions"),
                     )
@@ -57,41 +55,44 @@ data class GetRoadmapGraphDataStep(val terminalProjectId: Int) :
 data class RoadmapGraphData(
     val fromFarms: Long,
     val byHand: Long,
-    val handMaterials: Int,
     val craftRows: Int,
     val openQuestions: Int,
 ) {
     companion object {
-        val EMPTY = RoadmapGraphData(0, 0, 0, 0, 0)
+        val EMPTY = RoadmapGraphData(0, 0, 0, 0)
     }
 }
 
-/**
- * The two largest hand-gathered materials, for the concentration warning.
- *
- * Two and not more: the warning exists to name what a farm would remove, and a list of five
- * names stops being a warning and becomes a table. See [concentrationOf].
- */
-data class GetTopHandMaterialsStep(val terminalProjectId: Int) :
-    Step<Unit, AppFailure.DatabaseError, List<Pair<String, Long>>> {
+/** One raw material a final project leaves to be gathered by hand. */
+data class HandMaterial(val itemId: String, val name: String, val quantity: Long)
 
-    override suspend fun process(input: Unit): Result<AppFailure.DatabaseError, List<Pair<String, Long>>> =
-        DatabaseSteps.query<Unit, List<Pair<String, Long>>>(
+/**
+ * Everything [terminalProjectId] leaves to gather by hand, one row per material.
+ *
+ * All of them rather than the largest two: with more than one final project the by-hand node
+ * speaks for all of them at once (MCO-563), and neither its material count nor its two largest
+ * materials can be added up from per-project answers — a material both projects need would be
+ * counted twice. [handGatheredOf] combines the rows instead.
+ */
+data class GetHandMaterialsStep(val terminalProjectId: Int) :
+    Step<Unit, AppFailure.DatabaseError, List<HandMaterial>> {
+
+    override suspend fun process(input: Unit): Result<AppFailure.DatabaseError, List<HandMaterial>> =
+        DatabaseSteps.query<Unit, List<HandMaterial>>(
             sql = SafeSQL.select(
                 """
-                SELECT d.item_name, d.quantity
+                SELECT d.item_id, d.item_name, d.quantity
                 FROM project_demand d
                 WHERE d.project_id = ?
                   AND d.node_status = 'RAW_GATHER'
-                ORDER BY d.quantity DESC
-                LIMIT 2
                 """.trimIndent()
             ),
             parameterSetter = { statement, _ -> statement.setInt(1, terminalProjectId) },
             resultMapper = { rs ->
                 buildList {
                     while (rs.next()) {
-                        add(rs.getString("item_name") to rs.getLong("quantity"))
+                        val name = rs.getString("item_name")
+                        add(HandMaterial(rs.getString("item_id") ?: name, name, rs.getLong("quantity")))
                     }
                 }
             }
@@ -136,15 +137,19 @@ data class GetTerminalProgressStep(val terminalProjectId: Int) :
 }
 
 /**
- * Finished farms feeding [terminalProjectId], rolled up per producer.
+ * Finished farms feeding any of [terminalProjectIds], rolled up per producer.
  *
  * Reads the roadmap's own edges rather than the database — see the note on
  * [GetRoadmapGraphDataStep]. Only `DONE` producers qualify: the supply column's claim is that
  * nothing in it is waiting on anything, so an unfinished farm belongs in the sequence band
  * instead, however much it will eventually produce.
+ *
+ * A farm feeding two final projects is still one node in the column (MCO-563);
+ * [RoadmapGraphLayout.Producer.itemsByTerminal] carries what it sends to each, which is what
+ * each of its lines is drawn from.
  */
-fun producersOf(roadmap: Roadmap, terminalProjectId: Int): List<RoadmapGraphLayout.Producer> =
-    rollUpProducers(roadmap) { it.fromNodeId == terminalProjectId }
+fun producersOf(roadmap: Roadmap, terminalProjectIds: Set<Int>): List<RoadmapGraphLayout.Producer> =
+    rollUpProducers(roadmap) { it.fromNodeId in terminalProjectIds }
 
 /**
  * Every finished producer in the world, whoever it feeds.
@@ -188,6 +193,9 @@ private fun rollUpProducers(
                 edges = producerEdges.size,
                 largestItemName = largest?.itemName,
                 largestItemQuantity = largest?.quantity,
+                itemsByTerminal = producerEdges
+                    .groupBy { it.fromNodeId }
+                    .mapValues { (_, edges) -> edges.sumOf { it.quantity ?: 0L } },
             )
         }
 }
@@ -205,6 +213,35 @@ fun concentrationOf(top: List<Pair<String, Long>>, total: Long): String? {
     val share = (leading.sumOf { it.second } * 100) / total
     if (share < 50) return null
     return "${leading.joinToString(" + ") { shortItemName(it.first) }} = $share%"
+}
+
+/**
+ * The by-hand node, speaking for every drawn final project at once (MCO-563).
+ *
+ * Items add across projects: each one's hand list is separate work. Materials do not — a
+ * material two projects both need is one thing to go and gather, so it is counted once, and
+ * the concentration warning ranks materials by their combined quantity. Null when nothing is
+ * left to gather by hand.
+ */
+fun handGatheredOf(byTerminal: Map<Int, List<HandMaterial>>): RoadmapGraphLayout.HandGathered? {
+    val rows = byTerminal.values.flatten()
+    val total = rows.sumOf { it.quantity }
+    if (total <= 0) return null
+
+    val largest = rows
+        .groupBy { it.itemId }
+        .map { (_, same) -> same.first().name to same.sumOf { it.quantity } }
+        .sortedByDescending { it.second }
+        .take(2)
+
+    return RoadmapGraphLayout.HandGathered(
+        items = total,
+        materials = rows.distinctBy { it.itemId }.size,
+        concentration = concentrationOf(largest, total),
+        itemsByTerminal = byTerminal
+            .mapValues { (_, materials) -> materials.sumOf { it.quantity } }
+            .filterValues { it > 0 },
+    )
 }
 
 /**
