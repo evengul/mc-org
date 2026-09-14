@@ -76,8 +76,11 @@ fun FlowContent.fieldLogSections(
         )
     }
 
-    if (model.done.isNotEmpty() || model.cancelled.isNotEmpty() || model.archived.isNotEmpty()) {
-        fieldLogDoneShelf(worldId, model.done, model.cancelled, model.archived)
+    if (
+        model.done.isNotEmpty() || model.decommissioned.isNotEmpty() ||
+        model.cancelled.isNotEmpty() || model.archived.isNotEmpty()
+    ) {
+        fieldLogDoneShelf(worldId, model.done, model.decommissioned, model.cancelled, model.archived)
     }
 }
 
@@ -199,11 +202,15 @@ private fun FlowContent.fieldLogChipSection(
 fun FlowContent.fieldLogDoneShelf(
     worldId: Int,
     done: List<ProjectListItem>,
+    decommissioned: List<ProjectListItem>,
     cancelled: List<ProjectListItem>,
     archived: List<ProjectListItem>,
 ) {
+    // Decommissioned sits beside done rather than with cancelled and archived: it was built
+    // and it worked (MCO-541), it just stopped supplying anything.
     val summaryParts = buildList {
         if (done.isNotEmpty()) add("${done.size} done")
+        if (decommissioned.isNotEmpty()) add("${decommissioned.size} decommissioned")
         if (cancelled.isNotEmpty()) add("${cancelled.size} cancelled")
         if (archived.isNotEmpty()) add("${archived.size} archived")
     }
@@ -215,7 +222,7 @@ fun FlowContent.fieldLogDoneShelf(
             span("fl-shelf__toggle") { +"show" }
         }
         div("fl-shelf-grid") {
-            (done + cancelled + archived).forEach { project ->
+            (done + decommissioned + cancelled + archived).forEach { project ->
                 a(classes = "fl-shelf-item") {
                     href = "/worlds/$worldId/projects/${project.id}"
                     span("fl-shelf-item__name") { +project.name }

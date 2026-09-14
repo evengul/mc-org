@@ -56,12 +56,17 @@ IDEA → DESIGN → PLANNING → RESOURCE_GATHERING → BUILDING → TESTING →
 State — lifecycle/activity status, orthogonal to stage:
 
 ```
-PENDING / ACTIVE / PAUSED / DONE / CANCELLED / ARCHIVED
+PENDING / ACTIVE / PAUSED / DONE / CANCELLED / ARCHIVED / DECOMMISSIONED
 ```
 
 - Transitions are restricted — `ProjectState.allowedTransitions()` is the state
   machine (e.g. ACTIVE → PAUSED/DONE/CANCELLED; ARCHIVED → PENDING only)
-- DONE, CANCELLED, ARCHIVED are terminal (`isTerminal`)
+- DONE, CANCELLED, ARCHIVED, DECOMMISSIONED are terminal (`isTerminal`)
+- **DONE means producing.** Only a DONE project's productions count as world supply.
+- **DECOMMISSIONED** (MCO-541) = built, worked, stopped supplying (moved base, a version broke
+  the farm). Reachable only from DONE; returns to DONE without re-import. Supplies nothing and
+  blocks nothing; records an optional reason and date. Not the same as ARCHIVED, which also
+  holds projects that were never built.
 
 ---
 

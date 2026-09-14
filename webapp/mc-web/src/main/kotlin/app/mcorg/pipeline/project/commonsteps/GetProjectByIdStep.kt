@@ -26,6 +26,8 @@ object GetProjectByIdStep : Step<Int, AppFailure.DatabaseError, Project> {
                     p.location_dimension,
                     p.created_at,
                     p.updated_at,
+                    p.decommission_reason,
+                    p.decommissioned_at,
                     p.project_idea_id,
                     i.name as idea_name,
                     COALESCE(task_stats.tasks_total, 0) as tasks_total,

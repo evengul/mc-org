@@ -397,6 +397,7 @@ private fun ProjectState.label(): String = when (this) {
     ProjectState.DONE -> "✓ done"
     ProjectState.CANCELLED -> "✕ cancelled"
     ProjectState.ARCHIVED -> "archived"
+    ProjectState.DECOMMISSIONED -> "decommissioned"
 }
 
 private fun ProjectState.toneClass(): String = when (this) {

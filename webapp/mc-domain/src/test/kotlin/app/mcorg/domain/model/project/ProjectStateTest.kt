@@ -53,11 +53,29 @@ class ProjectStateTest {
     }
 
     @Test
-    fun `done can reopen or archive`() {
+    fun `done can reopen, archive or decommission`() {
         assertTrue(ProjectState.DONE.canTransitionTo(ProjectState.ACTIVE))
         assertTrue(ProjectState.DONE.canTransitionTo(ProjectState.ARCHIVED))
+        assertTrue(ProjectState.DONE.canTransitionTo(ProjectState.DECOMMISSIONED))
         assertFalse(ProjectState.DONE.canTransitionTo(ProjectState.PAUSED))
         assertFalse(ProjectState.DONE.canTransitionTo(ProjectState.CANCELLED))
+    }
+
+    @Test
+    fun `decommissioned can come back online or be archived`() {
+        assertTrue(ProjectState.DECOMMISSIONED.canTransitionTo(ProjectState.DONE))
+        assertTrue(ProjectState.DECOMMISSIONED.canTransitionTo(ProjectState.ARCHIVED))
+        assertFalse(ProjectState.DECOMMISSIONED.canTransitionTo(ProjectState.ACTIVE))
+        assertFalse(ProjectState.DECOMMISSIONED.canTransitionTo(ProjectState.PENDING))
+        assertFalse(ProjectState.DECOMMISSIONED.canTransitionTo(ProjectState.CANCELLED))
+    }
+
+    @Test
+    fun `only a done project can be decommissioned, because it means this was built`() {
+        assertEquals(
+            listOf(ProjectState.DONE),
+            ProjectState.entries.filter { it.canTransitionTo(ProjectState.DECOMMISSIONED) },
+        )
     }
 
     @Test
@@ -68,10 +86,11 @@ class ProjectStateTest {
     }
 
     @Test
-    fun `terminal states are done cancelled and archived`() {
+    fun `terminal states are done cancelled archived and decommissioned`() {
         assertTrue(ProjectState.DONE.isTerminal)
         assertTrue(ProjectState.CANCELLED.isTerminal)
         assertTrue(ProjectState.ARCHIVED.isTerminal)
+        assertTrue(ProjectState.DECOMMISSIONED.isTerminal)
         assertFalse(ProjectState.PENDING.isTerminal)
         assertFalse(ProjectState.ACTIVE.isTerminal)
         assertFalse(ProjectState.PAUSED.isTerminal)

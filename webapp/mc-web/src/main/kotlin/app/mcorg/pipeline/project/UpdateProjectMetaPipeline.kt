@@ -116,10 +116,11 @@ suspend fun ApplicationCall.handleUpdateProjectStateInline() {
         onSuccess = { respondHtml(projectStateViewFragment(it, isAdmin = true)) }
     ) {
         val target = ValidateProjectStateInputStep.run(parameters)
+        val reason = ValidateStateReasonInputStep.run(parameters)
         ValidateWorldMemberRole<ProjectState>(user, Role.ADMIN, worldId).run(target)
         val current = GetProjectStateStep.run(projectId)
         ValidateStateTransitionStep(current).run(target)
-        val newState = UpdateProjectStateStep(projectId).run(target)
+        val newState = UpdateProjectStateStep(projectId, reason).run(target)
         // Same rule as the Field Log's badge — this is the project page's door to the same
         // transition, and a farm reaching DONE here supplies the world just as much (MCO-404).
         invalidateDemandOnStateChange(worldId, projectId, current, newState)

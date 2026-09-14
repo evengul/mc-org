@@ -25,6 +25,7 @@ import app.mcorg.presentation.utils.respondHtml
 import io.ktor.http.Parameters
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.request.receiveParameters
+import java.sql.Types
 
 suspend fun ApplicationCall.handleUpdateProjectState() {
     val parameters = this.receiveParameters()
@@ -39,12 +40,14 @@ suspend fun ApplicationCall.handleUpdateProjectState() {
         }
     ) {
         val target = ValidateProjectStateInputStep.run(parameters)
+        val reason = ValidateStateReasonInputStep.run(parameters)
         ValidateWorldMemberRole<ProjectState>(user, Role.ADMIN, worldId).run(target)
         val current = GetProjectStateStep.run(projectId)
         ValidateStateTransitionStep(current).run(target)
-        val newState = UpdateProjectStateStep(projectId).run(target)
+        val newState = UpdateProjectStateStep(projectId, reason).run(target)
         // Crossing DONE is what adds or removes this project's output as world supply, so every
-        // other project's stored plan may now be wrong (MCO-404).
+        // other project's stored plan may now be wrong (MCO-404). Decommissioning leaves DONE
+        // too, so a stopped farm invalidates the plans that counted on it (MCO-541).
         invalidateDemandOnStateChange(worldId, projectId, current, newState)
         val project = GetProjectByIdStep.run(projectId)
         bus.publish(
@@ -66,6 +69,30 @@ object ValidateProjectStateInputStep : Step<Parameters, AppFailure.ValidationErr
         ).process(input["state"])
 
         return state.map { ProjectState.valueOf(it!!.uppercase()) }
+    }
+}
+
+/**
+ * Why a project was decommissioned (MCO-541). "Moved base 2026-09" and "broken since 1.21.4" are
+ * different facts, and six months on nothing else records which.
+ *
+ * Optional, and blank means no reason. Read on every state change because both doors share one
+ * form, but [UpdateProjectStateStep] only stores it when the target is DECOMMISSIONED.
+ */
+object ValidateStateReasonInputStep : Step<Parameters, AppFailure.ValidationError, String?> {
+    const val MAX_LENGTH = 200
+
+    override suspend fun process(input: Parameters): Result<AppFailure.ValidationError, String?> {
+        val reason = input["reason"]?.trim()?.takeIf { it.isNotEmpty() } ?: return Result.success(null)
+        return if (reason.length <= MAX_LENGTH) {
+            Result.success(reason)
+        } else {
+            Result.failure(
+                AppFailure.ValidationError(
+                    listOf(ValidationFailure.CustomValidation("reason", "Keep the reason to $MAX_LENGTH characters"))
+                )
+            )
+        }
     }
 }
 
@@ -98,20 +125,37 @@ data class ValidateStateTransitionStep(val current: ProjectState) : Step<Project
     }
 }
 
-data class UpdateProjectStateStep(val projectId: Int) : Step<ProjectState, AppFailure.DatabaseError, ProjectState> {
+/**
+ * Writes the new state, plus what a state carries with it.
+ *
+ * * `completed_at` is stamped on reaching DONE — **except from DECOMMISSIONED** (MCO-541). A farm
+ *   coming back online is the same farm, not a second completion, so the date it was first
+ *   finished stays. The CASE reads `state` as the row's value *before* this update.
+ * * `decommissioned_at` and [reason] are written on entering DECOMMISSIONED, and left alone on
+ *   every other transition: that a project once stopped, and why, is history rather than state.
+ */
+data class UpdateProjectStateStep(
+    val projectId: Int,
+    val reason: String? = null,
+) : Step<ProjectState, AppFailure.DatabaseError, ProjectState> {
     override suspend fun process(input: ProjectState): Result<AppFailure.DatabaseError, ProjectState> {
         return DatabaseSteps.update<ProjectState>(
             sql = SafeSQL.update("""
                 UPDATE projects
                 SET state = ?,
-                    completed_at = CASE WHEN ? = 'DONE' THEN NOW() ELSE completed_at END,
+                    completed_at = CASE WHEN ? = 'DONE' AND state <> 'DECOMMISSIONED' THEN NOW() ELSE completed_at END,
+                    decommissioned_at = CASE WHEN ? = 'DECOMMISSIONED' THEN NOW() ELSE decommissioned_at END,
+                    decommission_reason = CASE WHEN ? = 'DECOMMISSIONED' THEN ? ELSE decommission_reason END,
                     updated_at = NOW()
                 WHERE id = ?
             """),
             parameterSetter = { statement, state ->
                 statement.setString(1, state.name)
                 statement.setString(2, state.name)
-                statement.setInt(3, projectId)
+                statement.setString(3, state.name)
+                statement.setString(4, state.name)
+                if (reason != null) statement.setString(5, reason) else statement.setNull(5, Types.VARCHAR)
+                statement.setInt(6, projectId)
             }
         ).process(input).map { input }
     }

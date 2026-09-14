@@ -11,18 +11,27 @@ enum class ProjectState {
     PAUSED,
     DONE,
     CANCELLED,
-    ARCHIVED;
+    ARCHIVED,
+
+    /**
+     * Built, worked, and no longer supplies anything — the base moved, or a version upgrade
+     * broke the farm (MCO-541). Not a failure and not a mistake, which is what separates it
+     * from CANCELLED; and unlike ARCHIVED it can only be reached from DONE, so it always means
+     * "this was built". Coming back online is a return to DONE, not a re-import.
+     */
+    DECOMMISSIONED;
 
     val isTerminal: Boolean
-        get() = this == DONE || this == CANCELLED || this == ARCHIVED
+        get() = this == DONE || this == CANCELLED || this == ARCHIVED || this == DECOMMISSIONED
 
     fun allowedTransitions(): Set<ProjectState> = when (this) {
         PENDING -> setOf(ACTIVE, CANCELLED, ARCHIVED)
         ACTIVE -> setOf(PAUSED, DONE, CANCELLED)
         PAUSED -> setOf(ACTIVE, CANCELLED, ARCHIVED)
-        DONE -> setOf(ACTIVE, ARCHIVED)
+        DONE -> setOf(ACTIVE, ARCHIVED, DECOMMISSIONED)
         CANCELLED -> setOf(PENDING, ARCHIVED)
         ARCHIVED -> setOf(PENDING)
+        DECOMMISSIONED -> setOf(DONE, ARCHIVED)
     }
 
     fun canTransitionTo(target: ProjectState): Boolean = target in allowedTransitions()

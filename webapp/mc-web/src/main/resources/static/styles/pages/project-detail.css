@@ -500,6 +500,12 @@
     color: var(--text-disabled);
 }
 
+/* "since 2026-09-14 · moved base" beside a Decommissioned badge (MCO-541) */
+.project-meta-field__note {
+    font-size: var(--text-sm);
+    color: var(--text-muted);
+}
+
 .project-meta-edit {
     display: inline-flex;
     align-items: center;
@@ -527,6 +533,10 @@
 
 .project-meta-edit__input--coord {
     width: 5rem;
+}
+
+.project-meta-edit__input--reason {
+    min-width: 16rem;
 }
 
 .project-meta-edit__actions {

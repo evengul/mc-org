@@ -122,7 +122,20 @@ fun projectStateEditFragment(project: Project): String =
 
 private fun DIV.stateViewInner(project: Project, isAdmin: Boolean) {
     span("badge ${project.state.badgeModifier}") { +project.state.label }
+    if (project.state == ProjectState.DECOMMISSIONED) decommissionNote(project)
     if (isAdmin) editTrigger("${metaBase(project)}/state?mode=edit", stateFieldId(project.id), "Change project state")
+}
+
+/**
+ * "since 2026-09-14 · moved base" beside the badge (MCO-541). Six months on, whether a farm
+ * stopped because the base moved or because a snapshot broke it is recorded nowhere else.
+ */
+private fun FlowContent.decommissionNote(project: Project) {
+    val parts = listOfNotNull(
+        project.decommissionedAt?.let { "since ${it.toLocalDate()}" },
+        project.decommissionReason,
+    )
+    if (parts.isNotEmpty()) span("project-meta-field__note") { +parts.joinToString(" · ") }
 }
 
 private fun DIV.stateEditInner(project: Project) {
@@ -138,6 +151,19 @@ private fun DIV.stateEditInner(project: Project) {
                     value = target.name
                     +target.label
                 }
+            }
+        }
+        // Offered whenever decommissioning is one of the options, and ignored by the server for
+        // every other target — one plain field rather than script that shows it on selection.
+        if (ProjectState.DECOMMISSIONED in project.state.allowedTransitions()) {
+            input(
+                type = InputType.text,
+                name = "reason",
+                classes = "project-meta-edit__input project-meta-edit__input--reason",
+            ) {
+                attributes["maxlength"] = "200"
+                attributes["aria-label"] = "Reason, if decommissioning"
+                attributes["placeholder"] = "Why it stopped, if decommissioning"
             }
         }
         editActions("${metaBase(project)}/state", stateFieldId(project.id))

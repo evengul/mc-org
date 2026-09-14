@@ -157,11 +157,13 @@ class FieldLogModelTest {
                 project(3, "C", state = ProjectState.ARCHIVED),
                 project(4, "D", state = ProjectState.PAUSED),
                 project(5, "E", state = ProjectState.PENDING),
+                project(6, "F", state = ProjectState.DECOMMISSIONED),
             ),
             emptyList()
         )
 
         assertEquals(listOf(1), model.done.map { it.id })
+        assertEquals(listOf(6), model.decommissioned.map { it.id })
         assertEquals(listOf(2), model.cancelled.map { it.id })
         assertEquals(listOf(3), model.archived.map { it.id })
         assertEquals(listOf(4), model.paused.map { it.id })
@@ -192,5 +194,19 @@ class FieldLogModelTest {
 
         assertTrue(model.producing.isEmpty())
         assertEquals(listOf("Gold Farm"), model.active.map { it.name })
+    }
+
+    // --- Decommissioned farms (MCO-541) -----------------------------------------
+
+    @Test
+    fun `a decommissioned farm is shelved, not producing, and blocks nothing`() {
+        val farm = project(1, "Old Iron Farm", state = ProjectState.DECOMMISSIONED, producesCount = 1)
+        val consumer = project(2, "Beacon")
+
+        val model = FieldLogModel.of(listOf(farm, consumer), listOf(edge(consumer, farm, "iron ingot")))
+
+        assertTrue(model.producing.isEmpty(), "a stopped farm is not running infrastructure")
+        assertEquals(listOf("Old Iron Farm"), model.decommissioned.map { it.name })
+        assertFalse(model.isBlocked(2), "it was built — nobody is waiting for it to be finished")
     }
 }
