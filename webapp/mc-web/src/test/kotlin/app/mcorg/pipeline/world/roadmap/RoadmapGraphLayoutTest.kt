@@ -346,6 +346,87 @@ class RoadmapGraphLayoutTest {
         assertEquals(listOf(2), RoadmapGraphLayout.terminalsOf(world).map { it.projectId })
     }
 
+    // ---- final projects no farm feeds -------------------------------------------------
+
+    /** Fixture 3b: a castle whose every material is gathered by hand, beside a farm-fed YAMS. */
+    @Test
+    fun `a project with nothing but hand work is a final project`() {
+        val farm = node(1, "Cobble farm", ProjectState.DONE)
+        val yams = node(2, "Storage System YAMS", layer = 1)
+        val castle = node(3, "Deepslate castle")
+        val idea = node(4, "Redstone Crafting Area")
+        val world = roadmap(listOf(farm, yams, castle, idea), listOf(edge(yams, farm, "Cobblestone", 51_575)))
+
+        val terminals = RoadmapGraphLayout.terminalsOf(world, demand = mapOf(2 to 274_154L, 3 to 23_000L))
+
+        assertEquals(listOf("Storage System YAMS", "Deepslate castle"), terminals.map { it.projectName })
+        assertTrue(idea !in terminals, "nothing to gather is not somewhere the world is heading")
+    }
+
+    /** Forever world's New slime farm: 100,000 by hand, and no farm could help with any of it. */
+    @Test
+    fun `final projects rank by all their demand, so hand work can outrank a farm-fed project`() {
+        val trading = node(1, "First trading setup", ProjectState.DONE)
+        val yams = node(2, "Storage System YAMS", layer = 1)
+        val copper = node(3, "Copper Library", layer = 1)
+        val slime = node(4, "New slime farm")
+        val world = roadmap(
+            listOf(trading, yams, copper, slime),
+            listOf(edge(yams, trading, "Glass", 16_509), edge(copper, trading, "Glass", 17_376)),
+        )
+
+        val terminals = RoadmapGraphLayout.terminalsOf(
+            world,
+            demand = mapOf(2 to 274_154L, 3 to 63_199L, 4 to 100_000L),
+        )
+
+        assertEquals(listOf("Storage System YAMS", "New slime farm", "Copper Library"), terminals.map { it.projectName })
+    }
+
+    @Test
+    fun `a world with no supply lines has no graph, whatever is left to gather`() {
+        val castle = node(1, "Deepslate castle")
+
+        assertTrue(RoadmapGraphLayout.terminalsOf(roadmap(listOf(castle), emptyList()), mapOf(1 to 23_000L)).isEmpty())
+    }
+
+    // ---- the line into a final project -------------------------------------------------
+
+    @Test
+    fun `the band's line into a final project says already covered only when it does not block`() {
+        val slime = node(1, "Slime farm")
+        val yams = node(2, "Storage System YAMS", layer = 1)
+
+        assertEquals("50 Slimeball", RoadmapGraphLayout.seqTerminalLabel(edge(yams, slime, "Slimeball", 50)))
+        assertEquals(
+            "5 Gunpowder · already covered",
+            RoadmapGraphLayout.seqTerminalLabel(edge(yams, slime, "Gunpowder", 5).copy(isBlocking = false)),
+        )
+        assertNull(RoadmapGraphLayout.seqTerminalLabel(edge(yams, slime, null, null)), "an ordering has no material")
+    }
+
+    /** Fixture 6: "YAMS before Copper Library" was drawn solid and labelled "0 · already covered". */
+    @Test
+    fun `a hand-made ordering into a final project is dashed and unlabelled`() {
+        val trading = node(1, "First trading setup", ProjectState.DONE)
+        val yams = node(2, "Storage System YAMS", layer = 1)
+        val copper = node(3, "Copper Library", layer = 2)
+        val world = roadmap(
+            listOf(trading, yams, copper),
+            listOf(
+                edge(copper, yams, null, null),
+                edge(copper, trading, "Glass", 17_376),
+                edge(yams, trading, "Glass", 16_509),
+            ),
+        )
+
+        val graph = assertNotNull(RoadmapGraphLayout.of(world, listOf(producer(1, "First trading setup", 17_376)), null))
+
+        val line = assertNotNull(graph.edges.singleOrNull { it.key == "seq-terminal" })
+        assertTrue(line.dashed, "a manual ordering is dashed, as the legend says")
+        assertNull(line.label)
+    }
+
     // ---- edge weight -------------------------------------------------------------------
 
     @Test

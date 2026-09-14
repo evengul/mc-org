@@ -105,8 +105,11 @@ fun roadmapPage(
  * The page has already broken each loop at its smallest claim so the table below never shows
  * two projects each blocking the other. That guess is stated rather than hidden — a roadmap
  * that quietly picked an order would be a roadmap you could not trust the rest of.
+ *
+ * Rendered by **both** views. It used to live on the table alone, while the graph — the default
+ * view — drew the assumed order as settled fact, with no sign there was a question to answer.
  */
-private fun FlowContent.cycleSection(roadmap: Roadmap) {
+internal fun FlowContent.cycleSection(roadmap: Roadmap) {
     if (roadmap.cycles.isEmpty() && roadmap.resolvedOrders.isEmpty()) return
 
     div("roadmap-cycles") {

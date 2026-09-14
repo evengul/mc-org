@@ -9,6 +9,7 @@ import app.mcorg.pipeline.world.roadmap.RoadmapGraphLayout.Graph
 import app.mcorg.pipeline.world.roadmap.RoadmapGraphLayout.GraphNode
 import app.mcorg.pipeline.world.roadmap.RoadmapGraphLayout.NodeKind
 import app.mcorg.pipeline.world.roadmap.RoadmapGraphLayout.Tone
+import app.mcorg.pipeline.world.roadmap.StoppedFarm
 import app.mcorg.presentation.templated.dsl.BadgeStatus
 import app.mcorg.presentation.templated.dsl.appHeader
 import app.mcorg.presentation.templated.dsl.container
@@ -52,6 +53,8 @@ data class RoadmapGraphView(
     val terminalStats: Map<Int, RoadmapGraphLayout.TerminalStats>,
     val manualEdgeNote: String?,
     val dataGaps: List<DataGap>,
+    /** Decommissioned farms and what no farm covers since they stopped — see [stoppedSection]. */
+    val stopped: List<StoppedFarm> = emptyList(),
     /** The world's hand-made orderings, for § 4's roster — see [manualOrderingSection]. */
     val manualOrderings: List<ManualOrdering> = emptyList(),
     /** Edges the app derived rather than anybody typing, for the roster's "these are yours" line. */
@@ -111,6 +114,10 @@ fun roadmapGraphPage(
                 // The world's one empty state answers it instead (see [worldEmptyState]).
                 worldEmptyState(view.roadmap.worldId)
             } else {
+                // Above the card, exactly where the table view puts it: a loop makes the order the
+                // graph draws an assumption, so the page asks before it draws. This view used to
+                // draw the assumed order as settled and leave the question to the table alone.
+                cycleSection(view.roadmap)
                 div("rmg-card") {
                     id = "roadmap-graph"
                     startHereSection(view)
@@ -127,6 +134,7 @@ fun roadmapGraphPage(
                     )
                     unchainedSection(view)
                     producingSection(view)
+                    stoppedSection(view)
                 }
             }
         }
@@ -422,6 +430,41 @@ private fun FlowContent.producingSection(view: RoadmapGraphView) {
                 a(classes = "rmg-datagap__fix") {
                     href = "/worlds/${view.roadmap.worldId}/projects/${gap.projectId}"
                     +"fix ▸"
+                }
+            }
+        }
+    }
+}
+
+// ---- 6. stopped --------------------------------------------------------------------------
+
+/**
+ * Decommissioned farms (MCO-541), and what no farm covers since they stopped.
+ *
+ * The roadmap's edges drop a stopped farm — right for the graph, since nothing waits on it — and
+ * that left the page with no trace of it: decommissioning Forever world's two largest farms nearly
+ * tripled the hand list on a page that never said why. A farm whose output another still makes is
+ * listed too, because "stopping it cost nothing" is also worth knowing.
+ */
+private fun FlowContent.stoppedSection(view: RoadmapGraphView) {
+    if (view.stopped.isEmpty()) return
+    div("rmg-section rmg-stopped") {
+        div("rmg-stopped__head") {
+            span("rmg-label") { +"STOPPED · ${view.stopped.size}" }
+            span("rmg-note") { +"decommissioned — they supply nothing now" }
+        }
+        div("rmg-chips") {
+            view.stopped.forEach { farm ->
+                a(classes = "rmg-chip") {
+                    href = "/worlds/${view.roadmap.worldId}/projects/${farm.projectId}"
+                    span("rmg-chip__name") { +farm.name }
+                    if (farm.uncoveredItems > 0) {
+                        span("rmg-chip__note ${toneClass(Tone.AMBER)}") {
+                            +"⚠ ${RoadmapGraphLayout.format(farm.uncoveredItems)} items no farm covers now"
+                        }
+                    } else {
+                        span("rmg-chip__note ${toneClass(Tone.MUTED)}") { +"nothing it made is missing now" }
+                    }
                 }
             }
         }

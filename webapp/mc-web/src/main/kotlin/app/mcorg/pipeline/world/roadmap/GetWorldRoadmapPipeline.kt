@@ -59,7 +59,10 @@ suspend fun ApplicationCall.handleGetWorldRoadmap() {
 internal suspend fun graphViewOf(roadmap: Roadmap): RoadmapGraphView {
     // Every project the world drains into, not the one that won a tie-break (MCO-563). Only the
     // ones drawn as panels need numbers of their own.
-    val terminals = RoadmapGraphLayout.terminalsOf(roadmap)
+    // Each project's planned demand, farm and hand alike: what ranks the final projects, and what
+    // lets a build that is nothing but hand work count as one. Degrades to ranking by supply lines.
+    val demand = GetWorldDemandTotalsStep(roadmap.worldId).process(Unit).getOrNull().orEmpty()
+    val terminals = RoadmapGraphLayout.terminalsOf(roadmap, demand)
     val drawn = terminals.take(RoadmapGraphLayout.MAX_TERMINALS)
     val drawnIds = drawn.mapTo(mutableSetOf()) { it.projectId }
     // The roster reads `project_dependencies` directly rather than filtering [roadmap.edges]:
@@ -88,7 +91,7 @@ internal suspend fun graphViewOf(roadmap: Roadmap): RoadmapGraphView {
         drawn.associate { it.projectId to GetHandMaterialsStep(it.projectId).process(Unit).getOrNull().orEmpty() }
     )
 
-    val graph = RoadmapGraphLayout.of(roadmap, columnProducers, handGathered)
+    val graph = RoadmapGraphLayout.of(roadmap, columnProducers, handGathered, demand)
 
     val sequence = RoadmapGraphLayout.sequenceNodesOf(roadmap, terminals)
     val start = startOf(sequence, terminals)
@@ -96,8 +99,14 @@ internal suspend fun graphViewOf(roadmap: Roadmap): RoadmapGraphView {
     // A project with no edge in either direction is in nobody's chain. Split by state:
     // an unfinished one is work you can do whenever, a *finished* one that supplies
     // nothing is a data gap — it was built, so something should be flowing out of it.
+    // A final project that is nothing but hand work has no edge either, and it is not
+    // do-whenever: it has a panel, or a place in "+N more" past the cap. Every final project is
+    // excluded, not only the drawn ones, so none is listed twice.
+    val terminalIds = terminals.mapTo(mutableSetOf()) { it.projectId }
     val connected = roadmap.edges.flatMapTo(mutableSetOf()) { listOf(it.fromNodeId, it.toNodeId) }
-    val isolated = roadmap.nodes.filter { it.projectId !in connected }
+    val isolated = roadmap.nodes.filter { it.projectId !in connected && it.projectId !in terminalIds }
+    // Decommissioned farms have no edges, so nothing above would ever mention them (MCO-541).
+    val stopped = GetStoppedFarmsStep(roadmap.worldId).process(Unit).getOrNull().orEmpty()
 
     return RoadmapGraphView(
         roadmap = roadmap,
@@ -112,6 +121,7 @@ internal suspend fun graphViewOf(roadmap: Roadmap): RoadmapGraphView {
         },
         producerCount = allProducers.size,
         feeding = feedingOf(columnProducers),
+        stopped = stopped,
         producerRows = allProducers
             .sortedWith(compareByDescending<RoadmapGraphLayout.Producer> { it.items }.thenBy { it.name })
             .map {

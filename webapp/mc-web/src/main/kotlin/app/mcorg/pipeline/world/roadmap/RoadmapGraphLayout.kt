@@ -239,8 +239,10 @@ object RoadmapGraphLayout {
         roadmap: Roadmap,
         producers: List<Producer>,
         handGathered: HandGathered?,
+        /** Each project's planned demand, for [terminalsOf] — the same map the page chose its panels by. */
+        demand: Map<Int, Long> = emptyMap(),
     ): Graph? {
-        val terminals = terminalsOf(roadmap)
+        val terminals = terminalsOf(roadmap, demand)
         if (terminals.isEmpty()) return null
         val drawnTerminals = terminals.take(MAX_TERMINALS)
         val hiddenTerminals = terminals.size - drawnTerminals.size
@@ -451,26 +453,34 @@ object RoadmapGraphLayout {
     /**
      * Every project the world drains into, largest demand first (MCO-563).
      *
-     * A final project consumes, nothing consumes from it, and it is still to do: a finished build
-     * at the end of a chain is history, not somewhere the world is heading. This used to be
-     * [terminalOf] alone, which picks one. A second project fed by the same farms then lost the
-     * tie-break, fell into the sequence band as "Start here", and had its supply drawn into
-     * another project's panel.
+     * A final project is still to do, nothing consumes from it, and it has something to consume: a
+     * supply line, or anything left to gather by hand ([demand], each project's planned demand from
+     * farms plus by hand). A finished build at the end of a chain is history, not somewhere the
+     * world is heading. This used to be [terminalOf] alone, which picks one. A second project fed by
+     * the same farms then lost the tie-break, fell into the sequence band as "Start here", and had
+     * its supply drawn into another project's panel.
      *
-     * Falls back to [terminalOf] when nothing unfinished is a sink, so a world where everything
-     * is built still draws its graph.
+     * A supply line used to be required as well, so a 23,000-item castle no farm could help with was
+     * filed under "not in any chain — do them whenever", while the same castle with one 1,500-wheat
+     * line got a panel. What decides a destination is the work left, not whether a farm touches it.
+     * Ranked by [demand] where it is known, since a hand-only project has no edges to sum.
+     *
+     * A world with no supply lines at all still has no graph: that is the fresh world, whose design
+     * is not settled. Falls back to [terminalOf] when nothing unfinished is a sink, so a world where
+     * everything is built still draws its graph.
      */
-    internal fun terminalsOf(roadmap: Roadmap): List<RoadmapNode> {
+    internal fun terminalsOf(roadmap: Roadmap, demand: Map<Int, Long> = emptyMap()): List<RoadmapNode> {
         if (roadmap.edges.isEmpty()) return emptyList()
         val producers = roadmap.edges.mapTo(mutableSetOf()) { it.toNodeId }
-        val demand = roadmap.edges
+        val edgeDemand = roadmap.edges
             .groupBy { it.fromNodeId }
             .mapValues { (_, edges) -> edges.sumOf { it.quantity ?: 0L } }
         val sinks = roadmap.nodes
-            .filter { it.projectId in demand && it.projectId !in producers }
+            .filter { it.projectId in edgeDemand || (demand[it.projectId] ?: 0L) > 0 }
+            .filter { it.projectId !in producers }
             .filter { !it.state.isTerminal }
             .sortedWith(
-                compareByDescending<RoadmapNode> { demand[it.projectId] ?: 0L }
+                compareByDescending<RoadmapNode> { demand[it.projectId] ?: edgeDemand[it.projectId] ?: 0L }
                     .thenByDescending { it.layer }
                     .thenBy { it.projectName }
             )
@@ -623,16 +633,33 @@ object RoadmapGraphLayout {
                     key = "seq-terminal",
                     path = path,
                     strokeWidth = strokeWidthFor(edge.quantity),
-                    dashed = false,
-                    label = EdgeLabel(
-                        text = "${format(edge.quantity ?: 0)} ${edge.itemName ?: ""} · already covered".trim(),
-                        x = right - 8,
-                        y = TERMINAL_TOP + 2,
-                        anchor = "end",
-                    ),
+                    // A hand-made ordering carries no material, so it is dashed — as the legend
+                    // says, and as the band's own hops already draw it.
+                    dashed = edge.itemName == null,
+                    label = seqTerminalLabel(edge)?.let { text ->
+                        EdgeLabel(text = text, x = right - 8, y = TERMINAL_TOP + 2, anchor = "end")
+                    },
                 )
             )
         }
+    }
+
+    /**
+     * The label on the line from the band into a final project.
+     *
+     * "5 Gunpowder · already covered" is 2A's label for a farm still being built whose output a
+     * running farm already makes. It was printed on every such line regardless: "51,092 Cobblestone
+     * · already covered" from the only cobblestone farm in the world, and "0 · already covered" on
+     * a hand-made ordering that carries no material at all.
+     *
+     * The band only holds unfinished projects, so a line out of it that does not block can only
+     * mean the item is already made elsewhere — that is when the suffix is true. A manual ordering
+     * has no material to name, and gets no label.
+     */
+    internal fun seqTerminalLabel(edge: RoadmapEdge): String? {
+        val item = edge.itemName ?: return null
+        val amount = edge.quantity?.let { "${format(it)} " } ?: ""
+        return if (edge.isBlocking) "$amount$item" else "$amount$item · already covered"
     }
 
     /**

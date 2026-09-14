@@ -341,9 +341,13 @@ a.rmg-node:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-mut
 
 /* 4. Not in any chain ---------------------------------------------------------------- */
 
-.rmg-unchained { display: flex; flex-direction: column; gap: var(--space-3); }
+/* 6. Stopped (decommissioned farms) shares this section's shape — a header and a row of chips. */
 
-.rmg-unchained__head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.rmg-unchained,
+.rmg-stopped { display: flex; flex-direction: column; gap: var(--space-3); }
+
+.rmg-unchained__head,
+.rmg-stopped__head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
 
 .rmg-chips { display: flex; flex-wrap: wrap; gap: var(--space-2); }
 
