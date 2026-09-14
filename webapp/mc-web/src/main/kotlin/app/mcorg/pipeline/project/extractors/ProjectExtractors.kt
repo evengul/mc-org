@@ -48,6 +48,8 @@ fun ResultSet.toProject() = Project(
             Pair(ideaId, ideaName)
         } else null
     },
+    decommissionReason = getString("decommission_reason"),
+    decommissionedAt = getTimestamp("decommissioned_at")?.toInstant()?.atZone(ZoneOffset.UTC),
     createdAt = getTimestamp("created_at").toInstant().atZone(ZoneOffset.UTC),
     updatedAt = getTimestamp("updated_at").toInstant().atZone(ZoneOffset.UTC)
 )

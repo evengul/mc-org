@@ -16,6 +16,7 @@ import app.mcorg.test.WithUser
 import app.mcorg.test.postgres.DatabaseTestExtension
 import io.ktor.client.request.patch
 import io.ktor.client.request.setBody
+import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
@@ -95,6 +96,56 @@ class ProjectStateIT : WithUser() {
         assertEquals(HttpStatusCode.OK, response.status)
         assertEquals("DONE", getState(projectId))
         assertNotNull(getCompletedAt(projectId))
+    }
+
+    // ---- decommissioning (MCO-541) ----------------------------------------
+
+    @Test
+    fun `decommissioning records why and when, and coming back keeps the completion date`() = testApplication {
+        setupRoutes()
+        val projectId = createProject(worldId, state = "ACTIVE")
+        assertEquals(HttpStatusCode.OK, patchState(projectId, "state=DONE").status)
+        val completedAt = assertNotNull(getCompletedAt(projectId))
+
+        val response = patchState(projectId, "state=DECOMMISSIONED&reason=moved+base+2026-09")
+
+        assertEquals(HttpStatusCode.OK, response.status, response.bodyAsText())
+        assertContains(response.bodyAsText(), "Decommissioned")
+        assertEquals("DECOMMISSIONED", getState(projectId))
+        assertEquals("moved base 2026-09", getDecommissionReason(projectId))
+        assertNotNull(getDecommissionedAt(projectId))
+        assertEquals(completedAt, getCompletedAt(projectId), "stopping is not a completion")
+
+        assertEquals(HttpStatusCode.OK, patchState(projectId, "state=DONE").status)
+        assertEquals("DONE", getState(projectId))
+        assertEquals(
+            completedAt,
+            getCompletedAt(projectId),
+            "a farm coming back online is the same farm, not a second completion",
+        )
+    }
+
+    @Test
+    fun `a project that was never finished cannot be decommissioned`() = testApplication {
+        setupRoutes()
+        val projectId = createProject(worldId, state = "ACTIVE")
+
+        val response = patchState(projectId, "state=DECOMMISSIONED")
+
+        assertEquals(HttpStatusCode.UnprocessableEntity, response.status)
+        assertEquals("ACTIVE", getState(projectId))
+    }
+
+    @Test
+    fun `a decommission reason over 200 characters is rejected`() = testApplication {
+        setupRoutes()
+        val projectId = createProject(worldId, state = "DONE")
+
+        val response = patchState(projectId, "state=DECOMMISSIONED&reason=${"x".repeat(201)}")
+
+        assertEquals(HttpStatusCode.UnprocessableEntity, response.status)
+        assertEquals("DONE", getState(projectId))
+        assertNull(getDecommissionReason(projectId))
     }
 
     @Test
@@ -208,6 +259,31 @@ class ProjectStateIT : WithUser() {
             sql = SafeSQL.select("SELECT state FROM projects WHERE id = ?"),
             parameterSetter = { stmt, _ -> stmt.setInt(1, projectId) },
             resultMapper = { rs -> rs.next(); rs.getString("state") }
+        ).process(Unit)
+        (result as Result.Success).value
+    }
+
+    private suspend fun ApplicationTestBuilder.patchState(projectId: Int, form: String): HttpResponse =
+        client.patch("/worlds/$worldId/projects/$projectId/state") {
+            addAuthCookie(this)
+            contentType(ContentType.Application.FormUrlEncoded)
+            setBody(form)
+        }
+
+    private fun getDecommissionReason(projectId: Int): String? = runBlocking {
+        val result = DatabaseSteps.query<Unit, String?>(
+            sql = SafeSQL.select("SELECT decommission_reason FROM projects WHERE id = ?"),
+            parameterSetter = { stmt, _ -> stmt.setInt(1, projectId) },
+            resultMapper = { rs -> rs.next(); rs.getString("decommission_reason") }
+        ).process(Unit)
+        (result as Result.Success).value
+    }
+
+    private fun getDecommissionedAt(projectId: Int): java.sql.Timestamp? = runBlocking {
+        val result = DatabaseSteps.query<Unit, java.sql.Timestamp?>(
+            sql = SafeSQL.select("SELECT decommissioned_at FROM projects WHERE id = ?"),
+            parameterSetter = { stmt, _ -> stmt.setInt(1, projectId) },
+            resultMapper = { rs -> rs.next(); rs.getTimestamp("decommissioned_at") }
         ).process(Unit)
         (result as Result.Success).value
     }

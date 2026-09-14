@@ -5,6 +5,7 @@ import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.Result
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.project.handleGetProjectNameField
+import app.mcorg.pipeline.project.handleGetProjectStateField
 import app.mcorg.pipeline.project.handleUpdateProjectLocation
 import app.mcorg.pipeline.project.handleUpdateProjectName
 import app.mcorg.pipeline.project.handleUpdateProjectStateInline
@@ -37,6 +38,7 @@ import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.api.extension.ExtendWith
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 
 @Tag("database")
@@ -207,6 +209,43 @@ class ProjectMetaIT : WithUser() {
         assertEquals("PENDING", getState(projectId))
     }
 
+    @Test
+    fun `the state editor asks why only when decommissioning is an option`() = testApplication {
+        setupRoutes()
+        val done = createProject(worldId, state = "DONE")
+        val pending = createProject(worldId, state = "PENDING")
+
+        val doneForm = client.get("/worlds/$worldId/projects/$done/meta/state?mode=edit") {
+            addAuthCookie(this)
+        }.bodyAsText()
+        val pendingForm = client.get("/worlds/$worldId/projects/$pending/meta/state?mode=edit") {
+            addAuthCookie(this)
+        }.bodyAsText()
+
+        assertContains(doneForm, "value=\"DECOMMISSIONED\"")
+        assertContains(doneForm, "name=\"reason\"")
+        assertFalse(pendingForm.contains("name=\"reason\""), "a project that was never built cannot stop")
+    }
+
+    @Test
+    fun `decommissioning via the meta editor shows why beside the badge`() = testApplication {
+        setupRoutes()
+        val projectId = createProject(worldId, state = "DONE")
+
+        val response = client.patch("/worlds/$worldId/projects/$projectId/meta/state") {
+            addAuthCookie(this)
+            contentType(ContentType.Application.FormUrlEncoded)
+            setBody("state=DECOMMISSIONED&reason=broken+since+1.21.4")
+        }
+
+        assertEquals(HttpStatusCode.OK, response.status)
+        val body = response.bodyAsText()
+        assertContains(body, "Decommissioned")
+        assertContains(body, "project-meta-field__note")
+        assertContains(body, "broken since 1.21.4")
+        assertEquals("DECOMMISSIONED", getState(projectId))
+    }
+
     // ---- routing ----------------------------------------------------------
 
     private fun ApplicationTestBuilder.setupRoutes() {
@@ -221,6 +260,7 @@ class ProjectMetaIT : WithUser() {
                     route("/meta") {
                         get("/name") { call.handleGetProjectNameField() }
                         patch("/name") { call.handleUpdateProjectName() }
+                        get("/state") { call.handleGetProjectStateField() }
                         patch("/state") { call.handleUpdateProjectStateInline() }
                         patch("/location") { call.handleUpdateProjectLocation() }
                     }

@@ -43,9 +43,16 @@ data class ProjectResourceEdge(
      * Two conditions, and the second is not redundant: the producer must be unfinished, *and*
      * nothing already-running must cover the same item (MCO-466). Producer state alone was the
      * rule until a world grew a second producer for one item.
+     *
+     * A DECOMMISSIONED producer blocks nothing either (MCO-541). It was built, so an ordering
+     * that pointed at it has been honoured, and nobody is waiting for a farm that will not be
+     * restarted to be finished. It also supplies nothing — that half is the supply queries', which
+     * count DONE alone.
      */
     val isBlocking: Boolean
-        get() = producerState != ProjectState.DONE && !supersededBySupplier
+        get() = producerState != ProjectState.DONE &&
+            producerState != ProjectState.DECOMMISSIONED &&
+            !supersededBySupplier
 
     /** Edges toward terminal consumers are off the board — nobody is waiting. */
     val isLive: Boolean

@@ -109,7 +109,7 @@ enum class ProjectStage { IDEA, DESIGN, PLANNING, RESOURCE_GATHERING, BUILDING, 
 
 // State = lifecycle/activity status, separate from stage. Has an allowedTransitions()
 // state machine — check ProjectState.kt before writing transition logic.
-enum class ProjectState { PENDING, ACTIVE, PAUSED, DONE, CANCELLED, ARCHIVED }
+enum class ProjectState { PENDING, ACTIVE, PAUSED, DONE, CANCELLED, ARCHIVED, DECOMMISSIONED }
 ```
 
 ### Tasks

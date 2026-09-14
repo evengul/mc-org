@@ -180,6 +180,29 @@ class FarmSupplySurfacingIT : WithUser() {
         deleteProject(inertBuild)
     }
 
+    /**
+     * A farm that stopped keeps its record but supplies nothing (MCO-541). The item goes back to
+     * manual work, nothing reads the farm as a prerequisite either — nobody is waiting on a farm
+     * that will not be restarted — and it is shelved under its own name, not as producing.
+     */
+    @Test
+    fun `a decommissioned farm stops supplying and is shelved as decommissioned`() = testApplication {
+        setupRoutes()
+        setProjectState(farmId, ProjectState.DECOMMISSIONED)
+
+        val plan = client.get("/worlds/$worldId/projects/$consumerId") { addAuthCookie(this) }.bodyAsText()
+        assertFalse(plan.contains("Collect from farms"), "a stopped farm supplies nothing")
+        assertFalse(plan.contains("Farm · Iron Farm"), "the line no longer names it as the source")
+        assertFalse(plan.contains("plan-pending-farms"), "and it is not a farm anyone is waiting on")
+        assertFalse(plan.contains("comes first"), "so it is not a prerequisite")
+
+        val list = client.get("/worlds/$worldId/projects") { addAuthCookie(this) }.bodyAsText()
+        assertContains(list, "1 decommissioned")
+        assertFalse(list.contains("fl-producing-section"), "it is not producing")
+
+        setProjectState(farmId, ProjectState.ACTIVE)
+    }
+
     // ---- routing ----------------------------------------------------------------
 
     private fun ApplicationTestBuilder.setupRoutes() {

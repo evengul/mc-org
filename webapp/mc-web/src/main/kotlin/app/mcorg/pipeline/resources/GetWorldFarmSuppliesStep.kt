@@ -29,8 +29,8 @@ data class FarmSupplyRow(
  *
  * A project is operational when its lifecycle state is [ProjectState.DONE] — for a
  * project with `project_productions` rows that means "built and producing", so its
- * output supplies every other project's gathering plan. CANCELLED/ARCHIVED projects
- * are decommissioned and never supply.
+ * output supplies every other project's gathering plan. CANCELLED, ARCHIVED and
+ * DECOMMISSIONED projects never supply (MCO-541).
  *
  * Rows are ordered by project name so callers that reduce multiple producers of the
  * same item to a single [app.mcorg.engine.plan.SupplySource.Farm] pick deterministically.

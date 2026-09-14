@@ -80,6 +80,13 @@ import app.mcorg.pipeline.failure.AppFailure
  * person then ordered by hand. That is a subtraction from the derived graph, and it lives here
  * so both the roadmap and the project page inherit it from one place — two derivations of "is
  * this a prerequisite" being the bug MCO-461 was filed for.
+ *
+ * ## A decommissioned farm is not a producer (MCO-541)
+ *
+ * A farm that stopped — the base moved, or a version broke it — keeps its `project_productions`
+ * rows, because the record of what it made survives. Like CANCELLED and ARCHIVED it is dropped
+ * here rather than drawn as a producer that is not running: an unfinished producer *blocks*, and
+ * nobody is waiting on a farm that will not be restarted.
  */
 data class GetFarmSupplyEdgesStep(val worldId: Int) : Step<Unit, AppFailure.DatabaseError, List<ProjectResourceEdge>> {
     override suspend fun process(input: Unit): Result<AppFailure.DatabaseError, List<ProjectResourceEdge>> {
@@ -114,7 +121,7 @@ data class GetFarmSupplyEdgesStep(val worldId: Int) : Step<Unit, AppFailure.Data
                 WHERE pc.world_id = ?
                   AND prod.world_id = ?
                   AND prod.id <> d.project_id
-                  AND prod.state NOT IN (?, ?)
+                  AND prod.state NOT IN (?, ?, ?)
                   -- A pair a person has already ordered by hand: the edge that would make the
                   -- winner wait is set aside. A subtraction, never an addition (MCO-460).
                   AND NOT EXISTS (
@@ -139,6 +146,7 @@ data class GetFarmSupplyEdgesStep(val worldId: Int) : Step<Unit, AppFailure.Data
                 statement.setInt(3, worldId)
                 statement.setString(4, ProjectState.CANCELLED.name)
                 statement.setString(5, ProjectState.ARCHIVED.name)
+                statement.setString(6, ProjectState.DECOMMISSIONED.name)
             },
             resultMapper = { resultSet ->
                 buildList {

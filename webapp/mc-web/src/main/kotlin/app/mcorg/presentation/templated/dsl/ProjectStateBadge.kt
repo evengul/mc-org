@@ -13,6 +13,7 @@ val ProjectState.label: String
         ProjectState.DONE -> "Done"
         ProjectState.CANCELLED -> "Cancelled"
         ProjectState.ARCHIVED -> "Archived"
+        ProjectState.DECOMMISSIONED -> "Decommissioned"
     }
 
 val ProjectState.badgeModifier: String
@@ -23,6 +24,7 @@ val ProjectState.badgeModifier: String
         ProjectState.DONE -> "badge--done"
         ProjectState.CANCELLED -> "badge--neutral"
         ProjectState.ARCHIVED -> "badge--neutral"
+        ProjectState.DECOMMISSIONED -> "badge--neutral"
     }
 
 fun FlowContent.projectStateBadge(projectId: Int, state: ProjectState) {

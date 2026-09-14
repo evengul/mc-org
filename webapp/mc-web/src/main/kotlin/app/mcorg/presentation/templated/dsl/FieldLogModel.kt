@@ -20,6 +20,12 @@ data class FieldLogModel(
      */
     val producing: List<ProjectListItem>,
     val done: List<ProjectListItem>,
+    /**
+     * Built, worked, and stopped supplying (MCO-541). Shelved beside [done] rather than with
+     * [cancelled] and [archived] — nothing about it was a mistake — and never in [producing],
+     * which is what makes a stopped farm stop reading as world supply.
+     */
+    val decommissioned: List<ProjectListItem>,
     val cancelled: List<ProjectListItem>,
     val archived: List<ProjectListItem>,
     val feedsByProject: Map<Int, List<ProjectResourceEdge>>,
@@ -67,6 +73,7 @@ data class FieldLogModel(
                 paused = (byState[ProjectState.PAUSED] ?: emptyList()).sortedBy { it.name },
                 producing = producing,
                 done = inertDone,
+                decommissioned = (byState[ProjectState.DECOMMISSIONED] ?: emptyList()).sortedBy { it.name },
                 cancelled = (byState[ProjectState.CANCELLED] ?: emptyList()).sortedBy { it.name },
                 archived = (byState[ProjectState.ARCHIVED] ?: emptyList()).sortedBy { it.name },
                 feedsByProject = feeds,

@@ -165,6 +165,25 @@ class DemandInvalidationIT : WithUser() {
         )
     }
 
+    /**
+     * Decommissioning is leaving DONE by another door (MCO-541): the farm's output stops being
+     * supply, so the plans that netted against it are wrong in exactly the way ACTIVE makes them.
+     */
+    @Test
+    fun `decommissioning a farm invalidates the projects that gathered from it`() = testApplication {
+        setupRoutes()
+
+        val response = client.patch("/worlds/$worldId/projects/$farmId/state") {
+            addAuthCookie(this)
+            contentType(ContentType.Application.FormUrlEncoded)
+            setBody("state=DECOMMISSIONED&reason=moved+base")
+        }
+
+        assertEquals(HttpStatusCode.OK, response.status, response.bodyAsText())
+        assertFalse(hasFingerprint(consumerId), "the iron gatherer was counting on a farm that stopped")
+        assertTrue(hasFingerprint(unrelatedId), "poppies have nothing to do with the iron farm")
+    }
+
     @Test
     fun `removing a produced item from an operational farm invalidates its consumers`() = testApplication {
         setupRoutes()
