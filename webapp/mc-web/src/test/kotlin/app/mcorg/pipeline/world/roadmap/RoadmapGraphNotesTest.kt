@@ -91,6 +91,60 @@ class RoadmapGraphNotesTest {
         )
     }
 
+    @Test
+    fun `a finished final project is never where to start`() {
+        val yams = node(1, "Storage System YAMS", ProjectState.DONE, layer = 1)
+        val copper = node(2, "Copper Library", ProjectState.DONE, layer = 1)
+
+        assertNull(startOf(emptyList(), listOf(yams, copper)), "a built world has nothing to start")
+    }
+
+    @Test
+    fun `with nothing upstream, the first unfinished final project is where to start`() {
+        val done = node(1, "Old storage", ProjectState.DONE, layer = 1)
+        val copper = node(2, "Copper Library", layer = 1)
+        val slime = node(3, "Slime farm")
+
+        assertEquals(copper, startOf(emptyList(), listOf(done, copper)))
+        assertEquals(slime, startOf(listOf(slime), listOf(copper)), "the band comes first")
+    }
+
+    // ---- feeding ------------------------------------------------------------------------
+
+    /**
+     * Fixture 6's shape: a hand-made "YAMS before Copper Library" leaves Copper Library the only
+     * final project drawn. The row printed "34,313 items from 22 farms" — one panel's items over the
+     * world's farm count — beside a supply column of six.
+     */
+    @Test
+    fun `the feeding row counts the farms in the column, not every farm in the world`() {
+        val cobble = node(1, "Cobble farm", ProjectState.DONE)
+        val trading = node(2, "First trading setup", ProjectState.DONE)
+        val iron = node(3, "Iron farm", ProjectState.DONE)
+        val yams = node(4, "Storage System YAMS", layer = 1)
+        val copper = node(5, "Copper Library", layer = 2)
+        val world = roadmap(
+            listOf(cobble, trading, iron, yams, copper),
+            listOf(
+                edge(yams, cobble, "Cobblestone", 51_575),
+                edge(yams, iron, "Iron Ingot", 33_529),
+                edge(yams, trading, "Glass", 16_509),
+                edge(copper, trading, "Glass", 17_376),
+                RoadmapEdge(copper.projectId, copper.projectName, yams.projectId, yams.projectName, isBlocking = true),
+            ),
+        )
+
+        val drawn = RoadmapGraphLayout.terminalsOf(world).map { it.projectId }.toSet()
+        assertEquals(setOf(5), drawn, "YAMS feeds Copper Library by hand-made ordering, so it is not final")
+        assertEquals("17,376 items from 1 farm", feedingOf(producersOf(world, drawn)))
+        assertEquals(3, allProducersOf(world).size, "the world still has three farms — just not in this column")
+    }
+
+    @Test
+    fun `no farm in the column is no feeding row`() {
+        assertNull(feedingOf(emptyList()))
+    }
+
     // ---- by hand ------------------------------------------------------------------------
 
     @Test

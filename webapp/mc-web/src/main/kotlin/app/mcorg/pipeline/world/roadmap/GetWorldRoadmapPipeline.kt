@@ -91,9 +91,7 @@ internal suspend fun graphViewOf(roadmap: Roadmap): RoadmapGraphView {
     val graph = RoadmapGraphLayout.of(roadmap, columnProducers, handGathered)
 
     val sequence = RoadmapGraphLayout.sequenceNodesOf(roadmap, terminals)
-    // With nothing left to build before them, the final projects themselves are what to do
-    // next. The section keeps answering that rather than disappearing (MCO-563).
-    val start = sequence.firstOrNull() ?: terminals.firstOrNull()
+    val start = startOf(sequence, terminals)
 
     // A project with no edge in either direction is in nobody's chain. Split by state:
     // an unfinished one is work you can do whenever, a *finished* one that supplies
@@ -106,9 +104,14 @@ internal suspend fun graphViewOf(roadmap: Roadmap): RoadmapGraphView {
         graph = graph,
         startHere = start,
         startHereNote = start?.let {
-            if (sequence.isEmpty()) readyNoteFor(terminals) else startNoteFor(roadmap, it, sequence.size)
+            if (sequence.isEmpty()) {
+                readyNoteFor(terminals.filter { terminal -> !terminal.state.isTerminal })
+            } else {
+                startNoteFor(roadmap, it, sequence.size)
+            }
         },
         producerCount = allProducers.size,
+        feeding = feedingOf(columnProducers),
         producerRows = allProducers
             .sortedWith(compareByDescending<RoadmapGraphLayout.Producer> { it.items }.thenBy { it.name })
             .map {
@@ -192,6 +195,32 @@ internal fun readyNoteFor(terminals: List<RoadmapNode>): String {
         else -> " ${others.size} more final projects are ready too."
     }
     return "Nothing is left to build before it.$tail"
+}
+
+/**
+ * Where to start: the first project in the band, or — with nothing left to build before them —
+ * the first final project that is still to do.
+ *
+ * Null when every final project is finished. [RoadmapGraphLayout.terminalsOf] falls back to a
+ * *finished* project so a built world still draws its graph, and taking that fallback here put a
+ * completed build under "START HERE" with a Not Started badge.
+ */
+internal fun startOf(sequence: List<RoadmapNode>, terminals: List<RoadmapNode>): RoadmapNode? =
+    sequence.firstOrNull() ?: terminals.firstOrNull { !it.state.isTerminal }
+
+/**
+ * "34,313 items from 6 farms" — the supply column's farms and what they feed the drawn final
+ * projects, or null when they feed nothing.
+ *
+ * Both numbers come from [producers], the column itself. The row used to sum the drawn projects'
+ * edges and divide by the whole world's farm count, so a world where one hand-made ordering left
+ * a single small project drawn read "34,313 items from 22 farms" beside a column of six.
+ */
+internal fun feedingOf(producers: List<RoadmapGraphLayout.Producer>): String? {
+    val items = producers.sumOf { it.items }
+    if (items <= 0) return null
+    val farms = if (producers.size == 1) "farm" else "farms"
+    return "${RoadmapGraphLayout.format(items)} items from ${producers.size} $farms"
 }
 
 private fun taskNoteFor(node: RoadmapNode): String = when {

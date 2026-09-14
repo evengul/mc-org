@@ -38,6 +38,12 @@ data class RoadmapGraphView(
     val startHere: RoadmapNode?,
     val startHereNote: String?,
     val producerCount: Int,
+    /**
+     * "34,313 items from 6 farms" — what the supply column feeds into the drawn final projects, or
+     * null when nothing does. One derivation with the column, so its two numbers describe the same
+     * farms: the row used to divide one panel's items by the whole world's farm count.
+     */
+    val feeding: String? = null,
     val producerRows: List<ProducerRow>,
     val unchained: List<UnchainedRow>,
     /** The final projects drawn as panels, largest demand first (MCO-563). */
@@ -201,26 +207,12 @@ private fun shapeRows(view: RoadmapGraphView): List<Pair<String, String>> {
         if (stats.maxDepth > 1) {
             add("longest chain" to "${stats.maxDepth} projects deep")
         }
-        if (view.terminals.isNotEmpty()) {
-            // Items, not edge count. The old row said "86 from 22 farms", where 86 was the
-            // number of supply relationships — and it read as a quantity of items. Summed over
-            // every drawn final project (MCO-563): a farm feeding two of them does both jobs.
-            val terminalIds = view.terminals.mapTo(mutableSetOf()) { it.projectId }
-            val items = view.roadmap.edges
-                .filter { it.fromNodeId in terminalIds }
-                .sumOf { it.quantity ?: 0L }
-            if (items > 0) {
-                val farms = if (view.producerCount == 1) "farm" else "farms"
-                // Not "feeding <name>": the name had to be shortened to fit a 320px aside, and
-                // the only cheap way to do that was to take the last word — which gives "YAMS"
-                // for "Storage System YAMS" but "North" for "Iron Farm North". The graph names
-                // the destination a few centimetres away; this row does not need to.
-                add(
-                    "feeding" to
-                        "${RoadmapGraphLayout.format(items)} items from ${view.producerCount} $farms"
-                )
-            }
-        }
+        // Items, not edge count. The old row said "86 from 22 farms", where 86 was the number of
+        // supply relationships — and it read as a quantity of items. Not "feeding <name>": the
+        // name had to be shortened to fit a 320px aside, and the only cheap way to do that was to
+        // take the last word — which gives "YAMS" for "Storage System YAMS" but "North" for
+        // "Iron Farm North". The graph names the destination a few centimetres away.
+        view.feeding?.let { add("feeding" to it) }
     }
 }
 
