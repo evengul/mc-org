@@ -2,9 +2,11 @@ version: 2
 updates:
   - package-ecosystem: maven
     directory: /webapp
+    # Monthly, not weekly: a solo project does not need a CI run per bump every Monday.
+    # Security fixes are not on this schedule — Dependabot security updates are enabled
+    # on the repo and open their PRs as soon as an advisory lands.
     schedule:
-      interval: weekly
-      day: monday
+      interval: monthly
     open-pull-requests-limit: 10
     ignore:
       # Kotlin is deliberately held at the latest CodeQL-analysable 2.3.x (see the
@@ -13,9 +15,18 @@ updates:
       - dependency-name: "org.jetbrains.kotlin:*"
         versions: [ ">=2.4.0" ]
     # Versions are centralised in mc-bom (libraries) and webapp/pom.xml (build-plugin
-    # versions), so most bumps land as a single property change. Grouping keeps a family
-    # that spans several artifacts (Ktor, Kotlin, the test stack) in one PR.
+    # versions), so nearly every bump edits one of the same two files — separate PRs
+    # conflict with each other as soon as the first one merges. So every minor and patch
+    # bump rides in one PR. A dependency joins the FIRST group it matches, which is why
+    # the catch-all comes first: the family groups below only ever see major bumps,
+    # which still arrive grouped by family but apart from the routine ones.
     groups:
+      minor-and-patch:
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
       kotlin:
         patterns:
           - "org.jetbrains.kotlin:*"
@@ -49,8 +60,7 @@ updates:
   - package-ecosystem: github-actions
     directory: /
     schedule:
-      interval: weekly
-      day: monday
+      interval: monthly
     groups:
       github-actions:
         patterns:
