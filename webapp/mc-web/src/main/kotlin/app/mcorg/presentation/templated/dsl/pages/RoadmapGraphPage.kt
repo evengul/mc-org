@@ -262,7 +262,7 @@ private fun FlowContent.graphSection(view: RoadmapGraphView) {
             graph.groups.forEach { group ->
                 groupHeader(group)
                 graph.nodes
-                    .filter { it.kind in group.kinds }
+                    .filter { it.group == group.key }
                     .forEach { node -> graphNode(view, node) }
             }
             graph.bandCaption?.let { caption ->
@@ -293,10 +293,28 @@ private fun FlowContent.graphSection(view: RoadmapGraphView) {
 private fun FlowContent.edgeSvg(graph: Graph) {
     val paths = graph.edges.joinToString("\n") { edge ->
         val dash = if (edge.dashed) """ stroke-dasharray="5 4"""" else ""
+        // A rope landing on an intake rail carries no arrowhead: the rail takes the one arrow
+        // into the panel, which is what stopped seven of them piling up on its left edge.
+        val marker = if (edge.marker) """ marker-end="url(#rmg-arrow)"""" else ""
         val label = edge.label?.let {
             """<text x="${it.x}" y="${it.y}" class="rmg-edge__label" text-anchor="${it.anchor}">${escape(it.text)}</text>"""
         } ?: ""
-        """<path d="${escape(edge.path)}" class="rmg-edge" stroke-width="${edge.strokeWidth}"$dash marker-end="url(#rmg-arrow)"></path>$label"""
+        """<path d="${escape(edge.path)}" class="rmg-edge" stroke-width="${edge.strokeWidth}"$dash$marker></path>$label"""
+    }
+
+    // After the ropes, so the dots sit on top of what lands on them.
+    val rails = graph.rails.joinToString("\n") { rail ->
+        val line = if (rail.dots.size > 1) {
+            """<path d="M ${rail.x} ${rail.top} L ${rail.x} ${rail.bottom}" class="rmg-rail"></path>"""
+        } else {
+            ""
+        }
+        val dots = rail.dots.joinToString("") {
+            """<circle cx="${rail.x}" cy="$it" r="3" class="rmg-rail__dot"></circle>"""
+        }
+        val label =
+            """<text x="${rail.x}" y="${rail.labelY}" class="rmg-rail__label" text-anchor="end">${escape(rail.label)}</text>"""
+        "$line$dots$label"
     }
 
     consumer.onTagContentUnsafe {
@@ -308,6 +326,7 @@ private fun FlowContent.edgeSvg(graph: Graph) {
             </marker>
           </defs>
           $paths
+          $rails
         </svg>
         """.trimIndent()
     }
@@ -361,19 +380,30 @@ private fun FlowContent.graphNode(view: RoadmapGraphView, node: GraphNode) {
 
 private fun FlowContent.terminalBody(view: RoadmapGraphView, projectId: Int) {
     val stats = view.terminalStats[projectId] ?: return
-    div("rmg-terminal__progress") {
-        progressBar(stats.percentComplete, 100, large = true)
-        span("rmg-terminal__percent") { +"${stats.percentComplete}%" }
+    if (stats.percentComplete > 0) {
+        div("rmg-terminal__progress") {
+            progressBar(stats.percentComplete, 100, large = true)
+            span("rmg-terminal__percent") { +"${stats.percentComplete}%" }
+        }
+    } else {
+        // A 0% bar is a widget reporting nothing. The state is the thing worth the line, and it
+        // is what the reader of a not-yet-started build is looking for.
+        div("rmg-terminal__state rmg-tone-muted") { +"not started" }
     }
     div("rmg-deflist rmg-terminal__facts") {
-        span("rmg-deflist__key") { +"from farms" }
+        span("rmg-deflist__key") { +"from ${stats.farms} ${if (stats.farms == 1) "farm" else "farms"}" }
         span { +RoadmapGraphLayout.format(stats.fromFarms) }
-        span("rmg-deflist__key") { +"by hand" }
+        // "now", because the number moves when the farms being built come online — the split that
+        // says how much of it does is the next piece of this frame.
+        span("rmg-deflist__key") { +"by hand now" }
         span { +RoadmapGraphLayout.format(stats.byHand) }
         span("rmg-deflist__key") { +"craft steps" }
         span { +"${RoadmapGraphLayout.format(stats.craftRows.toLong())} rows" }
-        span("rmg-deflist__key") { +"open questions" }
-        span(if (stats.openQuestions > 0) "rmg-tone-amber" else null) { +"${stats.openQuestions}" }
+        // Cut rather than shown as zero: a row reading "open questions 0" reports nothing.
+        if (stats.openQuestions > 0) {
+            span("rmg-deflist__key") { +"open questions" }
+            span("rmg-tone-amber") { +"${stats.openQuestions}" }
+        }
     }
 }
 
