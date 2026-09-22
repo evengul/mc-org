@@ -223,15 +223,24 @@ class LootTableParser(
         }
     }
 
+    /**
+     * A tag entry names its tag under `items` from 26.3 on, `tag` or `name` before it —
+     * and 26.3 writes the `#` prefix into the value where older versions left it off
+     * (`"#minecraft:creeper_drop_music_discs"` vs `"minecraft:creeper_drop_music_discs"`).
+     * Both halves matter: reading the new key but keeping the unconditional `#` would
+     * yield `##minecraft:…`, an id that matches no tag and fails no parse — MCO-567.
+     */
     suspend fun parseTag(tag: JsonElement, filename: String): Result<ExtractionFailure, LootEntry> {
         val name = tag.jsonObject
-            .getResult("tag", filename)
+            .getResult("items", filename)
+            .recover { tag.jsonObject.getResult("tag", filename) }
             .recover { tag.jsonObject.getResult("name", filename) }
             .flatMap { it.primitiveResult(filename) }
             .mapSuccess { primitive ->
+                val tagId = primitive.content.let { if (it.startsWith("#")) it else "#$it" }
                 LootEntry(
                     weight = LootNumbers.weightOf(tag),
-                    drops = listOf(LootDrop("#${primitive.content}", LootNumbers.countAfterFunctions(tag)))
+                    drops = listOf(LootDrop(tagId, LootNumbers.countAfterFunctions(tag)))
                 )
             }
 

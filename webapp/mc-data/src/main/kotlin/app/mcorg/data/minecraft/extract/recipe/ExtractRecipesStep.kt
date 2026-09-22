@@ -85,6 +85,20 @@ data object ExtractRecipesStep : Step<ExtractionContext, ExtractionFailure, List
                     filename
                 )
 
+                // Ignored on purpose: each writes a *component* onto an item whose id does not
+                // change, so flattened to ids they are all `x -> x`. 26.3 moved brewing out of
+                // game code into 279 datapack recipes and it joins them for the same reason —
+                // `{"input": potion{awkward}, "reagent": sugar, "output": potion{swiftness}}`
+                // reads as `minecraft:potion + minecraft:sugar -> minecraft:potion`, since every
+                // potion in the game shares one item id and differs only in `potion_contents`.
+                //
+                // Extracting that as written would add 279 self-loops and make any potion look
+                // reachable from any other. Nothing regresses by skipping it: brewing was
+                // hardcoded and absent from the data before 26.3, so no potion has ever been
+                // obtainable in a plan. Making them obtainable needs component-aware node
+                // identity in the graph, which is a graph-shape change, not a parser one —
+                // MCO-567, follow-up MCO-568.
+                "minecraft:brewing",
                 "minecraft:smithing_trim",
                 "minecraft:crafting_decorated_pot",
                 "minecraft:crafting_dye" -> Result.success(
