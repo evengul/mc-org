@@ -223,6 +223,19 @@
     fill: var(--text-muted);
 }
 
+/* The intake rail: every rope into a final project lands on it as a dot, and the rail takes the
+   one arrow into the panel (MCO-566). */
+.rmg-rail { fill: none; stroke: var(--border-strong); stroke-width: 1; }
+
+.rmg-rail__dot { fill: var(--border-strong); }
+
+.rmg-rail__label {
+    font-family: var(--font-ui);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    fill: var(--text-disabled);
+}
+
 .rmg-group {
     position: absolute;
     left: 0;
@@ -238,6 +251,12 @@
     font-weight: 600;
     letter-spacing: 0.08em;
     color: inherit;
+    /* A run is named after the project it feeds, and project names are user-authored: clip rather
+       than let "FEEDS <LONG NAME> ONLY" run across the sequence band. */
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .rmg-group__note { font-size: 10px; color: var(--text-disabled); }
@@ -272,7 +291,24 @@ a.rmg-node:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-mut
 
 .rmg-node__eyebrow { font-size: 10px; letter-spacing: 0.08em; }
 .rmg-node__title { font-size: 13px; font-weight: 600; }
-.rmg-node__sub { font-size: 11px; }
+
+/* A column node's height is computed server-side from how many sub-lines it carries, so a title
+   that wrapped would push its own last line outside the box — "Small-ish netherwart farm" did
+   exactly that. One line, clipped; the full name is on the project page a click away. */
+.rmg-node--supply .rmg-node__title,
+.rmg-node--bundle .rmg-node__title,
+.rmg-node--hand .rmg-node__title {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+/* Same reason as the title above: the server sized the box for one line per sub-line. */
+.rmg-node__sub {
+    font-size: 11px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
 
 .rmg-node--supply,
 .rmg-node--bundle {
@@ -324,6 +360,9 @@ a.rmg-node:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-mut
     color: var(--text-muted);
     white-space: nowrap;
 }
+
+/* Stands in for the progress bar when nothing has been collected — a 0% bar reports nothing. */
+.rmg-terminal__state { font-size: 11px; }
 
 .rmg-terminal__facts {
     font-size: 11px;
