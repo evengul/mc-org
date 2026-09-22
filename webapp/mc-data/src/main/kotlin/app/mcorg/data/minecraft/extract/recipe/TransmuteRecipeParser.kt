@@ -7,6 +7,7 @@ import app.mcorg.data.minecraft.extract.objectResult
 import app.mcorg.data.minecraft.extract.primitiveResult
 import app.mcorg.data.minecraft.failure.ExtractionFailure
 import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
 import org.slf4j.LoggerFactory
 
 object TransmuteRecipeParser {
@@ -18,7 +19,21 @@ object TransmuteRecipeParser {
     ) : Result<ExtractionFailure, ResourceSource> {
         val input = json.objectResult(filename).flatMap { it.getResult("input", filename) }.flatMap { it.primitiveResult(filename).mapSuccess { p -> p.content } }
         val material = json.objectResult(filename).flatMap { it.getResult("material", filename) }.flatMap { it.primitiveResult(filename).mapSuccess { p -> p.content } }
-        val result =  RecipeItemIdParser.parse(json, filename)
+
+        // A transmute keeps the input item and only rewrites its components, so an *empty*
+        // result means "the input, unchanged in id". 26.3 started leaning on that default:
+        // `map_cloning.json` writes `"result": {}` where 26.2 spelled out
+        // `{"id": "minecraft:filled_map"}` (MCO-567). Falling back to the input reproduces the
+        // older versions' extracted source exactly.
+        //
+        // Deliberately narrow: only an empty result object falls back, and only once the input
+        // itself parsed. A recipe with no `result` key at all is still a failure — that is a
+        // shape nothing in Mojang's data writes, and the kind of thing extraction is fail-fast
+        // in order to notice.
+        val hasEmptyResult = (json as? JsonObject)?.get("result").let { it is JsonObject && it.isEmpty() }
+        val result = RecipeItemIdParser.parse(json, filename).recover { failure ->
+            if (hasEmptyResult && input is Result.Success) Result.success(input.value) else Result.failure(failure)
+        }
 
         if (input is Result.Failure || material is Result.Failure || result is Result.Failure) {
             logger.warn("Transmute recipe missing input, material, or result id in $filename")

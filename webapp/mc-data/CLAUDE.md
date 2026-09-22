@@ -59,8 +59,17 @@ failure/
 - Names are resolved at the end of each step via the shared `ResourceSource.withNames(context)`.
 - All extraction is **fail-fast by design**: any single bad file fails the whole version with
   `ExtractionFailure.Multiple` so new/changed formats are noticed, not silently dropped.
-  Unknown recipe types that contain `_special_` (and a few cosmetic types) are deliberately
-  IGNORED instead.
+  Unknown recipe types that contain `_special_` are deliberately IGNORED instead, as are the
+  types whose result is a *component* written onto an item whose id does not change — they
+  flatten to `x -> x` (`smithing_trim`, `crafting_decorated_pot`, `crafting_dye`, and from
+  26.3 `brewing`, where every potion shares one item id; MCO-568 tracks modelling it properly).
+- **Fail-fast only covers what the parsers read.** A key that *moves* is loud; a key that is
+  merely no longer read is silent, and the suite stays green while the numbers go wrong. 26.3
+  renamed the loot `functions` holder to `modifier` and its discriminator to `type`, which
+  would have flattened 557 `set_count` yields to the 1.0 default without failing anything —
+  so when a version bumps, diff the raw JSON rather than trusting a green run (MCO-567). The
+  yield shape per version is worth a look: `expected_yield = 1.0` counts suddenly dominating
+  a version is the signature.
 - Output is `ServerData` containing items + resource sources.
 - Temporary files are cleaned up via `DeleteFileStep` in a `finally` block.
 - **Changing extraction output for the same server jar** (new/changed synthetic sources, recipe/loot
