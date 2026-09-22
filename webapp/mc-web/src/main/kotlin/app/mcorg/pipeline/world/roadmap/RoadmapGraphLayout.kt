@@ -94,6 +94,15 @@ object RoadmapGraphLayout {
     const val TOP_PRODUCERS = 5
 
     /**
+     * Producers drawn per destination group, before the group collapses the rest into a bundle.
+     *
+     * Lower than [TOP_PRODUCERS] because the column now holds a group per final project rather
+     * than one list: at three panels, five each would be a column of sixteen nodes against a
+     * right-hand side of three.
+     */
+    const val TOP_PER_GROUP = 3
+
+    /**
      * Narrowest a sequence node may be before its title stops being readable — two words of
      * 13px mono, wrapped.
      */
@@ -118,6 +127,33 @@ object RoadmapGraphLayout {
     private const val PANEL_BOTTOM_PADDING = 20
     private const val CAPTION_GAP = 10
     private const val CAPTION_HEIGHT = 14
+
+    /** Gap between column nodes; [PITCH] is this plus [NODE_HEIGHT]. */
+    private const val GUTTER = 6
+
+    /** Between a group's rule and its first node. */
+    private const val GROUP_GAP = 14
+
+    /**
+     * One 11px sub-line plus its 2px gap, for nodes that carry more than one.
+     *
+     * Measured against the rendered page rather than the font size: at 14 the by-hand node's last
+     * split line sat outside its own dashed border.
+     */
+    private const val SUB_LINE_HEIGHT = 18
+
+    /** Breathing room after a run that drew nothing, so two "· none" headers do not stack. */
+    private const val EMPTY_GROUP_GAP = 10
+
+    /**
+     * The intake rail sits just left of the panel, and every rope lands on it — see [IntakeRail].
+     * [RAIL_INSET] keeps the first and last dot clear of the panel's own corners.
+     */
+    private const val RAIL_X = TERMINAL_LEFT - 10
+    private const val RAIL_INSET = 28
+
+    private const val MIN_STROKE = 1.0
+    private const val MAX_STROKE = 4.5
 
     // ---- inputs ------------------------------------------------------------------------
 
@@ -160,6 +196,8 @@ object RoadmapGraphLayout {
         val craftRows: Int,
         val openQuestions: Int,
         val percentComplete: Int,
+        /** How many finished farms feed this panel — the count beside the items, "from 16 farms". */
+        val farms: Int = 0,
     )
 
     // ---- outputs -----------------------------------------------------------------------
@@ -181,9 +219,11 @@ object RoadmapGraphLayout {
         val y: Int,
         val width: Int,
         val height: Int,
-        /** Small tracked label above the title, e.g. "START HERE" or "TERMINAL · LAYER 3". */
+        /** Small tracked label above the title, e.g. "START HERE" or "FINAL PROJECT · 1 OF 3". */
         val eyebrow: String? = null,
         val eyebrowTone: Tone = Tone.MUTED,
+        /** Which [GroupHeader] this node belongs under, for the template's document order. */
+        val group: String? = null,
     )
 
     /**
@@ -202,7 +242,8 @@ object RoadmapGraphLayout {
         val y: Int,
         val ruleY: Int,
         val dashedRule: Boolean,
-        val kinds: Set<NodeKind>,
+        /** Matches [GraphNode.group] — the column now holds a run per final project, and node kind no longer identifies which. */
+        val key: String,
     )
 
     data class EdgeLabel(val text: String, val x: Int, val y: Int, val anchor: String)
@@ -213,12 +254,37 @@ object RoadmapGraphLayout {
         val strokeWidth: Double,
         val dashed: Boolean,
         val label: EdgeLabel? = null,
+        /** False for a rope landing on an [IntakeRail]: the rail carries the one arrowhead. */
+        val marker: Boolean = true,
+    )
+
+    /**
+     * A final project's intake: the ropes feeding it end as dots on this rail, and the rail takes
+     * the one arrowhead into the panel.
+     *
+     * Seven ropes landing on a panel's left edge put seven arrowheads in 150px, which read as a
+     * porcupine rather than as supply (MCO-566). The rail is one target for the column: a rope
+     * arrives at a dot, and what enters the *project* is a single arrow.
+     */
+    data class IntakeRail(
+        val key: String,
+        val x: Int,
+        val top: Int,
+        val bottom: Int,
+        /** "INTAKE · 7 SUPPLIERS", or "NO FARM INTAKE" for a project no farm feeds. */
+        val label: String,
+        val labelY: Int,
+        /** Where each rope lands, top to bottom. Empty when nothing feeds this panel. */
+        val dots: List<Int>,
+        /** Y of the single arrow from rail into panel; null when there is nothing to carry. */
+        val arrowY: Int?,
     )
 
     data class Graph(
         val nodes: List<GraphNode>,
         val edges: List<GraphEdge>,
         val groups: List<GroupHeader>,
+        val rails: List<IntakeRail>,
         val width: Int,
         val height: Int,
         val bandCaption: BandCaption?,
@@ -248,56 +314,76 @@ object RoadmapGraphLayout {
         val hiddenTerminals = terminals.size - drawnTerminals.size
 
         val sequenceNodes = sequenceNodesOf(roadmap, terminals)
-        val (topProducers, bundled) = splitProducers(producers)
+        val columnGroups = groupByDestination(producers, drawnTerminals)
 
         val nodes = mutableListOf<GraphNode>()
         val groups = mutableListOf<GroupHeader>()
         val edges = mutableListOf<GraphEdge>()
 
-        // --- supply column ---------------------------------------------------------------
-        var y = 0
-        if (topProducers.isNotEmpty() || bundled != null) {
-            val count = producers.size
+        // What each column node sends to each panel, collected while the column is laid out and
+        // read when the ropes are drawn: a rope's weight is what *that* node sends to *that*
+        // panel, and a node feeding nothing there gets no rope at all.
+        val feeders = mutableListOf<Pair<GraphNode, Map<Int, Long>>>()
+
+        // --- supply column, one run per destination ---------------------------------------
+        var y = 4
+        var bundledAny = false
+        columnGroups.forEach { group ->
+            val key = group.terminalId?.let { "group-$it" } ?: "group-shared"
             groups += GroupHeader(
-                text = "✓ DONE · PRODUCING · $count ${if (count == 1) "FARM" else "FARMS"}",
-                note = "largest first",
+                text = group.header,
+                note = group.note,
                 tone = Tone.GREEN,
-                y = 4,
-                ruleY = 20,
+                y = y,
+                ruleY = y + GROUP_HEADER_OFFSET,
                 dashedRule = false,
-                kinds = setOf(NodeKind.SUPPLY, NodeKind.BUNDLE),
+                key = key,
             )
-            y = 34
-        }
+            y += GROUP_HEADER_OFFSET + GROUP_GAP
 
-        topProducers.forEach { producer ->
-            nodes += GraphNode(
-                key = "supply-${producer.projectId}",
-                kind = NodeKind.SUPPLY,
-                projectId = producer.projectId,
-                title = producer.name,
-                subLines = listOf(SubLine("✓ ${producerSummary(producer)}")),
-                x = 0, y = y, width = COLUMN_WIDTH, height = NODE_HEIGHT,
-            )
-            y += PITCH
-        }
+            if (group.producers.isEmpty()) y += EMPTY_GROUP_GAP
 
-        bundled?.let { bundle ->
-            nodes += GraphNode(
-                key = "supply-bundle",
-                kind = NodeKind.BUNDLE,
-                projectId = null,
-                title = "✓ ${bundle.count} more, all done",
-                subLines = listOf(
-                    SubLine("${format(bundle.items)} items · ${bundle.edges} edges ▸", Tone.ACCENT),
-                ),
-                x = 0, y = y, width = COLUMN_WIDTH, height = NODE_HEIGHT,
-            )
-            y += PITCH
+            val (drawnProducers, bundle) = splitProducers(group.producers, TOP_PER_GROUP)
+            drawnProducers.forEach { producer ->
+                val lines = producerSubLines(producer, group.terminalId, drawnTerminals)
+                val node = GraphNode(
+                    key = "supply-${producer.projectId}",
+                    kind = NodeKind.SUPPLY,
+                    projectId = producer.projectId,
+                    title = producer.name,
+                    subLines = lines,
+                    x = 0, y = y, width = COLUMN_WIDTH, height = nodeHeightFor(lines.size),
+                    group = key,
+                )
+                nodes += node
+                feeders += node to producer.itemsByTerminal.orFedAgainst(drawnTerminals, producer.items)
+                y += node.height + GUTTER
+            }
+
+            bundle?.let {
+                bundledAny = true
+                val node = GraphNode(
+                    key = "supply-bundle-$key",
+                    kind = NodeKind.BUNDLE,
+                    projectId = null,
+                    title = "✓ ${it.count} more, all done",
+                    subLines = listOf(
+                        SubLine("${format(it.items)} items · ${it.edges} edges ▸", Tone.ACCENT),
+                    ),
+                    x = 0, y = y, width = COLUMN_WIDTH, height = NODE_HEIGHT,
+                    group = key,
+                )
+                nodes += node
+                feeders += node to it.itemsByTerminal.orFedAgainst(drawnTerminals, it.items)
+                y += NODE_HEIGHT + GUTTER
+            }
         }
 
         // --- the hand-gathered node, always last and always dashed ------------------------
+        // Last, and directly under the run that feeds more than one panel: it feeds every panel,
+        // so any other position sends its rope back across the field it just crossed.
         handGathered?.let { hand ->
+            val key = "group-hand"
             val headerY = y + 6
             groups += GroupHeader(
                 text = "NOT A PROJECT · YOU GATHER IT",
@@ -306,21 +392,26 @@ object RoadmapGraphLayout {
                 y = headerY,
                 ruleY = headerY + GROUP_HEADER_OFFSET,
                 dashedRule = true,
-                kinds = setOf(NodeKind.HAND),
+                key = key,
             )
-            val handY = headerY + GROUP_HEADER_OFFSET + 12
-            nodes += GraphNode(
+            val lines = buildList {
+                add(SubLine("${format(hand.items)} items · ${hand.materials} materials"))
+                hand.concentration?.let { add(SubLine("⚠ $it", Tone.AMBER)) }
+                addAll(splitSubLines(hand.itemsByTerminal, drawnTerminals))
+            }
+            val handY = headerY + GROUP_HEADER_OFFSET + GROUP_GAP
+            val node = GraphNode(
                 key = "hand",
                 kind = NodeKind.HAND,
                 projectId = null,
                 title = "By hand",
-                subLines = buildList {
-                    add(SubLine("${format(hand.items)} items · ${hand.materials} materials"))
-                    hand.concentration?.let { add(SubLine("⚠ $it", Tone.AMBER)) }
-                },
-                x = 0, y = handY, width = COLUMN_WIDTH, height = HAND_HEIGHT,
+                subLines = lines,
+                x = 0, y = handY, width = COLUMN_WIDTH, height = maxOf(HAND_HEIGHT, nodeHeightFor(lines.size)),
+                group = key,
             )
-            y = handY + HAND_HEIGHT
+            nodes += node
+            feeders += node to hand.itemsByTerminal.orFedAgainst(drawnTerminals, hand.items)
+            y = handY + node.height
         }
 
         val columnBottom = y
@@ -375,7 +466,7 @@ object RoadmapGraphLayout {
         val terminalTops = drawnTerminals.withIndex().associate { (index, terminal) ->
             terminal.projectId to TERMINAL_TOP + index * (TERMINAL_HEIGHT + TERMINAL_GAP)
         }
-        drawnTerminals.forEach { terminal ->
+        drawnTerminals.forEachIndexed { index, terminal ->
             nodes += GraphNode(
                 key = "terminal-${terminal.projectId}",
                 kind = NodeKind.TERMINAL,
@@ -384,7 +475,10 @@ object RoadmapGraphLayout {
                 subLines = emptyList(),
                 x = TERMINAL_LEFT, y = terminalTops.getValue(terminal.projectId), width = TERMINAL_WIDTH,
                 height = if (stacked) TERMINAL_HEIGHT else 0,
-                eyebrow = "TERMINAL · LAYER ${terminal.layer}",
+                // The count is what the reader needs; the layer number never was — it is the
+                // topological sort's own vocabulary, and it said "LAYER 0" for a build nothing
+                // feeds, which reads as a rank rather than as a fact about edges.
+                eyebrow = "FINAL PROJECT · ${index + 1} OF ${terminals.size}",
             )
         }
         var rightBottom = TERMINAL_TOP + drawnTerminals.size * (TERMINAL_HEIGHT + TERMINAL_GAP) - TERMINAL_GAP
@@ -401,13 +495,26 @@ object RoadmapGraphLayout {
             rightBottom = moreY + TERMINAL_MORE_HEIGHT
         }
 
-        // --- edges -------------------------------------------------------------------------
+        // --- edges and intake rails ----------------------------------------------------------
+        val rails = drawnTerminals.map { terminal ->
+            railFor(terminal, terminalTops.getValue(terminal.projectId), feeders)
+        }
         edges += sequenceEdges(drawnSequence, seqWidth, roadmap, drawnTerminals, terminalTops)
-        edges += supplyEdges(nodes, topProducers, bundled, handGathered, drawnTerminals, terminalTops, stacked)
+        edges += supplyRopes(feeders, drawnTerminals, rails)
+        edges += rails.mapNotNull { rail ->
+            rail.arrowY?.let {
+                GraphEdge(
+                    key = "${rail.key}-arrow",
+                    path = "M ${rail.x} $it L ${TERMINAL_LEFT - 2} $it",
+                    strokeWidth = 1.5,
+                    dashed = false,
+                )
+            }
+        }
 
         // The caption needs a line of its own below the column — computing the panel height
         // first and then placing the caption inside it put the text on top of the last node.
-        val showCaption = topProducers.isNotEmpty()
+        val showCaption = producers.isNotEmpty()
         val captionY = columnBottom + CAPTION_GAP
         val contentBottom = if (showCaption) captionY + CAPTION_HEIGHT else columnBottom
         val height = maxOf(contentBottom, rightBottom) + PANEL_BOTTOM_PADDING
@@ -425,10 +532,11 @@ object RoadmapGraphLayout {
             nodes = nodes,
             edges = dropCollidingLabels(edges, nodes),
             groups = groups,
+            rails = rails,
             width = PANEL_WIDTH,
             height = height,
             bandCaption = caption,
-            bundled = bundled != null,
+            bundled = bundledAny,
         )
     }
 
@@ -475,12 +583,23 @@ object RoadmapGraphLayout {
         val edgeDemand = roadmap.edges
             .groupBy { it.fromNodeId }
             .mapValues { (_, edges) -> edges.sumOf { it.quantity ?: 0L } }
+        // Ordered by how much of each the world **already supplies** (MCO-566), which is also what
+        // decides the three drawn as panels. Demand says what makes a project final; supply says
+        // which of them the reader can act on, and that is the comparison the panels are for.
+        // Total demand stays as the tie-break, so two unfed builds still sort by size.
+        val built = roadmap.nodes.filter { it.state == ProjectState.DONE }.mapTo(mutableSetOf()) { it.projectId }
+        val farmSupply = roadmap.edges
+            .filter { it.toNodeId in built }
+            .groupBy { it.fromNodeId }
+            .mapValues { (_, edges) -> edges.sumOf { it.quantity ?: 0L } }
+
         val sinks = roadmap.nodes
             .filter { it.projectId in edgeDemand || (demand[it.projectId] ?: 0L) > 0 }
             .filter { it.projectId !in producers }
             .filter { !it.state.isTerminal }
             .sortedWith(
-                compareByDescending<RoadmapNode> { demand[it.projectId] ?: edgeDemand[it.projectId] ?: 0L }
+                compareByDescending<RoadmapNode> { farmSupply[it.projectId] ?: 0L }
+                    .thenByDescending { demand[it.projectId] ?: edgeDemand[it.projectId] ?: 0L }
                     .thenByDescending { it.layer }
                     .thenBy { it.projectName }
             )
@@ -542,11 +661,86 @@ object RoadmapGraphLayout {
         val itemsByTerminal: Map<Int, Long> = emptyMap(),
     )
 
-    internal fun splitProducers(producers: List<Producer>): Pair<List<Producer>, Bundle?> {
+    /**
+     * One run of the supply column: the farms that feed exactly this destination.
+     *
+     * Grouping by destination is what removes the crossings (MCO-566). Drawn as one list, a farm
+     * feeding the lower panel and a farm feeding the upper one sit in whatever order their totals
+     * give, and their ropes cross on the way out. Grouped, each run sits beside the panel it
+     * feeds, and only the run that feeds more than one panel can cross anything.
+     */
+    internal data class ColumnGroup(
+        /** The panel these farms feed alone, or null for the run that feeds more than one. */
+        val terminalId: Int?,
+        val header: String,
+        val note: String?,
+        val producers: List<Producer>,
+    )
+
+    /**
+     * Splits [producers] into one run per drawn final project plus a run for the farms feeding
+     * several, in panel order.
+     *
+     * An empty run is kept rather than dropped: "FEEDS COPPER LIBRARY ONLY · NONE" is a fact about
+     * the world — everything reaching that panel is shared with another — and a silently missing
+     * group reads as a farm the page forgot.
+     */
+    internal fun groupByDestination(producers: List<Producer>, drawn: List<RoadmapNode>): List<ColumnGroup> {
+        val drawnIds = drawn.map { it.projectId }
+        val single = mutableMapOf<Int, MutableList<Producer>>()
+        val many = mutableListOf<Producer>()
+
+        producers.forEach { producer ->
+            val fed = drawnIds.filter { (producer.itemsByTerminal[it] ?: 0L) > 0 }
+            when {
+                fed.size == 1 -> single.getOrPut(fed.single()) { mutableListOf() }.add(producer)
+                fed.size > 1 -> many.add(producer)
+                // No recorded split: the producer feeds whatever it is drawn against. With one
+                // panel that is that panel; with several there is nothing to attribute it to.
+                drawnIds.size == 1 -> single.getOrPut(drawnIds.single()) { mutableListOf() }.add(producer)
+                else -> many.add(producer)
+            }
+        }
+
+        // The header names the destination and the note carries the numbers. Both in the header
+        // ran past the column on any real project name — "✓ DONE · FEEDS STORAGE SYSTEM YAMS ONLY
+        // · 14 FARMS · 11,810 ITEMS" truncated to the word ONLY, losing exactly the counts it was
+        // there to give.
+        return buildList {
+            drawn.forEach { terminal ->
+                val group = single[terminal.projectId].orEmpty()
+                add(
+                    ColumnGroup(
+                        terminalId = terminal.projectId,
+                        header = "FEEDS ${terminal.projectName.uppercase()} ONLY",
+                        note = if (group.isEmpty()) {
+                            "none"
+                        } else {
+                            "${group.size} ${if (group.size == 1) "farm" else "farms"} · " +
+                                "${format(group.sumOf { it.items })} items"
+                        },
+                        producers = group,
+                    )
+                )
+            }
+            if (many.isNotEmpty()) {
+                add(
+                    ColumnGroup(
+                        terminalId = null,
+                        header = "FEEDS MORE THAN ONE",
+                        note = "${many.size} ${if (many.size == 1) "farm" else "farms"} · largest first",
+                        producers = many,
+                    )
+                )
+            }
+        }
+    }
+
+    internal fun splitProducers(producers: List<Producer>, limit: Int = TOP_PRODUCERS): Pair<List<Producer>, Bundle?> {
         val sorted = producers.sortedWith(compareByDescending<Producer> { it.items }.thenBy { it.name })
-        if (sorted.size <= TOP_PRODUCERS + 1) return sorted to null
-        val top = sorted.take(TOP_PRODUCERS)
-        val rest = sorted.drop(TOP_PRODUCERS)
+        if (sorted.size <= limit + 1) return sorted to null
+        val top = sorted.take(limit)
+        val rest = sorted.drop(limit)
         return top to Bundle(
             count = rest.size,
             items = rest.sumOf { it.items },
@@ -663,60 +857,121 @@ object RoadmapGraphLayout {
     }
 
     /**
-     * Every supply-column node fans into the panel of each final project it feeds.
+     * One rope per column node per panel it feeds, landing on that panel's [IntakeRail].
      *
-     * With one final project that is every column node, spread down [FAN_IN_SPAN] as 2A draws it.
-     * Stacked panels (MCO-563) take only the nodes that actually feed them, spread down their own
-     * left edge, each line weighted by what that node sends to *that* project.
+     * **Dots follow column order, not size.** Ranking the landings would reorder them against the
+     * column and put a crossing between every pair that disagreed; taking them top to bottom means
+     * the only ropes that can cross are the shared run's, which diverge by definition.
      */
-    private fun supplyEdges(
-        nodes: List<GraphNode>,
-        topProducers: List<Producer>,
-        bundle: Bundle?,
-        hand: HandGathered?,
+    private fun supplyRopes(
+        feeders: List<Pair<GraphNode, Map<Int, Long>>>,
         terminals: List<RoadmapNode>,
-        terminalTops: Map<Int, Int>,
-        stacked: Boolean,
+        rails: List<IntakeRail>,
     ): List<GraphEdge> = buildList {
-        val columnNodes = nodes.filter {
-            it.kind == NodeKind.SUPPLY || it.kind == NodeKind.BUNDLE || it.kind == NodeKind.HAND
-        }
-        terminals.forEach { terminal ->
-            val terminalId = terminal.projectId
-            val feeding = columnNodes.mapNotNull { node ->
-                val items = when (node.kind) {
-                    NodeKind.SUPPLY -> topProducers
-                        .firstOrNull { "supply-${it.projectId}" == node.key }
-                        ?.let { it.itemsByTerminal.into(terminalId, it.items) }
-                    NodeKind.BUNDLE -> bundle?.let { it.itemsByTerminal.into(terminalId, it.items) }
-                    else -> hand?.let { it.itemsByTerminal.into(terminalId, it.items) }
-                }
-                items?.let { node to it }
+        terminals.forEachIndexed { panelIndex, terminal ->
+            val rail = rails[panelIndex]
+            val feeding = feeders.mapNotNull { (node, split) ->
+                split[terminal.projectId]?.takeIf { it > 0 }?.let { node to it }
             }
-            val fanTop = if (stacked) terminalTops.getValue(terminalId) + 40 else FAN_IN_TOP
-            val span = if (stacked) TERMINAL_HEIGHT - 60 else FAN_IN_SPAN
-            val lastIndex = (feeding.size - 1).coerceAtLeast(1)
-            feeding.forEachIndexed { index, (node, items) ->
+            // Width is rank by items *within this panel*; position is column order.
+            val byItems = feeding.sortedByDescending { it.second }.map { it.first.key }
+            feeding.forEachIndexed { index, (node, _) ->
+                val dotY = rail.dots.getOrNull(index) ?: return@forEachIndexed
                 val fromY = node.y + node.height / 2
-                val toY = fanTop + (index * span) / lastIndex
                 add(
                     GraphEdge(
-                        key = if (stacked) "supply-${node.key}-$terminalId" else "supply-${node.key}",
-                        path = "M $COLUMN_WIDTH $fromY C 420 $fromY 560 $toY $FAN_IN_X $toY",
-                        strokeWidth = strokeWidthFor(items),
+                        key = "supply-${node.key}-${terminal.projectId}",
+                        path = "M $COLUMN_WIDTH $fromY C 420 $fromY ${rail.x - 120} $dotY ${rail.x} $dotY",
+                        strokeWidth = rankedWidth(byItems.indexOf(node.key), feeding.size),
                         dashed = node.kind == NodeKind.HAND,
+                        marker = false,
                     )
                 )
             }
         }
     }
 
+    /** The rail [terminal]'s ropes land on: one dot per feeder, one arrow into the panel. */
+    private fun railFor(
+        terminal: RoadmapNode,
+        panelTop: Int,
+        feeders: List<Pair<GraphNode, Map<Int, Long>>>,
+    ): IntakeRail {
+        val feeding = feeders.filter { (_, split) -> (split[terminal.projectId] ?: 0L) > 0 }
+        val count = feeding.size
+        // The count includes what you gather by hand — it lands on the rail and is supply like any
+        // other. Whether any *farm* feeds this panel is a different question, and the one a build
+        // nothing in the world feeds needs answered: that panel reads "NO FARM INTAKE" instead.
+        val farms = feeding.count { (node, _) -> node.kind != NodeKind.HAND }
+        val top = panelTop + RAIL_INSET
+        val bottom = panelTop + TERMINAL_HEIGHT - RAIL_INSET
+        val dots = when {
+            count == 0 -> emptyList()
+            count == 1 -> listOf((top + bottom) / 2)
+            else -> (0 until count).map { top + it * (bottom - top) / (count - 1) }
+        }
+        return IntakeRail(
+            key = "rail-${terminal.projectId}",
+            x = RAIL_X,
+            top = dots.firstOrNull() ?: top,
+            bottom = dots.lastOrNull() ?: top,
+            // Stated rather than left blank: a build no farm feeds is a fact about the world, and
+            // an empty rail with no label reads as a panel the page failed to draw.
+            label = if (farms == 0) {
+                "NO FARM INTAKE"
+            } else {
+                "INTAKE · $count ${if (count == 1) "SUPPLIER" else "SUPPLIERS"}"
+            },
+            labelY = panelTop - 6,
+            dots = dots,
+            arrowY = dots.takeIf { it.isNotEmpty() }?.let { (it.first() + it.last()) / 2 },
+        )
+    }
+
     /**
-     * What a column node sends into [terminalId], or null when it sends nothing there. An empty
-     * map is a node that never recorded a split, so it feeds whatever it is drawn against.
+     * The node's split, or — when it recorded none — the whole of [total] against every drawn
+     * panel. An empty map means nothing was attributed, not that the node feeds nothing.
      */
-    private fun Map<Int, Long>.into(terminalId: Int, total: Long): Long? =
-        if (isEmpty()) total else this[terminalId]?.takeIf { it > 0 }
+    private fun Map<Int, Long>.orFedAgainst(drawn: List<RoadmapNode>, total: Long): Map<Int, Long> =
+        ifEmpty { drawn.associate { it.projectId to total } }
+
+    private fun producerSubLines(
+        producer: Producer,
+        terminalId: Int?,
+        drawn: List<RoadmapNode>,
+    ): List<SubLine> = if (terminalId != null) {
+        listOf(SubLine("✓ ${producerSummary(producer)}"))
+    } else {
+        // A farm in the shared run is read for how it divides, not for its total: "17,760 to the
+        // Library" is what explains why a second rope leaves it at all.
+        splitSubLines(producer.itemsByTerminal, drawn)
+            .ifEmpty { listOf(SubLine("✓ ${producerSummary(producer)}")) }
+    }
+
+    /** "→ Copper Library 17,760", one line per panel the node feeds, in panel order. */
+    private fun splitSubLines(split: Map<Int, Long>, drawn: List<RoadmapNode>): List<SubLine> =
+        drawn.mapNotNull { terminal ->
+            split[terminal.projectId]?.takeIf { it > 0 }
+                ?.let { SubLine("→ ${terminal.projectName} ${format(it)}") }
+        }
+
+    /** A node fits its title and one sub-line at [NODE_HEIGHT]; each further line adds a row. */
+    private fun nodeHeightFor(subLines: Int): Int =
+        NODE_HEIGHT + (subLines - 1).coerceAtLeast(0) * SUB_LINE_HEIGHT
+
+    /**
+     * Stroke width by **rank within one panel**: `4.5 − 3.5·(rank / (n − 1))`, clamped.
+     *
+     * Rank, not value. The log scale this replaces put everything above 20,000 items between 4.1
+     * and 4.5 — differences no eye resolves — so Witch hut farm's 983 items into the Library drew
+     * at nearly the width of its 84,193 into YAMS. What the reader compares is "which of these
+     * feeds *this* build most", and rank answers exactly that in any world.
+     */
+    internal fun rankedWidth(rank: Int, count: Int): Double {
+        if (count <= 1 || rank < 0) return MAX_STROKE
+        val raw = MAX_STROKE - (MAX_STROKE - MIN_STROKE) * (rank.toDouble() / (count - 1))
+        return ((raw * 10).roundToInt() / 10.0).coerceIn(MIN_STROKE, MAX_STROKE)
+    }
 
     /**
      * Stroke width encodes items moved: `1 + 0.32·ln(items)`, clamped to `[1, 4.5]`.

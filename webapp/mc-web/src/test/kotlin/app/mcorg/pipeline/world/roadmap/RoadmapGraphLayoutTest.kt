@@ -363,9 +363,16 @@ class RoadmapGraphLayoutTest {
         assertTrue(idea !in terminals, "nothing to gather is not somewhere the world is heading")
     }
 
-    /** Forever world's New slime farm: 100,000 by hand, and no farm could help with any of it. */
+    /**
+     * Panels are ordered by what the world **already supplies** each of them (MCO-566), and that
+     * same order picks the three drawn. Demand is only the tie-break: it says what makes a project
+     * final, while supply says which of them the reader can act on today.
+     *
+     * Forever world's New slime farm is the case that pins it — 100,000 items of hand work and not
+     * one farm feeding any of it, so for all its demand it sorts last.
+     */
     @Test
-    fun `final projects rank by all their demand, so hand work can outrank a farm-fed project`() {
+    fun `final projects are ordered by the supply the world already has for them`() {
         val trading = node(1, "First trading setup", ProjectState.DONE)
         val yams = node(2, "Storage System YAMS", layer = 1)
         val copper = node(3, "Copper Library", layer = 1)
@@ -380,7 +387,11 @@ class RoadmapGraphLayoutTest {
             demand = mapOf(2 to 274_154L, 3 to 63_199L, 4 to 100_000L),
         )
 
-        assertEquals(listOf("Storage System YAMS", "New slime farm", "Copper Library"), terminals.map { it.projectName })
+        assertEquals(
+            listOf("Copper Library", "Storage System YAMS", "New slime farm"),
+            terminals.map { it.projectName },
+            "the Library's 17,376 of standing supply edges out YAMS's 16,509, for all YAMS's demand",
+        )
     }
 
     @Test
@@ -388,6 +399,104 @@ class RoadmapGraphLayoutTest {
         val castle = node(1, "Deepslate castle")
 
         assertTrue(RoadmapGraphLayout.terminalsOf(roadmap(listOf(castle), emptyList()), mapOf(1 to 23_000L)).isEmpty())
+    }
+
+    // ---- destination groups and intake rails (MCO-566) ---------------------------------
+
+    /** Fixture 2b's shape, cut down: one farm feeding YAMS alone, one feeding both panels. */
+    private fun twoPanelWorld(): Roadmap {
+        val moss = node(1, "Moss farm", ProjectState.DONE)
+        val trading = node(2, "First trading setup", ProjectState.DONE)
+        val yams = node(3, "Storage System YAMS", layer = 1)
+        val copper = node(4, "Copper Library", layer = 1)
+        return roadmap(
+            listOf(moss, trading, yams, copper),
+            listOf(
+                edge(yams, moss, "Moss Block", 2_887),
+                edge(yams, trading, "Glass", 16_728),
+                edge(copper, trading, "Glass", 17_760),
+            ),
+        )
+    }
+
+    private val twoPanelProducers = listOf(
+        RoadmapGraphLayout.Producer(1, "Moss farm", 2_887, 1, itemsByTerminal = mapOf(3 to 2_887L)),
+        RoadmapGraphLayout.Producer(
+            2, "First trading setup", 34_488, 2, itemsByTerminal = mapOf(3 to 16_728L, 4 to 17_760L),
+        ),
+    )
+
+    @Test
+    fun `the column runs one group per panel, then the farms that feed more than one`() {
+        val world = twoPanelWorld()
+        val drawn = RoadmapGraphLayout.terminalsOf(world)
+        val groups = RoadmapGraphLayout.groupByDestination(twoPanelProducers, drawn)
+
+        assertEquals(listOf(3, 4, null), groups.map { it.terminalId }, "panel runs in panel order, shared last")
+        assertEquals(listOf("Moss farm"), groups[0].producers.map { it.name })
+        assertEquals("FEEDS STORAGE SYSTEM YAMS ONLY", groups[0].header)
+        // The numbers live in the note: both in the header ran past the column and truncated.
+        assertEquals("1 farm · 2,887 items", groups[0].note)
+        assertTrue(groups[1].producers.isEmpty())
+        assertEquals("none", groups[1].note, "an empty run is stated, not dropped")
+        assertEquals(listOf("First trading setup"), groups[2].producers.map { it.name })
+        assertEquals("FEEDS MORE THAN ONE", groups[2].header)
+    }
+
+    @Test
+    fun `every rope lands on a rail, and each panel takes one arrow`() {
+        val hand = RoadmapGraphLayout.HandGathered(
+            60_000, 40, null, itemsByTerminal = mapOf(3 to 40_000L, 4 to 20_000L),
+        )
+
+        val graph = assertNotNull(RoadmapGraphLayout.of(twoPanelWorld(), twoPanelProducers, hand))
+
+        assertEquals(2, graph.rails.size)
+        val yamsRail = graph.rails.single { it.key == "rail-3" }
+        assertEquals(3, yamsRail.dots.size, "moss, trading and the hand node all feed YAMS")
+        assertEquals("INTAKE · 3 SUPPLIERS", yamsRail.label, "what you gather by hand is intake too")
+
+        val ropes = graph.edges.filter { it.key.startsWith("supply-") }
+        assertEquals(5, ropes.size, "three into YAMS, two into the Library")
+        assertTrue(ropes.none { it.marker }, "a rope ends on a dot; the rail carries the arrowhead")
+        assertEquals(2, graph.edges.count { it.key.endsWith("-arrow") }, "one arrow per panel, not seven")
+    }
+
+    /** Fixture 3b: the castle no farm feeds still gets a panel, and its rail says so. */
+    @Test
+    fun `a panel no farm feeds is labelled, and still takes what you gather by hand`() {
+        val farm = node(1, "Cobble farm", ProjectState.DONE)
+        val yams = node(2, "Storage System YAMS", layer = 1)
+        val castle = node(3, "Deepslate castle")
+        val world = roadmap(listOf(farm, yams, castle), listOf(edge(yams, farm, "Cobblestone", 51_575)))
+        val hand = RoadmapGraphLayout.HandGathered(
+            83_000, 60, null, itemsByTerminal = mapOf(2 to 60_000L, 3 to 23_000L),
+        )
+        val producers = listOf(
+            RoadmapGraphLayout.Producer(1, "Cobble farm", 51_575, 1, itemsByTerminal = mapOf(2 to 51_575L)),
+        )
+
+        val graph = assertNotNull(
+            RoadmapGraphLayout.of(world, producers, hand, demand = mapOf(2 to 274_154L, 3 to 23_000L))
+        )
+
+        val castleRail = graph.rails.single { it.key == "rail-3" }
+        assertEquals("NO FARM INTAKE", castleRail.label)
+        assertEquals(1, castleRail.dots.size, "what you gather by hand still arrives")
+        assertNotNull(castleRail.arrowY)
+    }
+
+    @Test
+    fun `rank spreads the rope widths where the log scale flattened them`() {
+        assertEquals(4.5, RoadmapGraphLayout.rankedWidth(0, 4))
+        assertEquals(1.0, RoadmapGraphLayout.rankedWidth(3, 4))
+        assertEquals(4.5, RoadmapGraphLayout.rankedWidth(0, 1), "a lone supplier draws at full weight")
+
+        // The two quantities that motivated the change: Witch hut farm sends 84,193 to one panel
+        // and 983 to another, and the log scale drew them at nearly the same width.
+        val flattened = RoadmapGraphLayout.strokeWidthFor(84_193) - RoadmapGraphLayout.strokeWidthFor(983)
+        assertTrue(flattened < 1.4, "the old scale separated them by only $flattened")
+        assertEquals(3.5, RoadmapGraphLayout.rankedWidth(0, 2) - RoadmapGraphLayout.rankedWidth(1, 2))
     }
 
     // ---- the line into a final project -------------------------------------------------
@@ -488,26 +597,25 @@ class RoadmapGraphLayoutTest {
         assertNotNull(graph)
 
         assertTrue(graph.groups.isNotEmpty())
-        graph.groups.forEach { group ->
-            assertTrue(group.kinds.isNotEmpty(), "'${group.text}' introduces nothing")
-            assertTrue(
-                graph.nodes.any { it.kind in group.kinds },
-                "'${group.text}' introduces a kind no node has",
-            )
-        }
-        // Every column node belongs to exactly one group, so none can be orphaned on mobile.
-        val columnKinds = graph.nodes
-            .filter { it.kind != RoadmapGraphLayout.NodeKind.TERMINAL }
-            .filter { it.kind != RoadmapGraphLayout.NodeKind.START }
-            .filter { it.kind != RoadmapGraphLayout.NodeKind.SEQUENCE }
-            .map { it.kind }
-        columnKinds.forEach { kind ->
-            assertEquals(
-                1,
-                graph.groups.count { kind in it.kinds },
-                "$kind must be introduced by exactly one header",
-            )
-        }
+        val keys = graph.groups.map { it.key }
+        assertEquals(keys.size, keys.distinct().size, "two headers share a key")
+
+        // Every column node sits under exactly one header, so none is orphaned when the mobile
+        // fallback drops absolute positioning and reads document order. A header with no nodes is
+        // allowed and deliberate — "FEEDS X ONLY · NONE" is a fact about the world.
+        graph.nodes
+            .filter {
+                it.kind == RoadmapGraphLayout.NodeKind.SUPPLY ||
+                    it.kind == RoadmapGraphLayout.NodeKind.BUNDLE ||
+                    it.kind == RoadmapGraphLayout.NodeKind.HAND
+            }
+            .forEach { node ->
+                assertEquals(
+                    1,
+                    graph.groups.count { it.key == node.group },
+                    "'${node.title}' must sit under exactly one header",
+                )
+            }
     }
 
     @Test
