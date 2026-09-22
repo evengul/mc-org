@@ -9,6 +9,7 @@ import app.mcorg.pipeline.world.roadmap.RoadmapGraphLayout.Graph
 import app.mcorg.pipeline.world.roadmap.RoadmapGraphLayout.GraphNode
 import app.mcorg.pipeline.world.roadmap.RoadmapGraphLayout.NodeKind
 import app.mcorg.pipeline.world.roadmap.RoadmapGraphLayout.Tone
+import app.mcorg.pipeline.world.roadmap.StoppedFarm
 import app.mcorg.presentation.templated.dsl.BadgeStatus
 import app.mcorg.presentation.templated.dsl.appHeader
 import app.mcorg.presentation.templated.dsl.container
@@ -38,12 +39,22 @@ data class RoadmapGraphView(
     val startHere: RoadmapNode?,
     val startHereNote: String?,
     val producerCount: Int,
+    /**
+     * "34,313 items from 6 farms" — what the supply column feeds into the drawn final projects, or
+     * null when nothing does. One derivation with the column, so its two numbers describe the same
+     * farms: the row used to divide one panel's items by the whole world's farm count.
+     */
+    val feeding: String? = null,
     val producerRows: List<ProducerRow>,
     val unchained: List<UnchainedRow>,
-    val terminal: RoadmapNode?,
-    val terminalStats: RoadmapGraphLayout.TerminalStats,
+    /** The final projects drawn as panels, largest demand first (MCO-563). */
+    val terminals: List<RoadmapNode>,
+    /** Each drawn final project's plan totals, by project id. */
+    val terminalStats: Map<Int, RoadmapGraphLayout.TerminalStats>,
     val manualEdgeNote: String?,
     val dataGaps: List<DataGap>,
+    /** Decommissioned farms and what no farm covers since they stopped — see [stoppedSection]. */
+    val stopped: List<StoppedFarm> = emptyList(),
     /** The world's hand-made orderings, for § 4's roster — see [manualOrderingSection]. */
     val manualOrderings: List<ManualOrdering> = emptyList(),
     /** Edges the app derived rather than anybody typing, for the roster's "these are yours" line. */
@@ -103,6 +114,10 @@ fun roadmapGraphPage(
                 // The world's one empty state answers it instead (see [worldEmptyState]).
                 worldEmptyState(view.roadmap.worldId)
             } else {
+                // Above the card, exactly where the table view puts it: a loop makes the order the
+                // graph draws an assumption, so the page asks before it draws. This view used to
+                // draw the assumed order as settled and leave the question to the table alone.
+                cycleSection(view.roadmap)
                 div("rmg-card") {
                     id = "roadmap-graph"
                     startHereSection(view)
@@ -119,6 +134,7 @@ fun roadmapGraphPage(
                     )
                     unchainedSection(view)
                     producingSection(view)
+                    stoppedSection(view)
                 }
             }
         }
@@ -199,24 +215,12 @@ private fun shapeRows(view: RoadmapGraphView): List<Pair<String, String>> {
         if (stats.maxDepth > 1) {
             add("longest chain" to "${stats.maxDepth} projects deep")
         }
-        view.terminal?.let { terminal ->
-            // Items, not edge count. The old row said "86 from 22 farms", where 86 was the
-            // number of supply relationships — and it read as a quantity of items.
-            val items = view.roadmap.edges
-                .filter { it.fromNodeId == terminal.projectId }
-                .sumOf { it.quantity ?: 0L }
-            if (items > 0) {
-                val farms = if (view.producerCount == 1) "farm" else "farms"
-                // Not "feeding <name>": the name had to be shortened to fit a 320px aside, and
-                // the only cheap way to do that was to take the last word — which gives "YAMS"
-                // for "Storage System YAMS" but "North" for "Iron Farm North". The graph names
-                // the destination a few centimetres away; this row does not need to.
-                add(
-                    "feeding" to
-                        "${RoadmapGraphLayout.format(items)} items from ${view.producerCount} $farms"
-                )
-            }
-        }
+        // Items, not edge count. The old row said "86 from 22 farms", where 86 was the number of
+        // supply relationships — and it read as a quantity of items. Not "feeding <name>": the
+        // name had to be shortened to fit a 320px aside, and the only cheap way to do that was to
+        // take the last word — which gives "YAMS" for "Storage System YAMS" but "North" for
+        // "Iron Farm North". The graph names the destination a few centimetres away.
+        view.feeding?.let { add("feeding" to it) }
     }
 }
 
@@ -337,7 +341,8 @@ private fun FlowContent.graphNode(view: RoadmapGraphView, node: GraphNode) {
         node.subLines.forEach { line ->
             div("rmg-node__sub ${toneClass(line.tone)}") { +line.text }
         }
-        if (node.kind == NodeKind.TERMINAL) terminalBody(view)
+        // A final project's panel carries its own numbers; the "+N more" node carries none.
+        if (node.kind == NodeKind.TERMINAL && node.projectId != null) terminalBody(view, node.projectId)
     }
 
     if (node.projectId != null) {
@@ -354,8 +359,8 @@ private fun FlowContent.graphNode(view: RoadmapGraphView, node: GraphNode) {
     }
 }
 
-private fun FlowContent.terminalBody(view: RoadmapGraphView) {
-    val stats = view.terminalStats
+private fun FlowContent.terminalBody(view: RoadmapGraphView, projectId: Int) {
+    val stats = view.terminalStats[projectId] ?: return
     div("rmg-terminal__progress") {
         progressBar(stats.percentComplete, 100, large = true)
         span("rmg-terminal__percent") { +"${stats.percentComplete}%" }
@@ -425,6 +430,41 @@ private fun FlowContent.producingSection(view: RoadmapGraphView) {
                 a(classes = "rmg-datagap__fix") {
                     href = "/worlds/${view.roadmap.worldId}/projects/${gap.projectId}"
                     +"fix ▸"
+                }
+            }
+        }
+    }
+}
+
+// ---- 6. stopped --------------------------------------------------------------------------
+
+/**
+ * Decommissioned farms (MCO-541), and what no farm covers since they stopped.
+ *
+ * The roadmap's edges drop a stopped farm — right for the graph, since nothing waits on it — and
+ * that left the page with no trace of it: decommissioning Forever world's two largest farms nearly
+ * tripled the hand list on a page that never said why. A farm whose output another still makes is
+ * listed too, because "stopping it cost nothing" is also worth knowing.
+ */
+private fun FlowContent.stoppedSection(view: RoadmapGraphView) {
+    if (view.stopped.isEmpty()) return
+    div("rmg-section rmg-stopped") {
+        div("rmg-stopped__head") {
+            span("rmg-label") { +"STOPPED · ${view.stopped.size}" }
+            span("rmg-note") { +"decommissioned — they supply nothing now" }
+        }
+        div("rmg-chips") {
+            view.stopped.forEach { farm ->
+                a(classes = "rmg-chip") {
+                    href = "/worlds/${view.roadmap.worldId}/projects/${farm.projectId}"
+                    span("rmg-chip__name") { +farm.name }
+                    if (farm.uncoveredItems > 0) {
+                        span("rmg-chip__note ${toneClass(Tone.AMBER)}") {
+                            +"⚠ ${RoadmapGraphLayout.format(farm.uncoveredItems)} items no farm covers now"
+                        }
+                    } else {
+                        span("rmg-chip__note ${toneClass(Tone.MUTED)}") { +"nothing it made is missing now" }
+                    }
                 }
             }
         }

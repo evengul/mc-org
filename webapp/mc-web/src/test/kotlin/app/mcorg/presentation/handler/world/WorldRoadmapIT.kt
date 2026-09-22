@@ -434,6 +434,96 @@ class WorldRoadmapIT : WithUser() {
         deleteWorld(worldId)
     }
 
+    // ---- states the graph view has to name (found with MCO-563's fixture worlds) -----
+
+    /** Fixture 4: decommissioned farms vanished from the graph view while the hand list tripled. */
+    @Test
+    fun `a decommissioned farm is listed as stopped, with what no farm covers now`() = testApplication {
+        setupRoutes()
+        val worldId = createWorld("Stopped Farm World")
+        val storage = createProject(worldId, "Storage System")
+        val farm = createProject(worldId, "Old Cobble Farm")
+        createDemand(storage, "minecraft:cobblestone", "Cobblestone", 51_527, status = "RAW_GATHER")
+        createProduction(farm, "minecraft:cobblestone", "Cobblestone")
+        setState(farm, "DECOMMISSIONED")
+
+        val body = client.get("/worlds/$worldId/roadmap") { addAuthCookie(this) }.bodyAsText()
+
+        assertContains(body, "STOPPED · 1")
+        val stopped = body.substringAfter("STOPPED · 1")
+        assertContains(stopped, "Old Cobble Farm")
+        assertContains(stopped, "51,527 items no farm covers now")
+
+        deleteWorld(worldId)
+    }
+
+    /** The other half: an item a running farm also makes is still supplied, so stopping cost nothing. */
+    @Test
+    fun `a stopped farm whose output another farm still makes costs nothing`() = testApplication {
+        setupRoutes()
+        val worldId = createWorld("Covered Stopped Farm World")
+        val storage = createProject(worldId, "Storage System")
+        val stopped = createProject(worldId, "Old Cobble Farm")
+        val running = createProject(worldId, "New Cobble Farm")
+        createDemand(storage, "minecraft:cobblestone", "Cobblestone", 51_527, status = "SUPPLIED")
+        createProduction(stopped, "minecraft:cobblestone", "Cobblestone")
+        createProduction(running, "minecraft:cobblestone", "Cobblestone")
+        runBlocking { UpdateProjectStageStep(running).process(ProjectStage.COMPLETED) }
+        setState(stopped, "DECOMMISSIONED")
+
+        val body = client.get("/worlds/$worldId/roadmap") { addAuthCookie(this) }.bodyAsText()
+
+        val section = body.substringAfter("STOPPED · 1")
+        assertContains(section, "Old Cobble Farm")
+        assertContains(section, "nothing it made is missing now")
+        assertFalse(section.contains("no farm covers now"), "New Cobble Farm still makes the cobblestone")
+
+        deleteWorld(worldId)
+    }
+
+    /** Fixture 5: the graph drew an assumed order as fact; the question was table-view only. */
+    @Test
+    fun `the graph view asks which of two farms comes first, not only the table`() = testApplication {
+        setupRoutes()
+        val worldId = createWorld("Cycle Graph World")
+        val cobble = createProject(worldId, "Cobble Farm")
+        val iron = createProject(worldId, "Iron Farm")
+        createDemand(cobble, "minecraft:iron_ingot", "Iron Ingot", 1_856)
+        createDemand(iron, "minecraft:cobblestone", "Cobblestone", 3_787)
+        createProduction(cobble, "minecraft:cobblestone", "Cobblestone")
+        createProduction(iron, "minecraft:iron_ingot", "Iron Ingot")
+
+        val body = client.get("/worlds/$worldId/roadmap") { addAuthCookie(this) }.bodyAsText()
+
+        assertContains(body, "rmg-card", message = "this is the graph view")
+        assertContains(body, "each supply the other. Which comes first?")
+        assertContains(body, "/worlds/$worldId/roadmap/cycle-order")
+
+        deleteWorld(worldId)
+    }
+
+    /** Fixture 3b: a build that is nothing but hand work was a "do them whenever" chip. */
+    @Test
+    fun `a build nothing but hand work gets a final project panel, not a do-whenever chip`() = testApplication {
+        setupRoutes()
+        val worldId = createWorld("Hand Only World")
+        val storage = createProject(worldId, "Storage System")
+        val farm = createProject(worldId, "Cobble Farm")
+        val castle = createProject(worldId, "Deepslate Castle")
+        createDemand(storage, "minecraft:cobblestone", "Cobblestone", 51_575, status = "SUPPLIED")
+        createProduction(farm, "minecraft:cobblestone", "Cobblestone")
+        runBlocking { UpdateProjectStageStep(farm).process(ProjectStage.COMPLETED) }
+        createDemand(castle, "minecraft:cobbled_deepslate", "Cobbled Deepslate", 12_000, status = "RAW_GATHER")
+
+        val body = client.get("/worlds/$worldId/roadmap") { addAuthCookie(this) }.bodyAsText()
+
+        val panels = body.split("rmg-node--terminal").drop(1).map { it.substringBefore("</a>") }
+        assertTrue(panels.any { it.contains("Deepslate Castle") }, "the castle is somewhere the world is heading")
+        assertFalse(body.contains("NOT IN ANY CHAIN"), "and it is not also listed as do-whenever")
+
+        deleteWorld(worldId)
+    }
+
     // ---- reading the rendered table -------------------------------------------------
 
     /** The two edge cells of one project's row, so an assertion can name which column it means. */
@@ -520,13 +610,19 @@ class WorldRoadmapIT : WithUser() {
      * roadmap's own logic under test instead of the engine's — the derivation itself is covered
      * where it lives.
      */
-    private fun createDemand(projectId: Int, itemId: String, name: String, quantity: Long) = runBlocking {
+    private fun createDemand(
+        projectId: Int,
+        itemId: String,
+        name: String,
+        quantity: Long,
+        status: String = "RESOLVED",
+    ) = runBlocking {
         DatabaseSteps.update<Unit>(
             SafeSQL.insert(
                 """
                 INSERT INTO project_demand
                     (project_id, item_id, item_name, quantity, activity_group, node_status)
-                VALUES (?, ?, ?, ?, 'GATHER', 'RESOLVED')
+                VALUES (?, ?, ?, ?, 'GATHER', ?)
                 """.trimIndent()
             ),
             parameterSetter = { stmt, _ ->
@@ -534,6 +630,7 @@ class WorldRoadmapIT : WithUser() {
                 stmt.setString(2, itemId)
                 stmt.setString(3, name)
                 stmt.setLong(4, quantity)
+                stmt.setString(5, status)
             }
         ).process(Unit)
         // Marking it derived stops the roadmap trying to fill this project in.
@@ -558,6 +655,17 @@ class WorldRoadmapIT : WithUser() {
                 stmt.setInt(1, projectId)
                 stmt.setString(2, itemId)
                 stmt.setString(3, name)
+            }
+        ).process(Unit)
+    }
+
+    /** Sets a lifecycle state directly: DECOMMISSIONED has no stage that implies it. */
+    private fun setState(projectId: Int, state: String) = runBlocking {
+        DatabaseSteps.update<Unit>(
+            SafeSQL.update("UPDATE projects SET state = ? WHERE id = ?"),
+            parameterSetter = { stmt, _ ->
+                stmt.setString(1, state)
+                stmt.setInt(2, projectId)
             }
         ).process(Unit)
     }
