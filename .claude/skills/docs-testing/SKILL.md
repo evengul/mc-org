@@ -213,6 +213,15 @@ Use `webapp/scripts/test.sh` — it handles key generation, compilation, and tes
 The script runs `mvn test-compile` before any tests. New IT tests tagged `@Tag("database")`
 are picked up automatically by `--database`.
 
+**No Docker, no database tier — and that is not a blocker.** Check `docker info` before
+reaching for `--database`; if it is down, `sudo service docker start` (passwordless here). If
+Docker still is not available — a sandboxed subagent, a cloud session — *write* the
+`@Tag("database")` IT but do not try to run it. Gate locally on `mvn clean compile` plus the unit
+tier, push, and let CI's `integration-tests` job run it: that job is the database-test oracle on
+every PR. Do not try to reproduce a DB-tier failure without Testcontainers — read the CI log
+instead. An agent that tried once looped on it and left `DBG` printlns in production code
+(which `println` outside `cli/` now fails the build for anyway).
+
 ---
 
 ## Common Pitfalls
