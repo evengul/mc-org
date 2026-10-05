@@ -24,6 +24,7 @@ import kotlin.test.assertTrue
 @ExtendWith(DatabaseTestExtension::class)
 class ViewPreferenceStepTest : WithUser() {
 
+    private var worldId: Int = 0
     private var projectId: Int = 0
 
     @BeforeAll
@@ -38,22 +39,17 @@ class ViewPreferenceStepTest : WithUser() {
             )
         }
         assertTrue(worldResult is Result.Success)
-        val worldId = (worldResult as Result.Success).value
-
-        val projectResult = runBlocking {
-            app.mcorg.pipeline.DatabaseSteps.update<Unit>(
-                sql = app.mcorg.pipeline.SafeSQL.insert("INSERT INTO projects (name, world_id, description, type, stage, location_x, location_y, location_z, location_dimension) VALUES ('Test Project', ?, '', 'BUILDING', 'PLANNING', 0, 0, 0, 'OVERWORLD') RETURNING id"),
-                parameterSetter = { stmt, _ -> stmt.setInt(1, worldId) }
-            ).process(Unit)
-        }
-        assertTrue(projectResult is Result.Success)
-        projectId = (projectResult as Result.Success).value
+        worldId = (worldResult as Result.Success).value
+        projectId = createProject()
     }
 
+    // Its own project: the shared one gets a preference row from the Set tests, and method
+    // order is not fixed — run after either, "no row exists" was false (MCO-570).
     @Test
     fun `GetViewPreferenceStep should return execute when no row exists`() {
+        val freshProjectId = createProject()
         val result = runBlocking {
-            GetViewPreferenceStep.process(GetViewPreferenceInput(user.id, projectId))
+            GetViewPreferenceStep.process(GetViewPreferenceInput(user.id, freshProjectId))
         }
         assertTrue(result is Result.Success)
         assertEquals("execute", (result as Result.Success).value)
@@ -98,5 +94,16 @@ class ViewPreferenceStepTest : WithUser() {
             SetViewPreferenceStep.process(SetViewPreferenceInput(user.id, projectId, "invalid"))
         }
         assertTrue(result is Result.Failure)
+    }
+
+    private fun createProject(): Int {
+        val projectResult = runBlocking {
+            app.mcorg.pipeline.DatabaseSteps.update<Unit>(
+                sql = app.mcorg.pipeline.SafeSQL.insert("INSERT INTO projects (name, world_id, description, type, stage, location_x, location_y, location_z, location_dimension) VALUES ('Test Project', ?, '', 'BUILDING', 'PLANNING', 0, 0, 0, 'OVERWORLD') RETURNING id"),
+                parameterSetter = { stmt, _ -> stmt.setInt(1, worldId) }
+            ).process(Unit)
+        }
+        assertTrue(projectResult is Result.Success)
+        return (projectResult as Result.Success).value
     }
 }

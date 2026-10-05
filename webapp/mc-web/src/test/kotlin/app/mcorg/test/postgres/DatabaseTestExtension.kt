@@ -1,5 +1,6 @@
 package app.mcorg.test.postgres
 
+import app.mcorg.config.CacheManager
 import app.mcorg.config.Database
 import app.mcorg.config.DatabaseConnectionProvider
 import org.flywaydb.core.Flyway
@@ -68,6 +69,39 @@ class DatabaseTestExtension : BeforeAllCallback {
         }
 
         /**
+         * Empties the Minecraft game-data tables — the state a fresh container starts with.
+         *
+         * Every test class shares one container, and twenty of them store their own versions,
+         * items and recipes. Left in place, one class's data turns into another's recipe graph:
+         * `GatheringPlannerIT` expects no graph for its world's version and got iron ingots
+         * resolved through someone else's recipes, and `ItemSourceGraphStepsTest` left a ledger
+         * row stamped in the future that made every later lookup of 1.21.4 rebuild instead of
+         * hitting the cache. Which class ran first decided the outcome, so CI's class order went
+         * red while the local one stayed green (MCO-570).
+         *
+         * The cluster only references itself, so the cascade stops here; the two migrations that
+         * insert into it are backfills that copy nothing on an empty database.
+         */
+        fun resetMinecraftData() {
+            executeSQL(
+                """
+                TRUNCATE TABLE
+                    minecraft_version_ingestion,
+                    resource_source_consumed_item,
+                    resource_source_consumed_tag,
+                    resource_source_produced_item,
+                    resource_source_produced_tag,
+                    resource_source,
+                    minecraft_tag_item,
+                    minecraft_tag,
+                    minecraft_items,
+                    minecraft_version
+                RESTART IDENTITY CASCADE
+                """
+            )
+        }
+
+        /**
          * Points [Database] back at the container.
          *
          * Extracted from [beforeAll] so a test that deliberately swaps in a failing provider can
@@ -102,5 +136,10 @@ class DatabaseTestExtension : BeforeAllCallback {
         flyway.migrate()
 
         installProvider()
+
+        // Each class starts from no game data and empty caches — see [resetMinecraftData].
+        // The caches go with it: a graph or role cached by the previous class outlives its rows.
+        resetMinecraftData()
+        CacheManager.invalidateAll()
     }
 }

@@ -33,6 +33,11 @@
         <junit.version>6.1.3</junit.version>
         <flyway.version>13.5.0</flyway.version>
         <surefire.version>3.6.0</surefire.version>
+        <!--
+          Extra JVM flags for surefire's forked test JVM, appended to the shared argLine below.
+          Empty by default; mc-web sets it to load MockK's ByteBuddy agent up front (MCO-570).
+        -->
+        <surefire.agentArgLine></surefire.agentArgLine>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <!--
           Do NOT re-enable kotlin.compiler.incremental (MCO-378). kotlin-maven-plugin's
@@ -205,7 +210,7 @@
                         <include>**/*Tests.java</include>
                         <include>**/*IT.java</include>
                     </includes>
-                    <argLine>-Djavax.net.ssl.trustStore=${session.executionRootDirectory}/truststore.jks -Djavax.net.ssl.trustStorePassword=changeit</argLine>
+                    <argLine>-Djavax.net.ssl.trustStore=${session.executionRootDirectory}/truststore.jks -Djavax.net.ssl.trustStorePassword=changeit ${surefire.agentArgLine}</argLine>
                 </configuration>
                 <dependencies>
                     <dependency>
