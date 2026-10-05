@@ -29,22 +29,16 @@ class GetProjectListStepTest : WithUser() {
 
     @BeforeAll
     fun setup() {
-        val result = runBlocking {
-            CreateWorldStep(user).process(
-                CreateWorldInput(
-                    name = "ProjectList StepTest World",
-                    description = "test",
-                    version = MinecraftVersion.fromString("1.21.4")
-                )
-            )
-        }
-        worldId = (result as Result.Success).value
+        worldId = createWorld("ProjectList StepTest World")
     }
 
+    // Its own world: the class's shared one gains projects from the other tests, and method
+    // order is not fixed — run after any of them, "no projects" was false (MCO-570).
     @Test
     fun `returns empty list when world has no projects`() {
+        val emptyWorldId = createWorld("ProjectList StepTest Empty World")
         val result = runBlocking {
-            GetProjectListStep(worldId).process(Unit)
+            GetProjectListStep(emptyWorldId).process(Unit)
         }
         assertIs<Result.Success<*>>(result)
         assertTrue((result as Result.Success).value.isEmpty())
@@ -105,6 +99,17 @@ class GetProjectListStepTest : WithUser() {
         val completedIndex = projects.indexOfFirst { it.id == completedProjectId }
         assertTrue(idleIndex >= 0 && completedIndex >= 0)
         assertTrue(idleIndex < completedIndex, "Idle project should appear before completed project")
+    }
+
+    private fun createWorld(name: String): Int = runBlocking {
+        val result = CreateWorldStep(user).process(
+            CreateWorldInput(
+                name = name,
+                description = "test",
+                version = MinecraftVersion.fromString("1.21.4")
+            )
+        )
+        (result as Result.Success).value
     }
 
     private fun createProject(name: String): Int = runBlocking {

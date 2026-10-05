@@ -17,6 +17,7 @@ import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.test.postgres.DatabaseTestExtension
 import kotlinx.coroutines.runBlocking
+import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
@@ -78,6 +79,17 @@ class ItemSourceGraphStepsTest {
         CacheManager.invalidateAll()
         val stored = runBlocking { StoreMinecraftDataStep.process(serverData()) }
         assertIs<Result.Success<*>>(stored)
+    }
+
+    /**
+     * The ledger tests stamp `completed_at` up to two minutes in the future. Left behind, that row
+     * reads as "re-ingested after your build" to every later lookup, so the caching test kept
+     * rebuilding whenever it ran after them (MCO-570).
+     */
+    @AfterEach
+    fun forgetLedgerRows() {
+        DatabaseTestExtension.executeSQL("DELETE FROM minecraft_version_ingestion")
+        CacheManager.versionIngestionEpoch.invalidateAll()
     }
 
     @Test
