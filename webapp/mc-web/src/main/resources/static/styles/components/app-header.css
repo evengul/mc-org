@@ -128,7 +128,8 @@ a.breadcrumb__item:hover {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    max-width: calc(100% - 48px);
+    /* Centred, so it clears "Profile ⚙" on the right only by giving up the same width on the left. */
+    max-width: calc(100% - 224px);
     position: absolute;
     left: 50%;
     transform: translateX(-50%);
@@ -143,4 +144,10 @@ a.breadcrumb__item:hover {
 .app-header__mobile .app-header__link {
     margin-left: auto;
     font-size: var(--text-base);
+}
+
+/* Only the first link pushes right; with two, an auto margin each split the free space and set
+   "Profile" down in the middle of the bar, over the centred world name. */
+.app-header__mobile .app-header__link ~ .app-header__link {
+    margin-left: var(--space-3);
 }
