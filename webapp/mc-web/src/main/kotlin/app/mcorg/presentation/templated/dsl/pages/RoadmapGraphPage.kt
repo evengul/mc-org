@@ -10,6 +10,7 @@ import app.mcorg.pipeline.world.roadmap.RoadmapGraphLayout.GraphNode
 import app.mcorg.pipeline.world.roadmap.RoadmapGraphLayout.NodeKind
 import app.mcorg.pipeline.world.roadmap.RoadmapGraphLayout.Tone
 import app.mcorg.pipeline.world.roadmap.RoadmapToBuild
+import app.mcorg.pipeline.world.roadmap.HandListSplit
 import app.mcorg.pipeline.world.roadmap.StoppedFarm
 import app.mcorg.presentation.templated.dsl.BadgeStatus
 import app.mcorg.presentation.templated.dsl.appHeader
@@ -37,21 +38,22 @@ import kotlinx.html.span
 data class RoadmapGraphView(
     val roadmap: Roadmap,
     val graph: Graph?,
+    /** The farms still to build, as a set (MCO-571). Empty when everything upstream is built. */
+    val toBuild: RoadmapToBuild.ToBuild,
     /**
-     * The farms still to build, as a set (MCO-571) — non-null once anything in the world is
-     * producing. Null keeps the sequence band inside the graph, as a world with nothing built
-     * needs it.
+     * Whether any finished farm feeds a drawn final project. Without one there is no supply column,
+     * and the panels are drawn as a row with no graph around them (MCO-544, frame 5A).
      */
-    val toBuild: RoadmapToBuild.ToBuild? = null,
+    val producing: Boolean = true,
     val startHere: RoadmapNode?,
     val startHereNote: String?,
     val producerCount: Int,
-    /**
-     * "34,313 items from 6 farms" — what the supply column feeds into the drawn final projects, or
-     * null when nothing does. One derivation with the column, so its two numbers describe the same
-     * farms: the row used to divide one panel's items by the whole world's farm count.
-     */
-    val feeding: String? = null,
+    /** Farms in the supply column that feed more than one drawn final project — "16 · 2 feed more than one". */
+    val sharedProducers: Int = 0,
+    /** Every final project in the world, drawn or past the cap — "3, none first". */
+    val finalProjectCount: Int = 0,
+    /** What is left by hand across the drawn panels — the graph's by-hand node, or 5A's strip. */
+    val handTotals: RoadmapGraphLayout.HandGathered? = null,
     val producerRows: List<ProducerRow>,
     val unchained: List<UnchainedRow>,
     /** The final projects drawn as panels, largest demand first (MCO-563). */
@@ -81,10 +83,13 @@ data class RoadmapGraphView(
  * Replaces the flat table as the default view — the table survives behind the view switch,
  * unchanged, because it is still the form that survives hundreds of rows and a screen reader.
  *
- * The design's whole claim is that **sequence and supply are different questions**: the top
- * band is what is left to do, in order; the left column is what already feeds the plan and is
- * waiting on nothing. Nothing done appears in the band and nothing unbuilt appears in the
- * column. See [RoadmapGraphLayout] for the geometry that encodes it.
+ * The design's whole claim is that **sequence and supply are different questions**. The work —
+ * what to finish, the order that really exists among the farms still to build, and every one of
+ * them — comes first; the graph below it is supply only, finished farms feeding the final
+ * projects. Nothing unbuilt enters the graph's column. See [RoadmapGraphLayout] for its geometry.
+ *
+ * One page whatever state the world is in (MCO-544): a world with nothing producing has the same
+ * sections in the same order, and only the graph changes — no column, the panels as a row (5A).
  */
 fun roadmapGraphPage(
     user: TokenProfile,
@@ -131,7 +136,7 @@ fun roadmapGraphPage(
                     // The work, then the picture of it (frames 4B/4C): what to finish, the order that
                     // really exists among the farms still to build, every one of them, and then the
                     // graph — whose promised-supply tab links back up to the table.
-                    view.toBuild?.takeIf { !it.isEmpty }?.let { toBuild ->
+                    view.toBuild.takeIf { !it.isEmpty }?.let { toBuild ->
                         finishFirstSection(view, toBuild)
                         orderBandSection(view, toBuild)
                         toBuildSection(view, toBuild)
@@ -156,26 +161,28 @@ fun roadmapGraphPage(
     }
 }
 
-private fun headerMeta(view: RoadmapGraphView): String {
-    val stats = view.roadmap.getStatistics()
-    return buildList {
-        add(view.roadmap.worldName)
-        add("${stats.totalProjects} ${if (stats.totalProjects == 1) "project" else "projects"}")
-        if (view.producerCount > 0) {
-            add("${view.producerCount} producing ${if (view.producerCount == 1) "farm" else "farms"}")
-        }
-        view.toBuild?.rows?.size?.takeIf { it > 0 }?.let {
-            add("$it ${if (it == 1) "farm" else "farms"} to build")
-        }
-        // Guarded on dependencies, exactly as the table's `roadmapSummary` guards it: depth is
-        // a fact about links, and a world whose projects link to nothing is one layer only in
-        // the sense that everything is in it. Unguarded this said "0 layers" on an empty world
-        // and "1 layer" on an unlinked one, neither of which measures anything.
-        if (stats.totalDependencies > 0) {
-            add("${stats.maxDepth} ${if (stats.maxDepth == 1) "layer" else "layers"}")
-        }
-    }.joinToString(" · ")
-}
+/**
+ * "Forever world · 16 producing farms · 6 farms to build · 3 final projects", as 4A and 5A head it.
+ *
+ * Producing farms are counted even at zero — "0 producing farms" is the fact a fresh world is
+ * about. The project count and the layer count are gone: the first counted rows of every kind as
+ * one, and depth was the queue's measure, which the page no longer draws.
+ */
+private fun headerMeta(view: RoadmapGraphView): String = buildList {
+    add(view.roadmap.worldName)
+    // An empty world has none of the counts below; "0 projects" is the one fact it has, and what the
+    // table view and the Projects tab both say.
+    if (view.roadmap.isEmpty()) add("0 projects")
+    if (view.finalProjectCount > 0 || view.producerCount > 0) {
+        add("${view.producerCount} producing ${if (view.producerCount == 1) "farm" else "farms"}")
+    }
+    view.toBuild.rows.size.takeIf { it > 0 }?.let {
+        add("$it ${if (it == 1) "farm" else "farms"} to build")
+    }
+    if (view.finalProjectCount > 0) {
+        add("${view.finalProjectCount} final ${if (view.finalProjectCount == 1) "project" else "projects"}")
+    }
+}.joinToString(" · ")
 
 // ---- 2. start here + graph shape --------------------------------------------------------
 
@@ -317,8 +324,13 @@ private fun FlowContent.orderBandSection(view: RoadmapGraphView, toBuild: Roadma
 private fun FlowContent.toBuildSection(view: RoadmapGraphView, toBuild: RoadmapToBuild.ToBuild) {
     val count = toBuild.rows.size
     val inOrder = toBuild.ordered.size
+    val grouped = RoadmapToBuild.groupsOf(toBuild, view.terminals)
     div("rmg-section rmg-tobuild") {
         id = "roadmap-to-build"
+        if (grouped != null) {
+            groupedToBuild(view, toBuild, grouped)
+            return@div
+        }
         div("rmg-tobuild__head") {
             val tail = when {
                 inOrder > 0 -> "$inOrder IN ORDER"
@@ -380,60 +392,119 @@ private fun FlowContent.toBuildSection(view: RoadmapGraphView, toBuild: RoadmapT
                 }
             }
         }
-        p("rmg-tobuild__caveat") {
-            span("rmg-tone-amber") { +"⚠ " }
-            span("rmg-tobuild__caveat-term") { +"Items supplied" }
-            +" sums supply lines, so it mixes crafted items with the raw ones underneath them — a farm's "
-            +"total can count ingots that were never on the hand list. It says how much of the plan a farm "
-            +"carries, not what gathering it would cost you, which is why the table is not sorted by it."
-        }
+        itemsCaveat()
+    }
+}
+
+private fun FlowContent.itemsCaveat() {
+    p("rmg-tobuild__caveat") {
+        span("rmg-tone-amber") { +"⚠ " }
+        span("rmg-tobuild__caveat-term") { +"Items supplied" }
+        +" sums supply lines, so it mixes crafted items with the raw ones underneath them — a farm's "
+        +"total can count ingots that were never on the hand list. It says how much of the plan a farm "
+        +"carries, not what gathering it would cost you, which is why the table is not sorted by it."
     }
 }
 
 /**
- * Facts about the *world*, not about the graph that draws it.
+ * TO BUILD when state no longer separates anything (frame 5A): every farm planned, none ordered.
  *
- * This used to report "layer 0 / layers 1–3" — the topological sort's own vocabulary, which
- * describes how the ordering is computed rather than anything the reader owns. Depth is the one
- * genuinely useful thing inside it, so it survives as "longest chain", which answers a question
- * somebody actually has: how many projects stand between me and the far end.
+ * Grouped by where each farm's output goes, then name, with no STATE column — every row would read
+ * the same — and no SUPPLIES column, which the group heading now says once. The STATE column
+ * returns with the first started farm, which is also when [RoadmapToBuild.groupsOf] stops grouping.
  */
-private fun shapeRows(view: RoadmapGraphView): List<Pair<String, String>> {
-    val stats = view.roadmap.getStatistics()
-    val remaining = stats.totalProjects - stats.completedProjects
-
-    return buildList {
-        if (remaining > 0) {
-            add("still to build" to "$remaining of ${stats.totalProjects} projects")
+private fun FlowContent.groupedToBuild(
+    view: RoadmapGraphView,
+    toBuild: RoadmapToBuild.ToBuild,
+    grouped: RoadmapToBuild.Grouped,
+) {
+    val count = toBuild.rows.size
+    div("rmg-tobuild__head") {
+        val state = RoadmapToBuild.stateWord(grouped.state).uppercase()
+        val order = if (toBuild.unsettled > 0) "ORDER UNSETTLED" else "ANY ORDER"
+        span("rmg-label") { +"TO BUILD · $count ${if (count == 1) "FARM" else "FARMS"} · ALL $state · $order" }
+        span("rmg-note") { +"one state, so grouped by where the output goes, then name" }
+    }
+    div("rmg-tobuild__table rmg-tobuild__table--grouped") {
+        div("rmg-tobuild__row rmg-tobuild__row--head") {
+            span { +"FARM" }
+            span("rmg-tobuild__num") { +"ITEMS SUPPLIED" }
         }
-        val toBuild = view.toBuild
-        if (toBuild != null) {
-            // Depth measured the queue, and there is no queue any more (MCO-571). What replaces it is
-            // the one ordering fact left: whether any of the farms still to build waits on another.
-            if (!toBuild.isEmpty) {
-                val inOrder = toBuild.ordered.size
-                val order = when {
-                    inOrder > 0 -> "$inOrder in order"
-                    toBuild.unsettled > 0 -> "order unsettled"
-                    else -> "any order"
-                }
-                add("farms to build" to "${toBuild.rows.size}, $order")
+        grouped.groups.forEach { group ->
+            div("rmg-tobuild__group") {
+                +"FEEDS ${RoadmapToBuild.suppliesText(group.supplies).uppercase()} · ${group.rows.size}"
             }
-        } else if (stats.maxDepth > 1) {
-            add("longest chain" to "${stats.maxDepth} projects deep")
+            group.rows.forEachIndexed { index, row ->
+                val band = if (index % 2 == 1) " rmg-tobuild__row--band" else ""
+                div("rmg-tobuild__row$band") {
+                    span("rmg-tobuild__name") {
+                        a(classes = "rmg-tobuild__link") {
+                            href = "/worlds/${view.roadmap.worldId}/projects/${row.projectId}"
+                            +row.name
+                        }
+                    }
+                    span("rmg-tobuild__num${if (row.singleItem != null) " rmg-tobuild__num--named" else ""}") {
+                        +RoadmapToBuild.itemsText(row)
+                    }
+                }
+                if (row.unsettled) {
+                    div("rmg-tobuild__sub rmg-tobuild__sub--depth-0$band") {
+                        a(classes = "rmg-tone-amber rmg-tobuild__unsettled") {
+                            href = "#roadmap-cycles"
+                            +"⚠ order unsettled — which comes first is the question above"
+                        }
+                    }
+                }
+            }
         }
-        // Items, not edge count. The old row said "86 from 22 farms", where 86 was the number of
-        // supply relationships — and it read as a quantity of items. Not "feeding <name>": the
-        // name had to be shortened to fit a 320px aside, and the only cheap way to do that was to
-        // take the last word — which gives "YAMS" for "Storage System YAMS" but "North" for
-        // "Iron Farm North". The graph names the destination a few centimetres away.
-        view.feeding?.let { add("feeding" to it) }
-        // Summed over the drawn panels, a panel nothing is promised to counting whole — as frame 4A's
-        // GRAPH SHAPE adds it up. Only when something is promised; otherwise it is just "by hand".
-        val splits = view.terminals.mapNotNull { view.terminalStats[it.projectId]?.split }
-        if (splits.size == view.terminals.size && splits.any { it.promised > 0 }) {
-            add("yours either way" to "${RoadmapGraphLayout.format(splits.sumOf { it.eitherWay })} items")
+        // Stated rather than omitted, as the supply column states them: a final project nothing
+        // here feeds on its own is a fact about the world, not a group the page forgot.
+        if (grouped.emptyFinals.isNotEmpty()) {
+            div("rmg-tobuild__group rmg-tobuild__group--empty") {
+                +grouped.emptyFinals.joinToString("  ·  ") { "FEEDS ${it.uppercase()} ONLY · none" }
+            }
         }
+    }
+    itemsCaveat()
+}
+
+/**
+ * Facts about the *world*, in the four rows 4A's GRAPH SHAPE and 5A's AT A GLANCE share: what
+ * produces, what is left to build and in what order, how many final projects, and what stays
+ * yours whatever you build.
+ *
+ * "still to build N of M projects" is gone with this: it counted project *stage*, so beside
+ * "farms to build" it disagreed whenever state and stage did. "longest chain" went with the queue
+ * it measured, and "feeding" with the column total it repeated.
+ */
+private fun shapeRows(view: RoadmapGraphView): List<Pair<String, String>> = buildList {
+    add(
+        "producing farms" to when {
+            view.producerCount == 0 -> "none yet"
+            view.sharedProducers > 0 -> "${view.producerCount} · ${view.sharedProducers} feed more than one"
+            else -> "${view.producerCount}"
+        }
+    )
+    val toBuild = view.toBuild
+    val inOrder = toBuild.ordered.size
+    add(
+        "farms to build" to when {
+            toBuild.isEmpty -> "none"
+            inOrder > 0 -> "${toBuild.rows.size}, $inOrder in order"
+            toBuild.unsettled > 0 -> "${toBuild.rows.size}, order unsettled"
+            else -> "${toBuild.rows.size}, any order"
+        }
+    )
+    // "none first": final projects are sinks by definition, so none waits on another. Said anyway,
+    // because "3 final projects" next to a numbered list invites the reader to look for an order.
+    if (view.finalProjectCount > 0) {
+        add("final projects" to if (view.finalProjectCount == 1) "1" else "${view.finalProjectCount}, none first")
+    }
+    // Summed over the drawn panels, a panel nothing is promised to counting whole — as frame 4A's
+    // GRAPH SHAPE adds it up. Only when something is promised; otherwise it is just "by hand".
+    val splits = view.terminals.mapNotNull { view.terminalStats[it.projectId]?.split }
+    if (splits.size == view.terminals.size && splits.any { it.promised > 0 }) {
+        add("yours either way" to "${RoadmapGraphLayout.format(splits.sumOf { it.eitherWay })} items")
     }
 }
 
@@ -441,24 +512,20 @@ private fun shapeRows(view: RoadmapGraphView): List<Pair<String, String>> {
 
 private fun FlowContent.graphSection(view: RoadmapGraphView) {
     val graph = view.graph
+    // No farm produces yet, but there are final projects to report on: 5A's panel row.
+    if (graph == null && view.terminals.isNotEmpty()) {
+        panelRowSection(view)
+        return
+    }
     div("rmg-section rmg-graph") {
         div("rmg-graph__head") {
-            // With no band, nothing in the graph is a dependency any more: it is supply, drawn now
-            // or promised (MCO-571), and its line weight is the per-panel rank MCO-566 shipped.
-            if (view.toBuild != null) {
-                span("rmg-label") { +"SUPPLY GRAPH · LINE WEIGHT = RANK BY ITEMS, PER PANEL" }
-                span("rmg-legend") {
-                    span { +"▬ SUPPLYING NOW" }
-                    span { +"┄ PROMISED / BY HAND" }
-                    span { +"▸ TAP A PROJECT TO OPEN IT" }
-                }
-            } else {
-                span("rmg-label") { +"DEPENDENCY GRAPH · LINE WEIGHT = ITEMS MOVED" }
-                span("rmg-legend") {
-                    span { +"▬ GENERATED" }
-                    span { +"┄ MANUAL / BY HAND" }
-                    span { +"▸ TAP A PROJECT TO OPEN IT" }
-                }
+            // Nothing in the graph is a dependency: it is supply, drawn now or promised (MCO-571),
+            // and its line weight is the per-panel rank MCO-566 shipped.
+            span("rmg-label") { +"SUPPLY GRAPH · LINE WEIGHT = RANK BY ITEMS, PER PANEL" }
+            span("rmg-legend") {
+                span { +"▬ SUPPLYING NOW" }
+                span { +"┄ PROMISED / BY HAND" }
+                span { +"▸ TAP A PROJECT TO OPEN IT" }
             }
         }
 
@@ -483,6 +550,106 @@ private fun FlowContent.graphSection(view: RoadmapGraphView) {
 }
 
 /**
+ * SUPPLY · NO FARM PRODUCES YET — the graph section of a world where nothing is built (frame 5A).
+ *
+ * What a nothing-built world lacks is the supply column, so that is the one thing that goes: the
+ * section keeps its panels and loses its left half. With no column there are no ropes and no
+ * rails to draw, so the panels stand as a plain row of cards rather than absolutely-positioned
+ * nodes, and each carries a bar: promised and yours either way, on one scale across the row, so
+ * the bars compare panels as well as halves.
+ *
+ * When the first farm is done the column and its ropes appear and the panels move to the graph's
+ * right edge — 5A's stated trade: keeping a 760px empty column so they never move is the near-empty
+ * graph this frame replaced.
+ */
+private fun FlowContent.panelRowSection(view: RoadmapGraphView) {
+    div("rmg-section rmg-graph") {
+        div("rmg-graph__head") {
+            span("rmg-label") { +"SUPPLY · NO FARM PRODUCES YET" }
+            span("rmg-legend") {
+                span("rmg-legend__key") {
+                    span("rmg-swatch rmg-swatch--promised") {}
+                    +"PROMISED"
+                }
+                span("rmg-legend__key") {
+                    span("rmg-swatch rmg-swatch--yours") {}
+                    +"YOURS EITHER WAY"
+                }
+                span { +"BAR LENGTH = BY HAND NOW, SHARED SCALE" }
+            }
+        }
+
+        // The by-hand node, as a strip: there is no column to stand in, and it speaks for every
+        // panel at once.
+        val hand = view.handTotals
+        if (hand != null) {
+            div("rmg-handstrip") {
+                span {
+                    span("rmg-handstrip__title") {
+                        +if (view.terminals.size > 1) "By hand, all ${RoadmapToBuild.countWord(view.terminals.size)}" else "By hand"
+                    }
+                    span("rmg-tone-muted") {
+                        +" · ${RoadmapGraphLayout.format(hand.items)} items · ${hand.materials} materials"
+                    }
+                }
+                RoadmapGraphLayout.promisedShareOf(hand)?.let { share ->
+                    val farms = view.toBuild.rows.size
+                    span("rmg-tone-amber") {
+                        +"⚠ $share% of it is promised by the ${if (farms == 1) "farm" else "${RoadmapToBuild.countWord(farms)} farms"}"
+                    }
+                }
+                if (!view.toBuild.isEmpty) {
+                    a(classes = "rmg-handstrip__link") {
+                        href = "#roadmap-to-build"
+                        +"SEE TABLE ▸"
+                    }
+                }
+            }
+        }
+
+        val scale = view.terminals.maxOfOrNull { view.terminalStats[it.projectId]?.byHand ?: 0L }?.takeIf { it > 0 }
+        div("rmg-panelrow") {
+            view.terminals.forEachIndexed { index, terminal ->
+                val stats = view.terminalStats[terminal.projectId]
+                a(classes = "rmg-panelrow__card") {
+                    href = "/worlds/${view.roadmap.worldId}/projects/${terminal.projectId}"
+                    span("rmg-node__eyebrow rmg-tone-muted") {
+                        +"FINAL PROJECT · ${index + 1} OF ${view.finalProjectCount}"
+                    }
+                    div("rmg-node__title") { +terminal.projectName }
+                    if (stats != null && scale != null) handBar(stats, scale)
+                    terminalBody(view, terminal.projectId)
+                }
+            }
+            val hidden = view.finalProjectCount - view.terminals.size
+            if (hidden > 0) {
+                div("rmg-panelrow__card rmg-panelrow__card--more") {
+                    div("rmg-node__title") { +"+$hidden more final ${if (hidden == 1) "project" else "projects"}" }
+                    div("rmg-node__sub rmg-tone-muted") { +"see the table view for all of them" }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Promised then yours either way, as two lengths of one bar. Widths are computed per world and
+ * are the only thing that reaches `style` — as [progressBar] does with its own width.
+ */
+private fun FlowContent.handBar(stats: RoadmapGraphLayout.TerminalStats, scale: Long) {
+    val split = stats.split ?: HandListSplit.Split(promised = 0, eitherWay = stats.byHand)
+    fun share(value: Long) = "%.2f".format(java.util.Locale.ROOT, value * 100.0 / scale)
+    div("rmg-handbar") {
+        if (split.promised > 0) {
+            div("rmg-handbar__part rmg-swatch--promised") { attributes["style"] = "width: ${share(split.promised)}%" }
+        }
+        if (split.eitherWay > 0) {
+            div("rmg-handbar__part rmg-swatch--yours") { attributes["style"] = "width: ${share(split.eitherWay)}%" }
+        }
+    }
+}
+
+/**
  * Under the graph, frame 4A's reading of the first panel's split — and why it will not match the
  * TO BUILD table, which is the first thing a careful reader checks.
  */
@@ -491,19 +658,17 @@ private fun splitNote(view: RoadmapGraphView): String? {
         view.terminalStats[terminal.projectId]?.split?.takeIf { it.promised > 0 }?.let { terminal to it }
     } ?: return null
     val byHand = view.terminalStats.getValue(terminal.projectId).byHand
-    val farms = view.toBuild?.rows?.size
-    val built = when (farms) {
-        null -> "once the farms you're building are finished"
-        1 -> "once the farm you're building is finished"
-        else -> "once the ${RoadmapToBuild.countWord(farms)} farms are built"
+    val farms = view.toBuild.rows.size
+    val built = if (farms == 1) {
+        "once the farm you're building is finished"
+    } else {
+        "once the ${RoadmapToBuild.countWord(farms)} farms are built"
     }
-    // A world that still has its band has no TO BUILD table to point at; its supply lines say the same.
-    val totals = if (view.toBuild != null) "the per-farm totals in the TO BUILD table" else "the supply lines above"
     val f = RoadmapGraphLayout::format
     return "Of ${terminal.projectName}'s ${f(byHand)}-item hand list, ${f(split.promised)} disappears $built, " +
         "and ${f(split.eitherWay)} stays yours either way. Both are differences between two hand lists, so " +
-        "they will not match $totals, which count crafted items the hand list never had — only the raw " +
-        "materials under them."
+        "they will not match the per-farm totals in the TO BUILD table, which count crafted items the hand " +
+        "list never had — only the raw materials under them."
 }
 
 /**
@@ -655,28 +820,40 @@ private fun FlowContent.graphNode(view: RoadmapGraphView, node: GraphNode) {
 
 private fun FlowContent.terminalBody(view: RoadmapGraphView, projectId: Int) {
     val stats = view.terminalStats[projectId] ?: return
+    // Until a farm produces for it, "from 0 farms 0" says nothing; how many of the farms being
+    // built will feed it says what is coming (frame 5A).
+    val feeds = if (stats.farms == 0) {
+        val feeders = view.toBuild.feedersByTerminal[projectId] ?: 0
+        if (feeders == 0) "no farm feeds it" else "$feeders of the ${view.toBuild.rows.size} feed it"
+    } else {
+        null
+    }
     if (stats.percentComplete > 0) {
         div("rmg-terminal__progress") {
             progressBar(stats.percentComplete, 100, large = true)
             span("rmg-terminal__percent") { +"${stats.percentComplete}%" }
         }
+        feeds?.let { div("rmg-terminal__state rmg-tone-muted") { +it } }
     } else {
         // A 0% bar is a widget reporting nothing. The state is the thing worth the line, and it
         // is what the reader of a not-yet-started build is looking for.
-        div("rmg-terminal__state rmg-tone-muted") { +"not started" }
+        div("rmg-terminal__state rmg-tone-muted") { +listOfNotNull("not started", feeds).joinToString(" · ") }
     }
     div("rmg-deflist rmg-terminal__facts") {
-        span("rmg-deflist__key") { +"from ${stats.farms} ${if (stats.farms == 1) "farm" else "farms"}" }
-        span { +RoadmapGraphLayout.format(stats.fromFarms) }
-        // "now", because the number moves when the farms being built come online — the split that
-        // says how much of it does is the next piece of this frame.
+        if (stats.farms > 0) {
+            span("rmg-deflist__key") { +"from ${stats.farms} ${if (stats.farms == 1) "farm" else "farms"}" }
+            span { +RoadmapGraphLayout.format(stats.fromFarms) }
+        }
+        // "now", because the number moves when the farms being built come online.
         span("rmg-deflist__key") { +"by hand now" }
         span { +RoadmapGraphLayout.format(stats.byHand) }
-        // Indented under "by hand now" because these two add up to it (MCO-572, frame 4A). Cut when
-        // nothing is promised: "yours either way" would only repeat the line above.
-        stats.split?.takeIf { it.promised > 0 }?.let { split ->
+        // Indented under "by hand now" because these two add up to it (MCO-572, frame 4A). Beside the
+        // graph they are cut when nothing is promised — "yours either way" would only repeat the line
+        // above. With nothing producing (5A) every panel carries them, "promised none" included, so
+        // the row of panels reads as one comparison.
+        stats.split?.takeIf { it.promised > 0 || !view.producing }?.let { split ->
             span("rmg-deflist__key rmg-deflist__key--sub") { +"promised" }
-            span("rmg-tone-muted") { +RoadmapGraphLayout.format(split.promised) }
+            span("rmg-tone-muted") { +if (split.promised > 0) RoadmapGraphLayout.format(split.promised) else "none" }
             span("rmg-deflist__key rmg-deflist__key--sub") { +"yours either way" }
             span("rmg-tone-muted") { +RoadmapGraphLayout.format(split.eitherWay) }
         }

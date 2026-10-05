@@ -54,27 +54,6 @@ class RoadmapGraphNotesTest {
     // ---- start here ---------------------------------------------------------------------
 
     @Test
-    fun `a finished farm supplying the start is not something it waits on`() {
-        val trading = node(1, "First trading setup", ProjectState.DONE)
-        val start = node(2, "Copper Library")
-        val world = roadmap(listOf(trading, start), listOf(edge(start, trading, "Glass (Block)", 14_976)))
-
-        assertEquals("The only project with anything waiting on it.", startNoteFor(world, start, 1))
-    }
-
-    @Test
-    fun `an unfinished producer is named as what the start waits on`() {
-        val slime = node(1, "Slime farm")
-        val start = node(2, "Sorting System", layer = 1)
-        val world = roadmap(listOf(slime, start), listOf(edge(start, slime, "Slimeball", 50)))
-
-        assertEquals(
-            "First of 2 projects still to build. Waits on Slime farm for 50 Slimeball.",
-            startNoteFor(world, start, 2),
-        )
-    }
-
-    @Test
     fun `with nothing left to build, the note names the other final projects`() {
         val yams = node(1, "Storage System YAMS", layer = 1)
         val copper = node(2, "Copper Library", layer = 1)
@@ -96,20 +75,18 @@ class RoadmapGraphNotesTest {
         val yams = node(1, "Storage System YAMS", ProjectState.DONE, layer = 1)
         val copper = node(2, "Copper Library", ProjectState.DONE, layer = 1)
 
-        assertNull(startOf(emptyList(), listOf(yams, copper)), "a built world has nothing to start")
+        assertNull(startOf(listOf(yams, copper)), "a built world has nothing to start")
     }
 
     @Test
-    fun `with nothing upstream, the first unfinished final project is where to start`() {
+    fun `with nothing left to build, the first unfinished final project is where to start`() {
         val done = node(1, "Old storage", ProjectState.DONE, layer = 1)
         val copper = node(2, "Copper Library", layer = 1)
-        val slime = node(3, "Slime farm")
 
-        assertEquals(copper, startOf(emptyList(), listOf(done, copper)))
-        assertEquals(slime, startOf(listOf(slime), listOf(copper)), "the band comes first")
+        assertEquals(copper, startOf(listOf(done, copper)))
     }
 
-    // ---- feeding ------------------------------------------------------------------------
+    // ---- the column ---------------------------------------------------------------------
 
     /**
      * Fixture 6's shape: a hand-made "YAMS before Copper Library" leaves Copper Library the only
@@ -117,7 +94,7 @@ class RoadmapGraphNotesTest {
      * world's farm count — beside a supply column of six.
      */
     @Test
-    fun `the feeding row counts the farms in the column, not every farm in the world`() {
+    fun `the column holds the farms feeding what is drawn, not every farm in the world`() {
         val cobble = node(1, "Cobble farm", ProjectState.DONE)
         val trading = node(2, "First trading setup", ProjectState.DONE)
         val iron = node(3, "Iron farm", ProjectState.DONE)
@@ -136,13 +113,8 @@ class RoadmapGraphNotesTest {
 
         val drawn = RoadmapGraphLayout.terminalsOf(world).map { it.projectId }.toSet()
         assertEquals(setOf(5), drawn, "YAMS feeds Copper Library by hand-made ordering, so it is not final")
-        assertEquals("17,376 items from 1 farm", feedingOf(producersOf(world, drawn)))
+        assertEquals(listOf(2), producersOf(world, drawn).map { it.projectId }, "the column holds the one farm feeding what is drawn")
         assertEquals(3, allProducersOf(world).size, "the world still has three farms — just not in this column")
-    }
-
-    @Test
-    fun `no farm in the column is no feeding row`() {
-        assertNull(feedingOf(emptyList()))
     }
 
     // ---- by hand ------------------------------------------------------------------------
