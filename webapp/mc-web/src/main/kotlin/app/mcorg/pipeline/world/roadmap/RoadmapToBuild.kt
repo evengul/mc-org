@@ -98,6 +98,8 @@ object RoadmapToBuild {
         val band: RoadmapGraphLayout.Graph?,
         /** Ordered farms the band had no room for; the table still lists them. */
         val bandHidden: Int,
+        /** How many of [rows] feed each final project directly, by project id — "16 of the 22 feed it". */
+        val feedersByTerminal: Map<Int, Int> = emptyMap(),
     ) {
         val inProgress: List<Row> get() = rows.filter { it.state == ProjectState.ACTIVE }
         val unsettled: Int get() = rows.count { it.unsettled }
@@ -116,7 +118,7 @@ object RoadmapToBuild {
      * otherwise appear in no section of the page.
      */
     fun of(roadmap: Roadmap, terminals: List<RoadmapNode>): ToBuild {
-        val farms = RoadmapGraphLayout.sequenceNodesOf(roadmap, terminals)
+        val farms = RoadmapGraphLayout.unbuiltUpstreamOf(roadmap, terminals)
         val farmIds = farms.mapTo(mutableSetOf()) { it.projectId }
         val terminalIds = terminals.map { it.projectId }
         val byId = roadmap.nodes.associateBy { it.projectId }
@@ -196,6 +198,10 @@ object RoadmapToBuild {
             chains = chainsOf(ordered, orderEdges.map { it.fromNodeId to it.toNodeId }),
             band = band?.graph,
             bandHidden = band?.hidden ?: 0,
+            feedersByTerminal = roadmap.edges
+                .filter { it.toNodeId in farmIds && it.fromNodeId in terminalIds }
+                .groupBy { it.fromNodeId }
+                .mapValues { (_, edges) -> edges.map { it.toNodeId }.distinct().size },
         )
     }
 
@@ -257,6 +263,52 @@ object RoadmapToBuild {
         val amount = wait.quantity?.let { "${format(it)} " } ?: ""
         wait.itemName?.let { "${wait.name} for $amount${shortItemName(it)}" } ?: wait.name
     }
+
+    // ---- grouping by destination (frame 5A) ------------------------------------------------
+
+    /** One run of the TO BUILD table, named for where its farms' output goes. */
+    data class Group(val supplies: List<String>, val rows: List<Row>)
+
+    /**
+     * The table grouped by what each farm feeds, or null when state still separates the rows.
+     *
+     * A fresh world's farms are all planned, so "state, then name" collapses into "name" and the
+     * table stops saying anything. Grouping by destination puts the one fact that does differ up
+     * front — and uses the supply column's groups, so a farm that goes DONE lands in the group it
+     * was already listed under.
+     *
+     * Only when nothing is ordered either: a chained farm sits under the farm it waits on (4C), and
+     * a group heading would cut it away from its parent.
+     *
+     * Ordered as 5A draws it: the farms feeding the most final projects first, then one group per
+     * final project in panel order, then farms that feed only other farms. [emptyFinals] are the
+     * drawn final projects no farm feeds alone — stated, not omitted, as the supply column does.
+     */
+    fun groupsOf(toBuild: ToBuild, drawn: List<RoadmapNode>): Grouped? {
+        if (toBuild.rows.isEmpty() || toBuild.ordered.isNotEmpty()) return null
+        if (toBuild.rows.map { it.state }.distinct().size > 1) return null
+
+        val panelOrder = drawn.map { it.projectName }
+        val groups = toBuild.rows
+            .groupBy { it.supplies }
+            .map { (supplies, rows) -> Group(supplies, rows.sortedBy { it.name.lowercase() }) }
+            .sortedWith(
+                compareByDescending<Group> { it.supplies.size }
+                    .thenBy { group -> group.supplies.firstOrNull()?.let { panelOrder.indexOf(it) }?.takeIf { it >= 0 } ?: Int.MAX_VALUE }
+                    .thenBy { it.supplies.joinToString() }
+            )
+        val alone = groups.filter { it.supplies.size == 1 }.mapTo(mutableSetOf()) { it.supplies.single() }
+        return Grouped(
+            state = toBuild.rows.first().state,
+            groups = groups,
+            emptyFinals = panelOrder.filter { it !in alone },
+        )
+    }
+
+    data class Grouped(val state: ProjectState, val groups: List<Group>, val emptyFinals: List<String>)
+
+    /** "planned", "building", "paused" — the word without its glyph, for "ALL PLANNED". */
+    fun stateWord(state: ProjectState): String = stateLabel(state).substringAfter(' ')
 
     // ---- copy -----------------------------------------------------------------------------
 

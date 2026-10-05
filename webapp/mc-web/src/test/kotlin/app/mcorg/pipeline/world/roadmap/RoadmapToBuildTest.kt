@@ -163,6 +163,72 @@ class RoadmapToBuildTest {
         assertTrue(RoadmapToBuild.finishNotes(toBuild).first().startsWith("None of the six is started yet."))
     }
 
+    // ---- 5A: nothing built yet -----------------------------------------------------------------
+
+    /** Frame 5A's world, cut down: every farm planned, nothing ordered. */
+    private fun nothingBuilt() = partiallyBuilt().let { world ->
+        world.copy(nodes = world.nodes.map { if (it.projectId in 20..25) it.copy(state = ProjectState.PENDING) else it })
+    }
+
+    @Test
+    fun `with one state and no order, the table groups by where each farm's output goes`() {
+        val world = nothingBuilt()
+        val terminals = RoadmapGraphLayout.terminalsOf(world)
+        val grouped = assertNotNull(RoadmapToBuild.groupsOf(RoadmapToBuild.of(world, terminals), terminals))
+
+        assertEquals(ProjectState.PENDING, grouped.state)
+        assertEquals(
+            listOf(
+                listOf("Storage System YAMS", "Copper Library") to
+                    listOf("Bartering setup", "Earlygame iron farm", "Witch hut farm", "Wither rose farm"),
+                listOf("Storage System YAMS") to listOf("Cobble farm", "Guardian farm"),
+            ),
+            grouped.groups.map { it.supplies to it.rows.map { row -> row.name } },
+            "the farms feeding most first, then one group per final project, name order inside",
+        )
+        assertEquals(listOf("Copper Library"), grouped.emptyFinals, "no farm feeds the Library alone")
+    }
+
+    @Test
+    fun `state that still separates the rows keeps the plain table`() {
+        val world = partiallyBuilt()
+        val terminals = RoadmapGraphLayout.terminalsOf(world)
+
+        assertNull(RoadmapToBuild.groupsOf(RoadmapToBuild.of(world, terminals), terminals))
+    }
+
+    @Test
+    fun `order keeps the plain table, so a chained farm stays under the one it waits on`() {
+        val world = nothingBuilt().let { it.copy(edges = it.edges + edge(iron, cobble, "Cobblestone", 3_787)) }
+        val terminals = RoadmapGraphLayout.terminalsOf(world)
+
+        assertNull(RoadmapToBuild.groupsOf(RoadmapToBuild.of(world, terminals), terminals))
+    }
+
+    @Test
+    fun `with nothing producing, final projects rank by what the farms being built will supply`() {
+        val slime = node(12, "New slime farm", ProjectState.ACTIVE)
+        // The moss farm too: nothing produces, so every final project's supply ties at zero.
+        val world = nothingBuilt().let { w ->
+            w.copy(nodes = w.nodes.map { if (it.projectId == moss.projectId) it.copy(state = ProjectState.PENDING) else it } + slime)
+        }
+        // Demand alone would put the hand-only slime farm second: 100,000 against the Library's 7,000.
+        val demand = mapOf(yams.projectId to 240_000L, slime.projectId to 100_000L, library.projectId to 7_000L)
+
+        assertEquals(
+            listOf("Storage System YAMS", "Copper Library", "New slime farm"),
+            RoadmapGraphLayout.terminalsOf(world, demand).map { it.projectName },
+        )
+    }
+
+    @Test
+    fun `each final project knows how many of the farms being built will feed it`() {
+        val toBuild = toBuildOf(nothingBuilt())
+
+        assertEquals(6, toBuild.feedersByTerminal[yams.projectId])
+        assertEquals(4, toBuild.feedersByTerminal[library.projectId])
+    }
+
     // ---- 4C: the band comes back for the chain only -------------------------------------------
 
     /** Fixture 5 after the cycle was answered cobble-first: the iron farm waits on the cobble farm. */
@@ -330,7 +396,7 @@ class RoadmapToBuildTest {
         assertTrue(ropes.all { it.dashed }, "promised supply is the legend's ┄")
 
         val panels = graph.nodes.filter { it.kind == RoadmapGraphLayout.NodeKind.TERMINAL }
-        assertEquals(RoadmapGraphLayout.PROMISED_TERMINAL_TOP, panels.first().y, "panels rise into the band's old space")
+        assertEquals(RoadmapGraphLayout.TERMINAL_TOP, panels.first().y, "panels rise into the band's old space")
         assertTrue(tab.y + tab.height < panels.first().y, "the tab sits above the top panel")
         panels.forEach { assertTrue(it.x + it.width < graph.width, "${it.title} leaves no room for the ropes") }
     }

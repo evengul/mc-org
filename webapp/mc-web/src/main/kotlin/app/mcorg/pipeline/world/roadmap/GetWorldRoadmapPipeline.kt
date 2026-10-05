@@ -53,7 +53,7 @@ suspend fun ApplicationCall.handleGetWorldRoadmap() {
 /**
  * Assembles everything the graph template renders.
  *
- * Producers, the sequence band and both list sections all come out of the roadmap's own
+ * Producers, the farms still to build and both list sections all come out of the roadmap's own
  * edges — one derivation, so the graph cannot disagree with the table about what blocks
  * what. Only each final project's plan totals need reads of their own, and those degrade to
  * zeroes rather than failing the page.
@@ -81,13 +81,11 @@ internal suspend fun graphViewOf(roadmap: Roadmap): RoadmapGraphView {
         terminal.projectId to (GetRoadmapGraphDataStep(terminal.projectId).process(Unit).getOrNull() ?: RoadmapGraphData.EMPTY)
     }
 
-    // Once anything is producing, the farms still to build are a set rather than a queue (MCO-571):
-    // a TO BUILD table, a band for whatever order really exists among them, and one promised-supply
-    // tab in the graph. A world where nothing produces yet keeps the band — there the chain *is*
-    // the page (design frame 3C), and the handover is "a final project with no producing farm",
-    // not a chain depth.
-    val farmsToBuild = RoadmapToBuild.of(roadmap, terminals)
-    val toBuild = farmsToBuild.takeIf { columnProducers.isNotEmpty() }
+    // The farms still to build are a set rather than a queue (MCO-571): a TO BUILD table, and a band
+    // for whatever order really exists among them. The same in every world (MCO-544, frame 5A) — a
+    // world where nothing produces yet is the same page with no supply column, not a second page.
+    val toBuild = RoadmapToBuild.of(roadmap, terminals)
+    val producing = columnProducers.isNotEmpty()
 
     // Decommissioned farms have no edges, so nothing above would ever mention them (MCO-541).
     val stoppedFarms = GetStoppedFarmsStep(roadmap.worldId).process(Unit).getOrNull().orEmpty()
@@ -96,7 +94,7 @@ internal suspend fun graphViewOf(roadmap: Roadmap): RoadmapGraphView {
     // between hand lists, so each needs a plan derived as if farms were built. Cached; see
     // [ScenarioDemand]. The split is drawn whichever layout the world gets — a fresh world is where
     // most of its hand list is already spoken for by farms the user has just created.
-    val building = farmsToBuild.rows.mapTo(mutableSetOf()) { it.projectId }
+    val building = toBuild.rows.mapTo(mutableSetOf()) { it.projectId }
     val productions = GetUnfinishedProductionsStep(roadmap.worldId).process(Unit).getOrNull().orEmpty()
     val demandItems = GetDemandItemIdsStep(drawnIds).process(Unit).getOrNull().orEmpty()
     val wanted = HandListSplit.wanted(drawnIds, building, stoppedFarms.map { it.projectId }, productions, demandItems)
@@ -137,19 +135,25 @@ internal suspend fun graphViewOf(roadmap: Roadmap): RoadmapGraphView {
         hand.copy(promised = splits.values.sumOf { it?.promised ?: 0L })
     }
 
-    val graph = RoadmapGraphLayout.of(
-        roadmap,
-        columnProducers,
-        handGathered,
-        demand,
-        promised = toBuild?.let { RoadmapGraphLayout.Promised(it.rows.size, it.promisedByTerminal) },
-        splitRows = splits.values.any { (it?.promised ?: 0L) > 0 },
-    )
+    // With no farm producing there is no column to lay out, and the page draws the panels as a row
+    // instead (frame 5A) — so there is only a graph once something feeds a drawn panel.
+    val graph = if (!producing) {
+        null
+    } else {
+        RoadmapGraphLayout.of(
+            roadmap,
+            columnProducers,
+            handGathered,
+            demand,
+            promised = RoadmapGraphLayout.Promised(toBuild.rows.size, toBuild.promisedByTerminal),
+            splitRows = splits.values.any { (it?.promised ?: 0L) > 0 },
+        )
+    }
 
-    val sequence = RoadmapGraphLayout.sequenceNodesOf(roadmap, terminals)
     // FINISH THESE FIRST replaces START HERE whenever there is anything to build: naming one farm
-    // to start would rank a set the page has just said it cannot rank.
-    val start = if (toBuild != null && !toBuild.isEmpty) null else startOf(sequence, terminals)
+    // to start would rank a set the page has just said it cannot rank. With nothing left to build,
+    // the first unfinished final project is where to start.
+    val start = if (toBuild.isEmpty) startOf(terminals) else null
 
     // A project with no edge in either direction is in nobody's chain. Split by state:
     // an unfinished one is work you can do whenever, a *finished* one that supplies
@@ -165,16 +169,17 @@ internal suspend fun graphViewOf(roadmap: Roadmap): RoadmapGraphView {
         roadmap = roadmap,
         graph = graph,
         toBuild = toBuild,
+        producing = producing,
         startHere = start,
-        startHereNote = start?.let {
-            if (sequence.isEmpty()) {
-                readyNoteFor(terminals.filter { terminal -> !terminal.state.isTerminal })
-            } else {
-                startNoteFor(roadmap, it, sequence.size)
-            }
-        },
+        startHereNote = start?.let { readyNoteFor(terminals.filter { terminal -> !terminal.state.isTerminal }) },
         producerCount = allProducers.size,
-        feeding = feedingOf(columnProducers),
+        // "16 · 2 feed more than one", frame 4A's GRAPH SHAPE: the farms in the column, and how many
+        // of them sit in its shared run.
+        sharedProducers = columnProducers.count { producer ->
+            drawn.count { (producer.itemsByTerminal[it.projectId] ?: 0L) > 0 } > 1
+        },
+        finalProjectCount = terminals.size,
+        handTotals = handGathered,
         stopped = stopped,
         producerRows = allProducers
             .sortedWith(compareByDescending<RoadmapGraphLayout.Producer> { it.items }.thenBy { it.name })
@@ -223,30 +228,6 @@ internal suspend fun graphViewOf(roadmap: Roadmap): RoadmapGraphView {
     )
 }
 
-/** "The only project with anything waiting on it. Waits on Cobble farm for 100,000 X." */
-internal fun startNoteFor(roadmap: Roadmap, start: RoadmapNode, sequenceSize: Int): String {
-    // Only a blocking edge is something to wait on. A finished farm supplying the project is the
-    // opposite, and reading every edge printed "waits on First trading setup for 14,976 Glass"
-    // about a farm that had been running for months (MCO-563).
-    val waitsOn = roadmap.edges
-        .filter { it.fromNodeId == start.projectId && it.isBlocking }
-        .maxByOrNull { it.quantity ?: Long.MIN_VALUE }
-
-    val lead = if (sequenceSize == 1) {
-        "The only project with anything waiting on it."
-    } else {
-        "First of $sequenceSize projects still to build."
-    }
-
-    val tail = waitsOn?.let { edge ->
-        val amount = edge.quantity?.let { "${RoadmapGraphLayout.format(it)} " } ?: ""
-        edge.itemName?.let { " Waits on ${edge.toNodeName} for $amount$it." }
-            ?: " Waits on ${edge.toNodeName}."
-    } ?: ""
-
-    return lead + tail
-}
-
 /**
  * "Nothing is left to build before it. Copper Library is ready too." — the note when every
  * project feeding the final projects is already done, so the first of them is where to start.
@@ -262,30 +243,15 @@ internal fun readyNoteFor(terminals: List<RoadmapNode>): String {
 }
 
 /**
- * Where to start: the first project in the band, or — with nothing left to build before them —
- * the first final project that is still to do.
+ * Where to start once nothing is left to build before the final projects: the first of them that
+ * is still to do. (With farms left to build, FINISH THESE FIRST speaks instead.)
  *
  * Null when every final project is finished. [RoadmapGraphLayout.terminalsOf] falls back to a
  * *finished* project so a built world still draws its graph, and taking that fallback here put a
  * completed build under "START HERE" with a Not Started badge.
  */
-internal fun startOf(sequence: List<RoadmapNode>, terminals: List<RoadmapNode>): RoadmapNode? =
-    sequence.firstOrNull() ?: terminals.firstOrNull { !it.state.isTerminal }
-
-/**
- * "34,313 items from 6 farms" — the supply column's farms and what they feed the drawn final
- * projects, or null when they feed nothing.
- *
- * Both numbers come from [producers], the column itself. The row used to sum the drawn projects'
- * edges and divide by the whole world's farm count, so a world where one hand-made ordering left
- * a single small project drawn read "34,313 items from 22 farms" beside a column of six.
- */
-internal fun feedingOf(producers: List<RoadmapGraphLayout.Producer>): String? {
-    val items = producers.sumOf { it.items }
-    if (items <= 0) return null
-    val farms = if (producers.size == 1) "farm" else "farms"
-    return "${RoadmapGraphLayout.format(items)} items from ${producers.size} $farms"
-}
+internal fun startOf(terminals: List<RoadmapNode>): RoadmapNode? =
+    terminals.firstOrNull { !it.state.isTerminal }
 
 private fun taskNoteFor(node: RoadmapNode): String = when {
     node.tasksTotal == 0 -> "no tasks"

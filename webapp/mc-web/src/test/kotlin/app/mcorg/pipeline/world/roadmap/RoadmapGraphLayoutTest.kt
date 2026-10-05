@@ -18,7 +18,7 @@ import kotlin.test.assertTrue
  *
  * The design was measured on one world: 26 projects at layer 0, a three-project spine, one
  * terminal. That world is the easy case. These tests lean on the shapes that would break a
- * layout tuned to it — a long sequence, a large producer set, several chains, no chain at all
+ * layout tuned to it — a large producer set, several final projects, no chain at all
  * — because "works on Forever world" is exactly the failure mode a hand-authored prototype
  * invites.
  */
@@ -90,41 +90,7 @@ class RoadmapGraphLayoutTest {
         assertEquals(3, terminal?.projectId)
     }
 
-    // ---- generalisation: the band and the column are both bounded ----------------------
-
-    @Test
-    fun `a long sequence collapses its tail instead of drawing slivers`() {
-        val terminal = node(99, "Storage", layer = 9)
-        val queue = (1..9).map { node(it, "Build $it", layer = it) }
-        val edges = queue.map { edge(terminal, it, "Thing", 10) }
-
-        val graph = RoadmapGraphLayout.of(roadmap(queue + terminal, edges), emptyList(), null)
-        assertNotNull(graph)
-
-        val band = graph.nodes.filter {
-            it.kind == RoadmapGraphLayout.NodeKind.SEQUENCE || it.kind == RoadmapGraphLayout.NodeKind.START
-        }
-        assertEquals(
-            RoadmapGraphLayout.MAX_SEQUENCE_SLOTS,
-            band.size,
-            "the band fills its slots and no more, however long the queue",
-        )
-        assertTrue(
-            band.any { it.title.endsWith("more to build") },
-            "the tail is counted, not dropped",
-        )
-        assertTrue(
-            band.all { it.width >= RoadmapGraphLayout.MIN_SEQUENCE_WIDTH },
-            "no node is narrower than its title can survive",
-        )
-        // Every drawn node must stay inside the band's own span.
-        band.forEach {
-            assertTrue(
-                it.x + it.width <= RoadmapGraphLayout.SEQUENCE_RIGHT,
-                "${it.title} runs past the band at ${it.x + it.width}",
-            )
-        }
-    }
+    // ---- generalisation: the column is bounded -------------------------------------------
 
     @Test
     fun `the producer column keeps the largest and bundles the rest`() {
@@ -146,10 +112,10 @@ class RoadmapGraphLayoutTest {
         assertNull(bundle, "a small world should never meet a bundle node")
     }
 
-    // ---- the load-bearing rule: done never in the band, unbuilt never in the column -----
+    // ---- the load-bearing rule: unbuilt never in the column ----------------------------
 
     @Test
-    fun `finished projects never enter the sequence band`() {
+    fun `finished and cancelled projects are not among the farms still to build`() {
         val farm = node(1, "Cobble farm", ProjectState.DONE)
         val cancelled = node(2, "Abandoned", ProjectState.CANCELLED, layer = 1)
         val active = node(3, "Slime farm", layer = 1)
@@ -160,81 +126,12 @@ class RoadmapGraphLayoutTest {
             edge(terminal, active, "Slimeball", 50),
         )
 
-        val band = RoadmapGraphLayout.sequenceNodesOf(
+        val band = RoadmapGraphLayout.unbuiltUpstreamOf(
             roadmap(listOf(farm, cancelled, active, terminal), edges),
             listOf(terminal),
         )
 
         assertEquals(listOf("Slime farm"), band.map { it.projectName })
-    }
-
-    /**
-     * MCO-302 — the band is *sorted* by layer, not chained by it.
-     *
-     * Two unfinished projects that share a layer have no ordering between them, and an arrow
-     * joining them asserts one. The hop used to be drawn for every consecutive pair whether or
-     * not an edge existed, with `dashed = edge?.itemName == null` falling through to `true` for
-     * a missing edge — so a relationship that did not exist was painted in the very style
-     * reserved for a hand-made ordering.
-     *
-     * It stayed invisible until orderings could be removed: before that, the band's neighbours
-     * were always genuinely chained. The first delete on the real world drew the ordering that
-     * had just been taken away.
-     */
-    @Test
-    fun `two projects on the same layer are not joined by an invented arrow`() {
-        val farm = node(1, "Cobble farm", ProjectState.DONE)
-        val left = node(2, "Ghast farm")
-        val right = node(3, "Slime farm")
-        val terminal = node(4, "Storage", layer = 1)
-        // Both unfinished projects hang off the same finished farm, and neither feeds the
-        // other or the terminal — so nothing sequences them.
-        val edges = listOf(
-            edge(left, farm, "Cobblestone", 100),
-            edge(right, farm, "Cobblestone", 100),
-            edge(terminal, farm, "Cobblestone", 100),
-        )
-
-        val graph = RoadmapGraphLayout.of(
-            roadmap(listOf(farm, left, right, terminal), edges),
-            listOf(producer(1, "Cobble farm", 100)),
-            null,
-        )
-
-        assertNotNull(graph)
-        assertTrue(
-            graph.edges.none { it.key == "seq-2-3" },
-            "nothing orders Ghast farm before Slime farm: ${graph.edges.map { it.key }}",
-        )
-        assertTrue(
-            graph.edges.none { it.key == "seq-terminal" },
-            "and neither of them feeds the terminal: ${graph.edges.map { it.key }}",
-        )
-    }
-
-    @Test
-    fun `a real ordering between band neighbours is still drawn, and dashed`() {
-        val farm = node(1, "Cobble farm", ProjectState.DONE)
-        val first = node(2, "Perimeter")
-        val second = node(3, "Walls", layer = 1)
-        val terminal = node(4, "Storage", layer = 2)
-        val edges = listOf(
-            edge(first, farm, "Cobblestone", 100),
-            // A hand-made ordering: no item, no quantity. This is the one the band must draw.
-            edge(second, first, null, null),
-            edge(terminal, second, "Stone", 10),
-        )
-
-        val graph = RoadmapGraphLayout.of(
-            roadmap(listOf(farm, first, second, terminal), edges),
-            listOf(producer(1, "Cobble farm", 100)),
-            null,
-        )
-
-        assertNotNull(graph)
-        val hop = graph.edges.single { it.key == "seq-2-3" }
-        assertTrue(hop.dashed, "a hand-made ordering reads as the legend's ┄, not as supply")
-        assertNotNull(graph.edges.singleOrNull { it.key == "seq-terminal" })
     }
 
     // ---- more than one final project (MCO-563) ------------------------------------------
@@ -266,13 +163,13 @@ class RoadmapGraphLayoutTest {
     )
 
     @Test
-    fun `a second project that only consumes is a final project, not the start of the band`() {
+    fun `a second project that only consumes is a final project, not a farm to build`() {
         val world = twoFinalProjects()
         val terminals = RoadmapGraphLayout.terminalsOf(world)
 
         assertEquals(listOf(3, 4), terminals.map { it.projectId }, "largest demand first")
         assertTrue(
-            RoadmapGraphLayout.sequenceNodesOf(world, terminals).isEmpty(),
+            RoadmapGraphLayout.unbuiltUpstreamOf(world, terminals).isEmpty(),
             "nothing is left to build before either of them",
         )
 
@@ -301,7 +198,7 @@ class RoadmapGraphLayoutTest {
     }
 
     @Test
-    fun `an unfinished project upstream of one final project is still in the band`() {
+    fun `an unfinished project upstream of one final project is still a farm to build`() {
         val farm = node(1, "Cobble farm", ProjectState.DONE)
         val ghast = node(2, "Ghast farm")
         val yams = node(3, "Storage", layer = 1)
@@ -317,7 +214,7 @@ class RoadmapGraphLayoutTest {
 
         assertEquals(
             listOf("Ghast farm"),
-            RoadmapGraphLayout.sequenceNodesOf(world, RoadmapGraphLayout.terminalsOf(world)).map { it.projectName },
+            RoadmapGraphLayout.unbuiltUpstreamOf(world, RoadmapGraphLayout.terminalsOf(world)).map { it.projectName },
         )
     }
 
@@ -497,43 +394,6 @@ class RoadmapGraphLayoutTest {
         val flattened = RoadmapGraphLayout.strokeWidthFor(84_193) - RoadmapGraphLayout.strokeWidthFor(983)
         assertTrue(flattened < 1.4, "the old scale separated them by only $flattened")
         assertEquals(3.5, RoadmapGraphLayout.rankedWidth(0, 2) - RoadmapGraphLayout.rankedWidth(1, 2))
-    }
-
-    // ---- the line into a final project -------------------------------------------------
-
-    @Test
-    fun `the band's line into a final project says already covered only when it does not block`() {
-        val slime = node(1, "Slime farm")
-        val yams = node(2, "Storage System YAMS", layer = 1)
-
-        assertEquals("50 Slimeball", RoadmapGraphLayout.seqTerminalLabel(edge(yams, slime, "Slimeball", 50)))
-        assertEquals(
-            "5 Gunpowder · already covered",
-            RoadmapGraphLayout.seqTerminalLabel(edge(yams, slime, "Gunpowder", 5).copy(isBlocking = false)),
-        )
-        assertNull(RoadmapGraphLayout.seqTerminalLabel(edge(yams, slime, null, null)), "an ordering has no material")
-    }
-
-    /** Fixture 6: "YAMS before Copper Library" was drawn solid and labelled "0 · already covered". */
-    @Test
-    fun `a hand-made ordering into a final project is dashed and unlabelled`() {
-        val trading = node(1, "First trading setup", ProjectState.DONE)
-        val yams = node(2, "Storage System YAMS", layer = 1)
-        val copper = node(3, "Copper Library", layer = 2)
-        val world = roadmap(
-            listOf(trading, yams, copper),
-            listOf(
-                edge(copper, yams, null, null),
-                edge(copper, trading, "Glass", 17_376),
-                edge(yams, trading, "Glass", 16_509),
-            ),
-        )
-
-        val graph = assertNotNull(RoadmapGraphLayout.of(world, listOf(producer(1, "First trading setup", 17_376)), null))
-
-        val line = assertNotNull(graph.edges.singleOrNull { it.key == "seq-terminal" })
-        assertTrue(line.dashed, "a manual ordering is dashed, as the legend says")
-        assertNull(line.label)
     }
 
     // ---- edge weight -------------------------------------------------------------------

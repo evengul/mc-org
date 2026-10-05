@@ -522,9 +522,10 @@ class WorldRoadmapIT : WithUser() {
 
         val table = body.substringAfter("id=\"roadmap-to-build\"", missingDelimiterValue = "")
             .substringBefore("rmg-section rmg-graph")
-        assertContains(table, "TO BUILD · 1 FARM · ANY ORDER")
+        // One farm, one state: grouped by where its output goes (frame 5A).
+        assertContains(table, "TO BUILD · 1 FARM · ALL PLANNED · ANY ORDER")
         assertContains(table, "/worlds/$worldId/projects/$iron")
-        assertContains(table, "Storage System only")
+        assertContains(table, "FEEDS STORAGE SYSTEM ONLY · 1")
         assertContains(table, "1,856 Iron Ingot")
         assertFalse(table.contains("Cobble Farm"), "a producing farm is supply, not work")
 
@@ -535,6 +536,36 @@ class WorldRoadmapIT : WithUser() {
 
         deleteWorld(worldId)
     }
+
+    /** MCO-544, frame 5A: nothing produces yet, so the panels stand as a row and no band is drawn. */
+    @Test
+    fun `with nothing producing, the page keeps its sections and draws the panels without a column`() =
+        testApplication {
+            setupRoutes()
+            val worldId = createWorld("Nothing Built World")
+            val storage = createProject(worldId, "Storage System")
+            val cobble = createProject(worldId, "Cobble Farm")
+            val iron = createProject(worldId, "Iron Farm")
+            createDemand(storage, "minecraft:cobblestone", "Cobblestone", 51_575)
+            createDemand(storage, "minecraft:iron_ingot", "Iron Ingot", 1_856)
+            createProduction(cobble, "minecraft:cobblestone", "Cobblestone")
+            createProduction(iron, "minecraft:iron_ingot", "Iron Ingot")
+
+            val body = client.get("/worlds/$worldId/roadmap") { addAuthCookie(this) }.bodyAsText()
+
+            assertContains(body, "0 producing farms")
+            assertContains(body, "NOTHING STARTED")
+            assertContains(body, "TO BUILD · 2 FARMS · ALL PLANNED · ANY ORDER")
+            assertContains(body, "FEEDS STORAGE SYSTEM ONLY · 2")
+            assertContains(body, "SUPPLY · NO FARM PRODUCES YET")
+            assertContains(body, "rmg-panelrow__card")
+            assertContains(body, "not started · 2 of the 2 feed it")
+            assertFalse(body.contains("from 0 farms"), "a panel no farm produces for says so in words")
+            assertFalse(body.contains("class=\"rmg-panel\""), "no column, so no absolutely-positioned graph")
+            assertFalse(body.contains("START HERE"), "two unordered farms have no first")
+
+            deleteWorld(worldId)
+        }
 
     // ---- reading the rendered table -------------------------------------------------
 

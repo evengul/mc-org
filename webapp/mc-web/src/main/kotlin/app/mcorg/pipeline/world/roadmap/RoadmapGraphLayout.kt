@@ -2,7 +2,6 @@ package app.mcorg.pipeline.world.roadmap
 
 import app.mcorg.domain.model.project.ProjectState
 import app.mcorg.domain.model.world.Roadmap
-import app.mcorg.domain.model.world.RoadmapEdge
 import app.mcorg.domain.model.world.RoadmapNode
 import kotlin.math.ln
 import kotlin.math.roundToInt
@@ -17,20 +16,21 @@ import kotlin.math.roundToInt
  *
  * ## The idea the geometry encodes
  *
- * The panel reads as two bands, and keeping them apart is the point of the design:
+ * The graph is **supply, not sequence**: a column of finished farms on the left, grouped by the
+ * final project they feed, ropes into an intake rail beside each project's panel on the right.
+ * Nothing unbuilt ever enters the column — nothing there is waiting on anything.
  *
- * * **Sequence** (top): only projects that still need doing, left to right in the order to do
- *   them in.
- * * **Supply** (left column): finished farms feeding the terminal project. Explicitly *not* a
- *   queue — nothing there is waiting on anything.
+ * The farms still to build are not in the graph at all. They are the TO BUILD table, and the
+ * order band above it for whatever order really exists among them ([RoadmapToBuild], MCO-571);
+ * the graph keeps only a [Promised] tab with one dashed rope per panel they feed.
  *
- * Nothing done ever enters the sequence band and nothing unbuilt ever enters the supply column.
- * That rule is what makes the page answer "what is left" rather than "what exists".
+ * *(It used to carry a sequence band across its top as well — 2A's design, unbuilt projects left
+ * to right in build order. It sequenced sets that had no order, so 4B moved the work into the
+ * table, and 5A gave the nothing-built world panels with no column rather than the band: no world
+ * draws it any more (MCO-544).)*
  *
- * **The band only survives in a world where nothing is producing yet** (MCO-571). Once farms are
- * running, the unbuilt ones rarely wait on each other — they each feed a build directly — so the
- * band was sequencing a set. They become the TO BUILD table instead ([RoadmapToBuild]), and the
- * graph keeps only a [Promised] tab with one dashed rope per panel they feed.
+ * A world where no farm produces yet has no graph from this object at all: with no column there is
+ * nothing to lay out, and the page draws the panels as a plain row instead (frame 5A).
  *
  * ## Why the producer column is capped
  *
@@ -55,30 +55,8 @@ object RoadmapGraphLayout {
     /** The hand-gathered node carries a third line, so it is taller than a producer. */
     const val HAND_HEIGHT = 80
 
-    const val SEQUENCE_TOP = 8
-    const val SEQUENCE_HEIGHT = 78
-
-    /** Where the sequence band starts — clear of the first supply edge's curve. */
-    const val SEQUENCE_LEFT = 352
-
-    /** Right edge of the sequence band; the terminal panel starts 40px later. */
-    const val SEQUENCE_RIGHT = 756
-    const val SEQUENCE_GAP = 18
-
     const val TERMINAL_LEFT = 796
     const val TERMINAL_WIDTH = 236
-    const val TERMINAL_TOP = 110
-
-    /**
-     * Fan-in arrowheads land on the terminal panel's left edge, spread down [FAN_IN_SPAN].
-     *
-     * A *span* rather than a fixed pitch: the column can hold up to [TOP_PRODUCERS] + a bundle
-     * + the by-hand node, and a fixed 30px pitch would run the last arrowheads off the bottom
-     * of the panel they are supposed to be pointing at.
-     */
-    const val FAN_IN_X = 790
-    const val FAN_IN_TOP = 150
-    const val FAN_IN_SPAN = 190
 
     /**
      * A final project's panel height. A single panel grows with its content, as 2A draws it, and
@@ -91,10 +69,10 @@ object RoadmapGraphLayout {
     private const val SPLIT_ROW_HEIGHT = 18
 
     /**
-     * Where the panels start when the graph has no band (MCO-571): clear of the promised-supply tab
-     * and the short rope out of it into the top panel.
+     * Where the panels start: clear of the promised-supply tab and the short rope out of it into
+     * the top panel (MCO-571).
      */
-    const val PROMISED_TERMINAL_TOP = 50
+    const val TERMINAL_TOP = 50
     private const val PROMISED_LEFT = 560
     private const val PROMISED_TOP = 4
     private const val PROMISED_HEIGHT = 26
@@ -121,27 +99,6 @@ object RoadmapGraphLayout {
      * right-hand side of three.
      */
     const val TOP_PER_GROUP = 3
-
-    /**
-     * Narrowest a sequence node may be before its title stops being readable — two words of
-     * 13px mono, wrapped.
-     */
-    const val MIN_SEQUENCE_WIDTH = 120
-
-    /**
-     * How many nodes the band can hold, *derived* from the space it has.
-     *
-     * The band is a fixed-width strip, so it is O(1) in the same way the producer column is.
-     * Forever world happens to have two projects here; a world mid-way through ten builds has
-     * ten, and ten nodes across 400px is forty pixels each — a row of unreadable slivers.
-     *
-     * Derived rather than a constant because the two used to be set independently, and a cap
-     * of four against a 404px band silently produced 66px nodes that ran off the end. Anything
-     * past this collapses into one "+N more" node; the full order stays in the table view.
-     */
-    val MAX_SEQUENCE_SLOTS: Int =
-        ((SEQUENCE_RIGHT - SEQUENCE_LEFT + SEQUENCE_GAP) / (MIN_SEQUENCE_WIDTH + SEQUENCE_GAP))
-            .coerceAtLeast(1)
 
     private const val GROUP_HEADER_OFFSET = 16
     private const val PANEL_BOTTOM_PADDING = 20
@@ -352,11 +309,7 @@ object RoadmapGraphLayout {
         handGathered: HandGathered?,
         /** Each project's planned demand, for [terminalsOf] — the same map the page chose its panels by. */
         demand: Map<Int, Long> = emptyMap(),
-        /**
-         * Non-null once the world has farms producing (MCO-571): the unbuilt farms are then a set,
-         * listed in the TO BUILD table, and the graph draws no sequence band — only [Promised]'s tab.
-         * Null keeps the band, which is still the whole story for a world where nothing is built yet.
-         */
+        /** The farms still to build, drawn as one tab with a rope per panel (MCO-571); null draws no tab. */
         promised: Promised? = null,
         /**
          * Whether any panel carries the promised / yours-either-way rows (MCO-572). Stacked panels
@@ -370,7 +323,6 @@ object RoadmapGraphLayout {
         val drawnTerminals = terminals.take(MAX_TERMINALS)
         val hiddenTerminals = terminals.size - drawnTerminals.size
 
-        val sequenceNodes = if (promised == null) sequenceNodesOf(roadmap, terminals) else emptyList()
         val columnGroups = groupByDestination(producers, drawnTerminals)
 
         val nodes = mutableListOf<GraphNode>()
@@ -480,57 +432,14 @@ object RoadmapGraphLayout {
 
         val columnBottom = y
 
-        // --- sequence band ---------------------------------------------------------------
-        // Capped like the producer column, and for the same reason: the band is a fixed-width
-        // strip, so its node count has to be bounded or the design only works for the world it
-        // was drawn against.
-        // Everything fits, or one slot is given up to the tail node that counts the rest.
-        val drawnCount = if (sequenceNodes.size <= MAX_SEQUENCE_SLOTS) {
-            sequenceNodes.size
-        } else {
-            MAX_SEQUENCE_SLOTS - 1
-        }
-        val drawnSequence = sequenceNodes.take(drawnCount)
-        val hiddenSequence = sequenceNodes.size - drawnSequence.size
-        val slots = drawnSequence.size + if (hiddenSequence > 0) 1 else 0
-        val seqWidth = sequenceWidth(slots)
-
-        drawnSequence.forEachIndexed { index, node ->
-            val x = SEQUENCE_LEFT + index * (seqWidth + SEQUENCE_GAP)
-            val isStart = index == 0
-            nodes += GraphNode(
-                key = "seq-${node.projectId}",
-                kind = if (isStart) NodeKind.START else NodeKind.SEQUENCE,
-                projectId = node.projectId,
-                title = node.projectName,
-                subLines = sequenceSubLines(node),
-                x = x, y = SEQUENCE_TOP, width = seqWidth, height = SEQUENCE_HEIGHT,
-                eyebrow = if (isStart) "START HERE" else null,
-                eyebrowTone = Tone.ACCENT,
-            )
-        }
-
-        if (hiddenSequence > 0) {
-            nodes += GraphNode(
-                key = "seq-more",
-                kind = NodeKind.SEQUENCE,
-                projectId = null,
-                title = "+$hiddenSequence more to build",
-                subLines = listOf(SubLine("see the table view for the full order", Tone.MUTED)),
-                x = SEQUENCE_LEFT + drawnSequence.size * (seqWidth + SEQUENCE_GAP),
-                y = SEQUENCE_TOP, width = seqWidth, height = SEQUENCE_HEIGHT,
-            )
-        }
-
         // --- final project panels ------------------------------------------------------------
         // One per project the world drains into, largest demand first (MCO-563). A single panel
         // grows with its content, as 2A draws it; stacked panels need a known height, because
-        // each is placed below the last.
+        // each is placed below the last. They sit just under the promised-supply tab, and give up a
+        // strip on their right for the ropes into the lower panels to run down.
         val stacked = drawnTerminals.size > 1
-        // With no band to clear, the panels rise to just under the promised-supply tab, and give up
-        // a strip on their right for the ropes into the lower panels to run down.
-        val panelTop = if (promised == null) TERMINAL_TOP else PROMISED_TERMINAL_TOP
-        val panelWidth = if (promised == null) TERMINAL_WIDTH else TERMINAL_WIDTH - PROMISED_TRUNK_STRIP
+        val panelTop = TERMINAL_TOP
+        val panelWidth = TERMINAL_WIDTH - PROMISED_TRUNK_STRIP
         val terminalTops = drawnTerminals.withIndex().associate { (index, terminal) ->
             terminal.projectId to panelTop + index * (terminalHeight + TERMINAL_GAP)
         }
@@ -582,7 +491,6 @@ object RoadmapGraphLayout {
         val rails = drawnTerminals.map { terminal ->
             railFor(terminal, terminalTops.getValue(terminal.projectId), terminalHeight, feeders)
         }
-        edges += sequenceEdges(drawnSequence, seqWidth, roadmap, drawnTerminals, terminalTops)
         edges += supplyRopes(feeders, drawnTerminals, rails)
         edges += rails.mapNotNull { rail ->
             rail.arrowY?.let {
@@ -675,6 +583,14 @@ object RoadmapGraphLayout {
             .filter { it.toNodeId in built }
             .groupBy { it.fromNodeId }
             .mapValues { (_, edges) -> edges.sumOf { it.quantity ?: 0L } }
+        // Then by what the farms still to build will supply (frame 5A). With nothing producing every
+        // final project ties at zero above, and demand alone put a 100,000-item hand-only build ahead
+        // of one six of the farms being built will feed.
+        val unfinished = roadmap.nodes.filter { !it.state.isTerminal }.mapTo(mutableSetOf()) { it.projectId }
+        val promisedSupply = roadmap.edges
+            .filter { it.toNodeId in unfinished }
+            .groupBy { it.fromNodeId }
+            .mapValues { (_, edges) -> edges.sumOf { it.quantity ?: 0L } }
 
         val sinks = roadmap.nodes
             .filter { it.projectId in edgeDemand || (demand[it.projectId] ?: 0L) > 0 }
@@ -682,6 +598,7 @@ object RoadmapGraphLayout {
             .filter { !it.state.isTerminal }
             .sortedWith(
                 compareByDescending<RoadmapNode> { farmSupply[it.projectId] ?: 0L }
+                    .thenByDescending { promisedSupply[it.projectId] ?: 0L }
                     .thenByDescending { demand[it.projectId] ?: edgeDemand[it.projectId] ?: 0L }
                     .thenByDescending { it.layer }
                     .thenBy { it.projectName }
@@ -690,17 +607,17 @@ object RoadmapGraphLayout {
     }
 
     /**
-     * Unfinished projects upstream of a final project, in the order to build them.
+     * Unfinished projects upstream of a final project — the farms still to build ([RoadmapToBuild]).
      *
      * *Upstream* is the rule that matters (MCO-563); connected to something is not enough. A
      * project that leads into no final project is not a step towards one, however many farms
-     * feed it, and putting it first in the band called it "Start here".
+     * feed it, and the old sequence band once called such a project "Start here".
      *
      * Terminal-state projects are excluded by [ProjectState.isTerminal] rather than by
-     * checking DONE alone — a cancelled project is not work either, and it must not take a
-     * slot in a band whose whole claim is "these are the things left to do".
+     * checking DONE alone — a cancelled project is not work either, and must not be listed among
+     * the things left to do.
      */
-    internal fun sequenceNodesOf(roadmap: Roadmap, terminals: List<RoadmapNode>): List<RoadmapNode> {
+    internal fun unbuiltUpstreamOf(roadmap: Roadmap, terminals: List<RoadmapNode>): List<RoadmapNode> {
         val terminalIds = terminals.mapTo(mutableSetOf()) { it.projectId }
         val producersOf = roadmap.edges.groupBy({ it.fromNodeId }, { it.toNodeId })
         val upstream = mutableSetOf<Int>()
@@ -713,27 +630,6 @@ object RoadmapGraphLayout {
             .filter { !it.state.isTerminal }
             .filter { it.projectId in upstream }
             .sortedWith(compareBy({ it.layer }, { it.projectName }))
-    }
-
-    private fun sequenceSubLines(node: RoadmapNode): List<SubLine> = buildList {
-        if (node.isBlocked) add(SubLine("✕ not built yet", Tone.RED))
-        val tasks = if (node.tasksTotal > 0) {
-            "${node.tasksCompleted} / ${node.tasksTotal} tasks"
-        } else {
-            "no tasks"
-        }
-        add(SubLine("${node.state.name.lowercase()} · $tasks"))
-    }
-
-    /**
-     * Width per slot, never below [MIN_SEQUENCE_WIDTH] — which is safe precisely because
-     * [MAX_SEQUENCE_SLOTS] is derived from that minimum, so the clamp can never be the thing
-     * that pushes a node off the end of the band.
-     */
-    internal fun sequenceWidth(count: Int): Int {
-        if (count <= 0) return 0
-        val span = SEQUENCE_RIGHT - SEQUENCE_LEFT - (count - 1) * SEQUENCE_GAP
-        return (span / count).coerceAtLeast(MIN_SEQUENCE_WIDTH)
     }
 
     internal data class Bundle(
@@ -848,95 +744,6 @@ object RoadmapGraphLayout {
 
         else ->
             "${format(producer.items)} items · ${producer.edges} kinds"
-    }
-
-    private fun sequenceEdges(
-        sequence: List<RoadmapNode>,
-        seqWidth: Int,
-        roadmap: Roadmap,
-        terminals: List<RoadmapNode>,
-        terminalTops: Map<Int, Int>,
-    ): List<GraphEdge> = buildList {
-        // Between consecutive sequence nodes: a short hop, dashed when the ordering is a
-        // hand-made one rather than a derived supply edge.
-        //
-        // **Only where an edge actually exists** (MCO-302). The band is *sorted* by layer, and
-        // two projects sharing a layer are not sequenced relative to each other at all — an
-        // arrow between them asserts an ordering nobody stated. This used to draw the hop
-        // unconditionally and fall back to `dashed = edge?.itemName == null`, which for a
-        // missing edge is `true`: a relationship that did not exist was painted in the exact
-        // style reserved for a hand-made one. It only became visible once orderings could be
-        // *removed* — before that the band's neighbours were always genuinely chained, so the
-        // fallback never fired. Even caught it on the first delete: the graph still showed the
-        // ordering he had just taken away.
-        sequence.zipWithNext().forEachIndexed { index, (from, to) ->
-            val edge = roadmap.edges.firstOrNull {
-                it.fromNodeId == to.projectId && it.toNodeId == from.projectId
-            } ?: return@forEachIndexed
-            val fromRight = SEQUENCE_LEFT + index * (seqWidth + SEQUENCE_GAP) + seqWidth
-            val toLeft = fromRight + SEQUENCE_GAP
-            add(
-                GraphEdge(
-                    key = "seq-${from.projectId}-${to.projectId}",
-                    path = "M $fromRight 47 L $toLeft 47",
-                    strokeWidth = strokeWidthFor(edge.quantity),
-                    dashed = edge.itemName == null,
-                )
-            )
-        }
-
-        // The last sequence node curves down into the terminal panel — again only if it really
-        // feeds it. Same defect, same fix: a solid line into the terminal project is the
-        // strongest claim on the page, and it was being drawn whether or not anything flowed.
-        sequence.lastOrNull()?.let { last ->
-            val index = sequence.lastIndex
-            val right = SEQUENCE_LEFT + index * (seqWidth + SEQUENCE_GAP) + seqWidth
-            // Into the first panel it feeds, in stack order (MCO-563). The top panel takes the
-            // line on its top edge, as 2A draws it; a lower one takes it on its left edge, so the
-            // line does not cross the panels above.
-            val (terminalId, edge) = terminals.firstNotNullOfOrNull { terminal ->
-                roadmap.edges
-                    .firstOrNull { it.fromNodeId == terminal.projectId && it.toNodeId == last.projectId }
-                    ?.let { terminal.projectId to it }
-            } ?: return@let
-            val top = terminalTops.getValue(terminalId)
-            val path = if (top == TERMINAL_TOP) {
-                "M $right 47 C ${right + 32} 47 ${TERMINAL_LEFT - 4} 96 ${TERMINAL_LEFT - 4} $TERMINAL_TOP"
-            } else {
-                "M $right 47 C ${right + 32} 47 ${FAN_IN_X - 40} ${top + 24} $FAN_IN_X ${top + 24}"
-            }
-            add(
-                GraphEdge(
-                    key = "seq-terminal",
-                    path = path,
-                    strokeWidth = strokeWidthFor(edge.quantity),
-                    // A hand-made ordering carries no material, so it is dashed — as the legend
-                    // says, and as the band's own hops already draw it.
-                    dashed = edge.itemName == null,
-                    label = seqTerminalLabel(edge)?.let { text ->
-                        EdgeLabel(text = text, x = right - 8, y = TERMINAL_TOP + 2, anchor = "end")
-                    },
-                )
-            )
-        }
-    }
-
-    /**
-     * The label on the line from the band into a final project.
-     *
-     * "5 Gunpowder · already covered" is 2A's label for a farm still being built whose output a
-     * running farm already makes. It was printed on every such line regardless: "51,092 Cobblestone
-     * · already covered" from the only cobblestone farm in the world, and "0 · already covered" on
-     * a hand-made ordering that carries no material at all.
-     *
-     * The band only holds unfinished projects, so a line out of it that does not block can only
-     * mean the item is already made elsewhere — that is when the suffix is true. A manual ordering
-     * has no material to name, and gets no label.
-     */
-    internal fun seqTerminalLabel(edge: RoadmapEdge): String? {
-        val item = edge.itemName ?: return null
-        val amount = edge.quantity?.let { "${format(it)} " } ?: ""
-        return if (edge.isBlocking) "$amount$item" else "$amount$item · already covered"
     }
 
     /**

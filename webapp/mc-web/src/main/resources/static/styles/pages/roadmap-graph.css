@@ -1,10 +1,10 @@
 /* ==========================================================================
    WORLD ROADMAP — GRAPH VIEW (MCO-469)
 
-   The roadmap as a weighted dependency graph. Two bands carry the whole idea:
-   the top band is sequence (what is left, in order), the left column is supply
-   (finished farms, waiting on nothing). Nothing done enters the band; nothing
-   unbuilt enters the column.
+   The work first — what to finish, the order among the farms still to build, the
+   TO BUILD table — then the supply graph: finished farms in the left column,
+   waiting on nothing, roped into the final projects' panels. Nothing unbuilt
+   enters the column. With nothing producing, the panels stand as a row (5A).
 
    Node geometry is computed per world and arrives as inline left/top/width —
    the same split ProgressBar uses for its width. Everything else lives here.
@@ -557,6 +557,120 @@ a.rmg-node:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-mut
 .rmg-tobuild__unsettled { text-decoration: none; }
 .rmg-tobuild__unsettled:hover { text-decoration: underline; }
 
+/* 3b. Nothing produces yet (MCO-544, frame 5A) ----------------------------------------
+   No supply column, so no absolutely-positioned graph: the panels stand as a row of cards, each
+   with a promised / yours-either-way bar on one scale across the row. */
+
+.rmg-legend__key { display: inline-flex; align-items: center; gap: 6px; }
+
+.rmg-swatch {
+    display: inline-block;
+    width: 18px;
+    height: 10px;
+}
+
+/* Hatched for promised, solid for yours: the bar is read without colour, as everything on this
+   page is — the primary user is red-green colour-blind. */
+.rmg-swatch,
+.rmg-handbar__part {
+    box-sizing: border-box;
+    border-radius: 2px;
+}
+
+.rmg-swatch--promised {
+    background: repeating-linear-gradient(135deg, var(--border-strong) 0 2px, var(--bg-raised) 2px 6px);
+    border: 1px solid var(--border-strong);
+}
+
+.rmg-swatch--yours {
+    background: var(--text-muted);
+    border: 1px solid var(--text-muted);
+}
+
+/* The by-hand node, as a strip across the row: there is no column for it to stand in. */
+.rmg-handstrip {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-2) var(--space-4);
+    padding: 10px 14px;
+    border: 1px dashed var(--border-strong);
+    border-radius: var(--radius);
+    background: var(--bg-raised);
+    font-family: var(--font-ui);
+    font-size: 12px;
+}
+
+.rmg-handstrip__title { font-weight: 600; }
+
+.rmg-handstrip__link {
+    color: var(--accent);
+    text-decoration: none;
+    font-size: 10px;
+    letter-spacing: 0.08em;
+}
+
+.rmg-handstrip__link:hover { text-decoration: underline; }
+
+.rmg-panelrow {
+    display: flex;
+    gap: var(--space-4);
+    align-items: stretch;
+}
+
+.rmg-panelrow__card {
+    flex: 1 1 0;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    padding: var(--space-3) 14px;
+    background: var(--bg-surface);
+    border: 1.5px solid var(--border-strong);
+    border-radius: var(--radius);
+    box-shadow: 0 1px 0 var(--border);
+    font-family: var(--font-ui);
+    text-decoration: none;
+    color: var(--text-primary);
+}
+
+a.rmg-panelrow__card:hover { border-color: var(--text-muted); }
+a.rmg-panelrow__card:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-muted); }
+
+.rmg-panelrow__card .rmg-node__title { font-size: 15px; line-height: 1.25; }
+
+.rmg-panelrow__card--more { border-style: dashed; justify-content: center; }
+
+.rmg-handbar {
+    display: flex;
+    gap: 2px;
+    height: 12px;
+    width: 100%;
+    margin-top: var(--space-1);
+}
+
+/* Grouped TO BUILD: FARM and ITEMS SUPPLIED only — the group heading says where it goes. */
+.rmg-tobuild__table--grouped .rmg-tobuild__row {
+    grid-template-columns: minmax(0, 1fr) 172px;
+}
+
+.rmg-tobuild__group {
+    padding: var(--space-2) 14px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    color: var(--green);
+    background: var(--bg-surface);
+    border-bottom: 1px solid var(--green);
+}
+
+.rmg-tobuild__group--empty {
+    color: var(--text-disabled);
+    font-weight: 400;
+    border-bottom: none;
+}
+
 /* 4. Not in any chain ---------------------------------------------------------------- */
 
 /* 6. Stopped (decommissioned farms) shares this section's shape — a header and a row of chips. */
@@ -721,6 +835,17 @@ a.rmg-node:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-mut
     .rmg-grid { grid-template-columns: 1fr; }
 
     .rmg-panel__note { position: static; width: auto !important; }
+
+    /* 5C: the panels stack, each keeping its bar on the shared scale. */
+    .rmg-panelrow { flex-direction: column; }
+
+    /* The heading and its legend take a line each rather than squeezing one another. */
+    .rmg-graph__head { flex-direction: column; gap: var(--space-2); }
+    .rmg-legend { flex-wrap: wrap; }
+
+    /* Grouped rows keep name and number on one line, as 5C draws them: two short cells. */
+    .rmg-tobuild__table--grouped .rmg-tobuild__row { grid-template-columns: minmax(0, 1fr) auto; }
+    .rmg-tobuild__table--grouped .rmg-tobuild__num { text-align: right; }
 
     /* The table becomes one card per farm: name, then state, supplies and items beneath it. */
     .rmg-tobuild__row { grid-template-columns: 1fr; gap: var(--space-1); }
