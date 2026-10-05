@@ -44,8 +44,8 @@
         <kotlinx_serialization_version>1.11.0</kotlinx_serialization_version>
         <kotlinx_html_version>0.12.0</kotlinx_html_version>
         <kotlinx_io_version>0.9.1</kotlinx_io_version>
-        <slf4j_version>2.0.19</slf4j_version>
-        <logback_version>1.6.3</logback_version>
+        <slf4j_version>2.0.20</slf4j_version>
+        <logback_version>1.6.5</logback_version>
         <caffeine.version>3.2.4</caffeine.version>
         <bcrypt.version>0.10.2</bcrypt.version>
         <hikari.version>7.1.0</hikari.version>
