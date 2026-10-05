@@ -213,6 +213,11 @@ each) from finished worktrees are the usual cause, and each has its own reaper.
 
 Linear — workspace: evegul, team: Mcorg. Do NOT create GitHub issues.
 
+An issue runs through three skills: `/start MCO-xxx` (premise check, worktree, In Progress,
+plan), `commit` (review by subagent, commit, PR), and `/deliver` (CI, merge, deploy, cleanup —
+owner-invoked only, since merging to master deploys to production). Design rounds before an
+issue can be written: `claude-design`.
+
 ## Critical Rules
 
 **Worktree first:** Before making ANY code change, confirm you are NOT in the `master`
@@ -256,7 +261,7 @@ extraction steps are the intellectual core of the product. Rules for touching th
 **Act freely on:**
 
 - `mc-web` pipeline steps, handlers, templates, routes
-- New database migrations (follow Flyway naming: `V{n}__{description}.sql`)
+- New database migrations (Flyway naming: `V{major}_{minor}_{patch}__{description}.sql`, see `/add-migration`)
 - CSS, HTMX patterns, template components
 - `mc-nbt` — isolated parser, low blast radius
 - `mc-domain` additions (new fields, new models) — but no removals without checking all consumers
@@ -314,12 +319,47 @@ user-level (`~/.claude/skills/`), shared with the other Seam repos rather than v
 - When multiple valid approaches exist, pick the one consistent with existing patterns in the codebase — don't introduce
   new patterns without flagging it.
 - Interview format for missing information — one focused question at a time, not a list.
+- **Findings along the way are not design problems.** A small, contained bug you find while working on something
+  else is fixed in the same PR, in its own commit, with a test that reproduces it, and named in the summary. No need
+  to ask. One too big for the PR becomes a follow-up Linear issue with a disabled test (`@Disabled("MCO-xxx")`) that
+  should go green with it. Ask only when the fix needs a real design decision.
 - **Do not spelunk inside `~/.m2`, vendored jars, or other dependency caches to discover library APIs.** If you need to
   know the exact signature, class hierarchy, or DSL shape of a third-party library (e.g. `kotlinx.html`), either fetch
   the official docs/source from the web with WebFetch/WebSearch, or ask the user directly with a concise, specific
   question. Cracking open jars is slow, noisy, and often gives outdated or obfuscated output.
 
+## Measure, don't guess
+
+- **Try instead of reasoning.** If the answer depends on how something behaves at runtime (an HTMX swap's target,
+  the order Ktor plugins run in, what a pipeline step does with an empty input, a browser quirk), write a 10–20 line
+  probe in a throwaway test, or reproduce it with `/playwright` against the worktree's app. Interaction bugs are
+  reproduced there before the regression test is written. A new test that is green against the code *before* the
+  fix means the hypothesis is wrong.
+- **Read raw documentation when a premise carries the design.** If a choice rests on one property of an external
+  service or library (a lifetime, a limit, what a token can be used for), download the page to the scratchpad and
+  grep for `lifetime`, `expire`, `never`, `cannot` and `limit`. A WebFetch summary answers the question you asked,
+  and can leave out the restriction in the next sentence.
+- **Look for the tool before building it.** Read the commit log for similar work and `ls webapp/scripts/`. A tool
+  you found hidden gets made visible: a line here or in the skill it belongs to.
+- **A denied or interrupted call may have run.** Run `git status --short` after a Bash call that was denied or
+  interrupted and could have written to disk. Empty output from an interrupted test run is not a result.
+
+## Green is not proof
+
+- **Count the tests.** Compare the per-tier counts with the previous run. A tier that ran nothing also reports
+  success: bare `mvn test` skips every `database`-tagged test, and a `-Dtest=` filter that matches nothing passes
+  with `-Dsurefire.failIfNoSpecifiedTests=false`. The PR states the counts (`commit` skill).
+- **Mutate before claiming coverage.** A new green test proves nothing until you have removed the predicate it
+  guards and seen it fail. Mutate one place at a time. Make a WIP commit first: `git checkout -- <file>` returns to
+  HEAD, not to before the mutation, and takes uncommitted work with it. `git reset --soft HEAD~1` drops the WIP
+  commit afterwards.
+- **A mock freezes a contract.** A test that mocks a library (MockK) keeps passing when a new version changes what
+  the library does. A green major dependency bump is not proof it is safe: read the changelog for the APIs we
+  call, and check the mocks that model them.
+
 ## Before Committing
+
+The `commit` skill is the procedure, including the subagent review before the PR. The checklist:
 
 - [ ] `mvn clean compile` passes with zero errors
 - [ ] `./webapp/scripts/test.sh` passes (with `--database` if mc-web routes/handlers/DB changed) — not bare `mvn test`
