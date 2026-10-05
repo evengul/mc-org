@@ -230,7 +230,7 @@ check when work begins, not an afterthought at commit time.
 
 **Imports:** `import kotlinx.html.stream.createHTML` — NOT `import kotlinx.html.createHTML`
 
-**Responses:** All responses are HTML fragments — NEVER JSON
+**Responses:** All responses are HTML fragments — NEVER JSON. The one carve-out is `mc-web/.../api/` (`/api/v1`, the Seam Notebook mod's JSON API); it does not license JSON anywhere else.
 
 **Auth:** Authorization via Ktor plugins at route level — NEVER inside pipelines
 
