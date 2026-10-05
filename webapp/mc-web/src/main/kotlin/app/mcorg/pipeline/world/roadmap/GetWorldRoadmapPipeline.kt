@@ -76,9 +76,11 @@ internal suspend fun graphViewOf(roadmap: Roadmap): RoadmapGraphView {
     }
 
     // The farms still to build are a set rather than a queue (MCO-571): a TO BUILD table, and a band
-    // for whatever order really exists among them. The same in every world (MCO-544, frame 5A) — a
+    // for whatever order really exists among them — a numbered list when that order is total (5B). The same in every world (MCO-544, frame 5A) — a
     // world where nothing produces yet is the same page with no supply column, not a second page.
-    val toBuild = RoadmapToBuild.of(roadmap, terminals)
+    // "Building" is read from progress rather than declared state (MCO-579).
+    val started = GetStartedProjectsStep(roadmap.worldId).process(Unit).getOrNull().orEmpty()
+    val toBuild = RoadmapToBuild.of(roadmap, terminals, started)
     val producing = columnProducers.isNotEmpty()
 
     // Decommissioned farms have no edges, so nothing above would ever mention them (MCO-541).
@@ -91,8 +93,15 @@ internal suspend fun graphViewOf(roadmap: Roadmap): RoadmapGraphView {
     val building = toBuild.rows.mapTo(mutableSetOf()) { it.projectId }
     val productions = GetUnfinishedProductionsStep(roadmap.worldId).process(Unit).getOrNull().orEmpty()
     val demandItems = GetDemandItemIdsStep(drawnIds).process(Unit).getOrNull().orEmpty()
+    // A total order (5B) also asks for each prefix of it built — "hand list left after" each step.
+    val chain = toBuild.chain?.map { it.projectId }.orEmpty()
+    val prefixes = HandListSplit.chainPrefixes(chain, drawnIds, productions, demandItems)
     val wanted = HandListSplit.wanted(drawnIds, building, stoppedFarms.map { it.projectId }, productions, demandItems)
+        .mapValues { (panel, sets) -> (sets + prefixes[panel].orEmpty()).distinct() }
     val scenarioTotals = ScenarioDemand.handTotals(roadmap.worldId, wanted, productions)
+    val chainLeftAfter = HandListSplit.leftAfter(
+        chain, drawnIds.associateWith { graphData.getValue(it).byHand }, scenarioTotals, productions, demandItems,
+    )
     val splits = drawnIds.associateWith { id ->
         val byHand = graphData.getValue(id).byHand
         val asIfBuilt = if (building.isEmpty()) byHand else scenarioTotals[id]?.get(building)
@@ -175,6 +184,9 @@ internal suspend fun graphViewOf(roadmap: Roadmap): RoadmapGraphView {
         finalProjectCount = terminals.size,
         handTotals = handGathered,
         hiddenTerminals = terminals.drop(RoadmapGraphLayout.MAX_TERMINALS),
+        chainLeftAfter = chainLeftAfter,
+        byHandNow = graphData.values.sumOf { it.byHand },
+        started = started,
         stopped = stopped,
         producerRows = allProducers
             .sortedWith(compareByDescending<RoadmapGraphLayout.Producer> { it.items }.thenBy { it.name })

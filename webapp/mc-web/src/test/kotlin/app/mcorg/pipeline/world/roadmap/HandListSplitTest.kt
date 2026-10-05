@@ -99,4 +99,56 @@ class HandListSplitTest {
             )
         )
     }
+
+    // ---- a total order's "hand list left after" (MCO-544, frame 5B) -----------------------------
+
+    private val iron = 22
+    private val chain = listOf(witch, cobble, iron)
+    private val chainProductions = mapOf(
+        witch to setOf("minecraft:redstone"),
+        cobble to setOf("minecraft:cobblestone"),
+        iron to setOf("minecraft:iron_ingot"),
+    )
+    private val chainDemand = mapOf(
+        yams to setOf("minecraft:redstone", "minecraft:cobblestone", "minecraft:iron_ingot"),
+        library to setOf("minecraft:cobblestone"),
+    )
+
+    @Test
+    fun `a panel derives only the steps whose farm makes something in its plan`() {
+        assertEquals(
+            mapOf(
+                yams to listOf(setOf(witch), setOf(witch, cobble), setOf(witch, cobble, iron)),
+                library to listOf(setOf(witch, cobble)),
+            ),
+            HandListSplit.chainPrefixes(chain, listOf(yams, library), chainProductions, chainDemand),
+        )
+    }
+
+    @Test
+    fun `a step that touches a panel's plan not at all leaves its hand list as the step before did`() {
+        val totals = mapOf(
+            yams to mapOf(setOf(witch) to 800L, setOf(witch, cobble) to 500L, setOf(witch, cobble, iron) to 450L),
+            library to mapOf(setOf(witch, cobble) to 100L),
+        )
+
+        assertEquals(
+            listOf(800L + 300, 500L + 100, 450L + 100),
+            HandListSplit.leftAfter(chain, mapOf(yams to 1_000L, library to 300L), totals, chainProductions, chainDemand),
+        )
+    }
+
+    @Test
+    fun `a step's hand list is clamped to the one now, and an unmeasured step has no number`() {
+        val totals = mapOf(
+            yams to mapOf(setOf(witch) to 1_200L, setOf(witch, cobble, iron) to 450L),
+            library to mapOf(setOf(witch, cobble) to 100L),
+        )
+
+        assertEquals(
+            listOf(1_000L + 300, null, 450L + 100),
+            HandListSplit.leftAfter(chain, mapOf(yams to 1_000L, library to 300L), totals, chainProductions, chainDemand),
+            "a grown hand list reads as nothing taken off; the unmeasured middle step reads as unknown",
+        )
+    }
 }

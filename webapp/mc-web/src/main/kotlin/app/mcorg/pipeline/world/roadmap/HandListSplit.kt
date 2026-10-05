@@ -46,6 +46,50 @@ object HandListSplit {
     }
 
     /**
+     * The prefixes of [chain] (frame 5B's numbered order) each drawn panel needs derived: only those
+     * whose last farm makes something in that panel's plan. A step that touches nothing there leaves
+     * its hand list as the step before left it, which [leftAfter] carries without a derivation.
+     */
+    fun chainPrefixes(
+        chain: List<Int>,
+        drawn: Collection<Int>,
+        productions: Map<Int, Set<String>>,
+        demandItems: Map<Int, Set<String>>,
+    ): Map<Int, List<Set<Int>>> = drawn.associateWith { panel ->
+        chain.indices
+            .filter { touches(chain[it], panel, productions, demandItems) }
+            .map { chain.take(it + 1).toSet() }
+    }
+
+    /**
+     * The drawn panels' hand list, summed, with each step of [chain] and every step above it built;
+     * null at a step where some panel's is unknown.
+     *
+     * Clamped per panel to that panel's hand list now, as [split] is, so a step never reads more
+     * left than before any of them and the last step agrees with "yours either way".
+     */
+    fun leftAfter(
+        chain: List<Int>,
+        byHandNow: Map<Int, Long>,
+        totals: Map<Int, Map<Set<Int>, Long>>,
+        productions: Map<Int, Set<String>>,
+        demandItems: Map<Int, Set<String>>,
+    ): List<Long?> {
+        val perPanel = byHandNow.map { (panel, now) ->
+            var left: Long? = now.coerceAtLeast(0)
+            chain.indices.map { k ->
+                if (touches(chain[k], panel, productions, demandItems)) {
+                    left = totals[panel]?.get(chain.take(k + 1).toSet())?.coerceIn(0, now.coerceAtLeast(0))
+                }
+                left
+            }
+        }
+        return chain.indices.map { k ->
+            perPanel.map { it[k] }.takeIf { steps -> steps.all { it != null } }?.sumOf { it!! }
+        }
+    }
+
+    /**
      * A panel's split, or null when the as-if-built hand list is unknown.
      *
      * Clamped so the halves still add up if building a farm ever *grew* a hand list — a supplied
