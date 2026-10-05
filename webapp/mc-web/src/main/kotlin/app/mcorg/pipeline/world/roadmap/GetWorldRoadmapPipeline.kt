@@ -5,6 +5,8 @@ import app.mcorg.domain.model.user.Role
 import app.mcorg.domain.model.world.Roadmap
 import app.mcorg.domain.model.world.RoadmapNode
 import app.mcorg.pipeline.Result
+import app.mcorg.pipeline.resources.GetUnfinishedProductionsStep
+import app.mcorg.pipeline.resources.ScenarioDemand
 import app.mcorg.pipeline.world.ValidateWorldMemberRole
 import app.mcorg.pipeline.world.roadmap.ordering.GetManualOrderingsStep
 import app.mcorg.presentation.handler.handlePipeline
@@ -75,9 +77,46 @@ internal suspend fun graphViewOf(roadmap: Roadmap): RoadmapGraphView {
     val columnProducers = producersOf(roadmap, drawnIds)
     val allProducers = allProducersOf(roadmap)
 
+    val graphData = drawn.associate { terminal ->
+        terminal.projectId to (GetRoadmapGraphDataStep(terminal.projectId).process(Unit).getOrNull() ?: RoadmapGraphData.EMPTY)
+    }
+
+    // Once anything is producing, the farms still to build are a set rather than a queue (MCO-571):
+    // a TO BUILD table, a band for whatever order really exists among them, and one promised-supply
+    // tab in the graph. A world where nothing produces yet keeps the band — there the chain *is*
+    // the page (design frame 3C), and the handover is "a final project with no producing farm",
+    // not a chain depth.
+    val farmsToBuild = RoadmapToBuild.of(roadmap, terminals)
+    val toBuild = farmsToBuild.takeIf { columnProducers.isNotEmpty() }
+
+    // Decommissioned farms have no edges, so nothing above would ever mention them (MCO-541).
+    val stoppedFarms = GetStoppedFarmsStep(roadmap.worldId).process(Unit).getOrNull().orEmpty()
+
+    // "promised" and "yours either way", and what each stopped farm costs (MCO-572): differences
+    // between hand lists, so each needs a plan derived as if farms were built. Cached; see
+    // [ScenarioDemand]. The split is drawn whichever layout the world gets — a fresh world is where
+    // most of its hand list is already spoken for by farms the user has just created.
+    val building = farmsToBuild.rows.mapTo(mutableSetOf()) { it.projectId }
+    val productions = GetUnfinishedProductionsStep(roadmap.worldId).process(Unit).getOrNull().orEmpty()
+    val demandItems = GetDemandItemIdsStep(drawnIds).process(Unit).getOrNull().orEmpty()
+    val wanted = HandListSplit.wanted(drawnIds, building, stoppedFarms.map { it.projectId }, productions, demandItems)
+    val scenarioTotals = ScenarioDemand.handTotals(roadmap.worldId, wanted, productions)
+    val splits = drawnIds.associateWith { id ->
+        val byHand = graphData.getValue(id).byHand
+        val asIfBuilt = if (building.isEmpty()) byHand else scenarioTotals[id]?.get(building)
+        HandListSplit.split(byHand, asIfBuilt)
+    }
+    val stopped = stoppedFarms.map { farm ->
+        farm.copy(
+            uncoveredItems = HandListSplit.stoppedCost(
+                farm.projectId, drawnIds, building, splits.mapValues { it.value?.eitherWay }, scenarioTotals,
+                productions, demandItems,
+            )
+        )
+    }
+
     val terminalStats = drawn.associate { terminal ->
-        val data = GetRoadmapGraphDataStep(terminal.projectId).process(Unit).getOrNull()
-            ?: RoadmapGraphData.EMPTY
+        val data = graphData.getValue(terminal.projectId)
         val percent = GetTerminalProgressStep(terminal.projectId).process(Unit).getOrNull() ?: 0
         terminal.projectId to RoadmapGraphLayout.TerminalStats(
             fromFarms = data.fromFarms,
@@ -89,18 +128,14 @@ internal suspend fun graphViewOf(roadmap: Roadmap): RoadmapGraphView {
             // same farms — a panel claiming more suppliers than the column shows is the kind of
             // disagreement this page exists to avoid.
             farms = columnProducers.count { (it.itemsByTerminal[terminal.projectId] ?: 0L) > 0 },
+            split = splits[terminal.projectId],
         )
     }
     val handGathered = handGatheredOf(
         drawn.associate { it.projectId to GetHandMaterialsStep(it.projectId).process(Unit).getOrNull().orEmpty() }
-    )
-
-    // Once anything is producing, the farms still to build are a set rather than a queue (MCO-571):
-    // a TO BUILD table, a band for whatever order really exists among them, and one promised-supply
-    // tab in the graph. A world where nothing produces yet keeps the band — there the chain *is*
-    // the page (design frame 3C), and the handover is "a final project with no producing farm",
-    // not a chain depth.
-    val toBuild = RoadmapToBuild.of(roadmap, terminals).takeIf { columnProducers.isNotEmpty() }
+    )?.let { hand ->
+        hand.copy(promised = splits.values.sumOf { it?.promised ?: 0L })
+    }
 
     val graph = RoadmapGraphLayout.of(
         roadmap,
@@ -108,6 +143,7 @@ internal suspend fun graphViewOf(roadmap: Roadmap): RoadmapGraphView {
         handGathered,
         demand,
         promised = toBuild?.let { RoadmapGraphLayout.Promised(it.rows.size, it.promisedByTerminal) },
+        splitRows = splits.values.any { (it?.promised ?: 0L) > 0 },
     )
 
     val sequence = RoadmapGraphLayout.sequenceNodesOf(roadmap, terminals)
@@ -124,8 +160,6 @@ internal suspend fun graphViewOf(roadmap: Roadmap): RoadmapGraphView {
     val terminalIds = terminals.mapTo(mutableSetOf()) { it.projectId }
     val connected = roadmap.edges.flatMapTo(mutableSetOf()) { listOf(it.fromNodeId, it.toNodeId) }
     val isolated = roadmap.nodes.filter { it.projectId !in connected && it.projectId !in terminalIds }
-    // Decommissioned farms have no edges, so nothing above would ever mention them (MCO-541).
-    val stopped = GetStoppedFarmsStep(roadmap.worldId).process(Unit).getOrNull().orEmpty()
 
     return RoadmapGraphView(
         roadmap = roadmap,

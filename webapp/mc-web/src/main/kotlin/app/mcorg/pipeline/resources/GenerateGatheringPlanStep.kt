@@ -26,10 +26,15 @@ import org.slf4j.LoggerFactory
  *   and whose persisted [PlanOverrides] (source pins and tag-member choices) are loaded.
  * @param worldId the world that owns the project — used to resolve its Minecraft version,
  *   which drives the cached [ItemSourceGraph].
+ * @param assumeBuilt projects to plan *as if* they were producing (MCO-572), on top of the world's
+ *   DONE farms. Empty — every existing caller — means exactly what it always meant. A non-empty set
+ *   is a hypothetical plan: it is returned but never written to `project_demand`, which must only
+ *   ever hold the world as it is. The roadmap caches those separately ([ScenarioDemand]).
  */
 data class GatheringPlanInput(
     val projectId: Int,
     val worldId: Int,
+    val assumeBuilt: Set<Int> = emptySet(),
 )
 
 /**
@@ -150,12 +155,24 @@ object GenerateGatheringPlanStep : Step<GatheringPlanInput, AppFailure, Gatherin
         // 6. Build supplied map. The rule lives in ProjectSupply so the drill's picker can reach
         // the same answer (MCO-523) — folded from the rows already loaded here rather than
         // re-queried.
-        val farms = when (val r = GetWorldFarmSuppliesStep.process(
+        val running = when (val r = GetWorldFarmSuppliesStep.process(
             WorldFarmSuppliesInput(worldId = input.worldId, excludeProjectId = input.projectId)
         )) {
             is Result.Success -> r.value
             is Result.Failure -> return r
         }
+        // Appended after the running farms, so an item both make keeps the running farm's label.
+        val assumed = if (input.assumeBuilt.isEmpty()) {
+            emptyList()
+        } else {
+            when (val r = GetAssumedFarmSuppliesStep.process(
+                AssumedFarmSuppliesInput(projectIds = input.assumeBuilt, excludeProjectId = input.projectId)
+            )) {
+                is Result.Success -> r.value
+                is Result.Failure -> return r
+            }
+        }
+        val farms = running + assumed
         val supplied: Map<String, SupplySource> = ProjectSupply.fold(activeItems, farms)
 
         // 7. Load persisted overrides for this project
@@ -185,7 +202,11 @@ object GenerateGatheringPlanStep : Step<GatheringPlanInput, AppFailure, Gatherin
         // against what the build actually consumes without deriving a plan per project. Written
         // here because this is the one place a plan already exists; skipped when nothing that
         // feeds the derivation has changed since the last write.
-        storeDemand(input.projectId, versionString, activeItems, supplied, overrides, plan, woodSpecies)
+        // A hypothetical plan never lands here: `project_demand` is the world as it is, and every
+        // reader of it — the roadmap's edges first of all — would believe the farms were built.
+        if (input.assumeBuilt.isEmpty()) {
+            storeDemand(input.projectId, versionString, activeItems, supplied, overrides, plan, woodSpecies)
+        }
 
         return Result.success(plan)
     }

@@ -169,6 +169,10 @@
     white-space: nowrap;
 }
 
+/* "promised" and "yours either way" sit indented under "by hand now", because they add up to it
+   (MCO-572). */
+.rmg-deflist__key--sub { padding-left: 10px; }
+
 /* Pairs are emitted key, value, key, value — so every even child is a value. */
 .rmg-deflist > span:nth-child(even) { text-align: right; }
 
@@ -190,6 +194,15 @@
     font-size: 10px;
     letter-spacing: 0.08em;
     color: var(--text-muted);
+}
+
+.rmg-graph__note {
+    margin: 0;
+    font-family: var(--font-ui);
+    font-size: 11px;
+    color: var(--text-muted);
+    max-width: 110ch;
+    text-wrap: pretty;
 }
 
 .rmg-graph__empty {

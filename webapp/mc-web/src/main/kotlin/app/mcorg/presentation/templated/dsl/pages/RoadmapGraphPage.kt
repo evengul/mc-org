@@ -428,6 +428,12 @@ private fun shapeRows(view: RoadmapGraphView): List<Pair<String, String>> {
         // take the last word — which gives "YAMS" for "Storage System YAMS" but "North" for
         // "Iron Farm North". The graph names the destination a few centimetres away.
         view.feeding?.let { add("feeding" to it) }
+        // Summed over the drawn panels, a panel nothing is promised to counting whole — as frame 4A's
+        // GRAPH SHAPE adds it up. Only when something is promised; otherwise it is just "by hand".
+        val splits = view.terminals.mapNotNull { view.terminalStats[it.projectId]?.split }
+        if (splits.size == view.terminals.size && splits.any { it.promised > 0 }) {
+            add("yours either way" to "${RoadmapGraphLayout.format(splits.sumOf { it.eitherWay })} items")
+        }
     }
 }
 
@@ -465,6 +471,7 @@ private fun FlowContent.graphSection(view: RoadmapGraphView) {
         }
 
         graphPanel(view, graph)
+        splitNote(view)?.let { note -> p("rmg-graph__note") { +note } }
 
         view.manualEdgeNote?.let { note ->
             div("callout callout--info") {
@@ -473,6 +480,30 @@ private fun FlowContent.graphSection(view: RoadmapGraphView) {
             }
         }
     }
+}
+
+/**
+ * Under the graph, frame 4A's reading of the first panel's split — and why it will not match the
+ * TO BUILD table, which is the first thing a careful reader checks.
+ */
+private fun splitNote(view: RoadmapGraphView): String? {
+    val (terminal, split) = view.terminals.firstNotNullOfOrNull { terminal ->
+        view.terminalStats[terminal.projectId]?.split?.takeIf { it.promised > 0 }?.let { terminal to it }
+    } ?: return null
+    val byHand = view.terminalStats.getValue(terminal.projectId).byHand
+    val farms = view.toBuild?.rows?.size
+    val built = when (farms) {
+        null -> "once the farms you're building are finished"
+        1 -> "once the farm you're building is finished"
+        else -> "once the ${RoadmapToBuild.countWord(farms)} farms are built"
+    }
+    // A world that still has its band has no TO BUILD table to point at; its supply lines say the same.
+    val totals = if (view.toBuild != null) "the per-farm totals in the TO BUILD table" else "the supply lines above"
+    val f = RoadmapGraphLayout::format
+    return "Of ${terminal.projectName}'s ${f(byHand)}-item hand list, ${f(split.promised)} disappears $built, " +
+        "and ${f(split.eitherWay)} stays yours either way. Both are differences between two hand lists, so " +
+        "they will not match $totals, which count crafted items the hand list never had — only the raw " +
+        "materials under them."
 }
 
 /**
@@ -641,6 +672,14 @@ private fun FlowContent.terminalBody(view: RoadmapGraphView, projectId: Int) {
         // says how much of it does is the next piece of this frame.
         span("rmg-deflist__key") { +"by hand now" }
         span { +RoadmapGraphLayout.format(stats.byHand) }
+        // Indented under "by hand now" because these two add up to it (MCO-572, frame 4A). Cut when
+        // nothing is promised: "yours either way" would only repeat the line above.
+        stats.split?.takeIf { it.promised > 0 }?.let { split ->
+            span("rmg-deflist__key rmg-deflist__key--sub") { +"promised" }
+            span("rmg-tone-muted") { +RoadmapGraphLayout.format(split.promised) }
+            span("rmg-deflist__key rmg-deflist__key--sub") { +"yours either way" }
+            span("rmg-tone-muted") { +RoadmapGraphLayout.format(split.eitherWay) }
+        }
         span("rmg-deflist__key") { +"craft steps" }
         span { +"${RoadmapGraphLayout.format(stats.craftRows.toLong())} rows" }
         // Cut rather than shown as zero: a row reading "open questions 0" reports nothing.
@@ -732,12 +771,16 @@ private fun FlowContent.stoppedSection(view: RoadmapGraphView) {
                 a(classes = "rmg-chip") {
                     href = "/worlds/${view.roadmap.worldId}/projects/${farm.projectId}"
                     span("rmg-chip__name") { +farm.name }
-                    if (farm.uncoveredItems > 0) {
-                        span("rmg-chip__note ${toneClass(Tone.AMBER)}") {
-                            +"⚠ ${RoadmapGraphLayout.format(farm.uncoveredItems)} items no farm covers now"
+                    // A hand-list difference (MCO-572): what the final projects would still gather by
+                    // hand with every farm you're building finished, that this one running would take
+                    // off. No number when that could not be measured — zero would claim it costs nothing.
+                    val uncovered = farm.uncoveredItems
+                    when {
+                        uncovered == null -> {}
+                        uncovered > 0 -> span("rmg-chip__note ${toneClass(Tone.AMBER)}") {
+                            +"⚠ ${RoadmapGraphLayout.format(uncovered)} items no other farm covers, built or planned"
                         }
-                    } else {
-                        span("rmg-chip__note ${toneClass(Tone.MUTED)}") { +"nothing it made is missing now" }
+                        else -> span("rmg-chip__note ${toneClass(Tone.MUTED)}") { +"nothing it made is missing now" }
                     }
                 }
             }
