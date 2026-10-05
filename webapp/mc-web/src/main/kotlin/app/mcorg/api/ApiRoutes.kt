@@ -810,6 +810,12 @@ private suspend fun ApplicationCall.resolveProjectForUser(projectId: Int): Int? 
 /**
  * Minimal [TokenProfile] carrying only the bearer user's id — enough for [ValidateWorldMemberRole],
  * which keys solely off `user.id`. The API resolves an id (not a full profile) from the token.
+ *
+ * The Minecraft fields are blank **on purpose**. The caller is a client mod, and a client mod can
+ * claim any Minecraft username or UUID, so neither may ever take part in an authorization decision
+ * on this API. The trust chain is browser sign-in → device-code approval → `api_token.user_id` →
+ * `world_members`, and nothing the mod says about itself is in it. Leaving the fields empty means a
+ * check that started reading them would fail rather than quietly trust them.
  */
 private fun apiProfile(userId: Int): TokenProfile =
     TokenProfile(id = userId, uuid = "", minecraftUsername = "", displayName = "", roles = emptyList())

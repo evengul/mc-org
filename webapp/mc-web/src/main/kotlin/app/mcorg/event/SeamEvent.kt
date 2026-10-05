@@ -24,7 +24,20 @@ import java.time.Instant
  *    consumer ignores derived events as inputs, so derivation is strictly one level deep.
  *
  * The wire contract for downstream consumers is the [EventEnvelope]; [eventType] and [data] define
- * each event's stable serialized shape. Event versioning is deferred until the first schema change.
+ * each event's stable serialized shape. Changes are additive only — see [EventEnvelope] and
+ * `documentation/webhook-contract.md` (MCO-358) for the versioning rule.
+ *
+ * **Publishing.** Publish from the handler, not from a step: capture `val bus = this.eventBus`
+ * before `handlePipeline`, as every existing site does, and call `bus.publish(...)` inside the block
+ * right after the successful mutation — the same place the handler calls `CacheManager`. Steps
+ * stay pure. A publish site that needs a before/after number (a
+ * milestone, a status change) reads it in the handler, because [DerivedEventConsumer] never touches
+ * the database.
+ *
+ * **Dormant types.** [ProductionPathGenerated], [DependencyEdgeAdded] and [DependencyEdgeRemoved]
+ * (and so the derived [ProjectUnblocked]) are defined and serialize, but nothing publishes them —
+ * their triggering endpoints do not exist. Wire them at the handler level when those endpoints land,
+ * or remove them (MCO-238).
  *
  * Display names ([actorName], `project_name`, `unblocked_by_name`) are optional enrichment (MCO-239)
  * so downstream renderers can show "Iron Farm — even" instead of "Project #42"; consumers fall back
@@ -160,7 +173,12 @@ data class ProjectStatusChanged(
     }
 }
 
-/** A production / resource-gathering path was generated for a project's target item. */
+/**
+ * A production / resource-gathering path was generated for a project's target item.
+ *
+ * Dormant (MCO-238): `GenerateGatheringPlanStep` runs inside many read pipelines, none of which is a
+ * per-item "generate" action with a target `itemId` to publish from.
+ */
 data class ProductionPathGenerated(
     override val worldId: Int,
     override val actorId: Int?,
@@ -176,7 +194,12 @@ data class ProductionPathGenerated(
     }
 }
 
-/** A dependency edge `projectId depends on dependsOnProjectId` was added. */
+/**
+ * A dependency edge `projectId depends on dependsOnProjectId` was added.
+ *
+ * Dormant (MCO-238): the only writer of `project_dependencies` is `CreateProjectFromIdeaStep`, inside
+ * the idea-import transaction; there is no standalone "add dependency" endpoint to publish from.
+ */
 data class DependencyEdgeAdded(
     override val worldId: Int,
     override val actorId: Int?,
@@ -198,6 +221,9 @@ data class DependencyEdgeAdded(
  * fans these out into [ProjectUnblocked] events without re-querying. [projectName] is the name of the
  * completing dependency (this event's [projectId]); the consumer copies it through as the unblocking
  * project's name (MCO-239).
+ *
+ * Dormant (MCO-238): no endpoint removes a dependency edge, so neither this nor the [ProjectUnblocked]
+ * derived from it ever fires.
  */
 data class DependencyEdgeRemoved(
     override val worldId: Int,

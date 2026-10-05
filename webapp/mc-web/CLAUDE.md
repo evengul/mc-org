@@ -9,16 +9,18 @@ Wires everything together: HTTP routing, authentication, database access, server
 ## Tech
 
 - Depends on: all other modules (`mc-domain`, `mc-pipeline`, `mc-data`, `mc-nbt`, `mc-engine`)
-- Ktor 3.5.2 (Netty), Kotlin HTML DSL, HTMX
+- Ktor (Netty; version in `mc-bom/pom.xml`), Kotlin HTML DSL, HTMX
 - PostgreSQL (HikariCP connection pool), Flyway migrations
 - Auth: JWT + Microsoft OAuth
 - Test: Testcontainers (PostgreSQL), WireMock, MockK, Ktor test host
-- Maven build, JVM 21 target
+- Maven build; JVM target is `java.version` in `webapp/pom.xml`
 - Entry point: `app.mcorg.ApplicationKt`
 
 ## Structure
 
 ```
+api/                 — `/api/v1` JSON API for Seam Notebook (bearer + reporter tokens) — the one
+                       exception to "HTML only"
 config/              — App configuration, API providers, cache management
 domain/idea/         — Idea-specific domain extensions
 pipeline/
@@ -34,6 +36,10 @@ pipeline/
   resources/         — Resource management pipelines
   task/              — Task pipeline steps
   world/             — World CRUD, settings, members, invitations, roadmap
+event/               — In-process event bus: domain events published by handlers, derived events
+                       re-published by DerivedEventConsumer (rules in SeamEvent.kt's KDoc)
+webhook/             — Outbox fan-out of events to subscribers; wire contract is
+                       documentation/webhook-contract.md
 presentation/
   consts/            — Route constants
   handler/           — HTTP route handlers (one per feature area)
@@ -53,7 +59,8 @@ presentation/
 
 **Imports:** `import kotlinx.html.stream.createHTML` — NEVER `import kotlinx.html.createHTML`
 
-**Responses:** All responses are HTML fragments — NEVER JSON
+**Responses:** All responses are HTML fragments — NEVER JSON. The one carve-out is `api/` (`/api/v1`,
+the mod's JSON API, MCO-235); it does not license JSON anywhere else.
 
 **Auth:** Authorization via Ktor plugins at route level — NEVER inside pipelines
 

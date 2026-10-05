@@ -84,7 +84,12 @@ want scripted subscription management. It is a machine-to-machine credential —
 subscriptions carry their own separate per-delivery signing secret.
 
 ⁶ Set as a Fly secret and live in production. When absent, the Discord settings section renders a
-"not configured" state rather than failing.
+"not configured" state rather than failing. It must equal `seam-discord`'s `SEAM_WEBHOOK_SECRET`:
+it is the HMAC key the Discord subscriptions created from world settings sign with, so a mismatch
+makes the bot reject every delivery with 401, and ten consecutive failures deactivate the
+subscription. The value is **copied** into each subscription's `secret` when the channel is
+connected, so rotating it changes nothing for existing subscriptions: they keep signing with the old
+value until disconnected and reconnected.
 
 ⁷ Not required by the config loader — the app boots fine without it — but a **PR preview is
 unreachable without it**, which is why the table says required for TEST. `SKIP_MICROSOFT_SIGN_IN`
