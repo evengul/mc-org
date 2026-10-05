@@ -252,5 +252,5 @@ fun handGatheredOf(byTerminal: Map<Int, List<HandMaterial>>): RoadmapGraphLayout
  * and is clipped by the node it sits in. The disambiguation earns nothing here: nobody reads
  * "Oak Log + Ice = 84%" and wonders which kind of ice.
  */
-private fun shortItemName(name: String): String =
+internal fun shortItemName(name: String): String =
     name.removeSuffix(" (Block)").removeSuffix(" (Item)")
