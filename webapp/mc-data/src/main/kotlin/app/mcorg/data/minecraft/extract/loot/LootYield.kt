@@ -54,20 +54,41 @@ internal object LootNumbers {
     }
 
     /**
-     * Average drop count after an entry's `set_count` functions (applied in
-     * order; `add: true` adds to the running count). 1.0 without functions;
+     * Average drop count after an entry's `set_count` modifiers (applied in
+     * order; `add: true` adds to the running count). 1.0 without modifiers;
      * null when a count provider is unrecognized.
+     *
+     * 26.3 renamed the holder `functions` -> `modifier`, renamed the discriminator
+     * inside it `function` -> `type`, and let a lone modifier be written inline as an
+     * object instead of a one-element list (724 of 1098 holders in 26.3's data are
+     * objects). Both spellings are read, and the holder key picks its own
+     * discriminator rather than the two being tried interchangeably.
+     *
+     * **This one fails silently, which is why it is read rather than rejected**
+     * (MCO-567): an unread holder is not a parse error, it just leaves the count at
+     * the 1.0 default. 26.3 has 557 `set_count` modifiers, so reading only
+     * `functions` would have quietly reported a flat 1.0 yield for every one of them
+     * while the suite stayed green on the two loud failures either side of it.
      */
     fun countAfterFunctions(entry: JsonElement): Double? {
-        val functions = (entry as? JsonObject)?.get("functions") ?: return 1.0
+        val obj = entry as? JsonObject ?: return 1.0
+        val (holder, discriminator) = when {
+            obj["modifier"] != null -> obj.getValue("modifier") to "type"        // 26.3+
+            obj["functions"] != null -> obj.getValue("functions") to "function"  // <= 26.2
+            else -> return 1.0
+        }
+        val modifiers = when (holder) {
+            is JsonArray -> holder
+            is JsonObject -> listOf(holder)
+            else -> return 1.0
+        }
         var count = 1.0
-        val list = (functions as? JsonArray) ?: return 1.0
-        for (function in list) {
-            val obj = function as? JsonObject ?: continue
-            val id = (obj["function"] as? JsonPrimitive)?.content ?: continue
+        for (modifier in modifiers) {
+            val modifierObj = modifier as? JsonObject ?: continue
+            val id = (modifierObj[discriminator] as? JsonPrimitive)?.content ?: continue
             if (id != "minecraft:set_count") continue
-            val avg = average(obj["count"]) ?: return null
-            val add = (obj["add"] as? JsonPrimitive)?.content == "true"
+            val avg = average(modifierObj["count"]) ?: return null
+            val add = (modifierObj["add"] as? JsonPrimitive)?.content == "true"
             count = if (add) count + avg else avg
         }
         return count

@@ -120,6 +120,105 @@ class EntryParserTest {
         assertEquals(setOf("#minecraft:planks"), entry.itemIds())
     }
 
+    // --- 26.3 format (MCO-567) ---------------------------------------------------------
+    // The holder `functions` became `modifier`, its discriminator `function` became `type`,
+    // a lone modifier may be written inline as an object, and a tag entry names its tag
+    // under `items` with the `#` already in the value.
+
+    @Test
+    fun `parses tag entry with items field, whose value already carries the hash`() {
+        val entry = assertResultSuccess(
+            parseEntry("""{"type": "minecraft:tag", "expand": true, "items": "#minecraft:creeper_drop_music_discs"}""")
+        )
+        assertEquals(setOf("#minecraft:creeper_drop_music_discs"), entry.itemIds())
+    }
+
+    @Test
+    fun `set_count under a modifier list becomes the drop count`() {
+        val json = """
+        {
+            "type": "minecraft:item",
+            "name": "minecraft:stick",
+            "modifier": [{"type": "minecraft:set_count", "count": 3}]
+        }
+        """
+        val entry = assertResultSuccess(parseEntry(json))
+        assertEquals(3.0, entry.drops.single().countPerSelection)
+    }
+
+    @Test
+    fun `set_count written inline as a single modifier object becomes the drop count`() {
+        val json = """
+        {
+            "type": "minecraft:item",
+            "name": "minecraft:gunpowder",
+            "modifier": {"type": "minecraft:set_count", "count": {"type": "minecraft:uniform", "min": 0, "max": 2}}
+        }
+        """
+        val entry = assertResultSuccess(parseEntry(json))
+        assertEquals(1.0, entry.drops.single().countPerSelection)
+    }
+
+    @Test
+    fun `set_count with add accumulates under a modifier holder too`() {
+        val json = """
+        {
+            "type": "minecraft:item",
+            "name": "minecraft:bone",
+            "modifier": [
+                {"type": "minecraft:set_count", "count": 2},
+                {"type": "minecraft:set_count", "count": 1, "add": true}
+            ]
+        }
+        """
+        val entry = assertResultSuccess(parseEntry(json))
+        assertEquals(3.0, entry.drops.single().countPerSelection)
+    }
+
+    @Test
+    fun `a modifier that is not set_count leaves the count at one`() {
+        val json = """
+        {
+            "type": "minecraft:item",
+            "name": "minecraft:diamond",
+            "modifier": {"type": "minecraft:explosion_decay"}
+        }
+        """
+        val entry = assertResultSuccess(parseEntry(json))
+        assertEquals(1.0, entry.drops.single().countPerSelection)
+    }
+
+    /**
+     * The pre-26.3 spelling of the discriminator must not be read out of a `modifier` holder,
+     * nor the 26.3 one out of a `functions` holder. Trying both interchangeably would make a
+     * half-migrated entry parse as though it were whole.
+     */
+    @Test
+    fun `a modifier holder does not read the old function discriminator`() {
+        val json = """
+        {
+            "type": "minecraft:item",
+            "name": "minecraft:emerald",
+            "modifier": [{"function": "minecraft:set_count", "count": 9}]
+        }
+        """
+        val entry = assertResultSuccess(parseEntry(json))
+        assertEquals(1.0, entry.drops.single().countPerSelection)
+    }
+
+    @Test
+    fun `a functions holder does not read the new type discriminator`() {
+        val json = """
+        {
+            "type": "minecraft:item",
+            "name": "minecraft:emerald",
+            "functions": [{"type": "minecraft:set_count", "count": 9}]
+        }
+        """
+        val entry = assertResultSuccess(parseEntry(json))
+        assertEquals(1.0, entry.drops.single().countPerSelection)
+    }
+
     @Test
     fun `parses dynamic entry with contents`() {
         val entry = assertResultSuccess(parseEntry("""{"type": "minecraft:dynamic", "name": "minecraft:contents"}"""))

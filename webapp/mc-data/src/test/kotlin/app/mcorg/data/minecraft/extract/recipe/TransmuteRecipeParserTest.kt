@@ -82,4 +82,47 @@ class TransmuteRecipeParserTest {
         """
         assertResultFailure(parse(json))
     }
+
+    // --- 26.3 format (MCO-567) ---------------------------------------------------------
+
+    /**
+     * A transmute rewrites the input's components and keeps its id, so 26.3 stopped
+     * restating the id: `map_cloning.json` writes `"result": {}` where 26.2 spelled out
+     * `{"id": "minecraft:filled_map"}`. The input is also a tag there now.
+     */
+    @Test
+    fun `an empty result object falls back to the input`() {
+        val json = """
+        {
+            "type": "minecraft:crafting_transmute",
+            "input": "#minecraft:clonable_maps",
+            "material": "minecraft:map",
+            "result": {}
+        }
+        """
+        val source = assertResultSuccess(parse(json))
+        assertEquals(1, source.producedItems.size)
+        assertEquals("#minecraft:clonable_maps", source.producedItems[0].first.id)
+        assertEquals(
+            setOf("#minecraft:clonable_maps", "minecraft:map"),
+            source.requiredItems.map { it.first.id }.toSet()
+        )
+    }
+
+    /**
+     * The fallback is for an empty result, not a missing one — a `result` key that is absent
+     * altogether stays a failure (see `fails when result is missing`), and one that is present
+     * but holds an unreadable shape must not quietly become the input either.
+     */
+    @Test
+    fun `a non-empty result with no recognizable id still fails`() {
+        val json = """
+        {
+            "input": "minecraft:copper_ingot",
+            "material": "minecraft:honeycomb",
+            "result": {"count": 4}
+        }
+        """
+        assertResultFailure(parse(json))
+    }
 }
