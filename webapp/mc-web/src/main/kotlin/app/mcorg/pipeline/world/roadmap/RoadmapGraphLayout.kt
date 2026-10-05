@@ -466,7 +466,7 @@ object RoadmapGraphLayout {
                 kind = NodeKind.TERMINAL,
                 projectId = null,
                 title = "+$hiddenTerminals more final ${if (hiddenTerminals == 1) "project" else "projects"}",
-                subLines = listOf(SubLine("see the table view for all of them", Tone.MUTED)),
+                subLines = listOf(SubLine("listed under the graph", Tone.MUTED)),
                 x = TERMINAL_LEFT, y = moreY, width = panelWidth, height = TERMINAL_MORE_HEIGHT,
             )
             rightBottom = moreY + TERMINAL_MORE_HEIGHT

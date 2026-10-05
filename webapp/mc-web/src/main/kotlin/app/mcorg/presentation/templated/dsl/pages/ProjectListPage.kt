@@ -127,8 +127,8 @@ fun kotlinx.html.FlowContent.projectsViewContent(
  *
  * A world is empty in exactly one way, so it should answer the question in exactly one way. The
  * roadmap used to carry an empty state of its own whose only offer was a link back here, which
- * made the page a world opens on a waiting room for the page with the doors. Both roadmap views
- * now render this block instead (`roadmapPage`, `roadmapGraphPage`) — which is why it lives next
+ * made the page a world opens on a waiting room for the page with the doors. The roadmap
+ * now renders this block instead (`roadmapGraphPage`) — which is why it lives next
  * to [newProjectAffordance]: the doors below open that function's dialogs, so a page rendering
  * one must render the other, and link `np-menu.css` for `.np-menu__door`.
  */

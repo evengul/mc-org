@@ -53,40 +53,8 @@
 
 /* 1. Page header -------------------------------------------------------------------- */
 
-/* .rmg-head / __titles / __title / __meta are gone (MCO-505). The roadmap's title, meta line
-   and view switcher are now one definition shared by both views -- `.roadmap-title` in
-   roadmap.css, on the page above this card rather than inside it. These four also carried
-   hardcoded 22px and 12px where the shared one uses --text-xl and --text-xs. */
-
-/* 6px radius, not pill: Seam reserves pill radius for badges and the Plan/Execute
-   toggle, and this is neither. */
-.rmg-viewswitch { display: flex; align-items: center; gap: var(--space-2); }
-
-.rmg-viewswitch__label {
-    font-family: var(--font-ui);
-    font-size: var(--text-label);
-    letter-spacing: 0.08em;
-    color: var(--text-muted);
-    padding-right: var(--space-1);
-}
-
-.rmg-viewswitch__seg {
-    font-family: var(--font-ui);
-    font-size: 12px;
-    padding: 6px var(--space-3);
-    border-radius: var(--radius);
-    border: 1px solid var(--border);
-    color: var(--text-primary);
-    text-decoration: none;
-}
-
-.rmg-viewswitch__seg:hover { border-color: var(--border-strong); background: var(--bg-raised); }
-
-.rmg-viewswitch__seg--active {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: var(--on-accent);
-}
+/* The roadmap's title and meta line are `.roadmap-title` in roadmap.css, above this card
+   (MCO-505). The Graph / Table switcher beside them went with the Table view (MCO-529). */
 
 /* 2. Start here + graph shape ------------------------------------------------------- */
 

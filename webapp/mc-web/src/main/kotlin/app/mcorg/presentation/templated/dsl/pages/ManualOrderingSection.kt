@@ -57,7 +57,7 @@ fun FlowContent.manualOrderingSection(
     div("rmg-section rmg-ordering") {
         id = "rmg-ordering"
         div("rmg-ordering__head") {
-            span("rmg-label") { +"MANUAL ORDERING · ${orderings.size}" }
+            sectionLabel { +"MANUAL ORDERING · ${orderings.size}" }
             span("rmg-note") {
                 +if (generatedEdgeCount == 1) {
                     "1 edge is generated from farm output — these are the ones you added by hand"

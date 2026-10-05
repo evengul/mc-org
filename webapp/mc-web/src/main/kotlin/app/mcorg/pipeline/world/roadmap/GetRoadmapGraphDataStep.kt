@@ -13,7 +13,7 @@ import app.mcorg.pipeline.failure.AppFailure
  * the terminal project's plan totals, and what is left to gather by hand.
  *
  * Producers are **not** read here — they roll up out of [Roadmap.edges], which already carries
- * per-edge quantities (MCO-316) and already agrees with what the table view prints. Querying
+ * per-edge quantities (MCO-316) and already agrees with what the rest of the page reads. Querying
  * them again would be a second derivation of the same fact, which is the class of bug MCO-461
  * and MCO-466 were both filed for.
  *

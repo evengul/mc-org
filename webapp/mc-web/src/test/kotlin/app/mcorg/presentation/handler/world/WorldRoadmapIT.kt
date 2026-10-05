@@ -8,6 +8,8 @@ import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.project.commonsteps.UpdateProjectStageStep
 import app.mcorg.pipeline.world.CreateWorldInput
 import app.mcorg.pipeline.world.CreateWorldStep
+import app.mcorg.domain.model.world.Roadmap
+import app.mcorg.pipeline.world.roadmap.GetWorldRoadMapStep
 import app.mcorg.pipeline.world.roadmap.handleGetWorldRoadmap
 import app.mcorg.presentation.plugins.AuthPlugin
 import app.mcorg.presentation.plugins.UpdateActiveWorldPlugin
@@ -31,10 +33,12 @@ import org.junit.jupiter.api.extension.ExtendWith
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
- * `GET /worlds/{worldId}/roadmap` (MCO-288): the derived dependency table, its empty state,
+ * `GET /worlds/{worldId}/roadmap` (MCO-288): the derived edges behind it, its empty state,
  * and the membership gate.
  */
 @Tag("database")
@@ -42,15 +46,23 @@ import kotlin.test.assertTrue
 @ExtendWith(DatabaseTestExtension::class)
 class WorldRoadmapIT : WithUser() {
 
-    companion object {
-        /** The per-edge status labels the cells print (MCO-318), matched as element text. */
-        private const val STATUS_BLOCKING = ">blocking<"
-        private const val STATUS_SUPPLYING = ">supplying<"
+    // ---- the derived edges ----------------------------------------------------------
+    // These used to be read off the Table view (`?view=table`), which printed every edge from both
+    // ends. The view is gone (MCO-529); what they protect is the derivation, so they read
+    // [GetWorldRoadMapStep] directly, against the same database.
+
+    private fun roadmapOf(worldId: Int): Roadmap {
+        val result = runBlocking { GetWorldRoadMapStep(worldId).process(Unit) }
+        return (result as Result.Success).value
     }
 
+    private fun Roadmap.edge(consumer: Int, producer: Int) =
+        edges.singleOrNull { it.fromNodeId == consumer && it.toNodeId == producer }
+
+    private fun Roadmap.node(projectId: Int) = nodes.single { it.projectId == projectId }
+
     @Test
-    fun `an unfinished farm blocks, and both columns say so`() = testApplication {
-        setupRoutes()
+    fun `an unfinished farm blocks its consumer, naming the item it is waited on for`() {
         val worldId = createWorld("Roadmap IT World")
         val consumer = createProject(worldId, "Beacon Build")
         val farm = createProject(worldId, "Iron Farm")
@@ -58,32 +70,21 @@ class WorldRoadmapIT : WithUser() {
         createDemand(consumer, "minecraft:iron_ingot", "Iron Ingot", 32)
         createProduction(farm, "minecraft:iron_ingot", "Iron Ingot")
 
-        val response = client.get("/worlds/$worldId/roadmap?view=table") { addAuthCookie(this) }
+        val roadmap = roadmapOf(worldId)
 
-        assertEquals(HttpStatusCode.OK, response.status)
-        val body = response.bodyAsText()
-        assertContains(body, "roadmap-table")
-
-        // The IA asks the upstream cell to name both halves: the project and the resource.
-        val consumerRow = roadmapRow(body, "Beacon Build")
-        assertContains(consumerRow.dependsOn, "Iron Farm")
-        assertContains(consumerRow.dependsOn, "Iron Ingot")
-        assertContains(consumerRow.dependsOn, "/worlds/$worldId/projects/$farm")
-        assertContains(consumerRow.dependsOn, STATUS_BLOCKING)
-
-        // MCO-318: the same edge, read from the other end, must make the same claim.
-        val farmRow = roadmapRow(body, "Iron Farm")
-        assertContains(farmRow.supplies, "Beacon Build")
-        assertContains(farmRow.supplies, "/worlds/$worldId/projects/$consumer")
-        assertContains(farmRow.supplies, STATUS_BLOCKING)
-        assertFalse(farmRow.dependsOn.contains("roadmap-edge"), "the farm depends on nothing")
+        val edge = assertNotNull(roadmap.edge(consumer, farm))
+        assertEquals("Iron Ingot", edge.itemName)
+        assertTrue(edge.isBlocking)
+        // MCO-318: the same edge, read from either end, makes the same claim.
+        assertEquals(listOf(farm), roadmap.node(consumer).blockingProjectIds)
+        assertEquals(listOf(consumer), roadmap.node(farm).dependentProjectIds)
+        assertTrue(roadmap.edges.none { it.fromNodeId == farm }, "the farm depends on nothing")
 
         deleteWorld(worldId)
     }
 
     @Test
-    fun `an operational farm supplies its consumer instead of blocking it`() = testApplication {
-        setupRoutes()
+    fun `an operational farm supplies its consumer instead of blocking it`() {
         val worldId = createWorld("Operational Roadmap World")
         val consumer = createProject(worldId, "Beacon Build")
         val farm = createProject(worldId, "Iron Farm")
@@ -92,25 +93,13 @@ class WorldRoadmapIT : WithUser() {
         createProduction(farm, "minecraft:iron_ingot", "Iron Ingot")
         runBlocking { UpdateProjectStageStep(farm).process(ProjectStage.COMPLETED) }
 
-        val body = client.get("/worlds/$worldId/roadmap?view=table") { addAuthCookie(this) }.bodyAsText()
+        val roadmap = roadmapOf(worldId)
 
-        // The relationship is still on the roadmap — it just stopped being a blocker, which
-        // the summary line reports (it only counts blocked projects when there are any).
-        assertContains(body, "2 projects")
-        assertFalse(body.contains("1 blocked"), "an operational farm blocks nobody")
-
-        // MCO-318: the consumer's own row used to show "—" here while the farm's row claimed
-        // to block it. Both cells now show the relationship, marked as supply, not blocking.
-        val consumerRow = roadmapRow(body, "Beacon Build")
-        assertContains(consumerRow.dependsOn, "Iron Farm")
-        assertContains(consumerRow.dependsOn, "Iron Ingot")
-        assertContains(consumerRow.dependsOn, STATUS_SUPPLYING)
-        assertFalse(consumerRow.dependsOn.contains(STATUS_BLOCKING), "a DONE farm blocks nothing")
-
-        val farmRow = roadmapRow(body, "Iron Farm")
-        assertContains(farmRow.supplies, "Beacon Build")
-        assertContains(farmRow.supplies, STATUS_SUPPLYING)
-        assertFalse(farmRow.supplies.contains(STATUS_BLOCKING), "a DONE farm blocks nothing")
+        // The relationship stays; it just stopped being a blocker.
+        val edge = assertNotNull(roadmap.edge(consumer, farm))
+        assertFalse(edge.isBlocking, "a DONE farm blocks nothing")
+        assertFalse(roadmap.node(consumer).isBlocked)
+        assertEquals(0, roadmap.getStatistics().blockedProjects)
 
         deleteWorld(worldId)
     }
@@ -122,8 +111,7 @@ class WorldRoadmapIT : WithUser() {
      * the witch farm supplied that same gunpowder one line above.
      */
     @Test
-    fun `a planned farm does not block for an item an operational farm already supplies`() = testApplication {
-        setupRoutes()
+    fun `a planned farm does not block for an item an operational farm already supplies`() {
         val worldId = createWorld("Two Producer World")
         val consumer = createProject(worldId, "Storage System")
         val running = createProject(worldId, "Witch Farm")
@@ -134,24 +122,13 @@ class WorldRoadmapIT : WithUser() {
         createProduction(planned, "minecraft:gunpowder", "Gunpowder")
         runBlocking { UpdateProjectStageStep(running).process(ProjectStage.COMPLETED) }
 
-        val body = client.get("/worlds/$worldId/roadmap?view=table") { addAuthCookie(this) }.bodyAsText()
+        val roadmap = roadmapOf(worldId)
 
-        // Both relationships stay on the roadmap — the ghast farm really will make gunpowder,
-        // and MCO-318 needs both directions reading the same edge set. What changes is blocking.
-        val consumerRow = roadmapRow(body, "Storage System")
-        assertContains(consumerRow.dependsOn, "Witch Farm")
-        assertContains(consumerRow.dependsOn, "Ghast Farm")
-        assertFalse(
-            consumerRow.dependsOn.contains(STATUS_BLOCKING),
-            "nothing blocks: an operational farm already makes the gunpowder",
-        )
-        assertFalse(body.contains("blocked"), "the summary must not count this project as blocked")
-
-        // Read from the other end, the planned farm must make the same claim.
-        assertFalse(
-            roadmapRow(body, "Ghast Farm").supplies.contains(STATUS_BLOCKING),
-            "the producer's own row must agree it is not blocking",
-        )
+        // Both relationships stay — the ghast farm really will make gunpowder. What changes is blocking.
+        assertNotNull(roadmap.edge(consumer, running))
+        val pending = assertNotNull(roadmap.edge(consumer, planned))
+        assertFalse(pending.isBlocking, "an operational farm already makes the gunpowder")
+        assertFalse(roadmap.node(consumer).isBlocked)
 
         deleteWorld(worldId)
     }
@@ -161,8 +138,7 @@ class WorldRoadmapIT : WithUser() {
      * whatever nothing operational makes. Without this the fix would silently unblock a world.
      */
     @Test
-    fun `a planned farm still blocks for an item nothing operational makes`() = testApplication {
-        setupRoutes()
+    fun `a planned farm still blocks for an item nothing operational makes`() {
         val worldId = createWorld("Partial Coverage World")
         val consumer = createProject(worldId, "Storage System")
         val running = createProject(worldId, "Witch Farm")
@@ -175,48 +151,21 @@ class WorldRoadmapIT : WithUser() {
         createProduction(planned, "minecraft:iron_ingot", "Iron Ingot")
         runBlocking { UpdateProjectStageStep(running).process(ProjectStage.COMPLETED) }
 
-        val body = client.get("/worlds/$worldId/roadmap?view=table") { addAuthCookie(this) }.bodyAsText()
+        val roadmap = roadmapOf(worldId)
 
-        val consumerRow = roadmapRow(body, "Storage System")
-        assertContains(consumerRow.dependsOn, STATUS_BLOCKING)
-        assertContains(consumerRow.dependsOn, "Iron Farm")
-        assertContains(body, "1 blocked")
-        assertContains(roadmapRow(body, "Iron Farm").supplies, STATUS_BLOCKING)
+        assertTrue(assertNotNull(roadmap.edge(consumer, planned)).isBlocking)
+        assertEquals(listOf(planned), roadmap.node(consumer).blockingProjectIds)
+        assertEquals(1, roadmap.getStatistics().blockedProjects)
 
         deleteWorld(worldId)
     }
 
     @Test
-    fun `finished projects sort below the work that is left`() = testApplication {
-        setupRoutes()
-        val worldId = createWorld("Roadmap Order World")
-        // Named so that every tiebreak the old rule had — depth 0 first, then name — puts the
-        // finished farm on top: it is layer 0 because nothing blocks it, and alphabetically first.
-        val farm = createProject(worldId, "Alpha Farm")
-        val consumer = createProject(worldId, "Zulu Build")
-        createRequirement(consumer, "minecraft:iron_ingot", "Iron Ingot")
-        createDemand(consumer, "minecraft:iron_ingot", "Iron Ingot", 32)
-        createProduction(farm, "minecraft:iron_ingot", "Iron Ingot")
-        runBlocking { UpdateProjectStageStep(farm).process(ProjectStage.COMPLETED) }
-
-        val body = client.get("/worlds/$worldId/roadmap?view=table") { addAuthCookie(this) }.bodyAsText()
-
-        // MCO-405: the dev world opened on 20-odd finished farms with the one active build
-        // underneath. Depth is still the sequence — it just no longer leads.
-        val buildAt = body.indexOf("Zulu Build")
-        val farmAt = body.indexOf("Alpha Farm")
-        assertTrue(buildAt in 1..<farmAt, "unfinished work comes first: $buildAt should precede $farmAt")
-
-        deleteWorld(worldId)
-    }
-
-    @Test
-    fun `a farm supplying a material the build never places still gets an edge`() = testApplication {
+    fun `a farm supplying a material the build never places still gets an edge`() {
         // MCO-316's headline case, from the YAMS import. The build declares 5,630 hoppers and
         // places no literal gold nugget, so matching declared rows found nothing and the Gold
         // Farm — 7,299 units of real demand — produced no edge whatsoever. Matching derived
         // demand finds it.
-        setupRoutes()
         val worldId = createWorld("Derived Demand World")
         val consumer = createProject(worldId, "YAMS")
         val farm = createProject(worldId, "Gold Farm")
@@ -224,21 +173,16 @@ class WorldRoadmapIT : WithUser() {
         createDemand(consumer, "minecraft:gold_nugget", "Gold Nugget", 7299)
         createProduction(farm, "minecraft:gold_nugget", "Gold Nugget")
 
-        val body = client.get("/worlds/$worldId/roadmap?view=table") { addAuthCookie(this) }.bodyAsText()
-
-        val consumerRow = roadmapRow(body, "YAMS")
-        assertContains(consumerRow.dependsOn, "Gold Farm")
-        assertContains(consumerRow.dependsOn, "Gold Nugget")
+        assertEquals("Gold Nugget", roadmapOf(worldId).edge(consumer, farm)?.itemName)
 
         deleteWorld(worldId)
     }
 
     @Test
-    fun `the edge says how much of the demand the farm covers`() = testApplication {
+    fun `the edge says how much of the demand the farm covers`() {
         // "Cobblestone Generator — Cobblestone" next to a single decorative block was the
         // misleading half of the same bug: the farm covered the largest line of gathering work
-        // in the project and the cell gave no way to tell.
-        setupRoutes()
+        // in the project and the edge gave no way to tell.
         val worldId = createWorld("Quantified Roadmap World")
         val consumer = createProject(worldId, "YAMS")
         val farm = createProject(worldId, "Cobblestone Generator")
@@ -246,46 +190,67 @@ class WorldRoadmapIT : WithUser() {
         createDemand(consumer, "minecraft:cobblestone", "Cobblestone", 74564)
         createProduction(farm, "minecraft:cobblestone", "Cobblestone")
 
-        val body = client.get("/worlds/$worldId/roadmap?view=table") { addAuthCookie(this) }.bodyAsText()
-
-        val consumerRow = roadmapRow(body, "YAMS")
-        assertContains(consumerRow.dependsOn, "74,564 Cobblestone")
+        assertEquals(74_564L, roadmapOf(worldId).edge(consumer, farm)?.quantity)
 
         deleteWorld(worldId)
     }
 
     @Test
-    fun `a project with no derived demand contributes no farm edges`() = testApplication {
+    fun `a project with no derived demand contributes no farm edges`() {
         // The honest consequence of matching derived demand: a project nobody has planned has
         // nothing to match. The roadmap tries to fill it in (see GetWorldRoadMapStep), which
         // needs an ingested graph these tests do not have — so here it stays empty rather than
         // inventing an edge from the declared row.
-        setupRoutes()
         val worldId = createWorld("Unplanned Roadmap World")
         val consumer = createProject(worldId, "Unopened Build")
         val farm = createProject(worldId, "Iron Farm")
         createRequirement(consumer, "minecraft:iron_ingot", "Iron Ingot")
         createProduction(farm, "minecraft:iron_ingot", "Iron Ingot")
 
-        val body = client.get("/worlds/$worldId/roadmap?view=table") { addAuthCookie(this) }.bodyAsText()
-
-        val consumerRow = roadmapRow(body, "Unopened Build")
-        assertFalse(consumerRow.dependsOn.contains("Iron Farm"))
+        assertNull(roadmapOf(worldId).edge(consumer, farm))
 
         deleteWorld(worldId)
     }
 
+    // ---- the page -------------------------------------------------------------------
+
     @Test
-    fun `a world with no projects gets the empty state, not a bare table`() = testApplication {
+    fun `an old link to the table view lands on the roadmap`() = testApplication {
+        // `?view=table` was bookmarkable for a year. It is gone (MCO-529), and a bookmark should
+        // land on the one roadmap there is rather than on an error.
         setupRoutes()
-        val worldId = createWorld("Empty Roadmap World")
+        val worldId = createWorld("Old Bookmark World")
+        createProject(worldId, "Some Build")
 
         val response = client.get("/worlds/$worldId/roadmap?view=table") { addAuthCookie(this) }
 
         assertEquals(HttpStatusCode.OK, response.status)
         val body = response.bodyAsText()
-        assertEmptyWorldState(body)
-        assertFalse(body.contains("roadmap-table"), "no table until there is something to sequence")
+        assertContains(body, "roadmap-title__name")
+        assertFalse(body.contains("roadmap-table"), "there is no table view to render")
+        assertFalse(body.contains("rmg-viewswitch"), "and nothing to switch between")
+
+        deleteWorld(worldId)
+    }
+
+    @Test
+    fun `final projects past the three panels are listed with links, not sent to another view`() = testApplication {
+        setupRoutes()
+        val worldId = createWorld("Many Finals World")
+        val farm = createProject(worldId, "Cobble Farm")
+        createProduction(farm, "minecraft:cobblestone", "Cobblestone")
+        runBlocking { UpdateProjectStageStep(farm).process(ProjectStage.COMPLETED) }
+        val builds = (1..4).map { n ->
+            createProject(worldId, "Build $n").also { createDemand(it, "minecraft:cobblestone", "Cobblestone", 1_000L * n) }
+        }
+
+        val body = client.get("/worlds/$worldId/roadmap") { addAuthCookie(this) }.bodyAsText()
+
+        assertContains(body, "+1 more final project")
+        val more = body.substringAfter("MORE FINAL PROJECTS · 1", missingDelimiterValue = "")
+        // Ranked by supply, so the smallest build is the one past the cap.
+        assertContains(more, "/worlds/$worldId/projects/${builds.first()}")
+        assertFalse(body.contains("table view"), "there is no other view to send anyone to")
 
         deleteWorld(worldId)
     }
@@ -309,20 +274,18 @@ class WorldRoadmapIT : WithUser() {
         }
 
     @Test
-    fun `both roadmap views head an empty world, as the projects tab does`() = testApplication {
+    fun `the roadmap heads an empty world, as the projects tab does`() = testApplication {
         // The Projects tab titles itself whether or not it has projects. A Roadmap tab that
         // dropped its heading when empty made the two tabs read as different kinds of page.
         setupRoutes()
         val worldId = createWorld("Headed Empty World")
 
-        for (url in listOf("/worlds/$worldId/roadmap", "/worlds/$worldId/roadmap?view=table")) {
-            val body = client.get(url) { addAuthCookie(this) }.bodyAsText()
+        val body = client.get("/worlds/$worldId/roadmap") { addAuthCookie(this) }.bodyAsText()
 
-            assertContains(body, "roadmap-title__name", message = "$url: no heading on an empty world")
-            assertContains(body, "Headed Empty World", message = "$url: the meta line names the world")
-            assertContains(body, "0 projects")
-            assertFalse(body.contains("0 layers"), "$url: nothing to measure, so no measurement")
-        }
+        assertContains(body, "roadmap-title__name", message = "no heading on an empty world")
+        assertContains(body, "Headed Empty World", message = "the meta line names the world")
+        assertContains(body, "0 projects")
+        assertFalse(body.contains("0 layers"), "nothing to measure, so no measurement")
 
         deleteWorld(worldId)
     }
@@ -463,7 +426,7 @@ class WorldRoadmapIT : WithUser() {
 
     /** Fixture 5: the graph drew an assumed order as fact; the question was table-view only. */
     @Test
-    fun `the graph view asks which of two farms comes first, not only the table`() = testApplication {
+    fun `the roadmap asks which of two farms comes first`() = testApplication {
         setupRoutes()
         val worldId = createWorld("Cycle Graph World")
         val cobble = createProject(worldId, "Cobble Farm")
@@ -566,27 +529,6 @@ class WorldRoadmapIT : WithUser() {
 
             deleteWorld(worldId)
         }
-
-    // ---- reading the rendered table -------------------------------------------------
-
-    /** The two edge cells of one project's row, so an assertion can name which column it means. */
-    private data class RoadmapRowCells(val dependsOn: String, val supplies: String)
-
-    /**
-     * Slices the row belonging to [projectName] out of the rendered table. Cells are found by
-     * their `data-label` (which the mobile stacked-card layout needs anyway), so the assertions
-     * read one column at a time instead of searching the whole page and hoping.
-     */
-    private fun roadmapRow(body: String, projectName: String): RoadmapRowCells {
-        val row = body.split("data-label=\"Layer\"")
-            .drop(1)
-            .firstOrNull { it.substringBefore("data-label=\"State\"").contains(">$projectName<") }
-            ?: error("no roadmap row for $projectName")
-        return RoadmapRowCells(
-            dependsOn = row.substringAfter("data-label=\"Depends on\"").substringBefore("data-label=\"Supplies\""),
-            supplies = row.substringAfter("data-label=\"Supplies\"").substringBefore("</tr>"),
-        )
-    }
 
     // ---- routing — mirrors WorldHandler ------------------------------------------
 
