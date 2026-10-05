@@ -27,6 +27,11 @@ import kotlin.math.roundToInt
  * Nothing done ever enters the sequence band and nothing unbuilt ever enters the supply column.
  * That rule is what makes the page answer "what is left" rather than "what exists".
  *
+ * **The band only survives in a world where nothing is producing yet** (MCO-571). Once farms are
+ * running, the unbuilt ones rarely wait on each other — they each feed a build directly — so the
+ * band was sequencing a set. They become the TO BUILD table instead ([RoadmapToBuild]), and the
+ * graph keeps only a [Promised] tab with one dashed rope per panel they feed.
+ *
  * ## Why the producer column is capped
  *
  * Forever world lands 86 edges on one node while every other row has at most two. A layout that
@@ -81,6 +86,18 @@ object RoadmapGraphLayout {
      * one below the other, so each gets exactly this height.
      */
     const val TERMINAL_HEIGHT = 210
+
+    /**
+     * Where the panels start when the graph has no band (MCO-571): clear of the promised-supply tab
+     * and the short rope out of it into the top panel.
+     */
+    const val PROMISED_TERMINAL_TOP = 50
+    private const val PROMISED_LEFT = 560
+    private const val PROMISED_TOP = 4
+    private const val PROMISED_HEIGHT = 26
+
+    /** Right of the panels, where the ropes into the lower panels run down past the upper ones. */
+    private const val PROMISED_TRUNK_STRIP = 16
     const val TERMINAL_GAP = 12
 
     /**
@@ -204,7 +221,7 @@ object RoadmapGraphLayout {
 
     enum class Tone { DEFAULT, MUTED, GREEN, RED, AMBER, ACCENT, DISABLED }
 
-    enum class NodeKind { SEQUENCE, START, SUPPLY, BUNDLE, HAND, TERMINAL }
+    enum class NodeKind { SEQUENCE, START, SUPPLY, BUNDLE, HAND, TERMINAL, PROMISED }
 
     data class SubLine(val text: String, val tone: Tone = Tone.MUTED)
 
@@ -290,9 +307,27 @@ object RoadmapGraphLayout {
         val bandCaption: BandCaption?,
         /** True when the producer column was capped, so the template can offer the expander. */
         val bundled: Boolean,
+        /** Where a panel's explanatory note sits, when it fits inside the panel at all. */
+        val note: BandNote? = null,
     )
 
     data class BandCaption(val text: String, val x: Int, val y: Int)
+
+    data class BandNote(val x: Int, val y: Int, val width: Int)
+
+    /**
+     * The farms still to build, standing in the graph as one dashed tab (MCO-571, frames 4A/4B).
+     *
+     * They stay out of the supply column — nothing in it waits on anything — and out of a band
+     * that would assert an order among them that does not exist. What the graph still owes the
+     * reader is that their supply is coming, and to which panel: one dashed rope per panel, from
+     * a tab that links to the TO BUILD table. O(1) whether six farms are in flight or forty.
+     */
+    data class Promised(
+        val farms: Int,
+        /** What all of them together send each final project, by project id. */
+        val itemsByTerminal: Map<Int, Long>,
+    )
 
     // ---- the algorithm ------------------------------------------------------------------
 
@@ -307,13 +342,19 @@ object RoadmapGraphLayout {
         handGathered: HandGathered?,
         /** Each project's planned demand, for [terminalsOf] — the same map the page chose its panels by. */
         demand: Map<Int, Long> = emptyMap(),
+        /**
+         * Non-null once the world has farms producing (MCO-571): the unbuilt farms are then a set,
+         * listed in the TO BUILD table, and the graph draws no sequence band — only [Promised]'s tab.
+         * Null keeps the band, which is still the whole story for a world where nothing is built yet.
+         */
+        promised: Promised? = null,
     ): Graph? {
         val terminals = terminalsOf(roadmap, demand)
         if (terminals.isEmpty()) return null
         val drawnTerminals = terminals.take(MAX_TERMINALS)
         val hiddenTerminals = terminals.size - drawnTerminals.size
 
-        val sequenceNodes = sequenceNodesOf(roadmap, terminals)
+        val sequenceNodes = if (promised == null) sequenceNodesOf(roadmap, terminals) else emptyList()
         val columnGroups = groupByDestination(producers, drawnTerminals)
 
         val nodes = mutableListOf<GraphNode>()
@@ -463,8 +504,12 @@ object RoadmapGraphLayout {
         // grows with its content, as 2A draws it; stacked panels need a known height, because
         // each is placed below the last.
         val stacked = drawnTerminals.size > 1
+        // With no band to clear, the panels rise to just under the promised-supply tab, and give up
+        // a strip on their right for the ropes into the lower panels to run down.
+        val panelTop = if (promised == null) TERMINAL_TOP else PROMISED_TERMINAL_TOP
+        val panelWidth = if (promised == null) TERMINAL_WIDTH else TERMINAL_WIDTH - PROMISED_TRUNK_STRIP
         val terminalTops = drawnTerminals.withIndex().associate { (index, terminal) ->
-            terminal.projectId to TERMINAL_TOP + index * (TERMINAL_HEIGHT + TERMINAL_GAP)
+            terminal.projectId to panelTop + index * (TERMINAL_HEIGHT + TERMINAL_GAP)
         }
         drawnTerminals.forEachIndexed { index, terminal ->
             nodes += GraphNode(
@@ -473,7 +518,7 @@ object RoadmapGraphLayout {
                 projectId = terminal.projectId,
                 title = terminal.projectName,
                 subLines = emptyList(),
-                x = TERMINAL_LEFT, y = terminalTops.getValue(terminal.projectId), width = TERMINAL_WIDTH,
+                x = TERMINAL_LEFT, y = terminalTops.getValue(terminal.projectId), width = panelWidth,
                 height = if (stacked) TERMINAL_HEIGHT else 0,
                 // The count is what the reader needs; the layer number never was — it is the
                 // topological sort's own vocabulary, and it said "LAYER 0" for a build nothing
@@ -481,7 +526,7 @@ object RoadmapGraphLayout {
                 eyebrow = "FINAL PROJECT · ${index + 1} OF ${terminals.size}",
             )
         }
-        var rightBottom = TERMINAL_TOP + drawnTerminals.size * (TERMINAL_HEIGHT + TERMINAL_GAP) - TERMINAL_GAP
+        var rightBottom = panelTop + drawnTerminals.size * (TERMINAL_HEIGHT + TERMINAL_GAP) - TERMINAL_GAP
         if (hiddenTerminals > 0) {
             val moreY = rightBottom + TERMINAL_GAP
             nodes += GraphNode(
@@ -490,9 +535,24 @@ object RoadmapGraphLayout {
                 projectId = null,
                 title = "+$hiddenTerminals more final ${if (hiddenTerminals == 1) "project" else "projects"}",
                 subLines = listOf(SubLine("see the table view for all of them", Tone.MUTED)),
-                x = TERMINAL_LEFT, y = moreY, width = TERMINAL_WIDTH, height = TERMINAL_MORE_HEIGHT,
+                x = TERMINAL_LEFT, y = moreY, width = panelWidth, height = TERMINAL_MORE_HEIGHT,
             )
             rightBottom = moreY + TERMINAL_MORE_HEIGHT
+        }
+
+        // --- the promised-supply tab ---------------------------------------------------------
+        // Drawn only when something is promised: a tab standing for an empty table links to nothing.
+        if (promised != null && promised.farms > 0) {
+            val farms = if (promised.farms == 1) "THE FARM" else "THE ${promised.farms} FARMS"
+            nodes += GraphNode(
+                key = "promised",
+                kind = NodeKind.PROMISED,
+                projectId = null,
+                title = "PROMISED SUPPLY · $farms YOU'RE BUILDING",
+                subLines = listOf(SubLine("SEE TABLE ▸", Tone.ACCENT)),
+                x = PROMISED_LEFT, y = PROMISED_TOP, width = PANEL_WIDTH - PROMISED_LEFT, height = PROMISED_HEIGHT,
+            )
+            edges += promisedRopes(promised, drawnTerminals, terminalTops, panelWidth)
         }
 
         // --- edges and intake rails ----------------------------------------------------------
@@ -857,6 +917,42 @@ object RoadmapGraphLayout {
     }
 
     /**
+     * One dashed rope from the promised-supply tab into each panel the unbuilt farms feed.
+     *
+     * Into the panel's top edge, not onto its intake rail: the rail counts what is supplying now,
+     * and a promise landing among those dots would read as one more supplier. The top panel takes
+     * a short drop straight out of the tab; a lower one is reached down the strip right of the
+     * panels and along the gap above it, so no rope crosses a panel it does not feed.
+     */
+    private fun promisedRopes(
+        promised: Promised,
+        terminals: List<RoadmapNode>,
+        tops: Map<Int, Int>,
+        panelWidth: Int,
+    ): List<GraphEdge> = terminals.mapIndexedNotNull { index, terminal ->
+        val items = promised.itemsByTerminal[terminal.projectId]?.takeIf { it > 0 } ?: return@mapIndexedNotNull null
+        val top = tops.getValue(terminal.projectId)
+        val tabBottom = PROMISED_TOP + PROMISED_HEIGHT
+        val path = if (index == 0) {
+            val x = TERMINAL_LEFT + 84
+            "M $x $tabBottom L $x ${top - 1}"
+        } else {
+            // Each lower panel's trunk sits a little further right, so two ropes never share a line.
+            val trunk = TERMINAL_LEFT + panelWidth + 5 + (index - 1) * 4
+            val x = TERMINAL_LEFT + 120
+            val gapY = top - TERMINAL_GAP / 2
+            "M $trunk $tabBottom L $trunk ${gapY - 8} Q $trunk $gapY ${trunk - 8} $gapY " +
+                "L ${x + 8} $gapY Q $x $gapY $x ${top - 1}"
+        }
+        GraphEdge(
+            key = "promised-${terminal.projectId}",
+            path = path,
+            strokeWidth = strokeWidthFor(items),
+            dashed = true,
+        )
+    }
+
+    /**
      * One rope per column node per panel it feeds, landing on that panel's [IntakeRail].
      *
      * **Dots follow column order, not size.** Ranking the landings would reorder them against the
@@ -922,7 +1018,9 @@ object RoadmapGraphLayout {
             } else {
                 "INTAKE · $count ${if (count == 1) "SUPPLIER" else "SUPPLIERS"}"
             },
-            labelY = panelTop - 6,
+            // Just above the first dot, beside the panel rather than over it: with no band the top
+            // panel sits under the promised-supply tab, and a label above the panel ran into it.
+            labelY = (dots.firstOrNull() ?: top) - 11,
             dots = dots,
             arrowY = dots.takeIf { it.isNotEmpty() }?.let { (it.first() + it.last()) / 2 },
         )

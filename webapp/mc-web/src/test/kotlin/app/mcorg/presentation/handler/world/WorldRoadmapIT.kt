@@ -524,6 +524,38 @@ class WorldRoadmapIT : WithUser() {
         deleteWorld(worldId)
     }
 
+    /** MCO-571, frame 4B: once a farm produces, an unbuilt one is a TO BUILD row, not a band node. */
+    @Test
+    fun `with a farm producing, an unbuilt farm is listed to build and the graph draws no band`() = testApplication {
+        setupRoutes()
+        val worldId = createWorld("To Build World")
+        val storage = createProject(worldId, "Storage System")
+        val cobble = createProject(worldId, "Cobble Farm")
+        val iron = createProject(worldId, "Iron Farm")
+        createDemand(storage, "minecraft:cobblestone", "Cobblestone", 51_575)
+        createDemand(storage, "minecraft:iron_ingot", "Iron Ingot", 1_856)
+        createProduction(cobble, "minecraft:cobblestone", "Cobblestone")
+        createProduction(iron, "minecraft:iron_ingot", "Iron Ingot")
+        runBlocking { UpdateProjectStageStep(cobble).process(ProjectStage.COMPLETED) }
+
+        val body = client.get("/worlds/$worldId/roadmap") { addAuthCookie(this) }.bodyAsText()
+
+        val table = body.substringAfter("id=\"roadmap-to-build\"", missingDelimiterValue = "")
+            .substringBefore("rmg-section rmg-graph")
+        assertContains(table, "TO BUILD · 1 FARM · ANY ORDER")
+        assertContains(table, "/worlds/$worldId/projects/$iron")
+        assertContains(table, "Storage System only")
+        assertContains(table, "1,856 Iron Ingot")
+        assertFalse(table.contains("Cobble Farm"), "a producing farm is supply, not work")
+
+        assertFalse(body.contains("rmg-node--start") || body.contains("rmg-node--sequence"), "no band in the graph")
+        assertContains(body, "rmg-node--promised", message = "its supply arrives through the promised tab")
+        assertContains(body, "href=\"#roadmap-to-build\"")
+        assertFalse(body.contains("START HERE"), "one farm to start would rank a set")
+
+        deleteWorld(worldId)
+    }
+
     // ---- reading the rendered table -------------------------------------------------
 
     /** The two edge cells of one project's row, so an assertion can name which column it means. */

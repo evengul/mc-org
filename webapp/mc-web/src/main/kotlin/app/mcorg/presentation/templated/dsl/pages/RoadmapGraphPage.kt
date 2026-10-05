@@ -9,6 +9,7 @@ import app.mcorg.pipeline.world.roadmap.RoadmapGraphLayout.Graph
 import app.mcorg.pipeline.world.roadmap.RoadmapGraphLayout.GraphNode
 import app.mcorg.pipeline.world.roadmap.RoadmapGraphLayout.NodeKind
 import app.mcorg.pipeline.world.roadmap.RoadmapGraphLayout.Tone
+import app.mcorg.pipeline.world.roadmap.RoadmapToBuild
 import app.mcorg.pipeline.world.roadmap.StoppedFarm
 import app.mcorg.presentation.templated.dsl.BadgeStatus
 import app.mcorg.presentation.templated.dsl.appHeader
@@ -36,6 +37,12 @@ import kotlinx.html.span
 data class RoadmapGraphView(
     val roadmap: Roadmap,
     val graph: Graph?,
+    /**
+     * The farms still to build, as a set (MCO-571) — non-null once anything in the world is
+     * producing. Null keeps the sequence band inside the graph, as a world with nothing built
+     * needs it.
+     */
+    val toBuild: RoadmapToBuild.ToBuild? = null,
     val startHere: RoadmapNode?,
     val startHereNote: String?,
     val producerCount: Int,
@@ -121,6 +128,14 @@ fun roadmapGraphPage(
                 div("rmg-card") {
                     id = "roadmap-graph"
                     startHereSection(view)
+                    // The work, then the picture of it (frames 4B/4C): what to finish, the order that
+                    // really exists among the farms still to build, every one of them, and then the
+                    // graph — whose promised-supply tab links back up to the table.
+                    view.toBuild?.takeIf { !it.isEmpty }?.let { toBuild ->
+                        finishFirstSection(view, toBuild)
+                        orderBandSection(view, toBuild)
+                        toBuildSection(view, toBuild)
+                    }
                     graphSection(view)
                     // Between the graph and the lists, as the design orders it: the graph is
                     // where you *see* that one hand-made edge sets the world's depth, and this
@@ -148,6 +163,9 @@ private fun headerMeta(view: RoadmapGraphView): String {
         add("${stats.totalProjects} ${if (stats.totalProjects == 1) "project" else "projects"}")
         if (view.producerCount > 0) {
             add("${view.producerCount} producing ${if (view.producerCount == 1) "farm" else "farms"}")
+        }
+        view.toBuild?.rows?.size?.takeIf { it > 0 }?.let {
+            add("$it ${if (it == 1) "farm" else "farms"} to build")
         }
         // Guarded on dependencies, exactly as the table's `roadmapSummary` guards it: depth is
         // a fact about links, and a world whose projects link to nothing is one layer only in
@@ -184,14 +202,190 @@ private fun FlowContent.startHereSection(view: RoadmapGraphView) {
                 }
             }
         }
-        div("rmg-start__aside") {
-            span("rmg-label") { +"AT A GLANCE" }
-            div("rmg-deflist") {
-                shapeRows(view).forEach { (key, value) ->
-                    span("rmg-deflist__key") { +key }
-                    span { +value }
+        glanceAside(view)
+    }
+}
+
+private fun FlowContent.glanceAside(view: RoadmapGraphView) {
+    div("rmg-start__aside") {
+        span("rmg-label") { +"AT A GLANCE" }
+        div("rmg-deflist") {
+            shapeRows(view).forEach { (key, value) ->
+                span("rmg-deflist__key") { +key }
+                span { +value }
+            }
+        }
+    }
+}
+
+// ---- 2b. finish these first, the order band, the TO BUILD table (MCO-571) ----------------
+
+/**
+ * FINISH THESE FIRST — the farms already in progress (frame 4B).
+ *
+ * It replaces START HERE whenever there are farms to build. START HERE named one project, which
+ * ranks the set; the only ranking that needs no prices is "finish what is open before starting
+ * another". With nothing started there is nothing to finish, and the section says the set is
+ * unranked instead of inventing a first.
+ */
+private fun FlowContent.finishFirstSection(view: RoadmapGraphView, toBuild: RoadmapToBuild.ToBuild) {
+    val active = toBuild.inProgress
+    div("rmg-section rmg-start") {
+        div("rmg-start__main") {
+            span("rmg-label") { +if (active.isEmpty()) "NOTHING STARTED" else "FINISH THESE FIRST" }
+            div("rmg-start__name-row rmg-finish__names") {
+                if (active.isEmpty()) {
+                    val count = RoadmapToBuild.countWord(toBuild.rows.size).replaceFirstChar { it.uppercase() }
+                    span("rmg-finish__none") {
+                        +"$count ${if (toBuild.rows.size == 1) "farm" else "farms"} to build"
+                    }
+                } else {
+                    active.forEachIndexed { index, row ->
+                        if (index > 0) {
+                            span("rmg-finish__joiner") { +if (index == active.lastIndex) "and" else "," }
+                        }
+                        a(classes = "rmg-start__name") {
+                            href = "/worlds/${view.roadmap.worldId}/projects/${row.projectId}"
+                            +row.name
+                        }
+                    }
+                    span("badge badge--in-progress") { +RoadmapToBuild.finishBadge(active.size) }
                 }
             }
+            RoadmapToBuild.finishNotes(toBuild).forEach { note -> p("rmg-start__note") { +note } }
+        }
+        glanceAside(view)
+    }
+}
+
+/**
+ * ORDER AMONG THE FARMS YOU'RE BUILDING — the band, back for the chain alone (frame 4C).
+ *
+ * Above the graph rather than inside it: its subject is the farms being built, and those are
+ * deliberately not in the supply column. Absent when nothing has order, which includes a loop
+ * nobody has answered — drawing the guess would answer the question for them.
+ */
+private fun FlowContent.orderBandSection(view: RoadmapGraphView, toBuild: RoadmapToBuild.ToBuild) {
+    val band = toBuild.band ?: return
+    val others = toBuild.rows.size - toBuild.ordered.size
+    val note = buildString {
+        append("Only farms with an edge between them are drawn here.")
+        if (others > 0) {
+            append(" The other ${RoadmapToBuild.countWord(others)} ")
+            append(if (others == 1) "sits" else "sit")
+            append(" in the table below and nothing orders them.")
+        }
+        if (toBuild.bandHidden > 0) {
+            append(" ${toBuild.bandHidden} more in order did not fit; the table lists them under the farm they wait on.")
+        }
+    }
+    div("rmg-section rmg-order") {
+        div("rmg-order__head") {
+            val chains = if (toBuild.chains == 1) {
+                "1 CHAIN OF ${toBuild.ordered.size}"
+            } else {
+                "${toBuild.chains} CHAINS · ${toBuild.ordered.size} FARMS"
+            }
+            span("rmg-label") { +"ORDER AMONG THE FARMS YOU'RE BUILDING · $chains" }
+            if (others > 0) {
+                span("rmg-note") {
+                    +"the other ${RoadmapToBuild.countWord(others)} ${if (others == 1) "is" else "are"} in any order"
+                }
+            }
+        }
+        graphPanel(view, band, markerId = "rmg-order-arrow") {
+            band.note?.let { place ->
+                div("rmg-panel__note") {
+                    attributes["style"] = "left: ${place.x}px; top: ${place.y}px; width: ${place.width}px"
+                    +note
+                }
+            }
+        }
+        if (band.note == null) p("rmg-order__note") { +note }
+    }
+}
+
+/**
+ * TO BUILD — every farm still to build that feeds a final project, sorted by state then name
+ * (frame 4B), a chained farm indented under the one it waits on (4C).
+ *
+ * No hours: prices are only relatively calibrated (MCO-564), which is why this table exists in
+ * place of 4A's. And no `gather instead ▸` — it has no mechanism yet: taking a farm out of the plan
+ * is neither a state change nor a dismissal, and it needs a definition that survives the plan being
+ * re-derived before a button can promise it (MCO-574).
+ */
+private fun FlowContent.toBuildSection(view: RoadmapGraphView, toBuild: RoadmapToBuild.ToBuild) {
+    val count = toBuild.rows.size
+    val inOrder = toBuild.ordered.size
+    div("rmg-section rmg-tobuild") {
+        id = "roadmap-to-build"
+        div("rmg-tobuild__head") {
+            val tail = when {
+                inOrder > 0 -> "$inOrder IN ORDER"
+                toBuild.unsettled > 0 -> "ORDER UNSETTLED"
+                else -> "ANY ORDER"
+            }
+            span("rmg-label") { +"TO BUILD · $count ${if (count == 1) "FARM" else "FARMS"} · $tail" }
+            span("rmg-note") {
+                +if (inOrder > 0) {
+                    "state, then name — a chained farm sits under the one it waits on"
+                } else {
+                    "sorted by state, then name"
+                }
+            }
+        }
+        div("rmg-tobuild__table") {
+            div("rmg-tobuild__row rmg-tobuild__row--head") {
+                span { +"FARM" }
+                span { +"STATE" }
+                span { +"SUPPLIES" }
+                span("rmg-tobuild__num") { +"ITEMS SUPPLIED" }
+            }
+            toBuild.rows.forEachIndexed { index, row ->
+                val band = if (index % 2 == 1) " rmg-tobuild__row--band" else ""
+                val depth = row.depth.coerceAtMost(3)
+                div("rmg-tobuild__row$band") {
+                    span("rmg-tobuild__name rmg-tobuild__name--depth-$depth") {
+                        if (depth > 0) span("rmg-tobuild__chain") { +"↳" }
+                        a(classes = "rmg-tobuild__link") {
+                            href = "/worlds/${view.roadmap.worldId}/projects/${row.projectId}"
+                            +row.name
+                        }
+                    }
+                    span("rmg-tone-muted") { +RoadmapToBuild.stateLabel(row.state) }
+                    span("rmg-tone-muted") { +RoadmapToBuild.suppliesText(row.supplies) }
+                    span("rmg-tobuild__num${if (row.singleItem != null) " rmg-tobuild__num--named" else ""}") {
+                        +RoadmapToBuild.itemsText(row)
+                    }
+                }
+                when {
+                    row.unsettled -> div("rmg-tobuild__sub rmg-tobuild__sub--depth-$depth$band") {
+                        a(classes = "rmg-tone-amber rmg-tobuild__unsettled") {
+                            href = "#roadmap-cycles"
+                            +"⚠ order unsettled — which comes first is the question above"
+                        }
+                    }
+                    row.waitsOn.isNotEmpty() -> div("rmg-tobuild__sub rmg-tobuild__sub--depth-$depth$band") {
+                        +RoadmapToBuild.waitsText(row.waitsOn)
+                    }
+                }
+            }
+            // A total of one row is that row again.
+            if (count > 1) {
+                div("rmg-tobuild__row rmg-tobuild__row--total") {
+                    span { +if (count == 2) "both" else "all ${RoadmapToBuild.countWord(count)}" }
+                    span {}
+                    span {}
+                    span("rmg-tobuild__num") { +RoadmapGraphLayout.format(toBuild.totalItems) }
+                }
+            }
+        }
+        p("rmg-tobuild__caveat") {
+            span("rmg-tone-amber") { +"⚠ " }
+            span("rmg-tobuild__caveat-term") { +"Items supplied" }
+            +" sums supply lines, so it mixes crafted items with the raw ones underneath them — a farm's "
+            +"total can count ingots that were never on the hand list. It says how much of the plan a farm "
+            +"carries, not what gathering it would cost you, which is why the table is not sorted by it."
         }
     }
 }
@@ -212,7 +406,20 @@ private fun shapeRows(view: RoadmapGraphView): List<Pair<String, String>> {
         if (remaining > 0) {
             add("still to build" to "$remaining of ${stats.totalProjects} projects")
         }
-        if (stats.maxDepth > 1) {
+        val toBuild = view.toBuild
+        if (toBuild != null) {
+            // Depth measured the queue, and there is no queue any more (MCO-571). What replaces it is
+            // the one ordering fact left: whether any of the farms still to build waits on another.
+            if (!toBuild.isEmpty) {
+                val inOrder = toBuild.ordered.size
+                val order = when {
+                    inOrder > 0 -> "$inOrder in order"
+                    toBuild.unsettled > 0 -> "order unsettled"
+                    else -> "any order"
+                }
+                add("farms to build" to "${toBuild.rows.size}, $order")
+            }
+        } else if (stats.maxDepth > 1) {
             add("longest chain" to "${stats.maxDepth} projects deep")
         }
         // Items, not edge count. The old row said "86 from 22 farms", where 86 was the number of
@@ -230,11 +437,22 @@ private fun FlowContent.graphSection(view: RoadmapGraphView) {
     val graph = view.graph
     div("rmg-section rmg-graph") {
         div("rmg-graph__head") {
-            span("rmg-label") { +"DEPENDENCY GRAPH · LINE WEIGHT = ITEMS MOVED" }
-            span("rmg-legend") {
-                span { +"▬ GENERATED" }
-                span { +"┄ MANUAL / BY HAND" }
-                span { +"▸ TAP A PROJECT TO OPEN IT" }
+            // With no band, nothing in the graph is a dependency any more: it is supply, drawn now
+            // or promised (MCO-571), and its line weight is the per-panel rank MCO-566 shipped.
+            if (view.toBuild != null) {
+                span("rmg-label") { +"SUPPLY GRAPH · LINE WEIGHT = RANK BY ITEMS, PER PANEL" }
+                span("rmg-legend") {
+                    span { +"▬ SUPPLYING NOW" }
+                    span { +"┄ PROMISED / BY HAND" }
+                    span { +"▸ TAP A PROJECT TO OPEN IT" }
+                }
+            } else {
+                span("rmg-label") { +"DEPENDENCY GRAPH · LINE WEIGHT = ITEMS MOVED" }
+                span("rmg-legend") {
+                    span { +"▬ GENERATED" }
+                    span { +"┄ MANUAL / BY HAND" }
+                    span { +"▸ TAP A PROJECT TO OPEN IT" }
+                }
             }
         }
 
@@ -246,32 +464,7 @@ private fun FlowContent.graphSection(view: RoadmapGraphView) {
             return@div
         }
 
-        div("rmg-panel") {
-            attributes["style"] = "width: ${graph.width}px; height: ${graph.height}px"
-            edgeSvg(graph)
-            // Document order is sequence → terminal → each group with its own nodes. Desktop
-            // ignores it (everything is absolutely positioned); the mobile fallback drops the
-            // positioning and reads exactly this order, which is the linear queue the design
-            // asks for below 768px.
-            graph.nodes
-                .filter { it.kind == NodeKind.START || it.kind == NodeKind.SEQUENCE }
-                .forEach { node -> graphNode(view, node) }
-            graph.nodes
-                .filter { it.kind == NodeKind.TERMINAL }
-                .forEach { node -> graphNode(view, node) }
-            graph.groups.forEach { group ->
-                groupHeader(group)
-                graph.nodes
-                    .filter { it.group == group.key }
-                    .forEach { node -> graphNode(view, node) }
-            }
-            graph.bandCaption?.let { caption ->
-                div("rmg-band-caption") {
-                    attributes["style"] = "left: ${caption.x}px; top: ${caption.y}px"
-                    +caption.text
-                }
-            }
-        }
+        graphPanel(view, graph)
 
         view.manualEdgeNote?.let { note ->
             div("callout callout--info") {
@@ -283,6 +476,49 @@ private fun FlowContent.graphSection(view: RoadmapGraphView) {
 }
 
 /**
+ * One absolutely-positioned panel: edges underneath, nodes on top. Shared by the graph and by the
+ * order band above it, which is the same vocabulary drawn about a different set of projects.
+ */
+private fun FlowContent.graphPanel(
+    view: RoadmapGraphView,
+    graph: Graph,
+    /** One per panel: two SVGs on the page each defining `rmg-arrow` would duplicate an id. */
+    markerId: String = "rmg-arrow",
+    extra: FlowContent.() -> Unit = {},
+) {
+    div("rmg-panel") {
+        attributes["style"] = "width: ${graph.width}px; height: ${graph.height}px"
+        edgeSvg(graph, markerId)
+        // Document order is promised tab → sequence → terminal → each group with its own nodes.
+        // Desktop ignores it (everything is absolutely positioned); the mobile fallback drops the
+        // positioning and reads exactly this order, which is the linear queue the design asks for
+        // below 768px.
+        graph.nodes
+            .filter { it.kind == NodeKind.PROMISED }
+            .forEach { node -> graphNode(view, node) }
+        graph.nodes
+            .filter { it.kind == NodeKind.START || it.kind == NodeKind.SEQUENCE }
+            .forEach { node -> graphNode(view, node) }
+        graph.nodes
+            .filter { it.kind == NodeKind.TERMINAL }
+            .forEach { node -> graphNode(view, node) }
+        graph.groups.forEach { group ->
+            groupHeader(group)
+            graph.nodes
+                .filter { it.group == group.key }
+                .forEach { node -> graphNode(view, node) }
+        }
+        graph.bandCaption?.let { caption ->
+            div("rmg-band-caption") {
+                attributes["style"] = "left: ${caption.x}px; top: ${caption.y}px"
+                +caption.text
+            }
+        }
+        extra()
+    }
+}
+
+/**
  * Edges as one inline SVG, painted *under* the HTML nodes.
  *
  * Emitted as raw markup because kotlinx.html has no SVG builders — the same route
@@ -290,12 +526,12 @@ private fun FlowContent.graphSection(view: RoadmapGraphView) {
  * number this file computed or run through [escape]; nothing user-authored reaches the markup
  * unescaped.
  */
-private fun FlowContent.edgeSvg(graph: Graph) {
+private fun FlowContent.edgeSvg(graph: Graph, markerId: String) {
     val paths = graph.edges.joinToString("\n") { edge ->
         val dash = if (edge.dashed) """ stroke-dasharray="5 4"""" else ""
         // A rope landing on an intake rail carries no arrowhead: the rail takes the one arrow
         // into the panel, which is what stopped seven of them piling up on its left edge.
-        val marker = if (edge.marker) """ marker-end="url(#rmg-arrow)"""" else ""
+        val marker = if (edge.marker) """ marker-end="url(#$markerId)"""" else ""
         val label = edge.label?.let {
             """<text x="${it.x}" y="${it.y}" class="rmg-edge__label" text-anchor="${it.anchor}">${escape(it.text)}</text>"""
         } ?: ""
@@ -321,7 +557,7 @@ private fun FlowContent.edgeSvg(graph: Graph) {
         +"""
         <svg class="rmg-panel__edges" viewBox="0 0 ${graph.width} ${graph.height}" width="${graph.width}" height="${graph.height}" aria-hidden="true">
           <defs>
-            <marker id="rmg-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <marker id="$markerId" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
               <path d="M 0 0 L 10 5 L 0 10 z" class="rmg-edge__head"></path>
             </marker>
           </defs>
@@ -364,7 +600,15 @@ private fun FlowContent.graphNode(view: RoadmapGraphView, node: GraphNode) {
         if (node.kind == NodeKind.TERMINAL && node.projectId != null) terminalBody(view, node.projectId)
     }
 
-    if (node.projectId != null) {
+    if (node.kind == NodeKind.PROMISED) {
+        // The tab stands for the TO BUILD table, so it links there rather than to any one project.
+        a(classes = "rmg-node ${kindClass(node.kind)}") {
+            href = "#roadmap-to-build"
+            attributes["style"] = geometry
+            span("rmg-node__title") { +node.title }
+            node.subLines.forEach { line -> span("rmg-node__sub ${toneClass(line.tone)}") { +line.text } }
+        }
+    } else if (node.projectId != null) {
         a(classes = "rmg-node ${kindClass(node.kind)}") {
             href = "/worlds/${view.roadmap.worldId}/projects/${node.projectId}"
             attributes["style"] = geometry
@@ -516,6 +760,7 @@ private fun kindClass(kind: NodeKind): String = when (kind) {
     NodeKind.BUNDLE -> "rmg-node--bundle"
     NodeKind.HAND -> "rmg-node--hand"
     NodeKind.TERMINAL -> "rmg-node--terminal"
+    NodeKind.PROMISED -> "rmg-node--promised"
 }
 
 private fun toneClass(tone: Tone): String = when (tone) {

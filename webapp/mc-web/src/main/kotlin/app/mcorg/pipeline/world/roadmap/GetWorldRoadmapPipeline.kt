@@ -95,10 +95,25 @@ internal suspend fun graphViewOf(roadmap: Roadmap): RoadmapGraphView {
         drawn.associate { it.projectId to GetHandMaterialsStep(it.projectId).process(Unit).getOrNull().orEmpty() }
     )
 
-    val graph = RoadmapGraphLayout.of(roadmap, columnProducers, handGathered, demand)
+    // Once anything is producing, the farms still to build are a set rather than a queue (MCO-571):
+    // a TO BUILD table, a band for whatever order really exists among them, and one promised-supply
+    // tab in the graph. A world where nothing produces yet keeps the band — there the chain *is*
+    // the page (design frame 3C), and the handover is "a final project with no producing farm",
+    // not a chain depth.
+    val toBuild = RoadmapToBuild.of(roadmap, terminals).takeIf { columnProducers.isNotEmpty() }
+
+    val graph = RoadmapGraphLayout.of(
+        roadmap,
+        columnProducers,
+        handGathered,
+        demand,
+        promised = toBuild?.let { RoadmapGraphLayout.Promised(it.rows.size, it.promisedByTerminal) },
+    )
 
     val sequence = RoadmapGraphLayout.sequenceNodesOf(roadmap, terminals)
-    val start = startOf(sequence, terminals)
+    // FINISH THESE FIRST replaces START HERE whenever there is anything to build: naming one farm
+    // to start would rank a set the page has just said it cannot rank.
+    val start = if (toBuild != null && !toBuild.isEmpty) null else startOf(sequence, terminals)
 
     // A project with no edge in either direction is in nobody's chain. Split by state:
     // an unfinished one is work you can do whenever, a *finished* one that supplies
@@ -115,6 +130,7 @@ internal suspend fun graphViewOf(roadmap: Roadmap): RoadmapGraphView {
     return RoadmapGraphView(
         roadmap = roadmap,
         graph = graph,
+        toBuild = toBuild,
         startHere = start,
         startHereNote = start?.let {
             if (sequence.isEmpty()) {
