@@ -87,6 +87,9 @@ object RoadmapGraphLayout {
      */
     const val TERMINAL_HEIGHT = 210
 
+    /** One row of a panel's 11px facts list plus its gap, measured on the rendered page. */
+    private const val SPLIT_ROW_HEIGHT = 18
+
     /**
      * Where the panels start when the graph has no band (MCO-571): clear of the promised-supply tab
      * and the short rope out of it into the top panel.
@@ -204,6 +207,11 @@ object RoadmapGraphLayout {
         val concentration: String? = null,
         /** What is left to gather by hand for each final project, as on [Producer.itemsByTerminal]. */
         val itemsByTerminal: Map<Int, Long> = emptyMap(),
+        /**
+         * How much of [items] the farms still to build would take off the list (MCO-572) — the drawn
+         * panels' `promised`, summed. Zero when nothing is promised or it could not be measured.
+         */
+        val promised: Long = 0,
     )
 
     /** The numbers on the terminal panel, which come from the plan rather than the graph. */
@@ -215,6 +223,8 @@ object RoadmapGraphLayout {
         val percentComplete: Int,
         /** How many finished farms feed this panel — the count beside the items, "from 16 farms". */
         val farms: Int = 0,
+        /** [byHand] split into promised and yours either way (MCO-572); null when it could not be measured. */
+        val split: HandListSplit.Split? = null,
     )
 
     // ---- outputs -----------------------------------------------------------------------
@@ -348,7 +358,13 @@ object RoadmapGraphLayout {
          * Null keeps the band, which is still the whole story for a world where nothing is built yet.
          */
         promised: Promised? = null,
+        /**
+         * Whether any panel carries the promised / yours-either-way rows (MCO-572). Stacked panels
+         * have a fixed height, and two more rows would push the last fact out of the box.
+         */
+        splitRows: Boolean = false,
     ): Graph? {
+        val terminalHeight = TERMINAL_HEIGHT + if (splitRows) 2 * SPLIT_ROW_HEIGHT else 0
         val terminals = terminalsOf(roadmap, demand)
         if (terminals.isEmpty()) return null
         val drawnTerminals = terminals.take(MAX_TERMINALS)
@@ -437,7 +453,14 @@ object RoadmapGraphLayout {
             )
             val lines = buildList {
                 add(SubLine("${format(hand.items)} items · ${hand.materials} materials"))
-                hand.concentration?.let { add(SubLine("⚠ $it", Tone.AMBER)) }
+                // Frame 4A swaps the concentration warning for this one when farms are being built:
+                // "half of it goes away when you finish what you started" is the more actionable
+                // fact, and the node has room for one amber line, not two.
+                val promisedShare = promisedShareOf(hand)
+                when {
+                    promisedShare != null -> add(SubLine("⚠ $promisedShare% of it is promised", Tone.AMBER))
+                    hand.concentration != null -> add(SubLine("⚠ ${hand.concentration}", Tone.AMBER))
+                }
                 addAll(splitSubLines(hand.itemsByTerminal, drawnTerminals))
             }
             val handY = headerY + GROUP_HEADER_OFFSET + GROUP_GAP
@@ -509,7 +532,7 @@ object RoadmapGraphLayout {
         val panelTop = if (promised == null) TERMINAL_TOP else PROMISED_TERMINAL_TOP
         val panelWidth = if (promised == null) TERMINAL_WIDTH else TERMINAL_WIDTH - PROMISED_TRUNK_STRIP
         val terminalTops = drawnTerminals.withIndex().associate { (index, terminal) ->
-            terminal.projectId to panelTop + index * (TERMINAL_HEIGHT + TERMINAL_GAP)
+            terminal.projectId to panelTop + index * (terminalHeight + TERMINAL_GAP)
         }
         drawnTerminals.forEachIndexed { index, terminal ->
             nodes += GraphNode(
@@ -519,14 +542,14 @@ object RoadmapGraphLayout {
                 title = terminal.projectName,
                 subLines = emptyList(),
                 x = TERMINAL_LEFT, y = terminalTops.getValue(terminal.projectId), width = panelWidth,
-                height = if (stacked) TERMINAL_HEIGHT else 0,
+                height = if (stacked) terminalHeight else 0,
                 // The count is what the reader needs; the layer number never was — it is the
                 // topological sort's own vocabulary, and it said "LAYER 0" for a build nothing
                 // feeds, which reads as a rank rather than as a fact about edges.
                 eyebrow = "FINAL PROJECT · ${index + 1} OF ${terminals.size}",
             )
         }
-        var rightBottom = panelTop + drawnTerminals.size * (TERMINAL_HEIGHT + TERMINAL_GAP) - TERMINAL_GAP
+        var rightBottom = panelTop + drawnTerminals.size * (terminalHeight + TERMINAL_GAP) - TERMINAL_GAP
         if (hiddenTerminals > 0) {
             val moreY = rightBottom + TERMINAL_GAP
             nodes += GraphNode(
@@ -557,7 +580,7 @@ object RoadmapGraphLayout {
 
         // --- edges and intake rails ----------------------------------------------------------
         val rails = drawnTerminals.map { terminal ->
-            railFor(terminal, terminalTops.getValue(terminal.projectId), feeders)
+            railFor(terminal, terminalTops.getValue(terminal.projectId), terminalHeight, feeders)
         }
         edges += sequenceEdges(drawnSequence, seqWidth, roadmap, drawnTerminals, terminalTops)
         edges += supplyRopes(feeders, drawnTerminals, rails)
@@ -991,6 +1014,7 @@ object RoadmapGraphLayout {
     private fun railFor(
         terminal: RoadmapNode,
         panelTop: Int,
+        panelHeight: Int,
         feeders: List<Pair<GraphNode, Map<Int, Long>>>,
     ): IntakeRail {
         val feeding = feeders.filter { (_, split) -> (split[terminal.projectId] ?: 0L) > 0 }
@@ -1000,7 +1024,7 @@ object RoadmapGraphLayout {
         // nothing in the world feeds needs answered: that panel reads "NO FARM INTAKE" instead.
         val farms = feeding.count { (node, _) -> node.kind != NodeKind.HAND }
         val top = panelTop + RAIL_INSET
-        val bottom = panelTop + TERMINAL_HEIGHT - RAIL_INSET
+        val bottom = panelTop + panelHeight - RAIL_INSET
         val dots = when {
             count == 0 -> emptyList()
             count == 1 -> listOf((top + bottom) / 2)
@@ -1052,6 +1076,12 @@ object RoadmapGraphLayout {
             split[terminal.projectId]?.takeIf { it > 0 }
                 ?.let { SubLine("→ ${terminal.projectName} ${format(it)}") }
         }
+
+    /** The share of the hand list the farms still to build would take, or null when it rounds to nothing. */
+    internal fun promisedShareOf(hand: HandGathered): Long? {
+        if (hand.items <= 0 || hand.promised <= 0) return null
+        return ((hand.promised * 100) / hand.items).takeIf { it > 0 }
+    }
 
     /** A node fits its title and one sub-line at [NODE_HEIGHT]; each further line adds a row. */
     private fun nodeHeightFor(subLines: Int): Int =

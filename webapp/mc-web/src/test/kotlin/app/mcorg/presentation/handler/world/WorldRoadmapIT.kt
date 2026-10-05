@@ -438,7 +438,7 @@ class WorldRoadmapIT : WithUser() {
 
     /** Fixture 4: decommissioned farms vanished from the graph view while the hand list tripled. */
     @Test
-    fun `a decommissioned farm is listed as stopped, with what no farm covers now`() = testApplication {
+    fun `a decommissioned farm is listed as stopped`() = testApplication {
         setupRoutes()
         val worldId = createWorld("Stopped Farm World")
         val storage = createProject(worldId, "Storage System")
@@ -452,31 +452,11 @@ class WorldRoadmapIT : WithUser() {
         assertContains(body, "STOPPED · 1")
         val stopped = body.substringAfter("STOPPED · 1")
         assertContains(stopped, "Old Cobble Farm")
-        assertContains(stopped, "51,527 items no farm covers now")
-
-        deleteWorld(worldId)
-    }
-
-    /** The other half: an item a running farm also makes is still supplied, so stopping cost nothing. */
-    @Test
-    fun `a stopped farm whose output another farm still makes costs nothing`() = testApplication {
-        setupRoutes()
-        val worldId = createWorld("Covered Stopped Farm World")
-        val storage = createProject(worldId, "Storage System")
-        val stopped = createProject(worldId, "Old Cobble Farm")
-        val running = createProject(worldId, "New Cobble Farm")
-        createDemand(storage, "minecraft:cobblestone", "Cobblestone", 51_527, status = "SUPPLIED")
-        createProduction(stopped, "minecraft:cobblestone", "Cobblestone")
-        createProduction(running, "minecraft:cobblestone", "Cobblestone")
-        runBlocking { UpdateProjectStageStep(running).process(ProjectStage.COMPLETED) }
-        setState(stopped, "DECOMMISSIONED")
-
-        val body = client.get("/worlds/$worldId/roadmap") { addAuthCookie(this) }.bodyAsText()
-
-        val section = body.substringAfter("STOPPED · 1")
-        assertContains(section, "Old Cobble Farm")
-        assertContains(section, "nothing it made is missing now")
-        assertFalse(section.contains("no farm covers now"), "New Cobble Farm still makes the cobblestone")
+        // What it costs is a hand-list difference (MCO-572), which needs plans this database has no
+        // game data to derive. Unmeasured is no number — never the zero that would mean "costs
+        // nothing". RoadmapHandListSplitIT measures it against a real graph.
+        assertFalse(stopped.contains("nothing it made is missing"), "unmeasured is not free")
+        assertFalse(stopped.contains("no other farm covers"))
 
         deleteWorld(worldId)
     }
