@@ -85,6 +85,10 @@ internal suspend fun graphViewOf(roadmap: Roadmap): RoadmapGraphView {
             craftRows = data.craftRows,
             openQuestions = data.openQuestions,
             percentComplete = percent,
+            // The same set the column draws, so "from 16 farms" and the run headers count the
+            // same farms — a panel claiming more suppliers than the column shows is the kind of
+            // disagreement this page exists to avoid.
+            farms = columnProducers.count { (it.itemsByTerminal[terminal.projectId] ?: 0L) > 0 },
         )
     }
     val handGathered = handGatheredOf(
