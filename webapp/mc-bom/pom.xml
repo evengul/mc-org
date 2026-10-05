@@ -46,7 +46,7 @@
         <kotlinx_io_version>0.9.1</kotlinx_io_version>
         <slf4j_version>2.0.20</slf4j_version>
         <logback_version>1.6.5</logback_version>
-        <caffeine.version>3.2.4</caffeine.version>
+        <caffeine.version>3.3.0</caffeine.version>
         <bcrypt.version>0.10.2</bcrypt.version>
         <hikari.version>7.1.0</hikari.version>
         <postgresql.version>42.7.13</postgresql.version>
@@ -57,7 +57,7 @@
              which cannot instrument classes on JVM 21 — mockk then mocked Ktor calls as
              null). Force a current ByteBuddy. 1.18.10 covers Java 8-25, so the eventual
              JDK 25 move needs no further bump. -->
-        <bytebuddy.version>1.18.13</bytebuddy.version>
+        <bytebuddy.version>1.18.14</bytebuddy.version>
         <jackson.version>2.22</jackson.version>
     </properties>
 
