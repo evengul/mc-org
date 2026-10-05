@@ -12,12 +12,10 @@ import app.mcorg.pipeline.world.roadmap.ordering.GetManualOrderingsStep
 import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.templated.dsl.pages.RoadmapGraphView
 import app.mcorg.presentation.templated.dsl.pages.roadmapGraphPage
-import app.mcorg.presentation.templated.dsl.pages.roadmapPage
 import app.mcorg.presentation.utils.getUser
 import app.mcorg.presentation.utils.getWorldId
 import app.mcorg.presentation.utils.respondHtml
 import io.ktor.server.application.ApplicationCall
-import io.ktor.server.request.uri
 
 /**
  * `GET /worlds/{worldId}/roadmap` (MCO-288, graph view MCO-469) — the world's derived
@@ -26,24 +24,20 @@ import io.ktor.server.request.uri
  * Read-only, so world membership (enforced by the route's plugins) is the whole
  * authorization story; the admin check only decides what the header offers.
  *
- * Two views over one derivation. The **graph** is the default: it separates sequence from
- * supply, which is the question the page exists to answer. The **table** stays reachable at
- * `?view=table` unchanged — it is still the form that survives hundreds of rows, a screen
- * reader and a 375px viewport, and the graph deliberately does not try to be all three.
+ * One view. There used to be a second, a table of every project at `?view=table`, kept as the
+ * form that survived hundreds of rows, a screen reader and a 375px viewport. The graph page now
+ * carries its own table of the work (TO BUILD), its own 375px layout and its own nothing-built
+ * state, so the table was a second place for every fix to land and was removed (MCO-529). An old
+ * `?view=table` link lands here like any other.
  */
 suspend fun ApplicationCall.handleGetWorldRoadmap() {
     val user = getUser()
     val worldId = getWorldId()
     val isAdmin = ValidateWorldMemberRole<Unit>(user, Role.ADMIN, worldId).process(Unit) is Result.Success
-    val wantsTable = request.uri.contains("view=table")
 
     handlePipeline(
         onSuccess = { roadmap: Roadmap ->
-            if (wantsTable) {
-                respondHtml(roadmapPage(user, roadmap, isWorldAdmin = isAdmin))
-            } else {
-                respondHtml(roadmapGraphPage(user, graphViewOf(roadmap), isWorldAdmin = isAdmin))
-            }
+            respondHtml(roadmapGraphPage(user, graphViewOf(roadmap), isWorldAdmin = isAdmin))
         }
     ) {
         GetWorldRoadMapStep(worldId).run(Unit)
@@ -180,6 +174,7 @@ internal suspend fun graphViewOf(roadmap: Roadmap): RoadmapGraphView {
         },
         finalProjectCount = terminals.size,
         handTotals = handGathered,
+        hiddenTerminals = terminals.drop(RoadmapGraphLayout.MAX_TERMINALS),
         stopped = stopped,
         producerRows = allProducers
             .sortedWith(compareByDescending<RoadmapGraphLayout.Producer> { it.items }.thenBy { it.name })

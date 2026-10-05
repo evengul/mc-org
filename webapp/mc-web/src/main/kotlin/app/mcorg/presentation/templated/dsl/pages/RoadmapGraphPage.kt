@@ -21,7 +21,9 @@ import app.mcorg.presentation.templated.dsl.statusBadge
 import app.mcorg.presentation.templated.dsl.WorldTab
 import app.mcorg.presentation.templated.dsl.worldBar
 import app.mcorg.presentation.templated.dsl.pages.newProjectAffordance
+import kotlinx.html.DIV
 import kotlinx.html.FlowContent
+import kotlinx.html.SPAN
 import kotlinx.html.a
 import kotlinx.html.div
 import kotlinx.html.id
@@ -54,6 +56,8 @@ data class RoadmapGraphView(
     val finalProjectCount: Int = 0,
     /** What is left by hand across the drawn panels — the graph's by-hand node, or 5A's strip. */
     val handTotals: RoadmapGraphLayout.HandGathered? = null,
+    /** Final projects past the panel cap — listed under the graph, since no other view does now. */
+    val hiddenTerminals: List<RoadmapNode> = emptyList(),
     val producerRows: List<ProducerRow>,
     val unchained: List<UnchainedRow>,
     /** The final projects drawn as panels, largest demand first (MCO-563). */
@@ -115,20 +119,20 @@ fun roadmapGraphPage(
             worldBar(view.roadmap.worldId, WorldTab.ROADMAP) {
                 newProjectAffordance(view.roadmap.worldId, showMenu = !view.roadmap.isEmpty())
             }
-            // The title sits outside the card, as on the table view and every other page
+            // The title sits outside the card, as on every other page
             // (MCO-505). It used to be an `.rmg-section` within it. It heads an empty world
             // too — the Projects tab heads itself in both states, and a Roadmap tab that
             // dropped its heading when empty made the two tabs look like different pages.
-            roadmapTitle(view.roadmap.worldId, headerMeta(view), graphActive = true)
+            roadmapTitle(headerMeta(view))
             if (view.roadmap.isEmpty()) {
                 // This is the view a world opens on, so it is the first thing a new world
                 // shows — and it used to be an empty card with four empty sections in it.
                 // The world's one empty state answers it instead (see [worldEmptyState]).
                 worldEmptyState(view.roadmap.worldId)
             } else {
-                // Above the card, exactly where the table view puts it: a loop makes the order the
-                // graph draws an assumption, so the page asks before it draws. This view used to
-                // draw the assumed order as settled and leave the question to the table alone.
+                // Above the card: a loop makes any order on the page an assumption, so the page
+                // asks before it draws. It used to draw the assumed order as settled and leave the
+                // question to the old table view alone.
                 cycleSection(view.roadmap)
                 div("rmg-card") {
                     id = "roadmap-graph"
@@ -142,6 +146,7 @@ fun roadmapGraphPage(
                         toBuildSection(view, toBuild)
                     }
                     graphSection(view)
+                    moreFinalProjectsSection(view)
                     // Between the graph and the lists, as the design orders it: the graph is
                     // where you *see* that one hand-made edge sets the world's depth, and this
                     // is where you do something about it (MCO-302).
@@ -171,7 +176,7 @@ fun roadmapGraphPage(
 private fun headerMeta(view: RoadmapGraphView): String = buildList {
     add(view.roadmap.worldName)
     // An empty world has none of the counts below; "0 projects" is the one fact it has, and what the
-    // table view and the Projects tab both say.
+    // Projects tab says.
     if (view.roadmap.isEmpty()) add("0 projects")
     if (view.finalProjectCount > 0 || view.producerCount > 0) {
         add("${view.producerCount} producing ${if (view.producerCount == 1) "farm" else "farms"}")
@@ -190,7 +195,7 @@ private fun FlowContent.startHereSection(view: RoadmapGraphView) {
     val start = view.startHere ?: return
     div("rmg-section rmg-start") {
         div("rmg-start__main") {
-            span("rmg-label") { +"START HERE" }
+            sectionLabel { +"START HERE" }
             div("rmg-start__name-row") {
                 a(classes = "rmg-start__name") {
                     href = "/worlds/${view.roadmap.worldId}/projects/${start.projectId}"
@@ -215,7 +220,7 @@ private fun FlowContent.startHereSection(view: RoadmapGraphView) {
 
 private fun FlowContent.glanceAside(view: RoadmapGraphView) {
     div("rmg-start__aside") {
-        span("rmg-label") { +"AT A GLANCE" }
+        sectionLabel { +"AT A GLANCE" }
         div("rmg-deflist") {
             shapeRows(view).forEach { (key, value) ->
                 span("rmg-deflist__key") { +key }
@@ -239,7 +244,7 @@ private fun FlowContent.finishFirstSection(view: RoadmapGraphView, toBuild: Road
     val active = toBuild.inProgress
     div("rmg-section rmg-start") {
         div("rmg-start__main") {
-            span("rmg-label") { +if (active.isEmpty()) "NOTHING STARTED" else "FINISH THESE FIRST" }
+            sectionLabel { +if (active.isEmpty()) "NOTHING STARTED" else "FINISH THESE FIRST" }
             div("rmg-start__name-row rmg-finish__names") {
                 if (active.isEmpty()) {
                     val count = RoadmapToBuild.countWord(toBuild.rows.size).replaceFirstChar { it.uppercase() }
@@ -293,7 +298,7 @@ private fun FlowContent.orderBandSection(view: RoadmapGraphView, toBuild: Roadma
             } else {
                 "${toBuild.chains} CHAINS · ${toBuild.ordered.size} FARMS"
             }
-            span("rmg-label") { +"ORDER AMONG THE FARMS YOU'RE BUILDING · $chains" }
+            sectionLabel { +"ORDER AMONG THE FARMS YOU'RE BUILDING · $chains" }
             if (others > 0) {
                 span("rmg-note") {
                     +"the other ${RoadmapToBuild.countWord(others)} ${if (others == 1) "is" else "are"} in any order"
@@ -337,7 +342,7 @@ private fun FlowContent.toBuildSection(view: RoadmapGraphView, toBuild: RoadmapT
                 toBuild.unsettled > 0 -> "ORDER UNSETTLED"
                 else -> "ANY ORDER"
             }
-            span("rmg-label") { +"TO BUILD · $count ${if (count == 1) "FARM" else "FARMS"} · $tail" }
+            sectionLabel { +"TO BUILD · $count ${if (count == 1) "FARM" else "FARMS"} · $tail" }
             span("rmg-note") {
                 +if (inOrder > 0) {
                     "state, then name — a chained farm sits under the one it waits on"
@@ -346,49 +351,51 @@ private fun FlowContent.toBuildSection(view: RoadmapGraphView, toBuild: RoadmapT
                 }
             }
         }
-        div("rmg-tobuild__table") {
-            div("rmg-tobuild__row rmg-tobuild__row--head") {
-                span { +"FARM" }
-                span { +"STATE" }
-                span { +"SUPPLIES" }
-                span("rmg-tobuild__num") { +"ITEMS SUPPLIED" }
+        ariaTable("rmg-tobuild__table", "Farms to build") {
+            ariaRow("rmg-tobuild__row rmg-tobuild__row--head") {
+                ariaCell(header = true) { +"FARM" }
+                ariaCell(header = true) { +"STATE" }
+                ariaCell(header = true) { +"SUPPLIES" }
+                ariaCell("rmg-tobuild__num", header = true) { +"ITEMS SUPPLIED" }
             }
             toBuild.rows.forEachIndexed { index, row ->
                 val band = if (index % 2 == 1) " rmg-tobuild__row--band" else ""
                 val depth = row.depth.coerceAtMost(3)
-                div("rmg-tobuild__row$band") {
-                    span("rmg-tobuild__name rmg-tobuild__name--depth-$depth") {
+                ariaRow("rmg-tobuild__row$band") {
+                    ariaCell("rmg-tobuild__name rmg-tobuild__name--depth-$depth") {
                         if (depth > 0) span("rmg-tobuild__chain") { +"↳" }
                         a(classes = "rmg-tobuild__link") {
                             href = "/worlds/${view.roadmap.worldId}/projects/${row.projectId}"
                             +row.name
                         }
                     }
-                    span("rmg-tone-muted") { +RoadmapToBuild.stateLabel(row.state) }
-                    span("rmg-tone-muted") { +RoadmapToBuild.suppliesText(row.supplies) }
-                    span("rmg-tobuild__num${if (row.singleItem != null) " rmg-tobuild__num--named" else ""}") {
+                    ariaCell("rmg-tone-muted") { +RoadmapToBuild.stateLabel(row.state) }
+                    ariaCell("rmg-tone-muted") { +RoadmapToBuild.suppliesText(row.supplies) }
+                    ariaCell("rmg-tobuild__num${if (row.singleItem != null) " rmg-tobuild__num--named" else ""}") {
                         +RoadmapToBuild.itemsText(row)
                     }
                 }
                 when {
-                    row.unsettled -> div("rmg-tobuild__sub rmg-tobuild__sub--depth-$depth$band") {
-                        a(classes = "rmg-tone-amber rmg-tobuild__unsettled") {
-                            href = "#roadmap-cycles"
-                            +"⚠ order unsettled — which comes first is the question above"
+                    row.unsettled -> ariaRow("rmg-tobuild__sub rmg-tobuild__sub--depth-$depth$band") {
+                        ariaCell(span = 4) {
+                            a(classes = "rmg-tone-amber rmg-tobuild__unsettled") {
+                                href = "#roadmap-cycles"
+                                +"⚠ order unsettled — which comes first is the question above"
+                            }
                         }
                     }
-                    row.waitsOn.isNotEmpty() -> div("rmg-tobuild__sub rmg-tobuild__sub--depth-$depth$band") {
-                        +RoadmapToBuild.waitsText(row.waitsOn)
+                    row.waitsOn.isNotEmpty() -> ariaRow("rmg-tobuild__sub rmg-tobuild__sub--depth-$depth$band") {
+                        ariaCell(span = 4) { +RoadmapToBuild.waitsText(row.waitsOn) }
                     }
                 }
             }
             // A total of one row is that row again.
             if (count > 1) {
-                div("rmg-tobuild__row rmg-tobuild__row--total") {
-                    span { +if (count == 2) "both" else "all ${RoadmapToBuild.countWord(count)}" }
-                    span {}
-                    span {}
-                    span("rmg-tobuild__num") { +RoadmapGraphLayout.format(toBuild.totalItems) }
+                ariaRow("rmg-tobuild__row rmg-tobuild__row--total") {
+                    ariaCell { +if (count == 2) "both" else "all ${RoadmapToBuild.countWord(count)}" }
+                    ariaCell {}
+                    ariaCell {}
+                    ariaCell("rmg-tobuild__num") { +RoadmapGraphLayout.format(toBuild.totalItems) }
                 }
             }
         }
@@ -422,36 +429,40 @@ private fun FlowContent.groupedToBuild(
     div("rmg-tobuild__head") {
         val state = RoadmapToBuild.stateWord(grouped.state).uppercase()
         val order = if (toBuild.unsettled > 0) "ORDER UNSETTLED" else "ANY ORDER"
-        span("rmg-label") { +"TO BUILD · $count ${if (count == 1) "FARM" else "FARMS"} · ALL $state · $order" }
+        sectionLabel { +"TO BUILD · $count ${if (count == 1) "FARM" else "FARMS"} · ALL $state · $order" }
         span("rmg-note") { +"one state, so grouped by where the output goes, then name" }
     }
-    div("rmg-tobuild__table rmg-tobuild__table--grouped") {
-        div("rmg-tobuild__row rmg-tobuild__row--head") {
-            span { +"FARM" }
-            span("rmg-tobuild__num") { +"ITEMS SUPPLIED" }
+    ariaTable("rmg-tobuild__table rmg-tobuild__table--grouped", "Farms to build, by what they feed") {
+        ariaRow("rmg-tobuild__row rmg-tobuild__row--head") {
+            ariaCell(header = true) { +"FARM" }
+            ariaCell("rmg-tobuild__num", header = true) { +"ITEMS SUPPLIED" }
         }
         grouped.groups.forEach { group ->
-            div("rmg-tobuild__group") {
-                +"FEEDS ${RoadmapToBuild.suppliesText(group.supplies).uppercase()} · ${group.rows.size}"
+            ariaRow("rmg-tobuild__group") {
+                ariaCell(span = 2, rowHeader = true) {
+                    +"FEEDS ${RoadmapToBuild.suppliesText(group.supplies).uppercase()} · ${group.rows.size}"
+                }
             }
             group.rows.forEachIndexed { index, row ->
                 val band = if (index % 2 == 1) " rmg-tobuild__row--band" else ""
-                div("rmg-tobuild__row$band") {
-                    span("rmg-tobuild__name") {
+                ariaRow("rmg-tobuild__row$band") {
+                    ariaCell("rmg-tobuild__name") {
                         a(classes = "rmg-tobuild__link") {
                             href = "/worlds/${view.roadmap.worldId}/projects/${row.projectId}"
                             +row.name
                         }
                     }
-                    span("rmg-tobuild__num${if (row.singleItem != null) " rmg-tobuild__num--named" else ""}") {
+                    ariaCell("rmg-tobuild__num${if (row.singleItem != null) " rmg-tobuild__num--named" else ""}") {
                         +RoadmapToBuild.itemsText(row)
                     }
                 }
                 if (row.unsettled) {
-                    div("rmg-tobuild__sub rmg-tobuild__sub--depth-0$band") {
-                        a(classes = "rmg-tone-amber rmg-tobuild__unsettled") {
-                            href = "#roadmap-cycles"
-                            +"⚠ order unsettled — which comes first is the question above"
+                    ariaRow("rmg-tobuild__sub rmg-tobuild__sub--depth-0$band") {
+                        ariaCell(span = 2) {
+                            a(classes = "rmg-tone-amber rmg-tobuild__unsettled") {
+                                href = "#roadmap-cycles"
+                                +"⚠ order unsettled — which comes first is the question above"
+                            }
                         }
                     }
                 }
@@ -460,12 +471,47 @@ private fun FlowContent.groupedToBuild(
         // Stated rather than omitted, as the supply column states them: a final project nothing
         // here feeds on its own is a fact about the world, not a group the page forgot.
         if (grouped.emptyFinals.isNotEmpty()) {
-            div("rmg-tobuild__group rmg-tobuild__group--empty") {
-                +grouped.emptyFinals.joinToString("  ·  ") { "FEEDS ${it.uppercase()} ONLY · none" }
+            ariaRow("rmg-tobuild__group rmg-tobuild__group--empty") {
+                ariaCell(span = 2) {
+                    +grouped.emptyFinals.joinToString("  ·  ") { "FEEDS ${it.uppercase()} ONLY · none" }
+                }
             }
         }
     }
     itemsCaveat()
+}
+
+// The TO BUILD table is a CSS grid of divs, so these roles are what make it a table to a screen
+// reader: navigable by row and column, each cell announced with its column header. It inherited
+// that job from the Table view's real <table> when that view was removed (MCO-529).
+
+private inline fun FlowContent.ariaTable(classes: String, label: String, crossinline block: DIV.() -> Unit) =
+    div(classes) {
+        attributes["role"] = "table"
+        attributes["aria-label"] = label
+        block()
+    }
+
+private inline fun DIV.ariaRow(classes: String, crossinline block: DIV.() -> Unit) =
+    div(classes) {
+        attributes["role"] = "row"
+        block()
+    }
+
+private inline fun DIV.ariaCell(
+    classes: String? = null,
+    header: Boolean = false,
+    rowHeader: Boolean = false,
+    span: Int = 1,
+    crossinline block: SPAN.() -> Unit,
+) = span(classes) {
+    attributes["role"] = when {
+        header -> "columnheader"
+        rowHeader -> "rowheader"
+        else -> "cell"
+    }
+    if (span > 1) attributes["aria-colspan"] = span.toString()
+    block()
 }
 
 /**
@@ -521,7 +567,7 @@ private fun FlowContent.graphSection(view: RoadmapGraphView) {
         div("rmg-graph__head") {
             // Nothing in the graph is a dependency: it is supply, drawn now or promised (MCO-571),
             // and its line weight is the per-panel rank MCO-566 shipped.
-            span("rmg-label") { +"SUPPLY GRAPH · LINE WEIGHT = RANK BY ITEMS, PER PANEL" }
+            sectionLabel { +"SUPPLY GRAPH · LINE WEIGHT = RANK BY ITEMS, PER PANEL" }
             span("rmg-legend") {
                 span { +"▬ SUPPLYING NOW" }
                 span { +"┄ PROMISED / BY HAND" }
@@ -565,7 +611,7 @@ private fun FlowContent.graphSection(view: RoadmapGraphView) {
 private fun FlowContent.panelRowSection(view: RoadmapGraphView) {
     div("rmg-section rmg-graph") {
         div("rmg-graph__head") {
-            span("rmg-label") { +"SUPPLY · NO FARM PRODUCES YET" }
+            sectionLabel { +"SUPPLY · NO FARM PRODUCES YET" }
             span("rmg-legend") {
                 span("rmg-legend__key") {
                     span("rmg-swatch rmg-swatch--promised") {}
@@ -625,7 +671,7 @@ private fun FlowContent.panelRowSection(view: RoadmapGraphView) {
             if (hidden > 0) {
                 div("rmg-panelrow__card rmg-panelrow__card--more") {
                     div("rmg-node__title") { +"+$hidden more final ${if (hidden == 1) "project" else "projects"}" }
-                    div("rmg-node__sub rmg-tone-muted") { +"see the table view for all of them" }
+                    div("rmg-node__sub rmg-tone-muted") { +"listed below" }
                 }
             }
         }
@@ -867,13 +913,37 @@ private fun FlowContent.terminalBody(view: RoadmapGraphView, projectId: Int) {
     }
 }
 
+/**
+ * The final projects past the three panels. The "+N more" node used to point at the table view for
+ * them; with that gone (MCO-529) they are listed here, each a link, so none is unreachable from the
+ * page that counted it.
+ */
+private fun FlowContent.moreFinalProjectsSection(view: RoadmapGraphView) {
+    if (view.hiddenTerminals.isEmpty()) return
+    div("rmg-section rmg-unchained") {
+        div("rmg-unchained__head") {
+            sectionLabel { +"MORE FINAL PROJECTS · ${view.hiddenTerminals.size}" }
+            span("rmg-note") { +"past the three drawn above — smallest supply last" }
+        }
+        div("rmg-chips") {
+            view.hiddenTerminals.forEach { terminal ->
+                a(classes = "rmg-chip") {
+                    href = "/worlds/${view.roadmap.worldId}/projects/${terminal.projectId}"
+                    span("rmg-chip__name") { +terminal.projectName }
+                    span("rmg-chip__note rmg-tone-muted") { +RoadmapToBuild.stateLabel(terminal.state) }
+                }
+            }
+        }
+    }
+}
+
 // ---- 4. not in any chain -----------------------------------------------------------------
 
 private fun FlowContent.unchainedSection(view: RoadmapGraphView) {
     if (view.unchained.isEmpty()) return
     div("rmg-section rmg-unchained") {
         div("rmg-unchained__head") {
-            span("rmg-label") { +"NOT IN ANY CHAIN · ${view.unchained.size}" }
+            sectionLabel { +"NOT IN ANY CHAIN · ${view.unchained.size}" }
             span("rmg-note") { +"nothing supplies them, they supply nothing — do them whenever" }
         }
         div("rmg-chips") {
@@ -894,7 +964,7 @@ private fun FlowContent.producingSection(view: RoadmapGraphView) {
     if (view.producerRows.isEmpty()) return
     div("rmg-section rmg-producing") {
         div("rmg-producing__head") {
-            span("rmg-label") {
+            sectionLabel {
                 +"PRODUCING · ${view.producerCount} ${if (view.producerCount == 1) "FARM" else "FARMS"}"
             }
             span("rmg-note") { +"done, and still feeding the roadmap · items · supply lines" }
@@ -940,7 +1010,7 @@ private fun FlowContent.stoppedSection(view: RoadmapGraphView) {
     if (view.stopped.isEmpty()) return
     div("rmg-section rmg-stopped") {
         div("rmg-stopped__head") {
-            span("rmg-label") { +"STOPPED · ${view.stopped.size}" }
+            sectionLabel { +"STOPPED · ${view.stopped.size}" }
             span("rmg-note") { +"decommissioned — they supply nothing now" }
         }
         div("rmg-chips") {
