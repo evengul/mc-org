@@ -1,7 +1,7 @@
 package app.mcorg.presentation.handler
 
 import app.mcorg.pipeline.failure.SignOutReason
-import app.mcorg.presentation.templated.error.errorPageLayout
+import app.mcorg.presentation.templated.error.signOutPage
 import app.mcorg.presentation.utils.getHost
 import app.mcorg.presentation.utils.removeToken
 import app.mcorg.presentation.utils.respondHtml
@@ -25,12 +25,5 @@ suspend fun ApplicationCall.handleGetSignOut() {
         return
     }
 
-    val reason = SignOutReason.fromCode(errorCode)
-    respondHtml(errorPageLayout(
-        pageTitle = "${reason.heading} · Seam",
-        heading = reason.heading,
-        body = reason.body,
-        ctaText = "Sign in again",
-        ctaHref = "/auth/sign-in",
-    ))
+    respondHtml(signOutPage(SignOutReason.fromCode(errorCode)))
 }

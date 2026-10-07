@@ -39,7 +39,7 @@ suspend fun ApplicationCall.handleGetSignIn() {
             when(error) {
                 is AppFailure.AuthError.MissingToken -> respondHtml(landingPage(getSignInUrl(customRedirectPath ?: "/", requestedUsername)))
                 is AppFailure.AuthError.ConvertTokenError -> respondRedirect(error.toRedirect().toUrl())
-                else -> respondRedirect("/auth/sign-out?error=${SignOutReason.INTERNAL_ERROR.code}")
+                else -> respondRedirect(SignOutReason.INTERNAL_ERROR.url)
             }
         }
     ) {
@@ -54,7 +54,7 @@ private fun ApplicationCall.getSignInUrl(redirectPath: String = "/", requestedUs
         when (AppConfig.env) {
             Local -> "/auth/oidc/demo-redirect?redirect_to=${URLEncoder.encode(redirectPath, "UTF-8")}${if (requestedUsername != null) "&username=${URLEncoder.encode(requestedUsername, "UTF-8")}" else ""}"
             Test -> "/auth/oidc/demo-redirect?redirect_to=${URLEncoder.encode(redirectPath, "UTF-8")}&username=${requestedUsername ?: "random"}"
-            Production -> "/auth/sign-out?error=${SignOutReason.MISCONFIGURED.code}"
+            Production -> SignOutReason.MISCONFIGURED.url
         }
     } else getMicrosoftSignInUrl(redirectPath)
 }

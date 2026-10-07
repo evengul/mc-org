@@ -67,8 +67,14 @@ suspend fun ApplicationCall.handleSignIn() {
         onFailure = { error: AppFailure ->
             when(error) {
                 is AppFailure.Redirect -> respondRedirect(error.toUrl())
-                is AppFailure.ApiError -> respondRedirect("/auth/sign-out?error=${SignOutReason.EXTERNAL_API_ERROR.code}")
-                else -> respondRedirect("/auth/sign-out?error=${SignOutReason.INTERNAL_ERROR.code}")
+                is AppFailure.ApiError -> {
+                    signInLogger.warn("Microsoft sign-in failed upstream: {}", error::class.simpleName)
+                    respondRedirect(SignOutReason.EXTERNAL_API_ERROR.url)
+                }
+                else -> {
+                    signInLogger.warn("Microsoft sign-in failed: {}", error::class.simpleName)
+                    respondRedirect(SignOutReason.INTERNAL_ERROR.url)
+                }
             }
         }
     ) {
@@ -102,17 +108,11 @@ object GetMicrosoftCodeStep : Step<Parameters, AppFailure, String> {
         // (MCO-438). The one code a user can act on — they declined — gets its own copy.
         if (error != null) {
             val reason = if (error == "access_denied") SignOutReason.MICROSOFT_DENIED else SignOutReason.MICROSOFT_FAILED
-            return Result.failure(AppFailure.Redirect(
-                path = "/auth/sign-out",
-                queryParameters = mapOf("error" to reason.code)
-            ))
+            return Result.failure(reason.redirect())
         }
 
         if (code == null) {
-            return Result.failure(AppFailure.Redirect(
-                path = "/auth/sign-out",
-                queryParameters = mapOf("error" to SignOutReason.MISSING_CODE.code)
-            ))
+            return Result.failure(SignOutReason.MISSING_CODE.redirect())
         }
 
         return Result.success(code)

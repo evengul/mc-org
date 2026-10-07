@@ -87,7 +87,10 @@ suspend fun ApplicationCall.handleDemoSignIn() {
                 is AppFailure.AuthError.MissingToken -> respondRedirect("/auth/sign-in")
                 is AppFailure.Redirect -> respondRedirect(error.toUrl())
                 is AppFailure.AuthError.ConvertTokenError -> respondRedirect(error.toRedirect().toUrl())
-                else -> respondRedirect("/auth/sign-out?error=${SignOutReason.INTERNAL_ERROR.code}")
+                else -> {
+                    logger.warn("Demo sign-in failed: {}", error::class.simpleName)
+                    respondRedirect(SignOutReason.INTERNAL_ERROR.url)
+                }
             }
         }
     ) {

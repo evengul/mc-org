@@ -5,13 +5,13 @@ package app.mcorg.pipeline.failure
  * for it (MCO-438).
  *
  * This is an allowlist, and it is the only thing the sign-out page reads from its URL. Anyone can
- * craft a link to that page, so before this the code and every other query parameter were printed
- * verbatim on a Seam-branded page — escaped, so not XSS, but text an attacker chose ("your account
- * is suspended, call …") inside real app chrome. A code that is not listed here renders [GENERIC].
+ * craft a link to that page, so anything it printed from the URL would be text an attacker chose
+ * ("your account is suspended, call …") inside real app chrome — escaped, so not XSS, but still a
+ * phishing surface. A code that is not listed here renders [GENERIC].
  *
- * Producers emit [code] rather than a literal so the two ends cannot drift, and never anything built
- * from a value at hand: an exception's class name, a JWT claim, an upstream description. Those travel
- * into browser history, access logs and `Referer` headers.
+ * Producers go through [url] or [redirect] so the two ends cannot drift, and never put anything built
+ * from a value at hand in the URL: an exception's class name, a JWT claim, an upstream description.
+ * Those travel into browser history and `Referer` headers; log them instead, within logging.md.
  */
 enum class SignOutReason(val code: String, val heading: String, val body: String) {
     INVALID_TOKEN(
@@ -43,7 +43,8 @@ enum class SignOutReason(val code: String, val heading: String, val body: String
         "external_api_error",
         "Could not load your Minecraft profile",
         "Signing in goes through Microsoft, Xbox and Minecraft, and one of them did not answer as expected. " +
-            "Check that this Microsoft account owns Minecraft: Java Edition, then try again.",
+            "Please try again in a minute. If it keeps failing, check that this Microsoft account owns " +
+            "Minecraft: Java Edition.",
     ),
     MISCONFIGURED(
         "misconfigured",
@@ -61,7 +62,13 @@ enum class SignOutReason(val code: String, val heading: String, val body: String
         "Sign in again to continue.",
     );
 
+    val url: String get() = "$PATH?error=$code"
+
+    fun redirect() = AppFailure.Redirect(path = PATH, queryParameters = mapOf("error" to code))
+
     companion object {
+        private const val PATH = "/auth/sign-out"
+
         fun fromCode(code: String?): SignOutReason = entries.firstOrNull { it.code == code } ?: GENERIC
     }
 }
