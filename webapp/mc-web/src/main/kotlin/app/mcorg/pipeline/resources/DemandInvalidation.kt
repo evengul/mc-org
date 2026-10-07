@@ -5,6 +5,7 @@ import app.mcorg.pipeline.Step
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.Result
 import app.mcorg.pipeline.SafeSQL
+import app.mcorg.pipeline.TransactionConnection
 import app.mcorg.pipeline.failure.AppFailure
 import org.slf4j.LoggerFactory
 
@@ -23,7 +24,7 @@ import org.slf4j.LoggerFactory
  *
  * ## Why invalidate rather than revalidate on read
  *
- * Of the three approaches on MCO-404, this is the first: delete the fingerprint at the moment
+ * Of the three approaches on MCO-404, this is the first: drop the fingerprint at the moment
  * supply changes and let the roadmap's existing fill-on-read path re-derive. It wins on
  * measurement, not on taste — against the real ingested `Forever world` (29 projects, 2 with
  * gathering rows, one of them the 555-target YAMS storage system):
@@ -36,7 +37,7 @@ import org.slf4j.LoggerFactory
  *
  * Revalidating on read (option 3) means one derivation per project per roadmap load — 0.7 s each
  * on this data, so a world where 29 projects have plans would spend ~20 s rendering a table. The
- * measured cost of *this* approach is one DELETE on an action nobody takes often, and the
+ * measured cost of *this* approach is one state-row write on an action nobody takes often, and the
  * re-derivation is paid lazily, once, by the next roadmap load — which is the cost fill-on-read
  * already permits and which the numbers above price at 0.7 s per affected project.
  *
@@ -75,9 +76,21 @@ import org.slf4j.LoggerFactory
  * measurements and adding from a schematic never re-derive; neither does the FK's
  * `ON DELETE SET NULL` that unlinks a requirement when the project solving it is deleted. The
  * worry that invalidating on every progress tick would re-derive too often does not hold for an
- * invalidation that is only a DELETE: re-derivation is lazy, so it costs one derivation per
+ * invalidation that is only a state-row write: re-derivation is lazy, so it costs one derivation per
  * project that changed since the world's roadmap was last opened, however many ticks there were.
  * Hence a trigger rather than handler calls — the rule is about the tables, not the doors.
+ *
+ * ### What "invalidate" writes (MCO-584)
+ *
+ * Every path above does the same thing to `project_demand_state`: null the fingerprint and bump
+ * the generation, inserting the row when there is none. It used to delete the row, and a
+ * derivation already running — inputs read, ~0.7 s of planning left — then wrote it back with the
+ * old inputs' fingerprint, and the roadmap served that plan as current. The generation is what
+ * `SaveProjectDemandStep` compares against the one the derivation read before its inputs.
+ *
+ * The world-wide paths reach every project in the world, and the supply path every project that has
+ * nothing current stored, rows or not: a project on its first derivation has no row to bump
+ * otherwise, and its in-flight save would land unopposed.
  *
  * ### Accepted staleness
  *
@@ -92,55 +105,94 @@ import org.slf4j.LoggerFactory
  *   view, polled every ~10 s per player) read other projects' `project_demand` without filling it
  *   in. After an invalidation they see the previous derivation until the roadmap or that
  *   project's own page re-derives it; the rows are still there, because every invalidation
- *   deletes only the state. Filling in on those reads would put ~0.7 s per stale project on a
+ *   touches only the state. Filling in on those reads would put ~0.7 s per stale project on a
  *   page render and on the mod's poll.
  */
 private val logger = LoggerFactory.getLogger("app.mcorg.pipeline.resources.DemandInvalidation")
 
 /**
- * Drops the stored demand fingerprint of every project in [worldId] whose plan touches an item
- * that [producerProjectId] produces, so the next roadmap load re-derives them.
+ * Invalidates the stored demand of every project in [worldId] whose plan touches an item that
+ * [producerProjectId] produces, so the next roadmap load re-derives them.
+ *
+ * Projects with gathering rows and nothing current stored are invalidated too, whatever their
+ * plan touches (MCO-584). They have no `project_demand` rows to match on, so the item join cannot
+ * see them, yet one may be on its first derivation right now — in the roadmap's fill loop — with
+ * the pre-change supply already read. They are uncovered either way, so this costs nothing; what
+ * it buys is the generation bump that stops that derivation storing its result as current.
  *
  * The producer itself is excluded: a farm's own plan never sees its own output as supply
  * (`WorldFarmSuppliesInput.excludeProjectId`), so its demand cannot have changed.
  *
- * Only `project_demand_state` is deleted, never `project_demand`. The rows stay readable until
- * the re-derivation replaces them, so a roadmap load that races an invalidation shows the old
+ * Invalidating nulls the fingerprint and bumps the generation in `project_demand_state`
+ * ([SaveProjectDemandStep] says why); `project_demand` is never touched. The rows stay readable
+ * until the re-derivation replaces them, so a roadmap load that races an invalidation shows the old
  * numbers rather than an empty graph — the same "one load behind" the fill-on-read path has
  * always had, and strictly better than a project blinking out of the table.
  *
- * Call it **before** the change when the change removes what it reads (deleting a production
- * row, deleting the project), and after when it does not (a state transition).
+ * Call it **after** the change when the change leaves what it reads in place (a state transition).
+ * When the change removes it (deleting a production row, deleting the project), call it before
+ * the change **in the same transaction**, via [transactionConnection]. Committed on its own first,
+ * the bump would come before the change, and a derivation starting in between would read the new
+ * generation with the old supply and store its plan as current (MCO-584).
  *
  * @return the number of projects invalidated.
  */
 data class InvalidateDemandSuppliedByStep(
     val worldId: Int,
     val producerProjectId: Int,
+    val transactionConnection: TransactionConnection? = null,
 ) : Step<Unit, AppFailure.DatabaseError, Int> {
 
+    // "Nothing current stored" is GetWorldDemandCoverageStep's test of a current row — a
+    // fingerprint, this code's revision, and the version's latest ingestion epoch — so a project
+    // the roadmap is about to re-derive after a deploy or a re-ingest is reached as well. Rows are
+    // locked in project order, so two invalidations in one world cannot deadlock on each other.
     override suspend fun process(input: Unit): Result<AppFailure.DatabaseError, Int> =
-        DatabaseSteps.update<Unit>(
-            sql = SafeSQL.delete(
+        DatabaseSteps.query<Unit, Int>(
+            sql = SafeSQL.with(
                 """
-                DELETE FROM project_demand_state s
-                WHERE s.project_id IN (
-                    SELECT DISTINCT d.project_id
-                    FROM project_demand d
-                    JOIN projects c ON c.id = d.project_id
+                WITH invalidated AS (
+                    INSERT INTO project_demand_state (project_id, fingerprint, derived_at, generation)
+                    SELECT c.id, NULL, NULL, 1
+                    FROM projects c
                     WHERE c.world_id = ?
-                      AND d.project_id <> ?
-                      AND d.item_id IN (
-                          SELECT pp.item_id FROM project_productions pp WHERE pp.project_id = ?
+                      AND c.id <> ?
+                      AND (
+                          EXISTS (SELECT 1 FROM project_demand d
+                                  WHERE d.project_id = c.id
+                                    AND d.item_id IN (
+                                        SELECT pp.item_id FROM project_productions pp WHERE pp.project_id = ?
+                                    ))
+                          OR (EXISTS (SELECT 1 FROM resource_gathering rg WHERE rg.project_id = c.id)
+                              AND NOT EXISTS (
+                                  SELECT 1 FROM project_demand_state s
+                                  WHERE s.project_id = c.id
+                                    AND s.fingerprint IS NOT NULL
+                                    AND s.revision = ?
+                                    AND NOT EXISTS (
+                                        SELECT 1 FROM world w
+                                        JOIN minecraft_version_ingestion i
+                                          ON i.version = w.version AND i.status = 'completed'
+                                        WHERE w.id = c.world_id
+                                          AND (s.game_data_epoch IS NULL OR s.game_data_epoch < i.completed_at)
+                                    )))
                       )
+                    ORDER BY c.id
+                    ON CONFLICT (project_id) DO UPDATE
+                        SET fingerprint = NULL, generation = project_demand_state.generation + 1
+                    RETURNING project_id
                 )
+                SELECT count(*) AS invalidated FROM invalidated
                 """.trimIndent()
             ),
             parameterSetter = { statement, _ ->
                 statement.setInt(1, worldId)
                 statement.setInt(2, producerProjectId)
                 statement.setInt(3, producerProjectId)
+                statement.setInt(4, DemandFingerprint.REVISION)
             },
+            resultMapper = { rs -> rs.next(); rs.getInt("invalidated") },
+            transactionConnection = transactionConnection,
         ).process(Unit)
 }
 

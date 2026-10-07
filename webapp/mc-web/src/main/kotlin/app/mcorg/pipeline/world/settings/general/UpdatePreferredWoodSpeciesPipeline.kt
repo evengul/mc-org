@@ -94,10 +94,17 @@ data class UpdatePreferredWoodSpeciesStep(val worldId: Int) :
                     WHERE id = ? AND preferred_wood_species IS DISTINCT FROM ?
                     RETURNING id
                 ), dropped AS (
-                    DELETE FROM project_demand_state s
-                    USING projects p, changed c
-                    WHERE p.id = s.project_id AND p.world_id = c.id
-                    RETURNING s.project_id
+                    INSERT INTO project_demand_state (project_id, fingerprint, derived_at, generation)
+                    SELECT p.id, NULL, NULL, 1
+                    FROM projects p
+                    JOIN changed c ON c.id = p.world_id
+                    WHERE EXISTS (SELECT 1 FROM resource_gathering rg WHERE rg.project_id = p.id)
+                       OR EXISTS (SELECT 1 FROM project_demand d WHERE d.project_id = p.id)
+                       OR EXISTS (SELECT 1 FROM project_demand_state s WHERE s.project_id = p.id)
+                    ORDER BY p.id
+                    ON CONFLICT (project_id) DO UPDATE
+                        SET fingerprint = NULL, generation = project_demand_state.generation + 1
+                    RETURNING project_id
                 )
                 SELECT (SELECT count(*) FROM dropped) AS dropped
             """),

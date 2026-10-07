@@ -359,7 +359,7 @@ class DemandInvalidationIT : WithUser() {
 
     private fun hasFingerprint(projectId: Int): Boolean = runBlocking {
         val result = DatabaseSteps.query<Unit, Boolean>(
-            sql = SafeSQL.select("SELECT 1 FROM project_demand_state WHERE project_id = ?"),
+            sql = SafeSQL.select("SELECT 1 FROM project_demand_state WHERE project_id = ? AND fingerprint IS NOT NULL"),
             parameterSetter = { stmt, _ -> stmt.setInt(1, projectId) },
             resultMapper = { rs -> rs.next() }
         ).process(Unit)
