@@ -69,12 +69,6 @@
     color: var(--text-primary);
 }
 
-.send-invitation__form {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-4);
-}
-
 .send-invitation__inputs {
     display: flex;
     flex-direction: row;
@@ -163,13 +157,6 @@
     font-size: 15px;
     font-weight: 500;
     color: var(--text-primary);
-}
-
-.connect-discord__form,
-.connect-server__form {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-4);
 }
 
 .connect-discord__inputs,
