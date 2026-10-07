@@ -5,9 +5,7 @@ import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.Result
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.failure.AppFailure
-import app.mcorg.pipeline.resources.commonsteps.GetAllResourceGatheringItemsStep
 import app.mcorg.presentation.handler.handlePipeline
-import app.mcorg.presentation.templated.dsl.pages.planResourcesAreaFragment
 import app.mcorg.presentation.utils.getProjectId
 import app.mcorg.presentation.utils.getResourceGatheringId
 import app.mcorg.presentation.utils.getWorldId
@@ -20,8 +18,10 @@ import io.ktor.server.application.ApplicationCall
  * gathering plan (see [GenerateGatheringPlanStep]), so its share of any shared
  * intermediates recomputes without it.
  *
- * Responds with the whole `#plan-resources-area` fragment (active table + ignored
- * section) since a toggle moves the row between the two.
+ * Responds with the whole re-derived `#project-content`, not just the resource table: a toggle
+ * moves the row between the table and the ignored section, and it changes the plan the table is
+ * grouped by and the breakdown is drawn from. A table rendered without that plan has no group
+ * headings at all.
  */
 suspend fun ApplicationCall.handleToggleResourceGatheringIgnored() {
     val worldId = this.getWorldId()
@@ -29,12 +29,9 @@ suspend fun ApplicationCall.handleToggleResourceGatheringIgnored() {
     val resourceGatheringId = this.getResourceGatheringId()
 
     handlePipeline(
-        onSuccess = { resources ->
-            respondHtml(planResourcesAreaFragment(worldId, projectId, resources))
-        }
+        onSuccess = { respondHtml(listRerenderFragment(worldId, projectId) ?: return@handlePipeline) }
     ) {
         ToggleResourceGatheringIgnoredStep.run(resourceGatheringId)
-        GetAllResourceGatheringItemsStep.run(projectId)
     }
 }
 

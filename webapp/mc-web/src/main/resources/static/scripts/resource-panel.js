@@ -5,7 +5,7 @@
  * - Same row click toggles the panel closed
  * - Different row click swaps the panel's inner content in place
  * - Panel closes on: Escape (native <dialog> cancel), backdrop click, back/X button,
- *   view toggle (#project-content swap), row delete
+ *   view toggle (#project-content swap, unless the panel itself asked for it), row delete
  * - Inline qty edit inside the panel mirrors plan-view.js behaviour
  */
 (function () {
@@ -60,18 +60,24 @@
     // -------------------------------------------------------------------------
 
     function initRowClicks() {
-        var table = document.getElementById('plan-resource-table');
+        // The area, not #plan-resource-table: the folded single-item tail is a table of its own
+        // beside it, and its rows open the panel like any other.
+        var table = document.getElementById('plan-resources-area');
         if (!table) return;
         if (table.dataset.panelInitialized) return;
         table.dataset.panelInitialized = 'true';
 
         table.addEventListener('click', function (e) {
-            // Ignore clicks on the delete button and the qty cell (already handled by plan-view.js)
-            if (e.target.closest('.plan-resource-table__delete-btn')) return;
+            // The action cell (ignore, delete) and the qty cell (plan-view.js) are controls of
+            // their own. A click on ⊘ that also opened the panel had it open and then shut as
+            // the ignore's re-render landed.
+            if (e.target.closest('.plan-resource-table__action')) return;
             if (e.target.closest('.plan-resource-table__qty')) return;
 
             var tr = e.target.closest('tr[data-resource-id]');
             if (!tr) return;
+            // An ignored row's one action is Un-ignore; it has no panel.
+            if (tr.closest('#plan-ignored-section')) return;
 
             var resourceId = tr.dataset.resourceId;
             if (!resourceId) return;
@@ -129,7 +135,20 @@
 
         document.body.addEventListener('htmx:after:settle', function (e) {
             if (!e.target) return;
-            if (e.target.id === 'project-content') closePanel();
+            if (e.target.id !== 'project-content') return;
+            // A change made in the panel (source, quantity, variant) brings the plan along out of
+            // band (MCO-585), marked data-out-of-band. Closing on that would shut the panel the
+            // user is working in; only a swap that replaces the view closes it.
+            if (e.target.dataset && e.target.dataset.outOfBand === 'true') return;
+            closePanel();
+        });
+
+        // A new panel body (another row, or a variant picked from the chips) starts at its top,
+        // where its title is — not wherever the chip list had been scrolled to.
+        document.body.addEventListener('htmx:after:settle', function (e) {
+            if (!e.target || e.target.id !== 'resource-panel-content') return;
+            var dialog = getDialog();
+            if (dialog) dialog.scrollTop = 0;
         });
     }
 
@@ -174,16 +193,36 @@
             if (!cell) return;
             submitPanelQty(cell, input);
         }, true);
+
+        // The edit's response is the plan, out of band; nothing re-renders the panel. So the
+        // panel takes the saved number itself — on success only, so a rejected one isn't shown.
+        dialog.addEventListener('htmx:after:request', function (e) {
+            var input = e.target;
+            if (!input.classList || !input.classList.contains('resource-panel__qty-input')) return;
+            var ctx = e.detail && e.detail.ctx;
+            if (!ctx || !ctx.response || ctx.response.status >= 400) return;
+            var cell = input.closest('.resource-panel__qty');
+            if (!cell) return;
+            // The number the server stored ("007" is 7), not what was typed.
+            var saved = String(parseInt(input.value, 10));
+            input.value = saved;
+            cell.dataset.currentQty = saved;
+            var display = cell.querySelector('.resource-panel__qty-display');
+            if (display) display.textContent = saved;
+        });
     }
 
     function submitPanelQty(cell, input) {
+        // Enter submits and leaves editing; the blur that follows must not submit again.
+        if (!cell.classList.contains('resource-panel__qty--editing')) return;
         cell.classList.remove('resource-panel__qty--editing');
         var val = parseInt(input.value, 10);
-        if (isNaN(val) || val < 1) {
+        // Unchanged is not an edit: each one re-derives the whole plan.
+        if (isNaN(val) || val < 1 || String(val) === cell.dataset.currentQty) {
             revertPanelQty(cell, input);
             return;
         }
-        htmx.trigger(input, 'change');
+        htmx.trigger(input, 'qty-commit');
     }
 
     function revertPanelQty(cell, input) {
@@ -226,9 +265,10 @@
             var swapUrl = results.dataset.swapUrl;
             if (!itemId || !swapUrl) return;
 
+            // The panel is the main swap; the plan comes back out of band (MCO-585).
             htmx.ajax('PATCH', swapUrl, {
-                target: '#plan-resources-area',
-                swap: 'outerHTML',
+                target: '#resource-panel-content',
+                swap: 'innerHTML',
                 values: { itemId: itemId }
             });
         }, true); // capture phase — runs before the option's own inline handler

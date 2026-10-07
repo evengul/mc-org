@@ -3,15 +3,13 @@ package app.mcorg.pipeline.project
 import app.mcorg.pipeline.minecraft.isRenewableInWorld
 import app.mcorg.domain.model.user.Role
 import app.mcorg.pipeline.Result
-import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.project.commonsteps.GetProjectByIdStep
-import app.mcorg.pipeline.resources.GatheringPlanInput
 import app.mcorg.domain.model.world.World
 import app.mcorg.pipeline.resources.GetFarmScaleThresholdStep
 import app.mcorg.pipeline.resources.farmDismissalsFor
 import app.mcorg.pipeline.resources.farmSuggestionsFor
 import app.mcorg.pipeline.resources.itemIds
-import app.mcorg.pipeline.resources.GenerateGatheringPlanStep
+import app.mcorg.pipeline.resources.derivePlanForPage
 import app.mcorg.pipeline.resources.pendingFarmSuppliesFor
 import app.mcorg.pipeline.resources.prerequisiteFarmsFor
 import app.mcorg.pipeline.resources.commonsteps.GetAllResourceGatheringItemsStep
@@ -62,20 +60,13 @@ suspend fun ApplicationCall.respondGatheringPlannerContent() {
         }
     }
 
-    // Derive the gathering plan — failure is non-fatal. A null plan renders the
-    // definition/empty fallback state instead of grouped activity sections.
-    val plan = when (val result = GenerateGatheringPlanStep.process(GatheringPlanInput(projectId, worldId))) {
+    // Derive the gathering plan. A null plan renders the definition/empty fallback state
+    // instead of grouped activity sections (see derivePlanForPage).
+    val plan = when (val result = derivePlanForPage(projectId, worldId)) {
         is Result.Success -> result.value
-        is Result.Failure -> when (result.error) {
-            // No positive targets (nothing defined yet, or all collected).
-            is AppFailure.ValidationError -> null
-            // World's Minecraft version has no ingested graph yet.
-            is AppFailure.DatabaseError.NotFound -> null
-            // Unexpected error — surface it
-            else -> {
-                defaultHandleError(result.error)
-                return
-            }
+        is Result.Failure -> {
+            defaultHandleError(result.error)
+            return
         }
     }
 

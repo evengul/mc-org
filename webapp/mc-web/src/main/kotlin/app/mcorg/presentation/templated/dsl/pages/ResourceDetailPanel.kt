@@ -5,7 +5,6 @@ import app.mcorg.domain.model.resources.ResourceGatheringItem
 import app.mcorg.domain.model.resources.ResourceSourceType
 import app.mcorg.presentation.hxDelete
 import app.mcorg.presentation.hxDeleteWithConfirm
-import app.mcorg.presentation.hxOutOfBands
 import app.mcorg.presentation.hxPatch
 import app.mcorg.presentation.hxSwap
 import app.mcorg.presentation.hxTarget
@@ -68,9 +67,11 @@ fun FlowContent.resourceDetailPanel(
                 value = resource.required.toString()
                 attributes["data-resource-id"] = resource.id.toString()
                 hxPatch("/worlds/$worldId/projects/$projectId/resources/gathering/${resource.id}/required")
-                hxTarget("#plan-row-${resource.id}")
-                hxSwap("outerHTML")
-                hxTrigger("change")
+                // The response is the whole plan, out of band; the panel itself stays as it is.
+                hxSwap("none")
+                // Sent by resource-panel.js on Enter or blur, once. A native `change` also fires
+                // when the hidden input loses focus, which would send the edit twice.
+                hxTrigger("qty-commit")
             }
         }
     }
@@ -92,7 +93,8 @@ fun FlowContent.resourceDetailPanel(
                 title = "Remove ${resource.name}",
                 description = "${resource.name} and its source assignment will be permanently removed.",
             )
-            hxTarget("#plan-row-${resource.id}")
+            // The whole plan comes back; a #project-content swap also closes the panel.
+            hxTarget("#project-content")
             hxSwap("outerHTML")
             attributes["data-resource-panel-remove"] = "true"
             +"Remove resource"
@@ -215,8 +217,9 @@ fun FlowContent.resourcePanelVariantSection(
                 div("picker-opt") {
                     attributes["hx-patch"] = swapUrl
                     attributes["hx-vals"] = """{"itemId":"${suggestion.id}"}"""
-                    attributes["hx-target"] = "#plan-resources-area"
-                    attributes["hx-swap"] = "outerHTML"
+                    // The panel is the main swap; the plan comes back out of band (MCO-585).
+                    attributes["hx-target"] = "#resource-panel-content"
+                    attributes["hx-swap"] = "innerHTML"
                     span("picker-opt__name") { +suggestion.name }
                 }
             }
@@ -253,7 +256,8 @@ fun FlowContent.resourcePanelVariantSection(
 }
 
 /**
- * Full-fragment response for GET .../detail-panel — returns the inner content of #resource-panel-content.
+ * The inner content of #resource-panel-content: the response to GET .../detail-panel, and the main
+ * swap of a `/variant` swap made from the panel (whose plan comes back out of band beside it).
  */
 fun resourceDetailPanelFragment(
     worldId: Int,
@@ -267,27 +271,9 @@ fun resourceDetailPanelFragment(
 }
 
 /**
- * Out-of-band refresh of the whole panel (MCO-246) — used by the `/variant` swap response so an
- * open resource-detail panel reflects the new item/name and its refreshed suggestions without
- * needing to be reopened. The main response target for a swap is `#plan-resources-area` (the
- * row's name lives there); this is the sidecar that keeps the panel in sync alongside it.
- */
-fun resourceDetailPanelOobFragment(
-    worldId: Int,
-    projectId: Int,
-    resource: ResourceGatheringItem,
-    projectsInWorld: List<Pair<Int, String>>,
-    variantSuggestions: List<Item> = emptyList(),
-    version: String? = null,
-): String = createHTML().div {
-    hxOutOfBands("innerHTML:#resource-panel-content")
-    resourceDetailPanel(worldId, projectId, resource, projectsInWorld, variantSuggestions, version)
-}
-
-/**
  * Source-section fragment for the PATCH and DELETE /source responses (target:
- * #resource-panel-source, innerHTML). No table row rides along: nothing in the row shows the
- * source, so there is nothing to refresh (MCO-187).
+ * #resource-panel-source, innerHTML). Nothing in the row shows the source (MCO-187), but the plan
+ * is derived from it, so the handlers send the re-rendered plan out of band beside this (MCO-585).
  */
 fun resourcePanelSourceFragment(
     worldId: Int,

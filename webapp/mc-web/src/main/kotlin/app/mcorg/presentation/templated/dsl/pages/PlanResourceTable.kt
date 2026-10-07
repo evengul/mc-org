@@ -63,9 +63,10 @@ fun TR.planResourceRow(
             value = item.required.toString()
             attributes["data-resource-id"] = item.id.toString()
             hxPatch("/worlds/$worldId/projects/$projectId/resources/gathering/${item.id}/required")
-            hxTarget("#plan-row-${item.id}")
-            hxSwap("outerHTML")
-            hxTrigger("change")
+            // The response is the whole plan, out of band (the demand changed what it says).
+            hxSwap("none")
+            // Sent by plan-view.js on Enter or blur, once; a native `change` would send it twice.
+            hxTrigger("qty-commit")
         }
     }
     td("plan-resource-table__chests") {
@@ -78,14 +79,15 @@ fun TR.planResourceRow(
                 attributes["title"] = "Ignore — exclude from the material list and gathering plan"
                 attributes["aria-label"] = "Ignore ${item.name}"
                 hxPatch("/worlds/$worldId/projects/$projectId/resources/gathering/${item.id}/ignore")
-                hxTarget("#plan-resources-area")
+                // The whole plan, not the table: ignoring changes what the plan is.
+                hxTarget("#project-content")
                 hxSwap("outerHTML")
                 +"⊘"
             }
             button(classes = "btn btn--ghost btn--sm plan-resource-table__delete-btn") {
                 type = ButtonType.button
                 hxDelete("/worlds/$worldId/projects/$projectId/resources/gathering/${item.id}?context=plan")
-                hxTarget("#plan-row-${item.id}")
+                hxTarget("#project-content")
                 hxSwap("outerHTML")
                 +"×"
             }
@@ -113,7 +115,7 @@ fun TR.ignoredResourceRow(worldId: Int, projectId: Int, item: ResourceGatheringI
             type = ButtonType.button
             attributes["title"] = "Un-ignore — include back in the material list and gathering plan"
             hxPatch("/worlds/$worldId/projects/$projectId/resources/gathering/${item.id}/ignore")
-            hxTarget("#plan-resources-area")
+            hxTarget("#project-content")
             hxSwap("outerHTML")
             +"Un-ignore"
         }
@@ -260,9 +262,12 @@ private fun FlowContent.planFoldedTail(
 }
 
 /**
- * Wraps the active resource table and the ignored-items section (MCO-247) in a single
- * HTMX swap target — an ignore/un-ignore toggle moves a row between the two, so both
- * are re-rendered together.
+ * The active resource table and the ignored-items section (MCO-247).
+ *
+ * Never a swap target on its own: every change made from here — ignore, quantity, delete, and the
+ * panel's source and variant — changes the plan, so each answers with the whole `#project-content`
+ * (MCO-585). Re-rendering just this area would leave the breakdown and the header on the old plan,
+ * and needs the plan and the measurements passed in to keep its grouping and its Chests column.
  */
 fun FlowContent.planResourcesArea(
     worldId: Int,
@@ -277,23 +282,6 @@ fun FlowContent.planResourcesArea(
         ignoredResourcesSection(worldId, projectId, resources)
     }
 }
-
-/**
- * Standalone HTML fragment version of [planResourcesArea] (HTMX swap response for the ignore
- * toggle). Takes the plan for the same reason the page does: replacing this fragment without
- * one would silently drop the grouping the reader is looking at.
- */
-fun planResourcesAreaFragment(
-    worldId: Int,
-    projectId: Int,
-    resources: List<ResourceGatheringItem>,
-    plan: GatheringPlan? = null,
-): String =
-    createHTML().div {
-        id = "plan-resources-area"
-        planResourceTable(worldId, projectId, resources, plan)
-        ignoredResourcesSection(worldId, projectId, resources)
-    }
 
 /**
  * Ignored-items section (MCO-247): items the user excluded from the material list and

@@ -1,6 +1,8 @@
 package app.mcorg.presentation.templated.dsl.pages
 
 import app.mcorg.domain.model.resources.ResourceGatheringItem
+import kotlinx.html.div
+import kotlinx.html.stream.createHTML
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -29,7 +31,7 @@ class PlanResourceTableGlyphTest {
         )
 
     private fun render(vararg rows: ResourceGatheringItem) =
-        planResourcesAreaFragment(worldId = 1, projectId = 1, resources = rows.toList(), plan = null)
+        createHTML().div { planResourcesArea(worldId = 1, projectId = 1, resources = rows.toList(), plan = null) }
 
     @Test
     fun `every visible row carries a glyph`() {

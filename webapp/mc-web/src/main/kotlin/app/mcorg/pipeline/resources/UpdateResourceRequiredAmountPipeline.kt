@@ -6,9 +6,7 @@ import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.Step
 import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.failure.ValidationFailure
-import app.mcorg.pipeline.resources.commonsteps.GetResourceGatheringItemStep
 import app.mcorg.presentation.handler.handlePipeline
-import app.mcorg.presentation.templated.dsl.pages.planResourceRow
 import app.mcorg.presentation.utils.getProjectId
 import app.mcorg.presentation.utils.getResourceGatheringId
 import app.mcorg.presentation.utils.getWorldId
@@ -16,8 +14,6 @@ import app.mcorg.presentation.utils.respondHtml
 import io.ktor.http.Parameters
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.request.receiveParameters
-import kotlinx.html.stream.createHTML
-import kotlinx.html.tr
 
 suspend fun ApplicationCall.handleUpdateResourceRequiredAmount() {
     val parameters = this.receiveParameters()
@@ -25,19 +21,14 @@ suspend fun ApplicationCall.handleUpdateResourceRequiredAmount() {
     val projectId = this.getProjectId()
     val resourceGatheringId = this.getResourceGatheringId()
 
+    // The demand changed, so the plan did: answer with all of it. Out of band, because the edit
+    // comes from the table and from the open panel, and the panel must stay open — both callers
+    // swap nothing themselves (MCO-585).
     handlePipeline(
-        onSuccess = { (item, measured) ->
-            respondHtml(createHTML().tr {
-                planResourceRow(worldId, projectId, item, measured)
-            })
-        }
+        onSuccess = { respondHtml(listRerenderFragment(worldId, projectId, outOfBand = true) ?: return@handlePipeline) }
     ) {
         val input = ValidateRequiredAmountInputStep.run(parameters)
         UpdateRequiredAmountStep(resourceGatheringId).run(input)
-        val item = GetResourceGatheringItemStep.run(resourceGatheringId)
-        // The swapped row replaces the page's, so it carries the measurement too — otherwise its
-        // drift chip disappears on every quantity edit.
-        item to GetProjectMeasurementsStep.process(projectId).getOrNull()?.get(item.itemId)
     }
 }
 

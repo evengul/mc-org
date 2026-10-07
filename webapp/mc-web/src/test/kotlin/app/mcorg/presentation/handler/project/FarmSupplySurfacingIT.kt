@@ -12,19 +12,32 @@ import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.minecraft.StoreMinecraftDataStep
 import app.mcorg.pipeline.project.handleGetProject
 import app.mcorg.pipeline.project.handleGetProjectList
+import app.mcorg.pipeline.resources.handleClearResourceSource
+import app.mcorg.pipeline.resources.handleDeleteResourceGatheringItem
+import app.mcorg.pipeline.resources.handleSetResourceSource
+import app.mcorg.pipeline.resources.handleToggleResourceGatheringIgnored
+import app.mcorg.pipeline.resources.handleUpdateResourceRequiredAmount
 import app.mcorg.pipeline.world.CreateWorldInput
 import app.mcorg.pipeline.world.CreateWorldStep
 import app.mcorg.presentation.plugins.AuthPlugin
 import app.mcorg.presentation.plugins.ProjectParamPlugin
+import app.mcorg.presentation.plugins.ResourceGatheringIdParamPlugin
 import app.mcorg.presentation.plugins.UpdateActiveWorldPlugin
 import app.mcorg.presentation.plugins.WorldParamPlugin
 import app.mcorg.presentation.plugins.WorldParticipantPlugin
 import app.mcorg.test.WithUser
 import app.mcorg.test.postgres.DatabaseTestExtension
+import io.ktor.client.request.delete
 import io.ktor.client.request.get
+import io.ktor.client.request.patch
+import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsText
+import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
+import io.ktor.http.contentType
+import io.ktor.server.routing.delete
 import io.ktor.server.routing.get
+import io.ktor.server.routing.patch
 import io.ktor.server.routing.route
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
@@ -42,7 +55,7 @@ import kotlin.test.assertIs
 
 /**
  * How farm supply reads in the planner and the Field Log (MCO-299):
- * - an operational farm's items sit in "Collect from farms" badged as a Farm
+ * - an operational farm's items sit in "Collect" badged as a Farm
  * - a farm that is not running yet produces the partial-dependency notice instead
  * - a producing farm is not shelved with finished builds in the Field Log
  */
@@ -51,12 +64,21 @@ import kotlin.test.assertIs
 @ExtendWith(DatabaseTestExtension::class)
 class FarmSupplySurfacingIT : WithUser() {
 
+    private companion object {
+        /**
+         * The breakdown's heading for supplied items. Matched as markup: "Collect" alone is a
+         * substring of too much else on the page to prove the group is there.
+         */
+        const val COLLECT_HEADING = """<span class="section-label">Collect</span>"""
+    }
+
     private val version = MinecraftVersion.Release(1, 97, 0)
     private val ironIngot = Item("minecraft:iron_ingot", "Iron Ingot")
 
     private var worldId: Int = 0
     private var consumerId: Int = 0
     private var farmId: Int = 0
+    private var ingotsId: Int = 0
 
     @BeforeAll
     fun setup() {
@@ -82,7 +104,7 @@ class FarmSupplySurfacingIT : WithUser() {
         worldId = createWorld("FarmSupplySurfacing IT World")
         consumerId = createProject(worldId, "Beacon Build", ProjectState.PENDING)
         farmId = createProject(worldId, "Iron Farm", ProjectState.ACTIVE)
-        createResourceGathering(consumerId, ironIngot, required = 32)
+        ingotsId = createResourceGathering(consumerId, ironIngot, required = 32)
         insertProduction(farmId, ironIngot, rate = 400)
     }
 
@@ -102,7 +124,7 @@ class FarmSupplySurfacingIT : WithUser() {
         assertContains(body, "comes first")
         assertContains(body, "32 Iron Ingot")
         assertContains(body, "by hand until it is running")
-        assertFalse(body.contains("Collect from farms"), "the item is still manual work")
+        assertFalse(body.contains(COLLECT_HEADING), "the item is still manual work")
     }
 
     /**
@@ -133,13 +155,13 @@ class FarmSupplySurfacingIT : WithUser() {
     }
 
     @Test
-    fun `once the farm is done the item moves to collect-from-farms and the notice disappears`() = testApplication {
+    fun `once the farm is done the item moves to collect and the notice disappears`() = testApplication {
         setupRoutes()
         setProjectState(farmId, ProjectState.DONE)
 
         val body = client.get("/worlds/$worldId/projects/$consumerId") { addAuthCookie(this) }.bodyAsText()
 
-        assertContains(body, "Collect from farms")
+        assertContains(body, COLLECT_HEADING)
         // The supply is named on the line itself, in the source slot every other line uses:
         // "Farm · Iron Farm" rather than a separate "from …" label beside a badge.
         assertContains(body, "Farm · Iron Farm")
@@ -220,7 +242,7 @@ class FarmSupplySurfacingIT : WithUser() {
         setProjectState(farmId, ProjectState.DECOMMISSIONED)
 
         val plan = client.get("/worlds/$worldId/projects/$consumerId") { addAuthCookie(this) }.bodyAsText()
-        assertFalse(plan.contains("Collect from farms"), "a stopped farm supplies nothing")
+        assertFalse(plan.contains(COLLECT_HEADING), "a stopped farm supplies nothing")
         assertFalse(plan.contains("Farm · Iron Farm"), "the line no longer names it as the source")
         assertFalse(plan.contains("plan-pending-farms"), "and it is not a farm anyone is waiting on")
         assertFalse(plan.contains("comes first"), "so it is not a prerequisite")
@@ -230,6 +252,152 @@ class FarmSupplySurfacingIT : WithUser() {
         assertFalse(list.contains("fl-producing-section"), "it is not producing")
 
         setProjectState(farmId, ProjectState.ACTIVE)
+    }
+
+    /**
+     * MCO-585. The source is an input to the plan — Manual opts the item out of farm supply — so
+     * the panel's answer to setting it has to carry the plan too, or the row stays under "Collect"
+     * until a reload. The panel section is still the main swap; the plan rides along
+     * out of band, which keeps the panel open on the new state.
+     */
+    @Test
+    fun `setting and clearing a source re-renders the plan with it`() = testApplication {
+        setupRoutes()
+        setProjectState(farmId, ProjectState.DONE)
+        val sourceUrl = "/worlds/$worldId/projects/$consumerId/resources/gathering/$ingotsId/source"
+
+        try {
+            val manual = client.patch(sourceUrl) {
+                addAuthCookie(this)
+                contentType(ContentType.Application.FormUrlEncoded)
+                setBody("type=manual")
+            }
+            assertEquals(HttpStatusCode.OK, manual.status)
+            val manualBody = manual.bodyAsText()
+            assertContains(manualBody, "resource-panel__source-set", message = "the panel shows the new source")
+            // The marker resource-panel.js reads to keep the panel open across this swap.
+            assertContains(manualBody, """id="project-content" hx-swap-oob="true" data-out-of-band="true"""")
+            assertContains(manualBody, """id="plan-resources-area"""")
+            assertContains(manualBody, """id="list-breakdown-view"""")
+            assertFalse(manualBody.contains(COLLECT_HEADING), "a manual item is not collected from the farm")
+            assertFalse(manualBody.contains("Farm · Iron Farm"))
+
+            val cleared = client.delete(sourceUrl) { addAuthCookie(this) }
+            assertEquals(HttpStatusCode.OK, cleared.status)
+            val clearedBody = cleared.bodyAsText()
+            assertContains(clearedBody, "No source selected")
+            assertContains(clearedBody, """id="project-content" hx-swap-oob="true"""")
+            assertContains(clearedBody, COLLECT_HEADING)
+            assertContains(clearedBody, "Farm · Iron Farm")
+        } finally {
+            setProjectState(farmId, ProjectState.ACTIVE)
+            clearSource(ingotsId)
+        }
+    }
+
+    /**
+     * A project linked as an item's source supplies it just as a running farm does, so it files
+     * under the same heading — "Collect", not "Collect from farms" — and the line names the project.
+     */
+    @Test
+    fun `an item linked to a project is collected from it`() = testApplication {
+        setupRoutes()
+        val sourceUrl = "/worlds/$worldId/projects/$consumerId/resources/gathering/$ingotsId/source"
+
+        try {
+            val linked = client.patch(sourceUrl) {
+                addAuthCookie(this)
+                contentType(ContentType.Application.FormUrlEncoded)
+                setBody("type=project&projectId=$farmId")
+            }
+            assertEquals(HttpStatusCode.OK, linked.status)
+            val body = linked.bodyAsText()
+            assertContains(body, COLLECT_HEADING)
+            assertContains(body, "Project · Iron Farm")
+        } finally {
+            clearSource(ingotsId)
+        }
+    }
+
+    /**
+     * Ignoring changes the plan the same way a source does, so its response is the re-derived plan:
+     * a table rendered without one has no group headings, and the breakdown would keep the ignored
+     * item. Un-ignoring is where that shows here — the row comes back to its group.
+     */
+    @Test
+    fun `un-ignoring a supplied item puts it back under collect without a reload`() = testApplication {
+        setupRoutes()
+        setProjectState(farmId, ProjectState.DONE)
+        val ignoreUrl = "/worlds/$worldId/projects/$consumerId/resources/gathering/$ingotsId/ignore"
+
+        try {
+            val ignored = client.patch(ignoreUrl) { addAuthCookie(this) }
+            assertEquals(HttpStatusCode.OK, ignored.status)
+            assertContains(ignored.bodyAsText(), "plan-ignored-row-$ingotsId")
+
+            val restored = client.patch(ignoreUrl) { addAuthCookie(this) }
+            assertEquals(HttpStatusCode.OK, restored.status)
+            val body = restored.bodyAsText()
+            assertContains(body, """id="project-content"""")
+            assertContains(body, COLLECT_HEADING)
+            assertContains(body, """id="list-breakdown-view"""")
+            assertFalse(body.contains("plan-ignored-row-$ingotsId"))
+        } finally {
+            setProjectState(farmId, ProjectState.ACTIVE)
+            setIgnored(ingotsId, false)
+        }
+    }
+
+    /**
+     * A quantity is demand, so its edit answers with the re-derived plan — breakdown and header
+     * included, not just its table row. It is edited from the table and from the open panel, so
+     * the plan comes back out of band and the caller swaps nothing itself, which leaves the panel
+     * open when it asked.
+     */
+    @Test
+    fun `editing a quantity re-renders the plan with it`() = testApplication {
+        setupRoutes()
+        setProjectState(farmId, ProjectState.DONE)
+
+        try {
+            val response = client.patch("/worlds/$worldId/projects/$consumerId/resources/gathering/$ingotsId/required") {
+                addAuthCookie(this)
+                contentType(ContentType.Application.FormUrlEncoded)
+                setBody("required=48")
+            }
+            assertEquals(HttpStatusCode.OK, response.status)
+            val body = response.bodyAsText()
+            assertContains(body, """id="project-content" hx-swap-oob="true"""")
+            // The breakdown's supplied line prints the new demand.
+            assertContains(body, """<span class="work-row__left">48</span>""")
+            // And the header, which sits outside #project-content, totals it.
+            assertContains(body, """hx-swap-oob="outerHTML:#overall-progress"""")
+            assertContains(body, "48 to go")
+        } finally {
+            setProjectState(farmId, ProjectState.ACTIVE)
+            setRequired(ingotsId, 32)
+        }
+    }
+
+    /** Deleting the last target answers with the plan's empty state, not an empty string. */
+    @Test
+    fun `deleting a resource re-renders the plan without it`() = testApplication {
+        setupRoutes()
+        val project = createProject(worldId, "Short-lived", ProjectState.PENDING)
+        val rgId = createResourceGathering(project, ironIngot, required = 5)
+
+        try {
+            val response = client.delete("/worlds/$worldId/projects/$project/resources/gathering/$rgId?context=plan") {
+                addAuthCookie(this)
+            }
+            assertEquals(HttpStatusCode.OK, response.status)
+            val body = response.bodyAsText()
+            assertContains(body, """id="project-content"""")
+            assertFalse(body.contains("plan-row-$rgId"))
+            assertContains(body, "No gathering plan yet.")
+        } finally {
+            deleteProject(project)
+        }
     }
 
     // ---- routing ----------------------------------------------------------------
@@ -246,6 +414,14 @@ class FarmSupplySurfacingIT : WithUser() {
                     route("/{projectId}") {
                         install(ProjectParamPlugin)
                         get { call.handleGetProject() }
+                        route("/resources/gathering/{resourceGatheringId}") {
+                            install(ResourceGatheringIdParamPlugin)
+                            patch("/source") { call.handleSetResourceSource() }
+                            delete("/source") { call.handleClearResourceSource() }
+                            patch("/ignore") { call.handleToggleResourceGatheringIgnored() }
+                            patch("/required") { call.handleUpdateResourceRequiredAmount() }
+                            delete { call.handleDeleteResourceGatheringItem() }
+                        }
                     }
                 }
             }
@@ -276,10 +452,10 @@ class FarmSupplySurfacingIT : WithUser() {
         (result as Result.Success).value
     }
 
-    private fun createResourceGathering(projectId: Int, item: Item, required: Int) = runBlocking {
-        DatabaseSteps.update<Unit>(
+    private fun createResourceGathering(projectId: Int, item: Item, required: Int): Int = runBlocking {
+        val result = DatabaseSteps.update<Unit>(
             sql = SafeSQL.insert(
-                "INSERT INTO resource_gathering (project_id, item_id, name, required) VALUES (?, ?, ?, ?)"
+                "INSERT INTO resource_gathering (project_id, item_id, name, required) VALUES (?, ?, ?, ?) RETURNING id"
             ),
             parameterSetter = { stmt, _ ->
                 stmt.setInt(1, projectId)
@@ -288,6 +464,34 @@ class FarmSupplySurfacingIT : WithUser() {
                 stmt.setInt(4, required)
             }
         ).process(Unit)
+        (result as Result.Success).value
+    }
+
+    private fun setRequired(rgId: Int, required: Int) = runBlocking {
+        DatabaseSteps.update<Int>(
+            sql = SafeSQL.update("UPDATE resource_gathering SET required = ? WHERE id = ?"),
+            parameterSetter = { stmt, id ->
+                stmt.setInt(1, required)
+                stmt.setInt(2, id)
+            }
+        ).process(rgId)
+    }
+
+    private fun setIgnored(rgId: Int, ignored: Boolean) = runBlocking {
+        DatabaseSteps.update<Int>(
+            sql = SafeSQL.update("UPDATE resource_gathering SET ignored = ? WHERE id = ?"),
+            parameterSetter = { stmt, id ->
+                stmt.setBoolean(1, ignored)
+                stmt.setInt(2, id)
+            }
+        ).process(rgId)
+    }
+
+    private fun clearSource(rgId: Int) = runBlocking {
+        DatabaseSteps.update<Int>(
+            sql = SafeSQL.update("UPDATE resource_gathering SET source_type = NULL, solved_by_project_id = NULL WHERE id = ?"),
+            parameterSetter = { stmt, id -> stmt.setInt(1, id) }
+        ).process(rgId)
     }
 
     private fun insertProduction(projectId: Int, item: Item, rate: Int) = runBlocking {

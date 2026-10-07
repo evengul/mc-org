@@ -1,7 +1,6 @@
 package app.mcorg.pipeline.resources
 
 import app.mcorg.domain.model.minecraft.Item
-import app.mcorg.domain.model.resources.ResourceGatheringItem
 import app.mcorg.pipeline.Step
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.Result
@@ -10,12 +9,9 @@ import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.failure.ValidationFailure
 import app.mcorg.pipeline.project.commonsteps.GetProjectsInWorldStep
 import app.mcorg.pipeline.project.resources.GetItemsInWorldVersionStep
-import app.mcorg.pipeline.resources.commonsteps.GetAllResourceGatheringItemsStep
-import app.mcorg.engine.plan.GatheringPlan
 import app.mcorg.pipeline.resources.commonsteps.GetResourceGatheringItemStep
 import app.mcorg.presentation.handler.handlePipeline
-import app.mcorg.presentation.templated.dsl.pages.planResourcesAreaFragment
-import app.mcorg.presentation.templated.dsl.pages.resourceDetailPanelOobFragment
+import app.mcorg.presentation.templated.dsl.pages.resourceDetailPanelFragment
 import app.mcorg.presentation.utils.getProjectId
 import app.mcorg.presentation.utils.getResourceGatheringId
 import app.mcorg.presentation.utils.getWorldId
@@ -38,9 +34,10 @@ import io.ktor.server.request.receiveParameters
  * missing id is a 400; a present-but-unknown id is a 422. The name is taken from the catalog,
  * never trusted from the client.
  *
- * Responds with the whole `#plan-resources-area` fragment (its row's name display changes) plus
- * an out-of-band refresh of the open resource-detail panel, if any, so a swap made from within
- * the panel reflects the new item and its refreshed suggestions without needing to reopen it.
+ * Responds with the resource-detail panel (the swap is made from it, so it is the main target and
+ * shows the new item and its refreshed suggestions) and the re-derived `#project-content` out of
+ * band: the swap changed which chain the plan selects, so the table's grouping, its Chests column
+ * and the breakdown all change with it (MCO-585).
  */
 suspend fun ApplicationCall.handleSwapResourceGatheringVariant() {
     val worldId = getWorldId()
@@ -51,10 +48,10 @@ suspend fun ApplicationCall.handleSwapResourceGatheringVariant() {
     val version = GetWorldVersionStep.process(worldId).getOrNull()
 
     handlePipeline(
-        onSuccess = { (resources, panelResource, projectsInWorld, panelSuggestions, plan) ->
+        onSuccess = { (panelResource, projectsInWorld, panelSuggestions) ->
+            val plan = listRerenderFragment(worldId, projectId, outOfBand = true) ?: return@handlePipeline
             respondHtml(
-                planResourcesAreaFragment(worldId, projectId, resources, plan) +
-                    resourceDetailPanelOobFragment(worldId, projectId, panelResource, projectsInWorld, panelSuggestions, version)
+                resourceDetailPanelFragment(worldId, projectId, panelResource, projectsInWorld, panelSuggestions, version) + plan
             )
         }
     ) {
@@ -65,23 +62,10 @@ suspend fun ApplicationCall.handleSwapResourceGatheringVariant() {
         val updated = GetResourceGatheringItemStep.run(resourceGatheringId)
         val graph = getGraphForWorld(worldId)
         val suggestions = findVariantCandidates(graph, updated.itemId)
-        val resources = GetAllResourceGatheringItemsStep.run(projectId)
         val projectsInWorld = GetProjectsInWorldStep(projectId).run(worldId)
-        // Re-derived rather than carried over: the swap changed which chain the plan selects,
-        // and the fragment below groups the table by it. Non-fatal — an ungrouped table is a
-        // worse table, not a broken one.
-        val plan = GenerateGatheringPlanStep.process(GatheringPlanInput(projectId, worldId)).getOrNull()
-        SwapResult(resources, updated, projectsInWorld, suggestions, plan)
+        Triple(updated, projectsInWorld, suggestions)
     }
 }
-
-private data class SwapResult(
-    val resources: List<ResourceGatheringItem>,
-    val updated: ResourceGatheringItem,
-    val projectsInWorld: List<Pair<Int, String>>,
-    val suggestions: List<Item>,
-    val plan: GatheringPlan?,
-)
 
 /**
  * Validates the chosen `itemId` against [validItems] — the item catalog for the project's

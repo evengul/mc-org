@@ -15,7 +15,9 @@
     // -------------------------------------------------------------------------
 
     function initQtyEdit() {
-        var table = document.getElementById('plan-resource-table');
+        // The area, not #plan-resource-table: the folded single-item tail is a table of its own
+        // beside it, and its quantities edit like any other. (Ignored rows have no input.)
+        var table = document.getElementById('plan-resources-area');
         if (!table) return;
         if (table.dataset.qtyInitialized) return;
         table.dataset.qtyInitialized = 'true';
@@ -58,14 +60,16 @@
     }
 
     function submitQty(td, input) {
+        // Enter submits and leaves editing; the blur that follows must not submit again.
+        if (!td.classList.contains('plan-resource-table__qty--editing')) return;
         td.classList.remove('plan-resource-table__qty--editing');
         var val = parseInt(input.value, 10);
-        if (isNaN(val) || val < 1) {
+        // Unchanged is not an edit: each one re-derives the whole plan.
+        if (isNaN(val) || val < 1 || String(val) === td.dataset.currentQty) {
             revertQty(td, input);
             return;
         }
-        // Trigger HTMX PATCH — set form value then dispatch
-        htmx.trigger(input, 'change');
+        htmx.trigger(input, 'qty-commit');
     }
 
     function revertQty(td, input) {
@@ -87,18 +91,22 @@
         if (btn.dataset.initialized) return;
         btn.dataset.initialized = 'true';
 
+        // A change to the plan re-renders #project-content (MCO-585) with Tasks collapsed;
+        // put back what the reader chose, as initFoldStateKeep does for folds.
+        if (tasksExpanded) setTasksExpanded(btn, section, true);
+
         btn.addEventListener('click', function () {
-            var isCollapsed = section.classList.contains('tasks-section--collapsed');
-            if (isCollapsed) {
-                section.classList.remove('tasks-section--collapsed');
-                section.classList.add('tasks-section--expanded');
-                btn.textContent = 'Hide';
-            } else {
-                section.classList.remove('tasks-section--expanded');
-                section.classList.add('tasks-section--collapsed');
-                btn.textContent = 'Show';
-            }
+            tasksExpanded = section.classList.contains('tasks-section--collapsed');
+            setTasksExpanded(btn, section, tasksExpanded);
         });
+    }
+
+    var tasksExpanded = false;
+
+    function setTasksExpanded(btn, section, expanded) {
+        section.classList.toggle('tasks-section--collapsed', !expanded);
+        section.classList.toggle('tasks-section--expanded', expanded);
+        btn.textContent = expanded ? 'Hide' : 'Show';
     }
 
     // -------------------------------------------------------------------------
@@ -511,6 +519,47 @@
     }
 
     // -------------------------------------------------------------------------
+    // Fold state across re-renders (MCO-585): a change to a target, its quantity
+    // or its source answers with the whole #project-content, which arrives with
+    // every <details> in its server default. A fold the reader opened — say the
+    // table's single-item tail, where the row they are editing lives — would shut
+    // on every edit. Remember what the reader toggled, keyed by the fold's class
+    // and its position among folds of that class, and put it back after each swap.
+    // Only folds the reader touched are restored; the rest keep the server's say.
+    // -------------------------------------------------------------------------
+
+    var foldState = {};
+
+    function foldKey(details) {
+        var content = document.getElementById('project-content');
+        var cls = details.classList[0];
+        if (!content || !cls || !content.contains(details)) return null;
+        var siblings = content.querySelectorAll('details.' + cls);
+        return cls + ':' + Array.prototype.indexOf.call(siblings, details);
+    }
+
+    function initFoldStateKeep() {
+        if (document.body.dataset.foldStateInit) return;
+        document.body.dataset.foldStateInit = 'true';
+
+        // 'toggle' does not bubble; capture sees it on the way down.
+        document.addEventListener('toggle', function (e) {
+            if (!e.target || e.target.tagName !== 'DETAILS') return;
+            var key = foldKey(e.target);
+            if (key) foldState[key] = e.target.open;
+        }, true);
+
+        document.body.addEventListener('htmx:after:settle', function () {
+            var content = document.getElementById('project-content');
+            if (!content) return;
+            content.querySelectorAll('details').forEach(function (d) {
+                var key = foldKey(d);
+                if (key && key in foldState && d.open !== foldState[key]) d.open = foldState[key];
+            });
+        });
+    }
+
+    // -------------------------------------------------------------------------
     // Init
     // -------------------------------------------------------------------------
 
@@ -524,6 +573,7 @@
         initNextUp();
         initLoggedInputs();
         initDrillScrollRestore();
+        initFoldStateKeep();
     }
 
     document.addEventListener('DOMContentLoaded', init);

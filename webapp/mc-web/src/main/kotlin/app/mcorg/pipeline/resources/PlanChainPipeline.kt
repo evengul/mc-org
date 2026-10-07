@@ -25,6 +25,7 @@ import app.mcorg.presentation.handler.defaultHandleError
 import app.mcorg.presentation.templated.dsl.pages.drillChainFragment
 import app.mcorg.presentation.templated.dsl.pages.drillNotFoundFragment
 import app.mcorg.presentation.templated.dsl.pages.gatheringPlannerFragment
+import app.mcorg.presentation.templated.dsl.pages.overallProgressOobFragment
 import app.mcorg.engine.plan.UnitCostModel
 import app.mcorg.presentation.templated.dsl.pages.nodePickerFragment
 import app.mcorg.presentation.templated.dsl.pages.pickerNotFoundFragment
@@ -416,9 +417,14 @@ private suspend fun ApplicationCall.respondListRerender(worldId: Int, projectId:
  *
  * Split out from [respondListRerender] so a caller that needs to say something *alongside* the
  * re-render — MCO-507's undo toast, swapped out-of-band — can concatenate rather than respond
- * twice.
+ * twice. [outOfBand] is the other way round: the re-render is the sidecar, for a change made
+ * somewhere else on the page that the plan is derived from (MCO-585, a resource's source).
  */
-internal suspend fun ApplicationCall.listRerenderFragment(worldId: Int, projectId: Int): String? {
+internal suspend fun ApplicationCall.listRerenderFragment(
+    worldId: Int,
+    projectId: Int,
+    outOfBand: Boolean = false,
+): String? {
     val project = when (val r = GetProjectByIdStep.process(projectId)) {
         is Result.Success -> r.value
         is Result.Failure -> {
@@ -426,9 +432,29 @@ internal suspend fun ApplicationCall.listRerenderFragment(worldId: Int, projectI
             return null
         }
     }
-    val resources = GetAllResourceGatheringItemsStep.process(projectId).getOrNull() ?: emptyList()
-    val tasks = SearchTasksStep(projectId).process(SearchTasksInput(completionStatus = "ALL")).getOrNull() ?: emptyList()
-    val plan = deriveOrNull(projectId, worldId)
+    // A read that fails is an error response, not an empty list: this answers every change made
+    // on the plan, and an empty plan sent with a 200 reads as "your resources are gone".
+    val resources = when (val r = GetAllResourceGatheringItemsStep.process(projectId)) {
+        is Result.Success -> r.value
+        is Result.Failure -> {
+            defaultHandleError(r.error)
+            return null
+        }
+    }
+    val tasks = when (val r = SearchTasksStep(projectId).process(SearchTasksInput(completionStatus = "ALL"))) {
+        is Result.Success -> r.value
+        is Result.Failure -> {
+            defaultHandleError(r.error)
+            return null
+        }
+    }
+    val plan = when (val r = derivePlanForPage(projectId, worldId)) {
+        is Result.Success -> r.value
+        is Result.Failure -> {
+            defaultHandleError(r.error)
+            return null
+        }
+    }
     val progressMap = GetProgressForProjectStep.process(projectId).getOrNull() ?: emptyMap()
     // Two different questions, deliberately two sources (MCO-461):
     //  - what the world already covers, for suppressing a suggestion (#417) — no threshold,
@@ -463,7 +489,8 @@ internal suspend fun ApplicationCall.listRerenderFragment(worldId: Int, projectI
         prerequisiteFarms, farmScaleThreshold,
         farmSuggestions, versionGapsForPlan(projectId, plan), isAdmin, farmDismissals,
         isRenewableInWorld(worldId),
-    )
+        outOfBand = outOfBand,
+    ) + overallProgressOobFragment(resources, plan, progressMap)
 }
 
 /**
@@ -487,6 +514,21 @@ internal suspend fun recommendedMemberFor(projectId: Int, worldId: Int, nodeId: 
     val tag = node.item as? MinecraftTag ?: return null
     return TagMemberRanking.recommended(graph, tag.content, costModel = costModel)?.id
 }
+
+/**
+ * The plan for rendering the project page or its plan fragment. No targets
+ * ([AppFailure.ValidationError]) and no ingested graph for the world's version
+ * ([AppFailure.DatabaseError.NotFound]) are "no plan", which the page shows as its empty state;
+ * anything else is a failure to report, not an empty plan to show.
+ */
+internal suspend fun derivePlanForPage(projectId: Int, worldId: Int): Result<AppFailure, GatheringPlan?> =
+    when (val r = GenerateGatheringPlanStep.process(GatheringPlanInput(projectId, worldId))) {
+        is Result.Success -> Result.success(r.value)
+        is Result.Failure -> when (r.error) {
+            is AppFailure.ValidationError, is AppFailure.DatabaseError.NotFound -> Result.success(null)
+            else -> Result.failure(r.error)
+        }
+    }
 
 /**
  * Derives the gathering plan and returns it, or null on any failure (graceful).

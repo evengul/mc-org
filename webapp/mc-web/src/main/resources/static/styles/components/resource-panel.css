@@ -23,6 +23,14 @@ dialog#resource-panel::backdrop {
     background: rgba(0, 0, 0, 0.5);
 }
 
+/* A change made here re-derives the whole plan, about a second: show the control is working and
+   take no second click meanwhile. Same treatment as .btn:disabled. */
+#resource-panel-content .htmx-request,
+#plan-resources-area .htmx-request {
+    opacity: 0.4;
+    pointer-events: none;
+}
+
 #resource-panel-content {
     display: flex;
     flex-direction: column;
@@ -222,9 +230,12 @@ dialog#resource-panel::backdrop {
     cursor: pointer;
 }
 
-.plan-resource-table tbody tr .plan-resource-table__delete-btn,
+/* …except where a click does something else (resource-panel.js skips these): the action cell,
+   whose buttons keep their own pointer, the quantity, and the ignored rows, which have no panel. */
+.plan-resource-table tbody tr .plan-resource-table__action,
 .plan-resource-table tbody tr .plan-resource-table__qty,
-.plan-resource-table tbody tr .plan-resource-table__qty-input {
+.plan-resource-table tbody tr .plan-resource-table__qty-input,
+.plan-resource-table--ignored tbody tr {
     cursor: auto;
 }
 

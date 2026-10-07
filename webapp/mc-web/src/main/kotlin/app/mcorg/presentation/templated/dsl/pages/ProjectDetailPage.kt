@@ -210,12 +210,7 @@ private fun FlowContent.gatheringOverallProgress(
     /** What tagged chests hold, by item id (MCO-539). Empty where nothing is tagged. */
     measurements: Map<String, MeasuredStock> = emptyMap(),
 ) {
-    val (totalRequired, totalCollected) = if (plan != null) {
-        planProgressTotals(plan, progressMap)
-    } else {
-        val filtered = resources.filter { it.required > 0 }
-        filtered.sumOf { it.required }.toLong() to filtered.sumOf { it.collected }.toLong()
-    }
+    val (totalRequired, totalCollected) = overallProgressTotals(resources, plan, progressMap)
 
     if (totalRequired > 0) {
         div("project-detail__overall-progress") {
@@ -227,6 +222,34 @@ private fun FlowContent.gatheringOverallProgress(
             }
         }
     }
+}
+
+/** (totalRequired, totalCollected) for the header: from the plan when there is one, else the targets. */
+private fun overallProgressTotals(
+    resources: List<ResourceGatheringItem>,
+    plan: GatheringPlan?,
+    progressMap: Map<String, Int>,
+): Pair<Long, Long> = if (plan != null) {
+    planProgressTotals(plan, progressMap)
+} else {
+    val filtered = resources.filter { it.required > 0 }
+    filtered.sumOf { it.required }.toLong() to filtered.sumOf { it.collected }.toLong()
+}
+
+/**
+ * Out-of-band refresh of the header's #overall-progress, for a response that re-renders
+ * `#project-content`: the header sits outside it, and a change to the plan changes its totals.
+ * Totalled exactly as [gatheringOverallProgress] totals the page.
+ */
+fun overallProgressOobFragment(
+    resources: List<ResourceGatheringItem>,
+    plan: GatheringPlan?,
+    progressMap: Map<String, Int>,
+): String = createHTML().div {
+    id = "overall-progress"
+    hxOutOfBands("outerHTML:#overall-progress")
+    val (totalRequired, totalCollected) = overallProgressTotals(resources, plan, progressMap)
+    if (totalRequired > 0) overallProgressInner(totalRequired, totalCollected)
 }
 
 /** Inner content of #overall-progress: the "N% gathered · M to go" label + the bar. */
@@ -1285,7 +1308,7 @@ private fun runningTime(hours: Double): String = when {
  *
  * Bottom of the plan, deliberately low visual weight — it changes nothing about what to do
  * today, it only says the manual work is a stopgap. It appears solely for farms that are
- * *not* operational; once one is Done, its items move into "Collect from farms" and the
+ * *not* operational; once one is Done, its items move into "Collect" and the
  * line for them disappears on its own.
  */
 /**
@@ -1721,7 +1744,8 @@ fun FlowContent.planActivityCount(
 
 internal fun groupLabel(group: ActivityGroup): String = when (group) {
     ActivityGroup.NEEDS_ATTENTION -> "Needs attention"
-    ActivityGroup.COLLECT_SUPPLIED -> "Collect from farms"
+    // Not "from farms": a project linked as an item's source supplies it too, and lands here.
+    ActivityGroup.COLLECT_SUPPLIED -> "Collect"
     ActivityGroup.GATHER -> "Gather"
     ActivityGroup.HUNT -> "Hunt"
     ActivityGroup.LOOT -> "Loot"
@@ -1823,8 +1847,17 @@ fun gatheringPlannerFragment(
     farmDismissals: List<FarmDismissal> = emptyList(),
     /** Whether a farm can make an item in this world's version (MCO-565). Required: a default here is how a caller would bring tuff back. */
     isRenewable: (String) -> Boolean,
+    /** Swap by id alongside another response's main target, rather than being the target. */
+    outOfBand: Boolean = false,
 ): String = createHTML().div {
     id = "project-content"
+    if (outOfBand) {
+        hxOutOfBands("true")
+        // Survives the swap (htmx strips hx-swap-oob), so the page's scripts can tell a plan that
+        // came along with another change from one that replaced the view — resource-panel.js
+        // keeps the panel open for the first. Read off the element, not htmx's event detail.
+        attributes["data-out-of-band"] = "true"
+    }
     gatheringPlannerContent(
         project, resources, tasks, plan, progressMap, measurements, pendingFarms, farmScaleThreshold, farmSuggestions,
         versionGaps, isWorldAdmin, farmDismissals, isRenewable,
