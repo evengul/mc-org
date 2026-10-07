@@ -17,6 +17,7 @@ import io.ktor.server.routing.RoutingResolveContext
 import io.ktor.util.AttributeKey
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicLong
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
@@ -111,12 +112,16 @@ internal class FixedWindows(private val clock: () -> Long = System::currentTimeM
     }
 
     private val windows = ConcurrentHashMap<Pair<SeamRateLimit, String>, Window>()
+    private val lastSweepMillis = AtomicLong(Long.MIN_VALUE)
+
+    /** How many sweeps have run; read by tests to pin that sweeping is throttled. */
+    internal val sweeps = AtomicInteger(0)
 
     /** Null when the call may proceed; otherwise the whole seconds until its window reopens. */
     fun tryAcquire(limit: SeamRateLimit, key: String): Long? {
         val now = clock()
         val period = limit.period.inWholeMilliseconds
-        if (windows.size > SWEEP_THRESHOLD) sweep(now)
+        if (windows.size > SWEEP_THRESHOLD) sweepIfDue(now)
         val window = windows.compute(limit to key) { _, current ->
             if (current == null || now - current.opensAtMillis >= period) Window(now) else current
         }!!
@@ -128,14 +133,27 @@ internal class FixedWindows(private val clock: () -> Long = System::currentTimeM
     /** Number of windows held; a closed window is dropped on the next sweep. */
     val size: Int get() = windows.size
 
+    /**
+     * At most one sweep per [SWEEP_INTERVAL_MILLIS]. Without that, a map held over the threshold by
+     * windows that are still open — an hour-long one, or many clients at once — would be walked in
+     * full on every request, and the limiter would become the load it exists to prevent.
+     */
+    private fun sweepIfDue(now: Long) {
+        val last = lastSweepMillis.get()
+        if (last != Long.MIN_VALUE && now - last < SWEEP_INTERVAL_MILLIS) return
+        if (lastSweepMillis.compareAndSet(last, now)) sweep(now)
+    }
+
     /** Drops every closed window. A closed window and a missing one mean the same thing. */
     internal fun sweep(now: Long = clock()) {
+        sweeps.incrementAndGet()
         windows.entries.removeIf { (key, window) -> now - window.opensAtMillis >= key.first.period.inWholeMilliseconds }
     }
 
-    private companion object {
+    internal companion object {
         /** Sweeping is O(windows), so it waits until there are enough to be worth reclaiming. */
         const val SWEEP_THRESHOLD = 10_000
+        const val SWEEP_INTERVAL_MILLIS = 60_000L
     }
 }
 

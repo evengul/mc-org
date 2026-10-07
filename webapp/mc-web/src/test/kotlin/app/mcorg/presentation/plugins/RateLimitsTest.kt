@@ -56,6 +56,20 @@ class RateLimitsTest {
         }
 
         @Test
+        fun `a map held over the threshold by open windows is swept once a minute, not on every call`() {
+            val limit = SeamRateLimit.DEVICE_CODE_CREATE_SUSTAINED
+            repeat(FixedWindows.SWEEP_THRESHOLD + 1) { windows.tryAcquire(limit, "client-$it") }
+            val before = windows.sweeps.get()
+
+            repeat(100) { windows.tryAcquire(limit, "client-0") }
+            assertEquals(before + 1, windows.sweeps.get(), "one sweep for a burst of calls")
+
+            now += FixedWindows.SWEEP_INTERVAL_MILLIS
+            windows.tryAcquire(limit, "client-0")
+            assertEquals(before + 2, windows.sweeps.get(), "and another once the interval has passed")
+        }
+
+        @Test
         fun `a sweep drops closed windows and keeps open ones`() {
             windows.tryAcquire(SeamRateLimit.DEVICE_CODE_CREATE_BURST, "a")
             windows.tryAcquire(SeamRateLimit.DEVICE_CODE_CREATE_SUSTAINED, "a")
