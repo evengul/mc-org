@@ -65,6 +65,34 @@ class WebhookAdminIT : WithUser() {
     }
 
     @Test
+    fun `refuses a second subscription for a connected channel and leaves the first alone`() = testApplication {
+        AppConfig.webhookAdminSecret = secret
+        configureRoutes()
+        val worldId = createWorld("wh-admin-duplicate-channel")
+        val metadata = """{"discord_channel_id":"123456789012345678","compact":false}"""
+
+        val first = create(
+            "world_id" to worldId.toString(),
+            "callback_url" to "https://example.com/seam-events/123456789012345678",
+            "secret" to "subscriber-secret",
+            "metadata" to metadata,
+            secret = secret,
+        )
+        val second = create(
+            "world_id" to worldId.toString(),
+            "callback_url" to "https://staging.example.com/seam-events/123456789012345678",
+            "secret" to "other-secret",
+            "metadata" to metadata,
+            secret = secret,
+        )
+
+        assertEquals(HttpStatusCode.Created, first.status)
+        assertEquals(HttpStatusCode.UnprocessableEntity, second.status, second.bodyAsText())
+        assertEquals(1, countSubscriptions(worldId))
+        assertEquals(listOf("https://example.com/seam-events/123456789012345678"), callbackUrls(worldId))
+    }
+
+    @Test
     fun `defaults the event filter to wildcard when omitted`() = testApplication {
         AppConfig.webhookAdminSecret = secret
         configureRoutes()
@@ -164,6 +192,14 @@ class WebhookAdminIT : WithUser() {
     private fun createWorld(name: String): Int = runBlocking {
         (CreateWorldStep(user).process(CreateWorldInput(name, "test", MinecraftVersion.fromString("1.21.4"))) as Result.Success).value
     }
+
+    private fun callbackUrls(worldId: Int): List<String> =
+        Database.getConnection().use { conn ->
+            conn.prepareStatement("SELECT callback_url FROM webhook_subscriptions WHERE world_id = ?").use { st ->
+                st.setInt(1, worldId)
+                st.executeQuery().use { rs -> buildList { while (rs.next()) add(rs.getString(1)) } }
+            }
+        }
 
     private fun countSubscriptions(worldId: Int): Int =
         Database.getConnection().use { conn ->
