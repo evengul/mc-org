@@ -84,8 +84,8 @@ fun FlowContent.addTaskInline(worldId: Int, projectId: Int) {
             attributes["hx-post"] = "/worlds/$worldId/projects/$projectId/tasks"
             attributes["hx-target"] = "#task-list"
             attributes["hx-swap"] = "afterbegin"
-            attributes["hx-on::after-request"] = """
-                if (event.detail.xhr.status < 300) {
+            attributes["hx-on::after:request"] = """
+                if (ctx.response.status < 300) {
                     this.reset();
                     this.classList.remove('add-task-inline--visible');
                 }

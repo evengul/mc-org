@@ -13,7 +13,6 @@ import app.mcorg.engine.plan.MemberPrior
 fun FORM.worldNameForm(world: World) {
     id = "world-name-form"
     classes += "settings-form"
-    hxTargetError(".validation-error-message")
     encType = FormEncType.applicationXWwwFormUrlEncoded
 
     hxTarget("#$ALERT_CONTAINER_ID")
@@ -43,7 +42,6 @@ fun FORM.worldNameForm(world: World) {
 fun FORM.worldDescriptionForm(world: World) {
     id = "world-description-form"
     classes += "settings-form"
-    hxTargetError(".validation-error-message")
     encType = FormEncType.applicationXWwwFormUrlEncoded
 
     hxTarget("#$ALERT_CONTAINER_ID")
@@ -205,7 +203,6 @@ fun FlowContent.currentVersionGapNotice(impact: WorldVersionImpact) {
 fun FORM.farmScaleThresholdForm(world: World) {
     id = "world-farm-scale-form"
     classes += "settings-form"
-    hxTargetError(".validation-error-message")
     encType = FormEncType.applicationXWwwFormUrlEncoded
 
     hxTarget("#$ALERT_CONTAINER_ID")
@@ -249,7 +246,6 @@ fun FORM.farmScaleThresholdForm(world: World) {
 fun FORM.preferredWoodSpeciesForm(world: World) {
     id = "world-wood-species-form"
     classes += "settings-form"
-    hxTargetError(".validation-error-message")
     encType = FormEncType.applicationXWwwFormUrlEncoded
 
     hxTarget("#$ALERT_CONTAINER_ID")

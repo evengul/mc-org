@@ -3,7 +3,6 @@ package app.mcorg.presentation.templated.dsl
 import app.mcorg.presentation.hxPost
 import app.mcorg.presentation.hxSwap
 import app.mcorg.presentation.hxTarget
-import app.mcorg.presentation.hxTargetError
 import kotlinx.html.*
 
 const val CONFIRM_DELETE_MODAL_ID = "confirm-delete-modal"
@@ -99,7 +98,8 @@ fun FlowContent.modalActions(block: FlowContent.() -> Unit) {
 /**
  * Convenience wrapper that renders a modal with a form baked in.
  * The form submits via hx-post to [action], targeting [hxTarget] with [hxSwap] strategy.
- * Validation errors are routed to [errorTarget].
+ * Validation messages arrive out of band into the form's `validation-error-<field>` slots, so the
+ * dialog closes only on a status below 400 and stays open to show them.
  */
 fun FlowContent.modalForm(
     id: String,
@@ -107,7 +107,6 @@ fun FlowContent.modalForm(
     action: String,
     hxTarget: String,
     hxSwap: String = "outerHTML",
-    errorTarget: String = ".form-error",
     body: FlowContent.() -> Unit
 ) {
     dialog {
@@ -120,9 +119,8 @@ fun FlowContent.modalForm(
                     hxPost(action)
                     hxTarget(hxTarget)
                     hxSwap(hxSwap)
-                    hxTargetError(errorTarget)
-                    attributes["hx-on::after-request"] =
-                        "if(event.detail.successful) { this.reset(); this.closest('dialog')?.close() }"
+                    attributes["hx-on::after:request"] =
+                        "if(event.target === this && ctx.response.status < 400) { this.reset(); this.closest('dialog')?.close() }"
                     body()
                 }
             }

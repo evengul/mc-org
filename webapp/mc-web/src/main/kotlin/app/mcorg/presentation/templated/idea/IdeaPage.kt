@@ -192,7 +192,7 @@ private fun FlowContent.ideaCommentForm(ideaId: Int) {
         hxPost(Link.Ideas.single(ideaId) + "/comments")
         hxTarget("#idea-comments-list")
         hxSwap("afterbegin")
-        attributes["hx-on::after-request"] =
+        attributes["hx-on::after:request"] =
             "this.reset(); document.getElementById('idea-comment-reset-rating-button').classList.add('idea-comment-reset--hidden');"
 
         div("idea-comment-form__rating") {

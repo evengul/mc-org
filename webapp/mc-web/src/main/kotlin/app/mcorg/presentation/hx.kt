@@ -61,10 +61,6 @@ fun HTMLTag.hxTarget(value: String) {
     attributes += "hx-target" to value
 }
 
-fun HTMLTag.hxErrorTarget(target: String, errorCode: String) {
-    attributes += "hx-target-$errorCode" to target
-}
-
 fun HTMLTag.hxTrigger(value: String) {
     attributes += "hx-trigger" to value
 }
@@ -73,18 +69,10 @@ fun HTMLTag.hxIndicator(value: String) {
     attributes += "hx-indicator" to value
 }
 
-fun HTMLTag.hxTargetError(value: String) {
-    attributes += "hx-target-error" to value
-}
-
 fun HTMLTag.hxOutOfBands(locator: String) {
     attributes += "hx-swap-oob" to locator
 }
 
 fun HTMLTag.hxInclude(value: String) {
     attributes += "hx-include" to value
-}
-
-fun HTMLTag.hxExtension(value: String) {
-    attributes += "hx-ext" to value
 }

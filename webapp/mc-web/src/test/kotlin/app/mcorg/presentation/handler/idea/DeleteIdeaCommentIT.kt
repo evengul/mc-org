@@ -124,7 +124,7 @@ class DeleteIdeaCommentIT : WithUser() {
         }
 
         assertEquals(HttpStatusCode.Forbidden, response.status)
-        assertEquals("#alert-container", response.headers["HX-Retarget"])
+        assertContains(response.bodyAsText(), "hx-swap-oob=\"afterbegin:#alert-container\"")
         assertContains(response.bodyAsText(), "You can only delete your own comments.")
     }
 

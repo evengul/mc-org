@@ -293,7 +293,6 @@ private fun FlowContent.createWorldModal(
         action = "/worlds",
         hxTarget = "#worlds-content",
         hxSwap = "outerHTML",
-        errorTarget = ".form-error",
     ) {
         p("worlds-modal-intro") { +"Match it to a Minecraft save or server. You can rename it later." }
 

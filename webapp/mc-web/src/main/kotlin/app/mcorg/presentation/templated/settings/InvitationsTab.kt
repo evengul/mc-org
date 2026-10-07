@@ -42,11 +42,10 @@ fun DIV.sendInvitationForm(worldId: Int) {
         form(classes = "send-invitation__form") {
             encType = FormEncType.applicationXWwwFormUrlEncoded
             hxTarget("#invitation-list")
-            attributes["hx-target-error"] = ".validation-error-message"
             hxSwap("afterbegin")
             hxPost("${Link.Worlds.world(worldId).to}/settings/members/invitations")
-            attributes["hx-on::after-request"] = """
-                if (event.detail.xhr.status >= 200 && event.detail.xhr.status < 300) {
+            attributes["hx-on::after:request"] = """
+                if (ctx.response.status >= 200 && ctx.response.status < 300) {
                         this.reset(); document.querySelectorAll('.validation-error-message').forEach(el => el.innerHTML = '');
                 }
             """.trimIndent()

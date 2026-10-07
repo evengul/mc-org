@@ -70,8 +70,8 @@ suspend fun ApplicationCall.handleMintReporterToken() {
 
     // The only response in the app carrying a plaintext credential. A POST is already
     // non-cacheable per RFC 9111 absent explicit freshness, so this asserts the property rather
-    // than inheriting it. (It does nothing for htmx's sessionStorage history cache — that is
-    // handled by `hx-history="false"` on the reveal itself.)
+    // than inheriting it. (htmx 4 keeps no history snapshot in the browser; see
+    // `mintedTokenReveal`.)
     response.headers.append(HttpHeaders.CacheControl, "no-store")
 
     handlePipeline(

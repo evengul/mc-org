@@ -131,11 +131,11 @@ class IdeaVisibilityIT : WithUser() {
         val hidden = client.patch("/ideas/$theirs/public") { addAuthCookie(this); header("HX-Request", "true") }
 
         assertEquals(HttpStatusCode.Forbidden, forbidden.status)
-        assertEquals("#alert-container", forbidden.headers["HX-Retarget"])
+        assertContains(forbidden.bodyAsText(), "hx-swap-oob=\"afterbegin:#alert-container\"")
         assertContains(forbidden.bodyAsText(), "publish ideas to the hub")
 
         assertEquals(HttpStatusCode.NotFound, hidden.status)
-        assertEquals("#alert-container", hidden.headers["HX-Retarget"])
+        assertContains(hidden.bodyAsText(), "hx-swap-oob=\"afterbegin:#alert-container\"")
         assertContains(hidden.bodyAsText(), "not-found-error")
     }
 

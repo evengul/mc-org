@@ -6,6 +6,8 @@ import kotlinx.html.h1
 import kotlinx.html.p
 import kotlinx.html.stream.createHTML
 
+internal const val HTMX_CONFIG = """{"implicitInheritance": true, "noSwap": [204, 304, "4xx", "5xx"]}"""
+
 fun pageShell(
     pageTitle: String = "Seam",
     user: TokenProfile? = null,
@@ -52,14 +54,22 @@ fun pageShell(
                 rel = "stylesheet"
                 href = StylesheetBundle.href()
             }
-            script {
-                src = "https://cdn.jsdelivr.net/npm/htmx.org@2.0.8/dist/htmx.min.js"
-                integrity = "sha384-/TgkGk7p307TH7EXJDuUlgG3Ce1UVolAOFopFekQkkXihi5u/6OCvVKyz1W+idaz"
-                crossorigin = ScriptCrossorigin.anonymous
+            // Read once, when htmx loads, so it has to come before the script.
+            //
+            // implicitInheritance: htmx 4 made attribute inheritance opt-in (`hx-target:inherited`);
+            // this keeps htmx 2's behaviour until the containers that rely on it are audited.
+            //
+            // noSwap: htmx 4 swaps a 4xx/5xx into the target like any other response. Listing them
+            // keeps htmx 2's "an error swaps nothing", so an error body cannot land in a list row.
+            // Out-of-band swaps still run, which is how refusal alerts and field messages arrive
+            // (ErrorHandler.kt), and an element's own `hx-status:<code>` still overrides it.
+            meta {
+                name = "htmx-config"
+                content = HTMX_CONFIG
             }
             script {
-                src = "https://cdn.jsdelivr.net/npm/htmx-ext-response-targets@2.0.4/dist/response-targets.js"
-                integrity = "sha384-NtTh9TBZ2X/pFpfsVvQOjSsYWmjmqG6h5ioQWVAe2/j3AuTHRmfqvoqp+iOed+I0"
+                src = "https://cdn.jsdelivr.net/npm/htmx.org@4.0.0/dist/htmx.min.js"
+                integrity = "sha384-BvJpBiO8Kh31EqtJe5DRIeWrHWnCGkwytKs9NKFi86Hhw96dEqdEMzZDeK9iEGTc"
                 crossorigin = ScriptCrossorigin.anonymous
             }
             script {
@@ -68,7 +78,6 @@ fun pageShell(
             }
         }
         body {
-            attributes["hx-ext"] = "response-targets"
             confirmDeleteModal()
             alertContainer()
             body()

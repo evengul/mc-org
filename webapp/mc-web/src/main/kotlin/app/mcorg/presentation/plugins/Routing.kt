@@ -1,6 +1,7 @@
 package app.mcorg.presentation.plugins
 
 import app.mcorg.logging.describeWithoutMessages
+import app.mcorg.presentation.hxOutOfBands
 import app.mcorg.presentation.templated.dsl.AssetBundle
 import app.mcorg.presentation.templated.dsl.ScriptBundle
 import app.mcorg.presentation.templated.dsl.StylesheetBundle
@@ -57,13 +58,13 @@ fun Application.configureStatusStaticRouter() {
                 MAX_SCHEMATIC_UPLOAD_BYTES,
             )
             if (call.request.headers["HX-Request"] == "true") {
-                // The resource-upload form swaps errors over its `.form-error` (outerHTML), so the
-                // replacement has to be that same element, id included: its 422s arrive as an
-                // out-of-band swap onto `validation-error-schematicFile`, and without the id the
-                // next one has nowhere to land.
+                // htmx swaps no error response (`noSwap`, Layout.kt), so this arrives out of band
+                // onto the resource-upload form's slot, the way its 422s do. It replaces the slot,
+                // so it keeps the slot's class and id, or the next message has nowhere to land.
                 call.respondHtml(
                     createHTML().p("form-error") {
                         id = "validation-error-schematicFile"
+                        hxOutOfBands("true")
                         +UPLOAD_TOO_LARGE_MESSAGE
                     },
                     HttpStatusCode.PayloadTooLarge,

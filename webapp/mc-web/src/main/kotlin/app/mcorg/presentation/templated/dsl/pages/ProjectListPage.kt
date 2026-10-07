@@ -10,7 +10,6 @@ import app.mcorg.presentation.hxIndicator
 import app.mcorg.presentation.hxPost
 import app.mcorg.presentation.hxSwap
 import app.mcorg.presentation.hxTarget
-import app.mcorg.presentation.hxTargetError
 import app.mcorg.presentation.templated.dsl.appHeader
 import app.mcorg.presentation.templated.dsl.container
 import app.mcorg.presentation.templated.dsl.emptyStateCards
@@ -301,12 +300,11 @@ private fun kotlinx.html.FlowContent.recordFarmModal(worldId: Int) {
                     // See createProjectModal: the target only has to exist on both tabs.
                     hxTarget("this")
                     hxSwap("afterbegin")
-                    hxTargetError(".form-error")
                     // htmx events bubble: the item search inside this form fires
-                    // afterRequest too, and without the target check every keystroke's
+                    // after:request too, and without the target check every keystroke's
                     // search response would close the modal.
-                    attributes["hx-on::after-request"] =
-                        "if(event.target === this && event.detail.successful) { window.resetFarmModal(this) }"
+                    attributes["hx-on::after:request"] =
+                        "if(event.target === this && ctx.response.status < 400) { window.resetFarmModal(this) }"
 
                     label {
                         htmlFor = "record-farm-name"
@@ -459,7 +457,6 @@ private fun kotlinx.html.FlowContent.createProjectModal(worldId: Int) {
         action = "/worlds/$worldId/projects",
         hxTarget = "this",
         hxSwap = "afterbegin",
-        errorTarget = ".form-error"
     ) {
         label {
             htmlFor = "create-project-name"

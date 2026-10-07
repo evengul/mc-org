@@ -11,8 +11,6 @@ import app.mcorg.presentation.templated.error.errorPageLayout
 import app.mcorg.presentation.templated.error.forbiddenPage
 import app.mcorg.presentation.templated.error.notFoundPage
 import app.mcorg.presentation.templated.error.serverErrorPage
-import app.mcorg.presentation.utils.hxSwap
-import app.mcorg.presentation.utils.hxTarget
 import app.mcorg.presentation.utils.pageUri
 import app.mcorg.presentation.utils.redirectClientOrBrowser
 import app.mcorg.presentation.utils.respondHtml
@@ -238,9 +236,10 @@ private fun List<ValidationFailure>.toHttpStatusCode(): HttpStatusCode {
  * A refusal the person who triggered it can see, whichever way the request arrived (MCO-158,
  * MCO-436). Route plugins answer with this, and so does every [FailureResponse.Alert].
  *
- * Under HTMX: the standard alert, prepended to the alert container. The body carries
- * `hx-ext="response-targets"`, which swaps a non-200 response only when it names a target, so
- * a refusal without `HX-Retarget` reaches the browser and changes nothing on screen.
+ * Under HTMX: the standard alert, prepended to the alert container out of band. htmx swaps no
+ * error response into its target (`noSwap` in `Layout.kt`), and it does that by setting the swap
+ * to `none` after reading `HX-Retarget` / `HX-Reswap`, so a retargeted alert is silenced too.
+ * Out-of-band swaps run whatever the status, and whatever the sender's `hx-status` says.
  *
  * Anything else is a page load (a typed URL, a link, a bookmark) and gets the status page with
  * the app's chrome. A bare alert fragment there renders as one unstyled sentence.
@@ -250,15 +249,18 @@ private fun List<ValidationFailure>.toHttpStatusCode(): HttpStatusCode {
  */
 suspend fun ApplicationCall.respondRefusal(status: HttpStatusCode, title: String, message: String, alertId: String) {
     if (request.headers["HX-Request"] == "true") {
-        hxTarget("#$ALERT_CONTAINER_ID")
-        hxSwap("afterbegin")
-        respondHtml(createHTML().li {
-            createAlert(
-                id = alertId,
-                title = title,
-                message = message,
-                type = AlertType.ERROR
-            )
+        // A non-outerHTML out-of-band swap inserts the element's children, so the <ul> is the
+        // wrapper htmx strips and the <li> is what lands.
+        respondHtml(createHTML().ul {
+            hxOutOfBands("afterbegin:#$ALERT_CONTAINER_ID")
+            li {
+                createAlert(
+                    id = alertId,
+                    title = title,
+                    message = message,
+                    type = AlertType.ERROR
+                )
+            }
         }, statusCode = status)
     } else {
         respondHtml(statusPage(status, message), statusCode = status)

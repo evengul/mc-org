@@ -404,7 +404,7 @@
             } catch (err) { /* storage unavailable — non-fatal, scroll just won't restore */ }
         });
 
-        document.body.addEventListener('htmx:afterSettle', function (e) {
+        document.body.addEventListener('htmx:after:settle', function (e) {
             if (!e.target || e.target.id !== 'project-content') return;
             if (e.target.querySelector('.drill-header')) return; // still in the drill chain
             var key = drillScrollKey();
@@ -527,5 +527,5 @@
     }
 
     document.addEventListener('DOMContentLoaded', init);
-    document.addEventListener('htmx:afterSettle', init);
+    document.addEventListener('htmx:after:settle', init);
 })();

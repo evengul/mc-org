@@ -11,7 +11,6 @@ import app.mcorg.presentation.hxInclude
 import app.mcorg.presentation.hxPost
 import app.mcorg.presentation.hxSwap
 import app.mcorg.presentation.hxTarget
-import app.mcorg.presentation.hxTargetError
 import app.mcorg.presentation.hxTrigger
 import kotlinx.html.ButtonType
 import kotlinx.html.FORM
@@ -143,9 +142,9 @@ fun orderingFormFragment(state: OrderingFormState): String =
         hxTarget("#$FORM_ID")
         hxSwap("outerHTML")
         // A rejected submit comes back as this same form with the complaint at the top, so the
-        // error response has to swap where the success one would. Without this the
-        // response-targets extension leaves a 400 on the floor and the button looks dead.
-        hxTargetError("#$FORM_ID")
+        // error response has to swap where the success one would. Without this htmx swaps no
+        // error (`noSwap`, Layout.kt), leaves the 400 on the floor, and the button looks dead.
+        attributes["hx-status:400"] = "swap:outerHTML"
         orderingFormFields(state)
     }
 

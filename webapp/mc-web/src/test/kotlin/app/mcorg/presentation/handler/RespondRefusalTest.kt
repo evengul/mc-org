@@ -75,14 +75,15 @@ class RespondRefusalTest {
         assertEquals(status, response.status, "body was: ${body.take(300)}")
         assertTrue(body.contains(heading), "should render '$heading'; was: ${body.take(300)}")
         assertTrue(body.contains("error-page__card"), "should be the full status page with chrome")
-        assertNull(response.headers["HX-Retarget"], "a page load has no use for HX-Retarget")
+        assertFalse(body.contains("hx-swap-oob"), "a page load has no use for an out-of-band swap")
     }
 
     private suspend fun assertAlert(response: HttpResponse, status: HttpStatusCode, alertId: String) {
         val body = response.bodyAsText()
         assertEquals(status, response.status, "body was: ${body.take(300)}")
-        assertEquals("#alert-container", response.headers["HX-Retarget"])
-        assertEquals("afterbegin", response.headers["HX-Reswap"])
+        // htmx swaps no error into its target (noSwap, Layout.kt) and that overrides HX-Retarget,
+        // so the alert has to arrive out of band.
+        assertTrue(body.contains("hx-swap-oob=\"afterbegin:#alert-container\""), "should be swapped out of band; was: ${body.take(300)}")
         assertTrue(body.contains("id=\"$alertId\""), "should be the $alertId alert; was: ${body.take(300)}")
         assertFalse(body.contains("<html", ignoreCase = true), "a fragment, not a whole page")
     }

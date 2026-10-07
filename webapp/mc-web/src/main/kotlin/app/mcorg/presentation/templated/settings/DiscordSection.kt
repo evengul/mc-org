@@ -88,11 +88,10 @@ private fun FlowContent.connectDiscordForm(worldId: Int) {
         form(classes = "connect-discord__form") {
             encType = FormEncType.applicationXWwwFormUrlEncoded
             hxTarget("#discord-section")
-            attributes["hx-target-error"] = ".validation-error-message"
             hxSwap("innerHTML")
             hxPost("${Link.Worlds.world(worldId).settings().to}/discord")
-            attributes["hx-on::after-request"] = """
-                if (event.detail.xhr.status >= 200 && event.detail.xhr.status < 300) {
+            attributes["hx-on::after:request"] = """
+                if (ctx.response.status >= 200 && ctx.response.status < 300) {
                         this.reset();
                 }
             """.trimIndent()
