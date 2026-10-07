@@ -274,6 +274,9 @@ internal const val STALE_PAGE_MESSAGE = "This part of the page is out of date. R
  * Sent as an htmx partial, because htmx swaps no error response into its target (`noSwap`,
  * `Layout.kt`) and that also silences `HX-Retarget`. A partial is swapped whatever the status, and
  * [target] is resolved from the element that sent the request, so `closest form` works.
+ *
+ * Without htmx (a post before the script loaded, say) there is no page to swap into; the status
+ * page says the form needs another look rather than rendering a lone template as a blank page.
  */
 suspend fun ApplicationCall.respondInPlace(
     html: String,
@@ -281,7 +284,11 @@ suspend fun ApplicationCall.respondInPlace(
     swap: String = "outerHTML",
     status: HttpStatusCode = HttpStatusCode.UnprocessableEntity,
 ) {
-    respondHtml(createHTML().hxPartial(target = target, swap = swap) { unsafe { +html } }, status)
+    if (isHtmxRequest()) {
+        respondHtml(createHTML().hxPartial(target = target, swap = swap) { unsafe { +html } }, status)
+    } else {
+        respondRefusal(status, "Check the form", "Something in the form needs fixing. Go back and try again.", alertId = "in-place-error")
+    }
 }
 
 private fun ApplicationCall.statusPage(status: HttpStatusCode, message: String): String = when {

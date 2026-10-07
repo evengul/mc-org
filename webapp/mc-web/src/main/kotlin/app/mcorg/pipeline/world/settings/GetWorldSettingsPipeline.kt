@@ -48,7 +48,7 @@ suspend fun ApplicationCall.handleGetWorldSettings() {
 
     val dataResult = handleGetSettingsPageData(worldId, statusFilter)
     if (dataResult is Result.Failure) {
-        // The 500 page with its reference, where a bare 500 rendered a blank page.
+        // The status page with its reference: a bare status renders as a blank page.
         defaultHandleError(dataResult.error)
         return
     }

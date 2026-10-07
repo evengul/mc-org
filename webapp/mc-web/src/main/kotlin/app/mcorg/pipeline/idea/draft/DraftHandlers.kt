@@ -6,6 +6,7 @@ import app.mcorg.pipeline.Result
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.minecraftfiles.GetSupportedVersionsStep
+import app.mcorg.presentation.handler.defaultHandleError
 import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.handler.respondInPlace
 import app.mcorg.presentation.handler.respondRefusal
@@ -183,7 +184,7 @@ suspend fun ApplicationCall.handlePublishDraft() {
             UpdateDraftInput(draftId, user.id, buildFormJson(params, user.minecraftUsername), DraftWizardStage.REVIEW.name)
         )
         if (saved is Result.Failure) {
-            respondDraftNotFound()
+            defaultHandleError(saved.error)
             return
         }
     }
@@ -195,10 +196,12 @@ suspend fun ApplicationCall.handlePublishDraft() {
     } ?: emptyList()
 
     if (validationErrors.isNotEmpty()) {
-        val draft = GetDraftStep().process(GetDraftInput(draftId, user.id)).getOrNull()
-        if (draft == null) {
-            respondDraftNotFound()
-            return
+        val draft = when (val result = GetDraftStep().process(GetDraftInput(draftId, user.id))) {
+            is Result.Failure -> {
+                defaultHandleError(result.error)
+                return
+            }
+            is Result.Success -> result.value
         }
         respondInPlace(
             draftFormFragment(

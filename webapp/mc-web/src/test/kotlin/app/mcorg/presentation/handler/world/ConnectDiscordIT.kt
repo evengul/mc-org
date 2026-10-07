@@ -214,12 +214,14 @@ class ConnectDiscordIT : WithUser() {
 
         val response = client.post("/worlds/$worldId/settings/discord") {
             addAuthCookie(this, user)
+            header("HX-Request", "true")
             contentType(ContentType.Application.FormUrlEncoded)
             setBody(listOf("channel_id" to channelId).formUrlEncode())
         }
 
         assertEquals(HttpStatusCode.ServiceUnavailable, response.status)
         assertTrue(response.bodyAsText().contains("isn't configured"), response.bodyAsText())
+        assertTrue(response.bodyAsText().contains("hx-target=\"#discord-section\""), "re-rendered in place: ${response.bodyAsText()}")
         assertEquals(0, subscriptionsFor(worldId).size)
     }
 

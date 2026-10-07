@@ -11,6 +11,7 @@ class ValidationFailureMessagesTest {
         assertEquals("Channel id", fieldLabel("channel_id"))
         assertEquals("Size › width", fieldLabel("categoryData.size.width"))
         assertEquals("Tags", fieldLabel("tags[]"))
+        assertEquals("Team members › role", fieldLabel("teamMembers[0][role]"))
     }
 
     @Test

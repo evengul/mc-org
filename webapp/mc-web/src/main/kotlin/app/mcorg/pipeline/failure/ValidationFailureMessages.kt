@@ -34,7 +34,11 @@ fun ValidationFailure.userMessage(): String {
 }
 
 internal fun fieldLabel(parameterName: String): String {
-    val segments = parameterName.removePrefix("categoryData.").removeSuffix("[]").split(".")
+    // `teamMembers[0][role]` is a member's role: the index is position, not a name.
+    val dotted = parameterName.removePrefix("categoryData.").removeSuffix("[]")
+        .replace(Regex("""\[\d+]"""), "")
+        .replace(Regex("""\[([^\]]+)]"""), ".$1")
+    val segments = dotted.split(".")
     return segments.mapIndexed { index, segment ->
         val words = segment
             .replace(Regex("([a-z0-9])([A-Z])"), "$1 $2")
