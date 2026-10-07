@@ -37,6 +37,7 @@ import io.ktor.server.routing.route
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
 import kotlinx.coroutines.runBlocking
+import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
@@ -57,6 +58,9 @@ class ProjectDetailIT : WithUser() {
     private var resourceGatheringId: Int = 0
     private var taskId: Int = 0
 
+    /** Idea rows outlive the class otherwise: ITs share one user and one database. */
+    private val createdIdeaIds = mutableListOf<Int>()
+
     @BeforeAll
     fun setup() {
         worldId = createWorld()
@@ -64,6 +68,16 @@ class ProjectDetailIT : WithUser() {
         resourceGatheringId = createResourceGathering(projectId, required = 10)
         seedProgress(resourceGatheringId, collected = 2)
         taskId = createTask(projectId, "Test Task")
+    }
+
+    @AfterAll
+    fun deleteIdeas() = runBlocking {
+        createdIdeaIds.forEach { id ->
+            DatabaseSteps.update<Int>(
+                sql = SafeSQL.delete("DELETE FROM ideas WHERE id = ?"),
+                parameterSetter = { stmt, ideaId -> stmt.setInt(1, ideaId) }
+            ).process(id)
+        }
     }
 
     // -------------------------------------------------------------------------
@@ -280,6 +294,24 @@ class ProjectDetailIT : WithUser() {
         assertContains(body, "Detail IT Idea")
     }
 
+    /** The case that would leak: the viewer is a world member, but the private idea is someone else's. */
+    @Test
+    fun `a project imported from someone else's private idea neither links nor names it`() = testApplication {
+        val ideaId = createIdea("Someone Elses Idea", creatorId = createExtraUser().id)
+        val importedId = createProject(worldId, ideaId = ideaId)
+
+        setupRoutes()
+
+        val response = client.get("/worlds/$worldId/projects/$importedId") {
+            addAuthCookie(this)
+        }
+
+        assertEquals(HttpStatusCode.OK, response.status)
+        val body = response.bodyAsText()
+        assertFalse(body.contains("/ideas/$ideaId"), "a link the idea route would answer with 404")
+        assertFalse(body.contains("Someone Elses Idea"), "the name of someone else's private idea")
+    }
+
     @Test
     fun `a project not imported from an idea shows no link`() = testApplication {
         setupRoutes()
@@ -350,8 +382,8 @@ class ProjectDetailIT : WithUser() {
         (result as Result.Success).value
     }
 
-    /** Created by the test user, and private — the column default. */
-    private fun createIdea(name: String): Int = runBlocking {
+    /** Private — the column default — and created by the test user unless [creatorId] says otherwise. */
+    private fun createIdea(name: String, creatorId: Int = user.id): Int = runBlocking {
         val result = DatabaseSteps.update<Unit>(
             sql = SafeSQL.insert(
                 """
@@ -363,10 +395,10 @@ class ProjectDetailIT : WithUser() {
             ),
             parameterSetter = { stmt, _ ->
                 stmt.setString(1, name)
-                stmt.setInt(2, user.id)
+                stmt.setInt(2, creatorId)
             }
         ).process(Unit)
-        (result as Result.Success).value
+        (result as Result.Success).value.also { createdIdeaIds += it }
     }
 
     private fun createResourceGathering(projectId: Int, required: Int): Int = runBlocking {

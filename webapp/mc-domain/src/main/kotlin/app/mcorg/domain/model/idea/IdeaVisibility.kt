@@ -1,7 +1,5 @@
 package app.mcorg.domain.model.idea
 
-import app.mcorg.domain.model.user.TokenProfile
-
 /**
  * How widely an idea is visible (MCO-291).
  *
@@ -23,10 +21,3 @@ enum class IdeaVisibility {
     /** On the community hub, visible to everyone. Reaching this state is the privileged step. */
     PUBLIC,
 }
-
-/**
- * Whether [viewer] may open an idea with this visibility created by [createdBy]. The one rule behind
- * IdeaVisibilityPlugin and every link to an idea: a link drawn for a viewer this refuses is a 404.
- */
-fun IdeaVisibility.isVisibleTo(viewer: TokenProfile, createdBy: Int): Boolean =
-    this == IdeaVisibility.PUBLIC || createdBy == viewer.id || viewer.isSuperAdmin

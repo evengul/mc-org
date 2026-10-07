@@ -45,8 +45,9 @@ class ImportedFromIdeaLinkTest {
         updatedAt = ZonedDateTime.now(),
     )
 
-    private fun idea(visibility: IdeaVisibility) =
-        ImportedIdea(id = 7, name = "Trident Killer Golem Farm", visibility = visibility, createdBy = creatorId)
+    private fun idea(visibility: IdeaVisibility, isActive: Boolean = true) = ImportedIdea(
+        id = 7, name = "Trident Killer Golem Farm", visibility = visibility, createdBy = creatorId, isActive = isActive,
+    )
 
     private fun render(project: Project, viewer: TokenProfile) = projectDetailPage(
         user = viewer,
@@ -85,6 +86,14 @@ class ImportedFromIdeaLinkTest {
         assertFalse(html.contains("/ideas/7"), "a link the idea route would answer with 404")
         assertFalse(html.contains("Trident Killer Golem Farm"), "the name of someone else's private idea")
         assertFalse(html.contains("project-detail__idea"))
+    }
+
+    /** Reverted to a draft for editing: IdeaParamPlugin answers 404 to everyone, its creator included. */
+    @Test
+    fun `an idea reverted to a draft is not linked, even for its creator`() {
+        val html = render(project(idea(IdeaVisibility.PUBLIC, isActive = false)), creator)
+
+        assertFalse(html.contains("/ideas/7"), "a link the idea route would answer with 404")
     }
 
     @Test

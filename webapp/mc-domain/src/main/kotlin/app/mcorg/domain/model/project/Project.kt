@@ -28,13 +28,15 @@ data class Project(
 )
 
 /**
- * The idea a project was imported from. Carries the idea's [visibility] and [createdBy] because the
- * project is seen by its whole world while the idea may be visible only to whoever imported it —
- * a link back is drawn only for a viewer [IdeaVisibility.isVisibleTo] lets in.
+ * The idea a project was imported from. Carries what the idea route checks before it opens an idea,
+ * because the project is seen by its whole world while the idea may be visible only to whoever
+ * imported it: [visibility] and [createdBy] for [IdeaVisibility.isVisibleTo], and [isActive], since
+ * an idea reverted to a draft for editing answers 404 to everyone until it is published again.
  */
 data class ImportedIdea(
     val id: Int,
     val name: String,
     val visibility: IdeaVisibility,
     val createdBy: Int,
+    val isActive: Boolean,
 )

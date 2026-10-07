@@ -1,7 +1,7 @@
 package app.mcorg.presentation.plugins
 
-import app.mcorg.domain.model.idea.IdeaVisibility
-import app.mcorg.domain.model.idea.isVisibleTo
+import app.mcorg.domain.idea.ideaVisibilityOf
+import app.mcorg.domain.idea.isVisibleTo
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.Result
 import app.mcorg.pipeline.SafeSQL
@@ -40,7 +40,7 @@ val IdeaVisibilityPlugin = createRouteScopedPlugin("IdeaVisibilityPlugin") {
             is Result.Failure -> call.defaultHandleError(result.error)
             is Result.Success -> {
                 val (visibility, createdBy) = result.value
-                if (!IdeaVisibility.valueOf(visibility).isVisibleTo(user, createdBy)) {
+                if (!ideaVisibilityOf(visibility).isVisibleTo(user, createdBy)) {
                     call.defaultHandleError(AppFailure.DatabaseError.NotFound)
                 }
             }
