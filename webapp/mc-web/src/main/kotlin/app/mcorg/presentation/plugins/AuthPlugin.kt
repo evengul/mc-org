@@ -8,9 +8,10 @@ import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.presentation.consts.AUTH_COOKIE
 import app.mcorg.presentation.consts.ISSUER
 import app.mcorg.presentation.utils.getHost
-import app.mcorg.presentation.utils.pagePath
+import app.mcorg.presentation.utils.pageUri
 import app.mcorg.presentation.utils.redirectClientOrBrowser
 import app.mcorg.presentation.utils.removeToken
+import app.mcorg.presentation.utils.signInRedirectUrl
 import app.mcorg.presentation.utils.storeUser
 import io.ktor.server.application.createRouteScopedPlugin
 import io.ktor.server.request.path
@@ -69,8 +70,8 @@ val AuthPlugin = createRouteScopedPlugin("AuthPlugin") {
                 else -> "/auth/sign-in"
             }
             it.redirectClientOrBrowser(url)
-        } else if (result is Result.Failure && !it.request.path().contains("/auth/sign-in") && !it.request.path().contains("/auth/sign-out") && !it.request.path().contains("/oidc")) {
-            it.redirectClientOrBrowser("/auth/sign-in?redirect_to=${it.pagePath()}")
+        } else if (result is Result.Failure && !path.contains("/auth/sign-in") && !path.contains("/auth/sign-out") && !path.contains("/oidc")) {
+            it.redirectClientOrBrowser(signInRedirectUrl(it.pageUri()))
         }
     }
 }

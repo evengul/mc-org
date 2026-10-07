@@ -11,10 +11,12 @@ import app.mcorg.presentation.templated.error.errorPageLayout
 import app.mcorg.presentation.templated.error.forbiddenPage
 import app.mcorg.presentation.templated.error.notFoundPage
 import app.mcorg.presentation.templated.error.serverErrorPage
-import app.mcorg.presentation.utils.clientRedirect
 import app.mcorg.presentation.utils.hxSwap
 import app.mcorg.presentation.utils.hxTarget
+import app.mcorg.presentation.utils.pageUri
+import app.mcorg.presentation.utils.redirectClientOrBrowser
 import app.mcorg.presentation.utils.respondHtml
+import app.mcorg.presentation.utils.signInRedirectUrl
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.plugins.callid.callId
@@ -82,7 +84,8 @@ internal sealed interface FailureResponse {
 
 /**
  * The one table. Pure so that it can be pinned without a Ktor call: [requestUri] is where
- * `MissingToken` sends the user back to after sign-in, [reference] the call id quoted on the
+ * `MissingToken` sends the user back to after sign-in (the page, not the fragment, under HTMX —
+ * see `pageUri`), [reference] the call id quoted on the
  * generic error so a user can name something we can search for (`Monitoring.kt`).
  */
 internal fun AppFailure.toFailureResponse(requestUri: String, reference: String?): FailureResponse {
@@ -93,7 +96,7 @@ internal fun AppFailure.toFailureResponse(requestUri: String, reference: String?
         is AppFailure.ValidationError -> FailureResponse.ValidationMessages(errors)
         is AppFailure.Redirect -> FailureResponse.RedirectTo(toUrl(), FailureVolume.SILENT)
         is AppFailure.AuthError.MissingToken -> FailureResponse.RedirectTo(
-            "/auth/sign-in?redirect_to=$requestUri", FailureVolume.SILENT
+            signInRedirectUrl(requestUri), FailureVolume.SILENT
         )
 
         // Expected but worth being able to count: an expired token, a link to something deleted.
@@ -167,21 +170,13 @@ private fun ApplicationCall.logFailure(error: AppFailure, volume: FailureVolume)
 }
 
 suspend fun <E : AppFailure> ApplicationCall.defaultHandleError(error: E) {
-    val response = error.toFailureResponse(requestUri = request.uri, reference = callId)
+    val response = error.toFailureResponse(requestUri = pageUri(), reference = callId)
     logFailure(error, response.volume)
 
     when (response) {
         is FailureResponse.Alert -> respondRefusal(response.status, response.title, response.message, response.id)
-        is FailureResponse.RedirectTo -> respondRedirectFor(response.url)
+        is FailureResponse.RedirectTo -> redirectClientOrBrowser(response.url)
         is FailureResponse.ValidationMessages -> respondValidationMessages(response)
-    }
-}
-
-private suspend fun ApplicationCall.respondRedirectFor(url: String) {
-    if (request.headers["HX-Request"] == "true") {
-        clientRedirect(url)
-    } else {
-        respondRedirect(url)
     }
 }
 

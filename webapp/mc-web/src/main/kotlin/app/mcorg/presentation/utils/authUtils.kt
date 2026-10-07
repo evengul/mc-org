@@ -8,6 +8,15 @@ import io.ktor.server.application.*
 import io.ktor.server.response.*
 import io.ktor.util.*
 import io.ktor.util.date.*
+import java.net.URLEncoder
+
+/**
+ * The sign-in page, returning to [returnTo] afterwards. Encoded because [returnTo] carries a query
+ * string, and for an HTMX request a path from a client header that may hold a literal `&`, either of
+ * which would otherwise split into parameters of their own. The sign-in page still passes the
+ * decoded value through `safeRedirectPath` before redirecting to it.
+ */
+fun signInRedirectUrl(returnTo: String) = "/auth/sign-in?redirect_to=${URLEncoder.encode(returnTo, Charsets.UTF_8)}"
 
 fun ApplicationCall.storeUser(user: TokenProfile) = attributes.put(AttributeKey("user"), user)
 fun ApplicationCall.getUser() = attributes[AttributeKey<TokenProfile>("user")]
