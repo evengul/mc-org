@@ -42,8 +42,10 @@ import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.api.extension.ExtendWith
+import java.sql.Types
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 
 @Tag("database")
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -253,6 +255,44 @@ class ProjectDetailIT : WithUser() {
     }
 
     // -------------------------------------------------------------------------
+    // MCO-61: the link back to the idea a project was imported from
+    // -------------------------------------------------------------------------
+
+    /**
+     * Private and the viewer's own, so the link renders only if the project query carries both the
+     * idea's visibility and its creator: a dropped column would hide the link or fail the read.
+     */
+    @Test
+    fun `a project imported from the viewer's own private idea links back to it`() = testApplication {
+        val ideaId = createIdea("Detail IT Idea")
+        val importedId = createProject(worldId, ideaId = ideaId)
+
+        setupRoutes()
+
+        val response = client.get("/worlds/$worldId/projects/$importedId") {
+            addAuthCookie(this)
+        }
+
+        assertEquals(HttpStatusCode.OK, response.status)
+        val body = response.bodyAsText()
+        assertContains(body, "project-detail__idea")
+        assertContains(body, "href=\"/ideas/$ideaId\"")
+        assertContains(body, "Detail IT Idea")
+    }
+
+    @Test
+    fun `a project not imported from an idea shows no link`() = testApplication {
+        setupRoutes()
+
+        val response = client.get("/worlds/$worldId/projects/$projectId") {
+            addAuthCookie(this)
+        }
+
+        assertEquals(HttpStatusCode.OK, response.status)
+        assertFalse(response.bodyAsText().contains("project-detail__idea"))
+    }
+
+    // -------------------------------------------------------------------------
     // Routing helper
     // -------------------------------------------------------------------------
 
@@ -296,13 +336,35 @@ class ProjectDetailIT : WithUser() {
         (result as Result.Success).value
     }
 
-    private fun createProject(worldId: Int): Int = runBlocking {
+    private fun createProject(worldId: Int, ideaId: Int? = null): Int = runBlocking {
         val result = DatabaseSteps.update<Unit>(
             sql = SafeSQL.insert(
-                "INSERT INTO projects (name, world_id, description, type, stage, location_x, location_y, location_z, location_dimension) " +
-                        "VALUES ('Detail IT Project', ?, '', 'BUILDING', 'PLANNING', 0, 0, 0, 'OVERWORLD') RETURNING id"
+                "INSERT INTO projects (name, world_id, description, type, stage, location_x, location_y, location_z, location_dimension, project_idea_id) " +
+                        "VALUES ('Detail IT Project', ?, '', 'BUILDING', 'PLANNING', 0, 0, 0, 'OVERWORLD', ?) RETURNING id"
             ),
-            parameterSetter = { stmt, _ -> stmt.setInt(1, worldId) }
+            parameterSetter = { stmt, _ ->
+                stmt.setInt(1, worldId)
+                if (ideaId != null) stmt.setInt(2, ideaId) else stmt.setNull(2, Types.INTEGER)
+            }
+        ).process(Unit)
+        (result as Result.Success).value
+    }
+
+    /** Created by the test user, and private — the column default. */
+    private fun createIdea(name: String): Int = runBlocking {
+        val result = DatabaseSteps.update<Unit>(
+            sql = SafeSQL.insert(
+                """
+                INSERT INTO ideas (name, description, category, author, difficulty, minecraft_version_range, category_data, created_by)
+                VALUES (?, 'test idea', 'FARM', '{"type":"single","name":"tester"}'::jsonb, 'EASY',
+                        '{"type":"app.mcorg.domain.model.minecraft.MinecraftVersionRange.Unbounded"}'::jsonb, '{}'::jsonb, ?)
+                RETURNING id
+                """.trimIndent()
+            ),
+            parameterSetter = { stmt, _ ->
+                stmt.setString(1, name)
+                stmt.setInt(2, user.id)
+            }
         ).process(Unit)
         (result as Result.Success).value
     }

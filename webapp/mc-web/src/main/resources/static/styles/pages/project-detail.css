@@ -45,6 +45,20 @@
     color: var(--text-muted);
 }
 
+.project-detail__idea {
+    font-size: var(--text-sm);
+    color: var(--text-muted);
+}
+
+.project-detail__idea-link {
+    color: var(--accent);
+    text-decoration: none;
+}
+
+.project-detail__idea-link:hover {
+    text-decoration: underline;
+}
+
 .project-detail__overall-progress {
     max-width: 240px;
     margin-top: var(--space-2);

@@ -450,7 +450,7 @@ internal suspend fun ApplicationCall.listRerenderFragment(worldId: Int, projectI
     val farmDismissals = farmDismissalsFor(worldId)
     val farmSuggestions = farmSuggestionsFor(
         plan, farmScaleThreshold, user.id, projectId, coveredByPlannedFarms,
-        project.importedFromIdea?.first, farmDismissals.itemIds(),
+        project.importedFromIdea?.id, farmDismissals.itemIds(),
     )
     val isAdmin = ValidateWorldMemberRole<Unit>(user, Role.ADMIN, worldId).process(Unit) is Result.Success
 

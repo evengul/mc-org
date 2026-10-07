@@ -1,5 +1,6 @@
 package app.mcorg.presentation.templated.dsl.pages
 
+import app.mcorg.domain.model.idea.isVisibleTo
 import app.mcorg.domain.model.project.Project
 import app.mcorg.domain.model.project.ProjectProduction
 import app.mcorg.domain.model.resources.ResourceGatheringItem
@@ -128,6 +129,7 @@ fun projectDetailPage(
                         projectStateField(project, isWorldAdmin)
                         projectLocationField(project, isWorldAdmin)
                         projectProductionsField(project, productions, isWorldAdmin)
+                        projectImportedFromIdea(project, user)
                     }
                     gatheringOverallProgress(project.id, project.worldId, resources, plan, progressMap)
                 }
@@ -154,6 +156,20 @@ fun projectDetailPage(
         div {
             id = "resource-panel-content"
         }
+    }
+}
+
+/**
+ * Where the project came from, when it was imported from an idea (MCO-61). Drawn only for a viewer
+ * the idea route lets in: the rest of the world gets no link and no name, since a private idea's
+ * route answers them with 404 and its name is not theirs to see.
+ */
+private fun FlowContent.projectImportedFromIdea(project: Project, user: TokenProfile) {
+    val idea = project.importedFromIdea ?: return
+    if (!idea.visibility.isVisibleTo(user, idea.createdBy)) return
+    span("project-detail__idea") {
+        +"Imported from "
+        a(href = Link.Ideas.single(idea.id), classes = "project-detail__idea-link") { +idea.name }
     }
 }
 

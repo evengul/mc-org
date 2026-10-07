@@ -112,7 +112,7 @@ suspend fun ApplicationCall.handleGetProject() {
 
     val farmSuggestions = farmSuggestionsFor(
         plan, farmScaleThreshold, user.id, projectId, coveredByPlannedFarms,
-        project.importedFromIdea?.first, farmDismissals.itemIds(),
+        project.importedFromIdea?.id, farmDismissals.itemIds(),
     )
 
     // ?drill=<item> deep-links into a target's chain so reload/share lands on the drill,
