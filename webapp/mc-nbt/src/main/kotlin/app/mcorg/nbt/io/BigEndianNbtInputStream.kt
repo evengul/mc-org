@@ -47,8 +47,8 @@ class BigEndianNbtInputStream private constructor(
         return declared
     }
 
-    /** Heap charged so far by `TAG_List` elements, against [NbtLimits.MAX_LIST_HEAP_BYTES]. */
-    private var listHeapCharged: Long = 0
+    /** Heap charged so far by list elements and compound entries, against [NbtLimits.MAX_TREE_HEAP_BYTES]. */
+    private var heapCharged: Long = 0
 
     /**
      * Charges a declared list length against the document's heap budget.
@@ -56,19 +56,38 @@ class BigEndianNbtInputStream private constructor(
      * Separate from [checkedLength] because the two bound different resources and only one of them
      * was covered. `checkedLength` asks whether the *stream* can supply the elements; this asks
      * whether the *heap* can hold them, which for a list of compounds is roughly eighty times as
-     * much. See [NbtLimits.MAX_LIST_HEAP_BYTES].
+     * much. See [NbtLimits.MAX_TREE_HEAP_BYTES].
      *
      * Charged cumulatively rather than per list, because per-list checks sum: every element costs
      * at least one wire byte, so a 16 MB document can declare 16 M of them spread over as many
      * lists as it likes, and a per-list ceiling would let each pass individually.
      */
     private fun chargeListHeap(declared: Int, type: Byte, what: String) {
-        listHeapCharged += declared.toLong() * NbtLimits.estimatedHeapCost(type)
-        if (listHeapCharged > NbtLimits.MAX_LIST_HEAP_BYTES) {
+        heapCharged += declared.toLong() * NbtLimits.estimatedHeapCost(type)
+        if (heapCharged > NbtLimits.MAX_TREE_HEAP_BYTES) {
             throw NbtSizeLimitExceeded(
                 "$what declared $declared elements, taking this document past the " +
-                    "${NbtLimits.MAX_LIST_HEAP_BYTES} byte list heap budget"
+                    "${NbtLimits.MAX_TREE_HEAP_BYTES} byte heap budget"
             )
+        }
+    }
+
+    /**
+     * Charges one compound entry against the same budget as [chargeListHeap].
+     *
+     * A compound is a list by another name as far as the heap is concerned: a child costs its key
+     * String and a map entry on top of the tag itself, and eight wire bytes buy all of that. The
+     * list budget alone left this open; see [NbtLimits.COMPOUND_ENTRY_HEAP_COST]. Returns the
+     * failure rather than throwing, because [readCompoundTag] works in Results.
+     */
+    private fun chargeCompoundEntry(type: Byte): BinaryParseFailure? {
+        heapCharged += NbtLimits.COMPOUND_ENTRY_HEAP_COST + NbtLimits.estimatedHeapCost(type)
+        return if (heapCharged > NbtLimits.MAX_TREE_HEAP_BYTES) {
+            BinaryParseFailure.ReadError(
+                "Compound entries took this document past the ${NbtLimits.MAX_TREE_HEAP_BYTES} byte heap budget"
+            )
+        } else {
+            null
         }
     }
 
@@ -249,6 +268,10 @@ class BigEndianNbtInputStream private constructor(
                     continue
                 }
             }
+
+            // Fatal rather than accumulated: the document is too big, and carrying on reading it
+            // is the thing being prevented.
+            chargeCompoundEntry(id.toByte())?.let { return Result.failure(it) }
 
             val decrementedMaxDepth = when (val result = decrementMaxDepth(maxDepth)) {
                 is Result.Success -> result

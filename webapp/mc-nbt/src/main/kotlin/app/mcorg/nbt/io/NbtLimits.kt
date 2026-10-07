@@ -48,8 +48,8 @@ object NbtLimits {
     }
 
     /**
-     * Ceiling on the heap a document's `TAG_List` elements may occupy, charged cumulatively across
-     * the whole parse.
+     * Ceiling on the heap a document's list elements and compound entries may occupy, charged
+     * cumulatively across the whole parse.
      *
      * [MAX_DECOMPRESSED_BYTES] alone does not bound this, which was an out-of-memory hole rather
      * than a theoretical gap. The wire-byte check asks only "could the stream supply this many
@@ -63,11 +63,26 @@ object NbtLimits {
      * through `TAG_List` of `TAG_Byte` — one reference per wire byte, a ratio of about 24:1, which
      * survives. It is the 80:1 case it does not mention that is fatal. Both are now charged here.
      *
-     * 64 MB permits ~800k compound elements in one document, far past any real Litematica file
-     * (that is more tile entities than most builds have blocks) while keeping the worst case to a
-     * fraction of the heap even with several uploads parsing at once.
+     * Compound entries are charged here too (MCO-426). They were not, and a compound of 1.9 M
+     * uniquely named empty children, a 4.2 MB gzip, held 336 MB of heap from one request.
+     *
+     * 128 MB, with mc-web letting two parses run at once, keeps parsing to a third of the 768 MB
+     * heap in the worst case. Real files are charged about 40 bytes per byte of gzip (Dig_Sort III:
+     * 26 kB on disk, ~1 MB charged, ~1.2 MB measured), so a file needs ~3 MB of compressed
+     * container and tile-entity data before this refuses it. Packed block states are arrays and
+     * not charged here, so the size of a build alone does not count against it.
      */
-    const val MAX_LIST_HEAP_BYTES: Long = 64L * 1024 * 1024
+    const val MAX_TREE_HEAP_BYTES: Long = 128L * 1024 * 1024
+
+    /**
+     * Heap one compound entry costs beyond its tag: the key String and its bytes, the
+     * `LinkedHashMap` entry, and its slot in the table.
+     *
+     * Calibrated rather than derived. With this plus [estimatedHeapCost] the charge for each test
+     * fixture came within 15-30% of the heap its tree actually retained, on the low side, which is
+     * the side [estimatedHeapCost] already errs on.
+     */
+    const val COMPOUND_ENTRY_HEAP_COST: Long = 96L
 
     /**
      * Elements allocated for a declared-length array before any of them has been read; the buffer
@@ -83,7 +98,7 @@ object NbtLimits {
      * Rough heap cost of one `TAG_List` element of [type], in bytes.
      *
      * Deliberately an estimate, and deliberately on the low side of a 64-bit JVM with compressed
-     * oops: the value only has to be the right order of magnitude for [MAX_LIST_HEAP_BYTES] to
+     * oops: the value only has to be the right order of magnitude for [MAX_TREE_HEAP_BYTES] to
      * bound the damage, and understating it keeps legitimate files comfortable. Each figure is the
      * tag object plus its payload plus the `ArrayList` slot that holds the reference.
      */

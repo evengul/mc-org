@@ -149,7 +149,7 @@ class HostileNbtInputTest {
 
     @Test
     fun `a TAG_List of empty compounds is refused on the heap budget, not the byte budget`() {
-        // The hole the wire-byte check did not cover, and the reason MAX_LIST_HEAP_BYTES exists.
+        // The hole the wire-byte check did not cover, and the reason MAX_TREE_HEAP_BYTES exists.
         //
         // An empty compound is one wire byte — its terminating TAG_End — so 16 M of them fit
         // inside MAX_DECOMPRESSED_BYTES and every existing guard waves them through. Each one then
@@ -180,7 +180,39 @@ class HostileNbtInputTest {
         )
         assertTrue(bomb.size < 64 * 1024, "the bomb should be tiny on the wire; it is ${bomb.size} bytes")
 
-        assertRefused(bomb, "a compound-list heap bomb", because = "list heap budget")
+        assertRefused(bomb, "a compound-list heap bomb", because = "heap budget")
+    }
+
+    @Test
+    fun `a compound of many uniquely named children is refused on the heap budget`() {
+        // The same amplification as the list bomb above, through the one container the heap
+        // budget did not charge. Each child is eight wire bytes (type, key length, a base-36 key,
+        // TAG_End) and becomes a CompoundTag, a LinkedHashMap, a map entry and a key String.
+        // Measured before the fix: 1.9 M children, a 4.2 MB gzip that passes the 8 MB upload cap,
+        // kept 336 MB of the 768 MB heap alive from one request (MCO-426).
+        val children = 1_900_000
+        val payload = nbt {
+            writeByte(10)                // root compound
+            writeUTF("")
+            for (i in 0 until children) {
+                writeByte(10)
+                writeUTF(Integer.toString(i, 36))
+                writeByte(0)
+            }
+            writeByte(0)
+        }
+
+        val raw = ByteArrayOutputStream()
+        GZIPOutputStream(raw).use { it.write(payload) }
+        val bomb = raw.toByteArray()
+
+        assertTrue(
+            payload.size < NbtLimits.MAX_DECOMPRESSED_BYTES,
+            "the payload must stay under the byte cap or it proves the wrong guard; it is ${payload.size} bytes",
+        )
+        assertTrue(bomb.size < 8 * 1024 * 1024, "the bomb must fit through the upload cap; it is ${bomb.size} bytes")
+
+        assertRefused(bomb, "a compound-entry heap bomb", because = "heap budget")
     }
 
     @Test
