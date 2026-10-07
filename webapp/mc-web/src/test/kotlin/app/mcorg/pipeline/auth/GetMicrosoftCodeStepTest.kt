@@ -1,6 +1,7 @@
 package app.mcorg.pipeline.auth
 
 import app.mcorg.pipeline.failure.AppFailure
+import app.mcorg.pipeline.failure.SignOutReason
 import app.mcorg.pipeline.TestUtils
 import io.ktor.http.*
 import org.junit.jupiter.api.Test
@@ -61,8 +62,8 @@ class GetMicrosoftCodeStepTest {
             parameters
         )
         assertIs<AppFailure.Redirect>(error)
-        assertEquals("access_denied", error.queryParameters["microsoft_error"])
-        assertEquals("The user denied the request", error.queryParameters["microsoft_description"])
+        // Microsoft's own code and free-text description stop here; the page shows our copy (MCO-438).
+        assertEquals(mapOf("error" to SignOutReason.MICROSOFT_DENIED.code), error.queryParameters)
     }
 
     @Test
@@ -76,7 +77,7 @@ class GetMicrosoftCodeStepTest {
             parameters
         )
         assertIs<AppFailure.Redirect>(error)
-        assertEquals("invalid_request", error.queryParameters["microsoft_error"])
+        assertEquals(mapOf("error" to SignOutReason.MICROSOFT_FAILED.code), error.queryParameters)
     }
 
     @Test
@@ -136,8 +137,8 @@ class GetMicrosoftCodeStepTest {
                 parameters
             )
             assertIs<AppFailure.Redirect>(error)
-            assertEquals(errorCode, error.queryParameters["microsoft_error"])
-            assertEquals(description, error.queryParameters["microsoft_description"])
+            val expected = if (errorCode == "access_denied") SignOutReason.MICROSOFT_DENIED else SignOutReason.MICROSOFT_FAILED
+            assertEquals(mapOf("error" to expected.code), error.queryParameters, errorCode)
         }
     }
 }

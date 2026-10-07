@@ -26,15 +26,14 @@ sealed interface AppFailure {
                 fun conversionError() = ConvertTokenError("conversion_error")
             }
 
-            fun toRedirect() = Redirect(
-                path = "/auth/sign-out",
-                queryParameters = buildMap {
-                    put("error", errorCode)
-                    arguments.forEach { (key, value) ->
-                        put(key, value)
-                    }
-                }
-            )
+            // Only the reason travels. errorCode and arguments stay on this object for logs: the
+            // arguments include a claim value read from a token the client sent, and a URL puts
+            // it in browser history and Referer headers (MCO-438). Telling a user *which* claim
+            // failed gives them nothing to act on, so every failure but expiry reads the same.
+            fun toRedirect(): Redirect {
+                val reason = if (errorCode == "expired_token") SignOutReason.EXPIRED_TOKEN else SignOutReason.INVALID_TOKEN
+                return Redirect(path = "/auth/sign-out", queryParameters = mapOf("error" to reason.code))
+            }
         }
     }
 

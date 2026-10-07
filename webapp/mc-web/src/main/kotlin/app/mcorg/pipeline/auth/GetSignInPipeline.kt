@@ -8,6 +8,7 @@ import app.mcorg.pipeline.pipeline
 import app.mcorg.pipeline.auth.commonsteps.ConvertTokenStep
 import app.mcorg.pipeline.auth.commonsteps.GetTokenStep
 import app.mcorg.pipeline.failure.AppFailure
+import app.mcorg.pipeline.failure.SignOutReason
 import app.mcorg.presentation.consts.AUTH_COOKIE
 import app.mcorg.presentation.consts.ISSUER
 import app.mcorg.presentation.security.encodeOAuthState
@@ -38,7 +39,7 @@ suspend fun ApplicationCall.handleGetSignIn() {
             when(error) {
                 is AppFailure.AuthError.MissingToken -> respondHtml(landingPage(getSignInUrl(customRedirectPath ?: "/", requestedUsername)))
                 is AppFailure.AuthError.ConvertTokenError -> respondRedirect(error.toRedirect().toUrl())
-                else -> respondRedirect("/auth/sign-out?error=${error.javaClass.simpleName}")
+                else -> respondRedirect("/auth/sign-out?error=${SignOutReason.INTERNAL_ERROR.code}")
             }
         }
     ) {
@@ -53,7 +54,7 @@ private fun ApplicationCall.getSignInUrl(redirectPath: String = "/", requestedUs
         when (AppConfig.env) {
             Local -> "/auth/oidc/demo-redirect?redirect_to=${URLEncoder.encode(redirectPath, "UTF-8")}${if (requestedUsername != null) "&username=${URLEncoder.encode(requestedUsername, "UTF-8")}" else ""}"
             Test -> "/auth/oidc/demo-redirect?redirect_to=${URLEncoder.encode(redirectPath, "UTF-8")}&username=${requestedUsername ?: "random"}"
-            Production -> "/auth/sign-out?error=misconfigured&message=${URLEncoder.encode("Cannot skip microsoft sign-in in production environment.", "UTF-8")}"
+            Production -> "/auth/sign-out?error=${SignOutReason.MISCONFIGURED.code}"
         }
     } else getMicrosoftSignInUrl(redirectPath)
 }

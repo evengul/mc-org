@@ -1,51 +1,36 @@
 package app.mcorg.presentation.handler
 
-import app.mcorg.presentation.templated.dsl.pageShell
+import app.mcorg.pipeline.failure.SignOutReason
+import app.mcorg.presentation.templated.error.errorPageLayout
 import app.mcorg.presentation.utils.getHost
 import app.mcorg.presentation.utils.removeToken
 import app.mcorg.presentation.utils.respondHtml
 import io.ktor.server.application.*
 import io.ktor.server.response.*
-import io.ktor.util.*
-import kotlinx.html.a
-import kotlinx.html.classes
-import kotlinx.html.div
-import kotlinx.html.h1
 
-
+/**
+ * Signs the caller out, on every branch. `?error=` is how the rest of the app says *why* — an
+ * invalid token, a failed Microsoft sign-in — and the case that most needs the cookie gone is a bad
+ * token, so the error branch clears it too (MCO-438).
+ *
+ * Nothing from the URL is printed: the code only selects copy from [SignOutReason], so a crafted link
+ * cannot put its own words on this page.
+ */
 suspend fun ApplicationCall.handleGetSignOut() {
-    val error = request.queryParameters["error"]
-    val microsoftError = request.queryParameters["microsoft_error"]
+    response.cookies.removeToken(getHost() ?: "false")
 
-    val errorCode = microsoftError ?: error
-
+    val errorCode = request.queryParameters["error"]
     if (errorCode == null) {
-        response.cookies.removeToken(getHost() ?: "false")
         respondRedirect("/auth/sign-in", permanent = false)
         return
     }
 
-    val errorArguments = request.queryParameters
-        .filter(false) { key, _ -> key != "error" && key != "microsoft_error" }
-        .toMap()
-        .map { it.key to it.value.first() }
-
-    respondHtml(pageShell(pageTitle = "Seam — Error") {
-        h1 {
-            + "An error occurred"
-        }
-        div("error-message") {
-            + "Error: $errorCode"
-        }
-        errorArguments.forEach { (key, value) ->
-            div("error-detail") {
-                + "$key: $value"
-            }
-        }
-        a {
-            href = "/auth/sign-out"
-            classes = setOf("btn", "btn--neutral")
-            + "Sign Out"
-        }
-    })
+    val reason = SignOutReason.fromCode(errorCode)
+    respondHtml(errorPageLayout(
+        pageTitle = "${reason.heading} · Seam",
+        heading = reason.heading,
+        body = reason.body,
+        ctaText = "Sign in again",
+        ctaHref = "/auth/sign-in",
+    ))
 }

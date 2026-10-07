@@ -14,6 +14,7 @@ import app.mcorg.pipeline.auth.commonsteps.CreateUserIfNotExistsStep
 import app.mcorg.pipeline.auth.commonsteps.UpdateLastSignInStep
 import app.mcorg.pipeline.auth.domain.*
 import app.mcorg.pipeline.failure.AppFailure
+import app.mcorg.pipeline.failure.SignOutReason
 import app.mcorg.presentation.security.OAUTH_STATE_COOKIE
 import app.mcorg.presentation.security.clearOAuthNonce
 import app.mcorg.presentation.security.decodeOAuthState
@@ -66,8 +67,8 @@ suspend fun ApplicationCall.handleSignIn() {
         onFailure = { error: AppFailure ->
             when(error) {
                 is AppFailure.Redirect -> respondRedirect(error.toUrl())
-                is AppFailure.ApiError -> respondRedirect("/auth/sign-out?error=external_api_error")
-                else -> respondRedirect("/auth/sign-out?error=internal_error")
+                is AppFailure.ApiError -> respondRedirect("/auth/sign-out?error=${SignOutReason.EXTERNAL_API_ERROR.code}")
+                else -> respondRedirect("/auth/sign-out?error=${SignOutReason.INTERNAL_ERROR.code}")
             }
         }
     ) {
@@ -95,24 +96,22 @@ object GetMicrosoftCodeStep : Step<Parameters, AppFailure, String> {
     override suspend fun process(input: Parameters): Result<AppFailure, String> {
         val code = input["code"]
         val error = input["error"]
-        val description = input["description"]
 
+        // Microsoft's error and description are not forwarded: this callback URL is public, so
+        // both are whatever the caller typed, and the sign-out page would have printed them
+        // (MCO-438). The one code a user can act on — they declined — gets its own copy.
         if (error != null) {
+            val reason = if (error == "access_denied") SignOutReason.MICROSOFT_DENIED else SignOutReason.MICROSOFT_FAILED
             return Result.failure(AppFailure.Redirect(
                 path = "/auth/sign-out",
-                queryParameters = buildMap {
-                    put("microsoft_error", error)
-                    if (description != null) {
-                        put("microsoft_description", description)
-                    }
-                }
+                queryParameters = mapOf("error" to reason.code)
             ))
         }
 
         if (code == null) {
             return Result.failure(AppFailure.Redirect(
                 path = "/auth/sign-out",
-                queryParameters = mapOf("error" to "missing_code")
+                queryParameters = mapOf("error" to SignOutReason.MISSING_CODE.code)
             ))
         }
 
