@@ -26,15 +26,18 @@ suspend fun ApplicationCall.handleUpdateResourceRequiredAmount() {
     val resourceGatheringId = this.getResourceGatheringId()
 
     handlePipeline(
-        onSuccess = { item ->
+        onSuccess = { (item, measured) ->
             respondHtml(createHTML().tr {
-                planResourceRow(worldId, projectId, item)
+                planResourceRow(worldId, projectId, item, measured)
             })
         }
     ) {
         val input = ValidateRequiredAmountInputStep.run(parameters)
         UpdateRequiredAmountStep(resourceGatheringId).run(input)
-        GetResourceGatheringItemStep.run(resourceGatheringId)
+        val item = GetResourceGatheringItemStep.run(resourceGatheringId)
+        // The swapped row replaces the page's, so it carries the measurement too — otherwise its
+        // drift chip disappears on every quantity edit.
+        item to GetProjectMeasurementsStep.process(projectId).getOrNull()?.get(item.itemId)
     }
 }
 

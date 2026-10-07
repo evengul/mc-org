@@ -39,6 +39,7 @@ import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.api.extension.ExtendWith
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 
 @Tag("database")
@@ -116,9 +117,10 @@ class ResourceDetailPanelIT : WithUser() {
         assertEquals("manual", sourceType)
         assertNull(solvedByProjectId)
 
-        // OOB row fragment should be present for the plan table update
+        // Nothing in the table row depends on the source, so the response carries no row (MCO-187).
         val body = response.bodyAsText()
-        assertContains(body, "plan-row-$rgId")
+        assertFalse(body.contains("plan-row-$rgId"))
+        assertContains(body, "Manual gather")
     }
 
     @Test
@@ -216,8 +218,10 @@ class ResourceDetailPanelIT : WithUser() {
         assertNull(sourceType)
         assertNull(solvedByProjectId)
 
+        // Nothing in the table row depends on the source, so the response carries no row (MCO-187).
         val body = response.bodyAsText()
-        assertContains(body, "plan-row-$rgId")
+        assertFalse(body.contains("plan-row-$rgId"))
+        assertContains(body, "No source selected")
     }
 
     // -------------------------------------------------------------------------

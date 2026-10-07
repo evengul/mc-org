@@ -12,7 +12,7 @@ import app.mcorg.pipeline.resources.commonsteps.ResourceSourceAssignment
 import app.mcorg.pipeline.resources.commonsteps.SetResourceSourceStep
 import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.templated.dsl.pages.resourceDetailPanelFragment
-import app.mcorg.presentation.templated.dsl.pages.resourcePanelSourceWithRowOob
+import app.mcorg.presentation.templated.dsl.pages.resourcePanelSourceFragment
 import app.mcorg.presentation.utils.getProjectId
 import app.mcorg.presentation.utils.getResourceGatheringId
 import app.mcorg.presentation.utils.getWorldId
@@ -52,7 +52,7 @@ suspend fun ApplicationCall.handleSetResourceSource() {
 
     handlePipeline(
         onSuccess = { (resource, projects) ->
-            respondHtml(resourcePanelSourceWithRowOob(worldId, projectId, resource, projects))
+            respondHtml(resourcePanelSourceFragment(worldId, projectId, resource, projects))
         }
     ) {
         val projects = GetProjectsInWorldStep(projectId).run(worldId)
@@ -70,7 +70,7 @@ suspend fun ApplicationCall.handleClearResourceSource() {
 
     handlePipeline(
         onSuccess = { (resource, projects) ->
-            respondHtml(resourcePanelSourceWithRowOob(worldId, projectId, resource, projects))
+            respondHtml(resourcePanelSourceFragment(worldId, projectId, resource, projects))
         }
     ) {
         ClearResourceSourceStep(resourceGatheringId).run(Unit)

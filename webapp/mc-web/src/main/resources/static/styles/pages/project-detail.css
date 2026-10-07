@@ -279,13 +279,9 @@
 
 /* MCO-499. The item cell stays `display: table-cell` — the glyph is inline-block with its own
    baseline shift, so a gap is all it needs. `--space-2` rather than `--space-3` on purpose: at
-   the table's 40px row height the glyph reads as a prefix to the name, not as a sixth column. */
+   the table's 40px row height the glyph reads as a prefix to the name, not as a fifth column. */
 .plan-resource-table__item .item-glyph {
     margin-right: var(--space-2);
-}
-
-.plan-resource-table__col-status {
-    width: 24px;
 }
 
 .plan-resource-table__col-item {
@@ -304,23 +300,6 @@
     display: flex;
     align-items: center;
     gap: var(--space-1);
-}
-
-/* Status dot */
-.status-dot {
-    display: inline-block;
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    flex-shrink: 0;
-}
-
-.status-dot--unset {
-    background: var(--text-disabled);
-}
-
-.status-dot--set {
-    background: var(--green);
 }
 
 /* Qty cell inline edit */

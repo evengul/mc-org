@@ -22,6 +22,7 @@ import app.mcorg.test.WithUser
 import app.mcorg.test.postgres.DatabaseTestExtension
 import io.ktor.client.request.get
 import io.ktor.client.request.patch
+import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
@@ -29,6 +30,7 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.server.routing.get
 import io.ktor.server.routing.patch
+import io.ktor.server.routing.post
 import io.ktor.server.routing.route
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
@@ -41,6 +43,7 @@ import org.junit.jupiter.api.extension.ExtendWith
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.fail
 
 @Tag("database")
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -75,6 +78,9 @@ class PlanViewIT : WithUser() {
         val body = response.bodyAsText()
         assertContains(body, "plan-resource-table")
         assertContains(body, "plan-row-$resourceGatheringId")
+        // MCO-187: no colour-only source dot. A null source is the planner's choice, not a gap.
+        assertFalse(body.contains("status-dot"))
+        assertFalse(body.contains("plan-resource-table__status"))
     }
 
     // -------------------------------------------------------------------------
@@ -114,6 +120,47 @@ class PlanViewIT : WithUser() {
         val body = response.bodyAsText()
         assertContains(body, "plan-row-$resourceGatheringId")
         assertContains(body, "25")
+    }
+
+    @Test
+    fun `PATCH required keeps the row's drift chip`() = testApplication {
+        // Its own project, so the measurement cannot leak into the other tests' rows.
+        val measuredProjectId = createProject(worldId)
+        val rgId = createResourceGathering(measuredProjectId, required = 64)
+        createMeasurement(measuredProjectId, "minecraft:iron_ingot", measured = 40, containerCount = 2)
+        setupRoutes()
+
+        val response = client.patch(
+            "/worlds/$worldId/projects/$measuredProjectId/resources/gathering/$rgId/required"
+        ) {
+            addAuthCookie(this)
+            contentType(ContentType.Application.FormUrlEncoded)
+            setBody("required=80")
+        }
+
+        assertEquals(HttpStatusCode.OK, response.status)
+        val body = response.bodyAsText()
+        assertContains(body, "plan-row-$rgId")
+        assertContains(body, "40 in 2 chests")
+    }
+
+    @Test
+    fun `adding a resource the chests already hold shows its drift chip`() = testApplication {
+        val measuredProjectId = createProject(worldId)
+        seedItem("1.21.4", "minecraft:copper_ingot", "Copper Ingot")
+        createMeasurement(measuredProjectId, "minecraft:copper_ingot", measured = 12, containerCount = 1)
+        setupRoutes()
+
+        val response = client.post("/worlds/$worldId/projects/$measuredProjectId/resources/gathering") {
+            addAuthCookie(this)
+            contentType(ContentType.Application.FormUrlEncoded)
+            setBody("requiredItemId=minecraft:copper_ingot&requiredAmount=32")
+        }
+
+        assertEquals(HttpStatusCode.OK, response.status)
+        val body = response.bodyAsText()
+        assertContains(body, "Copper Ingot")
+        assertContains(body, "12 in 1 chest")
     }
 
     // -------------------------------------------------------------------------
@@ -176,6 +223,7 @@ class PlanViewIT : WithUser() {
         assertContains(body, "plan-ignored-row-$rgId")
         assertContains(body, "Ignored (1)")
         assertFalse(body.contains("plan-row-$rgId\""))
+        assertFalse(body.contains("status-dot"))
     }
 
     @Test
@@ -263,6 +311,7 @@ class PlanViewIT : WithUser() {
                     install(ProjectParamPlugin)
                     get { call.handleGetProject() }
                     get("/detail-content") { call.handleGetDetailContent() }
+                    post("/resources/gathering") { call.handleCreateResourceGatheringItem() }
                     route("/resources/gathering/{resourceGatheringId}") {
                         install(ResourceGatheringIdParamPlugin)
                         patch("/required") { call.handleUpdateResourceRequiredAmount() }
@@ -311,6 +360,40 @@ class PlanViewIT : WithUser() {
             }
         ).process(Unit)
         (result as Result.Success).value
+    }
+
+    /** Checked: `minecraft_items.version` is a FK onto `minecraft_version`, and a swallowed seed failure reads as a 422. */
+    private fun seedItem(version: String, itemId: String, name: String) = runBlocking {
+        DatabaseSteps.update<Unit>(
+            sql = SafeSQL.insert("INSERT INTO minecraft_version (version) VALUES (?) ON CONFLICT (version) DO NOTHING"),
+            parameterSetter = { stmt, _ -> stmt.setString(1, version) }
+        ).process(Unit).also { if (it is Result.Failure) fail("could not seed version $version: ${it.error}") }
+        DatabaseSteps.update<Unit>(
+            sql = SafeSQL.insert(
+                "INSERT INTO minecraft_items (version, item_id, item_name) VALUES (?, ?, ?) " +
+                    "ON CONFLICT (version, item_id) DO NOTHING"
+            ),
+            parameterSetter = { stmt, _ ->
+                stmt.setString(1, version)
+                stmt.setString(2, itemId)
+                stmt.setString(3, name)
+            }
+        ).process(Unit).also { if (it is Result.Failure) fail("could not seed $itemId: ${it.error}") }
+    }
+
+    private fun createMeasurement(projectId: Int, itemId: String, measured: Long, containerCount: Int) = runBlocking {
+        DatabaseSteps.update<Unit>(
+            sql = SafeSQL.insert(
+                "INSERT INTO resource_gathering_measurement (project_id, item_id, measured, container_count, oldest_seen_at) " +
+                        "VALUES (?, ?, ?, ?, now())"
+            ),
+            parameterSetter = { stmt, _ ->
+                stmt.setInt(1, projectId)
+                stmt.setString(2, itemId)
+                stmt.setLong(3, measured)
+                stmt.setInt(4, containerCount)
+            }
+        ).process(Unit).also { if (it is Result.Failure) fail("could not seed measurement for $itemId: ${it.error}") }
     }
 
     private fun setViewPreference(userId: Int, projectId: Int, preference: String) = runBlocking {
