@@ -173,10 +173,12 @@ also reports success.
 
 ## Linear keywords
 
-**The issue number in the PR title links the PR, and closes the issue on
-merge.** Opening the PR moves the issue to In Review; merging moves it to
-Done. MCO-566 went to Done with its phase-1 PR (#487) while two phases were
-still left, and they were split out as MCO-571 and MCO-572 afterwards.
+**The issue number in the PR title can link the PR, and close the issue on
+merge.** "Can": the GitHub integration fires on some PRs and not others, so
+`/deliver` sets the final status itself (step 6). Don't rely on it either
+way. When it does fire, it closes whatever the title names: MCO-566 went to
+Done with its phase-1 PR (#487) while two phases were still left, and they
+were split out as MCO-571 and MCO-572 afterwards.
 
 So when a PR is only part of an issue, split the remaining phases into their
 own issues before merging, or keep the number out of the title and write

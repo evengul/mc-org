@@ -174,12 +174,27 @@ not a revert you make on your own.
 
 ## 6. Linear
 
-- The issue in the title, and any with `Closes MCO-xxx`, go to Done by
-  themselves. Check they did. If the PR was only part of the issue and the
-  rest wasn't split out (`commit` → "Linear keywords"), reopen it and say so.
+The GitHub integration is best-effort, so this step sets the status itself
+rather than checking that the integration did.
+
+- The issue in the title, and any with `Closes MCO-xxx`: `save_issue` with
+  `state: "Done"`, then `get_issue` and read `status` back. If the issue has
+  no PR attachment, add the PR with `links`. Both are harmless when the
+  integration already did them. If the PR was only part of the issue and the
+  rest wasn't split out (`commit` → "Linear keywords"), leave it open instead
+  and say so.
 - An issue with `Refs MCO-xxx` stays where it is. That is intended.
 - An issue that was only mentioned, under "Not included" for example, may
-  have been moved by the GitHub integration. Put it back where it was.
+  have been moved by the integration. Put it back **only** when its
+  `stateHistory` shows the move within a minute of the PR opening or
+  merging. A move at any other time is the owner's: leave it, and ask if it
+  looks wrong.
+
+*(This said "go to Done by themselves. Check they did" until 2026-10-07.
+That day the integration linked and closed #505 and #507, but never touched
+#506 or #508; both issues sat In Progress after deploy, and none of the four
+ever passed through In Review. The same session then moved MCO-590 back to
+Backlog, taking the owner's own move to Todo for the integration's.)*
 
 ## 7. Clean up the worktree
 
