@@ -28,8 +28,9 @@ import kotlin.time.Duration.Companion.minutes
  * documentation/rate-limiting.md.
  *
  * Each is a fixed window per client address ([clientAddress]): [limit] requests, then 429 with
- * `Retry-After` until [period] has passed since the window opened. Nested limits all apply, and
- * all count the request.
+ * `Retry-After` until [period] has passed since the window opened. Nested limits all apply,
+ * outermost first: an outer limit counts every request, an inner one only those the outer let
+ * through.
  */
 enum class SeamRateLimit(val limit: Int, val period: Duration) {
     /**
