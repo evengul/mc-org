@@ -44,7 +44,7 @@ Complete IA specification for MC-ORG. This is the ground truth for all product a
 
 No mode in the URL. Plan/execute is a per-project preference stored server-side. Every URL is real, shareable, and bookmarkable.
 
-Creating a project has no URL of its own. "+ New project" opens a dialog on either tab, and every way of creating one (blank, from a schematic, recording an existing farm, importing an idea) lands on the new project's page. `/worlds/:worldId/roadmap#new` opens that menu on arrival, for links from outside the world such as the Worlds page.
+Creating a project has no URL of its own. "+ New project" opens a dialog on either tab, and every way of creating one project (blank, from a schematic, recording an existing farm, importing a single idea) lands on the new project's page. A batch import is the exception: it moves to the next design in the batch, and at the end back to where the batch started (MCO-459, `ImportQueue`). `/worlds/:worldId/roadmap#new` opens that menu on arrival, for links from outside the world such as the Worlds page.
 
 Links that leave a project or a world-level flow without a destination of their own (deleting a project, the project page's mobile back button, cancelling an import review) go to the roadmap, because that is where the world opens. Links that name a tab on purpose (the tabs themselves) keep it.
 

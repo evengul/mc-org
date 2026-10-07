@@ -106,7 +106,7 @@ fun projectDetailPage(
         isWorldAdmin = isWorldAdmin,
         breadcrumbBlock = {
             link("Worlds", "/worlds")
-                .link(worldName, "/worlds/${project.worldId}/roadmap")
+                .link(worldName, Link.Worlds.world(project.worldId).roadmap().to)
                 .current(project.name)
         }
     )
