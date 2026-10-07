@@ -16,6 +16,13 @@
 #
 # Teardown happens via the ExitWorktree hook, or manually:
 #   bash webapp/scripts/worktree-db-cleanup.sh
+#
+# To start the worktree's database over from production:
+#   bash webapp/scripts/worktree-db.sh --refresh
+# deletes this worktree's own Neon branch first, so the rest of the script re-forks it from
+# master, migrates it and re-seeds the demo user. Everything written to the old branch is
+# lost — that is the point. The case it exists for: a migration this branch already applied
+# had to be renumbered after master took its number, and Flyway now refuses the database.
 
 set -euo pipefail
 
@@ -26,10 +33,23 @@ NEON_PARENT="master"        # the production / default Neon branch
 DB_NAME="mcorg"
 DB_ROLE="mcorg_owner"
 
+# --- Arguments ---------------------------------------------------------------
+REFRESH=0
+TARGET_DIR=""
+for arg in "$@"; do
+  case "$arg" in
+    --refresh) REFRESH=1 ;;
+    -*)
+      echo "worktree-db: unknown option '$arg' (only --refresh)." >&2
+      exit 2
+      ;;
+    *) TARGET_DIR="$arg" ;;
+  esac
+done
+
 # --- Resolve the worktree root ---------------------------------------------
 # Prefer an explicit path arg, then the hook's stdin `cwd`, then $PWD.
 # Normalise to the git worktree top-level either way.
-TARGET_DIR="${1:-}"
 if [ -z "$TARGET_DIR" ] && [ ! -t 0 ]; then
   STDIN_JSON="$(cat || true)"
   if [ -n "$STDIN_JSON" ]; then
@@ -57,6 +77,16 @@ fi
 NEON_BRANCH="wt/${GIT_BRANCH}"
 ENV_FILE="$WORKTREE_ROOT/webapp/local.env"
 
+# --- Refresh: drop this worktree's branch so it is re-forked below ----------
+# Only ever the branch named for this worktree's git branch: the main-checkout guard above
+# has already exited, so NEON_BRANCH is always wt/<this branch>, never master.
+if [ "$REFRESH" = 1 ]; then
+  echo "worktree-db: --refresh: deleting Neon branch '${NEON_BRANCH}'; its data goes with it..."
+  if ! neonctl branches delete "$NEON_BRANCH" --project-id "$NEON_PROJECT_ID" --force >/dev/null 2>&1; then
+    echo "worktree-db: no branch '${NEON_BRANCH}' to delete; forking it fresh." >&2
+  fi
+fi
+
 # --- Create (or reuse) the Neon branch -------------------------------------
 echo "worktree-db: creating Neon branch '${NEON_BRANCH}' forked from '${NEON_PARENT}'..."
 if ! neonctl branches create \
@@ -64,6 +94,12 @@ if ! neonctl branches create \
       --name "$NEON_BRANCH" \
       --parent "$NEON_PARENT" \
       --output json >/dev/null 2>&1; then
+  # After a refresh, "already exists" would mean the delete did not happen, and reusing the
+  # branch would quietly hand back the very database the refresh was asked to replace.
+  if [ "$REFRESH" = 1 ]; then
+    echo "worktree-db: could not re-create '${NEON_BRANCH}' after deleting it — not reusing anything." >&2
+    exit 1
+  fi
   echo "worktree-db: branch may already exist; reusing it." >&2
 fi
 

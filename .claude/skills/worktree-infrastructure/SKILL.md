@@ -5,7 +5,8 @@ description: >-
   worktrees, and how to fix it when it breaks. Load when working in or provisioning a
   worktree; when a worktree has no database, no demo user, "You don't have permission"
   on every world, or a port/bind collision; when Flyway must run against a worktree's
-  own Neon branch; when a `-pl` build fails to resolve app.mcorg jars; when the box is
+  own Neon branch, or refuses it after a migration was renumbered (worktree-db.sh
+  --refresh starts the branch over); when a `-pl` build fails to resolve app.mcorg jars; when the box is
   thrashing or out of memory (idle Kotlin compile daemons and Playwright/Chromium
   sessions are the usual cause); or when playwright-cli appears to be driving the wrong
   worktree's app. Covers worktree-db.sh, worktree-port.sh, worktree-m2.sh,
@@ -97,13 +98,24 @@ the real ingested Minecraft data instantly (no re-ingestion) and matches CI exac
   the script to pick up a world added later.
 - **Migration number collisions are orthogonal to DB isolation.** If two branches
   each add `V{n}__*.sql` with the same `{n}`, Flyway errors on merge (out-of-order
-  / checksum). Fix: renumber the later-merged migration to the next free number and
-  re-run `migrate-locally.sh`. No DB-branching scheme prevents this — it's a git
-  conflict, not a data one.
+  / checksum). Fix: renumber the later-merged migration to the next free number. No
+  DB-branching scheme prevents this — it's a git conflict, not a data one.
+- **A renumbered migration leaves the worktree's own database behind.** The branch
+  already recorded the old number (say `2.72.0`) with your SQL, so master's real
+  `2.72.0` is never applied and your renamed file looks new. Run
+  `bash webapp/scripts/worktree-db.sh --refresh`: it deletes this worktree's `wt/*`
+  branch and provisions it again — re-fork from `master`, migrate in order, re-seed the
+  demo user. **The branch's data is lost**, fixture worlds included, so rebuild those
+  afterwards. Restart a running app: the branch's host changes and `local.env` is
+  rewritten. (MCO-413 undid its migration by hand the first time, which is why the
+  flag exists.)
 
 **Scripts:**
 
 - `webapp/scripts/worktree-db.sh` — fork Neon branch + point `local.env` at it + migrate
+- `webapp/scripts/worktree-db.sh --refresh` — delete this worktree's Neon branch first, so
+  it is re-forked from production and provisioned from scratch (data lost; see the
+  renumbered-migration caveat above)
 - `webapp/scripts/worktree-db-cleanup.sh` — delete the current worktree's branch
 - `webapp/scripts/worktree-db-cleanup.sh --prune` — delete all orphaned `wt/*` branches
 - `webapp/scripts/migrate-worktree.sh` — apply Flyway migrations to the DB `local.env`
