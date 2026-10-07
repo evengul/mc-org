@@ -18,7 +18,7 @@ suspend fun ApplicationCall.clientRedirect(path: String) {
  * might be either.
  */
 suspend fun ApplicationCall.redirectClientOrBrowser(path: String) {
-    if (request.headers["HX-Request"] == "true") {
+    if (isHtmxRequest()) {
         clientRedirect(path)
     } else {
         respondRedirect(path)

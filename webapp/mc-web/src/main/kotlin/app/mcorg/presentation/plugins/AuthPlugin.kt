@@ -8,11 +8,13 @@ import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.presentation.consts.AUTH_COOKIE
 import app.mcorg.presentation.consts.ISSUER
 import app.mcorg.presentation.utils.getHost
+import app.mcorg.presentation.utils.pageUri
+import app.mcorg.presentation.utils.redirectClientOrBrowser
 import app.mcorg.presentation.utils.removeToken
+import app.mcorg.presentation.utils.signInRedirectUrl
 import app.mcorg.presentation.utils.storeUser
 import io.ktor.server.application.createRouteScopedPlugin
 import io.ktor.server.request.path
-import io.ktor.server.response.respondRedirect
 
 /**
  * Path prefixes exempt from the JWT sign-in redirect. Static assets are served before auth, and
@@ -43,6 +45,12 @@ private val AUTH_EXEMPT_PATHS = setOf(
     "/test/ready",
 )
 
+/**
+ * Both redirects go through [redirectClientOrBrowser] (MCO-590). A plain 302 to an HTMX request is
+ * followed inside the fetch, and htmx swaps the whole sign-in or sign-out page into whatever
+ * `hx-target` the button named — so a session that expires on an open page turned the next click
+ * into a brand bar inside a list row.
+ */
 val AuthPlugin = createRouteScopedPlugin("AuthPlugin") {
     onUnansweredCall {
         val path = it.request.path()
@@ -61,9 +69,9 @@ val AuthPlugin = createRouteScopedPlugin("AuthPlugin") {
                 is AppFailure.AuthError.ConvertTokenError -> error.toRedirect().toUrl()
                 else -> "/auth/sign-in"
             }
-            it.respondRedirect(url, permanent = false)
-        } else if (result is Result.Failure && !it.request.path().contains("/auth/sign-in") && !it.request.path().contains("/auth/sign-out") && !it.request.path().contains("/oidc")) {
-            it.respondRedirect("/auth/sign-in?redirect_to=${it.request.path()}", permanent = false)
+            it.redirectClientOrBrowser(url)
+        } else if (result is Result.Failure && !path.contains("/auth/sign-in") && !path.contains("/auth/sign-out") && !path.contains("/oidc")) {
+            it.redirectClientOrBrowser(signInRedirectUrl(it.pageUri()))
         }
     }
 }

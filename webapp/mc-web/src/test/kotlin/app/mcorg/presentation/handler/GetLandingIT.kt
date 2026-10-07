@@ -28,7 +28,7 @@ class GetLandingIT : WithUser() {
 
         val response = client.get("/")
         assertEquals(HttpStatusCode.Found, response.status)
-        assertEquals("/auth/sign-in?redirect_to=/", response.headers["Location"])
+        assertEquals("/auth/sign-in?redirect_to=%2F", response.headers["Location"])
     }
 
     @Test

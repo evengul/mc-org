@@ -47,7 +47,7 @@ class FailureResponseTest {
     private val rows = listOf(
         // AuthError
         Row(AppFailure.AuthError.NotAuthorized, FailureVolume.WARN, HttpStatusCode.Forbidden, alert("not-authorized-error")),
-        Row(AppFailure.AuthError.MissingToken, FailureVolume.SILENT, HttpStatusCode.Found, redirectTo("/auth/sign-in?redirect_to=/worlds/3?tab=x")),
+        Row(AppFailure.AuthError.MissingToken, FailureVolume.SILENT, HttpStatusCode.Found, redirectTo("/auth/sign-in?redirect_to=%2Fworlds%2F3%3Ftab%3Dx")),
         Row(AppFailure.AuthError.CouldNotCreateToken, e, i500, alert("token-creation-error")),
         Row(AppFailure.AuthError.ConvertTokenError.expiredToken(), FailureVolume.INFO, HttpStatusCode.Found, redirectTo("/auth/sign-out?error=expired_token")),
         // DatabaseError
