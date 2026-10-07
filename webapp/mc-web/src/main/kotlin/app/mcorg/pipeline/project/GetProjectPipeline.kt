@@ -4,20 +4,18 @@ import app.mcorg.pipeline.minecraft.isRenewableInWorld
 import app.mcorg.domain.model.user.Role
 import app.mcorg.engine.plan.TargetTree
 import app.mcorg.pipeline.Result
-import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.project.commonsteps.GetProjectByIdStep
 import app.mcorg.pipeline.project.commonsteps.GetViewPreferenceInput
 import app.mcorg.pipeline.project.commonsteps.GetViewPreferenceStep
 import app.mcorg.engine.plan.PlanOverrides
 import app.mcorg.pipeline.world.settings.general.versionGapsForPlan
 import app.mcorg.pipeline.resources.GetProjectMeasurementsStep
-import app.mcorg.pipeline.resources.GatheringPlanInput
 import app.mcorg.domain.model.world.World
 import app.mcorg.pipeline.resources.GetFarmScaleThresholdStep
 import app.mcorg.pipeline.resources.farmDismissalsFor
 import app.mcorg.pipeline.resources.farmSuggestionsFor
 import app.mcorg.pipeline.resources.itemIds
-import app.mcorg.pipeline.resources.GenerateGatheringPlanStep
+import app.mcorg.pipeline.resources.derivePlanForPage
 import app.mcorg.pipeline.resources.pendingFarmSuppliesFor
 import app.mcorg.pipeline.resources.prerequisiteFarmsFor
 import app.mcorg.pipeline.resources.GetPlanOverridesStep
@@ -72,16 +70,12 @@ suspend fun ApplicationCall.handleGetProject() {
         }
     }
 
-    // Derive the gathering plan — failure is non-fatal (renders fallback state)
-    val plan = when (val result = GenerateGatheringPlanStep.process(GatheringPlanInput(projectId, worldId))) {
+    // Derive the gathering plan — no plan renders the fallback state (see derivePlanForPage)
+    val plan = when (val result = derivePlanForPage(projectId, worldId)) {
         is Result.Success -> result.value
-        is Result.Failure -> when (result.error) {
-            is AppFailure.ValidationError -> null
-            is AppFailure.DatabaseError.NotFound -> null
-            else -> {
-                defaultHandleError(result.error)
-                return
-            }
+        is Result.Failure -> {
+            defaultHandleError(result.error)
+            return
         }
     }
 

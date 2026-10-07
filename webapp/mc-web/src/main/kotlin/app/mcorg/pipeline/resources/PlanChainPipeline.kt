@@ -448,16 +448,11 @@ internal suspend fun ApplicationCall.listRerenderFragment(
             return null
         }
     }
-    // The same rule as the full page: no targets, or no ingested graph for the version, is no
-    // plan; anything else is an error.
-    val plan = when (val r = GenerateGatheringPlanStep.process(GatheringPlanInput(projectId, worldId))) {
+    val plan = when (val r = derivePlanForPage(projectId, worldId)) {
         is Result.Success -> r.value
-        is Result.Failure -> when (r.error) {
-            is AppFailure.ValidationError, is AppFailure.DatabaseError.NotFound -> null
-            else -> {
-                defaultHandleError(r.error)
-                return null
-            }
+        is Result.Failure -> {
+            defaultHandleError(r.error)
+            return null
         }
     }
     val progressMap = GetProgressForProjectStep.process(projectId).getOrNull() ?: emptyMap()
@@ -519,6 +514,21 @@ internal suspend fun recommendedMemberFor(projectId: Int, worldId: Int, nodeId: 
     val tag = node.item as? MinecraftTag ?: return null
     return TagMemberRanking.recommended(graph, tag.content, costModel = costModel)?.id
 }
+
+/**
+ * The plan for rendering the project page or its plan fragment. No targets
+ * ([AppFailure.ValidationError]) and no ingested graph for the world's version
+ * ([AppFailure.DatabaseError.NotFound]) are "no plan", which the page shows as its empty state;
+ * anything else is a failure to report, not an empty plan to show.
+ */
+internal suspend fun derivePlanForPage(projectId: Int, worldId: Int): Result<AppFailure, GatheringPlan?> =
+    when (val r = GenerateGatheringPlanStep.process(GatheringPlanInput(projectId, worldId))) {
+        is Result.Success -> Result.success(r.value)
+        is Result.Failure -> when (r.error) {
+            is AppFailure.ValidationError, is AppFailure.DatabaseError.NotFound -> Result.success(null)
+            else -> Result.failure(r.error)
+        }
+    }
 
 /**
  * Derives the gathering plan and returns it, or null on any failure (graceful).

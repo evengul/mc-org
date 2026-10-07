@@ -230,9 +230,12 @@ dialog#resource-panel::backdrop {
     cursor: pointer;
 }
 
-.plan-resource-table tbody tr .plan-resource-table__delete-btn,
+/* …except where a click does something else (resource-panel.js skips these): the action cell,
+   whose buttons keep their own pointer, the quantity, and the ignored rows, which have no panel. */
+.plan-resource-table tbody tr .plan-resource-table__action,
 .plan-resource-table tbody tr .plan-resource-table__qty,
-.plan-resource-table tbody tr .plan-resource-table__qty-input {
+.plan-resource-table tbody tr .plan-resource-table__qty-input,
+.plan-resource-table--ignored tbody tr {
     cursor: auto;
 }
 
