@@ -26,6 +26,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.junit.jupiter.api.BeforeAll
+import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
@@ -64,10 +65,14 @@ class DemandDerivationRaceIT : WithUser() {
     private val cobblestone = Item("minecraft:cobblestone", "Cobblestone")
     private val blackstone = Item("minecraft:blackstone", "Blackstone")
 
+    /** Furnaces from 8 cobblestone or 9 blackstone: cobblestone wins until blackstone is supplied. */
+    private val either = MinecraftVersion.Release(1, 91, 2)
+
     @BeforeAll
     fun setup() {
         store(before, furnaceFrom = cobblestone)
         store(after, furnaceFrom = blackstone)
+        store(either, furnaceFrom = cobblestone, alsoFrom = blackstone to 9)
         CacheManager.invalidateAll()
     }
 
@@ -160,6 +165,33 @@ class DemandDerivationRaceIT : WithUser() {
 
         assertTrue(projectId in uncovered(worldId), "a plan that mines cobblestone next to a running generator")
         assertFalse(farmId in uncovered(worldId), "the farm has nothing to gather and is not waiting on anything")
+    }
+
+    /**
+     * Not a race: supply invalidation picks its projects by the items their *current* plan
+     * touches, but a newly supplied item can make a recipe the plan does not use the cheaper one.
+     */
+    @Test
+    @Disabled("MCO-593")
+    fun `a farm that makes another recipe cheaper invalidates the projects that would switch to it`() {
+        val (worldId, projectId) = smelter("Recipe Switch World", either)
+        storeDerivation(derive(worldId, projectId))
+        assertTrue(cobblestone.id in demandItems(projectId), "8 cobblestone beats 9 blackstone")
+        assertFalse(blackstone.id in demandItems(projectId))
+
+        val farmId = createProject(worldId, "Blackstone Farm")
+        produce(farmId, blackstone)
+        setState(farmId, "DONE")
+        assertIs<Result.Success<*>>(runBlocking { InvalidateDemandSuppliedByStep(worldId, farmId).process(Unit) })
+
+        // The premise: re-derived now, the plan does switch. Read without storing.
+        val switched = runBlocking {
+            GenerateGatheringPlanStep.derive(GatheringPlanInput(projectId = projectId, worldId = worldId))
+        }
+        val plan = assertIs<Result.Success<Derivation>>(switched).value.plan
+        assertTrue(plan!!.activityList.any { it.item.id == blackstone.id }, "supplied blackstone is free")
+
+        assertTrue(projectId in uncovered(worldId), "the stored cobblestone plan is stale")
     }
 
     // ---- across transactions ----------------------------------------------------------------
@@ -334,11 +366,11 @@ class DemandDerivationRaceIT : WithUser() {
 
     // ---- fixtures ---------------------------------------------------------------------------
 
-    private fun store(version: MinecraftVersion.Release, furnaceFrom: Item) {
+    private fun store(version: MinecraftVersion.Release, furnaceFrom: Item, alsoFrom: Pair<Item, Int>? = null) {
         val serverData = ServerData(
             version = version,
             items = listOf(furnace, cobblestone, blackstone),
-            sources = listOf(
+            sources = listOfNotNull(
                 block("blocks/cobblestone.json", cobblestone),
                 block("blocks/blackstone.json", blackstone),
                 ResourceSource(
@@ -347,6 +379,14 @@ class DemandDerivationRaceIT : WithUser() {
                     requiredItems = listOf(furnaceFrom to ResourceQuantity.ItemQuantity(8)),
                     producedItems = listOf(furnace to ResourceQuantity.ItemQuantity(1)),
                 ),
+                alsoFrom?.let { (item, count) ->
+                    ResourceSource(
+                        type = ResourceSource.SourceType.RecipeTypes.CRAFTING_SHAPED,
+                        filename = "furnace_from_${item.id.substringAfter(':')}.json",
+                        requiredItems = listOf(item to ResourceQuantity.ItemQuantity(count)),
+                        producedItems = listOf(furnace to ResourceQuantity.ItemQuantity(1)),
+                    )
+                },
             ),
         )
         assertIs<Result.Success<*>>(runBlocking { StoreMinecraftDataStep.process(serverData) })
@@ -358,11 +398,11 @@ class DemandDerivationRaceIT : WithUser() {
         producedItems = listOf(item to ResourceQuantity.ItemQuantity(1)),
     )
 
-    /** A world on [before] with one project that needs one furnace. */
-    private fun smelter(worldName: String): Pair<Int, Int> {
+    /** A world on [version] with one project that needs one furnace. */
+    private fun smelter(worldName: String, version: MinecraftVersion = before): Pair<Int, Int> {
         val worldId = runBlocking {
             val result = CreateWorldStep(user).process(
-                CreateWorldInput(name = worldName, description = "test", version = before)
+                CreateWorldInput(name = worldName, description = "test", version = version)
             )
             (result as Result.Success).value
         }
