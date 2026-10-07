@@ -9,6 +9,7 @@ import app.mcorg.nbt.io.BoundedInputStream
 import app.mcorg.nbt.io.CompressionType
 import app.mcorg.nbt.io.NbtLimits
 import app.mcorg.nbt.io.NbtSizeLimitExceeded
+import app.mcorg.nbt.io.checkInterrupted
 import app.mcorg.nbt.tag.ByteTag
 import app.mcorg.nbt.tag.CompoundTag
 import app.mcorg.nbt.tag.IntTag
@@ -54,6 +55,13 @@ object LitematicaReader {
         return readLitematica(content)
     }
 
+    /**
+     * Parses a `.litematic` file.
+     *
+     * Blocking, and long for a large file on a shared vCPU, so it honours thread interruption: it
+     * throws [InterruptedException] if its thread is interrupted, which is how a caller under
+     * `runInterruptible` cancels it.
+     */
     fun readLitematica(content: ByteArray): Result<NBTFailure, Litematica> {
         val compressionType = CompressionType.detect(content)
 
@@ -69,8 +77,10 @@ object LitematicaReader {
             return Result.failure(NBTFailure.DeserializeError(result.error.toString()))
         }
 
-        val root = result.getOrThrow().tag.value
+        return fromRoot(result.getOrThrow().tag.value)
+    }
 
+    internal fun fromRoot(root: Any?): Result<NBTFailure, Litematica> {
         if (root !is Map<*, *>) {
             return Result.failure(NBTFailure.InvalidStructure)
         }
@@ -218,6 +228,9 @@ object LitematicaReader {
         val blocksToRead = minOf(totalBlocksInt.toLong(), addressableBlocks).toInt()
 
         repeat(blocksToRead) {
+            // The longest loop in the parse, up to tens of millions of blocks, and it runs after
+            // the deserializer's own interrupt checks are done.
+            if (it and 0xFFFF == 0) checkInterrupted()
             val longIndex = bitIndex / 64
             val bitOffset = bitIndex % 64
 

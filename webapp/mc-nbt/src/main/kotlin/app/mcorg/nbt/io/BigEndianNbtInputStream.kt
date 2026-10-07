@@ -3,6 +3,7 @@ package app.mcorg.nbt.io
 import app.mcorg.pipeline.Result
 import app.mcorg.nbt.tag.*
 import java.io.DataInputStream
+import java.io.EOFException
 import java.io.InputStream
 
 /**
@@ -28,6 +29,10 @@ class BigEndianNbtInputStream private constructor(
      * The check is deliberately about *bytes still readable*, not about a fixed element ceiling:
      * a file may only claim what it is prepared to supply, which makes the bound self-scaling and
      * leaves legitimate documents untouched.
+     *
+     * "Readable" here means the decompressed *budget* left, which is all the stream can know before
+     * reading, not the bytes the file actually holds. So this refuses the impossible claim cheaply
+     * but does not make the claimed length safe to allocate; [nextCapacity] is what does that.
      */
     private fun checkedLength(declared: Int, bytesPerElement: Long, what: String): Int {
         if (declared < 0) {
@@ -43,8 +48,8 @@ class BigEndianNbtInputStream private constructor(
         return declared
     }
 
-    /** Heap charged so far by `TAG_List` elements, against [NbtLimits.MAX_LIST_HEAP_BYTES]. */
-    private var listHeapCharged: Long = 0
+    /** Heap charged so far by list elements and compound entries, against [NbtLimits.MAX_TREE_HEAP_BYTES]. */
+    private var heapCharged: Long = 0
 
     /**
      * Charges a declared list length against the document's heap budget.
@@ -52,19 +57,38 @@ class BigEndianNbtInputStream private constructor(
      * Separate from [checkedLength] because the two bound different resources and only one of them
      * was covered. `checkedLength` asks whether the *stream* can supply the elements; this asks
      * whether the *heap* can hold them, which for a list of compounds is roughly eighty times as
-     * much. See [NbtLimits.MAX_LIST_HEAP_BYTES].
+     * much. See [NbtLimits.MAX_TREE_HEAP_BYTES].
      *
      * Charged cumulatively rather than per list, because per-list checks sum: every element costs
      * at least one wire byte, so a 16 MB document can declare 16 M of them spread over as many
      * lists as it likes, and a per-list ceiling would let each pass individually.
      */
     private fun chargeListHeap(declared: Int, type: Byte, what: String) {
-        listHeapCharged += declared.toLong() * NbtLimits.estimatedHeapCost(type)
-        if (listHeapCharged > NbtLimits.MAX_LIST_HEAP_BYTES) {
+        heapCharged += declared.toLong() * NbtLimits.estimatedHeapCost(type)
+        if (heapCharged > NbtLimits.MAX_TREE_HEAP_BYTES) {
             throw NbtSizeLimitExceeded(
                 "$what declared $declared elements, taking this document past the " +
-                    "${NbtLimits.MAX_LIST_HEAP_BYTES} byte list heap budget"
+                    "${NbtLimits.MAX_TREE_HEAP_BYTES} byte heap budget"
             )
+        }
+    }
+
+    /**
+     * Charges one compound entry against the same budget as [chargeListHeap].
+     *
+     * A compound is a list by another name as far as the heap is concerned: a child costs its key
+     * String and a map entry on top of the tag itself, and eight wire bytes buy all of that. The
+     * list budget alone left this open; see [NbtLimits.COMPOUND_ENTRY_HEAP_COST]. Returns the
+     * failure rather than throwing, because [readCompoundTag] works in Results.
+     */
+    private fun chargeCompoundEntry(type: Byte): BinaryParseFailure? {
+        heapCharged += NbtLimits.COMPOUND_ENTRY_HEAP_COST + NbtLimits.estimatedHeapCost(type)
+        return if (heapCharged > NbtLimits.MAX_TREE_HEAP_BYTES) {
+            BinaryParseFailure.ReadError(
+                "Compound entries took this document past the ${NbtLimits.MAX_TREE_HEAP_BYTES} byte heap budget"
+            )
+        } else {
+            null
         }
     }
 
@@ -118,26 +142,55 @@ class BigEndianNbtInputStream private constructor(
     fun readDoubleTag() = tryRead { DoubleTag(readDouble()) }
     fun readStringTag() = tryRead { StringTag(readUTF()) }
 
+    /**
+     * The buffer size for the next stretch of a declared-length array:
+     * [NbtLimits.INITIAL_ARRAY_CAPACITY] to start, then doubling, never past [declared].
+     *
+     * The array readers grow as elements arrive rather than allocating the declared length up
+     * front (MCO-426). [checkedLength] can only compare the claim with the budget, so allocating it
+     * outright would let an eleven-byte file cost 16 MB of heap before its first element turned out
+     * to be missing. Growing keeps the allocation within a small multiple of the bytes genuinely
+     * read, and costs an honest file a handful of copies.
+     */
+    private fun nextCapacity(current: Int, declared: Int): Int =
+        if (current == 0) minOf(declared, NbtLimits.INITIAL_ARRAY_CAPACITY)
+        else minOf(declared.toLong(), current * 2L).toInt()
+
     fun readByteListTag() = tryRead {
-        val byteArray = ByteArray(checkedLength(readInt(), 1, "TAG_Byte_Array"))
-        readFully(byteArray)
-        ByteListTag(byteArray)
+        val length = checkedLength(readInt(), 1, "TAG_Byte_Array")
+        // readNBytes buffers in chunks as it reads, which is the same bound [nextCapacity] gives
+        // the int and long readers: never the declared length before the bytes are there.
+        val bytes = readNBytes(length)
+        if (bytes.size < length) {
+            throw EOFException("TAG_Byte_Array declared $length bytes, but the input held ${bytes.size}")
+        }
+        ByteListTag(bytes)
     }
 
     fun readIntListTag() = tryRead {
-        val intArray = IntArray(checkedLength(readInt(), 4, "TAG_Int_Array"))
-        for (i in intArray.indices) {
-            intArray[i] = readInt()
+        val length = checkedLength(readInt(), 4, "TAG_Int_Array")
+        var ints = IntArray(nextCapacity(0, length))
+        for (i in 0 until length) {
+            if (i == ints.size) {
+                checkInterrupted()
+                ints = ints.copyOf(nextCapacity(ints.size, length))
+            }
+            ints[i] = readInt()
         }
-        IntListTag(intArray)
+        IntListTag(ints)
     }
 
     fun readLongListTag() = tryRead {
-        val longArray = LongArray(checkedLength(readInt(), 8, "TAG_Long_Array"))
-        for (i in longArray.indices) {
-            longArray[i] = readLong()
+        val length = checkedLength(readInt(), 8, "TAG_Long_Array")
+        var longs = LongArray(nextCapacity(0, length))
+        for (i in 0 until length) {
+            if (i == longs.size) {
+                checkInterrupted()
+                longs = longs.copyOf(nextCapacity(longs.size, length))
+            }
+            longs[i] = readLong()
         }
-        LongListTag(longArray)
+        LongListTag(longs)
     }
 
     fun readUnknownListTag(maxDepth: Int) = tryRead {
@@ -159,6 +212,7 @@ class BigEndianNbtInputStream private constructor(
         chargeListHeap(length, type, "TAG_List of tag type $type")
 
         repeat(length) {
+            checkInterrupted()
             val newDepth = decrementMaxDepth(maxDepth)
             if (newDepth is Result.Failure) {
                 throw IllegalStateException("Max depth reached when reading unknown list tag")
@@ -182,6 +236,7 @@ class BigEndianNbtInputStream private constructor(
         val compoundTag = CompoundTag()
 
         while (true) {
+            checkInterrupted()
             // Bail out once the compound is clearly not recoverable, rather than reading the rest
             // of a hostile document to build a list nobody will read. Without this an unknown tag
             // id — three wire bytes — accumulated one failure per occurrence for the whole 16 MB
@@ -211,6 +266,11 @@ class BigEndianNbtInputStream private constructor(
                 }
             }
 
+            // Returned at once rather than accumulated, since the document is too big to keep
+            // reading. An enclosing compound records it like any child failure and reads one more
+            // entry, whose charge then refuses as well, so each level stops after one read.
+            chargeCompoundEntry(id.toByte())?.let { return Result.failure(it) }
+
             val decrementedMaxDepth = when (val result = decrementMaxDepth(maxDepth)) {
                 is Result.Success -> result
                 is Result.Failure -> Result.failure(BinaryParseFailure.MaxDepthFailure.from(result.error))
@@ -236,6 +296,10 @@ class BigEndianNbtInputStream private constructor(
     fun <T> tryRead(block: () -> Tag<T>): Result<BinaryParseFailure, Tag<T>> {
         return try {
             Result.success(block())
+        } catch (e: InterruptedException) {
+            // Not a malformed document: the caller asked the parse to stop, and folding that into a
+            // ReadError would let the enclosing compound carry on reading.
+            throw e
         } catch (e: Exception) {
             Result.failure(BinaryParseFailure.ReadError(e.message ?: "Could not read tag"))
         }

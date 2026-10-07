@@ -88,4 +88,48 @@ class BigEndianNbtInputStreamTest {
         val tag = assertResultSuccess(input.readCompoundTag(512))
         assertEquals(IntTag(42), tag.value["myInt"])
     }
+
+    // The array readers grow their buffer as elements arrive rather than allocating the declared
+    // length up front (MCO-426), so a length past the first buffer exercises every growth step.
+    private val largeLength = 100_003
+
+    @Test
+    fun `a large byte array is read in full`() {
+        val expected = ByteArray(largeLength) { it.toByte() }
+        val input = createInput {
+            writeInt(largeLength)
+            write(expected)
+        }
+        val tag = assertResultSuccess(input.readByteListTag())
+        assertContentEquals(expected, (tag as ByteListTag).value)
+    }
+
+    @Test
+    fun `a large int array is read in full`() {
+        val expected = IntArray(largeLength) { it * 31 }
+        val input = createInput {
+            writeInt(largeLength)
+            expected.forEach { writeInt(it) }
+        }
+        val tag = assertResultSuccess(input.readIntListTag())
+        assertContentEquals(expected, (tag as IntListTag).value)
+    }
+
+    @Test
+    fun `a large long array is read in full`() {
+        val expected = LongArray(largeLength) { it * 0x1_0000_0001L }
+        val input = createInput {
+            writeInt(largeLength)
+            expected.forEach { writeLong(it) }
+        }
+        val tag = assertResultSuccess(input.readLongListTag())
+        assertContentEquals(expected, (tag as LongListTag).value)
+    }
+
+    @Test
+    fun `an empty array is read as empty`() {
+        val input = createInput { writeInt(0) }
+        val tag = assertResultSuccess(input.readLongListTag())
+        assertEquals(0, (tag as LongListTag).value.size)
+    }
 }

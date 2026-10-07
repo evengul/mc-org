@@ -48,8 +48,8 @@ object NbtLimits {
     }
 
     /**
-     * Ceiling on the heap a document's `TAG_List` elements may occupy, charged cumulatively across
-     * the whole parse.
+     * Ceiling on the heap a document's list elements and compound entries may occupy, charged
+     * cumulatively across the whole parse.
      *
      * [MAX_DECOMPRESSED_BYTES] alone does not bound this, which was an out-of-memory hole rather
      * than a theoretical gap. The wire-byte check asks only "could the stream supply this many
@@ -63,17 +63,43 @@ object NbtLimits {
      * through `TAG_List` of `TAG_Byte` — one reference per wire byte, a ratio of about 24:1, which
      * survives. It is the 80:1 case it does not mention that is fatal. Both are now charged here.
      *
-     * 64 MB permits ~800k compound elements in one document, far past any real Litematica file
-     * (that is more tile entities than most builds have blocks) while keeping the worst case to a
-     * fraction of the heap even with several uploads parsing at once.
+     * Compound entries are charged as well, for the same reason (MCO-426): uncharged, a compound
+     * of 1.9 M uniquely named empty children, a 4.2 MB gzip, holds 336 MB of heap.
+     *
+     * The charge runs 15-30% under the heap a tree actually retains, so 128 MB means up to ~165 MB
+     * held. mc-web lets two parses run at once: ~330 MB plus their arrays and uploads, under half
+     * of the 768 MB heap in the worst case. Real files are charged about 40 bytes per byte of gzip
+     * (Dig_Sort III: 26 kB on disk, ~1 MB charged, ~1.2 MB retained), so a file needs ~3 MB of
+     * compressed container and tile-entity data before this refuses it. Packed block states are
+     * arrays and not charged here, so the size of a build alone does not count against it.
      */
-    const val MAX_LIST_HEAP_BYTES: Long = 64L * 1024 * 1024
+    const val MAX_TREE_HEAP_BYTES: Long = 128L * 1024 * 1024
+
+    /**
+     * Heap one compound entry costs beyond its tag: the key String and its bytes, the
+     * `LinkedHashMap` entry, and its slot in the table.
+     *
+     * Calibrated rather than derived. With this plus [estimatedHeapCost] the charge for each test
+     * fixture came within 15-30% of the heap its tree actually retained, on the low side, which is
+     * the side [estimatedHeapCost] already errs on.
+     */
+    const val COMPOUND_ENTRY_HEAP_COST: Long = 96L
+
+    /**
+     * Elements allocated for a declared-length array before any of them has been read; the buffer
+     * doubles from here as the stream proves it holds more (MCO-426).
+     *
+     * Small enough that a file declaring the whole budget and supplying nothing costs at most 64 kB
+     * (for `TAG_Long_Array`), large enough that the packed block states of a real region, the only
+     * big arrays a Litematica file has, reach full size in a dozen doublings.
+     */
+    const val INITIAL_ARRAY_CAPACITY: Int = 8 * 1024
 
     /**
      * Rough heap cost of one `TAG_List` element of [type], in bytes.
      *
      * Deliberately an estimate, and deliberately on the low side of a 64-bit JVM with compressed
-     * oops: the value only has to be the right order of magnitude for [MAX_LIST_HEAP_BYTES] to
+     * oops: the value only has to be the right order of magnitude for [MAX_TREE_HEAP_BYTES] to
      * bound the damage, and understating it keeps legitimate files comfortable. Each figure is the
      * tag object plus its payload plus the `ArrayList` slot that holds the reference.
      */
@@ -141,4 +167,19 @@ class BoundedInputStream(
     // Marks would let a caller re-read charged bytes without being charged again, which would
     // defeat the cap. DataInputStream does not need them.
     override fun markSupported(): Boolean = false
+}
+
+/**
+ * Throws if the parsing thread has been interrupted, consuming the flag as [InterruptedException]
+ * does everywhere else.
+ *
+ * The parse is a blocking call, so the coroutine running it cannot cancel it directly: mc-web runs
+ * it under `runInterruptible`, which interrupts the thread when the request is cancelled or times
+ * out, and this is where the parser notices (MCO-426). Called at the head of every loop whose trip
+ * count the file controls, rather than per byte read.
+ */
+internal fun checkInterrupted() {
+    if (Thread.interrupted()) {
+        throw InterruptedException("NBT parse interrupted")
+    }
 }
