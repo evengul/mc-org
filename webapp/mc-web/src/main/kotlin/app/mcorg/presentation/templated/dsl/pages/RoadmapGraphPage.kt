@@ -14,6 +14,7 @@ import app.mcorg.pipeline.world.roadmap.HandListSplit
 import app.mcorg.pipeline.world.roadmap.StoppedFarm
 import app.mcorg.presentation.templated.dsl.BadgeStatus
 import app.mcorg.presentation.templated.dsl.appHeader
+import app.mcorg.presentation.templated.dsl.badge
 import app.mcorg.presentation.templated.dsl.container
 import app.mcorg.presentation.templated.dsl.pageShell
 import app.mcorg.presentation.templated.dsl.progressBar
@@ -58,6 +59,15 @@ data class RoadmapGraphView(
     val handTotals: RoadmapGraphLayout.HandGathered? = null,
     /** Final projects past the panel cap — listed under the graph, since no other view does now. */
     val hiddenTerminals: List<RoadmapNode> = emptyList(),
+    /**
+     * For a total order (5B): the drawn final projects' hand list with each prefix of the order
+     * built, step by step. Null where it could not be measured.
+     */
+    val chainLeftAfter: List<Long?> = emptyList(),
+    /** The drawn final projects' hand list now — the "before any of them" row. */
+    val byHandNow: Long = 0,
+    /** Projects with anything collected or any task done — "building" rather than "planned". */
+    val started: Set<Int> = emptySet(),
     val producerRows: List<ProducerRow>,
     val unchained: List<UnchainedRow>,
     /** The final projects drawn as panels, largest demand first (MCO-563). */
@@ -242,6 +252,13 @@ private fun FlowContent.glanceAside(view: RoadmapGraphView) {
  */
 private fun FlowContent.finishFirstSection(view: RoadmapGraphView, toBuild: RoadmapToBuild.ToBuild) {
     val active = toBuild.inProgress
+    val chain = toBuild.chain
+    // Nothing started, and the farms form one line: the first of it is where to start (frame 5B).
+    // Earned by order alone, which needs no prices — unlike ranking the set by what it saves.
+    if (active.isEmpty() && chain != null) {
+        startOfChainSection(view, chain)
+        return
+    }
     div("rmg-section rmg-start") {
         div("rmg-start__main") {
             sectionLabel { +if (active.isEmpty()) "NOTHING STARTED" else "FINISH THESE FIRST" }
@@ -278,17 +295,22 @@ private fun FlowContent.finishFirstSection(view: RoadmapGraphView, toBuild: Road
  * nobody has answered — drawing the guess would answer the question for them.
  */
 private fun FlowContent.orderBandSection(view: RoadmapGraphView, toBuild: RoadmapToBuild.ToBuild) {
+    toBuild.chain?.let { chain ->
+        orderListSection(view, toBuild, chain)
+        return
+    }
     val band = toBuild.band ?: return
     val others = toBuild.rows.size - toBuild.ordered.size
     val note = buildString {
-        append("Only farms with an edge between them are drawn here.")
         if (others > 0) {
+            append("Only farms with an edge between them are drawn here.")
             append(" The other ${RoadmapToBuild.countWord(others)} ")
             append(if (others == 1) "sits" else "sit")
             append(" in the table below and nothing orders them.")
         }
         if (toBuild.bandHidden > 0) {
-            append(" ${toBuild.bandHidden} more in order did not fit; the table lists them under the farm they wait on.")
+            if (isNotEmpty()) append(" ")
+            append("${toBuild.bandHidden} more in order did not fit; the table lists them under the farm they wait on.")
         }
     }
     div("rmg-section rmg-order") {
@@ -306,14 +328,125 @@ private fun FlowContent.orderBandSection(view: RoadmapGraphView, toBuild: Roadma
             }
         }
         graphPanel(view, band, markerId = "rmg-order-arrow") {
-            band.note?.let { place ->
+            band.note?.takeIf { note.isNotEmpty() }?.let { place ->
                 div("rmg-panel__note") {
                     attributes["style"] = "left: ${place.x}px; top: ${place.y}px; width: ${place.width}px"
                     +note
                 }
             }
         }
-        if (band.note == null) p("rmg-order__note") { +note }
+        if (band.note == null && note.isNotEmpty()) p("rmg-order__note") { +note }
+    }
+}
+
+/** START HERE, for a total order with nothing started: the farm the others wait on in turn (5B). */
+private fun FlowContent.startOfChainSection(view: RoadmapGraphView, chain: List<RoadmapToBuild.Row>) {
+    val first = chain.first()
+    val others = chain.size - 1
+    val unordered = view.toBuild.rows.size - chain.size
+    div("rmg-section rmg-start") {
+        div("rmg-start__main") {
+            sectionLabel { +"START HERE" }
+            div("rmg-start__name-row") {
+                a(classes = "rmg-start__name") {
+                    href = "/worlds/${view.roadmap.worldId}/projects/${first.projectId}"
+                    +first.name
+                }
+                badge("1 of ${chain.size} in order")
+            }
+            val wait = if (others == 1) "waits" else "wait"
+            p("rmg-start__note") {
+                +"Nothing is ahead of it, and the other ${RoadmapToBuild.countWord(others)} $wait on it in turn."
+            }
+            if (unordered > 0) {
+                val rest = if (unordered == 1) "farm to build is" else "farms to build are"
+                p("rmg-start__note") { +"The other ${RoadmapToBuild.countWord(unordered)} $rest in any order." }
+            }
+        }
+        glanceAside(view)
+    }
+}
+
+/**
+ * ORDER AMONG THE FARMS YOU'RE BUILDING, as a numbered list (frame 5B).
+ *
+ * When every ordered farm has at most one farm immediately before it and one after, the order is
+ * total, and a total order is a numbering — so here `#` is right for the reason a partial order's
+ * band refuses it. A list has no column cap, so every step shows, and the hand list left after
+ * each step can sit beside it: "left after" only means something along an order.
+ */
+private fun FlowContent.orderListSection(
+    view: RoadmapGraphView,
+    toBuild: RoadmapToBuild.ToBuild,
+    chain: List<RoadmapToBuild.Row>,
+) {
+    val f = RoadmapGraphLayout::format
+    // "→ YAMS" when the line's last farm feeds one final project, which is what it is the order *to*.
+    // Earlier steps often feed only the farm after them, so their supplies cannot decide it.
+    val destination = chain.last().supplies.singleOrNull()
+        ?.takeIf { name -> view.terminals.any { it.projectName == name } }
+    val others = toBuild.rows.size - chain.size
+    div("rmg-section rmg-order") {
+        div("rmg-order__head") {
+            val to = destination?.let { " → ${it.uppercase()}" } ?: ""
+            sectionLabel { +"ORDER AMONG THE FARMS YOU'RE BUILDING · 1 CHAIN OF ${chain.size}$to" }
+            span("rmg-note") {
+                +if (others > 0) {
+                    "a total order, so numbered — the other ${RoadmapToBuild.countWord(others)} are in any order"
+                } else {
+                    "a total order, so numbered"
+                }
+            }
+        }
+        ariaTable("rmg-orderlist", "The order to build in") {
+            ariaRow("rmg-orderlist__row rmg-orderlist__row--head") {
+                ariaCell(header = true) { +"#" }
+                ariaCell(header = true) { +"FARM" }
+                ariaCell(header = true) { +"WAITS ON" }
+                ariaCell("rmg-tobuild__num", header = true) { +"HAND LIST LEFT AFTER" }
+            }
+            ariaRow("rmg-orderlist__row rmg-orderlist__row--before") {
+                ariaCell {}
+                ariaCell("rmg-tone-muted") { +"before any of them" }
+                ariaCell {}
+                ariaCell("rmg-tobuild__num") { +f(view.byHandNow) }
+            }
+            chain.forEachIndexed { index, row ->
+                val band = if (index % 2 == 0) " rmg-tobuild__row--band" else ""
+                val first = if (index == 0) " rmg-orderlist__row--first" else ""
+                ariaRow("rmg-orderlist__row$band$first") {
+                    ariaCell("rmg-tone-muted") { +"${index + 1}" }
+                    ariaCell {
+                        a(classes = "rmg-tobuild__link") {
+                            href = "/worlds/${view.roadmap.worldId}/projects/${row.projectId}"
+                            +row.name
+                        }
+                    }
+                    ariaCell("rmg-tone-muted") { +if (index == 0) "nothing" else "↑ ${chain[index - 1].name}" }
+                    ariaCell("rmg-tobuild__num") {
+                        +(view.chainLeftAfter.getOrNull(index)?.let(f) ?: "—")
+                    }
+                }
+            }
+            destination?.let { name ->
+                val final = view.terminals.first { it.projectName == name }
+                val eitherWay = view.terminalStats[final.projectId]?.split?.eitherWay
+                ariaRow("rmg-orderlist__row rmg-orderlist__row--final") {
+                    ariaCell("rmg-tone-muted") { +"→" }
+                    ariaCell {
+                        a(classes = "rmg-tobuild__link rmg-orderlist__final") {
+                            href = "/worlds/${view.roadmap.worldId}/projects/${final.projectId}"
+                            +name
+                        }
+                    }
+                    ariaCell("rmg-tone-muted") { +"final project" }
+                    ariaCell("rmg-tobuild__num rmg-tone-muted") {
+                        +(eitherWay?.let { "${f(it)} yours either way" } ?: "")
+                    }
+                }
+            }
+        }
+        p("rmg-order__note") { +"Each step reads the hand list with it and every step above it built." }
     }
 }
 
@@ -344,7 +477,9 @@ private fun FlowContent.toBuildSection(view: RoadmapGraphView, toBuild: RoadmapT
             }
             sectionLabel { +"TO BUILD · $count ${if (count == 1) "FARM" else "FARMS"} · $tail" }
             span("rmg-note") {
-                +if (inOrder > 0) {
+                +if (toBuild.chain != null) {
+                    if (toBuild.chain.size == count) "numbered in the order above" else "numbered in the order above, then state and name"
+                } else if (inOrder > 0) {
                     "state, then name — a chained farm sits under the one it waits on"
                 } else {
                     "sorted by state, then name"
@@ -364,28 +499,34 @@ private fun FlowContent.toBuildSection(view: RoadmapGraphView, toBuild: RoadmapT
                 ariaRow("rmg-tobuild__row$band") {
                     ariaCell("rmg-tobuild__name rmg-tobuild__name--depth-$depth") {
                         if (depth > 0) span("rmg-tobuild__chain") { +"↳" }
+                        // The same number the order list gives it, so the two surfaces agree (5B).
+                        row.step?.let { span("rmg-tobuild__step") { +"$it" } }
                         a(classes = "rmg-tobuild__link") {
                             href = "/worlds/${view.roadmap.worldId}/projects/${row.projectId}"
                             +row.name
                         }
                     }
-                    ariaCell("rmg-tone-muted") { +RoadmapToBuild.stateLabel(row.state) }
+                    ariaCell("rmg-tone-muted") { +row.label }
                     ariaCell("rmg-tone-muted") { +RoadmapToBuild.suppliesText(row.supplies) }
                     ariaCell("rmg-tobuild__num${if (row.singleItem != null) " rmg-tobuild__num--named" else ""}") {
                         +RoadmapToBuild.itemsText(row)
                     }
                 }
-                when {
-                    row.unsettled -> ariaRow("rmg-tobuild__sub rmg-tobuild__sub--depth-$depth$band") {
+                // Both lines when both are true: a farm in an unanswered loop can still wait on a farm
+                // outside it, and the indent alone does not say for what.
+                if (row.waitsOn.isNotEmpty()) {
+                    ariaRow("rmg-tobuild__sub rmg-tobuild__sub--depth-$depth$band") {
+                        ariaCell(span = 4) { +RoadmapToBuild.waitsText(row.waitsOn) }
+                    }
+                }
+                if (row.unsettled) {
+                    ariaRow("rmg-tobuild__sub rmg-tobuild__sub--depth-$depth$band") {
                         ariaCell(span = 4) {
                             a(classes = "rmg-tone-amber rmg-tobuild__unsettled") {
                                 href = "#roadmap-cycles"
                                 +"⚠ order unsettled — which comes first is the question above"
                             }
                         }
-                    }
-                    row.waitsOn.isNotEmpty() -> ariaRow("rmg-tobuild__sub rmg-tobuild__sub--depth-$depth$band") {
-                        ariaCell(span = 4) { +RoadmapToBuild.waitsText(row.waitsOn) }
                     }
                 }
             }
@@ -427,7 +568,7 @@ private fun FlowContent.groupedToBuild(
 ) {
     val count = toBuild.rows.size
     div("rmg-tobuild__head") {
-        val state = RoadmapToBuild.stateWord(grouped.state).uppercase()
+        val state = grouped.stateWord.uppercase()
         val order = if (toBuild.unsettled > 0) "ORDER UNSETTLED" else "ANY ORDER"
         sectionLabel { +"TO BUILD · $count ${if (count == 1) "FARM" else "FARMS"} · ALL $state · $order" }
         span("rmg-note") { +"one state, so grouped by where the output goes, then name" }
@@ -930,7 +1071,7 @@ private fun FlowContent.moreFinalProjectsSection(view: RoadmapGraphView) {
                 a(classes = "rmg-chip") {
                     href = "/worlds/${view.roadmap.worldId}/projects/${terminal.projectId}"
                     span("rmg-chip__name") { +terminal.projectName }
-                    span("rmg-chip__note rmg-tone-muted") { +RoadmapToBuild.stateLabel(terminal.state) }
+                    span("rmg-chip__note rmg-tone-muted") { +RoadmapToBuild.stateLabel(terminal.state, terminal.projectId in view.started) }
                 }
             }
         }

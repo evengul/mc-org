@@ -77,3 +77,32 @@ data class GetDemandItemIdsStep(val projectIds: Set<Int>) :
             },
         ).process(Unit)
 }
+
+/**
+ * Every project in [worldId] with anything collected or any task done — the ones the roadmap calls
+ * "building" (MCO-579). A project's declared state is no guide: every import arrives ACTIVE whether
+ * or not anyone has touched it.
+ */
+data class GetStartedProjectsStep(val worldId: Int) : Step<Unit, AppFailure.DatabaseError, Set<Int>> {
+
+    override suspend fun process(input: Unit): Result<AppFailure.DatabaseError, Set<Int>> =
+        DatabaseSteps.query<Unit, Set<Int>>(
+            sql = SafeSQL.select(
+                """
+                SELECT p.id
+                FROM projects p
+                WHERE p.world_id = ?
+                  AND (
+                    EXISTS (SELECT 1 FROM resource_gathering_progress g WHERE g.project_id = p.id AND g.collected > 0)
+                    OR EXISTS (SELECT 1 FROM action_task t WHERE t.project_id = p.id AND t.completed)
+                  )
+                """.trimIndent()
+            ),
+            parameterSetter = { statement, _ -> statement.setInt(1, worldId) },
+            resultMapper = { rs ->
+                buildSet {
+                    while (rs.next()) add(rs.getInt("id"))
+                }
+            },
+        ).process(Unit)
+}

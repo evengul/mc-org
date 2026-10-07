@@ -8,6 +8,8 @@ import app.mcorg.pipeline.Result
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.Step
 import app.mcorg.pipeline.failure.AppFailure
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import org.slf4j.LoggerFactory
 import java.security.MessageDigest
 
@@ -85,7 +87,12 @@ object ScenarioDemand {
         // against the older fingerprint and simply re-derives next time.
         val base = GetStoredDemandFingerprintStep(projectId).process(Unit).getOrNull() ?: return null
 
-        val plan = when (val r = GenerateGatheringPlanStep.process(GatheringPlanInput(projectId, worldId, assumed))) {
+        // Off the call thread: a derivation is ~0.65 s of planner work, a numbered order asks for
+        // one per step, and production has a single call thread for every request (MCO-551).
+        val generated = withContext(Dispatchers.Default) {
+            GenerateGatheringPlanStep.process(GatheringPlanInput(projectId, worldId, assumed))
+        }
+        val plan = when (val r = generated) {
             is Result.Success -> r.value
             // Every target collected: nothing is left by hand whatever is built.
             is Result.Failure -> if (r.error is AppFailure.ValidationError) null else return null

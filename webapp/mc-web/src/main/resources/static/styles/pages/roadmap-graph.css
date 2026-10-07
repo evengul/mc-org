@@ -275,7 +275,9 @@ a.rmg-node:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-mut
 
 /* A column node's height is computed server-side from how many sub-lines it carries, so a title
    that wrapped would push its own last line outside the box — "Small-ish netherwart farm" did
-   exactly that. One line, clipped; the full name is on the project page a click away. */
+   exactly that. One line, clipped; the full name is on the project page a click away. The order
+   band's nodes are fixed-height for the same reason. */
+.rmg-order .rmg-node__title,
 .rmg-node--supply .rmg-node__title,
 .rmg-node--bundle .rmg-node__title,
 .rmg-node--hand .rmg-node__title {
@@ -524,6 +526,53 @@ a.rmg-node:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-mut
 
 .rmg-tobuild__unsettled { text-decoration: none; }
 .rmg-tobuild__unsettled:hover { text-decoration: underline; }
+
+/* 2c. A total order as a numbered list (MCO-544, frame 5B) ---------------------------- */
+
+.rmg-orderlist {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    background: var(--bg-surface);
+    font-family: var(--font-ui);
+}
+
+.rmg-orderlist__row {
+    display: grid;
+    grid-template-columns: 36px minmax(0, 1fr) minmax(0, 200px) 180px;
+    gap: 14px;
+    padding: 10px 14px;
+    font-size: 12px;
+    align-items: center;
+    border-bottom: 1px solid var(--border);
+    font-variant-numeric: tabular-nums;
+}
+
+.rmg-orderlist__row:last-child { border-bottom: none; }
+
+.rmg-orderlist__row--head {
+    padding: var(--space-2) 14px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    background: var(--bg-raised);
+}
+
+.rmg-orderlist__row--before { padding: var(--space-2) 14px; }
+
+/* Where the line starts: an inset accent rule rather than a fill, so the row still reads as one
+   of the list. */
+.rmg-orderlist__row--first { box-shadow: inset 3px 0 0 var(--accent); }
+.rmg-orderlist__row--first .rmg-tobuild__link,
+.rmg-orderlist__final { font-weight: 600; }
+
+/* The number a farm carries in the order list, repeated in TO BUILD so the two agree. */
+.rmg-tobuild__step {
+    display: inline-block;
+    min-width: 1.6em;
+    color: var(--text-muted);
+}
 
 /* 3b. Nothing produces yet (MCO-544, frame 5A) ----------------------------------------
    No supply column, so no absolutely-positioned graph: the panels stand as a row of cards, each
@@ -803,6 +852,18 @@ a.rmg-panelrow__card:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--
     .rmg-grid { grid-template-columns: 1fr; }
 
     .rmg-panel__note { position: static; width: auto !important; }
+
+    /* 5C: the numbered list needs no change at this width but the waits-on column, which folds
+       under the farm. */
+    .rmg-orderlist__row { grid-template-columns: 28px minmax(0, 1fr) auto; }
+    .rmg-orderlist__row > :nth-child(3) { grid-column: 2; grid-row: 2; }
+    .rmg-orderlist__row > :nth-child(4) { grid-column: 3; grid-row: 1; }
+    /* Nothing to fold on the header and the "before any of them" row, whose rows' "↑" reads alone. */
+    .rmg-orderlist__row--head > :nth-child(3),
+    .rmg-orderlist__row--before > :nth-child(3) { display: none; }
+    /* "67,942 yours either way" is too wide to share a line with the final project's name. */
+    .rmg-orderlist__row--final > :nth-child(2) { grid-column: 2 / 4; }
+    .rmg-orderlist__row--final > :nth-child(4) { grid-row: 2; }
 
     /* 5C: the panels stack, each keeping its bar on the shared scale. */
     .rmg-panelrow { flex-direction: column; }

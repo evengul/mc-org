@@ -90,7 +90,11 @@ class RoadmapToBuildTest {
             cycles,
         )
 
-    private fun toBuildOf(world: Roadmap) = RoadmapToBuild.of(world, RoadmapGraphLayout.terminalsOf(world))
+    /** The witch hut and cobble farms have something collected — frame 4B's "two building". */
+    private val startedFarms = setOf(witch.projectId, cobble.projectId)
+
+    private fun toBuildOf(world: Roadmap, started: Set<Int> = startedFarms) =
+        RoadmapToBuild.of(world, RoadmapGraphLayout.terminalsOf(world), started)
 
     // ---- 4B: a set, sorted by state then name -----------------------------------------------
 
@@ -153,14 +157,29 @@ class RoadmapToBuildTest {
     }
 
     @Test
-    fun `with nothing started, nothing is recommended as first`() {
-        val world = partiallyBuilt().let { w ->
-            w.copy(nodes = w.nodes.map { if (it.state == ProjectState.ACTIVE && it.projectId >= 20) it.copy(state = ProjectState.PENDING) else it })
-        }
-        val toBuild = toBuildOf(world)
+    fun `ACTIVE with nothing collected or done reads planned, not building`() {
+        // MCO-579: an import arrives ACTIVE whether or not anyone has touched it.
+        val toBuild = toBuildOf(partiallyBuilt(), started = emptySet())
 
         assertTrue(toBuild.inProgress.isEmpty())
+        assertEquals("○ planned", toBuild.rows.single { it.name == "Witch hut farm" }.label)
+        assertEquals("‖ paused", toBuild.rows.single { it.name == "Earlygame iron farm" }.label, "paused is declared")
         assertTrue(RoadmapToBuild.finishNotes(toBuild).first().startsWith("None of the six is started yet."))
+    }
+
+    @Test
+    fun `a planned farm with something collected is building`() {
+        val toBuild = toBuildOf(partiallyBuilt(), started = setOf(bartering.projectId))
+
+        assertEquals(listOf("Bartering setup"), toBuild.inProgress.map { it.name })
+        assertEquals("Bartering setup", toBuild.rows.first().name, "building sorts first")
+    }
+
+    @Test
+    fun `a final project past the panels reads planned or building by the same rule as a farm`() {
+        assertEquals("○ planned", RoadmapToBuild.stateLabel(ProjectState.ACTIVE, started = false), "an untouched import")
+        assertEquals("◐ building", RoadmapToBuild.stateLabel(ProjectState.PENDING, started = true))
+        assertEquals("‖ paused", RoadmapToBuild.stateLabel(ProjectState.PAUSED, started = true))
     }
 
     // ---- 5A: nothing built yet -----------------------------------------------------------------
@@ -176,7 +195,7 @@ class RoadmapToBuildTest {
         val terminals = RoadmapGraphLayout.terminalsOf(world)
         val grouped = assertNotNull(RoadmapToBuild.groupsOf(RoadmapToBuild.of(world, terminals), terminals))
 
-        assertEquals(ProjectState.PENDING, grouped.state)
+        assertEquals("planned", grouped.stateWord)
         assertEquals(
             listOf(
                 listOf("Storage System YAMS", "Copper Library") to
@@ -192,9 +211,8 @@ class RoadmapToBuildTest {
     @Test
     fun `state that still separates the rows keeps the plain table`() {
         val world = partiallyBuilt()
-        val terminals = RoadmapGraphLayout.terminalsOf(world)
 
-        assertNull(RoadmapToBuild.groupsOf(RoadmapToBuild.of(world, terminals), terminals))
+        assertNull(RoadmapToBuild.groupsOf(toBuildOf(world), RoadmapGraphLayout.terminalsOf(world)))
     }
 
     @Test
@@ -235,7 +253,7 @@ class RoadmapToBuildTest {
     private fun chained() = partiallyBuilt(extra = listOf(edge(iron, cobble, "Cobblestone", 3_787)))
 
     @Test
-    fun `a chained farm sits under the farm it waits on, and says what for`() {
+    fun `a line of farms is numbered and listed first, each saying what it waits on`() {
         val rows = toBuildOf(chained()).rows
 
         assertEquals(
@@ -245,11 +263,10 @@ class RoadmapToBuildTest {
                 "Bartering setup", "Guardian farm", "Wither rose farm",
             ),
             rows.map { it.name },
-            "the paused iron farm leaves its state group to sit under the cobble farm",
+            "the paused iron farm leaves its state group to follow the cobble farm",
         )
-        val ironRow = rows[1]
-        assertEquals(1, ironRow.depth)
-        assertEquals("waits on Cobble farm for 3,787 Cobblestone", RoadmapToBuild.waitsText(ironRow.waitsOn))
+        assertEquals(listOf(1, 2, null, null, null, null), rows.map { it.step })
+        assertEquals("waits on Cobble farm for 3,787 Cobblestone", RoadmapToBuild.waitsText(rows[1].waitsOn))
     }
 
     @Test
@@ -261,24 +278,59 @@ class RoadmapToBuildTest {
     }
 
     @Test
-    fun `the band draws the chain and nothing else`() {
+    fun `a total order is a numbered chain, not a band`() {
+        // 5B: every ordered farm has at most one farm right before it and one after.
         val toBuild = toBuildOf(chained())
 
         assertEquals(setOf(cobble.projectId, iron.projectId), toBuild.ordered)
         assertEquals(1, toBuild.chains)
-        val band = assertNotNull(toBuild.band)
-        assertEquals(listOf("Cobble farm", "Earlygame iron farm"), band.nodes.sortedBy { it.x }.map { it.title })
+        assertEquals(listOf("Cobble farm", "Earlygame iron farm"), toBuild.chain?.map { it.name })
+        assertNull(toBuild.band, "a numbering needs no columns")
+    }
 
-        val (first, second) = band.nodes.sortedBy { it.x }
-        assertEquals(RoadmapGraphLayout.NodeKind.START, first.kind, "where the chain starts")
-        assertEquals("◐ building · nothing before it", first.subLines.single().text)
-        assertEquals("‖ paused · waits on Cobble farm", second.subLines.single().text)
-        assertTrue(second.x >= first.x + first.width, "the farm waited on is drawn first")
+    @Test
+    fun `waits a longer path already implies are not order, so a fan of them is still one line`() {
+        // World 22's shape: the bartering farm waits on the cobble and iron farms, and the tree farm
+        // on all of them — but as an order each is one step after the farm right before it.
+        val tree = node(26, "Tree farm")
+        val world = partiallyBuilt(
+            extra = listOf(
+                edge(iron, cobble, "Cobblestone", 3_787),
+                edge(bartering, iron, "Iron Ingot", 2_080),
+                edge(bartering, cobble, "Cobblestone", 3_177),
+                edge(tree, bartering, "Obsidian", 400),
+                edge(tree, iron, "Iron Ingot", 1_044),
+                edge(tree, cobble, "Cobblestone", 3_419),
+                edge(yams, tree, "Cherry Log", 16),
+            )
+        ).let { it.copy(nodes = it.nodes + tree) }
 
-        val arrow = band.edges.single()
-        assertEquals("3,787 Cobblestone", arrow.label?.text)
-        assertTrue(!arrow.dashed, "a derived edge is solid")
-        assertEquals("SEQUENCE · 2 OF THE 6 FARMS", band.bandCaption?.text)
+        val toBuild = toBuildOf(world)
+
+        assertEquals(
+            listOf("Cobble farm", "Earlygame iron farm", "Bartering setup", "Tree farm"),
+            toBuild.chain?.map { it.name },
+        )
+        assertEquals(
+            listOf("Bartering setup", "Earlygame iron farm", "Cobble farm"),
+            toBuild.rows.single { it.name == "Tree farm" }.waitsOn.map { it.name },
+            "the table still names every farm it waits on, the one right before it first",
+        )
+    }
+
+    @Test
+    fun `the reduction keeps a wait only when no longer path says it`() {
+        val reduced = RoadmapToBuild.transitiveReduction(listOf(2 to 1, 3 to 2, 3 to 1, 4 to 3, 4 to 1))
+
+        assertEquals(mapOf(2 to listOf(1), 3 to listOf(2), 4 to listOf(3)), reduced)
+        assertEquals(listOf(1, 2, 3, 4), RoadmapToBuild.totalOrderOf(setOf(1, 2, 3, 4), reduced))
+    }
+
+    @Test
+    fun `a fork is not a total order`() {
+        val reduced = RoadmapToBuild.transitiveReduction(listOf(2 to 1, 3 to 1))
+
+        assertNull(RoadmapToBuild.totalOrderOf(setOf(1, 2, 3), reduced))
     }
 
     @Test
@@ -302,16 +354,24 @@ class RoadmapToBuildTest {
                 )
             )
         )
-        val band = assertNotNull(toBuild.band)
+        val band = assertNotNull(toBuild.band, "a fork is a partial order, so it keeps the band")
+        assertNull(toBuild.chain)
         val byName = band.nodes.associateBy { it.title }
 
         assertEquals(byName.getValue("Earlygame iron farm").x, byName.getValue("Wither rose farm").x)
         assertTrue(byName.getValue("Earlygame iron farm").y != byName.getValue("Wither rose farm").y)
         assertEquals(2, band.edges.size, "one arrow per wait, none between the two that wait")
+
+        val cobbleNode = byName.getValue("Cobble farm")
+        assertEquals(RoadmapGraphLayout.NodeKind.START, cobbleNode.kind, "where the order starts")
+        assertEquals("◐ building · nothing before it", cobbleNode.subLines.single().text)
+        assertEquals("‖ paused · waits on Cobble farm", byName.getValue("Earlygame iron farm").subLines.single().text)
+        assertTrue(band.edges.all { !it.dashed }, "derived edges are solid")
+        assertEquals("SEQUENCE · 3 OF THE 6 FARMS", band.bandCaption?.text)
     }
 
     @Test
-    fun `a deep chain is bounded, and every farm in it is still in the table`() {
+    fun `a deep line is a numbered chain, every farm in it`() {
         val chain = (30..37).map { node(it, "Link $it") }
         val final = node(99, "Megabase", ProjectState.ACTIVE)
         val done = node(98, "Old farm", ProjectState.DONE)
@@ -319,11 +379,100 @@ class RoadmapToBuildTest {
             chain.zipWithNext().map { (a, b) -> edge(b, a, "Thing", 10) }
         val toBuild = RoadmapToBuild.of(roadmap(chain + final + done, edges), listOf(final))
 
-        assertEquals(chain.size, toBuild.rows.size)
+        assertEquals(chain.map { it.projectName }, toBuild.chain?.map { it.name }, "a list has no column cap")
+        assertEquals((1..8).toList(), toBuild.rows.map { it.step })
+    }
+
+    @Test
+    fun `a deep partial order wraps to another row of columns instead of hiding farms`() {
+        // Two roots make it partial; five levels deep is one past the four columns a row holds.
+        val links = (30..34).map { node(it, "Link $it") }
+        val other = node(40, "Side farm")
+        val final = node(99, "Megabase", ProjectState.ACTIVE)
+        val done = node(98, "Old farm", ProjectState.DONE)
+        val edges = listOf(
+            edge(final, done, "Stone", 10),
+            edge(final, links.last(), "Thing", 10),
+            edge(links[1], other, "Thing", 10),
+        ) + links.zipWithNext().map { (a, b) -> edge(b, a, "Thing", 10) }
+        val toBuild = RoadmapToBuild.of(roadmap(links + other + final + done, edges), listOf(final))
+
+        assertNull(toBuild.chain)
         val band = assertNotNull(toBuild.band)
-        assertTrue(band.nodes.size <= RoadmapToBuild.MAX_BAND_COLUMNS * RoadmapToBuild.MAX_BAND_ROWS)
-        assertEquals(chain.size - band.nodes.size, toBuild.bandHidden)
+        assertEquals(0, toBuild.bandHidden, "every ordered farm is drawn")
+        val deepest = band.nodes.single { it.title == "Link 34" }
+        assertTrue(deepest.y > band.nodes.single { it.title == "Link 30" }.y, "the fifth level starts a new row")
         band.nodes.forEach { assertTrue(it.x + it.width <= band.width, "${it.title} runs off the band") }
+        assertTrue(
+            band.height - (deepest.y + deepest.height) < 62,
+            "the wrapped block holds one row, so the band ends there rather than a row lower",
+        )
+        assertTrue(band.edges.all { it.label == null }, "four columns leave no room between them for a label")
+    }
+
+    @Test
+    fun `no arrow in the band runs through a farm, whether it skips a column or wraps to the next row`() {
+        // Six deep, so it wraps; three farms at the first level, so the columns have rows; one wait
+        // skipping a column inside the first row of columns (Hopper → Link 32), and one crossing into
+        // the second row of columns to a column further right (Side farm → Link 35).
+        val links = (30..35).map { node(it, "Link $it") }
+        val side = node(40, "Side farm")
+        val hopper = node(41, "Hopper farm")
+        val final = node(99, "Megabase", ProjectState.ACTIVE)
+        val edges = listOf(
+            edge(final, links.last(), "Thing", 10),
+            edge(links[5], side, "Thing", 10),
+            edge(links[2], hopper, "Thing", 10),
+        ) + links.zipWithNext().map { (a, b) -> edge(b, a, "Thing", 10) }
+        val band = assertNotNull(RoadmapToBuild.of(roadmap(links + side + hopper + final, edges), listOf(final)).band)
+        assertEquals(8, band.nodes.size)
+
+        band.edges.forEach { edge ->
+            pointsAlong(edge.path).forEach { (x, y) ->
+                band.nodes.forEach { node ->
+                    val inside = x > node.x + 1 && x < node.x + node.width - 1 && y > node.y + 1 && y < node.y + node.height - 1
+                    assertTrue(!inside, "${edge.key} runs through ${node.title} at ($x, $y): ${edge.path}")
+                }
+            }
+            pointsAlong(edge.path).forEach { (_, y) -> assertTrue(y <= band.height, "${edge.key} runs below the band") }
+        }
+    }
+
+    /** Points every pixel or so along an SVG path made of `M`, `L` and `C`. */
+    private fun pointsAlong(path: String): List<Pair<Double, Double>> {
+        val tokens = path.split(" ").filter { it.isNotBlank() }
+        val points = mutableListOf<Pair<Double, Double>>()
+        var at = 0.0 to 0.0
+        var i = 0
+        fun num() = tokens[i++].toDouble()
+        while (i < tokens.size) {
+            when (tokens[i++]) {
+                "M" -> at = num() to num()
+                "L" -> {
+                    val to = num() to num()
+                    val steps = maxOf(1, maxOf(kotlin.math.abs(to.first - at.first), kotlin.math.abs(to.second - at.second)).toInt())
+                    (0..steps).forEach { s ->
+                        val t = s.toDouble() / steps
+                        points += (at.first + (to.first - at.first) * t) to (at.second + (to.second - at.second) * t)
+                    }
+                    at = to
+                }
+                "C" -> {
+                    val c1 = num() to num()
+                    val c2 = num() to num()
+                    val to = num() to num()
+                    (0..200).forEach { s ->
+                        val t = s / 200.0
+                        val u = 1 - t
+                        points += (u * u * u * at.first + 3 * u * u * t * c1.first + 3 * u * t * t * c2.first + t * t * t * to.first) to
+                            (u * u * u * at.second + 3 * u * u * t * c1.second + 3 * u * t * t * c2.second + t * t * t * to.second)
+                    }
+                    at = to
+                }
+                else -> error("unexpected path token in $path")
+            }
+        }
+        return points
     }
 
     @Test
@@ -335,7 +484,7 @@ class RoadmapToBuildTest {
         val row = toBuild.rows.single { it.name == "Creeper farm" }
 
         assertEquals(listOf("Cobble farm"), row.supplies)
-        assertEquals(1, toBuild.rows.single { it.name == "Cobble farm" }.depth, "the cobble farm now waits on it")
+        assertEquals(listOf("Creeper farm", "Cobble farm"), toBuild.chain?.map { it.name }, "the cobble farm now waits on it")
     }
 
     // ---- an unanswered loop is not an order -----------------------------------------------------
@@ -360,6 +509,29 @@ class RoadmapToBuildTest {
         assertTrue(toBuild.rows.all { it.waitsOn.isEmpty() })
         assertNull(toBuild.band, "the band appears the moment the cycle becomes a chain, not before")
         assertTrue(RoadmapToBuild.finishNotes(toBuild)[1].contains("the question above"))
+    }
+
+    @Test
+    fun `a line hanging off an unanswered loop is not numbered, since the loop's other farm may come first`() {
+        // Bartering waits on the iron farm, and nothing else orders them — a line of two, except
+        // that the cobble farm may yet come before the iron farm.
+        val cycle = RoadmapCycle(
+            projectIds = listOf(cobble.projectId, iron.projectId),
+            projectNames = listOf(cobble.projectName, iron.projectName),
+            options = emptyList(),
+            breaking = RoadmapCycleOption(
+                cobble.projectId, cobble.projectName, iron.projectId, iron.projectName, "Iron Ingot", 1_856,
+            ),
+        )
+        val world = partiallyBuilt(
+            extra = listOf(edge(iron, cobble, "Cobblestone", 3_787), edge(bartering, iron, "Iron Ingot", 2_080)),
+            cycles = listOf(cycle),
+        )
+
+        val toBuild = toBuildOf(world)
+
+        assertNull(toBuild.chain)
+        assertTrue(toBuild.rows.all { it.step == null })
     }
 
     // ---- the graph without a band ------------------------------------------------------------
