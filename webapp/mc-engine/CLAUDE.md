@@ -37,6 +37,11 @@ plan/
   SelfBlockLoot.kt         — "is breaking this block just re-collecting what you placed?"
   PlanQuantifier.kt        — quantify(): accumulate-then-ceil demand propagation, leftover
                              bank, SurplusPolicy hook; GatheringPlanner facade
+renewability/
+  Renewability.kt          — which items a farm can make: least fixed point over the graph,
+                             read only by "Worth a farm" — no price or selection reads it
+  RenewabilityMechanics.kt — hand-written growth/conversion mechanics, pruned per registry
+  RenewabilityFixture.kt   — text form of a version's sources, for the snapshot test
 ```
 
 ## Key Concepts
@@ -110,6 +115,25 @@ mvn -q install -DskipTests -pl mc-domain,mc-pipeline,mc-engine
 
 `-am` does **not** help here — the MCO-285 note's `-am` fix applies to `-pl` test/compile runs,
 not to `exec:java`.
+
+## Renewability diagnostics — read this before touching `Renewability` or its mechanics
+
+`Renewability` decides what "Worth a farm" may offer (MCO-565). Every verdict on 26.3.0 and
+1.21.11 was reviewed item by item, and `RenewabilitySnapshotTest` pins them against a fixture of
+each version's real sources, so a rule change fails with the list of items it moved. The tool to
+review a change, or a new Minecraft version, is read-only like `cost-diagnostics`:
+
+```bash
+cd webapp && set -a && . ./local.env && set +a
+mvn -q -pl mc-web exec:java@renewability-diagnostics -Dexec.args="version=26.3.0"              # diff vs snapshot
+mvn -q -pl mc-web exec:java@renewability-diagnostics -Dexec.args="version=26.3.0 why tuff"     # one verdict, all evidence
+mvn -q -pl mc-web exec:java@renewability-diagnostics -Dexec.args="review versions=26.3.0,1.21.11"
+mvn -q -pl mc-web exec:java@renewability-diagnostics -Dexec.args="version=26.3.0 snapshot"     # accept
+```
+
+`review` fills the review page (`mc-web/.../cli/renewability-review/`, see its README); a
+version whose verdicts match its snapshot opens with nothing to review. Fix a wrong verdict in
+the rules, then `snapshot` — never by editing `verdicts.tsv`. Same `~/.m2` caveat as below.
 
 ## A change that alters plans bumps `DemandFingerprint.REVISION`
 

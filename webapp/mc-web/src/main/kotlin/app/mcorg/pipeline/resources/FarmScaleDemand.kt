@@ -4,6 +4,7 @@ import app.mcorg.domain.model.resources.ResourceSource
 import app.mcorg.engine.plan.Activity
 import app.mcorg.engine.plan.GatheringPlan
 import app.mcorg.engine.plan.PlanNodeStatus
+import app.mcorg.engine.renewability.Renewability
 
 /**
  * One raw material whose demand is large enough to be worth a farm (MCO-401).
@@ -63,15 +64,23 @@ object FarmScaleDemands {
         plan: GatheringPlan,
         threshold: Int,
         dismissed: Set<String> = emptySet(),
-    ): List<FarmScaleDemand> =
-        plan.activityList
-            .filter { it.isFarmScale(threshold) && it.item.id !in dismissed }
+        isRenewable: (String) -> Boolean,
+    ): List<FarmScaleDemand> {
+        val farmScale = farmScaleRule(plan, threshold, isRenewable)
+        return plan.activityList
+            .filter { farmScale(it) && it.item.id !in dismissed }
             .map { FarmScaleDemand(itemId = it.item.id, itemName = it.item.name, quantity = it.quantity) }
             .sortedByDescending { it.quantity }
+    }
 
     /** Item ids in [plan] that are farm-scale — for marking rows without re-deriving the rule. */
-    fun itemIdsIn(plan: GatheringPlan, threshold: Int, dismissed: Set<String> = emptySet()): Set<String> =
-        of(plan, threshold, dismissed).mapTo(mutableSetOf()) { it.itemId }
+    fun itemIdsIn(
+        plan: GatheringPlan,
+        threshold: Int,
+        dismissed: Set<String> = emptySet(),
+        isRenewable: (String) -> Boolean,
+    ): Set<String> =
+        of(plan, threshold, dismissed, isRenewable).mapTo(mutableSetOf()) { it.itemId }
 
     /**
      * The lines [dismissed] is currently suppressing, largest first — what the undo list shows.
@@ -80,21 +89,55 @@ object FarmScaleDemands {
      * "0 Water" against a build that never wanted water would be noise. The undo list names the
      * rest from the dismissal's own stored label.
      */
-    fun dismissedIn(plan: GatheringPlan, threshold: Int, dismissed: Set<String>): List<FarmScaleDemand> =
-        plan.activityList
-            .filter { it.isFarmScale(threshold) && it.item.id in dismissed }
+    fun dismissedIn(
+        plan: GatheringPlan,
+        threshold: Int,
+        dismissed: Set<String>,
+        isRenewable: (String) -> Boolean,
+    ): List<FarmScaleDemand> {
+        val farmScale = farmScaleRule(plan, threshold, isRenewable)
+        return plan.activityList
+            .filter { farmScale(it) && it.item.id in dismissed }
             .map { FarmScaleDemand(itemId = it.item.id, itemName = it.item.name, quantity = it.quantity) }
             .sortedByDescending { it.quantity }
+    }
 
     /**
      * At or above the threshold, not merely past it: a threshold of 1,728 is read as "a shulker
      * box is enough to want a farm", and exactly one shulker box should qualify.
      *
-     * Tool-collected materials are excluded however large the number (MCO-467). See
-     * [isToolCollected].
+     * Tool-collected materials are excluded however large the number (MCO-467), and so is
+     * anything that is not a material at all (the nether portal). See [isToolCollected].
+     *
+     * **Only what a farm can make** (MCO-565). 13,000 tuff is real demand that no farm will ever
+     * meet, so offering one is advice that cannot be taken. But the leaf is not always what the
+     * farm makes: iron demand bottoms out in `raw_iron`, which comes off an ore and is not
+     * renewable, while the `iron_ingot` it is smelted into drops from every iron golem. So a
+     * leaf stays when it, or an item that consumes it directly in this plan, is renewable — the
+     * farm makes the ingot, and the raw iron line stands for it. Tuff into tuff bricks stays out,
+     * because nothing makes the bricks either.
+     *
+     * The line keeps the leaf's name: the dismissal, the row badge and the row it marks are all
+     * keyed by the item the player gathers.
      */
-    private fun Activity.isFarmScale(threshold: Int): Boolean =
-        status == PlanNodeStatus.RAW_GATHER && quantity >= threshold && !isToolCollected()
+    private fun farmScaleRule(
+        plan: GatheringPlan,
+        threshold: Int,
+        isRenewable: (String) -> Boolean,
+    ): (Activity) -> Boolean {
+        val consumers = HashMap<String, MutableList<String>>()
+        for (node in plan.nodes.values) {
+            for (input in node.requires) consumers.getOrPut(input.itemId) { mutableListOf() }.add(node.item.id)
+        }
+        fun farmable(itemId: String) = isRenewable(itemId) || consumers[itemId].orEmpty().any(isRenewable)
+        return { activity ->
+            activity.status == PlanNodeStatus.RAW_GATHER &&
+                activity.quantity >= threshold &&
+                !activity.isToolCollected() &&
+                activity.item.id !in Renewability.NOT_MATERIALS &&
+                farmable(activity.item.id)
+        }
+    }
 
     /**
      * Filled from the world with a tool, rather than gathered — water, lava, and the three

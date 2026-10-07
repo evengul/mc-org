@@ -6,6 +6,7 @@ import app.mcorg.domain.model.world.World
 import app.mcorg.engine.plan.GatheringPlan
 import app.mcorg.engine.plan.PlanNode
 import app.mcorg.engine.plan.PlanNodeStatus
+import app.mcorg.engine.plan.PlanRequirement
 import app.mcorg.engine.plan.PlanTarget
 import app.mcorg.engine.plan.SupplySource
 import kotlin.test.Test
@@ -39,11 +40,18 @@ class FarmScaleDemandsTest {
         quantity: Long,
         status: PlanNodeStatus = PlanNodeStatus.RAW_GATHER,
         supply: SupplySource? = null,
-    ) = PlanNode(item = item, quantity = quantity, crafts = 0, leftover = 0, status = status, supply = supply)
+        requires: List<String> = emptyList(),
+    ) = PlanNode(
+        item = item, quantity = quantity, crafts = 0, leftover = 0, status = status, supply = supply,
+        requires = requires.map { PlanRequirement(it, 1) },
+    )
+
+    /** The rule before MCO-565: every material counts. Its own tests are at the bottom. */
+    private val everything: (String) -> Boolean = { true }
 
     @Test
     fun `raw demand at or above the threshold is farm-scale`() {
-        val result = FarmScaleDemands.of(plan(node(cobblestone, 74_557)), threshold)
+        val result = FarmScaleDemands.of(plan(node(cobblestone, 74_557)), threshold, isRenewable = everything)
 
         assertEquals(1, result.size)
         assertEquals(FarmScaleDemand("minecraft:cobblestone", "Cobblestone", 74_557), result.first())
@@ -53,8 +61,8 @@ class FarmScaleDemandsTest {
     fun `exactly one shulker box qualifies`() {
         // The threshold is read as "a shulker box is enough to want a farm", so the boundary
         // itself is inside the set, not just past it.
-        assertEquals(1, FarmScaleDemands.of(plan(node(ice, 1_728)), threshold).size)
-        assertTrue(FarmScaleDemands.of(plan(node(ice, 1_727)), threshold).isEmpty())
+        assertEquals(1, FarmScaleDemands.of(plan(node(ice, 1_728)), threshold, isRenewable = everything).size)
+        assertTrue(FarmScaleDemands.of(plan(node(ice, 1_727)), threshold, isRenewable = everything).isEmpty())
     }
 
     @Test
@@ -65,6 +73,7 @@ class FarmScaleDemandsTest {
         val result = FarmScaleDemands.of(
             plan(node(ironIngot, 32_967, PlanNodeStatus.SUPPLIED, SupplySource.Farm("Earlygame iron farm"))),
             threshold,
+            isRenewable = everything,
         )
 
         assertTrue(result.isEmpty())
@@ -74,7 +83,7 @@ class FarmScaleDemandsTest {
     fun `a crafted intermediate is never farm-scale however large`() {
         // 21,888 sticks is real demand, but you do not build a stick farm — you build a tree
         // farm, and the wood appears in the plan on its own.
-        val result = FarmScaleDemands.of(plan(node(stick, 21_888, PlanNodeStatus.RESOLVED)), threshold)
+        val result = FarmScaleDemands.of(plan(node(stick, 21_888, PlanNodeStatus.RESOLVED)), threshold, isRenewable = everything)
 
         assertTrue(result.isEmpty())
     }
@@ -84,7 +93,7 @@ class FarmScaleDemandsTest {
         // #minecraft:planks is the single largest line on the YAMS import (121,774) and is
         // deliberately absent: OPEN_TAG is a question, not demand for a specific item. Picking
         // the variant turns it into raw demand this then sees.
-        val result = FarmScaleDemands.of(plan(node(planks, 121_774, PlanNodeStatus.OPEN_TAG)), threshold)
+        val result = FarmScaleDemands.of(plan(node(planks, 121_774, PlanNodeStatus.OPEN_TAG)), threshold, isRenewable = everything)
 
         assertTrue(result.isEmpty())
     }
@@ -92,7 +101,7 @@ class FarmScaleDemandsTest {
     @Test
     fun `a blocked item is not classified`() {
         // No feasible source — a farm is not the missing piece, a source is.
-        val result = FarmScaleDemands.of(plan(node(ice, 20_611, PlanNodeStatus.BLOCKED)), threshold)
+        val result = FarmScaleDemands.of(plan(node(ice, 20_611, PlanNodeStatus.BLOCKED)), threshold, isRenewable = everything)
 
         assertTrue(result.isEmpty())
     }
@@ -103,6 +112,7 @@ class FarmScaleDemandsTest {
         val result = FarmScaleDemands.of(
             plan(node(ice, 20_611), node(cobblestone, 74_557), node(ironIngot, 32_967)),
             threshold,
+            isRenewable = everything,
         )
 
         assertEquals(listOf(74_557L, 32_967L, 20_611L), result.map { it.quantity })
@@ -113,8 +123,8 @@ class FarmScaleDemandsTest {
         // A superflat testing world and a megabase do not want the same line.
         val plan = plan(node(ice, 20_611), node(cobblestone, 74_557))
 
-        assertEquals(2, FarmScaleDemands.of(plan, threshold).size)
-        assertEquals(listOf("minecraft:cobblestone"), FarmScaleDemands.of(plan, 50_000).map { it.itemId })
+        assertEquals(2, FarmScaleDemands.of(plan, threshold, isRenewable = everything).size)
+        assertEquals(listOf("minecraft:cobblestone"), FarmScaleDemands.of(plan, 50_000, isRenewable = everything).map { it.itemId })
     }
 
     @Test
@@ -127,14 +137,14 @@ class FarmScaleDemandsTest {
         )
 
         assertEquals(
-            FarmScaleDemands.of(plan, threshold).map { it.itemId }.toSet(),
-            FarmScaleDemands.itemIdsIn(plan, threshold),
+            FarmScaleDemands.of(plan, threshold, isRenewable = everything).map { it.itemId }.toSet(),
+            FarmScaleDemands.itemIdsIn(plan, threshold, isRenewable = everything),
         )
     }
 
     @Test
     fun `an empty plan yields nothing`() {
-        assertTrue(FarmScaleDemands.of(plan(), threshold).isEmpty())
+        assertTrue(FarmScaleDemands.of(plan(), threshold, isRenewable = everything).isEmpty())
     }
 
     // ---- what the world has decided against (MCO-407) --------------------------------
@@ -143,7 +153,7 @@ class FarmScaleDemandsTest {
     fun `a dismissed item leaves the roll-up`() {
         val plan = plan(node(cobblestone, 74_557), node(ice, 20_611))
 
-        val result = FarmScaleDemands.of(plan, threshold, dismissed = setOf("minecraft:ice"))
+        val result = FarmScaleDemands.of(plan, threshold, dismissed = setOf("minecraft:ice"), isRenewable = everything)
 
         assertEquals(listOf("minecraft:cobblestone"), result.map { it.itemId })
     }
@@ -156,7 +166,7 @@ class FarmScaleDemandsTest {
 
         assertEquals(
             setOf("minecraft:cobblestone"),
-            FarmScaleDemands.itemIdsIn(plan, threshold, dismissed = setOf("minecraft:ice")),
+            FarmScaleDemands.itemIdsIn(plan, threshold, dismissed = setOf("minecraft:ice"), isRenewable = everything),
         )
     }
 
@@ -167,9 +177,9 @@ class FarmScaleDemandsTest {
         val plan = plan(node(cobblestone, 74_557), node(ice, 20_611))
         val dismissed = setOf("minecraft:ice")
 
-        assertTrue(FarmScaleDemands.of(plan, 10_000, dismissed).none { it.itemId == "minecraft:ice" })
-        assertTrue(FarmScaleDemands.of(plan, 100, dismissed).none { it.itemId == "minecraft:ice" })
-        assertTrue(FarmScaleDemands.of(plan, 20_611, dismissed).none { it.itemId == "minecraft:ice" })
+        assertTrue(FarmScaleDemands.of(plan, 10_000, dismissed, isRenewable = everything).none { it.itemId == "minecraft:ice" })
+        assertTrue(FarmScaleDemands.of(plan, 100, dismissed, isRenewable = everything).none { it.itemId == "minecraft:ice" })
+        assertTrue(FarmScaleDemands.of(plan, 20_611, dismissed, isRenewable = everything).none { it.itemId == "minecraft:ice" })
     }
 
     @Test
@@ -177,11 +187,11 @@ class FarmScaleDemandsTest {
         val plan = plan(node(cobblestone, 74_557), node(ice, 12))
 
         assertEquals(
-            FarmScaleDemands.of(plan, threshold).map { it.itemId },
-            FarmScaleDemands.of(plan, threshold, dismissed = setOf("minecraft:ice")).map { it.itemId },
+            FarmScaleDemands.of(plan, threshold, isRenewable = everything).map { it.itemId },
+            FarmScaleDemands.of(plan, threshold, dismissed = setOf("minecraft:ice"), isRenewable = everything).map { it.itemId },
         )
         assertTrue(
-            FarmScaleDemands.dismissedIn(plan, threshold, setOf("minecraft:ice")).isEmpty(),
+            FarmScaleDemands.dismissedIn(plan, threshold, setOf("minecraft:ice"), isRenewable = everything).isEmpty(),
             "12 ice was never a line, so nothing is being suppressed and the fold says nothing",
         )
     }
@@ -192,8 +202,64 @@ class FarmScaleDemandsTest {
         // the reason a dismissal can be permanent without becoming a trap.
         val plan = plan(node(cobblestone, 74_557), node(ice, 20_611))
 
-        val suppressed = FarmScaleDemands.dismissedIn(plan, threshold, setOf("minecraft:ice"))
+        val suppressed = FarmScaleDemands.dismissedIn(plan, threshold, setOf("minecraft:ice"), isRenewable = everything)
 
         assertEquals(listOf(FarmScaleDemand("minecraft:ice", "Ice", 20_611)), suppressed)
+    }
+
+    // ---- only what a farm can make (MCO-565) -------------------------------------------
+
+    private val tuff = Item("minecraft:tuff", "Tuff")
+    private val tuffBricks = Item("minecraft:tuff_bricks", "Tuff Bricks")
+    private val rawIron = Item("minecraft:raw_iron", "Raw Iron")
+    private val netherPortal = Item("minecraft:nether_portal", "Nether Portal")
+    private val renewable = setOf("minecraft:cobblestone", "minecraft:iron_ingot", "minecraft:ice", "minecraft:nether_portal")
+    private val isRenewable: (String) -> Boolean = renewable::contains
+
+    @Test
+    fun `a material no farm can make is never worth a farm, however much of it is wanted`() {
+        // The report: 13,000 tuff under "Worth a farm". The advice cannot be taken.
+        val result = FarmScaleDemands.of(plan(node(tuff, 13_000), node(cobblestone, 74_557)), threshold, isRenewable = isRenewable)
+
+        assertEquals(listOf("minecraft:cobblestone"), result.map { it.itemId })
+    }
+
+    @Test
+    fun `raw iron stays, because the ingot it is smelted into is farmed`() {
+        // Raw iron comes off an ore and is not renewable itself. An iron farm makes the ingot,
+        // and the raw iron line is the demand that farm answers.
+        val plan = plan(
+            node(rawIron, 32_967),
+            node(ironIngot, 32_967, PlanNodeStatus.RESOLVED, requires = listOf("minecraft:raw_iron")),
+        )
+
+        assertEquals(listOf("minecraft:raw_iron"), FarmScaleDemands.of(plan, threshold, isRenewable = isRenewable).map { it.itemId })
+    }
+
+    @Test
+    fun `tuff into tuff bricks stays out, because nothing makes the bricks either`() {
+        val plan = plan(
+            node(tuff, 13_000),
+            node(tuffBricks, 13_000, PlanNodeStatus.RESOLVED, requires = listOf("minecraft:tuff")),
+        )
+
+        assertTrue(FarmScaleDemands.of(plan, threshold, isRenewable = isRenewable).isEmpty())
+    }
+
+    @Test
+    fun `the nether portal is lit, not farmed`() {
+        // Its synthetic source makes it read as renewable; it is still not a material.
+        assertTrue(FarmScaleDemands.of(plan(node(netherPortal, 5_000)), threshold, isRenewable = isRenewable).isEmpty())
+    }
+
+    @Test
+    fun `the badge and the undo list follow the same rule`() {
+        val plan = plan(node(tuff, 13_000), node(ice, 20_611))
+
+        assertEquals(setOf("minecraft:ice"), FarmScaleDemands.itemIdsIn(plan, threshold, isRenewable = isRenewable))
+        assertTrue(
+            FarmScaleDemands.dismissedIn(plan, threshold, setOf("minecraft:tuff"), isRenewable = isRenewable).isEmpty(),
+            "a dismissed tuff line is not one the roll-up would show, so it is not being suppressed",
+        )
     }
 }

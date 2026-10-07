@@ -1,5 +1,6 @@
 package app.mcorg.pipeline.resources
 
+import app.mcorg.pipeline.minecraft.isRenewableInWorld
 import app.mcorg.domain.model.minecraft.MinecraftTag
 import app.mcorg.engine.model.ItemSourceGraph
 import app.mcorg.engine.plan.GatheringPlan
@@ -461,6 +462,7 @@ internal suspend fun ApplicationCall.listRerenderFragment(worldId: Int, projectI
         GetProjectMeasurementsStep.process(projectId).getOrNull().orEmpty(),
         prerequisiteFarms, farmScaleThreshold,
         farmSuggestions, versionGapsForPlan(projectId, plan), isAdmin, farmDismissals,
+        isRenewableInWorld(worldId),
     )
 }
 

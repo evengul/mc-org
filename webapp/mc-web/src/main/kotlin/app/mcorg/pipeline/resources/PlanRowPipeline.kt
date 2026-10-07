@@ -1,5 +1,6 @@
 package app.mcorg.pipeline.resources
 
+import app.mcorg.pipeline.minecraft.isRenewableInWorld
 import app.mcorg.domain.model.world.World
 import app.mcorg.engine.plan.Activity
 import app.mcorg.engine.plan.GatheringPlan
@@ -76,7 +77,9 @@ suspend fun ApplicationCall.handleGetPlanRow() {
     }
     // A dismissed item carries no badge (MCO-407), and this endpoint re-renders one row at a
     // time — miss it here and the badge comes back the first time the row is swapped.
-    val farmScaleIds = FarmScaleDemands.itemIdsIn(plan, farmScaleThreshold, farmDismissalsFor(worldId).itemIds())
+    val farmScaleIds = FarmScaleDemands.itemIdsIn(
+        plan, farmScaleThreshold, farmDismissalsFor(worldId).itemIds(), isRenewableInWorld(worldId),
+    )
 
     val state = workRowStateOf(
         activity = activity,
