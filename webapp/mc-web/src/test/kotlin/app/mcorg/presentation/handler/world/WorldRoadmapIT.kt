@@ -397,6 +397,32 @@ class WorldRoadmapIT : WithUser() {
         deleteWorld(worldId)
     }
 
+    /**
+     * The creation dialogs were written for the Projects tab and targeted `#projects-view`,
+     * which only that tab has. htmx refuses to send a request whose target is missing, so
+     * "Blank project" and "Record an existing farm" did nothing at all on the roadmap: no
+     * request, no error, just `htmx:targetError` in the console. Both the populated world
+     * (the menu) and the empty one (the empty-state cards) open the same dialogs.
+     */
+    @Test
+    fun `every id an htmx form on the roadmap targets is on the roadmap`() = testApplication {
+        setupRoutes()
+        val emptyWorldId = createWorld("Targets Empty Roadmap World")
+        val worldId = createWorld("Targets Roadmap World")
+        createProject(worldId, "Something To Target")
+
+        for (id in listOf(emptyWorldId, worldId)) {
+            val body = client.get("/worlds/$id/roadmap") { addAuthCookie(this) }.bodyAsText()
+
+            val targets = Regex("""hx-target(?:-error)?="#([\w-]+)"""").findAll(body).map { it.groupValues[1] }.toSet()
+            val missing = targets.filterNot { body.contains("""id="$it"""") }
+            assertEquals(emptyList(), missing, "world $id: hx-target ids with no element on the page")
+        }
+
+        deleteWorld(emptyWorldId)
+        deleteWorld(worldId)
+    }
+
     // ---- states the graph view has to name (found with MCO-563's fixture worlds) -----
 
     /** Fixture 4: decommissioned farms vanished from the graph view while the hand list tripled. */
