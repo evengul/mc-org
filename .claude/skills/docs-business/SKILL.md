@@ -32,11 +32,18 @@ Domain rules, workflows, and constraints for MC-ORG.
 | Role | Level | Capabilities |
 |------|-------|-------------|
 | OWNER | 0 | Full control, can delete world, cannot transfer |
-| ADMIN | 10 | Invite users (Member/Admin roles), manage settings, edit/delete any project |
-| MEMBER | 100 | Create/edit own projects, create/complete tasks, view all content |
+| ADMIN | 10 | Invite users (Member/Admin roles), the world-level settings that are hard to undo (switching the version, deleting the world) |
+| MEMBER | 100 | Anything inside any project — edit, change state, productions, modes — and most things in the world |
 | BANNED | 1000 | No access, can be re-invited |
 
 Lower level number = higher authority. Check: `role.isHigherThanOrEqualTo(Role.ADMIN)`
+
+**Admin is for the real hard stuff, not for project work** (Even, 2026-10-07). Gate a route with
+`WorldAdminPlugin` only when the action is world-level and hard to reverse; inside a project,
+members can do what admins can. Don't hide a project control from members either — a route that
+lets members through behind a panel that only draws its controls for admins is the same gate.
+*(The MEMBER row said "Create/edit own projects" until 2026-10-07. Several project-page controls
+are still drawn for admins only (`isWorldAdmin` in `ProjectDetailPage`); they predate this rule.)*
 
 ---
 
