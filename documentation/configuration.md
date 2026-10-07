@@ -122,6 +122,10 @@ localhost and private addresses, so no local listener can stand in for the Worke
 resolves, so it passes the check and every delivery fails without reaching a real host. Ten
 consecutive failures then deactivate the subscription, which is harmless locally. Never use the
 production Worker URL or secret locally: local events would post to real Discord channels.
+Outside `PRODUCTION` the pair also bounds delivery: the poller posts only to subscriptions under
+this URL that carry this secret, so the production subscriptions a forked database carries are
+never used, and with the pair unset nothing is delivered at all (`documentation/webhook-contract.md`
+→ "Outside production").
 
 ¹¹ The origin lock (MCO-274). Cloudflare adds it as the `X-Seam-Edge` header on every request it
 forwards to `app.seam.gg`, and when it is set the app refuses anything without it — otherwise Fly

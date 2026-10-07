@@ -39,9 +39,14 @@ import org.slf4j.LoggerFactory
  * [client] defaults to [OutboundHttp.webhook] — 5s timeouts and no transport retry, because the
  * outbox below is the retry. Why that is a separate client from the API one is written on
  * [OutboundHttp]; the parameter exists so a test can hand in a client of its own.
+ *
+ * [mayDeliver] decides, per batch, whether this app may post to the subscription at all — see
+ * [WebhookDeliveryScope] for why a non-production app must not. A batch it refuses is failed without
+ * a request and without counting against the subscription's health.
  */
 class WebhookDeliveryPoller(
     private val client: HttpClient = OutboundHttp.webhook,
+    private val mayDeliver: (DueDelivery) -> Boolean = WebhookDeliveryScope::allowsFromConfig,
 ) {
     private val logger = LoggerFactory.getLogger(WebhookDeliveryPoller::class.java)
 
@@ -111,6 +116,14 @@ class WebhookDeliveryPoller(
 
     private suspend fun deliverBatch(subscriptionId: Int, rows: List<DueDelivery>) {
         val ids = rows.map { it.id }
+        if (!mayDeliver(rows.first())) {
+            // Failed rather than left PENDING: a row nobody will deliver would otherwise keep
+            // findNextScheduledDeliveryAt waking the poller, and the database from autosuspending.
+            // Not a subscription failure: the subscription is fine, this app just isn't its sender.
+            logger.info("Webhook subscription {} is outside this app's delivery scope; failing {} rows", subscriptionId, ids.size)
+            WebhookStore.failOutOfScope(ids, OUT_OF_SCOPE_ERROR)
+            return
+        }
         val body = WebhookPayload.build(rows.map { it.payload })
         val signature = WebhookSigner.sign(rows.first().secret, body)
         val error = post(rows.first().callbackUrl, body, signature, ids)
@@ -171,5 +184,7 @@ class WebhookDeliveryPoller(
         const val MAX_ATTEMPTS = 3
         const val DEACTIVATE_THRESHOLD = 10
         const val CLEANUP_INTERVAL_MS = 86_400_000L // 24 hours
+        const val OUT_OF_SCOPE_ERROR = "Not delivered: outside this environment's delivery scope (not production, " +
+            "and the subscription's callback or secret is not this app's SEAM_DISCORD_URL / SEAM_WEBHOOK_SHARED_SECRET)"
     }
 }

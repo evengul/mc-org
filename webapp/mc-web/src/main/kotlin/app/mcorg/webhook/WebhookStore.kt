@@ -232,6 +232,27 @@ object WebhookStore {
     }
 
     /**
+     * Retire a claimed batch this app must not deliver ([WebhookDeliveryScope]), with no attempt
+     * spent: no request was made. Terminal, so pruning sweeps it like any other failed row.
+     */
+    suspend fun failOutOfScope(ids: List<Long>, error: String) {
+        if (ids.isEmpty()) return
+        DatabaseSteps.update<Unit>(
+            sql = SafeSQL.update(
+                """
+                UPDATE webhook_deliveries
+                SET status = 'FAILED', last_error = ?, claimed_at = NULL, updated_at = CURRENT_TIMESTAMP
+                WHERE id = ANY(?) AND status = 'IN_FLIGHT'
+                """.trimIndent()
+            ),
+            parameterSetter = { statement, _ ->
+                statement.setString(1, error)
+                statement.setArray(2, statement.connection.createArrayOf("bigint", ids.toTypedArray()))
+            },
+        ).process(Unit).logIfFailed("failOutOfScope(${ids.size})")
+    }
+
+    /**
      * Retires claims that expired with their retry budget already spent.
      *
      * The reclaim arm of [claimDueDeliveries] deliberately refuses rows at [maxAttempts], which
