@@ -1823,8 +1823,11 @@ fun gatheringPlannerFragment(
     farmDismissals: List<FarmDismissal> = emptyList(),
     /** Whether a farm can make an item in this world's version (MCO-565). Required: a default here is how a caller would bring tuff back. */
     isRenewable: (String) -> Boolean,
+    /** Swap by id alongside another response's main target, rather than being the target. */
+    outOfBand: Boolean = false,
 ): String = createHTML().div {
     id = "project-content"
+    if (outOfBand) hxOutOfBands("true")
     gatheringPlannerContent(
         project, resources, tasks, plan, progressMap, measurements, pendingFarms, farmScaleThreshold, farmSuggestions,
         versionGaps, isWorldAdmin, farmDismissals, isRenewable,

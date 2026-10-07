@@ -286,8 +286,8 @@ fun resourceDetailPanelOobFragment(
 
 /**
  * Source-section fragment for the PATCH and DELETE /source responses (target:
- * #resource-panel-source, innerHTML). No table row rides along: nothing in the row shows the
- * source, so there is nothing to refresh (MCO-187).
+ * #resource-panel-source, innerHTML). Nothing in the row shows the source (MCO-187), but the plan
+ * is derived from it, so the handlers send the re-rendered plan out of band beside this (MCO-585).
  */
 fun resourcePanelSourceFragment(
     worldId: Int,

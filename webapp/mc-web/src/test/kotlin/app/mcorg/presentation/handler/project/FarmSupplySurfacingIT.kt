@@ -12,19 +12,29 @@ import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.minecraft.StoreMinecraftDataStep
 import app.mcorg.pipeline.project.handleGetProject
 import app.mcorg.pipeline.project.handleGetProjectList
+import app.mcorg.pipeline.resources.handleClearResourceSource
+import app.mcorg.pipeline.resources.handleSetResourceSource
 import app.mcorg.pipeline.world.CreateWorldInput
 import app.mcorg.pipeline.world.CreateWorldStep
 import app.mcorg.presentation.plugins.AuthPlugin
 import app.mcorg.presentation.plugins.ProjectParamPlugin
+import app.mcorg.presentation.plugins.ResourceGatheringIdParamPlugin
 import app.mcorg.presentation.plugins.UpdateActiveWorldPlugin
 import app.mcorg.presentation.plugins.WorldParamPlugin
 import app.mcorg.presentation.plugins.WorldParticipantPlugin
 import app.mcorg.test.WithUser
 import app.mcorg.test.postgres.DatabaseTestExtension
+import io.ktor.client.request.delete
 import io.ktor.client.request.get
+import io.ktor.client.request.patch
+import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsText
+import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
+import io.ktor.http.contentType
+import io.ktor.server.routing.delete
 import io.ktor.server.routing.get
+import io.ktor.server.routing.patch
 import io.ktor.server.routing.route
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
@@ -57,6 +67,7 @@ class FarmSupplySurfacingIT : WithUser() {
     private var worldId: Int = 0
     private var consumerId: Int = 0
     private var farmId: Int = 0
+    private var ingotsId: Int = 0
 
     @BeforeAll
     fun setup() {
@@ -82,7 +93,7 @@ class FarmSupplySurfacingIT : WithUser() {
         worldId = createWorld("FarmSupplySurfacing IT World")
         consumerId = createProject(worldId, "Beacon Build", ProjectState.PENDING)
         farmId = createProject(worldId, "Iron Farm", ProjectState.ACTIVE)
-        createResourceGathering(consumerId, ironIngot, required = 32)
+        ingotsId = createResourceGathering(consumerId, ironIngot, required = 32)
         insertProduction(farmId, ironIngot, rate = 400)
     }
 
@@ -232,6 +243,46 @@ class FarmSupplySurfacingIT : WithUser() {
         setProjectState(farmId, ProjectState.ACTIVE)
     }
 
+    /**
+     * MCO-585. The source is an input to the plan — Manual opts the item out of farm supply — so
+     * the panel's answer to setting it has to carry the plan too, or the row stays under "Collect
+     * from farms" until a reload. The panel section is still the main swap; the plan rides along
+     * out of band, which keeps the panel open on the new state.
+     */
+    @Test
+    fun `setting and clearing a source re-renders the plan with it`() = testApplication {
+        setupRoutes()
+        setProjectState(farmId, ProjectState.DONE)
+        val sourceUrl = "/worlds/$worldId/projects/$consumerId/resources/gathering/$ingotsId/source"
+
+        try {
+            val manual = client.patch(sourceUrl) {
+                addAuthCookie(this)
+                contentType(ContentType.Application.FormUrlEncoded)
+                setBody("type=manual")
+            }
+            assertEquals(HttpStatusCode.OK, manual.status)
+            val manualBody = manual.bodyAsText()
+            assertContains(manualBody, "resource-panel__source-set", message = "the panel shows the new source")
+            assertContains(manualBody, """id="project-content" hx-swap-oob="true"""")
+            assertContains(manualBody, """id="plan-resources-area"""")
+            assertContains(manualBody, """id="list-breakdown-view"""")
+            assertFalse(manualBody.contains("Collect from farms"), "a manual item is not collected from the farm")
+            assertFalse(manualBody.contains("Farm · Iron Farm"))
+
+            val cleared = client.delete(sourceUrl) { addAuthCookie(this) }
+            assertEquals(HttpStatusCode.OK, cleared.status)
+            val clearedBody = cleared.bodyAsText()
+            assertContains(clearedBody, "No source selected")
+            assertContains(clearedBody, """id="project-content" hx-swap-oob="true"""")
+            assertContains(clearedBody, "Collect from farms")
+            assertContains(clearedBody, "Farm · Iron Farm")
+        } finally {
+            setProjectState(farmId, ProjectState.ACTIVE)
+            clearSource(ingotsId)
+        }
+    }
+
     // ---- routing ----------------------------------------------------------------
 
     private fun ApplicationTestBuilder.setupRoutes() {
@@ -246,6 +297,11 @@ class FarmSupplySurfacingIT : WithUser() {
                     route("/{projectId}") {
                         install(ProjectParamPlugin)
                         get { call.handleGetProject() }
+                        route("/resources/gathering/{resourceGatheringId}") {
+                            install(ResourceGatheringIdParamPlugin)
+                            patch("/source") { call.handleSetResourceSource() }
+                            delete("/source") { call.handleClearResourceSource() }
+                        }
                     }
                 }
             }
@@ -276,10 +332,10 @@ class FarmSupplySurfacingIT : WithUser() {
         (result as Result.Success).value
     }
 
-    private fun createResourceGathering(projectId: Int, item: Item, required: Int) = runBlocking {
-        DatabaseSteps.update<Unit>(
+    private fun createResourceGathering(projectId: Int, item: Item, required: Int): Int = runBlocking {
+        val result = DatabaseSteps.update<Unit>(
             sql = SafeSQL.insert(
-                "INSERT INTO resource_gathering (project_id, item_id, name, required) VALUES (?, ?, ?, ?)"
+                "INSERT INTO resource_gathering (project_id, item_id, name, required) VALUES (?, ?, ?, ?) RETURNING id"
             ),
             parameterSetter = { stmt, _ ->
                 stmt.setInt(1, projectId)
@@ -288,6 +344,14 @@ class FarmSupplySurfacingIT : WithUser() {
                 stmt.setInt(4, required)
             }
         ).process(Unit)
+        (result as Result.Success).value
+    }
+
+    private fun clearSource(rgId: Int) = runBlocking {
+        DatabaseSteps.update<Int>(
+            sql = SafeSQL.update("UPDATE resource_gathering SET source_type = NULL, solved_by_project_id = NULL WHERE id = ?"),
+            parameterSetter = { stmt, id -> stmt.setInt(1, id) }
+        ).process(rgId)
     }
 
     private fun insertProduction(projectId: Int, item: Item, rate: Int) = runBlocking {

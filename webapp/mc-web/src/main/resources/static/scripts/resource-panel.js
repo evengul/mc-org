@@ -5,7 +5,7 @@
  * - Same row click toggles the panel closed
  * - Different row click swaps the panel's inner content in place
  * - Panel closes on: Escape (native <dialog> cancel), backdrop click, back/X button,
- *   view toggle (#project-content swap), row delete
+ *   view toggle (#project-content swap, unless the panel itself asked for it), row delete
  * - Inline qty edit inside the panel mirrors plan-view.js behaviour
  */
 (function () {
@@ -129,7 +129,13 @@
 
         document.body.addEventListener('htmx:after:settle', function (e) {
             if (!e.target) return;
-            if (e.target.id === 'project-content') closePanel();
+            if (e.target.id !== 'project-content') return;
+            // A source change made in the panel brings the plan along out of band (MCO-585).
+            // That is the panel's own request — detail.target is its main target, inside the
+            // dialog — and closing on it would shut the panel the user is working in.
+            var dialog = getDialog();
+            if (dialog && e.detail && e.detail.target && dialog.contains(e.detail.target)) return;
+            closePanel();
         });
     }
 

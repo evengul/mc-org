@@ -1,5 +1,6 @@
 package app.mcorg.pipeline.resources
 
+import app.mcorg.domain.model.resources.ResourceGatheringItem
 import app.mcorg.domain.model.resources.ResourceSourceType
 import app.mcorg.pipeline.Step
 import app.mcorg.pipeline.Result
@@ -51,9 +52,7 @@ suspend fun ApplicationCall.handleSetResourceSource() {
     val parameters = receiveParameters()
 
     handlePipeline(
-        onSuccess = { (resource, projects) ->
-            respondHtml(resourcePanelSourceFragment(worldId, projectId, resource, projects))
-        }
+        onSuccess = { (resource, projects) -> respondSourceChanged(worldId, projectId, resource, projects) }
     ) {
         val projects = GetProjectsInWorldStep(projectId).run(worldId)
         val assignment = ValidateResourceSourceInputStep(projects).run(parameters)
@@ -69,15 +68,29 @@ suspend fun ApplicationCall.handleClearResourceSource() {
     val resourceGatheringId = getResourceGatheringId()
 
     handlePipeline(
-        onSuccess = { (resource, projects) ->
-            respondHtml(resourcePanelSourceFragment(worldId, projectId, resource, projects))
-        }
+        onSuccess = { (resource, projects) -> respondSourceChanged(worldId, projectId, resource, projects) }
     ) {
         ClearResourceSourceStep(resourceGatheringId).run(Unit)
         val resource = GetResourceGatheringItemStep.run(resourceGatheringId)
         val projects = GetProjectsInWorldStep(projectId).run(worldId)
         resource to projects
     }
+}
+
+/**
+ * The panel's source section, and the plan out of band (MCO-585). The source is an input to the
+ * plan — Manual opts an item out of farm supply, a linked project supplies it — so a response
+ * carrying only the panel leaves the table's grouping and the breakdown on the old answer until a
+ * reload. The panel stays the main target, so it stays open on the new state.
+ */
+private suspend fun ApplicationCall.respondSourceChanged(
+    worldId: Int,
+    projectId: Int,
+    resource: ResourceGatheringItem,
+    projects: List<Pair<Int, String>>,
+) {
+    val plan = listRerenderFragment(worldId, projectId, outOfBand = true) ?: return
+    respondHtml(resourcePanelSourceFragment(worldId, projectId, resource, projects) + plan)
 }
 
 internal data class ValidateResourceSourceInputStep(

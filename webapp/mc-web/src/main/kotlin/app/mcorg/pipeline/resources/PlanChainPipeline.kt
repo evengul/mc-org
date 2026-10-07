@@ -416,9 +416,14 @@ private suspend fun ApplicationCall.respondListRerender(worldId: Int, projectId:
  *
  * Split out from [respondListRerender] so a caller that needs to say something *alongside* the
  * re-render — MCO-507's undo toast, swapped out-of-band — can concatenate rather than respond
- * twice.
+ * twice. [outOfBand] is the other way round: the re-render is the sidecar, for a change made
+ * somewhere else on the page that the plan is derived from (MCO-585, a resource's source).
  */
-internal suspend fun ApplicationCall.listRerenderFragment(worldId: Int, projectId: Int): String? {
+internal suspend fun ApplicationCall.listRerenderFragment(
+    worldId: Int,
+    projectId: Int,
+    outOfBand: Boolean = false,
+): String? {
     val project = when (val r = GetProjectByIdStep.process(projectId)) {
         is Result.Success -> r.value
         is Result.Failure -> {
@@ -463,6 +468,7 @@ internal suspend fun ApplicationCall.listRerenderFragment(worldId: Int, projectI
         prerequisiteFarms, farmScaleThreshold,
         farmSuggestions, versionGapsForPlan(projectId, plan), isAdmin, farmDismissals,
         isRenewableInWorld(worldId),
+        outOfBand = outOfBand,
     )
 }
 

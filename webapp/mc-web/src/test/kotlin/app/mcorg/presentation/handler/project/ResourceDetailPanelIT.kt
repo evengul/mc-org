@@ -39,7 +39,6 @@ import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.api.extension.ExtendWith
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
-import kotlin.test.assertFalse
 import kotlin.test.assertNull
 
 @Tag("database")
@@ -117,10 +116,11 @@ class ResourceDetailPanelIT : WithUser() {
         assertEquals("manual", sourceType)
         assertNull(solvedByProjectId)
 
-        // Nothing in the table row depends on the source, so the response carries no row (MCO-187).
+        // No single row rides along (MCO-187): the plan the rows are grouped by does, out of band
+        // (MCO-585, asserted against a farm-supplied item in FarmSupplySurfacingIT).
         val body = response.bodyAsText()
-        assertFalse(body.contains("plan-row-$rgId"))
         assertContains(body, "Manual gather")
+        assertContains(body, """id="project-content" hx-swap-oob="true"""")
     }
 
     @Test
@@ -218,10 +218,10 @@ class ResourceDetailPanelIT : WithUser() {
         assertNull(sourceType)
         assertNull(solvedByProjectId)
 
-        // Nothing in the table row depends on the source, so the response carries no row (MCO-187).
+        // As for PATCH: the plan rides along out of band (MCO-585).
         val body = response.bodyAsText()
-        assertFalse(body.contains("plan-row-$rgId"))
         assertContains(body, "No source selected")
+        assertContains(body, """id="project-content" hx-swap-oob="true"""")
     }
 
     // -------------------------------------------------------------------------
