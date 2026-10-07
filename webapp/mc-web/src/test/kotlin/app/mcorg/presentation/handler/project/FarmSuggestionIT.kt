@@ -216,6 +216,20 @@ class FarmSuggestionIT : WithUser() {
     }
 
     @Test
+    fun `a design whose version range will not decode costs only itself`() = testApplication {
+        setupRoutes()
+        val broken = createIdea("Unreadable Cobble Farm", ownerId = user.id, public = false, range = """{"type":"nonsense"}""")
+        addProduction(broken, cobblestone.id, 700_000)
+
+        val body = client.get("/worlds/$worldId/projects/$projectId") { addAuthCookie(this) }.bodyAsText()
+
+        assertFalse(body.contains("Unreadable Cobble Farm"))
+        assertContains(body, "231k Cobblestone farm", message = "one bad row must not take every suggestion with it")
+
+        deleteIdea(broken)
+    }
+
+    @Test
     fun `published, the same design is suggested to everyone`() = testApplication {
         setupRoutes()
         val stranger = createExtraUser("farm-suggestion-publisher")

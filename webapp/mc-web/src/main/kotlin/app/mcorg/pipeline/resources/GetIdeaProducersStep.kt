@@ -42,14 +42,16 @@ data class IdeaProducerInput(
  * A design whose version range does not contain [IdeaProducerInput.worldVersion] is left out: the
  * import refuses it ("Idea is not compatible with the world's Minecraft version"), so suggesting it
  * only leads the user to that refusal. The range is JSON, so it is checked here rather than in SQL,
- * with the same [MinecraftVersionRange.contains] the import uses.
+ * with the same [MinecraftVersionRange.contains] the import uses — decoded once per idea, and an
+ * idea whose range will not decode is left out on its own rather than failing every suggestion.
  *
  * ## MAX over modes
  *
  * An idea can describe several ways of running the same farm (V2_57_0), so a rate is picked per
  * item as the best any mode achieves. That mixes modes — the fastest mode for bones need not be the
- * fastest for blaze rods — and that is the honest answer: a built farm supplies what every one of
- * its modes makes (MCO-588), so "how fast can this design make this" is the best mode's rate.
+ * fastest for blaze rods. For runtime modes it is exact: a built farm supplies what every one of its
+ * modes makes (MCO-588). For build-time variants it is "at best": the import keeps one variant, so
+ * the farm built may be the slower one.
  * `MAX` skips NULLs, so an item returns null only when no mode ever measured it.
  */
 object GetIdeaProducersStep : Step<IdeaProducerInput, AppFailure, List<IdeaProducer>> {
@@ -77,8 +79,7 @@ object GetIdeaProducersStep : Step<IdeaProducerInput, AppFailure, List<IdeaProdu
             buildList {
                 while (rs.next()) {
                     val rate = rs.getInt("rate_per_hour").takeUnless { rs.wasNull() }
-                    val range = Json.decodeFromString(MinecraftVersionRange.serializer(), rs.getString("minecraft_version_range"))
-                    add(Row(rs.getInt("idea_id"), rs.getString("idea_name"), range, rs.getString("item_id"), rate))
+                    add(Row(rs.getInt("idea_id"), rs.getString("idea_name"), rs.getString("minecraft_version_range"), rs.getString("item_id"), rate))
                 }
             }
         }
@@ -93,8 +94,8 @@ object GetIdeaProducersStep : Step<IdeaProducerInput, AppFailure, List<IdeaProdu
             is Result.Failure -> r
             is Result.Success -> Result.success(
                 r.value
-                    .filter { it.versionRange.contains(input.worldVersion) }
                     .groupBy { it.ideaId to it.ideaName }
+                    .filterValues { rows -> importableInto(rows.first().versionRange, input.worldVersion) }
                     .map { (idea, rows) ->
                         IdeaProducer(
                             ideaId = idea.first,
@@ -106,10 +107,17 @@ object GetIdeaProducersStep : Step<IdeaProducerInput, AppFailure, List<IdeaProdu
         }
     }
 
+    private fun importableInto(rangeJson: String, version: MinecraftVersion): Boolean =
+        runCatching { Json.decodeFromString(MinecraftVersionRange.serializer(), rangeJson) }
+            .getOrNull()
+            ?.contains(version)
+            ?: false
+
     private data class Row(
         val ideaId: Int,
         val ideaName: String,
-        val versionRange: MinecraftVersionRange,
+        /** Raw JSON: decoded once per idea in [importableInto], not once per row. */
+        val versionRange: String,
         val itemId: String,
         val ratePerHour: Int?,
     )

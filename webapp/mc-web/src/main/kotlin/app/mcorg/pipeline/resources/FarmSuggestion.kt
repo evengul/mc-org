@@ -390,8 +390,9 @@ suspend fun farmSuggestionsFor(
         .filter { it !in notDemand }
     if (demandedIds.isEmpty()) return emptyList()
 
+    // fromString throws on a version it cannot read; that is "no suggestions", not a failed page.
     val worldVersion = GetWorldVersionStep.process(worldId).getOrNull()
-        ?.let { MinecraftVersion.fromString(it) }
+        ?.let { runCatching { MinecraftVersion.fromString(it) }.getOrNull() }
         ?: return emptyList()
     val producers = GetIdeaProducersStep
         .process(IdeaProducerInput(itemIds = demandedIds, viewerId = viewerId, worldVersion = worldVersion))
