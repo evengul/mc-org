@@ -18,18 +18,21 @@ class FormClassSourceScanTest {
 
     @Test
     fun `no template passes a positional string to form`() {
+        // Whole-file text rather than per line, so `form(` with its string on the next line counts.
         val offenders = File(sourceRoot(), "app/mcorg/presentation").walkTopDown()
             .filter { it.isFile && it.extension == "kt" }
             .flatMap { file ->
-                file.readLines().mapIndexedNotNull { index, line ->
-                    "${file.name}:${index + 1}".takeIf { POSITIONAL_FORM.containsMatchIn(line) }
+                val text = file.readText()
+                POSITIONAL_FORM.findAll(text).map { match ->
+                    "${file.name}:${text.substring(0, match.range.first).count { it == '\n' } + 1}"
                 }
             }
             .toList()
 
         assertTrue(
             offenders.isEmpty(),
-            "form's first parameter is `action`; pass the class as `form(classes = \"...\")`: $offenders",
+            "form's first parameter is `action`: pass a class as `form(classes = \"...\")`, " +
+                "and an action, if one is ever needed, as `form(action = \"...\")`: $offenders",
         )
     }
 
@@ -44,6 +47,7 @@ class FormClassSourceScanTest {
     }
 
     private companion object {
-        val POSITIONAL_FORM = Regex("""\bform\(\s*"""")
+        /** `\s` spans newlines. A constant passed positionally is not caught; that would take a parser. */
+        val POSITIONAL_FORM = Regex("""\bform\s*\(\s*"""")
     }
 }
