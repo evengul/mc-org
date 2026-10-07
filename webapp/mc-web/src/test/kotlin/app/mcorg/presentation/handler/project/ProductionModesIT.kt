@@ -277,7 +277,9 @@ class ProductionModesIT : WithUser() {
         // before switching; the rate rows below belong to the running mode alone.
         assertContains(body, "Modes · 2")
         assertContains(body, "RUNNING")
-        assertContains(body, "Switch to Cherry Mode")
+        // Cherry's row is the switch: it posts Cherry's id and reads "Cherry … Switch".
+        assertContains(body, "{&quot;modeId&quot;:&quot;$cherryModeId&quot;}")
+        assertContains(body, "mode-ledger__action\">Switch")
         assertContains(body, "Cherry Log 71,700 · Stick 1,100 /hr")
         assertContains(body, "Makes in Oak Mode")
         assertContains(body, "${oakLog.name} rate per hour")
