@@ -549,7 +549,7 @@
             if (key) foldState[key] = e.target.open;
         }, true);
 
-        document.body.addEventListener('htmx:afterSettle', function () {
+        document.body.addEventListener('htmx:after:settle', function () {
             var content = document.getElementById('project-content');
             if (!content) return;
             content.querySelectorAll('details').forEach(function (d) {

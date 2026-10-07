@@ -145,7 +145,7 @@
 
         // A new panel body (another row, or a variant picked from the chips) starts at its top,
         // where its title is — not wherever the chip list had been scrolled to.
-        document.body.addEventListener('htmx:afterSwap', function (e) {
+        document.body.addEventListener('htmx:after:settle', function (e) {
             if (!e.target || e.target.id !== 'resource-panel-content') return;
             var dialog = getDialog();
             if (dialog) dialog.scrollTop = 0;
@@ -196,10 +196,11 @@
 
         // The edit's response is the plan, out of band; nothing re-renders the panel. So the
         // panel takes the saved number itself — on success only, so a rejected one isn't shown.
-        dialog.addEventListener('htmx:afterRequest', function (e) {
+        dialog.addEventListener('htmx:after:request', function (e) {
             var input = e.target;
             if (!input.classList || !input.classList.contains('resource-panel__qty-input')) return;
-            if (!e.detail.successful) return;
+            var ctx = e.detail && e.detail.ctx;
+            if (!ctx || !ctx.response || ctx.response.status >= 400) return;
             var cell = input.closest('.resource-panel__qty');
             if (!cell) return;
             // The number the server stored ("007" is 7), not what was typed.
