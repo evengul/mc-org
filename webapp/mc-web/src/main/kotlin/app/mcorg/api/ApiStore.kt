@@ -7,6 +7,7 @@ import app.mcorg.pipeline.Result
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.failure.AppFailure
 import java.sql.ResultSet
+import java.time.Duration
 import java.time.Instant
 import java.time.OffsetDateTime
 import java.time.ZoneOffset
@@ -148,6 +149,28 @@ object CreateDeviceCodeStep : Step<CreateDeviceCodeInput, AppFailure.DatabaseErr
             },
         ).process(input)
 }
+
+/**
+ * Deletes device codes that expired more than [DEVICE_CODE_RETENTION] ago (MCO-274). Run on every
+ * create, so the table is bounded by the create rate limit rather than growing forever: nothing
+ * else ever removes a row, and the endpoint that inserts them is unauthenticated.
+ *
+ * Not at the moment of expiry, because the /link page tells a player their code "has expired"
+ * only while the row exists; once it is gone the same code reads as one they mistyped.
+ */
+object DeleteStaleDeviceCodesStep : Step<Unit, AppFailure.DatabaseError, Int> {
+    override suspend fun process(input: Unit) =
+        DatabaseSteps.update<Unit>(
+            sql = SafeSQL.delete("DELETE FROM device_code WHERE expires_at < ?"),
+            parameterSetter = { st, _ ->
+                val cutoff = Instant.now().minus(DEVICE_CODE_RETENTION)
+                st.setObject(1, OffsetDateTime.ofInstant(cutoff, ZoneOffset.UTC))
+            },
+        ).process(input)
+}
+
+/** How long an expired device code is kept so /link can still say it expired. */
+val DEVICE_CODE_RETENTION: Duration = Duration.ofDays(1)
 
 /** Row used by the browser /link approval flow (looked up by the user-typed code). */
 data class DeviceCodeApprovalRow(val id: Long, val status: String, val expiresAt: Instant)

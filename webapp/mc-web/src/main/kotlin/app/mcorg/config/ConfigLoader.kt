@@ -37,6 +37,7 @@ data class Config(
     val demoUser: String?,
     val previewPassword: String?,
     val webhookAdminSecret: String?,
+    val edgeOriginSecret: String?,
     val seamDiscordUrl: String?,
     val webhookSharedSecret: String?,
     val forceReingest: String?,
@@ -167,6 +168,16 @@ internal fun readConfig(getenv: (String) -> String? = System::getenv): ConfigLoa
         errors.add("PREVIEW_PASSWORD is not set (required in TEST to gate the public preview)")
     }
 
+    // The origin lock (MCO-274). Production sits behind Cloudflare, but Fly answers anyone who asks
+    // for app.seam.gg directly, so without this every per-IP limit could be sidestepped — and the
+    // client address it keys on forged — by skipping the edge. Required in PRODUCTION, where it is
+    // the only thing that makes CF-Connecting-IP trustworthy; optional elsewhere, and set only to
+    // exercise the gate locally. See EdgeOriginGate.
+    val edgeOriginSecret = getenv("EDGE_ORIGIN_SECRET")?.takeIf { it.isNotBlank() }
+    if (env == Production && edgeOriginSecret == null) {
+        errors.add("EDGE_ORIGIN_SECRET is not set (required in PRODUCTION to lock the origin to Cloudflare)")
+    }
+
     fun optional(name: String, default: String): String = getenv(name)?.takeIf { it.isNotBlank() } ?: default
 
     return ConfigLoad(
@@ -193,6 +204,7 @@ internal fun readConfig(getenv: (String) -> String? = System::getenv): ConfigLoa
             demoUser = getenv("DEMO_USER")?.takeIf { it.isNotBlank() },
             previewPassword = previewPassword,
             webhookAdminSecret = getenv("WEBHOOK_ADMIN_SECRET"),
+            edgeOriginSecret = edgeOriginSecret,
             seamDiscordUrl = getenv("SEAM_DISCORD_URL"),
             webhookSharedSecret = getenv("SEAM_WEBHOOK_SHARED_SECRET"),
             forceReingest = getenv("FORCE_REINGEST"),

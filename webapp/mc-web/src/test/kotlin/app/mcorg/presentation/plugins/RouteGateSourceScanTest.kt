@@ -17,8 +17,8 @@ class RouteGateSourceScanTest {
 
     @Test
     fun `no route plugin uses a bare onCall`() {
-        val pluginsDir = File(sourceRoot(), "app/mcorg/presentation/plugins")
-        val offenders = pluginsDir.listFiles { file -> file.extension == "kt" }!!
+        val offenders = SCANNED_DIRS
+            .flatMap { dir -> File(sourceRoot(), dir).listFiles { file -> file.extension == "kt" }!!.toList() }
             .filter { it.name != EXEMPT }
             .flatMap { file ->
                 file.readLines().mapIndexedNotNull { index, line ->
@@ -44,6 +44,12 @@ class RouteGateSourceScanTest {
 
     private companion object {
         val BARE_ON_CALL = Regex("""\bonCall\s*\{""")
+
+        /**
+         * `api/` joined in MCO-274: its auth plugins sit below a rate limit, and with a bare
+         * `onCall` they ran their token lookup on every request the limit had already refused.
+         */
+        val SCANNED_DIRS = listOf("app/mcorg/presentation/plugins", "app/mcorg/api")
 
         /** Defines onUnansweredCall on top of onCall. */
         const val EXEMPT = "RouteGate.kt"

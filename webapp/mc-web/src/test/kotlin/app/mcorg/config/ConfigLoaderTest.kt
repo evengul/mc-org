@@ -35,6 +35,7 @@ class ConfigLoaderTest {
         "MICROSOFT_CLIENT_SECRET" to "client-secret",
         "RSA_PRIVATE_KEY" to "private",
         "RSA_PUBLIC_KEY" to "public",
+        "EDGE_ORIGIN_SECRET" to "edge-secret",
     )
 
     private fun productionEnvWithout(vararg names: String) =
@@ -124,8 +125,8 @@ class ConfigLoaderTest {
         @JUnitTest
         fun `problems accumulate rather than short-circuiting on the first one`() {
             val load = readConfig(envOf("ENV" to "PRODUCTION"))
-            // DB x3, Microsoft x2, RSA x2
-            assertEquals(7, load.errors.size, "got ${load.errors}")
+            // DB x3, Microsoft x2, RSA x2, edge origin secret
+            assertEquals(8, load.errors.size, "got ${load.errors}")
         }
 
         @JUnitTest
@@ -258,6 +259,32 @@ class ConfigLoaderTest {
         fun `Production does not require PREVIEW_PASSWORD`() {
             val load = readConfig(envOf(*productionEnv))
             assertFalse(load.errors.any { it.startsWith("PREVIEW_PASSWORD") })
+        }
+    }
+
+    @Nested
+    inner class EdgeOriginSecret {
+
+        @JUnitTest
+        fun `Production requires EDGE_ORIGIN_SECRET`() {
+            val load = readConfig(productionEnvWithout("EDGE_ORIGIN_SECRET"))
+            assertTrue(load.errors.any { it.startsWith("EDGE_ORIGIN_SECRET is not set") }, "got ${load.errors}")
+        }
+
+        @JUnitTest
+        fun `Test and Local leave the origin open when EDGE_ORIGIN_SECRET is unset`() {
+            for (env in listOf("TEST", "LOCAL")) {
+                val load = readConfig(envOf("ENV" to env))
+                assertFalse(load.errors.any { it.startsWith("EDGE_ORIGIN_SECRET") }, "ENV=$env got ${load.errors}")
+                assertNull(load.config.edgeOriginSecret)
+            }
+        }
+
+        @JUnitTest
+        fun `a blank EDGE_ORIGIN_SECRET counts as unset`() {
+            val load = readConfig(envOf(*productionEnv, "EDGE_ORIGIN_SECRET" to "  "))
+            assertTrue(load.errors.any { it.startsWith("EDGE_ORIGIN_SECRET is not set") }, "got ${load.errors}")
+            assertNull(load.config.edgeOriginSecret)
         }
     }
 

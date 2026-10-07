@@ -21,6 +21,8 @@ import app.mcorg.pipeline.task.commonsteps.SetTaskCompletedInput
 import app.mcorg.pipeline.task.commonsteps.SetTaskCompletedStep
 import app.mcorg.pipeline.world.commonsteps.GetPermittedWorldsInput
 import app.mcorg.pipeline.world.commonsteps.GetPermittedWorldsStep
+import app.mcorg.presentation.plugins.SeamRateLimit
+import app.mcorg.presentation.plugins.rateLimited
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.application.install
@@ -41,47 +43,58 @@ import java.time.Instant
  * the app which returns HTML fragments.
  */
 fun Route.apiV1Routes() {
+    // Limited per client address before any of the auth plugins below run, so a request they
+    // refuse still counts (MCO-274; limits and reasoning in SeamRateLimit).
     route("/api/v1") {
-        // Device-code flow (unauthenticated — this is how the mod obtains its first token). These
-        // live under `/auth/device-code`, distinct from the bearer-gated `/auth/token` node below.
-        post("/auth/device-code") { call.handleCreateDeviceCode() }
-        post("/auth/device-code/poll") { call.handlePollDeviceCode() }
+        rateLimited(SeamRateLimit.API) {
+            // Device-code flow (unauthenticated — this is how the mod obtains its first token).
+            // These live under `/auth/device-code`, distinct from the bearer-gated `/auth/token`
+            // node below.
+            rateLimited(SeamRateLimit.DEVICE_CODE_CREATE_BURST) {
+                rateLimited(SeamRateLimit.DEVICE_CODE_CREATE_SUSTAINED) {
+                    post("/auth/device-code") { call.handleCreateDeviceCode() }
+                }
+            }
+            rateLimited(SeamRateLimit.DEVICE_CODE_POLL) {
+                post("/auth/device-code/poll") { call.handlePollDeviceCode() }
+            }
 
-        // Bearer-gated groups. The plugin is installed per sub-route (not on the shared `/api/v1`
-        // node) so the unauthenticated device-code endpoints stay open.
-        route("/auth/token") {
-            install(ApiBearerAuthPlugin)
-            delete { call.handleRevokeToken() }
-        }
-        route("/worlds") {
-            install(ApiBearerAuthPlugin)
-            // Container tagging (MCO-530) put writes under this node, so it needs the same demo
-            // block the /projects group has. No-op for the GETs above it.
-            install(ApiDemoWriteBlockPlugin)
-            get { call.handleGetWorlds() }
-            get("/{worldId}/projects") { call.handleGetWorldProjects() }
-            get("/{worldId}/containers") { call.handleGetContainerTags() }
-            post("/{worldId}/containers") { call.handleTagContainer() }
-            delete("/{worldId}/containers/{containerId}") { call.handleUntagContainer() }
-            // The HUD's frequent poll (~10s per player). Deliberately cheap — one indexed read.
-            get("/{worldId}/storage") { call.handleGetWorldStorage() }
-            // "Is anything reading my chests?" (MCO-536). Structure cadence, never the count poll.
-            get("/{worldId}/reporter") { call.handleGetReporterStatus() }
-        }
-        // The reporter's own surface (MCO-532). Gated by a plugin that accepts a world-scoped
-        // reporter token OR a player token (the singleplayer path), never the player plugin.
-        route("/reporter") {
-            install(ApiReporterAuthPlugin)
-            get("/tags") { call.handleGetReporterTags() }
-            post("/contents") { call.handlePushReporterContents() }
-        }
-        route("/projects") {
-            install(ApiBearerAuthPlugin)
-            // Block demo-user writes in Production (reads stay open) — mirrors DemoUserPlugin.
-            install(ApiDemoWriteBlockPlugin)
-            get("/{projectId}/plan") { call.handleGetProjectPlan() }
-            post("/{projectId}/resources/sync") { call.handleSyncResources() }
-            put("/{projectId}/tasks/{taskId}") { call.handleUpdateTask() }
+            // Bearer-gated groups. The plugin is installed per sub-route (not on the shared
+            // `/api/v1` node) so the unauthenticated device-code endpoints stay open.
+            route("/auth/token") {
+                install(ApiBearerAuthPlugin)
+                delete { call.handleRevokeToken() }
+            }
+            route("/worlds") {
+                install(ApiBearerAuthPlugin)
+                // Container tagging (MCO-530) put writes under this node, so it needs the same demo
+                // block the /projects group has. No-op for the GETs above it.
+                install(ApiDemoWriteBlockPlugin)
+                get { call.handleGetWorlds() }
+                get("/{worldId}/projects") { call.handleGetWorldProjects() }
+                get("/{worldId}/containers") { call.handleGetContainerTags() }
+                post("/{worldId}/containers") { call.handleTagContainer() }
+                delete("/{worldId}/containers/{containerId}") { call.handleUntagContainer() }
+                // The HUD's frequent poll (~10s per player). Deliberately cheap — one indexed read.
+                get("/{worldId}/storage") { call.handleGetWorldStorage() }
+                // "Is anything reading my chests?" (MCO-536). Structure cadence, never the count poll.
+                get("/{worldId}/reporter") { call.handleGetReporterStatus() }
+            }
+            // The reporter's own surface (MCO-532). Gated by a plugin that accepts a world-scoped
+            // reporter token OR a player token (the singleplayer path), never the player plugin.
+            route("/reporter") {
+                install(ApiReporterAuthPlugin)
+                get("/tags") { call.handleGetReporterTags() }
+                post("/contents") { call.handlePushReporterContents() }
+            }
+            route("/projects") {
+                install(ApiBearerAuthPlugin)
+                // Block demo-user writes in Production (reads stay open) — mirrors DemoUserPlugin.
+                install(ApiDemoWriteBlockPlugin)
+                get("/{projectId}/plan") { call.handleGetProjectPlan() }
+                post("/{projectId}/resources/sync") { call.handleSyncResources() }
+                put("/{projectId}/tasks/{taskId}") { call.handleUpdateTask() }
+            }
         }
     }
 }
@@ -98,6 +111,8 @@ private fun verificationUri(): String {
 }
 
 suspend fun ApplicationCall.handleCreateDeviceCode() {
+    // Housekeeping, not a precondition: a failure here is no reason to refuse the code.
+    DeleteStaleDeviceCodesStep.process(Unit)
     val deviceCode = ApiCrypto.newToken()
     val userCode = ApiCrypto.newUserCode()
     val expiresAt = Instant.now().plusSeconds(DEVICE_CODE_TTL_SECONDS)

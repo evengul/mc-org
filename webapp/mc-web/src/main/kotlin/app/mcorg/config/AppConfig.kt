@@ -64,6 +64,11 @@ object AppConfig {
     // WEBHOOK_ADMIN_SECRET is provided. See MachineEndpointAuthPlugin.
     var webhookAdminSecret: String? = null
 
+    // Shared secret Cloudflare adds to every request it forwards (MCO-274). When set, a request
+    // without it is refused and the client address is read from CF-Connecting-IP. Required in
+    // PRODUCTION; unset elsewhere. See EdgeOriginGate.
+    var edgeOriginSecret: String? = null
+
     // Base URL of the seam-discord Cloudflare Worker (MCO-240). World admins connect a Discord
     // channel from world settings; the resulting webhook callback URL is built from this base
     // (`<SEAM_DISCORD_URL>/seam-events/<channelId>`). Optional: when unset the Discord settings
@@ -113,6 +118,7 @@ object AppConfig {
         demoUser = config.demoUser
         previewPassword = config.previewPassword
         webhookAdminSecret = config.webhookAdminSecret
+        edgeOriginSecret = config.edgeOriginSecret
         seamDiscordUrl = config.seamDiscordUrl
         webhookSharedSecret = config.webhookSharedSecret
         forceReingest = config.forceReingest

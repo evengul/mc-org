@@ -3,6 +3,7 @@ package app.mcorg.api
 import app.mcorg.config.AppConfig
 import app.mcorg.domain.Production
 import app.mcorg.pipeline.Result
+import app.mcorg.presentation.plugins.onUnansweredCall
 import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.ApplicationCall
@@ -30,14 +31,14 @@ fun ApplicationCall.getApiTokenHash(): String = attributes[API_TOKEN_HASH_KEY]
  * JWT-exempt (see AuthPlugin's allowlist) so this is the only gate on these routes.
  */
 val ApiBearerAuthPlugin = createRouteScopedPlugin("ApiBearerAuthPlugin") {
-    onCall { call ->
+    onUnansweredCall { call ->
         val header = call.request.header("Authorization")
         val token = header?.takeIf { it.startsWith("Bearer ", ignoreCase = true) }
             ?.substring(7)?.trim()
             ?.takeIf { it.isNotEmpty() }
         if (token == null) {
             call.respondApiError(HttpStatusCode.Unauthorized, "invalid_token", "Missing or malformed bearer token")
-            return@onCall
+            return@onUnansweredCall
         }
         val hash = ApiCrypto.sha256Hex(token)
         when (val lookup = LookupApiTokenUserStep.process(hash)) {
@@ -47,7 +48,7 @@ val ApiBearerAuthPlugin = createRouteScopedPlugin("ApiBearerAuthPlugin") {
                 // same global ban here (shared lookup + cache). Banned accounts get 403, not 401.
                 if ((IsUserBannedStep.process(userId) as? Result.Success)?.value == true) {
                     call.respondApiError(HttpStatusCode.Forbidden, "forbidden", "This account is banned")
-                    return@onCall
+                    return@onUnansweredCall
                 }
                 call.attributes.put(API_USER_ID_KEY, userId)
                 call.attributes.put(API_TOKEN_HASH_KEY, hash)
@@ -89,14 +90,14 @@ fun ApplicationCall.getApiUserIdOrNull(): Int? = attributes.getOrNull(API_USER_I
  * it without having to know this plugin exists.
  */
 val ApiReporterAuthPlugin = createRouteScopedPlugin("ApiReporterAuthPlugin") {
-    onCall { call ->
+    onUnansweredCall { call ->
         val header = call.request.header("Authorization")
         val token = header?.takeIf { it.startsWith("Bearer ", ignoreCase = true) }
             ?.substring(7)?.trim()
             ?.takeIf { it.isNotEmpty() }
         if (token == null) {
             call.respondApiError(HttpStatusCode.Unauthorized, "invalid_token", "Missing or malformed bearer token")
-            return@onCall
+            return@onUnansweredCall
         }
         val hash = ApiCrypto.sha256Hex(token)
 
@@ -105,7 +106,7 @@ val ApiReporterAuthPlugin = createRouteScopedPlugin("ApiReporterAuthPlugin") {
             is Result.Success -> {
                 call.attributes.put(REPORTER_WORLD_ID_KEY, reporter.value.worldId)
                 call.attributes.put(REPORTER_TOKEN_ID_KEY, reporter.value.tokenId)
-                return@onCall
+                return@onUnansweredCall
             }
             is Result.Failure -> Unit
         }
@@ -116,7 +117,7 @@ val ApiReporterAuthPlugin = createRouteScopedPlugin("ApiReporterAuthPlugin") {
                 val userId = lookup.value
                 if ((IsUserBannedStep.process(userId) as? Result.Success)?.value == true) {
                     call.respondApiError(HttpStatusCode.Forbidden, "forbidden", "This account is banned")
-                    return@onCall
+                    return@onUnansweredCall
                 }
                 call.attributes.put(API_USER_ID_KEY, userId)
                 call.attributes.put(API_TOKEN_HASH_KEY, hash)
@@ -142,10 +143,10 @@ val ApiReporterAuthPlugin = createRouteScopedPlugin("ApiReporterAuthPlugin") {
  * This was the one gate in the app that opened when the database wobbled.
  */
 val ApiDemoWriteBlockPlugin = createRouteScopedPlugin("ApiDemoWriteBlockPlugin") {
-    onCall { call ->
-        if (AppConfig.env != Production) return@onCall
-        if (call.request.httpMethod in listOf(HttpMethod.Get, HttpMethod.Options)) return@onCall
-        val userId = call.attributes.getOrNull(API_USER_ID_KEY) ?: return@onCall
+    onUnansweredCall { call ->
+        if (AppConfig.env != Production) return@onUnansweredCall
+        if (call.request.httpMethod in listOf(HttpMethod.Get, HttpMethod.Options)) return@onUnansweredCall
+        val userId = call.attributes.getOrNull(API_USER_ID_KEY) ?: return@onUnansweredCall
         when (val demo = IsDemoUserStep.process(userId)) {
             is Result.Success ->
                 if (demo.value) {
