@@ -19,7 +19,7 @@ class RouteGateSourceScanTest {
     fun `no route plugin uses a bare onCall`() {
         val pluginsDir = File(sourceRoot(), "app/mcorg/presentation/plugins")
         val offenders = pluginsDir.listFiles { file -> file.extension == "kt" }!!
-            .filter { it.name !in EXEMPT }
+            .filter { it.name != EXEMPT }
             .flatMap { file ->
                 file.readLines().mapIndexedNotNull { index, line ->
                     "${file.name}:${index + 1}".takeIf { BARE_ON_CALL.containsMatchIn(line) }
@@ -45,15 +45,7 @@ class RouteGateSourceScanTest {
     private companion object {
         val BARE_ON_CALL = Regex("""\bonCall\s*\{""")
 
-        /**
-         * File → why it may use a bare `onCall`. The two authentication plugins are installed
-         * first on their routes, so nothing answers before them today, and a change to an auth
-         * plugin is a human checkpoint (CLAUDE.md) rather than something to fold into a refactor.
-         */
-        val EXEMPT = mapOf(
-            "RouteGate.kt" to "defines onUnansweredCall on top of onCall",
-            "AuthPlugin.kt" to "authentication; first plugin at the routing root",
-            "MachineEndpointAuthPlugin.kt" to "authentication; only plugin on /test/ready",
-        ).keys
+        /** Defines onUnansweredCall on top of onCall. */
+        const val EXEMPT = "RouteGate.kt"
     }
 }
