@@ -7,6 +7,10 @@ import app.mcorg.presentation.hxOutOfBands
 import app.mcorg.presentation.templated.dsl.ALERT_CONTAINER_ID
 import app.mcorg.presentation.templated.dsl.AlertType
 import app.mcorg.presentation.templated.dsl.createAlert
+import app.mcorg.presentation.templated.error.errorPageLayout
+import app.mcorg.presentation.templated.error.forbiddenPage
+import app.mcorg.presentation.templated.error.notFoundPage
+import app.mcorg.presentation.templated.error.serverErrorPage
 import app.mcorg.presentation.utils.clientRedirect
 import app.mcorg.presentation.utils.hxSwap
 import app.mcorg.presentation.utils.hxTarget
@@ -167,7 +171,7 @@ suspend fun <E : AppFailure> ApplicationCall.defaultHandleError(error: E) {
     logFailure(error, response.volume)
 
     when (response) {
-        is FailureResponse.Alert -> respondAlert(response)
+        is FailureResponse.Alert -> respondRefusal(response.status, response.title, response.message, response.id)
         is FailureResponse.RedirectTo -> respondRedirectFor(response.url)
         is FailureResponse.ValidationMessages -> respondValidationMessages(response)
     }
@@ -235,15 +239,46 @@ private fun List<ValidationFailure>.toHttpStatusCode(): HttpStatusCode {
     return HttpStatusCode.BadRequest
 }
 
-private suspend fun ApplicationCall.respondAlert(alert: FailureResponse.Alert) {
-    hxTarget("#$ALERT_CONTAINER_ID")
-    hxSwap("afterbegin")
-    respondHtml(createHTML().li {
-        createAlert(
-            id = alert.id,
-            title = alert.title,
-            message = alert.message,
-            type = AlertType.ERROR
-        )
-    }, statusCode = alert.status)
+/**
+ * A refusal the person who triggered it can see, whichever way the request arrived (MCO-158,
+ * MCO-436). Route plugins answer with this, and so does every [FailureResponse.Alert].
+ *
+ * Under HTMX: the standard alert, prepended to the alert container. The body carries
+ * `hx-ext="response-targets"`, which swaps a non-200 response only when it names a target, so
+ * a refusal without `HX-Retarget` reaches the browser and changes nothing on screen.
+ *
+ * Anything else is a page load (a typed URL, a link, a bookmark) and gets the status page with
+ * the app's chrome. A bare alert fragment there renders as one unstyled sentence.
+ *
+ * A 404 under HTMX only survives because the `StatusPages` 404 handler stands aside for HTMX
+ * requests (`Routing.kt`); it replaces every other 404 body with the full page.
+ */
+suspend fun ApplicationCall.respondRefusal(status: HttpStatusCode, title: String, message: String, alertId: String) {
+    if (request.headers["HX-Request"] == "true") {
+        hxTarget("#$ALERT_CONTAINER_ID")
+        hxSwap("afterbegin")
+        respondHtml(createHTML().li {
+            createAlert(
+                id = alertId,
+                title = title,
+                message = message,
+                type = AlertType.ERROR
+            )
+        }, statusCode = status)
+    } else {
+        respondHtml(statusPage(status, message), statusCode = status)
+    }
+}
+
+private fun ApplicationCall.statusPage(status: HttpStatusCode, message: String): String = when {
+    status == HttpStatusCode.NotFound -> notFoundPage()
+    status == HttpStatusCode.Forbidden -> forbiddenPage(message)
+    status.value >= 500 -> serverErrorPage(callId)
+    else -> errorPageLayout(
+        pageTitle = "${status.value} — ${status.description} · Seam",
+        heading = "${status.value} — ${status.description}",
+        body = message,
+        ctaText = "Back to worlds",
+        ctaHref = "/worlds",
+    )
 }

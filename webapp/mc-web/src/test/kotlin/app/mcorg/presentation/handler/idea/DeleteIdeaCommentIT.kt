@@ -19,6 +19,8 @@ import ch.qos.logback.classic.Logger
 import ch.qos.logback.classic.spi.ILoggingEvent
 import ch.qos.logback.core.read.ListAppender
 import io.ktor.client.request.delete
+import io.ktor.client.request.header
+import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.routing.method
@@ -32,6 +34,7 @@ import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.api.extension.ExtendWith
+import kotlin.test.assertContains
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
@@ -103,6 +106,26 @@ class DeleteIdeaCommentIT : WithUser() {
 
         assertEquals(HttpStatusCode.Forbidden, response.status)
         assertTrue(!commentIsGone(commentId), "a refused delete must not have deleted anything")
+    }
+
+    @Test
+    fun `the refusal reaches the screen as an alert`() = testApplication {
+        // MCO-436. The comment's Delete button is an HTMX request, and htmx swaps a 4xx only when
+        // the response names a target. The bare "You can only delete your own comments." it used
+        // to get carried none, so the click failed and nothing on screen changed.
+        val author = createExtraUser()
+        val ideaId = createIdea(author)
+        val commentId = createComment(ideaId, author)
+        installCommentRoutes()
+
+        val response = client.delete("/ideas/$ideaId/comments/$commentId") {
+            addAuthCookie(this)
+            header("HX-Request", "true")
+        }
+
+        assertEquals(HttpStatusCode.Forbidden, response.status)
+        assertEquals("#alert-container", response.headers["HX-Retarget"])
+        assertContains(response.bodyAsText(), "You can only delete your own comments.")
     }
 
     @Test

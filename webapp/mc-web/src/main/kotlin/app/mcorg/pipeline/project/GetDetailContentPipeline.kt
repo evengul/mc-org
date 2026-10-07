@@ -24,7 +24,6 @@ import app.mcorg.pipeline.world.ValidateWorldMemberRole
 import app.mcorg.presentation.utils.getProjectId
 import app.mcorg.presentation.utils.getUser
 import app.mcorg.presentation.utils.getWorldId
-import app.mcorg.presentation.utils.respondBadRequest
 import app.mcorg.pipeline.resources.GetProjectMeasurementsStep
 import app.mcorg.presentation.utils.respondHtml
 import io.ktor.server.application.ApplicationCall
@@ -57,7 +56,7 @@ suspend fun ApplicationCall.respondGatheringPlannerContent() {
     val tasks = when (val result = SearchTasksStep(projectId).process(SearchTasksInput(completionStatus = "ALL"))) {
         is Result.Success -> result.value
         is Result.Failure -> {
-            respondBadRequest("Failed to load tasks")
+            defaultHandleError(result.error)
             return
         }
     }

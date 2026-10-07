@@ -14,6 +14,7 @@ import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.world.ValidateWorldMemberRole
 import app.mcorg.presentation.consts.AUTH_COOKIE
 import app.mcorg.presentation.consts.ISSUER
+import app.mcorg.presentation.handler.respondRefusal
 import app.mcorg.presentation.templated.error.bannedPage
 import app.mcorg.presentation.utils.getIdeaCommentId
 import app.mcorg.presentation.utils.getIdeaId
@@ -25,6 +26,10 @@ import io.ktor.server.application.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import org.slf4j.LoggerFactory
+
+/** A 403 the person can see: the alert under HTMX, the forbidden page on a page load. */
+private suspend fun ApplicationCall.forbid(reason: String) =
+    respondRefusal(HttpStatusCode.Forbidden, "Not Authorized", reason, alertId = "not-authorized-error")
 
 val AdminPlugin = createRouteScopedPlugin("AdminPlugin") {
     onCall {
@@ -42,7 +47,7 @@ val WorldAdminPlugin = createRouteScopedPlugin("WorldAdminPlugin") {
 
         val result = ValidateWorldMemberRole<Unit>(user, Role.ADMIN, worldId).process(Unit)
         if (result is Result.Failure && result.error is AppFailure.AuthError.NotAuthorized) {
-            it.respond(HttpStatusCode.Forbidden, "You don't have permission to access this world.")
+            it.forbid("You don't have permission to access this world.")
         }
     }
 }
@@ -63,7 +68,7 @@ val WorldParticipantPlugin = createRouteScopedPlugin("WorldParticipantPlugin") {
 
         val result = ValidateWorldMemberRole<Unit>(user, Role.MEMBER, worldId).process(Unit)
         if (result is Result.Failure && result.error is AppFailure.AuthError.NotAuthorized) {
-            it.respond(HttpStatusCode.Forbidden, "You don't have permission to access this world.")
+            it.forbid("You don't have permission to access this world.")
         }
     }
 }
@@ -76,7 +81,7 @@ val WorldOwnerPlugin = createRouteScopedPlugin("WorldOwnerPlugin") {
 
         val result = ValidateWorldMemberRole<Unit>(user, Role.OWNER, worldId).process(Unit)
         if (result is Result.Failure && result.error is AppFailure.AuthError.NotAuthorized) {
-            it.respond(HttpStatusCode.Forbidden, "Only the world owner can perform this action.")
+            it.forbid("Only the world owner can perform this action.")
         }
     }
 }
@@ -165,7 +170,7 @@ val IdeaCommentAuthorPlugin = createRouteScopedPlugin("IdeaCommentAuthorPlugin")
 
         // Fails closed: a database error denies rather than admits.
         if (permitted !is Result.Success || !permitted.value) {
-            call.respond(HttpStatusCode.Forbidden, "You can only delete your own comments.")
+            call.forbid("You can only delete your own comments.")
         }
     }
 }
@@ -185,7 +190,7 @@ val DemoUserPlugin = createRouteScopedPlugin("DemoUserPlugin") {
                 val logger = LoggerFactory.getLogger("DemoUserPlugin")
                 // path(), not uri() (MCO-339): uri includes the query string, path does not.
                 logger.warn("Blocked ${it.request.httpMethod} request from demo user '${user.minecraftUsername}' to ${it.request.path()}")
-                it.respond(HttpStatusCode.Forbidden, "Demo users are not allowed to ${it.request.httpMethod} requests.")
+                it.forbid("The demo account can look around, but it can't change anything.")
             }
         }
     }

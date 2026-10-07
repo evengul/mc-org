@@ -73,6 +73,10 @@ fun Application.configureStatusStaticRouter() {
             }
         }
         status(HttpStatusCode.NotFound) { call, _ ->
+            // An HTMX request keeps its own 404: the full page swapped into a fragment target puts
+            // a whole <html> document inside the alert list (MCO-158). Returning without
+            // responding sends the original body unchanged.
+            if (call.request.headers["HX-Request"] == "true") return@status
             call.respondHtml(notFoundPage(), HttpStatusCode.NotFound)
         }
     }
