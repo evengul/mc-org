@@ -94,6 +94,35 @@ class ProjectInputInvalidationIT : WithUser() {
     }
 
     @Test
+    fun `a project whose last item is collected loses its demand, once`() {
+        // Nothing left to plan used to end the derivation before anything was written, so the
+        // roadmap kept drawing the old demand and retried the project on every load.
+        val projectId = createProject("Finished Smelter")
+        gather(projectId, furnace, 10)
+        loadRoadmap()
+        assertEquals(80, demandQuantity(projectId, cobblestone))
+
+        runBlocking { SetProgressByItemStep.process(SetProgressByItemInput(projectId, furnace.id, 10)) }
+        loadRoadmap()
+
+        assertEquals(-1, demandQuantity(projectId, cobblestone), "nothing is left to gather")
+        assertTrue(hasState(projectId), "and that counts as derived, so the next load does nothing")
+    }
+
+    @Test
+    fun `a project whose every target is ignored loses its demand`() {
+        val projectId = createProject("Shelved")
+        val rowId = gather(projectId, furnace, 10)
+        loadRoadmap()
+        assertEquals(80, demandQuantity(projectId, cobblestone))
+
+        sql("UPDATE resource_gathering SET ignored = TRUE WHERE id = ?", rowId)
+        loadRoadmap()
+
+        assertEquals(-1, demandQuantity(projectId, cobblestone))
+    }
+
+    @Test
     fun `adding, changing and removing a requirement each drop the project's stored demand`() {
         val projectId = createProject("Workshop")
         val other = createProject("Neighbour")

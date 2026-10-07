@@ -117,11 +117,13 @@ object GenerateGatheringPlanStep : Step<GatheringPlanInput, AppFailure, Gatherin
             is Result.Failure -> return r
         }
 
-        // 1b. When that version's game data last finished ingesting, for the fingerprint. Read
-        // before the graph, not after: a re-ingest landing between the two then makes this plan
-        // look older than its data — one redundant re-derive — never newer, which would keep a
-        // plan built on the old data marked current.
-        val gameDataEpoch = GetItemSourceGraphForVersionStep.currentEpoch(versionString)
+        // 1b. When that version's game data last finished ingesting, stored with the plan. Read
+        // from the ledger rather than the TTL cache, which also refreshes the cache so step 2
+        // rebuilds a graph that predates it: a cached epoch would let a plan built on the old
+        // graph be stored as a plan of the new data. Read before the graph, so a re-ingest landing
+        // between the two makes this plan look older than its data (one redundant re-derive),
+        // never newer.
+        val gameDataEpoch = GetItemSourceGraphForVersionStep.freshEpoch(versionString)
 
         // 2. Get (or build and cache) the item-source graph for that version. Taken as the cached
         // entry rather than the bare graph because the cost model is keyed by its build instant.
@@ -151,6 +153,15 @@ object GenerateGatheringPlanStep : Step<GatheringPlanInput, AppFailure, Gatherin
         }
 
         if (targets.isEmpty()) {
+            // Nothing left to plan is a derivation too: the project's stored rows are cleared and
+            // it is marked derived, or the roadmap would keep drawing the demand it had before the
+            // last item was collected (or the last target ignored).
+            if (input.assumeBuilt.isEmpty()) {
+                storeDemand(
+                    input.projectId, versionString, gameDataEpoch, activeItems,
+                    supplied = emptyMap(), overrides = PlanOverrides.NONE, plan = null, woodSpecies = null,
+                )
+            }
             return Result.failure(
                 AppFailure.customValidationError(
                     "targets",
@@ -232,7 +243,7 @@ object GenerateGatheringPlanStep : Step<GatheringPlanInput, AppFailure, Gatherin
         activeItems: List<ResourceGatheringItem>,
         supplied: Map<String, SupplySource>,
         overrides: PlanOverrides,
-        plan: GatheringPlan,
+        plan: GatheringPlan?,
         woodSpecies: String?,
     ) {
         val fingerprint = DemandFingerprint.of(
@@ -250,7 +261,7 @@ object GenerateGatheringPlanStep : Step<GatheringPlanInput, AppFailure, Gatherin
         val stored = GetStoredDemandFingerprintStep(projectId).process(Unit)
         if (stored is Result.Success && stored.value == fingerprint) return
 
-        val saved = SaveProjectDemandStep(projectId, fingerprint).process(plan)
+        val saved = SaveProjectDemandStep(projectId, fingerprint, gameDataEpoch).process(plan)
         if (saved is Result.Failure) {
             // No exception and no row data in the message: a PostgreSQL error appends
             // `DETAIL: Key (col)=(value)`, which is user content. See documentation/logging.md.

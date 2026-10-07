@@ -286,6 +286,29 @@ class WorldInputInvalidationIT : WithUser() {
         assertEquals(secondDerivation, derivedAt(projectId), "a third load has nothing to do")
     }
 
+    /**
+     * The epoch is cached for a minute, and the graph's staleness is judged against that cache. A
+     * derivation that read the cached epoch after a second re-ingest stored the old epoch's
+     * fingerprint, found it equal to what was stored, and skipped the write — so for that minute
+     * every roadmap load re-derived every project in the world and kept none of it. With
+     * `derived_at` as the yardstick it could also store a plan of the old graph as current.
+     */
+    @Test
+    fun `a re-ingest is seen at once, not when the cached epoch expires`() {
+        val worldId = createWorld("Reingest Twice World", reingested)
+        val projectId = createProject(worldId, "Smelter")
+        gather(projectId, furnace, 1)
+        markIngested(reingested)
+        loadRoadmap(worldId)
+        assertEquals(emptyList(), uncovered(worldId))
+
+        markIngested(reingested, clearCaches = false)
+        loadRoadmap(worldId)
+
+        assertEquals(emptyList(), uncovered(worldId), "re-derived against the new epoch, and kept")
+        assertEquals(ledgerEpoch(reingested), storedEpoch(projectId))
+    }
+
     // ---- routing — mirrors WorldHandler -------------------------------------------------
 
     private fun ApplicationTestBuilder.setupRoutes() {
@@ -345,7 +368,7 @@ class WorldInputInvalidationIT : WithUser() {
     }
 
     /** Moves the version's ingestion epoch to now, as a completed re-ingest does. */
-    private fun markIngested(version: MinecraftVersion) = runBlocking {
+    private fun markIngested(version: MinecraftVersion, clearCaches: Boolean = true) = runBlocking {
         DatabaseSteps.update<Unit>(
             sql = SafeSQL.insert(
                 """
@@ -356,8 +379,27 @@ class WorldInputInvalidationIT : WithUser() {
             ),
             parameterSetter = { stmt, _ -> stmt.setString(1, version.toString()) },
         ).process(Unit)
-        // The epoch is cached with a short TTL; a real re-ingest is seen once it lapses.
-        CacheManager.invalidateAll()
+        // The epoch is cached with a short TTL. Clearing it stands for "after the TTL"; not
+        // clearing it is the minute in between.
+        if (clearCaches) CacheManager.invalidateAll()
+    }
+
+    private fun ledgerEpoch(version: MinecraftVersion): Timestamp = runBlocking {
+        val result = DatabaseSteps.query<Unit, Timestamp>(
+            sql = SafeSQL.select("SELECT completed_at FROM minecraft_version_ingestion WHERE version = ?"),
+            parameterSetter = { stmt, _ -> stmt.setString(1, version.toString()) },
+            resultMapper = { rs -> rs.next(); rs.getTimestamp("completed_at") }
+        ).process(Unit)
+        (result as Result.Success).value
+    }
+
+    private fun storedEpoch(projectId: Int): Timestamp? = runBlocking {
+        val result = DatabaseSteps.query<Unit, Timestamp?>(
+            sql = SafeSQL.select("SELECT game_data_epoch FROM project_demand_state WHERE project_id = ?"),
+            parameterSetter = { stmt, _ -> stmt.setInt(1, projectId) },
+            resultMapper = { rs -> if (rs.next()) rs.getTimestamp("game_data_epoch") else null }
+        ).process(Unit)
+        (result as Result.Success).value
     }
 
     private fun stampState(projectId: Int, revision: Int = DemandFingerprint.REVISION) = runBlocking {

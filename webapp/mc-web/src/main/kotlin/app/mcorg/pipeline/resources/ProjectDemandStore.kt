@@ -104,10 +104,12 @@ data class GetStoredDemandFingerprintStep(val projectId: Int) :
 data class SaveProjectDemandStep(
     val projectId: Int,
     val fingerprint: DemandFingerprint,
-) : Step<GatheringPlan, AppFailure.DatabaseError, Unit> {
+    val gameDataEpoch: Instant? = null,
+) : Step<GatheringPlan?, AppFailure.DatabaseError, Unit> {
 
-    override suspend fun process(input: GatheringPlan): Result<AppFailure.DatabaseError, Unit> {
-        val rows = input.activityList.map { activity ->
+    /** A null plan is "nothing left to plan": the project's rows are cleared, and that is stored as derived too. */
+    override suspend fun process(input: GatheringPlan?): Result<AppFailure.DatabaseError, Unit> {
+        val rows = input?.activityList.orEmpty().map { activity ->
             ProjectDemand(
                 projectId = projectId,
                 itemId = activity.item.id,
@@ -153,17 +155,18 @@ data class SaveProjectDemandStep(
                     val stamped = DatabaseSteps.update<List<ProjectDemand>>(
                         sql = SafeSQL.insert(
                             """
-                            INSERT INTO project_demand_state (project_id, fingerprint, derived_at, revision)
-                            VALUES (?, ?, now(), ?)
+                            INSERT INTO project_demand_state (project_id, fingerprint, derived_at, revision, game_data_epoch)
+                            VALUES (?, ?, now(), ?, ?)
                             ON CONFLICT (project_id)
                             DO UPDATE SET fingerprint = EXCLUDED.fingerprint, derived_at = EXCLUDED.derived_at,
-                                          revision = EXCLUDED.revision
+                                          revision = EXCLUDED.revision, game_data_epoch = EXCLUDED.game_data_epoch
                             """.trimIndent()
                         ),
                         parameterSetter = { statement, _ ->
                             statement.setInt(1, projectId)
                             statement.setString(2, fingerprint.value)
                             statement.setInt(3, DemandFingerprint.REVISION)
+                            statement.setTimestamp(4, gameDataEpoch?.let { java.sql.Timestamp.from(it) })
                         },
                         transactionConnection = connection,
                     ).process(input)
@@ -217,16 +220,20 @@ data class GetWorldDemandStep(val worldId: Int) :
 
 /**
  * Which projects in a world have no *current* derived demand stored — the roadmap's fill-on-read
- * list. Projects with nothing to gather at all are excluded: they are not waiting on a
- * derivation, they simply have no requirements.
+ * list. A project is a candidate when it has something to gather, or when it still has stored
+ * rows: a project whose targets were all ignored or removed must be derived once more so its old
+ * rows are cleared, or the roadmap would keep drawing them. A project with neither is not waiting
+ * on a derivation, it simply has no requirements.
  *
  * A stored derivation counts only when it is newer than both things the fingerprint carries but
  * no write to the world can announce (MCO-578):
  *
  *  - **the code** — its `revision` must be [DemandFingerprint.REVISION]. A deploy that changes the
  *    planner bumps it, and every world's plans re-derive as their roadmaps are opened.
- *  - **the game data** — it must have been derived after the world's version last finished
- *    ingesting. A re-ingest of the same version changes recipes under an unchanged version string.
+ *  - **the game data** — the ingestion epoch it was derived from must be the version's latest.
+ *    A re-ingest of the same version changes recipes under an unchanged version string. The
+ *    epoch stored is the one the derivation read, not the time it wrote: a plan built on a graph
+ *    cached from before the re-ingest is still a plan of the old data.
  *
  * Both are read here rather than recomputing fingerprints because the fingerprint needs a project's
  * whole input set; these need one indexed join. Every other input is invalidated where it changes
@@ -244,12 +251,13 @@ data class GetWorldDemandCoverageStep(val worldId: Int) :
                 LEFT JOIN minecraft_version_ingestion i
                        ON i.version = w.version AND i.status = 'completed'
                 WHERE p.world_id = ?
-                  AND EXISTS (SELECT 1 FROM resource_gathering rg
-                              WHERE rg.project_id = p.id AND rg.ignored = FALSE)
+                  AND (EXISTS (SELECT 1 FROM resource_gathering rg
+                               WHERE rg.project_id = p.id AND rg.ignored = FALSE)
+                       OR EXISTS (SELECT 1 FROM project_demand d WHERE d.project_id = p.id))
                   AND NOT EXISTS (SELECT 1 FROM project_demand_state s
                                   WHERE s.project_id = p.id
                                     AND s.revision = ?
-                                    AND (i.completed_at IS NULL OR s.derived_at >= i.completed_at))
+                                    AND (i.completed_at IS NULL OR s.game_data_epoch >= i.completed_at))
                 """.trimIndent()
             ),
             parameterSetter = { statement, _ ->

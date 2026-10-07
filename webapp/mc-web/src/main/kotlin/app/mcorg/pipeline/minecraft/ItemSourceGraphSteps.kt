@@ -64,6 +64,15 @@ object GetItemSourceGraphForVersionStep : Step<String, AppFailure, ItemSourceGra
     internal fun isStale(builtAt: Instant, dbEpoch: Instant?): Boolean =
         dbEpoch != null && dbEpoch.isAfter(builtAt)
 
+    /**
+     * The version's ingestion epoch read from the ledger now, bypassing the TTL cache, and put back
+     * into it — so a [cached] call right after it sees a re-ingest the moment the ledger does.
+     * For callers that store what they derive (MCO-578); a lookup failure reads as `null`.
+     */
+    internal suspend fun freshEpoch(version: String): Instant? =
+        LoadVersionIngestionEpochStep.process(version).getOrNull()
+            ?.also { CacheManager.versionIngestionEpoch.put(version, it) }
+
     /** The version's ingestion epoch, from the short-TTL cache when present, else one SELECT. */
     internal suspend fun currentEpoch(version: String): Instant? {
         CacheManager.versionIngestionEpoch.getIfPresent(version)?.let { return it }
