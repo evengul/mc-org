@@ -55,6 +55,7 @@ class ImportedFromIdeaLinkTest {
         worldName = "Survival",
         resources = emptyList(),
         tasks = emptyList(),
+        isRenewable = { true },
     )
 
     @Test

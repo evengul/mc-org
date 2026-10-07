@@ -105,6 +105,8 @@ class FarmScaleRollUpTest {
         isWorldAdmin = isWorldAdmin,
         pendingFarms = pendingFarms,
         farmSuggestions = farmSuggestions,
+        // These pin the panel's rendering; which items qualify is FarmScaleDemandsTest's job.
+        isRenewable = { true },
     )
 
     private fun farm(id: Int, name: String, item: Item, quantity: Long) =

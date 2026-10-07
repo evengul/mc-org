@@ -18,7 +18,7 @@ data class Mechanic(
 )
 
 /**
- * The hand-written half of [Renewability] — reviewed item by item on 2026-10-07 (MCO-565).
+ * The hand-written half of [Renewability] (MCO-565).
  *
  * Written once for the newest version, as item ids rather than a per-version list, and pruned by
  * each version's registry: an output the version lacks is dropped, and a mechanic whose input the

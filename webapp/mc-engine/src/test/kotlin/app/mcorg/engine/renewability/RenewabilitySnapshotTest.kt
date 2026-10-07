@@ -1,6 +1,5 @@
 package app.mcorg.engine.renewability
 
-import app.mcorg.domain.model.minecraft.MinecraftVersion
 import app.mcorg.domain.services.ItemSourceGraphBuilder
 import app.mcorg.engine.model.ItemSourceGraph
 import java.io.File
@@ -21,12 +20,19 @@ import kotlin.test.fail
  * A change that is meant to move verdicts is reviewed with `renewability-diagnostics review`,
  * then accepted with `renewability-diagnostics version=<v> snapshot`, which rewrites both files.
  *
- * A version without villager trades borrows them from the newest snapshotted version that has
- * some, the rule production applies across every ingested version.
+ * A version that borrowed villager trades names its donor in a `# trades borrowed from <v>`
+ * header line, written by `snapshot`, and the donor must be snapshotted too. Production picks the
+ * newest ingested version with trades, which may not be one that is snapshotted, so the header is
+ * what keeps a snapshot reproducible.
  */
 class RenewabilitySnapshotTest {
 
-    private data class Snapshot(val version: String, val fixture: RenewabilityFixture, val verdicts: Map<String, Boolean>) {
+    private data class Snapshot(
+        val version: String,
+        val fixture: RenewabilityFixture,
+        val verdicts: Map<String, Boolean>,
+        val tradeDonor: String?,
+    ) {
         val graph: ItemSourceGraph by lazy { ItemSourceGraphBuilder.buildFromResourceSources(fixture.sources) }
     }
 
@@ -35,10 +41,12 @@ class RenewabilitySnapshotTest {
             ?: fail("No renewability snapshots on the test classpath")
         root.listFiles { f -> f.isDirectory }.orEmpty().sortedBy { it.name }.map { dir ->
             val fixture = GZIPInputStream(File(dir, "sources.tsv.gz").inputStream()).bufferedReader().use { it.readText() }
-            val verdicts = File(dir, "verdicts.tsv").readLines()
+            val lines = File(dir, "verdicts.tsv").readLines()
+            val verdicts = lines
                 .filter { it.isNotBlank() && !it.startsWith("#") }
                 .associate { line -> line.split('\t').let { it[0] to (it[1] == "1") } }
-            Snapshot(dir.name, RenewabilityFixture.read(fixture), verdicts)
+            val donor = lines.firstOrNull { it.startsWith(DONOR_HEADER) }?.removePrefix(DONOR_HEADER)?.trim()
+            Snapshot(dir.name, RenewabilityFixture.read(fixture), verdicts, donor)
         }
     }
 
@@ -49,13 +57,12 @@ class RenewabilitySnapshotTest {
 
     @Test
     fun `the engine reproduces every reviewed verdict`() {
-        val donor = snapshots
-            .filter { Renewability.hasVillagerTrades(it.graph) }
-            .maxWithOrNull { a, b -> MinecraftVersion.fromString(a.version).compareTo(MinecraftVersion.fromString(b.version)) }
-
+        val byVersion = snapshots.associateBy { it.version }
         val failures = snapshots.mapNotNull { snapshot ->
-            val tradeDonor = if (Renewability.hasVillagerTrades(snapshot.graph)) null
-                else donor?.let { Renewability.TradeDonor(it.version, it.graph) }
+            val tradeDonor = snapshot.tradeDonor?.let { v ->
+                val donor = byVersion[v] ?: fail("${snapshot.version} borrowed trades from $v, which has no snapshot")
+                Renewability.TradeDonor(v, donor.graph)
+            }
             val now = Renewability.of(snapshot.graph, snapshot.fixture.registry, snapshot.fixture.tags, tradeDonor)
                 .explain().associate { it.itemId to it.renewable }
             val moved = (now.keys + snapshot.verdicts.keys).sorted().filter { now[it] != snapshot.verdicts[it] }
@@ -84,6 +91,17 @@ class RenewabilitySnapshotTest {
                 assertEquals(true, verdicts[id], "$version: $id")
             }
         }
+    }
+
+    @Test
+    fun `a version without trades of its own names the snapshot it borrowed them from`() {
+        for (snapshot in snapshots.filterNot { Renewability.hasVillagerTrades(it.graph) }) {
+            assertTrue(snapshot.tradeDonor != null, "${snapshot.version} has no trades and no `$DONOR_HEADER` line")
+        }
+    }
+
+    private companion object {
+        const val DONOR_HEADER = "# trades borrowed from "
     }
 
     private fun Boolean?.mark() = when (this) { true -> "R"; false -> "N"; null -> "-" }

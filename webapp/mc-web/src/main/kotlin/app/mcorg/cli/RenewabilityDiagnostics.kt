@@ -4,7 +4,7 @@ import app.mcorg.config.Database
 import app.mcorg.engine.renewability.Renewability
 import app.mcorg.engine.renewability.RenewabilityFixture
 import app.mcorg.pipeline.Result
-import app.mcorg.pipeline.minecraft.GetRenewabilityForVersionStep
+import app.mcorg.pipeline.minecraft.BuildRenewabilityForVersionStep
 import app.mcorg.pipeline.minecraft.LoadRenewabilityInputsStep
 import app.mcorg.pipeline.minecraft.LoadResourceSourcesForVersionStep
 import kotlinx.coroutines.runBlocking
@@ -94,8 +94,8 @@ private suspend fun run(args: List<String>): Int {
 }
 
 private suspend fun load(version: String): Renewability? =
-    when (val r = GetRenewabilityForVersionStep.process(version)) {
-        is Result.Success -> r.value
+    when (val r = BuildRenewabilityForVersionStep.process(version)) {
+        is Result.Success -> r.value.renewability
         is Result.Failure -> {
             System.err.println("No renewability for version '$version' (${r.error}). Is it ingested?")
             null
@@ -165,6 +165,9 @@ private suspend fun writeSnapshot(version: String, renewability: Renewability, d
     File(target, "verdicts.tsv").writeText(
         "# Reviewed renewability verdicts for $version (MCO-565). Written by renewability-diagnostics\n" +
             "# `snapshot`; RenewabilitySnapshotTest fails when the engine disagrees. 1 = renewable.\n" +
+            // The test borrows from this exact version, so a donor that is not snapshotted fails
+            // loudly instead of reproducing different verdicts.
+            (renewability.tradeDonorVersion?.let { "# trades borrowed from $it\n" } ?: "") +
             verdicts.joinToString("") { "${it.itemId}\t${if (it.renewable) 1 else 0}\n" }
     )
     println("Wrote ${verdicts.size} verdicts (${verdicts.count { it.renewable }} renewable) and the fixture to $target")

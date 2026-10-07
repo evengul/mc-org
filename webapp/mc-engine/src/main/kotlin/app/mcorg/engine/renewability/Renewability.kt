@@ -14,7 +14,7 @@ import app.mcorg.engine.model.ItemSourceGraph
  *
  * It changes no price and no selection. The planner never reads it; "Worth a farm" does.
  *
- * ## The rules (reviewed by Even, 2026-10-07)
+ * ## The rules
  *
  * - **Never proof:** chest loot, archaeology, the wandering trader (a source of acquisition, not
  *   of farm-scale supply), Hero of the Village gifts (stacked raid farms broke) and elder
@@ -27,14 +27,16 @@ import app.mcorg.engine.model.ItemSourceGraph
  * - **Dupers are not modelled.** Sand, concrete and TNT stay non-renewable until a world can say
  *   it accepts them (MCO-484).
  *
- * Every verdict was reviewed on both 26.3.0 and 1.21.11 and is pinned by a committed snapshot per
- * version (`RenewabilitySnapshotTest`). A new version is reviewed with `renewability-diagnostics`.
+ * Reviewed verdicts are pinned by a committed snapshot per version (`RenewabilitySnapshotTest`),
+ * and a new version is reviewed with `renewability-diagnostics`.
  */
 class Renewability private constructor(
     private val sources: List<Source>,
     private val mechanics: List<Mechanic>,
     private val registry: Set<String>,
     private val tags: Map<String, Set<String>>,
+    /** The version whose villager trades this one borrowed, if any; see [of]. */
+    val tradeDonorVersion: String?,
 ) {
 
     /** One graph source, flattened: what it makes, what it takes, and which tags it takes. */
@@ -72,6 +74,7 @@ class Renewability private constructor(
                 if (renewable.containsAll(mechanic.requires) && renewable.addAll(mechanic.produces)) changed = true
             }
             for (source in sources) {
+                if (renewable.containsAll(source.produces)) continue
                 if (whyNot(source, renewable) == null && renewable.addAll(source.produces)) changed = true
             }
         }
@@ -276,7 +279,10 @@ class Renewability private constructor(
             // The graph's tag nodes carry their members from the same table; they fill in for a
             // tag [tags] does not name rather than leave a recipe's input with no members at all.
             val allTags = graphTags(graph) + tags
-            return Renewability(own + borrowed, RenewabilityMechanics.forVersion(registry, allTags), registry, allTags)
+            return Renewability(
+                own + borrowed, RenewabilityMechanics.forVersion(registry, allTags), registry, allTags,
+                tradeDonor?.version,
+            )
         }
 
         private fun graphTags(graph: ItemSourceGraph): Map<String, Set<String>> =

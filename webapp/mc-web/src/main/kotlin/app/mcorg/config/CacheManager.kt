@@ -2,7 +2,6 @@ package app.mcorg.config
 
 import app.mcorg.engine.model.ItemSourceGraph
 import app.mcorg.engine.plan.UnitCostModel
-import app.mcorg.engine.renewability.Renewability
 import com.github.benmanes.caffeine.cache.Cache
 import com.github.benmanes.caffeine.cache.Caffeine
 import org.slf4j.LoggerFactory
@@ -298,6 +297,7 @@ object CacheManager {
         projectDependencyExists.invalidateAll()
         supportedVersions.invalidateAll()
         itemSourceGraph.invalidateAll()
+        renewability.invalidateAll()
         versionIngestionEpoch.invalidateAll()
         logger.info("All caches invalidated")
     }
@@ -312,11 +312,13 @@ object CacheManager {
 data class CachedItemSourceGraph(val graph: ItemSourceGraph, val builtAt: Instant)
 
 /**
- * A version's [Renewability] with the build instants of the graphs it was derived from: its own,
- * and the trade donor's when it borrowed villager trades (both null when it has its own).
+ * The items a farm can make in a version (MCO-565) — only the set, not the whole
+ * `Renewability` with its flattened sources — with the build instants of the graphs it was
+ * derived from: its own, and the trade donor's when it borrowed villager trades (both null when
+ * it has its own).
  */
 data class CachedRenewability(
-    val renewability: Renewability,
+    val renewable: Set<String>,
     val graphBuiltAt: Instant,
     val donorVersion: String?,
     val donorBuiltAt: Instant?,

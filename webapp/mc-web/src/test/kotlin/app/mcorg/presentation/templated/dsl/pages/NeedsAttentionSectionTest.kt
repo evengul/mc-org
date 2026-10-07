@@ -72,6 +72,7 @@ class NeedsAttentionSectionTest {
         resources = emptyList(),
         tasks = emptyList(),
         plan = plan,
+        isRenewable = { true },
     )
 
     /**

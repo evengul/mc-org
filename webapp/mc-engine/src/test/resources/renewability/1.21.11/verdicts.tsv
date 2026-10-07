@@ -1,5 +1,6 @@
 # Reviewed renewability verdicts for 1.21.11 (MCO-565). Written by renewability-diagnostics
 # `snapshot`; RenewabilitySnapshotTest fails when the engine disagrees. 1 = renewable.
+# trades borrowed from 26.3.0
 acacia_boat	1
 acacia_button	1
 acacia_chest_boat	1

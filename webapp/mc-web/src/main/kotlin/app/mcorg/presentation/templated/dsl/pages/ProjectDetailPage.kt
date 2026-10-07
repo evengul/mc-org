@@ -92,8 +92,8 @@ fun projectDetailPage(
     versionGaps: Set<String> = emptySet(),
     /** Farm-scale demand this world has decided against (MCO-407). */
     farmDismissals: List<FarmDismissal> = emptyList(),
-    /** Whether a farm can make an item in this world's version (MCO-565). Unknown keeps every line. */
-    isRenewable: (String) -> Boolean = { true },
+    /** Whether a farm can make an item in this world's version (MCO-565). Required: a default here is how a caller would bring tuff back. */
+    isRenewable: (String) -> Boolean,
 ): String = pageShell(
     pageTitle = "Seam — ${project.name}",
     user = user,
@@ -286,8 +286,8 @@ fun FlowContent.gatheringPlannerContent(
     isWorldAdmin: Boolean = false,
     /** Farm-scale demand this world has decided against (MCO-407). */
     farmDismissals: List<FarmDismissal> = emptyList(),
-    /** Whether a farm can make an item in this world's version (MCO-565). Unknown keeps every line. */
-    isRenewable: (String) -> Boolean = { true },
+    /** Whether a farm can make an item in this world's version (MCO-565). Required: a default here is how a caller would bring tuff back. */
+    isRenewable: (String) -> Boolean,
 ) {
     // Next up only speaks once the questions are answered (MCO-504).
     //
@@ -404,8 +404,8 @@ private fun FlowContent.listLensContent(
     isWorldAdmin: Boolean = false,
     /** Farm-scale demand this world has decided against (MCO-407). */
     farmDismissals: List<FarmDismissal> = emptyList(),
-    /** Whether a farm can make an item in this world's version (MCO-565). Unknown keeps every line. */
-    isRenewable: (String) -> Boolean = { true },
+    /** Whether a farm can make an item in this world's version (MCO-565). Required: a default here is how a caller would bring tuff back. */
+    isRenewable: (String) -> Boolean,
 ) {
     // Resolution toggle (client-side; default "targets" applied by plan-view.js).
     listResolutionToggle()
@@ -599,8 +599,8 @@ fun FlowContent.gatheringPlanSections(
     isWorldAdmin: Boolean = false,
     /** Farm-scale demand this world has decided against (MCO-407). */
     farmDismissals: List<FarmDismissal> = emptyList(),
-    /** Whether a farm can make an item in this world's version (MCO-565). Unknown keeps every line. */
-    isRenewable: (String) -> Boolean = { true },
+    /** Whether a farm can make an item in this world's version (MCO-565). Required: a default here is how a caller would bring tuff back. */
+    isRenewable: (String) -> Boolean,
 ) {
     if (plan == null) {
         // Empty state — no resources yet or all collected
@@ -1824,8 +1824,8 @@ fun gatheringPlannerFragment(
     isWorldAdmin: Boolean = false,
     /** Farm-scale demand this world has decided against (MCO-407). */
     farmDismissals: List<FarmDismissal> = emptyList(),
-    /** Whether a farm can make an item in this world's version (MCO-565). Unknown keeps every line. */
-    isRenewable: (String) -> Boolean = { true },
+    /** Whether a farm can make an item in this world's version (MCO-565). Required: a default here is how a caller would bring tuff back. */
+    isRenewable: (String) -> Boolean,
 ): String = createHTML().div {
     id = "project-content"
     gatheringPlannerContent(
