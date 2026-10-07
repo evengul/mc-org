@@ -37,8 +37,11 @@ import io.ktor.server.routing.routing
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
 import kotlinx.coroutines.runBlocking
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.boolean
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.junit.jupiter.api.AfterEach
-import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
@@ -61,15 +64,17 @@ class ConnectDiscordIT : WithUser() {
         AppConfig.webhookSharedSecret = null
     }
 
-    private fun configure() {
+    // Not `configure()`: inside `testApplication { }` that name resolves to
+    // ApplicationTestBuilder.configure, whose parameters all have defaults, so the call compiles,
+    // does nothing to AppConfig, and every connect test sees the fail-closed 503 (MCO-301).
+    private fun configureDiscord() {
         AppConfig.seamDiscordUrl = discordBase
         AppConfig.webhookSharedSecret = sharedSecret
     }
 
     @Test
-    @Disabled("Rotted while never running in CI (empty-body 503) — repair tracked in MCO-301")
     fun `connect creates a world-scoped subscription with discord callback and metadata`() = testApplication {
-        configure()
+        configureDiscord()
         installRoutes()
         val worldId = createWorld("discord-connect")
 
@@ -87,13 +92,15 @@ class ConnectDiscordIT : WithUser() {
         val (callbackUrl, secret, metadata) = rows.single()
         assertEquals("$discordBase/seam-events/$channelId?compact=1", callbackUrl)
         assertEquals(sharedSecret, secret)
-        assertTrue(metadata.contains(""""discord_channel_id":"$channelId"""") && metadata.contains(""""compact":true"""))
+        // jsonb::text normalises spacing (`"compact": true`), so compare parsed values, not substrings.
+        val fields = Json.parseToJsonElement(metadata).jsonObject
+        assertEquals(channelId, fields["discord_channel_id"]?.jsonPrimitive?.content)
+        assertEquals(true, fields["compact"]?.jsonPrimitive?.boolean)
     }
 
     @Test
-    @Disabled("Rotted while never running in CI (empty-body 503) — repair tracked in MCO-301")
     fun `connect without compact omits the query flag`() = testApplication {
-        configure()
+        configureDiscord()
         installRoutes()
         val worldId = createWorld("discord-connect-plain")
 
@@ -107,9 +114,8 @@ class ConnectDiscordIT : WithUser() {
     }
 
     @Test
-    @Disabled("Rotted while never running in CI (empty-body 503) — repair tracked in MCO-301")
     fun `invalid channel id is rejected and creates no subscription`() = testApplication {
-        configure()
+        configureDiscord()
         installRoutes()
         val worldId = createWorld("discord-invalid")
 
@@ -136,12 +142,13 @@ class ConnectDiscordIT : WithUser() {
         }
 
         assertEquals(HttpStatusCode.ServiceUnavailable, response.status)
+        assertTrue(response.bodyAsText().contains("isn't configured"), response.bodyAsText())
         assertEquals(0, subscriptionsFor(worldId).size)
     }
 
     @Test
     fun `non-admin member cannot connect - 403 from WorldAdminPlugin`() = testApplication {
-        configure()
+        configureDiscord()
         installRoutes()
         val worldId = createWorld("discord-auth")
         val member = createExtraUser()
@@ -159,7 +166,7 @@ class ConnectDiscordIT : WithUser() {
 
     @Test
     fun `disconnect removes the subscription`() = testApplication {
-        configure()
+        configureDiscord()
         installRoutes()
         val worldId = createWorld("discord-disconnect")
         val id = createSubscription(worldId, "$discordBase/seam-events/$channelId")
@@ -174,7 +181,7 @@ class ConnectDiscordIT : WithUser() {
 
     @Test
     fun `disconnect is world-scoped - cannot delete another world's subscription`() = testApplication {
-        configure()
+        configureDiscord()
         installRoutes()
         val worldA = createWorld("discord-world-a")
         val worldB = createWorld("discord-world-b")
