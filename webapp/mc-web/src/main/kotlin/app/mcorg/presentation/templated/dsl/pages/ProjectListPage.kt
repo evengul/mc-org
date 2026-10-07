@@ -7,6 +7,7 @@ import app.mcorg.domain.model.project.ProjectType
 import app.mcorg.domain.model.user.TokenProfile
 import app.mcorg.domain.model.world.World
 import app.mcorg.presentation.hxIndicator
+import app.mcorg.presentation.hxOnSuccess
 import app.mcorg.presentation.hxPost
 import app.mcorg.presentation.hxSwap
 import app.mcorg.presentation.hxTarget
@@ -300,11 +301,8 @@ private fun kotlinx.html.FlowContent.recordFarmModal(worldId: Int) {
                     // See createProjectModal: the target only has to exist on both tabs.
                     hxTarget("this")
                     hxSwap("afterbegin")
-                    // htmx events bubble: the item search inside this form fires
-                    // after:request too, and without the target check every keystroke's
-                    // search response would close the modal.
-                    attributes["hx-on::after:request"] =
-                        "if(event.target === this && ctx.response.status < 400) { window.resetFarmModal(this) }"
+                    // Not on the item search inside it: hxOnSuccess checks the event's target.
+                    hxOnSuccess("window.resetFarmModal(this)")
 
                     label {
                         htmlFor = "record-farm-name"

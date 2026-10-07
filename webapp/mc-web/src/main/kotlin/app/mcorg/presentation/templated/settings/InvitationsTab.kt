@@ -44,11 +44,7 @@ fun DIV.sendInvitationForm(worldId: Int) {
             hxTarget("#invitation-list")
             hxSwap("afterbegin")
             hxPost("${Link.Worlds.world(worldId).to}/settings/members/invitations")
-            attributes["hx-on::after:request"] = """
-                if (ctx.response.status >= 200 && ctx.response.status < 300) {
-                        this.reset(); document.querySelectorAll('.validation-error-message').forEach(el => el.innerHTML = '');
-                }
-            """.trimIndent()
+            hxOnSuccess("this.reset(); document.querySelectorAll('.validation-error-message').forEach(el => el.innerHTML = '');")
             div("send-invitation__inputs") {
                 div("input-group") {
                     label {

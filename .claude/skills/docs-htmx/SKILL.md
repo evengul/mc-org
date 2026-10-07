@@ -44,6 +44,9 @@ fun HTMLTag.hxTrigger(value: String)      // "load", "click", "change", "keyup c
 fun HTMLTag.hxInclude(value: String)      // CSS selector for extra inputs to include
 fun HTMLTag.hxIndicator(value: String)    // CSS selector for an hx-indicator element
 
+// After the element's own request answered < 400 (reset a form, close its dialog)
+fun HTMLTag.hxOnSuccess(script: String)   // hx-on::after:request, guarded on event.target === this
+
 ```
 
 No `hxConfirm` / `hxPushUrl` helper exists — for those set the attribute directly:
@@ -66,8 +69,9 @@ that config holds in place:
   snapshot is kept in the browser: Back re-requests the pushed URL, so an `hx-push-url` must be a
   real page.
 - **Events are colon-separated.** `hx-on::after:request` (not `after-request`); its handler sees
-  `ctx`, so check `ctx.response.status < 400` (there is no `event.detail.successful` or `xhr`), and
-  guard with `event.target === this` on a form that contains other htmx elements: their events bubble.
+  `ctx`, and there is no `event.detail.successful` or `xhr`. For "on success, do X" use
+  `hxOnSuccess(...)`, which checks `ctx.response.status < 400` and `event.target === this` (events
+  from htmx elements inside a form bubble to it).
 - **`htmx:after:swap` fires on the element that sent the request**, not the target. Listen to
   `htmx:after:settle` for "something was swapped into X"; it fires on the target (the new element
   for `outerHTML`), before htmx processes the new content.

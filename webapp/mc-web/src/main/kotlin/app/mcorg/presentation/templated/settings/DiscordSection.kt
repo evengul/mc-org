@@ -90,11 +90,7 @@ private fun FlowContent.connectDiscordForm(worldId: Int) {
             hxTarget("#discord-section")
             hxSwap("innerHTML")
             hxPost("${Link.Worlds.world(worldId).settings().to}/discord")
-            attributes["hx-on::after:request"] = """
-                if (ctx.response.status >= 200 && ctx.response.status < 300) {
-                        this.reset();
-                }
-            """.trimIndent()
+            hxOnSuccess("this.reset();")
             div("connect-discord__inputs") {
                 div("input-group") {
                     label {

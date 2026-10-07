@@ -1,5 +1,6 @@
 package app.mcorg.presentation.templated.dsl
 
+import app.mcorg.presentation.hxOnSuccess
 import app.mcorg.presentation.hxPost
 import app.mcorg.presentation.hxSwap
 import app.mcorg.presentation.hxTarget
@@ -119,8 +120,7 @@ fun FlowContent.modalForm(
                     hxPost(action)
                     hxTarget(hxTarget)
                     hxSwap(hxSwap)
-                    attributes["hx-on::after:request"] =
-                        "if(event.target === this && ctx.response.status < 400) { this.reset(); this.closest('dialog')?.close() }"
+                    hxOnSuccess("this.reset(); this.closest('dialog')?.close()")
                     body()
                 }
             }

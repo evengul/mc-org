@@ -73,6 +73,17 @@ fun HTMLTag.hxOutOfBands(locator: String) {
     attributes += "hx-swap-oob" to locator
 }
 
+/**
+ * Runs [script] after this element's own request answered below 400, with `this` the element.
+ *
+ * htmx events bubble, so a form also hears the requests of the htmx elements inside it (an item
+ * search, say); the target check keeps those from resetting or closing it. htmx 4 has no
+ * `event.detail.successful`; the status is on `ctx`.
+ */
+fun HTMLTag.hxOnSuccess(script: String) {
+    attributes += "hx-on::after:request" to "if (event.target === this && ctx.response.status < 400) { $script }"
+}
+
 fun HTMLTag.hxInclude(value: String) {
     attributes += "hx-include" to value
 }

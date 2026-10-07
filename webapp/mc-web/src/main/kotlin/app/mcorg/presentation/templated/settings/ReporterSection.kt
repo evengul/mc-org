@@ -62,13 +62,11 @@ fun FlowContent.reporterSectionBody(
  * reproduced by reloading the page — which the copy says plainly rather than leaving someone to
  * discover it.
  *
- * Nothing keeps a copy of it in the browser. htmx 4 restores history by asking the server for the
- * page again rather than from a snapshot, so Back cannot re-render the reveal. The
- * `hx-history-cache` extension would bring the snapshot back, so `LayoutTest` fails if the page
- * ever loads it. *(Under htmx 2 this block carried `hx-history="false"`: an `hx-push-url` request,
- * which the invitation tabs on this page make, wrote `document.body` with the plaintext token
- * into `sessionStorage` before swapping. That was reproduced in a browser. htmx 4 removed the
- * attribute along with the cache.)*
+ * Nothing keeps a copy of it in the browser. htmx restores history by asking the server for the
+ * page again rather than from a snapshot, so Back cannot re-render the reveal. A snapshot would
+ * put the plaintext token in `sessionStorage` the moment an `hx-push-url` request runs, and the
+ * invitation tabs on this page make one, so `LayoutTest` fails if the page ever loads the
+ * `hx-history-cache` extension that brings snapshots back.
  */
 private fun FlowContent.mintedTokenReveal(worldId: Int, minted: MintedReporterToken) {
     div("callout reporter-reveal") {
@@ -165,11 +163,7 @@ private fun FlowContent.generateReporterTokenForm(worldId: Int) {
             hxTarget("#reporter-section")
             hxSwap("innerHTML")
             hxPost("${Link.Worlds.world(worldId).settings().to}/reporter")
-            attributes["hx-on::after:request"] = """
-                if (ctx.response.status >= 200 && ctx.response.status < 300) {
-                        this.reset();
-                }
-            """.trimIndent()
+            hxOnSuccess("this.reset();")
             div("connect-server__inputs") {
                 div("input-group") {
                     label {

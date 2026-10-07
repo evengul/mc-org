@@ -25,6 +25,7 @@ import app.mcorg.pipeline.resources.FarmSuggestionChoices
 import app.mcorg.pipeline.resources.RecommendationReason
 import app.mcorg.presentation.templated.dsl.formatPlainCount
 import app.mcorg.presentation.hxDelete
+import app.mcorg.presentation.hxOnSuccess
 import app.mcorg.presentation.hxDeleteWithConfirm
 import app.mcorg.presentation.hxGet
 import app.mcorg.presentation.hxIndicator
@@ -1754,8 +1755,7 @@ fun FlowContent.resourceSchematicModal(worldId: Int, projectId: Int, existingRes
                     hxSwap("outerHTML")
                     hxIndicator("#resource-schematic-progress")
                     attributes["hx-encoding"] = "multipart/form-data"
-                    attributes["hx-on::after:request"] =
-                        "if(event.target === this && ctx.response.status < 400) { this.reset(); this.closest('dialog')?.close() }"
+                    hxOnSuccess("this.reset(); this.closest('dialog')?.close()")
 
                     label {
                         htmlFor = "resource-schematic-file"
