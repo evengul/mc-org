@@ -41,9 +41,12 @@ class FarmScaleDemandsTest {
         status: PlanNodeStatus = PlanNodeStatus.RAW_GATHER,
         supply: SupplySource? = null,
         requires: List<String> = emptyList(),
+        /** Executions of the node's source; a 1:1 recipe by default. */
+        crafts: Long = quantity,
+        perCraft: Int = 1,
     ) = PlanNode(
-        item = item, quantity = quantity, crafts = 0, leftover = 0, status = status, supply = supply,
-        requires = requires.map { PlanRequirement(it, 1) },
+        item = item, quantity = quantity, crafts = crafts, leftover = 0, status = status, supply = supply,
+        requires = requires.map { PlanRequirement(it, perCraft) },
     )
 
     /** The rule before MCO-565: every material counts. Its own tests are at the bottom. */
@@ -244,6 +247,54 @@ class FarmScaleDemandsTest {
         )
 
         assertTrue(FarmScaleDemands.of(plan, threshold, isRenewable = isRenewable).isEmpty())
+    }
+
+    private val sand = Item("minecraft:sand", "Sand")
+    private val glass = Item("minecraft:glass", "Glass")
+    private val concretePowder = Item("minecraft:white_concrete_powder", "White Concrete Powder")
+    private val diamond = Item("minecraft:diamond", "Diamond")
+    private val diamondBlock = Item("minecraft:diamond_block", "Diamond Block")
+    private val diamondPickaxe = Item("minecraft:diamond_pickaxe", "Diamond Pickaxe")
+    private val withGlassAndPickaxe: (String) -> Boolean =
+        (renewable + setOf("minecraft:glass", "minecraft:diamond_pickaxe"))::contains
+
+    @Test
+    fun `a few panes of glass do not make all the sand in a concrete build worth a farm`() {
+        // Glass is renewable (a trading hall) and sand is not. Only the sand the glass takes could
+        // be replaced by a farm, and 100 is nowhere near the threshold.
+        val plan = plan(
+            node(sand, 10_100),
+            node(glass, 100, PlanNodeStatus.RESOLVED, requires = listOf("minecraft:sand")),
+            node(concretePowder, 10_000, PlanNodeStatus.RESOLVED, requires = listOf("minecraft:sand")),
+        )
+
+        assertTrue(FarmScaleDemands.of(plan, threshold, isRenewable = withGlassAndPickaxe).isEmpty())
+    }
+
+    @Test
+    fun `the line counts and shows only the share a renewable item consumes`() {
+        val plan = plan(
+            node(sand, 15_000),
+            node(glass, 5_000, PlanNodeStatus.RESOLVED, requires = listOf("minecraft:sand")),
+            node(concretePowder, 10_000, PlanNodeStatus.RESOLVED, requires = listOf("minecraft:sand")),
+        )
+
+        assertEquals(
+            listOf(FarmScaleDemand("minecraft:sand", "Sand", 5_000)),
+            FarmScaleDemands.of(plan, threshold, isRenewable = withGlassAndPickaxe),
+        )
+    }
+
+    @Test
+    fun `one diamond pickaxe does not make a build's diamonds worth a farm`() {
+        // Per execution: a block takes 9 diamonds, a pickaxe 3.
+        val plan = plan(
+            node(diamond, 18_003),
+            node(diamondBlock, 2_000, PlanNodeStatus.RESOLVED, requires = listOf("minecraft:diamond"), perCraft = 9),
+            node(diamondPickaxe, 1, PlanNodeStatus.RESOLVED, requires = listOf("minecraft:diamond"), perCraft = 3),
+        )
+
+        assertTrue(FarmScaleDemands.of(plan, threshold, isRenewable = withGlassAndPickaxe).isEmpty())
     }
 
     @Test

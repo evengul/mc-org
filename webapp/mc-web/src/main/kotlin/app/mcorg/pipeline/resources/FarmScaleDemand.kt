@@ -68,8 +68,8 @@ object FarmScaleDemands {
     ): List<FarmScaleDemand> {
         val farmScale = farmScaleRule(plan, threshold, isRenewable)
         return plan.activityList
-            .filter { farmScale(it) && it.item.id !in dismissed }
-            .map { FarmScaleDemand(itemId = it.item.id, itemName = it.item.name, quantity = it.quantity) }
+            .filter { it.item.id !in dismissed }
+            .mapNotNull { a -> farmScale(a)?.let { FarmScaleDemand(itemId = a.item.id, itemName = a.item.name, quantity = it) } }
             .sortedByDescending { it.quantity }
     }
 
@@ -97,8 +97,8 @@ object FarmScaleDemands {
     ): List<FarmScaleDemand> {
         val farmScale = farmScaleRule(plan, threshold, isRenewable)
         return plan.activityList
-            .filter { farmScale(it) && it.item.id in dismissed }
-            .map { FarmScaleDemand(itemId = it.item.id, itemName = it.item.name, quantity = it.quantity) }
+            .filter { it.item.id in dismissed }
+            .mapNotNull { a -> farmScale(a)?.let { FarmScaleDemand(itemId = a.item.id, itemName = a.item.name, quantity = it) } }
             .sortedByDescending { it.quantity }
     }
 
@@ -113,29 +113,43 @@ object FarmScaleDemands {
      * meet, so offering one is advice that cannot be taken. But the leaf is not always what the
      * farm makes: iron demand bottoms out in `raw_iron`, which comes off an ore and is not
      * renewable, while the `iron_ingot` it is smelted into drops from every iron golem. So a
-     * leaf stays when it, or an item that consumes it directly in this plan, is renewable — the
-     * farm makes the ingot, and the raw iron line stands for it. Tuff into tuff bricks stays out,
-     * because nothing makes the bricks either.
+     * non-renewable leaf counts the share of its demand that renewable items consume directly
+     * in this plan — the farm makes the ingot, and the raw iron line stands for it. Only that
+     * share: glass is renewable (a trading hall) and sand is not, so a build with 10,000 concrete
+     * powder and a few glass panes must not list 10,100 sand, nor diamond blocks plus one
+     * pickaxe all their diamonds. The share is what the threshold reads and what the line shows.
+     * Tuff into tuff bricks counts nothing, because nothing makes the bricks either.
      *
      * The line keeps the leaf's name: the dismissal, the row badge and the row it marks are all
      * keyed by the item the player gathers.
+     *
+     * Returns the farm-scale quantity, or null when the activity is not farm-scale.
      */
     private fun farmScaleRule(
         plan: GatheringPlan,
         threshold: Int,
         isRenewable: (String) -> Boolean,
-    ): (Activity) -> Boolean {
-        val consumers = HashMap<String, MutableList<String>>()
+    ): (Activity) -> Long? {
+        // What each renewable consumer takes of each input: one execution of the consumer's
+        // source consumes quantityPerCraft, and it runs `crafts` times — the quantifier's own sum.
+        val renewableDemand = HashMap<String, Long>()
         for (node in plan.nodes.values) {
-            for (input in node.requires) consumers.getOrPut(input.itemId) { mutableListOf() }.add(node.item.id)
+            if (!isRenewable(node.item.id)) continue
+            for (input in node.requires) {
+                renewableDemand.merge(input.itemId, node.crafts * input.quantityPerCraft, Long::plus)
+            }
         }
-        fun farmable(itemId: String) = isRenewable(itemId) || consumers[itemId].orEmpty().any(isRenewable)
         return { activity ->
-            activity.status == PlanNodeStatus.RAW_GATHER &&
-                activity.quantity >= threshold &&
-                !activity.isToolCollected() &&
-                activity.item.id !in Renewability.NOT_MATERIALS &&
-                farmable(activity.item.id)
+            val share = when {
+                isRenewable(activity.item.id) -> activity.quantity
+                else -> minOf(activity.quantity, renewableDemand[activity.item.id] ?: 0L)
+            }
+            share.takeIf {
+                activity.status == PlanNodeStatus.RAW_GATHER &&
+                    it >= threshold &&
+                    !activity.isToolCollected() &&
+                    activity.item.id !in Renewability.NOT_MATERIALS
+            }
         }
     }
 
