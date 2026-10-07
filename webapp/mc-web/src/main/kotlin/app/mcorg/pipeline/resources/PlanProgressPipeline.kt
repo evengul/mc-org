@@ -1,5 +1,6 @@
 package app.mcorg.pipeline.resources
 
+import app.mcorg.pipeline.minecraft.isRenewableInWorld
 import app.mcorg.domain.model.world.World
 import app.mcorg.pipeline.Step
 import app.mcorg.engine.plan.GatheringPlan
@@ -135,7 +136,7 @@ suspend fun ApplicationCall.handleUpdatePlanProgress() {
         // Same rule as the page, dismissals included (MCO-407) — the badge must not reappear
         // because a counter was pressed.
         val isFarmScale = plan != null &&
-            FarmScaleDemands.of(plan, farmScaleThreshold, farmDismissalsFor(worldId).itemIds())
+            FarmScaleDemands.of(plan, farmScaleThreshold, farmDismissalsFor(worldId).itemIds(), isRenewableInWorld(worldId))
                 .any { it.itemId == input.itemId }
 
         PlanProgressResult(

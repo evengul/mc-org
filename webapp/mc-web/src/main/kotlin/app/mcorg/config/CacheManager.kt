@@ -121,6 +121,16 @@ object CacheManager {
         .build()
 
     /**
+     * Which items a farm can make, per version (MCO-565) — a fixed point over the whole graph,
+     * read by every "Worth a farm" line and badge. Keyed by version and checked against the
+     * graph's build instant (and the trade donor's) on every hit, so it is rebuilt with the
+     * graph after a re-ingest instead of outliving it.
+     */
+    val renewability: Cache<String, CachedRenewability> = Caffeine.newBuilder()
+        .maximumSize(4)
+        .build()
+
+    /**
      * The [app.mcorg.engine.plan.UnitCostModel] that ranks sources, per `(graph, supplied)`.
      *
      * Building one is a **whole-graph relaxation** — 1353 items, 6 passes, ~100 ms measured on
@@ -158,6 +168,7 @@ object CacheManager {
 
     fun onVersionIngested(version: String) {
         itemSourceGraph.invalidate(version)
+        renewability.invalidate(version)
         versionIngestionEpoch.invalidate(version)
         supportedVersions.invalidateAll()
         logger.debug("Cache: item-source graph for version {} invalidated after ingest", version)
@@ -286,6 +297,7 @@ object CacheManager {
         projectDependencyExists.invalidateAll()
         supportedVersions.invalidateAll()
         itemSourceGraph.invalidateAll()
+        renewability.invalidateAll()
         versionIngestionEpoch.invalidateAll()
         logger.info("All caches invalidated")
     }
@@ -298,3 +310,16 @@ object CacheManager {
  * the graph/scoring core stays untouched.
  */
 data class CachedItemSourceGraph(val graph: ItemSourceGraph, val builtAt: Instant)
+
+/**
+ * The items a farm can make in a version (MCO-565) — only the set, not the whole
+ * `Renewability` with its flattened sources — with the build instants of the graphs it was
+ * derived from: its own, and the trade donor's when it borrowed villager trades (both null when
+ * it has its own).
+ */
+data class CachedRenewability(
+    val renewable: Set<String>,
+    val graphBuiltAt: Instant,
+    val donorVersion: String?,
+    val donorBuiltAt: Instant?,
+)

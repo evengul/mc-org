@@ -66,9 +66,11 @@ class FarmSupplySurfacingIT : WithUser() {
                     version = version,
                     items = listOf(ironIngot),
                     sources = listOf(
+                        // An iron golem, as an iron farm makes ingots. Ingots off an ore block
+                        // would be unfarmable, and Worth a farm leaves those out (MCO-565).
                         ResourceSource(
-                            type = ResourceSource.SourceType.LootTypes.BLOCK,
-                            filename = "blocks/iron_ore.json",
+                            type = ResourceSource.SourceType.LootTypes.ENTITY,
+                            filename = "entities/iron_golem.json",
                             producedItems = listOf(ironIngot to ResourceQuantity.ItemQuantity(1))
                         )
                     )

@@ -4,6 +4,7 @@ import app.mcorg.domain.model.resources.ResourceSource
 import app.mcorg.engine.plan.Activity
 import app.mcorg.engine.plan.GatheringPlan
 import app.mcorg.engine.plan.PlanNodeStatus
+import app.mcorg.engine.renewability.Renewability
 
 /**
  * One raw material whose demand is large enough to be worth a farm (MCO-401).
@@ -63,15 +64,17 @@ object FarmScaleDemands {
         plan: GatheringPlan,
         threshold: Int,
         dismissed: Set<String> = emptySet(),
-    ): List<FarmScaleDemand> =
-        plan.activityList
-            .filter { it.isFarmScale(threshold) && it.item.id !in dismissed }
-            .map { FarmScaleDemand(itemId = it.item.id, itemName = it.item.name, quantity = it.quantity) }
-            .sortedByDescending { it.quantity }
+        isRenewable: (String) -> Boolean,
+    ): List<FarmScaleDemand> = classify(plan, threshold, isRenewable).filter { it.itemId !in dismissed }
 
     /** Item ids in [plan] that are farm-scale — for marking rows without re-deriving the rule. */
-    fun itemIdsIn(plan: GatheringPlan, threshold: Int, dismissed: Set<String> = emptySet()): Set<String> =
-        of(plan, threshold, dismissed).mapTo(mutableSetOf()) { it.itemId }
+    fun itemIdsIn(
+        plan: GatheringPlan,
+        threshold: Int,
+        dismissed: Set<String> = emptySet(),
+        isRenewable: (String) -> Boolean,
+    ): Set<String> =
+        of(plan, threshold, dismissed, isRenewable).mapTo(mutableSetOf()) { it.itemId }
 
     /**
      * The lines [dismissed] is currently suppressing, largest first — what the undo list shows.
@@ -80,21 +83,73 @@ object FarmScaleDemands {
      * "0 Water" against a build that never wanted water would be noise. The undo list names the
      * rest from the dismissal's own stored label.
      */
-    fun dismissedIn(plan: GatheringPlan, threshold: Int, dismissed: Set<String>): List<FarmScaleDemand> =
-        plan.activityList
-            .filter { it.isFarmScale(threshold) && it.item.id in dismissed }
+    fun dismissedIn(
+        plan: GatheringPlan,
+        threshold: Int,
+        dismissed: Set<String>,
+        isRenewable: (String) -> Boolean,
+    ): List<FarmScaleDemand> = classify(plan, threshold, isRenewable).filter { it.itemId in dismissed }
+
+    /** Every farm-scale line in [plan], dismissed or not, largest first. */
+    private fun classify(plan: GatheringPlan, threshold: Int, isRenewable: (String) -> Boolean): List<FarmScaleDemand> {
+        val isFarmScale = farmScaleRule(plan, threshold, isRenewable)
+        return plan.activityList
+            .filter(isFarmScale)
             .map { FarmScaleDemand(itemId = it.item.id, itemName = it.item.name, quantity = it.quantity) }
             .sortedByDescending { it.quantity }
+    }
 
     /**
      * At or above the threshold, not merely past it: a threshold of 1,728 is read as "a shulker
      * box is enough to want a farm", and exactly one shulker box should qualify.
      *
-     * Tool-collected materials are excluded however large the number (MCO-467). See
-     * [isToolCollected].
+     * Tool-collected materials are excluded however large the number (MCO-467), and so is
+     * anything that is not a material at all (the nether portal). See [isToolCollected].
+     *
+     * **Only what a farm can make** (MCO-565). 13,000 tuff is real demand that no farm will ever
+     * meet, so offering one is advice that cannot be taken. But the leaf is not always what the
+     * farm makes: iron demand bottoms out in `raw_iron`, which comes off an ore and is not
+     * renewable, while the `iron_ingot` it is smelted into drops from every iron golem. So a
+     * non-renewable leaf counts the share of its demand that renewable items consume directly
+     * in this plan — the farm makes the ingot, and the raw iron line stands for it. Only that
+     * share: glass is renewable (a trading hall) and sand is not, so a build with 10,000 concrete
+     * powder and a few glass panes must not list 10,100 sand, nor diamond blocks plus one
+     * pickaxe all their diamonds. Tuff into tuff bricks counts nothing, because nothing makes the
+     * bricks either.
+     *
+     * The share is what the threshold reads; the line still shows the plan's quantity. The
+     * dismissal records that quantity, and the row it badges prints it, so a line showing the
+     * share would put two numbers for one item on the page and make every dismissal look like
+     * demand had dropped. The line keeps the leaf's name for the same reason: the dismissal, the
+     * badge and the row are all keyed by the item the player gathers.
      */
-    private fun Activity.isFarmScale(threshold: Int): Boolean =
-        status == PlanNodeStatus.RAW_GATHER && quantity >= threshold && !isToolCollected()
+    private fun farmScaleRule(
+        plan: GatheringPlan,
+        threshold: Int,
+        isRenewable: (String) -> Boolean,
+    ): (Activity) -> Boolean {
+        // What each renewable consumer takes of each input: one execution of the consumer's
+        // source consumes quantityPerCraft, and it runs `crafts` times — the quantifier's own sum.
+        val renewableDemand = HashMap<String, Long>()
+        for (node in plan.nodes.values) {
+            if (!isRenewable(node.item.id)) continue
+            for (input in node.requires) {
+                renewableDemand.merge(input.itemId, node.crafts * input.quantityPerCraft, Long::plus)
+            }
+        }
+        fun farmScaleShare(activity: Activity): Long =
+            if (isRenewable(activity.item.id)) activity.quantity
+            // Capped: what consumers take can only exceed the leaf if the two sums ever drift.
+            else minOf(activity.quantity, renewableDemand[activity.item.id] ?: 0L)
+
+        return { activity ->
+            activity.status == PlanNodeStatus.RAW_GATHER &&
+                activity.quantity >= threshold &&
+                !activity.isToolCollected() &&
+                activity.item.id !in Renewability.NOT_MATERIALS &&
+                farmScaleShare(activity) >= threshold
+        }
+    }
 
     /**
      * Filled from the world with a tool, rather than gathered — water, lava, and the three

@@ -173,6 +173,21 @@
                             <mainClass>app.mcorg.cli.CostDiagnosticsKt</mainClass>
                         </configuration>
                     </execution>
+                    <!--
+                        Read-only: which items a farm can make (MCO-565), against the ingested data.
+                        Diffs against the committed snapshot, explains a verdict, and writes the
+                        review page's data and new snapshots.
+                        mvn -pl mc-web exec:java@renewability-diagnostics -Dexec.args="version=26.3.0 why tuff"
+                    -->
+                    <execution>
+                        <id>renewability-diagnostics</id>
+                        <goals>
+                            <goal>java</goal>
+                        </goals>
+                        <configuration>
+                            <mainClass>app.mcorg.cli.RenewabilityDiagnosticsKt</mainClass>
+                        </configuration>
+                    </execution>
                 </executions>
             </plugin>
         </plugins>

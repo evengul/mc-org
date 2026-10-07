@@ -92,6 +92,8 @@ fun projectDetailPage(
     versionGaps: Set<String> = emptySet(),
     /** Farm-scale demand this world has decided against (MCO-407). */
     farmDismissals: List<FarmDismissal> = emptyList(),
+    /** Whether a farm can make an item in this world's version (MCO-565). Required: a default here is how a caller would bring tuff back. */
+    isRenewable: (String) -> Boolean,
 ): String = pageShell(
     pageTitle = "Seam — ${project.name}",
     user = user,
@@ -146,7 +148,7 @@ fun projectDetailPage(
                     // ?drill=<item> deep-links straight into a target's chain (reload/share-safe).
                     drillChainContent(project, drillTarget, drillCandidateCounts, drillNodeIngredients, overrides = drillOverrides, graph = drillGraph, highlightItemId = drillHighlightItemId)
                 } else {
-                    gatheringPlannerContent(project, resources, tasks, plan, progressMap, measurements, pendingFarms, farmScaleThreshold, farmSuggestions, versionGaps, isWorldAdmin, farmDismissals)
+                    gatheringPlannerContent(project, resources, tasks, plan, progressMap, measurements, pendingFarms, farmScaleThreshold, farmSuggestions, versionGaps, isWorldAdmin, farmDismissals, isRenewable)
                 }
             }
         }
@@ -284,6 +286,8 @@ fun FlowContent.gatheringPlannerContent(
     isWorldAdmin: Boolean = false,
     /** Farm-scale demand this world has decided against (MCO-407). */
     farmDismissals: List<FarmDismissal> = emptyList(),
+    /** Whether a farm can make an item in this world's version (MCO-565). Required: a default here is how a caller would bring tuff back. */
+    isRenewable: (String) -> Boolean,
 ) {
     // Next up only speaks once the questions are answered (MCO-504).
     //
@@ -330,7 +334,7 @@ fun FlowContent.gatheringPlannerContent(
         ?.maxOfOrNull { it.quantity } ?: 0L
     val topPick = candidates.firstOrNull()?.quantity ?: 0L
     if (largestQuestion < topPick) nextUpWidget(project, candidates)
-    listLensContent(project, resources, tasks, plan, progressMap, measurements, pendingFarms, farmScaleThreshold, farmSuggestions, versionGaps, isWorldAdmin, farmDismissals)
+    listLensContent(project, resources, tasks, plan, progressMap, measurements, pendingFarms, farmScaleThreshold, farmSuggestions, versionGaps, isWorldAdmin, farmDismissals, isRenewable)
 }
 
 /**
@@ -400,6 +404,8 @@ private fun FlowContent.listLensContent(
     isWorldAdmin: Boolean = false,
     /** Farm-scale demand this world has decided against (MCO-407). */
     farmDismissals: List<FarmDismissal> = emptyList(),
+    /** Whether a farm can make an item in this world's version (MCO-565). Required: a default here is how a caller would bring tuff back. */
+    isRenewable: (String) -> Boolean,
 ) {
     // Resolution toggle (client-side; default "targets" applied by plan-view.js).
     listResolutionToggle()
@@ -508,7 +514,7 @@ private fun FlowContent.listLensContent(
             measurements = measurements,
             pendingFarms = pendingFarms, farmScaleThreshold = farmScaleThreshold,
             farmSuggestions = farmSuggestions, versionGaps = versionGaps,
-            isWorldAdmin = isWorldAdmin, farmDismissals = farmDismissals,
+            isWorldAdmin = isWorldAdmin, farmDismissals = farmDismissals, isRenewable = isRenewable,
         )
     }
 
@@ -593,6 +599,8 @@ fun FlowContent.gatheringPlanSections(
     isWorldAdmin: Boolean = false,
     /** Farm-scale demand this world has decided against (MCO-407). */
     farmDismissals: List<FarmDismissal> = emptyList(),
+    /** Whether a farm can make an item in this world's version (MCO-565). Required: a default here is how a caller would bring tuff back. */
+    isRenewable: (String) -> Boolean,
 ) {
     if (plan == null) {
         // Empty state — no resources yet or all collected
@@ -612,9 +620,9 @@ fun FlowContent.gatheringPlanSections(
     // ignored fold is currently suppressing. A dismissed item is not classified at all, so none
     // of the three can disagree about it (MCO-407).
     val dismissedIds = farmDismissals.mapTo(mutableSetOf()) { it.itemId }
-    val farmScale = FarmScaleDemands.of(plan, farmScaleThreshold, dismissedIds)
+    val farmScale = FarmScaleDemands.of(plan, farmScaleThreshold, dismissedIds, isRenewable)
     val farmScaleIds = farmScale.mapTo(mutableSetOf()) { it.itemId }
-    val suppressed = FarmScaleDemands.dismissedIn(plan, farmScaleThreshold, dismissedIds)
+    val suppressed = FarmScaleDemands.dismissedIn(plan, farmScaleThreshold, dismissedIds, isRenewable)
     val planTotal = plan.activityList.sumOf { it.quantity }
 
     div {
@@ -1816,11 +1824,13 @@ fun gatheringPlannerFragment(
     isWorldAdmin: Boolean = false,
     /** Farm-scale demand this world has decided against (MCO-407). */
     farmDismissals: List<FarmDismissal> = emptyList(),
+    /** Whether a farm can make an item in this world's version (MCO-565). Required: a default here is how a caller would bring tuff back. */
+    isRenewable: (String) -> Boolean,
 ): String = createHTML().div {
     id = "project-content"
     gatheringPlannerContent(
         project, resources, tasks, plan, progressMap, measurements, pendingFarms, farmScaleThreshold, farmSuggestions,
-        versionGaps, isWorldAdmin, farmDismissals,
+        versionGaps, isWorldAdmin, farmDismissals, isRenewable,
     )
 }
 

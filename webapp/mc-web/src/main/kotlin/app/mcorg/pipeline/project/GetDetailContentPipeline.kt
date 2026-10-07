@@ -1,5 +1,6 @@
 package app.mcorg.pipeline.project
 
+import app.mcorg.pipeline.minecraft.isRenewableInWorld
 import app.mcorg.domain.model.user.Role
 import app.mcorg.pipeline.Result
 import app.mcorg.pipeline.failure.AppFailure
@@ -118,6 +119,7 @@ suspend fun ApplicationCall.respondGatheringPlannerContent() {
             GetProjectMeasurementsStep.process(projectId).getOrNull().orEmpty(),
             prerequisiteFarms, farmScaleThreshold,
             farmSuggestions, versionGapsForPlan(projectId, plan), isAdmin, dismissals,
+            isRenewableInWorld(worldId),
         )
     )
 }

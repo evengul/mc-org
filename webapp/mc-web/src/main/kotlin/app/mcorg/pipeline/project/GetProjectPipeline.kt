@@ -1,5 +1,6 @@
 package app.mcorg.pipeline.project
 
+import app.mcorg.pipeline.minecraft.isRenewableInWorld
 import app.mcorg.domain.model.user.Role
 import app.mcorg.engine.plan.TargetTree
 import app.mcorg.pipeline.Result
@@ -146,6 +147,7 @@ suspend fun ApplicationCall.handleGetProject() {
             farmSuggestions = farmSuggestions,
             versionGaps = versionGaps,
             farmDismissals = farmDismissals,
+            isRenewable = isRenewableInWorld(worldId),
         )
     )
 }
