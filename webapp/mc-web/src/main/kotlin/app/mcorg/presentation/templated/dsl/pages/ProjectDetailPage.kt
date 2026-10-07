@@ -113,7 +113,7 @@ fun projectDetailPage(
     // Mobile header
     div("project-detail__mobile-header") {
         a(classes = "project-detail__back-btn") {
-            href = "/worlds/${project.worldId}/projects"
+            href = Link.Worlds.world(project.worldId).roadmap().to
             +"←"
         }
         p("project-detail__mobile-name") { +project.name }

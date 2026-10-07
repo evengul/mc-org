@@ -19,6 +19,7 @@ import app.mcorg.pipeline.failure.ValidationFailure
 import app.mcorg.pipeline.project.resources.GetItemsInWorldVersionStep
 import app.mcorg.pipeline.world.ValidateWorldMemberRole
 import app.mcorg.presentation.handler.handlePipeline
+import app.mcorg.presentation.templated.dsl.Link
 import app.mcorg.presentation.utils.getUser
 import app.mcorg.presentation.utils.getWorldId
 import app.mcorg.presentation.utils.respondHtml
@@ -65,15 +66,15 @@ suspend fun ApplicationCall.handleRecordExistingFarm() {
     val validItems = GetItemsInWorldVersionStep.process(worldId).getOrNull() ?: emptyList()
 
     handlePipeline(
-        onSuccess = { _: Int ->
-            // The Field Log groups by state, and a recorded farm lands in a different
-            // group than the one the user is looking at — reload rather than splice a
-            // card into the wrong section.
+        onSuccess = { projectId: Int ->
+            // Land on the farm just recorded, as a new blank project does, so the user can
+            // check what it now supplies.
+            val target = Link.Worlds.world(worldId).project(projectId).to
             if (isHtmx) {
-                response.headers.append("HX-Redirect", "/worlds/$worldId/projects")
+                response.headers.append("HX-Redirect", target)
                 respondHtml("")
             } else {
-                response.headers.append("Location", "/worlds/$worldId/projects")
+                response.headers.append("Location", target)
                 respond(HttpStatusCode.SeeOther, "")
             }
         }

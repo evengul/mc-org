@@ -99,7 +99,7 @@ class WorldsPageHeroIT : WithUser() {
 
         val body = getWorldsPage()
 
-        assertContains(body, """href="/worlds/$worldId/projects#new"""")
+        assertContains(body, """href="/worlds/$worldId/roadmap#new"""")
         assertContains(body, "New project")
     }
 

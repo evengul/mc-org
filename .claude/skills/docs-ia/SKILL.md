@@ -14,7 +14,7 @@ Complete IA specification for MC-ORG. This is the ground truth for all product a
 
 1. **Start flat, grow deep.** Every user lands on the same page structure. Complexity is reachable through contextual links. No persona gates, no mandatory setup flows.
 
-2. **Resume the world, not the project.** The app knows which world you were in. It lands you on the project list — you pick up wherever you left off. Projects are not pinned in session.
+2. **Resume the world, not the project.** The app knows which world you were in and opens it on its **roadmap**, the first of the world's two tabs. Projects are not pinned in session. *(This said "lands you on the project list" until 2026-10-07. MCO-474 moved the world's home to the roadmap; MCO-586 moved the last links that still treated the list as home. Opening on whichever tab you last used is parked as MCO-587.)*
 
 3. **Plan and execute are views, not modes.** The toggle is a per-project preference stored server-side. A user can have execute view on one project and plan view on another simultaneously.
 
@@ -32,17 +32,23 @@ Complete IA specification for MC-ORG. This is the ground truth for all product a
 /                                                        → redirect (JWT logic)
 /worlds                                                  → world list
 /worlds/new                                              → create world
-/worlds/:worldId/projects                                → project list (world home)
-/worlds/:worldId/projects/new                            → create project
+/worlds/:worldId                                         → redirect to the roadmap (non-permanent)
+/worlds/:worldId/roadmap                                 → Roadmap tab (world home)
+/worlds/:worldId/projects                                → Projects tab
 /worlds/:worldId/projects/:projectId                     → project detail
 /worlds/:worldId/projects/:projectId/path                → production path
-/worlds/:worldId/roadmap                                 → roadmap
 /worlds/:worldId/settings                                → world settings
 /ideas                                                   → idea hub
 /ideas/:ideaId                                           → idea detail
 ```
 
 No mode in the URL. Plan/execute is a per-project preference stored server-side. Every URL is real, shareable, and bookmarkable.
+
+Creating a project has no URL of its own. "+ New project" opens a dialog on either tab, and every way of creating one (blank, from a schematic, recording an existing farm, importing an idea) lands on the new project's page. `/worlds/:worldId/roadmap#new` opens that menu on arrival, for links from outside the world such as the Worlds page.
+
+Links that leave a project or a world-level flow without a destination of their own (deleting a project, the project page's mobile back button, cancelling an import review) go to the roadmap, because that is where the world opens. Links that name a tab on purpose (the tabs themselves) keep it.
+
+The redirect on `/worlds/:worldId` is deliberately not permanent: a 301 is cached indefinitely by every browser that followed it, which is how the old one to `/projects` outlived the change.
 
 ---
 
@@ -56,7 +62,7 @@ No mode in the URL. Plan/execute is a per-project preference stored server-side.
 
 ```
 if no activeWorldId → /worlds
-if activeWorldId    → /worlds/:activeWorldId/projects
+if activeWorldId    → /worlds/:activeWorldId/roadmap
 ```
 
 ---
@@ -89,17 +95,31 @@ Project pages:
 [Logo]   Worlds › [World] › [Project]        Ideas   ⚙️
 ```
 
+### World bar
+
+Both world pages carry the same bar under the header (`worldBar` in `Navigation.kt`):
+
+```
+Roadmap · Projects                              [+ New project]
+```
+
+Roadmap is first and is where the world opens. "+ New project" sits in the bar rather than in either page's own toolbar, so it is reachable from both tabs.
+
 ### Breadcrumb by page
+
+The breadcrumb locates the *world*; which section of it you are in is the tab. So both tabs share one breadcrumb, and a world name in a breadcrumb links to the roadmap.
 
 | Page | Breadcrumb |
 |------|-----------|
 | World list | *(none)* |
-| Project list | Worlds › [World Name] |
+| Roadmap tab | Worlds › [World Name] |
+| Projects tab | Worlds › [World Name] |
 | Project detail | Worlds › [World Name] › [Project Name] |
 | Production path | Worlds › [World Name] › [Project Name] › Path |
-| Roadmap | Worlds › [World Name] › Roadmap |
 | Idea Hub | Ideas |
 | Idea detail | Ideas › [Idea Name] |
+
+On a phone the project page has no breadcrumb; its `←` goes to the roadmap, the same place as the world name in the desktop breadcrumb.
 
 ---
 
@@ -120,28 +140,27 @@ Project pages:
 
 ---
 
-## Project List Page
+## World Tabs: Roadmap and Projects
 
-### Execute view columns/cards
+A world has two tabs because they answer two different questions, and one page answering both would do neither well.
 
-- Project name
-- Task progress: `4 / 9 tasks done`
-- Status badge
-- Resource progress: `12 / 64 iron ingot gathered`
-- Partial block indicator (only if a required resource comes from an unfinished project)
-- Next incomplete task (truncated)
+| Tab | Answers | Reach for it when |
+|-----|---------|-------------------|
+| **Roadmap** (first, the world's home) | *What do I build next, and in what order?* | Planning: deciding what to start, seeing what a final project waits on |
+| **Projects** | *What am I gathering now, and where is everything, including shelved projects?* | Gathering for one to three active projects; finding a project the roadmap does not draw |
 
-Sort: unblocked in-progress → unblocked not-started → partially blocked → fully blocked → done (collapsed).
+Which one should be home depends on the stage of the world: the roadmap early, while planning; the Projects tab later, once you are gathering. A fixed default can't be right for both, which is why MCO-587 (open on the last-used tab) is parked rather than rejected.
 
-### Plan view columns/cards
+### Why the Projects tab stays (MCO-529, 2026-10-07)
 
-- Project name
-- Resource definition status
-- Production path status
-- Dependency summary
-- Location if set
+MCO-529 asked whether the tab answered anything the roadmap graph does not. Its creation doors don't count: "+ New project" and the world empty state are on both tabs (MCO-474), and bulk state changes exist on neither. What only the Projects tab has:
 
-Sort: incomplete plans first → complete plans by dependency depth.
+1. **The resume hero.** The newest active project with editable resource counters and the Seam Notebook mod's measured stock, so you can track gathering without opening the project.
+2. **Rows that expand in place.** What to gather next, a name filter, a blocker callout, "adopt all".
+3. **Every project, grouped by state, including shelved ones.** The roadmap leaves out cancelled, archived and decommissioned projects that sit in no chain (`GetWorldRoadmapPipeline`), so this tab is the only way back to them in the UI.
+4. **Gathered/required progress for every active project.** The roadmap shows progress only for the "start here" project and the final projects.
+
+If a change moves one of these four onto the roadmap, ask again whether the tab still earns its place. Every extra view of the same projects is another place a fix has to land (MCO-318 and MCO-505 were drift between two such views).
 
 ---
 
@@ -234,13 +253,11 @@ Post-DAG-viz (future): rendered graph replaces step list. List stays as accessib
 
 `/worlds/:worldId/roadmap`
 
-Reached from project list → "View Roadmap →". Not a top-level nav item.
+The first world tab, and what a world opens on (`/`, `/worlds/:worldId`, the Worlds page's "Open world").
 
-**Empty state**: Full page with CTA to define resources and generate paths. Not hidden.
+**Empty world**: the shared world empty state below, not a roadmap-specific one. *(The roadmap used to have its own, whose only offer was a link to the project list.)*
 
-**Pre-DAG-viz**: Dependency table — projects as rows, sortable by dependency depth. "Blocked By" cells name both the project and the specific resource.
-
-**Post-DAG-viz (future)**: Interactive graph. Table stays as toggle-able alternative.
+**Shape**: a graph of every project in a chain, ordered by dependency depth, with a "start here" project, the final projects, and a "Not in any chain" list for projects with no edges. *(Until mc-org PR 500, 2026-10-05, it also had a Table view toggle. It was removed; the graph's TO BUILD list carries the ARIA table roles the table had stood in for.)*
 
 ---
 
@@ -264,9 +281,9 @@ Reached from project list → "View Roadmap →". Not a top-level nav item.
 
 ---
 
-## World Home Empty State
+## World Empty State
 
-When a user has no projects — two equal-weight cards, no dominant CTA:
+When a world has no projects, **both tabs** show the same block (`worldEmptyState`): a world is empty in exactly one way, so it answers in one way. Two equal-weight cards, no dominant CTA:
 
 ```
 ┌───────────────────────┐  ┌───────────────────────┐
@@ -287,7 +304,8 @@ Both cards: same size, same visual prominence. On mobile: stack vertically, stil
 |---------|-------------|--------------------------------------|
 | Plan view | Toggle on project detail | ✓ Default is execute |
 | Production path | Plan view → "View path" | ✓ Only relevant after resources defined |
-| Roadmap | Project list → "View Roadmap →" | ✓ Understated link, not nav item |
+| Roadmap | What a world opens on; first world tab | ✗ It is the world's home |
+| Projects tab | Second world tab | ✗ Always one click away |
 | Idea Hub | Nav + world empty state | ✓ Empty state disappears once projects exist |
 
 ---

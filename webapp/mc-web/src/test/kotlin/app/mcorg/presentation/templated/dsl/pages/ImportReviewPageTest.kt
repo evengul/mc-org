@@ -382,4 +382,10 @@ class ImportReviewPageTest {
         assertContains(html, "in containers", message = "but the row itself is still marked")
     }
 
+    @Test
+    fun `cancel goes back to the roadmap, where the world opens`() {
+        val html = render(requirements = mapOf(item("oak_planks") to 100))
+
+        assertContains(html, """href="/worlds/1/roadmap">Cancel""")
+    }
 }

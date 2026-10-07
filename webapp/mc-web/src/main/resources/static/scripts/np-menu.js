@@ -16,9 +16,9 @@ document.addEventListener('keydown', (event) => {
     }
 });
 
-// Arriving from the Worlds page's "New project" nudge (/worlds/N/projects#new):
+// Arriving from the Worlds page's "New project" nudge (/worlds/N/roadmap#new):
 // open the door menu immediately, so the link lands on the choice rather than on the
-// list with the choice still one click away.
+// page with the choice still one click away.
 document.addEventListener('DOMContentLoaded', () => {
     if (window.location.hash !== '#new') return;
     const menu = document.getElementById('new-project-menu');
