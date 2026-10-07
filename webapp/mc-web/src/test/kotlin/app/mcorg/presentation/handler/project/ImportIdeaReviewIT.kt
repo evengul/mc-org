@@ -467,7 +467,7 @@ class ImportIdeaReviewIT : WithUser() {
         }.bodyAsText()
 
         assertContains(body, "Runtime modes · 2")
-        assertContains(body, "Starts running <strong>Everything on</strong>")
+        assertContains(body, "By default it starts running <strong>Everything on</strong>")
         assertContains(body, "name=\"runtimeMode\" value=\"Skeletons only\"")
         assertContains(body, "Bone · 700/hr", message = "each option says what it makes")
     }

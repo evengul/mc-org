@@ -80,12 +80,11 @@ private fun DIV.productionsFieldInner(worldId: Int, projectId: Int, view: Produc
         button(classes = "production-chip") {
             type = ButtonType.button
             attributes["data-production-panel-url"] = panelUrl
-            attributes["aria-label"] = "View produced items"
             span("production-chip__label") { +"⚙ Produces:" }
             val first = productions.first()
             span("production-chip__item") {
                 +first.name
-                if (first.ratePerHour > 0) +" ${first.ratePerHour}/hr"
+                if (first.ratePerHour > 0) +" ${"%,d".format(first.ratePerHour)}/hr"
             }
             if (productions.size > 1) {
                 span("production-chip__more") { +"+${productions.size - 1} more" }
@@ -221,9 +220,10 @@ private fun FlowContent.modeLedger(base: String, view: ProductionsView) {
                         span("mode-ledger__state") { +"RUNNING" }
                     }
                 } else {
+                    // No aria-label: it would replace the row's own text, and what each mode makes
+                    // is the point of the ledger. The row reads "Oak, Oak Log · 48,000/hr, Switch".
                     button(classes = "mode-ledger__row") {
                         type = ButtonType.button
-                        attributes["aria-label"] = "Switch to ${mode.name}"
                         switchTo(base, mode)
                         span("mode-ledger__dot") {}
                         span("mode-ledger__text") {
@@ -253,6 +253,8 @@ private fun FlowContent.switchNote(base: String, view: ProductionsView, switched
     val lost = view.productionsOf(switched.from).filter { it.itemId !in nowIds }.map { it.name }.distinct()
 
     div("callout callout--info production-panel__note") {
+        // The switch replaced the button that had focus; this is how a screen reader hears it.
+        attributes["role"] = "status"
         span("callout__icon") {
             attributes["aria-hidden"] = "true"
             +"i"

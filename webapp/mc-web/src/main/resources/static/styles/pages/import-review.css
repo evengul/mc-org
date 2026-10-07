@@ -519,3 +519,32 @@ a.import-review__build-time-option:hover {
     height: 18px;
     accent-color: var(--accent);
 }
+
+/* A fieldset for the radios' grouping, without the fieldset's own chrome. */
+.import-review__runtime-options {
+    margin: 0;
+    padding: 0;
+    min-width: 0;
+}
+
+.import-review__runtime-option:hover {
+    background: var(--bg-raised);
+}
+
+/* The chosen row carries the panel's running treatment: ink rule, raised fill, heavier name. */
+.import-review__runtime-option:has(input:checked) {
+    background: var(--bg-raised);
+    box-shadow: inset 3px 0 0 var(--text-primary);
+}
+
+.import-review__runtime-option:has(input:checked) .mode-ledger__name {
+    font-weight: 600;
+}
+
+@media (max-width: 768px) {
+    .import-review__runtime-change summary {
+        display: flex;
+        align-items: center;
+        min-height: 44px;
+    }
+}

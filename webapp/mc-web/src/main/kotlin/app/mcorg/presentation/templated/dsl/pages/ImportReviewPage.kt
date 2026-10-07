@@ -21,6 +21,8 @@ import kotlinx.html.InputType
 import kotlinx.html.a
 import kotlinx.html.button
 import kotlinx.html.details
+import kotlinx.html.fieldSet
+import kotlinx.html.legend
 import kotlinx.html.div
 import kotlinx.html.form
 import kotlinx.html.h1
@@ -594,14 +596,16 @@ private fun FlowContent.runtimeModeChoice(modes: List<ImportedRuntimeMode>) {
     val default = modes.firstOrNull { it.active } ?: return
     div("import-review__runtime-modes") {
         span("section-label") { +"Runtime modes · ${modes.size}" }
+        // Worded as the default, because a radio below can change it and nothing re-renders this.
         p("import-review__runtime-lead") {
-            +"Starts running "
+            +"By default it starts running "
             strong { +default.name }
             +", the mode that makes the most. Anyone in the world can switch later from Produces."
         }
         details("import-review__runtime-change") {
             summary { +"Change starting mode" }
-            div("mode-ledger__rows") {
+            fieldSet("mode-ledger__rows import-review__runtime-options") {
+                legend("visually-hidden") { +"Starting mode" }
                 modes.forEach { mode ->
                     label("mode-ledger__row import-review__runtime-option") {
                         radioInput {
