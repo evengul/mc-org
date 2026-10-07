@@ -60,7 +60,9 @@
     // -------------------------------------------------------------------------
 
     function initRowClicks() {
-        var table = document.getElementById('plan-resource-table');
+        // The area, not #plan-resource-table: the folded single-item tail is a table of its own
+        // beside it, and its rows open the panel like any other.
+        var table = document.getElementById('plan-resources-area');
         if (!table) return;
         if (table.dataset.panelInitialized) return;
         table.dataset.panelInitialized = 'true';
@@ -74,6 +76,8 @@
 
             var tr = e.target.closest('tr[data-resource-id]');
             if (!tr) return;
+            // An ignored row's one action is Un-ignore; it has no panel.
+            if (tr.closest('#plan-ignored-section')) return;
 
             var resourceId = tr.dataset.resourceId;
             if (!resourceId) return;

@@ -15,7 +15,9 @@
     // -------------------------------------------------------------------------
 
     function initQtyEdit() {
-        var table = document.getElementById('plan-resource-table');
+        // The area, not #plan-resource-table: the folded single-item tail is a table of its own
+        // beside it, and its quantities edit like any other. (Ignored rows have no input.)
+        var table = document.getElementById('plan-resources-area');
         if (!table) return;
         if (table.dataset.qtyInitialized) return;
         table.dataset.qtyInitialized = 'true';
