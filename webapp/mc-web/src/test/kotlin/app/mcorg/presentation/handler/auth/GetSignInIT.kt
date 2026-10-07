@@ -2,6 +2,7 @@ package app.mcorg.presentation.handler.auth
 
 import app.mcorg.pipeline.auth.commonsteps.CreateTokenStep
 import app.mcorg.presentation.consts.AUTH_COOKIE
+import app.mcorg.presentation.plugins.SeamRateLimit
 import app.mcorg.presentation.router.authRouter
 import app.mcorg.test.WithUser
 import app.mcorg.test.postgres.DatabaseTestExtension
@@ -17,6 +18,7 @@ import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.api.extension.ExtendWith
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @ExtendWith(DatabaseTestExtension::class)
@@ -69,6 +71,22 @@ class GetSignInIT : WithUser() {
         assertEquals(HttpStatusCode.OK, response.status)
         val body = response.bodyAsText()
         assertContains(body, "Sign in with Microsoft")
+    }
+
+    @Test
+    fun `Sign-in is limited per client, and the refusal is a page`() = testApplication {
+        routing {
+            route("/auth") {
+                authRouter()
+            }
+        }
+
+        val statuses = (1..SeamRateLimit.SIGN_IN.limit).map { client.get("/auth/sign-in").status }
+        assertTrue(statuses.all { it == HttpStatusCode.OK }, "got $statuses")
+
+        val refused = client.get("/auth/sign-in")
+        assertEquals(HttpStatusCode.TooManyRequests, refused.status)
+        assertContains(refused.bodyAsText(), "Too Many Requests")
     }
 
     @Test
