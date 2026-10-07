@@ -19,21 +19,15 @@ import app.mcorg.presentation.utils.setTaskId
 import app.mcorg.presentation.utils.setWorldId
 import app.mcorg.presentation.utils.setWorldMemberId
 import com.github.benmanes.caffeine.cache.Cache
-import io.ktor.server.application.isHandled
 import io.ktor.server.application.createRouteScopedPlugin
 
 /*
- * A plugin that reads an id an earlier plugin put on the call returns first when the call is
- * already answered. Ktor's `isHandled` guard skips the route handler after a refusal, but not
- * the sibling `onCall` interceptors, so without it a 404 for an unknown world went on to throw
- * `No instance for key` from the next plugin (see [IdeaCommentAuthorPlugin]).
- *
  * An id that is not a number is answered exactly like one that does not exist (MCO-158). Nothing
  * lives at `/worlds/1/projects/settings`, and a 400 tells the person who typed it nothing.
  */
 
 val WorldParamPlugin = createRouteScopedPlugin("WorldParamPlugin") {
-    onCall { call ->
+    onUnansweredCall { call ->
         val worldId = call.parameters["worldId"]?.toIntOrNull()
         if (worldId == null) {
             call.defaultHandleError(AppFailure.DatabaseError.NotFound)
@@ -56,8 +50,7 @@ val WorldParamPlugin = createRouteScopedPlugin("WorldParamPlugin") {
 }
 
 val ProjectParamPlugin = createRouteScopedPlugin("ParamPlugin") {
-    onCall { call ->
-        if (call.isHandled) return@onCall
+    onUnansweredCall { call ->
         val worldId = call.getWorldId()
         val projectId = call.parameters["projectId"]?.toIntOrNull()
         if (projectId == null) {
@@ -82,8 +75,7 @@ val ProjectParamPlugin = createRouteScopedPlugin("ParamPlugin") {
 }
 
 val ActionTaskParamPlugin = createRouteScopedPlugin("TaskParamPlugin") {
-    onCall { call ->
-        if (call.isHandled) return@onCall
+    onUnansweredCall { call ->
         val projectId = call.getProjectId()
         val taskId = call.parameters["taskId"]?.toIntOrNull()
         if (taskId == null) {
@@ -108,8 +100,7 @@ val ActionTaskParamPlugin = createRouteScopedPlugin("TaskParamPlugin") {
 }
 
 val ResourceGatheringIdParamPlugin = createRouteScopedPlugin("ResourceGatheringIdParamPlugin") {
-    onCall { call ->
-        if (call.isHandled) return@onCall
+    onUnansweredCall { call ->
         val projectId = call.getProjectId()
         val resourceGatheringId = call.parameters["resourceGatheringId"]?.toIntOrNull()
         if (resourceGatheringId == null) {
@@ -134,7 +125,7 @@ val ResourceGatheringIdParamPlugin = createRouteScopedPlugin("ResourceGatheringI
 }
 
 val InviteParamPlugin = createRouteScopedPlugin("InviteParamPlugin") {
-    onCall { call ->
+    onUnansweredCall { call ->
         val inviteId = call.parameters["inviteId"]?.toIntOrNull()
         if (inviteId == null) {
             call.defaultHandleError(AppFailure.DatabaseError.NotFound)
@@ -157,8 +148,7 @@ val InviteParamPlugin = createRouteScopedPlugin("InviteParamPlugin") {
 }
 
 val WorldMemberParamPlugin = createRouteScopedPlugin("MemberParamPlugin") {
-    onCall { call ->
-        if (call.isHandled) return@onCall
+    onUnansweredCall { call ->
         val worldId = call.getWorldId()
         val memberId = call.parameters["memberId"]?.toIntOrNull()
         if (memberId == null) {
@@ -183,8 +173,7 @@ val WorldMemberParamPlugin = createRouteScopedPlugin("MemberParamPlugin") {
 }
 
 val ProjectProductionItemParamPlugin = createRouteScopedPlugin("ProjectProductionItemParamPlugin") {
-    onCall { call ->
-        if (call.isHandled) return@onCall
+    onUnansweredCall { call ->
         val projectId = call.getProjectId()
         val itemId = call.parameters["productionId"]?.toIntOrNull()
         if (itemId == null) {
@@ -209,8 +198,7 @@ val ProjectProductionItemParamPlugin = createRouteScopedPlugin("ProjectProductio
 }
 
 val ProjectDependencyItemPlugin = createRouteScopedPlugin("ProjectDependencyItemPlugin") {
-    onCall { call ->
-        if (call.isHandled) return@onCall
+    onUnansweredCall { call ->
         val projectId = call.getProjectId()
         val dependencyId = call.parameters["dependencyId"]?.toIntOrNull()
         if (dependencyId == null) {
@@ -235,7 +223,7 @@ val ProjectDependencyItemPlugin = createRouteScopedPlugin("ProjectDependencyItem
 }
 
 val IdeaParamPlugin = createRouteScopedPlugin("IdeaParamPlugin") {
-    onCall { call ->
+    onUnansweredCall { call ->
         val ideaId = call.parameters["ideaId"]?.toIntOrNull()
         if (ideaId == null) {
             call.defaultHandleError(AppFailure.DatabaseError.NotFound)
@@ -265,7 +253,7 @@ val IdeaParamPlugin = createRouteScopedPlugin("IdeaParamPlugin") {
  * only bounds *reachability* — who may act on a comment they can reach is [IdeaCommentAuthorPlugin].
  */
 val IdeaCommentParamPlugin = createRouteScopedPlugin("IdeaCommentParamPlugin") {
-    onCall { call ->
+    onUnansweredCall { call ->
         val commentId = call.parameters["commentId"]?.toIntOrNull()
         val ideaId = call.parameters["ideaId"]?.toIntOrNull()
         if (commentId == null || ideaId == null) {

@@ -28,11 +28,11 @@ import io.ktor.server.response.*
 import org.slf4j.LoggerFactory
 
 /** A 403 the person can see: the alert under HTMX, the forbidden page on a page load. */
-private suspend fun ApplicationCall.forbid(reason: String) =
+internal suspend fun ApplicationCall.forbid(reason: String) =
     respondRefusal(HttpStatusCode.Forbidden, "Not Authorized", reason, alertId = "not-authorized-error")
 
 val AdminPlugin = createRouteScopedPlugin("AdminPlugin") {
-    onCall {
+    onUnansweredCall {
         if (!it.getUser().isSuperAdmin) {
             it.respond(HttpStatusCode.NotFound)
         }
@@ -40,8 +40,7 @@ val AdminPlugin = createRouteScopedPlugin("AdminPlugin") {
 }
 
 val WorldAdminPlugin = createRouteScopedPlugin("WorldAdminPlugin") {
-    onCall {
-        if (it.isHandled) return@onCall
+    onUnansweredCall {
         val user = it.getUser()
         val worldId = it.getWorldId()
 
@@ -61,8 +60,7 @@ val WorldAdminPlugin = createRouteScopedPlugin("WorldAdminPlugin") {
  * tier (compare [WorldAdminPlugin] / [WorldOwnerPlugin] for elevated-role gates).
  */
 val WorldParticipantPlugin = createRouteScopedPlugin("WorldParticipantPlugin") {
-    onCall {
-        if (it.isHandled) return@onCall
+    onUnansweredCall {
         val user = it.getUser()
         val worldId = it.getWorldId()
 
@@ -74,8 +72,7 @@ val WorldParticipantPlugin = createRouteScopedPlugin("WorldParticipantPlugin") {
 }
 
 val WorldOwnerPlugin = createRouteScopedPlugin("WorldOwnerPlugin") {
-    onCall {
-        if (it.isHandled) return@onCall
+    onUnansweredCall {
         val user = it.getUser()
         val worldId = it.getWorldId()
 
@@ -87,8 +84,8 @@ val WorldOwnerPlugin = createRouteScopedPlugin("WorldOwnerPlugin") {
 }
 
 val BannedPlugin = createRouteScopedPlugin("BannedPlugin") {
-    onCall {
-        val userId = runCatching { it.getUser().id }.getOrNull() ?: return@onCall
+    onUnansweredCall {
+        val userId = runCatching { it.getUser().id }.getOrNull() ?: return@onUnansweredCall
 
         // Check cache first
         val cached = CacheManager.bannedUsers.getIfPresent(userId)
@@ -96,7 +93,7 @@ val BannedPlugin = createRouteScopedPlugin("BannedPlugin") {
             if (cached) {
                 it.respondHtml(bannedPage(), HttpStatusCode.Forbidden)
             }
-            return@onCall
+            return@onUnansweredCall
         }
 
         // Cache miss - query DB
@@ -128,23 +125,15 @@ val BannedPlugin = createRouteScopedPlugin("BannedPlugin") {
  * authorization is visible from the route tree. Install it after [IdeaCommentParamPlugin], which
  * establishes that the comment is reachable under this idea in the first place.
  *
- * That ordering does *not* mean this body can assume the param plugin succeeded. Ktor's
- * `call.isHandled` guard suppresses the route **handler** once something has responded, but not
- * sibling route-scoped `onCall` interceptors — so when the param plugin 404s a mismatched comment
- * id, this still runs. Before the guard below, `getIdeaCommentId()` then threw
- * `IllegalStateException: No instance for key AttributeKey: IdeaCommentParam` on every such
- * request: not an authorization bypass (the handler stays suppressed and the comment survives),
- * but an unhandled exception and a stack trace per request, trivially driven by any signed-in
- * user asking for a comment id that does not belong to the idea.
+ * That ordering does *not* by itself mean this body can assume the param plugin succeeded: a
+ * plugin's `onCall` runs even after an earlier one has refused. When the param plugin 404'd a
+ * mismatched comment id, `getIdeaCommentId()` here threw `No instance for key` on every such
+ * request. [onUnansweredCall] is what makes the assumption hold.
  */
 val IdeaCommentAuthorPlugin = createRouteScopedPlugin("IdeaCommentAuthorPlugin") {
-    onCall { call ->
-        // Nothing to authorize if an earlier plugin already answered — and its attributes may
-        // never have been set.
-        if (call.isHandled) return@onCall
-
+    onUnansweredCall { call ->
         val user = call.getUser()
-        if (user.isSuperAdmin) return@onCall
+        if (user.isSuperAdmin) return@onUnansweredCall
 
         val commentId = call.getIdeaCommentId()
         val ideaId = call.getIdeaId()
@@ -176,7 +165,7 @@ val IdeaCommentAuthorPlugin = createRouteScopedPlugin("IdeaCommentAuthorPlugin")
 }
 
 val DemoUserPlugin = createRouteScopedPlugin("DemoUserPlugin") {
-    onCall {
+    onUnansweredCall {
         if (AppConfig.env == Production) {
             val user = GetTokenStep(AUTH_COOKIE)
                 .process(it.request.cookies)

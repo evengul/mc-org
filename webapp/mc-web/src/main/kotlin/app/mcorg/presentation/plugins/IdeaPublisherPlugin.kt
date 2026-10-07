@@ -1,9 +1,7 @@
 package app.mcorg.presentation.plugins
 
 import app.mcorg.presentation.utils.getUser
-import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.createRouteScopedPlugin
-import io.ktor.server.response.respond
 
 /**
  * Gates publishing an idea to the public hub (MCO-291).
@@ -16,9 +14,9 @@ import io.ktor.server.response.respond
  * value in `global_user_roles`, so renaming it needs a migration and is not worth one yet.
  */
 val IdeaPublisherPlugin = createRouteScopedPlugin("IdeaPublisherPlugin") {
-    onCall {
+    onUnansweredCall {
         if (!it.getUser().isIdeaCreator) {
-            it.respond(HttpStatusCode.Forbidden, "You don't have permission to publish ideas to the hub.")
+            it.forbid("You don't have permission to publish ideas to the hub.")
         }
     }
 }

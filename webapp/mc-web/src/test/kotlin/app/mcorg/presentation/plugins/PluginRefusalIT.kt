@@ -11,6 +11,7 @@ import app.mcorg.pipeline.world.CreateWorldStep
 import app.mcorg.presentation.router.configureAppRouter
 import app.mcorg.test.WithUser
 import app.mcorg.test.postgres.DatabaseTestExtension
+import ch.qos.logback.classic.Level
 import ch.qos.logback.classic.Logger
 import ch.qos.logback.classic.spi.ILoggingEvent
 import ch.qos.logback.core.read.ListAppender
@@ -104,6 +105,31 @@ class PluginRefusalIT : WithUser() {
     }
 
     @Test
+    fun `a signed-out visit to admin is redirected without an exception`() = testApplication {
+        // AuthPlugin redirects and stores no user; AdminPlugin then asked for one.
+        val response = assertNoUnhandledException { app().get("/admin") }
+
+        assertEquals(HttpStatusCode.Found, response.status)
+    }
+
+    @Test
+    fun `a signed-out visit to a bad world id is redirected without an exception`() = testApplication {
+        val response = assertNoUnhandledException { app().get("/worlds/not-a-world/roadmap") }
+
+        assertEquals(HttpStatusCode.Found, response.status)
+    }
+
+    @Test
+    fun `an unknown idea under the comment routes is one clean 404`() = testApplication {
+        // IdeaParamPlugin answers 404; IdeaVisibilityPlugin and IdeaCommentParamPlugin come after.
+        val response = assertNoUnhandledException {
+            app().delete("/ideas/987654321/comments/1") { addAuthCookie(this) }
+        }
+
+        assertEquals(HttpStatusCode.NotFound, response.status)
+    }
+
+    @Test
     fun `a project id that does not exist answers an HTMX request with the alert, not the whole 404 page`() = testApplication {
         // StatusPages used to replace every 404 body with the full page, so this alert reached
         // htmx as an <html> document and was swapped into the alert list.
@@ -162,6 +188,27 @@ class PluginRefusalIT : WithUser() {
     }
 
     private fun HttpRequestBuilder.htmx() = header("HX-Request", "true")
+
+    /**
+     * Off the root logger, so both the error boundary's "Unhandled exception" line and Ktor's own
+     * logging of a response sent twice are seen.
+     */
+    private suspend fun assertNoUnhandledException(request: suspend () -> HttpResponse): HttpResponse {
+        val logger = LoggerFactory.getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME) as Logger
+        val appender = ListAppender<ILoggingEvent>().also { it.start() }
+        logger.addAppender(appender)
+        try {
+            val response = request()
+            val thrown = appender.list.filter { it.level.isGreaterOrEqual(Level.ERROR) || it.throwableProxy != null }
+            assertTrue(
+                thrown.isEmpty(),
+                "should not throw: ${thrown.map { "${it.formattedMessage} / ${it.throwableProxy?.className}" }}",
+            )
+            return response
+        } finally {
+            logger.detachAppender(appender)
+        }
+    }
 
     private suspend fun assertStatusPage(response: HttpResponse, status: HttpStatusCode, heading: String) {
         val body = response.bodyAsText()
