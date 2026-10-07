@@ -226,7 +226,7 @@ suspend fun ApplicationCall.handleUpsertProjectProduction() {
         // is one statement against an action taken by hand. After the upsert is safe on its own
         // transaction: the bump can only come after the change, never before it.
         if (isOperational(projectId)) invalidateDemandSuppliedBy(worldId, projectId)
-        GetProductionsViewStep.run(projectId)
+        GetProductionsViewStep.run(projectId).copy(lastModeId = modeId)
     }
 }
 

@@ -254,6 +254,19 @@ class ProductionModesIT : WithUser() {
     }
 
     @Test
+    fun `after an add the picker stays on the mode just added to`() = testApplication {
+        setupRoutes()
+
+        val body = postProduction(treeFarmId, "itemId=${poppy.id}&ratePerHour=10&modeId=$cherryModeId").bodyAsText()
+
+        // The panel re-renders after every write. A picker back on the first mode would send the
+        // next item into Oak Mode without a word.
+        assertContains(body, "<option value=\"$cherryModeId\" selected")
+        assertFalse(body.contains("<option value=\"$oakModeId\" selected"))
+        deleteProduction(cherryModeId, poppy)
+    }
+
+    @Test
     fun `the chip names an item two modes make once, and says how many modes the farm has`() = testApplication {
         setupRoutes()
 
@@ -359,6 +372,16 @@ class ProductionModesIT : WithUser() {
             resultMapper = { rs -> if (rs.next()) rs.getInt("rate_per_hour") else null }
         ).process(Unit)
         (result as Result.Success).value
+    }
+
+    private fun deleteProduction(modeId: Int, item: Item) = runBlocking {
+        DatabaseSteps.update<Unit>(
+            sql = SafeSQL.delete("DELETE FROM project_productions WHERE mode_id = ? AND item_id = ?"),
+            parameterSetter = { stmt, _ ->
+                stmt.setInt(1, modeId)
+                stmt.setString(2, item.id)
+            }
+        ).process(Unit)
     }
 
     private fun setRate(modeId: Int, item: Item, rate: Int) = runBlocking {

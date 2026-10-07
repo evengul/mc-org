@@ -18,10 +18,13 @@ private fun productionsBase(worldId: Int, projectId: Int) = "/worlds/$worldId/pr
  * @param productions every row the project has — its one mode-less list, or each mode's rates.
  * @param modes the ways the farm can be run; empty for most projects. Every one of them supplies
  *   once the project is Done (MCO-588).
+ * @param lastModeId the mode the write this view answers went to, so the add form's picker stays
+ *   on it — a picker reset to the first mode would file the next item there without a word.
  */
 data class ProductionsView(
     val productions: List<ProjectProduction>,
     val modes: List<ProjectProductionMode> = emptyList(),
+    val lastModeId: Int? = null,
 ) {
     fun productionsOf(mode: ProjectProductionMode): List<ProjectProduction> =
         productions.filter { it.modeId == mode.id }
@@ -149,6 +152,7 @@ fun FlowContent.productionsPanel(worldId: Int, projectId: Int, view: Productions
                 view.modes.forEach { mode ->
                     option {
                         value = mode.id.toString()
+                        selected = mode.id == view.lastModeId
                         +mode.name
                     }
                 }
