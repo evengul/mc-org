@@ -12,7 +12,6 @@ import io.ktor.server.request.path
 import io.ktor.server.response.header
 import io.ktor.server.response.respondText
 import org.slf4j.LoggerFactory
-import java.security.MessageDigest
 import java.util.Base64
 
 private val logger = LoggerFactory.getLogger("PreviewGate")
@@ -68,6 +67,3 @@ private fun String?.isValidBasic(expectedPassword: String): Boolean {
     val password = decoded.substringAfter(':', missingDelimiterValue = "")
     return constantTimeEquals(username, GATE_USERNAME) && constantTimeEquals(password, expectedPassword)
 }
-
-private fun constantTimeEquals(a: String, b: String): Boolean =
-    MessageDigest.isEqual(a.toByteArray(Charsets.UTF_8), b.toByteArray(Charsets.UTF_8))

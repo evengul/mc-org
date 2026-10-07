@@ -4,7 +4,6 @@ import app.mcorg.config.AppConfig
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.createRouteScopedPlugin
 import io.ktor.server.response.respond
-import java.security.MessageDigest
 
 /** Header carrying the shared secret for machine-facing endpoints. */
 const val MACHINE_SECRET_HEADER = "X-Seam-Admin-Secret"
@@ -48,6 +47,3 @@ val MachineEndpointAuthPlugin = createRouteScopedPlugin("MachineEndpointAuthPlug
         }
     }
 }
-
-private fun constantTimeEquals(a: String, b: String): Boolean =
-    MessageDigest.isEqual(a.toByteArray(Charsets.UTF_8), b.toByteArray(Charsets.UTF_8))

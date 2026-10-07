@@ -13,7 +13,6 @@ import io.ktor.server.response.respondText
 import org.slf4j.LoggerFactory
 import java.net.Inet6Address
 import java.net.InetAddress
-import java.security.MessageDigest
 
 private val logger = LoggerFactory.getLogger("EdgeOriginGate")
 
@@ -51,8 +50,10 @@ fun Application.configureEdgeOriginGate() {
 
         val provided = call.request.header(EDGE_ORIGIN_HEADER)
         if (provided == null || !constantTimeEquals(provided, secret)) {
-            // Path only: the query string is out of bounds (documentation/logging.md).
-            logger.info("Refused a request to {} that did not come through the edge", call.request.path())
+            // Path only: the query string is out of bounds (documentation/logging.md). DEBUG, because
+            // the refusal costs a caller nothing and runs before any limit — at INFO, a loop
+            // against mcorg.fly.dev would write the log for them.
+            logger.debug("Refused a request to {} that did not come through the edge", call.request.path())
             call.respondText("Seam is served at https://app.seam.gg", status = HttpStatusCode.Forbidden)
             return@intercept finish()
         }
@@ -96,6 +97,3 @@ internal fun rateLimitKeyFor(raw: String): String {
     val prefix = address.address.copyOf(16).also { bytes -> bytes.fill(0, fromIndex = 8, toIndex = 16) }
     return InetAddress.getByAddress(prefix).hostAddress + "/64"
 }
-
-private fun constantTimeEquals(a: String, b: String): Boolean =
-    MessageDigest.isEqual(a.toByteArray(Charsets.UTF_8), b.toByteArray(Charsets.UTF_8))
