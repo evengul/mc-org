@@ -52,9 +52,16 @@ So outside `ENV=PRODUCTION` the poller delivers a batch only when its subscripti
 (`WebhookDeliveryScope`). With either variable unset, which is the default for worktrees and
 previews, it delivers nothing.
 
-A refused batch makes no request. Its rows go straight to `FAILED`, with no attempt spent and
-nothing counted against the subscription. The subscription stays active, and the settings page
-still hides it, because it lists only callbacks under the configured base.
+A refused batch makes no request. Its rows go straight to `FAILED`, and nothing is counted against
+the subscription, which stays active. The refusal itself spends no attempt; a row copied while
+`IN_FLIGHT` has already had one charged by the claim that reclaimed it.
+
+The guard has one hole, and it is the configuration `configuration.md` already forbids:
+production's Worker URL **and** production's secret on a non-production app. seam-discord checks
+every delivery against a single `SEAM_WEBHOOK_SECRET`, so that is also the only configuration in
+which a fork's own posts reach Discord, and in it a copied subscription looks exactly like one the
+fork created. Closing it would take a marker on each subscription saying which environment
+created it.
 *(Until 2026-10-07 a fork delivered along the copied subscriptions, which posted test events and
 duplicates of production's pending events to production's Discord channels — MCO-592.)*
 

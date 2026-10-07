@@ -124,7 +124,7 @@ consecutive failures then deactivate the subscription, which is harmless locally
 production Worker URL or secret locally: local events would post to real Discord channels.
 Outside `PRODUCTION` the pair also bounds delivery: the poller posts only to subscriptions under
 this URL that carry this secret, so the production subscriptions a forked database carries are
-never used, and with the pair unset nothing is delivered at all (`documentation/webhook-contract.md`
+never used unless the pair is production's own, and with the pair unset nothing is delivered at all (`documentation/webhook-contract.md`
 → "Outside production").
 
 ¹¹ The origin lock (MCO-274). Cloudflare adds it as the `X-Seam-Edge` header on every request it

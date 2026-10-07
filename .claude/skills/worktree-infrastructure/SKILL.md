@@ -102,10 +102,11 @@ the real ingested Minecraft data instantly (no re-ingestion) and matches CI exac
   with production's secret. Outside `ENV=PRODUCTION` the poller delivers only to a
   subscription under the configured `SEAM_DISCORD_URL` that also carries the configured
   `SEAM_WEBHOOK_SHARED_SECRET`. Anything else is marked `FAILED` without a request, and
-  that includes every copied row. Nothing in the fork needs cleaning up, and pointing
-  `SEAM_DISCORD_URL` at the real Worker to test the Discord section still sends nothing
-  along production's subscriptions. The rule and its reasons are in
-  `documentation/webhook-contract.md` → "Outside production".
+  that includes every copied row. Nothing in the fork needs cleaning up. The one way
+  through is giving the worktree production's Worker URL **and** production's secret:
+  the Worker accepts a single secret, so the copied subscriptions then match on both.
+  Don't. The rule and its reasons are in `documentation/webhook-contract.md` →
+  "Outside production".
 - **Migration number collisions are orthogonal to DB isolation.** If two branches
   each add `V{n}__*.sql` with the same `{n}`, Flyway errors on merge (out-of-order
   / checksum). Fix: renumber the later-merged migration to the next free number, then

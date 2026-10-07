@@ -18,8 +18,14 @@ import java.security.MessageDigest
  * Production delivers to every subscription. Anywhere else, a subscription is deliverable only if
  * this app could have created it: its callback is under the configured `SEAM_DISCORD_URL`, and it
  * carries the configured `SEAM_WEBHOOK_SHARED_SECRET`. With either unset, nothing is. The secret
- * half is what holds when a worktree points `SEAM_DISCORD_URL` at the real Worker to test the
- * Discord section: the copied subscriptions then match on URL, but not on secret.
+ * half covers a worktree pointed at the real Worker with a secret of its own: the copied
+ * subscriptions then match on URL, but not on secret.
+ *
+ * What it cannot cover is a fork configured with production's Worker URL *and* production's
+ * secret. The Worker checks every delivery against one secret, so that is the only configuration
+ * in which a fork's own Discord posts are accepted, and in it a copied subscription is
+ * indistinguishable from one the fork created. `documentation/configuration.md` rules that
+ * configuration out.
  *
  * The check is in the app rather than in each script that forks a database, so it also covers the
  * fork paths nobody has written yet.
@@ -35,11 +41,15 @@ object WebhookDeliveryScope {
     ): Boolean {
         if (env == Production) return true
         if (seamDiscordUrl.isNullOrBlank() || sharedSecret.isNullOrBlank()) return false
-        // The trailing slash keeps `https://bot.dev` from admitting `https://bot.dev.example.com`.
-        val base = seamDiscordUrl.trimEnd('/') + "/"
-        return callbackUrl.startsWith(base) &&
+        return isUnder(seamDiscordUrl, callbackUrl) &&
             MessageDigest.isEqual(secret.toByteArray(), sharedSecret.toByteArray())
     }
+
+    /**
+     * Whether [callbackUrl] is a path below [base]. The trailing slash keeps `https://bot.dev` from
+     * admitting `https://bot.dev.example.com`.
+     */
+    fun isUnder(base: String, callbackUrl: String): Boolean = callbackUrl.startsWith(base.trimEnd('/') + "/")
 
     fun allowsFromConfig(delivery: DueDelivery): Boolean = allows(
         env = AppConfig.env,

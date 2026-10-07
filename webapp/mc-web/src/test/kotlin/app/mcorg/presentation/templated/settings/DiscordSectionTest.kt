@@ -46,6 +46,7 @@ class DiscordSectionTest {
             sub(2, "$base/seam-events/223456789012345678?compact=1"),
             sub(3, "https://other.example.com/seam-events/323456789012345678"), // wrong base
             sub(4, "$base/hook"), // wrong shape
+            sub(5, "https://disc.example.com.attacker.dev/seam-events/523456789012345678"), // only a string prefix
         )
         val connections = discordConnections(subs, base)
         assertEquals(listOf(1, 2), connections.map { it.subscriptionId })

@@ -232,8 +232,9 @@ object WebhookStore {
     }
 
     /**
-     * Retire a claimed batch this app must not deliver ([WebhookDeliveryScope]), with no attempt
-     * spent: no request was made. Terminal, so pruning sweeps it like any other failed row.
+     * Retire a claimed batch this app must not deliver ([WebhookDeliveryScope]). No request was made,
+     * so the refusal charges no attempt (a reclaimed row keeps the one its claim charged). Terminal,
+     * so pruning sweeps it like any other failed row.
      */
     suspend fun failOutOfScope(ids: List<Long>, error: String) {
         if (ids.isEmpty()) return
