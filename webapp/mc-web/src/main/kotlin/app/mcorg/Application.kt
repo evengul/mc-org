@@ -8,6 +8,7 @@ import app.mcorg.pipeline.minecraftfiles.configureUnmappedItemWarning
 import app.mcorg.webhook.configureWebhooks
 import app.mcorg.presentation.plugins.configureHTTP
 import app.mcorg.presentation.plugins.configureMonitoring
+import app.mcorg.presentation.plugins.configureEdgeOriginGate
 import app.mcorg.presentation.plugins.configurePreviewGate
 import app.mcorg.presentation.plugins.configureSessions
 import app.mcorg.presentation.plugins.configureStatusStaticRouter
@@ -48,6 +49,9 @@ private fun Application.module() {
     // After the two above: they cancel their scopes on ApplicationStopping, this closes the
     // clients on ApplicationStopped, so nothing in flight meets a closed client (MCO-552).
     configureOutboundHttp()
+    // Ahead of everything, the preview gate included: nothing is served to a caller that went
+    // around Cloudflare (MCO-274).
+    configureEdgeOriginGate()
     configurePreviewGate()
     configureHTTP()
     configureMonitoring()
