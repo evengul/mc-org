@@ -7,17 +7,20 @@ import app.mcorg.test.postgres.DatabaseTestExtension
 import io.ktor.client.HttpClient
 import io.ktor.client.request.cookie
 import io.ktor.client.request.get
+import io.ktor.client.request.header
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.response.respond
 import io.ktor.server.routing.get
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
+import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.api.extension.ExtendWith
 import kotlin.test.assertEquals
+import kotlin.test.assertNotEquals
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @ExtendWith(DatabaseTestExtension::class)
@@ -56,6 +59,19 @@ class AuthPluginIT : WithUser() {
         }
         assertEquals(HttpStatusCode.Found, response.status)
         assertEquals("/auth/sign-out?error=invalid_token", response.headers["Location"])
+    }
+
+    @Test
+    @Disabled("MCO-590")
+    fun `An HTMX request with an invalid token is redirected with HX-Redirect, not a 302`() = testApplication {
+        val client = setup()
+
+        val response = client.get("/some-protected-path") {
+            cookie(AUTH_COOKIE, "invalid-token")
+            header("HX-Request", "true")
+        }
+        assertNotEquals(HttpStatusCode.Found, response.status)
+        assertEquals("/auth/sign-out?error=invalid_token", response.headers["HX-Redirect"])
     }
 
     @Test
