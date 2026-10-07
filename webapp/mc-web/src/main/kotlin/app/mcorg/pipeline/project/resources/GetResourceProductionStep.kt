@@ -7,9 +7,10 @@ import app.mcorg.pipeline.SafeSQL
 import java.sql.ResultSet
 
 /**
- * What a project produces right now: its mode-less list, or its active mode's rates (MCO-413).
- * An inactive mode's items are what the farm *could* make, which is [GetModeProductionsStep]'s
- * question, not this one's.
+ * Every production row a project has: its one mode-less list, or each runtime mode's rates
+ * (MCO-413). All of them supply once the project is Done (MCO-588), so an item two modes make
+ * appears twice here — once per mode, with that mode's rate. Readers asking only *which items* a
+ * project supplies read the `project_supplied_items` view instead.
  */
 val GetResourceProductionStep = DatabaseSteps.query<Int, List<ProjectProduction>>(
     sql = SafeSQL.select("""
@@ -20,23 +21,8 @@ val GetResourceProductionStep = DatabaseSteps.query<Int, List<ProjectProduction>
                     name,
                     rate_per_hour,
                     mode_id
-                FROM active_project_productions
-                WHERE project_id = ?
-                ORDER BY name
-            """),
-    parameterSetter = { statement, projectId ->
-        statement.setInt(1, projectId)
-    },
-    resultMapper = { it.toProjectProductions() }
-)
-
-/** Every runtime mode's rates on a project, running or not — what each mode would make. */
-val GetModeProductionsStep = DatabaseSteps.query<Int, List<ProjectProduction>>(
-    sql = SafeSQL.select("""
-                SELECT id, project_id, item_id, name, rate_per_hour, mode_id
                 FROM project_productions
                 WHERE project_id = ?
-                  AND mode_id IS NOT NULL
                 ORDER BY name
             """),
     parameterSetter = { statement, projectId ->
@@ -62,10 +48,10 @@ private fun ResultSet.toProjectProductions(): List<ProjectProduction> {
     return productions
 }
 
-/** The runtime modes a project can be switched between, in the design's order. Empty for most. */
+/** The ways a farm can be run, in the design's order. Empty for most projects. */
 val GetProjectProductionModesStep = DatabaseSteps.query<Int, List<ProjectProductionMode>>(
     sql = SafeSQL.select("""
-                SELECT id, project_id, name, position, active
+                SELECT id, project_id, name, position
                 FROM project_production_modes
                 WHERE project_id = ?
                 ORDER BY position, name
@@ -82,7 +68,6 @@ val GetProjectProductionModesStep = DatabaseSteps.query<Int, List<ProjectProduct
                     projectId = resultSet.getInt("project_id"),
                     name = resultSet.getString("name"),
                     position = resultSet.getInt("position"),
-                    active = resultSet.getBoolean("active"),
                 )
             )
         }

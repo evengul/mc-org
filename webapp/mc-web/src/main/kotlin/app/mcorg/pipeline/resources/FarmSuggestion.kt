@@ -1,5 +1,6 @@
 package app.mcorg.pipeline.resources
 
+import app.mcorg.domain.model.minecraft.MinecraftVersion
 import app.mcorg.engine.plan.GatheringPlan
 import app.mcorg.engine.plan.PlanNodeStatus
 import app.mcorg.pipeline.project.resources.GetResourceProductionStep
@@ -355,6 +356,8 @@ suspend fun farmSuggestionsFor(
     threshold: Int,
     viewerId: Int,
     projectId: Int,
+    /** Whose version a suggested design must be importable into. */
+    worldId: Int,
     /**
      * The not-yet-running farms MCO-299 is about to put a notice on this same page for.
      *
@@ -387,8 +390,12 @@ suspend fun farmSuggestionsFor(
         .filter { it !in notDemand }
     if (demandedIds.isEmpty()) return emptyList()
 
+    // fromString throws on a version it cannot read; that is "no suggestions", not a failed page.
+    val worldVersion = GetWorldVersionStep.process(worldId).getOrNull()
+        ?.let { runCatching { MinecraftVersion.fromString(it) }.getOrNull() }
+        ?: return emptyList()
     val producers = GetIdeaProducersStep
-        .process(IdeaProducerInput(itemIds = demandedIds, viewerId = viewerId))
+        .process(IdeaProducerInput(itemIds = demandedIds, viewerId = viewerId, worldVersion = worldVersion))
         .getOrNull()
         ?: return emptyList()
 

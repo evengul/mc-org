@@ -121,7 +121,9 @@ class SignOutIT {
         ).bodyAsText()
 
         assertContains(body, SignOutReason.MISCONFIGURED.body)
-        listOf("message", "0800", "PHISH", "microsoft_error", "evil.example", "claim").forEach {
+        // "Call 0800", not "0800" alone: a bare run of digits turns up in the stylesheet's content
+        // hash (seam.85613e080014.css) and would fail this for a reason that has nothing to do with it.
+        listOf("message", "Call 0800", "PHISH", "microsoft_error", "evil.example", "claim").forEach {
             assertFalse(body.contains(it), "'$it' is not reflected")
         }
     }

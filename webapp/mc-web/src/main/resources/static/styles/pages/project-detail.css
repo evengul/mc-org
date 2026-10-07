@@ -475,9 +475,9 @@
 
     /*
      * The mobile header carries back + name, so the desktop header's parts stay hidden — all but
-     * the Produces chip (MCO-413). Switching a farm's mode is the lever anyone on the server pulls,
-     * so it has to be reachable from a phone. The chip is not duplicated into the mobile header:
-     * its id is the out-of-band target a switch re-renders, and a second copy would never update.
+     * the Produces chip (MCO-413), which is the only way into the Produces panel. The chip is not
+     * duplicated into the mobile header: its id is the out-of-band target a production write
+     * re-renders, and a second copy would never update.
      */
     .project-detail__header .project-meta-field--name,
     .project-detail__meta > :not(.project-meta-field--productions),
@@ -491,7 +491,7 @@
         padding: var(--space-2) 0 var(--space-3);
     }
 
-    /* At phone width the chip wraps between its parts (label, item, mode tag), never inside one. */
+    /* At phone width the chip wraps between its parts (label, item, modes tag), never inside one. */
     .project-detail__meta .production-chip {
         flex-wrap: wrap;
         text-align: left;

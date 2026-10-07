@@ -7,7 +7,6 @@ import app.mcorg.pipeline.project.ImportWarningKind
 import app.mcorg.pipeline.project.ImportWarnings
 import app.mcorg.pipeline.project.ImportWizardStep
 import app.mcorg.pipeline.project.ImportedRuntimeMode
-import app.mcorg.pipeline.project.RUNTIME_MODE_PARAM
 import app.mcorg.pipeline.project.ResolvedRegion
 import app.mcorg.pipeline.project.ReviewedMaterial
 import app.mcorg.pipeline.project.ReviewedMaterialsCodec
@@ -21,8 +20,6 @@ import kotlinx.html.InputType
 import kotlinx.html.a
 import kotlinx.html.button
 import kotlinx.html.details
-import kotlinx.html.fieldSet
-import kotlinx.html.legend
 import kotlinx.html.div
 import kotlinx.html.form
 import kotlinx.html.h1
@@ -32,9 +29,7 @@ import kotlinx.html.input
 import kotlinx.html.label
 import kotlinx.html.main
 import kotlinx.html.p
-import kotlinx.html.radioInput
 import kotlinx.html.span
-import kotlinx.html.strong
 import kotlinx.html.summary
 import kotlinx.html.table
 import kotlinx.html.tbody
@@ -167,7 +162,7 @@ fun importReviewPage(
 
                 materialsSection(requirements, emptySet(), placedCounts, regions, containerCounts, warnings)
 
-                runtimeModeChoice(runtimeModes)
+                runtimeModeList(runtimeModes)
 
                 div("import-review__actions") {
                     button(classes = "btn btn--primary") {
@@ -583,41 +578,28 @@ private fun FlowContent.buildTimeChoice(
 }
 
 /**
- * Which runtime mode the farm starts in (MCO-413, frame 1a's import review).
+ * The ways the built farm can be run (MCO-413), each with what it makes.
  *
- * A stated default rather than a question: runtime modes change what the farm makes, not what it
- * costs, so nothing on this page depends on the answer and it never blocks the import. It sits
- * after the materials for that reason. Radios, unlike [buildTimeChoice]'s links, because no other
- * part of the page is derived from the choice — it rides the form to the POST and nothing else.
+ * Information, not a question: every mode supplies once the farm is Done (MCO-588), so there is
+ * nothing to choose here and it never blocks the import. It sits after the materials because runtime
+ * modes change what the farm makes, not what it costs.
  *
  * Renders nothing below two modes, which is every design with one way to run it.
  */
-private fun FlowContent.runtimeModeChoice(modes: List<ImportedRuntimeMode>) {
-    val default = modes.firstOrNull { it.active } ?: return
+private fun FlowContent.runtimeModeList(modes: List<ImportedRuntimeMode>) {
+    if (modes.size < 2) return
     div("import-review__runtime-modes") {
         span("section-label") { +"Runtime modes · ${modes.size}" }
-        // Worded as the default, because a radio below can change it and nothing re-renders this.
         p("import-review__runtime-lead") {
-            +"By default it starts running "
-            strong { +default.name }
-            +", the mode that makes the most. Anyone in the world can switch later from Produces."
+            +"Once the project is Done, the farm supplies what every mode makes."
         }
-        details("import-review__runtime-change") {
-            summary { +"Change starting mode" }
-            fieldSet("mode-ledger__rows import-review__runtime-options") {
-                legend("visually-hidden") { +"Starting mode" }
-                modes.forEach { mode ->
-                    label("mode-ledger__row import-review__runtime-option") {
-                        radioInput {
-                            name = RUNTIME_MODE_PARAM
-                            value = mode.name
-                            checked = mode.active
-                        }
-                        span("mode-ledger__text") {
-                            span("mode-ledger__name") { +mode.name }
-                            span("mode-ledger__makes") {
-                                +makesLine(mode.production.map { (item, rate) -> item.name to rate })
-                            }
+        div("mode-ledger__rows") {
+            modes.forEach { mode ->
+                div("mode-ledger__row") {
+                    span("mode-ledger__text") {
+                        span("mode-ledger__name") { +mode.name }
+                        span("mode-ledger__makes") {
+                            +makesLine(mode.production.map { (item, rate) -> item.name to rate })
                         }
                     }
                 }

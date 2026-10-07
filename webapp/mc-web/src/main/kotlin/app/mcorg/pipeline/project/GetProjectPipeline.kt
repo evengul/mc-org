@@ -113,7 +113,7 @@ suspend fun ApplicationCall.handleGetProject() {
     val farmDismissals = farmDismissalsFor(worldId)
 
     val farmSuggestions = farmSuggestionsFor(
-        plan, farmScaleThreshold, user.id, projectId, coveredByPlannedFarms,
+        plan, farmScaleThreshold, user.id, projectId, worldId, coveredByPlannedFarms,
         project.importedFromIdea?.id, farmDismissals.itemIds(),
     )
 

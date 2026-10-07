@@ -13,13 +13,13 @@ data class ProjectProduction(
 /**
  * One way a built farm can be run — copied from the idea's runtime modes at import (MCO-413).
  *
- * Only one is [active] at a time, and only its productions supply the world. A project recorded by
- * hand has none: its productions carry no mode and always supply.
+ * Every mode's productions supply the world once the farm is Done (MCO-588): a runtime mode is a
+ * lever the player pulls in game, which Seam cannot see, so it does not track which one is pulled.
+ * A project recorded by hand has no modes, only its one list.
  */
 data class ProjectProductionMode(
     val id: Int,
     val projectId: Int,
     val name: String,
     val position: Int,
-    val active: Boolean,
 )

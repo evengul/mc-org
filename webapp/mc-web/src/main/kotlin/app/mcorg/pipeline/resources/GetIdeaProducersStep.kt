@@ -1,14 +1,17 @@
 package app.mcorg.pipeline.resources
 
 import app.mcorg.domain.model.idea.IdeaVisibility
+import app.mcorg.domain.model.minecraft.MinecraftVersion
+import app.mcorg.domain.model.minecraft.MinecraftVersionRange
 import app.mcorg.pipeline.Step
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.Result
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.failure.AppFailure
+import kotlinx.serialization.json.Json
 
 /**
- * What to look up: the items a plan demands, and who is asking.
+ * What to look up: the items a plan demands, who is asking, and the version of the world asking.
  *
  * The viewer is not optional. Visibility is the difference between a bank of one public design
  * and a bank of eleven (measured 2026-08-23: every idea carrying production data is `PRIVATE`,
@@ -18,6 +21,7 @@ import app.mcorg.pipeline.failure.AppFailure
 data class IdeaProducerInput(
     val itemIds: Collection<String>,
     val viewerId: Int,
+    val worldVersion: MinecraftVersion,
 )
 
 /**
@@ -33,13 +37,21 @@ data class IdeaProducerInput(
  * rule: a suggestion the viewer cannot then open would be worse than no suggestion. `is_active`
  * goes with it — an idea being edited is not in the hub and should not be suggested either.
  *
+ * ## Version
+ *
+ * A design whose version range does not contain [IdeaProducerInput.worldVersion] is left out: the
+ * import refuses it ("Idea is not compatible with the world's Minecraft version"), so suggesting it
+ * only leads the user to that refusal. The range is JSON, so it is checked here rather than in SQL,
+ * with the same [MinecraftVersionRange.contains] the import uses — decoded once per idea, and an
+ * idea whose range will not decode is left out on its own rather than failing every suggestion.
+ *
  * ## MAX over modes
  *
  * An idea can describe several ways of running the same farm (V2_57_0), so a rate is picked per
- * item as the best any mode achieves. That mixes modes in principle — the fastest mode for bones
- * need not be the fastest for blaze rods — and does not in practice: every idea in the bank has
- * exactly one mode. MCO-413 is where the project records which mode it is actually run in; until
- * then, "how fast can this design make this" is the only question that can honestly be answered.
+ * item as the best any mode achieves. That mixes modes — the fastest mode for bones need not be the
+ * fastest for blaze rods. For runtime modes it is exact: a built farm supplies what every one of its
+ * modes makes (MCO-588). For build-time variants it is "at best": the import keeps one variant, so
+ * the farm built may be the slower one.
  * `MAX` skips NULLs, so an item returns null only when no mode ever measured it.
  */
 object GetIdeaProducersStep : Step<IdeaProducerInput, AppFailure, List<IdeaProducer>> {
@@ -47,14 +59,15 @@ object GetIdeaProducersStep : Step<IdeaProducerInput, AppFailure, List<IdeaProdu
     private val query = DatabaseSteps.query<IdeaProducerInput, List<Row>>(
         sql = SafeSQL.select(
             """
-            SELECT m.idea_id, i.name AS idea_name, r.item_id, MAX(r.rate_per_hour) AS rate_per_hour
+            SELECT m.idea_id, i.name AS idea_name, i.minecraft_version_range, r.item_id,
+                   MAX(r.rate_per_hour) AS rate_per_hour
             FROM idea_production_rates r
             JOIN idea_production_modes m ON m.id = r.mode_id
             JOIN ideas i ON i.id = m.idea_id
             WHERE r.item_id = ANY(?)
               AND i.is_active = TRUE
               AND (i.visibility = ? OR i.created_by = ?)
-            GROUP BY m.idea_id, i.name, r.item_id
+            GROUP BY m.idea_id, i.name, i.minecraft_version_range, r.item_id
             """.trimIndent()
         ),
         parameterSetter = { ps, input ->
@@ -66,7 +79,7 @@ object GetIdeaProducersStep : Step<IdeaProducerInput, AppFailure, List<IdeaProdu
             buildList {
                 while (rs.next()) {
                     val rate = rs.getInt("rate_per_hour").takeUnless { rs.wasNull() }
-                    add(Row(rs.getInt("idea_id"), rs.getString("idea_name"), rs.getString("item_id"), rate))
+                    add(Row(rs.getInt("idea_id"), rs.getString("idea_name"), rs.getString("minecraft_version_range"), rs.getString("item_id"), rate))
                 }
             }
         }
@@ -82,6 +95,7 @@ object GetIdeaProducersStep : Step<IdeaProducerInput, AppFailure, List<IdeaProdu
             is Result.Success -> Result.success(
                 r.value
                     .groupBy { it.ideaId to it.ideaName }
+                    .filterValues { rows -> importableInto(rows.first().versionRange, input.worldVersion) }
                     .map { (idea, rows) ->
                         IdeaProducer(
                             ideaId = idea.first,
@@ -93,5 +107,18 @@ object GetIdeaProducersStep : Step<IdeaProducerInput, AppFailure, List<IdeaProdu
         }
     }
 
-    private data class Row(val ideaId: Int, val ideaName: String, val itemId: String, val ratePerHour: Int?)
+    private fun importableInto(rangeJson: String, version: MinecraftVersion): Boolean =
+        runCatching { Json.decodeFromString(MinecraftVersionRange.serializer(), rangeJson) }
+            .getOrNull()
+            ?.contains(version)
+            ?: false
+
+    private data class Row(
+        val ideaId: Int,
+        val ideaName: String,
+        /** Raw JSON: decoded once per idea in [importableInto], not once per row. */
+        val versionRange: String,
+        val itemId: String,
+        val ratePerHour: Int?,
+    )
 }

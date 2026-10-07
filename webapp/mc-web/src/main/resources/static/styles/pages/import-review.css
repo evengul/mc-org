@@ -475,8 +475,8 @@ a.import-review__build-time-option:hover {
 }
 
 /* --------------------------------------------------------------------------
-   Runtime modes (MCO-413, frame 1a): the starting mode, stated as a default.
-   Rows reuse the produce panel's .mode-ledger__* classes.
+   Runtime modes (MCO-413): the design's ways to run the farm, as information —
+   one read-only row per mode, saying what it makes.
    -------------------------------------------------------------------------- */
 
 .import-review__runtime-modes {
@@ -494,57 +494,41 @@ a.import-review__build-time-option:hover {
     color: var(--text-primary);
 }
 
-.import-review__runtime-lead strong {
+.mode-ledger__rows {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+}
+
+.mode-ledger__row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-2) var(--space-3);
+    background: var(--bg-surface);
+    color: var(--text-primary);
+}
+
+.mode-ledger__text {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+}
+
+.mode-ledger__name {
+    font-family: var(--font-ui);
+    font-size: var(--text-ui);
     font-weight: 500;
 }
 
-.import-review__runtime-change summary {
-    font-family: var(--font-ui);
-    font-size: var(--text-ui);
-    color: var(--accent);
-    cursor: pointer;
-}
-
-.import-review__runtime-change[open] summary {
-    margin-bottom: var(--space-2);
-}
-
-.import-review__runtime-option {
-    cursor: pointer;
-}
-
-.import-review__runtime-option input[type="radio"] {
-    flex: none;
-    width: 18px;
-    height: 18px;
-    accent-color: var(--accent);
-}
-
-/* A fieldset for the radios' grouping, without the fieldset's own chrome. */
-.import-review__runtime-options {
-    margin: 0;
-    padding: 0;
-    min-width: 0;
-}
-
-.import-review__runtime-option:hover {
-    background: var(--bg-raised);
-}
-
-/* The chosen row carries the panel's running treatment: ink rule, raised fill, heavier name. */
-.import-review__runtime-option:has(input:checked) {
-    background: var(--bg-raised);
-    box-shadow: inset 3px 0 0 var(--text-primary);
-}
-
-.import-review__runtime-option:has(input:checked) .mode-ledger__name {
-    font-weight: 600;
-}
-
-@media (max-width: 768px) {
-    .import-review__runtime-change summary {
-        display: flex;
-        align-items: center;
-        min-height: 44px;
-    }
+.mode-ledger__makes {
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    color: var(--text-muted);
 }

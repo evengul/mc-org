@@ -103,7 +103,7 @@ suspend fun ApplicationCall.respondGatheringPlannerContent() {
     // Same reason the threshold is here (MCO-401): switching lens must not look like the
     // suggestions disappeared.
     val farmSuggestions = farmSuggestionsFor(
-        plan, farmScaleThreshold, getUser().id, projectId, coveredByPlannedFarms,
+        plan, farmScaleThreshold, getUser().id, projectId, worldId, coveredByPlannedFarms,
         project.importedFromIdea?.id, dismissals.itemIds(),
     )
 

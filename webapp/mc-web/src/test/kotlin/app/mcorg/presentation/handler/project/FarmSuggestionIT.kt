@@ -200,6 +200,36 @@ class FarmSuggestionIT : WithUser() {
     }
 
     @Test
+    fun `a design this world's version cannot import is never suggested`() = testApplication {
+        setupRoutes()
+        // The world runs 1.94.0. Offering this would end at the import's own version check —
+        // "Idea is not compatible with the world's Minecraft version" — after the user ticked it.
+        val tooNew = createIdea("Next-version Cobble Farm", ownerId = user.id, public = false, range = SINCE_1_95)
+        addProduction(tooNew, cobblestone.id, 600_000)
+
+        val body = client.get("/worlds/$worldId/projects/$projectId") { addAuthCookie(this) }.bodyAsText()
+
+        assertFalse(body.contains("Next-version Cobble Farm"))
+        assertContains(body, "231k Cobblestone farm", message = "a design for any version still is")
+
+        deleteIdea(tooNew)
+    }
+
+    @Test
+    fun `a design whose version range will not decode costs only itself`() = testApplication {
+        setupRoutes()
+        val broken = createIdea("Unreadable Cobble Farm", ownerId = user.id, public = false, range = """{"type":"nonsense"}""")
+        addProduction(broken, cobblestone.id, 700_000)
+
+        val body = client.get("/worlds/$worldId/projects/$projectId") { addAuthCookie(this) }.bodyAsText()
+
+        assertFalse(body.contains("Unreadable Cobble Farm"))
+        assertContains(body, "231k Cobblestone farm", message = "one bad row must not take every suggestion with it")
+
+        deleteIdea(broken)
+    }
+
+    @Test
     fun `published, the same design is suggested to everyone`() = testApplication {
         setupRoutes()
         val stranger = createExtraUser("farm-suggestion-publisher")
@@ -399,22 +429,22 @@ class FarmSuggestionIT : WithUser() {
         ).process(Unit)
     }
 
-    private fun createIdea(name: String, ownerId: Int, public: Boolean): Int = runBlocking {
+    private fun createIdea(name: String, ownerId: Int, public: Boolean, range: String = ANY_VERSION): Int = runBlocking {
         val result = DatabaseSteps.update<Unit>(
             sql = SafeSQL.insert(
                 """
                 INSERT INTO ideas (name, description, category, author, difficulty, minecraft_version_range,
                                    category_data, created_by, visibility)
                 VALUES (?, 'test idea', 'FARM', '{"type":"single","name":"tester"}'::jsonb, 'EASY',
-                        '{"type":"app.mcorg.domain.model.minecraft.MinecraftVersionRange.Unbounded"}'::jsonb,
-                        '{}'::jsonb, ?, ?)
+                        ?::jsonb, '{}'::jsonb, ?, ?)
                 RETURNING id
                 """.trimIndent()
             ),
             parameterSetter = { stmt, _ ->
                 stmt.setString(1, name)
-                stmt.setInt(2, ownerId)
-                stmt.setString(3, if (public) "PUBLIC" else "PRIVATE")
+                stmt.setString(2, range)
+                stmt.setInt(3, ownerId)
+                stmt.setString(4, if (public) "PUBLIC" else "PRIVATE")
             }
         ).process(Unit)
         (result as Result.Success).value
@@ -445,5 +475,11 @@ class FarmSuggestionIT : WithUser() {
             sql = SafeSQL.delete("DELETE FROM ideas WHERE id = ?"),
             parameterSetter = { stmt, _ -> stmt.setInt(1, ideaId) }
         ).process(Unit)
+    }
+
+    private companion object {
+        const val ANY_VERSION = """{"type":"app.mcorg.domain.model.minecraft.MinecraftVersionRange.Unbounded"}"""
+        const val SINCE_1_95 = """{"type":"app.mcorg.domain.model.minecraft.MinecraftVersionRange.LowerBounded",""" +
+            """"from":{"type":"app.mcorg.domain.model.minecraft.MinecraftVersion.Release","minor":95,"patch":0}}"""
     }
 }

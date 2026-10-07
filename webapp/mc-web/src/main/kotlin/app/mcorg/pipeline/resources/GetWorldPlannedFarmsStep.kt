@@ -34,7 +34,7 @@ val GetWorldPlannedFarmsStep = DatabaseSteps.query<WorldPlannedFarmsInput, List<
                     pp.item_id,
                     p.id AS project_id,
                     p.name AS project_name
-                FROM active_project_productions pp
+                FROM project_supplied_items pp
                 JOIN projects p ON p.id = pp.project_id
                 WHERE p.world_id = ?
                   AND p.state IN (?, ?, ?)

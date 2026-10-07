@@ -136,31 +136,15 @@ class IdeaProductionModeSelectionTest {
     // ---- MCO-413: runtime modes follow the import ----------------------------------------------
 
     @Test
-    fun `every runtime mode follows the import, the one ratesForImport would pick running`() {
+    fun `every runtime mode follows the import, each with its own rates`() {
         val modes = runtimeModesForImport(fortressFarm)
 
+        // No mode is singled out as running: every one supplies once the farm is Done (MCO-588).
         assertEquals(fortressFarm.map { it.name }, modes.map { it.name })
-        assertEquals(listOf("Everything, fast"), modes.filter { it.active }.map { it.name })
         assertEquals(
-            ratesForImport(fortressFarm),
-            modes.single { it.active }.rates,
-            "the running mode's rates are the ones a flat import used to keep, so supply is unchanged on import",
+            fortressFarm.map { mode -> mode.rates.mapValues { (_, rate) -> rate ?: 0 } },
+            modes.map { it.rates },
         )
-    }
-
-    @Test
-    fun `the starting mode chosen on the review runs instead of the highest-output one`() {
-        val modes = runtimeModesForImport(fortressFarm, startingModeName = "Skeletons only, slow")
-
-        assertEquals(listOf("Skeletons only, slow"), modes.filter { it.active }.map { it.name })
-        assertEquals(fortressFarm.size, modes.size, "choosing what runs drops none of the others")
-    }
-
-    @Test
-    fun `a starting mode that no longer exists falls back to the highest-output one`() {
-        val modes = runtimeModesForImport(fortressFarm, startingModeName = "Renamed since review")
-
-        assertEquals(listOf("Everything, fast"), modes.filter { it.active }.map { it.name })
     }
 
     @Test

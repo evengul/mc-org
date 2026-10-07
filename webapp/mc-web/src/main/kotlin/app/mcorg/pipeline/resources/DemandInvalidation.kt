@@ -135,9 +135,7 @@ private val logger = LoggerFactory.getLogger("app.mcorg.pipeline.resources.Deman
  * the bump would come before the change, and a derivation starting in between would read the new
  * generation with the old supply and store its plan as current (MCO-584).
  *
- * It reads every runtime mode's items, not only the active mode's (MCO-413). A mode switch removes
- * one mode's items from supply and adds another's, and reading the union means one call after the
- * switch covers both, at the price of also invalidating consumers of a third mode nobody touched.
+ * It reads every runtime mode's items, since every mode supplies (MCO-588).
  *
  * @return the number of projects invalidated.
  */
