@@ -22,7 +22,7 @@ import app.mcorg.pipeline.resources.GatheringPlanInput
 import app.mcorg.pipeline.resources.GenerateGatheringPlanStep
 import app.mcorg.pipeline.resources.GetFarmScaleThresholdStep
 import app.mcorg.pipeline.resources.GetWorldDemandCoverageStep
-import kotlinx.coroutines.Dispatchers
+import app.mcorg.pipeline.resources.PlannerDispatcher
 import kotlinx.coroutines.withContext
 import java.sql.ResultSet
 
@@ -123,7 +123,7 @@ data class GetWorldRoadMapStep(val worldId: Int) : Step<Unit, AppFailure, Roadma
         // a world-wide invalidation (a version switch, a REVISION bump) makes this one per planned
         // project, and production has a single call thread for every request (MCO-551). The user
         // who opened the roadmap still waits for it; nobody else does.
-        withContext(Dispatchers.Default) {
+        withContext(PlannerDispatcher) {
             uncovered.forEach { projectId ->
                 GenerateGatheringPlanStep.process(GatheringPlanInput(projectId = projectId, worldId = worldId))
             }
