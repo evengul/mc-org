@@ -54,6 +54,9 @@ object SearchProjectsStep : Step<SearchProjectsInput, AppFailure.DatabaseError, 
             p.updated_at,
             p.project_idea_id,
             i.name as idea_name,
+            i.visibility as idea_visibility,
+            i.created_by as idea_created_by,
+            i.is_active as idea_is_active,
             COALESCE(task_stats.tasks_total, 0) as tasks_total,
             COALESCE(task_stats.tasks_completed, 0) as tasks_completed
         FROM projects p

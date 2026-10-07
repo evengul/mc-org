@@ -103,7 +103,7 @@ suspend fun ApplicationCall.respondGatheringPlannerContent() {
     // suggestions disappeared.
     val farmSuggestions = farmSuggestionsFor(
         plan, farmScaleThreshold, getUser().id, projectId, coveredByPlannedFarms,
-        project.importedFromIdea?.first, dismissals.itemIds(),
+        project.importedFromIdea?.id, dismissals.itemIds(),
     )
 
     // The roll-up's threshold is a link to world settings for admins only, so the fragment

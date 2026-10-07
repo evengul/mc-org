@@ -40,9 +40,24 @@
     flex-wrap: wrap;
 }
 
-.project-detail__location {
+.project-detail__location,
+.project-detail__idea {
     font-size: var(--text-sm);
     color: var(--text-muted);
+}
+
+/* Idea names run to 100 characters with no required spaces; a run of one word would widen the page. */
+.project-detail__idea {
+    overflow-wrap: anywhere;
+}
+
+.project-detail__idea-link {
+    color: var(--accent);
+    text-decoration: none;
+}
+
+.project-detail__idea-link:hover {
+    text-decoration: underline;
 }
 
 .project-detail__overall-progress {

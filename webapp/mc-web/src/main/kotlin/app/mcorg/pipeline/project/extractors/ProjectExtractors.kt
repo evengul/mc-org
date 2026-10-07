@@ -1,7 +1,9 @@
 package app.mcorg.pipeline.project.extractors
 
+import app.mcorg.domain.idea.ideaVisibilityOf
 import app.mcorg.domain.model.minecraft.Dimension
 import app.mcorg.domain.model.minecraft.MinecraftLocation
+import app.mcorg.domain.model.project.ImportedIdea
 import app.mcorg.domain.model.project.Project
 import app.mcorg.domain.model.project.ProjectStage
 import app.mcorg.domain.model.project.ProjectState
@@ -45,7 +47,13 @@ fun ResultSet.toProject() = Project(
         val ideaId = getInt("project_idea_id").takeIf { !wasNull() }
         val ideaName = getString("idea_name")
         if (ideaId != null && ideaName != null) {
-            Pair(ideaId, ideaName)
+            ImportedIdea(
+                id = ideaId,
+                name = ideaName,
+                visibility = ideaVisibilityOf(getString("idea_visibility")),
+                createdBy = getInt("idea_created_by"),
+                isActive = getBoolean("idea_is_active"),
+            )
         } else null
     },
     decommissionReason = getString("decommission_reason"),
