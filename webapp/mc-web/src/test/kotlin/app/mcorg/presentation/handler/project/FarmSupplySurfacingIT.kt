@@ -14,6 +14,7 @@ import app.mcorg.pipeline.project.handleGetProject
 import app.mcorg.pipeline.project.handleGetProjectList
 import app.mcorg.pipeline.resources.handleClearResourceSource
 import app.mcorg.pipeline.resources.handleSetResourceSource
+import app.mcorg.pipeline.resources.handleToggleResourceGatheringIgnored
 import app.mcorg.pipeline.world.CreateWorldInput
 import app.mcorg.pipeline.world.CreateWorldStep
 import app.mcorg.presentation.plugins.AuthPlugin
@@ -283,6 +284,35 @@ class FarmSupplySurfacingIT : WithUser() {
         }
     }
 
+    /**
+     * Ignoring changes the plan the same way a source does, and its response used to re-render the
+     * table without one: every group heading vanished until a reload, and the breakdown kept the
+     * ignored item. Un-ignoring is where that shows here — the row comes back to its group.
+     */
+    @Test
+    fun `un-ignoring a supplied item puts it back under collect-from-farms without a reload`() = testApplication {
+        setupRoutes()
+        setProjectState(farmId, ProjectState.DONE)
+        val ignoreUrl = "/worlds/$worldId/projects/$consumerId/resources/gathering/$ingotsId/ignore"
+
+        try {
+            val ignored = client.patch(ignoreUrl) { addAuthCookie(this) }
+            assertEquals(HttpStatusCode.OK, ignored.status)
+            assertContains(ignored.bodyAsText(), "plan-ignored-row-$ingotsId")
+
+            val restored = client.patch(ignoreUrl) { addAuthCookie(this) }
+            assertEquals(HttpStatusCode.OK, restored.status)
+            val body = restored.bodyAsText()
+            assertContains(body, """id="project-content"""")
+            assertContains(body, "Collect from farms")
+            assertContains(body, """id="list-breakdown-view"""")
+            assertFalse(body.contains("plan-ignored-row-$ingotsId"))
+        } finally {
+            setProjectState(farmId, ProjectState.ACTIVE)
+            setIgnored(ingotsId, false)
+        }
+    }
+
     // ---- routing ----------------------------------------------------------------
 
     private fun ApplicationTestBuilder.setupRoutes() {
@@ -301,6 +331,7 @@ class FarmSupplySurfacingIT : WithUser() {
                             install(ResourceGatheringIdParamPlugin)
                             patch("/source") { call.handleSetResourceSource() }
                             delete("/source") { call.handleClearResourceSource() }
+                            patch("/ignore") { call.handleToggleResourceGatheringIgnored() }
                         }
                     }
                 }
@@ -345,6 +376,16 @@ class FarmSupplySurfacingIT : WithUser() {
             }
         ).process(Unit)
         (result as Result.Success).value
+    }
+
+    private fun setIgnored(rgId: Int, ignored: Boolean) = runBlocking {
+        DatabaseSteps.update<Int>(
+            sql = SafeSQL.update("UPDATE resource_gathering SET ignored = ? WHERE id = ?"),
+            parameterSetter = { stmt, id ->
+                stmt.setBoolean(1, ignored)
+                stmt.setInt(2, id)
+            }
+        ).process(rgId)
     }
 
     private fun clearSource(rgId: Int) = runBlocking {

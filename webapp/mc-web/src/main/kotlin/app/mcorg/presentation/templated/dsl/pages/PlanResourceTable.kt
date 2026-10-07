@@ -78,7 +78,8 @@ fun TR.planResourceRow(
                 attributes["title"] = "Ignore — exclude from the material list and gathering plan"
                 attributes["aria-label"] = "Ignore ${item.name}"
                 hxPatch("/worlds/$worldId/projects/$projectId/resources/gathering/${item.id}/ignore")
-                hxTarget("#plan-resources-area")
+                // The whole plan, not the table: ignoring changes what the plan is.
+                hxTarget("#project-content")
                 hxSwap("outerHTML")
                 +"⊘"
             }
@@ -113,7 +114,7 @@ fun TR.ignoredResourceRow(worldId: Int, projectId: Int, item: ResourceGatheringI
             type = ButtonType.button
             attributes["title"] = "Un-ignore — include back in the material list and gathering plan"
             hxPatch("/worlds/$worldId/projects/$projectId/resources/gathering/${item.id}/ignore")
-            hxTarget("#plan-resources-area")
+            hxTarget("#project-content")
             hxSwap("outerHTML")
             +"Un-ignore"
         }
@@ -261,8 +262,7 @@ private fun FlowContent.planFoldedTail(
 
 /**
  * Wraps the active resource table and the ignored-items section (MCO-247) in a single
- * HTMX swap target — an ignore/un-ignore toggle moves a row between the two, so both
- * are re-rendered together.
+ * HTMX swap target, so a change that moves rows (the variant swap) re-renders both together.
  */
 fun FlowContent.planResourcesArea(
     worldId: Int,
@@ -279,8 +279,8 @@ fun FlowContent.planResourcesArea(
 }
 
 /**
- * Standalone HTML fragment version of [planResourcesArea] (HTMX swap response for the ignore
- * toggle). Takes the plan for the same reason the page does: replacing this fragment without
+ * Standalone HTML fragment version of [planResourcesArea] (HTMX swap response for the variant
+ * swap). Takes the plan for the same reason the page does: replacing this fragment without
  * one would silently drop the grouping the reader is looking at.
  */
 fun planResourcesAreaFragment(
