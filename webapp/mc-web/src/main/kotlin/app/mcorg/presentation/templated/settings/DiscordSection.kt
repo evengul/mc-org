@@ -5,6 +5,7 @@ import app.mcorg.presentation.templated.dsl.BadgeVariant
 import app.mcorg.presentation.templated.dsl.Link
 import app.mcorg.presentation.templated.dsl.badge
 import app.mcorg.presentation.templated.dsl.section
+import app.mcorg.webhook.WebhookDeliveryScope
 import app.mcorg.webhook.WebhookSubscription
 import kotlinx.html.*
 import kotlinx.html.stream.createHTML
@@ -43,9 +44,8 @@ fun parseDiscordConnection(subscriptionId: Int, callbackUrl: String): DiscordCon
  */
 fun discordConnections(subscriptions: List<WebhookSubscription>, seamDiscordUrl: String?): List<DiscordConnection> {
     if (seamDiscordUrl.isNullOrBlank()) return emptyList()
-    val base = seamDiscordUrl.trimEnd('/')
     return subscriptions
-        .filter { it.callbackUrl.startsWith(base) }
+        .filter { WebhookDeliveryScope.isUnder(seamDiscordUrl, it.callbackUrl) }
         .mapNotNull { parseDiscordConnection(it.id, it.callbackUrl) }
 }
 

@@ -37,7 +37,8 @@ import kotlin.test.assertTrue
 class WebhookDeliveryIT : WithUser() {
 
     private val consumer = WebhookFanoutConsumer()
-    private val poller = WebhookDeliveryPoller()
+    // Delivery mechanics only: whether a non-production app may post at all is WebhookDeliveryScopeIT's.
+    private val poller = WebhookDeliveryPoller(mayDeliver = { true })
 
     /**
      * [WebhookStore.findNextScheduledDeliveryAt] scans the whole outbox (by design: one poller

@@ -41,6 +41,30 @@ callback URL must never carry anything security-relevant.
 Callback URLs are SSRF-checked before a subscription is stored (`WebhookCallbackUrl.isSafe`), and
 must be HTTPS in production.
 
+### Outside production
+
+Only production delivers to every subscription. Every other database (a worktree's Neon branch, a
+PR preview's) is a fork of production. It carries production's subscriptions, with their callback
+URLs and secrets, and whatever production's outbox still held as `PENDING` when the fork was made.
+So outside `ENV=PRODUCTION` the poller delivers a batch only when its subscription's
+`callback_url` is under the configured `SEAM_DISCORD_URL` **and** its `secret` is the configured
+`SEAM_WEBHOOK_SHARED_SECRET`, which means a subscription that app could have created itself
+(`WebhookDeliveryScope`). With either variable unset, which is the default for worktrees and
+previews, it delivers nothing.
+
+A refused batch makes no request. Its rows go straight to `FAILED`, and nothing is counted against
+the subscription, which stays active. The refusal itself spends no attempt; a row copied while
+`IN_FLIGHT` has already had one charged by the claim that reclaimed it.
+
+The guard has one hole, and it is the configuration `configuration.md` already forbids:
+production's Worker URL **and** production's secret on a non-production app. seam-discord checks
+every delivery against a single `SEAM_WEBHOOK_SECRET`, so that is also the only configuration in
+which a fork's own posts reach Discord, and in it a copied subscription looks exactly like one the
+fork created. Closing it would take a marker on each subscription saying which environment
+created it.
+*(Until 2026-10-07 a fork delivered along the copied subscriptions, which posted test events and
+duplicates of production's pending events to production's Discord channels — MCO-592.)*
+
 ### Signature
 
 `X-Seam-Signature: sha256=<hex>` where `<hex>` is the lowercase hex HMAC-SHA256 of the **exact raw

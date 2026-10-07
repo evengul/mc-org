@@ -96,6 +96,17 @@ the real ingested Minecraft data instantly (no re-ingestion) and matches CI exac
   is deterministic (`"${DEMO_USER}-uuid"`, looked up by `minecraft_profiles.uuid`), so
   the first sign-in finds this user rather than creating another. Idempotent — re-run
   the script to pick up a world added later.
+- **The fork carries production's webhook subscriptions, and the app refuses to use
+  them (MCO-592).** `webhook_subscriptions` and the `PENDING` rows of
+  `webhook_deliveries` come across as they are: real Discord channel callbacks, signed
+  with production's secret. Outside `ENV=PRODUCTION` the poller delivers only to a
+  subscription under the configured `SEAM_DISCORD_URL` that also carries the configured
+  `SEAM_WEBHOOK_SHARED_SECRET`. Anything else is marked `FAILED` without a request, and
+  that includes every copied row. Nothing in the fork needs cleaning up. The one way
+  through is giving the worktree production's Worker URL **and** production's secret:
+  the Worker accepts a single secret, so the copied subscriptions then match on both.
+  Don't. The rule and its reasons are in `documentation/webhook-contract.md` →
+  "Outside production".
 - **Migration number collisions are orthogonal to DB isolation.** If two branches
   each add `V{n}__*.sql` with the same `{n}`, Flyway errors on merge (out-of-order
   / checksum). Fix: renumber the later-merged migration to the next free number, then
