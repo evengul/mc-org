@@ -129,3 +129,10 @@ without waiting.
   way").
 - Runtime check: `/verify`. Review, commit and PR: `commit`. Merge and
   cleanup: `/deliver`.
+- **UI changes: hand the owner a running app.** Once `/verify` passes, start
+  the dev server (`run.sh`, on the worktree's own port) and leave it up. Tell
+  the owner the URL and the page to open. If the change only shows with data
+  the world lacks (a pending farm, a dismissed line), add that data to the
+  worktree's Neon branch first and say what you added. Do this before asking
+  for the go-ahead to commit: the owner pokes through it, and that is the
+  approval. `/deliver` stops the server.

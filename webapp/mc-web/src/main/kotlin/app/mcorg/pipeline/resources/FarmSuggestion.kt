@@ -192,8 +192,11 @@ object FarmSuggestions {
      * One reverse-topological pass. `activityList` puts ingredients before the activities that
      * consume them, so walking it backwards decides every consumer of a node before the node
      * itself — the same traversal order [GatheringPlan.feeders] uses, for the same reason.
+     *
+     * Shared with [PlannedFarmAnswers], so a farm project in the world and a design in the bank
+     * cannot disagree about what building the same farm would take off the plan.
      */
-    private fun coveredBy(plan: GatheringPlan, direct: Set<String>): Set<String> {
+    internal fun coveredBy(plan: GatheringPlan, direct: Set<String>): Set<String> {
         val consumers = HashMap<String, MutableList<String>>()
         for ((id, node) in plan.nodes) {
             for (req in node.requires) {

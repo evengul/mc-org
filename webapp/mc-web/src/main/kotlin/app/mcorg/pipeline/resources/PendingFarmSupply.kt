@@ -124,7 +124,9 @@ suspend fun prerequisiteFarmsFor(worldId: Int, projectId: Int): List<PendingFarm
                 .mapNotNull { edge ->
                     val name = edge.itemName ?: return@mapNotNull null
                     val quantity = edge.quantity ?: return@mapNotNull null
-                    PendingFarmItem(itemId = name, itemName = name, quantity = quantity)
+                    // Keyed by id, as buildPendingFarmSupplies is: the roll-up matches these against
+                    // the plan's lines (MCO-542), and a name is not a key.
+                    PendingFarmItem(itemId = edge.itemId ?: name, itemName = name, quantity = quantity)
                 }
                 .distinctBy { it.itemId }
                 .sortedWith(compareByDescending<PendingFarmItem> { it.quantity }.thenBy { it.itemName })

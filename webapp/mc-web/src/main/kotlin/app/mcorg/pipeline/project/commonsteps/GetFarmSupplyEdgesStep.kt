@@ -98,6 +98,7 @@ data class GetFarmSupplyEdgesStep(val worldId: Int) : Step<Unit, AppFailure.Data
                   pc.state       AS consumer_state,
                   pp.project_id  AS producer_id,
                   prod.name      AS producer_name,
+                  d.item_id      AS item_id,
                   d.item_name    AS item_name,
                   d.quantity     AS quantity,
                   prod.state     AS producer_state,
@@ -162,6 +163,7 @@ data class GetFarmSupplyEdgesStep(val worldId: Int) : Step<Unit, AppFailure.Data
                                 producerState = ProjectState.valueOf(resultSet.getString("producer_state")),
                                 quantity = resultSet.getLong("quantity"),
                                 supersededBySupplier = resultSet.getBoolean("superseded"),
+                                itemId = resultSet.getString("item_id"),
                             )
                         )
                     }

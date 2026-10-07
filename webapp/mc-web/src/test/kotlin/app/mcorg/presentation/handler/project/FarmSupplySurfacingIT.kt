@@ -103,6 +103,33 @@ class FarmSupplySurfacingIT : WithUser() {
         assertFalse(body.contains("Collect from farms"), "the item is still manual work")
     }
 
+    /**
+     * MCO-542. The roll-up is keyed by item id and the prerequisite edges carried only a name,
+     * so before the edge grew an id this line sat under "No design yet" with the Prerequisites
+     * section naming the farm for it at the bottom of the same page.
+     */
+    @Test
+    fun `a farm-scale line a planned farm makes is named in Worth a farm`() = testApplication {
+        setupRoutes()
+        setProjectState(farmId, ProjectState.ACTIVE)
+        val hall = createProject(worldId, "Storage Hall", ProjectState.PENDING)
+        createResourceGathering(hall, ironIngot, required = 2_000)
+
+        try {
+            val body = client.get("/worlds/$worldId/projects/$hall") { addAuthCookie(this) }.bodyAsText()
+
+            assertContains(body, "Worth a farm")
+            assertContains(body, "farm projects in this world cover 1 of them.")
+            assertContains(body, "plan-farm-scale__planned")
+            assertContains(body, """href="/worlds/$worldId/projects/$farmId"""")
+            assertFalse(body.contains("No design yet"), "the only farm-scale line is answered")
+            // Same farm, same item, in the section this one now agrees with.
+            assertContains(body, "2,000 Iron Ingot")
+        } finally {
+            deleteProject(hall)
+        }
+    }
+
     @Test
     fun `once the farm is done the item moves to collect-from-farms and the notice disappears`() = testApplication {
         setupRoutes()

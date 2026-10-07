@@ -58,6 +58,9 @@ import app.mcorg.pipeline.resources.FeedsLabel
 import app.mcorg.pipeline.resources.buildFeedsLabels
 import app.mcorg.pipeline.resources.PendingFarmItem
 import app.mcorg.pipeline.resources.PendingFarmSupply
+import app.mcorg.pipeline.resources.PlannedFarmAnswer
+import app.mcorg.pipeline.resources.PlannedFarmAnswers
+import app.mcorg.pipeline.resources.answeredIds
 import app.mcorg.pipeline.resources.buildNodeIngredients
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
@@ -610,9 +613,16 @@ fun FlowContent.gatheringPlanSections(
 
         // Above the work sections on purpose: this is not a step in the plan, it is the answer
         // to "what should I build first", and it is what turns one import into a roadmap.
+        //
+        // pendingFarms is what the Prerequisites section at the bottom renders, so a roll-up line
+        // is labelled with a farm exactly when that section says the farm comes first (MCO-542).
         farmScaleSection(
             farmScale, farmSuggestions, farmScaleThreshold, project.worldId, project.id, isWorldAdmin,
             farmDismissals, suppressed,
+            PlannedFarmAnswers.of(
+                plan, farmScale, pendingFarms,
+                shownOnDesigns = farmSuggestions.flatMapTo(mutableSetOf()) { it.itemIds },
+            ),
         )
 
         groupOrder.forEach { group ->
@@ -755,6 +765,10 @@ private fun FlowContent.smallJobsStrip(worldId: Int, projectId: Int, jobs: List<
  * design that produces iron ingots removes the *ore* below them. That ore is a roll-up line, so
  * it appears under the design that removes it rather than orphaned in the tail claiming nobody
  * can help with it.
+ *
+ * A line a farm project in this world will produce is not undesigned either (MCO-542). It is
+ * still work until that farm runs, so it stays on the panel, named against the farm, but folded:
+ * the decision it asked for has been taken, and six of them unfolded is most of the panel.
  */
 private fun FlowContent.farmScaleSection(
     demands: List<FarmScaleDemand>,
@@ -767,13 +781,16 @@ private fun FlowContent.farmScaleSection(
     dismissals: List<FarmDismissal> = emptyList(),
     /** The dismissed lines this plan would otherwise be showing, for the ignored fold. */
     suppressed: List<FarmScaleDemand> = emptyList(),
+    /** Roll-up lines the farms this project waits on will answer (MCO-542). */
+    planned: List<PlannedFarmAnswer> = emptyList(),
 ) {
     // The dismissals keep the section alive on their own: a panel with nothing left to say is
     // still the only place the decision can be taken back.
     if (demands.isEmpty() && suggestions.isEmpty() && dismissals.isEmpty()) return
 
     val answered = suggestions.flatMapTo(mutableSetOf()) { it.itemIds }
-    val unanswered = demands.filter { it.itemId !in answered }
+    val answeredByFarms = planned.answeredIds()
+    val unanswered = demands.filter { it.itemId !in answered && it.itemId !in answeredByFarms }
 
     div("plan-farm-scale") {
         id = "plan-farm-scale"
@@ -797,13 +814,18 @@ private fun FlowContent.farmScaleSection(
             } else {
                 +"%,d".format(threshold)
             }
+            // Counted apart because they are different news: a design is a decision still to
+            // take, a farm project is one already taken. The two never share a line — a line on
+            // a design row is left out of the fold (PlannedFarmAnswers).
+            val byFarms = demands.count { it.itemId in answeredByFarms }
+            val byDesigns = demands.count { it.itemId in answered }
             when {
                 demands.isEmpty() && suggestions.isEmpty() -> +"."
-                suggestions.isEmpty() -> +" — each is a candidate for its own farm project."
-                else -> {
-                    val covered = demands.size - unanswered.size
-                    +" — your designs cover $covered of them."
-                }
+                suggestions.isEmpty() && planned.isEmpty() -> +" — each is a candidate for its own farm project."
+                planned.isEmpty() -> +" — your designs cover $byDesigns of them."
+                suggestions.isEmpty() -> +" — farm projects in this world cover $byFarms of them."
+                // Designs first, in the order the panel shows them.
+                else -> +" — your designs cover $byDesigns of them; farm projects in this world cover $byFarms."
             }
         }
 
@@ -839,7 +861,7 @@ private fun FlowContent.farmScaleSection(
                 // The label separates answered from unanswered. With nothing answered there is
                 // nothing to separate, and the section is exactly the roll-up MCO-401 shipped —
                 // so it says nothing rather than heading a list that is the whole list.
-                if (suggestions.isNotEmpty()) {
+                if (suggestions.isNotEmpty() || planned.isNotEmpty()) {
                     span("plan-farm-scale__group-label") { +"No design yet" }
                 }
                 div("plan-farm-scale__list") {
@@ -853,7 +875,60 @@ private fun FlowContent.farmScaleSection(
             }
         }
 
+        plannedFarmAnswers(worldId, projectId, planned)
+
         dismissedFarmDemands(worldId, projectId, dismissals, suppressed, canRestore = isWorldAdmin)
+    }
+}
+
+/**
+ * The roll-up lines farm projects in this world already answer, folded (MCO-542).
+ *
+ * Named rather than hidden: the quantity is still gathering until the farm runs, which is what
+ * the Prerequisites section says further down. Not dismissible — "we are not farming this" is the
+ * wrong answer for a line a farm project exists for, and the panel should not offer it.
+ */
+private fun FlowContent.plannedFarmAnswers(worldId: Int, projectId: Int, planned: List<PlannedFarmAnswer>) {
+    if (planned.isEmpty()) return
+    val lines = planned.sumOf { it.itemIds.size }
+
+    details("plan-farm-scale__planned") {
+        summary {
+            span("btn btn--ghost btn--sm plan-farm-scale__planned-toggle") {
+                span("plan-farm-scale__planned-toggle--closed") {
+                    +"$lines answered by ${if (planned.size == 1) "a farm project" else "farm projects"} ▾"
+                }
+                span("plan-farm-scale__planned-toggle--open") { +"Hide answered ▴" }
+            }
+        }
+        div("plan-farm-scale__planned-list") {
+            planned.forEach { farm ->
+                div("plan-farm-scale__planned-farm") {
+                    p("plan-farm-scale__planned-head") {
+                        +"Solved when "
+                        a(classes = "plan-farm-scale__planned-project") {
+                            href = Link.Worlds.world(worldId).project(farm.projectId).to
+                            +farm.projectName
+                        }
+                        +" is done"
+                    }
+                    div("plan-farm-scale__list") {
+                        farm.makes.forEach { demand ->
+                            farmScaleDemandLine(worldId, projectId, demand.itemId, demand.itemName, demand.quantity)
+                        }
+                        // The farm does not make these, so the line says what it does make that
+                        // they feed — "the iron farm makes ore" is the claim this must never print.
+                        farm.alsoRemoves.forEach { knockOn ->
+                            farmScaleDemandLine(
+                                worldId, projectId, knockOn.demand.itemId, knockOn.demand.itemName,
+                                knockOn.demand.quantity,
+                                note = "only feeds ${knockOn.feeds.joinToString(" and ")}, which this farm makes",
+                            )
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -872,11 +947,14 @@ private fun FlowContent.farmScaleDemandLine(
     quantity: Long,
     rateLabel: String? = null,
     canDismiss: Boolean = false,
+    /** Why this line is here, when it is not the obvious reading — a knock-on (MCO-542). */
+    note: String? = null,
 ) {
-    div("plan-farm-scale__item") {
+    div(if (note == null) "plan-farm-scale__item" else "plan-farm-scale__item plan-farm-scale__item--noted") {
         span("plan-farm-scale__quantity") { +"%,d".format(quantity) }
         span("plan-farm-scale__name") { +itemName }
         rateLabel?.let { label -> span("plan-farm-scale__rate") { +label } }
+        note?.let { text -> span("plan-farm-scale__note") { +text } }
         if (canDismiss) {
             button(classes = "btn btn--ghost btn--sm plan-farm-scale__dismiss") {
                 // type=button, because half of these lines sit inside the batch import form and
