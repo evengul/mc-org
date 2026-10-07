@@ -22,20 +22,21 @@ import io.ktor.server.request.path
  * attacker's host, `base-uri` cannot be repointed, forms cannot post off-site, and nothing can be
  * framed. It does **not** contain the two latent injection sinks MCO-356 names.
  *
- * Getting there means moving the inline JavaScript into files and setting
- * `htmx.config.allowEval = false` — tracked as its own issue, with dropping these two keywords as
- * the acceptance criterion. Until then this is origin control, and should be described as such.
+ * Getting there means moving the inline JavaScript into files, and running htmx's own evaluation
+ * through its `hx-csp` extension (`safeEval`) — tracked as its own issue, with dropping these two
+ * keywords as the acceptance criterion. Until then this is origin control, and should be
+ * described as such.
  *
- * `cdn.jsdelivr.net` is here for the two SRI-pinned HTMX scripts in `Layout.kt`. Everything else
+ * `cdn.jsdelivr.net` is here for the SRI-pinned htmx script in `Layout.kt`. Everything else
  * is served from this origin, including fonts and icons — icons are inline SVG, not fetched.
  */
 private val CONTENT_SECURITY_POLICY = listOf(
     "default-src 'self'",
     // 'unsafe-eval' is here for htmx, not for us. Its `hx-on:` handlers and `hx-vals="js:..."`
-    // expressions are compiled with eval(), so a policy without it does not merely weaken the
-    // page — it silently breaks every modal, inline-edit and search-as-you-type in the app.
-    // Confirmed against htmx's own CSP documentation, which offers `htmx.config.allowEval =
-    // false` as the way out and is explicit that doing so disables exactly those features.
+    // expressions are compiled with the Function constructor, so a policy without it does not
+    // merely weaken the page — it silently breaks every modal, inline-edit and search-as-you-type
+    // in the app. htmx 4 removed `allowEval`; its `hx-csp` extension is the way out, replacing
+    // the Function constructor with nonce-bearing script elements.
     "script-src 'self' https://cdn.jsdelivr.net 'unsafe-inline' 'unsafe-eval'",
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data:",

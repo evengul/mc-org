@@ -100,15 +100,36 @@ class LayoutTest {
     }
 
     @Test
-    fun `pageShell includes response-targets script`() {
+    fun `pageShell loads htmx 4 and no htmx 2 extension`() {
         val html = pageShell { div { } }
-        assertTrue(html.contains("response-targets.js"))
+        assertTrue(html.contains("htmx.org@4."), html)
+        assertFalse(html.contains("response-targets"), "htmx 4 has no response-targets; hx-status replaces it")
+        assertFalse(html.contains("hx-ext="), "htmx 4 removed hx-ext; an extension registers by loading")
     }
 
     @Test
-    fun `pageShell sets hx-ext response-targets on body`() {
+    fun `pageShell loads no htmx history cache, so a reporter token is never snapshotted`() {
+        // htmx 4 restores history from the server. The hx-history-cache extension puts back htmx
+        // 2's snapshot of document.body in sessionStorage, which once held a plaintext reporter
+        // token (ReporterSection.mintedTokenReveal).
         val html = pageShell { div { } }
-        assertTrue(html.contains("hx-ext=\"response-targets\""))
+        assertFalse(html.contains("history-cache"), html)
+        assertFalse(ScriptBundle.current().content.contains("history-cache"))
+    }
+
+    @Test
+    fun `htmx leaves the indicator CSS to modal css`() {
+        // htmx 4's injected rule sets visibility:hidden, which kept the schematic upload's
+        // .is-uploading spinner invisible.
+        assertTrue(HTMX_CONFIG.contains("\"includeIndicatorCSS\": false"), HTMX_CONFIG)
+    }
+
+    @Test
+    fun `pageShell configures htmx before the htmx script reads it`() {
+        val html = pageShell { div { } }
+        val config = html.indexOf("name=\"htmx-config\"")
+        assertTrue(config >= 0, "no htmx-config meta")
+        assertTrue(config < html.indexOf("htmx.org@4."), "htmx reads its config once, when it loads")
     }
 
     @Test

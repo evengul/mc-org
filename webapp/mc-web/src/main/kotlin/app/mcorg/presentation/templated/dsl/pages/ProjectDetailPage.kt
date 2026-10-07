@@ -25,6 +25,7 @@ import app.mcorg.pipeline.resources.FarmSuggestionChoices
 import app.mcorg.pipeline.resources.RecommendationReason
 import app.mcorg.presentation.templated.dsl.formatPlainCount
 import app.mcorg.presentation.hxDelete
+import app.mcorg.presentation.hxOnSuccess
 import app.mcorg.presentation.hxDeleteWithConfirm
 import app.mcorg.presentation.hxGet
 import app.mcorg.presentation.hxIndicator
@@ -32,7 +33,6 @@ import app.mcorg.presentation.hxOutOfBands
 import app.mcorg.presentation.hxPost
 import app.mcorg.presentation.hxSwap
 import app.mcorg.presentation.hxTarget
-import app.mcorg.presentation.hxTargetError
 import app.mcorg.presentation.hxTrigger
 import app.mcorg.presentation.templated.dsl.Link
 import app.mcorg.pipeline.resources.MeasuredStock
@@ -985,10 +985,10 @@ private fun FlowContent.farmScaleDemandLine(
                 // type=button, because half of these lines sit inside the batch import form and
                 // a default submit would open the review wizard instead.
                 type = ButtonType.button
+                // A POST from inside a form carries the form's ticked designs too. The dismissal
+                // reads nothing from the body (handleDismissFarmSuggestion), so they are ignored;
+                // htmx 4 has no hx-params to leave them out.
                 hxPost(farmDismissalHref(worldId, projectId, itemId))
-                // The enclosing form's ticked designs are not part of this decision. htmx would
-                // include them by default for a POST from inside a form.
-                attributes["hx-params"] = "none"
                 // The whole plan, not this line: a dismissal takes a roll-up line, possibly a
                 // design row with it, and a badge on a work row several sections down — one
                 // decision, so one swap. Matches the id gatheringPlannerFragment renders.
@@ -1038,7 +1038,6 @@ private fun FlowContent.dismissedFarmDemands(
                         button(classes = "btn btn--ghost btn--sm plan-farm-scale__restore") {
                             type = ButtonType.button
                             hxDelete(farmDismissalHref(worldId, projectId, dismissal.itemId))
-                            attributes["hx-params"] = "none"
                             hxTarget("#project-content")
                             hxSwap("outerHTML")
                             title = "Suggest a farm for ${dismissal.itemName} again"
@@ -1754,11 +1753,9 @@ fun FlowContent.resourceSchematicModal(worldId: Int, projectId: Int, existingRes
                     hxPost("/worlds/$worldId/projects/$projectId/resources/from-schematic")
                     hxTarget("#plan-resource-table")
                     hxSwap("outerHTML")
-                    hxTargetError(".form-error")
                     hxIndicator("#resource-schematic-progress")
                     attributes["hx-encoding"] = "multipart/form-data"
-                    attributes["hx-on::after-request"] =
-                        "if(event.detail.successful) { this.reset(); this.closest('dialog')?.close() }"
+                    hxOnSuccess("this.reset(); this.closest('dialog')?.close()")
 
                     label {
                         htmlFor = "resource-schematic-file"

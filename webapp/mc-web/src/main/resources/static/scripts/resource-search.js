@@ -3,7 +3,7 @@
  *
  * Filter: reads data-item-name attributes on .resource-row elements
  * Sort: reads data-progress-pct attributes and reorders DOM nodes
- * Re-applies active filter after htmx:afterSwap on the resource list container
+ * Re-applies active filter after htmx:after:settle on the resource list container
  */
 
 (function () {
@@ -20,7 +20,7 @@
         if (!searchInput || !resourceList) return;
 
         // Guard: skip if this exact element is already wired up.
-        // Counter button clicks trigger htmx:afterSettle too, and we must not re-sort then.
+        // Counter button clicks trigger htmx:after:settle too, and we must not re-sort then.
         // View switches replace the DOM entirely, so the fresh element won't have this flag.
         if (searchInput.dataset.initialized) return;
         searchInput.dataset.initialized = 'true';
@@ -41,7 +41,7 @@
         });
 
         // Re-apply filter after HTMX swaps (counter updates) — intentionally no re-sort
-        resourceList.addEventListener('htmx:afterSwap', function () {
+        resourceList.addEventListener('htmx:after:settle', function () {
             applyFilter();
         });
 
@@ -181,7 +181,7 @@
     });
 
     // Re-init after HTMX page loads (if needed)
-    document.addEventListener('htmx:afterSettle', function () {
+    document.addEventListener('htmx:after:settle', function () {
         initResourceSearch();
         initFreeEntry();
         initTasksAnchor();

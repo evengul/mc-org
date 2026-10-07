@@ -127,7 +127,7 @@
         if (document.body.dataset.resourcePanelToggleInitialized) return;
         document.body.dataset.resourcePanelToggleInitialized = 'true';
 
-        document.body.addEventListener('htmx:afterSwap', function (e) {
+        document.body.addEventListener('htmx:after:settle', function (e) {
             if (!e.target) return;
             if (e.target.id === 'project-content') closePanel();
         });
@@ -302,5 +302,5 @@
     }
 
     document.addEventListener('DOMContentLoaded', init);
-    document.addEventListener('htmx:afterSettle', init);
+    document.addEventListener('htmx:after:settle', init);
 })();

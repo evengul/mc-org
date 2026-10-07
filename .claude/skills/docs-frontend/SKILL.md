@@ -343,8 +343,8 @@ URLs follow the IA scheme (`/worlds/:worldId/...`) — there is no `/app/` prefi
 ## HTMX in new pages
 
 Helpers (`hxGet/hxPost/hxPut/hxPatch/hxDelete`, `hxTarget`, `hxSwap`, `hxTrigger`, `hxPushUrl`, `hxInclude`,
-`hxOutOfBands`, `hxDeleteWithConfirm`, `hxTargetError`) and swap mechanics are catalogued in **docs-htmx** —
-load it for fragment/OOB/inline-edit patterns. Two new-system specifics:
+`hxOutOfBands`, `hxDeleteWithConfirm`) and swap mechanics, including what htmx 4 changed, are catalogued
+in **docs-htmx** — load it for fragment/OOB/inline-edit patterns. Two new-system specifics:
 
 - Use `Link.*.to` for HTMX URLs (`/worlds/...` routes — no `/app/` prefix), and the button classes
   shown above. docs-htmx examples use the current system.

@@ -431,8 +431,9 @@ private fun productionScript() = """
             : total + ' ' + largestName + ', and ' + rest + ' more';
     }
 
-    // An upload swaps rows into one variant's list; htmx tells us which.
-    document.body.addEventListener('htmx:afterSwap', function (event) {
+    // An upload swaps rows into one variant's list; htmx tells us which. htmx 4 fires after:settle
+    // on the swap target (after:swap goes to the element that sent the request).
+    document.body.addEventListener('htmx:after:settle', function (event) {
         var id = event.target && event.target.id;
         if (id && id.indexOf('mode-materials-') === 0) {
             refreshModeMaterials(id.substring('mode-materials-'.length));

@@ -8,6 +8,7 @@ import app.mcorg.test.WithUser
 import app.mcorg.test.postgres.DatabaseTestExtension
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
+import io.ktor.client.request.header
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.response.respondText
@@ -47,6 +48,25 @@ class RolePluginsIT : WithUser() {
             response.bodyAsText().contains("Account Suspended"),
             "Banned response should render the bannedPage() HTML",
         )
+    }
+
+    @Test
+    fun `A banned user's HTMX request gets the suspension as an alert, not the page`() = testApplication {
+        val client = setup()
+
+        val user = createExtraUser("banned")
+        CacheManager.bannedUsers.invalidate(user.id)
+
+        val response = client.get("/worlds") {
+            addAuthCookie(this, user)
+            header("HX-Request", "true")
+        }
+        val body = response.bodyAsText()
+
+        assertEquals(HttpStatusCode.Forbidden, response.status)
+        assertTrue(body.contains("hx-swap-oob=\"afterbegin:#alert-container\""), "should be the out-of-band alert; was: $body")
+        assertTrue(body.contains("Account Suspended"), body)
+        assertFalse(body.contains("<html", ignoreCase = true), "a fragment, not the page; was: $body")
     }
 
     @Test

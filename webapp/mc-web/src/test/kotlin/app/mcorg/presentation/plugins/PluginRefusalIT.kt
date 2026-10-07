@@ -42,9 +42,9 @@ import kotlin.test.assertTrue
  * Two readers, two shapes. Typing a URL or following a link must land on a status page with the
  * app's chrome; before this, `/worlds/{id}/projects/settings` answered a bare "Invalid or missing
  * project ID" and a member opening world settings got one plain-text sentence. An HTMX request
- * must instead get the standard alert, retargeted at the alert container: the body carries
- * `hx-ext="response-targets"`, which swaps a non-200 response only when it names a target, so a
- * refusal without `HX-Retarget` changes nothing on screen.
+ * must instead get the standard alert, swapped out of band into the alert container: htmx swaps no
+ * error response into its target (`noSwap`, `Layout.kt`), so anything else changes nothing on
+ * screen.
  *
  * Runs through the real router rather than a hand-built route tree, so the plugin order under
  * test is the one production has — including the siblings that run after an earlier plugin has
@@ -215,13 +215,16 @@ class PluginRefusalIT : WithUser() {
         assertEquals(status, response.status, "body was: ${body.take(300)}")
         assertTrue(body.contains(heading), "should render the '$heading' status page; was: ${body.take(300)}")
         assertTrue(body.contains("error-page__card"), "should be the full status page with chrome")
-        assertNull(response.headers["HX-Retarget"], "a page load has no use for HX-Retarget")
+        assertFalse(body.contains("hx-swap-oob"), "a page load has no use for an out-of-band swap")
     }
 
     private suspend fun assertAlert(response: HttpResponse, status: HttpStatusCode) {
         val body = response.bodyAsText()
         assertEquals(status, response.status, "body was: ${body.take(300)}")
-        assertEquals("#alert-container", response.headers["HX-Retarget"], "an HTMX refusal must name a target or it is never swapped")
+        assertTrue(
+            body.contains("hx-swap-oob=\"afterbegin:#alert-container\""),
+            "an HTMX refusal must arrive out of band or it is never swapped; was: ${body.take(300)}",
+        )
         assertTrue(body.contains("alert"), "should be the standard alert; was: ${body.take(300)}")
         assertFalse(body.contains("<html", ignoreCase = true), "a fragment, not a whole page; was: ${body.take(300)}")
     }

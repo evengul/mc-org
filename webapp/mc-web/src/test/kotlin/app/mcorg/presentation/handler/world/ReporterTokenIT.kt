@@ -135,26 +135,6 @@ class ReporterTokenIT : WithUser() {
     }
 
     @Test
-    fun `the reveal opts out of htmx history, so the token never reaches sessionStorage`() = testApplication {
-        installRoutes()
-        val worldId = createWorld("reporter-history")
-
-        val body = mint(worldId, name = "Cached?").bodyAsText()
-
-        // Reproduced in a browser before this assertion existed: any HTMX request carrying
-        // hx-push-url — the invitation tabs on this same page have it — makes htmx snapshot
-        // document.body into sessionStorage['htmx-history-cache'] BEFORE swapping. That wrote the
-        // plaintext token to storage readable by any same-origin script (and this app's CSP ships
-        // 'unsafe-inline'), and pressing Back re-rendered it — contradicting the reveal's own
-        // promise that it is shown once. hx-history="false" anywhere in the document suppresses
-        // the snapshot, so it lives on the reveal and disappears with it.
-        assertTrue(
-            body.contains("""hx-history="false""""),
-            "the token reveal must opt out of the htmx history cache",
-        )
-    }
-
-    @Test
     fun `a freshly minted token reports that nothing has used it yet`() = testApplication {
         installRoutes()
         val worldId = createWorld("reporter-never")

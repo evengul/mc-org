@@ -1,6 +1,10 @@
 package app.mcorg.presentation.plugins
 
 import app.mcorg.logging.describeWithoutMessages
+import app.mcorg.presentation.handler.UNEXPECTED_ERROR_TITLE
+import app.mcorg.presentation.handler.respondRefusal
+import app.mcorg.presentation.handler.unexpectedErrorMessage
+import app.mcorg.presentation.hxOutOfBands
 import app.mcorg.presentation.templated.dsl.AssetBundle
 import app.mcorg.presentation.templated.dsl.ScriptBundle
 import app.mcorg.presentation.templated.dsl.StylesheetBundle
@@ -44,8 +48,18 @@ fun Application.configureStatusStaticRouter() {
                 cause.describeWithoutMessages(),
             )
             // Same id the log line carries, so a user quoting it points straight at the entry
-            // above (MCO-350).
-            call.respondHtml(serverErrorPage(call.callId), HttpStatusCode.InternalServerError)
+            // above (MCO-350). Under HTMX the page would show nothing, since htmx swaps no error
+            // response into its target (`noSwap`, Layout.kt); the alert carries the same id.
+            if (call.request.headers["HX-Request"] == "true") {
+                call.respondRefusal(
+                    HttpStatusCode.InternalServerError,
+                    UNEXPECTED_ERROR_TITLE,
+                    unexpectedErrorMessage(call.callId),
+                    alertId = "generic-error",
+                )
+            } else {
+                call.respondHtml(serverErrorPage(call.callId), HttpStatusCode.InternalServerError)
+            }
         }
         // Thrown by RequestBodyLimit (limitSchematicUploads) for a declared or a streamed body over
         // the cap. Expected, and a client's doing rather than ours, so neither the catch-all's
@@ -57,13 +71,13 @@ fun Application.configureStatusStaticRouter() {
                 MAX_SCHEMATIC_UPLOAD_BYTES,
             )
             if (call.request.headers["HX-Request"] == "true") {
-                // The resource-upload form swaps errors over its `.form-error` (outerHTML), so the
-                // replacement has to be that same element, id included: its 422s arrive as an
-                // out-of-band swap onto `validation-error-schematicFile`, and without the id the
-                // next one has nowhere to land.
+                // htmx swaps no error response (`noSwap`, Layout.kt), so this arrives out of band
+                // onto the resource-upload form's slot, the way its 422s do. It replaces the slot,
+                // so it keeps the slot's class and id, or the next message has nowhere to land.
                 call.respondHtml(
                     createHTML().p("form-error") {
                         id = "validation-error-schematicFile"
+                        hxOutOfBands("true")
                         +UPLOAD_TOO_LARGE_MESSAGE
                     },
                     HttpStatusCode.PayloadTooLarge,

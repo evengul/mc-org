@@ -7,6 +7,7 @@ import app.mcorg.domain.model.idea.IdeaProductionMode
 import app.mcorg.domain.model.user.TokenProfile
 import app.mcorg.pipeline.idea.single.IdeaMaterial
 import app.mcorg.presentation.hxDeleteWithConfirm
+import app.mcorg.presentation.hxOnSuccess
 import app.mcorg.presentation.hxGet
 import app.mcorg.presentation.hxOutOfBands
 import app.mcorg.presentation.hxPost
@@ -192,8 +193,7 @@ private fun FlowContent.ideaCommentForm(ideaId: Int) {
         hxPost(Link.Ideas.single(ideaId) + "/comments")
         hxTarget("#idea-comments-list")
         hxSwap("afterbegin")
-        attributes["hx-on::after-request"] =
-            "this.reset(); document.getElementById('idea-comment-reset-rating-button').classList.add('idea-comment-reset--hidden');"
+        hxOnSuccess("this.reset(); document.getElementById('idea-comment-reset-rating-button').classList.add('idea-comment-reset--hidden');")
 
         div("idea-comment-form__rating") {
             span("idea-detail__section-subtitle") { +"Rating (optional)" }

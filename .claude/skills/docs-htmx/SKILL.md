@@ -44,16 +44,43 @@ fun HTMLTag.hxTrigger(value: String)      // "load", "click", "change", "keyup c
 fun HTMLTag.hxInclude(value: String)      // CSS selector for extra inputs to include
 fun HTMLTag.hxIndicator(value: String)    // CSS selector for an hx-indicator element
 
-// Error routing (response-targets extension, loaded by pageShell)
-fun HTMLTag.hxTargetError(value: String)              // hx-target-error  — target for any error response
-fun HTMLTag.hxErrorTarget(target: String, code: String) // hx-target-{code} — e.g. code = "404", "422"
+// After the element's own request answered < 400 (reset a form, close its dialog)
+fun HTMLTag.hxOnSuccess(script: String)   // hx-on::after:request, guarded on event.target === this
 
-// Extensions
-fun HTMLTag.hxExtension(value: String)    // hx-ext
 ```
 
 No `hxConfirm` / `hxPushUrl` helper exists — for those set the attribute directly:
 `attributes["hx-push-url"] = "/worlds/$worldId/projects?view=plan"`.
+
+## htmx 4 (since MCO-545)
+
+`pageShell` loads htmx **4.0.0** with `HTMX_CONFIG` (`Layout.kt`). What differs from htmx 2, and what
+that config holds in place:
+
+- **Error responses swap nothing.** `noSwap` lists `4xx` and `5xx`, which keeps htmx 2's behaviour. It
+  also silences `HX-Retarget`/`HX-Reswap` on an error, so an error reaches the screen only **out of
+  band**: `respondRefusal` sends its alert as `hx-swap-oob="afterbegin:#alert-container"`, and
+  validation messages land on `validation-error-<field>` by id. To swap an error into the sender's
+  own target, put `hx-status:<code>` on the element (e.g. `attributes["hx-status:400"] =
+  "swap:outerHTML"`, `ManualOrderingSection.kt`); an exact code wins over `noSwap`'s `4xx`.
+- **Inheritance is implicit** via `implicitInheritance: true`, until containers that rely on it get
+  `hx-target:inherited`.
+- **Gone:** `hx-target-error` (use `hx-status`), `hx-ext`, `hx-params`, `hx-history`. No history
+  snapshot is kept in the browser: Back re-requests the pushed URL, so an `hx-push-url` must be a
+  real page.
+- **Events are colon-separated.** `hx-on::after:request` (not `after-request`); its handler sees
+  `ctx`, and there is no `event.detail.successful` or `xhr`. For "on success, do X" use
+  `hxOnSuccess(...)`, which checks `ctx.response.status < 400` and `event.target === this` (events
+  from htmx elements inside a form bubble to it).
+- **`htmx:after:swap` fires on the element that sent the request**, not the target. Listen to
+  `htmx:after:settle` for "something was swapped into X"; it fires on the target (the new element
+  for `outerHTML`), before htmx processes the new content.
+- **`htmx:confirm` must be settled.** A listener that prevents it has to call `issueRequest()` or
+  `dropRequest()` (`confirmation-modal.js`), or the element's request queue waits forever.
+- **`hx-delete` no longer sends the enclosing form's inputs.** Add `hx-include="closest form"` if
+  a delete needs them; none does today.
+- **A non-`outerHTML` out-of-band swap inserts the element's children**, so wrap what should land:
+  `ul { hxOutOfBands("afterbegin:#alert-container"); li { createAlert(...) } }`.
 
 ## HTMX Swap Strategies
 
@@ -71,7 +98,8 @@ No `hxConfirm` / `hxPushUrl` helper exists — for those set the attribute direc
 // HTMX redirect — sets HX-Redirect header (HTMX navigations only; blank page on direct hit)
 suspend fun ApplicationCall.clientRedirect(path: String)
 
-// Error responses — set HX-Retarget + HX-Reswap so the error lands in the right place
+// Error responses — set HX-Retarget + HX-Reswap, which htmx 4's noSwap ignores on an error:
+// the sender needs a matching hx-status:<code> for this to show (see htmx 4 above)
 suspend fun ApplicationCall.respondBadRequest(errorHtml: String = "An error occurred",
                                               target: String = "#error-message", swap: String = "innerHTML")
 suspend fun ApplicationCall.respondNotFound(errorHtml: String = "...", target = "#error-message", ...)
@@ -92,10 +120,9 @@ form {
     hxPost(Link.Worlds.world(worldId).projects().to)   // POST /worlds/{id}/projects
     hxTarget("#project-card-list")
     hxSwap("afterbegin")
-    hxTargetError(".form-error")
 
     input(classes = "form-control") { name = "name"; placeholder = "Project name" }
-    p("form-error") {}
+    p("form-error") { id = "validation-error-name" }   // a 422 lands here out of band
     button(classes = "btn btn--primary") { type = ButtonType.submit; +"Create" }
 }
 

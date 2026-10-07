@@ -7,6 +7,7 @@ import ch.qos.logback.classic.Logger
 import ch.qos.logback.classic.spi.ILoggingEvent
 import ch.qos.logback.core.read.ListAppender
 import io.ktor.client.request.get
+import io.ktor.client.request.header
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
@@ -89,6 +90,28 @@ class StatusPagesIT {
         assertTrue(body.contains(callId), "the 500 page should quote the call id $callId; was: $body")
 
         // Still no leak — the reference is opaque and generated, unlike the cause.
+        assertFalse(body.contains("super-secret-internal-detail"), "must not leak the exception message")
+    }
+
+    @Test
+    fun `under HTMX a throwing route answers the alert out of band, with the reference`() = testApplication {
+        // htmx swaps no error response into its target (noSwap, Layout.kt), so the 500 page sent to
+        // an HTMX request reached the browser and showed nothing.
+        application {
+            configureMonitoring()
+            configureStatusStaticRouter()
+        }
+        routing {
+            get("/throws") { throw SecretLeakingException("super-secret-internal-detail") }
+        }
+
+        val response = createClient { followRedirects = false }.get("/throws") { header("HX-Request", "true") }
+        val body = response.bodyAsText()
+
+        assertEquals(HttpStatusCode.InternalServerError, response.status)
+        assertTrue(body.contains("hx-swap-oob=\"afterbegin:#alert-container\""), "should be the out-of-band alert; was: $body")
+        assertTrue(body.contains(response.headers[HttpHeaders.XRequestId]!!), "should quote the call id; was: $body")
+        assertFalse(body.contains("<html", ignoreCase = true), "a fragment, not the page; was: $body")
         assertFalse(body.contains("super-secret-internal-detail"), "must not leak the exception message")
     }
 

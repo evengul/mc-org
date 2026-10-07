@@ -2,6 +2,7 @@ package app.mcorg.presentation.templated.dsl
 
 import app.mcorg.domain.model.task.ActionTask
 import app.mcorg.presentation.hxDeleteWithConfirm
+import app.mcorg.presentation.hxOnSuccess
 import app.mcorg.presentation.hxPatch
 import app.mcorg.presentation.hxSwap
 import app.mcorg.presentation.hxTarget
@@ -84,12 +85,7 @@ fun FlowContent.addTaskInline(worldId: Int, projectId: Int) {
             attributes["hx-post"] = "/worlds/$worldId/projects/$projectId/tasks"
             attributes["hx-target"] = "#task-list"
             attributes["hx-swap"] = "afterbegin"
-            attributes["hx-on::after-request"] = """
-                if (event.detail.xhr.status < 300) {
-                    this.reset();
-                    this.classList.remove('add-task-inline--visible');
-                }
-            """.trimIndent()
+            hxOnSuccess("this.reset(); this.classList.remove('add-task-inline--visible');")
             input(type = InputType.text, classes = "add-task-inline__input") {
                 name = "name"
                 placeholder = "Task name..."

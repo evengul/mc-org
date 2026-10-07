@@ -58,9 +58,9 @@ class SecurityHeadersIT {
     }
 
     @Test
-    fun `the CSP still allows the two SRI-pinned jsDelivr scripts`() {
-        // Layout.kt loads htmx and its response-targets extension from jsDelivr with integrity
-        // hashes. A CSP that forgot them would break every interactive page in the app.
+    fun `the CSP still allows the SRI-pinned jsDelivr htmx script`() {
+        // Layout.kt loads htmx from jsDelivr with an integrity hash. A CSP that forgot it would
+        // break every interactive page in the app.
         headersOf(Local) { headers ->
             val csp = headers["Content-Security-Policy"]!!
             assertTrue(

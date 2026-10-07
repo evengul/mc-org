@@ -4,8 +4,12 @@
 const MODAL_ID = 'confirm-delete-modal';
 let currentDeleteConfig = null;
 
+// htmx waits on a prevented confirm until issueRequest() or dropRequest() is called, and the
+// element's request queue waits with it: a dialog closed without either leaves that button dead
+// until reload. So every way the dialog closes settles the request (see the 'close' listener).
 window.addEventListener('htmx:confirm', function(event) {
-  const { elt: deleteButton, issueRequest: handleDelete } = event.detail;
+  const { ctx, issueRequest, dropRequest } = event.detail;
+  const deleteButton = ctx.sourceElement;
 
   if (deleteButton && deleteButton.hasAttribute('data-hx-delete-confirm')) {
     event.preventDefault();
@@ -15,7 +19,8 @@ window.addEventListener('htmx:confirm', function(event) {
       description: deleteButton.attributes["data-hx-delete-confirm-description"]?.value,
       warning: deleteButton.attributes["data-hx-delete-confirm-warning"]?.value,
       confirmText: deleteButton.attributes["data-hx-delete-confirm-text"]?.value,
-      handleDelete
+      issueRequest,
+      dropRequest
     }
 
     showDeleteConfirmModal(config)
@@ -29,7 +34,8 @@ window.addEventListener('htmx:confirm', function(event) {
  * @param {string} config.description - Modal description
  * @param {string} config.warning - Warning message
  * @param {string} [config.confirmText] - Text user must type to confirm (optional, enables type-to-confirm mode)
- * @param {function} config.handleDelete - Function to call to proceed with deletion
+ * @param {function} config.issueRequest - Sends the delete
+ * @param {function} config.dropRequest - Abandons it
  */
 showDeleteConfirmModal = function(config) {
     currentDeleteConfig = config;
@@ -86,11 +92,9 @@ window.closeDeleteConfirmModal = function() {
     const modal = document.getElementById(MODAL_ID);
     const input = document.getElementById(`${MODAL_ID}-input`);
 
-    // Reset state
     input.value = '';
-    currentDeleteConfig = null;
 
-    // Close modal
+    // The 'close' listener below drops a request still waiting on this dialog.
     modal.close();
 };
 
@@ -126,9 +130,11 @@ window.executeDeleteConfirmation = function() {
         return;
     }
 
-    currentDeleteConfig.handleDelete(true);
+    // Cleared before closing, so the 'close' listener does not drop what was just issued.
+    const config = currentDeleteConfig;
+    currentDeleteConfig = null;
+    config.issueRequest();
 
-    // Close modal after triggering
     window.closeDeleteConfirmModal();
 };
 
@@ -142,11 +148,12 @@ document.addEventListener('keydown', function(e) {
     }
 });
 
-// Close modal when delete completes successfully
-document.addEventListener('htmx:afterOnLoad', function(e) {
-    // If the delete was successful, ensure modal is closed
-    if (currentDeleteConfig && e.detail.successful) {
-        window.closeDeleteConfirmModal();
-    }
-});
+// Cancel, Escape, the × and a backdrop click all close the dialog, the last two without going
+// through closeDeleteConfirmModal. A dialog's 'close' event does not bubble, hence the capture.
+document.addEventListener('close', function(e) {
+    if (e.target.id !== MODAL_ID || !currentDeleteConfig) return;
+    const config = currentDeleteConfig;
+    currentDeleteConfig = null;
+    config.dropRequest();
+}, true);
 

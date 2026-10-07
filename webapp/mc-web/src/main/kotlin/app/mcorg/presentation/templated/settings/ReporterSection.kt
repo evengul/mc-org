@@ -62,18 +62,15 @@ fun FlowContent.reporterSectionBody(
  * reproduced by reloading the page — which the copy says plainly rather than leaving someone to
  * discover it.
  *
- * `hx-history="false"` is load-bearing, not decoration. Any HTMX request with `hx-push-url` — the
- * invitation tabs on this very page have it — makes htmx snapshot `document.body` into
- * `sessionStorage['htmx-history-cache']` BEFORE the swap. Without this attribute the plaintext
- * token is written to disk-backed storage readable by any same-origin script, and pressing Back
- * re-renders it. Both halves were reproduced in a browser against this page. htmx checks for
- * `[hx-history="false"]` anywhere in the document, so putting it here suppresses the snapshot
- * exactly while the token is on screen and stops suppressing once the reveal is swapped away.
+ * Nothing keeps a copy of it in the browser. htmx restores history by asking the server for the
+ * page again rather than from a snapshot, so Back cannot re-render the reveal. A snapshot would
+ * put the plaintext token in `sessionStorage` the moment an `hx-push-url` request runs, and the
+ * invitation tabs on this page make one, so `LayoutTest` fails if the page ever loads the
+ * `hx-history-cache` extension that brings snapshots back.
  */
 private fun FlowContent.mintedTokenReveal(worldId: Int, minted: MintedReporterToken) {
     div("callout reporter-reveal") {
         id = "reporter-token-reveal"
-        attributes["hx-history"] = "false"
         attributes["role"] = "note"
         span("callout__icon") {
             attributes["aria-hidden"] = "true"
@@ -164,14 +161,9 @@ private fun FlowContent.generateReporterTokenForm(worldId: Int) {
         form(classes = "connect-server__form") {
             encType = FormEncType.applicationXWwwFormUrlEncoded
             hxTarget("#reporter-section")
-            attributes["hx-target-error"] = ".validation-error-message"
             hxSwap("innerHTML")
             hxPost("${Link.Worlds.world(worldId).settings().to}/reporter")
-            attributes["hx-on::after-request"] = """
-                if (event.detail.xhr.status >= 200 && event.detail.xhr.status < 300) {
-                        this.reset();
-                }
-            """.trimIndent()
+            hxOnSuccess("this.reset();")
             div("connect-server__inputs") {
                 div("input-group") {
                     label {
