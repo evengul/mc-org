@@ -63,8 +63,8 @@ fun TR.planResourceRow(
             value = item.required.toString()
             attributes["data-resource-id"] = item.id.toString()
             hxPatch("/worlds/$worldId/projects/$projectId/resources/gathering/${item.id}/required")
-            hxTarget("#plan-row-${item.id}")
-            hxSwap("outerHTML")
+            // The response is the whole plan, out of band (the demand changed what it says).
+            hxSwap("none")
             hxTrigger("change")
         }
     }
@@ -86,7 +86,7 @@ fun TR.planResourceRow(
             button(classes = "btn btn--ghost btn--sm plan-resource-table__delete-btn") {
                 type = ButtonType.button
                 hxDelete("/worlds/$worldId/projects/$projectId/resources/gathering/${item.id}?context=plan")
-                hxTarget("#plan-row-${item.id}")
+                hxTarget("#project-content")
                 hxSwap("outerHTML")
                 +"×"
             }
@@ -261,8 +261,12 @@ private fun FlowContent.planFoldedTail(
 }
 
 /**
- * Wraps the active resource table and the ignored-items section (MCO-247) in a single
- * HTMX swap target, so a change that moves rows (the variant swap) re-renders both together.
+ * The active resource table and the ignored-items section (MCO-247).
+ *
+ * Not a swap target of its own any more: every change made from here — ignore, quantity, delete,
+ * and the panel's source and variant — changes the plan, so it answers with the whole
+ * `#project-content` (MCO-585). A response that re-rendered only this area kept the breakdown on
+ * the old plan, and twice lost the grouping or the Chests column by rendering without them.
  */
 fun FlowContent.planResourcesArea(
     worldId: Int,
@@ -277,23 +281,6 @@ fun FlowContent.planResourcesArea(
         ignoredResourcesSection(worldId, projectId, resources)
     }
 }
-
-/**
- * Standalone HTML fragment version of [planResourcesArea] (HTMX swap response for the variant
- * swap). Takes the plan for the same reason the page does: replacing this fragment without
- * one would silently drop the grouping the reader is looking at.
- */
-fun planResourcesAreaFragment(
-    worldId: Int,
-    projectId: Int,
-    resources: List<ResourceGatheringItem>,
-    plan: GatheringPlan? = null,
-): String =
-    createHTML().div {
-        id = "plan-resources-area"
-        planResourceTable(worldId, projectId, resources, plan)
-        ignoredResourcesSection(worldId, projectId, resources)
-    }
 
 /**
  * Ignored-items section (MCO-247): items the user excluded from the material list and

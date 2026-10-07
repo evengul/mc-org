@@ -38,6 +38,7 @@ import org.junit.jupiter.api.extension.ExtendWith
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertIs
 
 /**
  * Integration tests for MCO-246: PATCH /resources/gathering/{id}/variant.
@@ -156,18 +157,37 @@ class SwapResourceGatheringVariantIT : WithUser() {
         assertContains(before, "Oak Log")
         assertFalse(before.contains("Spruce Log"))
 
-        client.patch("/worlds/$worldId/projects/$pid/resources/gathering/$rgId/variant") {
+        // After the swap: the breakdown derives spruce planks from a spruce log instead — in the
+        // swap's own response (MCO-585), not only on the next read. The panel is the main swap,
+        // so it stays open on the new item, and the plan rides along out of band.
+        val response = client.patch("/worlds/$worldId/projects/$pid/resources/gathering/$rgId/variant") {
+            addAuthCookie(this)
+            contentType(ContentType.Application.FormUrlEncoded)
+            setBody("itemId=minecraft:spruce_planks")
+        }
+        val after = response.bodyAsText()
+        assertContains(after, """<h2 class="resource-panel__item-name">Spruce Planks</h2>""")
+        assertContains(after, """id="project-content" hx-swap-oob="true"""")
+        assertContains(after, "Spruce Log")
+        assertFalse(after.contains("Oak Log"))
+    }
+
+    /** The plan the swap answers with is the page's plan, Chests column included (MCO-585). */
+    @Test
+    fun `the swap keeps the drift chip of the item swapped to`() = testApplication {
+        val pid = createProject(worldId)
+        val rgId = createResourceGathering(pid, "minecraft:birch_planks", "Birch Planks", 8)
+        createMeasurement(pid, "minecraft:spruce_planks", measured = 5, containerCount = 2)
+        setupRoutes()
+
+        val response = client.patch("/worlds/$worldId/projects/$pid/resources/gathering/$rgId/variant") {
             addAuthCookie(this)
             contentType(ContentType.Application.FormUrlEncoded)
             setBody("itemId=minecraft:spruce_planks")
         }
 
-        // After the swap: the breakdown derives spruce planks from a spruce log instead.
-        val after = client.get("/worlds/$worldId/projects/$pid/detail-content?lens=list") {
-            addAuthCookie(this)
-        }.bodyAsText()
-        assertContains(after, "Spruce Log")
-        assertFalse(after.contains("Oak Log"))
+        assertEquals(HttpStatusCode.OK, response.status)
+        assertContains(response.bodyAsText(), "5 in 2 chests")
     }
 
     @Test
@@ -374,6 +394,21 @@ class SwapResourceGatheringVariantIT : WithUser() {
                 stmt.setString(3, name)
             }
         ).process(Unit)
+    }
+
+    private fun createMeasurement(projectId: Int, itemId: String, measured: Long, containerCount: Int) = runBlocking {
+        DatabaseSteps.update<Unit>(
+            sql = SafeSQL.insert(
+                "INSERT INTO resource_gathering_measurement (project_id, item_id, measured, container_count, oldest_seen_at) " +
+                        "VALUES (?, ?, ?, ?, now())"
+            ),
+            parameterSetter = { stmt, _ ->
+                stmt.setInt(1, projectId)
+                stmt.setString(2, itemId)
+                stmt.setLong(3, measured)
+                stmt.setInt(4, containerCount)
+            }
+        ).process(Unit).also { assertIs<Result.Success<*>>(it, "could not seed measurement for $itemId") }
     }
 
     private suspend fun tagItem(version: String, tag: String, itemId: String) {

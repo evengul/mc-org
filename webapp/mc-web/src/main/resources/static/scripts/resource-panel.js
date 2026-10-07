@@ -180,6 +180,19 @@
             if (!cell) return;
             submitPanelQty(cell, input);
         }, true);
+
+        // The edit's response is the plan, out of band; nothing re-renders the panel. So the
+        // panel takes the saved number itself — on success only, so a rejected one isn't shown.
+        dialog.addEventListener('htmx:afterRequest', function (e) {
+            var input = e.target;
+            if (!input.classList || !input.classList.contains('resource-panel__qty-input')) return;
+            if (!e.detail.successful) return;
+            var cell = input.closest('.resource-panel__qty');
+            if (!cell) return;
+            cell.dataset.currentQty = input.value;
+            var display = cell.querySelector('.resource-panel__qty-display');
+            if (display) display.textContent = input.value;
+        });
     }
 
     function submitPanelQty(cell, input) {
@@ -232,9 +245,10 @@
             var swapUrl = results.dataset.swapUrl;
             if (!itemId || !swapUrl) return;
 
+            // The panel is the main swap; the plan comes back out of band (MCO-585).
             htmx.ajax('PATCH', swapUrl, {
-                target: '#plan-resources-area',
-                swap: 'outerHTML',
+                target: '#resource-panel-content',
+                swap: 'innerHTML',
                 values: { itemId: itemId }
             });
         }, true); // capture phase — runs before the option's own inline handler

@@ -13,8 +13,10 @@ import app.mcorg.pipeline.minecraft.StoreMinecraftDataStep
 import app.mcorg.pipeline.project.handleGetProject
 import app.mcorg.pipeline.project.handleGetProjectList
 import app.mcorg.pipeline.resources.handleClearResourceSource
+import app.mcorg.pipeline.resources.handleDeleteResourceGatheringItem
 import app.mcorg.pipeline.resources.handleSetResourceSource
 import app.mcorg.pipeline.resources.handleToggleResourceGatheringIgnored
+import app.mcorg.pipeline.resources.handleUpdateResourceRequiredAmount
 import app.mcorg.pipeline.world.CreateWorldInput
 import app.mcorg.pipeline.world.CreateWorldStep
 import app.mcorg.presentation.plugins.AuthPlugin
@@ -313,6 +315,54 @@ class FarmSupplySurfacingIT : WithUser() {
         }
     }
 
+    /**
+     * A quantity edit used to answer with its table row alone, so the breakdown kept the old
+     * demand. It is edited from the table and from the open panel, so the plan comes back out of
+     * band and the caller swaps nothing itself — which leaves the panel open when it asked.
+     */
+    @Test
+    fun `editing a quantity re-renders the plan with it`() = testApplication {
+        setupRoutes()
+        setProjectState(farmId, ProjectState.DONE)
+
+        try {
+            val response = client.patch("/worlds/$worldId/projects/$consumerId/resources/gathering/$ingotsId/required") {
+                addAuthCookie(this)
+                contentType(ContentType.Application.FormUrlEncoded)
+                setBody("required=48")
+            }
+            assertEquals(HttpStatusCode.OK, response.status)
+            val body = response.bodyAsText()
+            assertContains(body, """id="project-content" hx-swap-oob="true"""")
+            // The breakdown's supplied line prints the new demand.
+            assertContains(body, """<span class="work-row__left">48</span>""")
+        } finally {
+            setProjectState(farmId, ProjectState.ACTIVE)
+            setRequired(ingotsId, 32)
+        }
+    }
+
+    /** Deleting the last target answers with the plan's empty state, not an empty string. */
+    @Test
+    fun `deleting a resource re-renders the plan without it`() = testApplication {
+        setupRoutes()
+        val project = createProject(worldId, "Short-lived", ProjectState.PENDING)
+        val rgId = createResourceGathering(project, ironIngot, required = 5)
+
+        try {
+            val response = client.delete("/worlds/$worldId/projects/$project/resources/gathering/$rgId?context=plan") {
+                addAuthCookie(this)
+            }
+            assertEquals(HttpStatusCode.OK, response.status)
+            val body = response.bodyAsText()
+            assertContains(body, """id="project-content"""")
+            assertFalse(body.contains("plan-row-$rgId"))
+            assertContains(body, "No gathering plan yet.")
+        } finally {
+            deleteProject(project)
+        }
+    }
+
     // ---- routing ----------------------------------------------------------------
 
     private fun ApplicationTestBuilder.setupRoutes() {
@@ -332,6 +382,8 @@ class FarmSupplySurfacingIT : WithUser() {
                             patch("/source") { call.handleSetResourceSource() }
                             delete("/source") { call.handleClearResourceSource() }
                             patch("/ignore") { call.handleToggleResourceGatheringIgnored() }
+                            patch("/required") { call.handleUpdateResourceRequiredAmount() }
+                            delete { call.handleDeleteResourceGatheringItem() }
                         }
                     }
                 }
@@ -376,6 +428,16 @@ class FarmSupplySurfacingIT : WithUser() {
             }
         ).process(Unit)
         (result as Result.Success).value
+    }
+
+    private fun setRequired(rgId: Int, required: Int) = runBlocking {
+        DatabaseSteps.update<Int>(
+            sql = SafeSQL.update("UPDATE resource_gathering SET required = ? WHERE id = ?"),
+            parameterSetter = { stmt, id ->
+                stmt.setInt(1, required)
+                stmt.setInt(2, id)
+            }
+        ).process(rgId)
     }
 
     private fun setIgnored(rgId: Int, ignored: Boolean) = runBlocking {
