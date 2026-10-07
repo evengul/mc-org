@@ -119,6 +119,28 @@ class PlanViewIT : WithUser() {
         assertContains(body, "25")
     }
 
+    @Test
+    fun `PATCH required keeps the row's drift chip`() = testApplication {
+        // Its own project, so the measurement cannot leak into the other tests' rows.
+        val measuredProjectId = createProject(worldId)
+        val rgId = createResourceGathering(measuredProjectId, required = 64)
+        createMeasurement(measuredProjectId, "minecraft:iron_ingot", measured = 40, containerCount = 2)
+        setupRoutes()
+
+        val response = client.patch(
+            "/worlds/$worldId/projects/$measuredProjectId/resources/gathering/$rgId/required"
+        ) {
+            addAuthCookie(this)
+            contentType(ContentType.Application.FormUrlEncoded)
+            setBody("required=80")
+        }
+
+        assertEquals(HttpStatusCode.OK, response.status)
+        val body = response.bodyAsText()
+        assertContains(body, "plan-row-$rgId")
+        assertContains(body, "40 in 2 chests")
+    }
+
     // -------------------------------------------------------------------------
     // Test 4: PATCH required — value=0 returns 422
     // -------------------------------------------------------------------------
@@ -315,6 +337,21 @@ class PlanViewIT : WithUser() {
             }
         ).process(Unit)
         (result as Result.Success).value
+    }
+
+    private fun createMeasurement(projectId: Int, itemId: String, measured: Long, containerCount: Int) = runBlocking {
+        DatabaseSteps.update<Unit>(
+            sql = SafeSQL.insert(
+                "INSERT INTO resource_gathering_measurement (project_id, item_id, measured, container_count, oldest_seen_at) " +
+                        "VALUES (?, ?, ?, ?, now())"
+            ),
+            parameterSetter = { stmt, _ ->
+                stmt.setInt(1, projectId)
+                stmt.setString(2, itemId)
+                stmt.setLong(3, measured)
+                stmt.setInt(4, containerCount)
+            }
+        ).process(Unit)
     }
 
     private fun setViewPreference(userId: Int, projectId: Int, preference: String) = runBlocking {
