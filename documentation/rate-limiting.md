@@ -103,7 +103,7 @@ full address would let one client rotate through 2^64 of them.
 Order matters. A secret the app expects but Cloudflare does not yet send refuses every visitor.
 
 1. Generate a value: `openssl rand -hex 32`.
-2. **Cloudflare** → `seam.gg` zone → Rules → Transform Rules → *Modify Request Header* → new rule:
+2. **Cloudflare** → `seam.gg` zone → Rules → Create rule → **Request Header Transform Rule** (not the *Response* one):
    when `http.host eq "app.seam.gg"`, **Set static** `X-Seam-Edge` = the value. Deploy it.
 3. **Fly**: `flyctl secrets set --stage EDGE_ORIGIN_SECRET=<value> -a mcorg`. `--stage` waits for
    the next deploy instead of restarting the machine on the old image.
