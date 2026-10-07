@@ -16,7 +16,8 @@ import io.ktor.server.application.isHandled
  * (MCO-158).
  *
  * Every route plugin in this package uses this instead of `onCall`, so the rule can't be forgotten
- * one plugin at a time. `RouteGateSourceScanTest` fails the build on a bare `onCall`.
+ * one plugin at a time. `RouteGateSourceScanTest` fails the build on a bare `onCall`, and names
+ * the two authentication plugins it exempts.
  */
 fun <C : Any> RouteScopedPluginBuilder<C>.onUnansweredCall(block: suspend (call: ApplicationCall) -> Unit) {
     onCall { call ->

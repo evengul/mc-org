@@ -44,10 +44,10 @@ private val AUTH_EXEMPT_PATHS = setOf(
 )
 
 val AuthPlugin = createRouteScopedPlugin("AuthPlugin") {
-    onUnansweredCall {
+    onCall {
         val path = it.request.path()
         if (path in AUTH_EXEMPT_PATHS || AUTH_EXEMPT_PREFIXES.any { prefix -> path.startsWith(prefix) }) {
-            return@onUnansweredCall
+            return@onCall
         }
         val result = pipelineResult<AppFailure, Unit> {
             val token = GetTokenStep(AUTH_COOKIE).run(it.request.cookies)

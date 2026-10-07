@@ -36,11 +36,11 @@ const val MACHINE_SECRET_HEADER = "X-Seam-Admin-Secret"
  * for one nobody calls.
  */
 val MachineEndpointAuthPlugin = createRouteScopedPlugin("MachineEndpointAuthPlugin") {
-    onUnansweredCall { call ->
+    onCall { call ->
         val configured = AppConfig.webhookAdminSecret
         if (configured.isNullOrBlank()) {
             call.respond(HttpStatusCode.ServiceUnavailable, "This endpoint is not configured")
-            return@onUnansweredCall
+            return@onCall
         }
         val provided = call.request.headers[MACHINE_SECRET_HEADER]
         if (provided == null || !constantTimeEquals(provided, configured)) {
