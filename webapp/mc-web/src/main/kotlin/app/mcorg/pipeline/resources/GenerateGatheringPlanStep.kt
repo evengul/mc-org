@@ -18,6 +18,7 @@ import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.minecraft.GetItemSourceGraphForVersionStep
 import app.mcorg.pipeline.resources.commonsteps.GetAllResourceGatheringItemsStep
 import org.slf4j.LoggerFactory
+import java.time.Instant
 
 /**
  * Input bundle for [GenerateGatheringPlanStep].
@@ -116,6 +117,12 @@ object GenerateGatheringPlanStep : Step<GatheringPlanInput, AppFailure, Gatherin
             is Result.Failure -> return r
         }
 
+        // 1b. When that version's game data last finished ingesting, for the fingerprint. Read
+        // before the graph, not after: a re-ingest landing between the two then makes this plan
+        // look older than its data — one redundant re-derive — never newer, which would keep a
+        // plan built on the old data marked current.
+        val gameDataEpoch = GetItemSourceGraphForVersionStep.currentEpoch(versionString)
+
         // 2. Get (or build and cache) the item-source graph for that version. Taken as the cached
         // entry rather than the bare graph because the cost model is keyed by its build instant.
         val cachedGraph = when (val r = GetItemSourceGraphForVersionStep.cached(versionString)) {
@@ -205,7 +212,7 @@ object GenerateGatheringPlanStep : Step<GatheringPlanInput, AppFailure, Gatherin
         // A hypothetical plan never lands here: `project_demand` is the world as it is, and every
         // reader of it — the roadmap's edges first of all — would believe the farms were built.
         if (input.assumeBuilt.isEmpty()) {
-            storeDemand(input.projectId, versionString, activeItems, supplied, overrides, plan, woodSpecies)
+            storeDemand(input.projectId, versionString, gameDataEpoch, activeItems, supplied, overrides, plan, woodSpecies)
         }
 
         return Result.success(plan)
@@ -221,6 +228,7 @@ object GenerateGatheringPlanStep : Step<GatheringPlanInput, AppFailure, Gatherin
     private suspend fun storeDemand(
         projectId: Int,
         worldVersion: String,
+        gameDataEpoch: Instant?,
         activeItems: List<ResourceGatheringItem>,
         supplied: Map<String, SupplySource>,
         overrides: PlanOverrides,
@@ -236,6 +244,7 @@ object GenerateGatheringPlanStep : Step<GatheringPlanInput, AppFailure, Gatherin
             overrides = overrides.sourceByItem.map { "src:${it.key}" to it.value } +
                 overrides.tagMember.map { "tag:${it.key}" to it.value },
             woodSpecies = woodSpecies,
+            gameDataEpoch = gameDataEpoch,
         )
 
         val stored = GetStoredDemandFingerprintStep(projectId).process(Unit)

@@ -1,6 +1,7 @@
 package app.mcorg.pipeline.resources
 
 import org.junit.jupiter.api.Test
+import java.time.Instant
 import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals
 
@@ -18,7 +19,8 @@ class DemandFingerprintTest {
         targets: List<Triple<String, Long, String?>> = listOf(Triple("minecraft:hopper", 5630L, null)),
         supplied: Map<String, String> = emptyMap(),
         overrides: List<Pair<String, String>> = emptyList(),
-    ) = DemandFingerprint.of(version, targets, supplied, overrides)
+        gameDataEpoch: Instant? = null,
+    ) = DemandFingerprint.of(version, targets, supplied, overrides, gameDataEpoch = gameDataEpoch)
 
     @Test
     fun `the same inputs give the same fingerprint`() {
@@ -79,6 +81,20 @@ class DemandFingerprintTest {
     fun `a new Minecraft version changes the fingerprint`() {
         // The item-source graph is version-keyed, so the same targets can plan differently.
         assertNotEquals(fingerprint(version = "1.21.4"), fingerprint(version = "1.21.5"))
+    }
+
+    @Test
+    fun `a re-ingest of the same version changes the fingerprint`() {
+        // MCO-578: FORCE_REINGEST or a bumped ExtractionVersion changes the recipes under an
+        // unchanged version string. Without the epoch the write path would call the old plan
+        // current, and the roadmap — which re-derives it because the ingest is newer — would do
+        // so on every load.
+        val ingested = Instant.parse("2026-10-01T00:00:00Z")
+        assertNotEquals(
+            fingerprint(gameDataEpoch = ingested),
+            fingerprint(gameDataEpoch = ingested.plusSeconds(60)),
+        )
+        assertEquals(fingerprint(gameDataEpoch = ingested), fingerprint(gameDataEpoch = ingested))
     }
 
     @Test

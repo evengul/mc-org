@@ -10,10 +10,11 @@ import app.mcorg.pipeline.failure.AppFailure
 /**
  * MCO-157: what a world's stored rows lose when it plans against a different Minecraft version.
  *
- * A world's *derived* state already survives a version change on its own — gathering plans are
- * re-derived per request, `project_demand`'s fingerprint has the world version as its first field
- * ([app.mcorg.pipeline.resources.DemandFingerprint]), and the item-source graph is cached per
- * version. What does not survive is the stored side: four tables hold Minecraft item ids as bare
+ * A world's *derived* state is taken care of — gathering plans are re-derived per request, the
+ * switch drops every stored `project_demand` fingerprint in the world ([UpdateWorldVersionStep];
+ * the fingerprint carrying the version was not enough on its own, because the roadmap never
+ * compares it — MCO-578), and the item-source graph is cached per version. What does not survive
+ * is the stored side: four tables hold Minecraft item ids as bare
  * strings, and Mojang does remove them. `minecraft:grass` went in 1.20.3, `minecraft:scute` in
  * 1.20.5, `minecraft:chain` in 1.21.9 — all three renames rather than deletions, which is exactly
  * why the ids look fine right up until nothing resolves them.

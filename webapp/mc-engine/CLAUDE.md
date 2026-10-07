@@ -111,6 +111,15 @@ mvn -q install -DskipTests -pl mc-domain,mc-pipeline,mc-engine
 `-am` does **not** help here — the MCO-285 note's `-am` fix applies to `-pl` test/compile runs,
 not to `exec:java`.
 
+## A change that alters plans bumps `DemandFingerprint.REVISION`
+
+mc-web stores every project's derived plan (`project_demand`) and serves it on the roadmap
+without re-deriving. Nothing in that store can see this module change, so a deploy that changes
+what `PlanSelector`, `PlanQuantifier`, `UnitCostModel` or its `EffortTable` choose keeps showing
+the old plans until `DemandFingerprint.REVISION` (mc-web, `ProjectDemandStore.kt`) is bumped. The
+bump re-derives every stored plan, lazily, once per world as its roadmap is opened. A refactor
+or a diagnostic that cannot change a plan does not need one. *(MCO-578.)*
+
 ## Tests
 
 Located in `src/test/kotlin/app/mcorg/engine/`. Graph building/model tests plus the planner suites:

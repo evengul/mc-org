@@ -8,6 +8,7 @@ import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.failure.ValidationFailure
 import app.mcorg.pipeline.minecraftfiles.GetSupportedVersionsStep
+import app.mcorg.pipeline.resources.invalidateWorldDemand
 import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.templated.dsl.AlertType
 import app.mcorg.presentation.templated.dsl.createAlert
@@ -116,18 +117,28 @@ object GetWorldVersionStep : Step<Int, AppFailure.DatabaseError, String?> {
     override suspend fun process(input: Int): Result<AppFailure.DatabaseError, String?> = query.process(input)
 }
 
+/**
+ * Moves the world to [MinecraftVersion] and, when that is a change, drops every stored plan in it
+ * (MCO-578): a different version can change every recipe and loot table a plan was derived from.
+ *
+ * The `IS DISTINCT FROM` guard makes re-saving the current version a no-op rather than a
+ * world-wide re-derivation.
+ */
 data class UpdateWorldVersionStep(val worldId: Int) : Step<MinecraftVersion, AppFailure.DatabaseError, Int> {
     override suspend fun process(input: MinecraftVersion): Result<AppFailure.DatabaseError, Int> {
-        return DatabaseSteps.update<MinecraftVersion>(
+        val updated = DatabaseSteps.update<MinecraftVersion>(
             SafeSQL.update("""
                 UPDATE world
                 SET version = ?, updated_at = CURRENT_TIMESTAMP
-                WHERE id = ?
+                WHERE id = ? AND version IS DISTINCT FROM ?
             """),
             parameterSetter = { statement, version ->
                 statement.setString(1, version.toString())
                 statement.setInt(2, worldId)
+                statement.setString(3, version.toString())
             }
-        ).process(input).map { worldId }
+        ).process(input)
+        if (updated is Result.Success && updated.value > 0) invalidateWorldDemand(worldId, "version")
+        return updated.map { worldId }
     }
 }

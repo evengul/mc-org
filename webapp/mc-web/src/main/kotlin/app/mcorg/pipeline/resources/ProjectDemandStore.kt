@@ -8,6 +8,7 @@ import app.mcorg.pipeline.Result
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.failure.AppFailure
 import java.security.MessageDigest
+import java.time.Instant
 
 /**
  * The materialised per-project demand view (MCO-316) — writing it, and knowing when it is stale.
@@ -21,6 +22,22 @@ import java.security.MessageDigest
 data class DemandFingerprint(val value: String) {
     companion object {
         /**
+         * The revision of the derivation itself: the planner, its cost model, and what this
+         * fingerprint hashes. None of those are data, so no input can notice them change.
+         *
+         * **Bump it when a change to `mc-engine`'s selection or costing, or to
+         * [GenerateGatheringPlanStep], changes what a stored plan would contain.** Every stored
+         * plan then re-derives, lazily, the next time its world's roadmap is opened
+         * ([GetWorldDemandCoverageStep] reads the stored revision) or its project page is (the
+         * revision is hashed below). A change that cannot alter a plan — a refactor, a new
+         * diagnostic — needs no bump, and a bump costs one derivation per planned project.
+         *
+         * History: 2 when the world's wood species joined the inputs (MCO-409); 3 when the
+         * version's ingestion epoch did, and the revision started being stored (MCO-578).
+         */
+        const val REVISION: Int = 3
+
+        /**
          * Hashes every input [GenerateGatheringPlanStep] reads.
          *
          * Order is normalised so two runs over the same state agree. The world's farm supply is
@@ -28,6 +45,11 @@ data class DemandFingerprint(val value: String) {
          * invalidates every other project's stored demand — correct, since that is exactly when
          * their chains stop expanding past the supplied item. The world's wood species is in for
          * the same reason: changing which tree you farm changes what every wood tag resolves to.
+         *
+         * [gameDataEpoch] is when the version's game data was last ingested. A re-ingest of the
+         * same version (`FORCE_REINGEST`, a bumped `ExtractionVersion`) changes the recipes and
+         * loot tables under a plan without changing the version string, so the string alone would
+         * call the old plan current.
          */
         fun of(
             worldVersion: String,
@@ -35,12 +57,12 @@ data class DemandFingerprint(val value: String) {
             supplied: Map<String, String>,
             overrides: List<Pair<String, String>>,
             woodSpecies: String? = null,
+            gameDataEpoch: Instant? = null,
         ): DemandFingerprint {
             val payload = buildString {
-                // v2: the world's wood species joined the inputs (MCO-409). Bumped rather than
-                // appended silently — every stored fingerprint predating it was derived without
-                // one, and should re-derive rather than compare equal to a v2 run that has one.
-                append("v2|").append(worldVersion).append('|').append(woodSpecies ?: "-").append('\n')
+                append('v').append(REVISION).append('|')
+                append(worldVersion).append('@').append(gameDataEpoch?.toEpochMilli() ?: "-").append('|')
+                append(woodSpecies ?: "-").append('\n')
                 targets.sortedBy { it.first }.forEach { (id, amount, source) ->
                     append(id).append('=').append(amount).append(':').append(source ?: "-").append('\n')
                 }
@@ -131,15 +153,17 @@ data class SaveProjectDemandStep(
                     val stamped = DatabaseSteps.update<List<ProjectDemand>>(
                         sql = SafeSQL.insert(
                             """
-                            INSERT INTO project_demand_state (project_id, fingerprint, derived_at)
-                            VALUES (?, ?, now())
+                            INSERT INTO project_demand_state (project_id, fingerprint, derived_at, revision)
+                            VALUES (?, ?, now(), ?)
                             ON CONFLICT (project_id)
-                            DO UPDATE SET fingerprint = EXCLUDED.fingerprint, derived_at = EXCLUDED.derived_at
+                            DO UPDATE SET fingerprint = EXCLUDED.fingerprint, derived_at = EXCLUDED.derived_at,
+                                          revision = EXCLUDED.revision
                             """.trimIndent()
                         ),
                         parameterSetter = { statement, _ ->
                             statement.setInt(1, projectId)
                             statement.setString(2, fingerprint.value)
+                            statement.setInt(3, DemandFingerprint.REVISION)
                         },
                         transactionConnection = connection,
                     ).process(input)
@@ -192,12 +216,21 @@ data class GetWorldDemandStep(val worldId: Int) :
 }
 
 /**
- * Which projects in a world have no derived demand stored yet.
- *
- * The roadmap uses this to say so rather than quietly drawing a thinner graph — "3 projects have
- * not been planned yet" is a fact the user can act on, where a missing edge is one they cannot
- * see. Projects with nothing to gather at all are excluded: they are not waiting on a
+ * Which projects in a world have no *current* derived demand stored — the roadmap's fill-on-read
+ * list. Projects with nothing to gather at all are excluded: they are not waiting on a
  * derivation, they simply have no requirements.
+ *
+ * A stored derivation counts only when it is newer than both things the fingerprint carries but
+ * no write to the world can announce (MCO-578):
+ *
+ *  - **the code** — its `revision` must be [DemandFingerprint.REVISION]. A deploy that changes the
+ *    planner bumps it, and every world's plans re-derive as their roadmaps are opened.
+ *  - **the game data** — it must have been derived after the world's version last finished
+ *    ingesting. A re-ingest of the same version changes recipes under an unchanged version string.
+ *
+ * Both are read here rather than recomputing fingerprints because the fingerprint needs a project's
+ * whole input set; these need one indexed join. Every other input is invalidated where it changes
+ * (`DemandInvalidation.kt`).
  */
 data class GetWorldDemandCoverageStep(val worldId: Int) :
     Step<Unit, AppFailure.DatabaseError, List<Int>> {
@@ -207,13 +240,22 @@ data class GetWorldDemandCoverageStep(val worldId: Int) :
                 """
                 SELECT p.id
                 FROM projects p
+                JOIN world w ON w.id = p.world_id
+                LEFT JOIN minecraft_version_ingestion i
+                       ON i.version = w.version AND i.status = 'completed'
                 WHERE p.world_id = ?
                   AND EXISTS (SELECT 1 FROM resource_gathering rg
                               WHERE rg.project_id = p.id AND rg.ignored = FALSE)
-                  AND NOT EXISTS (SELECT 1 FROM project_demand_state s WHERE s.project_id = p.id)
+                  AND NOT EXISTS (SELECT 1 FROM project_demand_state s
+                                  WHERE s.project_id = p.id
+                                    AND s.revision = ?
+                                    AND (i.completed_at IS NULL OR s.derived_at >= i.completed_at))
                 """.trimIndent()
             ),
-            parameterSetter = { statement, _ -> statement.setInt(1, worldId) },
+            parameterSetter = { statement, _ ->
+                statement.setInt(1, worldId)
+                statement.setInt(2, DemandFingerprint.REVISION)
+            },
             resultMapper = { resultSet ->
                 buildList {
                     while (resultSet.next()) add(resultSet.getInt("id"))

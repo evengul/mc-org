@@ -9,7 +9,8 @@ import app.mcorg.pipeline.failure.AppFailure
 import org.slf4j.LoggerFactory
 
 /**
- * Invalidation of materialised demand when a world's **supply** changes (MCO-404).
+ * Invalidation of materialised demand when a world's **supply** changes (MCO-404), and the map of
+ * every other input and what keeps it current (MCO-578, at the end).
  *
  * [DemandFingerprint] hashes every input a derivation reads, including the world's farm supply —
  * but it is only ever *checked* where demand is written (`GenerateGatheringPlanStep`, on the
@@ -55,11 +56,44 @@ import org.slf4j.LoggerFactory
  * observe. Rates are not in the fingerprint at all: V1 supply is unbounded (MCO-287), so a rate
  * is information rather than a constraint on the plan.
  *
- * The other input classes — a project's own targets, its collected counts, its plan overrides —
- * are **not** covered by this. They change on the project page, which re-derives and rewrites on
- * the spot; their staleness window is the roadmap between such a change and the next visit to
- * that project, and invalidating on every progress tick would re-derive so often that the
- * materialised table would stop paying for itself. That trade wants its own measurement.
+ * ## Every input, and what keeps it current (MCO-578)
+ *
+ * Supply was the first input wired up, not the only one. Each input [DemandFingerprint] or
+ * [GatheringPlanInput] reads, and the mechanism that makes a change to it reach the roadmap:
+ *
+ * | Input                                        | Kept current by                                   |
+ * | -------------------------------------------- | ------------------------------------------------- |
+ * | World farm supply                            | [InvalidateDemandSuppliedByStep], above           |
+ * | World version                                | [InvalidateWorldDemandStep], from `UpdateWorldVersionStep` |
+ * | Preferred wood species (two doors)           | [InvalidateWorldDemandStep], from `UpdatePreferredWoodSpeciesStep` |
+ * | A project's targets, collected counts, plan overrides and links | Trigger `invalidate_project_demand` (V2_73_0) |
+ * | Re-ingested game data for the same version   | Ingestion epoch, hashed and compared ([GetWorldDemandCoverageStep]) |
+ * | The planner, cost model, or this derivation  | [DemandFingerprint.REVISION], stored and compared |
+ *
+ * The project's own inputs were left alone by MCO-404 because the project page re-derives on the
+ * spot. Sixteen files write them, though, and the mod's sync, Field Log edits, adopting
+ * measurements and adding from a schematic never re-derive; neither does the FK's
+ * `ON DELETE SET NULL` that unlinks a requirement when the project solving it is deleted. The
+ * worry that invalidating on every progress tick would re-derive too often does not hold for an
+ * invalidation that is only a DELETE: re-derivation is lazy, so it costs one derivation per
+ * project that changed since the world's roadmap was last opened, however many ticks there were.
+ * Hence a trigger rather than handler calls — the rule is about the tables, not the doors.
+ *
+ * ### Accepted staleness
+ *
+ * - **Renaming a farm or a linked project.** Both names are in the fingerprint (the supply label),
+ *   so the project page re-derives, but the demand rows come out identical, so nothing here
+ *   invalidates. A linked project's state does not matter at all: a link supplies its item
+ *   whatever state the other project is in (`ProjectSupply.fold`).
+ * - **World settings that are not plan inputs.** Name, description, members, and the farm-scale
+ *   threshold, which only decides how the roadmap *draws* a cycle (MCO-460), not what a plan holds.
+ * - **Readers that are not the roadmap.** The project page's pending-farm notice
+ *   (`PendingFarmSupply`, through `GetFarmSupplyEdgesStep`) and `ReporterStore` (the mod's storage
+ *   view, polled every ~10 s per player) read other projects' `project_demand` without filling it
+ *   in. After an invalidation they see the previous derivation until the roadmap or that
+ *   project's own page re-derives it; the rows are still there, because every invalidation
+ *   deletes only the state. Filling in on those reads would put ~0.7 s per stale project on a
+ *   page render and on the mod's poll.
  */
 private val logger = LoggerFactory.getLogger("app.mcorg.pipeline.resources.DemandInvalidation")
 
@@ -136,6 +170,54 @@ suspend fun invalidateDemandSuppliedBy(worldId: Int, producerProjectId: Int) {
                 "Demand: could not invalidate stored demand in world {} after a supply change in project {}",
                 worldId, producerProjectId,
             )
+    }
+}
+
+/**
+ * Drops the stored demand fingerprint of every project in [worldId] (MCO-578).
+ *
+ * For the inputs that belong to the world rather than to a project — its Minecraft version and
+ * its preferred wood species. Either one reaches every plan in the world, so there is nothing to
+ * target: [InvalidateDemandSuppliedByStep]'s join exists because one farm only touches the
+ * projects that gather what it makes. Like that step, only `project_demand_state` goes; the rows
+ * stay readable until the next roadmap load replaces them.
+ *
+ * @return the number of projects invalidated.
+ */
+data class InvalidateWorldDemandStep(val worldId: Int) : Step<Unit, AppFailure.DatabaseError, Int> {
+
+    override suspend fun process(input: Unit): Result<AppFailure.DatabaseError, Int> =
+        DatabaseSteps.update<Unit>(
+            sql = SafeSQL.delete(
+                """
+                DELETE FROM project_demand_state s
+                USING projects p
+                WHERE p.id = s.project_id
+                  AND p.world_id = ?
+                """.trimIndent()
+            ),
+            parameterSetter = { statement, _ -> statement.setInt(1, worldId) },
+        ).process(Unit)
+}
+
+/**
+ * Fire-and-forget wrapper for [InvalidateWorldDemandStep], with the same posture as
+ * [invalidateDemandSuppliedBy]: the world change has already committed, and a failed cache drop is
+ * logged rather than turned into an error on a settings page.
+ *
+ * [reason] names the input that changed, for the log line only.
+ */
+suspend fun invalidateWorldDemand(worldId: Int, reason: String) {
+    when (val result = InvalidateWorldDemandStep(worldId).process(Unit)) {
+        is Result.Success ->
+            if (result.value > 0) {
+                logger.debug(
+                    "Demand: invalidated {} project(s) in world {} after its {} changed",
+                    result.value, worldId, reason,
+                )
+            }
+        is Result.Failure ->
+            logger.warn("Demand: could not invalidate stored demand in world {} after its {} changed", worldId, reason)
     }
 }
 
