@@ -4,6 +4,7 @@ import app.mcorg.api.ListReporterTokensStep
 import app.mcorg.domain.model.user.Role
 import app.mcorg.domain.model.user.WorldMember
 import app.mcorg.pipeline.Result
+import app.mcorg.presentation.handler.defaultHandleError
 import app.mcorg.pipeline.pipelineResult
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
@@ -47,7 +48,8 @@ suspend fun ApplicationCall.handleGetWorldSettings() {
 
     val dataResult = handleGetSettingsPageData(worldId, statusFilter)
     if (dataResult is Result.Failure) {
-        respond(HttpStatusCode.InternalServerError)
+        // The status page with its reference: a bare status renders as a blank page.
+        defaultHandleError(dataResult.error)
         return
     }
 

@@ -5,6 +5,7 @@ import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.Result
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.presentation.handler.handlePipeline
+import app.mcorg.presentation.handler.respondRefusal
 import app.mcorg.presentation.templated.idea.ideaVisibilityControlFragment
 import app.mcorg.presentation.utils.getIdeaId
 import app.mcorg.presentation.utils.getUser
@@ -25,11 +26,11 @@ suspend fun ApplicationCall.handlePublishIdeaToHub() {
     val user = getUser()
 
     val idea = when (val result = GetIdeaStep.process(ideaId)) {
-        is Result.Failure -> { respondHtml("<p>Idea not found</p>", HttpStatusCode.NotFound); return }
+        is Result.Failure -> { respondRefusal(HttpStatusCode.NotFound, "Not found", "That idea no longer exists.", alertId = "not-found-error"); return }
         is Result.Success -> result.value
     }
     if (idea.createdBy != user.id && !user.isSuperAdmin) {
-        respondHtml("<p>Forbidden</p>", HttpStatusCode.Forbidden)
+        respondRefusal(HttpStatusCode.Forbidden, "Not Authorized", "Only the person who created this idea can publish it.", alertId = "not-authorized-error")
         return
     }
 

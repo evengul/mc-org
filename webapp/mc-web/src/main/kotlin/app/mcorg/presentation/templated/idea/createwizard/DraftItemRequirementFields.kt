@@ -1,6 +1,7 @@
 package app.mcorg.presentation.templated.idea.createwizard
 
 import app.mcorg.domain.model.idea.IdeaDraft
+import app.mcorg.presentation.templated.dsl.fieldError
 import app.mcorg.domain.model.minecraft.MinecraftVersionRange
 import app.mcorg.pipeline.idea.draft.DraftData
 import app.mcorg.presentation.hxPost
@@ -81,7 +82,7 @@ fun FlowContent.draftItemRequirementFields(draft: IdeaDraft) {
             hxTrigger("change")
             attributes["hx-encoding"] = "multipart/form-data"
         }
-        p("form-error") { id = "error-litematicFile" }
+        fieldError("litematicFile")
     }
 
     // --- Item list ---

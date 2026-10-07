@@ -6,7 +6,6 @@ import app.mcorg.presentation.handler.defaultHandleError
 import app.mcorg.presentation.utils.getProjectId
 import app.mcorg.presentation.utils.getUser
 import app.mcorg.presentation.utils.getWorldId
-import app.mcorg.presentation.utils.respondBadRequest
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.util.getOrFail
 import java.net.URLDecoder
@@ -55,7 +54,7 @@ suspend fun ApplicationCall.handleDismissFarmSuggestion() {
     )
 
     if (result is Result.Failure) {
-        respondBadRequest("Could not dismiss this suggestion")
+        defaultHandleError(result.error)
         return
     }
 

@@ -114,8 +114,8 @@ class ManualOrderingIT : WithUser() {
 
         val response = postOrdering(world, perimeter, walls, "No material passes — dig first.")
 
-        assertEquals(HttpStatusCode.Found, response.status)
-        assertEquals("/worlds/$world/roadmap", response.headers["Location"])
+        assertEquals(HttpStatusCode.OK, response.status)
+        assertEquals("/worlds/$world/roadmap", response.headers["HX-Redirect"])
 
         val stored = orderings(world).single()
         // Direction is the whole ballgame: `first` is the prerequisite, so it is the row's
@@ -421,9 +421,9 @@ class ManualOrderingIT : WithUser() {
     }
 
     /**
-     * The test client follows redirects by default, which would swallow the 303 every write
-     * answers with and hand back the roadmap page instead. These assertions are about the
-     * redirect itself, so they need a client that stops at it.
+     * Posted the way the ordering form posts, as htmx: a rejected submit comes back as the form
+     * re-rendered in place, which only an htmx request gets. The client stops at redirects so a
+     * write's own answer is what the assertions see.
      */
     private suspend fun ApplicationTestBuilder.postOrdering(
         worldId: Int,
@@ -432,6 +432,7 @@ class ManualOrderingIT : WithUser() {
         reason: String,
     ) = createClient { followRedirects = false }.post("/worlds/$worldId/roadmap/ordering") {
         addAuthCookie(this)
+        header("HX-Request", "true")
         contentType(ContentType.Application.FormUrlEncoded)
         setBody(orderingForm(first, then, reason))
     }

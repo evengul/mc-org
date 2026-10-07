@@ -110,8 +110,8 @@ select.form-control option {
 
 /* --- Error & help text --- */
 
-.form-error,
-.validation-error-message {
+/* A field's validation slot (fieldError, FieldError.kt). */
+.form-error {
     font-family: var(--font-body);
     font-size: var(--text-xs);
     color: var(--red);

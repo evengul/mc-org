@@ -8,7 +8,9 @@ import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.failure.ValidationFailure
 import app.mcorg.pipeline.minecraftfiles.GetSupportedVersionsStep
+import app.mcorg.presentation.handler.defaultHandleError
 import app.mcorg.presentation.handler.handlePipeline
+import app.mcorg.presentation.handler.respondRefusal
 import app.mcorg.presentation.templated.dsl.AlertType
 import app.mcorg.presentation.templated.dsl.createAlert
 import app.mcorg.presentation.templated.settings.versionImpactFragment
@@ -57,7 +59,12 @@ suspend fun ApplicationCall.handleGetWorldVersionImpact() {
     val supported = GetSupportedVersionsStep.getSupportedVersions()
     val target = supported.firstOrNull { it.toString() == requested }
     if (target == null) {
-        respond(HttpStatusCode.UnprocessableEntity)
+        respondRefusal(
+            HttpStatusCode.UnprocessableEntity,
+            "Not available",
+            "Seam has no item data for that version, so a world cannot switch to it.",
+            alertId = "version-error",
+        )
         return
     }
 
@@ -67,10 +74,12 @@ suspend fun ApplicationCall.handleGetWorldVersionImpact() {
         return
     }
 
-    val impact = worldVersionImpact(worldId, target.toString()).getOrNull()
-    if (impact == null) {
-        respond(HttpStatusCode.InternalServerError)
-        return
+    val impact = when (val result = worldVersionImpact(worldId, target.toString())) {
+        is Result.Failure -> {
+            defaultHandleError(result.error)
+            return
+        }
+        is Result.Success -> result.value
     }
 
     respondHtml(versionImpactFragment(worldId, impact))

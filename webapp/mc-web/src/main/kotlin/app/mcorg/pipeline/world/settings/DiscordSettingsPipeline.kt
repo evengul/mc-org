@@ -8,6 +8,8 @@ import app.mcorg.pipeline.ValidationSteps
 import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.failure.ValidationFailure
 import app.mcorg.presentation.handler.handlePipeline
+import app.mcorg.presentation.handler.respondBadRequest
+import app.mcorg.presentation.handler.respondInPlace
 import app.mcorg.presentation.templated.settings.discordConnections
 import app.mcorg.presentation.templated.settings.renderDiscordSectionBody
 import app.mcorg.presentation.utils.getWorldId
@@ -77,9 +79,11 @@ suspend fun ApplicationCall.handleConnectDiscord() {
 
     // Fail closed when the integration isn't configured — never create a subscription pointing nowhere.
     if (!discordConfigured()) {
-        respondHtml(
+        respondInPlace(
             renderDiscordSectionBody(worldId, configured = false, connections = emptyList()),
-            HttpStatusCode.ServiceUnavailable,
+            target = "#discord-section",
+            swap = "innerHTML",
+            status = HttpStatusCode.ServiceUnavailable,
         )
         return
     }
@@ -125,7 +129,7 @@ suspend fun ApplicationCall.handleDisconnectDiscord() {
     val worldId = this.getWorldId()
     val subscriptionId = parameters["subscriptionId"]?.toIntOrNull()
     if (subscriptionId == null) {
-        respond(HttpStatusCode.BadRequest, "Invalid subscription id")
+        respondBadRequest()
         return
     }
     handlePipeline(

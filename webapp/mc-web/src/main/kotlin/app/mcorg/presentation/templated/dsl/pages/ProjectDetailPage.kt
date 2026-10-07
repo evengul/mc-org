@@ -1,6 +1,7 @@
 package app.mcorg.presentation.templated.dsl.pages
 
 import app.mcorg.domain.idea.canBeOpenedBy
+import app.mcorg.presentation.templated.dsl.fieldError
 import app.mcorg.domain.model.project.Project
 import app.mcorg.domain.model.project.ProjectProduction
 import app.mcorg.domain.model.resources.ResourceGatheringItem
@@ -1796,9 +1797,7 @@ fun FlowContent.resourceSchematicModal(worldId: Int, projectId: Int, existingRes
                         // list from only one of them would drop the rest of the build.
                         multiple = true
                     }
-                    p("form-error") {
-                        id = "validation-error-schematicFile"
-                    }
+                    fieldError("schematicFile")
 
                     // Upload/parse feedback: hidden until the request is in flight (see
                     // .htmx-indicator in modal.css) — large schematics can take a while to

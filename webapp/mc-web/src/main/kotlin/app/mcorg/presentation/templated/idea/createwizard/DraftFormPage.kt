@@ -5,7 +5,7 @@ import app.mcorg.domain.model.minecraft.MinecraftVersion
 import app.mcorg.domain.model.user.TokenProfile
 import app.mcorg.pipeline.failure.ValidationFailure
 import app.mcorg.pipeline.idea.draft.name
-import app.mcorg.pipeline.idea.draft.toMessage
+import app.mcorg.pipeline.failure.userMessage
 import app.mcorg.presentation.hxPost
 import app.mcorg.presentation.hxSwap
 import app.mcorg.presentation.hxTarget
@@ -65,7 +65,7 @@ fun draftFormPage(
                 }
             }
             div {
-                id = FORM_ID
+                id = DRAFT_FORM_ID
                 draftFormContent(draft, supportedVersions, errors, user.minecraftUsername)
             }
         }
@@ -79,11 +79,11 @@ fun draftFormFragment(
     errors: List<ValidationFailure>,
     defaultAuthorName: String,
 ): String = createHTML().div {
-    id = FORM_ID
+    id = DRAFT_FORM_ID
     draftFormContent(draft, supportedVersions, errors, defaultAuthorName)
 }
 
-private const val FORM_ID = "idea-form"
+const val DRAFT_FORM_ID = "idea-form"
 
 private fun FlowContent.draftFormContent(
     draft: IdeaDraft,
@@ -94,14 +94,14 @@ private fun FlowContent.draftFormContent(
     form {
         encType = FormEncType.applicationXWwwFormUrlEncoded
         hxPost("/ideas/drafts/${draft.id}/publish")
-        hxTarget("#$FORM_ID")
+        hxTarget("#$DRAFT_FORM_ID")
         hxSwap("outerHTML")
 
         if (errors.isNotEmpty()) {
             div("callout callout--error") {
                 span("callout__icon") { +"⚠" }
                 div("callout__body") {
-                    errors.forEach { error -> p { +error.toMessage() } }
+                    errors.forEach { error -> p { +error.userMessage() } }
                 }
             }
         }

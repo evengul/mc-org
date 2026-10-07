@@ -9,6 +9,7 @@ import app.mcorg.api.ReporterTokenKey
 import app.mcorg.api.RevokeReporterTokenStep
 import app.mcorg.pipeline.Result
 import app.mcorg.presentation.handler.handlePipeline
+import app.mcorg.presentation.handler.respondBadRequest
 import app.mcorg.presentation.templated.settings.renderReporterSectionBody
 import app.mcorg.presentation.utils.getUser
 import app.mcorg.presentation.utils.getWorldId
@@ -92,7 +93,7 @@ suspend fun ApplicationCall.handleRevokeReporterToken() {
     val worldId = this.getWorldId()
     val tokenId = parameters["tokenId"]?.toLongOrNull()
     if (tokenId == null) {
-        respond(HttpStatusCode.BadRequest, "Invalid token id")
+        respondBadRequest()
         return
     }
     handlePipeline(

@@ -11,7 +11,7 @@ import app.mcorg.presentation.templated.dsl.pages.bulkAnswerUndoToast
 import app.mcorg.presentation.templated.dsl.pages.foldedAttentionQuestions
 import app.mcorg.presentation.utils.getProjectId
 import app.mcorg.presentation.utils.getWorldId
-import app.mcorg.presentation.utils.respondBadRequest
+import app.mcorg.presentation.handler.respondBadRequest
 import app.mcorg.presentation.utils.respondEmptyHtml
 import app.mcorg.presentation.utils.respondHtml
 import io.ktor.server.application.ApplicationCall
@@ -108,11 +108,7 @@ suspend fun ApplicationCall.handleBulkAnswerFoldedQuestions() {
 
     val picks = bulkRecommendations(worldId, projectId)
     if (picks.size < MIN_BULK_QUESTIONS) {
-        respondBadRequest(
-            buildValidationError("questions", "There are no folded questions left to answer."),
-            target = "#error-message",
-            swap = "innerHTML",
-        )
+        respondBadRequest("There are no folded questions left to answer.")
         return
     }
 
@@ -152,7 +148,7 @@ suspend fun ApplicationCall.handleUndoBulkAnswer() {
         .mapNotNull { it.trim().toIntOrNull() }
 
     if (ids.isEmpty()) {
-        respondBadRequest("Missing or unreadable required query parameter: ids")
+        respondBadRequest()
         return
     }
 

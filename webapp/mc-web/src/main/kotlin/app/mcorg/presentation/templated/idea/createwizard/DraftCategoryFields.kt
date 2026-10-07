@@ -1,6 +1,7 @@
 package app.mcorg.presentation.templated.idea.createwizard
 
 import app.mcorg.domain.model.idea.IdeaCategory
+import app.mcorg.presentation.templated.dsl.fieldError
 import app.mcorg.domain.model.idea.IdeaDraft
 import app.mcorg.domain.model.idea.schema.IdeaCategorySchemas
 import app.mcorg.domain.model.minecraft.MinecraftVersionRange
@@ -69,7 +70,7 @@ fun FlowContent.draftCategorySelect(draft: IdeaDraft) {
                 }
             }
         }
-        p("form-error") { id = "error-category" }
+        fieldError("category")
     }
 }
 

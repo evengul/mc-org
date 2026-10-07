@@ -1,6 +1,7 @@
 package app.mcorg.presentation.templated.idea.createwizard
 
 import app.mcorg.domain.model.idea.IdeaDraft
+import app.mcorg.presentation.templated.dsl.fieldError
 import app.mcorg.domain.model.minecraft.MinecraftVersion
 import app.mcorg.domain.model.minecraft.MinecraftVersionRange
 import app.mcorg.pipeline.idea.draft.DraftData
@@ -67,7 +68,7 @@ fun FlowContent.draftVersionFields(draft: IdeaDraft, supportedVersions: List<Min
                 +"Specific Range"
             }
         }
-        p("form-error") { id = "error-versionRangeType" }
+        fieldError("versionRangeType")
     }
 
     div {

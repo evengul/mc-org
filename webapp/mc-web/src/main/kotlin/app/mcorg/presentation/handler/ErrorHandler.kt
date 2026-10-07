@@ -3,14 +3,18 @@ package app.mcorg.presentation.handler
 import app.mcorg.domain.model.user.TokenProfile
 import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.failure.ValidationFailure
+import app.mcorg.pipeline.failure.userMessage
 import app.mcorg.presentation.hxOutOfBands
+import app.mcorg.presentation.hxPartial
 import app.mcorg.presentation.templated.dsl.ALERT_CONTAINER_ID
 import app.mcorg.presentation.templated.dsl.AlertType
 import app.mcorg.presentation.templated.dsl.createAlert
+import app.mcorg.presentation.templated.dsl.fieldMessages
 import app.mcorg.presentation.templated.error.errorPageLayout
 import app.mcorg.presentation.templated.error.forbiddenPage
 import app.mcorg.presentation.templated.error.notFoundPage
 import app.mcorg.presentation.templated.error.serverErrorPage
+import app.mcorg.presentation.utils.isHtmxRequest
 import app.mcorg.presentation.utils.pageUri
 import app.mcorg.presentation.utils.redirectClientOrBrowser
 import app.mcorg.presentation.utils.respondHtml
@@ -184,40 +188,21 @@ suspend fun <E : AppFailure> ApplicationCall.defaultHandleError(error: E) {
     }
 }
 
+/**
+ * Under HTMX, each message lands next to its field in the form that sent the request
+ * ([fieldMessages]). A plain form post has no fragment to swap, so it gets the status page with
+ * the messages, rather than the fragments rendered as a page.
+ */
 private suspend fun ApplicationCall.respondValidationMessages(response: FailureResponse.ValidationMessages) {
-    respondHtml(statusCode = response.status, html = createHTML().div {
-        response.errors.forEach {
-            p {
-                hxOutOfBands("true")
-                classes += "validation-error-message"
-                id = "validation-error-${it.parameterName.replace("[]", "")}"
-                +it.userMessage()
-            }
-        }
-    })
-}
-
-private fun ValidationFailure.userMessage(): String = when (this) {
-    is ValidationFailure.CustomValidation -> message
-    is ValidationFailure.InvalidFormat -> message ?: ""
-    is ValidationFailure.InvalidLength -> when {
-        minLength != null && maxLength != null ->
-            "The length of '$parameterName' must be between $minLength and $maxLength characters."
-        minLength != null -> "The length of '$parameterName' must be at least $minLength characters."
-        maxLength != null -> "The length of '$parameterName' must be at most $maxLength characters."
-        else -> ""
-    }
-    is ValidationFailure.InvalidValue -> when {
-        allowedValues != null ->
-            "The value of '$parameterName' must be one of the following: ${allowedValues.joinToString(", ")}."
-        else -> "The value of '$parameterName' is invalid."
-    }
-    is ValidationFailure.MissingParameter -> "The parameter '$parameterName' is required."
-    is ValidationFailure.OutOfRange -> when {
-        min != null && max != null -> "The value of '$parameterName' must be between $min and $max."
-        min != null -> "The value of '$parameterName' must be at least $min."
-        max != null -> "The value of '$parameterName' must be at most $max."
-        else -> ""
+    if (isHtmxRequest()) {
+        respondHtml(fieldMessages(response.errors), response.status)
+    } else {
+        respondRefusal(
+            response.status,
+            "Check the form",
+            response.errors.joinToString(" ") { it.userMessage() },
+            alertId = "validation-error",
+        )
     }
 }
 
@@ -254,7 +239,7 @@ private fun List<ValidationFailure>.toHttpStatusCode(): HttpStatusCode {
  * requests (`Routing.kt`); it replaces every other 404 body with the full page.
  */
 suspend fun ApplicationCall.respondRefusal(status: HttpStatusCode, title: String, message: String, alertId: String) {
-    if (request.headers["HX-Request"] == "true") {
+    if (isHtmxRequest()) {
         // A non-outerHTML out-of-band swap inserts the element's children, so the <ul> is the
         // wrapper htmx strips and the <li> is what lands.
         respondHtml(createHTML().ul {
@@ -270,6 +255,39 @@ suspend fun ApplicationCall.respondRefusal(status: HttpStatusCode, title: String
         }, statusCode = status)
     } else {
         respondHtml(statusPage(status, message), statusCode = status)
+    }
+}
+
+/**
+ * A request the page should not have been able to send: a parameter missing or unreadable, or a
+ * choice that no longer exists. In practice the page is out of date, so the default says that.
+ */
+suspend fun ApplicationCall.respondBadRequest(message: String = STALE_PAGE_MESSAGE) =
+    respondRefusal(HttpStatusCode.BadRequest, "That did not work", message, alertId = "bad-request-error")
+
+internal const val STALE_PAGE_MESSAGE = "This part of the page is out of date. Reload it and try again."
+
+/**
+ * An error answered by re-rendering part of the page: [html] replaces [target] with [swap], the
+ * way the success response would, e.g. a form shown again with its complaint at the top.
+ *
+ * Sent as an htmx partial, because htmx swaps no error response into its target (`noSwap`,
+ * `Layout.kt`) and that also silences `HX-Retarget`. A partial is swapped whatever the status, and
+ * [target] is resolved from the element that sent the request, so `closest form` works.
+ *
+ * Without htmx (a post before the script loaded, say) there is no page to swap into; the status
+ * page says the form needs another look rather than rendering a lone template as a blank page.
+ */
+suspend fun ApplicationCall.respondInPlace(
+    html: String,
+    target: String,
+    swap: String = "outerHTML",
+    status: HttpStatusCode = HttpStatusCode.UnprocessableEntity,
+) {
+    if (isHtmxRequest()) {
+        respondHtml(createHTML().hxPartial(target = target, swap = swap) { unsafe { +html } }, status)
+    } else {
+        respondRefusal(status, "Check the form", "Something in the form needs fixing. Go back and try again.", alertId = "in-place-error")
     }
 }
 

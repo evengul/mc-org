@@ -85,7 +85,7 @@
         if (label) label.textContent = '';
         var results = el('record-farm-item-results');
         if (results) results.innerHTML = '';
-        document.querySelectorAll('#record-farm-form .validation-error-message').forEach(function (error) {
+        document.querySelectorAll('#record-farm-form [data-error-for]').forEach(function (error) {
             error.textContent = '';
         });
         var dialog = el('record-farm-modal');

@@ -24,6 +24,7 @@ object ScriptBundle : AssetBundle(dir = "/static/scripts", extension = "js") {
         "confirmation-modal",
         "farm-modal",
         "farm-suggestions",
+        "form-errors",
         "import-review",
         "item-search",
         "np-menu",

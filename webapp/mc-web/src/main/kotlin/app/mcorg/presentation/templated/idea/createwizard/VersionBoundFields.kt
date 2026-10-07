@@ -1,6 +1,7 @@
 package app.mcorg.presentation.templated.idea.createwizard
 
 import app.mcorg.domain.model.minecraft.MinecraftVersion
+import app.mcorg.presentation.templated.dsl.fieldError
 import app.mcorg.domain.model.minecraft.MinecraftVersionRange
 import app.mcorg.presentation.templated.dsl.RadioGroupOption
 import app.mcorg.presentation.templated.dsl.radioGroup
@@ -52,9 +53,7 @@ private fun DIV.versionLowerBound(supportedVersions: List<MinecraftVersion.Relea
             }
         }
     }
-    p("validation-error-message") {
-        id = "validation-error-versionFrom"
-    }
+    fieldError("versionFrom")
 }
 
 private fun DIV.versionUpperBound(supportedVersions: List<MinecraftVersion.Release>, selectedVersion: MinecraftVersion? = null) {
@@ -76,7 +75,5 @@ private fun DIV.versionUpperBound(supportedVersions: List<MinecraftVersion.Relea
             }
         }
     }
-    p("validation-error-message") {
-        id = "validation-error-versionTo"
-    }
+    fieldError("versionTo")
 }
