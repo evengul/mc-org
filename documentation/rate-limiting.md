@@ -68,7 +68,8 @@ request a route plugin refuses still spends the bucket".
 The counters are fixed windows in a map on the one Fly machine. A restart resets them, which is
 harmless. **A second machine would give every client a second allowance** — if the app is ever
 scaled out, this needs a shared store (or the edge) first. Closed windows are swept once there are
-more than 10,000, so memory is bounded by the number of distinct clients inside an hour. A botnet
+more than 10,000 — at most once a minute, so a map held over that by open windows is not walked on
+every request — and memory is bounded by the number of distinct clients inside an hour. A botnet
 large enough to make that matter is a volumetric attack, and that is Cloudflare's job.
 
 ## Who the client is: the origin lock
