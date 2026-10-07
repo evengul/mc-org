@@ -4,11 +4,11 @@ import app.mcorg.domain.model.minecraft.Litematica
 import app.mcorg.domain.model.minecraft.MinecraftVersionRange
 import app.mcorg.pipeline.Result
 import app.mcorg.pipeline.Step
-import app.mcorg.nbt.util.LitematicaReader
 import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.idea.commonsteps.GetItemsInVersionRangeStep
 import app.mcorg.pipeline.project.LitematicParts
 import app.mcorg.pipeline.project.ReceiveSchematicStep
+import app.mcorg.pipeline.project.SchematicParseGate
 import app.mcorg.pipeline.project.readLitematicParts
 import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.plugins.UPLOAD_TOO_LARGE_MESSAGE
@@ -21,8 +21,6 @@ import kotlinx.html.button
 import kotlinx.html.hiddenInput
 import kotlinx.html.id
 import kotlinx.html.li
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import kotlinx.html.stream.createHTML
 
 /**
@@ -140,14 +138,14 @@ private object ParseLitematicaStep :
     ): Result<AppFailure, Pair<String?, Litematica>> {
         val parsed = input.map { (name, bytes) ->
             // Decompressing and walking an NBT tree is CPU- and allocation-heavy work on
-            // attacker-supplied input. Off the Netty event loop, so a slow file costs one IO
-            // thread rather than a worker every other in-flight request is sharing (MCO-345).
-            val compound = withContext(Dispatchers.IO) { LitematicaReader.readLitematica(bytes) }
+            // attacker-supplied input, so it goes through the gate: off the call thread (MCO-345),
+            // a bounded number at once and for a bounded time (MCO-426).
+            val compound = SchematicParseGate.shared.parse(bytes)
             when (compound) {
                 is Result.Failure -> return Result.failure(
                     AppFailure.customValidationError(
                         "litematicFile",
-                        "Could not read ${name ?: "Litematica file"}",
+                        compound.error.describe(name ?: "Litematica file"),
                     )
                 )
                 is Result.Success -> compound.value

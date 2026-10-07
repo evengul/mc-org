@@ -5,7 +5,6 @@ import app.mcorg.domain.model.minecraft.Item
 import app.mcorg.domain.model.minecraft.Litematica
 import app.mcorg.domain.model.user.Role
 import app.mcorg.pipeline.Step
-import app.mcorg.nbt.util.LitematicaReader
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.Result
 import app.mcorg.pipeline.SafeSQL
@@ -32,8 +31,6 @@ import io.ktor.server.request.receiveMultipart
 import io.ktor.server.request.receiveParameters
 import io.ktor.server.response.respond
 import io.ktor.utils.io.readRemaining
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import kotlinx.io.readByteArray
 
 /**
@@ -425,17 +422,17 @@ data class MapSchematicFilesToMaterialsStep(
 object ParseSchematicStep : Step<SchematicUpload, AppFailure, List<ParsedSchematic>> {
     override suspend fun process(input: SchematicUpload): Result<AppFailure, List<ParsedSchematic>> {
         val parsed = input.files.map { file ->
-            // Off the Netty event loop — see ParseLitematicaStep. Decompression and tree-walking
-            // of attacker-supplied bytes must not run where it can stall unrelated requests
-            // (MCO-345).
-            val read = withContext(Dispatchers.IO) { LitematicaReader.readLitematica(file.content) }
+            // Through the gate, like ParseLitematicaStep: decompression and tree-walking of
+            // attacker-supplied bytes must not stall unrelated requests (MCO-345), nor run
+            // unbounded in number or time (MCO-426).
+            val read = SchematicParseGate.shared.parse(file.content)
             when (read) {
                 // Named, since with several files "could not read the schematic file" leaves the
                 // user guessing which one to re-export.
                 is Result.Failure -> return Result.failure(
                     AppFailure.customValidationError(
                         "schematicFile",
-                        "Could not read ${file.fileName ?: "the schematic file"}",
+                        read.error.describe(file.fileName ?: "the schematic file"),
                     )
                 )
                 is Result.Success -> ParsedSchematic(file.fileName, read.value)
