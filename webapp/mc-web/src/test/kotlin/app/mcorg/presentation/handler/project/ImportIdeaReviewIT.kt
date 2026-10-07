@@ -464,7 +464,7 @@ class ImportIdeaReviewIT : WithUser() {
         }.bodyAsText()
 
         assertContains(body, "Runtime modes · 2")
-        assertContains(body, "Once it is Done, the farm supplies what every mode makes.")
+        assertContains(body, "Once the project is Done, the farm supplies what every mode makes.")
         assertContains(body, "Bone · 700/hr", message = "each mode says what it makes")
         assertFalse(body.contains("runtimeMode"), "no starting-mode field rides the form any more")
     }

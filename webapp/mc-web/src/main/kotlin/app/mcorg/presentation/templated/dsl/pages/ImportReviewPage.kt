@@ -591,7 +591,7 @@ private fun FlowContent.runtimeModeList(modes: List<ImportedRuntimeMode>) {
     div("import-review__runtime-modes") {
         span("section-label") { +"Runtime modes · ${modes.size}" }
         p("import-review__runtime-lead") {
-            +"Once it is Done, the farm supplies what every mode makes."
+            +"Once the project is Done, the farm supplies what every mode makes."
         }
         div("mode-ledger__rows") {
             modes.forEach { mode ->

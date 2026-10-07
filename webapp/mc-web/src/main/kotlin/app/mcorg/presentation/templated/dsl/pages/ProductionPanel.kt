@@ -143,12 +143,17 @@ fun FlowContent.productionsPanel(worldId: Int, projectId: Int, view: Productions
         }
     }
 
+    // Ruled off from the last mode's rows, or the add form reads as part of that mode.
+    if (view.modes.isNotEmpty()) div("resource-panel__divider") {}
     span("section-label production-panel__add-label") { +"Add produced item" }
     div("production-panel__add") {
         if (view.modes.isNotEmpty()) {
+            label("production-panel__mode-label") {
+                htmlFor = "production-panel-mode"
+                +"Mode"
+            }
             select("form-control") {
                 id = "production-panel-mode"
-                attributes["aria-label"] = "Mode the item to add belongs to"
                 view.modes.forEach { mode ->
                     option {
                         value = mode.id.toString()

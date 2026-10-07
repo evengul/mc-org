@@ -325,45 +325,10 @@ dialog#resource-panel::backdrop {
     color: var(--text-primary);
 }
 
-/* The import review's read-only list of a design's modes: one row per mode, saying what it makes. */
-
-.mode-ledger__rows {
-    display: flex;
-    flex-direction: column;
-    gap: 1px;
-    background: var(--border);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    overflow: hidden;
-}
-
-.mode-ledger__row {
-    display: flex;
-    align-items: center;
-    gap: var(--space-3);
-    width: 100%;
-    min-height: 52px;
-    padding: var(--space-2) var(--space-3);
-    background: var(--bg-surface);
-    color: var(--text-primary);
-}
-
-.mode-ledger__text {
-    flex: 1;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-1);
-}
-
-.mode-ledger__name {
+.production-panel__mode-label {
     font-family: var(--font-ui);
-    font-size: var(--text-ui);
+    font-size: var(--text-label);
     font-weight: 500;
-}
-
-.mode-ledger__makes {
-    font-family: var(--font-body);
-    font-size: var(--text-sm);
+    letter-spacing: 0.08em;
     color: var(--text-muted);
 }
