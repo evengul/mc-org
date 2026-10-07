@@ -27,7 +27,7 @@ import java.security.MessageDigest
  *
  * Exactly when the real demand is. Each stored scenario records the project's own
  * `project_demand_state.fingerprint` from when it was derived, and is trusted only while that is
- * unchanged. A supply change deletes the real fingerprint ([InvalidateDemandSuppliedByStep]); a
+ * unchanged. A supply change nulls the real fingerprint ([InvalidateDemandSuppliedByStep]); a
  * re-derivation on the project page replaces it. Either way every scenario of that project
  * re-derives on the next roadmap load, and nothing else does — no second invalidation path to keep
  * in step with the first.

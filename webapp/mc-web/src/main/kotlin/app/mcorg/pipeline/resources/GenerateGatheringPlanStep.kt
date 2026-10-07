@@ -102,6 +102,18 @@ data class GatheringPlanInput(
  */
 private const val ASSUME_TAG_BELOW_SHARE = 0.0001
 
+/** A derived plan, and what its write-through would store, between [GenerateGatheringPlanStep.derive] and its store. */
+internal data class Derivation(val plan: GatheringPlan?, val write: DemandWrite?)
+
+/** What a real (not hypothetical) derivation writes back; [generation] is what it read before its inputs. */
+internal data class DemandWrite(
+    val projectId: Int,
+    val generation: Long,
+    val fingerprint: DemandFingerprint,
+    val gameDataEpoch: Instant?,
+    val plan: GatheringPlan?,
+)
+
 object GenerateGatheringPlanStep : Step<GatheringPlanInput, AppFailure, GatheringPlan> {
 
     private val worldVersionQuery = DatabaseSteps.query<Int, String?>(
@@ -111,6 +123,32 @@ object GenerateGatheringPlanStep : Step<GatheringPlanInput, AppFailure, Gatherin
     )
 
     override suspend fun process(input: GatheringPlanInput): Result<AppFailure, GatheringPlan> {
+        val derivation = when (val r = derive(input)) {
+            is Result.Success -> r.value
+            is Result.Failure -> return r
+        }
+        derivation.write?.let { store(it) }
+        return derivation.plan?.let { Result.success(it) } ?: Result.failure(
+            AppFailure.customValidationError("targets", "All items are fully collected — nothing left to plan")
+        )
+    }
+
+    /**
+     * The read half: everything up to the plan, and what [store] would write for it. Split from
+     * [process] so a test can land an invalidation between the two (MCO-584); nothing else calls
+     * it. A null plan is "nothing left to plan".
+     */
+    internal suspend fun derive(input: GatheringPlanInput): Result<AppFailure, Derivation> {
+        // 0. The generation of the project's stored demand, before any input is read: the write
+        // lands only if no invalidation has happened since (SaveProjectDemandStep). Hypothetical
+        // plans are never written, so never need it. A failed read only loses the write-through,
+        // as a failed write does.
+        val generation = if (input.assumeBuilt.isEmpty()) {
+            GetDemandGenerationStep(input.projectId).process(Unit).getOrNull()
+        } else {
+            null
+        }
+
         // 1. Resolve world version
         val versionString = when (val r = worldVersionQuery.process(input.worldId)) {
             is Result.Success -> r.value ?: return Result.failure(AppFailure.DatabaseError.NotFound)
@@ -156,18 +194,13 @@ object GenerateGatheringPlanStep : Step<GatheringPlanInput, AppFailure, Gatherin
             // Nothing left to plan is a derivation too: the project's stored rows are cleared and
             // it is marked derived, or the roadmap would keep drawing the demand it had before the
             // last item was collected (or the last target ignored).
-            if (input.assumeBuilt.isEmpty()) {
-                storeDemand(
-                    input.projectId, versionString, gameDataEpoch, activeItems,
+            val write = generation?.let {
+                demandWrite(
+                    input.projectId, it, versionString, gameDataEpoch, activeItems,
                     supplied = emptyMap(), overrides = PlanOverrides.NONE, plan = null, woodSpecies = null,
                 )
             }
-            return Result.failure(
-                AppFailure.customValidationError(
-                    "targets",
-                    "All items are fully collected — nothing left to plan"
-                )
-            )
+            return Result.success(Derivation(plan = null, write = write))
         }
 
         // 6. Build supplied map. The rule lives in ProjectSupply so the drill's picker can reach
@@ -222,22 +255,16 @@ object GenerateGatheringPlanStep : Step<GatheringPlanInput, AppFailure, Gatherin
         // feeds the derivation has changed since the last write.
         // A hypothetical plan never lands here: `project_demand` is the world as it is, and every
         // reader of it — the roadmap's edges first of all — would believe the farms were built.
-        if (input.assumeBuilt.isEmpty()) {
-            storeDemand(input.projectId, versionString, gameDataEpoch, activeItems, supplied, overrides, plan, woodSpecies)
+        val write = generation?.let {
+            demandWrite(input.projectId, it, versionString, gameDataEpoch, activeItems, supplied, overrides, plan, woodSpecies)
         }
 
-        return Result.success(plan)
+        return Result.success(Derivation(plan = plan, write = write))
     }
 
-    /**
-     * Write-through of the derived demand. Deliberately best-effort.
-     *
-     * [project_demand] is a cache of something recomputable, and this runs on a read path — a
-     * page that renders a plan should not fail because a cache write did. A failure leaves the
-     * previous rows in place with their old fingerprint, so the next derivation retries.
-     */
-    private suspend fun storeDemand(
+    private fun demandWrite(
         projectId: Int,
+        generation: Long,
         worldVersion: String,
         gameDataEpoch: Instant?,
         activeItems: List<ResourceGatheringItem>,
@@ -245,8 +272,10 @@ object GenerateGatheringPlanStep : Step<GatheringPlanInput, AppFailure, Gatherin
         overrides: PlanOverrides,
         plan: GatheringPlan?,
         woodSpecies: String?,
-    ) {
-        val fingerprint = DemandFingerprint.of(
+    ) = DemandWrite(
+        projectId = projectId,
+        generation = generation,
+        fingerprint = DemandFingerprint.of(
             worldVersion = worldVersion,
             targets = activeItems.map {
                 Triple(it.itemId, (it.required - it.collected).toLong(), it.sourceType?.name)
@@ -256,16 +285,33 @@ object GenerateGatheringPlanStep : Step<GatheringPlanInput, AppFailure, Gatherin
                 overrides.tagMember.map { "tag:${it.key}" to it.value },
             woodSpecies = woodSpecies,
             gameDataEpoch = gameDataEpoch,
-        )
+        ),
+        gameDataEpoch = gameDataEpoch,
+        plan = plan,
+    )
 
-        val stored = GetStoredDemandFingerprintStep(projectId).process(Unit)
-        if (stored is Result.Success && stored.value == fingerprint) return
+    /**
+     * The write half: write-through of the derived demand. Deliberately best-effort.
+     *
+     * [project_demand] is a cache of something recomputable, and this runs on a read path — a
+     * page that renders a plan should not fail because a cache write did. A failure leaves the
+     * previous rows in place with their old fingerprint, so the next derivation retries. So does
+     * an invalidation that landed after [derive] started reading: [SaveProjectDemandStep] then
+     * writes nothing, and the project stays uncovered until it is derived from the new inputs.
+     */
+    internal suspend fun store(write: DemandWrite) {
+        val stored = GetStoredDemandFingerprintStep(write.projectId).process(Unit)
+        if (stored is Result.Success && stored.value == write.fingerprint) return
 
-        val saved = SaveProjectDemandStep(projectId, fingerprint, gameDataEpoch).process(plan)
-        if (saved is Result.Failure) {
+        val saved = SaveProjectDemandStep(write.projectId, write.fingerprint, write.generation, write.gameDataEpoch)
+            .process(write.plan)
+        when (saved) {
             // No exception and no row data in the message: a PostgreSQL error appends
             // `DETAIL: Key (col)=(value)`, which is user content. See documentation/logging.md.
-            logger.warn("Could not store derived demand for project {}", projectId)
+            is Result.Failure -> logger.warn("Could not store derived demand for project {}", write.projectId)
+            is Result.Success -> if (!saved.value) {
+                logger.debug("Demand: project {} was invalidated mid-derivation; not stored", write.projectId)
+            }
         }
     }
 

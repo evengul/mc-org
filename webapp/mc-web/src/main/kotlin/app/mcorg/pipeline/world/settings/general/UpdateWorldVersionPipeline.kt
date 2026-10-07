@@ -122,9 +122,13 @@ object GetWorldVersionStep : Step<Int, AppFailure.DatabaseError, String?> {
  *
  * One statement, so the two cannot come apart. If the drop could fail on its own, the world would
  * be on the new version with every plan still marked current for the old one — and the roadmap
- * never compares the fingerprint that would notice. Only `project_demand_state` goes; the rows
+ * never compares the fingerprint that would notice. Only `project_demand_state` changes; the rows
  * stay readable until the next roadmap load re-derives them. The `IS DISTINCT FROM` guard makes
  * re-saving the current version a no-op rather than a world-wide re-derivation.
+ *
+ * Every project in the world is invalidated, including those with no state row yet: one of them
+ * may be on its first derivation in the roadmap's fill loop, with the old version already read,
+ * and the generation bump is what stops it storing that plan as current (MCO-584).
  */
 data class UpdateWorldVersionStep(val worldId: Int) : Step<MinecraftVersion, AppFailure.DatabaseError, Int> {
     override suspend fun process(input: MinecraftVersion): Result<AppFailure.DatabaseError, Int> {
@@ -136,10 +140,13 @@ data class UpdateWorldVersionStep(val worldId: Int) : Step<MinecraftVersion, App
                     WHERE id = ? AND version IS DISTINCT FROM ?
                     RETURNING id
                 ), dropped AS (
-                    DELETE FROM project_demand_state s
-                    USING projects p, changed c
-                    WHERE p.id = s.project_id AND p.world_id = c.id
-                    RETURNING s.project_id
+                    INSERT INTO project_demand_state (project_id, fingerprint, generation)
+                    SELECT p.id, NULL, 1
+                    FROM projects p
+                    JOIN changed c ON c.id = p.world_id
+                    ON CONFLICT (project_id) DO UPDATE
+                        SET fingerprint = NULL, generation = project_demand_state.generation + 1
+                    RETURNING project_id
                 )
                 SELECT (SELECT count(*) FROM dropped) AS dropped
             """),
