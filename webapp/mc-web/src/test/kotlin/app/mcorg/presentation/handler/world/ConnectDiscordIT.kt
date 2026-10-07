@@ -3,7 +3,9 @@ package app.mcorg.presentation.handler.world
 import app.mcorg.config.AppConfig
 import app.mcorg.config.CacheManager
 import app.mcorg.config.Database
+import app.mcorg.event.ProjectCreated
 import app.mcorg.domain.model.minecraft.MinecraftVersion
+import app.mcorg.domain.model.project.ProjectType
 import app.mcorg.domain.model.user.Role
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.Result
@@ -20,6 +22,7 @@ import app.mcorg.test.WithUser
 import app.mcorg.test.postgres.DatabaseTestExtension
 import app.mcorg.webhook.CreateWebhookSubscriptionInput
 import app.mcorg.webhook.CreateWebhookSubscriptionStep
+import app.mcorg.webhook.WebhookFanoutConsumer
 import io.ktor.client.request.delete
 import io.ktor.client.request.header
 import io.ktor.client.request.post
@@ -37,6 +40,7 @@ import io.ktor.server.routing.routing
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
 import kotlinx.coroutines.runBlocking
+import java.time.Instant
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.boolean
 import kotlinx.serialization.json.jsonObject
@@ -111,6 +115,68 @@ class ConnectDiscordIT : WithUser() {
         }
 
         assertEquals("$discordBase/seam-events/$channelId", subscriptionsFor(worldId).single().first)
+    }
+
+    @Test
+    fun `reconnecting a channel updates its subscription instead of adding a second one`() = testApplication {
+        configureDiscord()
+        installRoutes()
+        val worldId = createWorld("discord-reconnect")
+
+        connect(worldId, channelId, compact = true)
+        connect(worldId, channelId, compact = false)
+
+        val rows = subscriptionsFor(worldId)
+        assertEquals(1, rows.size, "Connecting the same channel twice must not leave two subscriptions")
+        assertEquals("$discordBase/seam-events/$channelId", rows.single().first)
+        val fields = Json.parseToJsonElement(rows.single().third).jsonObject
+        assertEquals(false, fields["compact"]?.jsonPrimitive?.boolean)
+    }
+
+    @Test
+    fun `reconnecting over a wildcard subscription narrows it and posts each event once`() = testApplication {
+        configureDiscord()
+        installRoutes()
+        val worldId = createWorld("discord-reconnect-wildcard")
+        // A subscription from before MCO-358 narrowed the filter: ["*"], same channel.
+        createSubscription(worldId, "$discordBase/seam-events/$channelId", channelId = channelId)
+
+        connect(worldId, channelId, compact = false)
+
+        assertEquals(1, activeSubscriptionCount(worldId))
+        assertTrue(!eventFiltersFor(worldId).single().contains("*"), eventFiltersFor(worldId).single())
+
+        WebhookFanoutConsumer().handle(
+            ProjectCreated(worldId, user.id, Instant.now(), 1, "Iron Farm", ProjectType.REDSTONE)
+        )
+        assertEquals(1, deliveryCountFor(worldId), "One channel, one event: one delivery")
+    }
+
+    @Test
+    fun `a deactivated subscription does not block reconnecting the channel`() = testApplication {
+        configureDiscord()
+        installRoutes()
+        val worldId = createWorld("discord-reconnect-inactive")
+        val old = createSubscription(worldId, "$discordBase/seam-events/$channelId", channelId = channelId)
+        deactivate(old)
+
+        val response = connect(worldId, channelId, compact = false)
+
+        assertEquals(HttpStatusCode.OK, response.status, response.bodyAsText())
+        assertEquals(2, subscriptionsFor(worldId).size)
+        assertEquals(1, activeSubscriptionCount(worldId))
+    }
+
+    @Test
+    fun `a second channel in the same world gets its own subscription`() = testApplication {
+        configureDiscord()
+        installRoutes()
+        val worldId = createWorld("discord-two-channels")
+
+        connect(worldId, channelId, compact = false)
+        connect(worldId, "876543210987654321", compact = false)
+
+        assertEquals(2, activeSubscriptionCount(worldId))
     }
 
     @Test
@@ -222,11 +288,59 @@ class ConnectDiscordIT : WithUser() {
         ) as Result.Success).value
     }
 
-    private fun createSubscription(worldId: Int, callbackUrl: String): Int = runBlocking {
+    private fun createSubscription(worldId: Int, callbackUrl: String, channelId: String? = null): Int = runBlocking {
+        val metadata = channelId?.let { """{"discord_channel_id":"$it","compact":false}""" } ?: "{}"
         (CreateWebhookSubscriptionStep.process(
-            CreateWebhookSubscriptionInput(worldId, callbackUrl, sharedSecret, """["*"]""", "{}")
+            CreateWebhookSubscriptionInput(worldId, callbackUrl, sharedSecret, """["*"]""", metadata)
         ) as Result.Success).value
     }
+
+    private suspend fun ApplicationTestBuilder.connect(worldId: Int, channelId: String, compact: Boolean) =
+        client.post("/worlds/$worldId/settings/discord") {
+            addAuthCookie(this, user)
+            contentType(ContentType.Application.FormUrlEncoded)
+            val form = listOf("channel_id" to channelId) + if (compact) listOf("compact" to "true") else emptyList()
+            setBody(form.formUrlEncode())
+        }
+
+    private fun deactivate(subscriptionId: Int) {
+        Database.getConnection().use { conn ->
+            conn.prepareStatement("UPDATE webhook_subscriptions SET active = false WHERE id = ?").use { st ->
+                st.setInt(1, subscriptionId)
+                st.executeUpdate()
+            }
+        }
+    }
+
+    private fun activeSubscriptionCount(worldId: Int): Int =
+        countFor("SELECT count(*) FROM webhook_subscriptions WHERE world_id = ? AND active = true", worldId)
+
+    private fun deliveryCountFor(worldId: Int): Int = countFor(
+        """
+        SELECT count(*) FROM webhook_deliveries d
+        JOIN webhook_subscriptions s ON s.id = d.subscription_id
+        WHERE s.world_id = ?
+        """.trimIndent(),
+        worldId,
+    )
+
+    private fun countFor(sql: String, worldId: Int): Int =
+        Database.getConnection().use { conn ->
+            conn.prepareStatement(sql).use { st ->
+                st.setInt(1, worldId)
+                st.executeQuery().use { rs -> rs.next(); rs.getInt(1) }
+            }
+        }
+
+    private fun eventFiltersFor(worldId: Int): List<String> =
+        Database.getConnection().use { conn ->
+            conn.prepareStatement(
+                "SELECT event_filter::text FROM webhook_subscriptions WHERE world_id = ? AND active = true"
+            ).use { st ->
+                st.setInt(1, worldId)
+                st.executeQuery().use { rs -> buildList { while (rs.next()) add(rs.getString(1)) } }
+            }
+        }
 
     private fun addWorldMember(userId: Int, worldId: Int, role: Role, displayName: String) {
         runBlocking {

@@ -114,6 +114,15 @@ data class CreateWebhookSubscriptionInput(
         "eventFilterJson=$eventFilterJson, metadataJson=$metadataJson)"
 }
 
+/**
+ * Creates a subscription, or — when the world already has an active one for the same Discord
+ * channel — replaces that one's URL, secret, filter and metadata in place and returns its id
+ * (MCO-424). Reconnecting a channel is how a user picks up a new event filter
+ * (`documentation/webhook-contract.md`), and a plain INSERT made that post every event twice.
+ *
+ * The conflict target is the partial unique index from V2_74_0. A subscription with no
+ * `discord_channel_id` in its metadata keys on NULL, never conflicts, and is always inserted.
+ */
 object CreateWebhookSubscriptionStep : Step<CreateWebhookSubscriptionInput, AppFailure.DatabaseError, Int> {
     override suspend fun process(input: CreateWebhookSubscriptionInput) =
         DatabaseSteps.update<CreateWebhookSubscriptionInput>(
@@ -121,6 +130,13 @@ object CreateWebhookSubscriptionStep : Step<CreateWebhookSubscriptionInput, AppF
                 """
                 INSERT INTO webhook_subscriptions (world_id, callback_url, secret, event_filter, metadata)
                 VALUES (?, ?, ?, ?::jsonb, ?::jsonb)
+                ON CONFLICT (world_id, (metadata ->> 'discord_channel_id')) WHERE active = true
+                DO UPDATE SET callback_url = EXCLUDED.callback_url,
+                              secret = EXCLUDED.secret,
+                              event_filter = EXCLUDED.event_filter,
+                              metadata = EXCLUDED.metadata,
+                              consecutive_failures = 0,
+                              updated_at = CURRENT_TIMESTAMP
                 RETURNING id
                 """.trimIndent()
             ),
