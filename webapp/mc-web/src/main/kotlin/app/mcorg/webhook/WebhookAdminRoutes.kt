@@ -29,6 +29,7 @@ import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import java.sql.PreparedStatement
 
 private val adminJson = Json
 
@@ -75,7 +76,7 @@ suspend fun ApplicationCall.handleCreateWebhookSubscription() {
             "metadata", "Must be a JSON object", ::validationError
         ) { parsesAsJsonObject(it) }.run(metadata)
 
-        CreateWebhookSubscriptionStep.run(
+        CreateAdminWebhookSubscriptionStep.run(
             CreateWebhookSubscriptionInput(worldId, callbackUrl, secret, eventFilter, metadata)
         )
     }
@@ -114,6 +115,14 @@ data class CreateWebhookSubscriptionInput(
         "eventFilterJson=$eventFilterJson, metadataJson=$metadataJson)"
 }
 
+/**
+ * Inserts a subscription as given. Used by the operator endpoint and by tests.
+ *
+ * A second active subscription for a Discord channel the world already has fails on V2_75_0's
+ * unique index with [AppFailure.DatabaseError.IntegrityConstraintError]. That is deliberate: this
+ * path replaces nothing, so it cannot quietly repoint a user's connection. Connecting from world
+ * settings goes through [UpsertDiscordSubscriptionStep] instead.
+ */
 object CreateWebhookSubscriptionStep : Step<CreateWebhookSubscriptionInput, AppFailure.DatabaseError, Int> {
     override suspend fun process(input: CreateWebhookSubscriptionInput) =
         DatabaseSteps.update<CreateWebhookSubscriptionInput>(
@@ -124,14 +133,63 @@ object CreateWebhookSubscriptionStep : Step<CreateWebhookSubscriptionInput, AppF
                 RETURNING id
                 """.trimIndent()
             ),
-            parameterSetter = { statement, i ->
-                statement.setInt(1, i.worldId)
-                statement.setString(2, i.callbackUrl)
-                statement.setString(3, i.secret)
-                statement.setString(4, i.eventFilterJson)
-                statement.setString(5, i.metadataJson)
-            },
+            parameterSetter = ::bindSubscription,
         ).process(input)
+}
+
+/**
+ * Connects a Discord channel from world settings: creates the subscription, or, when the world
+ * already has an active one for the same channel, replaces its URL, secret, filter and metadata in
+ * place and returns its id (MCO-424). Reconnecting a channel is how a user picks up a new event
+ * filter (`documentation/webhook-contract.md`), and a plain INSERT made that post every event twice.
+ *
+ * The conflict target is V2_75_0's partial unique index on the metadata's `discord_channel_id`,
+ * so the input's metadata must carry it.
+ */
+object UpsertDiscordSubscriptionStep : Step<CreateWebhookSubscriptionInput, AppFailure.DatabaseError, Int> {
+    override suspend fun process(input: CreateWebhookSubscriptionInput) =
+        DatabaseSteps.update<CreateWebhookSubscriptionInput>(
+            sql = SafeSQL.insert(
+                """
+                INSERT INTO webhook_subscriptions (world_id, callback_url, secret, event_filter, metadata)
+                VALUES (?, ?, ?, ?::jsonb, ?::jsonb)
+                ON CONFLICT (world_id, (metadata ->> 'discord_channel_id')) WHERE active = true
+                DO UPDATE SET callback_url = EXCLUDED.callback_url,
+                              secret = EXCLUDED.secret,
+                              event_filter = EXCLUDED.event_filter,
+                              metadata = EXCLUDED.metadata,
+                              consecutive_failures = 0,
+                              updated_at = CURRENT_TIMESTAMP
+                RETURNING id
+                """.trimIndent()
+            ),
+            parameterSetter = ::bindSubscription,
+        ).process(input)
+}
+
+private fun bindSubscription(statement: PreparedStatement, input: CreateWebhookSubscriptionInput) {
+    statement.setInt(1, input.worldId)
+    statement.setString(2, input.callbackUrl)
+    statement.setString(3, input.secret)
+    statement.setString(4, input.eventFilterJson)
+    statement.setString(5, input.metadataJson)
+}
+
+/** The operator endpoint's insert, with a duplicate channel reported as a validation error. */
+private object CreateAdminWebhookSubscriptionStep : Step<CreateWebhookSubscriptionInput, AppFailure, Int> {
+    override suspend fun process(input: CreateWebhookSubscriptionInput): Result<AppFailure, Int> {
+        val result = CreateWebhookSubscriptionStep.process(input)
+        if (result is Result.Failure && result.error is AppFailure.DatabaseError.IntegrityConstraintError) {
+            // The same failure covers a foreign-key violation, so the message names both causes.
+            return Result.failure(
+                AppFailure.customValidationError(
+                    "world_id",
+                    "Unknown world, or the world already has an active subscription for this Discord channel",
+                )
+            )
+        }
+        return result
+    }
 }
 
 object DeleteWebhookSubscriptionStep : Step<Int, AppFailure.DatabaseError, Int> {

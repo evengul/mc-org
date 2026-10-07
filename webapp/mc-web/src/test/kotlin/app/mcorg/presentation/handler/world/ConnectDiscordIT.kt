@@ -3,7 +3,9 @@ package app.mcorg.presentation.handler.world
 import app.mcorg.config.AppConfig
 import app.mcorg.config.CacheManager
 import app.mcorg.config.Database
+import app.mcorg.event.ProjectCreated
 import app.mcorg.domain.model.minecraft.MinecraftVersion
+import app.mcorg.domain.model.project.ProjectType
 import app.mcorg.domain.model.user.Role
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.Result
@@ -20,6 +22,7 @@ import app.mcorg.test.WithUser
 import app.mcorg.test.postgres.DatabaseTestExtension
 import app.mcorg.webhook.CreateWebhookSubscriptionInput
 import app.mcorg.webhook.CreateWebhookSubscriptionStep
+import app.mcorg.webhook.WebhookFanoutConsumer
 import io.ktor.client.request.delete
 import io.ktor.client.request.header
 import io.ktor.client.request.post
@@ -37,8 +40,13 @@ import io.ktor.server.routing.routing
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
 import kotlinx.coroutines.runBlocking
+import java.time.Instant
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.boolean
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.junit.jupiter.api.AfterEach
-import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
@@ -61,15 +69,17 @@ class ConnectDiscordIT : WithUser() {
         AppConfig.webhookSharedSecret = null
     }
 
-    private fun configure() {
+    // Not `configure()`: inside `testApplication { }` that name resolves to
+    // ApplicationTestBuilder.configure, whose parameters all have defaults, so the call compiles,
+    // does nothing to AppConfig, and every connect test sees the fail-closed 503 (MCO-301).
+    private fun configureDiscord() {
         AppConfig.seamDiscordUrl = discordBase
         AppConfig.webhookSharedSecret = sharedSecret
     }
 
     @Test
-    @Disabled("Rotted while never running in CI (empty-body 503) — repair tracked in MCO-301")
     fun `connect creates a world-scoped subscription with discord callback and metadata`() = testApplication {
-        configure()
+        configureDiscord()
         installRoutes()
         val worldId = createWorld("discord-connect")
 
@@ -87,13 +97,15 @@ class ConnectDiscordIT : WithUser() {
         val (callbackUrl, secret, metadata) = rows.single()
         assertEquals("$discordBase/seam-events/$channelId?compact=1", callbackUrl)
         assertEquals(sharedSecret, secret)
-        assertTrue(metadata.contains(""""discord_channel_id":"$channelId"""") && metadata.contains(""""compact":true"""))
+        // jsonb::text normalises spacing (`"compact": true`), so compare parsed values, not substrings.
+        val fields = Json.parseToJsonElement(metadata).jsonObject
+        assertEquals(channelId, fields["discord_channel_id"]?.jsonPrimitive?.content)
+        assertEquals(true, fields["compact"]?.jsonPrimitive?.boolean)
     }
 
     @Test
-    @Disabled("Rotted while never running in CI (empty-body 503) — repair tracked in MCO-301")
     fun `connect without compact omits the query flag`() = testApplication {
-        configure()
+        configureDiscord()
         installRoutes()
         val worldId = createWorld("discord-connect-plain")
 
@@ -107,9 +119,80 @@ class ConnectDiscordIT : WithUser() {
     }
 
     @Test
-    @Disabled("Rotted while never running in CI (empty-body 503) — repair tracked in MCO-301")
+    fun `reconnecting a channel updates its subscription instead of adding a second one`() = testApplication {
+        configureDiscord()
+        installRoutes()
+        val worldId = createWorld("discord-reconnect")
+
+        connect(worldId, channelId, compact = true)
+        connect(worldId, channelId, compact = false)
+
+        val rows = subscriptionsFor(worldId)
+        assertEquals(1, rows.size, "Connecting the same channel twice must not leave two subscriptions")
+        assertEquals("$discordBase/seam-events/$channelId", rows.single().first)
+        val fields = Json.parseToJsonElement(rows.single().third).jsonObject
+        assertEquals(false, fields["compact"]?.jsonPrimitive?.boolean)
+    }
+
+    @Test
+    fun `reconnecting over a wildcard subscription narrows it and posts each event once`() = testApplication {
+        configureDiscord()
+        installRoutes()
+        val worldId = createWorld("discord-reconnect-wildcard")
+        // A subscription from before MCO-358 narrowed the filter: ["*"], same channel.
+        createSubscription(worldId, "$discordBase/seam-events/$channelId", channelId = channelId)
+
+        connect(worldId, channelId, compact = false)
+
+        assertEquals(1, activeSubscriptionCount(worldId))
+        val filter = Json.parseToJsonElement(eventFiltersFor(worldId).single()).jsonArray.map { it.jsonPrimitive.content }
+        assertEquals(
+            listOf(
+                "project_created",
+                "project_status_changed",
+                "project_resources_complete",
+                "project_unblocked",
+                "resource_milestone_reached",
+            ),
+            filter,
+            "Reconnecting must replace the wildcard with the types seam-discord renders",
+        )
+
+        WebhookFanoutConsumer().handle(
+            ProjectCreated(worldId, user.id, Instant.now(), 1, "Iron Farm", ProjectType.REDSTONE)
+        )
+        assertEquals(1, deliveryCountFor(worldId), "One channel, one event: one delivery")
+    }
+
+    @Test
+    fun `a deactivated subscription does not block reconnecting the channel`() = testApplication {
+        configureDiscord()
+        installRoutes()
+        val worldId = createWorld("discord-reconnect-inactive")
+        val old = createSubscription(worldId, "$discordBase/seam-events/$channelId", channelId = channelId)
+        deactivate(old)
+
+        connect(worldId, channelId, compact = false)
+
+        assertEquals(2, subscriptionsFor(worldId).size)
+        assertEquals(1, activeSubscriptionCount(worldId))
+    }
+
+    @Test
+    fun `a second channel in the same world gets its own subscription`() = testApplication {
+        configureDiscord()
+        installRoutes()
+        val worldId = createWorld("discord-two-channels")
+
+        connect(worldId, channelId, compact = false)
+        connect(worldId, "876543210987654321", compact = false)
+
+        assertEquals(2, activeSubscriptionCount(worldId))
+    }
+
+    @Test
     fun `invalid channel id is rejected and creates no subscription`() = testApplication {
-        configure()
+        configureDiscord()
         installRoutes()
         val worldId = createWorld("discord-invalid")
 
@@ -136,12 +219,13 @@ class ConnectDiscordIT : WithUser() {
         }
 
         assertEquals(HttpStatusCode.ServiceUnavailable, response.status)
+        assertTrue(response.bodyAsText().contains("isn't configured"), response.bodyAsText())
         assertEquals(0, subscriptionsFor(worldId).size)
     }
 
     @Test
     fun `non-admin member cannot connect - 403 from WorldAdminPlugin`() = testApplication {
-        configure()
+        configureDiscord()
         installRoutes()
         val worldId = createWorld("discord-auth")
         val member = createExtraUser()
@@ -159,7 +243,7 @@ class ConnectDiscordIT : WithUser() {
 
     @Test
     fun `disconnect removes the subscription`() = testApplication {
-        configure()
+        configureDiscord()
         installRoutes()
         val worldId = createWorld("discord-disconnect")
         val id = createSubscription(worldId, "$discordBase/seam-events/$channelId")
@@ -174,7 +258,7 @@ class ConnectDiscordIT : WithUser() {
 
     @Test
     fun `disconnect is world-scoped - cannot delete another world's subscription`() = testApplication {
-        configure()
+        configureDiscord()
         installRoutes()
         val worldA = createWorld("discord-world-a")
         val worldB = createWorld("discord-world-b")
@@ -215,11 +299,62 @@ class ConnectDiscordIT : WithUser() {
         ) as Result.Success).value
     }
 
-    private fun createSubscription(worldId: Int, callbackUrl: String): Int = runBlocking {
+    private fun createSubscription(worldId: Int, callbackUrl: String, channelId: String? = null): Int = runBlocking {
+        val metadata = channelId?.let { """{"discord_channel_id":"$it","compact":false}""" } ?: "{}"
         (CreateWebhookSubscriptionStep.process(
-            CreateWebhookSubscriptionInput(worldId, callbackUrl, sharedSecret, """["*"]""", "{}")
+            CreateWebhookSubscriptionInput(worldId, callbackUrl, sharedSecret, """["*"]""", metadata)
         ) as Result.Success).value
     }
+
+    /** Connects through the route and fails the test on anything but 200, so a broken connect reads as one. */
+    private suspend fun ApplicationTestBuilder.connect(worldId: Int, channelId: String, compact: Boolean) {
+        val response = client.post("/worlds/$worldId/settings/discord") {
+            addAuthCookie(this, user)
+            contentType(ContentType.Application.FormUrlEncoded)
+            val form = listOf("channel_id" to channelId) + if (compact) listOf("compact" to "true") else emptyList()
+            setBody(form.formUrlEncode())
+        }
+        assertEquals(HttpStatusCode.OK, response.status, response.bodyAsText())
+    }
+
+    private fun deactivate(subscriptionId: Int) {
+        Database.getConnection().use { conn ->
+            conn.prepareStatement("UPDATE webhook_subscriptions SET active = false WHERE id = ?").use { st ->
+                st.setInt(1, subscriptionId)
+                st.executeUpdate()
+            }
+        }
+    }
+
+    private fun activeSubscriptionCount(worldId: Int): Int =
+        countFor("SELECT count(*) FROM webhook_subscriptions WHERE world_id = ? AND active = true", worldId)
+
+    private fun deliveryCountFor(worldId: Int): Int = countFor(
+        """
+        SELECT count(*) FROM webhook_deliveries d
+        JOIN webhook_subscriptions s ON s.id = d.subscription_id
+        WHERE s.world_id = ?
+        """.trimIndent(),
+        worldId,
+    )
+
+    private fun countFor(sql: String, worldId: Int): Int =
+        Database.getConnection().use { conn ->
+            conn.prepareStatement(sql).use { st ->
+                st.setInt(1, worldId)
+                st.executeQuery().use { rs -> rs.next(); rs.getInt(1) }
+            }
+        }
+
+    private fun eventFiltersFor(worldId: Int): List<String> =
+        Database.getConnection().use { conn ->
+            conn.prepareStatement(
+                "SELECT event_filter::text FROM webhook_subscriptions WHERE world_id = ? AND active = true"
+            ).use { st ->
+                st.setInt(1, worldId)
+                st.executeQuery().use { rs -> buildList { while (rs.next()) add(rs.getString(1)) } }
+            }
+        }
 
     private fun addWorldMember(userId: Int, worldId: Int, role: Role, displayName: String) {
         runBlocking {

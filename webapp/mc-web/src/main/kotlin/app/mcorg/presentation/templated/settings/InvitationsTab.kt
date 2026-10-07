@@ -39,7 +39,7 @@ fun DIV.invitationsSection(data: SettingsPageData) {
 fun DIV.sendInvitationForm(worldId: Int) {
     div("send-invitation") {
         h3 { +"Send invitation" }
-        form("send-invitation__form") {
+        form(classes = "send-invitation__form") {
             encType = FormEncType.applicationXWwwFormUrlEncoded
             hxTarget("#invitation-list")
             attributes["hx-target-error"] = ".validation-error-message"

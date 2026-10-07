@@ -43,8 +43,8 @@ Legend: **S** = secret (never in a committed file; Fly secret or GitHub secret).
 | `PREVIEW_PASSWORD` | S | unused | **required** | unused | — | `test.env`, `dev.yml` |
 | `DEMO_USER` | | optional | **required⁷** | optional | none⁴ | `local.env.example`, `test.env`, `dev.fly.toml` |
 | `WEBHOOK_ADMIN_SECRET` | S | optional | optional | optional⁵ | — | Fly secret (currently unset) |
-| `SEAM_DISCORD_URL` | | optional | optional | optional | — | `fly.toml` |
-| `SEAM_WEBHOOK_SHARED_SECRET` | S | optional | optional | optional⁶ | — | Fly secret |
+| `SEAM_DISCORD_URL` | | optional | optional | optional | — | `fly.toml`; commented out in `local.env.example`¹⁰ |
+| `SEAM_WEBHOOK_SHARED_SECRET` | S | optional | optional | optional⁶ | — | Fly secret; commented out in `local.env.example`¹⁰ |
 | `MICROSOFT_LOGIN_BASE_URL` | | optional | optional | optional | `https://login.microsoftonline.com` | `fly.toml`, overridden per-test by WireMock |
 | `XBOX_AUTH_BASE_URL` | | optional | optional | optional | `https://user.auth.xboxlive.com` | `fly.toml` |
 | `XSTS_AUTH_BASE_URL` | | optional | optional | optional | `https://xsts.auth.xboxlive.com` | `fly.toml` |
@@ -113,6 +113,14 @@ should be below `INFO` in production — see MCO-337 and the comments in `logbac
 can only sign in through the demo bypass, which is the normal local path anyway. An unparseable
 value is an error rather than a silent fall back to 8080: outside LOCAL that would bind a port the
 platform is not routing to, which reads as "the deploy is down".
+
+¹⁰ Unset is the right local default: the Discord settings section shows "not configured" and no
+Discord subscription can be created. To work on that section, uncomment the pair in
+`local.env.example` (`https://seam-discord.invalid` plus any secret). The callback-URL check rejects
+localhost and private addresses, so no local listener can stand in for the Worker. `.invalid` never
+resolves, so it passes the check and every delivery fails without reaching a real host. Ten
+consecutive failures then deactivate the subscription, which is harmless locally. Never use the
+production Worker URL or secret locally: local events would post to real Discord channels.
 
 ## Production database URLs: pooler vs direct
 

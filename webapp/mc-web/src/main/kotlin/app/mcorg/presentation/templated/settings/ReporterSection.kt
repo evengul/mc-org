@@ -161,7 +161,7 @@ private fun FlowContent.reporterStatus(tokens: List<ReporterTokenRow>?) {
 private fun FlowContent.generateReporterTokenForm(worldId: Int) {
     div("connect-server") {
         h3 { +"Generate a token" }
-        form("connect-server__form") {
+        form(classes = "connect-server__form") {
             encType = FormEncType.applicationXWwwFormUrlEncoded
             hxTarget("#reporter-section")
             attributes["hx-target-error"] = ".validation-error-message"

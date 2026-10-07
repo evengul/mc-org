@@ -69,12 +69,6 @@
     color: var(--text-primary);
 }
 
-.send-invitation__form {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-4);
-}
-
 .send-invitation__inputs {
     display: flex;
     flex-direction: row;
@@ -165,12 +159,11 @@
     color: var(--text-primary);
 }
 
-.connect-discord__form,
-.connect-server__form {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-4);
-}
+/* .send-invitation__form, .connect-discord__form and .connect-server__form are left unstyled on
+   purpose: plain blocks. A flex column with a gap stacks with .validation-error-message's reserved
+   height and margin and the actions' margin, roughly doubling the space above each button. That
+   rule existed, never applied while the class was mis-set as the form's action, and was dropped
+   (MCO-424) rather than switched on. */
 
 .connect-discord__inputs,
 .connect-server__inputs {

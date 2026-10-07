@@ -191,11 +191,15 @@ to render a new type, `DISCORD_RENDERED_EVENTS` in `DiscordSettingsPipeline.kt` 
 **and existing subscriptions must be updated** — a stored filter is not retroactively changed.
 Other consumers are unaffected and may still subscribe with `["*"]`.
 
-> **Disconnect before reconnecting.** Connecting is a plain `INSERT` with no uniqueness constraint
-> on `(world_id, callback_url)`, so "reconnect the channel to pick up the new filter" taken
-> literally leaves **two** active subscriptions pointed at the same Discord channel — the old
-> `["*"]` one and the new narrow one — and every rendered event is then posted twice. Disconnect
-> first, then connect.
+Reconnecting is safe: a world has at most one **active** subscription per Discord channel (a
+partial unique index on `(world_id, metadata->>'discord_channel_id')`), and connecting a channel
+that already has one updates it in place, filter, compact flag and all, rather than adding a
+second (MCO-424). A deactivated subscription does not count, so a channel that was switched off
+can be connected again.
+
+*(Until MCO-424 this said "disconnect before reconnecting": connecting was a plain `INSERT`, so
+reconnecting to pick up a new filter left two active subscriptions on the channel and every
+rendered event was posted twice.)*
 
 ## Versioning
 

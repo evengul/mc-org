@@ -13,9 +13,9 @@ import app.mcorg.presentation.templated.settings.renderDiscordSectionBody
 import app.mcorg.presentation.utils.getWorldId
 import app.mcorg.presentation.utils.respondHtml
 import app.mcorg.webhook.CreateWebhookSubscriptionInput
-import app.mcorg.webhook.CreateWebhookSubscriptionStep
 import app.mcorg.webhook.DeleteWorldWebhookSubscriptionInput
 import app.mcorg.webhook.DeleteWorldWebhookSubscriptionStep
+import app.mcorg.webhook.UpsertDiscordSubscriptionStep
 import app.mcorg.webhook.WebhookCallbackUrl
 import app.mcorg.webhook.WebhookStore
 import io.ktor.http.HttpStatusCode
@@ -107,7 +107,7 @@ suspend fun ApplicationCall.handleConnectDiscord() {
         ) { WebhookCallbackUrl.isSafe(callbackUrl, requireHttps = AppConfig.env == Production) }.run(channelId)
 
         val metadataJson = """{"discord_channel_id":"$channelId","compact":$compact}"""
-        CreateWebhookSubscriptionStep.run(
+        UpsertDiscordSubscriptionStep.run(
             CreateWebhookSubscriptionInput(
                 worldId = worldId,
                 callbackUrl = callbackUrl,

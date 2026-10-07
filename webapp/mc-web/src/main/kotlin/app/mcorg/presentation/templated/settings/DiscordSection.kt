@@ -85,7 +85,7 @@ fun FlowContent.discordSectionBody(
 private fun FlowContent.connectDiscordForm(worldId: Int) {
     div("connect-discord") {
         h3 { +"Connect a channel" }
-        form("connect-discord__form") {
+        form(classes = "connect-discord__form") {
             encType = FormEncType.applicationXWwwFormUrlEncoded
             hxTarget("#discord-section")
             attributes["hx-target-error"] = ".validation-error-message"
