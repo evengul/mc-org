@@ -64,10 +64,10 @@ import org.slf4j.LoggerFactory
  * | Input                                        | Kept current by                                   |
  * | -------------------------------------------- | ------------------------------------------------- |
  * | World farm supply                            | [InvalidateDemandSuppliedByStep], above           |
- * | World version                                | [InvalidateWorldDemandStep], from `UpdateWorldVersionStep` |
- * | Preferred wood species (two doors)           | [InvalidateWorldDemandStep], from `UpdatePreferredWoodSpeciesStep` |
+ * | World version                                | `UpdateWorldVersionStep`, in the same statement    |
+ * | Preferred wood species (two doors)           | `UpdatePreferredWoodSpeciesStep`, in the same statement |
  * | A project's targets, collected counts, plan overrides and links | Trigger `invalidate_project_demand` (V2_73_0) |
- * | Re-ingested game data for the same version   | Ingestion epoch, hashed and compared ([GetWorldDemandCoverageStep]) |
+ * | Re-ingested game data for the same version   | Ingestion epoch read, hashed, stored and compared ([GetWorldDemandCoverageStep]) |
  * | The planner, cost model, or this derivation  | [DemandFingerprint.REVISION], stored and compared |
  *
  * The project's own inputs were left alone by MCO-404 because the project page re-derives on the
@@ -170,54 +170,6 @@ suspend fun invalidateDemandSuppliedBy(worldId: Int, producerProjectId: Int) {
                 "Demand: could not invalidate stored demand in world {} after a supply change in project {}",
                 worldId, producerProjectId,
             )
-    }
-}
-
-/**
- * Drops the stored demand fingerprint of every project in [worldId] (MCO-578).
- *
- * For the inputs that belong to the world rather than to a project — its Minecraft version and
- * its preferred wood species. Either one reaches every plan in the world, so there is nothing to
- * target: [InvalidateDemandSuppliedByStep]'s join exists because one farm only touches the
- * projects that gather what it makes. Like that step, only `project_demand_state` goes; the rows
- * stay readable until the next roadmap load replaces them.
- *
- * @return the number of projects invalidated.
- */
-data class InvalidateWorldDemandStep(val worldId: Int) : Step<Unit, AppFailure.DatabaseError, Int> {
-
-    override suspend fun process(input: Unit): Result<AppFailure.DatabaseError, Int> =
-        DatabaseSteps.update<Unit>(
-            sql = SafeSQL.delete(
-                """
-                DELETE FROM project_demand_state s
-                USING projects p
-                WHERE p.id = s.project_id
-                  AND p.world_id = ?
-                """.trimIndent()
-            ),
-            parameterSetter = { statement, _ -> statement.setInt(1, worldId) },
-        ).process(Unit)
-}
-
-/**
- * Fire-and-forget wrapper for [InvalidateWorldDemandStep], with the same posture as
- * [invalidateDemandSuppliedBy]: the world change has already committed, and a failed cache drop is
- * logged rather than turned into an error on a settings page.
- *
- * [reason] names the input that changed, for the log line only.
- */
-suspend fun invalidateWorldDemand(worldId: Int, reason: String) {
-    when (val result = InvalidateWorldDemandStep(worldId).process(Unit)) {
-        is Result.Success ->
-            if (result.value > 0) {
-                logger.debug(
-                    "Demand: invalidated {} project(s) in world {} after its {} changed",
-                    result.value, worldId, reason,
-                )
-            }
-        is Result.Failure ->
-            logger.warn("Demand: could not invalidate stored demand in world {} after its {} changed", worldId, reason)
     }
 }
 

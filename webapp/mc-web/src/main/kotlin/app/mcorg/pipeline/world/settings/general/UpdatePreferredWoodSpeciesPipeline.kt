@@ -7,7 +7,6 @@ import app.mcorg.pipeline.Result
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.failure.ValidationFailure
-import app.mcorg.pipeline.resources.invalidateWorldDemand
 import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.templated.dsl.AlertType
 import app.mcorg.presentation.templated.dsl.createAlert
@@ -77,7 +76,8 @@ object ValidatePreferredWoodSpeciesStep : Step<Parameters, AppFailure.Validation
 
 /**
  * Sets the world's tree and, when that is a change, drops every stored plan in it (MCO-578):
- * every wood tag in every plan resolves differently afterwards.
+ * every wood tag in every plan resolves differently afterwards. One statement, for the reason
+ * [UpdateWorldVersionStep] gives.
  *
  * The invalidation lives in the step rather than the handler because there are two doors to this
  * column — world settings, and the drill's "and use this wood everywhere" box (MCO-487) — and a
@@ -86,11 +86,20 @@ object ValidatePreferredWoodSpeciesStep : Step<Parameters, AppFailure.Validation
 data class UpdatePreferredWoodSpeciesStep(val worldId: Int) :
     Step<String?, AppFailure.DatabaseError, String?> {
     override suspend fun process(input: String?): Result<AppFailure.DatabaseError, String?> {
-        val updated = DatabaseSteps.update<String?>(
-            sql = SafeSQL.update("""
-                UPDATE world
-                SET preferred_wood_species = ?, updated_at = CURRENT_TIMESTAMP
-                WHERE id = ? AND preferred_wood_species IS DISTINCT FROM ?
+        return DatabaseSteps.query<String?, Unit>(
+            sql = SafeSQL.with("""
+                WITH changed AS (
+                    UPDATE world
+                    SET preferred_wood_species = ?, updated_at = CURRENT_TIMESTAMP
+                    WHERE id = ? AND preferred_wood_species IS DISTINCT FROM ?
+                    RETURNING id
+                ), dropped AS (
+                    DELETE FROM project_demand_state s
+                    USING projects p, changed c
+                    WHERE p.id = s.project_id AND p.world_id = c.id
+                    RETURNING s.project_id
+                )
+                SELECT (SELECT count(*) FROM dropped) AS dropped
             """),
             parameterSetter = { statement, species ->
                 // setString(null) is fine on Postgres, but setNull is explicit about intent:
@@ -103,9 +112,8 @@ data class UpdatePreferredWoodSpeciesStep(val worldId: Int) :
                     statement.setString(3, species)
                 }
                 statement.setInt(2, worldId)
-            }
-        ).process(input)
-        if (updated is Result.Success && updated.value > 0) invalidateWorldDemand(worldId, "wood species")
-        return updated.map { input }
+            },
+            resultMapper = { },
+        ).process(input).map { input }
     }
 }
