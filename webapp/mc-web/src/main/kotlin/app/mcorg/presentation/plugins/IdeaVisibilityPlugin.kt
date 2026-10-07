@@ -8,9 +8,7 @@ import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.presentation.handler.defaultHandleError
 import app.mcorg.presentation.utils.getIdeaId
 import app.mcorg.presentation.utils.getUser
-import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.createRouteScopedPlugin
-import io.ktor.server.response.respond
 
 /**
  * A private idea is visible only to its creator (MCO-291).
@@ -24,7 +22,7 @@ import io.ktor.server.response.respond
  * Must be installed *after* IdeaParamPlugin, which is what puts the id on the call.
  */
 val IdeaVisibilityPlugin = createRouteScopedPlugin("IdeaVisibilityPlugin") {
-    onCall { call ->
+    onUnansweredCall { call ->
         val ideaId = call.getIdeaId()
         val user = call.getUser()
 
@@ -45,7 +43,7 @@ val IdeaVisibilityPlugin = createRouteScopedPlugin("IdeaVisibilityPlugin") {
                         createdBy == user.id ||
                         user.isSuperAdmin
                 if (!visible) {
-                    call.respond(HttpStatusCode.NotFound, "That page doesn't exist or has moved.")
+                    call.defaultHandleError(AppFailure.DatabaseError.NotFound)
                 }
             }
         }

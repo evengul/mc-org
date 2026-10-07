@@ -9,8 +9,8 @@ import app.mcorg.presentation.utils.getUser
 import io.ktor.server.application.createRouteScopedPlugin
 
 val UpdateActiveWorldPlugin = createRouteScopedPlugin("UpdateActiveWorldPlugin") {
-    onCall { call ->
-        val worldId = call.parameters["worldId"]?.toIntOrNull() ?: return@onCall
+    onUnansweredCall { call ->
+        val worldId = call.parameters["worldId"]?.toIntOrNull() ?: return@onUnansweredCall
         val user = call.getUser()
         if (user.activeWorldId != worldId) {
             pipelineResult<AppFailure, Unit> {

@@ -138,9 +138,10 @@ class ErrorBoundaryLoggingIT {
         assertEquals(HttpStatusCode.NotFound, response.status)
         assertEquals(Level.INFO, events().single().level, "a deleted world is not a crash")
 
-        // The copy used to say "an unexpected error occurred" on a 404.
+        // The copy used to say "an unexpected error occurred" on a 404. A page load gets the 404
+        // page and an HTMX request the "Not found" alert (MCO-158); either has to read as one.
         val body = response.bodyAsText()
-        assertTrue("Not found" in body, "should read as not found; was: $body")
+        assertTrue(body.contains("not found", ignoreCase = true), "should read as not found; was: $body")
         assertFalse("unexpected error" in body, "a 404 should not claim something broke; was: $body")
     }
 

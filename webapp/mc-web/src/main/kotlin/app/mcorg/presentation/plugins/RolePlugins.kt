@@ -14,6 +14,7 @@ import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.world.ValidateWorldMemberRole
 import app.mcorg.presentation.consts.AUTH_COOKIE
 import app.mcorg.presentation.consts.ISSUER
+import app.mcorg.presentation.handler.respondRefusal
 import app.mcorg.presentation.templated.error.bannedPage
 import app.mcorg.presentation.utils.getIdeaCommentId
 import app.mcorg.presentation.utils.getIdeaId
@@ -26,8 +27,12 @@ import io.ktor.server.request.*
 import io.ktor.server.response.*
 import org.slf4j.LoggerFactory
 
+/** A 403 the person can see: the alert under HTMX, the forbidden page on a page load. */
+internal suspend fun ApplicationCall.forbid(reason: String) =
+    respondRefusal(HttpStatusCode.Forbidden, "Not Authorized", reason, alertId = "not-authorized-error")
+
 val AdminPlugin = createRouteScopedPlugin("AdminPlugin") {
-    onCall {
+    onUnansweredCall {
         if (!it.getUser().isSuperAdmin) {
             it.respond(HttpStatusCode.NotFound)
         }
@@ -35,13 +40,13 @@ val AdminPlugin = createRouteScopedPlugin("AdminPlugin") {
 }
 
 val WorldAdminPlugin = createRouteScopedPlugin("WorldAdminPlugin") {
-    onCall {
+    onUnansweredCall {
         val user = it.getUser()
         val worldId = it.getWorldId()
 
         val result = ValidateWorldMemberRole<Unit>(user, Role.ADMIN, worldId).process(Unit)
         if (result is Result.Failure && result.error is AppFailure.AuthError.NotAuthorized) {
-            it.respond(HttpStatusCode.Forbidden, "You don't have permission to access this world.")
+            it.forbid("You don't have permission to access this world.")
         }
     }
 }
@@ -55,32 +60,32 @@ val WorldAdminPlugin = createRouteScopedPlugin("WorldAdminPlugin") {
  * tier (compare [WorldAdminPlugin] / [WorldOwnerPlugin] for elevated-role gates).
  */
 val WorldParticipantPlugin = createRouteScopedPlugin("WorldParticipantPlugin") {
-    onCall {
+    onUnansweredCall {
         val user = it.getUser()
         val worldId = it.getWorldId()
 
         val result = ValidateWorldMemberRole<Unit>(user, Role.MEMBER, worldId).process(Unit)
         if (result is Result.Failure && result.error is AppFailure.AuthError.NotAuthorized) {
-            it.respond(HttpStatusCode.Forbidden, "You don't have permission to access this world.")
+            it.forbid("You don't have permission to access this world.")
         }
     }
 }
 
 val WorldOwnerPlugin = createRouteScopedPlugin("WorldOwnerPlugin") {
-    onCall {
+    onUnansweredCall {
         val user = it.getUser()
         val worldId = it.getWorldId()
 
         val result = ValidateWorldMemberRole<Unit>(user, Role.OWNER, worldId).process(Unit)
         if (result is Result.Failure && result.error is AppFailure.AuthError.NotAuthorized) {
-            it.respond(HttpStatusCode.Forbidden, "Only the world owner can perform this action.")
+            it.forbid("Only the world owner can perform this action.")
         }
     }
 }
 
 val BannedPlugin = createRouteScopedPlugin("BannedPlugin") {
-    onCall {
-        val userId = runCatching { it.getUser().id }.getOrNull() ?: return@onCall
+    onUnansweredCall {
+        val userId = runCatching { it.getUser().id }.getOrNull() ?: return@onUnansweredCall
 
         // Check cache first
         val cached = CacheManager.bannedUsers.getIfPresent(userId)
@@ -88,7 +93,7 @@ val BannedPlugin = createRouteScopedPlugin("BannedPlugin") {
             if (cached) {
                 it.respondHtml(bannedPage(), HttpStatusCode.Forbidden)
             }
-            return@onCall
+            return@onUnansweredCall
         }
 
         // Cache miss - query DB
@@ -120,23 +125,15 @@ val BannedPlugin = createRouteScopedPlugin("BannedPlugin") {
  * authorization is visible from the route tree. Install it after [IdeaCommentParamPlugin], which
  * establishes that the comment is reachable under this idea in the first place.
  *
- * That ordering does *not* mean this body can assume the param plugin succeeded. Ktor's
- * `call.isHandled` guard suppresses the route **handler** once something has responded, but not
- * sibling route-scoped `onCall` interceptors — so when the param plugin 404s a mismatched comment
- * id, this still runs. Before the guard below, `getIdeaCommentId()` then threw
- * `IllegalStateException: No instance for key AttributeKey: IdeaCommentParam` on every such
- * request: not an authorization bypass (the handler stays suppressed and the comment survives),
- * but an unhandled exception and a stack trace per request, trivially driven by any signed-in
- * user asking for a comment id that does not belong to the idea.
+ * That ordering does *not* by itself mean this body can assume the param plugin succeeded: a
+ * plugin's `onCall` runs even after an earlier one has refused. When the param plugin 404'd a
+ * mismatched comment id, `getIdeaCommentId()` here threw `No instance for key` on every such
+ * request. [onUnansweredCall] is what makes the assumption hold.
  */
 val IdeaCommentAuthorPlugin = createRouteScopedPlugin("IdeaCommentAuthorPlugin") {
-    onCall { call ->
-        // Nothing to authorize if an earlier plugin already answered — and its attributes may
-        // never have been set.
-        if (call.isHandled) return@onCall
-
+    onUnansweredCall { call ->
         val user = call.getUser()
-        if (user.isSuperAdmin) return@onCall
+        if (user.isSuperAdmin) return@onUnansweredCall
 
         val commentId = call.getIdeaCommentId()
         val ideaId = call.getIdeaId()
@@ -162,13 +159,13 @@ val IdeaCommentAuthorPlugin = createRouteScopedPlugin("IdeaCommentAuthorPlugin")
 
         // Fails closed: a database error denies rather than admits.
         if (permitted !is Result.Success || !permitted.value) {
-            call.respond(HttpStatusCode.Forbidden, "You can only delete your own comments.")
+            call.forbid("You can only delete your own comments.")
         }
     }
 }
 
 val DemoUserPlugin = createRouteScopedPlugin("DemoUserPlugin") {
-    onCall {
+    onUnansweredCall {
         if (AppConfig.env == Production) {
             val user = GetTokenStep(AUTH_COOKIE)
                 .process(it.request.cookies)
@@ -182,7 +179,7 @@ val DemoUserPlugin = createRouteScopedPlugin("DemoUserPlugin") {
                 val logger = LoggerFactory.getLogger("DemoUserPlugin")
                 // path(), not uri() (MCO-339): uri includes the query string, path does not.
                 logger.warn("Blocked ${it.request.httpMethod} request from demo user '${user.minecraftUsername}' to ${it.request.path()}")
-                it.respond(HttpStatusCode.Forbidden, "Demo users are not allowed to ${it.request.httpMethod} requests.")
+                it.forbid("The demo account can look around, but it can't change anything.")
             }
         }
     }

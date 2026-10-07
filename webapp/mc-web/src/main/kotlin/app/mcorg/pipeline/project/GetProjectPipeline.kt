@@ -36,7 +36,6 @@ import app.mcorg.presentation.utils.getProjectId
 import app.mcorg.presentation.utils.getUser
 import app.mcorg.presentation.utils.getWorldId
 import app.mcorg.presentation.utils.getWorldName
-import app.mcorg.presentation.utils.respondBadRequest
 import app.mcorg.presentation.utils.respondHtml
 import io.ktor.server.application.ApplicationCall
 import java.net.URLDecoder
@@ -66,7 +65,7 @@ suspend fun ApplicationCall.handleGetProject() {
     val tasks = when (val result = SearchTasksStep(projectId).process(SearchTasksInput(completionStatus = "ALL"))) {
         is Result.Success -> result.value
         is Result.Failure -> {
-            respondBadRequest("Failed to load tasks")
+            defaultHandleError(result.error)
             return
         }
     }

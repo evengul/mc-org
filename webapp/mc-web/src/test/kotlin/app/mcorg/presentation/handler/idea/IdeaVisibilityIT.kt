@@ -17,7 +17,9 @@ import app.mcorg.presentation.plugins.IdeaVisibilityPlugin
 import app.mcorg.test.WithUser
 import app.mcorg.test.postgres.DatabaseTestExtension
 import io.ktor.client.request.get
+import io.ktor.client.request.header
 import io.ktor.client.request.patch
+import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.routing.get
 import io.ktor.server.routing.patch
@@ -30,6 +32,7 @@ import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.api.extension.ExtendWith
+import kotlin.test.assertContains
 import kotlin.test.assertEquals
 
 /**
@@ -112,6 +115,28 @@ class IdeaVisibilityIT : WithUser() {
 
         assertEquals(HttpStatusCode.Forbidden, response.status)
         assertEquals(IdeaVisibility.PRIVATE, visibilityOf(ideaId))
+    }
+
+    @Test
+    fun `refusals reach the screen as alerts under HTMX`() = testApplication {
+        // MCO-158. The publish toggle and the idea fragments are HTMX requests, and htmx swaps a
+        // 4xx only when the response names a target; both refusals used to be bare text.
+        val mine = createIdea(IdeaVisibility.PRIVATE, user)
+        val theirs = createIdea(IdeaVisibility.PRIVATE, createExtraUser())
+        installIdeaRoutes()
+
+        val forbidden = client.patch("/ideas/$mine/public") { addAuthCookie(this); header("HX-Request", "true") }
+        // A non-publisher on someone else's private idea: the visibility gate answers, and the
+        // publisher gate behind it must not answer a second time.
+        val hidden = client.patch("/ideas/$theirs/public") { addAuthCookie(this); header("HX-Request", "true") }
+
+        assertEquals(HttpStatusCode.Forbidden, forbidden.status)
+        assertEquals("#alert-container", forbidden.headers["HX-Retarget"])
+        assertContains(forbidden.bodyAsText(), "publish ideas to the hub")
+
+        assertEquals(HttpStatusCode.NotFound, hidden.status)
+        assertEquals("#alert-container", hidden.headers["HX-Retarget"])
+        assertContains(hidden.bodyAsText(), "not-found-error")
     }
 
     @Test

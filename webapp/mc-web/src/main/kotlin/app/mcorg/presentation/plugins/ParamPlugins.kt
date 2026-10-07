@@ -8,7 +8,6 @@ import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.presentation.handler.defaultHandleError
 import app.mcorg.presentation.utils.getProjectId
 import app.mcorg.presentation.utils.getWorldId
-import app.mcorg.presentation.utils.respondBadRequest
 import app.mcorg.presentation.utils.setIdeaCommentId
 import app.mcorg.presentation.utils.setIdeaId
 import app.mcorg.presentation.utils.setInviteId
@@ -22,11 +21,16 @@ import app.mcorg.presentation.utils.setWorldMemberId
 import com.github.benmanes.caffeine.cache.Cache
 import io.ktor.server.application.createRouteScopedPlugin
 
+/*
+ * An id that is not a number is answered exactly like one that does not exist (MCO-158). Nothing
+ * lives at `/worlds/1/projects/settings`, and a 400 tells the person who typed it nothing.
+ */
+
 val WorldParamPlugin = createRouteScopedPlugin("WorldParamPlugin") {
-    onCall { call ->
+    onUnansweredCall { call ->
         val worldId = call.parameters["worldId"]?.toIntOrNull()
         if (worldId == null) {
-            call.respondBadRequest("Invalid or missing world ID")
+            call.defaultHandleError(AppFailure.DatabaseError.NotFound)
         } else {
             val checkResult = cachedEnsureExists(
                 CacheManager.worldExists,
@@ -46,11 +50,11 @@ val WorldParamPlugin = createRouteScopedPlugin("WorldParamPlugin") {
 }
 
 val ProjectParamPlugin = createRouteScopedPlugin("ParamPlugin") {
-    onCall { call ->
+    onUnansweredCall { call ->
         val worldId = call.getWorldId()
         val projectId = call.parameters["projectId"]?.toIntOrNull()
         if (projectId == null) {
-            call.respondBadRequest("Invalid or missing project ID")
+            call.defaultHandleError(AppFailure.DatabaseError.NotFound)
         } else {
             val cacheKey = "$worldId:$projectId"
             val checkResult = cachedEnsureExists(
@@ -71,11 +75,11 @@ val ProjectParamPlugin = createRouteScopedPlugin("ParamPlugin") {
 }
 
 val ActionTaskParamPlugin = createRouteScopedPlugin("TaskParamPlugin") {
-    onCall { call ->
+    onUnansweredCall { call ->
         val projectId = call.getProjectId()
         val taskId = call.parameters["taskId"]?.toIntOrNull()
         if (taskId == null) {
-            call.respondBadRequest("Invalid or missing task ID")
+            call.defaultHandleError(AppFailure.DatabaseError.NotFound)
         } else {
             val cacheKey = "$projectId:$taskId"
             val checkResult = cachedEnsureExists(
@@ -96,11 +100,11 @@ val ActionTaskParamPlugin = createRouteScopedPlugin("TaskParamPlugin") {
 }
 
 val ResourceGatheringIdParamPlugin = createRouteScopedPlugin("ResourceGatheringIdParamPlugin") {
-    onCall { call ->
+    onUnansweredCall { call ->
         val projectId = call.getProjectId()
         val resourceGatheringId = call.parameters["resourceGatheringId"]?.toIntOrNull()
         if (resourceGatheringId == null) {
-            call.respondBadRequest("Invalid or missing resource gathering ID")
+            call.defaultHandleError(AppFailure.DatabaseError.NotFound)
         } else {
             val cacheKey = "$projectId:$resourceGatheringId"
             val checkResult = cachedEnsureExists(
@@ -121,10 +125,10 @@ val ResourceGatheringIdParamPlugin = createRouteScopedPlugin("ResourceGatheringI
 }
 
 val InviteParamPlugin = createRouteScopedPlugin("InviteParamPlugin") {
-    onCall { call ->
+    onUnansweredCall { call ->
         val inviteId = call.parameters["inviteId"]?.toIntOrNull()
         if (inviteId == null) {
-            call.respondBadRequest("Invalid or missing invite ID")
+            call.defaultHandleError(AppFailure.DatabaseError.NotFound)
         } else {
             val checkResult = cachedEnsureExists(
                 CacheManager.inviteExists,
@@ -144,11 +148,11 @@ val InviteParamPlugin = createRouteScopedPlugin("InviteParamPlugin") {
 }
 
 val WorldMemberParamPlugin = createRouteScopedPlugin("MemberParamPlugin") {
-    onCall { call ->
+    onUnansweredCall { call ->
         val worldId = call.getWorldId()
         val memberId = call.parameters["memberId"]?.toIntOrNull()
         if (memberId == null) {
-            call.respondBadRequest("Invalid or missing member ID")
+            call.defaultHandleError(AppFailure.DatabaseError.NotFound)
         } else {
             val cacheKey = "$memberId:$worldId"
             val checkResult = cachedEnsureExists(
@@ -169,11 +173,11 @@ val WorldMemberParamPlugin = createRouteScopedPlugin("MemberParamPlugin") {
 }
 
 val ProjectProductionItemParamPlugin = createRouteScopedPlugin("ProjectProductionItemParamPlugin") {
-    onCall { call ->
+    onUnansweredCall { call ->
         val projectId = call.getProjectId()
         val itemId = call.parameters["productionId"]?.toIntOrNull()
         if (itemId == null) {
-            call.respondBadRequest("Invalid or missing project production item ID")
+            call.defaultHandleError(AppFailure.DatabaseError.NotFound)
         } else {
             val cacheKey = "$itemId:$projectId"
             val checkResult = cachedEnsureExists(
@@ -194,11 +198,11 @@ val ProjectProductionItemParamPlugin = createRouteScopedPlugin("ProjectProductio
 }
 
 val ProjectDependencyItemPlugin = createRouteScopedPlugin("ProjectDependencyItemPlugin") {
-    onCall { call ->
+    onUnansweredCall { call ->
         val projectId = call.getProjectId()
         val dependencyId = call.parameters["dependencyId"]?.toIntOrNull()
         if (dependencyId == null) {
-            call.respondBadRequest("Invalid or missing project dependency ID")
+            call.defaultHandleError(AppFailure.DatabaseError.NotFound)
         } else {
             val cacheKey = "$projectId:$dependencyId"
             val checkResult = cachedEnsureExists(
@@ -219,10 +223,10 @@ val ProjectDependencyItemPlugin = createRouteScopedPlugin("ProjectDependencyItem
 }
 
 val IdeaParamPlugin = createRouteScopedPlugin("IdeaParamPlugin") {
-    onCall { call ->
+    onUnansweredCall { call ->
         val ideaId = call.parameters["ideaId"]?.toIntOrNull()
         if (ideaId == null) {
-            call.respondBadRequest("Invalid or missing idea ID")
+            call.defaultHandleError(AppFailure.DatabaseError.NotFound)
         } else {
             val checkResult = cachedEnsureExists(
                 CacheManager.ideaExists,
@@ -249,11 +253,11 @@ val IdeaParamPlugin = createRouteScopedPlugin("IdeaParamPlugin") {
  * only bounds *reachability* — who may act on a comment they can reach is [IdeaCommentAuthorPlugin].
  */
 val IdeaCommentParamPlugin = createRouteScopedPlugin("IdeaCommentParamPlugin") {
-    onCall { call ->
+    onUnansweredCall { call ->
         val commentId = call.parameters["commentId"]?.toIntOrNull()
         val ideaId = call.parameters["ideaId"]?.toIntOrNull()
         if (commentId == null || ideaId == null) {
-            call.respondBadRequest("Invalid or missing idea comment ID")
+            call.defaultHandleError(AppFailure.DatabaseError.NotFound)
         } else {
             val checkResult = cachedEnsureExists(
                 CacheManager.ideaCommentExists,
