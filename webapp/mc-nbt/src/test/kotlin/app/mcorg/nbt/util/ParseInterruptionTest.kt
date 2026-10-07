@@ -62,10 +62,37 @@ class ParseInterruptionTest {
     }
 
     @Test
-    fun `an interrupted thread stops reading compounds`() {
+    fun `an interrupted thread stops reading the file`() {
         Thread.currentThread().interrupt()
         assertFailsWith<InterruptedException> { LitematicaReader.readLitematica(schematic) }
         assertFalse(Thread.currentThread().isInterrupted, "the flag is consumed by the throw, as for any InterruptedException")
+    }
+
+    @Test
+    fun `an interrupted thread stops reading a compound`() {
+        // Compounds only — no list or array whose own check would notice first.
+        val compound = nbt {
+            writeByte(10); writeUTF("")
+            repeat(1_000) { writeByte(3); writeUTF("k$it"); writeInt(it) }
+            writeByte(0)
+        }
+        Thread.currentThread().interrupt()
+        assertFailsWith<InterruptedException> {
+            BinaryNbtDeserializer<Any>(CompressionType.NONE).fromBytes(compound)
+        }
+    }
+
+    @Test
+    fun `an interrupted thread stops reading a list`() {
+        val list = nbt {
+            writeByte(9); writeUTF("")
+            writeByte(3); writeInt(1_000)
+            repeat(1_000) { writeInt(it) }
+        }
+        Thread.currentThread().interrupt()
+        assertFailsWith<InterruptedException> {
+            BinaryNbtDeserializer<Any>(CompressionType.NONE).fromBytes(list)
+        }
     }
 
     @Test
