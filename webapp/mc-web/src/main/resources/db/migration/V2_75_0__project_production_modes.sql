@@ -31,17 +31,24 @@ CREATE TABLE project_production_modes
     name       TEXT    NOT NULL,
     position   INT     NOT NULL DEFAULT 0,
     active     BOOLEAN NOT NULL DEFAULT FALSE,
-    UNIQUE (project_id, name)
+    UNIQUE (project_id, name),
+    -- Only so the composite foreign key below has something to reference.
+    UNIQUE (id, project_id)
 );
 
--- Exactly one active mode is the application's job (a switch is one UPDATE that sets it); at most
--- one is the database's.
+-- Exactly one active mode is the application's job (a switch clears the old one, then sets the
+-- new one, under a lock); at most one is the database's.
 CREATE UNIQUE INDEX project_production_modes_one_active_idx
     ON project_production_modes (project_id)
     WHERE active;
 
+-- A production row can only point at a mode of its own project. Composite rather than on mode_id
+-- alone: otherwise a row in project X could name a mode of project Y, and Y's switch would quietly
+-- change X's supply. MATCH SIMPLE (the default) lets mode_id be NULL — the mode-less list.
 ALTER TABLE project_productions
-    ADD COLUMN mode_id INT NULL REFERENCES project_production_modes (id) ON DELETE CASCADE;
+    ADD COLUMN mode_id INT NULL,
+    ADD CONSTRAINT project_productions_mode_fk
+        FOREIGN KEY (mode_id, project_id) REFERENCES project_production_modes (id, project_id) ON DELETE CASCADE;
 
 CREATE INDEX project_productions_mode_id_idx ON project_productions (mode_id);
 
@@ -67,6 +74,9 @@ CREATE UNIQUE INDEX project_productions_mode_item_idx
 -- and each restating the filter is how two of them would come to disagree. The few readers that
 -- want every mode — "could this farm make X if switched", "which stored ids does a version change
 -- strand" — read project_productions directly.
+--
+-- Postgres expands `pp.*` once, here: a column added to project_productions later does not appear
+-- in this view until the migration that adds it also recreates the view.
 CREATE VIEW active_project_productions AS
 SELECT pp.*
 FROM project_productions pp

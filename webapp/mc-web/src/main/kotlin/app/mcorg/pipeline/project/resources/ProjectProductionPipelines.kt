@@ -37,7 +37,7 @@ data class ProjectProductionInput(
 
 /**
  * MCO-297 — the production editor endpoints. POST is an upsert on the item within the list the
- * project supplies from (V2_72_0's partial indexes; see [UpsertProjectProductionStep]): adding an item that is already produced updates its
+ * project supplies from (V2_74_0's partial indexes; see [UpsertProjectProductionStep]): adding an item that is already produced updates its
  * rate instead of duplicating the row, so inline rate edits and the add form share one
  * endpoint. Rate is optional and display-only under unbounded-supply V1; 0 means "unknown".
  */
@@ -83,7 +83,7 @@ internal data class ValidateProjectProductionInputStep(val validItems: List<Item
  * is a statement about oak mode, and must not grow a mode-less row beside the modes.
  *
  * Two statements rather than one because the conflict target differs: each list's items are unique
- * through its own partial index (V2_72_0), and ON CONFLICT has to name the one it means.
+ * through its own partial index (V2_74_0), and ON CONFLICT has to name the one it means.
  */
 internal data class UpsertProjectProductionStep(val projectId: Int) :
     Step<ProjectProductionInput, AppFailure.DatabaseError, Int> {
@@ -156,6 +156,14 @@ internal data class ValidateProductionModeStep(val projectId: Int) :
  * Two statements in one transaction rather than a single `SET active = (id = ?)`: the one-active
  * rule is a partial unique index, and Postgres checks a non-deferrable index row by row, so a single
  * UPDATE that reaches the new mode before the old one fails on a state that would never commit.
+ *
+ * The project's mode rows are locked first. Two members switching the same farm at once would
+ * otherwise interleave under READ COMMITTED: the second clear waits on the first's row, never sees
+ * the mode the first just turned on, and the second set then trips the index. With the lock the
+ * second switch starts after the first commits, and simply wins.
+ *
+ * Exactly one row must turn on, or the whole switch rolls back — a farm with modes and none
+ * running would fall through to nothing in [GetResourceProductionStep]'s view.
  */
 internal data class SwitchProductionModeStep(val projectId: Int) :
     Step<Int, AppFailure.DatabaseError, Int> {
@@ -163,13 +171,20 @@ internal data class SwitchProductionModeStep(val projectId: Int) :
         DatabaseSteps.transaction { connection ->
             object : Step<Int, AppFailure.DatabaseError, Int> {
                 override suspend fun process(input: Int): Result<AppFailure.DatabaseError, Int> {
+                    val locked = DatabaseSteps.query<Int, Int>(
+                        sql = SafeSQL.select("SELECT id FROM project_production_modes WHERE project_id = ? FOR UPDATE"),
+                        parameterSetter = { stmt, _ -> stmt.setInt(1, projectId) },
+                        resultMapper = { rs -> var n = 0; while (rs.next()) n++; n },
+                        transactionConnection = connection,
+                    ).process(input)
+                    if (locked is Result.Failure) return locked
                     val cleared = DatabaseSteps.update<Int>(
                         sql = SafeSQL.update("UPDATE project_production_modes SET active = FALSE WHERE project_id = ? AND active"),
                         parameterSetter = { stmt, _ -> stmt.setInt(1, projectId) },
                         connection,
                     ).process(input)
                     if (cleared is Result.Failure) return cleared
-                    return DatabaseSteps.update<Int>(
+                    val set = DatabaseSteps.update<Int>(
                         sql = SafeSQL.update("UPDATE project_production_modes SET active = TRUE WHERE id = ? AND project_id = ?"),
                         parameterSetter = { stmt, modeId ->
                             stmt.setInt(1, modeId)
@@ -177,6 +192,7 @@ internal data class SwitchProductionModeStep(val projectId: Int) :
                         },
                         connection,
                     ).process(input)
+                    return if (set is Result.Success && set.value != 1) Result.failure(AppFailure.DatabaseError.NotFound) else set
                 }
             }
         }.process(input)
@@ -210,15 +226,20 @@ internal data class DeleteProjectProductionStep(val projectId: Int, val invalida
         }.process(input)
 }
 
-/** Everything the production panel and chip draw for one project. */
+/**
+ * Everything the production panel and chip draw for one project, in two queries: a project
+ * without modes reads its one list, a project with modes reads every mode's rows and takes the
+ * running mode's from them. Production has one call thread, so round trips are worth counting.
+ */
 internal object GetProductionsViewStep : Step<Int, AppFailure.DatabaseError, ProductionsView> {
     override suspend fun process(input: Int): Result<AppFailure.DatabaseError, ProductionsView> =
-        GetResourceProductionStep.process(input).flatMap { productions ->
-            GetProjectProductionModesStep.process(input).flatMap { modes ->
-                if (modes.isEmpty()) {
-                    Result.success(ProductionsView(productions))
-                } else {
-                    GetModeProductionsStep.process(input).map { all -> ProductionsView(productions, modes, all) }
+        GetProjectProductionModesStep.process(input).flatMap { modes ->
+            val running = modes.firstOrNull { it.active }
+            if (modes.isEmpty()) {
+                GetResourceProductionStep.process(input).map { ProductionsView(it) }
+            } else {
+                GetModeProductionsStep.process(input).map { all ->
+                    ProductionsView(all.filter { it.modeId == running?.id }, modes, all)
                 }
             }
         }

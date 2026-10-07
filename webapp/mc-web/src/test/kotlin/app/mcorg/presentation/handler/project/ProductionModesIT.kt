@@ -11,6 +11,7 @@ import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.Result
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.minecraft.StoreMinecraftDataStep
+import app.mcorg.pipeline.project.commonsteps.GetProjectListItemStep
 import app.mcorg.pipeline.project.resources.handleGetProductionsPanel
 import app.mcorg.pipeline.project.resources.handleSwitchProductionMode
 import app.mcorg.pipeline.project.resources.handleUpsertProjectProduction
@@ -131,6 +132,35 @@ class ProductionModesIT : WithUser() {
         assertTrue(oakLog.id in supplied, "Oak Mode is active")
         assertFalse(cherryLog.id in supplied, "Cherry Mode is not, so cherry logs are not on offer")
         assertTrue(bamboo.id in supplied, "a hand-recorded farm with no modes supplies its one list")
+    }
+
+    @Test
+    fun `the project list counts what the farm makes now, not every mode's rows`() {
+        val item = runBlocking { GetProjectListItemStep.process(treeFarmId) }
+
+        // Oak Mode makes two items; the two modes together hold four rows.
+        assertEquals(2, (item as Result.Success).value.producesCount)
+    }
+
+    @Test
+    fun `a production row cannot point at another project's mode`() {
+        val result = runBlocking {
+            DatabaseSteps.update<Unit>(
+                sql = SafeSQL.insert(
+                    "INSERT INTO project_productions (project_id, mode_id, item_id, name, rate_per_hour) VALUES (?, ?, ?, ?, ?)"
+                ),
+                parameterSetter = { stmt, _ ->
+                    stmt.setInt(1, bambooFarmId)
+                    stmt.setInt(2, oakModeId)
+                    stmt.setString(3, poppy.id)
+                    stmt.setString(4, poppy.name)
+                    stmt.setInt(5, 1)
+                }
+            ).process(Unit)
+        }
+
+        // Otherwise the tree farm's switch would quietly turn the bamboo farm's row on and off.
+        assertIs<Result.Failure<*>>(result)
     }
 
     // ---- switching --------------------------------------------------------------------------
