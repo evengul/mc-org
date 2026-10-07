@@ -153,8 +153,9 @@ dialog.modal-backdrop::backdrop {
 
 /* --- HTMX indicator (generic — hx-indicator="#id") ---
    htmx toggles the "htmx-request" class on the indicator element while its request is
-   in flight; it does not ship default visibility CSS, so this is the one utility that
-   defines it. Hidden by default, faded in during the request. */
+   in flight. Its own indicator CSS is switched off (includeIndicatorCSS, Layout.kt), since
+   that one also sets visibility:hidden and would hide .is-uploading below, so this is the
+   one utility that defines it. Hidden by default, faded in during the request. */
 .htmx-indicator {
     opacity: 0;
     transition: opacity 150ms ease-in-out;

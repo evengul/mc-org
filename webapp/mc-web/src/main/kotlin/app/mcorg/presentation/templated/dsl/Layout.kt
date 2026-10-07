@@ -6,7 +6,8 @@ import kotlinx.html.h1
 import kotlinx.html.p
 import kotlinx.html.stream.createHTML
 
-internal const val HTMX_CONFIG = """{"implicitInheritance": true, "noSwap": [204, 304, "4xx", "5xx"]}"""
+internal const val HTMX_CONFIG =
+    """{"implicitInheritance": true, "noSwap": [204, 304, "4xx", "5xx"], "includeIndicatorCSS": false}"""
 
 fun pageShell(
     pageTitle: String = "Seam",
@@ -56,13 +57,16 @@ fun pageShell(
             }
             // Read once, when htmx loads, so it has to come before the script.
             //
-            // implicitInheritance: htmx 4 made attribute inheritance opt-in (`hx-target:inherited`);
-            // this keeps htmx 2's behaviour until the containers that rely on it are audited.
+            // implicitInheritance: htmx 4 made attribute inheritance opt-in (`hx-target:inherited`).
+            // Containers here still set hx-target/hx-swap for the elements inside them.
             //
             // noSwap: htmx 4 swaps a 4xx/5xx into the target like any other response. Listing them
             // keeps htmx 2's "an error swaps nothing", so an error body cannot land in a list row.
             // Out-of-band swaps still run, which is how refusal alerts and field messages arrive
             // (ErrorHandler.kt), and an element's own `hx-status:<code>` still overrides it.
+            //
+            // includeIndicatorCSS: htmx's injected indicator rule also sets visibility:hidden,
+            // which modal.css's own `.htmx-indicator` utility does not undo.
             meta {
                 name = "htmx-config"
                 content = HTMX_CONFIG

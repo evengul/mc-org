@@ -118,6 +118,13 @@ class LayoutTest {
     }
 
     @Test
+    fun `htmx leaves the indicator CSS to modal css`() {
+        // htmx 4's injected rule sets visibility:hidden, which kept the schematic upload's
+        // .is-uploading spinner invisible.
+        assertTrue(HTMX_CONFIG.contains("\"includeIndicatorCSS\": false"), HTMX_CONFIG)
+    }
+
+    @Test
     fun `pageShell configures htmx before the htmx script reads it`() {
         val html = pageShell { div { } }
         val config = html.indexOf("name=\"htmx-config\"")
