@@ -118,7 +118,7 @@ data class CreateWebhookSubscriptionInput(
 /**
  * Inserts a subscription as given. Used by the operator endpoint and by tests.
  *
- * A second active subscription for a Discord channel the world already has fails on V2_74_0's
+ * A second active subscription for a Discord channel the world already has fails on V2_75_0's
  * unique index with [AppFailure.DatabaseError.IntegrityConstraintError]. That is deliberate: this
  * path replaces nothing, so it cannot quietly repoint a user's connection. Connecting from world
  * settings goes through [UpsertDiscordSubscriptionStep] instead.
@@ -143,7 +143,7 @@ object CreateWebhookSubscriptionStep : Step<CreateWebhookSubscriptionInput, AppF
  * place and returns its id (MCO-424). Reconnecting a channel is how a user picks up a new event
  * filter (`documentation/webhook-contract.md`), and a plain INSERT made that post every event twice.
  *
- * The conflict target is V2_74_0's partial unique index on the metadata's `discord_channel_id`,
+ * The conflict target is V2_75_0's partial unique index on the metadata's `discord_channel_id`,
  * so the input's metadata must carry it.
  */
 object UpsertDiscordSubscriptionStep : Step<CreateWebhookSubscriptionInput, AppFailure.DatabaseError, Int> {
