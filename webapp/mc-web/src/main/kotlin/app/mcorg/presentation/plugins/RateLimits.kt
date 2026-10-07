@@ -46,8 +46,8 @@ enum class SeamRateLimit(val limit: Int, val period: Duration) {
     DEVICE_CODE_POLL(limit = 30, period = 1.minutes),
 
     /**
-     * The sign-in page and the Microsoft callback. A real sign-in is two or three requests; each
-     * bogus callback costs an outbound round trip to Microsoft.
+     * The sign-in callbacks, not the sign-in page. A real sign-in is one callback; each bogus one
+     * costs an outbound round trip to Microsoft (or, for the demo bypass, a user lookup).
      */
     SIGN_IN(limit = 20, period = 1.minutes),
 

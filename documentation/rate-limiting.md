@@ -15,7 +15,7 @@ the bill this project has been burned by before), or an outbound call.
 | --- | --- | --- |
 | `POST /api/v1/auth/device-code` | 5 / min and 20 / hour | a `device_code` row |
 | `POST /api/v1/auth/device-code/poll` | 30 / min | a read, per code sprayed |
-| `/auth/*` (sign-in, Microsoft callback, sign-out) | 20 / min | an outbound round trip to Microsoft per bogus callback |
+| `/auth/oidc/*` (the sign-in callbacks) | 20 / min | an outbound round trip to Microsoft per bogus callback |
 | all of `/api/v1` | 120 / min, on top of the above | a token lookup per bad bearer token |
 
 Over a limit, a client gets `429` with `Retry-After`. Under `/api/` the body is the RFC 8628
@@ -36,6 +36,9 @@ while the row exists.
   When it comes, the key is the user id, not the address.
 - **`/integrations/*` and `/test/ready`.** Gated by `WEBHOOK_ADMIN_SECRET`; a caller without it is
   refused before any work.
+- **The sign-in page and sign-out.** A JWT check and a page — and `AuthPlugin` redirects every
+  signed-out request there, so a limit would hit people with several tabs open before it hit anyone
+  abusing it.
 - **Static assets.** Served from memory.
 
 ## Where it runs: the app, because the edge has no rule to spare

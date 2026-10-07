@@ -74,19 +74,32 @@ class GetSignInIT : WithUser() {
     }
 
     @Test
-    fun `Sign-in is limited per client, and the refusal is a page`() = testApplication {
+    fun `The sign-in callback is limited per client, and the refusal is a page`() = testApplication {
+        val client = createClient { followRedirects = false }
         routing {
             route("/auth") {
                 authRouter()
             }
         }
 
-        val statuses = (1..SeamRateLimit.SIGN_IN.limit).map { client.get("/auth/sign-in").status }
-        assertTrue(statuses.all { it == HttpStatusCode.OK }, "got $statuses")
+        val statuses = (1..SeamRateLimit.SIGN_IN.limit).map { client.get("/auth/oidc/microsoft-redirect").status }
+        assertTrue(statuses.none { it == HttpStatusCode.TooManyRequests }, "got $statuses")
 
-        val refused = client.get("/auth/sign-in")
+        val refused = client.get("/auth/oidc/microsoft-redirect")
         assertEquals(HttpStatusCode.TooManyRequests, refused.status)
         assertContains(refused.bodyAsText(), "Too Many Requests")
+    }
+
+    @Test
+    fun `The sign-in page is not limited`() = testApplication {
+        routing {
+            route("/auth") {
+                authRouter()
+            }
+        }
+
+        val statuses = (1..SeamRateLimit.SIGN_IN.limit + 5).map { client.get("/auth/sign-in").status }
+        assertTrue(statuses.all { it == HttpStatusCode.OK }, "got $statuses")
     }
 
     @Test
