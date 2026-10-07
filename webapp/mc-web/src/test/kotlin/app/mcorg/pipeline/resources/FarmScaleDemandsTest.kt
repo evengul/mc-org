@@ -272,7 +272,9 @@ class FarmScaleDemandsTest {
     }
 
     @Test
-    fun `the line counts and shows only the share a renewable item consumes`() {
+    fun `a large enough share qualifies, and the line shows the plan's quantity`() {
+        // 5,000 of the sand becomes glass, which is over the threshold. The line prints 15,000
+        // like the row it badges, and like the quantity a dismissal of it records.
         val plan = plan(
             node(sand, 15_000),
             node(glass, 5_000, PlanNodeStatus.RESOLVED, requires = listOf("minecraft:sand")),
@@ -280,9 +282,26 @@ class FarmScaleDemandsTest {
         )
 
         assertEquals(
-            listOf(FarmScaleDemand("minecraft:sand", "Sand", 5_000)),
+            listOf(FarmScaleDemand("minecraft:sand", "Sand", 15_000)),
             FarmScaleDemands.of(plan, threshold, isRenewable = withGlassAndPickaxe),
         )
+        assertEquals(
+            listOf(FarmScaleDemand("minecraft:sand", "Sand", 15_000)),
+            FarmScaleDemands.dismissedIn(plan, threshold, setOf("minecraft:sand"), isRenewable = withGlassAndPickaxe),
+        )
+    }
+
+    @Test
+    fun `the share is what a consumer's executions take, not its output`() {
+        // 100 executions of a recipe taking 6 sand and making 16: 600 sand, under the threshold,
+        // though the 1,600 items it makes would read as 9,600 sand if output were counted.
+        val plan = plan(
+            node(sand, 10_600),
+            node(glass, 1_600, PlanNodeStatus.RESOLVED, requires = listOf("minecraft:sand"), crafts = 100, perCraft = 6),
+            node(concretePowder, 10_000, PlanNodeStatus.RESOLVED, requires = listOf("minecraft:sand")),
+        )
+
+        assertTrue(FarmScaleDemands.of(plan, threshold, isRenewable = withGlassAndPickaxe).isEmpty())
     }
 
     @Test
