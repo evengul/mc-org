@@ -19,7 +19,7 @@ suspend fun ApplicationCall.handleDeleteProject() {
     val projectId = this.getProjectId()
 
     handlePipeline(
-        onSuccess = { clientRedirect(Link.Worlds.world(worldId).projects().to) }
+        onSuccess = { clientRedirect(Link.Worlds.world(worldId).roadmap().to) }
     ) {
         // Before the delete, not after: the productions this reads are about to cascade away
         // with the project, and after that nothing can tell which items stopped being supplied

@@ -83,6 +83,18 @@ class ProjectDetailIT : WithUser() {
         assertContains(body, "plan-task-section")
     }
 
+    @Test
+    fun `the mobile back button goes to the roadmap, like the breadcrumb`() = testApplication {
+        setupRoutes()
+
+        val body = client.get("/worlds/$worldId/projects/$projectId") {
+            addAuthCookie(this)
+        }.bodyAsText()
+
+        val backHref = Regex("""class="project-detail__back-btn" href="([^"]+)"""").find(body)?.groupValues?.get(1)
+        assertEquals("/worlds/$worldId/roadmap", backHref)
+    }
+
     // -------------------------------------------------------------------------
     // Test 2: page load with any stored view preference shows unified planner
     // -------------------------------------------------------------------------

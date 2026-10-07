@@ -8,7 +8,7 @@ import io.ktor.server.response.*
 suspend fun ApplicationCall.handleGetLanding() {
     val activeWorldId = getUser().activeWorldId
     if (activeWorldId != null) {
-        respondRedirect(Link.Worlds.world(activeWorldId).projects().to)
+        respondRedirect(Link.Worlds.world(activeWorldId).roadmap().to)
     } else {
         respondRedirect(Link.Worlds.to)
     }

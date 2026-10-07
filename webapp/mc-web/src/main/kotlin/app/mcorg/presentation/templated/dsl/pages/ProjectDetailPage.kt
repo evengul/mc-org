@@ -106,14 +106,14 @@ fun projectDetailPage(
         isWorldAdmin = isWorldAdmin,
         breadcrumbBlock = {
             link("Worlds", "/worlds")
-                .link(worldName, "/worlds/${project.worldId}/roadmap")
+                .link(worldName, Link.Worlds.world(project.worldId).roadmap().to)
                 .current(project.name)
         }
     )
     // Mobile header
     div("project-detail__mobile-header") {
         a(classes = "project-detail__back-btn") {
-            href = "/worlds/${project.worldId}/projects"
+            href = Link.Worlds.world(project.worldId).roadmap().to
             +"←"
         }
         p("project-detail__mobile-name") { +project.name }

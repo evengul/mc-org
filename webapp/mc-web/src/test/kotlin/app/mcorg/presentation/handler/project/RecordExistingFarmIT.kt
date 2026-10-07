@@ -101,9 +101,8 @@ class RecordExistingFarmIT : WithUser() {
         }
 
         assertEquals(HttpStatusCode.OK, response.status)
-        assertEquals("/worlds/$worldId/projects", response.headers["HX-Redirect"])
-
         val farm = readProject(worldId, "Iron Farm")!!
+        assertEquals("/worlds/$worldId/projects/${farm.id}", response.headers["HX-Redirect"])
         assertEquals(ProjectStage.COMPLETED.name, farm.stage)
         assertEquals(ProjectState.DONE.name, farm.state)
         assertEquals("Behind the base", farm.description)
@@ -126,7 +125,7 @@ class RecordExistingFarmIT : WithUser() {
         deleteProject(farm.id)
     }
 
-    /** Also covers the non-HTMX submit path, which redirects with a Location header. */
+    /** Also covers the non-HTMX submit path, which redirects to the farm with a Location header. */
     @Test
     fun `location is optional`() = testApplication {
         setupRoutes()
@@ -139,8 +138,8 @@ class RecordExistingFarmIT : WithUser() {
         }
 
         assertEquals(HttpStatusCode.SeeOther, response.status)
-        assertEquals("/worlds/$worldId/projects", response.headers["Location"])
         val farm = readProject(worldId, "Bamboo Farm")!!
+        assertEquals("/worlds/$worldId/projects/${farm.id}", response.headers["Location"])
         assertNull(farm.dimension, "no location means no dimension")
         assertEquals(listOf("minecraft:bamboo" to 1200), readProductions(farm.id))
 

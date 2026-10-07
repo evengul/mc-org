@@ -9,6 +9,7 @@ import app.mcorg.pipeline.project.ImportWizardStep
 import app.mcorg.pipeline.project.ResolvedRegion
 import app.mcorg.pipeline.project.ReviewedMaterial
 import app.mcorg.pipeline.project.ReviewedMaterialsCodec
+import app.mcorg.presentation.templated.dsl.Link
 import app.mcorg.presentation.templated.dsl.appHeader
 import app.mcorg.presentation.templated.dsl.container
 import app.mcorg.presentation.templated.dsl.pageShell
@@ -109,7 +110,7 @@ fun importReviewPage(
         user = user,
         breadcrumbBlock = {
             link("Worlds", "/worlds")
-                .link(worldName, "/worlds/$worldId/roadmap")
+                .link(worldName, Link.Worlds.world(worldId).roadmap().to)
                 .current("Review import")
         }
     )
@@ -186,7 +187,7 @@ fun importReviewPage(
                         }
                     } else {
                         a(classes = "btn btn--ghost") {
-                            href = "/worlds/$worldId/projects"
+                            href = Link.Worlds.world(worldId).roadmap().to
                             +"Cancel"
                         }
                     }

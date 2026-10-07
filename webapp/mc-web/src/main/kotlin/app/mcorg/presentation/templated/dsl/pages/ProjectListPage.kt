@@ -298,7 +298,8 @@ private fun kotlinx.html.FlowContent.recordFarmModal(worldId: Int) {
                 form {
                     id = "record-farm-form"
                     hxPost("/worlds/$worldId/projects/farm")
-                    hxTarget("#projects-view")
+                    // See createProjectModal: the target only has to exist on both tabs.
+                    hxTarget("this")
                     hxSwap("afterbegin")
                     hxTargetError(".form-error")
                     // htmx events bubble: the item search inside this form fires
@@ -448,13 +449,15 @@ private fun kotlinx.html.FlowContent.recordFarmModal(worldId: Int) {
 }
 
 private fun kotlinx.html.FlowContent.createProjectModal(worldId: Int) {
-    // The Field Log groups projects by state and reloads via HX-Redirect, so this only
-    // needs a target that exists.
+    // Success is an HX-Redirect to the new project with an empty body, so the target is never
+    // swapped into; it only has to exist, and htmx sends nothing when it does not. The form
+    // itself exists on both world tabs. `#projects-view` exists only on the Projects tab,
+    // which left this dialog dead on the roadmap.
     modalForm(
         id = "create-project-modal",
         title = "Create Project",
         action = "/worlds/$worldId/projects",
-        hxTarget = "#projects-view",
+        hxTarget = "this",
         hxSwap = "afterbegin",
         errorTarget = ".form-error"
     ) {

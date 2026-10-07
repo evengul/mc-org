@@ -14,10 +14,9 @@ import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.ValidationSteps
 import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.failure.ValidationFailure
-import app.mcorg.pipeline.project.commonsteps.GetProjectByIdStep
 import app.mcorg.pipeline.world.ValidateWorldMemberRole
 import app.mcorg.presentation.handler.handlePipeline
-import app.mcorg.presentation.hxOutOfBands
+import app.mcorg.presentation.templated.dsl.Link
 import app.mcorg.presentation.utils.getUser
 import app.mcorg.presentation.utils.getWorldId
 import app.mcorg.presentation.utils.respondHtml
@@ -43,16 +42,16 @@ suspend fun ApplicationCall.handleCreateProject() {
     val isHtmx = request.headers["HX-Request"] == "true"
 
     handlePipeline(
-        onSuccess = { _ ->
+        onSuccess = { projectId ->
+            // Land on the project just made, whichever world tab the menu was opened from:
+            // a blank project is empty, and its page is where you fill it. Sending you to the
+            // Projects tab instead moved a user who created from the roadmap to the other tab.
+            val target = Link.Worlds.world(worldId).project(projectId).to
             if (isHtmx) {
-                // The Field Log groups projects by state; a full refresh places the new
-                // project in the right section without fragment bookkeeping. This used to be
-                // one of two branches, paired with OOB swaps that kept the plan view's card
-                // list in step; the plan view is gone (MCO-474) and the reload does both.
-                response.headers.append("HX-Redirect", "/worlds/$worldId/projects")
+                response.headers.append("HX-Redirect", target)
                 respondHtml("")
             } else {
-                response.headers.append("Location", "/worlds/$worldId/projects")
+                response.headers.append("Location", target)
                 respond(HttpStatusCode.SeeOther, "")
             }
         }

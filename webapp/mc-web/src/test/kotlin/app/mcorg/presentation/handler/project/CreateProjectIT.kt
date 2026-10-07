@@ -66,7 +66,7 @@ class CreateProjectIT : WithUser() {
     }
 
     @Test
-    fun `an HTMX submit creates the project and asks the client to reload`() = testApplication {
+    fun `an HTMX submit creates the project and sends the client to it`() = testApplication {
         setupRoutes()
         val worldId = createWorld("CreateProject IT HTMX World")
 
@@ -78,12 +78,12 @@ class CreateProjectIT : WithUser() {
         }
 
         assertEquals(HttpStatusCode.OK, response.status, response.bodyAsText())
-        assertEquals("/worlds/$worldId/projects", response.headers["HX-Redirect"])
+        assertEquals("/worlds/$worldId/projects/${onlyProjectIdIn(worldId)}", response.headers["HX-Redirect"])
         assertEquals(listOf("Blank From Htmx"), projectNamesIn(worldId))
     }
 
     @Test
-    fun `a plain form post creates the project and redirects`() = testApplication {
+    fun `a plain form post creates the project and redirects to it`() = testApplication {
         setupRoutes()
         val worldId = createWorld("CreateProject IT Plain World")
 
@@ -94,7 +94,7 @@ class CreateProjectIT : WithUser() {
         }
 
         assertEquals(HttpStatusCode.SeeOther, response.status, response.bodyAsText())
-        assertEquals("/worlds/$worldId/projects", response.headers["Location"])
+        assertEquals("/worlds/$worldId/projects/${onlyProjectIdIn(worldId)}", response.headers["Location"])
         assertEquals(listOf("Blank From Form"), projectNamesIn(worldId))
     }
 
@@ -115,7 +115,7 @@ class CreateProjectIT : WithUser() {
         }
 
         assertEquals(HttpStatusCode.OK, response.status, response.bodyAsText())
-        assertEquals("/worlds/$worldId/projects", response.headers["HX-Redirect"])
+        assertEquals("/worlds/$worldId/projects/${onlyProjectIdIn(worldId)}", response.headers["HX-Redirect"])
         assertEquals(listOf("Stale Client"), projectNamesIn(worldId))
     }
 
@@ -148,6 +148,17 @@ class CreateProjectIT : WithUser() {
             )
         )
         (result as Result.Success).value
+    }
+
+    private fun onlyProjectIdIn(worldId: Int): Int = runBlocking {
+        val result = DatabaseSteps.query<Int, List<Int>>(
+            sql = SafeSQL.select("SELECT id FROM projects WHERE world_id = ?"),
+            parameterSetter = { stmt, id -> stmt.setInt(1, id) },
+            resultMapper = { rs ->
+                buildList { while (rs.next()) add(rs.getInt("id")) }
+            },
+        ).process(worldId)
+        (result as Result.Success).value.single()
     }
 
     private fun projectNamesIn(worldId: Int): List<String> = runBlocking {

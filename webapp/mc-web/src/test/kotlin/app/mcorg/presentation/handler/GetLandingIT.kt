@@ -45,7 +45,7 @@ class GetLandingIT : WithUser() {
     }
 
     @Test
-    fun `Redirect to world projects when activeWorldId is set`() = testApplication {
+    fun `Redirect to the world's roadmap when activeWorldId is set`() = testApplication {
         val client = createClient { followRedirects = false }
         routing {
             install(AuthPlugin)
@@ -54,6 +54,6 @@ class GetLandingIT : WithUser() {
 
         val response = client.get("/") { addAuthCookie(this, user.copy(activeWorldId = 42)) }
         assertEquals(HttpStatusCode.Found, response.status)
-        assertEquals("/worlds/42/projects", response.headers["Location"])
+        assertEquals("/worlds/42/roadmap", response.headers["Location"])
     }
 }

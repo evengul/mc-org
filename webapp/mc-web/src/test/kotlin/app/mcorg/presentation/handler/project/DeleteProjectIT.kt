@@ -39,7 +39,7 @@ class DeleteProjectIT : WithUser() {
     // ---- success ------------------------------------------------------------
 
     @Test
-    fun `world admin can delete a project and is redirected to the project list`() = testApplication {
+    fun `world admin can delete a project and is redirected to the roadmap`() = testApplication {
         installRoutes()
         val client = createClient { followRedirects = false }
         val worldId = createWorld()
@@ -50,7 +50,7 @@ class DeleteProjectIT : WithUser() {
         }
 
         assertEquals(HttpStatusCode.OK, response.status)
-        assertEquals("/worlds/$worldId/projects", response.headers["HX-Redirect"])
+        assertEquals("/worlds/$worldId/roadmap", response.headers["HX-Redirect"])
         assertFalse(projectExists(projectId))
     }
 

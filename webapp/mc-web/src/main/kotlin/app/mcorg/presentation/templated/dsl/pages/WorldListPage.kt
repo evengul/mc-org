@@ -266,11 +266,11 @@ private fun FlowContent.pinButton(world: World) {
 
 /**
  * The nudge that took the progress bar's place. The Worlds page is a launcher, and
- * "start another one" is what you came to do — so link straight at the project list's
+ * "start another one" is what you came to do — so link straight at the roadmap's
  * "pick a door" menu, which np-menu.js opens on the #new fragment.
  */
 private fun FlowContent.newProjectLink(world: World) {
-    a(href = "${Link.Worlds.world(world.id).projects().to}#new", classes = "btn btn--secondary") {
+    a(href = "${Link.Worlds.world(world.id).roadmap().to}#new", classes = "btn btn--secondary") {
         lucide("plus", 15)
         +"New project"
     }
