@@ -1,14 +1,17 @@
 package app.mcorg.pipeline.resources
 
 import app.mcorg.domain.model.idea.IdeaVisibility
+import app.mcorg.domain.model.minecraft.MinecraftVersion
+import app.mcorg.domain.model.minecraft.MinecraftVersionRange
 import app.mcorg.pipeline.Step
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.Result
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.failure.AppFailure
+import kotlinx.serialization.json.Json
 
 /**
- * What to look up: the items a plan demands, and who is asking.
+ * What to look up: the items a plan demands, who is asking, and the version of the world asking.
  *
  * The viewer is not optional. Visibility is the difference between a bank of one public design
  * and a bank of eleven (measured 2026-08-23: every idea carrying production data is `PRIVATE`,
@@ -18,6 +21,7 @@ import app.mcorg.pipeline.failure.AppFailure
 data class IdeaProducerInput(
     val itemIds: Collection<String>,
     val viewerId: Int,
+    val worldVersion: MinecraftVersion,
 )
 
 /**
@@ -33,6 +37,13 @@ data class IdeaProducerInput(
  * rule: a suggestion the viewer cannot then open would be worse than no suggestion. `is_active`
  * goes with it — an idea being edited is not in the hub and should not be suggested either.
  *
+ * ## Version
+ *
+ * A design whose version range does not contain [IdeaProducerInput.worldVersion] is left out: the
+ * import refuses it ("Idea is not compatible with the world's Minecraft version"), so suggesting it
+ * only leads the user to that refusal. The range is JSON, so it is checked here rather than in SQL,
+ * with the same [MinecraftVersionRange.contains] the import uses.
+ *
  * ## MAX over modes
  *
  * An idea can describe several ways of running the same farm (V2_57_0), so a rate is picked per
@@ -46,14 +57,15 @@ object GetIdeaProducersStep : Step<IdeaProducerInput, AppFailure, List<IdeaProdu
     private val query = DatabaseSteps.query<IdeaProducerInput, List<Row>>(
         sql = SafeSQL.select(
             """
-            SELECT m.idea_id, i.name AS idea_name, r.item_id, MAX(r.rate_per_hour) AS rate_per_hour
+            SELECT m.idea_id, i.name AS idea_name, i.minecraft_version_range, r.item_id,
+                   MAX(r.rate_per_hour) AS rate_per_hour
             FROM idea_production_rates r
             JOIN idea_production_modes m ON m.id = r.mode_id
             JOIN ideas i ON i.id = m.idea_id
             WHERE r.item_id = ANY(?)
               AND i.is_active = TRUE
               AND (i.visibility = ? OR i.created_by = ?)
-            GROUP BY m.idea_id, i.name, r.item_id
+            GROUP BY m.idea_id, i.name, i.minecraft_version_range, r.item_id
             """.trimIndent()
         ),
         parameterSetter = { ps, input ->
@@ -65,7 +77,8 @@ object GetIdeaProducersStep : Step<IdeaProducerInput, AppFailure, List<IdeaProdu
             buildList {
                 while (rs.next()) {
                     val rate = rs.getInt("rate_per_hour").takeUnless { rs.wasNull() }
-                    add(Row(rs.getInt("idea_id"), rs.getString("idea_name"), rs.getString("item_id"), rate))
+                    val range = Json.decodeFromString(MinecraftVersionRange.serializer(), rs.getString("minecraft_version_range"))
+                    add(Row(rs.getInt("idea_id"), rs.getString("idea_name"), range, rs.getString("item_id"), rate))
                 }
             }
         }
@@ -80,6 +93,7 @@ object GetIdeaProducersStep : Step<IdeaProducerInput, AppFailure, List<IdeaProdu
             is Result.Failure -> r
             is Result.Success -> Result.success(
                 r.value
+                    .filter { it.versionRange.contains(input.worldVersion) }
                     .groupBy { it.ideaId to it.ideaName }
                     .map { (idea, rows) ->
                         IdeaProducer(
@@ -92,5 +106,11 @@ object GetIdeaProducersStep : Step<IdeaProducerInput, AppFailure, List<IdeaProdu
         }
     }
 
-    private data class Row(val ideaId: Int, val ideaName: String, val itemId: String, val ratePerHour: Int?)
+    private data class Row(
+        val ideaId: Int,
+        val ideaName: String,
+        val versionRange: MinecraftVersionRange,
+        val itemId: String,
+        val ratePerHour: Int?,
+    )
 }
