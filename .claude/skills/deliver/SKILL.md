@@ -225,7 +225,7 @@ Backlog, taking the owner's own move to Todo for the integration's.)*
    with `ExitWorktree`. Remove it from the main checkout instead:
    `git worktree remove <path>`, `git branch -D <branch>`, then
    `bash webapp/scripts/worktree-db-cleanup.sh --prune` and
-   `bash webapp/scripts/worktree-playwright.sh --prune`.
+   `bash ~/dev/claude-tools/playwright/worktree-playwright.sh --prune`.
 
 Never remove the worktree the session is standing in with anything other
 than `ExitWorktree`. If a script or `git worktree remove` deletes the

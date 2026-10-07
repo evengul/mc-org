@@ -9,7 +9,8 @@ description: >-
   thrashing or out of memory (idle Kotlin compile daemons and Playwright/Chromium
   sessions are the usual cause); or when playwright-cli appears to be driving the wrong
   worktree's app. Covers worktree-db.sh, worktree-port.sh, worktree-m2.sh,
-  worktree-playwright.sh, migrate-worktree.sh, and the cleanup/prune scripts.
+  migrate-worktree.sh, the cleanup/prune scripts, and how mc-org wires in the
+  playwright-cli shim from ~/dev/claude-tools.
 user-invocable: false
 ---
 
@@ -241,7 +242,8 @@ one cookie jar, one set of tabs. (The daemon is also spawned with
 whichever worktree opened it first.)
 
 - **A PATH shim sets the session name per call.** `~/.local/bin/playwright-cli`
-  is a symlink to `webapp/scripts/playwright-cli-shim.sh`; `~/.local/bin` is
+  is a symlink to `~/dev/claude-tools/playwright/playwright-cli-shim.sh` (the
+  private repo `evengul/claude-tools`, shared with Skyteruta); `~/.local/bin` is
   already first on `PATH` via `.bashrc`, so no profile edit. Names are
   `<repo>` for a main checkout and `<repo>__<worktree>` for a worktree —
   `mc_org`, `mc_org__mco_515_playwright_session_isolation`. Outside a git repo
@@ -256,9 +258,9 @@ whichever worktree opened it first.)
   mc-org worktree's browser profile. Underscores make both impossible: the split
   returns the whole real name, and no name can be a hyphen-delimited prefix of
   another. Don't "tidy" the naming back.
-- **The symlink targets the MAIN CHECKOUT's copy**, never a worktree's — a
-  worktree gets deleted and a dangling shim would break `playwright-cli`
-  everywhere on the box, in every repo.
+- **The symlink targets the claude-tools checkout**, never a copy inside this
+  repo or a worktree — a worktree gets deleted and a dangling shim would break
+  `playwright-cli` everywhere on the box, in every repo.
 - **It is on PATH for every repo**, not just this one, which is why names carry
   the repo prefix: worktree basenames collide across repos.
 - **`--session=X` is NOT a substitute, and documenting it was not the fix.** It
@@ -281,20 +283,23 @@ whichever worktree opened it first.)
 Overrides, both respected: `PLAYWRIGHT_CLI_SESSION=foo playwright-cli ...` pins a
 name by hand, and an explicit `--session=` flag still wins.
 
-**Scripts:**
+**Scripts** (in `~/dev/claude-tools/playwright/`, run from inside this repo —
+the namespace comes from the repo in `$PWD`):
 
-- `webapp/scripts/playwright-cli-shim.sh` — the shim itself (not run directly)
-- `webapp/scripts/worktree-playwright.sh` — install/refresh the symlink; idempotent
-- `webapp/scripts/worktree-playwright.sh --prune` — stop + delete sessions whose
-  worktree is gone (only ever inside this repo's `mc_org*` namespace)
-- `webapp/scripts/worktree-playwright.sh --status` — the shim, this directory's
-  session name, and every live session
+- `playwright-cli-shim.sh` — the shim itself (not run directly)
+- `worktree-playwright.sh` — install/refresh the symlink; idempotent
+- `worktree-playwright.sh --prune` — stop + delete sessions whose worktree is
+  gone (only ever inside this repo's `mc_org*` namespace)
+- `worktree-playwright.sh --status` — the shim, this directory's session name,
+  and every live session
 
-Installed automatically by the `EnterWorktree` hook. On a fresh machine, or the
-first time after this merged, run it once by hand from the main checkout:
+Installed automatically by the `EnterWorktree` hook. The hooks exit quietly when
+`~/dev/claude-tools` is missing, so on a fresh machine clone it first and run the
+install once by hand:
 
 ```bash
-bash webapp/scripts/worktree-playwright.sh
+gh repo clone evengul/claude-tools ~/dev/claude-tools
+bash ~/dev/claude-tools/playwright/worktree-playwright.sh
 ```
 
 It warns if `~/.local/bin` is not ahead of the real `playwright-cli` on `PATH` —
@@ -313,9 +318,9 @@ runs until something stops it.
 gone*; a live worktree you last looked at three hours ago keeps its browser.
 
 ```bash
-webapp/scripts/worktree-playwright.sh --reap-idle        # stop browsers idle >30m
-webapp/scripts/worktree-playwright.sh --reap-idle 5      # stricter
-webapp/scripts/worktree-playwright.sh --status           # what is running, and how idle
+~/dev/claude-tools/playwright/worktree-playwright.sh --reap-idle     # stop browsers idle >30m
+~/dev/claude-tools/playwright/worktree-playwright.sh --reap-idle 5   # stricter
+~/dev/claude-tools/playwright/worktree-playwright.sh --status        # what is running, and how idle
 ```
 
 - **Runs from a `Stop` hook**, so it happens without anyone remembering it. It

@@ -23,7 +23,7 @@
           },
           {
             "type": "command",
-            "command": "bash -c 'r=\"$CLAUDE_PROJECT_DIR\"; [ -d \"$r/webapp\" ] || r=\"$r/mc-org\"; exec bash \"$r/webapp/scripts/worktree-playwright.sh\" --reap-idle'",
+            "command": "bash -c 't=\"$HOME/dev/claude-tools/playwright/worktree-playwright.sh\"; [ -f \"$t\" ] || exit 0; exec bash \"$t\" --reap-idle'",
             "statusMessage": "Reaping idle worktree browsers...",
             "timeout": 30
           }
@@ -47,7 +47,7 @@
           },
           {
             "type": "command",
-            "command": "bash -c 'r=\"$CLAUDE_PROJECT_DIR\"; [ -d \"$r/webapp\" ] || r=\"$r/mc-org\"; exec bash \"$r/webapp/scripts/worktree-playwright.sh\"'",
+            "command": "bash -c 't=\"$HOME/dev/claude-tools/playwright/worktree-playwright.sh\"; [ -f \"$t\" ] || exit 0; exec bash \"$t\"'",
             "statusMessage": "Installing the per-worktree playwright-cli shim...",
             "timeout": 60
           },
@@ -70,7 +70,7 @@
           },
           {
             "type": "command",
-            "command": "bash -c 'r=\"$CLAUDE_PROJECT_DIR\"; [ -d \"$r/webapp\" ] || r=\"$r/mc-org\"; exec bash \"$r/webapp/scripts/worktree-playwright.sh\" --prune'",
+            "command": "bash -c 't=\"$HOME/dev/claude-tools/playwright/worktree-playwright.sh\"; [ -f \"$t\" ] || exit 0; exec bash \"$t\" --prune'",
             "statusMessage": "Stopping browser sessions for removed worktrees...",
             "timeout": 60
           }
