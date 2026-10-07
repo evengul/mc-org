@@ -299,7 +299,7 @@ class DemandInvalidationIT : WithUser() {
         DatabaseSteps.update<Unit>(
             sql = SafeSQL.insert(
                 "INSERT INTO project_productions (project_id, item_id, name, rate_per_hour) VALUES (?, ?, ?, ?) " +
-                    "ON CONFLICT (project_id, item_id) DO UPDATE SET rate_per_hour = EXCLUDED.rate_per_hour"
+                    "ON CONFLICT (project_id, item_id) WHERE mode_id IS NULL DO UPDATE SET rate_per_hour = EXCLUDED.rate_per_hour"
             ),
             parameterSetter = { stmt, _ ->
                 stmt.setInt(1, projectId)

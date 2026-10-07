@@ -11,11 +11,13 @@ import app.mcorg.event.IdeaImported
 import app.mcorg.event.eventBus
 import app.mcorg.domain.model.idea.IdeaProductionMode
 import app.mcorg.domain.model.idea.buildTimeModes
+import app.mcorg.domain.model.idea.runtimeModes
 import app.mcorg.pipeline.idea.commonsteps.GetIdeaProductionModesStep
 import app.mcorg.pipeline.Result
 import app.mcorg.pipeline.Step
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.SafeSQL
+import app.mcorg.pipeline.TransactionConnection
 import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.failure.ValidationFailure
 import app.mcorg.pipeline.project.resources.GetItemsInWorldVersionStep
@@ -75,6 +77,20 @@ data class IdeaForImport(
     val buildTimeModes: List<String> = emptyList(),
     /** Which of [buildTimeModes] the requirements and rates above were read from. */
     val chosenBuildTimeMode: String? = null,
+    /**
+     * The ways the built farm can be *run*, when there is more than one (MCO-413). Written to the
+     * project as switchable modes, in which case [production] is the running one's rates and is not
+     * written separately. Empty for most designs — see [runtimeModesForImport].
+     */
+    val runtimeModes: List<ImportedRuntimeMode> = emptyList(),
+)
+
+/** A [RuntimeModeForImport] whose items this world's version knows. */
+data class ImportedRuntimeMode(
+    val name: String,
+    val position: Int,
+    val active: Boolean,
+    val production: Map<Item, Int>,
 )
 
 /**
@@ -85,7 +101,15 @@ data class IdeaForImport(
  * an id in a URL would go stale the next time the author edited the design. Names are unique per
  * idea and stable across a save that did not rename them.
  */
-internal data class ImportSelection(val ideaId: Int, val buildTimeMode: String? = null)
+internal data class ImportSelection(
+    val ideaId: Int,
+    val buildTimeMode: String? = null,
+    /** Which runtime mode starts running (MCO-413). Named for the same reason as [buildTimeMode]. */
+    val runtimeMode: String? = null,
+)
+
+/** The review screen's starting-mode radio group; read only by the import POST. */
+internal const val RUNTIME_MODE_PARAM = "runtimeMode"
 
 /** Names the chosen build-time variant, on the review GET and on the import POST alike. */
 internal const val BUILD_TIME_MODE_PARAM = "buildTimeMode"
@@ -181,6 +205,7 @@ suspend fun ApplicationCall.handleReviewIdeaImport() {
                     buildTimeModes = idea.buildTimeModes,
                     chosenBuildTimeMode = idea.chosenBuildTimeMode,
                     reviewHref = { mode -> reviewHrefFor(ideaId, worldId, taskId, queue, mode) },
+                    runtimeModes = idea.runtimeModes,
                     action = Link.Ideas.single(ideaId) + "/import",
                     hiddenFields = buildMap {
                         put("worldId", worldId.toString())
@@ -224,6 +249,7 @@ suspend fun ApplicationCall.handleImportIdea() {
 
     val taskId = (submitted["forTask"] ?: parameters["forTask"])?.toIntOrNull()
     val chosenBuildTimeMode = submitted[BUILD_TIME_MODE_PARAM]?.takeIf { it.isNotBlank() }
+    val chosenRuntimeMode = submitted[RUNTIME_MODE_PARAM]?.takeIf { it.isNotBlank() }
 
     val queue = ImportQueue.from(
         submitted[ImportQueue.QUEUE_PARAM] ?: request.queryParameters[ImportQueue.QUEUE_PARAM],
@@ -260,7 +286,7 @@ suspend fun ApplicationCall.handleImportIdea() {
         // blind: GetIdeaForImportStep falls back to the author's first if the name no longer
         // matches a build-time mode, which is what happens when the design was edited between the
         // review being rendered and this POST.
-        val ideaData = GetIdeaForImportStep.run(ImportSelection(ideaId, chosenBuildTimeMode))
+        val ideaData = GetIdeaForImportStep.run(ImportSelection(ideaId, chosenBuildTimeMode, chosenRuntimeMode))
         val validatedIdea = ValidateItemIdsStep(items).run(ideaData)
         val reviewedIdea = ApplyReviewedRequirementsStep(submitted, items, alreadyBuilt).run(validatedIdea)
         val projectId = CreateProjectFromIdeaStep(worldId, taskId, alreadyBuilt).run(reviewedIdea)
@@ -392,7 +418,8 @@ data class BasicIdeaInfo(
     val name: String,
     val description: String,
     val category: IdeaCategory,
-    val productionRate: Map<String, Int>
+    val productionRate: Map<String, Int>,
+    val runtimeModes: List<RuntimeModeForImport> = emptyList(),
 )
 
 private val GetIdeaForImportStep = DatabaseSteps.transaction { connection ->
@@ -480,6 +507,7 @@ private val GetIdeaForImportStep = DatabaseSteps.transaction { connection ->
 
             val info = ideaInfo.getOrNull()!!.copy(
                 productionRate = ratesForImport(allModes, chosen?.name),
+                runtimeModes = runtimeModesForImport(allModes, selection.runtimeMode),
             )
             return Result.Success(
                 Triple(
@@ -499,37 +527,69 @@ internal data class BuildTimeChoice(
 )
 
 /**
- * The rates an imported farm project should record, chosen from the idea's modes.
+ * The rates an imported farm project records as the list it supplies from, chosen from the idea's
+ * modes.
  *
- * ## Flattening is correct for a build-time mode, and wrong for a runtime one
+ * ## One mode's rates, which is the whole answer for a build-time mode
  *
- * This was filed as wholly interim (Even, 2026-08-16) on the reading that a mode is always a
- * *runtime* choice — you might run the fortress farm skeletons-only this week and everything-on
- * next, and flattening means re-typing rates to switch. MCO-439 finding 1 showed both kinds exist,
- * and split the issue in two:
- *
- *  - **Build-time** (MCO-463): flattening here is right. You pick 4-modules-with-storage once, and
- *    the project's requirements and rates are both fixed from that one variant. Passing
- *    [chosenModeName] is how the review screen's choice reaches the project.
- *  - **Runtime** (MCO-413): still the wrong shape, and still to be fixed. Those modes belong on the
- *    project with one active, so switching does not re-type anything.
+ * You pick 4-modules-with-storage once (MCO-463), and the project's requirements and rates are both
+ * fixed from that one variant. Passing [chosenModeName] is how the review screen's choice reaches the
+ * project. Runtime modes are not flattened away: when there are several, [runtimeModesForImport]
+ * carries every one to the project, and this function's pick is only which of them starts running.
  *
  * When [chosenModeName] names a mode, that mode's rates are used **even if it has none**. A
  * build-time variant nobody timed honestly produces an unmeasured amount; falling back to a
- * sibling's rate would attribute one variant's throughput to another, which is the drift this
- * whole issue exists to stop.
+ * sibling's rate would attribute one variant's throughput to another.
  *
  * With no choice given, the mode producing the most across its items wins: an import that silently
  * picked the slowest would under-promise supply for no reason the user could see.
  */
-internal fun ratesForImport(modes: List<IdeaProductionMode>, chosenModeName: String? = null): Map<String, Int> {
-    if (modes.isEmpty()) return emptyMap()
-    val chosen = chosenModeName?.let { name -> modes.firstOrNull { it.name == name } }
+internal fun ratesForImport(modes: List<IdeaProductionMode>, chosenModeName: String? = null): Map<String, Int> =
+    modeForImport(modes, chosenModeName)?.projectRates().orEmpty()
+
+private fun modeForImport(modes: List<IdeaProductionMode>, chosenModeName: String? = null): IdeaProductionMode? =
+    chosenModeName?.let { name -> modes.firstOrNull { it.name == name } }
         ?: modes.maxByOrNull { mode -> mode.rates.values.sumOf { (it ?: 0).toLong() } }
-    // An unmeasured rate becomes 0, which is what project_productions already means by it —
-    // ProductionPanel prints "rate unknown" for exactly this. The two sides represent the same
-    // fact differently until MCO-413 unifies them, and this is the one place that maps between.
-    return chosen?.rates.orEmpty().mapValues { (_, rate) -> rate ?: 0 }
+
+/**
+ * An unmeasured rate becomes 0, which is what project_productions means by it — ProductionPanel
+ * prints "rate unknown" for exactly this. Ideas say NULL instead (V2_57_0); this is the one place
+ * that maps between the two.
+ */
+private fun IdeaProductionMode.projectRates(): Map<String, Int> = rates.mapValues { (_, rate) -> rate ?: 0 }
+
+/** One of the idea's runtime modes, as the project will hold it (MCO-413). */
+data class RuntimeModeForImport(
+    val name: String,
+    val position: Int,
+    val active: Boolean,
+    val rates: Map<String, Int>,
+)
+
+/**
+ * The runtime modes that follow an import to the project (MCO-413), with [startingModeName] running
+ * — the review screen's choice — or by default the one [ratesForImport] picks, so an import nobody
+ * changed supplies exactly what a flat import did. Switching later re-types nothing.
+ *
+ * Empty unless there is a real choice to carry:
+ *  - **one mode** is the implicit one, and the project keeps the mode-less list it always had;
+ *  - **any build-time mode** means the chosen variant is flattened as before. Modes are flat, so a
+ *    design that also lists runtime modes cannot say which build they were measured on — the limit
+ *    MCO-463 named. Treating them as switchable would attach one variant's rates to another.
+ */
+internal fun runtimeModesForImport(
+    modes: List<IdeaProductionMode>,
+    startingModeName: String? = null,
+): List<RuntimeModeForImport> {
+    if (modes.any { it.isBuildTime }) return emptyList()
+    val runtime = modes.runtimeModes()
+    if (runtime.size < 2) return emptyList()
+    // A name that no longer matches — the design was edited between review and import — falls
+    // back to the default rather than importing a farm with nothing running.
+    val running = modeForImport(runtime, startingModeName)
+    return runtime.map { mode ->
+        RuntimeModeForImport(mode.name, mode.position, active = mode == running, rates = mode.projectRates())
+    }
 }
 
 
@@ -573,14 +633,26 @@ internal data class ValidateItemIdsStep(val availableIds: List<Item>) :
         // the idea. What it produces is the author's claim about their farm, not work this world
         // is agreeing to do: the honest handling is to record what this version knows about, say
         // what was left out, and let the import through.
+        val catalog = availableIds.associateBy { it.id }
         for ((itemId, amount) in ideaInfo.productionRate) {
-            val item = availableIds.find { it.id == itemId }
+            val item = catalog[itemId]
 
             if (item == null) {
                 unrecordable.add(itemId)
             } else {
                 mappedProduction[item] = amount
             }
+        }
+        // The same rule for the modes that are not running: what this version knows is recorded,
+        // the rest is reported alongside the running mode's.
+        val runtimeModes = ideaInfo.runtimeModes.map { mode ->
+            mode.rates.keys.filterNot { it in catalog }.forEach(unrecordable::add)
+            ImportedRuntimeMode(
+                name = mode.name,
+                position = mode.position,
+                active = mode.active,
+                production = mode.rates.mapNotNull { (itemId, rate) -> catalog[itemId]?.let { it to rate } }.toMap(),
+            )
         }
 
         return if (errors.isEmpty()) {
@@ -593,9 +665,10 @@ internal data class ValidateItemIdsStep(val availableIds: List<Item>) :
                     requirements = mappedRequirements,
                     production = mappedProduction,
                     placedCounts = resolved.placedCounts,
-                    unrecordableProductions = unrecordable.sorted(),
+                    unrecordableProductions = unrecordable.distinct().sorted(),
                     buildTimeModes = buildTime.available,
                     chosenBuildTimeMode = buildTime.chosen,
+                    runtimeModes = runtimeModes,
                 )
             )
         } else {
@@ -693,20 +766,11 @@ private data class CreateProjectFromIdeaStep(
                         }
                     }
 
-                    val production = DatabaseSteps.batchUpdate<Pair<Item, Int>>(
-                        SafeSQL.insert("""
-                            INSERT INTO project_productions
-                                (project_id, name, item_id, rate_per_hour)
-                                values (?, ?, ?, ?)
-                        """.trimIndent()),
-                        parameterSetter = { statement, idea ->
-                            statement.setInt(1, projectId)
-                            statement.setString(2, idea.first.name)
-                            statement.setString(3, idea.first.id)
-                            statement.setInt(4, idea.second)
-                        },
-                        transactionConnection = connection
-                    ).process(input.production.toList())
+                    val production = if (input.runtimeModes.isEmpty()) {
+                        insertProductions(projectId, modeId = null, input.production, connection)
+                    } else {
+                        insertRuntimeModes(projectId, input.runtimeModes, connection)
+                    }
 
                     if (production is Result.Failure) {
                         return Result.Failure(production.error)
@@ -753,6 +817,57 @@ private data class CreateProjectFromIdeaStep(
                 }
             }
         }.process(input)
+    }
+
+    private suspend fun insertProductions(
+        projectId: Int,
+        modeId: Int?,
+        production: Map<Item, Int>,
+        connection: TransactionConnection,
+    ): Result<AppFailure.DatabaseError, Unit> =
+        DatabaseSteps.batchUpdate<Pair<Item, Int>>(
+            SafeSQL.insert("""
+                INSERT INTO project_productions
+                    (project_id, mode_id, name, item_id, rate_per_hour)
+                    values (?, ?, ?, ?, ?)
+            """.trimIndent()),
+            parameterSetter = { statement, (item, rate) ->
+                statement.setInt(1, projectId)
+                if (modeId == null) statement.setNull(2, java.sql.Types.INTEGER) else statement.setInt(2, modeId)
+                statement.setString(3, item.name)
+                statement.setString(4, item.id)
+                statement.setInt(5, rate)
+            },
+            transactionConnection = connection
+        ).process(production.toList())
+
+    /** Each runtime mode, then its own rates under it (MCO-413). */
+    private suspend fun insertRuntimeModes(
+        projectId: Int,
+        modes: List<ImportedRuntimeMode>,
+        connection: TransactionConnection,
+    ): Result<AppFailure.DatabaseError, Unit> {
+        for (mode in modes) {
+            val modeId = DatabaseSteps.update<ImportedRuntimeMode>(
+                SafeSQL.insert("""
+                    INSERT INTO project_production_modes (project_id, name, position, active)
+                    VALUES (?, ?, ?, ?)
+                    RETURNING id
+                """.trimIndent()),
+                parameterSetter = { statement, m ->
+                    statement.setInt(1, projectId)
+                    statement.setString(2, m.name)
+                    statement.setInt(3, m.position)
+                    statement.setBoolean(4, m.active)
+                },
+                transactionConnection = connection
+            ).process(mode)
+            if (modeId is Result.Failure) return modeId
+
+            val rates = insertProductions(projectId, modeId.getOrNull()!!, mode.production, connection)
+            if (rates is Result.Failure) return rates
+        }
+        return Result.success()
     }
 
     private fun IdeaCategory.toProjectType(): ProjectType {

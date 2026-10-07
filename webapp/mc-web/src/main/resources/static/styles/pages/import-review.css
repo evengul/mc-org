@@ -473,3 +473,78 @@ a.import-review__build-time-option:hover {
     /* Not a link, so it must not read as one to a pointer either. */
     cursor: default;
 }
+
+/* --------------------------------------------------------------------------
+   Runtime modes (MCO-413, frame 1a): the starting mode, stated as a default.
+   Rows reuse the produce panel's .mode-ledger__* classes.
+   -------------------------------------------------------------------------- */
+
+.import-review__runtime-modes {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    margin: var(--space-5) 0 var(--space-4);
+}
+
+.import-review__runtime-lead {
+    margin: 0;
+    font-family: var(--font-body);
+    font-size: var(--text-base);
+    line-height: 1.5;
+    color: var(--text-primary);
+}
+
+.import-review__runtime-lead strong {
+    font-weight: 500;
+}
+
+.import-review__runtime-change summary {
+    font-family: var(--font-ui);
+    font-size: var(--text-ui);
+    color: var(--accent);
+    cursor: pointer;
+}
+
+.import-review__runtime-change[open] summary {
+    margin-bottom: var(--space-2);
+}
+
+.import-review__runtime-option {
+    cursor: pointer;
+}
+
+.import-review__runtime-option input[type="radio"] {
+    flex: none;
+    width: 18px;
+    height: 18px;
+    accent-color: var(--accent);
+}
+
+/* A fieldset for the radios' grouping, without the fieldset's own chrome. */
+.import-review__runtime-options {
+    margin: 0;
+    padding: 0;
+    min-width: 0;
+}
+
+.import-review__runtime-option:hover {
+    background: var(--bg-raised);
+}
+
+/* The chosen row carries the panel's running treatment: ink rule, raised fill, heavier name. */
+.import-review__runtime-option:has(input:checked) {
+    background: var(--bg-raised);
+    box-shadow: inset 3px 0 0 var(--text-primary);
+}
+
+.import-review__runtime-option:has(input:checked) .mode-ledger__name {
+    font-weight: 600;
+}
+
+@media (max-width: 768px) {
+    .import-review__runtime-change summary {
+        display: flex;
+        align-items: center;
+        min-height: 44px;
+    }
+}
