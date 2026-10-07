@@ -160,6 +160,11 @@ when the PR carries the **`preview`** label.
   signature's raw-bytes rule, the single-vs-batch body duality, the envelope, the retry schedule and
   the 10-failure auto-deactivation. Read it before changing anything under `webhook/` or
   `EventEnvelope`; a change there is a change to another repo's input.
+- **Rate limits and the origin lock are [documentation/rate-limiting.md](documentation/rate-limiting.md)**
+  — a new route that someone who is not signed in can make cost something (a DB read or write, an
+  outbound call) goes inside a `rateLimited(SeamRateLimit.X)` block. Production refuses any request
+  that did not come through Cloudflare (`EDGE_ORIGIN_SECRET`), which is what makes the per-address
+  limits trustworthy.
 - **Every environment variable is listed in [documentation/configuration.md](documentation/configuration.md)**
   — what it does, which environments require it, its default, and where it is set. `readConfig()`
   in `mc-web/.../config/ConfigLoader.kt` is the only place in `src/main` that calls

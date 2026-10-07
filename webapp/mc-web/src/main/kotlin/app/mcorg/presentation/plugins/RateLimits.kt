@@ -92,8 +92,8 @@ private val rateLimitPlugins: Map<SeamRateLimit, RouteScopedPlugin<Unit>> =
         createRouteScopedPlugin("RateLimit-${limit.name}") {
             // Per application, so every test application starts with empty windows.
             val windows = application.attributes.computeIfAbsent(WindowsKey) { FixedWindows() }
-            onCall { call ->
-                val waitSeconds = windows.tryAcquire(limit, call.clientAddress()) ?: return@onCall
+            onUnansweredCall { call ->
+                val waitSeconds = windows.tryAcquire(limit, call.clientAddress()) ?: return@onUnansweredCall
                 call.response.header(HttpHeaders.RetryAfter, waitSeconds)
                 call.respondTooManyRequests(waitSeconds)
             }

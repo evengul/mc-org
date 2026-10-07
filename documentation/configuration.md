@@ -43,6 +43,7 @@ Legend: **S** = secret (never in a committed file; Fly secret or GitHub secret).
 | `PREVIEW_PASSWORD` | S | unused | **required** | unused | — | `test.env`, `dev.yml` |
 | `DEMO_USER` | | optional | **required⁷** | optional | none⁴ | `local.env.example`, `test.env`, `dev.fly.toml` |
 | `WEBHOOK_ADMIN_SECRET` | S | optional | optional | optional⁵ | — | Fly secret (currently unset) |
+| `EDGE_ORIGIN_SECRET` | S | optional¹¹ | optional¹¹ | **required** | — | Fly secret, and the Cloudflare Transform Rule that sends it |
 | `SEAM_DISCORD_URL` | | optional | optional | optional | — | `fly.toml`; commented out in `local.env.example`¹⁰ |
 | `SEAM_WEBHOOK_SHARED_SECRET` | S | optional | optional | optional⁶ | — | Fly secret; commented out in `local.env.example`¹⁰ |
 | `MICROSOFT_LOGIN_BASE_URL` | | optional | optional | optional | `https://login.microsoftonline.com` | `fly.toml`, overridden per-test by WireMock |
@@ -121,6 +122,14 @@ localhost and private addresses, so no local listener can stand in for the Worke
 resolves, so it passes the check and every delivery fails without reaching a real host. Ten
 consecutive failures then deactivate the subscription, which is harmless locally. Never use the
 production Worker URL or secret locally: local events would post to real Discord channels.
+
+¹¹ The origin lock (MCO-274). Cloudflare adds it as the `X-Seam-Edge` header on every request it
+forwards to `app.seam.gg`, and when it is set the app refuses anything without it — otherwise Fly
+serves the app to anyone who skips Cloudflare, and the rate limits could be dodged by forging
+`CF-Connecting-IP`. Unset in TEST and LOCAL, which are not behind Cloudflare; set it locally only to
+exercise the gate. The Fly secret and the Cloudflare rule must hold the same value, and the rule
+must exist **before** the secret is deployed, or every visitor is refused. Setup and rotation:
+[rate-limiting.md](rate-limiting.md).
 
 ## Production database URLs: pooler vs direct
 
