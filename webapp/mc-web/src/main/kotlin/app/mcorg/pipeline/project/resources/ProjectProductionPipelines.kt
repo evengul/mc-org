@@ -37,7 +37,7 @@ data class ProjectProductionInput(
 
 /**
  * MCO-297 — the production editor endpoints. POST is an upsert on the item within the list the
- * project supplies from (V2_75_0's partial indexes; see [UpsertProjectProductionStep]): adding an item that is already produced updates its
+ * project supplies from (V2_76_0's partial indexes; see [UpsertProjectProductionStep]): adding an item that is already produced updates its
  * rate instead of duplicating the row, so inline rate edits and the add form share one
  * endpoint. Rate is optional and display-only under unbounded-supply V1; 0 means "unknown".
  */
@@ -83,7 +83,7 @@ internal data class ValidateProjectProductionInputStep(val validItems: List<Item
  * is a statement about oak mode, and must not grow a mode-less row beside the modes.
  *
  * Two statements rather than one because the conflict target differs: each list's items are unique
- * through its own partial index (V2_75_0), and ON CONFLICT has to name the one it means.
+ * through its own partial index (V2_76_0), and ON CONFLICT has to name the one it means.
  */
 internal data class UpsertProjectProductionStep(val projectId: Int) :
     Step<ProjectProductionInput, AppFailure.DatabaseError, Int> {
