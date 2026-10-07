@@ -154,7 +154,7 @@ fun FlowContent.resourcePanelSourceSection(
         }
         ResourceSourceType.MANUAL -> {
             div("resource-panel__source-set") {
-                span("status-dot status-dot--set") {}
+                span("resource-panel__source-dot") {}
                 span("resource-panel__source-label") { +"Manual gather" }
                 button(classes = "btn btn--ghost btn--sm resource-panel__change-btn") {
                     type = ButtonType.button
@@ -168,7 +168,7 @@ fun FlowContent.resourcePanelSourceSection(
         ResourceSourceType.PROJECT -> {
             val label = resource.solvedByProject?.second ?: "Unknown project"
             div("resource-panel__source-set") {
-                span("status-dot status-dot--set") {}
+                span("resource-panel__source-dot") {}
                 span("resource-panel__source-label") { +label }
                 button(classes = "btn btn--ghost btn--sm resource-panel__change-btn") {
                     type = ButtonType.button

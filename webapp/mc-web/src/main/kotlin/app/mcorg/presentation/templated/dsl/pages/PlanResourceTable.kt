@@ -36,7 +36,9 @@ fun TR.planResourceRow(
     worldId: Int,
     projectId: Int,
     item: ResourceGatheringItem,
-    measured: MeasuredStock? = null,
+    // No default: every single-row swap replaces the page's row, and a row rendered without its
+    // measurement loses its drift chip.
+    measured: MeasuredStock?,
 ) {
     id = "plan-row-${item.id}"
     attributes["data-resource-id"] = item.id.toString()

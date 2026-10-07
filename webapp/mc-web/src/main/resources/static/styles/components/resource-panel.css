@@ -175,16 +175,13 @@ dialog#resource-panel::backdrop {
     color: var(--text-primary);
 }
 
-/* Decorative: always beside the source's name, so colour carries nothing the text doesn't. */
-.status-dot {
+/* Decorative: it sits beside the source's name, so colour carries nothing the text doesn't. */
+.resource-panel__source-dot {
     display: inline-block;
     width: 8px;
     height: 8px;
     border-radius: 50%;
     flex-shrink: 0;
-}
-
-.status-dot--set {
     background: var(--green);
 }
 
