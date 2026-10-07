@@ -14,6 +14,10 @@ import io.ktor.server.routing.Route
  */
 const val MAX_SCHEMATIC_UPLOAD_BYTES: Long = 8L * 1024 * 1024
 
+/** Said wherever a schematic upload is refused for its size: the 413, and the parsers' own budget. */
+const val UPLOAD_TOO_LARGE_MESSAGE =
+    "That file is too large. Schematics must be under ${MAX_SCHEMATIC_UPLOAD_BYTES / (1024 * 1024)} MB."
+
 /**
  * Caps the whole request body of a schematic upload at [MAX_SCHEMATIC_UPLOAD_BYTES].
  *

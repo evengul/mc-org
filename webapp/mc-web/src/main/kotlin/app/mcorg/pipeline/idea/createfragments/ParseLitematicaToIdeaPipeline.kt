@@ -11,7 +11,7 @@ import app.mcorg.pipeline.project.LitematicParts
 import app.mcorg.pipeline.project.ReceiveSchematicStep
 import app.mcorg.pipeline.project.readLitematicParts
 import app.mcorg.presentation.handler.handlePipeline
-import app.mcorg.presentation.plugins.MAX_SCHEMATIC_UPLOAD_BYTES
+import app.mcorg.presentation.plugins.UPLOAD_TOO_LARGE_MESSAGE
 import app.mcorg.presentation.utils.respondHtml
 import io.ktor.http.content.MultiPartData
 import io.ktor.server.application.ApplicationCall
@@ -99,7 +99,7 @@ private object GetContentStep : Step<MultiPartData, AppFailure, List<Pair<String
             LitematicParts.TooLarge -> return Result.failure(
                 AppFailure.customValidationError(
                     "litematicFile",
-                    "That file is too large. Schematics must be under ${MAX_SCHEMATIC_UPLOAD_BYTES / (1024 * 1024)} MB.",
+                    UPLOAD_TOO_LARGE_MESSAGE,
                 )
             )
             LitematicParts.TooMany -> return Result.failure(

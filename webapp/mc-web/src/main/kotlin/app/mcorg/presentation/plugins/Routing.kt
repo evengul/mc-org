@@ -4,7 +4,6 @@ import app.mcorg.logging.describeWithoutMessages
 import app.mcorg.presentation.templated.dsl.AssetBundle
 import app.mcorg.presentation.templated.dsl.ScriptBundle
 import app.mcorg.presentation.templated.dsl.StylesheetBundle
-import app.mcorg.presentation.templated.error.UPLOAD_TOO_LARGE_MESSAGE
 import app.mcorg.presentation.templated.error.notFoundPage
 import app.mcorg.presentation.templated.error.serverErrorPage
 import app.mcorg.presentation.templated.error.uploadTooLargePage
@@ -19,6 +18,7 @@ import io.ktor.server.request.httpMethod
 import io.ktor.server.request.path
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.*
+import kotlinx.html.id
 import kotlinx.html.p
 import kotlinx.html.stream.createHTML
 import org.slf4j.LoggerFactory
@@ -58,9 +58,14 @@ fun Application.configureStatusStaticRouter() {
             )
             if (call.request.headers["HX-Request"] == "true") {
                 // The resource-upload form swaps errors over its `.form-error` (outerHTML), so the
-                // replacement has to be one too or the next error has nowhere to go.
+                // replacement has to be that same element, id included: its 422s arrive as an
+                // out-of-band swap onto `validation-error-schematicFile`, and without the id the
+                // next one has nowhere to land.
                 call.respondHtml(
-                    createHTML().p("form-error") { +UPLOAD_TOO_LARGE_MESSAGE },
+                    createHTML().p("form-error") {
+                        id = "validation-error-schematicFile"
+                        +UPLOAD_TOO_LARGE_MESSAGE
+                    },
                     HttpStatusCode.PayloadTooLarge,
                 )
             } else {

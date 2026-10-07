@@ -15,6 +15,7 @@ import app.mcorg.pipeline.project.resources.GetItemsInWorldVersionStep
 import app.mcorg.pipeline.world.ValidateWorldMemberRole
 import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.plugins.MAX_SCHEMATIC_UPLOAD_BYTES
+import app.mcorg.presentation.plugins.UPLOAD_TOO_LARGE_MESSAGE
 import app.mcorg.presentation.templated.dsl.Link
 import app.mcorg.presentation.utils.clientRedirect
 import app.mcorg.presentation.utils.getUser
@@ -265,7 +266,7 @@ object ReceiveSchematicStep : Step<MultiPartData, AppFailure, SchematicUpload> {
             LitematicParts.TooLarge -> return Result.failure(
                 AppFailure.customValidationError(
                     "schematicFile",
-                    "That file is too large. Schematics must be under ${MAX_SCHEMATIC_UPLOAD_BYTES / (1024 * 1024)} MB.",
+                    UPLOAD_TOO_LARGE_MESSAGE,
                 )
             )
             LitematicParts.TooMany -> return Result.failure(

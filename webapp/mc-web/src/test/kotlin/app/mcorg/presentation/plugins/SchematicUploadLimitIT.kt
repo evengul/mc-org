@@ -153,7 +153,7 @@ class SchematicUploadLimitIT : WithUser() {
         }
 
         assertContains(page.bodyAsText(), "413 — Upload Too Large")
-        assertContains(fragment.bodyAsText(), "class=\"form-error\"")
+        assertContains(fragment.bodyAsText(), "class=\"form-error\" id=\"validation-error-schematicFile\"")
         assertContains(fragment.bodyAsText(), "Schematics must be under 8 MB")
     }
 
