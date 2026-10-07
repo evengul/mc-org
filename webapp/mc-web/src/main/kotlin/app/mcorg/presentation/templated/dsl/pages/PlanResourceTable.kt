@@ -65,7 +65,8 @@ fun TR.planResourceRow(
             hxPatch("/worlds/$worldId/projects/$projectId/resources/gathering/${item.id}/required")
             // The response is the whole plan, out of band (the demand changed what it says).
             hxSwap("none")
-            hxTrigger("change")
+            // Sent by plan-view.js on Enter or blur, once; a native `change` would send it twice.
+            hxTrigger("qty-commit")
         }
     }
     td("plan-resource-table__chests") {

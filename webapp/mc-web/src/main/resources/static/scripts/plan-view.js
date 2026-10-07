@@ -58,14 +58,16 @@
     }
 
     function submitQty(td, input) {
+        // Enter submits and leaves editing; the blur that follows must not submit again.
+        if (!td.classList.contains('plan-resource-table__qty--editing')) return;
         td.classList.remove('plan-resource-table__qty--editing');
         var val = parseInt(input.value, 10);
-        if (isNaN(val) || val < 1) {
+        // Unchanged is not an edit: each one re-derives the whole plan.
+        if (isNaN(val) || val < 1 || String(val) === td.dataset.currentQty) {
             revertQty(td, input);
             return;
         }
-        // Trigger HTMX PATCH — set form value then dispatch
-        htmx.trigger(input, 'change');
+        htmx.trigger(input, 'qty-commit');
     }
 
     function revertQty(td, input) {
@@ -87,18 +89,22 @@
         if (btn.dataset.initialized) return;
         btn.dataset.initialized = 'true';
 
+        // A change to the plan re-renders #project-content (MCO-585) with Tasks collapsed;
+        // put back what the reader chose, as initFoldStateKeep does for folds.
+        if (tasksExpanded) setTasksExpanded(btn, section, true);
+
         btn.addEventListener('click', function () {
-            var isCollapsed = section.classList.contains('tasks-section--collapsed');
-            if (isCollapsed) {
-                section.classList.remove('tasks-section--collapsed');
-                section.classList.add('tasks-section--expanded');
-                btn.textContent = 'Hide';
-            } else {
-                section.classList.remove('tasks-section--expanded');
-                section.classList.add('tasks-section--collapsed');
-                btn.textContent = 'Show';
-            }
+            tasksExpanded = section.classList.contains('tasks-section--collapsed');
+            setTasksExpanded(btn, section, tasksExpanded);
         });
+    }
+
+    var tasksExpanded = false;
+
+    function setTasksExpanded(btn, section, expanded) {
+        section.classList.toggle('tasks-section--collapsed', !expanded);
+        section.classList.toggle('tasks-section--expanded', expanded);
+        btn.textContent = expanded ? 'Hide' : 'Show';
     }
 
     // -------------------------------------------------------------------------

@@ -66,8 +66,10 @@
         table.dataset.panelInitialized = 'true';
 
         table.addEventListener('click', function (e) {
-            // Ignore clicks on the delete button and the qty cell (already handled by plan-view.js)
-            if (e.target.closest('.plan-resource-table__delete-btn')) return;
+            // The action cell (ignore, delete) and the qty cell (plan-view.js) are controls of
+            // their own. A click on ⊘ that also opened the panel had it open and then shut as
+            // the ignore's re-render landed.
+            if (e.target.closest('.plan-resource-table__action')) return;
             if (e.target.closest('.plan-resource-table__qty')) return;
 
             var tr = e.target.closest('tr[data-resource-id]');
@@ -136,6 +138,14 @@
             if (e.target.dataset && e.target.dataset.outOfBand === 'true') return;
             closePanel();
         });
+
+        // A new panel body (another row, or a variant picked from the chips) starts at its top,
+        // where its title is — not wherever the chip list had been scrolled to.
+        document.body.addEventListener('htmx:afterSwap', function (e) {
+            if (!e.target || e.target.id !== 'resource-panel-content') return;
+            var dialog = getDialog();
+            if (dialog) dialog.scrollTop = 0;
+        });
     }
 
     // -------------------------------------------------------------------------
@@ -198,13 +208,16 @@
     }
 
     function submitPanelQty(cell, input) {
+        // Enter submits and leaves editing; the blur that follows must not submit again.
+        if (!cell.classList.contains('resource-panel__qty--editing')) return;
         cell.classList.remove('resource-panel__qty--editing');
         var val = parseInt(input.value, 10);
-        if (isNaN(val) || val < 1) {
+        // Unchanged is not an edit: each one re-derives the whole plan.
+        if (isNaN(val) || val < 1 || String(val) === cell.dataset.currentQty) {
             revertPanelQty(cell, input);
             return;
         }
-        htmx.trigger(input, 'change');
+        htmx.trigger(input, 'qty-commit');
     }
 
     function revertPanelQty(cell, input) {

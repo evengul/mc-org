@@ -69,7 +69,9 @@ fun FlowContent.resourceDetailPanel(
                 hxPatch("/worlds/$worldId/projects/$projectId/resources/gathering/${resource.id}/required")
                 // The response is the whole plan, out of band; the panel itself stays as it is.
                 hxSwap("none")
-                hxTrigger("change")
+                // Sent by resource-panel.js on Enter or blur, once. A native `change` also fires
+                // when the hidden input loses focus, which would send the edit twice.
+                hxTrigger("qty-commit")
             }
         }
     }
