@@ -267,7 +267,8 @@ class FarmSupplySurfacingIT : WithUser() {
             assertEquals(HttpStatusCode.OK, manual.status)
             val manualBody = manual.bodyAsText()
             assertContains(manualBody, "resource-panel__source-set", message = "the panel shows the new source")
-            assertContains(manualBody, """id="project-content" hx-swap-oob="true"""")
+            // The marker resource-panel.js reads to keep the panel open across this swap.
+            assertContains(manualBody, """id="project-content" hx-swap-oob="true" data-out-of-band="true"""")
             assertContains(manualBody, """id="plan-resources-area"""")
             assertContains(manualBody, """id="list-breakdown-view"""")
             assertFalse(manualBody.contains("Collect from farms"), "a manual item is not collected from the farm")
@@ -287,9 +288,9 @@ class FarmSupplySurfacingIT : WithUser() {
     }
 
     /**
-     * Ignoring changes the plan the same way a source does, and its response used to re-render the
-     * table without one: every group heading vanished until a reload, and the breakdown kept the
-     * ignored item. Un-ignoring is where that shows here — the row comes back to its group.
+     * Ignoring changes the plan the same way a source does, so its response is the re-derived plan:
+     * a table rendered without one has no group headings, and the breakdown would keep the ignored
+     * item. Un-ignoring is where that shows here — the row comes back to its group.
      */
     @Test
     fun `un-ignoring a supplied item puts it back under collect-from-farms without a reload`() = testApplication {
@@ -316,9 +317,10 @@ class FarmSupplySurfacingIT : WithUser() {
     }
 
     /**
-     * A quantity edit used to answer with its table row alone, so the breakdown kept the old
-     * demand. It is edited from the table and from the open panel, so the plan comes back out of
-     * band and the caller swaps nothing itself — which leaves the panel open when it asked.
+     * A quantity is demand, so its edit answers with the re-derived plan — breakdown and header
+     * included, not just its table row. It is edited from the table and from the open panel, so
+     * the plan comes back out of band and the caller swaps nothing itself, which leaves the panel
+     * open when it asked.
      */
     @Test
     fun `editing a quantity re-renders the plan with it`() = testApplication {
@@ -336,6 +338,9 @@ class FarmSupplySurfacingIT : WithUser() {
             assertContains(body, """id="project-content" hx-swap-oob="true"""")
             // The breakdown's supplied line prints the new demand.
             assertContains(body, """<span class="work-row__left">48</span>""")
+            // And the header, which sits outside #project-content, totals it.
+            assertContains(body, """hx-swap-oob="outerHTML:#overall-progress"""")
+            assertContains(body, "48 to go")
         } finally {
             setProjectState(farmId, ProjectState.ACTIVE)
             setRequired(ingotsId, 32)

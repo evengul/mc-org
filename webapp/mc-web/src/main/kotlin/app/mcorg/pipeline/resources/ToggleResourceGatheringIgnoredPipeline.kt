@@ -20,8 +20,8 @@ import io.ktor.server.application.ApplicationCall
  *
  * Responds with the whole re-derived `#project-content`, not just the resource table: a toggle
  * moves the row between the table and the ignored section, and it changes the plan the table is
- * grouped by and the breakdown is drawn from. A table rendered without that plan lost every group
- * heading until a reload.
+ * grouped by and the breakdown is drawn from. A table rendered without that plan has no group
+ * headings at all.
  */
 suspend fun ApplicationCall.handleToggleResourceGatheringIgnored() {
     val worldId = this.getWorldId()

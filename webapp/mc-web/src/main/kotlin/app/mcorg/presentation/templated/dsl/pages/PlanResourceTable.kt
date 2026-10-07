@@ -263,10 +263,10 @@ private fun FlowContent.planFoldedTail(
 /**
  * The active resource table and the ignored-items section (MCO-247).
  *
- * Not a swap target of its own any more: every change made from here — ignore, quantity, delete,
- * and the panel's source and variant — changes the plan, so it answers with the whole
- * `#project-content` (MCO-585). A response that re-rendered only this area kept the breakdown on
- * the old plan, and twice lost the grouping or the Chests column by rendering without them.
+ * Never a swap target on its own: every change made from here — ignore, quantity, delete, and the
+ * panel's source and variant — changes the plan, so each answers with the whole `#project-content`
+ * (MCO-585). Re-rendering just this area would leave the breakdown and the header on the old plan,
+ * and needs the plan and the measurements passed in to keep its grouping and its Chests column.
  */
 fun FlowContent.planResourcesArea(
     worldId: Int,

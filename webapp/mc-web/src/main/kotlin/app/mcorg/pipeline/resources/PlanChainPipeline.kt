@@ -25,6 +25,7 @@ import app.mcorg.presentation.handler.defaultHandleError
 import app.mcorg.presentation.templated.dsl.pages.drillChainFragment
 import app.mcorg.presentation.templated.dsl.pages.drillNotFoundFragment
 import app.mcorg.presentation.templated.dsl.pages.gatheringPlannerFragment
+import app.mcorg.presentation.templated.dsl.pages.overallProgressOobFragment
 import app.mcorg.engine.plan.UnitCostModel
 import app.mcorg.presentation.templated.dsl.pages.nodePickerFragment
 import app.mcorg.presentation.templated.dsl.pages.pickerNotFoundFragment
@@ -431,9 +432,34 @@ internal suspend fun ApplicationCall.listRerenderFragment(
             return null
         }
     }
-    val resources = GetAllResourceGatheringItemsStep.process(projectId).getOrNull() ?: emptyList()
-    val tasks = SearchTasksStep(projectId).process(SearchTasksInput(completionStatus = "ALL")).getOrNull() ?: emptyList()
-    val plan = deriveOrNull(projectId, worldId)
+    // A read that fails is an error response, not an empty list: this answers every change made
+    // on the plan, and an empty plan sent with a 200 reads as "your resources are gone".
+    val resources = when (val r = GetAllResourceGatheringItemsStep.process(projectId)) {
+        is Result.Success -> r.value
+        is Result.Failure -> {
+            defaultHandleError(r.error)
+            return null
+        }
+    }
+    val tasks = when (val r = SearchTasksStep(projectId).process(SearchTasksInput(completionStatus = "ALL"))) {
+        is Result.Success -> r.value
+        is Result.Failure -> {
+            defaultHandleError(r.error)
+            return null
+        }
+    }
+    // The same rule as the full page: no targets, or no ingested graph for the version, is no
+    // plan; anything else is an error.
+    val plan = when (val r = GenerateGatheringPlanStep.process(GatheringPlanInput(projectId, worldId))) {
+        is Result.Success -> r.value
+        is Result.Failure -> when (r.error) {
+            is AppFailure.ValidationError, is AppFailure.DatabaseError.NotFound -> null
+            else -> {
+                defaultHandleError(r.error)
+                return null
+            }
+        }
+    }
     val progressMap = GetProgressForProjectStep.process(projectId).getOrNull() ?: emptyMap()
     // Two different questions, deliberately two sources (MCO-461):
     //  - what the world already covers, for suppressing a suggestion (#417) — no threshold,
@@ -469,7 +495,7 @@ internal suspend fun ApplicationCall.listRerenderFragment(
         farmSuggestions, versionGapsForPlan(projectId, plan), isAdmin, farmDismissals,
         isRenewableInWorld(worldId),
         outOfBand = outOfBand,
-    )
+    ) + overallProgressOobFragment(resources, plan, progressMap)
 }
 
 /**

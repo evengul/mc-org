@@ -130,11 +130,10 @@
         document.body.addEventListener('htmx:after:settle', function (e) {
             if (!e.target) return;
             if (e.target.id !== 'project-content') return;
-            // A source change made in the panel brings the plan along out of band (MCO-585).
-            // That is the panel's own request — detail.target is its main target, inside the
-            // dialog — and closing on it would shut the panel the user is working in.
-            var dialog = getDialog();
-            if (dialog && e.detail && e.detail.target && dialog.contains(e.detail.target)) return;
+            // A change made in the panel (source, quantity, variant) brings the plan along out of
+            // band (MCO-585), marked data-out-of-band. Closing on that would shut the panel the
+            // user is working in; only a swap that replaces the view closes it.
+            if (e.target.dataset && e.target.dataset.outOfBand === 'true') return;
             closePanel();
         });
     }
@@ -189,9 +188,12 @@
             if (!e.detail.successful) return;
             var cell = input.closest('.resource-panel__qty');
             if (!cell) return;
-            cell.dataset.currentQty = input.value;
+            // The number the server stored ("007" is 7), not what was typed.
+            var saved = String(parseInt(input.value, 10));
+            input.value = saved;
+            cell.dataset.currentQty = saved;
             var display = cell.querySelector('.resource-panel__qty-display');
-            if (display) display.textContent = input.value;
+            if (display) display.textContent = saved;
         });
     }
 

@@ -511,6 +511,47 @@
     }
 
     // -------------------------------------------------------------------------
+    // Fold state across re-renders (MCO-585): a change to a target, its quantity
+    // or its source answers with the whole #project-content, which arrives with
+    // every <details> in its server default. A fold the reader opened — say the
+    // table's single-item tail, where the row they are editing lives — would shut
+    // on every edit. Remember what the reader toggled, keyed by the fold's class
+    // and its position among folds of that class, and put it back after each swap.
+    // Only folds the reader touched are restored; the rest keep the server's say.
+    // -------------------------------------------------------------------------
+
+    var foldState = {};
+
+    function foldKey(details) {
+        var content = document.getElementById('project-content');
+        var cls = details.classList[0];
+        if (!content || !cls || !content.contains(details)) return null;
+        var siblings = content.querySelectorAll('details.' + cls);
+        return cls + ':' + Array.prototype.indexOf.call(siblings, details);
+    }
+
+    function initFoldStateKeep() {
+        if (document.body.dataset.foldStateInit) return;
+        document.body.dataset.foldStateInit = 'true';
+
+        // 'toggle' does not bubble; capture sees it on the way down.
+        document.addEventListener('toggle', function (e) {
+            if (!e.target || e.target.tagName !== 'DETAILS') return;
+            var key = foldKey(e.target);
+            if (key) foldState[key] = e.target.open;
+        }, true);
+
+        document.body.addEventListener('htmx:afterSettle', function () {
+            var content = document.getElementById('project-content');
+            if (!content) return;
+            content.querySelectorAll('details').forEach(function (d) {
+                var key = foldKey(d);
+                if (key && key in foldState && d.open !== foldState[key]) d.open = foldState[key];
+            });
+        });
+    }
+
+    // -------------------------------------------------------------------------
     // Init
     // -------------------------------------------------------------------------
 
@@ -524,6 +565,7 @@
         initNextUp();
         initLoggedInputs();
         initDrillScrollRestore();
+        initFoldStateKeep();
     }
 
     document.addEventListener('DOMContentLoaded', init);

@@ -210,12 +210,7 @@ private fun FlowContent.gatheringOverallProgress(
     /** What tagged chests hold, by item id (MCO-539). Empty where nothing is tagged. */
     measurements: Map<String, MeasuredStock> = emptyMap(),
 ) {
-    val (totalRequired, totalCollected) = if (plan != null) {
-        planProgressTotals(plan, progressMap)
-    } else {
-        val filtered = resources.filter { it.required > 0 }
-        filtered.sumOf { it.required }.toLong() to filtered.sumOf { it.collected }.toLong()
-    }
+    val (totalRequired, totalCollected) = overallProgressTotals(resources, plan, progressMap)
 
     if (totalRequired > 0) {
         div("project-detail__overall-progress") {
@@ -227,6 +222,34 @@ private fun FlowContent.gatheringOverallProgress(
             }
         }
     }
+}
+
+/** (totalRequired, totalCollected) for the header: from the plan when there is one, else the targets. */
+private fun overallProgressTotals(
+    resources: List<ResourceGatheringItem>,
+    plan: GatheringPlan?,
+    progressMap: Map<String, Int>,
+): Pair<Long, Long> = if (plan != null) {
+    planProgressTotals(plan, progressMap)
+} else {
+    val filtered = resources.filter { it.required > 0 }
+    filtered.sumOf { it.required }.toLong() to filtered.sumOf { it.collected }.toLong()
+}
+
+/**
+ * Out-of-band refresh of the header's #overall-progress, for a response that re-renders
+ * `#project-content`: the header sits outside it, and a change to the plan changes its totals.
+ * Totalled exactly as [gatheringOverallProgress] totals the page.
+ */
+fun overallProgressOobFragment(
+    resources: List<ResourceGatheringItem>,
+    plan: GatheringPlan?,
+    progressMap: Map<String, Int>,
+): String = createHTML().div {
+    id = "overall-progress"
+    hxOutOfBands("outerHTML:#overall-progress")
+    val (totalRequired, totalCollected) = overallProgressTotals(resources, plan, progressMap)
+    if (totalRequired > 0) overallProgressInner(totalRequired, totalCollected)
 }
 
 /** Inner content of #overall-progress: the "N% gathered · M to go" label + the bar. */
@@ -1827,7 +1850,13 @@ fun gatheringPlannerFragment(
     outOfBand: Boolean = false,
 ): String = createHTML().div {
     id = "project-content"
-    if (outOfBand) hxOutOfBands("true")
+    if (outOfBand) {
+        hxOutOfBands("true")
+        // Survives the swap (htmx strips hx-swap-oob), so the page's scripts can tell a plan that
+        // came along with another change from one that replaced the view — resource-panel.js
+        // keeps the panel open for the first. Read off the element, not htmx's event detail.
+        attributes["data-out-of-band"] = "true"
+    }
     gatheringPlannerContent(
         project, resources, tasks, plan, progressMap, measurements, pendingFarms, farmScaleThreshold, farmSuggestions,
         versionGaps, isWorldAdmin, farmDismissals, isRenewable,
