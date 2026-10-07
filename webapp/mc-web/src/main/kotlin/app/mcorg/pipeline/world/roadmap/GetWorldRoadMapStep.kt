@@ -22,6 +22,8 @@ import app.mcorg.pipeline.resources.GatheringPlanInput
 import app.mcorg.pipeline.resources.GenerateGatheringPlanStep
 import app.mcorg.pipeline.resources.GetFarmScaleThresholdStep
 import app.mcorg.pipeline.resources.GetWorldDemandCoverageStep
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.sql.ResultSet
 
 /**
@@ -117,8 +119,14 @@ data class GetWorldRoadMapStep(val worldId: Int) : Step<Unit, AppFailure, Roadma
             is Result.Success -> r.value
             is Result.Failure -> return
         }
-        uncovered.forEach { projectId ->
-            GenerateGatheringPlanStep.process(GatheringPlanInput(projectId = projectId, worldId = worldId))
+        // Off the call thread, as `ScenarioDemand` does: each derivation is ~0.7 s of planner work,
+        // a world-wide invalidation (a version switch, a REVISION bump) makes this one per planned
+        // project, and production has a single call thread for every request (MCO-551). The user
+        // who opened the roadmap still waits for it; nobody else does.
+        withContext(Dispatchers.Default) {
+            uncovered.forEach { projectId ->
+                GenerateGatheringPlanStep.process(GatheringPlanInput(projectId = projectId, worldId = worldId))
+            }
         }
     }
 
