@@ -159,6 +159,20 @@ class ProjectInputInvalidationIT : WithUser() {
     }
 
     @Test
+    fun `the mod re-syncing a count that did not move leaves stored demand alone`() {
+        // The upsert stamps updated_at and progress_source whether or not the count changed, and
+        // the mod's sync sends every item it carries.
+        val projectId = createProject("Steady")
+        gather(projectId, furnace, 10)
+        runBlocking { SetProgressByItemStep.process(SetProgressByItemInput(projectId, furnace.id, 4)) }
+        stampState(projectId)
+
+        runBlocking { SetProgressByItemStep.process(SetProgressByItemInput(projectId, furnace.id, 4)) }
+
+        assertTrue(hasState(projectId), "the count is still 4; no plan input changed")
+    }
+
+    @Test
     fun `a plan override drops the project's stored demand`() {
         val projectId = createProject("Pinned")
         stampState(projectId)
