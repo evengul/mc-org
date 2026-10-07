@@ -55,7 +55,7 @@ import kotlin.test.assertIs
 
 /**
  * How farm supply reads in the planner and the Field Log (MCO-299):
- * - an operational farm's items sit in "Collect from farms" badged as a Farm
+ * - an operational farm's items sit in "Collect" badged as a Farm
  * - a farm that is not running yet produces the partial-dependency notice instead
  * - a producing farm is not shelved with finished builds in the Field Log
  */
@@ -63,6 +63,14 @@ import kotlin.test.assertIs
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @ExtendWith(DatabaseTestExtension::class)
 class FarmSupplySurfacingIT : WithUser() {
+
+    private companion object {
+        /**
+         * The breakdown's heading for supplied items. Matched as markup: "Collect" alone is a
+         * substring of too much else on the page to prove the group is there.
+         */
+        const val COLLECT_HEADING = """<span class="section-label">Collect</span>"""
+    }
 
     private val version = MinecraftVersion.Release(1, 97, 0)
     private val ironIngot = Item("minecraft:iron_ingot", "Iron Ingot")
@@ -116,7 +124,7 @@ class FarmSupplySurfacingIT : WithUser() {
         assertContains(body, "comes first")
         assertContains(body, "32 Iron Ingot")
         assertContains(body, "by hand until it is running")
-        assertFalse(body.contains("Collect from farms"), "the item is still manual work")
+        assertFalse(body.contains(COLLECT_HEADING), "the item is still manual work")
     }
 
     /**
@@ -147,13 +155,13 @@ class FarmSupplySurfacingIT : WithUser() {
     }
 
     @Test
-    fun `once the farm is done the item moves to collect-from-farms and the notice disappears`() = testApplication {
+    fun `once the farm is done the item moves to collect and the notice disappears`() = testApplication {
         setupRoutes()
         setProjectState(farmId, ProjectState.DONE)
 
         val body = client.get("/worlds/$worldId/projects/$consumerId") { addAuthCookie(this) }.bodyAsText()
 
-        assertContains(body, "Collect from farms")
+        assertContains(body, COLLECT_HEADING)
         // The supply is named on the line itself, in the source slot every other line uses:
         // "Farm · Iron Farm" rather than a separate "from …" label beside a badge.
         assertContains(body, "Farm · Iron Farm")
@@ -234,7 +242,7 @@ class FarmSupplySurfacingIT : WithUser() {
         setProjectState(farmId, ProjectState.DECOMMISSIONED)
 
         val plan = client.get("/worlds/$worldId/projects/$consumerId") { addAuthCookie(this) }.bodyAsText()
-        assertFalse(plan.contains("Collect from farms"), "a stopped farm supplies nothing")
+        assertFalse(plan.contains(COLLECT_HEADING), "a stopped farm supplies nothing")
         assertFalse(plan.contains("Farm · Iron Farm"), "the line no longer names it as the source")
         assertFalse(plan.contains("plan-pending-farms"), "and it is not a farm anyone is waiting on")
         assertFalse(plan.contains("comes first"), "so it is not a prerequisite")
@@ -248,8 +256,8 @@ class FarmSupplySurfacingIT : WithUser() {
 
     /**
      * MCO-585. The source is an input to the plan — Manual opts the item out of farm supply — so
-     * the panel's answer to setting it has to carry the plan too, or the row stays under "Collect
-     * from farms" until a reload. The panel section is still the main swap; the plan rides along
+     * the panel's answer to setting it has to carry the plan too, or the row stays under "Collect"
+     * until a reload. The panel section is still the main swap; the plan rides along
      * out of band, which keeps the panel open on the new state.
      */
     @Test
@@ -271,7 +279,7 @@ class FarmSupplySurfacingIT : WithUser() {
             assertContains(manualBody, """id="project-content" hx-swap-oob="true" data-out-of-band="true"""")
             assertContains(manualBody, """id="plan-resources-area"""")
             assertContains(manualBody, """id="list-breakdown-view"""")
-            assertFalse(manualBody.contains("Collect from farms"), "a manual item is not collected from the farm")
+            assertFalse(manualBody.contains(COLLECT_HEADING), "a manual item is not collected from the farm")
             assertFalse(manualBody.contains("Farm · Iron Farm"))
 
             val cleared = client.delete(sourceUrl) { addAuthCookie(this) }
@@ -279,10 +287,34 @@ class FarmSupplySurfacingIT : WithUser() {
             val clearedBody = cleared.bodyAsText()
             assertContains(clearedBody, "No source selected")
             assertContains(clearedBody, """id="project-content" hx-swap-oob="true"""")
-            assertContains(clearedBody, "Collect from farms")
+            assertContains(clearedBody, COLLECT_HEADING)
             assertContains(clearedBody, "Farm · Iron Farm")
         } finally {
             setProjectState(farmId, ProjectState.ACTIVE)
+            clearSource(ingotsId)
+        }
+    }
+
+    /**
+     * A project linked as an item's source supplies it just as a running farm does, so it files
+     * under the same heading — "Collect", not "Collect from farms" — and the line names the project.
+     */
+    @Test
+    fun `an item linked to a project is collected from it`() = testApplication {
+        setupRoutes()
+        val sourceUrl = "/worlds/$worldId/projects/$consumerId/resources/gathering/$ingotsId/source"
+
+        try {
+            val linked = client.patch(sourceUrl) {
+                addAuthCookie(this)
+                contentType(ContentType.Application.FormUrlEncoded)
+                setBody("type=project&projectId=$farmId")
+            }
+            assertEquals(HttpStatusCode.OK, linked.status)
+            val body = linked.bodyAsText()
+            assertContains(body, COLLECT_HEADING)
+            assertContains(body, "Project · Iron Farm")
+        } finally {
             clearSource(ingotsId)
         }
     }
@@ -293,7 +325,7 @@ class FarmSupplySurfacingIT : WithUser() {
      * item. Un-ignoring is where that shows here — the row comes back to its group.
      */
     @Test
-    fun `un-ignoring a supplied item puts it back under collect-from-farms without a reload`() = testApplication {
+    fun `un-ignoring a supplied item puts it back under collect without a reload`() = testApplication {
         setupRoutes()
         setProjectState(farmId, ProjectState.DONE)
         val ignoreUrl = "/worlds/$worldId/projects/$consumerId/resources/gathering/$ingotsId/ignore"
@@ -307,7 +339,7 @@ class FarmSupplySurfacingIT : WithUser() {
             assertEquals(HttpStatusCode.OK, restored.status)
             val body = restored.bodyAsText()
             assertContains(body, """id="project-content"""")
-            assertContains(body, "Collect from farms")
+            assertContains(body, COLLECT_HEADING)
             assertContains(body, """id="list-breakdown-view"""")
             assertFalse(body.contains("plan-ignored-row-$ingotsId"))
         } finally {

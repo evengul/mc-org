@@ -1308,7 +1308,7 @@ private fun runningTime(hours: Double): String = when {
  *
  * Bottom of the plan, deliberately low visual weight — it changes nothing about what to do
  * today, it only says the manual work is a stopgap. It appears solely for farms that are
- * *not* operational; once one is Done, its items move into "Collect from farms" and the
+ * *not* operational; once one is Done, its items move into "Collect" and the
  * line for them disappears on its own.
  */
 /**
@@ -1744,7 +1744,8 @@ fun FlowContent.planActivityCount(
 
 internal fun groupLabel(group: ActivityGroup): String = when (group) {
     ActivityGroup.NEEDS_ATTENTION -> "Needs attention"
-    ActivityGroup.COLLECT_SUPPLIED -> "Collect from farms"
+    // Not "from farms": a project linked as an item's source supplies it too, and lands here.
+    ActivityGroup.COLLECT_SUPPLIED -> "Collect"
     ActivityGroup.GATHER -> "Gather"
     ActivityGroup.HUNT -> "Hunt"
     ActivityGroup.LOOT -> "Loot"

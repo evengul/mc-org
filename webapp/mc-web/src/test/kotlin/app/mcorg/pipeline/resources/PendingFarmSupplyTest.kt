@@ -48,7 +48,7 @@ class PendingFarmSupplyTest {
     @Test
     fun `an already supplied item is not pending`() {
         // An operational farm (or a linked project) already solves it — there is nothing
-        // to promise, and the row lives in "Collect from farms" instead.
+        // to promise, and the row lives in "Collect" instead.
         val result = buildPendingFarmSupplies(
             plan(node(ironIngot, 32, PlanNodeStatus.SUPPLIED, SupplySource.Farm("Other Iron Farm"))),
             listOf(row(ironIngot.id)),
