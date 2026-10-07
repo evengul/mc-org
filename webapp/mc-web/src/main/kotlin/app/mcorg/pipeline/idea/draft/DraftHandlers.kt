@@ -7,6 +7,9 @@ import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.minecraftfiles.GetSupportedVersionsStep
 import app.mcorg.presentation.handler.handlePipeline
+import app.mcorg.presentation.handler.respondInPlace
+import app.mcorg.presentation.handler.respondRefusal
+import app.mcorg.presentation.templated.idea.createwizard.DRAFT_FORM_ID
 import app.mcorg.presentation.templated.idea.createwizard.DraftWizardStage
 import app.mcorg.presentation.templated.idea.createwizard.draftFormFragment
 import app.mcorg.presentation.templated.idea.createwizard.draftFormPage
@@ -109,7 +112,7 @@ suspend fun ApplicationCall.handleCreateDraft() {
 suspend fun ApplicationCall.handleGetDraftWizard() {
     val user = getUser()
     val draftId = parameters["draftId"]?.toIntOrNull() ?: run {
-        respondHtml("<p>Invalid draft ID</p>"); return
+        respondDraftNotFound(); return
     }
 
     val supportedVersions = GetSupportedVersionsStep.getSupportedVersions()
@@ -131,7 +134,7 @@ suspend fun ApplicationCall.handleGetDraftWizard() {
 suspend fun ApplicationCall.handleDeleteDraft() {
     val user = getUser()
     val draftId = parameters["draftId"]?.toIntOrNull() ?: run {
-        respondHtml("<p>Invalid draft ID</p>"); return
+        respondDraftNotFound(); return
     }
 
     val sourceIdeaId = GetDraftStep().process(GetDraftInput(draftId, user.id)).getOrNull()?.sourceIdeaId
@@ -169,7 +172,7 @@ suspend fun ApplicationCall.handleDeleteDraft() {
 suspend fun ApplicationCall.handlePublishDraft() {
     val user = getUser()
     val draftId = parameters["draftId"]?.toIntOrNull() ?: run {
-        respondHtml("<p>Invalid draft ID</p>"); return
+        respondDraftNotFound(); return
     }
     // A bodyless POST means "publish what is already stored" — merging empty params would clobber
     // fields the draft already holds, so only save when a form was actually submitted.
@@ -180,7 +183,7 @@ suspend fun ApplicationCall.handlePublishDraft() {
             UpdateDraftInput(draftId, user.id, buildFormJson(params, user.minecraftUsername), DraftWizardStage.REVIEW.name)
         )
         if (saved is Result.Failure) {
-            respondHtml("<p>Draft not found</p>", HttpStatusCode.NotFound)
+            respondDraftNotFound()
             return
         }
     }
@@ -194,17 +197,17 @@ suspend fun ApplicationCall.handlePublishDraft() {
     if (validationErrors.isNotEmpty()) {
         val draft = GetDraftStep().process(GetDraftInput(draftId, user.id)).getOrNull()
         if (draft == null) {
-            respondHtml("<p>Draft not found</p>", HttpStatusCode.NotFound)
+            respondDraftNotFound()
             return
         }
-        respondHtml(
+        respondInPlace(
             draftFormFragment(
                 draft = draft,
                 supportedVersions = GetSupportedVersionsStep.getSupportedVersions(),
                 errors = validationErrors,
                 defaultAuthorName = user.minecraftUsername,
             ),
-            HttpStatusCode.UnprocessableEntity
+            target = "#$DRAFT_FORM_ID",
         )
         return
     }
@@ -219,6 +222,14 @@ suspend fun ApplicationCall.handlePublishDraft() {
     }
 }
 
+/** A draft id that is not a number, or a draft that is not the caller's or no longer exists. */
+private suspend fun ApplicationCall.respondDraftNotFound() = respondRefusal(
+    HttpStatusCode.NotFound,
+    "Not found",
+    "That draft no longer exists. It may have been saved as an idea or discarded.",
+    alertId = "not-found-error",
+)
+
 /**
  * POST /ideas/drafts/:draftId/save
  *
@@ -228,7 +239,7 @@ suspend fun ApplicationCall.handlePublishDraft() {
 suspend fun ApplicationCall.handleSaveDraftForm() {
     val user = getUser()
     val draftId = parameters["draftId"]?.toIntOrNull() ?: run {
-        respondHtml("<p>Invalid draft ID</p>"); return
+        respondDraftNotFound(); return
     }
     val params = receiveParameters()
 
@@ -503,36 +514,6 @@ private fun extractCategoryValue(field: CategoryField, params: Parameters, param
     }
 }
 
-fun ValidationFailure.toMessage(): String {
-    val label = formatParamName(parameterName)
-    return when (this) {
-        is ValidationFailure.MissingParameter -> "$label is required."
-        is ValidationFailure.InvalidFormat -> message ?: "$label has an invalid format."
-        is ValidationFailure.InvalidLength -> when {
-            minLength != null && maxLength != null -> "$label must be between $minLength and $maxLength characters."
-            minLength != null -> "$label must be at least $minLength characters."
-            else -> "$label must be at most $maxLength characters."
-        }
-        is ValidationFailure.InvalidValue -> "$label is not a valid value."
-        is ValidationFailure.OutOfRange -> when {
-            min != null && max != null -> "$label must be between $min and $max."
-            min != null -> "$label must be at least $min."
-            else -> "$label must be at most $max."
-        }
-        is ValidationFailure.CustomValidation -> message
-    }
-}
-
-private fun formatParamName(raw: String): String {
-    val clean = raw.removePrefix("categoryData.").removeSuffix("[]")
-    return clean.split(".").joinToString(" › ") { segment ->
-        segment
-            .replace(Regex("([A-Z])"), " $1")
-            .trim()
-            .replaceFirstChar { it.uppercase() }
-    }
-}
-
 /**
  * POST /ideas/{ideaId}/revert
  * Reverts a published idea to draft state for editing.
@@ -544,11 +525,11 @@ suspend fun ApplicationCall.handleRevertIdeaToDraft() {
 
     // Ownership check at handler level (not inside the pipeline step)
     val idea = when (val r = GetIdeaStep.process(ideaId)) {
-        is Result.Failure -> { respondHtml("<p>Idea not found</p>", HttpStatusCode.NotFound); return }
+        is Result.Failure -> { respondRefusal(HttpStatusCode.NotFound, "Not found", "That idea no longer exists.", alertId = "not-found-error"); return }
         is Result.Success -> r.value
     }
     if (idea.createdBy != user.id && !user.isSuperAdmin) {
-        respondHtml("<p>Forbidden</p>", HttpStatusCode.Forbidden)
+        respondRefusal(HttpStatusCode.Forbidden, "Not Authorized", "Only the person who created this idea can edit it.", alertId = "not-authorized-error")
         return
     }
 

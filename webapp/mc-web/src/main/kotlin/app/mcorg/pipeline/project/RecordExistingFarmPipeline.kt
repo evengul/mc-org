@@ -104,10 +104,6 @@ suspend fun ApplicationCall.handleRecordExistingFarm() {
 /**
  * Validates the record-a-farm form.
  *
- * Field names are farm-prefixed because the create-project modal lives on the same page
- * and the validation errors are swapped out-of-band by `validation-error-<parameter>` id —
- * a shared `name` would land in the wrong (hidden) dialog.
- *
  * Produced items arrive as `productions[<itemId>]=<rate>` hidden inputs staged by
  * farm-modal.js. At least one is required: a farm recorded with no output is a Done
  * project that supplies nothing and is easy to never notice again.

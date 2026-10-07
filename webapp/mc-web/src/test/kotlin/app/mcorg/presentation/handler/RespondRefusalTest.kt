@@ -1,6 +1,7 @@
 package app.mcorg.presentation.handler
 
 import app.mcorg.pipeline.failure.AppFailure
+import app.mcorg.pipeline.failure.ValidationFailure
 import io.ktor.client.request.HttpRequestBuilder
 import io.ktor.client.request.get
 import io.ktor.client.request.header
@@ -62,6 +63,59 @@ class RespondRefusalTest {
 
         assertPage(response, HttpStatusCode.Conflict, "409 — Conflict")
         assertTrue(response.bodyAsText().contains("Someone got there first."), "should carry the reason")
+    }
+
+    @Test
+    fun `a validation failure under HTMX is field messages, not a page`() = testApplication {
+        failingWith(AppFailure.ValidationError(listOf(ValidationFailure.InvalidLength("name", 3, 100))))
+
+        val response = client.get("/fails") { htmx() }
+        val body = response.bodyAsText()
+
+        assertEquals(HttpStatusCode.UnprocessableEntity, response.status)
+        assertTrue(body.contains("[data-error-for=") && body.contains("name"), "should aim at the name slot; was: $body")
+        assertTrue(body.contains("Name must be between 3 and 100 characters."), body)
+        assertFalse(body.contains("<html", ignoreCase = true), "a fragment, not a page")
+    }
+
+    @Test
+    fun `a validation failure on a plain form post is the status page with the messages`() = testApplication {
+        // The fragments rendered as a page are a few bare paragraphs; a plain post has nothing to swap them into.
+        failingWith(AppFailure.ValidationError(listOf(ValidationFailure.MissingParameter("schematicFile"))))
+
+        val response = client.get("/fails")
+        val body = response.bodyAsText()
+
+        assertEquals(HttpStatusCode.BadRequest, response.status)
+        assertTrue(body.contains("error-page__card"), "should be the status page; was: ${body.take(300)}")
+        assertTrue(body.contains("Schematic file is required."), body)
+        assertFalse(body.contains("type=\"partial\""), "no htmx partials on a page load")
+    }
+
+    @Test
+    fun `respondInPlace sends the html as a partial for its target`() = testApplication {
+        // htmx swaps no error into its target, and that silences HX-Retarget too, so the
+        // re-rendered form has to travel as a partial.
+        routing {
+            get("/in-place") { call.respondInPlace("<form id=\"f\">again</form>", target = "#f") }
+        }
+
+        val response = client.get("/in-place") { htmx() }
+        val body = response.bodyAsText()
+
+        assertEquals(HttpStatusCode.UnprocessableEntity, response.status)
+        assertTrue(body.contains("type=\"partial\"") && body.contains("hx-target=\"#f\"") && body.contains("hx-swap=\"outerHTML\""), body)
+        assertTrue(body.contains("<form id=\"f\">again</form>"), body)
+    }
+
+    @Test
+    fun `respondBadRequest is the alert, saying the page is out of date`() = testApplication {
+        routing { get("/stale") { call.respondBadRequest() } }
+
+        val response = client.get("/stale") { htmx() }
+
+        assertAlert(response, HttpStatusCode.BadRequest, "bad-request-error")
+        assertTrue(response.bodyAsText().contains("out of date"))
     }
 
     private fun ApplicationTestBuilder.failingWith(failure: AppFailure) = routing {

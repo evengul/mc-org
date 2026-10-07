@@ -1,6 +1,7 @@
 package app.mcorg.presentation.templated.idea.createwizard
 
 import app.mcorg.domain.model.idea.Author
+import app.mcorg.presentation.templated.dsl.fieldError
 import app.mcorg.domain.model.idea.IdeaDraft
 import app.mcorg.pipeline.idea.draft.DraftData
 import app.mcorg.presentation.hxGet
@@ -54,7 +55,7 @@ fun FlowContent.draftAuthorFields(draft: IdeaDraft, defaultName: String = "") {
                 +"Team"
             }
         }
-        p("form-error") { id = "error-authorType" }
+        fieldError("authorType")
     }
 
     div {

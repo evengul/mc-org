@@ -9,6 +9,7 @@ import app.mcorg.pipeline.idea.draft.DraftProductionMode
 import app.mcorg.presentation.hxPost
 import app.mcorg.presentation.hxSwap
 import app.mcorg.presentation.hxTarget
+import app.mcorg.presentation.templated.dsl.fieldError
 import app.mcorg.presentation.hxTrigger
 import kotlinx.html.ButtonType
 import kotlinx.html.FlowContent
@@ -287,6 +288,9 @@ private fun FlowContent.productionModeBlock(
                     hxTrigger("change")
                     attributes["hx-encoding"] = "multipart/form-data"
                 }
+                // Its own slot: an upload's message goes to the nearest slot above the input
+                // (form-errors.js), which would otherwise be the base list's.
+                fieldError("litematicFile")
 
                 // Collapsed by default, and it has to be: four variants of a large farm is four
                 // three-hundred-row lists, and the comparison worth seeing — 400 cobblestone

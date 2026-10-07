@@ -16,8 +16,10 @@ import app.mcorg.presentation.templated.dsl.pages.orderingFormSlotFragment
 import app.mcorg.presentation.templated.dsl.pages.orderingResultsFragment
 import app.mcorg.presentation.utils.getWorldId
 import app.mcorg.presentation.utils.redirectClientOrBrowser
-import app.mcorg.presentation.utils.respondBadRequest
+import app.mcorg.presentation.handler.respondBadRequest
+import app.mcorg.presentation.handler.respondInPlace
 import app.mcorg.presentation.utils.respondHtml
+import io.ktor.http.HttpStatusCode
 import io.ktor.http.Parameters
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.request.receiveParameters
@@ -92,7 +94,7 @@ suspend fun ApplicationCall.handleGetOrderingEditForm() {
 suspend fun ApplicationCall.handleSearchOrderingCandidates() {
     val worldId = getWorldId()
     val params = request.queryParameters
-    val field = fieldOrNull(params["field"]) ?: return respondBadRequest("Unknown field")
+    val field = fieldOrNull(params["field"]) ?: return respondBadRequest()
 
     // The counterpart is whatever the *other* picker currently holds — it decides which
     // direction a loop would close in.
@@ -114,9 +116,9 @@ suspend fun ApplicationCall.handleSearchOrderingCandidates() {
 suspend fun ApplicationCall.handlePickOrderingProject() {
     val worldId = getWorldId()
     val params = request.queryParameters
-    val field = fieldOrNull(params["field"]) ?: return respondBadRequest("Unknown field")
+    val field = fieldOrNull(params["field"]) ?: return respondBadRequest()
     val projectId = params["projectId"]?.toIntOrNull()
-        ?: return respondBadRequest("Unknown project")
+        ?: return respondBadRequest()
 
     val candidates = candidatesOrNull(worldId, field, null) ?: return
     val picked = candidates.firstOrNull { it.projectId == projectId }
@@ -350,15 +352,12 @@ private suspend fun ApplicationCall.orderingOrNull(worldId: Int): ManualOrdering
 /**
  * A rejected submit comes back as the form itself, with what is wrong at the top and every
  * field still filled in.
- *
- * `respondBadRequest` retargets the response at the form — the codebase's own idiom for
- * routing an error somewhere other than the triggering element's target.
  */
 private suspend fun ApplicationCall.respondWithFormError(state: OrderingFormState, message: String) {
-    respondBadRequest(
-        errorHtml = orderingFormFragment(state.copy(error = message)),
+    respondInPlace(
+        orderingFormFragment(state.copy(error = message)),
         target = "#$FORM_ID",
-        swap = "outerHTML",
+        status = HttpStatusCode.BadRequest,
     )
 }
 

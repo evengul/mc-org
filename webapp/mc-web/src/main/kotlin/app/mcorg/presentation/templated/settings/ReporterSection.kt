@@ -1,6 +1,7 @@
 package app.mcorg.presentation.templated.settings
 
 import app.mcorg.api.MintedReporterToken
+import app.mcorg.presentation.templated.dsl.fieldError
 import app.mcorg.api.ReporterTokenRow
 import app.mcorg.presentation.*
 import app.mcorg.presentation.templated.dsl.BadgeVariant
@@ -180,7 +181,7 @@ private fun FlowContent.generateReporterTokenForm(worldId: Int) {
                     }
                 }
             }
-            p("validation-error-message") { id = "validation-error-name" }
+            fieldError("name")
             div("connect-server__actions") {
                 button {
                     classes = setOf("btn", "btn--primary")

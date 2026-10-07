@@ -153,8 +153,23 @@ class SchematicUploadLimitIT : WithUser() {
         }
 
         assertContains(page.bodyAsText(), "413 — Upload Too Large")
-        assertContains(fragment.bodyAsText(), "class=\"form-error\" id=\"validation-error-schematicFile\"")
+        assertContains(fragment.bodyAsText(), "hx-target=\"find [data-error-for='schematicFile']\"")
         assertContains(fragment.bodyAsText(), "Schematics must be under 8 MB")
+    }
+
+    @Test
+    fun `a refused upload in the idea form is a message for the idea form's own field`() = testApplication {
+        // The idea form's inputs post `litematicFile`; a message for `schematicFile` found no slot.
+        realRouter()
+
+        val response = client.post("/ideas/create/litematic") {
+            addAuthCookie(this)
+            header("HX-Request", "true")
+            setBody(ByteArrayContent(ByteArray(MAX_SCHEMATIC_UPLOAD_BYTES.toInt() + 1), multipartType))
+        }
+
+        assertEquals(HttpStatusCode.PayloadTooLarge, response.status)
+        assertContains(response.bodyAsText(), "hx-target=\"find [data-error-for='litematicFile']\"")
     }
 
     private fun ApplicationTestBuilder.realRouter() {

@@ -1,6 +1,7 @@
 package app.mcorg.presentation.templated.idea.createwizard
 
 import app.mcorg.domain.model.idea.IdeaDifficulty
+import app.mcorg.presentation.templated.dsl.fieldError
 import app.mcorg.domain.model.idea.IdeaDraft
 import app.mcorg.pipeline.idea.draft.DraftData
 import app.mcorg.presentation.templated.utils.toPrettyEnumName
@@ -55,7 +56,7 @@ fun FlowContent.draftBasicInfoFields(draft: IdeaDraft) {
             placeholder = "e.g., High-Speed Sugar Cane Farm"
             value = data.name ?: ""
         }
-        p("form-error") { id = "error-name" }
+        fieldError("name")
     }
 
     div {
@@ -73,7 +74,7 @@ fun FlowContent.draftBasicInfoFields(draft: IdeaDraft) {
             placeholder = "How it works, what makes it good, anything you'd want to remember later…"
             +(data.description ?: "")
         }
-        p("form-error") { id = "error-description" }
+        fieldError("description")
     }
 
     div {
@@ -98,6 +99,6 @@ fun FlowContent.draftBasicInfoFields(draft: IdeaDraft) {
                 }
             }
         }
-        p("form-error") { id = "error-difficulty" }
+        fieldError("difficulty")
     }
 }

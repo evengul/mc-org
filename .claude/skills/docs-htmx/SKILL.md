@@ -1,6 +1,6 @@
 ---
 name: docs-htmx
-description: HTMX helper functions and interaction patterns for MC-ORG. Use when using hx* helper functions, writing HTMX attributes, implementing form submissions, delete-with-confirm, out-of-band swaps (including OOB swaps of <tr>/<td>/<tbody>/<thead> table elements which require a <template> wrapper), or inline editing patterns.
+description: HTMX helper functions and interaction patterns for MC-ORG. Use when using hx* helper functions, writing HTMX attributes, implementing form submissions, delete-with-confirm, out-of-band swaps and htmx partials (including swaps of <tr>/<td>/<tbody>/<thead> table elements, which need a partial), error responses and validation messages (fieldError, respondRefusal, respondInPlace), or inline editing patterns.
 user-invocable: false
 ---
 
@@ -57,15 +57,12 @@ No `hxConfirm` / `hxPushUrl` helper exists — for those set the attribute direc
 `pageShell` loads htmx **4.0.0** with `HTMX_CONFIG` (`Layout.kt`). What differs from htmx 2, and what
 that config holds in place:
 
-- **Error responses swap nothing.** `noSwap` lists `4xx` and `5xx`, which keeps htmx 2's behaviour. It
-  also silences `HX-Retarget`/`HX-Reswap` on an error, so an error reaches the screen only **out of
-  band**: `respondRefusal` sends its alert as `hx-swap-oob="afterbegin:#alert-container"`, and
-  validation messages land on `validation-error-<field>` by id. To swap an error into the sender's
-  own target, put `hx-status:<code>` on the element (e.g. `attributes["hx-status:400"] =
-  "swap:outerHTML"`, `ManualOrderingSection.kt`); an exact code wins over `noSwap`'s `4xx`.
+- **Error responses swap nothing into their target.** `noSwap` lists `4xx` and `5xx`, and that also
+  silences `HX-Retarget`/`HX-Reswap` on an error. Out-of-band swaps and partials still run, which is
+  how every error reaches the screen: see **Error responses** below.
 - **Inheritance is implicit** via `implicitInheritance: true`, until containers that rely on it get
   `hx-target:inherited`.
-- **Gone:** `hx-target-error` (use `hx-status`), `hx-ext`, `hx-params`, `hx-history`. No history
+- **Gone:** `hx-target-error`, `hx-ext`, `hx-params`, `hx-history`. No history
   snapshot is kept in the browser: Back re-requests the pushed URL, so an `hx-push-url` must be a
   real page.
 - **Events are colon-separated.** `hx-on::after:request` (not `after-request`); its handler sees
@@ -81,6 +78,29 @@ that config holds in place:
   a delete needs them; none does today.
 - **A non-`outerHTML` out-of-band swap inserts the element's children**, so wrap what should land:
   `ul { hxOutOfBands("afterbegin:#alert-container"); li { createAlert(...) } }`.
+- **`hx-swap-oob` inside a plain `<template>` is ignored.** htmx 4 reads only
+  `<template hx type="partial">` (its `<hx-partial>`). Use `hxPartial(...)` (`HxOob.kt`), which also
+  takes any selector, resolved from the element that sent the request.
+
+## Error responses
+
+An error the person can be shown says where it goes, from the server. Exactly four shapes, all in
+`ErrorHandler.kt` (`ErrorRoutingSourceScanTest` fails on a 4xx/5xx answered any other way):
+
+| What went wrong | Answer with | What the person sees |
+|---|---|---|
+| A field is invalid | a `ValidationError` through `handlePipeline` / `defaultHandleError` | the message next to the field (below); a plain form post gets the status page |
+| Not allowed, not found, broke | `respondRefusal(status, title, message, alertId)`, or `defaultHandleError` | an alert in `#alert-container`; a page load gets the status page |
+| The page is stale (a missing or unreadable parameter) | `respondBadRequest()` | an alert saying the page is out of date |
+| Show part of the page again, e.g. a form with its complaint | `respondInPlace(html, target, swap, status)` | `html` swapped into `target` |
+
+**Field messages.** Put `fieldError("<parameter>")` after each input, with the name the server
+validates. The response (`fieldMessages`, `FieldError.kt`) is one partial per failed field aimed at
+`find [data-error-for='<field>']` from the element that sent the request, plus an alert with every
+message. `form-errors.js` sends a message whose `find` matched nothing to the nearest slot above the
+sender, keeps in the alert only what no slot took, and empties a form's slots when it sends a new
+non-GET request. So a field with no slot still shows its message, and two forms on one page may share
+a field name. Messages read from `ValidationFailure.userMessage()` (`ValidationFailureMessages.kt`).
 
 ## HTMX Swap Strategies
 
@@ -98,11 +118,9 @@ that config holds in place:
 // HTMX redirect — sets HX-Redirect header (HTMX navigations only; blank page on direct hit)
 suspend fun ApplicationCall.clientRedirect(path: String)
 
-// Error responses — set HX-Retarget + HX-Reswap, which htmx 4's noSwap ignores on an error:
-// the sender needs a matching hx-status:<code> for this to show (see htmx 4 above)
-suspend fun ApplicationCall.respondBadRequest(errorHtml: String = "An error occurred",
-                                              target: String = "#error-message", swap: String = "innerHTML")
-suspend fun ApplicationCall.respondNotFound(errorHtml: String = "...", target = "#error-message", ...)
+// Retarget a successful response. Errors: see "Error responses" above.
+fun ApplicationCall.hxTarget(value: String)
+fun ApplicationCall.hxSwap(value: String)
 ```
 
 `respondHtml(html: String, status = OK)` (in `htmlResponseUtils.kt`) sends an HTML fragment.
@@ -122,7 +140,7 @@ form {
     hxSwap("afterbegin")
 
     input(classes = "form-control") { name = "name"; placeholder = "Project name" }
-    p("form-error") { id = "validation-error-name" }   // a 422 lands here out of band
+    fieldError("name")   // a validation message for `name` lands here
     button(classes = "btn btn--primary") { type = ButtonType.submit; +"Create" }
 }
 
@@ -208,37 +226,33 @@ respondHtml(createHTML().div {
 ### Out-of-band swap of a table row (`<tr>`)
 
 Browsers strip orphan `<tr>`/`<td>`/`<tbody>`/`<thead>`/`<tfoot>` elements during HTML fragment parsing, so an
-OOB `<tr>` at the top level of the response is discarded before HTMX sees it. Wrap it in an HTML `<template>` —
-HTMX unwraps the template and processes the contained OOB element.
+OOB `<tr>` at the top level of the response is discarded before htmx sees it. Send it as a partial: a
+`<template>`'s content keeps table elements. A plain `<template>` with `hx-swap-oob` inside is **not**
+read by htmx 4.
 
-**Use this whenever OOB-swapping any of:** `tr`, `td`, `th`, `tbody`, `thead`, `tfoot`, `col`, `colgroup`, `caption`.
+**Use this whenever swapping any of:** `tr`, `td`, `th`, `tbody`, `thead`, `tfoot`, `col`, `colgroup`, `caption`.
 
 ```kotlin
-import kotlinx.html.TEMPLATE
+import app.mcorg.presentation.hxPartial
+import kotlinx.html.TR
+import kotlinx.html.visit
 
 // Main target: panel source section (innerHTML swap)
-// OOB target: #plan-row-{id} — a <tr> inside a different table
+// Partial target: #plan-row-{id} — a <tr> inside a different table
 respondHtml(createHTML().div {
     id = "resource-panel-source"
     resourcePanelSourceSection(resource)
 
-    // OOB table row — wrapped in <template> so the browser parser preserves it
-    TEMPLATE(mapOf(), consumer).visit {
-        tr {
-            id = "plan-row-${resource.id}"
-            hxOutOfBands("outerHTML:#plan-row-${resource.id}")
+    hxPartial(target = "#plan-row-${resource.id}", swap = "outerHTML") {
+        TR(mapOf("id" to "plan-row-${resource.id}"), consumer).visit {
             planResourceRow(worldId, projectId, resource)  // renders td children
         }
     }
 })
 ```
 
-The `<template>` wrapper is invisible to the browser and to HTMX's swap logic — it exists purely to survive
-HTML parsing. Do NOT put the `<tr>` at the response top level, and do NOT wrap it in a throwaway
+Do NOT put the `<tr>` at the response top level, and do NOT wrap it in a throwaway
 `<table style="display:none">` (inline-style violation + needless DOM node).
-
-If you find yourself using `hxOutOfBands(...)` with a `<tr>` selector (e.g. `"outerHTML:#plan-row-123"`), load
-this skill — the `<template>` wrapper is mandatory.
 
 ### Include extra inputs in request
 

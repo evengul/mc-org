@@ -1,6 +1,7 @@
 package app.mcorg.presentation.templated.idea.createwizard
 
 import app.mcorg.domain.model.idea.schema.CategoryField
+import app.mcorg.presentation.templated.dsl.fieldError
 import app.mcorg.domain.model.idea.schema.CategoryValue
 import app.mcorg.domain.model.minecraft.MinecraftVersionRange
 import app.mcorg.presentation.templated.dsl.iconButton
@@ -88,9 +89,7 @@ fun DIV.renderCreateTextField(field: CategoryField.Text, value: CategoryValue.Te
             value?.let { this.value = it.value }
         }
     }
-    p("validation-error-message") {
-        id = "validation-error-${field.getCompleteKey().replace("[]", "")}"
-    }
+    fieldError(field.getCompleteKey())
 }
 
 /**
@@ -130,9 +129,7 @@ fun DIV.renderCreateNumberField(field: CategoryField.Number, value: CategoryValu
             }
         }
     }
-    p("validation-error-message") {
-        id = "validation-error-${field.getCompleteKey().replace("[]", "")}"
-    }
+    fieldError(field.getCompleteKey())
 }
 
 /**
@@ -172,9 +169,7 @@ fun DIV.renderCreateSelectField(versionRange: MinecraftVersionRange, field: Cate
             }
         }
     }
-    p("validation-error-message") {
-        id = "validation-error-${field.getCompleteKey().replace("[]", "")}"
-    }
+    fieldError(field.getCompleteKey())
 }
 
 /**
@@ -206,9 +201,7 @@ fun DIV.renderCreateMultiSelectField(field: CategoryField.MultiSelect, selectedV
             }
         }
     }
-    p("validation-error-message") {
-        id = "validation-error-${field.getCompleteKey().replace("[]", "")}"
-    }
+    fieldError(field.getCompleteKey())
 }
 
 /**
@@ -229,9 +222,7 @@ fun DIV.renderCreateBooleanField(field: CategoryField.BooleanField, checked: Cat
             }
         }
     }
-    p("validation-error-message") {
-        id = "validation-error-${field.getCompleteKey().replace("[]", "")}"
-    }
+    fieldError(field.getCompleteKey())
 }
 
 /**
@@ -268,9 +259,7 @@ fun DIV.renderCreateRateField(field: CategoryField.Rate, value: CategoryValue.In
             +field.unit
         }
     }
-    p("validation-error-message") {
-        id = "validation-error-${field.getCompleteKey().replace("[]", "")}"
-    }
+    fieldError(field.getCompleteKey())
 }
 
 /**
@@ -306,9 +295,7 @@ fun DIV.renderCreatePercentageField(field: CategoryField.Percentage, value: Cate
             +"(0-1)"
         }
     }
-    p("validation-error-message") {
-        id = "validation-error-${field.getCompleteKey().replace("[]", "")}"
-    }
+    fieldError(field.getCompleteKey())
 }
 
 /**
@@ -428,8 +415,6 @@ fun DIV.renderCreateListField(field: CategoryField.ListField, selectedValues: Ca
             this.value = it.values.joinToString(", ")
         }
     }
-    p("validation-error-message") {
-        id = "validation-error-${field.getCompleteKey().replace("[]", "")}"
-    }
+    fieldError(field.getCompleteKey())
 }
 

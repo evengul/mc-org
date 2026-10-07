@@ -1,6 +1,7 @@
 package app.mcorg.presentation.templated.settings
 
 import app.mcorg.presentation.*
+import app.mcorg.presentation.templated.dsl.fieldError
 import app.mcorg.presentation.templated.dsl.BadgeVariant
 import app.mcorg.presentation.templated.dsl.Link
 import app.mcorg.presentation.templated.dsl.badge
@@ -120,7 +121,7 @@ private fun FlowContent.connectDiscordForm(worldId: Int) {
                     }
                 }
             }
-            p("validation-error-message") { id = "validation-error-channel_id" }
+            fieldError("channel_id")
             div("connect-discord__actions") {
                 button {
                     classes = setOf("btn", "btn--primary")

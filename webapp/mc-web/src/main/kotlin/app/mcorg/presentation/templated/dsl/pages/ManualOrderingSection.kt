@@ -141,10 +141,8 @@ fun orderingFormFragment(state: OrderingFormState): String =
         )
         hxTarget("#$FORM_ID")
         hxSwap("outerHTML")
-        // A rejected submit comes back as this same form with the complaint at the top, so the
-        // error response has to swap where the success one would. Without this htmx swaps no
-        // error (`noSwap`, Layout.kt), leaves the 400 on the floor, and the button looks dead.
-        attributes["hx-status:400"] = "swap:outerHTML"
+        // A rejected submit comes back as this same form with the complaint at the top, sent
+        // in place by the server (respondWithFormError), so nothing here routes errors.
         orderingFormFields(state)
     }
 

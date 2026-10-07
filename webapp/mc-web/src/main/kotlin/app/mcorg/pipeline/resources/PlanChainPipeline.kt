@@ -35,7 +35,7 @@ import app.mcorg.pipeline.world.settings.general.versionGapsForPlan
 import app.mcorg.pipeline.world.ValidateWorldMemberRole
 import app.mcorg.presentation.utils.getUser
 import app.mcorg.presentation.utils.getWorldId
-import app.mcorg.presentation.utils.respondBadRequest
+import app.mcorg.presentation.handler.respondBadRequest
 import app.mcorg.presentation.utils.respondHtml
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.request.receiveParameters
@@ -148,7 +148,7 @@ suspend fun ApplicationCall.handleGetNodePicker() {
     val nodeId = URLDecoder.decode(rawNodeId, StandardCharsets.UTF_8)
 
     if (nodeId.isBlank()) {
-        respondBadRequest("Missing required query parameter: node")
+        respondBadRequest()
         return
     }
 
@@ -228,19 +228,11 @@ suspend fun ApplicationCall.handlePinSource() {
     val sourceKey = params["sourceKey"]
 
     if (nodeId.isNullOrBlank()) {
-        respondBadRequest(
-            buildValidationError("node", "The parameter 'node' is required."),
-            target = "#error-message",
-            swap = "innerHTML"
-        )
+        respondBadRequest()
         return
     }
     if (sourceKey.isNullOrBlank()) {
-        respondBadRequest(
-            buildValidationError("sourceKey", "The parameter 'sourceKey' is required."),
-            target = "#error-message",
-            swap = "innerHTML"
-        )
+        respondBadRequest()
         return
     }
 
@@ -278,19 +270,11 @@ suspend fun ApplicationCall.handleResolveTagMember() {
     val memberItemId = params["memberItemId"]
 
     if (nodeId.isNullOrBlank()) {
-        respondBadRequest(
-            buildValidationError("node", "The parameter 'node' is required."),
-            target = "#error-message",
-            swap = "innerHTML"
-        )
+        respondBadRequest()
         return
     }
     if (memberItemId.isNullOrBlank()) {
-        respondBadRequest(
-            buildValidationError("memberItemId", "The parameter 'memberItemId' is required."),
-            target = "#error-message",
-            swap = "innerHTML"
-        )
+        respondBadRequest()
         return
     }
 
@@ -336,7 +320,7 @@ suspend fun ApplicationCall.handleClearOverride() {
     val nodeId = URLDecoder.decode(rawNodeId, StandardCharsets.UTF_8)
 
     if (nodeId.isBlank()) {
-        respondBadRequest("Missing required query parameter: node")
+        respondBadRequest()
         return
     }
 
@@ -667,7 +651,3 @@ internal fun synthesizeTagNode(
         source = null,
     )
 }
-
-/** Builds a minimal validation error HTML string for respondBadRequest. */
-internal fun buildValidationError(param: String, message: String): String =
-    "<p class=\"validation-error-message\" id=\"validation-error-$param\">$message</p>"

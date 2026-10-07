@@ -1,6 +1,7 @@
 package app.mcorg.presentation.templated.settings
 
 import app.mcorg.domain.model.minecraft.MinecraftVersion
+import app.mcorg.presentation.templated.dsl.fieldError
 import app.mcorg.domain.model.world.World
 import app.mcorg.pipeline.world.settings.general.WorldVersionImpact
 import app.mcorg.presentation.*
@@ -34,9 +35,7 @@ fun FORM.worldNameForm(world: World) {
         minLength = "3"
         maxLength = "100"
     }
-    p("validation-error-message") {
-        id = "validation-error-name"
-    }
+    fieldError("name")
 }
 
 fun FORM.worldDescriptionForm(world: World) {
@@ -59,9 +58,7 @@ fun FORM.worldDescriptionForm(world: World) {
         maxLength = "500"
         +world.description
     }
-    p("validation-error-message") {
-        id = "validation-error-description"
-    }
+    fieldError("description")
 }
 
 const val VERSION_IMPACT_ID = "world-version-impact"
@@ -227,9 +224,7 @@ fun FORM.farmScaleThresholdForm(world: World) {
         +"Raw materials a project needs this many of are marked as worth building a farm for. "
         +"The default, 1,728, is one shulker box."
     }
-    p("validation-error-message") {
-        id = "validation-error-farm-scale-threshold"
-    }
+    fieldError("farmScaleThreshold")
 }
 
 /**
@@ -280,9 +275,7 @@ fun FORM.preferredWoodSpeciesForm(world: World) {
         +"It never changes what a project asked for \u2014 a build that needs oak planks still needs oak planks. "
         +"Bamboo answers plank and slab recipes but not ones needing a log, so those keep asking."
     }
-    p("validation-error-message") {
-        id = "validation-error-preferred-wood-species"
-    }
+    fieldError("preferredWoodSpecies")
 }
 
 fun DIV.generalSection(data: SettingsPageData) {

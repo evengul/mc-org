@@ -99,8 +99,8 @@ fun FlowContent.modalActions(block: FlowContent.() -> Unit) {
 /**
  * Convenience wrapper that renders a modal with a form baked in.
  * The form submits via hx-post to [action], targeting [hxTarget] with [hxSwap] strategy.
- * Validation messages arrive out of band into the form's `validation-error-<field>` slots, so the
- * dialog closes only on a status below 400 and stays open to show them.
+ * Validation messages land in the form's `fieldError` slots, so the dialog closes only on a
+ * status below 400 and stays open to show them.
  */
 fun FlowContent.modalForm(
     id: String,

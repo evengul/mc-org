@@ -4,7 +4,9 @@ import app.mcorg.logging.describeWithoutMessages
 import app.mcorg.presentation.handler.UNEXPECTED_ERROR_TITLE
 import app.mcorg.presentation.handler.respondRefusal
 import app.mcorg.presentation.handler.unexpectedErrorMessage
-import app.mcorg.presentation.hxOutOfBands
+import app.mcorg.pipeline.failure.ValidationFailure
+import app.mcorg.presentation.templated.dsl.fieldMessages
+import app.mcorg.presentation.utils.isHtmxRequest
 import app.mcorg.presentation.templated.dsl.AssetBundle
 import app.mcorg.presentation.templated.dsl.ScriptBundle
 import app.mcorg.presentation.templated.dsl.StylesheetBundle
@@ -22,9 +24,6 @@ import io.ktor.server.request.httpMethod
 import io.ktor.server.request.path
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.*
-import kotlinx.html.id
-import kotlinx.html.p
-import kotlinx.html.stream.createHTML
 import org.slf4j.LoggerFactory
 
 private val logger = LoggerFactory.getLogger("app.mcorg.presentation.ErrorBoundary")
@@ -50,7 +49,7 @@ fun Application.configureStatusStaticRouter() {
             // Same id the log line carries, so a user quoting it points straight at the entry
             // above (MCO-350). Under HTMX the page would show nothing, since htmx swaps no error
             // response into its target (`noSwap`, Layout.kt); the alert carries the same id.
-            if (call.request.headers["HX-Request"] == "true") {
+            if (call.isHtmxRequest()) {
                 call.respondRefusal(
                     HttpStatusCode.InternalServerError,
                     UNEXPECTED_ERROR_TITLE,
@@ -70,16 +69,12 @@ fun Application.configureStatusStaticRouter() {
                 call.request.path(),
                 MAX_SCHEMATIC_UPLOAD_BYTES,
             )
-            if (call.request.headers["HX-Request"] == "true") {
-                // htmx swaps no error response (`noSwap`, Layout.kt), so this arrives out of band
-                // onto the resource-upload form's slot, the way its 422s do. It replaces the slot,
-                // so it keeps the slot's class and id, or the next message has nowhere to land.
+            if (call.isHtmxRequest()) {
+                // A field message like the upload's own 422s, for whichever upload this was: the
+                // idea form's inputs post `litematicFile`, the project's `schematicFile`.
+                val field = if (call.request.path().endsWith("/litematic")) "litematicFile" else "schematicFile"
                 call.respondHtml(
-                    createHTML().p("form-error") {
-                        id = "validation-error-schematicFile"
-                        hxOutOfBands("true")
-                        +UPLOAD_TOO_LARGE_MESSAGE
-                    },
+                    fieldMessages(listOf(ValidationFailure.CustomValidation(field, UPLOAD_TOO_LARGE_MESSAGE))),
                     HttpStatusCode.PayloadTooLarge,
                 )
             } else {
@@ -90,7 +85,7 @@ fun Application.configureStatusStaticRouter() {
             // An HTMX request keeps its own 404: the full page swapped into a fragment target puts
             // a whole <html> document inside the alert list (MCO-158). Returning without
             // responding sends the original body unchanged.
-            if (call.request.headers["HX-Request"] == "true") return@status
+            if (call.isHtmxRequest()) return@status
             call.respondHtml(notFoundPage(), HttpStatusCode.NotFound)
         }
     }

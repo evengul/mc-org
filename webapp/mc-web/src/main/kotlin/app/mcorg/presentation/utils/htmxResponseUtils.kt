@@ -25,22 +25,11 @@ suspend fun ApplicationCall.redirectClientOrBrowser(path: String) {
     }
 }
 
-suspend fun ApplicationCall.respondBadRequest(errorHtml: String = "An error occurred",
-                                              target: String = "#error-message",
-                                              swap: String = "innerHTML") {
-    response.headers.append("HX-ReTarget", target)
-    response.headers.append("HX-ReSwap", swap)
-    respondHtml(errorHtml, HttpStatusCode.BadRequest)
-}
-
-suspend fun ApplicationCall.respondNotFound(errorHtml: String = "Something could not be found",
-                                            target: String = "#error-message",
-                                            swap: String = "innerHTML") {
-    response.headers.append("HX-ReTarget", target)
-    response.headers.append("HX-ReSwap", swap)
-    respondHtml(errorHtml, HttpStatusCode.NotFound)
-}
-
+/**
+ * Retarget a *successful* response. htmx swaps no error response (`noSwap`, `Layout.kt`), and that
+ * overrides these headers, so an error is routed with `respondRefusal` / `respondInPlace` /
+ * a validation failure instead (`ErrorHandler.kt`).
+ */
 fun ApplicationCall.hxTarget(value: String) {
     response.headers.append("HX-Retarget", value)
 }

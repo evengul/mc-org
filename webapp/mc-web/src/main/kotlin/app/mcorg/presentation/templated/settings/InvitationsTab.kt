@@ -1,6 +1,7 @@
 package app.mcorg.presentation.templated.settings
 
 import app.mcorg.domain.model.invite.Invite
+import app.mcorg.presentation.templated.dsl.fieldError
 import app.mcorg.domain.model.invite.InviteStatus
 import app.mcorg.domain.model.user.Role
 import app.mcorg.pipeline.world.invitations.CountWorldInvitationsResult
@@ -44,7 +45,7 @@ fun DIV.sendInvitationForm(worldId: Int) {
             hxTarget("#invitation-list")
             hxSwap("afterbegin")
             hxPost("${Link.Worlds.world(worldId).to}/settings/members/invitations")
-            hxOnSuccess("this.reset(); document.querySelectorAll('.validation-error-message').forEach(el => el.innerHTML = '');")
+            hxOnSuccess("this.reset();")
             div("send-invitation__inputs") {
                 div("input-group") {
                     label {
@@ -77,8 +78,8 @@ fun DIV.sendInvitationForm(worldId: Int) {
                     }
                 }
             }
-            p("validation-error-message") { id = "validation-error-toUsername" }
-            p("validation-error-message") { id = "validation-error-role" }
+            fieldError("toUsername")
+            fieldError("role")
             div("send-invitation__actions") {
                 button {
                     classes = setOf("btn", "btn--primary")

@@ -477,6 +477,35 @@ class DraftLifecycleIT : WithUser() {
     }
 
     @Test
+    fun `POST publish of an invalid form re-renders the form in place, with what is wrong (MCO-581)`() = testApplication {
+        // The 422 used to be a bare re-rendered form that htmx swaps nowhere, so Save Idea did nothing.
+        val ideaCreator = createExtraUser("idea_creator")
+        val draftId = runBlocking { (CreateDraftStep(ideaCreator.id).process(Unit) as Result.Success).value }
+
+        routing {
+            install(AuthPlugin)
+            route("/ideas/drafts/{draftId}") {
+                post("/publish") { call.handlePublishDraft() }
+            }
+        }
+
+        val response = client.submitForm(
+            url = "/ideas/drafts/$draftId/publish",
+            formParameters = Parameters.build { append("name", "x") },
+        ) {
+            addAuthCookie(this, ideaCreator)
+            header("HX-Request", "true")
+        }
+        val body = response.bodyAsText()
+
+        assertEquals(HttpStatusCode.UnprocessableEntity, response.status)
+        assertContains(body, "type=\"partial\"")
+        assertContains(body, "hx-target=\"#idea-form\"")
+        assertContains(body, "callout--error")
+        assertContains(body, "value=\"x\"", message = "the user's input stays in the form")
+    }
+
+    @Test
     fun `POST publish without the publishing role yields a PRIVATE idea (MCO-291)`() = testApplication {
         val draftId = runBlocking { (CreateDraftStep(user.id).process(Unit) as Result.Success).value }
         runBlocking { populateCompleteDraft(draftId, user.id) }

@@ -4,7 +4,7 @@ import app.mcorg.domain.model.idea.IdeaCategory
 import app.mcorg.domain.model.idea.schema.IdeaCategorySchemas
 import app.mcorg.domain.model.minecraft.MinecraftVersionRange
 import app.mcorg.pipeline.idea.validators.ValidateIdeaMinecraftVersionStep
-import app.mcorg.presentation.hxOutOfBands
+import app.mcorg.presentation.hxPartial
 import app.mcorg.presentation.templated.idea.createwizard.renderCreateField
 import app.mcorg.presentation.utils.respondHtml
 import io.ktor.server.application.*
@@ -40,11 +40,9 @@ suspend fun ApplicationCall.handleGetCreateCategoryFields() {
                     +"No additional fields for this category"
                 }
             }
-        } + createHTML().p("form-error") {
-            // Clears any "Category is required" error now that one is picked. The id must match
-            // the paragraph draftCategoryFields renders, or HTMX drops the swap with oobErrorNoTarget.
-            hxOutOfBands("true")
-            id = "error-category"
+        } + createHTML().hxPartial(target = "next [data-error-for='category']") {
+            // Empties any "Category is required" now that one is picked. Sent from the category
+            // select, so `next` is the slot draftCategoryFields renders after it.
         })
     } catch (_: IllegalArgumentException) {
         // Invalid category name

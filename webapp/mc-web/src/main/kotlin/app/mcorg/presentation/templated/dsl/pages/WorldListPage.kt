@@ -1,6 +1,7 @@
 package app.mcorg.presentation.templated.dsl.pages
 
 import app.mcorg.domain.isDemoUserInProduction
+import app.mcorg.presentation.templated.dsl.fieldError
 import app.mcorg.domain.model.invite.Invite
 import app.mcorg.domain.model.minecraft.MinecraftVersion
 import app.mcorg.domain.model.user.TokenProfile
@@ -316,10 +317,10 @@ private fun FlowContent.createWorldModal(
             required = true
             if (user.isDemoUserInProduction()) disabled = true
         }
-        p("form-error") { id = "validation-error-name" }
+        fieldError("name")
 
         versionField(supportedVersions, disabled = user.isDemoUserInProduction())
-        p("form-error") { id = "validation-error-version" }
+        fieldError("version")
 
         label("form-label form-label--optional") {
             htmlFor = "create-world-description"
@@ -332,7 +333,7 @@ private fun FlowContent.createWorldModal(
             placeholder = "short note about this world"
             if (user.isDemoUserInProduction()) disabled = true
         }
-        p("form-error") { id = "validation-error-description" }
+        fieldError("description")
 
         div("modal__actions") {
             button(classes = "btn btn--ghost") {

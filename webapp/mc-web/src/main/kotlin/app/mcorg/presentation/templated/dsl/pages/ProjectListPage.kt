@@ -1,6 +1,7 @@
 package app.mcorg.presentation.templated.dsl.pages
 
 import app.mcorg.domain.model.minecraft.Dimension
+import app.mcorg.presentation.templated.dsl.fieldError
 import app.mcorg.domain.model.project.ProjectListItem
 import app.mcorg.domain.model.project.ProjectResourceEdge
 import app.mcorg.domain.model.project.ProjectType
@@ -224,9 +225,6 @@ private fun kotlinx.html.FlowContent.schematicProjectModal(worldId: Int) {
                         p("form-help-text") {
                             +"Pick several if the build spans dimensions — they become one project."
                         }
-                        p("form-error") {
-                            id = "validation-error-schematicFile"
-                        }
 
                         label {
                             htmlFor = "schematic-project-name"
@@ -238,9 +236,6 @@ private fun kotlinx.html.FlowContent.schematicProjectModal(worldId: Int) {
                             name = "name"
                             placeholder = "Defaults to the schematic's name"
                             maxLength = "100"
-                        }
-                        p("form-error") {
-                            id = "validation-error-name-schematic"
                         }
 
                         // Upload/parse feedback: revealed by the form's onsubmit (.is-uploading
@@ -280,10 +275,6 @@ private fun kotlinx.html.FlowContent.schematicProjectModal(worldId: Int) {
  * Produced items are staged client-side (farm-modal.js) as `productions[<itemId>]`
  * hidden inputs — the project has no id to post them against yet, so the productions
  * panel from MCO-297 cannot be reused here; it takes over once the project exists.
- *
- * Field names are farm-prefixed: validation errors come back as out-of-band swaps keyed
- * by `validation-error-<parameter>`, and the create-project modal on this same page
- * already owns `validation-error-name`.
  */
 private fun kotlinx.html.FlowContent.recordFarmModal(worldId: Int) {
     dialog {
@@ -318,7 +309,7 @@ private fun kotlinx.html.FlowContent.recordFarmModal(worldId: Int) {
                         minLength = "3"
                         required = true
                     }
-                    p("form-error") { id = "validation-error-farmName" }
+                    fieldError("farmName")
 
                     label {
                         htmlFor = "record-farm-description"
@@ -330,7 +321,7 @@ private fun kotlinx.html.FlowContent.recordFarmModal(worldId: Int) {
                         maxLength = "500"
                         placeholder = "Anything worth remembering — design, quirks, who built it"
                     }
-                    p("form-error") { id = "validation-error-farmDescription" }
+                    fieldError("farmDescription")
 
                     label {
                         htmlFor = "record-farm-type"
@@ -384,7 +375,7 @@ private fun kotlinx.html.FlowContent.recordFarmModal(worldId: Int) {
                         }
                     }
                     p("form-help-text") { +"Optional — leave empty if you would rather not pin it down." }
-                    p("form-error") { id = "validation-error-farmLocation" }
+                    fieldError("farmLocation")
 
                     label {
                         +"Produces"
@@ -423,7 +414,7 @@ private fun kotlinx.html.FlowContent.recordFarmModal(worldId: Int) {
                         }
                     }
                     div("farm-production-list") { id = "farm-production-list" }
-                    p("form-error") { id = "validation-error-productions" }
+                    fieldError("productions")
 
                     div("modal__actions") {
                         button {
@@ -470,9 +461,7 @@ private fun kotlinx.html.FlowContent.createProjectModal(worldId: Int) {
             minLength = "3"
             required = true
         }
-        p("form-error") {
-            id = "validation-error-name"
-        }
+        fieldError("name")
 
         label {
             htmlFor = "create-project-description"
@@ -484,9 +473,7 @@ private fun kotlinx.html.FlowContent.createProjectModal(worldId: Int) {
             maxLength = "500"
             placeholder = "A brief description of the project"
         }
-        p("form-error") {
-            id = "validation-error-description"
-        }
+        fieldError("description")
 
         label {
             htmlFor = "create-project-type"
@@ -504,9 +491,7 @@ private fun kotlinx.html.FlowContent.createProjectModal(worldId: Int) {
                 }
             }
         }
-        p("form-error") {
-            id = "validation-error-type"
-        }
+        fieldError("type")
 
         div("modal__actions") {
             button {

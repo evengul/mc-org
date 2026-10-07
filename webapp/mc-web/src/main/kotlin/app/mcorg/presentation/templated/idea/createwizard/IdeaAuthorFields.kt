@@ -1,6 +1,7 @@
 package app.mcorg.presentation.templated.idea.createwizard
 
 import app.mcorg.domain.model.idea.Author
+import app.mcorg.presentation.templated.dsl.fieldError
 import app.mcorg.presentation.templated.dsl.RadioGroupLayout
 import app.mcorg.presentation.templated.dsl.RadioGroupOption
 import app.mcorg.presentation.templated.dsl.radioGroup
@@ -39,9 +40,7 @@ fun DIV.singleAuthorFields(data: Author.SingleAuthor? = null, defaultName: Strin
         value = data?.name ?: defaultName
         placeholder = "Your name or username"
     }
-    p("validation-error-message") {
-        id = "validation-error-authorName"
-    }
+    fieldError("authorName")
 }
 
 fun DIV.teamAuthorFields(data: Author.Team? = null) {
@@ -82,9 +81,7 @@ private fun DIV.teamAuthor(author: Author.TeamAuthor? = null, index: Int) {
         value = author?.role ?: ""
         placeholder = "e.g., Lead Designer"
     }
-    p("validation-error-message") {
-        id = "validation-error-teamMembers[$index][role]"
-    }
+    fieldError("teamMembers[$index][role]")
 
     label { +"Contributions" }
     input {
@@ -94,7 +91,5 @@ private fun DIV.teamAuthor(author: Author.TeamAuthor? = null, index: Int) {
         value = author?.contributions?.joinToString(", ") ?: ""
         placeholder = "e.g., Design, Testing (comma-separated)"
     }
-    p("validation-error-message") {
-        id = "validation-error-teamMembers[$index][contributions]"
-    }
+    fieldError("teamMembers[$index][contributions]")
 }

@@ -3,7 +3,6 @@ package app.mcorg.pipeline.idea.createfragments
 import app.mcorg.domain.model.idea.Author
 import app.mcorg.pipeline.Result
 import app.mcorg.pipeline.idea.validators.ValidateIdeaAuthorStep
-import app.mcorg.presentation.hxOutOfBands
 import app.mcorg.presentation.templated.idea.createwizard.singleAuthorFields
 import app.mcorg.presentation.templated.idea.createwizard.teamAuthorFields
 import app.mcorg.presentation.utils.getUser
@@ -11,7 +10,6 @@ import app.mcorg.presentation.utils.respondHtml
 import io.ktor.server.application.*
 import kotlinx.html.div
 import kotlinx.html.id
-import kotlinx.html.p
 import kotlinx.html.stream.createHTML
 
 suspend fun ApplicationCall.handleGetAuthorFields() {
@@ -39,8 +37,5 @@ suspend fun ApplicationCall.handleGetAuthorFields() {
             }
             else -> singleAuthorFields(Author.SingleAuthor(user.minecraftUsername))
         }
-    } + createHTML().p {
-        id = "validation-error-authorType"
-        hxOutOfBands("true")
     })
 }
