@@ -62,19 +62,20 @@ fun Application.configureEdgeOriginGate() {
 /**
  * The rate-limit key for the client that made this call.
  *
- * Behind the edge (the gate is on) that is `CF-Connecting-IP`: `origin.remoteHost` is Fly's proxy
+ * Behind the edge (the gate is on) that is `CF-Connecting-IP`: the peer address is Fly's proxy
  * and `Fly-Client-IP` is a Cloudflare address shared by everyone on the same data centre. Trusting
  * the header is only safe because the gate has already refused anything Cloudflare did not send.
- * Without the gate (LOCAL, the TEST preview) the header is ignored and the peer address is used.
+ * Without the gate (LOCAL, the TEST preview) the header is ignored and the peer address is used —
+ * `remoteAddress`, never `remoteHost`, which may reverse-resolve and hand back a name.
  *
  * An IPv6 address is reduced to its /64. A subscriber is routinely handed a whole /64, so keying
  * on the full address would let one client rotate through 2^64 keys and never be limited.
  */
 fun ApplicationCall.clientAddress(): String {
     val raw = if (AppConfig.edgeOriginSecret != null) {
-        request.header(CF_CONNECTING_IP_HEADER) ?: request.origin.remoteHost
+        request.header(CF_CONNECTING_IP_HEADER) ?: request.origin.remoteAddress
     } else {
-        request.origin.remoteHost
+        request.origin.remoteAddress
     }
     return rateLimitKeyFor(raw)
 }
