@@ -1,14 +1,7 @@
 package app.mcorg.presentation.plugins
 
-import io.ktor.http.HttpHeaders
-import io.ktor.http.HttpStatusCode
-import io.ktor.server.application.createRouteScopedPlugin
-import io.ktor.server.request.header
-import io.ktor.server.request.path
-import io.ktor.server.response.respond
-import org.slf4j.LoggerFactory
-
-private val logger = LoggerFactory.getLogger("UploadLimit")
+import io.ktor.server.plugins.bodylimit.RequestBodyLimit
+import io.ktor.server.routing.Route
 
 /**
  * Largest upload the schematic routes accept, before decompression.
@@ -21,31 +14,28 @@ private val logger = LoggerFactory.getLogger("UploadLimit")
  */
 const val MAX_SCHEMATIC_UPLOAD_BYTES: Long = 8L * 1024 * 1024
 
+/** Said wherever a schematic upload is refused for its size: the 413, and the parsers' own budget. */
+const val UPLOAD_TOO_LARGE_MESSAGE =
+    "That file is too large. Schematics must be under ${MAX_SCHEMATIC_UPLOAD_BYTES / (1024 * 1024)} MB."
+
 /**
- * Rejects an oversized upload on the declared `Content-Length`, before the body is read (MCO-345).
+ * Caps the whole request body of a schematic upload at [MAX_SCHEMATIC_UPLOAD_BYTES].
  *
- * Being a route-scoped plugin is the point. The schematic handlers buffer the whole part into a
- * `ByteArray` as their first act, and on the two world routes the `Role.ADMIN` check lives inside
- * the pipeline — so by the time authorization runs, an unauthorized member has already made the
- * server allocate the body. Running as a plugin puts the size check ahead of both.
+ * Ktor's `RequestBodyLimit` covers both ways a body arrives. A declared `Content-Length` over the
+ * cap is refused before the handler runs; a chunked body, which declares nothing, is counted as
+ * the handler reads it and fails the read once it passes the cap. Our own plugin used to check
+ * only the header, so a chunked request skipped the cap entirely and could stream an unbounded
+ * number of multipart parts at the one shared vCPU (MCO-421).
  *
- * `Content-Length` is client-supplied and a chunked request omits it entirely, so this is the
- * cheap first line only; the parser's own budget is what holds when the header lies.
+ * Route-scoped and installed on the route, ahead of the handler, because the two world routes
+ * check `Role.ADMIN` inside their pipelines: an unauthorized member must be refused before the
+ * server buffers the file, not after (MCO-345).
+ *
+ * Both cases end in a `PayloadTooLargeException`, which `configureStatusStaticRouter` answers with
+ * a 413. Without that handler it would reach the catch-all and be reported as a 500.
  */
-val SchematicUploadLimitPlugin = createRouteScopedPlugin("SchematicUploadLimitPlugin") {
-    onCall { call ->
-        val declared = call.request.header(HttpHeaders.ContentLength)?.toLongOrNull() ?: return@onCall
-        if (declared > MAX_SCHEMATIC_UPLOAD_BYTES) {
-            logger.info(
-                "Rejected an upload to {} declaring {} bytes, over the {} byte limit",
-                call.request.path(),
-                declared,
-                MAX_SCHEMATIC_UPLOAD_BYTES,
-            )
-            call.respond(
-                HttpStatusCode.PayloadTooLarge,
-                "That file is too large. Schematics must be under ${MAX_SCHEMATIC_UPLOAD_BYTES / (1024 * 1024)} MB.",
-            )
-        }
+fun Route.limitSchematicUploads() {
+    install(RequestBodyLimit) {
+        bodyLimit { MAX_SCHEMATIC_UPLOAD_BYTES }
     }
 }

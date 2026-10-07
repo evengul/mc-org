@@ -15,6 +15,7 @@ import app.mcorg.pipeline.project.resources.GetItemsInWorldVersionStep
 import app.mcorg.pipeline.world.ValidateWorldMemberRole
 import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.plugins.MAX_SCHEMATIC_UPLOAD_BYTES
+import app.mcorg.presentation.plugins.UPLOAD_TOO_LARGE_MESSAGE
 import app.mcorg.presentation.templated.dsl.Link
 import app.mcorg.presentation.utils.clientRedirect
 import app.mcorg.presentation.utils.getUser
@@ -26,7 +27,6 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.Parameters
 import io.ktor.http.content.MultiPartData
 import io.ktor.http.content.PartData
-import io.ktor.http.content.forEachPart
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.request.receiveMultipart
 import io.ktor.server.request.receiveParameters
@@ -258,56 +258,24 @@ object ReceiveSchematicStep : Step<MultiPartData, AppFailure, SchematicUpload> {
     const val MAX_FILES = 12
 
     override suspend fun process(input: MultiPartData): Result<AppFailure, SchematicUpload> {
-        val files = mutableListOf<SchematicFile>()
         var providedName: String? = null
-        var tooMany = false
-        var tooLarge = false
-        // One budget for the whole upload rather than one per file: SchematicUploadLimitPlugin
-        // bounds the declared Content-Length of the entire body, and a per-file cap would let a
-        // chunked request spend that limit MAX_FILES times over (MCO-345).
-        var remaining = MAX_SCHEMATIC_UPLOAD_BYTES
-
-        input.forEachPart { part ->
-            when {
-                part is PartData.FileItem && part.originalFileName?.endsWith(".litematic") == true -> {
-                    // Every matching part, not the last one: the control is `multiple` now, so a
-                    // build that spans dimensions arrives as several parts under one field name
-                    // (MCO-414). Overwriting here was the old single-file behaviour and would
-                    // silently import only the final file.
-                    if (files.size >= MAX_FILES) {
-                        tooMany = true
-                    } else {
-                        // One byte past what is left of the budget, so an oversized body is
-                        // detected without ever being held in full. The plugin catches the honest
-                        // case ahead of this; this catches a chunked upload or a lying header.
-                        val bytes = part.provider().readRemaining(remaining + 1).readByteArray()
-                        if (bytes.size > remaining) {
-                            tooLarge = true
-                        } else {
-                            remaining -= bytes.size
-                            files.add(SchematicFile(part.originalFileName, bytes))
-                        }
-                    }
-                    part.release()
-                }
-                part is PartData.FormItem && part.name == "name" -> {
-                    providedName = part.value.takeIf { it.isNotBlank() }
-                    part.release()
-                }
-                else -> part.release()
-            }
+        val read = input.readLitematicParts { field ->
+            if (field.name == "name") providedName = field.value.takeIf { it.isNotBlank() }
+        }
+        val files = when (read) {
+            LitematicParts.TooLarge -> return Result.failure(
+                AppFailure.customValidationError(
+                    "schematicFile",
+                    UPLOAD_TOO_LARGE_MESSAGE,
+                )
+            )
+            LitematicParts.TooMany -> return Result.failure(
+                AppFailure.customValidationError("schematicFile", "Import at most $MAX_FILES files at once")
+            )
+            is LitematicParts.Read -> read.files
         }
 
         return when {
-            tooLarge -> Result.failure(
-                AppFailure.customValidationError(
-                    "schematicFile",
-                    "That file is too large. Schematics must be under ${MAX_SCHEMATIC_UPLOAD_BYTES / (1024 * 1024)} MB.",
-                )
-            )
-            tooMany -> Result.failure(
-                AppFailure.customValidationError("schematicFile", "Import at most $MAX_FILES files at once")
-            )
             files.isEmpty() -> Result.failure(
                 AppFailure.customValidationError("schematicFile", "Provide a .litematic file")
             )
@@ -320,6 +288,55 @@ object ReceiveSchematicStep : Step<MultiPartData, AppFailure, SchematicUpload> {
                 )
             )
             else -> Result.success(SchematicUpload(files, providedName))
+        }
+    }
+}
+
+/** What [readLitematicParts] made of an upload. */
+sealed interface LitematicParts {
+    data class Read(val files: List<SchematicFile>) : LitematicParts
+    data object TooLarge : LitematicParts
+    data object TooMany : LitematicParts
+}
+
+/**
+ * Every `.litematic` part of an upload, under one byte budget and [ReceiveSchematicStep.MAX_FILES].
+ *
+ * Every matching part, not the last one: the controls are `multiple`, so a build that spans
+ * dimensions arrives as several parts under one field name (MCO-414). Other form fields go to
+ * [onFormItem]; any other part is released unread.
+ *
+ * One budget for the whole upload rather than one per file, so a request cannot spend the limit
+ * [ReceiveSchematicStep.MAX_FILES] times over (MCO-345). The route's body limit already bounds the
+ * request as a whole; this one still holds wherever a route is missing it.
+ *
+ * Returns at the first part that breaks either bound, and leaves the rest of the body unread.
+ * The answer is a refusal by then, and reading on would only spend the CPU the bound exists to
+ * protect (MCO-421).
+ */
+suspend fun MultiPartData.readLitematicParts(
+    onFormItem: (PartData.FormItem) -> Unit = {},
+): LitematicParts {
+    val files = mutableListOf<SchematicFile>()
+    var remaining = MAX_SCHEMATIC_UPLOAD_BYTES
+
+    while (true) {
+        val part = readPart() ?: return LitematicParts.Read(files)
+        try {
+            when {
+                part is PartData.FileItem && part.originalFileName?.endsWith(".litematic") == true -> {
+                    if (files.size >= ReceiveSchematicStep.MAX_FILES) return LitematicParts.TooMany
+                    // One byte past what is left of the budget, so an oversized file is detected
+                    // without ever being held in full.
+                    val bytes = part.provider().readRemaining(remaining + 1).readByteArray()
+                    if (bytes.size > remaining) return LitematicParts.TooLarge
+                    remaining -= bytes.size
+                    files.add(SchematicFile(part.originalFileName, bytes))
+                }
+                part is PartData.FormItem -> onFormItem(part)
+            }
+        } finally {
+            part.release()
         }
     }
 }

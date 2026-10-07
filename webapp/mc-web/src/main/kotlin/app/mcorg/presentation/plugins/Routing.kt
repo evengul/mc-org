@@ -6,16 +6,21 @@ import app.mcorg.presentation.templated.dsl.ScriptBundle
 import app.mcorg.presentation.templated.dsl.StylesheetBundle
 import app.mcorg.presentation.templated.error.notFoundPage
 import app.mcorg.presentation.templated.error.serverErrorPage
+import app.mcorg.presentation.templated.error.uploadTooLargePage
 import app.mcorg.presentation.utils.respondHtml
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.http.content.*
+import io.ktor.server.plugins.PayloadTooLargeException
 import io.ktor.server.plugins.callid.callId
 import io.ktor.server.plugins.statuspages.*
 import io.ktor.server.request.httpMethod
 import io.ktor.server.request.path
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.*
+import kotlinx.html.id
+import kotlinx.html.p
+import kotlinx.html.stream.createHTML
 import org.slf4j.LoggerFactory
 
 private val logger = LoggerFactory.getLogger("app.mcorg.presentation.ErrorBoundary")
@@ -41,6 +46,31 @@ fun Application.configureStatusStaticRouter() {
             // Same id the log line carries, so a user quoting it points straight at the entry
             // above (MCO-350).
             call.respondHtml(serverErrorPage(call.callId), HttpStatusCode.InternalServerError)
+        }
+        // Thrown by RequestBodyLimit (limitSchematicUploads) for a declared or a streamed body over
+        // the cap. Expected, and a client's doing rather than ours, so neither the catch-all's
+        // error line nor its 500.
+        exception<PayloadTooLargeException> { call, _ ->
+            logger.info(
+                "Rejected an upload to {} over the {} byte limit",
+                call.request.path(),
+                MAX_SCHEMATIC_UPLOAD_BYTES,
+            )
+            if (call.request.headers["HX-Request"] == "true") {
+                // The resource-upload form swaps errors over its `.form-error` (outerHTML), so the
+                // replacement has to be that same element, id included: its 422s arrive as an
+                // out-of-band swap onto `validation-error-schematicFile`, and without the id the
+                // next one has nowhere to land.
+                call.respondHtml(
+                    createHTML().p("form-error") {
+                        id = "validation-error-schematicFile"
+                        +UPLOAD_TOO_LARGE_MESSAGE
+                    },
+                    HttpStatusCode.PayloadTooLarge,
+                )
+            } else {
+                call.respondHtml(uploadTooLargePage(), HttpStatusCode.PayloadTooLarge)
+            }
         }
         status(HttpStatusCode.NotFound) { call, _ ->
             call.respondHtml(notFoundPage(), HttpStatusCode.NotFound)

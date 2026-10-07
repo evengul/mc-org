@@ -90,7 +90,7 @@ import app.mcorg.presentation.plugins.InviteParamPlugin
 import app.mcorg.presentation.plugins.ProjectParamPlugin
 import app.mcorg.presentation.plugins.ProjectProductionItemParamPlugin
 import app.mcorg.presentation.plugins.ResourceGatheringIdParamPlugin
-import app.mcorg.presentation.plugins.SchematicUploadLimitPlugin
+import app.mcorg.presentation.plugins.limitSchematicUploads
 import app.mcorg.presentation.plugins.UpdateActiveWorldPlugin
 import app.mcorg.presentation.plugins.WorldAdminPlugin
 import app.mcorg.presentation.plugins.WorldMemberParamPlugin
@@ -216,7 +216,7 @@ class WorldHandler {
                     // unauthorized member could otherwise make the server buffer the file first
                     // and only then be refused (MCO-345). The URLs are unchanged.
                     route("/from-schematic") {
-                        install(SchematicUploadLimitPlugin)
+                        limitSchematicUploads()
                         post("/review") {
                             call.handleReviewSchematic()
                         }
@@ -294,7 +294,7 @@ class WorldHandler {
                             // World-membership gate (MCO-247) now lives at the /{worldId}
                             // level above, covering this whole resource-mutation family too.
                             route("/from-schematic") {
-                                install(SchematicUploadLimitPlugin)
+                                limitSchematicUploads()
                                 post {
                                     call.handleAddResourcesFromSchematic()
                                 }

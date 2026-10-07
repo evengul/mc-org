@@ -30,7 +30,7 @@ import app.mcorg.presentation.plugins.IdeaCommentParamPlugin
 import app.mcorg.presentation.plugins.IdeaParamPlugin
 import app.mcorg.presentation.plugins.IdeaPublisherPlugin
 import app.mcorg.presentation.plugins.IdeaVisibilityPlugin
-import app.mcorg.presentation.plugins.SchematicUploadLimitPlugin
+import app.mcorg.presentation.plugins.limitSchematicUploads
 import io.ktor.http.HttpMethod
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.delete
@@ -86,7 +86,7 @@ class IdeaHandler {
                     call.handleGetItemRequirementFields()
                 }
                 route("/litematic") {
-                    install(SchematicUploadLimitPlugin)
+                    limitSchematicUploads()
                     post {
                         call.handleParseLitematica()
                     }

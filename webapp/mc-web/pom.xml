@@ -236,6 +236,10 @@
         </dependency>
         <dependency>
             <groupId>io.ktor</groupId>
+            <artifactId>ktor-server-body-limit-jvm</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.ktor</groupId>
             <artifactId>ktor-server-caching-headers-jvm</artifactId>
         </dependency>
         <dependency>
