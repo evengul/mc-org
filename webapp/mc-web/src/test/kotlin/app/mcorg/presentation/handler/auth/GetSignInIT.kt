@@ -86,6 +86,6 @@ class GetSignInIT : WithUser() {
         }
 
         assertEquals(HttpStatusCode.Found, response.status)
-        assertEquals("/auth/sign-out?error=conversion_error", response.headers["Location"])
+        assertEquals("/auth/sign-out?error=invalid_token", response.headers["Location"])
     }
 }

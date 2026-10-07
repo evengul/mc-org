@@ -10,6 +10,7 @@ import app.mcorg.pipeline.auth.commonsteps.CreateTokenStep
 import app.mcorg.pipeline.auth.commonsteps.CreateUserIfNotExistsStep
 import app.mcorg.pipeline.auth.commonsteps.UpdateLastSignInStep
 import app.mcorg.pipeline.failure.AppFailure
+import app.mcorg.pipeline.failure.SignOutReason
 import app.mcorg.presentation.security.safeRedirectPath
 import app.mcorg.presentation.utils.getHost
 import io.ktor.http.HttpStatusCode
@@ -86,8 +87,10 @@ suspend fun ApplicationCall.handleDemoSignIn() {
                 is AppFailure.AuthError.MissingToken -> respondRedirect("/auth/sign-in")
                 is AppFailure.Redirect -> respondRedirect(error.toUrl())
                 is AppFailure.AuthError.ConvertTokenError -> respondRedirect(error.toRedirect().toUrl())
-                is AppFailure.AuthError.CouldNotCreateToken -> respondRedirect("/auth/sign-out?error=token_creation_failed")
-                else -> respondRedirect("/auth/sign-out?error=${error.javaClass.simpleName}")
+                else -> {
+                    logger.warn("Demo sign-in failed: {}", error::class.simpleName)
+                    respondRedirect(SignOutReason.INTERNAL_ERROR.url)
+                }
             }
         }
     ) {

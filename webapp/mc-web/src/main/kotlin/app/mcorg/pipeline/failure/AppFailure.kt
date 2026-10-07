@@ -15,8 +15,8 @@ sealed interface AppFailure {
             val arguments: List<Pair<String, String>> = emptyList()
         ) : AuthError {
             companion object {
-                fun invalidToken() = ConvertTokenError("invalid_token")
-                fun expiredToken() = ConvertTokenError("expired_token")
+                fun invalidToken() = ConvertTokenError(SignOutReason.INVALID_TOKEN.code)
+                fun expiredToken() = ConvertTokenError(SignOutReason.EXPIRED_TOKEN.code)
                 fun missingClaim(claimName: String) = ConvertTokenError(
                     "missing_claim", listOf("claim" to claimName)
                 )
@@ -26,15 +26,13 @@ sealed interface AppFailure {
                 fun conversionError() = ConvertTokenError("conversion_error")
             }
 
-            fun toRedirect() = Redirect(
-                path = "/auth/sign-out",
-                queryParameters = buildMap {
-                    put("error", errorCode)
-                    arguments.forEach { (key, value) ->
-                        put(key, value)
-                    }
-                }
-            )
+            // Only the reason travels, never errorCode or arguments: the arguments include a claim
+            // value read from a token the client sent, and a URL puts it in browser history and
+            // Referer headers (MCO-438). Telling a user *which* claim failed gives them nothing to
+            // act on, so every failure but expiry reads the same.
+            fun toRedirect(): Redirect =
+                if (errorCode == SignOutReason.EXPIRED_TOKEN.code) SignOutReason.EXPIRED_TOKEN.redirect()
+                else SignOutReason.INVALID_TOKEN.redirect()
         }
     }
 
