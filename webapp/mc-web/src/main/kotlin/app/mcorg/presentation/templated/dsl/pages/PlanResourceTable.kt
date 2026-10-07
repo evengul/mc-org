@@ -41,10 +41,6 @@ fun TR.planResourceRow(
     id = "plan-row-${item.id}"
     attributes["data-resource-id"] = item.id.toString()
 
-    val dotModifier = if (item.sourceType != null) "status-dot--set" else "status-dot--unset"
-    td("plan-resource-table__status") {
-        span("status-dot $dotModifier") {}
-    }
     td("plan-resource-table__item") {
         // One of the two glyph surfaces chosen for MCO-499 (the other is the /items/search
         // option). Row level, not group level: a group header names an ActivityGroup —
@@ -100,9 +96,6 @@ fun TR.ignoredResourceRow(worldId: Int, projectId: Int, item: ResourceGatheringI
     id = "plan-ignored-row-${item.id}"
     attributes["data-resource-id"] = item.id.toString()
 
-    td("plan-resource-table__status") {
-        span("status-dot status-dot--unset") {}
-    }
     td("plan-resource-table__item") {
         itemGlyph(item.itemId)
         +item.name
@@ -173,7 +166,6 @@ fun planResourceTableFragment(
 private fun TABLE.planResourceTableHead() {
     thead {
         tr {
-            th { classes = setOf("plan-resource-table__col-status") }
             th { classes = setOf("plan-resource-table__col-item"); +"Item" }
             th { classes = setOf("plan-resource-table__col-qty"); +"Qty" }
             th { classes = setOf("plan-resource-table__col-chests"); +"Chests" }
@@ -205,7 +197,7 @@ private fun TABLE.planResourceGroups(
             if (layout.isGrouped) {
                 tr("plan-resource-table__group") {
                     th {
-                        attributes["colspan"] = "5"
+                        attributes["colspan"] = "4"
                         // Two inline spans, laid out by a float rather than flex. The cell
                         // has to keep `display: table-cell` or colspan stops applying and the
                         // heading band ends at the first column instead of spanning the table.

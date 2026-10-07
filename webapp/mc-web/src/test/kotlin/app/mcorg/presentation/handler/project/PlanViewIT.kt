@@ -75,6 +75,9 @@ class PlanViewIT : WithUser() {
         val body = response.bodyAsText()
         assertContains(body, "plan-resource-table")
         assertContains(body, "plan-row-$resourceGatheringId")
+        // MCO-187: no colour-only source dot. A null source is the planner's choice, not a gap.
+        assertFalse(body.contains("status-dot"))
+        assertFalse(body.contains("plan-resource-table__status"))
     }
 
     // -------------------------------------------------------------------------
@@ -176,6 +179,7 @@ class PlanViewIT : WithUser() {
         assertContains(body, "plan-ignored-row-$rgId")
         assertContains(body, "Ignored (1)")
         assertFalse(body.contains("plan-row-$rgId\""))
+        assertFalse(body.contains("status-dot"))
     }
 
     @Test

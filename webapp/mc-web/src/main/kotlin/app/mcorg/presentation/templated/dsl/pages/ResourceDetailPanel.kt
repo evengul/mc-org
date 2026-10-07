@@ -10,7 +10,6 @@ import app.mcorg.presentation.hxPatch
 import app.mcorg.presentation.hxSwap
 import app.mcorg.presentation.hxTarget
 import app.mcorg.presentation.hxTrigger
-import app.mcorg.presentation.oobTableRow
 import kotlinx.html.ButtonType
 import kotlinx.html.FlowContent
 import kotlinx.html.InputType
@@ -286,18 +285,15 @@ fun resourceDetailPanelOobFragment(
 }
 
 /**
- * Source-section fragment + OOB row refresh — used by PATCH and DELETE /source responses.
- * Main target: #resource-panel-source (innerHTML). OOB: #plan-row-{id} (outerHTML) via
- * `<template>`-wrapped row so the browser parser does not strip the orphan `<tr>`.
+ * Source-section fragment for the PATCH and DELETE /source responses (target:
+ * #resource-panel-source, innerHTML). No table row rides along: nothing in the row shows the
+ * source, so there is nothing to refresh (MCO-187).
  */
-fun resourcePanelSourceWithRowOob(
+fun resourcePanelSourceFragment(
     worldId: Int,
     projectId: Int,
     resource: ResourceGatheringItem,
     projectsInWorld: List<Pair<Int, String>>,
 ): String = createHTML().div {
     resourcePanelSourceSection(worldId, projectId, resource, projectsInWorld)
-    oobTableRow(targetId = "plan-row-${resource.id}") {
-        planResourceRow(worldId, projectId, resource)
-    }
 }
